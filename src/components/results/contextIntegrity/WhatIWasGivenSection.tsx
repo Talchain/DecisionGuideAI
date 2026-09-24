@@ -901,6 +901,19 @@ export const WhatIWasGivenSection = forwardRef<
   // `derived` means the figures could not be counted while the brief itself is
   // rendered right below this line.
   const subtitle = figureTallySubtitle(tally, manifest === null ? 'no_manifest' : 'not_counted')
+  /**
+   * ⭐ V2 (Reasoning tab only): A COLLAPSED ROW CARRIES NO EMPTY-STATE SENTENCE.
+   * With no tally, both arms of `figureTallySubtitle` are apologies ("I can't
+   * show this yet" / "I couldn't check the figures…"), and on the served build
+   * they made the "If you want to go further" group read as a pile of them.
+   *
+   * ⚠ THE HONESTY RULE ABOVE IS KEPT: the row still MOUNTS, and the opened
+   * body still refuses explicitly (`what-i-was-given-unknown`, the
+   * `tally === null` branch below) — so this is never silence. Only the
+   * apology's PLACE moves, from the resting row into the body. The PARKED
+   * Analysis tab (`useSurfaceGrammar` false) is unchanged.
+   */
+  const restingSubtitle = useSurfaceGrammar && tally === null ? null : subtitle
 
   /**
    * ⭐⭐ WHAT "Not modelled yet" CAN SAY WHEN THE MANIFEST SAYS NOTHING.
@@ -940,12 +953,14 @@ export const WhatIWasGivenSection = forwardRef<
       >
         <span className="min-w-0 flex-1">
           <span className={`${typography.panelHeader} block text-text-header`}>{COPY.heading}</span>
-          <span
-            className={`${typography.panelMeta} block text-text-light`}
-            data-testid="what-i-was-given-summary"
-          >
-            {subtitle}
-          </span>
+          {restingSubtitle !== null ? (
+            <span
+              className={`${typography.panelMeta} block text-text-light`}
+              data-testid="what-i-was-given-summary"
+            >
+              {restingSubtitle}
+            </span>
+          ) : null}
         </span>
         <ChevronDown
           aria-hidden="true"
@@ -986,6 +1001,20 @@ export const WhatIWasGivenSection = forwardRef<
                   Both strings live in `notModelledNotices.ts` and are asserted
                   whole, because a refusal replaced by `''` passes every
                   `not.toMatch` written about it. */}
+              {/* ⭐ THE RESTING SENTENCE, MOVED INSIDE (Reasoning tab). For a
+                  manifest that exists but is not derived, "I couldn't check the
+                  figures…" is more precise than the refusal below, so it moves
+                  here rather than being dropped. For `manifest === null` the
+                  refusal below already opens with "I can't show this yet", so
+                  repeating it would say one thing twice. */}
+              {useSurfaceGrammar && manifest !== null ? (
+                <p
+                  data-testid="what-i-was-given-summary-inside"
+                  className={`${typography.panelMeta} text-text-light`}
+                >
+                  {subtitle}
+                </p>
+              ) : null}
               <p
                 data-testid="what-i-was-given-unknown"
                 className={`${typography.panelBody} text-text-light`}

@@ -163,8 +163,20 @@ const unsetLine = () => screen.queryByTestId('risk-exposure-unset')
  * every ANCESTOR whose textContent also contains the phrase, so Testing Library
  * throws "found multiple elements" — a false RED that says nothing about the
  * product. The id binds to the one element that owns the claim.
+ *
+ * (`exposureLine()` read `risk-exposure-line`'s whole textContent; that element
+ * now holds two carriers, so the reads below replace it.)
  */
-const exposureLine = () => screen.queryByTestId('risk-exposure-line')?.textContent ?? null
+/**
+ * ⚠ RE-POINTED FOR ED #63 5809278282 (24 Sep 2026, bounded anatomy: "title + one
+ * primary line … Outcome/Risk = state"). The Standard line now carries TWO
+ * texts: the short form a sighted reader sees (`aria-hidden`) and the whole
+ * sentence announced with no interaction (`sr-only`, bound by testid) — and the
+ * same sentence rides `title` and the popover. These read each carrier by
+ * identity, so the claims below stay about the WHOLE line, never a fragment.
+ */
+const shownOn = (el: Element | null) => el?.querySelector('[aria-hidden="true"]')?.textContent ?? null
+const announcedLine = () => screen.queryByTestId('risk-primary-line-full')?.textContent ?? null
 const sizingChip = () => screen.queryByRole('button', { name: 'How likely is this?' })
 const indicatorChip = () => screen.queryByRole('button', { name: 'What would we see first?' })
 /** The card's ONE coaching affordance (locked Canvas design), bound by node identity. */
@@ -189,7 +201,11 @@ describe('a thin risk card says the MODEL is thin', () => {
     // Bound by identity to the exported constant, never a substring predicate:
     // a `toContain('not set')` would also pass against the bridge-strength row
     // two lines up, which says the same three words about a DIFFERENT fact.
-    expect(unsetLine()?.textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
+    // ED 5809278282: on the card, the sentence is announced in full and the
+    // register's short form is what is shown; the element is the unset line.
+    expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(unsetLine()?.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
+    expect(shownOn(unsetLine())).toBe(METRIC_UNSET.standalone)
   })
 
   // ── 2. The contrast case — without this, test 1 is satisfied by a constant ─
@@ -200,7 +216,9 @@ describe('a thin risk card says the MODEL is thin', () => {
     // right reason rather than a card that quietly lost its row. Asserting the
     // WHOLE line, not a fragment: a card rendering "Entered estimate · " and
     // nothing else would satisfy a fragment match on either half.
-    expect(exposureLine()).toBe('Entered estimate · 40% likely · High impact')
+    // ED 5809278282: the figures are shown whole; the qualified sentence is announced whole.
+    expect(shownOn(screen.getByTestId('risk-exposure-line'))).toBe('40% likely · High impact')
+    expect(announcedLine()).toBe('Entered estimate · 40% likely · High impact')
   })
 
   // ── 3. The identity discriminator — kills the `severity == null` mutant ────
@@ -210,7 +228,8 @@ describe('a thin risk card says the MODEL is thin', () => {
     // an implementation keyed on `severity` would wrongly claim nothing is set
     // on a card that plainly records a 40% likelihood.
     expect(unsetLine()).toBeNull()
-    expect(exposureLine()).toBe('Entered estimate · 40% likely')
+    expect(shownOn(screen.getByTestId('risk-exposure-line'))).toBe('40% likely')
+    expect(announcedLine()).toBe('Entered estimate · 40% likely')
   })
 
   it('⛔ AND ITS OPPOSITE-DIRECTION TWIN: impact alone silences it too', () => {
@@ -220,7 +239,8 @@ describe('a thin risk card says the MODEL is thin', () => {
     // the test above stays green — which is the discrimination.
     draw('risk-lockin', IMPACT_ONLY)
     expect(unsetLine()).toBeNull()
-    expect(exposureLine()).toBe('Entered estimate · High impact')
+    expect(shownOn(screen.getByTestId('risk-exposure-line'))).toBe('High impact')
+    expect(announcedLine()).toBe('Entered estimate · High impact')
   })
 
   // ── 4. The next-step half moves in step with the diagnosis ────────────────
@@ -295,10 +315,16 @@ describe('a thin risk card says the MODEL is thin', () => {
     // "the card announced that nothing was recorded while holding the thing that
     // was." A sentence reading "Nothing recorded yet" would be FALSE here.
     draw('risk-time', RECORDS_A_SIZE)
-    expect(unsetLine()?.textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
-    // The recorded magnitude is still on the card — the two coexist because they
-    // are two facts, not one (CLAUDE.md trap 21).
-    expect(screen.queryByTestId('risk-recorded-value')).toBeTruthy()
+    // ED 5809278282: the recorded magnitude IS the one line; the unset sentence
+    // rides that line's sr-only copy and title (and the popover) — two facts,
+    // not one (CLAUDE.md trap 21), and the bare "Not set yet" is never SHOWN
+    // beside a value the card holds.
+    const row = screen.getByTestId('risk-recorded-value')
+    expect(screen.getByTestId('risk-recorded-readout').textContent).toBe('12 months')
+    expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(row.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
+    expect(row.getAttribute('title')).toBe(`12 months · ${RISK_EXPOSURE_UNSET_LINE}`)
+    expect(unsetLine()).toBeNull()
 
     const TOTALISING = /\b(nothing|no data|empty|blank)\b/i
     expect(TOTALISING.test('Nothing recorded yet.'), 'the totalising detector never fires').toBe(true)

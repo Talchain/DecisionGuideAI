@@ -12,10 +12,13 @@
  * (greyed out, not clickable). Re-enabled if request fails.
  * Historical chips (isHistorical=true) are not rendered.
  *
+ * Run gate: when the host passes `runGate` and it is closed, a Run chip renders
+ * disabled with the gate's own sentence beneath the row (see `RunChipGate`).
+ *
  * Click failures show a brief inline error that auto-dismisses after 5s.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { typography } from '../../../styles/typography'
 import { isV5Eligible } from '../../../v5/eligibility'
 import { logV5StateEvent } from '../../../v5/debugLog'
@@ -68,7 +71,10 @@ function normForMatch(s: string | undefined): string {
   return (s ?? '').trim()
 }
 
-function isRunAnalysisAffordance(chip: ActionChip): boolean {
+// Exported so the chip row's host (`ConversationPanel.handleChipClick`) routes
+// a Run chip by the SAME detector that decides it is gated here: one predicate,
+// never a second copy to drift.
+export function isRunAnalysisAffordance(chip: ActionChip): boolean {
   if (chip.action_type === 'run_analysis') return true
   return (
     RUN_ANALYSIS_RE.test(normForMatch(chip.label)) ||
@@ -117,6 +123,21 @@ function decideRunAnalysisPolish(
                  // analysis to justify a gate bypass; the readiness gate decides visibility
 }
 
+/**
+ * The host's run-gate verdict, handed down so a Run chip can SHOW the gate
+ * rather than discover it on click.
+ *
+ * `allowed` and `reason` are the values the host's own Analyse control already
+ * uses (`ConversationPanel`: `runGateResult.allowed && !isAnalysisRunning` and
+ * `runBlockedReason`). This component never computes a gate of its own and never
+ * authors copy for one: `reason` is rendered verbatim, and when it is absent the
+ * chip is simply disabled.
+ */
+export interface RunChipGate {
+  allowed: boolean
+  reason?: string
+}
+
 interface SuggestedChipsProps {
   chips: ActionChip[]
   onChipClick: (chip: ActionChip) => Promise<void>
@@ -127,6 +148,15 @@ interface SuggestedChipsProps {
    * Historical chips are not rendered.
    */
   isHistorical?: boolean
+  /**
+   * The host's run gate. Absent (headless mounts) ⇒ the previous behaviour,
+   * unchanged: a Run chip is live and its click goes to the guidance store's
+   * registered `_runAnalysis` when there is one. Present ⇒ the host owns the
+   * run decision: a closed gate disables every Run chip (non-run chips stay
+   * live) and an open one sends the click to `onChipClick`, where the host runs
+   * it through the same gate.
+   */
+  runGate?: RunChipGate
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +168,7 @@ export function SuggestedChips({
   onChipClick,
   isThinking = false,
   isHistorical = false,
+  runGate,
 }: SuggestedChipsProps) {
   // All hooks are declared before any conditional return so that the hook
   // count is stable across renders. Downstream conditions (isHistorical,
@@ -166,26 +197,30 @@ export function SuggestedChips({
   // THE HOLD. Non-null ⇒ the canvas holds a client-injected graph that CEE never
   // received, so a run would answer about a different model.
   //
-  // ⚠ AND THAT IS THE WHOLE OF THE CLAIM. An earlier draft said the two "cannot
-  // disagree about whether THIS run is possible", which is FALSE on at least
-  // three reachable states — graph-health errors, a streamed draft still
-  // settling, and `readiness.can_run_analysis: false` — in each of which this
-  // chip still renders beside a refusing gate. The gate has six rungs; the chip
-  // now shares one of them. The class is NARROWED, not removed.
+  // ⚠ AND THAT IS THE WHOLE OF THE CLAIM for THIS filter. An earlier draft said
+  // the two "cannot disagree about whether THIS run is possible", which is FALSE
+  // for the hold alone on at least three reachable states — graph-health errors,
+  // a streamed draft still settling, and `readiness.can_run_analysis: false`.
+  // The gate has six rungs; this filter shares one of them.
   //
-  // ⭐ THE FULLER FIX IS ONE PROP AWAY AND IS DELIBERATELY NOT TAKEN HERE.
-  // `ConversationPanel` already computes `runGateResult = canRunAnalysis({...})`
-  // — all six rungs — and guards its own `handleRunAnalysis` on it, while
-  // `handleChipClick` consults none of it. Passing that result down is the real
-  // repair; it is a change to the parent's contract with this component and to
-  // the click path, not to chip filtering, so it belongs in its own reviewed
-  // change rather than riding this one. Recorded here so the next reader sees a
-  // known remainder instead of inferring the job is finished.
+  // ⭐ THE FULLER FIX — ONE PROP — IS NOW TAKEN (`runGate`). `ConversationPanel`
+  // hands down the verdict its own Analyse control uses (`runGateResult.allowed
+  // && !isAnalysisRunning` — every rung of the gate) and the sentence it
+  // already shows for it (`runBlockedReason`). With the gate closed, a Run chip
+  // renders DISABLED with that sentence as its accessible description, instead
+  // of looking live and refusing only after the click. With it open, the click
+  // goes to the host's `handleChipClick`, which runs it through the same gate.
+  // Filtering is untouched: a gated chip is shown and disabled, never hidden, so
+  // the user sees the affordance AND why it is not available yet. Hosts that
+  // pass no gate (headless mounts) keep the previous path exactly.
   //
   // (Related, same neighbourhood: the wire already carries `usable_for_chips` —
   // CEE's own chip-safety statement — surfaced at `analysisStateSelector` and
   // read today only by the coherence DIAGNOSTIC, never by this surface.)
   const heldOn = useCanvasStore((s) => analysisHeldOn(s))
+  // Declared in the hook prelude (rules of hooks): the id the gate's sentence
+  // carries, so each gated Run chip can name it in `aria-describedby`.
+  const runGateReasonId = useId()
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
@@ -338,8 +373,24 @@ export function SuggestedChips({
 
   const disabled = isThinking || isHistorical
 
+  // The host's gate, read verbatim. Closed ⇒ every Run chip in the row is
+  // disabled. The sentence is the host's own (`runBlockedReason`); a blank or
+  // absent one leaves the chip disabled with NO description rather than a
+  // sentence this component made up.
+  const runGateClosed = runGate !== undefined && !runGate.allowed
+  const runGateReason =
+    runGateClosed && typeof runGate.reason === 'string' && runGate.reason.trim().length > 0
+      ? runGate.reason
+      : undefined
+  const showRunGateReason = runGateReason !== undefined && visible.some(isRunAnalysisAffordance)
+
   function handleClick(chip: ActionChip) {
     if (disabled) return
+    const isRunChip = isRunAnalysisAffordance(chip)
+    // Belt-and-braces: a gated Run chip is `disabled`, so no pointer or keyboard
+    // activation reaches here. A programmatic path that did would still start
+    // nothing.
+    if (isRunChip && runGateClosed) return
     setChipError(null)
     /*
      * ⭐ A RUN CHIP ASKS THE RUN GATE, NOT THE CHAT (journey blocker, RC #63
@@ -347,15 +398,20 @@ export function SuggestedChips({
      * `onChipClick`, consulting none of the six rungs of `canRunAnalysis` — so on
      * a graph-health error, a still-settling streamed draft or
      * `can_run_analysis:false` it started a run the panel's own Analyse control
-     * refuses. The panel already registers its GATED runner as the guidance
-     * store's `_runAnalysis` (`ConversationPanel.handleRunAnalysis`): it
-     * refuses out loud with the gate's own sentence, or dispatches the same
-     * canonical `run_analysis` action. Routing the click there makes the chip
-     * and the Analyse control one decision, with no second copy of the gate.
+     * refuses.
      *
-     * No host registered (a headless mount) ⇒ the previous path, unchanged.
+     * Host passed a gate (`ConversationPanel`) ⇒ the click goes to
+     * `onChipClick`. The host's `handleChipClick` recognises a Run chip with the
+     * same `isRunAnalysisAffordance`, runs it through its gated runner (the one
+     * behind the Analyse control) with the clicked chip's own label as the
+     * transcript echo, and records the chip as taken for thread persistence.
+     *
+     * No gate passed ⇒ the previous path, unchanged: the guidance store's
+     * registered `_runAnalysis` when there is one (it refuses out loud or
+     * dispatches the canonical `run_analysis`), else `onChipClick`.
      */
-    const gatedRun = isRunAnalysisAffordance(chip) ? useGuidanceStore.getState()._runAnalysis : null
+    const gatedRun =
+      isRunChip && runGate === undefined ? useGuidanceStore.getState()._runAnalysis : null
     if (gatedRun) {
       gatedRun()
       return
@@ -403,16 +459,21 @@ export function SuggestedChips({
           const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
           const detailAdds = detailText.length > 0 && detailText !== chip.label
           const ariaLabel = detailAdds ? `${baseLabel}: ${detailText}` : baseLabel
+          // Only Run chips answer to the run gate; every other chip stays live.
+          const runGated = runGateClosed && isRunAnalysisAffordance(chip)
+          const chipDisabled = disabled || runGated
 
           return (
             <button
               key={chip.id ?? `chip-${i}`}
               type="button"
               onClick={() => handleClick(chip)}
-              disabled={disabled}
+              disabled={chipDisabled}
               aria-label={ariaLabel}
               title={detailAdds ? detailText : undefined}
-              aria-disabled={disabled}
+              aria-disabled={chipDisabled}
+              aria-describedby={runGated && showRunGateReason ? runGateReasonId : undefined}
+              data-run-gated={runGated ? 'true' : undefined}
               // PX-B (Paul, 15 Aug: "oversized actions"). The chip grammar —
               // and the down-size to `.chip`'s 12px/6px at 12px — lives in
               // CHIP_CLASS, which is the ONE authority for it. This file used
@@ -434,6 +495,21 @@ export function SuggestedChips({
           )
         })}
       </div>
+
+      {/* The gate's own sentence, verbatim, under the row it explains. It is
+          the accessible description of every gated Run chip above, and it is
+          visible because a disabled chip takes no hover (`CHIP_CLASS`
+          `disabled:pointer-events-none`), so a tooltip would never show. */}
+      {showRunGateReason && (
+        <p
+          id={runGateReasonId}
+          className={`${typography.panelMeta} text-text-light`}
+          style={{ margin: 0, paddingLeft: 2 }}
+          data-testid="suggested-chips-run-gate-reason"
+        >
+          {runGateReason}
+        </p>
+      )}
 
       {chipError && (
         <p

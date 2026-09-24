@@ -46,8 +46,8 @@ describe('what qualifies — existing producer signals only', () => {
         turningPoints: new Map([['tp', { currentValue: 0.8, flipValue: 0.65, unit: '%', displayScale: true }]]),
         fragileEdgeSources: new Set(['fe']),
         ranks: new Map([
-          ['voi', { sensitivityRank: null, voiRank: 1, influenceSetSize: 5 }],
-          ['rank', { sensitivityRank: 2, voiRank: null, influenceSetSize: 5 }],
+          ['voi', { sensitivityRank: null, voiRank: 1, influenceSetSize: 5, rankedSetSize: 3 }],
+          ['rank', { sensitivityRank: 2, voiRank: null, influenceSetSize: 5, rankedSetSize: 3 }],
         ]),
       }),
       ceeBiasFindings: [{ code: 'anchoring', target_factor_id: 'bias' }],
@@ -82,9 +82,9 @@ describe('what qualifies — existing producer signals only', () => {
       nodes: [node('beyond'), node('single'), node('ok')],
       run: run({
         ranks: new Map([
-          ['beyond', { sensitivityRank: 5, voiRank: null, influenceSetSize: 4 }],
-          ['single', { sensitivityRank: 1, voiRank: null, influenceSetSize: 1 }],
-          ['ok', { sensitivityRank: 2, voiRank: null, influenceSetSize: 4 }],
+          ['beyond', { sensitivityRank: 5, voiRank: null, influenceSetSize: 4, rankedSetSize: 3 }],
+          ['single', { sensitivityRank: 1, voiRank: null, influenceSetSize: 1, rankedSetSize: 1 }],
+          ['ok', { sensitivityRank: 2, voiRank: null, influenceSetSize: 4, rankedSetSize: 3 }],
         ]),
       }),
     }), 10)
@@ -92,7 +92,8 @@ describe('what qualifies — existing producer signals only', () => {
     expect(plan.reasonsByNode.has('single')).toBe(false)
     // CONTROL: a licensed rank in the same run still qualifies, in the card's words.
     expect(plan.reasonsByNode.get('ok')?.map(r => r.kind)).toEqual(['top_driver'])
-    expect(plan.reasonsByNode.get('ok')?.[0].label).toMatch(/^Driver 2 of 4 analysed/)
+    // ED #63 5806207128: the card's words, M = the analysed set (4), not the ranked count (3).
+    expect(plan.reasonsByNode.get('ok')?.[0].label).toMatch(/^Driver 2 of 4 analysed: /)
   })
 
   it('⛔ UNGROUNDED behavioural findings never mark: no resolvable target, or an unknown code', () => {
@@ -106,9 +107,9 @@ describe('what qualifies — existing producer signals only', () => {
 
 describe('selective — a budget, with a slot a rank cannot take from a bias challenge', () => {
   it(`marks at most ${ATTENTION_BUDGET}`, () => {
-    type Rank = { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number }
-    const ranks = new Map<string, Rank>(['a', 'b', 'c', 'd'].map((id, i) => [id, { sensitivityRank: null, voiRank: i + 1 > 3 ? null : i + 1, influenceSetSize: 4 }]))
-    ranks.set('d', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4 })
+    type Rank = { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number }
+    const ranks = new Map<string, Rank>(['a', 'b', 'c', 'd'].map((id, i) => [id, { sensitivityRank: null, voiRank: i + 1 > 3 ? null : i + 1, influenceSetSize: 4, rankedSetSize: 3 }]))
+    ranks.set('d', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4, rankedSetSize: 3 })
     const plan = deriveAttentionPlan(base({ nodes: ['a', 'b', 'c', 'd'].map(id => node(id)), run: run({ ranks }) }))
     expect(plan.marked.size).toBe(ATTENTION_BUDGET)
     expect(plan.candidateCount).toBe(4)
@@ -116,9 +117,9 @@ describe('selective — a budget, with a slot a rank cannot take from a bias cha
 
   it('⭐ RESERVED SLOT: three ranked drivers and one grounded bias finding → the bias finding is marked', () => {
     const ranks = new Map([
-      ['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 5 }],
-      ['d2', { sensitivityRank: 2, voiRank: null, influenceSetSize: 5 }],
-      ['d3', { sensitivityRank: 3, voiRank: null, influenceSetSize: 5 }],
+      ['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 5, rankedSetSize: 3 }],
+      ['d2', { sensitivityRank: 2, voiRank: null, influenceSetSize: 5, rankedSetSize: 3 }],
+      ['d3', { sensitivityRank: 3, voiRank: null, influenceSetSize: 5, rankedSetSize: 3 }],
     ])
     const plan = deriveAttentionPlan(base({
       nodes: [node('d1'), node('d2'), node('d3'), node('b')],
@@ -134,10 +135,13 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
   it('the rank reason uses "Driver N of M", never "#", and asks a question', () => {
     const plan = deriveAttentionPlan(base({
       nodes: [node('d1')],
-      run: run({ ranks: new Map([['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4 }]]) }),
+      run: run({ ranks: new Map([['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4, rankedSetSize: 3 }]]) }),
     }))
     const label = plan.reasonsByNode.get('d1')![0].label
+    // ED #63 5806207128: "Driver N of M analysed", M = influenceSetSize (the
+    // analysed set), never rankedSetSize (the publication guard).
     expect(label).toContain('Driver 1 of 4 analysed')
+    expect(label).not.toContain('of 3')
     expect(label).not.toContain('#')
     expect(label.trim().endsWith('?')).toBe(true)
   })
@@ -171,7 +175,7 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
   it('the sentence discloses the selection and names an Olumi estimate only as a strengthener', () => {
     const plan = deriveAttentionPlan(base({
       nodes: [node('d1')],
-      run: run({ ranks: new Map([['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4 }]]) }),
+      run: run({ ranks: new Map([['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4, rankedSetSize: 3 }]]) }),
     }))
     const text = attentionSentence(plan.reasonsByNode.get('d1')!, { unconfirmedEstimate: true, marked: 3, candidates: 7 })
     expect(text.startsWith('Worth reviewing:')).toBe(true)

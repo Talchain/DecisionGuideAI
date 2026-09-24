@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
@@ -117,18 +117,24 @@ describe('OutcomeNode', () => {
     expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
   })
 
-  it('previews the authored consequence and keeps the full description expandable', async () => {
+  // ED #63 5809278282 (bounded anatomy): in Standard the preview moved off the
+  // card body to the node popover; the chevron still recovers the full text.
+  it('previews the authored consequence in the popover and keeps the full description expandable', async () => {
     const description = 'Customer support demand may grow before the extra revenue covers new staffing. '.repeat(5).trim()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
     const body = 'Keep the wider strategic context and unresolved disagreements visible.'
     const { container } = renderOutcome({ description, body })
-    expect(screen.getByTestId('outcome-context-preview')).toHaveTextContent(description)
+    expect(screen.queryByTestId('outcome-context-preview')).toBeNull()
+    fireEvent.mouseEnter(container.firstElementChild as Element)
+    const preview = await screen.findByTestId('outcome-popover-context')
+    expect(preview).toHaveTextContent(description)
+    expect(preview.closest('[data-node-popover]')).not.toBeNull()
+    fireEvent.mouseLeave(container.firstElementChild as Element)
     expect(container.querySelector('.node-description')).toBeNull()
     screen.getByRole('button', { name: 'Expand description' }).focus()
     await userEvent.keyboard('{Enter}')
     expect(container.querySelector('.node-description')).toHaveTextContent(description)
     expect(container.querySelector('.node-description')).toHaveTextContent(body)
-    expect(screen.getByTestId('outcome-context-preview')).toHaveClass('group-aria-expanded:hidden')
     expect(screen.getByLabelText(/outcome node:/i)).toHaveAttribute('aria-expanded', 'true')
   })
 

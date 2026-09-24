@@ -16,6 +16,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -187,6 +188,20 @@ const renderCard = (Comp: CardComponent, id: string) =>
 
 /** The card's own face: BaseNode's root, which excludes the sibling popover. */
 const face = (label: string) => screen.getByRole('group', { name: new RegExp(`node: ${label}`) })
+/**
+ * ⭐ ED #63 5809278282 (bounded anatomy, 24 Sep): the factor's S3 findings —
+ * the driver line, a found turning point, the prior-range line — moved off the
+ * Standard face into the factor's popover ("can move to the existing
+ * hover/focus popover and inspector rather than expanding layout geometry").
+ * A finding is therefore bound INSIDE the popover (its own test id — one card
+ * per render) and pinned ABSENT from the face. (The face's neutral driver cue
+ * rides the value line; these fixtures' bare amounts print no value line, so
+ * the cue is pinned in `FactorNode.boundedAnatomy.spec.tsx`, not here.)
+ */
+const popoverFinding = (label: string, testId: string) => {
+  expect(within(face(label)).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
+  return within(screen.getByTestId('node-popover')).getByTestId(testId)
+}
 
 beforeEach(() => {
   selectNode.mockReset()
@@ -201,16 +216,17 @@ afterEach(() => cleanup())
 // FACTOR
 // ═════════════════════════════════════════════════════════════════════════════
 
-const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, inSensitivityAnalysis: true, isResultsMode: true }
+// ED #63 5806207128: the printed M is the ANALYSED set (4), never the ranked count (3).
+const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, influenceRankedCount: 3, inSensitivityAnalysis: true, isResultsMode: true }
 
 describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z D1a; ED 11:52Z point 3)', () => {
-  it('a current, ranked factor reads "Driver 1 of 4 analysed" with a bar — no "%", no "#"; the % lives in its disclosure', () => {
+  it('a current, ranked factor reads "Driver 1 of 4 analysed" (ED 5806207128) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
-    const line = within(card).getByTestId('factor-driver-line')
+    const line = popoverFinding('Monthly price', 'factor-driver-line')
     expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
@@ -219,13 +235,20 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     expect(line.getAttribute('aria-label')).toContain('not an absolute causal percentage')
   })
 
-  it('an unranked factor with a measured quantity carries the quantity’s own noun, never a bare bar', () => {
+  // ⛔ SUPERSEDED BY CONTRACT v3.1 pt 5 (was: "carries the quantity’s own
+  // noun, never a bare bar"): "A factor the run did not rank shows no rank, and
+  // its detail says 'Not ranked in this run'". No line and no bar at all.
+  it('an unranked factor shows no rank, no line and no bar; it says "Not ranked in this run" to AT', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': { ...DRIVER_META, sensitivityRank: null, influence: 0.4 } })
     renderCard(FactorNode as never, 'fac-price')
-    const caption = within(face('Monthly price')).getByTestId('factor-driver-line-caption')
-    expect(caption.textContent).toBe('Outcome sensitivity')
+    const card = face('Monthly price')
+    // Document-wide (ED 5809278282): neither the face nor the popover.
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line-bar')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-cue-fac-price')).toBeNull()
+    expect(within(card).getByTestId('factor-driver-not-ranked').textContent).toBe('Not ranked in this run')
   })
 
   it('⛔ NO "% influence" ROW OR "Relative influence" ON THE FACE — control: the driver line is present', () => {
@@ -234,7 +257,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setMeta({ 'fac-price': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
-    expect(within(card).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(popoverFinding('Monthly price', 'factor-driver-line')).toBeTruthy()
     expect(within(card).queryByTestId('factor-influence-row')).toBeNull()
     expect(card.textContent).not.toMatch(/influence/i)
   })
@@ -253,17 +276,18 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setMeta({ 'fac-conv': DRIVER_META })
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
-    const freshLine = within(face('Trial conversion')).getByTestId('factor-driver-line')
+    const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
     expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
-    expect(within(face('Trial conversion')).getByTestId('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
+    expect(popoverFinding('Trial conversion', 'factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
-    const line = within(face('Trial conversion')).getByTestId('factor-driver-line')
+    const line = popoverFinding('Trial conversion', 'factor-driver-line')
+    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
     expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 analysed')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
-    const tp = within(face('Trial conversion')).getByTestId('factor-turning-point')
+    const tp = popoverFinding('Trial conversion', 'factor-turning-point')
     expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
     expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
   })
@@ -276,11 +300,13 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
       renderCard(FactorNode as never, 'fac-conv')
       // Positive control: the card mounted.
       expect(face('Trial conversion')).toBeTruthy()
-      expect(within(face('Trial conversion')).queryByTestId('factor-driver-line')).toBeNull()
-      expect(within(face('Trial conversion')).queryByTestId('factor-turning-point')).toBeNull()
+      // Document-wide (ED 5809278282): neither the face nor the popover.
+      expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+      expect(screen.queryByTestId('factor-turning-point')).toBeNull()
+      expect(screen.queryByTestId('factor-driver-cue-fac-conv')).toBeNull()
       // Paul 23 Sep point 3(d): the fallback may not invent a past run either.
-      expect(within(face('Trial conversion')).queryByTestId('factor-turning-point-none')).toBeNull()
-      expect(face('Trial conversion').textContent).not.toContain('Last run')
+      expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+      expect(document.body.textContent).not.toContain('Last run')
       cleanup()
     }
   })
@@ -292,7 +318,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     renderCard(FactorNode as never, 'fac-price')
     expect(screen.queryByTestId('sensitivity-rank-fac-price')).toBeNull()
     expect(document.body.textContent).not.toContain('Key driver')
-    expect(within(face('Monthly price')).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(popoverFinding('Monthly price', 'factor-driver-line')).toBeTruthy()
   })
 })
 
@@ -302,7 +328,7 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setCurrency('current')
     setMeta({ 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-conv')
-    const tp = within(face('Trial conversion')).getByTestId('factor-turning-point')
+    const tp = popoverFinding('Trial conversion', 'factor-turning-point')
     expect(within(tp).getByTestId('factor-turning-point-value').textContent).toBe('6.5%')
     expect(tp.getAttribute('aria-label')).toContain('Below 6.5%, the current model comparison changes.')
   })
@@ -312,7 +338,7 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setCurrency('current')
     setMeta({ 'fac-seats': DRIVER_META })
     renderCard(FactorNode as never, 'fac-seats')
-    const tp = within(face('Seat count')).getByTestId('factor-turning-point')
+    const tp = popoverFinding('Seat count', 'factor-turning-point')
     expect(within(tp).queryByTestId('factor-turning-point-value')).toBeNull()
     expect(tp.getAttribute('aria-label')).not.toContain('0.5')
     expect(tp.getAttribute('aria-label')).toContain('internal scale')
@@ -323,24 +349,27 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setCurrency('current')
     setMeta({ 'fac-price': DRIVER_META, 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
-    expect(within(face('Monthly price')).queryByTestId('factor-turning-point')).toBeNull()
-    // Paul 23 Sep contract feedback point 3(d): "no turning point available" is
-    // the normal, quiet fallback — mounted on the card, not an edge case.
-    expect(within(face('Monthly price')).getByTestId('factor-turning-point-none').textContent).toMatch(/^No turning point (available|in this run)/)
+    expect(screen.queryByTestId('factor-turning-point')).toBeNull()
+    // ⛔ Paul 23 Sep point 3(d)'s resting fallback is SUPERSEDED by ED #63
+    // 5806207128: "No `No turning point available/in this run` line at rest.
+    // Absence of a turning point = no mini-visual." Positive control: the
+    // ranked card mounted with its driver line.
+    expect(popoverFinding('Monthly price', 'factor-driver-line')).toBeTruthy()
+    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(document.body.textContent).not.toContain('No turning point')
     cleanup()
     renderCard(FactorNode as never, 'fac-conv')
-    expect(within(face('Trial conversion')).getByTestId('factor-turning-point')).toBeTruthy()
-    expect(within(face('Trial conversion')).queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(popoverFinding('Trial conversion', 'factor-turning-point')).toBeTruthy()
+    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
   })
 
-  it('without a turning point, an external factor shows its genuine range — and never both at rest', () => {
+  it('without a turning point, an external factor discloses its genuine range — and never both (ED 5809278282: in the popover)', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-market': { ...DRIVER_META, sensitivityRank: 2 } })
     renderCard(FactorNode as never, 'fac-market')
-    const card = face('Market growth')
-    expect(within(card).queryByTestId('factor-turning-point')).toBeNull()
-    expect(within(card).getByTestId('factor-prior-range-fac-market').textContent).toMatch(/^Range: /)
+    expect(screen.queryByTestId('factor-turning-point')).toBeNull()
+    expect(popoverFinding('Market growth', 'factor-prior-range-fac-market').textContent).toMatch(/^Range: /)
   })
 })
 
@@ -392,36 +421,58 @@ describe('Factor — coaching is ONE rail icon, not a chip row (spec §2; ED 11:
 // OPTION
 // ═════════════════════════════════════════════════════════════════════════════
 
+/*
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "Option =
+ * top change pre-run or current-model share post-run … The fuller S3 reasoning
+ * detail — change rows … — can move to the existing hover/focus popover and
+ * inspector"). The ≤2 rows, their shared order, `+N more` and their marks now
+ * live in the option's popover detail (`option-preview-detail-<id>`); the FACE
+ * carries ONE line — the FIRST row of that same shared order, value and mark
+ * first. So "options compare like with like" is asserted on the face too.
+ */
+const preview = (optionId: string) => within(optionPreviewDetail(optionId)!)
+
 describe('Option — "what this option changes": ≤2 rows in ONE shared order, +N more from the one total (spec §4; ED 11:52Z point 4)', () => {
-  it('two options that change the same factors show the SAME rows in the SAME order', () => {
+  it('two options that change the same factors show the SAME rows in the SAME order — and lead the face with the same one', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    const raiseRows = within(face('Raise the plan price')).getByTestId('option-change-rows-opt-raise')
+    const raiseRows = preview('opt-raise').getByTestId('option-change-rows-opt-raise')
     const raiseOrder = [...raiseRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
+    const raiseFace = within(face('Raise the plan price')).getByTestId('option-primary-change-opt-raise')
+    expect(within(face('Raise the plan price')).queryByTestId('option-change-rows-opt-raise')).toBeNull()
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
-    const bundleRows = within(face('Bundle seats')).getByTestId('option-change-rows-opt-bundle')
+    const bundleRows = preview('opt-bundle').getByTestId('option-change-rows-opt-bundle')
     const bundleOrder = [...bundleRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
+    const bundleFace = within(face('Bundle seats')).getByTestId('option-primary-change-opt-bundle')
     // fac-price (set by both) leads, then fac-seats (set by both) — shared across the row.
     expect(raiseOrder).toEqual(['option-change-row-opt-raise-fac-price', 'option-change-row-opt-raise-fac-seats'])
     expect(bundleOrder).toEqual(['option-change-row-opt-bundle-fac-price', 'option-change-row-opt-bundle-fac-seats'])
+    // …and each FACE's one line is that shared order's first row.
+    expect(raiseFace.getAttribute('data-factor-id')).toBe('fac-price')
+    expect(bundleFace.getAttribute('data-factor-id')).toBe('fac-price')
   })
 
   it('+N more counts from the ONE total (3 targets − 2 rows = +1), and the from→to uses the baseline option', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    const card = face('Raise the plan price')
-    expect(within(card).getByTestId('option-change-more-opt-raise').textContent).toBe('+1 more')
-    expect(within(card).getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('→')
+    expect(preview('opt-raise').getByTestId('option-change-more-opt-raise').textContent).toBe('+1 more')
+    expect(preview('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('→')
+    // Off the face: the face carries its one line, not the overflow link.
+    expect(within(face('Raise the plan price')).queryByTestId('option-change-more-opt-raise')).toBeNull()
   })
 
-  it('an Olumi-chosen target stays marked est.; a user-set one is not', () => {
+  it('an Olumi-chosen target stays marked est.; a user-set one is not — and the face line keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(within(face('Raise the plan price')).getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
+    expect(preview('opt-raise').getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
+    // Truth stays on the card: the face's value carries its mark beside it.
+    expect(within(face('Raise the plan price')).getByTestId('option-primary-change-source-opt-raise').getAttribute('data-value-source')).toBe('brief')
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
-    expect(within(face('Bundle seats')).queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
+    // Positive control: the user-set row IS in the preview, marked as the user's.
+    expect(preview('opt-bundle').getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
+    expect(preview('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
   it('⛔ MT-18: no bare numeral at rest — control: Detailed still carries the ordinal', () => {
@@ -537,7 +588,11 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     setState({ phase: 'pre' })
     renderCard(RiskNode as never, 'risk-1')
     const card = face('Churn spike')
-    expect(within(card).getByTestId('risk-exposure-unset').textContent).toBe('Likelihood and impact not set yet.')
+    // Contract v3.1 (OR-02): the risk state line carries no full stop. ED
+    // 5809278282: the line shows the short form and announces the sentence.
+    const unset = within(card).getByTestId('risk-exposure-unset')
+    expect(unset.querySelector('.sr-only')?.textContent).toBe('Likelihood and impact not set yet')
+    expect(unset.querySelector('[aria-hidden="true"]')?.textContent).toBe('Not set yet')
     expect(within(card).queryByTestId('risk-strength-row')).toBeNull()
     expect(card.textContent).not.toMatch(/Link strength|50%/)
   })
@@ -652,7 +707,11 @@ describe('"Worth reviewing" — one selective, grounded, NON-warning cue (spec �
     expect(marker.getAttribute('aria-label')).toMatch(/^Worth reviewing: Worth checking: anchoring\./)
     // It reads as "worth thinking about", never as a warning or error.
     expect(marker.outerHTML).not.toMatch(/warning|danger/)
-    expect(within(marker).getByTestId('attention-marker-ring').className).toContain('border-info')
+    // Contract v3.1 (PILL-03 / ICON-05): the ring is now the contract's target
+    // GLYPH (an svg), and the Info identity sits on the marker itself — the one
+    // Info-at-rest mark on the card. (Was: the CSS donut's `border-info`.)
+    expect(within(marker).getByTestId('attention-marker-ring').tagName.toLowerCase()).toBe('svg')
+    expect(marker.className.split(/\s+/)).toContain('text-info')
     expect(within(card).getByTestId('node-rail-behaviour-fac-conv')).toBeTruthy()
   })
 
@@ -722,7 +781,11 @@ describe('copy guard — the locked design’s ban list holds on every rendered 
     expect(lockedCardCopyViolations('You are anchored on the first number')).toHaveLength(1)
     expect(lockedCardCopyViolations('You have anchoring bias')).toHaveLength(1)
     // …and passes the locked wording.
-    expect(lockedCardCopyViolations('Driver 1 of 4 analysed')).toEqual([])
+    // ED #63 5806207128 wording (current, stale), and the unranked AT line.
+    expect(lockedCardCopyViolations('Driver 1 of 6 analysed')).toEqual([])
+    expect(lockedCardCopyViolations('Last run · Driver 1 of 6 analysed')).toEqual([])
+    expect(lockedCardCopyViolations('Not ranked in this run')).toEqual([])
+    expect(lockedCardCopyViolations('Current model · 55% of runs · Goal only')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs')).toEqual([])
     expect(lockedCardCopyViolations('Worth checking: anchoring. What would show whether it applies here?')).toEqual([])
     expect(lockedCardCopyViolations('Most supported')).toEqual([])

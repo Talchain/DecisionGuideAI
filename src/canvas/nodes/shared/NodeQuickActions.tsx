@@ -8,15 +8,12 @@ import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
 import Tooltip from '../../../components/Tooltip'
 import {
-  CANVAS_GLYPH_SIZE_CLASSES,
-  CANVAS_HIT_SLOP_CLASSES,
   CANVAS_GAP_CLASSES,
   CANVAS_CORNER_INSET_CLASSES,
-  CANVAS_QUICK_ACTION_BOX_PX,
   CANVAS_QUICK_ACTION_INSET_PX,
-  CANVAS_QUICK_ACTION_SLOP_PX,
 } from './canvasGlyphScale'
 import { NodeCoachingIcon, useCoachingIconChip } from './NodeCoachingIcon'
+import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 import type { ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 
 /**
@@ -123,12 +120,17 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * constant means the row and its reservation cannot disagree: change the box
  * size and the card makes room for the new one.
  */
-const BUTTON_CLASSES =
-  'nodrag relative inline-flex ' +
-  CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX] +
-  ' items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body ' +
-  'hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ' +
-  CANVAS_HIT_SLOP_CLASSES[CANVAS_QUICK_ACTION_SLOP_PX]
+/**
+ * ⭐ AND NOW THEY ARE THE RAIL'S OWN CLASSES, NOT A PRIVATE COPY — contract v3.1
+ * `.icon-btn` (deltas ICON-01 / FRAME-11 / OPT-13 / F12). This file kept its own
+ * string after `nodeCardRailStyles.ts` became the rail's one geometry, and the
+ * copy had drifted: no `nopan`/`shrink-0`, and a hover to `text-text-body` on
+ * `bg-panel-hover` while the coaching icon in the same row hovered to Info. So a
+ * revealed rail showed two hover languages and two glyph sizes. One string now,
+ * muted at rest; the box and the slop are the same constants, so the band
+ * `BaseNode` reserves is unchanged.
+ */
+const BUTTON_CLASSES = `${NODE_RAIL_BUTTON_CLASSES} text-text-light`
 
 export interface NodeQuickActionsProps {
   nodeId: string
@@ -148,6 +150,15 @@ export interface NodeQuickActionsProps {
    */
   restingIcons?: ReactNode
   /**
+   * ⭐ S5 (24 Sep): WHERE THE RAIL SITS. `inset` (default) — inside the card's
+   * bottom band, at Normal zoom, as the contract draws it. `below` — BELOW the
+   * card, over the row gap, at the landing rung, where the card reserves no
+   * band: the hover actions (point 6's landing-rung ask door) still appear on
+   * hover/focus/selection, and the card is not taller for them. Still a DOM
+   * child of the card, so hovering it keeps the card's `group-hover`.
+   */
+  placement?: 'inset' | 'below'
+  /**
    * The card's coaching resolution. When it yields a question, the ONE coaching
    * icon is the rail's rightmost resting member and the hover-only "Ask Olumi"
    * button is withheld — ED 02:31Z (D4): the quick actions "expand/replace
@@ -163,6 +174,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   alwaysVisible = false,
   restingIcons,
   coaching = null,
+  placement = 'inset',
 }: NodeQuickActionsProps) {
   const coachingChip = useCoachingIconChip(nodeId, coaching)
   // The gate must ask the question `askAI` actually asks. It polls for
@@ -426,8 +438,9 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
          The wrapper itself never hit-tests (`pointer-events-none`); the resting
          group opts back in, and the hover group keeps its mirror. */
-      className={`node-card-rail absolute ${CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-none`}
+      className={`node-card-rail absolute ${placement === 'below' ? 'top-full right-0' : CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-none`}
       data-testid={`node-card-rail-${nodeId}`}
+      data-rail-placement={placement}
     >
     <div
       /* ⭐ THE `pointer-events` SET MIRRORS THE `opacity` SET, 1:1, AND THE
@@ -486,7 +499,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           >
             {/* `MessageCircle` — the ONE "Ask Olumi" glyph (Panel R3, #63
                 5796609717), the same glyph as the rail's coaching icon. */}
-            <MessageCircle size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+            <MessageCircle size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
           </button>
         </Tooltip>
       )}
@@ -509,7 +522,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
             aria-label={`Challenge ${label}`}
             data-testid={`node-action-challenge-${nodeId}`}
           >
-            <Zap size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+            <Zap size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
           </button>
         </Tooltip>
       )}
@@ -553,7 +566,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           aria-haspopup="menu"
           data-testid={`node-action-menu-${nodeId}`}
         >
-          <MoreHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+          <MoreHorizontal size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
         </button>
       </Tooltip>
     </div>

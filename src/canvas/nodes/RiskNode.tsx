@@ -17,6 +17,7 @@ import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
+import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 
 /**
  * ⭐⭐⭐ A THIN CARD MUST SAY THAT THE MODEL IS THIN, NOT LOOK LIKE A THIN TOOL.
@@ -120,8 +121,45 @@ import { nodeRecordedValue } from '../domain/nodeRecordedValue'
  * `GoalNode` had to withdraw when its threshold editor turned out to be inert.
  * The sentence states the fact; the CHIP beside it is the route, and it goes
  * somewhere that demonstrably answers.
+ *
+ * ⚠ NO FULL STOP — contract v3.1 (OR-02): the fixture's risk state line is
+ * `Likelihood and impact not set yet`, a state label like its sibling
+ * `Outcome not quantified` on the outcome card, not a sentence.
  */
-export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.inline}.`
+export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.inline}`
+
+/**
+ * ⭐ THE UNSET STATE'S RESTING FORM ON THE STANDARD CARD — the register's own
+ * standalone word, by reference (`METRIC_UNSET.standalone`, "Not set yet").
+ *
+ * Experience Design #63 5809278282 (24 Sep 2026): *"Landing / quiet: repeated
+ * cards may reduce to **title + one primary line** inside the fixed fit-safe
+ * box … Outcome/Risk = state."* At the landing floor (`--canvas-label-scale` 2,
+ * a 260-unit card) a line holds ~19 characters; `RISK_EXPOSURE_UNSET_LINE` is
+ * 33, so as the ONE line it either wraps (a second 28-unit row of reserved
+ * height on every risk) or is cut — and a cut at 19 characters eats the STATE
+ * ("Likelihood and impa…") and keeps the label, the one cut the fit may never
+ * make. The short form is the sentence's own tail: the state survives, the
+ * leading label moves.
+ *
+ * ⛔ THE FULL SENTENCE IS NOT DELETED, it is carried three ways: the line's
+ * `title`, an `sr-only` copy (announced with no interaction), and the node
+ * popover (hover, tap, keyboard focus). Detailed keeps it inline. ⛔ AND THE
+ * SHORT FORM IS NEVER SHOWN BESIDE A RECORDED SIZE — "12 months · Not set yet"
+ * would read as "nothing is set" over a value the card holds, the defect this
+ * file's header already records; there the size is the line and the sentence
+ * rides `sr-only`, `title` and the popover.
+ */
+export const RISK_EXPOSURE_UNSET_SHORT = METRIC_UNSET.standalone
+
+/**
+ * The qualifier the entered likelihood/impact pair carries in full — the 9 Sep
+ * risk/outcome design names it ("the card therefore labels these as entered
+ * estimates"). On the Standard card it rides the full sentence (title, sr-only,
+ * popover) and the pair itself is the line: the 43-character sentence cannot
+ * be one landing line (~19 characters), and the figures must lead.
+ */
+const RISK_ENTERED_QUALIFIER = 'Entered estimate'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -178,6 +216,20 @@ export const RiskNode = memo((props: NodeProps) => {
     () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
     [props.data],
   )
+  /**
+   * ⭐ WHOSE NUMBER THE RISK'S OWN SIZE IS — contract v3.1 point 1 (OR-06):
+   * "Do not rely on 'unmarked = Olumi'." The same owner FactorNode reads
+   * (`factorValueSourceMark`), over the same carrier `nodeRecordedValue` reads
+   * (`observedState`), so the mark and the value cannot describe two records.
+   *
+   * ⚠ `ValueSourceMark` FOR EVERY KIND, INCLUDING `est.` — NOT `EstimateMarker`.
+   * The visible token is identical (`VALUE_SOURCE_MARK_TOKEN.olumi` IS the
+   * served `est.` token), but `EstimateMarker`'s hover promises "Open the
+   * details to set or confirm it", and this file's header records that the
+   * risk panel is fenced `<fieldset disabled>`. A mark must not promise a route
+   * the card does not have.
+   */
+  const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
 
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
   const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
@@ -339,16 +391,28 @@ export const RiskNode = memo((props: NodeProps) => {
     />
   ), [riskCoachingState, riskCoachingContext])
 
+  /**
+   * ⭐ ONE ROW RHYTHM, AND NOTHING TRAILING — contract v3.1 (RHY-06): `.node`
+   * is a column with `gap: 4px`. BaseNode's header already gives the first row
+   * its 4px, so the FIRST body row carries no top margin and every later row
+   * carries `mt-1`. The trailing `mb-1`s this replaces left 4px of dead space
+   * above the card's bottom band and put a recorded value flush against the
+   * line beneath it. Heights only shrink or stay: the rows are unchanged, and
+   * a card whose last row carried `mb-1` loses that 4px.
+   */
+  const showSeverityBadge = isDetailed && severity != null
+  const severityBadgeMargin = recordedValue ? ' mt-1' : ''
+  const exposureLineMargin = recordedValue || showSeverityBadge ? ' mt-1' : ''
+
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
   // (the existing probability×impact derivation, reused not re-added). P1.7 put it
   // in the Standard body; since the locked Canvas design (23 Sep 2026) it is
   // DETAILED-ONLY — its cut-offs are UI-chosen, so it is not a resting claim.
   const detailedMetrics = severity ? (
     <div
-      // The `textAlign: 'center'` that was here is gone. This div carries no
-      // `inline-flex`, no `w-fit` and no width, so it is a full-bleed block
-      // inside the card: the badge text sat centred while every other line of
-      // the node was left-aligned.
+      // The `textAlign: 'center'` that was here is gone, and the badge is now a
+      // `w-fit` pill, not a full-bleed block, so its copy sits left like every
+      // other line of the node.
       //
       // ⛔ Paul 23 Sep contract feedback point 9: "risk = existing Danger
       // treatment … do not invent new colours". `getRiskSeverityColors` painted
@@ -357,18 +421,126 @@ export const RiskNode = memo((props: NodeProps) => {
       // contrast (`nodeSystem.semanticColourOnText.spec.ts`). Every band is now
       // the design-system outlined pill — danger border at /30, body text — and
       // the WORD carries the severity, not a colour.
-      className={`bg-transparent border border-danger/30 text-text-body rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
+      //
+      // ⭐ Contract v3.1 pill grammar (FRAME-15, OR-12): `border-radius: 999px`
+      // and ~6px horizontal padding, the same `rounded-full px-1.5 py-0.5
+      // bg-panel border` every other in-card pill uses (GoalNode's constraint
+      // pills). It was the only 4px-radius rectangle on the canvas. `flex w-fit`
+      // rather than `inline-flex`: a block-level box sits on no line box, so the
+      // body's strut cannot add height to it. Same padding and border as
+      // before, so the badge is no taller; the `mt-1` wrapper and the trailing
+      // `mb-1` are gone (RHY-06 rhythm above).
+      className={`${typography.edgeLabel} flex w-fit items-center bg-panel border border-danger/30 text-text-body rounded-full px-1.5 py-0.5${severityBadgeMargin}`}
+      data-testid="risk-severity-badge"
     >
-      {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
+      {/* Sentence case (DS v5 §2; contract v3.1 T13): "High risk", not "High Risk". */}
+      {severity.charAt(0).toUpperCase() + severity.slice(1)} risk
     </div>
   ) : null
 
-  const riskExposureLine = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
+  /** The exposure state as a whole sentence — Detailed's line, the popover's, and the sr-only copy. */
+  const exposureFull = exposureReadout ? `${RISK_ENTERED_QUALIFIER} · ${exposureReadout}` : RISK_EXPOSURE_UNSET_LINE
+
+  // Detailed (expert) view keeps the full inline anatomy, unchanged.
+  const riskExposureLineDetailed = exposureReadout ? (
+    <div className={`${typography.edgeLabel} text-text-light${exposureLineMargin}`} data-testid="risk-exposure-line">{RISK_ENTERED_QUALIFIER} · {exposureReadout}</div>
   ) : (
-    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-unset">
+    <div className={`${typography.edgeLabel} text-text-light${exposureLineMargin}`} data-testid="risk-exposure-unset">
       {RISK_EXPOSURE_UNSET_LINE}
     </div>
+  )
+
+  /**
+   * ⭐⭐ THE STANDARD CARD'S ONE PRIMARY LINE — Experience Design #63
+   * 5809278282 (24 Sep 2026): *"repeated cards may reduce to title + one
+   * primary line inside the fixed fit-safe box … Outcome/Risk = state … Keep one
+   * stable layout geometry"* (no rung-triggered re-layout: this line is the same
+   * DOM at every rung, so a Normal-zoom card is never taller than the landing
+   * one).
+   *
+   * Which state is THE state, in order:
+   *   1. a recorded size (`nodeRecordedValue`, with its source mark) — the risk's
+   *      own magnitude in its own unit, the same datum the reduced line speaks
+   *      (rule 2: the node's own unit first). The exposure sentence rides
+   *      `sr-only`, `title` and the popover — never "Not set yet" beside it.
+   *   2. the entered likelihood/impact pair, figures first (`90% likely · High
+   *      impact`); `Entered estimate` rides `title`, `sr-only` and the popover.
+   *   3. the unset state, `Not set yet`; the sentence rides the same three.
+   *
+   * ONE VISUAL LINE (`whitespace-nowrap overflow-hidden`): a text state takes
+   * `text-ellipsis`, and since each short form ends in the state, anything an
+   * ellipsis could reach is a trailing LABEL word; the recorded row keeps the
+   * value `shrink-0` and first, so the value is never what gives way.
+   *
+   * ⚠ THE TESTIDS ARE THE ONES THESE STATES ALREADY HAD (`risk-recorded-value`,
+   * `risk-exposure-line`, `risk-exposure-unset`), now on the one element that
+   * states them; `data-card-primary-line` marks it as the body's only row.
+   *
+   * ⚠ THE RECORDED ROW IS ONE ELEMENT FOR BOTH VIEWS, NOT TWO BRANCHES.
+   * `the-recorded-value-carries-its-weight` anchors on `risk-recorded-value`
+   * and requires it to be unique in this file ("an anchor that is not unique is
+   * not a binding"). So the view changes the row's CLASSES — Detailed keeps its
+   * `flex-wrap` row; Standard is the one nowrap line with the sentence in
+   * `sr-only` and on `title` — and the render site stays single.
+   */
+  const riskRecordedRow = recordedValue ? (
+    <div
+      className={`${typography.nodeValue} text-text-body flex items-baseline gap-1 ${isDetailed ? 'flex-wrap' : 'whitespace-nowrap overflow-hidden'}`}
+      data-testid="risk-recorded-value"
+      {...(isDetailed ? {} : { 'data-card-primary-line': 'risk', title: `${recordedValue} · ${exposureFull}` })}
+    >
+      <span className="shrink-0" data-testid="risk-recorded-readout">{recordedValue}</span>
+      {recordedValueMark && (
+        <ValueSourceMark mark={recordedValueMark} testId={`risk-value-source-${props.id}`} />
+      )}
+      {!isDetailed && (
+        <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{exposureFull}</span>
+      )}
+    </div>
+  ) : null
+
+  /** Standard, no recorded size: the exposure state IS the primary line. */
+  /**
+   * ⚠ THE ENTERED PAIR KEEPS ITS PROVENANCE ON THE CARD (ED 5809278282: "value
+   * provenance remain[s] explicit … never hide provenance … in tooltip-only
+   * copy"). Nothing records WHO entered likelihood/impact; the 9 Sep design's
+   * provenance for them IS "entered estimate", so the card says `· entered`
+   * after the figures, muted. This state may wrap rather than cut a figure or
+   * its qualifier — it is rare on real boards (the starters' risks are unset),
+   * and a cut value would be the worse defect. The unset state stays one line.
+   */
+  const riskExposureLine = !isDetailed && !recordedValue ? (
+    <div
+      className={`${typography.edgeLabel} text-text-light ${exposureReadout ? 'break-words' : 'whitespace-nowrap overflow-hidden text-ellipsis'}`}
+      data-testid={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'}
+      data-card-primary-line="risk"
+      title={exposureFull}
+    >
+      <span aria-hidden="true">{exposureReadout || RISK_EXPOSURE_UNSET_SHORT}</span>
+      {exposureReadout && (
+        <span aria-hidden="true" className="italic" data-testid="risk-exposure-provenance"> · entered</span>
+      )}
+      <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{exposureFull}</span>
+    </div>
+  ) : null
+
+  /**
+   * ⭐ WHAT LEFT THE STANDARD BODY, IN THE POPOVER IT MOVED TO (ED 5809278282:
+   * "can move to the existing hover/focus popover and inspector rather than
+   * expanding layout geometry"). Both phases: the full exposure sentence (with
+   * its `Entered estimate` qualifier) and the authored context the card used to
+   * preview in two clamped lines. The description chevron and the inspector
+   * still carry the full text.
+   */
+  const riskPopoverOwnState = (
+    <>
+      <p className={`${typography.edgeLabel} text-text-body m-0`} data-testid="risk-popover-state">{exposureFull}</p>
+      {summary && (
+        <p className={`${typography.edgeLabel} text-text-light m-0 mt-1 line-clamp-3 break-words whitespace-pre-wrap`} data-testid="risk-popover-context">
+          {summary}
+        </p>
+      )}
+    </>
   )
 
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
@@ -465,13 +637,6 @@ export const RiskNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
-        {/* Authored context stays compact; BaseNode's chevron retains the full description. */}
-        {summary && (
-          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="risk-context-preview">
-            {summary}
-          </p>
-        )}
-
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
         {/* ⭐⭐ THE RISK'S OWN MAGNITUDE, ABOVE EVERY FIGURE THAT IS ABOUT
@@ -492,25 +657,43 @@ export const RiskNode = memo((props: NodeProps) => {
             belongs to a connection strength somebody can settle; a risk nobody
             has sized is a different fact, and pooling the two under one noun is
             what the design review objected to. */}
-        {recordedValue && (
-          <p
-            className={`${typography.nodeValue} text-text-body m-0`}
-            data-testid="risk-recorded-value"
-          >
-            {recordedValue}
+        {/* ⭐⭐ STANDARD VIEW: ONE PRIMARY LINE, AND NOTHING ELSE IN THE BODY
+            (Experience Design #63 5809278282, 24 Sep 2026 — see
+            `riskRecordedRow` / `riskExposureLine`). The recorded size, the entered pair or the unset
+            state; the full sentence, the `Entered estimate` qualifier and the
+            authored context moved to the popover below (both phases), and stay
+            in the inspector and behind the description chevron. */}
+        {riskRecordedRow}
+        {riskExposureLine}
+
+        {/* ===== Detailed inline anatomy (unchanged by the fit) =====
+            ⭐ Contract v3.1 `own-value` (OR-06): value + source mark on one
+            baseline row, exactly the factor card's anatomy — `riskRecordedRow`
+            above, shared with Standard (see its note). The first body row, so
+            no top margin (RHY-06). The mark is inline, so no height change. */}
+
+        {/* The probability × impact pair is the node's OWN entered data; the
+            derived severity badge beside it is Detailed-only (locked design,
+            23 Sep 2026 — see the gate below). No fabrication when data is
+            absent. */}
+        {/* ⭐ The derived severity badge ("High risk") is Detailed information
+            (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
+            it is not a resting claim. */}
+        {showSeverityBadge && detailedMetrics}
+        {isDetailed && riskExposureLineDetailed}
+
+        {/* ⭐ Authored context comes AFTER the card's own state, one step
+            smaller — contract v3.1 (OR-08): the title is followed directly by
+            the node's own state; any other prose is subordinate, at 11px or
+            smaller. Still two lines at most, still hidden while the chevron
+            shows the full description (BaseNode). Always preceded by the
+            exposure line, so it always takes the row gap (RHY-06). Detailed
+            only since ED 5809278282; Standard carries it in the popover. */}
+        {isDetailed && summary && (
+          <p className={`${typography.edgeLabel} text-text-light m-0 mt-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="risk-context-preview">
+            {summary}
           </p>
         )}
-
-        {/* The probability × impact pair is the node's OWN entered data and stays
-            on the face; the derived severity badge beside it is Detailed-only
-            (locked design, 23 Sep 2026 — see the gate below). No fabrication
-            when data is absent. */}
-        {/* ⭐ The derived severity badge ("High Risk") is Detailed information
-            (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
-            it is not a resting claim. The node's OWN entered likelihood/impact
-            below stays on the face — it is the user's data, not a verdict. */}
-        {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
-        {riskExposureLine}
 
         {/* ⛔ NO LINK-STRENGTH ROW (contract v3.1: "Outcome/risk records are
             distinct from the strength of their connections"; gap U1). The card
@@ -554,8 +737,11 @@ export const RiskNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {/* The popover carries only the post-analysis detail + coaching chips;
-              the severity badge is Detailed-only (locked design, 23 Sep 2026). */}
+          {/* The card's own state in full + the authored context (moved off
+              the Standard body, ED 5809278282), then the post-analysis detail
+              + coaching chips; the severity badge is Detailed-only (locked
+              design, 23 Sep 2026). */}
+          {riskPopoverOwnState}
           {layer2ContentPost}
           {riskPopoverChips}
         </NodePopover>
@@ -572,6 +758,8 @@ export const RiskNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {riskPopoverOwnState}
+          {preAnalysisPopoverContent && <Sep />}
           {preAnalysisPopoverContent}
           {riskPopoverChips}
         </NodePopover>

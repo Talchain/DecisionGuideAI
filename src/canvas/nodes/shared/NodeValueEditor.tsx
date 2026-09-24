@@ -114,12 +114,15 @@ export function NodeValueEditor({
     onDoubleClick: (e: React.MouseEvent) => e.stopPropagation(),
   }
 
+  // ⭐ NODE-ANATOMY v3.2: the value rests as TEXT on the card (no chip), with the
+  // edit cue on hover and focus; the input then takes the SAME box, so opening
+  // it moves nothing. `controls.editableResting` stays the inspector's.
   if (!isEditing) {
     return (
       <button
         type="button"
         data-testid={testId}
-        className={`nodrag nopan ${typography.nodeValue} group inline-flex items-center gap-1 ${controls.editableResting}`}
+        className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
         aria-label={`${ariaLabel} — click to edit`}
         title="Click to edit"
         {...guard}
@@ -150,7 +153,7 @@ export function NodeValueEditor({
           if (e.key === 'Escape') { setIsEditing(false); setRefusal(null) }
         }}
         className={`${typography.nodeValue} w-24 ${
-          refusal ? controls.editableField.replace('border-field', 'border-danger') : controls.editableField
+          refusal ? controls.editableFieldCanvas.replace('border-field', 'border-danger') : controls.editableFieldCanvas
         }`}
       />
       {refusal && (

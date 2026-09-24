@@ -25,17 +25,38 @@
  *
  * Every assertion binds by IDENTITY (the exact factor under test), never by a
  * value predicate another node could satisfy (CLAUDE.md trap 19).
+ *
+ * ⚠ FIXTURES WIDENED WITH THEIR REASON (NODE-ANATOMY v3.2; ED #63 5806266691
+ * "differentiator only when additive"): the footer now renders only where it
+ * adds something the change rows don't. Each fixture therefore gives the
+ * options a SHARED change they set identically (it never differentiates), so
+ * "… is the key difference" picks one of two changes, and the "→ value" case
+ * puts its factor behind "+1 more". The casing claims are unchanged.
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
+ * detail — change rows, the differentiator — moves "to the existing hover/focus
+ * popover and inspector"). Both carriers now sit together in the option's
+ * popover (`option-preview-detail-<id>`), where the differentiator renders its
+ * WHOLE sentence (the popover has the room the card never had), so the casing
+ * claim is asserted on the whole name — and, for the first time in jsdom, on
+ * both carriers side by side.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { sentenceCaseFactorLabel } from '../../utils/labelUtils'
+import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
+// Pass-through popover: the moved detail is in the DOM to be read by identity.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
+}))
 
 const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   hoveredOptionId: null,
@@ -103,8 +124,8 @@ const twoCarrierState = () =>
   makeStoreState({
     ceeAnalysisReady: {
       options: [
-        { id: 'option-1', interventions: { 'factor-usage': 1.0 } },
-        { id: 'option-3', interventions: { 'factor-other': 0.9 } },
+        { id: 'option-1', interventions: { 'factor-usage': 1.0, 'factor-shared': { value: 3, display_value: '£3k' } } },
+        { id: 'option-3', interventions: { 'factor-other': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
         { id: 'option-2', interventions: { 'factor-usage': 0.0 } },
       ],
     },
@@ -123,6 +144,7 @@ const twoCarrierState = () =>
       },
       { id: 'factor-usage', type: 'factor', data: { label: TITLE_CASE_LABEL, observedState: { unit: 'scale', value: 0.0 } } },
       { id: 'factor-other', type: 'factor', data: { label: 'Enterprise Revenue Risk', observedState: { unit: 'scale', value: 0.0 } } },
+      { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
     ],
     viewMode: 'standard',
   })
@@ -146,19 +168,17 @@ describe('OptionNode — one factor, one name', () => {
     renderOption()
 
     // ── PRECONDITION, PINNED IN-TEST ────────────────────────────────────────
-    // The differentiator must actually be on the card, or every assertion
-    // below holds vacuously (CLAUDE.md trap 13b: a guard whose discrimination
-    // depends on a fixture nothing pins).
+    // The differentiator must actually render (now in the option's popover), or
+    // every assertion below holds vacuously (CLAUDE.md trap 13b: a guard whose
+    // discrimination depends on a fixture nothing pins).
     //
-    // ⚠ SCOPE, STATED HONESTLY: this asserts the casing of ONE carrier. The
-    // co-occurrence of BOTH carriers on one card — the shape actually measured
-    // on the deployed starter — is exercised by
-    // `e2e/geometry/cardAnatomy.measure.ts`, which reads a real render. The
-    // from-to row is gated on store state this jsdom fixture does not
-    // reproduce, and manufacturing it here would pin the fixture, not the
-    // product.
-    const differentiator = screen.getByText(/is the key difference/i)
+    // ⚠ SCOPE: the ON-SCREEN co-occurrence measured on the deployed starter is
+    // `e2e/geometry/cardAnatomy.measure.ts`'s. Since the bounded anatomy the two
+    // carriers share the popover, and this fixture renders both there — so the
+    // casing of BOTH is asserted below, not just one.
+    const differentiator = within(optionPreviewDetail('option-1')!).getByTestId('option-differentiator-option-1')
     expect(differentiator.tagName).toBe('P')
+    expect(differentiator.textContent).toMatch(/is the key difference$/)
 
     // ── THE CLAIM ───────────────────────────────────────────────────────────
     // Bound by identity to THIS factor: the producer wrote Title Case, and
@@ -166,13 +186,20 @@ describe('OptionNode — one factor, one name', () => {
     const expected = sentenceCaseFactorLabel(TITLE_CASE_LABEL)
     expect(expected).toBe('Usage-based pricing exposure')
 
-    expect(differentiator.textContent).toBe('Usage-based pricing… is the key difference')
-    // …and the hover recovery carries the same casing, not the raw label.
-    expect(differentiator.getAttribute('title')).toBe('Usage-based pricing exposure is the key difference')
+    // Bounded anatomy: in the popover the sentence is WHOLE — no card budget,
+    // so no cut and no hover recovery to disagree with it.
+    expect(differentiator.textContent).toBe(`${expected} is the key difference`)
+    expect(differentiator.getAttribute('title')).toBeNull()
 
     // The producer's Title Case must not survive anywhere in this sentence.
-    expect(differentiator.textContent).not.toMatch(/Usage-Based Pricing/)
-    expect(differentiator.getAttribute('title')).not.toMatch(/Usage-Based Pricing/)
+    expect(differentiator.textContent).not.toMatch(/Usage-Based/)
+
+    // ⭐ BOTH CARRIERS, SIDE BY SIDE: the change row for the SAME factor, in the
+    // same popover, names it in the same casing (its full name is the row's
+    // title and accessible text).
+    const row = within(optionPreviewDetail('option-1')!).getByTestId('option-change-row-option-1-factor-usage')
+    expect(row.getAttribute('title')?.startsWith(`${expected}: `)).toBe(true)
+    expect(optionPreviewDetail('option-1')!.innerHTML).not.toMatch(/Usage-Based/)
   })
 
   it('an acronym survives — the rule lowercases words, never recognisable shapes', () => {
@@ -205,52 +232,107 @@ describe('OptionNode — one factor, one name', () => {
    * characters, so it was cut to "In-house build…" by the old 20-char
    * differentiator budget and renders WHOLE at the derived 25. It is one of
    * seven starter labels that go from truncated to complete.
+   *
+   * ⚠ RE-POINTED WITH ITS REASON (S4, 9914ffa3; ED #63 5806207128 / 5806266691;
+   * NODE-ANATOMY v3.2 L4 "the fix is card anatomy (shorter cards)"): the
+   * option card is now 260 wide and the SAME derivation gives 18, below the old
+   * hand-set 20 — so "a 23-character name renders whole" is no longer true of
+   * the product, and asserting it would pin the pre-S4 width. The property this
+   * test exists for is unchanged: the CALL SITE cuts at the derived budget. It is
+   * now pinned from both sides, at the budget and one past it:
+   *   · a name of exactly the budget renders whole — a smaller hand-set budget
+   *     (compactFactorLabel's default 15) would cut it;
+   *   · a name one past the budget, and no longer than 20, is cut — the old
+   *     hand-set 20 and the pre-S4 derived 25 would both render it whole.
    */
-  it('a 23-character factor name renders whole, not cut at the old hand-set budget', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        ceeAnalysisReady: {
-          options: [
-            { id: 'option-1', interventions: { 'factor-build': 0.9 } },
-            { id: 'option-3', interventions: { 'factor-other': 0.9 } },
-          ],
-        },
-        nodes: [
-          { id: 'option-1', type: 'option', data: { label: 'Build In-House', type: 'option' } },
-          { id: 'option-3', type: 'option', data: { label: 'Buy Vendor Solution', type: 'option' } },
-          { id: 'factor-build', type: 'factor', data: { label: 'In-house build approach', observedState: { unit: 'scale', value: 0.0 } } },
-          { id: 'factor-other', type: 'factor', data: { label: 'Vendor licensing cost', observedState: { unit: 'scale', value: 0.0 } } },
-        ],
-        viewMode: 'standard',
-      }) as never),
-    )
-    renderOption({ label: 'Build In-House' })
+  /**
+   * ⭐ RE-POINTED (bounded anatomy, ED #63 5809278282): the differentiator no
+   * longer renders at the CARD's row budget — it lives in the popover and
+   * renders whole. The same three lengths now pin the opposite side of the
+   * same call-site question: the popover must NOT re-apply the card's budget.
+   * `TWO_PAST` is the discriminating case — the card cut it ("Customer churn…"),
+   * so a regression that brings the compacted form into the popover REDs here.
+   */
+  it('the popover differentiator is WHOLE at, one over and two past the card\'s row budget', () => {
+    const AT_BUDGET = 'Vendor switch cost'
+    // S5 (24 Sep): a label ONE over the budget is returned whole — cut to the
+    // budget plus "…" it is no shorter, and only breaks a word ("Developer
+    // headcoun…"). See labelUtils.noUselessCut.spec.
+    const ONE_OVER = 'Customer churn risk'
+    const TWO_PAST = 'Customer churn risks'
+    // Preconditions pinned in-test: the fixture lengths mean what the name says.
+    expect(AT_BUDGET.length).toBe(NODE_ROW_LABEL_MAX_CHARS)
+    expect(ONE_OVER.length).toBe(NODE_ROW_LABEL_MAX_CHARS + 1)
+    expect(TWO_PAST.length).toBe(NODE_ROW_LABEL_MAX_CHARS + 2)
 
-    const p = screen.getByText(/is the key difference/i)
-    expect(p.textContent).toBe('In-house build approach is the key difference')
-    // The whole point: no ellipsis where the name used to be cut.
-    expect(p.textContent).not.toContain('…')
-    // Precondition pinned in-test — the old budget really did cut this label,
-    // so the assertion above is about the change and not about a short string.
-    expect('In-house build approach'.length).toBeGreaterThan(20)
+    const renderWithTopFactor = (label: string) => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              { id: 'option-1', interventions: { 'factor-top': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
+              { id: 'option-3', interventions: { 'factor-other': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Build In-House', type: 'option' } },
+            { id: 'option-3', type: 'option', data: { label: 'Buy Vendor Solution', type: 'option' } },
+            { id: 'factor-top', type: 'factor', data: { label, observedState: { unit: 'scale', value: 0.0 } } },
+            { id: 'factor-other', type: 'factor', data: { label: 'Vendor licensing cost', observedState: { unit: 'scale', value: 0.0 } } },
+            { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
+          ],
+          viewMode: 'standard',
+        }) as never),
+      )
+      return renderOption({ label: 'Build In-House' })
+    }
+
+    const line = () => within(optionPreviewDetail('option-1')!).getByTestId('option-differentiator-option-1')
+
+    // At the budget: whole, nothing to recover.
+    const at = renderWithTopFactor(AT_BUDGET)
+    const whole = line()
+    expect(whole.textContent).toBe('Vendor switch cost is the key difference')
+    expect(whole.textContent).not.toContain('…')
+    expect(whole.getAttribute('title')).toBeNull()
+    at.unmount()
+
+    // One over it: whole — a cut would save nothing.
+    const over = renderWithTopFactor(ONE_OVER)
+    const wholeOver = line()
+    expect(wholeOver.textContent).toBe('Customer churn risk is the key difference')
+    expect(wholeOver.getAttribute('title')).toBeNull()
+    over.unmount()
+
+    // Two past it: the card cut this at the word; the popover does not.
+    renderWithTopFactor(TWO_PAST)
+    const notCut = line()
+    expect(notCut.textContent).toBe('Customer churn risks is the key difference')
+    expect(notCut.textContent).not.toContain('…')
+    expect(notCut.getAttribute('title')).toBeNull()
   })
 
   it('the "→ value" branch carries the same casing', () => {
     // The differentiator has two sentence frames. A fix applied to one and not
     // the other would leave the defect live on every shared-factor option.
+    const EQUAL = { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' } }
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-usage': { value: 1.0, display_value: 'Very high (1)' } } },
-            { id: 'option-2', interventions: { 'factor-usage': { value: 0.4, display_value: 'Moderate (0.4)' } } },
-            { id: 'option-3', interventions: { 'factor-usage': { value: 0.1, display_value: 'Low (0.1)' } } },
+            { id: 'option-1', interventions: { ...EQUAL, 'factor-usage': { value: 1.0, display_value: 'Very high (1)' } } },
+            { id: 'option-2', interventions: { ...EQUAL, 'factor-usage': { value: 0.4, display_value: 'Moderate (0.4)' } } },
+            { id: 'option-3', interventions: { ...EQUAL, 'factor-usage': { value: 0.1, display_value: 'Low (0.1)' } } },
           ],
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { label: 'Full Switch at Renewal', type: 'option' } },
           { id: 'option-2', type: 'option', data: { label: 'Hybrid Platform Fee', type: 'option' } },
           { id: 'option-3', type: 'option', data: { label: 'New Logos Only', type: 'option' } },
+          // Earlier in the model than the differentiating factor, so the shared
+          // order shows these two rows and puts `factor-usage` behind "+1 more".
+          { id: 'factor-tools', type: 'factor', data: { label: 'Tooling spend' } },
+          { id: 'factor-hours', type: 'factor', data: { label: 'Weekly hours' } },
           { id: 'factor-usage', type: 'factor', data: { label: TITLE_CASE_LABEL, observedState: { unit: 'scale', value: 0.0 } } },
         ],
         viewMode: 'standard',
@@ -263,9 +345,16 @@ describe('OptionNode — one factor, one name', () => {
     // SAME target — so a text query for "→ Very high (1)" is ambiguous between
     // the two carriers. The claim here is the DIFFERENTIATOR's frame, so bind by
     // its identity rather than by text another carrier can also satisfy.
-    const p = screen.getByTestId('option-differentiator-option-1')
+    // Precondition: the factor is behind "+1 more", so the footer ADDS it.
+    const preview = within(optionPreviewDetail('option-1')!)
+    expect(preview.queryByTestId('option-change-row-option-1-factor-usage')).toBeNull()
+    // Positive control for that absence: the popover does carry option-1's rows.
+    expect(preview.getByTestId('option-change-row-option-1-factor-tools')).toBeTruthy()
+    const p = preview.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
-    expect(p.textContent).toBe('Usage-based pricing… → Very high (1)')
-    expect(p.textContent).not.toMatch(/Usage-Based Pricing/)
+    // Bounded anatomy: the popover line is the whole sentence with the
+    // producer's full reading (the at-rest collapse was a card-budget measure).
+    expect(p.textContent).toBe('Usage-based pricing exposure → Very high (1)')
+    expect(p.textContent).not.toMatch(/Usage-Based/)
   })
 })

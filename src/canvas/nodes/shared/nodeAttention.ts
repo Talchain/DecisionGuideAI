@@ -90,7 +90,7 @@ export interface AttentionInputs {
   }>
   /** Run-derived: present only while the analysis is CURRENT. */
   readonly run: {
-    readonly ranks: ReadonlyMap<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number }>
+    readonly ranks: ReadonlyMap<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number }>
     readonly turningPoints: ReadonlyMap<string, FactorTurningPoint>
     readonly fragileEdgeSources: ReadonlySet<string>
     readonly reviewBiasFindings: ReadonlyArray<unknown>
@@ -177,10 +177,17 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
       // line and reduced line read — never a re-spelled `influenceSetSize >= 2`,
       // which let a rank beyond its own set be stated and which
       // `theUiRendersItDoesNotDecide` rightly flags as a UI-chosen threshold.
-      if (rank.sensitivityRank !== null && influenceRankReadout(rank.sensitivityRank, rank.influenceSetSize) !== null) {
+      // And inside the ranked count — the same publication guard as
+      // `driverRankFor`, so the reason never states a rank the line refuses.
+      if (
+        rank.sensitivityRank !== null &&
+        influenceRankReadout(rank.sensitivityRank, rank.influenceSetSize) !== null &&
+        rank.sensitivityRank <= rank.rankedSetSize
+      ) {
         push(reasons, id, {
           kind: 'top_driver',
           order: 3,
+          // ED #63 5806207128: the printed M is the ANALYSED count, as on the card.
           label: `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.influenceSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
         })
       }

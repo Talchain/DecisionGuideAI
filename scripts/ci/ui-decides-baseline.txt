@@ -42,8 +42,8 @@ src/canvas/contextMenu/actions.ts:934
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
-src/canvas/hooks/useScienceIcons.ts:135
-src/canvas/hooks/useScienceIcons.ts:150
+src/canvas/hooks/useScienceIcons.ts:145
+src/canvas/hooks/useScienceIcons.ts:160
 src/canvas/store.ts:7884
 src/canvas/stores/readinessStore.ts:744
 src/canvas/stores/readinessStore.ts:840

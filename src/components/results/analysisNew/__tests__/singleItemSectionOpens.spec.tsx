@@ -121,5 +121,12 @@ describe('disclosure earns its keep by hiding bulk', () => {
       />,
     )
     expect(isOpen()).toBe('false')
+    // ⭐ V2: A COLLAPSED ROW SHOWS ONLY ITS HEADER. The empty-state sentence
+    // ("No insight is grounded…", "Evidence quality was not assessed…") lives
+    // INSIDE the section and is seen only when opened — never under the
+    // resting row. Key insights and Uncertainty and gaps both ride this path.
+    expect(screen.queryByText('This run returned no drivers.')).toBeNull()
+    fireEvent.click(screen.getByTestId('sec-toggle'))
+    expect(screen.getByTestId('sec-empty')).toHaveTextContent('This run returned no drivers.')
   })
 })

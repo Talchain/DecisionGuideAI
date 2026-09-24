@@ -157,10 +157,66 @@ test(`ROS ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ pag
    * figure the independent review derived at module level, arrived at here
    * through the product in a real browser.
    */
+  /**
+   * ⭐ S4/S5 (24 Sep 2026): THE PRE-RELOAD OVERLAP CANNOT BE REPRODUCED ANY MORE,
+   * AND THAT IS ARITHMETIC, NOT A BROKEN FIXTURE. The overlap measured at
+   * `5a825c1e0` came from per-tier widths (options at 440) WIDER than the old
+   * uniform stride (336 + 56 = 392). S4 set every repeated card to 260
+   * (`REPEATED_CARD_W`), below the old uniform 336, so an old-save board drawn
+   * at today's widths leaves gaps on every row — before the reload as well as
+   * after it. `before.pairs > 0` can therefore never hold, and asserting it
+   * failed the Canvas Browser Gate on #1932.
+   *
+   * What still matters is the defect's MECHANISM: a restore that widens cards
+   * past the stride their own saved positions leave. That is asserted directly
+   * below (every multi-card row's widest card fits its saved stride), with the
+   * overlap detector's non-vacuity proved by a PLANTED overlap instead of by
+   * the fixture — the same "can the probe see a presence" control, no longer
+   * dependent on the widths of the day.
+   */
+  // ⭐ THE PLANTED PAIR GOES THROUGH `SNAP` ITSELF (Codex CHANGES_REQUIRED
+  // 5809935418): two ACTUAL fixture nodes are made to overlap in the store,
+  // `SNAP` — the exact detector the after-reload assertion trusts — must report
+  // them, and only then are the rolled-back positions restored for the flush.
+  // A `SNAP` that returned zero for every board fails here, before it can clear
+  // the restore path.
+  const plantedPair = await page.evaluate(() => {
+    const w = window as unknown as {
+      useCanvasStore: {
+        getState: () => { nodes: Array<{ id: string; position: { x: number; y: number } }> }
+        setState: (partial: unknown) => void
+      }
+    }
+    const st = w.useCanvasStore.getState()
+    const shown = st.nodes.filter((n) => document.querySelector(`.react-flow__node[data-id="${n.id}"]`))
+    if (shown.length < 2) return null
+    const [a, b] = shown
+    const saved = { ...b.position }
+    w.useCanvasStore.setState({
+      nodes: st.nodes.map((n) => (n.id === b.id ? { ...n, position: { x: a.position.x + 10, y: a.position.y + 10 } } : n)),
+    })
+    return { a: a.id, b: b.id, saved }
+  })
+  expect(plantedPair, 'fewer than two rendered fixture nodes to plant an overlap between').not.toBeNull()
+  await page.waitForTimeout(800)
+  const plantedSnap = await page.evaluate(SNAP)
   expect(
-    before.pairs,
-    'the rolled-back board does NOT overlap, so "zero overlaps after reload" proves nothing — the fixture has stopped reproducing the defect',
+    plantedSnap.pairs,
+    `SNAP did not see a planted overlap between ${plantedPair!.a} and ${plantedPair!.b} — "zero overlaps after reload" would prove nothing`,
   ).toBeGreaterThan(0)
+  // Restore the rolled-back position exactly, then prove the board is back.
+  await page.evaluate(({ id, saved }) => {
+    const w = window as unknown as {
+      useCanvasStore: { getState: () => { nodes: Array<{ id: string; position: { x: number; y: number } }> }; setState: (p: unknown) => void }
+    }
+    const st = w.useCanvasStore.getState()
+    w.useCanvasStore.setState({ nodes: st.nodes.map((n) => (n.id === id ? { ...n, position: saved } : n)) })
+  }, { id: plantedPair!.b, saved: plantedPair!.saved })
+  await page.waitForTimeout(800)
+  const unplanted = await page.evaluate(SNAP)
+  const bNow = unplanted.nodeList.find((n: { id: string }) => n.id === plantedPair!.b)
+  expect(bNow && Math.round(bNow.x) === Math.round(plantedPair!.saved.x) && Math.round(bNow.y) === Math.round(plantedPair!.saved.y), 'the planted node was not restored to its rolled-back position').toBe(true)
+  expect(before.nodes, 'the rolled-back board rendered no cards').toBeGreaterThan(0)
 
   // ⛔ NON-VACUITY FIRST. A zero-node canvas reports zero overlapping pairs,
   // which reads exactly like success; and a board that has been re-laid-out is
@@ -172,5 +228,23 @@ test(`ROS ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ pag
     after.pairs,
     `a board saved at the OLD uniform width overlaps after reopening: ${JSON.stringify(after.worst)}. The restore path widened cards past the stride their own saved positions leave.`,
   ).toBe(0)
+
+  // The mechanism, asserted directly: on every row holding two or more cards,
+  // the widest restored card fits the stride its saved positions leave.
+  const rows = new Map<number, Array<{ x: number; w: number; id: string }>>()
+  for (const n of after.nodeList) (rows.get(n.y) ?? rows.set(n.y, []).get(n.y)!).push({ x: n.x, w: n.w, id: n.id })
+  const tooWide: string[] = []
+  let multiCardRows = 0
+  for (const [, row] of rows) {
+    if (row.length < 2) continue
+    multiCardRows++
+    const xs = [...row].sort((p, q) => p.x - q.x)
+    for (let i = 1; i < xs.length; i++) {
+      const stride = xs[i].x - xs[i - 1].x
+      if (xs[i - 1].w > stride) tooWide.push(`${xs[i - 1].id}: w ${xs[i - 1].w} > saved stride ${stride}`)
+    }
+  }
+  expect(multiCardRows, 'no row holds two cards — the stride check compared nothing').toBeGreaterThan(0)
+  expect(tooWide, 'a restored card is wider than the stride its saved positions leave').toEqual([])
 })
 })

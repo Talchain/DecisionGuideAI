@@ -49,6 +49,15 @@
  * noun; the percentage lives ONLY in its accessible name / tooltip, beside
  * "…N% of the strongest factor…" — demoted, never deleted.
  *
+ * ⭐ AND THE STANDARD LINE MOVED OFF THE FACE (ED #63 5809278282, 24 Sep —
+ * bounded anatomy): "The fuller S3 reasoning detail — change rows, driver
+ * wording, turning-point explanation/findings — can move to the existing
+ * hover/focus popover and inspector rather than expanding layout geometry."
+ * `factor-driver-line` is now rendered INSIDE the factor's Standard popover
+ * (mocked transparent here as `factor-node-popover`), and `popoverLine()` binds
+ * it THERE and asserts it is NOT on the card face. The face keeps a neutral,
+ * wordless driver cue (pinned in `FactorNode.boundedAnatomy.spec.tsx`).
+ *
  * Every claim below is re-pointed to that line at the same identity:
  *   · ranked → the new caption, no bare "%", the % in the accessible name;
  *   · both call sites (face + Detailed) — the two views cannot disagree;
@@ -57,6 +66,19 @@
  *   · ⛔ NOT CURRENT → the line is HIDDEN (spec §8: "stale analysis hides …
  *     driver … cues"), a deliberate change from the old fall-back-to-percentage
  *     arm. The withheld rank is still asserted absent, now with the whole line.
+ *
+ * ## ⛔ CONTRACT v3.1 pt 5 SUPERSEDED ONE OF THOSE CLAIMS (24 Sep 2026), AND
+ * ## ED #63 5806207128 RESTORED ITS CAPTION THE SAME DAY
+ *
+ *   · the caption is "Driver N of M analysed" and `M` is the ELIGIBLE ANALYSED
+ *     set (`influenceSetSize`), not the ranked count (`influenceRankedCount`,
+ *     now the publication guard only) — ED: "Denominator = eligible analysed
+ *     factors, not 'number of ranks we happen to render'". Every fixture below
+ *     supplies both, and they differ (5 vs 3), so a caption that printed the
+ *     ranked count goes red;
+ *   · no denominator / no rank / a set of one → NO line and NO bar on either
+ *     view ("A factor the run did not rank shows no rank"); the card says
+ *     "Not ranked in this run" to AT only. The quantity-noun arm is retired.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
@@ -152,13 +174,21 @@ const setStore = (
  * kit — every future case would sit on whichever branch the default chose and
  * nobody would have to notice.
  */
-const setMetadata = (rank: number | null, setSize: number | null, influence: number) => {
+const setMetadata = (
+  rank: number | null,
+  setSize: number | null,
+  influence: number,
+  // The ranked count — the publication guard (ED 5806207128), distinct from the
+  // analysed set so a caption that printed it would go red.
+  rankedCount: number | null = 3,
+) => {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
     sensitivityRank: rank,
     influence,
     influenceProvenance: 'normalised_elasticity',
     influenceImportanceBasis: null,
     influenceSetSize: setSize,
+    influenceRankedCount: rankedCount,
     confidence: null,
     confidenceIsDefaulted: false,
     confidenceIsProvisional: false,
@@ -192,14 +222,19 @@ const RANKED_NAME_LEADER =
   'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
   'How much the outcome shifts when this factor changes. How sure are you of its value?'
 
-/** The same leader, unranked (no denominator / no rank / a set of one). */
-const UNRANKED_NAME_LEADER =
-  'Bar: outcome sensitivity, 100% of the strongest factor. ' +
-  'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
-  'How much the outcome shifts when this factor changes. How sure are you of its value?'
+/** Contract v3.1 pt 5: the unranked factor's one statement (AT only). */
+const NOT_RANKED = 'Not ranked in this run'
+const notRanked = () => screen.getByTestId('factor-driver-not-ranked')
 
-/** The face driver line, and the Detailed/popover one, bound by test id. */
-const faceLine = () => screen.getByTestId('factor-driver-line')
+/**
+ * The Standard driver line — in the POPOVER, never on the card face (ED
+ * 5809278282) — and the Detailed one, bound by test id.
+ */
+const popoverLine = () => {
+  const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+  expect(within(face).queryByTestId('factor-driver-line'), 'the driver line is on the card face').toBeNull()
+  return within(screen.getByTestId('factor-node-popover')).getByTestId('factor-driver-line')
+}
 const detailLine = () => screen.getByTestId('factor-driver-line-detail')
 const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).textContent
 /** The bar's FILL — the measurement, independent of the words. */
@@ -217,11 +252,11 @@ describe('Standard view — the driver line states the ranking', () => {
        mounts `layer2Content` a SECOND time inside the hover popover (mocked
        transparent here), so the Detailed driver line is also in the document.
        A `getByText` would be ambiguous (CLAUDE.md trap 19). */
-    const line = faceLine()
+    const line = popoverLine()
     expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
     /* ⛔ THE DELETE-MUTANT ASSERTION. Remove the rank from this call site and
-       the caption falls back to the quantity noun, which the line above
-       REJECTS. And the retired `% influence` row is gone from the face. */
+       the line disappears (contract v3.1 pt 5), which the line above REJECTS.
+       And the retired `% influence` row is gone from the face. */
     expect(line.textContent).not.toContain('%')
     expect(line.textContent).not.toContain('Relative influence')
     expect(line.textContent).not.toContain('Most influential')
@@ -232,11 +267,11 @@ describe('Standard view — the driver line states the ranking', () => {
     setStore('standard')
     setMetadata(1, 5, 1)
     renderFactor()
-    const line = faceLine()
+    const line = popoverLine()
     expect(line).toHaveAccessibleName(RANKED_NAME_LEADER)
     /* ⚠ THE NEGATIVE CONTROL for the old mangling ("Most influential: of 5.")
        — the caption and the set size are one phrase, never split by a colon. */
-    expect(line.getAttribute('aria-label')).not.toContain('Driver 1: of 5')
+    expect(line.getAttribute('aria-label')).not.toContain('Driver 1: of 3')
     expect(line.getAttribute('aria-label')!.startsWith(captionOf(line)!)).toBe(true)
   })
 
@@ -247,14 +282,14 @@ describe('Standard view — the driver line states the ranking', () => {
     // The NO-HIDING half of the claim. Taking the figure off the face of the
     // card is the change; taking it away from a reader who wants it would be
     // hiding a finding, which this estate forbids.
-    expect(faceLine()).toHaveAccessibleName(/100% of the strongest factor/)
+    expect(popoverLine()).toHaveAccessibleName(/100% of the strongest factor/)
   })
 
   it('rank 2 takes its own number — the leader is not the only case that renders', () => {
     setStore('standard')
     setMetadata(2, 5, 0.62)
     renderFactor()
-    const line = faceLine()
+    const line = popoverLine()
     expect(captionOf(line)).toBe('Driver 2 of 5 analysed')
     expect(line.textContent).not.toContain('62%')
     expect(line).toHaveAccessibleName(/62% of the strongest factor/)
@@ -310,47 +345,55 @@ describe('Detailed view — the Detailed driver line states the same ranking', (
  * (23 Sep 2026): the old fallback printed "Relative influence 100%"; the % now
  * stays in the disclosure on this arm too.
  */
-describe('no denominator — both views name the quantity, never a rank', () => {
-  it('Standard view falls back to the quantity noun; the percentage stays in the disclosure', () => {
+describe('no denominator — contract v3.1 pt 5: no rank, no line, no bar, on either view', () => {
+  // ⛔ SUPERSEDED (contract v3.1 pt 5): these used to pin the quantity-noun
+  // fallback ("Outcome sensitivity" + bar). An unranked factor now shows no
+  // rank and no line; its figure stays in the inspector's ImportanceBar.
+  it('Standard view: no line and no bar; the card says "Not ranked in this run" to AT', () => {
     setStore('standard')
     setMetadata(1, null, 1)
     renderFactor()
-    const line = faceLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.textContent).not.toContain('Driver')
-    expect(line.textContent).not.toContain('100%')
-    expect(line).toHaveAccessibleName(UNRANKED_NAME_LEADER)
+    expect(screen.getByTestId('node-title')).toBeTruthy()
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line-bar')).toBeNull()
+    expect(notRanked().textContent).toBe(NOT_RANKED)
+    expect(document.body.textContent).not.toContain('Outcome sensitivity')
   })
 
-  it('Detailed view falls back too — the two views cannot disagree', () => {
+  it('Detailed view: no Detailed line either — the two views cannot disagree', () => {
     setStore('expert')
     setMetadata(1, null, 1)
     renderFactor()
-    const line = detailLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.textContent).not.toContain('Driver')
-    // The SAME sentence the Standard face publishes on this arm, word for word.
-    expect(line).toHaveAccessibleName(UNRANKED_NAME_LEADER)
+    expect(screen.getByTestId('node-title')).toBeTruthy()
+    expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
+    expect(screen.getAllByTestId('factor-driver-not-ranked')).toHaveLength(1)
   })
 
   it('no rank withholds the claim even when a denominator is present', () => {
-    // The tie gate withholding a rank is the commonest live cause. The
-    // denominator is still computed and supplied; the claim is still refused.
+    // The tie gate withholding a rank is the commonest live cause.
     setStore('standard')
     setMetadata(null, 5, 1)
     renderFactor()
-    const line = faceLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.getAttribute('aria-label')).not.toContain('of 5')
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(document.body.textContent).not.toContain('of 5')
+    expect(notRanked().textContent).toBe(NOT_RANKED)
   })
 
   it('a set of one is a maximum, not a ranking', () => {
     setStore('standard')
-    setMetadata(1, 1, 1)
+    setMetadata(1, 1, 1, 1)
     renderFactor()
-    const line = faceLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.getAttribute('aria-label')).not.toContain('Driver')
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(document.body.textContent).not.toContain('Driver')
+    expect(notRanked().textContent).toBe(NOT_RANKED)
+  })
+
+  it('CONTRAST — a ranked factor carries no "Not ranked" statement', () => {
+    setStore('standard')
+    setMetadata(1, 5, 1)
+    renderFactor()
+    expect(popoverLine()).toBeTruthy()
+    expect(screen.queryByTestId('factor-driver-not-ranked')).toBeNull()
   })
 })
 
@@ -425,9 +468,10 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     renderFactor()
 
     expect(screen.getByTestId('node-title')).toBeTruthy()
-    expect(captionOf(faceLine())).toBe('Last run · Driver 1 of 5 analysed')
+    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
+    expect(captionOf(popoverLine())).toBe('Last run · Driver 1 of 5 analysed')
     // Never the unlabelled current-run caption.
-    expect(captionOf(faceLine())!.startsWith('Driver')).toBe(false)
+    expect(captionOf(popoverLine())!.startsWith('Driver')).toBe(false)
   })
 
   it('CONTROL: the same rank and the same set size on a current result DO publish', () => {
@@ -438,7 +482,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    expect(captionOf(faceLine())).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(popoverLine())).toBe('Driver 1 of 5 analysed')
   })
 
   it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {

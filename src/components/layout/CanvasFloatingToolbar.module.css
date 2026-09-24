@@ -91,6 +91,13 @@
      a panel edge is not one. */
   border: 1px solid var(--border-field);
   background: white;
+  /* ⭐ MUTED AT REST (contract v3.1 CHR-7: `.canvas-tools button{color:#646761}`;
+     DS v5 icons: "Icon-only button | text-text-light → text-text-body"). With
+     no colour set, every icon inherited the body's `text-text-header` (#262626,
+     15:1) — the darkest ink on the canvas, heavier than the card titles, so
+     the chrome outweighed the model. `--text-light` is 5.23:1 on white, well
+     clear of WCAG 1.4.11's 3:1 for a glyph. Info stays the ACTIVE colour only. */
+  color: var(--text-light);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -103,6 +110,7 @@
   background: var(--bg-panel-hover);
   border-color: var(--info);
   box-shadow: 0 0 0 1px var(--info-light);
+  color: var(--text-body);
 }
 
 /* Active state for mode toggle buttons */
@@ -166,6 +174,7 @@
   border-color: var(--border-default);
   transform: none;
   box-shadow: none;
+  color: var(--text-light);
 }
 
 .iconButton:focus-visible,
@@ -189,11 +198,16 @@
  * available on hover and to assistive technology, just not painted twice.
  *
  * Tabular figures so the number holds still as it changes.
+ *
+ * contract v3.1 CHR-7: body colour at weight 500, so the one text control reads
+ * as a VALUE beside the muted glyphs rather than inheriting their rest colour.
  */
 .readout {
   composes: iconButton;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  color: var(--text-body);
+  font-weight: 500;
 }
 
 .icon {

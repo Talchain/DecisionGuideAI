@@ -22,6 +22,12 @@
  * Bound by IDENTITY: test ids carrying the option and factor ids, the mark's kind
  * from `data-value-source`, exact labels. CLAIM SCOPE: jsdom proves DOM text and
  * attributes, never layout, wrapping, contrast or visibility.
+ *
+ * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
+ * change rows move "to the existing hover/focus popover"; the face keeps ONE
+ * line, the top change). The rows are read in the option's popover detail
+ * (`option-preview-detail-<id>`) by identity, and the face's one line is pinned
+ * to the SAME grammar — value, muted separator, then the mark.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -61,6 +67,7 @@ import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreC
 import { OptionNode } from '../OptionNode'
 import { VALUE_SOURCE_MARK_LABEL } from '../shared/valueSourceMark'
 import { buildOptionChangeRow } from '../shared/optionChangeRows'
+import { optionPreviewDetail } from './__helpers__/optionPreview'
 
 type N = { id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }
 const factor = (id: string, label: string, observedState: Record<string, unknown>): N => ({
@@ -158,8 +165,9 @@ function visibleText(el: Element): string {
   return (clone.textContent ?? '').replace(/\s+/g, ' ').trim()
 }
 
-function row(container: HTMLElement, opt: string, fid: string): HTMLElement {
-  const dd = container.querySelector<HTMLElement>(`[data-testid="option-change-row-${opt}-${fid}"]`)
+function row(_container: HTMLElement, opt: string, fid: string): HTMLElement {
+  // Bounded anatomy: the rows live in the option's popover detail — read THERE.
+  const dd = optionPreviewDetail(opt)?.querySelector<HTMLElement>(`[data-testid="option-change-row-${opt}-${fid}"]`) ?? null
   expect(dd, `row ${opt}/${fid}`).not.toBeNull()
   return dd!
 }
@@ -207,6 +215,23 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     expect(est!.getAttribute('title')).toBe(
       'Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it.',
     )
+  })
+
+  it('the FACE\'s one line keeps the same grammar: "→ 1 · brief", the mark set apart, named in the line\'s own text', () => {
+    const { container } = renderOption('opt-hire')
+    const line = container.querySelector<HTMLElement>('[data-testid="option-primary-change-opt-hire"]')
+    expect(line, 'the face line renders').not.toBeNull()
+    expect(optionPreviewDetail('opt-hire')!.contains(line!)).toBe(false)
+    expect(line!.getAttribute('data-factor-id')).toBe('fac-lead')
+    expect(visibleText(line!).startsWith('→ 1 · brief')).toBe(true)
+    expect(visibleText(line!)).not.toMatch(/\d\s+brief/)
+    const mark = line!.querySelector('[data-testid="option-primary-change-source-opt-hire"]')
+    expect(mark?.getAttribute('data-value-source')).toBe('brief')
+    // The separator is decorative and outside the mark.
+    const sep = mark!.previousElementSibling!
+    expect(sep.textContent?.trim()).toBe('·')
+    expect(sep.contains(mark)).toBe(false)
+    expect(line!.getAttribute('title')).toContain('Target: from your brief.')
   })
 
   it('CONTRAST — a user-set target still renders its "you" mark (no est.), inside the same cluster', () => {

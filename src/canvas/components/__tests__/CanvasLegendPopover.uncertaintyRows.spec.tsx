@@ -17,7 +17,11 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { CanvasLegendPopover } from '../CanvasLegendPopover'
-import { uncertaintyBandHalfWidth } from '../../utils/graphDisplayCalculations'
+import {
+  uncertaintyBandHalfWidth,
+  UNCERTAINTY_BAND_STROKE,
+  UNCERTAINTY_BAND_OPACITY,
+} from '../../utils/graphDisplayCalculations'
 
 afterEach(cleanup)
 
@@ -34,11 +38,38 @@ const ribbon = (testId: string): SVGLineElement | undefined =>
     .find(l => l.getAttribute('opacity') !== null)
 
 describe('the key teaches the uncertainty ribbon', () => {
-  it('renders all three rows, including the honesty row', () => {
+  /**
+   * contract v3.1 (E1/T08, 24 Sep 2026): the canvas paints the ribbon only on
+   * hover or selection now, so every row says WHEN it applies — a key that
+   * taught a resting band would describe a board the reader never sees.
+   */
+  it('renders all three rows, including the honesty row, each saying the band is transient', () => {
     open()
-    expect(screen.getByText('Tight band: this strength is fairly certain')).toBeDefined()
-    expect(screen.getByText('Wide band: this strength is a rough guess')).toBeDefined()
-    expect(screen.getByText('No band: nobody has said how certain this is')).toBeDefined()
+    expect(screen.getByText('Tight band (on hover or selection): this strength is fairly certain')).toBeDefined()
+    expect(screen.getByText('Wide band (on hover or selection): this strength is a rough guess')).toBeDefined()
+    expect(screen.getByText('No band (on hover or selection): nobody has said how certain this is')).toBeDefined()
+  })
+
+  /** contract v3.1 (E1/T08): the swatch paints with the canvas's own constants. */
+  it('paints each sample ribbon with the SAME neutral ink and opacity the canvas uses', () => {
+    open()
+    for (const testId of ['legend-uncertainty-tight', 'legend-uncertainty-wide']) {
+      const el = ribbon(testId)!
+      expect(el.getAttribute('stroke'), testId).toBe(UNCERTAINTY_BAND_STROKE)
+      expect(el.getAttribute('opacity'), testId).toBe(String(UNCERTAINTY_BAND_OPACITY))
+    }
+  })
+
+  /**
+   * contract v3.1 (CHR-13): the popover is an OVERLAY and sits one elevation
+   * step above the floating toolbar that opens it (DS v5 §4.4 "Overlays →
+   * bg-panel + shadow-3"), not on the toolbar's own `shadow-panel` plane.
+   */
+  it('sits on the overlay elevation, shadow-3', () => {
+    open()
+    const pop = screen.getByTestId('canvas-legend-popover')
+    expect(pop.className.split(/\s+/)).toContain('shadow-3')
+    expect(pop.className.split(/\s+/)).not.toContain('shadow-panel')
   })
 
   /**

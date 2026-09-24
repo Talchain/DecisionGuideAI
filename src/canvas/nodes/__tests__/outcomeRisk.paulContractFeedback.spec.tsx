@@ -23,6 +23,12 @@
  *
  * `NodePopover` is NOT mocked: hidden popover children are absent from the DOM,
  * so everything found in a resting render is on the card face.
+ *
+ * ⚠ RE-POINTED FOR ED #63 5809278282 (24 Sep 2026, bounded anatomy): in
+ * Standard view the authored context left the card for the popover, so the
+ * same-render CONTRAST controls below bind to the card's own state line
+ * instead; that line shows its short form with the full sentence in `sr-only`
+ * + `title` (`outcomeRisk.boundedAnatomy.spec` pins the popover side).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -123,6 +129,10 @@ const renderOutcome = (id: string, label: string, extra: Record<string, unknown>
     </ReactFlowProvider>,
   )
 
+/** A Standard primary line's two carriers: what a sighted reader sees, and the sentence announced. */
+const shown = (el: Element) => el.querySelector('[aria-hidden="true"]')?.textContent ?? null
+const announced = (el: Element) => el.querySelector('.sr-only')?.textContent ?? null
+
 const renderRisk = (data: Record<string, unknown> = {}) =>
   render(
     <ReactFlowProvider>
@@ -145,18 +155,35 @@ describe('contract v3.1 pt 8 — the Outcome card carries no option-reach count 
     for (const status of ['idle', 'complete']) {
       applyStore({ results: { status, report: null } })
       const { container, unmount } = renderOutcome(id, label, { description: `${label} context` })
-      // CONTRAST, same render: the card and its own authored state are there.
-      expect(screen.getByTestId('outcome-context-preview').textContent).toBe(`${label} context`)
+      // CONTRAST, same render: the card and its own state are there (ED
+      // 5809278282: the authored context moved to the popover, off the face).
+      expect(announced(screen.getByTestId('outcome-unquantified'))).toBe('Outcome not quantified')
+      expect(container.textContent).not.toContain(`${label} context`)
       expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
       expect(container.textContent).not.toMatch(/\boptions? connects? to this|alternatives connect|options? moves? this/i)
       unmount()
     }
   })
 
-  it('adds no filler line in place of the removed copy (point 13: no empty space)', () => {
+  /**
+   * ⚠ THIS CASE ASSERTED THE OPPOSITE UNTIL CONTRACT v3.1's OWN FIXTURE WAS
+   * APPLIED (OR-02 / RHY-09), AND THE OLD READING IS KEPT SO THE FLIP IS LEGIBLE.
+   * It read "adds no filler line in place of the removed copy (point 13: no
+   * empty space)" and asserted `not.toMatch(/not quantified|…/)`. Point 8 says
+   * "use that space for actual outcome state", and the v3.1 fixture renders
+   * exactly `<div class="small-state">Outcome not quantified</div>` for an
+   * outcome with no value. That is the outcome's OWN state, not filler, and not
+   * a placeholder for the count: the count stays gone, and no count-shaped
+   * zero-state ("No option moves this outcome") is invented.
+   */
+  it("the removed count is not replaced by a count-shaped line; the outcome's own state is (contract v3.1 OR-02)", () => {
     const { container } = renderOutcome('outcome-two', 'Margin')
     expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
-    expect(container.textContent).not.toMatch(/not quantified|alternatives connect|No option moves/i)
+    // ED 5809278282: short form shown, the fixture sentence announced (and on title/popover).
+    const line = screen.getByTestId('outcome-unquantified')
+    expect(shown(line)).toBe('Not quantified')
+    expect(announced(line)).toBe('Outcome not quantified')
+    expect(container.textContent).not.toMatch(/alternatives connect|No option moves/i)
   })
 })
 
@@ -171,7 +198,8 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
   it.each(['idle', 'complete'])('an outcome whose link is an unsettled Olumi estimate shows no strength row (%s)', (status) => {
     applyStore({ results: { status, report: null } })
     const { container } = renderOutcome('outcome-all', 'Revenue', { description: 'Recurring revenue next year' })
-    expect(screen.getByTestId('outcome-context-preview').textContent).toBe('Recurring revenue next year')
+    // CONTRAST, same render: the outcome's own state line (ED 5809278282 moved the context to the popover).
+    expect(shown(screen.getByTestId('outcome-unquantified'))).toBe('Not quantified')
     expect(screen.queryByTestId('outcome-strength-row')).toBeNull()
     expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
     expect(container.textContent).not.toMatch(/\d+%/)
@@ -187,9 +215,13 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
 
   it('a risk with a person-set link keeps its OWN unset statement and loses the strength row', () => {
     const { container } = renderRisk()
-    // CONTRAST: the risk's own state, exact copy, still on the face.
-    expect(screen.getByTestId('risk-exposure-unset').textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
-    expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet.')
+    // CONTRAST: the risk's own state, still on the face — ED 5809278282: the
+    // short form shown, the exact sentence announced (and on title/popover).
+    const line = screen.getByTestId('risk-exposure-unset')
+    expect(announced(line)).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(shown(line)).toBe('Not set yet')
+    // Contract v3.1 (OR-02): the fixture's state line has no full stop.
+    expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet')
     expect(screen.queryByTestId('risk-strength-row')).toBeNull()
     expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
     expect(container.textContent).not.toContain('50%')
@@ -197,7 +229,10 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
 
   it('a risk with its own likelihood and impact shows them, and no link row', () => {
     renderRisk({ probability: 0.3, impact: 'high' })
-    expect(screen.getByTestId('risk-exposure-line').textContent).toBe('Entered estimate · 30% likely · High impact')
+    // ED 5809278282: the figures are the line; the qualifier rides sr-only + title (+ popover).
+    const line = screen.getByTestId('risk-exposure-line')
+    expect(shown(line)).toBe('30% likely · High impact')
+    expect(announced(line)).toBe('Entered estimate · 30% likely · High impact')
     expect(screen.queryByTestId('risk-strength-row')).toBeNull()
   })
 
@@ -254,9 +289,10 @@ describe('Paul 23 Sep point 9 — risk uses the existing Danger treatment, no in
   })
 
   it.each([
-    [0.1, 'low', 'Low Risk'],
-    [0.5, 'medium', 'Medium Risk'],
-    [0.9, 'high', 'High Risk'],
+    // Sentence case (contract v3.1 T13).
+    [0.1, 'low', 'Low risk'],
+    [0.5, 'medium', 'Medium risk'],
+    [0.9, 'high', 'High risk'],
   ])('severity badge %s/%s is the design-system danger pill; the word carries the severity', (probability, impact, word) => {
     renderRisk({ probability, impact })
     const badge = screen.getByText(word)

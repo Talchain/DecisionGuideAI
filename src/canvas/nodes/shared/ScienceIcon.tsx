@@ -94,9 +94,17 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
            loss. Reaching 24 needs the container gap, which lives in five node
            files this change does not own — pinned as a known shortfall in
            `__tests__/canvasGlyphTargetScale.spec.tsx` rather than left silent. */
-        className={`nodrag nopan p-0 border-0 bg-transparent cursor-pointer inline-flex items-center justify-center ${CANVAS_GLYPH_SIZE_CLASSES[12]} ${colour}`}
+        /* ⭐ Contract v3.1 icon-button states (ICON-08; Paul 23 Sep pt 12:
+           "Icons need hover/focus labels"): Info with an info-soft ground on
+           hover AND keyboard focus, a focus ring, and the glance label on
+           focus as well as on hover — it opened on `mouseenter` only, so a
+           keyboard user reached the button and never its words. The box is
+           unchanged (`rounded` and the ring draw inside/around it). */
+        className={`nodrag nopan p-0 border-0 bg-transparent cursor-pointer inline-flex items-center justify-center rounded ${CANVAS_GLYPH_SIZE_CLASSES[12]} ${colour} hover:bg-info/10 hover:text-info focus-visible:bg-info/10 focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         onMouseEnter={() => setShowTip(true)}
         onMouseLeave={() => setShowTip(false)}
+        onFocus={() => setShowTip(true)}
+        onBlur={() => setShowTip(false)}
         onClick={handleClick}
         onPointerDown={(e) => e.stopPropagation()}
         aria-label={tooltip}

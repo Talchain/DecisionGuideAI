@@ -3,7 +3,8 @@
  * the real turn leg, the autosave slot, a fresh page and the boot restore
  * (Codex #1921 5804215687; RC #63 5803875794 P0 #3c).
  *
- * The card's "Goal only · your limits aren't in this share" reads
+ * The card's `Goal only` (on the share line, full meaning "your limits aren't
+ * in this share" in its name and tooltip — ED #63 5806207128 choice 3) reads
  * `results.report.producer_leader_permission.producer_cause`. The live
  * `analysis_state` envelope is session-local and NOT persisted, so a qualifier
  * read from it vanished on reload and on any later turn without the envelope.

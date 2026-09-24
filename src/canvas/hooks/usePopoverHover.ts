@@ -52,6 +52,23 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 const ENTER_DELAY = 300
 const LEAVE_DELAY = 100
 
+/**
+ * Is `target` inside this node's card OR its OWN portalled popover
+ * (`[data-node-popover="<react-flow node id>"]`, the identity `NodePopover`
+ * stamps and the keyboard path below reads)? Another node's popover is never
+ * owned, and an empty id owns nothing.
+ */
+export function isInsideOwnedSurface(nodeEl: Element, target: EventTarget | null): boolean {
+  if (!(target instanceof Node)) return false
+  if (nodeEl.contains(target)) return true
+  const el = target instanceof Element ? target : target.parentElement
+  if (!el) return false
+  const ownerId = nodeEl.closest('.react-flow__node')?.getAttribute('data-id') ?? ''
+  if (!ownerId) return false
+  const owner = el.closest('[data-node-popover]')
+  return owner !== null && owner.getAttribute('data-node-popover') === ownerId
+}
+
 export function usePopoverHover() {
   const [showPopover, setShowPopover] = useState(false)
   const enterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -73,11 +90,14 @@ export function usePopoverHover() {
     }
   }, [])
 
-  // Touch: close popover when tapping outside the node
+  // Touch: close popover when tapping outside the node — where the card's OWN
+  // portalled popover counts as inside (Codex CR 5810966650, 24 Sep 2026: the
+  // bounded anatomy moved `+N more` and the change rows into that portal, which
+  // renders under `document.body`; a tap on them closed the popover first).
   useEffect(() => {
     if (!showPopover || !isTouchRef.current) return
     const handler = (e: MouseEvent) => {
-      if (nodeElRef.current && !nodeElRef.current.contains(e.target as Node)) {
+      if (nodeElRef.current && !isInsideOwnedSurface(nodeElRef.current, e.target)) {
         setShowPopover(false)
       }
     }

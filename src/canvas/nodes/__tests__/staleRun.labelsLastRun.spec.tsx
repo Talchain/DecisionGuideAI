@@ -28,18 +28,31 @@
  * the bare `Influence N%` reduced line — all retired by the locked node-card
  * design, #1915) to the surfaces that now carry the same figure: the factor
  * card's `FactorDriverLine` (face + Detailed), its turning-point track and its
- * reduced line ("Driver N of M analysed"). The RULE is unchanged:
+ * reduced line ("Driver N of M analysed", ED #63 5806207128). The RULE is unchanged:
  * `changed` → shown and labelled; cannot-confirm → not labelled. Under the
  * locked design cannot-confirm also HIDES the analysis cues (spec §8), which
  * is ED 02:31Z Q2's "never manufacture a last-run claim".
+ *
+ * ⛔ CONTRACT v3.1 pt 5 (24 Sep 2026): the driver line is RANKED-ONLY. Its
+ * wording is ED #63 5806207128's "Driver N of M analysed" (M = the eligible
+ * analysed factors; stale form "Last run · Driver N of M analysed"), which
+ * retired pt 5's "ranked in this run". An unranked factor has no line to label;
+ * its AT-only "Not ranked in this run" statement carries the same label rule
+ * ("Last run · Not ranked").
  *
  * ⚠ WHAT THIS CANNOT PROVE (jsdom): layout. The label is inline text in
  * columns that are `shrink-0`, so it takes width from the bar beside it and
  * cannot add a line to the card by construction — but that is a reading of the
  * classes, not a measurement.
+ *
+ * ⭐ RE-POINTED FOR THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): "any stale
+ * run-derived figure shown on-card or in disclosure keeps `Last run ·`". The
+ * Standard driver line and turning point moved into the factor's popover, so
+ * their label rule is pinned THERE (bound by the popover's test id, and absent
+ * from the card face); absences are document-wide and so cover the popover.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -64,6 +77,20 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => displayMetadata),
 }))
 
+// ED 5809278282: the Standard findings live in the popover — transparent and
+// identity-bearing, so its content is observable and absences cover it.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="factor-node-popover">{children}</div>
+  ),
+}))
+/** A Standard finding: in the popover, never on the card face (ED 5809278282). */
+const inPopover = (testId: string) => {
+  const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+  expect(within(face).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
+  return within(screen.getByTestId('factor-node-popover')).getByTestId(testId)
+}
+
 const FACTOR_ID = 'fac_hiring_speed'
 const OTHER_FACTOR_ID = 'fac_delivery_capacity'
 
@@ -78,12 +105,20 @@ const USER_STATED = {
   observedState: { value: 0.4, source: 'user_override' },
 }
 
-const metadata = (rank: number | null, setSize: number | null, influence: number) => ({
+const metadata = (
+  rank: number | null,
+  setSize: number | null,
+  influence: number,
+  // The ranked count — the publication guard, distinct from the printed M (the
+  // analysed set, ED #63 5806207128).
+  rankedCount: number | null = 3,
+) => ({
   sensitivityRank: rank,
   influence,
   influenceProvenance: 'normalised_elasticity',
   influenceImportanceBasis: null,
   influenceSetSize: setSize,
+  influenceRankedCount: rankedCount,
   confidence: null,
   confidenceIsDefaulted: false,
   confidenceIsProvisional: false,
@@ -170,19 +205,20 @@ afterEach(() => {
 })
 
 describe('factor card, Standard view — the driver line', () => {
-  it('a stale run keeps the line and prefixes the caption "Last run · "', () => {
+  // ⛔ SUPERSEDED BY CONTRACT v3.1 pt 5 (was: the unranked line "Outcome
+  // sensitivity" + bar, labelled on a stale run). An unranked factor shows no
+  // line; its AT-only statement follows the same label rule.
+  it('an UNRANKED factor: "Not ranked in this run", and on a stale run "Last run · Not ranked" — never a line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    // FRESH: the locked design's unranked caption — the quantity's own noun.
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Outcome sensitivity')
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.getByTestId('factor-driver-not-ranked').textContent).toBe('Not ranked in this run')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    const line = screen.getByTestId('factor-driver-line')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Outcome sensitivity')
-    // The accessible name carries the same words the eye gets, and the figure.
-    expect(line.getAttribute('aria-label')).toMatch(/^Last run · Bar: outcome sensitivity, 62% of the strongest factor\./)
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.getByTestId('factor-driver-not-ranked').textContent).toBe('Last run · Not ranked')
   })
 
   it('a stale RANKED line keeps its rank and labels it — the retired "Key driver" badge’s rule, on the line that replaced it', () => {
@@ -190,13 +226,14 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 5 analysed')
+    // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
+    expect(inPopover('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 5 analysed')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
-    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 5 analysed\. /)
+    expect(inPopover('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 5 analysed\. /)
     // The badge stays retired on the stale arm too.
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
   })
@@ -206,7 +243,7 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(inPopover('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
   })
 
   it('cannot-confirm is NOT "changed" — no Last-run label, and no analysis cue (ED 02:31Z Q2)', () => {
@@ -227,11 +264,11 @@ describe('factor card — the turning-point track', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
+    expect(inPopover('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    const tp = screen.getByTestId('factor-turning-point')
+    const tp = inPopover('factor-turning-point')
     expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
     expect(tp.getAttribute('aria-label')).toMatch(/^Last run · Below 6\.5%, the model comparison changes\. /)
   })
@@ -239,14 +276,16 @@ describe('factor card — the turning-point track', () => {
 
 describe('factor card, Detailed view — the Detailed driver line', () => {
   it('a stale run keeps the line and labels its caption and accessible name', () => {
+    // Contract v3.1 pt 5: the line is ranked-only, so this pins the ranked arm.
+    displayMetadata = metadata(1, 5, 1)
     seedCompletedRun(UNVALUED, { viewMode: 'expert' })
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Outcome sensitivity')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 5 analysed')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Last run · Outcome sensitivity')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Last run · Driver 1 of 5 analysed')
     expect(screen.getByTestId('factor-driver-line-detail').getAttribute('aria-label')).toMatch(/^Last run · /)
   })
 })

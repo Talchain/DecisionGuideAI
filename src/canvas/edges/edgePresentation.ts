@@ -84,20 +84,32 @@ import {
 
 // ── Colour constants ────────────────────────────────────────────────────────
 
-/** Structural (decision→option, option→factor) edges: fixed grey, always. */
-export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
+/**
+ * Structural (decision→option, option→factor) edges: fixed grey, always.
+ *
+ * contract v3.1 (E11/T07, 24 Sep 2026): the contract's warm structural grey
+ * ("quiet and grey"), replacing the cool mid-grey that sat beside warm stone
+ * factor borders on every graph. Built from an EXISTING token (DS v5; Paul pt 9
+ * "no new colours"; `check-ds-compliance` refuses a new production hex): the
+ * muted-ink token at 50%, which composites on the canvas ground to within a
+ * few units of the contract's grey. Width 1 and no arrowhead are unchanged
+ * (rule `structural` below and `EDGE_DIRECTION_MARKER_RULES`).
+ */
+export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.5)'
 
 /**
  * The exception hue, reserved — see `resolveEdgeStroke` — for the ONE state that
  * earns it since 23 Sep 2026: Olumi's two review passes disagree about the SIGN.
  *
- * The value is the 70% mix it always was for this state; only the full-strength
- * sibling (`needs_user_input`) is gone. Exported so the legend's swatch draws
- * THIS value rather than a hand-typed `var(--semantic-warning)` beside it
- * (trap 12 — a key that restates the canvas's colour teaches one it may no
- * longer paint).
+ * ⭐ contract v3.1 (E12/T07, 24 Sep 2026; Paul 23 Sep point 9: "AI
+ * sign-disagreement = Warning/amber + `±`"): the Warning token itself, SOLID.
+ * It was a 70% mix with transparent, which rendered as a pale tint (#FCBC82 on
+ * the canvas, 1.46:1) rather than the Warning token, and because the arrowhead
+ * reads this same value the dispute line and its head went translucent and
+ * muddy wherever they crossed another edge. Exported so the legend's swatch and
+ * the arrowhead draw THIS value rather than a hand-typed copy (trap 12).
  */
-export const DIRECTION_DISPUTED_STROKE = 'color-mix(in srgb, var(--semantic-warning) 70%, transparent)'
+export const DIRECTION_DISPUTED_STROKE = 'var(--semantic-warning)'
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -265,8 +277,9 @@ export function resolveEdgeStroke(state: EdgePresentationState): EdgeStrokeDecis
     return {
       value:
         state.causalParams.direction === 'negative'
-          ? 'var(--semantic-danger, #ef4444)'
-          : 'var(--text-body, #3F3F3E)',
+          // contract v3.1 (T16): tokens only, no off-palette fallback hex.
+          ? 'var(--semantic-danger)'
+          : 'var(--text-body)',
       rule: 'lens_causal',
     }
   }
@@ -274,11 +287,11 @@ export function resolveEdgeStroke(state: EdgePresentationState): EdgeStrokeDecis
   if (state.lensMode === 'evidence' && state.evidenceClass !== null) {
     switch (state.evidenceClass) {
       case 'evidence':
-        return { value: 'var(--semantic-success, #22c55e)', rule: 'lens_evidence' }
+        return { value: 'var(--semantic-success)', rule: 'lens_evidence' }
       case 'assumed':
-        return { value: 'var(--semantic-warning, #eab308)', rule: 'lens_evidence' }
+        return { value: 'var(--semantic-warning)', rule: 'lens_evidence' }
       case 'unknown':
-        return { value: 'var(--semantic-danger, #ef4444)', rule: 'lens_evidence' }
+        return { value: 'var(--semantic-danger)', rule: 'lens_evidence' }
     }
     // An unrecognised class is not a claim we can paint; fall through.
   }
@@ -547,13 +560,24 @@ export function resolveEdgeDirectionMarker(
  * user's own deliberate choice". Below the legibility floor it shrinks with
  * everything else, which is the honest LOD rendering — structure without detail.
  * ⚠ No paint witness exists for any ratio in that sentence; it is arithmetic.
+ *
+ * ⭐ contract v3.1 (E7, 24 Sep 2026): 8 → 6. At 8 the head was 16 across × 12
+ * long in graph units — a broad, stubby ~67° apex, the same on a 1.5px line as
+ * on a 4px one. The contract's marker is `viewBox="0 0 6 6"`, path
+ * `M0 0 6 3 0 6Z`: length EQUAL to base, a ~53° apex, 8 × 8px on its default
+ * 2px line at 100%. At 6 this head is 12 × 12 graph units — 1:1 like the
+ * contract's, 6 × 6px at the 0.50 park and 7.8 × 7.8px at the 0.65 landing
+ * zoom. The LENGTH is untouched (it is derived from the glyph below, not from
+ * this constant), so the 2px glyph clearance is unchanged. Every "8px" /
+ * "16 units" figure in the history above describes the superseded base.
  */
-export const EDGE_ARROWHEAD_BASE_PX = 8
+export const EDGE_ARROWHEAD_BASE_PX = 6
 
 /**
  * ACROSS the path — the arrowhead's base. This is the legibility dimension: it
  * is what makes the mark visible as a mark against a 2px line, so it is the one
- * sized for the zoom bound. 16 graph units → 8px at the 0.50 park.
+ * sized for the zoom bound. 12 graph units → 6px at the 0.50 park (contract
+ * v3.1, E7; it was 16 → 8px).
  */
 export const EDGE_ARROWHEAD_FLOW_WIDTH = EDGE_ARROWHEAD_BASE_PX * MAX_LABEL_COUNTER_SCALE
 

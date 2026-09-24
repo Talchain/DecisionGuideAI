@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
@@ -101,18 +101,24 @@ describe('RiskNode', () => {
     expect(screen.getByLabelText(/risk node/i)).toBeDefined()
   })
 
-  it('keeps authored context compact and recovers the full description with the keyboard', async () => {
+  // ED #63 5809278282 (bounded anatomy): in Standard the preview moved off the
+  // card body to the node popover; the chevron still recovers the full text.
+  it('keeps authored context in the popover and recovers the full description with the keyboard', async () => {
     const description = 'A departure could interrupt account handovers and delay renewal conversations. '.repeat(5).trim()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
     const body = 'Keep the wider strategic context and unresolved disagreements visible.'
     const { container } = renderRisk({ description, body })
-    expect(screen.getByTestId('risk-context-preview')).toHaveTextContent(description)
+    expect(screen.queryByTestId('risk-context-preview')).toBeNull()
+    fireEvent.mouseEnter(container.firstElementChild as Element)
+    const preview = await screen.findByTestId('risk-popover-context')
+    expect(preview).toHaveTextContent(description)
+    expect(preview.closest('[data-node-popover]')).not.toBeNull()
+    fireEvent.mouseLeave(container.firstElementChild as Element)
     expect(container.querySelector('.node-description')).toBeNull()
     screen.getByRole('button', { name: 'Expand description' }).focus()
     await userEvent.keyboard('{Enter}')
     expect(container.querySelector('.node-description')).toHaveTextContent(description)
     expect(container.querySelector('.node-description')).toHaveTextContent(body)
-    expect(screen.getByTestId('risk-context-preview')).toHaveClass('group-aria-expanded:hidden')
     expect(screen.getByLabelText(/risk node:/i)).toHaveAttribute('aria-expanded', 'true')
   })
 
@@ -144,7 +150,7 @@ describe('RiskNode', () => {
   it.each([NaN, Infinity, -0.1, 1.1, '0.8'])('does not turn malformed probability %s into a risk estimate', (probability) => {
     renderRisk({ probability, impact: 'high' })
     expect(screen.queryByText(/% likely/)).toBeNull()
-    expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
+    expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
     expect(screen.getByText('Entered estimate · High impact')).toBeDefined()
   })
 
@@ -171,20 +177,21 @@ describe('RiskNode', () => {
   })
 
   // Severity badge
-  it('shows High Risk badge when probability is high and impact is high', () => {
+  // contract v3.1 T13: the badge is sentence case — "High risk", not "High Risk".
+  it('shows High risk badge when probability is high and impact is high', () => {
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByText('High Risk')).toBeDefined()
+    expect(screen.getByText('High risk')).toBeDefined()
   })
 
-  it('shows Low Risk badge when probability is low and impact is low', () => {
+  it('shows Low risk badge when probability is low and impact is low', () => {
     renderRisk({ probability: 0.1, impact: 'low' })
-    expect(screen.getByText('Low Risk')).toBeDefined()
+    expect(screen.getByText('Low risk')).toBeDefined()
   })
 
   it('does not show severity badge when probability and impact are absent', () => {
     renderRisk()
-    // Severity badge shows "High Risk", "Medium Risk", etc. — not the plain "Risk" type label
-    expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
+    // Severity badge shows "High risk", "Medium risk", etc. — not the plain "Risk" type label
+    expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
   })
 
   // P1.7 — severity badge visible in STANDARD view (was Expert/popover-only).
@@ -198,26 +205,35 @@ describe('RiskNode', () => {
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     const standard = renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
-    // Positive control in the SAME render: the entered exposure line is there.
-    expect(screen.getByText('Entered estimate · 90% likely · High impact')).toBeDefined()
+    expect(screen.queryByText(/^(High|Medium|Low) risk$/i)).toBeNull()
+    // Positive control in the SAME render: the entered exposure line is there
+    // (ED 5809278282: figures shown, the qualified sentence announced).
+    expect(screen.getByTestId('risk-exposure-line').querySelector('[aria-hidden="true"]')?.textContent).toBe('90% likely · High impact')
     standard.unmount()
 
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ viewMode: 'expert' }) as any)
     )
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByText('High Risk')).toBeDefined()
+    expect(screen.getByText('High risk')).toBeDefined()
   })
 
   // P1.7 — the defining probability × impact pair is shown in the body.
+  // ⚠ RE-POINTED FOR ED #63 5809278282 (bounded anatomy, one primary line): the
+  // pair is the line, figures first; `Entered estimate` left the VISIBLE line
+  // (43 characters cannot be one ~19-character landing line) and rides sr-only,
+  // `title` and the popover. The 9 Sep "no native tooltip" rule was about a
+  // qualifier that was visible; the title is now the sighted-mouse recovery
+  // for one that is not, so it is asserted PRESENT.
   it('shows the probability/impact pair in STANDARD view', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByText('Entered estimate · 90% likely · High impact')).toBeDefined()
-    expect(screen.getByText('Entered estimate · 90% likely · High impact')).not.toHaveAttribute('title')
+    const line = screen.getByTestId('risk-exposure-line')
+    expect(line.querySelector('[aria-hidden="true"]')?.textContent).toBe('90% likely · High impact')
+    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe('Entered estimate · 90% likely · High impact')
+    expect(line).toHaveAttribute('title', 'Entered estimate · 90% likely · High impact')
   })
 
   // P1.7 — honest absence: no fabricated pair when data is missing.
@@ -236,7 +252,9 @@ describe('RiskNode', () => {
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     renderRisk({ probability: 0.5 })
-    expect(screen.getByText('Entered estimate · 50% likely')).toBeDefined()
+    // ED 5809278282: figures shown, the qualified sentence announced (sr-only).
+    expect(screen.getByTestId('risk-exposure-line').querySelector('[aria-hidden="true"]')?.textContent).toBe('50% likely')
+    expect(screen.getByTestId('risk-primary-line-full').textContent).toBe('Entered estimate · 50% likely')
     expect(screen.queryByText(/impact/)).toBeNull()
   })
 

@@ -27,11 +27,8 @@ import type { Node, Edge } from '@xyflow/react'
 import { layoutGraph, solveLayoutNodeWidth } from '../utils/layout'
 import {
   NODE_CARD_MAX_W,
-  NODE_LAYOUT_MIN_W,
-  CANONICAL_LAYOUT_WIDTH,
-  NODE_SINGLE_ROW_FAIR_SHARE_W,
-  LAYOUT_PADDING_X,
-  MIN_GAP,
+  MAX_CARDS_PER_ROW,
+  REPEATED_CARD_W,
 } from '../utils/nodeLayoutConstants'
 
 /**
@@ -50,9 +47,17 @@ import {
  * future constants move changes what these tests exercise instead of quietly
  * stopping them exercising anything.
  */
-const SINGLE_ROW_CAP = Math.floor(
-  (CANONICAL_LAYOUT_WIDTH + MIN_GAP) / (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + MIN_GAP),
-)
+/*
+ * ⭐⭐ S4 (24 Sep 2026): THE CAP IS NOW A RULED COUNT, AND THE SINGLE WIDTH NO
+ * LONGER VARIES WITH THE GRAPH. Experience Design (#63 5806207128) replaced the
+ * fair-share gate with "rows above 5 cards wrap" and put every repeated card at
+ * one width (`REPEATED_CARD_W`) whether or not its row wraps ("split rows keep
+ * full card width"). So the single width — the one an unknown kind draws at —
+ * is the repeated width in EVERY cell of the matrix below. That is the ruling,
+ * and it is pinned as an equality in every cell rather than left as a
+ * discrimination the design deliberately removed.
+ */
+const SINGLE_ROW_CAP = MAX_CARDS_PER_ROW
 
 type Dir = 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
 const DIRS: Dir[] = ['DOWN', 'RIGHT', 'UP', 'LEFT']
@@ -110,8 +115,10 @@ describe('solveLayoutNodeWidth is exact', () => {
               solverMismatches++
               mismatches.push(`${direction} f=${factors} sp=${spacing} h=${heights}: ${actual} vs ${solved}`)
             }
-            // NEGATIVE CONTROL — see the header.
-            if (actual !== NODE_CARD_MAX_W) controlDisagreements++
+            // S4: every cell is the repeated width (see the header), and none is
+            // the retired maximum — counted, so a regression to the old width
+            // in ANY cell shows up.
+            if (actual !== REPEATED_CARD_W) controlDisagreements++
           }
         }
       }
@@ -120,25 +127,35 @@ describe('solveLayoutNodeWidth is exact', () => {
     expect(cells).toBe(DIRS.length * 12 * 3 * 2)
     expect(mismatches).toEqual([])
     expect(solverMismatches).toBe(0)
-    // The matrix must contain compressed graphs, or the agreement proves nothing.
-    expect(controlDisagreements).toBeGreaterThan(cells / 4)
+    expect(controlDisagreements, 'a cell drew at a width other than the ruled repeated width').toBe(0)
+    expect(REPEATED_CARD_W).not.toBe(NODE_CARD_MAX_W)
   }, 300_000)
 
   it('honours preserveLocked the same way layoutGraph does', async () => {
-    // `SINGLE_ROW_CAP + 3` factors, 3 locked. With preserveLocked the widest
-    // UNLOCKED tier is exactly the cap (single-row, MAX); without it, three
-    // more than the cap (split, MIN). The two must differ, or this test cannot
-    // observe the parameter at all — so that precondition is ASSERTED below
-    // rather than left to a fixture that a constants move can quietly blunt.
+    // `SINGLE_ROW_CAP + 3` factors, 3 locked. With preserveLocked the unlocked
+    // factor tier is exactly the cap (one row); without it, three more (it
+    // wraps). Under S4 that changes the PACKING, not the width — so the
+    // parameter is observed through the rows, and the width is pinned equal in
+    // both arms, with the solver agreeing with the layout in each.
     const { nodes, edges } = graph(SINGLE_ROW_CAP + 3, { lockedFactors: 3 })
     const withLock = await layoutGraph(nodes, edges, { direction: 'DOWN', preserveLocked: true })
     const withoutLock = await layoutGraph(nodes, edges, { direction: 'DOWN', preserveLocked: false })
 
-    // PIN THE PRECONDITION IN-TEST. Without this the `not.toBe` below passes
-    // vacuously the day both arms land on the same branch (CLAUDE.md trap 13b).
-    expect(withLock.layoutNodeWidth, 'the locked arm must be on the single-row branch').toBe(NODE_CARD_MAX_W)
-    expect(withoutLock.layoutNodeWidth, 'the unlocked arm must be on the split branch').toBe(NODE_LAYOUT_MIN_W)
-    expect(withLock.layoutNodeWidth).not.toBe(withoutLock.layoutNodeWidth)
+    // Locked nodes keep their saved position on write-back in BOTH arms, so the
+    // rows are read over the UNLOCKED factors only.
+    const unlockedFactorRows = (out: { nodes: Node[] }) =>
+      new Set(
+        out.nodes
+          .filter((n) => n.type === 'factor' && (n.data as { locked?: boolean }).locked !== true)
+          .map((n) => n.position.y),
+      ).size
+    // PIN THE PRECONDITION IN-TEST (CLAUDE.md trap 13b): the two arms really do
+    // differ, or this test cannot observe the parameter at all.
+    expect(unlockedFactorRows(withLock), 'the locked arm lays out the cap: one row').toBe(1)
+    expect(unlockedFactorRows(withoutLock), 'the unlocked arm is above the cap: it wraps').toBe(2)
+
+    expect(withLock.layoutNodeWidth).toBe(REPEATED_CARD_W)
+    expect(withoutLock.layoutNodeWidth).toBe(REPEATED_CARD_W)
     expect(solveLayoutNodeWidth(nodes, { direction: 'DOWN', preserveLocked: true })).toBe(
       withLock.layoutNodeWidth,
     )
@@ -148,20 +165,23 @@ describe('solveLayoutNodeWidth is exact', () => {
   }, 120_000)
 
   it('pins the reachable widths, so a silent constants drift is visible here', () => {
-    const down = new Set<number>()
-    for (let f = 1; f <= 12; f++) down.add(solveLayoutNodeWidth(graph(f).nodes, { direction: 'DOWN' }))
-    expect([...down].sort((a, b) => a - b)).toEqual([NODE_LAYOUT_MIN_W, NODE_CARD_MAX_W])
-    // The DOWN cliff, expressed at the derived cap rather than at a literal:
-    // a widest tier AT the cap stays at max, one above it compresses.
-    // (⚠ Was a hard-coded 6/7 and RED-ed when the budget moved the cap to 8.)
-    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP).nodes, { direction: 'DOWN' })).toBe(NODE_CARD_MAX_W)
-    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP + 1).nodes, { direction: 'DOWN' })).toBe(NODE_LAYOUT_MIN_W)
+    // S4: ONE reachable width in every direction and at every tier size — the
+    // cliff between a maximum and a floor is gone by ruling ("split rows keep
+    // full card width").
+    for (const direction of DIRS) {
+      const reachable = new Set<number>()
+      for (let f = 1; f <= 12; f++) reachable.add(solveLayoutNodeWidth(graph(f).nodes, { direction }))
+      expect([...reachable], direction).toEqual([REPEATED_CARD_W])
+    }
+    // …at the cap and one above it alike.
+    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP).nodes, { direction: 'DOWN' })).toBe(REPEATED_CARD_W)
+    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP + 1).nodes, { direction: 'DOWN' })).toBe(REPEATED_CARD_W)
   })
 
-  it('returns the max width for an empty / fully locked graph', () => {
-    expect(solveLayoutNodeWidth([], { direction: 'DOWN' })).toBe(NODE_CARD_MAX_W)
+  it('returns the repeated width for an empty / fully locked graph', () => {
+    expect(solveLayoutNodeWidth([], { direction: 'DOWN' })).toBe(REPEATED_CARD_W)
     const { nodes } = graph(9, { lockedFactors: 9 })
     const allLocked = nodes.map((n) => ({ ...n, data: { ...(n.data as object), locked: true } }))
-    expect(solveLayoutNodeWidth(allLocked, { direction: 'DOWN' })).toBe(NODE_CARD_MAX_W)
+    expect(solveLayoutNodeWidth(allLocked, { direction: 'DOWN' })).toBe(REPEATED_CARD_W)
   })
 })

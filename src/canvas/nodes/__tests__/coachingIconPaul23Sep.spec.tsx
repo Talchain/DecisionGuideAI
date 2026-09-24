@@ -299,8 +299,11 @@ describe('Paul 23 Sep point 9 — attention is Info blue, never warning; the bud
     renderCard('fac-conv')
     const marker = screen.getByTestId('attention-marker-fac-conv')
     const classes = [marker, ...Array.from(marker.querySelectorAll('*'))].map(e => e.getAttribute('class') ?? '').join(' ')
-    expect(classes).toContain('border-info')
-    expect(classes).toContain('text-info')
+    // Contract v3.1 (PILL-03 / ICON-05): the marker is the contract's
+    // BORDERLESS Info glyph (`.node .attention{border:0;color:var(--info)}`),
+    // so Info is carried by the glyph colour, not a border (was: `border-info`).
+    expect(marker.getAttribute('class')!.split(/\s+/)).toContain('text-info')
+    expect(classes).not.toMatch(/(^|\s)border(-|\s|$)/)
     expect(classes).not.toMatch(/warning|danger|amber|red-/)
     // Point 12 — the reason is its accessible name, not colour alone.
     expect(marker.getAttribute('aria-label')).toMatch(/^Worth reviewing:/)

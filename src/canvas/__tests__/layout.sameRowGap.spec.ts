@@ -48,9 +48,7 @@ import {
   COLLISION_GAP,
   LAYOUT_PADDING_X,
   LAYOUT_NODE_GAP,
-  CANONICAL_LAYOUT_WIDTH,
-  MIN_GAP,
-  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  MAX_CARDS_PER_ROW,
   NODE_CARD_MAX_W,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
@@ -105,18 +103,23 @@ const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> })
  * from the thing it describes is a guard agreeing with itself.
  */
 type Branch = 'single-row' | 'multi-row'
+/**
+ * ⭐ S4 (24 Sep 2026): THE CORPUS STRADDLES BOTH PACKINGS AGAIN. Rows above
+ * `MAX_CARDS_PER_ROW` wrap (ED #63 5806207128), so the three starters with an
+ * eight-factor tier are multi-row (4 + 4) and the two five-factor starters stay
+ * single-row. Recorded, not derived — the `describe` below proves each claim by
+ * node identity.
+ */
 const BRANCH_OF: Record<StarterId, Branch> = {
-  'vendor-selection': 'single-row',
-  'market-entry': 'single-row',
-  'build-vs-buy': 'single-row',
+  'vendor-selection': 'multi-row',
+  'market-entry': 'multi-row',
+  'build-vs-buy': 'multi-row',
   'headcount-allocation': 'single-row',
   'pricing-model': 'single-row',
 }
 
-/** The widest tier that still single-rows, derived rather than recalled. */
-const SINGLE_ROW_CAP = Math.floor(
-  (CANONICAL_LAYOUT_WIDTH + MIN_GAP) / (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + MIN_GAP),
-)
+/** The widest tier that still single-rows — the ruled count, imported. */
+const SINGLE_ROW_CAP = MAX_CARDS_PER_ROW
 
 /**
  * A synthetic tier of `n` same-tier factors — the multi-row arm, now that no
@@ -205,15 +208,17 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
   // The corpus must actually contain both branches, or "BOTH" in this
   // describe's name is a claim nothing checks (trap 13: an absence/coverage
   // claim needs a control).
-  it('⚠ the shipped corpus is ENTIRELY single-row, and the multi-row arm is synthetic', async () => {
+  it('⭐ the shipped corpus straddles BOTH packings again (S4), and the synthetic arm still reaches the split', async () => {
     /**
      * "BOTH" in this describe's name is a claim, so it is checked (trap 13: a
-     * coverage claim needs a control). It used to be satisfied by the starters
-     * alone; since the budget move it is not, and the honest form of that is to
-     * assert the new fact rather than to keep a table that claims otherwise.
+     * coverage claim needs a control). From 12 Sep to S4 it was false — every
+     * starter single-rowed and the multi-row arm was synthetic only. S4's
+     * five-card cap puts the eight-factor starters back on the multi-row
+     * packing, so the corpus covers both, and the synthetic arm stays as a
+     * boundary control.
      */
     const covered = new Set(Object.values(BRANCH_OF))
-    expect([...covered]).toEqual(['single-row'])
+    expect([...covered].sort()).toEqual(['multi-row', 'single-row'])
 
     // …so the multi-row branch is reached synthetically, and it is REACHED —
     // asserted here rather than assumed, because a synthetic that quietly
@@ -320,7 +325,7 @@ describe('the branches this suite claims to straddle are the branches it exercis
     expect(BRANCH_OF['headcount-allocation']).toBe('single-row')
   })
 
-  it('⭐ vendor-selection (8-wide tier) now holds its factor tier on ONE row', async () => {
+  it('⭐ vendor-selection (8-wide tier) wraps its factor tier 4 + 4 (S4)', async () => {
     /**
      * ⚠ THIS ASSERTION IS INVERTED FROM WHAT IT WAS, AND THE INVERSION IS THE
      * DELIVERABLE. It read `toBeGreaterThan(1)` — an eight-wide tier splitting
@@ -331,12 +336,17 @@ describe('the branches this suite claims to straddle are the branches it exercis
      * Kept pointed at the same eight node ids so the claim is still bound by
      * IDENTITY rather than by a count that some other tier could satisfy.
      */
+    /*
+     * ⚠ INVERTED AGAIN, BY RULING. From 12 Sep this held the eight on one row
+     * (the 1482 budget's fix for portrait models). ED S4 caps a row at five, so
+     * the eight wrap into two balanced sub-rows — still the same eight ids, so
+     * the claim stays bound by identity.
+     */
     const rects = await layOut('vendor-selection')
-    const ys = new Set(
-      FACTOR_TIER_OF_VENDOR_SELECTION.map((nid) => rects.find((r) => r.id === nid)!.y),
-    )
-    expect(ys.size, 'expected the single-row branch').toBe(1)
-    expect(BRANCH_OF['vendor-selection']).toBe('single-row')
+    const ys = [...new Set(FACTOR_TIER_OF_VENDOR_SELECTION.map((nid) => rects.find((r) => r.id === nid)!.y))].sort((a, b) => a - b)
+    expect(ys.length, 'expected the multi-row packing').toBe(2)
+    expect(ys.map((y) => FACTOR_TIER_OF_VENDOR_SELECTION.filter((nid) => rects.find((r) => r.id === nid)!.y === y).length)).toEqual([4, 4])
+    expect(BRANCH_OF['vendor-selection']).toBe('multi-row')
   })
 })
 

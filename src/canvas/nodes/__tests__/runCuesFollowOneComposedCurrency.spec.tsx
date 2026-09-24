@@ -22,9 +22,14 @@
  * held constant — one completed report, locally fresh fields, a compatible-units
  * `flip_reason: 'found'` entry. `staleRun.labelsLastRun.spec` seeds
  * `analysisStateV1: null`, so it cannot see this conflict.
+ *
+ * ⭐ RE-POINTED FOR THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): in the
+ * Standard view both cues moved off the card body into the factor's popover,
+ * so the shown cases bind them INSIDE the popover (and absent from the face),
+ * and the withheld cases stay document-wide — which now covers the popover.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { useCanvasStore } from '../../store'
@@ -42,12 +47,27 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => displayMetadata),
 }))
 
+// ED 5809278282: the cues live in the Standard popover — transparent and
+// identity-bearing, so its content is observable and absences cover it.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="factor-node-popover">{children}</div>
+  ),
+}))
+const face = () => screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+/** A run cue: in the popover, never on the card face (ED 5809278282). */
+const cue = (testId: string) => {
+  expect(within(face()).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
+  return within(screen.getByTestId('factor-node-popover')).getByTestId(testId)
+}
+
 const FACTOR_ID = 'fac_hiring_speed'
 const UNVALUED = { label: 'Hiring speed', type: 'factor', category: 'external' }
 
 const RANKED = {
   sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity',
-  influenceImportanceBasis: null, influenceSetSize: 5, confidence: null,
+  // Contract v3.1 pt 5: the printed M is the ranked count (3), not the set (5).
+  influenceImportanceBasis: null, influenceSetSize: 5, influenceRankedCount: 3, confidence: null,
   confidenceIsDefaulted: false, confidenceIsProvisional: false, inSensitivityAnalysis: true,
   achievementProbability: null, achievementProbabilityIsModelledBasis: false,
   stabilityPercentage: null, winRate: null, isResultsMode: true, predictedOutcome: null,
@@ -122,20 +142,20 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
     seed('complete_current')
     renderFactor()
     expect(semantic()).toBe('current')
-    const caption = screen.getByTestId('factor-driver-line-caption').textContent ?? ''
-    expect(caption).toMatch(/Driver 1 of 5/)
+    const caption = cue('factor-driver-line-caption').textContent ?? ''
+    expect(caption).toBe('Driver 1 of 5 analysed')
     expect(caption).not.toMatch(/Last run/)
-    expect(screen.getByTestId('factor-turning-point')).toBeInTheDocument()
-    expect(screen.getByTestId('factor-turning-point').textContent ?? '').not.toMatch(/Last run/)
+    expect(cue('factor-turning-point')).toBeInTheDocument()
+    expect(cue('factor-turning-point').textContent ?? '').not.toMatch(/Last run/)
   })
 
   it('wire complete_stale → cues shown AND labelled "Last run ·" (visible + accessible)', () => {
     seed('complete_stale')
     renderFactor()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent ?? '').toMatch(/^Last run · /)
-    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label') ?? '').toMatch(/^Last run · /)
-    expect(screen.getByTestId('factor-turning-point').textContent ?? '').toMatch(/Last run/)
+    expect(cue('factor-driver-line-caption').textContent ?? '').toMatch(/^Last run · /)
+    expect(cue('factor-driver-line').getAttribute('aria-label') ?? '').toMatch(/^Last run · /)
+    expect(cue('factor-turning-point').textContent ?? '').toMatch(/Last run/)
   })
 
   for (const kind of ['refused', 'unknown_degraded'] as const) {
@@ -149,6 +169,8 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
       // Nor any other run-derived claim in words: an unconfirmed run licenses no
       // turning-point sentence, including a "no turning point" one.
       expect(document.body.textContent ?? '').not.toMatch(/turning point|Driver \d+ of \d+/i)
+      // Contract v3.1 pt 5: nor a "Not ranked" claim — no run is vouched for.
+      expect(screen.queryByTestId('factor-driver-not-ranked')).not.toBeInTheDocument()
     })
   }
 
@@ -156,8 +178,8 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
     seed(null)
     renderFactor()
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line')).toBeInTheDocument()
-    expect(screen.getByTestId('factor-turning-point')).toBeInTheDocument()
+    expect(cue('factor-driver-line')).toBeInTheDocument()
+    expect(cue('factor-turning-point')).toBeInTheDocument()
   })
 })
 

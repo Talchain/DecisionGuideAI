@@ -180,6 +180,17 @@ describe('the est. mark survives the zoom that hides the card body', () => {
     expect(mark.className).not.toContain('truncate')
     expect(text.contains(mark)).toBe(false)
   })
+
+  it('⭐ contract v3.1 T15 — on the line rung\'s KIND FILL the mark is body ink (text ≥ 4.5:1 on its actual ground)', () => {
+    renderAtLineRung(INFERRED)
+    // Precondition: the card really is on its kind fill at this rung.
+    const card = screen.getAllByRole('group')[0]
+    expect(card.className.split(/\s+/).some(c => /^bg-[a-z]+-light$/.test(c))).toBe(true)
+    const t = screen.getByTestId('node-lod-estimate-mark').className.split(/\s+/)
+    // `text-light` measures 3.05–4.26:1 on the six light fills; `text-body` 6.09–8.51:1.
+    expect(t).toContain('text-text-body')
+    expect(t).not.toContain('text-text-light')
+  })
 })
 
 describe('the mark names the factor’s own value and no other number', () => {
@@ -208,6 +219,7 @@ describe('the mark names the factor’s own value and no other number', () => {
       } as never,
       facts: { driverRank: { rank: 1, setSize: 4 } },
     })
+    // ED #63 5806207128 wording ("Driver N of M analysed").
     expect(detail.text, 'the influence arm produced no line — fixture is vacuous').toBe(
       'Driver 1 of 4 analysed',
     )

@@ -8,9 +8,9 @@ import {
   DEFAULT_NODE_HEIGHT,
   CANVAS_MARGIN,
   CANONICAL_LAYOUT_WIDTH,
-  NODE_SINGLE_ROW_FAIR_SHARE_W,
-  MIN_GAP,
   LAYOUT_NODE_GAP,
+  REPEATED_CARD_W,
+  ROW_PROMPT_W,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -302,29 +302,14 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('4-factor tier: max-single fires; the row OVERRUNS the canonical budget (regression-lock for NODE_CARD_MAX_W=320)', async () => {
-    // After restoring NODE_CARD_MAX_W to 320 and tightening the default
-    // spacing to 15 (chain 60 → 30 → 20 → 15), a 4-node tier falls into the
-    // max-single branch and the rendered row visibly overruns the canonical
-    // budget it was admitted against — the DOWN-branch defect recorded in
-    // `layout.ts`'s header, pinned here rather than described. The pre-ELK `Math.max(20, spacing)` floor in
-    // layout.ts clamps effective spacing to 20 even when the caller passes
-    // 15, so the rendered last-edge stays at 1436 (was 1466 at spacing=30,
-    // 1556 at spacing=60). Math:
-    //
-    //   effectiveSpacing = Math.max(20, SPACING) = 20
-    //   rightEdge = CANVAS_MARGIN
-    //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + effectiveSpacing)
-    //             + NODE_CARD_MAX_W
-    //             = 24 + 3 * (320 + 24 + 20) + 320
-    //             = 24 + 3 * 364 + 320
-    //             = 1436
-    //
-    // 1436 > 1185 → 251px past the budget the branch was chosen against. The test
-    // exercises the production-default spacing path by passing SPACING that
-    // matches the layoutGraph default; EFFECTIVE_SPACING below makes the
-    // pre-ELK floor explicit in the assertion so a future change to either
-    // value surfaces here.
+  it('4-factor tier (S4): one row of repeated cards, and WITH its row-end prompt slot it fits the canonical budget', async () => {
+    // ⭐ S4 (ED #63 5806207128 / 5806266691). This was a regression-lock on the
+    // DOWN-branch defect: a four-card row of 320s overran the budget it was
+    // admitted against. S4 narrows repeated cards to `REPEATED_CARD_W` and puts
+    // the 160-unit row-end prompt INSIDE the row budget, so the same tier now
+    // fits it — pinned symbolically, from the shipped constants, so a constant
+    // move surfaces here by name. (A five-card row with its prompt still
+    // overruns; `laptopFit.arithmetic.spec.ts` states that.)
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -338,71 +323,38 @@ describe('ELK Layout', () => {
     ]
     const SPACING = 15
     // ⚠ The floor was a hand-copied literal `20`. `layout.ts` now names it
-    // `LAYOUT_NODE_GAP`, so read it — a mirror here RED-ed with a bare
-    // `expected 1792 to be 1756` when the floor was raised (CLAUDE.md trap 12).
+    // `LAYOUT_NODE_GAP`, so read it (CLAUDE.md trap 12).
     const EFFECTIVE_SPACING = Math.max(LAYOUT_NODE_GAP, SPACING)
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
-      nodes,
-      edges,
-      { spacing: SPACING },
-    )
+    const { nodes: laid, layoutNodeWidth, layoutCardWidths } = await layoutGraph(nodes, edges, { spacing: SPACING })
 
-    // max-single fires: unclamped = floor((CANONICAL_LAYOUT_WIDTH - 3*MIN_GAP)/4)
-    //                             = floor((1185 - 45)/4) = 285 ≥ 164.
-    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+    expect(layoutNodeWidth).toBe(REPEATED_CARD_W)
+    expect(layoutCardWidths.factor).toBe(REPEATED_CARD_W)
 
-    const factors = laid
-      .filter(n => n.type === 'factor')
-      .sort((a, b) => a.position.x - b.position.x)
+    const factors = laid.filter(n => n.type === 'factor').sort((a, b) => a.position.x - b.position.x)
     expect(factors).toHaveLength(4)
+    expect(new Set(factors.map(f => f.position.y)).size, 'four cards stay on one row').toBe(1)
 
-    // Symbolic placement formula — resilient to future constant tweaks.
-    const lastVisibleRightEdge = factors[3].position.x + NODE_CARD_MAX_W
+    // The factor block (cards + prompt slot) is the widest on this board, so its
+    // first card is the board's leftmost node and sits at CANVAS_MARGIN.
+    expect(factors[0].position.x).toBe(CANVAS_MARGIN)
+    const lastVisibleRightEdge = factors[3].position.x + REPEATED_CARD_W
     expect(lastVisibleRightEdge).toBe(
-      CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
+      CANVAS_MARGIN + 3 * (REPEATED_CARD_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + REPEATED_CARD_W,
     )
-
-    // Outcome: the row overruns the budget the solver admitted it against.
-    // If any contributing constant changes such that the rendered row now
-    // fits the budget (or worse, gets clipped to min-width via a
-    // re-introduced smarter threshold), this assertion flips and forces a
-    // deliberate review.
-    expect(lastVisibleRightEdge).toBeGreaterThan(CANONICAL_LAYOUT_WIDTH)
+    // …and the prompt that ends the row, one card-gap later, still lands inside
+    // the budget the row was planned against.
+    const promptRight = lastVisibleRightEdge + LAYOUT_PADDING_X + EFFECTIVE_SPACING + ROW_PROMPT_W
+    expect(promptRight - CANVAS_MARGIN).toBeLessThanOrEqual(CANONICAL_LAYOUT_WIDTH)
   })
 
-  it('the single-row cap is SIX at the canonical budget, and MIN_GAP is the knob that moves it', async () => {
-    // ⚠ RE-EXPRESSED, AND THE REASON MATTERS. This was a MIN_GAP behaviour-flip
-    // lock: it drove a 7-factor tier at a 1500px canvas and asserted that
-    // MIN_GAP=15 (vs the historic 30) flipped it onto the max-single branch.
-    // `layoutGraph` no longer takes a canvas (founder ruling R1), and at the
-    // pinned budget MIN_GAP 15 and 30 give the SAME single-row cap:
-    //   cap = floor((AW + MIN_GAP) / (FAIR_SHARE + PADDING_X + MIN_GAP))
-    //   MIN_GAP=15 → floor(1200/179) = 6      MIN_GAP=30 → floor(1215/194) = 6
-    // So no tier count can discriminate 15 from 30 any more, and a test written
-    // as though one could would be asserting a flip that cannot happen.
-    //
-    // What is locked instead: the CAP ITSELF, derived from the shipped constants
-    // rather than recorded, plus a demonstration that the derivation is still
-    // SENSITIVE to MIN_GAP (at 60 the cap drops to 5). Nothing is lost by the
-    // change: for a DOWN layout MIN_GAP only ever enters through this threshold,
-    // so a MIN_GAP move that does not shift the cap does not change any layout.
-    const singleRowCap = (minGap: number): number =>
-      Math.floor(
-        (CANONICAL_LAYOUT_WIDTH + minGap) /
-          (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + minGap),
-      )
-    // ⚠ 6 → 8 (12 Sep 2026): `CANONICAL_LAYOUT_WIDTH` 1185 → 1482, so a seven-
-    // and an eight-wide tier now single-row. That is the change, not a side
-    // effect — see the extent table on the constant.
-    expect(singleRowCap(MIN_GAP)).toBe(8)
-    // The derivation DISCRIMINATES — without this the assertion above could be
-    // satisfied by a formula that ignores MIN_GAP entirely (trap 20). Widening
-    // the gap must REDUCE the cap, and it must do so monotonically rather than
-    // merely differ at one point.
-    expect(singleRowCap(60)).toBe(6)
-    expect(singleRowCap(100)).toBe(5)
-    expect(singleRowCap(100)).toBeLessThan(singleRowCap(60))
-    expect(singleRowCap(60)).not.toBe(singleRowCap(MIN_GAP))
+  it('a six-factor tier wraps 3 + 3 (S4), and the spacing no longer moves the packing', async () => {
+    // ⚠ RE-EXPRESSED FOR S4. This pinned the single-row cap of the retired
+    // fair-share gate (8 at the 1482 budget) and showed `MIN_GAP` could move it.
+    // ED replaced that gate with a COUNT — rows above `MAX_CARDS_PER_ROW` wrap
+    // into balanced sub-rows (6→3+3) — and `MIN_GAP` is retired. So the claim
+    // that replaces it: six wraps to 3 + 3 at the default spacing AND at a much
+    // wider one (the count is the only input), and within a sub-row the stride is
+    // the card plus the effective spacing.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -414,39 +366,22 @@ describe('ELK Layout', () => {
       makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'), makeEdge('e4', 'o1', 'f3'),
       makeEdge('e5', 'o1', 'f4'), makeEdge('e6', 'o1', 'f5'), makeEdge('e7', 'o1', 'f6'),
     ]
-    const SPACING = 15
-    // ⚠ The floor was a hand-copied literal `20`. `layout.ts` now names it
-    // `LAYOUT_NODE_GAP`, so read it — a mirror here RED-ed with a bare
-    // `expected 1792 to be 1756` when the floor was raised (CLAUDE.md trap 12).
-    const EFFECTIVE_SPACING = Math.max(LAYOUT_NODE_GAP, SPACING)
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
-      nodes,
-      edges,
-      { spacing: SPACING },
-    )
-
-    // …and the REAL layout agrees with the derivation: a 6-wide tier is a
-    // single row of max-width cards.
-    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
-
-    const factors = laid
-      .filter(n => n.type === 'factor')
-      .sort((a, b) => a.position.x - b.position.x)
-    expect(factors).toHaveLength(6)
-
-    // Single-row placement formula, derived below rather than restated:
-    //   rightEdge = CANVAS_MARGIN + 5 * (cardMax + padX + gap) + cardMax.
-    const lastVisibleRightEdge = factors[5].position.x + NODE_CARD_MAX_W
-    expect(lastVisibleRightEdge).toBe(
-      CANVAS_MARGIN + 5 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
-    )
-    expect(lastVisibleRightEdge).toBeGreaterThan(CANONICAL_LAYOUT_WIDTH)
+    for (const SPACING of [15, 60]) {
+      const EFFECTIVE_SPACING = Math.max(LAYOUT_NODE_GAP, SPACING)
+      const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, { spacing: SPACING })
+      expect(layoutNodeWidth).toBe(REPEATED_CARD_W)
+      const factors = laid.filter(n => n.type === 'factor')
+      const rows = [...new Set(factors.map(f => f.position.y))].sort((a, b) => a - b)
+      expect(rows.map(y => factors.filter(f => f.position.y === y).length), `spacing ${SPACING}`).toEqual([3, 3])
+      const firstRow = factors.filter(f => f.position.y === rows[0]).sort((a, b) => a.position.x - b.position.x)
+      expect(firstRow[1].position.x - firstRow[0].position.x).toBe(REPEATED_CARD_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING)
+    }
   })
 
-  it('nodeW stays at NODE_CARD_MAX_W when widest tier overflows the viewport', async () => {
-    // 5 factors previously compressed every node to ~241px. New policy: pin
-    // every node to NODE_CARD_MAX_W and overflow horizontally. 5 <= 6, so this
-    // is the single-row branch against the canonical budget.
+  it('nodeW is the repeated-card width for a five-wide tier — not compressed below it, not widened past it', async () => {
+    // 5 factors once compressed every node to ~241px; later every node was pinned
+    // to NODE_CARD_MAX_W. S4 (ED #63): repeated cards rest at `REPEATED_CARD_W`
+    // and a five-card tier stays on one row.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -461,7 +396,7 @@ describe('ELK Layout', () => {
       makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {})
-    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+    expect(layoutNodeWidth).toBe(REPEATED_CARD_W)
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
       expect(Number.isFinite(n.position.y)).toBe(true)
@@ -513,12 +448,13 @@ describe('ELK Layout', () => {
     const maxGap = Math.max(...allGaps)
     expect(maxGap - minGap).toBeLessThanOrEqual(2)
 
-    // ⛔ THE DISCRIMINATING HALF. Subtracting a per-tier width could make ANY
-    // two strides agree, so on its own the assertion above would have become a
-    // tautology the moment the widths became per-tier. This pins that the two
-    // tiers genuinely DO differ in width, so the subtraction is doing real work
-    // and the gap agreement is a measurement rather than an artefact.
-    expect(widths.option).toBeGreaterThan(widths.factor)
+    // ⭐ S4: options and factors are ONE width again (ED #63: repeated cards at
+    // `REPEATED_CARD_W`), so the subtraction above cannot be manufacturing the
+    // agreement — equal gaps now also means equal STRIDES, asserted directly on
+    // the raw positions, which is the stronger of the two claims.
+    expect(widths.option).toBe(widths.factor)
+    const rawStrides = [...gapsFor(['o1', 'o2', 'o3']), ...gapsFor(['f1', 'f2', 'f3', 'f4', 'f5'])]
+    expect(Math.max(...rawStrides) - Math.min(...rawStrides)).toBeLessThanOrEqual(2)
   })
 
   it('aligns tier centres on a shared global anchor', async () => {
