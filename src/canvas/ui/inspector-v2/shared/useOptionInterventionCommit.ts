@@ -53,9 +53,6 @@ import {
 } from '../../../hooks/useModelEditAuthority'
 import type { SystemEventSendSettlementDetail } from '../../../conversation/settleSystemEventSend'
 import { isDisplaySafeReason } from '../../../conversation/ceeRecovery'
-import { useCanvasStore } from '../../../store'
-import { unwrapInterventionValue } from '../../../utils/labelUtils'
-import { classifyInterventionProvenance } from '../../../domain/valueProvenance'
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -118,32 +115,18 @@ export const OPTION_INTERVENTION_NOT_SAVED_DECLINED =
   'Not saved · this change was refused, so the model is unchanged.'
 
 /**
- * ⭐ `refused` / `declined` ON A STORED TARGET WITH NO RECORDED SOURCE — CEE's
- * `invalid_existing_intervention`. The reason text is OpenAI Connected's
- * (their answer to OC-1 on #63), verbatim.
+ * ⛔ NO INFERRED CAUSE (Codex CHANGES_REQUIRED 5807262127, #1930).
  *
- * ⚠⚠ HOW THIS SURFACE KNOWS, BECAUSE THE WIRE DOES NOT SAY. At CEE staging
- * `778f1fde80636c40a4928ec064a43b87350c1279` the 422 carries ONLY
- * `details.reason: 'system_event_refused_no_write'` (`orchestrator/route-v2.ts`
- * 3516-3530); the specific cause (`outcome.reason`) is logged at
- * `system-events/dispatch.ts` ~2247-2260 and NOT returned. So the cause is read
- * off the one thing CEE's writer tests: the entry being REPLACED.
- * `system-events/option-intervention-edit.ts` parses it with
- * `ExistingInterventionRead`, whose `source` is REQUIRED and must be one of
- * `InterventionV3`'s three literals — the same three, and only those,
- * `classifyInterventionProvenance` accepts. An entry outside that set is
- * refused `invalid_existing_intervention` every time. So when the option's own
- * stored entry carries no recognised source, the sentence is true of it
- * whichever gate CEE reached first: that value has no recorded source, and
- * CEE's writer will not replace it.
- *
- * ⛔ USED ONLY WITHOUT PRODUCER PROSE. When the envelope ever carries a
- * display-safe reason, the producer's own words win over this inference.
- * ⛔ AND ONLY FOR `declined` — never for a conflict, a transport failure or an
- * unconfirmed write, where the entry's source is not what decided anything.
+ * A CEE 422 carrying `details.reason: 'system_event_refused_no_write'` proves NO
+ * WRITE, not WHY: `prepareOptionInterventionEdit` can refuse for
+ * `canonical_graph_unavailable`, `unresolved_identity`,
+ * `unresolved_effect_relationship` or `noncanonical_intervention_source`
+ * before it ever reads the existing cell's source. A locally source-less row is
+ * therefore NOT evidence of the cause, and this surface no longer promotes it
+ * to one. A decline reads the generic line (plus the producer's own words when
+ * they are display-safe); a specific cause returns only when CEE states it
+ * (routed on #63, 5807024712).
  */
-export const OPTION_INTERVENTION_NOT_SAVED_UNSOURCED =
-  "Not saved · this example value has no recorded source yet, so it can't be replaced."
 
 /**
  * `unverified` — a write is NOT ruled out. It may claim neither saved nor
@@ -207,27 +190,11 @@ export interface OptionInterventionCommit {
 
 type Described = Pick<OptionInterventionUnapplied, 'state' | 'message' | 'retryable'>
 
-/**
- * Does the stored entry this edit would REPLACE carry a source CEE's writer
- * accepts? `null` when there is no stored entry to replace (nothing to decide).
- * Read at COMMIT time, from this option's own record — the carrier CEE's writer
- * reads — never from `analysis_ready`, whose bare numbers carry no stamp at all.
- */
-function storedTargetHasRecordedSource(nodeId: string | null, factorId: string): boolean | null {
-  if (!nodeId) return null
-  const node = useCanvasStore.getState().nodes.find(n => n.id === nodeId)
-  const stored = (node?.data as Record<string, unknown> | undefined)?.interventions
-  if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return null
-  if (!Object.prototype.hasOwnProperty.call(stored, factorId)) return null
-  const { source } = unwrapInterventionValue((stored as Record<string, unknown>)[factorId])
-  return classifyInterventionProvenance(source) !== null
-}
 
 /** Every non-`sent` settlement, mapped once. `sent`/`queued` keep waiting. */
 function describeSettlement(
   settlement: Exclude<OptionInterventionSendSettlement, 'sent' | 'queued'>,
   detail: SystemEventSendSettlementDetail,
-  storedSourceRecorded: boolean | null,
 ): Described {
   if (settlement === 'blocked') {
     return { state: 'Not sent', message: OPTION_INTERVENTION_BLOCKED, retryable: true }
@@ -236,12 +203,9 @@ function describeSettlement(
     if (detail.refusal !== 'declined') {
       return { state: 'Not saved', message: OPTION_INTERVENTION_NOT_SAVED_CONFLICT, retryable: false }
     }
-    const producerSaidWhy = detail.reason !== undefined && isDisplaySafeReason(detail.reason)
     return {
       state: 'Not saved',
-      message: !producerSaidWhy && storedSourceRecorded === false
-        ? OPTION_INTERVENTION_NOT_SAVED_UNSOURCED
-        : optionInterventionDeclinedNotice(detail.reason),
+      message: optionInterventionDeclinedNotice(detail.reason),
       retryable: false,
     }
   }
@@ -263,8 +227,6 @@ export function useOptionInterventionCommit(nodeId: string | null): OptionInterv
   const commit = useCallback(
     (factorId: string, value: number): OptionInterventionProposalOutcome => {
       const attempt = ++attemptRef.current
-      // Read BEFORE the send: it is the entry this request asks CEE to replace.
-      const storedSourceRecorded = storedTargetHasRecordedSource(nodeId, factorId)
       setPending({ factorId, value })
       setUnapplied(null)
       const outcome = authority.proposeOptionIntervention(factorId, value, {
@@ -274,7 +236,7 @@ export function useOptionInterventionCommit(nodeId: string | null): OptionInterv
           // `queued`: unreachable while the carrier passes `deferIfBusy: false`.
           if (settlement === 'sent' || settlement === 'queued') return
           setPending(null)
-          setUnapplied({ factorId, value, ...describeSettlement(settlement, detail, storedSourceRecorded) })
+          setUnapplied({ factorId, value, ...describeSettlement(settlement, detail) })
         },
       })
       if (outcome === 'dispatched') return outcome

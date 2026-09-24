@@ -71,7 +71,6 @@ vi.mock('../../../../v5/eligibility', async (importOriginal) => {
 import { OptionPanel } from '../panels/OptionPanel'
 import {
   OPTION_INTERVENTION_NOT_SAVED_DECLINED,
-  OPTION_INTERVENTION_NOT_SAVED_UNSOURCED,
   OPTION_INTERVENTION_UNCONFIRMED,
 } from '../shared/useOptionInterventionCommit'
 import { ConversationProvider } from '../../../conversation/ConversationContext'
@@ -241,7 +240,7 @@ afterEach(() => {
 })
 
 describe('D2 — a refused option target says "Not saved · <reason>" under its field, and keeps the typed value', () => {
-  it('⭐ 422 `system_event_refused_no_write` on the witnessed source-less row → the specific reason, under the field — RED at a4434670 (silence)', async () => {
+  it('⭐ 422 `system_event_refused_no_write` on the witnessed source-less row → a truthful no-write line under the field — RED at a4434670 (silence)', async () => {
     answers.push({ status: 422, body: REFUSED_NO_WRITE_422 })
     renderPanel()
 
@@ -249,11 +248,11 @@ describe('D2 — a refused option target says "Not saved · <reason>" under its 
 
     await waitFor(() => expect(sentOptionTargetEdits()).toHaveLength(1))
     const line = await screen.findByTestId(`intervention-unapplied-${GDPR}`)
-    // ⭐ OpenAI Connected's reason for `invalid_existing_intervention`, in ED's shape.
-    expect(line.textContent).toBe(OPTION_INTERVENTION_NOT_SAVED_UNSOURCED)
-    expect(line.textContent).toBe(
-      "Not saved · this example value has no recorded source yet, so it can't be replaced.",
-    )
+    // ⛔ Codex 5807262127: the 422 proves NO WRITE, not WHY. A locally source-less
+    // row is not evidence of the cause, so the line is the generic declined one.
+    expect(line.textContent).toBe(OPTION_INTERVENTION_NOT_SAVED_DECLINED)
+    expect(line.textContent).toBe('Not saved · this change was refused, so the model is unchanged.')
+    expect(line.textContent ?? '').not.toMatch(/no recorded source/i)
     // The machine token is never shown to the reader.
     expect(line.textContent ?? '').not.toMatch(/system_event_refused_no_write|invalid_existing/)
     // Directly under THIS field: the field points at it.
@@ -271,7 +270,7 @@ describe('D2 — a refused option target says "Not saved · <reason>" under its 
     expect(screen.queryByTestId(`intervention-unapplied-${COST}`)).toBeNull()
   })
 
-  it('⭐ DISCRIMINATING TWIN — the same 422 on a row whose stored entry HAS a source says the generic declined line, never the source-less one', async () => {
+  it('⭐ CONTRAST — the same 422 on a row whose stored entry HAS a source says the same generic line (the local source never decides the copy)', async () => {
     seed({ gdprSource: 'brief_extraction' })
     answers.push({ status: 422, body: REFUSED_NO_WRITE_422 })
     renderPanel()
@@ -292,7 +291,7 @@ describe('D2 — a refused option target says "Not saved · <reason>" under its 
     await typeAndEnter(COST, '£80,000')
 
     const line = await screen.findByTestId(`intervention-unapplied-${COST}`)
-    expect(line.textContent).toBe(OPTION_INTERVENTION_NOT_SAVED_UNSOURCED)
+    expect(line.textContent).toBe(OPTION_INTERVENTION_NOT_SAVED_DECLINED)
     expect(inputFor(COST).value).toBe('80,000')
     const readout = screen.getByTestId(`intervention-readout-${COST}`).textContent ?? ''
     expect(readout).toContain('£60k')
