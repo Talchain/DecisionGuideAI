@@ -117,7 +117,8 @@ import { resolveNodeTypeLiteral } from '../../domain/nodes'
  * `aria-label` is untouched, so the no-hover/no-focus channel this component
  * argues for above is exactly as reachable as it was.
  *
- * ⚠ AND IT IS STILL NOT A TAB STOP. The shared `Tooltip` adds hover and focus
+ * ⚠ AND IT IS STILL NOT A TAB STOP. [SUPERSEDED 24 Sep — see "A TAB STOP NOW"
+ * below.] The shared `Tooltip` adds hover and focus
  * LISTENERS via floating-ui; it does not add `tabIndex`, so the "no second tab
  * stop per node" contract this file shares with `EstimateMarker` is unchanged,
  * and its spec still asserts it. (The other in-repo `Tooltip` —
@@ -447,6 +448,20 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
  * at the call site rather than an attribute nobody queries. Fixing the literal
  * alone would have left the next caller free to reintroduce it.
  */
+/**
+ * ⭐⭐ A TAB STOP NOW — contract v3.1 SUPERSEDES "NOT FOCUSABLE" (24 Sep 2026,
+ * delta PILL-10). The contract's `.prov` mark is a focusable control and its
+ * text is explicit: "Each mark has an accessible name and a hover/focus label";
+ * Paul 23 Sep pt 12: "Icons need hover/focus labels and inspector access". The
+ * shared `Tooltip` already listened for focus (`useFocus`) — but on a span with
+ * no `tabIndex` focus could never arrive, so the keyboard half of the label was
+ * wired to nothing. `tabIndex={0}` lets it arrive. Still NOT a button (there is
+ * nothing to press), still `role="img"` with the claim as its name, and it only
+ * renders where a mark does — the board's default kind is suppressed
+ * (`useProvenanceDefaultKind`), so the stop lands on the exceptions, not every
+ * card. Hover and focus take Info (the contract's `.prov:hover`), with the
+ * canvas's one focus ring. No size change.
+ */
 function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProvenanceKind) {
   const label = provenanceClaimLabel(claim, kind)
   const Icon = VALUE_PROVENANCE_ICON[kind]
@@ -461,8 +476,9 @@ function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProv
         // above is the MOUSE channel for the same sentence — one source, so the
         // two cannot drift into saying different things about one glyph.
         role="img"
+        tabIndex={0}
         aria-label={label}
-        className="inline-flex shrink-0 items-center text-text-light cursor-help"
+        className="inline-flex shrink-0 items-center rounded-sm text-text-light cursor-help hover:text-info focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
       >
         {/* `aria-hidden` because the accessible name is on the wrapper — without
             it a screen reader would announce the mark twice. */}
