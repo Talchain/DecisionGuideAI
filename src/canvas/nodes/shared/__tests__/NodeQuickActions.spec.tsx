@@ -120,16 +120,20 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
   })
 
   /**
-   * The gate must ask the question `askAI` asks. `askAI` polls for
-   * `_sendMessage`; a gate of `_sendMessage || _prefillChat` would show the
-   * button on a surface that registered only the prefill channel — a control
-   * that renders and cannot do its job, which is what the gate exists to
-   * prevent. Trap 21: two predicates wearing one name.
+   * The gate must ask the question `askAI` asks. Trap 21: two predicates
+   * wearing one name.
+   *
+   * ⚠ THIS CASE USED TO ASSERT THE OPPOSITE, AND WAS RIGHT TO: *"`askAI` polls
+   * for `_sendMessage`; a gate of `_sendMessage || _prefillChat` would show the
+   * button on a surface that registered only the prefill channel."* On 24 Sep
+   * 2026 `askAI` stopped sending and now lands a draft through `requestAsk`,
+   * which a prefill-only host CAN receive — so the question it asks is
+   * `canReceiveAsk`, and a send-only gate would hide a working button.
    */
-  it('gates on the SEND channel askAI needs, not on prefill', () => {
+  it('gates on canReceiveAsk — a prefill-only host gets the button, because askAI now drafts', () => {
     useGuidanceStore.setState({ _sendMessage: null, _prefillChat: vi.fn() } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
-    expect(screen.queryByTestId('node-action-ask-node-a')).toBeNull()
+    expect(screen.getByTestId('node-action-ask-node-a')).toBeInTheDocument()
   })
 
   it('is quiet at rest and revealed by hover, focus-within and selection', () => {

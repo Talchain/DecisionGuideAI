@@ -38,7 +38,7 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:912
+src/canvas/contextMenu/actions.ts:934
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
@@ -84,4 +84,11 @@ src/types/constraints.ts:78
 #    `optionFigures.goalOnlyQualifier` and its docblock, above this site — when
 #    #1921 and #1922 meet; the line text `: topFigurePercent === 100` is
 #    identical. No new site: the scanner's added/gone sets are otherwise empty.)
+#    (`contextMenu/actions.ts:912` -> `934` above is a line shift from askAI's
+#    step 3 moving from `_sendMessage` to `requestAsk` (24 Sep 2026); the test
+#    `attempts < MAX_ATTEMPTS` is identical and is a RETRY BUDGET, not a
+#    producer number. Its toast was reworded "Could not send message" ->
+#    "Could not open a draft" because nothing is sent any more. The literal is
+#    kept INLINE on purpose: hoisting it to a constant would also have made the
+#    scanner stop seeing this site, shrinking the baseline by hiding it.)
 src/components/results/analysisNew/analysisNewCopy.ts:2440
