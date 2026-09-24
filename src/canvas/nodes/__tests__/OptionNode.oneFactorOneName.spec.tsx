@@ -232,13 +232,17 @@ describe('OptionNode — one factor, one name', () => {
    *   · a name one past the budget, and no longer than 20, is cut — the old
    *     hand-set 20 and the pre-S4 derived 25 would both render it whole.
    */
-  it('the differentiator cuts at the DERIVED row budget: whole at the budget, cut one past it (S4)', () => {
+  it('the differentiator cuts at the DERIVED row budget: whole at the budget and one over it, cut two past it (S4; S5 one-over rule)', () => {
     const AT_BUDGET = 'Vendor switch cost'
-    const ONE_PAST = 'Customer churn risk'
+    // S5 (24 Sep): a label ONE over the budget is returned whole — cut to the
+    // budget plus "…" it is no shorter, and only breaks a word ("Developer
+    // headcoun…"). See labelUtils.noUselessCut.spec.
+    const ONE_OVER = 'Customer churn risk'
+    const TWO_PAST = 'Customer churn risks'
     // Preconditions pinned in-test: the fixture lengths mean what the name says.
     expect(AT_BUDGET.length).toBe(NODE_ROW_LABEL_MAX_CHARS)
-    expect(ONE_PAST.length).toBe(NODE_ROW_LABEL_MAX_CHARS + 1)
-    expect(ONE_PAST.length).toBeLessThanOrEqual(20)
+    expect(ONE_OVER.length).toBe(NODE_ROW_LABEL_MAX_CHARS + 1)
+    expect(TWO_PAST.length).toBe(NODE_ROW_LABEL_MAX_CHARS + 2)
 
     const renderWithTopFactor = (label: string) => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
@@ -270,11 +274,18 @@ describe('OptionNode — one factor, one name', () => {
     expect(whole.getAttribute('title')).toBeNull()
     at.unmount()
 
-    // One past it: cut at the word, and the whole name recoverable.
-    renderWithTopFactor(ONE_PAST)
+    // One over it: whole — a cut would save nothing.
+    const over = renderWithTopFactor(ONE_OVER)
+    const wholeOver = screen.getByTestId('option-differentiator-option-1')
+    expect(wholeOver.textContent).toBe('Customer churn risk is the key difference')
+    expect(wholeOver.getAttribute('title')).toBeNull()
+    over.unmount()
+
+    // Two past it: cut at the word, and the whole name recoverable.
+    renderWithTopFactor(TWO_PAST)
     const cut = screen.getByTestId('option-differentiator-option-1')
     expect(cut.textContent).toBe('Customer churn… is the key difference')
-    expect(cut.getAttribute('title')).toBe('Customer churn risk is the key difference')
+    expect(cut.getAttribute('title')).toBe('Customer churn risks is the key difference')
   })
 
   it('the "→ value" branch carries the same casing', () => {
