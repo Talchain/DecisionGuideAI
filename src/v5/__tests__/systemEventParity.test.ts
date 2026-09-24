@@ -54,6 +54,14 @@ const UI_WIRE_EVENT_TYPES = [
   // catch — it is ONE-DIRECTIONAL and proves only that listed members are real.
   'option_intervention_edit',
   'structural_add_edge',
+  // schemas — NOT YET VENDORED (0.55.0 pinned, checked verbatim, absent).
+  // PREPARED, NOT ARMED: `goalTargetEdit.ts`'s header. Listed here because
+  // this array is the UI's own `WIRE_SYSTEM_EVENT_TYPES` mirror and
+  // `goal_target_edit` IS one of that type's members now — but its
+  // `UI_COVERAGE` entry below is `ui_deferred`, not `system_event`, because
+  // `eventKind` there is typed against the CONTRACT's `V5_EVENT_KINDS`
+  // (`SystemEventKind.options`), which does not have this member to offer.
+  'goal_target_edit',
   // schemas 0.55.0 — the user's STATED REASON for disagreeing with a finding,
   // carried verbatim. It is listed here because this PR WIRES THE EMITTER: a
   // dissent typed on the Reasoning tab used to terminate at
@@ -354,6 +362,25 @@ const UI_COVERAGE: Record<
       statement:
         'Our enterprise renewals are annual, so a price move cannot reach churn inside the quarter this run assumes.',
     },
+  },
+  // PREPARED, NOT ARMED (`canvas/conversation/goalTargetEdit.ts`'s header).
+  //
+  // ⚠ `ui_deferred`, NOT `system_event` — AND UNLIKE EVERY OTHER `ui_deferred`
+  // ENTRY THIS IS NOT A PRODUCT DECISION, IT IS A TYPE-SYSTEM ONE. The
+  // `system_event` branch's `eventKind` field is typed
+  // `(typeof V5_EVENT_KINDS)[number]` — DERIVED from the vendored
+  // `SystemEventKind` enum — so `eventKind: 'goal_target_edit'` would not
+  // compile: the contract has no such member to offer yet. `adaptGoalTargetEdit`
+  // (`buildPayload.ts`) is real and exercised by
+  // `buildPayload.goalTargetEdit.spec.ts`; this entry only states that no
+  // DISPATCH PATH reaches it today — true, because
+  // `useModelEditAuthority.proposeGoalTarget` checks `GOAL_TARGET_EDIT_ENABLED`
+  // (currently `false`) before it ever builds one.
+  goal_target_edit: {
+    kind: 'ui_deferred',
+    reason:
+      'CEE has not shipped a reader (schemas 0.55.0 pinned, member absent). ' +
+      'GOAL_TARGET_EDIT_ENABLED gates the one producer; flip it only after CEE deploys.',
   },
 }
 

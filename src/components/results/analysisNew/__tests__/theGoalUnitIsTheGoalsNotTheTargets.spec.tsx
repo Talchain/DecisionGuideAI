@@ -136,7 +136,11 @@ describe('the unit is read from the goal, not from a target that does not exist'
     openEditor()
     fireEvent.change(screen.getByTestId(`${TARGET}-input`), { target: { value: '125' } })
     fireEvent.click(screen.getByTestId(`${TARGET}-save`))
-    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least')
+    // A fifth argument (`{ onSendSettled }`) now always rides along — see
+    // `successTargetDispatches.spec.tsx`'s note on the same change.
+    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least', {
+      onSendSettled: undefined,
+    })
     expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.noUnit)
   })
 
@@ -163,7 +167,9 @@ describe('where the goal declares no unit, the control collects one', () => {
     fireEvent.change(screen.getByTestId(`${TARGET}-unit`), { target: { value: '£' } })
     fireEvent.change(screen.getByTestId(`${TARGET}-input`), { target: { value: '125' } })
     fireEvent.click(screen.getByTestId(`${TARGET}-save`))
-    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '£', 'scenario-7', 'at_least')
+    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '£', 'scenario-7', 'at_least', {
+      onSendSettled: undefined,
+    })
   })
 
   /**

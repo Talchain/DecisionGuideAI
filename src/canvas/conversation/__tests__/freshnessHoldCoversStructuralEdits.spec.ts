@@ -300,9 +300,20 @@ describe('what actually pins the model-changing set', () => {
     // `effect_direction` and strength `mean`/`std` — so an undispatched one means
     // a freshness verdict computed about a graph the user has already changed.
     // CEE declares the kind `'mutating'`, unconditionally.
+    //
+    // `goal_target_edit` joins the WIRE type/allowlist PREPARED, NOT ARMED
+    // (`canvas/conversation/goalTargetEdit.ts`'s header — CEE has not shipped a
+    // reader, `GOAL_TARGET_EDIT_ENABLED` is `false`, and the member's only
+    // producer is gated on it). It is listed HELD here regardless, because
+    // membership in this list is a claim about what CEE will classify the
+    // moment it CAN dispatch, not about whether it can today — and the
+    // contract's own description of the member (the server derives `cap`,
+    // `goal_threshold` and `frame` from it) puts it squarely inside the
+    // analysis-affecting projection.
     expect([...MODEL_CHANGING_SYSTEM_EVENT_TYPES].sort()).toEqual([
       'edge_strength_edit',
       'factor_value_edit',
+      'goal_target_edit',
       'option_intervention_edit',
       'structural_add',
       'structural_add_edge',
@@ -319,7 +330,7 @@ describe('what actually pins the model-changing set', () => {
     expect(
       WIRE_SYSTEM_EVENT_TYPES.filter((t) => held.has(t)).length,
       'contrast control — the partition can see the held members',
-    ).toBe(7)
+    ).toBe(8)
 
     expect(
       WIRE_SYSTEM_EVENT_TYPES.filter((t) => !held.has(t))

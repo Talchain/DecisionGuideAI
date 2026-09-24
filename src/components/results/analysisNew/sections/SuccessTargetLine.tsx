@@ -87,6 +87,10 @@ import {
 } from '../../../../canvas/domain/goalTarget'
 import { formatGoalTarget } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
+import type {
+  SystemEventSendSettlement,
+  SystemEventSendSettlementDetail,
+} from '../../../../canvas/conversation/settleSystemEventSend'
 import type { ConstraintType } from '../../../../v5/chipParameters'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -190,12 +194,25 @@ export interface SuccessTargetLineProps {
   onCommitOutcome: (
     outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit' | 'not_a_number',
   ) => void
+  /**
+   * ⭐ ADDITIVE, AND ONLY EVER FIRES BEHIND `GOAL_TARGET_EDIT_ENABLED`.
+   * `authority.proposeGoalTarget`'s `add_constraint` path (the flag OFF) never
+   * calls this — it has no send settlement to report, only the dispatch
+   * outcome `onCommitOutcome` already carries. A caller that omits this prop
+   * sees no behaviour change at all, which is the point: today's `dispatched`
+   * sentence stays correct until the flag flips.
+   */
+  onSendSettled?: (
+    settlement: SystemEventSendSettlement,
+    detail: SystemEventSendSettlementDetail,
+  ) => void
   testId: string
 }
 
 export function SuccessTargetLine({
   goalNodeId,
   onCommitOutcome,
+  onSendSettled,
   testId,
 }: SuccessTargetLineProps) {
   /**
@@ -440,7 +457,9 @@ export function SuccessTargetLine({
         onCommitOutcome('no_unit')
         return
       }
-      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction)
+      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction, {
+        onSendSettled,
+      })
       onCommitOutcome(outcome)
       if (outcome === 'not_encodable') return
       setEditing(false)
