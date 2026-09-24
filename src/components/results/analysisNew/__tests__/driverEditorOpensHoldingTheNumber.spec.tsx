@@ -61,10 +61,26 @@ describe('the drivers chart value editor', () => {
     expect((await openEditor('f_bare')).input.value).toBe('')
   })
 
-  it('typing replaces the seed, and the untouched seed saves as the same number', async () => {
+  // Mirrors modelStripFactorValueEdit.spec.tsx's fourth case (#1955).
+  it('saving the untouched seed proposes the same number back', async () => {
+    const { user } = await openEditor('f_raw')
+    await user.click(screen.getByTestId(`${TID}-save`))
+    expect(proposeFactorValue).toHaveBeenCalledWith(49)
+  })
+
+  /**
+   * The select-on-focus half of the fix, on its own. With the seed but no
+   * selection, typing appends ("4972"); with neither, the field is empty and
+   * this passes vacuously, so the PRECONDITION pins that the seed is there
+   * before a key is pressed. `type="text"` supports `select()` in every
+   * engine (unlike `type="number"`), and jsdom implements it.
+   */
+  it('typing replaces the seed rather than appending to it', async () => {
     const { user, input } = await openEditor('f_raw')
+    expect(input.value, 'PRECONDITION: the field opened holding the seed').toBe('49')
+    expect([input.selectionStart, input.selectionEnd], 'the seed is selected on open').toEqual([0, 2])
     await user.keyboard('72{Enter}')
     expect(proposeFactorValue).toHaveBeenCalledWith(72)
-    expect(input).toBeDefined()
+    expect(proposeFactorValue).not.toHaveBeenCalledWith(4972)
   })
 })
