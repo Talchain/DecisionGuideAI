@@ -20,13 +20,14 @@
  * - CAMERA: the hook's two exits, called directly — `topAnchoredViewportWhenClamped`
  *   when the fit clamps, else xyflow's `getViewportForBounds`, which is what
  *   `fitView` runs, under `fitBoundsFor('product')`.
- * - HEIGHTS: ⚠ NOT MEASURED AT THE S4 GEOMETRY. The widths are exact; the card
- *   heights come from the latest browser capture of the five starters
- *   (`starter-node-heights.browser-capture-2026-09-23.json`, #1915 head
- *   9da2c1e7, PRE-S3 anatomy, captured at the old 336/440 widths). The height
- *   verdicts below are therefore a reference, and the HEIGHT ALLOWANCE — the
- *   tallest uniform card each board can carry and still fit — is reported
- *   beside them, because that number depends only on this lane's geometry.
+ * - HEIGHTS: MEASURED AT THE S5 GEOMETRY (24 Sep): the landing-rung heights the
+ *   layout now reserves (`starter-node-heights.browser-capture-2026-09-24-s5.json`
+ *   — S3 anatomy, S4 widths, S5 stacked rows + rail only at Normal zoom), read
+ *   in Chromium at the counter-scale bound. The pane was hidden, so the rung
+ *   and scale were SET, not reached by a camera; the served screenshots are
+ *   still the witness. (S4 ran on the 23 Sep PRE-S3 capture.) The HEIGHT
+ *   ALLOWANCE — the tallest uniform card each board can carry and still fit —
+ *   is still reported beside the verdicts.
  */
 import { describe, it, expect, afterEach, afterAll, vi } from 'vitest'
 import { getNodesBounds, getViewportForBounds, type Node, type Edge } from '@xyflow/react'
@@ -46,7 +47,7 @@ import {
   ROW_PROMPT_H,
   ROW_PROMPT_W,
 } from '../utils/nodeLayoutConstants'
-import capture from './__fixtures__/starter-node-heights.browser-capture-2026-09-23.json'
+import capture from './__fixtures__/starter-node-heights.browser-capture-2026-09-24-s5.json'
 import vendorSelection from '../starters/data/vendor-selection.draft.json'
 import marketEntry from '../starters/data/market-entry.draft.json'
 import buildVsBuy from '../starters/data/build-vs-buy.draft.json'
