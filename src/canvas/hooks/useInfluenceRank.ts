@@ -61,17 +61,27 @@ export function useInfluenceRank(
  *
  * `useInfluenceRank` itself is UNCHANGED: its `null` still means "not
  * confirmably current", which is what its other readers ask.
+ *
+ * Contract v3.1 pt 5: the returned `setSize` is the PRINTED `M` — the ranked
+ * count (`influenceRankedCount`), not the licence set. The licence is unchanged
+ * (`influenceRankReadout` over `influenceSetSize`); a rank outside the ranked
+ * count, or an absent count, states no rank.
  */
 export function driverRankFor(
   currentReadout: InfluenceRankReadout | null,
   sensitivityRank: number | null | undefined,
   influenceSetSize: number | null | undefined,
   fromLastRun: boolean,
+  rankedCount: number | null | undefined,
 ): { rank: number; setSize: number } | null {
   const licensed =
     currentReadout !== null ||
     (fromLastRun && influenceRankReadout(sensitivityRank, influenceSetSize) !== null)
-  return licensed && typeof sensitivityRank === 'number' && typeof influenceSetSize === 'number'
-    ? { rank: sensitivityRank, setSize: influenceSetSize }
+  return licensed &&
+    typeof sensitivityRank === 'number' &&
+    typeof rankedCount === 'number' &&
+    Number.isInteger(rankedCount) &&
+    sensitivityRank <= rankedCount
+    ? { rank: sensitivityRank, setSize: rankedCount }
     : null
 }
