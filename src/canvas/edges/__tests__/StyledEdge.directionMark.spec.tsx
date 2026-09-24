@@ -258,9 +258,13 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
       stroke: 'var(--edge-positive)',
       data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 },
     },
+    // contract v3.1 (E12/T07, 24 Sep 2026): the dispute hue is now the SOLID
+    // Warning token (Paul 23 Sep point 9), no longer a 70% color-mix — so the
+    // arrowhead is no longer translucent where it crosses another edge. Still a
+    // fifth distinct value: no other rule paints `var(--semantic-warning)`.
     {
-      rule: 'contested_direction_disputed (the color-mix value)',
-      stroke: 'color-mix(in srgb, var(--semantic-warning) 70%, transparent)',
+      rule: 'contested_direction_disputed (the Warning token)',
+      stroke: 'var(--semantic-warning)',
       data: {
         direction: 'positive',
         direction_source: 'user',

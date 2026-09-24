@@ -55,7 +55,7 @@ import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
-import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
+import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { DIRECTION_DISPUTED_STROKE } from '../edges/edgePresentation'
 import {
   LEGEND_SOLID_CAPTION,
@@ -498,6 +498,12 @@ const THICKNESS_ROWS: LegendRow[] = [
  * across 79 live edges), so the contrast a reader is taught is the contrast
  * their own board will actually show them — not an invented pair chosen to look
  * different.
+ *
+ * ⭐ contract v3.1 (E1/T08, 24 Sep 2026): the ribbon is TRANSIENT now — the
+ * canvas paints it only on hover, keyboard focus or selection — so every row
+ * says so, or the key would teach a band the resting board never shows. The
+ * swatch's paint is the canvas's own `UNCERTAINTY_BAND_STROKE` /
+ * `UNCERTAINTY_BAND_OPACITY`, imported, so key and canvas cannot drift apart.
  */
 function UncertaintySwatch({ halfWidth, testId }: { halfWidth: number | null; testId?: string }) {
   const line = EDGE_STROKE_WIDTH_BANDS.moderate
@@ -508,8 +514,8 @@ function UncertaintySwatch({ halfWidth, testId }: { halfWidth: number | null; te
       {halfWidth !== null && (
         <line
           x1={4} y1={h / 2} x2={20} y2={h / 2}
-          stroke="var(--text-body)" strokeWidth={band}
-          strokeLinecap="round" opacity={0.2}
+          stroke={UNCERTAINTY_BAND_STROKE} strokeWidth={band}
+          strokeLinecap="round" opacity={UNCERTAINTY_BAND_OPACITY}
         />
       )}
       <line
@@ -526,18 +532,18 @@ const censusBand = (std: number) =>
 
 const UNCERTAINTY_ROWS: LegendRow[] = [
   {
-    label: 'Tight band: this strength is fairly certain',
+    label: 'Tight band (on hover or selection): this strength is fairly certain',
     swatch: <UncertaintySwatch halfWidth={censusBand(0.01)} testId="legend-uncertainty-tight" />,
   },
   {
-    label: 'Wide band: this strength is a rough guess',
+    label: 'Wide band (on hover or selection): this strength is a rough guess',
     swatch: <UncertaintySwatch halfWidth={censusBand(0.22)} testId="legend-uncertainty-wide" />,
   },
   // Honesty row, the same shape as the thickness block's. Without it a reader
   // is taught to read "no band" as "certain", which is the strongest possible
   // misreading of the channel — it inverts it.
   {
-    label: 'No band: nobody has said how certain this is',
+    label: 'No band (on hover or selection): nobody has said how certain this is',
     swatch: <UncertaintySwatch halfWidth={null} testId="legend-uncertainty-unset" />,
   },
 ]
@@ -1114,7 +1120,10 @@ export function CanvasLegendPopover() {
              shrinkable; `max-h-[calc(100vh-96px)]` is the conservative CSS
              fallback described above and is overridden by the measured inline
              cap on every real paint. */
-          className="absolute left-full ml-2 bottom-0 w-72 flex flex-col max-h-[calc(100vh-96px)] bg-panel border border-panel-border rounded-lg shadow-panel p-3 z-[1200]"
+          // contract v3.1 (CHR-13): an overlay sits one elevation step above
+          // the floating toolbar it opens from — DS v5 §4.4 "Overlays → bg-panel
+          // + shadow-3" — not on the same `shadow-panel` (= shadow-2) plane.
+          className="absolute left-full ml-2 bottom-0 w-72 flex flex-col max-h-[calc(100vh-96px)] bg-panel border border-panel-border rounded-lg shadow-3 p-3 z-[1200]"
           style={maxHeightPx === null ? undefined : { maxHeight: `${maxHeightPx}px` }}
           data-testid="canvas-legend-popover"
         >

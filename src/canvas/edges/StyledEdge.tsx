@@ -22,10 +22,11 @@ import {
   EDGE_AFFORDANCE_DIRECT_ACTION,
   EDGE_AFFORDANCE_CHAT_ALTERNATIVE,
 } from './edgeAffordance'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, Activity, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
 import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
+import { CANVAS_GLYPH_SIZE_CLASSES } from '../nodes/shared/canvasGlyphScale'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
@@ -71,7 +72,7 @@ import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
-import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth } from '../utils/graphDisplayCalculations'
+import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
 import {
@@ -116,6 +117,71 @@ const EMPTY_ID_SET: ReadonlySet<string> = new Set<string>()
  * silently cap the usable area at 20 wherever BaseEdge paints on top.
  */
 export const EDGE_HIT_AREA_WIDTH = 28
+
+/**
+ * contract v3.1 (E6): the opacity of a connection outside the selected
+ * element's neighbourhood — line, ribbon, halo, arrowhead, polarity glyph and
+ * chip together. DS v5 §7.4 ("dims unconnected nodes and edges to 20%"); the
+ * lens dim already uses the same 0.2. Exported so specs bind to the identity.
+ */
+export const EDGE_SELECTION_DIM_OPACITY = 0.2
+
+/**
+ * ⭐ ONE GLOW RECIPE FOR EVERY TRANSIENT EDGE EMPHASIS (contract v3.1, E5/T09,
+ * 24 Sep 2026).
+ *
+ * These were four FULL-alpha info drop-shadows — selected 5px, hover 3px,
+ * flip-risk 4px, sensitivity 2px — with an off-palette `#3b82f6` fallback. A
+ * 5px full-strength blue bloom on a green line reads as neon. The contract's
+ * selected connection is `drop-shadow(0 0 2px #277A9D55)`: the served info hue
+ * at about a third alpha, 2px. Every glow is now that recipe with its own
+ * radius/alpha, the info token only (no fallback hex, no new colour), mixed the
+ * way this file already mixes the dispute hue.
+ *
+ * The flip-risk glow stays a DIFFERENT string from the sensitivity glow on
+ * purpose: both can apply to one edge and must compose as two signals
+ * (`StyledEdge.filterCompose.spec.tsx`), and since E4 removed the flip-risk
+ * width floor it is that edge's only transient viewing cue, so it is the
+ * slightly stronger of the two.
+ */
+const edgeGlow = (px: number, pct: number): string =>
+  `drop-shadow(0 0 ${px}px color-mix(in srgb, var(--semantic-info) ${pct}%, transparent))`
+
+/**
+ * ⭐ THE POLARITY GLYPH'S HALO (contract v3.1, E2/T09 — Paul 23 Sep point 12:
+ * "Sign glyphs drawn in body text with a halo").
+ *
+ * The glyph sits `GLYPH_ANCHOR_RADIUS` back along the target→source axis, so on
+ * a near-vertical edge it is drawn ON the 1.5-4px coloured line — and a `−`
+ * crossing a vertical line reads as `+`, which inverts the one channel a
+ * red-green dichromat relies on (`directionStroke.ts:23-32`). The contract
+ * draws `.polarity{paint-order:stroke;stroke:var(--canvas);stroke-width:3px}`,
+ * a 1.5px canvas-coloured knockout. This glyph is HTML, not SVG text, so the
+ * portable equivalent is a stacked canvas-coloured `text-shadow` — the canvas
+ * ground token only, no new colour, and no change to the glyph's box.
+ *
+ * The radius carries `--canvas-label-scale` exactly like the glyph's own font
+ * (`typography.edgeLabel`), so the halo is the contract's 1.5px ON SCREEN at
+ * every zoom instead of halving with the camera.
+ */
+const POLARITY_HALO_PX = 'calc(1.5px * var(--canvas-label-scale, 1))'
+export const POLARITY_GLYPH_HALO =
+  `0 0 ${POLARITY_HALO_PX} var(--bg-canvas), 0 0 ${POLARITY_HALO_PX} var(--bg-canvas), 0 0 ${POLARITY_HALO_PX} var(--bg-canvas)`
+
+/**
+ * contract v3.1 (E10): the fragility cue disc — the contract's `r="8"` circle,
+ * 16px ON SCREEN because it carries the same counter-scale as the text beside
+ * it. At the worst-case scale (`MAX_LABEL_COUNTER_SCALE` = 2) it is 32 graph
+ * units, inside the 36-unit one-row box `labelHalfHeightForRows(1)` clears.
+ */
+const FRAGILE_CUE_DISC_SIZE = 'calc(16px * var(--canvas-label-scale, 1))'
+
+export const EDGE_GLOW = Object.freeze({
+  selected: edgeGlow(2, 35),
+  hover: edgeGlow(1.5, 25),
+  flipRisk: edgeGlow(3, 45),
+  sensitivity: edgeGlow(2, 35),
+})
 
 /**
  * The robustness fragile-edge list, read through one typed accessor.
@@ -707,7 +773,39 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           borderRadius: visualProps.curvature * 50, // Map 0-0.5 to 0-25px
         })
       case 'bezier':
-      default:
+      default: {
+        /*
+         * ⭐ contract v3.1 (E9, 24 Sep 2026) — A LAYERED EDGE IS A NEAR-STRAIGHT
+         * LINE WITH SHORT VERTICAL LEADS, NOT A FULL S-CURVE.
+         *
+         * For a bottom-handle → top-handle edge running DOWN the board, xyflow's
+         * `getBezierPath` ignores `curvature` altogether: its control offset is
+         * `0.5 × Δy` whenever the target is past the source
+         * (`calculateControlOffset`, `distance >= 0`), so every layered edge was
+         * a full S-curve and long cross-band edges swung wide — spaghetti at the
+         * landing zoom. The contract's `renderEdges` draws
+         * `bend = max(6, min(30, Δy/2))`: at most 30 graph units of vertical
+         * lead-in and lead-out, otherwise straight.
+         *
+         * ⚠ WHAT DOES NOT MOVE. The label anchor is the cubic's t = 0.5 point,
+         * which for control points (sx, sy+b) and (tx, ty−b) is exactly
+         * ((sx+tx)/2, (sy+ty)/2) — byte-identical to xyflow's, so the chip
+         * placement pass (which clears boxes around the handle midpoint) and
+         * the leader line are unaffected. The end tangent is still vertical, so
+         * the arrowhead (`orient="auto"`) still points straight into the card.
+         * Every other orientation (a same-band or upward edge, and every
+         * non-default path type) keeps xyflow's own path.
+         */
+        if (sourcePosition === Position.Bottom && targetPosition === Position.Top && targetY > sourceY) {
+          const bend = Math.max(6, Math.min(30, (targetY - sourceY) / 2))
+          return [
+            `M${sourceX},${sourceY} C${sourceX},${sourceY + bend} ${targetX},${targetY - bend} ${targetX},${targetY}`,
+            (sourceX + targetX) / 2,
+            (sourceY + targetY) / 2,
+            Math.abs(targetX - sourceX) / 2,
+            Math.abs(targetY - sourceY) / 2,
+          ] as [string, number, number, number, number]
+        }
         return getBezierPath({
           sourceX,
           sourceY,
@@ -717,6 +815,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           targetPosition,
           curvature: 0.25, // Bezier curve intensity
         })
+      }
     }
   }, [pathType, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, visualProps.curvature])
   
@@ -1339,6 +1438,24 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const showChip = showLabel || paintFragileCue
 
   /**
+   * contract v3.1 (E10): the chip carries the fragility cue and NOTHING else —
+   * the default view's normal case since U10 withdrew resting strength labels.
+   * Then it is the contract's standalone cue disc, a focusable control, rather
+   * than a white rectangle around one icon.
+   */
+  const fragileCueOnly = paintFragileCue && !showLabel
+  const handleFragileCueActivate = (event: React.SyntheticEvent) => {
+    event.stopPropagation()
+    openEdgeStrengthEditor(edgeIdKey)
+  }
+  const handleFragileCueKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    // Space would otherwise scroll, and React Flow must not also see the key.
+    event.preventDefault()
+    handleFragileCueActivate(event)
+  }
+
+  /**
    * The word beside the glyph. Where a PERSISTENT strength row is on screen,
    * its text already names the direction ("Moderate boost" / "Strong drag"),
    * so the +/− glyph would be the same datum on a second channel — the
@@ -1588,12 +1705,23 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           here so they fire regardless of whether the pointer is over the custom
           hitbox path or BaseEdge's interaction path (which renders on top in SVG
           paint order). Both paths bubble mouseenter/mouseleave to this <g>. */}
+      {/* ⭐ contract v3.1 (E6, 24 Sep 2026) — THE SELECTION DIM IS THE WHOLE
+          CONNECTION'S, NOT THE LINE'S. It used to be a 0.25 on `BaseEdge` alone,
+          so the ribbon, the assistant halo and the arrowhead's line dimmed
+          unevenly and the portalled glyph and chip floated at full strength
+          over a faded line. The contract dims `.edge-group` as one unit, and DS
+          v5 §7.4 names 20%; the portalled marks below carry the same value. */}
       <g
         ref={edgeGroupRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}
+        data-selection-dimmed={isSelectionDimmed ? 'true' : undefined}
+        style={{
+          opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+          transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease',
+        }}
       >
       {/* Invisible hitbox — wider than visual stroke; carries test-id and
           structural tooltip. pointer-events:stroke so the <g> receives events
@@ -1652,15 +1780,26 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
           `pointerEvents="none"` — the hit area is the transparent path above,
           which is already wider than anything drawn. A ribbon that grew the hit
-          area would make uncertain edges easier to click than firm ones. */}
-      {uncertaintyBand !== null && !isStructuralEdge && (
+          area would make uncertain edges easier to click than firm ones.
+
+          ⭐⭐ contract v3.1 (E1/T08, 24 Sep 2026) — TRANSIENT, AND NEUTRAL.
+          A resting connection is ONE stroke: colour = direction, width =
+          strength, dash = existence doubt. Drawn at rest in the polarity hue,
+          this ribbon read as a soft green or rose glow around every stamped
+          edge — the "soft glow halo" on the v3.1 review — and spent the
+          polarity colour on a second quantity. It now paints only while the
+          connection is hovered, keyboard-focused (focus sets `isHovered`) or
+          selected, in the neutral ink `UNCERTAINTY_BAND_STROKE` that the legend
+          swatch also reads. The encoding above (screen-px width, floor,
+          ceiling, provenance gate) is unchanged; only WHEN and in WHAT INK. */}
+      {uncertaintyBand !== null && !isStructuralEdge && (selected || isHovered) && (
         <path
           d={edgePath}
           fill="none"
-          stroke={edgeStroke.value}
+          stroke={UNCERTAINTY_BAND_STROKE}
           strokeWidth={uncertaintyBand * 2}
           strokeLinecap="round"
-          opacity={0.2}
+          opacity={UNCERTAINTY_BAND_OPACITY}
           pointerEvents="none"
           vectorEffect="non-scaling-stroke"
           data-testid={`edge-uncertainty-band-${edgeIdKey}`}
@@ -1765,18 +1904,24 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             if (isLensFragile) return 3
             // 6B: the SELECTED connection is the thickest interaction state, so
             // it stays unmistakable even while hovering a neighbouring edge.
-            // Transient interaction feedback only — resting weight is untouched,
-            // so this does not encode influence or strength as thickness.
-            if (selected) return Math.max(edgeStrokeWidth, 4)
-            // Hover thickening: 2px to 3px on hover
-            if (isHovered) return Math.max(edgeStrokeWidth, 3)
-            return isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth
+            //
+            // ⭐ contract v3.1 (E4, 24 Sep 2026) — RELATIVE, NOT A FLOOR. These
+            // were `Math.max(w, 4)` / `Math.max(w, 3)`: a slight edge that was
+            // selected drew exactly as thick as a strong one, and hover flattened
+            // slight and moderate to one width, so interaction ERASED the one
+            // ordering the width key teaches ("Width = modelled strength. Same
+            // meaning before and after analysis"). An offset keeps every rung in
+            // order in every state; DS v5 §7.3's hover is "+1" (1.5px → 2.5px).
+            if (selected) return edgeStrokeWidth + 2
+            if (isHovered || isHighlightedEdge) return edgeStrokeWidth + 1
+            return edgeStrokeWidth
             })()
-            // Analysis-graph projection: a viewed flip-risk edge thickens so the
-            // warning halo below reads clearly. Composes with the direction
-            // stroke (colour is never replaced). Structural edges are never
-            // fragile-badged, so they never bump.
-            return isAnalysisFragileEdge && !isStructuralEdge ? Math.max(base, 4) : base
+            // Analysis-graph projection: a viewed flip-risk edge is marked by its
+            // info glow in the `filter` below, and NO LONGER by a width floor
+            // (contract v3.1, E4): `Math.max(base, 4)` drew a slight flip risk as
+            // thick as a strong one, the same erasure as above. Colour is never
+            // replaced; the glow is the transient viewing cue.
+            return base
           })(),
           /*
            * ⭐ THE WIDTHS ABOVE ARE FLOW-SPACE UNTIL THIS LINE, AND THE CANVAS
@@ -1819,6 +1964,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // a branch here again — rather than a rule there — is the regression
           // this refactor exists to make impossible to do quietly.
           strokeDasharray: edgeDash.value,
+          // contract v3.1 (E13): `.edge-visual{stroke-linecap:round}` — but only
+          // on a SOLID line. A round cap adds half the stroke width to each end
+          // of every dash, so on a 3-4px line the contract's own `6 4` pattern
+          // closes its gap and the existence-doubt dash stops reading as a dash.
+          // Dashed lines keep butt caps so the one channel dash carries survives.
+          strokeLinecap: edgeDash.value ? 'butt' : 'round',
           stroke: edgeStroke.value,
           // Opacity is a lens-only channel now. exists_probability is a SINGLE
           // encoding — the dash (existenceDash above), which stays
@@ -1835,8 +1986,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // dim too (they are part of "unrelated"), which is why the selection
           // dim is checked BEFORE the structural early-out; lens dimming still
           // wins when both apply, so the lens keeps its stronger statement.
-          opacity: isLensDimmed ? 0.2
-            : isSelectionDimmed ? 0.25
+          // contract v3.1 (E6): a SELECTION-dimmed edge is dimmed on the
+          // wrapping <g> (above), as one unit with its ribbon, halo and marks, so
+          // the line adds nothing of its own there — a second factor here would
+          // compound to 0.04. Lens dimming keeps its line-level 0.2 otherwise.
+          opacity: isSelectionDimmed ? undefined
+            : isLensDimmed ? 0.2
             : isStructuralEdge ? undefined
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
             : undefined,
@@ -1854,7 +2009,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // glow first, fragile halo second.
             const shadows: string[] = []
             if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ75 !== null && lensSensWeight >= lensQ75)
-              shadows.push('drop-shadow(0 0 2px var(--semantic-info, #3b82f6))')
+              shadows.push(EDGE_GLOW.sensitivity)
             if (isAnalysisFragileEdge && !isStructuralEdge)
               // R6: the fragility halo moves off the warning hue with the
               // fragility chips it accompanies — under the DEFAULT lens, orange
@@ -1862,7 +2017,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // SIGN, and nothing else (23 Sep 2026). (The evidence LENS keeps its own
               // orange for 'assumed': a lens is an explicit alternative
               // encoding with its own key, not the default vocabulary.)
-              shadows.push('drop-shadow(0 0 4px var(--semantic-info, #3b82f6))')
+              shadows.push(EDGE_GLOW.flipRisk)
             // 6B: hover / selection emphasis for the WHOLE connection.
             // Deliberately a drop-shadow rather than a stroke colour: the stroke
             // already carries direction polarity (green/red) and the resolution
@@ -1872,8 +2027,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // channel, so it composes with polarity exactly like the fragile
             // halo above. Not applied to a selection-dimmed edge.
             if (!isSelectionDimmed) {
-              if (selected) shadows.push('drop-shadow(0 0 5px var(--semantic-info, #3b82f6))')
-              else if (isHovered) shadows.push('drop-shadow(0 0 3px var(--semantic-info, #3b82f6))')
+              if (selected) shadows.push(EDGE_GLOW.selected)
+              else if (isHovered) shadows.push(EDGE_GLOW.hover)
             }
             return shadows.length > 0 ? shadows.join(' ') : undefined
           })(),
@@ -1978,6 +2133,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${targetX + glyphOffset.dx}px,${targetY + glyphOffset.dy}px)`,
               pointerEvents: 'none',
+              // contract v3.1 (E2/T09): the glyph knocks the line out behind it.
+              textShadow: POLARITY_GLYPH_HALO,
+              // contract v3.1 (E6): dims with its connection, never floats over it.
+              opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
             }}
             // ⭐ THE SIZE RULING THIS SITE ASKED FOR, MADE.
             //
@@ -2095,8 +2254,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX + labelOffsetX}px,${labelY + labelOffsetY}px)`,
               pointerEvents: 'all',
-              padding: '3px 8px',
-              borderRadius: '4px',
+              // contract v3.1 (E10): a cue-only chip is the contract's 16px
+              // disc (`<circle class="cue-bg" r="8"/>`), counter-scaled like the
+              // text so it is 16px ON SCREEN; with a strength row it keeps the
+              // row form. The disc sits inside the one-row box the placement
+              // pass already clears (`labelHalfHeightForRows(1)`), so no
+              // neighbouring chip moves.
+              ...(fragileCueOnly
+                ? {
+                    padding: 0,
+                    width: FRAGILE_CUE_DISC_SIZE,
+                    height: FRAGILE_CUE_DISC_SIZE,
+                    borderRadius: 9999,
+                    justifyContent: 'center',
+                  }
+                : { padding: '3px 8px', borderRadius: '4px' }),
               /* ⭐⭐ THE CAP CARRIES THE SAME COUNTER-SCALE AS ITS TEXT.
                  Without the `calc`, the box is in fixed graph units while the
                  text inside is `calc(11px * var(--canvas-label-scale))` — so at
@@ -2123,18 +2295,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // FALSE for as long as that badge painted at `labelX + 30`.
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'stretch',
+              alignItems: fragileCueOnly ? 'center' : 'stretch',
               // Each ROW is still one line, always: the ellipsis that keeps
               // the text inside the cleared box lives on the spans below.
               flexWrap: 'nowrap',
               rowGap: `${LABEL_ROW_GAP_PX}px`,
               cursor: 'pointer',
-              // C1: Smooth fade-in transition
-              opacity: 1,
+              // C1: Smooth fade-in transition. contract v3.1 (E6): the chip
+              // dims with its connection rather than floating over a faded line.
+              opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : 1,
               transition: 'opacity 150ms ease-in-out',
             }}
-            className={`nodrag nopan border shadow-panel ${typography.edgeLabel} ${
-              isDark ? 'bg-gray-900 text-gray-100' : 'bg-panel/95 text-text-header'
+            className={`nodrag nopan border ${fragileCueOnly ? 'focus:outline-none focus-visible:ring-2 focus-visible:ring-info' : 'shadow-panel'} ${typography.edgeLabel} ${
+              isDark ? 'bg-gray-900 text-gray-100' : fragileCueOnly ? 'bg-panel text-text-header' : 'bg-panel/95 text-text-header'
             } ${
               // (Formerly: "The fragility row brings the old badge's border with
               // it, so a fragile-only chip IS the badge".)
@@ -2143,11 +2316,26 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // to take `border-info/30` when it carried the cue — a second,
               // colour-only fragility signal, in the hue point 9 reserves for
               // attention. The mark below is the ONE cue.
+              // contract v3.1 (E10): the cue disc's ring is the contract's
+              // `#C5C7C0` neutral, taken as the muted-ink token at 40% rather
+              // than a new hex. The chip form keeps the panel border.
               isDark
                 ? 'border-gray-600'
-                : 'border-panel-border'
+                : fragileCueOnly ? 'border-text-light/40' : 'border-panel-border'
             } ${hasSuggestion ? 'ring-2 ring-info ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
-            role="note"
+            // ⭐ contract v3.1 (E10; Paul 23 Sep point 12: "Icons need hover/focus
+            // labels and inspector access"). A cue-only chip is a CONTROL: it
+            // takes focus, names itself with the fragility sentence, and opens
+            // the connection's inspector — the same route the chip's
+            // double-click takes (`openEdgeStrengthEditor`). With a strength
+            // row it stays a `note`, exactly as before. This is the contract's
+            // `.edge-cue` (`tabindex="0" role="button"`), a tab stop only where
+            // a cue is painted — the budgeted top flip risk in the default view.
+            role={fragileCueOnly ? 'button' : 'note'}
+            tabIndex={fragileCueOnly ? 0 : undefined}
+            onClick={fragileCueOnly ? handleFragileCueActivate : undefined}
+            onKeyDown={fragileCueOnly ? handleFragileCueKeyDown : undefined}
+            data-fragile-cue={fragileCueOnly ? 'disc' : undefined}
             data-testid="edge-influence-label"
             // ⭐ THE CUE IS NAMED ON THE ASSISTIVE CHANNEL WHEN IT SHARES A CHIP.
             // `aria-label` REPLACES descendant text, so on a chip carrying BOTH
@@ -2248,7 +2436,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   {/* Weight suggestion indicator */}
                   {hasSuggestion && (
                     <Lightbulb
-                      className="w-3 h-3 text-info flex-shrink-0"
+                      size={12}
+                      // contract v3.1 (ICON-07): counter-scaled like the label text.
+                      className={`${CANVAS_GLYPH_SIZE_CLASSES[12]} text-info flex-shrink-0`}
                       aria-label="Weight suggestion available"
                       data-testid="edge-suggestion-indicator"
                     />
@@ -2335,9 +2525,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                         // user-stated value is the most trustworthy kind. It is
                         // now the success hue, matching every other
                         // "you set this" signal on the canvas.
-                        provenance === 'template' ? 'bg-info-500' :
+                        // contract v3.1 (T16): DS tokens, not the legacy
+                        // `info-500` alias or Tailwind's default grey.
+                        provenance === 'template' ? 'bg-info' :
                         provenance === 'user' ? 'bg-success' :
-                        'bg-gray-400'
+                        'bg-text-light'
                       }
                       title={`Provenance: ${provenance}`}
                       aria-label={`Provenance: ${provenance}`}
@@ -2392,16 +2584,30 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   alignItems: 'center',
                   minWidth: 0,
                 }}
-                className="text-text-body"
+                // contract v3.1 (ICON-07/E10): MUTED ink, not body ink — the
+                // contract's `.edge-cue .cue-icon{stroke:#797871}`; `text-light`
+                // is the nearest DS token (5.23:1 on panel) and adds no colour.
+                className="text-text-light"
               >
                 {/* ⭐ NOT A TRIANGLE — Paul 23 Sep contract feedback point 4
                     ("remove the warning-triangle … pile-up"). `AlertTriangle`
                     is the design system's WARNING icon (DS v5 §9.5) and the
                     RISK node's icon (§9.4), so on a connection it said
                     "warning" or "risk" about a relationship that is neither.
-                    `Activity` is a neutral pulse mark, in body ink, named by
-                    its sentence — shape does the work, not a hue. */}
-                <Activity size={12} className="flex-shrink-0" aria-hidden="true" />
+                    `Activity` is a neutral pulse mark, in muted ink, named by
+                    its sentence — shape does the work, not a hue.
+
+                    contract v3.1 (ICON-07): COUNTER-SCALED like the text beside
+                    it, so its declared px is its screen px — a fixed 12 painted
+                    at 6px at the 0.50 park. 10px inside the 16px disc, 12px as
+                    a row beside a strength label. `size` stays as the honest
+                    fallback where the class did not load. */}
+                <Activity
+                  size={fragileCueOnly ? 10 : 12}
+                  strokeWidth={fragileCueOnly ? 2 : undefined}
+                  className={`flex-shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[fragileCueOnly ? 10 : 12]}`}
+                  aria-hidden="true"
+                />
               </div>
             )}
           </div>
@@ -2424,7 +2630,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             {/* R6: not orange — this is a user annotation. Orange on an edge
                 is reserved for a SIGN disagreement between Olumi's review
                 passes (23 Sep 2026). */}
-            <Flag size={12} className="text-text-light" />
+            {/* contract v3.1 (ICON-07): counter-scaled, so 12px on screen. */}
+            <Flag size={12} className={`text-text-light ${CANVAS_GLYPH_SIZE_CLASSES[12]}`} />
           </div>
         </EdgeLabelRenderer>
       )}
@@ -2631,7 +2838,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   data-testid="edge-hover-fragility"
                   className={`${typography.edgeLabel} text-text-body flex items-start gap-1`}
                 >
-                  <Activity size={10} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <Activity size={10} className={`flex-shrink-0 mt-0.5 ${CANVAS_GLYPH_SIZE_CLASSES[10]}`} aria-hidden="true" />
                   <span>{fragileEdgeSentence(fragileEdgeSwitchProb)}</span>
                 </div>
               )}
@@ -2689,7 +2896,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       if (showEdgeHint) dismissEdgeHint()
                     }}
                     aria-label={`Set the strength of the relationship between ${srcTitle} and ${tgtTitle}`}
-                    className={`${typography.edgeLabel} w-full text-left px-2 py-1 rounded-md border border-info/40 bg-info/10 text-text-body hover:bg-info/20 focus:outline-none focus:ring-2 focus:ring-info`}
+                    className={`${typography.edgeLabel} w-full text-left px-2 py-1 rounded-md border border-info/40 bg-info/10 text-text-body hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   >
                     {EDGE_AFFORDANCE_DIRECT_ACTION}
                   </button>
