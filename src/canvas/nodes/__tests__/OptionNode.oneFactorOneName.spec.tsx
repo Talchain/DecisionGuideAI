@@ -38,6 +38,7 @@ import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { sentenceCaseFactorLabel } from '../../utils/labelUtils'
+import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -174,12 +175,17 @@ describe('OptionNode — one factor, one name', () => {
     const expected = sentenceCaseFactorLabel(TITLE_CASE_LABEL)
     expect(expected).toBe('Usage-based pricing exposure')
 
-    expect(differentiator.textContent).toBe('Usage-based pricing… is the key difference')
+    // S4 (9914ffa3; ED #63 5806207128): the label budget follows the 260 card —
+    // 18 characters — so the visible cut is "Usage-based…" (was "Usage-based
+    // pricing…" at 25). The casing claim is unchanged.
+    expect(differentiator.textContent).toBe('Usage-based… is the key difference')
     // …and the hover recovery carries the same casing, not the raw label.
     expect(differentiator.getAttribute('title')).toBe('Usage-based pricing exposure is the key difference')
 
     // The producer's Title Case must not survive anywhere in this sentence.
-    expect(differentiator.textContent).not.toMatch(/Usage-Based Pricing/)
+    // (Visible text now ends at "Usage-based…", so the probe is the word that
+    // is still on screen.)
+    expect(differentiator.textContent).not.toMatch(/Usage-Based/)
     expect(differentiator.getAttribute('title')).not.toMatch(/Usage-Based Pricing/)
   })
 
@@ -213,35 +219,62 @@ describe('OptionNode — one factor, one name', () => {
    * characters, so it was cut to "In-house build…" by the old 20-char
    * differentiator budget and renders WHOLE at the derived 25. It is one of
    * seven starter labels that go from truncated to complete.
+   *
+   * ⚠ RE-POINTED WITH ITS REASON (S4, 9914ffa3; ED #63 5806207128 / 5806266691;
+   * NODE-ANATOMY v3.2 L4 "the fix is card anatomy (shorter cards)"): the
+   * option card is now 260 wide and the SAME derivation gives 18, below the old
+   * hand-set 20 — so "a 23-character name renders whole" is no longer true of
+   * the product, and asserting it would pin the pre-S4 width. The property this
+   * test exists for is unchanged: the CALL SITE cuts at the derived budget. It is
+   * now pinned from both sides, at the budget and one past it:
+   *   · a name of exactly the budget renders whole — a smaller hand-set budget
+   *     (compactFactorLabel's default 15) would cut it;
+   *   · a name one past the budget, and no longer than 20, is cut — the old
+   *     hand-set 20 and the pre-S4 derived 25 would both render it whole.
    */
-  it('a 23-character factor name renders whole, not cut at the old hand-set budget', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        ceeAnalysisReady: {
-          options: [
-            { id: 'option-1', interventions: { 'factor-build': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
-            { id: 'option-3', interventions: { 'factor-other': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
-          ],
-        },
-        nodes: [
-          { id: 'option-1', type: 'option', data: { label: 'Build In-House', type: 'option' } },
-          { id: 'option-3', type: 'option', data: { label: 'Buy Vendor Solution', type: 'option' } },
-          { id: 'factor-build', type: 'factor', data: { label: 'In-house build approach', observedState: { unit: 'scale', value: 0.0 } } },
-          { id: 'factor-other', type: 'factor', data: { label: 'Vendor licensing cost', observedState: { unit: 'scale', value: 0.0 } } },
-          { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
-        ],
-        viewMode: 'standard',
-      }) as never),
-    )
-    renderOption({ label: 'Build In-House' })
+  it('the differentiator cuts at the DERIVED row budget: whole at the budget, cut one past it (S4)', () => {
+    const AT_BUDGET = 'Vendor switch cost'
+    const ONE_PAST = 'Customer churn risk'
+    // Preconditions pinned in-test: the fixture lengths mean what the name says.
+    expect(AT_BUDGET.length).toBe(NODE_ROW_LABEL_MAX_CHARS)
+    expect(ONE_PAST.length).toBe(NODE_ROW_LABEL_MAX_CHARS + 1)
+    expect(ONE_PAST.length).toBeLessThanOrEqual(20)
 
-    const p = screen.getByText(/is the key difference/i)
-    expect(p.textContent).toBe('In-house build approach is the key difference')
-    // The whole point: no ellipsis where the name used to be cut.
-    expect(p.textContent).not.toContain('…')
-    // Precondition pinned in-test — the old budget really did cut this label,
-    // so the assertion above is about the change and not about a short string.
-    expect('In-house build approach'.length).toBeGreaterThan(20)
+    const renderWithTopFactor = (label: string) => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              { id: 'option-1', interventions: { 'factor-top': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
+              { id: 'option-3', interventions: { 'factor-other': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Build In-House', type: 'option' } },
+            { id: 'option-3', type: 'option', data: { label: 'Buy Vendor Solution', type: 'option' } },
+            { id: 'factor-top', type: 'factor', data: { label, observedState: { unit: 'scale', value: 0.0 } } },
+            { id: 'factor-other', type: 'factor', data: { label: 'Vendor licensing cost', observedState: { unit: 'scale', value: 0.0 } } },
+            { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
+          ],
+          viewMode: 'standard',
+        }) as never),
+      )
+      return renderOption({ label: 'Build In-House' })
+    }
+
+    // At the budget: whole, nothing to recover.
+    const at = renderWithTopFactor(AT_BUDGET)
+    const whole = screen.getByTestId('option-differentiator-option-1')
+    expect(whole.textContent).toBe('Vendor switch cost is the key difference')
+    expect(whole.textContent).not.toContain('…')
+    expect(whole.getAttribute('title')).toBeNull()
+    at.unmount()
+
+    // One past it: cut at the word, and the whole name recoverable.
+    renderWithTopFactor(ONE_PAST)
+    const cut = screen.getByTestId('option-differentiator-option-1')
+    expect(cut.textContent).toBe('Customer churn… is the key difference')
+    expect(cut.getAttribute('title')).toBe('Customer churn risk is the key difference')
   })
 
   it('the "→ value" branch carries the same casing', () => {
@@ -281,7 +314,9 @@ describe('OptionNode — one factor, one name', () => {
     expect(screen.queryByTestId('option-change-row-option-1-factor-usage')).toBeNull()
     const p = screen.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
-    expect(p.textContent).toBe('Usage-based pricing… → Very high (1)')
-    expect(p.textContent).not.toMatch(/Usage-Based Pricing/)
+    // Same S4 cut as the first case (18 characters at the 260 card, 9914ffa3).
+    expect(p.textContent).toBe('Usage-based… → Very high (1)')
+    expect(p.textContent).not.toMatch(/Usage-Based/)
+    expect(p.getAttribute('title')).toBe('Usage-based pricing exposure → Very high (1)')
   })
 })

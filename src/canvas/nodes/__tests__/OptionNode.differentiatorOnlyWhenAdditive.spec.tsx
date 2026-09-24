@@ -100,6 +100,15 @@ const renderOption1 = (options: Array<{ id: string; interventions: Record<string
 
 const row = (factorId: string) => screen.queryByTestId(`option-change-row-option-1-${factorId}`)
 const differentiator = () => screen.queryByTestId('option-differentiator-option-1')
+/**
+ * The whole sentence the line states: its visible text when nothing was elided,
+ * else its hover recovery (`OptionNode.differentiatorRecoverable.spec` pins that
+ * the recovery IS that sentence). S4 (9914ffa3; ED #63 5806207128) derives the
+ * label budget from the 260 card — 18 characters — so "Developer headcount"
+ * (19) is elided on screen; this spec is about WHEN the line renders, so it
+ * binds the sentence, not the budget's cut.
+ */
+const fullSentence = (el: HTMLElement | null) => el?.getAttribute('title') ?? el?.textContent
 
 describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds beyond the rows', () => {
   it('ONE change → no "<only row> is the key difference": the row already is the difference', () => {
@@ -115,13 +124,22 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
   })
 
   it('CONTRAST — TWO changes: "<X> is the key difference" names which shown row matters, so it stays', () => {
+    // ⚠ FIXTURE SHORTENED WITH ITS REASON (S4, 9914ffa3; ED #63 5806207128): at
+    // the 260 card the two-row budget is 2 × 18 = 36 characters, and a bare
+    // `'f-cost': 2` renders "No coordination cost in place → Very high" (41), so
+    // the card drops to ONE row (ED 02:31Z D2) and headcount leaves the rows —
+    // the case this test is for stops existing. A short shared value keeps both
+    // rows on the card; the claim is unchanged.
+    const cost = { value: 2, display_value: '£2k' }
     renderOption1([
-      { id: 'option-1', interventions: { 'f-head': { value: 6, display_value: '6 engineers' }, 'f-cost': 2 } },
-      { id: 'option-2', interventions: { 'f-cost': 2 } },
+      { id: 'option-1', interventions: { 'f-head': { value: 6, display_value: '6 engineers' }, 'f-cost': cost } },
+      { id: 'option-2', interventions: { 'f-cost': cost } },
     ])
     expect(row('f-head')).not.toBeNull()
     expect(row('f-cost')).not.toBeNull()
-    expect(differentiator()?.textContent).toBe('Developer headcount is the key difference')
+    expect(screen.queryByTestId('option-change-more-option-1')).toBeNull()
+    expect(fullSentence(differentiator())).toBe('Developer headcount is the key difference')
+    expect(differentiator()?.textContent).toMatch(/ is the key difference$/)
   })
 
   it('it names a change hidden behind "+N more" → it adds, so it stays', () => {
@@ -148,7 +166,9 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
     ])
     expect(row('f-head')?.textContent).toContain('6 engineers')
     expect(differentiator()).toBeNull()
-    expect(document.body.textContent).not.toContain('Developer headcount → 6 engineers')
+    // Markup, not text: at the S4 budget the visible form is elided, so only the
+    // hover recovery could still carry the whole sentence (9914ffa3).
+    expect(document.body.innerHTML).not.toContain('Developer headcount → 6 engineers')
   })
 
   it('≤2 change rows at rest, then "+N more" from the one total', () => {

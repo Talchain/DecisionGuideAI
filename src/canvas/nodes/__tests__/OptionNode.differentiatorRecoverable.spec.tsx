@@ -218,7 +218,11 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     // renders WHOLE, so this test's subject stopped existing. A test for
     // recoverable ELISION needs a label that is still elided. The recovery
     // standard below is untouched; only the fixture is longer.
-    expect(p.textContent).toBe('Account executives hired… is the key difference')
+    // ⚠ CUT MOVED WITH THE CARD (S4, 9914ffa3; ED #63 5806207128 / NODE-ANATOMY
+    // v3.2 L4 "the fix is card anatomy (shorter cards)"): the budget is now
+    // derived from the 260 card — 18 characters — so the visible cut is earlier.
+    // The label is still elided and the recovery standard is unchanged.
+    expect(p.textContent).toBe('Account executives… is the key difference')
     assertRecoverable(p, 'Account executives hired in region is the key difference')
   })
 
@@ -255,7 +259,8 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     // Precondition: the factor it names is NOT a shown row (it is behind "+1 more").
     expect(screen.queryByTestId('option-change-row-option-1-factor-pe')).toBeNull()
     expect(screen.getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
-    const p = screen.getByText(/Platform engineers hired… → Low \(0\)/)
+    // Same S4 cut as above (18 characters at the 260 card, 9914ffa3).
+    const p = screen.getByText(/^Platform engineers… → Low \(0\)$/)
     expect(p.tagName).toBe('P')
     assertRecoverable(p, 'Platform engineers hired onto the team → Low (0)')
   })

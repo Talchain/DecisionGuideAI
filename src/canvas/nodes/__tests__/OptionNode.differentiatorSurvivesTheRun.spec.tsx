@@ -68,6 +68,24 @@ const OPTION_2 = { id: 'option-2', type: 'option', data: { label: 'Hire a tech l
  *  another option's sentence could satisfy. */
 const EXPECTED = 'Developer headcount is the key difference'
 
+/**
+ * ⚠ RE-BOUND WITH ITS REASON (S4, 9914ffa3; ED #63 5806207128 / NODE-ANATOMY
+ * v3.2 L4): the row-label budget is now derived from the 260 card — 18
+ * characters — so "Developer headcount" (19) is elided ON SCREEN and a text
+ * query for EXPECTED finds nothing (and an ABSENCE query for it holds
+ * vacuously). The line is found by its test id, and the sentence it states is
+ * its visible text when nothing was elided, else its hover recovery
+ * (`OptionNode.differentiatorRecoverable.spec` pins that the recovery IS the
+ * whole sentence). What this file claims — the run does not delete it — is
+ * unchanged.
+ */
+const DIFF_TESTID = 'option-differentiator-option-1'
+const fullSentence = (el: Element | null) => el?.getAttribute('title') ?? el?.textContent
+const shownLine = () => {
+  const el = screen.getByTestId(DIFF_TESTID)
+  return { el, sentence: fullSentence(el), visible: el.textContent, title: el.getAttribute('title') }
+}
+
 const CEE_READY = {
   options: [
     { id: 'option-1', interventions: { 'f-shared': SHARED_EQUAL, 'f-head': 3 } },
@@ -157,7 +175,7 @@ describe('OptionNode differentiator — the run must not delete the reason', () 
     // THE CAPTURED STATE. Before the fix this rendered a name and an ordinal
     // and nothing else.
     renderOption({ results: { status: 'complete', report: {} } })
-    expect(screen.getByText(EXPECTED)).toBeInTheDocument()
+    expect(shownLine().sentence).toBe(EXPECTED)
   })
 
   it('⭐ THE TWIN: pre-analysis is UNCHANGED — the same sentence, same card', () => {
@@ -165,18 +183,19 @@ describe('OptionNode differentiator — the run must not delete the reason', () 
     // restores either gate REDs the case above and leaves this one GREEN —
     // which is what proves the binding is to the RUN and not to the fixture.
     renderOption({ results: { status: 'idle', report: null } })
-    expect(screen.getByText(EXPECTED)).toBeInTheDocument()
+    expect(shownLine().sentence).toBe(EXPECTED)
   })
 
   it('the pair actually AGREE — the sentence is the same before and after', () => {
     const { unmount } = renderOption({ results: { status: 'idle', report: null } })
-    const before = screen.getByText(EXPECTED).textContent
+    const { visible: beforeVisible, title: beforeTitle } = shownLine()
     unmount()
     renderOption({ results: { status: 'complete', report: {} } })
-    const after = screen.getByText(EXPECTED).textContent
+    const { visible: afterVisible, title: afterTitle } = shownLine()
     // The point of the fix is CONTINUITY: running the analysis must not change
-    // what the card says about the model's own structure.
-    expect(after).toBe(before)
+    // what the card says about the model's own structure — on screen or on hover.
+    expect(afterVisible).toBe(beforeVisible)
+    expect(afterTitle).toBe(beforeTitle)
   })
 
   it('the baseline option is still excluded — the fix did not widen that', () => {
@@ -184,16 +203,19 @@ describe('OptionNode differentiator — the run must not delete the reason', () 
       { results: { status: 'complete', report: {} } },
       { is_baseline: true },
     )
-    expect(screen.queryByText(EXPECTED)).toBeNull()
+    // By test id (the S4-elided text made the old text query vacuous); the
+    // non-baseline renders above are the same-render-family positive control.
+    expect(screen.queryByTestId(DIFF_TESTID)).toBeNull()
+    expect(document.body.innerHTML).not.toContain(EXPECTED)
   })
 
   it('PRECONDITION: the fixture really does produce a differentiator', () => {
     // Without this every assertion above could hold vacuously on a fixture
     // that stopped computing one (CLAUDE.md trap 13b).
     renderOption({ results: { status: 'complete', report: {} } })
-    const el = screen.getByText(EXPECTED)
-    expect(el.textContent).toContain('is the key difference')
-    expect(el.textContent).toContain('Developer headcount')
+    const { visible, sentence } = shownLine()
+    expect(visible).toMatch(/ is the key difference$/)
+    expect(sentence).toContain('Developer headcount')
   })
 })
 /**
@@ -313,11 +335,16 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     }
     const pre = renderShared({ ...hidden, results: { status: 'idle', report: null } })
     expect(pre.container.querySelector('[data-testid="option-change-row-option-1-f-head"]')).toBeNull()
-    const before = pre.container.querySelector('[data-testid="option-differentiator-option-1"]')?.textContent
+    // Whole sentence via the S4-elided line's recovery (see `fullSentence`).
+    const preEl = pre.container.querySelector(`[data-testid="${DIFF_TESTID}"]`)
+    const before = fullSentence(preEl)
+    const beforeVisible = preEl?.textContent
     expect(before).toBe('Developer headcount → 3 engineers')
     pre.unmount()
     const post = renderShared({ ...hidden, results: { status: 'complete', report: {} } })
-    expect(post.container.querySelector('[data-testid="option-differentiator-option-1"]')?.textContent).toBe(before)
+    const postEl = post.container.querySelector(`[data-testid="${DIFF_TESTID}"]`)
+    expect(fullSentence(postEl)).toBe(before)
+    expect(postEl?.textContent).toBe(beforeVisible)
   })
 
   it('PRECONDITION: the change row renders from the baseline, marked', () => {
