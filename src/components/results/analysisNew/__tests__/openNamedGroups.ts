@@ -15,8 +15,10 @@ import { expect } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 
 export const NAMED_GROUPS = [
-  'analysis-new-how-worked-out',
-  'analysis-new-coaching-and-method',
+  // V2 fidelity gap 24 (24 Sep 2026): "How this was worked out" and "Coaching
+  // and method" are gone; everything they held folds into About, which is now
+  // the disclosure these blocks live behind.
+  'analysis-new-about',
   'analysis-new-what-moves-the-outcome',
 ] as const
 

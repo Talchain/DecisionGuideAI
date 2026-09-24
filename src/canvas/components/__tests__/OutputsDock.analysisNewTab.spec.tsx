@@ -90,7 +90,6 @@ import {
 } from '../workspaceShell/shellContract'
 import { ANALYSIS_NEW_COPY } from '../../../components/results/analysisNew/analysisNewCopy'
 import { COMMITMENT_COPY } from '../../../components/results/analysisNew/commitmentSynthesis'
-import { ABOUT_COPY } from '../../../components/results/analysisNew/sections/AboutThisAnalysis'
 
 const NEW_TAB = 'outputs-dock-tab-analysisNew'
 const OLD_TAB = 'outputs-dock-tab-results'
@@ -143,8 +142,8 @@ function renderDock() {
  * the collapsed-IA claim these cases rest on is unchanged.
  */
 const REASONING_GROUPS = [
-  'analysis-new-how-worked-out',
-  'analysis-new-coaching-and-method',
+  // V2 fidelity gap 24: the two tail groups are gone; what they held opens from About.
+  'analysis-new-about',
   'analysis-new-what-moves-the-outcome',
 ]
 function openReasoningGroups(): void {
@@ -446,9 +445,8 @@ describe('C · THE SECTION STRUCTURE', () => {
     // the title element keeps this an exact claim about WHICH sections appear
     // and in WHAT order (CLAUDE.md trap 19).
     const body = screen.getByTestId('analysis-new-tab-body')
+    // V2 fidelity gap 24: "How this was worked out" and "Coaching and method" are gone.
     const GROUP_TITLES: readonly string[] = [
-      ANALYSIS_NEW_COPY.sections.howWorkedOut,
-      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
       ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
     ]
     const allHeadings = Array.from(body.querySelectorAll('h3')).map(
@@ -485,12 +483,13 @@ describe('C · THE SECTION STRUCTURE', () => {
       // answer it explains so the options chart reaches the first screen.
       COMMITMENT_COPY.heading,
       ANALYSIS_NEW_COPY.sections.drivers,
+      // V2 fidelity gaps 24 + 27: what the deleted tail groups held now opens
+      // INSIDE About (opened above), so Key insights and Uncertainty still close
+      // the census, RUN DETAILS LAST. About's own label is the prototype's
+      // footer `.disclose` line, not an h3 — its presence and its name are
+      // asserted in the landmark case below.
       ANALYSIS_NEW_COPY.sections.keyInsights,
-      // ⭐ Uncertainty stays inside "How this was worked out", RUN DETAILS LAST
-      // per the prototype — only "What we checked" left it (for About).
       ANALYSIS_NEW_COPY.sections.uncertainty,
-      // V2: one collapsed audit surface closes the panel.
-      ABOUT_COPY.title,
     ])
     // The pre-V2 census, kept as the record of what moved (not asserted):
     // methods, drivers, strengthen, keyInsights, checks, uncertainty.
@@ -509,7 +508,7 @@ describe('C · THE SECTION STRUCTURE', () => {
      */
     expect(
       groupHeadings,
-      'the three disclosure groups must render, in reading order',
+      'the disclosure groups must render, in reading order',
     ).toEqual([
       // ⚠ RUN DETAILS LAST, per the prototype — see the census note above. The
       // group order is asserted separately from the section census on purpose,
@@ -527,8 +526,10 @@ describe('C · THE SECTION STRUCTURE', () => {
       // it, so while the census REDed this line never executed. One test, two
       // claims, and the second is invisible whenever the first fails.
       ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
-      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
-      ANALYSIS_NEW_COPY.sections.howWorkedOut,
+      // V2 fidelity gap 24 (24 Sep 2026): `coachingAndMethod` and `howWorkedOut`
+      // are deleted with the "If you want to go further" zone; their contents
+      // fold into About (asserted in the census above and in
+      // `theTailFoldsIntoAbout.spec.tsx`).
     ])
   })
 
@@ -619,6 +620,8 @@ describe('C · THE SECTION STRUCTURE', () => {
       ['analysis-new-drivers', 'analysis-new-drivers-heading'],
       ['analysis-new-uncertainty', 'analysis-new-uncertainty-heading'],
       ['analysis-new-commitment', 'analysis-new-commitment-title'],
+      // V2 gap 27: About's label is its footer toggle's title span, not a
+      // heading element (the prototype draws none) — still a labelled region.
       ['analysis-new-about', 'analysis-new-about-heading'],
     ] as const) {
       const section = screen.getByTestId(testId)
