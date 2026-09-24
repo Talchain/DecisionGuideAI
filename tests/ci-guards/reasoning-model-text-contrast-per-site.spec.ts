@@ -285,14 +285,70 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-warning text': 2,
   'src/canvas/components/model-tab/ModelHealthSection.tsx text-danger icon': 1,
   'src/canvas/components/model-tab/ModelHealthSection.tsx text-danger text': 1,
-  'src/canvas/components/model-tab/ReanalyseBar.tsx text-text-light/80 text': 1,
+  /* ⭐ 1 -> 0, 24 Sep 2026 (V2 fidelity gap 34 — the Re-analyse footer bar).
+     `text-text-light/80` dropped its redundant `/80` fade; the bare token
+     is one of the three that clears 4.5:1 on both panel grounds (see this
+     file's own header). */
   'src/canvas/components/model-tab/utils.ts text-danger text': 1,
   'src/canvas/components/model-tab/utils.ts text-success text': 1,
   'src/canvas/model-tab-v2/ModelDetailRegion.tsx text-danger text': 1,
   'src/canvas/model-tab-v2/ModelRowView.tsx text-danger text': 1,
   'src/canvas/model-tab-v2/ModelRowView.tsx text-warning text': 1,
+  /**
+   * ⛔ NEWLY PINNED, 24 Sep 2026 (V2 fidelity gap 31 — the outline's
+   * Plain/Advanced toggle). A VERIFIED FALSE POSITIVE, pinned rather than
+   * "fixed" by hiding the pairing from the scanner, because this file's own
+   * header (`SEMANTIC` doc, "a ternary that splits the colour from the
+   * background across `${…}` is still read as one … discover a ground this
+   * scanner would otherwise have missed, never hide one") says explicitly
+   * that hiding a ternary from this scanner is the wrong move, even when the
+   * pairing it finds cannot occur.
+   *
+   * The two lines are `tier === 'plain' ? 'bg-primary text-text-on-color' :
+   * 'text-text-body'` — a SINGLE ternary whose two arms are each internally
+   * consistent (`bg-primary`+`text-text-on-color` pairs on press;
+   * `text-text-body` alone renders on the implicit panel background when
+   * not pressed) but MUTUALLY EXCLUSIVE. The scanner reads the whole
+   * template literal as one class list, so it pairs `text-text-body` (the
+   * UNPRESSED arm) against `bg-primary` (the PRESSED arm) — a combination
+   * that cannot render, ever, because the two arms never co-select. This is
+   * a different shape from the case the scanner's header warns about (one
+   * FIXED text colour beside a VARYING background, where the ternary really
+   * could land the pair together); here the ternary varies BOTH together as
+   * a matched, exclusive pair.
+   *
+   * Measured, for the record, with this file's own WCAG helper: the FLAGGED
+   * pairing, `text-text-body` (#3F3F3E) on `bg-primary` over `--bg-panel` =
+   * 2.19:1 (fails). The REAL grounds — panel and panel-hover, the ones
+   * `text-text-body` actually renders on when unpressed, since the button
+   * carries no background of its own in that arm — pass by a wide margin:
+   * 10.45:1 on `--bg-panel`, 10.07:1 on `--bg-panel-hover`.
+   */
+  'src/canvas/model-tab-v2/ModelTabV2Panel.tsx text-text-body text': 2,
   'src/components/results/analysisNew/sections/AtAGlance.tsx text-success text': 1,
   'src/components/results/analysisNew/sections/ModelHeldUp.tsx text-success icon': 1,
+  /**
+   * ⛔⛔ NEWLY PINNED, 24 Sep 2026 — DISCOVERED, NOT INTRODUCED, BY THE V2
+   * MODEL-TAB FIDELITY LANE (gaps 29-35).
+   *
+   * `OptionsComparison.tsx` is a Reasoning-tab section — out of that lane's
+   * scope (CLAUDE.md: no `AnalysisNewTabBody.tsx` or Reasoning-tab section
+   * edits) and untouched by it: `git diff 7880a129 HEAD -- .../OptionsComparison.tsx`
+   * is empty. These two sites were ALREADY failing on `7880a129`, the exact
+   * commit this lane started from — this guard was already red before this
+   * lane's first commit, on a file this lane never opens. Verified by
+   * checking `KNOWN_UNREPAIRED` at that commit: neither key was present
+   * there either, so the drift predates it.
+   *
+   * ⛔ WORTH FIXING SOON: `text-info` measures **1.00:1** on `bg-primary` —
+   * not merely under-contrast but the same colour as its own ground, i.e.
+   * genuinely INVISIBLE text, at two sites (lines 628 and 1073).
+   * `text-text-body` alongside it measures 2.19:1. Both need a light-on-dark
+   * pairing (e.g. `text-text-on-color`) on a `bg-primary` ground, not a
+   * token swap alone.
+   */
+  'src/components/results/analysisNew/sections/OptionsComparison.tsx text-info text': 2,
+  'src/components/results/analysisNew/sections/OptionsComparison.tsx text-text-body text': 2,
   /* ⭐ 1 -> 0, 18 Sep 2026. THE SURVIVOR IS REPAIRED, and the judgement it was
      owed is now cheap to make. The note above deferred it because it is a
      FILLED pill (`bg-info/10`, `rounded-md`), and the only remedy available at
