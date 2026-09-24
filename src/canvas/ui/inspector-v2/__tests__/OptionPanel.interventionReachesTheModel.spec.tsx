@@ -181,10 +181,15 @@ describe('an effect set on an option reaches the model', () => {
     fireEvent.change(input, { target: { value: '0.8' } })
     fireEvent.blur(input)
 
-    const notice = screen.getByTestId('option-intervention-notice')
-    expect(notice.textContent ?? '').toMatch(/not sent/i)
+    // ⭐ Said directly under THIS row's field (ED #63 5806266691, S2), not in a
+    // list-level line below every row — and said once.
+    const notice = screen.getByTestId(`intervention-unapplied-${FACTOR_ID}`)
+    expect(notice.textContent ?? '').toMatch(/^not sent · /i)
     // It must name the recovery, because this refusal has one.
     expect(notice.textContent ?? '').toMatch(/ask it anything|then set this again/i)
+    expect(screen.queryByTestId('option-intervention-notice')).toBeNull()
+    // The typed value stays in the field.
+    expect(interventionInput().value).toBe('0.8')
   })
 
   it('CONTRAST — no notice on the happy path, so the notice is not simply always on', () => {
@@ -193,5 +198,6 @@ describe('an effect set on an option reaches the model', () => {
     fireEvent.change(input, { target: { value: '0.8' } })
     fireEvent.blur(input)
     expect(screen.queryByTestId('option-intervention-notice')).toBeNull()
+    expect(screen.queryByTestId(`intervention-unapplied-${FACTOR_ID}`)).toBeNull()
   })
 })

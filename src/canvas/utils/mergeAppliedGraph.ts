@@ -116,13 +116,15 @@
  * 1500ms window — is the shared-writer/CAS problem (review C1/A3), not B2, and
  * is deliberately not addressed here.
  *
- * Freshness: deliberately NOT marking the local dirty overlay by hand here.
- * The same response carries CEE's post-apply analysis_ready.freshness verdict
- * (routed through applyV5State step 4 setAnalysisFreshness before this
- * reconcile runs); that verdict is authoritative for exactly this graph.
- * graphEditedSinceLastRun / analysisStateReady are set EXPLICITLY in the
- * commit below: pushToHistory early-returns without flipping either flag when
- * the pre-merge state equals the last history snapshot.
+ * Freshness: a committing reconcile marks the model changed (all three flags,
+ * `markGraphStructurallyEdited`) — #344, because a confirmed chat edit's own
+ * verdict is often silent or stale and the overlay is what the banners read.
+ * (This paragraph used to say the overlay was "deliberately NOT" marked here;
+ * #344 reversed that and the sentence was never updated.) The ONE exception is
+ * a receipt the same response attests is the graph its analysis was computed
+ * against — see `receiptIsTheAttestedAnalysedGraph` at the commit below.
+ * applyV5State runs BEFORE this reconcile, so that verdict has already cleared
+ * the overlay by the time the commit would re-dirty it.
  */
 
 import { CanonicalCommittedGraphReceiptSchema } from '@talchain/schemas/boundary'
@@ -296,13 +298,35 @@ function edgeMapperDefaults(): Record<string, unknown> {
  * wire-supplied path — the OVER-applying direction this module already declares
  * fail-safe two comments up, rather than silently dropping an update.
  */
+/**
+ * ⭐ KEY ORDER IS NOT A CHANGE (manual-edit proof D1 root cause, 24 Sep).
+ *
+ * Serialise with object keys SORTED, recursively, so two objects holding the
+ * same values compare equal whatever order their keys arrived in. Measured on
+ * the served build: the agent lane's readback returns `observedState` / `prior`
+ * keys shortest-first (the order Postgres `jsonb` stores), the canvas holds the
+ * order it was built in, and a plain `JSON.stringify` counted every such node as
+ * UPDATED — re-marking the model edited just after a run cleared it. Arrays keep
+ * their order: an ordered list is not a set.
+ */
+function canonicalJson(v: unknown): string {
+  return JSON.stringify(v, (_key, value: unknown) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+    const sorted: Record<string, unknown> = {}
+    for (const k of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[k] = (value as Record<string, unknown>)[k]
+    }
+    return sorted
+  })
+}
+
 function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true
   // Exactly one side is `undefined` (both-undefined was caught above), so they
   // cannot be equal and there is nothing to serialise.
   if (a === undefined || b === undefined) return false
   try {
-    return JSON.stringify(a) === JSON.stringify(b)
+    return canonicalJson(a) === canonicalJson(b)
   } catch {
     return false
   }
@@ -515,6 +539,71 @@ function isServerStrengthAcquisitionOnly(before: any, after: any): boolean {
     return { ...edge, data }
   }
   return sameValue(withoutTuple(before), withoutTuple(after))
+}
+
+function nonEmptyHash(v: unknown): string | null {
+  return typeof v === 'string' && v.length > 0 ? v : null
+}
+
+/**
+ * ⭐ IS THIS RECEIPT THE GRAPH THE ANALYSIS WAS COMPUTED AGAINST?
+ *
+ * WITNESSED on served UI `a4434670` (24 Sep, `MANUAL-EDIT-PROOF-20260924.md`
+ * D1, 4 of 4 runs that followed an edit): the run completed, applyV5State's
+ * `setAnalysisFreshness` took CEE's `fresh` verdict and cleared the overlay,
+ * `resultsComplete` cleared the legacy flag — and 39 ms later THIS module's
+ * commit called `markGraphStructurallyEdited` (stack: the served chunk's `Vc`
+ * is `reconcileAppliedGraph`, called from the applied-receipt branch of
+ * `useConversation`). Every surface then said "Model changed" over a run CEE,
+ * the response and the store all called current. A run with no preceding edit
+ * cleared correctly, because its receipt overlaid nothing.
+ *
+ * Why the run turn reaches this commit at all: on the Agent lane EVERY turn
+ * carries a `draft_graph` read back from the persisted graph (CEE
+ * `agent-v1-turn.ts` `readBackState`), and after an edit that readback is not
+ * byte-identical to the canvas the edit left behind, so the overlay counts an
+ * update. WHICH field differs on the served wire is UNVERIFIED — this
+ * predicate deliberately does not depend on it. The question the mark answers
+ * is "does the analysis still describe the canvas?", and when the reconcile
+ * moves the canvas TO the graph the analysis was computed against, the answer
+ * is yes whatever moved.
+ *
+ * ONLY WITH IDENTITY, NEVER FROM THE WORD `fresh` ALONE. All of:
+ *   · the response's own `analysis_ready` (attached to this object by
+ *     `attachAnalysisReadyToInlineDraftGraph` — the same readback that built
+ *     the receipt) says `fresh` AND carries `graph_hash_at_run ===
+ *     current_graph_hash`, both non-empty — the attestation CEE stamps only
+ *     when the run's `computed_against_hash` equals the readback's hash
+ *     (`analysis-ready-freshness.ts`), the same pair the boot restore demands;
+ *   · the store HOLDS that same verdict — a payload the reducer refused (e.g.
+ *     strictly older than one it already holds) is not the authority this
+ *     canvas is under, and the receipt may be the older graph.
+ * NOT a second copy of the store's holds. An undispatched edit or an
+ * unregistered import already keeps the overlay set through this very turn
+ * (`setAnalysisFreshness` / `clearAnalysisFreshnessDirty` decline to clear it),
+ * so skipping the mark cannot un-dirty anything — it only stops THIS commit
+ * from dirtying a clear one.
+ * Anything else — a restore (no `analysis_ready` on the object), a confirmed
+ * chat edit whose verdict is `stale` or silent (#344), a `fresh` without the
+ * hash pair — keeps the mark. Fail closed: the cost of a false "changed" is a
+ * rerun; the cost of a false "current" is a decision on the wrong model.
+ */
+function receiptIsTheAttestedAnalysedGraph(draftData: unknown): boolean {
+  if (draftData == null || typeof draftData !== 'object') return false
+  const ready = (draftData as { analysis_ready?: unknown }).analysis_ready
+  if (ready == null || typeof ready !== 'object' || Array.isArray(ready)) return false
+  const verdict = ready as Record<string, unknown>
+  if (verdict.freshness !== 'fresh') return false
+  const atRun = nonEmptyHash(verdict.graph_hash_at_run)
+  const current = nonEmptyHash(verdict.current_graph_hash)
+  if (atRun === null || atRun !== current) return false
+
+  const held = useCanvasStore.getState().analysisFreshness
+  return (
+    held?.freshness === 'fresh' &&
+    held.graphHashAtRun === atRun &&
+    held.currentGraphHash === current
+  )
 }
 
 export function reconcileAppliedGraph(
@@ -815,6 +904,10 @@ export function reconcileAppliedGraph(
     return result
   }
 
+  // Asked BEFORE the commit, of the state the response itself left behind
+  // (applyV5State has already applied this turn's verdict).
+  const analysedGraphAttested = receiptIsTheAttestedAnalysedGraph(draftData)
+
   // --- Commit: one history entry, one atomic store write ---
   const canvas = useCanvasStore.getState()
   canvas.pushHistory()
@@ -841,7 +934,13 @@ export function reconcileAppliedGraph(
   // and ATOMICALLY: the freshness banners read the analysisFreshnessDirty
   // overlay, not the legacy pair, and every other mutation path already marks
   // all three (applyDraftResult, the edit chokepoints, commitValidatedMutation).
-  useCanvasStore.getState().markGraphStructurallyEdited?.()
+  //
+  // ⛔ EXCEPT when this receipt IS the graph the same response's run was
+  // computed against (`receiptIsTheAttestedAnalysedGraph`): the commit moved
+  // the canvas TO the analysed graph, so "the analysis no longer describes the
+  // canvas" would be false. Unconditional, this re-dirtied every run that
+  // followed an edit ~39 ms after the run cleared it (D1, served `a4434670`).
+  if (!analysedGraphAttested) useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // Warning-only schema validation on the added nodes (mirrors applyDraftResult).
   validateNodesBatch(addedNodes)

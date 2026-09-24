@@ -1238,14 +1238,17 @@
           },
           "fac_annual_cost": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "£60k"
           },
           "fac_gdpr_compliance": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "Moderate (0.5)"
           },
           "fac_ops_overhead": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "0.5 scale"
           }
         },
@@ -1307,14 +1310,17 @@
           },
           "fac_annual_cost": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "£60k"
           },
           "fac_gdpr_compliance": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "Moderate (0.5)"
           },
           "fac_ops_overhead": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "0.5 scale"
           }
         },
@@ -1376,14 +1382,17 @@
           },
           "fac_annual_cost": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "£60k"
           },
           "fac_gdpr_compliance": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "Moderate (0.5)"
           },
           "fac_ops_overhead": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "0.5 scale"
           }
         },
@@ -1445,14 +1454,17 @@
           },
           "fac_annual_cost": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "£60k"
           },
           "fac_gdpr_compliance": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "Moderate (0.5)"
           },
           "fac_ops_overhead": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "0.5 scale"
           }
         },

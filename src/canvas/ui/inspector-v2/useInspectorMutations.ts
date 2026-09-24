@@ -340,8 +340,23 @@ export const INSPECTOR_READ_ONLY_REASON =
 // work" was boilerplate repeated on five arms. It is dropped rather than moved:
 // those controls are visibly enabled, and "Other fields" already scopes the
 // fence to writers, so no blanket is implied (the trap-21 concern above).
+// ⭐⭐ DEFECT 5 + ED #63 §9 (served `a4434670`): this read "Renaming … Other
+// fields here are read-only for now." on the one pane where a SECOND writer is
+// live — the option's factor targets, which reach CEE as
+// `option_intervention_edit` (`OptionPanel`'s `disabled={false}` paragraph, and
+// the card's own route: "N factor targets. Open the inspector to change them.").
+// A reader told "other fields are read-only" beneath rows whose boxes write to
+// the model was being told the opposite of what the pane does. It now names
+// BOTH editable things — the name and the factor targets — and the complement
+// ("other fields") stays open, as the controllable arm's rule (1) requires.
+// ⚠ "below" is a REACHABLE control: each target row either carries its box in
+// the default view, or the list names "Show technical detail" — the control
+// that opens it — once, above the rows (`OPTION_TARGET_EDIT_ROUTE_NOTE` in
+// `OptionPanel.tsx`).
+// ⚠ It states the ACTION, never an outcome: a target edit can still be refused
+// by the server, and that refusal is the row's to disclose.
 export const INSPECTOR_OPTION_READ_ONLY_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Other fields here are read-only for now.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. You can also change this option's factor targets below. Other fields here are read-only for now.`
 
 /**
  * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE

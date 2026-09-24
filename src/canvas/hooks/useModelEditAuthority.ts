@@ -154,6 +154,7 @@ import {
 import {
   settleSystemEventSend,
   type SystemEventSendSettlement,
+  type SystemEventSendSettlementDetail,
 } from '../conversation/settleSystemEventSend'
 
 /**
@@ -414,7 +415,11 @@ export interface ModelEditAuthorityLive {
        * unchanged; a caller that renders a pending state must pass it, or that
        * state has no way to end.
        */
-      onSendSettled?: (settlement: OptionInterventionSendSettlement) => void
+      onSendSettled?: (
+        settlement: OptionInterventionSendSettlement,
+        /** What the envelope said — WHICH no-write, and the producer's reason. */
+        detail: SystemEventSendSettlementDetail,
+      ) => void
     },
   ) => OptionInterventionProposalOutcome
   /**
@@ -633,7 +638,12 @@ export function useModelEditAuthority(
     (
       factorId: string,
       value: number,
-      opts?: { onSendSettled?: (settlement: OptionInterventionSendSettlement) => void },
+      opts?: {
+        onSendSettled?: (
+          settlement: OptionInterventionSendSettlement,
+          detail: SystemEventSendSettlementDetail,
+        ) => void
+      },
     ): OptionInterventionProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
       const state = useCanvasStore.getState()
