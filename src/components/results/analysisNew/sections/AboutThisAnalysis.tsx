@@ -80,7 +80,7 @@ import { FactorValueControl } from '../FactorValueControl'
 import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../../InferenceWarningStrip'
 import { PanelIconButton } from '../PanelIconButton'
-import { ACTION_FOCUS, icon } from '../panelSurfaces'
+import { ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Copy. Furniture and short status values only; every claim-bearing sentence
@@ -441,7 +441,10 @@ export function AboutThisAnalysis({
        `-mx-4 px-4` cancels the content column's `px-4` so the rule reaches both
        edges; the text stays on the column's measure. */
     <section
-      className="-mx-4 px-4 border-t border-panel-border pt-1"
+      /* fidelity gap 6/11: `PANEL_RULE` — the shared full-width rule, not a
+         bare `border-t` inset inside the column's own `px-4` gutter.
+         Prototype `.about`: 11px above, 10px under a full-width rule. */
+      className={PANEL_RULE}
       data-testid={testId}
       aria-labelledby={`${testId}-heading`}
       data-about-open={open ? 'true' : 'false'}

@@ -116,6 +116,38 @@ export const SURFACE_TONE = {
 export type SurfaceTone = keyof typeof SURFACE_TONE
 
 /**
+ * ⭐⭐ THE TOP-LEVEL SECTION RULE (fidelity gaps 6 and 11, 24 Sep 2026).
+ *
+ * One hairline between the Reasoning tab's top-level sections — the model
+ * block and "Challenge the thinking", "Move towards commitment", "About this
+ * analysis" — matching the design authority's `.section:before` /
+ * `.about:before` (`prototype-v2-reference.html`, `reasoningHTML()`): a rule
+ * that runs the full panel width, always on the TOP edge, in the neutral
+ * border token only, with the SAME gap on both sides of the line.
+ *
+ * ⚠ `-mx-4 px-4` IS THE FULL-WIDTH PART. The content column's own gutter is
+ * `px-4` (16px); the negative margin cancels it for this element alone so
+ * the border-box reaches both panel edges, then the padding puts the
+ * content back where the column's other children already sit — the same
+ * trick the prototype's `left:-16px;right:-16px` performs against its own
+ * 16px `.scroll` padding.
+ *
+ * ⚠ `!mt-[11px]` CARRIES THE `!` DELIBERATELY. Every call site sits inside
+ * SOME ancestor's `space-y-N`, and Tailwind's `space-y` selector
+ * (`> :not([hidden]) ~ :not([hidden])`) out-specifies a plain `mt-*`
+ * utility, so an unmarked override would silently lose to whatever rhythm
+ * the caller's parent happens to carry — a different, unstated gap above
+ * the rule depending on which zone it was dropped into. The `!important`
+ * pins the same 11px the prototype's `.section{margin-top:11px}` uses,
+ * regardless of ancestor, matching the `pt-[11px]` below it exactly.
+ *
+ * ⚠ NOT A TONE. `SURFACE_TONE` exists for boxes that may carry a caller's
+ * colour; this rule never does — it is `border-panel-border` at every call
+ * site, full stop, which is what "never a tint" means.
+ */
+export const PANEL_RULE = '-mx-4 px-4 !mt-[11px] border-t border-panel-border pt-[11px]'
+
+/**
  * A PRESSABLE box at inset level — the glance's promoted action, and today its
  * only consumer.
  *
