@@ -1789,3 +1789,23 @@ function deriveBlockHash(parts: {
   }
   return `v5:${h.toString(16).padStart(16, '0')}`
 }
+
+/**
+ * The CONTENT HASH of a V5 `analysis_result` block — the same derivation the
+ * mapper uses for `results.hash` (same inputs, same order), so a surface asking
+ * "is this the same result?" agrees with the store's own dedupe. Used by the
+ * transcript to show one card per run (`canvas/conversation/analysisCardDedupe`).
+ */
+export function v5AnalysisBlockContentHash(block: {
+  summary: string
+  leading_option_id: string | null
+  win_probabilities?: Record<string, number>
+  enrichment?: Record<string, unknown>
+}): string {
+  return deriveBlockHash({
+    summary: block.summary,
+    leading_option_id: block.leading_option_id,
+    win_probabilities: block.win_probabilities ?? {},
+    enrichment: block.enrichment,
+  })
+}
