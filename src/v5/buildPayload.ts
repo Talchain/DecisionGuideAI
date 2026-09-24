@@ -77,6 +77,7 @@ import {
 // `canvas/conversation/useConversation.ts` — derived by transitive closure over
 // the 66 value-imported modules reachable from the store, not assumed.
 import { useCanvasStore } from '../canvas/store'
+import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 
 export interface BuildV5PayloadInput {
   turnId: string
@@ -232,7 +233,7 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
   // selected_elements — what the user had selected on the canvas at send time.
   // Omitted (absent, never `[]`) when there is nothing to say. See
   // `deriveSelectedElements` for every reason a selection can be withheld.
-  const selectedElements = deriveSelectedElements()
+  const selectedElements = deriveSelectedElements(message)
   if (selectedElements !== undefined) {
     base.selected_elements = selectedElements
   }
@@ -314,13 +315,16 @@ export const MAX_SELECTED_ELEMENTS = 20
  * selection Set's iteration order, so the payload is a pure function of the
  * selected SETS.
  */
-function deriveSelectedElements(): MessageTurnPayload['selected_elements'] | undefined {
+function deriveSelectedElements(message: string): MessageTurnPayload['selected_elements'] | undefined {
   // Defensive read: this is the one place the wire builder depends on store
   // shape, and a selection-less store (an early boot, a test that stubbed the
   // store) must degrade to "no selection", never throw on the send path.
   const state = useCanvasStore.getState()
-  const selectedNodeIds = state?.selection?.nodeIds
-  const selectedEdgeIds = state?.selection?.edgeIds
+  // ⭐ A prefilled Ask carries ITS target, not whatever is selected at Send
+  // (Codex 5810867282; `askTargetBinding.ts`).
+  const asked = takeAskTargetBinding(message)
+  const selectedNodeIds = asked ? asked.nodeIds : state?.selection?.nodeIds
+  const selectedEdgeIds = asked ? asked.edgeIds : state?.selection?.edgeIds
   const selectedNodeCount = selectedNodeIds?.size ?? 0
   const selectedEdgeCount = selectedEdgeIds?.size ?? 0
   if (selectedNodeCount + selectedEdgeCount === 0) return undefined
