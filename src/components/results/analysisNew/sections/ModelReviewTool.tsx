@@ -5,9 +5,7 @@
  * Collapsed, it is one row: "N to review" and an ask to check the whole
  * framing. Open, it pages through `buildReviewQueue`'s items with the acts a
  * reader needs on each: inspect it in the Model, focus it on the canvas, ask
- * Olumi about it, change its value (only where the analysis could read the
- * typed number — see `freeValueEditIsUnanalysable`), confirm an estimate as
- * their own.
+ * Olumi about it, change its value, confirm an estimate as their own.
  *
  * ⚠⚠ REVIEWED IS NOT VERIFIED IS NOT ESTABLISHED. Confirming an estimate makes
  * it the reader's estimate; it verifies nothing behind it, and the control says
@@ -41,7 +39,6 @@ import {
 
 import Tooltip from '../../../Tooltip'
 import { useCanvasStore } from '../../../../canvas/store'
-import { freeValueEditIsUnanalysable } from '../../../../canvas/conversation/factorValueEdit'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -168,23 +165,6 @@ export function ModelReviewTool({
    */
   const confirmNodeId = current?.factor?.needsCheck ? current.factor.nodeId : null
   const authority = useModelEditAuthority(confirmNodeId)
-
-  // ── No free-number edit the engine cannot analyse ─────────────────────────
-  /**
-   * ⛔ WITNESSED LIVE, 24 Sep 2026: this item offered "Change this value" on a
-   * count with a unit and no cap; the typed 20 was stored raw and the next Run
-   * was refused. `FactorValueControl` now declines that edit through its own
-   * offer rule, so nothing here gates it — this reads the SAME predicate only to
-   * say why the edit is absent, rather than leaving a value line with a
-   * control that silently vanished. A primitive selector, for the reason
-   * `nodeSignature` states.
-   */
-  const valueEditWithheld = useCanvasStore((s) => {
-    const id = current?.factor?.nodeId
-    if (!id) return false
-    const node = (s.nodes ?? []).find((n) => n.id === id)
-    return node !== undefined && freeValueEditIsUnanalysable(node.data)
-  })
   const confirm = () => {
     const outcome = authority.proposeFactorConfirmation()
     showToast(outcome === 'committed' ? COPY.confirmed : COPY.confirmRefused)
@@ -402,14 +382,6 @@ export function ModelReviewTool({
                 testIdPrefix={testId}
               />
             </div>
-          ) : null}
-          {current.factor && valueEditWithheld ? (
-            <p
-              className={`${typography.panelMeta} text-text-light`}
-              data-testid={`${testId}-value-edit-withheld`}
-            >
-              {COPY.valueEditWithheld}
-            </p>
           ) : null}
 
           {current.reason ? (

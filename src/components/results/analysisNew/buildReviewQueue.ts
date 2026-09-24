@@ -88,14 +88,6 @@ export const REVIEW_TOOL_COPY = {
   unnamedFactor: 'A factor with no name',
   askFactorDraft: (name: string) =>
     `Help me check the estimate for ${name}. What would support it, and what would change it?`,
-  /**
-   * In place of the value edit on a factor whose typed number the analysis
-   * could not read (`freeValueEditIsUnanalysable`). It names the item's Ask
-   * act, which renders on the same item unconditionally — a remedy in copy
-   * must be a control the reader can press, and this one always is.
-   */
-  valueEditWithheld:
-    'This value cannot be changed here: the factor has a unit but no recorded scale, so the analysis could not read a typed number. Ask Olumi about it instead.',
   addContextDraft: (name: string) => `Here is evidence or context about ${name}: `,
 } as const
 

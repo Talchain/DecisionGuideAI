@@ -181,7 +181,6 @@ import {
   classifyValueProvenance,
   VALUE_PROVENANCE_LABEL,
 } from '../../../../canvas/domain/valueProvenance'
-import { freeValueEditIsUnanalysable } from '../../../../canvas/conversation/factorValueEdit'
 import { useFactorValueCommit } from '../useFactorValueCommit'
 import { SuccessTargetLine } from './SuccessTargetLine'
 import { NodeMark, type MarkKind } from '../nodeMarks'
@@ -722,25 +721,8 @@ export function ModelStrip({
     const cls = classifyValueProvenance(active?.valueSource)
     return cls === null ? null : VALUE_PROVENANCE_LABEL[cls.kind]
   })()
-  /**
-   * ⛔ NO FREE-NUMBER EDIT THE ENGINE CANNOT ANALYSE — 24 Sep 2026, witnessed
-   * live on the review tool beside this strip: "Change this value" on a count
-   * with a unit and no cap stored the typed 20 raw, and the next Run was
-   * refused. This detail offered the SAME act through the SAME authority, so it
-   * asks the SAME question (`freeValueEditIsUnanalysable`, imported). Read from
-   * `getState()` exactly as `strip` is, and for the same reason: `signature`
-   * already re-renders this on every value, unit or cap change, and a hook here
-   * would sit below the early return.
-   */
-  const activeValueEditWithheld =
-    active !== null &&
-    active.kind === 'factor' &&
-    (() => {
-      const node = (useCanvasStore.getState().nodes ?? []).find((n) => n.id === active.id)
-      return node !== undefined && freeValueEditIsUnanalysable(node.data)
-    })()
   /** Open only for the factor whose detail is on screen — see `editingFor`. */
-  const isEditingActive = active !== null && editingFor === active.id && !activeValueEditWithheld
+  const isEditingActive = active !== null && editingFor === active.id
 
   /**
    * Send the typed value to the one write authority and SAY WHICH OF THE THREE
@@ -1471,7 +1453,7 @@ export function ModelStrip({
                       {COPY.modelStrip.cancelValue}
                     </button>
                   </div>
-                ) : activeValueEditWithheld ? null : (
+                ) : (
                   <button
                     type="button"
                     onClick={() => {

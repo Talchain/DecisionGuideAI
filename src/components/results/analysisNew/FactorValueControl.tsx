@@ -44,7 +44,6 @@ import { useCanvasStore } from '../../../canvas/store'
 import {
   factorDeclaresNoRange,
   factorValueAdmissionRefusal,
-  freeValueEditIsUnanalysable,
   resolveFactorValueAdmission,
 } from '../../../canvas/conversation/factorValueEdit'
 import { useOptionalConversationContext } from '../../../canvas/conversation/ConversationContext'
@@ -198,16 +197,6 @@ export interface FactorValueControlProps {
  * factors is a COLD-READ SNAPSHOT and can describe nodes the canvas no longer
  * has); there must be a carrier, or the commit could only write locally; and
  * there must be a name to put on the editor's label.
- *
- * ⛔ AND THE NUMBER MUST BE ONE THE ENGINE CAN ANALYSE — 24 Sep 2026. Witnessed
- * live: the review tool offered "Change this value" on a count with a unit and
- * no cap; the typed 20 was stored raw and the next Run was refused ("no defined
- * range"), with no editor anywhere that could undo the damage. The question is
- * `freeValueEditIsUnanalysable`'s, imported rather than restated, and it sits
- * HERE rather than at one mount so every surface asking this rule — every mount
- * of this control and `useAnyFactorValueControlOffered`'s callers — stops
- * advertising the dead end together. Each caller keeps its own Ask act, which
- * is the route that remains.
  */
 export function factorValueControlOffers(
   nodes: unknown,
@@ -217,13 +206,8 @@ export function factorValueControlOffers(
   enabled: boolean,
 ): boolean {
   if (!enabled || !canReachOlumi || name === undefined) return false
-  if (!Array.isArray(nodes)) return false
   // A POSITIVE match, per the note on `nodeId`.
-  const node = nodes.find((n) => (n as { id?: unknown } | null)?.id === nodeId) as
-    | { data?: unknown }
-    | undefined
-  if (node === undefined) return false
-  return !freeValueEditIsUnanalysable(node.data)
+  return Array.isArray(nodes) && nodes.some((n) => (n as { id?: unknown } | null)?.id === nodeId)
 }
 
 /**
