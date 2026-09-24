@@ -67,7 +67,11 @@ import {
   type EdgeValueDisplay,
   type CausalLensEdgeParams,
 } from '../domain/edgeValueProvenance'
-import { useIsDark } from '../hooks/useTheme'
+// GAP 2 fix (design-gap audit row 19): `useIsDark` is no longer imported —
+// this component now forces `isDark = false` (see the constant's own comment
+// below) rather than following the OS colour scheme. `../hooks/useTheme`
+// still exports the hook for any future consumer; canvas edges just stop
+// being the one.
 import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
@@ -246,7 +250,19 @@ const toRanked = (e: { id: string; target: string }): RankedCausalEdge => ({
 })
 
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
-  const isDark = useIsDark()
+  // GAP 2 fix (design-gap audit row 19): the locked contract is light-only
+  // (`:root{color-scheme:light}`, no dark tokens), and cards/ground have no
+  // dark path at all — `useIsDark` was read ONLY here in the whole canvas
+  // (`git grep -rl useIsDark src`, excluding specs). Following the OS colour
+  // scheme therefore switched edges and chips to dark tints on the otherwise
+  // permanently-light board. Every branch below keyed on `isDark` — the
+  // direction stroke, the chip's `bg-gray-900`/`border-gray-600` classes, the
+  // hover popover's strength-bar tone — is neutralised by fixing this one
+  // constant rather than editing each branch; `directionStroke.ts`'s dark
+  // tokens are left in place (unused from here), since owning the RULE that
+  // nothing on canvas asks for them is a smaller, more reviewable change than
+  // deleting a palette a future non-canvas surface may still want.
+  const isDark = false
   const prefersReducedMotion = usePrefersReducedMotion()
   const { getNode, getEdges, getNodes } = useReactFlow()
 
@@ -2099,8 +2115,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // semantic change this lane must not make. A glow is a separate CSS
             // channel, so it composes with polarity exactly like the fragile
             // halo above. Not applied to a selection-dimmed edge.
+            //
+            // GAP 1 fix (design-gap audit row 13): a highlighted PATH edge
+            // (a node's selection, not the edge's own `selected`) gets the
+            // SAME soft glow recipe — the emphasis contract §03 asks for —
+            // now that `resolveEdgeStroke` no longer recolours it to Info
+            // blue (`edgePresentation.ts`, the `highlighted` rule). Checked
+            // after `selected` so an edge that is BOTH keeps the plain
+            // selected glow rather than composing two identical shadows.
             if (!isSelectionDimmed) {
               if (selected) shadows.push(EDGE_GLOW.selected)
+              else if (isHighlightedEdge) shadows.push(EDGE_GLOW.selected)
               else if (isHovered) shadows.push(EDGE_GLOW.hover)
             }
             return shadows.length > 0 ? shadows.join(' ') : undefined
