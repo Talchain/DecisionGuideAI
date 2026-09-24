@@ -12,14 +12,13 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildBiasGrounding } from '../biasGrounding'
-import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
@@ -55,21 +54,23 @@ describe('the tail at rest', () => {
     expect(buildBiasGrounding([FINDING] as never).length).toBeGreaterThan(0)
   })
 
-  it('"Coaching and method" stays closed at rest even with bias findings', () => {
+  // V2 fidelity gap 24 (24 Sep 2026): the "Coaching and method" shell is gone;
+  // the grounding folds into About. The rule this pinned (closed at rest even
+  // with bias findings) is kept, re-pointed at About.
+  it('the bias grounding stays closed at rest even with bias findings (now inside About)', () => {
     useCanvasStore.setState({ ceeAnalysisReady: { ...(previous as object), bias_findings: [FINDING] } } as never)
     renderBody()
-    const section = screen.getByTestId('analysis-new-coaching-and-method')
-    expect(section.querySelector('[aria-expanded="true"]')).toBeNull()
+    expect(screen.getByTestId('analysis-new-about-toggle')).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByTestId('analysis-new-bias-grounding')).toBeNull()
+    // Contrast: one click on About and the grounding is there — the absence above is the rest state, not a failed render.
+    fireEvent.click(screen.getByTestId('analysis-new-about-toggle'))
+    expect(screen.getByTestId('analysis-new-bias-grounding')).toBeInTheDocument()
   })
 
-  it('"How this was worked out" counts what it holds, and no subtitle promises what About holds', () => {
-    const vm = buildAnalysisNewViewModel({ data: genuineDecision(), recommendations: [], isPreRun: false, isRunning: false, isStale: false })
-    expect(vm.checks.items.length, 'PRECONDITION: the two counts differ, so the case discriminates').not.toBe(vm.uncertainty.findings.length)
-    renderBody()
-    const row = screen.getByTestId('analysis-new-how-worked-out')
-    const counted = row.closest('[data-section-count]') ?? row.querySelector('[data-section-count]') ?? row
-    expect(counted.getAttribute('data-section-count')).toBe(String(vm.uncertainty.findings.length))
+  // V2 fidelity gap 24: the "How this was worked out" group (and so its count)
+  // is deleted; the uncertainty findings it counted fold into About. The
+  // subtitle half of this case is a copy rule and is kept as it was.
+  it('no subtitle promises what About holds', () => {
     expect(COPY.sectionSubtitles.howWorkedOut).not.toMatch(/check/i)
     expect(COPY.sectionSubtitles.whatMovesTheOutcome).not.toMatch(/receipt/i)
   })

@@ -380,7 +380,9 @@ describe('progressive disclosure on the real surface (§24E)', () => {
   it('keeps deeper technical material out of the first screen', () => {
     const ABOUT = 'analysis-new-about'
     renderBody(genuineDecision())
-    openGroups()
+    // V2 fidelity gap 24: About is now itself a named group (`openGroups` would
+    // open it), and this case is about About's own rest state — so it is driven
+    // by hand and no group is pre-opened.
     // No second, stale mount of the old section.
     expect(screen.queryByTestId('analysis-new-deeper')).toBeNull()
     // Unconditional: the run-identity group always exists when a hash is

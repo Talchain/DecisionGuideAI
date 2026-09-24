@@ -57,13 +57,15 @@ import { COMMITMENT_COPY } from '../commitmentSynthesis'
  * render is named here; a new zone added without a line in this list is the
  * failure mode this file was written after committing.
  */
-const ZONES = ['focus', 'answer', 'also', 'further'] as const
+// V2 fidelity gap 24 (24 Sep 2026): the 'further' zone is deleted — the prototype
+// ends commitment → About, and About is a footer, not a zone.
+const ZONES = ['focus', 'answer', 'also'] as const
 /**
  * The zones that carry a label. V2 retired the ANSWER zone's label; its heading
  * is the commitment block's (asserted below), so it is listed apart rather than
  * dropped — every zone is still in `ZONES`.
  */
-const LABELLED_ZONES = ['focus', 'also', 'further'] as const
+const LABELLED_ZONES = ['focus', 'also'] as const
 const HEADED_BY_ITS_BLOCK = 'answer'
 
 /** A canvas with options, a factor and an outcome but NO risk: the model
@@ -147,7 +149,8 @@ describe('the panel is grouped into named zones', () => {
     // Contrast in the SAME arm: the unconditional zones are still there, so
     // arm 2 is measuring the gate and not a failed render.
     expect(screen.queryByTestId('analysis-new-zone-answer-group')).not.toBeNull()
-    expect(screen.queryByTestId('analysis-new-zone-further-group')).not.toBeNull()
+    // V2 gap 24: the unconditional tail is now About, not the 'further' zone.
+    expect(screen.queryByTestId('analysis-new-about')).not.toBeNull()
   })
 
   /**
