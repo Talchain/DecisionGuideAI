@@ -99,7 +99,7 @@
  *     ONLY the container class and testid prefix differ; every channel above
  *     is identical on both forks, which is the whole point of the fold.
  */
-import { type ReactElement } from 'react'
+import { useId, type ReactElement } from 'react'
 import { BookOpenCheck } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
@@ -109,7 +109,7 @@ import {
   guidanceCategoryTone,
 } from '../../canvas/stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
-import { resolveFreshnessNotice } from './coachingCurrency'
+import { isRefreshActionIntent, resolveFreshnessNotice } from './coachingCurrency'
 import { useCoachingCurrency } from './useCoachingCurrency'
 import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conversation/types'
 
@@ -297,6 +297,16 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
   */
   const currency = useCoachingCurrency(block.graph_hash_at_generation)
   const freshnessNotice = resolveFreshnessNotice(block.freshness, currency)
+  /*
+    ONE VERDICT, TWO CONSEQUENCES. When the card says its advice may no longer
+    apply, its action must not stay live beside that sentence — a click would
+    act on a model that no longer exists. The chip is disabled by the SAME
+    notice that speaks, so the words and the control cannot disagree, and the
+    notice is wired as the disabled chip's description.
+  */
+  const freshnessNoticeId = useId()
+  const actionInert =
+    Boolean(freshnessNotice) && !isRefreshActionIntent(block.action_intent)
   const kindSentence = KIND_SENTENCE[block.coaching_kind]
   const sourceSentence = SOURCE_SENTENCE[block.source]
   const claim = block.dsk_claim_provenance
@@ -376,6 +386,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
       */}
       {freshnessNotice && (
         <p
+          id={freshnessNoticeId}
           className={`${typography.panelMeta} text-text-light`}
           data-testid={`${testIdPrefix}-freshness`}
         >
@@ -451,6 +462,8 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
               message={block.action_prompt}
               testId={`${testIdPrefix}-action`}
               intent={block.action_intent}
+              inert={actionInert}
+              describedBy={actionInert ? freshnessNoticeId : undefined}
             />
           ) : (
             <span

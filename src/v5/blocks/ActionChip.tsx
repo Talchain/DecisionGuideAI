@@ -38,7 +38,7 @@
  * it. Settled renders through the native `disabled` attribute, which
  * CHIP_CLASS styles distinctly.
  */
-import { useCallback, useState, type ReactElement } from 'react'
+import { useCallback, useRef, useState, type ReactElement } from 'react'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { CHIP_CLASS } from './chipClass'
 
@@ -66,19 +66,53 @@ export interface ActionChipProps {
    * The transport was never a missing handler. It was this argument.
    */
   intent?: string
+  /**
+   * The card this chip belongs to cannot be shown as current — its model moved,
+   * or the producer marked it stale / pending / failed. The chip renders
+   * DISABLED and a click sends nothing: acting on advice written for a model
+   * that no longer exists is the exact harm the card's own notice warns about,
+   * and a live button beside that notice contradicts it. The caller owns the
+   * decision (it already holds the currency verdict); this component only
+   * enforces it.
+   */
+  inert?: boolean
+  /** Id of the visible element that explains why the chip is inert (the card's notice). */
+  describedBy?: string
 }
 
-export function ActionChip({ label, message, testId, intent }: ActionChipProps): ReactElement {
+/*
+ * NO DELIVERY RECEIPT, BY RULING (RC, programme-docs #63 5819467504). The chip
+ * shows no delivery state of its own: the user message this click adds already
+ * carries `deliveryState` (pending → sent | failed | unconfirmed), and that
+ * bubble is the one truth about whether the turn went. A chip-level "Sent" would
+ * be a second, unwitnessed claim — `_sendChip` returns nothing — and a
+ * "Sending…" that never resolves would be worse. So the click settles the chip
+ * and asserts nothing further.
+ */
+
+export function ActionChip({
+  label,
+  message,
+  testId,
+  intent,
+  inert = false,
+  describedBy,
+}: ActionChipProps): ReactElement {
   const sendChip = useGuidanceStore((s) => s._sendChip)
   const [settled, setSettled] = useState(false)
+  // Synchronous twin of `settled`. State only updates on the next render, so two
+  // clicks inside one tick would both read `settled === false` and send twice;
+  // the ref closes that window.
+  const inFlight = useRef(false)
 
   const handleClick = useCallback(() => {
     // Bounded re-fire: one chip, one turn. Belt-and-braces with `disabled`
     // below, which already removes pointer events — this guard also covers a
     // programmatic click and any future path that renders the chip enabled.
-    if (settled) return
+    if (settled || inert || inFlight.current) return
     // Fail closed WITHOUT acknowledging (see header).
     if (!sendChip) return
+    inFlight.current = true
     // The producer's typed intent travels as chip META, not just as a DOM
     // attribute. `buildV5Payload`'s send gate
     // (`KNOWN_INTENTS ∧ CEE_ACCEPTED_INTENTS`) still decides whether it reaches
@@ -86,15 +120,17 @@ export function ActionChip({ label, message, testId, intent }: ActionChipProps):
     // the PRODUCER declared and the deployed CEE routes.
     sendChip(label, message, intent ? { intent } : undefined)
     setSettled(true)
-  }, [settled, sendChip, label, message, intent])
+  }, [settled, inert, sendChip, label, message, intent])
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      disabled={settled}
+      disabled={settled || inert}
       data-testid={testId}
       {...(settled ? { 'data-settled': 'true' } : {})}
+      {...(inert ? { 'data-inert': 'true' } : {})}
+      {...(inert && describedBy ? { 'aria-describedby': describedBy } : {})}
       {...(intent ? { 'data-action-intent': intent } : {})}
       className={CHIP_CLASS}
     >

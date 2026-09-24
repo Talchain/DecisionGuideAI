@@ -8,6 +8,7 @@
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Activity } from 'lucide-react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
+import { resolveEdgeDirectionMarker } from '../../../edges/edgePresentation'
 import { useCanvasStore } from '../../../store'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -54,7 +55,7 @@ import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { resolveElementLabel } from '../../../domain/elementLabel'
-import { edgeStrengthEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
+import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
 
@@ -166,6 +167,25 @@ const EXISTENCE_BAND_TRACK: Record<EdgeValueBand, string | undefined> = {
   high: 'var(--success)',
 }
 
+// ─── Direction control copy — local to this file on purpose ────────
+//
+// ⭐ "increases/decreases" IS THE ESTATE'S OWN WORD FOR THIS, NOT A NEW
+// COINAGE. The same pair states a value moving away from baseline
+// (`optionChangeRows.ts:246`, `interventionDisplay.ts:87`, "Increases
+// {label}" / "Decreases {label}") and a causal sign on the results surface
+// (`HeroEvidenceDisclosure.tsx:257`, "increases the outcome" / "decreases
+// the outcome"). Reused here rather than minting a third phrasing for the
+// same idea the panel's own vocabulary already carries.
+//
+// ⚠ KEPT LOCAL, NOT ADDED TO `inspectorStrings.ts`. This file's only
+// authorised surface is `EdgePanel.tsx` and its specs; the shared strings
+// module has other writers and is out of scope here.
+const EDGE_DIRECTION_COPY = {
+  caption: (sourceLabel: string) => `As ${sourceLabel} increases:`,
+  increases: (targetLabel: string) => `increases ${targetLabel}`,
+  decreases: (targetLabel: string) => `decreases ${targetLabel}`,
+} as const
+
 export const EdgePanel = memo(function EdgePanel({
   edgeId,
   techMode,
@@ -198,6 +218,34 @@ export const EdgePanel = memo(function EdgePanel({
   // Organisational / intervention edge gate
   const isOrganisational = sourceKind === 'decision' && targetKind === 'option'
   const isIntervention = sourceKind === 'option' && targetKind === 'factor'
+
+  /**
+   * ⭐ DOES THIS EDGE CARRY A DIRECTION OF CAUSATION AT ALL? Asked of the SAME
+   * resolver the canvas line asks for its own arrowhead (`StyledEdge.tsx:1574`,
+   * `edgePresentation.ts`), not a second derivation of "structural" — a
+   * structural link (decision→option, option→factor) asserts MEMBERSHIP, not
+   * causation, and a `bidirected` / `undirected` / `confounder` `edge_type`
+   * denies a single direction outright (an unobserved common cause). Offering
+   * "increases/decreases" on either would state a causal claim the edge
+   * itself refuses to make.
+   *
+   * `isStructural` is `isOrganisational || isIntervention` — the two booleans
+   * this file already derives above for the SAME question one level up (which
+   * link-notice branch to render, a few lines down). The render arm the
+   * direction control lives in is reached only when BOTH are false, so this
+   * always resolves the `isStructural` half to false there; it is still
+   * asked explicitly, through the shared resolver, rather than hard-coded,
+   * so the `edge_type` half of the rule (bidirected/undirected/confounder —
+   * reachable on a plain factor→goal edge, which DOES reach that render arm)
+   * is actually checked here rather than assumed away.
+   */
+  const directionMarker = useMemo(
+    () => resolveEdgeDirectionMarker({
+      isStructural: isOrganisational || isIntervention,
+      edgeType: (edge?.data as Record<string, unknown> | undefined)?.edge_type,
+    }),
+    [isOrganisational, isIntervention, edge?.data],
+  )
 
   // ⛔ PROVENANCE DISCLOSURE. The coaching card under this group used to say
   // "This value was generated automatically." unconditionally. On a freshly
@@ -363,6 +411,15 @@ export const EdgePanel = memo(function EdgePanel({
    */
   const [strengthEditSend, setStrengthEditSend] =
     useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' } | null>(null)
+  /**
+   * ⭐ HOW THE LAST DIRECTION CHANGE SETTLED — its own state, for the reason
+   * `strengthEditSend` is apart from `strengthConfirm`: a different act with its
+   * own control. `'pending'` is stated at the press, not inferred from `null`;
+   * the sequence number drops a late answer to a superseded click.
+   */
+  const [directionEditSend, setDirectionEditSend] =
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' | 'pending' } | null>(null)
+  const directionSendSeqRef = useRef(0)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -647,6 +704,37 @@ export const EdgePanel = memo(function EdgePanel({
     setStrengthConfirm({ ts: Date.now(), outcome: mutations.confirmCurrentStrength() })
   }, [currentEstimatedWeight, mutations])
 
+  /**
+   * ⭐ THE ONE NEW WRITE IN THIS CHANGE, AND IT WRITES NOTHING NEW — it calls
+   * the EXISTING `mutations.setDirection`, the same carrier
+   * `EdgeAdvancedEditor`'s own "Effect direction" select already calls, so
+   * this control and that one can never assert two different things about
+   * the same edge.
+   *
+   * ⚠ GUARDED ON THE CURRENT VALUE SO A CLICK ON THE ALREADY-ACTIVE STATE IS
+   * A NO-OP. `setDirection` would still "succeed" locally and dispatch a
+   * `set` at the persisted magnitude and direction — CEE's own refusal for
+   * exactly that shape is `set_target_unchanged` (see
+   * `handleConfirmCurrentStrength`'s header, a few lines up, wire-witnessed
+   * for the sibling case). Nothing here needs a settlement UI to avoid that:
+   * not sending the redundant statement is simpler than disclosing its
+   * refusal.
+   */
+  const handleDirectionChange = useCallback((next: 'positive' | 'negative') => {
+    if (direction === next) return
+    const seq = ++directionSendSeqRef.current
+    setDirectionEditSend({ ts: Date.now(), settlement: 'pending' })
+    const outcome = mutations.setDirection(next, {
+      onSendSettled: (settlement) => {
+        if (seq !== directionSendSeqRef.current) return
+        setDirectionEditSend({ ts: Date.now(), settlement })
+      },
+    })
+    // Anything but a dispatch means no settlement is coming (the strength
+    // controls' `noteStrengthOutcome` rule): say so rather than wait.
+    if (outcome !== 'dispatched') setDirectionEditSend({ ts: Date.now(), settlement: 'not_sent' })
+  }, [direction, mutations])
+
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
     mutations.setExistsProbability(v)
@@ -703,6 +791,22 @@ export const EdgePanel = memo(function EdgePanel({
   const strengthEditIsUnverified = strengthEditSettlement === 'unverified'
 
   const strengthReachesTheModel = edgeStrengthEditIsAssertable(edge)
+
+  /**
+   * ⭐ THE DIRECTION CONTROL'S OWN GATE — ASKED OF ITS OWN BUILDER, NOT
+   * INHERITED FROM `strengthReachesTheModel`.
+   *
+   * `edgeDirectionEditIsAssertable` already existed with, per its own header,
+   * "ZERO PRODUCT CONSUMERS" — it named itself as the gate a future direction
+   * control would ask, and this is that caller. Today it and
+   * `edgeStrengthEditIsAssertable` resolve the same edges (both delegate to
+   * `serverStatedStrengthOf`), so the direction control below sits inside the
+   * SAME `edge-strength-controls` fieldset as the strength card and is
+   * disabled together with it. It is still asked separately (CLAUDE.md trap
+   * 21: two questions, two functions) so a future divergence between the two
+   * rules is caught here rather than silently inherited from a coincidence.
+   */
+  const directionReachesTheModel = edgeDirectionEditIsAssertable(edge)
 
   /**
    * ⭐⭐ A DIFFERENT QUESTION FROM THE ONE ABOVE, AND THAT IS THE WHOLE DESIGN.
@@ -883,6 +987,89 @@ export const EdgePanel = memo(function EdgePanel({
                 : { 'data-authority': 'no-strength-basis', 'aria-describedby': 'inspector-authority-notice' })}
             >
             <PrimaryControlCard>
+              {/* ⭐⭐ THE DIRECTION CONTROL. The carrier already existed and
+                  reached CEE (`setDirection` → `buildEdgeDirectionEditEvent` →
+                  `edge_strength_edit`, `direction_intent`) — what had no
+                  reachable control: `RelationshipsSection` is never mounted
+                  and `EdgeAdvancedEditor`'s own "Effect direction" select sits
+                  behind `techMode`'s collapsed disclosure, closed by default.
+                  This is the plain-words control a default user can reach,
+                  calling the SAME `setDirection` rather than a second writer.
+                  Withheld entirely (not merely disabled) on a structural or
+                  non-causal edge — `directionMarker.show` — because there the
+                  causal claim itself does not apply, which is a different
+                  refusal from "the write cannot reach the server" below. */}
+              {directionMarker.show && (
+                <div className="mb-1.5" data-testid="edge-direction-control">
+                  <p className={`${typography.panelMeta} text-text-light mb-1`}>
+                    {EDGE_DIRECTION_COPY.caption(sourceLabel)}
+                  </p>
+                  <div className="flex gap-1" role="group" aria-label="Effect direction">
+                    <button
+                      type="button"
+                      data-testid="edge-direction-increases"
+                      onClick={() => handleDirectionChange('positive')}
+                      disabled={!directionReachesTheModel}
+                      aria-pressed={direction === 'positive'}
+                      className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors
+                        ${direction === 'positive'
+                          ? 'border-primary text-primary'
+                          : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
+                        }`}
+                    >
+                      {EDGE_DIRECTION_COPY.increases(targetLabel)}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="edge-direction-decreases"
+                      onClick={() => handleDirectionChange('negative')}
+                      disabled={!directionReachesTheModel}
+                      aria-pressed={direction === 'negative'}
+                      className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors
+                        ${direction === 'negative'
+                          ? 'border-primary text-primary'
+                          : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
+                        }`}
+                    >
+                      {EDGE_DIRECTION_COPY.decreases(targetLabel)}
+                    </button>
+                  </div>
+                  {/* The direction change's settlement — the strength edit's
+                      register and the same two-harms rule: a refusal is never
+                      "Sent" (and the revert has already put the model's
+                      direction back on the buttons), a lost answer keeps the
+                      flip and says it may not be recorded. Only "Sent" fades;
+                      a notice that the model does NOT hold what the buttons
+                      showed must not vanish on a timer. */}
+                  {directionEditSend !== null && (
+                    <div
+                      className="flex items-center gap-2 mt-1"
+                      data-testid="edge-direction-feedback"
+                      data-settlement={directionEditSend.settlement}
+                      role={directionEditSend.settlement === 'refused' || directionEditSend.settlement === 'blocked'
+                        ? 'alert'
+                        : undefined}
+                    >
+                      <EditConfirmation
+                        trigger={directionEditSend.ts}
+                        label={directionEditSend.settlement === 'pending'
+                          ? ACTION_LABELS.strengthEditSending
+                          : directionEditSend.settlement === 'queued'
+                            ? ACTION_LABELS.strengthEditQueued
+                            : directionEditSend.settlement === 'not_sent'
+                              ? ACTION_LABELS.strengthConfirmNotSent
+                              : directionEditSend.settlement === 'refused' || directionEditSend.settlement === 'blocked'
+                                ? ACTION_LABELS.strengthEditNotRecorded
+                                : directionEditSend.settlement === 'unverified'
+                                  ? ACTION_LABELS.strengthEditUnverified
+                                  : ACTION_LABELS.strengthConfirmSent}
+                        tone="pending"
+                        hold={directionEditSend.settlement !== 'sent'}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               <p className={`${typography.panelBody} text-text-body mb-1.5`}>
                 {INLINE_LABELS.strengthQuestion}
               </p>
