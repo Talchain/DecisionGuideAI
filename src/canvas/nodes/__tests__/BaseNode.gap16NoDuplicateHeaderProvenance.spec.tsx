@@ -124,6 +124,36 @@ describe('GAP-16 — the header never repeats the value line\'s own source mark'
     expect(own.getAttribute('data-value-source')).toBe('you')
   })
 
+  // ⛔ Review 5822866079: the value line's classifier is NOT the header's. When
+  // it reads `unknown`, the header's mark was the only one with a kind, and a
+  // number must never be left unmarked (Paul, 23 Sep point 1).
+  it('⭐ OPPOSITE CONTROL — a stamped `ai` source WITHOUT extractionType: the value line reads unknown, so the header KEEPS its "AI estimate" value mark', () => {
+    renderFactor('fac_ai_unclassified', {
+      label: 'Hiring rate',
+      type: 'factor',
+      category: 'controllable',
+      provenance: 'ai_inferred',
+      observedState: { value: 0.08, unit: '%', display_value: '8%', source: 'cee_inference' },
+    })
+    expect(screen.getByTestId('factor-recorded-value')).toBeTruthy()
+    const header = headerValueMarks()
+    expect(header, 'the only mark with a kind must survive').toHaveLength(1)
+    expect(header[0].getAttribute('data-provenance-kind')).toBe('ai')
+    expect(header[0].getAttribute('aria-label') ?? '').not.toBe('')
+  })
+
+  it('⭐ OPPOSITE CONTROL — no source at all: header keeps its mark and the value line still says "no source"', () => {
+    renderFactor('fac_ai_nosource', {
+      label: 'Hiring rate',
+      type: 'factor',
+      category: 'controllable',
+      provenance: 'ai_inferred',
+      observedState: { value: 0.08, unit: '%', display_value: '8%' },
+    })
+    expect(headerValueMarks()).toHaveLength(1)
+    expect(screen.getByTestId('factor-value-source-fac_ai_nosource').textContent).toContain('no source')
+  })
+
   it('CONTRAST — an OPTION card (no value field at all) still gets its structural header mark', () => {
     renderOption('opt_rebuild', {
       label: 'Rebuild',

@@ -203,9 +203,12 @@ describe('⭐ the two provenance marks do not touch', () => {
    * still gets its one structural mark; agreement gets none", not "two
    * marks vs one".
    */
-  it('⛔ CONTRAST — an AGREEING card renders NO header mark; the group still mounts unconditionally', () => {
+  // ⛔ review 5822866079: ONE_MARK_DATA's `cee_inference` has no extractionType, so the
+  // value line reads `unknown` and the header keeps its single value mark.
+  it('⛔ CONTRAST — an AGREEING card whose value line reads unknown keeps ONE header mark; the group still mounts unconditionally', () => {
     renderFactor('fac_one', ONE_MARK_DATA)
-    expect(marks()).toHaveLength(0)
+    expect(marks()).toHaveLength(1)
+    expect(marks()[0].getAttribute('data-provenance-claim')).toBe('value')
     // The group is unconditional, so the gap class stays available for
     // whatever DOES mount inside it (structural-only today).
     expect(group().className).toBe(CANVAS_HEADER_GLYPH_GROUP_CLASSES)

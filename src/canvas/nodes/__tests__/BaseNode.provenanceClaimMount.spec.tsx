@@ -170,7 +170,9 @@ describe('⛔ THE TWIN, UPDATED 24 Sep 2026 (GAP-16) — a valued card states th
    * `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`, which is the file to
    * read for the full picture.
    */
-  it('FACTOR with an observed value — the header mark is gone; the value claim is not', () => {
+  // ⛔ review 5822866079: `cee_inference` WITHOUT extractionType reads `unknown` on the
+  // value line, so the header is the only mark with a kind and it stays.
+  it('FACTOR whose value line cannot classify the source — the header KEEPS its value mark', () => {
     renderNode(FactorNode, 'factor', 'fac_valued', {
       label: 'Hiring rate',
       type: 'factor',
@@ -178,7 +180,8 @@ describe('⛔ THE TWIN, UPDATED 24 Sep 2026 (GAP-16) — a valued card states th
       provenance: 'ai_inferred',
       observedState: { value: 0.7, source: 'cee_inference' },
     })
-    expect(mark(), 'a value-claim mark must not reach the header').toBeNull()
+    expect(mark(), 'the only kind-bearing mark must survive').not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
   it('and a human-owned valued factor: same de-duplication, other kind', () => {

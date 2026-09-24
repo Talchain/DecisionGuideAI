@@ -148,7 +148,10 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
    * anything), so the header is correctly and simply silent, matching a
    * structural-only card with no provenance signal at all.
    */
-  it('⛔ CONTRAST: a genuinely model-supplied number renders no header mark (the value line says "est.")', () => {
+  // ⛔ review 5822866079: none of these three sources classify on the value line
+  // (`factorValueSourceMark` → unknown), so the header's "AI estimate" is the
+  // only mark with a kind and it STAYS — a number is never unmarked.
+  it('⛔ CONTRAST: a model-supplied number the value line cannot classify keeps its header value mark', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
@@ -158,10 +161,11 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         })}
       />,
     )
-    expect(mark()).toBeNull()
+    expect(mark()).not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
-  it('⛔⛔ CONTRAST: an ABSENT value source ALSO renders no header mark — the fact moved, it did not vanish', () => {
+  it('⛔⛔ CONTRAST: an ABSENT value source ALSO keeps its header value mark', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
@@ -173,17 +177,19 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
     // lives unconditionally (`factorValueSourceMark` never returns null for a
     // stated value). `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`
     // proves the full-card case does not go silent.
-    expect(mark()).toBeNull()
+    expect(mark()).not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
-  it('⛔⛔ CONTRAST: an UNRECOGNISED value source behaves the same as an absent one', () => {
+  it('⛔⛔ CONTRAST: an UNRECOGNISED value source behaves the same as an absent one (header mark kept)', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
         data={factorWith({ provenance: 'ai_inferred', observedState: { value: 0.2, source: 'something_new' } })}
       />,
     )
-    expect(mark()).toBeNull()
+    expect(mark()).not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
   /**

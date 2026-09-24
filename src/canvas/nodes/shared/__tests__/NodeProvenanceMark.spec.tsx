@@ -81,40 +81,29 @@ describe('⛔ a card without a number never says "estimate"', () => {
   })
 })
 
-describe('⛔ THE TWIN, UPDATED 24 Sep 2026 (GAP-16) — a card WITH a number no longer duplicates it in the header', () => {
+describe('⛔ THE TWIN — a card WITH a number still makes the value claim', () => {
   /**
-   * GAP-16 (DESIGN-GAP-AUDIT-20260924.md row 16; contract §03: "Show useful
-   * exceptions, not the same provenance mark everywhere"). This block used to
-   * assert the opposite — that a `claim: 'value'` mark reaches the header for
-   * every valued factor/risk. It doesn't any more: `FactorNode` and `RiskNode`
-   * both mount their OWN value-line source mark for the same number
-   * (`valueSourceMark.tsx`, classified through the same `classifyValueProvenance`
-   * this component used to read), so a header value mark was one fact stamped
-   * twice. `resolveProvenanceMarks` (`NodeProvenanceMark.tsx`) now filters
-   * `claim: 'value'` out of what it returns — see
-   * `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx` for the full-card proof
-   * that the fact survives on the value line, not just that the header goes
-   * quiet.
-   *
-   * The block this replaces still matters as a NEGATIVE control: it is the harm
-   * a change that made every card structural (rather than de-duplicating the
-   * value claim specifically) would have caused. That is why `option(...)` in
-   * the block ABOVE this one is untouched — options never had a `'value'` claim
-   * to begin with, so nothing there duplicated anything.
+   * The harm the block above must not cause. A mark that had simply been made
+   * structural everywhere would satisfy every assertion up there while deleting
+   * the value vocabulary from the product — so these are load-bearing, not
+   * decoration.
    */
-  it.each(CANVAS_LITERALS)('valued factor / %s — the header renders NOTHING (the value line carries it)', (literal) => {
+  it.each(CANVAS_LITERALS)('valued factor / %s — the VALUE claim', (literal) => {
     render(<NodeProvenanceMark nodeType="factor" data={valuedFactor(literal)} />)
-    expect(mark(), 'a value-claim mark must not reach the header').toBeNull()
+    const kind = classifyNodeProvenance(literal)!.kind
+    expect(mark()!.getAttribute('aria-label')).toBe(VALUE_PROVENANCE_LABEL[kind])
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
-  it('a risk WITH a probability: same de-duplication, header renders nothing', () => {
+  it('a risk WITH a probability makes the value claim', () => {
     render(
       <NodeProvenanceMark
         nodeType="risk"
         data={{ label: 'Churn', type: 'risk', provenance: 'ai_inferred', probability: 0.3 }}
       />,
     )
-    expect(mark()).toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
+    expect(mark()!.getAttribute('aria-label')).toBe(VALUE_PROVENANCE_LABEL.ai)
   })
 })
 
@@ -180,32 +169,19 @@ describe('the card shows a glyph, not the same three words on every card', () =>
     expect(new Set(seen).size).toBe(CANVAS_LITERALS.length)
   })
 
-  /**
-   * GAP-16, UPDATED 24 Sep 2026: this used to render a FACTOR (value claim)
-   * beside an OPTION (structural claim) and compare their glyphs. The value
-   * claim no longer reaches the header at all (the block above), so there is
-   * no live render left to compare it to — the header now renders EITHER a
-   * structural glyph or nothing, never a value one. The property itself
-   * (`renderMark` looks the glyph up from ONE registry, `VALUE_PROVENANCE_ICON`,
-   * keyed by `kind` and never by `claim`) is still real and still worth
-   * pinning, so this now checks the registry directly against the one live
-   * render path (structural) rather than comparing two renders that can no
-   * longer both exist.
-   */
-  it('the glyph is keyed by KIND — the (header-suppressed) VALUE registry still matches the live STRUCTURAL render', () => {
-    const { unmount } = render(<NodeProvenanceMark nodeType="option" data={option('ai_inferred')} />)
-    const structuralSvg = mark()!.querySelector('svg')!
-    const structuralGlyph = Array.from(structuralSvg.classList).find((c) => c.startsWith('lucide-'))
-    unmount()
-
-    const ValueIcon = VALUE_PROVENANCE_ICON.ai
-    const { container, unmount: unmountIcon } = render(<ValueIcon aria-hidden="true" />)
-    const valueSvg = container.querySelector('svg')!
-    const valueGlyph = Array.from(valueSvg.classList).find((c) => c.startsWith('lucide-'))
-    unmountIcon()
-
-    expect(valueGlyph).toBeTruthy()
-    expect(valueGlyph).toBe(structuralGlyph)
+  it('the glyph is keyed by KIND, so it is the same picture in both vocabularies', () => {
+    // The claim changes the words, never the picture — otherwise a factor and an
+    // option would look like different facts about the same producer.
+    const glyphFor = (node: React.ReactElement) => {
+      const { unmount } = render(node)
+      const svg = mark()!.querySelector('svg')!
+      const n = Array.from(svg.classList).find((c) => c.startsWith('lucide-'))
+      unmount()
+      return n
+    }
+    expect(glyphFor(<NodeProvenanceMark nodeType="factor" data={valuedFactor('ai_inferred')} />)).toBe(
+      glyphFor(<NodeProvenanceMark nodeType="option" data={option('ai_inferred')} />),
+    )
   })
 })
 

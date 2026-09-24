@@ -532,19 +532,15 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // the rail's coaching icon — no visible run. See REACH.
     // Bounded anatomy (ED #63 5809278282): the two runs below now come from the
     // face's ONE line — the top change's mark and its separators.
-    // ⛔ `no source` LEFT this bucket 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-
-    // 20260924.md row 16): `VALUE_SOURCE_MARK_TOKEN.unknown` used to print the
-    // visible word "no source" — a fifth wire-facing phrase neither v3 nor
-    // v3.1 sanctioned (they name exactly `est.` / `you` / `brief` / `panel`).
-    // It now prints nothing; the mark's accessible name ("Source not
-    // recorded") is untouched but the census only counts VISIBLE text.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
     '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'option · pre · expert': [
     // Locked Canvas design (23 Sep 2026): `What could go wrong?` was the card
     // question in BOTH views; it is the rail icon in both now.
-    // ⛔ `no source` LEFT this bucket 24 Sep 2026 (GAP-16) — see the identical
-    // note on `option · pre · standard` above.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
     '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'option · post · standard': [
@@ -564,8 +560,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
-    // ⛔ `no source` LEFT this bucket 24 Sep 2026 (GAP-16) — see the identical
-    // note on `option · pre · standard` above.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
     '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'factor · pre · standard': [],
@@ -703,8 +699,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // icon now (see `option · pre · standard`). The change-COUNT line this
     // bucket exists to reach is RETIRED from the face — its routes are `+N
     // more` and the rail's edit-targets icon (REACH, and the two-carrier case).
-    // ⛔ `no source` LEFT this bucket 24 Sep 2026 (GAP-16) — see the identical
-    // note on `option · pre · standard` above.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    //          option target is marked (this fixture's interventions carry no `source`).
     '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'option · pre · lod-line': [],

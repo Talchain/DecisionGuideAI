@@ -63,15 +63,7 @@ describe('the goal target line names its source (Paul 23 Sep point 1)', () => {
     expect(MARKET_ENTRY_GOAL.threshold_source).toBeUndefined()
   })
 
-  /**
-   * ⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16): the
-   * visible "no source" glyph is gone — a fifth wire-facing word neither the
-   * v3 nor v3.1 contract sanctioned. The mark is still stamped `unknown`
-   * (`data-value-source`) and the accessible name is still "Source not
-   * recorded", so assistive tech is unaffected; only the printed glyph is
-   * now empty.
-   */
-  it('market-entry: the CEE figure carries an "unknown" source mark — visually silent now, never unmarked to assistive tech, never "you"', () => {
+  it('market-entry: the CEE figure is marked "no source" — never unmarked, never "you"', () => {
     const { id, ...data } = MARKET_ENTRY_GOAL
     const { container } = renderGoal(id, data)
     const resting = container.querySelector('[data-testid="goal-node-resting-state"]')!
@@ -79,7 +71,7 @@ describe('the goal target line names its source (Paul 23 Sep point 1)', () => {
     const m = container.querySelector(`[data-testid="goal-target-source-${id}"]`)
     expect(m, 'the target line must carry a source mark').not.toBeNull()
     expect(m!.getAttribute('data-value-source')).toBe('unknown')
-    expect(m!.querySelector('[aria-hidden="true"]')!.textContent).toBe('')
+    expect(m!.querySelector('[aria-hidden="true"]')!.textContent).toBe('no source')
     expect(m!.querySelector('.sr-only')!.textContent).toBe('Source not recorded')
     // Spoken and hovered on the route control too — not sight-only.
     const route = container.querySelector(`[data-testid="${GOAL_TARGET_ROUTE_TESTID}"]`)

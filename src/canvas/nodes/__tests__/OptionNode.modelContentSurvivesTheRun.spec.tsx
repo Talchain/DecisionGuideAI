@@ -190,14 +190,11 @@ describe('OptionNode — the run must not delete the model content', () => {
   const expectReferenceOnTheRow = () => {
     const row = preview().getByTestId(ROW)
     // Paul 23 Sep contract feedback point 7: the target's source is named on the
-    // row. This fixture's intervention carries no `source`, so the row marks it
-    // `unknown` — never "you", and never Olumi's estimate (Codex #63
+    // row. This fixture's intervention carries no `source`, so the row says
+    // "no source" — never "you", and never Olumi's estimate (Codex #63
     // 5801529767; reviewer blocker, 23 Sep). Contract v3.1 pt 7 (gap U12): a
     // muted `·` now sets the mark apart from the value so it cannot read as a unit.
-    // ⛔ UPDATED 24 Sep 2026 (GAP-16): the visible "no source" word is gone —
-    // a fifth wire-facing phrase neither v3 nor v3.1 sanctioned — so only the
-    // sr-only accessible label remains in the joined text content.
-    expect(row.textContent).toBe(`${CHIP} · Source not recorded`)
+    expect(row.textContent).toBe(`${CHIP} · no sourceSource not recorded`)
     // The title also restates the full row ("<factor>: <from> → <to>."); the
     // reference clause is the claim this file owns.
     expect(row.getAttribute('title')).toContain(REFERENCE_TITLE)

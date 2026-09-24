@@ -187,7 +187,9 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
    * that, but it is asserted by identity rather than as a side effect of the
    * null check.
    */
-  it('a VALUED factor with an ambiguous pair: header renders nothing — never the Olumi authorship claim', () => {
+  // ⛔ review 5822866079: `{ value: 0.04 }` has no source, so the value line reads
+  // `unknown` and the header KEEPS its value mark (a number is never unmarked).
+  it('a VALUED factor with an ambiguous pair: never the Olumi authorship claim; the value mark stays', () => {
     const { data } = mapDraftNodeToCanvas(valuedFactorWithAmbiguousPair)
     // Precondition pinned in-test: the pair really is present and the value
     // really did survive ingestion, so a pass here cannot be the fixture's doing.
@@ -197,7 +199,9 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
 
     render(<NodeProvenanceMark nodeType="factor" data={data} />)
     expect(screen.queryByLabelText(OLUMI_CLAIM), 'the ambiguous element must never be claimed as Olumi\'s').toBeNull()
-    expect(screen.queryByTestId('node-provenance-mark'), 'the value claim is de-duplicated away, not silenced elsewhere').toBeNull()
+    const header = screen.queryByTestId('node-provenance-mark')
+    expect(header, 'the value line cannot classify this source, so the header is the only mark with a kind').not.toBeNull()
+    expect(header!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
   /**

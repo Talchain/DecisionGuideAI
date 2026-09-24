@@ -13,6 +13,7 @@ import Tooltip from '../../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { useCanvasStore } from '../../store'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
+import { factorValueSourceMark } from './valueSourceMark'
 
 /**
  * ⭐⭐ WHO PUT THIS ELEMENT HERE — on the card, at a fixed position, on every
@@ -433,7 +434,18 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
    * number's provenance is still told, just once rather than twice. See
    * `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`.
    */
-  return marks.filter((m) => m.claim !== 'value')
+  //
+  // ⛔ ONLY A TRUE DUPLICATE IS DROPPED (review 5822866079). The value line is
+  // `factorValueSourceMark`, which is NOT the header's classifier: a stamped
+  // `ai` source without `extractionType: 'inferred'`, or no source at all,
+  // reads `unknown` there, while the header fell back to node authorship
+  // ("AI estimate"). In those cases the header was the only mark with a kind,
+  // and dropping it left "8%" with no provenance a sighted user could read
+  // (53 of 198 valued factors in the corpus). Paul, 23 Sep point 1: a number
+  // is never unmarked.
+  const valueLine = factorValueSourceMark(data)
+  const valueLineStatesTheSource = valueLine !== null && valueLine.kind !== 'unknown'
+  return valueLineStatesTheSource ? marks.filter((m) => m.claim !== 'value') : marks
 }
 
 /**

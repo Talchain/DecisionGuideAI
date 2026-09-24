@@ -41,26 +41,13 @@ import { isStatedTargetValue, type GoalTargetSource } from '../../domain/goalTar
  */
 export type ValueSourceMarkKind = 'olumi' | 'you' | 'brief' | 'panel' | 'unknown'
 
-/**
- * The visible word per mark. `est.` is the existing token, not a new spelling.
- *
- * ⛔ GAP-16 (DESIGN-GAP-AUDIT-20260924.md row 16): `unknown` used to print the
- * visible word "no source" — a fifth wire-facing phrase found in neither the
- * v3 contract nor Paul's v3.1 review, which name exactly four marks (`est.` /
- * `you` / `brief` / `panel`). The card now shows NOTHING visible for `unknown`
- * — an absent glyph is honest here in a way "no source" was not entitled to
- * be, since the contract never sanctioned a fifth visible word. The
- * accessible name (`VALUE_SOURCE_MARK_LABEL.unknown`, "Source not recorded")
- * is untouched below: nothing else on the card states that a value's source
- * was never stamped, so that sentence stays reachable to assistive tech even
- * though the card no longer prints it.
- */
+/** The visible word per mark. `est.` is the existing token, not a new spelling. */
 export const VALUE_SOURCE_MARK_TOKEN: Readonly<Record<ValueSourceMarkKind, string>> = Object.freeze({
   olumi: UNCONFIRMED_ESTIMATE_TOKEN,
   you: 'you',
   brief: 'brief',
   panel: 'panel',
-  unknown: '',
+  unknown: 'no source',
 })
 
 /** The accessible name per mark (screen readers, and the hover title). */

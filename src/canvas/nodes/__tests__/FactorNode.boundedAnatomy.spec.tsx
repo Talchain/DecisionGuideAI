@@ -412,12 +412,14 @@ describe('ED 5809278282 · Factor · the external prior-range line moves to the 
    * below), since nothing else on the card states that this range's source
    * was never stamped.
    */
-  it.each(['pre', 'post'] as const)('%s-run: not on the card; in the popover, unmarked visually but its source stays "unknown" for assistive tech', (phase) => {
+  // ⛔ REVERSED (review 5822866079): "no source" stays visible. Paul, 23 Sep point 1 — a
+  // number (or range) is never unmarked; the header does not carry a range.
+  it.each(['pre', 'post'] as const)('%s-run: not on the card; in the popover with its `no source` mark', (phase) => {
     seed(RANGE_ONLY, { phase })
     renderFactor(RANGE_ONLY)
     expectNoFindingOnTheCard()
     const pop = popover()
-    expect(visibleText(within(pop).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8')
+    expect(visibleText(within(pop).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
     expect(within(pop).getByTestId(`factor-range-source-${ID}`).getAttribute('data-value-source')).toBe('unknown')
   })
 
