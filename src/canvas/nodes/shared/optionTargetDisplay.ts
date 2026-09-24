@@ -207,5 +207,8 @@ export function readingShowsModelValue(reading: string, modelValue: number): boo
   const candidate = parenthesised ? parenthesised[1] : text
   if (!/^-?\d+(?:\.\d+)?$/.test(candidate)) return false
   const shown = Number(candidate)
-  return shown === modelValue || shown === parseFloat(modelValue.toFixed(2))
+  // Two-decimal comparison by arithmetic, not `toFixed`: this is a test of what
+  // the reading PRINTED, not a display, and the value grammar keeps number
+  // formatting in one chain (`nodeValueGrammarSingleSource`).
+  return shown === modelValue || shown === Math.round(modelValue * 100) / 100
 }

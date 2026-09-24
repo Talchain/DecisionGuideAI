@@ -39,6 +39,9 @@
  *     number, and it moves only the goal's normalisation — never the user's
  *     stated figure. Exact-match on the captured fields, hit count pinned.
  *
+ *  5. A `source` stamp on captured option levels the capture predates stamping
+ *     (see CAPTURE_SOURCE_STAMPS). Exact per-starter hit counts; no value moves.
+ *
  * Nothing else is rewritten, reordered, padded or invented — a hand-written
  * graph would be a fabricated demo.
  *
@@ -413,6 +416,50 @@ function repairGoalThreshold(id, fixture) {
  * guard is `src/canvas/starters/nearDuplicateLabels.ts`, asserted per-starter
  * in starters.integrity.spec.ts — it fails loud on any capture that carries one.
  */
+/**
+ * ⭐ TRANSFORMATION 5 — THE PRODUCER'S OWN AUTHORSHIP ON OPTION LEVELS THE
+ * CAPTURE LEFT UNSTAMPED (24 Sep 2026, DGAI #1930 / OC-1).
+ *
+ * The option edit writer refuses a level with no recorded origin, so an
+ * unstamped starter level could never be edited ("Not saved") — while its
+ * siblings from the same capture, stamped `brief_extraction`, could. These
+ * levels were drafted by CEE itself (the capture IS CEE's draft-graph
+ * response); the capture simply predates CEE stamping them. So the stamp is
+ * the producer's own authorship — `cee_hypothesis` — applied HERE, at the
+ * producer's artefact, never at a generic ingress (Codex, #1796: a generic
+ * stamp would launder unknown provenance). Exact per-starter hit counts; a
+ * recapture that changes them fails loud. Values and display strings are
+ * untouched; the key lands after `value`.
+ */
+const CAPTURE_SOURCE_STAMPS = [
+  { starter: 'vendor-selection', stamp: 'cee_hypothesis', expectedHits: 12,
+    reason: 'CEE-drafted option levels the capture predates CEE stamping; unstamped, the option edit writer refused them' },
+  { starter: 'market-entry', stamp: 'cee_hypothesis', expectedHits: 3,
+    reason: 'CEE-drafted option levels the capture predates CEE stamping; unstamped, the option edit writer refused them' },
+]
+
+function stampCapturedSources(id, fixture) {
+  const stamps = CAPTURE_SOURCE_STAMPS.filter((r) => r.starter === id)
+  let hits = 0
+  for (const option of fixture.analysis_ready?.options ?? []) {
+    const levels = option.interventions
+    if (!levels || typeof levels !== 'object') continue
+    for (const [fid, entry] of Object.entries(levels)) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+      if (entry.source !== undefined && entry.source !== null) continue
+      hits += 1
+      if (stamps.length === 0) continue
+      const { value, ...rest } = entry
+      delete rest.source
+      levels[fid] = { value, source: stamps[0].stamp, ...rest }
+    }
+  }
+  const expected = stamps.length === 0 ? 0 : stamps[0].expectedHits
+  if (hits !== expected) {
+    fail(`${id}: ${hits} unstamped option level(s) in the capture, expected exactly ${expected} (CAPTURE_SOURCE_STAMPS)`)
+  }
+}
+
 const STARTERS = [
   {
     id: 'vendor-selection',
@@ -602,6 +649,10 @@ function build() {
     // parsed capture that the card copy and counts are derived from is untouched.
     repairGoalThreshold(s.id, fixture)
 
+    // --- Transformation 5: the producer's own source stamp on unstamped levels ---
+    // `analysis_ready` is already the deep clone taken for transformation 2.
+    stampCapturedSources(s.id, fixture)
+
     const { title, summary } = deriveCardCopy(s.id, capture.nodes)
 
     fixtures.set(s.id, JSON.stringify(fixture, null, 2) + '\n')
@@ -663,6 +714,12 @@ function build() {
           goalNodeId: r.goalNodeId,
           from: r.from,
           to: r.to,
+          reason: r.reason,
+        })),
+        // Transformation 5, disclosed the same way.
+        sourceStamps: CAPTURE_SOURCE_STAMPS.filter((r) => r.starter === s.id).map((r) => ({
+          stamp: r.stamp,
+          occurrences: r.expectedHits,
           reason: r.reason,
         })),
         note: s.note,
