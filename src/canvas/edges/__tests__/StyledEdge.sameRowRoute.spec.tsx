@@ -40,6 +40,15 @@ type StoreNode = {
   measured?: { width: number; height: number }
 }
 let mockStoreNodes: StoreNode[] = []
+// The label only paints after a run, in a non-standard view, on interaction
+// (`edgeLabelVisibility.ts`); the label arm below switches these on.
+let mockView: { viewMode: string; resultsStatus: string } = { viewMode: 'standard', resultsStatus: 'idle' }
+// What `useReactFlow` reports — empty unless an arm feeds the label-placement
+// pass (which reads edges and nodes through the instance, not the store).
+let mockRf: { nodes: StoreNode[]; edges: Array<{ id: string; source: string; target: string; data?: unknown }> } = {
+  nodes: [],
+  edges: [],
+}
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -50,7 +59,11 @@ vi.mock('@xyflow/react', async () => {
     getBezierPath: () => ['M0 0 L100 100', 50, 50, 50, 50],
     getSmoothStepPath: () => ['M0 0 L100 100', 50, 50],
     getStraightPath: () => ['M0 0 L100 100', 50, 50],
-    useReactFlow: () => ({ getNode: () => null, getEdges: () => [], getNodes: () => [] }),
+    useReactFlow: () => ({
+      getNode: (id: string) => mockRf.nodes.find((n) => n.id === id) ?? null,
+      getEdges: () => mockRf.edges,
+      getNodes: () => mockRf.nodes,
+    }),
     useStore: (selector: any) => selector({ nodes: mockStoreNodes, edges: [] }),
   }
 })
@@ -60,8 +73,8 @@ vi.mock('../../store', () => ({
     selector({
       updateEdgeData: vi.fn(),
       runMeta: { ceeReview: null },
-      results: { status: 'idle', report: null },
-      viewMode: 'standard',
+      results: { status: mockView.resultsStatus, report: null },
+      viewMode: mockView.viewMode,
       lodRung: 'full',
       hoveredOptionId: null,
       highlightedEdges: new Set<string>(),
@@ -127,7 +140,7 @@ const positive = {
   beliefExistsSource: 'cee' as const,
 }
 
-function renderLink(src: StoreNode, tgt: StoreNode, id = 'e-link') {
+function renderLink(src: StoreNode, tgt: StoreNode, id = 'e-link', selected = false) {
   const s = bottomPort(src)
   const t = topHandle(tgt)
   return render(
@@ -142,7 +155,7 @@ function renderLink(src: StoreNode, tgt: StoreNode, id = 'e-link') {
         targetY: t.y,
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
-        selected: false,
+        selected,
       } as any)}
       data={positive as any}
     />,
@@ -154,6 +167,8 @@ const glyphOf = (c: HTMLElement, id = 'e-link') =>
   c.querySelector(`[data-edge-id="${id}"]`) as HTMLElement | null
 
 beforeEach(() => {
+  mockView = { viewMode: 'standard', resultsStatus: 'idle' }
+  mockRf = { nodes: [], edges: [] }
   // Shuffled, with a decoy (CHURN) in the same row and cards in the rows above
   // and below — an implementation that does not look nodes up BY ID draws a
   // different path.
@@ -200,6 +215,102 @@ describe('same-row link with a card BETWEEN — a shallow run under the row', ()
     const { container } = renderLink(PRICE, CHURN)
     // x = 698 + 14; y = 445 + 14.
     expect(glyphOf(container)!.style.transform).toMatch(/translate\(712px,\s*459px\)/)
+  })
+})
+
+/**
+ * The rendered position of the causal chip, read from the positioned ancestor
+ * of `edge-influence-label` (bound by testid, not by a value predicate).
+ */
+function labelAnchorOf(c: HTMLElement): { x: number; y: number } {
+  const label = c.querySelector('[data-testid="edge-influence-label"]') as HTMLElement | null
+  expect(label, 'PRECONDITION: the causal label renders (selected, detailed view, after a run)').not.toBeNull()
+  let el: HTMLElement | null = label
+  while (el && !/translate\([-\d.]+px,\s*[-\d.]+px\)/.test(el.style.transform)) el = el.parentElement
+  expect(el, 'PRECONDITION: the label has a positioned chip').not.toBeNull()
+  const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(el!.style.transform)!
+  return { x: Number(m[1]), y: Number(m[2]) }
+}
+
+describe('the causal label sits ON the drawn path', () => {
+  beforeEach(() => {
+    mockView = { viewMode: 'detailed', resultsStatus: 'complete' }
+  })
+
+  it('under (price → churn): on the gutter run, not at the handle midpoint near the row', () => {
+    const { container } = renderLink(PRICE, CHURN, 'e-link', true)
+    expect(groupOf(container).getAttribute('data-same-row-route')).toBe('under')
+    // Path 'M200,441 Q200,459 216,459 L682,459 Q698,459 698,445': the run is
+    // y 459 from x 216 to 682, so its midpoint is ((200 + 698) / 2, 459).
+    const at = labelAnchorOf(container)
+    expect(at.y).toBeCloseTo(459, 5)
+    expect(at.x).toBeCloseTo(449, 5)
+    expect(at.x).toBeGreaterThanOrEqual(216)
+    expect(at.x).toBeLessThanOrEqual(682)
+    // CONTRAST: the handle midpoint ((200 + 760) / 2, (447 + 318) / 2) =
+    // (480, 382.5) is on the row, over the middle card — where it used to sit.
+    expect(Math.abs(at.y - 382.5)).toBeGreaterThan(60)
+  })
+
+  it('CONTRAST — side (price → resistance): unchanged, the handle midpoint, which is on the connector', () => {
+    const { container } = renderLink(PRICE, RESIST, 'e-link', true)
+    expect(groupOf(container).getAttribute('data-same-row-route')).toBe('side')
+    // Handle midpoint ((200 + 480) / 2, (447 + 318) / 2) = (340, 382.5); the
+    // connector runs at y 382.5 from x 324 to 352.
+    const at = labelAnchorOf(container)
+    expect(at).toEqual({ x: 340, y: 382.5 })
+    expect(hitPathOf(container).getAttribute('d')).toBe('M324,382.5 L352,382.5')
+  })
+})
+
+describe('the placement pass is fed the SAME anchor (a persistent chip)', () => {
+  beforeEach(() => {
+    mockView = { viewMode: 'detailed', resultsStatus: 'complete' }
+  })
+
+  it('under: the chip is placed from the gutter anchor — no dodge, no leader line off the middle card', () => {
+    // One causal edge → it is a top-strength (persistent) chip, so the
+    // placement pass runs. Its HANDLE midpoint (480, 382.5) lies inside the
+    // middle card (resistance, x 356..604, y 324..441): placed from that basis
+    // the chip would be dodged and a leader drawn back to the row. Placed from
+    // the gutter anchor (449, 459) it is clear of every card.
+    mockRf = {
+      nodes: [OPTION, CHURN, MRR, RESIST, PRICE],
+      edges: [{ id: 'e-link', source: 'price', target: 'churn', data: positive }],
+    }
+    const { container } = renderLink(PRICE, CHURN)
+    expect(groupOf(container).getAttribute('data-same-row-route')).toBe('under')
+    expect(labelAnchorOf(container)).toEqual({ x: 449, y: 459 })
+    expect(container.querySelector('[data-testid="edge-label-leader"]')).toBeNull()
+  })
+
+  it("ANOTHER edge's under route: that edge's chip is seen in the GUTTER, not on the row", () => {
+    // price → far routes UNDER a narrow card, so its chip paints in the gutter
+    // (y 459). Its handle midpoint, (612, 382.5), is open row space — no card
+    // there — so a pass fed that basis keeps a phantom chip ON the row.
+    // Rendered: above → below, straight down through that same gap; its chip's
+    // basis is (612, 400), which overlaps the phantom (±88, ±18) but not the
+    // gutter chip. Placed against the chip where it really paints, it stays put.
+    const NARROW = { id: 'narrow', position: { x: 356, y: 324 }, measured: { width: 74, height: H } }
+    const FAR = card('far', 900, 324)
+    const ABOVE = card('above', 488, 158)
+    const BELOW = card('below', 488, 525)
+    mockStoreNodes = [ABOVE, FAR, BELOW, NARROW, PRICE]
+    mockRf = {
+      nodes: [ABOVE, FAR, BELOW, NARROW, PRICE],
+      edges: [
+        { id: 'e-link', source: 'above', target: 'below', data: positive },
+        { id: 'e-under', source: 'price', target: 'far', data: positive },
+      ],
+    }
+    // PRECONDITION: the other edge really is an under route.
+    const under = renderLink(PRICE, FAR, 'e-under')
+    expect(groupOf(under.container).getAttribute('data-same-row-route')).toBe('under')
+    under.unmount()
+
+    const { container } = renderLink(ABOVE, BELOW)
+    expect(labelAnchorOf(container)).toEqual({ x: 612, y: 400 })
+    expect(container.querySelector('[data-testid="edge-label-leader"]')).toBeNull()
   })
 })
 

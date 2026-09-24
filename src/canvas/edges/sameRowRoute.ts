@@ -25,10 +25,18 @@
  *            the model does not hold.
  *
  * ⚠ WHAT DOES NOT CHANGE. Stroke colour, dash, width and the arrowhead are the
- * edge's own; only the geometry moves. The label anchor stays the handle
- * midpoint (the chip-placement pass derives its offsets from that basis). Any
- * pair that is not same-row — or whose card sizes are not yet measured — gets
- * `null`, and the caller keeps its existing path.
+ * edge's own; only the geometry moves. Any pair that is not same-row — or whose
+ * card sizes are not yet measured — gets `null`, and the caller keeps its
+ * existing path.
+ *
+ * ⭐ THE LABEL ANCHOR FOLLOWS THE DRAWN PATH (`labelAnchor`). For `side` the
+ * handle midpoint already lies on the connector for row-mates, so `labelAnchor`
+ * is `null` and the caller keeps that basis unchanged. For `under` the handle
+ * midpoint sits near the source card's vertical centre — ON the row, ~60 units
+ * above the run — so the causal chip, its leader line and the placement pass
+ * use the midpoint of the gutter run instead. The placement pass is fed the
+ * SAME anchor (`PlacementEdge.anchor`), so the chip's dodge is computed from
+ * where the chip actually sits.
  *
  * ⚠ GLYPHS STAY DISTINCT. Only the adjacent card on each side can take the
  * `side` route into a target. Two `under` routes into one target from the same
@@ -57,6 +65,11 @@ export interface SameRowRoute {
   /** Absolute centre of the +/− glyph for this route. */
   glyphX: number
   glyphY: number
+  /**
+   * Where the causal label is anchored, ON the drawn path — or `null` to keep
+   * the handle midpoint (`side`, where that midpoint is already on the line).
+   */
+  labelAnchor: { x: number; y: number } | null
 }
 
 /** Gap between the arrow tip and the target's border — the canvas's mark gap. */
@@ -127,6 +140,7 @@ export function resolveSameRowRoute(
       // In the gutter, just behind the arrowhead, clear above the line.
       glyphX: r2(endX - dir * EDGE_ARROWHEAD_FLOW_LENGTH),
       glyphY: r2(y - (GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW)),
+      labelAnchor: null,
     }
   }
 
@@ -148,6 +162,9 @@ export function resolveSameRowRoute(
     // Beside the rising lead, on the side away from the run.
     glyphX: r2(tx + dir * glyphSide),
     glyphY: r2(ty + glyphSide),
+    // The midpoint of the horizontal gutter run: `(sx + tx) / 2` is the centre
+    // of the straight segment between the two corners, at the run's depth.
+    labelAnchor: { x: r2((sx + tx) / 2), y: low },
   }
 }
 

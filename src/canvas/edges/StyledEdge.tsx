@@ -794,9 +794,15 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Compute edge path based on pathType
   const [edgePath, labelX, labelY] = useMemo(() => {
     if (sameRowRoute) {
-      // Label anchor stays the handle midpoint — the chip-placement pass
-      // derives its offsets from that basis (`sameRowRoute.ts` docblock).
-      return [sameRowRoute.path, (sourceX + targetX) / 2, (sourceY + targetY) / 2] as [string, number, number]
+      // The label anchors ON the drawn path. `side` keeps the handle midpoint
+      // (already on the connector for row-mates, so `labelAnchor` is null);
+      // `under` anchors on its gutter run. The placement pass is fed the same
+      // anchor below, so the chip's dodge and leader start where it sits.
+      return [
+        sameRowRoute.path,
+        sameRowRoute.labelAnchor?.x ?? (sourceX + targetX) / 2,
+        sameRowRoute.labelAnchor?.y ?? (sourceY + targetY) / 2,
+      ] as [string, number, number]
     }
     switch (pathType) {
       case 'straight':
@@ -1431,6 +1437,31 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       width: n.measured?.width ?? n.width ?? 200,
       height: n.measured?.height ?? n.height ?? 80,
     })
+    // The same boxes the same-row route above resolves against (visible,
+    // measured cards), so every edge's placement anchor matches where that
+    // edge actually renders its label (`sameRowRoute.ts` `labelAnchor`).
+    const routeBoxes: RouteBox[] = []
+    for (const n of getNodes()) {
+      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (box) routeBoxes.push(box)
+    }
+    const routeAnchorFor = (e: { id: string; source: string; target: string; data?: unknown }) => {
+      // This edge: exactly the route it renders (its own handle positions
+      // decide whether it routes at all — a Right→Left edge never does).
+      if (e.id === id) return sameRowRoute?.labelAnchor ?? undefined
+      const pt = (e.data as { pathType?: EdgePathType } | undefined)?.pathType ?? 'bezier'
+      if (pt === 'straight' || pt === 'smoothstep') return undefined
+      const src = routeBoxes.find((b) => b.id === e.source)
+      const tgt = routeBoxes.find((b) => b.id === e.target)
+      if (!src || !tgt) return undefined
+      // Another edge: BaseNode and the ghost nodes declare one source handle
+      // (Bottom) and one target handle (Top), so its render guard reduces to
+      // the handle-height test — which the resolver's row-band overlap
+      // already implies (target top above source bottom).
+      const others = routeBoxes.filter((b) => b.id !== e.source && b.id !== e.target)
+      return resolveSameRowRoute(src, tgt, others)?.labelAnchor ?? undefined
+    }
     const placementEdges: PlacementEdge[] = []
     for (const e of getEdges()) {
       const rows = rowsFor(e.id)
@@ -1441,7 +1472,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const sn = getNode(e.source)
       const tn = getNode(e.target)
       if (!sn || !tn) continue
-      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn), rows })
+      const anchor = routeAnchorFor(e)
+      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn), rows, ...(anchor ? { anchor } : {}) })
     }
     const nodeRects = getNodes()
       // C2 review fix 1: lens-hidden cards are invisible — not obstacles.
@@ -1452,7 +1484,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // nodeRectsSignature is the recompute trigger for node movement (the
     // whole placement is derived from node geometry, so it covers this
     // edge's own endpoints too).
-  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature])
+  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature, sameRowRoute])
 
   // Total label displacement (Task 9c proximity nudge + collision stack),
   // relative to the rendered label anchor (labelX/labelY).

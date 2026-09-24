@@ -49,6 +49,31 @@ describe('which route a same-row pair takes', () => {
   })
 })
 
+describe('the label anchor sits ON the drawn path', () => {
+  it('side: null — the caller keeps the handle midpoint, already on the connector', () => {
+    expect(resolveSameRowRoute(A, B, othersFor(A, B))!.labelAnchor).toBeNull()
+  })
+
+  it.each([
+    ['A → C (one card between)', A, C],
+    ['A → D (two cards between)', A, D],
+    ['E → A (target to the LEFT)', E, A],
+  ])('under, %s: the midpoint of the horizontal gutter run', (_label, s, t) => {
+    const route = resolveSameRowRoute(s, t, othersFor(s, t))!
+    expect(route.kind).toBe('under')
+    // The straight run is `... ,LOW L X2,LOW ...`, entered from `X1,LOW`.
+    const m = /Q[-\d.]+,[-\d.]+ ([-\d.]+),([-\d.]+) L([-\d.]+),([-\d.]+)/.exec(route.path)
+    expect(m, `PRECONDITION: the under path has a straight gutter run — ${route.path}`).not.toBeNull()
+    const [x1, y1, x2, y2] = m!.slice(1).map(Number)
+    expect(y1).toBe(y2)
+    expect(route.labelAnchor).not.toBeNull()
+    expect(route.labelAnchor!.y).toBe(y1)
+    expect(route.labelAnchor!.x).toBeCloseTo((x1 + x2) / 2, 5)
+    // Below the row, never on a card.
+    expect(route.labelAnchor!.y).toBeGreaterThan(s.y + s.height)
+  })
+})
+
 describe('CONTRAST — not a same-row pair → null (the caller keeps its path)', () => {
   it('a card in the next row down', () => {
     expect(resolveSameRowRoute(A, box('mrr', 280, 525), [])).toBeNull()
