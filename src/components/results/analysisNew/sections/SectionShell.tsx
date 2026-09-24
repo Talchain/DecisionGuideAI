@@ -31,6 +31,12 @@
  * utility in prose: the check is a text scan and cannot tell a comment from a
  * class. Worth knowing before you explain a DS decision in a header.)
  *
+ * ⭐ V2 DESIGN SYSTEM: NO TINTS ON THE ROW ICON. The icon sat in a 24px
+ * `rounded-full bg-panel-hover` circle, a tinted badge on every section row;
+ * the prototype draws a plain `text-light` glyph. The circle is gone and the
+ * 24px SLOT stays, untinted, so the glyph keeps its size and position and every
+ * title keeps its x. Pinned by `sectionHeaderIconIsPlain.spec.tsx`.
+ *
  * ⚠ THE COUNT IS DERIVED BY THE CALLER FROM ITS ACTUAL LIST, never passed as a
  * remembered number. A collapsed row is a PROMISE about what is behind it, and a
  * count that misreports reads as "you have seen everything" when you have not.
@@ -235,7 +241,7 @@ export function SectionShell({
         data-testid={`${testId}-toggle`}
       >
         {Icon ? (
-          <span className="shrink-0 w-6 h-6 rounded-full bg-panel-hover flex items-center justify-center">
+          <span className="shrink-0 w-6 h-6 flex items-center justify-center">
             <Icon className={`${icon('row')} text-text-light`} aria-hidden={true} />
           </span>
         ) : null}
