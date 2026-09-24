@@ -82,15 +82,23 @@ const makeLens = () => ({
 })
 let lensState = makeLens()
 
+/**
+ * contract v3.1 (U10): persistent strength labels paint in Detailed view only —
+ * the default view pins none — so this geometry suite runs there. The default
+ * view's placement case is the last describe below.
+ */
+let mockViewMode = 'expert'
+
 vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector: any) =>
     selector({
       updateEdgeData: vi.fn(),
       runMeta: { ceeReview: null },
-      // Results complete → persistent top-strength labels render (E2 policy)
+      // Results complete → persistent top-strength labels render (Detailed
+      // view; contract v3.1 U10 withdrew E2 from the default view)
       results: { status: 'complete', report: mockReport },
       highlightedEdges: new Set<string>(),
-      viewMode: 'standard',
+      viewMode: mockViewMode,
       lens: lensState,
     })
   ),
@@ -213,6 +221,7 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     fragileIds.clear()
     lensEnabled = false
     lensState = makeLens()
+    mockViewMode = 'expert'
   })
 
   it('label under a third node card renders displaced, with a leader line back to the anchor', () => {
@@ -687,6 +696,59 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     const dyTwoRow = dyOf(fragile.container)
 
     expect(Math.abs(dyTwoRow)).toBeGreaterThan(Math.abs(dyOneRow))
+  })
+
+  /**
+   * contract v3.1 (U10): the default view paints no strength label, so it must
+   * RESERVE no box for one either. Two parallel edges share one anchor: e1 is
+   * the top-strength edge (it wins the shared target on the id tie-break), e2
+   * carries only the fragility cue. A phantom e1 box would push e2's cue off
+   * its own connection with no leader to join them.
+   */
+  describe('contract v3.1 U10 — the default view clears no box for a label it cannot paint', () => {
+    const cueTransform = (c: HTMLElement) =>
+      (c.querySelector('[data-testid="edge-influence-label"]') as HTMLElement | null)?.style.transform ?? null
+    const renderCueEdge = () => {
+      edgeList = [
+        { id: 'e1', source: 'n1', target: 'n2', data: { weight: 0.6 } },
+        { id: 'e2', source: 'n1', target: 'n2', data: { weight: 0.6 } },
+      ]
+      mockReport = { robustness: { fragile_edges: [{ edge_id: 'e2', switch_probability: 0.49 }] } }
+      fragileIds.add('e2')
+      return render(<StyledEdge {...edgeProps as any} id="e2" />)
+    }
+
+    it('the fragility cue sits on its own anchor, not dodged around a phantom strength label', () => {
+      mockViewMode = 'standard'
+      const { container } = renderCueEdge()
+      expect(container.querySelector('[data-testid="edge-fragile-tag"]'), 'the cue did not render').not.toBeNull()
+      expect(container.querySelector('[data-testid="edge-influence-label-text"]')).toBeNull()
+      expect(cueTransform(container)).toBe('translate(-50%, -50%) translate(50px,50px)')
+    })
+
+    it('CONTROL: in Detailed view the same cue IS dodged, because e1 really pins a label there', () => {
+      const { container } = renderCueEdge()
+      expect(container.querySelector('[data-testid="edge-fragile-tag"]'), 'the cue did not render').not.toBeNull()
+      expect(cueTransform(container)).not.toBeNull()
+      expect(cueTransform(container)).not.toBe('translate(-50%, -50%) translate(50px,50px)')
+    })
+
+    it('a card that settles onto the default view\'s cue re-dodges it (the geometry signature is keyed on the chip)', () => {
+      // The default view's only persistent chip is the fragility cue; it must
+      // still follow node movement although it carries no strength row.
+      mockViewMode = 'standard'
+      mockReport = { robustness: { fragile_edges: [{ edge_id: 'e1', switch_probability: 0.49 }] } }
+      fragileIds.add('e1')
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4)
+      const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
+      expect(container.querySelector('[data-testid="edge-influence-label-text"]')).toBeNull()
+      const before = cueTransform(container)
+      expect(before).toBe('translate(-50%, -50%) translate(50px,50px)')
+
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6)
+      rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
+      expect(cueTransform(container)).not.toBe(before)
+    })
   })
 
 })

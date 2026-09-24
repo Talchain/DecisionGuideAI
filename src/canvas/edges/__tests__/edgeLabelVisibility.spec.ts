@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shouldShowEdgeLabel, type EdgeLabelVisibilityInput } from '../edgeLabelVisibility'
+import { shouldShowEdgeLabel, viewShowsStrengthLabels, type EdgeLabelVisibilityInput } from '../edgeLabelVisibility'
 
 const base: EdgeLabelVisibilityInput = {
   viewMode: 'standard',
@@ -13,9 +13,24 @@ const base: EdgeLabelVisibilityInput = {
   showEdgeHint: false,
 }
 
-describe('shouldShowEdgeLabel — E2 top-strength labels in the default view', () => {
-  it('E2: a top-strength edge shows its label in the standard view once results exist', () => {
-    expect(shouldShowEdgeLabel({ ...base, viewMode: 'standard', isTopStrengthEdge: true })).toBe(true)
+describe('shouldShowEdgeLabel — the default view pins no strength label (contract v3.1 U10)', () => {
+  // contract v3.1 (U10; pts 4, 12) supersedes E2 (graph-visuals 2026-07-11),
+  // which pinned top-strength labels in the standard view. Strength is the
+  // stroke width; the words live in the hover and the relationship inspector.
+  it('v3.1 U10: a top-strength edge shows NO label in the standard view, even once results exist', () => {
+    expect(shouldShowEdgeLabel({ ...base, viewMode: 'standard', isTopStrengthEdge: true })).toBe(false)
+  })
+
+  it('v3.1 U10: no standard-view state paints a strength label', () => {
+    expect(shouldShowEdgeLabel({
+      ...base, viewMode: 'standard', isTopStrengthEdge: true, selected: true, isHovered: true,
+      hasSuggestion: true, isFirstEdge: true, showEdgeHint: true,
+    })).toBe(false)
+  })
+
+  it('viewShowsStrengthLabels: false for the default view, true for Detailed', () => {
+    expect(viewShowsStrengthLabels('standard')).toBe(false)
+    expect(viewShowsStrengthLabels('expert')).toBe(true)
   })
 
   it('a non-top-strength edge stays unlabelled in the standard view (no clutter)', () => {

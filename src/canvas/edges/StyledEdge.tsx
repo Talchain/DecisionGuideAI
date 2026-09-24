@@ -32,6 +32,7 @@ import type { EdgeData, EdgePathType } from '../domain/edges'
 import {
   shouldShowEdgeLabel,
   selectPersistentStrengthIds,
+  viewShowsStrengthLabels,
   type RankedCausalEdge,
 } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
@@ -1093,7 +1094,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Structural edges (decision→option) are excluded from ranking.
   // E3 refactor: the ranking now yields the persistent-label ID SET so both
   // the per-edge flag AND the label-collision pass share one computation.
+  // contract v3.1 (U10): EMPTY in the default view, which paints no strength
+  // label — so the placement pass clears no box for a label that cannot paint.
   const topStrengthIds = useMemo((): Set<string> => {
+    if (!viewShowsStrengthLabels(viewMode)) return new Set()
     const allEdges = getEdges()
     // Filter out non-causal edges (structural + intervention) before ranking
     const causalEdges = allEdges.filter(e => {
@@ -1164,7 +1168,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         compareEdgeValueDisplays(a.magnitude, b.magnitude, 'desc') || a.id.localeCompare(b.id),
     )
     return selectPersistentStrengthIds(strengths)
-  }, [getEdges, getNode, isResultsMode, report])
+  }, [getEdges, getNode, isResultsMode, report, viewMode])
 
   const isTopStrengthEdge = !isStructuralEdge && topStrengthIds.has(id)
 
@@ -1217,9 +1221,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // E3 part 2 (C2): subscribe to node geometry so a label re-dodges when ANY
   // node card moves onto it (this edge's own props only change when its own
-  // endpoints move). Perf posture: only top-strength edges (max 3) compute a
-  // signature — every other edge returns '' and never re-renders from node
-  // movement. While a node is DRAGGING its position is quantised to a 10px
+  // endpoints move). Perf posture: only persistent-chip edges (top-strength,
+  // max 3, plus the fragility cue's budget) compute a signature — every other
+  // edge returns '' and never re-renders from node movement. contract v3.1
+  // (U10): keyed on the CHIP, not the strength row, because the default view's
+  // only persistent chip is now the fragility cue, and it must still re-dodge.
+  // While a node is DRAGGING its position is quantised to a 10px
   // grid, so a drag triggers a recompute roughly once per 10px of travel
   // instead of every frame; 10px is well inside the 26px dodge STEP, so the
   // quantisation is never visible mid-drag.
@@ -1233,7 +1240,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // are discrete one-off events (layout runs, measurement), so exact values
   // add no meaningful recompute traffic there either.
   const nodeRectsSignature = useStore((s) => {
-    if (!isTopStrengthEdge) return ''
+    if (!isPersistentChipEdge) return ''
     let sig = ''
     for (const n of s.nodes) {
       // C2 review fix 1: the app hides nodes via the lens (BaseNode returns
@@ -1313,9 +1320,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const labelOffsetX = collisionOffset.dx
   const labelOffsetY = collisionOffset.dy
 
-  // C1 + E2: label-visibility policy (see edgeLabelVisibility.ts). Top-strength
-  // labels surface in the default (standard) view once results exist; the
-  // interaction-driven triggers stay Detailed/Model-only.
+  // C1: label-visibility policy (see edgeLabelVisibility.ts). contract v3.1
+  // (U10) withdrew E2: the default (standard) view paints no strength label;
+  // Detailed/Model keeps its top-strength labels and interaction triggers.
+  // Strength stays reachable in every view via the hover and the inspector.
   const showLabel = shouldShowEdgeLabel({
     viewMode,
     isResultsMode,
