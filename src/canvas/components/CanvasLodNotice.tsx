@@ -137,7 +137,10 @@ export function CanvasLodNotice() {
       data-testid={CANVAS_LOD_NOTICE_TESTID}
       role="status"
       aria-live="polite"
-      className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
+      // contract v3.1 CHR-6: the cell's one floating-chrome recipe — warm DS
+      // `shadow-2`, not Tailwind's cool `shadow-sm`. Pill radius and
+      // `panelMeta` are this cell's one-line grammar and stay.
+      className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-2"
     >
       {/* ⚠ THE ICON IS PART OF THE SENTENCE. A magnifier beside "this lens set
           aside" would name zoom as the cause, which is the same false claim the
