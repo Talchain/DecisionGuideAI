@@ -129,6 +129,42 @@ describe('the surface renders real content on a completed run', () => {
   })
 })
 
+/**
+ * V2 fidelity gap 23: "Drivers appear twice in Challenge: the 'Top drivers'
+ * rows sit directly above a 'What moves the outcome' header with a nested
+ * 'Drivers and dynamics' header and an orphan 'Value of information' h3."
+ *
+ * `highUncertainty()` is used because it is the one fixture in this file that
+ * carries BOTH a driver (`f_adopt`) and `decisionVoi: 'measured_non_zero'`, so
+ * a single render exercises everything nested inside "What moves the
+ * outcome": the driver chart section AND the value-of-information block.
+ *
+ * ⚠ REVERT THE PRODUCTION CHANGE TO SEE THIS RED. Before the fix, "Drivers and
+ * dynamics" was `SectionShell`'s own `<h3>` and "Value of information" was a
+ * bare `<h3>` in `AnalysisNewTabBody.tsx` — both landed inside the region this
+ * test queries, so `headings.length` read 2, not 0.
+ */
+describe('V2 gap 23: nothing nested inside "What moves the outcome" reads as a second heading', () => {
+  it('the region holds no h1-h4 — its own title, outside the region, is the only heading', () => {
+    renderBody(highUncertainty())
+    openAllSections()
+    const region = screen.getByTestId('analysis-new-what-moves-the-outcome-region')
+    const headings = region.querySelectorAll('h1, h2, h3, h4')
+    expect(
+      Array.from(headings).map((h) => h.textContent),
+      'a heading element nested here reads as a second (or third) section title under "What moves the outcome"',
+    ).toEqual([])
+    // Positive control: the content the old headings named must still be on
+    // screen — this is a flatten, not a deletion.
+    expect(region).toHaveTextContent(COPY.sections.drivers)
+    expect(region).toHaveTextContent(COPY.decisionVoi.label)
+    // And every factor keeps its edit control — the chart bar that opens the
+    // value editor (`DriverInfluenceChart`, unTouched by this change).
+    expect(within(region).getAllByTestId('analysis-new-drivers-row').length).toBeGreaterThan(0)
+    expect(within(region).getAllByTestId('analysis-new-driver-chart-bar').length).toBeGreaterThan(0)
+  })
+})
+
 describe('F · the three scenario classes (§24F)', () => {
   it('OPEN STRATEGIC CHALLENGE — no forced winner or option framing', () => {
     renderBody(openStrategicChallenge())

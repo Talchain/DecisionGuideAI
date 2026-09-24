@@ -2632,9 +2632,19 @@ export function AnalysisNewTabBody({
             testId="analysis-new-what-moves-the-outcome"
           >
           {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
+          {/* V2 gap 23: this section is NESTED inside the "What moves the
+              outcome" SectionShell above, so its own SectionShell used to
+              repeat the identical h3/panelHeader grammar one level down — the
+              "Top drivers rows sit directly above a 'What moves the outcome'
+              header with a nested 'Drivers and dynamics' header" gap.
+              `headingLevel="label"` drops the nested heading tag entirely (not
+              just its weight — see `SectionShell`'s doc for why a visual-only
+              demotion would not have closed this); content, count, rows and
+              every testid are unchanged. */}
           <AnalysisNewSection
             title={COPY.sections.drivers}
             subtitle={COPY.sectionSubtitles.drivers}
+            headingLevel="label"
             findings={vm.drivers.findings}
             preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
             // ⚠ The caveat is a function of the PRODUCER's provenance token, not
@@ -2720,16 +2730,23 @@ export function AnalysisNewTabBody({
               data-testid="analysis-new-decision-voi-section"
               aria-labelledby="analysis-new-decision-voi-heading"
             >
-              <h3
+              {/* V2 gap 23: WAS an h3/`panelHeader` — an orphan THIRD section
+                  title nested inside "What moves the outcome", below "Drivers
+                  and dynamics". Demoted to a plain `<p>` at the same quiet
+                  `panelMeta` weight the nested driver label now uses: not a
+                  heading at all, so it does not compete with the section's
+                  own h3 in a screen reader's heading navigation, and it reads
+                  as a sub-part of the section it sits in rather than a peer
+                  of it. `id`, `data-testid` and the `aria-labelledby` link on
+                  the wrapping `<section>` are unchanged, so the region keeps
+                  the same accessible name. */}
+              <p
                 id="analysis-new-decision-voi-heading"
-                // `panelHeader` — a section title, for the same reason as
-                // `WhatWeChecked`. These two were the only section headings on
-                // this tab not rendering at 14px/600.
-                className={`${typography.panelHeader} text-text-header mb-1`}
+                className={`${typography.panelMeta} text-text-header mb-1`}
                 data-testid="analysis-new-decision-voi-heading"
               >
                 {COPY.decisionVoi.label}
-              </h3>
+              </p>
               <p
                 className={`${typography.panelMeta} text-text-light m-0`}
                 data-testid="analysis-new-decision-voi"
