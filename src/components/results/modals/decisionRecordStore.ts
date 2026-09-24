@@ -24,6 +24,17 @@
  * A surface rendering a "Decision recorded" state must label which of those
  * it is showing; `DecisionRecord.remote` is how it can tell.
  *
+ * ⚠ 24 SEP 2026: THE TEXT IS NOW SENT, AND ITS DURABILITY IS CONFIRMED PER FIELD.
+ * A signed-in save now also sends the rationale, assumption, revisit trigger
+ * and next action and a `position` ("Not ready to choose"), as additive
+ * request keys. A text is claimed on the account ONLY when CEE's response
+ * lists it in `stored_text_fields` (kept as `remote.storedTextFields`): the
+ * reconciled CEE route lists exactly the texts the stored row holds verbatim.
+ * Today's CEE ignores the keys and sends no such list, so every text there is
+ * still claimed on this device, never on the account — the split above,
+ * unchanged. A not-ready record carries no option, confidence or expectation
+ * at all (`NotReadyDecisionRecord`).
+ *
  * ⭐⭐ PERSISTENCE IS `localStorage`, AND THAT IS A DELIBERATE DIVERGENCE FROM
  * ITS SIBLINGS. Superseded text: ~~Persistence mirrors strengthenStore: zustand
  * + manual, version-keyed sessionStorage, keyed per scenario id.~~ The shape
@@ -93,6 +104,29 @@ import { v5 as uuidv5 } from 'uuid'
 import { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
 
 /**
+ * The four reasoning texts CEE can hold on the account, by their WIRE names
+ * (the commit request's keys and CEE's `stored_text_fields` values), in CEE's
+ * canonical order.
+ */
+export const DECISION_RECORD_TEXT_FIELDS = [
+  'rationale',
+  'key_assumption',
+  'revisit_trigger',
+  'next_action',
+] as const
+export type DecisionRecordTextField = (typeof DECISION_RECORD_TEXT_FIELDS)[number]
+
+/**
+ * A server-sent (or stored) `stored_text_fields` value, read defensively:
+ * known names only, each once, in canonical order. Anything that is not an
+ * array reads as `[]` — no confirmation, so no account claim.
+ */
+export function readStoredTextFields(raw: unknown): DecisionRecordTextField[] {
+  if (!Array.isArray(raw)) return []
+  return DECISION_RECORD_TEXT_FIELDS.filter((field) => raw.includes(field))
+}
+
+/**
  * Proof that this record reached CEE — the durable half. `null` while the
  * record is local-only (guest, offline, or a failed commit), so no surface
  * can claim "saved to your account" without the record id that says so.
@@ -104,9 +138,82 @@ export interface DecisionRecordRemote {
   reviewDate: string
   /** Which rung of CEE's ladder set it — `user_set` means the user chose it. */
   reviewDateSource: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger'
+  /**
+   * The texts CEE CONFIRMED the account holds verbatim (its
+   * `stored_text_fields`). ABSENT or empty ⇒ no text is claimed on the
+   * account: acknowledgements written before this field existed, and every
+   * response from a CEE that does not send the list, read exactly as before.
+   */
+  storedTextFields?: readonly DecisionRecordTextField[]
 }
 
-export interface DecisionRecord {
+/**
+ * The user's stated position. `'option'` is the only position records had
+ * before 24 Sep 2026, so an ABSENT `position` means `'option'` (the same rule
+ * the commit request uses). `'not_ready'` is "Not ready to choose": a position,
+ * never a decision.
+ */
+export type DecisionRecordPosition = 'option' | 'not_ready'
+
+/** The one display name of the not-ready position, shared by capture and read-back. */
+export const NOT_READY_POSITION_LABEL = 'Not ready to choose'
+
+/**
+ * Fields every record carries, whatever the position.
+ *
+ * ⚠ LOCALITY OF THE TEXT FIELDS. Since 24 Sep 2026 a signed-in save SENDS the
+ * rationale, assumption, next action and revisit text with the commit. `remote`
+ * licenses an account claim for the choice, confidence, expectation and
+ * review date; a TEXT field is claimed on the account only when
+ * `remote.storedTextFields` names it (CEE's per-field confirmation). Every
+ * other text is claimed on this device, which is true whatever CEE did.
+ */
+interface DecisionRecordCommon {
+  rationale: string
+  assumptionToWatch: string
+  /** Free text: a trigger condition or a date ("Revisit trigger or date"). */
+  revisitTrigger: string
+  /**
+   * What the user will resolve, accept or monitor next. OPTIONAL: absent on
+   * records written before the field existed, and on any record where it was
+   * left blank (a blank is never stored as an empty string).
+   */
+  nextAction?: string
+  /** results.hash of the completed analysis on screen at capture time, if any. */
+  analysisHash: string | null
+  savedAt: number
+  /** Set once the record is durable in CEE; null while local-only. */
+  remote?: DecisionRecordRemote | null
+}
+
+/**
+ * "Not ready to choose". It carries NO option, NO confidence and NO
+ * expectation, and the type says so with `never`: a confidence or an
+ * expectation is a claim about a CHOSEN option's outcome (the expectation is
+ * what the outcome is scored against), so without a choice there is nothing
+ * for either to be about. Reading `record.optionId` on the union gives
+ * `string | undefined`, which forces every reader to handle this case rather
+ * than print an empty option.
+ */
+export interface NotReadyDecisionRecord extends DecisionRecordCommon {
+  position: 'not_ready'
+  optionId?: never
+  optionLabel?: never
+  optionNumber?: never
+  confidence?: never
+  expectation?: never
+}
+
+export type DecisionRecord = OptionDecisionRecord | NotReadyDecisionRecord
+
+/** True only for an explicit not-ready record; an absent position is an option. */
+export function isNotReadyRecord(record: DecisionRecord): record is NotReadyDecisionRecord {
+  return record.position === 'not_ready'
+}
+
+export interface OptionDecisionRecord extends DecisionRecordCommon {
+  /** Absent on every option record (absent ⇒ `'option'`); never `'not_ready'`. */
+  position?: 'option'
   /** Canvas node id of the chosen option (from the analysed option set). */
   optionId: string
   /** Display label snapshot at capture time. */
@@ -126,15 +233,6 @@ export interface DecisionRecord {
    * this field existed are still readable.
    */
   expectation?: string
-  rationale: string
-  assumptionToWatch: string
-  /** Free text: a trigger condition or a date ("Revisit trigger or date"). */
-  revisitTrigger: string
-  /** results.hash of the completed analysis on screen at capture time, if any. */
-  analysisHash: string | null
-  savedAt: number
-  /** Set once the record is durable in CEE; null while local-only. */
-  remote?: DecisionRecordRemote | null
 }
 
 export interface DecisionRecordState {
@@ -225,7 +323,14 @@ function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
     try {
       const ack = JSON.parse(localStorage.getItem(ackKey(boundary.epoch, scenarioKey, stored.clientCommitId)) ?? 'null')
       if (ack && typeof ack.recordId === 'string' && typeof ack.reviewDate === 'string' &&
-          ['user_set', 'default_horizon', 'default_horizon_after_unparsed_trigger'].includes(ack.reviewDateSource)) remote = ack
+          ['user_set', 'default_horizon', 'default_horizon_after_unparsed_trigger'].includes(ack.reviewDateSource)) {
+        // The per-field confirmation is re-read through the SAME filter as the
+        // wire value: storage is editable, and an unknown name must never
+        // become an account claim.
+        remote = ack.storedTextFields === undefined
+          ? ack
+          : { ...ack, storedTextFields: readStoredTextFields(ack.storedTextFields) }
+      }
     } catch { /* no confirmation */ }
     byScenario[scenarioKey] = { ...stored.record, remote }
     captures[scenarioKey] = stored.clientCommitId
