@@ -44,9 +44,9 @@
  * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2). The prose readout
  * is OFF the face: ONE NodeMetricRow (`goal-achievement-metric-row`, visible
  * "Chance" + "N%") carries the figure, and the possessive sentence is its
- * ACCESSIBLE NAME and tooltip; a no-probability run is the unset row
- * `goal-achievement-unset`, whose accessible name is the old full sentence.
- * So every voice assertion here reads accessible names BY TESTID, and every
+ * ACCESSIBLE NAME and tooltip; a no-probability run shows NO Chance row
+ * (contract v3.1 goal anatomy, gap U3 — the unset row `goal-achievement-unset`
+ * is gone). So every voice assertion here reads accessible names BY TESTID, and every
  * absence covers accessible names as well as text — a text scan alone can no
  * longer see the sentence and would pass vacuously.
  */
@@ -185,7 +185,7 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     expect(allAccessibleNames(container)).not.toContain(GOAL_ANCHOR_COPY.phrase('< 1%', true))
     expect(allAccessibleNames(container)).not.toContain(POSSESSIVE)
     expect(allAccessibleNames(container)).not.toContain('< 1%')
-    // The node's own honest-absence line takes over.
+    // The node's own honest absence takes over (since contract v3.1: no Chance row at all).
     //
     // ⭐ AND NOTE WHICH ONE. Before L62 this run rendered "No overall goal
     // probability for this run — see Goal fit for each option's chance",
@@ -198,16 +198,16 @@ describe('GoalNode — possessive gate on a substituted joint goal figure (ROADM
     // surfaces finally agree. Pinned by string because the DIFFERENCE between
     // these two sentences is the user-visible consequence of the fix.
     //
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the absence line
-    // is the unset Chance row. Its visible text is the short form, and the
-    // sentence pinned here is its accessible name (and tooltip).
-    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Not produced by this run')
-    expect(rowName(ACHIEVEMENT_UNSET)).toContain(
-      'Target set. This run did not produce a goal probability.',
-    )
+    // Contract v3.1 goal anatomy (gap U3, 24 Sep 2026) supersedes the unset
+    // Chance row: with no admissible goal figure the card shows NO Chance row —
+    // no denial, no pointer at Goal fit — so the node and the Goal-fit sub-tab
+    // still cannot contradict each other.
+    expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).not.toBeInTheDocument()
+    expect(container.textContent ?? '').not.toContain('Not produced by this run')
+    expect(allAccessibleNames(container)).not.toContain('did not produce a goal probability')
     expect(container.textContent ?? '').not.toContain('see Goal fit for each option')
     expect(allAccessibleNames(container)).not.toContain('see Goal fit for each option')
-    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).not.toContain('See each option')
+    expect(container.textContent ?? '').not.toContain('See each option')
   })
 
   it('positive control: a REAL probability_of_goal keeps the possessive', () => {

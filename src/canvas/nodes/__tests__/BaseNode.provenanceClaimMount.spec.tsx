@@ -238,15 +238,14 @@ describe('the GOAL states its provenance ONCE', () => {
     // Bound by the goal surface's OWN testid, never by a text predicate the
     // suppressed mark could also have satisfied.
     const own = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)
-    // Locked Canvas design (23 Sep 2026), ED 11:52Z point 2 ("provenance
-    // compact"): the "From your brief" PILL is now the goal rail's provenance
-    // ICON, keeping the pill's testid. It states the fact as its accessible name
-    // (the full notice, imperative included), not as visible text — so the fact
-    // is bound on the name, exactly, from the same copy constants.
-    expect(own).toHaveAccessibleName(
-      `${GOAL_LABEL_FROM_BRIEF_COPY.pill}. ${GOAL_LABEL_FROM_BRIEF_COPY.notice}`,
-    )
-    expect(own.getAttribute('aria-label')!.startsWith(GOAL_LABEL_FROM_BRIEF_COPY.pill)).toBe(true)
+    // Contract v3.1 pt 1 ("The separate rail source icons are removed")
+    // supersedes the rail provenance ICON (ED 11:52Z point 2). The fact moved to
+    // the card's details (Layer 2: Detailed inline here, the popover in
+    // Standard) under the SAME testid, as visible text from the same constant —
+    // so it is still stated exactly once, never zero times.
+    expect(own.tagName).not.toBe('BUTTON')
+    expect(own.textContent).toBe(GOAL_LABEL_FROM_BRIEF_COPY.notice)
+    expect(screen.getAllByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)).toHaveLength(1)
     // Stated exactly once: the goal's own surface, and no second spelling.
     expect(mark()).toBeNull()
   })
