@@ -283,7 +283,7 @@ export function CommitmentSummary({
           {/* ⭐ V2 FIDELITY (gap 18): `list-disc pl-3.5` replaces `list-none p-0`
               — the prototype's `.commit-synthesis` sets no `list-style: none`,
               so its three lines keep the browser's own disc markers at a 14px
-              indent. `font-semibold` on the label matches its `b{font-weight:
+              indent. a `<b>` label matches its `b{font-weight:
               600}`, against the plain body weight the label shared with its
               sentence before. */}
           <ul className="list-disc pl-3.5 m-0 space-y-1">
@@ -294,7 +294,7 @@ export function CommitmentSummary({
                 data-testid={`${testId}-${b.key}`}
                 data-source={b.source}
               >
-                <span className="font-semibold text-text-header">{b.label}: </span>
+                <b className="text-text-header">{b.label}: </b>
                 <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
               </li>
             ))}

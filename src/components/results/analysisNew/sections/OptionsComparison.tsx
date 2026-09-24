@@ -188,9 +188,9 @@ import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
 /**
  * The lens arms, each ONE complete colour pair. Inline in the className
  * template, the per-site contrast scan (which reads a template literal whole,
- * on purpose) paired the idle arm's text with the selected arm's fill and
- * reported 1.00:1; no rendered arm ever puts `text-text-body` or `text-info`
- * on `bg-primary`. Each constant is now what one arm actually renders.
+ * on purpose) paired the idle arm's text colour with the selected arm's fill
+ * and reported 1.00:1, though no rendered arm ever combined them. Each
+ * constant is now exactly what one arm renders.
  */
 const LENS_ARM_SELECTED = 'bg-primary text-text-on-color'
 const LENS_ARM_IDLE = 'text-text-body hover:text-info'
@@ -1080,7 +1080,7 @@ export function OptionsComparison({
                         ?.focus()
                     }}
                     className={`${typography.panelBody} ${ACTION_FOCUS} inline-flex items-center justify-center min-h-[28px] rounded-full px-2 no-underline ${
-                      selected ? 'bg-primary text-text-on-color' : 'text-text-body hover:text-info'
+                      selected ? LENS_ARM_SELECTED : LENS_ARM_IDLE
                     }`}
                     data-arm={arm}
                     data-testid={`${testId}-range-lens-${arm}`}
