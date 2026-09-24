@@ -39,7 +39,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
-import type { ReactNode } from 'react'
+import { StrictMode, type ReactNode } from 'react'
 
 vi.mock('../../../lib/supabase', () => ({
   supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
@@ -231,6 +231,11 @@ describe('an ask from the minimised pill keeps every ask door connected', () => 
       'CONTRAST — the served ghost-card path (`_sendMessage`) survives the same reveal',
       'CONTRAST — a docked (non-minimised) Olumi was never broken and still is not',
       'NEVER OVERWRITES — a live ConversationPanel owner keeps its reveal-wrapped callbacks across an unrelated store write',
+      'DOCK COLLAPSE after the pill ask — the tab body unmounts, no host is left, and the next ask still lands',
+      'DOCK COLLAPSE for a docked user — the tab body unmounts, no host is left, and the next ask still lands',
+      'STRICT MODE — the simulated unmount/remount does not release the live tab body\'s callbacks',
+      'CANVAS UNMOUNT — the provider leaving leaves no callable callback into its session; another host\'s slot survives',
+      'CANVAS REMOUNT — the new canvas\'s tab body replaces the departed one\'s callbacks; the ask lands in the NEW composer',
     ])
     expect(siblings.filter((t) => t.mode !== 'run').map((t) => t.name)).toEqual([])
   })
@@ -347,5 +352,138 @@ describe('an ask from the minimised pill keeps every ask door connected', () => 
     })
     await settle()
     expect(document.activeElement?.getAttribute('data-testid')).toBe('ai-input-bar-floating-textarea')
+  }, 30_000)
+
+  /*
+   * ⚠ THE TAB BODY UNMOUNTS ON EVERY DOCK COLLAPSE, NOT ONLY WITH THE CANVAS.
+   * `OutputsDock` renders it inside `{effectiveIsOpen && …}`. The session its
+   * callbacks close over (`ConversationProvider`, at the canvas root) outlives
+   * that, so they stay valid — and after an ask from the pill they are the only
+   * registration left: the floating host does not come back when the dock
+   * collapses. A rule that cleared the tab body's slots on unmount would empty
+   * the store here and take every ask door with it: the defect this file
+   * exists for, reached by a second route.
+   */
+  const collapseDock = () => {
+    const control = document.querySelector('[data-testid="dock-collapse-control"]') as HTMLElement | null
+    expect(control?.getAttribute('aria-label'), 'PRECONDITION: the dock is open and can collapse').toBe('Collapse outputs dock')
+    act(() => { control!.click() })
+  }
+  const assertCollapsedWithNoHost = () => {
+    expect(document.querySelector('[data-testid="olumi-tab-wrapper"]'), 'the collapse unmounted the tab body').toBeNull()
+    expect(document.querySelector('[data-testid="floating-olumi-panel"]'), 'no floating host').toBeNull()
+    expect(document.querySelector('[data-testid="floating-olumi-panel-pill"]'), 'no pill host').toBeNull()
+    expect(useGuidanceStore.getState()._registrationToken, 'no ConversationPanel owns anything').toBeNull()
+  }
+
+  it('DOCK COLLAPSE after the pill ask — the tab body unmounts, no host is left, and the next ask still lands', async () => {
+    minimisedPill(true)
+    await mountAndPinPrecondition()
+    act(() => { requestAsk({ text: 'q', label: 'x', source: 'ghost-option' }) })
+    await settle()
+    expect(stripValue(), 'PRECONDITION: the first ask landed').toBe('q')
+
+    collapseDock()
+    await settle()
+    assertCollapsedWithNoHost()
+    expect(canAsk(), 'the ask doors survive the collapse').toBe(true)
+
+    let surface: ReturnType<typeof requestAsk> = 'none'
+    act(() => { surface = requestAsk({ text: 'q2', label: 'x', source: 'ghost-option' }) })
+    await settle()
+    expect(surface).toBe('composer')
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+    expect(stripValue()).toBe('q2')
+  }, 30_000)
+
+  it('DOCK COLLAPSE for a docked user — the tab body unmounts, no host is left, and the next ask still lands', async () => {
+    sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify({ isOpen: true, activeTab: 'olumi' }))
+    useUIStore.setState({ activeOutputTab: 'olumi', activeOutputTabVersion: 0 })
+    render(<Canvas />)
+    await settle()
+    expect(document.querySelector('[data-testid="floating-olumi-panel"]'), 'PRECONDITION: no floating host').toBeNull()
+    expect(useGuidanceStore.getState()._registrationToken, 'PRECONDITION: only the tab body is registered').toBeNull()
+    expect(canAsk(), 'PRECONDITION').toBe(true)
+
+    collapseDock()
+    await settle()
+    assertCollapsedWithNoHost()
+    expect(canAsk(), 'the ask doors survive the collapse').toBe(true)
+
+    let surface: ReturnType<typeof requestAsk> = 'none'
+    act(() => { surface = requestAsk({ text: 'q', label: 'x', source: 'ghost-option' }) })
+    await settle()
+    expect(surface).toBe('composer')
+    expect(stripValue()).toBe('q')
+  }, 30_000)
+
+  it('STRICT MODE — the simulated unmount/remount does not release the live tab body\'s callbacks', async () => {
+    // Dev runs under <StrictMode>, which runs every effect's cleanup and setup
+    // once more on mount. The provider's queued release must not null the
+    // callbacks the SAME tab body re-claims (its `sendMessage` is the
+    // provider's stable function, so the identity it re-claims is the one its
+    // simulated cleanup just marked departed).
+    sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify({ isOpen: true, activeTab: 'olumi' }))
+    useUIStore.setState({ activeOutputTab: 'olumi', activeOutputTabVersion: 0 })
+    render(<StrictMode><Canvas /></StrictMode>)
+    await settle()
+    const s = useGuidanceStore.getState()
+    expect({ prefill: s._prefillChat !== null, send: s._sendMessage !== null, dispatch: s._dispatchAction !== null }).toEqual({ prefill: true, send: true, dispatch: true })
+    let surface: ReturnType<typeof requestAsk> = 'none'
+    act(() => { surface = requestAsk({ text: 'q', label: 'x', source: 'ghost-option' }) })
+    await settle()
+    expect(surface).toBe('composer')
+    expect(stripValue()).toBe('q')
+  }, 30_000)
+
+  it('CANVAS UNMOUNT — the provider leaving leaves no callable callback into its session; another host\'s slot survives', async () => {
+    // Codex CHANGES_REQUIRED 5807693253: "unmounting the last provider leaves
+    // no callable callback into it". The tab body cannot tell a dock collapse
+    // (its callbacks must SURVIVE — DOCK COLLAPSE cases) from the canvas going
+    // (they must NOT); only the provider knows its session ended.
+    sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify({ isOpen: true, activeTab: 'olumi' }))
+    useUIStore.setState({ activeOutputTab: 'olumi', activeOutputTabVersion: 0 })
+    const view = render(<Canvas />)
+    await settle()
+    const before = useGuidanceStore.getState()
+    expect(before._prefillChat, 'PRECONDITION: the tab body registered').not.toBeNull()
+    expect(before._registrationToken, 'PRECONDITION: only the tab body is registered').toBeNull()
+    // CONTRAST: a callback NO tab body wrote, in one slot. The tab body must
+    // not overwrite it while mounted, and the provider must not clear it.
+    const foreign = vi.fn()
+    act(() => { useGuidanceStore.setState({ _dispatchAction: foreign }) })
+    await settle()
+    expect(useGuidanceStore.getState()._dispatchAction, 'the tab body overwrote another host').toBe(foreign)
+
+    act(() => { view.unmount() })
+    await settle()
+    const after = useGuidanceStore.getState()
+    expect(after._prefillChat, 'a prefill into the unmounted session is still callable').toBeNull()
+    expect(after._sendMessage, 'a send into the unmounted session is still callable').toBeNull()
+    expect(after._dispatchAction, 'the provider cleared a slot it did not own').toBe(foreign)
+  }, 30_000)
+
+  it('CANVAS REMOUNT — the new canvas\'s tab body replaces the departed one\'s callbacks; the ask lands in the NEW composer', async () => {
+    sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify({ isOpen: true, activeTab: 'olumi' }))
+    useUIStore.setState({ activeOutputTab: 'olumi', activeOutputTabVersion: 0 })
+    const first = render(<Canvas />)
+    await settle()
+    expect(useGuidanceStore.getState()._registrationToken, 'PRECONDITION: only the tab body is registered').toBeNull()
+    const departed = useGuidanceStore.getState()
+    act(() => { first.unmount() })
+    await settle()
+
+    render(<Canvas />)
+    await settle()
+    const now = useGuidanceStore.getState()
+    expect(now._prefillChat, 'the departed canvas\'s prefill is gone').not.toBe(departed._prefillChat)
+    expect(now._sendMessage, 'the departed canvas\'s send is gone').not.toBe(departed._sendMessage)
+    expect(now._dispatchAction, 'the departed canvas\'s dispatch is gone').not.toBe(departed._dispatchAction)
+
+    let surface: ReturnType<typeof requestAsk> = 'none'
+    act(() => { surface = requestAsk({ text: 'q', label: 'x', source: 'ghost-option' }) })
+    await settle()
+    expect(surface).toBe('composer')
+    expect(stripValue(), 'the question reached the composer on screen, not the departed one').toBe('q')
   }, 30_000)
 })
