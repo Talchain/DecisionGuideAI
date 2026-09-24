@@ -85,7 +85,10 @@ const PANES: Array<{ name: string; nodeId: string | null; edgeId: string | null;
   { name: 'option', nodeId: 'o1', edgeId: null, truth: INSPECTOR_OPTION_READ_ONLY_REASON },
   { name: 'factor-controllable', nodeId: 'fc', edgeId: null, truth: INSPECTOR_FACTOR_CONTROLLABLE_REASON },
   { name: 'factor-external', nodeId: 'fe', edgeId: null, truth: INSPECTOR_FACTOR_EXTERNAL_REASON },
-  { name: 'factor-observable (blanket)', nodeId: 'fo', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
+  // 24 Sep 2026: the observable pane opted out of the blanket — its value now
+  // commits through `factor_value_edit`, the controllable pane's carrier — so it
+  // says the controllable pane's facts, not the blanket's.
+  { name: 'factor-observable', nodeId: 'fo', edgeId: null, truth: INSPECTOR_FACTOR_CONTROLLABLE_REASON },
   { name: 'outcome (blanket)', nodeId: 'oc', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
   { name: 'risk (blanket)', nodeId: 'r1', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
   { name: 'generic (blanket)', nodeId: 'x1', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },

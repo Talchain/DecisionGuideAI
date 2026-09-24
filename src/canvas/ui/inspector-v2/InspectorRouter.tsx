@@ -432,6 +432,16 @@ export const InspectorRouter = memo(function InspectorRouter({
    * that names a remedy the UI does not provide is a dead end wearing an
    * explanation.
    *
+   * ⭐ FOURTH PANEL — `factor-observable`, and the carrier is the SAME ONE as
+   * the controllable pane's. Its headline value used to commit through a bare
+   * `setObservedValue` (no wire carrier) inside this wrap, so one whole factor
+   * category had zero editable surface. It now commits through
+   * `useModelEditAuthority.proposeFactorValue` → `factor_value_edit`, the writer
+   * the factor card and the Model tab already share; CEE resolves that event by
+   * node id, so nothing new was needed on the server. The pane fences its
+   * description and advanced editor itself (`data-writer-fence`), pinned by
+   * `FactorObservablePanel.valueReachesTheModel.spec.tsx`.
+   *
    * ⚠ THIS COMMENT SAID "OPT-IN, ONE PANEL, DELIBERATELY" while the set below
    * already held TWO. Corrected rather than extended: the rule was never a
    * COUNT, it is a TEST — does this panel own a control that reaches a durable
@@ -449,7 +459,7 @@ export const InspectorRouter = memo(function InspectorRouter({
    * asserts as a discriminating pair — every writer disabled AND every
    * non-writer enabled — so it cannot pass by fencing everything or nothing.
    */
-  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external'])
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable'])
   const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
@@ -538,9 +548,16 @@ export const InspectorRouter = memo(function InspectorRouter({
             name, the factor pane also saves the value. Keyed by panel type so
             adding a third cannot silently inherit a sentence written about
             another surface. */}
+        {/* ⚠ `factor-observable` TAKES THE CONTROLLABLE PANE'S SENTENCE BECAUSE
+            IT IS THE SAME FACTS: the name saves (conditionally), the value
+            saves through the same `factor_value_edit` carrier, and other edits
+            are not sent. The constant names no category, so nothing in it is
+            false of an observed factor. It is NOT allowed to fall through to
+            the option string below, which would tell the reader about factor
+            targets this pane does not have. */}
         {!panelOwnsAuthority
           ? INSPECTOR_READ_ONLY_REASON
-          : panelType === 'factor-controllable'
+          : panelType === 'factor-controllable' || panelType === 'factor-observable'
             ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
             : panelType === 'factor-external'
               ? INSPECTOR_FACTOR_EXTERNAL_REASON
