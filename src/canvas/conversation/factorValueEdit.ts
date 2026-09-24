@@ -488,6 +488,71 @@ export function factorValueHasNoUsableScale(nodeData: unknown): boolean {
   return recoverScaleFrameFromPair(obs.value, obs.raw_value) === undefined
 }
 
+/**
+ * ⭐⭐ WOULD A FREE NUMBER TYPED FOR THIS FACTOR LEAVE A MODEL THE ENGINE WILL
+ * NOT ANALYSE? `true` means: do not offer a free-number edit here.
+ *
+ * ⛔ THE DEAD END THIS CLOSES, WITNESSED LIVE (UI `3cf9fbd0`, OpenAI path,
+ * scenario `aca54686`, 24 Sep 2026). The Reasoning tab's review tool offered
+ * "Change this value" on *Enterprise customers* — `{unit: 'customers', value: 0}`,
+ * a unit and NO cap. The reader typed 20; the wire carried `factor_value_edit
+ * value 20`; CEE stored `{value: 20, raw_value: 20}`; the next Run was refused
+ * because "that factor has no defined range, so the analysis engine cannot
+ * interpret it". The agent then declined to change an already-populated value
+ * and the canvas has no editor for an observable factor. The product had
+ * invited the one edit that stranded the reader.
+ *
+ * ⚠ DERIVED FROM CEE's WRITER AND CEE's GATE, NOT FROM THE SYMPTOM
+ * (`olumi-assistants-service` `staging` @ `a348660d`, read 24 Sep 2026):
+ *   · the writer, `normaliseFactorValue` (`d1-shared/normalise-factor-value.ts`),
+ *     on a factor with no cap, keeps a frame it can RECOVER (the stored pair,
+ *     via `recoverScaleFrame`) and otherwise writes the typed number into BOTH
+ *     fields — its own words: *"A currency or a count classes `unknown`, pins
+ *     no frame, and still falls through to the raw write below — so the
+ *     baseline gate still refuses it"*;
+ *   · the gate, `findScaleIncoherentBaselineFactorIds`
+ *     (`plot-intervention-scale.ts:813`), refuses a capless factor whose
+ *     `value` lies outside [0,1] with no frame recoverable from its pair —
+ *     `baseline_scale_unresolved` — unless user-authored option interventions
+ *     on that factor establish the frame (never so for an observable factor
+ *     like the witness, which no option sets).
+ * So on a factor with a unit, no cap and no recoverable frame, the only numbers
+ * the engine can analyse are ones in [0,1] — and a field beside "customers"
+ * invites a count, never a proportion. The invitation IS the defect.
+ *
+ * ⭐ COMPOSED FROM THE TWO PREDICATES THIS MODULE ALREADY OWNS, NOT A THIRD
+ * SCALE RULE (trap 12). `isMagnitudeScaledFactor` is the unit-and-no-cap shape,
+ * minted for the same cap-absent corruption; `recoverScaleFrameFromPair` is the
+ * declared mirror of CEE's frame recovery, pinned by its agreement spec.
+ *
+ * WHAT IT DELIBERATELY DOES NOT BLOCK:
+ *   · a CAPPED factor (`{cap: 200, raw_value: 49, value: 0.245}`) — the cap IS
+ *     the scale, and the writer normalises against it;
+ *   · a UNITLESS factor (`{value: 0.7}`) — its field shows a 0–1 model value
+ *     and invites one, and the prior's own admission guard judges the draft;
+ *   · a capless FRAMED PAIR (`{unit: '£', value: 0.49, raw_value: 49}`) — the
+ *     writer divides the typed magnitude by the recovered frame, so the edit
+ *     stays analysable.
+ *
+ * ⚠ IT ERRS TOWARDS WITHHOLDING, IN TWO NAMED PLACES, AND BOTH LEAVE A ROUTE.
+ * CEE also honours a persisted `scale_frame` and pins a /100 frame for a
+ * percent unit STATED on the wire; the UI reads neither (no non-fixture reader
+ * of `scale_frame` exists in `src/`, and minting a copy of CEE's unit
+ * vocabulary would be a new cross-repo mirror). So a percent- or frame-only
+ * factor with no recoverable pair loses the free edit here. That costs a
+ * shortcut, not a route: every caller keeps its Ask act, which is the remedy
+ * the engine's own refusal points to.
+ *
+ * ⛔ IT CLAIMS NOTHING ABOUT WHY A RUN WAS REFUSED — the same limit
+ * `factorValueHasNoUsableScale` states. It answers one narrow question about
+ * what an edit on ONE factor would leave behind.
+ */
+export function freeValueEditIsUnanalysable(nodeData: unknown): boolean {
+  if (!isMagnitudeScaledFactor(nodeData)) return false
+  const obs = getObservedState(nodeData)
+  return recoverScaleFrameFromPair(obs.value, obs.raw_value) === undefined
+}
+
 export interface FactorValueEditInput {
   /** The factor node's id. ID-ADDRESSED — a label would retarget on a rename. */
   nodeId: string

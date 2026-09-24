@@ -16,6 +16,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DriverInfluenceChart } from '../sections/DriverInfluenceChart'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
+import { useCanvasStore } from '../../../../canvas/store'
 
 const proposeFactorValue = vi.fn(() => 'dispatched')
 vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
@@ -188,5 +189,63 @@ describe('the chart refuses to be furniture', () => {
       <DriverInfluenceChart rows={[]} onCommitOutcome={vi.fn()} testId={TID} />,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+/**
+ * ⛔ NO FREE-NUMBER EDIT THE ENGINE CANNOT ANALYSE (served witness, UI
+ * `3cf9fbd0`, scenario `aca54686`, 24 Sep 2026). A count with a unit and no cap
+ * stored a typed 20 raw and the next Run was refused. The chart's row gesture
+ * opens the same editor through the same authority, so on that factor it must
+ * focus without inviting the edit. Both rows are drawn in ONE render, and the
+ * framed-pair row is the contrast that proves the chart still edits at all.
+ */
+describe('⛔ no value edit the engine cannot analyse (served witness, 24 Sep)', () => {
+  const previous = useCanvasStore.getState().nodes
+  afterEach(() => {
+    useCanvasStore.setState({ nodes: previous } as never)
+  })
+
+  it('the withheld row focuses and opens no editor; the framed-pair row still edits', async () => {
+    useCanvasStore.setState({
+      nodes: [
+        {
+          id: 'f_count',
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: { label: 'Enterprise customers', observedState: { unit: 'customers', value: 0 } },
+        },
+        {
+          id: 'f_framed',
+          type: 'factor',
+          position: { x: 0, y: 0 },
+          data: { label: 'Vendor cost', observedState: { unit: '£', value: 0.49, raw_value: 49 } },
+        },
+      ],
+    } as never)
+    const onFocusTarget = vi.fn()
+    render(
+      <DriverInfluenceChart
+        rows={[
+          row({ id: 'f_count', label: 'Enterprise customers', targetId: 'f_count' }),
+          row({ id: 'f_framed', label: 'Vendor cost', targetId: 'f_framed' }),
+        ]}
+        onFocusTarget={onFocusTarget}
+        onCommitOutcome={vi.fn()}
+        testId={TID}
+      />,
+    )
+    const user = userEvent.setup()
+    const barOf = (id: string) => byId(id).querySelector(`[data-testid="${TID}-bar"]`) as HTMLElement
+
+    await user.click(barOf('f_count'))
+    expect(onFocusTarget).toHaveBeenCalledWith('f_count')
+    expect(byId('f_count').querySelector(`[data-testid="${TID}-editor"]`)).toBeNull()
+    expect(barOf('f_count')).not.toHaveAttribute('aria-expanded')
+
+    // CONTRAST, same render: the framed pair still opens its editor.
+    await user.click(barOf('f_framed'))
+    expect(byId('f_framed').querySelector(`[data-testid="${TID}-editor"]`)).not.toBeNull()
+    expect(barOf('f_framed')).toHaveAttribute('aria-expanded', 'true')
   })
 })

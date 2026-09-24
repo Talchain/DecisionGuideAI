@@ -2305,8 +2305,35 @@ export function AnalysisNewTabBody({
 
             ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
             carries them. A reader meeting one sentence in two sections is a
-            defect this panel has already shipped. */}
+            defect this panel has already shipped.
 
+            ⛔⛔ LEADER-GATED AS A WHOLE — 24 Sep 2026, witnessed live (UI
+            `3cf9fbd0`, OpenAI path, scenario `aca54686`). With `leader_claim
+            {permitted: false, producer_cause: 'constraint_verdict_withheld'}`
+            this section still read: *Bars show how often a different option
+            was stronger in the runs where that assumption came out weak. /
+            Enterprise price → MRR / If this changes significantly, "Raise Pro
+            to £59" could lead in this model / 24%*. "Could lead" and "a
+            different option was stronger" both presuppose a current leader —
+            the order this run refused to state. #1933 withheld the glance's
+            "Could change if" and the hinge line for exactly that; the header
+            above was already gated on `leaderClaimPermitted`. The rows were the
+            one place left saying it.
+
+            ⚠ THE WHOLE SECTION, NOT THE SENTENCE, AND THAT IS NOT CAUTION FOR
+            ITS OWN SAKE. Every row here is a fragile edge — a relationship
+            whose weakening SWITCHES THE RECOMMENDED OPTION (`switch_probability`
+            is defined that way), so the row, its bar and the caption are all
+            statements about a leader. Blanking `implication` alone would not
+            hold: on a set whose rows cannot be titled, the row's HEADLINE is
+            that same sentence, cut, alternative included. And the header is
+            already empty on this run, so what would remain is a heading over
+            relationship names whose only meaning is the withheld comparison.
+            The rule is the same one `sensitivityHeaderTips` follows, one level
+            up: no leader licence, nothing that speaks relative to a leader —
+            and no heading left over nothing. */}
+
+        {vm.leaderClaimPermitted ? (
         <AnalysisNewSection
           title={COPY.sections.sensitivity}
           findings={vm.sensitivity.findings}
@@ -2387,6 +2414,7 @@ export function AnalysisNewTabBody({
           icon={GitBranch}
           testId="analysis-new-sensitivity"
         />
+        ) : null}
         </>
         )}
         </div>
