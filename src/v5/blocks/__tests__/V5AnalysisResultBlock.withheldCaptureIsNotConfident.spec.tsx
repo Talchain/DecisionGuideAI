@@ -20,7 +20,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { V5AnalysisResultBlock } from '../V5AnalysisResultBlock'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../../canvas/conversation/types'
-import capture from '../../__tests__/fixtures/openai-57f903c-pricing-explicit-run.analysis-block.json'
+// Kept OUT of `src/v5/__tests__/fixtures/`: that directory is the whole-turn
+// live-capture corpus `optionComputeStatusDivergence.spec.ts` counts and reads,
+// and this file is one block from a capture, not a turn.
+import capture from './fixtures/openai-57f903c-pricing-explicit-run.analysis-block.json'
 
 const CONFIDENT = 'This result looks fairly confident.'
 const COPY_ID = 'v5-analysis-result-uncertainty-copy'
