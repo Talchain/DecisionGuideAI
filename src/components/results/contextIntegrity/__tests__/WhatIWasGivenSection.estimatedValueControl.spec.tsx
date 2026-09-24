@@ -409,8 +409,11 @@ describe('the control reaches the surface the deployed flags mount', () => {
      * pass silently on a panel where the group had been opened by something
      * else, and the case's claim is about reachability from a RESTING panel.
      */
-    const group = screen.getByTestId('analysis-new-how-worked-out-toggle')
-    expect(group, 'the method group must be a collapsed row at rest').toHaveAttribute(
+    // V2 fidelity gap 24 (24 Sep 2026): the method group is deleted and the
+    // register folds into About — the SAME reach (one closed toggle, then the
+    // register's own), which is what this case now proves for the edit control.
+    const group = screen.getByTestId('analysis-new-about-toggle')
+    expect(group, 'About must be a collapsed row at rest').toHaveAttribute(
       'aria-expanded',
       'false',
     )

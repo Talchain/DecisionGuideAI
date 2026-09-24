@@ -78,10 +78,12 @@ const renderStale = () =>
   )
 
 /** About rests CLOSED (V2) and unmounts its rows while closed, like `SectionShell`. */
+// V2 fidelity gap 24: About is now a named group, so `openGroups()` may already
+// have opened it; open only when closed (its rest state is pinned in
+// `theTailFoldsIntoAbout.spec.tsx`).
 const openAbout = () => {
   const toggle = screen.getByTestId(`${ABOUT}-toggle`)
-  expect(toggle, 'About rests closed in V2').toHaveAttribute('aria-expanded', 'false')
-  fireEvent.click(toggle)
+  if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
   expect(screen.getByTestId(`${ABOUT}-toggle`)).toHaveAttribute('aria-expanded', 'true')
 }
 
@@ -118,9 +120,12 @@ describe('the run-could-not-settle block is contiguous', () => {
     openAbout()
     const uncertainty = screen.getByTestId('analysis-new-uncertainty')
     const about = screen.getByTestId(ABOUT)
+    // V2 fidelity gap 24 (24 Sep 2026): "Uncertainty and gaps" folds INTO About,
+    // so the two halves are one block — containment is the strongest form of
+    // the contiguity this case pins (before: the uncertainty half preceded About).
     expect(
-      precedes(uncertainty, about),
-      'V2: About is last on the tab, so the uncertainty half now comes first',
+      about.contains(uncertainty),
+      'V2 gap 24: the uncertainty half lives inside About, with the check rows',
     ).toBe(true)
 
     /* ⛔⛔ DERIVED, NOT HAND-LISTED — AND THE HAND-LIST HAD A HOLE.
