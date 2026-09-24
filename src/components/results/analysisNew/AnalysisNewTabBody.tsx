@@ -2751,14 +2751,16 @@ export function AnalysisNewTabBody({
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
                 of its own: furniture that looked like a block would add the
-                weight this change exists to remove. Sized and coloured as
-                `panelMeta`, the quietest of the panel's three sizes. */}
-            <p
-              className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
+                weight this change exists to remove.
+                ⭐ V2 (fidelity gap 10): a SECTION TITLE, the same class string
+                as "Challenge the thinking" (gap 16). As an 11px caption over
+                14px rows it read as a footnote to its own items. */}
+            <h3
+              className={`${typography.panelHeader} text-text-header m-0 pt-3`}
               data-testid="analysis-new-zone-focus"
             >
               Focus now
-            </p>
+            </h3>
             {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
                 specific to THIS model; the methods are always available. A
                 reader who has a run-specific prompt should meet it before the
