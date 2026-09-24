@@ -479,6 +479,8 @@ export interface AnalysisNewStatus {
   staleKind: 'changed' | 'unconfirmed' | null
   /** The producer disclosed the result as partial/incomplete. */
   isProvisional: boolean
+  /** CEE's typed marker: Olumi started this run by itself (`run_provenance.provisional`). */
+  runProvisional?: boolean
   /** Producer-owned reason, verbatim, when there is one. Never authored here. */
   statusNote: string | null
   /**
