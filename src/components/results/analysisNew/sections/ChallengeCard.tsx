@@ -120,24 +120,24 @@ export function ChallengeCard({
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [basisFor, setBasisFor] = useState<string | null>(null)
   const [undoable, setUndoable] = useState<{ id: string; title: string; scenarioId: string | null } | null>(null)
-  // Respond (E11): the reader's own note, keyed the same way — closing over a
-  // stale item on pick-change, same as menuFor/basisFor above.
-  const [respondFor, setRespondFor] = useState<string | null>(null)
-  const [respondText, setRespondText] = useState('')
+  // Respond (E11): the reader's own note. ⚠ THE TEXT IS BOUND TO THE ITEM IT
+  // WAS WRITTEN FOR, not merely the open state: keyed text alone survived a
+  // pick-change, so reopening Respond on the next item sent the old words under
+  // the new heading (review 5819068969). One record, so they cannot part.
+  const [respond, setRespond] = useState<{ key: string; text: string } | null>(null)
 
   const menuRef = useRef<HTMLDivElement>(null)
+  const respondRef = useRef<HTMLButtonElement>(null)
   const undoRef = useRef<HTMLButtonElement>(null)
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
 
   const menuOpen = shown !== null && menuFor === shown.key
   const basisOpen = shown !== null && shown.kind === 'intervention' && basisFor === shown.key
-  const respondOpen = shown !== null && respondFor === shown.key
+  const respondOpen = shown !== null && respond !== null && respond.key === shown.key
+  const respondText = respondOpen ? respond.text : ''
 
-  const closeRespond = () => {
-    setRespondFor(null)
-    setRespondText('')
-  }
+  const closeRespond = () => setRespond(null)
 
   const sendRespond = () => {
     const text = respondText.trim()
@@ -241,8 +241,9 @@ export function ChallengeCard({
         </h3>
         <div className="flex shrink-0 items-center gap-1">
           <button
+            ref={respondRef}
             type="button"
-            onClick={() => (respondOpen ? closeRespond() : setRespondFor(shown.key))}
+            onClick={() => (respondOpen ? closeRespond() : setRespond({ key: shown.key, text: '' }))}
             aria-expanded={respondOpen}
             className={`${typography.panelMeta} ${action('inline')}`}
             data-testid={`${testId}-respond`}
@@ -322,7 +323,15 @@ export function ChallengeCard({
             <textarea
               id={`${testId}-respond-note`}
               value={respondText}
-              onChange={(e) => setRespondText(e.target.value)}
+              autoFocus={true}
+              onChange={(e) => setRespond({ key: shown.key, text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return
+                e.preventDefault()
+                closeRespond()
+                // Back to the trigger, as the menu's Escape does.
+                respondRef.current?.focus()
+              }}
               placeholder={ZONE.respondPlaceholder}
               rows={3}
               className={`${typography.panelBody} mt-0.5 w-full rounded border border-panel-border bg-panel px-2 py-1 text-text-body`}
