@@ -47,8 +47,11 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { useStrengthenStore, recordKey } from '../../../../canvas/stores/strengthenStore'
 import { useCanvasStore } from '../../../../canvas/store'
 import { PanelIconButton } from '../PanelIconButton'
+import { PanelActRow } from '../PanelActRow'
 import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { action } from '../panelSurfaces'
+import { respondToIntervention, respondToMethod } from '../challengeResponse'
+import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 
 export interface ChallengeCardProps {
   /** The body's `glancePrimary` — `vm.strengthen.interventions`' pick. */
@@ -67,7 +70,7 @@ export interface ChallengeCardProps {
 }
 
 type Shown =
-  | { kind: 'method'; key: string; methodId: string; heading: string }
+  | { kind: 'method'; key: string; methodId: string; heading: string; method: MethodEntry }
   | {
       kind: 'intervention'
       key: string
@@ -78,7 +81,8 @@ type Shown =
 
 function resolveShown(intervention: Recommendation | null, methodId: string | null): Shown | null {
   const picked = methodId ? METHOD_CATALOGUE.find((m) => m.id === methodId) : undefined
-  if (picked) return { kind: 'method', key: `method:${picked.id}`, methodId: picked.id, heading: picked.title }
+  if (picked)
+    return { kind: 'method', key: `method:${picked.id}`, methodId: picked.id, heading: picked.title, method: picked }
   if (!intervention) return null
   const method = methodForRecommendation(
     intervention.id,
@@ -116,14 +120,32 @@ export function ChallengeCard({
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [basisFor, setBasisFor] = useState<string | null>(null)
   const [undoable, setUndoable] = useState<{ id: string; title: string; scenarioId: string | null } | null>(null)
+  // Respond (E11): the reader's own note. ⚠ THE TEXT IS BOUND TO THE ITEM IT
+  // WAS WRITTEN FOR, not merely the open state: keyed text alone survived a
+  // pick-change, so reopening Respond on the next item sent the old words under
+  // the new heading (review 5819068969). One record, so they cannot part.
+  const [respond, setRespond] = useState<{ key: string; text: string } | null>(null)
 
   const menuRef = useRef<HTMLDivElement>(null)
+  const respondRef = useRef<HTMLButtonElement>(null)
   const undoRef = useRef<HTMLButtonElement>(null)
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
 
   const menuOpen = shown !== null && menuFor === shown.key
   const basisOpen = shown !== null && shown.kind === 'intervention' && basisFor === shown.key
+  const respondOpen = shown !== null && respond !== null && respond.key === shown.key
+  const respondText = respondOpen ? respond.text : ''
+
+  const closeRespond = () => setRespond(null)
+
+  const sendRespond = () => {
+    const text = respondText.trim()
+    if (!shown || !text) return
+    if (shown.kind === 'method') respondToMethod(shown.method, text)
+    else respondToIntervention(shown.rec, text)
+    closeRespond()
+  }
 
   useEffect(() => {
     if (!menuOpen) return
@@ -217,7 +239,17 @@ export function ChallengeCard({
         <h3 className={`${typography.panelHeader} text-text-header min-w-0 flex-1`} data-testid={`${testId}-heading`}>
           {shown.heading}
         </h3>
-        <div className="flex shrink-0 items-center">
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            ref={respondRef}
+            type="button"
+            onClick={() => (respondOpen ? closeRespond() : setRespond({ key: shown.key, text: '' }))}
+            aria-expanded={respondOpen}
+            className={`${typography.panelMeta} ${action('inline')}`}
+            data-testid={`${testId}-respond`}
+          >
+            {ZONE.respond}
+          </button>
           <PanelIconButton ai label={ZONE.workThrough} onClick={run} testId={`${testId}-work-through`} />
           {shown.kind === 'intervention' ? (
             <div className="relative" ref={menuRef}>
@@ -277,6 +309,55 @@ export function ChallengeCard({
           ) : null}
         </div>
       </div>
+      {respondOpen ? (
+        <form
+          className="mt-1 space-y-1"
+          data-testid={`${testId}-respond-form`}
+          onSubmit={(e) => {
+            e.preventDefault()
+            sendRespond()
+          }}
+        >
+          <label className="block" htmlFor={`${testId}-respond-note`}>
+            <span className={`${typography.panelMeta} text-text-light`}>{ZONE.respondLabel}</span>
+            <textarea
+              id={`${testId}-respond-note`}
+              value={respondText}
+              autoFocus={true}
+              onChange={(e) => setRespond({ key: shown.key, text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape') return
+                e.preventDefault()
+                closeRespond()
+                // Back to the trigger, as the menu's Escape does.
+                respondRef.current?.focus()
+              }}
+              placeholder={ZONE.respondPlaceholder}
+              rows={3}
+              className={`${typography.panelBody} mt-0.5 w-full rounded border border-panel-border bg-panel px-2 py-1 text-text-body`}
+              data-testid={`${testId}-respond-note`}
+            />
+          </label>
+          <PanelActRow>
+            <button
+              type="button"
+              onClick={closeRespond}
+              className={`${typography.panelMeta} ${action('inline')}`}
+              data-testid={`${testId}-respond-cancel`}
+            >
+              {ZONE.respondCancel}
+            </button>
+            <button
+              type="submit"
+              disabled={respondText.trim() === ''}
+              className={`${typography.panelMeta} ${action('secondary')}`}
+              data-testid={`${testId}-respond-send`}
+            >
+              {ZONE.respondSend}
+            </button>
+          </PanelActRow>
+        </form>
+      ) : null}
       {basisOpen && shown.kind === 'intervention' ? (
         <div
           id={basisId}

@@ -183,6 +183,7 @@ import {
   VALUE_PROVENANCE_LABEL,
 } from '../../../../canvas/domain/valueProvenance'
 import { useFactorValueCommit } from '../useFactorValueCommit'
+import { resolveValueInputSeed } from '../../../../canvas/conversation/factorValueEdit'
 import { SuccessTargetLine } from './SuccessTargetLine'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -1496,6 +1497,9 @@ export function ModelStrip({
                       inputMode="decimal"
                       value={draft}
                       autoFocus={true}
+                      // The field opens holding the current number; selecting it
+                      // lets the reader type a replacement straight over it.
+                      onFocus={(e) => e.currentTarget.select()}
                       onChange={(e) => setDraft(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -1530,15 +1534,24 @@ export function ModelStrip({
                   <button
                     type="button"
                     onClick={() => {
-                      /* ⚠ THE FIELD OPENS EMPTY, NEVER PRE-FILLED FROM
-                         `valueText`. That string is a DISPLAY rendering — it can
-                         carry a currency symbol, a percent sign, thousands
-                         separators or a qualitative tier word — and seeding a
-                         numeric input with it would either be silently dropped
-                         by the browser or, worse, parse to a different number
-                         than the one shown. The reader states the value they
-                         mean. */
-                      setDraft('')
+                      /* ⚠ NEVER PRE-FILLED FROM `valueText`. That string is a
+                         DISPLAY rendering — it can carry a currency symbol, a
+                         percent sign, thousands separators or a qualitative tier
+                         word — and seeding a numeric input with it would either be
+                         silently dropped or parse to a different number.
+
+                         ⭐ SEEDED FROM THE CANONICAL FIELD INSTEAD, by the SAME
+                         `resolveValueInputSeed` that `buildFactorValueEditEvent`
+                         uses to read a typed number as user units or model scale
+                         — so what the field shows and how the commit reads it
+                         cannot disagree (the 24 Sep 08:09Z P0 was that
+                         disagreement). Served witness `11ed8874`: the field opened
+                         EMPTY over "5,000 customers". No number → still empty. */
+                      const nodeData = (useCanvasStore.getState().nodes ?? []).find(
+                        (n) => (n as { id?: string }).id === active.id,
+                      )?.data
+                      const { seed } = resolveValueInputSeed(nodeData)
+                      setDraft(seed != null ? String(seed) : '')
                       setEditingFor(active.id)
                     }}
                     className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}

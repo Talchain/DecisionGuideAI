@@ -17,13 +17,14 @@
  * its control; a row without an id shows no controls at all.
  */
 import { useState } from 'react'
-import { Crosshair, Info, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Info, Search } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 import type { AnalysisNewViewModel } from '../analysisNewTypes'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelFigure } from '../PanelFigure'
+import { action } from '../panelSurfaces'
 import { buildReasoningSignals, type FlipThresholdRow } from '../reasoningSignals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 
@@ -39,6 +40,15 @@ export interface ReasoningSignalsProps {
   onInspect?: (targetId: string) => void
   /** Receives an `openAskOlumi` payload; the body passes `openAskOlumi`. */
   onAsk?: (payload: AskOlumiPayload) => void
+  /**
+   * ⭐ V2 PROTOTYPE (`challengeHTML`): at rest the challenge is compact, and the
+   * drivers' bars and the gap sit behind ONE closed "Assumptions and
+   * evidence" disclosure. The Reasoning tab passes `true`; measured on served
+   * `7f39c88b` at 1440×900, the open list was 189px of the challenge zone and
+   * kept the provisional qualifier below the fold. Default `false` keeps every
+   * other caller unchanged.
+   */
+  closedAtRest?: boolean
   testId?: string
 }
 
@@ -77,16 +87,88 @@ export function ReasoningSignals({
   onFocus,
   onInspect,
   onAsk,
+  closedAtRest = false,
   testId = 'analysis-new-signals',
 }: ReasoningSignalsProps) {
   const [scaleOpen, setScaleOpen] = useState(false)
+  const [open, setOpen] = useState(!closedAtRest)
   const signals = buildReasoningSignals(vm, flipThresholds)
+  // Nothing to disclose ⇒ no door either: an empty disclosure is a dead control.
   if (!signals) return null
   const { drivers, tipping, gap } = signals
+  /**
+   * ⭐ THE TIPPING CONDITION STAYS AT REST, open or closed. It is the one line
+   * that says what would change the answer, and a closed row labelled
+   * "Assumptions and evidence" does not advertise it
+   * (`aRowThatPromisesNothingMayNotHide.spec.tsx`). It only renders on a run
+   * licensed to name a leader, so on a withheld run the rest state stays one
+   * line of drivers plus the door.
+   */
+  const tippingRow = tipping ? (
+    <div
+      className="flex items-start gap-1.5 py-1.5 border-b border-panel-border"
+      data-testid={`${testId}-tipping`}
+      data-target-id={tipping.targetId ?? undefined}
+    >
+      <p className={`${typography.panelBody} text-text-body min-w-0 flex-1`} data-testid={`${testId}-tipping-sentence`}>
+        {tipping.sentence}
+      </p>
+      <RowActions
+        focusId={tipping.targetId}
+        inspectId={tipping.targetId}
+        ask={tipping.ask}
+        onFocus={onFocus}
+        onInspect={onInspect}
+        onAsk={onAsk}
+        testId={`${testId}-tipping`}
+      />
+    </div>
+  ) : null
+  if (!open) {
+    // ⭐⭐ PAUL'S RULING OF 18 SEP SURVIVES THE COMPACT REST STATE: the drivers
+    // are READ BEFORE the answer. So the rest state still names them, ranked
+    // by the producer (the gap in "#1, #2, #5" is real and is kept), on one
+    // line; only their bars, the gap and the drivers' acts move behind the
+    // disclosure. The tipping row stays (see `tippingRow`).
+    const atRest = drivers
+    return (
+      <div data-testid={testId} className="space-y-0.5">
+        {atRest.length > 0 ? (
+          <p className={`${typography.panelMeta} text-text-body`} data-testid={`${testId}-drivers-line`}>
+            <span className="text-text-light">{ZONE.driversKicker}: </span>
+            {atRest.map((d) => (d.rank ? `#${d.rank} ${d.label}` : d.label)).join(' · ')}
+          </p>
+        ) : null}
+        {tippingRow}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={false}
+          className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1`}
+          data-testid={`${testId}-disclose`}
+        >
+          <ChevronRight className="h-3 w-3 shrink-0" aria-hidden={true} />
+          {ZONE.assumptionsAndEvidence}
+        </button>
+      </div>
+    )
+  }
   const scaleNoteId = `${testId}-scale-note`
 
   return (
     <div data-testid={testId}>
+      {closedAtRest ? (
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-expanded={true}
+          className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1 mb-1`}
+          data-testid={`${testId}-disclose`}
+        >
+          <ChevronDown className="h-3 w-3 shrink-0" aria-hidden={true} />
+          {ZONE.assumptionsAndEvidence}
+        </button>
+      ) : null}
       {drivers.length > 0 ? (
         <div data-testid={`${testId}-drivers`}>
           <div className="flex items-center justify-between">
@@ -149,26 +231,7 @@ export function ReasoningSignals({
         </div>
       ) : null}
 
-      {tipping ? (
-        <div
-          className="flex items-start gap-1.5 py-1.5 border-b border-panel-border"
-          data-testid={`${testId}-tipping`}
-          data-target-id={tipping.targetId ?? undefined}
-        >
-          <p className={`${typography.panelBody} text-text-body min-w-0 flex-1`} data-testid={`${testId}-tipping-sentence`}>
-            {tipping.sentence}
-          </p>
-          <RowActions
-            focusId={tipping.targetId}
-            inspectId={tipping.targetId}
-            ask={tipping.ask}
-            onFocus={onFocus}
-            onInspect={onInspect}
-            onAsk={onAsk}
-            testId={`${testId}-tipping`}
-          />
-        </div>
-      ) : null}
+      {tippingRow}
 
       {gap ? (
         <div

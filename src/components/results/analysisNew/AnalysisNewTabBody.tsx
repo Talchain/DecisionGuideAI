@@ -66,6 +66,13 @@ import { applicableStaticFocusIds } from './focusNowApplicability'
 import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
+import { useAnalysisRunState } from '../analysisState/useAnalysisRunState'
+import { deriveLatestRunNote } from './latestRunNote'
+import {
+  ANALYSIS_REFUSAL_HEADLINE,
+  ANALYSIS_REFUSAL_POINTER,
+  ANALYSIS_REFUSAL_REASON_COPY,
+} from '../../../canvas/store/analysisRefusalNotice'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
 // The act below takes its geometry from the tier, never from this call site —
 // `everyInlineActIsReachableByTouch` exists to keep that the single source.
@@ -1131,6 +1138,21 @@ export function AnalysisNewTabBody({
   const resultsStatus = useCanvasStore((state) => state.results?.status)
   const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
   /**
+   * ⭐ WHAT HAPPENED TO THE LATEST ATTEMPT, when it did not produce what is on
+   * screen: refused (CEE's typed refusal) or failed (`results.status`). Until
+   * this, `useAnalysisRunState()` had one reader, the Results tab, and this tab
+   * said "No analysis has run yet" over a refusal, or showed an old result
+   * UNMARKED after a failed re-run. See `latestRunNote.ts`.
+   */
+  const runState = useAnalysisRunState()
+  const refusalNotice = useCanvasStore((state) => state.analysisRefusalNotice)
+  const latestRunNote = deriveLatestRunNote({
+    runState,
+    refusal: refusalNotice,
+    resultsStatus,
+    isBusy: isBusyNow,
+  })
+  /**
    * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and
    * the difference is a shipped regression, caught by independent review.
    *
@@ -1573,13 +1595,36 @@ export function AnalysisNewTabBody({
             no subject while the thing it refuses is happening. */}
         {vm.status.isPreRun ? (
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
-            <p className={`${typography.panelBody} text-text-body`}>
-              {isBusyNow
-                ? COPY.status.running
-                : runWaitExhausted
-                  ? COPY.status.waitExhausted
-                  : COPY.status.preRun}
-            </p>
+            {!isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
+              <p
+                className={`${typography.panelBody} text-text-body`}
+                data-testid="analysis-new-status-did-not-run"
+              >
+                {ANALYSIS_REFUSAL_HEADLINE} {latestRunNote.reason} {ANALYSIS_REFUSAL_POINTER}
+              </p>
+            ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'blocked' ? (
+              <p
+                className={`${typography.panelBody} text-text-body`}
+                data-testid="analysis-new-status-blocked"
+              >
+                {ANALYSIS_REFUSAL_REASON_COPY.analysis_not_ready}
+              </p>
+            ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'failed' ? (
+              <p
+                className={`${typography.panelBody} text-text-body`}
+                data-testid="analysis-new-status-run-failed"
+              >
+                {COPY.status.firstRunFailed}
+              </p>
+            ) : (
+              <p className={`${typography.panelBody} text-text-body`}>
+                {isBusyNow
+                  ? COPY.status.running
+                  : runWaitExhausted
+                    ? COPY.status.waitExhausted
+                    : COPY.status.preRun}
+              </p>
+            )}
             {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
                 "This analysis has not reached this page." on its own reads as a
                 fault the reader caused. This line says what the client actually
@@ -1949,6 +1994,7 @@ export function AnalysisNewTabBody({
           onFocus={focusTarget}
           onInspect={onReviewTarget}
           onAsk={openAskOlumi}
+          closedAtRest={true}
         />
         {/* V2: "Strengthen the reasoning" and this tab's Actions dropdown are
             gone from here. Their findings are the review tool's queue (under
@@ -2264,6 +2310,24 @@ export function AnalysisNewTabBody({
           onReviewEstimates={reviewEstimates}
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
+          runNote={
+            latestRunNote === null
+              ? null
+              : latestRunNote.kind === 'did_not_run'
+                ? {
+                    testId: 'analysis-new-status-did-not-run',
+                    text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
+                  }
+                : latestRunNote.kind === 'blocked'
+                  ? {
+                      testId: 'analysis-new-status-blocked',
+                      text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
+                    }
+                  : {
+                      testId: 'analysis-new-status-run-failed',
+                      text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
+                    }
+          }
           isProvisional={vm.status.isProvisional}
           /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
              passed because they answer different questions and the section uses
@@ -2667,7 +2731,7 @@ export function AnalysisNewTabBody({
                 general shelf — prominence for the shelf was the instruction,
                 not precedence over the run. */}
             {focusApplicableIds.length > 0 ? (
-              <FocusNowContainer applicableStaticIds={focusApplicableIds} />
+              <FocusNowContainer applicableStaticIds={focusApplicableIds} bare />
             ) : null}
           </div>
         ) : null}

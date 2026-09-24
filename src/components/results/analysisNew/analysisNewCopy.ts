@@ -2214,6 +2214,18 @@ export const ANALYSIS_NEW_COPY = {
      */
     freshnessUnknown: 'We cannot confirm whether this analysis reflects the current model.',
     /**
+     * ⭐ A RUN THAT DID NOT HAPPEN, stated in this tab's own status slots. The
+     * refusal's reason and pointer are the Results tab's own constants
+     * (`canvas/store/analysisRefusalNotice.ts`), so the two tabs speak with one
+     * voice; these are only the words that differ because a PREVIOUS result is
+     * on screen here. See `latestRunNote.ts`.
+     */
+    latestDidNotRun: 'The latest analysis did not run.',
+    latestRunFailed: 'The latest analysis run did not complete.',
+    firstRunFailed: 'The analysis run did not complete.',
+    showingPrevious: 'Showing the previous result.',
+    latestBlocked: 'The model now needs a change before it can be analysed again.',
+    /**
      * ⚠ NAMED FOR THE OUTCOME, NOT THE MECHANISM. "Re-analyse" describes what
      * the system does; "to be sure" says what the READER gets, which is the
      * only reason they would press it. It serves BOTH ribbon states — a changed
