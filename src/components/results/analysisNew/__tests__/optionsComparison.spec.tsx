@@ -117,6 +117,9 @@ function renderSection(data: ResultsSectionDataReturn, { isPreRun = false } = {}
     isPreRun,
     isRunning: false,
     isStale: false,
+    // ⚠ A CURRENT result: the `not_returned` sentence is licensed only on one
+    // (absent is fail-closed; see `anAddedOptionIsNotBlamedOnTheEngine.spec.tsx`).
+    analysisIdentityIsCurrent: true,
   })
   const utils = render(<OptionsComparison options={vm.optionsComparison} />)
   return { vm, ...utils }

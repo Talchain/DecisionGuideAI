@@ -3,11 +3,12 @@
  *
  * All graph mutation actions go through commitValidatedMutation (Hard rule 2).
  * UI-only state (flagged_as_assumption, _baseline_snapshot) bypasses PLoT (Hard rule 3).
- * Ask AI uses the _sendMessage callback from guidanceStore (fallback path).
+ * Ask AI lands an editable draft via `requestAsk` (askSemantic.ts) — it never sends.
  */
 
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
@@ -822,6 +823,11 @@ export function buildChallengeTooltip(nodeType: NodeType): string {
  * smaller diff and the worse change: one idea with two spellings, drifting the
  * first time either is reworded.
  *
+ * ⚠ "`askAI`'s auto-send" NO LONGER EXISTS (24 Sep 2026): `askAI` now routes
+ * through `requestAsk` too, so every door that reads this producer confirms the
+ * same way. The export is still the right shape — a surface that does not want
+ * `askAI`'s selection step can still take the sentence alone.
+ *
  * The two questions this file answers are deliberately separate (trap 21):
  * WHAT is asked lives here; HOW an ask is confirmed lives at the call site.
  */
@@ -897,26 +903,43 @@ export function askAI(
   // 2. Open conversation panel
   store.setShowDraftChat(true)
 
-  // 3. Send message once ConversationPanel has mounted and registered _sendMessage.
-  //    The panel needs multiple frames to render + run effects, so poll with a timeout.
+  // 3. Land the prompt as an editable DRAFT once a conversation surface has
+  //    registered — never send it. The panel needs multiple frames to render +
+  //    run effects, so poll with a timeout.
+  //
+  //    ⚠ THIS USED TO SEND (`_sendMessage(prompt)`), in the user's name, from
+  //    the card's hover Ask and every context-menu ask — against the house rule
+  //    `ASK_SEMANTIC = 'prefill-and-confirm'` that the challenge button, the
+  //    ghost doors and the coaching icon already followed. Only the CONFIRMATION
+  //    moved: selection (step 1) and the prompt copy are unchanged, and
+  //    `requestAsk` picks the surface (composer, else the Ask drawer).
   const prompt = buildAskAIPrompt(target, intent)
+  const label = target.kind === 'node'
+    ? `Ask Olumi about ${(target.node.data as any)?.label ?? 'this element'}`
+    : 'Ask Olumi'
   let attempts = 0
   const MAX_ATTEMPTS = 20 // ~1s max wait (50ms × 20)
-  const tryToSend = () => {
-    const sendMessage = useGuidanceStore.getState()._sendMessage
-    if (sendMessage) {
-      sendMessage(prompt)
+  const tryToAsk = () => {
+    if (canReceiveAsk(useGuidanceStore.getState())) {
+      const landed = requestAsk({
+        text: prompt,
+        label,
+        targetId: target.kind === 'node' ? target.nodeId : undefined,
+        source: 'context-menu',
+      })
+      if (landed === 'none') showToast?.('Could not open a draft — try typing your question directly.', 'warning')
       return
     }
     attempts++
     if (attempts < MAX_ATTEMPTS) {
-      setTimeout(tryToSend, 50)
+      setTimeout(tryToAsk, 50)
     } else {
-      showToast?.('Could not send message — try typing your question directly.', 'warning')
+      // Same words as the sibling doors (the challenge button, the coaching icon).
+      showToast?.('Could not open a draft — try typing your question directly.', 'warning')
     }
   }
   // Start after first frame to give React a chance to commit
-  requestAnimationFrame(tryToSend)
+  requestAnimationFrame(tryToAsk)
 }
 
 // ---------------------------------------------------------------------------

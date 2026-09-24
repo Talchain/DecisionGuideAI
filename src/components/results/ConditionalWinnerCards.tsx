@@ -34,6 +34,7 @@ import { useMemo } from 'react'
 import { GitBranch, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { isSuppressedUnit } from '../../canvas/utils/labelUtils'
 import type { ConditionalWinner, ConditionalWinnerBucket } from './types'
 // Canonical glossary check shared with the v17 hero row builders + body
 // sub-components. Used in v17 mode to sanitise user-supplied factor /
@@ -180,7 +181,15 @@ export function ConditionalWinnerCards({
           arm === 'high-alt' ? w.high_bucket : arm === 'low-alt' ? w.low_bucket : undefined
         if (arm !== 'neutral' && altBucket?.winner_label === undefined) arm = 'neutral'
 
-        const splitDisplay = `${w.split_value.toLocaleString()}${w.split_unit ?? ''}`
+        // ⛔ A FACTOR-TYPE DESCRIPTOR IS NO UNIT. `split_unit` is ISL's
+        // `node.observed_state.unit` (`robustness_analyzer_v2.py:6086`, ISL
+        // `staging` `c00f5077`), which can carry "binary"; nothing between the
+        // producer and here filters it, so this printed "flips at 0.5binary".
+        // The owner's rule (`isSuppressedUnit`), the one the Reasoning tab's
+        // split insight applies: a suppressed descriptor takes the unit-less
+        // form an absent unit already has. Placement is deliberately untouched.
+        const splitUnit = w.split_unit && !isSuppressedUnit(w.split_unit) ? w.split_unit : ''
+        const splitDisplay = `${w.split_value.toLocaleString()}${splitUnit}`
         // (Round-7 P1.1) v17 mode: gate every user-supplied label that
         // enters the visible prose through `safeInterpolatedLabel`. The
         // legacy panel keeps the raw labels verbatim (default).

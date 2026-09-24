@@ -37,15 +37,27 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { manyFragileEdges } from './analysisNewFixtures'
+import { genuineDecision, manyFragileEdges } from './analysisNewFixtures'
 
 afterEach(cleanup)
 
+/**
+ * ⚠ ON A RUN PERMITTED TO NAME A LEADER. The glance's condition is
+ * leader-gated (24 Sep 2026: a flip threshold is where the current order
+ * changes, so a withheld run may not state one). This file pins which ARM of
+ * the sentence renders, so it runs where the sentence is licensed.
+ */
 const withRows = (rows: unknown): ResultsSectionDataReturn => {
   const data = manyFragileEdges()
   return {
     ...data,
-    recommendation: { ...data.recommendation, flipThresholdsStatus: 'computed', flipThresholds: rows },
+    recommendation: {
+      ...data.recommendation,
+      leaderDesignationPermitted: true,
+      verdict: genuineDecision().recommendation.verdict,
+      flipThresholdsStatus: 'computed',
+      flipThresholds: rows,
+    },
   } as ResultsSectionDataReturn
 }
 

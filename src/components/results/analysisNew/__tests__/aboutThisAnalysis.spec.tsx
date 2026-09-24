@@ -312,6 +312,30 @@ describe('Values and ranges — the view model\'s range and share, formatted by 
     expect(ids).toEqual(vm.optionsComparison.rows.map((r) => r.id))
   })
 
+  /* ⭐ THE SHARES CARRY THEIR SCOPE HERE TOO. V2 moved the share figures out of
+     "How the options compare" into this section, and the "Goal only" line stayed
+     behind: on the served withheld run (c3a39ae7, scenario 3d00c023) "Share of
+     simulations where this option came out highest" printed with no word that
+     the limits are not in it. Same constant, same flag as the comparison. */
+  it('limits left out of the shares → the Goal only line sits above them; CONTRAST: limits in → no line', () => {
+    const base = build(ranged())
+    const withheld = { ...base, checks: { ...base.checks, sharesExcludeLimits: true } }
+    const { unmount } = renderAbout(withheld, { outcomeFormat: GBP })
+    open()
+    openDetail('values')
+    const line = screen.getByTestId(`${TID}-values-goal-only`)
+    expect(line).toHaveTextContent(COPY.optionFigures.goalOnlyQualifier)
+    const share = screen.getByTestId(`${TID}-values-opt_a-share`)
+    expect(share.textContent, 'PRECONDITION: a share figure is on screen').toMatch(/\d/)
+    expect(line.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    unmount()
+    renderAbout({ ...base, checks: { ...base.checks, sharesExcludeLimits: false } }, { outcomeFormat: GBP })
+    open()
+    openDetail('values')
+    expect(screen.getByTestId(`${TID}-values-opt_a-share`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`${TID}-values-goal-only`)).toBeNull()
+  })
+
   it('CONTRAST: a normalised run says the values are relative scores, and formats them as such', () => {
     const vm = build(ranged())
     renderAbout(vm, { outcomeFormat: { unit: undefined, symbol: undefined, isNormalised: true } })

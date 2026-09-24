@@ -14,6 +14,7 @@ import type { AnalysisSnapshot, FactorSensitivitySummary, SnapshotOption } from 
 import { generateGraphHash } from '../utils/graphHash'
 import { buildGraphProjection, NO_EDITS_SUMMARY } from '../compare-tab/graphChangeDiff'
 import { hasObservedData } from '../utils/observedStateHelpers'
+import { isSuppressedUnit } from '../utils/labelUtils'
 import { deriveDecisionVerdict, type DecisionVerdict } from '../../lib/decisionVerdict'
 import {
   selectGoalProbability,
@@ -310,6 +311,18 @@ function extractConditionalWinners(
       const highId = bucketMember(w.high_bucket, 'winner_id')
       const highLabel = bucketMember(w.high_bucket, 'winner_label')
       const factorLabel = String(w.factor_label ?? w.label ?? '')
+      // ⛔ A FACTOR-TYPE DESCRIPTOR IS NO UNIT. `split_unit` is ISL's
+      // `node.observed_state.unit` (`robustness_analyzer_v2.py:6086`, ISL
+      // `staging` `c00f5077`) and can carry "binary"; the Compare tab printed
+      // "When X exceeds 0.5 binary, support moves to …". `condition` is
+      // DISPLAY PROSE, not a key: its one reader (`deriveTransitions`) matches
+      // rows by `factorId` and interpolates this string into the line
+      // `TransitionCard` renders; run identity is `responseHash`/`runId`; and a
+      // persisted run is rebuilt through this factory from the stored PLoT
+      // envelope, so no stored copy of the sentence exists. The owner's rule
+      // (`isSuppressedUnit`) is therefore applied where the sentence is made.
+      const rawSplitUnit = w.split_unit ? String(w.split_unit) : ''
+      const splitUnit = rawSplitUnit !== '' && !isSuppressedUnit(rawSplitUnit) ? ` ${rawSplitUnit}` : ''
       return {
         factorId: String(w.factor_id ?? w.node_id ?? ''),
         factorLabel,
@@ -320,7 +333,7 @@ function extractConditionalWinners(
         winner: highLabel,
         winnerId: highId,
         lowWinnerId: bucketMember(w.low_bucket, 'winner_id'),
-        condition: `When ${factorLabel !== '' ? factorLabel : 'this factor'} exceeds ${w.split_value}${w.split_unit ? ` ${String(w.split_unit)}` : ''}`,
+        condition: `When ${factorLabel !== '' ? factorLabel : 'this factor'} exceeds ${w.split_value}${splitUnit}`,
       }
     })
 }

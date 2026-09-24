@@ -681,8 +681,15 @@ export type ComparisonOption =
        * a RESOLVED STRING rather than as a reason code so no component can
        * re-decide the wording, and so the two sentences (`no_interventions` vs
        * `not_returned`) cannot silently collapse into one at a new call site.
+       *
+       * ⛔ `null` WHEN THE GROUND IS NOT OURS TO STATE: a `not_returned` option on
+       * a result this surface cannot vouch is current — an option ADDED after
+       * the run lands here, and "the analysis returned no result" would assert
+       * the run was asked about it. The row then renders its badge, no reason,
+       * and NO act (the act's question is built on the ground). The canvas card
+       * applies the same rule (`useOptionLeftOutOfRun.ts`).
        */
-      reasonCopy: string
+      reasonCopy: string | null
       /**
        * ⭐ THE GROUND ITSELF, beside the resolved sentence and never instead of
        * it. `reasonCopy` answers *"what does the row SAY?"*; this answers
@@ -1283,8 +1290,13 @@ export interface GlanceConditionQuantity {
 export interface GlanceExcludedOption {
   id: string
   label: string
-  /** `notAnalysedReasonCopy(reason)`, verbatim. States "no rank and no probability". */
-  reasonCopy: string
+  /**
+   * `notAnalysedReasonCopy(reason)`, verbatim. States "no rank and no probability".
+   * ⛔ `null` for a `not_returned` option on a result that is not confirmably
+   * current — the same licence the comparison row applies; the list then names
+   * the option and its badge, and no tooltip.
+   */
+  reasonCopy: string | null
 }
 
 /**

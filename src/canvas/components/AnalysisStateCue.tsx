@@ -32,9 +32,12 @@
  * ⭐ PLACEMENT — the overlay band's bottom-right cell, never a hand-written
  * position (`CanvasOverlayBand.tsx`: one slot, one occupant, never over a node).
  * That cell had no claimant, so the cue takes nothing from the notices in
- * bottom-centre. When a wide centre occupant squeezes the cell, the width guard
- * in `AnalysisStateCue.module.css` withdraws the cue rather than letting it
- * overflow across its neighbour; the cards' own labels still carry the state.
+ * bottom-centre. While the cue holds the cell the band gives its column a floor
+ * (`OVERLAY_BAND_RIGHT_CELL_MIN`), so a wide centre occupant — the saved-example
+ * banner — can no longer squeeze it to nothing (served defect N3, 24 Sep). The
+ * width guard in `AnalysisStateCue.module.css` now withdraws the cue only on a
+ * canvas narrower than that floor, rather than letting it overflow across its
+ * neighbour; the cards' own labels still carry the state.
  *
  * Styling is neutral (panel surface, body text, muted icon) — it is a
  * statement of state, not a warning and not an attention cue (Paul point 9:

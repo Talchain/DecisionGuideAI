@@ -81,12 +81,12 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  *   the hit area and accessible name. usePopoverHover suppresses the node
  *   preview while this row is hovered or focused, so the two cannot overlap.
  * - NO DEAD CONTROLS, AND NO SILENT ONES. The ask button renders only when a
- *   conversation surface has registered the SEND channel `askAI` actually
- *   needs, and the click passes `showToast` through so a channel that dies
- *   between render and click surfaces as a message rather than as nothing. A
- *   review caught both halves: the gate was `_sendMessage || _prefillChat`
- *   (wider than what askAI needs) and the call omitted the toast, which made
- *   the PR body's failure-visibility claim false.
+ *   surface that can RECEIVE an ask is registered (`canReceiveAsk`, the
+ *   question `askAI` itself asks), and the click passes `showToast` through so
+ *   a channel that dies between render and click surfaces as a message rather
+ *   than as nothing. A review once caught the gate asking a different question
+ *   from `askAI` (then: the SEND channel); the rule — gate on what the click
+ *   needs — is unchanged, only what the click needs has moved (24 Sep 2026).
  *
  * `stopPropagation` is deliberate and, unlike the dead on-node pencil this
  * replaces, harmless: these buttons perform the selection themselves, so
@@ -178,11 +178,14 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 }: NodeQuickActionsProps) {
   const coachingChip = useCoachingIconChip(nodeId, coaching)
   // The gate must ask the question `askAI` actually asks. It polls for
-  // `_sendMessage` and gives up with a toast if that never registers — so a
-  // gate of `_sendMessage || _prefillChat` would show the button on a surface
-  // that registered only the prefill channel, i.e. exactly the dead control
-  // this gate exists to prevent (trap 21: two predicates, one name).
-  const canAsk = useGuidanceStore(s => s._sendMessage !== null)
+  // `canReceiveAsk` and hands the prompt to `requestAsk` (composer, else the
+  // Ask drawer), giving up with a toast if no surface ever registers.
+  //
+  // ⚠ THIS USED TO READ `_sendMessage !== null`, and was right to while
+  // `askAI` SENT: a prefill-only surface would have shown a dead button. Now
+  // that `askAI` drafts, that gate would HIDE a working one on a prefill-only
+  // host — the same trap-21 mismatch pointing the other way.
+  const canAsk = useGuidanceStore(canReceiveAsk)
   // …and if the channel dies between the render and the click, the user is told
   // rather than left with a button that did nothing. `Safe` because nodes also
   // render in headless hosts, where a missing ToastProvider must not throw.
@@ -231,13 +234,18 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * lands an EDITABLE DRAFT in a visible surface and the user presses Send.
    * Humans stay the authors of what enters their own model.
    *
-   * ⚠ AND THE SEAM THIS LEAVES OPEN, stated rather than hidden: the button
+   * ⚠ AND THE SEAM THIS LEFT OPEN, stated rather than hidden: the button
    * beside this one still auto-sends, so two adjacent controls in one layer now
    * confirm differently. That is trap 21 in miniature and I am NOT closing it
    * here — `askAI` has seven call sites and every context-menu ask rides it, so
    * migrating it changes the whole menu's behaviour and needs its own review.
    * The smallest enabling change is to route `askAI`'s step 3 through
    * `requestAsk`; it is reported, not smuggled into this PR.
+   *
+   * ⭐ CLOSED 24 Sep 2026, by exactly that change: `askAI`'s step 3 now calls
+   * `requestAsk`, so the ask button, this one and every context-menu ask all
+   * land a draft (`askAIPrefillNeverSends.spec.tsx`). This button keeps its own
+   * `requestAsk` call because it carries a label and source of its own.
    *
    * ## Why it selects first
    *

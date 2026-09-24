@@ -32,6 +32,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
+import { useCanvasStore } from '../../../canvas/store'
 import { NOT_ANALYSED_BADGE } from '../utils/notAnalysedCopy'
 import type { OptionResult } from '../types'
 
@@ -145,16 +146,32 @@ describe('OptionCards — the option that was never analysed', () => {
   it('OPPOSITE TWIN — not_returned prescribes no action', () => {
     // The reason the user cannot act on. A configure button here would send
     // them to fix something that is not broken on their side.
-    renderCards([
-      analysed(ANALYSED_A, { isRecommended: true, winProbability: 0.6 }),
-      analysed(ANALYSED_B, { winProbability: 0.25 }),
-      notAnalysed({ notAnalysedReason: 'not_returned' }),
-    ])
-    expect(screen.getByTestId(`option-card-not-analysed-${NOT_ANALYSED}`)).toBeInTheDocument()
-    expect(screen.queryByTestId(`not-analysed-resolve-${NOT_ANALYSED}`)).not.toBeInTheDocument()
-    expect(screen.getByTestId(`not-analysed-reason-${NOT_ANALYSED}`).textContent ?? '').toContain(
-      'returned no result',
-    )
+    //
+    // ⚠ ON A CURRENT RESULT, STATED. The card now withholds the `not_returned`
+    // sentence unless `useAnalysisResultsAreCurrent` vouches for the result
+    // (an option added after the run is not one the engine "returned no result"
+    // for), and the store's default is not current. This case is about the
+    // ACTION, so it runs where the sentence is licensed; the not-current twin
+    // is pinned by `ResultsBody.anAddedOptionIsNotBlamedOnTheEngine.spec.tsx`.
+    useCanvasStore.setState({
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      importPendingServerRegistration: false,
+    } as never)
+    try {
+      renderCards([
+        analysed(ANALYSED_A, { isRecommended: true, winProbability: 0.6 }),
+        analysed(ANALYSED_B, { winProbability: 0.25 }),
+        notAnalysed({ notAnalysedReason: 'not_returned' }),
+      ])
+      expect(screen.getByTestId(`option-card-not-analysed-${NOT_ANALYSED}`)).toBeInTheDocument()
+      expect(screen.queryByTestId(`not-analysed-resolve-${NOT_ANALYSED}`)).not.toBeInTheDocument()
+      expect(screen.getByTestId(`not-analysed-reason-${NOT_ANALYSED}`).textContent ?? '').toContain(
+        'returned no result',
+      )
+    } finally {
+      useCanvasStore.setState({ analysisFreshness: null, analysisFreshnessDirty: false } as never)
+    }
   })
 
   it('stays VISIBLE past the top-2 truncation, with no expand click', () => {

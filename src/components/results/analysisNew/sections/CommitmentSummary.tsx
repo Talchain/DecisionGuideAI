@@ -74,8 +74,10 @@ export interface CommitmentSummaryProps {
   /** Opens an ask about what remains before committing. */
   onAsk: (ask: CommitmentAsk) => void
   /**
-   * Compare with the last run. When absent the icon renders DISABLED, with a
-   * label that says so, rather than as a control that does nothing.
+   * Compare with the last run. ⛔ ABSENT MEANS NO ICON, not a disabled one: the
+   * agreed rule (#63, 5806411059) is to render Compare only where a real route
+   * exists. No host passes one today, and the OpenAI lane sends no `run_delta`,
+   * so a greyed icon was the only comparison a reader met after a re-run.
    */
   onCompare?: () => void
   /** The options comparison, placed between the bullets and the record row. */
@@ -211,13 +213,14 @@ export function CommitmentSummary({
           }
           testId={`${testId}-ask`}
         />
-        <PanelIconButton
-          Icon={GitCompare}
-          label={onCompare ? COMMITMENT_COPY.compare.label : COMMITMENT_COPY.compare.unavailable}
-          onClick={() => onCompare?.()}
-          disabled={!onCompare}
-          testId={`${testId}-compare`}
-        />
+        {onCompare ? (
+          <PanelIconButton
+            Icon={GitCompare}
+            label={COMMITMENT_COPY.compare.label}
+            onClick={onCompare}
+            testId={`${testId}-compare`}
+          />
+        ) : null}
       </div>
 
       {bullets.length > 0 ? (

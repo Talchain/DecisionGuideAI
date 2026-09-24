@@ -244,3 +244,73 @@ describe('a declined option-target edit settles as a refusal, through the real w
     expect(settlement).toBe('unverified')
   })
 })
+
+/**
+ * MANUAL-EDIT-REWITNESS-0753Z N1, 24 Sep 2026 (served UI `25314672`, CEE
+ * `e81aea1`): on the OpenAI lane `/agent/v1/turn` forwards a canvas edit and
+ * re-sends the orchestrator's body with `_diagnostic_trace` and
+ * `_provider_calls` added at the top level. The strict `BoundaryErrorSchema`
+ * rejected that body, so both refusals above settled `unverified` there.
+ */
+const LANE_SIDECARS = {
+  _diagnostic_trace: { exit_path: 'agent_lane_forwarded', forwarded_kind: 'system_event' },
+  _provider_calls: [],
+}
+
+describe('N1 — the same refusals, as the OpenAI lane delivers them, still settle as refusals', () => {
+  it('⭐ stale-base 409 + lane sidecars → refused / conflict, category carried — RED at 25314672 (`unverified`)', async () => {
+    stubFetchWith(409, { ...STALE_BASE_409, ...LANE_SIDECARS })
+
+    const { error, settlement, detail } = await sendAndSettle()
+
+    expect(error).toBeInstanceOf(SystemEventSendError)
+    expect((error as SystemEventSendError).conflictCategory).toBe('stale_base_graph_hash')
+    expect(settlement).toBe('refused')
+    expect(detail.refusal).toBe('conflict')
+  })
+
+  it('⭐ 422 `system_event_refused_no_write` + lane sidecars → refused / declined, reason carried — RED at 25314672', async () => {
+    stubFetchWith(422, {
+      ...commitFailureEnvelope({
+        error: 'INGRESS_CONTRACT_VIOLATION',
+        reason: 'system_event_refused_no_write',
+        retryable: false,
+      }),
+      ...LANE_SIDECARS,
+      _provider_calls_truncated: true,
+    })
+
+    const { error, settlement, detail } = await sendAndSettle()
+
+    expect((error as SystemEventSendError).reason).toBe('system_event_refused_no_write')
+    expect(settlement).toBe('refused')
+    expect(detail.refusal).toBe('declined')
+  })
+
+  it('CONTRAST — the retryable 500 + lane sidecars carries its reason and stays `unverified` (the sidecars never manufacture a no-write)', async () => {
+    stubFetchWith(500, {
+      ...commitFailureEnvelope({
+        error: 'INTERNAL_ERROR',
+        reason: 'system_event_commit_failed',
+        retryable: true,
+      }),
+      ...LANE_SIDECARS,
+    })
+
+    const { error, settlement } = await sendAndSettle()
+
+    // RED at 25314672 on the reason only (it was a parse_error, so nothing was
+    // carried); the settlement was `unverified` then and must stay so now.
+    expect((error as SystemEventSendError).reason).toBe('system_event_commit_failed')
+    expect(settlement).toBe('unverified')
+  })
+
+  it('⛔ CONTRAST — an undeclared NON-underscore root key is not a sidecar: the 409 stays unparsed and `unverified`', async () => {
+    stubFetchWith(409, { ...STALE_BASE_409, ...LANE_SIDECARS, recovery: { action: 'reload' } })
+
+    const { error, settlement } = await sendAndSettle()
+
+    expect((error as SystemEventSendError).conflictCategory).toBeUndefined()
+    expect(settlement).toBe('unverified')
+  })
+})
