@@ -16,7 +16,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: () => true }))
 
@@ -181,5 +181,45 @@ describe('"Edit decision brief" in the Method strip opens the SAME form', () => 
     fireEvent.click(screen.getByTestId(`${STRIP}-menu-action-edit_brief`))
     expect(input().value).toBe(BRIEF)
     expect(useAskOlumiStore.getState().isOpen).toBe(false)
+  })
+})
+
+/**
+ * ⛔ A SCENARIO SWITCH UNDER AN OPEN FORM (review 5818752558, BLOCKING).
+ * The form copied the brief into local state and only re-synced when the NEW
+ * brief was non-null — so a switch to a decision whose brief had not (yet)
+ * resolved left the PREVIOUS decision's question in the field, ready to be sent
+ * as this decision's reframe. `contextIntegrityStore.ts` records that exact
+ * shape as a shipped P0. The draft now belongs to the scenario it was opened on.
+ */
+describe('the draft belongs to the decision on screen', () => {
+  it('an untouched form does not carry the previous decision\'s brief across a switch', () => {
+    drawTool()
+    fireEvent.click(pencil())
+    expect(input().value, 'PRECONDITION: prefilled with this decision\'s brief').toBe(BRIEF)
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'scn_other' } as never)
+    })
+    expect(input().value).toBe('')
+  })
+
+  it('nor does a typed draft', () => {
+    drawTool()
+    fireEvent.click(pencil())
+    fireEvent.change(input(), { target: { value: 'A reframing for the first decision' } })
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'scn_other' } as never)
+    })
+    expect(input().value).toBe('')
+  })
+
+  it('CONTRAST: the next decision\'s own brief prefills once it lands', () => {
+    drawTool()
+    fireEvent.click(pencil())
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'scn_other' } as never)
+      recordBrief('scn_other', 'Should we open a second office?')
+    })
+    expect(input().value).toBe('Should we open a second office?')
   })
 })

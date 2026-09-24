@@ -71,7 +71,20 @@ export interface BriefEditFormProps {
   testIdPrefix: string
 }
 
-export function BriefEditForm({ onAsk, onClose, focusRequest = 0, testIdPrefix }: BriefEditFormProps) {
+/**
+ * ⛔ THE DRAFT BELONGS TO THE DECISION IT WAS OPENED ON (review 5818752558).
+ * Keyed by the current scenario id, so a switch under an open form remounts it
+ * with that decision's brief (or empty until it lands) — the previous decision's
+ * question, typed or prefilled, can never be sent as this one's reframe. This is
+ * the shipped-P0 shape `contextIntegrityStore.ts` records; keying every mount
+ * here, rather than each call site, is what keeps a future mount safe too.
+ */
+export function BriefEditForm(props: BriefEditFormProps) {
+  const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+  return <BriefEditFormForScenario key={scenarioId ?? 'no-scenario'} {...props} />
+}
+
+function BriefEditFormForScenario({ onAsk, onClose, focusRequest = 0, testIdPrefix }: BriefEditFormProps) {
   const brief = useCurrentBriefText()
   const inputId = useId()
   const noteId = useId()
