@@ -1,0 +1,124 @@
+/**
+ * "How the options compare" (V2): the two lenses, and what each has to draw.
+ *
+ * PURE, AND IT READS ONLY WHAT THE VIEW MODEL ALREADY BUILT. Nothing here
+ * computes a figure: the ranges are `outcomeRange` (the producer's own p10 /
+ * p50 / p90 per option) and the goal figures are `goalReadout` / `goalFraction`,
+ * whose every gate (UI-SEM-071, the complete-field rule, the substituted-joint
+ * suppression) is the view model's. This module only answers "is there
+ * anything to draw under this lens?", so the section and the tab body ask
+ * that question one way.
+ *
+ * ⛔ NO LENS REORDERS ANYTHING. The rows are rendered in the order the view
+ * model gave them (`utils/optionDisplayOrder.ts`, ROADMAP 1.267). A lens
+ * changes which figure sits under each name, never which name comes first.
+ */
+import type { ComparisonOption, OptionsComparisonSection } from './analysisNewTypes'
+
+export const COMPARISON_LENSES = ['outcome', 'goal'] as const
+export type ComparisonLens = (typeof COMPARISON_LENSES)[number]
+
+export interface OutcomeRangeScale {
+  lo: number
+  hi: number
+  span: number
+}
+
+/**
+ * ONE SCALE FOR EVERY RANGE, OR THE RANGES LIE. Moved verbatim from
+ * `OptionsComparison.tsx` so the lens availability and the drawing share it.
+ *
+ * `null` unless at least two analysed rows carry a range (a lone band has
+ * nothing to be compared against) and the domain has width (every option on
+ * one p10 and one p90 gives a zero denominator, and no honest band).
+ *
+ * `!= null`, LOOSE: `outcomeRange` is required on the type, but fixtures and
+ * older cached view models arrive without it, so at runtime it is `undefined`.
+ */
+export function outcomeRangeScale(rows: readonly ComparisonOption[]): OutcomeRangeScale | null {
+  const ranges = rows.flatMap((r) =>
+    r.kind === 'analysed' && r.outcomeRange != null ? [r.outcomeRange] : [],
+  )
+  if (ranges.length < 2) return null
+  const lo = Math.min(...ranges.map((r) => r.p10))
+  const hi = Math.max(...ranges.map((r) => r.p90))
+  if (!(hi > lo)) return null
+  return { lo, hi, span: hi - lo }
+}
+
+/**
+ * Does any analysed option carry a goal figure? The view model nulls EVERY
+ * option's figure when any one lacks it (the complete-field rule), so "any"
+ * and "all" are the same answer here; `any` is the cheaper spelling.
+ */
+export function goalFitAvailable(rows: readonly ComparisonOption[]): boolean {
+  return rows.some(
+    (r) => r.kind === 'analysed' && r.goalReadout !== null && r.goalFraction !== null,
+  )
+}
+
+export type ComparisonLensAvailability = Record<ComparisonLens, boolean>
+
+export function comparisonLensAvailability(
+  section: OptionsComparisonSection,
+): ComparisonLensAvailability {
+  return {
+    outcome: outcomeRangeScale(section.rows) !== null,
+    goal: goalFitAvailable(section.rows),
+  }
+}
+
+/**
+ * The lens a reader meets first.
+ *
+ * ⭐ GOAL FIT WHEN IT EXISTS. It answers the question the person set ("does
+ * this reach my target?"), it is absolute per option (the figures do not
+ * partition, so they do not read as a ranking), and it prints a figure the
+ * reader can check. The modelled-outcome band carries no unit on the view
+ * model, so it prints no number. Where there is no goal figure, the modelled
+ * outcome is the only lens with anything to draw.
+ *
+ * `null` when neither lens has anything to draw: no control is offered over
+ * two views of nothing.
+ */
+export function initialComparisonLens(
+  availability: ComparisonLensAvailability,
+): ComparisonLens | null {
+  if (availability.goal) return 'goal'
+  if (availability.outcome) return 'outcome'
+  return null
+}
+
+/**
+ * Does the section draw ANY per-option figure at rest? For a host that decides
+ * whether opening the section supplies something (the tab body's
+ * `defaultOpen`). Since the win shares left the resting view, a row's
+ * `winReadout` no longer answers this.
+ */
+export function comparisonDrawsAFigure(section: OptionsComparisonSection): boolean {
+  return initialComparisonLens(comparisonLensAvailability(section)) !== null
+}
+
+/**
+ * The strings this lens control adds. Each is a label for a control or a
+ * statement about the drawing; none is a finding about an option.
+ *
+ * ⚠ `goalLocked` NAMES BOTH GROUNDS, because the section cannot tell which one
+ * applies. The view model withholds every goal figure when there is no user
+ * target (UI-SEM-071) AND when any option lacks a figure (the complete-field
+ * rule). `GOAL_ANCHOR_COPY.noTarget` ("Set a success target...") was not
+ * reused: on a run whose target IS set, it would tell the user they never set
+ * one, the untruth that module's own `notScored` note warns against.
+ */
+export const COMPARISON_LENS_COPY = {
+  groupLabel: 'Compare the options by',
+  arms: {
+    outcome: 'Modelled outcome',
+    goal: 'Goal fit',
+  } satisfies Record<ComparisonLens, string>,
+  goalLocked: 'Goal fit needs a measurable target and a result for every option.',
+  rowActions: (label: string): string => `Show actions for ${label}`,
+  inspectInModel: (label: string): string => `Inspect ${label} in Model`,
+  focusOnCanvas: (label: string): string => `Focus ${label} on the canvas`,
+  askOlumi: (label: string): string => `Ask Olumi about ${label}`,
+} as const

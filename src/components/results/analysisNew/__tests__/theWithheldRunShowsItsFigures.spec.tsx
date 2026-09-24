@@ -89,6 +89,32 @@ function vmFor(data: ResultsSectionDataReturn) {
 /** Every win readout currently on screen, in document order. */
 const winReadouts = () => screen.queryAllByTestId(`${T}-win`).map((e) => e.textContent)
 
+/**
+ * ⚠ V2 (24 Sep 2026): THE WIN SHARES LEFT THE RESTING VIEW, so on a withheld
+ * run the figures this section draws are each option's own RANGE (the
+ * "Modelled outcome" lens). The base fixtures carry no percentiles, so this
+ * adds the producer's p10 / p50 / p90 per option, the shape every real run
+ * carries, and changes nothing else.
+ */
+const RANGES: Record<string, { mean: number; p10: number; p50: number; p90: number }> = {
+  opt_a: { mean: 40, p10: 10, p50: 40, p90: 70 },
+  opt_b: { mean: 55, p10: 30, p50: 55, p90: 90 },
+}
+const withRanges = (data: ResultsSectionDataReturn): ResultsSectionDataReturn => ({
+  ...data,
+  recommendation: {
+    ...data.recommendation,
+    allOptions: data.recommendation.allOptions.map((o) =>
+      RANGES[o.id] ? { ...o, outcome: RANGES[o.id] } : o,
+    ),
+  },
+})
+/** Every drawn range band, in document order. */
+const bands = () =>
+  Array.from(
+    document.querySelectorAll(`[data-testid^="${T}-outcome-range-"][data-testid$="-band"]`),
+  )
+
 /** Bind by IDENTITY. Never `getAllByTestId(...)[n]`, never a value predicate. */
 function row(optionId: string): HTMLElement {
   const el = document.querySelector<HTMLElement>(`[data-option-id="${optionId}"]`)
@@ -135,16 +161,18 @@ describe('the withheld run is the state this opens for', () => {
    * RED AT PRISTINE: without the `defaultOpen` override the section mounts
    * closed, `SectionShell` UNMOUNTS a closed region, and this reads `[]`.
    */
-  it('(1) both per-option win readouts render WITHOUT a click, bound by option id', () => {
-    renderBody(decisionWithLeaderWithheld())
+  it('(1) both per-option figures render WITHOUT a click, bound by option id', () => {
+    renderBody(withRanges(decisionWithLeaderWithheld()))
 
     // The section is open on mount — asserted on the SHELL, so the mount path
     // itself fails loud if a flag or a caller stops passing the default.
     expect(screen.getByTestId(T)).toHaveAttribute('data-section-open', 'true')
 
-    expect(winReadouts()).toEqual(['31%', '69%'])
-    expect(within(row('opt_a')).getByTestId(`${T}-win`)).toHaveTextContent('31%')
-    expect(within(row('opt_b')).getByTestId(`${T}-win`)).toHaveTextContent('69%')
+    // ⚠ V2: the figures on a withheld run are each option's own range; the
+    // win shares are not printed at rest.
+    expect(winReadouts(), 'V2: no win-share readout at rest').toEqual([])
+    expect(within(row('opt_a')).getByTestId(`${T}-outcome-range-opt_a-band`)).toBeInTheDocument()
+    expect(within(row('opt_b')).getByTestId(`${T}-outcome-range-opt_b-band`)).toBeInTheDocument()
   })
 
   /**
@@ -209,7 +237,7 @@ describe('the withheld run is the state this opens for', () => {
    * and nothing draws it.
    */
   it('(4) draws no leader marker, on a run whose data would supply one', () => {
-    const vm = vmFor(decisionWithLeaderWithheld())
+    const vm = vmFor(withRanges(decisionWithLeaderWithheld()))
     // PRECONDITION: the producer really did mark a recommended option.
     expect(
       decisionWithLeaderWithheld().recommendation.recommendedOption?.id,
@@ -217,7 +245,7 @@ describe('the withheld run is the state this opens for', () => {
     ).toBe('opt_b')
     expect(vm.optionsComparison.comparativeClaim, 'precondition').toBe('order')
 
-    renderBody(decisionWithLeaderWithheld())
+    renderBody(withRanges(decisionWithLeaderWithheld()))
 
     // ⭐ THE BARS NOW DRAW (Paul's ruling, 15 Sep 2026) — and THAT IS NOT WHAT
     // THIS CASE IS ABOUT. It bundled two claims: "no drawn magnitude" and "no
@@ -227,9 +255,13 @@ describe('the withheld run is the state this opens for', () => {
     // ⚠ PINNED AS A POSITIVE, NOT DELETED. Asserting the bars are gone would
     // now pass on a section that rendered nothing at all, and this case's whole
     // value is that the row IS alive while the LEADER stays unnamed.
+    //
+    // ⚠ V2 (24 Sep 2026): the figures drawn are each option's own RANGE now,
+    // since the win-share bars left the resting view. The point is unchanged:
+    // the row is alive while the leader stays unnamed.
     expect(
-      screen.queryAllByTestId(`${T}-bar`).length,
-      'a withheld run still draws the shares it prints — the withholding is about NAMING',
+      bands().length,
+      'a withheld run still draws its per-option figures — the withholding is about NAMING',
     ).toBeGreaterThan(0)
     // No marker element, and no marker glyph, on either row — UNCHANGED, and
     // the half of this case that carries the entitlement.
@@ -254,7 +286,7 @@ describe('the withheld run is the state this opens for', () => {
    * harm it is named for.
    */
   it('(5) comparativeClaim is UNCHANGED by opening the section — and so are the bars', () => {
-    const data = decisionWithLeaderWithheld()
+    const data = withRanges(decisionWithLeaderWithheld())
     const vm = vmFor(data)
     const before = vm.optionsComparison.comparativeClaim
     expect(before, 'precondition: the withheld run licenses an ORDER, not a value').toBe('order')
@@ -270,8 +302,9 @@ describe('the withheld run is the state this opens for', () => {
     // a change that flipped `'order'` -> `'value'`, and that flip is still the
     // harm. Pinning a count that must not CHANGE catches it; pinning zero no
     // longer would, because zero is no longer the licensed answer.
-    const barsWhileOpen = screen.queryAllByTestId(`${T}-bar`).length
-    expect(barsWhileOpen, 'the withheld run still draws the shares it prints').toBeGreaterThan(0)
+    // ⚠ V2: counted on the range bands, the figures this section draws now.
+    const barsWhileOpen = bands().length
+    expect(barsWhileOpen, 'the withheld run still draws its per-option figures').toBeGreaterThan(0)
 
     // Close it, and open it again through the TOGGLE — the other route to the
     // same state, so the assertion covers both ways in.
@@ -284,19 +317,19 @@ describe('the withheld run is the state this opens for', () => {
     // mutation that made disclosure feed back into the view model would show.
     expect(vmFor(data).optionsComparison.comparativeClaim).toBe(before)
     expect(
-      screen.queryAllByTestId(`${T}-bar`).length,
-      'toggling the section changed the drawn magnitudes — opening must move nothing',
+      bands().length,
+      'toggling the section changed the drawn figures — opening must move nothing',
     ).toBe(barsWhileOpen)
 
     // ⭐ THE DISCRIMINATING HALF. A run that DOES license a value draws bars —
     // so "no bars" above is the licence talking, not a section that never
     // draws any.
     cleanup()
-    const permitted = genuineDecision()
+    const permitted = withRanges(genuineDecision())
     expect(vmFor(permitted).optionsComparison.comparativeClaim).toBe('value')
     renderBody(permitted)
     fireEvent.click(screen.getByTestId(`${T}-toggle`))
-    expect(screen.queryAllByTestId(`${T}-bar`).length, 'contrast control').toBeGreaterThan(0)
+    expect(bands().length, 'contrast control').toBeGreaterThan(0)
   })
 })
 

@@ -135,13 +135,18 @@ function control(optionId: string): HTMLElement {
 // ═══════════════════════════════════════════════════════════════════════════
 describe('the row dispatches against the option it names', () => {
   it('POSITIVE CONTROL: the fixture mounts all five rows and two share a readout', () => {
-    renderSection(mixedRun())
+    const { vm } = renderSection(mixedRun())
     // Without this, every "the right row acted" assertion below could pass
     // vacuously on a section that rendered a single row.
     expect(screen.getAllByTestId(`${TESTID}-row`)).toHaveLength(5)
-    expect(within(row('opt_rudderstack')).getByTestId(`${TESTID}-win`).textContent).toBe(
-      within(row('opt_snowflake')).getByTestId(`${TESTID}-win`).textContent,
-    )
+    // ⚠ V2 (24 Sep 2026): the win share is no longer printed at rest, so the
+    // shared readout is read where it now lives, on the view model.
+    const readout = (id: string) => {
+      const r = vm.optionsComparison.rows.find((x) => x.id === id)
+      return r?.kind === 'analysed' ? r.winReadout : undefined
+    }
+    expect(readout('opt_rudderstack')).not.toBeNull()
+    expect(readout('opt_rudderstack')).toBe(readout('opt_snowflake'))
   })
 
   it('clicking a row focuses THAT option id on the canvas', () => {
@@ -227,11 +232,10 @@ describe('keyboard and touch reach it — hover is never the only route', () => 
   it('the row content stays readable OUTSIDE the control', () => {
     renderSection(mixedRun())
     // The `aria-label` names the ACT, so anything inside the button loses its
-    // own voice. The readout and the producer's reason must therefore sit
-    // outside it — this is the assertion that stops a future refactor from
-    // swallowing the row into the button.
-    const readout = within(row('opt_snowflake')).getByTestId(`${TESTID}-win`)
-    expect(control('opt_snowflake').contains(readout)).toBe(false)
+    // own voice. The producer's reason must therefore sit outside it — this is
+    // the assertion that stops a future refactor from swallowing the row into
+    // the button. (⚠ V2, 24 Sep 2026: the win readout this case also checked
+    // is no longer printed at rest.)
 
     const reason = within(row('opt_donothing')).getByTestId(`${TESTID}-not-analysed-reason`)
     expect(control('opt_donothing').contains(reason)).toBe(false)

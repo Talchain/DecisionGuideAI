@@ -121,14 +121,19 @@ function control(optionId: string): HTMLElement {
 // ═══════════════════════════════════════════════════════════════════════════
 describe('the row raises the panel for the option it names', () => {
   it('POSITIVE CONTROL: five rows mount and two share a readout', () => {
-    renderSection(mixedRun())
+    const { vm } = renderSection(mixedRun())
     // Without this every assertion below could pass vacuously on a section that
     // rendered one row, and the shared readout is what makes identity binding
     // do real work rather than succeed on a coincidence.
     expect(screen.getAllByTestId(`${TESTID}-row`)).toHaveLength(5)
-    expect(within(row('opt_rudderstack')).getByTestId(`${TESTID}-win`).textContent).toBe(
-      within(row('opt_snowflake')).getByTestId(`${TESTID}-win`).textContent,
-    )
+    // ⚠ V2 (24 Sep 2026): the win share is no longer printed at rest, so the
+    // shared readout is read where it now lives, on the view model.
+    const readout = (id: string) => {
+      const r = vm.optionsComparison.rows.find((x) => x.id === id)
+      return r?.kind === 'analysed' ? r.winReadout : undefined
+    }
+    expect(readout('opt_rudderstack')).not.toBeNull()
+    expect(readout('opt_rudderstack')).toBe(readout('opt_snowflake'))
   })
 
   it('clicking a row opens the inspector on THAT option id', () => {
