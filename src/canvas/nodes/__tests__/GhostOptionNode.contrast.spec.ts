@@ -150,3 +150,34 @@ describe('GhostOptionNode outline — WCAG 1.4.11 non-text contrast', () => {
     ).toBeGreaterThan(0.2)
   })
 })
+
+/**
+ * ⭐ CONTRACT v3.1 T12 — the placeholder's outline is the MUTED token, not body
+ * ink. It was `--text-body` (10.45:1 on the panel): the darkest line on the
+ * canvas, drawn on a placeholder. `--text-light` still clears SC 1.4.11 on
+ * every ground above (measured by the block above, from brand.css), and both
+ * ghost doors must speak the same token so the two placeholders read as one
+ * affordance. Contract: `--muted`; DS v5 §3.12 (neutral borders are chrome).
+ */
+describe('ghost outlines — contract v3.1 T12 (muted, not body ink)', () => {
+  it('GhostOptionNode outlines in --text-light', () => {
+    expect(outlineDeclaration().token).toBe('--text-light')
+  })
+
+  it('GhostTierNode outlines in the same token, same dash', () => {
+    const tier = readFileSync(join(__dirname, '../GhostTierNode.tsx'), 'utf-8')
+    const m = tier.match(/border:\s*`\$\{GHOST_DOOR_BORDER_PX\}px dashed var\((--[a-z0-9-]+),\s*(#[0-9A-Fa-f]{3,8})\)`/)
+    expect(m, 'could not find the ghost tier door outline declaration').not.toBeNull()
+    expect(m![1]).toBe('--text-light')
+    expect(m![2].toUpperCase()).toBe(declared('--text-light').toUpperCase())
+  })
+
+  it('both doors take the card corner — `rounded-sm` (8px), not `rounded-lg` (14px) (contract v3.1 FRAME-01)', () => {
+    const tier = readFileSync(join(__dirname, '../GhostTierNode.tsx'), 'utf-8')
+    for (const [name, src] of [['GhostOptionNode', component], ['GhostTierNode', tier]] as const) {
+      const root = src.match(/className="(rounded-[a-z]+) cursor-pointer hover:bg-panel-hover/)
+      expect(root, `${name}: could not find the door's root className`).not.toBeNull()
+      expect(root![1], name).toBe('rounded-sm')
+    }
+  })
+})
