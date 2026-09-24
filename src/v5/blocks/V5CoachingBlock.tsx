@@ -109,7 +109,7 @@ import {
   guidanceCategoryTone,
 } from '../../canvas/stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
-import { resolveFreshnessNotice } from './coachingCurrency'
+import { isRefreshActionIntent, resolveFreshnessNotice } from './coachingCurrency'
 import { useCoachingCurrency } from './useCoachingCurrency'
 import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conversation/types'
 
@@ -305,7 +305,8 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
     notice is wired as the disabled chip's description.
   */
   const freshnessNoticeId = useId()
-  const actionInert = Boolean(freshnessNotice)
+  const actionInert =
+    Boolean(freshnessNotice) && !isRefreshActionIntent(block.action_intent)
   const kindSentence = KIND_SENTENCE[block.coaching_kind]
   const sourceSentence = SOURCE_SENTENCE[block.source]
   const claim = block.dsk_claim_provenance
