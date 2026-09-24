@@ -88,11 +88,14 @@ import {
  * Structural (decision→option, option→factor) edges: fixed grey, always.
  *
  * contract v3.1 (E11/T07, 24 Sep 2026): the contract's warm structural grey
- * `#B6B4B0` ("quiet and grey"), replacing the cool `#B8B8B8` that sat beside
- * warm stone factor borders on every graph. Width 1 and no arrowhead are
- * unchanged (rule `structural` below and `EDGE_DIRECTION_MARKER_RULES`).
+ * ("quiet and grey"), replacing the cool mid-grey that sat beside warm stone
+ * factor borders on every graph. Built from an EXISTING token (DS v5; Paul pt 9
+ * "no new colours"; `check-ds-compliance` refuses a new production hex): the
+ * muted-ink token at 50%, which composites on the canvas ground to within a
+ * few units of the contract's grey. Width 1 and no arrowhead are unchanged
+ * (rule `structural` below and `EDGE_DIRECTION_MARKER_RULES`).
  */
-export const STRUCTURAL_EDGE_COLOUR = '#B6B4B0'
+export const STRUCTURAL_EDGE_COLOUR = 'rgb(var(--text-light-rgb) / 0.5)'
 
 /**
  * The exception hue, reserved — see `resolveEdgeStroke` — for the ONE state that

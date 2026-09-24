@@ -293,6 +293,47 @@ function computeBehindReason(
   return 'fewer key changes'
 }
 
+/** One option's differentiator sentence (see `computeAllDifferentiators`). */
+export interface OptionDifferentiator {
+  label: string
+  fullLabel: string
+  factorId: string
+  /**
+   * `key` — "<X> is the key difference" (X is this option's alone);
+   * `value` — "<X> → <value>" or a direction (X is shared with another option).
+   */
+  kind: 'key' | 'value'
+}
+
+/**
+ * ⭐ DOES THE DIFFERENTIATOR SAY SOMETHING THE CHANGE ROWS DON'T? —
+ * NODE-ANATOMY v3.2 row "Option": "ONE differentiator line, only if it adds
+ * something the rows don't (not '<only row> is the key difference')"; ED #63
+ * 5806266691: "differentiator only when additive".
+ *
+ *   · its factor is NOT a shown row (it sits behind `+N more`) → it names a
+ *     change the card does not show: ADDS;
+ *   · "<X> is the key difference" with X shown, among SEVERAL changes → it says
+ *     which change matters: ADDS;
+ *   · "<X> is the key difference" with X the option's ONLY change → the one
+ *     row already is the difference: repeats;
+ *   · "<X> → <value>" / a direction with X shown → the row already states the
+ *     value: repeats.
+ *
+ * ⚠ This narrows Paul's 10 Sep "both stay" to the cases where the second
+ * carrier ADDS; where it only repeats the row, the v3.2 anatomy (24 Sep) wins.
+ * Pure — the card's `differentiatorRenders` is its one reader, so the footer
+ * and its popover recovery line decide together.
+ */
+export function differentiatorAddsBeyondRows(
+  differentiator: Pick<OptionDifferentiator, 'factorId' | 'kind'>,
+  shownRowFactorIds: readonly string[],
+  totalChanges: number,
+): boolean {
+  if (!shownRowFactorIds.includes(differentiator.factorId)) return true
+  return differentiator.kind === 'key' && totalChanges > 1
+}
+
 /**
  * Compute differentiator labels for ALL non-baseline options in one pass.
  * Returns a Map<optionId, { label, fullLabel, factorId } | null> where
@@ -326,8 +367,8 @@ function computeBehindReason(
 function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
   ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
-): Map<string, { label: string; fullLabel: string; factorId: string } | null> {
-  const result = new Map<string, { label: string; fullLabel: string; factorId: string } | null>()
+): Map<string, OptionDifferentiator | null> {
+  const result = new Map<string, OptionDifferentiator | null>()
 
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
@@ -497,7 +538,12 @@ function computeAllDifferentiators(
       const factorId = bestFactors.get(optionId)?.factorId
       // Carry the factorId so the option card can drop this footer line when
       // the same factor is already shown as a visible "from → to" chip.
-      result.set(optionId, factorId ? { label, fullLabel, factorId } : null)
+      // `kind` is WHICH sentence Phase 3 built — the unique-factor "… is the
+      // key difference", or the shared-factor value/direction form — which is
+      // what `differentiatorAddsBeyondRows` needs to know (NODE-ANATOMY v3.2).
+      const kind: OptionDifferentiator['kind'] =
+        factorId && (factorClaimCount.get(factorId) ?? 0) <= 1 ? 'key' : 'value'
+      result.set(optionId, factorId ? { label, fullLabel, factorId, kind } : null)
     }
   }
 
@@ -946,7 +992,7 @@ export const OptionNode = memo((props: NodeProps) => {
    * sentence frame IS the caption for the factor name it carries... Deleting
    * the line would remove the only statement of WHICH factor is key."
    */
-  const differentiator = useMemo<{ label: string; fullLabel: string; factorId: string } | null>(() => {
+  const differentiator = useMemo<OptionDifferentiator | null>(() => {
     if (isBaselineOption) return null
     const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
     return allDiffs.get(props.id) ?? null
@@ -1707,6 +1753,8 @@ export const OptionNode = memo((props: NodeProps) => {
     !isBaselineOption &&
     !isDetailed &&
     differentiator !== null &&
+    // NODE-ANATOMY v3.2: only when it adds something the shown rows don't.
+    differentiatorAddsBeyondRows(differentiator, changeRows.map((r) => r.factorId), totalInterventionCount) &&
     !(isPostAnalysis && !isRecommended && behindReason)
 
   /**
@@ -1842,11 +1890,19 @@ export const OptionNode = memo((props: NodeProps) => {
     const permission = s.results.report?.producer_leader_permission
     return permission?.permitted === false && permission.producer_cause === 'constraint_verdict_withheld'
   })
+  /*
+   * ED #63 5806207128 / 5806266691 choice 3: the short `Goal only` is VISIBLE on
+   * the share line; its full meaning comes straight after the visible string
+   * in the name AND the hover/focus tooltip (this one string feeds both), so
+   * the spoken form opens with what is on screen (label in name, WCAG 2.5.3)
+   * and the limitation is never hover-only.
+   */
   const winReadoutDescription = winReadout
     ? [
-        `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)}.`,
+        shareIsGoalOnly
+          ? `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)} · ${OPTION_RESULT_COPY.goalOnly}. ${OPTION_RESULT_COPY.goalOnlyNote}`
+          : `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)}.`,
         OPTION_RESULT_COPY.sentence(winReadout.formatted),
-        shareIsGoalOnly ? OPTION_RESULT_COPY.goalOnlyNote : null,
         shareIsGoalOnly ? leaderWithholdCause('constraint_verdict_withheld') : null,
         runCurrency === 'changed'
           ? OPTION_RESULT_COPY.changedNote
@@ -2325,7 +2381,9 @@ export const OptionNode = memo((props: NodeProps) => {
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
-            className="mt-1 flex items-center gap-1.5 cursor-help"
+            // With `Goal only` the line may wrap rather than overflow a narrow
+            // card; without it the row is exactly what it was.
+            className={`mt-1 flex items-center gap-1.5 cursor-help${shareIsGoalOnly ? ' flex-wrap gap-y-0.5' : ''}`}
             role="img"
             aria-label={winReadoutDescription}
             tabIndex={0}
@@ -2408,17 +2466,31 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {OPTION_RESULT_COPY.share(winReadout.formatted)}
             </span>
+            {/* ⭐ `Goal only` ON THE SHARE LINE (ED #63 5806207128 / 5806266691
+                choice 3; NODE-ANATOMY v3.2 Option: "a short `Goal only`
+                qualifier on the same line, with the full sentence in the hover
+                and aria (it keeps #1921's per-card fact without the two-line
+                wrap)"). Gated exactly as #1921 gated its second line — the
+                producer's own `constraint_verdict_withheld`, read from the
+                RESULT's persisted stamp, so it survives a reload. Muted
+                `text-light`, regular weight, no colour: a limitation, never
+                styled as a verdict or an endorsement. Its meaning rides the
+                row's name and tooltip (`winReadoutDescription`), which this
+                row's hover AND keyboard focus open. */}
+            {shareIsGoalOnly && (
+              // The separator and the words never wrap apart.
+              <span className={`${typography.edgeLabel} text-text-light shrink-0 whitespace-nowrap`} aria-hidden="true">
+                {'· '}
+                <span
+                  data-testid={`option-share-goal-only-${props.id}`}
+                  className={`${typography.edgeLabel} text-text-light`}
+                >
+                  {OPTION_RESULT_COPY.goalOnly}
+                </span>
+              </span>
+            )}
           </div>
           </Tooltip>
-        )}
-        {winReadout && shareIsGoalOnly && (
-          <p
-            data-testid={`option-share-goal-only-${props.id}`}
-            className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}
-            aria-hidden="true"
-          >
-            {OPTION_RESULT_COPY.goalOnly}
-          </p>
         )}
 
         {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.

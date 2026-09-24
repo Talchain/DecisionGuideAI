@@ -16,15 +16,18 @@
  *   Line 2   `<value> <mark>`, plain text, no chip. Missing:
  *            `Needs input · Value not set yet` IN THE BODY, not a border pill.
  *            Pre-run with a value: nothing more.
- *   Findings ONLY if the run RANKED it: `Driver N of M ranked in this run` + a
- *            thin neutral bar; then a found turning point OR
- *            `No turning point in this run`. (A found turning point is the run's
- *            finding for THIS element and shows on any factor — contract
- *            `if(n.flip)flipPlot(); else if(n.rank)noTurning()`.)
- *   Never    "Structural influence"; "No turning point available" on an
- *            unranked factor; a limit line (the boundary lives on the Goal).
+ *   Findings ONLY if the run RANKED it: `Driver N of M analysed` + a thin
+ *            neutral bar, where M is the ELIGIBLE ANALYSED factors (the run's
+ *            driver feed, `influenceSetSize`) — not the count of ranks the
+ *            card happens to render (ED #63 5806207128, "Factor anatomy").
+ *            Then a FOUND turning point only. (A found turning point is the
+ *            run's finding for THIS element and shows on any factor.)
+ *   Never    "Structural influence"; any "No turning point …" line at rest —
+ *            ED 5806207128: "Absence of a turning point = no mini-visual";
+ *            a limit line (the boundary lives on the Goal).
  *   Stale    `Last run ·` ONLY on a derived result actually shown (a driver
  *            rank, a found turning point); never on filler.
+ *            (`Last run · Driver 1 of 6 analysed`, ED 5806207128.)
  *   All      no pills on the border; no chips around values at rest.
  *
  * ⚠ IDENTITY, NOT A VALUE PREDICATE. Every assertion binds a test id carrying
@@ -96,7 +99,12 @@ const metadata = (rank: number | null, setSize: number | null, rankedCount: numb
   valueOfInformation: null,
   voiRank: null,
 })
-const RANKED = () => metadata(1, 3, 3, 1)
+/**
+ * Ranked 1st, SIX factors analysed, THREE ranks published. The two counts
+ * differ on purpose: the caption must print the ANALYSED count (6), and the
+ * pre-s3fin tip printed the ranked count (3) — a discriminating pair.
+ */
+const RANKED = () => metadata(1, 6, 3, 1)
 const UNRANKED = () => metadata(null, 6, 3, 0.12)
 
 const FOUND_ROW = { node_id: ID, label: 'Trial conversion', current_value: 8, flip_value: 6.5, unit: '%', flip_reason: 'found', value_scale: 'display' }
@@ -171,7 +179,7 @@ const mounted = () => expect(screen.getByTestId('node-title').textContent).toCon
 const expectNothingItMustNeverSay = () => {
   const text = document.body.textContent ?? ''
   expect(text).not.toContain('Structural influence')
-  expect(text).not.toContain('No turning point available')
+  expect(text).not.toContain('No turning point')
   expect(text).not.toContain('Limit')
   expect(screen.queryByTestId('factor-constraint-lines')).toBeNull()
   expect(screen.queryByTestId('constraint-badge')).toBeNull()
@@ -263,7 +271,7 @@ describe('NODE-ANATOMY v3.2 · Factor · missing value — "Needs input · Value
 })
 
 describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found', () => {
-  it('value, then "Driver 1 of 3 ranked in this run" + bar, then the turning point — in that order', () => {
+  it('value, then "Driver 1 of 6 analysed" + bar, then the turning point — in that order', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
@@ -271,7 +279,7 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     const value = screen.getByTestId('factor-recorded-value')
     const driver = screen.getByTestId('factor-driver-line')
     const tp = screen.getByTestId('factor-turning-point')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
     expect(screen.getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(screen.getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
     expect(before(value, driver)).toBe(true)
@@ -292,20 +300,50 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
   })
 })
 
-describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point', () => {
-  it('"No turning point in this run" follows the driver line, and says so to a keyboard user too', () => {
+describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the ANALYSED count (ED 5806207128)', () => {
+  it('the caption AND its description print the analysed count (6), never the ranked count (3)', () => {
     displayMetadata = RANKED()
-    seed(VALUED, { phase: 'post', flipRows: [ATTESTED_NO_FLIP_ROW] })
+    seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
-    const driver = screen.getByTestId('factor-driver-line')
-    const none = screen.getByTestId('factor-turning-point-none')
-    expect(visibleText(none)).toBe('No turning point in this run')
-    expect(before(driver, none)).toBe(true)
-    // F10: focusable, like every other analysis cue on the card.
-    expect(none.getAttribute('tabindex')).toBe('0')
+    const caption = screen.getByTestId('factor-driver-line-caption').textContent ?? ''
+    expect(caption).toBe('Driver 1 of 6 analysed')
+    expect(caption).not.toContain('of 3')
+    expect(caption).not.toContain('ranked')
+    const note = screen.getByTestId('factor-driver-line').getAttribute('aria-description') ?? ''
+    expect(note).toContain('“of 6” counts the factors in the last analysis')
+    expect(note).not.toContain('of 3')
+  })
+
+  it('CONTRAST — a set of four analysed prints 4: the M follows the analysed count, not a constant', () => {
+    displayMetadata = metadata(2, 4, 3, 0.7)
+    seed(VALUED, { phase: 'post', flipRows: [] })
+    renderFactor(VALUED)
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 4 analysed')
+  })
+})
+
+describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — no mini-visual at rest', () => {
+  it.each([
+    ['an attested no-flip row', [ATTESTED_NO_FLIP_ROW]],
+    ['no row at all', []],
+  ] as const)('with %s: the driver line is the last finding; no "No turning point" line', (_name, flipRows) => {
+    displayMetadata = RANKED()
+    seed(VALUED, { phase: 'post', flipRows: [...flipRows] })
+    renderFactor(VALUED)
+    expect(semantic()).toBe('current')
+    // Positive control: the run's finding for this factor IS on the card.
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
     expectNothingItMustNeverSay()
+  })
+
+  it('CONTRAST — Detailed still states the attested search, so the resting absence is the gate, not a dead fixture', () => {
+    displayMetadata = RANKED()
+    seed(VALUED, { phase: 'post', flipRows: [ATTESTED_NO_FLIP_ROW], viewMode: 'expert' })
+    renderFactor(VALUED)
+    expect(visibleText(screen.getByTestId('factor-turning-point-none'))).toBe('No turning point in this run')
   })
 })
 
@@ -343,7 +381,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
     expect(screen.getByTestId('factor-turning-point-caption').textContent).toBe(
       'Last run · Below 6.5%, the model comparison changes.',
     )
@@ -351,6 +389,18 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     expect(screen.getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // The value is the factor's own state, not a finding: never prefixed.
     expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8%est.')
+    expectNothingItMustNeverSay()
+  })
+
+  it('a RANKED factor on a stale run with no turning point gains no "Last run · No turning point" line', () => {
+    displayMetadata = RANKED()
+    seed(VALUED, { phase: 'post', flipRows: [ATTESTED_NO_FLIP_ROW] })
+    renderFactor(VALUED)
+    editTheModel()
+    expect(semantic()).toBe('changed')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
+    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(document.body.textContent).not.toContain('in that run')
     expectNothingItMustNeverSay()
   })
 

@@ -12,9 +12,17 @@
  * (evaluated_infeasible / unevaluated / identity_unresolved —
  * `analysisNewCopy.ts` LEADER_WITHHOLD_CAUSE): the win share is computed on the
  * goal outcome alone. It claims nothing about WHICH of the three happened.
+ *
+ * ⭐ ED #63 5806207128 / 5806266691 choice 3 + NODE-ANATOMY v3.2 (Option): the
+ * qualifier is the SHORT form `Goal only`, ON THE SHARE LINE — the same row as
+ * `Current model ▬ N% of runs` — replacing #1921's second line ("Goal only ·
+ * your limits aren’t in this share"). The full meaning ("your limits aren’t in
+ * this share") is on hover AND keyboard focus AND in the accessible name. It
+ * must not look like endorsement: muted text, no colour. The producer_cause
+ * gating and the reload survival (RESULT-BOUND) are unchanged.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
@@ -63,7 +71,10 @@ const renderCard = () => render(<ReactFlowProvider><OptionNode
 
 const readout = () => screen.getByTestId('option-win-readout-candidate')
 const qualifier = () => screen.queryByTestId('option-share-goal-only-candidate')
-const label = () => screen.getByTestId('option-analysis-currency-candidate').getAttribute('aria-label') ?? ''
+const shareRow = () => screen.getByTestId('option-analysis-currency-candidate')
+const label = () => shareRow().getAttribute('aria-label') ?? ''
+const tokens = (el: Element) => new Set((el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean))
+const WITHHELD_FOR_LIMITS = { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' }
 
 afterEach(() => {
   cleanup()
@@ -75,14 +86,54 @@ afterEach(() => {
 
 describe('an option share under a withheld limit verdict says it is goal-only (RC P0 #3c)', () => {
   it('constraint_verdict_withheld → the share keeps its number AND carries the goal-only qualifier (visible + accessible)', () => {
-    seed(envelope({ permitted: false, withheld_reason: 'constraint_verdict_withheld' }),
-      { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'constraint_verdict_withheld' })
+    seed(envelope({ permitted: false, withheld_reason: 'constraint_verdict_withheld' }), WITHHELD_FOR_LIMITS)
     renderCard()
     expect(readout().textContent).toBe('81% of runs') // the data is not withheld — only the claim
     expect(qualifier()).not.toBeNull()
-    expect(qualifier()!.textContent).toBe('Goal only · your limits aren’t in this share')
-    expect(label()).toContain('This share compares the options on the goal alone; the limits you set are not part of it.')
+    expect(qualifier()!.textContent).toBe('Goal only')
+    expect(label()).toMatch(/your limits aren’t in this share/i)
     expect(label()).toContain('The check against the limits you set does not support putting one option forward.')
+  })
+
+  it('ED choice 3 — ON THE SHARE LINE: `Goal only` sits in the same row as the share, after it; no second line', () => {
+    seed(null, WITHHELD_FOR_LIMITS)
+    renderCard()
+    const row = shareRow()
+    const q = qualifier()!
+    expect(row.contains(q)).toBe(true)
+    expect(row.contains(readout())).toBe(true)
+    expect(Boolean(readout().compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    // #1921's own paragraph is gone: nothing outside the row says "Goal only".
+    expect(q.tagName).not.toBe('P')
+    expect(document.body.textContent).not.toContain('Goal only · your limits')
+  })
+
+  it('ED choice 3 — label in name: the spoken string opens with the visible line, then the full meaning', () => {
+    seed(null, WITHHELD_FOR_LIMITS)
+    renderCard()
+    expect(label().startsWith('Current model · 81% of runs · Goal only. Your limits aren’t in this share')).toBe(true)
+  })
+
+  it('ED choice 3 — the full meaning is on keyboard FOCUS as well as hover', async () => {
+    seed(null, WITHHELD_FOR_LIMITS)
+    renderCard()
+    expect(shareRow().getAttribute('tabindex')).toBe('0')
+    act(() => shareRow().focus())
+    expect(document.activeElement).toBe(shareRow())
+    const tip = await screen.findByRole('tooltip')
+    expect(tip).toHaveTextContent('Goal only. Your limits aren’t in this share')
+  })
+
+  it('ED choice 3 — it must not look like endorsement: muted text, no colour channel', () => {
+    seed(null, WITHHELD_FOR_LIMITS)
+    renderCard()
+    const t = tokens(qualifier()!)
+    expect(t.has('text-text-light')).toBe(true)
+    for (const cls of [...t]) {
+      expect(/^(text|bg|border)-(info|success|warning|danger|primary|option)/.test(cls), `colour token ${cls}`).toBe(false)
+    }
+    expect(t.has('font-medium')).toBe(false)
+    expect(t.has('font-semibold')).toBe(false)
   })
 
   it('CONTRAST — leader permitted: same numbers, no qualifier', () => {
@@ -91,6 +142,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(readout().textContent).toBe('81% of runs')
     expect(qualifier()).toBeNull()
     expect(label()).not.toContain('goal alone')
+    expect(label()).not.toContain('Goal only')
+    expect(label()).not.toContain('your limits')
   })
 
   it('CONTRAST — withheld for a DIFFERENT reason (separation_unavailable): no goal-only qualifier', () => {

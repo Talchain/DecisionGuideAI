@@ -25,6 +25,13 @@
  *
  * Every assertion binds by IDENTITY (the exact factor under test), never by a
  * value predicate another node could satisfy (CLAUDE.md trap 19).
+ *
+ * ⚠ FIXTURES WIDENED WITH THEIR REASON (NODE-ANATOMY v3.2; ED #63 5806266691
+ * "differentiator only when additive"): the footer now renders only where it
+ * adds something the change rows don't. Each fixture therefore gives the
+ * options a SHARED change they set identically (it never differentiates), so
+ * "… is the key difference" picks one of two changes, and the "→ value" case
+ * puts its factor behind "+1 more". The casing claims are unchanged.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -103,8 +110,8 @@ const twoCarrierState = () =>
   makeStoreState({
     ceeAnalysisReady: {
       options: [
-        { id: 'option-1', interventions: { 'factor-usage': 1.0 } },
-        { id: 'option-3', interventions: { 'factor-other': 0.9 } },
+        { id: 'option-1', interventions: { 'factor-usage': 1.0, 'factor-shared': { value: 3, display_value: '£3k' } } },
+        { id: 'option-3', interventions: { 'factor-other': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
         { id: 'option-2', interventions: { 'factor-usage': 0.0 } },
       ],
     },
@@ -123,6 +130,7 @@ const twoCarrierState = () =>
       },
       { id: 'factor-usage', type: 'factor', data: { label: TITLE_CASE_LABEL, observedState: { unit: 'scale', value: 0.0 } } },
       { id: 'factor-other', type: 'factor', data: { label: 'Enterprise Revenue Risk', observedState: { unit: 'scale', value: 0.0 } } },
+      { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
     ],
     viewMode: 'standard',
   })
@@ -211,8 +219,8 @@ describe('OptionNode — one factor, one name', () => {
       selector(makeStoreState({
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-build': 0.9 } },
-            { id: 'option-3', interventions: { 'factor-other': 0.9 } },
+            { id: 'option-1', interventions: { 'factor-build': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
+            { id: 'option-3', interventions: { 'factor-other': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
           ],
         },
         nodes: [
@@ -220,6 +228,7 @@ describe('OptionNode — one factor, one name', () => {
           { id: 'option-3', type: 'option', data: { label: 'Buy Vendor Solution', type: 'option' } },
           { id: 'factor-build', type: 'factor', data: { label: 'In-house build approach', observedState: { unit: 'scale', value: 0.0 } } },
           { id: 'factor-other', type: 'factor', data: { label: 'Vendor licensing cost', observedState: { unit: 'scale', value: 0.0 } } },
+          { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
         ],
         viewMode: 'standard',
       }) as never),
@@ -238,19 +247,24 @@ describe('OptionNode — one factor, one name', () => {
   it('the "→ value" branch carries the same casing', () => {
     // The differentiator has two sentence frames. A fix applied to one and not
     // the other would leave the defect live on every shared-factor option.
+    const EQUAL = { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' } }
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-usage': { value: 1.0, display_value: 'Very high (1)' } } },
-            { id: 'option-2', interventions: { 'factor-usage': { value: 0.4, display_value: 'Moderate (0.4)' } } },
-            { id: 'option-3', interventions: { 'factor-usage': { value: 0.1, display_value: 'Low (0.1)' } } },
+            { id: 'option-1', interventions: { ...EQUAL, 'factor-usage': { value: 1.0, display_value: 'Very high (1)' } } },
+            { id: 'option-2', interventions: { ...EQUAL, 'factor-usage': { value: 0.4, display_value: 'Moderate (0.4)' } } },
+            { id: 'option-3', interventions: { ...EQUAL, 'factor-usage': { value: 0.1, display_value: 'Low (0.1)' } } },
           ],
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { label: 'Full Switch at Renewal', type: 'option' } },
           { id: 'option-2', type: 'option', data: { label: 'Hybrid Platform Fee', type: 'option' } },
           { id: 'option-3', type: 'option', data: { label: 'New Logos Only', type: 'option' } },
+          // Earlier in the model than the differentiating factor, so the shared
+          // order shows these two rows and puts `factor-usage` behind "+1 more".
+          { id: 'factor-tools', type: 'factor', data: { label: 'Tooling spend' } },
+          { id: 'factor-hours', type: 'factor', data: { label: 'Weekly hours' } },
           { id: 'factor-usage', type: 'factor', data: { label: TITLE_CASE_LABEL, observedState: { unit: 'scale', value: 0.0 } } },
         ],
         viewMode: 'standard',
@@ -263,6 +277,8 @@ describe('OptionNode — one factor, one name', () => {
     // SAME target — so a text query for "→ Very high (1)" is ambiguous between
     // the two carriers. The claim here is the DIFFERENTIATOR's frame, so bind by
     // its identity rather than by text another carrier can also satisfy.
+    // Precondition: the factor is behind "+1 more", so the footer ADDS it.
+    expect(screen.queryByTestId('option-change-row-option-1-factor-usage')).toBeNull()
     const p = screen.getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
     expect(p.textContent).toBe('Usage-based pricing… → Very high (1)')

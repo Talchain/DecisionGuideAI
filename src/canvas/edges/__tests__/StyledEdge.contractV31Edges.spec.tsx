@@ -448,7 +448,8 @@ describe('T16 — DS tokens, not legacy or default-palette utilities', () => {
 
 describe('E11/E12/E8 — the three non-polarity stroke colours', () => {
   it('structural links are the contract\'s warm grey', () => {
-    expect(STRUCTURAL_EDGE_COLOUR).toBe('#B6B4B0')
+    // Built from the muted-ink token (no new production hex — DS v5, Paul pt 9).
+    expect(STRUCTURAL_EDGE_COLOUR).toBe('rgb(var(--text-light-rgb) / 0.5)')
   })
 
   it('the sign dispute is the SOLID Warning token, not a translucent mix', () => {
