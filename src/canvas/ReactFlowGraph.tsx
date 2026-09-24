@@ -83,7 +83,7 @@ import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
 import { userFitNodes } from './utils/fitTargets'
-import { claimCameraForUser } from './utils/userCameraClaim'
+import { claimCameraForUser, isUserCameraMove } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
 import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
 import { useLayoutStore } from './layoutStore'
@@ -2461,9 +2461,33 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Stable callbacks for CanvasViewportControls — declared unconditionally before
   // any debug-mode early returns to satisfy Rules of Hooks.
-  const handleZoomIn = useCallback(() => zoomInRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
-  const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
-  const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  //
+  // ⭐ AN EXPLICIT ZOOM CLAIMS THE CAMERA (Codex CR 5811958756, #1932, 24 Sep
+  // 2026). These controls never claimed it, so a same-model CORRECTION layout
+  // (content that grew after the landing layout, re-measured on the first
+  // zoom-in) re-ran the product's automatic fit and threw the user's zoom back
+  // to the landing view — Canvas Browser Gate `nodeKeyboardBleed` saw a reset
+  // to 100% land on 53%. `useFitViewOnLayoutVersion` already honours a claim
+  // for automatic layouts of the claimed model; a new model and a user-invoked
+  // Auto-arrange still fit (`utils/userCameraClaim.ts`).
+  const handleZoomIn = useCallback(() => {
+    claimCameraForUser(currentModelKey())
+    zoomInRef.current({ duration: cameraDuration(200, reducedMotionRef.current) })
+  }, [])
+  const handleZoomOut = useCallback(() => {
+    claimCameraForUser(currentModelKey())
+    zoomOutRef.current({ duration: cameraDuration(200, reducedMotionRef.current) })
+  }, [])
+  const handleZoomReset = useCallback(() => {
+    claimCameraForUser(currentModelKey())
+    zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) })
+  }, [])
+  // A wheel, pinch or drag is the user moving the camera too. xyflow passes the
+  // DOM event for a gesture and `null` for a programmatic move (every product
+  // fit), so only the person's own moves claim.
+  const handleMoveEnd = useCallback((event: MouseEvent | TouchEvent | null) => {
+    if (isUserCameraMove(event)) claimCameraForUser(currentModelKey())
+  }, [])
   // The USER-invoked "Fit to view".
   //
   // ⚠⚠ THIS CALL USED TO PASS `minZoom: LABEL_LEGIBLE_ZOOM`, AND THE COMMENT
@@ -2701,6 +2725,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
             onMoveStart={handleMoveStart}
+            onMoveEnd={handleMoveEnd}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}

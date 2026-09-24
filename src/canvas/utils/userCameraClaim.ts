@@ -179,3 +179,12 @@ export function userOwnsCameraFor(modelKey: string): boolean {
 function isClaimed(key: string | null): key is string {
   return typeof key === 'string' && key.length > 0
 }
+
+/**
+ * Did the PERSON move the camera? xyflow's `onMoveEnd` receives the DOM event for
+ * a wheel, pinch or drag and `null` for a programmatic move — every product fit,
+ * `zoomTo`, `fitView`. Only the person's own move may claim (Codex CR 5811958756).
+ */
+export function isUserCameraMove(event: unknown): boolean {
+  return event !== null && event !== undefined
+}
