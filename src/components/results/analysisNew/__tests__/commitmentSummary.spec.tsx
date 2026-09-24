@@ -266,45 +266,27 @@ describe('record your view — the existing decision record', () => {
     expect(screen.queryByTestId(`${TID}-record`)).toBeNull()
   })
 
-  /**
-   * ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 21): TRIMMED TO TWO LINES.
-   * WAS up to six `dt`/`dd` rows (option, confidence, expectation, rationale,
-   * assumption, revisit) — the prototype's own read-back (`positionHTML()`)
-   * shows only "Your view" and "Revisit when" plus a storage sentence, and
-   * every field this test used to find in the resting read-back is still on
-   * `DecisionRecord`, still true, and still reachable via "Update" — nothing
-   * here narrows what can be captured, only what shows without a click.
-   */
-  it('a record reads back compactly, as the user\'s view — option and revisit only', () => {
+  it('a record reads back compactly, as the user\'s view, with blank fields withheld', () => {
     renderZone({ record: RECORD })
     expect(screen.getByTestId(`${TID}-record-title`).textContent).toBe(COMMITMENT_COPY.record.recorded)
     expect(screen.getByTestId(`${TID}-record-option`).textContent).toBe(
       `${COMMITMENT_COPY.record.optionLabel}: ${recordedOptionText(RECORD)}`,
     )
+    expect(screen.getByTestId(`${TID}-record-confidence`).textContent).toBe(
+      `${COPY.decisionRecord.confidenceLabel}: 70 ${COPY.decisionRecord.confidenceSuffix}`,
+    )
     expect(screen.getByTestId(`${TID}-record-revisit`).textContent).toContain(RECORD.revisitTrigger)
-    // ⛔ TRIMMED FROM THE RESTING READ-BACK (gap 21), not merely blank: these
-    // never render here now, however the record is populated. `RECORD` (below)
-    // carries a real confidence and assumption, so their absence here is the
-    // trim, not the pre-existing "blank fields withheld" rule.
-    expect(screen.queryByTestId(`${TID}-record-confidence`)).toBeNull()
-    expect(screen.queryByTestId(`${TID}-record-expectation`)).toBeNull()
-    expect(screen.queryByTestId(`${TID}-record-assumption`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-record-assumption`).textContent).toContain(RECORD.assumptionToWatch)
+    // Whitespace-only rationale: withheld, never an empty labelled row.
     expect(screen.queryByTestId(`${TID}-record-rationale`)).toBeNull()
     expect(screen.getByTestId(`${TID}-record-storage`).textContent).toContain(storageSentenceFor(RECORD))
     // Never an Olumi decision.
     expect(screen.getByTestId(`${TID}-record`).textContent).not.toMatch(/olumi|recommend|decided/i)
   })
 
-  /**
-   * ⛔ V2 FIDELITY (gap 21): RE-POINTED. The rationale row (and its siblings)
-   * left the resting read-back regardless of whether it is blank — this now
-   * proves the NEGATIVE for a non-blank rationale too, which the trimmed
-   * component does not special-case: `Update` is the only route to it.
-   */
-  it('CONTRAST: even a non-blank rationale does not get a resting row — it is one click away via Update', () => {
-    renderZone({ record: { ...RECORD, rationale: 'Pricing power is proven in two regions.' }, canCapture: true })
-    expect(screen.queryByTestId(`${TID}-record-rationale`)).toBeNull()
-    expect(screen.getByTestId(`${TID}-record-update`)).toBeInTheDocument()
+  it('CONTRAST: a non-blank rationale does get its row', () => {
+    renderZone({ record: { ...RECORD, rationale: 'Pricing power is proven in two regions.' } })
+    expect(screen.getByTestId(`${TID}-record-rationale`).textContent).toContain('Pricing power is proven in two regions.')
   })
 
   it('the update control follows `canCapture`; the read-back does not', () => {

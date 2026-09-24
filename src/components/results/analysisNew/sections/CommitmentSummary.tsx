@@ -43,6 +43,7 @@ import {
 import { PanelIconButton } from '../PanelIconButton'
 import { action, icon } from '../panelSurfaces'
 import {
+  formatConfidence,
   formatRecordedOn,
   recordedOptionText,
   storageSentenceFor,
@@ -174,19 +175,26 @@ function RecordYourView({
           </button>
         ) : null}
       </div>
-      {/* ⭐ V2 FIDELITY (gap 21): TRIMMED TO TWO LINES, matching the
-          prototype's `positionHTML()` ("Your view", "Revisit when") plus the
-          storage sentence below. WAS up to six `dt`/`dd` rows (option,
-          confidence, expectation, rationale, assumption, revisit) — every
-          field still EXISTS on `DecisionRecord` and is still readable, one
-          click away, via "Update", which opens the same modal on the same
-          record; nothing here deletes data or narrows what can be captured. */}
+      {/* ⚠ V2 gap 21, CORRECTED BY PRE-REVIEW: the read-back is NOT trimmed.
+          Every field the reader recorded stays on screen. "Update" is gated on
+          `canCapture` (false during any re-run), so "one click away" was false
+          exactly when a run was in flight, and confidence, expectation,
+          rationale and the assumption to watch became unreachable. Only the
+          control's styling follows the prototype. */}
       <dl className="m-0 mt-1 space-y-0.5">
         <RecordLine
           label={COMMITMENT_COPY.record.optionLabel}
           value={recordedOptionText(record)}
           testId={`${testId}-option`}
         />
+        <RecordLine
+          label={COPY.decisionRecord.confidenceLabel}
+          value={formatConfidence(record.confidence)}
+          testId={`${testId}-confidence`}
+        />
+        <RecordLine label={COPY.decisionRecord.expectationLabel} value={record.expectation} testId={`${testId}-expectation`} />
+        <RecordLine label={COPY.decisionRecord.rationaleLabel} value={record.rationale} testId={`${testId}-rationale`} />
+        <RecordLine label={COPY.decisionRecord.assumptionLabel} value={record.assumptionToWatch} testId={`${testId}-assumption`} />
         <RecordLine
           label={COPY.decisionRecord.revisitLabel}
           value={record.revisitTrigger}
