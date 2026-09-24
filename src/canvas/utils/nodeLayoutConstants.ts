@@ -600,7 +600,7 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  * becoming a second spacing authority that competes with this one.
  */
 export const LAYOUT_NODE_GAP = 32
-export const LAYOUT_LAYER_GAP = 72
+export const LAYOUT_LAYER_GAP = 48
 
 export const LAYOUT_PADDING_X = 24
 
