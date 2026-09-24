@@ -27,13 +27,30 @@ export const COMMITMENT_QUALIFIER_COPY = {
   evidenceNotAssessed: 'evidence not assessed',
   robustnessNotEstablished: 'robustness not established',
   caveats: (n: number): string => `${n} ${n === 1 ? 'caveat' : 'caveats'} in About`,
+  /**
+   * CEE's typed marker, `analysis_result.enrichment.run_provenance.provisional`
+   * (RC 5818628860; Runtime 5818605567): the run Olumi started by itself after
+   * building the model. Licensed ONLY by that marker, never inferred.
+   */
+  automaticFirstPass: 'automatic first pass',
 } as const
+
+/** Facts from outside the view model that license a clause. */
+export interface QualifierFacts {
+  /** `enrichment.run_provenance.provisional === true` on the displayed run. */
+  readonly runProvisional?: boolean
+}
 
 type QualifierInput = Pick<AnalysisNewViewModel, 'status' | 'atAGlance' | 'checks' | 'deeper'>
 
-export function buildCommitmentQualifier(vm: QualifierInput): string | null {
+export function buildCommitmentQualifier(vm: QualifierInput, facts: QualifierFacts = {}): string | null {
   if (vm.status.isPreRun) return null
   const clauses: string[] = []
+
+  // ⭐ First, because it is WHY the run is provisional; the rest say how much.
+  // It licenses the line on its own, so an automatic run is never unlabelled
+  // even when every other clause is absent.
+  if (facts.runProvisional === true) clauses.push(COMMITMENT_QUALIFIER_COPY.automaticFirstPass)
 
   const inputs = vm.atAGlance.inputProvenance
   if (inputs === 'estimated') clauses.push(COMMITMENT_QUALIFIER_COPY.estimated)
