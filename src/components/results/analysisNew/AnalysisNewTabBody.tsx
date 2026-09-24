@@ -43,7 +43,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Star, TrendingUp, GitBranch, ClipboardCheck, GraduationCap, Activity } from 'lucide-react'
+import { AlertTriangle, Star, TrendingUp, GitBranch, Activity } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -683,13 +683,8 @@ export function AnalysisNewTabBody({
    * composed `isBusy` would test a different run than the one that produced
    * the verdict.
    */
-  /**
-   * ⭐ THE METHOD GROUP IS CONTROLLED so the trust line's own link can open it.
-   * A link that names a section and cannot reach it is navigation that lies —
-   * the defect this panel has shipped before in the form of an act whose only
-   * control was disabled by the very condition that offered it.
-   */
-  const [methodOpen, setMethodOpen] = useState(false)
+  /* V2 gap 24: the controlled "How this was worked out" group is gone — its
+     contents fold into About (see the About mount). Nothing else opened it. */
 
 
   /**
@@ -1108,6 +1103,29 @@ export function AnalysisNewTabBody({
     vm.deeper.critiques.length > 0 ||
     vm.deeper.caveats.length > 0 ||
     whatIWasGivenWillRender
+  /**
+   * ⚠⚠ THE EMPTY STATE OF "UNCERTAINTY AND GAPS" IS A TRUTH CLAIM AND IT SPLITS
+   * TWO WAYS. "Nothing was flagged" is licensed ONLY when the producer actually
+   * assessed evidence on this run; otherwise the honest sentence is that it was
+   * not assessed. Hoisted (unchanged) so the section and the fold gate below
+   * read one expression.
+   */
+  const uncertaintyEmptyMessage = vm.status.isPreRun
+    ? null
+    : vm.uncertainty.evidenceAssessed
+      ? COPY.empty.uncertaintyAssessed
+      : COPY.empty.uncertaintyUnassessed
+  /**
+   * ⭐ V2 gap 24: WILL ANY BLOCK FOLDED INTO ABOUT RENDER? The union of what
+   * each folded child renders on, under the gate the deleted shells gave it —
+   * so About appears pre-run exactly when the old tail had something to show
+   * (in practice the input register, which renders pre-run by design).
+   * `AnalysisNewSection` returns null on no findings and no empty message.
+   */
+  const foldedHasContent =
+    coachingHasContent ||
+    whatIWasGivenWillRender ||
+    (methodHasContent && (vm.uncertainty.findings.length > 0 || uncertaintyEmptyMessage !== null))
   /**
    * ⚠⚠ THE DOOR'S GATE IS THE CAPTURE MODAL'S OWN PREDICATE, DERIVED — NOT
    * RESTATED. `hasAnalysedOptions` is the function `DecisionRecordModal`
@@ -2876,284 +2894,28 @@ export function AnalysisNewTabBody({
             question to be asked: the acts belong TOGETHER, so the answer was a
             shared wrapper rather than a raised ceiling. What the run suggests
             and what you can ask for regardless are one zone. */}
-        {/* ── ZONE: FURTHER ─────────────────────────────────────────────
-            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
-            makes the zone grammar a REDUCTION: the panel goes from a flat stack
-            of equal-weight cards to a few named groups, and the regrowth
-            ratchet counts it as one child rather than several. A label added
-            loose would have raised the count by five and the ceiling with it,
-            which is the opposite of what the prototype asks for. */}
-        <div className="space-y-3" data-testid="analysis-new-zone-further-group">
-        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
-            of blocks, so it carries no border, no fill and no radius of its
-            own: furniture that looked like a block would add the weight this
-            change exists to remove. Sized and coloured as `panelMeta`, the
-            quietest of the panel's three sizes. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-further"
-        >
-          If you want to go further
-        </p>
-        {coachingHasContent ? (
-          <SectionShell
-            icon={GraduationCap}
-            title={COPY.sections.coachingAndMethod}
-            subtitle={COPY.sectionSubtitles.coachingAndMethod}
-            count={biasGroundingItems.length + vm.keyInsights.insights.length}
-            /**
-             * ⭐⭐ OPEN WHEN THERE IS REAL GROUNDING, AND ONLY THEN.
-             * `bias_findings[]` is the most method-bearing payload the producer
-             * sends — a mechanism, a literature citation and a costed
-             * micro-intervention per finding. It is the closest this panel gets
-             * to "science-grounded coaching", and it sat TWELFTH, below four
-             * caveat boxes, behind a chevron.
-             *
-             * ⚠ BOUND TO `biasGroundingItems`, NOT TO `coachingHasContent`. The
-             * group RENDERS whenever any child would, including on an honest
-             * empty message; it OPENS only when the producer actually grounded
-             * something. Opening onto "no insight is grounded well enough to
-             * lead with yet" would spend the reader's attention on an absence —
-             * the dumping-ground complaint this restructure exists to answer,
-             * re-created by over-eager promotion.
-             */
-            /* ⚠ V2 fidelity gap 25 (24 Sep 2026): CLOSED AT REST, always. The
-               prototype opens nothing below the commitment section at rest;
-               opening on bias findings ended the resting panel in a block of
-               citations. The grounding is one click away, unchanged. */
-            testId="analysis-new-coaching-and-method"
-          >
-          {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
-              ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
-              NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
-              `mechanism`, a `citation` and a costed `micro_intervention`; derived
-              at `08a3724d` with contrast controls, `mechanism` had zero product
-              renderers, `citation` had zero readers of any kind, and
-              `estimated_minutes` had none either. The transport drops nothing:
-              `client.ts:302` assigns `analysis_ready` wholesale with no zod and
-              no key allowlist, `bias_findings` is absent from the pinned contract
-              entirely, and `store.ts:6095` stores the object as it arrived.
+        {/* ── THE TAIL FOLDS INTO ABOUT (V2 fidelity gap 24, 24 Sep 2026) ──
+            ⛔ THE "If you want to go further" ZONE IS GONE, and with it its label
+            and both group shells ("Coaching and method", "How this was worked
+            out"). The prototype's `reasoningHTML()` ends
+            `${challengeHTML()}${commitHTML()}${aboutHTML()}`: nothing sits
+            between "Move towards commitment" and About, and the whole tail at
+            rest is one quiet line.
 
-              ⚠ IT SITS DIRECTLY UNDER "WHAT WE CHECKED" BECAUSE IT ANSWERS THE
-              NEXT QUESTION. That section says what the run looked at; this says
-              what the looking rests on, and the pairing is the reason a reader
-              can check the science instead of trusting it.
+            ⭐ NOTHING THE READER COULD REACH HAS BECOME UNREACHABLE. Every block
+            the two shells held is handed to About as `folded` — the SAME
+            components with the SAME gates, props, testids and acts — so a block
+            that was one click away (its group's toggle) is one click away (About's
+            toggle). The gates are the shells' own expressions, unchanged:
+            `coachingHasContent` for the grounding and key insights,
+            `methodHasContent` for "Uncertainty and gaps", and the register's own
+            `useWhatIWasGivenWillRender` for itself.
 
-              ⛔ IT NEVER NAMES A BIAS. The producer's `code` is read for nothing:
-              the mechanism, the technique and the paper are the product, and a
-              classification handed back to the reader is a diagnosis of them
-              (#1438's register, which this matches).
-
-              Renders NOTHING when the producer sent no grounding — pre-run,
-              on a run with no findings, and on findings that carried none of the
-              three fields. Absence produces silence, never a placeholder. */}
-          <BiasGrounding items={biasGroundingItems} />
-
-          {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
-              ⭐ THE GLANCE'S OWN MISSING HALF. On a real completed run with four
-              options this surface showed the leader and one percentage and
-              nothing at all about the other three; the reader could not tell a
-              runaway leader from a coin flip, and could not see that an option
-              they cared about took no part in the comparison.
-              ⚠ It previously sat directly under the glance; the coaching now
-              takes that slot (see above), and this sentence is corrected rather
-              than left describing a placement that no longer holds.
-
-              It costs ONE collapsed row at rest — the same idiom as every
-              section below it — so closing the largest content gap on the
-              surface does not spend the first viewport. */}
-          {/* ── WHAT YOUR MODEL IMPLIES ─────────────────────────────────────
-              ⭐ MOUNTED 5 Sep 2026. This block was written, typed, gated, built
-              onto the view model and covered by two spec files — and had ZERO
-              production importers, which the estate had already noticed and
-              written down (`heroWithholdsOnTheSameCells.spec.ts:30`). So the
-              design pack's centrepiece, and every sentence in
-              `analysisNewCopy.ts:108-178`, reached no screen: the panel showed
-              the option ROWS and never the sentence saying what they mean.
-
-              It leads the rows rather than following them, because when the two
-              readings DISAGREE that is the most decision-relevant thing the run
-              produced — the component's own header argues it at length, and the
-              prototype draws it the same way.
-
-              ⚠ IT ADDS NO CLAIM. Every sentence arrives pre-composed and already
-              gated: `{kind:'none'}` for pre-run, for a single option, and on any
-              run whose verdict withholds the leader claim — in which case this
-              renders nothing at all. Mounting a component is exactly the change
-              that could put a withheld claim on screen, so that is pinned. */}
-          {/* Moved up beside the glance — see `answerBlock` above. */}
-
-
-
-          {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
-          <AnalysisNewSection
-            title={COPY.sections.keyInsights}
-            findings={vm.keyInsights.insights}
-            preview={ANALYSIS_NEW_LIMITS.KEY_INSIGHT_PREVIEW}
-            // ⚠ "No insight is grounded well enough to lead with yet" is FALSE
-            // when the run DID produce insights and the glance is simply stating
-            // them — witnessed on a real run, where the glance carried all three
-            // and this line then contradicted the surface directly above it. An
-            // empty list with a non-zero candidate count means "shown above", so
-            // the section renders nothing at all rather than a claim that is not
-            // true. The honest empty state survives for a run that genuinely
-            // produced none.
-            emptyMessage={keyInsightsEmptyMessage}
-            onFocusTarget={focusTarget}
-            onRunIntervention={runIntervention}
-            onAskOlumi={askOlumiAbout}
-            icon={Star}
-            testId="analysis-new-key-insights"
-          />
-          </SectionShell>
-        ) : null}
-
-
-        {/* ── HOW THIS WAS WORKED OUT ──────────────────────────────────────
-            ⭐⭐⭐ SEVEN SECTIONS ANSWERED ONE QUESTION. `RobustnessCaveat`,
-            `WhatWeChecked`, uncertainty, `CritiqueWarningStrip`,
-            `InferenceWarningStrip`, `ModelHeldUp` and `WhatIWasGiven` all
-            answer "how far can I trust this?", each under its own heading, each
-            at full weight, spread down the page. A reader had to assemble the
-            answer themselves — which is not a copy problem and no rewrite fixes
-            it.
-
-            These two are the METHOD half and they group cleanly. Closed by
-            default: the reader who wants the method opens it; the reader who
-            does not is no longer reading past it to reach anything.
-
-            ⚠ `Accordion` IS THE RESULTS PANEL'S OWN DISCLOSURE PRIMITIVE
-            (`components/results/Accordion.tsx`) and this tab had never called
-            it — the machinery for this existed before the tab did. Nothing new
-            was built here. */}
-        {methodHasContent ? (
-          <SectionShell
-            icon={ClipboardCheck}
-            title={COPY.sections.howWorkedOut}
-            subtitle={COPY.sectionSubtitles.howWorkedOut}
-            /* V2 gap 26: count what this group HOLDS (the uncertainty findings);
-               the checks now render as About's rows. */
-            count={vm.uncertainty.findings.length}
-            open={methodOpen}
-            onOpenChange={setMethodOpen}
-            testId="analysis-new-how-worked-out"
-          >
-
-          {/* ⭐ THE SEVENTH TRUST SECTION, JOINING ITS SIX SIBLINGS. "What you
-              gave me, and what I did with it" answers the same question as the
-              checks and the gaps — how far can I trust this? — and it was the last
-              one still standing at top level, between the act and the reader. */}
-          {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
-              ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
-              THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
-              you mentioned aren't in the model yet". A driven comparison of both
-              tabs on one completed run found it absent here (accordions opened,
-              positive control firing at 6151 chars), and this is the mount.
-
-              ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
-              enforces its own identity gate (it once rendered a PREVIOUS
-              decision's brief verbatim), so re-implementing it for this tab would
-              fork both the gate and the manifest vocabulary — the twin defect
-              this estate keeps paying for. One component, two mounts.
-
-              ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
-              a WORKLIST — every row is something to validate or add, and its
-              "Add this" starts the conversation to include a figure. That makes
-              it kin to the coaching below it, not to the census above it. Putting
-              it under the strip would have pushed the answer below the fold, and
-              the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
-              ABOUT IT → THE DETAIL. */}
-          {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
-              the PARKED Analysis tab mounts the same component and keeps its
-              existing rendering — see the prop's declaration for why the default
-              may not move. */}
-          {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
-              "what I estimated". The register stated "The numbers behind these
-              are mine, not yours. If you have better ones, tell me and I'll use
-              them." over a list with no way to tell it — an invitation with no
-              means of accepting it. The control is the proven factor-value edit
-              (`useFactorValueCommit`), bound to each row by the `node_id` CEE
-              itself supplies. It is opt-in so the PARKED Analysis tab does not
-              acquire a writer — see the prop's declaration. */}
-          <WhatIWasGivenSection
-            ref={whatIWasGivenRef}
-            onSendMessage={onSendMessage}
-            useSurfaceGrammar={true}
-            /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
-               `true`. Two literals for one opt-in would let the refusal's act
-               believe this register offers an edit on a build where it does not
-               (CLAUDE.md trap 12). */
-            offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
-          />
-          {/* ── WHAT WE CHECKED ─────────────────────────────────────────────
-              #1082 landed this component, its adapter and 54 tests but left it
-              UNMOUNTED, because this file belongs to another lane. This is the
-              mount — the delta that PR verified in a throwaway worktree, at the
-              anchor it named: directly under the answer it qualifies, before
-              `OptionsComparison`.
-
-              It answers a DIFFERENT question from the glance — what the run
-              CHECKED, not what it FOUND — so the two are named apart rather than
-              reconciled (trap 21). It is the only surface on this tab that
-              speaks for a check that was NOT made, where silence otherwise reads
-              as "fine": a reader could not tell "we looked and found nothing"
-              from "we did not look", and only one of those is reassurance.
-
-              Costs one wrapped line at rest and renders NOTHING pre-run
-              (`vm.checks` is `{ items: [] }`, which the component returns null
-              for) — so a heading never appears without something under it. */}
-
-          {/* ⭐⭐ §4 — ONE PLACE FOR WHAT THE RUN COULD NOT SETTLE.
-              Measured on a reconstruction of the run Paul screenshotted: EIGHT
-              "could not establish" statements, and only two of them anything
-              like duplicates. They are NOT redundant — which is why this is a
-              re-composition and not a cull. What made them a drain is that one
-              category of information lived in SIX places: both warning strips,
-              the glance ribbon, this readout, the section below, and the value-
-              of-information line eleven sections further down.
-
-              ⚠ THE TOP STRIPS DO NOT MOVE. `mounts the warning strip ABOVE the
-              glance, not below the sections` pins them there and it is right:
-              an engine critique qualifies the whole run, so a reader must meet
-              it before the reading it qualifies. This joins the two that were
-              merely far apart, and leaves the ruled positions alone.
-
-              ⚠ ORDER CONSTRAINTS CHECKED, NOT ASSUMED: Strengthen still
-              precedes both (`keeps the coaching above every detail section`),
-              and `analysis-new-sensitivity` still precedes uncertainty. */}
-          {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
-          <AnalysisNewSection
-            title={COPY.sections.uncertainty}
-            subtitle={COPY.sectionSubtitles.uncertainty}
-            findings={vm.uncertainty.findings}
-            preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
-            // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
-            // "Nothing was flagged" is licensed ONLY when the producer actually
-            // assessed evidence on this run; otherwise the honest sentence is
-            // that it was not assessed. An empty list cannot tell them apart —
-            // `evidenceGapsAssessed` can.
-            emptyMessage={
-              vm.status.isPreRun
-                ? null
-                : vm.uncertainty.evidenceAssessed
-                  ? COPY.empty.uncertaintyAssessed
-                  : COPY.empty.uncertaintyUnassessed
-            }
-            onFocusTarget={focusTarget}
-            onReviewTarget={onReviewTarget}
-            onRunIntervention={runIntervention}
-            onAskOlumi={askOlumiAbout}
-            icon={AlertTriangle}
-            testId="analysis-new-uncertainty"
-          />
-          </SectionShell>
-        ) : null}
-
-
-        </div>
-        {/* ⭐ V2 — ONE COLLAPSED AUDIT SURFACE AT THE BOTTOM. It absorbs the
-            trust line, "What we checked" and the deeper run record, as short
-            status rows. Nothing pre-run. */}
+            ⚠ WHAT THIS DELIBERATELY DOES NOT DO — gap 24's reviewer ruled each a
+            product decision, not presentation: it does not drop Key insights,
+            does not move the bias grounding into the Challenge card's "Why
+            this?" basis, and does not put the input register (and its value-edit
+            control) behind an extra text button. */}
         <AboutThisAnalysis
           vm={vm}
           nSamples={nSamples}
@@ -3165,6 +2927,150 @@ export function AnalysisNewTabBody({
           }}
           offerFactorValueControl={true}
           onAsk={openAskOlumi}
+          foldedHasContent={foldedHasContent}
+          folded={
+            foldedHasContent ? (
+            <>
+              {coachingHasContent ? (
+                <>
+                {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
+                    ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
+                    NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
+                    `mechanism`, a `citation` and a costed `micro_intervention`; derived
+                    at `08a3724d` with contrast controls, `mechanism` had zero product
+                    renderers, `citation` had zero readers of any kind, and
+                    `estimated_minutes` had none either. The transport drops nothing:
+                    `client.ts:302` assigns `analysis_ready` wholesale with no zod and
+                    no key allowlist, `bias_findings` is absent from the pinned contract
+                    entirely, and `store.ts:6095` stores the object as it arrived.
+
+                    ⚠ IT SITS DIRECTLY UNDER "WHAT WE CHECKED" BECAUSE IT ANSWERS THE
+                    NEXT QUESTION. That section says what the run looked at; this says
+                    what the looking rests on, and the pairing is the reason a reader
+                    can check the science instead of trusting it.
+
+                    ⛔ IT NEVER NAMES A BIAS. The producer's `code` is read for nothing:
+                    the mechanism, the technique and the paper are the product, and a
+                    classification handed back to the reader is a diagnosis of them
+                    (#1438's register, which this matches).
+
+                    Renders NOTHING when the producer sent no grounding — pre-run,
+                    on a run with no findings, and on findings that carried none of the
+                    three fields. Absence produces silence, never a placeholder. */}
+                <BiasGrounding items={biasGroundingItems} />
+
+                {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
+                <AnalysisNewSection
+                  title={COPY.sections.keyInsights}
+                  findings={vm.keyInsights.insights}
+                  preview={ANALYSIS_NEW_LIMITS.KEY_INSIGHT_PREVIEW}
+                  // ⚠ "No insight is grounded well enough to lead with yet" is FALSE
+                  // when the run DID produce insights and the glance is simply stating
+                  // them — witnessed on a real run, where the glance carried all three
+                  // and this line then contradicted the surface directly above it. An
+                  // empty list with a non-zero candidate count means "shown above", so
+                  // the section renders nothing at all rather than a claim that is not
+                  // true. The honest empty state survives for a run that genuinely
+                  // produced none.
+                  emptyMessage={keyInsightsEmptyMessage}
+                  onFocusTarget={focusTarget}
+                  onRunIntervention={runIntervention}
+                  onAskOlumi={askOlumiAbout}
+                  icon={Star}
+                  testId="analysis-new-key-insights"
+                />
+                </>
+              ) : null}
+                {/* ⭐ THE SEVENTH TRUST SECTION, JOINING ITS SIX SIBLINGS. "What you
+                    gave me, and what I did with it" answers the same question as the
+                    checks and the gaps — how far can I trust this? — and it was the last
+                    one still standing at top level, between the act and the reader. */}
+                {/* ── WHAT YOU GAVE ME, AND WHAT I DID WITH IT ──────────────────────
+                    ⭐ LIFTED FROM THE OLD ANALYSIS TAB, WHERE IT WAS THE ONE SURFACE
+                    THAT NAMES A CONCRETE GAP IN THE USER'S OWN INPUT — "1 of 2 figures
+                    you mentioned aren't in the model yet". A driven comparison of both
+                    tabs on one completed run found it absent here (accordions opened,
+                    positive control firing at 6151 chars), and this is the mount.
+
+                    ⚠ IT IS A LIFT, NOT A COPY. The component reads its own store and
+                    enforces its own identity gate (it once rendered a PREVIOUS
+                    decision's brief verbatim), so re-implementing it for this tab would
+                    fork both the gate and the manifest vocabulary — the twin defect
+                    this estate keeps paying for. One component, two mounts.
+
+                    ⚠ PLACED DIRECTLY ABOVE STRENGTHEN, not with the model strip. It is
+                    a WORKLIST — every row is something to validate or add, and its
+                    "Add this" starts the conversation to include a figure. That makes
+                    it kin to the coaching below it, not to the census above it. Putting
+                    it under the strip would have pushed the answer below the fold, and
+                    the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
+                    ABOUT IT → THE DETAIL. */}
+                {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
+                    the PARKED Analysis tab mounts the same component and keeps its
+                    existing rendering — see the prop's declaration for why the default
+                    may not move. */}
+                {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
+                    "what I estimated". The register stated "The numbers behind these
+                    are mine, not yours. If you have better ones, tell me and I'll use
+                    them." over a list with no way to tell it — an invitation with no
+                    means of accepting it. The control is the proven factor-value edit
+                    (`useFactorValueCommit`), bound to each row by the `node_id` CEE
+                    itself supplies. It is opt-in so the PARKED Analysis tab does not
+                    acquire a writer — see the prop's declaration. */}
+                <WhatIWasGivenSection
+                  ref={whatIWasGivenRef}
+                  onSendMessage={onSendMessage}
+                  useSurfaceGrammar={true}
+                  /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
+                     `true`. Two literals for one opt-in would let the refusal's act
+                     believe this register offers an edit on a build where it does not
+                     (CLAUDE.md trap 12). */
+                  offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
+                />
+              {methodHasContent ? (
+                <>
+                {/* ⭐⭐ §4 — ONE PLACE FOR WHAT THE RUN COULD NOT SETTLE.
+                    Measured on a reconstruction of the run Paul screenshotted: EIGHT
+                    "could not establish" statements, and only two of them anything
+                    like duplicates. They are NOT redundant — which is why this is a
+                    re-composition and not a cull. What made them a drain is that one
+                    category of information lived in SIX places: both warning strips,
+                    the glance ribbon, this readout, the section below, and the value-
+                    of-information line eleven sections further down.
+
+                    ⚠ THE TOP STRIPS DO NOT MOVE. `mounts the warning strip ABOVE the
+                    glance, not below the sections` pins them there and it is right:
+                    an engine critique qualifies the whole run, so a reader must meet
+                    it before the reading it qualifies. This joins the two that were
+                    merely far apart, and leaves the ruled positions alone.
+
+                    ⚠ ORDER CONSTRAINTS CHECKED, NOT ASSUMED: Strengthen still
+                    precedes both (`keeps the coaching above every detail section`),
+                    and `analysis-new-sensitivity` still precedes uncertainty. */}
+                {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
+                <AnalysisNewSection
+                  title={COPY.sections.uncertainty}
+                  subtitle={COPY.sectionSubtitles.uncertainty}
+                  findings={vm.uncertainty.findings}
+                  preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
+                  // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
+                  // "Nothing was flagged" is licensed ONLY when the producer actually
+                  // assessed evidence on this run; otherwise the honest sentence is
+                  // that it was not assessed. An empty list cannot tell them apart —
+                  // `evidenceGapsAssessed` can.
+                  emptyMessage={uncertaintyEmptyMessage}
+                  onFocusTarget={focusTarget}
+                  onReviewTarget={onReviewTarget}
+                  onRunIntervention={runIntervention}
+                  onAskOlumi={askOlumiAbout}
+                  icon={AlertTriangle}
+                  testId="analysis-new-uncertainty"
+                />
+                </>
+              ) : null}
+            </>
+            ) : null
+          }
         />
       </div>
     </div>

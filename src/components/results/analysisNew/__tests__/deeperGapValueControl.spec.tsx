@@ -413,7 +413,10 @@ describe('the mount path', () => {
     expect(screen.queryByTestId(TID)).toBeNull()
     const section = screen.getByTestId(ABOUT)
     // ⚠ About is collapsed at rest and UNMOUNTS its region; so is the detail.
-    fireEvent.click(screen.getByTestId(`${ABOUT}-toggle`))
+    // V2 fidelity gap 24: About is now a named group, so `openGroupsIfPresent`
+    // has already opened it — click only when closed, or the click closes it.
+    const aboutToggle = screen.getByTestId(`${ABOUT}-toggle`)
+    if (aboutToggle.getAttribute('aria-expanded') === 'false') fireEvent.click(aboutToggle)
     fireEvent.click(screen.getByTestId(`${ABOUT}-detail-record-toggle`))
     const trigger = controlFor(`${ABOUT}-value-edit`, TARGET_NODE_ID)
     expect(trigger).toBeInTheDocument()
