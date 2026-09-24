@@ -183,7 +183,10 @@ function cardTarget(card: HTMLElement, factorId: string): string {
   const dd = card.querySelector(`[data-testid="option-change-row-${OPTION_ID}-${factorId}"]`)
   expect(dd, `PRECONDITION: the card rendered a change row for ${factorId}`).not.toBeNull()
   const clone = dd!.cloneNode(true) as HTMLElement
-  clone.querySelectorAll('[data-value-source], [data-testid^="option-change-row-estimate-"]').forEach(n => n.remove())
+  // The whole mark cluster goes — since S1 (#1926) it is a wrapper holding a
+  // muted "·" separator AND the mark; removing only the mark left "£60k ·".
+  // On a card without the wrapper this selector matches nothing.
+  clone.querySelectorAll('[data-testid^="option-change-row-mark-"], [data-value-source], [data-testid^="option-change-row-estimate-"]').forEach(n => n.remove())
   const text = (clone.textContent ?? '').replace(/ · same as baseline$/, '').trim()
   const arrow = text.lastIndexOf('→ ')
   return arrow >= 0 ? text.slice(arrow + 2).trim() : text
