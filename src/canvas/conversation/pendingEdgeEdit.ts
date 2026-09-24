@@ -83,6 +83,19 @@ export function edgeEditWrittenKeys(edit: { readonly sentDirection?: unknown }):
 /** The in-flight edit per edge. A second edit to the same link replaces the first. */
 const inFlight = new Map<string, PendingEdgeEdit>()
 
+/**
+ * ⛔ ONE ENTRY PER EDGE **PER EDIT KIND** — never one per edge (independent
+ * review of #1950 at `858d9159`, 5820986154). A flip and a strength drag on the
+ * same link are two edits with two settlements. Keyed by edge alone, whichever
+ * came second REPLACED the first: the first's refusal then reverted nothing,
+ * its hold ended when the second settled, and its sign check was skipped
+ * ("Sent" on a flip the model never took). Keyed by kind, each settlement finds
+ * its own entry. A newer edit of the SAME kind still replaces the older one.
+ */
+type EdgeEditKind = 'strength' | 'direction'
+const kindOf = (sentDirection: unknown): EdgeEditKind => (sentDirection !== undefined ? 'direction' : 'strength')
+const entryKey = (edgeId: string, kind: EdgeEditKind) => `${kind}\u0000${edgeId}`
+
 type Listener = () => void
 const listeners = new Set<Listener>()
 
@@ -125,12 +138,14 @@ export function markEdgeEditInFlight(
   sentDirection?: 'positive' | 'negative',
 ): void {
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
-  const prior = inFlight.get(edgeId)
-  // A newer STRENGTH edit to the same link keeps the ORIGINAL pre-edit data:
-  // that is what the server still holds while both are unanswered. A
-  // DIRECTION edit keeps its OWN: its refusal restores only the direction keys,
-  // and the direction to restore is the one on screen when it was pressed.
-  inFlight.set(edgeId, {
+  const key = entryKey(edgeId, kindOf(sentDirection))
+  const prior = inFlight.get(key)
+  // A newer STRENGTH edit to the same link keeps the ORIGINAL pre-edit data of
+  // the strength edit it replaces: that is what the server still holds while
+  // both are unanswered. A DIRECTION edit keeps its OWN: its refusal restores
+  // only the direction keys, and the direction to restore is the one on screen
+  // when it was pressed.
+  inFlight.set(key, {
     edgeId,
     sentMagnitude,
     before: sentDirection !== undefined ? { ...(before ?? {}) } : prior?.before ?? { ...(before ?? {}) },
@@ -149,9 +164,10 @@ export function settleEdgeEdit(
   sentMagnitude: number,
   sentDirection?: 'positive' | 'negative',
 ): boolean {
-  const entry = inFlight.get(edgeId)
+  const key = entryKey(edgeId, kindOf(sentDirection))
+  const entry = inFlight.get(key)
   if (!entry || entry.sentMagnitude !== sentMagnitude || entry.sentDirection !== sentDirection) return false
-  inFlight.delete(edgeId)
+  inFlight.delete(key)
   emit()
   return true
 }
@@ -186,6 +202,20 @@ export function edgeDataWithStrengthWriteUndone(
   return out
 }
 
+/**
+ * The keys THIS entry's refusal restores. A strength edit also writes the
+ * direction keys (the signed slider can cross zero), but while a FLIP on the
+ * same link is pending the direction is the flip's: the flip settles it, and a
+ * strength refusal restoring it would undo a flip the model may already hold
+ * (5820986154, scenario D).
+ */
+function revertKeysFor(entry: PendingEdgeEdit): readonly string[] {
+  const keys = edgeEditWrittenKeys(entry)
+  if (entry.sentDirection !== undefined) return keys
+  if (!inFlight.has(entryKey(entry.edgeId, 'direction'))) return keys
+  return keys.filter((k) => !(EDGE_DIRECTION_WRITTEN_KEYS as readonly string[]).includes(k))
+}
+
 function revertEdgeEdit(entry: PendingEdgeEdit): void {
   const store = useCanvasStore.getState()
   const edge = store.edges.find((e) => e.id === entry.edgeId)
@@ -199,7 +229,7 @@ function revertEdgeEdit(entry: PendingEdgeEdit): void {
       data: edgeDataWithStrengthWriteUndone(
         (edge.data ?? {}) as Record<string, unknown>,
         entry.before,
-        edgeEditWrittenKeys(entry),
+        revertKeysFor(entry),
       ),
     } as never)
   } finally {
@@ -239,7 +269,7 @@ export function resolveEdgeEditSettlement(
   settlement: SystemEventSendSettlement,
   sentDirection?: 'positive' | 'negative',
 ): SystemEventSendSettlement {
-  const entry = inFlight.get(edgeId)
+  const entry = inFlight.get(entryKey(edgeId, kindOf(sentDirection)))
   if (!entry || entry.sentMagnitude !== sentMagnitude || entry.sentDirection !== sentDirection) return settlement
   if (settlement === 'unverified' || settlement === 'queued') return settlement
   if (settlement === 'blocked') {

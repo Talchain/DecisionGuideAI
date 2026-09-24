@@ -33,6 +33,7 @@ import { SystemEventSendError } from '../../../conversation/useConversation'
 import {
   __resetPendingEdgeEditsForTest,
   markEdgeEditInFlight,
+  resolveEdgeEditSettlement,
   unconfirmedEdgeEditOnGraph,
 } from '../../../conversation/pendingEdgeEdit'
 
@@ -266,5 +267,90 @@ describe('a refused flip beside a canvas weight the server has not confirmed', (
     markEdgeEditInFlight('e1', 0.4, { weight: 0.4, direction: 'positive' }, 'negative')
     expect(unconfirmedEdgeEditOnGraph([{ id: 'e1', data: { weight: 0.6, direction: 'negative' } }])).toBe('e1')
     expect(unconfirmedEdgeEditOnGraph([{ id: 'e1', data: { weight: 0.6, direction: 'positive' } }])).toBeNull()
+  })
+})
+
+/**
+ * ⛔ A FLIP AND A STRENGTH DRAG ON ONE LINK MUST NOT OVERWRITE EACH OTHER'S
+ * SETTLEMENT (independent review of #1950 at `858d9159`, 5820986154). With one
+ * in-flight entry per edge, whichever came second replaced the first: the
+ * first's refusal then reverted nothing, its hold ended early, and its sign
+ * check was skipped. Each edit now keeps its own entry, settles against it,
+ * and restores only what it owns.
+ *
+ * The strength edit is driven exactly as `setStrength` drives it: the
+ * in-flight mark plus the canvas write, and its settlement through
+ * `resolveEdgeEditSettlement`.
+ */
+describe('a flip and a strength drag on the same link, interleaved', () => {
+  let answerFlip: (v: unknown) => void = () => {}
+  const flipStaysPending = () =>
+    sendSystemEvent.mockImplementation(() => new Promise(r => { answerFlip = r }))
+
+  function dragStrengthTo(w: number) {
+    markEdgeEditInFlight('e1', w, readEdgeData())
+    useCanvasStore.setState((st: any) => ({
+      edges: st.edges.map((e: any) => e.id !== 'e1' ? e : { ...e, data: { ...e.data, weight: w, weightSource: 'user' } }),
+    }))
+  }
+  const strengthSettles = (w: number, settlement: 'refused' | 'sent') =>
+    act(() => { resolveEdgeEditSettlement('e1', w, settlement) })
+
+  /** CEE applied the flip: the acknowledgement states the new sign (magnitude untouched on the canvas). */
+  function serverAppliedFlip() {
+    useCanvasStore.setState((st: any) => ({
+      edges: st.edges.map((e: any) => e.id !== 'e1' ? e : {
+        ...e, data: { ...e.data, direction: 'negative', serverStrength: { mean: -0.4, effect_direction: 'negative' } },
+      }),
+    }))
+  }
+
+  async function clickDecreases() {
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={() => {}} />)
+    fireEvent.click(await screen.findByTestId('edge-direction-decreases'))
+    await waitFor(() => expect(sendSystemEvent).toHaveBeenCalledTimes(1))
+  }
+
+  it('D — drag, then flip, then the DRAG is refused: the weight comes back, the pending flip is untouched', async () => {
+    flipStaysPending()
+    dragStrengthTo(0.6)
+    await clickDecreases()
+
+    await strengthSettles(0.6, 'refused')
+    expect(readEdgeData().weight).toBe(0.4)
+    expect(readEdgeData().direction).toBe('negative')
+  })
+
+  it('E — drag, then flip, the flip lands: the drag is STILL held off registration', async () => {
+    flipStaysPending()
+    dragStrengthTo(0.6)
+    await clickDecreases()
+
+    await act(async () => { serverAppliedFlip(); answerFlip(undefined) })
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'sent'))
+    expect(unconfirmedEdgeEditOnGraph(useCanvasStore.getState().edges as never)).toBe('e1')
+  })
+
+  it('F1 — flip, then drag, the flip is answered WITHOUT the model stating the sign: not "Sent"', async () => {
+    flipStaysPending()
+    await clickDecreases()
+    dragStrengthTo(0.6)
+
+    await act(async () => { answerFlip(undefined) })
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'unverified'))
+    expect(feedback().textContent).not.toContain(SENT)
+  })
+
+  it('F2 — flip, then drag, the flip lands and the DRAG is refused: the canvas keeps the model\'s sign', async () => {
+    flipStaysPending()
+    await clickDecreases()
+    dragStrengthTo(0.6)
+    await act(async () => { serverAppliedFlip(); answerFlip(undefined) })
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'sent'))
+
+    await strengthSettles(0.6, 'refused')
+    expect(readEdgeData().weight).toBe(0.4)
+    expect(readEdgeData().direction).toBe('negative')
+    expect(screen.getByTestId('edge-direction-decreases')).toHaveAttribute('aria-pressed', 'true')
   })
 })
