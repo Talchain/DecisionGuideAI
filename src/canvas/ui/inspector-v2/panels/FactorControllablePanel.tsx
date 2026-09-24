@@ -58,6 +58,10 @@ import {
   type ValueInputSeedBasis,
 } from '../../../conversation/factorValueEdit'
 import { captureOptimisticFactorEdit } from '../../../conversation/optimisticFactorEdit'
+import {
+  didValueCommitRevert,
+  VALUE_COMMIT_SETTLEMENT_COPY,
+} from '../../../conversation/valueCommitSettlement'
 import { USER_VALUE_STAMP } from '../../../domain/valueProvenance'
 import { classifyUnit } from '../../../../utils/unitClassifier'
 import { isSuppressedUnit } from '../../../utils/labelUtils'
@@ -461,7 +465,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         const seedNow = resolveValueInputSeed(
           useCanvasStore.getState().nodes.find(n => n.id === commitNodeId)?.data,
         ).seed
-        const reverted = outcome !== SEND_DEFERRED && seedAfterWrite !== seedBeforeWrite && seedNow === seedBeforeWrite
+        const reverted =
+          outcome !== SEND_DEFERRED && didValueCommitRevert(seedBeforeWrite, seedAfterWrite, seedNow)
         setValueCommitOutcome(reverted ? 'not_applied' : 'sent')
         // Put the model's value back in the field HERE too, not only through
         // the seed effect: when the write and its revert land in one render,
@@ -1015,7 +1020,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 data-testid="factor-value-not-saved"
                 className={`${typography.panelMeta} text-danger`}
               >
-                Not saved. The model kept its previous value; Olumi&apos;s reply says why.
+                {VALUE_COMMIT_SETTLEMENT_COPY.not_applied.message}
               </p>
             ) : valueCommitOutcome === 'sending' ? (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sending to Olumi…" tone="pending" hold />
