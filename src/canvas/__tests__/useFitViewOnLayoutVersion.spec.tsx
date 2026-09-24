@@ -386,7 +386,7 @@ describe('useFitViewOnLayoutVersion', () => {
     })
   })
 
-  describe('fit targets exclude UI placeholders', () => {
+  describe('fit targets: the model and its row-end prompts, never another placeholder (S4)', () => {
     function fitOnce() {
       const rafCallbacks: Array<() => void> = []
       const rafSpy = vi
@@ -406,11 +406,19 @@ describe('useFitViewOnLayoutVersion', () => {
       return fitViewSpy.mock.calls[0][0]
     }
 
-    it('passes the model nodes and omits __ghost-option__ — bound by ID', () => {
-      currentNodes = [{ id: 'dec_1' }, { id: 'opt_a' }, { id: '__ghost-option__' }]
+    it('⭐ passes the model nodes AND the row-end prompts — bound by ID (S4)', () => {
+      // ED S4 / NODE-ANATOMY-v32 L4: "the WHOLE graph (all rows plus the prompt
+      // cards) is visible at landing". Until S4 this asserted the option door
+      // was OMITTED; the ruling reverses that, and the contrast below keeps a
+      // ghost that is NOT a row-end prompt out of the frame.
+      currentNodes = [
+        { id: 'dec_1' }, { id: 'opt_a' },
+        { id: '__ghost-option__' }, { id: '__ghost-factor__' },
+        { id: '__ghost-not-a-prompt__' },
+      ]
       const args = fitOnce()
       // Bound by identity, never by a count another node set could satisfy.
-      expect(args.nodes.map((n: { id: string }) => n.id)).toEqual(['dec_1', 'opt_a'])
+      expect(args.nodes.map((n: { id: string }) => n.id)).toEqual(['dec_1', 'opt_a', '__ghost-option__', '__ghost-factor__'])
     })
 
     it('omits `nodes` entirely when there are none — the previous behaviour', () => {
@@ -421,7 +429,7 @@ describe('useFitViewOnLayoutVersion', () => {
       expect('nodes' in args).toBe(false)
     })
 
-    it('omits `nodes` when the ONLY node is the placeholder', () => {
+    it('omits `nodes` when the ONLY node is a prompt — a prompt without a model frames nothing', () => {
       currentNodes = [{ id: '__ghost-option__' }]
       const args = fitOnce()
       expect('nodes' in args).toBe(false)

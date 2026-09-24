@@ -13,6 +13,14 @@
  * 820 → 896 units) whose fit verdict has ~5% of headroom. So: one line, honest,
  * costless, and **not a win to bank**. It stops a UI affordance from being
  * framed as though it were part of the user's model.
+ *
+ * ⭐ S4 (24 Sep 2026) REVERSES THIS FOR THE LANDING FIT, BY RULING. Experience
+ * Design: the row-end prompts "count inside the row budget" and "the WHOLE graph
+ * (all rows plus the prompt cards) is visible at landing". So the landing fit
+ * reads `fitFrameNodes` (below), which keeps the four row-end prompts, while
+ * every COUNT keeps `excludeNonModelNodes`. The user-initiated fits
+ * (`ReactFlowGraph.handleFitView`, the palette's Zoom to Fit, Show whole model)
+ * still frame the model alone — a follow-up for the lanes that own them.
  */
 
 /**
@@ -53,4 +61,37 @@ export function excludeNonModelNodes<T extends { id: string }>(nodes: readonly T
   // and an exclusion keyed on a single id silently stops excluding the moment a
   // second one is added — the hand-maintained-mirror defect, in a filter.
   return nodes.filter((n) => !isGhostNode(n.id))
+}
+
+/**
+ * ⭐⭐ THE ROW-END PROMPTS, BY ID — the four frontier affordances S4 restored to
+ * the end of each family's row (Experience Design, #63 5806207128 / 5806266691).
+ * Spelled from the one prefix, never restated.
+ */
+export const ROW_END_PROMPT_IDS: ReadonlySet<string> = new Set(
+  ['option', 'factor', 'outcome', 'risk'].map((kind) => `${GHOST_ID_PREFIX}${kind}__`),
+)
+
+/** Is this id a row-end reasoning prompt (and so part of the landing frame)? */
+export function isRowEndPromptId(id: string): boolean {
+  return ROW_END_PROMPT_IDS.has(id)
+}
+
+/**
+ * ⭐⭐ WHAT THE LANDING FIT FRAMES: the model AND its row-end prompts.
+ *
+ * NODE-ANATOMY-v32 L4 / ED S4: "the WHOLE graph (all rows plus the prompt cards)
+ * is visible at landing" and the prompts "count inside the row budget". Before
+ * S4 the fit framed the model alone, and the prompts — attached to each row's
+ * right-most card — landed under the dock (FIT-DIAGNOSIS-20260924 §2: the option
+ * door at 1042–1122px against a dock edge at 1012).
+ *
+ * ⚠ THIS IS NOT `excludeNonModelNodes`, AND THE TWO MUST NOT BE MERGED. The fit
+ * is a question about what the user should SEE; a count is a question about
+ * what the model CONTAINS. A prompt belongs in the first and never in the
+ * second — `ModelExtentNotice`'s "Showing X of Y" still reads the model-only
+ * list. A ghost that is not a row-end prompt (none exists today) stays out.
+ */
+export function fitFrameNodes<T extends { id: string }>(nodes: readonly T[]): T[] {
+  return nodes.filter((n) => !isGhostNode(n.id) || isRowEndPromptId(n.id))
 }

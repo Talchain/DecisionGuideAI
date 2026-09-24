@@ -43,8 +43,8 @@ import {
   GHOST_TIER_TESTID,
   GHOST_DOOR_W_PX,
   GHOST_DOOR_MIN_H_PX,
-  GHOST_DOOR_TEXT_MEASURE_PX,
 } from '../GhostTierNode'
+import { ROW_PROMPT_W, ROW_PROMPT_H, ROW_PROMPT_LINES } from '../../utils/nodeLayoutConstants'
 import { MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM, labelCounterScale } from '../../utils/zoomLegibility'
 import { GHOST_TIERS } from '../../utils/ghostTiers'
 
@@ -59,144 +59,79 @@ const props = (data: Record<string, unknown>) =>
 
 /* The chrome the card carries, restated here ON PURPOSE: this file is the
  * independent second opinion on the component's arithmetic, so it must not
- * import the component's own private parts and agree with itself. These four
- * are read off the rendered markup's Tailwind classes (`w-4`, `gap-1`, `px-1`)
- * and the border, which the assertions below also check are still what they
- * say — so a class change cannot leave this restatement quietly wrong. */
-const ICON_PX = 16
-const GAP_PX = 4
-const PAD_X_PX = 4
+ * import the component's own private parts and agree with itself. Read off the
+ * rendered markup (6px padding, 1.5px dashed border, `typography.edgeLabel` =
+ * 11px `leading-snug` 1.375), which the render test below also checks — so a
+ * style change cannot leave this restatement quietly wrong.
+ *
+ * ⭐ S4 (24 Sep 2026): the door is the ROW-END PROMPT again, at the width
+ * Experience Design ruled ("160px is approved as the target width and they
+ * count inside the row budget", #63 5806266691). The width is therefore a RULED
+ * number, shared with the layout that reserves it; only the HEIGHT is derived
+ * from the counter-scale. */
+const PAD_PX = 6
 const BORDER_PX = 1.5
 const DECLARED_LABEL_PX = 11
-const LINE_HEIGHT = 1.25
-const MAX_LINES = 2
+const LINE_HEIGHT = 1.375
+const LINES = 3
 
-describe('the door is sized for the counter-scale bound, not hand-tuned', () => {
+describe('the door is the row slot the layout reserved, and its height is derived from the bound', () => {
   it('the bound is reached at the zoom a product auto-fit parks at', () => {
-    // The premise the geometry rests on, pinned in-test rather than assumed
-    // (CLAUDE.md trap 13b): if this stops being true the sizing below is
-    // answering a question nobody is asking any more.
+    // The premise the height rests on, pinned in-test rather than assumed
+    // (CLAUDE.md trap 13b).
     expect(MAX_LABEL_COUNTER_SCALE).toBe(labelCounterScale(LABEL_LEGIBLE_ZOOM))
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
   })
 
-  /**
-   * ⚠ THIS TEST WAS A TAUTOLOGY UNTIL ROUND 2, IN A WAY ITS OWN PR CLAIMED TO
-   * HAVE FIXED. It recovered the declared measure by DIVIDING `GHOST_DOOR_W_PX`
-   * by `MAX_LABEL_COUNTER_SCALE` and multiplying it back — an identity that
-   * agrees with any value whose `(W − 11)` is even. The PR reported replacing
-   * it; what was actually added was the SOURCE GUARD below, and this identity
-   * stayed. A correcting change reads as already-audited, which is exactly how
-   * it survived a round.
-   *
-   * It is non-vacuous now because the expectation's right-hand side is built
-   * from an INDEPENDENTLY DECLARED export, not from the export under test. It
-   * REDs if the width drifts from the measure, or if the chrome is multiplied
-   * by the counter-scale (the `NODE_TITLE_RECLAIMED_PX` arithmetic error).
-   *
-   * ⚠ It does NOT red on `GHOST_DOOR_TEXT_MEASURE_PX` changing: both sides move
-   * together, which is the point — this test asks "is the width DERIVED from
-   * the measure?", and the tripwire below asks "is the measure STILL 88?".
-   * Two different questions; they are kept apart deliberately (CLAUDE.md trap
-   * 21) rather than folded into one assertion that answers neither cleanly.
-   */
-  it('the width is the DECLARED text measure at the bound plus unscaled chrome', () => {
+  it('the width is the ruled prompt width — the SAME number `layoutGraph` reserves (ED S4: 160)', () => {
+    expect(ROW_PROMPT_W).toBe(160)
+    expect(GHOST_DOOR_W_PX).toBe(ROW_PROMPT_W)
+  })
+
+  it('the height floor holds THREE lines of counter-scaled label plus unscaled chrome', () => {
     // TEXT scales, CHROME does not — the distinction `NODE_TITLE_RECLAIMED_PX`
-    // records after the first cut multiplied the chrome and doubled it.
-    expect(GHOST_DOOR_W_PX).toBe(
-      GHOST_DOOR_TEXT_MEASURE_PX * MAX_LABEL_COUNTER_SCALE + PAD_X_PX * 2 + BORDER_PX * 2,
+    // records after a first cut multiplied the chrome and doubled it.
+    const expected = Math.ceil(
+      LINES * DECLARED_LABEL_PX * LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE + PAD_PX * 2 + BORDER_PX * 2,
     )
-    // And the chrome is genuinely unscaled: at a different counter-scale the
-    // width moves by the measure alone. Pins the relation's SHAPE, so a test
-    // that happens to agree arithmetically cannot agree for the wrong reason.
-    expect(GHOST_DOOR_W_PX - GHOST_DOOR_TEXT_MEASURE_PX * MAX_LABEL_COUNTER_SCALE).toBe(
-      PAD_X_PX * 2 + BORDER_PX * 2,
-    )
+    expect(ROW_PROMPT_H).toBe(expected)
+    expect(GHOST_DOOR_MIN_H_PX).toBe(ROW_PROMPT_H)
   })
 
   /**
-   * ⚠⚠ A TRIPWIRE, NOT A FIT GUARD — AND THE DISTINCTION IS THE WHOLE POINT.
-   *
-   * `GHOST_DOOR_TEXT_MEASURE_PX` is hand-measured in a real browser. Before
-   * round 2 it was referenced NOWHERE outside its own declaration: mutating it
-   * `88 → 60` (measured to spill two doors to three lines) left 115/115 tests
-   * green across 11 ghost-touching specs, while a comment above it claimed this
-   * very file "REDs if a label outgrows it".
-   *
-   * This assertion REDs on that mutation. That is ALL it does. It knows nothing
-   * about the copy: it would bless 88 for a sentence twice as long. Whether the
-   * four questions FIT at this measure is a text-metrics question jsdom cannot
-   * answer at all (CLAUDE.md trap 3) — a real fit guard needs a browser and
-   * belongs in `e2e/geometry/ghostDoorVisibility.measure.ts`. Rowed; not this
-   * PR. A weaker jsdom guard manufactured to fill that space would be the same
-   * defect wearing a passing test.
-   *
-   * So this is a hand-maintained mirror, ON PURPOSE, and named as one: its job
-   * is to make a change to the measure IMPOSSIBLE TO MAKE SILENTLY, forcing
-   * whoever moves it to re-measure and to move this line too.
+   * ⚠⚠ A TRIPWIRE, NOT A FIT GUARD. Three lines is what the four questions need
+   * in a 160 box at the bound: `GhostTierNode`'s 3 Sep browser measurement
+   * recorded that the risk and outcome questions already spill to THREE lines
+   * at 80 declared px of measure, and a 160 box leaves less. jsdom cannot check
+   * the fit (no text metrics, CLAUDE.md trap 3); this only makes a change to
+   * the line budget impossible to make silently.
    */
-  it('TRIPWIRE: the hand-measured text measure is still the value that was measured', () => {
+  it('TRIPWIRE: the line budget is three', () => {
     expect(
-      GHOST_DOOR_TEXT_MEASURE_PX,
-      'GHOST_DOOR_TEXT_MEASURE_PX is hand-measured in a browser (Chromium + Inter, 3 Sep 2026: ' +
-        '88px is the narrowest measure at which all four tier questions fit two lines at the ' +
-        'counter-scale bound). Nothing in jsdom can check the FIT. If you are changing this ' +
-        'number, or you changed a tier label, re-measure in a real browser first — then update ' +
-        'this line and the header in GhostTierNode.tsx.',
-    ).toBe(88)
-  })
-
-  it('the height floor holds two lines of counter-scaled label plus unscaled chrome', () => {
-    expect(GHOST_DOOR_MIN_H_PX).toBe(
-      ICON_PX +
-        GAP_PX +
-        MAX_LINES * DECLARED_LABEL_PX * LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE +
-        BORDER_PX * 2,
-    )
+      ROW_PROMPT_LINES,
+      'ROW_PROMPT_LINES is the number of lines the four row-end questions take in a 160 box at the ' +
+        'counter-scale bound. If you change it, the box, or a tier label, re-measure in a real browser ' +
+        '(e2e/geometry/ghostDoorVisibility.measure.ts) — the layout reserves this height for the ' +
+        'stacked Outcome + Risk column.',
+    ).toBe(3)
   })
 
   /**
-   * ⚠⚠ THIS IS A SOURCE-TEXT GUARD. IT WAS ADDED ALONGSIDE A TAUTOLOGY IT DID
-   * NOT ACTUALLY REPLACE — corrected in round 2, see the width test above.
-   *
-   * The claim that stood here was that this guard REPLACED the identity-shaped
-   * width test. It did not: the guard was added and the identity stayed, so the
-   * file carried a correction that had not happened. Both now exist and answer
-   * different questions. Proven by execution: replacing the whole derivation
-   * with the bare literal `187` — the exact defect this file exists to prevent
-   * — left the identity GREEN, and this guard REDs on it.
-   *
-   * No BEHAVIOURAL test can tell a literal `187` from a derivation that
-   * currently evaluates to 187, because at runtime they are the same number.
-   * The property is about the SOURCE, so the guard reads the source, exactly as
-   * `zoomLegibilitySingleSource.spec.ts` does for bare zoom literals.
-   *
-   * ⚠ Named as a source-text guard, and it is NOT behavioural coverage — the
-   * arithmetic tests above are. Both are needed: one says the numbers are
-   * right, this says they will still be right when the contract moves.
+   * ⚠ SOURCE-TEXT GUARD. No behavioural test can tell a literal from a
+   * derivation that currently evaluates to the same number, so the property is
+   * checked where it lives: the height is derived from the counter-scale in
+   * `nodeLayoutConstants.ts`, and the door re-exports it by NAME.
    */
-  it('SOURCE GUARD: both exports are written as derivations, not as literals', () => {
-    const src = readFileSync(
-      resolve(__dirname, '..', 'GhostTierNode.tsx'),
-      'utf8',
-    )
-    const declOf = (name: string) => {
-      const i = src.indexOf(`export const ${name} =`)
-      expect(i, `${name} is not exported from GhostTierNode.tsx`).toBeGreaterThan(-1)
-      // Up to the blank line that ends the declaration.
-      const rest = src.slice(i)
-      return rest.slice(0, rest.indexOf('\n\n'))
-    }
+  it('SOURCE GUARD: the height is a derivation, and the door re-exports the layout\'s constants by name', () => {
+    const constants = readFileSync(resolve(__dirname, '..', '..', 'utils', 'nodeLayoutConstants.ts'), 'utf8')
+    const hDecl = constants.slice(constants.indexOf('export const ROW_PROMPT_H ='))
+    expect(hDecl.slice(0, hDecl.indexOf('\n)')), 'ROW_PROMPT_H is not derived from the counter-scale').toContain('MAX_LABEL_COUNTER_SCALE')
+    const door = readFileSync(resolve(__dirname, '..', 'GhostTierNode.tsx'), 'utf8')
+    expect(door).toMatch(/export const GHOST_DOOR_W_PX = ROW_PROMPT_W\b/)
+    expect(door).toMatch(/export const GHOST_DOOR_MIN_H_PX = ROW_PROMPT_H\b/)
     for (const name of ['GHOST_DOOR_W_PX', 'GHOST_DOOR_MIN_H_PX']) {
-      const decl = declOf(name)
-      expect(decl, `${name} does not mention MAX_LABEL_COUNTER_SCALE`).toContain(
-        'MAX_LABEL_COUNTER_SCALE',
-      )
-      // And it is not simply the answer written down next to the constant's name.
-      expect(
-        decl.replace(`export const ${name} =`, ''),
-        `${name} is assigned a bare literal`,
-      ).not.toMatch(/^\s*-?\d+(\.\d+)?\s*$/)
+      const rest = door.slice(door.indexOf(`export const ${name} =`))
+      expect(rest.slice(0, rest.indexOf('\n')).replace(`export const ${name} =`, ''), `${name} is a bare literal`).not.toMatch(/^\s*-?\d+(\.\d+)?\s*$/)
     }
   })
 
@@ -213,14 +148,16 @@ describe('the door is sized for the counter-scale bound, not hand-tuned', () => 
 
   it('the OLD hand-tuned box could not have held the copy at the bound', () => {
     // 132 x 64 with a 1.5px border left 61px of content box; the browser
-    // measured the old nouns needing 75px there. Recorded as arithmetic so the
-    // regression has a number, not an anecdote.
+    // measured the old nouns needing 75px there (16px icon, 4px gap, two lines
+    // of the then-11px/1.25 label at the bound). Recorded as arithmetic so the
+    // regression has a number, not an anecdote — and the S4 floor clears it.
     const OLD_H = 64
     const contentBox = OLD_H - BORDER_PX * 2
-    const neededAtBound =
-      ICON_PX + GAP_PX + MAX_LINES * DECLARED_LABEL_PX * LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE
-    expect(neededAtBound).toBeGreaterThan(contentBox)
-    expect(GHOST_DOOR_MIN_H_PX - BORDER_PX * 2).toBeGreaterThanOrEqual(neededAtBound)
+    const neededThen = 16 + 4 + 2 * 11 * 1.25 * MAX_LABEL_COUNTER_SCALE
+    expect(neededThen).toBeGreaterThan(contentBox)
+    expect(GHOST_DOOR_MIN_H_PX - BORDER_PX * 2 - PAD_PX * 2).toBeGreaterThanOrEqual(
+      LINES * DECLARED_LABEL_PX * LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE,
+    )
   })
 })
 
@@ -254,9 +191,10 @@ describe('the rendered door', () => {
     expect(door.style.height).toBe('')
     expect(door.style.border).toContain(`${BORDER_PX}px dashed`)
     // The chrome the arithmetic above assumes.
-    expect(door.querySelector('.w-4.h-4')).not.toBeNull()
-    expect(door.className).toContain('gap-1')
-    expect(door.querySelector('.px-1')).not.toBeNull()
+    expect(door.style.padding).toBe(`${PAD_PX}px`)
+    const label = door.querySelector('span') as HTMLElement
+    expect(label.className).toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
+    expect(label.className).toContain('leading-snug')
     // The last-resort wrap rule, so a long word cannot overflow the measure.
     expect(door.querySelector('.break-words')).not.toBeNull()
   })

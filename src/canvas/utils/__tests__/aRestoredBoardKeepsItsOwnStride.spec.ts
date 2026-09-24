@@ -31,13 +31,23 @@ import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
 import { solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
 
-/** Codex's fixture, at the numbers its executed witness reported. */
-const SAVED_UNIFORM_W = 336
+/**
+ * Codex's fixture shape. ⚠ S4 (24 Sep 2026) MOVED THE SAVED WIDTH 336 → 140.
+ *
+ * The defect class is "the fresh solver draws WIDER than the stride a saved
+ * board's positions leave". Codex's witness was a board saved at a uniform 336
+ * reopened when options solved to 440. S4 narrows every repeated card to 260, so
+ * a 336 board no longer provokes it — the reproduction control below went RED
+ * and said so. The class is still live for any board saved NARROWER than 260:
+ * the pre-17-Aug boards, whose card floor was 140. So the fixture now stands in
+ * for one of those, and every case in this file bites again.
+ */
+const SAVED_UNIFORM_W = 140
 const SAVED_GAP = 56
-const SAVED_STRIDE = SAVED_UNIFORM_W + SAVED_GAP // 392
+const SAVED_STRIDE = SAVED_UNIFORM_W + SAVED_GAP // 196
 
 function savedBoard(): Node[] {
-  const optionXs = [416, 808, 1200]
+  const optionXs = [416, 416 + SAVED_STRIDE, 416 + 2 * SAVED_STRIDE]
   return [
     { id: 'd', type: 'decision', position: { x: 800, y: 0 }, data: { label: 'd' } },
     ...optionXs.map((x, i) => ({ id: `o${i}`, type: 'option', position: { x, y: 300 }, data: { label: `o${i}` } })),
