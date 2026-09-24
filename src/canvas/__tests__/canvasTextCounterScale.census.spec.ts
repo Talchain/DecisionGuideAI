@@ -188,7 +188,10 @@ const KNOWN_FIXED = [
   // became `typography.edgeLabel` (10px, and one of the three counter-scaled
   // canvas tokens), so the "?" goes from a rendered 3.5px to 10px. Removing the
   // pin here is the point of asserting this set exactly.
-  'nodes/shared/NodeCoachingMarker.tsx:typography.caption',
+  // ⭐ `nodes/shared/NodeCoachingMarker.tsx:typography.caption` WAS HERE AND IS
+  // NOW FIXED (24 Sep 2026, contract v3.1 delta PILL-07): the marker's "+N"
+  // count moved to `typography.edgeLabel`, a counter-scaled canvas token, so it
+  // renders 11px at every zoom instead of 12px x zoom (7.8px at the 65% landing).
   'edges/EdgeEditPopover.tsx:typography.panelHeader',
   'edges/EdgeEditPopover.tsx:typography.panelMeta',
 ] as const

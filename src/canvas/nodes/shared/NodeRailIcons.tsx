@@ -21,8 +21,31 @@ import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES } from './nodeCardRailStyles'
+import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import { selectRestingGlyphsShown } from './restingGlyphRung'
 import type { AttentionReason } from './nodeAttention'
+
+/**
+ * ⭐ REVEALED ON HOVER/FOCUS — contract v3.1 `.icon-btn.revealed` (deltas
+ * OPT-02 / ICON-03; DS v5 §9.3 Tier 2 "Pencil … hidden at rest, revealed on
+ * card hover", with the touch override). An EDIT route is not a resting icon:
+ * at rest the rail's only unconditional member is the one discreet coaching
+ * icon (Paul 23 Sep pt 6).
+ *
+ * The SAME opacity/pointer-events mirror the hover-only quick actions use
+ * (`NodeQuickActions`, `.node-quick-actions`), spelled out literally so the
+ * Tailwind scanner emits it, and for the same reasons: `group-hover` /
+ * `group-focus-within` key off the CARD, each `pointer-events` variant is the
+ * twin of its `opacity` variant (an invisible button must not swallow the
+ * card's clicks), and `pointer: coarse` keeps it visible and tappable on touch.
+ * Opacity keeps the button's box, so the coaching icon beside it never moves,
+ * and the button stays in the tab order and the accessibility tree.
+ */
+export const NODE_RAIL_REVEAL_CLASSES =
+  'opacity-0 pointer-events-none transition-opacity duration-150 motion-reduce:transition-none ' +
+  'group-hover:opacity-100 group-hover:pointer-events-auto ' +
+  'group-focus-within:opacity-100 group-focus-within:pointer-events-auto ' +
+  '[@media(pointer:coarse)]:opacity-100 [@media(pointer:coarse)]:pointer-events-auto'
 
 export function NodeRailIcon({
   testId,
@@ -30,13 +53,22 @@ export function NodeRailIcon({
   icon: Icon,
   tone,
   onActivate,
+  reveal = false,
 }: {
   testId: string
   label: string
   icon: LucideIcon
-  /** Colour by MEANING: evidence/provenance are informational, behaviour is its own family. Never warning. */
+  /**
+   * The RESTING colour, by meaning. Never warning. Every tone goes Info on an
+   * info-soft ground on hover and keyboard focus — that half lives in
+   * `NODE_RAIL_BUTTON_CLASSES`, so the rail has one hover language.
+   * `info` is Info at rest too. Contract v3.1 keeps Info at rest for the
+   * attention cue (Paul 23 Sep pt 9), so a DATA icon is `muted`.
+   */
   tone: 'info' | 'behaviour' | 'muted'
   onActivate: () => void
+  /** Hidden at rest, shown on card hover/focus and on touch (see `NODE_RAIL_REVEAL_CLASSES`). */
+  reveal?: boolean
 }) {
   const toneClass =
     tone === 'info' ? 'text-info' : tone === 'behaviour' ? 'text-text-body' : 'text-text-light'
@@ -46,8 +78,9 @@ export function NodeRailIcon({
         type="button"
         data-testid={testId}
         data-node-tooltip="true"
+        data-rail-reveal={reveal ? 'true' : undefined}
         aria-label={label}
-        className={`${NODE_RAIL_BUTTON_CLASSES} ${toneClass}`}
+        className={`${NODE_RAIL_BUTTON_CLASSES} ${toneClass}${reveal ? ` ${NODE_RAIL_REVEAL_CLASSES}` : ''}`}
         onClick={(e) => {
           e.stopPropagation()
           onActivate()
@@ -55,7 +88,7 @@ export function NodeRailIcon({
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
-        <Icon aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
+        <Icon aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
       </button>
     </Tooltip>
   )
@@ -76,6 +109,19 @@ export function NodeSignalRailIcons({
 }) {
   const evidence = reasons.some((r) => r.kind === 'evidence_gap')
   const behaviour = reasons.find((r) => r.kind === 'behavioural') ?? null
+  /**
+   * ⭐ ONE RESTING ICON SET — contract v3.1 pt 6 (delta ICON-04, its fallback:
+   * the served `quiet` rung stays "quiet/far zoom"). At quiet/line the coaching
+   * icon, the corner coaching marker and the "?" have already left the card
+   * (`selectRestingGlyphsShown`); these data icons were the rail members still
+   * standing without the coaching icon beside them. Far zoom keeps "readable
+   * identity and a simple attention cue" — and the attention marker, which reads
+   * these SAME reasons, stays, so the signal is not lost at quiet.
+   * `=== false` so a store double that cannot answer reads as `full`, the same
+   * undefined-safe reading the predicate itself gives an absent rung.
+   */
+  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
+  if (shownAtThisRung === false) return null
   if (!evidence && !behaviour) return null
   return (
     <>
@@ -84,7 +130,11 @@ export function NodeSignalRailIcons({
           testId={`node-rail-evidence-${nodeId}`}
           label={EVIDENCE_ICON_LABEL}
           icon={SearchCheck}
-          tone="info"
+          // Contract v3.1: a data icon is `.icon-btn` muted at rest and Info on
+          // hover/focus (ICON-06 / F11). The attention marker, which reads the
+          // same evidence_gap reason, is the one Info-at-rest mark (Paul pt 9),
+          // so two blue marks no longer compete on one card.
+          tone="muted"
           onActivate={() => openNodeInspector(nodeId)}
         />
       )}

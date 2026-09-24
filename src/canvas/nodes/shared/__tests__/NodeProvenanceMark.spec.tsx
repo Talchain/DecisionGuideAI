@@ -228,20 +228,34 @@ describe('the words stay reachable, and the WIRE LITERAL does not leak', () => {
   })
 
   /**
-   * ⭐ THE TENSION, RESOLVED EXPLICITLY. `NodeProvenanceMark` and
-   * `EstimateMarker` both record the same decision: NOT a button, NOT focusable,
-   * because a second tab stop on every node costs more than it gives. A
-   * hover-only tooltip on a non-focusable element is unreachable by keyboard AND
-   * by touch — so the full claim goes in the ACCESSIBLE NAME (above), and
-   * `CanvasLegendPopover` keys the glyphs. If a later change makes the mark
-   * focusable, the two markers have silently diverged and this goes red.
+   * ⭐ THE TENSION, RESOLVED EXPLICITLY — AND RE-RESOLVED BY CONTRACT v3.1.
+   *
+   * This test used to assert the mark was NOT focusable, matching
+   * `EstimateMarker` ("a second tab stop on every node costs more than it
+   * gives"). Contract v3.1 supersedes that for this mark (delta PILL-10): its
+   * `.prov` mark is focusable and "Each mark has an accessible name and a
+   * hover/focus label"; Paul 23 Sep pt 12: "Icons need hover/focus labels and
+   * inspector access". The shared Tooltip already listened for focus, but on a
+   * span with no `tabIndex` focus could never arrive. So: ONE tab stop, still
+   * not a button (nothing to press), still `role="img"` with the claim as its
+   * name, with the contract's Info hover/focus colour and the canvas focus ring.
+   * ⚠ `EstimateMarker` (not this lane's file) still records the old decision;
+   * the two now differ on purpose, pending the same v3.1 change there.
    */
-  it('does NOT add a second tab stop per node (matching EstimateMarker)', () => {
+  it('is ONE keyboard stop that shows its label on focus — still not a button (contract v3.1, PILL-10)', () => {
     render(<NodeProvenanceMark nodeType="option" data={option('from_brief')} />)
     const el = mark()!
-    expect(el.getAttribute('tabindex')).toBeNull()
+    expect(el.getAttribute('tabindex')).toBe('0')
+    expect(el.getAttribute('role')).toBe('img')
     expect(el.tagName.toLowerCase()).not.toBe('button')
     expect(el.querySelector('button')).toBeNull()
+    const cls = el.className.split(/\s+/)
+    for (const t of ['hover:text-info', 'focus-visible:text-info', 'focus-visible:ring-2', 'focus-visible:ring-info']) {
+      expect(cls, t).toContain(t)
+    }
+    // At rest it stays the neutral glyph (never Info at rest — pt 9).
+    expect(cls).toContain('text-text-light')
+    expect(cls).not.toContain('text-info')
   })
 })
 
