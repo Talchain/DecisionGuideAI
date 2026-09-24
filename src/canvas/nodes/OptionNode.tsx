@@ -9,6 +9,7 @@ import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbs
 import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
+import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
@@ -1131,6 +1132,10 @@ export const OptionNode = memo((props: NodeProps) => {
     }))
   }, [isBaselineOption, optionSet, props.id, nodes, baselineOptionReference])
   const changeRowsMore = moreCount(totalInterventionCount, changeRows.length)
+  // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.
+  // The same rung predicate the resting glyphs read, so one zoom boundary
+  // decides both, never two.
+  const rowsStacked = !useCanvasStore(selectRestingGlyphsShown)
 
   /**
    * ⭐⭐ THE DIFFERENTIATOR DE-DUPLICATION IS RETIRED — Paul, 10 Sep 2026:
@@ -2104,20 +2109,30 @@ export const OptionNode = memo((props: NodeProps) => {
                 token carries `leading-snug`, which sorts later), 4px row gap.
                 Net height per card can only fall: −2px top margin, and each
                 line saves more than the extra 2px row gap. */}
+        {/* ⭐ S5 (24 Sep): BELOW NORMAL ZOOM THE ROWS STACK — label line, then
+            value + mark line, each full width. MEASURED at the landing zoom
+            (counter-scale 2) the grid above left the label column 45px on
+            screen, so "Germany market…" took four lines and the option card
+            171–222px; the layout reserves that height at the bound, so the
+            whole graph paid for it. At Normal zoom it is the contract grid,
+            unchanged. Same rows, same order, same bytes. Height safety is
+            argued in `OptionNode.landingRowsStack.spec.tsx`. */}
         {changeRows.length > 0 && (
-          <div className="mt-1" data-testid={`option-change-rows-${props.id}`}>
-            <dl className="m-0 grid grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))] items-baseline gap-x-2 gap-y-1">
-              {changeRows.map(r => (
+          <div className="mt-1" data-testid={`option-change-rows-${props.id}`} data-row-layout={rowsStacked ? 'stacked' : 'grid'}>
+            <dl className={rowsStacked
+              ? 'm-0 flex flex-col'
+              : 'm-0 grid grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))] items-baseline gap-x-2 gap-y-1'}>
+              {changeRows.map((r, i) => (
                 <Fragment key={r.factorId}>
                   <dt
-                    className={`${typography.edgeLabel} !leading-tight min-w-0 break-words text-text-light`}
+                    className={`${typography.edgeLabel} !leading-tight min-w-0 break-words text-text-light${rowsStacked && i > 0 ? ' mt-1' : ''}`}
                     title={r.fullLabel !== r.label ? r.fullLabel : undefined}
                   >
                     <span aria-hidden={r.fullLabel !== r.label ? true : undefined}>{r.label}</span>
                     {r.fullLabel !== r.label && <span className={typography.screenReaderOnly}>{r.fullLabel}</span>}
                   </dt>
                   <dd
-                    className={`${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words text-right text-text-body`}
+                    className={`${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${rowsStacked ? 'text-left' : 'text-right'} text-text-body`}
                     data-testid={`option-change-row-${props.id}-${r.factorId}`}
                     title={[
                       `${r.fullLabel}: ${r.fullChange}.`,
