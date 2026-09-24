@@ -572,6 +572,28 @@ export const MODEL_VIEW_COPY = {
 
 export const FOOTER_COPY = {
   ready: 'Analysis available',
+  /**
+   * The pre-run headline while the canvas marks factors `Needs input` — see
+   * `ValueAwaitingInput` in `footer/readinessDisplay.ts` for the witnessed
+   * contradiction (green "Analysis available" beside four `Needs input` pills,
+   * then a refused Run). States what is missing; claims nothing about whether
+   * a run would be admitted, because the producer's own fields disagree on that.
+   */
+  inputsUnconfirmed: 'Some inputs are still unconfirmed',
+  /**
+   * Names the factors when every one has a label and there are at most four;
+   * otherwise counts them and names up to three. A factor with no honest label
+   * is counted, never named by its id.
+   */
+  inputsUnconfirmedSub: (total: number, labels: readonly string[]): string => {
+    const join = (xs: readonly string[]) =>
+      xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
+    if (labels.length === total && total <= 4) return `No value yet for ${join(labels)}.`
+    const counted = `${total} ${total === 1 ? 'factor' : 'factors'}`
+    return labels.length > 0
+      ? `No value yet for ${counted}, including ${join(labels.slice(0, 3))}.`
+      : `No value yet for ${counted}.`
+  },
   readySubSuccessUnset: 'First pass will be provisional until success is defined',
   readySubEstimates: 'Checking top estimates usually sharpens the result',
   readySubAllSet: 'Ready when you are',

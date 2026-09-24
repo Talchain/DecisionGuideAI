@@ -144,6 +144,7 @@ import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
 import {
   deriveReadinessCheck,
   readinessNothingHasAnswered,
+  valuesAwaitingInputBeforeRun,
 } from './pre-analysis-v3/footer/readinessDisplay'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
@@ -1554,6 +1555,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     [readinessError, readiness, readinessStale, readinessVerdictAtMs, refreshReadiness],
   )
   const readinessUnanswered = readinessNothingHasAnswered(readiness, analysisReadiness)
+  // ⭐ THE FACTORS THE CANVAS MARKS `Needs input`, computed ONCE here beside the
+  // gate values and handed to BOTH pre-run surfaces (the Olumi bar and the
+  // Analysis footer), so neither can say "Analysis available" while the canvas
+  // says `Needs input` on the same state (Paul's OpenAI test, 24 Sep 2026). It
+  // feeds the COPY only — never `canRunAnalysis`. See `ValueAwaitingInput`.
+  const valuesAwaitingInput = useMemo(() => valuesAwaitingInputBeforeRun(nodes), [nodes])
   const showToast = useShowToastSafe()
 
   // Handle Run button click
@@ -3594,6 +3601,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                           canRun={canRunAnalysis}
                           blockedReason={runBlockedTooltip}
                           blockedListing={runBlockedListing}
+                          valuesAwaitingInput={valuesAwaitingInput}
                         />
                       </Suspense>
                     </div>
@@ -4279,6 +4287,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       isAnalysing={isRunning}
                       readinessCheck={readinessCheckForBar}
                       nothingHasAnswered={readinessUnanswered}
+                      valuesAwaitingInput={valuesAwaitingInput}
                       onAnalyse={handleRunAnalysis}
                     />
                   )

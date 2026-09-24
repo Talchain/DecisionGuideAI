@@ -80,6 +80,64 @@
 import { FOOTER_COPY } from '../constants'
 import { vetBlockedReason, BLOCKED_REASON_FALLBACK } from '../../../utils/vetBlockedReason'
 import type { GateBlockedItem, GateBlockedListing } from '../../../utils/canRunAnalysis'
+import { isFactorNeedsInput } from '../../../utils/observedStateHelpers'
+import { honestLabel } from '../../../domain/canvasLabels'
+
+/**
+ * A factor the canvas marks `Needs input` — it has no value in any carrier.
+ *
+ * ── WHY A PRE-RUN SURFACE MUST READ THIS (Paul's OpenAI test, 24 Sep 2026) ──
+ * UI `a4434670`, CEE `3f412be` (deploy history), scenario `11014edf…`. The
+ * canvas showed FOUR `Needs input` pills while the Olumi bar said a green
+ * "Analysis available"; the next Run was refused for exactly those four values.
+ * The bar was not reading a local proxy — it read the gate, and the gate read
+ * CEE. It is CEE's own fields that disagree, on ONE response:
+ *
+ *   `analysis_ready.status`                               "ready"
+ *   `analysis_ready.may_run`                              true
+ *   `analysis_ready.analysis_admission.missing_important_inputs`  []
+ *   `analysis_state.readiness`                            {status:"unknown", blockers:[]}
+ *   `draft_graph.nodes[new_pro_conversion_rate | monthly_churn |
+ *     pro_subscriber_count | pro_feature_value_perception].observed_state`  null
+ *   the Agent's Run turn: `get_canonical_state` only, NO `run_analysis`
+ *     dispatch, prose "four unapproved starting assumptions … unknown".
+ *
+ * `may_run` comes from `buildCanonicalAnalysisReadyFromGraph`
+ * (CEE `src/routes/agent-v1-turn.ts:340` → `analysis-ready-helper.ts:1592`,
+ * `may_run: admission.willProceed`), which admits a graph whose observable
+ * factors carry no value; the Agent reads the same factors as `unattested`
+ * (`agent-lane/tools/get-canonical-state.ts:99-100`) and declines. That is the
+ * contradiction, and it is CORE's to resolve — it is recorded, not papered over.
+ *
+ * ⚠ WHAT THIS DOES NOT DO: it is NOT a second run gate. `canRunAnalysis` is
+ * untouched and never reads node data (its own header forbids that parallel
+ * rule), and the Analyse control keeps the gate's own `disabled`. This fact only
+ * stops a pre-run surface saying the SUCCESS headline while the canvas says
+ * `Needs input` on the same state. The predicate is `isFactorNeedsInput` — the
+ * one `BaseNode`'s factor arm mounts the pill on — imported, never re-typed.
+ */
+export interface ValueAwaitingInput {
+  readonly id: string
+  /** The node's honest label, or null when it has none (never the raw id). */
+  readonly label: string | null
+}
+
+/**
+ * The factors on the canvas that carry the `Needs input` pill, in canvas order.
+ * Pure. Accepts the store's own node shape; external factors are exempt by the
+ * shared predicate, exactly as they are on the node.
+ */
+export function valuesAwaitingInputBeforeRun(
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: unknown }>,
+): readonly ValueAwaitingInput[] {
+  const out: ValueAwaitingInput[] = []
+  for (const node of nodes) {
+    if (node.type !== 'factor') continue
+    if (!isFactorNeedsInput(node.data)) continue
+    out.push({ id: node.id, label: honestLabel((node.data as { label?: unknown } | undefined)?.label) })
+  }
+  return out
+}
 
 /**
  * The readiness CHECK's own failure facts.
@@ -254,6 +312,12 @@ export interface ReadinessDisplayInput {
   readonly blockedListing?: GateBlockedListing
   /** `readinessNothingHasAnswered(...)`, from the same two authorities the gate reads. */
   readonly nothingHasAnswered: boolean
+  /**
+   * `valuesAwaitingInputBeforeRun(nodes)` — the factors the canvas marks
+   * `Needs input`. Optional and additive: absent or empty is today's ladder.
+   * Non-empty replaces ONLY the resting arm — see `ValueAwaitingInput`.
+   */
+  readonly valuesAwaitingInput?: readonly ValueAwaitingInput[]
   /** What this surface says when none of the arms above fire. */
   readonly resting: ReadinessDisplay
 }
@@ -341,6 +405,23 @@ export function deriveReadinessDisplay(input: ReadinessDisplayInput): ReadinessD
       dot: 'warning',
       headline: FOOTER_COPY.readinessPending,
       subline: FOOTER_COPY.readinessPendingSub,
+    }
+  }
+  // ⭐ THE CONSERVATIVE STATE, NOT A NEW GATE. The gate is open, and the canvas
+  // says `Needs input` on N factors. The success headline ("Analysis available")
+  // would be one surface contradicting the other on one state — the exact
+  // witnessed defect — so the resting arm yields. Every earlier arm (outage,
+  // in flight, gate shut with the producer's own reasons, unanswered) still
+  // outranks this one, unchanged.
+  const awaiting = input.valuesAwaitingInput ?? []
+  if (awaiting.length > 0) {
+    return {
+      dot: 'warning',
+      headline: FOOTER_COPY.inputsUnconfirmed,
+      subline: FOOTER_COPY.inputsUnconfirmedSub(
+        awaiting.length,
+        awaiting.flatMap((v) => (v.label === null ? [] : [v.label])),
+      ),
     }
   }
   return input.resting

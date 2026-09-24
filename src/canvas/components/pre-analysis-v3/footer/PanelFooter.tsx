@@ -21,7 +21,12 @@ import { RefreshCw } from 'lucide-react'
 import { Button } from '../../../../components/ui'
 import { typography, typo } from '../../../../styles/typography'
 import { FOOTER_COPY } from '../constants'
-import { deriveReadinessDisplay, describeReadinessCheck, gateBlockedSubline } from './readinessDisplay'
+import {
+  deriveReadinessDisplay,
+  describeReadinessCheck,
+  gateBlockedSubline,
+  type ValueAwaitingInput,
+} from './readinessDisplay'
 import { BlockerLine } from './BlockerLine'
 import type { PreAnalysisModel } from '../hooks/usePreAnalysisModel'
 import type { GateBlockedListing } from '../../../utils/canRunAnalysis'
@@ -54,6 +59,12 @@ interface PanelFooterProps {
    * panel model, reaches the same arm through the same owner.
    */
   nothingHasAnswered?: boolean
+  /**
+   * The factors the canvas marks `Needs input` — the SAME value the shell's
+   * `AnalysisReadinessBar` receives, from the same expression in `OutputsDock`.
+   * Absent is today's behaviour. See `ValueAwaitingInput`.
+   */
+  valuesAwaitingInput?: readonly ValueAwaitingInput[]
 }
 
 export const PanelFooter = memo(function PanelFooter({
@@ -65,6 +76,7 @@ export const PanelFooter = memo(function PanelFooter({
   blockedListing,
   readinessCheck = null,
   nothingHasAnswered = false,
+  valuesAwaitingInput,
 }: PanelFooterProps) {
   const disabled = isAnalysing || !canRun
 
@@ -81,6 +93,7 @@ export const PanelFooter = memo(function PanelFooter({
     blockedReason,
     blockedListing,
     nothingHasAnswered,
+    valuesAwaitingInput,
     resting: footer,
   })
 

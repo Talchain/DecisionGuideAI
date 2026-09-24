@@ -64,6 +64,7 @@ import {
   RESTING_AVAILABLE,
   type ReadinessCheckFacts,
   type ReadinessDot,
+  type ValueAwaitingInput,
 } from '../pre-analysis-v3/footer/readinessDisplay'
 import type { GateBlockedListing } from '../../utils/canRunAnalysis'
 import { BlockerLine } from '../pre-analysis-v3/footer/BlockerLine'
@@ -117,6 +118,14 @@ export interface AnalysisReadinessBarProps {
   readinessCheck?: (ReadinessCheckFacts & { retry: () => void }) | null
   /** `readinessNothingHasAnswered(...)` — neither authority has spoken. */
   nothingHasAnswered: boolean
+  /**
+   * OutputsDock's `valuesAwaitingInput` — the factors the canvas marks
+   * `Needs input`, computed ONCE above the tab branch and handed to the
+   * Analysis footer too, so the two pre-run surfaces cannot disagree. Absent
+   * is today's behaviour. It never touches `disabled` — see
+   * `ValueAwaitingInput` in `readinessDisplay.ts`.
+   */
+  valuesAwaitingInput?: readonly ValueAwaitingInput[]
   /** OutputsDock's `handleRunAnalysis` — the canonical runner. */
   onAnalyse: () => void
 }
@@ -129,6 +138,7 @@ export function AnalysisReadinessBar({
   isAnalysing,
   readinessCheck = null,
   nothingHasAnswered,
+  valuesAwaitingInput,
   onAnalyse,
 }: AnalysisReadinessBarProps) {
   // Outside the pre-run window the Analysis surface itself shows no readiness
@@ -149,6 +159,7 @@ export function AnalysisReadinessBar({
     blockedReason,
     blockedListing,
     nothingHasAnswered,
+    valuesAwaitingInput,
     resting: RESTING_AVAILABLE,
   })
 

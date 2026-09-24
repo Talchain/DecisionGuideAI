@@ -2,8 +2,15 @@
  * V5AnalysisResultBlock — renders V5 OlumiResponse.analysis_result.
  *
  * Card content:
- *   - Always: summary text, uncertainty calibration copy, win_probabilities
- *     as pills.
+ *   - Always: summary text and win_probabilities as pills. The UI's
+ *     uncertainty calibration line renders UNLESS the card already renders
+ *     CEE's own robustness sentence (each caveat once — `ceeStatesRobustness`).
+ *   - An "Earlier run" marker when this card's result is not the analysis on
+ *     display, bound by result hash (`cardRunCurrency`).
+ *   - The shares in the producer's own order, with no leader hoist, when this
+ *     card is the displayed result and its leader claim was withheld, or is an
+ *     earlier run (`cardOptionOrder`); plus the Reasoning tab's "Goal only" line
+ *     when the withholding cause is the limit verdict. Otherwise sorted by share.
  *   - When the turn carries a 0.30 `decision_review` with prose: the five
  *     fields no other wire block delivers — `narrative_summary`,
  *     `story_headlines`, `robustness_explanation`, `readiness_rationale`,
@@ -54,16 +61,22 @@ import {
   buildV5VerdictReportLike,
   resolveLeaderKeys,
   resolveOptionLabelById,
+  v5AnalysisBlockContentHash,
 } from '../mapV5AnalysisToReport'
+import { useCanvasStore } from '../../canvas/store'
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
-import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
+import { deriveDecisionVerdict, readProducerLeaderPermission } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
 import { PANEL_LIST_BULLET, PANEL_LIST_STACK } from '../../canvas/conversation/panelLists'
 import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
+import {
+  ANALYSIS_NEW_COPY,
+  leaderWithholdCause,
+} from '../../components/results/analysisNew/analysisNewCopy'
 
 export interface V5AnalysisResultBlockProps {
   block: V5AnalysisResultBlockType
@@ -119,6 +132,98 @@ function formatProbability(p: number): string {
  * the live-browser probe, which is declared undone.
  */
 const PROSE_WRAP = 'whitespace-pre-wrap break-words min-w-0'
+
+/**
+ * ⭐ THE HISTORICAL MARKER (Paul's OpenAI test, 24 Sep 2026, screenshot
+ * `0c49ba79…`): a transcript card reads "Ran analysis on your current scenario"
+ * for ever, while the Analysis tab and canvas move on to a later result. A card
+ * for a run that is NOT the analysis on display now says so; the card that IS
+ * on display says nothing extra.
+ *
+ * Copy reused, not minted: "Earlier run" is the Compare tab's own name for a
+ * run that is not the current one (`compare-tab/RunSelector.tsx`).
+ */
+export const EARLIER_RUN_MARKER = 'Earlier run'
+
+/**
+ * Which run this card is, relative to the analysis on display — by IDENTITY,
+ * never by position in the transcript.
+ *
+ * The identity is the content hash `v5AnalysisBlockContentHash`, which is the
+ * very derivation the store writes to `results.hash` for a conversational or
+ * hydrated V5 result (`applyV5State` → `mapV5AnalysisToReport(block)`), and the
+ * one #1923's one-card-per-run dedupe keys on — so "same result" means the same
+ * thing on the card, in the transcript and on the Analysis tab.
+ *
+ *   · `current` — the displayed analysis IS this card's result.
+ *   · `earlier` — an analysis is displayed and it is a DIFFERENT result.
+ *   · `unknown` — nothing is displayed (no `results.hash`). No claim either way:
+ *     a card cannot be called earlier than an analysis that is not there.
+ */
+export type CardRunCurrency = 'current' | 'earlier' | 'unknown'
+
+export function cardRunCurrency(
+  cardHash: string,
+  displayedHash: string | null | undefined,
+): CardRunCurrency {
+  if (typeof displayedHash !== 'string' || displayedHash === '') return 'unknown'
+  return displayedHash === cardHash ? 'current' : 'earlier'
+}
+
+/**
+ * ⭐ THE DISPLAYED RESULT'S LEADER PERMISSION — as a primitive, off the one
+ * carrier the other two surfaces read: `results.report.producer_leader_permission`
+ * (written only by `resultsWithholdLeaderClaim`, persisted with the report). The
+ * Reasoning tab (`useAnalysisNewViewModel`, `resultBoundLeaderWithholdCause`) and
+ * the canvas option card (`OptionNode`, `shareIsGoalOnly`) read the same stamp.
+ *
+ *   · `permitted` — `readProducerLeaderPermission`, the strict reader: `false`
+ *     ONLY on an explicit boolean refusal; absence is an older producer, never
+ *     "no".
+ *   · `cause` — the producer's own `leader_claim.withheld_reason` token
+ *     (`producer_cause`), trimmed, and only when `permitted === false`. NEVER
+ *     `withheld_reason` on the stamp: that is the UI's collapsed two-value enum.
+ *
+ * ⚠ THIS DESCRIBES THE DISPLAYED RESULT, NOT THIS CARD. It is applied only when
+ * `cardRunCurrency` says this card IS that result — see the render body.
+ */
+function readDisplayedWithholdCause(stamp: unknown): string | null {
+  if (readProducerLeaderPermission(stamp) !== false) return null
+  const cause = (stamp as { producer_cause?: unknown }).producer_cause
+  if (typeof cause !== 'string') return null
+  const token = cause.trim()
+  return token === '' ? null : token
+}
+
+/**
+ * The one producer cause for which the shares are said to be goal-only — the
+ * exact token the Reasoning tab (`checks.sharesExcludeLimits`) and the canvas
+ * option card (`shareIsGoalOnly`) key on. Any other cause, or none, adds nothing.
+ */
+const GOAL_ONLY_CAUSE = 'constraint_verdict_withheld'
+
+/**
+ * How this card may ORDER the shares. ROADMAP 1.267 (`utils/optionDisplayOrder.ts`):
+ * order is a designation, so where the card cannot show that the run's leader
+ * claim stands, it keeps the producer's own order.
+ *
+ *   · `current` + the displayed result's stamp says WITHHELD → `canonical`.
+ *   · `earlier` → `canonical`. The only per-run permission in the store belongs
+ *     to the DISPLAYED result; an earlier card has none of its own, and the live
+ *     admission describes the current graph, not that run. Fail closed.
+ *   · otherwise (`current` and not withheld, or `unknown` — nothing displayed, so
+ *     no stamp can be bound to this card) → `by-share`, exactly as before.
+ */
+export type CardOptionOrder = 'canonical' | 'by-share'
+
+export function cardOptionOrder(
+  runCurrency: CardRunCurrency,
+  displayedLeaderPermitted: boolean | null,
+): CardOptionOrder {
+  if (runCurrency === 'earlier') return 'canonical'
+  if (runCurrency === 'current' && displayedLeaderPermitted === false) return 'canonical'
+  return 'by-share'
+}
 
 function finiteNumber(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
@@ -303,7 +408,43 @@ function V5AnalysisResultBlockImpl({
   // enrichment passthrough. Honest-render: null when the wire carries no
   // robustness signal at all.
   const uncertaintyInputs = resolveUncertaintyInputs(block.enrichment, block.leading_option_id)
-  const uncertaintyCopy = calibrateUncertaintyCopy(uncertaintyInputs)
+  // ⭐ EACH CAVEAT ONCE. The calibrated line is UI-authored and restates the
+  // robustness verdict. When this card also renders CEE's own robustness
+  // sentence (`decision_review.robustness_explanation.summary`, which carries
+  // the producer's number — "holds in only about 42% of variations"), the
+  // UI line was the SAME caveat a second time, a few lines apart: the live
+  // walkA capture put "tentative… substantial" beside "substantial instability".
+  // CEE's sentence wins because it is the producer's and says more; the UI
+  // line stays the fallback wherever that sentence is absent (every Agent-lane
+  // card seen in Paul's 24 Sep test, which carried no decision review).
+  // CEE-authored repeats (`summary` vs `robustness_explanation`, answer prose
+  // vs `summary`) are NOT suppressed here — they are recorded for Core.
+  const ceeStatesRobustness =
+    showProse && review030?.robustness_explanation?.summary != null
+  const uncertaintyCopy = ceeStatesRobustness ? null : calibrateUncertaintyCopy(uncertaintyInputs)
+
+  // The historical marker — see `cardRunCurrency`. Hash computed once per block
+  // (the card is memoised on `block`); the store read is one string.
+  const cardHash = useMemo(() => v5AnalysisBlockContentHash(block), [block])
+  const displayedHash = useCanvasStore((s) => s.results?.hash ?? null)
+  const runCurrency = cardRunCurrency(cardHash, displayedHash)
+
+  // ⭐ RC P0 — "suppress misleading leader/rank when leader_claim.permitted=false".
+  // The displayed result's own stamp (see `readDisplayedWithholdCause`), read as
+  // two primitives so a report identity change that alters neither cannot
+  // re-render the card. Used ONLY when this card IS the displayed result.
+  const displayedLeaderPermitted = useCanvasStore((s) =>
+    readProducerLeaderPermission(s.results?.report?.producer_leader_permission),
+  )
+  const displayedWithholdCause = useCanvasStore((s) =>
+    readDisplayedWithholdCause(s.results?.report?.producer_leader_permission),
+  )
+  const optionOrder = cardOptionOrder(runCurrency, displayedLeaderPermitted)
+  // Goal-only is said of THIS card's shares only when they are the displayed
+  // result's and its producer withheld the leader for the limit verdict.
+  const sharesAreGoalOnly =
+    runCurrency === 'current' && displayedLeaderPermitted === false && displayedWithholdCause === GOAL_ONLY_CAUSE
+  const goalOnlyCause = sharesAreGoalOnly ? leaderWithholdCause(displayedWithholdCause) : null
 
   // ROADMAP 1.267 — WHO leads and WHETHER anyone does are different questions.
   //
@@ -336,43 +477,58 @@ function V5AnalysisResultBlockImpl({
   // the two services stay deploy-order independent.
   const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
-  const leaderKeys = verdict.hasLeadingOption && modelLicensesComparativeClaim
+  // A canonical-order card designates nothing: no hoist, no `data-leader`, no
+  // heavier border — whatever the block alone would license.
+  const leaderKeys = optionOrder === 'by-share' && verdict.hasLeadingOption && modelLicensesComparativeClaim
     ? resolveLeaderKeys(block.enrichment, block.leading_option_id)
     : new Set<string>()
 
-  // Sort so the leading option appears first and the rest descending by prob.
+  // ⛔ CORRECTED 24 Sep 2026. This comment used to say the probability-descending
+  // tail "stays on a withheld run" because it "restates a fact already on
+  // screen rather than designating a winner". ROADMAP 1.267 had already ruled
+  // the opposite (`utils/optionDisplayOrder.ts`: probability-descending order
+  // IS a designation), and the served build proved it: on a run withheld for
+  // `constraint_verdict_withheld` this card listed 72% / 24% / 4% top-down
+  // while the Reasoning tab kept the canonical order.
   //
-  // The probability-descending tail is DATA ordering over a set the producer
-  // itself ranks, and it stays on a withheld run — the pills carry their own
-  // numbers, so the order restates a fact already on screen rather than
-  // designating a winner. What goes is the leader-first hoist, which promotes
-  // ONE option above its own number. With `leaderKeys` empty the `aLeads`
-  // branch is inert by construction; it is left in place because the sort is
-  // one comparator for both states.
-  const sortedProbs = hasProbs
-    ? Object.entries(block.win_probabilities as Record<string, number>).sort(
-        ([keyA, pA], [keyB, pB]) => {
-          const aLeads = leaderKeys.has(keyA)
-          const bLeads = leaderKeys.has(keyB)
-          if (aLeads !== bLeads) return aLeads ? -1 : 1
-          return pB - pA
-        },
-      )
-    : []
+  // `canonical` — the producer's own order, `win_probabilities` as sent (the
+  //   same move `sortOptionsForDisplay` makes when designations are withheld:
+  //   no comparator at all, because any sort would be a second designation).
+  // `by-share` — leader first, the rest descending by share, exactly as before.
+  const allProbs = hasProbs ? Object.entries(block.win_probabilities as Record<string, number>) : []
+  const sortedProbs = optionOrder === 'canonical'
+    ? allProbs
+    : [...allProbs].sort(([keyA, pA], [keyB, pB]) => {
+        const aLeads = leaderKeys.has(keyA)
+        const bLeads = leaderKeys.has(keyB)
+        if (aLeads !== bLeads) return aLeads ? -1 : 1
+        return pB - pA
+      })
 
   return (
     <div
       data-testid="v5-analysis-result"
       data-has-decision-review={hasReview ? 'true' : 'false'}
       data-decision-review-state={reviewState.kind}
+      data-run-currency={runCurrency}
       className="rounded-md border border-panel-border bg-panel p-4 space-y-3"
     >
-      <h3
-        className={typography.panelHeader}
-        data-testid="v5-analysis-result-heading"
-      >
-        Analysis result
-      </h3>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3
+          className={typography.panelHeader}
+          data-testid="v5-analysis-result-heading"
+        >
+          Analysis result
+        </h3>
+        {runCurrency === 'earlier' && (
+          <span
+            className={`${typography.panelMeta} text-text-light flex-none`}
+            data-testid="v5-analysis-result-earlier-run"
+          >
+            {EARLIER_RUN_MARKER}
+          </span>
+        )}
+      </div>
       <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
         {block.summary}
       </p>
@@ -396,12 +552,28 @@ function V5AnalysisResultBlockImpl({
           The ruling was applied to what the product SHOWS and left in what it
           SAYS. `byOptionAria` is the register's own answer for exactly this
           shape, taken by reference so it cannot drift back. */}
+      {/* ⭐ GOAL ONLY — the Reasoning tab's own line, IMPORTED, never retyped
+          (`optionFigures.goalOnlyQualifier` + `leaderWithholdCause`), above the
+          shares it qualifies. Only on the displayed result whose producer
+          withheld the leader for the limit verdict; nothing when there are no
+          shares to qualify. */}
+      {hasProbs && sharesAreGoalOnly && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="v5-analysis-result-goal-only"
+        >
+          {ANALYSIS_NEW_COPY.optionFigures.goalOnlyQualifier}
+          {goalOnlyCause !== null ? ` ${goalOnlyCause}` : null}
+        </p>
+      )}
+
       {hasProbs && (
         <div
           className="flex flex-wrap gap-2"
           role="list"
           aria-label={COMPARATIVE_COPY.byOptionAria}
           data-testid="v5-analysis-result-probabilities"
+          data-option-order={optionOrder}
         >
           {/*
             `optionKey` is the win_probabilities KEY — an option LABEL on real
