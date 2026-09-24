@@ -28,3 +28,15 @@ test('Run chip on the real ConversationPanel: gate closed ⇒ refused out loud, 
   expect(r.dispatched).toBe(0)
   expect(r.refusalShown).toBe(true)
 })
+
+for (const which of ['pricing', 'hiring'] as const) {
+  test(`OpenAI route capture (57f903c) — ${which} explicit Run, as rendered in the dock`, async ({ page }, info) => {
+    await preparePage(page, VP)
+    await openCanvas(page)
+    const r = await page.evaluate(async ([p, w]) => (await import(/* @vite-ignore */ p)).renderOpenAiRun(w), [PROBE, which] as const)
+    await page.locator('#aic-host').screenshot({ path: info.outputPath(`04-openai-${which}-run-bottom.png`) })
+    await page.evaluate(async (p) => (await import(/* @vite-ignore */ p)).scrollThreadTop(), PROBE)
+    await page.locator('#aic-host').screenshot({ path: info.outputPath(`05-openai-${which}-run-top.png`) })
+    console.log(`AICWITNESS openai-${which} ${JSON.stringify(r)}`)
+  })
+}

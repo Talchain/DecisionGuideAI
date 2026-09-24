@@ -103,3 +103,75 @@ export async function renderRunChipRefusal(): Promise<{ dispatched: number; refu
   const refusalShown = /Add some nodes to get started/i.test(document.body.textContent ?? '')
   return { dispatched, refusalShown }
 }
+
+// ── OpenAI-path Run replies (AI Quality route captures, served CEE 57f903c) ──
+import { ChatThread } from '../../src/canvas/conversation/zones/ChatThread'
+import { parseV5Response } from '../../src/v5/responseParser'
+import { routeV5Response } from '../../src/v5/responseRouter'
+import { mapV5Blocks } from '../../src/v5/blocks/mapV5Blocks'
+import { extractPhase3FromV5Response, deriveV5AnalysisFactUpdate } from '../../src/v5/extractPhase3FromV5Response'
+import { composePhase3BridgedBlocks } from '../../src/canvas/conversation/useConversation'
+import { buildSuggestedActionChips } from '../../src/v5/blocks/suggestedActionChips'
+import pricingRun from './fixtures/openai-57f903c-pricing-explicit-run.json'
+import hiringRun from './fixtures/openai-57f903c-hiring-explicit-run-blocked.json'
+
+export interface OpenAiRunReading {
+  words: number
+  turnHeight: number
+  bodyHeight: number
+  blocks: string[]
+  chips: string[]
+  foldPx: number
+  caveatAboveFold: boolean
+}
+
+/** The SHIPPED ingestion chain + the real ChatThread, at the real dock width. */
+export async function renderOpenAiRun(which: 'pricing' | 'hiring'): Promise<OpenAiRunReading> {
+  const raw = (which === 'pricing' ? pricingRun : hiringRun) as Record<string, unknown>
+  const res = new Response(JSON.stringify(raw), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  const target = routeV5Response(await parseV5Response(res)) as { kind: string; response: never }
+  const response = target.response as { blocks: never; suggested_actions: never; assistant_text: string }
+  const mapped = target.kind === 'blocks' ? mapV5Blocks(response.blocks, response.suggested_actions) : []
+  const phase3 = extractPhase3FromV5Response(response as never)
+  const fact = deriveV5AnalysisFactUpdate(response as never, phase3)
+  const blocks = composePhase3BridgedBlocks(fact.action === 'set', phase3.rawBlocks, mapped)
+  const actionChips = buildSuggestedActionChips(response.blocks as never, response.suggested_actions as never)
+
+  const el = host()
+  el.style.cssText = `position:fixed;top:0;left:0;width:${W}px;height:772px;display:flex;flex-direction:column;z-index:99999;background:#fff;overflow:auto`
+  root?.unmount()
+  root = createRoot(el)
+  const messages = [
+    { id: 'u1', role: 'user', content: 'Run analysis', timestamp: new Date() },
+    { id: 'a1', role: 'assistant', content: response.assistant_text, isStreaming: false, blocks, actionChips, timestamp: new Date() },
+  ]
+  root.render(createElement(ChatThread as never, {
+    messages, isThinking: false, longRunningHint: null, nodeCount: 12,
+    patchBlockStates: new Map(), patchRejections: new Map(),
+    onChipClick: async () => {}, onPatchAccept: () => {}, onPatchDismiss: () => {},
+    onFeedback: () => {}, onRetry: () => {}, compact: true,
+  }))
+  await settle(); await settle()
+  const thread = el.querySelector('[data-testid="chat-thread"]') as HTMLElement | null
+  const bubbles = [...el.querySelectorAll('[data-testid^="message-bubble"], [data-role="assistant"]')] as HTMLElement[]
+  const assistant = bubbles[bubbles.length - 1] ?? thread
+  const caveat = [...el.querySelectorAll('li, p, span')].find((n) => /unscored|has no stated effect/i.test(n.textContent ?? '')) as HTMLElement | undefined
+  const top = (thread ?? el).getBoundingClientRect().top
+  return {
+    words: response.assistant_text.split(/\s+/).filter(Boolean).length,
+    turnHeight: Math.round(thread?.scrollHeight ?? el.scrollHeight),
+    bodyHeight: Math.round(assistant?.getBoundingClientRect().height ?? 0),
+    blocks: [...el.querySelectorAll('[data-block-id], [data-testid^="v5-"]')].map((n) => n.getAttribute('data-testid') ?? 'block').slice(0, 12),
+    chips: [...el.querySelectorAll('[data-testid^="suggested-chip-"]')].map((n) => n.textContent ?? ''),
+    foldPx: 772,
+    caveatAboveFold: caveat ? caveat.getBoundingClientRect().top - top < 772 : false,
+  }
+}
+
+/** Scroll the thread to the top of the turn, so the photo shows what the reply OPENS with. */
+export function scrollThreadTop(): void {
+  const el = document.getElementById('aic-host')
+  const thread = el?.querySelector('[data-testid="chat-thread"]') as HTMLElement | null
+  if (thread) thread.scrollTop = 0
+  if (el) el.scrollTop = 0
+}
