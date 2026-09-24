@@ -300,22 +300,36 @@ describe('through the mounted inspector, on the live capture', () => {
     // instead of loosening. A locator-agnostic version ("the row contains
     // 0.59") would have survived all three moves and would also survive the
     // row rendering nothing at all.
-    const readTarget = () => {
+    //
+    //   · ⭐ FOURTH MOVE (DEFECT 5, 24 Sep 2026): on this £ factor the row now
+    //     DISPLAYS the card's reading ("£59"), and its model-scale box lives
+    //     under technical detail — "0.59" beside a card saying "£59" was the
+    //     witnessed defect. So the property is read TWICE, on both things that
+    //     can go stale: the displayed target in the default view, and the edit
+    //     BUFFER under technical detail (the half whose staleness would WRITE
+    //     the previous option's number on blur, which is why this test exists).
+    const readTarget = () =>
+      (screen.getByTestId(`intervention-readout-${FACTOR_PRICE}`).textContent ?? '').trim()
+    const readBuffer = () => {
       const row = screen.getByTestId(`inspector-intervention-${FACTOR_PRICE}`)
       const input = row.querySelector('input')
-      expect(input, 'the mounted row offers no editable target').not.toBeNull()
+      expect(input, 'the mounted row offers no editable target under technical detail').not.toBeNull()
       return (input as HTMLInputElement).value.trim()
     }
 
-    expect(readTarget()).toContain('0.59')
+    expect(readTarget()).toContain('£59')
+    fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
+    expect(readBuffer()).toBe('0.59')
 
     rerender(<InspectorModal nodeId={OPTION_STATUS_QUO} edgeId={null} onClose={vi.fn()} />)
     const after = readTarget()
-    expect(after).toContain('0.49')
+    expect(after).toContain('£49')
     // ⚠ INCLUSION ALONE CANNOT SEPARATE "REPLACED" FROM "APPENDED". The
     // qualifier forced the move from exact equality to substring inclusion, and
     // that quietly dropped the half that mattered: showing BOTH values would
     // have passed. The same assertion the description switch already carries.
-    expect(after, "the previous option's target survived the switch").not.toContain('0.59')
+    expect(after, "the previous option's target survived the switch").not.toContain('£59')
+    // The buffer is compared EXACTLY, so "replaced" and "appended" cannot tie.
+    expect(readBuffer(), "the previous option's buffer survived the switch").toBe('0.49')
   })
 })
