@@ -193,14 +193,20 @@ describe('arrowhead size — sized for the bound, not tracked at runtime', () =>
    * mark — the deleted markers were referenced by nothing, so the real baseline
    * is no arrow at all. It is simply the true comparison.
    */
-  it('is exactly 6px long and 8px wide at the park — against the dead markers exact 6px × 6px', () => {
+  /**
+   * contract v3.1 (E7, 24 Sep 2026): 8px wide → 6px wide. The contract's marker
+   * is `viewBox="0 0 6 6"`, `M0 0 6 3 0 6Z` — base EQUAL to length, a ~53°
+   * apex — where the 16 × 12 head was a broad ~67° stub. The LENGTH (the
+   * glyph-derived quantity) is unchanged at 6px.
+   */
+  it('is exactly 6px long and 6px wide at the park — 1:1, the contract marker proportion', () => {
     const DEAD_DEFS_MARKER_UNITS = 6
     const CAUSAL_STROKE_WIDTH = 2 // markerUnits defaulted to `strokeWidth`
     const deadDefsFlowSize = DEAD_DEFS_MARKER_UNITS * CAUSAL_STROKE_WIDTH
     expect(deadDefsFlowSize).toBe(12)
     expect(deadDefsFlowSize * LABEL_LEGIBLE_ZOOM).toBe(6)
 
-    expect(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM)).toBe(8)
+    expect(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM)).toBe(6)
     expect(renderedArrowheadLengthPx(LABEL_LEGIBLE_ZOOM)).toBe(6)
   })
 
@@ -264,10 +270,21 @@ describe('arrowhead clearance — the polarity glyph is the nearest neighbour, n
    * so its length was the WIDTH constant and its tail landed exactly on the
    * glyph's near edge. Length and width must stay separate quantities.
    */
-  it('keeps length and width as separate quantities — a square mark reopens the collision', () => {
-    expect(EDGE_ARROWHEAD_FLOW_LENGTH).not.toBe(EDGE_ARROWHEAD_FLOW_WIDTH)
-    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBeGreaterThan(glyphNearEdgeFlow - GLYPH_BOX_GAP_FLOW)
+  /**
+   * ⚠ RE-STATED — contract v3.1 (E7, 24 Sep 2026). This case used to read
+   * "a square mark reopens the collision" and asserted `length !== width` and
+   * `width > glyphNear − gap`. Those were PROXIES: the collision was never the
+   * square, it was the LENGTH being taken from the 16-unit width. At the
+   * contract's 1:1 proportion the mark is square again — 12 × 12 — with its
+   * length still derived from the glyph, so the proxies would RED on a mark
+   * with exactly the clearance the case exists for. The property itself is what
+   * is pinned now: length is the glyph-derived quantity, and never exceeds it.
+   */
+  it('keeps LENGTH derived from the glyph whatever the width — the property the square-mark proxy stood for', () => {
+    expect(EDGE_ARROWHEAD_FLOW_LENGTH).toBe(glyphNearEdgeFlow - GLYPH_BOX_GAP_FLOW)
     expect(EDGE_ARROWHEAD_FLOW_LENGTH).toBeLessThanOrEqual(glyphNearEdgeFlow - GLYPH_BOX_GAP_FLOW)
+    // contract v3.1 (E7): the base now equals the length — the contract's 1:1.
+    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBe(EDGE_ARROWHEAD_FLOW_LENGTH)
   })
 
   /**

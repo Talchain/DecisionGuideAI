@@ -819,6 +819,23 @@
   inset: -8px;
 }
 
+/* ⭐ THE CARD'S BOTTOM CONNECTOR IS A 3px DARK PORT (contract v3.1 FRAME-04:
+   `.node .bottom-port{width:3px;height:3px;background:#51554F;border-radius:50%}`,
+   centred on the bottom border). The Handle keeps its 12px box and the hit slop
+   above, so connecting is exactly as easy as before; only the paint shrinks.
+   (0,2,0) beats React Flow's own `.react-flow__handle` fill regardless of order.
+   On hover or selection the whole 12px box re-lights in the interaction colour,
+   so drag-to-connect stays discoverable without 15–19 coloured discs at rest. */
+.react-flow__handle.olumi-node-port {
+  border: 0;
+  background: radial-gradient(circle, var(--text-body) 0 1.5px, transparent 2px);
+}
+.react-flow__node:hover .react-flow__handle.olumi-node-port,
+.react-flow__node.selected .react-flow__handle.olumi-node-port {
+  background: var(--info);
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+
 /* Graph Editing Experience Task 4a: Edge drag feedback */
 /* During connection, valid target handles glow; invalid ones dim */
 .react-flow .connecting .react-flow__handle.connectingto {

@@ -176,7 +176,9 @@ describe('the ghost mount carries no visibility gate', () => {
         depth--
         if (depth === 0) {
           const body = code.slice(from + 1, j)
-          if (body.trim().length < 400) {
+          // S4: the memo is now one delegating call (`withGhostTiers`), so the
+          // floor is the size of THAT call, not of the retired hand-placement.
+          if (body.trim().length < 120) {
             throw new Error(`extracted ${body.trim().length} chars of memo body — refusing to assert`)
           }
           return body
@@ -195,14 +197,13 @@ describe('the ghost mount carries no visibility gate', () => {
     // an empty or mis-located string. Binds by the identity of what the block
     // composes, not by a length predicate any region could satisfy.
     const body = ghostMemoBody()
-    // ⚠ MARKER CHANGED 15 Sep 2026. This bound to `withGhostTiers`, which the
-    // memo no longer calls — the tier doors moved onto the card (`BaseNode` +
-    // `tierInvitations`) because measurement showed 14 of 20 fell outside the
-    // frame and there is nowhere inside it to stand. The block still composes
-    // the OPTION door, which measured inside the frame on 5 of 5 starters, so
-    // that is what identifies it now.
-    expect(body).toContain('ghostOptionPrompt')
-    expect(body).toContain('GHOST_OPTION_NODE_ID')
+    // ⚠ MARKER CHANGED AGAIN, S4 (24 Sep 2026). From 15 Sep the block composed
+    // only the option door by hand (`ghostOptionPrompt`, `GHOST_OPTION_NODE_ID`)
+    // because the tier doors had moved onto the cards. ED S4 restored every
+    // row-end prompt, and the block now places all four through one call — so
+    // that call, and the tier table it is handed, identify it.
+    expect(body).toMatch(/withGhostTiers\s*\(/)
+    expect(body).toContain('GHOST_TIERS')
   })
 
   it('POSITIVE CONTROL: the detector fires on a gate it is meant to catch', () => {
@@ -236,23 +237,25 @@ describe('the ghost mount carries no visibility gate', () => {
   })
 
   /**
-   * ⛔ INVERTED 15 Sep 2026, deliberately. It asserted the mount CALLS
-   * `withGhostTiers`; the tier doors now render on the card instead, so the
-   * mount must NOT place them — on either of its two return paths. The second
-   * path (a model with no options) kept placing them in my first cut and was
-   * caught by a test, not by inspection.
+   * ⛔ INVERTED BACK, S4 (24 Sep 2026), deliberately. From 15 Sep this asserted
+   * the mount did NOT call `withGhostTiers` (the tier doors were on the cards,
+   * the option door hand-placed here). Experience Design restored the row-end
+   * prompts (#63 5806207128 / 5806266691) and ruled "Do not also restore
+   * in-card prompt links", so the mount places ALL of them through the one
+   * function, and the hand-placed option door and its no-options early return
+   * are gone — two placements of one affordance is how they drift.
    */
-  it('the mount places no tier doors — they render on the card instead', () => {
-    expect(source()).not.toMatch(/withGhostTiers\s*\(/)
-    expect(source()).toContain('return [...nodes, ghostNode]')
-    expect(source()).toContain('if (optionNodes.length === 0) return nodes')
+  it('the mount places every row-end prompt through withGhostTiers — and hand-places none', () => {
+    expect(source()).toMatch(/withGhostTiers\s*\(/)
+    expect(source()).not.toContain('return [...nodes, ghostNode]')
+    expect(source()).not.toContain('if (optionNodes.length === 0) return nodes')
   })
 
   it('POSITIVE CONTROL: the same probe finds a symbol that is genuinely absent', () => {
     expect(source()).not.toMatch(/withGhostTiersV99Fabricated\s*\(/)
     // The probe can see a symbol that IS there, so the absence above is a
     // measurement rather than a blind read.
-    expect(source()).toMatch(/ghostOptionPrompt\s*\(/)
+    expect(source()).toMatch(/withGhostTiers\s*\(/)
   })
 })
 

@@ -22,47 +22,62 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { NODE_ROW_LABEL_MAX_CHARS, NODE_CARD_MAX_W } from '../nodeLayoutConstants'
+import { NODE_ROW_LABEL_MAX_CHARS, NODE_CARD_MAX_W, REPEATED_CARD_W } from '../nodeLayoutConstants'
 import { MAX_LABEL_COUNTER_SCALE } from '../zoomLegibility'
 import { compactFactorLabel } from '../labelUtils'
 
 const SRC = path.resolve(__dirname, '../nodeLayoutConstants.ts')
 
+/** The Chromium measurement the budget is derived from (pricing-model, 1600x1000):
+ *  a 336 card held a 296px row text block, and at 24px rendered type that block
+ *  held 25 characters of a real mixed-case factor label. */
+const MEASURED_CARD = 336
+const MEASURED_BLOCK = 296
+const MEASURED_CHARS = 25
+
+/**
+ * ⭐ S4 (24 Sep 2026): THE CARD MOVED, SO THE BUDGET MOVED — WHICH IS THIS FILE'S
+ * WHOLE POINT. Experience Design put option cards at `REPEATED_CARD_W` (260), so
+ * the row a label is cut for is 76 units narrower than the 336 it was measured
+ * in, and the budget follows it 25 → 18. A budget left on 336 would hand a 260
+ * card a label ~76 units wider than its row: horizontal overflow, the thing
+ * `nodeTextClipping.visual.spec.ts` catches in a browser.
+ */
 describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
-  it('matches the measurement it was derived from', () => {
-    // The Chromium measurement: a 296px row text block at 24px rendered type
-    // held 25 characters of a real mixed-case factor label.
-    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(25)
-    // …and it is strictly MORE than both hand-set numbers it replaces, which is
-    // the user-visible point: more of the factor's name survives.
-    expect(NODE_ROW_LABEL_MAX_CHARS).toBeGreaterThan(22)
-    expect(NODE_ROW_LABEL_MAX_CHARS).toBeGreaterThan(20)
+  it('matches the measurement, re-applied to the card the rows now render in', () => {
+    const inset = MEASURED_CARD - MEASURED_BLOCK
+    const perChar = MEASURED_BLOCK / MEASURED_CHARS
+    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(Math.floor((REPEATED_CARD_W - inset) / perChar))
+    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(18)
+    // It MOVED with the card — strictly below the 25 a 336 card affords.
+    expect(NODE_ROW_LABEL_MAX_CHARS).toBeLessThan(MEASURED_CHARS)
   })
 
   it('is computed from the card width and the counter-scale, not written down', () => {
     // The relationship, re-derived independently of the module's own arithmetic.
-    const inset = NODE_CARD_MAX_W - 296
-    const avgCharEm = 296 / 25 / 24
+    const inset = NODE_CARD_MAX_W - MEASURED_BLOCK
+    const avgCharEm = MEASURED_BLOCK / MEASURED_CHARS / 24
     const expected = Math.floor(
-      (NODE_CARD_MAX_W - inset) / (12 * MAX_LABEL_COUNTER_SCALE * avgCharEm),
+      (REPEATED_CARD_W - inset) / (12 * MAX_LABEL_COUNTER_SCALE * avgCharEm),
     )
     expect(NODE_ROW_LABEL_MAX_CHARS).toBe(expected)
   })
 
   it('the source contains no second copy of the budget as a literal', () => {
-    // The failure mode being guarded is a HAND-WRITTEN 25 appearing somewhere as
-    // a convenience. The export must be the only way to get the number.
+    // The failure mode being guarded is a HAND-WRITTEN number appearing somewhere
+    // as a convenience. The export must be the only way to get the number, and
+    // it must name the card it is spent in.
     const src = readFileSync(SRC, 'utf8')
     const decl = src.slice(src.indexOf('export const NODE_ROW_LABEL_MAX_CHARS'))
-    expect(decl).toContain('NODE_CARD_MAX_W')
-    expect(decl).toContain('MAX_LABEL_COUNTER_SCALE')
+    expect(decl.slice(0, decl.indexOf('\n)'))).toContain('REPEATED_CARD_W')
+    expect(decl.slice(0, decl.indexOf('\n)'))).toContain('MAX_LABEL_COUNTER_SCALE')
     // A literal budget on the export line would defeat the whole derivation.
     expect(decl.split('\n')[0]).not.toMatch(/=\s*\d+/)
   })
 
   it('a label at the budget survives whole; one past it is cut at a word', () => {
     // Binds to the BUDGET, not to a number another string could satisfy.
-    const atBudget = 'Usage-based pricing'          // 19 chars, inside the budget
+    const atBudget = 'Trial conversion'             // 16 chars, inside the budget
     expect(compactFactorLabel(atBudget, NODE_ROW_LABEL_MAX_CHARS)).toBe(atBudget)
 
     const past = 'Usage-based pricing exposure across renewals'
@@ -72,46 +87,42 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
   })
 
   /**
-   * ⚠ THE GAIN IS REAL BUT IT IS NOT PER-LABEL, and an assertion written the
-   * obvious way is FALSE. `truncateLabelAtWord` cuts at a word boundary, so a
-   * bigger budget changes nothing unless the NEXT WHOLE WORD now fits. My first
-   * version of this test asserted "the 25-budget recovers more than the
-   * 22-budget" on one string and failed — "exposure" fits in neither, so all
-   * three budgets cut identically.
-   *
-   * So the claim is made over the POPULATION, against the real corpus, with the
-   * number measured rather than asserted.
+   * ⚠ WHAT S4 COSTS, STATED ON THE REAL CORPUS RATHER THAN HIDDEN: a narrower
+   * card cuts more labels. What must NOT change is HOW they are cut — at a word,
+   * never mid-word, and never longer than the row.
    */
-  it('recovers more text across the shipped starter labels — measured, not assumed', () => {
-    // The 34 distinct factor labels across the five committed starters, already
-    // cleaned and sentence-cased as the card would render them.
+  it('on the shipped labels the narrower row cuts at a WORD, never mid-word, never past the row', () => {
     const LABELS = [
       'In-house build approach', 'Time to live (quarters)', 'Vendor licensing cost',
       'Vendor solution adoption', 'Engineering attrition', 'Market demand for product',
       'Competitive intensity in segment', 'Competitive pressure for usage pricing',
       'Usage-based pricing exposure', 'Top account revenue concentration',
     ]
-    const widened = LABELS.filter(
-      l => compactFactorLabel(l, NODE_ROW_LABEL_MAX_CHARS) !== compactFactorLabel(l, 22),
-    )
-    // Measured across the full corpus: 10 of 34 labels (29%) render more text on
-    // the intervention row, and 14 of 34 (41%) on the differentiator. Seven
-    // labels that were truncated now render WHOLE.
-    expect(widened.length).toBeGreaterThanOrEqual(6)
-
-    // Bound by identity to a label that goes from cut to whole — the
-    // user-visible claim, not a count another string could satisfy.
-    expect(compactFactorLabel('In-house build approach', 22)).toBe('In-house build…')
-    expect(compactFactorLabel('In-house build approach', NODE_ROW_LABEL_MAX_CHARS))
-      .toBe('In-house build approach')
+    let cutCount = 0
+    for (const l of LABELS) {
+      const out = compactFactorLabel(l, NODE_ROW_LABEL_MAX_CHARS)
+      expect(out.length, l).toBeLessThanOrEqual(NODE_ROW_LABEL_MAX_CHARS + 1)
+      if (out.endsWith('…')) {
+        cutCount++
+        const kept = out.slice(0, -1)
+        // A word boundary: the original continues with a space after what was kept.
+        expect(l.startsWith(kept), `${l} → ${out}`).toBe(true)
+        expect(l.charAt(kept.length), `${l} → ${out} was cut mid-word`).toBe(' ')
+      }
+    }
+    // CONTRAST: the corpus really exercises the cut, or the loop above is vacuous.
+    expect(cutCount).toBeGreaterThan(0)
+    // Bound by identity to one label the S4 row now cuts.
+    expect(compactFactorLabel('In-house build approach', NODE_ROW_LABEL_MAX_CHARS)).toBe('In-house build…')
   })
 
   it('the budget shrinks if the type is counter-scaled harder', () => {
     // The property a hand-set number cannot express: the card is fixed in
     // layout px and the type is not, so the capacity is a function of the
-    // scale. Re-derived at a hypothetical higher ceiling.
-    const avgCharEm = 296 / 25 / 24
-    const at3 = Math.floor(296 / (12 * 3 * avgCharEm))
+    // scale. Re-derived at a hypothetical higher ceiling, in the same row.
+    const avgCharEm = MEASURED_BLOCK / MEASURED_CHARS / 24
+    const row = REPEATED_CARD_W - (MEASURED_CARD - MEASURED_BLOCK)
+    const at3 = Math.floor(row / (12 * 3 * avgCharEm))
     expect(at3).toBeLessThan(NODE_ROW_LABEL_MAX_CHARS)
   })
 })

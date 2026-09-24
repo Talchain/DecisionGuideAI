@@ -582,7 +582,7 @@ export const sensitivityRankBadgeLabel = (rank: number, fromLastRun = false): st
 export const SENSITIVITY_RANK_LEGEND_NOUN = 'Driver N of M'
 // ⭐ LOCKED DESIGN (23 Sep 2026; ED 02:31Z D1a): the corner "Key driver N" badge
 // is RETIRED and the rank is stated once, on the factor card's driver line —
-// "Driver N of M analysed" (`DRIVER_LINE_COPY.rank`). The legend heading
+// "Driver N of M analysed" (`DRIVER_LINE_COPY.rank`, ED #63 5806207128). The legend heading
 // moves with it, so the key names the marking a reader actually meets.
 
 /**
@@ -856,11 +856,20 @@ export const MAX_GLOSS_LENGTH = 110
  * The relative/not-absolute half of the spec sentence is kept word for word.
  */
 export const DRIVER_LINE_COPY = {
-  // Paul 23 Sep contract feedback point 5: "if it says `1 of 3`, users must
-  // understand what the 3 means". M is the factors in the last analysis's
-  // driver feed (`rankFactor`), not the cards on the board — "in this model"
-  // invited counting cards. `FactorDriverLine`'s disclosure states the rest.
-  rank: (rank: number, setSize: number): string => `Driver ${rank} of ${setSize} analysed`,
+  // ⭐ ED #63 5806207128 ("Factor anatomy", 24 Sep; supersedes contract v3.1
+  // pt 5's "Driver N of M ranked in this run", M = the ranked count): "If rank
+  // is published: use e.g. `Driver 1 of 6 analysed` + a neutral thin relative
+  // bar. Denominator = eligible analysed factors, not 'number of ranks we
+  // happen to render'." That is the served wording AND the served M from
+  // before the v3.1 change: M is the factors in the last analysis's driver feed
+  // (`rankFactor`'s `influenceSetSize`), not the cards on the board — "in this
+  // model" invited counting cards. Stale form: `Last run · Driver 1 of 6
+  // analysed` — the caller owns the `LAST_RUN_PREFIX`; the words do not change.
+  rank: (rank: number, analysedCount: number): string => `Driver ${rank} of ${analysedCount} analysed`,
+  // Contract v3.1 pt 5: "A factor the run did not rank shows no rank, and its
+  // detail says 'Not ranked in this run'". The stale form mirrors the rank's
+  // (the caller prefixes `LAST_RUN_PREFIX`).
+  notRanked: (fromLastRun = false): string => (fromLastRun ? 'Not ranked' : 'Not ranked in this run'),
   relativeDisclosure:
     'Relative to the strongest factor in this model, not an absolute causal percentage.',
   rankBasis:
@@ -935,8 +944,16 @@ export const OPTION_RESULT_COPY = {
    * computed on the goal outcome alone, so it never claims WHICH of
    * infeasible / unevaluated / unmatched happened (`analysisNewCopy.ts`).
    */
-  goalOnly: 'Goal only · your limits aren’t in this share',
-  goalOnlyNote: 'This share compares the options on the goal alone; the limits you set are not part of it.',
+  /**
+   * ⭐ ED #63 5806207128 / 5806266691 choice 3 + NODE-ANATOMY v3.2 (Option):
+   * the SHORT per-result form, visible at rest on the share line beside
+   * `N% of runs` (it replaces #1921's second line). Its full meaning is
+   * `goalOnlyNote`, on hover, keyboard focus and in the accessible name — never
+   * only in a tooltip, and never styled as a verdict.
+   */
+  goalOnly: 'Goal only',
+  /** The full meaning of `goalOnly` (ED: "your limits aren't in this share"). */
+  goalOnlyNote: 'Your limits aren’t in this share: it compares the options on the goal alone.',
   changedNote: 'The model has changed since this run.',
 } as const
 

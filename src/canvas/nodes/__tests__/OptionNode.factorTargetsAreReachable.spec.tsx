@@ -33,6 +33,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
+import { openOptionPreview } from './__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 import {
   OptionNode,
@@ -352,6 +353,28 @@ describe('the route renders in the view the product opens in', () => {
     expect(line, 'the route must render in Standard view').not.toBeNull()
     expect(line?.tagName.toLowerCase()).toBe('button')
     expect(oldCountLine()).toBeNull()
+  })
+
+  /**
+   * ⭐ BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026): in Standard view the
+   * rows and `+N more` left the card body for the option's popover. The SECOND
+   * route must still be reachable in the view the product opens in — in the
+   * popover (hover, tap, keyboard focus), opening THIS option's inspector — and
+   * must not be on the face.
+   */
+  it('STANDARD view: `+N more` is in the option\'s popover, off the face, and opens THIS option', async () => {
+    renderCard('standard', undefined, 'idle', CEE_THREE)
+    expect(moreRoute(), 'precondition: the popover is closed, so `+N more` is not on the face').toBeNull()
+    // The render container (RTL mounts it directly under <body>) — its first
+    // element is the option's wrapper, which owns the hover handlers.
+    const container = document.querySelector('[data-testid="node-title"]')!.closest('body > div') as HTMLElement
+    const preview = await openOptionPreview(container, OPTION_ID)
+    const more = preview.querySelector<HTMLButtonElement>(`[data-testid="option-change-more-${OPTION_ID}"]`)
+    expect(more?.textContent).toBe('+1 more')
+    openNodeInspector.mockClear()
+    more!.click()
+    expect(openNodeInspector).toHaveBeenCalledTimes(1)
+    expect(openNodeInspector).toHaveBeenCalledWith(OPTION_ID)
   })
 
   it('REGRESSION GUARD — Expert view still carries it, once', () => {

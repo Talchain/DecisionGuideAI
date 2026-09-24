@@ -13,6 +13,65 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, PreAnalysisIn
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
+import { nodeRecordedValue } from '../domain/nodeRecordedValue'
+import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+
+/**
+ * ⭐ THE OUTCOME'S OWN STATE — contract v3.1 point 8 (OR-02, RHY-09): "Use that
+ * space for actual outcome state." The v3.1 fixture renders, for an outcome
+ * with no value, `<div class="small-state">Outcome not quantified</div>`, and
+ * the same `own-value` row as a factor (value + source mark) when one exists.
+ * The risk card beside it already states its own (`RISK_EXPOSURE_UNSET_LINE`),
+ * so the two cards in the consequence tier now share one anatomy and, with the
+ * same title length, one height.
+ *
+ * ⛔ A FACT ABOUT THE MODEL, NEVER ABOUT THE WORLD. It says Olumi holds no
+ * quantity for this outcome — measured, 0 of 15 corpus outcomes carry one
+ * (`domain/nodeRecordedValue` header) — not that the outcome cannot be
+ * measured, is unimportant, or is at risk. No figure, no warning styling.
+ */
+export const OUTCOME_UNQUANTIFIED_SHORT = 'Not quantified'
+export const OUTCOME_UNQUANTIFIED_LINE = `Outcome ${OUTCOME_UNQUANTIFIED_SHORT.toLowerCase()}`
+
+/*
+ * ⭐ `OUTCOME_UNQUANTIFIED_SHORT` IS THE STANDARD CARD'S RESTING FORM, and the
+ * sentence above is DERIVED from it (one spelling of the state, never two).
+ *
+ * Experience Design #63 5809278282 (24 Sep 2026): *"Landing / quiet: repeated
+ * cards may reduce to **title + one primary line** inside the fixed fit-safe
+ * box … Outcome/Risk = state."* At the landing floor (`--canvas-label-scale` 2,
+ * a 260-unit card) a line holds ~19 characters and the sentence is 22, so as
+ * the ONE line it either wraps (another 28 units of reserved height on every
+ * outcome) or is cut — and a cut eats "quantified", the state itself. The
+ * short form is the sentence's own tail: the state survives, the leading noun
+ * (which the card's kind already says) moves.
+ *
+ * ⛔ NOT DELETED: the full sentence rides the line's `title`, an `sr-only` copy
+ * and the node popover (both phases); Detailed keeps it inline.
+ */
+
+/**
+ * Does the record hold ANY number for this outcome, formatted or not?
+ *
+ * ⚠ WIDER THAN `nodeRecordedValue` ON PURPOSE. That reader declines to format
+ * some numbers (a zero magnitude — see its header), and "not quantified" must
+ * never render over a number the record DOES hold. So the absence sentence is
+ * gated on this, the value row on `nodeRecordedValue`, and a record in between
+ * (a number nobody can format honestly) renders neither.
+ */
+function recordsAnyNumber(data: Record<string, unknown> | undefined): boolean {
+  if (!data) return false
+  for (const key of ['observedState', 'observed_state'] as const) {
+    const obs = data[key] as Record<string, unknown> | undefined
+    if (!obs || typeof obs !== 'object') continue
+    for (const field of ['value', 'raw_value'] as const) {
+      const v = obs[field]
+      if (typeof v === 'number' && Number.isFinite(v)) return true
+      if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return true
+    }
+  }
+  return false
+}
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
@@ -41,6 +100,17 @@ export const OutcomeNode = memo((props: NodeProps) => {
     : summary
   const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled outcome', description: fullDescription ?? undefined }
   const outcomeContext = fullDescription ? `\nOutcome context: ${fullDescription}` : ''
+
+  // The outcome's own state (see `OUTCOME_UNQUANTIFIED_LINE`). The value branch
+  // has no producer today, so it ships dark; it reads the same owners the factor
+  // and risk cards read, so it cannot disagree with them when one arrives.
+  const recordedValue = useMemo(
+    () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
+    [props.data],
+  )
+  const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
+  const showUnquantified = !recordedValue && !recordsAnyNumber(props.data as Record<string, unknown> | undefined)
+  const hasStateLine = recordedValue != null || showUnquantified
 
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
@@ -124,6 +194,28 @@ export const OutcomeNode = memo((props: NodeProps) => {
             })}
           />
         </>
+      )}
+    </>
+  ) : null
+
+  /**
+   * ⭐ WHAT LEFT THE STANDARD BODY, IN THE POPOVER IT MOVED TO (ED 5809278282:
+   * "can move to the existing hover/focus popover and inspector rather than
+   * expanding layout geometry"). Both phases: the full unquantified sentence
+   * (only where the card shows the short form — a recorded value is on the
+   * card whole, so nothing is restated) and the authored consequence the card
+   * used to preview in two clamped lines. The description chevron and the
+   * inspector still carry the full text.
+   */
+  const outcomePopoverOwnState = showUnquantified || summary ? (
+    <>
+      {showUnquantified && (
+        <p className={`${typography.edgeLabel} text-text-body m-0`} data-testid="outcome-popover-state">{OUTCOME_UNQUANTIFIED_LINE}</p>
+      )}
+      {summary && (
+        <p className={`${typography.edgeLabel} text-text-light m-0${showUnquantified ? ' mt-1' : ''} line-clamp-3 break-words whitespace-pre-wrap`} data-testid="outcome-popover-context">
+          {summary}
+        </p>
       )}
     </>
   ) : null
@@ -272,14 +364,66 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
-        {/* Authored consequence; the existing chevron retains its full description. */}
-        {summary && (
-          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="outcome-context-preview">
+        {/* ===== LAYER 1: Standard body (always visible) ===== */}
+
+        {/* ⭐⭐ STANDARD VIEW: ONE PRIMARY LINE, AND NOTHING ELSE IN THE BODY
+            (Experience Design #63 5809278282, 24 Sep 2026: "repeated cards may
+            reduce to title + one primary line inside the fixed fit-safe box …
+            Outcome/Risk = state … Keep one stable layout geometry"). The line
+            is the same DOM at every rung, so a Normal-zoom card is never taller
+            than the landing one. The recorded value + source mark (value first,
+            `shrink-0`, never the thing cut), or `Not quantified` with the full
+            sentence on `title` and in `sr-only`. The authored consequence moved
+            to the popover below (both phases); the chevron and the inspector
+            still carry it. The testids are the ones these states already had;
+            `data-card-primary-line` marks the body's only row.
+
+            Detailed keeps the full inline anatomy, unchanged: the recorded row
+            is ONE element for both views (only its classes follow the view),
+            and Detailed's absence line is the full sentence, directly under
+            the title (contract v3.1 OR-02 / RHY-09), first body row so no top
+            margin (RHY-06), with the risk card's Detailed unset-line classes
+            exactly. */}
+        {recordedValue ? (
+          <div
+            className={`${typography.nodeValue} text-text-body flex items-baseline gap-1 ${isDetailed ? 'flex-wrap' : 'whitespace-nowrap overflow-hidden'}`}
+            data-testid="outcome-recorded-value"
+            {...(isDetailed ? {} : { 'data-card-primary-line': 'outcome' })}
+          >
+            <span className="shrink-0" data-testid="outcome-recorded-readout">{recordedValue}</span>
+            {recordedValueMark && (
+              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} />
+            )}
+          </div>
+        ) : showUnquantified ? (
+          isDetailed ? (
+            <div className={`${typography.edgeLabel} text-text-light`} data-testid="outcome-unquantified">
+              {OUTCOME_UNQUANTIFIED_LINE}
+            </div>
+          ) : (
+            <div
+              className={`${typography.edgeLabel} text-text-light whitespace-nowrap overflow-hidden text-ellipsis`}
+              data-testid="outcome-unquantified"
+              data-card-primary-line="outcome"
+              title={OUTCOME_UNQUANTIFIED_LINE}
+            >
+              <span aria-hidden="true">{OUTCOME_UNQUANTIFIED_SHORT}</span>
+              <span className={typography.screenReaderOnly}>{OUTCOME_UNQUANTIFIED_LINE}</span>
+            </div>
+          )
+        ) : null}
+
+        {/* Authored consequence, AFTER the card's own state and one step smaller
+            (contract v3.1 OR-08: the title is followed by the node's own state;
+            other prose is subordinate, at 11px or smaller). No trailing margin
+            (RHY-06); the row gap is taken only when a state line precedes it.
+            The existing chevron retains its full description. Detailed only
+            since ED 5809278282; Standard carries it in the popover. */}
+        {isDetailed && summary && (
+          <p className={`${typography.edgeLabel} text-text-light m-0${hasStateLine ? ' mt-1' : ''} line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="outcome-context-preview">
             {summary}
           </p>
         )}
-
-        {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
         {/* ⛔ No link-strength row and no option-reach line (contract v3.1 —
             see the note above `inboundConnections`). */}
@@ -331,6 +475,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {outcomePopoverOwnState}
           {layer2ContentPost}
           {outcomePopoverChips}
         </NodePopover>
@@ -347,6 +492,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {outcomePopoverOwnState}
+          {outcomePopoverOwnState && preAnalysisPopoverContent && <Sep />}
           {preAnalysisPopoverContent}
           {outcomePopoverChips}
         </NodePopover>

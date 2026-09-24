@@ -50,6 +50,13 @@
  *   · render the badge unconditionally           → case 4 REDs
  *   · reorder the stack narrowest-first          → case 2 REDs
  *
+ * ⭐ NODE-ANATOMY v3.2 (24 Sep): the factor states "Needs input · Value not set
+ * yet" in its BODY (line 2, `factor-needs-input-row-{id}`), never as a pill on
+ * the border — so the pill left the corner stack and the stack is the
+ * attention marker · edited dot · coaching. The PAIR this file exists for
+ * (needs input AND ranked, on one card) is unchanged; only where the first half
+ * is said moved. The same `needs-input-pill` id is bound, now inside the row.
+ *
  * ⚠ EVERY ASSERTION BINDS BY IDENTITY — `needs-input-pill`,
  * `sensitivity-rank-{id}`, `edited-since-run-{id}`, `node-coaching-marker-{id}`
  * are exact test ids, and the ordering assertions compare element REFERENCES,
@@ -161,8 +168,13 @@ vi.mock('../../store', () => {
 // The rank the driver feed would supply for this factor; toggled per test.
 // Read inside the returned closure, so it is evaluated at render time.
 let sensitivityRank: number | null = null
-// The ranked set's size — the `M` of "Driver N of M". Read at render time.
+// The analysed set's size (`influenceSetSize`) — the PRINTED `M` of "Driver N
+// of M analysed" (ED #63 5806207128: "Denominator = eligible analysed
+// factors"). Read at render time.
 const SET_SIZE = 4
+// The ranked count — the publication guard only, deliberately different from
+// SET_SIZE so a caption that printed it would go red.
+const RANKED_COUNT = 3
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
   useNodeDisplayMetadata: vi.fn(() => ({
     sensitivityRank,
@@ -173,6 +185,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     influenceProvenance: 'normalised_elasticity',
     influenceImportanceBasis: null,
     influenceSetSize: SET_SIZE,
+    influenceRankedCount: RANKED_COUNT,
     confidence: null,
     confidenceIsDefaulted: false,
     confidenceIsProvisional: false,
@@ -263,25 +276,27 @@ beforeEach(() => {
 })
 
 describe('a ranked factor can still need input — the pair the contract called impossible', () => {
-  it('CASE 1 — "Needs input" and the rank render TOGETHER on one card: pill in the stack, rank on the driver line', () => {
+  it('CASE 1 — "Needs input" and the rank render TOGETHER on one card: pill in the body row, rank on the driver line', () => {
     sensitivityRank = 1
     renderFactor(UNVALUED_FACTOR)
 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
+    const row = screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)
     const pill = screen.getByTestId('needs-input-pill')
 
     // Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: the Key-driver badge is
-    // retired — the corner holds the pill alone…
+    // retired; NODE-ANATOMY v3.2: the pill is in the body, so the corner is empty…
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
-    expect(stack).toContainElement(pill)
-    expect(Array.from(stack.children)).toEqual([pill])
+    expect(row).toContainElement(pill)
+    expect(stack).not.toContainElement(pill)
+    expect(stack.children).toHaveLength(0)
 
     // …and the rank is stated by the driver line on the SAME card, so the pair
     // the contract called impossible is still on screen, together.
     expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(1, SET_SIZE))
   })
 
-  it('CASE 2 — the FOUR-member row: pill · attention marker · edited dot · coaching, in that order', () => {
+  it('CASE 2 — every member together: the pill in the body; attention marker · edited dot · coaching in the corner, in that order', () => {
     sensitivityRank = 2
     attentionMarked = true
     editedNodeIds.add(FACTOR_ID)
@@ -298,14 +313,13 @@ describe('a ranked factor can still need input — the pair the contract called 
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
 
     const kids = Array.from(stack.children)
-    // ⛔ FOUR. `BaseNode.cornerStack.spec.tsx` pins THREE — on a DECISION
-    // fixture, whose arm is still phase-gated. That is correct for that node
-    // type and is not evidence about a factor.
-    expect(kids).toHaveLength(4)
-    expect(kids[0]).toBe(pill)
-    expect(kids[1]).toBe(marker)
-    expect(kids[2]).toBe(edited)
-    expect(kids[3]).toBe(coaching)
+    // NODE-ANATOMY v3.2: the pill is line 2 of the card, not a corner member
+    // (it was FOUR here while it sat on the border).
+    expect(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toContainElement(pill)
+    expect(kids).toHaveLength(3)
+    expect(kids[0]).toBe(marker)
+    expect(kids[1]).toBe(edited)
+    expect(kids[2]).toBe(coaching)
 
     // The rank itself is on the driver line, rank 2 by identity.
     expect(driverCaption().textContent).toBe(DRIVER_LINE_COPY.rank(2, SET_SIZE))
@@ -331,15 +345,16 @@ describe('a ranked factor can still need input — the pair the contract called 
     const stack = screen.getByTestId(`node-corner-stack-${FACTOR_ID}`)
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
     const pill = screen.getByTestId('needs-input-pill')
-    const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(1)
-    expect(kids[0]).toBe(pill)
-    // Locked Canvas design (23 Sep 2026): the same measured quantity still
-    // renders its driver line — with the quantity's own noun, never a rank.
-    // This is what makes CASES 1-3 discriminating: the caption follows the
-    // rank, not the fixture.
-    const caption = driverCaption()
-    expect(caption.textContent).toBe('Outcome sensitivity')
-    expect(caption.textContent).not.toMatch(/^Driver \d+ of \d+/)
+    // NODE-ANATOMY v3.2: stated in the body row, and nothing on the border.
+    expect(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).toContainElement(pill)
+    expect(stack.children).toHaveLength(0)
+    // ⛔ Contract v3.1 pt 5 (supersedes the locked design's noun fallback): the
+    // same measured quantity renders NO driver line — "A factor the run did not
+    // rank shows no rank" — and says "Not ranked in this run" to AT. This is
+    // what makes CASES 1-3 discriminating: the line follows the rank, not the
+    // fixture.
+    expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.getByTestId('factor-driver-not-ranked').textContent).toBe('Not ranked in this run')
   })
 })

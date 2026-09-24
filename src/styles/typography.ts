@@ -234,7 +234,14 @@ export const typography = {
   // the rule is never generated — the size would silently fall back to inherited
   // and the fix would ship dark. `CANVAS_TYPE_PX` above is the number these must
   // agree with, and `canvasTypeGeometryAgrees.spec.ts` REDs if they drift.
-  nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug',
+  //
+  // ⭐ LINE-HEIGHT 1.25 (`leading-tight`) — contract v3.1 `.node h3{line-height:
+  // 1.25}` (delta RHY-08). It was `leading-snug` (1.375): a 19.25px line at 14px,
+  // so a two-line title spent 3.5px a line on leading the contract does not
+  // have. Heights only SHRINK (every card's title block, measured from the DOM
+  // by the layout), widths are untouched, and 1.25 still clears the font's
+  // ascent + descent, so a clamped title does not clip its descenders.
+  nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
   // ⚠ 14px WRITTEN OUT, NOT INTERPOLATED FROM CANVAS_TYPE_PX. This file's own
   // header records why: Tailwind's scanner reads SOURCE TEXT, so an
   // arbitrary-value class built by template interpolation is never generated and

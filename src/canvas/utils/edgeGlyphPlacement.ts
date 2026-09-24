@@ -32,9 +32,16 @@
  * tendency: **for any two distinct edges sharing a target, the returned offsets
  * differ.** Proof, and it is why the placement is polar rather than cartesian:
  *
- *   A returned offset is `dir * radius` with `|dir| = 1` and `radius > 0`.
- *   If `dir_i * r_i === dir_j * r_j` then, taking magnitudes, `r_i === r_j`,
- *   and dividing through, `dir_i === dir_j`.
+ *   A returned offset is `R(dir) · (radius, GLYPH_LATERAL_OFFSET)`: the fixed
+ *   vector (radius, L) rotated so its first axis lies along `dir`, i.e.
+ *   `dir * radius + perp(dir) * L` with `perp(dir) = (−dir.y, dir.x)`,
+ *   `|dir| = 1`, `radius > 0`. (contract v3.1, E14: the lateral term moves the
+ *   glyph BESIDE the line instead of ON it; with L = 0 this is the original
+ *   `dir * radius` and the proof below reduces to the original one.)
+ *   If `R_i · (r_i, L) === R_j · (r_j, L)` then, taking magnitudes,
+ *   `r_i² + L² === r_j² + L²`, so `r_i === r_j`; the two vectors being rotated
+ *   are then identical and non-zero, so the rotations are equal and
+ *   `dir_i === dir_j`.
  *   So two offsets coincide ONLY when both direction and radius coincide.
  *   - Directions differ  → offsets differ, whatever the radii. Done.
  *   - Directions are EXACTLY equal → for `i < j` in id order, every earlier
@@ -85,6 +92,21 @@ export interface GlyphOffset {
  * unchanged, and spends the change entirely on DIRECTION.
  */
 export const GLYPH_ANCHOR_RADIUS = 26
+
+/**
+ * ⭐ contract v3.1 (E14, 24 Sep 2026): how far the glyph sits to the SIDE of the
+ * line, in graph units, perpendicular to its approach direction.
+ *
+ * `GLYPH_ANCHOR_RADIUS` alone puts the glyph ON the target→source axis, so on
+ * the ordinary near-straight edge it is drawn across the coloured line; the
+ * canvas-coloured halo (`POLARITY_GLYPH_HALO`) knocks the line out behind it
+ * but still interrupts it. The contract draws the sign 8 units to the side of
+ * the line end (`gx = bx + off ± 8`). One fixed rotation of (radius, 8) per
+ * edge, so the distinctness proof above still holds, and the glyph only moves
+ * FURTHER from the arrowhead, whose length is derived against the on-axis
+ * position (`EDGE_ARROWHEAD_FLOW_LENGTH`) — clearance can only grow.
+ */
+export const GLYPH_LATERAL_OFFSET = 8
 
 /**
  * The glyph's own painted box, in graph units, at the 0.50 auto-fit zoom the
@@ -162,6 +184,18 @@ function unitFrom(
 }
 
 /**
+ * The ONE placement rule every branch below uses: `radius` back along `dir`,
+ * plus `GLYPH_LATERAL_OFFSET` to the side — `R(dir) · (radius, L)`. One
+ * function, so no branch can place on-axis while another places beside it.
+ */
+function placeAlong(dir: { x: number; y: number }, radius: number): GlyphOffset {
+  return {
+    dx: dir.x * radius - dir.y * GLYPH_LATERAL_OFFSET,
+    dy: dir.y * radius + dir.x * GLYPH_LATERAL_OFFSET,
+  }
+}
+
+/**
  * Where this edge's polarity glyph sits, as an offset from the TARGET HANDLE
  * ANCHOR (`targetX`/`targetY`).
  *
@@ -184,8 +218,7 @@ export function resolvePolarityGlyphOffset(
   // render: a missing glyph is worse than a crudely placed one, and a thrown
   // error here would take the whole canvas down.
   if (self === -1) {
-    const dir = fallbackDirection(0)
-    return { dx: dir.x * GLYPH_ANCHOR_RADIUS, dy: dir.y * GLYPH_ANCHOR_RADIUS }
+    return placeAlong(fallbackDirection(0), GLYPH_ANCHOR_RADIUS)
   }
 
   const dirs = ordered.map((s) => unitFrom(targetCentre, s.sourceCentre))
@@ -199,7 +232,7 @@ export function resolvePolarityGlyphOffset(
   if (anyMissing) {
     const dir = dirs[self] ?? fallbackDirection(self)
     const radius = GLYPH_ANCHOR_RADIUS + self * GLYPH_RING_STEP
-    return { dx: dir.x * radius, dy: dir.y * radius }
+    return placeAlong(dir, radius)
   }
 
   const mine = dirs[self]!
@@ -212,5 +245,5 @@ export function resolvePolarityGlyphOffset(
     if (mine.x * other.x + mine.y * other.y >= TIE_COS) ring++
   }
   const radius = GLYPH_ANCHOR_RADIUS + ring * GLYPH_RING_STEP
-  return { dx: mine.x * radius, dy: mine.y * radius }
+  return placeAlong(mine, radius)
 }

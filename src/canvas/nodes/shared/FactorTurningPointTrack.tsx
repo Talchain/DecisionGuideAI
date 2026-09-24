@@ -17,7 +17,10 @@
  *       to scale. A PLoT row carries no search bounds, so no "modelled range"
  *       is claimed (see `turningPointCopy.ts`);
  *   (d) "no turning point" is a first-class, quiet fallback
- *       (`FactorTurningPointNone`), mounted through `FactorTurningPointSlot`.
+ *       (`FactorTurningPointNone`), mounted through `FactorTurningPointSlot` —
+ *       and, since NODE-ANATOMY v3.2, only under a RANKED factor's driver line
+ *       (the caller gates it: "Nothing is shown just to say that nothing
+ *       exists"). A found turning point still shows on any factor.
  *
  * ⛔ The number prints ONLY on the display scale (`factorTurningPoint.ts`,
  * ROADMAP 2.1371) AND only when the row's unit is compatible with the factor's
@@ -107,7 +110,7 @@ export function FactorTurningPointTrack({
         data-testid="factor-turning-point"
         data-node-tooltip="true"
         aria-label={`${sentence} ${detail}`}
-        className="nodrag nopan mt-1 flex w-full flex-col items-start gap-0.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
+        className="group nodrag nopan mt-1 flex w-full flex-col items-start gap-0.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
         onClick={(e) => {
           e.stopPropagation()
           openNodeInspector(nodeId)
@@ -115,13 +118,22 @@ export function FactorTurningPointTrack({
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
-        <span data-testid="factor-turning-point-caption" className={`${typography.edgeLabel} min-w-0 text-text-body`}>
+        {/* The finding is the card's strongest analysis line (contract
+            `.plot-caption b{font-weight:500}`, hover underline), heavier than
+            the regular-weight rank above it — the served card had it reversed. */}
+        <span
+          data-testid="factor-turning-point-caption"
+          className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
+        >
           {sentence}
         </span>
         {flipText !== null && runText !== null && (
-          <span className="inline-flex max-w-full items-center gap-1.5" aria-hidden="true">
+          // The track spans the card between its two labels (contract
+          // `.mini-plot svg{width:100%}`), not a fixed 54px squeezed between
+          // them; the spacing is already declared "not to scale".
+          <span className="flex w-full items-center gap-1.5" aria-hidden="true">
             {falls ? flipLabel : runLabel}
-            <span data-testid="factor-turning-point-track" className="relative block h-1 w-[54px] shrink-0 rounded-full bg-panel-border">
+            <span data-testid="factor-turning-point-track" className="relative block h-1 min-w-[54px] flex-1 rounded-full bg-panel-border">
               <span
                 data-testid="factor-turning-point-current"
                 className="absolute top-1/2 block h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-text-body"
@@ -163,16 +175,24 @@ export function FactorTurningPointNone({
   fromLastRun?: boolean
 }) {
   const copy = TURNING_POINT_TRACK_COPY.none
+  const explanation = attested ? copy.attestedExplanation : copy.unavailableExplanation
+  // Audit F10: focusable, with its meaning on hover AND focus, like the driver
+  // line and the track — it was the one analysis cue on the card a sighted
+  // keyboard user could not reach. The sr-only sentence is kept for AT.
   return (
-    <p
-      data-testid="factor-turning-point-none"
-      data-node-id={nodeId}
-      data-attested={attested ? 'true' : 'false'}
-      className={`${typography.edgeLabel} mt-1 text-text-light`}
-    >
-      {attested ? copy.attested(fromLastRun) : copy.unavailable(fromLastRun)}
-      <span className="sr-only">. {attested ? copy.attestedExplanation : copy.unavailableExplanation}</span>
-    </p>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={explanation}>
+      <p
+        data-testid="factor-turning-point-none"
+        data-node-id={nodeId}
+        data-attested={attested ? 'true' : 'false'}
+        data-node-tooltip="true"
+        tabIndex={0}
+        className={`${typography.edgeLabel} mt-1 self-start text-text-light rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      >
+        {attested ? copy.attested(fromLastRun) : copy.unavailable(fromLastRun)}
+        <span className="sr-only">. {explanation}</span>
+      </p>
+    </Tooltip>
   )
 }
 

@@ -2,10 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   CANONICAL_LAYOUT_WIDTH,
   CANVAS_MARGIN,
-  NODE_SINGLE_ROW_FAIR_SHARE_W,
-  LAYOUT_PADDING_X,
-  MIN_GAP,
 } from '../../utils/nodeLayoutConstants'
+import { balancedRowSizes } from '../../utils/layout'
 import { LABEL_LEGIBLE_ZOOM } from '../../utils/zoomLegibility'
 import { COMFORT_OCCLUSION_GAP } from '../../utils/cameraComfort'
 import {
@@ -90,70 +88,47 @@ describe('panel composition usable-canvas contract', () => {
     expect(MIN_USABLE_MODEL_VIEWPORT_WIDTH).toBe(789)
   })
 
-  it('⛔⛔ THE TRADE IS UNAVOIDABLE — NO BUDGET BOTH FIXES THE PORTRAIT LAYOUT AND KEEPS 1600', () => {
+  it('⭐ S4 DISSOLVES THE FORCED TRADE: the budget no longer decides the packing, so 1600 is constrained by choice, not by the layout', () => {
     /**
-     * ⭐⭐ THE ASSERTION THAT TURNS THIS FROM A TUNING QUESTION INTO A RULING.
+     * ⭐⭐ THIS TEST USED TO PROVE THE TRADE WAS UNAVOIDABLE, AND ITS OWN MESSAGE
+     * SAID WHAT TO DO IF THAT STOPPED BEING TRUE: "the trade is no longer
+     * forced, so re-open the decision". S4 is that moment.
      *
-     * The obvious reviewer question is "could a smaller budget have avoided the
-     * 1600 cost?" — answered by derivation rather than opinion, and pinned so
-     * nobody re-derives it or re-litigates it from memory.
+     * The argument was: an eight-wide tier stays landscape (one row) only at a
+     * budget ≥ 1417, and `MIN_USABLE_MODEL_VIEWPORT_WIDTH` is a function of the
+     * budget, so no budget could both fix the portrait layout and keep 1600
+     * unconstrained. Experience Design then replaced the packing policy
+     * (#63 5806207128: "Rows above 5 cards wrap into balanced sub-rows … 8→4+4")
+     * — the packing is now a COUNT, and no budget value changes it. So the
+     * landscape half of the trade no longer depends on the budget at all.
      *
-     * ⛔⛔ THE FIRST VERSION OF THIS TEST COULD NOT FIRE, AND github-a4 [2314f4]
-     * PROVED IT BY MUTATION (12 Sep 2026). It re-declared as local literals
-     * every constant it reasoned about — `const CANVAS_MARGIN = 24`,
-     * `(140 + 24 + 15)` — so `expect(budgetNeededForLandscape).toBe(1417)` was
-     * arithmetic on literals: true forever, independent of the product.
-     * Replacing `MIN_USABLE_MODEL_VIEWPORT_WIDTH`'s derivation with a bare
-     * `640` — the exact decoupling this test's own comment names as its
-     * trigger — left it GREEN (1 passed, applied-check confirmed, and a
-     * contrast control showed the mutation was detectable elsewhere in the
-     * file: 3 failed).
-     *
-     * **A hand-maintained mirror inside the test written to stop people
-     * reasoning from memory** — CLAUDE.md trap 12, and trap 13b's "a guard
-     * agreeing with itself" at the same time. Every constant below is now the
-     * EXPORTED one, and the coupling is asserted before anything is built on
-     * it.
+     * ⚠ WHAT THIS DOES NOT DO: it changes NO panel behaviour. The threshold is
+     * still derived from the (unchanged) budget, so 1600 stays constrained. The
+     * DECISION to keep it so is now a choice for the Panel lane to re-open, not
+     * a consequence of the layout — which is what this test now records.
      */
 
-    // ── 1. THE COUPLING ITSELF, which is the mechanism that forces the trade.
-    // If `MIN_USABLE_MODEL_VIEWPORT_WIDTH` is ever decoupled from the packing
-    // budget, THIS is the line that goes red — and it is the line the previous
-    // version was missing. It is deliberately a restatement of the module's
-    // expression: the claim being guarded is precisely "the threshold is a
-    // FUNCTION OF THE BUDGET", so restating the function is the assertion, not
-    // a mirror of it.
+    // ── 1. THE COUPLING ITSELF, still asserted: the threshold is a FUNCTION OF
+    // THE BUDGET, so if it is ever decoupled this line goes red.
     const minUsableAtBudget = (budget: number) =>
       Math.ceil(budget * LABEL_LEGIBLE_ZOOM) + 2 * CANVAS_MARGIN
     expect(
       MIN_USABLE_MODEL_VIEWPORT_WIDTH,
-      'the threshold is no longer a function of the canonical budget — the trade may no longer be forced, so re-open the decision',
+      'the threshold is no longer a function of the canonical budget — re-open the decision',
     ).toBe(minUsableAtBudget(CANONICAL_LAYOUT_WIDTH))
 
-    // ── 2. THE LANDSCAPE REQUIREMENT, from the exported layout constants.
-    const budgetNeededForLandscape =
-      (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + MIN_GAP) * 8 - MIN_GAP
+    // ── 2. THE PACKING NO LONGER READS THE BUDGET: an eight-wide tier wraps the
+    // same way whatever the budget is (the function takes a count, not a width).
+    expect(balancedRowSizes(8)).toEqual([4, 4])
 
-    // ── 3. WHAT A 1600 VIEWPORT CAN AFFORD, taken through the REAL predicate
-    // rather than re-derived, so a change to `needsSingleExpandedPanel`'s own
-    // arithmetic cannot slip past this.
+    // ── 3. 1600 is STILL constrained today — unchanged by S4, through the REAL
+    // predicate — so nothing shipped here moved a panel.
     const constrainedAt1600 = needsSingleExpandedPanel({
       viewportWidth: 1600, dockInset: 428, floatingPanelWidth: 400, dockExpanded: true,
     })
+    expect(constrainedAt1600, 'S4 changed panel behaviour, which it must not').toBe(true)
     const usableAt1600 = 1600 - 428 - 400 - FLOATING_OLUMI_SIDE_TAB_WIDTH - COMFORT_OCCLUSION_GAP
-    expect(constrainedAt1600, 'the whole premise of this test').toBe(true)
-
-    // ── 4. THE FORCED CHOICE. `minUsableAtBudget` was validated against the
-    // module at the shipped budget in step 1, so evaluating it at the SMALLEST
-    // budget that fixes the portrait layout is sound rather than a second
-    // mirror: even there, 1600 cannot pay.
-    expect(
-      minUsableAtBudget(budgetNeededForLandscape),
-      'a budget satisfying both appeared — the trade is no longer forced, so re-open the decision',
-    ).toBeGreaterThan(usableAt1600)
-
-    // …and the shipped budget is on the landscape side of it, deliberately.
-    expect(CANONICAL_LAYOUT_WIDTH).toBeGreaterThanOrEqual(budgetNeededForLandscape)
+    expect(minUsableAtBudget(CANONICAL_LAYOUT_WIDTH)).toBeGreaterThan(usableAt1600)
   })
 
   it('⛔ THE NEWLY-CONSTRAINED BAND IS BOUNDED, so the cost is a range and not a vibe', () => {

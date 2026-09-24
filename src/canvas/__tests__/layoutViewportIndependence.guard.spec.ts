@@ -43,13 +43,10 @@ import type { Node, Edge } from '@xyflow/react'
 import { layoutGraph } from '../utils/layout'
 import {
   CANONICAL_LAYOUT_WIDTH,
-  LAYOUT_PADDING_X,
-  MIN_GAP,
+  MAX_CARDS_PER_ROW,
   NODE_CARD_MAX_W,
-  NODE_LAYOUT_MIN_W,
-  NODE_SINGLE_ROW_FAIR_SHARE_W,
-  LAYOUT_NODE_GAP,
 } from '../utils/nodeLayoutConstants'
+import { balancedRowSizes } from '../utils/layout'
 
 import capture from './__fixtures__/starter-node-heights.browser-capture-2026-08-18.json'
 import vendorSelection from '../starters/data/vendor-selection.draft.json'
@@ -633,12 +630,57 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * this literal — five same-shaped strings in one object is exactly where a
    * transcription puts the right hash on the wrong starter.
    */
+  /*
+   * ⛔⛔ S4 (24 Sep 2026) MOVES ALL FIVE DIGESTS. RE-RECORDED IN ITS OWN COMMIT
+   * (not the one that moves them), each bound by its OLD value, after the
+   * property a digest cannot see was measured: `s4NoSameRowOverlap.spec.ts`
+   * (no same-row overlap at rendered widths, prompts included, all 5 starters;
+   * mutant-checked). Acceptance of the shape is the reviewer's (NOT LOW).
+   * The note below records why they were first left RED. The lane building S4 is barred
+   * from re-recording a baseline, and this block's own rule is that "a moved
+   * digest is a product decision" — so the re-record belongs to the reviewer who
+   * accepts the shape, and until then these five REDs are the honest signal.
+   *
+   * What moved, and why each is intended (Experience Design #63 5806207128 /
+   * 5806266691): repeated cards 336/440 → 260 and the Question/Goal 560/480 →
+   * 460; rows above five cards wrap (the three eight-factor starters now carry
+   * two factor sub-rows of four); every family's final sub-row reserves the
+   * 160-unit row-end prompt slot, and each tier is centred as one block.
+   *
+   * Measured on the S4 tree BEFORE anything is re-recorded, with this file's own
+   * `positionSignature` over the 18 Aug capture heights:
+   *
+   *     vendor-selection      3c2e3ad2c525b607 → 93eaf450b37e9023
+   *     market-entry          899d3f0d5a81fa0e → 1b644425bfba13ab
+   *     build-vs-buy          c8ecbb11c30ac473 → f49583b6b3f9f787
+   *     headcount-allocation  5c99476037d50074 → 9ba90d91d0959a30
+   *     pricing-model         87272681d95fac2e → 9147cbd570b5a117
+   *
+   * ⭐ And what did NOT move, which is what R1 names: every "ONE canonical layout
+   * across 1280…1920" test and the contrast control stay GREEN, and every risk
+   * and every outcome still resolves to ONE shared consequence row per starter.
+   *
+   * ── S5 (24 Sep 2026), a SECOND re-record, again for the reviewer ──
+   * One cause only: `LAYOUT_LAYER_GAP` 72 → 48 (the row gap; S5's fit
+   * arithmetic on heights measured at the S5 geometry takes 1440×900 from 1 of
+   * 6 boards fitting to 4 of 6). Rows move up; nothing moves sideways. Measured
+   * with this file's own `positionSignature` before recording:
+   *
+   *     vendor-selection      93eaf450b37e9023 → 17e010f6a9b20b34
+   *     market-entry          1b644425bfba13ab → 807cb16f08f1311a
+   *     build-vs-buy          f49583b6b3f9f787 → fdc5a378a826407d
+   *     headcount-allocation  9ba90d91d0959a30 → 28785b8d552bebaa
+   *     pricing-model         9147cbd570b5a117 → b81897d92b72a9e1
+   *
+   * Every R1 test, `s4NoSameRowOverlap` and the rest of the layout reader set
+   * (72 files) stayed GREEN at the new gap before this was recorded.
+   */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '3c2e3ad2c525b607', nodes: 19 },
-    'market-entry': { digest: '899d3f0d5a81fa0e', nodes: 18 },
-    'build-vs-buy': { digest: 'c8ecbb11c30ac473', nodes: 19 },
-    'headcount-allocation': { digest: '5c99476037d50074', nodes: 16 },
-    'pricing-model': { digest: '87272681d95fac2e', nodes: 15 },
+    'vendor-selection': { digest: '17e010f6a9b20b34', nodes: 19 },
+    'market-entry': { digest: '807cb16f08f1311a', nodes: 18 },
+    'build-vs-buy': { digest: 'fdc5a378a826407d', nodes: 19 },
+    'headcount-allocation': { digest: '28785b8d552bebaa', nodes: 16 },
+    'pricing-model': { digest: 'b81897d92b72a9e1', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(
@@ -694,151 +736,72 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
   )
 })
 
-describe('the pinned budget sits inside its band, and both cliffs are named', () => {
-  /** `layout.ts`'s packing decision, re-derived from the shipped constants. */
-  function packingOf(widestTier: number, availableWidth: number): string {
-    const unclamped = Math.floor((availableWidth - (widestTier - 1) * MIN_GAP) / widestTier)
-    if (unclamped >= NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X) return 'single-row'
-    const elkBoxW = NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X
-    // ⭐ THE GAP IS IMPORTED, NOT RESTATED (12 Sep 2026). This read `20` by hand —
-    // `layout.ts`'s old `Math.max(20, …)` floor copied into the guard. When that
-    // floor moved to 32 the guard would have gone on deriving a band from a gap
-    // the product no longer uses, and certified a packing table it no longer
-    // produces. `LAYOUT_NODE_GAP` is now the one source for both.
-    return `multi-row/${Math.max(1, Math.floor((availableWidth + LAYOUT_NODE_GAP) / (elkBoxW + LAYOUT_NODE_GAP)))}`
+/**
+ * ⭐⭐ S4 (24 Sep 2026): THE PACKING IS A COUNT, SO THE BAND IS GONE — AND THIS
+ * BLOCK SAYS SO RATHER THAN QUIETLY DELETING WHAT IT USED TO GUARD.
+ *
+ * Until S4 the budget chose the packing: a tier stayed on one row while its fair
+ * share of `CANONICAL_LAYOUT_WIDTH` cleared `NODE_SINGLE_ROW_FAIR_SHARE_W`, so this
+ * block pinned the budget inside the band [1417, 1548) where that behaviour was
+ * constant, and recorded the resulting table (single-row up to 8, four per row
+ * beyond). Experience Design replaced the policy (#63 5806207128 / 5806266691:
+ * "Rows above 5 cards wrap into balanced sub-rows … 6→3+3, 7→4+3, 8→4+4, 9→5+4",
+ * 10→5+5 in the brief), and the two constants the band was made of are retired.
+ *
+ * What R1 needs from this block is unchanged: the SHAPE of every model the
+ * product can produce, recorded in one place, so a constant that moves a row
+ * REDs here by name. The table is now ED's, pinned twice — the arithmetic and
+ * the real layout — because either alone is a guard agreeing with itself.
+ */
+describe('S4: the packing is a COUNT — the whole table, recorded against the ruling', () => {
+  /** How many factor cards land on each sub-row in the REAL layout, top to bottom. */
+  async function rowsInLayout(n: number): Promise<number[]> {
+    const { nodes, edges } = tierOfWidth(n)
+    const out = await layoutGraph(nodes, edges, {})
+    const byY = new Map<number, number>()
+    for (const node of out.nodes.filter((x) => x.id.startsWith('fac_'))) {
+      byY.set(node.position.y, (byY.get(node.position.y) ?? 0) + 1)
+    }
+    return [...byY.entries()].sort((a, b) => a[0] - b[0]).map(([, c]) => c)
   }
 
-  /**
-   * The band the constant was chosen inside, and its two cliffs. Recorded, then
-   * PROVEN against the derivation — a constant sitting on a cliff edge is a
-   * defect waiting for a rounding change, and a constant nudged across one
-   * re-shapes every model silently.
-   */
-  // ⚠⚠ BOTH CLIFFS MOVED, 12 Sep 2026, and BOTH are still RECORDED BY HAND here
-  // and PROVEN against the derivation below. Deriving both sides would make the
-  // next assertion a tautology — a guard agreeing with itself (CLAUDE.md trap
-  // 13b) — and the whole point of the pair is that derivation proves the
-  // consumers agree while a written number notices the constants are wrong.
-  //
-  // The band is the interval over which packing BEHAVIOUR is constant, and it
-  // is bounded by cliffs from TWO different families. Enumerating only one
-  // family is how an earlier version of this block put a cliff INSIDE its own
-  // band without noticing:
-  //
-  //     1232   split tiers reach 4 per row        (row-count family)
-  //     1238   7-wide tier starts single-rowing   (single-row family)
-  //     1417   8-wide tier starts single-rowing   <- BAND.lower
-  //     1548   split tiers reach 5 per row        <- BAND.upper
-  //     1596   9-wide tier starts single-rowing
-  //
-  // ⭐ `CANONICAL_LAYOUT_WIDTH` is the MIDPOINT of [1417, 1548) — 65 above, 66
-  // below. See its own derivation note for why the interval starts at 1417: an
-  // eight-wide tier that splits produces a PORTRAIT model in a LANDSCAPE pane,
-  // which is the measured cause of the graph using ~30% of the available width.
-  const BAND = { lower: 1417, upper: 1548 } as const
+  const RULED: Record<number, number[]> = {
+    2: [2], 3: [3], 4: [4], 5: [5],
+    6: [3, 3], 7: [4, 3], 8: [4, 4], 9: [5, 4], 10: [5, 5],
+  }
 
-  it('CANONICAL_LAYOUT_WIDTH is strictly inside the band', () => {
-    expect(CANONICAL_LAYOUT_WIDTH).toBeGreaterThan(BAND.lower)
-    expect(CANONICAL_LAYOUT_WIDTH).toBeLessThan(BAND.upper)
+  it('the cap is five real cards per row (ED S4)', () => {
+    expect(MAX_CARDS_PER_ROW).toBe(5)
   })
 
-  it('the band edges are exactly where the shipped constants put them', () => {
-    // LOWER — an eight-wide tier stops splitting. Below it the model is
-    // portrait and the pane is landscape, which is the whole defect.
-    expect(BAND.lower).toBe((NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + MIN_GAP) * 8 - MIN_GAP)
-    expect(packingOf(8, BAND.lower)).toBe('single-row')
-    expect(packingOf(8, BAND.lower - 1)).not.toBe('single-row')
-
-    // UPPER — a split tier reaches five per row. Crossing it is not harmful,
-    // it is simply a different shape, and the band exists so that shape change
-    // is a decision rather than a side effect.
-    expect(BAND.upper).toBe(5 * (NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X) + 4 * LAYOUT_NODE_GAP)
-    expect(packingOf(9, BAND.upper)).toBe('multi-row/5')
-    expect(packingOf(9, BAND.upper - 1)).toBe('multi-row/4')
-  })
-
-  it('⭐ THE BUDGET IS THE MIDPOINT OF ITS BAND, NOT MERELY INSIDE IT', () => {
-    /**
-     * "Inside the band" is satisfied by a value one unit from a cliff. This
-     * file's standing rule is stronger — a constant near a cliff is a defect
-     * waiting for a rounding change — so the rule is asserted, not just stated.
-     */
-    const below = CANONICAL_LAYOUT_WIDTH - BAND.lower
-    const above = BAND.upper - CANONICAL_LAYOUT_WIDTH
-    expect(Math.abs(below - above)).toBeLessThanOrEqual(1)
-  })
-
-  it('⛔ NO OTHER CLIFF HIDES INSIDE THE BAND', () => {
-    /**
-     * ⭐⭐ THE ASSERTION THE PREVIOUS VERSION OF THIS BLOCK NEEDED AND DID NOT
-     * HAVE. Its band ran [916, 1232] while a single-row cliff sat at 1238 — one
-     * family enumerated, the other not, so "inside the band" guaranteed nothing
-     * about behaviour. Sweep the whole band and require packing to be genuinely
-     * constant across it.
-     */
-    const shapeAt = (w: number) => [...Array(9)].map((_, i) => packingOf(i + 2, w)).join(',')
-    const atBudget = shapeAt(CANONICAL_LAYOUT_WIDTH)
-    for (let w = BAND.lower; w < BAND.upper; w++) {
-      expect(shapeAt(w), `packing changes at ${w}, which is inside the band`).toBe(atBudget)
+  it('the whole packing table, recorded — arithmetic', () => {
+    for (let t = 2; t <= 10; t++) {
+      expect(balancedRowSizes(t), `a ${t}-card tier`).toEqual(RULED[t])
     }
-    // …and the band is TIGHT: one unit outside it in either direction the shape
-    // differs. Without this the test would pass on a band of width 1.
-    expect(shapeAt(BAND.lower - 1)).not.toBe(atBudget)
-    expect(shapeAt(BAND.upper)).not.toBe(atBudget)
   })
 
-  it('the whole packing table at the pinned budget, recorded', () => {
-    // The shape of every model the product can produce, in one place. A change
-    // to any layout constant that moves a row REDs here by name.
-    const table: Record<number, string> = {}
-    for (let t = 2; t <= 10; t++) table[t] = packingOf(t, CANONICAL_LAYOUT_WIDTH)
-    expect(table).toEqual({
-      2: 'single-row',
-      3: 'single-row',
-      4: 'single-row',
-      5: 'single-row',
-      6: 'single-row',
-      // ⭐⭐ THE BOUNDARY MOVED 6/7 -> 8/9, AND THAT MOVE IS THE CHANGE. Seven-
-      // and eight-wide tiers stop splitting, which is what takes three of the
-      // five shipped starters from PORTRAIT to LANDSCAPE — see the extent table
-      // on `CANONICAL_LAYOUT_WIDTH`. A model whose aspect matches the pane is
-      // the difference between using ~30% of the available width and ~95%.
-      7: 'single-row',
-      8: 'single-row',
-      // ⚠ 9–10 are 'multi-row/4', the SAME row count as before this change. The
-      // 14px ramp pushes the card floor 230 -> 260, which on its own would have
-      // dropped a split tier to three per row; the wider budget pays that back
-      // exactly. Attributed by holding one input at a time:
-      //     230 floor, budget 1185   4 per row
-      //     260 floor, budget 1185   3 per row   <- the ramp costs one
-      //     260 floor, budget 1482   4 per row   <- the budget returns it
-      9: 'multi-row/4',
-      10: 'multi-row/4',
-    })
-  })
-
-  it('the derivation DISCRIMINATES, and the 8/9 boundary is real in the layout itself', async () => {
-    // Arithmetic first — the derivation must not answer the same thing for
-    // every input (trap 20: a probe returning identical answers for every item
-    // is reporting on itself).
-    expect(packingOf(8, CANONICAL_LAYOUT_WIDTH)).not.toBe(packingOf(9, CANONICAL_LAYOUT_WIDTH))
-
-    // …then the same boundary in the REAL layout, bound by identity: at 8 the
-    // factor tier occupies one row, at 9 it does not. The arithmetic above and
-    // the layout below are independent paths to the same claim — if they ever
-    // disagree, `packingOf` has stopped modelling `planLayoutBox`.
-    const rowsOfFactors = async (n: number): Promise<number> => {
-      const { nodes, edges } = tierOfWidth(n)
-      const out = await layoutGraph(nodes, edges, {})
-      return new Set(out.nodes.filter((x) => x.id.startsWith('fac_')).map((x) => x.position.y)).size
+  it('the whole packing table, recorded — in the layout itself', async () => {
+    for (let t = 2; t <= 10; t++) {
+      expect(await rowsInLayout(t), `a ${t}-card tier in the real layout`).toEqual(RULED[t])
     }
-    expect(await rowsOfFactors(8)).toBe(1)
-    expect(await rowsOfFactors(9)).toBeGreaterThan(1)
+  })
 
-    // ⭐ AND THE OLD BOUNDARY IS GONE, stated as its own assertion so the move
-    // is pinned rather than merely implied: seven used to split and no longer
-    // does. A test that only checked the NEW boundary would pass unchanged if
-    // the budget silently drifted back.
-    expect(await rowsOfFactors(7)).toBe(1)
+  it('the derivation DISCRIMINATES, and the 5/6 boundary is real in the layout', async () => {
+    // Trap 20: a probe returning the same answer for every input is reporting on
+    // itself. Five stays on one row; six does not.
+    expect(await rowsInLayout(5)).toEqual([5])
+    expect(await rowsInLayout(6)).toEqual([3, 3])
+    // ⭐ AND THE OLD BOUNDARY IS GONE, pinned as its own assertion: under the
+    // retired gate seven and eight stayed on one row (a 2544-unit factor row).
+    expect((await rowsInLayout(8)).length).toBeGreaterThan(1)
+  })
+
+  it('the budget is still ONE constant, and it no longer decides the packing', () => {
+    // R1's half of this is enforced at the bytes by the source guards above.
+    // What changed is its JOB: it is the row budget a card width is a fair share
+    // of (see `CANONICAL_LAYOUT_WIDTH`), not the input to a single-row gate —
+    // so no budget value can re-pack a tier. The table above is a function of
+    // the count alone.
+    expect(CANONICAL_LAYOUT_WIDTH).toBe(1482)
   })
 })

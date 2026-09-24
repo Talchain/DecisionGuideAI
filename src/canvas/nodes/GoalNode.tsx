@@ -9,7 +9,10 @@
  *    why the destination could not keep that promise.)
  *  - With threshold: `GOAL_TARGET_PREFIX` + value ("Target: 15%") + provenance
  *    icon. The SAME string is this card's reduced line below the legibility
- *    floor — see `targetLine`, which is the only place it is built.
+ *    floor — see `targetLine`, which is the only place it is built. Beside it,
+ *    in Standard, the user-stated limits as compact boundary pills
+ *    (`goalLimitPills`; NODE-ANATOMY v3.2, ED #63 choice 2), full sentence on
+ *    hover/focus. Never beside the no-target chip (one pill in that state).
  *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
  *    — only when the run PRODUCED one; no Chance row otherwise (contract v3.1 goal anatomy, gap U3)
  *  - No risks chip (always)
@@ -24,6 +27,7 @@
  * No ExpertOverlay. No MetricPills.
  */
 import { memo, useMemo } from 'react'
+import Tooltip from '../../components/Tooltip'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -66,6 +70,7 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 /**
  * ⭐ THE TWO STRINGS THIS CARD USES TO STATE ITS TARGET, DECLARED ONCE.
@@ -229,6 +234,69 @@ export const GOAL_TARGET_ROUTE_IS_LIVE = hasServerGraphAuthority(
 
 /** The control's identity, so a probe binds to it rather than to its wording. */
 export const GOAL_TARGET_ROUTE_TESTID = 'goal-target-route'
+
+/**
+ * ⭐ THE CONTRACT'S STATE WORD, SPELLED ONCE FOR THIS CARD (contract v3.1
+ * `.node .state-word`; deltas ANC-06, PILL-04, PILL-12).
+ *
+ * `border:1px solid #DDC6AB; border-radius:99px; padding:1px 6px;
+ * color:var(--ink); background:white` — a NEUTRAL state word, not a warning.
+ * Translated to DS v5 tokens: `bg-panel`, `text-text-body`, and
+ * `border-warning-ink/40` (#D2BEAC over the panel, the nearest token to the
+ * contract's #DDC6AB — the same token the corner "Needs input" pill's PILL-01
+ * anatomy uses, so the two members of one fact family cannot look like two
+ * different kinds of thing). No warning FILL and no full-strength ink ring.
+ *
+ * Both goal pills read these — the no-target chip and Layer 2's "Marginal" —
+ * so they cannot drift apart inside this file. ⚠ When `StatusPill` exports
+ * the shared `STATE_WORD_CLASSES`/`STATE_WORD_STYLE` (PILL-01, another file's
+ * owner), this pair should be replaced by an import of those.
+ *
+ * ⚠ THE BORDER IS A FIXED 1px, NOT COUNTER-SCALED, DELIBERATELY. The padding
+ * is in `em`, so it scales with the counter-scaled type; a counter-scaled
+ * border as well would make the chip 0.75px TALLER than before at the label
+ * bound (scale 2), which is the height the layout reserves. With a fixed
+ * border the chip is shorter at every scale (18.5 vs 21.1px at 1x, 35.0 vs
+ * 36.25px at 2x), so the goal card never grows.
+ */
+export const GOAL_STATE_WORD_CLASSES = `${typography.edgeLabel} inline-flex items-center gap-1 whitespace-nowrap font-normal text-text-body bg-panel border border-solid border-warning-ink/40 rounded-full`
+export const GOAL_STATE_WORD_STYLE = { padding: '0.1em 0.6em', lineHeight: 1.3 } as const
+
+/**
+ * ⭐ THE USER-STATED LIMITS, AS BOUNDARY PILLS ON THE TARGET ROW —
+ * NODE-ANATOMY v3.2 row "Goal" (`Target: <amount> <mark>` + boundary pill(s)
+ * `Churn < 7%`; "user-stated limits live HERE") and ED #63 5806207128 /
+ * 5806266691 choice 2 ("limits on the Goal, not repeated on the Factor at
+ * rest"; "Full constraint detail remains reachable on focus/inspector").
+ *
+ * ONE derivation for the resting face: the pill's visible text is the SAME
+ * `goalConstraintText` sentence Layer 2's `goal-constraint-badge` prints, so
+ * the resting pill and its details can never name a limit two ways. `name` is
+ * the full statement — hover, keyboard focus and the accessible name — and says
+ * whose limit it is only where the constraint's own provenance says so:
+ * `explicit` (the brief or a panel edit) → "Limit you set"; anything else →
+ * "Limit", with `goalConstraintText`'s own " · Inferred limit" / " · Proxy
+ * limit" origin already in the text. No satisfaction figure: that is a run
+ * finding about the limit, and it stays in Layer 2.
+ *
+ * `key` is the constraint's own identity (`constraint_id`, then `id`), so a
+ * probe binds to THIS limit; the list index is the last resort for a legacy
+ * constraint that carries neither.
+ */
+export function goalLimitPills(
+  constraints: readonly CEEGoalConstraint[] | null | undefined,
+  nodes: readonly { id: string; data?: unknown }[],
+): Array<{ key: string; text: string; name: string }> {
+  if (!constraints?.length) return []
+  return constraints.map((c, i) => {
+    const text = goalConstraintText(c, nodes)
+    return {
+      key: c.constraint_id ?? c.id ?? String(i),
+      text,
+      name: `${c.provenance === 'explicit' ? 'Limit you set' : 'Limit'}: ${text}`,
+    }
+  })
+}
 
 /**
  * ⭐⭐⭐ A TARGET THAT IS SET GETS THE SAME ROUTE AS A TARGET THAT IS MISSING.
@@ -579,47 +647,42 @@ export const GoalNode = memo((props: NodeProps) => {
     displayMetadata.achievementProbability < 0.10
 
   /**
-   * Border: DASHED for "not finished yet", COLOUR for "something is wrong".
+   * ⛔ NO BORDER OVERRIDE — THE GOAL IS ALWAYS A SOLID FRAME IN ITS KIND HUE
+   * (contract v3.1, ANC-01 / FRAME-06).
    *
-   * ⭐ NO TARGET IS NOT AN ALARM (31 Aug 2026). This returned
-   * `border-warning border-dashed`, so a goal with no success target rendered
-   * in the product's warning colour -- on the most important node on the
-   * canvas, in the state EVERY model is in before the user sets one.
+   * This used to be `goalBorderOverride`, and after a run it re-drew the most
+   * important card on the canvas from the producer's ROBUSTNESS verdict:
+   * `border-info border-dashed` for `moderate`, `border-danger border-dashed`
+   * for `low | very_low` (the Risk card's own hue, read as amber/orange on
+   * Paul's screenshot), and `border-panel-border border-dashed` for a
+   * post-run goal with no target — ~1.2:1 on the panel, so the card lost its
+   * visible edge altogether.
    *
-   * That contradicts the ruling this state already has, written into
-   * `results/utils/goalAnchorCopy.ts` beside the `noTarget` copy: *"it NEVER
-   * blocks. This is an invitation with a route, not a wall."* The sentence
-   * obeyed it; the border did not, and the border is what a user reads first.
+   * The contract rules all three out at once: every card has a solid 1px
+   * border in its kind hue, there is no dashed node variant, and a dash means
+   * a recorded doubt about EXISTENCE — "never used for fragility" (key row;
+   * Paul 23 Sep point 4: "Dash remains existence certainty only"). Fragility
+   * as a border was also warning styling on the anchor, which the contract
+   * forbids.
    *
-   * ⚠ "The dash stays" WAS TRUE OF THIS OVERRIDE AND IS NOT TRUE OF THE CARD
-   * (corrected 1 Sep 2026, caught by an independent review of the border
-   * change). `isIncomplete` WINS over `borderClassOverride` in `BaseNode`, and
-   * a targetless goal IS incomplete — so in the no-target state this override is
-   * unreached and the card renders SOLID AMBER. That precedence is pre-existing
-   * and was deliberately not re-ordered by the border change; what changed is
-   * that the winning branch no longer carries a dash. The sentence below still
-   * describes this override's INTENT, which is why it is corrected rather than
-   * deleted: the dash is this node's idiom for "incomplete or provisional", and
-   * only the alarm colour was meant to go. The two genuinely diagnostic states below keep
-   * their colours, because those ARE claims about the analysis: `moderate` and
-   * `low` robustness are the producer's own verdicts, not a gap in the user's
-   * input.
+   * History kept, not repeated: before 31 Aug 2026 the targetless arm was
+   * `border-warning border-dashed` and was withdrawn under `goalAnchorCopy`'s
+   * ruling that no-target "NEVER blocks … an invitation with a route, not a
+   * wall"; `very_low` was later added beside `low` after it fell through to no
+   * treatment. Both arms are now gone with the override itself. A targetless
+   * goal is still `isIncomplete`, which BaseNode renders SOLID in the kind hue.
+   *
+   * ⭐ NOTHING THE READER COULD LEARN FROM IT IS LOST. The same verdict is
+   * stated in WORDS in this card's Layer 2 — the "Decision stability" row and
+   * its "Marginal" state word (popover in Standard, inline in Detailed) — and
+   * in the results panel. The previous comment's point that `moderate`/`low`
+   * are the producer's claims about the analysis still stands; the border was
+   * the wrong channel for a claim, not the claim itself.
+   *
+   * ⚠ ONE ROUTE TO A DASHED GOAL REMAINS AND IT IS NOT IN THIS FILE: BaseNode's
+   * `isUncertain` arm dashes any non-factor node with `uncertainty > 0.4`. Its
+   * exemption for `goal` (and `decision`) belongs to BaseNode's owner.
    */
-  const goalBorderOverride = useMemo(() => {
-    if (!hasThreshold) return 'border-panel-border border-dashed'
-    if (!robustnessData) return undefined
-    switch (robustnessData.level) {
-      case 'moderate': return 'border-info border-dashed'
-      // ⚠ `very_low` WAS MISSING AND FELL TO `default: undefined`, so the WORST
-      // robustness grade the producer can send got LESS border treatment than
-      // `moderate` — the caveat weakened exactly as the run got more fragile.
-      // Its sibling `stabilityBarColour` (see below) has always handled `low`
-      // and `very_low` together; this switch is the one that drifted.
-      case 'low':
-      case 'very_low': return 'border-danger border-dashed'
-      default: return undefined
-    }
-  }, [hasThreshold, robustnessData])
 
   // Format threshold display.
   //
@@ -751,7 +814,15 @@ export const GoalNode = memo((props: NodeProps) => {
             <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
             <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
             {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
-              <span className={`${typography.edgeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1 py-0`}>
+              /* Contract v3.1 PILL-12: the same state-word anatomy as the
+                 no-target chip. Vertical padding stays 0 (as before) so this
+                 row, which the pill sets the height of, does not grow in
+                 Detailed view: 16.3px at 1x, from 17.1px. */
+              <span
+                data-testid="goal-stability-marginal"
+                className={GOAL_STATE_WORD_CLASSES}
+                style={{ ...GOAL_STATE_WORD_STYLE, paddingTop: 0, paddingBottom: 0 }}
+              >
                 Marginal
               </span>
             )}
@@ -786,11 +857,15 @@ export const GoalNode = memo((props: NodeProps) => {
              * The figure itself is unchanged and still sits beside the
              * sentence, so nothing is hidden — what is gone is the grading.
              */
-            const colourClass = 'border-info/30 text-text-body'
+            // Contract v3.1 PILL-12: the boundary is the NEUTRAL mini pill
+            // (`.pill.mini`: 1px var(--line) #DBD7D0, radius 999, padding
+            // 1px 7px), not an Info ring — Info means "attention" on this canvas.
+            // `border-field/40` over the panel is #D0CDC8, the nearest DS token.
+            const colourClass = 'border-field/40 text-text-body'
             const constraintText = goalConstraintText(c, nodes)
             const badgeAriaLabel = `${constraintText}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
             return (
-              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
+              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-[7px] py-px bg-panel border rounded-full ${colourClass}`} data-testid="goal-constraint-badge" aria-label={badgeAriaLabel}>
                 <span className={`${typography.edgeLabel} break-words`}>{constraintText}</span>
                 {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
               </div>
@@ -828,6 +903,21 @@ export const GoalNode = memo((props: NodeProps) => {
     </>
   ) : null
 
+  /*
+   * The resting face's limit pills (see `goalLimitPills`). Three gates, each a
+   * ruling:
+   *   · a TARGET is on the row — the missing state shows ONE pill only,
+   *     "Target not captured" (NODE-ANATOMY v3.2 Goal: "Never … a second pill");
+   *     the limits stay in Layer 2 (popover / Detailed) there;
+   *   · Standard only — Detailed renders Layer 2 inline, whose constraint list
+   *     already states each limit (with its run figure), so one view never says
+   *     a limit twice;
+   *   · the SAME `activeConstraints` Layer 2 reads, so the pill and its details
+   *     are one set.
+   */
+  const restingLimitPills =
+    targetLine !== null && !isDetailed ? goalLimitPills(activeConstraints, nodes) : []
+
   // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes:
   // no." The goal node used to carry a two-sentence instruction plus a
   // "Help me set a target" chip — a billboard on the canvas. Both no-target
@@ -863,23 +953,34 @@ export const GoalNode = memo((props: NodeProps) => {
       type="button"
       onClick={(e) => { e.stopPropagation(); openNodeInspector(props.id) }}
       onPointerDown={(e) => e.stopPropagation()}
-      // ⭐ TWO MEASURED FAILURES IN ONE CONTROL, both fixed here.
+      // ⭐ TWO MEASURED FAILURES IN ONE CONTROL, both fixed here — and the
+      // first fix RE-DECIDED under contract v3.1 (ANC-06 / PILL-04).
       //
       // 1. `border-warning/40` rendered **1.92 : 1** against the panel on the
-      //    served build, under WCAG 1.4.11's 3.00:1 floor for a non-text
-      //    indicator. `--warning-ink` is **5.36 : 1** and is still a WARNING
-      //    colour, so the semantic survives where `border-field` would have
-      //    flattened it to a neutral. The `bg-warning/10` fill is untouched.
+      //    served build, and the fix was full `--warning-ink` (5.36 : 1) over a
+      //    `bg-warning/10` fill, read against WCAG 1.4.11's 3.00:1 floor. That
+      //    put a warning fill and a brown ink ring on the goal of EVERY model
+      //    that has no target yet — the commonest goal state there is — and the
+      //    contract rules it out twice: "no warning styling", and its
+      //    `.state-word` is a quiet hairline on white (`#DDC6AB`, ~1.63:1).
+      //    ⚖ WHY THE HAIRLINE IS STILL ACCESSIBLE: this control is identified by
+      //    its TEXT ("Target not captured", text-body at 10.45:1), and SC
+      //    1.4.11's own Understanding note is that a text button needs no 3:1
+      //    boundary — the boundary is not the information that identifies it.
+      //    Focus keeps its 2px info ring. The border token is the state word's
+      //    DS translation, `warning-ink/40` (#D2BEAC, 1.78:1 — the nearest DS
+      //    token to the contract's #DDC6AB), identical to the corner pill's.
       // 2. The box rendered **110 x 18** and carried NO hit slop, so it was the
       //    only node control on the board under the 24px target floor that is
       //    not a priced, documented shortfall — the 57 quick actions reach 28px
       //    through `CANVAS_HIT_SLOP_CLASSES`, and `ScienceIcon`'s own comment
       //    rules out slop there because 6px per side would overlap its
       //    neighbour and open the WRONG popover. This chip has no neighbour:
-      //    it sits alone under the target line, so 3px per side is free.
+      //    it sits alone in the target row, so 3px per side is free.
       //    `relative` is required or the `::before` positions against an
       //    ancestor instead of the button.
-      className={`nodrag relative inline-flex items-center gap-1 rounded-full border border-warning-ink bg-warning/10 px-1.5 py-0.5 before:absolute before:-inset-[3px] before:content-[''] ${typography.edgeLabel} text-text-body hover:bg-warning/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      className={`nodrag relative ${GOAL_STATE_WORD_CLASSES} before:absolute before:-inset-[3px] before:content-[''] hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      style={GOAL_STATE_WORD_STYLE}
       aria-label={noTargetChannels['aria-label']}
       title={noTargetChannels.title}
       data-testid="goal-node-no-target-chip"
@@ -925,7 +1026,6 @@ export const GoalNode = memo((props: NodeProps) => {
         nodeType="goal"
         lodMetric={lodMetric}
         icon={metadata.icon}
-        borderClassOverride={goalBorderOverride ?? undefined}
         coaching={goalCoaching}
         /* ⭐ NO RAIL SOURCE ICON (contract v3.1 pt 1: "The separate rail source
            icons are removed"; supersedes ED 11:52Z pt 2's rail provenance icon).
@@ -958,7 +1058,17 @@ export const GoalNode = memo((props: NodeProps) => {
             Gone from the face: the "Is this the real goal?" chip (the rail's
             coaching icon asks it) and the duplicate "Run analysis" chip (the
             Question card's rail carries the run). */}
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="goal-node-resting-state">
+        {/* Contract v3.1 `.node.wide` + `.node .target-row` (FRAME-10, ANC-13):
+            · title → row is 7px, the wide card's gap: the header's 4px plus
+              3px here (was 4 + 4). Shrinks the card by 1px; never grows it.
+            · items share a BASELINE, so the 12px target and its 11px italic
+              source mark sit on one line of type (the chip, when it renders,
+              is the row's only item).
+            · the 7px inter-item gap counter-scales like the text beside it,
+              CAPPED at the 8px it replaces: at the label bound (scale 2), the
+              height the layout reserves, the row is never wider than before,
+              so it can never wrap onto a line it did not already take. */}
+        <div className="mt-[3px] flex min-w-0 flex-wrap items-baseline gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-y-0.5" data-testid="goal-node-resting-state">
           {canCaptureTarget && noTargetStatusChip}
           {targetLine !== null && targetRouteChannels !== null && (
             <button
@@ -966,7 +1076,12 @@ export const GoalNode = memo((props: NodeProps) => {
               data-testid={GOAL_TARGET_ROUTE_TESTID}
               aria-label={targetRouteChannels['aria-label']}
               title={targetRouteChannels.title}
-              className={`nodrag nopan ${typography.nodeLabel} text-text-light text-left underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
+              /* Contract v3.1 T07/ANC-07: the goal's one recorded quantity reads
+                 in INK (`.node .target-row` sets no colour, so it inherits
+                 --ink); muted is reserved for row-meta and the source mark. The
+                 dotted rule stays as the route affordance but in the secondary
+                 colour, so the figure — not its underline — carries the weight. */
+              className={`nodrag nopan ${typography.nodeLabel} text-text-body text-left underline decoration-dotted decoration-text-light decoration-from-font underline-offset-2 hover:text-info hover:decoration-solid`}
               onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onClick={(e) => {
@@ -978,13 +1093,36 @@ export const GoalNode = memo((props: NodeProps) => {
             </button>
           )}
           {targetLine !== null && targetRouteChannels === null && (
-            <div className={`${typography.nodeLabel} text-text-light`}>
+            <div className={`${typography.nodeLabel} text-text-body`} data-testid="goal-target-line">
               {targetLine}
             </div>
           )}
           {targetSourceMark !== null && (
             <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} />
           )}
+          {/* ⭐ The user-stated limits beside the target (NODE-ANATOMY v3.2;
+              ED choice 2: "Target: £20k/month   Churn < 7%"). Contract v3.1
+              `.pill.mini` — the SAME neutral hairline Layer 2's constraint
+              badge wears (PILL-12: 1px `border-field/40`, radius 999, 1px 7px),
+              never the state word and never Info. Compact at rest: a long
+              limit truncates inside the card and its full sentence is the
+              pill's name, on hover AND keyboard focus (`Tooltip` opens on
+              both) — the same focusable-readout pattern as the option share
+              row (`role="img"` + `aria-label`, one accessible name). */}
+          {restingLimitPills.map((l) => (
+            <Tooltip key={l.key} asChild delay={NODE_TOOLTIP_DELAY_MS} content={l.name}>
+              <span
+                role="img"
+                tabIndex={0}
+                aria-label={l.name}
+                data-node-tooltip="true"
+                data-testid={`goal-limit-pill-${props.id}-${l.key}`}
+                className={`${typography.edgeLabel} nodrag nopan inline-block max-w-full truncate align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              >
+                {l.text}
+              </span>
+            </Tooltip>
+          ))}
         </div>
 
         {showAchievementReadout && (

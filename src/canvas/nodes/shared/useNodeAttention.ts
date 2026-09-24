@@ -76,7 +76,7 @@ export function attentionPlanFor(
   let run: Parameters<typeof deriveAttentionPlan>[0]['run'] = null
   if (runIsCurrent && report && typeof report === 'object') {
     const feed = selectDriverPolicyFeed(report as ResultsReport)
-    const ranks = new Map<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number }>()
+    const ranks = new Map<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number }>()
     for (const n of nodes) {
       if (resolveNodeTypeLiteral(n as never) !== 'factor') continue
       if (!feed.policyRows.some((r) => r.key === n.id)) continue

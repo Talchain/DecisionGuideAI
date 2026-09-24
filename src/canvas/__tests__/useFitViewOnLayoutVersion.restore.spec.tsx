@@ -181,8 +181,10 @@ vi.mock('../utils/computeFitPadding', () => ({
 /**
  * A RESTORED graph: real ELK-style positions, spread well beyond
  * `STACKED_SPREAD_PX`, exactly as `hydrateGraphSlice` receives it from the
- * autosave slot. The ghost placeholder rides along because the live canvas
- * carries one and the fit must exclude it (`utils/fitTargets.ts`).
+ * autosave slot. The option prompt rides along because the live canvas
+ * carries one. ⭐ S4: the landing fit now FRAMES it (it is a row-end prompt —
+ * `fitFrameNodes`), while the readiness predicates still ignore it (a prompt is
+ * never part of the model count).
  */
 function restoredGraph(): RestoreGraph {
   const nodes = [
@@ -259,10 +261,11 @@ describe('useFitViewOnLayoutVersion — the restore trigger', () => {
 
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
     const args = fitViewSpy.mock.calls[0][0]
-    // BIND BY IDENTITY (trap 19): the exact restored MODEL node ids, ghost
-    // excluded — not "some non-empty node array" that any other graph satisfies.
+    // BIND BY IDENTITY (trap 19): the exact restored model node ids and the
+    // row-end prompt (S4) — not "some non-empty node array" that any other
+    // graph satisfies.
     expect(args.nodes.map((n: { id: string }) => n.id)).toEqual([
-      'n-decision', 'n-option-a', 'n-option-b', 'n-goal',
+      'n-decision', 'n-option-a', 'n-option-b', 'n-goal', GHOST_OPTION_NODE_ID,
     ])
     // ONE contract, shared with the layout trigger and the reserved-box trigger.
     expect(args.padding).toEqual(FIT_PADDING)
@@ -409,7 +412,7 @@ describe('useFitViewOnLayoutVersion — the restore trigger', () => {
     expect(args.padding).toEqual(FIT_PADDING)
     expect(args.duration).toBe(400)
     expect(args.nodes.map((n: { id: string }) => n.id)).toEqual([
-      'n-decision', 'n-option-a', 'n-option-b', 'n-goal',
+      'n-decision', 'n-option-a', 'n-option-b', 'n-goal', GHOST_OPTION_NODE_ID,
     ])
   })
 

@@ -18,6 +18,7 @@ import {
   resolvePolarityGlyphOffset,
   GLYPH_ANCHOR_RADIUS,
   GLYPH_RING_STEP,
+  GLYPH_LATERAL_OFFSET,
   type GlyphSibling,
 } from '../edgeGlyphPlacement'
 
@@ -62,10 +63,12 @@ describe('polarity glyph placement — the guarantee', () => {
     ]
     expectAllDistinct(sibs, 'three exactly-parallel approaches')
     // And they separate along the shared ray, one ring apart, in id order.
+    // contract v3.1 (E14): each offset is (radius, GLYPH_LATERAL_OFFSET) rotated
+    // onto the approach direction, so its length is hypot(radius, L).
     expect(offsets(sibs).map((o) => Math.round(Math.hypot(o.dx, o.dy)))).toEqual([
-      GLYPH_ANCHOR_RADIUS,
-      GLYPH_ANCHOR_RADIUS + GLYPH_RING_STEP,
-      GLYPH_ANCHOR_RADIUS + 2 * GLYPH_RING_STEP,
+      Math.round(Math.hypot(GLYPH_ANCHOR_RADIUS, GLYPH_LATERAL_OFFSET)),
+      Math.round(Math.hypot(GLYPH_ANCHOR_RADIUS + GLYPH_RING_STEP, GLYPH_LATERAL_OFFSET)),
+      Math.round(Math.hypot(GLYPH_ANCHOR_RADIUS + 2 * GLYPH_RING_STEP, GLYPH_LATERAL_OFFSET)),
     ])
   })
 
@@ -139,5 +142,31 @@ describe('polarity glyph placement — the guarantee', () => {
         expect(new Set(ks).size, `n=${n} deg=${deg}`).toBe(n)
       }
     }
+  })
+})
+
+/**
+ * ⭐ contract v3.1 (E14, 24 Sep 2026) — THE GLYPH SITS BESIDE THE LINE, NOT ON IT.
+ *
+ * The contract draws the sign 8 units to the side of the line end. Asserted as
+ * the decomposition of the offset into its along-axis and across-axis parts,
+ * bound to the edge's OWN approach direction, so a glyph placed on the axis
+ * (the superseded rule) or on the wrong side of a different edge cannot pass.
+ */
+describe('contract v3.1: lateral offset', () => {
+  it('decomposes into `radius` along the approach axis and `GLYPH_LATERAL_OFFSET` across it', () => {
+    for (const deg of [0, 37, 90, 145, 200, 270, 333]) {
+      const a = (deg * Math.PI) / 180
+      const dir = { x: Math.cos(a), y: Math.sin(a) }
+      const o = resolvePolarityGlyphOffset('only', T, [at('only', deg)])
+      const along = o.dx * dir.x + o.dy * dir.y
+      const across = o.dx * -dir.y + o.dy * dir.x
+      expect(along, `deg=${deg} along`).toBeCloseTo(GLYPH_ANCHOR_RADIUS, 6)
+      expect(across, `deg=${deg} across`).toBeCloseTo(GLYPH_LATERAL_OFFSET, 6)
+    }
+  })
+
+  it('is a real side-step, not zero — the glyph is no longer drawn on its own line', () => {
+    expect(GLYPH_LATERAL_OFFSET).toBeGreaterThan(0)
   })
 })

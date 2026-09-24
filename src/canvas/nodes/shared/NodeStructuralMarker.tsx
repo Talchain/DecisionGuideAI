@@ -50,16 +50,31 @@
  * precedence above: the slot renders at most one glyph either way.
  *
  * ⭐ NAMED APART ON SCREEN AS WELL AS IN THE DOM. Distinct testid family,
- * `data-marker-source="canvas-structure"`, and a DASHED border against the
- * coaching marker's solid one. The distinction is user-meaningful (attributable
- * decision science versus an observation about the board), so it is visible, not
- * merely inspectable.
+ * `data-marker-source="canvas-structure"`, and its own glyphs (`Unplug`,
+ * `GitMerge`), which no producer category uses. The distinction is
+ * user-meaningful (attributable decision science versus an observation about
+ * the board), so it is visible, not merely inspectable.
+ *
+ * ⛔ NO LONGER BY A DASHED BORDER — contract v3.1 (Paul 23 Sep pt 4: "Dash
+ * remains existence certainty only"; deltas PILL-07 / ICON-09). On this canvas
+ * a dash says a CONNECTION may not exist; on a marker it said something else
+ * with the same picture. The marker now speaks the corner stack's one language
+ * (see `NodeCoachingMarker`): the rail's counter-scaled 20px box and 14px glyph
+ * (it was a raw-px `h-5`, 13px at the 65% landing zoom), borderless and
+ * shadowless on a panel fill, muted at rest and Info on hover/focus — Info at
+ * rest is the attention marker's alone (pt 9). Colour only on hover, no
+ * info-soft ground: that ground marks a thing you can PRESS, and this is not
+ * one (the header-provenance mark's `.prov:hover` treatment).
  *
  * ⚠ NON-INTERACTIVE, `role="img"`, deliberately. The panel row already owns the
  * action (`send_prompt` + spark) and the registry's own rule bans dead-end
  * intents, so a button here would either duplicate that action or lead nowhere.
  * `edited-since-run` in the same corner is exactly this shape and is the
- * precedent reused.
+ * precedent reused. It explains itself through the shared `Tooltip` on hover
+ * AND keyboard focus (Paul 23 Sep pt 12: "Icons need hover/focus labels"; ED
+ * 02:31Z: a native `title` is not full-text recovery), so it is a tab stop —
+ * the `EvidenceGapBadge` hover zone's shape: a named graphic with a focus ring,
+ * still not a control.
  *
  * ⚠ ICON-ONLY, NO TEXT, AND THAT IS ENFORCED ELSEWHERE. See
  * `STRUCTURAL_MARKER_COPY`'s docblock: the canvas counter-scale census asserts its
@@ -68,9 +83,12 @@
  */
 
 import { useMemo } from 'react'
-import { Unplug, GitMerge } from 'lucide-react'
-import type { ComponentType } from 'react'
+import { Unplug, GitMerge, type LucideIcon } from 'lucide-react'
+import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
+import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_QUICK_ACTION_BOX_PX } from './canvasGlyphScale'
+import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 import {
   computeStructuralAbsence,
   type StructuralAbsenceKind,
@@ -87,9 +105,7 @@ import { STRUCTURAL_MARKER_COPY } from '../../components/pre-analysis-v3/constan
  * Keyed by the union, and `no_external_factor` is `null` for the same reason its
  * copy is: it names no node, so it can never reach this surface.
  */
-const STRUCTURAL_MARKER_ICON: Readonly<
-  Record<StructuralAbsenceKind, ComponentType<{ className?: string }> | null>
-> = {
+const STRUCTURAL_MARKER_ICON: Readonly<Record<StructuralAbsenceKind, LucideIcon | null>> = {
   no_downside: Unplug,
   shared_mechanism: GitMerge,
   no_external_factor: null,
@@ -126,20 +142,19 @@ export function NodeStructuralMarker({ nodeId }: NodeStructuralMarkerProps) {
   // Positioning is owned by BaseNode's top-right corner STACK; this renders as a
   // static flex child of the coaching slot and carries no offset of its own.
   return (
-    <span
-      role="img"
-      data-testid={`node-structural-marker-${nodeId}`}
-      data-marker-source="canvas-structure"
-      data-structural-kind={finding.kind}
-      title={label}
-      aria-label={label}
-      className="
-        nodrag nopan
-        inline-flex items-center justify-center h-5 w-5
-        rounded-full bg-panel border border-dashed border-info/30 shadow-1
-      "
-    >
-      <Icon className="w-3.5 h-3.5 text-info" aria-hidden="true" />
-    </span>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={label}>
+      <span
+        role="img"
+        tabIndex={0}
+        data-testid={`node-structural-marker-${nodeId}`}
+        data-marker-source="canvas-structure"
+        data-structural-kind={finding.kind}
+        data-node-tooltip="true"
+        aria-label={label}
+        className={`nodrag nopan inline-flex items-center justify-center ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]} rounded bg-panel/90 text-text-light hover:text-info focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      >
+        <Icon size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} aria-hidden="true" />
+      </span>
+    </Tooltip>
   )
 }

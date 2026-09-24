@@ -61,17 +61,31 @@ export function useInfluenceRank(
  *
  * `useInfluenceRank` itself is UNCHANGED: its `null` still means "not
  * confirmably current", which is what its other readers ask.
+ *
+ * ⭐ ED #63 5806207128 (24 Sep): the returned `setSize` is the PRINTED `M` —
+ * the ELIGIBLE ANALYSED factors (`influenceSetSize`, the same licence set
+ * `influenceRankReadout` checks), "not 'number of ranks we happen to render'".
+ * That restores the served M and retires contract v3.1 pt 5's ranked-count
+ * denominator. The ranked count (`influenceRankedCount`) stays as the
+ * fail-closed PUBLICATION guard only: a rank outside it, or an absent count,
+ * states no rank.
  */
 export function driverRankFor(
   currentReadout: InfluenceRankReadout | null,
   sensitivityRank: number | null | undefined,
   influenceSetSize: number | null | undefined,
   fromLastRun: boolean,
+  rankedCount: number | null | undefined,
 ): { rank: number; setSize: number } | null {
   const licensed =
     currentReadout !== null ||
     (fromLastRun && influenceRankReadout(sensitivityRank, influenceSetSize) !== null)
-  return licensed && typeof sensitivityRank === 'number' && typeof influenceSetSize === 'number'
+  return licensed &&
+    typeof sensitivityRank === 'number' &&
+    typeof influenceSetSize === 'number' &&
+    typeof rankedCount === 'number' &&
+    Number.isInteger(rankedCount) &&
+    sensitivityRank <= rankedCount
     ? { rank: sensitivityRank, setSize: influenceSetSize }
     : null
 }

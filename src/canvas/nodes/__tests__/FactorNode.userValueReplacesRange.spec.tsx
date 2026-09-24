@@ -170,24 +170,40 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
  * value — visual contract v3: a displaced range stays "disclosed as
  * superseded, not plotted as active uncertainty" — with the model-authored
  * twin unchanged.
+ *
+ * ⭐ RE-POINTED FOR THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): in the
+ * Standard view the range line moved off the card face into the factor's
+ * popover ("can move to the existing hover/focus popover and inspector rather
+ * than expanding layout geometry"). Both cases now bind the line INSIDE the
+ * popover and assert it is not on the face; the wording rule is unchanged.
  */
-describe('design integration — the locked Standard face after a run', () => {
+/** The Standard range line: in the popover, never on the card face (ED 5809278282). */
+const popoverRangeLine = () => {
+  const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+  expect(face.querySelector(`[data-testid="factor-prior-range-${FACTOR_ID}"]`), 'the range line is on the card face').toBeNull()
+  const popover = screen.getByTestId('factor-node-popover')
+  const line = popover.querySelector(`[data-testid="factor-prior-range-${FACTOR_ID}"]`)
+  expect(line, 'the range line is not in the popover').not.toBeNull()
+  return line as HTMLElement
+}
+
+describe('design integration — the locked Standard view after a run (range line in the popover)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockViewMode = 'standard'
     mockResultsStatus = 'complete'
   })
 
-  it('user_override value: the Standard face says the range is replaced, never "Range:"', () => {
+  it('user_override value: the Standard popover says the range is replaced, never "Range:"', () => {
     const { container } = renderFactor({ value: 0.55, source: 'user_override' })
-    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(REPLACED)
+    expect(popoverRangeLine().textContent).toBe(REPLACED)
     expect(container.textContent ?? '').not.toContain('Range:')
   })
 
-  it('TWIN — a model-authored value keeps the live range on the Standard face', () => {
+  it('TWIN — a model-authored value keeps the live range in the Standard popover', () => {
     renderFactor({ value: 0.55, source: 'cee_inference', extractionType: 'inferred' })
     // Point 1 (Paul 23 Sep): the range is marked, never left bare — and as
     // "no source", because the range's author is not recorded on the node.
-    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(RANGE_WITH_NO_SOURCE)
+    expect(popoverRangeLine().textContent).toBe(RANGE_WITH_NO_SOURCE)
   })
 })

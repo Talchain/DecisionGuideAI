@@ -193,8 +193,10 @@ describe('Paul 23 Sep point 4 — ONE discreet fragility cue, no pile-up', () =>
     // A triangle is the design system's WARNING icon and the RISK node's icon.
     expect(cls).not.toMatch(/lucide-(alert-triangle|triangle-alert|triangle)/)
     expect(cls).toMatch(/lucide-activity/)
-    // Neutral weight: never a semantic hue on the mark itself.
-    expect(cue!.className).toContain('text-text-body')
+    // Neutral weight: never a semantic hue on the mark itself. contract v3.1
+    // (ICON-07/E10, 24 Sep 2026): MUTED ink, the contract's `.cue-icon`
+    // #797871 — it was body ink (`text-text-body`) here.
+    expect(cue!.className).toContain('text-text-light')
     expect(cue!.className).not.toMatch(/text-(warning|danger|info)/)
     // Named, and the same sentence on hover.
     const name = cue!.getAttribute('aria-label') ?? ''

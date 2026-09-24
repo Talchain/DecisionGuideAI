@@ -256,6 +256,13 @@ export function resolveExistenceDash(display: EdgeValueDisplay): ExistenceDash {
  * measured band — the 8 Sep 2026 invariant below is untouched, and widening the
  * bands strengthened it: unset was 0.5px from the thinnest measured rung, and
  * is now 1px from it.
+ *
+ * ⚠ SUPERSEDED IN PART (contract v3.1, E3, 24 Sep 2026): the measurement above
+ * was taken while the line still scaled with the camera. Since
+ * `non-scaling-stroke` the declared width is the screen width, and the ladder
+ * is `1 / 1.5 / 2 / 3 / 4` — see the block below. Unset is 0.5 CSS px (one
+ * device pixel at DPR 2) below the thinnest measured rung again, which is the
+ * separation the property spec asserts.
  */
 /**
  * ⭐⭐⭐ FOUR RUNGS, NOT THREE, AND THE REASON IS THE LEGEND (18 Sep 2026).
@@ -295,18 +302,31 @@ export function resolveExistenceDash(display: EdgeValueDisplay): ExistenceDash {
  * to the vocabulary without a width a COMPILE ERROR rather than a silent gap
  * (trap 12: the mirror must fail loud, never assume-good).
  *
- * WIDTHS. The ladder including the unset floor is `1 / 2 / 3 / 4 / 5`, which at
- * the fit zoom the product itself picks (`LABEL_LEGIBLE_ZOOM` = 0.5) renders
- * `0.5 / 1 / 1.5 / 2 / 2.5` CSS px — one whole device pixel between every rung
- * on a 2x display, the same separation the three-rung ladder had.
- * `strokeBandsAreLegibleAtFitZoom.spec.ts` pins that PROPERTY with both terms
- * imported, so it re-derives rather than needing an edit here.
+ * ⭐⭐ WIDTHS — contract v3.1 (E3, 24 Sep 2026): `1.5 / 2 / 3 / 4`, top rung 4.
+ *
+ * ⛔ THE FIT-ZOOM ARITHMETIC THAT STOOD HERE WAS STALE. It read *"the ladder
+ * `1 / 2 / 3 / 4 / 5` at the fit zoom (`LABEL_LEGIBLE_ZOOM` = 0.5) renders
+ * `0.5 / 1 / 1.5 / 2 / 2.5` CSS px"*. That was true only while the line scaled
+ * with the camera. It no longer does: `StyledEdge` draws it with
+ * `vector-effect: non-scaling-stroke`, so every width in this object IS a
+ * screen width, at the landing zoom and at every other. At the 0.65 landing
+ * zoom the cards shrink to ~161px while a `2 / 3 / 4 / 5` line did not, so the
+ * connections read roughly half as heavy again relative to the cards as the
+ * visual contract draws them — and the contract's width key tops out at 4
+ * (`olumi-canvas-visual-contract-v31.html`, `lineKey` width row 2/3/4).
+ *
+ * So the ladder including the unset floor is now `1 / 1.5 / 2 / 3 / 4` SCREEN
+ * px: ordering and meaning unchanged, top rung on the contract's, and the two
+ * thin rungs half a CSS px apart — one device pixel on a 2x display, the same
+ * separation this ladder has always been held to.
+ * `strokeBandsAreLegibleAtFitZoom.spec.ts` pins that PROPERTY with the terms
+ * imported, and now measures it as the SCREEN width the stroke actually is.
  */
 export const EDGE_STROKE_WIDTH_BANDS = {
-  slight: 2,
-  moderate: 3,
-  strong: 4,
-  veryStrong: 5,
+  slight: 1.5,
+  moderate: 2,
+  strong: 3,
+  veryStrong: 4,
 } as const satisfies Record<CanvasStrengthBandId, number>
 
 /**
@@ -420,6 +440,10 @@ export function weightMagnitudeToStrokeWidth(signedMean: number): number {
  * bans, and re-typing it in the five-rung form would only re-arm it — the
  * expression above cannot drift, because it IS the two constants.
  *
+ * ⭐ contract v3.1 (E3, 24 Sep 2026) MOVED IT BACK: the top rung is 4 again, so
+ * the derived floor is 3 and the indistinguishable band is `std < 0.0625`. The
+ * derivation did the work — nothing below was re-typed.
+ *
  * ⛔⛔ AND THE FIVE-RUNG STROKE LADDER MOVED THIS FLOOR — a consequence on a
  * channel the strength-vocabulary work does not otherwise touch, established at
  * the bytes and stated here rather than left to be discovered (18 Sep 2026).
@@ -459,6 +483,34 @@ export const UNCERTAINTY_BAND_MIN_HALF_WIDTH =
  * inspector does not.
  */
 export const UNCERTAINTY_BAND_MAX_HALF_WIDTH = 14
+
+/**
+ * ⭐ THE RIBBON'S PAINT — NEUTRAL, AND ONE AUTHORITY FOR THE CANVAS AND ITS KEY
+ * (contract v3.1, E1/T08, 24 Sep 2026).
+ *
+ * The ribbon used to take the LINE's stroke — the polarity green or rose — at
+ * 0.2 opacity, 7-28 screen px wide under every stamped edge. At rest that read
+ * as a soft coloured glow around every causal connection: the "soft glow halo"
+ * Paul flagged on the v3.1 review. Two defects in one mark:
+ *
+ *   1. It spent the POLARITY hue on a second, unrelated quantity (spread), so
+ *      a wide rose band said "very negative" to anyone who had learned the
+ *      colour key. Colour is polarity's channel (`edgePresentation` rule A).
+ *   2. It painted at REST. The contract's connection key has five channels
+ *      (width, sign and colour, dash, dispute, fragile cue) and no ribbon;
+ *      a resting connection is ONE stroke.
+ *
+ * So the ribbon is now transient detail (drawn on hover or selection only —
+ * the gate lives at the one call site, `StyledEdge`) and painted in a neutral
+ * ink, never a polarity or attention hue. ⚠ NOT DS v5 §14.2's "info at 30%":
+ * on this canvas info at ~0.3 is ALREADY the assistant-focus halo
+ * (`assistant-focus-edge-halo-*`, info at 0.32) and the selection glow, so an
+ * info ribbon would be the same mark saying two things. The legend swatch
+ * (`CanvasLegendPopover` `UncertaintySwatch`) reads these two constants, so
+ * the key cannot teach a paint the canvas no longer uses (trap 12).
+ */
+export const UNCERTAINTY_BAND_STROKE = 'var(--text-body)'
+export const UNCERTAINTY_BAND_OPACITY = 0.2
 
 /**
  * Half the width of the uncertainty ribbon, in graph units — or `null` when

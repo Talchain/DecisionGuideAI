@@ -82,10 +82,12 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
-import { GHOST_OPTION_NODE_ID, excludeNonModelNodes } from './utils/fitTargets'
-import { claimCameraForUser } from './utils/userCameraClaim'
+import { userFitNodes } from './utils/fitTargets'
+import { claimCameraForUser, isUserCameraMove } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
-import { ghostOptionPrompt } from './utils/ghostTiers'
+import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
+import { useLayoutStore } from './layoutStore'
+import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
 import { fitBoundsFor } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
@@ -738,7 +740,39 @@ const NODE_DRAG_THRESHOLD = 2
  */
 const SELECT_MODE_PAN_BUTTONS = [1]
 
+/**
+ * ⭐ THE GROUND'S DOT GRID IS A WHISPER IN THE DS WARM BORDER TOKEN (contract
+ * v3.1, CHR-5: `.canvas-area{background-image:radial-gradient(#D8D3CB .65px,…)}`).
+ *
+ * `<Background>` was given no colour, so the dots took React Flow 12.10.2's
+ * stylesheet default `--xy-background-pattern-dots-color-default: #91919a` — a
+ * cool grey from outside the DS palette at 2.75:1 on the #F4F0EA canvas, about
+ * twice as loud as the contract's grid. `--border-emphasis` (rgb 221 212 196,
+ * ~1.3:1 on canvas) is the existing DS token nearest the contract's #D8D3CB, so
+ * no colour is added. React Flow writes `color` into
+ * `--xy-background-pattern-color-props`, so a CSS var is honoured as-is. Dot
+ * size and gap are unchanged: they already render the contract's pitch.
+ */
+const CANVAS_GRID_DOT_COLOUR = 'var(--border-emphasis)'
+
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
+/**
+ * A wheel, pinch or drag is the user moving the camera too. xyflow passes the DOM
+ * event for a gesture and `null` for a programmatic move (every product fit), so
+ * only the person's own moves claim (Codex CR 5811958756).
+ *
+ * ⚠ MODULE SCOPE, SO ITS IDENTITY NEVER CHANGES (#1932, 24 Sep 2026). xyflow 12
+ * carries `onMoveEnd` through `StoreUpdater`, which writes the prop into its store
+ * whenever its identity changes — i.e. after every render when it was an inline
+ * arrow. The only Canvas Browser Gate pass of the claim (`c07bbc49`) had a stable
+ * handler; the inline-arrow head (`0abb993c`) failed `nodeKeyboardBleed` with the
+ * reset to 100% leaving the transform byte-identical at 53%. A module function is
+ * stable without a hook, so the rules-of-hooks ratchet is unchanged.
+ */
+function claimCameraOnUserMoveEnd(event: MouseEvent | TouchEvent | null): void {
+  if (isUserCameraMove(event)) claimCameraForUser(currentModelKey())
+}
+
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
@@ -771,7 +805,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // M6: Scenario Comparison Mode (lives in useComparisonStore as of C3-3)
   const comparisonModeActive = useComparisonStore(s => s.comparisonMode.active)
 
-  // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
+  // ⭐ S4: the row-end reasoning prompts — one at the end of each family's final
+  // sub-row. Read by the width resolver below, so a prompt is placed against the
+  // width the card actually draws at even before it has been measured.
+  const layoutCardWidths = useLayoutStore(s => s.layoutCardWidths)
+
   const nodesWithGhost = useMemo(() => {
     /*
      * ⚠ THERE IS NO VISIBILITY GATE HERE, AND THAT IS THE POINT.
@@ -783,123 +821,42 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
      * gone and the two selectors that fed it went with it: `viewMode` and
      * `results.status` are now read NOWHERE in this file.
      *
-     * ⚠ THE GATE WAS FIRST REPLACED BY A CONSTANT-RETURNING `frontierIsVisible`,
-     * KEPT ON THE ARGUMENT THAT IT WAS THE ONLY PLACE A RE-INTRODUCED GATE COULD
-     * BE CAUGHT. A review refuted that by execution: re-adding the original gate
-     * HERE, on the line after the call, left the whole suite green. The seam
-     * caught a gate only when it was written inside the function AND keyed on
-     * one of the two status values the matrix happened to list — 2 of the 7 that
-     * `ResultsStatus` (`store.ts:241`) actually admits. A guard for the
-     * hypothetical that missed the realistic one.
-     *
-     * `ghostSuggestionsMountPath.spec.ts` now reads THIS BLOCK and fails if
-     * either axis reappears in it. That is a source-text guard, not behavioural
-     * coverage, and it is named as one there.
+     * `ghostSuggestionsMountPath.spec.ts` reads THIS BLOCK and fails if either
+     * axis reappears in it. That is a source-text guard, not behavioural
+     * coverage, and it is named as one there. (The far-rung hide ED S4 asks for
+     * lives in the prompt components, keyed on the shared LOD predicate — a
+     * zoom state, not a view mode or a results status.)
      */
     /*
-     * ⚠ THE OPTIONS GATE USED TO SWALLOW EVERY OTHER TIER'S DOOR.
+     * ⭐⭐ S4 — THE ROW-END PROMPTS ARE BACK IN GRAPH SPACE (Experience Design,
+     * #63 5806207128 / 5806266691; Paul, 24 Sep: "bring back the per-row
+     * prompts"; NODE-ANATOMY-v32 L3).
      *
-     * `withGhostTiers` decides tier by tier, and refuses a door on a tier with
-     * no members for a stated reason: a ghost on an empty tier would assert the
-     * tier OUGHT to have members, which is a judgement this affordance exists
-     * not to make. That per-tier care was then defeated by a global
-     * `if (optionNodes.length === 0) return nodes` above it — inherited from
-     * when the options ghost was the ONLY ghost, and correct then.
+     *   Options  "What else could you do?"      (the existing option card)
+     *   Factors  "What else drives this?"
+     *   Outcomes "Where else could this lead?"  } ONE column when they share
+     *   Risks    "What else could go wrong?"    } the consequence row
      *
-     * Since the frontier reached factors, risks and outcomes it is no longer
-     * correct: a model with factors and risks but no options got no door on any
-     * tier, including the tiers that had members. The doors disappeared exactly
-     * when the model was sparsest, which is when an invitation is worth most.
+     * They were moved onto the cards on 15 Sep because, at the 0.5 camera floor,
+     * 14 of 20 row-end doors fell outside the frame. S4 fixes the FRAME instead —
+     * narrower cards, rows of at most five, the prompt's slot inside the row
+     * budget (`layoutGraph`), and the landing fit framing the prompts
+     * (`fitFrameNodes`) — so the doors can stand where they belong. One problem,
+     * not two.
      *
-     * The OPTIONS ghost still needs an option node — its position is derived
-     * from the rightmost one — so that part of the gate stays, scoped to itself.
+     * `withGhostTiers` owns WHERE (the end of each family's final sub-row) and
+     * WHAT (the tier table's question, composed from this model). Every prompt is
+     * render-only: never written to the store, so never saved, sent, counted or
+     * inferred over (the shared `__ghost-` prefix), and not selectable,
+     * draggable or connectable. A tier with no members gets no prompt.
      */
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    // ⛔ THE SECOND RETURN, AND IT IS THE ONE I MISSED FIRST. A model with no
-    // options took this path and would have kept placing tier doors off-screen
-    // while every other model got them on the card — the same affordance in two
-    // places depending on a condition unrelated to it. Caught by the mount test,
-    // not by inspection.
-    if (optionNodes.length === 0) return nodes
-
-    // Find rightmost option position, accounting for node width
-    const maxX = Math.max(...optionNodes.map(n => n.position?.x ?? 0))
-    const sameY = optionNodes.find(n => (n.position?.x ?? 0) === maxX)
-    const ghostY = sameY?.position?.y ?? 0
-    // Measure: node width (from ELK) + node spacing (60 default)
-    const measuredW = (sameY as any)?.measured?.width ?? (sameY as any)?.width ?? 200
-    const ghostGap = measuredW + 60
-
-    /*
-     * ⭐ THE SENTENCE TRAVELS WITH THE NODE — this door used to carry `data: {}`.
-     *
-     * `GhostOptionNode` cannot see the graph, so an empty data bag left it
-     * nothing to say and it fell back to a hardcoded "Suggest an additional
-     * option I haven't considered for this decision" — verbatim the generic line
-     * `ghostTiers.ts` holds up as the bad example, still live on the one door
-     * that matters most. It is composed HERE, from the same tier table and the
-     * same builder every other door uses (`ghostOptionPrompt`), rather than in
-     * the component: a door should not re-derive the model it is standing in,
-     * and two derivations of one list is how they come to disagree.
-     */
-    const ghostNode = {
-      id: GHOST_OPTION_NODE_ID,
-      type: 'ghost-option' as const,
-      position: { x: maxX + ghostGap, y: ghostY },
-      data: { prompt: ghostOptionPrompt(nodes) },
-      selectable: false,
-      draggable: false,
-      connectable: false,
-    }
-
-    /*
-     * ⭐ THE FRONTIER EXISTS ON EVERY TIER, NOT ONLY ON OPTIONS.
-     *
-     * The options ghost was the most reasoning-shaped affordance already on the
-     * canvas — an open door that asks Olumi to help you think of something the
-     * model does not contain — and it existed on one tier of four. The graph
-     * showed what IS there and had no way to represent what might be missing,
-     * which is where the thinking actually happens.
-     *
-     * These are invitations, not assessments: the product does not claim a risk
-     * is missing, it just leaves the door open where one would go. Each is
-     * excluded from the fit and from every model count by the shared `__ghost-`
-     * prefix, so they cannot inflate what the graph appears to contain.
-     */
-    /**
-     * ⛔⛔ THE TIER DOORS ARE NO LONGER PLACED IN GRAPH SPACE — 15 Sep 2026.
-     *
-     * MEASURED on all five starters (captures, zoom 0.50, the ruled camera
-     * floor): **14 of 20 doors fell outside the framed window.** Repositioning
-     * was the obvious refinement and it is arithmetically impossible —
-     *
-     *   · clear space to the RIGHT of the model, best case **128** graph units,
-     *     for a door that is **187** wide;
-     *   · a BELOW-placement would need a canvas pane of **1065–1266px**, and the
-     *     whole browser window is **1012px**.
-     *
-     * Three of the five starters are 3080 units wide against a 2160 window, so
-     * their REAL cards are off-screen too — the camera floor, already ruled on,
-     * which no placement changes. There is nowhere inside the frame to stand.
-     *
-     * ⇒ The anchor changed instead of the offset: `BaseNode` renders the
-     * invitation ON the card the door used to stand beside, resolved by
-     * `tierInvitations`, which shares its anchor resolver with the placement
-     * below so the two cannot pick different cards.
-     *
-     * ⚠ `withGhostTiers` IS DELIBERATELY NOT DELETED OR WEAKENED. Its placement
-     * arithmetic keeps its own tests (row-anchoring, the risk/outcome shared
-     * row, the door-on-door collision) — evidence that would be lost if the
-     * camera floor ever moves and this decision has to be re-taken.
-     *
-     * ⚠ THE OPTION DOOR (`ghostNode`) STAYS. `__ghost-option__` measured INSIDE
-     * the frame on 5 of 5 starters, so it is not part of this defect, and
-     * `GhostOptionNode` carries a WCAG 1.4.11 outline verified at the pixel.
-     * Moving a door that works, to fix doors that do not, would re-open a
-     * contrast question a lane already answered.
-     */
-    return [...nodes, ghostNode]
-  }, [nodes])
+    return withGhostTiers(nodes, GHOST_TIERS, {
+      widthOf: (n) => {
+        const m = n as { measured?: { width?: number }; width?: number; type?: string }
+        return m.measured?.width ?? m.width ?? layoutCardWidths?.[m.type ?? ''] ?? restingCardWidthForKind(m.type)
+      },
+    })
+  }, [nodes, layoutCardWidths])
 
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
@@ -2521,9 +2478,29 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Stable callbacks for CanvasViewportControls — declared unconditionally before
   // any debug-mode early returns to satisfy Rules of Hooks.
-  const handleZoomIn = useCallback(() => zoomInRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
-  const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: cameraDuration(200, reducedMotionRef.current) }), [])
-  const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) }), [])
+  //
+  // ⭐ AN EXPLICIT ZOOM CLAIMS THE CAMERA (Codex CR 5811958756, #1932, 24 Sep
+  // 2026). These controls never claimed it, so a same-model CORRECTION layout
+  // (content that grew after the landing layout, re-measured on the first
+  // zoom-in) re-ran the product's automatic fit and threw the user's zoom back
+  // to the landing view — Canvas Browser Gate `nodeKeyboardBleed` saw a reset
+  // to 100% land on 53%. `useFitViewOnLayoutVersion` already honours a claim
+  // for automatic layouts of the claimed model; a new model and a user-invoked
+  // Auto-arrange still fit (`utils/userCameraClaim.ts`).
+  const handleZoomIn = useCallback(() => {
+    claimCameraForUser(currentModelKey())
+    zoomInRef.current({ duration: cameraDuration(200, reducedMotionRef.current) })
+  }, [])
+  const handleZoomOut = useCallback(() => {
+    claimCameraForUser(currentModelKey())
+    zoomOutRef.current({ duration: cameraDuration(200, reducedMotionRef.current) })
+  }, [])
+  const handleZoomReset = useCallback(() => {
+    claimCameraForUser(currentModelKey())
+    zoomToRef.current(1, { duration: cameraDuration(200, reducedMotionRef.current) })
+  }, [])
+  // A wheel, pinch or drag claims too: `claimCameraOnUserMoveEnd` (module scope,
+  // above this component) is wired to `onMoveEnd`.
   // The USER-invoked "Fit to view".
   //
   // ⚠⚠ THIS CALL USED TO PASS `minZoom: LABEL_LEGIBLE_ZOOM`, AND THE COMMENT
@@ -2547,7 +2524,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // The user framed this camera; the product's automatic re-fit may not take
     // it back off them (`utils/userCameraClaim.ts`, defect #1051).
     claimCameraForUser(currentModelKey())
-    const nodes = excludeNonModelNodes(getNodesRef.current())
+    // Model + row-end prompts, as the landing fit frames (`userFitNodes`, S5).
+    const nodes = userFitNodes(getNodesRef.current())
     fitViewRef.current({
       ...(nodes.length > 0 ? { nodes } : {}),
       padding: computeFitPadding(),
@@ -2617,7 +2595,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // NOTE: No handlers passed - this isolates whether the loop is in
             // node/edge components vs the handlers
           >
-            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
           </ReactFlow>
@@ -2760,6 +2738,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             isValidConnection={isValidConnection}
             onSelectionChange={handleSelectionChange}
             onMoveStart={handleMoveStart}
+            onMoveEnd={claimCameraOnUserMoveEnd}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}
@@ -2793,7 +2772,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             minZoom={0.1}
             maxZoom={4}
           >
-            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN. Fed `memoizedNodes`, the same
                 array React Flow is rendering, so a lane cannot describe a board
                 the user is not looking at.

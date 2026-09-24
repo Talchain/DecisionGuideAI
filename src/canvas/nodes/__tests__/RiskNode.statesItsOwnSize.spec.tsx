@@ -110,7 +110,11 @@ const draw = (id: string, data: Record<string, unknown>, store: Record<string, u
   )
 }
 
-const recorded = () => screen.queryByTestId('risk-recorded-value')?.textContent ?? null
+// Contract v3.1 (OR-06): `risk-recorded-value` is now the value ROW (value +
+// source mark, the factor card's anatomy); the recorded figure itself is its
+// `risk-recorded-readout` child. Read the figure, so these cases keep pinning
+// the value and the mark is pinned on its own (`riskOwnValue.contractV31.spec`).
+const recorded = () => screen.queryByTestId('risk-recorded-readout')?.textContent ?? null
 const lodLine = () => screen.queryByTestId('node-lod-line')?.textContent ?? null
 
 describe('a risk card states the size it records', () => {
@@ -149,7 +153,12 @@ describe('a risk card states the size it records', () => {
     // still empty rather than filled by the edge's figure.
     expect(screen.queryByTestId('risk-strength-row')).toBeNull()
     expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
-    expect(screen.getByTestId('risk-exposure-unset').textContent).toBe(`Likelihood and impact ${METRIC_UNSET.inline}.`)
+    // Contract v3.1 (OR-02): a state label, no full stop. ED 5809278282: the
+    // sentence is announced whole (sr-only; also title + popover) on the unset
+    // line, which SHOWS the register's short form.
+    const unset = screen.getByTestId('risk-exposure-unset')
+    expect(unset.querySelector('.sr-only')?.textContent).toBe(`Likelihood and impact ${METRIC_UNSET.inline}`)
+    expect(unset.querySelector('[aria-hidden="true"]')?.textContent).toBe(METRIC_UNSET.standalone)
     expect(screen.queryByTestId('risk-recorded-value')).toBeNull()
   })
 

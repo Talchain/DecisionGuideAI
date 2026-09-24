@@ -344,9 +344,15 @@ describe('NodeStructuralMarker — the honesty fence', () => {
     expect(label).toBe(STRUCTURAL_MARKER_COPY.no_downside)
     expect(label).toMatch(/^Observed from the shape of your model/)
     expect(label).not.toMatch(/olumi/i)
-    // `title` carries the same sentence: icon-only means these two attributes are
-    // the entire user-facing surface.
-    expect(marker).toHaveAttribute('title', label)
+    // ⭐ SUPERSEDED BY CONTRACT v3.1 (24 Sep, deltas ICON-09 / PILL-07; Paul
+    // 23 Sep pt 12, "Icons need hover/focus labels"; ED 02:31Z, native title
+    // is not full-text recovery). This asserted a native `title` carrying the
+    // same sentence. The sentence now reaches sighted users through the shared
+    // focusable Tooltip, whose content IS this accessible name, and the shared
+    // Tooltip blanks any native title — so the marker is a keyboard stop and
+    // carries no native-title text.
+    expect(marker.getAttribute('title') ?? '').toBe('')
+    expect(marker).toHaveAttribute('tabindex', '0')
   })
 
   it('renders exactly ONE marker on the node it names, never a stack', () => {
