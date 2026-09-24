@@ -199,6 +199,20 @@ describe('ANC-07 / T07 — the target reads in ink; its route rule is secondary'
     expect(t).toContain('decoration-dotted')
     expect(t).toContain('hover:text-info')
   })
+
+  // NODE-ANATOMY v3.2 principle 3 ("No link text inside a card … on hover or
+  // focus") + contract v3.1 `.target-row` (a plain `<span>`, the edit route in
+  // the rail on hover/focus) supersede T07's resting rule: Paul 24 Sep saw
+  // "Target: 20,000 GBP/month" underlined at rest. The factor value editor's
+  // precedent — "rests as text … editable on hover and on focus".
+  it('the target rests as plain text: the dotted rule appears on hover and keyboard focus only', () => {
+    mockStore()
+    renderGoal(WITH_TARGET)
+    const t = tokens(screen.getByTestId(GOAL_TARGET_ROUTE_TESTID))
+    expect(t, 'a resting underline reads as link text inside the card').not.toContain('underline')
+    expect(t).toContain('hover:underline')
+    expect(t).toContain('focus-visible:underline')
+  })
 })
 
 describe('ANC-13 / FRAME-10 — the target row geometry', () => {

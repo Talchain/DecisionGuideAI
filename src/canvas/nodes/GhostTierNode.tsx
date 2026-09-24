@@ -34,6 +34,7 @@ import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
+import { CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
 import {
   ROW_PROMPT_BORDER_PX,
   ROW_PROMPT_H,
@@ -111,12 +112,12 @@ export const GhostTierNode = memo((props: NodeProps) => {
         // Quieted with GhostOptionNode to `--text-light` (contract v3.1 T12;
         // 5.23:1 on the panel, 4.65:1 on the canvas — see that file).
         border: `${GHOST_DOOR_BORDER_PX}px dashed var(--text-light, #6E6B6B)`,
-        background: 'transparent',
+        background: 'var(--bg-panel, #FEFEFE)',
         visibility: farRung ? 'hidden' : undefined,
       }}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <Plus size={14} className="text-text-light shrink-0" aria-hidden="true" />
+      <Plus size={14} className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[14]}`} aria-hidden="true" />
       {/* `break-words`: the last-resort rule that stops a single long word
           overflowing the measure horizontally, as node titles already use. The
           same token as the option prompt, so the four read as one family. */}
