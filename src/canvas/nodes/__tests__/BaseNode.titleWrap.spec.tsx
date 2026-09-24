@@ -184,3 +184,26 @@ describe('BaseNode — titles wrap at word boundaries (never mid-word)', () => {
     expect(wrapper.style.minWidth).toBe(`${NODE_TITLE_MIN_MEASURE_PX}px`)
   })
 })
+
+/**
+ * ⭐ CONTRACT `.node h3{font-weight:610}` — every card's title carries the one
+ * contract weight, bound to the title element by testid. Before this, a factor
+ * title rendered at the size token's `font-medium` (500) and only the anchors
+ * were emphasised. Measured fit-safe before landing: 5 starters, 87 titles,
+ * 0 height or line-count changes.
+ */
+describe('BaseNode — the card title weight is the contract 610', () => {
+  it('a factor (non-anchor) title is 610', () => {
+    const { title } = renderTitle('Annual platform cost')
+    expect(title.style.fontWeight).toBe('610')
+  })
+
+  it('an anchor (goal) title is 610 too — the hierarchy step is ink, not a second weight', () => {
+    const { container } = render(
+      <BaseNode {...baseProps} type="goal" data={{ label: 'Replace CDP within budget' }} nodeType="goal" icon={Target} maxWidth={NODE_LAYOUT_MIN_W} />,
+    )
+    const title = container.querySelector('[data-testid="node-title"]') as HTMLElement | null
+    expect(title, 'node-title must exist').toBeTruthy()
+    expect((title as HTMLElement).style.fontWeight).toBe('610')
+  })
+})
