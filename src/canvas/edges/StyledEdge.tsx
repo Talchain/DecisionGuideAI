@@ -84,6 +84,8 @@ import {
   DIRECTION_DISPUTED_SENTENCE,
   directionInUseSentence,
   linkStrengthCaption,
+  edgeArrowSentence,
+  EDGE_EXISTENCE_DOUBT_SENTENCE,
 } from './connectorCopy'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -2766,6 +2768,25 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               onMouseEnter={handlePopoverEnter}
               onMouseLeave={handlePopoverLeave}
             >
+              {/* ⭐ ROW 29 — contract §03's lead sentence, ADDED as the
+                  popover's first line rather than replacing the rich content
+                  below (which carries editing affordances the plain contract
+                  tooltip has none of — "Set strength", "Ask Olumi…"). The
+                  direction word is `dirLabel`, the SAME value the bold
+                  Direction row a few lines down reads (never a second
+                  derivation). The doubt clause is bound to `existenceDash` —
+                  the SAME field `resolveEdgeDash` reads to draw the dashed
+                  stroke — so a doubt is never asserted on this sentence that
+                  the line itself is not also drawing. */}
+              <div
+                data-testid="edge-hover-arrow-sentence"
+                className={`${typography.edgeLabel} text-text-body`}
+              >
+                {edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel)}
+                {existenceDash.kind === 'stated' && existenceDash.dash !== undefined
+                  ? ` ${EDGE_EXISTENCE_DOUBT_SENTENCE}`
+                  : ''}
+              </div>
               {/* Direction — only when the producer or the user STATED one, and
                   never as a bare fact while Olumi's review passes dispute it. */}
               {signDisputed ? (
