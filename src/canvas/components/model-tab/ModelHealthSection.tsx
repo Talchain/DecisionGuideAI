@@ -272,6 +272,27 @@ function ModelHealthSectionInner({
     rootNodeWarningCount > 0 ||
     (showDetail && (ceeQuality != null || hasAuditSignal))
 
+  /**
+   * ⭐⭐ V2 GAP 30 — WHETHER THE CARD MAY OPEN AT REST, AND WHY IT IS NOT JUST
+   * `hasRenderableBody`.
+   *
+   * `hasRenderableBody` answers "is there DETAIL to show" and still governs
+   * the placeholder sentence's removal below. It is the WRONG predicate for
+   * whether the card may open, because it says nothing about the one control
+   * that survives regardless of detail: `modelcard-discuss`
+   * (`onHandOffToOlumi &&` below) is real, actionable content, not filler —
+   * `modelCardDiscussFrontsOlumi.spec.tsx` pins it reachable on EXACTLY the
+   * witnessed fixture this gap fixes (`ceeQuality={{overall: 7.2}}` alone,
+   * plain mode). The real `Accordion` hides collapsed content with
+   * `inert`, which removes it from the accessibility tree — so forcing the
+   * card shut whenever `!hasRenderableBody` would also make that control
+   * unreachable, which is the "no dead controls" rule read backwards (it
+   * would make a LIVE control dead instead of leaving a dead one). So the
+   * card opens whenever there is EITHER real detail OR a real hand-off to
+   * show; it closes only when there is truly nothing in the body at all.
+   */
+  const hasAnyBodyContent = hasRenderableBody || onHandOffToOlumi != null
+
   // Collapsed summary visible in accordion header via tierLabel.
   // ⛔ The `"{N}% stability"` half is REMOVED (2.1273) — see the file header.
   // The summary is the quality score alone; the `.filter(Boolean).join(' · ')`
@@ -369,31 +390,26 @@ function ModelHealthSectionInner({
       // Accordion is CONTROLLED, and this prop is inert — the initial
       // `openSection` state in `ModelTabBody` decides. Both paths are
       // pinned separately by `ModelTabBody.modelCardOpen.spec.tsx`.
-      defaultExpanded
-      isExpanded={isExpanded}
+      //
+      // ⭐⭐ V2 GAP 30 — NEVER OPEN ONTO A TRULY EMPTY BODY, REGARDLESS OF
+      // CALLER. The prototype has no card that discloses to say "there is
+      // nothing here" (`FIDELITY-GAPS-INDEX-20260924.txt` #30). A card with
+      // NOTHING in its body — no detail AND no hand-off control — is forced
+      // CLOSED here, on BOTH the controlled and uncontrolled paths, instead
+      // of opening to the "shown in expert mode" sentence. This is "remove
+      // the empty card" (truth rule), not "delete the placeholder and show
+      // nothing": the card still exists and can be found, it simply does not
+      // spring open onto emptiness. See `hasAnyBodyContent` above for why the
+      // hand-off control counts as content even when there is no detail.
+      defaultExpanded={hasAnyBodyContent}
+      isExpanded={hasAnyBodyContent ? isExpanded : false}
       onExpandChange={onExpandChange}
       testId="model-health-section"
+      // V2 gap 29 — the Model card is a full-width divider, not a bordered
+      // card, matching the outline wrapper above it.
+      flush
     >
       <div className="space-y-1.5">
-
-        {/* ⛔ SAYS WHERE THE DETAIL IS; SHOWS NONE OF IT.
-            Paul ruled (9 Sep 2026) that the bare scores sit behind expert mode,
-            and this file's header records an earlier attempt that deleted
-            `overall` for everyone under a "progressive disclosure" alibi. So this
-            names the control and stops. It states no score and promises no
-            improvement: the numbers are one toggle away, not forthcoming.
-            The control is named by its ON-SCREEN name:
-            `WorkspaceShellTabStrip.tsx:380-382` renders "Enable expert mode" /
-            "Toggle expert mode". ("Show full detail" survives only in stale
-            comments in this directory and is NOT a label any user can see.) */}
-        {!hasRenderableBody && (
-          <p
-            className={`${typography.panelBody} text-text-body`}
-            data-testid="model-card-detail-hidden"
-          >
-            This card&apos;s details are shown in expert mode.
-          </p>
-        )}
 
         {/* Pre-analysis content */}
         {isPreAnalysis && (

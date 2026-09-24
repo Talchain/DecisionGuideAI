@@ -1488,7 +1488,17 @@ export function ModelTabV2Panel({
     <section
       data-testid="model-tab-v2-panel"
       aria-label="Model outline"
-      className="flex flex-col gap-2 border border-panel-border rounded-lg p-2"
+      /**
+       * ⭐⭐ V2 GAP 29 — NO CARD. Reasoning already closes its top-level
+       * sections with ONE full-width divider (`PANEL_RULE`,
+       * `panelSurfaces.ts:148`); the Model tab was still a bordered,
+       * radiused, padded box (`FIDELITY-GAPS-INDEX-20260924.txt` #29,
+       * matching the design authority's `.section` — no card, a hairline).
+       * `border-b border-panel-border pb-2.5`: bottom rule only, no radius,
+       * no side borders, no top padding (this section opens the tab, so
+       * nothing sits above it to divide from).
+       */
+      className="flex flex-col gap-2 border-b border-panel-border pb-2.5"
     >
       <header className="flex items-center gap-2 flex-wrap">
         <h3 className={`${typography.panelHeader} text-text-header`}>Model outline</h3>

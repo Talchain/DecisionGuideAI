@@ -46,7 +46,15 @@ export function ModelFooter({ onCopyText, onCopyJson }: ModelFooterProps) {
 
   return (
     <div
-      className="border-t border-panel-border pt-3 flex items-center justify-end gap-2"
+      // ⭐⭐ V2 GAP 29 — FULL-BLEED, NOT CONTENT-WIDTH. `border-t` alone only
+      // spans this element's own box, which sits inside the tab's content
+      // column — so the rule stopped short of both panel edges, unlike every
+      // OTHER divider this fix makes full-width. `-mx-3 px-3` cancels and
+      // restores the shell's own gutter, measured at 12px here (the Model tab
+      // shell, NOT `analysisNew`'s 16px — `panelSurfaces.ts`'s `PANEL_RULE`
+      // uses `-mx-4 px-4` for that different gutter and is not reused
+      // verbatim here for that reason).
+      className="border-t border-panel-border pt-3 -mx-3 px-3 flex items-center justify-end gap-2"
       data-testid="model-footer"
     >
       <button

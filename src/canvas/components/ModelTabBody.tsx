@@ -813,7 +813,15 @@ export const ModelTabBody = memo(function ModelTabBody({
 
   return (
     <div
-      className="space-y-4 pb-4"
+      // ⭐⭐ V2 GAP 29 — NO INTER-SECTION GAP HERE. `space-y-4` put a 16px gap
+      // BETWEEN every top-level section on top of each section's own
+      // `border-b … pb-2.5` — a card-era rhythm sitting on top of the new
+      // full-width-divider rhythm, doubling the space between sections that
+      // now already carry their own bottom rule and padding. The divider
+      // itself supplies the vertical rhythm (`pb-2.5` below, `pt-*` on the
+      // one below it where present), the same way Reasoning's `PANEL_RULE`
+      // sections need no parent `space-y-*` (`panelSurfaces.ts:119-148`).
+      className="space-y-0 pb-4"
       data-testid="model-tab"
       aria-busy={trust.isRunning || undefined}
     >
