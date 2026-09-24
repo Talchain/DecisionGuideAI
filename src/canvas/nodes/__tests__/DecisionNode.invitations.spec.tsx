@@ -259,9 +259,17 @@ describe('DecisionNode — invitations in Standard view', () => {
     // popover nobody opens.
     //
     // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the chips are rail
-    // icons now, so they are counted by ACCESSIBLE NAME rather than text, in
-    // both arms of the run rule: exactly ONE coaching question, plus the run
-    // icon only when the model is ready.
+    // icons now, so they are counted by ACCESSIBLE NAME rather than text.
+    //
+    // DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026: the run icon is gone from the
+    // rail entirely (running lives in the panel's Analyse button), so `run` is
+    // now 0 in BOTH arms — the ready arm is kept, unchanged in its setup, to
+    // prove the removal holds even in the one state that used to render it.
+    // `resolveNodeCoaching` still withholds "What could go wrong?" while
+    // `showRunAnalysis` is true (that coupling predates the Play icon and is
+    // untouched here), so `questions` stays 1 in both arms too — this test's
+    // own point, "never three chips at once", is unaffected by which of the
+    // two mechanisms is doing the withholding.
     const QUESTIONS = ['Explore more options', 'What could go wrong?']
     const countOn = (container: HTMLElement) => ({
       questions: QUESTIONS.flatMap(q => faceControlsNamed(container, q)).length,
@@ -276,7 +284,7 @@ describe('DecisionNode — invitations in Standard view', () => {
     setStore({ goalThreshold: 0.5 })
     const ready = renderDecision()
     const readyCount = countOn(ready.container)
-    expect(readyCount).toEqual({ questions: 1, run: 1 })
+    expect(readyCount).toEqual({ questions: 1, run: 0 })
     expect(readyCount.questions + readyCount.run).toBeLessThanOrEqual(2)
   })
 

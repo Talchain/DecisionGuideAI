@@ -901,10 +901,16 @@ describe('Render matrix — DecisionNode chip audit', () => {
     // Locked Canvas design (23 Sep 2026): the Question card is wide and shallow
     // — "coaching behind the one icon" (ED 11:52Z point 1). The chip row left
     // the Standard FACE: the rail's coaching icon asks "Explore more options",
-    // "Run analysis" is a rail ACTION (`decision-run-analysis-<id>`), and the
-    // remaining invitation moves to the Standard popover
+    // and the remaining invitation moves to the Standard popover
     // (`decision-popover-invitations`) — minus the icon's own question, so
     // nothing is asked twice. Detailed keeps the full row (pinned below).
+    //
+    // DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026: "Run analysis" was, until this
+    // date, a rail ACTION (`decision-run-analysis-<id>`) that could win the
+    // XOR below in place of "What could go wrong?"; it is now removed
+    // entirely (running lives in the panel's Analyse button), so `runRoute`
+    // is asserted here purely as a REGRESSION PIN — this fixture has no goal
+    // either, so it was already 0 before the removal too.
     const face = faceOf('Hiring decision')
     expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Explore more options')
     expect(within(face).queryByText('What could go wrong?')).toBeNull()
@@ -922,12 +928,16 @@ describe('Render matrix — DecisionNode chip audit', () => {
     expect(screen.queryByText('Review model readiness')).toBeNull()
   })
 
-  it('Standard pre WITH a goal: the run route is the rail action, and "What could go wrong?" is withheld — the other arm of the XOR', () => {
-    // Locked Canvas design (23 Sep 2026): the positive arm of the XOR above,
-    // now that "Run analysis" is a rail action (design summary, Question:
-    // "'Run analysis' NodeChip (now rail icon `decision-run-analysis-<id>`)").
-    // The run route needs every factor valued AND a goal (`showRunAnalysis`),
-    // so this arm drops the fixture's deliberately unvalued factor.
+  it('Standard pre WITH a goal: NO run route renders anywhere on the card — DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026', () => {
+    // Locked Canvas design (23 Sep 2026): this fixture used to be the positive
+    // arm of the XOR above, when "Run analysis" was a rail action.
+    //
+    // DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026: the rail action is removed —
+    // running lives in the panel's Analyse button, so the card no longer
+    // offers it in ANY ready state. `showRunAnalysis` (every factor valued
+    // AND a goal set) still governs `resolveNodeCoaching`'s "What could go
+    // wrong?" gate, unrelated to the removed icon — so that half of the XOR
+    // is unchanged and still withheld here.
     const runnable = (view: ViewMode): MatrixState => {
       const t = decisionTopology(view, 'pre')
       return { ...t, goalThreshold: 100000, nodes: t.nodes.filter(n => n.id !== 'factor-missing') }
@@ -936,9 +946,10 @@ describe('Render matrix — DecisionNode chip audit', () => {
     registerAskSurface()
     renderDecision()
     const face = faceOf('Hiring decision')
-    expect(within(face).getByTestId('decision-run-analysis-decision-1')).toBeDefined()
+    expect(within(face).queryByTestId('decision-run-analysis-decision-1')).toBeNull()
     expect(within(face).getByTestId('node-coaching-icon-decision-1')).toHaveAccessibleName('Explore more options')
     expect(screen.queryByText('Run analysis')).toBeNull()
+    expect(screen.queryByText('Run the analysis now')).toBeNull()
     // …and the Standard popover withholds the other arm too.
     expect(screen.queryByText('What could go wrong?')).toBeNull()
     cleanup()
@@ -948,6 +959,7 @@ describe('Render matrix — DecisionNode chip audit', () => {
     expect(screen.getByText('Explore more options')).toBeDefined()
     // …and it withholds the other arm.
     expect(screen.queryByText('What could go wrong?')).toBeNull()
+    expect(screen.queryByTestId('decision-run-analysis-decision-1')).toBeNull()
   })
 
   it('Standard post: shows "Challenge this result" + "Compare options"', () => {
@@ -1113,14 +1125,18 @@ describe('Render matrix — GoalNode chip audit', () => {
     expect(screen.queryByText('Run analysis')).toBeNull()
   })
 
-  it('Goal with-target Standard pre: shows "Run analysis" chip', () => {
+  it('Goal with-target Standard pre: NEITHER card shows a "Run analysis" affordance', () => {
     applyStore(goalTopology('standard', 'pre', true))
     renderGoal({ goal_threshold_raw: 100000 })
     // Locked Canvas design (23 Sep 2026): the goal card's "Run analysis" chip
     // was a DUPLICATE of the Question card's run route and is gone from the
     // goal face (design summary, Goal: "REMOVED from face: … 'Run analysis'
-    // chip (goal_run_analysis)"; ED 11:52Z point 2 "wide + shallow"). Absent
-    // here, present at its one home — the Question card's rail action.
+    // chip (goal_run_analysis)"; ED 11:52Z point 2 "wide + shallow").
+    //
+    // DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026: the "one home" this comment used
+    // to name — the Question card's rail action — is ALSO removed; running
+    // lives in the panel's Analyse button, so the assertion below now checks
+    // the Question card's rail for absence too, rather than presence.
     expect(within(faceOf('Reach revenue')).queryByText('Run analysis')).toBeNull()
     expect(screen.queryByText('Run analysis')).toBeNull()
     expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
@@ -1141,7 +1157,7 @@ describe('Render matrix — GoalNode chip audit', () => {
       ],
     })
     renderDecision()
-    expect(within(faceOf('Hiring decision')).getByTestId('decision-run-analysis-decision-1')).toBeDefined()
+    expect(within(faceOf('Hiring decision')).queryByTestId('decision-run-analysis-decision-1')).toBeNull()
   })
 
   it('Goal with-target Standard post: shows "Is my target realistic?" chip', () => {
