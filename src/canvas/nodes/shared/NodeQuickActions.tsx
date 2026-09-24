@@ -150,6 +150,15 @@ export interface NodeQuickActionsProps {
    */
   restingIcons?: ReactNode
   /**
+   * ⭐ S5 (24 Sep): WHERE THE RAIL SITS. `inset` (default) — inside the card's
+   * bottom band, at Normal zoom, as the contract draws it. `below` — BELOW the
+   * card, over the row gap, at the landing rung, where the card reserves no
+   * band: the hover actions (point 6's landing-rung ask door) still appear on
+   * hover/focus/selection, and the card is not taller for them. Still a DOM
+   * child of the card, so hovering it keeps the card's `group-hover`.
+   */
+  placement?: 'inset' | 'below'
+  /**
    * The card's coaching resolution. When it yields a question, the ONE coaching
    * icon is the rail's rightmost resting member and the hover-only "Ask Olumi"
    * button is withheld — ED 02:31Z (D4): the quick actions "expand/replace
@@ -165,6 +174,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   alwaysVisible = false,
   restingIcons,
   coaching = null,
+  placement = 'inset',
 }: NodeQuickActionsProps) {
   const coachingChip = useCoachingIconChip(nodeId, coaching)
   // The gate must ask the question `askAI` actually asks. It polls for
@@ -420,8 +430,9 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
          The wrapper itself never hit-tests (`pointer-events-none`); the resting
          group opts back in, and the hover group keeps its mirror. */
-      className={`node-card-rail absolute ${CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-none`}
+      className={`node-card-rail absolute ${placement === 'below' ? 'top-full right-0' : CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-none`}
       data-testid={`node-card-rail-${nodeId}`}
+      data-rail-placement={placement}
     >
     <div
       /* ⭐ THE `pointer-events` SET MIRRORS THE `opacity` SET, 1:1, AND THE
