@@ -80,7 +80,9 @@ export const GhostOptionNode = memo((props: NodeProps) => {
       // minWidth with the content occupying most of it — but the shape is the
       // same defect as the ghost tier door one line-wrap away, and one reword
       // of the label makes it visible.
-      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex items-center nodrag nopan text-left"
+      // `rounded-sm` (8px): the same corner as every card (contract v3.1
+      // FRAME-01 `.node{border-radius:8px}`); `rounded-lg` rendered 14px.
+      className="rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex items-center nodrag nopan text-left"
       style={{
         // A11y (WCAG 1.4.11, 3:1 non-text contrast). The outline is the only
         // thing that marks this affordance's bounds, so it is measured against
@@ -110,11 +112,18 @@ export const GhostOptionNode = memo((props: NodeProps) => {
         // own review, not a free ride on a token edit. Whoever takes it must
         // re-measure both grounds here rather than trusting this note.
         //
-        // Quietness is carried by the dashed 1.5px stroke, not by hue. Note the
-        // incomplete-node border is ALSO dashed (2px --warning #FFA656), so hue
-        // is the only channel separating the two: ΔE2000 55.0 normal vision,
-        // 49.9 worst-case red-green CVD (was 22.3 / 19.7 with --border-emphasis).
-        border: '1.5px dashed var(--text-body, #3F3F3E)',
+        // ⭐ TAKEN, contract v3.1 T12 (contract `--muted`; DS v5 §3.12: neutral
+        // borders are chrome). The darkest line on the canvas was a
+        // placeholder's. `--text-light` is `rgb(110 107 107)` = #6E6B6B at this
+        // tip (brand.css `--text-light-rgb`); against the two grounds named
+        // above, #FEFEFE and #F4F0EA, WCAG relative luminance gives 5.23:1 and
+        // 4.65:1 — both clear SC 1.4.11's 3:1 for the only mark bounding this
+        // affordance. Dash and width unchanged.
+        //
+        // Quietness is carried by the dashed 1.5px stroke, not by hue. (The
+        // incomplete-node border this note once compared against is no longer
+        // dashed or amber — Paul's 8 Sep ruling moved that state to a badge.)
+        border: '1.5px dashed var(--text-light, #6E6B6B)',
         background: 'var(--bg-panel, #FEFEFE)',
         minHeight: '56px',
         minWidth: '140px',

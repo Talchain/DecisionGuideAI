@@ -69,7 +69,10 @@ describe('the invitation is wired to the ground it is standing on', () => {
     const src = readFileSync(join(__dirname, '../BaseNode.tsx'), 'utf8')
     const mount = /<TierInvitationRow[\s\S]*?\/>/.exec(src)
     expect(mount, 'TierInvitationRow is no longer mounted in BaseNode').toBeTruthy()
-    expect(mount![0]).toContain('onTintedGround={evidenceBgStyle !== undefined}')
+    // contract v3.1 T15: the line-rung KIND FILL is a tinted ground too, read
+    // from `lodKindFillClass` — the same expression that paints that fill — so
+    // the binding stays "what paints the tint", now for both tints.
+    expect(mount![0]).toContain("onTintedGround={evidenceBgStyle !== undefined || lodKindFillClass !== ''}")
     // CONTRAST CONTROL on the scan itself: the regex really did capture the
     // mount and not an empty match, so `toContain` is answering a real question.
     expect(mount![0]).toContain('invitations={myInvitations}')

@@ -18,6 +18,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
+import { DIRECTION_DISPUTED_STROKE } from '../edgePresentation'
 import { Position } from '@xyflow/react'
 
 // ── Capture BaseEdge style prop ─────────────────────────────────────────────
@@ -235,7 +236,9 @@ describe('StyledEdge — contested visual styling', () => {
       direction: 'positive',
       validation: makeValidation({ max_divergence: 0.6, contested_reasons: ['sign_flip'] }),
     })
-    expect(style.stroke).toContain('color-mix')
+    // contract v3.1 (E12/T07, 24 Sep 2026): the SOLID Warning token (Paul 23 Sep
+    // point 9), no longer a 70% color-mix — bound to the exported owner.
+    expect(style.stroke).toBe(DIRECTION_DISPUTED_STROKE)
     expect(style.stroke).toContain('--semantic-warning')
     expect(style.strokeDasharray).toBeUndefined()
   })

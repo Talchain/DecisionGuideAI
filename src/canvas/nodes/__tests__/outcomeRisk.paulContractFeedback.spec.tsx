@@ -153,10 +153,22 @@ describe('contract v3.1 pt 8 — the Outcome card carries no option-reach count 
     }
   })
 
-  it('adds no filler line in place of the removed copy (point 13: no empty space)', () => {
+  /**
+   * ⚠ THIS CASE ASSERTED THE OPPOSITE UNTIL CONTRACT v3.1's OWN FIXTURE WAS
+   * APPLIED (OR-02 / RHY-09), AND THE OLD READING IS KEPT SO THE FLIP IS LEGIBLE.
+   * It read "adds no filler line in place of the removed copy (point 13: no
+   * empty space)" and asserted `not.toMatch(/not quantified|…/)`. Point 8 says
+   * "use that space for actual outcome state", and the v3.1 fixture renders
+   * exactly `<div class="small-state">Outcome not quantified</div>` for an
+   * outcome with no value. That is the outcome's OWN state, not filler, and not
+   * a placeholder for the count: the count stays gone, and no count-shaped
+   * zero-state ("No option moves this outcome") is invented.
+   */
+  it("the removed count is not replaced by a count-shaped line; the outcome's own state is (contract v3.1 OR-02)", () => {
     const { container } = renderOutcome('outcome-two', 'Margin')
     expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
-    expect(container.textContent).not.toMatch(/not quantified|alternatives connect|No option moves/i)
+    expect(screen.getByTestId('outcome-unquantified').textContent).toBe('Outcome not quantified')
+    expect(container.textContent).not.toMatch(/alternatives connect|No option moves/i)
   })
 })
 
@@ -189,7 +201,8 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
     const { container } = renderRisk()
     // CONTRAST: the risk's own state, exact copy, still on the face.
     expect(screen.getByTestId('risk-exposure-unset').textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
-    expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet.')
+    // Contract v3.1 (OR-02): the fixture's state line has no full stop.
+    expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet')
     expect(screen.queryByTestId('risk-strength-row')).toBeNull()
     expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
     expect(container.textContent).not.toContain('50%')
@@ -254,9 +267,10 @@ describe('Paul 23 Sep point 9 — risk uses the existing Danger treatment, no in
   })
 
   it.each([
-    [0.1, 'low', 'Low Risk'],
-    [0.5, 'medium', 'Medium Risk'],
-    [0.9, 'high', 'High Risk'],
+    // Sentence case (contract v3.1 T13).
+    [0.1, 'low', 'Low risk'],
+    [0.5, 'medium', 'Medium risk'],
+    [0.9, 'high', 'High risk'],
   ])('severity badge %s/%s is the design-system danger pill; the word carries the severity', (probability, impact, word) => {
     renderRisk({ probability, impact })
     const badge = screen.getByText(word)

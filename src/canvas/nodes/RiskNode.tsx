@@ -17,6 +17,7 @@ import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
+import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 
 /**
  * ⭐⭐⭐ A THIN CARD MUST SAY THAT THE MODEL IS THIN, NOT LOOK LIKE A THIN TOOL.
@@ -120,8 +121,12 @@ import { nodeRecordedValue } from '../domain/nodeRecordedValue'
  * `GoalNode` had to withdraw when its threshold editor turned out to be inert.
  * The sentence states the fact; the CHIP beside it is the route, and it goes
  * somewhere that demonstrably answers.
+ *
+ * ⚠ NO FULL STOP — contract v3.1 (OR-02): the fixture's risk state line is
+ * `Likelihood and impact not set yet`, a state label like its sibling
+ * `Outcome not quantified` on the outcome card, not a sentence.
  */
-export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.inline}.`
+export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.inline}`
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -178,6 +183,20 @@ export const RiskNode = memo((props: NodeProps) => {
     () => nodeRecordedValue(props.data as Record<string, unknown> | undefined),
     [props.data],
   )
+  /**
+   * ⭐ WHOSE NUMBER THE RISK'S OWN SIZE IS — contract v3.1 point 1 (OR-06):
+   * "Do not rely on 'unmarked = Olumi'." The same owner FactorNode reads
+   * (`factorValueSourceMark`), over the same carrier `nodeRecordedValue` reads
+   * (`observedState`), so the mark and the value cannot describe two records.
+   *
+   * ⚠ `ValueSourceMark` FOR EVERY KIND, INCLUDING `est.` — NOT `EstimateMarker`.
+   * The visible token is identical (`VALUE_SOURCE_MARK_TOKEN.olumi` IS the
+   * served `est.` token), but `EstimateMarker`'s hover promises "Open the
+   * details to set or confirm it", and this file's header records that the
+   * risk panel is fenced `<fieldset disabled>`. A mark must not promise a route
+   * the card does not have.
+   */
+  const recordedValueMark = recordedValue ? factorValueSourceMark(props.data) : null
 
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
   const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
@@ -339,16 +358,28 @@ export const RiskNode = memo((props: NodeProps) => {
     />
   ), [riskCoachingState, riskCoachingContext])
 
+  /**
+   * ⭐ ONE ROW RHYTHM, AND NOTHING TRAILING — contract v3.1 (RHY-06): `.node`
+   * is a column with `gap: 4px`. BaseNode's header already gives the first row
+   * its 4px, so the FIRST body row carries no top margin and every later row
+   * carries `mt-1`. The trailing `mb-1`s this replaces left 4px of dead space
+   * above the card's bottom band and put a recorded value flush against the
+   * line beneath it. Heights only shrink or stay: the rows are unchanged, and
+   * a card whose last row carried `mb-1` loses that 4px.
+   */
+  const showSeverityBadge = isDetailed && severity != null
+  const severityBadgeMargin = recordedValue ? ' mt-1' : ''
+  const exposureLineMargin = recordedValue || showSeverityBadge ? ' mt-1' : ''
+
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
   // (the existing probability×impact derivation, reused not re-added). P1.7 put it
   // in the Standard body; since the locked Canvas design (23 Sep 2026) it is
   // DETAILED-ONLY — its cut-offs are UI-chosen, so it is not a resting claim.
   const detailedMetrics = severity ? (
     <div
-      // The `textAlign: 'center'` that was here is gone. This div carries no
-      // `inline-flex`, no `w-fit` and no width, so it is a full-bleed block
-      // inside the card: the badge text sat centred while every other line of
-      // the node was left-aligned.
+      // The `textAlign: 'center'` that was here is gone, and the badge is now a
+      // `w-fit` pill, not a full-bleed block, so its copy sits left like every
+      // other line of the node.
       //
       // ⛔ Paul 23 Sep contract feedback point 9: "risk = existing Danger
       // treatment … do not invent new colours". `getRiskSeverityColors` painted
@@ -357,16 +388,27 @@ export const RiskNode = memo((props: NodeProps) => {
       // contrast (`nodeSystem.semanticColourOnText.spec.ts`). Every band is now
       // the design-system outlined pill — danger border at /30, body text — and
       // the WORD carries the severity, not a colour.
-      className={`bg-transparent border border-danger/30 text-text-body rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
+      //
+      // ⭐ Contract v3.1 pill grammar (FRAME-15, OR-12): `border-radius: 999px`
+      // and ~6px horizontal padding, the same `rounded-full px-1.5 py-0.5
+      // bg-panel border` every other in-card pill uses (GoalNode's constraint
+      // pills). It was the only 4px-radius rectangle on the canvas. `flex w-fit`
+      // rather than `inline-flex`: a block-level box sits on no line box, so the
+      // body's strut cannot add height to it. Same padding and border as
+      // before, so the badge is no taller; the `mt-1` wrapper and the trailing
+      // `mb-1` are gone (RHY-06 rhythm above).
+      className={`${typography.edgeLabel} flex w-fit items-center bg-panel border border-danger/30 text-text-body rounded-full px-1.5 py-0.5${severityBadgeMargin}`}
+      data-testid="risk-severity-badge"
     >
-      {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
+      {/* Sentence case (DS v5 §2; contract v3.1 T13): "High risk", not "High Risk". */}
+      {severity.charAt(0).toUpperCase() + severity.slice(1)} risk
     </div>
   ) : null
 
   const riskExposureLine = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
+    <div className={`${typography.edgeLabel} text-text-light${exposureLineMargin}`} data-testid="risk-exposure-line">Entered estimate · {exposureReadout}</div>
   ) : (
-    <div className={`${typography.edgeLabel} text-text-light mb-1`} data-testid="risk-exposure-unset">
+    <div className={`${typography.edgeLabel} text-text-light${exposureLineMargin}`} data-testid="risk-exposure-unset">
       {RISK_EXPOSURE_UNSET_LINE}
     </div>
   )
@@ -465,13 +507,6 @@ export const RiskNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
-        {/* Authored context stays compact; BaseNode's chevron retains the full description. */}
-        {summary && (
-          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="risk-context-preview">
-            {summary}
-          </p>
-        )}
-
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
         {/* ⭐⭐ THE RISK'S OWN MAGNITUDE, ABOVE EVERY FIGURE THAT IS ABOUT
@@ -492,25 +527,44 @@ export const RiskNode = memo((props: NodeProps) => {
             belongs to a connection strength somebody can settle; a risk nobody
             has sized is a different fact, and pooling the two under one noun is
             what the design review objected to. */}
+        {/* ⭐ Contract v3.1 `own-value` (OR-06): value + source mark on one
+            baseline row, exactly the factor card's anatomy. The first body row,
+            so no top margin (RHY-06). The mark is inline, so no height change. */}
         {recordedValue && (
-          <p
-            className={`${typography.nodeValue} text-text-body m-0`}
+          <div
+            className={`${typography.nodeValue} text-text-body flex flex-wrap items-baseline gap-1`}
             data-testid="risk-recorded-value"
           >
-            {recordedValue}
-          </p>
+            <span data-testid="risk-recorded-readout">{recordedValue}</span>
+            {recordedValueMark && (
+              <ValueSourceMark mark={recordedValueMark} testId={`risk-value-source-${props.id}`} />
+            )}
+          </div>
         )}
 
         {/* The probability × impact pair is the node's OWN entered data and stays
             on the face; the derived severity badge beside it is Detailed-only
             (locked design, 23 Sep 2026 — see the gate below). No fabrication
             when data is absent. */}
-        {/* ⭐ The derived severity badge ("High Risk") is Detailed information
+        {/* ⭐ The derived severity badge ("High risk") is Detailed information
             (#1900, credited by the purpose audit): its cut-offs are UI-chosen, so
             it is not a resting claim. The node's OWN entered likelihood/impact
             below stays on the face — it is the user's data, not a verdict. */}
-        {isDetailed && detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
+        {showSeverityBadge && detailedMetrics}
         {riskExposureLine}
+
+        {/* ⭐ Authored context comes AFTER the card's own state, one step
+            smaller — contract v3.1 (OR-08): the title is followed directly by
+            the node's own state; any other prose is subordinate, at 11px or
+            smaller. It sat first at 12px, above and larger than the state line
+            it is secondary to. Still two lines at most, still hidden while the
+            chevron shows the full description (BaseNode). Always preceded by
+            the exposure line, so it always takes the row gap (RHY-06). */}
+        {summary && (
+          <p className={`${typography.edgeLabel} text-text-light m-0 mt-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="risk-context-preview">
+            {summary}
+          </p>
+        )}
 
         {/* ⛔ NO LINK-STRENGTH ROW (contract v3.1: "Outcome/risk records are
             distinct from the strength of their connections"; gap U1). The card
