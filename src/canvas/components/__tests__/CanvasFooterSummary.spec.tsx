@@ -17,6 +17,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
+import type { EdgeData } from '../../domain/edges'
 import { useCanvasStore } from '../../store'
 import { CanvasFooterSummary, composeCanvasFooterLine } from '../CanvasFooterSummary'
 import { OVERLAY_PRIORITY } from '../CanvasOverlayBand'
@@ -24,8 +25,8 @@ import { GHOST_OPTION_NODE_ID } from '../../utils/fitTargets'
 
 const node = (id: string, type = 'decision'): Node =>
   ({ id, type, position: { x: 0, y: 0 }, data: { type, label: id } }) as unknown as Node
-const edge = (id: string, source: string, target: string): Edge =>
-  ({ id, source, target, data: {} }) as unknown as Edge
+const edge = (id: string, source: string, target: string): Edge<EdgeData> =>
+  ({ id, source, target, data: {} }) as unknown as Edge<EdgeData>
 
 afterEach(() => {
   cleanup()
