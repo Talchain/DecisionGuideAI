@@ -58,6 +58,8 @@ import { useId, useState } from 'react'
 import { ArrowLeft, ArrowRight, Minus } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useFactorValueCommit } from '../useFactorValueCommit'
+import { useCanvasStore } from '../../../../canvas/store'
+import { resolveValueInputSeed } from '../../../../canvas/conversation/factorValueEdit'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
 import {
@@ -289,7 +291,17 @@ export function DriverInfluenceChart({
                     return
                   }
                   setEditingFor(row.id)
-                  setDraft('')
+                  // ⭐ OPENS HOLDING THE CURRENT NUMBER, read by the SAME
+                  // `resolveValueInputSeed` the commit uses (via
+                  // `useFactorValueCommit` → `proposeFactorValue` →
+                  // `buildFactorValueEditEvent`, default basis), so what the
+                  // field shows and how the save reads it cannot disagree. The
+                  // ModelStrip editor does the same (#1955). No number → empty.
+                  const nodeData = (useCanvasStore.getState().nodes ?? []).find(
+                    (n) => (n as { id?: string }).id === row.id,
+                  )?.data
+                  const { seed } = resolveValueInputSeed(nodeData)
+                  setDraft(seed != null ? String(seed) : '')
                   if (row.targetId) onFocusTarget?.(row.targetId)
                 }}
                 aria-expanded={isEditing}
@@ -475,6 +487,8 @@ export function DriverInfluenceChart({
                     type="text"
                     inputMode="decimal"
                     autoFocus
+                    // Selected, so typing replaces the seeded number.
+                    onFocus={(e) => e.currentTarget.select()}
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => {
