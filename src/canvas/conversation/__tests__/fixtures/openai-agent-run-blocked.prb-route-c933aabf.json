@@ -1,0 +1,283 @@
+{
+  "_provenance": {
+    "kind": "ROUTE-GENERATED WITH A SCRIPTED MODEL — NOT A LIVE CAPTURE. No OpenAI or Anthropic call was made to produce it.",
+    "producer": "CEE olumi-assistants-service PR #1854 approved head c933aabfaffb4cac5572b7962d9e3a3658996de0 (fetched as refs/pull/1854/head). The same test on c933aabf merged locally with staging caf7d1a3 (merge tree a49d3a14c8af443930811a1ae11817337f6a4047, not pushed) produced a byte-identical body.",
+    "route": "POST /agent/v1/turn (agent lane), driven in-process by app.inject; the body below is the HTTP response body exactly as the route sent it (sha256 below is over those raw bytes = JSON.stringify of this object without _provenance).",
+    "harness": "CEE's own route test double from src/orchestrator-v5/agent-lane/__tests__/first-analysis-coaching-card.test.ts: session store / identity / prior-facts mocked; scenario graph = fixtures/first-analysis-graphs.ts; the run and the post-run readback answer from the SERVED capture c19-8428207-B turn t2 (CEE 8428207, pricing model, constraint verdict withheld, leader withheld, robustness low, 12 fragile edges).",
+    "model": "The harness's scripted fetch stub. Every model call hit the stub with 'Bearer ' (empty key). A throwaway setup guard refused every non-loopback fetch and socket (and the loopback egress-proxy port); its ledger did not move during the capture. Env: OPENAI_API_KEY='', ANTHROPIC_API_KEY='', ANTHROPIC_BASE_URL unset, proxy variables unset.",
+    "generated": "2026-09-24",
+    "turn": "Blocked explicit Run: the same typed Run chip on the harness's BLOCKED_GRAPH (Option B sets nothing). The run answered HTTP 200 with no analysis_result and CEE's own canonical readiness for that graph; the first pass did not run (not_admissible).",
+    "scripted_reply": "assistant_text is a fixed interpretation written for this capture; it is NOT model output.",
+    "known_harness_artefacts": [],
+    "route_body_sha256": "e80ad664661cde6ddda6df4ec4d6318bc685ffde6643538a65ad8da0de6738db",
+    "route_body_bytes": 5452
+  },
+  "response_version": 2,
+  "assistant_text": "The analysis didn’t run: Option B doesn’t change anything in the model yet, so it can’t be compared with Option A.\n\nTell me what Option B would change — for example, its effect on Delivery reliability — and I can propose it for you to approve before running again.",
+  "blocks": [],
+  "suggested_actions": [
+    {
+      "id": "agent-suggest-what-it-needs",
+      "label": "Suggest what it still needs",
+      "message": "Suggest what this model still needs before the analysis can run, so I can approve it."
+    }
+  ],
+  "insights": [],
+  "stage_indicator": "frame",
+  "analysis_state": {
+    "run_state": {
+      "kind": "never_run"
+    },
+    "leader_claim": {
+      "permitted": false,
+      "withheld_reason": "no_analysis"
+    }
+  },
+  "graph_hash": "2cac03f2a47449be",
+  "analysis_ready": {
+    "options": [
+      {
+        "option_id": "opt_a",
+        "label": "Option A",
+        "status": "ready",
+        "interventions": {
+          "fac_delivery": 1
+        },
+        "is_baseline": false,
+        "intervention_details": {
+          "fac_delivery": {
+            "display_value": "1",
+            "normalised_value": 1
+          }
+        },
+        "status_reason": "1 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "opt_b",
+        "label": "Option B",
+        "status": "needs_encoding",
+        "interventions": {},
+        "is_baseline": false,
+        "status_reason": "Connected to 1 factor(s); awaiting effect value(s)",
+        "user_questions": [
+          "Which factor(s) does \"Option B\" change, and what value should each be set to?"
+        ]
+      }
+    ],
+    "goal_node_id": "goal_x",
+    "status": "needs_user_input",
+    "blockers": [
+      {
+        "option_id": "opt_b",
+        "option_label": "Option B",
+        "factor_id": "fac_delivery",
+        "factor_label": "Delivery reliability",
+        "blocker_type": "missing_value",
+        "message": "Factor \"Delivery reliability\" needs a numeric value for option \"Option B\"",
+        "suggested_action": "add_value"
+      }
+    ],
+    "goal_threshold": 0.8,
+    "bias_findings": [],
+    "readiness_issues": [
+      {
+        "issue_id": "semantic_1",
+        "repairability": "human_input_required",
+        "option_id": "opt_b",
+        "option_label": "Option B",
+        "factor_id": "fac_delivery",
+        "factor_label": "Delivery reliability",
+        "code": "MISSING_OPTION_VALUE",
+        "category": "option_values",
+        "message": "Factor \"Delivery reliability\" needs a numeric value for option \"Option B\"",
+        "provenance": "unattributed",
+        "obligation": "offered"
+      }
+    ],
+    "may_run": false,
+    "analysis_admission": {
+      "structurally_analysable": false,
+      "missing_important_inputs": [
+        {
+          "issue_id": "semantic_1",
+          "code": "MISSING_OPTION_VALUE",
+          "option_id": "opt_b",
+          "option_label": "Option B",
+          "factor_id": "fac_delivery",
+          "factor_label": "Delivery reliability",
+          "why_it_matters": "Factor \"Delivery reliability\" needs a numeric value for option \"Option B\"",
+          "obligation": "offered",
+          "waived_by_exclusion": false
+        }
+      ],
+      "semantic_quality_sufficient": false,
+      "permitted_analysis_mode": "none",
+      "reasons": [
+        {
+          "field": "structurally_analysable",
+          "code": "MODEL_HAS_BLOCKERS",
+          "message": "Factor \"Delivery reliability\" needs a numeric value for option \"Option B\""
+        },
+        {
+          "field": "missing_important_inputs",
+          "code": "MODEL_HAS_BLOCKERS",
+          "message": "Olumi filled in the gaps here itself; you can review them, and nothing is required of you."
+        },
+        {
+          "field": "semantic_quality_sufficient",
+          "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+          "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures can be shown as provisional, but no option can be called the leader and no result can be called stable or robust until you have set at least one of them."
+        },
+        {
+          "field": "permitted_analysis_mode",
+          "code": "MODEL_HAS_BLOCKERS",
+          "message": "This model cannot be analysed yet."
+        }
+      ],
+      "graph_hash": "e8fa8182b220e666aab6b4dbf6dd152bd95980b0696de6cd9fe333d6c610e5d9",
+      "semantic_signals": {
+        "confidence_parameters_total": 3,
+        "confidence_parameters_user_stated": 0,
+        "confidence_parameters_machine_authored": 0,
+        "confidence_parameters_unattributed": 3,
+        "material_parameters_total": 3,
+        "material_parameters_user_stated": 0,
+        "intervened_factor_baselines_total": 1,
+        "intervened_factor_baselines_user_stated": 0,
+        "material_parameters_awaiting_user_node_ids": [
+          "goal_x",
+          "fac_delivery"
+        ],
+        "goal_target_stated": false
+      }
+    },
+    "current_graph_hash": "2cac03f2a47449be"
+  },
+  "draft_graph": {
+    "nodes": [
+      {
+        "id": "dec_x",
+        "kind": "decision",
+        "label": "Choose an option"
+      },
+      {
+        "id": "goal_x",
+        "kind": "goal",
+        "label": "Outcome",
+        "goal_threshold": 0.8
+      },
+      {
+        "id": "fac_delivery",
+        "kind": "factor",
+        "label": "Delivery reliability"
+      },
+      {
+        "id": "opt_a",
+        "kind": "option",
+        "label": "Option A",
+        "interventions": {
+          "fac_delivery": 1
+        }
+      },
+      {
+        "id": "opt_b",
+        "kind": "option",
+        "label": "Option B"
+      }
+    ],
+    "edges": [
+      {
+        "from": "dec_x",
+        "to": "opt_a",
+        "strength": {
+          "mean": 1,
+          "std": 0.1
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive"
+      },
+      {
+        "from": "dec_x",
+        "to": "opt_b",
+        "strength": {
+          "mean": 1,
+          "std": 0.1
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive"
+      },
+      {
+        "from": "opt_a",
+        "to": "fac_delivery",
+        "strength": {
+          "mean": 1,
+          "std": 0.1
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive"
+      },
+      {
+        "from": "opt_b",
+        "to": "fac_delivery",
+        "strength": {
+          "mean": 0.01,
+          "std": 0.1
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive"
+      },
+      {
+        "from": "fac_delivery",
+        "to": "goal_x",
+        "strength": {
+          "mean": 1,
+          "std": 0.1
+        },
+        "exists_probability": 1,
+        "effect_direction": "positive"
+      }
+    ],
+    "node_count": 5,
+    "edge_count": 5
+  },
+  "_diagnostic_trace": {
+    "exit_path": "agent_lane_v1",
+    "fast_path": "run",
+    "agent_mode": "full",
+    "hops": 1,
+    "stopped_reason": "answered",
+    "tools_called": [
+      "run_analysis"
+    ],
+    "write_claims_removed": 0,
+    "coaching": {
+      "eligible": false,
+      "reason": "identity_mismatch"
+    }
+  },
+  "_agent": {
+    "session_id": "sess_7b1e2d3c-4a5f-4e6d-8c7b-8a9f0e1d2cf2",
+    "mode": "full",
+    "tool_calls": [
+      {
+        "name": "run_analysis",
+        "ok": true,
+        "mutated": false
+      }
+    ],
+    "mutated": false,
+    "hops": 1,
+    "stopped_reason": "answered",
+    "receipts": []
+  },
+  "_provider_calls": [
+    {
+      "site": "agent-v1-turn.callModel",
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "purpose": "conversation",
+      "outcome": "allowed",
+      "duration_ms": 0
+    }
+  ]
+}
