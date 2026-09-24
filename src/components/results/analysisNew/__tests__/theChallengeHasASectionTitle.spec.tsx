@@ -21,6 +21,7 @@ import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import { genuineDecision } from './analysisNewFixtures'
+import { typography } from '../../../../styles/typography'
 
 beforeEach(() => useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never))
 afterEach(cleanup)
@@ -56,7 +57,11 @@ describe('"Challenge the thinking" is a section title over its question', () => 
     expect(heading.textContent).toBe(shown.title)
     expect(heading.closest('h1,h2,h3,h4,h5,h6')).toBeNull()
     const line = heading.parentElement as HTMLElement
-    expect(line.className).toContain('font-medium')
-    expect(line.className).not.toContain('font-semibold')
+    // Re-pointed (render-discipline RULE A): the prototype's 14px question,
+    // through the panel's own 14px token rather than a raw `text-sm
+    // font-medium`. The hierarchy under the h3 is carried by element (a <p>,
+    // asserted above) and position, not by a weight the scale does not have.
+    expect(line.className).toContain(typography.panelHeader)
+    expect(line.tagName).not.toMatch(/^H[1-6]$/)
   })
 })

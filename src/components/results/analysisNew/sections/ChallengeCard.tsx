@@ -54,8 +54,13 @@ import { respondToIntervention, respondToMethod } from '../challengeResponse'
 import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 
 
-/** 14px, medium weight: one of the panel's three sizes, one step under the zone's h3. */
-const ITEM_TEXT = 'text-sm font-medium font-sans leading-snug'
+/**
+ * 14px, the prototype's `.challenge-question` size, through the panel's own
+ * token: a raw `text-sm font-medium` bypassed the declared scale (render-
+ * discipline RULE A, shell-conformance). It is a `<p>` under the zone's h3,
+ * led by a dot, so the hierarchy is carried by element and position.
+ */
+const ITEM_TEXT = typography.panelHeader
 export interface ChallengeCardProps {
   /** The body's `glancePrimary` — `vm.strengthen.interventions`' pick. */
   intervention: Recommendation | null
