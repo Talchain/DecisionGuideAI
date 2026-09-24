@@ -28,6 +28,9 @@
  *                       by the card's own notice
  *   §6 rerun          — the previous run's card goes inert, the new one is live
  *   §7 reload         — a restored card is disabled if the model moved
+ *   §8 refresh        — CEE's stale-rerun card keeps its "Re-run analysis"
+ *                       live (producer intent `rerun_analysis`); stale advice
+ *                       stays inert (Independent Review 5820349265)
  *
  * NOT YET PINNED (lease-gated, see #63 5819412579): promotion of the
  * run-turn fragile-link card (needs `source_handler`/`created_at` carried by
@@ -72,6 +75,7 @@ import type {
   V5CoachingBlock as V5CoachingBlockType,
 } from '../types'
 import { V5CoachingBlock } from '../../../v5/blocks/V5CoachingBlock'
+import { adaptTypedCoachingBlock } from '../../../v5/phase3TypedBlocks'
 import { CEE_ACCEPTED_INTENTS } from '../../../v5/buildPayload'
 
 import walkA from '../../../v5/__tests__/fixtures/live-analysis-turn-walkA-2026-08-04.json'
@@ -367,5 +371,75 @@ describe('§7 reload — a restored card is judged against the model as it is no
     const { chip } = renderCard(await restoredCard(capture))
     expect(chip.disabled).toBe(false)
     expect(chip.hasAttribute('data-settled')).toBe(false)
+  })
+})
+
+describe('§8 stale advice is inert; a producer REFRESH action stays live (Independent Review 5820349265)', () => {
+  /**
+   * CEE's stale-rerun card, shaped exactly as `buildStaleRerunCoachingBlock`
+   * (olumi-assistants-service `src/orchestrator-v5/compose/phase3-blocks.ts:1305`,
+   * CEE staging 57f903c) builds it: ALWAYS `freshness: 'stale'`, and after a stale
+   * analysis the only block CEE emits. Fed through the SHIPPED adapter.
+   */
+  const STALE_RERUN_RAW = {
+    block_id: '0d7f2c1e-5b6a-5c3d-9e8f-1a2b3c4d5e6f',
+    signal_id: 'coach:stale_rerun:',
+    created_at: '2026-09-24T19:00:00.000Z',
+    source_handler: 'decision_review_enricher',
+    graph_hash_at_generation: 'a1c4ff250b05d182',
+    freshness: 'stale',
+    type: 'coaching',
+    coaching_kind: 'orientation',
+    title: 'The graph has changed since the last analysis',
+    body: 'Re-run analysis to refresh the insights and explore the updated decision.',
+    source: 'decision_review',
+    target_refs: [],
+    priority_rank: 1,
+    action_intent: 'rerun_analysis',
+    action_label: 'Re-run analysis',
+    action_prompt: 'Re-run the analysis so the insights match my current decision graph.',
+  }
+
+  function staleRerunCard(): V5CoachingBlockType {
+    const card = adaptTypedCoachingBlock(STALE_RERUN_RAW)
+    expect(card, 'the shipped adapter admits CEE’s stale-rerun card').not.toBeNull()
+    return card as V5CoachingBlockType
+  }
+
+  it.each([
+    ['CEE hash moved', () => setCurrentCeeHash('hash-after-edit')],
+    ['local edit (dirty)', () => setCurrentCeeHash('a1c4ff250b05d182', true)],
+    ['hashes agree', () => setCurrentCeeHash('a1c4ff250b05d182')],
+  ])('POSITIVE control — %s: the stale notice shows AND "Re-run analysis" is live and sends', (_n, arrange) => {
+    arrange()
+    const card = staleRerunCard()
+    const { chip, getByTestId } = renderCard(card)
+    expect(getByTestId('v5-coaching-freshness').textContent).toBeTruthy()
+    expect(chip.disabled).toBe(false)
+    expect(chip.hasAttribute('aria-describedby')).toBe(false)
+    fireEvent.click(chip)
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(sendChip).toHaveBeenCalledWith(
+      'Re-run analysis',
+      'Re-run the analysis so the insights match my current decision graph.',
+      { intent: 'rerun_analysis' },
+    )
+  })
+
+  it('NEGATIVE control — stale ADVICE on the same stale model stays inert', async () => {
+    const body = wireBody(walkA as unknown as Wire)
+    for (const b of body.blocks ?? []) if (b.type === 'coaching') b.freshness = 'stale'
+    setCurrentCeeHash(hashOf(walkA as unknown as Wire))
+    const { chip } = renderCard(firstActionCard(await ingest(body)))
+    expect(chip.disabled).toBe(true)
+    fireEvent.click(chip)
+    expect(sendChip).not.toHaveBeenCalled()
+  })
+
+  it('the exemption is the producer intent alone — the same stale card WITHOUT it is inert', () => {
+    setCurrentCeeHash('hash-after-edit')
+    const card = { ...staleRerunCard(), action_intent: undefined }
+    const { chip } = renderCard(card)
+    expect(chip.disabled).toBe(true)
   })
 })
