@@ -31,9 +31,28 @@
  * the ruling's "action to resolve it" arrives by the route the product already
  * has rather than a second one built beside it. The draft itself is CEE's own
  * documented sentence; see `utils/notAnalysedCopy.ts`.
+ *
+ * ## ⛔ The engine-blaming reason needs a result we can vouch for
+ *
+ * `not_returned` says the run HAD this option and answered nothing about it.
+ * Run over A and B, then add and link C: the retained report never saw C,
+ * `deriveNotAnalysedReason` calls it `not_returned` because it has values and
+ * an edge, and this card printed *"The analysis returned no result for this
+ * option"* with no currency check — while the canvas card for the same option
+ * withheld that sentence (`useOptionLeftOutOfRun.ts`), and #1940 withheld it on
+ * the Reasoning tab. Two surfaces, one option, opposite claims (trap 21).
+ *
+ * This is the canvas's rule, not a new one, read from the canvas's authority:
+ * `useAnalysisResultsAreCurrent`, the hook `useOptionLeftOutOfRun` and the
+ * Reasoning tab's view model already read. Its `false` pools 'changed' with
+ * 'cannot_confirm', so there is no true replacement sentence: the paragraph is
+ * simply not rendered. The card and its "Not analysed" badge stay — C is
+ * genuinely absent from the result — and `no_interventions` is never gated: it
+ * reports the graph as it is now and is the only reason carrying an action.
  */
 
 import { typography } from '../../styles/typography'
+import { useAnalysisResultsAreCurrent } from '../../canvas/hooks/useAnalysisResultsAreCurrent'
 import { openAskOlumi } from './coaching/askOlumiStore'
 import {
   NOT_ANALYSED_BADGE,
@@ -57,6 +76,15 @@ export function NotAnalysedOptionCard({ option, onFocusNode }: NotAnalysedOption
   // cannot prove is unconfigured.
   const reason = option.notAnalysedReason ?? 'not_returned'
   const actionLabel = notAnalysedActionLabel(reason)
+  // ⭐ READ HERE, NOT HANDED IN BY A CALLER. The card is the one place this
+  // sentence is rendered, so the licence travels with it: a future mount
+  // cannot forget a prop and restore the false claim. The hook reads the
+  // module-singleton canvas store, which `OptionCards` and `ResultsBody` share.
+  const resultsAreCurrent = useAnalysisResultsAreCurrent()
+  // The canvas card's exact rule (`useOptionLeftOutOfRun.ts`): the one reason
+  // that blames the engine is withheld unless the result is confirmably about
+  // the graph on screen. See the module header.
+  const reasonLicensed = !(reason === 'not_returned' && !resultsAreCurrent)
 
   return (
     <div
@@ -76,12 +104,14 @@ export function NotAnalysedOptionCard({ option, onFocusNode }: NotAnalysedOption
         </span>
       </div>
 
-      <p
-        className={`${typography.panelBody} text-text-light`}
-        data-testid={`not-analysed-reason-${option.id}`}
-      >
-        {notAnalysedReasonCopy(reason)}
-      </p>
+      {reasonLicensed && (
+        <p
+          className={`${typography.panelBody} text-text-light`}
+          data-testid={`not-analysed-reason-${option.id}`}
+        >
+          {notAnalysedReasonCopy(reason)}
+        </p>
+      )}
 
       {(actionLabel != null || onFocusNode) && (
         <div className="flex items-center gap-1 pt-1.5">
