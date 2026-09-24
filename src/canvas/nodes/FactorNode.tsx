@@ -15,6 +15,7 @@ import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncer
 import { NodeValueEditor } from './shared/NodeValueEditor'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
@@ -1292,14 +1293,25 @@ export const FactorNode = memo((props: NodeProps) => {
                 board stop being read-only. If it does not, this sentence stops
                 being a belief and becomes a derivation with a citation.
 
-                ⚠ Seeded from `observedState.value`, the EXACT number — never
-                from `valueDisplay`, which is a formatted readout. Seeding from a
-                rounded string once committed 0.38 for a 0.376 and destroyed the
-                producer's precision. */}
+                ⚠ Seeded with an EXACT number — never from `valueDisplay`, which
+                is a formatted readout. Seeding from a rounded string once
+                committed 0.38 for a 0.376 and destroyed the producer's precision.
+
+                ⛔ AND IN THE SCALE THE COMMIT READS IT IN (P0, #63 5810356214,
+                wire-witnessed on `25314672`). This seeded `observedState.value`
+                — MODEL scale — while `proposeFactorValue` reads the typed number
+                through `resolveValueInputSeed`, which treats it as USER units
+                whenever a `raw_value` exists. The card said "49 £/month", the
+                field opened at 0.245, a nudge to 0.25 went out as £0.25 and was
+                stamped the user's own value. The seed now comes from the SAME
+                rule as the commit and every sibling editor
+                (`WhatIWasGivenSection`, `CalibrateDrillIn`,
+                `FactorControllablePanel`), so the no-op compare in
+                `NodeValueEditor` is in that scale too. */}
             {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
               <span className="min-w-0">
                 <NodeValueEditor
-                  value={observedState.value}
+                  value={resolveValueInputSeed(props.data).seed ?? observedState.value}
                   readout={recordedValueReadout}
                   onCommit={(v) => editAuthority.proposeFactorValue(v)}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
