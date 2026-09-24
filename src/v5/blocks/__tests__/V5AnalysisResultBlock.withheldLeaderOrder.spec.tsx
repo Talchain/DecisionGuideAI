@@ -177,6 +177,27 @@ describe('displayed run, leader withheld for `constraint_verdict_withheld`', () 
   })
 })
 
+describe('RELOAD / HYDRATION: the order survives the saved result coming back (Codex 5807164631)', () => {
+  it('restored as saved (JSON round trip, no live envelope) → still producer order, still Goal only', () => {
+    display(WITHHELD_RUN, 'constraint_verdict_withheld')
+    // What autosave persists and restore brings back: the results slice as
+    // plain data (the #1924 chain proves the stamp and its producer_cause travel
+    // through it). No live `analysisStateV1` survives a reload.
+    const saved = JSON.parse(JSON.stringify(useCanvasStore.getState().results))
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 }, analysisStateV1: null } as never)
+    useCanvasStore.setState({ results: saved, analysisStateV1: null } as never)
+    expect(
+      useCanvasStore.getState().results.report?.producer_leader_permission?.producer_cause,
+      'PRECONDITION: the cause came back with the result',
+    ).toBe('constraint_verdict_withheld')
+    render(<V5AnalysisResultBlock block={WITHHELD_RUN} />)
+    const card = cards()[0]
+    expect(order(card)).toEqual(CANONICAL)
+    expect(goalOnly(card)?.textContent).toBe(GOAL_ONLY_LINE)
+    expect(leaders(card)).toEqual([])
+  })
+})
+
 describe('displayed run, leader withheld for any OTHER cause — unranked, and no qualifier', () => {
   it('`separation_unavailable` (a cause the copy CAN name): canonical order, no goal-only line, no cause sentence', () => {
     display(WITHHELD_RUN, 'separation_unavailable')
