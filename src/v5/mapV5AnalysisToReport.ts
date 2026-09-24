@@ -1592,6 +1592,15 @@ export function mapV5AnalysisToReport(
   if (confidenceTier !== undefined) widened.confidence_tier = confidenceTier
   if (constraintsStatus !== undefined) widened.constraints_status = constraintsStatus
   if (inferenceWarnings) widened.inference_warnings = inferenceWarnings
+  // ⭐ CEE's typed run provenance (RC 5818628860; Runtime 5818605567):
+  // `enrichment.run_provenance = { initiated_by, provisional: true,
+  // construction_turn_id? }` marks the run Olumi started by itself after
+  // building the model. Carried VERBATIM onto the report, as every other
+  // enrichment key this mapper keeps is, so it reaches the Reasoning tab and
+  // survives reload (autosave persists the report object whole). Without this
+  // line the key was dropped here, between a parser that keeps it and a store
+  // that would.
+  if (isPlainObject(enrichment?.run_provenance)) widened.run_provenance = enrichment.run_provenance
   // Critiques transport, UI leg (ROADMAP 2.358) — mint the canonical
   // `run.critique` slot the Results consumers already read
   // (useResultsSectionData.ts:2015/:2453, OutputsDock.tsx:2423,
