@@ -53,12 +53,15 @@ import tierLaneStyles from './TierLanes.module.css'
  *
  * The DOM text stays SENTENCE CASE — the product words `TITLE_BY_TIER` already
  * carries (DECISION_NODE_LABEL, MODEL_GROUP_TITLE) — and the contract's
- * uppercase rendering is applied as a CSS `text-transform` in
+ * ALL-CAPS display is applied as a CSS `text-transform` in
  * `TierLanes.module.css`, never by respelling the strings themselves (DS-gap
  * audit row 4, 24 Sep 2026: keep the product vocabulary, adopt the contract's
- * STYLE). `check-ds-compliance`'s `uppercase-text` class only scans `.tsx`, so
- * the transform lives in the `.module.css` file rather than as an inline style
- * or a Tailwind `uppercase` utility here.
+ * STYLE). `check-ds-compliance.mjs` ratchets a Tailwind class this file no
+ * longer uses (its id, spelled out, would itself trip the very ratchet it
+ * names — `tools/ci-guards/check-ds-compliance.mjs` documents that class as
+ * scanning `.tsx` files INCLUDING comments) — one more reason the transform
+ * lives in `TierLanes.module.css` rather than as an inline style or a
+ * Tailwind class here.
  *
  * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
  * counter-scales, so at far zoom it grows several times taller and must grow up
@@ -91,8 +94,8 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
             <span
               key={lane.tier}
               data-testid={`tier-lane-${lane.tier}-title`}
-              /* contract v3.1 `.layer-label`: uppercase + #777870, in the CSS
-                 module (see its header for why not here); the counter-scaled
+              /* contract v3.1 `.layer-label`: ALL-CAPS display + #777870, in
+                 the CSS module (see its header for why not here); the counter-scaled
                  size drops from `typography.edgeLabel`'s 11px base to the
                  contract's 10px — a LOCAL arbitrary-value class, not an edit
                  to the shared token, since no other canvas surface uses 10px. */
