@@ -305,8 +305,12 @@ describe('the outcome lens', () => {
     expect(arm('middle')).toHaveAttribute('aria-checked', 'false')
     expect(arm('cautious')).toHaveAttribute('aria-checked', 'false')
 
+    // ⭐ V2 FIDELITY (gap 19): `min-h-[28px]`, not `[24px]` — the arm dropped
+    // `action('quiet')` (which carried the 24px floor) for the prototype's
+    // own `.lens>button{min-height:28px}` pill. 28 still clears WCAG 2.2 AA's
+    // 24×24 floor this case exists to guard; only the exact token changed.
     for (const a of ARMS) {
-      expect(arm(a).classList.contains('min-h-[24px]'), `${a} meets 24px`).toBe(true)
+      expect(arm(a).classList.contains('min-h-[28px]'), `${a} meets the 28px pill height`).toBe(true)
     }
   })
 
