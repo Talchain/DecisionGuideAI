@@ -24,7 +24,8 @@
  * a decision. That is exactly how four sizes accumulated — each was reasonable
  * beside its neighbour.
  *
- * ⛔ `w-6` IS NOT ON THE SCALE. `SectionShell`'s 24px circle is a CONTAINER that
+ * ⛔ `w-6` IS NOT ON THE SCALE. `SectionShell`'s 24px slot (untinted since the
+ * V2 no-tints rule — it was a filled circle) is a CONTAINER that
  * holds an icon, not an icon. Sizing it from here would make a badge and a glyph
  * the same kind of thing, and is asserted as an exception below rather than
  * quietly tolerated.
