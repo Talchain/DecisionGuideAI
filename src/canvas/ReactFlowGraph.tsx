@@ -82,7 +82,7 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { computeFitPadding } from './utils/computeFitPadding'
-import { excludeNonModelNodes } from './utils/fitTargets'
+import { userFitNodes } from './utils/fitTargets'
 import { claimCameraForUser } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
 import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
@@ -2487,7 +2487,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // The user framed this camera; the product's automatic re-fit may not take
     // it back off them (`utils/userCameraClaim.ts`, defect #1051).
     claimCameraForUser(currentModelKey())
-    const nodes = excludeNonModelNodes(getNodesRef.current())
+    // Model + row-end prompts, as the landing fit frames (`userFitNodes`, S5).
+    const nodes = userFitNodes(getNodesRef.current())
     fitViewRef.current({
       ...(nodes.length > 0 ? { nodes } : {}),
       padding: computeFitPadding(),

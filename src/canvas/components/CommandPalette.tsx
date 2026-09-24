@@ -8,7 +8,7 @@ import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
 import { computeFitPadding } from '../utils/computeFitPadding'
-import { excludeNonModelNodes } from '../utils/fitTargets'
+import { userFitNodes } from '../utils/fitTargets'
 import { claimCameraForUser } from '../utils/userCameraClaim'
 import { currentModelKey } from '../utils/currentModelKey'
 import { fitBoundsFor } from '../utils/zoomLegibility'
@@ -180,7 +180,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       // Same claim as the toolbar and the extent notice: a fit the USER asked
       // for is not something the automatic re-fit may undo (#1051).
       claimCameraForUser(currentModelKey())
-      const nodes = getNodes ? excludeNonModelNodes(getNodes()) : []
+      const nodes = getNodes ? userFitNodes(getNodes()) : []
       fitView({
         ...(nodes.length > 0 ? { nodes } : {}),
         padding: computeFitPadding(),

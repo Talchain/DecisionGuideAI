@@ -95,3 +95,15 @@ export function isRowEndPromptId(id: string): boolean {
 export function fitFrameNodes<T extends { id: string }>(nodes: readonly T[]): T[] {
   return nodes.filter((n) => !isGhostNode(n.id) || isRowEndPromptId(n.id))
 }
+
+/**
+ * ⭐ WHAT A USER-INVOKED FIT FRAMES — the same set as the landing fit (S5,
+ * 24 Sep 2026). The toolbar's "Fit to view", the palette's "Zoom to Fit" and
+ * the extent notice's "Show whole model" framed `excludeNonModelNodes`, which
+ * drops the row-end prompts, so the prompts fell outside the frame — measured
+ * under the Olumi dock at 1440×900. An empty model frames nothing, so the
+ * caller falls back to every node, as the landing fit does.
+ */
+export function userFitNodes<T extends { id: string }>(nodes: readonly T[]): T[] {
+  return excludeNonModelNodes(nodes).length > 0 ? fitFrameNodes(nodes) : []
+}
