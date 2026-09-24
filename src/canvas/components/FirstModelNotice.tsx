@@ -178,15 +178,25 @@ export function FirstModelNotice() {
 
   if (!wants || !granted) return null
 
+  // ⭐ ONE LINE, IN THE SAME PILL GRAMMAR AS EVERY OTHER NOTICE IN THIS CELL
+  // (`CanvasLodNotice`, `ServerGraphRetryNotice`): rounded-full, panelMeta,
+  // centred. Contract v3.1 pt 11 — one human-agency statement on screen, not
+  // several — so the invitation is no longer a second visible sentence; it
+  // stays reachable as the notice's accessible description and hover title.
+  // The ruled sentence itself (`witnessedCopyRulings.spec.ts`) is unchanged.
   const body = (
     <div
       data-testid={FIRST_MODEL_NOTICE_TESTID}
       role="status"
-      className="pointer-events-auto flex max-w-md items-start gap-2 rounded-lg border border-panel-border bg-panel px-3 py-2 shadow-sm"
+      title={FIRST_MODEL_NOTICE_INVITATION}
+      aria-describedby={`${FIRST_MODEL_NOTICE_TESTID}-invitation`}
+      className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
     >
-      <span className={`${typography.caption} text-text-body`}>
-        {FIRST_MODEL_NOTICE_COPY}{' '}
-        <span className="text-text-light">{FIRST_MODEL_NOTICE_INVITATION}</span>
+      <span className={`${typography.panelMeta} text-text-body`}>
+        {FIRST_MODEL_NOTICE_COPY}
+      </span>
+      <span id={`${FIRST_MODEL_NOTICE_TESTID}-invitation`} className="sr-only">
+        {FIRST_MODEL_NOTICE_INVITATION}
       </span>
       <button
         type="button"
