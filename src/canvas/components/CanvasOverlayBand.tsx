@@ -215,6 +215,42 @@ export const OVERLAY_BAND_PILL_GUTTER = 116
 export const OVERLAY_BAND_Z = 250
 
 /**
+ * N3 — THE FLOOR UNDER THE BOTTOM-RIGHT COLUMN WHILE IT IS OCCUPIED.
+ *
+ * ⭐ WITNESSED ON THE SERVED BUILD, 24 Sep: at 1440x900 with the chat dock open
+ * and the "Saved example" banner showing, `AnalysisStateCue` ("Model changed ·
+ * previous findings shown as Last run") was mounted and INVISIBLE. The columns
+ * read `0px 816px 0px` (`181.7/828.6/181.7px` after a reload), and the cue's
+ * width guard (`AnalysisStateCue.module.css`, `@container (max-width: 199px)` →
+ * `display: none`) hid it. Dismissing the banner gave `596/0/596` and the cue
+ * appeared. Both readings were reproduced to the pixel in headless Chromium
+ * against this band before the fix.
+ *
+ * ⛔ THE MECHANISM IS GRID TRACK-SIZING ORDER, not either occupant. Under
+ * `1fr auto 1fr` the `auto` centre track is grown to its occupant's max-content
+ * ("maximize tracks") BEFORE any `fr` track receives space, and the side cells
+ * are `min-width: 0` — so a centre occupant as wide as the band leaves the side
+ * cells exactly 0px. A dismissible provenance disclosure was silently deleting
+ * a TRUTH signal; the whole-graph stale cue must never be hidden by it.
+ *
+ * So while the bottom-right cell has an occupant, its track carries a floor
+ * equal to the width at which the cue's guard stops hiding it, and the `auto`
+ * centre is sized from what remains — the banner wraps instead. The floor is
+ * `min(…, 100%)` so it can never exceed the band and force horizontal overflow;
+ * on a canvas genuinely narrower than the floor the cue's own guard still
+ * withdraws it, which is the tiny-canvas protection that guard exists for.
+ *
+ * `CanvasOverlayBand.cueColumnReserve.spec.tsx` reads the guard's threshold out
+ * of the stylesheet's bytes and REDs if this floor ever falls below it.
+ */
+export const OVERLAY_BAND_RIGHT_CELL_MIN = 200
+
+/** The band's columns with the bottom-right cell empty — unchanged since the band shipped. */
+const BAND_COLUMNS = '1fr auto 1fr'
+/** …and while the bottom-right cell is occupied (N3). */
+const BAND_COLUMNS_RIGHT_RESERVED = `1fr auto minmax(min(${OVERLAY_BAND_RIGHT_CELL_MIN}px, 100%), 1fr)`
+
+/**
  * ⚠⚠ THE ACTIONS AND THE STATE ARE TWO CONTEXTS, AND COMBINING THEM IS AN
  * INFINITE LOOP — measured, not theorised: the first version of this file did
  * exactly that and React threw "Maximum update depth exceeded" on four of eight
@@ -401,7 +437,13 @@ export function CanvasOverlayBandProvider({ children }: { children?: ReactNode }
  */
 export function CanvasOverlayBand() {
   const actions = useContext(OverlayActionsContext)
+  const state = useContext(OverlayStateContext)
   const rightPad = useBandRightPad()
+  // Read from the SAME claims state that grants the occupant its cell, so the
+  // floor and the occupant appear and disappear in one render — there is no
+  // frame in which the cue is portalled into an unreserved column.
+  const rightCellOccupied =
+    state !== null && resolveWinner('bottom-right', state.claims['bottom-right']) !== null
 
   const setTarget = actions?.setTarget
 
@@ -452,8 +494,20 @@ export function CanvasOverlayBand() {
           // `1fr auto 1fr` keeps the centre occupant centred in the content box
           // AND guarantees the three cells cannot overlap each other — the
           // non-overlap is structural rather than a thing the tests hope for.
-          gridTemplateColumns: '1fr auto 1fr',
+          // While the bottom-right cell is occupied its track gets a floor, so
+          // the `auto` centre can no longer starve it to 0px (N3; see
+          // `OVERLAY_BAND_RIGHT_CELL_MIN`).
+          gridTemplateColumns: rightCellOccupied ? BAND_COLUMNS_RIGHT_RESERVED : BAND_COLUMNS,
           alignItems: 'end',
+          // ⚠ ONLY WHILE THE FLOOR IS TAKEN, because only then can this change
+          // make a centre occupant taller than the band: at 1280 with the dock
+          // open the saved-example banner wraps to 82px against 64 (measured).
+          // Under the default `align-content: normal` (stretch) the row starts
+          // at the band's TOP, so that surplus runs DOWN, below the band and
+          // past the canvas's bottom edge, where it is clipped. `end` puts it
+          // above the band instead, where it stays readable. With the cell
+          // empty the band is left byte-identical to before.
+          ...(rightCellOccupied ? { alignContent: 'end' } : {}),
           columnGap: 8,
         }}
       >
