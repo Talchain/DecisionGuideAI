@@ -6,17 +6,19 @@
  * something the model does not yet contain. That was the most reasoning-shaped
  * affordance already on the canvas, and it existed on one of four tiers.
  *
- * ⚠ IT ADDS NOTHING TO THE MODEL AND IT SENDS NOTHING. Opening it PRE-FILLS a
- * question (`requestAsk`, prefill-and-confirm) and the user presses Send.
+ * ⚠ IT ADDS NOTHING TO THE MODEL. Opening it asks Olumi the tier's question
+ * through `_sendMessage` — the served behaviour of this door and of its sibling
+ * `GhostOptionNode`. ⚠ HELD BACK (24 Sep, #1926): the prefill-and-confirm path
+ * (`requestAsk`) left the conversation callbacks unregistered when taken from a
+ * minimised Olumi panel (Browser Gate NORMALZOOMDIAG canAsk=false — every
+ * coaching icon on the canvas vanished). All four row-end prompts move to
+ * prefill together once that is fixed with its own proof.
  * Whatever comes back is the user's to accept, argue with or ignore — a ghost
  * that inserted a node would make the AI the author of the model, which inverts
  * the one thing this product is for.
  *
- * ⛔ S4 FIX: this used to call `_sendMessage(prompt)` — a SILENT SEND on click,
- * against ED S4 ("clicking engages the appropriate ideation/coaching action.
- * They do not silently mutate the model") and against its own sibling
- * `GhostOptionNode`, which already went through `requestAsk`. Latent while the
- * door was unmounted (#1606); live the moment S4 restored it, so fixed here.
+ * (A send is a chat turn, not a model mutation: ED S4's "they do not silently
+ * mutate the model" still holds — pinned below.)
  *
  * ⚠ AND THE DOOR SAYS THE QUESTION OUT LOUD. The label is composed in
  * `utils/ghostTiers.ts` and is a question there; this file must not summarise
@@ -30,7 +32,7 @@ import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
-import { requestAsk } from '../ui/inspector-v2/askSemantic'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
@@ -80,7 +82,8 @@ export const GhostTierNode = memo((props: NodeProps) => {
 
   const open = useCallback(() => {
     if (!prompt || !label) return
-    requestAsk({ text: prompt, label, source: 'ghost-tier' })
+    const send = useGuidanceStore.getState()._sendMessage
+    if (send) send(prompt)
   }, [prompt, label])
 
   return (
