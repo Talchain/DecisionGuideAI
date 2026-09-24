@@ -34,7 +34,7 @@ import userEvent from '@testing-library/user-event'
 
 import { DecisionRecorded, formatRecordedOn, recordedOptionText } from '../sections/DecisionRecorded'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import type { DecisionRecord } from '../../modals'
+import type { OptionDecisionRecord } from '../../modals/decisionRecordStore'
 
 afterEach(cleanup)
 
@@ -43,7 +43,7 @@ const T = 'rec'
 /** 7 Sep 2026, 09:00 UTC — a fixed instant, so the rendered date is a literal. */
 const SAVED_AT = Date.UTC(2026, 8, 7, 9, 0, 0)
 
-const RECORD: DecisionRecord = {
+const RECORD: OptionDecisionRecord = {
   optionId: 'opt-a',
   optionLabel: 'Phase the rollout by segment',
   optionNumber: 2,
@@ -76,7 +76,7 @@ const draw = (over: Partial<React.ComponentProps<typeof DecisionRecorded>> = {})
     />,
   )
 
-const withRecord = (patch: Partial<DecisionRecord>) => draw({ record: { ...RECORD, ...patch } })
+const withRecord = (patch: Partial<OptionDecisionRecord>) => draw({ record: { ...RECORD, ...patch } })
 
 describe('THE OPTION LINE IS BOUND TO THE OPTION', () => {
   /**
@@ -147,7 +147,7 @@ describe('an absent field renders NOTHING — not a blank, not a zero', () => {
     ['assumption', 'assumptionToWatch'],
     ['revisit', 'revisitTrigger'],
   ] as const)('withholds the %s row when the value is blank whitespace', (row, field) => {
-    withRecord({ [field]: '   \n ' } as Partial<DecisionRecord>)
+    withRecord({ [field]: '   \n ' } as Partial<OptionDecisionRecord>)
     expect(screen.queryByTestId(`${T}-${row}`)).toBeNull()
   })
 

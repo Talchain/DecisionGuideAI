@@ -75,8 +75,41 @@ import { ClipboardCheck } from 'lucide-react'
 import { action } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
+import { isNotReadyRecord, NOT_READY_POSITION_LABEL } from '../../modals/decisionRecordStore'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { surface, icon } from '../panelSurfaces'
+
+/**
+ * ⭐ READ-BACK COPY FOR THE POSITION AND THE NEXT ACTION (24 Sep 2026).
+ *
+ * Kept here, not in `analysisNewCopy.ts`, because that file belongs to the tab
+ * body's owner. Every string is rendered, so none carries an em dash or winner
+ * vocabulary (both are swept over this file).
+ *
+ * ⚠ A NOT-READY RECORD NEVER READS AS A DECISION. It gets its own heading, its
+ * position line says "Not ready to choose", and it has no option, confidence
+ * or expectation row because the record carries none.
+ *
+ * ⚠ THE STORAGE SENTENCES NAME ONLY WHAT `remote.recordId` LICENSES. The text
+ * fields (rationale, assumption, next action, revisit trigger) are sent with a
+ * signed-in commit, but no CEE response confirms the account kept them, so
+ * they are stated on this device and nowhere else. The account half of each
+ * option sentence is the one `COPY.decisionRecord.storedRemote*` already says;
+ * a spec pins the two together so the variant cannot drift from its original.
+ */
+export const DECISION_POSITION_COPY = {
+  notReadyHeading: 'Your recorded view',
+  nextActionLabel: 'Next action',
+  yourView: 'Your view, not an agreed team decision.',
+  storedRemoteNotReady:
+    'Your position is on your account. The rationale, assumption and revisit trigger are on this device.',
+  storedRemoteNotReadyWithNextAction:
+    'Your position is on your account. The rationale, assumption, next action and revisit trigger are on this device.',
+  storedRemoteWithNextAction:
+    'Your choice and confidence are on your account, with a review date. The rationale, assumption, next action and revisit trigger are on this device.',
+  storedRemoteWithExpectationAndNextAction:
+    'Your choice, confidence and expectation are on your account, with a review date. The rationale, assumption, next action and revisit trigger are on this device.',
+} as const
 
 export interface DecisionRecordedProps {
   /** Pre-run there is no decision to record — the options are not analysed. */
@@ -165,6 +198,10 @@ export function formatRecordedOn(savedAt: number): string | null {
  * option the canvas does not.
  */
 export function recordedOptionText(record: DecisionRecord): string {
+  // ⚠ A NOT-READY RECORD NAMES NO OPTION. Any surface that prints this line
+  // (the Reasoning V2 commitment row reuses it) must say the position, never
+  // an empty string or a remembered option id.
+  if (isNotReadyRecord(record)) return NOT_READY_POSITION_LABEL
   const label = record.optionLabel?.trim()
   const named = label && label !== '' ? label : record.optionId
   return record.optionNumber != null ? `Option ${record.optionNumber}: ${named}` : named
@@ -180,8 +217,19 @@ export function recordedOptionText(record: DecisionRecord): string {
  */
 export function storageSentenceFor(record: DecisionRecord): string {
   if (!record.remote?.recordId) return COPY.decisionRecord.storedLocal
-  return record.expectation?.trim()
-    ? COPY.decisionRecord.storedRemoteWithExpectation
+  const hasNextAction = Boolean(record.nextAction?.trim())
+  if (isNotReadyRecord(record)) {
+    return hasNextAction
+      ? DECISION_POSITION_COPY.storedRemoteNotReadyWithNextAction
+      : DECISION_POSITION_COPY.storedRemoteNotReady
+  }
+  if (record.expectation?.trim()) {
+    return hasNextAction
+      ? DECISION_POSITION_COPY.storedRemoteWithExpectationAndNextAction
+      : COPY.decisionRecord.storedRemoteWithExpectation
+  }
+  return hasNextAction
+    ? DECISION_POSITION_COPY.storedRemoteWithNextAction
     : COPY.decisionRecord.storedRemote
 }
 
@@ -199,7 +247,7 @@ export function storageSentenceFor(record: DecisionRecord): string {
  * the corpus omitted (CLAUDE.md trap 22) applied to the one row the component
  * rendered unconditionally.
  */
-export function formatConfidence(confidence: number): string | null {
+export function formatConfidence(confidence: number | undefined): string | null {
   if (typeof confidence !== 'number' || !Number.isFinite(confidence)) return null
   return `${confidence} ${COPY.decisionRecord.confidenceSuffix}`
 }
@@ -225,12 +273,14 @@ export function DecisionRecorded({
   if (record === null && !canCapture) return null
 
   const recordedOn = record ? formatRecordedOn(record.savedAt) : null
+  const notReady = record !== null && isNotReadyRecord(record)
+  const heading = notReady ? DECISION_POSITION_COPY.notReadyHeading : COPY.decisionRecord.recorded
 
   return (
     <section
       className={surface('neutral')}
       data-testid={testId}
-      aria-label={record ? COPY.decisionRecord.recorded : COPY.decisionRecord.open}
+      aria-label={record ? heading : COPY.decisionRecord.open}
     >
       <div className="flex items-start gap-2">
         <ClipboardCheck className={`${icon('section')} mt-[1px] shrink-0 text-text-light`} aria-hidden="true" />
@@ -263,15 +313,34 @@ export function DecisionRecorded({
                 className={`${typography.panelHeader} text-text-header m-0`}
                 data-testid={`${testId}-title`}
               >
-                {COPY.decisionRecord.recorded}
+                {heading}
               </p>
-              {/* The choice itself, given the heading's weight — it is the one
-                  thing a reader returning to this scenario came for. */}
+              {notReady ? (
+                /* ⚠ THE POSITION, NOT AN OPTION. A different testid from the
+                   option line, so nothing bound to `-option` can ever read a
+                   not-ready record as a choice. */
+                <p
+                  className={`${typography.panelBody} text-text-body mt-1 mb-0`}
+                  data-testid={`${testId}-position`}
+                >
+                  {NOT_READY_POSITION_LABEL}
+                </p>
+              ) : (
+                /* The choice itself, given the heading's weight — it is the one
+                   thing a reader returning to this scenario came for. */
+                <p
+                  className={`${typography.panelBody} text-text-body mt-1 mb-0`}
+                  data-testid={`${testId}-option`}
+                >
+                  {recordedOptionText(record)}
+                </p>
+              )}
+              {/* Whose record this is: the user's own view. Never Olumi's, never the team's. */}
               <p
-                className={`${typography.panelBody} text-text-body mt-1 mb-0`}
-                data-testid={`${testId}-option`}
+                className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
+                data-testid={`${testId}-your-view`}
               >
-                {recordedOptionText(record)}
+                {DECISION_POSITION_COPY.yourView}
               </p>
               {/* ⚠ GUARDED BEFORE COMPOSITION — see `formatConfidence`. A
                   composed string is never blank, so `Field`'s blank check
@@ -295,6 +364,11 @@ export function DecisionRecorded({
                 label={COPY.decisionRecord.assumptionLabel}
                 value={record.assumptionToWatch}
                 testId={`${testId}-assumption`}
+              />
+              <Field
+                label={DECISION_POSITION_COPY.nextActionLabel}
+                value={record.nextAction}
+                testId={`${testId}-next-action`}
               />
               <Field
                 label={COPY.decisionRecord.revisitLabel}

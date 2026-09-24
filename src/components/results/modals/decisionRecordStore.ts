@@ -24,6 +24,14 @@
  * A surface rendering a "Decision recorded" state must label which of those
  * it is showing; `DecisionRecord.remote` is how it can tell.
  *
+ * ⚠ 24 SEP 2026: THE TEXT IS NOW SENT, BUT ITS DURABILITY IS STILL UNCONFIRMED.
+ * A signed-in save now also sends the rationale, assumption, next action and a
+ * `position` ("Not ready to choose"), as additive request keys. Today's CEE
+ * route ignores keys it does not read, and no response field says which of
+ * them the account kept, so the split above is unchanged as a CLAIM: the text
+ * fields are claimed on this device, never on the account. A not-ready record carries no option,
+ * confidence or expectation at all (`NotReadyDecisionRecord`).
+ *
  * ⭐⭐ PERSISTENCE IS `localStorage`, AND THAT IS A DELIBERATE DIVERGENCE FROM
  * ITS SIBLINGS. Superseded text: ~~Persistence mirrors strengthenStore: zustand
  * + manual, version-keyed sessionStorage, keyed per scenario id.~~ The shape
@@ -106,7 +114,74 @@ export interface DecisionRecordRemote {
   reviewDateSource: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger'
 }
 
-export interface DecisionRecord {
+/**
+ * The user's stated position. `'option'` is the only position records had
+ * before 24 Sep 2026, so an ABSENT `position` means `'option'` (the same rule
+ * the commit request uses). `'not_ready'` is "Not ready to choose": a position,
+ * never a decision.
+ */
+export type DecisionRecordPosition = 'option' | 'not_ready'
+
+/** The one display name of the not-ready position, shared by capture and read-back. */
+export const NOT_READY_POSITION_LABEL = 'Not ready to choose'
+
+/**
+ * Fields every record carries, whatever the position.
+ *
+ * ⚠ LOCALITY OF THE TEXT FIELDS. Since 24 Sep 2026 a signed-in save SENDS the
+ * rationale, assumption, next action and revisit text with the commit, but no
+ * CEE response confirms that the account KEPT them (today's route reads only
+ * the option, confidence, expectation and revisit date). So `remote` still
+ * licenses an account claim for the choice, confidence, expectation and
+ * review date only. The text fields are claimed on this device, which is true
+ * whatever CEE did with them.
+ */
+interface DecisionRecordCommon {
+  rationale: string
+  assumptionToWatch: string
+  /** Free text: a trigger condition or a date ("Revisit trigger or date"). */
+  revisitTrigger: string
+  /**
+   * What the user will resolve, accept or monitor next. OPTIONAL: absent on
+   * records written before the field existed, and on any record where it was
+   * left blank (a blank is never stored as an empty string).
+   */
+  nextAction?: string
+  /** results.hash of the completed analysis on screen at capture time, if any. */
+  analysisHash: string | null
+  savedAt: number
+  /** Set once the record is durable in CEE; null while local-only. */
+  remote?: DecisionRecordRemote | null
+}
+
+/**
+ * "Not ready to choose". It carries NO option, NO confidence and NO
+ * expectation, and the type says so with `never`: a confidence or an
+ * expectation is a claim about a CHOSEN option's outcome (the expectation is
+ * what the outcome is scored against), so without a choice there is nothing
+ * for either to be about. Reading `record.optionId` on the union gives
+ * `string | undefined`, which forces every reader to handle this case rather
+ * than print an empty option.
+ */
+export interface NotReadyDecisionRecord extends DecisionRecordCommon {
+  position: 'not_ready'
+  optionId?: never
+  optionLabel?: never
+  optionNumber?: never
+  confidence?: never
+  expectation?: never
+}
+
+export type DecisionRecord = OptionDecisionRecord | NotReadyDecisionRecord
+
+/** True only for an explicit not-ready record; an absent position is an option. */
+export function isNotReadyRecord(record: DecisionRecord): record is NotReadyDecisionRecord {
+  return record.position === 'not_ready'
+}
+
+export interface OptionDecisionRecord extends DecisionRecordCommon {
+  /** Absent on every option record (absent ⇒ `'option'`); never `'not_ready'`. */
+  position?: 'option'
   /** Canvas node id of the chosen option (from the analysed option set). */
   optionId: string
   /** Display label snapshot at capture time. */
@@ -126,15 +201,6 @@ export interface DecisionRecord {
    * this field existed are still readable.
    */
   expectation?: string
-  rationale: string
-  assumptionToWatch: string
-  /** Free text: a trigger condition or a date ("Revisit trigger or date"). */
-  revisitTrigger: string
-  /** results.hash of the completed analysis on screen at capture time, if any. */
-  analysisHash: string | null
-  savedAt: number
-  /** Set once the record is durable in CEE; null while local-only. */
-  remote?: DecisionRecordRemote | null
 }
 
 export interface DecisionRecordState {

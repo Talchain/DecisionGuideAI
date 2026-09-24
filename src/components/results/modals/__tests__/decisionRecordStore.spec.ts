@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearDecisionRecords, observeDecisionRecordOwner, selectDecisionRecord,
-  useDecisionRecordStore, type DecisionRecord,
+  useDecisionRecordStore, type DecisionRecord, type OptionDecisionRecord,
 } from '../decisionRecordStore'
 import { UNSCOPED_SCENARIO_KEY } from '../scenarioKey'
 
@@ -12,7 +12,7 @@ const read = (key = 'scn_a') => selectDecisionRecord(store(), key)
 const diskKeys = () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!)
 const dataKeys = () => diskKeys().filter(k => k.includes(':record:'))
 const remote = { recordId: 'dr_a', reviewDate: '2026-12-01T00:00:00.000Z', reviewDateSource: 'user_set' as const }
-function record(overrides: Partial<DecisionRecord> = {}): DecisionRecord {
+function record(overrides: Partial<OptionDecisionRecord> = {}): OptionDecisionRecord {
   return {
     optionId: 'opt_a', optionLabel: 'Hire a technical lead', optionNumber: 1, confidence: 70,
     rationale: 'Current reasoning', expectation: 'Faster delivery', assumptionToWatch: 'Hiring stays open',
@@ -276,5 +276,46 @@ describe('cross-tab interleavings and exact acknowledgement identity', () => {
     const capture = store().saveRecord('scn_a', record())!
     localStorage.removeItem(dataKeys()[0])
     expect(store().attachRemote('scn_a', capture, remote)).toBe(false)
+  })
+})
+
+// 24 Sep 2026: the position ("Not ready to choose") and the next action persist
+// exactly like every other field: through the same versioned record, unvalidated
+// by the store, round-tripped as written.
+describe('position and next action round-trip', () => {
+  const notReady: DecisionRecord = {
+    position: 'not_ready', rationale: 'The market is unsized', assumptionToWatch: 'Candidates exist',
+    revisitTrigger: 'When the market data lands', nextAction: 'Size the market by Friday',
+    analysisHash: 'hash_1', savedAt: 1234, remote: null,
+  }
+  it('a not-ready record survives a reload with its position and next action, and gains no option', () => {
+    store().saveRecord('scn_a', notReady)
+    useDecisionRecordStore.setState({ byScenario: {} })
+    store()._rehydrateForTests()
+    const back = read()
+    expect(back).toEqual(notReady)
+    for (const absent of ['optionId', 'optionLabel', 'optionNumber', 'confidence', 'expectation']) {
+      expect(Object.prototype.hasOwnProperty.call(back, absent)).toBe(false)
+    }
+  })
+  it('an option record with a next action survives a reload with it', () => {
+    store().saveRecord('scn_a', record({ nextAction: 'Brief the board' }))
+    useDecisionRecordStore.setState({ byScenario: {} })
+    store()._rehydrateForTests()
+    expect(read()?.nextAction).toBe('Brief the board')
+  })
+  it('CONTRAST: an option record without either field is stored with today’s exact keys', () => {
+    store().saveRecord('scn_a', record())
+    const stored = JSON.parse(localStorage.getItem(dataKeys()[0])!) as { record: Record<string, unknown> }
+    expect(Object.keys(stored.record)).toEqual([
+      'optionId', 'optionLabel', 'optionNumber', 'confidence', 'rationale', 'expectation',
+      'assumptionToWatch', 'revisitTrigger', 'analysisHash', 'savedAt', 'remote',
+    ])
+  })
+  it('a not-ready record’s account proof attaches exactly as an option record’s does', () => {
+    const capture = store().saveRecord('scn_a', notReady, 'request-nr')!
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(true)
+    store()._rehydrateForTests()
+    expect(read()).toEqual({ ...notReady, remote })
   })
 })

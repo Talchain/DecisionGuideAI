@@ -30,6 +30,7 @@ import {
   observeDecisionRecordOwner,
   selectDecisionRecord,
   useDecisionRecordStore,
+  type OptionDecisionRecord,
 } from '../decisionRecordStore'
 import { useCanvasStore } from '../../../../canvas/store'
 
@@ -154,7 +155,8 @@ describe('durable commit — the wire', () => {
     let finish!: (identity: SessionIdentity) => void
     mockGetSessionIdentity.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
     await saveModal()
-    const original = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)!
+    // An option save (the modal's default position), so the option variant.
+    const original = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID) as OptionDecisionRecord
     act(() => { useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, { ...original, optionId: 'opt_a' }, 'newer-request') })
     await act(async () => { finish({ userId: OWNER_ID, accessToken: 'test-access-token' }) })
     expect(fetchMock).not.toHaveBeenCalled()
@@ -193,7 +195,7 @@ describe('durable commit — the wire', () => {
     fetchMock.mockImplementation(() => new Promise(resolve => { finish = resolve }))
     await saveModal()
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const first = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)!
+    const first = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID) as OptionDecisionRecord
     expect(first.optionId).toBe('opt_b')
     act(() => {
       useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, { ...first, optionId: 'opt_a' }, 'newer-capture')
@@ -358,6 +360,106 @@ describe('durable commit — the wire', () => {
     const record = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)
     expect(record?.expectation).toBe('Runway holds above 9 months through Q1.')
     expect(record?.remote ?? null).toBeNull()
+  })
+})
+
+describe('durable commit — position and next action on the wire (24 Sep 2026)', () => {
+  const bodyOf = (call = 0): Record<string, unknown> => {
+    const [, init] = fetchMock.mock.calls[call] as unknown as [string, RequestInit]
+    return JSON.parse(init.body as string) as Record<string, unknown>
+  }
+
+  it('an option save sends the rationale and assumption as ADDITIVE keys, and no position', async () => {
+    await saveModal()
+    const body = bodyOf()
+    expect(body.rationale).toBe('Best current choice given hiring constraints.')
+    expect(body.key_assumption).toBe('The hiring market stays open.')
+    // Absent means 'option' — the pre-24-Sep request never carried the key.
+    expect('position' in body).toBe(false)
+    // No next action was typed, so none is sent (never an empty string).
+    expect('next_action' in body).toBe(false)
+    // The revisit text rides its EXISTING key; there is no second copy of it.
+    expect(body.revisit_trigger_or_date).toBe('2026-12-01')
+    expect('revisit_trigger' in body).toBe(false)
+    // Today's keys are all still there, unchanged.
+    expect(body.chosen_option_id).toBe('opt_b')
+    expect(body.confidence_0_100).toBe(70)
+    expect(body.expectation_statement).toBe('Runway holds above 9 months through Q1.')
+  })
+
+  it('a next action, when given, is sent as next_action', async () => {
+    render(<DecisionRecordModal />)
+    act(() => openDecisionRecord())
+    fillValid()
+    fireEvent.change(screen.getByTestId('decision-record-next-action'), {
+      target: { value: 'Brief the board on Tuesday.' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('decision-record-save'))
+    })
+    expect(bodyOf().next_action).toBe('Brief the board on Tuesday.')
+  })
+
+  async function saveNotReady() {
+    render(<DecisionRecordModal />)
+    act(() => openDecisionRecord())
+    fireEvent.click(screen.getByTestId('decision-record-position-not_ready'))
+    fireEvent.change(screen.getByTestId('decision-record-revisit'), {
+      target: { value: 'When the hiring market data lands' },
+    })
+    fireEvent.change(screen.getByTestId('decision-record-rationale'), {
+      target: { value: 'The two options depend on a market we have not sized.' },
+    })
+    fireEvent.change(screen.getByTestId('decision-record-assumption'), {
+      target: { value: 'Senior candidates are available this quarter.' },
+    })
+    fireEvent.change(screen.getByTestId('decision-record-next-action'), {
+      target: { value: 'Size the senior hiring market by Friday.' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('decision-record-save'))
+    })
+  }
+
+  it('a not-ready save sends position: not_ready and NO option, confidence or expectation', async () => {
+    await saveNotReady()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const body = bodyOf()
+    expect(Object.keys(body)).toEqual([
+      'scenario_id', 'position', 'revisit_trigger_or_date', 'client_commit_id',
+      'rationale', 'key_assumption', 'next_action',
+    ])
+    expect(body.position).toBe('not_ready')
+    expect(body.scenario_id).toBe(SCENARIO_ID)
+    expect(body.next_action).toBe('Size the senior hiring market by Friday.')
+    const raw = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string
+    expect(raw).not.toContain('Hire senior technical lead')
+    expect(raw).not.toContain('Bring on technical co-founder')
+  })
+
+  it('TODAY’S CEE refuses a not-ready commit (400 invalid_confidence): the position is kept here and the toast says so', async () => {
+    // The deployed route checks the confidence first and refuses before any
+    // write (assist.v1.decision-records.ts → buildUserCommitWrite).
+    fetchMock.mockResolvedValue(
+      okResponse({ error: 'invalid_confidence', code: 'invalid_confidence', message: 'confidence_0_100 must be a number between 0 and 100 inclusive' }, 400),
+    )
+    await saveNotReady()
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)
+    expect(record?.position).toBe('not_ready')
+    expect(record?.nextAction).toBe('Size the senior hiring market by Friday.')
+    expect(record?.remote ?? null).toBeNull()
+    const toast = screen.getByTestId('decision-record-toast')
+    expect(toast).toHaveTextContent(DECISION_RECORD_COPY.toastSavedLocalAfterErrorNotReady)
+    expect(toast).not.toHaveTextContent(/decision/i)
+  })
+
+  it('once an account confirms a not-ready commit, the record becomes durable with the position toast', async () => {
+    await saveNotReady()
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)
+    expect(record?.remote?.recordId).toBe(RECORD_ID)
+    expect(screen.getByTestId('decision-record-toast')).toHaveTextContent(
+      DECISION_RECORD_COPY.toastSavedNotReady,
+    )
   })
 })
 

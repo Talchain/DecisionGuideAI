@@ -55,16 +55,43 @@ export type ReviewDateSource =
   | 'default_horizon'
   | 'default_horizon_after_unparsed_trigger'
 
-export interface DecisionRecordCommitInput {
+/**
+ * Upper bounds for the text the commit sends, matching the request shape the
+ * CEE change implements (24 Sep 2026). The modal applies them as `maxLength`
+ * so a user never builds a record the new route would refuse whole.
+ */
+export const DECISION_RECORD_TEXT_MAX_CHARS = 2000
+export const DECISION_RECORD_NEXT_ACTION_MAX_CHARS = 500
+
+/**
+ * Fields sent whatever the position.
+ *
+ * ⚠ ADDITIVE KEYS, AND WHAT TODAY'S CEE DOES WITH THEM. `rationale`,
+ * `key_assumption`, `next_action` and `position` are new request keys. The
+ * deployed route (`assist.v1.decision-records.ts`, staging `3f412be1`) reads
+ * the body key by key with `readString` and has no request schema, so it
+ * IGNORES keys it does not read: an option commit that carries them is written
+ * exactly as before. Its `.strict()` schemas apply to the write it BUILDS, not
+ * to the request. It does not persist the text, and no response field says
+ * whether an account kept it, so nothing here licenses an account claim for
+ * the text (see `decisionRecordStore`'s header).
+ *
+ * ⚠ THE REVISIT TEXT ALREADY HAS A KEY. `revisit_trigger_or_date` has carried
+ * the modal's revisit text verbatim since R0 (CEE parses it for a date and
+ * drops the words). It is the existing convention, so there is no second
+ * `revisit_trigger` key carrying the same words: a server that wants to keep
+ * the text reads `revisit_trigger_or_date`.
+ */
+interface DecisionRecordCommitCommon {
   scenarioId: string
-  chosenOptionId: string
-  chosenOptionLabel: string
-  /** RAW 0–100, exactly as the user typed it. Normalised server-side. */
-  confidence0to100: number
-  /** The user's forward-looking claim — the thing the outcome is scored against. */
-  expectationStatement: string
   /** The modal's free-text "Revisit trigger or date", verbatim. */
   revisitTriggerOrDate?: string
+  /** Why the user holds this position. Sent as `rationale` when non-blank. */
+  rationale?: string
+  /** The assumption to watch. Sent as `key_assumption` when non-blank. */
+  keyAssumption?: string
+  /** What the user will do next. Sent as `next_action` when non-blank. */
+  nextAction?: string
   /**
    * Stable per-save id. Makes a network retry replay through CEE's dedupe
    * branch instead of writing a second record; a NEW save gets a NEW id, so a
@@ -75,6 +102,75 @@ export interface DecisionRecordCommitInput {
   expectedOwnerId: string | null
   /** Local consent/capture fence; never serialised into the request. */
   isCurrentCapture: () => boolean
+}
+
+/** The user chose an option. No `position` key is sent: absent means `'option'`. */
+export interface OptionCommitInput extends DecisionRecordCommitCommon {
+  position?: 'option'
+  chosenOptionId: string
+  chosenOptionLabel: string
+  /** RAW 0–100, exactly as the user typed it. Normalised server-side. */
+  confidence0to100: number
+  /** The user's forward-looking claim — the thing the outcome is scored against. */
+  expectationStatement: string
+}
+
+/**
+ * "Not ready to choose". Sends `position: 'not_ready'` and NO option,
+ * confidence or expectation — there is no choice for them to be about.
+ *
+ * ⚠ TODAY'S CEE REFUSES THIS COMMIT, AND THAT IS SAFE. Its route still requires
+ * a confidence, an option and an expectation, so it answers 400
+ * `invalid_confidence` before any write ("NO RPC CALL on a refusal"). The
+ * caller already holds the local copy and reports the save as not confirmed.
+ * Once CEE accepts the position, the same request is written with no UI change.
+ */
+export interface NotReadyCommitInput extends DecisionRecordCommitCommon {
+  position: 'not_ready'
+}
+
+export type DecisionRecordCommitInput = OptionCommitInput | NotReadyCommitInput
+
+/** `{ [key]: value }` for a non-blank string, `{}` otherwise — a blank is never sent. */
+function textKey(key: string, value: string | undefined): Record<string, string> {
+  return value !== undefined && value.trim() !== '' ? { [key]: value } : {}
+}
+
+/**
+ * The request body, in a FIXED key order. For an option commit with none of
+ * the new fields it is byte-identical to the pre-24-Sep body; the new keys are
+ * appended after `client_commit_id` and only when they hold text.
+ */
+export function buildDecisionRecordCommitBody(input: DecisionRecordCommitInput): Record<string, unknown> {
+  const added = {
+    ...textKey('rationale', input.rationale),
+    ...textKey('key_assumption', input.keyAssumption),
+    ...textKey('next_action', input.nextAction),
+  }
+  if (input.position === 'not_ready') {
+    return {
+      scenario_id: input.scenarioId,
+      position: 'not_ready',
+      ...(input.revisitTriggerOrDate !== undefined && input.revisitTriggerOrDate !== ''
+        ? { revisit_trigger_or_date: input.revisitTriggerOrDate }
+        : {}),
+      client_commit_id: input.clientCommitId,
+      ...added,
+    }
+  }
+  return {
+    scenario_id: input.scenarioId,
+    chosen_option_id: input.chosenOptionId,
+    chosen_option_label: input.chosenOptionLabel,
+    // RAW 0–100 — the server owns the /100. See the module header.
+    confidence_0_100: input.confidence0to100,
+    expectation_statement: input.expectationStatement,
+    ...(input.revisitTriggerOrDate !== undefined && input.revisitTriggerOrDate !== ''
+      ? { revisit_trigger_or_date: input.revisitTriggerOrDate }
+      : {}),
+    client_commit_id: input.clientCommitId,
+    ...added,
+  }
 }
 
 export type DecisionRecordCommitResult =
@@ -148,18 +244,7 @@ export async function commitDecisionRecord(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({
-        scenario_id: input.scenarioId,
-        chosen_option_id: input.chosenOptionId,
-        chosen_option_label: input.chosenOptionLabel,
-        // RAW 0–100 — the server owns the /100. See the module header.
-        confidence_0_100: input.confidence0to100,
-        expectation_statement: input.expectationStatement,
-        ...(input.revisitTriggerOrDate !== undefined && input.revisitTriggerOrDate !== ''
-          ? { revisit_trigger_or_date: input.revisitTriggerOrDate }
-          : {}),
-        client_commit_id: input.clientCommitId,
-      }),
+      body: JSON.stringify(buildDecisionRecordCommitBody(input)),
     })
   } catch (err) {
     return {
