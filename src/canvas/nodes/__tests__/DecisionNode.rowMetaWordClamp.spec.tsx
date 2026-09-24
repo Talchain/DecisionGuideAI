@@ -114,7 +114,9 @@ const expectWordBoundaryOneLineClamp = (signal: Element) => {
   expect(tokens(signal)).toContain('flex-1')
   const el = painted as Element
   const t = tokens(el)
-  expect(t).toContain('block')
+  // `.block` is emitted after `.line-clamp-1` and would override its
+  // `display: -webkit-box`, silently un-clamping the line.
+  expect(t).not.toContain('block')
   // ONE line — never two (the card may not grow)…
   expect(t).toContain('line-clamp-1')
   expect(t.filter(c => /^line-clamp-/.test(c))).toEqual(['line-clamp-1'])

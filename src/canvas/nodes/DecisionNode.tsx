@@ -994,8 +994,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         {/* The clamp sits on the span that PAINTS the text, not its wrapper:
             clamped on the wrapper, this inline span's box still spanned the
             hidden second line, which ran under the hover action row
-            (Canvas Browser Gate, 24 Sep, `dec_cdp`, 649.6px² "covered"). */}
-        <span aria-hidden="true" className="block line-clamp-1 break-words">{short}</span>
+            (Canvas Browser Gate, 24 Sep, `dec_cdp`, 649.6px² "covered").
+            ⛔ NEVER add `block` here: Tailwind emits `.block` after
+            `.line-clamp-1`, so it wins and the clamp does nothing (review
+            5822943043 at c781dd5f: 3 visible lines; InferenceWarningStrip.tsx:157). */}
+        <span aria-hidden="true" className="line-clamp-1 break-words">{short}</span>
         <span className={typography.screenReaderOnly}>{full}</span>
       </span>
     </Tooltip>
