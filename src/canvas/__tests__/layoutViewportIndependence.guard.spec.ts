@@ -659,13 +659,28 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * ⭐ And what did NOT move, which is what R1 names: every "ONE canonical layout
    * across 1280…1920" test and the contrast control stay GREEN, and every risk
    * and every outcome still resolves to ONE shared consequence row per starter.
+   *
+   * ── S5 (24 Sep 2026), a SECOND re-record, again for the reviewer ──
+   * One cause only: `LAYOUT_LAYER_GAP` 72 → 48 (the row gap; S5's fit
+   * arithmetic on heights measured at the S5 geometry takes 1440×900 from 1 of
+   * 6 boards fitting to 4 of 6). Rows move up; nothing moves sideways. Measured
+   * with this file's own `positionSignature` before recording:
+   *
+   *     vendor-selection      93eaf450b37e9023 → 17e010f6a9b20b34
+   *     market-entry          1b644425bfba13ab → 807cb16f08f1311a
+   *     build-vs-buy          f49583b6b3f9f787 → fdc5a378a826407d
+   *     headcount-allocation  9ba90d91d0959a30 → 28785b8d552bebaa
+   *     pricing-model         9147cbd570b5a117 → b81897d92b72a9e1
+   *
+   * Every R1 test, `s4NoSameRowOverlap` and the rest of the layout reader set
+   * (72 files) stayed GREEN at the new gap before this was recorded.
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '93eaf450b37e9023', nodes: 19 },
-    'market-entry': { digest: '1b644425bfba13ab', nodes: 18 },
-    'build-vs-buy': { digest: 'f49583b6b3f9f787', nodes: 19 },
-    'headcount-allocation': { digest: '9ba90d91d0959a30', nodes: 16 },
-    'pricing-model': { digest: '9147cbd570b5a117', nodes: 15 },
+    'vendor-selection': { digest: '17e010f6a9b20b34', nodes: 19 },
+    'market-entry': { digest: '807cb16f08f1311a', nodes: 18 },
+    'build-vs-buy': { digest: 'fdc5a378a826407d', nodes: 19 },
+    'headcount-allocation': { digest: '28785b8d552bebaa', nodes: 16 },
+    'pricing-model': { digest: 'b81897d92b72a9e1', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(
