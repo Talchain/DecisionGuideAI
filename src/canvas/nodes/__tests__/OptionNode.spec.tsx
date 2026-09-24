@@ -157,6 +157,24 @@ function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share:
   expect(container.textContent ?? '').not.toMatch(/most supported/i)
 }
 
+
+/**
+ * NODE-ANATOMY v3.2 (ED #63 5806266691 "differentiator only when additive"):
+ * the footer renders only where it adds something the change rows don't. Two
+ * changes every option sets IDENTICALLY lead the shared row order (they are
+ * listed first in the model) and never differentiate, so a fixture that adds
+ * them puts its differentiating factor behind "+1 more" (value / direction
+ * forms) or gives "… is the key difference" a second change to pick from.
+ */
+const TWO_EQUAL_SHARED_CHANGES = {
+  'factor-shared-a': { value: 3, display_value: '£3k' },
+  'factor-shared-b': { value: 40, display_value: '40h' },
+}
+const TWO_EQUAL_SHARED_FACTORS = [
+  { id: 'factor-shared-a', type: 'factor', data: { label: 'Tooling spend' } },
+  { id: 'factor-shared-b', type: 'factor', data: { label: 'Weekly hours' } },
+]
+
 describe('OptionNode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1130,24 +1148,25 @@ describe('OptionNode', () => {
         viewMode: 'standard', // differentiator line shows in Standard pre-analysis
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-1': { value: 0.9, display_value: 'Best in class' } } },
-            { id: 'option-2', interventions: { 'factor-1': { value: 0.1, display_value: 'Barely adequate' } } },
+            { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': { value: 0.9, display_value: 'Best in class' } } },
+            { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': { value: 0.1, display_value: 'Barely adequate' } } },
           ],
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { type: 'option', label: 'Premium' } },
           { id: 'option-2', type: 'option', data: { type: 'option', label: 'Budget' } },
+          ...TWO_EQUAL_SHARED_FACTORS,
           { id: 'factor-1', type: 'factor', data: { label: 'Quality', observedState: { unit: 'scale', value: 0.5 } } },
         ],
       }) as any)
     )
     renderOption()
     // Differentiator sentence uses compactFactorLabel → "→ Best in class"
-    // Locked Canvas design (23 Sep 2026; ED 02:31Z D2): the face now also leads
-    // with the change row for the same target, so "Best in class" appears in
-    // TWO carriers. Bound by identity to each, both verbatim.
+    // NODE-ANATOMY v3.2: the footer renders only where it ADDS, so the fixture
+    // puts `factor-1` behind "+1 more" (two equal shared changes lead the row
+    // order); the footer then carries the CEE string verbatim.
+    expect(screen.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
     expect(screen.getByTestId('option-differentiator-option-1').textContent).toContain('Best in class')
-    expect(screen.getByTestId('option-change-row-option-1-factor-1').textContent).toContain('Best in class')
     // Must NOT fabricate a tier label.
     expect(screen.queryByText(/Very high/)).toBeNull()
     expect(screen.queryByText(/^High$/)).toBeNull()
@@ -1954,13 +1973,14 @@ describe('OptionNode — QA Brief C-series', () => {
             options: [
               // Option A pushes factor-1 to 0.9 — far above the observed
               // baseline of 0.3, while Option B leaves it at 0.3.
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: {} },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Aggressive', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Hold', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -1988,14 +2008,15 @@ describe('OptionNode — QA Brief C-series', () => {
           ceeAnalysisReady: {
             options: [
               // Both options intervene on factor-1 but at different values.
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.5 } } },
             { id: 'option-1', type: 'option', data: { label: 'Hire Tech Lead', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Hire Developers', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2009,18 +2030,17 @@ describe('OptionNode — QA Brief C-series', () => {
         }) as any),
       )
       renderOption({ label: 'Hire Tech Lead' })
-      // Shared factor → option-1 at 0.9 on a % factor → "90%". Brief scope 7:
-      // the from→to chip already shows that value (e.g. "50% → 90%"), so the
-      // duplicate differentiator footer is dropped — the disambiguating value
-      // lives in the chip, not a repeated <p>.
-      // getAllByText: BOTH STAY, so the chip ("50% → 90%") and the footer
-      // ("Tech Lead Hired → 90%") both match this predicate.
-      const valueChips = screen.getAllByText((t: string) => t.includes('90%') && t.includes('→'))
-      expect(valueChips.length).toBeGreaterThan(1)
-      // ⚠ WAS toBeUndefined(). RULING 10 Sep 2026 (Paul): BOTH STAY — the
-      // footer is no longer dropped when the chip carries the same value.
-      const matches = screen.getAllByText(/tech lead hired/i)
-      expect(matches.find(el => el.tagName === 'P')).toBeDefined()
+      // Shared factor → option-1 at 0.9 on a % factor → "90%".
+      // ⚠ NODE-ANATOMY v3.2 narrows Paul's 10 Sep "BOTH STAY" to the case where
+      // the footer ADDS: here `factor-1` sits behind "+1 more" (two equal shared
+      // changes lead the rows), so the footer disambiguates by value and is the
+      // card's one statement of it. (Where the row IS shown, the footer would
+      // repeat it and does not render — `OptionNode.differentiatorOnlyWhenAdditive.spec`.)
+      expect(screen.queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
+      const footer = screen.getByTestId('option-differentiator-option-1')
+      expect(footer.tagName).toBe('P')
+      expect(footer.textContent).toMatch(/^Tech lead hired → /)
+      expect(footer.textContent).toContain('90%')
     })
 
     it('suppresses differentiator when two options share same factor with identical values', () => {
@@ -2063,13 +2083,14 @@ describe('OptionNode — QA Brief C-series', () => {
           ceeAnalysisReady: {
             options: [
               // Both options intervene on a scale factor (no raw_value) at different values
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Aggressive', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Conservative', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2108,13 +2129,14 @@ describe('OptionNode — QA Brief C-series', () => {
               // Option A sits 0.05 above baseline — a real change;
               // Option B is far below. Shared factor → differentiator fires
               // for A via the neutral branch.
-              { id: 'option-1', interventions: { 'factor-1': 0.55 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.55 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Hold Steady', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2140,13 +2162,14 @@ describe('OptionNode — QA Brief C-series', () => {
           ceeAnalysisReady: {
             options: [
               // Option A matches the baseline exactly; Option B is far below.
-              { id: 'option-1', interventions: { 'factor-1': 0.5 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.5 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Hold Steady', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2171,13 +2194,14 @@ describe('OptionNode — QA Brief C-series', () => {
         selector(makeStoreState({
           ceeAnalysisReady: {
             options: [
-              { id: 'option-1', interventions: { 'factor-1': 0.1 } },
-              { id: 'option-2', interventions: { 'factor-1': 0.9 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.1 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Cut Back', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Invest', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
@@ -2207,13 +2231,14 @@ describe('OptionNode — QA Brief C-series', () => {
           ceeAnalysisReady: {
             options: [
               // Each option intervenes on a different factor
-              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
-              { id: 'option-2', interventions: { 'factor-2': 0.9 } },
+              { id: 'option-1', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { ...TWO_EQUAL_SHARED_CHANGES, 'factor-2': 0.9 } },
             ],
           },
           nodes: [
             { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+            ...TWO_EQUAL_SHARED_FACTORS,
             {
               id: 'factor-1',
               type: 'factor',
