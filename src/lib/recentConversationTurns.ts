@@ -98,8 +98,12 @@ import {
 } from '../utils/payloadRedaction'
 import {
   ANALYSIS_PRODUCING_ACTION_TYPES,
+  locateDisplayedAnalysisTurn,
+  matchDisplayedAnalysis,
+  readAnalysisResultContentHash,
   readScenarioId,
   readTurnOrActionType,
+  type DisplayedAnalysisMatch,
   type SelectorTracedPayload,
 } from './analysisProducingCeeTurn'
 
@@ -207,8 +211,31 @@ export interface RecentConversationTurn {
   timestamp: number | null
   /** Turn/action-type discriminator (see `readTurnOrActionType`). */
   turn_kind: string | null
-  /** True when `turn_kind` is one of `ANALYSIS_PRODUCING_ACTION_TYPES`. */
+  /**
+   * True when `turn_kind` is one of `ANALYSIS_PRODUCING_ACTION_TYPES`.
+   *
+   * ⚠ REQUEST-SIDE ONLY: the request ASKED for analysis. It says nothing
+   * about whether one was produced — a typed Run that CEE refused reads
+   * `true`, and a free-text turn that ran analysis reads `false` (Paul's
+   * 24 Sep exports). Read `carried_analysis_result` / `is_displayed_analysis`
+   * for what the response actually delivered.
+   */
   is_analysis_producing: boolean
+  /** RESPONSE-SIDE: the response carried an `analysis_result` block. */
+  carried_analysis_result: boolean
+  /**
+   * Content hash of that block under the store's own `results.hash`
+   * derivation (`v5AnalysisBlockContentHash`), so it is directly comparable
+   * with `analysis_identity.results_hash`. Equal hashes on several turns mean
+   * CEE re-sent the same analysis. Null when no block was carried.
+   */
+  analysis_result_hash: string | null
+  /**
+   * True on exactly the turn that delivered the analysis the panels display
+   * (`analysis_identity.displayed_analysis_is_from_turn`); false everywhere
+   * else, including later turns that merely re-sent the same block.
+   */
+  is_displayed_analysis: boolean
   /**
    * TRANSPORT LIFECYCLE ONLY — *"did the HTTP exchange settle?"*. Passthrough of
    * `TracedPayload.completed`. **Never a statement about the turn's outcome**;
@@ -604,12 +631,23 @@ function deriveOutcome(args: {
  */
 export function selectRecentConversationTurns(
   payloads: ReadonlyArray<ConversationTurnSourcePayload>,
-  options: { cap?: number } = {},
+  options: {
+    cap?: number
+    /**
+     * The canvas store's `results.hash` — the DISPLAYED analysis. Drives
+     * `is_displayed_analysis`; omitted/null → every turn reads false.
+     */
+    displayedResultsHash?: string | null
+  } = {},
 ): RecentConversationTurnsResult {
   const cap = options.cap ?? RECENT_CONVERSATION_TURNS_CAP
   const v5Turns = payloads.filter(
     (p) => isCeeService(p) && isV5TurnEndpoint(p),
   )
+  const displayedTrace = locateDisplayedAnalysisTurn(
+    payloads,
+    options.displayedResultsHash ?? null,
+  ).trace
 
   // THE gate for verbatim user prose — the same predicate the bundle's
   // `user_actions[].detail.user_text` reads. Evaluated ONCE per selection
@@ -627,6 +665,7 @@ export function selectRecentConversationTurns(
     const status = typeof p.status === 'number' ? p.status : null
     const failureSource = typeof p.source === 'string' ? p.source : null
     const errorName = typeof p.errorName === 'string' ? p.errorName : null
+    const analysisResultHash = readAnalysisResultContentHash(p)
     const { outcome, reason } = deriveOutcome({
       transportKind,
       completed,
@@ -644,6 +683,9 @@ export function selectRecentConversationTurns(
       turn_kind: turnKind,
       is_analysis_producing:
         turnKind !== null && ANALYSIS_PRODUCING_ACTION_TYPES.has(turnKind),
+      carried_analysis_result: analysisResultHash !== null,
+      analysis_result_hash: analysisResultHash,
+      is_displayed_analysis: displayedTrace !== undefined && p === displayedTrace,
       completed,
       status,
       transport_kind: transportKind,
@@ -694,5 +736,162 @@ export function selectRecentConversationTurns(
     failed_count: countOf('failed'),
     unsettled_count: countOf('unsettled'),
     transport_leg_count: countOf('transport_leg'),
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Analysis identity — the LATEST TURN vs the DISPLAYED ANALYSIS (24 Sep)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Paul's exports 2f1b374e / a390efd9 (scenario 11014edf…, UI a4434670)
+// pinned `payloads.cee_*` to an earlier refused Run while the screen showed
+// a later successful analysis; the refused turn's empty `blocks: []` was
+// then read as "no analysis card / coaching rendered". A bundle must say
+// WHICH turn each section describes, in one place, so an empty payload can
+// never again read as absence.
+
+/**
+ * How a captured trace relates to the analysis the panels display.
+ *  - `delivered_displayed_analysis` — the turn whose response hydrated it.
+ *  - `carries_displayed_analysis`   — carries the same analysis but did not
+ *                                     deliver it (a later re-send, or a read).
+ *  - `other_analysis`               — carries a DIFFERENT analysis_result.
+ *  - `no_analysis_result`           — carried no analysis_result block.
+ *  - `nothing_displayed`            — `results.hash` is null; no relation.
+ *  - `not_captured`                 — no trace, or its id is not in the capture.
+ */
+export type AnalysisTraceRelation =
+  | 'delivered_displayed_analysis'
+  | 'carries_displayed_analysis'
+  | 'other_analysis'
+  | 'no_analysis_result'
+  | 'nothing_displayed'
+  | 'not_captured'
+
+export interface AnalysisIdentity {
+  readonly available: true
+  /** The canvas store's `results.hash` at capture — what the panels render. */
+  readonly results_hash: string | null
+  /** (a) What the chat last received: the newest buffered/streamed turn record. */
+  readonly latest_conversation_turn: {
+    readonly trace_id: string | null
+    readonly turn_kind: string | null
+    readonly outcome: ConversationTurnOutcome
+    readonly completed_at: number | null
+    readonly carried_analysis_result: boolean
+    readonly analysis_result_hash: string | null
+    readonly relation: AnalysisTraceRelation
+  } | null
+  /** (b) The analysis the panels show, and the captured turn that delivered it. */
+  readonly displayed_analysis: {
+    readonly found_in_capture: boolean
+    readonly trace_id: string | null
+    readonly turn_kind: string | null
+    readonly completed_at: number | null
+    readonly match: DisplayedAnalysisMatch | null
+    /** Every captured turn carrying this same analysis, oldest first. */
+    readonly carrier_trace_ids: readonly string[]
+  }
+  readonly displayed_analysis_is_from_turn: string | null
+  readonly latest_turn_carried_analysis: boolean
+  readonly latest_turn_is_displayed_analysis: boolean
+  /** The turn in `payloads.cee_request` / `cee_response`. */
+  readonly analysis_payload: { readonly trace_id: string | null; readonly relation: AnalysisTraceRelation }
+  /** The trace behind `analysis_evidence_trace` / `scientific_validation`. */
+  readonly analysis_evidence: { readonly trace_id: string | null; readonly relation: AnalysisTraceRelation }
+  /** One plain sentence stating the relationship, for a human reader. */
+  readonly statement: string
+}
+
+/**
+ * Relate each exported section to the latest turn and to the displayed
+ * analysis. Pure; reads only the capture it is given.
+ */
+export function describeAnalysisIdentity(args: {
+  payloads: ReadonlyArray<SelectorTracedPayload>
+  recentTurns: RecentConversationTurnsResult
+  resultsHash: string | null
+  analysisPayloadTraceId: string | null
+  analysisEvidenceTraceId: string | null
+}): AnalysisIdentity {
+  const resultsHash = args.resultsHash && args.resultsHash.length > 0 ? args.resultsHash : null
+  const displayed = locateDisplayedAnalysisTurn(args.payloads, resultsHash)
+  const byId = (id: string | null): SelectorTracedPayload | undefined =>
+    id === null ? undefined : args.payloads.find((p) => p.id === id)
+
+  const relate = (trace: SelectorTracedPayload | undefined): AnalysisTraceRelation => {
+    if (trace === undefined) return 'not_captured'
+    if (resultsHash === null) return 'nothing_displayed'
+    if (displayed.trace !== undefined && trace === displayed.trace) return 'delivered_displayed_analysis'
+    if (matchDisplayedAnalysis(trace, resultsHash) !== null) return 'carries_displayed_analysis'
+    return readAnalysisResultContentHash(trace) !== null ? 'other_analysis' : 'no_analysis_result'
+  }
+
+  const latestRecord = args.recentTurns.turns.find(
+    (t) => t.transport_kind === 'buffered_turn' || t.transport_kind === 'streamed_terminal_ingest',
+  )
+  const latestTrace = latestRecord ? byId(latestRecord.trace_id) : undefined
+  const latestRelation: AnalysisTraceRelation = latestRecord ? relate(latestTrace) : 'not_captured'
+  const displayedRecord = displayed.trace_id
+    ? args.recentTurns.turns.find((t) => t.trace_id === displayed.trace_id)
+    : undefined
+
+  const payloadRelation = relate(byId(args.analysisPayloadTraceId))
+  const evidenceRelation = relate(byId(args.analysisEvidenceTraceId))
+
+  const describe = (r: AnalysisTraceRelation): string =>
+    r === 'no_analysis_result' ? 'carried no analysis_result block'
+      : r === 'other_analysis' ? 'carried a different analysis'
+        : r === 'carries_displayed_analysis' ? 're-sent the same analysis'
+          : r === 'delivered_displayed_analysis' ? 'delivered the displayed analysis'
+            : r === 'nothing_displayed' ? 'cannot be related to a displayed analysis'
+              : 'is not in the capture'
+  let statement: string
+  if (resultsHash === null) {
+    statement = 'No analysis is displayed (results.hash is null), so no exported section describes a displayed analysis.'
+  } else if (displayed.trace === undefined) {
+    statement =
+      `The displayed analysis (results.hash ${resultsHash}) is not in the captured turns. ` +
+      `payloads.cee_* is turn ${args.analysisPayloadTraceId ?? 'none'}, which ${describe(payloadRelation)}` +
+      (payloadRelation === 'no_analysis_result'
+        ? ' — its empty analysis fields describe that turn, not the displayed analysis.'
+        : '; it is not the displayed analysis.')
+  } else if (latestRelation === 'delivered_displayed_analysis') {
+    statement = `The latest conversation turn (${displayed.trace_id}) delivered the displayed analysis; payloads.cee_* is that turn.`
+  } else {
+    statement =
+      `The displayed analysis was delivered by turn ${displayed.trace_id}, not by the latest conversation turn ` +
+      `(${latestRecord?.trace_id ?? 'none'}), which ${describe(latestRelation)}. ` +
+      `payloads.cee_* is turn ${args.analysisPayloadTraceId ?? 'none'}, which ${describe(payloadRelation)}.`
+  }
+
+  return {
+    available: true,
+    results_hash: resultsHash,
+    latest_conversation_turn: latestRecord
+      ? {
+          trace_id: latestRecord.trace_id,
+          turn_kind: latestRecord.turn_kind,
+          outcome: latestRecord.outcome,
+          completed_at: latestRecord.completed_at ?? null,
+          carried_analysis_result: latestRecord.carried_analysis_result,
+          analysis_result_hash: latestRecord.analysis_result_hash,
+          relation: latestRelation,
+        }
+      : null,
+    displayed_analysis: {
+      found_in_capture: displayed.trace !== undefined,
+      trace_id: displayed.trace_id,
+      turn_kind: displayed.trace ? readTurnOrActionType(displayed.trace) : null,
+      completed_at: displayedRecord?.completed_at ?? displayed.trace?.completedAt ?? null,
+      match: displayed.match,
+      carrier_trace_ids: displayed.carrier_trace_ids,
+    },
+    displayed_analysis_is_from_turn: displayed.trace_id,
+    latest_turn_carried_analysis: latestRecord?.carried_analysis_result ?? false,
+    latest_turn_is_displayed_analysis: latestRelation === 'delivered_displayed_analysis',
+    analysis_payload: { trace_id: args.analysisPayloadTraceId, relation: payloadRelation },
+    analysis_evidence: { trace_id: args.analysisEvidenceTraceId, relation: evidenceRelation },
+    statement,
   }
 }
