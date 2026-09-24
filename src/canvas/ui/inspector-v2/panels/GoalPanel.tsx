@@ -80,13 +80,26 @@ export const INSPECTOR_GOAL_REASON =
 type GoalTargetCommitOutcome = Parameters<SuccessTargetLineProps['onCommitOutcome']>[0]
 
 /**
+ * ⛔ THE ONE RECEIPT THIS PANE DOES NOT BORROW (independent review of #1954,
+ * 5820109030). `dispatched` means `add_constraint` was HANDED to the
+ * conversation, not that anything was written: it is an LLM-mediated tool, and
+ * in OpenAI mode no goal-target writer exists (#63 5818078809 — served
+ * `goal_threshold_raw` unchanged). The register's "The shared model updates when
+ * it answers" then promised an outcome the reply contradicted, and it stayed
+ * under the control. The reply is the one surface that knows, so the receipt
+ * points at it and promises nothing.
+ */
+export const INSPECTOR_GOAL_TARGET_DISPATCHED = 'Sent to Olumi. Its reply says whether the target was recorded.'
+
+/**
  * What the pane says after a target commit — the Model tab's OWN sentences
  * (`ModelStrip` shows the same five through a toast), read from the register
- * rather than re-typed. A `Record` over the control's outcome union, so a sixth
- * outcome fails the typecheck instead of borrowing one of these.
+ * rather than re-typed, EXCEPT `dispatched` (above). A `Record` over the
+ * control's outcome union, so a sixth outcome fails the typecheck instead of
+ * borrowing one of these.
  */
 const GOAL_TARGET_RECEIPT: Record<GoalTargetCommitOutcome, string> = {
-  dispatched: ANALYSIS_NEW_COPY.successTarget.dispatched,
+  dispatched: INSPECTOR_GOAL_TARGET_DISPATCHED,
   local_only: ANALYSIS_NEW_COPY.successTarget.changedLocally,
   no_unit: ANALYSIS_NEW_COPY.successTarget.noUnit,
   not_a_number: ANALYSIS_NEW_COPY.successTarget.notANumber,

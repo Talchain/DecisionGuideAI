@@ -185,10 +185,19 @@ describe('a stated target DISPATCHES add_constraint through proposeGoalTarget', 
     expect(useCanvasStore.getState().goalThreshold).toBeNull()
   })
 
-  it('says what happened, in the Model tab\'s own register', async () => {
+  /**
+   * ⛔ THE RECEIPT PROMISES NO OUTCOME (independent review of #1954, 5820109030).
+   * `dispatched` means `add_constraint` was HANDED to the conversation — an
+   * LLM-mediated tool that, in OpenAI mode, has no goal-target writer (#63
+   * 5818078809: `goal_threshold_raw` unchanged). "The shared model updates when
+   * it answers" then sat under the control contradicting both the reply and the
+   * model. The reply is the only surface that knows; the receipt points at it.
+   */
+  it('says it was SENT and that the reply says whether it was recorded — never that the model will update', async () => {
     openGoal()
     await stateTarget('30000')
-    expect(screen.getByText('Sent to Olumi. The shared model updates when it answers.')).toBeTruthy()
+    expect(screen.getByText('Sent to Olumi. Its reply says whether the target was recorded.')).toBeTruthy()
+    expect(screen.queryByText(/shared model updates/i)).toBeNull()
   })
 
   it('NEGATIVE CONTROL — an unreadable draft dispatches nothing', async () => {
