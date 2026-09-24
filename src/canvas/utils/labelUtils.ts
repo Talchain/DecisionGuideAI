@@ -171,7 +171,10 @@ export function sentenceCaseFactorLabel(label: string): string {
  * so we never cut a word in half.
  */
 function truncateLabelAtWord(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
+  // The ellipsis costs a character, so a label ONE over the budget cut to
+  // `maxLength` + "…" is no shorter than the label itself — it would only break
+  // a word ("Developer headcoun…", S5 24 Sep). Return it whole.
+  if (text.length <= maxLength + 1) return text
   const truncated = text.substring(0, maxLength)
   const lastSpace = truncated.lastIndexOf(' ')
   return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '…'
