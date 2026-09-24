@@ -18,7 +18,7 @@
  * `contractV31Frame`/`gap17` harness), never a text predicate another card
  * could also satisfy.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { Circle } from 'lucide-react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
