@@ -631,8 +631,12 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * transcription puts the right hash on the wrong starter.
    */
   /*
-   * ⛔⛔ S4 (24 Sep 2026) MOVES ALL FIVE DIGESTS, AND THEY ARE DELIBERATELY NOT
-   * RE-RECORDED IN THE CHANGE THAT MOVES THEM. The lane building S4 is barred
+   * ⛔⛔ S4 (24 Sep 2026) MOVES ALL FIVE DIGESTS. RE-RECORDED IN ITS OWN COMMIT
+   * (not the one that moves them), each bound by its OLD value, after the
+   * property a digest cannot see was measured: `s4NoSameRowOverlap.spec.ts`
+   * (no same-row overlap at rendered widths, prompts included, all 5 starters;
+   * mutant-checked). Acceptance of the shape is the reviewer's (NOT LOW).
+   * The note below records why they were first left RED. The lane building S4 is barred
    * from re-recording a baseline, and this block's own rule is that "a moved
    * digest is a product decision" — so the re-record belongs to the reviewer who
    * accepts the shape, and until then these five REDs are the honest signal.
@@ -657,11 +661,11 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * and every outcome still resolves to ONE shared consequence row per starter.
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '3c2e3ad2c525b607', nodes: 19 },
-    'market-entry': { digest: '899d3f0d5a81fa0e', nodes: 18 },
-    'build-vs-buy': { digest: 'c8ecbb11c30ac473', nodes: 19 },
-    'headcount-allocation': { digest: '5c99476037d50074', nodes: 16 },
-    'pricing-model': { digest: '87272681d95fac2e', nodes: 15 },
+    'vendor-selection': { digest: '93eaf450b37e9023', nodes: 19 },
+    'market-entry': { digest: '1b644425bfba13ab', nodes: 18 },
+    'build-vs-buy': { digest: 'f49583b6b3f9f787', nodes: 19 },
+    'headcount-allocation': { digest: '9ba90d91d0959a30', nodes: 16 },
+    'pricing-model': { digest: '9147cbd570b5a117', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(
