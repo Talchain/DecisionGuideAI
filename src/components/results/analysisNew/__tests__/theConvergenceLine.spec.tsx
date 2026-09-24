@@ -27,6 +27,15 @@
  *       unusable ones onto one fallback string — so a label comparison answers a
  *       different question and is right most of the time, which is the worst
  *       kind of wrong. The same-label-different-id case is the discriminator.
+ *
+ * ── ⛔ V2 (716b8e67, 24 Sep 2026): A FIFTH SILENCE — THE LEADER IS WITHHELD ──
+ * "…they all point the same way in this model: towards <option>" presupposes a
+ * current leader, so the body renders the line ONLY when `leaderClaimPermitted`
+ * (DATA-MAP truth risk 1). `manyFragileEdges` publishes no licence, which left
+ * every case here reading `null` for the gate's reason — the four silences were
+ * green WITHOUT exercising their own rule. So every case now runs on a
+ * PERMITTED run, and the withheld twin at the end asserts the line is ABSENT on
+ * the shape that otherwise produces it.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -72,9 +81,22 @@ const renderBody = (data: ResultsSectionDataReturn) => {
 
 type Alt = { id: string; label: string } | null
 
-/** `alts` is applied in producer order, one per SENSITIVE_ASSUMPTION row. */
-const withAlternatives = (alts: readonly Alt[]): ResultsSectionDataReturn => {
-  const data = manyFragileEdges()
+/**
+ * `alts` is applied in producer order, one per SENSITIVE_ASSUMPTION row.
+ * `permitted` sets the leader licence — the composed answer and its Q2
+ * conjunct, moved TOGETHER (see `decisionWithLeaderWithheld`). Nothing else
+ * differs between a permitted and a withheld run here.
+ */
+const withAlternatives = (alts: readonly Alt[], permitted = true): ResultsSectionDataReturn => {
+  const base = manyFragileEdges()
+  const data = {
+    ...base,
+    recommendation: {
+      ...base.recommendation,
+      leaderDesignationPermitted: permitted,
+      verdict: { hasLeadingOption: permitted },
+    },
+  } as ResultsSectionDataReturn
   const rows = data.confidence.uncertainties.filter((u) => u.code === 'SENSITIVE_ASSUMPTION')
   expect(rows.length, 'precondition: the fixture emits fragile-edge rows').toBeGreaterThanOrEqual(alts.length)
   let i = 0
@@ -178,6 +200,24 @@ describe('the convergence line', () => {
         { id: 'opt_a', label: 'Hold Price at Current Level' },
       ]),
     )
+    expect(line()).not.toBeNull()
+  })
+
+  it('⛔ THE LEADER IS WITHHELD — the agreeing shape states nothing', () => {
+    // The same three agreeing rows as the first case; only the licence moves.
+    const AGREE = [
+      { id: 'opt_hold', label: 'Hold Price at Current Level' },
+      { id: 'opt_hold', label: 'Hold Price at Current Level' },
+      { id: 'opt_hold', label: 'Hold Price at Current Level' },
+    ]
+    renderBody(withAlternatives(AGREE, false))
+    expect(line(), '"towards <option>" names an order a withheld run may not state').toBeNull()
+    // Contrast, same run: the section and its rows ARE on screen, so the null is
+    // the gate and not an absent section.
+    expect(screen.queryAllByTestId('analysis-new-sensitivity-row')).toHaveLength(3)
+    cleanup()
+    // …and the permitted twin of exactly this shape DOES render it.
+    renderBody(withAlternatives(AGREE, true))
     expect(line()).not.toBeNull()
   })
 })

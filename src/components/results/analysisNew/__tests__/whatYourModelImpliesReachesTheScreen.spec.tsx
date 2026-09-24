@@ -306,22 +306,35 @@ describe('the implication block reaches a screen', () => {
    * ⭐ V2 RE-POINT (was a source scan for `isStale={vm.status.isStale}` and
    * `targetAskedElsewhere={stripOffersTarget}` on the card's mount).
    *
-   * Staleness: the commitment zone states it ONCE, above the bullets, with the
-   * panel's own marker (`synthesis.describesLastRun` ← `vm.status.isStale`), so
-   * the lead is never asserted about the current model unqualified. The fresh
-   * twin carries no marker — a marker that stamps every render means nothing.
+   * ⭐ RE-POINTED AGAIN (40692c55 / 716b8e67, V2 census B3): the commitment
+   * block no longer carries its own stale marker (`analysis-new-commitment-stale`
+   * is gone). The glance's freshness ribbon is the ONE freshness statement on a
+   * stale post-run tab, and it states which staleness it is; the block's
+   * "From an earlier run" said it a second time and asserted a changed model on
+   * runs we only cannot confirm. So: a stale run shows the ribbon ONCE, above
+   * the claim, and the commitment block adds no marker; the fresh twin shows no
+   * ribbon — a marker that stamps every render means nothing.
    */
-  it('THE WIRING: a stale run qualifies the implication in the commitment zone; a fresh one does not', () => {
+  it('THE WIRING: a stale run shows the glance ribbon once and the commitment block adds no marker', () => {
     cleanup()
     renderTab(divergingRun(), true)
-    const stale = screen.getByTestId(`${COMMIT}-stale`)
-    expect(stale.textContent).toBe(COPY.markers.stale)
-    expect(precedes(stale, screen.getByTestId(FOUNDED)), 'the qualifier comes before the claim').toBe(true)
+    const ribbons = screen.getAllByTestId('analysis-new-status-stale')
+    expect(ribbons, 'the freshness statement is made exactly once').toHaveLength(1)
+    expect(ribbons[0].textContent).toBe(COPY.status.stale)
+    const body = screen.getByTestId('analysis-new-tab-body').textContent ?? ''
+    expect(body.split(COPY.status.stale).length - 1, 'the ribbon sentence is on screen once').toBe(1)
+    expect(precedes(ribbons[0], screen.getByTestId(FOUNDED)), 'the qualifier comes before the claim').toBe(true)
+    const commitment = screen.getByTestId(COMMIT)
+    expect(commitment, 'PRECONDITION: the block holds the claim').toContainElement(screen.getByTestId(FOUNDED))
+    expect(screen.queryByTestId(`${COMMIT}-stale`), 'the retired marker stays retired').toBeNull()
+    expect(commitment.textContent ?? '', 'the block adds no freshness marker of its own').not.toContain(COPY.markers.stale)
+    expect(commitment.textContent ?? '').not.toContain(COPY.status.stale)
 
     cleanup()
     renderTab(divergingRun(), false)
     expect(screen.getByTestId(FOUNDED), 'PRECONDITION: the bullet renders').toBeInTheDocument()
-    expect(screen.queryByTestId(`${COMMIT}-stale`)).toBeNull()
+    expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-status-freshness-unknown')).toBeNull()
   })
 
   /**

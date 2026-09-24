@@ -42,14 +42,24 @@
  * the same strip suppression; "Strengthen the reasoning" is no longer mounted
  * here and the displaced recommendation lives in `ModelReviewTool`'s queue
  * (`analysis-new-review`). Selectors are re-pointed; the claims are unchanged.
- * ⛔ "states the missing target exactly once" is deliberately NOT re-pointed:
- * V2's commitment "Before committing" bullet re-promotes the same finding the
- * strip owns, so the invariant fails on the product (reported, not edited).
+ *
+ * ⭐ "ASKED EXACTLY ONCE" — RE-POINTED AFTER 716b8e67 FIXED THE PRODUCT. It was
+ * left RED while V2's commitment "Before committing" bullet re-promoted the
+ * finding the strip owns (two in-panel asks). 716b8e67 excludes it there when
+ * `stripOffersTarget`, and the count is re-pointed to V2's shape:
+ *   · the recommendation's in-panel home is the review queue item, which prints
+ *     its `whyNow` as the one reason line, NOT its `signal` — so the old probe
+ *     ("No measurable success target is set.") reads 0 on V2 by design and
+ *     cannot tell one from none;
+ *   · so the count is of the recommendation's TITLE, read off the review item
+ *     found BY ID (`data-review-key`) rather than retyped, across every element
+ *     that could print it — Challenge card heading, commitment bullet 3, review
+ *     item — with the strip's own control asserted on screen beside it.
  */
 
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -215,23 +225,33 @@ describe('with a goal — the strip owns the ask, and the glance does not repeat
   })
 
   /**
-   * ⭐ AND THE SENTENCE IS NOW SAID ONCE. Scoped to the with-goal case on
-   * purpose — see the header. Counted by OWN text nodes so it is attributed to
-   * the element that prints it rather than to every ancestor containing it.
+   * ⭐ AND THE ASK IS NOW MADE ONCE. Scoped to the with-goal case on purpose —
+   * see the header. Counted by OWN text nodes so it is attributed to the
+   * element that prints it rather than to every ancestor containing it.
    */
   it('states the missing target exactly once inside the panel', () => {
     const { container } = renderPanel()
-    const toggle = screen.queryByTestId('analysis-new-strengthen-toggle')
-    if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-    let hits = 0
+    // PRECONDITION: the strip's control is the at-rest ask this one sits beside.
+    expect(screen.getByTestId('analysis-new-model-strip-target-edit')).toBeInTheDocument()
+    // The review queue item, found BY ID, and the title it prints — derived,
+    // so a copy change in the builder moves both sides at once.
+    const item = reviewItemFor(SUCCESS_MEASURE_RECOMMENDATION_ID)
+    expect(item, 'PRECONDITION: the recommendation is in the review queue').not.toBeNull()
+    const title = (within(item!).getByTestId('analysis-new-review-name').textContent ?? '').trim()
+    expect(title, 'PRECONDITION: the item names the recommendation').not.toBe('')
+    const printedBy: string[] = []
     container.querySelectorAll('*').forEach((el) => {
       const own = Array.from(el.childNodes)
         .filter((n) => n.nodeType === Node.TEXT_NODE)
         .map((n) => n.textContent ?? '')
         .join('')
-      if (own.includes('No measurable success target is set.')) hits += 1
+      if (own.includes(title)) {
+        printedBy.push(el.closest('[data-testid]')?.getAttribute('data-testid') ?? el.tagName)
+      }
     })
-    expect(hits).toBe(1)
+    expect(printedBy, 'the ask must be made once — by the review item, not also the card or bullet 3').toEqual([
+      'analysis-new-review-name',
+    ])
   })
 })
 
