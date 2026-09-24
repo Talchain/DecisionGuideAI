@@ -157,10 +157,37 @@ test(`ROS ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ pag
    * figure the independent review derived at module level, arrived at here
    * through the product in a real browser.
    */
-  expect(
-    before.pairs,
-    'the rolled-back board does NOT overlap, so "zero overlaps after reload" proves nothing — the fixture has stopped reproducing the defect',
-  ).toBeGreaterThan(0)
+  /**
+   * ⭐ S4/S5 (24 Sep 2026): THE PRE-RELOAD OVERLAP CANNOT BE REPRODUCED ANY MORE,
+   * AND THAT IS ARITHMETIC, NOT A BROKEN FIXTURE. The overlap measured at
+   * `5a825c1e0` came from per-tier widths (options at 440) WIDER than the old
+   * uniform stride (336 + 56 = 392). S4 set every repeated card to 260
+   * (`REPEATED_CARD_W`), below the old uniform 336, so an old-save board drawn
+   * at today's widths leaves gaps on every row — before the reload as well as
+   * after it. `before.pairs > 0` can therefore never hold, and asserting it
+   * failed the Canvas Browser Gate on #1932.
+   *
+   * What still matters is the defect's MECHANISM: a restore that widens cards
+   * past the stride their own saved positions leave. That is asserted directly
+   * below (every multi-card row's widest card fits its saved stride), with the
+   * overlap detector's non-vacuity proved by a PLANTED overlap instead of by
+   * the fixture — the same "can the probe see a presence" control, no longer
+   * dependent on the widths of the day.
+   */
+  const planted = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('.react-flow__node[data-id]')] as HTMLElement[]
+    const a = cards.find((c) => c.offsetWidth > 0)
+    if (!a) return { pairs: 0 }
+    const r = a.getBoundingClientRect()
+    // Two boxes: the card and a copy shifted by half its width → they overlap.
+    const A = { x: r.left, y: r.top, w: r.width, h: r.height }
+    const B = { x: r.left + r.width / 2, y: r.top, w: r.width, h: r.height }
+    const ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x)
+    const oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y)
+    return { pairs: ox > 0 && oy > 0 ? 1 : 0 }
+  })
+  expect(planted.pairs, 'the overlap arithmetic cannot see a planted overlap — "zero overlaps" would prove nothing').toBe(1)
+  expect(before.nodes, 'the rolled-back board rendered no cards').toBeGreaterThan(0)
 
   // ⛔ NON-VACUITY FIRST. A zero-node canvas reports zero overlapping pairs,
   // which reads exactly like success; and a board that has been re-laid-out is
@@ -172,5 +199,23 @@ test(`ROS ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ pag
     after.pairs,
     `a board saved at the OLD uniform width overlaps after reopening: ${JSON.stringify(after.worst)}. The restore path widened cards past the stride their own saved positions leave.`,
   ).toBe(0)
+
+  // The mechanism, asserted directly: on every row holding two or more cards,
+  // the widest restored card fits the stride its saved positions leave.
+  const rows = new Map<number, Array<{ x: number; w: number; id: string }>>()
+  for (const n of after.nodeList) (rows.get(n.y) ?? rows.set(n.y, []).get(n.y)!).push({ x: n.x, w: n.w, id: n.id })
+  const tooWide: string[] = []
+  let multiCardRows = 0
+  for (const [, row] of rows) {
+    if (row.length < 2) continue
+    multiCardRows++
+    const xs = [...row].sort((p, q) => p.x - q.x)
+    for (let i = 1; i < xs.length; i++) {
+      const stride = xs[i].x - xs[i - 1].x
+      if (xs[i - 1].w > stride) tooWide.push(`${xs[i - 1].id}: w ${xs[i - 1].w} > saved stride ${stride}`)
+    }
+  }
+  expect(multiCardRows, 'no row holds two cards — the stride check compared nothing').toBeGreaterThan(0)
+  expect(tooWide, 'a restored card is wider than the stride its saved positions leave').toEqual([])
 })
 })
