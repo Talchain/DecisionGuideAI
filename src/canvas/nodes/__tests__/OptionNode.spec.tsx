@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { changeRow } from './__helpers__/optionChangeRowText'
 import { optionOrdinalBadgeAccessibleName, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
@@ -420,7 +421,9 @@ describe('OptionNode', () => {
     )
     renderOption()
     // 0.3 × 20 = 6 baseline, 0.804 × 20 = 16.08… → rounded whole counts.
-    expect(screen.getByText('6 developers → 16 developers')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('6 developers → 16 developers'))).toBeDefined()
     // No float-precision artefact leaks anywhere.
     expect(screen.queryByText((t: string) => t.includes('16.080'))).toBeNull()
   })
@@ -442,9 +445,12 @@ describe('OptionNode', () => {
     )
     renderOption()
     // 0.1 × 10 = 1 baseline, 0.15 × 10 = 1.5 → FTE keeps the fraction.
-    expect(screen.getByText((t: string) => t.includes('1 FTE') && t.includes('1.5 FTE'))).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow(/1 FTE.*1\.5 FTE/))).toBeDefined()
     // It must NOT be rounded to a whole number.
     expect(screen.queryByText((t: string) => /\b2 FTE\b/.test(t))).toBeNull()
+    expect(screen.queryByText(changeRow(/\b2 FTE\b/))).toBeNull()
   })
 
   // Scope A: a binary factor (0→1) with CEE display labels on BOTH sides —
@@ -469,9 +475,12 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.getByText('No tech lead in place → Tech lead in place')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('No tech lead in place → Tech lead in place'))).toBeDefined()
     // Neither the numeric fallback nor an invented "… active" heuristic appears.
     expect(screen.queryByText((t: string) => t.includes('0%') && t.includes('100%'))).toBeNull()
+    expect(screen.queryByText(changeRow(/0%.*100%/))).toBeNull()
   })
 
   // Scope A guard: a binary chip WITHOUT payload labels keeps its existing
@@ -503,7 +512,9 @@ describe('OptionNode', () => {
     // 'Low' for a 0.4 target would render "0% → Low", mixing two frames in one
     // chip. The real fix for this factor is an encoding_map or a binary
     // factor_type, not a reinstated percentage. Flagged for review.
-    expect(screen.getByText((t: string) => t.includes('Very low') && t.includes('Very high') && t.includes('→'))).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow(/Very low.*→.*Very high/))).toBeDefined()
     // Scope A's both-labels branch did NOT fire: no fabricated target label.
     expect(screen.queryByText((t: string) => t.includes('→ Tech lead in place'))).toBeNull()
   })
@@ -529,7 +540,9 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.getByText('Tech lead in place → No tech lead in place')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('Tech lead in place → No tech lead in place'))).toBeDefined()
   })
 
   it('does not borrow the factor observed label as an option reference', async () => {
@@ -552,6 +565,9 @@ describe('OptionNode', () => {
     const targets = await screen.findAllByText('Tech lead in place')
     expect(targets.some(element => element.classList.contains('font-semibold'))).toBe(true)
     expect(screen.queryByText('No tech lead in place → Tech lead in place')).toBeNull()
+    // contract v3.1 OPT-03: the card row is checked by identity too, or the
+    // negative above would pass vacuously on a split row.
+    expect(screen.queryByText(changeRow('No tech lead in place → Tech lead in place'))).toBeNull()
   })
 
   it('has displayName set', () => {
@@ -1374,7 +1390,9 @@ describe('OptionNode', () => {
       voiRank: null,
     })
     const { container } = renderOption()
-    const bar = container.querySelector('.bg-option.rounded-full') as HTMLElement | null
+    // contract v3.1 OPT-01: the run bar's fill is neutral `bg-text-light`, the
+    // factor driver bar's own token — no longer the option kind colour.
+    const bar = container.querySelector(`[data-testid="option-analysis-currency-option-1"] .bg-text-light.rounded-full`) as HTMLElement | null
     expect(bar).not.toBeNull()
     expect(bar?.style.width).toBe('max(4px, 2%)')
   })
@@ -2467,7 +2485,9 @@ describe('OptionNode — display coherence (audit §8)', () => {
     )
     renderOption()
     // Pills render the from→to data…
-    expect(screen.getByText('40% → 80%')).toBeDefined()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('40% → 80%'))).toBeDefined()
     // …and the duplicated inline list is gone.
     expect(screen.queryByText('Interventions:')).toBeNull()
   })
@@ -3028,8 +3048,10 @@ describe('OptionNode — pre-analysis delta rows', () => {
   it('⭐ never shortens the VALUE, however long it is', () => {
     renderOption()
     // 40% → 80% for the long factor; the value renders complete and verbatim.
-    expect(screen.getByText('40% → 80%')).toBeInTheDocument()
-    expect(screen.getByText('50% → 90%')).toBeInTheDocument()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // value is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow('40% → 80%'))).toBeInTheDocument()
+    expect(screen.getByText(changeRow('50% → 90%'))).toBeInTheDocument()
   })
 
   it('⭐ renders the label and its value as SEPARATE elements, so they cannot run together', () => {
@@ -3037,7 +3059,7 @@ describe('OptionNode — pre-analysis delta rows', () => {
     // "Low (0) → Very high (1)" read as one string, "market entryLow (0)".
     renderOption()
     const label = screen.getByText('Enterprise revenue…')
-    const value = screen.getByText('40% → 80%')
+    const value = screen.getByText(changeRow('40% → 80%'))
     expect(label).not.toBe(value)
     expect(label.contains(value)).toBe(false)
     expect(value.contains(label)).toBe(false)

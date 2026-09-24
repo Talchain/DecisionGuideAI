@@ -1982,27 +1982,6 @@ export const OptionNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Win probability — bar and percentage on ONE line (post-analysis, both views).
-            ⭐ WHY THIS IS ONE LINE AND NOT TWO (Paul, 31 Aug 2026): "Saying the
-            same copy on every node is a waste of space… It should show the bar
-            with the percentage next to it to save space." Five option cards
-            each carried the identical ratified sentence and only the number
-            varied, so four fifths of that block was repetition — and on a
-            canvas card the sentence wraps to two or three lines at the
-            legibility floor.
-
-            THE SENTENCE IS NOT DROPPED, because the number alone does not say
-            what it measures. It survives twice:
-              · in the positioned tooltip on hover or keyboard focus;
-              · in the row's accessible name, including any currentness caveat.
-            The bar is deliberately a focusable graphic for keyboard disclosure.
-            Its role makes descendants presentational, so aria-label is the
-            single accessible name; an additional screen-reader-only child
-            would not provide another announcement.
-
-            The copy is never re-typed here: it comes from
-            `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
-            which is the ratified wording and the one owner of it. */}
         {/* ⭐⭐ MOVED ABOVE THE SUPPORT SCORE, 17 Sep 2026 — RULE 2.
            Node design system: *"The node's own unit comes before any score."*
            And the anatomy: *"The node's own value in its own unit comes first…
@@ -2040,20 +2019,37 @@ export const OptionNode = memo((props: NodeProps) => {
            ⚠ AND IT IS A REORDER, NOT A PROMOTION: `structuredDeltaChipsRender`
            keeps its own gate, so a card with no structured deltas renders
            exactly what it renders today, in the order it renders it. */}
+        {/* ⭐ CONTRACT v3.1 ROW GRAMMAR (OPT-04/05, RHY-04, T08 b+c) —
+            `.node .delta-rows{grid-template-columns:minmax(0,1fr) auto;
+            gap:4px 8px;font-size:11px;line-height:1.2}`, kept inside the
+            served card's bounds:
+              · LABEL takes whatever the amount does not need (`minmax(0,1fr)`),
+                so a short target ("→ 1 brief") hands its width back and the
+                label stops wrapping at 40%.
+              · AMOUNT hugs its content but is CAPPED at the old 3fr share,
+                `(100% − gap) × 0.6`, so it never gets narrower than it was and
+                the label never gets narrower than its old 2fr — neither cell
+                can wrap more than before. `min-w-0` lets `break-words` keep
+                wrapping a long value (ED 02:31Z D2: values wrap, never cut)
+                instead of a long word widening the column past the cap.
+              · Both halves at the 11px label size, `!leading-tight` (the
+                token carries `leading-snug`, which sorts later), 4px row gap.
+                Net height per card can only fall: −2px top margin, and each
+                line saves more than the extra 2px row gap. */}
         {changeRows.length > 0 && (
-          <div className="mt-1.5" data-testid={`option-change-rows-${props.id}`}>
-            <dl className="m-0 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-baseline gap-x-2 gap-y-0.5">
+          <div className="mt-1" data-testid={`option-change-rows-${props.id}`}>
+            <dl className="m-0 grid grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))] items-baseline gap-x-2 gap-y-1">
               {changeRows.map(r => (
                 <Fragment key={r.factorId}>
                   <dt
-                    className={`${typography.edgeLabel} min-w-0 break-words text-text-light`}
+                    className={`${typography.edgeLabel} !leading-tight min-w-0 break-words text-text-light`}
                     title={r.fullLabel !== r.label ? r.fullLabel : undefined}
                   >
                     <span aria-hidden={r.fullLabel !== r.label ? true : undefined}>{r.label}</span>
                     {r.fullLabel !== r.label && <span className={typography.screenReaderOnly}>{r.fullLabel}</span>}
                   </dt>
                   <dd
-                    className={`${typography.nodeLabel} m-0 break-words text-right text-text-body`}
+                    className={`${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words text-right text-text-body`}
                     data-testid={`option-change-row-${props.id}-${r.factorId}`}
                     title={[
                       `${r.fullLabel}: ${r.fullChange}.`,
@@ -2066,7 +2062,26 @@ export const OptionNode = memo((props: NodeProps) => {
                       r.estimated ? null : `Target: ${r.targetSource.label.toLowerCase()}.`,
                     ].filter(Boolean).join(' ')}
                   >
-                    {r.change}
+                    {/* Contract v3.1 OPT-03: `<span class="before">…</span> → target`
+                        — the value it starts FROM is muted; the arrow and the
+                        target stay ink (the contract keeps both outside
+                        `.before`), so the eye lands on what the option sets.
+                        Only a `from → to` row splits. A target-only row ("→ 80%"),
+                        a direction-only row and a same-as-baseline row render
+                        `r.change` whole, exactly as before. The dd's text is
+                        byte-identical to `r.change` either way. */}
+                    {r.before !== undefined && r.after !== undefined ? (
+                      <>
+                        <span
+                          className="text-text-light"
+                          data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
+                        >
+                          {r.before}
+                        </span>
+                        {' → '}
+                        {r.after}
+                      </>
+                    ) : r.change}
                     {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
                         whether 7% came from you / Olumi / brief. Olumi keeps the
                         served `est.` (and its test id); every OTHER source carries
@@ -2102,7 +2117,12 @@ export const OptionNode = memo((props: NodeProps) => {
             {changeRowsMore > 0 && (
               <button
                 type="button"
-                className={`nodrag nopan ${typography.edgeLabel} mt-0.5 block text-left text-text-light underline decoration-dotted decoration-from-font underline-offset-2 hover:decoration-solid`}
+                /* Contract v3.1 OPT-10 (`.node .inline-more{color:var(--info)}`)
+                   + DS v5 §8.7 links: an action reads as a link — `text-info`,
+                   no resting underline, underline on hover/focus — like every
+                   other link on this card. RHY-04: 4px above it, the body's
+                   one rhythm. */
+                className={`nodrag nopan ${typography.edgeLabel} mt-1 block text-left text-info no-underline underline-offset-2 hover:underline focus-visible:underline`}
                 data-testid={`option-change-more-${props.id}`}
                 aria-label={`${optionTargetsChannels({ count: totalInterventionCount }).full} ${changeRowsMore} more not shown on the card.`}
                 onPointerDown={(e) => e.stopPropagation()}
@@ -2118,10 +2138,182 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* Pre-analysis: structured deltas — one ROW per change.
+            ⭐ THIS REPLACED WRAPPING PILLS, AND THE MEASUREMENT IS THE REASON.
+            Captured in Chromium at 1280x800 on the five shipped starters
+            (30 Aug 2026), where every starter's auto-fit clamps at the 0.50
+            legibility floor, so `--canvas-label-scale` is 2 and an 11px label
+            renders at 22px inside a 244px card — roughly 19 characters a line.
+
+            Each delta was an `inline-flex` pill sized to the card's content
+            box, so its text wrapped INSIDE a rounded border: measured pill
+            heights of 59/87/114/142/169px are 2/3/4/5/SIX wrapped lines. A
+            six-line rounded pill is not a pill; it reads as a broken box. And
+            `gap-0.5` put 2px between the label and its value at 22px type, so
+            "Germany market entry" and "Low (0) → Very high (1)" ran together
+            as "market entryLow (0)".
+
+            ⚠ WHAT THIS DELIBERATELY DOES NOT DO, because the same measurement
+            ruled it out: the approved brief was "one line per change, label
+            truncates, value NEVER truncates". At 19 characters a line, values
+            like "No in-house build pursued → Very high (1)" exceed a whole
+            line BEFORE any label. One line per change is therefore unbuildable
+            without truncating values, which the brief forbids — so the value
+            keeps as many lines as it needs and the LABEL gets its own line.
+
+            ⚠ AND THE HONEST SIZE OF THE WIN: removing the chrome recovers
+            about 3px of padding and border per row, ~5% of the block. This is
+            a LEGIBILITY change, not a density one. First-view legibility is
+            height-bound at the GRAPH level (build-vs-buy lays out 2693 units
+            against ~1600 showable) and no card change reaches that. */}
+
+        {/* Polish 4 Task 5: differentiator line — what's strategically unique
+            about this option vs the others. Standard view only (Detailed
+            already shows the full intervention list).
+
+            ⭐ SURVIVES THE RUN NOW. It used to be gated `!isPostAnalysis`, so
+            analysing the model deleted the reason from every card.
+
+            ⚠ SUPPRESSED ONLY WHERE THE "Behind:" LINE IS ACTUALLY RENDERING,
+            and the condition is spelled to MATCH that render exactly rather
+            than re-derived — `isPostAnalysis && !isRecommended && behindReason`
+            is the same expression the Behind block below uses. Two spellings of
+            one question is how these two lines would drift into contradicting
+            each other. Where Behind renders, it already names the key factor
+            ("no X added" / "X lower") and this line would repeat it.
+
+            ⚠ WHERE IT DOES NOT RENDER, THIS LINE IS USUALLY — NOT ALWAYS — THE
+            ONLY STATEMENT OF WHICH FACTOR IS KEY. An earlier draft of this
+            comment said EVERY option when the leader is withheld, and an
+            independent seat refuted it by measurement: the differentiator is
+            also dropped when it duplicates a rendering chip, and when
+            `computeAllDifferentiators` returns null for the option at all
+            (fewer than two non-baseline options, a sub-threshold difference,
+            or a label shared with another option and deduped away). The
+            universal quantifier was doing rhetorical work the code does not
+            do. */}
+        {/* Paul's ruling 10 Sep 2026 — "both stay". The predicate was
+            `!isBaselineOption && !isDetailed && differentiator &&
+            !(isPostAnalysis && !isRecommended && behindReason)`, spelled
+            inline. It is now `differentiatorRenders`, hoisted above so the
+            recovery line in the popover is decided by the SAME expression
+            rather than by a second copy of it. See that constant's header for
+            why `differentiator &&` still appears here. */}
+        {differentiatorRenders && differentiator && (
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
+            /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
+               carries a 20-char compaction of the factor label, so the elision
+               is a JS one: `text-overflow` never fires, the "…" is IN THE TEXT,
+               and a browser tooltip has no overflow to recover. Witnessed on
+               deployed staging `16336b13` as "Account Executive… is the key
+               difference" — a claim about what differentiates this option with
+               the SUBJECT of the claim absent from the DOM. Native `title` is
+               the canvas-node tooltip idiom in this repo — see the
+               structuredDeltas `<li>` above and `nodes/shared/MetricPills.tsx`.
+               Undefined when nothing was elided, so hover never merely repeats
+               what is already on screen.
+
+               ⚠ IT IS NO LONGER THE ONLY RECOVERY, AND IT WAS NEVER A
+               SUFFICIENT ONE. A native `title` is a MOUSE affordance: it does
+               not exist on a touch device, and on a non-focusable `<p>` it is
+               announced to nobody. It stays because it is the cheapest
+               recovery for the user who does have a mouse — but the sentence
+               now also rides the node preview, which a tap and a keyboard
+               focus can both open (`usePopoverHover`).
+
+               ⛔ WHAT WAS DELIBERATELY *NOT* DONE HERE, AND WHY IT IS ROWED
+               RATHER THAN HALF-DONE. `completeness` below carries its full
+               sentence in a SECOND, `sr-only` span beside an `aria-hidden`
+               visible one, so a screen-reader user gets the whole thing with
+               no interaction at all — and its header states the principle this
+               `<p>` ought to follow too: "Compaction buys space for a sighted
+               reader; it does not license saying less to everyone else."
+               Applying that shape here splits this element's single text node
+               in two, which changes `p.textContent` to the CONCATENATION of
+               both spans and changes what `getByText` resolves to. FIVE spec
+               files assert on this sentence — `OptionNode.spec`,
+               `OptionNode.differentiatorRecoverable.spec`,
+               `OptionNode.differentiatorSurvivesTheRun.spec`,
+               `OptionNode.oneFactorOneName.spec`, `cardCopyCensus.canvas.spec`
+               — and this lane is under a hard no-test-execution constraint, so
+               it could edit all five and verify none of them. A change that
+               greens or reds five suites nobody ran is not a smaller risk than
+               the gap it closes. ROWED. */
+            title={differentiator.fullLabel !== differentiator.label ? differentiator.fullLabel : undefined}
+            data-testid={`option-differentiator-${props.id}`}
+          >
+            {differentiator.label}
+          </p>
+        )}
+
+        {/* Reference identity; values remain recoverable in preview and inspector.
+            ⚠ WAS `!isPostAnalysis && …`. Which option is the comparison basis is
+            a property of the MODEL, not of the result — the run does not choose
+            it and cannot change it. Hiding it once results arrive removed the
+            one label that makes every other option's delta mean anything, at
+            exactly the moment a reader starts comparing them. `is_baseline` is
+            still true in the post-analysis payload.
+            ⭐ CONTRACT v3.1 OPT-12 (`<div class="row-meta">Baseline · no
+            changes</div>`): the line now says what the baseline DOES to the
+            comparison, in one line, same element and classes, so no height
+            moves. "Baseline" is the ruled word (`baselineVocabulary.canvas.spec`).
+            ⚠ "no changes" is claimed ONLY when the option sets nothing
+            (`totalInterventionCount === 0`, the card's one total). A baseline
+            that DOES set values keeps the old "Baseline option": it is not "no
+            changes" (the popover says "Baseline values for N factors"), and a
+            longer phrase would wrap at the legibility floor — 21 characters is
+            one line on a 336 card at counter-scale 2, a 40-character one is
+            two. The contract's second line ("Reference for the other
+            alternatives.") is deliberately NOT added for the same reason: on a
+            board whose other options carry no rows it would make the baseline
+            the tallest card. */}
+        {isBaselineOption && (
+          <div
+            className={`${typography.edgeLabel} mt-1 text-text-light`}
+            data-testid={`option-baseline-meta-${props.id}`}
+          >
+            {totalInterventionCount === 0 ? 'Baseline · no changes' : 'Baseline option'}
+          </div>
+        )}
+
+        {/* ⭐ CONTRACT v3.1 OPT-09 — THE OPTION'S OWN FACTS FIRST, THE RUN BELOW.
+            The result and absence rows used to sit BETWEEN the change rows
+            and the differentiator, so the run split the option's own model
+            facts in two. They now follow ALL of them (rows, differentiator,
+            baseline meta), which is the factor card's order (own value →
+            driver → turning point) and the anatomy rule quoted above: "A run
+            adds relative scores BELOW that — never in place of it." Pure
+            reorder: every gate below is unchanged. Height: with the trailing
+            `mb-1`s gone (OPT-06), every body block carries a TOP margin only
+            (`mt-1`, or `mt-0.5` on the Detailed-only lines), so each gap is
+            that block's own top margin and the new adjacency can keep or
+            shrink a gap, never widen one. */}
+        {/* Win probability — bar and percentage on ONE line (post-analysis, both views).
+            ⭐ WHY THIS IS ONE LINE AND NOT TWO (Paul, 31 Aug 2026): "Saying the
+            same copy on every node is a waste of space… It should show the bar
+            with the percentage next to it to save space." Five option cards
+            each carried the identical ratified sentence and only the number
+            varied, so four fifths of that block was repetition — and on a
+            canvas card the sentence wraps to two or three lines at the
+            legibility floor.
+
+            THE SENTENCE IS NOT DROPPED, because the number alone does not say
+            what it measures. It survives twice:
+              · in the positioned tooltip on hover or keyboard focus;
+              · in the row's accessible name, including any currentness caveat.
+            The bar is deliberately a focusable graphic for keyboard disclosure.
+            Its role makes descendants presentational, so aria-label is the
+            single accessible name; an additional screen-reader-only child
+            would not provide another announcement.
+
+            The copy is never re-typed here: it comes from
+            `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
+            which is the ratified wording and the one owner of it. */}
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
-            className="mt-1.5 mb-1 flex items-center gap-1.5 cursor-help"
+            className="mt-1 flex items-center gap-1.5 cursor-help"
             role="img"
             aria-label={winReadoutDescription}
             tabIndex={0}
@@ -2140,23 +2332,28 @@ export const OptionNode = memo((props: NodeProps) => {
                 panel's own bar. This floor is what stops it landing here, and
                 deleting it re-opens that P0 on the canvas.
 
-                ⚠ AND THE TRADE IT BUYS, STATED RATHER THAN LEFT SILENT. On a
-                191.56px track, 4px is 2.09%. A genuine 2% share therefore
-                renders `max(4px, 3.83px)` = 4px — IDENTICAL to a 0.4% share
-                beside it. So ordering collapses below about 2%: the floor that
+                ⚠ AND THE TRADE IT BUYS, STATED RATHER THAN LEFT SILENT. On the
+                54px track (below), 4px is 7.4%. A genuine 7% share therefore
+                renders `max(4px, 3.78px)` = 4px — IDENTICAL to a 0.4% share
+                beside it. So ordering collapses below about 7%: the floor that
                 prevents "a measured value looks like nothing" creates "two
                 different measurements look the same". That is the smaller harm
                 and it is deliberate, because anything thinner is invisible at
-                canvas zoom.
+                canvas zoom — and the exact share is printed beside the bar.
 
                 The results panel keeps 2px on a 371px track (0.54%) for the
                 same reason at a different scale. If the two ever have to agree,
                 the honest form is a floor expressed as a FRACTION of the track
                 rather than a pixel count — not needed today.
 
-                The track is `flex-1` rather than full-bleed since the density
-                change, so the percentage is measured against a shorter track
-                and the floor matters MORE here, not less. */}
+                ⭐ CONTRACT v3.1 OPT-01/OPT-08 (Paul point 9: "make the driver bar
+                neutral, so it does not compete with attention"). The track WAS
+                `flex-1` (~190px on a 336 card) with an option-purple fill, so a
+                long bar dominated the card and one kind of element wore two
+                colours on one board. It is now the factor run bar's own anatomy
+                (`FactorDriverLine`: `w-[54px]` track, `bg-text-light` fill on
+                `bg-panel-border`) — short, fixed, neutral, secondary. `shrink`
+                + `min-w-0` let it give way on the narrowest card. */}
             {/* ⭐ THE ANCHOR, VISIBLE — restored 31 Aug 2026.
                 The density change put `phrase()` behind a `title` and left the
                 number bare. At that time the row was not focusable, so its
@@ -2184,17 +2381,17 @@ export const OptionNode = memo((props: NodeProps) => {
               {resultCaption}
             </span>
             <div
-              className="h-1 min-w-0 flex-1 bg-panel-border rounded-full overflow-hidden"
+              className="h-1 w-[54px] min-w-0 shrink bg-panel-border rounded-full overflow-hidden"
               aria-hidden="true"
             >
               <div
-                className="h-full bg-option rounded-full transition-all duration-300"
+                className="h-full bg-text-light rounded-full transition-all duration-300"
                 style={{ width: winReadout.rate > 0 ? `max(4px, ${Math.round(winReadout.rate * 100)}%)` : '0%' }}
               />
             </div>
             <span
               data-testid={`option-win-readout-${props.id}`}
-              className={`${typography.nodeLabel} text-text-body shrink-0 tabular-nums`}
+              className={`${typography.edgeLabel} text-text-body shrink-0 tabular-nums`}
               aria-hidden="true"
             >
               {OPTION_RESULT_COPY.share(winReadout.formatted)}
@@ -2340,7 +2537,7 @@ export const OptionNode = memo((props: NodeProps) => {
             (this row is not focusable) and absent on TOUCH. */}
         {displayMetadata.isResultsMode && leftOutOfRunReason !== null && (
           <div
-            className="mt-1.5 mb-1 flex items-center gap-1.5"
+            className="mt-1 flex items-center gap-1.5"
             title={notAnalysedReasonCopy(leftOutOfRunReason)}
             data-testid={`option-not-analysed-${props.id}`}
           >
@@ -2358,7 +2555,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true && (
           <div
-            className="mt-1.5 mb-1 flex items-center gap-1.5"
+            className="mt-1 flex items-center gap-1.5"
             title={notComputedReasonCopy(displayMetadata.winComputationFailedReason)}
             data-testid={`option-not-computed-${props.id}`}
           >
@@ -2430,7 +2627,7 @@ export const OptionNode = memo((props: NodeProps) => {
           leftOutOfRunReason === null &&
           !supportShareRunWideAbsent && (
           <p
-            className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
+            className={`${typography.edgeLabel} text-text-light mt-1`}
             data-testid={`option-result-unavailable-${props.id}`}
           >
             On the data so far, the model gave no share of runs for this option
@@ -2484,128 +2681,6 @@ export const OptionNode = memo((props: NodeProps) => {
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
             Held back by: {behindReason}
           </p>
-        )}
-
-        {/* Pre-analysis: structured deltas — one ROW per change.
-            ⭐ THIS REPLACED WRAPPING PILLS, AND THE MEASUREMENT IS THE REASON.
-            Captured in Chromium at 1280x800 on the five shipped starters
-            (30 Aug 2026), where every starter's auto-fit clamps at the 0.50
-            legibility floor, so `--canvas-label-scale` is 2 and an 11px label
-            renders at 22px inside a 244px card — roughly 19 characters a line.
-
-            Each delta was an `inline-flex` pill sized to the card's content
-            box, so its text wrapped INSIDE a rounded border: measured pill
-            heights of 59/87/114/142/169px are 2/3/4/5/SIX wrapped lines. A
-            six-line rounded pill is not a pill; it reads as a broken box. And
-            `gap-0.5` put 2px between the label and its value at 22px type, so
-            "Germany market entry" and "Low (0) → Very high (1)" ran together
-            as "market entryLow (0)".
-
-            ⚠ WHAT THIS DELIBERATELY DOES NOT DO, because the same measurement
-            ruled it out: the approved brief was "one line per change, label
-            truncates, value NEVER truncates". At 19 characters a line, values
-            like "No in-house build pursued → Very high (1)" exceed a whole
-            line BEFORE any label. One line per change is therefore unbuildable
-            without truncating values, which the brief forbids — so the value
-            keeps as many lines as it needs and the LABEL gets its own line.
-
-            ⚠ AND THE HONEST SIZE OF THE WIN: removing the chrome recovers
-            about 3px of padding and border per row, ~5% of the block. This is
-            a LEGIBILITY change, not a density one. First-view legibility is
-            height-bound at the GRAPH level (build-vs-buy lays out 2693 units
-            against ~1600 showable) and no card change reaches that. */}
-
-        {/* Polish 4 Task 5: differentiator line — what's strategically unique
-            about this option vs the others. Standard view only (Detailed
-            already shows the full intervention list).
-
-            ⭐ SURVIVES THE RUN NOW. It used to be gated `!isPostAnalysis`, so
-            analysing the model deleted the reason from every card.
-
-            ⚠ SUPPRESSED ONLY WHERE THE "Behind:" LINE IS ACTUALLY RENDERING,
-            and the condition is spelled to MATCH that render exactly rather
-            than re-derived — `isPostAnalysis && !isRecommended && behindReason`
-            is the same expression the Behind block below uses. Two spellings of
-            one question is how these two lines would drift into contradicting
-            each other. Where Behind renders, it already names the key factor
-            ("no X added" / "X lower") and this line would repeat it.
-
-            ⚠ WHERE IT DOES NOT RENDER, THIS LINE IS USUALLY — NOT ALWAYS — THE
-            ONLY STATEMENT OF WHICH FACTOR IS KEY. An earlier draft of this
-            comment said EVERY option when the leader is withheld, and an
-            independent seat refuted it by measurement: the differentiator is
-            also dropped when it duplicates a rendering chip, and when
-            `computeAllDifferentiators` returns null for the option at all
-            (fewer than two non-baseline options, a sub-threshold difference,
-            or a label shared with another option and deduped away). The
-            universal quantifier was doing rhetorical work the code does not
-            do. */}
-        {/* Paul's ruling 10 Sep 2026 — "both stay". The predicate was
-            `!isBaselineOption && !isDetailed && differentiator &&
-            !(isPostAnalysis && !isRecommended && behindReason)`, spelled
-            inline. It is now `differentiatorRenders`, hoisted above so the
-            recovery line in the popover is decided by the SAME expression
-            rather than by a second copy of it. See that constant's header for
-            why `differentiator &&` still appears here. */}
-        {differentiatorRenders && differentiator && (
-          <p
-            className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
-            /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
-               carries a 20-char compaction of the factor label, so the elision
-               is a JS one: `text-overflow` never fires, the "…" is IN THE TEXT,
-               and a browser tooltip has no overflow to recover. Witnessed on
-               deployed staging `16336b13` as "Account Executive… is the key
-               difference" — a claim about what differentiates this option with
-               the SUBJECT of the claim absent from the DOM. Native `title` is
-               the canvas-node tooltip idiom in this repo — see the
-               structuredDeltas `<li>` above and `nodes/shared/MetricPills.tsx`.
-               Undefined when nothing was elided, so hover never merely repeats
-               what is already on screen.
-
-               ⚠ IT IS NO LONGER THE ONLY RECOVERY, AND IT WAS NEVER A
-               SUFFICIENT ONE. A native `title` is a MOUSE affordance: it does
-               not exist on a touch device, and on a non-focusable `<p>` it is
-               announced to nobody. It stays because it is the cheapest
-               recovery for the user who does have a mouse — but the sentence
-               now also rides the node preview, which a tap and a keyboard
-               focus can both open (`usePopoverHover`).
-
-               ⛔ WHAT WAS DELIBERATELY *NOT* DONE HERE, AND WHY IT IS ROWED
-               RATHER THAN HALF-DONE. `completeness` below carries its full
-               sentence in a SECOND, `sr-only` span beside an `aria-hidden`
-               visible one, so a screen-reader user gets the whole thing with
-               no interaction at all — and its header states the principle this
-               `<p>` ought to follow too: "Compaction buys space for a sighted
-               reader; it does not license saying less to everyone else."
-               Applying that shape here splits this element's single text node
-               in two, which changes `p.textContent` to the CONCATENATION of
-               both spans and changes what `getByText` resolves to. FIVE spec
-               files assert on this sentence — `OptionNode.spec`,
-               `OptionNode.differentiatorRecoverable.spec`,
-               `OptionNode.differentiatorSurvivesTheRun.spec`,
-               `OptionNode.oneFactorOneName.spec`, `cardCopyCensus.canvas.spec`
-               — and this lane is under a hard no-test-execution constraint, so
-               it could edit all five and verify none of them. A change that
-               greens or reds five suites nobody ran is not a smaller risk than
-               the gap it closes. ROWED. */
-            title={differentiator.fullLabel !== differentiator.label ? differentiator.fullLabel : undefined}
-            data-testid={`option-differentiator-${props.id}`}
-          >
-            {differentiator.label}
-          </p>
-        )}
-
-        {/* Reference identity; values remain recoverable in preview and inspector.
-            ⚠ WAS `!isPostAnalysis && …`. Which option is the comparison basis is
-            a property of the MODEL, not of the result — the run does not choose
-            it and cannot change it. Hiding it once results arrive removed the
-            one label that makes every other option's delta mean anything, at
-            exactly the moment a reader starts comparing them. `is_baseline` is
-            still true in the post-analysis payload. */}
-        {isBaselineOption && (
-          <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
-            Baseline option
-          </div>
         )}
 
         {/* Status-quo bias coaching lives on the header ScienceIcon now — one
