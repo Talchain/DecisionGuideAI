@@ -167,3 +167,19 @@ describe('the reader\u2019s own limit reaches the card', () => {
     expect(screen.queryByTestId('factor-constraint-lines')).toBeNull()
   })
 })
+
+/**
+ * ⭐ contract v3.1 ICON-11 — declared = delivered. The limit glyph carries
+ * `--canvas-label-scale` like the `edgeLabel` text beside it; a bare `size={9}`
+ * reached the reader at ~5.9px at the landing zoom.
+ */
+describe('the limit glyph is counter-scaled with its text (contract v3.1 ICON-11)', () => {
+  it('the Target glyph wears the 9px canvas glyph scale', async () => {
+    const { CANVAS_GLYPH_SIZE_CLASSES } = await import('../shared/canvasGlyphScale')
+    renderWith([{ node_id: ID, operator: '<=', value: 4, unit: '%' }])
+    const glyph = line().querySelector('svg')
+    expect(glyph, 'the limit line lost its glyph').not.toBeNull()
+    const cls = (glyph!.getAttribute('class') ?? '').split(/\s+/)
+    for (const c of CANVAS_GLYPH_SIZE_CLASSES[9].split(' ')) expect(cls).toContain(c)
+  })
+})

@@ -87,6 +87,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 import { useCanvasStore } from '../../store'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
+import { nodeColors } from '../colors'
 
 /* ReactFlow's NodeProps requires a dozen fields no assertion here reads; the
    casts below are the sibling node specs' own pattern. */
@@ -176,7 +177,11 @@ describe('an incomplete node keeps its kind hue and says so in words', () => {
     // ⭐ THE RE-RULING. This assertion replaces `toContain('border-warning')`
     // and is strictly stronger: it names the hue that must SURVIVE, so a future
     // change that swapped amber for any other single colour would RED here.
-    expect(tokens).toContain('border-option')
+    // ⭐ CONTRACT v3.1 (FRAME-08 / T10): the surviving hue is the option's
+    // FRAME token — the kind hue mixed 76% toward the warm neutral, from two
+    // existing tokens — not the full-strength `border-option`. Still the KIND
+    // hue, still not amber: the ruling this pins is unchanged, only the shade.
+    expect(tokens).toContain(nodeColors.option.frame)
     expect(tokens).not.toContain('border-warning')
     expect(tokens).not.toContain('border-dashed')
     // ⭐ AND THE CHANNEL THE HUE NO LONGER CARRIES. Without this the ruling is
@@ -192,7 +197,7 @@ describe('an incomplete node keeps its kind hue and says so in words', () => {
     })
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
     const tokens = cardTokens(container)
-    expect(tokens).toContain('border-factor')
+    expect(tokens).toContain(nodeColors.factor.frame) // contract v3.1 FRAME-08 (see OPTION above)
     expect(tokens).not.toContain('border-warning')
     expect(tokens).not.toContain('border-dashed')
     expect(screen.getByTestId('needs-input-pill')).toBeTruthy()

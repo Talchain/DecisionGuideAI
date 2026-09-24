@@ -288,7 +288,12 @@
      way. */
   --edge-positive: #62B290;
   --edge-negative: #D6336C;
-  --edge-neutral: #D4D4D8;
+  /* contract v3.1 (E8/T07, 24 Sep 2026): the visual contract's `--neutral`,
+     a warm grey at 2.06:1 on --bg-canvas. It was #D4D4D8 (Tailwind zinc-300:
+     cool, off the palette, 1.30:1 on the warm canvas), so every unset or
+     undirected edge — drawn at the 1px unset width — was close to invisible.
+     Dark variant unchanged. */
+  --edge-neutral: #A9AAA5;
   --edge-positive-dark: #BBF7D0;
   --edge-negative-dark: #F06595;
   --edge-neutral-dark: #A1A1AA;
