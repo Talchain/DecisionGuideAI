@@ -198,12 +198,16 @@ beforeEach(() => {
  * assertion could not tell those two mutants apart.
  * ──────────────────────────────────────────────────────────────────────────── */
 describe('the badge renders on every node type `isIncomplete` admits', () => {
-  it('FACTOR (controllable, no value) — badge inside THIS factor\'s corner stack', () => {
+  it('FACTOR (controllable, no value) — badge inside THIS factor\'s body row, not its corner stack', () => {
     renderFactor({ label: 'Hiring rate', type: 'factor', category: 'controllable' })
     // Precondition pinned in-test: the assertion below is about a node in the
     // incomplete state, not about a card that renders a pill unconditionally.
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
-    expect(within(stackOf(FACTOR_ID)).getByTestId('needs-input-pill')).toBeTruthy()
+    // NODE-ANATOMY v3.2 (24 Sep): a factor says "Needs input · Value not set
+    // yet" as line 2 of its BODY — "not a border pill" — so the corner stack
+    // withholds it (`incompleteStatedOnCard`, the goal's gap-U4 prop).
+    expect(within(screen.getByTestId(`factor-needs-input-row-${FACTOR_ID}`)).getByTestId('needs-input-pill')).toBeTruthy()
+    expect(within(stackOf(FACTOR_ID)).queryByTestId('needs-input-pill')).toBeNull()
   })
 
   it('GOAL (no success target) — badge inside THIS goal\'s corner stack', () => {

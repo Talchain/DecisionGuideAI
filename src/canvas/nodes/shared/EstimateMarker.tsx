@@ -235,7 +235,10 @@ export function EstimateMarker({
 }) {
   return (
     <span
-      className={`${typography.edgeLabel} text-text-light italic`}
+      // Upright, regular weight (contract v3.1 `.prov`; NODE-ANATOMY v3.2): an
+      // italic 11px mark at landing zoom rendered thin and off the value's
+      // baseline. One visual for every mark kind.
+      className={`${typography.edgeLabel} text-text-light`}
       title={title ?? ESTIMATE_SUBJECT_TITLE[subject]}
       data-testid="estimate-marker"
     >
