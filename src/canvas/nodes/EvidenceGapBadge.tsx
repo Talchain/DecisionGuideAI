@@ -13,6 +13,12 @@
  * Post-analysis escalation (A.9): when the factor has high VoI, the badge
  * escalates visually (colour shift + pulse animation). The pulse respects
  * prefers-reduced-motion per DS v5 §7.6.
+ *
+ * ⭐ NORMAL ZOOM ONLY — contract v3.1 pt 6 (gap U6). This "?" was the corner
+ * marker on Paul's 65% screenshot: the one resting glyph still on the cards at
+ * the `quiet` rung after the coaching icon had left. Far zoom is "readable
+ * identity and a simple attention cue", so it renders at the `full` rung only
+ * (`selectRestingGlyphsShown`), the same gate as the coaching icon.
  */
 
 import { memo } from 'react'
@@ -22,6 +28,8 @@ import {
   CANVAS_CORNER_OFFSET_CLASSES,
 } from './shared/canvasGlyphScale'
 import { INVESTIGATION_VALUE_INVITATION } from '../domain/investigationValue'
+import { useCanvasStore } from '../store'
+import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 
 export type EvidenceGapEscalation = 'none' | 'warning' | 'critical'
 
@@ -56,8 +64,10 @@ interface EvidenceGapBadgeProps {
  * these three rows put it on `bg-warning-light`, which is paler still, so the
  * ratio on those is lower again.
  *
- * ⭐ THE AMBER IS NOT LOST AND NOTHING IS REDESIGNED. `border-warning` and
- * `bg-warning-light` are untouched, so the badge reads amber from any distance;
+ * ⭐ THE AMBER IS NOT LOST AND NOTHING IS REDESIGNED. [SUPERSEDED 24 Sep by
+ * contract v3.1 — the amber ring and fill are gone; see the map's own note.]
+ * `border-warning` and `bg-warning-light` are untouched, so the badge reads
+ * amber from any distance;
  * only the character inside the ring changes hue. That is rule 5's whole
  * construction — colour on the border, meaning in the shape — and it is the
  * move `NodeProvenanceMark` made on 1 Sep and `StatusPill` makes in this branch.
@@ -65,10 +75,27 @@ interface EvidenceGapBadgeProps {
  * ⛔ NO GEOMETRY MOVES: one token per row; no size, weight, padding or border
  * width. The glyph occupies the same box it did.
  */
+/**
+ * ⭐⭐ NO FILL, AND NO AMBER — contract v3.1, 24 Sep 2026 (delta PILL-06; DS v5
+ * §3.2 "light shades never on pills" and §8.5 "No filled backgrounds on pills.
+ * Ever."; Paul 23 Sep pt 9: amber is AI sign-disagreement's, attention is
+ * Info). `warning` / `critical` were an amber ring on a `bg-warning-light`
+ * fill, and `none` a pale amber ring: warning styling on a fact about the
+ * model's inputs. Now a neutral outlined badge on the panel ground:
+ *
+ *   · none                — `border-field` (#8C8376), 3.70:1 on the panel;
+ *   · warning / critical  — `border-warning-ink` (#915F31), 5.36:1: the
+ *     contract's state-word ink (its "Needs input" border is this token at
+ *     35%), at full strength so the escalation still reads apart from `none`.
+ *
+ * Both clear SC 1.4.11's 3:1 for a 12px graphic that carries meaning, and the
+ * "?" stays `text-text-body`. The escalation is kept and named, exactly as the
+ * note below records — only its paint changes.
+ */
 const ESCALATION_STYLES: Record<EvidenceGapEscalation, { border: string; text: string; bg: string }> = {
-  none:     { border: 'border-warning/50', text: 'text-text-body', bg: 'bg-panel' },
-  warning:  { border: 'border-warning',    text: 'text-text-body', bg: 'bg-warning-light' },
-  critical: { border: 'border-warning',    text: 'text-text-body', bg: 'bg-warning-light' },
+  none:     { border: 'border-field',       text: 'text-text-body', bg: 'bg-panel' },
+  warning:  { border: 'border-warning-ink', text: 'text-text-body', bg: 'bg-panel' },
+  critical: { border: 'border-warning-ink', text: 'text-text-body', bg: 'bg-panel' },
 }
 
 /**
@@ -124,10 +151,10 @@ const ESCALATION_STYLES: Record<EvidenceGapEscalation, { border: string; text: s
  * forty lines above it — *a hand-maintained mirror inside a single file*, the
  * exact defect class this estate keeps paying for.
  *
- * The true state: the rows differ ONLY in border opacity and background
- * (`border-warning/50` + `bg-panel` for `none`; full `border-warning` +
- * `bg-warning-light` for `warning` and `critical`), and since this change the
- * glyph is `text-text-body` on all three. #38's colour point is closed on this
+ * The true state (24 Sep, contract v3.1): the rows differ ONLY in border
+ * colour — `border-field` for `none`, `border-warning-ink` for `warning` and
+ * `critical` — every row sits on `bg-panel` with no fill, and the glyph is
+ * `text-text-body` on all three. #38's colour point is closed on this
  * component. What remains open there is whether `warning` and `critical` should
  * be distinguishable at all — they currently are not — and that is Paul's call,
  * not a repair.
@@ -176,6 +203,8 @@ export const EvidenceGapBadge = memo(function EvidenceGapBadge({
   label,
   escalation = 'none',
 }: EvidenceGapBadgeProps) {
+  // Contract v3.1 pt 6: hidden at the quiet/line rungs (see the header).
+  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
   const tooltip = `No observed data for "${label}". ${ESCALATION_TOOLTIP[escalation]}`
   const styles = ESCALATION_STYLES[escalation]
   /**
@@ -189,6 +218,8 @@ export const EvidenceGapBadge = memo(function EvidenceGapBadge({
    * empty, and named — not deleted quietly here.
    */
   const shouldPulse = false
+
+  if (!shownAtThisRung) return null
 
   return (
     <>

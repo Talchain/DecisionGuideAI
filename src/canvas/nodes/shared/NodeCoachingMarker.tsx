@@ -14,9 +14,11 @@
  *     names no node simply never mounts a marker (fail-closed by construction,
  *     the #451 resolver doctrine — the marker lives inside the node whose id it
  *     matches, so an unresolvable id can never surface one).
- *   - Colours by the top item's producer `category` via the shared
- *     `guidanceCategoryTone` (colour = state, DS v5) — the SAME source the
- *     inspector card uses, so the marker's tint matches the card it opens.
+ *   - Shapes by the top item's producer `category` via the shared
+ *     `guidanceCategoryIcon` — the SAME source the inspector card uses, so the
+ *     marker's glyph matches the card it opens. (It used to take the card's
+ *     TINT too; since contract v3.1 the canvas marker is muted at rest and Info
+ *     on hover/focus — see "ONE CORNER-MARKER LANGUAGE" below.)
  *   - Caps at ONE marker per node (icon + a "+N" count when more than one item
  *     targets the node) — no badge soup on dense nodes.
  *   - On click, reuses the inspector's own open seam
@@ -56,19 +58,50 @@
  * single-owner FIVE-MEMBER contract (`BaseNode.tsx:1206-1240`); the two sources here
  * are mutually exclusive, so this slot renders at most one glyph and the contract
  * is unchanged. A sixth sibling was rejected on exactly that ground.
+ *
+ * ⭐⭐ ONE CORNER-MARKER LANGUAGE — contract v3.1 (`.node .attention`,
+ * `.icon-btn`; deltas PILL-07 / ICON-09 / T14(b), and PILL-08's colour half).
+ * The marker was a raw-px `h-5` pill (13px at the 65% landing zoom, its count
+ * text 7.8px — under the 10px canvas floor) with a shadow and a `scale-110`
+ * hover bounce, the only transform on the card, and it painted must_fix /
+ * should_fix in Danger red. Now, like its corner-stack siblings: the rail's
+ * counter-scaled 20px box and 14px glyph, borderless and shadowless on a panel
+ * fill, a background-tint hover and a focus ring, and the shared focusable
+ * `Tooltip` rather than a native `title` (ED 02:31Z: native title is not
+ * full-text recovery).
+ *
+ * COLOUR: muted at rest, Info on hover/focus — the coaching icon's own rule
+ * (Paul 23 Sep pt 6), and Danger is the risk family's (pt 9), so a coaching cue
+ * no longer carries warning styling. ⚠ The category is NOT lost and the glyph
+ * is NOT swapped: SHAPE still says which of the four producer categories this
+ * is (`guidanceCategoryIcon`, whose docblock rules shape = category so the
+ * marker's glyph matches the inspector card it opens, WCAG 1.4.1), and the
+ * inspector card keeps its tone. PILL-08's "render Lightbulb for must_fix" would
+ * collapse must_fix onto the uncategorised glyph that ruling reserves, so it is
+ * not taken. `data-guidance-category` still names the top item's category.
+ *
+ * ⭐ NORMAL ZOOM ONLY — contract v3.1 pt 6 (gap U6). The whole slot, producer
+ * AND structural, renders at the `full` rung and at no other, on the same gate
+ * as the rail's coaching icon (`selectRestingGlyphsShown`). At `quiet`/`line`
+ * the producer's item stays reachable through selection and the inspector
+ * (`InspectorGuidanceSection`), and the structural finding through its panel row.
  */
 
 import { useCallback, useMemo } from 'react'
 import {
   useGuidanceStore,
   compareGuidanceDisplayOrder,
-  guidanceCategoryTone,
   guidanceCategoryIcon,
   type GuidanceItem,
 } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
+import Tooltip from '../../../components/Tooltip'
 import { openNodeInspector } from './openNodeInspector'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
+import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 import { NodeStructuralMarker } from './NodeStructuralMarker'
+import { useCanvasStore } from '../../store'
+import { selectRestingGlyphsShown } from './restingGlyphRung'
 
 interface NodeCoachingMarkerProps {
   /** The canvas node id this marker sits on. */
@@ -81,6 +114,8 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // be cached" loop (see InspectorGuidanceSection's identical note).
   const allItems = useGuidanceStore((s) => s.guidanceItems)
   const setActiveGuidanceItem = useGuidanceStore((s) => s.setActiveGuidanceItem)
+  // Contract v3.1 pt 6: no coaching glyph at the quiet/line rungs.
+  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
 
   // Producer-named targets only: an item counts iff its target_object names THIS
   // node. Identical filter to InspectorGuidanceSection so the marker and the
@@ -110,6 +145,10 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
     [top, nodeId, setActiveGuidanceItem],
   )
 
+  // Contract v3.1 pt 6: at quiet/line neither source renders (hooks above stay
+  // unconditional). Checked BEFORE the precedence `if` below.
+  if (!shownAtThisRung) return null
+
   // No live item names this node → the slot falls through to the client-derived
   // channel, which self-gates and renders null unless THIS node is one the
   // structural finding's prescribed action names. Still never a permanently-empty
@@ -120,12 +159,11 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // once here rather than restated at every call site.
   if (!top) return <NodeStructuralMarker nodeId={nodeId} />
 
-  const tone = guidanceCategoryTone(top.category)
-  // Icon + tint from the shared source of truth (same one the inspector card
-  // uses) so the marker's icon matches the card it opens. Border still rides the
-  // tone channel directly.
-  const { Icon, tintClass: iconColour } = guidanceCategoryIcon(top.category)
-  const borderColour = tone === 'danger' ? 'border-danger/30' : 'border-info/30'
+  // SHAPE from the shared source of truth (the same one the inspector card
+  // uses), so the marker's glyph matches the card it opens. Its tint is NOT
+  // taken on the canvas: the marker is muted at rest and Info on hover/focus
+  // (see the header — contract v3.1, Paul 23 Sep pts 6 and 9).
+  const { Icon } = guidanceCategoryIcon(top.category)
   const count = items.length
 
   const label =
@@ -138,28 +176,27 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // so the two never collide (Codex P1-5). It carries no `absolute`/offset of
   // its own; only its intrinsic pill styling.
   return (
-    <button
-      type="button"
-      data-testid={`node-coaching-marker-${nodeId}`}
-      data-guidance-category={top.category ?? 'uncategorised'}
-      data-guidance-count={count}
-      onClick={handleClick}
-      onPointerDown={(e) => e.stopPropagation()}
-      title={label}
-      aria-label={label}
-      className={`
-        nodrag nopan
-        inline-flex items-center gap-0.5 h-5 min-w-5 px-1
-        rounded-full bg-panel border ${borderColour} shadow-1
-        cursor-pointer hover:scale-110 transition-transform
-      `}
-    >
-      <Icon className={`w-3.5 h-3.5 ${iconColour}`} aria-hidden="true" />
-      {count > 1 && (
-        <span className={`${typography.caption} font-semibold text-text-body tabular-nums leading-none`}>
-          {count}
-        </span>
-      )}
-    </button>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={label}>
+      <button
+        type="button"
+        data-testid={`node-coaching-marker-${nodeId}`}
+        data-guidance-category={top.category ?? 'uncategorised'}
+        data-guidance-count={count}
+        data-node-tooltip="true"
+        onClick={handleClick}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label={label}
+        // ⚠ LITERAL arbitrary values (no spaces), so Tailwind's scanner emits
+        // them: a min-width box, because a "+N" count widens the marker.
+        className="nodrag nopan inline-flex items-center justify-center gap-0.5 h-[calc(20px*var(--canvas-label-scale,1))] min-w-[calc(20px*var(--canvas-label-scale,1))] px-[calc(3px*var(--canvas-label-scale,1))] rounded bg-panel/90 text-text-light cursor-pointer hover:bg-info/10 hover:text-info focus-visible:bg-info/10 focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+      >
+        <Icon size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} aria-hidden="true" />
+        {count > 1 && (
+          <span className={`${typography.edgeLabel} font-semibold text-text-body tabular-nums leading-none`}>
+            {count}
+          </span>
+        )}
+      </button>
+    </Tooltip>
   )
 }
