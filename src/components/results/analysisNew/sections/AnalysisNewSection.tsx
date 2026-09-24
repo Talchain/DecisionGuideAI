@@ -103,6 +103,15 @@ export interface AnalysisNewSectionProps {
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
   testId: string
+  /**
+   * V2 gap 23: forwarded to `SectionShell` verbatim. `'label'` is for a
+   * caller that nests this section INSIDE another `SectionShell` ("Drivers
+   * and dynamics" inside "What moves the outcome") — see `SectionShell`'s own
+   * doc for why the demotion drops the heading tag entirely rather than just
+   * restyling it, and why it does not touch disclosure behaviour. Default
+   * `'h3'`, the shape every other caller of this component already gets.
+   */
+  headingLevel?: 'h3' | 'label'
 }
 
 /**
@@ -160,6 +169,7 @@ export function AnalysisNewSection({
   icon,
   header,
   testId,
+  headingLevel,
 }: AnalysisNewSectionProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -207,6 +217,7 @@ export function AnalysisNewSection({
       defaultOpen={sectionOpensItself(findings.length, Boolean(header), Boolean(emptyMessage))}
       subtitle={subtitle}
       testId={testId}
+      headingLevel={headingLevel}
     >
       {caveat ? (
         <p className={`${typography.panelMeta} text-text-light pb-1`} data-testid={`${testId}-caveat`}>

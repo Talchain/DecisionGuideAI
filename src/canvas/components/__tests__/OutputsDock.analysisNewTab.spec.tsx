@@ -486,7 +486,14 @@ describe('C · THE SECTION STRUCTURE', () => {
       // rows (which carry no h3); the full drivers section, closed, follows the
       // answer it explains so the options chart reaches the first screen.
       COMMITMENT_COPY.heading,
-      ANALYSIS_NEW_COPY.sections.drivers,
+      // ⚠ RE-POINTED (V2 gap 23): "Drivers and dynamics" WAS here as a second
+      // h3 nested one level inside "What moves the outcome" — exactly the
+      // "reads as a second section title" defect gap 23 names. It now renders
+      // as a plain `<div>` (`SectionShell`'s `headingLevel="label"`), no
+      // heading tag at all, so `querySelectorAll('h3')` no longer finds it;
+      // its content, count and every testid are unchanged, and its own
+      // presence is asserted in the landmark case below (`analysis-new-drivers`,
+      // `analysis-new-drivers-heading`).
       // V2 fidelity gaps 24 + 27: what the deleted tail groups held now opens
       // INSIDE About (opened above), so Key insights and Uncertainty still close
       // the census, RUN DETAILS LAST. About's own label is the prototype's
