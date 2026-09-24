@@ -2,22 +2,24 @@
  * ONE REVIEW AFFORDANCE FOR THE WHOLE MODEL — framing, assumptions,
  * relationships, values, alternatives and evidence, one item at a time.
  *
- * Collapsed, it is one row: "N to review" and an ask to check the whole
- * framing. Open, it pages through `buildReviewQueue`'s items with the acts a
- * reader needs on each: inspect it in the Model, focus it on the canvas, ask
- * Olumi about it, change its value, confirm an estimate as their own.
+ * Collapsed, it is one row: "N to review", an ask to check the whole framing,
+ * and "Edit the full question" (`BriefEditForm`). Open, it pages through
+ * `buildReviewQueue`'s items with the acts a reader needs on each: edit the
+ * belief, add evidence or context, inspect it in the Model, focus it on the
+ * canvas, ask Olumi about it, change its value, confirm an estimate as their own.
  *
  * ⚠⚠ REVIEWED IS NOT VERIFIED IS NOT ESTABLISHED. Confirming an estimate makes
  * it the reader's estimate; it verifies nothing behind it, and the control says
  * so. There is no "Mark reviewed": nothing would persist it, and a tick that
  * forgets itself on reload is a claim the product does not keep.
  *
- * ⚠ "Add evidence or context" IS AN ASK, NOT A FORM. There is no model-level
- * evidence store, so the words go to Olumi with the item's context and are
- * never recorded as evidence.
+ * ⚠ "Edit this belief" AND "Add evidence or context" CAPTURE, THEN ASK. They
+ * open one inline form (`ReviewItemEditor`) whose submit goes to Olumi through
+ * `onAsk`. There is no model-level evidence store and no writer for a
+ * finding's wording, so nothing typed there is stored, and the form says so.
  *
- * ⚠ THIS FILE OPENS NO ROUTE OF ITS OWN. The ask, the Model-tab inspection and
- * the edit are the caller's handlers (`onAsk`, `onInspect`, `onEdit`); the
+ * ⚠ THIS FILE OPENS NO ROUTE OF ITS OWN. The ask and the Model-tab inspection
+ * are the caller's handlers (`onAsk`, `onInspect`); the
  * canvas focus defaults to `focusModelTarget`; the value write is
  * `FactorValueControl`'s; the confirmation is the write authority's
  * `proposeFactorConfirmation`; "Not relevant" is the strengthen lifecycle
@@ -30,6 +32,7 @@ import {
   ChevronRight,
   Crosshair,
   Info,
+  Link2,
   ListTree,
   MoreHorizontal,
   Pencil,
@@ -55,16 +58,18 @@ import {
   REVIEW_KIND_LABEL,
   REVIEW_TOOL_COPY as COPY,
   reviewItemAskPayload,
-  reviewItemContextPayload,
   reviewItemDisagreePayload,
   reviewValueProvenance,
   reviewValueText,
   WHOLE_FRAMING_ASK,
 } from '../buildReviewQueue'
+import { useBriefEditStore } from '../briefEditStore'
 import { FactorValueControl } from '../FactorValueControl'
 import { OlumiAiIcon } from '../OlumiAiIcon'
 import { PanelIconButton } from '../PanelIconButton'
 import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
+import { BRIEF_EDIT_COPY, BriefEditForm } from './BriefEditForm'
+import { ReviewItemEditor, type ReviewEditorField } from './ReviewItemEditor'
 
 export interface ModelReviewToolProps {
   /** `vm.strengthen.interventions`, in engine order. */
@@ -80,8 +85,6 @@ export interface ModelReviewToolProps {
    * says so to the reader rather than doing nothing silently.
    */
   onFocus?: (targetId: string) => boolean
-  /** Edit a non-factor target. A factor is edited inline instead. */
-  onEdit?: (targetId: string) => void
   /** The run the findings came from, stamped on a dismissal record. */
   analysisHash?: string | null
   testId?: string
@@ -93,7 +96,6 @@ export function ModelReviewTool({
   onAsk,
   onInspect,
   onFocus = focusModelTarget,
-  onEdit,
   analysisHash = null,
   testId = 'analysis-new-review',
 }: ModelReviewToolProps) {
@@ -123,6 +125,21 @@ export function ModelReviewTool({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interventions, excludeId, nodeSignature, edgeSignature])
 
+  // ── "Edit the full question": ONE form, opened from here or the Method strip ──
+  // This row hosts it; while mounted it registers, so the strip's "Edit decision
+  // brief" opens this form rather than falling back to its generic ask.
+  const briefOpen = useBriefEditStore((s) => s.isOpen)
+  const briefOpenRequest = useBriefEditStore((s) => s.openRequest)
+  const setBriefOpen = useBriefEditStore((s) => s.setOpen)
+  const registerBriefHost = useBriefEditStore((s) => s.registerHost)
+  useEffect(() => registerBriefHost(), [registerBriefHost])
+  const briefPencilRef = useRef<HTMLSpanElement | null>(null)
+  /** Closing hands focus back to the pencil, so a keyboard reader is not dropped. */
+  const closeBrief = () => {
+    setBriefOpen(false)
+    briefPencilRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
+  }
+
   const [open, setOpen] = useState(false)
   /**
    * The item on screen, BY KEY. When it leaves the queue — confirmed, answered,
@@ -133,6 +150,8 @@ export function ModelReviewTool({
   const [moreOpen, setMoreOpen] = useState(false)
   const [sourceOpen, setSourceOpen] = useState(false)
   const [confirmInfoOpen, setConfirmInfoOpen] = useState(false)
+  /** The inline item editor, keyed to the item it was opened on. */
+  const [editor, setEditor] = useState<{ key: string; field: ReviewEditorField } | null>(null)
 
   const total = queue.length
   const found = currentKey === null ? -1 : queue.findIndex((item) => item.key === currentKey)
@@ -143,11 +162,34 @@ export function ModelReviewTool({
   }, [index])
   /** Derived, so confirming the last item cannot strand an empty open tool. */
   const isOpen = open && current !== undefined
+  const editorOpen = editor !== null && current !== undefined && editor.key === current.key
+
+  // ── The item editor: open, toggle, and hand focus back on Cancel/Escape ──
+  const itemRef = useRef<HTMLDivElement | null>(null)
+  const returnFocusTo = useRef<string | null>(null)
+  const openEditor = (field: ReviewEditorField) => {
+    if (!current) return
+    setMoreOpen(false)
+    setEditor((e) => (e && e.key === current.key && e.field === field ? null : { key: current.key, field }))
+  }
+  const closeEditor = (restoreFocus: boolean) => {
+    if (restoreFocus && editor) {
+      returnFocusTo.current = editor.field === 'belief' ? `${testId}-edit` : `${testId}-add-context`
+    }
+    setEditor(null)
+  }
+  useEffect(() => {
+    if (editorOpen || returnFocusTo.current === null) return
+    const id = returnFocusTo.current
+    returnFocusTo.current = null
+    itemRef.current?.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)?.focus()
+  }, [editorOpen])
 
   const resetItemState = () => {
     setMoreOpen(false)
     setSourceOpen(false)
     setConfirmInfoOpen(false)
+    setEditor(null)
   }
   const goTo = (i: number) => {
     const item = queue[i]
@@ -295,17 +337,38 @@ export function ModelReviewTool({
             {COPY.nothingToReview}
           </span>
         )}
-        <PanelIconButton
-          ai
-          label={COPY.askFraming}
-          onClick={() => onAsk(WHOLE_FRAMING_ASK)}
-          testId={`${testId}-ask-framing`}
-        />
+        <span className="flex items-center">
+          <PanelIconButton
+            ai
+            label={COPY.askFraming}
+            onClick={() => onAsk(WHOLE_FRAMING_ASK)}
+            testId={`${testId}-ask-framing`}
+          />
+          <span ref={briefPencilRef} className="inline-flex">
+            <PanelIconButton
+              Icon={Pencil}
+              label={BRIEF_EDIT_COPY.open}
+              expanded={briefOpen}
+              onClick={() => setBriefOpen(!briefOpen)}
+              testId={`${testId}-edit-brief`}
+            />
+          </span>
+        </span>
       </div>
+
+      {briefOpen ? (
+        <BriefEditForm
+          onAsk={onAsk}
+          onClose={closeBrief}
+          focusRequest={briefOpenRequest}
+          testIdPrefix={testId}
+        />
+      ) : null}
 
       {isOpen && current ? (
         <div
           id={regionId}
+          ref={itemRef}
           className="pt-1"
           data-testid={`${testId}-item`}
           data-review-key={current.key}
@@ -411,20 +474,21 @@ export function ModelReviewTool({
 
           <div className="relative flex flex-wrap items-center gap-1 pt-0.5">
             <span className="flex items-center" data-testid={`${testId}-acts`}>
+              {current.recommendation ? (
+                <PanelIconButton
+                  Icon={Pencil}
+                  label={COPY.editBelief}
+                  expanded={editorOpen && editor?.field === 'belief'}
+                  onClick={() => openEditor('belief')}
+                  testId={`${testId}-edit`}
+                />
+              ) : null}
               {current.targetId && onInspect ? (
                 <PanelIconButton
                   Icon={ListTree}
                   label={COPY.inspect}
                   onClick={() => onInspect(current.targetId as string)}
                   testId={`${testId}-inspect`}
-                />
-              ) : null}
-              {current.targetId ? (
-                <PanelIconButton
-                  Icon={Crosshair}
-                  label={COPY.focus}
-                  onClick={() => focusTarget(current.targetId as string)}
-                  testId={`${testId}-focus`}
                 />
               ) : null}
               <PanelIconButton
@@ -474,37 +538,21 @@ export function ModelReviewTool({
                 className="absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-panel-border bg-panel p-1 shadow-2"
                 data-testid={`${testId}-menu`}
               >
-                {current.targetId && onEdit && !current.factor ? (
+                {current.targetId ? (
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => {
                       closeMenu(true)
-                      onEdit(current.targetId as string)
+                      focusTarget(current.targetId as string)
                     }}
                     className={menuItemClass}
-                    data-testid={`${testId}-edit`}
+                    data-testid={`${testId}-focus`}
                   >
-                    <Pencil className={icon('row')} aria-hidden={true} />
-                    <span className={typography.panelBody}>{COPY.edit}</span>
+                    <Crosshair className={icon('row')} aria-hidden={true} />
+                    <span className={typography.panelBody}>{COPY.focus}</span>
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    closeMenu(true)
-                    onAsk(reviewItemContextPayload(current))
-                  }}
-                  className={`${menuItemClass} items-start`}
-                  data-testid={`${testId}-add-context`}
-                >
-                  <OlumiAiIcon className={`${icon('row')} mt-0.5 shrink-0 text-info`} aria-hidden={true} />
-                  <span className="min-w-0">
-                    <span className={`${typography.panelBody} block`}>{COPY.addContext}</span>
-                    <span className={`${typography.panelMeta} block text-text-light`}>{COPY.addContextTip}</span>
-                  </span>
-                </button>
                 <button
                   type="button"
                   role="menuitem"
@@ -544,6 +592,29 @@ export function ModelReviewTool({
               {COPY.confirmTip}
             </p>
           ) : null}
+
+          {/* The prototype's at-rest "Add evidence or context"; the editor takes
+              its place while open. */}
+          {editorOpen && editor ? (
+            <ReviewItemEditor
+              key={current.key}
+              item={current}
+              focusField={editor.field}
+              onAsk={onAsk}
+              onClose={closeEditor}
+              testIdPrefix={testId}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => openEditor('evidence')}
+              className={`${action('inline')} ${typography.panelMeta} gap-1`}
+              data-testid={`${testId}-add-context`}
+            >
+              <Link2 className={icon('inline')} aria-hidden={true} />
+              {COPY.addContext}
+            </button>
+          )}
         </div>
       ) : null}
 

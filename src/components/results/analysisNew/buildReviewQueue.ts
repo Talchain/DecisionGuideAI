@@ -72,13 +72,11 @@ export const REVIEW_TOOL_COPY = {
   focus: 'Focus on canvas',
   ask: 'Ask Olumi about this item',
   more: 'More actions for this item',
-  edit: 'Edit this item',
   addContext: 'Add evidence or context',
   /** V2: disagreement continues into the conversation (brief: no separate note store). */
   disagree: 'I disagree',
   disagreeTip: 'Tell Olumi why, in the conversation',
   disagreeDraft: (name: string) => `I disagree with this about ${name}. My reason: `,
-  addContextTip: 'Olumi discusses it with you. Nothing you add is stored as verified evidence.',
   confirm: 'Confirm as my estimate',
   confirmTip: 'Confirming makes this your estimate. It does not verify the evidence behind it.',
   confirmed: 'Recorded as your estimate. The evidence behind it is still not verified.',
@@ -88,7 +86,25 @@ export const REVIEW_TOOL_COPY = {
   unnamedFactor: 'A factor with no name',
   askFactorDraft: (name: string) =>
     `Help me check the estimate for ${name}. What would support it, and what would change it?`,
-  addContextDraft: (name: string) => `Here is evidence or context about ${name}: `,
+  // ── The item editor (prototype `review-form`, P:538 / P:668-673) ──────────
+  editBelief: 'Edit this belief',
+  beliefLabel: 'Belief or proposed wording',
+  beliefPlaceholder: 'How would you put it?',
+  evidenceLabel: 'Evidence or context',
+  evidencePlaceholder: 'What supports or challenges this?',
+  sourceLabel: 'Source',
+  sourceMeta: 'Optional, not automatically verified',
+  sourcePlaceholder: 'A person, document or source link',
+  editCancel: 'Cancel',
+  editSubmit: 'Continue with Olumi',
+  editNote:
+    'This goes to Olumi in the chat, where you check it before sending. Nothing you add is stored as verified evidence.',
+  editReviewing: (name: string) => `Reviewing: ${name}`,
+  editCurrentValue: (value: string) => `Current value: ${value}`,
+  editProposedBelief: (text: string) => `Proposed belief: ${text}`,
+  editEvidence: (text: string) => `Evidence or context: ${text}`,
+  editSource: (text: string) => `Source: ${text}`,
+  editClosing: 'Help me examine this; do not treat it as verified evidence.',
 } as const
 
 // ── Kinds ─────────────────────────────────────────────────────────────────────
@@ -371,17 +387,44 @@ export function reviewItemAskPayload(item: ReviewQueueItem): AskOlumiPayload {
   }
 }
 
+/** What the reader typed into the item editor. */
+export interface ReviewItemEdit {
+  belief?: string
+  evidence?: string
+  source?: string
+}
+
 /**
- * "Add evidence or context" — there is NO model-level evidence store, so this
- * is an ask, never a form. The draft opens for the user to finish; nothing is
- * recorded as evidence.
+ * The item editor's submit (prototype P:668-673): one review message, handed
+ * to the ask route with the same context, target, `block_id` and attention note
+ * as the item's own ask, so Olumi knows WHICH finding it is about. `null` when
+ * every field is blank.
+ *
+ * ⚠ IT PROPOSES, NEVER APPLIES. No writer exists for a finding's wording or for
+ * model-level evidence, so the message ends by asking Olumi not to treat any of
+ * it as verified evidence, and nothing is stored.
+ *
+ * ⚠ A FACTOR STATES ITS CURRENT VALUE AS THE PANEL SHOWS IT, and carries no
+ * `parameters`: a verify-list factor has no producer record, and an invented
+ * identifier is a claim nothing upstream authored.
  */
-export function reviewItemContextPayload(item: ReviewQueueItem): AskOlumiPayload {
+export function reviewItemEditPayload(item: ReviewQueueItem, edit: ReviewItemEdit): AskOlumiPayload | null {
+  const belief = edit.belief?.trim() ?? ''
+  const evidence = edit.evidence?.trim() ?? ''
+  const source = edit.source?.trim() ?? ''
+  if (!belief && !evidence && !source) return null
   const rec = item.recommendation
+  const value = item.factor ? reviewValueText(item.factor) : null
+  const lines = [REVIEW_TOOL_COPY.editReviewing(item.name)]
+  if (value) lines.push(REVIEW_TOOL_COPY.editCurrentValue(value))
+  if (belief) lines.push(REVIEW_TOOL_COPY.editProposedBelief(belief))
+  if (evidence) lines.push(REVIEW_TOOL_COPY.editEvidence(evidence))
+  if (source) lines.push(REVIEW_TOOL_COPY.editSource(source))
+  lines.push(REVIEW_TOOL_COPY.editClosing)
   return {
     context: rec ? rec.whyNow || rec.signal : factorContext(item),
-    draft: REVIEW_TOOL_COPY.addContextDraft(item.name),
-    label: REVIEW_TOOL_COPY.addContext,
+    draft: lines.join('\n'),
+    label: belief ? REVIEW_TOOL_COPY.editBelief : REVIEW_TOOL_COPY.addContext,
     ...(item.targetId ? { targetId: item.targetId } : {}),
     ...(rec?.action.parameters ? { parameters: rec.action.parameters } : {}),
     ...(rec ? { attentionNote: attentionNoteForRecommendation(rec) } : {}),
