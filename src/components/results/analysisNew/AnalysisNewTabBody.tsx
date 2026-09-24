@@ -43,7 +43,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch, ClipboardCheck, GraduationCap, Activity } from 'lucide-react'
+import { AlertTriangle, Star, TrendingUp, GitBranch, ClipboardCheck, GraduationCap, Activity } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -87,10 +87,10 @@ import { TrustLine } from './sections/TrustLine'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
-import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { SectionShell } from './sections/SectionShell'
-import { ActionsMenu } from '../decision-overview/ActionsMenu'
-import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
+import { MethodStrip } from './sections/MethodStrip'
+import { ModelReviewTool } from './sections/ModelReviewTool'
+import { runMethod } from './runMethod'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
@@ -1168,11 +1168,6 @@ export function AnalysisNewTabBody({
     )
   }, [vm.strengthen.interventions, stripOffersTarget])
 
-  const alsoWorthDoing = useMemo(
-    () => selectAlsoWorthDoing(vm.strengthen.interventions, glancePrimary),
-    [vm.strengthen.interventions, glancePrimary],
-  )
-
   /**
    * ⭐ WHICH METHODS THIS RUN RAISED — the engine's own findings, asked through
    * the ONE owner of "is this finding and this technique the same move?"
@@ -1445,6 +1440,21 @@ export function AnalysisNewTabBody({
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
       <div className="px-4 py-4 space-y-4 max-w-[440px] mx-auto">
+        {/* ⭐ V2 — ONE METHOD STRIP, FIRST (Paul + ChatGPT brief, 23 Sep 2026).
+            It replaces BOTH the "Methods you can run" chip shelf and this tab's
+            Actions dropdown, which rendered the same seven methods twice. Five
+            icons + one overflow; the overflow keeps the rest of the catalogue
+            and the global actions (edit brief, review inputs, re-run). Until the
+            Challenge card lands, choosing a method opens it as before. */}
+        <MethodStrip
+          activeMethodId={null}
+          onSelectMethod={(id) => {
+            const method = METHOD_CATALOGUE.find((m) => m.id === id)
+            if (method) runMethod(method)
+          }}
+          raisedMethodIds={raisedMethodIds}
+          canRerun={canRunAnalysis === true && !vm.status.isPreRun}
+        />
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and
             false of this model when nothing has run — mounted pre-run it sat
@@ -1683,6 +1693,28 @@ export function AnalysisNewTabBody({
           isPreRun={vm.status.isPreRun}
           insights={nodeInsights}
         />
+        {/* ⭐ V2 — ONE REVIEW AFFORDANCE FOR THE WHOLE MODEL. The strip's
+            "to verify" badge counted factors only; the engine's findings about
+            framing, assumptions, relationships and alternatives lived in a
+            separate wall of cards ("Strengthen the reasoning"). One queue now
+            holds both (`buildReviewQueue`), one item at a time, with edit /
+            inspect / focus / ask. The finding the glance promotes is excluded so
+            it is never offered twice. */}
+        <ModelReviewTool
+          interventions={vm.strengthen.interventions}
+          excludeId={glancePrimary?.id ?? null}
+          onAsk={openAskOlumi}
+          onInspect={onReviewTarget}
+          onFocus={(id) => {
+            if (!focusModelTarget(id)) {
+              showToast(COPY.canvas.focusFailed)
+              return false
+            }
+            onFocusNode?.(id)
+            return true
+          }}
+          analysisHash={responseHash ?? null}
+        />
 
         {/* ── FOCUS NOW ──────────────────────────────────────────────────────
             ⭐ THE PROTOTYPE'S PRIMARY ACTION, AND IT WAS BUILT ON THE WRONG TAB.
@@ -1749,7 +1781,7 @@ export function AnalysisNewTabBody({
             frequently absent; the methods are not. Two different questions, and
             folding them into one gate is what would bring the heading-over-
             nothing defect back. */}
-        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
+        {focusApplicableIds.length > 0 ? (
           <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
@@ -1770,7 +1802,6 @@ export function AnalysisNewTabBody({
             {focusApplicableIds.length > 0 ? (
               <FocusNowContainer applicableStaticIds={focusApplicableIds} />
             ) : null}
-            <MethodsYouCanRun raisedMethodIds={raisedMethodIds} />
           </div>
         ) : null}
 
@@ -2546,34 +2577,9 @@ export function AnalysisNewTabBody({
           }
           onRunIntervention={runIntervention}
         />
-        <div data-testid="analysis-new-acts">
-        <StrengthenTheReasoning
-          interventions={alsoWorthDoing}
-          scienceGrounding={vm.strengthen.scienceGrounding}
-          preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
-          analysisHash={responseHash ?? null}
-          /**
-           * ⛔ I OPENED THIS ON EVERY RUN AND IT WAS WRONG TWICE OVER.
-           *
-           * The reasoning was "a collapsed row tells a reader a category exists,
-           * not what to do". True — and already ADJUDICATED against, with a
-           * spec: `strengthenOpensPreRun.spec.tsx` pins the opening as SCOPED to
-           * pre-run, where this is the panel's ONLY piece of coaching and a
-           * collapsed row leaves the whole surface ending in a bare "1".
-           * `collapsedIA.spec.tsx` pins the rest: below the glance, the surface
-           * is a list of CLOSED rows.
-           *
-           * It also worked against the complaint it was meant to serve — the
-           * panel went 751px to 825px, and length is the thing Paul reported.
-           */
-          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
-          argueTheOpposite={vm.atAGlance.condition}
-          icon={Wrench}
-        />
-        <div data-testid="analysis-new-methods" className="mt-1">
-          <ActionsMenu />
-        </div>
-        </div>
+        {/* V2: "Strengthen the reasoning" and this tab's Actions dropdown are
+            gone from here. Their findings are the review tool's queue (under
+            the model strip) and their methods/actions are the method strip. */}
 
         {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
             ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
