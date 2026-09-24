@@ -25,8 +25,12 @@
  *   honesty rule, reused).
  *
  * ── DS v5 ──────────────────────────────────────────────────────────────────
- * Neutral surface: one full-width bottom separator, no fill, no one-sided
- * border, no nested card. Three type sizes only. Fluid at the 280px dock floor.
+ * Neutral surface: no fill, no nested card. Three type sizes only. Fluid at
+ * the 280px dock floor.
+ *
+ * ⭐ V2 (fidelity gap 6/11, 24 Sep 2026): the separator is `PANEL_RULE` — a
+ * full-width rule ABOVE the section, not the inset bottom border this
+ * docblock used to describe. See `panelSurfaces.ts` for why.
  */
 import type { ReactNode } from 'react'
 import { ChevronRight, GitCompare, Info, NotebookPen } from 'lucide-react'
@@ -41,7 +45,7 @@ import {
   type CommitmentSynthesis,
 } from '../commitmentSynthesis'
 import { PanelIconButton } from '../PanelIconButton'
-import { action, icon } from '../panelSurfaces'
+import { action, icon, PANEL_RULE } from '../panelSurfaces'
 import {
   formatConfidence,
   formatRecordedOn,
@@ -231,7 +235,9 @@ export function CommitmentSummary({
 
   return (
     <section
-      className="border-b border-panel-border last:border-b-0 py-3"
+      /* fidelity gap 6/11: full-width top rule (`PANEL_RULE`), not the
+         inset bottom border this section drew before. */
+      className={`${PANEL_RULE} pb-3`}
       data-testid={testId}
       aria-labelledby={`${testId}-title`}
     >

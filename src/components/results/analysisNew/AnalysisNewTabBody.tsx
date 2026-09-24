@@ -76,7 +76,7 @@ import {
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
 // The act below takes its geometry from the tier, never from this call site —
 // `everyInlineActIsReachableByTouch` exists to keep that the single source.
-import { action } from './panelSurfaces'
+import { action, PANEL_RULE } from './panelSurfaces'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
 import {
@@ -1961,6 +1961,18 @@ export function AnalysisNewTabBody({
             is the one that matters most here, because that is where `AtAGlance`
             carries "no option can be called the leader until you have set at
             least one". */}
+        {/* ⭐ THE RULE BETWEEN THE MODEL AND THE FIRST ZONE (fidelity gap
+            6/11) — the design authority's `.section:before`, drawn as its
+            own element because the model block (`ModelStrip` /
+            `ModelReviewTool`) and "Challenge the thinking" are sibling
+            top-level blocks with no shared wrapper to carry it on. Empty and
+            `aria-hidden`, so `topLevelBlockElements()` — which already skips
+            `MethodStrip` for the same reason — skips this too; it never
+            counts against `thePanelCannotRegrow` or reads as a stray section
+            in `everySectionBelongsToAZone`. Same `role="separator"`
+            convention `PreAnalysisPanel.tsx` already uses for its own
+            decorative rules. */}
+        <div className={PANEL_RULE} role="separator" aria-hidden="true" data-testid="analysis-new-rule-model-challenge" />
         {/* ── ZONE: ALSO ─────────────────────────────────────────────
             ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
             makes the zone grammar a REDUCTION: the panel goes from a flat stack
