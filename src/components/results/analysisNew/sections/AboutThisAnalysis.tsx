@@ -339,7 +339,12 @@ export function AboutThisAnalysis({
   testId = 'analysis-new-about',
 }: AboutThisAnalysisProps) {
   const [open, setOpen] = useState(false)
-  const [detailOpen, setDetailOpen] = useState<DetailKey | null>(null)
+  /*
+   * Each detail row opens on its own. It was one-at-a-time, which hid a row the
+   * reader had just opened whenever they opened the next, and made "open every
+   * section" impossible (the shared spec helper looped on it).
+   */
+  const [detailOpen, setDetailOpen] = useState<ReadonlySet<DetailKey>>(() => new Set())
   const regionId = useId()
   // Hooks before the pre-run return, as hooks must be.
   const briefDetail = useBriefDetail()
@@ -373,8 +378,12 @@ export function AboutThisAnalysis({
    * the leader row, and saying it twice in one surface is the defect this
    * utility exists to remove.
    */
+  // ⛔ NOT THE LEADER ITEM. Its meaning ("could not confirm which option is
+  // most likely…") is already the commitment block's "What remains uncertain"
+  // bullet at rest, and the leader row here says "Not confirmed"; listing it
+  // again restored Paul's 20 Sep duplicate (V2 census, B2).
   const limitations = vm.checks.items
-    .filter((i) => i.state === 'not_assessed')
+    .filter((i) => i.state === 'not_assessed' && i.id !== 'leader')
     .flatMap((i): Array<{ id: ChecksItem['id']; text: string }> => {
       const entry = COPY.checks[i.code]
       return 'meaning' in entry ? [{ id: i.id, text: entry.meaning }] : []
@@ -468,14 +477,21 @@ export function AboutThisAnalysis({
 
           <div className="mt-2">
             {details.map((key) => {
-              const isOpen = detailOpen === key
+              const isOpen = detailOpen.has(key)
               const bodyId = `${regionId}-${key}`
               return (
                 <div key={key} data-testid={`${testId}-detail-${key}`}>
                   <h4 className="m-0">
                     <button
                       type="button"
-                      onClick={() => setDetailOpen(isOpen ? null : key)}
+                      onClick={() =>
+                        setDetailOpen((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(key)) next.delete(key)
+                          else next.add(key)
+                          return next
+                        })
+                      }
                       aria-expanded={isOpen}
                       aria-controls={isOpen ? bodyId : undefined}
                       className={`${typography.panelBody} text-text-body flex w-full min-h-[24px] items-center gap-1.5 py-1 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
