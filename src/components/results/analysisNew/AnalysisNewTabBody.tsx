@@ -1949,6 +1949,7 @@ export function AnalysisNewTabBody({
           onFocus={focusTarget}
           onInspect={onReviewTarget}
           onAsk={openAskOlumi}
+          closedAtRest={true}
         />
         {/* V2: "Strengthen the reasoning" and this tab's Actions dropdown are
             gone from here. Their findings are the review tool's queue (under

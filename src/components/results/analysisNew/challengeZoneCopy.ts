@@ -9,6 +9,8 @@
  * ahead, or whether a technique applies here.
  */
 export const CHALLENGE_ZONE_COPY = {
+  /** V2 prototype's closed disclosure under the challenge (`challengeHTML`). */
+  assumptionsAndEvidence: 'Assumptions and evidence',
   /** The drivers kicker. Not "What moves the outcome": that names the full section below it. */
   driversKicker: 'Top drivers',
   /** The card's one AI act: runs the existing intervention or method route. */
