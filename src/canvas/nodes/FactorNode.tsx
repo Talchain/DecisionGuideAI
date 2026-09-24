@@ -23,7 +23,7 @@ import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { useRunCurrency } from './shared/runCurrency'
-import { FactorDriverLine } from './shared/FactorDriverLine'
+import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { selectFactorTurningPointState } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
@@ -31,6 +31,7 @@ import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { StatusPill } from './shared/StatusPill'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
@@ -354,8 +355,17 @@ export const FactorNode = memo((props: NodeProps) => {
    * (`gapEscalation` below). So this removes a duplicate, never a signal.
    */
   const headerCarriesEvidenceGap = scienceIcons.some(si => si.id === 'evidence-gap')
+  /*
+   * ⛔ NOT ON THE STANDARD FACE (NODE-ANATOMY v3.2: "no pills on the border";
+   * acceptance "no pill crosses a border"; audit F8 / FRAME-13). The badge is a
+   * "?" disc hanging off the bottom-right corner — the "hanging ?" in Paul's
+   * screenshot — and on the Standard face its fact is already said: the value's
+   * `est.` mark states "no observed data", and a TARGETED gap reaches the rail's
+   * evidence icon (`NodeSignalRailIcons`). Detailed keeps it: "Detailed adds
+   * information, not a bigger card".
+   */
   const showEvidenceGapBadge =
-    isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
+    isDetailed && isGraphBadgesEnabled() && !hasObservedData(props.data) && !externalWithPrior
     && !headerCarriesEvidenceGap
 
   const gapEscalation: EvidenceGapEscalation = useMemo(() => {
@@ -418,7 +428,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
    * every driver render on this card. (Historical: it fed the Standard-view
    * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
-   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
+   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M ranked in this run".) They show the same figure, so they carry the
    * same misread, and fixing one would have left `Relative influence … 100%`
    * reachable one view away — four presentations of one idea, which is the
    * inconsistency this card's rows were unified to remove.
@@ -481,6 +491,22 @@ export const FactorNode = memo((props: NodeProps) => {
   )
 
   /**
+   * ⭐ THE FACTOR FACE — NODE-ANATOMY v3.2 (24 Sep; supersedes the locked face
+   * below where they differ). Paul, 24 Sep: "The content on the nodes is an
+   * absolute mess … make these nodes look like the design."
+   *   1  title
+   *   2  `<value> <mark>` as plain text (no chip), OR "Needs input · Value not
+   *      set yet" in the body (no border pill). Pre-run with a value: nothing more.
+   *   3+ ONLY for a factor the run RANKED: "Driver N of M ranked in this run" +
+   *      a thin neutral bar, then a found turning point OR "No turning point in
+   *      this run". A found turning point also shows on an unranked factor (it
+   *      is the run's finding for THIS factor — contract `if(n.flip)`).
+   *   NEVER "Structural influence"; "No turning point available" on an unranked
+   *      factor; a limit line (the Goal's); a badge on the border (Standard).
+   *   STALE `Last run ·` only on the rank and a found turning point (ED #63
+   *      5805528520 §6).
+   * Pinned state by state in `__tests__/FactorNode.anatomyV32.spec.tsx`.
+   *
    * ⭐ THE LOCKED FACTOR FACE (spec §3 Normal; ED 02:31Z D1a; ED 11:52Z point 3):
    *   title → value + unit → tiny relative DRIVER line → at most ONE mini-visual
    *   (turning point, else a genuine range, else nothing) → the rail.
@@ -515,20 +541,29 @@ export const FactorNode = memo((props: NodeProps) => {
   const resultsFromLastRun = runCurrency === 'changed'
   const runCuesShown = runCurrency === 'current' || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
+  // Contract v3.1 pt 5: "Driver N of M ranked in this run" (M = the ranked
+  // count) on a RANKED factor only. A factor the run did not rank shows no line
+  // and no bar; it says "Not ranked in this run" to AT (`FactorDriverNotRanked`).
+  const driverRank =
+    isPostAnalysis && runCuesShown
+      ? driverRankFor(
+          influenceRank,
+          displayMetadata.sensitivityRank,
+          displayMetadata.influenceSetSize,
+          resultsFromLastRun,
+          displayMetadata.influenceRankedCount,
+        )
+      : null
   const driverLine =
-    isPostAnalysis && runCuesShown && influencePct != null && displayMetadata.influenceProvenance != null
+    driverRank !== null && influencePct != null && displayMetadata.influenceProvenance != null
       ? {
-          rank: driverRankFor(
-            influenceRank,
-            displayMetadata.sensitivityRank,
-            displayMetadata.influenceSetSize,
-            resultsFromLastRun,
-          ),
+          rank: driverRank,
           value: influencePct / 100,
           provenance: displayMetadata.influenceProvenance,
           importanceBasis: displayMetadata.influenceImportanceBasis,
         }
       : null
+  const driverNotRanked = isPostAnalysis && runCuesShown && driverRank === null
   // Paul 23 Sep contract feedback point 3(d): the slot always says something
   // after a run it may speak for — the track for a PLoT `found` row, else the
   // quiet "No turning point …" fallback. Never-run / cannot-confirm stay null
@@ -538,6 +573,20 @@ export const FactorNode = memo((props: NodeProps) => {
     [isPostAnalysis, runCuesShown, resultsReport, props.id],
   )
   const turningPoint = turningPointState?.kind === 'found' ? turningPointState.turningPoint : null
+  /*
+   * ⭐ NODE-ANATOMY v3.2, Factor row: findings "ONLY if the run RANKED it" — the
+   * driver line, then a found turning point OR `No turning point in this run`.
+   * Contract v3.1 `nodeHTML`: `if(n.flip) flipPlot(); else if(n.rank) noTurning()`.
+   * So a FOUND turning point (the run's finding for THIS factor) shows on any
+   * factor, and the "no turning point" fallback only under a rank it completes.
+   * On an unranked factor that fallback was the only analysis line left after
+   * the "Structural influence" arm went — it said nothing exists, which
+   * principle 1 forbids ("Nothing is shown just to say that nothing exists";
+   * audit F1). `driverLine` is the one gate: the fallback follows the line the
+   * card actually shows, in both views.
+   */
+  const turningPointShown =
+    turningPointState !== null && (turningPointState.kind === 'found' || driverLine !== null)
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -864,7 +913,7 @@ export const FactorNode = memo((props: NodeProps) => {
               provenance means no influence number is rendered. */}
           {/* ⭐ ONE DRIVER VOCABULARY IN EVERY VIEW. Detailed and the popover
               render the SAME `FactorDriverLine` the resting face does ("Driver N
-              of M analysed" + relative bar, the % in its tooltip), and it
+              of M ranked in this run" + relative bar, the % in its tooltip), and it
               is withheld on a stale run exactly as it is there. The old
               "Most influential ▬ of 5" row here was the fourth wording of one
               rank (purpose audit, #1899 finding 3). */}
@@ -964,7 +1013,11 @@ export const FactorNode = memo((props: NodeProps) => {
       onClick={nodeHandlers.onClick}
     >
       {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} escalation={gapEscalation} />}
-      {constraintTooltip && <ConstraintBadge tooltip={constraintTooltip} />}
+      {/* The limit is the GOAL's (NODE-ANATOMY v3.2, Factor "Never on the card:
+          a limit line (the boundary lives on the Goal)"); its corner badge is the
+          same fact on the border, so the Standard face drops it too. Detailed
+          keeps it. The constraint DATA is untouched. */}
+      {isDetailed && constraintTooltip && <ConstraintBadge tooltip={constraintTooltip} />}
       {isAffectedByHover && (
         <div
           className="absolute -inset-1 rounded-md border-2 border-info pointer-events-none -z-10"
@@ -989,6 +1042,9 @@ export const FactorNode = memo((props: NodeProps) => {
         icon={metadata.icon}
         coaching={cardQuestion}
         resultsFromLastRun={resultsFromLastRun}
+        // The body states the gap ("Needs input · Value not set yet"), so the
+        // corner pill would say it twice, on the border (v3.2; gap U4's prop).
+        incompleteStatedOnCard={needsInput}
         headerSlot={(() => {
           // Graph v1.1 Task 2: low-priority factors keep their identity cue
           // (fileQuestion for needs-input) but lose extra science icons in
@@ -1040,9 +1096,13 @@ export const FactorNode = memo((props: NodeProps) => {
             user stated is never collapsed — and, since Paul 23 Sep contract
             feedback point 1, it carries its OWN mark (`you`) rather than none,
             so "unmarked" never has to be read as "Olumi's". */}
+        {/* ⭐ NODE-ANATOMY v3.2 line 2: `<value> <mark>` as plain text. No top
+            margin — title → value is the header's 4px on every family (audit
+            F6; RiskNode's value row is `m-0`) — and the row WRAPS, so a long
+            value plus its mark stays inside the card. */}
         {valueDisplay !== null && (
           <div
-            className={`${typography.nodeValue} mt-1 text-text-body inline-flex items-baseline gap-1`}
+            className={`${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`}
             data-testid="factor-recorded-value"
           >
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
@@ -1099,6 +1159,25 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* ⭐ NODE-ANATOMY v3.2, Factor, missing: "`Needs input · Value not set
+            yet` in the BODY, not a border pill" (contract `nodeHTML`:
+            `.own-value` → `.state-word` Needs input + `Value not set yet`). The
+            state takes line 2 — where a value would be — and BaseNode's corner
+            pill is withheld through `incompleteStatedOnCard`, so the card says
+            it ONCE (audit PILL-02: the corner pill straddled the top border and
+            reached the connector glyph at landing zoom). Same `StatusPill`, same
+            test id and accessible name the corner used, so "the card says Needs
+            input" is still bound by identity. */}
+        {needsInput && valueDisplay === null && (
+          <div
+            className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5"
+            data-testid={`factor-needs-input-row-${props.id}`}
+          >
+            <StatusPill label="Needs input" title="Missing required input" />
+            <span className={`${typography.edgeLabel} text-text-light`}>Value not set yet</span>
+          </div>
+        )}
+
         {/* ⭐ THE TINY RELATIVE DRIVER VISUAL — a current run, or a known-changed
             model's last run LABELLED `Last run · ` (never-run / cannot-confirm
             hide it). Detailed renders the same line once, inside its Layer 2
@@ -1114,13 +1193,16 @@ export const FactorNode = memo((props: NodeProps) => {
             fromLastRun={resultsFromLastRun}
           />
         )}
+        {/* Contract v3.1 pt 5: no rank, no line, no bar — said once to AT, in
+            both views. */}
+        {driverNotRanked && <FactorDriverNotRanked fromLastRun={resultsFromLastRun} />}
 
         {/* ⭐ AT MOST ONE MINI-VISUAL (spec §3 precedence): a real turning point
             (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external
             factor's producer prior — never a fabricated fallback), else nothing.
             Detailed shows the range beside the turning point: it adds
             information, not a different card. */}
-        {turningPointState ? (
+        {turningPointShown && turningPointState ? (
           <FactorTurningPointSlot
             nodeId={props.id}
             factorLabel={cleanedLabel}
@@ -1141,7 +1223,7 @@ export const FactorNode = memo((props: NodeProps) => {
             (#1889) so a reader binds to THIS card's line by identity. */}
         {nodeCategory === 'external' && priorRangeDisplay && (!turningPoint || isDetailed) && (
           <div
-            className={`${typography.edgeLabel} mt-0.5 text-text-light`}
+            className={`${typography.edgeLabel} mt-1 text-text-light`}
             data-testid={`factor-prior-range-${props.id}`}
           >
             {priorRangeDisplay}

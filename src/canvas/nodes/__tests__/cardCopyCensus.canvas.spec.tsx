@@ -256,10 +256,15 @@ const FACTOR_IDS = ['factor-1', 'factor-2', 'factor-3']
 const RISK_IDS = ['risk-1', 'risk-2', 'risk-3']
 const OUTCOME_IDS = ['outcome-1', 'outcome-2', 'outcome-3']
 
+// Contract v3.1 pt 5: only a RANKED factor carries a driver line, so the three
+// factors carry a licensed ranking (set 3, ranked 3 — the contract fixture's
+// own "Driver N of 3"). Before v3.1 they were implicitly unranked (no set size)
+// and the line read the quantity noun `Influence`, which v3.1 retires.
+const RANKED = { influenceSetSize: 3, influenceRankedCount: 3 }
 const META: Record<string, Record<string, unknown>> = {
-  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true },
-  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true },
-  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true },
+  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true, ...RANKED },
+  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true, ...RANKED },
+  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true, ...RANKED },
   'option-1': { winRate: 0.47 },
   'option-2': { winRate: 0.31 },
   'option-3': { winRate: 0.15 },
@@ -498,9 +503,10 @@ const BUCKETS: Array<
  *    outcome cards at every rung — "Outcome/risk records are distinct from the
  *    strength of their connections". Removed from all eight risk/outcome
  *    buckets below, and its two REACH positions are retired with it.
- *  · The factor `Influence` row is now the driver line (ED 02:31Z D1a); on this
- *    fixture's unranked factors its caption is the quantity's own noun, still
- *    `Influence` — the same CAPTION at its new surface.
+ *  · The factor `Influence` row is now the driver line (ED 02:31Z D1a). Contract
+ *    v3.1 pt 5 then retired its unranked arm (the `Influence` noun caption):
+ *    the fixture's factors are ranked, and their `Driver N of 3 ranked in this
+ *    run` varies per card, so the caption is no invariant run any more.
  *  · The option face now LEADS with its change rows (spec §4; ED 11:52Z
  *    point 4). Their runs are data (a reading, a band, or a direction word), so
  *    they enter no bucket while the fixture stays disjoint AS RENDERED — see
@@ -557,14 +563,14 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // `visibleRuns` reads LEAF elements only, so the run is never collected.
     // It is adjudicated by hand in the manifest (`factor · the edge pill …`).
   ],
-  'factor · post · standard': [
-    'Influence', // CAPTION — the driver line's quantity noun (`influenceBasisNoun`)
-    //              on an unranked factor; a ranked one reads `Driver N of M in
-    //              this model`, which varies. Locked Canvas design (23 Sep 2026).
-  ],
+  // ⭐ ADJUDICATED 24 Sep 2026 — contract v3.1 pt 5 retires the unranked
+  // driver line, so the quantity-noun caption `Influence` is gone. The ranked
+  // line reads `Driver N of 3 ranked in this run`, which VARIES per card, so it
+  // is no invariant run; its position is pinned by REACH (`factor · the driver
+  // line`).
+  'factor · post · standard': [],
   'factor · post · expert': [
     'Confidence', // CAPTION
-    'Influence', // CAPTION — the driver line, face and layer 2
     'Influences:', // HEADING
     'View parameters', // CONTROL
   ],
@@ -616,11 +622,10 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // always did.
     'What would falsify this?', // CONTROL
   ],
-  // ⚠⚠ EVERY LOD BUCKET BUT ONE IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED —
-  // DO NOT READ IT AS A CLEAN BILL. (The one: `factor · post · lod-line`, whose
-  // cards have no reduced line since the locked Canvas design withdrew the bare
-  // `Influence N%` fallback (ED 11:52Z) — so their body is not blanked at that
-  // rung and the driver line's caption is collected there; see that bucket.) At this rung the caption and its value are ONE
+  // ⚠⚠ EVERY LOD BUCKET IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED —
+  // DO NOT READ IT AS A CLEAN BILL. (Until contract v3.1 pt 5 the exception was
+  // `factor · post · lod-line`, whose unranked cards had no reduced line; the
+  // census factors are ranked now — see that bucket.) At this rung the caption and its value are ONE
   // leaf (`Ahead 47%`), so no invariant caption can be isolated here; a bucket
   // fires only if two cards' ENTIRE reduced lines match, and this fixture's
   // siblings are disjoint by construction. The zeros are consistent with the
@@ -668,15 +673,10 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · pre · lod-line': [],
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
-  'factor · post · lod-line': [
-    // CAPTION — Locked Canvas design (23 Sep 2026). These unranked factors have
-    // no reduced line any more (no bare `Influence N%`, ED 11:52Z; no current
-    // rank to state), so `lodBodyBlanked` is false and the body — its driver
-    // line included — renders at this rung, exactly as the option card with no
-    // reduced line already does (see the REACH note on `option · pre ·
-    // lod-line`). The run is the same caption as `factor · post · standard`.
-    'Influence',
-  ],
+  // ⭐ ADJUDICATED 24 Sep 2026 (contract v3.1 pt 5): the factors are ranked
+  // now, so each has a reduced line — `Driver N of 3 ranked in this run`, which
+  // varies per card — and no invariant run is left at this rung.
+  'factor · post · lod-line': [],
   'risk · pre · lod-line': [],
   'outcome · pre · lod-line': [],
 }
@@ -948,7 +948,10 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     for (const [bucket, runs] of Object.entries(measured)) {
       if (bucket.startsWith('risk') || bucket.startsWith('outcome')) expect(runs, bucket).not.toContain('Link strength')
     }
-    expect(measured['factor · post · standard']).toContain('Influence')
+    // Contract v3.1 pt 5 retired the factor's `Influence` noun caption; the
+    // factor register caption that MUST still be found is `Confidence`.
+    expect(measured['factor · post · expert']).toContain('Confidence')
+    expect(Object.values(measured).flat()).not.toContain('Influence')
     expect(measured['option · post · standard']).toContain('Current model')
     expect(Object.values(measured).flat()).not.toContain('Support')
     expect(Object.values(measured).flat()).not.toContain('Strength')
