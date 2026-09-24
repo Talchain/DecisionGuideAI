@@ -1079,9 +1079,12 @@ export const GoalNode = memo((props: NodeProps) => {
               /* Contract v3.1 T07/ANC-07: the goal's one recorded quantity reads
                  in INK (`.node .target-row` sets no colour, so it inherits
                  --ink); muted is reserved for row-meta and the source mark. The
-                 dotted rule stays as the route affordance but in the secondary
-                 colour, so the figure — not its underline — carries the weight. */
-              className={`nodrag nopan ${typography.nodeLabel} text-text-body text-left underline decoration-dotted decoration-text-light decoration-from-font underline-offset-2 hover:text-info hover:decoration-solid`}
+                 dotted rule is the route affordance, in the secondary colour,
+                 and it shows on HOVER AND KEYBOARD FOCUS ONLY: NODE-ANATOMY v3.2
+                 principle 3 ("No link text inside a card … on hover or focus")
+                 and the contract's `.target-row` (a plain span) — at rest the
+                 target reads as text, like the factor value editor. */
+              className={`nodrag nopan ${typography.nodeLabel} text-text-body text-left decoration-dotted decoration-text-light decoration-from-font underline-offset-2 hover:underline focus-visible:underline hover:text-info hover:decoration-solid`}
               onPointerDown={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
               onClick={(e) => {
