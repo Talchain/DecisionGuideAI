@@ -309,6 +309,8 @@ describe('the acts route to their existing owners', () => {
     const onFocus = vi.fn().mockReturnValue(false)
     render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} onFocus={onFocus} />)
     openTool()
+    // V2: behind More, so the row keeps three icons with the pencil in it.
+    fireEvent.click(screen.getByTestId(`${TID}-more`))
     fireEvent.click(screen.getByTestId(`${TID}-focus`))
     expect(onFocus).toHaveBeenCalledWith('f_mine')
     expect(showToast).toHaveBeenCalledWith(STRENGTHEN_COPY.focusFailedNotice)
@@ -318,11 +320,14 @@ describe('the acts route to their existing owners', () => {
     const onFocus = vi.fn().mockReturnValue(true)
     const { unmount } = render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} onFocus={onFocus} />)
     openTool()
+    fireEvent.click(screen.getByTestId(`${TID}-more`))
     fireEvent.click(screen.getByTestId(`${TID}-focus`))
     expect(showToast).not.toHaveBeenCalled()
     unmount()
     render(<ModelReviewTool interventions={[ROBUSTNESS]} onAsk={vi.fn()} onFocus={onFocus} />)
     openTool()
+    fireEvent.click(screen.getByTestId(`${TID}-more`))
+    expect(screen.getByTestId(`${TID}-menu`)).toBeInTheDocument()
     expect(screen.queryByTestId(`${TID}-focus`)).toBeNull()
   })
 
@@ -339,7 +344,7 @@ describe('the acts route to their existing owners', () => {
   })
 
   it('at most three icon acts sit in the row; the rest are behind More', () => {
-    render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} onInspect={vi.fn()} onEdit={vi.fn()} />)
+    render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={vi.fn()} onInspect={vi.fn()} />)
     openTool()
     const row = screen.getByTestId(`${TID}-acts`)
     const icons = Array.from(row.querySelectorAll('button')).filter(
@@ -349,16 +354,20 @@ describe('the acts route to their existing owners', () => {
     expect(screen.getByTestId(`${TID}-more`)).toHaveAttribute('aria-haspopup', 'menu')
   })
 
-  it('Add evidence or context is an ask, never a form', () => {
+  it('Add evidence or context captures inline, then goes to Olumi as one ask', () => {
     const onAsk = vi.fn()
     render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={onAsk} />)
     openTool()
-    fireEvent.click(screen.getByTestId(`${TID}-more`))
     fireEvent.click(screen.getByTestId(`${TID}-add-context`))
+    // Opening the form asks nothing yet.
+    expect(onAsk).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByTestId(`${TID}-editor-evidence`), { target: { value: 'Two hires are signed' } })
+    fireEvent.click(screen.getByTestId(`${TID}-editor-send`))
     expect(onAsk).toHaveBeenCalledWith(
       expect.objectContaining({ label: COPY.addContext, parameters: { block_id: 'blk_mine' } }),
     )
-    expect(document.querySelector('textarea')).toBeNull()
+    expect(onAsk).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId(`${TID}-editor`)).toBeNull()
   })
 
   it('"I disagree" continues into the conversation about THIS finding: same block_id and target, a started draft, nothing stored', () => {
@@ -372,21 +381,22 @@ describe('the acts route to their existing owners', () => {
     expect(payload.label).toBe(COPY.disagree)
     expect(payload.parameters).toEqual({ block_id: 'blk_mine' })
     expect(payload.draft).toBe(COPY.disagreeDraft(ABOUT_MINE.title))
-    // CONTRAST: it is not the add-context ask with a new label.
-    expect(payload.draft).not.toBe(COPY.addContextDraft(ABOUT_MINE.title))
+    // CONTRAST: it is not the item editor's review message with a new label.
+    expect(payload.draft).not.toContain(COPY.editReviewing(ABOUT_MINE.title))
     expect(document.querySelector('textarea')).toBeNull()
   })
 
-  it('Edit is offered for a non-factor target only when the caller can do it', () => {
-    const onEdit = vi.fn()
+  it('a relationship finding is edited in place through the pencil, not a menu entry nothing handles', () => {
+    const onAsk = vi.fn()
     edges.push({ id: 'e1' })
     const onEdge = rec({ id: 'strengthen:flip:e1', helpType: 'evaluate', targetId: 'e1' })
-    render(<ModelReviewTool interventions={[onEdge]} onAsk={vi.fn()} onEdit={onEdit} />)
+    render(<ModelReviewTool interventions={[onEdge]} onAsk={onAsk} />)
     openTool()
     expect(screen.getByTestId(`${TID}-kind`)).toHaveTextContent('Relationship')
-    fireEvent.click(screen.getByTestId(`${TID}-more`))
     fireEvent.click(screen.getByTestId(`${TID}-edit`))
-    expect(onEdit).toHaveBeenCalledWith('e1')
+    fireEvent.change(screen.getByTestId(`${TID}-editor-belief`), { target: { value: 'This link is weaker than shown' } })
+    fireEvent.click(screen.getByTestId(`${TID}-editor-send`))
+    expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({ targetId: 'e1', label: COPY.editBelief }))
   })
 
   it('Escape closes the menu', () => {

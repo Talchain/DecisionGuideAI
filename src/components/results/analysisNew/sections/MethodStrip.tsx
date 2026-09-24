@@ -42,6 +42,7 @@ import {
   type MethodEntry,
 } from '../../decision-overview/actionsCatalogue'
 import { useSelfToast } from '../../decision-overview/useSelfToast'
+import { openBriefEdit } from '../briefEditStore'
 import { PanelActRow } from '../PanelActRow'
 import { PanelIconButton } from '../PanelIconButton'
 import { ACTION_FOCUS } from '../panelSurfaces'
@@ -206,7 +207,10 @@ export function MethodStrip({
       return
     }
     if (action.id === 'edit_brief') {
-      openAskOlumi({ ...REVIEW_BRIEF_ASK, source: 'chip' })
+      // The tab's inline "Your question" form, the same one the review row's
+      // pencil opens. Only when nothing is mounted to show it does this keep
+      // the shared review-brief ask, so the item is never dead.
+      if (!openBriefEdit()) openAskOlumi({ ...REVIEW_BRIEF_ASK, source: 'chip' })
       return
     }
     openAskOlumi({
