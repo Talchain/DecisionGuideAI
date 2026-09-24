@@ -131,31 +131,39 @@ const NODE_FIXTURE = [
  * A node kind whose panel renders a real editing INPUT (not only buttons) AND
  * is still wrapped by the Router.
  *
- * ⚠⚠ THIS WAS A CONTROLLABLE FACTOR AND CANNOT BE ANY MORE — the change is
- * forced, not cosmetic. `factor-controllable` joined
- * `InspectorRouter`'s `AUTHORITY_OWNING_PANELS`, because the factor VALUE has a
- * durable carrier (`factor_value_edit`). It therefore renders NO
- * `fieldset[data-authority="disabled"]` at all, and every helper below opens
- * with `PRECONDITION FAILED: no authority boundary rendered`.
+ * ⚠⚠ THIS WAS A CONTROLLABLE FACTOR, THEN AN OBSERVABLE ONE, AND CAN BE NEITHER
+ * NOW — each change forced, not cosmetic. `factor-controllable` and then
+ * `factor-observable` (24 Sep 2026) joined `InspectorRouter`'s
+ * `AUTHORITY_OWNING_PANELS`, because each factor VALUE commits through a durable
+ * carrier (`factor_value_edit`). Neither renders a
+ * `fieldset[data-authority="disabled"]` any more, and every helper below would
+ * open with `PRECONDITION FAILED: no authority boundary rendered`.
  *
- * ⭐ THE FIX KEEPS THE PROPERTY THE FIXTURE WAS CHOSEN FOR. An OBSERVABLE
- * factor renders the same shape of numeric input and has NOT opted in, so the
- * boundary still has something to be true about. Repointing at the risk fixture
- * would have quietly reduced these four tests to a duplicate of the ones above,
- * which assert over buttons only — green, and no longer testing an input.
+ * ⭐ THE REPOINT KEEPS BOTH PROPERTIES THE FIXTURE WAS CHOSEN FOR, and the
+ * risk fixture could keep neither. A DECISION with a description renders a real
+ * `<textarea>` writer inside the boundary (an INPUT, not only buttons), and with
+ * one connected option it renders a `[role="button"]` option row — the same
+ * class of non-form control the scope-limit pin below exists to record. The
+ * decision is also the one panel with a control deliberately OUTSIDE the
+ * boundary ("+ Add option"), so the escape check here exercises a defended
+ * exception rather than an empty region.
  */
-const BOUNDED_FACTOR_FIXTURE = [
+const DECISION_FIXTURE = [
   {
-    id: 'f1',
-    type: 'factor',
-    data: {
-      label: 'Price',
-      kind: 'factor',
-      category: 'observable',
-      observedState: { raw_value: 49, value: 0.49, unit: '£' },
-    },
+    id: 'd1',
+    type: 'decision',
+    data: { label: 'How should we price the Pro tier?', kind: 'decision', description: 'Pricing call.' },
     position: { x: 0, y: 0 },
   },
+  {
+    id: 'o1',
+    type: 'option',
+    data: { label: 'Premium tier', kind: 'option' },
+    position: { x: 0, y: 0 },
+  },
+]
+const DECISION_FIXTURE_EDGES = [
+  { id: 'd1-o1', source: 'd1', target: 'o1', data: {} },
 ]
 
 const EDGE_FIXTURE_NODES = [
@@ -373,13 +381,20 @@ const NATIVELY_DISABLEABLE = 'button, input, select, textarea'
  * be reused INSIDE the fieldset to launder a control past the escape check).
  * Identity only — a value predicate another element could satisfy is trap 19.
  */
-type PanelKind = 'node' | 'edge'
+/**
+ * ⚠ `decision` IS A NODE PANEL WITH ONE EXTRA DEFENDED EXCEPTION, and it is a
+ * separate kind so that exception is scoped to where it exists. The decision's
+ * "+ Add option" sits in the `quickActions` slot, outside the boundary, on the
+ * decision panel ONLY — an entry scoped `['node']` would RED on every other node
+ * fixture ("matched nothing"), and an unscoped one would excuse it everywhere.
+ */
+type PanelKind = 'node' | 'decision' | 'edge'
 
 const DELIBERATELY_OUTSIDE: ReadonlyArray<{
   selector: string
   why: string
   /**
-   * Which panels this affordance exists on. Omitted means BOTH — the fence
+   * Which panels this affordance exists on. Omitted means ALL — the fence
    * ("must match at least one element") then applies in both, which is the
    * strict default. Naming a subset NARROWS where the fence is checked; it
    * never disables it, so a scoped entry that disappears from its own panel
@@ -416,7 +431,15 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
     // `structural_rename.node_id` addresses a NODE, and `EdgeV3Schema` declares
     // no label at all — an edge's only canonical identity is its `(from, to)`
     // pair. There is nothing on an edge for this verb to rename.
-    panels: ['node'],
+    panels: ['node', 'decision'],
+  },
+  {
+    selector: '[data-testid="decision-add-option"]',
+    why: 'the decision\'s "+ Add option" — `addNodeWithEdge` captures a durable `structural_add` for the new option (CEE `\'mutating\'`), the same admission the rename passed. It is the ONLY decision control moved out; the rest of the pane stays inside the boundary. Its link half stands down at `strength_not_stated` and is not claimed.',
+    // DECISION ONLY: rendered by the Router's `quickActions` for a decision and
+    // for no other kind. If it ever appeared on another panel, that panel's
+    // escape check would report it, because this entry does not apply there.
+    panels: ['decision'],
   },
 ]
 
@@ -505,13 +528,39 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   })
 
   it('leaves no editing control outside the boundary in the node panel', () => {
-    // ⚠ NOT the risk fixture used above. A factor panel renders a real number
-    // input inside the boundary, so the boundary has something to be true ABOUT
-    // rather than only buttons. See the fixture's header for why it is the
-    // OBSERVABLE factor and no longer the controllable one.
-    setStoreState(BOUNDED_FACTOR_FIXTURE)
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    // ⚠ THE RISK FIXTURE, DELIBERATELY, for the OUTSIDE question: it is a node
+    // panel with NO decision-scoped exception, so every shell-level entry must
+    // still match here and nothing else may sit outside. The INSIDE questions
+    // (a real input, the scope-limit pin) use the decision fixture below — see
+    // its header for why no factor panel can serve any more.
+    setStoreState(NODE_FIXTURE)
+    render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
     expect(escapedControls()).toEqual([])
+  })
+
+  it('leaves no editing control outside the boundary in the DECISION panel — add-option is the one defended exception', () => {
+    // ⭐ The decision panel is still wrapped; only its "+ Add option" moved out.
+    // This case is what makes that a DEFENDED exception rather than an escape:
+    // the entry must match a real element here AND resolve outside the boundary,
+    // and every OTHER control on the pane must still be inside it.
+    setStoreState(DECISION_FIXTURE, DECISION_FIXTURE_EDGES)
+    render(<InspectorRouter nodeId="d1" edgeId={null} onClose={vi.fn()} />)
+    expect(escapedControls('decision')).toEqual([])
+  })
+
+  it('POSITIVE CONTROL: the decision exception does not excuse the control on OTHER node panels', () => {
+    // Without this, a Router change that rendered the add-option control on
+    // every node kind would pass the decision case above. On the risk fixture
+    // the decision-scoped entry does not apply, so an add-option there would be
+    // reported as escaped. Asserted by injecting exactly that element.
+    setStoreState(NODE_FIXTURE)
+    render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
+    const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)!
+    const stray = document.createElement('button')
+    stray.setAttribute('data-testid', 'decision-add-option')
+    region.appendChild(stray)
+    expect(escapedControls()).toEqual(['<button> decision-add-option'])
+    stray.remove()
   })
 
   it('leaves no editing control outside the boundary in the edge panel', () => {
@@ -521,8 +570,8 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   })
 
   it('leaves no effectively-enabled FORM CONTROL inside the node boundary', () => {
-    setStoreState(BOUNDED_FACTOR_FIXTURE)
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    setStoreState(DECISION_FIXTURE, DECISION_FIXTURE_EDGES)
+    render(<InspectorRouter nodeId="d1" edgeId={null} onClose={vi.fn()} />)
     const { fieldset } = readBoundary()
     const formControls = Array.from(
       fieldset.querySelectorAll<HTMLElement>(NATIVELY_DISABLEABLE),
@@ -566,14 +615,21 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
    * made one inert, and this note plus the sentence in
    * `useInspectorMutations.ts` should be updated to say so). A gap recorded in
    * the suite is honest; a gap visible only to a comment is how it gets lost.
+   *
+   * ⚠ 24 Sep 2026 — THE MEMBER CHANGED BECAUSE THE FIXTURE HAD TO (see
+   * `DECISION_FIXTURE`), NOT BECAUSE THE LIMIT DID. The observable factor's
+   * `EmptyDescriptionPrompt` is no longer inside any Router boundary. The
+   * decision's option row is the same class — a `[role="button"]` div the
+   * fieldset cannot inert — and the same bound holds: it NAVIGATES
+   * (`onNavigate`), so no write escapes through it.
    */
   const NOT_INERTED_BY_THE_FIELDSET_NODE = [
-    '<div> What is this factor and why does it matter?',
+    '<div> Premium tier',
   ]
 
   it('pins EXACTLY which controls the fieldset does not inert (node panel)', () => {
-    setStoreState(BOUNDED_FACTOR_FIXTURE)
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    setStoreState(DECISION_FIXTURE, DECISION_FIXTURE_EDGES)
+    render(<InspectorRouter nodeId="d1" edgeId={null} onClose={vi.fn()} />)
     expect(notInertedInsideBoundary()).toEqual(NOT_INERTED_BY_THE_FIELDSET_NODE)
   })
 
@@ -589,8 +645,8 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
     // absence probe must be shown capable of detecting a presence). This is
     // the M5 shape, injected directly: an enabled control inside the Inspector
     // region and outside the boundary.
-    setStoreState(BOUNDED_FACTOR_FIXTURE)
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    setStoreState(NODE_FIXTURE)
+    render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
     expect(escapedControls()).toEqual([])
 
     const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)!
