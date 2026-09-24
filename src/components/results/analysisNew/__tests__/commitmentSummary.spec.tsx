@@ -294,8 +294,11 @@ describe('record your view — the existing decision record', () => {
   it('a recorded next action is read back, labelled as in the form', () => {
     renderZone({ record: { ...RECORD, nextAction: 'Size the market by Friday' } })
     expect(screen.getByTestId(`${TID}-record-next-action`).textContent).toBe(
-      `${DECISION_RECORD_COPY.nextActionLabel}: Size the market by Friday`,
+      `${COPY.decisionRecord.nextActionLabel}: Size the market by Friday`,
     )
+    // "Labelled as in the form": the Reasoning tab keeps its own copy (so it
+    // does not import the modal and its copy scope), bound here to the form's.
+    expect(COPY.decisionRecord.nextActionLabel).toBe(DECISION_RECORD_COPY.nextActionLabel)
   })
 
   it('CONTRAST: no next action, no row', () => {
