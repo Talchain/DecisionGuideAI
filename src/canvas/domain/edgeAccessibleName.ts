@@ -119,7 +119,27 @@ export interface NameableEdge {
   target: string
   data?: unknown
   ariaLabel?: string
+  /**
+   * ROW 35 (contract §01: "edges focusable … role=button"). Read at the
+   * INSTALLED `@xyflow/react@12.10.2` runtime bytes (`dist/esm/index.mjs`,
+   * `EdgeWrapper`): `role: edge.ariaRole ?? (isFocusable ? 'group' : 'img')`
+   * — the wrapper already honours a caller-supplied role, it just never
+   * received one, so every focusable edge announced the generic `group`.
+   * ⚠ The pinned package's own `.d.ts` (`@xyflow/system@0.0.76`,
+   * `types/edges.d.ts`) does not YET declare this field even though the
+   * compiled runtime reads it — verified by running the fixture in
+   * `edgeAccessibleName.spec.ts` against the installed bytes, not assumed
+   * from the type file.
+   */
+  ariaRole?: string
 }
+
+/**
+ * ROW 35's role word, named once so the seam and its test read the same
+ * literal rather than two authors agreeing on "button" independently
+ * (CLAUDE.md trap 12).
+ */
+export const EDGE_ARIA_ROLE = 'button'
 
 /**
  * The description this edge PAINTS, resolved through the same gates the canvas
@@ -147,6 +167,9 @@ export function describeEdgeForSpeech(data: unknown, mode: EdgeLabelMode): strin
  * ⛔ AN EXISTING `ariaLabel` IS NEVER OVERWRITTEN. If a future caller has a
  * better name for a specific edge, this must not silently replace it — a
  * blanket rewrite is how a considered name gets flattened by a generic one.
+ *
+ * ⛔ AND NEITHER IS AN EXISTING `ariaRole`, for the same reason and checked
+ * independently of `ariaLabel` — a caller could supply one without the other.
  */
 export function withEdgeAccessibleNames<E extends NameableEdge>(
   edges: readonly E[],
@@ -154,23 +177,28 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
   mode: EdgeLabelMode,
 ): E[] {
   return edges.map(edge => {
-    if (typeof edge.ariaLabel === 'string' && edge.ariaLabel.trim().length > 0) return edge
+    const hasOwnAriaLabel = typeof edge.ariaLabel === 'string' && edge.ariaLabel.trim().length > 0
+    const hasOwnAriaRole = typeof edge.ariaRole === 'string' && edge.ariaRole.trim().length > 0
+    if (hasOwnAriaLabel && hasOwnAriaRole) return edge
     return {
       ...edge,
-      ariaLabel: buildEdgeAccessibleName({
-        // Bound by the edge's OWN endpoint ids — never by position or order.
-        sourceLabel: nodeLabelById.get(edge.source),
-        targetLabel: nodeLabelById.get(edge.target),
-        description: describeEdgeForSpeech(edge.data, mode),
-        // ⭐ THE OUTER GROUP IS WHERE THIS HAS TO LAND. `StyledEdge` carries the
-        // same sentence, but on an INNER element that exists only while the
-        // edge's label renders — the exact asymmetry this module's header was
-        // written about. Measured on deployed `7ec3fed2`: 39 connections, 39
-        // announcing a strength, 3 rendering a label, and 0 announcing the
-        // affordance. Passed through `edgeDoubleClickAffordance` so the spoken
-        // word and the hovered word cannot drift apart.
-        affordance: edgeDoubleClickAffordance(edge as never),
+      ...(hasOwnAriaLabel ? {} : {
+        ariaLabel: buildEdgeAccessibleName({
+          // Bound by the edge's OWN endpoint ids — never by position or order.
+          sourceLabel: nodeLabelById.get(edge.source),
+          targetLabel: nodeLabelById.get(edge.target),
+          description: describeEdgeForSpeech(edge.data, mode),
+          // ⭐ THE OUTER GROUP IS WHERE THIS HAS TO LAND. `StyledEdge` carries the
+          // same sentence, but on an INNER element that exists only while the
+          // edge's label renders — the exact asymmetry this module's header was
+          // written about. Measured on deployed `7ec3fed2`: 39 connections, 39
+          // announcing a strength, 3 rendering a label, and 0 announcing the
+          // affordance. Passed through `edgeDoubleClickAffordance` so the spoken
+          // word and the hovered word cannot drift apart.
+          affordance: edgeDoubleClickAffordance(edge as never),
+        }),
       }),
+      ...(hasOwnAriaRole ? {} : { ariaRole: EDGE_ARIA_ROLE }),
     }
   })
 }

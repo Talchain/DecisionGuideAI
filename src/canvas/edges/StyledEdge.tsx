@@ -1184,6 +1184,66 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isStructuralEdge, edgeIdKey, showHoverPopover])
 
   /**
+   * ⭐⭐ ROW 35 — ENTER/SPACE OPENS WHAT A CLICK OPENS.
+   *
+   * React Flow's OWN `onKeyDown` is already bound to this same ancestor
+   * (`elementSelectionKeys = ['Enter', ' ', 'Escape']`, `@xyflow/system@0.0.76`
+   * `dist/esm/index.mjs:27`, consumed at `@xyflow/react@12.10.2`
+   * `dist/esm/index.mjs:2895-2907`) — but it only ever calls
+   * `addSelectedEdges([id])`. It never calls the `onClick` prop, so the click
+   * path this app actually wires — `ReactFlowGraph.tsx`'s `handleEdgeClick`,
+   * bound as `onEdgeClick={handleEdgeClick}` → `setShowFullInspector(true)` —
+   * stays a MOUSE-ONLY route. A keyboard user who presses Enter on a focused
+   * edge gets a SELECTED edge and nothing else: not what a click gets them,
+   * and — worse — selection then SUPPRESSES this edge's own hover popover
+   * (`showHoverPopover && !selected`, read at the popover's own gate below),
+   * so the one thing focus had JUST opened closes under the very key meant to
+   * act on the edge.
+   *
+   * The fix re-uses the SAME click path a mouse already drives, rather than
+   * inventing a second one: dispatching a real `click` on the ancestor
+   * `.react-flow__edge` reaches React Flow's own `onEdgeClick` — bound via
+   * its synthetic listener on that element — which both selects the edge AND
+   * calls the app's `onClick`, so a keyboard activation and a mouse click
+   * become the SAME event once it lands. No new "what does Enter do" rule is
+   * written here; Enter just triggers the click that already has one.
+   *
+   * Bound to the ANCESTOR for the same reason the focus listener above is:
+   * `onKeyDown` in the library's own render (`dist/esm/index.mjs:2911`) is
+   * wired to `g.react-flow__edge`, an ancestor of the group THIS component
+   * renders, so a listener on our own group would never see a key React Flow
+   * had already consumed on that ancestor — `focusin`/`focusout` bubble UP
+   * from a descendant; this is the mirror case, a listener that must sit
+   * WHERE the key lands rather than try to catch it on the way there.
+   *
+   * ⚠ ONLY WHEN THE EVENT TARGET IS THE EDGE ITSELF. A descendant control —
+   * the fragile-cue-only glyph (`handleFragileCueKeyDown`, its own
+   * `tabIndex`/`onKeyDown`) — has its OWN Enter/Space behaviour and its own
+   * `stopPropagation`-free keydown, which BUBBLES to this same ancestor; the
+   * `event.target !== rfEdge` guard (the identical check `focusIn` above
+   * uses) stops this listener from ALSO dispatching a click for that
+   * keystroke and opening the full inspector on top of the glyph's own
+   * editor. Space is prevented for the same reason
+   * `handleFragileCueKeyDown` prevents it: unprevented, it scrolls the page.
+   */
+  useEffect(() => {
+    const group = edgeGroupRef.current
+    if (!group) return
+    const rfEdge = group.closest('.react-flow__edge')
+    if (!rfEdge) return
+
+    const onEdgeKeyDown = (event: KeyboardEvent) => {
+      if (event.target !== rfEdge) return
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      rfEdge.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    }
+
+    rfEdge.addEventListener('keydown', onEdgeKeyDown as EventListener)
+    return () => rfEdge.removeEventListener('keydown', onEdgeKeyDown as EventListener)
+  }, [])
+
+  /**
    * ⭐ DISMISSIBLE — the second of WCAG 1.4.13's three obligations, and the one
    * this component failed in every modality: it had no key handler at all.
    *
