@@ -28,10 +28,16 @@
  * the bare `Influence N%` reduced line — all retired by the locked node-card
  * design, #1915) to the surfaces that now carry the same figure: the factor
  * card's `FactorDriverLine` (face + Detailed), its turning-point track and its
- * reduced line ("Driver N of M analysed"). The RULE is unchanged:
+ * reduced line ("Driver N of M ranked in this run", contract v3.1 pt 5). The RULE is unchanged:
  * `changed` → shown and labelled; cannot-confirm → not labelled. Under the
  * locked design cannot-confirm also HIDES the analysis cues (spec §8), which
  * is ED 02:31Z Q2's "never manufacture a last-run claim".
+ *
+ * ⛔ CONTRACT v3.1 pt 5 (24 Sep 2026): the driver line is RANKED-ONLY
+ * ("Driver N of M ranked in this run", M = the ranked count; stale form
+ * "Last run · Driver N of M ranked"). An unranked factor has no line to label;
+ * its AT-only "Not ranked in this run" statement carries the same label rule
+ * ("Last run · Not ranked").
  *
  * ⚠ WHAT THIS CANNOT PROVE (jsdom): layout. The label is inline text in
  * columns that are `shrink-0`, so it takes width from the bar beside it and
@@ -78,12 +84,19 @@ const USER_STATED = {
   observedState: { value: 0.4, source: 'user_override' },
 }
 
-const metadata = (rank: number | null, setSize: number | null, influence: number) => ({
+const metadata = (
+  rank: number | null,
+  setSize: number | null,
+  influence: number,
+  // Contract v3.1 pt 5: the printed M — the ranked count, distinct from the set.
+  rankedCount: number | null = 3,
+) => ({
   sensitivityRank: rank,
   influence,
   influenceProvenance: 'normalised_elasticity',
   influenceImportanceBasis: null,
   influenceSetSize: setSize,
+  influenceRankedCount: rankedCount,
   confidence: null,
   confidenceIsDefaulted: false,
   confidenceIsProvisional: false,
@@ -170,19 +183,20 @@ afterEach(() => {
 })
 
 describe('factor card, Standard view — the driver line', () => {
-  it('a stale run keeps the line and prefixes the caption "Last run · "', () => {
+  // ⛔ SUPERSEDED BY CONTRACT v3.1 pt 5 (was: the unranked line "Outcome
+  // sensitivity" + bar, labelled on a stale run). An unranked factor shows no
+  // line; its AT-only statement follows the same label rule.
+  it('an UNRANKED factor: "Not ranked in this run", and on a stale run "Last run · Not ranked" — never a line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    // FRESH: the locked design's unranked caption — the quantity's own noun.
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Outcome sensitivity')
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.getByTestId('factor-driver-not-ranked').textContent).toBe('Not ranked in this run')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    const line = screen.getByTestId('factor-driver-line')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Outcome sensitivity')
-    // The accessible name carries the same words the eye gets, and the figure.
-    expect(line.getAttribute('aria-label')).toMatch(/^Last run · Bar: outcome sensitivity, 62% of the strongest factor\./)
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.getByTestId('factor-driver-not-ranked').textContent).toBe('Last run · Not ranked')
   })
 
   it('a stale RANKED line keeps its rank and labels it — the retired "Key driver" badge’s rule, on the line that replaced it', () => {
@@ -190,13 +204,14 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 5 analysed')
+    // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
-    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 5 analysed\. /)
+    expect(screen.getByTestId('factor-driver-line').getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 3 ranked\. /)
     // The badge stays retired on the stale arm too.
     expect(screen.queryByTestId(`sensitivity-rank-${FACTOR_ID}`)).toBeNull()
   })
@@ -206,7 +221,7 @@ describe('factor card, Standard view — the driver line', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
   })
 
   it('cannot-confirm is NOT "changed" — no Last-run label, and no analysis cue (ED 02:31Z Q2)', () => {
@@ -239,14 +254,16 @@ describe('factor card — the turning-point track', () => {
 
 describe('factor card, Detailed view — the Detailed driver line', () => {
   it('a stale run keeps the line and labels its caption and accessible name', () => {
+    // Contract v3.1 pt 5: the line is ranked-only, so this pins the ranked arm.
+    displayMetadata = metadata(1, 5, 1)
     seedCompletedRun(UNVALUED, { viewMode: 'expert' })
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Outcome sensitivity')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Last run · Outcome sensitivity')
+    expect(screen.getByTestId('factor-driver-line-detail-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
     expect(screen.getByTestId('factor-driver-line-detail').getAttribute('aria-label')).toMatch(/^Last run · /)
   })
 })
@@ -257,12 +274,12 @@ describe('factor card, below the legibility floor — the reduced line', () => {
     seedCompletedRun(UNVALUED, { lodRung: 'line' })
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 5 analysed')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 3 ranked in this run')
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 5 analysed')
-    expect(screen.getByTestId('node-lod-line').getAttribute('title')).toBe('Last run · Driver 1 of 5 analysed')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(screen.getByTestId('node-lod-line').getAttribute('title')).toBe('Last run · Driver 1 of 3 ranked')
   })
 
   it('a human-stated value is NOT run-derived and is never labelled', () => {
