@@ -165,6 +165,12 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    * Subscribed as a primitive string so the panel cannot re-render on every
    * report identity change, and so the memo below can list it (it does).
    */
+  /** CEE's typed run provenance on the stored report; a primitive, like the stamp below. */
+  const runProvisional = useCanvasStore(
+    (s) =>
+      (s.results?.report as { run_provenance?: { provisional?: unknown } } | null | undefined)?.run_provenance
+        ?.provisional === true,
+  )
   const producerLeaderWithholdReason = useCanvasStore((s) =>
     // `results` itself can be null (no analysis yet): that is the no-cause path,
     // never a crash (Codex pre-read on #1924, shard 4: 13 mounts threw).
@@ -241,6 +247,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       buildAnalysisNewViewModel({
         data,
         producerLeaderWithholdReason,
+        runProvisional,
         recommendations,
         isPreRun,
         isRunning,
@@ -288,6 +295,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       // cause); a later turn can re-stamp it while every result input is the
       // same object (Codex pre-read on #1922).
       producerLeaderWithholdReason,
+      runProvisional,
       recommendations,
       isPreRun,
       isRunning,
