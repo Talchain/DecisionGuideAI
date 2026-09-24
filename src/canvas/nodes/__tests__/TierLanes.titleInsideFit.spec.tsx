@@ -1,20 +1,20 @@
 /**
- * ⭐ A BAND'S TITLE SITS ON ITS CONTENT EDGE, SO THE LANDING FIT CANNOT CLIP IT
- * (Paul, 24 Sep: "Question", "Options", "Goal" clipped under the header and the
- * left toolbar on both PoCs; contract v3.1 `.layer-label` sits left-aligned with
- * the layer's content, just above it).
+ * ⭐ BAND TITLES ARE LABELS ONLY, IN ONE LEFT COLUMN INSIDE THE FIT
+ * (Paul, 24 Sep: "Keep the labels on the left, but remove the different colour
+ * panels of the different node types"; NODE-ANATOMY-v32 L1/L2; contract v3.1
+ * `.layer-label` shares one left x for every layer).
  *
- * The band is furniture and never enters the fit, so a title placed at the
- * band's padded edge (120 units outside the outermost card) is outside the
- * fitted box by construction. The measurement here is in GRAPH units: the
- * band's own left + the title's left must equal the lane's content x, and the
- * title must be bottom-anchored above the first card.
+ * Measured in GRAPH units. Every title's x equals the graph's leftmost card
+ * edge — the fitted box's own left edge — so the landing fit cannot put it
+ * under the toolbar, and a centred Question/Goal title stays on the left. Each
+ * title is bottom-anchored above its band's first card so a counter-scaled
+ * label grows up, never over a card. And no tinted panel is drawn at all.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { Node } from '@xyflow/react'
-import { TierLanes, LANE_TITLE_GAP, laneTitleFlowAnchor } from '../TierLanes'
+import { TierLanes, LANE_TITLE_GAP, laneTitleColumnX } from '../TierLanes'
 import { deriveTierLanes } from '../../utils/tierLanes'
 
 vi.mock('@xyflow/react', async () => {
@@ -30,7 +30,7 @@ const BOARD: Node[] = [
   n('dec', 'decision', 1064, 150, 336, 290),
   n('o1', 'option', 100, 500, 336, 515),
   n('o2', 'option', 600, 500, 336, 515),
-  n('f1', 'factor', 200, 1150, 187, 360),
+  n('f1', 'factor', 40, 1150, 187, 360),
   n('out1', 'outcome', 800, 1600, 187, 219),
   n('goal', 'goal', 500, 2000, 336, 264),
 ]
@@ -39,33 +39,39 @@ const px = (v: string) => Number.parseFloat(v)
 
 afterEach(cleanup)
 
-describe('band titles sit inside the fitted box (contract v3.1 layer-label)', () => {
-  it('every title’s graph-space x equals its lane’s content x (not the padded band edge)', () => {
+describe('band titles: one left column, no panels (NODE-ANATOMY-v32 L1/L2)', () => {
+  it('every title sits at ONE x — the graph’s leftmost card edge — including the centred Question and Goal', () => {
     render(<TierLanes nodes={BOARD} />)
-    for (const lane of deriveTierLanes(BOARD)) {
-      const band = screen.getByTestId(`tier-lane-${lane.tier}`)
-      const title = screen.getByTestId(`tier-lane-${lane.tier}-title`)
-      const titleFlowX = px(band.style.left) + px(title.style.left)
-      expect(titleFlowX).toBe(lane.x)
-      expect(titleFlowX).toBe(laneTitleFlowAnchor(lane).x)
+    const lanes = deriveTierLanes(BOARD)
+    const leftmost = Math.min(...BOARD.map(b => b.position.x))
+    expect(laneTitleColumnX(lanes)).toBe(leftmost)
+    for (const lane of lanes) {
+      expect(px(screen.getByTestId(`tier-lane-${lane.tier}-title`).style.left)).toBe(leftmost)
     }
   })
 
-  it('every title is bottom-anchored LANE_TITLE_GAP above its first card, so a counter-scaled label grows up, never over a card', () => {
+  it('every title is bottom-anchored LANE_TITLE_GAP above its band’s first card', () => {
     render(<TierLanes nodes={BOARD} />)
     for (const lane of deriveTierLanes(BOARD)) {
-      const band = screen.getByTestId(`tier-lane-${lane.tier}`)
       const title = screen.getByTestId(`tier-lane-${lane.tier}-title`)
       expect(title.style.transform).toBe('translateY(-100%)')
-      const titleBottomFlowY = px(band.style.top) + px(title.style.top)
-      expect(titleBottomFlowY).toBe(lane.y - LANE_TITLE_GAP)
-      expect(titleBottomFlowY).toBeLessThan(lane.y)
+      expect(px(title.style.top)).toBe(lane.y - LANE_TITLE_GAP)
     }
   })
 
-  it('CONTRAST — the band itself keeps its breathing room (still padded outside the cards)', () => {
+  it('⛔ no tinted band panel is drawn (the rectangles that stretched past the viewport)', () => {
     render(<TierLanes nodes={BOARD} />)
-    const lane = deriveTierLanes(BOARD)[1]
-    expect(px(screen.getByTestId(`tier-lane-${lane.tier}`).style.left)).toBeLessThan(lane.x)
+    for (const lane of deriveTierLanes(BOARD)) {
+      expect(screen.queryByTestId(`tier-lane-${lane.tier}`)).toBeNull()
+    }
+    expect(screen.getByTestId('tier-lanes').querySelector('.bg-panel')).toBeNull()
+  })
+
+  it('CONTRAST — every occupied tier still gets its title', () => {
+    render(<TierLanes nodes={BOARD} />)
+    expect(deriveTierLanes(BOARD).length).toBeGreaterThan(3)
+    for (const lane of deriveTierLanes(BOARD)) {
+      expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).textContent).toBe(lane.title)
+    }
   })
 })
