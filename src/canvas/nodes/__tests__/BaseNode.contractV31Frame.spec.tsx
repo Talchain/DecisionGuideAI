@@ -28,6 +28,7 @@ import { useCanvasStore } from '../../store'
 import {
   ANCHOR_RAIL_RESERVE_CLASSES,
   CANVAS_GLYPH_SIZE_CLASSES,
+  anchorRailReservePx,
 } from '../shared/canvasGlyphScale'
 
 type Kind = 'goal' | 'decision' | 'option' | 'outcome' | 'factor' | 'risk'
@@ -234,21 +235,58 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     expect(root.style.paddingBottom).toBe('9px')
   })
 
-  it('the anchor body reserves the rail width on its LAST row only, sized to the rail it mounts', () => {
-    renderCard('decision', { label: 'Q' }, {
+  it('the anchor reserves the rail\'s footprint on the WHOLE card (title included), sized to the rail it mounts', () => {
+    // S5 / Codex CHANGES_REQUIRED 5809540479: a last-row-only reserve let the rail
+    // (taller than a shallow anchor's last row) reach up and cover the title and
+    // "Top gap" line on vendor-selection. The whole card's right padding now
+    // clears the counter-scaled run `anchorRailReservePx` derives.
+    const { root } = renderCard('decision', { label: 'Q' }, {
       children: <div data-testid="anchor-row">row</div>,
       railIcons: <span data-testid="run-icon" />,
     })
     const body = screen.getByTestId('anchor-body-rail-beside')
     // Challenge + More + Ask/coaching = 3, plus the caller's run icon = 4.
     expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
-    expect(tokens(body)).toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
+    expect(root.style.paddingRight).toBe(`calc(6px + ${anchorRailReservePx(4)}px * var(--canvas-label-scale, 1))`)
+    // …and the body no longer carries the last-row-only reserve class.
+    expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
   })
 
   it('twin: a factor keeps the band below its rows and gets no beside-rail reserve', () => {
     const { root } = renderCard('factor', { label: 'F', observed_state: { value: 4 } }, { children: <div>row</div> })
     expect(root.style.paddingBottom).toContain('var(--canvas-label-scale, 1)')
     expect(screen.queryByTestId('anchor-body-rail-beside')).toBeNull()
+  })
+})
+
+describe('S5: the anchors keep 11 / 9 at every rung; the rail is beside them at Normal only', () => {
+  // Canvas Browser Gate on #1932 (24 Sep): `heightVsZoom` — below the floor the
+  // anchors fell back to 12 / 12 and drew taller than anywhere above it;
+  // `nodeControlOcclusion` — at the landing rung the counter-scaled beside-rail
+  // covered the Question's own title.
+  afterEach(() => { useCanvasStore.setState({ lodRung: 'full' } as never) })
+
+  it.each(['decision', 'goal'] as const)('%s at the landing rung (quiet): 11/9, the rail BELOW the card, no beside reserve', (kind) => {
+    useCanvasStore.setState({ lodRung: 'quiet' } as never)
+    const { root, container } = renderCard(kind, { label: 'Anchor' }, { children: <div data-testid="anchor-row">row</div> })
+    expect(root.style.paddingTop).toBe('11px')
+    expect(root.style.paddingBottom).toBe('9px')
+    expect(screen.queryByTestId('anchor-body-rail-beside'), 'the rail is beside the text at the landing rung').toBeNull()
+    expect(container.querySelector('[data-rail-placement]')?.getAttribute('data-rail-placement')).toBe('below')
+  })
+
+  it.each(['decision', 'goal'] as const)('%s below the floor (line): still 11/9 — never taller than at landing', (kind) => {
+    useCanvasStore.setState({ lodRung: 'line' } as never)
+    const { root } = renderCard(kind, { label: 'Anchor' }, { children: <div data-testid="anchor-row">row</div> })
+    expect(root.style.paddingTop).toBe('11px')
+    expect(root.style.paddingBottom).toBe('9px')
+  })
+
+  it('CONTRAST — at Normal (full) the rail is beside the last row, as ANC-02 draws it', () => {
+    useCanvasStore.setState({ lodRung: 'full' } as never)
+    const { container } = renderCard('decision', { label: 'Q' }, { children: <div data-testid="anchor-row">row</div> })
+    expect(screen.getByTestId('anchor-body-rail-beside')).toBeTruthy()
+    expect(container.querySelector('[data-rail-placement]')?.getAttribute('data-rail-placement')).toBe('inset')
   })
 })
 

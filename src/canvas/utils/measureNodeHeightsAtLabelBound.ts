@@ -208,13 +208,19 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
    */
   const blanked = root.querySelectorAll(LOD_BLANKED_BODY_SELECTOR)
   const previousBodyHeights: string[] = []
+  // S5 (24 Sep): the collapse is a MAX-height now (a short body is never made
+  // taller by blanking it), so the release lifts that cap too; `height` is still
+  // released for any caller that sets it inline.
+  const previousBodyMaxHeights: string[] = []
 
   try {
     root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
     for (const el of blanked) {
       const e = el as HTMLElement
       previousBodyHeights.push(e.style.height)
+      previousBodyMaxHeights.push(e.style.maxHeight)
       e.style.height = 'auto'
+      e.style.maxHeight = 'none'
     }
     for (const el of nodes) {
       const e = el as HTMLElement
@@ -239,6 +245,9 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
       const was = previousBodyHeights[i]
       if (was === '') e.style.removeProperty('height')
       else e.style.height = was
+      const wasMax = previousBodyMaxHeights[i]
+      if (wasMax === '') e.style.removeProperty('max-height')
+      else e.style.maxHeight = wasMax
     }
   }
 

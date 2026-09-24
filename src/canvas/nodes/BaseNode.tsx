@@ -79,8 +79,9 @@ import {
   CANVAS_CORNER_STACK_CLASSES,
   CANVAS_HEADER_GLYPH_GROUP_CLASSES,
   CANVAS_GLYPH_SIZE_CLASSES,
-  ANCHOR_RAIL_RESERVE_CLASSES,
   anchorRailButtonsKey,
+  anchorRailReservePx,
+  CANVAS_QUICK_ACTION_INSET_PX,
 } from './shared/canvasGlyphScale'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -260,9 +261,21 @@ interface BaseNodeProps extends NodeProps {
  */
 const CONNECTOR_GLYPH_PX = 22
 
+// ⭐ S5 (24 Sep): a MAX-height, not a height. The box is "at most the one line
+// the card still shows" — a body already shorter than that line keeps its own
+// height. A fixed 16px × scale made the anchors' one-line body (~15px × scale)
+// TALLER below the floor than above it (Canvas Browser Gate `heightVsZoom`,
+// build-vs-buy 1280×800: decision 126 → 128), against the layout's reservation.
+// `measureNodeHeightsAtLabelBound` lifts the cap while it reads.
 const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   visibility: 'hidden',
-  height: 'calc(16px * var(--canvas-label-scale, 1))',
+  // One BODY line (the 11px `edgeLabel` line box, 15px × scale) — the height the
+  // shortest body a card shows above the floor already has. At 16px the reduced
+  // line's box made the Question and the baseline option 2 units taller below
+  // the floor than at landing; the reduced line is absolutely positioned inside
+  // this box, and its 12px glyphs sit inside 15px × scale with the half-leading
+  // to spare (only the empty bottom of its line box is clipped).
+  maxHeight: 'calc(15px * var(--canvas-label-scale, 1))',
   overflow: 'hidden',
 }
 
@@ -1083,7 +1096,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // 1.51 + 6px while the content shrinks from scale 2 to ≤ 1.51 — captured per
   // node on all five starters, no card is taller at Normal zoom than at the
   // landing rung. The anchors (Question, Goal) keep their rail BESIDE the last
-  // row at every rung: it costs width, not height.
+  // row at Normal zoom only; below it they follow the same rule (see
+  // `anchorRailBeside`).
   const quickActionBandReserved = showQuickActions && atNormalZoom
 
   /**
@@ -1246,12 +1260,33 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     (railIcons ? 1 : 0) +
     (attention.reasons.some(r => r.kind === 'evidence_gap') ? 1 : 0) +
     (attention.reasons.some(r => r.kind === 'behavioural') ? 1 : 0)
-  const anchorRailBeside = isAnchorCard && showQuickActions
+  // ⭐ S5 (24 Sep): BESIDE ONLY AT NORMAL ZOOM. At the landing rung the rail is
+  // counter-scaled to twice its size and outgrew the fixed right-hand reserve —
+  // MEASURED on the Canvas Browser Gate (#1932, `nodeControlOcclusion`,
+  // vendor-selection 1440×900): the Question's Ask/Challenge/More covered its
+  // own title and "Top gap" line. Below Normal the anchors take the repeated
+  // cards' rule instead: the hover row is drawn BELOW the card and the text keeps
+  // the full width.
+  const anchorRailBeside = isAnchorCard && showQuickActions && atNormalZoom
   const cardPadding = (): CSSProperties => {
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
     if (anchorRailBeside) {
-      return { paddingTop: '11px', paddingRight: side, paddingBottom: '9px', paddingLeft: side }
+      // ⭐ S5 (24 Sep; Codex CHANGES_REQUIRED 5809540479): the rail's footprint is
+      // reserved on the WHOLE anchor, title included — not only the body's last
+      // row. On a shallow anchor the rail (20px × scale + its inset) is taller
+      // than that last row and reached up into the title: on vendor-selection
+      // the Question's Ask/Challenge/More covered "Customer Data Platform
+      // Selection" and its "Top gap" line. Same counter-scaled run the reserve
+      // classes derive (`anchorRailReservePx`), so the text clears the rail at
+      // every scale the Normal rung reaches.
+      const reserve = anchorRailReservePx(anchorRailButtonsKey(anchorRailButtons))
+      return {
+        paddingTop: '11px',
+        paddingRight: `calc(${CANVAS_QUICK_ACTION_INSET_PX}px + ${reserve}px * var(--canvas-label-scale, 1))`,
+        paddingBottom: '9px',
+        paddingLeft: side,
+      }
     }
     if (quickActionBandReserved) {
       const band = padAdj === 0
@@ -1261,6 +1296,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     }
     if ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens) {
       return { paddingTop: side, paddingRight: side, paddingBottom: px(24), paddingLeft: side }
+    }
+    // ⭐ S5 (24 Sep): an anchor keeps its `11 / 9` vertical rhythm at EVERY rung,
+    // rail beside or not. It used to fall back to 12 / 12 wherever the rail was
+    // not beside it — below the legibility floor, where the layout reserves the
+    // landing height — so the Question and Goal drew TALLER below the floor than
+    // anywhere above it (Canvas Browser Gate `heightVsZoom`, build-vs-buy
+    // 1280×800: decision 126 → 132, goal 131 → 134).
+    if (isAnchorCard) {
+      return { paddingTop: '11px', paddingRight: side, paddingBottom: '9px', paddingLeft: side }
     }
     return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
   }
@@ -1464,7 +1508,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           nodeId={id}
           nodeType={nodeType}
           label={label}
-          placement={atNormalZoom || isAnchorCard ? 'inset' : 'below'}
+          placement={atNormalZoom ? 'inset' : 'below'}
           alwaysVisible={selected === true}
           coaching={coaching}
           restingIcons={
@@ -2473,9 +2517,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
              the card's full width and cannot wrap more than they did. The
              width is the rail's reachable extent on this card
              (`anchorRailButtons`), counter-scaled like the rail itself. */
-          className={anchorRailBeside
-            ? `relative text-left ${ANCHOR_RAIL_RESERVE_CLASSES[anchorRailButtonsKey(anchorRailButtons)]}`
-            : 'relative text-left'}
+          className="relative text-left"
           data-testid={anchorRailBeside ? 'anchor-body-rail-beside' : undefined}
           data-anchor-rail-buttons={anchorRailBeside ? anchorRailButtonsKey(anchorRailButtons) : undefined}
           style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : undefined}
@@ -2545,7 +2587,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             >
               <span
                 data-testid="node-lod-line-text"
-                className={`${typography.nodeLabel} text-text-body truncate`}
+                // `!leading-tight`: one line whose box fits the blanked body's
+                // one-body-line height exactly (see `LOD_BLANKED_BODY_STYLE`).
+                className={`${typography.nodeLabel} !leading-tight text-text-body truncate`}
               >
                 {lodBodyLine}
               </span>
@@ -2566,7 +2610,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                      the line rung the card takes its kind fill, where
                      `text-light` measures 3.05–4.26:1; `text-body` clears
                      6.09–8.51:1 on every light fill. Unfilled, unchanged. */
-                  className={`${typography.nodeLabel} ${lodKindFillClass ? 'text-text-body' : 'text-text-light'} italic shrink-0`}
+                  className={`${typography.nodeLabel} !leading-tight ${lodKindFillClass ? 'text-text-body' : 'text-text-light'} italic shrink-0`}
                 >
                   {UNCONFIRMED_ESTIMATE_TOKEN}
                 </span>

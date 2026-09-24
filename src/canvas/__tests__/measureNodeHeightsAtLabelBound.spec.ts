@@ -199,6 +199,29 @@ describe('measureNodeHeightsAtLabelBound', () => {
     expect(body.style.height).toBe('calc(16px * var(--canvas-label-scale, 1))')
   })
 
+  // S5 (24 Sep): the product's collapse is now a MAX-height (a short body is
+  // never made taller by blanking), so the release must lift that cap too.
+  it('RELEASES a blanked body MAX-height while it reads, and restores it after', () => {
+    const seen: string[] = []
+    const root = mountCanvas(['a'], { a: 300 }, [])
+    const body = blankBody(root, 'a', '')
+    body.style.maxHeight = 'calc(16px * var(--canvas-label-scale, 1))'
+    const node = root.querySelector('.react-flow__node') as HTMLElement
+    Object.defineProperty(node, 'offsetHeight', { get() { seen.push(body.style.maxHeight); return 300 } })
+
+    measureNodeHeightsAtLabelBound()
+
+    expect(seen, 'the capped body was still capped at read time').toEqual(['none'])
+    expect(body.style.maxHeight).toBe('calc(16px * var(--canvas-label-scale, 1))')
+  })
+
+  it('restores an ABSENT max-height to absent', () => {
+    const root = mountCanvas(['a'], { a: 300 }, [])
+    const body = blankBody(root, 'a', '')
+    measureNodeHeightsAtLabelBound()
+    expect(body.getAttribute('style') ?? '').not.toContain('max-height')
+  })
+
   it('restores an ABSENT body height to absent, not to a literal', () => {
     const root = mountCanvas(['a'], { a: 300 }, [])
     const body = blankBody(root, 'a', '')
