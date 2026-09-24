@@ -152,7 +152,7 @@ describe('GhostOptionNode — the "+" and its row share the counter-scale contra
 })
 
 describe('GhostTierNode — the prompt fill matches the panel, never `transparent`', () => {
-  it('the door background is `var(--bg-panel…)`', () => {
+  it('the door background is the panel token, --bg-panel', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       (selector as (s: unknown) => unknown)(makeStoreState() as never),
     )

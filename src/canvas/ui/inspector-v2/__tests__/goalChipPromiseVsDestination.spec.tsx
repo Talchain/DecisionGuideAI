@@ -58,6 +58,22 @@
  * RED-first at pristine `9e843093`: the inertness derivation, its control and
  * the predicate's own positive control all PASS, and the promise assertions
  * FAIL — which is the finding, measured rather than reasoned.
+ *
+ * ── ⭐⭐ 24 Sep 2026: THE DESTINATION NOW ANSWERS, AND THIS FILE REDDED AS IT
+ * PROMISED TO ───────────────────────────────────────────────────────────────
+ * `goal` joined `AUTHORITY_OWNING_PANELS`. On the mounted pane the store-only
+ * `GoalThresholdEditor` is NOT carved out of the fence — the objection above
+ * still stands, so it is not rendered there at all — and the Model tab's own
+ * `SuccessTargetLine` stands in its place, committing through
+ * `proposeGoalTarget` → a typed `add_constraint`. The two "present AND INERT"
+ * cases were rewritten to measure THAT, through the same real Router.
+ *
+ * ⚠ THE CHIP COPY WAS NOT TOUCHED, AND THAT IS A SCOPE LINE, NOT AN OVERSIGHT.
+ * `GoalNode.tsx` is another writer's file. Its channels still name the Model
+ * tab as the live route and bind no repair verb to the details route, so every
+ * assertion in the second block stays TRUE — it is now stricter than the
+ * destination requires. Restoring a promise at the details route is the chip
+ * owner's call, made deliberately, against `GoalPanel.targetReachesTheModel`.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -212,24 +228,30 @@ describe('the destination the goal chip routes to — measured through the REAL 
     expect(canCaptureGoalTarget(goalData())).toBe(true)
   })
 
-  it('the editor IS present through the router — round 2’s claim, re-derived at the real mount', () => {
+  it('a target control IS present through the router — and it is LIVE (24 Sep 2026)', () => {
+    // Was: "the editor IS present" (`#goal-threshold`, inert). The destination
+    // now carries the Model tab's control, and it can be operated.
     const { container } = renderInspector()
-    expect(container.querySelector('#goal-threshold')).not.toBeNull()
+    const control = container.querySelector('[data-testid="goal-panel-target-edit"]')
+    expect(control, 'the goal pane offers no target control').not.toBeNull()
+    expect(effectivelyDisabled(control)).toBe(false)
   })
 
-  it('⭐ THE FINDING — and it is present AND INERT, so the route cannot accept a target', () => {
+  it('⭐ THE OLD FINDING, INVERTED — the store-only editor is gone from the mounted pane, not carved out', () => {
+    // Was: "present AND INERT, so the route cannot accept a target". The
+    // objection recorded in this file's header — `setGoalThresholdAndUpdateNode`
+    // has no carrier, so carving it out would be a worse lie — is honoured: the
+    // store-only `#goal-threshold` is not rendered on the mounted pane at all.
     const { container } = renderInspector()
-    const editor = container.querySelector('#goal-threshold')
-    expect(editor).not.toBeNull()
+    expect(container.querySelector('#goal-threshold')).toBeNull()
 
-    // The boundary exists and this control is inside it. Pinned separately from
-    // the disabled-ness so a future edit that deletes the fieldset REDs here
-    // rather than silently turning the assertion below into a vacuous truth.
-    const boundary = container.querySelector('fieldset[data-authority="disabled"]')
-    expect(boundary).not.toBeNull()
-    expect(boundary!.contains(editor!)).toBe(true)
-
-    expect(effectivelyDisabled(editor)).toBe(true)
+    // And the pane no longer takes the Router's blanket; it fences its own
+    // carrier-less writers instead. Pinned so that a regression back to the
+    // blanket REDs here rather than passing as "still inert".
+    expect(container.querySelector('fieldset[data-authority="disabled"]')).toBeNull()
+    const description = container.querySelector('fieldset[data-writer-fence="description"]')
+    expect(description, 'the description writer lost its fence').not.toBeNull()
+    expect((description as HTMLFieldSetElement).disabled).toBe(true)
   })
 
   it('CONTROL — the walk DISCRIMINATES: the one control deliberately outside the boundary is live', () => {
@@ -271,12 +293,13 @@ describe('so the chip states the fact and promises no repair it cannot keep', ()
    * one` — and the control below still REDs on it, on the exact string, so this
    * narrowing cannot be satisfied by a guard that stopped discriminating.
    *
-   * ⚠ AND THE PROMISE MAY NOT BE ATTACHED TO THE DETAILS ROUTE. That
-   * destination is still inert: `AUTHORITY_OWNING_PANELS` in `InspectorRouter`
-   * is `option | factor-controllable | factor-external`, `goal` is NOT in it, so
-   * `GoalPanel` keeps the blanket `<fieldset disabled>` — re-derived above
-   * through the REAL router, not inherited. The fence premise expired for the
-   * edge and factor panels; it has not expired here.
+   * ⚠ AND THE PROMISE MAY NOT BE ATTACHED TO THE DETAILS ROUTE. That was
+   * because the destination was inert. ⚠ 24 Sep 2026: IT IS NOT ANY MORE —
+   * `goal` joined `AUTHORITY_OWNING_PANELS` and the pane's target control is
+   * the Model tab's `SuccessTargetLine` (re-derived above through the REAL
+   * router). The ban below is kept, and is now STRICTER than the destination
+   * requires: lifting it is the chip owner's deliberate call (`GoalNode.tsx` is
+   * not this change's file), not something to infer from a green run here.
    *
    * ⭐ THE THREE ARMS FAIL ON DIFFERENT ASSERTIONS, which is what makes this a
    * narrowing rather than a deletion: a promise with no route, a promise

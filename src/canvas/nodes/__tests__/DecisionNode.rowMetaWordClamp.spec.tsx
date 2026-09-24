@@ -102,8 +102,21 @@ const tokens = (el: Element): string[] => (el.getAttribute('class') ?? '').split
 const visible = (el: Element) => el.querySelector('[aria-hidden="true"]')?.textContent ?? ''
 
 /** The clamp contract every focus signal must meet. */
-const expectWordBoundaryOneLineClamp = (el: Element) => {
+const expectWordBoundaryOneLineClamp = (signal: Element) => {
+  // The clamp belongs on the span that PAINTS the text. On the wrapper, the
+  // inline text span's own box kept the hidden second line, which the hover
+  // action row then "covered" (Canvas Browser Gate, 24 Sep, dec_cdp).
+  const painted = signal.querySelector('[aria-hidden="true"]')
+  expect(painted, 'the visible text span').not.toBeNull()
+  expect(tokens(signal).filter(c => /^line-clamp-/.test(c)), 'the wrapper carries no clamp').toEqual([])
+  expect(tokens(signal)).toContain('overflow-hidden')
+  expect(tokens(signal)).toContain('min-w-0')
+  expect(tokens(signal)).toContain('flex-1')
+  const el = painted as Element
   const t = tokens(el)
+  // `.block` is emitted after `.line-clamp-1` and would override its
+  // `display: -webkit-box`, silently un-clamping the line.
+  expect(t).not.toContain('block')
   // ONE line — never two (the card may not grow)…
   expect(t).toContain('line-clamp-1')
   expect(t.filter(c => /^line-clamp-/.test(c))).toEqual(['line-clamp-1'])
@@ -112,9 +125,6 @@ const expectWordBoundaryOneLineClamp = (el: Element) => {
   expect(t).not.toContain('truncate')
   expect(t).not.toContain('whitespace-nowrap')
   expect(t).not.toContain('text-ellipsis')
-  // Still a flexible item that can shrink beside the count.
-  expect(t).toContain('min-w-0')
-  expect(t).toContain('flex-1')
 }
 
 beforeEach(() => {

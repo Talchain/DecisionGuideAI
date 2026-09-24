@@ -275,3 +275,20 @@ export function deriveCoachingCurrency(
   if (localEdits.displaySemantic === 'cannot_confirm') return 'cannot_confirm'
   return 'current'
 }
+
+/**
+ * STALE ADVICE IS INERT; A REFRESH IS NOT (Independent Review, programme-docs
+ * #63 5820349265). The one card whose action exists BECAUSE the model moved is
+ * CEE's stale-rerun card (`buildStaleRerunCoachingBlock`): always stamped
+ * `freshness: 'stale'`, and after a stale analysis often the ONLY block CEE
+ * emits. Disabling its "Re-run analysis" beside its own stale notice would leave
+ * the user nothing to act on. The discriminator is the PRODUCER's typed intent —
+ * `rerun_analysis` declares an action that acts on the model as it is NOW — so
+ * the UI invents no rule of its own. Every other action on a stale card stays
+ * inert.
+ */
+export const REFRESH_ACTION_INTENTS: ReadonlySet<string> = new Set(['rerun_analysis'])
+
+export function isRefreshActionIntent(intent: string | undefined): boolean {
+  return typeof intent === 'string' && REFRESH_ACTION_INTENTS.has(intent)
+}

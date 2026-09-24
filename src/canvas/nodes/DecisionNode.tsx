@@ -976,6 +976,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * breaks the line at a word and shows only that first line: still ONE line
    * (no card grows at any rung), full sentence still in the tooltip and the
    * `.sr-only` copy. Same shape as `ActionNode`'s `line-clamp-1 break-words`.
+   * The clamp is on the painted inner span, so its own box is one line.
    */
   const clampedSignal = (testId: string, short: string, full: string, extra?: Record<string, string>) => (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={full}>
@@ -984,9 +985,16 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         data-node-tooltip="true"
         data-testid={testId}
         {...extra}
-        className={`${typography.edgeLabel} min-w-0 flex-1 line-clamp-1 break-words text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+        className={`${typography.edgeLabel} min-w-0 flex-1 overflow-hidden text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
       >
-        <span aria-hidden="true">{short}</span>
+        {/* The clamp sits on the span that PAINTS the text, not its wrapper:
+            clamped on the wrapper, this inline span's box still spanned the
+            hidden second line, which ran under the hover action row
+            (Canvas Browser Gate, 24 Sep, `dec_cdp`, 649.6px² "covered").
+            ⛔ NEVER add `block` here: Tailwind emits `.block` after
+            `.line-clamp-1`, so it wins and the clamp does nothing (review
+            5822943043 at c781dd5f: 3 visible lines; InferenceWarningStrip.tsx:157). */}
+        <span aria-hidden="true" className="line-clamp-1 break-words">{short}</span>
         <span className={typography.screenReaderOnly}>{full}</span>
       </span>
     </Tooltip>

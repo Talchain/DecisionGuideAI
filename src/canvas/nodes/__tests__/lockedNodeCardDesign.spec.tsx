@@ -639,9 +639,12 @@ describe('Question — wide and shallow: option count + ONE focus signal; coachi
     expect(gap.getAttribute('tabindex')).toBe('0')
     // Polish #4: still ONE line, now broken at a WORD — `line-clamp-1` on a
     // wrapping run replaced `truncate` (nowrap + character-granular ellipsis).
-    const gapTokens = gap.className.split(/\s+/)
+    // The clamp sits on the span that paints the text (its own box is one line).
+    const painted = gap.querySelector('[aria-hidden="true"]') as HTMLElement
+    const gapTokens = painted.className.split(/\s+/)
     expect(gapTokens).toContain('line-clamp-1')
     expect(gapTokens).not.toContain('truncate')
+    expect(gap.className.split(/\s+/)).not.toContain('truncate')
     expect(gap.querySelector('.sr-only')!.textContent).toMatch(/^Top gap: /)
   })
 
