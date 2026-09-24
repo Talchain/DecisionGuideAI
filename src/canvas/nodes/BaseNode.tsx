@@ -1371,7 +1371,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
         ${isAttentionDimmed ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
-        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''}
       `}
       style={{
         // Analysis-graph projection: an info RING around a viewed driver node.

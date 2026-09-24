@@ -65,6 +65,7 @@ import { GHOST_OPTION_DOOR_LABEL } from '../utils/ghostTiers'
 import { useCanvasStore } from '../store'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
 import { ROW_PROMPT_H, ROW_PROMPT_PADDING_PX, ROW_PROMPT_W } from '../utils/nodeLayoutConstants'
+import { CANVAS_GAP_CLASSES, CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
 
 export const GhostOptionNode = memo((props: NodeProps) => {
   const prompt = (props.data as { prompt?: string } | undefined)?.prompt
@@ -154,8 +155,8 @@ export const GhostOptionNode = memo((props: NodeProps) => {
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
 
-      <div className="flex items-center gap-1.5">
-        <Plus size={14} className="text-text-light shrink-0" aria-hidden="true" />
+      <div className={`flex items-center ${CANVAS_GAP_CLASSES[6]}`}>
+        <Plus size={14} className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[14]}`} aria-hidden="true" />
         <span className={`${typography.edgeLabel} text-text-light break-words min-w-0`}>
           {GHOST_OPTION_DOOR_LABEL}
         </span>

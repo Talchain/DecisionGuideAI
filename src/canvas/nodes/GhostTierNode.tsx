@@ -34,6 +34,7 @@ import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
+import { CANVAS_GAP_CLASSES, CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
 import {
   ROW_PROMPT_BORDER_PX,
   ROW_PROMPT_H,
@@ -103,7 +104,7 @@ export const GhostTierNode = memo((props: NodeProps) => {
       // A flex ROW: `items-center` is the VERTICAL axis (icon beside a two- or
       // three-line question), and nothing centres the copy horizontally.
       // `rounded-sm` (8px) — the card corner (contract v3.1 FRAME-01).
-      className="rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex items-center gap-1.5 nodrag nopan text-left"
+      className={`rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex items-center ${CANVAS_GAP_CLASSES[6]} nodrag nopan text-left`}
       style={{
         width: GHOST_DOOR_W_PX,
         minHeight: GHOST_DOOR_MIN_H_PX,
@@ -111,12 +112,12 @@ export const GhostTierNode = memo((props: NodeProps) => {
         // Quieted with GhostOptionNode to `--text-light` (contract v3.1 T12;
         // 5.23:1 on the panel, 4.65:1 on the canvas — see that file).
         border: `${GHOST_DOOR_BORDER_PX}px dashed var(--text-light, #6E6B6B)`,
-        background: 'transparent',
+        background: 'var(--bg-panel, #FEFEFE)',
         visibility: farRung ? 'hidden' : undefined,
       }}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0, pointerEvents: 'none' }} />
-      <Plus size={14} className="text-text-light shrink-0" aria-hidden="true" />
+      <Plus size={14} className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[14]}`} aria-hidden="true" />
       {/* `break-words`: the last-resort rule that stops a single long word
           overflowing the measure horizontally, as node titles already use. The
           same token as the option prompt, so the four read as one family. */}
