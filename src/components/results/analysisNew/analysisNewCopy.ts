@@ -1700,7 +1700,7 @@ export const ANALYSIS_NEW_COPY = {
      * the goal outcome alone; this says so, and claims nothing about which
      * limit or why. Same words as Canvas's option-card qualifier (#63 5804041993).
      */
-    goalOnlyQualifier: "Goal only: your limits aren't in these shares.",
+    goalOnlyQualifier: "Goal only: your limits aren't in these figures.",
   },
   modelStrip: {
     /**
