@@ -122,7 +122,7 @@ const robustnessCode = (data: ResultsSectionDataReturn) =>
 describe('pre-run: nothing', () => {
   it('every bullet is null pre-run, even with a review item waiting', () => {
     const s = synth(genuineDecision(), { isPreRun: true, recommendations: [rec({ id: 'r1' })] })
-    expect(s).toEqual({ describesLastRun: false, founded: null, open: null, before: null })
+    expect(s).toEqual({ describesLastRun: false, staleKind: null, founded: null, open: null, before: null })
     expect(commitmentBullets(s)).toEqual([])
   })
 
@@ -224,15 +224,15 @@ describe('bullet 2 — what remains uncertain, by fixed priority', () => {
     expect(buildCommitmentSynthesis(vm).open).toBeNull()
   })
 
-  it('(b) permitted + a found threshold → `COPY.disclosure.tippingPoint` over `sensitivity.tippingPoints[0]`', () => {
+  it('(b) RETIRED: a found threshold is NOT restated here — the Challenge signals row owns it', () => {
     const vm = vmOf(withFlip(genuineDecision(), [FOUND_ROW, SECOND_FOUND_ROW]))
-    expect(vm.leaderClaimPermitted).toBe(true)
-    expect(vm.sensitivity.tippingPoints.map((t) => t.factorLabel)).toEqual(['Tech Lead Presence', 'Hiring cost'])
+    expect(vm.leaderClaimPermitted, 'PRECONDITION').toBe(true)
+    expect(vm.sensitivity.tippingPoints.length, 'PRECONDITION: a tipping point exists').toBeGreaterThan(0)
     const t = vm.sensitivity.tippingPoints[0]!
-    expect(buildCommitmentSynthesis(vm).open).toEqual({
-      text: COPY.disclosure.tippingPoint(t.factorLabel, t.currentValue, t.flipValue, t.alternativeLabel, t.unit),
-      source: 'tipping_point',
-    })
+    const sentence = COPY.disclosure.tippingPoint(t.factorLabel, t.currentValue, t.flipValue, t.alternativeLabel, t.unit)
+    const open = buildCommitmentSynthesis(vm).open
+    expect(open?.text ?? '').not.toBe(sentence)
+    expect(open?.source).not.toBe('tipping_point')
   })
 
   it('(b) is strict: a row the producer did not mark `found` is not a tipping point', () => {
@@ -286,9 +286,9 @@ describe('bullet 2 — what remains uncertain, by fixed priority', () => {
     expect(synth(data).open).toEqual({ text: COPY.checks.robustness_not_established.meaning, source: 'robustness' })
   })
 
-  it('(b) OUTRANKS (c): a threshold beats an unassessed robustness check', () => {
+  it('with (b) retired, an unassessed robustness check is the open item even when a threshold exists', () => {
     const data = withFlip(twoOptionRun(null, { robustnessVerdict: 'not_assessed' }))
-    expect(synth(data).open?.source).toBe('tipping_point')
+    expect(synth(data).open?.source).toBe('robustness')
   })
 
   it('CONTRAST for (c): a licensed "robust" verdict is not an open item', () => {
@@ -396,18 +396,46 @@ describe('stale: the bullets say they describe the last run', () => {
     expect(synth(genuineDecision(), { isStale: false }).describesLastRun).toBe(false)
   })
 
-  it('the ask context carries the stale marker first, then each bullet as the reader sees it', () => {
+  it('the ask context names WHICH staleness first (changed), then each bullet as the reader sees it', () => {
     const s = synth(decisionWithLeaderWithheld(), {
       recommendations: [rec({ id: 'r1' })],
       isStale: true,
       staleReason: 'changed',
     })
     const lines = commitmentAskContext(s).split('\n')
-    expect(lines[0]).toBe(COPY.markers.stale)
+    expect(lines[0]).toBe(COPY.status.stale)
     expect(lines).toContain(`${COMMITMENT_COPY.labels.open}: ${COPY.checks.leader_not_assessed.meaning}`)
     expect(lines).toContain(`${COMMITMENT_COPY.labels.before}: ${COPY.status.reanalyseToBeSure}`)
     // CONTRAST: fresh, no marker.
     const fresh = synth(decisionWithLeaderWithheld(), { recommendations: [rec({ id: 'r1' })] })
-    expect(commitmentAskContext(fresh).split('\n')[0]).not.toBe(COPY.markers.stale)
+    expect(commitmentAskContext(fresh).split('\n')[0]).not.toBe(COPY.status.stale)
+  })
+
+  it('⛔ an UNCONFIRMED stale run is never described as a changed model', () => {
+    const s = synth(decisionWithLeaderWithheld(), {
+      recommendations: [rec({ id: 'r1' })],
+      isStale: true,
+      staleReason: 'unconfirmed',
+    })
+    const lines = commitmentAskContext(s).split('\n')
+    expect(lines[0]).toBe(COPY.status.freshnessUnknown)
+    expect(lines).not.toContain(COPY.status.stale)
+    expect(lines).not.toContain(COPY.markers.stale)
+  })
+})
+
+describe("bullet 3 never repeats the Challenge card's own item (V2 census B1)", () => {
+  it('skips the intervention the card is showing and takes the next one', () => {
+    const s = buildCommitmentSynthesis(
+      vmOf(genuineDecision(), { recommendations: [rec({ id: 'r1', title: 'Card item' }), rec({ id: 'r2', title: 'Next item' })] }),
+      { excludeInterventionId: 'r1' },
+    )
+    expect(s.before?.text).toBe('Next item')
+  })
+
+  it('CONTRAST: with nothing excluded, the top item is used; with only the card item, no bullet', () => {
+    const vm = vmOf(genuineDecision(), { recommendations: [rec({ id: 'r1', title: 'Card item' })] })
+    expect(buildCommitmentSynthesis(vm).before?.text).toBe('Card item')
+    expect(buildCommitmentSynthesis(vm, { excludeInterventionId: 'r1' }).before).toBeNull()
   })
 })

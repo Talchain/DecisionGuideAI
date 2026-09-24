@@ -222,11 +222,11 @@ export function CommitmentSummary({
 
       {bullets.length > 0 ? (
         <div className="mt-1.5" data-testid={`${testId}-synthesis`}>
-          {synthesis.describesLastRun ? (
-            <p className={`${typography.panelMeta} text-text-light m-0 mb-1`} data-testid={`${testId}-stale`}>
-              {COPY.markers.stale}
-            </p>
-          ) : null}
+          {/* ⛔ NO STALE MARKER HERE. The glance's freshness ribbon is always
+              mounted above this block on a stale post-run tab and says which
+              staleness it is; a second marker stated freshness twice, and its
+              "From an earlier run" asserted a changed model on runs we only
+              cannot confirm (V2 census, B3). */}
           <ul className="list-none p-0 m-0 space-y-1">
             {bullets.map((b) => (
               <li
