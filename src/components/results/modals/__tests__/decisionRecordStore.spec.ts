@@ -1,7 +1,7 @@
 /** Account-bound local retention and capture-specific acknowledgement. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  clearDecisionRecords, observeDecisionRecordOwner, selectDecisionRecord,
+  clearDecisionRecords, observeDecisionRecordOwner, readStoredTextFields, selectDecisionRecord,
   useDecisionRecordStore, type DecisionRecord, type OptionDecisionRecord,
 } from '../decisionRecordStore'
 import { UNSCOPED_SCENARIO_KEY } from '../scenarioKey'
@@ -317,5 +317,44 @@ describe('position and next action round-trip', () => {
     expect(store().attachRemote('scn_a', capture, remote)).toBe(true)
     store()._rehydrateForTests()
     expect(read()).toEqual({ ...notReady, remote })
+  })
+})
+
+describe('per-field text confirmation rides the account proof (reconciled 24 Sep 2026)', () => {
+  const ackKeys = () => diskKeys().filter(k => k.includes(':ack:'))
+
+  it('storedTextFields survives a reload with the rest of the proof', () => {
+    const capture = store().saveRecord('scn_a', record(), 'request-a')!
+    const confirmed = { ...remote, storedTextFields: ['rationale', 'revisit_trigger'] as const }
+    expect(store().attachRemote('scn_a', capture, confirmed)).toBe(true)
+    useDecisionRecordStore.setState({ byScenario: {} })
+    store()._rehydrateForTests()
+    expect(read()?.remote).toEqual({ ...remote, storedTextFields: ['rationale', 'revisit_trigger'] })
+  })
+
+  it('an EDITED ack cannot turn an unknown name into an account claim', () => {
+    const capture = store().saveRecord('scn_a', record(), 'request-a')!
+    expect(store().attachRemote('scn_a', capture, { ...remote, storedTextFields: ['rationale'] })).toBe(true)
+    const key = ackKeys()[0]!
+    localStorage.setItem(key, JSON.stringify({ ...remote, storedTextFields: ['rationale', 'chosen_option_label', 42] }))
+    store()._rehydrateForTests()
+    expect(read()?.remote?.storedTextFields).toEqual(['rationale'])
+    localStorage.setItem(key, JSON.stringify({ ...remote, storedTextFields: 'rationale' }))
+    store()._rehydrateForTests()
+    expect(read()?.remote?.storedTextFields).toEqual([])
+  })
+
+  it('CONTRAST: an ack written without the field reads back exactly as before (no key invented)', () => {
+    const capture = store().saveRecord('scn_a', record(), 'request-a')!
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(true)
+    store()._rehydrateForTests()
+    expect(read()?.remote).toEqual(remote)
+    expect(Object.keys(read()!.remote!)).toEqual(['recordId', 'reviewDate', 'reviewDateSource'])
+  })
+
+  it('readStoredTextFields: known names only, each once, canonical order', () => {
+    expect(readStoredTextFields(['next_action', 'rationale', 'rationale', 'x'])).toEqual(['rationale', 'next_action'])
+    expect(readStoredTextFields(undefined)).toEqual([])
+    expect(readStoredTextFields({ 0: 'rationale' })).toEqual([])
   })
 })

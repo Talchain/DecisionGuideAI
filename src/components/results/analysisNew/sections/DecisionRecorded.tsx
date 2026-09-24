@@ -75,7 +75,11 @@ import { ClipboardCheck } from 'lucide-react'
 import { action } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
-import { isNotReadyRecord, NOT_READY_POSITION_LABEL } from '../../modals/decisionRecordStore'
+import {
+  isNotReadyRecord,
+  NOT_READY_POSITION_LABEL,
+  type DecisionRecordTextField,
+} from '../../modals/decisionRecordStore'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { surface, icon } from '../panelSurfaces'
 
@@ -90,12 +94,16 @@ import { surface, icon } from '../panelSurfaces'
  * position line says "Not ready to choose", and it has no option, confidence
  * or expectation row because the record carries none.
  *
- * ⚠ THE STORAGE SENTENCES NAME ONLY WHAT `remote.recordId` LICENSES. The text
- * fields (rationale, assumption, next action, revisit trigger) are sent with a
- * signed-in commit, but no CEE response confirms the account kept them, so
- * they are stated on this device and nowhere else. The account half of each
- * option sentence is the one `COPY.decisionRecord.storedRemote*` already says;
- * a spec pins the two together so the variant cannot drift from its original.
+ * ⚠ THE STORAGE SENTENCES NAME ONLY WHAT THE SERVER CONFIRMED. `remote.recordId`
+ * licenses the account half (the position, or the choice and confidence). A
+ * TEXT field (rationale, assumption, next action, revisit trigger) is said to
+ * be on the account ONLY when `remote.storedTextFields` names it — CEE's own
+ * per-field confirmation that the stored row holds those exact words. Every
+ * other text is stated on this device. With no confirmed text at all (today's
+ * CEE, and every record saved before the field existed) the sentence is the
+ * fixed one it has always been, byte for byte. The account half of each
+ * sentence is the one `COPY.decisionRecord.storedRemote*` already says; a spec
+ * pins the two together so the variant cannot drift from its original.
  */
 export const DECISION_POSITION_COPY = {
   notReadyHeading: 'Your recorded view',
@@ -109,7 +117,37 @@ export const DECISION_POSITION_COPY = {
     'Your choice and confidence are on your account, with a review date. The rationale, assumption, next action and revisit trigger are on this device.',
   storedRemoteWithExpectationAndNextAction:
     'Your choice, confidence and expectation are on your account, with a review date. The rationale, assumption, next action and revisit trigger are on this device.',
+  /**
+   * The ACCOUNT halves, used when CEE confirmed at least one text. Each is the
+   * first sentence of its fixed counterpart above (pinned by a spec).
+   */
+  accountNotReady: 'Your position is on your account.',
+  accountOption: 'Your choice and confidence are on your account, with a review date.',
+  accountOptionWithExpectation:
+    'Your choice, confidence and expectation are on your account, with a review date.',
 } as const
+
+/**
+ * The text fields a record can carry, in the order every storage sentence
+ * names them, each with its wire name (what CEE confirms), its reader and its
+ * name in a sentence.
+ */
+const TEXT_FIELD_SENTENCE_ORDER: ReadonlyArray<{
+  readonly field: DecisionRecordTextField
+  readonly name: string
+  readonly read: (record: DecisionRecord) => string | undefined
+}> = [
+  { field: 'rationale', name: 'rationale', read: (r) => r.rationale },
+  { field: 'key_assumption', name: 'assumption', read: (r) => r.assumptionToWatch },
+  { field: 'next_action', name: 'next action', read: (r) => r.nextAction },
+  { field: 'revisit_trigger', name: 'revisit trigger', read: (r) => r.revisitTrigger },
+]
+
+/** "a", "a and b", "a, b and c" — the house list style of the fixed sentences. */
+function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names.join('')
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
 
 export interface DecisionRecordedProps {
   /** Pre-run there is no decision to record — the options are not analysed. */
@@ -217,6 +255,8 @@ export function recordedOptionText(record: DecisionRecord): string {
  */
 export function storageSentenceFor(record: DecisionRecord): string {
   if (!record.remote?.recordId) return COPY.decisionRecord.storedLocal
+  const confirmed = record.remote.storedTextFields ?? []
+  if (confirmed.length > 0) return confirmedStorageSentence(record, confirmed)
   const hasNextAction = Boolean(record.nextAction?.trim())
   if (isNotReadyRecord(record)) {
     return hasNextAction
@@ -231,6 +271,34 @@ export function storageSentenceFor(record: DecisionRecord): string {
   return hasNextAction
     ? DECISION_POSITION_COPY.storedRemoteWithNextAction
     : COPY.decisionRecord.storedRemote
+}
+
+/**
+ * The storage sentence once CEE has confirmed at least one text. Only texts
+ * the record CARRIES are named (same rule as `Field`): a confirmed field the
+ * record holds no text for is not mentioned, and a carried field CEE did not
+ * confirm is stated on this device.
+ */
+function confirmedStorageSentence(
+  record: DecisionRecord,
+  confirmed: readonly DecisionRecordTextField[],
+): string {
+  const accountHalf = isNotReadyRecord(record)
+    ? DECISION_POSITION_COPY.accountNotReady
+    : record.expectation?.trim()
+      ? DECISION_POSITION_COPY.accountOptionWithExpectation
+      : DECISION_POSITION_COPY.accountOption
+  const carried = TEXT_FIELD_SENTENCE_ORDER.filter((t) => Boolean(t.read(record)?.trim()))
+  const onAccount = carried.filter((t) => confirmed.includes(t.field)).map((t) => t.name)
+  const onDevice = carried.filter((t) => !confirmed.includes(t.field)).map((t) => t.name)
+  const parts: string[] = [accountHalf]
+  if (onAccount.length > 0) {
+    parts.push(`The ${joinNames(onAccount)} ${onAccount.length === 1 ? 'is' : 'are'} on your account too.`)
+  }
+  if (onDevice.length > 0) {
+    parts.push(`The ${joinNames(onDevice)} ${onDevice.length === 1 ? 'is' : 'are'} on this device.`)
+  }
+  return parts.join(' ')
 }
 
 /**

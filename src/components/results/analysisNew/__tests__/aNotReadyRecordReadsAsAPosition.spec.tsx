@@ -192,9 +192,83 @@ describe('the storage sentence names only what the account confirmed', () => {
     )
   })
 
-  it('no sentence ever claims the text fields are on the account', () => {
+  it('no FIXED sentence ever claims the text fields are on the account (only a server confirmation can)', () => {
     for (const s of Object.values(DECISION_POSITION_COPY)) {
       expect(s).not.toMatch(/(rationale|assumption|next action|revisit trigger)[^.]*on your account/i)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Per-field truth (reconciled 24 Sep 2026): CEE's `stored_text_fields`, kept
+// as `remote.storedTextFields`, is the ONLY licence to say a text is on the
+// account. Bound by exact sentence; each case has its unconfirmed contrast.
+// ---------------------------------------------------------------------------
+
+describe('the storage sentence follows CEE\'s per-field confirmation, and nothing else', () => {
+  it('the account halves are the fixed sentences\' first sentences, word for word (no drifting mirror)', () => {
+    const accountHalf = (s: string) => `${s.split('. ')[0]}.`
+    expect(DECISION_POSITION_COPY.accountNotReady).toBe(accountHalf(DECISION_POSITION_COPY.storedRemoteNotReady))
+    expect(DECISION_POSITION_COPY.accountOption).toBe(accountHalf(COPY.decisionRecord.storedRemote))
+    expect(DECISION_POSITION_COPY.accountOptionWithExpectation).toBe(
+      accountHalf(COPY.decisionRecord.storedRemoteWithExpectation),
+    )
+  })
+
+  it('ALL carried texts confirmed: they are on the account, and nothing is said to be on this device', () => {
+    const remote = { ...REMOTE, storedTextFields: ['rationale', 'key_assumption', 'revisit_trigger', 'next_action'] as const }
+    expect(storageSentenceFor({ ...NOT_READY, remote })).toBe(
+      'Your position is on your account. The rationale, assumption, next action and revisit trigger are on your account too.',
+    )
+    expect(storageSentenceFor({ ...OPTION, remote })).toBe(
+      'Your choice, confidence and expectation are on your account, with a review date. The rationale, assumption and revisit trigger are on your account too.',
+    )
+  })
+
+  it('SOME confirmed: each text is placed where the server says it is', () => {
+    const remote = { ...REMOTE, storedTextFields: ['rationale'] as const }
+    expect(storageSentenceFor({ ...NOT_READY, remote })).toBe(
+      'Your position is on your account. The rationale is on your account too. The assumption, next action and revisit trigger are on this device.',
+    )
+    expect(storageSentenceFor({ ...OPTION, expectation: undefined, remote })).toBe(
+      'Your choice and confidence are on your account, with a review date. The rationale is on your account too. The assumption and revisit trigger are on this device.',
+    )
+  })
+
+  it('a confirmed field the record carries NO text for is never named', () => {
+    const remote = { ...REMOTE, storedTextFields: ['rationale', 'next_action'] as const }
+    // OPTION has no next action.
+    const sentence = storageSentenceFor({ ...OPTION, remote })
+    expect(sentence).not.toMatch(/next action/)
+    expect(sentence).toBe(
+      'Your choice, confidence and expectation are on your account, with a review date. The rationale is on your account too. The assumption and revisit trigger are on this device.',
+    )
+  })
+
+  it('CONTRAST — an EMPTY confirmation reads exactly as today (every text on this device)', () => {
+    expect(storageSentenceFor({ ...NOT_READY, remote: { ...REMOTE, storedTextFields: [] } })).toBe(
+      DECISION_POSITION_COPY.storedRemoteNotReadyWithNextAction,
+    )
+    expect(storageSentenceFor({ ...OPTION, remote: { ...REMOTE, storedTextFields: [] } })).toBe(
+      COPY.decisionRecord.storedRemoteWithExpectation,
+    )
+  })
+
+  it('CONTRAST — a confirmation with NO record id is no confirmation at all', () => {
+    const remote = { ...REMOTE, recordId: '', storedTextFields: ['rationale'] as const }
+    expect(storageSentenceFor({ ...NOT_READY, remote })).toBe(COPY.decisionRecord.storedLocal)
+  })
+
+  it('renders the confirmed sentence in the storage line', () => {
+    draw({ ...NOT_READY, remote: { ...REMOTE, storedTextFields: ['next_action'] } })
+    expect(screen.getByTestId(`${T}-storage`).textContent).toBe(
+      'Your position is on your account. The next action is on your account too. The rationale, assumption and revisit trigger are on this device.',
+    )
+  })
+
+  it('no composed sentence carries an em dash', () => {
+    const remote = { ...REMOTE, storedTextFields: ['rationale'] as const }
+    expect(storageSentenceFor({ ...NOT_READY, remote })).not.toContain('\u2014')
+    expect(storageSentenceFor({ ...OPTION, remote })).not.toContain('\u2014')
   })
 })

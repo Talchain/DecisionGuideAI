@@ -11,6 +11,11 @@
  *
  * Each rule has its contrast: the same input WITH the new fields must carry
  * them, and a not-ready commit must carry no option, confidence or expectation.
+ *
+ * ⚠ RECONCILED 24 SEP 2026: THE REVISIT TEXT NOW ALSO TRAVELS AS
+ * `revisit_trigger` (the key CEE stores the words from). So the byte claim is
+ * made for an option commit with NO revisit text; with one, today's body is an
+ * exact PREFIX and `revisit_trigger` is the only key appended.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,6 +27,7 @@ vi.mock('../../lib/supabase', () => ({
 import {
   buildDecisionRecordCommitBody,
   commitDecisionRecord,
+  DECISION_RECORD_TEXT_MAX_CHARS,
   type DecisionRecordCommitInput,
   type NotReadyCommitInput,
   type OptionCommitInput,
@@ -40,6 +46,14 @@ const TODAY_OPTION: OptionCommitInput = {
   expectedOwnerId: 'owner-1',
   isCurrentCapture: () => true,
 }
+
+/** TODAY_OPTION with no revisit text, and its pre-24-Sep body, byte for byte. */
+const TODAY_OPTION_NO_REVISIT: OptionCommitInput = { ...TODAY_OPTION, revisitTriggerOrDate: undefined }
+const TODAY_BODY_NO_REVISIT =
+  '{"scenario_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","chosen_option_id":"opt_b",' +
+  '"chosen_option_label":"Hire senior technical lead","confidence_0_100":70,' +
+  '"expectation_statement":"Runway holds above 9 months through Q1.",' +
+  '"client_commit_id":"commit-1"}'
 
 /** The pre-24-Sep body for TODAY_OPTION, byte for byte. */
 const TODAY_BODY =
@@ -85,12 +99,12 @@ afterEach(() => {
 })
 
 describe('the option commit is byte-identical when the new fields are unused', () => {
-  it('⭐ serialises to exactly the pre-24-Sep body', async () => {
-    expect(await sentBody(TODAY_OPTION)).toBe(TODAY_BODY)
+  it('⭐ with no revisit text, serialises to exactly the pre-24-Sep body', async () => {
+    expect(await sentBody(TODAY_OPTION_NO_REVISIT)).toBe(TODAY_BODY_NO_REVISIT)
   })
 
   it('an explicit position of "option" is still not sent (absent means option)', async () => {
-    expect(await sentBody({ ...TODAY_OPTION, position: 'option' })).toBe(TODAY_BODY)
+    expect(await sentBody({ ...TODAY_OPTION_NO_REVISIT, position: 'option' })).toBe(TODAY_BODY_NO_REVISIT)
   })
 
   it.each([
@@ -98,13 +112,18 @@ describe('the option commit is byte-identical when the new fields are unused', (
     ['whitespace', '   '],
   ])('%s new text fields are not sent', async (_label, blank) => {
     expect(
-      await sentBody({ ...TODAY_OPTION, rationale: blank, keyAssumption: blank, nextAction: blank }),
-    ).toBe(TODAY_BODY)
+      await sentBody({ ...TODAY_OPTION_NO_REVISIT, rationale: blank, keyAssumption: blank, nextAction: blank }),
+    ).toBe(TODAY_BODY_NO_REVISIT)
+  })
+
+  it('⭐ with a revisit text, today\'s body is an exact PREFIX and ONLY revisit_trigger is appended, carrying the same words', async () => {
+    const raw = await sentBody(TODAY_OPTION)
+    expect(raw).toBe(`${TODAY_BODY.slice(0, -1)},"revisit_trigger":"2026-12-01"}`)
   })
 })
 
 describe('CONTRAST: the new fields are sent when used, after today’s keys', () => {
-  it('appends rationale, key_assumption and next_action, and leaves today’s keys untouched', async () => {
+  it('appends rationale, key_assumption, revisit_trigger and next_action, and leaves today’s keys untouched', async () => {
     const raw = await sentBody({
       ...TODAY_OPTION,
       rationale: 'Best current choice given hiring constraints.',
@@ -115,17 +134,93 @@ describe('CONTRAST: the new fields are sent when used, after today’s keys', ()
     // Today's body is an exact PREFIX: nothing existing moved or changed.
     expect(raw.startsWith(TODAY_BODY.slice(0, -1) + ',')).toBe(true)
     const body = JSON.parse(raw) as Record<string, unknown>
-    expect(Object.keys(body).slice(-3)).toEqual(['rationale', 'key_assumption', 'next_action'])
+    expect(Object.keys(body).slice(-4)).toEqual(['rationale', 'key_assumption', 'revisit_trigger', 'next_action'])
     expect(body.rationale).toBe('Best current choice given hiring constraints.')
     expect(body.key_assumption).toBe('The hiring market stays open.')
     expect(body.next_action).toBe('Brief the board on Tuesday.')
     expect('position' in body).toBe(false)
   })
 
-  it('the revisit text keeps its existing key; no second `revisit_trigger` key is invented', () => {
-    const body = buildDecisionRecordCommitBody({ ...TODAY_OPTION, rationale: 'r', keyAssumption: 'a' })
-    expect(body.revisit_trigger_or_date).toBe('2026-12-01')
-    expect('revisit_trigger' in body).toBe(false)
+  it('the revisit text travels under BOTH keys: the existing one (review date) and revisit_trigger (the stored words)', () => {
+    const body = buildDecisionRecordCommitBody({
+      ...TODAY_OPTION,
+      revisitTriggerOrDate: 'When runway falls below 9 months',
+    })
+    expect(body.revisit_trigger_or_date).toBe('When runway falls below 9 months')
+    expect(body.revisit_trigger).toBe('When runway falls below 9 months')
+  })
+
+  it('CONTRAST: no revisit text, no revisit_trigger key (never an empty string)', () => {
+    for (const revisitTriggerOrDate of [undefined, '', '   ']) {
+      const body = buildDecisionRecordCommitBody({ ...TODAY_OPTION, revisitTriggerOrDate })
+      expect('revisit_trigger' in body).toBe(false)
+    }
+  })
+})
+
+describe('one bound for all four texts: CEE\'s 1000', () => {
+  it('pins the bound CEE and @talchain/schemas 0.57.0 enforce', () => {
+    expect(DECISION_RECORD_TEXT_MAX_CHARS).toBe(1000)
+  })
+
+  const TEXT_INPUTS: ReadonlyArray<readonly [string, (v: string) => Partial<OptionCommitInput>]> = [
+    ['rationale', (v) => ({ rationale: v })],
+    ['key_assumption', (v) => ({ keyAssumption: v })],
+    ['next_action', (v) => ({ nextAction: v })],
+    ['revisit_trigger', (v) => ({ revisitTriggerOrDate: v })],
+  ]
+
+  it.each(TEXT_INPUTS)('%s at exactly 1000 chars is sent', (wireKey, withText) => {
+    const value = 'x'.repeat(DECISION_RECORD_TEXT_MAX_CHARS)
+    const body = buildDecisionRecordCommitBody({ ...TODAY_OPTION, ...withText(value) })
+    expect(body[wireKey]).toBe(value)
+  })
+
+  it.each(TEXT_INPUTS)('%s over 1000 chars is NOT sent (CEE would refuse the whole record), and the rest still goes', (wireKey, withText) => {
+    const value = 'x'.repeat(DECISION_RECORD_TEXT_MAX_CHARS + 1)
+    const body = buildDecisionRecordCommitBody({ ...TODAY_OPTION, ...withText(value) })
+    expect(wireKey in body).toBe(false)
+    expect(body.chosen_option_id).toBe('opt_b')
+    expect(body.confidence_0_100).toBe(70)
+  })
+
+  it('an over-long revisit text still drives the review date (its existing key is unchanged)', () => {
+    const value = 'x'.repeat(DECISION_RECORD_TEXT_MAX_CHARS + 1)
+    const body = buildDecisionRecordCommitBody({ ...TODAY_OPTION, revisitTriggerOrDate: value })
+    expect(body.revisit_trigger_or_date).toBe(value)
+  })
+})
+
+describe('stored_text_fields — the ONLY licence for an account claim about a text', () => {
+  it('passes CEE\'s confirmed fields through, in canonical order', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        record_id: 'rec-1',
+        review_date: '2026-12-01T00:00:00.000Z',
+        review_date_source: 'user_set',
+        stored_text_fields: ['next_action', 'rationale'],
+      }, 201),
+    )
+    const result = await commitDecisionRecord(TODAY_OPTION)
+    expect(result).toMatchObject({ status: 'saved', storedTextFields: ['rationale', 'next_action'] })
+  })
+
+  it('TODAY\'S CEE sends no list: nothing is confirmed', async () => {
+    const result = await commitDecisionRecord(TODAY_OPTION)
+    expect(result).toMatchObject({ status: 'saved', storedTextFields: [] })
+  })
+
+  it.each([
+    ['unknown names', ['rationale', 'chosen_option_label', 'prediction']],
+    ['a non-array', 'rationale'],
+    ['null', null],
+  ])('%s are never read as a confirmation', async (_label, raw) => {
+    fetchMock.mockResolvedValue(
+      response({ record_id: 'rec-1', review_date: '2026-12-01', review_date_source: 'user_set', stored_text_fields: raw }, 201),
+    )
+    const result = await commitDecisionRecord(TODAY_OPTION)
+    if (result.status !== 'saved') throw new Error('expected saved')
+    expect(result.storedTextFields).toEqual(Array.isArray(raw) ? ['rationale'] : [])
   })
 })
 
@@ -139,6 +234,7 @@ describe('the not-ready commit', () => {
       client_commit_id: 'commit-2',
       rationale: 'The options turn on a market we have not sized.',
       key_assumption: 'Senior candidates are available this quarter.',
+      revisit_trigger: 'When the market data lands',
       next_action: 'Size the senior hiring market by Friday.',
     })
     for (const absent of ['chosen_option_id', 'chosen_option_label', 'confidence_0_100', 'expectation_statement']) {

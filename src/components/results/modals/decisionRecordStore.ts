@@ -24,13 +24,16 @@
  * A surface rendering a "Decision recorded" state must label which of those
  * it is showing; `DecisionRecord.remote` is how it can tell.
  *
- * ⚠ 24 SEP 2026: THE TEXT IS NOW SENT, BUT ITS DURABILITY IS STILL UNCONFIRMED.
- * A signed-in save now also sends the rationale, assumption, next action and a
- * `position` ("Not ready to choose"), as additive request keys. Today's CEE
- * route ignores keys it does not read, and no response field says which of
- * them the account kept, so the split above is unchanged as a CLAIM: the text
- * fields are claimed on this device, never on the account. A not-ready record carries no option,
- * confidence or expectation at all (`NotReadyDecisionRecord`).
+ * ⚠ 24 SEP 2026: THE TEXT IS NOW SENT, AND ITS DURABILITY IS CONFIRMED PER FIELD.
+ * A signed-in save now also sends the rationale, assumption, revisit trigger
+ * and next action and a `position` ("Not ready to choose"), as additive
+ * request keys. A text is claimed on the account ONLY when CEE's response
+ * lists it in `stored_text_fields` (kept as `remote.storedTextFields`): the
+ * reconciled CEE route lists exactly the texts the stored row holds verbatim.
+ * Today's CEE ignores the keys and sends no such list, so every text there is
+ * still claimed on this device, never on the account — the split above,
+ * unchanged. A not-ready record carries no option, confidence or expectation
+ * at all (`NotReadyDecisionRecord`).
  *
  * ⭐⭐ PERSISTENCE IS `localStorage`, AND THAT IS A DELIBERATE DIVERGENCE FROM
  * ITS SIBLINGS. Superseded text: ~~Persistence mirrors strengthenStore: zustand
@@ -101,6 +104,29 @@ import { v5 as uuidv5 } from 'uuid'
 import { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
 
 /**
+ * The four reasoning texts CEE can hold on the account, by their WIRE names
+ * (the commit request's keys and CEE's `stored_text_fields` values), in CEE's
+ * canonical order.
+ */
+export const DECISION_RECORD_TEXT_FIELDS = [
+  'rationale',
+  'key_assumption',
+  'revisit_trigger',
+  'next_action',
+] as const
+export type DecisionRecordTextField = (typeof DECISION_RECORD_TEXT_FIELDS)[number]
+
+/**
+ * A server-sent (or stored) `stored_text_fields` value, read defensively:
+ * known names only, each once, in canonical order. Anything that is not an
+ * array reads as `[]` — no confirmation, so no account claim.
+ */
+export function readStoredTextFields(raw: unknown): DecisionRecordTextField[] {
+  if (!Array.isArray(raw)) return []
+  return DECISION_RECORD_TEXT_FIELDS.filter((field) => raw.includes(field))
+}
+
+/**
  * Proof that this record reached CEE — the durable half. `null` while the
  * record is local-only (guest, offline, or a failed commit), so no surface
  * can claim "saved to your account" without the record id that says so.
@@ -112,6 +138,13 @@ export interface DecisionRecordRemote {
   reviewDate: string
   /** Which rung of CEE's ladder set it — `user_set` means the user chose it. */
   reviewDateSource: 'user_set' | 'default_horizon' | 'default_horizon_after_unparsed_trigger'
+  /**
+   * The texts CEE CONFIRMED the account holds verbatim (its
+   * `stored_text_fields`). ABSENT or empty ⇒ no text is claimed on the
+   * account: acknowledgements written before this field existed, and every
+   * response from a CEE that does not send the list, read exactly as before.
+   */
+  storedTextFields?: readonly DecisionRecordTextField[]
 }
 
 /**
@@ -129,12 +162,11 @@ export const NOT_READY_POSITION_LABEL = 'Not ready to choose'
  * Fields every record carries, whatever the position.
  *
  * ⚠ LOCALITY OF THE TEXT FIELDS. Since 24 Sep 2026 a signed-in save SENDS the
- * rationale, assumption, next action and revisit text with the commit, but no
- * CEE response confirms that the account KEPT them (today's route reads only
- * the option, confidence, expectation and revisit date). So `remote` still
+ * rationale, assumption, next action and revisit text with the commit. `remote`
  * licenses an account claim for the choice, confidence, expectation and
- * review date only. The text fields are claimed on this device, which is true
- * whatever CEE did with them.
+ * review date; a TEXT field is claimed on the account only when
+ * `remote.storedTextFields` names it (CEE's per-field confirmation). Every
+ * other text is claimed on this device, which is true whatever CEE did.
  */
 interface DecisionRecordCommon {
   rationale: string
@@ -291,7 +323,14 @@ function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
     try {
       const ack = JSON.parse(localStorage.getItem(ackKey(boundary.epoch, scenarioKey, stored.clientCommitId)) ?? 'null')
       if (ack && typeof ack.recordId === 'string' && typeof ack.reviewDate === 'string' &&
-          ['user_set', 'default_horizon', 'default_horizon_after_unparsed_trigger'].includes(ack.reviewDateSource)) remote = ack
+          ['user_set', 'default_horizon', 'default_horizon_after_unparsed_trigger'].includes(ack.reviewDateSource)) {
+        // The per-field confirmation is re-read through the SAME filter as the
+        // wire value: storage is editable, and an unknown name must never
+        // become an account claim.
+        remote = ack.storedTextFields === undefined
+          ? ack
+          : { ...ack, storedTextFields: readStoredTextFields(ack.storedTextFields) }
+      }
     } catch { /* no confirmation */ }
     byScenario[scenarioKey] = { ...stored.record, remote }
     captures[scenarioKey] = stored.clientCommitId
