@@ -24,9 +24,9 @@
  * defect this pass exists to remove rather than add to.
  */
 import { memo, useMemo } from 'react'
-import { typography } from '../../styles/typography'
 import { ViewportPortal, type Node } from '@xyflow/react'
 import { deriveTierLanes } from '../utils/tierLanes'
+import tierLaneStyles from './TierLanes.module.css'
 
 /**
  * ⭐ THE BANDS ARE LABELS ONLY, IN ONE LEFT COLUMN (Paul, 24 Sep: "Keep the
@@ -51,8 +51,14 @@ import { deriveTierLanes } from '../utils/tierLanes'
  * titles mid-screen above their centred cards; one column keeps them "on the
  * left" as asked.
  *
- * Sentence case (DS v5 §2 — the contract fixture's all-caps `.layer-label` is
- * overridden by the design system, Paul pt 9; `check-ds-compliance` enforces it).
+ * The DOM text stays SENTENCE CASE — the product words `TITLE_BY_TIER` already
+ * carries (DECISION_NODE_LABEL, MODEL_GROUP_TITLE) — and the contract's
+ * uppercase rendering is applied as a CSS `text-transform` in
+ * `TierLanes.module.css`, never by respelling the strings themselves (DS-gap
+ * audit row 4, 24 Sep 2026: keep the product vocabulary, adopt the contract's
+ * STYLE). `check-ds-compliance`'s `uppercase-text` class only scans `.tsx`, so
+ * the transform lives in the `.module.css` file rather than as an inline style
+ * or a Tailwind `uppercase` utility here.
  *
  * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
  * counter-scales, so at far zoom it grows several times taller and must grow up
@@ -85,7 +91,12 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
             <span
               key={lane.tier}
               data-testid={`tier-lane-${lane.tier}-title`}
-              className={`absolute text-text-light ${typography.edgeLabel}`}
+              /* contract v3.1 `.layer-label`: uppercase + #777870, in the CSS
+                 module (see its header for why not here); the counter-scaled
+                 size drops from `typography.edgeLabel`'s 11px base to the
+                 contract's 10px — a LOCAL arbitrary-value class, not an edit
+                 to the shared token, since no other canvas surface uses 10px. */
+              className={`absolute ${tierLaneStyles.tierLabel ?? ''} text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans`}
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,
