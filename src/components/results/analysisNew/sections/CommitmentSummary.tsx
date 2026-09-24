@@ -36,6 +36,7 @@ import type { ReactNode } from 'react'
 import { ChevronRight, GitCompare, Info, NotebookPen } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
+import { DECISION_RECORD_COPY } from '../../modals/DecisionRecordModal'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import {
@@ -193,6 +194,14 @@ function RecordYourView({
           label={COMMITMENT_COPY.record.optionLabel}
           value={recordedOptionText(record)}
           testId={`${testId}-option`}
+        />
+        {/* V2 `positionHTML()`: "Your view · Next · Revisit when". The form has
+            collected the next action since #1929; the read-back now shows it,
+            under the form's own label. */}
+        <RecordLine
+          label={DECISION_RECORD_COPY.nextActionLabel}
+          value={record.nextAction}
+          testId={`${testId}-next-action`}
         />
         <RecordLine
           label={COPY.decisionRecord.confidenceLabel}
