@@ -68,7 +68,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { focusExistingTarget, registerFocusHelpers } from '../../../../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../../../../canvas/store'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { makeData } from './analysisNewFixtures'
+import { makeData, withLeaderLicensed } from './analysisNewFixtures'
 
 /** The canvas this run is about. One node target, one EDGE target. */
 const NODE_ID = 'f_adopt'
@@ -110,7 +110,10 @@ afterEach(() => {
 function runWithBothTargetKinds(
   over: { edgeId?: string; nodeId?: string } = {},
 ): ResultsSectionDataReturn {
-  return makeData({
+  // ⚠ LICENSED (24 Sep 2026): the NODE-targeted control row is a fragile edge,
+  // and "What would change your mind" now mounts only on a run allowed to name
+  // a leader. This file's subject is focus routing, not the licence.
+  return withLeaderLicensed(makeData({
     recommendation: { robustnessVerdict: 'fragile' },
     confidence: {
       evidenceGapsAssessed: true,
@@ -140,7 +143,7 @@ function runWithBothTargetKinds(
       refusalReason: null,
       assumedFragileCount: 2,
     } as never,
-  })
+  }))
 }
 
 /**

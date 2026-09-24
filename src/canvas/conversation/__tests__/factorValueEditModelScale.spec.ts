@@ -27,6 +27,7 @@ import { describe, it, expect } from 'vitest'
 import {
   acceptsElicitedBelief,
   buildFactorValueEditEvent,
+  freeValueEditIsUnanalysable,
   isMagnitudeScaledFactor,
   resolveValueInputSeed,
 } from '../factorValueEdit'
@@ -239,5 +240,35 @@ describe("factorValueEdit — 'model_scale' basis", () => {
         seedBasis: 'model_scale',
       }),
     ).toBeNull()
+  })
+})
+
+/**
+ * ⛔ WOULD A FREE NUMBER TYPED HERE LEAVE A MODEL THE ENGINE WILL NOT ANALYSE?
+ * Served witness (UI `3cf9fbd0`, scenario `aca54686`, 24 Sep 2026): a typed 20
+ * on `{unit: 'customers', value: 0}` was stored `{value: 20, raw_value: 20}` and
+ * the next Run was refused. Each shape below is one CEE's writer treats
+ * differently, so the table is the spec, not the witness alone.
+ */
+describe('freeValueEditIsUnanalysable', () => {
+  it.each([
+    ['the witness: a count, no cap, no pair', { unit: 'customers', value: 0 }, true],
+    ['a bare raw baseline (raw === value, no cap)', { unit: '£', value: 40000, raw_value: 40000 }, true],
+    ['a unit, no cap, a level with no magnitude beside it', { unit: 'customers', value: 0.3 }, true],
+    ['CAPPED — the cap is the scale', { unit: 'seats', cap: 200, raw_value: 49, value: 0.245 }, false],
+    ['UNITLESS 0–1 — the field asks for a model value', { value: 0.7 }, false],
+    ['a capless FRAMED pair — CEE divides by the recovered frame', { unit: '£', value: 0.49, raw_value: 49 }, false],
+    ['a blank unit is no unit', { unit: '  ', value: 0 }, false],
+  ])('%s → %s', (_name, observedState, expected) => {
+    expect(freeValueEditIsUnanalysable({ kind: 'factor', observedState })).toBe(expected)
+  })
+
+  it('reads the snake_case carrier too', () => {
+    expect(freeValueEditIsUnanalysable({ observed_state: { unit: 'customers', value: 0 } })).toBe(true)
+  })
+
+  it('fails open on a node with no observed state', () => {
+    expect(freeValueEditIsUnanalysable(undefined)).toBe(false)
+    expect(freeValueEditIsUnanalysable({ label: 'x' })).toBe(false)
   })
 })

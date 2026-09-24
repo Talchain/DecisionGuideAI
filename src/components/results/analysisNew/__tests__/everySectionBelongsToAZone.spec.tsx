@@ -50,7 +50,19 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { decisionWithLeaderWithheld, genuineDecision, manyFragileEdges } from './analysisNewFixtures'
+import {
+  decisionWithLeaderWithheld,
+  genuineDecision,
+  manyFragileEdges,
+  withLeaderLicensed,
+} from './analysisNewFixtures'
+
+/**
+ * ⚠ LICENSED (24 Sep 2026): "What would change your mind" mounts only on a run
+ * allowed to name a leader, so the arm that can SEE a stray section has to be
+ * one. `manyFragileEdges` itself publishes no licence.
+ */
+const fragileEdgesLicensed = () => withLeaderLicensed(manyFragileEdges())
 import { contentColumn, topLevelBlockElements } from './panelContentColumn'
 import { readFileSync } from 'node:fs'
 import { resolve as resolvePath, join as joinPath } from 'node:path'
@@ -138,7 +150,7 @@ describe('every section belongs to a zone', () => {
    * green with the grammar broken.
    */
   it('PRECONDITION: the fragile-edges fixture is the arm that can see it', () => {
-    renderBody(manyFragileEdges())
+    renderBody(fragileEdgesLicensed())
     expect(screen.queryByTestId('analysis-new-sensitivity'), 'the discriminating fixture must render the section').not.toBeNull()
     cleanup()
     renderBody(genuineDecision())
@@ -147,7 +159,7 @@ describe('every section belongs to a zone', () => {
 
   it.each([
     ['a run that reached a conclusion', genuineDecision],
-    ['a run with many fragile edges', manyFragileEdges],
+    ['a run with many fragile edges', fragileEdgesLicensed],
   ])('⭐ %s renders no section outside a zone', (_name, fixture) => {
     renderBody(fixture())
     const stray = topLevelBlockElements()

@@ -277,6 +277,32 @@ export function decisionWithLeaderWithheldAndReason(): ResultsSectionDataReturn 
   } as ResultsSectionDataReturn
 }
 
+/**
+ * ⭐ THE SAME RUN, LICENSED TO NAME A LEADER — both fields moved together, as
+ * `decisionWithLeaderWithheld` moves them the other way.
+ *
+ * ⚠ WHY IT EXISTS (24 Sep 2026). "What would change your mind" now mounts only
+ * when `vm.leaderClaimPermitted`: every row there is a fragile edge — a
+ * relationship whose weakening switches the recommended option — so on a run
+ * whose leader claim is withheld the section is absent. Fixtures that publish
+ * no licence at all (`manyFragileEdges`, `highUncertainty`) therefore stopped
+ * mounting it. Specs whose SUBJECT is the rows rather than the licence wrap
+ * their data here, exactly as #1933 moved its tipping arms onto a permitted
+ * recommendation; the licence itself is pinned by the withheld arms, which do
+ * NOT use this.
+ */
+export function withLeaderLicensed(data: ResultsSectionDataReturn): ResultsSectionDataReturn {
+  const verdict = (data.recommendation as { verdict?: Record<string, unknown> }).verdict
+  return {
+    ...data,
+    recommendation: {
+      ...data.recommendation,
+      leaderDesignationPermitted: true,
+      verdict: { ...(verdict ?? {}), hasLeadingOption: true } as DecisionResultData['verdict'],
+    },
+  } as ResultsSectionDataReturn
+}
+
 // ── 3. HIGH UNCERTAINTY ─────────────────────────────────────────────────────
 // Consequential uncertainty everywhere, incomplete coverage — and STILL a valid
 // analysis. Nothing here may read as "the analysis is blocked".

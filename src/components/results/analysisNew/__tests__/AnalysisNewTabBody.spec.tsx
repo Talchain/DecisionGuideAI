@@ -33,6 +33,7 @@ import {
   makeDriver,
   openStrategicChallenge,
   manyFragileEdges,
+  withLeaderLicensed,
 } from './analysisNewFixtures'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 
@@ -233,7 +234,10 @@ describe('F · the three scenario classes (§24F)', () => {
    * weaker claim than the name promised.
    */
   it('HIGH UNCERTAINTY — uncertainty is prominent and the analysis is NOT presented as blocked', () => {
-    renderBody(highUncertainty())
+    // ⚠ LICENSED (24 Sep 2026): the fixture's only row is a fragile edge, and
+    // "What would change your mind" mounts only on a run allowed to name a
+    // leader. The claim here is prominence, not the licence.
+    renderBody(withLeaderLicensed(highUncertainty()))
     openAllSections()
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
     expect(within(sensitivity).getAllByTestId('analysis-new-sensitivity-row').length).toBeGreaterThan(0)
@@ -937,7 +941,7 @@ describe('"What would change your mind" — its place on the tab (V2: in "Challe
    * ordering claim can hold vacuously and a move back REDs by name.
    */
   it('V2: sits in "Challenge the thinking" — below the model-wide review, above the glance', () => {
-    renderBody(manyFragileEdges())
+    renderBody(withLeaderLicensed(manyFragileEdges()))
 
     const review = screen.getByTestId('analysis-new-review')
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
@@ -954,7 +958,7 @@ describe('"What would change your mind" — its place on the tab (V2: in "Challe
   })
 
   it('leaves "Uncertainty and gaps" BELOW it, and no longer carrying the same rows', () => {
-    renderBody(manyFragileEdges())
+    renderBody(withLeaderLicensed(manyFragileEdges()))
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
     const uncertainty = screen.queryByTestId('analysis-new-uncertainty')
     if (uncertainty) expect(before(sensitivity, uncertainty)).toBe(true)
@@ -973,6 +977,88 @@ describe('"What would change your mind" — its place on the tab (V2: in "Challe
    * proved it by surviving; giving this section an empty MESSAGE is the change
    * that reopens the defect, and it REDs here.
    */
+  /**
+   * ⛔⛔ A WITHHELD RUN NAMES NO OPTION THAT "COULD LEAD" — witnessed live on
+   * the served build (UI `3cf9fbd0`, OpenAI path, scenario `aca54686`, 24 Sep
+   * 2026). With `leader_claim {permitted: false, producer_cause:
+   * 'constraint_verdict_withheld'}` this section still read *Bars show how
+   * often a different option was stronger in the runs where that assumption
+   * came out weak. / Enterprise price → MRR / If this changes significantly,
+   * "Raise Pro to £59" could lead in this model / 24%*. "Could lead" presupposes
+   * a current leader — the order the run refused to state.
+   *
+   * ⚠ THE WITNESSED ROW, NOT A PARAPHRASE: the hook's own template, the edge
+   * names and the 24% the screen showed, on the two licence twins
+   * (`genuineDecision` / `decisionWithLeaderWithheld`), which differ ONLY in the
+   * licence fields. So the permitted arm is the contrast control that proves the
+   * row reaches the screen at all — without it, the withheld arm would pass on
+   * a fixture that renders nothing.
+   */
+  describe('⛔ a withheld run names no option that "could lead" (served witness, 24 Sep)', () => {
+    const WITNESS_ALT = 'Raise Pro to £59'
+    const withWitnessedEdge = (base: ResultsSectionDataReturn): ResultsSectionDataReturn => {
+      const template = manyFragileEdges().confidence.uncertainties.find(
+        (u) => u.code === 'SENSITIVE_ASSUMPTION',
+      )
+      expect(template, 'precondition: the fixture carries a fragile-edge row to copy').toBeDefined()
+      const sentence = `If "Enterprise price → MRR" changes significantly, "${WITNESS_ALT}" could lead in this model`
+      return {
+        ...base,
+        confidence: {
+          ...base.confidence,
+          uncertainties: [
+            {
+              ...template,
+              message: sentence,
+              displayText: sentence,
+              messageWithSubjectNamedAbove: `If this changes significantly, "${WITNESS_ALT}" could lead in this model`,
+              edgeFromLabel: 'Enterprise price',
+              edgeToLabel: 'MRR',
+              edgeLabelsResolved: true,
+              alternativeWinnerId: 'opt_a',
+              alternativeWinnerLabel: WITNESS_ALT,
+              switchProbability: 0.24,
+            },
+          ],
+        },
+      } as unknown as ResultsSectionDataReturn
+    }
+    const COULD_LEAD = /could lead in this model/i
+    const openSensitivity = () => {
+      const toggle = screen.getByTestId('analysis-new-sensitivity-toggle')
+      if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    }
+
+    it('CONTRAST — the licensed twin shows the row, its bar and its caption', () => {
+      renderBody(withWitnessedEdge(genuineDecision()))
+      openSensitivity()
+      const section = screen.getByTestId('analysis-new-sensitivity')
+      expect(section.textContent ?? '').toMatch(COULD_LEAD)
+      expect(within(section).getAllByTestId('analysis-new-sensitivity-flip-bar')).toHaveLength(1)
+      expect(within(section).getByTestId('analysis-new-sensitivity-caveat').textContent).toContain(
+        'came out weak',
+      )
+    })
+
+    it('⛔ the withheld twin: no "could lead", no bar, no caption — and no heading over nothing', () => {
+      renderBody(withWitnessedEdge(decisionWithLeaderWithheld()))
+      // Every closed toggle on the panel is opened, so an absence below cannot
+      // be a closed region hiding the sentence.
+      openAllSections()
+      const body = screen.getByTestId('analysis-new-tab-body')
+      expect(body.textContent ?? '', 'the panel names an option that could lead').not.toMatch(COULD_LEAD)
+      expect(screen.queryAllByTestId('analysis-new-sensitivity-flip-bar')).toHaveLength(0)
+      expect(body.textContent ?? '').not.toContain('a different option was stronger')
+      // The section has nothing left that does not presuppose a leader, so it
+      // must be ABSENT — not a heading over an empty list.
+      expect(screen.queryByTestId('analysis-new-sensitivity')).toBeNull()
+      expect(screen.queryByText(COPY.sections.sensitivity)).toBeNull()
+      // …and the zone this section lives in rendered, so the absence is the
+      // gate's doing rather than an unrendered tab.
+      expect(screen.getByTestId('analysis-new-zone-also-group')).toBeInTheDocument()
+    })
+  })
+
   it('does not mount at all when the run named no sensitive assumption', () => {
     renderBody(genuineDecision())
     expect(screen.queryByTestId('analysis-new-sensitivity')).toBeNull()

@@ -30,7 +30,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { manyFragileEdges } from './analysisNewFixtures'
+import { manyFragileEdges, withLeaderLicensed } from './analysisNewFixtures'
 import { openAllSections } from './openNamedGroups'
 
 type Alt = { id: string; label: string; reprints?: boolean; authored?: string }
@@ -291,7 +291,9 @@ describe('the conclusion is said once', () => {
    * nothing else would notice.
    */
   it('⭐ the title rung is all-or-nothing — one unresolvable row untitles the whole set', () => {
-    const data = manyFragileEdges()
+    // LICENSED (24 Sep 2026): the rows mount only on a run allowed to name a
+    // leader, and this case is about titles, not the licence.
+    const data = withLeaderLicensed(manyFragileEdges())
     let i = 0
     const long =
       'If the assumed strength of this relationship changes significantly in either direction, "Two Developers" could become the better choice'
@@ -333,19 +335,30 @@ describe('the conclusion is said once', () => {
    * would have carried — the conclusion is said ZERO times, and only for rows
    * that agree: the DISAGREE twin keeps both of its sentences.
    *
-   * ⛔ RED ON 716b8e67 BY DESIGN — reported as B, not edited to pass. It goes
-   * green when the suppression reads the same gate as the line.
+   * ⛔⛔ SUPERSEDED 24 Sep 2026, AND THE ANSWER IS NOW "ZERO, ON PURPOSE". This
+   * arm asserted that the agreeing rows KEEP "…could become the better choice"
+   * on a withheld run. On the served build that sentence — *If this changes
+   * significantly, "Raise Pro to £59" could lead in this model* — is exactly
+   * what a run whose leader claim is withheld may not say: it presupposes the
+   * order the run refused to state. #1933 withheld the glance's "Could change
+   * if" for the same reason. The whole section is now absent on a withheld run,
+   * so the question this arm asked (which of line and rows carries the
+   * conclusion) has no subject: NEITHER does, on either arm, and the permitted
+   * twin still says it exactly once.
    */
-  it('⛔ WITHHELD: with no line above, agreeing rows keep the sentence nothing else says', () => {
+  it('⛔ WITHHELD: no line above AND no rows — a withheld run names no option that could lead', () => {
     renderBody(withAlternatives(AGREE, false))
-    expect(CONVERGENCE(), 'precondition: the line is withheld on this run').toBeNull()
-    expect(
-      screen.queryAllByTestId('analysis-new-sensitivity-row').length,
-      'precondition: the rows ARE on screen',
-    ).toBe(2)
-    expect(
-      REPRINTS().length,
-      'nothing above speaks for these rows, so each must still say where it points',
-    ).toBeGreaterThanOrEqual(2)
+    expect(CONVERGENCE(), 'the line is withheld on this run').toBeNull()
+    expect(screen.queryByTestId('analysis-new-sensitivity'), 'and so is every row').toBeNull()
+    expect(REPRINTS(), 'the conclusion is said nowhere on the panel').toHaveLength(0)
+    // …and the DISAGREE shape, which kept both sentences under the old rule,
+    // is withheld the same way: the licence decides, not the agreement.
+    cleanup()
+    renderBody(withAlternatives(DISAGREE, false))
+    expect(REPRINTS()).toHaveLength(0)
+    // Contrast: the licensed twin of the same agreeing rows says it once.
+    cleanup()
+    renderBody(withAlternatives(AGREE, true))
+    expect(REPRINTS().length + (CONVERGENCE() ? 1 : 0)).toBeGreaterThan(0)
   })
 })
