@@ -108,8 +108,10 @@ describe('the input register reaches the reasoning tab', () => {
       'what-i-was-given-section',
     ])
 
-    const group = container.querySelector('[data-testid="analysis-new-how-worked-out"]')
-    expect(group, 'the method group must render for this section to be reachable').not.toBeNull()
+    // V2 fidelity gap 24 (24 Sep 2026): the "How this was worked out" group is
+    // deleted; the register folds into About, the named disclosure it now lives in.
+    const group = container.querySelector('[data-testid="analysis-new-about"]')
+    expect(group, 'About must render for this section to be reachable').not.toBeNull()
     expect(
       group?.contains(container.querySelector('[data-testid="what-i-was-given-section"]')),
       'it must sit INSIDE the named group, not loose in the tail where it can be scrolled past',

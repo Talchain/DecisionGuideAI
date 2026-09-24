@@ -120,7 +120,9 @@ const CEILING: Record<string, number> = {
    * trade is that the added block is the one section on the tab a person can
    * act on without waiting for the producer to offer something.
    */
-  genuineDecision: 5,
+  // ⭐ LOWERED 24 Sep 2026 (V2 fidelity gap 24): ZONE: FURTHER is deleted and its
+  // blocks fold into About, so every state loses one top-level block — 5/6/5 -> 4/5/4.
+  genuineDecision: 4,
   /**
    * ⭐ LOWERED 5 -> 4 ON 17 Sep 2026, when the sensitivity section moved inside
    * the answer group (`everySectionBelongsToAZone`). The spec's own rule is
@@ -134,14 +136,14 @@ const CEILING: Record<string, number> = {
    * the same run against `origin/staging`'s copy of the body reports NO slack —
    * so the fall is this change's and not a fixture drifting underneath.
    */
-  highUncertainty: 6,
+  highUncertainty: 5,
   /*
    * ⚠ Both raised by exactly one on 18 Sep 2026, same cause as `genuineDecision`
    * above — ZONE: FOCUS now renders unconditionally. Recorded per-key rather
    * than as one shared note so that a future fall in ANY single fixture is
    * still visible as slack by the sibling assertion below.
    */
-  openStrategicChallenge: 5,
+  openStrategicChallenge: 4,
 }
 
 const FIXTURES: ReadonlyArray<[string, () => ResultsSectionDataReturn]> = [
