@@ -84,7 +84,7 @@ async function messageFrom(body: Wire): Promise<ConversationMessage> {
   } as ConversationMessage
 }
 
-function renderThread(assistant: ConversationMessage, onChipClick = vi.fn(async () => {})) {
+function renderThread(assistant: ConversationMessage, onChipClick = vi.fn(async (_chip: unknown) => {})) {
   const messages = [
     { id: 'u1', role: 'user', content: 'Run analysis', timestamp: new Date('2026-09-24T19:20:40Z') },
     assistant,
