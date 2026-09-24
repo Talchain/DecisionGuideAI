@@ -513,12 +513,14 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // the rail's coaching icon — no visible run. See REACH.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
+    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'option · pre · expert': [
     // Locked Canvas design (23 Sep 2026): `What could go wrong?` was the card
     // question in BOTH views; it is the rail icon in both now.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
+    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'option · post · standard': [
     'Current model', // CAPTION — `OPTION_RESULT_COPY.current`, beside `N% of runs`.
@@ -527,6 +529,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     //            sentence is on the `title` and in `sr-only` text.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
+    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
@@ -538,6 +541,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What would make this better supported?', // CONTROL
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
+    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [
@@ -643,6 +647,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'Not computed',
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
+    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   // The change-COUNT fallback lives here and nowhere else. It does NOT enter
   // the census — `Changes 1 factor` / `Changes 2 factors` / `Changes 3 factors`
@@ -656,6 +661,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // more` and the rail's edit-targets icon (REACH, and the two-carrier case).
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
+    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   'option · pre · lod-line': [],
   'option · post · lod-line': [],
