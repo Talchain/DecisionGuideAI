@@ -1500,8 +1500,87 @@ export function ModelTabV2Panel({
        */
       className="flex flex-col gap-2 border-b border-panel-border pb-2.5"
     >
-      <header className="flex items-center gap-2 flex-wrap">
-        <h3 className={`${typography.panelHeader} text-text-header`}>Model outline</h3>
+      {/*
+        ⭐⭐ V2 GAP 31 — TWO ROWS, NOT THREE, AND NO TINT FILLS.
+        `FIDELITY-GAPS-INDEX-20260924.txt` #31: at the 280px dock floor the
+        single `flex-wrap` row of h3 + filter + key + toggle wrapped to
+        THREE rows. The design authority puts the title and controls on one
+        row (`justify-between`) and gives the filter its OWN full-width row
+        beneath it — two rows at any width, including 280px.
+      */}
+      <header className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className={`${typography.panelHeader} text-text-header`}>Model outline</h3>
+          <div className="flex items-center gap-2 shrink-0">
+            {/*
+              The tier control, IN the tab (design §4.3 rule 3). A content
+              switch only: `ModelOutline`'s layout function takes no tier
+              argument, so flipping this cannot reorder, open or close
+              anything.
+
+              ⭐ WHAT IT WRITES CHANGED; WHERE IT LIVES DID NOT. It now sets
+              the product's ONE expert preference (`olumi.expertMode`)
+              rather than a private tier, so the user's choice persists
+              across tab switches and sessions and the outline can no
+              longer disagree with the scientific transparency block
+              directly beneath it.
+            */}
+            {/* The key for the row marks, beside the tier control — the
+                marks are useless as a code until something states what
+                they mean. */}
+            <ValueProvenanceKey />
+            {/*
+              ⭐⭐ V2 GAP 31 — A SEGMENTED CONTROL, NOT A TINTED-FILL TOGGLE.
+              Was `bg-panel-hover` for BOTH the group and the pressed state
+              (a beige tint on a beige tint), and 16px tall
+              (`buttonSmall` = `leading-none` + `py-0.5`, no height floor).
+              Now a pill group (`rounded-full … p-[3px] gap-[3px]`, matching
+              the design authority's `.lens`) holding two ≥24px pill
+              buttons, the pressed one filled `bg-primary` rather than
+              tinted — the same "shape and fill carry emphasis, never a
+              tint alone" rule `panelSurfaces.ts`'s `ACTION_TIER` states for
+              Reasoning's own controls.
+            */}
+            <div
+              role="group"
+              aria-label="Detail tier"
+              data-testid="model-tab-v2-tier-toggle"
+              className="inline-flex rounded-full border border-panel-border p-[3px] gap-[3px]"
+            >
+              <button
+                type="button"
+                data-testid="model-tab-v2-tier-plain"
+                aria-pressed={tier === 'plain'}
+                onClick={() => setTier('plain')}
+                className={`${typography.buttonSmall} min-h-[24px] px-2.5 rounded-full ${
+                  tier === 'plain' ? 'bg-primary text-text-on-color' : 'text-text-body'
+                }`}
+              >
+                Plain
+              </button>
+              <button
+                type="button"
+                data-testid="model-tab-v2-tier-advanced"
+                aria-pressed={tier === 'advanced'}
+                onClick={() => setTier('advanced')}
+                className={`${typography.buttonSmall} min-h-[24px] px-2.5 rounded-full ${
+                  tier === 'advanced' ? 'bg-primary text-text-on-color' : 'text-text-body'
+                }`}
+              >
+                Advanced
+              </button>
+            </div>
+          </div>
+        </div>
+        {/*
+          ⭐⭐ V2 GAP 31 — THE FILTER'S OWN ROW, AND NO TINTED GROUND.
+          Was `bg-panel-hover border-panel-border` (a beige field on a beige
+          field — the same tinted-ground defect as the toggle above). Now
+          `bg-panel border-field`, the estate's own field-border token
+          (`styles/controls.ts`, `EditableLabel.tsx` — not invented here).
+          `bodySmall` (14px) is unchanged: the design authority's own
+          `.form input` rule.
+        */}
         <input
           data-testid="model-tab-v2-filter"
           type="search"
@@ -1509,51 +1588,8 @@ export function ModelTabV2Panel({
           onChange={e => setFilter(e.target.value)}
           placeholder="Filter the model…"
           aria-label="Filter the model"
-          className={`${typography.bodySmall} flex-1 min-w-[10rem] bg-panel-hover border border-panel-border rounded px-2 py-1`}
+          className={`${typography.bodySmall} w-full bg-panel border border-field rounded px-2 py-1`}
         />
-        {/*
-          The tier control, IN the tab (design §4.3 rule 3). A content switch
-          only: `ModelOutline`'s layout function takes no tier argument, so
-          flipping this cannot reorder, open or close anything.
-
-          ⭐ WHAT IT WRITES CHANGED; WHERE IT LIVES DID NOT. It now sets the
-          product's ONE expert preference (`olumi.expertMode`) rather than a
-          private tier, so the user's choice persists across tab switches and
-          sessions and the outline can no longer disagree with the scientific
-          transparency block directly beneath it.
-        */}
-        {/* The key for the row marks, beside the tier control — the marks are
-            useless as a code until something states what they mean. */}
-        <ValueProvenanceKey />
-        <div
-          role="group"
-          aria-label="Detail tier"
-          data-testid="model-tab-v2-tier-toggle"
-          className="inline-flex rounded border border-panel-border overflow-hidden"
-        >
-          <button
-            type="button"
-            data-testid="model-tab-v2-tier-plain"
-            aria-pressed={tier === 'plain'}
-            onClick={() => setTier('plain')}
-            className={`${typography.buttonSmall} px-2 py-0.5 ${
-              tier === 'plain' ? 'bg-panel-hover text-text-header' : 'text-text-light'
-            }`}
-          >
-            Plain
-          </button>
-          <button
-            type="button"
-            data-testid="model-tab-v2-tier-advanced"
-            aria-pressed={tier === 'advanced'}
-            onClick={() => setTier('advanced')}
-            className={`${typography.buttonSmall} px-2 py-0.5 ${
-              tier === 'advanced' ? 'bg-panel-hover text-text-header' : 'text-text-light'
-            }`}
-          >
-            Advanced
-          </button>
-        </div>
       </header>
 
       {/*
