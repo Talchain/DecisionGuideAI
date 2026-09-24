@@ -432,6 +432,12 @@ type Phase =
 export function ServerVersionsSection() {
   const { user } = useAuth()
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+  /**
+   * CEE's `aag_v1` analysis-affecting graph hash for the SERVER's graph, held
+   * verbatim by the store. This is the section's "the shared model may have
+   * moved" signal — see the effect below for the whole argument.
+   */
+  const lastServerGraphHash = useCanvasStore((s) => s.lastServerGraphHash)
 
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   /** Row whose confirm is armed (pin 1) — id, never an index. */
@@ -444,6 +450,16 @@ export function ServerVersionsSection() {
   const [undoVersionId, setUndoVersionId] = useState<string | null>(null)
   const [draftLabel, setDraftLabel] = useState('')
   const mountedRef = useRef(true)
+  /**
+   * The `lastServerGraphHash` the list currently on screen was read for.
+   * `undefined` means "nothing read yet in this mount"; `null` is a real
+   * observed value (CEE has stamped no hash this session).
+   *
+   * A REF, not state, deliberately: it is bookkeeping about a fetch that has
+   * already happened, never anything rendered, and holding it in state would
+   * re-render the panel to record that it did not need to refetch.
+   */
+  const listedForGraphHashRef = useRef<string | null | undefined>(undefined)
 
   const userId = user?.id ?? null
   const signedIn = isRestoreCapableIdentity(userId)
@@ -486,9 +502,75 @@ export function ServerVersionsSection() {
   useEffect(() => {
     if (addressable && signedIn) {
       setPhase({ kind: 'loading' })
+      // Read LIVE, not from the render closure: this records which server graph
+      // the list about to arrive describes, and the effect below compares
+      // against it. A closure value could already be one turn behind.
+      listedForGraphHashRef.current = useCanvasStore.getState().lastServerGraphHash
       void refresh()
     }
   }, [addressable, signedIn, refresh])
+
+  /**
+   * ── A PANEL LEFT OPEN ACROSS A TURN MUST NOT KEEP SHOWING THE PRE-TURN
+   *    VERSION NUMBER ────────────────────────────────────────────────────────
+   *
+   * THE DEFECT. Until this effect existed, the ONLY triggers for a list read
+   * were the mount effect above, the "Try again" button, and this section's own
+   * save/restore handlers. Opening the panel after a turn therefore showed the
+   * right ordinal — the subtree unmounts when the panel closes
+   * (`WhatChangedPanel.tsx:115 if (!isOpen) return null`) — but a panel the user
+   * LEFT OPEN while they took a turn had no code path at all that could correct
+   * it. `v{versionNumber}` here is the only place in the estate that renders a
+   * shared version ordinal (three sites, all in this file, `rg`-derived), so the
+   * stale number was the user's only reading of the shared history and nothing
+   * would ever fix it.
+   *
+   * ⚠ WHAT IS *NOT* DERIVED HERE: CEE's own append rule. This file's provenance
+   *   vocabulary maps `committed_mutation` to "auto — saved on a model change",
+   *   which is the UI's reading of a value CEE writes — it is not a measurement
+   *   of when CEE decides to append. The fix does not depend on it: this effect
+   *   re-READS the list whenever the server graph may have moved, and the list
+   *   is CEE's answer either way.
+   *
+   * WHY THIS SIGNAL. `lastServerGraphHash` is CEE's own `aag_v1` hash of the
+   * SERVER graph, and it has ONE non-test setter (`setLastServerGraphHash`) with
+   * three non-test callers, all of which are the wire:
+   *   · `applyV5State` — the top-level `graph_hash` on every turn response;
+   *   · `serverGraphHydration`'s `adoptServerWriteBase` — a graph read's hash,
+   *     adopted only when that read's graph is the one on screen;
+   *   · `seedWriteBaseAfterRegistration` — the read after an acknowledged
+   *     registration.
+   * Every one of those is a moment at which the shared model may hold a version
+   * this panel has not listed. No local canvas gesture can move it.
+   *
+   * ⛔ WHY NOT `nodes`/`edges`. A drag hands the store fresh arrays on every
+   *    frame, so array identity would put a network read behind every pointer
+   *    move. The negative control in
+   *    `ServerVersionsSection.refreshAcrossTurn.spec.tsx` pins that.
+   *
+   * ⭐ NO SPURIOUS READ, FOR FREE. `setLastServerGraphHash` early-returns when
+   *    the incoming hash equals the one held, so a turn that changed nothing
+   *    analysis-affecting is not a store write at all and cannot reach here —
+   *    which is the same condition under which CEE appends no version.
+   *
+   * ⚠ AND DELIBERATELY NO `setPhase({ kind: 'loading' })`. The mount effect
+   *   blanks the list because there is nothing to show yet; here there IS, and
+   *   replacing it with "Loading shared versions…" on every turn would make the
+   *   panel unreadable during a conversation. A list one turn stale for the
+   *   length of one read is better than no list at all.
+   *
+   * ⚠ RESIDUE, NOT CLAIMED AS COVERED: the hash is ANALYSIS-AFFECTING. A
+   *   server-side mutation that CEE records as a version while leaving
+   *   `computeAnalysisAffectingGraphHash` unchanged would not reach here. That
+   *   is a narrower gap than the one this closes, and no claim is made about
+   *   which mutations fall in it — the derivation is CEE's, not this client's.
+   */
+  useEffect(() => {
+    if (!addressable || !signedIn) return
+    if (listedForGraphHashRef.current === lastServerGraphHash) return
+    listedForGraphHashRef.current = lastServerGraphHash
+    void refresh()
+  }, [addressable, signedIn, lastServerGraphHash, refresh])
 
   // No server-addressable scenario ⇒ nothing to offer; the local history
   // above is the whole story. Rendering a dead section would be an
