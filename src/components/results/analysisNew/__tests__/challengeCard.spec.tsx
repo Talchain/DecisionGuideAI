@@ -11,7 +11,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import { ChallengeCard } from '../sections/ChallengeCard'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
@@ -23,7 +23,21 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import { useStrengthenStore, recordKey } from '../../../../canvas/stores/strengthenStore'
 import { useCanvasStore } from '../../../../canvas/store'
+import { readDissent } from '../../../../canvas/stores/dissentStore'
 import { genuineDecision } from './analysisNewFixtures'
+
+/**
+ * The dispatcher is mocked at the OPTIONAL context, the same seam
+ * `dissentReachesTheModel.spec.tsx` uses for `StrengthenTheReasoning` — this
+ * is the SAME mechanism, ported. `dispatcherMounted` makes the no-dispatcher
+ * state (UI live, CEE reader not yet; any route with no `ConversationProvider`)
+ * an expressible fixture rather than one only the passing cases can reach.
+ */
+const sendSystemEvent = vi.fn()
+let dispatcherMounted = true
+vi.mock('../../../../canvas/conversation/ConversationContext', () => ({
+  useOptionalConversationContext: () => (dispatcherMounted ? { sendSystemEvent } : undefined),
+}))
 
 const SPEC_DECISION = 'challenge-card-decision'
 
@@ -86,6 +100,11 @@ const renderCard = (props: Partial<Parameters<typeof ChallengeCard>[0]> = {}) =>
 beforeEach(() => {
   useStrengthenStore.getState()._reset()
   useCanvasStore.setState({ currentScenarioId: SPEC_DECISION })
+  localStorage.clear()
+  dispatcherMounted = true
+  sendSystemEvent.mockReset()
+  // `undefined` is the ONLY dispatched outcome — SendTurnOutcome's own rule.
+  sendSystemEvent.mockResolvedValue(undefined)
 })
 afterEach(cleanup)
 
@@ -220,29 +239,181 @@ describe('"Not useful right now" is the Strengthen lifecycle dismissal', () => {
   })
 })
 
-describe('"I disagree" on the promoted finding', () => {
-  it('is offered in the card menu and hands the finding to the host, which continues into the conversation', () => {
-    const onDisagree = vi.fn()
+/**
+ * "I disagree" — E18, THE PROPER SAVE PATH. Ported from
+ * `dissentReachesTheModel.spec.tsx` (`StrengthenTheReasoning`'s already-shipped
+ * suite for the SAME mechanism): `strengthenStore.dispute` (session),
+ * `dissentStore.recordDissent` (durable) and `finding_dissent` (the wire),
+ * via `useFindingDissent`. Bound by identity throughout — exact testid, exact
+ * finding id, exact COPY sentence — never "is some text present".
+ */
+describe('"I disagree" on the promoted finding — the proper save path', () => {
+  const openComposer = (props: Partial<Parameters<typeof ChallengeCard>[0]> = {}) => {
     const finding = rec({ id: 'strengthen:phase3:blk_x' })
-    render(
-      <ChallengeCard
-        intervention={finding}
-        methodId={null}
-        onRunIntervention={vi.fn()}
-        onRunMethod={vi.fn()}
-        onDisagree={onDisagree}
-      />,
-    )
+    const view = renderCard({ intervention: finding, ...props })
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
-    expect(onDisagree).toHaveBeenCalledWith(finding)
+    return { ...view, finding }
+  }
+
+  const typeAndSave = async (words: string) => {
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-input'), { target: { value: words } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-save'))
+    })
+  }
+
+  /** The one `finding_dissent` the dispatcher was handed, or undefined. */
+  const sentEvent = () =>
+    sendSystemEvent.mock.calls.map((c) => c[0]).find((e) => e?.type === 'finding_dissent')
+
+  it('is offered in the card menu regardless of a host handler', () => {
+    openComposer()
+    // The composer, not a chat draft: Save/Cancel are on THIS card.
+    expect(screen.getByTestId('analysis-new-challenge-disagree-save')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-challenge-disagree-cancel')).toBeInTheDocument()
   })
 
-  it('CONTRAST: without a host handler there is no disagree item', () => {
-    render(
-      <ChallengeCard intervention={rec({ id: 'strengthen:phase3:blk_y' })} methodId={null} onRunIntervention={vi.fn()} onRunMethod={vi.fn()} />,
-    )
+  it('⭐ RED-FIRST: Save SENDS finding_dissent with both ids and the words, and writes the durable record', async () => {
+    const { finding } = openComposer()
+    await typeAndSave('Our Q1 capacity assumption is wrong.')
+
+    const event = sentEvent()
+    expect(event, 'no finding_dissent reached the dispatcher').toBeDefined()
+    expect(event.payload).toEqual({
+      finding_id: finding.id,
+      analysis_id: 'hash_1',
+      statement: 'Our Q1 capacity assumption is wrong.',
+    })
+    // Additive, never a move: the local durable record exists too.
+    expect(readDissent(SPEC_DECISION)[finding.id].reason).toBe('Our Q1 capacity assumption is wrong.')
+    // The composer closes on a successful save.
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-form')).toBeNull()
+  })
+
+  it('⭐ THE TWIN: no run identity (pre-run) — nothing is sent, and the words are still kept', async () => {
+    openComposer({ analysisHash: null })
+    await typeAndSave('This finding is wrong.')
+    expect(sentEvent(), 'a pre-run card has no analysis id to address').toBeUndefined()
+    expect(readDissent(SPEC_DECISION)['strengthen:phase3:blk_x'].reason).toBe('This finding is wrong.')
+  })
+
+  it("⭐ THE TWIN: a FAILED run's hash is the literal 'error' — nothing is sent, words still kept", async () => {
+    openComposer({ analysisHash: 'error' })
+    await typeAndSave('This finding is wrong.')
+    expect(sentEvent(), "'error' is not an analysis id and must never be addressed").toBeUndefined()
+    expect(readDissent(SPEC_DECISION)['strengthen:phase3:blk_x'].reason).toBe('This finding is wrong.')
+  })
+
+  it('⭐⭐ THE INTERMEDIATE DEPLOY STATE: no dispatcher mounted — nothing sent, words kept, form still closes', async () => {
+    dispatcherMounted = false
+    openComposer({ analysisHash: 'hash_1' })
+    await typeAndSave('This finding is wrong.')
+    expect(sendSystemEvent, 'no dispatcher is mounted, so nothing may be sent').not.toHaveBeenCalled()
+    expect(readDissent(SPEC_DECISION)['strengthen:phase3:blk_x'].reason).toBe('This finding is wrong.')
+  })
+
+  it('Cancel writes nothing — no session record, no durable record, no send', () => {
+    const { finding } = openComposer()
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-input'), {
+      target: { value: 'A reason I changed my mind about' },
+    })
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-cancel'))
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-form')).toBeNull()
+    expect(readDissent(SPEC_DECISION)[finding.id]).toBeUndefined()
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    // Reopening starts blank — Cancel really did write nothing.
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
-    expect(screen.queryByTestId('analysis-new-challenge-disagree')).toBeNull()
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
+    expect(screen.getByTestId('analysis-new-challenge-disagree-input')).toHaveValue('')
+  })
+
+  it('an empty or whitespace-only submit closes without writing', async () => {
+    const { finding } = openComposer()
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-input'), { target: { value: '   ' } })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-save'))
+    })
+    expect(screen.queryByTestId('analysis-new-challenge-disagree-form')).toBeNull()
+    expect(readDissent(SPEC_DECISION)[finding.id]).toBeUndefined()
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('⭐⭐ the composer closing over a SCENARIO CHANGE writes nothing and reports the change', async () => {
+    const { finding } = openComposer()
+    fireEvent.change(screen.getByTestId('analysis-new-challenge-disagree-input'), {
+      target: { value: 'Written under the wrong decision' },
+    })
+    // The decision on screen changes mid-compose — a real, reachable sequence
+    // (switching boards without closing an open composer).
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'a-different-decision' })
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree-save'))
+    })
+    expect(
+      screen.getByTestId('analysis-new-challenge-disagree-save-error'),
+      'must not write under whichever decision happens to be live',
+    ).toHaveTextContent(COPY.dissent.scenarioChanged)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expect(readDissent(SPEC_DECISION)[finding.id]).toBeUndefined()
+    expect(readDissent('a-different-decision')[finding.id]).toBeUndefined()
+    // The words are not lost — the composer stays open for a retry.
+    expect(screen.getByTestId('analysis-new-challenge-disagree-input')).toHaveValue('Written under the wrong decision')
+  })
+
+  it('reads back the standing record, and "Edit what you said" reopens it prefilled', async () => {
+    const { finding } = openComposer()
+    await typeAndSave('Our Q1 capacity assumption is wrong.')
+
+    const standing = screen.getByTestId('analysis-new-challenge-disagreement')
+    expect(standing).toHaveTextContent(`${COPY.dissent.standing}: Our Q1 capacity assumption is wrong.`)
+    expect(standing).toHaveAttribute('data-recommendation-id', finding.id)
+
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
+    expect(screen.getByTestId('analysis-new-challenge-disagree')).toHaveTextContent(COPY.dissent.edit)
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
+    expect(screen.getByTestId('analysis-new-challenge-disagree-input')).toHaveValue(
+      'Our Q1 capacity assumption is wrong.',
+    )
+  })
+
+  describe('the prompt is true at the moment it is read (bound to the wire, not the fixture)', () => {
+    it('⭐ when the send WILL happen, the prompt says so before a word is typed', async () => {
+      openComposer({ analysisHash: 'hash_1' })
+      const prompt = screen.getByTestId('analysis-new-challenge-disagree-prompt')
+      expect(screen.getByTestId('analysis-new-challenge-disagree-input')).toHaveValue('')
+      expect(prompt).toHaveTextContent(COPY.dissent.promptSendsToOlumi)
+      expect(prompt).not.toHaveTextContent(COPY.dissent.prompt)
+      await typeAndSave('Our Q1 capacity assumption is wrong.')
+      expect(sentEvent(), 'the prompt promised a send, so one must have happened').toBeDefined()
+    })
+
+    it("⭐ THE TWIN: no run identity — the LOCAL wording stands, and nothing is sent", async () => {
+      openComposer({ analysisHash: null })
+      const prompt = screen.getByTestId('analysis-new-challenge-disagree-prompt')
+      expect(prompt).toHaveTextContent(COPY.dissent.prompt)
+      expect(prompt).not.toHaveTextContent(COPY.dissent.promptSendsToOlumi)
+      await typeAndSave('This finding is wrong.')
+      expect(sentEvent()).toBeUndefined()
+    })
+  })
+
+  describe('the chat route stays available as an option (ruling c5806258826.md §3)', () => {
+    it('offered inside the composer when the host still wires onDisagree, and hands it the finding', () => {
+      const onDisagree = vi.fn()
+      const { finding } = openComposer({ onDisagree })
+      const link = screen.getByTestId('analysis-new-challenge-disagree-chat-instead')
+      fireEvent.click(link)
+      expect(onDisagree).toHaveBeenCalledWith(finding)
+      // Choosing the chat door closes THIS composer — no two writers open at once.
+      expect(screen.queryByTestId('analysis-new-challenge-disagree-form')).toBeNull()
+    })
+
+    it('CONTRAST: without a host handler, no chat-instead link — but "I disagree" is still offered', () => {
+      openComposer()
+      expect(screen.queryByTestId('analysis-new-challenge-disagree-chat-instead')).toBeNull()
+    })
   })
 })
