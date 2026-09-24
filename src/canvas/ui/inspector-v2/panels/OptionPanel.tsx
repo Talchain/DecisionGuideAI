@@ -41,6 +41,14 @@ import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../../
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/elementLabel'
+import {
+  buildOptionTargetRow,
+  readingShowsModelValue,
+  resolveBaselineOptionReference,
+  resolveOptionTargets,
+  type CeeOptionTargetsLike,
+  type TargetNodeLike,
+} from '../../../nodes/shared/optionTargetDisplay'
 
 /**
  * ⭐ ONE SENTENCE, ONCE, AT THE TOP OF THE LIST — never repeated per row.
@@ -58,6 +66,27 @@ import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/el
  */
 export const OPTION_EDIT_ROUTE_NOTE =
   'Read-only here. Use the Model tab to change a factor value, or ask Olumi.'
+
+/**
+ * ⭐ THE ROUTE TO A TARGET WHOSE BOX IS NOT IN THE DEFAULT VIEW (DEFECT 5 (b)).
+ *
+ * A target that reads "£60k" or "59 GBP/month" keeps its box under technical
+ * detail, because the box edits the MODEL's 0–1 value and "0.295 model value"
+ * beside "59 GBP/month" was the witnessed defect (served `a4434670`). The
+ * notice above says the factor targets are changeable "below"; for these rows
+ * this sentence is what makes that true — it names the control that opens the
+ * box, by the accessible name `InspectorShell` gives it.
+ *
+ * ⚠ ONCE, ABOVE THE LIST, never per row — `OPTION_EDIT_ROUTE_NOTE`'s ruling on
+ * this same panel: a sentence repeated against every factor turns the
+ * inventory into a wall of the same message.
+ *
+ * ⛔ WHEN THE INPUT-PARSING PATH ACCEPTS A TARGET IN ITS READING'S UNIT, these
+ * boxes belong in the default view and this sentence goes: flip
+ * `inputMatchesReading` for the rows it converts.
+ */
+export const OPTION_TARGET_EDIT_ROUTE_NOTE =
+  "Targets shown without a box are changed under Show technical detail (</>), where they are entered on the model's internal 0–1 scale."
 
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
@@ -80,6 +109,8 @@ export const OptionPanel = memo(function OptionPanel({
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  /** The card's first source for an option's targets — read here for the SAME reason (DEFECT 5). */
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
   const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
@@ -433,6 +464,74 @@ export const OptionPanel = memo(function OptionPanel({
   const isBaselineOption =
     explicitIsBaseline ?? detectBaseline(String(optionData?.label ?? '')).isBaseline
 
+  /**
+   * ⭐⭐ EACH ROW'S READING IS THE CARD'S, BUILT BY THE CARD'S OWN CODE (DEFECT 5
+   * + ED #63 §9).
+   *
+   * Served `a4434670`: the card said "59 GBP/month" / "£60k" and this panel
+   * said "0.295 model value" / showed the input "0.5". The card resolves a
+   * target from `ceeAnalysisReady` (joined with `intervention_details`, a bare
+   * producer number never erasing the node's receipt-stamped `source`) and
+   * formats it through `formatInterventionTargetText`; this panel read
+   * `node.data.interventions` alone and had only `display_value` for words —
+   * which a target the user has set never carries.
+   *
+   * So the rows now ask the card's functions, moved to `optionTargetDisplay`
+   * for exactly this, rather than a third copy of the rule (trap 12):
+   *  · the TARGET — the card's resolution, falling back to this node's own
+   *    entry only for a factor the CEE map does not list;
+   *  · the READING — the card's row builder, with the card's baseline
+   *    reference, so a direction-only row says what the card says;
+   *  · the SOURCE — the same resolved stamp the card marks, classified here in
+   *    this surface's own register (`INSPECTOR_INTERVENTION_PROVENANCE_LABEL`).
+   *
+   * ⚠ THE INPUT'S NUMBER IS STILL `iv.value` — this node's own record, the
+   * value the commit path compares against — and the default view shows the
+   * box only when the reading visibly prints that number
+   * (`readingShowsModelValue`). A stale CEE value that disagrees with the
+   * node therefore moves the box behind technical detail rather than putting
+   * two different numbers side by side.
+   */
+  const targetReadings = useMemo(() => {
+    const out = new Map<string, {
+      reading: string
+      readingIsTarget: boolean
+      inputMatchesReading: boolean
+      provenanceSource: string | undefined
+    }>()
+    if (!nodeId || !node) return out
+    const ceeOptions = (ceeAnalysisReady as { options?: CeeOptionTargetsLike[] } | null | undefined)?.options
+    const ceeOpt = ceeOptions?.find(o => o.id === nodeId)
+    const resolved = resolveOptionTargets(node.data as Record<string, unknown> | undefined, ceeOpt)
+    const baselineReference = isBaselineOption
+      ? null
+      : resolveBaselineOptionReference(nodes as ReadonlyArray<TargetNodeLike>, ceeOptions, nodeId)
+    for (const iv of interventions) {
+      const target = resolved.get(iv.factorId) ?? {
+        value: iv.value,
+        displayValue: iv.displayValue ?? null,
+        source: iv.provenanceSource ?? null,
+      }
+      const row = buildOptionTargetRow({
+        factorId: iv.factorId,
+        target,
+        factorNode: nodes.find(n => n.id === iv.factorId) as TargetNodeLike | undefined,
+        baselineReference,
+      })
+      const reading = row.target || row.change
+      out.set(iv.factorId, {
+        reading,
+        readingIsTarget: row.target !== '',
+        inputMatchesReading: readingShowsModelValue(reading, iv.value),
+        provenanceSource: target.source ?? undefined,
+      })
+    }
+    return out
+  }, [nodeId, node, nodes, ceeAnalysisReady, interventions, isBaselineOption])
+
+  /** The option's own name, for each target box's accessible name. */
+  const optionAccessibleLabel = resolveElementLabel(node?.data)
+
   if (!nodeId || !node) return null
 
   return (
@@ -518,6 +617,14 @@ export const OptionPanel = memo(function OptionPanel({
       {/* ── Input group (what this option changes) ─────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.whatThisChanges}>
         <PrimaryControlCard>
+          {!techMode && interventions.some(iv => targetReadings.get(iv.factorId)?.inputMatchesReading === false) && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-0 mb-1.5`}
+              data-testid="option-target-edit-route"
+            >
+              {OPTION_TARGET_EDIT_ROUTE_NOTE}
+            </p>
+          )}
           {interventions.length === 0 ? (
             /* L-40 — the empty state is derived from THE SAME edge data the
                Connections group below reads (`outboundConnections`), not from
@@ -581,7 +688,19 @@ export const OptionPanel = memo(function OptionPanel({
                 }
                 displayValue={iv.displayValue}
                 unit={iv.unit}
-                provenanceSource={iv.provenanceSource}
+                /* The card's resolved stamp — `undefined` INCLUDED, so a target
+                   the card marks "no source" is never given this node's stamp
+                   instead. The node's own stamp is the fallback only when no
+                   reading was built at all. */
+                provenanceSource={
+                  targetReadings.has(iv.factorId)
+                    ? targetReadings.get(iv.factorId)!.provenanceSource
+                    : iv.provenanceSource
+                }
+                reading={targetReadings.get(iv.factorId)?.reading ?? iv.displayValue ?? ''}
+                readingIsTarget={targetReadings.get(iv.factorId)?.readingIsTarget ?? true}
+                inputMatchesReading={targetReadings.get(iv.factorId)?.inputMatchesReading ?? false}
+                optionLabel={optionAccessibleLabel}
                 onChange={v => commitIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
                 /**
