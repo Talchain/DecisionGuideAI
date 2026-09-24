@@ -2383,17 +2383,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* ⚠ OUTSIDE the body wrapper above ON PURPOSE. That wrapper is what the
           LOD rung blanks by `visibility`, and an invitation that disappears at
           the zoom the auto-fit parks at is the defect this change exists to
-          remove, one level along. */}
-      <TierInvitationRow
-        invitations={myInvitations}
-        nodeId={id}
-        /* ⚠ THE SAME EXPRESSION THAT PAINTS THE TINT, not a second reading of
-           the lens. `evidenceBgStyle` is `undefined` on an untinted card —
-           including the `na` class, which the lens leaves alone — so the
-           invitation's colour and the card's fill cannot disagree about which
-           ground the text is standing on. */
-        onTintedGround={evidenceBgStyle !== undefined}
-      />
+          remove, one level along.
+          ⭐ DETAILED VIEW ONLY (contract v3.1 pt 6; ED 11:52Z pt 5). At rest in
+          Standard the card's one coaching affordance is the rail icon; this
+          row is a secondary question, so it lives where every secondary
+          coaching question already does (ED 02:31Z D4). Not on selection
+          either: this row is in normal flow and would grow the card (ED
+          11:52Z pt 4). The option question is not here at all — its one entry
+          point is the ghost card (`CARD_INVITATION_TIERS`). */}
+      {isDetailedView && (
+        <TierInvitationRow
+          invitations={myInvitations}
+          nodeId={id}
+          /* ⚠ THE SAME EXPRESSION THAT PAINTS THE TINT, not a second reading of
+             the lens. `evidenceBgStyle` is `undefined` on an untinted card —
+             including the `na` class, which the lens leaves alone — so the
+             invitation's colour and the card's fill cannot disagree about which
+             ground the text is standing on. */
+          onTintedGround={evidenceBgStyle !== undefined}
+        />
+      )}
 
       <Handle
         type="source"
