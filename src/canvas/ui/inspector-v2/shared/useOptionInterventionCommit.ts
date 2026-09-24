@@ -26,19 +26,106 @@
  * `needs_fresh_base` is the ordinary state after a reload (a restore reads
  * persistence with no CEE turn) and names its recovery; `not_encodable` does
  * not pretend to have one.
+ *
+ * ⛔⛔ AND THE SERVER'S ANSWER IS DISCLOSED TOO — THIS HOOK DID NOT LISTEN FOR IT.
+ * It handled the two SYNCHRONOUS refusals and treated `dispatched` as the end of
+ * the story: `proposeOptionIntervention` was called without `onSendSettled`, so
+ * `settleSystemEventSend` had nobody to tell. Witnessed on served UI
+ * `a4434670` (24 Sep 2026, CDP starter): CEE answered two option-target edits
+ * with 422 `system_event_refused_no_write`, the inspector said NOTHING, the
+ * field kept the refused number as if it were pending forever, and reopening
+ * the inspector silently showed the old value. The Model tab's editor on the
+ * same carrier has listened since its settlement leg; this surface was the
+ * sibling that repair did not reach.
+ *
+ * So every non-`sent` settlement now ends the pending state and says what is
+ * known, in the estate's edit-state vocabulary — "Not saved" only where the
+ * producer PROVED nothing was written, "Could not confirm" where a write is not
+ * ruled out, "Not sent" where no request left — and the value the reader asked
+ * for stays on the row as UNAPPLIED until they dismiss it or try again.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   useModelEditAuthority,
   type OptionInterventionProposalOutcome,
+  type OptionInterventionSendSettlement,
 } from '../../../hooks/useModelEditAuthority'
+import type { SystemEventSendSettlementDetail } from '../../../conversation/settleSystemEventSend'
+import { isDisplaySafeReason } from '../../../conversation/ceeRecovery'
 
 /** The copy, here rather than at each surface, for the same reason the hook is. */
 export const OPTION_INTERVENTION_NEEDS_FRESH_BASE =
   'Not sent — Olumi has not seen this model this session. Ask it anything, then set this again.'
 export const OPTION_INTERVENTION_NOT_ENCODABLE =
   'Not sent — this effect cannot be recorded on this model.'
+
+/**
+ * `SEND_BLOCKED` — the busy lock refused the dispatch, so no request was built.
+ * The only settlement entitled to say "not sent"; the input is the retry.
+ */
+export const OPTION_INTERVENTION_BLOCKED =
+  'Not sent — another change is still in flight. Try again in a moment.'
+
+/**
+ * `refused` / `conflict` — a proven-no-write CONFLICT: the model moved on under
+ * the send. The recovery named is the one that refreshes the base (a turn), the
+ * same one `OPTION_INTERVENTION_NEEDS_FRESH_BASE` names for the same problem
+ * arriving one moment earlier.
+ */
+export const OPTION_INTERVENTION_NOT_SAVED_CONFLICT =
+  'Not saved — the model changed while this was sending, so nothing was written. Ask Olumi anything, then set this again.'
+
+/**
+ * `refused` / `declined` — the producer declined the request itself and states
+ * it wrote nothing (`system_event_refused_no_write`, `retryable: false`).
+ *
+ * ⚠ NO REMEDY IS OFFERED, DELIBERATELY. The envelope says repeating the request
+ * cannot succeed, and it does not say why — so "set it again" and "the model
+ * moved on" would both be false, and any other route would be a guess this
+ * surface cannot check. What it CAN say truthfully is that the model is
+ * unchanged; the row's Dismiss control puts the saved value back on screen.
+ *
+ * Voice-neutral on purpose: the Model tab's editor on the same carrier says it
+ * too (`ModelTabV2Panel`), and it speaks as "I" where this panel says "Olumi".
+ */
+export const OPTION_INTERVENTION_NOT_SAVED_DECLINED =
+  'Not saved — this change was refused, so the model is unchanged.'
+
+/**
+ * `unverified` — a write is NOT ruled out. It may claim neither saved nor
+ * refused nor unsent; it names the action that SHOWS the answer instead of
+ * guessing it. The inspector-voice twin of the Model tab's line for the same
+ * settlement.
+ */
+export const OPTION_INTERVENTION_UNCONFIRMED =
+  'Could not confirm whether this reached the model. Ask Olumi anything about this decision to see where it stands.'
+
+/**
+ * The declined line, with the producer's own reason appended WHEN IT IS PROSE.
+ * A machine token (`system_event_refused_no_write`) is never shown — the
+ * estate's one gate for that is `isDisplaySafeReason`, the same one the
+ * transcript's typed-error bubble uses.
+ */
+export function optionInterventionDeclinedNotice(reason?: string): string {
+  return reason !== undefined && isDisplaySafeReason(reason)
+    ? `${OPTION_INTERVENTION_NOT_SAVED_DECLINED} Reason given: ${reason.trim()}`
+    : OPTION_INTERVENTION_NOT_SAVED_DECLINED
+}
+
+/**
+ * The short state tag a ROW shows beside a value that did not land. The full
+ * sentence is `notice`; this is the vocabulary word, so the reader can tell at
+ * the row which number is theirs-but-not-the-model's.
+ */
+export type OptionInterventionUnappliedState = 'Not sent' | 'Not saved' | 'Could not confirm'
+
+export interface OptionInterventionUnapplied {
+  factorId: string
+  /** The MODEL-SCALE value the reader asked for. The model does not (or may not) hold it. */
+  value: number
+  state: OptionInterventionUnappliedState
+}
 
 export interface OptionInterventionCommit {
   /** Send one effect value. Returns the authority's outcome, unflattened. */
@@ -47,22 +134,67 @@ export interface OptionInterventionCommit {
   pending: { factorId: string; value: number } | null
   /** The refusal to show the reader, or null. */
   notice: string | null
+  /**
+   * The value the reader asked for that did NOT land, or may not have — kept on
+   * screen, marked, until `dismiss` or the next commit. Display state only: it
+   * is never written to the store.
+   */
+  unapplied: OptionInterventionUnapplied | null
+  /** Drop the unapplied value and its notice; the row shows the saved value again. */
+  dismiss: () => void
+}
+
+/** Every non-`sent` settlement, mapped once. `sent`/`queued` keep waiting. */
+function describeSettlement(
+  settlement: Exclude<OptionInterventionSendSettlement, 'sent' | 'queued'>,
+  detail: SystemEventSendSettlementDetail,
+): { state: OptionInterventionUnappliedState; notice: string } {
+  if (settlement === 'blocked') return { state: 'Not sent', notice: OPTION_INTERVENTION_BLOCKED }
+  if (settlement === 'refused') {
+    return detail.refusal === 'declined'
+      ? { state: 'Not saved', notice: optionInterventionDeclinedNotice(detail.reason) }
+      : { state: 'Not saved', notice: OPTION_INTERVENTION_NOT_SAVED_CONFLICT }
+  }
+  return { state: 'Could not confirm', notice: OPTION_INTERVENTION_UNCONFIRMED }
 }
 
 export function useOptionInterventionCommit(nodeId: string | null): OptionInterventionCommit {
   const authority = useModelEditAuthority(nodeId ?? null)
   const [pending, setPending] = useState<{ factorId: string; value: number } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [unapplied, setUnapplied] = useState<OptionInterventionUnapplied | null>(null)
+  /**
+   * ⭐ FENCED BY THE ATTEMPT, minted per commit and never reused. A late
+   * settlement for an edit the reader has since replaced must not relabel the
+   * newer one — the Model tab proved that hole reachable on this same carrier
+   * (`interventionSettlementIdentity.spec.tsx`).
+   */
+  const attemptRef = useRef(0)
 
   const commit = useCallback(
     (factorId: string, value: number): OptionInterventionProposalOutcome => {
+      const attempt = ++attemptRef.current
       setPending({ factorId, value })
       setNotice(null)
-      const outcome = authority.proposeOptionIntervention(factorId, value)
+      setUnapplied(null)
+      const outcome = authority.proposeOptionIntervention(factorId, value, {
+        onSendSettled: (settlement, detail) => {
+          if (attemptRef.current !== attempt) return
+          // `sent`: the applied response settles the value through the store.
+          // `queued`: unreachable while the carrier passes `deferIfBusy: false`.
+          if (settlement === 'sent' || settlement === 'queued') return
+          const described = describeSettlement(settlement, detail)
+          setPending(null)
+          setUnapplied({ factorId, value, state: described.state })
+          setNotice(described.notice)
+        },
+      })
       if (outcome === 'dispatched') return outcome
-      // Any refusal clears the optimistic display: showing the new number
-      // beside "not sent" would be the split-brain this hook exists to avoid.
+      // Any refusal clears the optimistic display: showing the new number as
+      // though it were in flight beside "not sent" would be the split-brain
+      // this hook exists to avoid. It stays on the row as UNAPPLIED instead.
       setPending(null)
+      setUnapplied({ factorId, value, state: 'Not sent' })
       setNotice(
         outcome === 'needs_fresh_base'
           ? OPTION_INTERVENTION_NEEDS_FRESH_BASE
@@ -73,5 +205,12 @@ export function useOptionInterventionCommit(nodeId: string | null): OptionInterv
     [authority],
   )
 
-  return { commit, pending, notice }
+  const dismiss = useCallback(() => {
+    // A settlement still in flight for the dismissed attempt must not bring it back.
+    attemptRef.current += 1
+    setUnapplied(null)
+    setNotice(null)
+  }, [])
+
+  return { commit, pending, notice, unapplied, dismiss }
 }

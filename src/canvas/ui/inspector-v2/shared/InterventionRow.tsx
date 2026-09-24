@@ -3,10 +3,18 @@
  * Used in OptionPanel §6.2: "What this option changes"
  */
 
-import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from 'react'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { typography } from '../../../../styles/typography'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
+import { INTERVENTION_NO_CHANGE_EPSILON } from '../../../utils/interventionDisplay'
+import {
+  admitOptionTargetEntry,
+  describeOptionTargetValue,
+  optionTargetEntryAdornment,
+  optionTargetEntrySeed,
+  resolveOptionTargetEntryFrame,
+} from './optionTargetEntry'
 import {
   classifyInterventionProvenance,
   type ValueProvenanceKind,
@@ -183,6 +191,23 @@ interface InterventionRowProps {
    * one level up from the one this prop closes.
    */
   provenanceSource?: string
+  /**
+   * The factor's `observed_state.cap`. With a real `unit` it is the scale a
+   * typed AMOUNT is converted through — see `optionTargetEntry.ts` for when a
+   * row takes amounts in the factor's unit and when it stays on the model
+   * scale. Absent → the model scale, exactly as before.
+   */
+  cap?: number
+  /**
+   * ⭐ A VALUE THE READER ASKED FOR THAT DID NOT LAND — or may not have. Shown
+   * in place of the record, and marked with the edit-state word (`Not saved`,
+   * `Could not confirm`, `Not sent`), until the reader dismisses it or tries
+   * again. Model scale. Never written anywhere: the record is `currentValue`.
+   */
+  unapplied?: { value: number; state: string } | null
+  /** Drop `unapplied`; the row shows the saved value again. */
+  onDismissUnapplied?: () => void
+  /** Called with a MODEL-SCALE value, whatever frame the reader typed in. */
   onChange: (newValue: number) => void
   onNavigate?: () => void
   disabled?: boolean
@@ -201,14 +226,39 @@ export function InterventionRow({
   displayValue,
   unit = '',
   provenanceSource,
+  cap,
+  unapplied = null,
+  onDismissUnapplied,
   onChange,
   onNavigate,
   disabled = false,
   techMode = false,
   normalisedValue,
 }: InterventionRowProps) {
-  const [draft, setDraft] = useState(String(currentValue))
+  /**
+   * ⭐⭐ WHICH NUMBER THE FIELD IS — decided once, from the factor's own unit,
+   * cap and anchor, by `optionTargetEntry`. The card prints `£60k`; a field that
+   * printed `0.5` beside it and then ignored `80000` was the witnessed defect
+   * (served `a4434670`, CDP starter).
+   */
+  const anchor = useMemo(
+    () => ({ observedValue: baseline, observedRawValue: rawBaseline }),
+    [baseline, rawBaseline],
+  )
+  const frame = useMemo(
+    () => resolveOptionTargetEntryFrame({ unit, cap, ...anchor }),
+    [unit, cap, anchor],
+  )
+  const adornment = optionTargetEntryAdornment(frame)
+  /** What the field shows: the reader's unapplied value while one stands, else the record. */
+  const shownValue = unapplied ? unapplied.value : currentValue
+  const seedText = optionTargetEntrySeed(shownValue, frame, anchor)
+  const [draft, setDraft] = useState(seedText)
+  /** Why the typed text was not sent — rendered, never swallowed. */
+  const [entryRefusal, setEntryRefusal] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  /** Set by the key that caused the blur, read once by the blur. */
+  const blurIntentRef = useRef<'enter' | 'escape' | null>(null)
 
   /**
    * ⭐⭐ THE INPUT MUST SHOW THE RECORD, NOT THE LAST THING THIS INSTANCE SAW.
@@ -236,28 +286,57 @@ export function InterventionRow({
    */
   useEffect(() => {
     if (inputRef.current && document.activeElement === inputRef.current) return
-    setDraft(String(currentValue))
-  }, [currentValue])
+    setDraft(seedText)
+    setEntryRefusal(null)
+  }, [seedText])
 
+  /**
+   * ⛔⛔ NO SILENT OUTCOME. The old body was `parseFloat` and, on anything it
+   * could not read, `setDraft(String(currentValue))` — the typed text vanished
+   * and nothing said why. Every path below either sends, or leaves the typed
+   * text in place with a sentence saying why it was not sent.
+   */
   const handleBlur = useCallback(() => {
-    const parsed = parseFloat(draft)
-    if (!isNaN(parsed) && parsed !== currentValue) {
-      onChange(parsed)
-    } else {
-      setDraft(String(currentValue))
+    const intent = blurIntentRef.current
+    blurIntentRef.current = null
+    if (intent === 'escape') {
+      setDraft(seedText)
+      setEntryRefusal(null)
+      return
     }
-  }, [draft, currentValue, onChange])
+    if (draft === seedText) {
+      // Nothing was changed. A blur never re-sends; Enter on a value that did
+      // not land is the explicit retry.
+      setEntryRefusal(null)
+      if (intent === 'enter' && unapplied) onChange(unapplied.value)
+      return
+    }
+    const admission = admitOptionTargetEntry(draft, frame, anchor, shownValue)
+    if (!admission.ok) {
+      setEntryRefusal(admission.reason)
+      return
+    }
+    setEntryRefusal(null)
+    if (Math.abs(admission.value - currentValue) <= INTERVENTION_NO_CHANGE_EPSILON) {
+      // The saved value, typed again: nothing to send, and nothing unapplied.
+      if (unapplied) onDismissUnapplied?.()
+      else setDraft(seedText)
+      return
+    }
+    onChange(admission.value)
+  }, [draft, seedText, frame, anchor, shownValue, currentValue, unapplied, onChange, onDismissUnapplied])
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
+      blurIntentRef.current = 'enter'
       inputRef.current?.blur()
     } else if (e.key === 'Escape') {
       e.preventDefault()
-      setDraft(String(currentValue))
+      blurIntentRef.current = 'escape'
       inputRef.current?.blur()
     }
-  }, [currentValue])
+  }, [])
 
   /**
    * ⛔⛔ THERE IS NO PERCENTAGE, AND NO REFERENCE, IN THE ORDINARY ROW. THIS IS
@@ -504,25 +583,76 @@ export function InterventionRow({
             </span>
           ) : (
             <span className="inline-flex items-center gap-1">
+              {adornment.prefix && (
+                <span className={`${typography.panelMeta} text-text-light`}>{adornment.prefix}</span>
+              )}
               <input
                 ref={inputRef}
                 type="text"
                 value={draft}
-                onChange={e => setDraft(e.target.value)}
+                onChange={e => {
+                  setDraft(e.target.value)
+                  if (entryRefusal !== null) setEntryRefusal(null)
+                }}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel border-info`}
+                aria-invalid={entryRefusal !== null || unapplied !== null ? true : undefined}
+                className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
+                  entryRefusal !== null || unapplied !== null ? 'border-danger' : 'border-info'
+                }`}
               />
               {/* ⚠ THE BOX NEEDS THE SAME TRUTH THE VALUE DOES. Being editable
                   never made an unlabelled number scientifically valid — an
                   operator typing into it is entitled to know which scale they
-                  are typing on. */}
-              {!displayValue && (
+                  are typing on. A user-unit row names its unit instead, because
+                  that is the scale it reads. */}
+              {adornment.suffix && (
+                <span className={`${typography.panelMeta} text-text-light`}>{adornment.suffix}</span>
+              )}
+              {frame.kind === 'model_scale' && !displayValue && (
                 <span className={`${typography.panelMeta} text-text-light`}>
                   {INTERVENTION_ROW_STRINGS.modelValueQualifier}
                 </span>
               )}
             </span>
+          )}
+        </div>
+      )}
+
+      {/* ⛔ WHY THE TYPED TEXT WAS NOT SENT. `text-text-body`, not a danger
+          colour, for the contrast reason `NodeValueEditor` records; the border
+          and `role="alert"` carry the signal. */}
+      {showNumericSurface && !disabled && entryRefusal !== null && (
+        <p
+          role="alert"
+          data-testid={`intervention-entry-refusal-${factorId}`}
+          className={`${typography.panelMeta} text-text-body mt-1 mb-0`}
+        >
+          {entryRefusal}
+        </p>
+      )}
+
+      {/* ⭐ THE VALUE THE READER ASKED FOR, KEPT AND MARKED — outside the numeric
+          surface so it stays visible when the row shows CEE's `display_value`
+          for the saved target. The full sentence is the panel's notice; this is
+          the edit-state word and the number it is about. */}
+      {unapplied && (
+        <div
+          data-testid={`intervention-unapplied-${factorId}`}
+          className="mt-1.5 flex items-center gap-2"
+        >
+          <span className={`${typography.panelMeta} text-text-body`}>
+            {unapplied.state}: {describeOptionTargetValue(unapplied.value, frame, anchor)}
+          </span>
+          {onDismissUnapplied && (
+            <button
+              type="button"
+              onClick={onDismissUnapplied}
+              data-testid={`intervention-unapplied-dismiss-${factorId}`}
+              className={`${typography.panelMeta} text-info hover:underline`}
+            >
+              Dismiss
+            </button>
           )}
         </div>
       )}
