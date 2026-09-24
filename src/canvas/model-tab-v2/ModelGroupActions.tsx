@@ -27,7 +27,9 @@
  * token, no new size, no new colour.
  */
 
+import { Plus } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 import type { GroupAction, GroupActionContext } from './groupActions'
 import type { ModelGroupId } from './types'
 
@@ -67,11 +69,31 @@ export function ModelGroupActions({
           data-testid={`model-action-v2-${action.id}`}
           data-intent={action.intent}
           onClick={() => onAction(action, action.message(context))}
-          className={`${typography.panelMeta} cursor-pointer hover:underline ${
+          /**
+           * ⭐⭐ V2 GAP 33 — `min-h-[24px] inline-flex items-center gap-1`:
+           * WCAG 2.2 AA §2.5.8's 24px floor. Measured on served `4549b66b`:
+           * these links rendered at 15px tall (`typography.panelMeta` alone,
+           * no geometry), below every OTHER act tier on the panel.
+           */
+          className={`${typography.panelMeta} inline-flex items-center gap-1 min-h-[24px] cursor-pointer hover:underline ${
             action.intent === 'structural' ? 'text-info' : 'text-text-light hover:text-info'
           }`}
         >
-          {action.intent === 'structural' ? `+ ${action.label}` : action.label}
+          {action.intent === 'structural' ? (
+            // A typed "+ " read as plain punctuation, not a glyph a reader
+            // recognises as "add". A Lucide `Plus` at row scale (`icon('row')`
+            // in `panelSurfaces.ts`, 14px) matches the outline's own icon
+            // scale instead of inventing a fourth size.
+            <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          ) : (
+            // Every AI hand-off on the panel must carry the Olumi AI glyph
+            // (`FIDELITY-GAPS-INDEX-20260924.txt` #33) — none did, under
+            // `src/canvas`. `text-info` regardless of the link's own tone: the
+            // glyph is what marks the act as an AI interaction, not a repaint
+            // of the link's rest state.
+            <OlumiAiIcon size={14} className="text-info shrink-0" aria-hidden="true" />
+          )}
+          {action.label}
         </button>
       ))}
     </div>
