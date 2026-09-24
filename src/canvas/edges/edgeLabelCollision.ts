@@ -331,6 +331,12 @@ export interface PlacementEdge {
   targetRect: NodeRect
   /** Rows in this edge's chip (strength and/or fragility). Absent = one. */
   rows?: LabelRowCount
+  /**
+   * The edge's rendered label anchor when it is NOT the handle midpoint — a
+   * same-row `under` route anchors on its gutter run (`sameRowRoute.ts`
+   * `labelAnchor`). Absent = the handle midpoint, as before.
+   */
+  anchor?: { x: number; y: number }
 }
 
 // Task 9c proximity nudge: when a label anchor sits within NODE_PROXIMITY px
@@ -370,9 +376,10 @@ export function resolvePersistentLabelPlacements(
     const shy = e.sourceRect.y + e.sourceRect.height
     const thx = e.targetRect.x + e.targetRect.width / 2
     const thy = e.targetRect.y
-    // Render anchor = midpoint of the handle points
-    const ax = (shx + thx) / 2
-    const ay = (shy + thy) / 2
+    // Render anchor = midpoint of the handle points, unless the edge renders
+    // its label elsewhere on its own path (a same-row `under` route).
+    const ax = e.anchor?.x ?? (shx + thx) / 2
+    const ay = e.anchor?.y ?? (shy + thy) / 2
     // Task 9c proximity nudge, keyed off the true anchor
     const scy = e.sourceRect.y + e.sourceRect.height / 2
     const tcy = e.targetRect.y + e.targetRect.height / 2

@@ -5371,7 +5371,11 @@ export function useConversation(): UseConversationReturn {
                 opts.optimisticEdgeEdit &&
                 receiptProvesOwnEdgeEdit(opts.optimisticEdgeEdit, target.response, beforeReceipt.edges)
               ) {
-                settleEdgeEdit(opts.optimisticEdgeEdit.edgeId, opts.optimisticEdgeEdit.sentMagnitude)
+                settleEdgeEdit(
+                  opts.optimisticEdgeEdit.edgeId,
+                  opts.optimisticEdgeEdit.sentMagnitude,
+                  opts.optimisticEdgeEdit.sentDirection,
+                )
               }
               if (
                 import.meta.env.DEV &&
