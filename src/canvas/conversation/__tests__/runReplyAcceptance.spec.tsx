@@ -17,24 +17,21 @@
  * ## Controls pinned here, each separately
  *   §1 no promotion   — conventional Run captures expose NO coaching action
  *                       at top level (none has a proven target + route)
- *   §2 receipt        — "Sent" appears only when the send seam returns an
- *                       acknowledged delivery; no witness ⇒ no receipt; a
- *                       failed send re-arms the chip; copy never claims a
- *                       model change or a Run
+ *   §2 click          — one real send with the producer's strings, then the
+ *                       chip settles; it renders NO delivery receipt (RC
+ *                       ruling #63 5819467504: the user message's own
+ *                       deliveryState is the truth)
  *   §3 ineligible     — no producer action fields ⇒ no action, composition
  *                       unchanged
  *   §4 blocked        — a needs-input turn invents no coaching action
  *   §5 stale          — after an edit the action is disabled and described
  *                       by the card's own notice
  *   §6 rerun          — the previous run's card goes inert, the new one is live
- *   §7 reload         — a restored card never carries a receipt, and is
- *                       disabled if the model moved
+ *   §7 reload         — a restored card is disabled if the model moved
  *
  * NOT YET PINNED (lease-gated, see #63 5819412579): promotion of the
  * run-turn fragile-link card (needs `source_handler`/`created_at` carried by
- * `phase3TypedBlocks.ts`), the three-part currency rule, and the real
- * wire-payload + reply test for an acknowledged send (needs the `_sendChip`
- * delivery-outcome seam in `guidanceStore.ts`).
+ * `phase3TypedBlocks.ts`) and the three-part currency rule.
  *
  * CLAIM TYPE: producer capture → shipped adapters → rendered DOM (jsdom). Not
  * the deployed build, not the live OpenAI path.
@@ -75,7 +72,6 @@ import type {
   V5CoachingBlock as V5CoachingBlockType,
 } from '../types'
 import { V5CoachingBlock } from '../../../v5/blocks/V5CoachingBlock'
-import { ACTION_CHIP_RECEIPT } from '../../../v5/blocks/ActionChip'
 import { CEE_ACCEPTED_INTENTS } from '../../../v5/buildPayload'
 
 import walkA from '../../../v5/__tests__/fixtures/live-analysis-turn-walkA-2026-08-04.json'
@@ -209,7 +205,9 @@ describe('§1 no promotion — unproven actions stay out of the top level', () =
   })
 })
 
-describe('§2 receipt — "Sent" only on an acknowledged delivery', () => {
+describe('§2 click — one real send, then settled; the chip claims no delivery', () => {
+  // RC ruling (#63 5819467504): the user message's own `deliveryState` is the
+  // one truth about delivery, so the chip renders no receipt of any kind.
   async function liveCard() {
     const capture = w998Turn3 as unknown as Wire
     setCurrentCeeHash(hashOf(capture))
@@ -238,58 +236,21 @@ describe('§2 receipt — "Sent" only on an acknowledged delivery', () => {
     expect(sendChip).toHaveBeenCalledTimes(1)
   })
 
-  it('a seam that returns no outcome yields NO receipt — the click alone proves nothing', async () => {
-    const { chip, queryByTestId } = renderCard(await liveCard())
-    fireEvent.click(chip)
+  it('after a click the chip is settled and renders no receipt, even if the seam resolves', async () => {
+    sendChip.mockReturnValue(Promise.resolve('sent'))
+    const { chip, container } = renderCard(await liveCard())
+    await act(async () => { fireEvent.click(chip) })
     expect(chip.disabled).toBe(true)
-    expect(queryByTestId('v5-coaching-action-receipt')).toBeNull()
+    expect(chip.getAttribute('data-settled')).toBe('true')
+    expect(container.querySelector('[data-testid="v5-coaching-action-receipt"]')).toBeNull()
+    expect(container.textContent ?? '').not.toMatch(/\bsent\b|sending/i)
   })
 
-  it('pending → "Sending…", then "Sent" only once delivery resolves to sent', async () => {
-    let resolve!: (v: string) => void
-    sendChip.mockReturnValue(new Promise<string>((r) => { resolve = r }))
-    const { chip, getByTestId } = renderCard(await liveCard())
-    fireEvent.click(chip)
-    expect(getByTestId('v5-coaching-action-receipt').textContent).toBe(ACTION_CHIP_RECEIPT.pending)
-    await act(async () => { resolve('sent') })
-    const receipt = getByTestId('v5-coaching-action-receipt')
-    expect(receipt.textContent).toBe(ACTION_CHIP_RECEIPT.sent)
-    expect(receipt.textContent ?? '').not.toMatch(/updated|applied|changed|\brun\b|analys/i)
-    expect(chip.disabled).toBe(true)
-  })
-
-  it('a failed delivery says so and re-arms the chip for a genuine first delivery', async () => {
-    sendChip.mockReturnValueOnce(Promise.resolve('failed')).mockReturnValueOnce(Promise.resolve('sent'))
-    const { chip, getByTestId } = renderCard(await liveCard())
-    await act(async () => { fireEvent.click(chip) })
-    expect(getByTestId('v5-coaching-action-receipt').textContent).toBe(ACTION_CHIP_RECEIPT.failed)
-    expect(chip.disabled).toBe(false)
-    await act(async () => { fireEvent.click(chip) })
-    expect(sendChip).toHaveBeenCalledTimes(2)
-    expect(getByTestId('v5-coaching-action-receipt').textContent).toBe(ACTION_CHIP_RECEIPT.sent)
-  })
-
-  it('a rejected send is reported as not sent, never as sent', async () => {
-    sendChip.mockReturnValue(Promise.reject(new Error('504')))
-    const { chip, getByTestId } = renderCard(await liveCard())
-    await act(async () => { fireEvent.click(chip) })
-    expect(getByTestId('v5-coaching-action-receipt').textContent).toBe(ACTION_CHIP_RECEIPT.failed)
-  })
-
-  it('an unrecognised outcome is "couldn’t confirm", never "sent"', async () => {
-    sendChip.mockReturnValue(Promise.resolve({ ok: true }))
-    const { chip, getByTestId } = renderCard(await liveCard())
-    await act(async () => { fireEvent.click(chip) })
-    expect(getByTestId('v5-coaching-action-receipt').textContent).toBe(ACTION_CHIP_RECEIPT.unconfirmed)
-    expect(chip.disabled).toBe(true)
-  })
-
-  it('with no conversation host, a click sends nothing and claims nothing', async () => {
+  it('with no conversation host, a click sends nothing and the chip stays live', async () => {
     useGuidanceStore.setState({ _sendChip: null } as never)
-    const { chip, queryByTestId } = renderCard(await liveCard())
+    const { chip } = renderCard(await liveCard())
     fireEvent.click(chip)
     expect(chip.disabled).toBe(false)
-    expect(queryByTestId('v5-coaching-action-receipt')).toBeNull()
   })
 })
 
@@ -376,7 +337,7 @@ describe('§6 rerun — the previous run’s card goes inert, the new one is liv
   })
 })
 
-describe('§7 reload — a restored card never carries a receipt', () => {
+describe('§7 reload — a restored card is judged against the model as it is now', () => {
   async function restoredCard(capture: Wire): Promise<V5CoachingBlockType> {
     const blocks = await ingest(wireBody(capture))
     const message = {
@@ -396,15 +357,15 @@ describe('§7 reload — a restored card never carries a receipt', () => {
   it('model changed while away: restored action is disabled', async () => {
     const capture = walkA as unknown as Wire
     setCurrentCeeHash('hash-after-return')
-    const { chip, queryByTestId } = renderCard(await restoredCard(capture))
+    const { chip } = renderCard(await restoredCard(capture))
     expect(chip.disabled).toBe(true)
-    expect(queryByTestId('v5-coaching-action-receipt')).toBeNull()
   })
 
-  it('same model after reload: no receipt survives (a receipt is never persisted)', async () => {
+  it('same model after reload: the restored action is live and unsettled', async () => {
     const capture = walkA as unknown as Wire
     setCurrentCeeHash(hashOf(capture))
-    const { queryByTestId } = renderCard(await restoredCard(capture))
-    expect(queryByTestId('v5-coaching-action-receipt')).toBeNull()
+    const { chip } = renderCard(await restoredCard(capture))
+    expect(chip.disabled).toBe(false)
+    expect(chip.hasAttribute('data-settled')).toBe(false)
   })
 })
