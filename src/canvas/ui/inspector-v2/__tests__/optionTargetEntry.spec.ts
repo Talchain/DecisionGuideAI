@@ -12,6 +12,7 @@ import {
   optionTargetEntrySeed,
   resolveOptionTargetEntryFrame,
   OPTION_TARGET_ENTRY_REFUSAL,
+  typedMarkerDenotesRowUnit,
 } from '../shared/optionTargetEntry'
 import { normaliseRawFactorValue } from '../../../utils/observedStateHelpers'
 
@@ -122,5 +123,52 @@ describe('admission', () => {
       ok: false,
       reason: OPTION_TARGET_ENTRY_REFUSAL.unreadableModelScale,
     })
+  })
+})
+
+describe('a typed unit marker is admitted only when it denotes the row’s own unit (Codex 5807449041)', () => {
+  const frameFor = (unit: string, cap = 120_000) => {
+    const f = resolveOptionTargetEntryFrame({ unit, cap })
+    if (f.kind !== 'user_units') throw new Error(`fixture: ${unit} did not resolve to a user-unit row`)
+    return f
+  }
+  const admit = (text: string, unit: string, cap = 120_000) =>
+    admitOptionTargetEntry(text, frameFor(unit, cap), {}, cap / 2)
+
+  it('⛔ `£80` on a `months` row is REFUSED — never committed as 80 months', () => {
+    const r = admit('£80', 'months', 120)
+    expect(r.ok).toBe(false)
+  })
+
+  it('⛔ `£80` on a `USD` row is REFUSED — never committed as 80 USD', () => {
+    const r = admit('£80', 'USD')
+    expect(r.ok).toBe(false)
+  })
+
+  it('✅ `£80` on a `£` row is admitted', () => {
+    const r = admit('£80', '£')
+    expect(r.ok).toBe(true)
+  })
+
+  it('✅ `£80` on the composite `GBP/month` row is admitted (£ ≡ GBP, the one stated equivalence)', () => {
+    const r = admit('£80', 'GBP/month')
+    expect(r.ok).toBe(true)
+  })
+
+  it('⛔ `$80` on the composite `GBP/month` row is refused', () => {
+    expect(admit('$80', 'GBP/month').ok).toBe(false)
+  })
+
+  it('CONTRAST: a bare number is admitted on every one of those rows', () => {
+    expect(admit('80', 'months', 120).ok).toBe(true)
+    expect(admit('80', 'USD').ok).toBe(true)
+    expect(admit('80', 'GBP/month').ok).toBe(true)
+  })
+
+  it('the pure predicate: % only on percent rows; symbols by identity or stated ISO equivalence', () => {
+    expect(typedMarkerDenotesRowUnit('%', frameFor('%', 100))).toBe(true)
+    expect(typedMarkerDenotesRowUnit('%', frameFor('£'))).toBe(false)
+    expect(typedMarkerDenotesRowUnit('£', frameFor('%', 100))).toBe(false)
+    expect(typedMarkerDenotesRowUnit('€', frameFor('EUR'))).toBe(true)
   })
 })

@@ -162,6 +162,27 @@ export type OptionTargetEntryAdmission =
 const CURRENCY_SYMBOL_TYPED = /^[£$€]$/
 
 /**
+ * The currency each typed symbol denotes — the ONLY equivalence this module
+ * asserts between a symbol and an ISO code. A row whose unit is (or begins with)
+ * that ISO code — `GBP`, `GBP/month` — is the symbol's own unit; any other ISO
+ * or free-text unit is not, and a symbol typed there is refused.
+ */
+const SYMBOL_ISO: Readonly<Record<string, string>> = { '£': 'GBP', '$': 'USD', '€': 'EUR' }
+
+export function typedMarkerDenotesRowUnit(
+  marker: string,
+  frame: Extract<OptionTargetEntryFrame, { kind: 'user_units' }>,
+): boolean {
+  if (marker === '%') return frame.unitKind === 'percent'
+  if (!CURRENCY_SYMBOL_TYPED.test(marker)) return false
+  if (frame.unitKind === 'percent') return false
+  if (frame.unitKind === 'symbol') return marker === frame.unit
+  const iso = SYMBOL_ISO[marker]
+  const leadingCode = /^([A-Z]{3})(?![A-Za-z])/.exec(frame.unit.trim())?.[1]
+  return iso !== undefined && leadingCode === iso
+}
+
+/**
  * Parse a typed entry and return the MODEL-SCALE value to send, or the reason
  * it cannot be sent. Never throws, never clamps, never guesses.
  *
@@ -205,18 +226,13 @@ export function admitOptionTargetEntry(
     return { ok: true, value: parsed.value }
   }
 
-  // A marker that CONTRADICTS the row's declared unit is refused, not ignored:
-  // a different currency symbol on a symbol row, `%` on a non-percent row, a
-  // currency symbol on a percent row. An ISO or free-text unit ("GBP/month")
-  // cannot be compared with a symbol without a table this module does not own,
-  // so a symbol typed there is read as the row's own unit — the drill-in's rule.
-  if (parsed.unit !== null) {
-    const typedIsCurrency = CURRENCY_SYMBOL_TYPED.test(parsed.unit)
-    const conflicts =
-      (parsed.unit === '%' && frame.unitKind !== 'percent') ||
-      (typedIsCurrency && frame.unitKind === 'percent') ||
-      (typedIsCurrency && frame.unitKind === 'symbol' && parsed.unit !== frame.unit)
-    if (conflicts) return { ok: false, reason: OPTION_TARGET_ENTRY_REFUSAL.unitConflict(frame.unit) }
+  // ⭐ A TYPED UNIT MARKER IS ADMITTED ONLY WHEN IT DENOTES THIS ROW'S OWN UNIT
+  // (Codex CHANGES_REQUIRED 5807449041). Anything else — `£80` on a `months`
+  // row, `£80` on a `USD` row, `%` on a currency row — is refused with the typed
+  // text kept, never silently re-read as the row's unit: that would commit a
+  // unit the person did not author.
+  if (parsed.unit !== null && !typedMarkerDenotesRowUnit(parsed.unit, frame)) {
+    return { ok: false, reason: OPTION_TARGET_ENTRY_REFUSAL.unitConflict(frame.unit) }
   }
 
   // ⭐ THE ONE raw→model RULE, never re-typed here (`observedStateHelpers`).
