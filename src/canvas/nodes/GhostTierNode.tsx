@@ -34,7 +34,7 @@ import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { selectLodBodyHidden } from '../utils/zoomLegibility'
-import { CANVAS_GAP_CLASSES, CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
+import { CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
 import {
   ROW_PROMPT_BORDER_PX,
   ROW_PROMPT_H,
@@ -104,7 +104,7 @@ export const GhostTierNode = memo((props: NodeProps) => {
       // A flex ROW: `items-center` is the VERTICAL axis (icon beside a two- or
       // three-line question), and nothing centres the copy horizontally.
       // `rounded-sm` (8px) — the card corner (contract v3.1 FRAME-01).
-      className={`rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex items-center ${CANVAS_GAP_CLASSES[6]} nodrag nopan text-left`}
+      className="rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex items-center gap-1.5 nodrag nopan text-left"
       style={{
         width: GHOST_DOOR_W_PX,
         minHeight: GHOST_DOOR_MIN_H_PX,
