@@ -93,6 +93,11 @@ function withOptions(allOptions: OptionResult[]): ResultsSectionDataReturn {
   } as ResultsSectionDataReturn
 }
 
+// ⚠ `analysisIdentityIsCurrent: true` — the captured shape is a run that WAS
+// asked about all three options and returned nothing for one, which is only
+// ours to say on a result confirmably about the graph on screen. Absent, the
+// builder withholds the `not_returned` sentence (fail-closed; an option added
+// after the run is pinned by `anAddedOptionIsNotBlamedOnTheEngine.spec.tsx`).
 const glanceOf = (data: ResultsSectionDataReturn) =>
   buildAnalysisNewViewModel({
     data,
@@ -100,6 +105,7 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
     isPreRun: false,
     isRunning: false,
     isStale: false,
+    analysisIdentityIsCurrent: true,
   }).atAGlance
 
 // The live-captured shape: three options, one of which the engine never scored.
