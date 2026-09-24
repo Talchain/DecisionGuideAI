@@ -354,3 +354,49 @@ describe('a flip and a strength drag on the same link, interleaved', () => {
     expect(screen.getByTestId('edge-direction-decreases')).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+/**
+ * ⛔ A FLIP THAT REPLACES A FLIP INHERITS THE ORIGINAL `before` (independent
+ * review of #1950 at `437a5718`, 5821294085). With per-kind entries a flip's
+ * predecessor can only be another flip, whose value is OPTIMISTIC — the server
+ * still holds what was there before the first. Keeping the second flip's own
+ * `before` made "decreases, then increases, both refused" end on `negative`
+ * beside "Not recorded", while the model held `positive`.
+ */
+describe('changing your mind: two flips on one link', () => {
+  const answers: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = []
+  const eachSendStaysPending = () =>
+    sendSystemEvent.mockImplementation(() => new Promise((resolve, reject) => { answers.push({ resolve, reject }) }))
+  const refusal = () => new SystemEventSendError('server', { conflictCategory: 'BASE_HASH_DIVERGED' })
+
+  async function decreasesThenIncreases() {
+    answers.length = 0
+    eachSendStaysPending()
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={() => {}} />)
+    fireEvent.click(await screen.findByTestId('edge-direction-decreases'))
+    await waitFor(() => expect(sendSystemEvent).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByTestId('edge-direction-increases'))
+    await waitFor(() => expect(sendSystemEvent).toHaveBeenCalledTimes(2))
+  }
+
+  it('both refused: the canvas ends on the MODEL\'s sign, and nothing is left unconfirmed', async () => {
+    await decreasesThenIncreases()
+    await act(async () => { answers[0].reject(refusal()) })
+    await act(async () => { answers[1].reject(refusal()) })
+
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(readEdgeData().direction).toBe('positive')
+    expect(screen.getByTestId('edge-direction-increases')).toHaveAttribute('aria-pressed', 'true')
+    expect(unconfirmedEdgeEditOnGraph(useCanvasStore.getState().edges as never)).toBeNull()
+  })
+
+  it('CONTRAST — the first lands, the second is refused: the canvas agrees with the model (negative)', async () => {
+    await decreasesThenIncreases()
+    await act(async () => { serverNowStates('negative'); answers[0].resolve(undefined) })
+    await act(async () => { answers[1].reject(refusal()) })
+
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(readEdgeData().direction).toBe('negative')
+    expect(readEdgeData().serverStrength).toEqual({ mean: -0.4, effect_direction: 'negative' })
+  })
+})

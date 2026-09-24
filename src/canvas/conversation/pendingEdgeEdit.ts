@@ -140,15 +140,18 @@ export function markEdgeEditInFlight(
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
   const key = entryKey(edgeId, kindOf(sentDirection))
   const prior = inFlight.get(key)
-  // A newer STRENGTH edit to the same link keeps the ORIGINAL pre-edit data of
-  // the strength edit it replaces: that is what the server still holds while
-  // both are unanswered. A DIRECTION edit keeps its OWN: its refusal restores
-  // only the direction keys, and the direction to restore is the one on screen
-  // when it was pressed.
+  // A newer edit of the SAME KIND keeps the ORIGINAL pre-edit data of the edit
+  // it replaces: that is what the server still holds while both are
+  // unanswered. The rule is the same for both kinds, because with per-kind
+  // entries a flip's predecessor can only be another flip, whose value is
+  // optimistic (5821294085: "decreases" then "increases", both refused, ended
+  // on the first flip's unconfirmed sign). A first flip beside a pending strength
+  // drag has no same-kind predecessor, so it keeps the direction on screen when
+  // it was pressed — which is what a drag that crossed zero needs (scenario C).
   inFlight.set(key, {
     edgeId,
     sentMagnitude,
-    before: sentDirection !== undefined ? { ...(before ?? {}) } : prior?.before ?? { ...(before ?? {}) },
+    before: prior?.before ?? { ...(before ?? {}) },
     ...(sentDirection !== undefined ? { sentDirection } : {}),
   })
   emit()
