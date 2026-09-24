@@ -150,6 +150,13 @@ interface BaseNodeProps extends NodeProps {
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
   borderClassOverride?: string
   /**
+   * The card's own body already states the `isIncomplete` gap in its own words
+   * (the goal's "Target not captured" chip), so the corner "Needs input" pill
+   * would say it twice. Withholds the PILL only — `isIncomplete` still drives the
+   * border and the overlay testid. Contract v3.1: one state, once (gap U4).
+   */
+  incompleteStatedOnCard?: boolean
+  /**
    * ⭐ THE REDUCED LINE, DECLARED BY THE NODE THAT OWNS THE DATUM.
    *
    * `shared/lodMetricLine.ts` resolves this centrally where the value is
@@ -236,7 +243,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   /**
    * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
@@ -1783,7 +1790,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             label={UNFINISHED_CONTRIBUTION_COPY}
             title={UNFINISHED_CONTRIBUTION_COPY}
           />
-        ) : isIncomplete ? (
+        ) : isIncomplete && !incompleteStatedOnCard ? (
           /* ⭐⭐ NOT MODELLED IS NOT NOT ESTIMATED — ONE PILL WAS SAYING BOTH.
 
              `isIncomplete` admits four node types, and until this change all
@@ -2383,7 +2390,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* ⚠ OUTSIDE the body wrapper above ON PURPOSE. That wrapper is what the
           LOD rung blanks by `visibility`, and an invitation that disappears at
           the zoom the auto-fit parks at is the defect this change exists to
-          remove, one level along. */}
+          remove, one level along.
+          ⭐ VISIBLE IN STANDARD VIEW (Paul, 24 Sep: "We used to have little
+          prompts for each of the node types… They seem to have disappeared…
+          let's add them back in"; ED #63 5805528520 §3). This supersedes the
+          Detailed-only gate (ED 11:52Z pt 5). The factor / consequence
+          questions stay on the row's last card until the row-end prompt cards
+          return with the laptop-fit slice; the option question's one entry
+          point is the ghost card (`CARD_INVITATION_TIERS`). */}
       <TierInvitationRow
         invitations={myInvitations}
         nodeId={id}

@@ -1,31 +1,23 @@
 /**
- * ⭐⭐ THE OUTCOME CARD SAYS HOW MANY OPTIONS ACT ON IT — ON THE CARD, BEFORE
- * THE RUN.
+ * ⛔⛔ RETIRED BY CONTRACT v3.1 pt 8 (gap U2, 24 Sep 2026): THE OUTCOME CARD NO
+ * LONGER SAYS HOW MANY OPTIONS CONNECT TO IT — IN ANY VIEW, IN EITHER PHASE.
  *
- * ⛔ Paul 23 Sep contract feedback point 8 NARROWED THIS LINE: it renders only
- * where it differentiates (some, not all, options connect) and names its
- * denominator — "2 of 3 options connect to this". The every-option case is
- * pinned silent in `outcomeRisk.paulContractFeedback.spec.tsx`. This fixture's
- * outcomes are reached by 2 and 1 of 3 options, so both still speak here.
+ * This file used to pin "2 of 3 options connect to this" on the card face, before
+ * the run. Paul 23 Sep point 8 first narrowed it to the some-but-not-all case;
+ * v3.1 then hardened the rule — remove "N options move/connect" UNLESS it
+ * genuinely differentiates, e.g. "No option moves this outcome" — and its
+ * fixture removes the line from all outcomes. Paul flagged the served "2 of 3"
+ * form against v3.1, so the some-but-not-all case is gone too. No zero-state
+ * sentence ever existed, and none is invented here.
  *
- * (Originally written unrun; run and green in the 23 Sep contract-feedback pass.)
+ * The same fixture is kept because it is the one that made the line SPEAK
+ * (2-of-3 and 1-of-3 on one board, in Standard and Detailed): every case below
+ * would have rendered the line at base. `NodePopover` is still not mocked, so
+ * an absence here is an absence from the card face, and each case keeps a
+ * positive control on the card itself (trap 13).
  *
- * ⚠ WHAT THIS FILE PINS THAT `domain/__tests__/optionsReaching.spec.ts` CANNOT:
- * WHERE the sentence lives. The count, the de-duplication and the silence are
- * graph facts and are pinned there, against the product's own topology. This
- * file exists for the one claim a pure spec cannot make — that a user reading
- * the board sees it without hovering.
- *
- * ⭐ `NodePopover` IS NOT MOCKED HERE, AND THAT IS THE INSTRUMENT.
- * `NodePopover.tsx` is `if (!visible) return null`, so in a resting render its
- * children are ABSENT FROM THE DOM rather than merely invisible — the
- * distinction `render-matrix.spec.tsx` loses by mocking it into a plain div,
- * and the reason a whole set of coaching chips was once green in the suite and
- * absent on the deployed canvas (`cardFaceQuestions.restingState.spec.tsx`
- * carries that measurement). So anything found in the resting render below is
- * on the card face. The Standard-view case asserts a popover-only chip is
- * ABSENT in the same render, so the file stays discriminating if anyone
- * re-mocks the popover or moves the line into it.
+ * The graph fact (`domain/optionsReaching.ts`) is untouched and still pinned by
+ * `domain/__tests__/optionsReaching.spec.ts`; only its card sentence is gone.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -127,65 +119,41 @@ const renderOutcome = (id = 'outcome-1', label = 'Revenue') =>
     </ReactFlowProvider>,
   )
 
-describe('OutcomeNode — how many options move this', () => {
+describe('OutcomeNode — no option-reach count on the card (contract v3.1 pt 8)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     applyStore()
   })
 
-  it.each(['idle', 'complete'])(
-    'states the count on the card in the %s phase — the pre-run case is the point',
-    (status) => {
-      applyStore({ results: { status, report: null } })
-      renderOutcome()
-      // Locked Canvas design (23 Sep 2026): MT-20 — the verb says what was
-      // counted ("connect"), not a causal effect nothing measured ("move").
-      expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 of 3 options connect to this')
-    },
-  )
+  const COUNT = /\boptions? connects? to this|options? moves? this|alternatives connect/i
 
-  /**
-   * ⭐ THE DISCRIMINATOR. A line reading the option TOTAL rather than the ones
-   * that reach THIS card would say "3 options move this" on both cards and
-   * satisfy the case above. Two cards, one board, two answers.
-   */
-  it('gives the other outcome on the same board its own answer, in the singular', () => {
-    renderOutcome('outcome-2', 'Brand reach')
-    // Locked Canvas design (23 Sep 2026): MT-20 wording, singular kept.
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('1 of 3 options connects to this')
+  it.each([
+    ['expert', 'idle'],
+    ['expert', 'complete'],
+    ['standard', 'idle'],
+    ['standard', 'complete'],
+  ])('%s view, %s phase: the 2-of-3 outcome carries no count line', (viewMode, status) => {
+    applyStore({ viewMode, results: { status, report: null } })
+    const { container } = renderOutcome()
+    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
+    expect(container.textContent).not.toMatch(COUNT)
   })
 
-  it('says nothing when no option reaches this outcome', () => {
+  it('the 1-of-3 outcome on the same board carries none either', () => {
+    const { container } = renderOutcome('outcome-2', 'Brand reach')
+    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
+    expect(container.textContent).not.toMatch(COUNT)
+  })
+
+  it('an outcome no option reaches gains no invented "No option moves this outcome" line', () => {
     applyStore({
       edges: EDGES.filter(e => e.id !== 'o1f1' && e.id !== 'o2f2'),
     })
-    renderOutcome()
-    // Positive control: the card itself rendered, so the absence above is the
-    // component's decision and not an empty render (CLAUDE.md trap 13).
+    const { container } = renderOutcome()
     expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
     expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
-  })
-
-  it('says nothing on a board with no options at all', () => {
-    applyStore({
-      nodes: NODES.filter(n => n.type !== 'option'),
-      edges: EDGES.filter(e => e.id === 'f1o1' || e.id === 'f2o1'),
-    })
-    renderOutcome()
-    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
-    expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
-  })
-
-  /**
-   * Standard view is what a fresh user gets. The line must be on the card
-   * there, and the popover-only chip must not be — one render, both halves,
-   * so this stays a statement about LOCATION.
-   */
-  it('is on the card in Standard view, where the popover content is not', () => {
-    applyStore({ viewMode: 'standard' })
-    renderOutcome()
-    // Locked Canvas design (23 Sep 2026): MT-20 wording.
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 of 3 options connect to this')
-    expect(screen.queryByText('Explore consequences')).toBeNull()
+    expect(container.textContent).not.toMatch(/No option moves/i)
   })
 })

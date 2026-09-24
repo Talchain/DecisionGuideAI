@@ -1,5 +1,15 @@
 /**
- * ⭐⭐⭐ THE LANE BANDS MUST PAINT BEHIND THE CARDS THEY HOLD.
+ * ⭐⭐⭐ NOTHING THE TIER LANES DRAW MAY PAINT OVER THE CARDS THEY LABEL.
+ *
+ * ⚠ 24 Sep 2026 — THE BANDS ARE GONE (Paul: "remove the different colour panels
+ * of the different node types. Just leave the normal canvas background as is";
+ * NODE-ANATOMY-v32 L1). `TierLanes` now renders labels only. The invariant this
+ * guard protects is unchanged — no surface portalled above the cards — and is
+ * now pinned as ABSENCE: the file declares no painted surface at all, so a band
+ * reintroduced later fails here before it can wash the cards again. The history
+ * below is kept because it is WHY this guard exists.
+ *
+ * (Original header, 19 Sep: THE LANE BANDS MUST PAINT BEHIND THE CARDS.)
  *
  * The founder reported it exactly: "all of the nodes are still dulled out
  * because they're behind the panels of the different node type rows". That is
@@ -77,104 +87,45 @@ describe('the comment stripper is not the vacuity it exists to prevent', () => {
 })
 
 /**
- * Extract the per-band inline style object by BRACE MATCHING from `style={{`,
- * so an assertion can be bound to that object's extent rather than to "anywhere
- * after it". The first version of this guard used `indexOf('left: lane.x')` as a
- * lower bound, which every later line in the file satisfies.
+ * ⭐ LABELS ONLY: NO PAINTED SURFACE (24 Sep, bands removed).
+ *
+ * A portalled element paints over the cards whatever its JSX position (the
+ * history above). With no band there is nothing to order, so the guard pins the
+ * absence of every way to paint a surface: a Tailwind background class, an
+ * inline background, or a band-sized box. Comment-stripped, so prose naming a
+ * token cannot satisfy or trip it.
  */
-function bandStyleObject(src: string): string {
+const SURFACE_TOKENS: ReadonlyArray<[string, RegExp]> = [
+  ['a Tailwind background class', /\bbg-[a-z]/],
+  ['an inline backgroundColor', /backgroundColor\s*:/],
+  ['an inline background', /\bbackground\s*:/],
+  ['a band-sized box (lane.width)', /lane\.width/],
+  ['a band-sized box (lane.height)', /lane\.height/],
+]
+
+function paintedSurfaces(src: string): string[] {
   const code = codeOnly(src)
-  const anchor = code.indexOf('left: lane.x')
-  if (anchor === -1) return ''
-  const open = code.lastIndexOf('{', anchor)
-  let depth = 0
-  for (let k = open; k < code.length; k++) {
-    if (code[k] === '{') depth++
-    else if (code[k] === '}') {
-      depth--
-      if (depth === 0) return code.slice(open, k + 1)
-    }
-  }
-  return ''
+  return SURFACE_TOKENS.filter(([, re]) => re.test(code)).map(([name]) => name)
 }
 
-describe('the extent extractor binds to the band object only', () => {
-  it('POSITIVE CONTROL: it returns a non-empty object containing the band geometry', () => {
-    const obj = bandStyleObject(tierLanes)
-    expect(obj.length, 'the band style object was not extracted — every assertion below would be vacuous').toBeGreaterThan(40)
-    expect(obj).toContain('left: lane.x')
-    expect(obj).toContain('top: lane.y')
-  })
-
-  it('⭐ DISCRIMINATION: it EXCLUDES content that follows the object', () => {
-    // This is the property the first version of this guard lacked. A reviewer
-    // showed that moving `zIndex: -1` from the band style to the title span
-    // twelve lines below deleted the fix while the guard stayed green.
-    const obj = bandStyleObject(tierLanes)
-    expect(obj, 'the extractor is swallowing the title span — it is not bound to the band object').not.toContain('tier-lane-${lane.tier}-title')
-  })
-})
-
-describe('tier lanes paint behind the cards', () => {
-  /**
-   * ⚠ BOUND BY EXTENT AND COUNT-PINNED, because version one was one-directional.
-   *
-   * It asserted `code.toMatch(/zIndex: -1/)` plus `indexOf(...) > indexOf('left:
-   * lane.x')`. A reviewer's 9-mutant kit passed FIVE arms against that, the worst
-   * being: MOVE `zIndex: -1` from the band style object to the title span twelve
-   * lines below. The fix is fully deleted, the bands paint over the cards again,
-   * and the guard stays GREEN — because everything after `left: lane.x`
-   * satisfies a lower-bound test.
-   *
-   * My own four mutants were all "REMOVE the token". None was "MOVE the token"
-   * or "ADD a second one". A corpus that tests one direction cannot see the
-   * other (trap 22b), and a positional `>` is a value predicate another object
-   * can satisfy (trap 19). It matters here because `TierLanes.tsx` has no render
-   * spec at all — this file is the only thing watching.
-   */
-  it('⭐ the BAND STYLE OBJECT declares a negative z-index, exactly once', () => {
-    const obj = bandStyleObject(tierLanes)
-    const hits = [...obj.matchAll(/(^|[\s{,])zIndex\s*:\s*-1\s*(,|\}|$)/g)]
-    expect(
-      hits.length,
-      'the tier bands no longer declare `zIndex: -1` INSIDE their own style object. They render through ViewportPortal, which lands LAST in the viewport, so without this they composite OVER every card and wash its text below the WCAG contrast floor. Moving the property elsewhere in the file does not count — the band is the element that must carry it.',
-    ).toBe(1)
-  })
-
-  it('a negative z-index elsewhere in the file cannot stand in for it', () => {
-    // The band object is what paints over the cards. A `zIndex: -1` on the
-    // wrapper would be silently ignored (it is `position: static`); one on the
-    // title, or on an unused export, changes nothing at all.
-    const obj = bandStyleObject(tierLanes)
-    const whole = codeOnly(tierLanes)
-    const outside = whole.replace(obj, '')
-    expect(
-      /zIndex\s*:\s*-1/.test(outside),
-      'a second `zIndex: -1` exists outside the band style object — if the band ever loses its own, this file would still look correct at a glance',
-    ).toBe(false)
-  })
-
-  it('the band is not silently flipped positive', () => {
-    // `zIndex: 1` with a decoy `-1` later was one of the surviving mutants.
-    //
-    // ⚠ READ THE VALUE, DO NOT LOOK-AHEAD PAST IT. My first spelling was
-    // `/zIndex\s*:\s*(?!-)/`, which is always true: `\s*` backtracks to zero
-    // width and the lookahead then inspects the SPACE, which is not `-`. It
-    // reported the pristine file as positive. A negative-lookahead after a
-    // variable-width match tests the wrong character.
-    const obj = bandStyleObject(tierLanes)
-    const values = [...obj.matchAll(/zIndex\s*:\s*(-?\d+)/g)].map(m => Number(m[1]))
-    expect(values.length, 'no z-index value parsed out of the band object').toBeGreaterThan(0)
-    for (const v of values) {
-      expect(v, `the band declares z-index ${v} — a non-negative value paints it over the cards`).toBeLessThan(0)
-    }
-  })
-
-  it('the bands remain non-interactive, so stacking cannot become a click-blocker', () => {
-    // Pulling the bands behind the cards must not tempt anyone to drop
-    // pointerEvents: a band that paints behind but still takes a pointer would
-    // be a worse defect than the one being fixed.
+describe('tier lanes paint no surface that could cover a card', () => {
+  it('POSITIVE CONTROL: the labels are still rendered (the file is the labels, not empty)', () => {
     const code = codeOnly(tierLanes)
-    expect((code.match(/pointerEvents:\s*'none'/g) ?? []).length).toBeGreaterThanOrEqual(2)
+    expect(code).toContain('tier-lane-${lane.tier}-title')
+    expect(code).toContain('ViewportPortal')
+  })
+
+  it('⭐ the file declares no painted surface: no bg- class, no inline background, no band-sized box', () => {
+    expect(paintedSurfaces(tierLanes), 'TierLanes paints a surface again — portalled, it composites OVER the cards').toEqual([])
+  })
+
+  it('DISCRIMINATION: the detector catches a re-added band (the 19 Sep shape)', () => {
+    const band = "<div className=\"absolute rounded-2xl bg-panel\" style={{ left: lane.x - 120, width: lane.width + 240, height: lane.height + 96, opacity: 0.5 }} />"
+    expect(paintedSurfaces(band)).toEqual(expect.arrayContaining(['a Tailwind background class', 'a band-sized box (lane.width)', 'a band-sized box (lane.height)']))
+    expect(paintedSurfaces("<span style={{ backgroundColor: 'var(--bg-panel)' }} />")).toContain('an inline backgroundColor')
+  })
+
+  it('DISCRIMINATION: a surface token inside a comment does not trip it', () => {
+    expect(paintedSurfaces("const a = 1 // bg-panel backgroundColor: x lane.width\n")).toEqual([])
   })
 })

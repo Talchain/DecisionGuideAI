@@ -23,6 +23,7 @@ import {
   FirstModelNotice,
   FIRST_MODEL_NOTICE_TESTID,
   FIRST_MODEL_NOTICE_COPY,
+  FIRST_MODEL_NOTICE_INVITATION,
   hasUserJudgedAnyElement,
 } from '../FirstModelNotice'
 
@@ -106,6 +107,25 @@ describe('FirstModelNotice', () => {
     })
     render(<FirstModelNotice />)
     expect(screen.getByTestId(FIRST_MODEL_NOTICE_TESTID).textContent).toContain(FIRST_MODEL_NOTICE_COPY)
+  })
+
+  it('⭐ one line in the cell’s pill grammar; the invitation is its accessible description, not a second visible sentence (contract v3.1 pt 11)', () => {
+    useCanvasStore.setState({
+      nodes: [storeNode('n1'), storeNode('n2')],
+      edges: [storeEdge({ weight: 0.6, weightSource: 'cee' })],
+    })
+    render(<FirstModelNotice />)
+    const notice = screen.getByTestId(FIRST_MODEL_NOTICE_TESTID)
+    expect(notice.className).toContain('rounded-full')
+    expect(notice.className).not.toContain('max-w-md')
+    const invitationId = notice.getAttribute('aria-describedby')
+    expect(invitationId).toBeTruthy()
+    const invitation = document.getElementById(invitationId!)
+    expect(invitation?.textContent).toBe(FIRST_MODEL_NOTICE_INVITATION)
+    expect(invitation?.className).toContain('sr-only')
+    // CONTRAST — the ruled sentence is the one visible line.
+    const visible = [...notice.querySelectorAll('span')].filter(el => !el.className.includes('sr-only'))
+    expect(visible.map(el => el.textContent)).toEqual([FIRST_MODEL_NOTICE_COPY])
   })
 
   it('is absent on a bundled example — StarterProvenanceBanner owns that disclosure', () => {

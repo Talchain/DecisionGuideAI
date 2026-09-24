@@ -895,10 +895,51 @@ async function reseed(page: Page, starter: StarterId): Promise<void> {
  */
 async function showNormalZoom(page: Page): Promise<void> {
   const reset = page.locator('button[aria-label^="Zoom level"]').first()
+  // DIAGNOSTIC (24 Sep, #1926): print what the Normal-zoom census will see, so a
+  // missing render path names its cause (no reset control / rung not full / the
+  // icon's other gate) instead of only its absence. Log-only; asserts nothing.
+  const diag = async (when: string) => {
+    const d = await page.evaluate(() => {
+      const w = window as unknown as { useCanvasStore?: { getState: () => { lodRung?: string } } }
+      return {
+        zoomLabel: document.querySelector('button[aria-label^="Zoom level"]')?.getAttribute('aria-label') ?? null,
+        resetButtons: document.querySelectorAll('button[aria-label^="Zoom level"]').length,
+        lodRung: w.useCanvasStore?.getState?.().lodRung ?? null,
+        coachingIcons: document.querySelectorAll('[data-testid^="node-coaching-icon-"]').length,
+        restingRails: document.querySelectorAll('[data-testid^="node-card-rail-resting-"]').length,
+        askActions: document.querySelectorAll('[data-testid^="node-action-ask-"]').length,
+        nodes: document.querySelectorAll('.react-flow__node').length,
+        viewport: (document.querySelector('.react-flow__viewport') as HTMLElement | null)?.style.transform ?? null,
+      }
+    })
+    console.log(`NORMALZOOMDIAG ${when} ${JSON.stringify(d)}`)
+  }
+  await diag('before-reset')
   if (await reset.count()) {
     await reset.click()
     await waitForVisualQuiescence(page)
+    /*
+     * ⚠ WAIT FOR THE RUNG, NOT ONLY FOR PAINT (24 Sep, #1926 run 35945961363).
+     * The coaching icon mounts only once `LodSync` publishes `lodRung: 'full'`,
+     * and under CI load that landed AFTER visual quiescence: the census taken
+     * here saw no `node-coaching-icon` at all, while a local repro of the same
+     * head at 100% showed all 19 (dec_cdp "Explore more options" included).
+     * The census is only meaningful at the rung it claims to measure, so it
+     * waits for the store to say so. A timeout falls through to the existing
+     * census, whose own completeness assertion still fails loudly.
+     */
+    await page
+      .waitForFunction(
+        () =>
+          (window as unknown as { useCanvasStore?: { getState: () => { lodRung?: string } } })
+            .useCanvasStore?.getState?.().lodRung === 'full',
+        undefined,
+        { timeout: 10_000 },
+      )
+      .catch(() => undefined)
+    await waitForVisualQuiescence(page)
   }
+  await diag('after-reset')
 }
 
 /**

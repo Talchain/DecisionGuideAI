@@ -489,8 +489,11 @@ const BARE_MAGNITUDE_SUMMARY = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s+([A-Za-z][A-Za-z
  *
  * ⚠ A DECLARED `encoding_map` STILL WINS, above this line. Nothing here reaches
  * a factor whose producer stated what its levels mean.
+ *
+ * Exported, unchanged, for the option change row (contract v3.1 pt 7, gap U12:
+ * "0.3 scale → 0.85 scale est."), so one rule strips the word on both cards.
  */
-function placeholderMagnitudeNumber(displayValue: string): string | null {
+export function placeholderMagnitudeNumber(displayValue: string): string | null {
   const m = BARE_MAGNITUDE_SUMMARY.exec(displayValue)
   if (m === null) return null
   // Shared classifier — never a local unit list (the hand-maintained mirror).

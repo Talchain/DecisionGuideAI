@@ -282,6 +282,8 @@ describe('R4 — fragility is a DISCREET cue: no bare figure on the canvas', () 
   it('a chip carrying BOTH a strength row and the cue names the cue on the assistive channel too', () => {
     // `aria-label` REPLACES descendant text: before this, a screen-reader user
     // on a top-strength fragile connection was never told it was fragile.
+    // contract v3.1 (U10): the two-row chip exists in Detailed view only.
+    mockViewMode = 'expert'
     pinAsTopStrength(CEE_EDGE)
     setFragile([{ edge_id: 'e1', switch_probability: 0.42 }])
     const { container } = renderEdge({ ...CEE_EDGE })
@@ -323,6 +325,8 @@ describe('R5 — the cue appears at readable zoom only', () => {
   })
 
   it('at the "line" rung the STRENGTH row of a two-row chip survives — only the exception cue goes', () => {
+    // contract v3.1 (U10): the two-row chip exists in Detailed view only.
+    mockViewMode = 'expert'
     mockLodRung = 'line'
     pinAsTopStrength(CEE_EDGE)
     setFragile([{ edge_id: 'e1', switch_probability: 0.42 }])

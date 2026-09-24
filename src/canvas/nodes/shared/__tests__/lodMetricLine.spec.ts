@@ -200,17 +200,21 @@ describe('the other three types, which rendered nothing at any zoom before', () 
   })
 })
 
-describe('⛔ the caveat gate: a figure that needs a disclosure may not ride one line', () => {
+describe('⛔ an outcome never borrows the GOAL’s chance at the reduced rung (contract v3.1)', () => {
   /*
-   * THE DISCRIMINATING PAIR. Same node, same probability, two bases. If the
-   * gate were dead, both would render; if the figure were simply absent, both
-   * would be null. Only a live gate gives one of each — which is what makes
-   * this pair evidence and either test alone worthless.
+   * ⚠ SUPERSEDED. This block was the caveat gate's discriminating pair: the
+   * outcome printed `Chance 70%` on the basis with no mandatory caveat and
+   * withheld it on the modelled basis. Contract v3.1: "Probability of a goal …
+   * must never stand in" for another fact. `achievementProbability` on an
+   * outcome is the recommended option's chance of reaching THE GOAL — the
+   * figure `OutcomeNode` took off the card on 17 Sep — and since v3.1 took the
+   * link-strength owner line off the card (gap U1) this arm would have printed
+   * it on every outcome. It now withholds on BOTH bases.
    */
   const data = { label: 'Margin holds' }
   const probability = 0.7
 
-  it('shows the figure on the basis that carries no mandatory caveat', () => {
+  it.each([false, true])('withholds on either basis (modelled basis: %s)', (modelled) => {
     expect(
       resolveLodMetricLine({
         nodeType: 'outcome',
@@ -218,24 +222,21 @@ describe('⛔ the caveat gate: a figure that needs a disclosure may not ride one
         label: 'Margin holds',
         displayMetadata: meta({
           achievementProbability: probability,
-          achievementProbabilityIsModelledBasis: false,
-        }),
-      }),
-    ).toBe('Chance 70%')
-  })
-
-  it('WITHHOLDS it on the modelled basis, where OutcomeNode is required to render the caveat beside it', () => {
-    expect(
-      resolveLodMetricLine({
-        nodeType: 'outcome',
-        data,
-        label: 'Margin holds',
-        displayMetadata: meta({
-          achievementProbability: probability,
-          achievementProbabilityIsModelledBasis: true,
+          achievementProbabilityIsModelledBasis: modelled,
         }),
       }),
     ).toBeNull()
+  })
+
+  it('CONTRAST — the same resolver still speaks for a risk that carries its own severity', () => {
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'risk',
+        data: { label: 'Vendor lock-in', probability: 0.8, impact: 'high' },
+        label: 'Vendor lock-in',
+        displayMetadata: meta({}),
+      }),
+    ).toBe('High risk')
   })
 })
 

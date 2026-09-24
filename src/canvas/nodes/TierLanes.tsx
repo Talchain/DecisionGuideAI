@@ -28,105 +28,74 @@ import { typography } from '../../styles/typography'
 import { ViewportPortal, type Node } from '@xyflow/react'
 import { deriveTierLanes } from '../utils/tierLanes'
 
-/** Breathing room around a band, in graph units. Enough that the band reads as
- *  a lane the cards sit IN, not a box drawn tight around them. */
-const LANE_PAD_Y = 48
-const LANE_PAD_X = 120
+/**
+ * ⭐ THE BANDS ARE LABELS ONLY, IN ONE LEFT COLUMN (Paul, 24 Sep: "Keep the
+ * labels on the left, but remove the different colour panels of the different
+ * node types. Just leave the normal canvas background as is." — NODE-ANATOMY-v32
+ * L1/L2; contract v3.1 `.layer-label`, one fixed left x for every layer).
+ *
+ * ⛔ NO PANEL. The tinted rectangles are gone, not faded: they stretched past
+ * the viewport (a band is its row's width plus 120 units a side, and it never
+ * enters the fit), and at any opacity they tinted the cards they sat behind
+ * (the stacking history is in git: `zIndex: -1` was needed because the portal
+ * paints last). With no rectangle there is nothing to stack.
+ *
+ * ⭐ ONE COLUMN, INSIDE THE FIT. Every title shares x = the graph's leftmost
+ * card edge. That edge IS the fitted box's left edge, so a title can never sit
+ * under the left toolbar at the landing fit — which is what clipped "Question",
+ * "Options" and "Goal" on both PoCs. Per-lane x would put the Question and Goal
+ * titles mid-screen above their centred cards; one column keeps them "on the
+ * left" as asked.
+ *
+ * Sentence case (DS v5 §2 — the contract fixture's all-caps `.layer-label` is
+ * overridden by the design system, Paul pt 9; `check-ds-compliance` enforces it).
+ *
+ * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
+ * counter-scales, so at far zoom it grows several times taller and must grow up
+ * into the gap between rows, never down over a card.
+ */
+export const LANE_TITLE_GAP = 8
+
+export function laneTitleColumnX(lanes: ReadonlyArray<{ x: number }>): number {
+  return lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
+}
+
+export function laneTitleFlowAnchor(
+  lane: { x: number; y: number },
+  columnX: number,
+): { x: number; bottomY: number } {
+  return { x: columnX, bottomY: lane.y - LANE_TITLE_GAP }
+}
 
 export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly Node[] }) {
   const lanes = useMemo(() => deriveTierLanes(nodes), [nodes])
   if (lanes.length === 0) return null
+  const columnX = laneTitleColumnX(lanes)
 
   return (
     <ViewportPortal>
       <div aria-hidden="true" style={{ pointerEvents: 'none' }} data-testid="tier-lanes">
-        {lanes.map((lane) => (
-          <div
-            key={lane.tier}
-            data-testid={`tier-lane-${lane.tier}`}
-            className="absolute rounded-2xl bg-panel"
-            style={{
-              left: lane.x - LANE_PAD_X,
-              top: lane.y - LANE_PAD_Y,
-              width: lane.width + LANE_PAD_X * 2,
-              height: lane.height + LANE_PAD_Y * 2,
-              pointerEvents: 'none',
-              // Quiet by construction. The band's job is to group, not to
-              // attract: at full strength it competes with the cards it holds.
-              // `bg-panel` is the DS v5 surface token — the legacy `paper` scale
-              // is on the compliance ratchet and a new use is a net-new
-              // violation, so it is not available to this file.
-              opacity: 0.5,
-              /**
-               * ⭐⭐⭐ THE BANDS WERE PAINTING ON TOP OF THE CARDS. This one
-               * property is the whole fix, and the reason it was needed is that
-               * JSX ORDER DOES NOT DECIDE IT.
-               *
-               * `ReactFlowGraph` mounts `<TierLanes>` "immediately after the
-               * ground and before every node" and its comment concludes the
-               * bands therefore "sit BEHIND the cards they hold". That was false
-               * the moment this component reached for `<ViewportPortal>`: the
-               * portal's target is `.react-flow__viewport-portal`, which React
-               * Flow renders as the LAST of the viewport's five children
-               * (EdgeRenderer → ConnectionLineWrapper → edge labels →
-               * NodeRenderer → viewport-portal, derived at the installed
-               * @xyflow/react 12.10.2). Portalled content leaves the call site's
-               * position entirely, so where the element is written says nothing
-               * about where it paints.
-               *
-               * ⛔ WHAT IT COST, MEASURED RATHER THAN CALLED UGLY. The band's box
-               * is the union of its tier's card boxes plus padding, so it covers
-               * 100% of every card it holds. A 50%-alpha #FEFEFE sheet leaves the
-               * card FACE unchanged (also #FEFEFE) while washing everything drawn
-               * ON it halfway to white: body text #3F3F3E composites to ~#9E9E9E
-               * and contrast falls from ~10.4:1 to ~2.66:1 — under WCAG SC 1.4.3's
-               * 4.5:1, and under even the 3:1 large-text floor. It is an
-               * accessibility regression, not a matter of taste. The founder
-               * reported it as "all of the nodes are still dulled out because
-               * they're behind the panels of the different node type rows",
-               * which is precisely what the DOM was doing.
-               *
-               * ⚠ NOT A LOWER OPACITY. At any opacity above zero the band still
-               * tints every card; opacity is the AMPLITUDE of the defect and the
-               * stacking order is the defect.
-               *
-               * ⚠ NOT ON THE WRAPPER EITHER. The parent div is `position: static`,
-               * so a z-index there is silently ignored, and making it `relative`
-               * to fix that would change the containing block for these
-               * absolutely-positioned bands.
-               *
-               * A negative z-index cannot escape the viewport's stacking context,
-               * so the bands still paint above `.react-flow__background`.
-               */
-              zIndex: -1,
-            }}
-          >
+        {lanes.map((lane) => {
+          const anchor = laneTitleFlowAnchor(lane, columnX)
+          return (
             <span
+              key={lane.tier}
               data-testid={`tier-lane-${lane.tier}-title`}
-              /**
-               * ⛔ WAS AN INLINE `fontSize: calc(13px * var(--canvas-label-scale))`.
-               * Counter-scaled and therefore correct on screen — and invisible
-               * to `canvasTextCounterScale.census.spec.ts`, which classifies an
-               * inline fontSize it cannot resolve to a literal as an ERROR
-               * rather than as a hit. A size that no census can see is exactly
-               * how a surface drifts off the scale without anything going red.
-               * `typography.nodeLabel` is the same idea as a TOKEN the census
-               * resolves, and 12px is the canvas's own label size — 13 was a
-               * number I chose, which is the smaller half of the same defect.
-               */
               className={`absolute text-text-light ${typography.nodeLabel}`}
               style={{
-                left: 16,
-                top: 12,
+                left: anchor.x,
+                top: anchor.bottomY,
+                transform: 'translateY(-100%)',
                 lineHeight: 1.2,
                 letterSpacing: '0.01em',
                 whiteSpace: 'nowrap',
+                pointerEvents: 'none',
               }}
             >
               {lane.title}
             </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </ViewportPortal>
   )

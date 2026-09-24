@@ -289,7 +289,7 @@ describe('goal-probability identity — the rendered canvas text matches the dec
     expect(screen.queryByTestId('goal-achievement-unset')).toBeNull()
   })
 
-  it('⭐ L62: on a WITHHELD run the node denies a figure, and the panel agrees — no contradiction in the other direction either', () => {
+  it('⭐ L62: on a WITHHELD run the node states no figure (v3.1: no Chance row), and the panel agrees — no contradiction in the other direction either', () => {
     // The mirror of the test above, and the reason this file exists. ROADMAP
     // 2.275 recorded the two surfaces disagreeing on the substituted run — the
     // node denying a probability while the Goal-fit sub-tab rendered "< 1%"
@@ -301,12 +301,13 @@ describe('goal-probability identity — the rendered canvas text matches the dec
     expect(decision.goalProbability).toBeNull()
 
     const { container } = renderGoalNode()
-    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2, wide + shallow):
-    // the denial is ONE Chance row — short visible text, the full sentence as
-    // its accessible name and tooltip — rather than a paragraph of its own.
-    const denial = screen.getByTestId('goal-achievement-unset')
-    expect(denial.textContent).toContain('Not produced by this run')
-    expect(denial.getAttribute('aria-label') ?? '').toContain('did not produce a goal probability')
+    // Contract v3.1 goal anatomy (gap U3, 24 Sep 2026) supersedes the unset
+    // Chance row: on a withheld run the node shows NO Chance row — it neither
+    // states a figure nor contradicts the panel. The selector assertions above
+    // keep "they agree" from meaning "both broke".
+    expect(screen.queryByTestId('goal-achievement-unset')).toBeNull()
+    expect(screen.queryByTestId('goal-achievement-metric-row')).toBeNull()
+    expect(container.textContent ?? '').not.toContain('Not produced by this run')
     expect(container.textContent ?? '').not.toContain('62%')
   })
 

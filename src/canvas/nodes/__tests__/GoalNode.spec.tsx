@@ -81,10 +81,14 @@ const renderGoal = (data: Record<string, unknown> = {}) =>
  * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 2) — the prose readout
  * "X chance of reaching target" is OFF the face. ONE NodeMetricRow carries the
  * figure (`goal-achievement-metric-row`, visible "Chance" + "N%"), and the
- * sentence rides its accessible name and tooltip; a no-probability state is the
- * unset row `goal-achievement-unset`, whose accessible name carries the old full
- * sentence. These read those accessible names BY TESTID, so a sentence can
- * only satisfy an assertion from the row it belongs to.
+ * sentence rides its accessible name and tooltip. These read those accessible
+ * names BY TESTID, so a sentence can only satisfy an assertion from the row it
+ * belongs to.
+ *
+ * Contract v3.1 goal anatomy (gap U3, 24 Sep 2026) SUPERSEDES the unset row
+ * `goal-achievement-unset` ("Not produced by this run" / "See each option" /
+ * "Rerun to update"): a run with no goal chance shows NO Chance row at all. The
+ * cases below keep their original intent and assert that absence by testid.
  */
 const ACHIEVEMENT_ROW = 'goal-achievement-metric-row'
 const ACHIEVEMENT_UNSET = 'goal-achievement-unset'
@@ -767,10 +771,12 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the absent state
-    // is the unset Chance row; its accessible name is the old full sentence.
-    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Not produced by this run')
-    expect(rowName(ACHIEVEMENT_UNSET)).toContain('Target set. This run did not produce a goal probability.')
+    // Contract v3.1 goal anatomy (gap U3): no goal chance → NO Chance row, not
+    // an unset one. The target line stays; nothing else speaks for the chance.
+    expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).toBeNull()
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(screen.queryByText(/Not produced by this run/)).toBeNull()
+    expect(screen.getByTestId('goal-node-resting-state').textContent).toContain('100%')
     expect(screen.queryByText(/Rerun the analysis/)).toBeNull()
     expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
     // The live bug: card said "Analysis complete. Set a target to see your
@@ -816,13 +822,12 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
 
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the absent state
-    // is the unset Chance row ("See each option"); its accessible name carries
-    // the full acknowledgement. Every absence below covers accessible names too.
-    // The flat denial is the defect — it must be gone.
+    // Contract v3.1 goal anatomy (gap U3): the node neither denies nor points —
+    // it shows no Chance row. The flat denial (the ROADMAP 2.275 defect) stays
+    // gone; so does the "See each option" arm. Absences cover accessible names.
     expect(allAccessibleNames()).not.toContain('Target set. This run did not produce a goal probability.')
-    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('See each option')
-    expect(rowName(ACHIEVEMENT_UNSET)).toMatch(/No overall goal probability for this run — see Goal fit for each option/)
+    expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).toBeNull()
+    expect(screen.queryByText(/See each option/)).toBeNull()
     // No fabricated number, no designated option.
     expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
     expect(allAccessibleNames()).not.toMatch(/% chance of reaching target/)
@@ -840,16 +845,19 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — read off the unset
-    // Chance row's visible text and accessible name.
-    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Not produced by this run')
-    expect(rowName(ACHIEVEMENT_UNSET)).toContain('Target set. This run did not produce a goal probability.')
+    // Contract v3.1 goal anatomy (gap U3): with no goal figure anywhere the
+    // card shows no Chance row — neither the denial nor the pointer.
+    expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).toBeNull()
+    expect(screen.queryByTestId(ACHIEVEMENT_ROW)).toBeNull()
+    expect(allAccessibleNames()).not.toMatch(/did not produce a goal probability/)
     expect(allAccessibleNames()).not.toMatch(/see Goal fit/)
   })
 
-  // Positive control: a GENUINELY stale/changed model (freshness 'stale' →
-  // 'changed' semantic) DOES warrant the rerun prompt.
-  it('target SET + no probability + CHANGED model: shows the rerun demand', () => {
+  // Was the positive control for the rerun prompt. Contract v3.1 goal anatomy
+  // (gap U3) removes the unset Chance row that carried it: with no goal chance
+  // the card shows no Chance row even on a changed model (the model-changed
+  // state is the overall analysis cue's job, Paul pt 14).
+  it('target SET + no probability + CHANGED model: no Chance row (no rerun line on the goal card)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: { status: 'complete', report: {} },
@@ -858,10 +866,9 @@ describe('GoalNode — goal-state copy matrix (audit §8 P1)', () => {
       }) as any)
     )
     renderGoal({ goal_threshold_raw: '100', goal_threshold_unit: '%' })
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 2 — the rerun demand
-    // is the unset Chance row ("Rerun to update"), full sentence as its name.
-    expect(screen.getByTestId(ACHIEVEMENT_UNSET).textContent).toContain('Rerun to update')
-    expect(rowName(ACHIEVEMENT_UNSET)).toContain('Target set. Rerun the analysis to update your results.')
+    expect(screen.queryByTestId(ACHIEVEMENT_UNSET)).toBeNull()
+    expect(screen.queryByText(/Rerun to update/)).toBeNull()
+    expect(allAccessibleNames()).not.toMatch(/Rerun the analysis/)
     expect(allAccessibleNames()).not.toMatch(/This run did not produce a goal probability/)
     expect(screen.queryByTestId('goal-node-no-target-chip')).toBeNull()
   })

@@ -18,6 +18,11 @@
  * ⚠ IT NEVER SENDS. `requestAsk` prefills the composer (or the Ask-Olumi
  * drawer) and the user presses Send — the same seam `DecisionNode`'s resting CTA
  * uses. A door that silently added to the model would make the AI the author.
+ *
+ * ⭐ DETAILED VIEW ONLY, AND NEVER THE OPTION QUESTION (contract v3.1 pt 6; gap
+ * U9). `BaseNode` mounts this row only in Detailed; at rest in Standard the
+ * card's one coaching affordance is the rail icon. The option question's one
+ * entry point is the ghost card, so `tierInvitations` no longer offers it.
  */
 import { memo, useCallback } from 'react'
 import { typography } from '../../../styles/typography'
