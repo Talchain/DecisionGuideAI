@@ -10,6 +10,7 @@ import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
+import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
@@ -470,12 +471,12 @@ function computeAllDifferentiators(
     const compactLabel = compactFactorLabel(fullFactorLabel, NODE_ROW_LABEL_MAX_CHARS)
 
     // ⭐ ONE code path, evaluated TWICE — once with the compacted label token
-    // and once with the untruncated one. The branches below are deliberately
+    // (at rest) and once with the untruncated one (the hover). The branches below are deliberately
     // NOT duplicated: a second hand-maintained copy of this sentence-building
     // logic is the drift this estate pays for most often, and the two
     // sentences must stay identical apart from the label token or the hover
     // stops recovering the very thing it is hovering over.
-    const buildSentence = (labelToken: string): string => {
+    const buildSentence = (labelToken: string, atRest: boolean): string => {
       const leading = `${labelToken.charAt(0).toUpperCase()}${labelToken.slice(1)}`
 
       if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
@@ -483,8 +484,12 @@ function computeAllDifferentiators(
         return `${leading} is the key difference`
       }
       if (myDisplayValue) {
-        // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
-        return `${leading} \u2192 ${myDisplayValue}`
+        // Shared factor with CEE display_value — the producer's reading, no
+        // unit/tier inference. At rest it sheds its parenthesised internal-scale
+        // number exactly as every change row does (R6, `collapseEstimateDisplay`:
+        // "Very high (1)" → "Very high"); the hover sentence keeps it whole.
+        const shown = atRest ? (collapseEstimateDisplay(myDisplayValue) ?? myDisplayValue) : myDisplayValue
+        return `${leading} \u2192 ${shown}`
       }
       // Shared factor — disambiguate. Placeholder-unit factors (scale, index, score, …)
       // have no real-world anchor, so tier labels like "Very high" are meaningless.
@@ -520,8 +525,8 @@ function computeAllDifferentiators(
     }
 
     candidateLabels.set(optionId, {
-      label: buildSentence(compactLabel),
-      fullLabel: buildSentence(fullFactorLabel),
+      label: buildSentence(compactLabel, true),
+      fullLabel: buildSentence(fullFactorLabel, false),
     })
   }
 
