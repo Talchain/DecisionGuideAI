@@ -41,9 +41,10 @@
  *
  * The count comes from `countNodesOutsideFrame`, which shares its frame
  * arithmetic with `nodesComfortablyVisible` rather than restating it, and the
- * node set is `excludeNonModelNodes` — the fit's OWN target set, so the notice
- * counts exactly what the camera was trying to frame and cannot disagree with
- * it about what the model is.
+ * node set is `excludeNonModelNodes` — the MODEL, so the notice counts parts
+ * of the model and cannot disagree with the fit about what the model is. (Since
+ * S5 the fit also frames the row-end prompts, `userFitNodes`; a prompt is not a
+ * part of the model, so it is framed but never counted as "outside".)
  *
  * ⚠ IT GOT THE NODE SET RIGHT AND THE FRAME WRONG, FOR THE WHOLE OF ITS LIFE
  * UNTIL 2 Sep 2026. It passed `FocusCamera.insets` — the no-churn GATE frame,
@@ -58,7 +59,7 @@ import { useReactFlow, useStore } from '@xyflow/react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { Maximize2 } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { excludeNonModelNodes } from '../utils/fitTargets'
+import { excludeNonModelNodes, userFitNodes } from '../utils/fitTargets'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { countNodesOutsideFrame, paddingToInsets, readFocusCamera } from '../utils/cameraComfort'
 import { cameraDuration } from '../utils/cameraMotion'
@@ -213,7 +214,7 @@ export function ModelExtentNotice() {
     // after this fit and parked the camera back at the floor. See
     // `utils/userCameraClaim.ts` for the two camera writes, timed and named.
     claimCameraForUser(currentModelKey())
-    const fitTargets = excludeNonModelNodes(getNodes())
+    const fitTargets = userFitNodes(getNodes())
     fitView({
       ...(fitTargets.length > 0 ? { nodes: fitTargets } : {}),
       padding: computeFitPadding(),

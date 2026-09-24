@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useReactFlow, getNodesBounds } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { computeFitPadding } from '../utils/computeFitPadding'
-import { excludeNonModelNodes, fitFrameNodes } from '../utils/fitTargets'
+import { excludeNonModelNodes, userFitNodes } from '../utils/fitTargets'
 import { paddingToInsets, readFocusCamera, topAnchoredViewportWhenClamped } from '../utils/cameraComfort'
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
@@ -163,8 +163,8 @@ export function useFitViewOnLayoutVersion(): void {
      */
     // A frame of prompts alone frames nothing the user owns — with no model
     // node the fit falls back exactly as it did before (xyflow's fit-all).
-    const all = getNodesRef.current ? getNodesRef.current() : []
-    const nodes = excludeNonModelNodes(all).length > 0 ? fitFrameNodes(all) : []
+    // One helper for the landing fit and every user-invoked fit (S5).
+    const nodes = userFitNodes(getNodesRef.current ? getNodesRef.current() : [])
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
 
