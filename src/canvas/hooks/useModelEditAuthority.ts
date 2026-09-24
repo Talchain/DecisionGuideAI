@@ -414,7 +414,15 @@ export interface ModelEditAuthorityLive {
       ) => void
     },
   ) => 'dispatched' | 'not_encodable'
-  proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
+  proposeFactorValue: (
+    typedValue: number,
+    /**
+     * Reports how the dispatched send settled (`settleSystemEventSend`), so a
+     * surface can say "Not saved" on a refusal instead of guessing. Called
+     * only on the `'dispatched'` path, exactly once.
+     */
+    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+  ) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
    *
@@ -565,7 +573,10 @@ export function useModelEditAuthority(
   }, [activeNodeId, dispatchAction, sendSystemEvent])
 
   const proposeFactorValue = useCallback(
-    (typedValue: number): FactorValueProposalOutcome => {
+    (
+      typedValue: number,
+      opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+    ): FactorValueProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
       const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
       if (!node) return 'not_encodable'
@@ -665,12 +676,14 @@ export function useModelEditAuthority(
       settleSystemEventSend(
         dispatch(event, undo ? { optimisticFactorEdit: undo } : undefined),
         (settlement) => {
-          if (settlement !== 'blocked') return
-          // Never admitted, so the receipt that would have earned the stamp is
-          // never coming. Apply the local stamp this write withheld, so the
-          // number is at least truthfully the user's own — the same branch the
-          // no-dispatcher case above takes, for the same reason.
-          mutations.setObservedValue(modelValue, rawMagnitude, USER_VALUE_STAMP)
+          if (settlement === 'blocked') {
+            // Never admitted, so the receipt that would have earned the stamp is
+            // never coming. Apply the local stamp this write withheld, so the
+            // number is at least truthfully the user's own — the same branch the
+            // no-dispatcher case above takes, for the same reason.
+            mutations.setObservedValue(modelValue, rawMagnitude, USER_VALUE_STAMP)
+          }
+          opts?.onSendSettled?.(settlement)
         },
       )
       return 'dispatched'

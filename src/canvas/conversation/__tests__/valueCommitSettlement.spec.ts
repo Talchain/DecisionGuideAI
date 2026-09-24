@@ -67,9 +67,9 @@ describe('didValueCommitRevert', () => {
 })
 
 describe('VALUE_COMMIT_SETTLEMENT_COPY', () => {
-  it('the three words are three different sentences', () => {
+  it('the four words are four different sentences', () => {
     const said = new Set(Object.values(VALUE_COMMIT_SETTLEMENT_COPY).map((c) => c.message))
-    expect(said.size).toBe(3)
+    expect(said.size).toBe(4)
   })
 
   it('role=alert ONLY on not_applied — the one confirmed fact, never the two uncertain ones', () => {

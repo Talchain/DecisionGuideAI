@@ -23,7 +23,7 @@
  */
 
 /** Every settlement word a value-commit editor may show after a dispatch. */
-export type ValueCommitSettlementWord = 'saving' | 'not_applied' | 'unconfirmed'
+export type ValueCommitSettlementWord = 'saving' | 'not_applied' | 'unconfirmed' | 'local_only'
 
 /**
  * Did an optimistic write REVERT?
@@ -83,6 +83,11 @@ export const VALUE_COMMIT_SETTLEMENT_COPY: Record<
   },
   unconfirmed: {
     message: 'Could not confirm. It may not have reached the model.',
+    role: 'status',
+  },
+  /** The busy lock refused the send: nothing reached the server. */
+  local_only: {
+    message: 'Saved on this device only — not sent to the model yet.',
     role: 'status',
   },
 }
