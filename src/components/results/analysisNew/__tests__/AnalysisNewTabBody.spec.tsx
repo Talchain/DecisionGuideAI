@@ -249,17 +249,12 @@ describe('F · the three scenario classes (§24F)', () => {
     // moves "What would change your mind" into "Challenge the thinking", which
     // sits ABOVE the answer zone. So prominence is now: inside that zone, and
     // before the glance and the figures.
-    // ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026): the full section
-    // now follows the answer, closed. Prominence is carried at rest by the
-    // Challenge zone's signal rows — the fragile assumption is named there,
-    // above the answer — and by the provisional qualifier under the chart.
     const challenge = screen.getByTestId('analysis-new-zone-also-group')
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    const signals = within(challenge).getByTestId('analysis-new-signals')
-    expect(signals, 'the fragile assumption is named in the challenge, at rest').toHaveTextContent('Customer adoption')
+    expect(challenge).toContainElement(sensitivity)
     expect(
-      Boolean(challenge.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING),
-      'the challenge that names the sensitive assumption sits above the answer it qualifies',
+      Boolean(sensitivity.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING),
+      'the sensitive assumption must sit above the answer it qualifies',
     ).toBe(true)
 
     const body = screen.getByTestId('analysis-new-tab-body')
@@ -955,28 +950,21 @@ describe('"What would change your mind" — its place on the tab (V2: in "Challe
    * order, with the same three-distinct-elements precondition, so neither
    * ordering claim can hold vacuously and a move back REDs by name.
    */
-  /**
-   * ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026). The full section
-   * stood in "Challenge the thinking", above the answer; with the amber box and
-   * "Focus now" it pushed the options chart below the fold on served
-   * `c5000550`. The CHALLENGE still comes before the answer — its signal rows
-   * carry the fragile assumption at rest — and the full, closed section now
-   * follows the answer it explains (`theAnswerIsOnTheFirstScreen.spec.tsx`).
-   */
-  it('V2: the challenge comes before the answer; the full section follows it', () => {
+  it('V2: sits in "Challenge the thinking" — below the model-wide review, above the glance', () => {
     renderBody(withLeaderLicensed(manyFragileEdges()))
 
     const review = screen.getByTestId('analysis-new-review')
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
     const glance = screen.getByTestId('analysis-new-glance')
-    const challenge = screen.getByTestId('analysis-new-zone-also-group')
-    // PRECONDITION, PINNED IN-TEST: four distinct elements.
-    expect(new Set([review, sensitivity, glance, challenge]).size).toBe(4)
+    // PRECONDITION, PINNED IN-TEST: three distinct elements.
+    expect(new Set([review, sensitivity, glance]).size).toBe(3)
 
-    expect(before(review, challenge), 'the model-wide review comes first').toBe(true)
-    expect(before(challenge, glance), 'the challenge is read before the answer').toBe(true)
-    expect(challenge, 'the full section no longer sits in the challenge zone').not.toContainElement(sensitivity)
-    expect(before(glance, sensitivity), 'the full section follows the answer it explains').toBe(true)
+    expect(screen.getByTestId('analysis-new-zone-also-group')).toContainElement(sensitivity)
+    expect(before(review, sensitivity), 'the model-wide review comes first').toBe(true)
+    expect(
+      before(sensitivity, glance),
+      'what would change your mind challenges the thinking before the answer is read',
+    ).toBe(true)
   })
 
   it('leaves "Uncertainty and gaps" BELOW it, and no longer carrying the same rows', () => {

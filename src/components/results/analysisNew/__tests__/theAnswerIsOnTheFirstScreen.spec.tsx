@@ -17,8 +17,9 @@
  *
  * ── WHAT THIS PINS ─────────────────────────────────────────────────────────
  * 1. Nothing that is DETAIL sits between the challenge and the answer: the
- *    drivers section, "What would change your mind" and the "Focus now" nudges
- *    all come after the commitment block.
+ *    drivers section and the "Focus now" nudges come after the commitment
+ *    block. "What would change your mind" is the challenge itself and stays
+ *    above it (review 5818389086).
  * 2. No amber caveat box renders above the model; its entries are listed under
  *    About › Limitations instead.
  * 3. One provisional qualifier sits under the chart, before "Record your view",
@@ -88,16 +89,24 @@ describe('the provisional answer is on the first screen', () => {
     expect(precedes(challenge, commitment), 'challenge, then the answer').toBe(true)
     expect(within(commitment).getByTestId('analysis-new-options')).toBe(options)
 
-    // The detail that used to push the chart below the fold now follows it.
-    for (const id of ['analysis-new-what-moves-the-outcome', 'analysis-new-sensitivity']) {
-      const el = screen.queryByTestId(id)
-      if (el === null) continue
-      expect(challenge, `${id} must not sit inside the challenge zone`).not.toContainElement(el)
-      expect(precedes(commitment, el), `${id} must come after the answer`).toBe(true)
+    // The drivers detail that used to push the chart below the fold now follows
+    // it — bounded: inside the answer zone, never sunk to the foot of the tab.
+    const whatMoves = screen.getByTestId('analysis-new-what-moves-the-outcome')
+    const answer = screen.getByTestId('analysis-new-zone-answer-group')
+    expect(challenge, 'the drivers detail left the challenge zone').not.toContainElement(whatMoves)
+    expect(answer, 'it follows the answer, inside the answer zone').toContainElement(whatMoves)
+    expect(precedes(commitment, whatMoves), 'after the commitment block').toBe(true)
+
+    // "What would change your mind" is the challenge to the answer: it stays
+    // in the challenge zone, above the answer, wherever it renders.
+    const sensitivity = screen.queryByTestId('analysis-new-sensitivity')
+    if (sensitivity !== null) {
+      expect(challenge).toContainElement(sensitivity)
+      expect(precedes(sensitivity, commitment), 'the challenge is read before the answer').toBe(true)
     }
     const focus = screen.queryByTestId('analysis-new-zone-focus-group')
     if (focus !== null) {
-      expect(precedes(commitment, focus), '"Focus now" nudges come after the answer').toBe(true)
+      expect(precedes(answer, focus), '"Focus now" nudges come after the answer').toBe(true)
     }
   })
 
@@ -194,8 +203,8 @@ describe('every clause of the qualifier is a fact the view model already states'
     const vm = base()
     const one = { ...vm, deeper: { ...vm.deeper, critiques: [], caveats: [vm.deeper.caveats[0] ?? ({} as never)] } }
     const none = { ...vm, deeper: { ...vm.deeper, critiques: [], caveats: [] } }
-    expect(buildCommitmentQualifier(one)).toMatch(/1 limitation in About/)
-    expect(buildCommitmentQualifier(none) ?? '').not.toMatch(/limitation/)
+    expect(buildCommitmentQualifier(one)).toMatch(/1 caveat in About/)
+    expect(buildCommitmentQualifier(none) ?? '').not.toMatch(/caveat/)
   })
 
   it('renders nothing before a run', () => {

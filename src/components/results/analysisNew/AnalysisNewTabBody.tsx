@@ -2082,6 +2082,160 @@ export function AnalysisNewTabBody({
         {/* V2: the detail behind the challenge signals — the full driver
             section and "What would change your mind" — lives in this zone,
             closed, instead of in the answer zone. Post-run only, as before. */}
+        {/* ⭐ "WHAT WOULD CHANGE YOUR MIND" STAYS IN THE CHALLENGE (review of
+            #1946, 5818389086). On a run allowed to name a leader it IS the
+            challenge to that answer, and it must be read before the answer —
+            the prototype keeps it inside "Challenge the thinking" too. Only
+            "What moves the outcome" moved below the answer. */}
+        {vm.status.isPreRun ? null : (
+        <>
+        {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
+            ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
+            Witnessed on staging `e685dafa`: the single most decision-relevant
+            sentence this product emits —
+
+              "If \"Bottom-Up Adoption Friction → Bottom-Up Adoption Rate\"
+               changes significantly, \"A Full Switch at Renewal\" could become
+               the better choice"
+
+            — rendered inside "Uncertainty and gaps", a heading that reads as a
+            list of caveats. Meanwhile "How the options compare", which restates
+            the headline, had a section of its own higher up. That is an
+            inverted information architecture, and this is the correction.
+
+            ⚠ ABOVE THE COACHING, DELIBERATELY, AND IT DOES NOT CONTRADICT THE
+            NOTE BELOW. That note's rule is WHAT HAPPENED → WHAT TO DO → THE
+            DETAIL. "What would change your mind" is the last half of what
+            happened, not the first half of what to do: it is a property of the
+            result the glance just stated, and the coaching that follows is a
+            response to BOTH. Placed under the coaching it would be detail
+            again, which is where it came from.
+
+            ⚠⚠ `emptyMessage={null}` IS THE GATE, AND IT IS THE WHOLE OF IT.
+            An empty list here cannot distinguish "nothing would flip this" from
+            "the run did not test it", and only one of those is reassurance —
+            so the section must be ABSENT rather than empty. `AnalysisNewSection`
+            already owns that rule (`findings.length === 0 && !emptyMessage`
+            returns null, §19), so a `length > 0` conditional at this mount was
+            REDUNDANT — and a mutant proved it: deleting it left all 59 tests
+            green. Dead code shaped like a safety gate is worse than none, because
+            it tells the next reader the mount decides when the section does.
+            The mutant that bites is giving this an emptyMessage.
+
+            ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
+            carries them. A reader meeting one sentence in two sections is a
+            defect this panel has already shipped.
+
+            ⛔⛔ LEADER-GATED AS A WHOLE — 24 Sep 2026, witnessed live (UI
+            `3cf9fbd0`, OpenAI path, scenario `aca54686`). With `leader_claim
+            {permitted: false, producer_cause: 'constraint_verdict_withheld'}`
+            this section still read: *Bars show how often a different option
+            was stronger in the runs where that assumption came out weak. /
+            Enterprise price → MRR / If this changes significantly, "Raise Pro
+            to £59" could lead in this model / 24%*. "Could lead" and "a
+            different option was stronger" both presuppose a current leader —
+            the order this run refused to state. #1933 withheld the glance's
+            "Could change if" and the hinge line for exactly that; the header
+            above was already gated on `leaderClaimPermitted`. The rows were the
+            one place left saying it.
+
+            ⚠ THE WHOLE SECTION, NOT THE SENTENCE, AND THAT IS NOT CAUTION FOR
+            ITS OWN SAKE. Every row here is a fragile edge — a relationship
+            whose weakening SWITCHES THE RECOMMENDED OPTION (`switch_probability`
+            is defined that way), so the row, its bar and the caption are all
+            statements about a leader. Blanking `implication` alone would not
+            hold: on a set whose rows cannot be titled, the row's HEADLINE is
+            that same sentence, cut, alternative included. And the header is
+            already empty on this run, so what would remain is a heading over
+            relationship names whose only meaning is the withheld comparison.
+            The rule is the same one `sensitivityHeaderTips` follows, one level
+            up: no leader licence, nothing that speaks relative to a leader —
+            and no heading left over nothing. */}
+
+        {vm.leaderClaimPermitted ? (
+        <AnalysisNewSection
+          title={COPY.sections.sensitivity}
+          findings={sensitivityFindings}
+          /* ⭐⭐ THE SHARED CONCLUSION, SAID ONCE, ABOVE THE ROWS THAT SAY IT
+             THREE TIMES.
+
+             ⛔ A DE-DUPLICATION, NOT A NEW CLAIM, and that is the entitlement
+             argument in full: every row below already names this option inside
+             the producer's own sentence, so stating it once above them is
+             strictly LESS assertion than the section already makes. The view
+             model decides WHETHER it may be said (all rows agree, by id, and
+             none unnamed); this slot only renders it.
+
+             ⚠ THE EXISTING `header` SLOT, not a new prop. `AnalysisNewSection`
+             is shared by four sections, and a `convergence` prop on the shared
+             component would be a field three of them can never fill — the
+             shape that invites a fourth caller to fill it with something
+             else. */
+          /* ⛔ V2: LEADER-GATED, AND THE FIRST TIPPING POINT HAS ONE OWNER.
+             Both sentences presuppose a current leader ("…before <option>
+             leads", "…towards <option>"), so on a run whose leader claim is
+             withheld they are the panel naming an order it may not state (the
+             rule #1881 applies to its own leader words; DATA-MAP truth risk 1).
+             And the first tipping point is already the Challenge signals row,
+             so this header carries only the rest — otherwise a header-only
+             section opened itself and put the same sentence on screen twice. */
+          header={
+            sensitivityConvergence || sensitivityHeaderTips.length > 0 ? (
+              <>
+                {sensitivityConvergence ? (
+                  <p
+                    className={`${typography.panelBody} text-text-body`}
+                    data-testid="analysis-new-sensitivity-convergence"
+                  >
+                    {COPY.disclosure.convergence(sensitivityConvergence.label)}
+                  </p>
+                ) : null}
+                {/* ⭐ THE THRESHOLD THE RUN FOUND, STATED. This array reached the
+                    store already and this surface read it only through
+                    `attestsNoFactorFlip` — the NEGATIVE attestation — so a row
+                    the producer marked `found` rendered nowhere. Every number
+                    and both names are the producer's; see `tippingPoints.ts`
+                    for why the gate is `flip_reason` and not a non-null value. */}
+                {sensitivityHeaderTips.map((t) => (
+                  <p
+                    key={`${t.factorLabel}:${t.flipValue}`}
+                    className={`${typography.panelBody} text-text-body`}
+                    data-testid="analysis-new-sensitivity-tipping-point"
+                  >
+                    {COPY.disclosure.tippingPoint(
+                      t.factorLabel,
+                      t.currentValue,
+                      t.flipValue,
+                      t.alternativeLabel,
+                      t.unit,
+                    )}
+                  </p>
+                ))}
+              </>
+            ) : null
+          }
+          /* ⭐ THE COLUMN'S CAPTION, SAID ONCE — and gated on there BEING a
+             column. A caption describing bars renders only where at least one
+             row drew one; on a run whose rows carry no measurement it would be
+             furniture describing nothing, which is the same defect as the
+             per-row label it replaces, one level up. */
+          caveat={
+            sensitivityFindings.some((f) => f.flipFraction !== undefined)
+              ? COPY.disclosure.flipCaption
+              : null
+          }
+          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
+          emptyMessage={null}
+          onFocusTarget={focusTarget}
+          onReviewTarget={onReviewTarget}
+          onRunIntervention={runIntervention}
+          onAskOlumi={askOlumiAbout}
+          icon={GitBranch}
+          testId="analysis-new-sensitivity"
+        />
+        ) : null}
+        </>
+        )}
         </div>
         {vm.status.isPreRun ? null : (
         <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
@@ -2300,14 +2454,14 @@ export function AnalysisNewTabBody({
           testId="analysis-new-held-up"
         />
 
-        {/* ── THE DETAIL, AFTER THE ANSWER (Reasoning V2, 24 Sep 2026) ────────
-            "What moves the outcome" and "What would change your mind" stood in
-            the Challenge zone, above the answer. Both are closed at rest, but
-            their two header rows plus the zone gap were 133px of the 351px that
-            put the options chart below the fold on served `c5000550`. The
-            prototype keeps this detail behind a closed disclosure and goes
-            straight from the challenge to "Move towards commitment"; here it
-            follows the answer it explains, still closed, still post-run only. */}
+        {/* ── WHAT MOVES THE OUTCOME, AFTER THE ANSWER (Reasoning V2, 24 Sep 2026)
+            It stood in the Challenge zone, above the answer: closed at rest, but
+            its header row plus the zone gap were part of what put the options
+            chart below the fold on served `c5000550`. What the answer turns on
+            is still read FIRST — the challenge's "Top drivers" signal rows — and
+            the full chart (drivers, value of information, receipts) follows the
+            answer it explains, still closed, still post-run only. "What would
+            change your mind" did NOT move: it stays in the challenge. */}
         {vm.status.isPreRun ? null : (
         <>
         {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
@@ -2479,151 +2633,6 @@ export function AnalysisNewTabBody({
 
           {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
           </SectionShell>
-        ) : null}
-        {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
-            ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
-            Witnessed on staging `e685dafa`: the single most decision-relevant
-            sentence this product emits —
-
-              "If \"Bottom-Up Adoption Friction → Bottom-Up Adoption Rate\"
-               changes significantly, \"A Full Switch at Renewal\" could become
-               the better choice"
-
-            — rendered inside "Uncertainty and gaps", a heading that reads as a
-            list of caveats. Meanwhile "How the options compare", which restates
-            the headline, had a section of its own higher up. That is an
-            inverted information architecture, and this is the correction.
-
-            ⚠ ABOVE THE COACHING, DELIBERATELY, AND IT DOES NOT CONTRADICT THE
-            NOTE BELOW. That note's rule is WHAT HAPPENED → WHAT TO DO → THE
-            DETAIL. "What would change your mind" is the last half of what
-            happened, not the first half of what to do: it is a property of the
-            result the glance just stated, and the coaching that follows is a
-            response to BOTH. Placed under the coaching it would be detail
-            again, which is where it came from.
-
-            ⚠⚠ `emptyMessage={null}` IS THE GATE, AND IT IS THE WHOLE OF IT.
-            An empty list here cannot distinguish "nothing would flip this" from
-            "the run did not test it", and only one of those is reassurance —
-            so the section must be ABSENT rather than empty. `AnalysisNewSection`
-            already owns that rule (`findings.length === 0 && !emptyMessage`
-            returns null, §19), so a `length > 0` conditional at this mount was
-            REDUNDANT — and a mutant proved it: deleting it left all 59 tests
-            green. Dead code shaped like a safety gate is worse than none, because
-            it tells the next reader the mount decides when the section does.
-            The mutant that bites is giving this an emptyMessage.
-
-            ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
-            carries them. A reader meeting one sentence in two sections is a
-            defect this panel has already shipped.
-
-            ⛔⛔ LEADER-GATED AS A WHOLE — 24 Sep 2026, witnessed live (UI
-            `3cf9fbd0`, OpenAI path, scenario `aca54686`). With `leader_claim
-            {permitted: false, producer_cause: 'constraint_verdict_withheld'}`
-            this section still read: *Bars show how often a different option
-            was stronger in the runs where that assumption came out weak. /
-            Enterprise price → MRR / If this changes significantly, "Raise Pro
-            to £59" could lead in this model / 24%*. "Could lead" and "a
-            different option was stronger" both presuppose a current leader —
-            the order this run refused to state. #1933 withheld the glance's
-            "Could change if" and the hinge line for exactly that; the header
-            above was already gated on `leaderClaimPermitted`. The rows were the
-            one place left saying it.
-
-            ⚠ THE WHOLE SECTION, NOT THE SENTENCE, AND THAT IS NOT CAUTION FOR
-            ITS OWN SAKE. Every row here is a fragile edge — a relationship
-            whose weakening SWITCHES THE RECOMMENDED OPTION (`switch_probability`
-            is defined that way), so the row, its bar and the caption are all
-            statements about a leader. Blanking `implication` alone would not
-            hold: on a set whose rows cannot be titled, the row's HEADLINE is
-            that same sentence, cut, alternative included. And the header is
-            already empty on this run, so what would remain is a heading over
-            relationship names whose only meaning is the withheld comparison.
-            The rule is the same one `sensitivityHeaderTips` follows, one level
-            up: no leader licence, nothing that speaks relative to a leader —
-            and no heading left over nothing. */}
-
-        {vm.leaderClaimPermitted ? (
-        <AnalysisNewSection
-          title={COPY.sections.sensitivity}
-          findings={sensitivityFindings}
-          /* ⭐⭐ THE SHARED CONCLUSION, SAID ONCE, ABOVE THE ROWS THAT SAY IT
-             THREE TIMES.
-
-             ⛔ A DE-DUPLICATION, NOT A NEW CLAIM, and that is the entitlement
-             argument in full: every row below already names this option inside
-             the producer's own sentence, so stating it once above them is
-             strictly LESS assertion than the section already makes. The view
-             model decides WHETHER it may be said (all rows agree, by id, and
-             none unnamed); this slot only renders it.
-
-             ⚠ THE EXISTING `header` SLOT, not a new prop. `AnalysisNewSection`
-             is shared by four sections, and a `convergence` prop on the shared
-             component would be a field three of them can never fill — the
-             shape that invites a fourth caller to fill it with something
-             else. */
-          /* ⛔ V2: LEADER-GATED, AND THE FIRST TIPPING POINT HAS ONE OWNER.
-             Both sentences presuppose a current leader ("…before <option>
-             leads", "…towards <option>"), so on a run whose leader claim is
-             withheld they are the panel naming an order it may not state (the
-             rule #1881 applies to its own leader words; DATA-MAP truth risk 1).
-             And the first tipping point is already the Challenge signals row,
-             so this header carries only the rest — otherwise a header-only
-             section opened itself and put the same sentence on screen twice. */
-          header={
-            sensitivityConvergence || sensitivityHeaderTips.length > 0 ? (
-              <>
-                {sensitivityConvergence ? (
-                  <p
-                    className={`${typography.panelBody} text-text-body`}
-                    data-testid="analysis-new-sensitivity-convergence"
-                  >
-                    {COPY.disclosure.convergence(sensitivityConvergence.label)}
-                  </p>
-                ) : null}
-                {/* ⭐ THE THRESHOLD THE RUN FOUND, STATED. This array reached the
-                    store already and this surface read it only through
-                    `attestsNoFactorFlip` — the NEGATIVE attestation — so a row
-                    the producer marked `found` rendered nowhere. Every number
-                    and both names are the producer's; see `tippingPoints.ts`
-                    for why the gate is `flip_reason` and not a non-null value. */}
-                {sensitivityHeaderTips.map((t) => (
-                  <p
-                    key={`${t.factorLabel}:${t.flipValue}`}
-                    className={`${typography.panelBody} text-text-body`}
-                    data-testid="analysis-new-sensitivity-tipping-point"
-                  >
-                    {COPY.disclosure.tippingPoint(
-                      t.factorLabel,
-                      t.currentValue,
-                      t.flipValue,
-                      t.alternativeLabel,
-                      t.unit,
-                    )}
-                  </p>
-                ))}
-              </>
-            ) : null
-          }
-          /* ⭐ THE COLUMN'S CAPTION, SAID ONCE — and gated on there BEING a
-             column. A caption describing bars renders only where at least one
-             row drew one; on a run whose rows carry no measurement it would be
-             furniture describing nothing, which is the same defect as the
-             per-row label it replaces, one level up. */
-          caveat={
-            sensitivityFindings.some((f) => f.flipFraction !== undefined)
-              ? COPY.disclosure.flipCaption
-              : null
-          }
-          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
-          emptyMessage={null}
-          onFocusTarget={focusTarget}
-          onReviewTarget={onReviewTarget}
-          onRunIntervention={runIntervention}
-          onAskOlumi={askOlumiAbout}
-          icon={GitBranch}
-          testId="analysis-new-sensitivity"
-        />
         ) : null}
         </>
         )}

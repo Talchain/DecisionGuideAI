@@ -258,8 +258,9 @@ export function CommitmentSummary({
         </div>
       ) : null}
 
-      {/* Under the chart, never above it, and only where there is a chart to
-          qualify. Neutral ink: the words carry the caution, not an amber box. */}
+      {/* Directly under the comparison slot, never above it (it renders only
+          beside that slot). Neutral ink: the words carry the caution, not an
+          amber box. */}
       {hasSlot && qualifier ? (
         <p
           className={`${typography.panelMeta} text-text-light m-0 mt-1.5 flex items-center gap-1`}

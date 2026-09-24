@@ -26,7 +26,7 @@ export const COMMITMENT_QUALIFIER_COPY = {
   partlyEstimated: "rests partly on Olumi's estimates, not yet confirmed",
   evidenceNotAssessed: 'evidence not assessed',
   robustnessNotEstablished: 'robustness not established',
-  limitations: (n: number): string => `${n} ${n === 1 ? 'limitation' : 'limitations'} in About`,
+  caveats: (n: number): string => `${n} ${n === 1 ? 'caveat' : 'caveats'} in About`,
 } as const
 
 type QualifierInput = Pick<AnalysisNewViewModel, 'status' | 'atAGlance' | 'checks' | 'deeper'>
@@ -50,7 +50,7 @@ export function buildCommitmentQualifier(vm: QualifierInput): string | null {
   // are listed in About › Limitations; the count keeps them visible at rest,
   // beside the chart, so moving them there never hides that they exist.
   const limitations = vm.deeper.critiques.length + vm.deeper.caveats.length
-  if (limitations > 0) clauses.push(COMMITMENT_QUALIFIER_COPY.limitations(limitations))
+  if (limitations > 0) clauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
 
   if (clauses.length === 0) return null
   return [COMMITMENT_QUALIFIER_COPY.lead, ...clauses].join(' · ')
