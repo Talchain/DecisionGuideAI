@@ -120,47 +120,57 @@ const FACTOR_DATA = {
 
 const OPTION_DATA = { label: 'Expand to EU', type: 'option' }
 
-describe('the `quiet` rung is created, not spent — a card renders identically to `full`', () => {
+describe('the `quiet` rung spends only the rail (S5) — the card still says exactly what `full` says', () => {
   beforeEach(() => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       (selector as (s: unknown) => unknown)(makeStoreState() as never),
     )
   })
 
-  it('factor: quiet === full, and line differs (the control)', () => {
-    const node = <FactorNode {...baseProps} id="factor-1" data={FACTOR_DATA} />
+  /**
+   * ⭐ S5 (24 Sep 2026) SPENDS `quiet` — ON PURPOSE, AND ON ONE THING ONLY: THE
+   * QUICK-ACTION BAND.
+   *
+   * This file pinned "quiet renders byte-identically to full" for the refactor
+   * that CREATED the rung. The contract has since given the rung a job (v3.1:
+   * "Far zoom: readable identity and a simple attention cue"; pt 6: the
+   * coaching icon hides at quiet, and the HOVER row is the landing-rung ask
+   * door). S5 measured the band reserved under every repeated card as the
+   * largest term in the graph's height at the landing zoom, so at `quiet` the
+   * card reserves no band and the hover row is drawn BELOW the card. NOTHING
+   * ELSE may change: the same text, the same testids (the rail included — it is
+   * moved, not removed).
+   */
+  const railPlacement = (html: string) => /data-rail-placement="([a-z]+)"/.exec(html)?.[1] ?? null
+  // jsdom serialises the card's padding as the shorthand; the band is the only
+  // bottom padding written as `calc(6px + 22px * var(--canvas-label-scale…`.
+  const BAND = /calc\(6px \+ 22px \* var\(--canvas-label-scale/
+  const textOf = (html: string) => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent }
+  const testIdsOf = (html: string) => (html.match(/data-testid="[^"]*"/g) ?? []).sort()
 
-    const full = cardHtmlAt('full', node)
-    const quiet = cardHtmlAt('quiet', node)
-    const line = cardHtmlAt('line', node)
+  it.each([
+    ['factor', () => <FactorNode {...baseProps} id="factor-1" data={FACTOR_DATA} />],
+    // A second type, because `lodFacts` is computed for OPTIONS ONLY and takes
+    // its own early-return off the rung. A factor render cannot exercise that
+    // branch, so a mis-pointed rung there would be invisible.
+    ['option', () => <OptionNode {...baseProps} type="option" id="option-1" data={OPTION_DATA} />],
+  ] as const)('%s: quiet moves the rail BELOW and drops its band — same text, same testids; line differs (the control)', (_kind, make) => {
+    const full = cardHtmlAt('full', make())
+    const quiet = cardHtmlAt('quiet', make())
+    const line = cardHtmlAt('line', make())
 
-    expect(
-      quiet,
-      'the `quiet` rung changed what a factor card renders — this PR creates the rung and must not spend it',
-    ).toBe(full)
+    expect(railPlacement(full), 'POSITIVE CONTROL: at full the rail is inside the card').toBe('inset')
+    expect(full, 'POSITIVE CONTROL: at full the card reserves the band').toMatch(BAND)
+    expect(railPlacement(quiet), 'at quiet the hover row must still exist — drawn below the card').toBe('below')
+    expect(quiet, 'at quiet the card still reserves the quick-action band').not.toMatch(BAND)
+    expect(textOf(quiet), 'quiet changed the card TEXT').toBe(textOf(full))
+    expect(testIdsOf(quiet), 'quiet dropped or added an element').toEqual(testIdsOf(full))
 
-    // ⛔ THE CONTROL. Without this, the assertion above passes whenever the rung
+    // ⛔ THE CONTROL. Without this, the assertions above pass whenever the rung
     // is not reaching the component at all.
     expect(
       line,
-      'the `line` rung rendered identically to `full` — the rung is not reaching BaseNode, so the equality above proves nothing',
-    ).not.toBe(full)
-  })
-
-  it('option: quiet === full, and line differs (the control)', () => {
-    // A second type, because `lodFacts` is computed for OPTIONS ONLY and takes
-    // its own early-return off the rung. A factor render cannot exercise that
-    // branch, so a mis-pointed rung there would be invisible above.
-    const node = <OptionNode {...baseProps} type="option" id="option-1" data={OPTION_DATA} />
-
-    const full = cardHtmlAt('full', node)
-    const quiet = cardHtmlAt('quiet', node)
-    const line = cardHtmlAt('line', node)
-
-    expect(quiet, 'the `quiet` rung changed what an option card renders').toBe(full)
-    expect(
-      line,
-      'the `line` rung rendered identically to `full` on an option — the rung is not reaching the option branch',
+      'the `line` rung rendered identically to `full` — the rung is not reaching BaseNode, so the comparisons above prove nothing',
     ).not.toBe(full)
   })
 

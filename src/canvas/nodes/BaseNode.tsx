@@ -23,6 +23,7 @@ import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
@@ -355,6 +356,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * would come to disagree (trap 21).
    */
   const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
+  const atNormalZoom = useCanvasStore(selectRestingGlyphsShown)
   /**
    * ⭐⭐⭐ THE LENS, NOT THE CAMERA, DECIDES DETAIL AT `quiet`.
    *
@@ -1066,6 +1068,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // are real; what differs is their ROLE. Naming them apart is the fix — trap
   // 21, two questions under one name.
   const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
+  //
+  // ⭐ S5 (24 Sep): THE BAND IS RESERVED ONLY AT NORMAL ZOOM. Below it
+  // (`quiet`, where every laptop lands — the fit floors at 0.5) the contract's
+  // far-zoom rung is "readable identity and a simple attention cue", the
+  // coaching icon and resting glyphs are already off the card (v3.1 pt 6,
+  // `selectRestingGlyphsShown`), and what remains is the HOVER row — point 6's
+  // landing-rung ask door, which must stay. So at `quiet` the row is drawn
+  // BELOW the card, over the row gap (`placement="below"`), and the card no
+  // longer reserves 22px × scale + 6px for it. MEASURED on the S3+S4 build at
+  // the landing scale: that band was 50 units under EVERY repeated card, the
+  // largest single term in the graph's height at 1280×800 and 1440×900 with
+  // the panel open. Height safety: at `full` the band returns at ≤ 22px ×
+  // 1.51 + 6px while the content shrinks from scale 2 to ≤ 1.51 — captured per
+  // node on all five starters, no card is taller at Normal zoom than at the
+  // landing rung. The anchors (Question, Goal) keep their rail BESIDE the last
+  // row at every rung: it costs width, not height.
+  const quickActionBandReserved = showQuickActions && atNormalZoom
 
   /**
    * ⭐⭐⭐ THE KIND HUE STAYS. "NEEDS YOUR JUDGEMENT" IS A BADGE (Paul, 8 Sep 2026).
@@ -1234,7 +1253,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     if (anchorRailBeside) {
       return { paddingTop: '11px', paddingRight: side, paddingBottom: '9px', paddingLeft: side }
     }
-    if (showQuickActions) {
+    if (quickActionBandReserved) {
       const band = padAdj === 0
         ? NODE_QUICK_ACTION_BAND_CSS
         : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
@@ -1445,6 +1464,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           nodeId={id}
           nodeType={nodeType}
           label={label}
+          placement={atNormalZoom || isAnchorCard ? 'inset' : 'below'}
           alwaysVisible={selected === true}
           coaching={coaching}
           restingIcons={
