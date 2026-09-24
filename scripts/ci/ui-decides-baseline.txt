@@ -79,7 +79,9 @@ src/types/constraints.ts:78
 #    scanner's `isSelfObservation` cannot see through a function parameter.
 #    (`store.ts:7878` -> `7884` above is a pure line shift from #1921's six
 #    added lines in `resultsWithholdLeaderClaim`; the line text is identical.)
-#    (V2 #1925: `analysisNewCopy.ts:2433` -> `2440` is a pure line shift from
-#    #1922's seven added lines above this site; line text `: topFigurePercent
-#    === 100` is identical. No new site.)
+#    (`analysisNewCopy.ts:2433` -> `2440`, and the docblock range above by the
+#    same +7, is a pure line shift from #1922's seven added lines —
+#    `optionFigures.goalOnlyQualifier` and its docblock, above this site — when
+#    #1921 and #1922 meet; the line text `: topFigurePercent === 100` is
+#    identical. No new site: the scanner's added/gone sets are otherwise empty.)
 src/components/results/analysisNew/analysisNewCopy.ts:2440

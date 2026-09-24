@@ -24,6 +24,11 @@
  *   - Only analysis-producing CEE turns are candidates (the caller
  *     falls back to `findBestPayload` when this returns `undefined`,
  *     so non-analysis V5 / V1 turns still surface honestly).
+ *   - IDENTITY OUTRANKS EVERYTHING (24 Sep): the turn whose response
+ *     delivered the DISPLAYED analysis — its first `analysis_result`
+ *     block hashes to `results.hash` under the store's own derivation —
+ *     is selected regardless of request type. See
+ *     `locateDisplayedAnalysisTurn`.
  *   - Soft hash matching: a match against `results.hash` is a strong
  *     preference but a missing hash on either side NEVER disqualifies
  *     a candidate.
@@ -44,6 +49,7 @@
  * site.
  */
 import type { TraceCapture } from './payload-trace-store'
+import { v5AnalysisBlockContentHash } from '../v5/mapV5AnalysisToReport'
 
 export interface SelectorTracedPayload {
   capture?: TraceCapture
@@ -114,6 +120,14 @@ export { V5_TURN_ENDPOINT_PATTERN } from './v5TraceMatching'
  * context_hash.
  */
 export type ResponseHashSource =
+  /**
+   * The first `analysis_result` block in the V5 turn's response, hashed
+   * with the SAME derivation the store uses for `results.hash`
+   * (`v5AnalysisBlockContentHash`). Reported only when that content
+   * hash equals the displayed `results.hash` — i.e. when the trace is
+   * bound to the analysis the panels render by identity.
+   */
+  | 'body_blocks_analysis_result_content_hash'
   | 'body_root_response_hash'
   | 'body_meta_response_hash'
   | 'body_analysis_state_meta_response_hash'
@@ -193,6 +207,12 @@ export interface AnalysisProducingSelectionResult {
   selected_trace_id: string | null
   /** Ranking + fallback diagnostics — see `SelectionDiagnostics`. */
   selection_diagnostics: SelectionDiagnostics
+  /**
+   * Where the DISPLAYED analysis (`results.hash`) sits in the captured
+   * V5 turns, independent of which turn was selected. See
+   * `locateDisplayedAnalysisTurn`.
+   */
+  displayed_analysis: DisplayedAnalysisLocation
 }
 
 // Round-4 review (IMP): service + endpoint matching now lives in the
@@ -398,6 +418,162 @@ export function readScenarioId(p: SelectorTracedPayload): string | null {
   return typeof sid === 'string' && sid.length > 0 ? sid : null
 }
 
+// ─── Displayed-analysis identity ────────────────────────────────────────
+//
+// ⭐ WHY THIS EXISTS (Paul's exports 2f1b374e / a390efd9, 24 Sep, UI a4434670).
+// Both bundles pinned `payloads.cee_*` to an EARLIER typed Run that CEE
+// REFUSED (`blocks: []`, run state `never_run`) while the panels showed a
+// LATER successful analysis delivered by a free-text approval turn. Two
+// defects combined:
+//   1. Candidacy was decided by the REQUEST (`chip.action_type`), so the
+//      free-text turn that actually carried the `analysis_result` block was
+//      never a candidate.
+//   2. The only identity signal compared the producer's response hash
+//      (`x-olumi-response-hash`, e.g. `27a55f9443c5`) with `results.hash` —
+//      but on the V5 path `results.hash` is the store's LOCAL content hash of
+//      the block (`v5:…`, `mapV5AnalysisToReport` → `deriveBlockHash`). The two
+//      are different identities and can never be equal, so every V5 analysis
+//      export read `hash_match_status: "mismatched"` whether or not the right
+//      turn was selected, and recency decided.
+// The empty refused payload was then read as "no card / coaching rendered".
+//
+// The fix binds by IDENTITY: a captured turn carries the displayed analysis
+// iff its first `analysis_result` block hashes, under the store's own
+// derivation, to `results.hash`.
+
+/** How a trace was bound to the DISPLAYED analysis (`results.hash`). */
+export type DisplayedAnalysisMatch =
+  /** First `blocks[]` analysis_result, hashed exactly as the store hashes it. */
+  | 'analysis_result_content_hash'
+  /** A response-hash reading (`readResponseHashWithSource`) equals `results.hash`. */
+  | 'response_hash'
+
+/**
+ * The first `analysis_result` block of a V5 turn response — the block
+ * `applyV5State` hydrates (`response.blocks.find(type === 'analysis_result')`).
+ * Scenario-graph reads are NOT turns and are not read here.
+ */
+function readFirstAnalysisResultBlock(
+  p: SelectorTracedPayload,
+): Record<string, unknown> | null {
+  if (p.capture?.kind === 'scenario_graph_read') return null
+  const body = p.response?.body
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null
+  const blocks = (body as Record<string, unknown>).blocks
+  if (!Array.isArray(blocks)) return null
+  for (const b of blocks) {
+    if (b && typeof b === 'object' && !Array.isArray(b) && (b as Record<string, unknown>).type === 'analysis_result') {
+      return b as Record<string, unknown>
+    }
+  }
+  return null
+}
+
+/**
+ * Content hash of the turn's first `analysis_result` block, using the SAME
+ * derivation as the store's `results.hash` on the V5 path
+ * (`v5AnalysisBlockContentHash` ≡ `mapV5AnalysisToReport(block).model_card.response_hash`).
+ * Null when the response carried no analysis_result block.
+ *
+ * ⚠ Computed over the TRACE-STORE copy, which has been through
+ * `redactPayload` (depth 8 / 100 items / 1,000 chars). A block the redactor
+ * altered hashes differently, so a miss means "not identified in the
+ * capture", never "a different analysis was displayed".
+ */
+export function readAnalysisResultContentHash(p: SelectorTracedPayload): string | null {
+  const block = readFirstAnalysisResultBlock(p)
+  if (block === null) return null
+  return v5AnalysisBlockContentHash(block as unknown as Parameters<typeof v5AnalysisBlockContentHash>[0])
+}
+
+/** True when the turn's response carried an `analysis_result` block at all. */
+export function carriesAnalysisResult(p: SelectorTracedPayload): boolean {
+  return readFirstAnalysisResultBlock(p) !== null
+}
+
+/**
+ * Does this trace carry the analysis the panels display? Content identity
+ * first (the V5 path), then any response-hash reading (legacy/producer and
+ * scenario-read paths, which carry the mapped report hash).
+ */
+export function matchDisplayedAnalysis(
+  p: SelectorTracedPayload,
+  resultsHash: string | null,
+): DisplayedAnalysisMatch | null {
+  if (resultsHash === null || resultsHash.length === 0) return null
+  if (readAnalysisResultContentHash(p) === resultsHash) return 'analysis_result_content_hash'
+  if (readResponseHash(p) === resultsHash) return 'response_hash'
+  return null
+}
+
+export interface DisplayedAnalysisLocation {
+  /** `results.hash` the location was computed against (null = nothing displayed). */
+  readonly results_hash: string | null
+  /** The captured V5 turn that delivered the displayed analysis, when found. */
+  readonly trace: SelectorTracedPayload | undefined
+  readonly trace_id: string | null
+  readonly match: DisplayedAnalysisMatch | null
+  /**
+   * Every captured V5 turn in the same unbroken run that carried this same
+   * analysis, OLDEST first. CEE re-sends a still-fresh prior block on later
+   * turns (`analysisCardDedupe.ts`) and the store dedupes those by this same
+   * hash, so only the OLDEST of the run hydrated the panels — that is `trace`
+   * (for a content-hash match; a producer response-hash match keeps the
+   * legacy most-recent rule).
+   */
+  readonly carrier_trace_ids: readonly string[]
+}
+
+/**
+ * Locate the turn whose response delivered the DISPLAYED analysis.
+ *
+ * Walks V5 turns most-recent first. Turns with no analysis_result block are
+ * skipped. Matching carriers are collected; once at least one has been found,
+ * a carrier of a DIFFERENT analysis ends the run (anything older belongs to an
+ * earlier hydration). Before the first match, a different-analysis carrier is
+ * skipped: the store can refuse a newer block (containment), in which case the
+ * displayed analysis is older than it.
+ */
+export function locateDisplayedAnalysisTurn(
+  payloads: ReadonlyArray<SelectorTracedPayload>,
+  resultsHash: string | null,
+): DisplayedAnalysisLocation {
+  const empty: DisplayedAnalysisLocation = {
+    results_hash: resultsHash,
+    trace: undefined,
+    trace_id: null,
+    match: null,
+    carrier_trace_ids: [],
+  }
+  if (resultsHash === null || resultsHash.length === 0) return empty
+  const run: Array<{ p: SelectorTracedPayload; match: DisplayedAnalysisMatch }> = []
+  for (const p of payloads) {
+    if (!isCeeService(p) || !isV5TurnEndpoint(p)) continue
+    const match = matchDisplayedAnalysis(p, resultsHash)
+    if (match !== null) {
+      run.push({ p, match })
+      continue
+    }
+    if (run.length > 0 && carriesAnalysisResult(p)) break
+  }
+  if (run.length === 0) return empty
+  // Content identity: the OLDEST carrier delivered it (later ones are
+  // re-sends the store deduped). A producer response-hash match keeps the
+  // legacy rule — the most recent match — so that path is unchanged.
+  const contentRun = run.filter(({ match }) => match === 'analysis_result_content_hash')
+  const origin = contentRun.length > 0 ? contentRun[contentRun.length - 1] : run[0]
+  return {
+    results_hash: resultsHash,
+    trace: origin.p,
+    trace_id: typeof origin.p.id === 'string' ? origin.p.id : null,
+    match: origin.match,
+    carrier_trace_ids: run
+      .map(({ p }) => (typeof p.id === 'string' ? p.id : null))
+      .filter((id): id is string => id !== null)
+      .reverse(),
+  }
+}
+
 function isAnalysisProducing(p: SelectorTracedPayload): boolean {
   const t = readTurnOrActionType(p)
   return t !== null && ANALYSIS_PRODUCING_ACTION_TYPES.has(t)
@@ -415,8 +591,16 @@ function isCompletedTwoXx(p: SelectorTracedPayload): boolean {
 function emptyResult(
   reason: SelectionDiagnostics['selected_reason'],
   diagnostics: Partial<SelectionDiagnostics> = {},
+  displayed: DisplayedAnalysisLocation = {
+    results_hash: null,
+    trace: undefined,
+    trace_id: null,
+    match: null,
+    carrier_trace_ids: [],
+  },
 ): AnalysisProducingSelectionResult {
   return {
+    displayed_analysis: displayed,
     selected: undefined,
     hash_mismatch_observed: false,
     selected_response_hash: null,
@@ -436,7 +620,15 @@ function emptyResult(
 
 /**
  * Select the latest analysis-producing CEE turn from a trace-store
- * snapshot, ranked by:
+ * snapshot.
+ *
+ * ⭐ IDENTITY FIRST (24 Sep): when `locateDisplayedAnalysisTurn` finds the
+ * captured turn that delivered the DISPLAYED analysis (`results.hash`), that
+ * turn is selected outright, whatever its request type — see the
+ * "Displayed-analysis identity" block above. Only when the displayed analysis
+ * is NOT in the capture does the legacy ranking below decide, and the bundle's
+ * `analysis_identity` block then says the selected turn is not the displayed
+ * analysis. Legacy ranking:
  *
  *   a) Captured response hash matches `resultsHash` (+1000)
  *   b) `scenario_id` matches `currentScenarioId` (+100)
@@ -469,10 +661,16 @@ export function findLatestAnalysisProducingCeeTurn(
   currentScenarioId: string | null,
   resultsHash: string | null,
 ): AnalysisProducingSelectionResult {
+  // (0) Identity first: which captured turn delivered the analysis the
+  //     panels display? Located independently of request type — the
+  //     turn that ran analysis may have been free text (24 Sep, Paul's
+  //     approval turn), not a typed Run chip.
+  const displayed = locateDisplayedAnalysisTurn(payloads, resultsHash)
+
   // (1) CEE-service entries (any endpoint).
   const ceeTurns = payloads.filter(isCeeService)
   if (ceeTurns.length === 0) {
-    return emptyResult('no_cee_candidate')
+    return emptyResult('no_cee_candidate', {}, displayed)
   }
 
   // (2) Endpoint-scoped V5 turn entries. Anything else is by
@@ -483,20 +681,51 @@ export function findLatestAnalysisProducingCeeTurn(
       cee_candidate_count: ceeTurns.length,
       v5_endpoint_candidate_count: 0,
       analysis_producing_candidate_count: 0,
-    })
+    }, displayed)
   }
 
-  // (3) Analysis-producing filter. If none qualify, fall through to
-  //     the caller's fallback.
+  // (3) Analysis-producing filter. A turn is a candidate when its REQUEST
+  //     asked for analysis OR its RESPONSE delivered the displayed analysis
+  //     (identity, not "any analysis_result block"). If none qualify, fall
+  //     through to the caller's fallback.
   const candidates = v5Turns
     .map((p, idx) => ({ p, idx }))
-    .filter(({ p }) => isAnalysisProducing(p))
+    .filter(({ p }) => isAnalysisProducing(p) || p === displayed.trace)
   if (candidates.length === 0) {
     return emptyResult('no_analysis_producing_candidate', {
       cee_candidate_count: ceeTurns.length,
       v5_endpoint_candidate_count: v5Turns.length,
       analysis_producing_candidate_count: 0,
-    })
+    }, displayed)
+  }
+
+  // (3b) The displayed analysis was found in the capture: it IS the
+  //      analysis turn. Recency, scenario and request type cannot outrank
+  //      identity — a newer typed Run that CEE refused, or a later turn
+  //      that merely re-sent the block, must not displace it.
+  //      A producer response-hash match is left to the legacy ranking
+  //      below, which already scores it +1000 — that path is unchanged.
+  if (displayed.trace !== undefined && displayed.match === 'analysis_result_content_hash') {
+    const selectedReading: ResponseHashReading = {
+      hash: resultsHash as string,
+      source: 'body_blocks_analysis_result_content_hash',
+    }
+    return {
+      displayed_analysis: displayed,
+      selected: displayed.trace,
+      hash_mismatch_observed: false,
+      selected_response_hash: selectedReading.hash,
+      selected_response_hash_source: selectedReading.source,
+      selected_trace_id: displayed.trace_id,
+      selection_diagnostics: {
+        cee_candidate_count: ceeTurns.length,
+        v5_endpoint_candidate_count: v5Turns.length,
+        analysis_producing_candidate_count: candidates.length,
+        selected_via_primary_path: true,
+        selected_reason: 'hash_matched',
+        hash_match_status: 'matched',
+      },
+    }
   }
 
   // Pre-compute hash readings — used both by scoring and the result
@@ -564,6 +793,7 @@ export function findLatestAnalysisProducingCeeTurn(
   const hash_mismatch_observed = hash_match_status === 'mismatched'
 
   return {
+    displayed_analysis: displayed,
     selected,
     hash_mismatch_observed,
     selected_response_hash: selectedReading?.hash ?? null,

@@ -63,9 +63,26 @@ function renderSection(data: ResultsSectionDataReturn, reason: string | null) {
 
 const qualifier = () => screen.queryByTestId(`${TESTID}-goal-only`)
 
+/**
+ * The producer's cause, as the tab reads it: ON THE HELD RESULT
+ * (`results.report.producer_leader_permission.producer_cause`, #1921), written
+ * by the store's own writer — never the session-local `analysisStateV1`, which
+ * a reload or a later turn clears (Codex 5804383098). `null` = a held result
+ * carrying no refusal stamp.
+ */
+function holdResultWithCause(reason: string | null) {
+  useCanvasStore.setState({
+    analysisStateV1: null,
+    analysisFreshnessDirty: false,
+    results: { status: 'complete', progress: 100, hash: 'limits-left-out', report: { option_probabilities: {} } },
+  } as never)
+  if (reason !== null) useCanvasStore.getState().resultsWithholdLeaderClaim('leader_claim_withheld', reason)
+}
+
 afterEach(() => {
   cleanup()
-  useCanvasStore.setState({ analysisStateV1: null } as never)
+  localStorage.clear()
+  useCanvasStore.setState({ analysisStateV1: null, results: { status: 'idle', progress: 0 } } as never)
 })
 
 describe('the view model says when the shares leave the limits out', () => {
@@ -124,11 +141,9 @@ describe('"How the options compare" states it above the shares', () => {
   })
 })
 
-describe('wired: the tab body reads the reason CEE sent from the store', () => {
+describe('wired: the tab body reads the reason CEE sent from the result in the store', () => {
   beforeEach(() => {
-    useCanvasStore.setState({
-      analysisStateV1: { leader_claim: { permitted: false, withheld_reason: LIMITS_UNSCORED } },
-    } as never)
+    holdResultWithCause(LIMITS_UNSCORED)
   })
 
   it('⭐ the served tab shows the qualifier on the reason CEE sent', () => {
@@ -151,6 +166,12 @@ describe('wired: the tab body reads the reason CEE sent from the store', () => {
  * `useAnalysisNewViewModel.ts`: the builder consumes the cause but the memo did
  * not list it). A later turn can change ONLY the verdict's cause while every
  * result input stays the same object; the tab must follow it both ways.
+ *
+ * The cause now lives on the held result (#1921), so a later turn changes it by
+ * RE-STAMPING the report — `resultsWithholdLeaderClaim` is idempotent on
+ * (reason, cause) and re-stamps when the cause differs. `resultsSectionData`
+ * stays the same object throughout, so the memo dependency is still what is
+ * under test.
  */
 describe('mounted: the qualifier follows a cause that changes after mount', () => {
   const renderTab = () =>
@@ -164,28 +185,26 @@ describe('mounted: the qualifier follows a cause that changes after mount', () =
       />,
     )
   const STABLE_DATA = decisionWithLeaderWithheld()
-  const setCause = (reason: string | null) =>
+  const restamp = (reason: string) =>
     act(() => {
-      useCanvasStore.setState({
-        analysisStateV1: reason === null ? null : { leader_claim: { permitted: false, withheld_reason: reason } },
-      } as never)
+      useCanvasStore.getState().resultsWithholdLeaderClaim('leader_claim_withheld', reason)
     })
 
   it('⭐ no cause at mount → the limits cause arrives → the qualifier appears', () => {
-    setCause(null)
+    holdResultWithCause(null)
     renderTab()
     openAllSections()
     expect(qualifier(), 'PRECONDITION: nothing to qualify yet').toBeNull()
-    setCause(LIMITS_UNSCORED)
+    restamp(LIMITS_UNSCORED)
     expect(qualifier()).not.toBeNull()
   })
 
   it('⛔ the limits cause is replaced by another reason → the qualifier goes', () => {
-    setCause(LIMITS_UNSCORED)
+    holdResultWithCause(LIMITS_UNSCORED)
     renderTab()
     openAllSections()
     expect(qualifier(), 'PRECONDITION').not.toBeNull()
-    setCause(OTHER_REASON)
+    restamp(OTHER_REASON)
     expect(qualifier()).toBeNull()
   })
 })
