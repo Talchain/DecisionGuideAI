@@ -13,7 +13,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, act, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
 
 vi.mock('@xyflow/react', async () => {
