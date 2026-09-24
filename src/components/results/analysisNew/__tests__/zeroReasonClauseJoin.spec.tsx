@@ -52,9 +52,8 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
-import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
@@ -91,6 +90,23 @@ const renderBody = (data: ResultsSectionDataReturn) =>
 
 const vmOf = (data: ResultsSectionDataReturn) =>
   buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
+
+/**
+ * V2 RE-POINT (Reasoning V2, 24 Sep 2026). "What moves the outcome" moved from
+ * the answer zone into the "Challenge the thinking" zone, post-run and closed as
+ * before; "Drivers and dynamics" is still inside it. Both are opened here BY
+ * TESTID, outer then inner, because `SectionShell` unmounts a closed region.
+ * `openAllSections` cannot converge on the V2 tab: About's detail rows are a
+ * one-at-a-time accordion, so opening every closed toggle re-closes a sibling.
+ */
+const openDrivers = () => {
+  for (const id of ['analysis-new-what-moves-the-outcome', 'analysis-new-drivers']) {
+    const toggle = screen.getByTestId(`${id}-toggle`)
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    expect(screen.getByTestId(`${id}-toggle`), `${id} must be open before it is read`)
+      .toHaveAttribute('aria-expanded', 'true')
+  }
+}
 
 /** Survivors plus one suppressed row: the state that renders the CAVEAT. */
 const oneSuppressedAmongSurvivors = () =>
@@ -258,7 +274,7 @@ describe('a producer reason reads as a clause mid-sentence and as a badge on a r
     expect(vm.drivers.suppressedZeroCount, 'PRECONDITION: a row was suppressed').toBe(1)
 
     renderBody(oneSuppressedAmongSurvivors())
-    openAllSections()
+    openDrivers()
     const caveat = screen.getByTestId('analysis-new-drivers-caveat').textContent ?? ''
     expect(caveat).toContain('1 factor is not ranked here: controlled by your options.')
     expect(caveat, 'the badge form must not reach a mid-sentence position')
@@ -271,7 +287,7 @@ describe('a producer reason reads as a clause mid-sentence and as a badge on a r
     expect(vm.drivers.suppressedZeroCount, 'PRECONDITION: a row was suppressed').toBe(1)
 
     renderBody(allSuppressed())
-    openAllSections()
+    openDrivers()
     const empty = screen.getByTestId('analysis-new-drivers-empty').textContent ?? ''
     expect(empty).toContain('returned and set aside: controlled by your options.')
     expect(empty, 'the badge form must not reach a mid-sentence position')

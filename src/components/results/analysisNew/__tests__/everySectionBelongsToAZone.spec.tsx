@@ -63,8 +63,19 @@ const DIR = resolvePath(__dirname, '..')
  * ⭐ THE ONE THING THAT IS NOT A SECTION. Kept as a literal id so that a second
  * entry is a deliberate, reviewable edit rather than a predicate quietly
  * widening.
+ *
+ * ⭐ V2 (Reasoning V2 recomposition, 24 Sep 2026) — TWO DELIBERATE, REVIEWABLE
+ * ADDITIONS, each placed outside the zones by the V2 composition itself:
+ * · `analysis-new-review` — `ModelReviewTool`, the model strip's own "N to
+ *   review" queue, mounted directly under the strip. It reviews the model the
+ *   strip describes, so it belongs with the strip's subject header.
+ * · `analysis-new-about` — `AboutThisAnalysis`, the one collapsed audit utility,
+ *   LAST on the tab after "If you want to go further". It absorbs the trust
+ *   line, "What we checked" and the run record; it qualifies the whole run.
+ * (`MethodStrip` needs no entry: it is icon-only, so `topLevelBlockElements`
+ * — which skips text-empty children — never offers it as a stray.)
  */
-const NOT_A_SECTION = ['analysis-new-model-strip'] as const
+const NOT_A_SECTION = ['analysis-new-model-strip', 'analysis-new-review', 'analysis-new-about'] as const
 
 const ZONE_GROUP = /^analysis-new-zone-[a-z]+-group$/
 
@@ -202,19 +213,28 @@ describe('every section belongs to a zone', () => {
  * before, fully above after) and never something asserted here. What is
  * assertable is containment and order, which is what makes the fold measurement
  * reproducible — so that is what this pins.
+ *
+ * ⭐ V2 (24 Sep 2026) — THE RULING'S TWO HALVES SURVIVE; THE ZONE NAME MOVED.
+ * V2 moved "What moves the outcome" out of the answer zone into "Challenge the
+ * thinking" (`analysis-new-zone-also-group`), and moved that whole zone ABOVE
+ * the answer — where `ReasoningSignals` also shows the top three drivers at
+ * rest. What the ruling protects is (1) the drivers are NOT demoted to further
+ * reading and (2) they are read BEFORE the answer's figures. Both are re-pinned
+ * below against the V2 zone, positively and without a skip.
  */
-describe('the drivers answer "what matters most", so they sit in the answer zone', () => {
+describe('the drivers answer "what matters most", so they are read before the answer', () => {
   const DRIVERS = 'analysis-new-what-moves-the-outcome'
+  const CHALLENGE = 'analysis-new-zone-also-group'
 
   it('PRECONDITION: the fixture renders the section at all', () => {
     renderBody(manyFragileEdges())
     expect(screen.queryByTestId(DRIVERS), 'nothing to place if it does not render').not.toBeNull()
   })
 
-  it('⭐ the section is inside the ANSWER group, not FURTHER', () => {
+  it('⭐ the section is inside the CHALLENGE group (V2), not FURTHER', () => {
     renderBody(manyFragileEdges())
-    const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    expect(answer.contains(screen.getByTestId(DRIVERS)), 'the drivers belong to the answer').toBe(true)
+    const challenge = screen.getByTestId(CHALLENGE)
+    expect(challenge.contains(screen.getByTestId(DRIVERS)), 'the drivers belong to "Challenge the thinking"').toBe(true)
     const further = screen.queryByTestId('analysis-new-zone-further-group')
     if (further !== null) {
       expect(further.contains(screen.getByTestId(DRIVERS)), 'and not to the further-reading group').toBe(false)
@@ -249,17 +269,26 @@ describe('the drivers answer "what matters most", so they sit in the answer zone
     ['a withheld run — the surface the ruling is about', decisionWithLeaderWithheld],
   ])('⭐ %s reads the drivers BEFORE the answer\'s figures — Paul\'s ruling, not an accident', (_name, fixture) => {
     renderBody(fixture())
+    const challenge = screen.getByTestId(CHALLENGE)
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    const order = Array.from(answer.children).map((c) => c.getAttribute('data-testid'))
-    const drivers = order.indexOf(DRIVERS)
+    const order = Array.from(challenge.children).map((c) => c.getAttribute('data-testid'))
 
     // PRECONDITION: this case must not be able to pass by absence.
-    expect(drivers, 'the drivers must be a direct child of the answer group').toBeGreaterThan(-1)
-    const figures = ['analysis-new-options', 'analysis-new-implication'].filter((id) => order.includes(id))
+    expect(order.indexOf(DRIVERS), 'the drivers must be a direct child of the challenge group').toBeGreaterThan(-1)
+    const drivers = screen.getByTestId(DRIVERS)
+    // V2: the comparison sits inside the commitment block, and `ModelImplication`
+    // is no longer mounted (its lead is synthesis bullet one) — so the figures
+    // are found by identity anywhere inside the answer zone, not as direct children.
+    const figures = ['analysis-new-options', 'analysis-new-implication']
+      .map((id) => answer.querySelector(`[data-testid="${id}"]`))
+      .filter((el): el is Element => el !== null)
     expect(figures.length, 'at least one of the answer figures must render, or this asserts nothing').toBeGreaterThan(0)
 
-    for (const id of figures) {
-      expect(drivers, `the drivers must precede ${id}`).toBeLessThan(order.indexOf(id))
+    for (const fig of figures) {
+      expect(
+        drivers.compareDocumentPosition(fig) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `the drivers must precede ${fig.getAttribute('data-testid')}`,
+      ).toBeTruthy()
     }
   })
 })
@@ -302,14 +331,24 @@ describe('the next action lives with the other actions', () => {
     return opens.length ? opens[opens.length - 1][1] : null
   }
 
+  /**
+   * ⭐ V2 (24 Sep 2026): `ChallengeCard` replaced the `PrimaryIntervention` mount.
+   * It is handed the same `glancePrimary` (the engine's top finding) and runs it
+   * through the same `runIntervention`, so it IS the next action; re-pointed to
+   * it, and the old mount is asserted gone so the action cannot be in two places.
+   */
   it('PRECONDITION: the card is mounted, and the zone probe can see a zone', () => {
-    expect(body, 'the body must mount the card at all').toContain('<PrimaryIntervention')
+    expect(body, 'the body must mount the card at all').toContain('<ChallengeCard')
     // the probe must be able to name a zone for a mount we KNOW is in one
     expect(zoneOfMount('<AtAGlance'), 'control: the glance is in the answer zone').toBe('answer')
   })
 
   it('⭐ the primary intervention is mounted in ALSO, not in the ANSWER zone', () => {
-    expect(zoneOfMount('<PrimaryIntervention'), 'a next action belongs with the other things to do').toBe('also')
+    expect(zoneOfMount('<ChallengeCard'), 'a next action belongs with the other things to do').toBe('also')
+    expect(
+      stripComments(body, 'AnalysisNewTabBody.tsx'),
+      'V2: the replaced PrimaryIntervention mount must be gone, or the action renders twice',
+    ).not.toContain('<PrimaryIntervention')
   })
 
   it('⛔ and AtAGlance no longer renders it, so it cannot be in two places', () => {

@@ -41,16 +41,17 @@
  *
  * ⚠ BOUND BY TESTID. "Sensitive" is producer copy and can move; the identities
  * are `analysis-new-glance-verdict` and `analysis-new-trust-line-verdict`
- * (trap 19).
+ * (trap 19) — V2: `analysis-new-about-row-robustness-value`, see the EMPTY case.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { ABOUT_COPY } from '../sections/AboutThisAnalysis'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
 
@@ -105,11 +106,23 @@ const entitledWithReason = (): ResultsSectionDataReturn => {
 afterEach(cleanup)
 
 describe('the glance does not repeat the trust line’s word', () => {
+  /**
+   * ⭐ V2 (24 Sep 2026): `TrustLine` is no longer mounted. Its word now lives in
+   * `AboutThisAnalysis`'s "Robustness" row (`vm.atAGlance.verdict?.label`, the
+   * same field `TrustLine` printed), so the WORD's owner moved and the split is
+   * unchanged: the glance still may not print it alone. Re-pointed to that row,
+   * and tightened — the row must carry the producer word, not its
+   * "Not established" fallback, or the word would have been lost in the move.
+   */
   it('EMPTY — with no reading of its own, the glance drops the verdict and the trust line keeps it', () => {
     renderBody(withheldAndNoReason())
 
-    const trust = screen.getByTestId('analysis-new-trust-line-verdict')
-    expect(trust.textContent?.trim(), 'the trust line still carries the producer word').toBeTruthy()
+    expect(screen.queryByTestId('analysis-new-trust-line-verdict'), 'V2: TrustLine is not mounted').toBeNull()
+    fireEvent.click(screen.getByTestId('analysis-new-about-toggle'))
+    const trust = screen.getByTestId('analysis-new-about-row-robustness-value')
+    const word = trust.textContent?.trim()
+    expect(word, 'About still carries the producer word').toBeTruthy()
+    expect(word, 'the producer word, not the fallback').not.toBe(ABOUT_COPY.robustnessNotEstablished)
 
     expect(
       screen.queryByTestId('analysis-new-glance-verdict'),

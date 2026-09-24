@@ -18,7 +18,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -27,7 +27,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { sectionOpensItself } from '../sections/AnalysisNewSection'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { manyFragileEdges } from './analysisNewFixtures'
-import { openAllSections, openGroupsIfPresent } from './openNamedGroups'
+import { openGroupsIfPresent } from './openNamedGroups'
 
 /** Paul's run `1dd2133d`, verbatim — the row the producer marked `found`. */
 const FOUND_THRESHOLD = {
@@ -70,6 +70,26 @@ const renderBody = (data: ResultsSectionDataReturn) =>
     />,
   )
 
+/**
+ * Opens the section under test — and the groups above it — for the
+ * PRECONDITIONS, which count what the section holds when open.
+ *
+ * ⚠ V2 (24 Sep 2026): THIS WAS `openAllSections()`, AND IT CAN NO LONGER
+ * CONVERGE ON THIS TAB. `AboutThisAnalysis`'s three details ("Values and
+ * ranges", "Limitations", "Run record") are ONE-OPEN-AT-A-TIME by design, so a
+ * blind open-every-closed-toggle pass closes one detail each time it opens
+ * another (measured: `analysis-new-about-detail-limitations-toggle` is left
+ * closed after six passes). The preconditions only ever counted THIS section's
+ * rows and tipping points, so opening this section by identity is the
+ * narrower, exact instrument; it asserts the section really is open.
+ */
+const openTheSensitivitySection = () => {
+  openGroupsIfPresent()
+  const toggle = screen.queryByTestId('analysis-new-sensitivity-toggle')
+  if (toggle && toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
+  expect(screen.getByTestId('analysis-new-sensitivity')).toHaveAttribute('data-section-open', 'true')
+}
+
 /** Opens the named GROUPS only, leaving every section at its resting state. */
 const atRest = (data: ResultsSectionDataReturn) => {
   renderBody(data)
@@ -84,7 +104,7 @@ describe('a row that promises nothing may not hide something', () => {
     // threshold. Without this the claim below could pass on a fixture that
     // grounds neither half.
     renderBody(noSensitivityFindings())
-    openAllSections()
+    openTheSensitivitySection()
     expect(
       screen.queryAllByTestId('analysis-new-sensitivity-row'),
       'fixture no longer produces ZERO sensitivity findings — the case under test is gone',
@@ -117,7 +137,7 @@ describe('a row that promises nothing may not hide something', () => {
     const data = withFlipThresholds(manyFragileEdges())
 
     renderBody(data)
-    openAllSections()
+    openTheSensitivitySection()
     const rows = screen.queryAllByTestId('analysis-new-sensitivity-row').length
     expect(rows, 'fixture no longer produces the MULTI-row case this twin needs').toBeGreaterThan(1)
     cleanup()

@@ -28,6 +28,15 @@
  * row-intervention act its assertion two PRs ago. So the list is exhaustive,
  * and the emptiness rule is proved with a DISCRIMINATING PAIR in the same run:
  * one canvas that earns the zone, one that does not.
+ *
+ * ⭐ REASONING V2 (24 Sep 2026). Two changes, both deliberate:
+ *   · the ANSWER zone's label paragraph is gone (X) — its heading is now the
+ *     commitment block's own "Move towards commitment", inside the group. The
+ *     zone is still a wrapped group and is still in the exhaustive list; it is
+ *     asserted to carry that heading instead of a label;
+ *   · the methods left ZONE: FOCUS for the method strip at the top, so FOCUS
+ *     holds only the run's nudges again and an empty canvas earns NO focus
+ *     zone at all — arm 2 below is back to asserting that absence.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -41,6 +50,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { genuineDecision } from './analysisNewFixtures'
+import { COMMITMENT_COPY } from '../commitmentSynthesis'
 
 /**
  * ⚠ EXHAUSTIVE BY CONSTRUCTION, NOT BY RECOLLECTION. Every zone the body can
@@ -48,6 +58,13 @@ import { genuineDecision } from './analysisNewFixtures'
  * failure mode this file was written after committing.
  */
 const ZONES = ['focus', 'answer', 'also', 'further'] as const
+/**
+ * The zones that carry a label. V2 retired the ANSWER zone's label; its heading
+ * is the commitment block's (asserted below), so it is listed apart rather than
+ * dropped — every zone is still in `ZONES`.
+ */
+const LABELLED_ZONES = ['focus', 'also', 'further'] as const
+const HEADED_BY_ITS_BLOCK = 'answer'
 
 /** A canvas with options, a factor and an outcome but NO risk: the model
  *  demonstrably lacks one, so Focus Now earns exactly one row. */
@@ -85,12 +102,22 @@ describe('the panel is grouped into named zones', () => {
     const found = ZONES.filter((z) => screen.queryByTestId(`analysis-new-zone-${z}-group`) !== null)
     expect(found.length, 'precondition: every zone renders on a rich run').toBe(ZONES.length)
 
-    for (const z of found) {
+    for (const z of LABELLED_ZONES) {
       expect(
         contentBeyondLabel(z),
         `${z}: a zone with only a label is furniture naming nothing`,
       ).toBeGreaterThan(0)
     }
+
+    // V2: the answer zone is headed by its own block, not by a zone label.
+    const answer = screen.getByTestId(`analysis-new-zone-${HEADED_BY_ITS_BLOCK}-group`)
+    expect(screen.queryByTestId(`analysis-new-zone-${HEADED_BY_ITS_BLOCK}`)).toBeNull()
+    const headings = Array.from(answer.querySelectorAll('h1,h2,h3,h4,h5,h6')).map((h) =>
+      (h.textContent ?? '').trim(),
+    )
+    expect(headings, 'answer: the zone must carry the commitment heading').toContain(
+      COMMITMENT_COPY.heading,
+    )
   })
 
   /**
@@ -107,27 +134,16 @@ describe('the panel is grouped into named zones', () => {
 
     cleanup()
     /**
-     * ⭐ ARM 2 CHANGED SHAPE ON 18 Sep 2026, AND THE RULE DID NOT. It asserted
-     * that an empty canvas — which earns no nudge — removed the focus zone and
-     * its label entirely, because a heading over nothing is the defect.
-     *
-     * Paul then ruled the methods first-screen, so ZONE: FOCUS now also holds
-     * `MethodsYouCanRun`, which renders the static catalogue and is NEVER empty.
-     * The zone therefore always has something under its heading — the rule is
-     * satisfied, by content rather than by absence.
-     *
-     * ⛔ SO THIS ARM NOW ASSERTS THE RULE DIRECTLY rather than its old symptom:
-     * the label may render, but only over real content. If the methods ever
-     * stop rendering AND no nudge is earned, `contentBeyondLabel` goes to zero
-     * and this REDs — which is the original defect, caught by the original
-     * measurement.
+     * ⭐ ARM 2 IS BACK TO ITS ORIGINAL SHAPE (V2, 24 Sep 2026). From 18 Sep to
+     * V2 the focus zone also held the always-present methods shelf, so an empty
+     * canvas still earned the zone and this arm asserted content under it. V2
+     * moved the methods to the method strip at the top of the panel, so the
+     * focus zone once again holds only the run's nudges — and a canvas that
+     * earns none must render NO focus zone and NO label.
      */
     renderBody(genuineDecision(), [])
-    expect(screen.queryByTestId('analysis-new-zone-focus-group'), 'arm 2: the methods are unconditional content').not.toBeNull()
-    expect(
-      contentBeyondLabel('focus'),
-      'arm 2: the heading still claims something that is actually under it',
-    ).toBeGreaterThan(0)
+    expect(screen.queryByTestId('analysis-new-zone-focus-group'), 'arm 2: nothing earned, so no zone').toBeNull()
+    expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 2: and no label over nothing').toBeNull()
     // Contrast in the SAME arm: the unconditional zones are still there, so
     // arm 2 is measuring the gate and not a failed render.
     expect(screen.queryByTestId('analysis-new-zone-answer-group')).not.toBeNull()
@@ -142,7 +158,7 @@ describe('the panel is grouped into named zones', () => {
   it('⛔ a zone label is not a block — no border, no fill, no radius', () => {
     renderBody(genuineDecision(), EARNS_A_NUDGE)
     let checked = 0
-    for (const z of ZONES) {
+    for (const z of LABELLED_ZONES) {
       const label = screen.queryByTestId(`analysis-new-zone-${z}`)
       if (label === null) continue
       checked += 1
@@ -154,7 +170,7 @@ describe('the panel is grouped into named zones', () => {
       // class string rather than assertions about an empty one.
       expect(cls.trim().length).toBeGreaterThan(0)
     }
-    expect(checked, 'precondition: this arm inspected every zone').toBe(ZONES.length)
+    expect(checked, 'precondition: this arm inspected every labelled zone').toBe(LABELLED_ZONES.length)
   })
 
   /**
@@ -165,7 +181,7 @@ describe('the panel is grouped into named zones', () => {
   it('⛔ no zone label repeats a heading from within its own group', () => {
     renderBody(genuineDecision(), EARNS_A_NUDGE)
     let checked = 0
-    for (const z of ZONES) {
+    for (const z of LABELLED_ZONES) {
       const group = screen.queryByTestId(`analysis-new-zone-${z}-group`)
       const label = screen.queryByTestId(`analysis-new-zone-${z}`)
       if (group === null || label === null) continue
@@ -176,6 +192,6 @@ describe('the panel is grouped into named zones', () => {
         .map((h) => (h.textContent ?? '').trim().toLowerCase())
       expect(headings, `${z}: the zone label restates a heading inside it`).not.toContain(name)
     }
-    expect(checked, 'precondition: this arm inspected every zone').toBe(ZONES.length)
+    expect(checked, 'precondition: this arm inspected every labelled zone').toBe(LABELLED_ZONES.length)
   })
 })

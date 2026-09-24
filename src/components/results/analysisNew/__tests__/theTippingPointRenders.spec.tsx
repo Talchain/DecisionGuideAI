@@ -11,7 +11,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -19,7 +19,24 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { manyFragileEdges } from './analysisNewFixtures'
-import { openAllSections } from './openNamedGroups'
+
+/**
+ * V2 RE-POINT (Reasoning V2, 24 Sep 2026). "What would change your mind" moved
+ * into the "Challenge the thinking" zone and is opened here BY ITS TESTID.
+ * `openAllSections` cannot converge on the V2 tab: About's detail rows are a
+ * one-at-a-time accordion, so opening every closed toggle re-closes a sibling.
+ * The section is asserted OPEN before it is read, so a "renders nothing" case
+ * below can never pass on a closed (unmounted) region.
+ */
+const SENSITIVITY = 'analysis-new-sensitivity'
+const openSensitivity = () => {
+  const toggle = screen.getByTestId(`${SENSITIVITY}-toggle`)
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  expect(
+    screen.getByTestId(`${SENSITIVITY}-toggle`),
+    'the section must be open before it is read',
+  ).toHaveAttribute('aria-expanded', 'true')
+}
 
 const REAL_ROWS = [
   {
@@ -66,7 +83,7 @@ const renderBody = (data: ResultsSectionDataReturn) => {
   )
   // `SectionShell` unmounts a closed region, so a query before this finds
   // nothing whether or not the line exists.
-  openAllSections()
+  openSensitivity()
   return r
 }
 

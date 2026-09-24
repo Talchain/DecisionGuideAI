@@ -36,6 +36,15 @@
  * genuinely on screen, and the no-goal case asserts it genuinely is not.
  * Without those, a harness that silently stopped rendering the strip would
  * satisfy the suppression assertion while the panel lost the line entirely.
+ *
+ * ⭐ REASONING V2 (24 Sep 2026). The glance's promoted card is now
+ * `ChallengeCard` (`analysis-new-challenge`), fed the same `glancePrimary` with
+ * the same strip suppression; "Strengthen the reasoning" is no longer mounted
+ * here and the displaced recommendation lives in `ModelReviewTool`'s queue
+ * (`analysis-new-review`). Selectors are re-pointed; the claims are unchanged.
+ * ⛔ "states the missing target exactly once" is deliberately NOT re-pointed:
+ * V2's commitment "Before committing" bullet re-promotes the same finding the
+ * strip owns, so the invariant fails on the product (reported, not edited).
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -90,11 +99,37 @@ const renderPanel = () =>
     />,
   )
 
-/** The glance's promoted card, or null. Bound by TESTID, read by ID. */
-const glancePrimaryId = (): string | null =>
-  screen.queryByTestId('analysis-new-glance-primary-intervention')?.getAttribute(
-    'data-recommendation-id',
-  ) ?? null
+/**
+ * The promoted card, or null. Bound by TESTID, read by ID. V2: the Challenge
+ * card, and only when it shows an engine finding (`data-source="intervention"`)
+ * rather than a method the reader picked.
+ */
+const glancePrimaryId = (): string | null => {
+  const card = screen.queryByTestId('analysis-new-challenge')
+  return card?.getAttribute('data-source') === 'intervention'
+    ? card.getAttribute('data-recommendation-id')
+    : null
+}
+
+/**
+ * Open the review tool on the item with this key, paging one at a time, and
+ * return it; `null` when the queue does not hold it. Identity, not text.
+ */
+const reviewItemFor = (key: string): HTMLElement | null => {
+  const toggle = screen.queryByTestId('analysis-new-review-toggle')
+  if (toggle === null) return null
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  const prev = () => screen.getByTestId('analysis-new-review-prev') as HTMLButtonElement
+  const next = () => screen.getByTestId('analysis-new-review-next') as HTMLButtonElement
+  for (let guard = 0; !prev().disabled && guard < 50; guard += 1) fireEvent.click(prev())
+  for (let guard = 0; guard < 50; guard += 1) {
+    const item = screen.getByTestId('analysis-new-review-item')
+    if (item.getAttribute('data-review-key') === key) return item
+    if (next().disabled) return null
+    fireEvent.click(next())
+  }
+  return null
+}
 
 const previousNodes = { value: [] as unknown }
 
@@ -168,12 +203,15 @@ describe('with a goal — the strip owns the ask, and the glance does not repeat
    * The displaced recommendation must still be reachable with its reasoning
    * intact; suppressing it from the glance is a de-duplication, not a removal.
    */
-  it('the displaced recommendation still renders in Strengthen the reasoning', () => {
+  it('the displaced recommendation still renders in the review queue (V2)', () => {
     renderPanel()
-    const toggle = screen.queryByTestId('analysis-new-strengthen-toggle')
-    if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-    const section = screen.getByTestId('analysis-new-strengthen')
-    expect(section.textContent).toContain('No measurable success target is set.')
+    // V2: bound by the engine's id in the review queue, and its REASONING is
+    // the recommendation's own `whyNow` — the line the queue shows for it.
+    const item = reviewItemFor(SUCCESS_MEASURE_RECOMMENDATION_ID)
+    expect(item, 'the displaced recommendation is not reachable in the review queue').not.toBeNull()
+    expect(screen.getByTestId('analysis-new-review-reason')).toHaveTextContent(
+      'Without a target the analysis cannot say how likely each option is to succeed',
+    )
   })
 
   /**

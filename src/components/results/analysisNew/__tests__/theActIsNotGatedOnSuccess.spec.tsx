@@ -26,6 +26,14 @@
  * the banner ALSO renders. `THE CORPUS CAN SEE THE DEFECT` below is the
  * positive control that the corpus really does contain banner-refusing states,
  * and it fails loud if a fixture change ever makes them all succeed.
+ *
+ * ⭐ REASONING V2 (24 Sep 2026): THE ACT MOVED, ITS GATES DID NOT. The act is
+ * recording what the team decided. The standalone `DecisionRecorded` mount is
+ * gone; the door and the read-back are now the record row inside
+ * `CommitmentSummary` ("Move towards commitment"), which calls the same
+ * `openDecisionRecord`, takes the same `canCapture` / `record` / `isPreRun`
+ * gates and reuses `DecisionRecorded`'s own formatters. Every case below is
+ * re-pointed to that row by testid; no assertion was dropped or loosened.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -51,16 +59,27 @@ vi.mock('../../modals', async (importOriginal) => ({
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ModelHeldUp } from '../sections/ModelHeldUp'
-import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { COMMITMENT_COPY } from '../commitmentSynthesis'
 import { openDecisionRecord, useDecisionRecordStore } from '../../modals'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { useCanvasStore } from '../../../../canvas/store'
 import { genuineDecision, highUncertainty, openStrategicChallenge } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
-const DOOR = 'analysis-new-decision-record-open'
-const SECTION = 'analysis-new-decision-record'
+// V2: the record row inside `CommitmentSummary` (testId `analysis-new-commitment`).
+const DOOR = 'analysis-new-commitment-record-open'
+const SECTION = 'analysis-new-commitment-record'
 const BANNER = 'analysis-new-held-up'
+/** The door's own copy constant (V2 wording: the user's view, never Olumi's). */
+const DOOR_TEXT = COMMITMENT_COPY.record.open
+
+/**
+ * The recorded option's VALUE, without its row label. The V2 read-back row is
+ * `<dt>Your view: </dt><dd>…</dd>`, so an exact-match assertion binds to the
+ * `dd` — the value the user recorded — and keeps its `^…$` strength.
+ */
+const recordedOption = (): HTMLElement | null =>
+  screen.queryByTestId(`${SECTION}-option`)?.querySelector('dd') ?? null
 
 const renderPanel = (
   data: ResultsSectionDataReturn,
@@ -177,7 +196,7 @@ describe('the door is offered on every post-run state', () => {
     ),
   )('%s offers the door', (_label, fixture, over) => {
     renderPanel(fixture(), over)
-    expect(screen.getByTestId(DOOR)).toHaveTextContent(COPY.decisionRecord.open)
+    expect(screen.getByTestId(DOOR)).toHaveTextContent(DOOR_TEXT)
   })
 })
 
@@ -249,7 +268,7 @@ describe('THE DOOR IS NOT OFFERED WHERE THE CAPTURE WOULD BE REFUSED', () => {
   it('…while results.status=complete with option nodes DOES offer it (control)', () => {
     setCanvas({ status: 'complete' })
     renderPanel(genuineDecision())
-    expect(screen.getByTestId(DOOR)).toHaveTextContent(COPY.decisionRecord.open)
+    expect(screen.getByTestId(DOOR)).toHaveTextContent(DOOR_TEXT)
   })
 
   /**
@@ -325,9 +344,8 @@ describe('THE DOOR IS NOT OFFERED WHERE THE CAPTURE WOULD BE REFUSED', () => {
     setCanvas({ status: 'preparing' })
     renderPanel(genuineDecision())
     // The record itself: present, and bound to its own value.
-    expect(screen.getByTestId(`${SECTION}-option`)).toHaveTextContent(
-      /^Phase the rollout by segment$/,
-    )
+    expect(screen.getByTestId(`${SECTION}-option`)).toBeInTheDocument()
+    expect(recordedOption()).toHaveTextContent(/^Phase the rollout by segment$/)
     // The controls that would open a modal the product will refuse: absent.
     expect(screen.queryByTestId(`${SECTION}-update`)).toBeNull()
     expect(screen.queryByTestId(DOOR)).toBeNull()
@@ -464,9 +482,8 @@ describe('the panel reads a saved record back', () => {
       },
     })
     renderPanel(genuineDecision())
-    expect(screen.getByTestId(`${SECTION}-option`)).toHaveTextContent(
-      'Option 2: Phase the rollout by segment',
-    )
+    expect(screen.getByTestId(`${SECTION}-option`)).toBeInTheDocument()
+    expect(recordedOption()).toHaveTextContent(/^Option 2: Phase the rollout by segment$/)
     expect(screen.queryByTestId(DOOR), 'the door is replaced by the read-back').toBeNull()
   })
 
@@ -545,7 +562,8 @@ describe('THE READ-BACK IS SUBSCRIBED, NOT SAMPLED AT MOUNT', () => {
         .saveRecord('scenario-act-spec', rec() as never)
     })
 
-    expect(screen.getByTestId(OPTION)).toHaveTextContent(/^Phase the rollout by segment$/)
+    expect(screen.getByTestId(OPTION)).toBeInTheDocument()
+    expect(recordedOption()).toHaveTextContent(/^Phase the rollout by segment$/)
   })
 
   it('changing scenario swaps the record that is read back', () => {
@@ -555,12 +573,13 @@ describe('THE READ-BACK IS SUBSCRIBED, NOT SAMPLED AT MOUNT', () => {
       s.saveRecord('scenario-other', rec({ optionLabel: 'Hold and re-price' }) as never)
     })
     renderPanel(genuineDecision())
-    expect(screen.getByTestId(OPTION)).toHaveTextContent(/^Phase the rollout by segment$/)
+    expect(screen.getByTestId(OPTION)).toBeInTheDocument()
+    expect(recordedOption()).toHaveTextContent(/^Phase the rollout by segment$/)
 
     act(() => {
       useCanvasStore.setState({ currentScenarioId: 'scenario-other' })
     })
 
-    expect(screen.getByTestId(OPTION)).toHaveTextContent(/^Hold and re-price$/)
+    expect(recordedOption()).toHaveTextContent(/^Hold and re-price$/)
   })
 })

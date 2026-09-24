@@ -89,6 +89,8 @@ import {
   presentedSurfaces,
 } from '../workspaceShell/shellContract'
 import { ANALYSIS_NEW_COPY } from '../../../components/results/analysisNew/analysisNewCopy'
+import { COMMITMENT_COPY } from '../../../components/results/analysisNew/commitmentSynthesis'
+import { ABOUT_COPY } from '../../../components/results/analysisNew/sections/AboutThisAnalysis'
 
 const NEW_TAB = 'outputs-dock-tab-analysisNew'
 const OLD_TAB = 'outputs-dock-tab-results'
@@ -453,94 +455,45 @@ describe('C · THE SECTION STRUCTURE', () => {
       (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
     )
     const groupHeadings = allHeadings.filter((t) => t !== null && GROUP_TITLES.includes(t))
-    const headings = allHeadings.filter((t) => t === null || !GROUP_TITLES.includes(t))
-    expect(headings).toEqual([
-      /*
-       * ⭐⭐ METHODS LEAD, AND THAT IS THE RULING RATHER THAN A DRIFT. ZONE:
-       * FOCUS sits above ZONE: ANSWER, and its gate now admits the static
-       * `METHOD_CATALOGUE` as well as the run's own focus ids, so the zone
-       * renders on EVERY run instead of only when the producer raised
-       * something. Paul, 18 Sep 2026: "Surface the Methods menu — make it
-       * prominent", then "make it first-screen — put it in ZONE: FOCUS".
-       *
-       * ⭐ THIS CENSUS GOING RED IS THE PROOF THE MOVE LANDED — the same thing
-       * the drivers note below records for its own move. The section is added
-       * to the list, never excluded from it, so the census still pins which
-       * sections appear and in what order.
-       */
-      ANALYSIS_NEW_COPY.sections.methods,
-      // ⭐ #1082's trust readout, mounted in the same commit that added this
-      // line. Its appearance HERE is the positive control that the mount is
-      // real rather than a no-op import: this census went RED on it, by name.
-      // ⚠⚠ DRIVERS NOW LEAD, AND STRENGTHEN FOLLOWS THEM — Paul's ruling,
-      // 17 Sep 2026. Asked which of two senses of his acceptance bar's "what
-      // matters most" was intended — the DRIVERS (what the answer turns on) or
-      // the recommended next move — he ruled the drivers, so "What moves the
-      // outcome" moved into the ANSWER zone and its inner "Drivers and
-      // dynamics" heading came with it.
-      //
-      // ⭐ THIS CENSUS GOING RED IS THE PROOF THE MOVE LANDED, exactly as the
-      // uncertainty note below records for its own move. The heading is not
-      // removed from the list — it is REPOSITIONED, so the census still pins
-      // which sections appear and in what order.
+    /*
+     * ⭐⭐⭐ REASONING V2 (24 Sep 2026) — THE CENSUS WENT RED BY NAME, AS IT IS
+     * MEANT TO WHEN A MOVE LANDS. Every change below is a V2 decision, listed
+     * rather than silently absorbed:
+     *   · `methods` (X) — the chip shelf is gone; the methods are the icon-only
+     *     `MethodStrip` at the top, which carries no heading.
+     *   · `strengthen` (X) — the wall is no longer mounted on this tab. Its
+     *     findings are the Challenge card (one, at rest) and the review tool's
+     *     queue; their placement is pinned in the next case, not here.
+     *   · `checks` (X) — "What we checked" is absorbed into "About this
+     *     analysis", which is last.
+     *   · the commitment block ("Move towards commitment") is the answer zone's
+     *     heading, and "About this analysis" closes the panel.
+     * ⚠ THE CHALLENGE CARD'S OWN `h3` IS EXCLUDED BY IDENTITY: its text is the
+     * engine's recommendation title, verbatim, so it names a finding, not a
+     * section — pinning its words here would make the census depend on which
+     * finding the fixture happens to raise.
+     */
+    const sectionHeadings = Array.from(body.querySelectorAll('h3'))
+      .filter((h) => h.getAttribute('data-testid') !== 'analysis-new-challenge-heading')
+      .map((h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent)
+      .filter((t) => t === null || !GROUP_TITLES.includes(t))
+    expect(sectionHeadings).toEqual([
+      // ⚠⚠ DRIVERS STILL LEAD THE SECTIONS — Paul's 17 Sep ruling that "what
+      // matters most" means the drivers. V2 moved "What moves the outcome" from
+      // the answer zone into "Challenge the thinking", which sits ABOVE the
+      // answer, so it still comes first.
       ANALYSIS_NEW_COPY.sections.drivers,
-      // ⚠ STRENGTHEN LEADS THE DETAIL AS OF THE REORDER. The coaching was
-      // seventh of ten MOUNTS — below the ranked options and below Key
-      // insights — and this census could not see that; see the scope note on
-      // the case below. It still leads everything that is DETAIL; what now
-      // precedes it is part of the answer.
-      ANALYSIS_NEW_COPY.sections.strengthen,
-      /**
-       * ⭐ UNCERTAINTY MOVED UP TO SIT WITH CHECKS — deliberate, and this
-       * census going RED on it is the positive proof the move landed.
-       *
-       * Both sections answer "what this run could NOT settle", and they were
-       * SIX SECTIONS APART: the checks readout twelfth, uncertainty eighteenth,
-       * with the value-of-information line nineteenth. Measured on a
-       * reconstruction of the run Paul screenshotted, one category of
-       * information was spread over six places, so a reader met the same kind
-       * of statement six times in six registers and never knew they had seen
-       * the set.
-       *
-       * ⚠ THE HEDGES WERE NOT DEDUPLICATED, AND THAT WAS MEASURED BEFORE THE
-       * MOVE: eight distinct "could not establish" statements on that run, only
-       * two anything like duplicates. So this is a re-composition and nothing
-       * was deleted — several of those sentences were written to close a
-       * specific fabrication.
-       *
-       * Adjacency (rather than mere precedence) is pinned by
-       * `whatTheRunCouldNotSettleIsOnePlace.spec.tsx`; "uncertainty follows
-       * checks" was already true when they were six sections apart, so it is
-       * the assertion that would have passed throughout the defect.
-       */
+      // V2: the answer zone, headed by its own commitment block.
+      COMMITMENT_COPY.heading,
       ANALYSIS_NEW_COPY.sections.keyInsights,
-      /**
-       * ⭐⭐ CHECKS AND UNCERTAINTY MOVED TO THE END — and the ADJACENCY the
-       * note above pins is untouched: they moved together, as one group.
-       *
-       * Measured in the deployed DOM on `232b2d31`, expanded: the top section
-       * is 268px and the machinery below it totals 1741px, with "How this was
-       * worked out" alone at 713px — 2.7x the options comparison — sitting
-       * FOURTH of ten. The approved prototype `reasoningpanelv3` orders the
-       * panel model state -> Focus now -> What your model implies -> Drivers
-       * and dynamics -> Uncertainty and gaps -> RUN DETAILS LAST.
-       *
-       * ⚠ THE GROUPING FIX WAS ALREADY MADE AND WAS NOT ENOUGH. The note below
-       * records twelve top-level headings becoming six groups in answer to
-       * Paul's "unwieldy dump" report. He reported the same complaint again on
-       * 16 Sep against the grouped build, so grouping was necessary and not
-       * sufficient: what remained was that the run's MACHINERY sat in the
-       * middle, at the largest size on the surface.
-       *
-       * ⚠ THIS CENSUS GOING RED IS THE INTENDED SIGNAL, not collateral — the
-       * header above says so ("this census going RED on it is the positive
-       * proof the move landed"). It was also the ONLY thing that caught this
-       * move: it lives in `canvas/components/__tests__/`, and a 158-file run of
-       * `analysisNew/__tests__/` was green. CI was the authority.
-       */
-      ANALYSIS_NEW_COPY.sections.checks,
+      // ⭐ Uncertainty stays inside "How this was worked out", RUN DETAILS LAST
+      // per the prototype — only "What we checked" left it (for About).
       ANALYSIS_NEW_COPY.sections.uncertainty,
+      // V2: one collapsed audit surface closes the panel.
+      ABOUT_COPY.title,
     ])
+    // The pre-V2 census, kept as the record of what moved (not asserted):
+    // methods, drivers, strengthen, keyInsights, checks, uncertainty.
     /**
      * ⭐⭐ AND THE GROUPS THEY NOW SIT IN. The tab renders THREE named
      * `Accordion` headings — the structure Paul's "unwieldy dump" report
@@ -619,50 +572,34 @@ describe('C · THE SECTION STRUCTURE', () => {
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
     openReasoningGroups()
-    // Same tightened binding as the case above — the heading row now carries a
-    // count alongside the title, and the placement claim is about the TITLE.
     const body = screen.getByTestId('analysis-new-tab-body')
-    const GROUP_TITLES: readonly string[] = [
-      ANALYSIS_NEW_COPY.sections.howWorkedOut,
-      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
-      ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
-    ]
-    const allHeadings = Array.from(body.querySelectorAll('h3')).map(
-      (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
-    )
-    // ⚠ The GROUP headings are filtered out here too, so this case keeps
-    // asking only about section order. They are asserted by name in the census
-    // above; re-asserting them here would spread one claim over two cases.
-    const headings = allHeadings.filter((t) => t === null || !GROUP_TITLES.includes(t))
     /**
-     * ⚠⚠ THIS SAID `toBe(0)` UNTIL 17 Sep 2026, AND A LITERAL INDEX IS NOT THE
-     * CLAIM. Paul ruled that the DRIVERS are part of the answer, so "What moves
-     * the outcome" moved into the answer zone and its inner heading now
-     * precedes the coaching. Under `toBe(0)` that reads as a regression; it is
-     * not one, and the case's own title — "near the TOP, not at the end" — was
-     * never about being first.
+     * ⭐ REASONING V2 (24 Sep 2026): THE COACHING IS THE CHALLENGE CARD, AND IT
+     * LEADS. "Strengthen the reasoning" is not mounted on this tab any more;
+     * the one grounded intervention is `ChallengeCard`, in "Challenge the
+     * thinking", which V2 places ABOVE the answer zone. So the claim is now
+     * stronger than the 17 Sep list it replaces: no `h3` on the tab precedes
+     * the coaching — not the drivers, not the answer, no detail. (Scope, per
+     * the note above: the `h3` census of THIS harness, which seeds no canvas
+     * nodes, so Focus Now — an `h2`, and run-conditional — is not in view.)
      *
-     * ⛔ SO THE CLAIM IS STATED RATHER THAN NUMBERED, and it is STRONGER than
-     * the literal it replaces: it names exactly what may precede the coaching.
-     * `toBe(0)` could only say "nothing precedes it"; this says "one thing
-     * does, and it is the answer's tail" — which REDs if any DETAIL section
-     * creeps above the coaching, the defect the case exists to catch.
+     * ⚠ STATED AS AN EXACT RELATION, NOT AN INDEX, and bound by IDENTITY (the
+     * card's testid), because the card's text is the engine's own title and
+     * varies with the finding. It REDs the moment any section creeps above it.
      */
-    const beforeStrengthen = headings.slice(0, headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen))
-    /*
-     * ⚠ TWO MAY NOW PRECEDE THE COACHING, AND THE CASE IS NOT WEAKENED BY IT.
-     * The claim is still an EXACT list rather than a count or an index, so it
-     * REDs the moment any DETAIL section creeps above the coaching — which is
-     * the defect this case exists to catch. What changed is that ZONE: FOCUS
-     * renders unconditionally, and it sits above the answer by design.
-     */
+    const all = Array.from(body.querySelectorAll('h3'))
+    const card = screen.getByTestId('analysis-new-challenge-heading')
+    expect(all.indexOf(card as HTMLHeadingElement), 'the coaching must be the first heading on the tab').toBe(0)
+    const uncertainty = document.getElementById('analysis-new-uncertainty-heading')
+    expect(uncertainty, 'precondition: the detail this is measured against rendered').not.toBeNull()
+    expect(all.indexOf(card as HTMLHeadingElement)).toBeLessThan(all.indexOf(uncertainty as HTMLHeadingElement))
+    // …and the rest of the findings are one step above it: the review tool
+    // sits under the model strip, before the card in document order.
+    const review = screen.getByTestId('analysis-new-review')
     expect(
-      beforeStrengthen,
-      'only the methods a person can choose, and the answer, may precede the coaching',
-    ).toEqual([ANALYSIS_NEW_COPY.sections.methods, ANALYSIS_NEW_COPY.sections.drivers])
-    expect(headings.indexOf(ANALYSIS_NEW_COPY.sections.strengthen)).toBeLessThan(
-      headings.indexOf(ANALYSIS_NEW_COPY.sections.uncertainty),
-    )
+      review.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the review tool must precede the Challenge card',
+    ).toBeTruthy()
   })
 
   it('every section is a labelled landmark with a real heading', () => {
@@ -670,16 +607,24 @@ describe('C · THE SECTION STRUCTURE', () => {
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
     openReasoningGroups()
-    for (const testId of [
-      'analysis-new-key-insights',
-      'analysis-new-strengthen',
-      'analysis-new-drivers',
-      'analysis-new-uncertainty',
-    ]) {
+    /*
+     * V2: `analysis-new-strengthen` is retired from this tab (X) — the Challenge
+     * card and the review tool replace it and are not section landmarks. The
+     * V2 sections that are landmarks join the list: the commitment block (its
+     * heading id is `-title`, so each entry names its own heading id rather
+     * than assuming a suffix) and "About this analysis".
+     */
+    for (const [testId, headingId] of [
+      ['analysis-new-key-insights', 'analysis-new-key-insights-heading'],
+      ['analysis-new-drivers', 'analysis-new-drivers-heading'],
+      ['analysis-new-uncertainty', 'analysis-new-uncertainty-heading'],
+      ['analysis-new-commitment', 'analysis-new-commitment-title'],
+      ['analysis-new-about', 'analysis-new-about-heading'],
+    ] as const) {
       const section = screen.getByTestId(testId)
       expect(section.tagName).toBe('SECTION')
-      expect(section.getAttribute('aria-labelledby')).toBe(`${testId}-heading`)
-      expect(document.getElementById(`${testId}-heading`)).not.toBeNull()
+      expect(section.getAttribute('aria-labelledby')).toBe(headingId)
+      expect(document.getElementById(headingId)).not.toBeNull()
     }
   })
 })

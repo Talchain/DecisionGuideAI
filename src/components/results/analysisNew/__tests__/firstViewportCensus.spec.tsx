@@ -232,6 +232,19 @@ describe('the glance and the sections below it do not restate each other', () =>
  * until a pass presses nothing, with a hard iteration cap so a toggle that
  * fails to latch fails loudly instead of hanging the shard.
  */
+/**
+ * ⚠⚠ V2 (24 Sep 2026): ONE-OPEN-AT-A-TIME DETAILS, AND WHY THEY ARE VISITED
+ * RATHER THAN "EXPANDED". `AboutThisAnalysis` holds three details — "Values and
+ * ranges", "Limitations", "Run record" — under ONE `detailOpen` state, so
+ * opening one closes the others BY DESIGN. Pressed blindly with the rest, they
+ * never reach a fixpoint (measured: every expanded case threw here). So they
+ * are excluded from the fixpoint below and VISITED one at a time by
+ * `acrossExclusiveDetails`, which censuses each state and concatenates — the
+ * whole surface is still inside the guard, just not all at the same instant.
+ * Bound by the About testid prefix, not by "any button that re-closes".
+ */
+const EXCLUSIVE_DETAIL_TOGGLE = 'button[data-testid^="analysis-new-about-detail-"][data-testid$="-toggle"]'
+
 function expandEverything(root: HTMLElement): number {
   let pressed = 0
   for (let pass = 0; pass < 12; pass += 1) {
@@ -244,7 +257,7 @@ function expandEverything(root: HTMLElement): number {
     // the thing this function is about.
     const closed = [
       ...root.querySelectorAll<HTMLButtonElement>('button[data-testid$="-toggle"][aria-expanded="false"]'),
-    ]
+    ].filter((b) => !b.matches(EXCLUSIVE_DETAIL_TOGGLE))
     if (closed.length === 0) return pressed
     closed.forEach((b) => {
       fireEvent.click(b)
@@ -254,6 +267,25 @@ function expandEverything(root: HTMLElement): number {
   throw new Error(
     'expandEverything did not reach a fixpoint in 12 passes — a toggle is not latching open',
   )
+}
+
+/**
+ * Opens each one-open-at-a-time detail in turn (see `EXCLUSIVE_DETAIL_TOGGLE`)
+ * and runs `collect` in each state, returning what every state collected plus
+ * how many details were visited — so a caller can pin that the visit happened.
+ */
+function acrossExclusiveDetails<T>(root: HTMLElement, collect: () => T[]): { rows: T[]; visited: number } {
+  const rows: T[] = []
+  const count = root.querySelectorAll(EXCLUSIVE_DETAIL_TOGGLE).length
+  for (let i = 0; i < count; i += 1) {
+    const toggle = root.querySelectorAll<HTMLButtonElement>(EXCLUSIVE_DETAIL_TOGGLE)[i]
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded'), `${toggle.getAttribute('data-testid')} did not open`).toBe('true')
+    // Anything the detail itself mounts collapsed is opened too.
+    expandEverything(root)
+    rows.push(...collect())
+  }
+  return { rows, visited: count }
 }
 
 /**
@@ -326,11 +358,15 @@ describe('no section restates another section\'s prose once every section is ope
       // if something was actually collapsed and is now open.
       expect(pressed, 'nothing was collapsed — this case is a duplicate of the viewport census').toBeGreaterThan(0)
 
-      const rows = sentencesBySection(body)
+      const expanded = sentencesBySection(body)
       expect(
-        rows.length,
+        expanded.length,
         'expanding every section revealed no additional prose — the expansion did not mount anything',
       ).toBeGreaterThan(before)
+      // V2: About's one-open-at-a-time details, each censused in its own state.
+      const details = acrossExclusiveDetails(body, () => sentencesBySection(body))
+      expect(details.visited, 'About rendered no details — its record is outside this census').toBeGreaterThan(0)
+      const rows = [...expanded, ...details.rows]
 
       // ⭐ THE INSTRUMENT'S OWN PRECONDITION: the expansion must have mounted
       // prose in MORE THAN ONE section, or "no sentence spans two sections" is
@@ -444,8 +480,12 @@ function claimSentencesBySection(root: HTMLElement): Array<{ text: string; secti
 }
 
 function sentencesStatedInTwoSections(root: HTMLElement): string[] {
+  return claimsStatedInTwoSections(claimSentencesBySection(root))
+}
+
+function claimsStatedInTwoSections(rows: Array<{ text: string; section: string }>): string[] {
   const where = new Map<string, Set<string>>()
-  for (const r of claimSentencesBySection(root)) {
+  for (const r of rows) {
     const s = where.get(r.text) ?? new Set<string>()
     s.add(r.section)
     where.set(r.text, s)
@@ -492,9 +532,22 @@ function sentencesStatedInTwoSections(root: HTMLElement): string[] {
  * carry the owning sections verbatim, in the order `sentencesStatedInTwoSections`
  * emits them, so a move REDs as loudly as an addition.
  */
-const KNOWN_ADJUDICATED_REPEATS: readonly string[] = [
+/**
+ * ⛔ V2 (24 Sep 2026) — THE ADJUDICATED REPEAT IS RETIRED, AND THE PIN SAYS SO
+ * RATHER THAN HOLDING STALE PROSE (this list is `toEqual`, so a shrink REDs by
+ * design — it did, on the genuine-decision arm). V2 removed the premise of the
+ * ruling above: "Strengthen the reasoning" is no longer mounted on this tab; the
+ * promoted recommendation now renders once, in `ChallengeCard`, which carries
+ * its OWN dismissal ("Not useful right now"); and the review queue that took
+ * Strengthen's other findings EXCLUDES it (`excludeId={glancePrimary.id}`). So
+ * the dismiss-unreachable harm cannot arise and no repeat is licensed.
+ * The retired entry is kept as `RETIRED_STRENGTHEN_EXEMPTION` so the
+ * section-binding discrimination below still has a real pin to test.
+ */
+const RETIRED_STRENGTHEN_EXEMPTION: readonly string[] = [
   'no measurable success target is set.  [root + analysis-new-strengthen-region]',
 ]
+const KNOWN_ADJUDICATED_REPEATS: readonly string[] = []
 
 describe('no section states another section\'s SENTENCE, once every section is open', () => {
   for (const [name, make] of Object.entries({
@@ -509,10 +562,14 @@ describe('no section states another section\'s SENTENCE, once every section is o
       const pressed = expandEverything(body)
       expect(pressed, 'nothing was collapsed — this case cannot be wider than the viewport census').toBeGreaterThan(0)
 
-      const rows = claimSentencesBySection(body)
+      const expanded = claimSentencesBySection(body)
+      // V2: About's one-open-at-a-time details, each censused in its own state.
+      const details = acrossExclusiveDetails(body, () => claimSentencesBySection(body))
+      expect(details.visited, 'About rendered no details — its record is outside this census').toBeGreaterThan(0)
+      const rows = [...expanded, ...details.rows]
       expect(new Set(rows.map((r) => r.section)).size, 'claims landed in fewer than two sections — cannot discriminate').toBeGreaterThan(1)
 
-      const repeated = sentencesStatedInTwoSections(body)
+      const repeated = claimsStatedInTwoSections(rows)
 
       // ⭐⭐ THE ADJUDICATED REPEAT IS PINNED AS AN EXACT SET, NOT FILTERED OUT.
       // `toEqual` on the whole list means this REDs if the set GROWS (a new
@@ -572,6 +629,11 @@ describe('no section states another section\'s SENTENCE, once every section is o
  * sentence is a new defect, and must RED even though the sentence itself is on
  * the known list. Its twin proves the allowed pair still passes, so the pin is
  * discriminating rather than merely strict.
+ *
+ * V2: bound to `RETIRED_STRENGTHEN_EXEMPTION` — the live list is now empty, and
+ * what these cases prove (the census's output carries the SECTION PAIR, so any
+ * future exemption is bound to it) is a property of the instrument, not of the
+ * retired ruling.
  */
 describe('the adjudicated exemption is bound to its section pair, not to the sentence', () => {
   const CLAIM = 'No measurable success target is set.'
@@ -589,7 +651,7 @@ describe('the adjudicated exemption is bound to its section pair, not to the sen
     el.innerHTML =
       `<p>${CLAIM}</p>` +
       `<div data-testid="analysis-new-strengthen-region"><p>${CLAIM}</p></div>`
-    expect(sentencesStatedInTwoSections(el)).toEqual(KNOWN_ADJUDICATED_REPEATS)
+    expect(sentencesStatedInTwoSections(el)).toEqual(RETIRED_STRENGTHEN_EXEMPTION)
   })
 
   it('a THIRD section carrying the same sentence does NOT match the pin', () => {
@@ -598,12 +660,12 @@ describe('the adjudicated exemption is bound to its section pair, not to the sen
       `<p>${CLAIM}</p>` +
       `<div data-testid="analysis-new-strengthen-region"><p>${CLAIM}</p></div>` +
       `<div data-testid="analysis-new-checks-region"><p>${CLAIM}</p></div>`
-    expect(sentencesStatedInTwoSections(el)).not.toEqual(KNOWN_ADJUDICATED_REPEATS)
+    expect(sentencesStatedInTwoSections(el)).not.toEqual(RETIRED_STRENGTHEN_EXEMPTION)
   })
 
   it('the same sentence in two UNRELATED sections does NOT match the pin', () => {
     expect(sentencesStatedInTwoSections(build(['alpha', 'beta']))).not.toEqual(
-      KNOWN_ADJUDICATED_REPEATS,
+      RETIRED_STRENGTHEN_EXEMPTION,
     )
   })
 })

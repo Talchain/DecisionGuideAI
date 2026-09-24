@@ -35,9 +35,8 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
-import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
@@ -68,6 +67,25 @@ const vmOf = (data: ResultsSectionDataReturn) =>
   buildAnalysisNewViewModel({ data, recommendations: [], isPreRun: false, isRunning: false, isStale: false })
 
 const sectionText = () => screen.getByTestId('analysis-new-drivers').textContent ?? ''
+
+/**
+ * V2 RE-POINT (Reasoning V2, 24 Sep 2026). "What moves the outcome" moved from
+ * the answer zone into the "Challenge the thinking" zone, post-run and closed as
+ * before; "Drivers and dynamics" is still inside it. Both are opened here BY
+ * TESTID, outer then inner, because `SectionShell` unmounts a closed region.
+ * `openAllSections` cannot converge on the V2 tab: About's detail rows are a
+ * one-at-a-time accordion, so opening every closed toggle re-closes a sibling.
+ * ⚠ ASSERTED OPEN: most cases below assert a sentence is ABSENT, and an absence
+ * read off an unmounted section would pass vacuously.
+ */
+const openDrivers = () => {
+  for (const id of ['analysis-new-what-moves-the-outcome', 'analysis-new-drivers']) {
+    const toggle = screen.getByTestId(`${id}-toggle`)
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    expect(screen.getByTestId(`${id}-toggle`), `${id} must be open before it is read`)
+      .toHaveAttribute('aria-expanded', 'true')
+  }
+}
 
 /** The capture above, reconstructed at the adapter's own input type. */
 const pinnedFactorsOnly = () =>
@@ -127,13 +145,13 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
 
   it('does NOT tell the reader that factors it ranked #1 and #2 came back at zero', () => {
     renderBody(pinnedFactorsOnly())
-    openAllSections()
+    openDrivers()
     expect(sectionText()).not.toContain('came back at zero')
   })
 
   it('names the producer\'s actual reason instead', () => {
     renderBody(pinnedFactorsOnly())
-    openAllSections()
+    openDrivers()
     /* ⚠ CASE-INSENSITIVE ON BOTH SIDES. The map holds BADGE labels, which open
        with a capital because a badge opens its own element. Spliced into a
        sentence by `empty.noneRanked` the first character is lowered
@@ -147,7 +165,7 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
 
   it('says no basis sentence about a ranking that has no members', () => {
     renderBody(pinnedFactorsOnly())
-    openAllSections()
+    openDrivers()
     // Both arms of the basis branch are claims about ranked rows. There are none.
     expect(sectionText()).not.toContain(COPY.coverage.setRelativeInfluence)
     expect(sectionText()).not.toContain(COPY.coverage.structuralInfluence)
@@ -155,7 +173,7 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
 
   it('does not say factors are "not ranked here" when NOTHING is ranked', () => {
     renderBody(pinnedFactorsOnly())
-    openAllSections()
+    openDrivers()
     // "not ranked HERE" is defended in analysisNewCopy.ts as the narrow claim
     // that they are absent from a ranking. With no ranking it implies others
     // were ranked, and none were.
@@ -171,7 +189,7 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
    */
   it('TWIN — a run WITH survivors keeps both the basis sentence and the exclusion clause', () => {
     renderBody(oneSuppressedAmongSurvivors())
-    openAllSections()
+    openDrivers()
     const text = sectionText()
     expect(text).toContain(COPY.coverage.setRelativeInfluence)
     expect(text).toContain('not ranked here')
@@ -187,7 +205,7 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
    */
   it('binds to the DRIVERS section, not to whichever section carries the words', () => {
     renderBody(pinnedFactorsOnly())
-    openAllSections()
+    openDrivers()
     const drivers = screen.getByTestId('analysis-new-drivers')
     expect(within(drivers).getByTestId('analysis-new-drivers-empty')).toBeInTheDocument()
     expect(within(drivers).getByTestId('analysis-new-drivers-empty').textContent?.toLowerCase())

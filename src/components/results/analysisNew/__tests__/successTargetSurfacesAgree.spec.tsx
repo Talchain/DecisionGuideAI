@@ -58,66 +58,72 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useResultsSectionData } from '../../useResultsSectionData'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
+import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../../strengthen/buildRecommendations'
 
 const STRIP = 'analysis-new-model-strip-target'
-const STRENGTHEN = 'analysis-new-strengthen'
-const SENTENCE = 'No measurable success target is set.'
+/**
+ * ⭐ V2 (24 Sep 2026): THE CARD IS NOW TWO SURFACES, AND BOTH ARE READ.
+ * The Strengthen mount is retired from this tab. The engine's findings reach
+ * the reader through:
+ *   · `ChallengeCard` — ONE intervention, the body's `glancePrimary`
+ *     (`analysis-new-challenge`, `data-recommendation-id`), and
+ *   · `ModelReviewTool` — every other one, paged one at a time
+ *     (`analysis-new-review-item`, `data-review-key` = the recommendation id).
+ * "The panel asks for a target" is therefore: the success-measure finding,
+ * bound by the ENGINE's id (`SUCCESS_MEASURE_RECOMMENDATION_ID`), is on either
+ * surface. That is stronger than the old text probe: V2 shows the sentence
+ * only behind "Why this", while the finding itself — title, ask, act — is what
+ * the reader meets, and the id is what that finding IS.
+ */
+const CHALLENGE = 'analysis-new-challenge'
+const REVIEW = 'analysis-new-review'
 
 /**
- * ⚠⚠ THE SECTION IS COLLAPSED BY DEFAULT (`SectionShell`), AND THE FIRST
- * VERSION OF THIS FILE DID NOT OPEN IT. Every "the sentence is absent"
- * assertion then passed on a SHUT ACCORDION — the probe could not have found
- * that sentence on any model, so it was measuring nothing. The twin below is
- * what exposed it: the case that must FIND the sentence failed, which is the
- * only reason the vacuity was visible at all.
+ * ⚠⚠ THE HISTORY THIS PROBE CARRIES FORWARD (pre-V2 it read the Strengthen
+ * region's TEXT). Two vacuums were found and closed there, and both have V2
+ * twins that the probe below closes the same way:
+ *   · a COLLAPSED region: the review tool is collapsed at rest and UNMOUNTS its
+ *     item, so the probe opens it, asserts it opened, and pages every item;
+ *   · a probe that could not find the sentence on ANY model: the positive-
+ *     control twins below must FIND the finding, so a renamed testid or a
+ *     pager that never advances REDs there instead of reading as "no ask".
  *
- * Opening is therefore a precondition of every assertion here, and the
- * expansion is asserted rather than assumed, so a renamed toggle REDs instead
- * of quietly restoring the vacuum.
+ * Returns every recommendation id either surface holds.
  */
-/**
- * ⚠⚠ READ THE RENDERED TEXT, NOT AN ELEMENT. `getByText(SENTENCE)` matches an
- * element whose WHOLE normalised text equals the string, and this sentence
- * shares its paragraph with the rest of the card's copy ("…is set. Without a
- * target the analysis cannot say…"). So that query returned null on EVERY
- * model, and both directions of this test were vacuous until the twin caught
- * it. The question the panel is actually being asked is "do you say this
- * sentence anywhere on screen", so the predicate reads the text.
- */
-const panelAsksForATarget = () => {
-  // ⚠ SCOPED TO THE REGION, NOT THE DOCUMENT. This sentence has TWO producers —
-  // `buildRecommendations` (the strengthen row) and the glance card. On a model
-  // with no goal node the glance renders it without the strengthen section
-  // being open at all, so a document-wide read would answer about a different
-  // surface than the one under test. The testid is already asserted by
-  // `openStrengthen`, so scoping is free.
-  const region = screen.queryByTestId(`${STRENGTHEN}-region`)
-  return (region?.textContent ?? '').includes(SENTENCE)
-}
+const coachingIds = (): string[] => {
+  const ids: string[] = []
+  const card = screen.queryByTestId(CHALLENGE)
+  const cardId = card?.getAttribute('data-recommendation-id')
+  if (cardId) ids.push(cardId)
 
-/**
- * ⚠⚠ IDEMPOTENT, AND THAT IS A STRENGTHENING RATHER THAN A LOOSENING. This
- * clicked UNCONDITIONALLY, which silently assumed the section starts CLOSED.
- * The section now opens by default on exactly the models this file cares most
- * about — pre-run, with a grounded success-measure finding behind the row —
- * so the click was CLOSING it and every assertion after it read a shut
- * accordion. `driversSeamSaysOneThing.spec.tsx:116` already names this exact
- * shape for the sibling `defaultOpen={findings.length === 1}` rule.
- *
- * ⭐ WHAT THIS HELPER IS FOR IS UNCHANGED, and the file's own header states it:
- * "Opening is therefore a precondition of every assertion here, and the
- * expansion is asserted rather than assumed." Both assertions below still run
- * on every call, so a renamed toggle or an unmountable region still REDs. What
- * has gone is an assumption about the STARTING state, which was never the
- * property under test — and which, left in place, would have turned this file
- * back into the vacuum its own header records it escaping from.
- */
-const openStrengthen = () => {
-  const toggle = screen.getByTestId(`${STRENGTHEN}-toggle`)
+  // The review tool always mounts its row; its toggle exists only when the
+  // queue holds something ("N to review").
+  expect(screen.getByTestId(REVIEW), 'the review tool must mount').toBeInTheDocument()
+  const toggle = screen.queryByTestId(`${REVIEW}-toggle`)
+  if (toggle === null) return ids
   if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(screen.getByTestId(`${STRENGTHEN}-toggle`)).toHaveAttribute('aria-expanded', 'true')
-  expect(screen.getByTestId(`${STRENGTHEN}-region`)).toBeInTheDocument()
+  expect(screen.getByTestId(`${REVIEW}-toggle`)).toHaveAttribute('aria-expanded', 'true')
+  // Page to the end. The loop must stop because Next is DISABLED, never on
+  // the cap — a pager that did not advance would otherwise read one item.
+  let ended = false
+  for (let guard = 0; guard < 50; guard += 1) {
+    const item = screen.getByTestId(`${REVIEW}-item`)
+    const key = item.getAttribute('data-review-key')
+    expect(key, 'every review item carries its key').toBeTruthy()
+    expect(ids, 'the pager revisited an item — it did not advance').not.toContain(key)
+    ids.push(key as string)
+    const next = screen.getByTestId(`${REVIEW}-next`)
+    if ((next as HTMLButtonElement).disabled) {
+      ended = true
+      break
+    }
+    fireEvent.click(next)
+  }
+  expect(ended, 'the review pager never reached its last item').toBe(true)
+  return ids
 }
+
+const panelAsksForATarget = () => coachingIds().includes(SUCCESS_MEASURE_RECOMMENDATION_ID)
 
 /**
  * The shipped `market-entry` goal node, reduced to the fields both readers use.
@@ -258,7 +264,6 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
   it('shows the target and does NOT ask for it', () => {
     seedPreRun(GOAL_WITH_TARGET)
     render(<RealPanel />)
-    openStrengthen()
 
     // ⭐ PRECONDITION. An absence assertion under a panel that rendered no
     // strip at all would pass for the wrong reason. Prove the strip is
@@ -289,7 +294,6 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
   ])('still asks for a target when the goal carries only %s', (_name, goal) => {
     seedPreRun(goal)
     render(<RealPanel />)
-    openStrengthen()
 
     // The strip agrees there is nothing to show — so a silent card would be the
     // panel losing the ask entirely, not two surfaces disagreeing.
@@ -374,7 +378,6 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
   ])('does NOT ask for a target when the goal states %s', (_n, data) => {
     seedPreRun({ id: 'g1', type: 'goal', data: { label: 'Grow Total ARR', ...data } })
     render(<RealPanel />)
-    openStrengthen()
 
     // The strip is displaying it, so a card denying it is the contradiction.
     expect(screen.getByTestId(`${STRIP}-value`)).toBeInTheDocument()
@@ -388,7 +391,6 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
       data: { label: 'Grow Total ARR', success_threshold: '20%', threshold_source: 'user' },
     })
     render(<RealPanel />)
-    openStrengthen()
     expect(panelAsksForATarget()).toBe(false)
   })
 
@@ -407,8 +409,8 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
 
   /**
    * ⭐⭐ THE OPPOSITE-DIRECTION TWIN, AND THE PROBE'S POSITIVE CONTROL.
-   * `queryByText(SENTENCE)` returning null proves nothing unless the same query
-   * can be shown to FIND that sentence on a model that deserves it. This case
+   * The probe returning "no ask" proves nothing unless the same probe can be
+   * shown to FIND the finding on a model that deserves it. This case
    * is that proof, and it is also the thing that stops the fix degenerating
    * into "delete the ask": on a goal with no number the coaching must still
    * fire. It must be GREEN both before and after the fix.
@@ -416,7 +418,6 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
   it('asks for the target, and shows none, when the goal has no number', () => {
     seedPreRun(GOAL_WITHOUT_TARGET)
     render(<RealPanel />)
-    openStrengthen()
 
     expect(screen.getByTestId(`${STRIP}-none`)).toBeInTheDocument()
     expect(screen.queryByTestId(`${STRIP}-value`)).toBeNull()
@@ -438,8 +439,7 @@ describe('THE PANEL — one viewport, one answer about the target', () => {
       cleanup()
       seedPreRun(goal)
       render(<RealPanel />)
-      openStrengthen()
-
+  
       const stripShowsATarget = screen.queryByTestId(`${STRIP}-value`) !== null
       if (stripShowsATarget) {
         antecedentSeen += 1

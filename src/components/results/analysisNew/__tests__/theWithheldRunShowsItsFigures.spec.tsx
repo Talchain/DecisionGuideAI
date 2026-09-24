@@ -210,7 +210,13 @@ describe('the withheld run is the state this opens for', () => {
    * the ARRAY ORDER and nowhere else.
    */
   it('(3) prints no ordinal anywhere in the opened section', () => {
-    renderBody(decisionWithLeaderWithheld())
+    // ⚠ V2 (24 Sep 2026): WITH RANGES, as (1), (4) and (5) already are. The
+    // section opens by default only where it draws a figure the glance does not
+    // state (`comparisonDrawsAFigure`), and with the win shares gone from the
+    // resting view the bare fixture draws none, so it mounts CLOSED and this
+    // case read an empty region. The ranges are the figures a real run carries;
+    // the ordinal claim is unchanged and now covers the range readouts too.
+    renderBody(withRanges(decisionWithLeaderWithheld()))
     const section = screen.getByTestId(T)
 
     // Scoped to the SECTION, and the section is open — asserted above, and
@@ -221,7 +227,7 @@ describe('the withheld run is the state this opens for', () => {
     const text = section.textContent ?? ''
     expect(text).not.toMatch(/\b1st\b|\b2nd\b|\bfirst\b|\bsecond\b|\btop\b|#1\b/i)
     // And no rank digit smuggled in beside a name: the only numbers in this
-    // section are the two win readouts and the count on the row.
+    // section are the per-option figures (V2: the range readouts) and the count.
     for (const id of ['opt_a', 'opt_b']) {
       expect(within(row(id)).getByTestId(`${T}-label`).textContent).not.toMatch(/^\s*\d/)
     }
