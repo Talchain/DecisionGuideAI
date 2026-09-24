@@ -249,12 +249,17 @@ describe('F · the three scenario classes (§24F)', () => {
     // moves "What would change your mind" into "Challenge the thinking", which
     // sits ABOVE the answer zone. So prominence is now: inside that zone, and
     // before the glance and the figures.
+    // ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026): the full section
+    // now follows the answer, closed. Prominence is carried at rest by the
+    // Challenge zone's signal rows — the fragile assumption is named there,
+    // above the answer — and by the provisional qualifier under the chart.
     const challenge = screen.getByTestId('analysis-new-zone-also-group')
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    expect(challenge).toContainElement(sensitivity)
+    const signals = within(challenge).getByTestId('analysis-new-signals')
+    expect(signals, 'the fragile assumption is named in the challenge, at rest').toHaveTextContent('Customer adoption')
     expect(
-      Boolean(sensitivity.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING),
-      'the sensitive assumption must sit above the answer it qualifies',
+      Boolean(challenge.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING),
+      'the challenge that names the sensitive assumption sits above the answer it qualifies',
     ).toBe(true)
 
     const body = screen.getByTestId('analysis-new-tab-body')
@@ -867,24 +872,34 @@ describe('the engine warning arrives before the reading it qualifies', () => {
       },
     }) as never
 
-  it('mounts the warning strip ABOVE the glance, not below the sections', () => {
+  /**
+   * ⚠⚠ RE-POINTED — THE RULING THIS DESCRIBE BLOCK RECORDS IS REVERSED, KNOWINGLY
+   * (Reasoning V2, 24 Sep 2026). Measured on served `c5000550`: the box at the
+   * top pushed the chart it qualifies below the fold, so the caveat arrived a
+   * whole screen BEFORE the reading, not beside it. The V2 prototype answers the
+   * same need with one line directly under the chart ("Provisional · …"), read
+   * with no disclosure opened, and the full list one disclosure away in About ›
+   * Limitations. "A demotion nobody opens is a deletion" is answered by the
+   * qualifier being at rest, beside the chart; the entries themselves are kept.
+   */
+  it('V2: the caveat is qualified at rest beside the chart, not in a box above the model', () => {
     renderBody(warned())
-
-    const strip = screen.queryByTestId('inference-warning-strip')
-    const glance = screen.getByTestId('analysis-new-glance')
-    // Pinned in-test: this fixture really does carry warnings, so a null strip
-    // would be the mount failing rather than the run being clean.
-    expect(strip).not.toBeNull()
+    expect(screen.queryByTestId('inference-warning-strip'), 'no box at the top').toBeNull()
+    const options = screen.getByTestId('analysis-new-options')
+    const qualifier = screen.getByTestId('analysis-new-commitment-qualifier')
+    expect(qualifier.textContent).toMatch(/^Provisional · /)
     expect(
-      strip!.compareDocumentPosition(glance) & Node.DOCUMENT_POSITION_FOLLOWING,
+      options.compareDocumentPosition(qualifier) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the qualifier sits directly under the chart it qualifies',
     ).toBeTruthy()
   })
 
-  it('renders it without the reader opening anything', () => {
-    // The demotion this fixes: a chevron between the reader and an engine
-    // warning is a demotion, and a demotion nobody opens is a deletion.
+  it('V2: the full caveat is kept, one disclosure away in About › Limitations', () => {
     renderBody(warned())
-    expect(screen.getByTestId('inference-warning-strip')).toBeInTheDocument()
+    const about = screen.getByTestId('analysis-new-about')
+    fireEvent.click(within(about).getByTestId('analysis-new-about-toggle'))
+    fireEvent.click(within(about).getByTestId('analysis-new-about-detail-limitations-toggle'))
+    expect(within(about).getByTestId('inference-warning-strip')).toBeInTheDocument()
   })
 
   it('renders no strip at all on a run the engine raised nothing about', () => {
@@ -940,21 +955,28 @@ describe('"What would change your mind" — its place on the tab (V2: in "Challe
    * order, with the same three-distinct-elements precondition, so neither
    * ordering claim can hold vacuously and a move back REDs by name.
    */
-  it('V2: sits in "Challenge the thinking" — below the model-wide review, above the glance', () => {
+  /**
+   * ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026). The full section
+   * stood in "Challenge the thinking", above the answer; with the amber box and
+   * "Focus now" it pushed the options chart below the fold on served
+   * `c5000550`. The CHALLENGE still comes before the answer — its signal rows
+   * carry the fragile assumption at rest — and the full, closed section now
+   * follows the answer it explains (`theAnswerIsOnTheFirstScreen.spec.tsx`).
+   */
+  it('V2: the challenge comes before the answer; the full section follows it', () => {
     renderBody(withLeaderLicensed(manyFragileEdges()))
 
     const review = screen.getByTestId('analysis-new-review')
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
     const glance = screen.getByTestId('analysis-new-glance')
-    // PRECONDITION, PINNED IN-TEST: three distinct elements.
-    expect(new Set([review, sensitivity, glance]).size).toBe(3)
+    const challenge = screen.getByTestId('analysis-new-zone-also-group')
+    // PRECONDITION, PINNED IN-TEST: four distinct elements.
+    expect(new Set([review, sensitivity, glance, challenge]).size).toBe(4)
 
-    expect(screen.getByTestId('analysis-new-zone-also-group')).toContainElement(sensitivity)
-    expect(before(review, sensitivity), 'the model-wide review comes first').toBe(true)
-    expect(
-      before(sensitivity, glance),
-      'what would change your mind challenges the thinking before the answer is read',
-    ).toBe(true)
+    expect(before(review, challenge), 'the model-wide review comes first').toBe(true)
+    expect(before(challenge, glance), 'the challenge is read before the answer').toBe(true)
+    expect(challenge, 'the full section no longer sits in the challenge zone').not.toContainElement(sensitivity)
+    expect(before(glance, sensitivity), 'the full section follows the answer it explains').toBe(true)
   })
 
   it('leaves "Uncertainty and gaps" BELOW it, and no longer carrying the same rows', () => {
@@ -1173,19 +1195,24 @@ describe('the coaching and the answer — V2 zone order', () => {
    * ABOVE the answer zone. Rewritten to that relation — still a pair of
    * distinct, named elements, so a move in either direction REDs.
    */
-  it('V2: the drivers sit in "Challenge the thinking" — below the review, above the answer', () => {
+  /**
+   * ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026). What the answer
+   * turns on is still read BEFORE the answer — as the "Top drivers" rows of the
+   * challenge signals — and the full drivers chart (closed at rest) now follows
+   * the answer it explains, so the options chart reaches the first screen.
+   */
+  it('V2: the top drivers are read in the challenge, before the answer; the full chart follows it', () => {
     renderBody(genuineDecision())
     openGroups()
     const review = screen.getByTestId('analysis-new-review')
+    const signals = screen.getByTestId('analysis-new-signals')
     const drivers = screen.getByTestId('analysis-new-drivers')
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    expect(new Set([review, drivers, answer]).size, 'three distinct elements').toBe(3)
-    expect(screen.getByTestId('analysis-new-zone-also-group')).toContainElement(drivers)
-    expect(precedes(review, drivers), 'the model-wide review comes first').toBe(true)
-    expect(
-      precedes(drivers, answer),
-      'what the answer turns on is read before the answer, in "Challenge the thinking"',
-    ).toBe(true)
+    expect(new Set([review, signals, drivers, answer]).size, 'four distinct elements').toBe(4)
+    expect(screen.getByTestId('analysis-new-zone-also-group')).toContainElement(signals)
+    expect(precedes(review, signals), 'the model-wide review comes first').toBe(true)
+    expect(precedes(signals, answer), 'what the answer turns on is read before the answer').toBe(true)
+    expect(answer, 'the full drivers chart follows the answer, inside its zone').toContainElement(drivers)
   })
 
   it('the ordering probe can actually detect a wrong order', () => {

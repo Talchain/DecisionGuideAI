@@ -50,7 +50,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -155,8 +155,13 @@ afterEach(() => {
   useCanvasStore.setState({ nodes: previous.nodes } as never)
 })
 
-const renderPanel = () =>
-  render(
+/**
+ * V2 (24 Sep 2026): the critique strip now lives in About › Limitations rather
+ * than above the model, so the render opens that disclosure. What this file pins
+ * — the WORDS of the goal withhold beside a named ranking — is unchanged.
+ */
+const renderPanel = () => {
+  const r = render(
     <AnalysisNewTabBody
       resultsSectionData={goalWithheldWithLeaderPermitted()}
       isPreRun={false}
@@ -165,6 +170,12 @@ const renderPanel = () =>
       responseHash="run_goal_withheld_leader_permitted"
     />,
   )
+  for (const id of ['analysis-new-about-toggle', 'analysis-new-about-detail-limitations-toggle']) {
+    const t = screen.queryByTestId(id)
+    if (t && t.getAttribute('aria-expanded') === 'false') fireEvent.click(t)
+  }
+  return r
+}
 
 /** Select the goal entry BY ITS CODE. Never by index, never by text. */
 const goalEntry = () => {

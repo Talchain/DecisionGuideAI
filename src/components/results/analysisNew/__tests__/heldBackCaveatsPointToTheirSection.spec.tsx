@@ -77,6 +77,14 @@ function enclosingSectionTitles(el: Element): string[] {
       const text = title?.textContent?.trim()
       if (text) titles.push(text)
     }
+    // V2: About's own disclosures ("Limitations", "Run record") are titled
+    // sub-sections too — `<div data-testid="…-detail-<key>">` headed by its
+    // toggle. The strip now lives inside About, so its pointer names one.
+    const id = node.getAttribute('data-testid') ?? ''
+    if (/-detail-[a-z]+$/.test(id)) {
+      const text = node.querySelector(`[data-testid="${id}-toggle"]`)?.textContent?.trim()
+      if (text) titles.push(text)
+    }
     node = node.parentElement
   }
   return titles
@@ -87,7 +95,13 @@ function enclosingSectionTitles(el: Element): string[] {
  *  DeeperAnalysis's own toggle). Clicked only when collapsed, so it cannot close. */
 function openTheHeldBackRows(): void {
   openGroups()
-  for (const id of ['analysis-new-about-toggle', 'analysis-new-about-detail-record-toggle']) {
+  // V2 (24 Sep 2026): the strip itself now lives in About › Limitations, so that
+  // detail is opened too; the held-back rows are still in "Run record".
+  for (const id of [
+    'analysis-new-about-toggle',
+    'analysis-new-about-detail-limitations-toggle',
+    'analysis-new-about-detail-record-toggle',
+  ]) {
     const t = screen.queryByTestId(id)
     if (t && t.getAttribute('aria-expanded') === 'false') fireEvent.click(t)
   }

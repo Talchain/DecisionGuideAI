@@ -29,7 +29,7 @@
  * border, no nested card. Three type sizes only. Fluid at the 280px dock floor.
  */
 import type { ReactNode } from 'react'
-import { GitCompare, NotebookPen } from 'lucide-react'
+import { GitCompare, Info, NotebookPen } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
@@ -82,6 +82,11 @@ export interface CommitmentSummaryProps {
   onCompare?: () => void
   /** The options comparison, placed between the bullets and the record row. */
   children?: ReactNode
+  /**
+   * `buildCommitmentQualifier(vm)` — one borderless line directly under the
+   * comparison it qualifies (V2 prototype `.qualifier`). Null renders nothing.
+   */
+  qualifier?: string | null
   testId?: string
 }
 
@@ -178,6 +183,7 @@ export function CommitmentSummary({
   onAsk,
   onCompare,
   children,
+  qualifier = null,
   testId = 'analysis-new-commitment',
 }: CommitmentSummaryProps) {
   if (isPreRun) return null
@@ -250,6 +256,18 @@ export function CommitmentSummary({
         <div className="mt-3" data-testid={`${testId}-slot`}>
           {children}
         </div>
+      ) : null}
+
+      {/* Under the chart, never above it, and only where there is a chart to
+          qualify. Neutral ink: the words carry the caution, not an amber box. */}
+      {hasSlot && qualifier ? (
+        <p
+          className={`${typography.panelMeta} text-text-light m-0 mt-1.5 flex items-center gap-1`}
+          data-testid={`${testId}-qualifier`}
+        >
+          <Info className="h-3 w-3 shrink-0" aria-hidden={true} />
+          <span>{qualifier}</span>
+        </p>
       ) : null}
 
       {showRecord ? (

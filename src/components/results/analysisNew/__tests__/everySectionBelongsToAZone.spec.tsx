@@ -41,7 +41,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -243,10 +243,18 @@ describe('the drivers answer "what matters most", so they are read before the an
     expect(screen.queryByTestId(DRIVERS), 'nothing to place if it does not render').not.toBeNull()
   })
 
-  it('⭐ the section is inside the CHALLENGE group (V2), not FURTHER', () => {
+  /**
+   * ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026): the full section now
+   * follows the answer, closed, inside the ANSWER group — it explains the figures
+   * it follows. What the ruling protects (the drivers are read before the
+   * answer) is carried at rest by the challenge's "Top drivers" signal rows; see
+   * the case below. It is still never demoted to FURTHER.
+   */
+  it('⭐ the full section is inside the ANSWER group, after the figures, not FURTHER', () => {
     renderBody(manyFragileEdges())
-    const challenge = screen.getByTestId(CHALLENGE)
-    expect(challenge.contains(screen.getByTestId(DRIVERS)), 'the drivers belong to "Challenge the thinking"').toBe(true)
+    const answer = screen.getByTestId('analysis-new-zone-answer-group')
+    expect(answer.contains(screen.getByTestId(DRIVERS)), 'the full drivers section follows the answer it explains').toBe(true)
+    expect(screen.getByTestId(CHALLENGE).contains(screen.getByTestId(DRIVERS))).toBe(false)
     const further = screen.queryByTestId('analysis-new-zone-further-group')
     if (further !== null) {
       expect(further.contains(screen.getByTestId(DRIVERS)), 'and not to the further-reading group').toBe(false)
@@ -280,17 +288,15 @@ describe('the drivers answer "what matters most", so they are read before the an
     ['a run that reached a conclusion', genuineDecision],
     ['a withheld run — the surface the ruling is about', decisionWithLeaderWithheld],
   ])('⭐ %s reads the drivers BEFORE the answer\'s figures — Paul\'s ruling, not an accident', (_name, fixture) => {
+    // ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026): the drivers read
+    // before the answer are the challenge's "Top drivers" signal rows, at rest;
+    // the full chart (closed) follows the figures so they reach the first screen.
     renderBody(fixture())
     const challenge = screen.getByTestId(CHALLENGE)
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    const order = Array.from(challenge.children).map((c) => c.getAttribute('data-testid'))
-
+    const signals = within(challenge).getByTestId('analysis-new-signals')
     // PRECONDITION: this case must not be able to pass by absence.
-    expect(order.indexOf(DRIVERS), 'the drivers must be a direct child of the challenge group').toBeGreaterThan(-1)
-    const drivers = screen.getByTestId(DRIVERS)
-    // V2: the comparison sits inside the commitment block, and `ModelImplication`
-    // is no longer mounted (its lead is synthesis bullet one) — so the figures
-    // are found by identity anywhere inside the answer zone, not as direct children.
+    expect(signals.textContent ?? '', 'the challenge must name the top drivers at rest').toMatch(/Top drivers/)
     const figures = ['analysis-new-options', 'analysis-new-implication']
       .map((id) => answer.querySelector(`[data-testid="${id}"]`))
       .filter((el): el is Element => el !== null)
@@ -298,8 +304,8 @@ describe('the drivers answer "what matters most", so they are read before the an
 
     for (const fig of figures) {
       expect(
-        drivers.compareDocumentPosition(fig) & Node.DOCUMENT_POSITION_FOLLOWING,
-        `the drivers must precede ${fig.getAttribute('data-testid')}`,
+        signals.compareDocumentPosition(fig) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `the top drivers must precede ${fig.getAttribute('data-testid')}`,
       ).toBeTruthy()
     }
   })
