@@ -58,7 +58,6 @@ import { useAuth } from '../../../contexts/AuthContext'
 import { sanitiseUserId } from '../../../lib/guestIdentity'
 import {
   commitDecisionRecord,
-  DECISION_RECORD_NEXT_ACTION_MAX_CHARS,
   DECISION_RECORD_TEXT_MAX_CHARS,
 } from '../../../services/decisionRecordCommitService'
 import { typography } from '../../../styles/typography'
@@ -90,8 +89,10 @@ export const DECISION_RECORD_COPY = {
   // ⚠ Superseded text: ~~The rationale, assumption and revisit trigger stay on
   // this device for this scenario.~~ Since 24 Sep 2026 they are SENT with the
   // commit, so "stay on this device" would deny a transmission that happens.
-  // What is still true, and all that is claimed: they are sent, and they are
-  // kept here. No CEE response confirms the account kept them.
+  // What is still true, and all that is claimed BEFORE save: they are sent,
+  // and they are kept here. Whether the account kept each one is known only
+  // after save, from CEE's `stored_text_fields`, and is said by the read-back
+  // (`storageSentenceFor`), never promised here.
   persistenceNote:
     'We’ll try to save your choice, confidence, expectation and review date to your account. The rationale, assumption, next action and revisit trigger are sent with them, and kept on this device for this scenario.',
   /** The same attempt, for "Not ready to choose": no choice, confidence or expectation exists. */
@@ -412,7 +413,8 @@ export function DecisionRecordModal() {
       scenarioId,
       revisitTriggerOrDate: record.revisitTrigger,
       // ⚠ ADDITIVE KEYS — see the commit service's header for what today's CEE
-      // does with them (reads none of them, refuses none of them).
+      // does with them (reads none of them, refuses none of them) and for the
+      // landing order against the reconciled CEE route.
       rationale: record.rationale,
       keyAssumption: record.assumptionToWatch,
       nextAction: record.nextAction,
@@ -441,6 +443,9 @@ export function DecisionRecordModal() {
           recordId: result.recordId,
           reviewDate: result.reviewDate,
           reviewDateSource: result.reviewDateSource,
+          // CEE's per-field confirmation. Absent from the ack when empty, so
+          // today's CEE (which sends none) leaves the ack byte-identical.
+          ...(result.storedTextFields.length > 0 ? { storedTextFields: result.storedTextFields } : {}),
         })
         if (!promoted) return
         close()
@@ -721,7 +726,7 @@ export function DecisionRecordModal() {
               data-testid="decision-record-next-action"
               type="text"
               placeholder={DECISION_RECORD_COPY.nextActionPlaceholder}
-              maxLength={DECISION_RECORD_NEXT_ACTION_MAX_CHARS}
+              maxLength={DECISION_RECORD_TEXT_MAX_CHARS}
               value={nextAction}
               onChange={(e) => setNextAction(e.target.value)}
               disabled={!hasOptions}

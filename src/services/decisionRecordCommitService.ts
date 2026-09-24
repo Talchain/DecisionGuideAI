@@ -42,6 +42,10 @@
  * is a second place the scale can drift.
  */
 import { getSessionIdentity } from '../lib/supabase'
+import {
+  readStoredTextFields,
+  type DecisionRecordTextField,
+} from '../components/results/modals/decisionRecordStore'
 
 /** Same-origin Netlify edge seam for CEE-served routes. A LITERAL — see header. */
 const CEE_BFF_BASE = '/bff/cee'
@@ -56,19 +60,28 @@ export type ReviewDateSource =
   | 'default_horizon_after_unparsed_trigger'
 
 /**
- * Upper bounds for the text the commit sends, matching the request shape the
- * CEE change implements (24 Sep 2026). The modal applies them as `maxLength`
- * so a user never builds a record the new route would refuse whole.
+ * The ONE upper bound for each of the four reasoning texts (rationale,
+ * assumption, revisit trigger, next action) — CEE's `DECISION_RECORD_TEXT_MAX_CHARS`
+ * and `@talchain/schemas` 0.57.0's, measured the same way (trimmed, JS
+ * length). Superseded: ~~2000, and 500 for the next action~~ — a text over
+ * CEE's bound is refused 400 `text_field_too_long` and takes the WHOLE record
+ * with it, so the UI bound must not exceed the server's.
+ *
+ * The modal applies it as `maxLength`. The body builder ALSO omits any text
+ * whose trimmed length exceeds it, because a record prefilled from an older
+ * local copy (the modal had no `maxLength` before) can still hold one: that
+ * text then stays on this device (CEE never confirms it), and the choice,
+ * confidence and expectation still reach the account.
  */
-export const DECISION_RECORD_TEXT_MAX_CHARS = 2000
-export const DECISION_RECORD_NEXT_ACTION_MAX_CHARS = 500
+export const DECISION_RECORD_TEXT_MAX_CHARS = 1000
 
 /**
  * Fields sent whatever the position.
  *
  * ⚠ ADDITIVE KEYS, AND WHAT TODAY'S CEE DOES WITH THEM. `rationale`,
- * `key_assumption`, `next_action` and `position` are new request keys. The
- * deployed route (`assist.v1.decision-records.ts`, staging `3f412be1`) reads
+ * `key_assumption`, `revisit_trigger`, `next_action` and `position` are new
+ * request keys. The deployed route (`assist.v1.decision-records.ts`, staging
+ * `3f412be1`) reads
  * the body key by key with `readString` and has no request schema, so it
  * IGNORES keys it does not read: an option commit that carries them is written
  * exactly as before. Its `.strict()` schemas apply to the write it BUILDS, not
@@ -76,11 +89,27 @@ export const DECISION_RECORD_NEXT_ACTION_MAX_CHARS = 500
  * whether an account kept it, so nothing here licenses an account claim for
  * the text (see `decisionRecordStore`'s header).
  *
- * ⚠ THE REVISIT TEXT ALREADY HAS A KEY. `revisit_trigger_or_date` has carried
- * the modal's revisit text verbatim since R0 (CEE parses it for a date and
- * drops the words). It is the existing convention, so there is no second
- * `revisit_trigger` key carrying the same words: a server that wants to keep
- * the text reads `revisit_trigger_or_date`.
+ * ⚠ LANDING ORDER. The reconciled CEE route (branch
+ * `feat/decision-record-not-ready-and-reasoning`) FORWARDS these texts to its
+ * store. Against a database WITHOUT migration 20260924120000 the store's
+ * whitelist refuses them, and every option commit carrying one (all of them:
+ * the rationale, assumption and revisit trigger are required fields) fails
+ * 502. So this client ships only after that migration is applied AND that
+ * route is deployed — or while CEE is still today's route, which ignores them.
+ *
+ * ⚠ THE REVISIT TEXT GOES UNDER TWO KEYS, ON PURPOSE (reconciled 24 Sep 2026).
+ * Superseded text: ~~there is no second `revisit_trigger` key carrying the
+ * same words~~. `revisit_trigger_or_date` keeps carrying it verbatim, and CEE
+ * keeps using it ONLY to derive the review date. `revisit_trigger` carries the
+ * same text as the durable revisit TEXT: CEE stores the words only from that
+ * key, so a client that never sends it can never have its words kept (the
+ * live copy of older clients says the trigger stays on this device).
+ *
+ * ⚠ WHAT MAY BE CLAIMED ABOUT THE TEXT. Sending a key is not a save. CEE's 201
+ * lists `stored_text_fields` — the texts the account now holds verbatim — and
+ * that list, carried on `remote.storedTextFields`, is the ONLY thing that
+ * licenses "on your account" for a text. Today's CEE sends no such list, so
+ * every text still reads "on this device".
  */
 interface DecisionRecordCommitCommon {
   scenarioId: string
@@ -131,20 +160,30 @@ export interface NotReadyCommitInput extends DecisionRecordCommitCommon {
 
 export type DecisionRecordCommitInput = OptionCommitInput | NotReadyCommitInput
 
-/** `{ [key]: value }` for a non-blank string, `{}` otherwise — a blank is never sent. */
-function textKey(key: string, value: string | undefined): Record<string, string> {
-  return value !== undefined && value.trim() !== '' ? { [key]: value } : {}
+/**
+ * `{ [key]: value }` for a non-blank string within the bound, `{}` otherwise.
+ * A blank is never sent, and neither is an over-long text (see
+ * `DECISION_RECORD_TEXT_MAX_CHARS`): CEE would refuse the whole record for it.
+ */
+function textKey(key: DecisionRecordTextField, value: string | undefined): Record<string, string> {
+  if (value === undefined) return {}
+  const trimmed = value.trim()
+  return trimmed !== '' && trimmed.length <= DECISION_RECORD_TEXT_MAX_CHARS ? { [key]: value } : {}
 }
 
 /**
  * The request body, in a FIXED key order. For an option commit with none of
- * the new fields it is byte-identical to the pre-24-Sep body; the new keys are
- * appended after `client_commit_id` and only when they hold text.
+ * the new fields AND no revisit text it is byte-identical to the pre-24-Sep
+ * body; the new keys are appended after `client_commit_id` and only when they
+ * hold text. A revisit text now also appends `revisit_trigger`, so today's
+ * body is an exact PREFIX of the new one.
  */
 export function buildDecisionRecordCommitBody(input: DecisionRecordCommitInput): Record<string, unknown> {
   const added = {
     ...textKey('rationale', input.rationale),
     ...textKey('key_assumption', input.keyAssumption),
+    // The same words as `revisit_trigger_or_date`, under the key CEE stores.
+    ...textKey('revisit_trigger', input.revisitTriggerOrDate),
     ...textKey('next_action', input.nextAction),
   }
   if (input.position === 'not_ready') {
@@ -181,6 +220,12 @@ export type DecisionRecordCommitResult =
       readonly reviewDateSource: ReviewDateSource
       /** true when CEE replayed an existing record rather than writing a new one. */
       readonly deduped: boolean
+      /**
+       * The texts CEE confirms the account holds verbatim (`stored_text_fields`).
+       * `[]` when the response carries none — today's CEE — so no text is
+       * ever claimed on the account without the server saying so.
+       */
+      readonly storedTextFields: readonly DecisionRecordTextField[]
     }
   /** Not signed in — the record stays honestly local. Guests have no records by design. */
   | { readonly status: 'guest' }
@@ -191,6 +236,7 @@ interface CommitResponseBody {
   review_date?: unknown
   review_date_source?: unknown
   deduped?: unknown
+  stored_text_fields?: unknown
   code?: unknown
   message?: unknown
 }
@@ -283,5 +329,6 @@ export async function commitDecisionRecord(
     reviewDate: typeof body.review_date === 'string' ? body.review_date : '',
     reviewDateSource: readReviewDateSource(body.review_date_source),
     deduped: body.deduped === true,
+    storedTextFields: readStoredTextFields(body.stored_text_fields),
   }
 }

@@ -33,6 +33,8 @@ import {
   type OptionDecisionRecord,
 } from '../decisionRecordStore'
 import { useCanvasStore } from '../../../../canvas/store'
+import { storageSentenceFor } from '../../analysisNew/sections/DecisionRecorded'
+import { ANALYSIS_NEW_COPY } from '../../analysisNew/analysisNewCopy'
 
 type SessionIdentity = { userId: string | null; accessToken: string | null }
 
@@ -378,9 +380,10 @@ describe('durable commit — position and next action on the wire (24 Sep 2026)'
     expect('position' in body).toBe(false)
     // No next action was typed, so none is sent (never an empty string).
     expect('next_action' in body).toBe(false)
-    // The revisit text rides its EXISTING key; there is no second copy of it.
+    // The revisit text rides its EXISTING key (review date) AND revisit_trigger
+    // (the words CEE stores) — the same text under both.
     expect(body.revisit_trigger_or_date).toBe('2026-12-01')
-    expect('revisit_trigger' in body).toBe(false)
+    expect(body.revisit_trigger).toBe('2026-12-01')
     // Today's keys are all still there, unchanged.
     expect(body.chosen_option_id).toBe('opt_b')
     expect(body.confidence_0_100).toBe(70)
@@ -427,8 +430,9 @@ describe('durable commit — position and next action on the wire (24 Sep 2026)'
     const body = bodyOf()
     expect(Object.keys(body)).toEqual([
       'scenario_id', 'position', 'revisit_trigger_or_date', 'client_commit_id',
-      'rationale', 'key_assumption', 'next_action',
+      'rationale', 'key_assumption', 'revisit_trigger', 'next_action',
     ])
+    expect(body.revisit_trigger).toBe('When the hiring market data lands')
     expect(body.position).toBe('not_ready')
     expect(body.scenario_id).toBe(SCENARIO_ID)
     expect(body.next_action).toBe('Size the senior hiring market by Friday.')
@@ -460,6 +464,35 @@ describe('durable commit — position and next action on the wire (24 Sep 2026)'
     expect(screen.getByTestId('decision-record-toast')).toHaveTextContent(
       DECISION_RECORD_COPY.toastSavedNotReady,
     )
+  })
+  it('the RECONCILED CEE (201, stored_text_fields) — the confirmation is kept per field on the account proof', async () => {
+    fetchMock.mockResolvedValue(
+      okResponse({
+        record_id: RECORD_ID,
+        review_date: '2026-12-24T09:00:00.000Z',
+        review_date_source: 'default_horizon_after_unparsed_trigger',
+        position: 'not_ready',
+        stored_text_fields: ['rationale', 'key_assumption', 'revisit_trigger', 'next_action'],
+      }),
+    )
+    await saveNotReady()
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)
+    expect(record?.remote).toEqual({
+      recordId: RECORD_ID,
+      reviewDate: '2026-12-24T09:00:00.000Z',
+      reviewDateSource: 'default_horizon_after_unparsed_trigger',
+      storedTextFields: ['rationale', 'key_assumption', 'revisit_trigger', 'next_action'],
+    })
+    expect(storageSentenceFor(record!)).toBe(
+      'Your position is on your account. The rationale, assumption, next action and revisit trigger are on your account too.',
+    )
+  })
+
+  it('CONTRAST — TODAY\'S CEE confirms an option save but lists no text: the proof carries no storedTextFields and every text reads "on this device"', async () => {
+    await saveModal()
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)!
+    expect(record.remote).not.toHaveProperty('storedTextFields')
+    expect(storageSentenceFor(record)).toBe(ANALYSIS_NEW_COPY.decisionRecord.storedRemoteWithExpectation)
   })
 })
 

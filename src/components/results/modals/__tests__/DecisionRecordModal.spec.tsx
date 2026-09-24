@@ -565,12 +565,13 @@ describe('DecisionRecordModal — next action', () => {
     expect(Object.prototype.hasOwnProperty.call(record, 'nextAction')).toBe(false)
   })
 
-  it('bounds the next action at 500 characters and the other text at 2,000', () => {
+  it('bounds all four texts at CEE\'s 1,000 characters (superseded: 500 for the next action, 2,000 for the rest)', () => {
     render(<DecisionRecordModal />)
     openModal()
-    expect(screen.getByTestId('decision-record-next-action')).toHaveAttribute('maxLength', '500')
-    for (const id of ['rationale', 'assumption', 'revisit']) {
-      expect(screen.getByTestId(`decision-record-${id}`)).toHaveAttribute('maxLength', '2000')
+    for (const id of ['next-action', 'rationale', 'assumption', 'revisit']) {
+      expect(screen.getByTestId(`decision-record-${id}`)).toHaveAttribute('maxLength', '1000')
     }
+    // The expectation is not one of the four stored texts and carries no bound.
+    expect(screen.getByTestId('decision-record-expectation')).not.toHaveAttribute('maxLength')
   })
 })
