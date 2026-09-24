@@ -19,7 +19,7 @@ import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 import { EdgePanel } from './panels/EdgePanel'
 import { EdgeLabelModeToggle } from './shared/EdgeLabelModeToggle'
 import { OptionPanel } from './panels/OptionPanel'
-import { GoalPanel } from './panels/GoalPanel'
+import { GoalPanel, INSPECTOR_GOAL_REASON } from './panels/GoalPanel'
 import { FactorControllablePanel } from './panels/FactorControllablePanel'
 import { DecisionPanel, DecisionAddOption } from './panels/DecisionPanel'
 import { FactorObservablePanel } from './panels/FactorObservablePanel'
@@ -442,6 +442,15 @@ export const InspectorRouter = memo(function InspectorRouter({
    * description and advanced editor itself (`data-writer-fence`), pinned by
    * `FactorObservablePanel.valueReachesTheModel.spec.tsx`.
    *
+   * ⭐ FIFTH PANEL — `goal`, and the carrier is the Model tab's. The pane's own
+   * target control was `GoalThresholdEditor`, whose commit is a store-only
+   * `setGoalThresholdAndUpdateNode`, so it stayed in this wrap. On this pane it
+   * is now `SuccessTargetLine` itself — the Model tab's control — committing
+   * through `useModelEditAuthority.proposeGoalTarget` → a typed
+   * `add_constraint`. Description, constraints and the advanced editor are
+   * fenced by the pane (`data-writer-fence`), pinned by
+   * `GoalPanel.targetReachesTheModel.spec.tsx`.
+   *
    * ⚠ THIS COMMENT SAID "OPT-IN, ONE PANEL, DELIBERATELY" while the set below
    * already held TWO. Corrected rather than extended: the rule was never a
    * COUNT, it is a TEST — does this panel own a control that reaches a durable
@@ -459,7 +468,7 @@ export const InspectorRouter = memo(function InspectorRouter({
    * asserts as a discriminating pair — every writer disabled AND every
    * non-writer enabled — so it cannot pass by fencing everything or nothing.
    */
-  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable'])
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable', 'goal'])
   const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
@@ -561,7 +570,9 @@ export const InspectorRouter = memo(function InspectorRouter({
             ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
             : panelType === 'factor-external'
               ? INSPECTOR_FACTOR_EXTERNAL_REASON
-              : INSPECTOR_OPTION_READ_ONLY_REASON}
+              : panelType === 'goal'
+                ? INSPECTOR_GOAL_REASON
+                : INSPECTOR_OPTION_READ_ONLY_REASON}
       </InspectorAgencyNote>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto

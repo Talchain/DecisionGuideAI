@@ -34,6 +34,7 @@ vi.mock('@xyflow/react', () => ({ useViewport: () => ({ x: 0, y: 0, zoom: 1 }) }
 vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn() }))
 
 import { InspectorRouter } from '../InspectorRouter'
+import { INSPECTOR_GOAL_REASON } from '../panels/GoalPanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
@@ -80,7 +81,9 @@ function seed() {
 }
 
 const PANES: Array<{ name: string; nodeId: string | null; edgeId: string | null; truth: string }> = [
-  { name: 'goal (blanket)', nodeId: 'g1', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
+  // 24 Sep 2026: the goal pane opted out of the blanket — its target control is
+  // the Model tab's `SuccessTargetLine` — so it says its own facts.
+  { name: 'goal', nodeId: 'g1', edgeId: null, truth: INSPECTOR_GOAL_REASON },
   { name: 'decision (blanket)', nodeId: 'd1', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
   { name: 'option', nodeId: 'o1', edgeId: null, truth: INSPECTOR_OPTION_READ_ONLY_REASON },
   { name: 'factor-controllable', nodeId: 'fc', edgeId: null, truth: INSPECTOR_FACTOR_CONTROLLABLE_REASON },
@@ -167,6 +170,7 @@ describe('Paul 23 Sep point 11 — one human-agency statement per inspector pane
       INSPECTOR_OPTION_READ_ONLY_REASON,
       INSPECTOR_FACTOR_CONTROLLABLE_REASON,
       INSPECTOR_FACTOR_EXTERNAL_REASON,
+      INSPECTOR_GOAL_REASON,
     ]) {
       expect(s).toMatch(/only for elements the model already holds/)
     }
