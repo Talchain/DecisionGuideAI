@@ -322,6 +322,22 @@ describe('the acts route to their existing owners', () => {
     expect(document.querySelector('textarea')).toBeNull()
   })
 
+  it('"I disagree" continues into the conversation about THIS finding: same block_id and target, a started draft, nothing stored', () => {
+    const onAsk = vi.fn()
+    render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={onAsk} />)
+    openTool()
+    fireEvent.click(screen.getByTestId(`${TID}-more`))
+    fireEvent.click(screen.getByTestId(`${TID}-disagree`))
+    expect(onAsk).toHaveBeenCalledTimes(1)
+    const payload = onAsk.mock.calls[0][0]
+    expect(payload.label).toBe(COPY.disagree)
+    expect(payload.parameters).toEqual({ block_id: 'blk_mine' })
+    expect(payload.draft).toBe(COPY.disagreeDraft(ABOUT_MINE.title))
+    // CONTRAST: it is not the add-context ask with a new label.
+    expect(payload.draft).not.toBe(COPY.addContextDraft(ABOUT_MINE.title))
+    expect(document.querySelector('textarea')).toBeNull()
+  })
+
   it('Edit is offered for a non-factor target only when the caller can do it', () => {
     const onEdit = vi.fn()
     edges.push({ id: 'e1' })

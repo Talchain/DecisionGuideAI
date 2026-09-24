@@ -56,6 +56,7 @@ import {
   REVIEW_TOOL_COPY as COPY,
   reviewItemAskPayload,
   reviewItemContextPayload,
+  reviewItemDisagreePayload,
   reviewValueProvenance,
   reviewValueText,
   WHOLE_FRAMING_ASK,
@@ -502,6 +503,22 @@ export function ModelReviewTool({
                   <span className="min-w-0">
                     <span className={`${typography.panelBody} block`}>{COPY.addContext}</span>
                     <span className={`${typography.panelMeta} block text-text-light`}>{COPY.addContextTip}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    closeMenu(true)
+                    onAsk(reviewItemDisagreePayload(current))
+                  }}
+                  className={`${menuItemClass} items-start`}
+                  data-testid={`${testId}-disagree`}
+                >
+                  <OlumiAiIcon className={`${icon('row')} mt-0.5 shrink-0 text-info`} aria-hidden={true} />
+                  <span className="min-w-0">
+                    <span className={`${typography.panelBody} block`}>{COPY.disagree}</span>
+                    <span className={`${typography.panelMeta} block text-text-light`}>{COPY.disagreeTip}</span>
                   </span>
                 </button>
                 {current.recommendation ? (
