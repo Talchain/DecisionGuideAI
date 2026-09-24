@@ -191,6 +191,32 @@ describe('StarterProvenanceBanner', () => {
     })
   })
 
+  describe('contract v3.1 — one notice recipe in the overlay cell', () => {
+    it('⭐ CHR-6: the full neutral border every other occupant carries, on bg-panel with the warm shadow-2', () => {
+      render(<StarterProvenanceBanner />)
+      const cls = screen.getByTestId('starter-provenance-banner').className.split(/\s+/)
+      for (const c of ['bg-panel', 'border', 'border-panel-border', 'shadow-2', 'rounded-lg', 'py-1']) expect(cls).toContain(c)
+    })
+
+    it('⭐ CHR-14: the headline is the notice family’s one body size — caption with a medium head, never bodySmall', () => {
+      render(<StarterProvenanceBanner />)
+      const headline = [...screen.getByTestId('starter-provenance-banner').querySelectorAll('p')]
+        .find(p => /saved example/i.test(p.textContent ?? ''))!
+      const cls = headline.className.split(/\s+/)
+      expect(cls).toContain('text-xs')        // typography.caption, 12px
+      expect(cls).toContain('font-medium')
+      expect(cls).toContain('text-text-header')
+      expect(cls).not.toContain('text-sm')    // typography.bodySmall, 14px
+    })
+
+    it('CHR-9: its dismiss carries a visible focus ring, like every notice’s', () => {
+      render(<StarterProvenanceBanner />)
+      const cls = screen.getByTestId('starter-provenance-dismiss').className.split(/\s+/)
+      expect(cls).toContain('focus-visible:ring-2')
+      expect(cls).toContain('focus-visible:ring-info')
+    })
+  })
+
   describe('redraft', () => {
     it('names the trade-off before doing anything destructive', async () => {
       const user = userEvent.setup()
