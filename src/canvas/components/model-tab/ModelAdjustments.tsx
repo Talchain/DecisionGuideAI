@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Wrench } from 'lucide-react'
+import { ChevronRight, Wrench } from 'lucide-react'
 import { typography } from '@/styles/typography'
 
 interface ModelAdjustment {
@@ -350,11 +350,13 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
               : `Olumi applied ${adjustmentTally} ${adjustmentTally === 1 ? 'adjustment' : 'adjustments'}`}
           </span>
         </div>
-        {isExpanded ? (
-          <ChevronDown size={14} className="text-text-light" />
-        ) : (
-          <ChevronRight size={14} className="text-text-light" />
-        )}
+        {/* V2 gap 32 — one rotating chevron, not a swap between two Lucide
+            icons (the outline's own toggle and Accordion's already work
+            this way). */}
+        <ChevronRight
+          size={14}
+          className={`text-text-light transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+        />
       </button>
 
       {isExpanded && (
@@ -417,11 +419,12 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
             <span className={`${typography.panelMeta} text-text-light flex-1`}>
               {postRunRepairs.length} analysis-time {postRunRepairs.length === 1 ? 'adjustment' : 'adjustments'}
             </span>
-            {showPostRun ? (
-              <ChevronDown size={14} className="text-text-light" />
-            ) : (
-              <ChevronRight size={14} className="text-text-light" />
-            )}
+            {/* V2 gap 32 — one rotating chevron, not a swap between two
+                Lucide icons. */}
+            <ChevronRight
+              size={14}
+              className={`text-text-light transition-transform ${showPostRun ? 'rotate-90' : ''}`}
+            />
           </button>
           {showPostRun && (
             <div className="px-3 pb-2 space-y-1" id="post-run-repairs-list" data-testid="post-run-repairs-list">
