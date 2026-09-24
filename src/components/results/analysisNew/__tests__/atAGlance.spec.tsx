@@ -421,6 +421,27 @@ describe('one signal, one primary surface', () => {
     expect(vm.atAGlance.condition).toBeNull()
     expect(vm.keyInsights.insights.map((i) => i.id)).toContain('insight:hinge')
   })
+
+  it('⛔ WITHHELD RANKING: no hinge insight — "Chance another option leads" presupposes a leader', () => {
+    const base = decisionWithLeaderWithheld()
+    const withheld = {
+      ...base,
+      confidence: {
+        ...base.confidence,
+        topFragileEdge: {
+          fromId: 'f_a',
+          fromLabel: 'Timeframe',
+          toId: 'g',
+          toLabel: 'Goal',
+          alternativeWinnerLabel: 'Other',
+          switchProbability: 0.4,
+        },
+      },
+    } as ResultsSectionDataReturn
+    const vm = vmOf(withheld)
+    expect(vm.leaderClaimPermitted, 'PRECONDITION: the ranking was withheld').toBe(false)
+    expect(vm.keyInsights.insights.map((i) => i.id)).not.toContain('insight:hinge')
+  })
 })
 
 describe('the flip gate honours the producer\'s own verdict on the row', () => {

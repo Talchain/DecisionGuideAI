@@ -480,7 +480,13 @@ function buildKeyInsights(
 
   // 5. The relationship most able to change the answer.
   const hinge = conf.m1CoachingTopFragileEdge ?? conf.topFragileEdge
-  if (hinge && typeof hinge.switchProbability === 'number') {
+  // ⛔ NOT ON A WITHHELD RANKING. "Chance another option leads in this model"
+  // presupposes an option that leads now; on a run whose ranking was withheld
+  // that is the leader claim restated as a percentage. `rankingWasWithheld` (not
+  // the wider `leaderDesignationPermitted`) so an open challenge with no arms,
+  // which never had a ranking to withhold, keeps its insight. Exposed when the
+  // glance condition was leader-gated: its dedupe had been hiding this row.
+  if (hinge && typeof hinge.switchProbability === 'number' && !rankingWasWithheld(rec)) {
     out.push({
       id: 'insight:hinge',
       headline: `${hinge.fromLabel} is the hinge`,
