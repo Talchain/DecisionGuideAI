@@ -221,13 +221,27 @@ export function ReanalyseBar({
 
   return (
     <div
-      className="bg-panel border-t border-warning/30 px-3 py-2 flex items-center justify-between gap-2"
+      // ⭐⭐ V2 GAP 34 — NEUTRAL DIVIDER, NOT AN AMBER ONE-SIDED RULE.
+      // `FIDELITY-GAPS-INDEX-20260924.txt` #34: the prototype's footer
+      // divider is neutral (`.composer:before{background:var(--border-default)}`)
+      // — staleness is carried by the SENTENCE'S ink, not by colouring the
+      // bar's own edge. `AnalysisReadinessBar.tsx:216`, the sibling bar in
+      // this same shell footer slot, already uses `border-panel-border`; this
+      // brings the two into agreement instead of leaving one amber and one
+      // neutral for the same footer region.
+      className="bg-panel border-t border-panel-border px-3 py-2 flex items-center justify-between gap-2"
       data-testid="reanalyse-bar"
       data-reason={neverRun ? 'never-run' : heldUnsure ? 'import-unregistered' : 'model-changed'}
       role="status"
       aria-live="polite"
     >
-      <span className={`${typography.panelMeta} text-text-light flex-1 min-w-0`}>
+      {/* ⭐⭐ V2 GAP 34 — THE STALE SENTENCE IS 12PX INK, NOT 11PX GREY.
+          `.stale{font-size:12px;color:var(--warning-ink)}` in the design
+          authority. `panelBody` (12px) plus the warning-ink token — not
+          `text-warning` itself, which the estate has already measured and
+          pinned as failing SC 1.4.3 on this panel's grounds
+          (`groupHeadingCountsAreTwoNumbers.spec.tsx`'s own header). */}
+      <span className={`${typography.panelBody} text-[color:var(--warning-ink)] flex-1 min-w-0`}>
         {neverRun
           ? 'This model has not been analysed yet.'
           : heldUnsure
@@ -251,8 +265,12 @@ export function ReanalyseBar({
             lines — just under four, NOT three — and then it scrolls. The bar
             states the refusal, it does not become the panel. */}
         {blocked && (
+          // ⭐ V2 GAP 34 — NO FURTHER FADE. `text-text-light` already carries
+          // its own, measured contrast; the `/80` on top of it was an extra
+          // fade with no named reason, on the one sentence explaining WHY the
+          // button cannot be pressed.
           <span
-            className="block text-text-light/80 max-h-[3.75rem] overflow-y-auto"
+            className="block text-text-light max-h-[3.75rem] overflow-y-auto"
             data-testid="reanalyse-blocked-reason"
           >
             {blockedSentence}
@@ -264,7 +282,16 @@ export function ReanalyseBar({
         onClick={onReanalyse}
         disabled={!onReanalyse || blocked || isAnalysing}
         title={blocked ? blockedSentence : undefined}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-text-on-color ${typography.panelMeta} hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
+        // ⭐⭐ V2 GAP 34 — A PILL, AT `panelBody` (12PX), WITH A REAL 30PX
+        // TARGET. The design authority's primary button is
+        // `.primary{font-size:12px;...min-height:30px;border-radius:99px}`.
+        // This was `rounded-md` (6px) at `panelMeta` (11px) with no height
+        // floor — an 11px square button, measured at rest on served
+        // `4549b66b`. `AnalysisReadinessBar.tsx`'s sibling `<Button
+        // size="sm">` already resolves to `rounded-full` +
+        // `typography.buttonSmall` (12px semibold); this bar's own hand-rolled
+        // button now agrees with it on shape and size, not only on colour.
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[30px] rounded-full bg-primary text-text-on-color ${typography.panelBody} hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
         data-testid="reanalyse-button"
       >
         <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
