@@ -128,6 +128,34 @@ describe('FirstModelNotice', () => {
     expect(visible.map(el => el.textContent)).toEqual([FIRST_MODEL_NOTICE_COPY])
   })
 
+  it('⭐ contract v3.1 CHR-6: the cell’s floating-chrome recipe — warm DS shadow-2, not Tailwind’s cool shadow-sm', () => {
+    useCanvasStore.setState({
+      nodes: [storeNode('n1'), storeNode('n2')],
+      edges: [storeEdge({ weight: 0.6, weightSource: 'cee' })],
+    })
+    render(<FirstModelNotice />)
+    const cls = screen.getByTestId(FIRST_MODEL_NOTICE_TESTID).className.split(/\s+/)
+    for (const c of ['bg-panel', 'border', 'border-panel-border', 'shadow-2']) expect(cls).toContain(c)
+    expect(cls).not.toContain('shadow-sm')
+  })
+
+  it('⭐ contract v3.1 CHR-9: the dismiss is a 24px target (12px glyph + 6px padding each side), muted, with a focus ring — and moves nothing in layout', () => {
+    useCanvasStore.setState({
+      nodes: [storeNode('n1'), storeNode('n2')],
+      edges: [storeEdge({ weight: 0.6, weightSource: 'cee' })],
+    })
+    render(<FirstModelNotice />)
+    const button = screen.getByTestId(`${FIRST_MODEL_NOTICE_TESTID}-dismiss`)
+    const cls = button.className.split(/\s+/)
+    // 24 = 12 (h-3 glyph) + 2 × 6 (p-1.5); -m-1.5 returns the padding to layout.
+    for (const c of ['p-1.5', '-m-1.5', 'text-text-light', 'hover:text-text-body', 'focus-visible:ring-2', 'focus-visible:ring-info']) {
+      expect(cls).toContain(c)
+    }
+    const glyph = button.querySelector('svg')!
+    expect(glyph.getAttribute('class') ?? '').toContain('h-3 w-3')
+    expect(glyph.getAttribute('aria-hidden')).toBe('true')
+  })
+
   it('is absent on a bundled example — StarterProvenanceBanner owns that disclosure', () => {
     useCanvasStore.setState({ nodes: [storeNode('n1', { starterId: 'build-vs-buy' })], edges: [] })
     render(<FirstModelNotice />)
