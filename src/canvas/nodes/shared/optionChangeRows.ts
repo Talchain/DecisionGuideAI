@@ -259,6 +259,27 @@ export function buildOptionChangeRow({
       sameAsReference: direction === 'No change',
     }
   }
+  // ⛔ NEVER "Low → Low". At rest both sides shed their internal-scale number
+  // (R6), so a real change INSIDE one band — "Low (0.2)" → "Low (0.3)" — would
+  // print the same word around an arrow: a row claiming a change and showing
+  // none (S5, seen on `pricing-model`). Keep the band word and say which way
+  // it moved; `fullChange` keeps both readings for the tooltip and the
+  // accessible text.
+  if (fromText && fromText === targetText && fromFull !== targetFull) {
+    const referenceValue = reference === 'baseline_option' ? baselineOptionTarget?.value : factor.observedValue
+    const direction = typeof referenceValue === 'number' && target.value < referenceValue ? 'slightly lower' : 'slightly higher'
+    return {
+      factorId,
+      label,
+      fullLabel,
+      change: `${targetText} · ${direction}`,
+      fullChange: `${fromFull} → ${targetFull}`,
+      reference,
+      estimated,
+      targetSource,
+      sameAsReference: false,
+    }
+  }
   return {
     factorId,
     label,
