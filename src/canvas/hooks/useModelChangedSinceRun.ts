@@ -26,7 +26,72 @@
  * silently in either direction.
  */
 import { useAnalysisTrust } from './useAnalysisTrust'
+import { useCanvasStore } from '../store'
+import { useShallow } from 'zustand/react/shallow'
+import { composeAnalysisState } from '../state/analysisStateSelector'
+import { selectHasRenderableAnalysisResult } from '../ui/inspector-v2/useAnalysisResults'
 
 export function useModelChangedSinceRun(): boolean {
   return useAnalysisTrust().semantic === 'changed'
+}
+
+/**
+ * ⭐ A SECOND ROUTE TO THE SAME ANSWER, NOT A SECOND RULE.
+ *
+ * `useModelChangedSinceRun` above pulls in `useAnalysisTrust` →
+ * `useAnalysisState` → `useAnalysisStateSource`, which calls
+ * `isV5CanonicalAnalysisEnabled()` to classify `source`. A surface with
+ * dozens of independently-mounted instances on one canvas (every edge) is a
+ * costly place to add that whole chain as a new hard dependency PER EDGE —
+ * and, traced through `composeAnalysisState`, `source` turns out not to
+ * matter for the one question this hook answers: it feeds ONLY the
+ * orphan-with-no-verdict synthesis (`resolveTrustEffectiveState`), which can
+ * only move the result BETWEEN `'none'` and `'cannot_confirm'`. Neither is
+ * `'changed'`, and every path that DOES reach `'changed'`
+ * (`classifyFreshnessForDisplay`'s `'stale'` and dirty-overlay arms, and the
+ * wire branch's `wireCurrencySuperseded`) reads `dirty` / `analysisStateV1`
+ * directly and never consults `source` at all. So this hook still calls
+ * `composeAnalysisState` — the ONE owner, never a restated rule (CLAUDE.md
+ * trap 12) — with every OTHER input read from the store exactly as
+ * `useAnalysisState` reads it, and only `source` fixed at `undefined`: a
+ * proven no-op for `=== 'changed'`, not an assumed one.
+ *
+ * Reserved for a surface where per-instance cost genuinely matters
+ * (`StyledEdge`, one subscription per edge on the canvas); `GoalNode` /
+ * `OptionNode` and every other single-instance-per-surface consumer keep
+ * reading `useModelChangedSinceRun` above.
+ */
+export function useModelChangedSinceRunLight(): boolean {
+  const {
+    analysisState, freshness, dirty, resultsStatus, resultsStartedAt,
+    importHold, hasReport, hasCompletedFirstRun, ceeAnalysisReadyStatus,
+  } = useCanvasStore(
+    useShallow((s) => ({
+      analysisState: s.analysisStateV1,
+      freshness: s.analysisFreshness,
+      dirty: s.analysisFreshnessDirty,
+      resultsStatus: s.results?.status,
+      resultsStartedAt: s.results?.startedAt,
+      importHold: s.importPendingServerRegistration,
+      hasReport: s.results?.report != null,
+      hasCompletedFirstRun: s.hasCompletedFirstRun,
+      ceeAnalysisReadyStatus: s.ceeAnalysisReady?.status,
+    })),
+  )
+  const hasRenderableResult = useCanvasStore(selectHasRenderableAnalysisResult)
+
+  return composeAnalysisState({
+    analysisState,
+    freshness,
+    dirty,
+    source: undefined,
+    resultsStatus,
+    resultsStartedAt,
+    importHold,
+    hasReport,
+    hasCompletedFirstRun,
+    hasRenderableResult,
+    ceeAnalysisReadyStatus,
+    aiPanelV2On: true,
+  }).semantic === 'changed'
 }

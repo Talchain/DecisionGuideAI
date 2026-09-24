@@ -74,6 +74,8 @@ import {
 import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
+import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
+import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
@@ -438,15 +440,44 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isFragileEdge, report, id, source, target, fragileMatchCtx])
 
   /**
+   * ⭐ ROW 38 — A STALE FIGURE IS LABELLED "LAST RUN", NEVER PRESENTED AS
+   * CURRENT. `paintFragileCue` (below) gates on `isResultsMode`
+   * (`results.status === 'complete'`) alone — and a completed run's report
+   * stays ON SCREEN after the user edits the model (`store.ts` never resets
+   * `results.status` on an edit), so this cue kept painting from a report the
+   * model has since outgrown, with no word saying so.
+   *
+   * `useModelChangedSinceRunLight` reads the SAME composed freshness verdict
+   * (`composeAnalysisState`) the factor cards' `LAST_RUN_PREFIX` already keys
+   * on — never a second "is this stale" rule (CLAUDE.md trap 12) — and the
+   * `Light` variant exists only to skip the one input
+   * (`useAnalysisStateSource`'s flag-gated `source`) that its own docblock
+   * proves cannot change a `'changed'` verdict, which matters here because
+   * this hook mounts once PER EDGE on the canvas.
+   *
+   * Paul's Ruling 3 (ROADMAP 2.651): "out-of-date results are labelled, not
+   * withheld" — the same choice `sensitivityRankBadgeLabel`'s `fromLastRun`
+   * already makes for the card's `Key driver N` badge, so this cue and that
+   * badge cannot tell a reader two different stories about staleness.
+   */
+  const modelChangedSinceRun = useModelChangedSinceRunLight()
+
+  /**
    * The fragility sentence — ONE owner (`connectorCopy.fragileEdgeSentence`,
    * moved there verbatim), three readers here: the cue's accessible name, the
-   * cue's `title`, and the chip container's composed title and name. So the
-   * figure is never stated without its noun on any of them.
+   * cue's `title`, and the chip container's composed title and name — PLUS
+   * the popover's fragility line below, which reads this SAME variable rather
+   * than recomputing (it used to call `fragileEdgeSentence` a second time,
+   * which would have painted the cue as "Last run" while the popover stayed
+   * silent about it — one sentence, one call site, never two). So the figure
+   * is never stated without its noun, and the staleness label never appears
+   * on only one of the two surfaces that speak it.
    * Presence-branched on a MEASURED switch probability: absent means NOT
    * COMPUTED, and `marginal_switch_probability` is a different Monte Carlo,
    * never a fallback (pinned by StyledEdge.fragilePresence.spec).
    */
-  const fragileSentence = fragileEdgeSentence(fragileEdgeSwitchProb)
+  const fragileSentence =
+    (modelChangedSinceRun ? LAST_RUN_PREFIX : '') + fragileEdgeSentence(fragileEdgeSwitchProb)
 
   /**
    * Every edge whose chip will carry a fragility ROW, graph-wide.
@@ -2945,7 +2976,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   className={`${typography.edgeLabel} text-text-body flex items-start gap-1`}
                 >
                   <Activity size={10} className={`flex-shrink-0 mt-0.5 ${CANVAS_GLYPH_SIZE_CLASSES[10]}`} aria-hidden="true" />
-                  <span>{fragileEdgeSentence(fragileEdgeSwitchProb)}</span>
+                  <span>{fragileSentence}</span>
                 </div>
               )}
               {/* Coaching chips */}
