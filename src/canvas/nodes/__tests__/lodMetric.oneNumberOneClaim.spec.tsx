@@ -79,6 +79,8 @@ const metadata = {
   influence: 0.62,
   influenceProvenance: 'influence_score',
   influenceSetSize: 5,
+  // Contract v3.1 pt 5: the printed M — the ranked count, not the licence set.
+  influenceRankedCount: 3,
   confidence: null,
   inSensitivityAnalysis: false,
   achievementProbability: null,
@@ -103,7 +105,7 @@ describe('the reduced line names the rank the card names', () => {
     // (ED 02:31Z D1a). The caption is built by its OWNER, not re-typed here, so
     // this asserts agreement with the card rather than with my memory of it.
     const rank = { rank: 1, setSize: 5 }
-    const caption = driverLineCaption(rank, 'influence_score')
+    const caption = driverLineCaption(rank)
     expect(caption, 'the owner built no rank caption — fixture is vacuous').toContain('1 of 5')
 
     const text = line({ driverRank: rank })
@@ -128,8 +130,10 @@ describe('the reduced line names the rank the card names', () => {
     expect(text).toBeNull()
     // …and MOVED, not deleted: the card's driver line carries the percentage
     // in its tooltip/accessible name, beside what it is relative to.
+    // (Contract v3.1 pt 5: the line is ranked-only now, so the disclosure is
+    // read off a ranked line; an unranked factor's figure is in the inspector.)
     const disclosure = driverLineExplanation({
-      rank: null,
+      rank: { rank: 1, setSize: 3 },
       value: metadata.influence,
       provenance: 'influence_score',
       importanceBasis: null,
@@ -197,9 +201,11 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
 
   it('a CURRENT run: the reduced line states the card’s driver caption', () => {
     mount('current')
+    // Contract v3.1 pt 5: M is the ranked count (3), never the licence set (5).
     expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
-      driverLineCaption({ rank: 1, setSize: 5 }, 'influence_score'),
+      driverLineCaption({ rank: 1, setSize: 3 }),
     )
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 3 ranked in this run')
   })
 
   /*
@@ -211,9 +217,11 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
    */
   it('CHANGED — the SAME card labels the rank as the last run’s, never as current', () => {
     mount('changed')
+    // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
     expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
-      `Last run · ${driverLineCaption({ rank: 1, setSize: 5 }, 'influence_score')}`,
+      `Last run · ${driverLineCaption({ rank: 1, setSize: 3 }, true)}`,
     )
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 3 ranked')
   })
 
   it('CONTRAST — the SAME card on a cannot-confirm run states no rank and no percentage', () => {
@@ -221,7 +229,7 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
     // Positive control first (trap 13): the card mounted.
     expect(screen.getByText('Conversion Rate')).toBeInTheDocument()
     expect(screen.queryByTestId('node-lod-line')).toBeNull()
-    expect(container.textContent).not.toContain('Driver 1 of 5')
+    expect(container.textContent).not.toContain('Driver 1 of')
     expect(container.textContent).not.toContain('62%')
     expect(container.textContent).not.toContain('Last run')
   })

@@ -72,6 +72,9 @@ const DISABLED_FENCE =
   // `border-field`, in the same file, found by the guard written for the first.
   ' disabled:bg-panel disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed'
 
+/** The geometry both halves of the canvas value editor share — see `editableRestingCanvas`. */
+const CANVAS_VALUE_BOX = 'rounded-sm border -mx-1 -my-px px-[3px] py-0 transition-colors'
+
 export const controls = {
   /**
    * A control that accepts typed input.
@@ -138,6 +141,41 @@ export const controls = {
     // `group-disabled:` because the cue is a CHILD of the button that carries
     // both the `group` marker and the disabled state.
     ' disabled:hover:border-panel-border',
+
+  /**
+   * ⭐ THE CANVAS CARD'S CLICK-TO-EDIT VALUE, AT REST — plain text, NOT the
+   * inspector's box. NODE-ANATOMY v3.2 principle 4 ("no chips around values at
+   * rest") and its Factor row ("`<value> <mark> <unit>`, plain text with no
+   * chip"); contract v3.1 `nodeHTML` draws the value as `.own-value strong`.
+   *
+   * Paul, 24 Sep, on the served cards: the `0.25 est.` bordered chip was part of
+   * "the content on the nodes is an absolute mess". It was `editableResting`
+   * above — a panel field on a card — so a controllable factor's value was a
+   * tinted form field while an observable factor's identical value was text: one
+   * element, two shapes, decided by category.
+   *
+   * ⚠ THE PANEL TOKEN IS UNTOUCHED. `InlineNumberEditor` (inspector) keeps
+   * `editableResting`, where its box is the ruled affordance.
+   *
+   * The edit cue is here on hover AND on focus (a real `<button>`, in the tab
+   * order, `title="Click to edit"`, an accessible name that says so) — the
+   * hover-only defect `editableResting` records is a panel defect; on the card
+   * v3.2 puts the resting route in the rail ("edit, where a real carrier
+   * exists").
+   *
+   * ⚠ ONE BOX, TWO STATES: `CANVAS_VALUE_BOX` is shared with
+   * `editableFieldCanvas`, so clicking swaps the readout for the input with NO
+   * layout shift. The 1px border is always present (transparent at rest) and
+   * `-my-px` cancels its height, so the value line is exactly as tall as plain
+   * text; `-mx-1 px-[3px]` + the 1px border put the digits on the title's left
+   * edge (−4 + 1 + 3 = 0).
+   */
+  editableRestingCanvas:
+    `${CANVAS_VALUE_BOX} border-transparent bg-transparent text-left cursor-text` +
+    ' hover:border-field hover:bg-panel-hover focus:outline-none focus-visible:border-field focus-visible:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info',
+
+  /** The card's value input — the SAME box as `editableRestingCanvas`, now framed. */
+  editableFieldCanvas: `${CANVAS_VALUE_BOX} border-field bg-panel-hover outline-none focus:border-primary`,
 
   /**
    * The pencil cue beside a resting editable value.

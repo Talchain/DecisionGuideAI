@@ -18,11 +18,24 @@
  * reader, a placeholder where a number is missing, and no PROVENANCE — so a
  * limit Olumi inferred read identically to one the founder stated. These tests
  * pin the ruled vocabulary, not a copy of it.
+ *
+ * ## ⭐ AND THE FACTOR CARD NO LONGER REPEATS IT (NODE-ANATOMY v3.2, 24 Sep)
+ *
+ * v3.2's Factor row lists "a limit line (the boundary lives on the Goal)" under
+ * NEVER ON THE CARD, and its Goal row puts user-stated limits on the Goal
+ * ("boundary pill(s) `Churn < 7%` (user-stated limits live HERE)"). Paul saw
+ * "Limit ≤ 7%" on a served factor card as part of "the content on the nodes is
+ * an absolute mess". So the factor card is the NEGATIVE case below, and the
+ * vocabulary claims — which are about the formatter and the card line, not
+ * about which family carries it — are pinned on the OUTCOME card, which still
+ * renders the line through the same `BaseNode` path. The constraint DATA is not
+ * touched: `GoalNode` still lists every constraint.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
+import { OutcomeNode } from '../OutcomeNode'
 import { useCanvasStore } from '../../store'
 
 vi.mock('@xyflow/react', async () => {
@@ -56,18 +69,44 @@ const props = {
   sourcePosition: undefined, targetPosition: undefined,
 }
 
+/** The card that still carries the line — see the header. */
 function renderWith(constraints: unknown[]) {
   vi.mocked(useCanvasStore).mockImplementation((sel) => (sel as (s: unknown) => unknown)(state(constraints) as never))
   render(
     <ReactFlowProvider>
-      <FactorNode {...props} id={ID} data={{ label: 'Monthly churn', kind: 'factor' }} />
+      <OutcomeNode {...props} type="outcome" id={ID} data={{ label: 'Monthly churn', kind: 'outcome' }} />
     </ReactFlowProvider>,
   )
   // Positive control: the card mounted before any absence is asserted (trap 13).
   expect(screen.getByTestId('node-title'), 'the card did not mount').toBeTruthy()
 }
 
+function renderFactorWith(constraints: unknown[]) {
+  vi.mocked(useCanvasStore).mockImplementation((sel) => (sel as (s: unknown) => unknown)(state(constraints) as never))
+  render(
+    <ReactFlowProvider>
+      <FactorNode {...props} id={ID} data={{ label: 'Monthly churn', kind: 'factor' }} />
+    </ReactFlowProvider>,
+  )
+  expect(screen.getByTestId('node-title'), 'the card did not mount').toBeTruthy()
+}
+
 const line = () => screen.getByTestId('factor-constraint-lines')
+
+describe('NODE-ANATOMY v3.2 \u2014 the factor card does not repeat the Goal\u2019s boundary', () => {
+  it('\u26d4 a limit naming THIS factor prints no line on the factor card', () => {
+    renderFactorWith([{ node_id: ID, operator: '<=', value: 4, unit: '%' }])
+    expect(screen.queryByTestId('factor-constraint-lines')).toBeNull()
+    expect(document.body.textContent ?? '').not.toContain('Limit')
+  })
+
+  it('\u2b50 CONTRAST: the SAME constraint on the SAME fixture still prints on a card that carries it', () => {
+    // Without this, the absence above would also pass with a fixture that
+    // matched no node at all.
+    renderWith([{ node_id: ID, operator: '<=', value: 4, unit: '%' }])
+    expect(line()).toHaveTextContent('Limit \u2264 4%')
+  })
+})
 
 describe('the reader\u2019s own limit reaches the card', () => {
   it('\u2b50 shows the limit with the badges flag OFF', () => {
