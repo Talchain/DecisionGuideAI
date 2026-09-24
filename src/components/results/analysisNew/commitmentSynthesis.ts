@@ -114,6 +114,8 @@ export interface CommitmentBullet<S extends string> {
 export interface CommitmentSynthesis {
   /** `vm.status.isStale`: the bullets describe a run that may not match the model. */
   describesLastRun: boolean
+  /** Which staleness: 'changed' (the model moved) or 'unconfirmed' (we cannot tell). */
+  staleKind: 'changed' | 'unconfirmed' | null
   founded: CommitmentBullet<FoundedSource> | null
   open: CommitmentBullet<OpenSource> | null
   before: CommitmentBullet<BeforeSource> | null
@@ -243,28 +245,38 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
  * instead of a re-run; saying "Re-run to be sure" here would be the act that
  * ribbon was fixed to stop offering.
  */
-function beforeBullet(vm: CommitmentSynthesisInput): CommitmentBullet<BeforeSource> | null {
+function beforeBullet(
+  vm: CommitmentSynthesisInput,
+  excludeInterventionId: string | null,
+): CommitmentBullet<BeforeSource> | null {
   if (vm.status.isStale && !vm.checks.rerunWouldNotHelp) {
     return { text: COPY.status.reanalyseToBeSure, source: 'rerun' }
   }
-  const top = vm.strengthen.interventions[0]
+  // ⛔ NOT THE CARD'S OWN ITEM. The Challenge card already shows the promoted
+  // intervention's title at rest; repeating it here put the same sentence on
+  // screen twice (V2 census, B1). Skip it, as the review queue does.
+  const top = vm.strengthen.interventions.find((r) => r.id !== excludeInterventionId)
   if (top && top.title.trim() !== '') return { text: top.title, source: 'intervention' }
   return null
 }
 
-const EMPTY: CommitmentSynthesis = { describesLastRun: false, founded: null, open: null, before: null }
+const EMPTY: CommitmentSynthesis = { describesLastRun: false, staleKind: null, founded: null, open: null, before: null }
 
 /**
  * The three bullets for this view model. Pure and deterministic: the same view
  * model always yields the same bullets.
  */
-export function buildCommitmentSynthesis(vm: CommitmentSynthesisInput): CommitmentSynthesis {
+export function buildCommitmentSynthesis(
+  vm: CommitmentSynthesisInput,
+  opts: { excludeInterventionId?: string | null } = {},
+): CommitmentSynthesis {
   if (vm.status.isPreRun) return EMPTY
   return {
     describesLastRun: vm.status.isStale,
+    staleKind: vm.status.isStale ? vm.status.staleKind : null,
     founded: foundedBullet(vm),
     open: openBullet(vm),
-    before: beforeBullet(vm),
+    before: beforeBullet(vm, opts.excludeInterventionId ?? null),
   }
 }
 
@@ -288,6 +300,10 @@ export function commitmentBullets(
  */
 export function commitmentAskContext(s: CommitmentSynthesis): string {
   const lines = commitmentBullets(s).map((b) => `${b.label}: ${b.text}`)
-  if (lines.length > 0 && s.describesLastRun) lines.unshift(COPY.markers.stale)
+  // The context says which staleness it is, in the glance ribbon's own words:
+  // 'changed' is a claim about the model, 'unconfirmed' only that we cannot tell.
+  if (lines.length > 0 && s.describesLastRun) {
+    lines.unshift(s.staleKind === 'changed' ? COPY.status.stale : COPY.status.freshnessUnknown)
+  }
   return lines.join('\n')
 }

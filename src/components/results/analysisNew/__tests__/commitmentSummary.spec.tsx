@@ -234,15 +234,12 @@ describe('⛔ a withheld-leader run: no winner wording anywhere', () => {
 })
 
 describe('stale: the bullets say they describe the last run', () => {
-  it('shows the existing marker once, above the bullets, and the re-run words as bullet 3', () => {
+  it('adds NO freshness marker of its own (the glance ribbon owns it) and puts the re-run words in bullet 3', () => {
     const vm = vmOf(genuineDecision(), { isStale: true, staleReason: 'changed' })
     renderZone({ synthesis: buildCommitmentSynthesis(vm) })
-    const block = screen.getByTestId(`${TID}-synthesis`)
-    const marker = screen.getByTestId(`${TID}-stale`)
-    expect(marker.textContent).toBe(COPY.markers.stale)
-    expect(block.firstElementChild).toBe(marker)
+    expect(screen.queryByTestId(`${TID}-stale`)).toBeNull()
+    expect(screen.queryByText(COPY.markers.stale)).toBeNull()
     expect(screen.getByTestId(`${TID}-before-text`).textContent).toBe(COPY.status.reanalyseToBeSure)
-    expect(screen.getAllByText(COPY.markers.stale)).toHaveLength(1)
   })
 
   it('CONTRAST: a fresh run carries no marker and names the review item', () => {
