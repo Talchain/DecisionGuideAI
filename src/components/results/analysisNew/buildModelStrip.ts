@@ -326,6 +326,7 @@ export function factorCarriesValue(node: { data?: unknown } | undefined): boolea
 }
 
 export function stripNodeValueSignature(node: { data?: unknown } | undefined): string {
+  if (node === undefined || node === null) return ''
   const n = node as Record<string, unknown> | undefined
   const inner = n?.data as Record<string, unknown> | undefined
   const obs = (n?.observedState ??
@@ -358,7 +359,12 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
    * Cheap enough for the hot path: two field reads and a `typeof`, no
    * formatting — the same constraint the rest of this function is written to.
    */
-  const parts: unknown[] = [readFactorDisplayValue(inner)]
+  // ⭐ THE LABEL IS PART OF WHAT THE MOUNTED READERS RENDER (Codex 5808182879).
+  // `labelOf` puts `data.label` on every strip mark and review item, and into
+  // their Ask/Disagree payloads; without it here a label-only rename left the
+  // strip and the review item naming the OLD factor. Position is still NOT
+  // read, so a drag never rebuilds either reader.
+  const parts: unknown[] = [inner?.label, readFactorDisplayValue(inner)]
   // `display_value` is included because `factorDisplayText` prefers it, so a
   // producer changing only that would otherwise be invisible here.
   if (obs) parts.push(obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value)

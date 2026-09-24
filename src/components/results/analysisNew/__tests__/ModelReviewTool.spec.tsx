@@ -42,7 +42,7 @@ vi.mock('../../../../canvas/conversation/ConversationContext', () => ({
 
 import { ModelReviewTool } from '../sections/ModelReviewTool'
 import { REVIEW_TOOL_COPY as COPY, WHOLE_FRAMING_ASK } from '../buildReviewQueue'
-import { buildModelStrip } from '../buildModelStrip'
+import { buildModelStrip, stripNodeValueSignature } from '../buildModelStrip'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import { recordKey, useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
@@ -250,6 +250,45 @@ describe('Confirm as my estimate', () => {
     rerender(<ModelReviewTool interventions={[]} onAsk={vi.fn()} />)
     expect(itemKey()).toBe('factor:f_bare')
     expect(screen.getByTestId(`${TID}-pager`)).toHaveTextContent(COPY.pager(1, 1))
+  })
+})
+
+describe('a label-only rename reaches the mounted readers (Codex 5808182879)', () => {
+  it('the review item and its Ask and Disagree name the factor by its NEW label', () => {
+    const onAsk = vi.fn()
+    // ONE stable interventions array: a fresh [] per render would rebuild the
+    // queue by identity and hide the stale-signature defect this pins.
+    const NONE: never[] = []
+    const { rerender } = render(<ModelReviewTool interventions={NONE} onAsk={onAsk} />)
+    openTool()
+    expect(itemKey(), 'PRECONDITION').toBe('factor:f_ai')
+    expect(screen.getByTestId(`${TID}-name`)).toHaveTextContent('Vendor cost')
+    // Rename ONLY the label: same id, type, value and source.
+    const i = nodes.findIndex((n) => n.id === 'f_ai')
+    const before = nodes[i] as { id: string; type: string; data: Record<string, unknown> }
+    nodes[i] = { ...before, data: { ...before.data, label: 'Annual platform cost' } }
+    rerender(<ModelReviewTool interventions={NONE} onAsk={onAsk} />)
+    expect(screen.getByTestId(`${TID}-name`)).toHaveTextContent('Annual platform cost')
+    fireEvent.click(screen.getByTestId(`${TID}-ask`))
+    expect(onAsk.mock.calls.at(-1)?.[0].draft).toBe(COPY.askFactorDraft('Annual platform cost'))
+    fireEvent.click(screen.getByTestId(`${TID}-more`))
+    fireEvent.click(screen.getByTestId(`${TID}-disagree`))
+    expect(onAsk.mock.calls.at(-1)?.[0].draft).toBe(COPY.disagreeDraft('Annual platform cost'))
+  })
+})
+
+describe('the shared mounted-reader signature (strip AND review tool)', () => {
+  const base = { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Vendor cost', observedState: { value: 0.49, source: 'cee_inference' } } }
+  it('changes on a label-only rename', () => {
+    expect(stripNodeValueSignature({ ...base, data: { ...base.data, label: 'Annual platform cost' } } as never))
+      .not.toBe(stripNodeValueSignature(base as never))
+  })
+  it('CONTRAST: does NOT change on a drag (position only), so dragging never rebuilds the readers', () => {
+    expect(stripNodeValueSignature({ ...base, position: { x: 400, y: 120 } } as never)).toBe(stripNodeValueSignature(base as never))
+  })
+  it('CONTRAST: still changes on a value or source change', () => {
+    expect(stripNodeValueSignature({ ...base, data: { ...base.data, observedState: { value: 0.49, source: 'user_confirmed' } } } as never))
+      .not.toBe(stripNodeValueSignature(base as never))
   })
 })
 
