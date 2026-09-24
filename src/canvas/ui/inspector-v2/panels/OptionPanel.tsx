@@ -180,6 +180,8 @@ export const OptionPanel = memo(function OptionPanel({
     commit: commitIntervention,
     pending: pendingIntervention,
     notice: interventionNotice,
+    unapplied: unappliedIntervention,
+    dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
 
@@ -295,6 +297,13 @@ export const OptionPanel = memo(function OptionPanel({
          */
         recordedBaseline: unwrapInterventionValue(obs?.baseline).value ?? undefined,
         unit: obs?.unit as string | undefined,
+        /*
+         * ⭐ THE FACTOR'S CAP, so the row can take the amount the CARD shows
+         * (`£80,000`) and convert it through the one raw→model rule — rather
+         * than showing `0.5` beside a card that says `£60k` and ignoring
+         * `80000` (served `a4434670`, CDP starter). Same defensive unwrap.
+         */
+        cap: unwrapInterventionValue(obs?.cap).value ?? undefined,
         value,
         displayValue: displayValue ?? undefined,
         /*
@@ -581,7 +590,14 @@ export const OptionPanel = memo(function OptionPanel({
                 }
                 displayValue={iv.displayValue}
                 unit={iv.unit}
+                cap={iv.cap}
                 provenanceSource={iv.provenanceSource}
+                /* ⭐ A value that did not land stays on ITS row, marked, until
+                   dismissed — bound by factor identity, never by position. */
+                unapplied={
+                  unappliedIntervention?.factorId === iv.factorId ? unappliedIntervention : null
+                }
+                onDismissUnapplied={dismissIntervention}
                 onChange={v => commitIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
                 /**
@@ -630,7 +646,11 @@ export const OptionPanel = memo(function OptionPanel({
               a control that silently does nothing is the defect this change
               exists to close, wearing a different face. Rendered here, below
               the rows it is about, so it cannot be mistaken for a notice about
-              the option as a whole. */}
+              the option as a whole.
+
+              ⚠ AND THE SERVER'S ANSWER NOW ARRIVES HERE TOO — `Not saved`,
+              `Could not confirm`, `Not sent` — see `useOptionInterventionCommit`.
+              The row it is about carries the same word beside the value. */}
           {interventionNotice !== null && (
             <p
               className={`${typography.panelMeta} text-text-light mt-1.5`}
