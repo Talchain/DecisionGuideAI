@@ -47,6 +47,9 @@ import { deriveTierLanes } from '../utils/tierLanes'
  * titles mid-screen above their centred cards; one column keeps them "on the
  * left" as asked.
  *
+ * Sentence case (DS v5 §2 — the contract fixture's all-caps `.layer-label` is
+ * overridden by the design system, Paul pt 9; `check-ds-compliance` enforces it).
+ *
  * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
  * counter-scales, so at far zoom it grows several times taller and must grow up
  * into the gap between rows, never down over a card.
@@ -78,13 +81,13 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
             <span
               key={lane.tier}
               data-testid={`tier-lane-${lane.tier}-title`}
-              className={`absolute uppercase text-text-light ${typography.nodeLabel}`}
+              className={`absolute text-text-light ${typography.nodeLabel}`}
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,
                 transform: 'translateY(-100%)',
                 lineHeight: 1.2,
-                letterSpacing: '0.06em',
+                letterSpacing: '0.01em',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
               }}
