@@ -238,26 +238,48 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
 })
 
 describe('ED 5809278282 · Factor · missing value — `Needs input` stays ON the card, on one line', () => {
-  it.each(['pre', 'post'] as const)('%s-run: the row shows only the ruled word; the sentence is its description and is in the popover', (phase) => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-9, DESIGN-GAP-AUDIT-20260924.md row 9;
+   * contract §02). This used to pin "Value not set yet" as sr-only/title-only
+   * in Standard, with the visible row reading just "Needs input". The
+   * contract wants the sentence VISIBLE on the card in the missing-value
+   * state, so Standard now matches what "CONTRAST — Detailed" already
+   * asserted below (which is unchanged, since Detailed was already correct).
+   * `StatusPill`'s own label/title are UNCHANGED — only the row's wrap
+   * behaviour and the sentence's visibility move.
+   */
+  it.each(['pre', 'post'] as const)('%s-run: the row shows the pill AND the visible sentence — no hidden text, no title duplicate', (phase) => {
     seed(MISSING, { phase })
     renderFactor(MISSING)
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleText(row)).toBe('Needs input')
-    expect(tokens(row).has('flex-nowrap')).toBe(true)
+    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    expect(tokens(row).has('flex-wrap')).toBe(true)
+    expect(tokens(row).has('flex-nowrap')).toBe(false)
     expect(visibleBodyRows(row)).toEqual([row])
-    // Recoverable without the popover: sr-only description + hover title.
-    const described = row.querySelector('.sr-only')
-    expect(described?.textContent).toBe('Value not set yet')
-    expect(row.getAttribute('title')).toBe('Needs input · Value not set yet')
-    // …and IN the popover, by identity.
+    // GAP-9: nothing is hidden any more — no sr-only echo, no title duplicate
+    // of text that is now on screen.
+    expect(row.querySelector('.sr-only')).toBeNull()
+    expect(row.getAttribute('title')).toBeNull()
+    // The pill's own accessible contract is untouched (StatusPill reuses its
+    // `title` prop as the accessible name — unchanged by this gap).
+    expect(within(row).getByTestId('needs-input-pill')).toHaveAccessibleName('Missing required input')
+    // …the popover keeps its own (now duplicate, and that is fine — see the
+    // inline comment at `needsInputSentenceMoved`) copy of the sentence.
     expect(within(popover()).getByTestId(`factor-popover-needs-input-${ID}`).textContent).toBe('Needs input · Value not set yet')
     expect(within(card()).queryByTestId(`factor-popover-needs-input-${ID}`)).toBeNull()
   })
 
-  it('CONTRAST — Detailed keeps the full sentence inline on the card', () => {
+  it('CONTRAST — Detailed keeps the full sentence inline on the card (unchanged by GAP-9)', () => {
     seed(MISSING, { phase: 'pre', viewMode: 'expert' })
     renderFactor(MISSING)
     expect(visibleText(within(card()).getByTestId(`factor-needs-input-row-${ID}`))).toBe('Needs inputValue not set yet')
+  })
+
+  it('CONTRAST — a VALUED factor never shows "Value not set yet" anywhere on the card', () => {
+    seed(VALUED, { phase: 'pre' })
+    renderFactor(VALUED)
+    expect(screen.queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
+    expect(card().textContent ?? '').not.toContain('Value not set yet')
   })
 })
 
@@ -323,6 +345,12 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     expect(fullRow.contains(screen.getByTestId(`factor-driver-cue-${ID}`))).toBe(true)
   })
 
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-9): the row's visible text now includes
+   * "Value not set yet" (see the describe block above) — the cue-placement
+   * property this test protects (inside the row, not a row of its own) is
+   * unaffected by that.
+   */
   it('a ranked factor that still needs input: the cue sits inside the `Needs input` row, never below it', () => {
     displayMetadata = RANKED()
     seed(MISSING, { phase: 'post' })
@@ -330,7 +358,7 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
     expect(visibleBodyRows(row)).toEqual([row])
     expect(row.contains(screen.getByTestId(`factor-driver-cue-${ID}`))).toBe(true)
-    expect(visibleText(row)).toBe('Needs input')
+    expect(visibleText(row)).toBe('Needs inputValue not set yet')
   })
 
   it('a ranked factor with NO primary line (external, no value, no range) gets no cue — a cue may never be a row of its own', () => {
