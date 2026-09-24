@@ -28,4 +28,17 @@ export const CHALLENGE_ZONE_COPY = {
   inspectInModel: 'Inspect in Model',
   /** Row act: opens the ask drawer about this row. */
   askAboutThis: 'Ask Olumi about this',
+  /**
+   * Opens the reader's own inline note. A SECOND act beside the AI icon, not
+   * a replacement for it: the icon is still the primary AI act (ruling
+   * `c5806258826.md` §3); this is the reader's own words, sent through the
+   * same existing ask route rather than a new write path.
+   */
+  respond: 'Respond',
+  /** The inline field's accessible label. Never a composed question — the
+   * heading above it already carries the producer's title verbatim. */
+  respondLabel: 'Your thinking',
+  respondPlaceholder: 'Your thinking…',
+  respondCancel: 'Cancel',
+  respondSend: 'Send',
 } as const
