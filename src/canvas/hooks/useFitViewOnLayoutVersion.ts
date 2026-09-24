@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useReactFlow, getNodesBounds } from '@xyflow/react'
+import { useReactFlow, getNodesBounds, getViewportForBounds } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { computeFitPadding } from '../utils/computeFitPadding'
 import { excludeNonModelNodes, userFitNodes } from '../utils/fitTargets'
@@ -201,6 +201,36 @@ export function useFitViewOnLayoutVersion(): void {
         setViewportRef.current(anchored, { duration })
         return
       }
+      // ⭐⭐ THE PRODUCT'S FIT IS APPLIED NOW, NEVER QUEUED (#1932, 24 Sep 2026).
+      //
+      // xyflow 12's `fitView()` does not move the camera: it sets
+      // `fitViewQueued` and resolves at the NEXT `updateNodeInternals` — the next
+      // time any card changes size. On a settled canvas a second product fit
+      // (e.g. the reserved-box re-fit when a notice goes away) therefore sat
+      // queued until the PERSON zoomed: the zoom changed the rung, the cards
+      // re-measured, and the stale fit fired — throwing the camera back to the
+      // landing frame, byte-identical (Canvas Browser Gate `nodeKeyboardBleed`:
+      // "reset to 100%" stayed at 53%; runs 35996327607 and later). The user's
+      // camera claim cannot stop it: the fit was queued before the claim.
+      // Staging never saw it because its landing clamps, and the clamped branch
+      // above already writes the viewport directly.
+      //
+      // So the unclamped fit is computed here with xyflow's OWN
+      // `getViewportForBounds` (what `fitView` resolves through) and written at
+      // once — the same frame, with no deferred write left behind.
+      const { minZoom, maxZoom } = fitBoundsFor('product')
+      setViewportRef.current(
+        getViewportForBounds(
+          getNodesBounds(nodes),
+          cam.paneWidth,
+          cam.paneHeight,
+          minZoom ?? LABEL_LEGIBLE_ZOOM,
+          maxZoom ?? LABEL_LEGIBLE_ZOOM,
+          padding,
+        ),
+        { duration },
+      )
+      return
     }
 
     fitViewRef.current({

@@ -49,11 +49,11 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { getNodesBounds } from '@xyflow/react'
+import { getNodesBounds, getViewportForBounds } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
 import { GHOST_OPTION_NODE_ID } from '../utils/fitTargets'
-import { LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, fitBoundsFor } from '../utils/zoomLegibility'
 
 /** The deployed measurement above, spelled once. */
 const PANE = { width: 1280, height: 800 }
@@ -208,17 +208,39 @@ describe("fitNow's CLAMPED exit — the top-anchored setViewport", () => {
     expect(fitViewSpy, 'the clamped exit RETURNS; fitView must not also run').not.toHaveBeenCalled()
   })
 
-  it('CONTRAST: a model that fits legibly takes the fitView exit instead', () => {
+  it('CONTRAST: a model that fits legibly is FITTED, not top-anchored — written at once, never queued', () => {
     // Without this arm, the arm above passes just as happily against a hook that
-    // called setViewport unconditionally — it would prove sensitivity to nothing.
+    // wrote the top-anchored viewport unconditionally — it would prove
+    // sensitivity to nothing.
+    //
+    // ⭐⭐ AND NEVER THROUGH xyflow's `fitView` (#1932, 24 Sep 2026). `fitView()`
+    // only QUEUES a fit, resolved at the next `updateNodeInternals`; on a settled
+    // canvas that is the person's next zoom (a rung change re-measures the
+    // cards), so a queued product fit threw the camera back to the landing
+    // frame after "reset to 100%" (Canvas Browser Gate `nodeKeyboardBleed`).
+    // The unclamped fit is computed with xyflow's own `getViewportForBounds` —
+    // the function `fitView` resolves through — and written immediately.
     currentNodes = fittingNodes()
     renderHook(() => useFitViewOnLayoutVersion())
 
     act(() => { userLayoutCommit() })
     flushFrames()
 
-    expect(setViewportSpy, 'an unclamped fit must NOT top-anchor').not.toHaveBeenCalled()
-    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+    const { minZoom, maxZoom } = fitBoundsFor('product')
+    const expected = getViewportForBounds(
+      getNodesBounds(fittingNodes() as never),
+      PANE.width,
+      PANE.height,
+      minZoom as number,
+      maxZoom as number,
+      DEPLOYED_INSETS as Parameters<typeof getViewportForBounds>[5],
+    )
+    expect(setViewportSpy, 'the unclamped fit is written once, directly').toHaveBeenCalledTimes(1)
+    expect(setViewportSpy.mock.calls[0][0]).toEqual(expected)
+    expect(setViewportSpy.mock.calls[0][0], 'an unclamped fit must NOT top-anchor').not.toEqual(DEPLOYED_TOP_ANCHORED)
+    expect(setViewportSpy.mock.calls[0][0].zoom, 'a legible fit sits at or above the floor').toBeGreaterThanOrEqual(LABEL_LEGIBLE_ZOOM)
+    expect(setViewportSpy.mock.calls[0][1]).toMatchObject({ duration: 400 })
+    expect(fitViewSpy, 'no deferred (queued) product fit may be left behind').not.toHaveBeenCalled()
   })
 
   it('the RESTORE trigger (the reloaded class, layoutVersion 0) takes the same clamped exit', () => {
