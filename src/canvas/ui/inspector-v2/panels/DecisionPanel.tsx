@@ -32,22 +32,41 @@ import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProve
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 
-export const DecisionPanel = memo(function DecisionPanel({
-  nodeId,
-  techMode,
-  onClose,
-  onNavigate,
-}: InspectorPanelProps) {
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
-  const resultsStatus = useCanvasStore(s => s.results?.status)
-  const isResultsMode = resultsStatus === 'complete'
-  const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
+/**
+ * ⭐⭐ "+ Add option" — THE ONE DECISION CONTROL THAT SAVES, RENDERED WHERE A
+ * USER CAN REACH IT.
+ *
+ * It lived inside `DecisionPanel`'s options card, and `'decision'` is not in
+ * `InspectorRouter`'s `AUTHORITY_OWNING_PANELS`, so the Router wrapped it in
+ * `<fieldset disabled>` with the rest of the pane. A disabled fieldset natively
+ * inerts every descendant `<button>`: coded, tested in isolation
+ * (`DecisionPanel.addOption.spec.tsx` renders the panel directly, past the
+ * fence), and dead for every user.
+ *
+ * ⭐ WHY IT MAY LEAVE THE FENCE — A CARRIER, NOT A PREFERENCE. The gesture is
+ * `addNodeWithEdge(pos, 'option', decisionId, 'from-target')`, the same store
+ * action as the canvas context menu's "Add option", and that action captures a
+ * durable `structural_add` intent for the new option (`store.addNodeWithEdge`,
+ * "CAPTURED, AS OF 18 Sep 2026"), which `useStructuralAddEvents` puts on the
+ * wire and CEE classifies `'mutating'`. That is the same admission test the
+ * header rename passed to sit outside the boundary.
+ *
+ * ⚠ THE LINK HALF IS NOT CLAIMED. `addNodeWithEdge` gives the new link no
+ * stated strength, so its `structural_add_edge` capture stands down at
+ * `strength_not_stated` and records that on the edge, exactly as for every other
+ * "Add connected …" gesture (`structuralAdd.connectedAddIsDurable.spec.ts`).
+ * Nothing here says otherwise.
+ *
+ * ⛔ IT IS EXPORTED FOR THE ROUTER'S `quickActions` SLOT AND RENDERED NOWHERE
+ * ELSE. That slot sits above the fenced body, beside the rename. Moving only
+ * this control is what keeps every other decision control fenced — adding
+ * `'decision'` to `AUTHORITY_OWNING_PANELS` would have released the whole pane
+ * to close one gap.
+ */
+export function DecisionAddOption({ decisionId }: { decisionId: string }) {
+  const node = useCanvasStore(s => s.nodes.find(n => n.id === decisionId))
   const addNodeWithEdge = useCanvasStore(s => s.addNodeWithEdge)
   const focusNode = useCanvasStore(s => s.selectNodeWithoutHistory)
-
-  const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
-  const mutations = useNodeMutations(nodeId ?? '')
 
   // Create a new option node linked to this decision, then focus it in the
   // inspector. Same store action the canvas context-menu "Add option" uses
@@ -60,6 +79,37 @@ export const DecisionPanel = memo(function DecisionPanel({
     const result = addNodeWithEdge(pos, 'option', node.id, 'from-target')
     if (typeof result === 'string') focusNode(result)
   }, [node, addNodeWithEdge, focusNode])
+
+  if (!node) return null
+
+  return (
+    <div className="flex items-center gap-1.5 pt-1.5">
+      <button
+        type="button"
+        onClick={handleAddOption}
+        data-testid="decision-add-option"
+        className={`${typography.panelMeta} ${controls.actionChip}`}
+      >
+        + Add option
+      </button>
+    </div>
+  )
+}
+
+export const DecisionPanel = memo(function DecisionPanel({
+  nodeId,
+  techMode,
+  onClose,
+  onNavigate,
+}: InspectorPanelProps) {
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+  const resultsStatus = useCanvasStore(s => s.results?.status)
+  const isResultsMode = resultsStatus === 'complete'
+  const optionComparison = useCanvasStore(s => s.results?.report?.option_comparison)
+
+  const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
+  const mutations = useNodeMutations(nodeId ?? '')
 
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
@@ -181,6 +231,12 @@ export const DecisionPanel = memo(function DecisionPanel({
 
       {/* ── Input group (options list) ────────────────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
+        {/* ⚠ RENDERED ONLY WHEN THERE ARE OPTIONS TO LIST. The card used to end
+            with the "+ Add option" row, which kept it non-empty on a decision
+            with no options; that control now lives in the Router's
+            `quickActions` slot (see `DecisionAddOption`), where a user can
+            reach it. An empty bordered card would be a box with nothing in it. */}
+        {connectedOptions.length > 0 && (
         <PrimaryControlCard>
           {/* Flattened option rows inside the card — dividers between rows, no inner borders */}
           {connectedOptions.map((opt, i) => (
@@ -220,16 +276,8 @@ export const DecisionPanel = memo(function DecisionPanel({
               )}
             </div>
           ))}
-          {/* Creates a real option node linked to this decision and focuses it. */}
-          <button
-            type="button"
-            onClick={handleAddOption}
-            data-testid="decision-add-option"
-            className={`${typography.panelMeta} w-full py-2 -mx-3 px-3 text-info border-t border-dashed border-panel-border hover:bg-panel-hover transition-colors`}
-          >
-            + Add option
-          </button>
         </PrimaryControlCard>
+        )}
 
         <InspectorCoaching
           elementId={nodeId}

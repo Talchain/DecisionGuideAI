@@ -158,6 +158,19 @@ const BOUNDED_FACTOR_FIXTURE = [
   },
 ]
 
+/**
+ * A decision with a description, so its panel renders a real `<textarea>` writer
+ * inside the boundary, beside the "+ Add option" control that now sits outside it.
+ */
+const DECISION_FIXTURE = [
+  {
+    id: 'd1',
+    type: 'decision',
+    data: { label: 'How should we price the Pro tier?', kind: 'decision', description: 'Pricing call.' },
+    position: { x: 0, y: 0 },
+  },
+]
+
 const EDGE_FIXTURE_NODES = [
   { id: 'f1', type: 'factor', data: { label: 'Marketing' }, position: { x: 0, y: 0 } },
   { id: 'g1', type: 'goal', data: { label: 'Revenue' }, position: { x: 0, y: 0 } },
@@ -373,13 +386,20 @@ const NATIVELY_DISABLEABLE = 'button, input, select, textarea'
  * be reused INSIDE the fieldset to launder a control past the escape check).
  * Identity only — a value predicate another element could satisfy is trap 19.
  */
-type PanelKind = 'node' | 'edge'
+/**
+ * ⚠ `decision` IS A NODE PANEL WITH ONE EXTRA DEFENDED EXCEPTION, and it is a
+ * separate kind so that exception is scoped to where it exists. The decision's
+ * "+ Add option" sits in the `quickActions` slot, outside the boundary, on the
+ * decision panel ONLY — an entry scoped `['node']` would RED on every other node
+ * fixture ("matched nothing"), and an unscoped one would excuse it everywhere.
+ */
+type PanelKind = 'node' | 'decision' | 'edge'
 
 const DELIBERATELY_OUTSIDE: ReadonlyArray<{
   selector: string
   why: string
   /**
-   * Which panels this affordance exists on. Omitted means BOTH — the fence
+   * Which panels this affordance exists on. Omitted means ALL — the fence
    * ("must match at least one element") then applies in both, which is the
    * strict default. Naming a subset NARROWS where the fence is checked; it
    * never disables it, so a scoped entry that disappears from its own panel
@@ -416,7 +436,15 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
     // `structural_rename.node_id` addresses a NODE, and `EdgeV3Schema` declares
     // no label at all — an edge's only canonical identity is its `(from, to)`
     // pair. There is nothing on an edge for this verb to rename.
-    panels: ['node'],
+    panels: ['node', 'decision'],
+  },
+  {
+    selector: '[data-testid="decision-add-option"]',
+    why: 'the decision\'s "+ Add option" — `addNodeWithEdge` captures a durable `structural_add` for the new option (CEE `\'mutating\'`), the same admission the rename passed. It is the ONLY decision control moved out; the rest of the pane stays inside the boundary. Its link half stands down at `strength_not_stated` and is not claimed.',
+    // DECISION ONLY: rendered by the Router's `quickActions` for a decision and
+    // for no other kind. If it ever appeared on another panel, that panel's
+    // escape check would report it, because this entry does not apply there.
+    panels: ['decision'],
   },
 ]
 
@@ -512,6 +540,31 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
     setStoreState(BOUNDED_FACTOR_FIXTURE)
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
     expect(escapedControls()).toEqual([])
+  })
+
+  it('leaves no editing control outside the boundary in the DECISION panel — add-option is the one defended exception', () => {
+    // ⭐ The decision panel is still wrapped; only its "+ Add option" moved out.
+    // This case is what makes that a DEFENDED exception rather than an escape:
+    // the entry must match a real element here AND resolve outside the boundary,
+    // and every OTHER control on the pane must still be inside it.
+    setStoreState(DECISION_FIXTURE)
+    render(<InspectorRouter nodeId="d1" edgeId={null} onClose={vi.fn()} />)
+    expect(escapedControls('decision')).toEqual([])
+  })
+
+  it('POSITIVE CONTROL: the decision exception does not excuse the control on OTHER node panels', () => {
+    // Without this, a Router change that rendered the add-option control on
+    // every node kind would pass the decision case above. On the factor fixture
+    // the decision-scoped entry does not apply, so an add-option there would be
+    // reported as escaped. Asserted by injecting exactly that element.
+    setStoreState(BOUNDED_FACTOR_FIXTURE)
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    const region = document.querySelector<HTMLElement>(INSPECTOR_REGION)!
+    const stray = document.createElement('button')
+    stray.setAttribute('data-testid', 'decision-add-option')
+    region.appendChild(stray)
+    expect(escapedControls()).toEqual(['<button> decision-add-option'])
+    stray.remove()
   })
 
   it('leaves no editing control outside the boundary in the edge panel', () => {

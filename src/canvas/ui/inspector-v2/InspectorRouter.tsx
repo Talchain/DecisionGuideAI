@@ -21,7 +21,7 @@ import { EdgeLabelModeToggle } from './shared/EdgeLabelModeToggle'
 import { OptionPanel } from './panels/OptionPanel'
 import { GoalPanel } from './panels/GoalPanel'
 import { FactorControllablePanel } from './panels/FactorControllablePanel'
-import { DecisionPanel } from './panels/DecisionPanel'
+import { DecisionPanel, DecisionAddOption } from './panels/DecisionPanel'
 import { FactorObservablePanel } from './panels/FactorObservablePanel'
 import { FactorExternalPanel } from './panels/FactorExternalPanel'
 import { OutcomePanel } from './panels/OutcomePanel'
@@ -512,6 +512,16 @@ export const InspectorRouter = memo(function InspectorRouter({
             panelType={panelType}
             askContext={attentionAskContext(attention.reasons)}
           />
+          {/* ⭐⭐ THE DECISION'S "+ Add option", OUTSIDE THE FENCE BY THE SAME
+              TEST THE RENAME PASSED. Its gesture captures a durable
+              `structural_add` for the new option (CEE `'mutating'`), so it may
+              sit beside the header rather than inside the `<fieldset disabled>`
+              below, which inerted it for every user while its own isolated spec
+              stayed green. ONLY this control moves — the decision panel stays in
+              the blanket wrap, so none of its other controls is released. See
+              `DecisionAddOption`, and the escape guard's `DELIBERATELY_OUTSIDE`
+              entry in `inspectorAuthorityBinding.spec.tsx`. */}
+          {panelType === 'decision' && <DecisionAddOption decisionId={nodeId} />}
         </>
       }
     >
