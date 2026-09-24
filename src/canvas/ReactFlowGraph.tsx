@@ -738,6 +738,21 @@ const NODE_DRAG_THRESHOLD = 2
  */
 const SELECT_MODE_PAN_BUTTONS = [1]
 
+/**
+ * ⭐ THE GROUND'S DOT GRID IS A WHISPER IN THE DS WARM BORDER TOKEN (contract
+ * v3.1, CHR-5: `.canvas-area{background-image:radial-gradient(#D8D3CB .65px,…)}`).
+ *
+ * `<Background>` was given no colour, so the dots took React Flow 12.10.2's
+ * stylesheet default `--xy-background-pattern-dots-color-default: #91919a` — a
+ * cool grey from outside the DS palette at 2.75:1 on the #F4F0EA canvas, about
+ * twice as loud as the contract's grid. `--border-emphasis` (rgb 221 212 196,
+ * ~1.3:1 on canvas) is the existing DS token nearest the contract's #D8D3CB, so
+ * no colour is added. React Flow writes `color` into
+ * `--xy-background-pattern-color-props`, so a CSS var is honoured as-is. Dot
+ * size and gap are unchanged: they already render the contract's pitch.
+ */
+const CANVAS_GRID_DOT_COLOUR = 'var(--border-emphasis)'
+
 // Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
 const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, showStarters = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
@@ -2617,7 +2632,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // NOTE: No handlers passed - this isolates whether the loop is in
             // node/edge components vs the handlers
           >
-            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
           </ReactFlow>
@@ -2793,7 +2808,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             minZoom={0.1}
             maxZoom={4}
           >
-            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN. Fed `memoizedNodes`, the same
                 array React Flow is rendering, so a lane cannot describe a board
                 the user is not looking at.
