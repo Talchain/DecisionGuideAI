@@ -960,7 +960,13 @@ export function reconcileAppliedGraph(
   // analytical-fields bar `hasAnalyticalNodeChange`/`hasAnalyticalGraphChange`
   // already enforce for every other mutator (`analyticalChange.ts`) — one
   // taxonomy of "does this change the analysis", not a second one here.
-  const priorGraph = { nodes: survivingNodes, edges: survivingEdges }
+  //
+  // ⛔ THE BASELINE IS THE CANVAS BEFORE THE RECONCILE, NOT THE SURVIVORS.
+  // Compared from `survivingNodes`/`survivingEdges`, a node or link CEE
+  // removed is already gone from both sides, the counts match, and a real
+  // structural change reads as "nothing moved" — the old analysis presented as
+  // current (`mergeAppliedGraph.removalStillMarksChanged.spec.ts`).
+  const priorGraph = { nodes: store.nodes, edges: store.edges }
   const nextGraph = {
     nodes: [...reconciledNodes, ...addedNodes],
     edges: [...reconciledEdges, ...addedEdges],
