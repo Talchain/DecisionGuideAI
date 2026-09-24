@@ -346,7 +346,7 @@ export function ModelReviewTool({
             </span>
           </div>
 
-          <p className={`${typography.panelBody} font-medium text-text-header`} data-testid={`${testId}-name`}>
+          <p className={`${typography.panelBody} text-text-header`} data-testid={`${testId}-name`}>
             {current.name}
           </p>
           <p className={`${typography.panelMeta} text-text-light`}>
