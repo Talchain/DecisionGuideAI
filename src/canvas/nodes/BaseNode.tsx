@@ -23,8 +23,6 @@ import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { tierInvitations } from '../utils/ghostTiers'
-import { TierInvitationRow } from './shared/TierInvitation'
 import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
@@ -34,6 +32,7 @@ import {
   NODE_HEADER_RESERVE_PX,
   NODE_LAYOUT_MIN_W,
   NODE_TITLE_MIN_MEASURE_PX,
+  restingCardWidthForKind,
 } from '../utils/nodeLayoutConstants'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
@@ -300,23 +299,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // React #185 FIX: Return primitive boolean from selector to prevent re-renders
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
-  /**
-   * ⭐ THE REASONING FRONTIER, ON THE CARD THE DOOR USED TO STAND BESIDE.
-   *
-   * Resolved from the graph rather than passed in, because the anchor is a
-   * property of the whole row (which card ends it), not of this node — and
-   * `tierInvitations` shares its anchor resolver with the graph-space placement
-   * it replaces, so the two cannot pick different cards.
-   */
   const allNodes = useCanvasStore(s => s.nodes)
-  const myInvitations = useMemo(
-    // ⚠ GUARDED, AND NOT ONLY FOR TESTS. Every card reads this, so an absent or
-    // not-yet-populated `nodes` slice would crash the whole canvas rather than
-    // omit one affordance. Sixteen specs that mock the store caught it; a user
-    // hitting the same state would have seen a blank board.
-    () => (Array.isArray(allNodes) ? tierInvitations(allNodes as never).get(id) ?? [] : []),
-    [allNodes, id],
-  )
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
   /**
    * Olumi attention — held while the AI is explaining THIS element, unlike the
@@ -1028,9 +1011,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // bounded by it. Without the bound, a caller passing a `maxWidth` narrower
   // than the floor would have the title's own min-width force the card wider
   // than the box ELK placed it in.
+  //
+  // ⭐ S4: before any layout has published a width, a card rests at its KIND's
+  // width (`restingCardWidthForKind`: 260 for a repeated card, 460 for the
+  // Question and Goal), not at `NODE_CARD_MAX_W`. The first layout measures
+  // card heights at whatever width the card is drawn at, so a card drawn at 336
+  // and laid out at 260 would be measured too short, grow past the stride, and
+  // force a second layout — the stale-height path, on every fresh draft.
   const renderedCardW = isExpanded
     ? Math.max(NODE_CARD_MAX_W, layoutCardWidth ?? 0)
-    : (maxWidth ?? layoutCardWidth ?? layoutNodeWidth ?? NODE_CARD_MAX_W)
+    : (maxWidth ?? layoutCardWidth ?? layoutNodeWidth ?? restingCardWidthForKind(nodeType))
   const titleMinMeasurePx = Math.max(
     0,
     Math.min(NODE_TITLE_MIN_MEASURE_PX, renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX),
@@ -2566,41 +2556,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </div>
       ) : null}
 
-      {/* ⚠ OUTSIDE the body wrapper above ON PURPOSE. That wrapper is what the
-          LOD rung blanks by `visibility`, and an invitation that disappears at
-          the zoom the auto-fit parks at is the defect this change exists to
-          remove, one level along.
-          ⭐ VISIBLE IN STANDARD VIEW (Paul, 24 Sep: "We used to have little
-          prompts for each of the node types… They seem to have disappeared…
-          let's add them back in"; ED #63 5805528520 §3). This supersedes the
-          Detailed-only gate (ED 11:52Z pt 5). The factor / consequence
-          questions stay on the row's last card until the row-end prompt cards
-          return with the laptop-fit slice; the option question's one entry
-          point is the ghost card (`CARD_INVITATION_TIERS`). */}
-      {(() => {
-        const invitationRow = (
-          <TierInvitationRow
-            invitations={myInvitations}
-            nodeId={id}
-            /* ⚠ THE SAME EXPRESSION THAT PAINTS THE TINT, not a second reading of
-               the lens. `evidenceBgStyle` is `undefined` on an untinted card —
-               including the `na` class, which the lens leaves alone — so the
-               invitation's colour and the card's fill cannot disagree about which
-               ground the text is standing on. The line-rung kind fill is a
-               tinted ground too (contract v3.1 T15), read from the same
-               `lodKindFillClass` that paints it. */
-            onTintedGround={evidenceBgStyle !== undefined || lodKindFillClass !== ''}
-          />
-        )
-        /* The anchor's rail sits BESIDE the card's last row (ANC-02 / RHY-02),
-           and this row can be that last row — so it gets the same reserve as
-           the body's last row, by the same class. */
-        return anchorRailBeside ? (
-          <div className={ANCHOR_RAIL_RESERVE_CLASSES[anchorRailButtonsKey(anchorRailButtons)]}>
-            {invitationRow}
-          </div>
-        ) : invitationRow
-      })()}
+      {/* ⛔ NO IN-CARD FRONTIER QUESTION (S4, Experience Design #63
+          5806207128 / 5806266691: "Do not also restore in-card prompt links";
+          NODE-ANATOMY-v32 principle 3, "No link text inside a card"). The
+          factor / outcome / risk questions stand at the END of their row again
+          as prompt cards (`withGhostTiers`, mounted by `ReactFlowGraph`), beside
+          the option card that always did — one entry point per question. The
+          `TierInvitationRow` that carried them here from 15 Sep (#1606) is
+          unmounted, not hidden: a second door for the same question is the
+          duplicate Paul's screenshot B showed. */}
 
       {/* ⭐ A 3px DARK PORT, NOT A 12px KIND DISC (contract v3.1 FRAME-04:
           `.node .bottom-port{width:3px;height:3px;background:#51554F}` centred
