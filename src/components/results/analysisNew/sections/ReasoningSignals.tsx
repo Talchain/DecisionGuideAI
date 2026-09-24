@@ -24,6 +24,7 @@ import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 import type { AnalysisNewViewModel } from '../analysisNewTypes'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelFigure } from '../PanelFigure'
+import { action } from '../panelSurfaces'
 import { buildReasoningSignals, type FlipThresholdRow } from '../reasoningSignals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 
@@ -143,7 +144,7 @@ export function ReasoningSignals({
           type="button"
           onClick={() => setOpen(true)}
           aria-expanded={false}
-          className={`${typography.panelMeta} inline-flex items-center gap-1 text-text-light hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+          className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1`}
           data-testid={`${testId}-disclose`}
         >
           <ChevronRight className="h-3 w-3 shrink-0" aria-hidden={true} />
@@ -161,7 +162,7 @@ export function ReasoningSignals({
           type="button"
           onClick={() => setOpen(false)}
           aria-expanded={true}
-          className={`${typography.panelMeta} inline-flex items-center gap-1 mb-1 text-text-light hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+          className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1 mb-1`}
           data-testid={`${testId}-disclose`}
         >
           <ChevronDown className="h-3 w-3 shrink-0" aria-hidden={true} />
