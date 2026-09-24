@@ -30,7 +30,13 @@
  */
 import { useCanvasStore } from '../../canvas/store'
 import { classifyFreshnessForDisplay } from '../../canvas/store/analysisFreshness'
-import { deriveCoachingCurrency, type CoachingCurrency } from './coachingCurrency'
+import {
+  deriveCoachingCurrency,
+  runTurnStaleReason,
+  type CoachingCurrency,
+  type RunTurnCurrencyInputs,
+  type RunTurnStaleReason,
+} from './coachingCurrency'
 
 /**
  * The card's own run-turn provenance, verbatim from the block. Only a
@@ -42,6 +48,40 @@ export interface CoachingCardProvenance {
   sourceHandler?: string
   /** The block's `created_at`. */
   createdAt?: string
+}
+
+/**
+ * The run-turn rule's two CEE inputs, read VERBATIM off this turn's
+ * `analysis_state` verdict — ONE reader shared by both hooks below, so the
+ * verdict and the reason cannot be computed from different reads.
+ *
+ * Selected as PRIMITIVES so a card re-renders only when the run's kind or its
+ * `computed_at` actually changes, never on a new verdict object carrying the
+ * same run.
+ *
+ * ⚠ A DIRECT SLICE READ, NOT `useAnalysisState()`, and deliberately so: the
+ * composed selector subscribes to a dozen slices and would make every card in
+ * the transcript pay for the full composition, and it reshapes nothing this
+ * rule needs — `run_state.kind` / `computed_at` are the producer's own fields
+ * and nothing here derives from them beyond equality. The same verbatim read
+ * `useProvisionalAnalysisDelivery` makes. A narrow accessor beside
+ * `useAnalysisReadinessAuthority` in `analysisStateSelector.ts` would be the
+ * doctrinal home for it; that module is outside this change.
+ */
+function useRunTurnInputs(provenance: CoachingCardProvenance | undefined): RunTurnCurrencyInputs | undefined {
+  const runStateKind = useCanvasStore((s) => s.analysisStateV1?.run_state?.kind)
+  const runComputedAt = useCanvasStore((s) => {
+    const runState = s.analysisStateV1?.run_state
+    return runState && 'computed_at' in runState ? runState.computed_at : undefined
+  })
+  return provenance
+    ? {
+        sourceHandler: provenance.sourceHandler,
+        createdAt: provenance.createdAt,
+        runStateKind,
+        runComputedAt,
+      }
+    : undefined
 }
 
 /**
@@ -63,26 +103,7 @@ export function useCoachingCurrency(
   const freshnessState = useCanvasStore((s) => s.analysisFreshness)
   const freshnessDirty = useCanvasStore((s) => s.analysisFreshnessDirty)
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
-  /*
-    The run-turn rule's two CEE inputs, read VERBATIM off this turn's
-    `analysis_state` verdict. Selected as PRIMITIVES so a card re-renders only
-    when the run's kind or its `computed_at` actually changes, never on a new
-    verdict object carrying the same run.
-
-    ⚠ A DIRECT SLICE READ, NOT `useAnalysisState()`, and deliberately so: the
-    composed selector subscribes to a dozen slices and would make every card in
-    the transcript pay for the full composition, and it reshapes nothing this
-    rule needs — `run_state.kind` / `computed_at` are the producer's own fields
-    and nothing here derives from them beyond equality. The same verbatim read
-    `useProvisionalAnalysisDelivery` makes. A narrow accessor beside
-    `useAnalysisReadinessAuthority` in `analysisStateSelector.ts` would be the
-    doctrinal home for it; that module is outside this change.
-  */
-  const runStateKind = useCanvasStore((s) => s.analysisStateV1?.run_state?.kind)
-  const runComputedAt = useCanvasStore((s) => {
-    const runState = s.analysisStateV1?.run_state
-    return runState && 'computed_at' in runState ? runState.computed_at : undefined
-  })
+  const runTurn = useRunTurnInputs(provenance)
   return deriveCoachingCurrency(
     blockGraphHash,
     freshnessState?.currentGraphHash,
@@ -90,13 +111,25 @@ export function useCoachingCurrency(
       dirty: freshnessDirty,
       displaySemantic: classifyFreshnessForDisplay(freshnessState, freshnessDirty, importHold),
     },
-    provenance
-      ? {
-          sourceHandler: provenance.sourceHandler,
-          createdAt: provenance.createdAt,
-          runStateKind,
-          runComputedAt,
-        }
-      : undefined,
+    runTurn,
   )
+}
+
+/**
+ * WHICH limb a `run_analysis` card failed (`runTurnStaleReason`), so the card
+ * can say the true sentence for it — or `null` (every other card, and a
+ * run-turn card that passes all three limbs).
+ *
+ * A SIBLING of `useCoachingCurrency`, not a widening of its return type: the
+ * review-card, evidence and exercise renderers consume that verdict as a bare
+ * `CoachingCurrency`, and none of them carries a run-turn provenance. Same
+ * store reads, same pure authority module — nothing is derived here.
+ */
+export function useRunTurnStaleReason(
+  blockGraphHash: string | undefined | null,
+  provenance: CoachingCardProvenance,
+): RunTurnStaleReason | null {
+  const currentGraphHash = useCanvasStore((s) => s.analysisFreshness?.currentGraphHash)
+  const runTurn = useRunTurnInputs(provenance)
+  return runTurn ? runTurnStaleReason(blockGraphHash, currentGraphHash, runTurn) : null
 }

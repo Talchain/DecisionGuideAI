@@ -46,6 +46,8 @@ const CORPUS_FILES = [
   ...jsonFilesUnder(join(REPO_ROOT, 'tests/fixtures/cee-responses')),
   ...jsonFilesUnder(join(REPO_ROOT, 'src/v5/__tests__/fixtures')),
   ...jsonFilesUnder(join(REPO_ROOT, 'src/lib/coherence/__tests__/fixtures/captures')),
+  // The producer's own run-turn golden payload — the only `run_analysis` cards in the corpus.
+  join(REPO_ROOT, 'src/canvas/conversation/__tests__/fixtures/run-turn-coaching-fragile-link.producer-v3.json'),
 ].sort()
 
 /** Every raw object typed `coaching`, at any depth. */
@@ -77,9 +79,11 @@ function rawCoaching(overrides: Record<string, unknown> = {}): Record<string, un
   return {
     type: 'coaching',
     block_id: 'blk_currency_fields',
-    title: 'Pressure-test a fragile link',
-    body: 'The robustness check flagged a fragile link.',
-    coaching_kind: 'bias_signal',
+    title: 'Pressure-test a sensitive link',
+    body:
+      'The robustness check found the result sensitive to the link from Pro subscriber base to MRR — ' +
+      'worth checking what the estimate of how strongly Pro subscriber base drives MRR rests on.',
+    coaching_kind: 'assumption_check',
     source: 'deterministic_signal',
     target_refs: [],
     priority_rank: 15,
