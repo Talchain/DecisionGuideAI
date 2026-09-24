@@ -104,6 +104,8 @@ describe('the collapsed row', () => {
     // 2 findings + 2 cee_inference factors with a number (f_ai, f_bare).
     expect(screen.getByTestId(`${TID}-count`)).toHaveTextContent(COPY.toReview(4))
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-label', COPY.toReviewName(4))
+    // CONTRAST: a non-empty queue shows its count, not the empty label.
+    expect(screen.queryByTestId(`${TID}-empty`)).toBeNull()
   })
 
   it('CONTRAST: an empty queue offers no count, and the framing ask stays', () => {
@@ -111,6 +113,8 @@ describe('the collapsed row', () => {
     render(<ModelReviewTool interventions={[]} onAsk={vi.fn()} />)
     expect(screen.queryByTestId(`${TID}-toggle`)).toBeNull()
     expect(screen.getByTestId(`${TID}-ask-framing`)).toBeInTheDocument()
+    // The row says its state, so the framing ask is never a lone icon.
+    expect(screen.getByTestId(`${TID}-empty`)).toHaveTextContent(COPY.nothingToReview)
   })
 
   it('the framing ask sends the estate\'s shared review-the-brief payload', () => {
@@ -315,6 +319,22 @@ describe('the acts route to their existing owners', () => {
     expect(onAsk).toHaveBeenCalledWith(
       expect.objectContaining({ label: COPY.addContext, parameters: { block_id: 'blk_mine' } }),
     )
+    expect(document.querySelector('textarea')).toBeNull()
+  })
+
+  it('"I disagree" continues into the conversation about THIS finding: same block_id and target, a started draft, nothing stored', () => {
+    const onAsk = vi.fn()
+    render(<ModelReviewTool interventions={[ABOUT_MINE]} onAsk={onAsk} />)
+    openTool()
+    fireEvent.click(screen.getByTestId(`${TID}-more`))
+    fireEvent.click(screen.getByTestId(`${TID}-disagree`))
+    expect(onAsk).toHaveBeenCalledTimes(1)
+    const payload = onAsk.mock.calls[0][0]
+    expect(payload.label).toBe(COPY.disagree)
+    expect(payload.parameters).toEqual({ block_id: 'blk_mine' })
+    expect(payload.draft).toBe(COPY.disagreeDraft(ABOUT_MINE.title))
+    // CONTRAST: it is not the add-context ask with a new label.
+    expect(payload.draft).not.toBe(COPY.addContextDraft(ABOUT_MINE.title))
     expect(document.querySelector('textarea')).toBeNull()
   })
 

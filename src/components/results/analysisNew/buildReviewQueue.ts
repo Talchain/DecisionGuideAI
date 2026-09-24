@@ -61,6 +61,8 @@ export const REVIEW_TOOL_COPY = {
   toReviewName: (n: number) => `${n} to review. Open the review of this model`,
   entryTip: 'Framing, assumptions, relationships and values. Reviewing is not evidence validation.',
   askFraming: 'Ask Olumi to check the whole framing',
+  /** Empty queue: says the row's state so the framing ask is not a lone icon. */
+  nothingToReview: 'Nothing to review',
   heading: 'Review the thinking',
   pager: (k: number, n: number) => `${k} / ${n}`,
   previous: 'Previous review item',
@@ -72,6 +74,10 @@ export const REVIEW_TOOL_COPY = {
   more: 'More actions for this item',
   edit: 'Edit this item',
   addContext: 'Add evidence or context',
+  /** V2: disagreement continues into the conversation (brief: no separate note store). */
+  disagree: 'I disagree',
+  disagreeTip: 'Tell Olumi why, in the conversation',
+  disagreeDraft: (name: string) => `I disagree with this about ${name}. My reason: `,
   addContextTip: 'Olumi discusses it with you. Nothing you add is stored as verified evidence.',
   confirm: 'Confirm as my estimate',
   confirmTip: 'Confirming makes this your estimate. It does not verify the evidence behind it.',
@@ -376,6 +382,25 @@ export function reviewItemContextPayload(item: ReviewQueueItem): AskOlumiPayload
     context: rec ? rec.whyNow || rec.signal : factorContext(item),
     draft: REVIEW_TOOL_COPY.addContextDraft(item.name),
     label: REVIEW_TOOL_COPY.addContext,
+    ...(item.targetId ? { targetId: item.targetId } : {}),
+    ...(rec?.action.parameters ? { parameters: rec.action.parameters } : {}),
+    ...(rec ? { attentionNote: attentionNoteForRecommendation(rec) } : {}),
+  }
+}
+
+/**
+ * "I disagree" — V2 routes disagreement INTO THE CONVERSATION, the one place
+ * both the person and Olumi can act on it (the brief removes separate note
+ * stores). Same context, target, `block_id` and attention note as the item's
+ * own ask, so Olumi knows WHICH finding is disputed; the draft opens for the
+ * person to finish and nothing is sent or recorded until they do.
+ */
+export function reviewItemDisagreePayload(item: ReviewQueueItem): AskOlumiPayload {
+  const rec = item.recommendation
+  return {
+    context: rec ? rec.whyNow || rec.signal : factorContext(item),
+    draft: REVIEW_TOOL_COPY.disagreeDraft(item.name),
+    label: REVIEW_TOOL_COPY.disagree,
     ...(item.targetId ? { targetId: item.targetId } : {}),
     ...(rec?.action.parameters ? { parameters: rec.action.parameters } : {}),
     ...(rec ? { attentionNote: attentionNoteForRecommendation(rec) } : {}),
