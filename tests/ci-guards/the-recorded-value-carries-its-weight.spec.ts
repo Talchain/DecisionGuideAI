@@ -10,6 +10,10 @@
  * Shipped inverted it: a 12px value under a 14px title, and 11px on the decision
  * card — whose option count is its ONLY quantity.
  *
+ * ⚠ SUPERSEDED FOR THE DECISION CARD by contract v3.1 (T04 / ANC-03): the
+ * question card's count is row-meta (11px, muted), not a recorded value, so
+ * the decision site is no longer listed below. Factor and Risk are unchanged.
+ *
  * ⚠ THIS IS THE MECHANISM BEHIND "THE CARDS LOOK EMPTY", and it is not a space
  * problem. Main.dc.html's own density correction measured the deployed cards at
  * 34px UNDER its height target at the camera the board actually opens at. They
@@ -61,7 +65,7 @@ describe('the value token exists and is weighted correctly', () => {
   })
 })
 
-describe('the three cards that record a quantity use it', () => {
+describe('the cards that record a quantity use it', () => {
   const sites: Array<[string, string, string]> = [
     // ⚠ ANCHORED ON THE RENDER, NOT THE SYMBOL. `valueDisplay` occurs many times
     // in this file and its first occurrence is a declaration ~15,000 chars from
@@ -78,7 +82,13 @@ describe('the three cards that record a quantity use it', () => {
     // use, so FactorNode now matches them instead of being the exception.
     ['FactorNode', join('src', 'canvas', 'nodes', 'FactorNode.tsx'), 'factor-recorded-value'],
     ['RiskNode', join('src', 'canvas', 'nodes', 'RiskNode.tsx'), 'risk-recorded-value'],
-    ['DecisionNode', join('src', 'canvas', 'nodes', 'DecisionNode.tsx'), 'decision-node-option-count'],
+    // ⛔ DecisionNode's option count is NO LONGER A SITE (contract v3.1, T04 /
+    // ANC-03). The contract draws the question card's row as `.row-meta` —
+    // 11px, muted, "3 alternatives · Evidence priority: conversion" — i.e. the
+    // count is META about the framing, not the quantity the card records. At
+    // the value token it read as a second title ("Question / 3 options").
+    // `DecisionNode.contractV31RowMeta.spec.tsx` pins the new anatomy by
+    // identity, so dropping the row here is not dropping the guard on it.
   ]
 
   it.each(sites)('%s renders its recorded quantity at the value token', (name, path, anchor) => {
