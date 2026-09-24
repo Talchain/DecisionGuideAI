@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useState, type KeyboardEvent } from 'react'
+import { useId, useState, type KeyboardEvent } from 'react'
 import { Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -93,6 +93,10 @@ import {
   hasServerGraphAuthority,
 } from '../../../../canvas/mutations/mutationAuthority'
 import { action, icon } from '../panelSurfaces'
+import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { useShowToastSafe } from '../../../../canvas/ToastContext'
+import { OlumiAiIcon } from '../OlumiAiIcon'
+import { PanelActRow } from '../PanelActRow'
 
 /**
  * ⭐ THE KEY THAT NAMES THIS SURFACE'S OPERATION, read exactly as
@@ -121,6 +125,41 @@ const DEFAULT_TARGET_DIRECTION: ConstraintType = 'at_least'
 const GOAL_TARGET_DISPATCH_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget,
 )
+
+/**
+ * ⭐ COPY FOR E2/E3/E4 OF THE EDITABILITY MAP, LOCAL TO THIS FILE ON PURPOSE.
+ * `analysisNewCopy.ts` is shared across every Bundle in the reasoning-V2 split
+ * and none of them may edit it in parallel — the map's own "Proposed build"
+ * table says to put new copy in the owning component or its own file. Nothing
+ * here duplicates a string that already lives in `COPY`; `COPY.modelStrip.cancelValue`
+ * ("Cancel") is reused below rather than respelled.
+ *
+ * ⚠⚠ NONE OF THESE FOUR SENTENCES MAY CLAIM A SAVE. The AI ask and the words
+ * route both leave the shared model untouched — see `sendWordsToOlumi` and
+ * `openHelpDefineSuccess` — so their copy says "Olumi", never "saved" or "set".
+ */
+const ASK_DEFINE_SUCCESS_LABEL = 'Ask Olumi to help define success'
+/** Prototype P:610, carried verbatim — words first, a number only if it is real. */
+const ASK_DEFINE_SUCCESS_DRAFT =
+  'Help me describe what success means for this situation, in words first. Only suggest a numerical target if it represents what I actually care about.'
+const NOT_SURE_YET_LABEL = 'Not sure yet'
+/** Prototype P:612's own notice for the identical act: nothing was invented. */
+const NOT_SURE_YET_NOTICE = 'Success remains open. No target was invented.'
+const WORDS_MODE_LABEL = 'In words'
+const NUMBER_MODE_LABEL = 'A target'
+const MODE_GROUP_LABEL = 'How would you recognise success?'
+const WORDS_INPUT_LABEL = 'Your success criterion'
+const WORDS_PLACEHOLDER = 'e.g. Faster delivery without more overtime'
+const SEND_WORDS_LABEL = 'Discuss with Olumi'
+/**
+ * ⚠⚠ THE HONEST LABEL FOR E3. There is no words field on the goal node —
+ * `goalTarget.ts` reads only `success_threshold`/`goal_threshold_raw` — so this
+ * can only ever be a MESSAGE, never a save. Naming that here is what keeps the
+ * toast from becoming the next "Target set on your model" lie this file's own
+ * header records.
+ */
+const SUCCESS_WORDS_SENT_NOTICE =
+  'Sent to Olumi as a message. There is no words field on the model yet, so this is not stored. See it in the conversation.'
 
 export interface SuccessTargetLineProps {
   /** The goal node to write to. Null = no goal, so nothing to target. */
@@ -220,6 +259,29 @@ export function SuccessTargetLine({
    * write the reader's number onto a model they are no longer looking at.
    */
   const [editScenarioId, setEditScenarioId] = useState<string | null>(null)
+  /**
+   * ⭐ E2/E3: WHICH WAY THE EDITOR IS CAPTURING SUCCESS — the prototype's own
+   * `goalMode` (P:504, P:536), narrowed to what this control can actually
+   * write. `number` is the default, not the prototype's `words`: this file's
+   * whole identity is "the NUMBER beside the label" (see the header), and the
+   * ONLY canonical carrier reachable from here is `proposeGoalTarget`. `words`
+   * is offered because Paul's map calls for it, and it routes to Olumi rather
+   * than pretending a save it cannot make (E3, MISSING-BACKEND today).
+   */
+  const [mode, setMode] = useState<'number' | 'words'>('number')
+  const [wordsDraft, setWordsDraft] = useState('')
+  /**
+   * ⚠ `useShowToastSafe`, NOT `onCommitOutcome`. The three-outcome prop above
+   * is a contract about a COMMIT to the shared model, and neither "not sure
+   * yet" nor a words message is one — reusing it would either invent a fourth
+   * outcome the prop's own doc does not name, or force a caller to map a
+   * no-write act onto `dispatched | local_only | not_encodable`, none of which
+   * is true of it. This control already shows its own toast where nothing was
+   * committed, the same way `FactorValueControl`'s Cancel needs no outcome at
+   * all.
+   */
+  const showToast = useShowToastSafe()
+  const wordsInputId = useId()
 
   // No goal node, nothing to attach a target to. A target line over a model
   // with no goal would be an affordance writing into nowhere.
@@ -408,6 +470,80 @@ export function SuccessTargetLine({
     setUnitDraft('')
   }
 
+  /**
+   * ⭐ ONE CLOSE, FOR EVERY DOOR OUT OF THE EDITOR THAT WRITES NOTHING —
+   * Escape, Cancel and "Not sure yet" all leave the same way. A second copy of
+   * this reset is exactly the hand-maintained mirror CLAUDE.md trap 12 warns
+   * about: the day one drops `setWordsDraft('')` the words field would carry
+   * a stranger's half-typed sentence into the next factor's edit.
+   */
+  const closeEditor = () => {
+    setEditing(false)
+    setDraft('')
+    setUnitDraft('')
+    setWordsDraft('')
+  }
+
+  /**
+   * E4: `data-action="goal-later"` (P:536, P:612). ⛔ WRITES NOTHING — the
+   * product rule this control exists to honour. No `onCommitOutcome` call
+   * either: that prop is a contract about a COMMIT, and deferring is the
+   * absence of one.
+   */
+  const deferTarget = () => {
+    closeEditor()
+    showToast(NOT_SURE_YET_NOTICE)
+  }
+
+  /**
+   * E2: the AI icon at rest (P:610). Offered whether or not the editor is
+   * open, exactly as the prototype's `ask-goal` sits beside `goal` rather than
+   * inside its form.
+   */
+  const openHelpDefineSuccess = () => {
+    openAskOlumi({
+      context: COPY.successTarget.label,
+      draft: ASK_DEFINE_SUCCESS_DRAFT,
+      label: ASK_DEFINE_SUCCESS_LABEL,
+      targetId: goalNodeId,
+      source: 'chip',
+    })
+  }
+
+  /**
+   * E3: success in words, interim chat route (map "Bundle B interim, LOW").
+   *
+   * ⛔⛔ THIS DOES NOT WRITE THE MODEL, AND MUST NEVER LOOK LIKE IT DOES. There
+   * is no words field on a goal node — `goalTarget.ts` reads only
+   * `success_threshold`/`goal_threshold_raw` — so the only honest move is the
+   * one the prototype's OWN apply-path does not reach either (`applyProposal`'s
+   * `p.mode==='words'` branch is prototype-only fixture code; nothing in this
+   * estate answers it). Routing through `openAskOlumi` is the same shared
+   * composer `E1`'s brief edit and `E7`'s belief edit already use for the
+   * identical reason: a real send with no canonical store to land in.
+   */
+  const sendWordsToOlumi = () => {
+    const typed = wordsDraft.trim()
+    if (typed === '') return
+    openAskOlumi({
+      context: COPY.successTarget.label,
+      draft: `This is what success would look like:\n${typed}`,
+      label: ASK_DEFINE_SUCCESS_LABEL,
+      targetId: goalNodeId,
+      source: 'chip',
+    })
+    closeEditor()
+    showToast(SUCCESS_WORDS_SENT_NOTICE)
+  }
+
+  /** Escape closes the words textarea exactly as it closes the number editor. */
+  const onWordsKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeEditor()
+    }
+  }
+
   return (
     /* ⭐ A PEER ROW OF THE STRIP, NOT A FRAGMENT TRAILING ITS HEADER.
        It rendered at `mt-0.5` — two pixels under a row of tallies, in the same
@@ -431,78 +567,187 @@ export function SuccessTargetLine({
       </span>
 
       {editing ? (
-        <span className="flex items-center gap-1.5 min-w-0 flex-1">
-          {/*
-            ⭐⭐ THE DIRECTION, IN WORDS, BEFORE THE NUMBER — so the row reads as
-            the sentence it sends: "Target · at least · 12". It sits FIRST
-            because that is the order of the message CEE receives and of the
-            claim the reader is making, and it renders in its default state
-            without any interaction, which is the whole point: a reader who
-            never opens this menu has still been TOLD which way their number is
-            about to be recorded. That is what the shipped control never did.
-
-            ⚠ ONLY IN THE EDITOR, DELIBERATELY. The read-only row shows a target
-            that came from the brief, through a path that recorded no direction
-            at all. Painting a bound onto it would be fabricating provenance for
-            a claim nobody made. The direction is stated where it is RECORDED.
-          */}
-          <select
-            value={direction}
-            onChange={(e) => setDirection(e.target.value as ConstraintType)}
-            onKeyDown={onEditorKeyDown}
-            aria-label={COPY.successTarget.directionLabel}
-            className={`${typography.panelMeta} shrink-0 rounded border border-panel-border bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            data-testid={`${testId}-direction`}
+        <span
+          className="flex flex-col gap-1.5 min-w-0 flex-1"
+          data-testid={`${testId}-editor`}
+        >
+          {/* ⭐ E2/E3: WHICH WAY THIS EDIT IS CAPTURED — the prototype's own
+              radio-row (P:536), narrowed to what each arm can actually write.
+              `number` reaches `proposeGoalTarget`, the one canonical carrier
+              this file has; `words` reaches only the shared composer, because
+              there is no words field on a goal node to write it to (E3 is
+              MISSING-BACKEND — see `sendWordsToOlumi`). Defaults to `number`:
+              this control's whole identity is "the NUMBER beside the label"
+              (this file's own header), so an untouched open keeps doing
+              exactly what it always did. */}
+          <span
+            role="radiogroup"
+            aria-label={MODE_GROUP_LABEL}
+            className="flex items-center gap-3"
           >
-            <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
-            <option value="at_most">{COPY.successTarget.directionAtMost}</option>
-          </select>
-          <input
-            type="text"
-            inputMode="decimal"
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onEditorKeyDown}
-            aria-label={COPY.successTarget.inputLabel}
-            className={`${typography.panelMeta} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            data-testid={`${testId}-input`}
-          />
-          {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
-              has always taken it and this control has always passed it; it was
-              passing `''` and reporting a refusal whose remedy lived on another
-              tab, inside a row editor the reader had no reason to open.
+            <label className={`${typography.panelMeta} flex items-center gap-1 text-text-body`}>
+              <input
+                type="radio"
+                name={`${testId}-goal-mode`}
+                checked={mode === 'words'}
+                onChange={() => setMode('words')}
+                data-testid={`${testId}-mode-words`}
+              />
+              {WORDS_MODE_LABEL}
+            </label>
+            <label className={`${typography.panelMeta} flex items-center gap-1 text-text-body`}>
+              <input
+                type="radio"
+                name={`${testId}-goal-mode`}
+                checked={mode === 'number'}
+                onChange={() => setMode('number')}
+                data-testid={`${testId}-mode-number`}
+              />
+              {NUMBER_MODE_LABEL}
+            </label>
+          </span>
 
-              ⛔ NOT RENDERED BESIDE A PRODUCER-SUPPLIED UNIT. `declaredUnit`,
-              never the resolved target's — a goal can declare a unit and carry
-              no target, and reading the unit off the target is the defect this
-              change exists to fix. A box here beside CEE's own unit would be a
-              second writer able to contradict it silently.
+          {mode === 'number' ? (
+            <span className="flex items-center gap-1.5 min-w-0 flex-1">
+              {/*
+                ⭐⭐ THE DIRECTION, IN WORDS, BEFORE THE NUMBER — so the row reads
+                as the sentence it sends: "Target · at least · 12". It sits
+                FIRST because that is the order of the message CEE receives and
+                of the claim the reader is making, and it renders in its
+                default state without any interaction, which is the whole
+                point: a reader who never opens this menu has still been TOLD
+                which way their number is about to be recorded. That is what
+                the shipped control never did.
 
-              ⚠ ITS WIDTH IS A FLOOR, not a preference: the Model tab's own unit
-              field carries `w-24` because the row gate asserts every input in
-              that row is at least 90px, and a narrower twin here would read as
-              a different control for the same fact. */}
-          {declaredUnit.trim() === '' ? (
-            <input
-              type="text"
-              value={unitDraft}
-              onChange={(e) => setUnitDraft(e.target.value)}
-              onKeyDown={onEditorKeyDown}
-              aria-label={COPY.successTarget.unitInputLabel}
-              placeholder={COPY.successTarget.unitPlaceholder}
-              className={`${typography.panelMeta} w-24 shrink-0 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-              data-testid={`${testId}-unit`}
-            />
-          ) : null}
-          <button
-            type="button"
-            onClick={commit}
-            className={`${typography.panelMeta} ${action('primary')}`}
-            data-testid={`${testId}-save`}
-          >
-            {COPY.modelStrip.saveValue}
-          </button>
+                ⚠ ONLY IN THE EDITOR, DELIBERATELY. The read-only row shows a
+                target that came from the brief, through a path that recorded
+                no direction at all. Painting a bound onto it would be
+                fabricating provenance for a claim nobody made. The direction
+                is stated where it is RECORDED.
+              */}
+              <select
+                value={direction}
+                onChange={(e) => setDirection(e.target.value as ConstraintType)}
+                onKeyDown={onEditorKeyDown}
+                aria-label={COPY.successTarget.directionLabel}
+                className={`${typography.panelMeta} shrink-0 rounded border border-panel-border bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid={`${testId}-direction`}
+              >
+                <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
+                <option value="at_most">{COPY.successTarget.directionAtMost}</option>
+              </select>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onEditorKeyDown}
+                aria-label={COPY.successTarget.inputLabel}
+                className={`${typography.panelMeta} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid={`${testId}-input`}
+              />
+              {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
+                  has always taken it and this control has always passed it; it
+                  was passing `''` and reporting a refusal whose remedy lived on
+                  another tab, inside a row editor the reader had no reason to
+                  open.
+
+                  ⛔ NOT RENDERED BESIDE A PRODUCER-SUPPLIED UNIT. `declaredUnit`,
+                  never the resolved target's — a goal can declare a unit and
+                  carry no target, and reading the unit off the target is the
+                  defect this change exists to fix. A box here beside CEE's own
+                  unit would be a second writer able to contradict it silently.
+
+                  ⚠ ITS WIDTH IS A FLOOR, not a preference: the Model tab's own
+                  unit field carries `w-24` because the row gate asserts every
+                  input in that row is at least 90px, and a narrower twin here
+                  would read as a different control for the same fact. */}
+              {declaredUnit.trim() === '' ? (
+                <input
+                  type="text"
+                  value={unitDraft}
+                  onChange={(e) => setUnitDraft(e.target.value)}
+                  onKeyDown={onEditorKeyDown}
+                  aria-label={COPY.successTarget.unitInputLabel}
+                  placeholder={COPY.successTarget.unitPlaceholder}
+                  className={`${typography.panelMeta} w-24 shrink-0 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  data-testid={`${testId}-unit`}
+                />
+              ) : null}
+            </span>
+          ) : (
+            <span className="flex flex-col gap-1 min-w-0">
+              {/* E3: interim chat route. ⚠ NO SAVE BUTTON HERE — the primary
+                  act below is `sendWordsToOlumi`, and it opens the shared ask
+                  composer rather than committing anything. */}
+              <label htmlFor={wordsInputId} className="sr-only">
+                {WORDS_INPUT_LABEL}
+              </label>
+              <textarea
+                id={wordsInputId}
+                value={wordsDraft}
+                onChange={(e) => setWordsDraft(e.target.value)}
+                onKeyDown={onWordsKeyDown}
+                placeholder={WORDS_PLACEHOLDER}
+                rows={2}
+                className={`${typography.panelMeta} min-w-0 rounded border border-panel-border bg-surface px-1.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid={`${testId}-words-input`}
+              />
+            </span>
+          )}
+
+          {/* ⭐ `PanelActRow`, NOT A HAND-ROLLED ROW. `oneActRowLayout.spec.tsx`
+              exists because this exact shape — a flex row of controls under a
+              block of text — shipped at three different gaps in one file, one
+              of them missing `flex-wrap` outright. This is a genuine row of
+              acts (Save/Discuss, Cancel, Not sure yet), so it takes the shared
+              layout rather than adding a fourth spelling. */}
+          <PanelActRow testId={`${testId}-editor-actions`}>
+            {mode === 'number' ? (
+              <button
+                type="button"
+                onClick={commit}
+                className={`${typography.panelMeta} ${action('primary')}`}
+                data-testid={`${testId}-save`}
+              >
+                {COPY.modelStrip.saveValue}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={sendWordsToOlumi}
+                disabled={wordsDraft.trim() === ''}
+                className={`${typography.panelMeta} ${action('primary')} disabled:opacity-50`}
+                data-testid={`${testId}-words-send`}
+              >
+                {SEND_WORDS_LABEL}
+              </button>
+            )}
+            {/* E2 fix note: "Add Cancel and 'Not sure yet' buttons to the
+                editor." Two separate acts, deliberately: Cancel is the plain
+                dismiss every other editor on this panel offers (`Escape`'s own
+                behaviour, named); "Not sure yet" is E4's own act and carries
+                its own notice (P:612) so a reader who explicitly declines a
+                target is told that plainly, not left to infer it from a
+                closed form. */}
+            <button
+              type="button"
+              onClick={closeEditor}
+              className={`${typography.panelMeta} ${action('quiet')}`}
+              data-testid={`${testId}-cancel`}
+            >
+              {COPY.modelStrip.cancelValue}
+            </button>
+            <button
+              type="button"
+              onClick={deferTarget}
+              className={`${typography.panelMeta} ${action('quiet')}`}
+              data-testid={`${testId}-defer`}
+            >
+              {NOT_SURE_YET_LABEL}
+            </button>
+          </PanelActRow>
         </span>
       ) : (
         <>
@@ -544,65 +789,84 @@ export function SuccessTargetLine({
                 : VALUE_PROVENANCE_LABEL.brief}
             </span>
           ) : null}
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(true)
-              setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
+          {/* ⭐ E2: THE ICONS CLUSTER TOGETHER AND PUSH RIGHT AS ONE GROUP — the
+              prototype's own `.icons` wrapper around `edit-goal`+`ask-goal`
+              (P:536). `ml-auto` moved from the Set/Change button onto this
+              wrapper so a second control could join it without either
+              fighting the other for the row's right edge. */}
+          <span className="ml-auto flex items-center gap-1 shrink-0">
+            {/* E2: the AI act beside the primary one, at rest — matching where
+                the prototype puts `ask-goal`, not folded inside the form.
+                Visible text is `COPY.disclosure.askOlumi`, the estate's own
+                existing spelling for this act (trap 12: reused, not
+                reinvented); the sr-only span carries what makes THIS ask
+                specific, the same two-tier pattern `detail-method` already
+                uses below in `ModelStrip`. */}
+            <button
+              type="button"
+              onClick={openHelpDefineSuccess}
+              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              data-testid={`${testId}-ask`}
+            >
+              <OlumiAiIcon className={`${icon('inline')}`} aria-hidden={true} />
+              {COPY.disclosure.askOlumi}
+              <span className="sr-only">{ASK_DEFINE_SUCCESS_LABEL}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(true)
+                setMode('number')
+                setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
+                /**
+                 * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.
+                 * Resetting it after a successful commit would have left it
+                 * sticky on the two paths that do not reach that line: Escape,
+                 * and the local write with no dispatcher. A ceiling stated once
+                 * would then be pre-selected on the next edit of a different
+                 * goal. Seeding both here is ONE place a fresh edit starts from,
+                 * so the paths cannot disagree (CLAUDE.md trap 12: one
+                 * derivation, not two that agree today).
+                 */
+                setDirection(DEFAULT_TARGET_DIRECTION)
+                setWordsDraft('')
+                // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
+                setEditScenarioId(authority.captureScenarioId())
+              }}
               /**
-               * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.
-               * Resetting it after a successful commit would have left it
-               * sticky on the two paths that do not reach that line: Escape,
-               * and the local write with no dispatcher. A ceiling stated once
-               * would then be pre-selected on the next edit of a different
-               * goal. Seeding both here is ONE place a fresh edit starts from,
-               * so the paths cannot disagree (CLAUDE.md trap 12: one
-               * derivation, not two that agree today).
+               * ⭐⭐ THE ONE ACT CARRIES THE ONE PRIMARY — and until now nothing on
+               * this panel did. Census of every control on the DEPLOYED build
+               * (`6f90588f`, real run, guest, read off the DOM at rest):
+               *
+               *     25 controls · ZERO `ACTION_TIER.primary`
+               *     the act ("Set a target") — an 11px underlined text link
+               *     "Strengthen the reasoning" — aria-expanded="false"
+               *
+               * `ACTION_TIER.primary`'s own docblock reads *"THE ONE ACT. A filled
+               * control, and the panel should carry at most one of them in view"*.
+               * It had no consumer that renders. Paul's reading of the same
+               * surface: *"nothing reads as primary"*.
+               *
+               * ⛔ SCOPED TO THE UNSET STATE, WHICH IS THE WHOLE DISCIPLINE. The
+               * tier is worth nothing if every row claims it, so it applies ONLY
+               * where the target is absent — the state in which this is the
+               * panel's highest-value move and the producer's own top
+               * recommendation. Once a target exists, "Change" is an ordinary
+               * affordance and drops back to `inline`.
+               *
+               * ⚠ AND THE CLASSES WERE A HAND-COPY OF `inline`, spelled out
+               * rather than named — the 31st spelling of a tier that already has
+               * a name, which is the drift `ACTION_TIER` exists to end. Both
+               * branches now name their tier.
                */
-              setDirection(DEFAULT_TARGET_DIRECTION)
-              // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
-              setEditScenarioId(authority.captureScenarioId())
-            }}
-            /**
-             * ⭐⭐ THE ONE ACT CARRIES THE ONE PRIMARY — and until now nothing on
-             * this panel did. Census of every control on the DEPLOYED build
-             * (`6f90588f`, real run, guest, read off the DOM at rest):
-             *
-             *     25 controls · ZERO `ACTION_TIER.primary`
-             *     the act ("Set a target") — an 11px underlined text link
-             *     "Strengthen the reasoning" — aria-expanded="false"
-             *
-             * `ACTION_TIER.primary`'s own docblock reads *"THE ONE ACT. A filled
-             * control, and the panel should carry at most one of them in view"*.
-             * It had no consumer that renders. Paul's reading of the same
-             * surface: *"nothing reads as primary"*.
-             *
-             * ⛔ SCOPED TO THE UNSET STATE, WHICH IS THE WHOLE DISCIPLINE. The
-             * tier is worth nothing if every row claims it, so it applies ONLY
-             * where the target is absent — the state in which this is the
-             * panel's highest-value move and the producer's own top
-             * recommendation. Once a target exists, "Change" is an ordinary
-             * affordance and drops back to `inline`.
-             *
-             * ⚠ AND THE CLASSES WERE A HAND-COPY OF `inline`, spelled out
-             * rather than named — the 31st spelling of a tier that already has
-             * a name, which is the drift `ACTION_TIER` exists to end. Both
-             * branches now name their tier.
-             *
-             * ⚠ `ml-auto` IS THE INTEGRATION, not decoration. Left-packed, the
-             * control sat immediately after the value and read as a third
-             * fragment of the same sentence — "Target · None set · Set a
-             * target". Pushed to the row's right edge it reads as the row's
-             * control, which is the shape every other row on this surface
-             * already has.
-             */
-            className={`${typography.panelMeta} ml-auto shrink-0 ${
-              shownText !== null ? action('inline') : action('primary')
-            }`}
-            data-testid={`${testId}-edit`}
-          >
-            {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
-          </button>
+              className={`${typography.panelMeta} shrink-0 ${
+                shownText !== null ? action('inline') : action('primary')
+              }`}
+              data-testid={`${testId}-edit`}
+            >
+              {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
+            </button>
+          </span>
         </>
       )}
     </div>

@@ -175,6 +175,7 @@ import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } f
  */
 import { CircleDashed as NoValueMark } from 'lucide-react'
 
+import { OlumiAiIcon } from '../OlumiAiIcon'
 import { useCanvasStore } from '../../../../canvas/store'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import {
@@ -219,6 +220,33 @@ const NO_INSIGHTS: NodeInsightIndex = new Map()
 
 /** What a node's detail has to say when the run named it nowhere. */
 const EMPTY_INSIGHT: NodeInsight = { mentions: [], driverLabel: null, findings: [], withheldFindings: 0 }
+
+/**
+ * ⭐⭐ E10 OF THE EDITABILITY MAP — "Propose a change to this element" and
+ * "Ask Olumi about this item", FOR EVERY KIND, NOT JUST FACTORS.
+ *
+ * ⚠ THE GAP, IN THE MAP'S OWN WORDS: the mark detail offered "Show on canvas"
+ * and, for factors only, "Change this value" — "no edit or ask for options,
+ * risks or outcomes" at all. The prototype's `selectedHTML` (P:539) carries
+ * BOTH acts for every entity kind, and neither writes anything by itself:
+ * `edit-entity` and `ask-entity` (P:616) both stage a message in the shared
+ * composer, exactly like every other unimplemented affordance this bundle
+ * ships. Applying a proposed change is E15b, separately gated and not this
+ * component's to build.
+ *
+ * ⚠ NEW COPY, LOCAL TO THIS FILE — the same call `SuccessTargetLine.tsx` makes
+ * for E2/E3/E4 and for the identical reason: `analysisNewCopy.ts` is shared
+ * across every parallel Bundle in the reasoning-V2 split and none of them may
+ * edit it at once (the map's own "Proposed build" table).
+ */
+const PROPOSE_CHANGE_LABEL = 'Propose a change to this element'
+const ASK_ABOUT_ITEM_LABEL = 'Ask Olumi about this item'
+/** Prototype P:616's `edit-entity` draft, verbatim, `item.name` substituted. */
+const proposeChangeDraft = (label: string): string =>
+  `I want to change ${label}. Help me describe the change and propose it before applying anything.`
+/** Prototype P:616's `ask-entity` draft, verbatim, `item.name` substituted. */
+const askAboutItemDraft = (label: string): string =>
+  `Help me understand ${label}, its assumptions and what might be missing.`
 
 /**
  * Ring several nodes at once on the canvas.
@@ -1369,6 +1397,51 @@ export function ModelStrip({
             >
               <Crosshair className={`${icon('inline')}`} aria-hidden={true} />
               {COPY.modelStrip.showOnCanvas}
+            </button>
+
+            {/* ⭐⭐ E10: EVERY KIND, NOT ONLY FACTORS — see the module header.
+                Both buttons open the shared ask composer; neither writes the
+                model. `Change this value` below (factors only) is a SEPARATE
+                act — a direct numeric write — so a factor legitimately carries
+                both, exactly as the prototype's review-edit and edit-entity
+                are two different affordances on two different screens. */}
+            <button
+              type="button"
+              onClick={() => {
+                const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                openAskOlumi({
+                  context: label,
+                  draft: proposeChangeDraft(label),
+                  label: PROPOSE_CHANGE_LABEL,
+                  targetId: active.id,
+                  source: 'chip',
+                })
+              }}
+              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              data-testid={`${testId}-detail-propose`}
+              data-node-id={active.id}
+            >
+              <Pencil className={`${icon('inline')}`} aria-hidden={true} />
+              {PROPOSE_CHANGE_LABEL}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                openAskOlumi({
+                  context: label,
+                  draft: askAboutItemDraft(label),
+                  label: ASK_ABOUT_ITEM_LABEL,
+                  targetId: active.id,
+                  source: 'chip',
+                })
+              }}
+              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              data-testid={`${testId}-detail-ask`}
+              data-node-id={active.id}
+            >
+              <OlumiAiIcon className={`${icon('inline')}`} aria-hidden={true} />
+              {ASK_ABOUT_ITEM_LABEL}
             </button>
 
             {/* ⭐⭐ THE DATA BEHIND THIS FACTOR, AND WHOSE IT IS.
