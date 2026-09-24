@@ -480,7 +480,13 @@ function buildKeyInsights(
 
   // 5. The relationship most able to change the answer.
   const hinge = conf.m1CoachingTopFragileEdge ?? conf.topFragileEdge
-  if (hinge && typeof hinge.switchProbability === 'number') {
+  // ⛔ NOT ON A WITHHELD RANKING. "Chance another option leads in this model"
+  // presupposes an option that leads now; on a run whose ranking was withheld
+  // that is the leader claim restated as a percentage. `rankingWasWithheld` (not
+  // the wider `leaderDesignationPermitted`) so an open challenge with no arms,
+  // which never had a ranking to withhold, keeps its insight. Exposed when the
+  // glance condition was leader-gated: its dedupe had been hiding this row.
+  if (hinge && typeof hinge.switchProbability === 'number' && !rankingWasWithheld(rec)) {
     out.push({
       id: 'insight:hinge',
       headline: `${hinge.fromLabel} is the hinge`,
@@ -2538,7 +2544,13 @@ function buildAtAGlance(
   // flip condition is candidate-set-dependent, so a run whose only claim was a
   // condition resolved to `'none'` and `AtAGlance` suppressed the scope note —
   // printing a threshold derived from 1 of 2 options with nothing saying so.
-  const condition = glanceCondition(data)
+  // ⛔ LEADER-GATED (served witness, UI c3a39ae7, 24 Sep 2026): the glance's
+  // "Could change if <factor> passes <value>" presupposes a current reading of
+  // which option leads — a flip threshold is where THAT ordering changes. On a
+  // run whose leader claim is withheld there is no such reading, and the line
+  // rendered at rest anyway. Same rule V2 applied to the sensitivity header and
+  // the Challenge signals row (DATA-MAP truth risk 1).
+  const condition = leaderDesignationPermitted(data.recommendation) === true ? glanceCondition(data) : null
 
   /**
    * ⭐⭐ EVERY SET-DEPENDENT CLAIM THIS PANEL CAN MAKE, IN ONE PLACE, AND THE

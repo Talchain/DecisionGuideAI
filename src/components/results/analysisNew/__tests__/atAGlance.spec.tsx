@@ -31,6 +31,17 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
 
 afterEach(() => cleanup())
 
+/**
+ * ⛔ The glance's "Could change if…" is LEADER-GATED (served witness, UI
+ * c3a39ae7): a flip threshold is where the current ORDER changes, so it only
+ * speaks on a run whose leader may be named. Condition fixtures below therefore
+ * run on a permitted recommendation; the withheld contrast asserts absence.
+ */
+const PERMITTED = {
+  leaderDesignationPermitted: true,
+  verdict: genuineDecision().recommendation.verdict,
+} as const
+
 describe('the read — no UI-generated strategic conclusion', () => {
   it('states the leader only when the single verdict entitles one', () => {
     expect(glanceOf(genuineDecision()).headline).toBe('Raise price currently scores higher')
@@ -191,6 +202,7 @@ describe('could change if — a tipping point, gated on the honesty field', () =
     glanceOf(
       makeData({
         recommendation: {
+          ...PERMITTED,
           flipThresholdsStatus: status as never,
           flipThresholds: [flip] as never,
         },
@@ -198,6 +210,21 @@ describe('could change if — a tipping point, gated on the honesty field', () =
     ).condition
 
   const ROW = { label: 'Two-month timeframe', node_id: 'n_time', current_value: 2, flip_value: 3 }
+
+  it('⛔ WITHHELD: the same computed row says NOTHING when the leader may not be named', () => {
+    const withheld = glanceOf(
+      makeData({
+        recommendation: {
+          leaderDesignationPermitted: false,
+          flipThresholdsStatus: 'computed' as never,
+          flipThresholds: [{ ...ROW, unit: '%' }] as never,
+        },
+      }),
+    ).condition
+    expect(withheld).toBeNull()
+    // CONTRAST: the permitted twin of the same row does speak.
+    expect(withFlip('computed', { ...ROW, unit: '%' })).not.toBeNull()
+  })
 
   it('renders when the producer computed one, with its unit', () => {
     expect(withFlip('computed', { ...ROW, unit: '%' })).toEqual({
@@ -350,6 +377,7 @@ describe('one signal, one primary surface', () => {
     // so both can exist on the same run and the duplicate must be removed.
     const both = makeData({
       recommendation: {
+        ...PERMITTED,
         flipThresholdsStatus: 'computed' as never,
         flipThresholds: [
           { label: 'Timeframe', node_id: 'n_t', current_value: 2, flip_value: 3 },
@@ -393,13 +421,34 @@ describe('one signal, one primary surface', () => {
     expect(vm.atAGlance.condition).toBeNull()
     expect(vm.keyInsights.insights.map((i) => i.id)).toContain('insight:hinge')
   })
+
+  it('⛔ WITHHELD RANKING: no hinge insight — "Chance another option leads" presupposes a leader', () => {
+    const base = decisionWithLeaderWithheld()
+    const withheld = {
+      ...base,
+      confidence: {
+        ...base.confidence,
+        topFragileEdge: {
+          fromId: 'f_a',
+          fromLabel: 'Timeframe',
+          toId: 'g',
+          toLabel: 'Goal',
+          alternativeWinnerLabel: 'Other',
+          switchProbability: 0.4,
+        },
+      },
+    } as ResultsSectionDataReturn
+    const vm = vmOf(withheld)
+    expect(vm.leaderClaimPermitted, 'PRECONDITION: the ranking was withheld').toBe(false)
+    expect(vm.keyInsights.insights.map((i) => i.id)).not.toContain('insight:hinge')
+  })
 })
 
 describe('the flip gate honours the producer\'s own verdict on the row', () => {
   const cond = (row: Record<string, unknown>) =>
     buildAnalysisNewViewModel({
       data: makeData({
-        recommendation: { flipThresholdsStatus: 'computed' as never, flipThresholds: [row] as never },
+        recommendation: { ...PERMITTED, flipThresholdsStatus: 'computed' as never, flipThresholds: [row] as never },
       }),
       recommendations: [],
       isPreRun: false,
@@ -566,6 +615,7 @@ describe('could change if — the value is printed at a precision a reader can u
     glanceOf(
       makeData({
         recommendation: {
+          ...PERMITTED,
           flipThresholdsStatus: 'computed' as never,
           flipThresholds: [
             {

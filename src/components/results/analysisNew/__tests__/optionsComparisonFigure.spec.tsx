@@ -232,19 +232,35 @@ const FLIP_ROW = { label: 'Two-month timeframe', node_id: 'n_time', current_valu
  * bars on a value of this very union and #1482 widened the union underneath it
  * (CLAUDE.md trap 21 — two correct changes, one shared concept).
  *
- * ⚠ THE RUN CARRIES SHARES ON EVERY ROW. Withheld leader, no verdict word, no
- * headline — and four real magnitudes in the data. So the flip condition is the
- * ONLY claim the glance is entitled to make, and any absence of bars below is
+ * ⚠ THE RUN CARRIES SHARES ON EVERY ROW. No leader object, no verdict word,
+ * no headline — and four real magnitudes in the data. So the flip condition is
+ * the ONLY claim the glance makes, and any absence of bars below is
  * attributable to the licence and not to missing numbers.
+ *
+ * ⛔ PERMITTED, NOT WITHHELD — since 24 Sep 2026. This run used to withhold the
+ * leader. The glance's condition is now LEADER-GATED (served witness, UI
+ * `c3a39ae7`: "Could change if …" at rest beside a withheld leader claim — a
+ * flip threshold is where the CURRENT ORDER changes, so it presupposes a
+ * reading a withheld run may not state). A withheld run therefore resolves to
+ * `'none'`, and `'condition'` is reached only on a PERMITTED run that names no
+ * leader: permission and separation granted, `recommendedOption: null` (the
+ * headline needs a leader object), no robustness verdict. No row is marked
+ * recommended, matching what the hook emits when no row carries the
+ * recommended id.
  */
 const CONDITION_RUN = () =>
-  dataFor(fourOptions(), {
-    leaderDesignationPermitted: false,
-    robustnessVerdict: undefined,
-    robustnessVerdictReason: undefined,
-    flipThresholdsStatus: 'computed',
-    flipThresholds: [FLIP_ROW],
-  })
+  dataFor(
+    fourOptions().map((o) => ({ ...o, isRecommended: false })),
+    {
+      leaderDesignationPermitted: true,
+      verdict: { leaderId: 'opt_segment', hasLeadingOption: true } as RecOverrides['verdict'],
+      recommendedOption: null,
+      robustnessVerdict: undefined,
+      robustnessVerdictReason: undefined,
+      flipThresholdsStatus: 'computed',
+      flipThresholds: [FLIP_ROW],
+    },
+  )
 
 function renderRun(data: ResultsSectionDataReturn) {
   const vm = buildAnalysisNewViewModel({
