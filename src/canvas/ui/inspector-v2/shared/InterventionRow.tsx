@@ -113,6 +113,14 @@ export const INTERVENTION_ROW_STRINGS = {
    * here, because it is the only thing that states its own frame.
    */
   modelValueQualifier: 'model value',
+  /**
+   * ⭐ NAMES THE SCALE OF THE TECHNICAL-DETAIL INPUT (DEFECT 5 (c)). The
+   * option-target input edits the MODEL's value — the carrier's contract — and
+   * on a row whose reading is "£60k" or "59 GBP/month" that number is the
+   * model's internal 0–1 figure, not the reading. Said in words beside the box,
+   * so an operator typing into it knows which scale they are on.
+   */
+  internalScaleQualifier: "model's internal scale (0–1)",
 } as const
 
 interface InterventionRowProps {
@@ -189,6 +197,37 @@ interface InterventionRowProps {
   techMode?: boolean
   /** Normalised model value (0-1) for tech display */
   normalisedValue?: number
+  /**
+   * ⭐⭐ THE READING THE OPTION CARD PRINTS FOR THIS TARGET (DEFECT 5 (a)).
+   *
+   * Built by the caller through the card's own row builder
+   * (`optionTargetDisplay.buildOptionTargetRow` → `formatInterventionTargetText`):
+   * "£60k", "59 GBP/month", "Low (0.1)". The row's default view prints THIS,
+   * never the model's internal number — served `a4434670` printed "0.295 model
+   * value" beside a card saying "59 GBP/month" because the only human text it
+   * had was `display_value`, which a user-set target never carries.
+   *
+   * ⚠ OMITTED ⇒ THE PRE-FIX SURFACE, UNCHANGED. The only production caller,
+   * `OptionPanel`, always passes it (pinned through the mounted chain by
+   * `OptionPanel.targetReadsLikeTheCard.spec.tsx`); direct-render specs that
+   * pin the numeric surface's own properties keep rendering it.
+   */
+  reading?: string
+  /**
+   * `true` when `reading` is the TARGET ("This option sets £60k"); `false` when
+   * the card's formatter declined to print a number and `reading` is its
+   * direction words ("Increases"), which take no "This option sets" prefix.
+   */
+  readingIsTarget?: boolean
+  /**
+   * ⭐ DOES `reading` VISIBLY SHOW THE NUMBER THE INPUT HOLDS?
+   * (`optionTargetDisplay.readingShowsModelValue`). Only then does the
+   * model-scale input stand in the DEFAULT view; otherwise it stays under
+   * technical detail, labelled, and the default view names that route.
+   */
+  inputMatchesReading?: boolean
+  /** The option's name, for the input's accessible name "Target for <factor> under <option>". */
+  optionLabel?: string
 }
 
 export function InterventionRow({
@@ -206,6 +245,10 @@ export function InterventionRow({
   disabled = false,
   techMode = false,
   normalisedValue,
+  reading,
+  readingIsTarget = true,
+  inputMatchesReading = false,
+  optionLabel,
 }: InterventionRowProps) {
   const [draft, setDraft] = useState(String(currentValue))
   const inputRef = useRef<HTMLInputElement>(null)
@@ -378,6 +421,146 @@ export function InterventionRow({
 
   const provenance = classifyInterventionProvenance(provenanceSource)
 
+  /**
+   * ⭐ THE BOX'S ACCESSIBLE NAME (DEFECT 5 (b)). Served `a4434670` rendered the
+   * option-target input with NO label at all, so a screen reader announced an
+   * anonymous "edit text" on a surface whose card had just sent the user there.
+   * It names the ENTITY the box writes — this option's target for this factor
+   * (`/nodes/<option>/data/interventions/<factor>`) — not the factor's value.
+   */
+  const inputAccessibleName = optionLabel
+    ? `Target for ${factorLabel} under ${optionLabel}`
+    : `Target for ${factorLabel}`
+
+  if (reading !== undefined) {
+    /**
+     * ⭐⭐ THE ROW READS LIKE THE CARD (DEFECT 5 + ED #63 §9).
+     *
+     * ── WHAT THE USER SEES, AND IN WHICH VIEW ──────────────────────────────
+     *  · Always: the card's reading ("This option sets £60k") and who set it.
+     *  · Default view, when the reading visibly IS the number the input holds
+     *    ("Low (0.1)" / "0.2"): the input, labelled. That is the row the card's
+     *    "Open the inspector to change them" promises, and it was hidden behind
+     *    "Show technical detail" on every row CEE had written a reading for.
+     *  · Default view, when it is not ("£60k", "59 GBP/month"): no box — the
+     *    only box is on the model's 0–1 scale, and "0.295 model value" beside
+     *    "59 GBP/month" is the defect. The panel names the control that opens
+     *    it ONCE, above the list (`OPTION_TARGET_EDIT_ROUTE_NOTE`), never per
+     *    row — the density ruling `OPTION_EDIT_ROUTE_NOTE` already carries.
+     *  · Technical detail: the same reading, the operator diagnostics, and the
+     *    input, labelled as the model's internal scale.
+     *
+     * ⛔ THE BOX IS STILL THE MODEL-SCALE BUFFER. Its seed, its parse and its
+     * commit (`handleBlur`, above) are the carrier's contract and are NOT
+     * changed here; entering a target in the reading's own unit is the
+     * input-parsing path's to add. Until it does, a £ row's box lives under
+     * technical detail rather than pretending to be in £.
+     */
+    const showInput = !disabled && (techMode || inputMatchesReading)
+    return (
+      <div
+        data-testid={`inspector-intervention-${factorId}`}
+        className="bg-panel border border-panel-border rounded-lg p-2.5 mb-1.5"
+      >
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-1.5">
+            <NodeShapeIndicator nodeKind="factor" size={14} />
+            <button
+              type="button"
+              onClick={onNavigate}
+              className={`${typography.panelBody} text-text-body hover:text-info transition-colors truncate ${onNavigate ? 'cursor-pointer hover:underline' : ''}`}
+              disabled={!onNavigate}
+            >
+              {factorLabel}
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={`${typography.panelBody} text-text-body mt-1`}
+          data-testid={`intervention-readout-${factorId}`}
+        >
+          {readingIsTarget ? (
+            <>
+              <span
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid={`intervention-sets-${factorId}`}
+              >
+                {INTERVENTION_ROW_STRINGS.setsLabel}
+              </span>{' '}
+              <span>{reading}</span>
+            </>
+          ) : (
+            reading
+          )}
+        </div>
+
+        {showInput && (
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={draft}
+              aria-label={inputAccessibleName}
+              onChange={e => setDraft(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel border-info`}
+            />
+            {techMode && (
+              <span
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid={`intervention-internal-scale-${factorId}`}
+              >
+                {INTERVENTION_ROW_STRINGS.internalScaleQualifier}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* A fenced row states the internal number only where internal numbers
+            live — technical detail — and says which scale it is on. */}
+        {disabled && techMode && (
+          <span
+            data-testid={`intervention-target-readonly-${factorId}`}
+            className={`${typography.panelBody} block mt-2 text-text-body`}
+          >
+            {targetDisplay}
+            <span className={`${typography.panelMeta} text-text-light ml-1`}>
+              {INTERVENTION_ROW_STRINGS.internalScaleQualifier}
+            </span>
+          </span>
+        )}
+
+        {/* ⚠ BELOW THE TARGET, NOT UNDER "This option sets". D5 on the served
+            build: the caption read "This option sets · Recorded: 0.35 · raw
+            0.35 / model 0.35" — the FACTOR's record directly beneath the
+            option's label, read as the option's target. The label now owns
+            the reading on its own line; the factor's diagnostics follow the
+            box, still technical-detail only. */}
+        {technicalDiagnostics && (
+          <div
+            className={`${typography.panelMeta} text-text-light italic mt-1`}
+            data-testid={`intervention-diagnostics-${factorId}`}
+          >
+            {technicalDiagnosticsText}
+          </div>
+        )}
+
+        {provenance !== null && (
+          <div className="mt-1.5">
+            <span
+              data-testid={`inspector-intervention-${factorId}-provenance`}
+              className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${INSPECTOR_INTERVENTION_PROVENANCE_BORDER[provenance.kind]} text-text-body ${typography.panelMeta}`}
+            >
+              {INSPECTOR_INTERVENTION_PROVENANCE_LABEL[provenance.kind]}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       data-testid={`inspector-intervention-${factorId}`}
@@ -508,6 +691,7 @@ export function InterventionRow({
                 ref={inputRef}
                 type="text"
                 value={draft}
+                aria-label={inputAccessibleName}
                 onChange={e => setDraft(e.target.value)}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
