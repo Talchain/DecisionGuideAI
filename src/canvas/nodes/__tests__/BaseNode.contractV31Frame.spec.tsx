@@ -290,6 +290,32 @@ describe('S5: the anchors keep 11 / 9 at every rung; the rail is beside them at 
   })
 })
 
+describe('bounded anatomy: below Normal, factor and option cards reserve NO dead band (ED 5809278282)', () => {
+  // The legacy 24px bottom band was reserved under factor/option cards below the
+  // legibility floor for a hover row that, since S5, is drawn BELOW the card at
+  // those rungs (`placement="below"`) — so the 24px held nothing. Measured on
+  // vendor-selection at the landing scale: 23.5 units under every factor and
+  // option against 11.5 on outcome/risk. ED's height ruling ("title + one
+  // primary line inside the fixed fit-safe box") resolves the rowed question
+  // ("drop the reservation below the floor, or keep one uniform card box").
+  afterEach(() => { useCanvasStore.setState({ lodRung: 'full' } as never) })
+
+  it.each([
+    ['factor', 'quiet'], ['factor', 'line'], ['option', 'quiet'], ['option', 'line'],
+  ] as const)('%s at %s: the bottom padding is the side padding, not a 24px band', (kind, rung) => {
+    useCanvasStore.setState({ lodRung: rung } as never)
+    const { root } = renderCard(kind, { label: 'X', observed_state: { value: 4 } }, { children: <div>row</div> })
+    expect(root.style.paddingBottom).toBe(root.style.paddingLeft)
+    expect(root.style.paddingBottom).not.toBe('24px')
+  })
+
+  it('CONTRAST — at Normal (full) the factor still reserves the scaled rail band', () => {
+    useCanvasStore.setState({ lodRung: 'full' } as never)
+    const { root } = renderCard('factor', { label: 'X', observed_state: { value: 4 } }, { children: <div>row</div> })
+    expect(root.style.paddingBottom).toContain('var(--canvas-label-scale, 1)')
+  })
+})
+
 describe('contract v3.1 — the rendered rail band tracks the live scale (RHY-01)', () => {
   it('an ordinary card renders the band as a calc over --canvas-label-scale, not a fixed 50px', () => {
     const { root } = renderCard('option', { label: 'O' }, { children: <div>row</div> })

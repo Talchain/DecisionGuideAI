@@ -1294,9 +1294,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
       return { paddingTop: side, paddingRight: side, paddingBottom: band, paddingLeft: side }
     }
-    if ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens) {
-      return { paddingTop: side, paddingRight: side, paddingBottom: px(24), paddingLeft: side }
-    }
+    // ⭐ BOUNDED ANATOMY (ED #63 5809278282, 24 Sep): the legacy 24px band that
+    // factor/option cards reserved below Normal is GONE. Since S5 the hover row
+    // is drawn below the card at those rungs, so the band held nothing, and it
+    // cost ~12 units on every factor and option row at the landing floor. ED's
+    // "fixed fit-safe box" resolves the rowed question below ("drop the
+    // reservation below the floor, or keep one uniform card box").
     // ⭐ S5 (24 Sep): an anchor keeps its `11 / 9` vertical rhythm at EVERY rung,
     // rail beside or not. It used to fall back to 12 / 12 wherever the rail was
     // not beside it — below the legibility floor, where the layout reserves the
@@ -1426,6 +1429,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // `MAX_LABEL_COUNTER_SCALE`; see its header for why it is a CONSTANT and
         // not a `calc(... * var(--canvas-label-scale))`.
         //
+        // ✅ RESOLVED 24 Sep (bounded anatomy, ED 5809278282): the legacy arm
+        // below is REMOVED — see `cardPadding`. Kept for provenance:
         // ⚠ THE LEGACY ARM KEEPS ITS 24px, DELIBERATELY AND UNCHANGED. The
         // divergence documented above — `factor`/`option` reserving a band below
         // the legibility floor where this layer is UNMOUNTED — is rowed, and how
