@@ -40,6 +40,18 @@
  * Two fixtures, both driven through the real `AnalysisNewTabBody`, the real
  * view model and the real recommendation engine. They bind the promoted row by
  * `data-recommendation-id` — IDENTITY, never a value another row could match.
+ *
+ * ── ⭐ REASONING V2 (24 Sep 2026) ───────────────────────────────────────────
+ * The promoted card is now `ChallengeCard` (`analysis-new-challenge`), and the
+ * list below is `ModelReviewTool`'s queue, which EXCLUDES the card's finding
+ * (`excludeId`). The reason the old ruling kept the row — dismiss was reachable
+ * only from the row — is met on the card itself ("Not useful right now"), so
+ * the V2 claim is: ONE home for the finding, which NAMES it at rest (heading =
+ * `rec.title`, verbatim, for every kind) and keeps the paragraph and its source
+ * behind "Why this?" on the same card. The catalogue/producer split in the
+ * first case below is RETIRED (X): V2 renders both kinds the same way.
+ * ⛔ The second case ("every disagreement affordance survives") is NOT
+ * re-pointed: V2 offers no "I disagree" anywhere on this tab (reported).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -48,8 +60,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
-import { openAllSections } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { genuineDecision, openStrategicChallenge } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
@@ -97,11 +109,6 @@ const renderBody = (data: ResultsSectionDataReturn) =>
     />,
   )
 
-const openAll = () => {
-  openAllSections()
-  const more = screen.queryByTestId('analysis-new-strengthen-show-more')
-  if (more) fireEvent.click(more)
-}
 
 afterEach(() => cleanup())
 
@@ -132,109 +139,73 @@ describe.each([
 ])('the promoted card does not reprint its row (%s)', (_name, fixture) => {
   it('names the item and leaves the finding to the row', () => {
     renderBody(fixture())
-    openAll()
 
-    const glance = screen.getByTestId('analysis-new-glance-primary-intervention')
-    const promotedId = glance.getAttribute('data-recommendation-id')
+    // AT REST — nothing opened. The card is what a reader meets without a click.
+    const card = screen.getByTestId('analysis-new-challenge')
+    const promotedId = card.getAttribute('data-recommendation-id')
     expect(promotedId, 'no promoted recommendation — this case would be vacuous').toBeTruthy()
+    expect(card).toHaveAttribute('data-source', 'intervention')
+    const atRest = textChunks(card)
+    const heading = screen.getByTestId('analysis-new-challenge-heading').textContent?.trim()
+    expect(heading, 'the card must NAME the item it points at').toBeTruthy()
 
-    // IDENTITY, not a value predicate: the row is the one carrying the SAME
-    // engine id as the promoted card, never the one whose text looks similar.
-    const row = screen
-      .getAllByTestId('analysis-new-strengthen-item')
-      .find((r) => r.getAttribute('data-recommendation-id') === promotedId)
-    expect(row, 'the promoted recommendation must still be in the list below').toBeTruthy()
+    // ⭐ ONE HOME, BY IDENTITY: the finding the card promotes is not offered a
+    // second time in the review queue below (V2's `excludeId`). Paged in full.
+    const queued: string[] = []
+    const toggle = screen.queryByTestId('analysis-new-review-toggle')
+    if (toggle !== null) {
+      fireEvent.click(toggle)
+      const next = () => screen.getByTestId('analysis-new-review-next') as HTMLButtonElement
+      for (let guard = 0; guard < 50; guard += 1) {
+        queued.push(screen.getByTestId('analysis-new-review-item').getAttribute('data-review-key') ?? '')
+        if (next().disabled) break
+        fireEvent.click(next())
+      }
+    }
+    expect(queued, 'the promoted finding is printed twice again').not.toContain(promotedId)
 
-    const rowWhy = (
-      within(row!).getByTestId('analysis-new-strengthen-why').textContent ?? ''
-    )
+    // …and the protection the old "keep it in the list" ruling bought is on
+    // the card itself: the reader can still retire it, which advances the card.
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
+    expect(screen.getByTestId('analysis-new-challenge-not-useful')).toBeInTheDocument()
+
+    // The finding's paragraph is REACHABLE on the same card — "Why this?".
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-why'))
+    const why = (screen.getByTestId('analysis-new-challenge-basis-why').textContent ?? '')
       .replace(/\s+/g, ' ')
       .trim()
 
-    // PRECONDITION, pinned on THIS payload: the detector does fire on the row's
-    // own paragraph. Without it a green result below could come from a row
-    // whose paragraph is too short for any chunk to reach `minWords`.
+    // PRECONDITION, pinned on THIS payload: the detector does fire on the
+    // paragraph. Without it a green result below could come from a paragraph
+    // too short for any chunk to reach `minWords`.
     expect(
-      reprintedChunks([rowWhy], rowWhy),
-      'the detector did not fire on the row’s own text — it is not discriminating here',
+      reprintedChunks([why], why),
+      'the detector did not fire on the finding’s own text — it is not discriminating here',
     ).not.toEqual([])
 
-    // ⚠⚠ THE RULING IS SCOPED BY PROVENANCE, AND IT WAS NOT WHEN FIRST WRITTEN.
-    // An independent seat MEASURED the cost of applying it to every kind, on
-    // the top-priority recommendation, before anything is opened:
-    //
-    //   staging    ["Define success", "No measurable success target is set."]
-    //   unscoped   ["Define what success looks like", "Define success"]
-    //
-    // The card lost its only informative line and gained a near-restatement of
-    // its own header. On the CATALOGUE recommendations `action.label` is
-    // specific copy and the sentence IS the card's information; on PHASE-3
-    // findings the label is `item.actionLabel ?? 'Work through with Olumi'`,
-    // so the header was boilerplate above a body repeating the row. One name,
-    // two situations — the swap is right for one and wrong for the other.
-    const isProducerFinding = promotedId!.startsWith('strengthen:phase3:')
-    const second = within(glance)
-      .getByTestId('analysis-new-glance-primary-action')
-      .textContent?.trim()
-
-    if (isProducerFinding) {
-      // THE RULING, HALF ONE — on a producer finding it does not reprint.
-      expect(reprintedChunks(textChunks(glance), rowWhy)).toEqual([])
-    } else {
-      // THE REGRESSION PIN — on a catalogue recommendation the sentence is the
-      // card's information and MUST survive, and the second line must not be a
-      // restatement of the header. Asserted as an identity against the row's
-      // own paragraph, never as a literal.
-      expect(
-        second,
-        'the catalogue card must still carry the finding’s sentence',
-      ).toBeTruthy()
-      expect(rowWhy.includes(second!)).toBe(true)
-      const header = within(glance)
-        .getByTestId('analysis-new-glance-primary-title')
-        .textContent?.trim()
-      expect(second).not.toBe(header)
-    }
-
-    // THE RULING, HALF TWO — and it DOES name it. Without this, a card
-    // reverted to showing only the generic action label would satisfy half one
-    // perfectly: "Work through with Olumi" reprints nothing. A card that
-    // repeats nothing and identifies nothing is not the fix.
-    //
-    // Bound to the SAME `Recommendation`: both elements render that object's
-    // `title`, and the row was selected by engine id above. Comparing against
-    // a literal would let any row with a matching string satisfy it.
-    const glanceTitle = within(glance)
-      .getByTestId('analysis-new-glance-primary-title')
-      .textContent?.trim()
-    const rowTitle = within(row!)
-      .getByTestId('analysis-new-strengthen-title')
-      .textContent?.trim()
-    expect(rowTitle, 'the row has no title — this pair would be vacuous').toBeTruthy()
-    if (isProducerFinding) {
-      expect(glanceTitle).toBe(rowTitle)
-    } else {
-      // On the catalogue path the header is the ACTION, deliberately — that is
-      // what staging shipped and what the seat measured as the better card.
-      expect(glanceTitle).not.toBe(rowTitle)
-      expect(glanceTitle).toBeTruthy()
-    }
+    // THE RULING, HALF ONE — at rest the card does not reprint the paragraph.
+    expect(reprintedChunks(atRest, why)).toEqual([])
+    // THE RULING, HALF TWO — and it does name it: a non-empty heading (above)
+    // that is neither the paragraph nor a reprint of any part of it.
+    expect(heading).not.toBe(why)
+    expect(reprintedChunks([heading!], why)).toEqual([])
   })
 
-  it('every disagreement affordance survives on the promoted row', () => {
+  it('every disagreement affordance survives on the promoted item (V2: the Challenge card)', async () => {
     // The product thesis rendered: the human is the author, not the recipient.
-    // Whatever the promoted card drops, these must stay reachable.
+    // V2 moved the promoted item to the Challenge card (the review queue
+    // excludes it), so the card itself must carry the disagreement acts.
+    const { openAskOlumi } = await import('../../coaching/askOlumiStore')
+    vi.mocked(openAskOlumi).mockClear()
     renderBody(fixture())
-    openAll()
-    const promotedId = screen
-      .getByTestId('analysis-new-glance-primary-intervention')
-      .getAttribute('data-recommendation-id')
-    const row = screen
-      .getAllByTestId('analysis-new-strengthen-item')
-      .find((r) => r.getAttribute('data-recommendation-id') === promotedId)
-    expect(row).toBeTruthy()
-    expect(within(row!).getByTestId('analysis-new-strengthen-disagree')).toBeInTheDocument()
-    expect(within(row!).getByTestId('analysis-new-strengthen-dismiss')).toBeInTheDocument()
-    expect(within(row!).getByTestId('analysis-new-strengthen-source')).toBeInTheDocument()
+    const card = screen.getByTestId('analysis-new-challenge')
+    const promotedId = card.getAttribute('data-recommendation-id')
+    expect(promotedId, 'PRECONDITION: a promoted finding').toMatch(/^strengthen:/)
+    fireEvent.click(within(card).getByTestId('analysis-new-challenge-more'))
+    expect(screen.getByTestId('analysis-new-challenge-why')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-challenge-not-useful')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-disagree'))
+    expect(vi.mocked(openAskOlumi)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(openAskOlumi).mock.calls[0][0].label).toBe(REVIEW_TOOL_COPY.disagree)
   })
 })

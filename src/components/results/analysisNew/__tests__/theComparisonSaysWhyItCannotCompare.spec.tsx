@@ -69,7 +69,11 @@ describe('a comparison with no figures says so', () => {
     // "no comparison verdict" notice on a run that produced one, i.e. turn a
     // silence defect into a false statement.
     renderComparison([OPT('a', 'Adopt Segment', '61%'), OPT('b', 'Build in house', '39%')])
-    expect(screen.getByTestId('analysis-new-options')).toHaveTextContent('61%')
+    // ⚠ V2 (24 Sep 2026): the win share is no longer PRINTED at rest (it moves
+    // to "About this analysis"), so '61%' is no longer on this section to find.
+    // The control is now that the rows DID render: the caveat's absence below
+    // is the gate's answer, not an empty body's.
+    expect(screen.getAllByTestId('analysis-new-options-row')).toHaveLength(2)
     expect(screen.queryByTestId(CAVEAT), 'a caveat on a run that DID compare').toBeNull()
   })
 
@@ -93,7 +97,8 @@ describe('a comparison with no figures says so', () => {
     // mixed run — the reader can see which rows have numbers. Firing the caveat
     // there would contradict the figures printed beside it.
     renderComparison([OPT('a', 'Adopt Segment', '61%'), OPT('b', 'Build in house', null)])
-    expect(screen.getByTestId('analysis-new-options')).toHaveTextContent('61%')
+    // V2: the rows rendered (see the CONTROL above for why not '61%').
+    expect(screen.getAllByTestId('analysis-new-options-row')).toHaveLength(2)
     expect(screen.queryByTestId(CAVEAT), 'a caveat beside a real figure').toBeNull()
   })
 

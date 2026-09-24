@@ -2500,15 +2500,24 @@ export class SystemEventSendError extends Error {
   readonly code?: string
   /** `details.conflict_category` — distinguishes BASE_HASH_DIVERGED from a fence. */
   readonly conflictCategory?: string
+  /**
+   * `details.reason` — the producer's own typed reason, RAW (a machine token
+   * such as `system_event_refused_no_write`). Additive, like the two above:
+   * some refusals state their no-write guarantee on this field rather than on
+   * a conflict category (`isProvenNoWriteReason`). A caller that wants to SHOW
+   * it must pass it through `isDisplaySafeReason` first.
+   */
+  readonly reason?: string
   constructor(
     kind: 'transport' | 'server',
-    options?: { cause?: unknown; code?: string; conflictCategory?: string },
+    options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string },
   ) {
     super(`System event send failed (${kind})`)
     this.name = 'SystemEventSendError'
     this.kind = kind
     if (options?.code !== undefined) this.code = options.code
     if (options?.conflictCategory !== undefined) this.conflictCategory = options.conflictCategory
+    if (options?.reason !== undefined) this.reason = options.reason
     if (options?.cause !== undefined) {
       ;(this as Error & { cause?: unknown }).cause = options.cause
     }
@@ -5763,6 +5772,15 @@ export function useConversation(): UseConversationReturn {
                 ...(typeof target.code === 'string' ? { code: target.code } : {}),
                 ...(target.boundaryError
                   ? { conflictCategory: extractConflictCategory(target.boundaryError) }
+                  : {}),
+                // ⭐ `details.reason`, carried for the same reason as the
+                // category: the producer states a no-write on THIS field for
+                // the refusals it declines outright
+                // (`system_event_refused_no_write`, see
+                // `isProvenNoWriteReason`). Without it that refusal reaches
+                // every caller as an unknown.
+                ...(target.boundaryError && extractV5ErrorReason(target.boundaryError)
+                  ? { reason: extractV5ErrorReason(target.boundaryError) }
                   : {}),
               },
             )

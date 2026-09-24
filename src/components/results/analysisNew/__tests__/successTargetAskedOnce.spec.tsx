@@ -36,11 +36,30 @@
  * genuinely on screen, and the no-goal case asserts it genuinely is not.
  * Without those, a harness that silently stopped rendering the strip would
  * satisfy the suppression assertion while the panel lost the line entirely.
+ *
+ * ⭐ REASONING V2 (24 Sep 2026). The glance's promoted card is now
+ * `ChallengeCard` (`analysis-new-challenge`), fed the same `glancePrimary` with
+ * the same strip suppression; "Strengthen the reasoning" is no longer mounted
+ * here and the displaced recommendation lives in `ModelReviewTool`'s queue
+ * (`analysis-new-review`). Selectors are re-pointed; the claims are unchanged.
+ *
+ * ⭐ "ASKED EXACTLY ONCE" — RE-POINTED AFTER 716b8e67 FIXED THE PRODUCT. It was
+ * left RED while V2's commitment "Before committing" bullet re-promoted the
+ * finding the strip owns (two in-panel asks). 716b8e67 excludes it there when
+ * `stripOffersTarget`, and the count is re-pointed to V2's shape:
+ *   · the recommendation's in-panel home is the review queue item, which prints
+ *     its `whyNow` as the one reason line, NOT its `signal` — so the old probe
+ *     ("No measurable success target is set.") reads 0 on V2 by design and
+ *     cannot tell one from none;
+ *   · so the count is of the recommendation's TITLE, read off the review item
+ *     found BY ID (`data-review-key`) rather than retyped, across every element
+ *     that could print it — Challenge card heading, commitment bullet 3, review
+ *     item — with the strip's own control asserted on screen beside it.
  */
 
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -90,11 +109,37 @@ const renderPanel = () =>
     />,
   )
 
-/** The glance's promoted card, or null. Bound by TESTID, read by ID. */
-const glancePrimaryId = (): string | null =>
-  screen.queryByTestId('analysis-new-glance-primary-intervention')?.getAttribute(
-    'data-recommendation-id',
-  ) ?? null
+/**
+ * The promoted card, or null. Bound by TESTID, read by ID. V2: the Challenge
+ * card, and only when it shows an engine finding (`data-source="intervention"`)
+ * rather than a method the reader picked.
+ */
+const glancePrimaryId = (): string | null => {
+  const card = screen.queryByTestId('analysis-new-challenge')
+  return card?.getAttribute('data-source') === 'intervention'
+    ? card.getAttribute('data-recommendation-id')
+    : null
+}
+
+/**
+ * Open the review tool on the item with this key, paging one at a time, and
+ * return it; `null` when the queue does not hold it. Identity, not text.
+ */
+const reviewItemFor = (key: string): HTMLElement | null => {
+  const toggle = screen.queryByTestId('analysis-new-review-toggle')
+  if (toggle === null) return null
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  const prev = () => screen.getByTestId('analysis-new-review-prev') as HTMLButtonElement
+  const next = () => screen.getByTestId('analysis-new-review-next') as HTMLButtonElement
+  for (let guard = 0; !prev().disabled && guard < 50; guard += 1) fireEvent.click(prev())
+  for (let guard = 0; guard < 50; guard += 1) {
+    const item = screen.getByTestId('analysis-new-review-item')
+    if (item.getAttribute('data-review-key') === key) return item
+    if (next().disabled) return null
+    fireEvent.click(next())
+  }
+  return null
+}
 
 const previousNodes = { value: [] as unknown }
 
@@ -168,32 +213,45 @@ describe('with a goal — the strip owns the ask, and the glance does not repeat
    * The displaced recommendation must still be reachable with its reasoning
    * intact; suppressing it from the glance is a de-duplication, not a removal.
    */
-  it('the displaced recommendation still renders in Strengthen the reasoning', () => {
+  it('the displaced recommendation still renders in the review queue (V2)', () => {
     renderPanel()
-    const toggle = screen.queryByTestId('analysis-new-strengthen-toggle')
-    if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-    const section = screen.getByTestId('analysis-new-strengthen')
-    expect(section.textContent).toContain('No measurable success target is set.')
+    // V2: bound by the engine's id in the review queue, and its REASONING is
+    // the recommendation's own `whyNow` — the line the queue shows for it.
+    const item = reviewItemFor(SUCCESS_MEASURE_RECOMMENDATION_ID)
+    expect(item, 'the displaced recommendation is not reachable in the review queue').not.toBeNull()
+    expect(screen.getByTestId('analysis-new-review-reason')).toHaveTextContent(
+      'Without a target the analysis cannot say how likely each option is to succeed',
+    )
   })
 
   /**
-   * ⭐ AND THE SENTENCE IS NOW SAID ONCE. Scoped to the with-goal case on
-   * purpose — see the header. Counted by OWN text nodes so it is attributed to
-   * the element that prints it rather than to every ancestor containing it.
+   * ⭐ AND THE ASK IS NOW MADE ONCE. Scoped to the with-goal case on purpose —
+   * see the header. Counted by OWN text nodes so it is attributed to the
+   * element that prints it rather than to every ancestor containing it.
    */
   it('states the missing target exactly once inside the panel', () => {
     const { container } = renderPanel()
-    const toggle = screen.queryByTestId('analysis-new-strengthen-toggle')
-    if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-    let hits = 0
+    // PRECONDITION: the strip's control is the at-rest ask this one sits beside.
+    expect(screen.getByTestId('analysis-new-model-strip-target-edit')).toBeInTheDocument()
+    // The review queue item, found BY ID, and the title it prints — derived,
+    // so a copy change in the builder moves both sides at once.
+    const item = reviewItemFor(SUCCESS_MEASURE_RECOMMENDATION_ID)
+    expect(item, 'PRECONDITION: the recommendation is in the review queue').not.toBeNull()
+    const title = (within(item!).getByTestId('analysis-new-review-name').textContent ?? '').trim()
+    expect(title, 'PRECONDITION: the item names the recommendation').not.toBe('')
+    const printedBy: string[] = []
     container.querySelectorAll('*').forEach((el) => {
       const own = Array.from(el.childNodes)
         .filter((n) => n.nodeType === Node.TEXT_NODE)
         .map((n) => n.textContent ?? '')
         .join('')
-      if (own.includes('No measurable success target is set.')) hits += 1
+      if (own.includes(title)) {
+        printedBy.push(el.closest('[data-testid]')?.getAttribute('data-testid') ?? el.tagName)
+      }
     })
-    expect(hits).toBe(1)
+    expect(printedBy, 'the ask must be made once — by the review item, not also the card or bullet 3').toEqual([
+      'analysis-new-review-name',
+    ])
   })
 })
 

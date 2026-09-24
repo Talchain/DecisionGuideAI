@@ -191,14 +191,21 @@ describe('the one action stays in the glance', () => {
    * true while Strengthen was EXPANDED. With the sections collapsed the
    * duplication is gone, and without this row the most action-shaped thing the
    * surface produces would sit behind a click.
+   *
+   * ⭐ V2 (24 Sep 2026): the row's home is now `ChallengeCard`
+   * (`analysis-new-challenge`), which replaced the `PrimaryIntervention` mount
+   * and is handed the same `glancePrimary`. It is still at rest (no click to
+   * reach it), still bound by the ENGINE's id, and its act — the AI icon
+   * "Work through it" — still runs `runIntervention`, i.e. the prefilled drawer.
    */
   it('renders the engine’s top recommendation and routes it through the non-mutating drawer', () => {
     renderBody(openStrategicChallenge())
-    const row = screen.getByTestId('analysis-new-glance-primary-intervention')
+    const row = screen.getByTestId('analysis-new-challenge')
     // Bound by the ENGINE's id — a lookalike cannot satisfy it.
+    expect(row.getAttribute('data-source')).toBe('intervention')
     expect(row.getAttribute('data-recommendation-id')).toMatch(/^strengthen:/)
 
-    fireEvent.click(row)
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-work-through'))
     expect(openAskOlumi).toHaveBeenCalledTimes(1)
     // The drawer is PREFILLED and never auto-sent; this surface writes nothing.
     expect(vi.mocked(openAskOlumi).mock.calls[0][0]).toEqual(
@@ -207,14 +214,39 @@ describe('the one action stays in the glance', () => {
   })
 
   it('does not duplicate the Strengthen row it points at', () => {
-    // The composition claim: one action, one primary surface. Strengthen is
-    // CLOSED, so the same label cannot be on screen twice.
+    // The composition claim: one action, one primary surface. V2: Strengthen is
+    // not mounted on this tab at all, and its findings live in the review
+    // queue — which must EXCLUDE the promoted one (`excludeId={glancePrimary.id}`).
     renderBody(openStrategicChallenge())
-    const label = screen
-      .getByTestId('analysis-new-glance-primary-intervention')
-      .querySelector('span > span')?.textContent?.trim()
+    const card = screen.getByTestId('analysis-new-challenge')
+    const id = card.getAttribute('data-recommendation-id')
+    const label = screen.getByTestId('analysis-new-challenge-heading').textContent?.trim()
     expect(label, 'no label on the glance action — this would be vacuous').toBeTruthy()
+    expect(id, 'no engine id on the glance action — this would be vacuous').toBeTruthy()
     expect(screen.queryByTestId('analysis-new-strengthen-item')).toBeNull()
+
+    // ⭐ UNCONDITIONAL, BY IDENTITY: at rest exactly ONE element carries the
+    // engine's id — the card. (Measured: on this fixture the review queue is
+    // EMPTY, so it renders no toggle; a walk gated on the toggle alone was a
+    // silent skip, which is why this line does not depend on it.)
+    expect(screen.getByTestId('analysis-new-review'), 'the review tool must be mounted').toBeInTheDocument()
+    expect(
+      document.querySelectorAll(`[data-recommendation-id="${id}"], [data-review-key="${id}"]`),
+      'the promoted recommendation is carried by more than the card',
+    ).toHaveLength(1)
+    // …and where the queue HAS items, walk all of them: none may be the promoted one.
+    const toggle = screen.queryByTestId('analysis-new-review-toggle')
+    if (toggle !== null) {
+      fireEvent.click(toggle)
+      const seen: string[] = []
+      for (let i = 0; i < 50; i += 1) {
+        seen.push(screen.getByTestId('analysis-new-review-item').getAttribute('data-review-key') ?? '')
+        const next = screen.getByTestId('analysis-new-review-next')
+        if ((next as HTMLButtonElement).disabled) break
+        fireEvent.click(next)
+      }
+      expect(seen, 'the promoted recommendation is offered twice').not.toContain(id)
+    }
   })
 })
 

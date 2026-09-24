@@ -67,12 +67,36 @@ const BODY = path.resolve(__dirname, '../AnalysisNewTabBody.tsx')
 /**
  * Deliberately outside the zone grammar — status furniture about the WHOLE
  * panel, which is why it sits above the first zone rather than inside one.
+ *
+ * ⭐ V2 (Reasoning V2 recomposition, 24 Sep 2026) adds TWO, each named:
+ * · `MethodStrip` — the panel's one method + global-action strip (edit brief,
+ *   review inputs, re-run). It replaced BOTH the "Methods you can run" shelf and
+ *   the tab's `ActionsMenu`; it acts on the whole model, not on a zone.
+ * · `ModelReviewTool` — the model-wide review queue, mounted directly under
+ *   `ModelStrip` as that strip's own "N to review" affordance. It reviews the
+ *   model the strip describes, so it sits with the strip, above the zones.
  */
-const ABOVE_THE_ZONES = ['CritiqueWarningStrip', 'InferenceWarningStrip', 'ModelStrip'] as const
+const ABOVE_THE_ZONES = [
+  'CritiqueWarningStrip',
+  'InferenceWarningStrip',
+  'ModelStrip',
+  'MethodStrip',
+  'ModelReviewTool',
+] as const
 
 /** A top-level child of the content column is at exactly eight spaces. */
 const TOP_LEVEL_COMPONENT = /^ {8}<([A-Z][A-Za-z]*)/
 const ZONE_OPEN = /data-testid="analysis-new-zone-(\w+)-group"/
+/**
+ * ⚠ WHERE THE CONTENT COLUMN'S JSX STARTS. V2's `answerBlock` const (defined
+ * above the render, placed later via `{answerBlock}` INSIDE the answer zone)
+ * holds `<OptionsComparison` at eight spaces, so the indentation rule alone
+ * read it as an escapee above the zones. A const is not a child of the content
+ * column by its position in the file — only the render's JSX is — so the scan
+ * starts at the render root. Every line the old rule could legitimately flag
+ * is still inside the scanned range.
+ */
+const RENDER_ROOT = 'data-testid="analysis-new-tab-body"'
 
 describe('the zone grammar has contents, not just names', () => {
   const lines = fs.readFileSync(BODY, 'utf8').split('\n')
@@ -81,8 +105,16 @@ describe('the zone grammar has contents, not just names', () => {
     .map((l, i) => ({ i: i + 1, m: ZONE_OPEN.exec(l) }))
     .filter((r): r is { i: number; m: RegExpExecArray } => r.m !== null)
 
+  const renderRoot = lines.findIndex((l) => l.includes(RENDER_ROOT)) + 1
+
   it('PRECONDITION: the four zones are found in the source — otherwise this spec reads nothing', () => {
-    expect(zoneOpens.map((z) => z.m[1])).toEqual(['focus', 'answer', 'also', 'further'])
+    // V2: "Challenge the thinking" (the `also` group) now sits ABOVE the answer.
+    expect(zoneOpens.map((z) => z.m[1])).toEqual(['focus', 'also', 'answer', 'further'])
+  })
+
+  it('PRECONDITION: the render root is found, and it precedes the first zone', () => {
+    expect(renderRoot, 'the render root anchor was not found').toBeGreaterThan(0)
+    expect(renderRoot).toBeLessThan(zoneOpens[0].i)
   })
 
   it('⛔ every top-level section sits inside a zone, or is NAMED as furniture above them', () => {
@@ -91,7 +123,7 @@ describe('the zone grammar has contents, not just names', () => {
     const escapees = lines
       .map((l, i) => ({ line: i + 1, m: TOP_LEVEL_COMPONENT.exec(l) }))
       .filter((r): r is { line: number; m: RegExpExecArray } => r.m !== null)
-      .filter((r) => r.line < firstZone)
+      .filter((r) => r.line > renderRoot && r.line < firstZone)
       .map((r) => r.m[1])
       .filter((name) => !ABOVE_THE_ZONES.includes(name as (typeof ABOVE_THE_ZONES)[number]))
 

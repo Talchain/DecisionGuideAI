@@ -247,12 +247,21 @@ describe('Analysis (New) render — the row says which numberless state it is', 
     expect(failedRow?.getAttribute('data-option-kind')).toBe('not_computed')
     expect(failedRow?.querySelector('[data-testid="analysis-new-options-bar"]')).toBeNull()
     expect(failedRow?.querySelector('[data-testid="analysis-new-options-win"]')).toBeNull()
-    // CONTRAST CONTROL: the healthy sibling in the same render DOES have both.
+    // ⚠ V2 (24 Sep 2026): NO row prints or draws its win share at rest any
+    // more (the shares move to "About this analysis"), so the healthy sibling's
+    // share is the CONTRAST CONTROL on the view model, where it now lives: the
+    // healthy row carries both halves of the pair, and the not-computed row's
+    // shape has no field for either.
     const healthyRow = screen
       .getAllByTestId('analysis-new-options-row')
       .find((li) => li.getAttribute('data-option-id') === HEALTHY)
-    expect(healthyRow?.querySelector('[data-testid="analysis-new-options-bar"]')).not.toBeNull()
-    expect(healthyRow?.querySelector('[data-testid="analysis-new-options-win"]')).not.toBeNull()
+    expect(healthyRow?.querySelector('[data-testid="analysis-new-options-win"]')).toBeNull()
+    const healthy = rows.find((r) => r.id === HEALTHY)
+    expect(healthy?.kind === 'analysed' ? [healthy.winReadout, healthy.winFraction] : null)
+      .toEqual([expect.any(String), 0.6])
+    const failed = rows.find((r) => r.id === FAILED)
+    expect(failed?.kind).toBe('not_computed')
+    expect(failed && 'winReadout' in failed, 'the not-computed shape carries no share').toBe(false)
   })
 })
 

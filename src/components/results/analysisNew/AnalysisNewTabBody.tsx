@@ -43,7 +43,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch, ClipboardCheck, GraduationCap, Activity } from 'lucide-react'
+import { AlertTriangle, Star, TrendingUp, GitBranch, ClipboardCheck, GraduationCap, Activity } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -78,26 +78,27 @@ import { useWhatIWasGivenWillRender } from '../contextIntegrity/WhatIWasGivenSec
 import { ModelStrip } from './sections/ModelStrip'
 import { WhatsChanged } from './sections/WhatsChanged'
 import { AtAGlance } from './sections/AtAGlance'
-import { PrimaryIntervention } from './sections/PrimaryIntervention'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
-import { DecisionRecorded } from './sections/DecisionRecorded'
-import { WhatWeChecked } from './sections/WhatWeChecked'
-import { TrustLine } from './sections/TrustLine'
 import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
-import { ModelImplication } from './sections/ModelImplication'
-import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { SectionShell } from './sections/SectionShell'
-import { ActionsMenu } from '../decision-overview/ActionsMenu'
-import { MethodsYouCanRun } from './sections/MethodsYouCanRun'
+import { MethodStrip } from './sections/MethodStrip'
+import { CommitmentSummary } from './sections/CommitmentSummary'
+import { buildCommitmentSynthesis } from './commitmentSynthesis'
+import { comparisonDrawsAFigure } from './comparisonLens'
+import { ChallengeCard } from './sections/ChallengeCard'
+import { ReasoningSignals } from './sections/ReasoningSignals'
+import { AboutThisAnalysis, ABOUT_COPY } from './sections/AboutThisAnalysis'
+import { ModelReviewTool } from './sections/ModelReviewTool'
+import { disagreeWithRecommendationPayload } from './buildReviewQueue'
+import { runMethod } from './runMethod'
 import { METHOD_CATALOGUE } from '../decision-overview/actionsCatalogue'
 import { methodIdsRaisedBy } from './recommendationMethod'
 import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
-import { DeeperAnalysis } from './sections/DeeperAnalysis'
 
 /**
  * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
@@ -634,6 +635,12 @@ function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
   return COPY.empty.drivers
 }
 
+/** V2 commit-zone ask drafts. The user's own editable draft, never a claim. */
+const COMMIT_ZONE_ASK = {
+  optionDraft: (label: string) =>
+    `What would have to be true for ${label} to turn out as this model suggests, and what evidence could challenge it?`,
+} as const
+
 export function AnalysisNewTabBody({
   resultsSectionData,
   isPreRun,
@@ -1053,8 +1060,7 @@ export function AnalysisNewTabBody({
     vm.drivers.findings.length > 0 ||
     vm.drivers.influenceRows.length > 0 ||
     driversEmpty !== null ||
-    vm.uncertainty.decisionVoi !== 'not_computed' ||
-    vm.deeper.groups.length > 0
+    vm.uncertainty.decisionVoi !== 'not_computed'
   /**
    * ⚠ `WhatIWasGiven` READS ITS OWN STORE AND RENDERS PRE-RUN BY DESIGN — it is
    * about the brief, not the run — so this group is never empty in practice. The
@@ -1160,6 +1166,8 @@ export function AnalysisNewTabBody({
       riskCount: countOf('risk'),
     })
   }, [modelStrip, resultsSectionData.recommendation.hasGoalTarget])
+  /** V2: the method the user picked in the strip; the Challenge card shows it. */
+  const [pickedMethodId, setPickedMethodId] = useState<string | null>(null)
   const glancePrimary = useMemo(() => {
     const interventions = vm.strengthen.interventions
     if (!stripOffersTarget) return interventions[0] ?? null
@@ -1167,11 +1175,6 @@ export function AnalysisNewTabBody({
       interventions.find((rec) => rec.id !== SUCCESS_MEASURE_RECOMMENDATION_ID) ?? null
     )
   }, [vm.strengthen.interventions, stripOffersTarget])
-
-  const alsoWorthDoing = useMemo(
-    () => selectAlsoWorthDoing(vm.strengthen.interventions, glancePrimary),
-    [vm.strengthen.interventions, glancePrimary],
-  )
 
   /**
    * ⭐ WHICH METHODS THIS RUN RAISED — the engine's own findings, asked through
@@ -1248,82 +1251,111 @@ export function AnalysisNewTabBody({
    * there is exactly one `<ModelImplication>` and one `<OptionsComparison>` in
    * this file, so the source-position guard reads the real order.
    */
+  /**
+   * ⭐ V2 — MOVE TOWARDS COMMITMENT. Three short bullets built from the view
+   * model (`buildCommitmentSynthesis`: what seems well-founded, what remains
+   * uncertain, what to resolve before committing; each omitted when nothing
+   * true can be said), the comparison between them and the record row, which
+   * reuses the existing decision record. The ModelImplication card's lead is
+   * bullet one, so the card itself is no longer mounted here.
+   */
+  // Bullet 3 never repeats what is already asked at rest: the Challenge card's
+  // own item, nor the success target when the model strip already offers it
+  // (V2 census B1/B2).
+  const sensitivityConvergence = vm.leaderClaimPermitted ? vm.sensitivity.convergence : null
+  const sensitivityHeaderTips = vm.leaderClaimPermitted ? vm.sensitivity.tippingPoints.slice(1) : []
+  const commitmentSynthesis = buildCommitmentSynthesis(vm, {
+    excludeInterventionIds: [
+      glancePrimary?.id,
+      stripOffersTarget ? SUCCESS_MEASURE_RECOMMENDATION_ID : null,
+    ],
+  })
   const answerBlock = (
-    <>
-      <ModelImplication
-        implication={vm.modelImplication}
-        isStale={vm.status.isStale}
-        targetAskedElsewhere={stripOffersTarget}
-      />
-      <OptionsComparison
-        options={vm.optionsComparison}
-        leaderWithholdCause={vm.checks.leaderWithholdCause}
-        sharesExcludeLimits={vm.checks.sharesExcludeLimits}
-        /* The SAME writer this body already hands `WhatIWasGivenSection` for
-           its own ask (:1253). One composer, one validation, one policy — a
-           second route to the chat would be a second thing to keep honest. */
-        onSendMessage={onSendMessage}
-        /* ⭐⭐ THE ONE STATE WHERE THE READER IS LEFT WITH NOTHING, AND IT IS
-           THE STATE THIS SECTION EXISTS FOR.
+    <CommitmentSummary
+      synthesis={commitmentSynthesis}
+      isPreRun={vm.status.isPreRun}
+      canCapture={canCaptureDecision}
+      record={decisionRecord}
+      onRecord={openDecisionRecord}
+      onAsk={openAskOlumi}
+    >
+        <OptionsComparison
+          options={vm.optionsComparison}
+          leaderWithholdCause={vm.checks.leaderWithholdCause}
+          sharesExcludeLimits={vm.checks.sharesExcludeLimits}
+          /* The SAME writer this body already hands `WhatIWasGivenSection` for
+             its own ask (:1253). One composer, one validation, one policy — a
+             second route to the chat would be a second thing to keep honest. */
+          onSendMessage={onSendMessage}
+          /* ⭐⭐ THE ONE STATE WHERE THE READER IS LEFT WITH NOTHING, AND IT IS
+             THE STATE THIS SECTION EXISTS FOR.
 
-           Measured, jsdom, on `decisionWithLeaderWithheld()` against its
-           permitted twin `genuineDecision()` — the two fixtures differ in one
-           boolean:
+             Measured, jsdom, on `decisionWithLeaderWithheld()` against its
+             permitted twin `genuineDecision()` — the two fixtures differ in one
+             boolean:
 
-             win readouts       collapsed   opened
-             withheld run       []          ['31%', '69%']
-             permitted run      []          ['31%', '69%']
+               win readouts       collapsed   opened
+               withheld run       []          ['31%', '69%']
+               permitted run      []          ['31%', '69%']
 
-           The per-option figures ALREADY render on a withheld run, in
-           canonical order, with no ordinal and no leader marker — exactly
-           what ROADMAP 1.267 commissions. They were invisible only because
-           the row was closed.
+             The per-option figures ALREADY render on a withheld run, in
+             canonical order, with no ordinal and no leader marker — exactly
+             what ROADMAP 1.267 commissions. They were invisible only because
+             the row was closed.
 
-           On a PERMITTED run that costs the reader nothing: the glance above
-           has already named the leading option and its share, so the panel
-           has answered before this row is reached. On a WITHHELD run the
-           glance renders NO reading at all, and then a closed row means a
-           collaborator sees no numbers anywhere — from an analysis that
-           computed them and is licensed to show them.
+             On a PERMITTED run that costs the reader nothing: the glance above
+             has already named the leading option and its share, so the panel
+             has answered before this row is reached. On a WITHHELD run the
+             glance renders NO reading at all, and then a closed row means a
+             collaborator sees no numbers anywhere — from an analysis that
+             computed them and is licensed to show them.
 
-           That is `SectionShell`'s own licensing rule, met: something above
-           depends on the content being visible, because the thing above is
-           empty.
+             That is `SectionShell`'s own licensing rule, met: something above
+             depends on the content being visible, because the thing above is
+             empty.
 
-           ⚠ `headline` IS THE GLANCE'S OWN WITHHOLD AUTHORITY, CONSUMED, NOT
-           RE-DERIVED. `AtAGlance.tsx:568-572` derives it: `winShare`,
-           `winFraction` and `leaderLabel` are each non-null only where
-           `headline` is. So "the glance is showing no reading" has exactly
-           one spelling and this is it.
+             ⚠ `headline` IS THE GLANCE'S OWN WITHHOLD AUTHORITY, CONSUMED, NOT
+             RE-DERIVED. `AtAGlance.tsx:568-572` derives it: `winShare`,
+             `winFraction` and `leaderLabel` are each non-null only where
+             `headline` is. So "the glance is showing no reading" has exactly
+             one spelling and this is it.
 
-           ⛔ AND IT IS NOT `comparativeClaim`. That is a DIFFERENT question —
-           may a comparative MAGNITUDE be drawn — with its own three-plus-one
-           valued authority, and the bars are gated on it inside the section.
-           Two shares, named apart (CLAUDE.md trap 21): the glance's
-           LEADER-share, which is what `headline` governs, and this section's
-           PER-OPTION shares, which it does not. Keying the disclosure on the
-           magnitude licence would quietly make one of them stand for the
-           other, and the next change would read them as one concept.
+             ⛔ AND IT IS NOT `comparativeClaim`. That is a DIFFERENT question —
+             may a comparative MAGNITUDE be drawn — with its own three-plus-one
+             valued authority, and the bars are gated on it inside the section.
+             Two shares, named apart (CLAUDE.md trap 21): the glance's
+             LEADER-share, which is what `headline` governs, and this section's
+             PER-OPTION shares, which it does not. Keying the disclosure on the
+             magnitude licence would quietly make one of them stand for the
+             other, and the next change would read them as one concept.
 
-           ⚠ THE SECOND CONJUNCT IS NOT DECORATION. Opening a row with no
-           figures behind it supplies nothing the glance withheld, and spends
-           the collapsed IA — 1,584px against a 769px viewport — for it. The
-           licence is "the content below answers what is missing above", so
-           the content has to exist.
+             ⚠ THE SECOND CONJUNCT IS NOT DECORATION. Opening a row with no
+             figures behind it supplies nothing the glance withheld, and spends
+             the collapsed IA — 1,584px against a 769px viewport — for it. The
+             licence is "the content below answers what is missing above", so
+             the content has to exist.
 
-           ⚠ A DEFAULT, NOT A LOCK: `SectionShell` seeds `useState`, so the
-           state belongs to the toggle from the first render on, and a reader
-           who closes it keeps it closed. The collapsed IA is UNCHANGED on
-           every run that names a leader, which is the state its measurement
-           was taken in. */
-        defaultOpen={
-          vm.atAGlance.headline === null &&
-          vm.optionsComparison.rows.some(
-            (r) => r.kind === 'analysed' && r.winReadout !== null,
-          )
-        }
-      />
-    </>
+             ⚠ A DEFAULT, NOT A LOCK: `SectionShell` seeds `useState`, so the
+             state belongs to the toggle from the first render on, and a reader
+             who closes it keeps it closed. The collapsed IA is UNCHANGED on
+             every run that names a leader, which is the state its measurement
+             was taken in. */
+          /* V2: open when the section draws a figure and the glance does not
+             already state the reading (`comparisonDrawsAFigure`, not the removed
+             win readout). */
+          defaultOpen={vm.atAGlance.headline === null && comparisonDrawsAFigure(vm.optionsComparison)}
+          onFocusOption={focusTarget}
+          onInspectOption={onReviewTarget}
+          onAskAboutOption={(optionId, label) =>
+            openAskOlumi({
+              context: label,
+              draft: COMMIT_ZONE_ASK.optionDraft(label),
+              label: COPY.disclosure.askOlumi,
+              targetId: optionId,
+            })
+          }
+        />
+    </CommitmentSummary>
   )
 
   /**
@@ -1446,6 +1478,18 @@ export function AnalysisNewTabBody({
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
       <div className="px-4 py-4 space-y-4 max-w-[440px] mx-auto">
+        {/* ⭐ V2 — ONE METHOD STRIP, FIRST (Paul + ChatGPT brief, 23 Sep 2026).
+            It replaces BOTH the "Methods you can run" chip shelf and this tab's
+            Actions dropdown, which rendered the same seven methods twice. Five
+            icons + one overflow; the overflow keeps the rest of the catalogue
+            and the global actions (edit brief, review inputs, re-run). Choosing a
+            method shows it in the Challenge card; choosing it again clears it. */}
+        <MethodStrip
+          activeMethodId={pickedMethodId}
+          onSelectMethod={(id) => setPickedMethodId((cur) => (cur === id ? null : id))}
+          raisedMethodIds={raisedMethodIds}
+          canRerun={canRunAnalysis === true && !vm.status.isPreRun}
+        />
         {/* ⚠ THE INTRO ASSERTS A RUN, SO IT IS GATED ON THERE BEING ONE.
             "A second reading of the same analysis run" is true of this tab and
             false of this model when nothing has run — mounted pre-run it sat
@@ -1649,7 +1693,7 @@ export function AnalysisNewTabBody({
           warnings={vm.deeper.caveats}
           className="mb-2"
           // The held-back entries render in DeeperAnalysis, inside this section.
-          heldBackListedUnder={COPY.sections.whatMovesTheOutcome}
+          heldBackListedUnder={ABOUT_COPY.title}
         />
 
         {/* ── YOUR MODEL SO FAR ────────────────────────────────────────────
@@ -1683,6 +1727,28 @@ export function AnalysisNewTabBody({
         <ModelStrip
           isPreRun={vm.status.isPreRun}
           insights={nodeInsights}
+        />
+        {/* ⭐ V2 — ONE REVIEW AFFORDANCE FOR THE WHOLE MODEL. The strip's
+            "to verify" badge counted factors only; the engine's findings about
+            framing, assumptions, relationships and alternatives lived in a
+            separate wall of cards ("Strengthen the reasoning"). One queue now
+            holds both (`buildReviewQueue`), one item at a time, with edit /
+            inspect / focus / ask. The finding the glance promotes is excluded so
+            it is never offered twice. */}
+        <ModelReviewTool
+          interventions={vm.strengthen.interventions}
+          excludeId={glancePrimary?.id ?? null}
+          onAsk={openAskOlumi}
+          onInspect={onReviewTarget}
+          onFocus={(id) => {
+            if (!focusModelTarget(id)) {
+              showToast(COPY.canvas.focusFailed)
+              return false
+            }
+            onFocusNode?.(id)
+            return true
+          }}
+          analysisHash={responseHash ?? null}
         />
 
         {/* ── FOCUS NOW ──────────────────────────────────────────────────────
@@ -1750,7 +1816,7 @@ export function AnalysisNewTabBody({
             frequently absent; the methods are not. Two different questions, and
             folding them into one gate is what would bring the heading-over-
             nothing defect back. */}
-        {focusApplicableIds.length > 0 || METHOD_CATALOGUE.length > 0 ? (
+        {focusApplicableIds.length > 0 ? (
           <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
@@ -1771,7 +1837,6 @@ export function AnalysisNewTabBody({
             {focusApplicableIds.length > 0 ? (
               <FocusNowContainer applicableStaticIds={focusApplicableIds} />
             ) : null}
-            <MethodsYouCanRun raisedMethodIds={raisedMethodIds} />
           </div>
         ) : null}
 
@@ -1829,8 +1894,14 @@ export function AnalysisNewTabBody({
             is the one that matters most here, because that is where `AtAGlance`
             carries "no option can be called the leader until you have set at
             least one". */}
-        {vm.status.isPreRun ? null : (
-        <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
+        {/* ── ZONE: ALSO ─────────────────────────────────────────────
+            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
+            makes the zone grammar a REDUCTION: the panel goes from a flat stack
+            of equal-weight cards to a few named groups, and the regrowth
+            ratchet counts it as one child rather than several. A label added
+            loose would have raised the count by five and the ceiling with it,
+            which is the opposite of what the prototype asks for. */}
+        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
@@ -1838,114 +1909,189 @@ export function AnalysisNewTabBody({
             quietest of the panel's three sizes. */}
         <p
           className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-answer"
+          data-testid="analysis-new-zone-also"
         >
-          What your model shows
+          Challenge the thinking
         </p>
-        <AtAGlance
-          glance={vm.atAGlance}
-          onFocusTarget={focusTarget}
-          /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
-             ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
-             `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
-             on the stated rationale that "the estimates live on the Model tab".
-             That was true when it was written and false the next morning — see
-             `reviewEstimates` above for the derivation and for why this body,
-             and only this body, can compose the two.
+        {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
+            instruction to shorten the answer zone so both "what matters most"
+            and "how the options compare" fit at 1440.
 
-             `AtAGlance` is still fail-closed and still not told where anything
-             lives: it receives one handler or `undefined`, exactly as before,
-             and `reviewEstimates` is `undefined` when there is neither an
-             in-page act nor a route. */
-          onReviewEstimates={reviewEstimates}
-          isStale={vm.status.isStale && !vm.status.isPreRun}
-          staleKind={vm.status.staleKind}
-          isProvisional={vm.status.isProvisional}
-          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
-             passed because they answer different questions and the section uses
-             each for its own. */
-          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
-          onReanalyse={onReanalyse}
-          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
-             IT — and not the verdict itself. `runRefusedByGate` is
-             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
-             in it), and the reason is masked by that same boolean so a
-             permitted control carries no refusal text. What `AtAGlance` gets
-             is therefore a PRESENTATION predicate over the one admission, in
-             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
-             not either of the two values the dock handed this component. */
-          reanalyseBlocked={runRefusedByGate}
-          reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
-          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
-             questions the ribbon control has to answer. `reanalyseBlocked`
-             above says whether the gate REFUSED; this says whether a run is
-             ALREADY IN FLIGHT, and the button is disabled on either while only
-             the first may caption it.
+            It rendered inside `AtAGlance`, which put a NEXT ACTION in the zone
+            that holds the ANSWER. Its own heading there said so: "WHAT TO THINK
+            ABOUT NEXT". This zone is labelled "Also worth doing".
 
-             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
-             AGAINST — this prop, the dock's local flag — and deliberately NOT
-             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
-             which answers the cover's question, not the gate's; pairing the
-             verdict with it would test a different run than the one that
-             produced the verdict. Two flags, two questions, and this is the
-             one the gate itself consumed. */
-          isRunning={isRunning}
-          missingResults={vm.status.missingResults}
+            ⭐ MEASURED, not preferred. At 1440×860 (fold 729) the options
+            comparison sat 89px below the fold. Every information-preserving
+            spacing trim COMBINED saved 63px — still 26 short. Moving this card
+            saves 90px including its gap, on its own, and deletes nothing.
+
+            ⚠ The composition stays in this body rather than moving into the
+            component, for the reason every other composition does: the card is
+            presentational and must not grow a second derivation of what the
+            producer recommended. */}
+        {/* ⭐ V2 — ONE GROUNDED INTERVENTION, then the few signals that matter.
+            The card shows the method the user picked, else the engine's top
+            finding (`glancePrimary`), verbatim. The signals are the top three
+            drivers (rank + bar, no percentage), one tipping condition and one
+            gap.
+            ⛔ THE TIPPING ROW IS LEADER-GATED HERE. Its sentence says "before
+            <option> leads", which presupposes a current leader; on a run whose
+            leader claim is withheld that is the panel naming an order it may not
+            state (the same rule #1881 applies to the panel's own leader words).
+            So the thresholds are passed only when the claim is permitted. */}
+        <ChallengeCard
+          intervention={glancePrimary}
+          methodId={pickedMethodId}
+          onRunIntervention={runIntervention}
+          onRunMethod={(id) => {
+            const method = METHOD_CATALOGUE.find((m) => m.id === id)
+            if (method) runMethod(method)
+          }}
+          onDisagree={(rec) => openAskOlumi(disagreeWithRecommendationPayload(rec))}
+          analysisHash={responseHash ?? null}
         />
-        {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
-            reachable on this tab for the first time. `robustness_caveat` rides
-            `results.report.decision_brief`, which the browser already holds; it
-            had exactly one consumer estate-wide and that consumer mounts only on
-            the parked tab.
+        <ReasoningSignals
+          vm={vm}
+          flipThresholds={vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
+          onFocus={focusTarget}
+          onInspect={onReviewTarget}
+          onAsk={openAskOlumi}
+        />
+        {/* V2: "Strengthen the reasoning" and this tab's Actions dropdown are
+            gone from here. Their findings are the review tool's queue (under
+            the model strip) and their methods/actions are the method strip. */}
 
-            ⚠⚠ GATED ON THE LEADER AUTHORITY, REQUIRED AND NEVER DEFAULTED. It is
-            a LEADER-RANKING member: CEE strips it on a withheld turn, so its
-            presence must never be read as licence to speak about a ranking. The
-            value is quoted from the view model's single call, not re-derived.
+        {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
+            ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
+            USER-INVOKED. Derived at the mapping (`recommendationMethod.ts`),
+            with a contrast control:
 
-            ⚠ AND HANDED THE VERDICT SENTENCE ALREADY ON SCREEN, so it cannot say
-            the same thing twice — the defect `ModelHeldUp` records having shipped
-            when it quoted `display_verdict_reason` beside a glance that already
-            did. Different wire fields, but the reader sees only the words. */}
-        {/* ── WHAT'S CHANGED ────────────────────────────────────────────────
-            ⭐ DIRECTLY UNDER THE GLANCE, BECAUSE IT QUALIFIES THE READING THE
-            GLANCE JUST GAVE. A person who changed something and re-ran arrives
-            asking "did that do anything?", and the glance answers a different
-            question — it describes THIS result, not its relationship to the last
-            one. Put below the fold this would be a footnote on a reading already
-            made (the placement rule this file states at the warning strips).
+              pre_mortem        reachable — only on PRE_MORTEM / overconfidence
+              review_bias       reachable — only on COGNITIVE_BIAS
+              outside_view      reachable — only on an anchoring finding
+              different_option  reachable — only on LOW_OPTION_COUNT
+              consider_opposite reachable — only when a flip condition exists
+              reframe_problem   ⛔ NOT REACHABLE FROM THIS TAB
+              explore_tradeoffs ⛔ NOT REACHABLE FROM THIS TAB
 
-            It renders on re-runs only: the producer emits no delta on a first
-            run, and absence renders nothing at all. */}
-        {/* ⭐⭐⭐ WHAT MATTERS MOST READS FIRST — Paul's ruling, 18 Sep 2026.
-            "Take option (d) — reorder so drivers come first."
+            Every one of the first five is gated on the PRODUCER emitting a
+            particular signal. Not one was available because the PERSON wanted
+            it — and a tool for critical and creative thinking has to let the
+            thinker choose the move. The two needing no signal at all are the
+            two most generative: "is the question too narrow?" and "what does
+            each option gain and give up?".
 
-            ⛔ THE FOLD WIN FROM #1665 WAS WORTH ±20px OF RUN CONTENT. Measured
-            on three deployed states at 1600×1000 (fold 869): a fresh withheld
-            run cleared it by +17px; #1668's touch-target repair took that to
-            +10px; and after one estimate and a re-run it was **−3px, BELOW the
-            fold**. A bar item that depends on which factors a reader happens to
-            have estimated is not met, it is lucky.
+            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE — AND THAT WAS
+            ALREADY FALSE BY THREE DAYS WHEN THIS BLOCK WAS WRITTEN.
 
-            ⭐ THIS REORDER COSTS NO HEIGHT AND BUYS 366px OF MARGIN. Measured
-            by moving the node on the deployed build before writing this: the
-            drivers' bottom goes 858 → 491 against the same 869 fold — **+12px
-            of margin becomes +378px** — and the options comparison stays above
-            it (bottom 778, +91px). No copy, no behaviour, no new element.
+            The sentence here read: *"Its only mount is inside
+            `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
+            ruling parks."* That was the whole argument for adding a second
+            surface, and it was untrue at the time. Derived at the history:
 
-            ⚠ AND THE HONEST LIMIT, MEASURED AT A SECOND VIEWPORT: at 1440×860
-            (fold 729) the answer zone EXCEEDS the viewport and this becomes an
-            either/or — drivers +238px above, options −49px below. So this does
-            not "solve" the fold; it decides WHICH of the two sits above it, the
-            way Paul's earlier ruling already did. Shortening the zone is the
-            only route to having both on a 1440 laptop, and that is rowed.
+              15 Sep  #1590 `9dc8cf47`  mounts `<ActionsMenu />` on THIS tab
+              18 Sep  #1694 `c522af9e`  adds this shelf, arguing from the
+                                        pre-#1590 state
 
-            ⛔ IT GOES BEFORE THE WHOLE PAIR, NOT BETWEEN ITS HALVES, AND THAT
-            IS NOT A PREFERENCE. `answerBlock` binds `ModelImplication` to
-            `OptionsComparison` because "every claim moves with its
-            entitlement" — splitting them is what once put a withheld claim on
-            screen. Inserting between them would be exactly that split, so the
-            only placement that respects the binding is above both. */}
+            `<ActionsMenu />` sits 25 lines ABOVE this comment. So the premise
+            was refutable by reading the same file, and every session since has
+            inherited it.
+
+            ⚠ THE SHELF IS NOT WITHDRAWN AND MUST NOT BE. Paul's 18 Sep ruling
+            was "make it first-screen", and a collapsed menu near the foot of
+            the panel does not satisfy that whatever its reachability. The shelf
+            earns its place on the RULING; it never needed the false premise.
+
+            ⚠ WHAT THE TAB ACTUALLY SHIPS, measured on deployed `b6673341` via
+            the guest path: the `Actions` menu carries TEN items — all seven
+            methods verbatim, plus `Edit decision brief`, `Review all inputs`
+            and `Rerun analysis`. Seven of ten duplicate the shelf above.
+            `ActionsMenu.tsx` knows this and resolves the part that matters:
+            both surfaces build their payload through one `runMethod`, so there
+            is no second answer to "what does this method ask?".
+
+            ⛔ WHETHER TWO SURFACES SHOULD CARRY THE SAME SEVEN IS A DESIGN CALL
+            AND IS PAUL'S, NOT THIS FILE'S. It is recorded, not acted on: he has
+            ruled on this placement twice, an approved prototype governs it, and
+            no measurement here shows the duplication costs a reader anything.
+            Do not "reconcile" it by deleting either surface on a tidiness
+            argument. This estate's chronic failure #1 is real — but the cure is
+            not a third mount minted from a stale sentence.
+
+            ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
+            routes every ask through `openAskOlumi` — the same drawer this file
+            already opens at :1163 — with an EDITABLE prefilled draft rather
+            than a hidden dispatch. Nothing here decides what the method says.
+
+            ⚠ PLACED AFTER THE PRODUCER'S OWN SUGGESTIONS, DELIBERATELY. What
+            the run raised comes first; this is the shelf for when it raised
+            nothing, or nothing you wanted. Ahead of the decision record,
+            because a method is a move you make BEFORE you write down what you
+            decided. */}
+        {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
+            On a real run this rendered between the trust line and "What would
+            change your mind", asking the reader to RECORD A DECISION before
+            they had met the thing that would change it. The prompt is honest
+            and the placement was not: it belongs after the act, where a reader
+            who has finished reading can use it.
+
+            ⚠ No new block — the same one, later. The panel stays at its
+            ratcheted count. */}
+        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
+            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
+            above reads the model. This is the one place the team writes down
+            what they will DO, and the one place a later session reads it back.
+
+            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
+            component header. `ModelHeldUp` above renders on almost no runs by
+            design; the read-back here renders on all of them, because the
+            quality of a result has no bearing on whether a team may record, or
+            re-read, the choice they made from it. A fragile or stale run is
+            when the reasoning is most worth keeping.
+
+            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
+            first version gated on `!isPreRun` alone and offered a door onto a
+            modal that opens disabled during any rerun — see `canCapture`.
+
+            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
+            `useDecisionRecordForScenario` resolves `currentScenarioId` through
+            `resolveScenarioKey`, so it survives re-runs and returns to the same
+            scenario — which is the capability — and cannot distinguish the run
+            it was captured against. The section's copy is scoped accordingly. */}
+
+        {/* ⛔⛔ TWO RULINGS COLLIDED HERE AND GROUPING IS WHAT MADE THEM
+            COLLIDE (CLAUDE.md trap 21). `whatIWasGivenMount` pins "what I was
+            given" ABOVE the coaching; `AnalysisNewTabBody.spec` and
+            `whatTheRunCouldNotSettleIsOnePlace` pin the coaching above EVERY
+            detail section, checks included. Those two members now sit in one
+            group, so the group cannot be both above and below the act.
+
+            ⭐ RESOLVED BY WHAT EACH RULING PROTECTS, not by which is older. The
+            coaching-above-detail rule guards FOUR sections and is stated twice.
+            The what-I-was-given rule guards ONE, and its stated argument is
+            that the section must not be buried below the detail — which a
+            NAMED, CLOSED group one click from the trust line does not do. The
+            protection survives; the literal ordering does not.
+
+            ⚠ The other spec was updated to assert the protection rather than
+            the position, and says so in its own file. */}
+        {/* ── COACHING AND METHOD ───────────────────────────────────────────
+            ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
+            the most method-bearing payload the producer sends — a mechanism, a
+            citation and a costed micro-intervention per finding — and it was
+            sitting TWELFTH, below four caveat boxes. Grouping it with key
+            insights gives it a named home a reader can go to, instead of a
+            position in a stack they were scrolling past.
+
+            ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
+            the panel under a heading that says what is inside; before, it was
+            twelve blocks down under a heading that did not. */}
+        {/* V2: the detail behind the challenge signals — the full driver
+            section and "What would change your mind" — lives in this zone,
+            closed, instead of in the answer zone. Post-run only, as before. */}
+        {vm.status.isPreRun ? null : (
+        <>
         {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
             ⭐⭐⭐ MOVED INTO THE ANSWER ZONE, 17 Sep 2026, ON PAUL'S RULING.
 
@@ -2114,9 +2260,241 @@ export function AnalysisNewTabBody({
           ) : null}
 
           {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
-          <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
           </SectionShell>
         ) : null}
+        {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
+            ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
+            Witnessed on staging `e685dafa`: the single most decision-relevant
+            sentence this product emits —
+
+              "If \"Bottom-Up Adoption Friction → Bottom-Up Adoption Rate\"
+               changes significantly, \"A Full Switch at Renewal\" could become
+               the better choice"
+
+            — rendered inside "Uncertainty and gaps", a heading that reads as a
+            list of caveats. Meanwhile "How the options compare", which restates
+            the headline, had a section of its own higher up. That is an
+            inverted information architecture, and this is the correction.
+
+            ⚠ ABOVE THE COACHING, DELIBERATELY, AND IT DOES NOT CONTRADICT THE
+            NOTE BELOW. That note's rule is WHAT HAPPENED → WHAT TO DO → THE
+            DETAIL. "What would change your mind" is the last half of what
+            happened, not the first half of what to do: it is a property of the
+            result the glance just stated, and the coaching that follows is a
+            response to BOTH. Placed under the coaching it would be detail
+            again, which is where it came from.
+
+            ⚠⚠ `emptyMessage={null}` IS THE GATE, AND IT IS THE WHOLE OF IT.
+            An empty list here cannot distinguish "nothing would flip this" from
+            "the run did not test it", and only one of those is reassurance —
+            so the section must be ABSENT rather than empty. `AnalysisNewSection`
+            already owns that rule (`findings.length === 0 && !emptyMessage`
+            returns null, §19), so a `length > 0` conditional at this mount was
+            REDUNDANT — and a mutant proved it: deleting it left all 59 tests
+            green. Dead code shaped like a safety gate is worse than none, because
+            it tells the next reader the mount decides when the section does.
+            The mutant that bites is giving this an emptyMessage.
+
+            ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
+            carries them. A reader meeting one sentence in two sections is a
+            defect this panel has already shipped. */}
+
+        <AnalysisNewSection
+          title={COPY.sections.sensitivity}
+          findings={vm.sensitivity.findings}
+          /* ⭐⭐ THE SHARED CONCLUSION, SAID ONCE, ABOVE THE ROWS THAT SAY IT
+             THREE TIMES.
+
+             ⛔ A DE-DUPLICATION, NOT A NEW CLAIM, and that is the entitlement
+             argument in full: every row below already names this option inside
+             the producer's own sentence, so stating it once above them is
+             strictly LESS assertion than the section already makes. The view
+             model decides WHETHER it may be said (all rows agree, by id, and
+             none unnamed); this slot only renders it.
+
+             ⚠ THE EXISTING `header` SLOT, not a new prop. `AnalysisNewSection`
+             is shared by four sections, and a `convergence` prop on the shared
+             component would be a field three of them can never fill — the
+             shape that invites a fourth caller to fill it with something
+             else. */
+          /* ⛔ V2: LEADER-GATED, AND THE FIRST TIPPING POINT HAS ONE OWNER.
+             Both sentences presuppose a current leader ("…before <option>
+             leads", "…towards <option>"), so on a run whose leader claim is
+             withheld they are the panel naming an order it may not state (the
+             rule #1881 applies to its own leader words; DATA-MAP truth risk 1).
+             And the first tipping point is already the Challenge signals row,
+             so this header carries only the rest — otherwise a header-only
+             section opened itself and put the same sentence on screen twice. */
+          header={
+            sensitivityConvergence || sensitivityHeaderTips.length > 0 ? (
+              <>
+                {sensitivityConvergence ? (
+                  <p
+                    className={`${typography.panelBody} text-text-body`}
+                    data-testid="analysis-new-sensitivity-convergence"
+                  >
+                    {COPY.disclosure.convergence(sensitivityConvergence.label)}
+                  </p>
+                ) : null}
+                {/* ⭐ THE THRESHOLD THE RUN FOUND, STATED. This array reached the
+                    store already and this surface read it only through
+                    `attestsNoFactorFlip` — the NEGATIVE attestation — so a row
+                    the producer marked `found` rendered nowhere. Every number
+                    and both names are the producer's; see `tippingPoints.ts`
+                    for why the gate is `flip_reason` and not a non-null value. */}
+                {sensitivityHeaderTips.map((t) => (
+                  <p
+                    key={`${t.factorLabel}:${t.flipValue}`}
+                    className={`${typography.panelBody} text-text-body`}
+                    data-testid="analysis-new-sensitivity-tipping-point"
+                  >
+                    {COPY.disclosure.tippingPoint(
+                      t.factorLabel,
+                      t.currentValue,
+                      t.flipValue,
+                      t.alternativeLabel,
+                      t.unit,
+                    )}
+                  </p>
+                ))}
+              </>
+            ) : null
+          }
+          /* ⭐ THE COLUMN'S CAPTION, SAID ONCE — and gated on there BEING a
+             column. A caption describing bars renders only where at least one
+             row drew one; on a run whose rows carry no measurement it would be
+             furniture describing nothing, which is the same defect as the
+             per-row label it replaces, one level up. */
+          caveat={
+            vm.sensitivity.findings.some((f) => f.flipFraction !== undefined)
+              ? COPY.disclosure.flipCaption
+              : null
+          }
+          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
+          emptyMessage={null}
+          onFocusTarget={focusTarget}
+          onReviewTarget={onReviewTarget}
+          onRunIntervention={runIntervention}
+          onAskOlumi={askOlumiAbout}
+          icon={GitBranch}
+          testId="analysis-new-sensitivity"
+        />
+        </>
+        )}
+        </div>
+        {vm.status.isPreRun ? null : (
+        <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
+        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
+            of blocks, so it carries no border, no fill and no radius of its
+            own: furniture that looked like a block would add the weight this
+            change exists to remove. Sized and coloured as `panelMeta`, the
+            quietest of the panel's three sizes. */}
+        {/* V2: no separate zone label here — the commitment block below carries
+            the zone's heading ("Move towards commitment") with its own acts. */}
+        <AtAGlance
+          glance={vm.atAGlance}
+          onFocusTarget={focusTarget}
+          /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
+             ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
+             `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
+             on the stated rationale that "the estimates live on the Model tab".
+             That was true when it was written and false the next morning — see
+             `reviewEstimates` above for the derivation and for why this body,
+             and only this body, can compose the two.
+
+             `AtAGlance` is still fail-closed and still not told where anything
+             lives: it receives one handler or `undefined`, exactly as before,
+             and `reviewEstimates` is `undefined` when there is neither an
+             in-page act nor a route. */
+          onReviewEstimates={reviewEstimates}
+          isStale={vm.status.isStale && !vm.status.isPreRun}
+          staleKind={vm.status.staleKind}
+          isProvisional={vm.status.isProvisional}
+          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
+             passed because they answer different questions and the section uses
+             each for its own. */
+          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
+          onReanalyse={onReanalyse}
+          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
+             IT — and not the verdict itself. `runRefusedByGate` is
+             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
+             in it), and the reason is masked by that same boolean so a
+             permitted control carries no refusal text. What `AtAGlance` gets
+             is therefore a PRESENTATION predicate over the one admission, in
+             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
+             not either of the two values the dock handed this component. */
+          reanalyseBlocked={runRefusedByGate}
+          reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
+          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
+             questions the ribbon control has to answer. `reanalyseBlocked`
+             above says whether the gate REFUSED; this says whether a run is
+             ALREADY IN FLIGHT, and the button is disabled on either while only
+             the first may caption it.
+
+             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
+             AGAINST — this prop, the dock's local flag — and deliberately NOT
+             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
+             which answers the cover's question, not the gate's; pairing the
+             verdict with it would test a different run than the one that
+             produced the verdict. Two flags, two questions, and this is the
+             one the gate itself consumed. */
+          isRunning={isRunning}
+          missingResults={vm.status.missingResults}
+        />
+        {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
+            reachable on this tab for the first time. `robustness_caveat` rides
+            `results.report.decision_brief`, which the browser already holds; it
+            had exactly one consumer estate-wide and that consumer mounts only on
+            the parked tab.
+
+            ⚠⚠ GATED ON THE LEADER AUTHORITY, REQUIRED AND NEVER DEFAULTED. It is
+            a LEADER-RANKING member: CEE strips it on a withheld turn, so its
+            presence must never be read as licence to speak about a ranking. The
+            value is quoted from the view model's single call, not re-derived.
+
+            ⚠ AND HANDED THE VERDICT SENTENCE ALREADY ON SCREEN, so it cannot say
+            the same thing twice — the defect `ModelHeldUp` records having shipped
+            when it quoted `display_verdict_reason` beside a glance that already
+            did. Different wire fields, but the reader sees only the words. */}
+        {/* ── WHAT'S CHANGED ────────────────────────────────────────────────
+            ⭐ DIRECTLY UNDER THE GLANCE, BECAUSE IT QUALIFIES THE READING THE
+            GLANCE JUST GAVE. A person who changed something and re-ran arrives
+            asking "did that do anything?", and the glance answers a different
+            question — it describes THIS result, not its relationship to the last
+            one. Put below the fold this would be a footnote on a reading already
+            made (the placement rule this file states at the warning strips).
+
+            It renders on re-runs only: the producer emits no delta on a first
+            run, and absence renders nothing at all. */}
+        {/* ⭐⭐⭐ WHAT MATTERS MOST READS FIRST — Paul's ruling, 18 Sep 2026.
+            "Take option (d) — reorder so drivers come first."
+
+            ⛔ THE FOLD WIN FROM #1665 WAS WORTH ±20px OF RUN CONTENT. Measured
+            on three deployed states at 1600×1000 (fold 869): a fresh withheld
+            run cleared it by +17px; #1668's touch-target repair took that to
+            +10px; and after one estimate and a re-run it was **−3px, BELOW the
+            fold**. A bar item that depends on which factors a reader happens to
+            have estimated is not met, it is lucky.
+
+            ⭐ THIS REORDER COSTS NO HEIGHT AND BUYS 366px OF MARGIN. Measured
+            by moving the node on the deployed build before writing this: the
+            drivers' bottom goes 858 → 491 against the same 869 fold — **+12px
+            of margin becomes +378px** — and the options comparison stays above
+            it (bottom 778, +91px). No copy, no behaviour, no new element.
+
+            ⚠ AND THE HONEST LIMIT, MEASURED AT A SECOND VIEWPORT: at 1440×860
+            (fold 729) the answer zone EXCEEDS the viewport and this becomes an
+            either/or — drivers +238px above, options −49px below. So this does
+            not "solve" the fold; it decides WHICH of the two sits above it, the
+            way Paul's earlier ruling already did. Shortening the zone is the
+            only route to having both on a 1440 laptop, and that is rowed.
+
+            ⛔ IT GOES BEFORE THE WHOLE PAIR, NOT BETWEEN ITS HALVES, AND THAT
+            IS NOT A PREFERENCE. `answerBlock` binds `ModelImplication` to
+            `OptionsComparison` because "every claim moves with its
+            entitlement" — splitting them is what once put a withheld claim on
+            screen. Inserting between them would be exactly that split, so the
+            only placement that respects the binding is above both. */}
 
         {/* ⭐⭐ THE ANSWER, ALWAYS HERE. This used to render in one of TWO places
             depending on whether the glance withheld its figures — promoted to
@@ -2161,15 +2539,6 @@ export function AnalysisNewTabBody({
 
             ⚠ SCOPED TO THE PRE-RUN STATE ONLY. Every post-run path still renders
             it, including the no-verdict one. */}
-        {vm.status.isPreRun ? null : (
-        <TrustLine
-          verdict={vm.atAGlance.verdict}
-          checksRan={vm.checks.items.length}
-          openQuestions={vm.uncertainty.findings.length}
-          methodOpen={methodOpen}
-          onOpenMethod={() => setMethodOpen(true)}
-        />
-        )}
 
         <WhatsChanged view={vm.whatsChanged} />
 
@@ -2231,115 +2600,6 @@ export function AnalysisNewTabBody({
         />
 
 
-        {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
-            ⭐⭐ PROMOTED FROM ROW 3 OF A COLLAPSED SECTION, TWELFTH OF FOURTEEN.
-            Witnessed on staging `e685dafa`: the single most decision-relevant
-            sentence this product emits —
-
-              "If \"Bottom-Up Adoption Friction → Bottom-Up Adoption Rate\"
-               changes significantly, \"A Full Switch at Renewal\" could become
-               the better choice"
-
-            — rendered inside "Uncertainty and gaps", a heading that reads as a
-            list of caveats. Meanwhile "How the options compare", which restates
-            the headline, had a section of its own higher up. That is an
-            inverted information architecture, and this is the correction.
-
-            ⚠ ABOVE THE COACHING, DELIBERATELY, AND IT DOES NOT CONTRADICT THE
-            NOTE BELOW. That note's rule is WHAT HAPPENED → WHAT TO DO → THE
-            DETAIL. "What would change your mind" is the last half of what
-            happened, not the first half of what to do: it is a property of the
-            result the glance just stated, and the coaching that follows is a
-            response to BOTH. Placed under the coaching it would be detail
-            again, which is where it came from.
-
-            ⚠⚠ `emptyMessage={null}` IS THE GATE, AND IT IS THE WHOLE OF IT.
-            An empty list here cannot distinguish "nothing would flip this" from
-            "the run did not test it", and only one of those is reassurance —
-            so the section must be ABSENT rather than empty. `AnalysisNewSection`
-            already owns that rule (`findings.length === 0 && !emptyMessage`
-            returns null, §19), so a `length > 0` conditional at this mount was
-            REDUNDANT — and a mutant proved it: deleting it left all 59 tests
-            green. Dead code shaped like a safety gate is worse than none, because
-            it tells the next reader the mount decides when the section does.
-            The mutant that bites is giving this an emptyMessage.
-
-            ⚠ AND THE ROWS ARE MOVED, NOT COPIED — `uncertainty` no longer
-            carries them. A reader meeting one sentence in two sections is a
-            defect this panel has already shipped. */}
-
-        <AnalysisNewSection
-          title={COPY.sections.sensitivity}
-          findings={vm.sensitivity.findings}
-          /* ⭐⭐ THE SHARED CONCLUSION, SAID ONCE, ABOVE THE ROWS THAT SAY IT
-             THREE TIMES.
-
-             ⛔ A DE-DUPLICATION, NOT A NEW CLAIM, and that is the entitlement
-             argument in full: every row below already names this option inside
-             the producer's own sentence, so stating it once above them is
-             strictly LESS assertion than the section already makes. The view
-             model decides WHETHER it may be said (all rows agree, by id, and
-             none unnamed); this slot only renders it.
-
-             ⚠ THE EXISTING `header` SLOT, not a new prop. `AnalysisNewSection`
-             is shared by four sections, and a `convergence` prop on the shared
-             component would be a field three of them can never fill — the
-             shape that invites a fourth caller to fill it with something
-             else. */
-          header={
-            vm.sensitivity.convergence || vm.sensitivity.tippingPoints.length > 0 ? (
-              <>
-                {vm.sensitivity.convergence ? (
-                  <p
-                    className={`${typography.panelBody} text-text-body`}
-                    data-testid="analysis-new-sensitivity-convergence"
-                  >
-                    {COPY.disclosure.convergence(vm.sensitivity.convergence.label)}
-                  </p>
-                ) : null}
-                {/* ⭐ THE THRESHOLD THE RUN FOUND, STATED. This array reached the
-                    store already and this surface read it only through
-                    `attestsNoFactorFlip` — the NEGATIVE attestation — so a row
-                    the producer marked `found` rendered nowhere. Every number
-                    and both names are the producer's; see `tippingPoints.ts`
-                    for why the gate is `flip_reason` and not a non-null value. */}
-                {vm.sensitivity.tippingPoints.map((t) => (
-                  <p
-                    key={`${t.factorLabel}:${t.flipValue}`}
-                    className={`${typography.panelBody} text-text-body`}
-                    data-testid="analysis-new-sensitivity-tipping-point"
-                  >
-                    {COPY.disclosure.tippingPoint(
-                      t.factorLabel,
-                      t.currentValue,
-                      t.flipValue,
-                      t.alternativeLabel,
-                      t.unit,
-                    )}
-                  </p>
-                ))}
-              </>
-            ) : null
-          }
-          /* ⭐ THE COLUMN'S CAPTION, SAID ONCE — and gated on there BEING a
-             column. A caption describing bars renders only where at least one
-             row drew one; on a run whose rows carry no measurement it would be
-             furniture describing nothing, which is the same defect as the
-             per-row label it replaces, one level up. */
-          caveat={
-            vm.sensitivity.findings.some((f) => f.flipFraction !== undefined)
-              ? COPY.disclosure.flipCaption
-              : null
-          }
-          preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
-          emptyMessage={null}
-          onFocusTarget={focusTarget}
-          onReviewTarget={onReviewTarget}
-          onRunIntervention={runIntervention}
-          onAskOlumi={askOlumiAbout}
-          icon={GitBranch}
-          testId="analysis-new-sensitivity"
-        />
         </div>
         )}
 
@@ -2483,232 +2743,6 @@ export function AnalysisNewTabBody({
             question to be asked: the acts belong TOGETHER, so the answer was a
             shared wrapper rather than a raised ceiling. What the run suggests
             and what you can ask for regardless are one zone. */}
-        {/* ── ZONE: ALSO ─────────────────────────────────────────────
-            ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
-            makes the zone grammar a REDUCTION: the panel goes from a flat stack
-            of equal-weight cards to a few named groups, and the regrowth
-            ratchet counts it as one child rather than several. A label added
-            loose would have raised the count by five and the ceiling with it,
-            which is the opposite of what the prototype asks for. */}
-        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
-        {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
-            of blocks, so it carries no border, no fill and no radius of its
-            own: furniture that looked like a block would add the weight this
-            change exists to remove. Sized and coloured as `panelMeta`, the
-            quietest of the panel's three sizes. */}
-        <p
-          className={`${typography.panelMeta} text-text-light mt-4 mb-1 first:mt-0`}
-          data-testid="analysis-new-zone-also"
-        >
-          Also worth doing
-        </p>
-        {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
-            instruction to shorten the answer zone so both "what matters most"
-            and "how the options compare" fit at 1440.
-
-            It rendered inside `AtAGlance`, which put a NEXT ACTION in the zone
-            that holds the ANSWER. Its own heading there said so: "WHAT TO THINK
-            ABOUT NEXT". This zone is labelled "Also worth doing".
-
-            ⭐ MEASURED, not preferred. At 1440×860 (fold 729) the options
-            comparison sat 89px below the fold. Every information-preserving
-            spacing trim COMBINED saved 63px — still 26 short. Moving this card
-            saves 90px including its gap, on its own, and deletes nothing.
-
-            ⚠ The composition stays in this body rather than moving into the
-            component, for the reason every other composition does: the card is
-            presentational and must not grow a second derivation of what the
-            producer recommended. */}
-        <PrimaryIntervention
-          primaryIntervention={
-                glancePrimary
-                  ? {
-                      id: glancePrimary.id,
-                      label: glancePrimary.action.label,
-                      /* ⭐ `title`, NOT `signal`. The glance card used to be handed
-                         `signal` — the finding's paragraph — which the Strengthen
-                         row below also prints, because `strengthenWhyLine` begins
-                         with `signal` on every arm. The promoted card is a
-                         reference to the row, so it is handed the finding's NAME
-                         and the paragraph is left to the row that carries the
-                         severity, the grounding and the disagreement controls.
-                         Guarded by `theFocusCardReferencesRatherThanReprints`. */
-                      title: glancePrimary.title,
-                      signalCode: glancePrimary.signalCode,
-                      /* The producer's own bias on a bias-signal finding, so this
-                         card names the SAME technique as the row it promotes. */
-                      biasCode: glancePrimary.biasCode,
-                      /* ⚠ The CATALOGUE path renders this and the phase-3 path does
-                         not — see `AtAGlance`'s `signal` prop. Passed for both
-                         because the card, not the caller, owns which kind it is. */
-                      signal: glancePrimary.signal,
-                    }
-                  : null
-          }
-          onRunIntervention={runIntervention}
-        />
-        <div data-testid="analysis-new-acts">
-        <StrengthenTheReasoning
-          interventions={alsoWorthDoing}
-          scienceGrounding={vm.strengthen.scienceGrounding}
-          preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
-          analysisHash={responseHash ?? null}
-          /**
-           * ⛔ I OPENED THIS ON EVERY RUN AND IT WAS WRONG TWICE OVER.
-           *
-           * The reasoning was "a collapsed row tells a reader a category exists,
-           * not what to do". True — and already ADJUDICATED against, with a
-           * spec: `strengthenOpensPreRun.spec.tsx` pins the opening as SCOPED to
-           * pre-run, where this is the panel's ONLY piece of coaching and a
-           * collapsed row leaves the whole surface ending in a bare "1".
-           * `collapsedIA.spec.tsx` pins the rest: below the glance, the surface
-           * is a list of CLOSED rows.
-           *
-           * It also worked against the complaint it was meant to serve — the
-           * panel went 751px to 825px, and length is the thing Paul reported.
-           */
-          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
-          argueTheOpposite={vm.atAGlance.condition}
-          icon={Wrench}
-        />
-        <div data-testid="analysis-new-methods" className="mt-1">
-          <ActionsMenu />
-        </div>
-        </div>
-
-        {/* ── THE MOVES A PERSON CAN ASK FOR, WITHOUT WAITING TO BE OFFERED ──
-            ⭐⭐ EVERY METHOD ON THIS TAB WAS PRODUCER-INVOKED, AND NONE WAS
-            USER-INVOKED. Derived at the mapping (`recommendationMethod.ts`),
-            with a contrast control:
-
-              pre_mortem        reachable — only on PRE_MORTEM / overconfidence
-              review_bias       reachable — only on COGNITIVE_BIAS
-              outside_view      reachable — only on an anchoring finding
-              different_option  reachable — only on LOW_OPTION_COUNT
-              consider_opposite reachable — only when a flip condition exists
-              reframe_problem   ⛔ NOT REACHABLE FROM THIS TAB
-              explore_tradeoffs ⛔ NOT REACHABLE FROM THIS TAB
-
-            Every one of the first five is gated on the PRODUCER emitting a
-            particular signal. Not one was available because the PERSON wanted
-            it — and a tool for critical and creative thinking has to let the
-            thinker choose the move. The two needing no signal at all are the
-            two most generative: "is the question too narrow?" and "what does
-            each option gain and give up?".
-
-            ⛔ THEY WERE BUILT, AND SHIPPED TO THE WRONG SURFACE — AND THAT WAS
-            ALREADY FALSE BY THREE DAYS WHEN THIS BLOCK WAS WRITTEN.
-
-            The sentence here read: *"Its only mount is inside
-            `DecisionOverviewCard` — on the ANALYSIS tab, which Paul's scope
-            ruling parks."* That was the whole argument for adding a second
-            surface, and it was untrue at the time. Derived at the history:
-
-              15 Sep  #1590 `9dc8cf47`  mounts `<ActionsMenu />` on THIS tab
-              18 Sep  #1694 `c522af9e`  adds this shelf, arguing from the
-                                        pre-#1590 state
-
-            `<ActionsMenu />` sits 25 lines ABOVE this comment. So the premise
-            was refutable by reading the same file, and every session since has
-            inherited it.
-
-            ⚠ THE SHELF IS NOT WITHDRAWN AND MUST NOT BE. Paul's 18 Sep ruling
-            was "make it first-screen", and a collapsed menu near the foot of
-            the panel does not satisfy that whatever its reachability. The shelf
-            earns its place on the RULING; it never needed the false premise.
-
-            ⚠ WHAT THE TAB ACTUALLY SHIPS, measured on deployed `b6673341` via
-            the guest path: the `Actions` menu carries TEN items — all seven
-            methods verbatim, plus `Edit decision brief`, `Review all inputs`
-            and `Rerun analysis`. Seven of ten duplicate the shelf above.
-            `ActionsMenu.tsx` knows this and resolves the part that matters:
-            both surfaces build their payload through one `runMethod`, so there
-            is no second answer to "what does this method ask?".
-
-            ⛔ WHETHER TWO SURFACES SHOULD CARRY THE SAME SEVEN IS A DESIGN CALL
-            AND IS PAUL'S, NOT THIS FILE'S. It is recorded, not acted on: he has
-            ruled on this placement twice, an approved prototype governs it, and
-            no measurement here shows the duplication costs a reader anything.
-            Do not "reconcile" it by deleting either surface on a tidiness
-            argument. This estate's chronic failure #1 is real — but the cure is
-            not a third mount minted from a stale sentence.
-
-            ⚠ NO NEW COMPONENT AND NO NEW PROPS. `ActionsMenu` takes none, and
-            routes every ask through `openAskOlumi` — the same drawer this file
-            already opens at :1163 — with an EDITABLE prefilled draft rather
-            than a hidden dispatch. Nothing here decides what the method says.
-
-            ⚠ PLACED AFTER THE PRODUCER'S OWN SUGGESTIONS, DELIBERATELY. What
-            the run raised comes first; this is the shelf for when it raised
-            nothing, or nothing you wanted. Ahead of the decision record,
-            because a method is a move you make BEFORE you write down what you
-            decided. */}
-        {/* ⭐ MOVED BELOW THE ACT — witnessed on the deployed build, 15 Sep.
-            On a real run this rendered between the trust line and "What would
-            change your mind", asking the reader to RECORD A DECISION before
-            they had met the thing that would change it. The prompt is honest
-            and the placement was not: it belongs after the act, where a reader
-            who has finished reading can use it.
-
-            ⚠ No new block — the same one, later. The panel stays at its
-            ratcheted count. */}
-        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
-            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
-            above reads the model. This is the one place the team writes down
-            what they will DO, and the one place a later session reads it back.
-
-            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
-            component header. `ModelHeldUp` above renders on almost no runs by
-            design; the read-back here renders on all of them, because the
-            quality of a result has no bearing on whether a team may record, or
-            re-read, the choice they made from it. A fragile or stale run is
-            when the reasoning is most worth keeping.
-
-            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
-            first version gated on `!isPreRun` alone and offered a door onto a
-            modal that opens disabled during any rerun — see `canCapture`.
-
-            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
-            `useDecisionRecordForScenario` resolves `currentScenarioId` through
-            `resolveScenarioKey`, so it survives re-runs and returns to the same
-            scenario — which is the capability — and cannot distinguish the run
-            it was captured against. The section's copy is scoped accordingly. */}
-        <DecisionRecorded
-          isPreRun={vm.status.isPreRun}
-          canCapture={canCaptureDecision}
-          record={decisionRecord}
-          onRecord={openDecisionRecord}
-          testId="analysis-new-decision-record"
-        />
-
-        {/* ⛔⛔ TWO RULINGS COLLIDED HERE AND GROUPING IS WHAT MADE THEM
-            COLLIDE (CLAUDE.md trap 21). `whatIWasGivenMount` pins "what I was
-            given" ABOVE the coaching; `AnalysisNewTabBody.spec` and
-            `whatTheRunCouldNotSettleIsOnePlace` pin the coaching above EVERY
-            detail section, checks included. Those two members now sit in one
-            group, so the group cannot be both above and below the act.
-
-            ⭐ RESOLVED BY WHAT EACH RULING PROTECTS, not by which is older. The
-            coaching-above-detail rule guards FOUR sections and is stated twice.
-            The what-I-was-given rule guards ONE, and its stated argument is
-            that the section must not be buried below the detail — which a
-            NAMED, CLOSED group one click from the trust line does not do. The
-            protection survives; the literal ordering does not.
-
-            ⚠ The other spec was updated to assert the protection rather than
-            the position, and says so in its own file. */}
-        {/* ── COACHING AND METHOD ───────────────────────────────────────────
-            ⭐⭐ THE SCIENCE-GROUNDED HALF, GROUPED AND KEPT. `BiasGrounding` is
-            the most method-bearing payload the producer sends — a mechanism, a
-            citation and a costed micro-intervention per finding — and it was
-            sitting TWELFTH, below four caveat boxes. Grouping it with key
-            insights gives it a named home a reader can go to, instead of a
-            position in a stack they were scrolling past.
-
-            ⚠ CLOSED BY DEFAULT IS NOT DEMOTION. It is one click from the top of
-            the panel under a heading that says what is inside; before, it was
-            twelve blocks down under a heading that did not. */}
-        </div>
         {/* ── ZONE: FURTHER ─────────────────────────────────────────────
             ⭐ ONE BLOCK, NOT A LABEL PLUS N BLOCKS. Wrapping the group is what
             makes the zone grammar a REDUCTION: the panel goes from a flat stack
@@ -2930,7 +2964,6 @@ export function AnalysisNewTabBody({
               Costs one wrapped line at rest and renders NOTHING pre-run
               (`vm.checks` is `{ items: [] }`, which the component returns null
               for) — so a heading never appears without something under it. */}
-          <WhatWeChecked checks={vm.checks} />
 
           {/* ⭐⭐ §4 — ONE PLACE FOR WHAT THE RUN COULD NOT SETTLE.
               Measured on a reconstruction of the run Paul screenshotted: EIGHT
@@ -2980,6 +3013,21 @@ export function AnalysisNewTabBody({
 
 
         </div>
+        {/* ⭐ V2 — ONE COLLAPSED AUDIT SURFACE AT THE BOTTOM. It absorbs the
+            trust line, "What we checked" and the deeper run record, as short
+            status rows. Nothing pre-run. */}
+        <AboutThisAnalysis
+          vm={vm}
+          nSamples={nSamples}
+          seedUsed={seedUsed}
+          outcomeFormat={{
+            unit: resultsSectionData.recommendation.outcomeUnit,
+            symbol: resultsSectionData.recommendation.outcomeUnitSymbol,
+            isNormalised: resultsSectionData.recommendation.isNormalised,
+          }}
+          offerFactorValueControl={true}
+          onAsk={openAskOlumi}
+        />
       </div>
     </div>
   )

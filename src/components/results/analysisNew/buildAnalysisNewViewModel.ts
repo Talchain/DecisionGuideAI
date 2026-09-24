@@ -3626,6 +3626,10 @@ export function buildAnalysisNewViewModel(
    */
   const uncertaintyBuild = preRun ? undefined : buildUncertainty(data, recommendations)
 
+  const sensitivityConvergenceLicensed =
+    !preRun && leaderDesignationPermitted(data.recommendation) === true
+      ? uncertaintyBuild!.sensitivityConvergence
+      : null
   return {
     status: buildStatus(inputs),
     /**
@@ -3761,7 +3765,11 @@ export function buildAnalysisNewViewModel(
            * sentence is the only thing naming where that row points.
            */
           findings: (() => {
-            const conv = uncertaintyBuild!.sensitivityConvergence
+            // ⛔ V2: ONE RULE FOR THE LINE AND THE ROWS. The convergence line
+            // presupposes a current leader, so it is withheld on a run whose
+            // leader claim is withheld; the rows' own conclusion is then NOT
+            // stripped, or it would be said nowhere (V2 re-point, B).
+            const conv = sensitivityConvergenceLicensed
             if (conv === null) return uncertaintyBuild!.sensitivityFindings
             /**
              * ⛔⛔ ONLY WHERE THE SENTENCE IS THE PRODUCER-OWNED GENERIC ONE.
@@ -3787,7 +3795,7 @@ export function buildAnalysisNewViewModel(
               uncertaintyBuild!.genericConclusionIds.has(f.id) ? { ...f, implication: '' } : f,
             )
           })(),
-          convergence: uncertaintyBuild!.sensitivityConvergence,
+          convergence: sensitivityConvergenceLicensed,
           /**
            * ⭐ READ FROM THE NORMALISED PRODUCER ROWS, NOT RE-DERIVED.
            * `useResultsSectionData.ts:2548` already normalises

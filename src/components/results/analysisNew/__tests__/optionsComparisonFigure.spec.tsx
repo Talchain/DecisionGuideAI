@@ -178,6 +178,35 @@ const ORDER_RUN = () =>
 const NONE_RUN = () => dataFor(fourOptions(), { leaderDesignationPermitted: false })
 
 /** `'none'`, AND no row carries a number — the exact state in the screenshot. */
+/**
+ * ⚠ V2 (24 Sep 2026): THE LICENSED RUN WITH THE FIGURES V2 DRAWS. Identical to
+ * `VALUE_RUN` in every field the glance reads, plus each option's own outcome
+ * percentiles (every real run carries them) or its goal figure against a user
+ * target. Ranges overlap and sit on a 0..100 domain so positions are exact.
+ */
+const RANGES: Record<string, { mean: number; p10: number; p50: number; p90: number }> = {
+  opt_segment: { mean: 30, p10: 0, p50: 30, p90: 50 },
+  opt_rudderstack: { mean: 60, p10: 25, p50: 60, p90: 100 },
+  opt_snowflake: { mean: 40, p10: 10, p50: 40, p90: 70 },
+  opt_status_quo: { mean: 20, p10: 5, p50: 20, p90: 45 },
+}
+const RANGED_VALUE_RUN = () =>
+  dataFor(
+    fourOptions().map((o) => ({ ...o, outcome: RANGES[o.id] })),
+    { ...VERDICT, leaderDesignationPermitted: true },
+  )
+const GOALS: Record<string, number> = {
+  opt_segment: 0.5,
+  opt_rudderstack: 0.3,
+  opt_snowflake: 0.004,
+  opt_status_quo: 0,
+}
+const GOAL_VALUE_RUN = () =>
+  dataFor(
+    fourOptions().map((o) => ({ ...o, goalProbability: GOALS[o.id] })),
+    { ...VERDICT, leaderDesignationPermitted: true, goalThreshold: 20000 },
+  )
+
 const NONE_RUN_NUMBERLESS = () =>
   dataFor(fourOptionsNumberless(), { leaderDesignationPermitted: false })
 
@@ -310,20 +339,28 @@ describe('the licence is the glance’s, and there is only one of it', () => {
 
 // ═══════════════════════════════════════════════════════════════════════════
 describe("'value' — the run licenses a magnitude, so the figure is a figure", () => {
-  it('draws a bar for every option that has a share', () => {
+  /**
+   * ⚠ V2 (24 Sep 2026): THE WIN-SHARE BAR LEFT THE RESTING VIEW. The cases
+   * below that measured its track and fill are re-pointed at the figures the
+   * section DOES draw on a licensed run: each option's own range (the
+   * "Modelled outcome" lens) and each option's goal figure (the "Goal fit"
+   * lens). Same properties, same identity binding, same geometry grammar.
+   */
+  it('draws NO win-share bar at rest, though every option carries a share', () => {
     const { vm } = renderRun(VALUE_RUN())
     expect(vm.optionsComparison.comparativeClaim, 'precondition').toBe('value')
 
-    // POSITIVE CONTROL FIRST: a section rendering nothing would satisfy a
-    // loop of presence checks vacuously.
+    // POSITIVE CONTROL FIRST: the section rendered its rows, and the data
+    // carries shares, so the absence below is not a vacuum.
     expect(screen.getAllByTestId(`${TESTID}-row`)).toHaveLength(4)
-    expect(bars()).toHaveLength(rowsWithAShare(vm))
-    expect(bars().length, 'no bars at all — every assertion below is vacuous').toBeGreaterThan(1)
+    expect(rowsWithAShare(vm), 'PRECONDITION: the data carries shares').toBeGreaterThan(1)
+    expect(bars(), 'V2: no win-share bar at rest').toHaveLength(0)
   })
 
-  it('the track carries the FIGURE height token and not the hairline it replaced', () => {
-    renderRun(VALUE_RUN())
-    const track = within(row('opt_segment')).getByTestId(`${TESTID}-bar`)
+  it('the range track carries the FIGURE height token and not the hairline it replaced', () => {
+    const { vm } = renderRun(RANGED_VALUE_RUN())
+    expect(vm.optionsComparison.comparativeClaim, 'precondition').toBe('value')
+    const track = within(row('opt_segment')).getByTestId(`${TESTID}-outcome-range-opt_segment`)
 
     // ⚠ `classList`, not a substring of `className`. `h-1` is a prefix of
     // `h-1.5`, so a substring check would answer a question nobody asked.
@@ -337,20 +374,26 @@ describe("'value' — the run licenses a magnitude, so the figure is a figure", 
     ).toBe(false)
   })
 
-  it('each fill is the WIDTH OF ITS OWN ROW’S share, bound by option id', () => {
-    renderRun(VALUE_RUN())
+  it('each band starts at ITS OWN ROW’S p10 and marks its own p50, bound by option id', () => {
+    renderRun(RANGED_VALUE_RUN())
 
     // ⭐ BOUND BY IDENTITY, AND THE PAIR IS THE PROOF. Two rows with different
-    // shares, each asserted against its OWN row's number: a fill that read some
-    // other row's fraction would satisfy neither. Asserting only that "a bar is
-    // 89% wide" could be satisfied by the wrong option's bar (trap 19).
-    const fill = (optionId: string) =>
-      within(row(optionId)).getByTestId(`${TESTID}-bar`).firstElementChild as HTMLElement
+    // ranges, each asserted against its OWN row's percentiles on the shared
+    // domain (0..100 here): a band that read some other row's range would
+    // satisfy neither (trap 19). `left` is asserted, not `width`: the band's
+    // width is a CSS `max(...)` that jsdom may drop, which would make a width
+    // assertion pass or fail for reasons unrelated to the code.
+    const band = (optionId: string) =>
+      within(row(optionId)).getByTestId(`${TESTID}-outcome-range-${optionId}-band`)
+    const mark = (optionId: string) =>
+      within(row(optionId)).getByTestId(`${TESTID}-outcome-range-${optionId}-marker`)
 
-    expect(fill('opt_segment').style.width).toBe('89%')
-    expect(fill('opt_rudderstack').style.width).toBe('6%')
-    // And the two are genuinely different, so the assertion above discriminates.
-    expect(fill('opt_segment').style.width).not.toBe(fill('opt_rudderstack').style.width)
+    expect(band('opt_segment').style.left).toBe('0%')
+    expect(band('opt_rudderstack').style.left).toBe('25%')
+    expect(mark('opt_segment').getAttribute('data-mark-at')).toBe('30')
+    expect(mark('opt_rudderstack').getAttribute('data-mark-at')).toBe('60')
+    // And the two are genuinely different, so the assertions above discriminate.
+    expect(band('opt_segment').style.left).not.toBe(band('opt_rudderstack').style.left)
   })
 
   it('a measured ZERO still draws an empty track, and keeps no minimum width', () => {
@@ -359,14 +402,17 @@ describe("'value' — the run licenses a magnitude, so the figure is a figure", 
     // 2px minimum exists so a measured tiny share does not render as nothing,
     // and collapsing the two directions would re-open the defect in the other
     // direction. Pinned here so this change cannot silently drop it.
-    renderRun(VALUE_RUN())
-    const zeroFill = within(row('opt_status_quo')).getByTestId(`${TESTID}-bar`)
+    //
+    // ⚠ V2: asserted on the GOAL figure, the bar this section still draws with
+    // a fill; the win-share fill it used to measure is gone from rest.
+    renderRun(GOAL_VALUE_RUN())
+    const zeroFill = within(row('opt_status_quo')).getByTestId(`${TESTID}-goal-bar`)
       .firstElementChild as HTMLElement
     expect(zeroFill.style.width).toBe('0%')
     expect(zeroFill.style.minWidth).toBe('')
 
-    // CONTRAST CONTROL in the same render: a positive share DOES carry the floor.
-    const smallFill = within(row('opt_snowflake')).getByTestId(`${TESTID}-bar`)
+    // CONTRAST CONTROL in the same render: a positive figure DOES carry the floor.
+    const smallFill = within(row('opt_snowflake')).getByTestId(`${TESTID}-goal-bar`)
       .firstElementChild as HTMLElement
     expect(smallFill.style.minWidth).toBe('2px')
   })
@@ -386,20 +432,17 @@ describe("'order' — an ordering is licensed, a magnitude is not", () => {
       'no shares in the data — the suppression below would be vacuous',
     ).toBeGreaterThan(1)
 
-    // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
-    // 15 Sep 2026, and this case now PINS that independence rather than the
-    // suppression it replaced.
-    //
-    // What it used to assert: `'order'` licenses an ordering and never a
-    // magnitude, so the bars stay withheld. Coherent, ratified, and changed on
-    // evidence — the deployed build showed 48% / 4% / 48% with nothing drawn
-    // and two options tied, which a reader had to spot by comparing numerals.
+    // ⭐⭐ V2 (24 Sep 2026): NO WIN-SHARE BAR AT REST, IN ANY CLAIM STATE.
+    // Paul's 15 Sep ruling drew the bars on every state; his staging test then
+    // read the shares (81 / 17 / 2) as a ranking, and the V2 comparison drops
+    // them from the resting view (they move to "About this analysis"). The
+    // bars are still independent of `comparativeClaim`: they are now absent on
+    // every state alike.
     //
     // ⚠ THE PRECONDITIONS ABOVE ARE UNTOUCHED AND ARE WHY THIS IS STILL A
     // DISCRIMINATION: the claim state is pinned, and the data is pinned to
-    // carry shares. The assertion is now that the bars follow THE DATA and not
-    // the sentence entitlement.
-    expect(bars()).toHaveLength(rowsWithAShare(vm))
+    // carry shares, so the absence is the section's and not the fixture's.
+    expect(bars(), 'V2: no win-share bar at rest').toHaveLength(0)
 
     // CONTRAST CONTROL, same render: the section is alive and rendering rows,
     // so this is a discrimination and not a blank mount.
@@ -475,20 +518,17 @@ describe("'condition' — a flip threshold licenses a sentence, never a magnitud
       'no shares in the data — the suppression below would be vacuous',
     ).toBeGreaterThan(1)
 
-    // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
-    // 15 Sep 2026, and this case now PINS that independence rather than the
-    // suppression it replaced.
-    //
-    // What it used to assert: `'order'` licenses an ordering and never a
-    // magnitude, so the bars stay withheld. Coherent, ratified, and changed on
-    // evidence — the deployed build showed 48% / 4% / 48% with nothing drawn
-    // and two options tied, which a reader had to spot by comparing numerals.
+    // ⭐⭐ V2 (24 Sep 2026): NO WIN-SHARE BAR AT REST, IN ANY CLAIM STATE.
+    // Paul's 15 Sep ruling drew the bars on every state; his staging test then
+    // read the shares (81 / 17 / 2) as a ranking, and the V2 comparison drops
+    // them from the resting view (they move to "About this analysis"). The
+    // bars are still independent of `comparativeClaim`: they are now absent on
+    // every state alike.
     //
     // ⚠ THE PRECONDITIONS ABOVE ARE UNTOUCHED AND ARE WHY THIS IS STILL A
     // DISCRIMINATION: the claim state is pinned, and the data is pinned to
-    // carry shares. The assertion is now that the bars follow THE DATA and not
-    // the sentence entitlement.
-    expect(bars()).toHaveLength(rowsWithAShare(vm))
+    // carry shares, so the absence is the section's and not the fixture's.
+    expect(bars(), 'V2: no win-share bar at rest').toHaveLength(0)
 
     // CONTRAST CONTROL, same render: the section mounted and is naming rows, so
     // this is a discrimination rather than a blank tree.
@@ -567,20 +607,17 @@ describe("'none' — nothing comparative is drawn, and the withholding survives"
       'no shares in the data — the suppression below would be vacuous',
     ).toBeGreaterThan(1)
 
-    // ⭐⭐ THE BARS ARE INDEPENDENT OF `comparativeClaim` — PAUL'S RULING,
-    // 15 Sep 2026, and this case now PINS that independence rather than the
-    // suppression it replaced.
-    //
-    // What it used to assert: `'order'` licenses an ordering and never a
-    // magnitude, so the bars stay withheld. Coherent, ratified, and changed on
-    // evidence — the deployed build showed 48% / 4% / 48% with nothing drawn
-    // and two options tied, which a reader had to spot by comparing numerals.
+    // ⭐⭐ V2 (24 Sep 2026): NO WIN-SHARE BAR AT REST, IN ANY CLAIM STATE.
+    // Paul's 15 Sep ruling drew the bars on every state; his staging test then
+    // read the shares (81 / 17 / 2) as a ranking, and the V2 comparison drops
+    // them from the resting view (they move to "About this analysis"). The
+    // bars are still independent of `comparativeClaim`: they are now absent on
+    // every state alike.
     //
     // ⚠ THE PRECONDITIONS ABOVE ARE UNTOUCHED AND ARE WHY THIS IS STILL A
     // DISCRIMINATION: the claim state is pinned, and the data is pinned to
-    // carry shares. The assertion is now that the bars follow THE DATA and not
-    // the sentence entitlement.
-    expect(bars()).toHaveLength(rowsWithAShare(vm))
+    // carry shares, so the absence is the section's and not the fixture's.
+    expect(bars(), 'V2: no win-share bar at rest').toHaveLength(0)
 
     // CONTRAST CONTROL: rows are present, so the section mounted.
     expect(screen.getAllByTestId(`${TESTID}-row`)).toHaveLength(4)

@@ -1096,6 +1096,7 @@
           },
           "fac_localisation_cost": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "0.5 scale"
           }
         },
@@ -1148,6 +1149,7 @@
           },
           "fac_localisation_cost": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "0.5 scale"
           }
         },
@@ -1200,6 +1202,7 @@
           },
           "fac_localisation_cost": {
             "value": 0.5,
+            "source": "cee_hypothesis",
             "display_value": "0.5 scale"
           }
         },

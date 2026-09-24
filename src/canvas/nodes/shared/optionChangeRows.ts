@@ -141,6 +141,14 @@ export interface OptionChangeRow {
   after?: string
   /** The same change with nothing collapsed — the row's full-text recovery. */
   fullChange: string
+  /**
+   * The TARGET alone, with nothing collapsed ("Low (0.1)", "£60k", "59
+   * GBP/month") — the reading the inspector prints for this row, so the two
+   * surfaces print one string (DEFECT 5). `''` when the formatter declines to
+   * print a number (an unframed `scale` value); `change` then carries the
+   * card's direction words.
+   */
+  target: string
   /** Where the "from" came from — stated in the row's tooltip. */
   reference: 'baseline_option' | 'current_value' | 'none'
   /** Olumi chose this target (`cee_hypothesis`) — stays marked (#1901 finding 2). */
@@ -253,6 +261,7 @@ export function buildOptionChangeRow({
       fullLabel,
       change: direction,
       fullChange: direction,
+      target: '',
       reference: typeof reference === 'number' ? (baselineOptionTarget ? 'baseline_option' : 'current_value') : 'none',
       estimated,
       targetSource,
@@ -287,6 +296,7 @@ export function buildOptionChangeRow({
     change: fromText ? `${fromText} → ${targetText}` : sameAsReference ? `${targetText} · same as baseline` : `→ ${targetText}`,
     ...(fromText ? { before: fromText, after: targetText } : {}),
     fullChange: fromFull ? `${fromFull} → ${targetFull}` : sameAsReference ? `${targetFull} · same as baseline` : `→ ${targetFull}`,
+    target: targetFull,
     reference,
     estimated,
     targetSource,

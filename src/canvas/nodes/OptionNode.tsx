@@ -149,15 +149,20 @@ import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/u
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import {
-  buildOptionChangeRow,
   fitRowsToBudget,
   moreCount,
   OPTION_ROW_SOURCE_MARK_SEPARATOR,
   rowFactorIdsFor,
   sharedChangeOrder,
   type OptionSetLike,
-  type OptionTargetLike,
 } from './shared/optionChangeRows'
+import {
+  buildOptionTargetRow,
+  resolveBaselineOptionReference,
+  resolveOptionTargets,
+  type CeeOptionTargetsLike,
+  type TargetNodeLike,
+} from './shared/optionTargetDisplay'
 import { NodeRailIcon } from './shared/NodeRailIcons'
 import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
@@ -877,33 +882,16 @@ export const OptionNode = memo((props: NodeProps) => {
   // A before-reference must identify an actual option. A factor's observed
   // value may be a proposal, and a label containing "status quo" is not a
   // reference declaration. Multiple declared baselines are ambiguous here.
+  // ⭐ Moved to `optionTargetDisplay.ts` verbatim so the inspector can build
+  // the SAME row (DEFECT 5); this card still decides that the baseline option
+  // itself has no reference.
   const baselineOptionReference = useMemo(() => {
     if (isBaselineOption) return null
-    const candidates = nodes.filter(n =>
-      n.id !== props.id && (n.type === 'option' || n.data?.type === 'option') &&
-      n.data?.is_baseline === true,
+    return resolveBaselineOptionReference(
+      nodes as ReadonlyArray<TargetNodeLike>,
+      ceeAnalysisReady?.options as ReadonlyArray<CeeOptionTargetsLike> | undefined,
+      props.id,
     )
-    if (candidates.length !== 1) return null
-    const baselineNode = candidates[0]
-    const baselineCeeOption = ceeAnalysisReady?.options?.find(opt => opt.id === baselineNode.id)
-    const raw = baselineCeeOption?.interventions ?? baselineNode.data?.interventions
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-    // ⭐ The SAME join as the chip builder. `structuredDeltas` drops any pair
-    // where one side carries an authored string and the other does not, so
-    // joining only the target's map empties the card. One owner, both sides.
-    const rawEntries = joinInterventionDetails(
-      raw as Record<string, unknown>,
-      (baselineCeeOption as { intervention_details?: Record<string, unknown> } | undefined)?.intervention_details,
-    )
-    const values = Object.fromEntries(rawEntries.flatMap(([factorId, entry]) => {
-      const unwrapped = unwrapInterventionValue(entry)
-      return unwrapped.value == null ? [] : [[factorId, unwrapped] as const]
-    }))
-    return {
-      label: typeof baselineNode.data?.label === 'string' && baselineNode.data.label.trim()
-        ? baselineNode.data.label : 'Baseline option',
-      values,
-    }
   }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
   // Structured deltas per spec Section 13 — rendered as guarded "from → to" chips.
@@ -1070,38 +1058,14 @@ export const OptionNode = memo((props: NodeProps) => {
       const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
       const isBaseline = typeof explicit === 'boolean' ? explicit : detectBaseline((n.data?.label as string) ?? '').isBaseline
       const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === n.id)
-      const raw = ceeOpt?.interventions && typeof ceeOpt.interventions === 'object'
-        ? joinInterventionDetails(
-            ceeOpt.interventions as Record<string, unknown>,
-            (ceeOpt as { intervention_details?: Record<string, unknown> }).intervention_details,
-          )
-        : Object.entries(((n.data as any)?.interventions ?? {}) as Record<string, unknown>)
-      /**
-       * ⚠ A BARE NUMBER CARRIES NO PROVENANCE, SO IT MUST NOT ERASE ONE. After a
-       * user's `option_intervention_edit`, the same turn's `analysis_ready` has
-       * been witnessed carrying BARE numbers (`applyDraftResult.ts`,
-       * `mergeProducerInterventions`, 23 Sep staging) while the node holds the
-       * receipt-stamped `{value, source:'user_specified'}`. Reading the bare map
-       * alone printed the user's own target with no author. Same rule as
-       * `mergeProducerInterventions`: where the producer entry has no source and
-       * its value EXACTLY equals the node's own object, that object's `source`
-       * stands. A different value keeps the producer's (unstamped) entry.
-       */
-      const ownInterventions = ((n.data as any)?.interventions ?? {}) as Record<string, unknown>
-      const targets = new Map<string, OptionTargetLike>()
-      for (const [fid, entry] of raw) {
-        const u = unwrapInterventionValue(entry)
-        if (u.value == null) continue
-        let source = u.source ?? null
-        if (source === null && ceeOpt) {
-          const own = ownInterventions[fid]
-          if (own !== null && typeof own === 'object' && !Array.isArray(own)) {
-            const ownU = unwrapInterventionValue(own)
-            if (ownU.value === u.value) source = ownU.source ?? null
-          }
-        }
-        targets.set(fid, { value: u.value, displayValue: u.displayValue, source })
-      }
+      // ⭐ The card's target resolution — CEE map joined with its details, and
+      // a bare producer number never erasing the node's own receipt-stamped
+      // `source` — now lives in `resolveOptionTargets`, moved verbatim, so the
+      // inspector reads targets the SAME way (DEFECT 5).
+      const targets = resolveOptionTargets(
+        n.data as Record<string, unknown> | undefined,
+        ceeOpt as CeeOptionTargetsLike | undefined,
+      )
       out.push({ id: n.id, isBaseline, targets })
     }
     return out
@@ -1113,28 +1077,12 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!me || me.targets.size === 0) return []
     const modelOrder = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor').map(n => n.id)
     const order = sharedChangeOrder(optionSet, modelOrder)
-    return fitRowsToBudget(rowFactorIdsFor(me, order).map(fid => {
-      const factorNode = nodes.find(n => n.id === fid)
-      const obs = factorNode?.data?.observedState as {
-        unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
-      } | undefined
-      const ref = baselineOptionReference?.values[fid]
-      return buildOptionChangeRow({
-        factorId: fid,
-        target: me.targets.get(fid)!,
-        factor: {
-          label: (factorNode?.data?.label as string | undefined) ?? fid,
-          unit: (factorNode?.data?.unit as string | undefined) ?? obs?.unit,
-          factorType: obs?.factor_type,
-          cap: obs?.cap,
-          observedValue: obs?.value,
-          observedRawValue: obs?.raw_value,
-        },
-        baselineOptionTarget: ref && ref.value != null
-          ? { value: ref.value, displayValue: ref.displayValue ?? null }
-          : null,
-      })
-    }))
+    return fitRowsToBudget(rowFactorIdsFor(me, order).map(fid => buildOptionTargetRow({
+      factorId: fid,
+      target: me.targets.get(fid)!,
+      factorNode: nodes.find(n => n.id === fid) as TargetNodeLike | undefined,
+      baselineReference: baselineOptionReference,
+    })))
   }, [isBaselineOption, optionSet, props.id, nodes, baselineOptionReference])
   const changeRowsMore = moreCount(totalInterventionCount, changeRows.length)
   // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.

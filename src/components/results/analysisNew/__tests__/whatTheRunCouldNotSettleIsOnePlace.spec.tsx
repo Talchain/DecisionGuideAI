@@ -33,7 +33,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -46,6 +46,43 @@ import { manyFragileEdges } from './analysisNewFixtures'
 const precedes = (a: Element, b: Element) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
+/**
+ * ⭐ V2 RE-POINT (Reasoning V2, 24 Sep 2026) — WHERE THE TWO HALVES LIVE NOW.
+ *
+ *  · THE CHECKS HALF. `WhatWeChecked` (`analysis-new-checks`) is no longer
+ *    mounted. "About this analysis" (`analysis-new-about`, last on the tab,
+ *    collapsed) absorbed it: its Evidence / Robustness / Most-likely-option
+ *    status rows are the three check chips, and its "Limitations" detail carries
+ *    their not-assessed meanings (`AboutThisAnalysis.tsx` header).
+ *  · THE UNCERTAINTY HALF stays in "How this was worked out", as its last member.
+ *  · THE COACHING. "Strengthen the reasoning" (`analysis-new-strengthen`) is no
+ *    longer mounted on this tab; the model review tool (`analysis-new-review`),
+ *    under the model strip, replaces it.
+ *
+ * So the ORDER FLIPS — uncertainty, then About — and the property this file
+ * exists for (nothing renders BETWEEN the two halves) is asserted on the V2
+ * pair, with the same derivation.
+ */
+const ABOUT = 'analysis-new-about'
+/** The three check chips `WhatWeChecked` drew, as About's status rows. */
+const CHECK_ROWS = ['evidence', 'robustness', 'leader'] as const
+
+const renderStale = () =>
+  render(
+    <AnalysisNewTabBody
+      resultsSectionData={manyFragileEdges()}
+      isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
+    />,
+  )
+
+/** About rests CLOSED (V2) and unmounts its rows while closed, like `SectionShell`. */
+const openAbout = () => {
+  const toggle = screen.getByTestId(`${ABOUT}-toggle`)
+  expect(toggle, 'About rests closed in V2').toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(toggle)
+  expect(screen.getByTestId(`${ABOUT}-toggle`)).toHaveAttribute('aria-expanded', 'true')
+}
+
 beforeEach(() => {
   useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never)
 })
@@ -53,35 +90,36 @@ afterEach(() => cleanup())
 
 describe('the run-could-not-settle block is contiguous', () => {
   it('PRECONDITION: this fixture mounts both halves', () => {
-    render(
-      <AnalysisNewTabBody
-        resultsSectionData={manyFragileEdges()}
-        isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
-      />,
-    )
+    renderStale()
     openGroups()
-    expect(screen.getByTestId('analysis-new-checks')).toBeInTheDocument()
+    openAbout()
+    const about = screen.getByTestId(ABOUT)
+    for (const row of CHECK_ROWS) {
+      expect(
+        within(about).getByTestId(`${ABOUT}-row-${row}`),
+        `About must carry the "${row}" check row it absorbed from WhatWeChecked`,
+      ).toBeInTheDocument()
+    }
     expect(screen.getByTestId('analysis-new-uncertainty')).toBeInTheDocument()
   })
 
   /**
-   * ⭐ ADJACENCY, DERIVED — not "uncertainty comes after checks", which was
+   * ⭐ ADJACENCY, DERIVED — not "one comes after the other", which was
    * already true when they were SIX SECTIONS APART and is therefore the
    * assertion that would have passed throughout the defect. This asserts no
    * OTHER panel section renders between them, which is the property that
    * actually changed.
    */
-  it('nothing renders BETWEEN the checks readout and the uncertainty section', () => {
-    const { container } = render(
-      <AnalysisNewTabBody
-        resultsSectionData={manyFragileEdges()}
-        isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
-      />,
-    )
+  it('nothing renders BETWEEN the uncertainty section and About (the checks’ V2 home)', () => {
+    const { container } = renderStale()
     openGroups()
-    const checks = screen.getByTestId('analysis-new-checks')
+    openAbout()
     const uncertainty = screen.getByTestId('analysis-new-uncertainty')
-    expect(precedes(checks, uncertainty), 'checks must still come first').toBe(true)
+    const about = screen.getByTestId(ABOUT)
+    expect(
+      precedes(uncertainty, about),
+      'V2: About is last on the tab, so the uncertainty half now comes first',
+    ).toBe(true)
 
     /* ⛔⛔ DERIVED, NOT HAND-LISTED — AND THE HAND-LIST HAD A HOLE.
        This filtered against a typed set of eight section ids. It omitted
@@ -134,14 +172,14 @@ describe('the run-could-not-settle block is contiguous', () => {
        falsehood the moment anything is wrapped. */
     const between = all.filter(
       (el) =>
-        el !== checks &&
         el !== uncertainty &&
-        !el.contains(checks) &&
+        el !== about &&
         !el.contains(uncertainty) &&
-        !checks.contains(el) &&
+        !el.contains(about) &&
         !uncertainty.contains(el) &&
-        precedes(checks, el) &&
-        precedes(el, uncertainty),
+        !about.contains(el) &&
+        precedes(uncertainty, el) &&
+        precedes(el, about),
     )
     expect(
       between.map((el) => el.getAttribute('data-testid')),
@@ -154,23 +192,19 @@ describe('the run-could-not-settle block is contiguous', () => {
    * ⚠ THE RULINGS THIS MOVE HAD TO RESPECT, ASSERTED RATHER THAN ASSUMED.
    * Both were derived before moving anything; a later change that satisfies the
    * adjacency above by dragging the block upward would break these instead of
-   * passing silently.
+   * passing silently. V2: the coaching is the model review tool, which replaced
+   * the "Strengthen the reasoning" mount.
    */
   it('the constraining rulings still hold', () => {
-    render(
-      <AnalysisNewTabBody
-        resultsSectionData={manyFragileEdges()}
-        isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
-      />,
-    )
+    renderStale()
     openGroups()
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    const review = screen.getByTestId('analysis-new-review')
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
-    const checks = screen.getByTestId('analysis-new-checks')
     const uncertainty = screen.getByTestId('analysis-new-uncertainty')
+    const about = screen.getByTestId(ABOUT)
 
-    expect(precedes(strengthen, checks), 'coaching stays above the detail').toBe(true)
-    expect(precedes(strengthen, uncertainty), 'coaching stays above the detail').toBe(true)
+    expect(precedes(review, about), 'coaching stays above the detail').toBe(true)
+    expect(precedes(review, uncertainty), 'coaching stays above the detail').toBe(true)
     expect(precedes(sensitivity, uncertainty), '"what would change your mind" stays above').toBe(true)
   })
 
@@ -180,14 +214,22 @@ describe('the run-could-not-settle block is contiguous', () => {
    * one, and is exactly the shape a careless gate change would produce.
    */
   it('DISCRIMINATOR: adjacency is not absence', () => {
-    render(
-      <AnalysisNewTabBody
-        resultsSectionData={manyFragileEdges()}
-        isPreRun={false} isRunning={false} isStale={true} responseHash="s4"
-      />,
-    )
+    renderStale()
     openGroups()
-    expect(screen.getAllByTestId('analysis-new-checks')).toHaveLength(1)
+    openAbout()
+    expect(
+      screen.queryAllByTestId('analysis-new-checks'),
+      'V2: the checks are said in ONE place — About — not also by the retired WhatWeChecked mount',
+    ).toHaveLength(0)
+    expect(screen.getAllByTestId(ABOUT)).toHaveLength(1)
+    const about = screen.getByTestId(ABOUT)
+    for (const row of CHECK_ROWS) {
+      expect(within(about).getAllByTestId(`${ABOUT}-row-${row}`)).toHaveLength(1)
+      expect(
+        (within(about).getByTestId(`${ABOUT}-row-${row}-value`).textContent ?? '').trim().length,
+        `the "${row}" check row must carry a value, not merely a label`,
+      ).toBeGreaterThan(0)
+    }
     expect(screen.getAllByTestId('analysis-new-uncertainty')).toHaveLength(1)
     expect(
       (screen.getByTestId('analysis-new-uncertainty').textContent ?? '').length,

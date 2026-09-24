@@ -153,8 +153,15 @@ describe('the measured gap: every option reaches the surface', () => {
     }
   })
 
-  it('each option carries ITS OWN win readout, bound by id', () => {
-    renderSection(dataWith(fourOptionRun()))
+  /**
+   * ⚠ V2 (24 Sep 2026): THE WIN SHARE IS NO LONGER PRINTED AT REST. Paul's
+   * staging test read the shares as a ranking and the V2 comparison drops them
+   * from the resting view; the view model keeps them, bound by id, for "About
+   * this analysis". So the identity binding is asserted where the number now
+   * lives, and the removal is asserted on every row.
+   */
+  it('each option carries ITS OWN win readout on the view model, bound by id — and none is printed at rest', () => {
+    const { vm } = renderSection(dataWith(fourOptionRun()))
     open()
 
     // Asserted by CALLING the estate's formatter, never by re-typing "89%" —
@@ -165,9 +172,11 @@ describe('the measured gap: every option reaches the surface', () => {
       ['opt_snowflake', 0.05],
       ['opt_status_quo', 0],
     ] as const) {
-      expect(within(row(id)).getByTestId(`${TESTID}-win`)).toHaveTextContent(
+      const vmRow = vm.optionsComparison.rows.find((r) => r.id === id)
+      expect(vmRow?.kind === 'analysed' ? vmRow.winReadout : null).toBe(
         formatProbabilityWithResolution(p, 10000),
       )
+      expect(within(row(id)).queryByTestId(`${TESTID}-win`), `${id}: no share at rest`).toBeNull()
     }
   })
 
@@ -206,7 +215,10 @@ describe('ABSENCE IS NOT ZERO', () => {
     renderSection(
       dataWith(
         [
-          makeOption({ id: 'opt_segment', label: 'Segment', winProbability: 0.89, nValidSamples: 10000, isRecommended: true }),
+          // ⚠ V2: the analysed sibling carries a GOAL figure, because the win
+          // share is no longer drawn at rest and the positive control below
+          // needs a figure the section does draw.
+          makeOption({ id: 'opt_segment', label: 'Segment', winProbability: 0.89, nValidSamples: 10000, isRecommended: true, goalProbability: 0.64 }),
           makeOption({
             id: 'opt_hybrid',
             label: 'Hybrid: in-house core with 3PL overflow',
@@ -214,7 +226,7 @@ describe('ABSENCE IS NOT ZERO', () => {
             notAnalysedReason: 'no_interventions',
           }),
         ],
-        MAGNITUDE_LICENSED,
+        { ...MAGNITUDE_LICENSED, goalThreshold: 20000 },
       ),
     )
     open()
@@ -223,13 +235,16 @@ describe('ABSENCE IS NOT ZERO', () => {
     expect(unanalysed).toHaveAttribute('data-option-kind', 'not_analysed')
     expect(within(unanalysed).queryByTestId(`${TESTID}-win`)).toBeNull()
     expect(within(unanalysed).queryByTestId(`${TESTID}-bar`)).toBeNull()
+    expect(within(unanalysed).queryByTestId(`${TESTID}-goal`)).toBeNull()
+    expect(within(unanalysed).queryByTestId(`${TESTID}-goal-bar`)).toBeNull()
     // And nothing anywhere in that row reads as a percentage.
     expect(unanalysed.textContent ?? '').not.toMatch(/\d\s*%/)
 
-    // POSITIVE CONTROL: the analysed sibling in the SAME render DOES have both,
-    // so this is a discrimination the section is making and not a blind pass.
-    expect(within(row('opt_segment')).getByTestId(`${TESTID}-win`)).toBeInTheDocument()
-    expect(within(row('opt_segment')).getByTestId(`${TESTID}-bar`)).toBeInTheDocument()
+    // POSITIVE CONTROL: the analysed sibling in the SAME render DOES carry a
+    // number and a bar (its goal figure, the one V2 draws), so this is a
+    // discrimination the section is making and not a blind pass.
+    expect(within(row('opt_segment')).getByTestId(`${TESTID}-goal`)).toBeInTheDocument()
+    expect(within(row('opt_segment')).getByTestId(`${TESTID}-goal-bar`)).toBeInTheDocument()
   })
 
   it('an unanalysed option carries the SANCTIONED badge and reason, verbatim', () => {
@@ -261,7 +276,7 @@ describe('ABSENCE IS NOT ZERO', () => {
   })
 
   it('an ANALYSED option whose producer sent no win probability shows no number and no bar', () => {
-    renderSection(
+    const { vm } = renderSection(
       dataWith(
         [
           makeOption({ id: 'opt_a', label: 'Alpha', winProbability: 0.6, nValidSamples: 10000, isRecommended: true }),
@@ -276,8 +291,15 @@ describe('ABSENCE IS NOT ZERO', () => {
     expect(row('opt_b')).toHaveAttribute('data-option-kind', 'analysed')
     expect(within(row('opt_b')).queryByTestId(`${TESTID}-win`)).toBeNull()
     expect(within(row('opt_b')).queryByTestId(`${TESTID}-bar`)).toBeNull()
-    // Contrast control in the same render.
-    expect(within(row('opt_a')).getByTestId(`${TESTID}-win`)).toBeInTheDocument()
+    // ⚠ V2: no row prints its share at rest, so the contrast is carried on the
+    // view model, where the shares now live: opt_a HAS one and opt_b has none,
+    // null on BOTH fields together.
+    expect(within(row('opt_a')).queryByTestId(`${TESTID}-win`)).toBeNull()
+    const vmRows = vm.optionsComparison.rows
+    const a = vmRows.find((r) => r.id === 'opt_a')
+    const b = vmRows.find((r) => r.id === 'opt_b')
+    expect(a?.kind === 'analysed' ? a.winReadout : undefined, 'contrast control').not.toBeNull()
+    expect(b?.kind === 'analysed' ? [b.winReadout, b.winFraction] : undefined).toEqual([null, null])
   })
 
   /**
@@ -287,7 +309,7 @@ describe('ABSENCE IS NOT ZERO', () => {
    * i.e. on exactly the options this section was built to surface.
    */
   it('a measured sub-resolution share renders the resolution floor, never 0%', () => {
-    renderSection(
+    const { vm } = renderSection(
       dataWith([
         makeOption({ id: 'opt_lead', label: 'Lead', winProbability: 0.99, nValidSamples: 10000 }),
         makeOption({ id: 'opt_tail', label: 'Tail', winProbability: 0.00001, nValidSamples: 10000 }),
@@ -295,11 +317,15 @@ describe('ABSENCE IS NOT ZERO', () => {
     )
     open()
 
-    const readout = within(row('opt_tail')).getByTestId(`${TESTID}-win`)
-    expect(readout).toHaveTextContent(formatProbabilityWithResolution(0.00001, 10000))
+    // ⚠ V2: the readout is no longer printed at rest; it is the view model's
+    // string that "About this analysis" will print, so it is asserted there.
+    expect(within(row('opt_tail')).queryByTestId(`${TESTID}-win`)).toBeNull()
+    const tail = vm.optionsComparison.rows.find((r) => r.id === 'opt_tail')
+    const readout = tail?.kind === 'analysed' ? tail.winReadout : null
+    expect(readout).toBe(formatProbabilityWithResolution(0.00001, 10000))
     // The instrument would be vacuous if the formatter itself returned '0%'.
     expect(formatProbabilityWithResolution(0.00001, 10000)).toMatch(/^</)
-    expect(readout.textContent).not.toBe('0%')
+    expect(readout).not.toBe('0%')
   })
 })
 
@@ -447,66 +473,69 @@ describe('the section adds up, and disappears when it has nothing', () => {
    * a claim about pixels (trap 3).
    */
   /**
-   * ⚠ EVERY RUN IN THIS BLOCK IS `MAGNITUDE_LICENSED`, and it has to be. These
-   * tests are about the FILL's geometry, and the fill now renders only where the
-   * run licenses a comparative magnitude (`OptionsComparison.tsx`'s
-   * `mayDrawMagnitude`). Without the licence `fillStyle` finds no element and
-   * throws — which is how this block surfaced the requirement rather than
-   * passing vacuously, and is why the licence is declared per fixture instead of
-   * being defaulted into `dataWith` where it would have gone unnoticed.
+   * ⚠ V2 (24 Sep 2026): THE SHARE BAR LEFT THE RESTING VIEW, and with it the
+   * fill these three cases measured. The rule they pinned ("the bar and the
+   * readout are one claim") survives in two places, and each case now asserts
+   * both: the geometry rule itself is `PanelFigure`'s (`oneFigureGrammar.spec`
+   * rule 1: a measured non-zero floors, a genuine zero draws empty), and the
+   * PAIR the next figure will be drawn from is the view model's, so that pair
+   * must still agree. Each case also asserts that no share fill is drawn here.
    */
   describe('the bar cannot contradict the number beside it', () => {
-    /** The style the component put on the fill, for a row bound by identity. */
-    function fillStyle(optionId: string): CSSStyleDeclaration {
-      const fill = row(optionId).querySelector<HTMLElement>('.bg-info')
-      if (!fill) throw new Error(`no bar fill for ${optionId}`)
-      return fill.style
+    /** The view model's (readout, fraction) pair for a row, by identity. */
+    function vmPair(vm: ReturnType<typeof renderSection>['vm'], optionId: string) {
+      const r = vm.optionsComparison.rows.find((x) => x.id === optionId)
+      if (r?.kind !== 'analysed') throw new Error(`no analysed row for ${optionId}`)
+      return { readout: r.winReadout, fraction: r.winFraction }
     }
+    const noShareFill = (optionId: string) =>
+      expect(
+        row(optionId).querySelector(`[data-testid="${TESTID}-bar"]`),
+        'V2: no win-share fill at rest',
+      ).toBeNull()
 
     it('gives a measured-but-tiny share a visible width, not a zero one', () => {
       // Below the 0.005 rounding cliff, and ABOVE zero: the exact class the
-      // shipped code collapsed. The readout for this row is floored, so the
-      // bar must be too.
-      renderSection(
+      // shipped code collapsed. The readout is floored, so the geometry the
+      // next figure is drawn from must not be zero either.
+      const { vm } = renderSection(
         dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.0004, nValidSamples: 10000 }]), MAGNITUDE_LICENSED),
       )
       open()
 
-      const style = fillStyle('opt_status_quo')
-      expect(style.minWidth).toBe('2px')
-      expect(style.width).not.toBe('0%')
+      noShareFill('opt_status_quo')
+      const pair = vmPair(vm, 'opt_status_quo')
+      expect(pair.fraction).toBe(0.0004)
+      expect(pair.fraction).toBeGreaterThan(0)
       // And the readout it must agree with is itself non-zero.
-      expect(row('opt_status_quo')).toHaveTextContent(
-        formatProbabilityWithResolution(0.0004, 10000),
-      )
+      expect(pair.readout).toBe(formatProbabilityWithResolution(0.0004, 10000))
+      expect(pair.readout).not.toBe('0%')
     })
 
     /**
-     * ⭐ THE OTHER DIRECTION, AND WITHOUT IT THE FIX IS A NEW FALSEHOOD.
-     * A genuine measured zero MUST render an empty track: "came out ahead in
-     * 0% of simulated scenarios" is TRUE, and the floor exists to stop a
-     * NON-zero value reading as zero, never to stop zero reading as zero
-     * (`formatPercent.ts:103-107`, in terms). A `minWidth` applied here would
-     * draw a share that was measured not to exist.
+     * ⭐ THE OTHER DIRECTION: a genuine measured zero is a zero on both halves
+     * of the pair ("came out ahead in 0% of simulated scenarios" is TRUE).
      */
     it('leaves a genuine measured zero with no fill at all', () => {
-      renderSection(
+      const { vm } = renderSection(
         dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0, nValidSamples: 10000 }]), MAGNITUDE_LICENSED),
       )
       open()
 
-      const style = fillStyle('opt_status_quo')
-      expect(style.width).toBe('0%')
-      expect(style.minWidth).toBe('')
+      noShareFill('opt_status_quo')
+      const pair = vmPair(vm, 'opt_status_quo')
+      expect(pair.fraction).toBe(0)
+      expect(pair.readout).toBe(formatProbabilityWithResolution(0, 10000))
     })
 
     it('does not round a small share up to a neighbour\'s width', () => {
-      renderSection(
+      const { vm } = renderSection(
         dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.004, nValidSamples: 10000 }]), MAGNITUDE_LICENSED),
       )
       open()
+      noShareFill('opt_status_quo')
       // 0.4%, not rounded to 0% and not inflated to 1%.
-      expect(fillStyle('opt_status_quo').width).toBe('0.4%')
+      expect(vmPair(vm, 'opt_status_quo').fraction).toBe(0.004)
     })
   })
 

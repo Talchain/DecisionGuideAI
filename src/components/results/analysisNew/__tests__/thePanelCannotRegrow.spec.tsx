@@ -40,6 +40,44 @@ import { topLevelBlockElements } from './panelContentColumn'
  * Lower these when the count falls; raising one is a reviewer conversation.
  */
 const CEILING: Record<string, number> = {
+  /*
+   * ⚠⚠ RAISED BY ONE ON ALL THREE, 24 Sep 2026 (Reasoning V2) — 4/5/4 -> 5/6/5.
+   * The argument this file demands, derived by listing the content column's
+   * counted children on each fixture before and after:
+   *
+   *   BEFORE (24e06704)                    AFTER (V2, 716b8e67)
+   *   ──────────────────────────────────   ──────────────────────────────────────
+   *                                        MethodStrip (first) — icons only,
+   *                                          textContent '' so NOT COUNTED (⚠ below)
+   *   [status note — highUncertainty only] [status note — highUncertainty only]
+   *   ZONE: FOCUS (method chips shelf)     (absent here: V2 gates it on focus
+   *                                          nudges alone; its methods are the strip)
+   *                                        + ModelReviewTool `analysis-new-review`
+   *                                          (was StrengthenTheReasoning, INSIDE
+   *                                          ZONE: ALSO)
+   *   ZONE: ANSWER                         ZONE: CHALLENGE `…-zone-also-group`
+   *   ZONE: ALSO                           ZONE: ANSWER (glance + commitment)
+   *   ZONE: FURTHER                        ZONE: FURTHER
+   *                                        + AboutThisAnalysis `analysis-new-about`
+   *                                          (absorbs TrustLine + DeeperAnalysis,
+   *                                          which were INSIDE ZONE: ANSWER, and
+   *                                          WhatWeChecked, INSIDE ZONE: FURTHER)
+   *
+   * So −1 (the focus zone; its methods are the strip) and +2 (review tool,
+   * About). Both additions are the V2 composition's own placements OUTSIDE the
+   * zones — `everySectionBelongsToAZone.spec.tsx` lists them as its two
+   * deliberate, reviewable `NOT_A_SECTION` entries — and each REPLACES blocks
+   * that were already on the panel (Strengthen; TrustLine, DeeperAnalysis,
+   * WhatWeChecked) rather than adding a new kind of content. That is a
+   * replacement set, not the one-more-section regrowth this file forbids.
+   *
+   * ⚠ THE COUNTER CANNOT SEE THE METHOD STRIP. `topLevelBlockElements` drops a
+   * child whose `textContent` is '', and the strip is five icon buttons plus an
+   * overflow, named only by `aria-label`. A reader meets it, so the honest
+   * reader-met count is one higher (6/7/6). Not changed here — the instrument
+   * is `panelContentColumn.ts`, shared with the zone spec — but the next raise
+   * must not be argued as if the strip cost nothing.
+   */
   /**
    * ⭐ LOWERED 17 Sep 2026 WHEN THE ZONE GRAMMAR LANDED — 8/8/6 -> 4/6/4.
    *
@@ -82,7 +120,7 @@ const CEILING: Record<string, number> = {
    * trade is that the added block is the one section on the tab a person can
    * act on without waiting for the producer to offer something.
    */
-  genuineDecision: 4,
+  genuineDecision: 5,
   /**
    * ⭐ LOWERED 5 -> 4 ON 17 Sep 2026, when the sensitivity section moved inside
    * the answer group (`everySectionBelongsToAZone`). The spec's own rule is
@@ -96,14 +134,14 @@ const CEILING: Record<string, number> = {
    * the same run against `origin/staging`'s copy of the body reports NO slack —
    * so the fall is this change's and not a fixture drifting underneath.
    */
-  highUncertainty: 5,
+  highUncertainty: 6,
   /*
    * ⚠ Both raised by exactly one on 18 Sep 2026, same cause as `genuineDecision`
    * above — ZONE: FOCUS now renders unconditionally. Recorded per-key rather
    * than as one shared note so that a future fall in ANY single fixture is
    * still visible as slack by the sibling assertion below.
    */
-  openStrategicChallenge: 4,
+  openStrategicChallenge: 5,
 }
 
 const FIXTURES: ReadonlyArray<[string, () => ResultsSectionDataReturn]> = [

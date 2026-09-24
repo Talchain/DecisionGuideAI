@@ -286,6 +286,18 @@ describe('the connected target is editable and still says which scale it is on',
 
   it('⭐ offers a real input where it used to offer text — the fence lifted with the carrier', () => {
     openOption()
+    // ⭐ POSTURE MOVE, RECORDED (DEFECT 5 + ED #63 §9, served `a4434670`): on
+    // this £ factor the DEFAULT view now prints the card's reading ("£49") and
+    // no box — "0.49 model value" beside a card saying "£49" was the witnessed
+    // defect — and the model-scale box lives under technical detail. The
+    // property this test pins is unchanged: the connected writer is LIVE, not
+    // fenced. It is asserted where the box now is, reached the way a user
+    // reaches it.
+    expect(
+      screen.getByTestId(`intervention-readout-${FACTOR_ID}`),
+      'the default view no longer prints the card\'s reading',
+    ).toHaveTextContent('£49')
+    fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
     const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
 
     const input = row.querySelector('input')
@@ -304,7 +316,9 @@ describe('the connected target is editable and still says which scale it is on',
     // is the normalised 0.49. My first condition was `!displayValue && !unit`,
     // so the one row that most needed the qualifier was the only row denied it,
     // because a unit describing a DIFFERENT quantity suppressed it.
-    expect(row).toHaveTextContent('model value')
+    // (DEFECT 5: the qualifier now names the scale in full — the box is on the
+    // model's internal scale, which is what "model value" was trying to say.)
+    expect(row).toHaveTextContent("model's internal scale (0–1)")
   })
 
   it('⛔ CONTRAST — the panel\'s OTHER writers stay fenced, so this is per-WRITER and not per-panel', () => {
@@ -371,11 +385,21 @@ describe('the numeric fallback says which scale it is on', () => {
 
   it('qualifies the target even when the factor carries a unit — the paired case', () => {
     openOption()
+    // ⭐ POSTURE MOVE, RECORDED (DEFECT 5): the default view no longer shows the
+    // internal number at all on a £ row — it shows the card's reading — so
+    // there is nothing there to qualify, and the absence is asserted rather
+    // than assumed. The unqualified-number harm this test exists for can only
+    // occur where the number is, which is now technical detail.
+    const before = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
+    expect(before).toHaveTextContent('£49')
+    expect(before.textContent, 'the internal number leaked into the default view').not.toContain('0.49')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
     const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
     // `observedState.unit` is '£' here and the target is still qualified.
     // The row is editable now; the qualifier rides the INPUT, which is where
     // `InterventionRow` puts it and why the box carries the same truth.
-    expect(row).toHaveTextContent('model value')
+    expect(row).toHaveTextContent("model's internal scale (0–1)")
     expect(row.querySelector('input'), 'the paired case lost its editor').toBeTruthy()
   })
 

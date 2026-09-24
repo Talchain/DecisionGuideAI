@@ -277,6 +277,32 @@ describe('the sender settles, and two of its three answers mean nothing was sent
     ).not.toBeInTheDocument()
   })
 
+  it('REFUSED, DECLINED — the producer\'s `system_event_refused_no_write` says NOT SAVED and never "moved on"', async () => {
+    // The 422 CEE sends when it declines the request itself (served UI
+    // `a4434670`, CDP starter). Its no-write guarantee is stated on
+    // `details.reason`, so it now settles `refused` — and this arm's stale-base
+    // sentence would be FALSE about it: nothing moved, and "set this value
+    // again" re-sends a request the producer says cannot succeed.
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', {
+        code: 'INGRESS_CONTRACT_VIOLATION',
+        reason: 'system_event_refused_no_write',
+      }),
+    )
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent ?? '').toMatch(/not saved/i)
+    expect(notice.textContent ?? '').toMatch(/model is unchanged/i)
+    expect(notice.textContent ?? '').not.toMatch(/moved on/i)
+    expect(notice.textContent ?? '').not.toMatch(/set this value again/i)
+    expect(notice.textContent ?? '').not.toMatch(/could not confirm/i)
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+    ).not.toBeInTheDocument()
+  })
+
   it('UNVERIFIED — a server failure with no no-write guarantee claims NEITHER outcome', async () => {
     // `INGRESS_CONTRACT_VIOLATION` is non-retryable and carries no statement
     // about whether bytes landed — the exact trap `provenNoWriteConflict`'s

@@ -23,7 +23,7 @@
  */
 import { SEND_BLOCKED, SEND_DEFERRED, SystemEventSendError } from './useConversation'
 import type { SendTurnOutcome } from './useConversation'
-import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
+import { isProvenNoWriteConflict, isProvenNoWriteReason } from '../../v5/provenNoWriteConflict'
 
 /**
  * ⚠⚠ `refused` AND `unverified` WERE ONE THING — the original catch reported
@@ -46,6 +46,36 @@ export type SystemEventSendSettlement =
   | 'unverified'
 
 /**
+ * ⭐ WHY a `refused` send was refused — the two producer guarantees are
+ * different facts with OPPOSITE remedies, so a caller that names a cause must
+ * be able to tell them apart:
+ *
+ * - `conflict` — a proven-no-write CONFLICT CATEGORY (`isProvenNoWriteConflict`):
+ *   the model moved on under the send. A turn refreshes the base, after which
+ *   the same edit can land.
+ * - `declined` — a proven-no-write REASON (`isProvenNoWriteReason`): the
+ *   producer declined the request itself (`retryable: false`). Nothing moved,
+ *   and repeating the request cannot succeed — so a "the model moved on" line
+ *   would be false about it, and a "set it again" remedy would terminate in the
+ *   same refusal.
+ */
+export type SystemEventRefusalCause = 'conflict' | 'declined'
+
+/**
+ * What the envelope said, beside the settlement. Additive: a caller that reads
+ * only the settlement is unchanged.
+ */
+export interface SystemEventSendSettlementDetail {
+  /** Set on `refused` only. */
+  readonly refusal?: SystemEventRefusalCause
+  /**
+   * The producer's `details.reason`, RAW — a machine token as often as prose.
+   * Show it only through `isDisplaySafeReason`.
+   */
+  readonly reason?: string
+}
+
+/**
  * Settle one `sendSystemEvent` promise into exactly one of the five, once.
  *
  * ⭐ THE NO-WRITE QUESTION IS ASKED BY THE ONE AUTHORITY THAT OWNS IT.
@@ -66,7 +96,10 @@ export type SystemEventSendSettlement =
  */
 export function settleSystemEventSend(
   send: Promise<SendTurnOutcome> | SendTurnOutcome,
-  onSettled?: (settlement: SystemEventSendSettlement) => void,
+  onSettled?: (
+    settlement: SystemEventSendSettlement,
+    detail: SystemEventSendSettlementDetail,
+  ) => void,
 ): void {
   /**
    * ⛔⛔ FIRE ONCE, AND THE CHAIN BELOW IS WHY IT HAS TO BE ENFORCED HERE RATHER
@@ -88,10 +121,10 @@ export function settleSystemEventSend(
    * through this function, including ones that do not exist yet.
    */
   let done = false
-  const settleOnce = (s: SystemEventSendSettlement) => {
+  const settleOnce = (s: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail = {}) => {
     if (done) return
     done = true
-    onSettled?.(s)
+    onSettled?.(s, detail)
   }
   void Promise.resolve(send)
     .then(outcome => {
@@ -106,9 +139,18 @@ export function settleSystemEventSend(
         // it", and `conflictCategory` is carried precisely because 'server' is
         // too coarse to decide what a surface may claim.
         if (err.kind === 'server') {
-          return settleOnce(
-            isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
-          )
+          const reason = err.reason !== undefined ? { reason: err.reason } : {}
+          if (isProvenNoWriteConflict(err.conflictCategory)) {
+            return settleOnce('refused', { ...reason, refusal: 'conflict' })
+          }
+          // ⭐ The producer's other no-write statement, on `details.reason`.
+          // Without this arm a request CEE declined without writing settled as
+          // `unverified`, and the inspector — which did not listen at all —
+          // said nothing (served `a4434670`, CDP starter, 24 Sep 2026).
+          if (isProvenNoWriteReason(err.reason)) {
+            return settleOnce('refused', { ...reason, refusal: 'declined' })
+          }
+          return settleOnce('unverified', reason)
         }
         return settleOnce('unverified')
       }

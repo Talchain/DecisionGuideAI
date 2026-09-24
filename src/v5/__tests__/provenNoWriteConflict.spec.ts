@@ -18,7 +18,9 @@ import { describe, it, expect } from 'vitest'
 
 import {
   PROVEN_NO_WRITE_CONFLICT_CATEGORIES,
+  PROVEN_NO_WRITE_REASONS,
   isProvenNoWriteConflict,
+  isProvenNoWriteReason,
 } from '../provenNoWriteConflict'
 
 describe('the set is exactly these members', () => {
@@ -63,5 +65,50 @@ describe('⚠ THE OUTSIDE OF THE SET, which is the half a widening endangers', (
     // Without this, every assertion in this block would pass against
     // `() => false` — which is exactly what a dropped set would look like.
     expect(isProvenNoWriteConflict('BASE_HASH_DIVERGED')).toBe(true)
+  })
+})
+
+/**
+ * ⭐ THE SECOND FIELD — `details.reason`. Same rules, pinned the same two ways.
+ *
+ * The member is the one CEE (`3f412be1`) emits ONLY for
+ * `commitSkippedReason === 'refused_no_write'` (`route-v2.ts:3516-3530`),
+ * defined as "a gate declined and NOTHING was written" (`dispatch.ts:97`).
+ */
+describe('the REASON set is exactly its members', () => {
+  it('holds only the reason whose producer line states a no-write', () => {
+    expect([...PROVEN_NO_WRITE_REASONS].sort()).toEqual(['system_event_refused_no_write'])
+  })
+
+  it('system_event_refused_no_write is a proven no-write', () => {
+    expect(isProvenNoWriteReason('system_event_refused_no_write')).toBe(true)
+  })
+})
+
+describe('⚠ THE OUTSIDE OF THE REASON SET', () => {
+  it.each([
+    // The opposite guarantee on the SAME envelope shape: the writer could not
+    // confirm its commit, so a write MAY have landed (retryable 500).
+    ['system_event_commit_failed', 'a commit may have landed — the opposite guarantee'],
+    // Non-retryable, but about ownership, not about bytes.
+    ['scenario_ownership_unverifiable', 'non-retryable is not no-write'],
+    ['draft_graph_cee_timeout', 'an unrelated machine reason'],
+    ['system_event_refused_no_write_v2', 'a near-miss must not match by prefix'],
+    ['SYSTEM_EVENT_REFUSED_NO_WRITE', 'the comparison is exact — case is identity'],
+    // A category is not a reason: the two sets answer on different fields.
+    ['BASE_HASH_DIVERGED', 'a conflict category is not a reason'],
+  ])('%s is NOT a proven no-write reason — %s', reason => {
+    expect(isProvenNoWriteReason(reason)).toBe(false)
+  })
+
+  it('fails CLOSED on absent, empty and whitespace input', () => {
+    expect(isProvenNoWriteReason(undefined)).toBe(false)
+    expect(isProvenNoWriteReason(null)).toBe(false)
+    expect(isProvenNoWriteReason('')).toBe(false)
+    expect(isProvenNoWriteReason('   ')).toBe(false)
+  })
+
+  it('the category predicate does NOT accept the reason — two fields, two sets', () => {
+    expect(isProvenNoWriteConflict('system_event_refused_no_write')).toBe(false)
   })
 })

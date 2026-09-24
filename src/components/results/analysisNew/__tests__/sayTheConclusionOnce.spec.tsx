@@ -13,6 +13,13 @@
  * a nicety — it is the only thing proving the rows still carry their
  * implication when nothing above has spoken for them. Same fixture, same
  * rows, one variable: whether the alternatives share an id.
+ *
+ * ⭐ V2 RE-POINT (716b8e67, 24 Sep 2026). The convergence line is now rendered
+ * only when `leaderClaimPermitted` ("…towards <option>" presupposes a current
+ * leader). `manyFragileEdges` publishes no licence, so every arm here runs on a
+ * PERMITTED run (`withAlternatives(alts)`); the licence is the composed answer
+ * and its Q2 conjunct, moved together. The withheld arm at the end pins what
+ * the rows must do when the line above is NOT allowed to speak for them.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -34,8 +41,16 @@ type Alt = { id: string; label: string; reprints?: boolean; authored?: string }
  * the fixture's own wording, which names no option at all — the arm that
  * caught the first version of this change.
  */
-const withAlternatives = (alts: readonly Alt[]): ResultsSectionDataReturn => {
-  const data = manyFragileEdges()
+const withAlternatives = (alts: readonly Alt[], permitted = true): ResultsSectionDataReturn => {
+  const base = manyFragileEdges()
+  const data = {
+    ...base,
+    recommendation: {
+      ...base.recommendation,
+      leaderDesignationPermitted: permitted,
+      verdict: { hasLeadingOption: permitted },
+    },
+  } as ResultsSectionDataReturn
   const rows = data.confidence.uncertainties.filter((u) => u.code === 'SENSITIVE_ASSUMPTION')
   expect(rows.length, 'precondition: the fixture emits fragile-edge rows').toBeGreaterThanOrEqual(alts.length)
   let i = 0
@@ -306,5 +321,31 @@ describe('the conclusion is said once', () => {
     // Contrast in the same run: the rows ARE rendered, so this is an absent
     // TITLE rather than an absent section.
     expect(onScreen).toMatch(/changes significantly/i)
+  })
+
+  /**
+   * ⛔⛔ THE DE-DUPLICATION'S PREMISE, ON A WITHHELD RUN (V2 716b8e67).
+   *
+   * The rows drop their sentence BECAUSE the line above says it. 716b8e67 gated
+   * the line on `leaderClaimPermitted` in the body; the row suppression is
+   * decided in the view model on convergence alone. So on a withheld run the
+   * line is (correctly) absent while the rows still drop the sentence the line
+   * would have carried — the conclusion is said ZERO times, and only for rows
+   * that agree: the DISAGREE twin keeps both of its sentences.
+   *
+   * ⛔ RED ON 716b8e67 BY DESIGN — reported as B, not edited to pass. It goes
+   * green when the suppression reads the same gate as the line.
+   */
+  it('⛔ WITHHELD: with no line above, agreeing rows keep the sentence nothing else says', () => {
+    renderBody(withAlternatives(AGREE, false))
+    expect(CONVERGENCE(), 'precondition: the line is withheld on this run').toBeNull()
+    expect(
+      screen.queryAllByTestId('analysis-new-sensitivity-row').length,
+      'precondition: the rows ARE on screen',
+    ).toBe(2)
+    expect(
+      REPRINTS().length,
+      'nothing above speaks for these rows, so each must still say where it points',
+    ).toBeGreaterThanOrEqual(2)
   })
 })

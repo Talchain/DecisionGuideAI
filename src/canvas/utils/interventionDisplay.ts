@@ -111,6 +111,20 @@ function singulariseCountUnitText(text: string, unit: string | null | undefined)
 }
 
 /**
+ * The number a TIER reading prints in its parentheses — "Low (0.15)".
+ *
+ * ⚠ `parseFloat(v.toFixed(2))` DELIBERATELY, byte-for-byte with CEE's
+ * `display-value.ts` priority-6 branch (see the tier branch below): the obvious
+ * `Math.round(v*100)/100` disagrees on 44 values in [0,1] at half-cent
+ * boundaries (0.155 → "0.15" here, 0.16 by rounding). Exported so a READER of
+ * a reading (`optionTargetDisplay.readingShowsModelValue`) compares against the
+ * very number the card printed, not a second rounding rule (Codex, #1930).
+ */
+export function tierReadingNumber(value: number): number {
+  return parseFloat(value.toFixed(2))
+}
+
+/**
  * Format a single intervention value in display units.
  *
  * This is the former OptionNode.formatChipValue, promoted to the shared
@@ -206,7 +220,7 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
     // boundaries (e.g. 0.155 → CEE "0.15", rounding "0.16"), which would put
     // the two services back into exactly the contradiction this module exists
     // to prevent. Measured, not assumed.
-    return `${fallback} (${parseFloat(chip.value.toFixed(2))})`
+    return `${fallback} (${tierReadingNumber(chip.value)})`
   }
   // Raw normalised number (no unit, value in [0,1] like "0.15") → percentage
   if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {

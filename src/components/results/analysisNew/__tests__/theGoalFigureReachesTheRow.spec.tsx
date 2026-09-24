@@ -157,24 +157,29 @@ describe('the goal figure reaches the option row', () => {
       pct(GOAL.opt_b),
     ])
     // The discriminator: reading `winProbability` here would give 31% / 69%.
-    expect(winReadouts()).toEqual([pct(WIN.opt_a), pct(WIN.opt_b)])
+    // ⚠ V2 (24 Sep 2026): the win share is no longer printed or drawn at rest
+    // (it moves to "About this analysis"), so the goal figure is the only
+    // per-option figure on the row, and the share's readout and track are gone.
+    expect(winReadouts(), 'V2: no win-share readout at rest').toEqual([])
 
-    // Two tracks per row, and the goal bar's geometry is the goal fraction —
-    // not the share's, and not a segment of it.
+    // The goal bar's geometry is the goal fraction — not the share's, and not
+    // a segment of it.
     expect(barWidths('analysis-new-options-goal-bar')).toEqual([
       width(GOAL.opt_a),
       width(GOAL.opt_b),
     ])
-    expect(barWidths('analysis-new-options-bar')).toEqual([width(WIN.opt_a), width(WIN.opt_b)])
+    expect(barWidths('analysis-new-options-bar'), 'V2: no win-share track at rest').toEqual([])
   })
 
   it('⭐ THE LABELS ARRIVE WITH THE SECOND FIGURE, NOT BEFORE IT', () => {
     renderBody(withGoals())
     expect(screen.getAllByTestId('analysis-new-options-goal-label')).toHaveLength(2)
+    // ⚠ V2: the share's label went with the share. One figure per row now,
+    // and it keeps its name.
     expect(
-      screen.getAllByTestId('analysis-new-options-win-label'),
-      'two bare percentages on one row is worse than one — both get named',
-    ).toHaveLength(2)
+      screen.queryAllByTestId('analysis-new-options-win-label'),
+      'V2: no win-share label at rest',
+    ).toHaveLength(0)
   })
 
   it('⛔ NO USER TARGET — nothing is drawn, and the row is unchanged (UI-SEM-071)', () => {
@@ -189,8 +194,8 @@ describe('the goal figure reaches the option row', () => {
       screen.queryAllByTestId('analysis-new-options-win-label'),
       'with one number on the row there is nothing to disambiguate — this run must render as it always did',
     ).toHaveLength(0)
-    // The share itself is untouched by any of this.
-    expect(winReadouts()).toEqual([pct(WIN.opt_a), pct(WIN.opt_b)])
+    // V2: the share is not printed at rest on either run (see above).
+    expect(winReadouts()).toEqual([])
   })
 
   it('⛔ THE COMPLETE-FIELD RULE — one option short silences EVERY row, not just its own', () => {

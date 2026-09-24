@@ -28,6 +28,11 @@
  * means a collaborator sees no numbers anywhere — from an analysis that
  * computed them and is licensed to show them." It could only open itself IN
  * PLACE. Hoisting the same fact lets it move.
+ *
+ * ⚠ V2 (24 Sep 2026): the `glance -> strengthen -> detail` ruling quoted above
+ * is superseded by the V2 zone order (review tool and "Challenge the thinking"
+ * above the answer). The ordering case below now pins that order, in both
+ * states; see its own note.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -98,6 +103,20 @@ describe('the figures rise only when the glance said nothing', () => {
    * the answer is above the coaching, always. The two fixtures stay because
    * checking it in both states is exactly what stops the branch coming back.
    */
+  /**
+   * ⛔ V2 (24 Sep 2026) RETIRED "THE ANSWER IS ABOVE THE COACHING". Reasoning V2
+   * puts the model-wide review tool (`ModelReviewTool`, which replaced the
+   * Strengthen mount) under the model strip and "Challenge the thinking" ABOVE
+   * the answer zone, on purpose: the prototype's order is check the model →
+   * challenge the thinking → move towards commitment. The coaching is no longer
+   * below the answer on any run.
+   *
+   * ⭐ WHAT THIS FILE PINS SURVIVES UNCHANGED: the answer's POSITION does not
+   * depend on how well the run went. So the V2 order is asserted identically in
+   * both states — the glance leads the figures inside the answer zone, and the
+   * review tool and the Challenge zone sit above that zone — and a branch that
+   * moved the answer on a withheld run would RED one arm.
+   */
   it.each([
     ['a glance that answered', genuineDecision],
     // ⚠ THE FIXTURE WITH THE PRODUCER'S MESSAGE. The bare
@@ -105,18 +124,22 @@ describe('the figures rise only when the glance said nothing', () => {
     // withheld sentence to render and this ORDERING arm was measuring a
     // labelled landmark with nothing inside it.
     ['a glance that withheld', decisionWithLeaderWithheldAndReason],
-  ])('the answer is above the coaching — %s', (_name, make) => {
+  ])('the answer sits in one place, in the V2 order — %s', (_name, make) => {
     renderBody(make())
     const glance = screen.getByTestId('analysis-new-glance')
     const options = screen.getByTestId('analysis-new-options')
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
-    expect(new Set([glance, options, strengthen]).size, 'three distinct elements').toBe(3)
+    const answer = screen.getByTestId('analysis-new-zone-answer-group')
+    const review = screen.getByTestId('analysis-new-review')
+    const challenge = screen.getByTestId('analysis-new-zone-also-group')
+    expect(new Set([glance, options, answer, review, challenge]).size, 'five distinct elements').toBe(5)
 
+    // The answer is ONE block: the glance and the figures both live in it.
+    expect(answer).toContainElement(glance)
+    expect(answer).toContainElement(options)
     expect(precedes(glance, options), 'the glance leads, the figures follow it').toBe(true)
-    expect(
-      precedes(options, strengthen),
-      'coaching has no subject until the figures it is about are on screen',
-    ).toBe(true)
+    // V2: the review and the challenge come before the answer, on every run.
+    expect(precedes(review, answer), 'the model-wide review sits above the answer').toBe(true)
+    expect(precedes(challenge, answer), '"Challenge the thinking" sits above the answer').toBe(true)
   })
 
   /**

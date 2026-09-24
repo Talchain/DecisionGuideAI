@@ -85,3 +85,46 @@ export const PROVEN_NO_WRITE_CONFLICT_CATEGORIES: ReadonlySet<string> = new Set(
 export function isProvenNoWriteConflict(category: string | undefined | null): boolean {
   return typeof category === 'string' && PROVEN_NO_WRITE_CONFLICT_CATEGORIES.has(category)
 }
+
+/**
+ * ⭐ THE SAME QUESTION, STATED ON A SECOND FIELD — `details.reason`.
+ *
+ * A conflict category is not the producer's only way of saying "nothing was
+ * written". CEE also refuses a request that can never be honoured — an option
+ * and factor that are not linked, a stored target it cannot read, a value off
+ * the model scale — and for that class it states the no-write in the envelope's
+ * `details.reason`, not in a conflict category. Before this set the UI read
+ * only the category, so that refusal arrived as an UNKNOWN and every surface
+ * said "could not confirm" about a request the server had told us it declined
+ * without writing (witnessed on served UI `a4434670`, 24 Sep 2026: 422 on two
+ * option-target rows of the CDP starter).
+ *
+ * ⚠ DERIVED FROM THE PRODUCER, ONE ENTRY PER STATED GUARANTEE (CEE
+ * `3f412be11ae68c06ad4955a56f0cf4e9821e5946`, the served build):
+ *
+ *   · `system_event_refused_no_write` — `orchestrator/route-v2.ts:3516-3530`
+ *     emits it ONLY for `commitSkippedReason === 'refused_no_write'`, as a 422
+ *     `INGRESS_CONTRACT_VIOLATION` with `retryable: false`. That skip reason is
+ *     defined at `system-events/dispatch.ts:97` in terms: *"a gate declined and
+ *     NOTHING was written"*, and `:108-110` refuses to mint a skip reason for
+ *     "unverified" precisely so this one can never mean "we do not know". Its
+ *     one assignment is `dispatch.ts:2265`, the `option_intervention_edit` arm's
+ *     non-stale refusal.
+ *
+ * ⛔ THE OUTSIDE OF THE SET STAYS PINNED. `system_event_commit_failed` is the
+ * retryable 500 a writer that could NOT confirm its commit returns — the exact
+ * opposite guarantee, sent on the same envelope shape — and it must stay out.
+ * The same rules as the category set apply: closed, exact, fail CLOSED, and a
+ * member is added only with the producer line that states the guarantee.
+ */
+export const PROVEN_NO_WRITE_REASONS: ReadonlySet<string> = new Set([
+  'system_event_refused_no_write',
+])
+
+/**
+ * Is this `details.reason` one the producer guarantees wrote nothing? Fail
+ * CLOSED: absent, empty, or unknown → false.
+ */
+export function isProvenNoWriteReason(reason: string | undefined | null): boolean {
+  return typeof reason === 'string' && PROVEN_NO_WRITE_REASONS.has(reason)
+}

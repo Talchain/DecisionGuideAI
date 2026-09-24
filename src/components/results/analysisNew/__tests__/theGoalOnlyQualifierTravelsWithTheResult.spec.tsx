@@ -173,7 +173,13 @@ const qualifier = () => screen.queryByTestId(`${TESTID}-goal-only`)
  *  so an absent line is the rule working, not an empty section. */
 function expectSharesOnScreen() {
   const section = screen.getByTestId(TESTID)
-  expect(within(section).getAllByText(/%/).length, 'PRECONDITION: shares on screen').toBeGreaterThan(0)
+  // ⚠ V2 (Reasoning V2, #1925): win shares left this section's resting view
+  // (they live in "About this analysis"), so a '%' on screen no longer proves
+  // the section is describing figures. What the precondition guards is
+  // unchanged: the analysed options are on screen, and the section is NOT in
+  // its no-figures state, so the qualifier is the line that must speak.
+  expect(within(section).getAllByTestId('analysis-new-options-row').length, 'PRECONDITION: options on screen').toBeGreaterThan(0)
+  expect(within(section).queryByTestId('analysis-new-options-no-figures'), 'PRECONDITION: not the no-figures state').toBeNull()
 }
 
 function expectQualified() {

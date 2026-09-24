@@ -185,9 +185,11 @@ export function SectionShell({
          by reading classes. The negative margin lets the FILL reach the panel
          edge while the CONTENT stays exactly where it was, so opening a
          section no longer nudges its own heading. */
-      className={`border-b border-panel-border last:border-b-0 ${
-        open ? 'rounded-md bg-panel-hover -mx-2 px-2' : ''
-      }`}
+      /* ⭐ V2 (Paul + ChatGPT brief, 23 Sep 2026): NO TINT ON OPEN. The open
+         section was a rounded `bg-panel-hover` card; V2 rules out tinted cards
+         and nested boxes. The full-width rule still separates sections, and the
+         rotated chevron plus `aria-expanded` say which one is open. */
+      className="border-b border-panel-border last:border-b-0"
       data-testid={testId}
       // ⚠ STILL A LABELLED LANDMARK. Turning the section header into a
       // disclosure control must not cost the landmark its name — the dock's own
