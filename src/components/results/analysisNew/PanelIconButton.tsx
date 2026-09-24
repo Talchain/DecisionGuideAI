@@ -7,6 +7,10 @@
  * `text-info`, so every "ask / challenge / add context" act on the panel looks
  * the same and nothing else does. A caller never picks the AI glyph by hand.
  *
+ * @panel-act-opt-out An icon-only control is not an `action()` tier: it has no
+ * label to pad, so it carries the geometry itself: 28px square at rest
+ * (min 24px in both dimensions, the guard's floor) and 44px on a touch pointer.
+ *
  * ⚠ It renders a control only. What the click does — `requestAsk`,
  * `focusModelTarget`, `openModelValueEditor` — stays the caller's, so this
  * primitive cannot become a second ask route.
@@ -60,7 +64,7 @@ export function PanelIconButton({
         onClick={onClick}
         data-testid={testId}
         data-ai={ai ? 'true' : undefined}
-        className={`relative inline-flex shrink-0 items-center justify-center w-7 h-7 rounded-md [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 ${
+        className={`relative inline-flex shrink-0 items-center justify-center w-7 h-7 min-w-[24px] min-h-[24px] rounded-md [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 ${
           ai ? 'text-info' : 'text-text-light'
         } hover:bg-panel-hover disabled:opacity-40 disabled:cursor-default ${
           pressed ? 'bg-panel-hover text-text-header' : ''
@@ -69,7 +73,7 @@ export function PanelIconButton({
         {Glyph ? <Glyph className={icon('section')} aria-hidden={true} /> : null}
         {marked ? (
           <span
-            className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-info"
+            className="absolute top-1 right-1 size-1.5 rounded-full bg-info"
             aria-hidden={true}
             data-testid={testId ? `${testId}-mark` : undefined}
           />
