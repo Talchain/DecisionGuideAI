@@ -48,6 +48,14 @@ describe('CanvasLodNotice', () => {
     expect(screen.getByTestId(`${CANVAS_LOD_NOTICE_TESTID}-action`)).toBeTruthy()
   })
 
+  it('⭐ contract v3.1 CHR-6: the cell’s floating-chrome recipe — warm DS shadow-2, not Tailwind’s cool shadow-sm', () => {
+    useCanvasStore.setState({ lodRung: 'line' })
+    render(<CanvasLodNotice />)
+    const cls = screen.getByTestId(CANVAS_LOD_NOTICE_TESTID).className.split(/\s+/)
+    for (const c of ['bg-panel', 'border', 'border-panel-border', 'shadow-2', 'rounded-full']) expect(cls).toContain(c)
+    expect(cls).not.toContain('shadow-sm')
+  })
+
   it('is bound to the SAME selector BaseNode blanks on — not to a second zoom predicate of its own', () => {
     // The anti-mirror assertion, and the reason it is now stated over the RUNG.
     // `lodRung` is written by LodSync from `resolveLodRung(transform[2])`, and
