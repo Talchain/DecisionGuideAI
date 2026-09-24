@@ -52,6 +52,7 @@ import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trac
 import {
   ADDITIVE_EXTENSIONS_KEY,
   parseV5Response,
+  type BoundaryErrorWithExtensions,
   type OlumiResponseWithExtensions,
   type V5ParseResult,
 } from './responseParser';
@@ -215,6 +216,15 @@ export async function callV5Turn(
     traceBody = additive
       ? { ...parsed.response, [ADDITIVE_EXTENSIONS_KEY]: additive }
       : parsed.response
+  } else if (parsed.kind === 'boundary_error') {
+    // Same promotion for a typed error whose underscore sidecars the parser
+    // split off (N1, 24 Sep 2026). Without it the lane's `_diagnostic_trace` /
+    // `_provider_calls` on a refusal would vanish from the trace store, where
+    // they used to ride the failed parse's `raw`.
+    const additive = (parsed.error as BoundaryErrorWithExtensions)[ADDITIVE_EXTENSIONS_KEY]
+    traceBody = additive
+      ? { ...parsed, error: { ...parsed.error, [ADDITIVE_EXTENSIONS_KEY]: additive } }
+      : parsed
   } else {
     traceBody = parsed
   }

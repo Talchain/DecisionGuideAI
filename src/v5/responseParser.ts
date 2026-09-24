@@ -19,6 +19,9 @@
  *   parse. Unknown top-level keys are split off into an `additiveExtensions`
  *   map BEFORE strict validation, then attached to the parsed result via a
  *   non-enumerable sidecar (`__additive__`).
+ * - A non-2xx body gets the same split, narrowed to the producer's underscore
+ *   sidecars (`isProducerSidecarKey`, N1 24 Sep 2026); every other undeclared
+ *   key still fails `BoundaryErrorSchema`.
  *
  * v1.3 Phase 3 blocks-array tolerance (Phase 3 fix, 2026-05-18):
  * - CEE emits the v1.3 Phase 3 block types `review_card | coaching |
@@ -209,6 +212,11 @@ export type OlumiResponseWithExtensions = OlumiResponse & {
   readonly [ADDITIVE_EXTENSIONS_KEY]?: Readonly<Record<string, unknown>>;
 };
 
+/** A typed error carrying the producer's underscore sidecars, split off before its strict parse. */
+export type BoundaryErrorWithExtensions = BoundaryError & {
+  readonly [ADDITIVE_EXTENSIONS_KEY]?: Readonly<Record<string, unknown>>;
+};
+
 /**
  * Top-level keys the strict OlumiResponseSchema declares — DERIVED from the
  * schema itself, never restated.
@@ -332,11 +340,50 @@ function quarantineUnparseableAdditiveKeys(known: unknown): {
 }
 
 /**
+ * Top-level keys the strict `BoundaryErrorSchema` declares — derived from the
+ * schema, for the same reason as `KNOWN_OLUMI_TOP_LEVEL_KEYS` above.
+ */
+const KNOWN_BOUNDARY_ERROR_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set(
+  Object.keys(BoundaryErrorSchema.shape),
+);
+
+/**
+ * Is this undeclared root key one of the producer's underscore SIDECARS?
+ *
+ * MANUAL-EDIT-REWITNESS-0753Z N1, 24 Sep 2026. CEE's convention for anything
+ * it puts beside a `.strict()` envelope is the leading underscore
+ * (`_diagnostic_trace`, `_provider_calls`, `_agent`; `agent-v1-turn.ts:785-799`
+ * at CEE `e81aea1` says *"Underscore sidecar: egress is `.strict()`"*). The
+ * OpenAI lane re-sends every forwarded refusal with `_diagnostic_trace` and
+ * `_provider_calls` added, and the strict `BoundaryErrorSchema` rejected it —
+ * so a 409 the server stated wrote nothing became a `parse_error`, and the
+ * inspector said "Could not confirm" about a refusal.
+ *
+ * ⚠ ERROR PATH ONLY, AND DELIBERATELY NARROWER THAN THE 2xx RULE. A success
+ * body demotes EVERY undeclared key, because nothing it drops can change what
+ * the turn claims. An error body's meaning decides whether the product says
+ * "Not saved" or "may or may not", so only the producer's own sidecar marker
+ * is split off; any other undeclared key stays in front of the strict parse
+ * and still fails it. Never widen this to "any undeclared key".
+ */
+function isProducerSidecarKey(key: string): boolean {
+  return key.startsWith('_');
+}
+
+/**
  * Split a raw response into the known surface (validated by zod) and a map
  * of additive top-level keys. Mutating the raw object is avoided — the input
  * may be referenced by diagnostic capture layers.
+ *
+ * `declared` is the strict schema's own key set; `isAdditive` decides which
+ * UNDECLARED keys may leave. A key it refuses stays on the known surface, so
+ * the strict parse sees it and fails. The defaults are the 2xx rule.
  */
-function splitAdditiveExtensions(raw: unknown): {
+function splitAdditiveExtensions(
+  raw: unknown,
+  declared: ReadonlySet<string> = KNOWN_OLUMI_TOP_LEVEL_KEYS,
+  isAdditive: (key: string) => boolean = () => true,
+): {
   known: unknown;
   extensions: Record<string, unknown>;
 } {
@@ -347,13 +394,28 @@ function splitAdditiveExtensions(raw: unknown): {
   const known: Record<string, unknown> = {};
   const extensions: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(source)) {
-    if (KNOWN_OLUMI_TOP_LEVEL_KEYS.has(k)) {
+    if (declared.has(k) || !isAdditive(k)) {
       known[k] = v;
     } else {
       extensions[k] = v;
     }
   }
   return { known, extensions };
+}
+
+/**
+ * Attach the additive sidecar as a frozen, NON-ENUMERABLE property, so it stays
+ * out of JSON.stringify and normal enumeration (`v5Adapter` promotes it for the
+ * trace store). One definition for the 2xx response and the typed error.
+ */
+function attachAdditiveSidecar<T extends object>(target: T, sidecar: Record<string, unknown>): T {
+  Object.defineProperty(target, ADDITIVE_EXTENSIONS_KEY, {
+    value: Object.freeze(sidecar),
+    enumerable: false,
+    writable: false,
+    configurable: false,
+  });
+  return target;
 }
 
 /**
@@ -718,10 +780,24 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
   }
 
   // A typed BoundaryError is returned with a non-2xx status (e.g. 422).
+  // The producer's underscore sidecars are split off first, with the 2xx
+  // splitter, and kept on the same sidecar (N1 — see isProducerSidecarKey).
+  // `raw` below stays the ORIGINAL body.
   if (!res.ok) {
-    const asError = BoundaryErrorSchema.safeParse(raw);
+    const { known: knownError, extensions: errorSidecars } = splitAdditiveExtensions(
+      raw,
+      KNOWN_BOUNDARY_ERROR_TOP_LEVEL_KEYS,
+      isProducerSidecarKey,
+    );
+    const asError = BoundaryErrorSchema.safeParse(knownError);
     if (asError.success) {
-      return { kind: 'boundary_error', error: asError.data };
+      return {
+        kind: 'boundary_error',
+        error:
+          Object.keys(errorSidecars).length > 0
+            ? attachAdditiveSidecar(asError.data, { ...errorSidecars })
+            : asError.data,
+      };
     }
     // Non-2xx but not a BoundaryError — capture diagnostics
     const source = classifyErrorSource(text, res);
@@ -867,13 +943,7 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
         Object.keys(raw as Record<string, unknown>).sort(),
       )
     }
-    const withExt: OlumiResponseWithExtensions = parsed.data
-    Object.defineProperty(withExt, ADDITIVE_EXTENSIONS_KEY, {
-      value: Object.freeze(sidecar),
-      enumerable: false,
-      writable: false,
-      configurable: false,
-    })
+    const withExt: OlumiResponseWithExtensions = attachAdditiveSidecar(parsed.data, sidecar)
     return { kind: 'response', response: withExt }
   }
   return {

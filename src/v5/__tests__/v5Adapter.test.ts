@@ -218,6 +218,39 @@ describe('callV5Turn — payload trace capture', () => {
     expect(resCall.body).toMatchObject({ assistant_text: 'ok' })
   })
 
+  it('N1 — a refusal\'s underscore sidecars reach the trace store beside the typed error (MANUAL-EDIT-REWITNESS-0753Z, 24 Sep 2026)', async () => {
+    const refusal = {
+      error: 'GRAPH_DIVERGED',
+      boundary: 'B1',
+      direction: 'egress',
+      validator: 'turn_commit',
+      details: { conflict_category: 'stale_base_graph_hash' },
+      request_id: 'req_lane_409',
+      retryable: false,
+    }
+    const sidecars = {
+      _diagnostic_trace: { exit_path: 'agent_lane_forwarded' },
+      _provider_calls: [],
+    }
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ...refusal, ...sidecars }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    const res = await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
+
+    expect(res.kind).toBe('boundary_error')
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.status).toBe(409)
+    // The store redacts by enumeration, so read what survives a JSON round trip:
+    // on the parsed error itself the sidecar is non-enumerable and would vanish.
+    const recorded = JSON.parse(JSON.stringify(resCall.body))
+    expect(recorded.kind).toBe('boundary_error')
+    expect(recorded.error.__additive__).toEqual(sidecars)
+    expect(recorded.error.details.conflict_category).toBe('stale_base_graph_hash')
+  })
+
   it('records response with error on network failure', async () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error('offline'))
     await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
