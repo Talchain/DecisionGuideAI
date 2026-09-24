@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { CanvasLodNotice, CANVAS_LOD_NOTICE_TESTID } from '../CanvasLodNotice'
 import { useCanvasStore } from '../../store'
-import { LABEL_LEGIBLE_ZOOM, ICON_LEGIBLE_ZOOM, resolveLodRung, selectLodBodyHidden } from '../../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, LOD_BODY_HIDDEN_ZOOM, resolveLodRung, selectLodBodyHidden } from '../../utils/zoomLegibility'
 import { isLodZoom } from '../LodSync'
 
 vi.mock('@xyflow/react', () => ({
@@ -82,7 +82,13 @@ describe('CanvasLodNotice', () => {
     // The notice is bound to the BODY-HIDDEN question, not to "is the ladder
     // below the top rung", and this pins that choice rather than leaving it to
     // whichever predicate a later edit reaches for (CLAUDE.md trap 21).
-    expect(resolveLodRung((LABEL_LEGIBLE_ZOOM + ICON_LEGIBLE_ZOOM) / 2)).toBe('quiet')
+    //
+    // ⛔ THE MIDPOINT MOVED (gap-audit row 3, 24 Sep 2026): `quiet`'s band is
+    // now `[LOD_BODY_HIDDEN_ZOOM, LABEL_LEGIBLE_ZOOM)`, not
+    // `[LABEL_LEGIBLE_ZOOM, ICON_LEGIBLE_ZOOM)` — `resolveLodRung`'s `full`
+    // floor moved to the landing floor, so the OLD midpoint
+    // `(LABEL_LEGIBLE_ZOOM + ICON_LEGIBLE_ZOOM) / 2` is comfortably `full` now.
+    expect(resolveLodRung((LOD_BODY_HIDDEN_ZOOM + LABEL_LEGIBLE_ZOOM) / 2)).toBe('quiet')
     expect(selectLodBodyHidden({ lodRung: 'quiet' })).toBe(false)
 
     useCanvasStore.setState({ lodRung: 'quiet' })

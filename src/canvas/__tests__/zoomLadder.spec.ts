@@ -32,6 +32,17 @@
  * of the three rungs, and the BOUNDARY BEHAVIOUR either side of both thresholds.
  * All three are below, and each is written as a PAIR, so a boundary that moves
  * in either direction reds.
+ *
+ * ⛔ THE SECOND BOUNDARY MOVED (gap-audit row 3, `canvas/gap-landing-normal`,
+ * 24 Sep 2026: "the landing view counts as Normal zoom"). `ICON_LEGIBLE_ZOOM`'s
+ * derivation above is still true and still pinned — it is a real design-system
+ * fact — but it stopped being the question `resolveLodRung` asks, because every
+ * glyph the `full`/`quiet` boundary gates (the coaching icon, the rail's data
+ * icons, the driver cue) is counter-scaled, and "a 14px mark rendered at zoom z
+ * occupies 14z screen pixels" describes an UNSCALED mark. The boundary
+ * `resolveLodRung` now uses is `LABEL_LEGIBLE_ZOOM` — the same floor the
+ * landing fit is clamped to, so a fresh model's first sight is always `full`.
+ * See `zoomLegibility.ts`'s `resolveLodRung` header for the full argument.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -53,18 +64,20 @@ import { isLodZoom } from '../components/LodSync'
 import { CANVAS_TYPE_PX } from '../../styles/typography'
 
 describe('the ladder is ordered, and the order is the whole design', () => {
-  it('runs floor → icon floor → magnification ceiling, strictly', () => {
-    // If these ever transpose, `quiet` becomes an empty interval and the middle
-    // rung silently stops existing — with every other test in this file still
-    // green, because they would each be asserting about a band of width zero.
+  /**
+   * ⛔ THIS PAIR NO LONGER DESCRIBES `resolveLodRung`'S OWN BOUNDARIES
+   * (gap-audit row 3, `canvas/gap-landing-normal`, 24 Sep 2026: "the landing
+   * view counts as Normal zoom"). `ICON_LEGIBLE_ZOOM` and `LABEL_LEGIBLE_ZOOM`
+   * are still real, ordered, derived constants — that fact is worth keeping
+   * pinned, so a future edit cannot silently invert or collapse them — but the
+   * rung's own `full` floor moved to `LABEL_LEGIBLE_ZOOM` itself. The
+   * boundary-pair tests below now pin the boundary `resolveLodRung` actually
+   * uses; the real ladder order (`LOD_BODY_HIDDEN_ZOOM < LABEL_LEGIBLE_ZOOM`)
+   * is pinned in `'the margin is non-empty'`, further down this file.
+   */
+  it('ICON_LEGIBLE_ZOOM and LABEL_LEGIBLE_ZOOM stay ordered, even though only one of them is a rung boundary now', () => {
     expect(LABEL_LEGIBLE_ZOOM).toBeLessThan(ICON_LEGIBLE_ZOOM)
     expect(ICON_LEGIBLE_ZOOM).toBeLessThanOrEqual(AUTO_FIT_MAX_ZOOM)
-  })
-
-  it('the `quiet` band is a real, non-empty interval', () => {
-    // The positive control for the assertion above: an ordering can hold while
-    // the band is too narrow to contain a single reachable zoom.
-    expect(ICON_LEGIBLE_ZOOM - LABEL_LEGIBLE_ZOOM).toBeGreaterThan(0.1)
   })
 })
 
@@ -96,11 +109,24 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
     expect(resolveLodRung(0.4999), 'the old cliff value now sits inside the margin').toBe('quiet')
   })
 
-  it('the icon floor: below is `quiet`, at is `full`', () => {
-    // 0.7139 / 0.7143 straddle 10/14 = 0.71428…, so this pair bites a
+  /**
+   * ⛔ THIS WAS THE ICON FLOOR (`ICON_LEGIBLE_ZOOM`, 10/14 ≈ 0.714). Gap-audit
+   * row 3 moved the `full` boundary to `LABEL_LEGIBLE_ZOOM` — the same floor
+   * the landing fit is clamped to — so a fresh model's first-sight zoom
+   * (~0.5–0.53) is `full`, not `quiet`. See `zoomLegibility.ts`'s
+   * `resolveLodRung` header for the full argument: every glyph this rung gates
+   * is counter-scaled, so the old derivation ("an UNSCALED 14px mark") never
+   * described what it was gating.
+   */
+  it('the Normal-rung floor: below is `quiet`, at is `full` — and it is the landing floor', () => {
+    // 0.4999 / 0.5001 straddle LABEL_LEGIBLE_ZOOM, so this pair bites a
     // one-ten-thousandth move in either direction.
-    expect(resolveLodRung(0.7139)).toBe('quiet')
-    expect(resolveLodRung(0.7143)).toBe('full')
+    expect(resolveLodRung(0.4999)).toBe('quiet')
+    expect(resolveLodRung(0.5001)).toBe('full')
+    expect(resolveLodRung(LABEL_LEGIBLE_ZOOM)).toBe('full')
+    // ICON_LEGIBLE_ZOOM is comfortably inside `full` now — it did not become
+    // `quiet`'s boundary moving the other way, it simply stopped being a
+    // boundary at all.
     expect(resolveLodRung(ICON_LEGIBLE_ZOOM)).toBe('full')
   })
 
@@ -255,37 +281,42 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
      *
      * "Both boundaries now hold" was true of the code and false of the tests.
      */
-    it('holds `full` until the zoom drops clear of the icon re-entry point', () => {
+    // ⛔ "THE ICON RE-ENTRY POINT" IS NOW THE NORMAL/LANDING RE-ENTRY POINT
+    // (gap-audit row 3, 24 Sep 2026). The dead-band this pair pins still hangs
+    // off the SAME `previous === 'full'` branch in `resolveLodRung`; only the
+    // boundary it defends moved, from `ICON_LEGIBLE_ZOOM` to
+    // `LABEL_LEGIBLE_ZOOM`.
+    it('holds `full` until the zoom drops clear of the Normal-rung re-entry point', () => {
       // ⚠ PRECONDITION PINNED IN-TEST, matching the lower trio this mirrors. If
       // the re-entry margin ever narrowed past this probe, `justBelow` would sit
       // OUTSIDE the dead-band and the assertion would pass by testing nothing —
       // a discriminator whose discrimination depends on an unpinned fixture
       // (CLAUDE.md trap 13b).
-      const justBelow = ICON_LEGIBLE_ZOOM * 0.999
+      const justBelow = LABEL_LEGIBLE_ZOOM * 0.999
       expect(
         justBelow,
         'the probe is outside the dead-band, so this test would pass without discriminating',
-      ).toBeGreaterThan(ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN_FOR_TEST)
+      ).toBeGreaterThan(LABEL_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN_FOR_TEST)
       expect(
         resolveLodRung(justBelow, 'full'),
-        'coming down from `full`, a zoom just below the icon floor must NOT drop to `quiet` — that is the dead-band',
+        'coming down from `full`, a zoom just below the landing floor must NOT drop to `quiet` — that is the dead-band',
       ).toBe('full')
       expect(
-        resolveLodRung(ICON_LEGIBLE_ZOOM * 0.9, 'full'),
+        resolveLodRung(LABEL_LEGIBLE_ZOOM * 0.9, 'full'),
         'past the re-entry margin it must drop',
       ).toBe('quiet')
     })
 
-    it('the chips do not flap on a camera resting at the icon floor', () => {
+    it('the chips do not flap on a camera resting at the Normal-rung (landing) floor', () => {
       // The founder-facing property, at the boundary `quiet` now actually
       // spends: the action chips unmount there, so an alternation is visible.
-      let rung = resolveLodRung(ICON_LEGIBLE_ZOOM * 1.001, 'full')
+      let rung = resolveLodRung(LABEL_LEGIBLE_ZOOM * 1.001, 'full')
       const seen = new Set([rung])
-      for (const z of [ICON_LEGIBLE_ZOOM * 0.999, ICON_LEGIBLE_ZOOM * 1.001, ICON_LEGIBLE_ZOOM * 0.9995]) {
+      for (const z of [LABEL_LEGIBLE_ZOOM * 0.999, LABEL_LEGIBLE_ZOOM * 1.001, LABEL_LEGIBLE_ZOOM * 0.9995]) {
         rung = resolveLodRung(z, rung)
         seen.add(rung)
       }
-      expect(seen.size, `the rung flapped across ${[...seen].join(' -> ')} at the icon floor`).toBe(1)
+      expect(seen.size, `the rung flapped across ${[...seen].join(' -> ')} at the landing floor`).toBe(1)
     })
 
     it('stateless callers are unaffected — the dead-band needs a previous rung', () => {

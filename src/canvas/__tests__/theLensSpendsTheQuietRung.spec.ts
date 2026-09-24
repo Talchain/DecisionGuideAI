@@ -18,6 +18,7 @@ import {
   lodBodyHiddenAt,
   LABEL_LEGIBLE_ZOOM,
   ICON_LEGIBLE_ZOOM,
+  LOD_BODY_HIDDEN_ZOOM,
   type LodRung,
 } from '../utils/zoomLegibility'
 
@@ -25,14 +26,26 @@ const ALL_RUNGS: readonly LodRung[] = ['full', 'quiet', 'line']
 
 describe('the rung the product actually parks on', () => {
   /**
-   * ⛔ THE LOAD-BEARING ONE. If this ever fails, the change below is pointless
-   * rather than wrong — the whole reason to spend `quiet` is that the auto-fit
-   * lands there. Derived from the two constants, never a restated literal.
+   * ⛔⛔ THIS WAS THE LOAD-BEARING CLAIM THAT JUSTIFIED SPENDING `quiet` ON THE
+   * LENS, AND IT IS NOW REVERSED BY A LATER RULING (gap-audit row 3,
+   * `canvas/gap-landing-normal`, 24 Sep 2026: "the landing view counts as
+   * Normal zoom"). `resolveLodRung`'s `full` floor moved from
+   * `ICON_LEGIBLE_ZOOM` to `LABEL_LEGIBLE_ZOOM`, so the auto-fit's 0.5 floor —
+   * unchanged — now parks in `full`, not `quiet`.
+   *
+   * This does NOT undo the reasoning below it: `quiet` still exists, is still
+   * reachable (by zooming OUT of the landing view, into
+   * `[LOD_BODY_HIDDEN_ZOOM, LABEL_LEGIBLE_ZOOM)`), and the lens still spends it
+   * there — see the CONTRAST case immediately below, now pinned at the new
+   * boundary. What changed is only WHICH zoom the DEFAULT camera occupies, and
+   * that is precisely the ruling's intended effect: first sight of a model is
+   * now `full` — coaching icon, rail icons and driver cue all visible — and
+   * the lens's reduced-detail view is one deliberate zoom-out away rather than
+   * the first thing a user sees.
    */
-  it('the auto-fit floor lands in `quiet`, which is why this change exists', () => {
-    expect(resolveLodRung(LABEL_LEGIBLE_ZOOM)).toBe('quiet')
+  it('the auto-fit floor now lands in `full` — landing counts as Normal, so `quiet` no longer receives the default camera', () => {
+    expect(resolveLodRung(LABEL_LEGIBLE_ZOOM)).toBe('full')
     expect(lodBodyHiddenAt(resolveLodRung(LABEL_LEGIBLE_ZOOM))).toBe(false)
-    expect(LABEL_LEGIBLE_ZOOM).toBeLessThan(ICON_LEGIBLE_ZOOM)
   })
 
   it('`lensDetailSpentAt` is true at `quiet` and nowhere else', () => {
@@ -50,6 +63,19 @@ describe('the rung the product actually parks on', () => {
   it('CONTRAST: zooming in past the icon floor restores every body', () => {
     expect(resolveLodRung(ICON_LEGIBLE_ZOOM)).toBe('full')
     expect(lensDetailSpentAt(resolveLodRung(ICON_LEGIBLE_ZOOM))).toBe(false)
+  })
+
+  /**
+   * ⭐ `quiet` IS STILL REACHABLE — this is what proves the lens-detail
+   * mechanism did not become dead code when the default camera moved off it.
+   * Its band narrowed to `[LOD_BODY_HIDDEN_ZOOM, LABEL_LEGIBLE_ZOOM)` (see
+   * `zoomLadder.spec.ts`), but it is non-empty, and a zoom inside it still
+   * spends lens detail exactly as before.
+   */
+  it('CONTRAST: a zoom-out past the landing floor still reaches `quiet`, and the lens still spends it there', () => {
+    const midQuiet = (LOD_BODY_HIDDEN_ZOOM + LABEL_LEGIBLE_ZOOM) / 2
+    expect(resolveLodRung(midQuiet)).toBe('quiet')
+    expect(lensDetailSpentAt(resolveLodRung(midQuiet))).toBe(true)
   })
 })
 

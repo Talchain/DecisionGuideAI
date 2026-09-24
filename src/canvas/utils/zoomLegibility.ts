@@ -675,32 +675,64 @@ export const LOD_BODY_RESTORED_ZOOM = LOD_BODY_HIDDEN_ZOOM * LOD_REENTRY_MARGIN
  * ⚠ NaN still resolves to `line`, unchanged: `NaN >= x` is false for every x, so
  * a torn-down or not-yet-measured viewport reads as reduced exactly as before.
  */
+/**
+ * ⭐⭐⭐ THE `full` FLOOR IS THE LANDING FLOOR, NOT THE ICON-LEGIBILITY QUOTIENT
+ * (gap-audit row 3, `canvas/gap-landing-normal`, Paul confirmed 24 Sep 2026:
+ * "the landing view counts as Normal zoom").
+ *
+ * ⛔ THIS WAS `ICON_LEGIBLE_ZOOM` (10/14 ≈ 0.714), AND THAT DERIVATION NEVER
+ * DESCRIBED THE GLYPHS IT WAS GATING. It states "a 14px mark at zoom z occupies
+ * 14z screen pixels" — true of an UNSCALED glyph, and false of every glyph the
+ * gate actually controls: the coaching icon, the rail's evidence/behaviour
+ * icons, the corner coaching marker and `FactorNode`'s driver cue are all
+ * `CANVAS_GLYPH_SIZE_CLASSES[N]` — `calc(Npx * var(--canvas-label-scale,1))`,
+ * counter-scaled by `labelCounterScale`. That counter-scale is capped at
+ * `MAX_LABEL_COUNTER_SCALE` (`1/LABEL_LEGIBLE_ZOOM`) reached exactly at the
+ * landing floor, so a glyph's RENDERED size there is
+ * `declaredPx * MAX_LABEL_COUNTER_SCALE * LABEL_LEGIBLE_ZOOM = declaredPx` — its
+ * full declared size, not the halved size the old threshold assumed. The gate
+ * was never protecting a legibility the counter-scale had not already bought.
+ *
+ * ⭐ MEASURED CONSEQUENCE: the landing fit is clamped to
+ * `[LABEL_LEGIBLE_ZOOM, 1]` (`fitBoundsFor('product')`), and fresh models land
+ * at ~0.5–0.53 — inside the OLD `quiet` rung, which started only at
+ * `ICON_LEGIBLE_ZOOM`. So first sight of every model carried no coaching icon,
+ * no rail data icons and no driver cue — the gap this closes.
+ *
+ * `ICON_LEGIBLE_ZOOM` is untouched and still a true, derived design-system
+ * fact; it is simply no longer the question this gate asks.
+ */
 export function resolveLodRung(zoom: number, previous?: LodRung): LodRung {
   const floor = previous === 'line' ? LOD_BODY_RESTORED_ZOOM : LOD_BODY_HIDDEN_ZOOM
   if (!(zoom >= floor)) return 'line'
 
   /**
-   * ⭐ THE UPPER BOUNDARY NEEDS THE SAME DEAD-BAND, AND ONLY RECENTLY.
+   * ⭐ THE UPPER BOUNDARY KEEPS ITS OWN DEAD-BAND, ACROSS THE NEW FLOOR.
    *
-   * While `quiet` rendered identically to `full`, a flap across
-   * `ICON_LEGIBLE_ZOOM` was invisible and cost nothing. `quiet` is now SPENT —
-   * the card's action chips unmount there — so a camera resting on 0.714286
-   * alternates the chips on exactly the jitter the lower dead-band was added to
-   * absorb. Review named this while the change that created it was still open;
-   * closing both boundaries here rather than waiting for it to be reported.
-   *
-   * Same shape as the body cliff: coming DOWN from `full`, chips stay until the
-   * zoom clears the re-entry margin below the icon floor.
+   * `quiet`'s action chips unmount there, so a camera resting on the boundary
+   * must not flap the chips on sub-pixel jitter. Same shape as the body cliff:
+   * coming DOWN from `full`, the chips stay until the zoom clears the re-entry
+   * margin below the (now lower) Normal floor.
    */
-  const iconFloor = previous === 'full' ? ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN : ICON_LEGIBLE_ZOOM
-  return zoom >= iconFloor ? 'full' : 'quiet'
+  const normalRungFloor = previous === 'full' ? LABEL_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN : LABEL_LEGIBLE_ZOOM
+  return zoom >= normalRungFloor ? 'full' : 'quiet'
 }
 
 /**
  * ⭐ THE LARGEST LABEL SCALE THE NORMAL (`full`) RUNG EVER DRAWS AT — its dead-band
- * exit. Coming DOWN from `full` the rung holds until the zoom falls below
- * `ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN` (≈0.661), so its scale peaks at ≈1.51;
- * `full` is NEVER drawn at `MAX_LABEL_COUNTER_SCALE`.
+ * exit. Coming DOWN from `full` the rung now holds until the zoom falls below
+ * `LABEL_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN` (≈0.463) — moved with the `full`
+ * floor itself (`resolveLodRung`, gap-audit row 3, 24 Sep 2026) — so its scale
+ * peaks at exactly `MAX_LABEL_COUNTER_SCALE`. This is a DELIBERATE reversal of
+ * this constant's own former claim.
+ *
+ * ⛔ IT USED TO PEAK AT ≈1.51, STRICTLY BELOW `MAX_LABEL_COUNTER_SCALE`, WITH THE
+ * COMMENT "`full` is NEVER drawn at `MAX_LABEL_COUNTER_SCALE`" — true while the
+ * `full` floor was `ICON_LEGIBLE_ZOOM` (0.714), strictly above the landing floor
+ * where the counter-scale caps. Now that `full` starts AT the landing floor
+ * (`LABEL_LEGIBLE_ZOOM`), `full` DOES draw at the cap — every card at rest on
+ * the landing view does, by construction — so a bound that stayed below it would
+ * under-reserve for the state that is now the COMMON one, not a hypothetical.
  *
  * `measureNodeHeightsAtLabelBound` reads every card at BOTH rungs' own bound —
  * the landing rung at `MAX_LABEL_COUNTER_SCALE` with its landing padding, Normal
@@ -708,9 +740,11 @@ export function resolveLodRung(zoom: number, previous?: LodRung): LodRung {
  * longer depends on which rung the camera happened to be at when the layout ran
  * (measured 24 Sep: the landing layout ran at zoom 2.85, Normal, ~0.9s before the
  * fit reached 0.53, and reserved the Normal band at scale 2 under every card —
- * 64–109-unit row gaps against the intended 48).
+ * 64–109-unit row gaps against the intended 48). That mechanism is UNCHANGED by
+ * this file; only the scale it reads Normal's own padding at has moved, to the
+ * value that state can now actually reach.
  */
-export const MAX_NORMAL_RUNG_LABEL_SCALE = labelCounterScale(ICON_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN)
+export const MAX_NORMAL_RUNG_LABEL_SCALE = labelCounterScale(LABEL_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN)
 
 /**
  * The card root's padding at each rung, as JSON `{landing, normal}` of the four
@@ -767,6 +801,17 @@ export function selectLodBodyHidden(state: { lodRung?: LodRung }): boolean {
  * questions, and nothing connected them. That is trap 21 at the scale of the
  * whole visual system.
  *
+ * ⛔ POINTS 3–4 NO LONGER DESCRIBE WHERE THE CAMERA PARKS (gap-audit row 3, 24
+ * Sep 2026: "the landing view counts as Normal zoom"). `resolveLodRung`'s
+ * `full` floor moved from `ICON_LEGIBLE_ZOOM` to `LABEL_LEGIBLE_ZOOM`, so the
+ * auto-fit's 0.5 floor now parks in `full`, not `quiet`; `quiet` is
+ * `[LOD_BODY_HIDDEN_ZOOM, LABEL_LEGIBLE_ZOOM)` and is reached only by zooming
+ * OUT of the landing view. Kept here as the measured reasoning that made
+ * `quiet` worth spending on the lens in the first place — that argument does
+ * not depend on WHICH zoom band `quiet` occupies, only on `quiet` existing and
+ * being reachable, which it still is (`zoomLadder.spec.ts`,
+ * `theLensSpendsTheQuietRung.spec.ts`).
+ *
  * ## Why the LENS is the right thing to spend it on
  *
  * Detail was a function of PIXEL SCALE. It should be a function of **relevance
@@ -817,8 +862,11 @@ export function selectLensDetailActive(state: {
  * veto-gated follow-up hangs the quiet-rung behaviour on; it exists now so that
  * PR starts from a definition instead of inventing one mid-flight. It is NOT
  * wired to `BaseNode`'s quick-action gate, deliberately — doing so would change
- * what a user sees between 0.5 and 0.714, which is the one thing this change
- * promises not to do.
+ * what a user sees across `quiet`'s zoom band, which is the one thing this
+ * change promises not to do. (That band moved with `resolveLodRung`'s `full`
+ * floor, gap-audit row 3, 24 Sep 2026 — it is no longer `[0.5, 0.714)`, but the
+ * promise is the same: `quiet` renders identically to `full` until this is
+ * spent.)
  *
  * ⚠ SO ITS UNIT SPEC IS EVIDENCE ABOUT THIS FUNCTION AND ABOUT NO SCREEN
  * (CLAUDE.md trap 13b — a green test about code no mount reaches is a guard
