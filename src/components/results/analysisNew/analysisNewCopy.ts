@@ -14,6 +14,7 @@
  */
 
 import { applyUnitPlacement } from '../../../utils/unitClassifier'
+import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 
 /**
@@ -870,8 +871,18 @@ export const ANALYSIS_NEW_COPY = {
       currentValue: number,
       flipValue: number,
       alternativeLabel: string,
-      unit: string,
+      producerUnit: string,
     ): string => {
+      // ⛔ A FACTOR-TYPE DESCRIPTOR IS NO UNIT. Traced by the audit at staging
+      // `25314672` from the glance's served "passes 0.9 binary" (UI `c3a39ae7`)
+      // to this sentence: "…from 0 binary to 0.9 binary…". `binary` is the
+      // factor's TYPE, which `classifyUnit` reads as an ordinary suffix unit.
+      // `isSuppressedUnit` is the estate's owner of that list (the factor cards
+      // apply it); read here, in the one copy function, so the Challenge row,
+      // the Sensitivity tips and the commitment synthesis cannot diverge. The
+      // sentence then takes the no-unit arm below, which names the missing
+      // scale rather than printing an internal token as if it were one.
+      const unit = isSuppressedUnit(producerUnit) ? '' : producerUnit
       // ⛔ A PERCENT IS A SUFFIX. This interpolated `unit` as an unconditional
       // PREFIX, so the deployed build `e6551858` rendered, from a producer row
       // carrying `unit: '%'`:

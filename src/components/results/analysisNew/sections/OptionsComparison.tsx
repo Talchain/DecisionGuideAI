@@ -854,8 +854,11 @@ export function OptionsComparison({
               </p>
             ) : null}
 
-            {/* WHY there is no number. The sanctioned sentence, verbatim. */}
-            {o.kind === 'not_analysed' ? (
+            {/* WHY there is no number. The sanctioned sentence, verbatim — or
+                nothing, where the view model could not license the ground
+                (`reasonCopy: null`: an option added after a run we cannot
+                vouch is current). The badge above still names the state. */}
+            {o.kind === 'not_analysed' && o.reasonCopy !== null ? (
               <p
                 className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
                 data-testid={`${testId}-not-analysed-reason`}
@@ -867,8 +870,13 @@ export function OptionsComparison({
             {/* ⭐ THE ACT — and it ASKS. It sends a question naming this option
                 and the run's own stated ground for leaving it out, and that is
                 ALL it does. ⛔ NOT ON `not_computed` (trap 21). ⚠ GATED ON THE
-                WRITER, so a host with no composer renders nothing. */}
-            {o.kind === 'not_analysed' && onSendMessage ? (
+                WRITER, so a host with no composer renders nothing.
+                ⛔ AND ON A STATED GROUND. The question opens by restating the
+                row's reason; with `reasonCopy: null` there is no ground this
+                surface may state, and "The analysis returned no result for …"
+                sent as the user's own words would carry the false premise
+                the row just withheld. */}
+            {o.kind === 'not_analysed' && o.reasonCopy !== null && onSendMessage ? (
               <button
                 type="button"
                 data-testid={`${testId}-bring-in-${o.id}`}

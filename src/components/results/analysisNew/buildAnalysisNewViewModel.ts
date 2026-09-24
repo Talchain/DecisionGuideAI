@@ -44,6 +44,7 @@
 import { applyUnitPlacement, classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
+import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { analysisClaimPolicy } from '../analysisClaimPolicy'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import {
@@ -59,7 +60,7 @@ import type { RunDeltaView } from './runDeltaView'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
-import { optionComputationFailed } from '../utils/notAnalysedOptions'
+import { optionComputationFailed, type NotAnalysedReason } from '../utils/notAnalysedOptions'
 // The two existing warning surfaces' OWN selectors, imported rather than
 // respelled. A second copy of either predicate is a mirror that drifts silently
 // (CLAUDE.md trap 12), and the drift here would be a warning going quiet.
@@ -264,6 +265,56 @@ export interface AnalysisNewViewModelInputs {
    * Absent (older callers/tests) the panel is exactly what it was.
    */
   nodeOrigins?: ReadonlyMap<string, OptionOrigin>
+  /**
+   * ⭐ MAY THIS SURFACE VOUCH THAT THE DISPLAYED RESULT IS ABOUT THE GRAPH ON
+   * SCREEN? `useAnalysisResultsAreCurrent`, read by the hook — the same value it
+   * already hands Strengthen, under the same name, so the two readings cannot
+   * come from two authorities.
+   *
+   * ⛔ OPTIONAL, AND ABSENT IS `false`. `false` pools 'changed' with
+   * 'cannot_confirm' (a restored run), and neither licenses a claim about what
+   * the run was asked. An absent answer that coerced to "current" would be the
+   * fail-OPEN default this seam has been burned by before; the one claim it
+   * gates is withheld instead, and a surface that says less is the honest
+   * degradation. See `notAnalysedReasonCopyIfLicensed`.
+   */
+  analysisIdentityIsCurrent?: boolean
+}
+
+/**
+ * ⭐⭐ THE ONE REASON THAT BLAMES THE ENGINE NEEDS A RESULT WE CAN VOUCH FOR.
+ *
+ * `not_returned` says the run HAD this option and answered nothing about it.
+ * Adversarially verified at staging `25314672`: run over A and B, then add and
+ * link C — the retained report never saw C, `deriveNotAnalysedReason` calls it
+ * `not_returned` because it has values and an edge, and this tab told the user
+ * "The analysis returned no result for this option" in the options row, in the
+ * glance's excluded-list tooltip, and in the question the row's "What would
+ * bring this in?" act sends. The run was never asked about C.
+ *
+ * ⭐ THE CANVAS ALREADY REFUSES IT, AND THIS IS ITS RULE RATHER THAN A NEW ONE:
+ * `useOptionLeftOutOfRun.ts` returns nothing for `not_returned` unless
+ * `resultsAreCurrent`. The card withheld the sentence deliberately while this
+ * tab restated it — two surfaces, one option, opposite claims (trap 21).
+ *
+ * `null` is the whole answer, and it is not a sentence to reach for: `false`
+ * pools 'changed' with 'cannot_confirm', so there is no true replacement to
+ * say. The row keeps its "Not analysed" badge — C is genuinely absent from the
+ * result — and states no ground, and no act is built on a ground not stated.
+ *
+ * ⚠ `no_interventions` IS NOT GATED. It reports the graph as it is NOW (nothing
+ * set on the option), needs no licence from the run's currency, and is the only
+ * reason carrying an action — the canvas makes the same exception.
+ *
+ * ONE HELPER, BOTH SITES: the glance's excluded list and the comparison row
+ * read this, so they cannot come to disagree about one option.
+ */
+function notAnalysedReasonCopyIfLicensed(
+  reason: NotAnalysedReason,
+  analysisIdentityIsCurrent: boolean,
+): string | null {
+  if (reason === 'not_returned' && !analysisIdentityIsCurrent) return null
+  return notAnalysedReasonCopy(reason)
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────
@@ -536,6 +587,12 @@ function buildKeyInsights(
 function driverFinding(
   d: DriverItem,
   recommendations: Recommendation[],
+  /**
+   * `rankingWasWithheld(rec)`, computed ONCE by `buildDrivers` for the run —
+   * the same predicate the hinge insight is gated on, so the two rows that
+   * print one sentence cannot answer the licence question differently.
+   */
+  rankingWithheld: boolean,
 ): AnalysisNewFinding {
   const target = d.matchedNodeId ?? d.factorKey
   // ⚠⚠ NO FALLBACK OFF `displayInfluence`, AND THE CONTRACT SAYS SO IN TERMS.
@@ -671,7 +728,18 @@ function driverFinding(
       // ⚠ ONLY `true` RENDERS. `false` is "no contested edge found", which is
       // not a finding, and printing it would fill every row with a negative.
       row('Contested evidence', d.hasContestedEdge === true ? 'yes' : null),
-      row('Chance another option leads in this model', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
+      // ⛔ NOT ON A WITHHELD RANKING — the hinge insight's rule (#1933), applied
+      // to the identical row here. "Chance another option leads" presupposes an
+      // option that leads NOW; on a run whose ranking was withheld it is the
+      // leader claim restated as a percentage. #1933 gated the hinge copy and
+      // left this one printing "31%" on the same run. `rankingWasWithheld`, not
+      // the wider `leaderDesignationPermitted`, for the hinge's reason: an open
+      // challenge with no arms never had a ranking to withhold. The `detail`
+      // line above stays — "sensitive to this relationship" names no leader.
+      row(
+        'Chance another option leads in this model',
+        rankingWithheld ? null : pctOrNull(d.fragileEdgeInfo?.switchProbability),
+      ),
     ),
     intervention: interventionFor(recommendations, target),
   }
@@ -720,7 +788,8 @@ function buildDrivers(
   // empty `findings` array cannot.
   const suppressedZero = drivers.filter((d) => d.zeroReason != null)
   const live = drivers.filter((d) => d.zeroReason == null)
-  const findings = live.map((d) => driverFinding(d, recommendations))
+  const rankingWithheld = rankingWasWithheld(data.recommendation)
+  const findings = live.map((d) => driverFinding(d, recommendations, rankingWithheld))
 
   // ⭐ THE SAME MAGNITUDE EXPRESSION THE GLANCE USES, FOR THE SAME REASON IT
   // USES IT: `displayInfluence` or nothing. A bar drawn from a mixed basis
@@ -2175,7 +2244,17 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   // classification, not a list maintained in this file, which is what let
   // "index0.361111" ship.
   const unitKind = classifyUnit(rawUnit).kind
-  const unit = unitKind === 'placeholder' || unitKind === 'none' ? '' : rawUnit
+  // ⛔ AND A FACTOR-TYPE DESCRIPTOR IS NOT A UNIT EITHER. Served witness, UI
+  // `c3a39ae7` (scenario `3d00c023`): "Could change if Enterprise tier
+  // availability passes 0.9 binary". The producer's `unit` carried the factor's
+  // TYPE, `classifyUnit('binary')` answers `'other'` — a real unit, printed as a
+  // suffix — and the internal token reached the tab's most-read line. The
+  // estate already names these descriptors and rules them "no unit" at display
+  // (`isSuppressedUnit`, `canvas/utils/labelUtils.ts`; the factor cards apply
+  // it). Read from that owner, never re-listed here. The row then takes the
+  // `current -> flip` form, which is this function's own rule for a unit it
+  // cannot print.
+  const unit = unitKind === 'placeholder' || unitKind === 'none' || isSuppressedUnit(rawUnit) ? '' : rawUnit
   // ⚠ THE RULE THAT USED TO BE INLINE HERE NOW LIVES IN `formatThresholdValue`,
   // AND THAT MOVE IS THE POINT. It was written for THIS field, the sibling
   // conditional-winner split never got it, and the identical defect shipped a
@@ -2242,6 +2321,7 @@ function buildAtAGlance(
   nodeValueSources?: ReadonlyMap<string, string>,
   nodeLabels?: ReadonlyMap<string, string>,
   nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
+  analysisIdentityIsCurrent = false,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -2411,7 +2491,12 @@ function buildAtAGlance(
               .map((o) => ({
                 id: o.id,
                 label: typeof o.label === 'string' ? o.label.trim() : '',
-                reasonCopy: notAnalysedReasonCopy(o.notAnalysedReason ?? 'not_returned'),
+                // ⛔ LICENSED, NOT RESTATED — `null` on a result we cannot
+                // vouch for (see `notAnalysedReasonCopyIfLicensed`).
+                reasonCopy: notAnalysedReasonCopyIfLicensed(
+                  o.notAnalysedReason ?? 'not_returned',
+                  analysisIdentityIsCurrent,
+                ),
               }))
               .filter((o) => o.label.length > 0 && o.label !== o.id),
           }
@@ -2978,6 +3063,8 @@ function buildOptionsComparison(
    * rather than as a claim.
    */
   nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
+  /** See `notAnalysedReasonCopyIfLicensed`. The glance reads the same value. */
+  analysisIdentityIsCurrent = false,
 ): Omit<OptionsComparisonSection, 'comparativeClaim'> {
   const allOptions = data.recommendation.allOptions ?? []
 
@@ -3057,8 +3144,10 @@ function buildOptionsComparison(
         id: o.id,
         label,
         origin,
-        // The SANCTIONED sentence, resolved here so no component re-words it.
-        reasonCopy: notAnalysedReasonCopy(reason),
+        // The SANCTIONED sentence, resolved here so no component re-words it
+        // — or `null` where the result cannot vouch for it, in which case the
+        // row states no ground and offers no act built on one.
+        reasonCopy: notAnalysedReasonCopyIfLicensed(reason, analysisIdentityIsCurrent),
         reason,
       })
       continue
@@ -3611,7 +3700,15 @@ export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
   const { data, recommendations, isStale, nodeValueSources } = inputs
-  const glance = buildAtAGlance(data, nodeValueSources, inputs.nodeLabels, inputs.nodeOrigins)
+  // `=== true`: absent is not a licence (see the input's docblock).
+  const analysisIdentityIsCurrent = inputs.analysisIdentityIsCurrent === true
+  const glance = buildAtAGlance(
+    data,
+    nodeValueSources,
+    inputs.nodeLabels,
+    inputs.nodeOrigins,
+    analysisIdentityIsCurrent,
+  )
 
   /**
    * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
@@ -3695,7 +3792,7 @@ export function buildAnalysisNewViewModel(
           // handed at the top of this function, so the leader's disclosure and
           // the rows' cannot be derived from two different readings of the
           // canvas.
-          ...buildOptionsComparison(data, inputs.nodeOrigins),
+          ...buildOptionsComparison(data, inputs.nodeOrigins, analysisIdentityIsCurrent),
           comparativeClaim: glance.comparativeClaim,
         },
     keyInsights: preRun

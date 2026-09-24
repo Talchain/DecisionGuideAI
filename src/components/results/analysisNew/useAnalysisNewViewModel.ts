@@ -254,6 +254,10 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         nodeValueSources,
         nodeLabels,
         nodeOrigins,
+        // ⭐ THE SAME READING Strengthen gets above, now also the licence for
+        // the one not-analysed reason that blames the engine — an option added
+        // after the run must not read "the analysis returned no result".
+        analysisIdentityIsCurrent,
       }),
     /**
      * ⚠⚠ EVERY DECLARED INPUT, AND `staleReason` WAS THE ONE MISSING.
@@ -297,6 +301,9 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       nodeValueSources,
       nodeLabels,
       nodeOrigins,
+      // Store-derived, not an arg: a currency flip must re-license the
+      // not-analysed reason even when every other input is the same object.
+      analysisIdentityIsCurrent,
     ],
   )
 }

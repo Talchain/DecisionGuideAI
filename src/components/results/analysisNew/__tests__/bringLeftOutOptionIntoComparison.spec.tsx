@@ -81,6 +81,7 @@ import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { makeData, genuineDecision } from './analysisNewFixtures'
 import { deriveNotAnalysedReason } from '../../utils/notAnalysedOptions'
+import { useCanvasStore } from '../../../../canvas/store'
 import { BRING_INTO_COMPARISON_LABEL } from '../../utils/notAnalysedCopy'
 import type { OptionResult } from '../../types'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -144,6 +145,10 @@ function draw(options: OptionResult[], onSendMessage?: (m: string) => void) {
     isPreRun: false,
     isRunning: false,
     isStale: false,
+    // ⚠ A CURRENT result. The `not_returned` ground — and the act built on it —
+    // is licensed only on a result confirmably about the graph on screen; absent
+    // is fail-closed. The not-current twin is `anAddedOptionIsNotBlamedOnTheEngine`.
+    analysisIdentityIsCurrent: true,
   })
   const r = render(
     <OptionsComparison options={vm.optionsComparison} onSendMessage={onSendMessage} />,
@@ -184,6 +189,11 @@ function sentBy(id: string, options: OptionResult[]): string {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  useCanvasStore.setState({
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
+    importPendingServerRegistration: false,
+  } as never)
 })
 
 describe('the premise this design rests on', () => {
@@ -223,6 +233,14 @@ describe('the act reaches the surface the deployed flags mount', () => {
    * and it is the thing that has to hand the section a writer.
    */
   function drawTab(over: Partial<Record<string, unknown>> = {}) {
+    // ⚠ THE TAB READS CURRENCY FROM THE STORE (`useAnalysisResultsAreCurrent`),
+    // so a current result is seeded there: a `fresh` verdict with no edit since.
+    // Without it the `not_returned` ground is withheld and so is the act.
+    useCanvasStore.setState({
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+      importPendingServerRegistration: false,
+    } as never)
     const base = genuineDecision()
     const data: ResultsSectionDataReturn = {
       ...base,
