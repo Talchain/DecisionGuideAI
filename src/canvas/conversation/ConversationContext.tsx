@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { useConversation, type UseConversationReturn } from './useConversation'
+import { releaseTabBodyFallback } from '../stores/tabBodyFallback'
 
 export interface ConversationContextValue extends UseConversationReturn {
   draft: string
@@ -21,6 +22,13 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     () => ({ ...conversation, draft, setDraft, appendDraft, clearDraft }),
     [conversation, draft, appendDraft, clearDraft],
   )
+
+  // The session ends here, so no guidance slot may keep a tab-body callback
+  // into it (Codex 5807693253). The tab body cannot do this itself: it also
+  // unmounts on a dock collapse, where its callbacks must survive. Queued, so
+  // it runs after the children's cleanups; another host's slot is never
+  // touched — see `stores/tabBodyFallback.ts`.
+  useEffect(() => () => { queueMicrotask(releaseTabBodyFallback) }, [])
 
   return <ConversationContext.Provider value={value}>{children}</ConversationContext.Provider>
 }

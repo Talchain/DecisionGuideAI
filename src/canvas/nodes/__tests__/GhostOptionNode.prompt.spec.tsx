@@ -76,18 +76,32 @@ function mount(data: Record<string, unknown>) {
   )
 }
 
-/** Install a spy as the store's send channel and return it. */
-function captureSends(): { calls: string[] } {
+/**
+ * Install spies on BOTH conversation channels and return what the door put in
+ * the composer (`calls`) and what it sent on the user's behalf (`sent`).
+ *
+ * ⭐ PREFILL-AND-CONFIRM, NEVER SEND (Experience Design, #63 5807363175, 24 Sep
+ * 2026). The door used to call `_sendMessage` — a click on a canvas prompt put
+ * a sentence into the user's transcript under their own name without their
+ * saying it. It now goes through `requestAsk`, which fills the composer and
+ * reveals Olumi; the person reads the sentence and chooses to send it. `calls`
+ * is the composer, and `sent` must stay empty.
+ */
+function captureSends(): { calls: string[]; sent: string[] } {
   const calls: string[] = []
-  useGuidanceStore.setState({ _sendMessage: (text: string) => { calls.push(text) } })
-  return { calls }
+  const sent: string[] = []
+  useGuidanceStore.setState({
+    _prefillChat: (text: string) => { calls.push(text) },
+    _sendMessage: (text: string) => { sent.push(text) },
+  })
+  return { calls, sent }
 }
 
 beforeEach(() => {
-  useGuidanceStore.setState({ _sendMessage: null })
+  useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null })
 })
 
-describe('the pre-analysis option door sends the model-aware sentence', () => {
+describe('the pre-analysis option door puts the model-aware sentence in the composer', () => {
   it('sends EXACTLY what the composer built for this model — bound by equality, not by keyword', () => {
     // ⚠ BOUND TO THE COMPOSER, NOT TO A PHRASE. Asserting only that the sent
     // text "contains Segment" would pass for any sentence that happened to
@@ -101,6 +115,8 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
 
     expect(sent.calls).toHaveLength(1)
     expect(sent.calls[0]).toBe(ghostOptionPrompt(MODEL))
+    // ⛔ and it is NOT sent: the person confirms it in the composer.
+    expect(sent.sent).toEqual([])
   })
 
   it('that sentence actually names this model — the CONTRAST CONTROL for the equality above', () => {
@@ -167,12 +183,13 @@ describe('the pre-analysis option door sends the model-aware sentence', () => {
     fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
 
     expect(sent.calls).toEqual([])
+    expect(sent.sent).toEqual([])
   })
 
   it('does not throw when the store has no send channel at all', () => {
     // The pre-existing null-guard, re-pinned: the click path now reads two
     // things that can be absent instead of one.
-    useGuidanceStore.setState({ _sendMessage: null })
+    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null })
     mount({ prompt: ghostOptionPrompt(MODEL) })
     expect(() =>
       fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL })),

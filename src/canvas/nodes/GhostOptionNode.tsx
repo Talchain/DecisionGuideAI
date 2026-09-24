@@ -1,6 +1,8 @@
 /**
  * GhostOptionNode — dashed placeholder node that invites the user to explore another option.
- * Click sends the question its `data.prompt` carries, via guidanceStore._sendMessage.
+ * Click puts the question its `data.prompt` carries in Olumi's composer, via
+ * `requestAsk` — prefill-and-confirm, never send (Experience Design, #63
+ * 5807363175, 24 Sep 2026). The person reads it and chooses to send it.
  *
  * Visible: pre-analysis always (both views). Post-analysis: Model view only.
  *
@@ -46,7 +48,7 @@ import { memo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { Handle, Position } from '@xyflow/react'
 import { Plus } from 'lucide-react'
-import { useGuidanceStore } from '../stores/guidanceStore'
+import { requestAsk } from '../ui/inspector-v2/askSemantic'
 import { typography } from '../../styles/typography'
 import { GHOST_OPTION_DOOR_LABEL } from '../utils/ghostTiers'
 
@@ -55,8 +57,10 @@ export const GhostOptionNode = memo((props: NodeProps) => {
 
   const handleClick = useCallback(() => {
     if (!prompt) return
-    const send = useGuidanceStore.getState()._sendMessage
-    if (send) send(prompt)
+    // ⛔ Never `_sendMessage`: that put a sentence in the user's transcript,
+    // under their name, that they had not said. `requestAsk` fills the
+    // composer (or the Ask drawer) and reveals Olumi; the person sends.
+    requestAsk({ text: prompt, label: GHOST_OPTION_DOOR_LABEL, source: 'ghost-door' })
   }, [prompt])
 
   return (

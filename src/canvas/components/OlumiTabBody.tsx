@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 // ⭐ THE FIFTH ENTRY SURFACE, and it had its OWN copy of the string.
 // Found by a spec, not by the sweep: this renders the first-use line as TEXT
 // while `FirstUseComposer` passes it as a placeholder ATTRIBUTE, so a grep for
@@ -13,11 +13,25 @@ import {
 } from './EmptyConversationInvitation'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
+import type { GuidanceState } from '../stores/guidanceStore'
+// Departed = left by an UNMOUNTED tab body; the next tab body may replace
+// them. The provider releases all of them when its session ends.
+import { departedTabBodyCallbacks } from '../stores/tabBodyFallback'
 // Type-only: erased at compile time, so this adds no runtime edge to a module
 // whose specs mock ConversationContext/ConversationPanel and not useConversation.
 import type { DispatchActionOpts } from '../conversation/useConversation'
 import { aiComparisonLabel } from '../../v5/aiComparisonMode'
 import { typo } from '../../styles/typography'
+
+/** The three ask slots this component may fill. Nothing else is ever written. */
+type FallbackSlots = Pick<GuidanceState, '_sendMessage' | '_prefillChat' | '_dispatchAction'>
+const NO_SLOTS: FallbackSlots = { _sendMessage: null, _prefillChat: null, _dispatchAction: null }
+
+
+/** A slot is this fallback's to write only if it is empty, its own, or a departed tab body's. */
+function fallbackMayWrite(held: object | null, ownPrevious: object | null): boolean {
+  return held === null || held === ownPrevious || departedTabBodyCallbacks.has(held)
+}
 
 interface OlumiTabBodyProps {
   /** Opens the floating Olumi panel for the user (manual float-out from
@@ -64,16 +78,15 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
   // `realMessageCount` is in the dep array so the effect re-runs when
   // the conversation transitions populated → empty (clearHistory,
   // scenario reset, hydration failure). ConversationPanel's cleanup
-  // nulls the callbacks on unmount; this effect re-registers them on
-  // the same render pass. React runs the child-cleanup before the
-  // parent-effect-setup when deps change, so the end state is always
-  // "registered" while OlumiTabBody is mounted.
+  // nulls the callbacks on unmount; this component fills them again (the
+  // takeover subscription below, and this re-run).
   //
-  // ConversationPanel still re-registers the full callback set
-  // (sendChip / runAnalysis / scrollToPatch) once it mounts via the populated
-  // branch — that overwrite is idempotent, and its `dispatchAction` is the
-  // same singleton function this component wraps, so neither host can install
-  // a dispatcher that reaches a different conversation.
+  // ⚠ ConversationPanel registers the FULLER set (reveal-wrapped callbacks,
+  // sendChip / runAnalysis / scrollToPatch, a token) once it mounts via the
+  // populated branch. Its effect runs BEFORE this parent's, so this component
+  // must not overwrite it on the re-run that follows — it used to, with bare
+  // callbacks, which silently dropped the reveal from every later send and
+  // prefill. See OWNERSHIP BY IDENTITY at the effect.
   const { sendMessage, setDraft, dispatchAction } = conversation
 
   /**
@@ -102,10 +115,11 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
    * caller passes a declared `ActionSource` literal (`NodeChip` sends
    * `source: 'chip'`).
    *
-   * ⚠ AND IT IS NEVER SET TO `null`. Child effects run BEFORE parent effects,
-   * so on empty → populated `ConversationPanel` registers first and THIS effect
-   * runs after it. Spreading conditionally means this component can only ever
-   * ADD a working dispatcher, never remove one a fuller host just installed.
+   * ⚠ AND IT NEVER REPLACES ANOTHER HOST'S. Child effects run BEFORE parent
+   * effects, so on empty → populated `ConversationPanel` registers first and
+   * THIS effect runs after it. The ownership rule at the effect means this
+   * component can only ever ADD a working dispatcher, never remove one a
+   * fuller host just installed.
    * It also never writes `_registrationToken` — that belongs to
    * `registerConversationCallbacks`, and minting one here would corrupt the
    * ownership guard that lets two hosts coexist.
@@ -129,16 +143,107 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     })
   }, [dispatchAction])
 
+  /** The callbacks this component last wrote (or would own). Identity is the claim. */
+  const ownedRef = useRef<FallbackSlots>(NO_SLOTS)
+
   useEffect(() => {
-    useGuidanceStore.setState({
+    const prefillChat = (text: string) => setDraft(text)
+    const mine: FallbackSlots = {
       _sendMessage: sendMessage,
-      _prefillChat: (text: string) => setDraft(text),
-      ...(dispatchActionForStore ? { _dispatchAction: dispatchActionForStore } : {}),
-    })
-    // No cleanup: OlumiTabBody stays mounted across tab switches (visibility
-    // toggled via the parent `hidden` class), so the callbacks should
-    // persist for the duration of the canvas session.
+      _prefillChat: prefillChat,
+      _dispatchAction: dispatchActionForStore,
+    }
+
+    /*
+     * ⭐ OWNERSHIP BY IDENTITY — one rule for the first write, every re-run
+     * and the takeover below. A slot is written only when it is EMPTY, or holds
+     * the callback THIS component wrote last (or one a departed tab body left
+     * — see the unmount effect). A callback any other host wrote is never
+     * replaced, and no token is ever minted or cleared.
+     *
+     * ⚠ THE FIRST WRITE USED TO BE UNCONDITIONAL, on mount AND on every
+     * dependency change, so a re-run replaced a fuller host's reveal-wrapped,
+     * token-owned callbacks with this component's bare ones. The takeover's
+     * "fill holes only" was true of the subscription and false of this line.
+     *
+     * On a re-run the slots this component still holds move to the NEW
+     * callbacks (never left stale). Reads the store NOW, not a listener's
+     * `state` argument: another listener in the same notification may already
+     * have re-registered. Loop-free: after a write every slot equals `mine`,
+     * and an empty patch is never written.
+     */
+    const claim = () => {
+      const now = useGuidanceStore.getState()
+      const previous = ownedRef.current
+      ownedRef.current = mine
+      const patch: Partial<FallbackSlots> = {}
+      if (fallbackMayWrite(now._sendMessage, previous._sendMessage) && now._sendMessage !== mine._sendMessage) {
+        patch._sendMessage = mine._sendMessage
+      }
+      if (fallbackMayWrite(now._prefillChat, previous._prefillChat) && now._prefillChat !== mine._prefillChat) {
+        patch._prefillChat = mine._prefillChat
+      }
+      if (fallbackMayWrite(now._dispatchAction, previous._dispatchAction) && now._dispatchAction !== mine._dispatchAction) {
+        patch._dispatchAction = mine._dispatchAction
+      }
+      if (Object.keys(patch).length > 0) useGuidanceStore.setState(patch)
+    }
+    claim()
+
+    /*
+     * ⭐ SURVIVOR TAKEOVER — the same duty `ConversationPanel` already has, and
+     * the reason is a SIBLING host, not this component's own child.
+     *
+     * The effect re-runs only when its deps change, so it covers this
+     * component's OWN `ConversationPanel` leaving (via `realMessageCount`). It
+     * did not cover the FLOATING host leaving, and that is the path every
+     * fresh user takes: after the first draft the floating panel sits
+     * minimised to its pill, an ask from the canvas (`requestAsk`) reveals
+     * Olumi, the pill does not register a focus channel
+     * (`revealWouldImposeFloating`), so `revealOlumiSurface` claims the DOCK
+     * (`forceActivateOutputTab('olumi')`), and `FloatingOlumiPanel` yields and
+     * unmounts its `ConversationPanel`. That host's token-guarded unregister
+     * then nulls every slot — including the ones written here, because this
+     * write never mints a token (deliberately, see above), so the guard cannot
+     * see it. On an empty conversation nothing else re-registered: measured on
+     * the Canvas Browser Gate (#1926) as `canReceiveAsk` false, every
+     * `NodeCoachingIcon` unmounted, and the quick-action "Ask" gone — while
+     * the prefilled question sat in the docked composer with no door left to
+     * ask another.
+     */
+    const unsubscribe = useGuidanceStore.subscribe(claim)
+    // The cleanup removes the SUBSCRIPTION only: a dependency change is not a
+    // departure. What an unmount does is the separate effect below.
+    return unsubscribe
   }, [sendMessage, setDraft, dispatchActionForStore, realMessageCount])
+
+  /*
+   * ⚠ UNMOUNT HANDS THE CALLBACKS ON; IT DOES NOT CLEAR THEM. This component
+   * unmounts on every DOCK COLLAPSE (`OutputsDock` renders it inside
+   * `{effectiveIsOpen && …}`), not only with the canvas. The session these
+   * callbacks close over is the canvas-root `ConversationProvider`, which
+   * outlives a collapse — and after an ask from the pill they are the only
+   * registration left. Clearing them here emptied every slot and took every
+   * ask door with it (the defect above, by a second route; pinned by the DOCK
+   * COLLAPSE cases in `askFromMinimisedPillKeepsRegistration.spec.tsx`).
+   *
+   * Instead they are marked DEPARTED, so the next tab body (dock re-opened,
+   * or a new canvas) replaces them rather than being locked out by them. A
+   * slot another host holds is not touched.
+   *
+   * The canvas itself unmounting is the provider's to close: this component
+   * cannot tell a collapse from a canvas unmount, so `ConversationProvider`
+   * releases every tab-body callback when its session ends
+   * (`stores/tabBodyFallback.ts`).
+   */
+  useEffect(() => () => {
+    const now = useGuidanceStore.getState()
+    const owned = ownedRef.current
+    if (owned._sendMessage && now._sendMessage === owned._sendMessage) departedTabBodyCallbacks.add(owned._sendMessage)
+    if (owned._prefillChat && now._prefillChat === owned._prefillChat) departedTabBodyCallbacks.add(owned._prefillChat)
+    if (owned._dispatchAction && now._dispatchAction === owned._dispatchAction) departedTabBodyCallbacks.add(owned._dispatchAction)
+    ownedRef.current = NO_SLOTS
+  }, [])
 
   const handleCollapse = useCallback(() => {
     // The dock's own collapse button handles this; ChatTopBar is hidden anyway.
