@@ -378,8 +378,12 @@ export function AboutThisAnalysis({
    * the leader row, and saying it twice in one surface is the defect this
    * utility exists to remove.
    */
+  // ⛔ NOT THE LEADER ITEM. Its meaning ("could not confirm which option is
+  // most likely…") is already the commitment block's "What remains uncertain"
+  // bullet at rest, and the leader row here says "Not confirmed"; listing it
+  // again restored Paul's 20 Sep duplicate (V2 census, B2).
   const limitations = vm.checks.items
-    .filter((i) => i.state === 'not_assessed')
+    .filter((i) => i.state === 'not_assessed' && i.id !== 'leader')
     .flatMap((i): Array<{ id: ChecksItem['id']; text: string }> => {
       const entry = COPY.checks[i.code]
       return 'meaning' in entry ? [{ id: i.id, text: entry.meaning }] : []

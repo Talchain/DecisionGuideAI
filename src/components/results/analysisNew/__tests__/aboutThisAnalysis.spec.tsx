@@ -467,6 +467,18 @@ describe('Run record — every vm.deeper group, with DeeperAnalysis\'s statement
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
+describe("Limitations never repeat the leader sentence the commitment block states (V2 census B2)", () => {
+  it('a withheld-leader run lists no leader limitation; the leader row carries it', () => {
+    const vm = build(decisionWithLeaderWithheld())
+    expect(vm.checks.leaderWithheld, 'PRECONDITION').toBe(true)
+    renderAbout(vm)
+    open()
+    openDetail('limitations')
+    expect(screen.queryByTestId(`${TID}-limitation-leader`)).toBeNull()
+    expect(screen.queryByText(COPY.checks.leader_not_assessed.meaning)).toBeNull()
+  })
+})
+
 describe('detail rows open independently', () => {
   it('opening a second detail row keeps the first one open (all three can be open at once)', () => {
     renderAbout(build(genuineDecision()))
