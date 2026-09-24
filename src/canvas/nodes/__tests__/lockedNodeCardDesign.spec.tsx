@@ -537,7 +537,8 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     setState({ phase: 'pre' })
     renderCard(RiskNode as never, 'risk-1')
     const card = face('Churn spike')
-    expect(within(card).getByTestId('risk-exposure-unset').textContent).toBe('Likelihood and impact not set yet.')
+    // Contract v3.1 (OR-02): the risk state line carries no full stop.
+    expect(within(card).getByTestId('risk-exposure-unset').textContent).toBe('Likelihood and impact not set yet')
     expect(within(card).queryByTestId('risk-strength-row')).toBeNull()
     expect(card.textContent).not.toMatch(/Link strength|50%/)
   })
