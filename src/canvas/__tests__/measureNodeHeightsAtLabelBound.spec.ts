@@ -20,6 +20,8 @@ import {
   LOD_BLANKED_BODY_ATTR,
   LOD_BLANKED_BODY_SELECTOR,
   MAX_LABEL_COUNTER_SCALE,
+  MAX_NORMAL_RUNG_LABEL_SCALE,
+  NODE_RUNG_PADDING_ATTR,
 } from '../utils/zoomLegibility'
 
 /**
@@ -264,5 +266,94 @@ describe('measureNodeHeightsAtLabelBound', () => {
     // at the `line` rung; this asserts the constant those specs' literal means.
     expect(LOD_BLANKED_BODY_ATTR).toBe('data-lod-hidden')
     expect(LOD_BLANKED_BODY_SELECTOR).toBe(`[${LOD_BLANKED_BODY_ATTR}]`)
+  })
+
+  // ── EACH RUNG AT ITS OWN BOUND (24 Sep 2026, bounded anatomy) ─────────────
+  //
+  // Measured in Chromium: the landing layout ran at xyflow's mount zoom (2.85,
+  // the Normal rung) ~0.9s before the fit reached 0.53, so every card reserved
+  // its Normal-rung band at scale 2 — a state no zoom draws — and the board's
+  // row gaps were 64–109 units against 48. Re-laying out at the landing rung
+  // took vendor-selection from 1344 to 1230 units tall.
+
+  function declareRungs(root: HTMLElement, id: string, landing: string, normal: string): HTMLElement {
+    const node = root.querySelector(`.react-flow__node[data-id="${id}"]`) as HTMLElement
+    const card = document.createElement('div')
+    card.setAttribute(NODE_RUNG_PADDING_ATTR, JSON.stringify({
+      landing: { paddingBottom: landing }, normal: { paddingBottom: normal },
+    }))
+    node.appendChild(card)
+    return card
+  }
+
+  it('reads a declaring card at BOTH rungs\' bounds, each with its own padding, and reserves the larger', () => {
+    const root = mountCanvas(['a'], {}, [])
+    const card = declareRungs(root, 'a', '12px', 'calc(6px + 22px * var(--canvas-label-scale, 1))')
+    const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
+    const reads: Array<[string, string]> = []
+    Object.defineProperty(node, 'offsetHeight', {
+      get() {
+        const scale = root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR)
+        reads.push([scale, card.style.paddingBottom])
+        return scale === String(MAX_LABEL_COUNTER_SCALE) ? 138 : 141
+      },
+    })
+    const out = measureNodeHeightsAtLabelBound()
+    expect(reads).toEqual([
+      [String(MAX_LABEL_COUNTER_SCALE), '12px'],
+      [String(MAX_NORMAL_RUNG_LABEL_SCALE), 'calc(6px + 22px * var(--canvas-label-scale, 1))'],
+    ])
+    expect(out.get('a')).toBe(141)
+  })
+
+  it('⭐ THE DEFECT: a layout run at the Normal rung no longer reserves the Normal band at scale 2', () => {
+    // The live card carries Normal's band (the camera is at Normal when the
+    // landing layout runs). Height model: band at scale 2 → 181 (never drawn),
+    // landing padding at scale 2 → 138, band at Normal's own bound → 141.
+    const BAND = 'calc(6px + 22px * var(--canvas-label-scale, 1))'
+    const root = mountCanvas(['a'], {}, [])
+    const card = declareRungs(root, 'a', '12px', BAND)
+    card.style.paddingBottom = BAND
+    const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
+    Object.defineProperty(node, 'offsetHeight', {
+      get() {
+        const atLanding = root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR) === String(MAX_LABEL_COUNTER_SCALE)
+        if (atLanding) return card.style.paddingBottom === BAND ? 181 : 138
+        return 141
+      },
+    })
+    expect(measureNodeHeightsAtLabelBound().get('a')).toBe(141)
+    expect(card.style.paddingBottom, 'the live padding is restored').toBe(BAND)
+  })
+
+  it('the LANDING read wins when it is the larger — never the Normal band at scale 2', () => {
+    const root = mountCanvas(['a'], {}, [])
+    declareRungs(root, 'a', '12px', '40px')
+    const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
+    Object.defineProperty(node, 'offsetHeight', {
+      get() { return root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR) === String(MAX_LABEL_COUNTER_SCALE) ? 143 : 136 },
+    })
+    expect(measureNodeHeightsAtLabelBound().get('a')).toBe(143)
+  })
+
+  it('restores the card\'s inline padding EXACTLY — a set side to its value, an absent side to absent', () => {
+    const root = mountCanvas(['a'], { a: 100 }, [])
+    const card = declareRungs(root, 'a', '12px', '40px')
+    card.style.paddingBottom = 'calc(6px + 22px * var(--canvas-label-scale, 1))'
+    measureNodeHeightsAtLabelBound()
+    expect(card.style.paddingBottom).toBe('calc(6px + 22px * var(--canvas-label-scale, 1))')
+    expect(card.style.paddingTop).toBe('')
+  })
+
+  it('CONTRAST — a card that declares nothing is read ONCE, at the landing bound', () => {
+    const seen: string[] = []
+    mountCanvas(['a'], { a: 120 }, seen)
+    expect(measureNodeHeightsAtLabelBound().get('a')).toBe(120)
+    expect(seen).toEqual([String(MAX_LABEL_COUNTER_SCALE)])
+  })
+
+  it('Normal\'s own bound is below the landing bound (Normal never draws at scale 2)', () => {
+    expect(MAX_NORMAL_RUNG_LABEL_SCALE).toBeGreaterThan(1.4)
+    expect(MAX_NORMAL_RUNG_LABEL_SCALE).toBeLessThan(MAX_LABEL_COUNTER_SCALE)
   })
 })
