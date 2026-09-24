@@ -103,12 +103,11 @@ export function comparisonDrawsAFigure(section: OptionsComparisonSection): boole
  * The strings this lens control adds. Each is a label for a control or a
  * statement about the drawing; none is a finding about an option.
  *
- * ⚠ `goalLocked` NAMES BOTH GROUNDS, because the section cannot tell which one
- * applies. The view model withholds every goal figure when there is no user
- * target (UI-SEM-071) AND when any option lacks a figure (the complete-field
- * rule). `GOAL_ANCHOR_COPY.noTarget` ("Set a success target...") was not
- * reused: on a run whose target IS set, it would tell the user they never set
- * one, the untruth that module's own `notScored` note warns against.
+ * ⚠ There is no "Goal fit is locked" string any more: the section cannot tell
+ * WHY goal figures are absent (no user target, UI-SEM-071, or an option without
+ * a figure, the complete-field rule), so it offers no lens control rather than
+ * a locked arm stating a cause it cannot know (ChatGPT's V2 ruling, #63
+ * 5806258826 §2). The Success row owns target-setting.
  */
 export const COMPARISON_LENS_COPY = {
   groupLabel: 'Compare the options by',
@@ -116,7 +115,6 @@ export const COMPARISON_LENS_COPY = {
     outcome: 'Modelled outcome',
     goal: 'Goal fit',
   } satisfies Record<ComparisonLens, string>,
-  goalLocked: 'Goal fit needs a measurable target and a result for every option.',
   rowActions: (label: string): string => `Show actions for ${label}`,
   inspectInModel: (label: string): string => `Inspect ${label} in Model`,
   focusOnCanvas: (label: string): string => `Focus ${label} on the canvas`,
