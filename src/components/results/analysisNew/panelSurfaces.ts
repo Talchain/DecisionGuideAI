@@ -401,8 +401,10 @@ export const ACTION_TIER = {
  * position rather than by size.
  *
  * ⛔ `w-6` IS NOT ON THIS SCALE AND MUST NOT JOIN IT. `SectionShell`'s 24px
- * circle is a CONTAINER that holds an icon, not an icon — sizing it from here
- * would make a badge and a glyph the same kind of thing.
+ * slot is a CONTAINER that holds an icon, not an icon — sizing it from here
+ * would make a slot and a glyph the same kind of thing. (It was a tinted
+ * circle until the V2 no-tints rule; the slot is now untinted and only keeps
+ * the glyph and the title where they were.)
  */
 export const ICON_SCALE = {
   /** A section's own leading icon, and the disclosure chevron beside it. */
