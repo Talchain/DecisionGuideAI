@@ -12,6 +12,13 @@
  *
  * Neither case alone is evidence. Together they bind the surface to the model
  * fact rather than to the fixture.
+ *
+ * ⭐ REASONING V2 (24 Sep 2026): BOUND TO THE NUDGE BY IDENTITY. V2's Challenge
+ * card prints the ENGINE's recommendation title verbatim, and the engine's
+ * success-measure finding is titled "Define what success looks like" — the same
+ * words as Focus Now's static nudge. A page-wide `getByText` can no longer tell
+ * the two apart, so each nudge is now read off Focus Now's own row by its
+ * `data-row-id` (`STATIC_HYGIENE_ROWS`). The claims are unchanged.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -30,6 +37,15 @@ const node = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }
 
 const ADD_RISK = 'Add a risk worth watching'
 const DEFINE_SUCCESS = 'Define what success looks like'
+const ADD_RISK_ID = 'static:add-risk'
+const DEFINE_SUCCESS_ID = 'static:define-success'
+
+/**
+ * The Focus Now row with this static id, or null. Identity, not text: the
+ * engine's own recommendations can carry the same words elsewhere on the tab.
+ */
+const nudge = (rowId: string): HTMLElement | null =>
+  screen.queryAllByTestId('focus-card').find((c) => c.getAttribute('data-row-id') === rowId) ?? null
 
 function renderWith(nodes: ReturnType<typeof node>[], data: ResultsSectionDataReturn) {
   useCanvasStore.setState({ nodes } as never)
@@ -57,7 +73,8 @@ describe('Focus Now on the Reasoning tab', () => {
       [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor'), node('out1', 'outcome')],
       data,
     )
-    expect(screen.getByText(ADD_RISK)).toBeInTheDocument()
+    expect(nudge(ADD_RISK_ID), 'the add-risk nudge did not render').not.toBeNull()
+    expect(nudge(ADD_RISK_ID)).toHaveTextContent(ADD_RISK)
   })
 
   it('renders NOTHING once the model has the thing each nudge asks for', () => {
@@ -72,7 +89,7 @@ describe('Focus Now on the Reasoning tab', () => {
       ],
       data,
     )
-    expect(screen.queryByText(ADD_RISK)).toBeNull()
+    expect(nudge(ADD_RISK_ID)).toBeNull()
   })
 
   it('⛔ AN EMPTY CANVAS EARNS NO NUDGE — unknown is not absent', () => {
@@ -80,8 +97,8 @@ describe('Focus Now on the Reasoning tab', () => {
     // panel would demand an outcome and a risk before anything has been built.
     const data = makeData(genuineDecision())
     renderWith([], data)
-    expect(screen.queryByText(ADD_RISK)).toBeNull()
-    expect(screen.queryByText(DEFINE_SUCCESS)).toBeNull()
+    expect(nudge(ADD_RISK_ID)).toBeNull()
+    expect(nudge(DEFINE_SUCCESS_ID)).toBeNull()
   })
 
   /**
@@ -116,7 +133,7 @@ describe('Focus Now on the Reasoning tab', () => {
 
   it('⛔ an empty canvas earns no DEFINE SUCCESS even when the hook reports hasGoalTarget FALSE', () => {
     renderWith([], noStatedTarget())
-    expect(screen.queryByText(DEFINE_SUCCESS)).toBeNull()
+    expect(nudge(DEFINE_SUCCESS_ID)).toBeNull()
   })
 
   it('but a REAL model with no target DOES earn it — the gate must not swallow the signal', () => {
@@ -130,6 +147,7 @@ describe('Focus Now on the Reasoning tab', () => {
       ],
       noStatedTarget(),
     )
-    expect(screen.getByText(DEFINE_SUCCESS)).toBeInTheDocument()
+    expect(nudge(DEFINE_SUCCESS_ID), 'the define-success nudge did not render').not.toBeNull()
+    expect(nudge(DEFINE_SUCCESS_ID)).toHaveTextContent(DEFINE_SUCCESS)
   })
 })

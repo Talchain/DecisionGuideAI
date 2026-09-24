@@ -120,11 +120,30 @@ describe('the grammar composes what it promises', () => {
     }
   })
 
-  it('the inset nests INSIDE the surface — a smaller corner, not the same one', () => {
-    // 6px outside, 4px inside. Equal radii read as two boxes that happen to
-    // touch; this is the one geometric fact that makes nesting legible.
-    expect(PANEL_SURFACE).toContain('rounded-md')
-    expect(PANEL_INSET).toContain('rounded ')
-    expect(PANEL_INSET).not.toContain('rounded-md')
+  /**
+   * ⭐ V2 (Paul + ChatGPT brief, 23 Sep 2026) REPLACES "the inset nests inside
+   * the surface". The panel no longer draws cards: a section is closed by ONE
+   * full-width horizontal rule, and nothing nests a box inside it.
+   */
+  it('V2: a section is a full-width divider, never a card', () => {
+    const classes = PANEL_SURFACE.split(' ')
+    expect(classes).toContain('border-b')
+    // No radius, no all-round or one-sided vertical border, no own gutter.
+    expect(PANEL_SURFACE).not.toMatch(/\brounded/)
+    expect(classes).not.toContain('border')
+    expect(PANEL_SURFACE).not.toMatch(/\bborder-[lrt]\b|\bborder-x\b/)
+    expect(PANEL_SURFACE).not.toMatch(/\bpx-/)
+  })
+
+  it('V2: nothing nests a card — an inset has no border and no radius', () => {
+    expect(PANEL_INSET).not.toMatch(/\bborder\b|\brounded/)
+  })
+
+  it('V2: no tone tints a surface — tone is the rule colour only', () => {
+    for (const [tone, value] of Object.entries(SURFACE_TONE)) {
+      expect(value, `${tone} carries a fill`).not.toMatch(/\bbg-/)
+    }
+    // CONTRAST: the tones are still told apart, by the rule's colour.
+    expect(SURFACE_TONE.warning).not.toBe(SURFACE_TONE.neutral)
   })
 })

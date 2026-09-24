@@ -209,6 +209,13 @@ describe('F · the three scenario classes (§24F)', () => {
     // comparison is the licensed printer. If it stops rendering, the subtraction
     // below silently becomes `body.textContent` and the case changes meaning.
     expect(options, 'the comparison must render, or this assertion is a different one').not.toBeNull()
+    // ⚠ V2 (24 Sep 2026): OPENED BY IDENTITY FIRST. The section now opens by
+    // default only where it draws a figure the glance does not state, and with
+    // the win shares gone from the resting view this fixture (no ranges, no
+    // goal) draws none — so it mounts CLOSED and printed no label to subtract.
+    // The licensed printer must be showing its labels for the claim to bite.
+    openSection('analysis-new-options')
+    expect(options).toHaveAttribute('data-section-open', 'true')
     expect(options!.textContent).toContain('Raise price')
     const elsewhere = (body.textContent ?? '').split(options!.textContent ?? '\u0000').join('')
     expect(elsewhere).not.toContain('Raise price')
@@ -230,11 +237,19 @@ describe('F · the three scenario classes (§24F)', () => {
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
     expect(within(sensitivity).getAllByTestId('analysis-new-sensitivity-row').length).toBeGreaterThan(0)
     expect(sensitivity).toHaveTextContent('Customer adoption')
-    // PROMINENT means above the coaching, not merely on the page.
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    // PROMINENT means ahead of the answer, not merely on the page.
+    // ⚠ V2 (24 Sep 2026): RE-ANCHORED. This read "above the coaching", and the
+    // coaching was the Strengthen wall below the answer. V2 retires that mount
+    // (its findings are the review tool's queue, under the model strip) and
+    // moves "What would change your mind" into "Challenge the thinking", which
+    // sits ABOVE the answer zone. So prominence is now: inside that zone, and
+    // before the glance and the figures.
+    const challenge = screen.getByTestId('analysis-new-zone-also-group')
+    const answer = screen.getByTestId('analysis-new-zone-answer-group')
+    expect(challenge).toContainElement(sensitivity)
     expect(
-      Boolean(sensitivity.compareDocumentPosition(strengthen) & Node.DOCUMENT_POSITION_FOLLOWING),
-      'the sensitive assumption must sit above the coaching that responds to it',
+      Boolean(sensitivity.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING),
+      'the sensitive assumption must sit above the answer it qualifies',
     ).toBe(true)
 
     const body = screen.getByTestId('analysis-new-tab-body')
@@ -285,18 +300,29 @@ describe('empty states say what was NOT established (§19)', () => {
   // driven directly, with `interventions={[]}`, in the component's own spec;
   // what belongs HERE is the opposite proof — that a grounded intervention
   // reaches the screen through the real hook and the real engine.
+  /**
+   * ⭐ V2 (24 Sep 2026): RE-POINTED TO THE CHALLENGE CARD. The Strengthen list
+   * is no longer mounted on this tab; the engine's top intervention is the ONE
+   * card in "Challenge the thinking" (`ChallengeCard`, the body's
+   * `glancePrimary`), and the rest page through the review tool. On this
+   * fixture the engine emits one intervention, so it is the card's.
+   * ⛔ The "at most three items" cap is RETIRED with the list: V2 shows exactly
+   * one card (`getByTestId` throws on two), and the claim that mattered — what /
+   * why / do-it, all from the engine, bound by the engine's id — is kept.
+   */
   it('a grounded intervention reaches the screen through the real engine', () => {
     renderBody(openStrategicChallenge())
     openAllSections()
-    const items = screen.getAllByTestId('analysis-new-strengthen-item')
-    expect(items.length).toBeGreaterThan(0)
-    expect(items.length).toBeLessThanOrEqual(3)
-    const first = items[0]
+    const card = screen.getByTestId('analysis-new-challenge')
+    expect(card).toHaveAttribute('data-source', 'intervention')
+    // Bound by the ENGINE's id, so the card cannot be satisfied by a lookalike.
+    expect(card.getAttribute('data-recommendation-id')).toMatch(/^strengthen:/)
     // What / why / do-it are all present, and all come from the engine.
-    expect(within(first).getByTestId('analysis-new-strengthen-why')).toBeInTheDocument()
-    expect(within(first).getByTestId('analysis-new-strengthen-action')).toBeInTheDocument()
-    // Bound by the ENGINE's id, so a row cannot be satisfied by a lookalike.
-    expect(first.getAttribute('data-recommendation-id')).toMatch(/^strengthen:/)
+    expect(within(card).getByTestId('analysis-new-challenge-heading').textContent?.trim()).not.toBe('')
+    expect(within(card).getByTestId('analysis-new-challenge-work-through')).toBeInTheDocument()
+    fireEvent.click(within(card).getByTestId('analysis-new-challenge-more'))
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-why'))
+    expect(within(card).getByTestId('analysis-new-challenge-basis-why').textContent?.trim()).not.toBe('')
   })
 })
 
@@ -339,16 +365,32 @@ describe('progressive disclosure on the real surface (§24E)', () => {
     expect(screen.getByTestId('analysis-new-drivers-inspect')).toBeInTheDocument()
   })
 
+  /**
+   * ⚠ V2 (24 Sep 2026): RE-POINTED. `DeeperAnalysis` is no longer mounted; its
+   * groups render as the "Run record" detail of `AboutThisAnalysis`, collapsed
+   * and last on the tab. The claim is unchanged — the technical record is on
+   * the surface but NOT on the first screen, and it opens on request — and it
+   * now sits two levels down (About, then its Run record detail).
+   */
   it('keeps deeper technical material out of the first screen', () => {
+    const ABOUT = 'analysis-new-about'
     renderBody(genuineDecision())
     openGroups()
+    // No second, stale mount of the old section.
+    expect(screen.queryByTestId('analysis-new-deeper')).toBeNull()
     // Unconditional: the run-identity group always exists when a hash is
-    // supplied, so a `if (deeper)` wrapper here would only ever hide a
+    // supplied, so a `if (record)` wrapper here would only ever hide a
     // regression that removed the section entirely.
-    expect(screen.getByTestId('analysis-new-deeper')).toBeInTheDocument()
-    expect(screen.queryByTestId('analysis-new-deeper-group')).toBeNull()
-    fireEvent.click(screen.getByTestId('analysis-new-deeper-toggle'))
-    expect(screen.getAllByTestId('analysis-new-deeper-group').length).toBeGreaterThan(0)
+    const about = screen.getByTestId(ABOUT)
+    expect(screen.getByTestId(`${ABOUT}-toggle`)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId(`${ABOUT}-record-group`)).toBeNull()
+    fireEvent.click(screen.getByTestId(`${ABOUT}-toggle`))
+    // Still behind its own detail row once About is open.
+    expect(screen.queryByTestId(`${ABOUT}-record-group`)).toBeNull()
+    fireEvent.click(screen.getByTestId(`${ABOUT}-detail-record-toggle`))
+    const groups = screen.getAllByTestId(`${ABOUT}-record-group`)
+    expect(groups.length).toBeGreaterThan(0)
+    expect(about).toContainElement(groups[0])
   })
 })
 
@@ -441,7 +483,12 @@ describe('pre-run: nothing on screen describes a run that has not happened', () 
     // POSITIVE CONTROL — without this the three nulls above would also pass on
     // a surface that failed to render anything at all.
     expect(screen.getByTestId('analysis-new-status-pre-run')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-strengthen')).toBeInTheDocument()
+    // ⚠ V2 (24 Sep 2026): the pre-run coaching is the Challenge card (the
+    // Strengthen mount is retired). Bound by the engine's id, so the control
+    // is content, not an empty container.
+    expect(screen.getByTestId('analysis-new-challenge').getAttribute('data-recommendation-id')).toMatch(
+      /^strengthen:/,
+    )
   })
 
   it('does not claim to be a second reading of a run that has not happened', () => {
@@ -462,6 +509,9 @@ describe('pre-run: nothing on screen describes a run that has not happened', () 
   it('describes no run identity, status or completeness before a run', () => {
     const { container } = renderBody(openStrategicChallenge(), { isPreRun: true })
     expect(screen.queryByTestId('analysis-new-deeper')).toBeNull()
+    // ⚠ V2: the run record now lives in "About this analysis", so its absence
+    // is what this line means; `-deeper` alone is absent on every run now.
+    expect(screen.queryByTestId('analysis-new-about')).toBeNull()
 
     // The exact strings the mounted build printed. Bound literally, because
     // these came from non-null DEFAULTS: a structural assertion about groups
@@ -872,28 +922,33 @@ describe('the engine warning arrives before the reading it qualifies', () => {
  * One alone would only show sensitivity to some change; the pair shows the
  * assertion is about the named pair.
  */
-describe('"What would change your mind" sits between the reading and the coaching', () => {
+describe('"What would change your mind" — its place on the tab (V2: in "Challenge the thinking")', () => {
   /** `a` comes before `b` in document order. */
   const before = (a: Element, b: Element) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-  it('mounts BELOW the glance and ABOVE the coaching', () => {
+  /**
+   * ⛔ V2 (24 Sep 2026) RETIRED "BELOW THE GLANCE, ABOVE THE COACHING". V2 moves
+   * this section into "Challenge the thinking", which sits ABOVE the answer
+   * zone, and puts the coaching (the model-wide review tool that replaced the
+   * Strengthen mount) under the model strip, above both. Rewritten to the V2
+   * order, with the same three-distinct-elements precondition, so neither
+   * ordering claim can hold vacuously and a move back REDs by name.
+   */
+  it('V2: sits in "Challenge the thinking" — below the model-wide review, above the glance', () => {
     renderBody(manyFragileEdges())
 
-    const glance = screen.getByTestId('analysis-new-glance')
+    const review = screen.getByTestId('analysis-new-review')
     const sensitivity = screen.getByTestId('analysis-new-sensitivity')
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
-    // PRECONDITION, PINNED IN-TEST: three distinct elements, so neither
-    // ordering claim can hold vacuously.
-    expect(new Set([glance, sensitivity, strengthen]).size).toBe(3)
+    const glance = screen.getByTestId('analysis-new-glance')
+    // PRECONDITION, PINNED IN-TEST: three distinct elements.
+    expect(new Set([review, sensitivity, glance]).size).toBe(3)
 
+    expect(screen.getByTestId('analysis-new-zone-also-group')).toContainElement(sensitivity)
+    expect(before(review, sensitivity), 'the model-wide review comes first').toBe(true)
     expect(
-      before(glance, sensitivity),
-      'it is a property of the result the glance just stated, so it cannot precede it',
-    ).toBe(true)
-    expect(
-      before(sensitivity, strengthen),
-      'below the coaching it is detail again — which is where it came from',
+      before(sensitivity, glance),
+      'what would change your mind challenges the thinking before the answer is read',
     ).toBe(true)
   })
 
@@ -926,7 +981,7 @@ describe('"What would change your mind" sits between the reading and the coachin
   })
 })
 
-describe('the coaching sits directly under the reading it responds to', () => {
+describe('the coaching and the answer — V2 zone order', () => {
   /** `a` comes before `b` in document order. */
   const precedes = (a: Element, b: Element) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -949,18 +1004,25 @@ describe('the coaching sits directly under the reading it responds to', () => {
    *   the ANSWER is above the coaching   (new)
    *   the coaching is above the DETAIL   (unchanged, minus the answer)
    */
-  it('mounts the answer above the coaching, and both below the glance', () => {
+  /**
+   * ⛔⛔ V2 (24 Sep 2026) SUPERSEDES THE ORDER BELOW, and the reasoning above is
+   * kept for the record. V2's zones run: method strip → model strip → the
+   * model-wide REVIEW tool (the coaching: Strengthen's findings, one queue) →
+   * "Challenge the thinking" → the answer ("Move towards commitment", with the
+   * glance and the comparison) → further detail → "About this analysis". So the
+   * coaching now sits ABOVE the answer on every run, by design. What survives
+   * from the old rule: the glance leads the figures, and the coaching is above
+   * the DETAIL. Each case below states its V2 relation.
+   */
+  it('V2: the review sits above the answer, and the glance leads the figures inside it', () => {
     renderBody(genuineDecision())
     const glance = screen.getByTestId('analysis-new-glance')
     const options = screen.getByTestId('analysis-new-options')
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
-    expect(new Set([glance, options, strengthen]).size, 'three distinct elements').toBe(3)
+    const review = screen.getByTestId('analysis-new-review')
+    expect(new Set([glance, options, review]).size, 'three distinct elements').toBe(3)
 
     expect(precedes(glance, options), 'the glance leads; the figures follow it').toBe(true)
-    expect(
-      precedes(options, strengthen),
-      'coaching has no subject until the figures it responds to are on screen',
-    ).toBe(true)
+    expect(precedes(review, glance), 'V2: the model-wide review comes before the answer').toBe(true)
   })
 
   it('keeps the coaching above every detail section, not merely above one of them', () => {
@@ -976,7 +1038,11 @@ describe('the coaching sits directly under the reading it responds to', () => {
     // is the property that makes adding to it safe and never adding the drift.
     renderBody(genuineDecision())
     openGroups()
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    // ⚠ V2 (24 Sep 2026): the coaching is the review tool (the Strengthen mount
+    // is retired), and `analysis-new-checks` LEFT THE LIST because
+    // `WhatWeChecked` is no longer mounted — "About this analysis" absorbs it,
+    // so About takes its place and the checks' coverage moves with them.
+    const strengthen = screen.getByTestId('analysis-new-review')
     // ⚠ `analysis-new-options` LEFT THIS LIST ON PURPOSE — it is the ANSWER,
     // not detail, and the case above pins it ABOVE the coaching. Removing it
     // here without that case would have dropped the coverage silently, which
@@ -994,13 +1060,13 @@ describe('the coaching sits directly under the reading it responds to', () => {
     // drivers ABOVE the coaching, the mirror of the options case. Dropping the
     // id without that case is the silent drift this block warns about.
     const detail = [
-      'analysis-new-checks',
+      'analysis-new-about',
       'analysis-new-key-insights',
       'analysis-new-uncertainty',
     ]
     for (const id of detail) {
       const section = screen.getByTestId(id)
-      expect(precedes(strengthen, section), `Strengthen must precede ${id}`).toBe(true)
+      expect(precedes(strengthen, section), `the review must precede ${id}`).toBe(true)
     }
   })
 
@@ -1014,15 +1080,24 @@ describe('the coaching sits directly under the reading it responds to', () => {
    * the same claim: the answer is above the coaching, and "what the answer
    * turns on" is part of the answer.
    */
-  it('the drivers are part of the answer, so they sit ABOVE the coaching', () => {
+  /**
+   * ⛔ V2 (24 Sep 2026) RETIRED "DRIVERS ABOVE THE COACHING". V2 moves "What
+   * moves the outcome" into "Challenge the thinking": below the review tool,
+   * ABOVE the answer zone. Rewritten to that relation — still a pair of
+   * distinct, named elements, so a move in either direction REDs.
+   */
+  it('V2: the drivers sit in "Challenge the thinking" — below the review, above the answer', () => {
     renderBody(genuineDecision())
     openGroups()
-    const strengthen = screen.getByTestId('analysis-new-strengthen')
+    const review = screen.getByTestId('analysis-new-review')
     const drivers = screen.getByTestId('analysis-new-drivers')
-    expect(new Set([strengthen, drivers]).size, 'two distinct elements').toBe(2)
+    const answer = screen.getByTestId('analysis-new-zone-answer-group')
+    expect(new Set([review, drivers, answer]).size, 'three distinct elements').toBe(3)
+    expect(screen.getByTestId('analysis-new-zone-also-group')).toContainElement(drivers)
+    expect(precedes(review, drivers), 'the model-wide review comes first').toBe(true)
     expect(
-      precedes(drivers, strengthen),
-      'what the answer turns on is part of the answer, not a detail below the coaching',
+      precedes(drivers, answer),
+      'what the answer turns on is read before the answer, in "Challenge the thinking"',
     ).toBe(true)
   })
 

@@ -14,6 +14,16 @@
  * ⛔ ONE COLOUR, DIVIDED BY GAPS. A graded or alternating fill reads as a
  * ranking, and #1593 is the ruling that a bar states magnitude and does not
  * grade the number.
+ *
+ * ⛔⛔ V2 (24 Sep 2026): THE PARTITION IS NO LONGER DRAWN ON THIS SECTION.
+ * Paul's staging test read the shares (81 / 17 / 2) as a ranking, and the V2
+ * comparison drops every win-share presentation from the resting view: the
+ * per-row bar, its readout, and this track. The shares stay on the view model
+ * for "About this analysis". This file now pins the REMOVAL, on the runs where
+ * the track used to draw, with the view model's shares as the precondition so
+ * the absence is the section's doing and not a fixture that could not
+ * partition. The sum-tolerance and missing-share guards went with the code
+ * they guarded (git history keeps both, should a partition return elsewhere).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -24,6 +34,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
+import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { genuineDecision } from './analysisNewFixtures'
 import { openAllSections } from './openNamedGroups'
 
@@ -76,67 +87,33 @@ const segments = () => {
 
 afterEach(cleanup)
 
-describe('the shares are one whole', () => {
-  it('⭐ THEY PARTITION — one track, one segment per option, each its own share', () => {
-    renderBody(withWins([0.31, 0.69]))
-    expect(segments(), 'the segments are the shares, in producer order').toEqual(['31%', '69%'])
-    expect(screen.getByTestId(`${BAR}-caption`).textContent).toContain('In this model, every simulated scenario')
-  })
+describe('the shares are one whole — and V2 no longer draws them here', () => {
+  /** The shares the view model carries, by option id, for the precondition. */
+  const vmShares = (data: ResultsSectionDataReturn) =>
+    buildAnalysisNewViewModel({
+      data,
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    }).optionsComparison.rows.flatMap((r) => (r.kind === 'analysed' ? [r.winFraction] : []))
 
-  it('⭐ A TIE READS AS A TIE — the case the separate bars make you compare across rows', () => {
-    renderBody(withWins([0.5, 0.5]))
-    expect(segments()).toEqual(['50%', '50%'])
-  })
+  it.each([
+    ['an exact partition', [0.31, 0.69]],
+    ['a tie', [0.5, 0.5]],
+    ['a partition inside the rounding tolerance', [0.305, 0.69]],
+  ] as const)('⛔ %s draws NO partition track and NO caption at rest', (_name, wins) => {
+    const data = withWins(wins)
+    // PRECONDITION: these are the runs on which the track used to draw.
+    const shares = vmShares(data)
+    expect(shares, 'PRECONDITION: every analysed option carries its share').toEqual([...wins])
+    renderBody(data)
+    // PRECONDITION: the section is open and its rows are on screen, so the
+    // absence below is not an unopened body.
+    expect(screen.getAllByTestId('analysis-new-options-row')).toHaveLength(wins.length)
 
-  it('⛔ THEY DO NOT SUM TO ONE — nothing renders', () => {
-    renderBody(withWins([0.3, 0.3]))
-    expect(
-      screen.queryByTestId(BAR),
-      'a 0.6 sum drawn as a full track leaves two fifths of the runs silently unaccounted for',
-    ).toBeNull()
-  })
-
-  it('⛔ AN OPTION WITH NO SHARE — nothing renders, because the set is incomplete', () => {
-    renderBody(withWins([0.31, null]))
-    expect(screen.queryByTestId(BAR)).toBeNull()
-  })
-
-  it('⛔⛔ THE DISCRIMINATOR — a missing share where the REST ALREADY SUM TO ONE', () => {
-    /**
-     * ⚠ THIS CASE EXISTS BECAUSE A MUTANT SURVIVED WITHOUT IT. Removing the
-     * missing-share guard and coalescing to `?? 0` passed all six other tests:
-     * on `[0.31, null]` the sum falls to 0.31 and the SUM CHECK catches it, so
-     * the sum check was standing in for a guard that was never independently
-     * exercised — a guard agreeing with its neighbour.
-     *
-     * Here the two analysed options already sum to 1 and a third carries no
-     * share, which is the ordinary state `computeOptionScale`'s own header
-     * describes: add an option after a run and it is in the list, unscored.
-     * Coalescing would draw it as a measured zero inside a full track.
-     */
-    renderBody(withWins([0.31, 0.69, null]))
-    expect(
-      screen.queryByTestId(BAR),
-      'an unscored option drawn as a measured zero is the fabrication this guard exists for',
-    ).toBeNull()
-  })
-
-  it('⛔ TOLERANCE IS FOR ROUNDING, NOT FOR A SET THAT DOES NOT ADD UP', () => {
-    // Within 0.01 — ordinary float error in a set the producer normalised.
-    renderBody(withWins([0.305, 0.69]))
-    expect(screen.queryByTestId(BAR), 'sums to 0.995 — inside tolerance').not.toBeNull()
-    cleanup()
-    // Outside it, and the difference is a real tenth of the runs.
-    renderBody(withWins([0.21, 0.69]))
-    expect(screen.queryByTestId(BAR), 'sums to 0.90 — outside tolerance').toBeNull()
-  })
-
-  it('⛔ ONE COLOUR — no graded or alternating fill, which would read as a ranking', () => {
-    renderBody(withWins([0.31, 0.69]))
-    const el = screen.getByTestId(BAR)
-    const fills = [...(el.firstElementChild?.children ?? [])].map(
-      (c) => (c as HTMLElement).className.split(' ').filter((k) => k.startsWith('bg-')).join(),
-    )
-    expect(new Set(fills).size, `segments must share one fill, got ${fills.join(' | ')}`).toBe(1)
+    expect(screen.queryByTestId(BAR), 'the partition track left the resting view').toBeNull()
+    expect(screen.queryByTestId(`${BAR}-caption`)).toBeNull()
+    expect(segments()).toBeNull()
   })
 })

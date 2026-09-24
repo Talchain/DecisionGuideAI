@@ -105,10 +105,19 @@ describe('the view model says when the shares leave the limits out', () => {
 
 describe('"How the options compare" states it above the shares', () => {
   it('⭐ shares on screen + limits unscored → "Goal only" and the cause, once', () => {
-    renderSection(decisionWithLeaderWithheld(), LIMITS_UNSCORED)
+    const vm = renderSection(decisionWithLeaderWithheld(), LIMITS_UNSCORED)
     const section = screen.getByTestId(TESTID)
     // PRECONDITION: this is the run Paul met — the options DO carry figures.
-    expect(within(section).getAllByText(/%/).length, 'PRECONDITION: shares on screen').toBeGreaterThan(0)
+    // ⚠ V2 (24 Sep 2026): read on the VIEW MODEL, not as '%' on screen. The
+    // win shares left this section's resting view (they move to "About this
+    // analysis"), so on this fixture (no ranges, no goal) nothing on the
+    // section prints a '%'. What this precondition guards is unchanged: the
+    // run carries figures, so the qualifier (not the no-figures paragraph) is
+    // the line that must speak.
+    expect(
+      vm.optionsComparison.rows.some((r) => r.kind === 'analysed' && r.winReadout !== null),
+      'PRECONDITION: the run carries per-option figures',
+    ).toBe(true)
     const line = qualifier()
     expect(line).not.toBeNull()
     expect(line!.textContent).toContain(COPY.optionFigures.goalOnlyQualifier)

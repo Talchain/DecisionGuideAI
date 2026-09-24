@@ -64,8 +64,11 @@ describe('the signature sees every field the strip renders', () => {
     expect(sig(at(0, 0))).toBe(sig(at(900, 400)))
   })
 
-  it('is empty — not a crash — for a node carrying no observed state at all', () => {
-    expect(sig(node())).toBe('')
+  it('carries only the label — not a crash — for a node with no observed state', () => {
+    // The label IS rendered (strip marks, review items, their asks), so it is
+    // part of the signature (Codex 5808182879); no value parts are present.
+    expect(sig(node())).toContain('Engineering hiring pressure')
+    expect(sig(node())).toBe(sig(node()))
     expect(sig(undefined)).toBe('')
   })
 })

@@ -69,6 +69,21 @@
  * It was stale text from a first cut that re-keyed the component and was
  * measured to destroy the reader's unsaved "I disagree" text; the SCOPE claim
  * it was trying to make lives in the fresh-mount limb above, not here.
+ *
+ * ── ⭐ REASONING V2 (24 Sep 2026): THE WALL IS GONE, THE FINDINGS ARE NOT ────
+ * "Strengthen the reasoning" is no longer mounted on this tab. Its findings
+ * are split between two V2 surfaces, both of which render PRE-RUN:
+ *   · `ChallengeCard` (`analysis-new-challenge`) shows ONE at rest — the body's
+ *     `glancePrimary`, i.e. the first finding the model strip is not already
+ *     offering as its own control;
+ *   · `ModelReviewTool` (`analysis-new-review`) queues the rest, one at a time,
+ *     behind "N to review" (`buildReviewQueue`, which excludes the card's one).
+ * So the question this file asks is re-pointed from "is the section open?" to
+ * "is every pre-run finding REACHABLE, by identity, with its reason?". The
+ * default-open limb is RETIRED (X): V2 collapses the review tool by design, and
+ * the replacement below asserts one press opens it onto the finding.
+ * ⛔ The "I disagree" limb is NOT re-pointed: V2 has no disagreement composer
+ * on this tab (see that test). It is reported as a regression, not edited.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -83,6 +98,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../../strengthen/buildRecommendations'
+import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
 import { genuineDecision, makeData, openStrategicChallenge } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
@@ -127,6 +143,54 @@ const draw = (data: ResultsSectionDataReturn, isPreRun: boolean) =>
     />,
   )
 
+const REVIEW = 'analysis-new-review'
+const CHALLENGE = 'analysis-new-challenge'
+const PRODUCER_ID = 'strengthen:phase3:g_narrow'
+
+/** Open the V2 review tool, if it is offering anything. */
+const openReview = (): void => {
+  const toggle = screen.getByTestId(`${REVIEW}-toggle`)
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+}
+
+/**
+ * Every key in the review queue, BY IDENTITY, read by paging the one-at-a-time
+ * tool from its first item to its last. `[]` when the tool offers nothing.
+ */
+const reviewQueueKeys = (): string[] => {
+  if (screen.queryByTestId(`${REVIEW}-toggle`) === null) return []
+  openReview()
+  const prev = () => screen.getByTestId(`${REVIEW}-prev`) as HTMLButtonElement
+  const next = () => screen.getByTestId(`${REVIEW}-next`) as HTMLButtonElement
+  for (let guard = 0; !prev().disabled && guard < 50; guard += 1) fireEvent.click(prev())
+  const keys: string[] = []
+  for (let guard = 0; guard < 50; guard += 1) {
+    keys.push(screen.getByTestId(`${REVIEW}-item`).getAttribute('data-review-key') ?? '')
+    if (next().disabled) break
+    fireEvent.click(next())
+  }
+  return keys
+}
+
+/** The finding the Challenge card shows at rest, by engine id, or null. */
+const challengeFindingId = (): string | null => {
+  const card = screen.queryByTestId(CHALLENGE)
+  return card?.getAttribute('data-source') === 'intervention'
+    ? card.getAttribute('data-recommendation-id')
+    : null
+}
+
+/**
+ * Every ENGINE FINDING the panel offers, wherever V2 put it: the card's one
+ * plus the queue's recommendation items. Verify-list factors (`factor:<id>`)
+ * are not findings and are excluded, so the count is the engine's.
+ */
+const groundedFindingIds = (): string[] => {
+  const card = challengeFindingId()
+  const queued = reviewQueueKeys().filter((k) => !k.startsWith('factor:'))
+  return card === null ? queued : [card, ...queued]
+}
+
 beforeEach(() => {
   useCanvasStore.setState({ nodes: NODES, goalThreshold: null } as never)
   useStrengthenStore.setState({ records: {} })
@@ -135,72 +199,71 @@ beforeEach(() => {
 
 describe('THE INSTRUMENT — the precondition, pinned in test', () => {
   /**
-   * ⭐⭐ WITHOUT THIS EVERY ASSERTION BELOW IS VACUOUS. "The section is open"
-   * says nothing if the section has nothing behind it, and a harness that
-   * silently stopped producing the pre-run recommendation would satisfy the
-   * closed-state twin for entirely the wrong reason (CLAUDE.md trap 13b).
+   * ⭐⭐ WITHOUT THIS EVERY ASSERTION BELOW IS VACUOUS. "The finding is
+   * reachable" says nothing if there is no finding, and a harness that silently
+   * stopped producing the pre-run recommendation would satisfy the empty twin
+   * for entirely the wrong reason (CLAUDE.md trap 13b).
+   *
+   * V2: read off the review tool's own count AND by identity across both
+   * surfaces, so a copy edit to "N to review" cannot make it vacuous.
    */
   it('pre-run, the engine really does ground exactly one finding', () => {
     draw(openStrategicChallenge(), true)
-    expect(screen.getByTestId('analysis-new-strengthen')).toBeInTheDocument()
-    // ⚠ READ OFF THE SECTION, NOT OFF THE BADGE. The badge is suppressed when
-    // the subtitle already states the number (`oneFactSaidOnce`), so a
-    // precondition bound to it would go VACUOUS on a copy edit — silently, and
-    // in the direction that makes this whole file agree with itself.
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-count',
-      '1',
-    )
+    expect(screen.getByTestId(`${REVIEW}-count`)).toHaveTextContent(REVIEW_TOOL_COPY.toReview(1))
+    expect(groundedFindingIds()).toEqual([SUCCESS_MEASURE_RECOMMENDATION_ID])
   })
 
   /** The opposite precondition, for the empty twin: this model grounds NONE. */
   it('with a target already stated, the engine grounds none', () => {
     draw(targetAlreadySet(), true)
-    expect(screen.getByTestId('analysis-new-strengthen')).toBeInTheDocument()
-    // `count` is null when nothing is grounded, so the attribute is absent —
-    // which is a different fact from "the badge did not draw".
-    expect(screen.getByTestId('analysis-new-strengthen')).not.toHaveAttribute(
-      'data-section-count',
-    )
+    // Contrast: the review tool IS mounted (its whole-framing ask is always
+    // there), so the absent entry below is the queue being empty, not a
+    // failed render.
+    expect(screen.getByTestId(`${REVIEW}-ask-framing`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`${REVIEW}-toggle`)).toBeNull()
+    expect(groundedFindingIds()).toEqual([])
   })
 })
 
-describe('pre-run, the coaching is READ, not promised', () => {
-  it('the section is open and its region is mounted', () => {
+describe('pre-run, the coaching is REACHABLE, not promised', () => {
+  /**
+   * ⛔ RETIRED (X): "the section is open and its region is mounted". V2 removed
+   * the Strengthen wall from this tab; its findings are the review tool's
+   * queue, which is collapsed by design ("N to review"). The V2 replacement:
+   * the entry renders pre-run, and ONE press opens it onto the finding.
+   */
+  it('V2: the review entry renders pre-run, and one press opens the finding', () => {
     draw(openStrategicChallenge(), true)
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-open',
-      'true',
-    )
-    expect(screen.getByTestId('analysis-new-strengthen-region')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-strengthen-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    )
+    const toggle = screen.getByTestId(`${REVIEW}-toggle`)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(screen.getByTestId(`${REVIEW}-toggle`)).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId(`${REVIEW}-item`)).toBeInTheDocument()
   })
 
   /**
-   * ⭐ BOUND BY IDENTITY, NOT BY A TEXT PREDICATE. Another card could satisfy
+   * ⭐ BOUND BY IDENTITY, NOT BY A TEXT PREDICATE. Another item could satisfy
    * "a row is on screen"; this must be THE finding about the gap that blocks
    * measurement, so it is matched on the engine's own id (CLAUDE.md trap 19).
    */
   it('the row on screen is the gap that blocks measurement', () => {
     draw(openStrategicChallenge(), true)
-    const rows = screen.getAllByTestId('analysis-new-strengthen-item')
-    expect(rows.map((r) => r.getAttribute('data-recommendation-id'))).toContain(
+    openReview()
+    expect(screen.getByTestId(`${REVIEW}-item`)).toHaveAttribute(
+      'data-review-key',
       SUCCESS_MEASURE_RECOMMENDATION_ID,
     )
   })
 
   /**
    * ⚠ AND THE SENTENCE THAT MAKES THE ROW WORTH OPENING FOR. The strip's
-   * "Set a target" control states the gap; only this row says what it costs.
-   * If the copy is ever moved elsewhere this REDs, which is correct — the
-   * reason for opening the section would have gone with it.
+   * "Set a target" control states the gap; only this finding says what it
+   * costs. If the copy is ever moved elsewhere this REDs, which is correct.
    */
   it('and it carries the reason the gap matters', () => {
     draw(openStrategicChallenge(), true)
-    expect(screen.getByTestId('analysis-new-strengthen-region')).toHaveTextContent(
+    openReview()
+    expect(screen.getByTestId(`${REVIEW}-reason`)).toHaveTextContent(
       'the analysis cannot say how likely each option is to succeed',
     )
   })
@@ -208,15 +271,16 @@ describe('pre-run, the coaching is READ, not promised', () => {
 
 describe('the opening is SCOPED — every other limb is unchanged', () => {
   /**
-   * ⭐⭐ THE DISCRIMINATING TWIN. A shell that simply opened this section would
-   * pass every assertion above and destroy the collapsed IA that
-   * `SectionShell`'s header measured at 1,584px.
+   * ⭐⭐ THE DISCRIMINATING TWIN. A panel that opened its review on every run
+   * would destroy the collapsed IA that `SectionShell`'s header measured at
+   * 1,584px. V2: a displayed run leaves the review tool closed.
    */
   it('a displayed run leaves the section CLOSED, as before', () => {
     draw(genuineDecision(), false)
-    const section = screen.getByTestId('analysis-new-strengthen')
-    expect(section).toHaveAttribute('data-section-open', 'false')
-    expect(screen.queryByTestId('analysis-new-strengthen-region')).toBeNull()
+    // Precondition: there IS something to open, so "closed" is a state and
+    // not an absence.
+    expect(screen.getByTestId(`${REVIEW}-toggle`)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId(`${REVIEW}-item`)).toBeNull()
   })
 
   /**
@@ -239,16 +303,14 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
   })
 
   /**
-   * ⚠ AN EMPTY SECTION IS NOT WORTH A VIEWPORT. Opening onto "nothing to
-   * strengthen" spends the reader's attention on an absence they can already
-   * read off the collapsed row.
+   * ⚠ AN EMPTY TOOL IS NOT WORTH A VIEWPORT. With nothing grounded the review
+   * offers no entry to open at all, and nothing is open.
    */
   it('pre-run with nothing to say stays CLOSED', () => {
     draw(targetAlreadySet(), true)
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-open',
-      'false',
-    )
+    expect(screen.queryByTestId(`${REVIEW}-toggle`)).toBeNull()
+    expect(screen.queryByTestId(`${REVIEW}-item`)).toBeNull()
+    expect(screen.queryByTestId(CHALLENGE)).toBeNull()
   })
 
   /**
@@ -277,15 +339,18 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
    * plainly rather than dressed up as RED-first. Its evidence is the mutant:
    * re-adding the `key` turns it red.
    */
-  it('an in-progress disagreement survives a run completing', () => {
+  it('a disagreement survives a run completing (V2: it lives in the conversation, not the panel)', async () => {
+    // V2 has no in-panel composer: "I disagree" opens the ask with the
+    // finding's context, and the draft lives in the ask store outside this
+    // tab, so a completing run cannot remount it away. What the panel owns is
+    // that the act stays reachable on both sides of the transition.
+    const { openAskOlumi } = await import('../../coaching/askOlumiStore')
+    vi.mocked(openAskOlumi).mockClear()
     const { rerender } = draw(openStrategicChallenge(), true)
-    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
-    const box = document.querySelector('textarea') as HTMLTextAreaElement | null
-    // PRECONDITION PINNED IN-TEST: without a composer and a value in it, the
-    // assertion after the rerender would pass on an absence.
-    expect(box, 'no composer opened — the guard would be vacuous').not.toBeNull()
-    fireEvent.change(box!, { target: { value: 'The target should be NRR, not ARR' } })
-    expect(box!.value).toBe('The target should be NRR, not ARR')
+    openReview()
+    fireEvent.click(screen.getByTestId(`${REVIEW}-more`))
+    fireEvent.click(screen.getByTestId(`${REVIEW}-disagree`))
+    expect(vi.mocked(openAskOlumi).mock.calls.at(-1)?.[0].label).toBe(REVIEW_TOOL_COPY.disagree)
 
     rerender(
       <AnalysisNewTabBody
@@ -296,23 +361,29 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
         responseHash="run_abc123"
       />,
     )
-
-    const after = document.querySelector('textarea') as HTMLTextAreaElement | null
-    expect(after, 'the composer was destroyed by the transition').not.toBeNull()
-    expect(after!.value).toBe('The target should be NRR, not ARR')
+    // Post-run the act is on the Challenge card (the promoted finding) or on a
+    // review item; at least one must offer it.
+    const cardMore = screen.queryByTestId(`${CHALLENGE}-more`)
+    if (cardMore) fireEvent.click(cardMore)
+    else {
+      openReview()
+      fireEvent.click(screen.getByTestId(`${REVIEW}-more`))
+    }
+    expect(
+      screen.queryByTestId(`${CHALLENGE}-disagree`) ?? screen.queryByTestId(`${REVIEW}-disagree`),
+    ).not.toBeNull()
   })
 
   /**
    * ⚠ AND THE STATE THE READER LEFT IT IN IS THE STATE THEY GET BACK. The
-   * section does not slam shut under them; it is exactly what it is today for
-   * a reader who opened it themselves.
+   * review does not slam shut under them when a run lands. V2: the reader
+   * opens it (it is collapsed by design), and it stays open across the
+   * transition — `ModelReviewTool` keeps its state after mount.
    */
   it('the section the reader was reading stays open across the transition', () => {
     const { rerender } = draw(openStrategicChallenge(), true)
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-open',
-      'true',
-    )
+    openReview()
+    expect(screen.getByTestId(`${REVIEW}-toggle`)).toHaveAttribute('aria-expanded', 'true')
     rerender(
       <AnalysisNewTabBody
         resultsSectionData={genuineDecision()}
@@ -322,10 +393,8 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
         responseHash="run_abc123"
       />,
     )
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-open',
-      'true',
-    )
+    expect(screen.getByTestId(`${REVIEW}-toggle`)).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId(`${REVIEW}-item`)).toBeInTheDocument()
   })
 
   /**
@@ -336,10 +405,8 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
    */
   it('but a reader who lands on a completed run still meets a collapsed row', () => {
     draw(genuineDecision(), false)
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-open',
-      'false',
-    )
+    expect(screen.getByTestId(`${REVIEW}-toggle`)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId(`${REVIEW}-item`)).toBeNull()
   })
 
   /**
@@ -349,12 +416,11 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
    */
   it('the reader can close it, and it stays closed', () => {
     draw(openStrategicChallenge(), true)
-    fireEvent.click(screen.getByTestId('analysis-new-strengthen-toggle'))
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-open',
-      'false',
-    )
-    expect(screen.queryByTestId('analysis-new-strengthen-region')).toBeNull()
+    openReview()
+    expect(screen.getByTestId(`${REVIEW}-item`)).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId(`${REVIEW}-toggle`))
+    expect(screen.getByTestId(`${REVIEW}-toggle`)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId(`${REVIEW}-item`)).toBeNull()
   })
 })
 
@@ -379,6 +445,10 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
  * ⚠ IT IS PINNED HERE RATHER THAN LEFT AS A CLAIM IN A COMMIT MESSAGE. A
  * sentence saying "producer coaching reaches this list" is a mirror; a test
  * that REDs when the promotion becomes analysis-gated is not (trap 12).
+ *
+ * V2: the producer block is the Challenge card's finding AT REST (the strip
+ * already offers the success target, so the card skips that one), and the
+ * success-measure finding stays in the review queue. Both are asserted by id.
  */
 describe('the producer\'s own coaching reaches the pre-run reader', () => {
   /** A CEE draft-coaching block, in the store's own `GuidanceItem` shape. */
@@ -401,32 +471,26 @@ describe('the producer\'s own coaching reaches the pre-run reader', () => {
   /**
    * ⚠ THE PRECONDITION IS THE COUNT MOVING, NOT THE COUNT BEING TWO. Asserting
    * a bare "2" would pass if the engine dropped the producer block and minted
-   * some other row instead; the identity assertion below is what settles which
-   * two. Both are here because each catches what the other cannot.
+   * some other row instead; the identity assertion is what settles which two.
    */
   it('the block is promoted into the pre-run list at all', () => {
     seedProducerCoaching()
     draw(openStrategicChallenge(), true)
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-count',
-      '2',
-    )
+    const ids = groundedFindingIds()
+    expect(ids).toHaveLength(2)
+    expect(ids).toEqual(expect.arrayContaining([SUCCESS_MEASURE_RECOMMENDATION_ID, PRODUCER_ID]))
   })
 
-  it('and the reader can READ it — open, and bound to the producer\'s own id', () => {
+  it('and the reader can READ it — at rest, and bound to the producer\'s own id', () => {
     seedProducerCoaching()
     draw(openStrategicChallenge(), true)
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-open',
-      'true',
-    )
-    const ids = screen
-      .getAllByTestId('analysis-new-strengthen-item')
-      .map((r) => r.getAttribute('data-recommendation-id'))
     // ⚠ BY IDENTITY: `strengthen:phase3:${item_id}` is the engine's own key for
-    // a producer block, so this cannot be satisfied by a UI-authored row.
-    expect(ids).toContain('strengthen:phase3:g_narrow')
-    expect(screen.getByTestId('analysis-new-strengthen-region')).toHaveTextContent(
+    // a producer block, so this cannot be satisfied by a UI-authored row. No
+    // click precedes it: the card is on screen at rest.
+    const card = screen.getByTestId(CHALLENGE)
+    expect(card).toHaveAttribute('data-source', 'intervention')
+    expect(card).toHaveAttribute('data-recommendation-id', PRODUCER_ID)
+    expect(screen.getByTestId(`${CHALLENGE}-heading`)).toHaveTextContent(
       'You are comparing only two options',
     )
   })
@@ -438,13 +502,8 @@ describe('the producer\'s own coaching reaches the pre-run reader', () => {
    */
   it('with no producer coaching, that row is absent', () => {
     draw(openStrategicChallenge(), true)
-    const ids = screen
-      .getAllByTestId('analysis-new-strengthen-item')
-      .map((r) => r.getAttribute('data-recommendation-id'))
-    expect(ids).not.toContain('strengthen:phase3:g_narrow')
-    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
-      'data-section-count',
-      '1',
-    )
+    const ids = groundedFindingIds()
+    expect(ids).not.toContain(PRODUCER_ID)
+    expect(ids).toEqual([SUCCESS_MEASURE_RECOMMENDATION_ID])
   })
 })

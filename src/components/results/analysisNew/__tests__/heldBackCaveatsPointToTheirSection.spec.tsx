@@ -14,6 +14,14 @@
  * held-back row the tab actually rendered and collects the titles of every
  * section containing it; the pointer must name one of them. So if the row
  * moves again, this goes RED without anyone remembering to update a literal.
+ *
+ * ⭐ V2 (24 Sep 2026): IT MOVED AGAIN, AND THIS FILE IS WHY THE POINTER FOLLOWED.
+ * `DeeperAnalysis` is no longer mounted; its groups render as the "Run record"
+ * detail inside `AboutThisAnalysis` (collapsed, last on the tab), and the strip
+ * now names `ABOUT_COPY.title`. Re-pointed: the opener walks About's own
+ * toggles, and a section's title is read from its `-title` element (the
+ * `SectionShell` convention) or, where a section has none, from the element its
+ * `aria-labelledby` names — About's heading holds only its title.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -60,7 +68,12 @@ function enclosingSectionTitles(el: Element): string[] {
     if (node.tagName === 'SECTION') {
       // The TITLE element only — the heading also carries the subtitle and count.
       const testId = node.getAttribute('data-testid')
-      const title = testId ? node.querySelector(`[data-testid="${testId}-title"]`) : null
+      const labelledBy = node.getAttribute('aria-labelledby')
+      const title =
+        (testId ? node.querySelector(`[data-testid="${testId}-title"]`) : null) ??
+        // No `-title` element (AboutThisAnalysis): the section's accessible
+        // name, i.e. the heading `aria-labelledby` points at.
+        (labelledBy ? document.getElementById(labelledBy) : null)
       const text = title?.textContent?.trim()
       if (text) titles.push(text)
     }
@@ -69,11 +82,12 @@ function enclosingSectionTitles(el: Element): string[] {
   return titles
 }
 
-/** Open every collapse between the tab and the held-back rows: the section, then
- *  DeeperAnalysis's own toggle. Clicked only when collapsed, so it cannot close. */
+/** Open every collapse between the tab and the held-back rows: About this
+ *  analysis, then its "Run record" detail (V2 — formerly the drivers group, then
+ *  DeeperAnalysis's own toggle). Clicked only when collapsed, so it cannot close. */
 function openTheHeldBackRows(): void {
   openGroups()
-  for (const id of ['analysis-new-what-moves-the-outcome-toggle', 'analysis-new-deeper-toggle']) {
+  for (const id of ['analysis-new-about-toggle', 'analysis-new-about-detail-record-toggle']) {
     const t = screen.queryByTestId(id)
     if (t && t.getAttribute('aria-expanded') === 'false') fireEvent.click(t)
   }

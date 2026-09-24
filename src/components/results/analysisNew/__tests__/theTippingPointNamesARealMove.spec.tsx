@@ -38,7 +38,6 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { manyFragileEdges } from './analysisNewFixtures'
-import { openAllSections } from './openNamedGroups'
 
 afterEach(cleanup)
 
@@ -60,16 +59,20 @@ const renderBody = (data: ResultsSectionDataReturn) => {
       responseHash="tipping_point_noop"
     />,
   )
-  // `SectionShell` unmounts a closed region, so a query before this finds
-  // nothing whether or not the line exists.
-  //
-  // ⚠ AND THE TESTID MATTERS: this spec first queried
+  // ⚠ THE TESTID MATTERS: this spec first queried
   // `analysis-new-sensitivity-tipping-point`, which renders from `tippingPoints.ts`
   // — a DIFFERENT surface. All four cases went red, INCLUDING the contrast
   // control, which is the signature of a probe aimed at the wrong element
   // rather than a defect. The `Could change if …` sentence is `glanceCondition`'s,
   // rendered by `AtAGlance` as `analysis-new-glance-condition`.
-  openAllSections()
+  //
+  // V2 RE-POINT (Reasoning V2, 24 Sep 2026): nothing is opened. `AtAGlance`
+  // heads the answer zone and renders the condition AT REST — it is not behind
+  // any `SectionShell` — so the old `openAllSections()` was a no-op for this
+  // element, and on V2 it cannot converge (About's detail rows are a
+  // one-at-a-time accordion). Reading at rest is the stronger claim: it is what
+  // the reader sees without a click. `getByTestId` throws on absence, so no
+  // case here can pass on a missing line.
   return r
 }
 

@@ -214,3 +214,15 @@ describe('the mounted strip follows the live model', () => {
     expect(lastRing()).toEqual(['f_b'])
   })
 })
+
+describe('a label-only rename reaches the mounted strip (Codex 5808182879)', () => {
+  it('the factor mark names the NEW label; drag-only moves change nothing', () => {
+    const f = { ...bare('f_v', 'Vendor cost'), data: { label: 'Vendor cost', observedState: { value: 0.49, source: 'cee_inference' } } }
+    setNodes([f])
+    render(<ModelStrip isPreRun />)
+    expect(screen.getByRole('button', { name: 'Show Vendor cost on the canvas' }), 'PRECONDITION').toBeInTheDocument()
+    setNodes([{ ...f, data: { ...f.data, label: 'Annual platform cost' } }])
+    expect(screen.getByRole('button', { name: 'Show Annual platform cost on the canvas' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Vendor cost on the canvas' })).toBeNull()
+  })
+})

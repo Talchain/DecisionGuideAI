@@ -388,7 +388,16 @@ describe('the mount path', () => {
    * a DESCENDANT of the deeper section as `AnalysisNewTabBody` renders it. A
    * control present anywhere in the document would satisfy mere presence.
    */
+  /**
+   * ⭐ V2 (24 Sep 2026): `DeeperAnalysis` is no longer mounted on this tab. Its
+   * groups render as the "Run record" detail inside `AboutThisAnalysis`, which
+   * the body mounts with `offerFactorValueControl={true}` and which prefixes the
+   * control's handles with its own testid. Re-pointed to that surface; the
+   * claim — the control is a DESCENDANT of the section the body mounts, bound to
+   * the row's own node id — is unchanged.
+   */
   it('is reachable from the reasoning tab body', () => {
+    const ABOUT = 'analysis-new-about'
     render(
       <AnalysisNewTabBody
         resultsSectionData={dataWithWarnings()}
@@ -398,14 +407,18 @@ describe('the mount path', () => {
         responseHash="run_gap"
       />,
     )
-    // ⚠ THE DEEPER SECTION SITS INSIDE A NAMED GROUP, and `SectionShell`
-    // UNMOUNTS a closed region — so the mount check below would read an absence
-    // rather than the section it is written to prove reachable.
     openGroupsIfPresent()
-    const section = screen.getByTestId(TID)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-    const trigger = controlFor(`${TID}-value-edit`, TARGET_NODE_ID)
+    // The body mounts NO DeeperAnalysis any more — so a control found below
+    // cannot be coming from a second, stale mount.
+    expect(screen.queryByTestId(TID)).toBeNull()
+    const section = screen.getByTestId(ABOUT)
+    // ⚠ About is collapsed at rest and UNMOUNTS its region; so is the detail.
+    fireEvent.click(screen.getByTestId(`${ABOUT}-toggle`))
+    fireEvent.click(screen.getByTestId(`${ABOUT}-detail-record-toggle`))
+    const trigger = controlFor(`${ABOUT}-value-edit`, TARGET_NODE_ID)
     expect(trigger).toBeInTheDocument()
     expect(section).toContainElement(trigger as HTMLElement)
+    // …and the goal-ancestor row still offers none on the mounted surface.
+    expect(controlFor(`${ABOUT}-value-edit`, GOAL_NODE_ID)).toBeUndefined()
   })
 })

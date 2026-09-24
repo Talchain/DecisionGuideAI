@@ -54,12 +54,23 @@
  * name its tone, and a caller that names none renders an unbordered block,
  * which is visibly wrong rather than quietly wrong.
  */
-export const PANEL_SURFACE = 'rounded-md border px-3 py-2.5'
+/*
+ * ⭐ V2 (Paul + ChatGPT brief, 23 Sep 2026): NEUTRAL SURFACES, FULL-WIDTH
+ * DIVIDERS, NO CARDS. A section is no longer a rounded, tinted box; it is a
+ * block closed by one full-width horizontal rule. No radius, no side borders,
+ * no fill, no horizontal padding of its own (the tab body owns the gutter).
+ * Tone survives only as the rule's colour, so a caveat is still told apart
+ * without a tint; the words and icon carry the meaning.
+ */
+export const PANEL_SURFACE = 'border-b py-2.5'
 
 /**
  * A box nested INSIDE a section box. Same rule, one level down.
  */
-export const PANEL_INSET = 'rounded border px-2 py-1.5'
+/*
+ * V2: NO NESTED CARDS. An inset is spacing only: no border, no radius, no fill.
+ */
+export const PANEL_INSET = 'py-1.5'
 
 /**
  * The tones a container may carry, and the complete list of them.
@@ -73,13 +84,13 @@ export const SURFACE_TONE = {
   /** No claim. The default for a box that groups without judging. */
   neutral: 'border-panel-border',
   /** The run held up. */
-  success: 'border-success/30 bg-success/[0.05]',
+  success: 'border-success/30',
   /** A caveat the reader must carry into the reading. */
-  warning: 'border-warning/30 bg-warning/[0.05]',
+  warning: 'border-warning/30',
   /** Worth stopping on, but nothing went wrong — the diverged implication. */
-  info: 'border-info/30 bg-info/10',
+  info: 'border-info/30',
   /** A grouped surface with no border of its own to speak of. */
-  muted: 'border-panel-border bg-panel-hover',
+  muted: 'border-panel-border',
 } as const
 
 /**

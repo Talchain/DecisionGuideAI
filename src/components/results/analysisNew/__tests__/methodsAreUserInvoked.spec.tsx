@@ -32,10 +32,16 @@
  *
  * ⚠ IT DOES NOT ASSERT WHAT THE METHOD SAYS. The prompts are the catalogue's,
  * the send is `openAskOlumi`'s editable draft, and this tab decides neither.
+ *
+ * ⭐ REASONING V2 (24 Sep 2026): ONE SURFACE NOW. The chip shelf and this tab's
+ * Actions dropdown are replaced by `MethodStrip` (`analysis-new-method-strip`):
+ * five methods as icons, the rest of the catalogue in its "More" overflow. The
+ * claim is unchanged and is asserted over the WHOLE catalogue, by id: every
+ * method is reachable from the strip, either as an icon or in the overflow.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: () => true }))
 
@@ -46,6 +52,8 @@ import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 
 /** The two that depend on NO producer signal — valid on any model, always. */
 const ALWAYS_VALID = ['reframe_problem', 'explore_tradeoffs'] as const
+/** V2: the one method surface on this tab (`sections/MethodStrip.tsx`). */
+const STRIP = 'analysis-new-method-strip'
 
 const draw = () =>
   render(
@@ -78,42 +86,43 @@ describe('the thinking moves are user-invoked, not only producer-offered', () =>
   it('the Reasoning tab mounts the methods menu', () => {
     draw()
     expect(
-      screen.getByTestId('analysis-new-methods'),
-      'the menu was built and mounted only on the parked Analysis tab',
+      screen.getByTestId(STRIP),
+      'the methods were built and mounted only on the parked Analysis tab',
     ).toBeInTheDocument()
   })
 
   it('opening it offers every catalogue method, the two ungated ones included', () => {
     draw()
-    const menu = screen.getByTestId('analysis-new-methods')
-    const trigger = menu.querySelector('button')
-    expect(trigger, 'the menu must have a trigger a person can press').not.toBeNull()
-    fireEvent.click(trigger as HTMLButtonElement)
+    const strip = screen.getByTestId(STRIP)
+    const more = screen.getByTestId(`${STRIP}-more`)
+    expect(strip.contains(more), 'the overflow must be a trigger a person can press').toBe(true)
+    fireEvent.click(more)
+    expect(screen.getByTestId(`${STRIP}-menu`)).toBeInTheDocument()
 
     /*
-     * ⭐ SCOPED TO THE MENU, AND THE REASON IS A PREMISE OF THIS FILE THAT HAS
-     * SINCE BECOME FALSE. This assertion read `screen.getByText`, which was
-     * unambiguous only while the dropdown was the sole place a method title
-     * appeared. `MethodsYouCanRun` now renders the same catalogue as a chip row
-     * in ZONE: FOCUS, so every title resolves TWICE and the global query throws
-     * "Found multiple elements" — the spec failed on the arrival of a second
-     * route, not on a defect.
-     *
-     * ⛔ THE STALE CLAIM IS THE MESSAGE BELOW, NOT THE ASSERTION. The old text
-     * said the menu is a method's "ONLY route". That was true when this file
-     * was written and is now wrong; left unedited it would teach the next
-     * reader that removing the chip row costs nothing. The ASSERTION is
-     * unchanged in strength — this file is about the MENU, so binding the query
-     * to the menu is the tighter claim, not the looser one (trap 19: bind by
-     * identity, never by a match another element could satisfy).
+     * ⭐ BY CATALOGUE IDENTITY, NOT BY COPY, AND OVER THE WHOLE CATALOGUE. A
+     * method is reachable when its icon is on the strip OR its row is in the
+     * overflow — V2 derives the overflow as "catalogue minus the icons", and
+     * this REDs if any id falls between the two. The two ungated methods are
+     * asserted by name as well, because they are this file's reason to exist.
      */
+    const reachable = (id: string): boolean =>
+      screen.queryByTestId(`${STRIP}-method-${id}`) !== null ||
+      screen.queryByTestId(`${STRIP}-menu-method-${id}`) !== null
+    for (const method of METHOD_CATALOGUE) {
+      expect(reachable(method.id), `${method.id} is reachable from neither the icons nor the overflow`).toBe(true)
+    }
     for (const id of ALWAYS_VALID) {
-      const entry = METHOD_CATALOGUE.find((m) => m.id === id)
       expect(
-        within(menu).getByText(entry!.title),
-        `"${entry!.title}" is reachable from no producer signal, so the menu must carry it — ` +
-          'the ZONE: FOCUS chip row is a SECOND route and is pinned separately, not here',
-      ).toBeInTheDocument()
+        reachable(id),
+        `"${id}" is reachable from no producer signal, so the strip must carry it`,
+      ).toBe(true)
+      // …and it is offered under the catalogue's own title (the icon's
+      // accessible name, or the overflow row's text), not an unnamed control.
+      const entry = METHOD_CATALOGUE.find((m) => m.id === id)!
+      const el =
+        screen.queryByTestId(`${STRIP}-method-${id}`) ?? screen.getByTestId(`${STRIP}-menu-method-${id}`)
+      expect(`${el.getAttribute('aria-label') ?? ''} ${el.textContent ?? ''}`).toContain(entry.title)
     }
   })
 })
