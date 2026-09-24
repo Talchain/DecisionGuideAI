@@ -1092,15 +1092,45 @@ function buildUncertainty(
   const assumed = data.assumedStrength?.selected ?? null
   if (assumed) {
     const others = assumedStrengthOthers(data.assumedStrength.assumedFragileCount)
+    /**
+     * ⛔ NOT ON A WITHHELD RANKING — the rule #1933 applied to the hinge and #1940
+     * to the driver row (and #1941, open at the time of writing, to "What would
+     * change your mind"), applied to a sentence on this surface that still
+     * broke it.
+     *
+     * `assumedStrengthWhy` says *"In the runs where that link came out weak,
+     * {alt} was the stronger option NN% of the time"*. ISL declares the number
+     * as the share of samples where an ALTERNATIVE wins — alternative to the
+     * option that leads now. On a run whose leader claim was withheld that is
+     * the refused ranking restated as a percentage, with an option named as
+     * "the stronger" one on top; the unnamed branch ("a different option was
+     * the stronger one") presupposes the same ranking without the name. Its
+     * rider, "this had the highest such rate", goes with it: its antecedent IS
+     * the rate, and on its own it would point at nothing.
+     *
+     * ⚠ THE FINDING STAYS; ONE SENTENCE GOES. The lead is a fact about the
+     * MODEL (who set this strength), the "others" clause says "sensitive",
+     * which #1940 ruled names no leader, and the ask invites a person to set a
+     * value. On a machine-authored withheld run that ask is the very act that
+     * can lift the withholding — deleting the row would hide the remedy to hide
+     * one claim. All three are the copy module's own, unamended, so nothing
+     * here is authored and the claims spec still holds every word.
+     *
+     * `rankingWasWithheld`, not the wider `leaderDesignationPermitted`, for the
+     * hinge's reason: an open challenge with no arms never had a ranking to
+     * withhold, and its sentence is licensed.
+     */
+    const why = rankingWasWithheld(data.recommendation) ? null : assumedStrengthWhy(assumed)
+    // Absent rather than '' when nothing survives: an empty string is a
+    // paragraph with nothing in it, not "no detail".
+    const detail = [why, others, assumedStrengthAsk(assumed)].filter(Boolean).join(' ')
     findings.push({
       // Identity carries the edge, so a test binds to THIS relationship rather
       // than to whichever row happens to sit first.
       id: `uncertainty:assumed-strength:${assumed.edgeId}`,
       headline: ASSUMED_STRENGTH_TITLE,
       implication: assumedStrengthLead(assumed),
-      detail: [assumedStrengthWhy(assumed), others, assumedStrengthAsk(assumed)]
-        .filter(Boolean)
-        .join(' '),
+      detail: detail || undefined,
       groundedIn: 'the unconfirmed-strength check on the fragile relationships',
       // `focusModelTarget` resolves against nodes AND edges, so an edge id is a
       // live target here — verified at `focusHelpers.ts:183-205`.
