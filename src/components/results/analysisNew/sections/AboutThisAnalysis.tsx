@@ -508,7 +508,7 @@ export function AboutThisAnalysis({
                   {isOpen ? (
                     <div id={bodyId} className="pb-2 pl-5" data-testid={`${testId}-detail-${key}-body`}>
                       {key === 'values' ? (
-                        <ValuesAndRanges options={analysed} fmt={fmt} normalised={outcomeFormat.isNormalised === true} testId={testId} />
+                        <ValuesAndRanges options={analysed} fmt={fmt} normalised={outcomeFormat.isNormalised === true} goalOnly={vm.checks.sharesExcludeLimits} testId={testId} />
                       ) : key === 'limitations' ? (
                         <ul className="m-0 list-none space-y-1 p-0">
                           {limitations.map((m) => (
@@ -555,17 +555,30 @@ function ValuesAndRanges({
   options,
   fmt,
   normalised,
+  goalOnly,
   testId,
 }: {
   options: Array<Extract<ComparisonOption, { kind: 'analysed' }>>
   fmt: (v: number) => string
   normalised: boolean
+  /** `vm.checks.sharesExcludeLimits` — the same flag and constant the comparison uses. */
+  goalOnly: boolean
   testId: string
 }) {
   const cell = (v: number | null | undefined) =>
     typeof v === 'number' && Number.isFinite(v) ? fmt(v) : ABOUT_COPY.values.notReturned
+  /* ⭐ THE SHARES CARRY THEIR SCOPE HERE TOO. V2 moved the share figures into
+     this section and left the comparison's "Goal only" line behind, so on the
+     served withheld run (c3a39ae7) they printed with no word that the limits
+     are not in them. Only when a share figure is actually on screen. */
+  const showsAShare = options.some((o) => o.winReadout != null)
   return (
     <div className="space-y-2">
+      {goalOnly && showsAShare ? (
+        <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${testId}-values-goal-only`}>
+          {COPY.optionFigures.goalOnlyQualifier}
+        </p>
+      ) : null}
       {normalised ? (
         <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${testId}-values-normalised`}>
           {ABOUT_COPY.values.normalised}
