@@ -499,12 +499,26 @@ function buildKeyInsights(
     // BELOW — sixteen significant figures on the deployed build `a9fc1564`,
     // found by the 28 Aug independent audit. See `formatThresholdValue`.
     const splitValue = formatThresholdValue(cw.split_value)
+    // ⛔ A FACTOR-TYPE DESCRIPTOR IS NO UNIT HERE EITHER — the rule
+    // `glanceCondition` and `disclosure.tippingPoint` already apply, reaching
+    // the one threshold sentence in this builder that still printed the
+    // producer's unit raw: "Above 0.5 binary, …". `split_unit` is ISL's
+    // `node.observed_state.unit` (`robustness_analyzer_v2.py:6086`, ISL
+    // `staging` `c00f5077`) — the same field PLoT reads for
+    // `flip_thresholds[].unit` (`coaching/flip-thresholds.ts:163`), the one
+    // served as "binary" on UI `c3a39ae7` — and neither PLoT's parse
+    // (`routes/v2/run.ts:798`) nor `useResultsSectionData` filters it on the
+    // way here. Read from the owner (`isSuppressedUnit`), never re-listed; a
+    // suppressed unit takes the unit-less form both arms already have for an
+    // absent one. Placement is deliberately untouched: this changes WHETHER a
+    // unit prints, not where.
+    const splitUnit = cw.split_unit && !isSuppressedUnit(cw.split_unit) ? ` ${cw.split_unit}` : ''
     out.push({
       id: `insight:conditional-winner:${cw.factor_id}`,
       headline: `In this model, which option leads depends on ${cw.factor_label}`,
       implication: namesBoth
-        ? `Above ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}, ${high} scores higher; below it, ${low} does.`
-        : `The preferred direction changes around ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}.`,
+        ? `Above ${splitValue}${splitUnit}, ${high} scores higher; below it, ${low} does.`
+        : `The preferred direction changes around ${splitValue}${splitUnit}.`,
       groundedIn: 'the conditional split from the simulation',
       marker: staleMarker,
       targetId: cw.factor_id,

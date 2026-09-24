@@ -159,3 +159,79 @@ describe('mounted: no site on the tab prints "binary" as a unit', () => {
     expect(s.sensitivity).toContain('from £1 to £0.4')
   })
 })
+
+/**
+ * ⛔ THE FOURTH SITE: "WHICH OPTION LEADS DEPENDS ON…" PRINTED `split_unit` RAW.
+ *
+ * The conditional-winner insight appends `cw.split_unit` after the split value,
+ * and it had no filter at all. `split_unit` is not a different field from the
+ * one the three sites above were fixed for; it is the SAME producer field one
+ * hop further on. Traced at ISL `staging` `c00f5077`,
+ * `robustness_analyzer_v2.py:6086-6090`: `split_unit = node.observed_state.unit`
+ * — the value PLoT's `coaching/flip-thresholds.ts:163` also reads for
+ * `flip_thresholds[].unit`, the field served as "binary" on UI `c3a39ae7`.
+ * PLoT's parse (`routes/v2/run.ts:798-803`) and this repo's mapper
+ * (`useResultsSectionData.ts:4327-4332`) both pass the string through
+ * untouched, and PLoT's own `translator-v3.ts:941-943` treats
+ * `observed_state.unit === 'binary'` as a value it expects to see. So nothing
+ * between the producer and this sentence stops "Above 0.5 binary, …".
+ *
+ * ⭐ THE CONTRAST IS THE SAME ONE: a fix that dropped every `split_unit` would
+ * pass the binary half, so a real unit ('£') must still reach the sentence.
+ * It pins that the unit PRINTS, not where it sits — placement is not this fix.
+ */
+describe('the conditional-winner insight ("which option leads depends on…")', () => {
+  const withSplitUnit = (splitUnit: string, namesBoth = true): ResultsSectionDataReturn => {
+    const base = genuineDecision()
+    return {
+      ...base,
+      confidence: {
+        ...base.confidence,
+        conditionalWinners: [
+          {
+            factor_id: 'n_enterprise',
+            factor_label: 'Enterprise tier availability',
+            split_value: 0.5,
+            split_unit: splitUnit,
+            winner_flips: true,
+            low_bucket: { win_probability: 0.4, ...(namesBoth ? { winner_label: 'Hold price' } : {}) },
+            high_bucket: { win_probability: 0.6, ...(namesBoth ? { winner_label: 'Raise price' } : {}) },
+          },
+        ],
+      },
+    } as unknown as ResultsSectionDataReturn
+  }
+
+  /** By ID PREFIX, so an absence of "binary" can never be the absence of the insight. */
+  const splitInsight = (data: ResultsSectionDataReturn) => {
+    const found = vmOf(data).keyInsights.insights.find((i) =>
+      i.id.startsWith('insight:conditional-winner:'),
+    )
+    expect(found, 'precondition: the conditional-winner insight is produced at all').toBeDefined()
+    return found!
+  }
+
+  it('⛔ named-both arm: a binary-typed split states the value, never "binary"', () => {
+    const insight = splitInsight(withSplitUnit('binary'))
+    expect(insight.implication).not.toMatch(BINARY)
+    // By identity: exactly the sentence an absent unit yields.
+    expect(insight.implication).toBe('Above 0.5, Raise price scores higher; below it, Hold price does.')
+  })
+
+  it('⛔ neutral arm (no winner named): the same rule', () => {
+    const insight = splitInsight(withSplitUnit('binary', false))
+    expect(insight.implication).not.toMatch(BINARY)
+    expect(insight.implication).toBe('The preferred direction changes around 0.5.')
+  })
+
+  it('⛔ the descriptor is suppressed whatever its case', () => {
+    expect(splitInsight(withSplitUnit('Binary')).implication).not.toMatch(BINARY)
+  })
+
+  it('⭐ CONTRAST: a real unit still prints, on both arms', () => {
+    const named = splitInsight(withSplitUnit('£')).implication
+    expect(named).toContain('£')
+    expect(named).toContain('Raise price scores higher')
+    expect(splitInsight(withSplitUnit('£', false)).implication).toContain('£')
+  })
+})
