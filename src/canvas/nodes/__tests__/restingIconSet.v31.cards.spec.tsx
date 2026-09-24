@@ -194,11 +194,23 @@ describe('U6 · v3.1 pt 6 — one resting icon set: no coaching glyph at quiet/f
     expect(screen.getByTestId('node-coaching-marker-fac-price')).toBeTruthy()
     expect(screen.getByTestId('node-coaching-icon-fac-price')).toBeTruthy()
     cleanup()
+    // NODE-ANATOMY v3.2 (24 Sep): the "?" hangs off the card's corner, so it is
+    // off the STANDARD face ("no pills on the border"; audit F8/FRAME-13) and
+    // stays in Detailed. The rung gate this file pins is the badge's own
+    // (`EvidenceGapBadge` + `selectRestingGlyphsShown`); Detailed is where the
+    // badge still mounts, so that is where its positive control lives.
+    setState({ lodRung: 'full', viewMode: 'expert' })
     renderCard('fac-conv')
     expect(screen.getByTestId('evidence-gap-badge')).toHaveTextContent('?')
     cleanup()
     // Same-run negative control: an observed (brief-stamped) value earns no "?".
     renderCard('fac-price')
+    expect(screen.queryByTestId('evidence-gap-badge')).toBeNull()
+    cleanup()
+    // v3.2: and the Standard face carries no "?" at the full rung either.
+    setState({ lodRung: 'full', viewMode: 'standard' })
+    renderCard('fac-conv')
+    expect(screen.getByTestId('node-title')).toBeTruthy()
     expect(screen.queryByTestId('evidence-gap-badge')).toBeNull()
   })
 

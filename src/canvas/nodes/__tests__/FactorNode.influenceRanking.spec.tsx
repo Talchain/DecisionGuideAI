@@ -57,6 +57,15 @@
  *   · ⛔ NOT CURRENT → the line is HIDDEN (spec §8: "stale analysis hides …
  *     driver … cues"), a deliberate change from the old fall-back-to-percentage
  *     arm. The withheld rank is still asserted absent, now with the whole line.
+ *
+ * ## ⛔ CONTRACT v3.1 pt 5 SUPERSEDES TWO OF THOSE CLAIMS (24 Sep 2026)
+ *
+ *   · the caption is "Driver N of M ranked in this run" and `M` is the RANKED
+ *     count (`influenceRankedCount`), not the licence set (`influenceSetSize`);
+ *     every fixture below supplies both, and they differ (5 vs 3);
+ *   · no denominator / no rank / a set of one → NO line and NO bar on either
+ *     view ("A factor the run did not rank shows no rank"); the card says
+ *     "Not ranked in this run" to AT only. The quantity-noun arm is retired.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
@@ -152,13 +161,21 @@ const setStore = (
  * kit — every future case would sit on whichever branch the default chose and
  * nobody would have to notice.
  */
-const setMetadata = (rank: number | null, setSize: number | null, influence: number) => {
+const setMetadata = (
+  rank: number | null,
+  setSize: number | null,
+  influence: number,
+  // Contract v3.1 pt 5: the printed M — the ranked count, distinct from the
+  // licence set so a caption that printed `setSize` would go red.
+  rankedCount: number | null = 3,
+) => {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
     sensitivityRank: rank,
     influence,
     influenceProvenance: 'normalised_elasticity',
     influenceImportanceBasis: null,
     influenceSetSize: setSize,
+    influenceRankedCount: rankedCount,
     confidence: null,
     confidenceIsDefaulted: false,
     confidenceIsProvisional: false,
@@ -187,16 +204,14 @@ const renderFactor = () =>
  * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
  */
 const RANKED_NAME_LEADER =
-  'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
+  'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
   'Bar: outcome sensitivity, 100% of the strongest factor. ' +
   'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
   'How much the outcome shifts when this factor changes. How sure are you of its value?'
 
-/** The same leader, unranked (no denominator / no rank / a set of one). */
-const UNRANKED_NAME_LEADER =
-  'Bar: outcome sensitivity, 100% of the strongest factor. ' +
-  'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
-  'How much the outcome shifts when this factor changes. How sure are you of its value?'
+/** Contract v3.1 pt 5: the unranked factor's one statement (AT only). */
+const NOT_RANKED = 'Not ranked in this run'
+const notRanked = () => screen.getByTestId('factor-driver-not-ranked')
 
 /** The face driver line, and the Detailed/popover one, bound by test id. */
 const faceLine = () => screen.getByTestId('factor-driver-line')
@@ -218,10 +233,10 @@ describe('Standard view — the driver line states the ranking', () => {
        transparent here), so the Detailed driver line is also in the document.
        A `getByText` would be ambiguous (CLAUDE.md trap 19). */
     const line = faceLine()
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
     /* ⛔ THE DELETE-MUTANT ASSERTION. Remove the rank from this call site and
-       the caption falls back to the quantity noun, which the line above
-       REJECTS. And the retired `% influence` row is gone from the face. */
+       the line disappears (contract v3.1 pt 5), which the line above REJECTS.
+       And the retired `% influence` row is gone from the face. */
     expect(line.textContent).not.toContain('%')
     expect(line.textContent).not.toContain('Relative influence')
     expect(line.textContent).not.toContain('Most influential')
@@ -236,7 +251,7 @@ describe('Standard view — the driver line states the ranking', () => {
     expect(line).toHaveAccessibleName(RANKED_NAME_LEADER)
     /* ⚠ THE NEGATIVE CONTROL for the old mangling ("Most influential: of 5.")
        — the caption and the set size are one phrase, never split by a colon. */
-    expect(line.getAttribute('aria-label')).not.toContain('Driver 1: of 5')
+    expect(line.getAttribute('aria-label')).not.toContain('Driver 1: of 3')
     expect(line.getAttribute('aria-label')!.startsWith(captionOf(line)!)).toBe(true)
   })
 
@@ -255,7 +270,7 @@ describe('Standard view — the driver line states the ranking', () => {
     setMetadata(2, 5, 0.62)
     renderFactor()
     const line = faceLine()
-    expect(captionOf(line)).toBe('Driver 2 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 2 of 3 ranked in this run')
     expect(line.textContent).not.toContain('62%')
     expect(line).toHaveAccessibleName(/62% of the strongest factor/)
   })
@@ -273,7 +288,7 @@ describe('Detailed view — the Detailed driver line states the same ranking', (
     setMetadata(1, 5, 1)
     renderFactor()
     const line = detailLine()
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
     expect(line.textContent).not.toContain('100%')
     expect(line.textContent).not.toContain('Relative influence')
     expect(line).toHaveAccessibleName(RANKED_NAME_LEADER)
@@ -310,47 +325,55 @@ describe('Detailed view — the Detailed driver line states the same ranking', (
  * (23 Sep 2026): the old fallback printed "Relative influence 100%"; the % now
  * stays in the disclosure on this arm too.
  */
-describe('no denominator — both views name the quantity, never a rank', () => {
-  it('Standard view falls back to the quantity noun; the percentage stays in the disclosure', () => {
+describe('no denominator — contract v3.1 pt 5: no rank, no line, no bar, on either view', () => {
+  // ⛔ SUPERSEDED (contract v3.1 pt 5): these used to pin the quantity-noun
+  // fallback ("Outcome sensitivity" + bar). An unranked factor now shows no
+  // rank and no line; its figure stays in the inspector's ImportanceBar.
+  it('Standard view: no line and no bar; the card says "Not ranked in this run" to AT', () => {
     setStore('standard')
     setMetadata(1, null, 1)
     renderFactor()
-    const line = faceLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.textContent).not.toContain('Driver')
-    expect(line.textContent).not.toContain('100%')
-    expect(line).toHaveAccessibleName(UNRANKED_NAME_LEADER)
+    expect(screen.getByTestId('node-title')).toBeTruthy()
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line-bar')).toBeNull()
+    expect(notRanked().textContent).toBe(NOT_RANKED)
+    expect(document.body.textContent).not.toContain('Outcome sensitivity')
   })
 
-  it('Detailed view falls back too — the two views cannot disagree', () => {
+  it('Detailed view: no Detailed line either — the two views cannot disagree', () => {
     setStore('expert')
     setMetadata(1, null, 1)
     renderFactor()
-    const line = detailLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.textContent).not.toContain('Driver')
-    // The SAME sentence the Standard face publishes on this arm, word for word.
-    expect(line).toHaveAccessibleName(UNRANKED_NAME_LEADER)
+    expect(screen.getByTestId('node-title')).toBeTruthy()
+    expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
+    expect(screen.getAllByTestId('factor-driver-not-ranked')).toHaveLength(1)
   })
 
   it('no rank withholds the claim even when a denominator is present', () => {
-    // The tie gate withholding a rank is the commonest live cause. The
-    // denominator is still computed and supplied; the claim is still refused.
+    // The tie gate withholding a rank is the commonest live cause.
     setStore('standard')
     setMetadata(null, 5, 1)
     renderFactor()
-    const line = faceLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.getAttribute('aria-label')).not.toContain('of 5')
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(document.body.textContent).not.toContain('of 5')
+    expect(notRanked().textContent).toBe(NOT_RANKED)
   })
 
   it('a set of one is a maximum, not a ranking', () => {
     setStore('standard')
-    setMetadata(1, 1, 1)
+    setMetadata(1, 1, 1, 1)
     renderFactor()
-    const line = faceLine()
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.getAttribute('aria-label')).not.toContain('Driver')
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(document.body.textContent).not.toContain('Driver')
+    expect(notRanked().textContent).toBe(NOT_RANKED)
+  })
+
+  it('CONTRAST — a ranked factor carries no "Not ranked" statement', () => {
+    setStore('standard')
+    setMetadata(1, 5, 1)
+    renderFactor()
+    expect(faceLine()).toBeTruthy()
+    expect(screen.queryByTestId('factor-driver-not-ranked')).toBeNull()
   })
 })
 
@@ -425,7 +448,8 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     renderFactor()
 
     expect(screen.getByTestId('node-title')).toBeTruthy()
-    expect(captionOf(faceLine())).toBe('Last run · Driver 1 of 5 analysed')
+    // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
+    expect(captionOf(faceLine())).toBe('Last run · Driver 1 of 3 ranked')
     // Never the unlabelled current-run caption.
     expect(captionOf(faceLine())!.startsWith('Driver')).toBe(false)
   })
@@ -438,7 +462,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    expect(captionOf(faceLine())).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(faceLine())).toBe('Driver 1 of 3 ranked in this run')
   })
 
   it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {
@@ -457,7 +481,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     // Ruling 3, ROADMAP 2.651: "labelled, not withheld"; visual contract v3).
     // The two views still cannot disagree: both carry the same label.
     const line = detailLine()
-    expect(captionOf(line)).toBe('Last run · Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Last run · Driver 1 of 3 ranked')
     expect(line.getAttribute('aria-label')!.startsWith(captionOf(line)!)).toBe(true)
     expect(line.textContent).not.toContain('100%')
   })

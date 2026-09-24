@@ -354,10 +354,14 @@ describe('FactorNode', () => {
       })
     )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
+      // Contract v3.1 pt 5: only a RANKED factor carries a driver line, so this
+      // fixture is ranked (licence set 5, ranked count 3).
+      sensitivityRank: 1,
       influence: 0.8,
       influenceProvenance: 'influence_score',
       influenceImportanceBasis: null,
+      influenceSetSize: 5,
+      influenceRankedCount: 3,
       confidence: 0.45,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -382,8 +386,10 @@ describe('FactorNode', () => {
        (History: this row read "Relative influence 80%"; measured on staging
        `6497a251` the unqualified "Influence 100%" read as absolute.) */
     const line = screen.getByTestId('factor-driver-line-detail')
-    expect(captionOf(line)).toBe('Structural influence')
-    expect(line).toHaveAccessibleName(/80% of the strongest factor/)
+    // Contract v3.1 pt 5: the caption is the rank; the quantity's noun moved to
+    // the disclosure ("Bar: structural influence, 80% …").
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
+    expect(line).toHaveAccessibleName(/structural influence, 80% of the strongest factor/)
     expect(line.textContent).not.toContain('80%')
     expect(screen.getByText('Confidence')).toBeDefined()
     expect(screen.getByText('45%')).toBeDefined()
@@ -524,6 +530,7 @@ describe('FactorNode', () => {
       influenceProvenance: 'normalised_elasticity',
       influenceImportanceBasis: null,
       influenceSetSize: 5,
+      influenceRankedCount: 3,
       confidence: null,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -547,7 +554,8 @@ describe('FactorNode', () => {
     expect(screen.queryByText(sensitivityRankBadgeLabel(1))).toBeNull()
     expect(container.textContent).not.toContain('#1')
     // The rank is stated by the driver line on the face instead.
-    expect(captionOf(screen.getByTestId('factor-driver-line'))).toBe('Driver 1 of 5 analysed')
+    // Contract v3.1 pt 5: "Driver N of M ranked in this run", M = the ranked count.
+    expect(captionOf(screen.getByTestId('factor-driver-line'))).toBe('Driver 1 of 3 ranked in this run')
     // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
     // members that remain in it are static flex children.
     // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
@@ -614,10 +622,13 @@ describe('FactorNode', () => {
       })
     )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
+      // Contract v3.1 pt 5: ranked, so the driver line (and its bar) renders.
+      sensitivityRank: 1,
       influence: 0.8,
       influenceProvenance: 'influence_score',
       influenceImportanceBasis: null,
+      influenceSetSize: 5,
+      influenceRankedCount: 3,
       confidence: 0.6,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -761,10 +772,13 @@ describe('FactorNode', () => {
       })
     )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
-      sensitivityRank: null,
+      // Contract v3.1 pt 5: ranked, so the driver line (and its bar) renders.
+      sensitivityRank: 1,
       influence: 0.8,
       influenceProvenance: 'influence_score',
       influenceImportanceBasis: null,
+      influenceSetSize: 5,
+      influenceRankedCount: 3,
       confidence: 0.6,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -865,6 +879,8 @@ describe('FactorNode', () => {
          to survive in the disclosure. The pre-ranking strings are not lost
          either: they are pinned verbatim in the fail-closed twin below. */
       influenceSetSize: 5,
+      // Contract v3.1 pt 5: the printed M — the ranked count, not the set.
+      influenceRankedCount: 3,
       confidence: null,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -890,13 +906,13 @@ describe('FactorNode', () => {
     const line = screen.getByTestId('factor-driver-line')
     fireEvent.mouseEnter(line)
     const RANKED_DISCLOSURE =
-      'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
+      'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
       'Bar: outcome sensitivity, 100% of the strongest factor. ' +
       'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
       'How much the outcome shifts when this factor changes. How sure are you of its value?'
     expect(await screen.findByRole('tooltip')).toHaveTextContent(RANKED_DISCLOSURE)
     // The visible line is a RANKING, which is the claim a reader can push back on.
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
     // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is the
     // assertion that would RED if the face reverted to printing the figure.
     expect(line.textContent).not.toContain('100%')
@@ -926,7 +942,7 @@ describe('FactorNode', () => {
    * moved since the run no longer reaches this arm — a non-current run HIDES
    * the driver line (pinned in `FactorNode.influenceRanking.spec.tsx`).
    */
-  it('FAIL-CLOSED: with no denominator the driver line names the quantity, never a rank', async () => {
+  it('FAIL-CLOSED: with no denominator there is no rank, no line and no bar (contract v3.1 pt 5)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -969,24 +985,20 @@ describe('FactorNode', () => {
       voiRank: null,
     })
     renderFactor({ label: 'Technical Leadership Capability', type: 'factor', observedState: { value: 0.5 } })
-    // Locked Canvas design (23 Sep 2026): the fail-closed arm is the SAME driver
-    // line with the quantity's own noun ("Outcome sensitivity" on this basis) in
-    // place of a rank — never a bare bar, never "Driver N of M" — and the figure
-    // stays in its disclosure with its scale. (History: this arm printed
-    // "Relative influence 100%" on the NodeMetricRow.)
-    const line = screen.getByTestId('factor-driver-line')
-    fireEvent.mouseEnter(line)
-    const UNRANKED_DISCLOSURE =
-      'Bar: outcome sensitivity, 100% of the strongest factor. ' +
-      'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
-      'How much the outcome shifts when this factor changes. How sure are you of its value?'
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(UNRANKED_DISCLOSURE)
-    expect(captionOf(line)).toBe('Outcome sensitivity')
-    expect(line.textContent).not.toContain('100%')
-    // NON-VACUITY: prove this really is the OTHER arm, not the ranked one
-    // rendering something that happens to contain the old words.
-    expect(line.textContent).not.toContain('Driver')
-    expect(line).toHaveAccessibleName(UNRANKED_DISCLOSURE)
+    // ⛔ SUPERSEDED BY CONTRACT v3.1 pt 5 ("A factor the run did not rank shows
+    // no rank, and its detail says 'Not ranked in this run'"). This arm used to
+    // render the quantity's noun + bar ("Outcome sensitivity"); on the served
+    // OpenAI run that published no ranks it put four mostly empty bars on the
+    // board. Now: no line, no bar, one AT-only statement. The figure is not
+    // deleted — it stays in the inspector's ImportanceBar.
+    expect(screen.getByTestId('node-title')).toBeTruthy()
+    expect(screen.queryByTestId('factor-driver-line')).toBeNull()
+    expect(screen.queryByTestId('factor-driver-line-bar')).toBeNull()
+    expect(screen.getByTestId('factor-driver-not-ranked').textContent).toBe('Not ranked in this run')
+    // NON-VACUITY: no rank, no quantity noun, no figure on the card.
+    expect(document.body.textContent).not.toContain('Driver')
+    expect(document.body.textContent).not.toContain('Outcome sensitivity')
+    expect(document.body.textContent).not.toContain('100%')
   })
 
   // -------------------------------------------------------------------------
@@ -1033,8 +1045,12 @@ describe('FactorNode', () => {
            fixture whose branch is implicit is a guard whose subject can move
            without it (CLAUDE.md trap 3b, arriving through the fixture). The
            ranked render is covered in
-           `FactorNode.influenceRanking.spec.tsx`. */
-        influenceSetSize: null,
+           `FactorNode.influenceRanking.spec.tsx`.
+           ⛔ CONTRACT v3.1 pt 5 retires the unranked render (no rank → no
+           line), so this block now sits on the RANKED arm, stated explicitly:
+           licence set 5, ranked count 3. */
+        influenceSetSize: 5,
+        influenceRankedCount: 3,
         confidence: 0.45, confidenceIsDefaulted: false, confidenceIsProvisional: false,
         inSensitivityAnalysis: true,
         achievementProbability: null, achievementProbabilityIsModelledBasis: false,
@@ -1050,7 +1066,7 @@ describe('FactorNode', () => {
       // driver line; the retired `% influence` row is gone, and the line prints
       // no figure (ED 11:52Z point 3).
       const line = screen.getByTestId('factor-driver-line')
-      expect(captionOf(line)).toBe('Structural influence')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
       expect(line.textContent).not.toContain('80%')
       expect(line).toHaveAccessibleName(/80% of the strongest factor/)
       expect(screen.queryByTestId('factor-influence-row')).toBeNull()
@@ -1076,7 +1092,7 @@ describe('FactorNode', () => {
          its accessible name beside "of the strongest factor". Confidence keeps
          its labelled bar (label + value separate). */
       const line = screen.getByTestId('factor-driver-line-detail')
-      expect(captionOf(line)).toBe('Structural influence')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
       expect(line).toHaveAccessibleName(/80% of the strongest factor/)
       expect(screen.getByText('Confidence')).toBeDefined()
       expect(screen.getByText('45%')).toBeDefined()
@@ -1119,6 +1135,10 @@ describe('FactorNode', () => {
         sensitivityRank: 1,
         influence,
         influenceProvenance,
+        // Contract v3.1 pt 5: only a ranked factor has a driver line, so the
+        // basis disclosure is pinned on the ranked arm (set 5, ranked 3).
+        influenceSetSize: 5,
+        influenceRankedCount: 3,
         confidence: null,
         inSensitivityAnalysis: true,
         achievementProbability: null,
@@ -1141,6 +1161,7 @@ describe('FactorNode', () => {
       renderDetailedWithProvenance('normalised_elasticity', 1)
       const line = screen.getByTestId('factor-driver-line-detail')
       const DISCLOSURE =
+        'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
         'Bar: outcome sensitivity, 100% of the strongest factor. ' +
         'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
         'How much the outcome shifts when this factor changes. How sure are you of its value?'
@@ -1160,10 +1181,13 @@ describe('FactorNode', () => {
       // not. Here: "structural influence" + its own gloss, vs the fallback's
       // "outcome sensitivity" above.
       const DISCLOSURE =
+        'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
         'Bar: structural influence, 60% of the strongest factor. ' +
         'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
         'How strongly this factor connects to the goal in your model. How sure are you of its value?'
-      expect(captionOf(line)).toBe('Structural influence')
+      // Contract v3.1 pt 5: the caption is the rank; the quantity is named in
+      // the disclosure, where the two arms still differ.
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
       expect(line).toHaveAccessibleName(DISCLOSURE)
       expect(line.getAttribute('aria-label')).not.toContain('outcome sensitivity')
       expect(fillOf(line)).toBe('max(4px, 60%)')
