@@ -15,6 +15,7 @@ import { optionsWereAssessed } from '../domain/optionAssessment'
 import { linkedOptionIds } from '../domain/linkedOptions'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType } from '../domain/nodes'
+import { NODE_REGISTRY } from '../domain/nodes'
 import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
@@ -94,14 +95,20 @@ import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
-const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
-  decision: 'The choice you\'re making',
-  option: 'One possible course of action',
-  factor: 'A variable that influences your decision',
-  outcome: 'A positive result this decision affects',
-  risk: 'A negative result this decision affects',
-  goal: 'What you\'re trying to achieve',
-}
+/**
+ * ⛔ GAP-36 (24 Sep 2026, DESIGN-GAP-AUDIT-20260924.md row 36) REMOVED THIS
+ * MAP'S ONLY CALLER. It supplied the longer per-kind description
+ * ("The choice you're making", …) that used to ride inside the card's
+ * `aria-label`, added specifically because the type glyph's hover tooltip had
+ * been removed and nothing else told a screen-reader user what a "factor" or
+ * an "outcome" IS. Contract §01 gives the accessible name an exact, shorter
+ * template with no room for it ("<Kind>: <title>. Open details."), so the
+ * sentences below are deleted rather than relocated. The affordance gap that
+ * motivated them in the first place is UNCHANGED and still rowed in
+ * CANVAS-BACKLOG.md — a sighted user still has no way to ask what a node kind
+ * means, and this gap does not invent a new surface for it (out of scope:
+ * "do not invent a new visual").
+ */
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -872,17 +879,22 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // coverage; BaseNode simply no longer calls it.
   const borderStyle = ''
 
-  // Accessible name combines node type and label
-  // ⚠ THE TYPE DESCRIPTION RIDES HERE BECAUSE ITS TOOLTIP IS GONE. Moving the
-  // glyph onto the connector (below) deleted the only surface that told a user
-  // what a "factor" or an "outcome" IS — a real affordance removed by a purely
-  // visual change, which is the quiet kind of regression. The glyph itself
-  // cannot carry it back: it is `pointer-events-none` so React Flow's Handle
-  // keeps its clicks, and an element that cannot be hovered cannot hold a
-  // tooltip. So the description goes where this PR already says the type
-  // survives. ⚠ A VISUAL SURFACE IS STILL OWED — rowed in CANVAS-BACKLOG.md;
-  // a sighted user currently has no way to ask what a node type means.
-  const accessibleNameWithoutAffordance = `${nodeType} node: ${label}. ${NODE_TYPE_DESCRIPTIONS[nodeType] ?? ''}`.trim()
+  // ⛔ GAP-36 (DESIGN-GAP-AUDIT-20260924.md row 36; contract §01): the
+  // accessible name is `"<Kind>: <title>. Open details."`, where Kind is the
+  // USER-FACING word (Question/Option/Factor/Outcome/Risk/Goal) — never the
+  // internal code id ("decision", "factor", …), which is what a screen
+  // reader used to announce first on every card. `NODE_REGISTRY[nodeType]
+  // .label` is the one existing owner of that vocabulary (it already backs
+  // `decision`'s "Question" via `DECISION_NODE_LABEL`), reused rather than a
+  // second hand-typed map that could drift from it.
+  //
+  // ⚠ THE LONGER TYPE DESCRIPTION ("The choice you're making", …) IS DELETED,
+  // not relocated — see the `NODE_TYPE_DESCRIPTIONS` removal note above for
+  // why. The contract's exact string has no room for it, and "Open details."
+  // answers a different, narrower question (what does opening this card do),
+  // so this gap follows the contract literally rather than inventing a
+  // longer hybrid sentence.
+  const accessibleNameWithoutAffordance = `${NODE_REGISTRY[nodeType].label}: ${label}. Open details.`
   /**
    * ⭐⭐⭐ AND THE ONE EDIT EVERY KIND SUPPORTS IS NOW SAID OUT LOUD — on all
    * six, from here, because here is the only place all six pass through.

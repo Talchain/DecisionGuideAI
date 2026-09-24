@@ -298,11 +298,18 @@ describe('⛔ external factors are outside your control, not awaiting your judge
  * the next edit is what breaks it.
  * ──────────────────────────────────────────────────────────────────────────── */
 describe('what a screen reader is handed', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+   * contract §01): the accessible name now starts "Option: …" — the
+   * user-facing kind word from `NODE_REGISTRY` — never the internal code id
+   * "option node:". The property this test protects (the badge does not
+   * swallow the card's own name) is unchanged.
+   */
   it('the node keeps its OWN accessible name — the badge does not swallow it', () => {
     renderIncompleteOption()
     const card = screen.getByRole('group')
     // The node's identity, not its state, is what names the card.
-    expect(card).toHaveAccessibleName(/^option node: Rebuild\./)
+    expect(card).toHaveAccessibleName(/^Option: Rebuild\./)
     // Named by the label the user gave it — asserted separately so a change
     // that kept the shape and dropped the label REDs here.
     expect(card.getAttribute('aria-label')).toContain('Rebuild')

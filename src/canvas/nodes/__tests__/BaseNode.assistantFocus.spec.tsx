@@ -1,4 +1,10 @@
-/** Actual node render: assistant focus is a static overlay, not selection/pulse. */
+/** Actual node render: assistant focus is a static overlay, not selection/pulse.
+ *
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the accessible-name query below matches the new
+ * "Factor: Demand. Open details." shape (`NODE_REGISTRY[nodeType].label`),
+ * not the old internal code id "factor node: demand".
+ */
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { Circle } from 'lucide-react'
@@ -55,7 +61,7 @@ describe('BaseNode — assistant focus render', () => {
         <BaseNode {...(props as any)} nodeType="factor" icon={Circle} />
       </ReactFlowProvider>,
     )
-    const node = screen.getByRole('group', { name: /factor node: demand/i })
+    const node = screen.getByRole('group', { name: /factor: demand/i })
     expect(node).not.toHaveAttribute('data-assistant-focused')
 
     act(() => {
@@ -86,7 +92,7 @@ describe('BaseNode — assistant focus render', () => {
         <BaseNode {...(props as any)} nodeType="factor" icon={Circle} />
       </ReactFlowProvider>,
     )
-    expect(screen.getByRole('group', { name: /factor node: demand/i }))
+    expect(screen.getByRole('group', { name: /factor: demand/i }))
       .not.toHaveAttribute('data-assistant-focused')
   })
 
@@ -96,7 +102,7 @@ describe('BaseNode — assistant focus render', () => {
         <BaseNode {...(props as any)} selected={false} nodeType="factor" icon={Circle} />
       </ReactFlowProvider>,
     )
-    const node = screen.getByRole('group', { name: /factor node: demand/i })
+    const node = screen.getByRole('group', { name: /factor: demand/i })
 
     act(() => {
       pulseAppliedTargets({ nodeIds: [props.id] })
