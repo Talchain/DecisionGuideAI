@@ -79,6 +79,23 @@ describe('formatGoalTarget', () => {
     expect(formatGoalTarget(1500, 'users')).toBe('1,500 users')
   })
 
+  /**
+   * Contract v3.1, T12/ANC-10: the served goal card read "Target: 0 % change".
+   * A unit that OPENS with the percent glyph is not one of the three percent
+   * spellings, so it reached the word-suffix branch and detached the glyph from
+   * its number. The glyph closes up; the rest of the unit keeps its own spacing.
+   */
+  it('closes the percent glyph up to the figure when a unit opens with it (contract v3.1 T12/ANC-10)', () => {
+    expect(formatGoalTarget(0, '% change')).toBe('0% change')
+    expect(formatGoalTarget(12.5, '% uplift')).toBe('12.5% uplift')
+    expect(formatGoalTarget(1500, '%  change ')).toBe('1,500%  change')
+    // Discriminating controls: the percent kind is still rounded, and a unit
+    // WORD that merely contains a percent sign later keeps its space.
+    expect(formatGoalTarget(84.6, '%')).toBe('85%')
+    expect(formatGoalTarget(3, 'pp of %')).toBe('3 pp of %')
+    expect(formatGoalTarget(9, 'months')).toBe('9 months')
+  })
+
   it('suppresses a generic placeholder unit, as every sibling surface does', () => {
     /**
      * ⭐ A BEHAVIOUR CHANGE, MADE BY ROADMAP 2.315(c) LIMB (c) ON 11 Sep 2026,

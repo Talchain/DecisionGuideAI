@@ -87,3 +87,46 @@ describe('NodeShapeIndicator', () => {
     expect(svg?.getAttribute('class')).toContain('test-class')
   })
 })
+
+/**
+ * ⭐ CONTRACT v3.1 SHAPE GEOMETRY (FRAME-03, OR-05, OR-09) — the contract's
+ * `shape()` paths (24-unit box) ÷ 2 into this 12-unit box.
+ */
+describe('NodeShapeIndicator — contract v3.1 geometry', () => {
+  const extents = (points: string) => {
+    const pts = points.trim().split(/\s+/).map(p => p.split(',').map(Number))
+    const xs = pts.map(p => p[0])
+    const ys = pts.map(p => p[1])
+    return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), pts }
+  }
+
+  it('the Question hexagon is FLAT-TOP, pointed left and right (`M6 2h12l6 10-6 10H6L0 12z` ÷ 2)', () => {
+    const { container } = render(<NodeShapeIndicator nodeKind="decision" />)
+    const points = container.querySelector('polygon')!.getAttribute('points')!
+    expect(points).toBe('3.25,1.5 8.75,1.5 11.5,6 8.75,10.5 3.25,10.5 0.5,6')
+    const { pts } = extents(points)
+    // Two vertices share the top edge (flat top); the extreme x vertices sit at mid-height (points).
+    expect(pts.filter(p => p[1] === 1.5)).toHaveLength(2)
+    expect(pts.filter(p => p[1] === 6).map(p => p[0]).sort((a, b) => a - b)).toEqual([0.5, 11.5])
+  })
+
+  it('outcome ▲ and risk ▼ share ONE 12-unit box and identical extents — they differ only in direction', () => {
+    const up = render(<NodeShapeIndicator nodeKind="outcome" />).container
+    const down = render(<NodeShapeIndicator nodeKind="risk" />).container
+    expect(up.querySelector('svg')!.getAttribute('viewBox')).toBe('0 0 12 12')
+    expect(down.querySelector('svg')!.getAttribute('viewBox')).toBe('0 0 12 12')
+    const a = extents(up.querySelector('polygon')!.getAttribute('points')!)
+    const b = extents(down.querySelector('polygon')!.getAttribute('points')!)
+    expect([a.w, a.h]).toEqual([11, 10])
+    expect([b.w, b.h]).toEqual([11, 10])
+  })
+
+  it('an optional outline is spread onto the shape; absent, the shape carries no stroke', () => {
+    const outlined = render(<NodeShapeIndicator nodeKind="goal" stroke="var(--bg-panel)" strokeWidth={0.6} />).container
+    const shape = outlined.querySelector('polygon')!
+    expect(shape.getAttribute('stroke')).toBe('var(--bg-panel)')
+    expect(shape.getAttribute('stroke-width')).toBe('0.6')
+    const plain = render(<NodeShapeIndicator nodeKind="goal" />).container
+    expect(plain.querySelector('polygon')!.getAttribute('stroke')).toBeNull()
+  })
+})

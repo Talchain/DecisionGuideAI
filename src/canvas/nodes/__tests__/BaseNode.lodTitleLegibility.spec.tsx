@@ -151,13 +151,30 @@ describe('the boosted anchor title carries the canvas label scale', () => {
   })
 
   /**
-   * CONTRAST ON THE ZOOM AXIS. `lodBoostTitle` is `lodBodyHidden && lodKeepsTitle`,
-   * so above the floor the anchor takes the ordinary treatment. Without this,
-   * every assertion above would also pass on a build that boosted at all zooms
-   * — a different product, and one whose card heights nothing has measured.
+   * ⭐ SUPERSEDED BY CONTRACT v3.1 (ANC-04): the anchors keep their emphasis at
+   * EVERY zoom — `.node h3{font-weight:610}`, the wide card's title one step
+   * above the rest. This pinned "above the floor the anchor takes the ordinary
+   * treatment", i.e. the in-code claim that anchors "take their emphasis from
+   * WEIGHT and COLOUR" held only where the body is hidden. The emphasis is now
+   * weight + header ink at the SAME size token (DS v5 §2.3 forbids a fourth
+   * canvas size), so the only height exposure is a title that wraps once more
+   * under the heavier weight — bounded by `line-clamp-2`, and on the anchors
+   * outweighed by the ~42px band the same contract removes (ANC-02).
+   *
+   * The zoom-axis contrast survives on the axis that still has two answers: an
+   * ORDINARY card above the floor is unboosted (below), and the anchor's
+   * above-floor treatment is asserted as what it now is, not merely "not
+   * ordinary".
    */
-  it('CONTRAST — above the floor the anchor takes the ordinary treatment', () => {
+  it('above the floor the anchor KEEPS weight and header ink (contract v3.1 ANC-04)', () => {
     renderCard('decision', { lodRung: 'full' })
+    expect(titleClass()).toContain('font-semibold')
+    expect(titleClass()).toContain('text-text-header')
+    expect(titleClass()).not.toContain('text-text-body')
+  })
+
+  it('CONTRAST — above the floor an ordinary card is still the ordinary card', () => {
+    renderCard('factor', { lodRung: 'full' })
     expect(titleClass()).toContain('text-text-body')
     expect(titleClass()).not.toContain('font-semibold')
   })

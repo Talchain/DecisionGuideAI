@@ -129,6 +129,16 @@ export interface OptionChangeRow {
   fullLabel: string
   /** `from → to`, or `→ to` when there is no reference to start from. */
   change: string
+  /**
+   * The two halves of a `from → to` row, so the card can set the tone of each
+   * (contract v3.1 OPT-03: `.delta-rows .before` is muted, arrow and target are
+   * ink). Present ONLY when the row has a "from"; `${before} → ${after}` is
+   * byte-identical to `change` — the split is presentation, never a second
+   * wording. Absent on target-only, direction-only and same-as-baseline rows,
+   * which render `change` whole.
+   */
+  before?: string
+  after?: string
   /** The same change with nothing collapsed — the row's full-text recovery. */
   fullChange: string
   /** Where the "from" came from — stated in the row's tooltip. */
@@ -254,6 +264,7 @@ export function buildOptionChangeRow({
     label,
     fullLabel,
     change: fromText ? `${fromText} → ${targetText}` : sameAsReference ? `${targetText} · same as baseline` : `→ ${targetText}`,
+    ...(fromText ? { before: fromText, after: targetText } : {}),
     fullChange: fromFull ? `${fromFull} → ${targetFull}` : sameAsReference ? `${targetFull} · same as baseline` : `→ ${targetFull}`,
     reference,
     estimated,

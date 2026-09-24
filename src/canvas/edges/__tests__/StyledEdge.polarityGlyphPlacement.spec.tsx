@@ -35,6 +35,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
+import { GLYPH_LATERAL_OFFSET } from '../../utils/edgeGlyphPlacement'
 
 interface MockNode {
   id: string
@@ -242,6 +243,14 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
       const dy = Number(m[2]) - TARGET_XY.targetY
       const len = Math.hypot(dx, dy)
       expect(len, `${glyphs[i].id} has a zero-length offset`).toBeGreaterThan(0)
+      // contract v3.1 (E14): the offset is (radius, L) ROTATED onto the edge's
+      // approach direction — the glyph sits beside its line, not on it. Undo
+      // that fixed rotation to recover the direction the offset was built on:
+      // [dx, dy] = [[r, −L], [L, r]] · dir, so dir = [[r, L], [−L, r]] · o / (r² + L²).
+      const L = GLYPH_LATERAL_OFFSET
+      const r = Math.sqrt(Math.max(0, len * len - L * L))
+      const ux = (r * dx + L * dy) / (r * r + L * L)
+      const uy = (-L * dx + r * dy) / (r * r + L * L)
       const a = (Math.PI * (i + 1)) / 5 + Math.PI / 2
       // Bound to THIS edge's own source by construction, not to "some source":
       // a value predicate another edge could satisfy is trap 19.
@@ -250,8 +259,8 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
       // a string rounded to 2dp, so the recoverable direction is only good to
       // about 0.005/26 ≈ 2e-4. Still far tighter than any wrong answer — the
       // mutant this kills is off by tens of degrees, not by a rounding step.
-      expect(dx / len, `${glyphs[i].id} x-direction`).toBeCloseTo(Math.cos(a), 3)
-      expect(dy / len, `${glyphs[i].id} y-direction`).toBeCloseTo(Math.sin(a), 3)
+      expect(ux, `${glyphs[i].id} x-direction`).toBeCloseTo(Math.cos(a), 3)
+      expect(uy, `${glyphs[i].id} y-direction`).toBeCloseTo(Math.sin(a), 3)
     }
   })
 

@@ -31,7 +31,6 @@ import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
   NODE_HEADER_GAP_PX,
-  NODE_TYPE_GLYPH_PX,
   NODE_HEADER_RESERVE_PX,
   NODE_LAYOUT_MIN_W,
   NODE_TITLE_MIN_MEASURE_PX,
@@ -76,10 +75,15 @@ const asSentence = (text: string): string => {
  */
 const NOT_ANALYSED_ACTION_LABEL = 'Set what it changes in the Model tab'
 import {
-  NODE_QUICK_ACTION_BAND_PX,
+  NODE_QUICK_ACTION_BAND_CSS,
   CANVAS_CORNER_STACK_CLASSES,
   CANVAS_HEADER_GLYPH_GROUP_CLASSES,
+  CANVAS_GLYPH_SIZE_CLASSES,
+  ANCHOR_RAIL_RESERVE_CLASSES,
+  anchorRailButtonsKey,
 } from './shared/canvasGlyphScale'
+import Tooltip from '../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
@@ -215,6 +219,16 @@ interface BaseNodeProps extends NodeProps {
    * owner has no run-derived factor figure to label — never "current".
    */
   resultsFromLastRun?: boolean
+  /**
+   * ⭐ DISPLAY-ONLY TITLE TEXT (contract v3.1 ANC-11). Replaces ONLY the visible
+   * words of the title — the card's `title` attribute and accessible name keep
+   * the real label through `titleChannels`, so nothing a screen reader or a
+   * rename reads is changed. Exists for a card whose real label is a TYPE
+   * DEFAULT that would read as the user's own words: an unnamed Question renders
+   * "Question" in full title styling, as if that were the question. The caller
+   * supplies the words and owns the honesty of them.
+   */
+  titleOverride?: string
 }
 
 /**
@@ -237,13 +251,22 @@ interface BaseNodeProps extends NodeProps {
  * children still paint outside a zero-ish box in browsers that honour
  * visibility per-element, and a hidden child can still be a scroll target.
  */
+/**
+ * ⭐ THE CONNECTOR GLYPH FILLS ITS 22px BOX (contract v3.1 FRAME-03). It used to
+ * be an 18px shape (`NODE_TYPE_GLYPH_PX`) inside a 22px white tile; the tile is
+ * gone, so the shape takes the tile's box and the outline separates it from the
+ * border instead. Local because nothing else sizes against it — it is painted
+ * out of flow and reserves no layout width.
+ */
+const CONNECTOR_GLYPH_PX = 22
+
 const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   visibility: 'hidden',
   height: 'calc(16px * var(--canvas-label-scale, 1))',
   overflow: 'hidden',
 }
 
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   /**
    * ⭐⭐ EVERY KIND SHOWS THE LIMITS THAT NAME IT — because the kinds that
@@ -498,9 +521,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * what the line says, and there is no formatter in this file.
    */
   // (declared below, once `lodFacts` is available — see `lodBodyLine`.)
-
-  // Phase 2: Uncertain node styling
-  const isUncertain = Number(data?.uncertainty ?? 0) > 0.4
 
   // B.I.10: Pre-run overlay — show dashed goal border for incomplete nodes
   const resultsStatus = useCanvasStore(s => s.results?.status)
@@ -855,11 +875,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     if (nodeType === 'factor' && controllability) {
       return getControllabilityBorderStyle(controllability)
     }
-    // Only uncertain non-factor nodes get dashed border
-    // P1 Hotfix: Factors no longer default to dashed — solid is the default (no claim)
-    if (isUncertain && nodeType !== 'factor') {
-      return 'border-dashed'
-    }
+    // ⛔ NO DASHED FRAME FOR AN "UNCERTAIN" NON-FACTOR (contract v3.1 FRAME-06).
+    // `data.uncertainty > 0.4` used to dash any goal, outcome, risk, option or
+    // question card — the dashed amber goal Paul saw. A dash means EXISTENCE
+    // doubt, on a connection only (Paul pt 4); a card's uncertainty is carried
+    // in words where it is known, never as a frame channel. The factor arms
+    // above (external / controllability) are a different claim and stay.
     return ''
   })()
 
@@ -958,6 +979,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     }, 100)
   }, [id, description, updateNodeInternals])
 
+  // HISTORY — the hierarchy this block used to render, kept so the numbers in
+  // `legacyBorderPx` below can be read against it (superseded, see ⭐⭐ below):
   // Wireframes v4 hierarchy (display-only): decision/options 1px, factors 0.5px.
   // Risk/outcome/goal/constraint/action keep 2px. The isCausalLens / isIncomplete
   // width overrides in the className below still take precedence — e.g. an
@@ -971,11 +994,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // See `borderColourClass` below for the current vocabulary — and note the
   // WIDTH override itself is untouched by that ruling and is flagged there as
   // sitting awkwardly against this hierarchy.
-  const borderWidth = (() => {
-    if (nodeType === 'factor') return 'border-[0.5px]'
-    if (nodeType === 'decision' || nodeType === 'option') return 'border'
-    return 'border-2'
+  //
+  // ⭐⭐ SUPERSEDED BY CONTRACT v3.1 (FRAME-02 / OR-01 / T11 / ANC-08): ONE 1px
+  // FRAME ON EVERY FAMILY AND EVERY STATE. `.node{border:1px solid …}` is a
+  // single rule for every data-kind. The hierarchy above drew four widths —
+  // factor 0.5px (≈0.33 screen px at the landing zoom, so factor cards read as
+  // frameless), decision/option 1px, the rest 2px (the loud orange risk frame
+  // Paul flagged), and `isIncomplete` forced 2px on anything needing input, so a
+  // factor's box jumped 3px when it lost its value.
+  //
+  // ⚠ THE OLD WIDTH IS KEPT AS A NUMBER, ONLY TO KEEP EVERY BOX BYTE-IDENTICAL.
+  // Changing a border moves the content box, which reflows text and changes the
+  // height ELK reserved — the geometry this lane has repaired twice. So the
+  // padding below absorbs the difference (`padAdj`): the OUTER box and the
+  // CONTENT box are exactly what they were, and only the painted stroke
+  // changes. A factor gives back half a pixel of padding (never grows); a 2px
+  // card takes one back. Retiring the compensation is a separate, NOT-LOW-RISK
+  // step that re-records the Canvas Browser Gate baseline.
+  const legacyBorderPx = (() => {
+    if (lensMode === 'causal') return 1
+    if (isIncomplete) return 2
+    if (nodeType === 'factor') return 0.5
+    if (nodeType === 'decision' || nodeType === 'option') return 1
+    return 2
   })()
+  const padAdj = legacyBorderPx - 1
 
   // Graph Editing Experience Task 5: Edit impact preview indicator
   const impactDirection = useEditPreviewStore(s => s.impactMap.get(id))
@@ -1114,12 +1157,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * so deleting this arm rather than re-pointing it would have put a grey DASH
    * on the most important node on the canvas.
    *
-   * ⚠ THE WIDTH OVERRIDE BELOW IS ALSO LEFT AS FOUND (`isIncomplete` → 2px). It
-   * is not the colour channel Paul ruled on, and changing it would be a second
-   * undeclared ruling in the same commit. It does now sit slightly awkwardly
-   * against the width HIERARCHY this file declares a few lines up (factor 0.5px ·
-   * decision/option 1px · everything else 2px) — flagged for adjudication, not
-   * silently decided here.
+   * ⚠ THE WIDTH OVERRIDE BELOW WAS LEFT AS FOUND (`isIncomplete` → 2px) and
+   * flagged for adjudication against the width hierarchy. ⭐ ADJUDICATED BY
+   * CONTRACT v3.1 (FRAME-02): one 1px frame on every family and state, so an
+   * incomplete card no longer changes stroke at all — the StatusPill says the
+   * state in words. See `legacyBorderPx` for how the box stays byte-identical.
    *
    * Pinned in THREE directions by `BaseNode.incompleteBorderVocabulary.spec.tsx`
    * — the incomplete node must KEEP ITS KIND HUE and carry the badge, it must
@@ -1155,11 +1197,64 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodKindFillClass =
     lodBodyHidden && !isCausalLens && !isEvidenceLens && !evidenceBgStyle ? colors.bg : ''
 
+  // ⭐ `colors.frame`, NOT `colors.border` (contract v3.1 FRAME-08 / OR-03 /
+  // T10): the frame is the kind hue at 76% toward the warm neutral, from two
+  // existing tokens — see `nodes/colors.ts`. Both arms move together so an
+  // incomplete card keeps exactly the hue of its complete siblings (Paul's 8 Sep
+  // ruling: the kind hue stays; the state is words).
   const borderColourClass = isCausalLens
     ? (causalBorderClass ?? '')
     : isIncomplete
-      ? colors.border
-      : borderClassOverride ?? `${colors.border} ${borderStyle}`
+      ? colors.frame
+      : borderClassOverride ?? `${colors.frame} ${borderStyle}`
+
+  /**
+   * ⭐⭐ THE QUESTION AND GOAL ARE WIDE AND SHALLOW, AND THEIR RAIL SITS BESIDE
+   * THE LAST ROW, NOT IN A BAND UNDER IT (contract v3.1 ANC-02 / RHY-02; Paul:
+   * "Question + Goal geometry: APPROVE").
+   *
+   * The contract: `.node.wide{min-height:65px;padding:11px 13px 9px}` with
+   * `.node.wide .rail{position:absolute;right:6px;bottom:6px}` and the rows
+   * given `padding-right` so their text clears it. Served, every anchor carried
+   * the 50px quick-action band BELOW its one resting row — title, one row, then
+   * an empty strip with the coaching icon alone at its right: ~110px at 100%.
+   *
+   * Horizontal padding stays 12px so `NODE_CARD_PADDING_X` still describes the
+   * card. The height can only SHRINK: the band goes (−41px at the bound) and at
+   * worst the last row wraps once more against its narrower measure.
+   *
+   * ⚠ THE RESERVE IS THE RAIL'S REACHABLE WIDTH ON THIS CARD, COUNTED FROM THE
+   * SAME INPUTS THE RAIL IS MOUNTED WITH: Challenge + More (hover), one of
+   * coaching-icon / Ask (they are mutually exclusive in `NodeQuickActions`), the
+   * caller's `railIcons` (one icon — the Question's run action), and the
+   * grounded evidence / behaviour icons `NodeSignalRailIcons` draws from
+   * `attention.reasons`. Counted here because `NodeQuickActions` exports no
+   * count; if the rail gains a member this must learn it too.
+   */
+  const isAnchorCard = nodeType === 'decision' || nodeType === 'goal'
+  const anchorRailButtons =
+    3 +
+    (railIcons ? 1 : 0) +
+    (attention.reasons.some(r => r.kind === 'evidence_gap') ? 1 : 0) +
+    (attention.reasons.some(r => r.kind === 'behavioural') ? 1 : 0)
+  const anchorRailBeside = isAnchorCard && showQuickActions
+  const cardPadding = (): CSSProperties => {
+    const px = (n: number) => `${n + padAdj}px`
+    const side = px(12)
+    if (anchorRailBeside) {
+      return { paddingTop: '11px', paddingRight: side, paddingBottom: '9px', paddingLeft: side }
+    }
+    if (showQuickActions) {
+      const band = padAdj === 0
+        ? NODE_QUICK_ACTION_BAND_CSS
+        : `calc(${NODE_QUICK_ACTION_BAND_CSS} ${padAdj < 0 ? '-' : '+'} ${Math.abs(padAdj)}px)`
+      return { paddingTop: side, paddingRight: side, paddingBottom: band, paddingLeft: side }
+    }
+    if ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens) {
+      return { paddingTop: side, paddingRight: side, paddingBottom: px(24), paddingLeft: side }
+    }
+    return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
+  }
 
   return (
     <div
@@ -1185,23 +1280,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       // `__tests__/nodeCopyIsNeverCentred.spec.tsx`.
       className={`
         text-left
-        group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} ${
-          /* ⭐⭐ THE GOAL IS THE TERMINUS, AND IT RENDERED AS THE PALEST CARD.
-             Every edge on the board converges on it and it carried the same
-             elevation as a factor five rows above it — so the thing the whole
-             argument is FOR was, visually, the least of it.
-             ⚠ ELEVATION, NOT BORDER WIDTH, AND THAT IS THE WHOLE CONSTRAINT.
-             A border change alters the card's measured box, which moves ELK's
-             placement and every edge anchor with it — the geometry this lane
-             has already repaired twice. A shadow paints outside the box and
-             changes nothing measurable. */
-          nodeType === 'goal' ? 'shadow-3' : 'shadow-1'
+        group relative rounded-sm border ${
+          /* ⭐ ONE RESTING ELEVATION ON EVERY FAMILY, THE GOAL INCLUDED (contract
+             v3.1 FRAME-05 / ANC-08: `.node{box-shadow:0 2px 4px #25252005}`,
+             no per-kind override). The goal carried `shadow-3` — DS v5 §5's
+             MODAL/OVERLAY elevation — so at the landing zoom it floated above
+             the board. It is set apart by geometry (wide, alone in its row) and
+             by its semibold title, never by depth. `rounded-sm` is DS v5 §6.2
+             `sm` = 8px, the contract's `border-radius:8px` (FRAME-01 / OR-04);
+             `rounded-lg` rendered 14px through the index.css override.
+             Selection lifts one step (`shadow-2`) with its ring (FRAME-09). */
+          selected && !isHighlighted ? 'shadow-2' : 'shadow-1'
         }
         ${borderColourClass}
         ${lodKindFillClass}
-        transition-all duration-200
+        transition-[opacity,box-shadow,border-color,background-color,outline-color,filter] duration-200
         cursor-default
-        ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
+        ${selected && !isHighlighted ? colors.selected : ''}
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
         ${isAttentionDimmed ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
@@ -1212,7 +1307,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // outline is a separate CSS channel from box-shadow, so it composes with
         // the selection / hover rings and shadow-1 instead of clobbering them;
         // it wraps all four sides (never a one-sided accent) and uses the info
-        // state token. Animates via the div's transition-all.
+        // state token. Animates via the root's transition list, which names
+        // `outline-color` for exactly this (contract v3.1 FRAME-14: the root
+        // transitions its VISUAL channels only — it was `transition-all`, which
+        // also eased the inline width / padding, so on a relayout a card slid to
+        // its new ELK width over 200ms while its edges snapped).
         outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
         outlineOffset: isAnalysisDriver ? '3px' : undefined,
         // ⚠ THE INLINE PAINT MUST STAND DOWN WHERE THE KIND FILL APPLIES, or the
@@ -1283,11 +1382,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // carrying no row at all: a silent worsening of a known open question,
         // smuggled in as a side effect of fixing a different one. So the two arms
         // are named apart and only the one with a row to reserve for moves.
-        padding: showQuickActions
-          ? `12px 12px ${NODE_QUICK_ACTION_BAND_PX}px 12px`
-          : (nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens
-            ? '12px 12px 24px 12px'
-            : '12px',
+        //
+        // ⭐⭐ CONTRACT v3.1, THREE CHANGES IN THIS ENTRY, EACH ARGUED WHERE IT
+        // LIVES:
+        //   · the band RENDERS as `NODE_QUICK_ACTION_BAND_CSS` (RHY-01) — equal
+        //     to `NODE_QUICK_ACTION_BAND_PX` whenever the layout measures, and
+        //     only shorter between reads; see that constant's header;
+        //   · the Question and Goal take the WIDE anchor arm (ANC-02 / RHY-02):
+        //     `11 / 12 / 9`, the rail beside their last row (`anchorRailBeside`);
+        //   · every term carries `padAdj`, the border-width compensation that
+        //     keeps each box byte-identical under the single 1px frame
+        //     (FRAME-02 — see `legacyBorderPx`).
+        // Written as four longhands, not the shorthand, so a `calc()` one engine
+        // declines cannot take the other three sides down with it.
+        ...cardPadding(),
         // The card's own floor is the LAYOUT floor, imported rather than
         // restated: this was a hardcoded `'140px'` that happened to equal
         // `NODE_LAYOUT_MIN_W`, i.e. two copies of one number with nothing to
@@ -1371,7 +1479,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
         <div
-          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel border border-warning shadow-1"
+          /* ⭐ NEUTRAL RING, NOT AMBER (contract v3.1 ICON-10). This is the
+             USER's own annotation; amber on the canvas means an AI sign
+             disagreement (Paul pt 9), and the edge's twin of this badge already
+             refuses orange for exactly that reason ("R6: not orange — this is a
+             user annotation"). The words carry it: role + accessible name. The
+             box stays unscaled on purpose — at `-top-2 -left-2` a counter-scaled
+             box would push into the title. */
+          className="absolute -top-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full bg-panel border border-panel-border shadow-1"
           title="Flagged as assumption"
           /* Paul 23 Sep contract feedback point 12: an icon needs a name a
              screen reader can read, not a `title` alone — the same pattern as
@@ -1385,14 +1500,20 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       )}
 
       {/* Connection handles */}
+      {/* ⭐ THE TARGET HANDLE IS UNPAINTED; THE TYPE SHAPE ABOVE IT IS THE
+          CONNECTOR (contract v3.1 FRAME-03). It was a 12px kind disc with a 2px
+          white ring, hidden behind the glyph's white tile. With the tile gone
+          the disc would peek out around the triangle and diamond apexes, so it
+          paints nothing. Its box, its hit slop (index.css) and the edge anchor
+          are unchanged — React Flow hit-tests it exactly as before. */}
       <Handle
         type="target"
         position={Position.Top}
-        className={`${colors.border.replace('border-', 'bg-')}`}
         style={{
           width: 12,
           height: 12,
-          border: '2px solid white',
+          border: 0,
+          background: 'transparent',
         }}
         aria-label="Input connection"
       />
@@ -1945,12 +2066,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           name stays reachable: it is already in the card's `aria-label`, and
           the tooltip that used to hang off this mark would have needed pointer
           events to work, so it moves rather than being kept at that price. */}
+      {/* ⭐ A BARE KIND-FILLED SHAPE ON THE BORDER, NO TILE (contract v3.1
+          FRAME-03 / OR-05: `.node .shape{position:absolute;top:-12px;…}` with
+          `stroke:#FEFEFE;stroke-width:1.2` and `filter:drop-shadow(0 0 1px
+          white)`). It sat in a 22px white tile whose `rounded-md` made it a
+          circle with a grey ring — a pale disc interrupting the border, with
+          the type shape shrunk inside it, and on outcome vs risk the only
+          non-colour channel between ▲ and ▼ was the smallest mark on the card.
+          The panel-coloured outline and halo now separate the shape from the
+          border line it sits on; the shape itself fills the box.
+          ⚠ 22px CENTRED ON THE BORDER, NOT THE CONTRACT'S 24px AT −12px: served
+          edges end at the handle top (~−6px), so a 24px glyph would cover ~6px
+          of every inbound arrowhead. The 24px move belongs with the edge
+          endpoint change (edge dimension), not here. */}
       <span
         aria-hidden="true"
         data-testid="node-type-glyph"
-        className="pointer-events-none absolute -top-2.5 left-1/2 z-10 flex h-[22px] w-[22px] -translate-x-1/2 items-center justify-center rounded-md border-[1.5px] border-panel-border bg-panel"
+        className="pointer-events-none absolute -top-[11px] left-1/2 z-10 flex h-[22px] w-[22px] -translate-x-1/2 items-center justify-center"
+        style={{ filter: 'drop-shadow(0 0 1px var(--bg-panel))' }}
       >
-        <NodeShapeIndicator nodeKind={nodeType} size={NODE_TYPE_GLYPH_PX} />
+        <NodeShapeIndicator nodeKind={nodeType} size={CONNECTOR_GLYPH_PX} stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
@@ -2086,11 +2221,21 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             className={
               lodBoostTitle
                 ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
-                : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
+                /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
+                   THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
+                   the wide card's title one step above the others). The note
+                   above said the anchors "take their emphasis from WEIGHT and
+                   COLOUR" — true only while `lodBoostTitle` held, i.e. where the
+                   body is hidden; at reading zoom the Question and Goal titles
+                   were set exactly like a factor's. Same size token (DS v5 §2.3
+                   forbids a fourth canvas size), so hierarchy is weight + ink. */
+                : isAnchorCard
+                  ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
+                  : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
             }
             style={lodHideTitle ? { visibility: 'hidden' } : undefined}
           >
-            {label}
+            {titleOverride ?? label}
           </div>
         </div>
 
@@ -2203,20 +2348,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         )}
 
         {/* Expand/collapse chevron for nodes with description */}
+        {/* ⭐ ONE HEADER ICON GRAMMAR (contract v3.1 OR-11 / ICON-12). The
+            chevron was a fixed 14px (≈9px on screen at the landing zoom) beside
+            header glyphs that carry `--canvas-label-scale`, hovered with an
+            off-token `bg-black/5`, labelled by a native `title` only. It now
+            takes the canvas glyph scale, the `.icon-btn:hover` info-soft wash,
+            a visible focus ring and the shared hover/focus Tooltip. The box
+            (14 × scale + p-0.5) stays inside the title's line box at every
+            scale, so the header height does not move. */}
         {description && (
-          <button
-            onClick={handleExpandToggle}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="nodrag nopan shrink-0 p-0.5 hover:bg-black/5 rounded transition-colors"
-            aria-label={isExpanded ? 'Collapse description' : 'Expand description'}
-            title={isExpanded ? 'Collapse' : 'Expand'}
-          >
-            {isExpanded ? (
-              <ChevronUp size={14} className="text-text-light" />
-            ) : (
-              <ChevronDown size={14} className="text-text-light" />
-            )}
-          </button>
+          <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={isExpanded ? 'Collapse description' : 'Expand description'}>
+            <button
+              type="button"
+              onClick={handleExpandToggle}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="nodrag nopan shrink-0 p-0.5 rounded text-text-light hover:bg-info/10 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
+              aria-label={isExpanded ? 'Collapse description' : 'Expand description'}
+              data-testid="node-description-toggle"
+            >
+              {isExpanded ? (
+                <ChevronUp size={14} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[14]} />
+              ) : (
+                <ChevronDown size={14} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[14]} />
+              )}
+            </button>
+          </Tooltip>
         )}
       </div>
       )}
@@ -2300,7 +2456,18 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           specs assert. */}
       {!isCausalLens && !isEvidenceLens && (children || lodBodyLine || showConstraintLines) ? (
         <div
-          className="relative text-left"
+          /* ⭐ THE ANCHOR'S LAST ROW KEEPS ITS TEXT CLEAR OF THE RAIL BESIDE IT
+             (contract v3.1 ANC-02 / RHY-02: `.node.wide .target-row,
+             .node.wide .row-meta{padding-right:58px}`). Only the LAST row sits
+             beside the rail, so only it gives up measure — the rows above keep
+             the card's full width and cannot wrap more than they did. The
+             width is the rail's reachable extent on this card
+             (`anchorRailButtons`), counter-scaled like the rail itself. */
+          className={anchorRailBeside
+            ? `relative text-left ${ANCHOR_RAIL_RESERVE_CLASSES[anchorRailButtonsKey(anchorRailButtons)]}`
+            : 'relative text-left'}
+          data-testid={anchorRailBeside ? 'anchor-body-rail-beside' : undefined}
+          data-anchor-rail-buttons={anchorRailBeside ? anchorRailButtonsKey(anchorRailButtons) : undefined}
           style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : undefined}
           {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
         >
@@ -2316,7 +2483,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             <div className="mt-1.5 space-y-0.5" data-testid="factor-constraint-lines">
               {constraintLines.map((text, i) => (
                 <div key={i} className="flex items-start gap-1">
-                  <Target size={9} className="text-info shrink-0 mt-[2px]" aria-hidden="true" />
+                  {/* Declared = delivered (contract v3.1 ICON-11): the glyph
+                      carries `--canvas-label-scale` like the `edgeLabel` text
+                      beside it; a bare `size={9}` reached the user at ~5.9px
+                      at the landing zoom. */}
+                  <Target size={9} className={`text-info shrink-0 mt-[2px] ${CANVAS_GLYPH_SIZE_CLASSES[9]}`} aria-hidden="true" />
                   <span className={`${typography.edgeLabel} text-text-body`}>
                     {/* "Limit" names what the number IS. The formatter supplies
                         the operator, the unit and any "· Inferred limit"
@@ -2381,7 +2552,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 <span
                   data-testid="node-lod-estimate-mark"
                   title={ESTIMATE_SUBJECT_TITLE.value}
-                  className={`${typography.nodeLabel} text-text-light italic shrink-0`}
+                  /* ⭐ Text ≥ 4.5:1 ON ITS ACTUAL GROUND (contract v3.1 T15). At
+                     the line rung the card takes its kind fill, where
+                     `text-light` measures 3.05–4.26:1; `text-body` clears
+                     6.09–8.51:1 on every light fill. Unfilled, unchanged. */
+                  className={`${typography.nodeLabel} ${lodKindFillClass ? 'text-text-body' : 'text-text-light'} italic shrink-0`}
                 >
                   {UNCONFIRMED_ESTIMATE_TOKEN}
                 </span>
@@ -2402,25 +2577,46 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           questions stay on the row's last card until the row-end prompt cards
           return with the laptop-fit slice; the option question's one entry
           point is the ghost card (`CARD_INVITATION_TIERS`). */}
-      <TierInvitationRow
-        invitations={myInvitations}
-        nodeId={id}
-        /* ⚠ THE SAME EXPRESSION THAT PAINTS THE TINT, not a second reading of
-           the lens. `evidenceBgStyle` is `undefined` on an untinted card —
-           including the `na` class, which the lens leaves alone — so the
-           invitation's colour and the card's fill cannot disagree about which
-           ground the text is standing on. */
-        onTintedGround={evidenceBgStyle !== undefined}
-      />
+      {(() => {
+        const invitationRow = (
+          <TierInvitationRow
+            invitations={myInvitations}
+            nodeId={id}
+            /* ⚠ THE SAME EXPRESSION THAT PAINTS THE TINT, not a second reading of
+               the lens. `evidenceBgStyle` is `undefined` on an untinted card —
+               including the `na` class, which the lens leaves alone — so the
+               invitation's colour and the card's fill cannot disagree about which
+               ground the text is standing on. The line-rung kind fill is a
+               tinted ground too (contract v3.1 T15), read from the same
+               `lodKindFillClass` that paints it. */
+            onTintedGround={evidenceBgStyle !== undefined || lodKindFillClass !== ''}
+          />
+        )
+        /* The anchor's rail sits BESIDE the card's last row (ANC-02 / RHY-02),
+           and this row can be that last row — so it gets the same reserve as
+           the body's last row, by the same class. */
+        return anchorRailBeside ? (
+          <div className={ANCHOR_RAIL_RESERVE_CLASSES[anchorRailButtonsKey(anchorRailButtons)]}>
+            {invitationRow}
+          </div>
+        ) : invitationRow
+      })()}
 
+      {/* ⭐ A 3px DARK PORT, NOT A 12px KIND DISC (contract v3.1 FRAME-04:
+          `.node .bottom-port{width:3px;height:3px;background:#51554F}` centred
+          on the bottom border). Fifteen to nineteen coloured discs on a board
+          read as developer artefacts. The HANDLE keeps its 12px box, its
+          `::before` hit slop and its edge anchor; only the paint shrinks to a
+          3px dot, drawn by `.olumi-node-port` in index.css — a class rather than
+          an inline background so the hover / selected rule there can re-light
+          it as the drag-to-connect affordance. */}
       <Handle
         type="source"
         position={Position.Bottom}
-        className={`${colors.border.replace('border-', 'bg-')}`}
+        className="olumi-node-port"
         style={{
           width: 12,
           height: 12,
-          border: '2px solid white',
         }}
         aria-label="Output connection"
       />

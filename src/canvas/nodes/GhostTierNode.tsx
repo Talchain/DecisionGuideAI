@@ -153,7 +153,8 @@ export const GhostTierNode = memo((props: NodeProps) => {
       // removing the span's `text-center` alone changed nothing. `justify-*`
       // is the VERTICAL axis here and `justify-center` stays: it is what keeps
       // the content vertically centred in a door sized for two lines.
-      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex flex-col items-start justify-center gap-1 nodrag nopan text-left"
+      // `rounded-sm` (8px) — the card corner (contract v3.1 FRAME-01).
+      className="rounded-sm cursor-pointer hover:bg-panel-hover transition-colors flex flex-col items-start justify-center gap-1 nodrag nopan text-left"
       style={{
         // Matches GhostOptionNode's measured 3:1 non-text contrast outline —
         // the dashes are the only thing marking this affordance's bounds.
@@ -166,7 +167,9 @@ export const GhostTierNode = memo((props: NodeProps) => {
         // GhostOptionNode does, so the claim is true rather than aspirational.
         width: GHOST_DOOR_W_PX,
         minHeight: GHOST_DOOR_MIN_H_PX,
-        border: `${GHOST_DOOR_BORDER_PX}px dashed var(--text-body, #3F3F3E)`,
+        // Quieted with GhostOptionNode to `--text-light` (contract v3.1 T12;
+        // 5.23:1 on the panel, 4.65:1 on the canvas — see that file).
+        border: `${GHOST_DOOR_BORDER_PX}px dashed var(--text-light, #6E6B6B)`,
         background: 'transparent',
       }}
     >

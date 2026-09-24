@@ -39,6 +39,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { changeRow } from './__helpers__/optionChangeRowText'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -189,13 +190,15 @@ describe('OptionNode — the run must not delete the model content', () => {
     // Without this the two POST cases below can pass on an empty fixture — the
     // exact way the first cut of this file was vacuous.
     renderCard(IDLE)
-    expect(screen.getByText(CHIP)).toBeInTheDocument()
+    // contract v3.1 OPT-03: the row's "from" half is its own muted span, so the
+    // chip is found by the change-row identity matcher, not one text node.
+    expect(screen.getByText(changeRow(CHIP))).toBeInTheDocument()
     expectReferenceOnTheRow()
   })
 
   it('⭐ POST-ANALYSIS: the delta chip is still on the card', () => {
     renderCard(COMPLETE)
-    expect(screen.getByText(CHIP)).toBeInTheDocument()
+    expect(screen.getByText(changeRow(CHIP))).toBeInTheDocument()
   })
 
   it('⭐ POST-ANALYSIS: the reference line is still on the card', () => {
@@ -227,6 +230,8 @@ describe('OptionNode — the run must not delete the model content', () => {
     for (const results of [COMPLETE, IDLE]) {
       const { unmount } = renderCard(results, { is_baseline: true }, 'option-b')
       expect(screen.queryByText(CHIP)).toBeNull()
+      // contract v3.1 OPT-03: by identity too, or a split row passes vacuously.
+      expect(screen.queryByText(changeRow(CHIP))).toBeNull()
       // Locked Canvas design (23 Sep 2026): the change rows are the delta's home.
       expect(screen.queryByTestId('option-change-rows-option-b')).toBeNull()
       unmount()

@@ -130,7 +130,10 @@ const READER_CORPUS: readonly CorpusEntry[] = [
     nodeId: 'out_attendance',
     field: 'uncertainty',
     value: 0.7,
-    reader: 'canvas/nodes/BaseNode.tsx:127 (isUncertain badge)',
+    // contract v3.1 FRAME-06: no card frame reads it any more (the dashed
+    // "uncertain" frame is gone — a dash is existence doubt, on a connection).
+    // It must still round-trip: the store carries it.
+    reader: 'canvas/store.ts (carried; no card reader since contract v3.1 FRAME-06)',
   },
   {
     nodeId: 'risk_logistics',
