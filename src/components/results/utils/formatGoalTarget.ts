@@ -112,6 +112,21 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
   // Currency, symbol or ISO code, prefixed.
   if (kind === 'symbol' || kind === 'iso') return formatTargetValue(value, 'currency', canonical)
 
-  // A real unit ('months', 'users', …) — suffixed.
+  /**
+   * A real unit ('months', 'users', …) — suffixed, after a space, because it is
+   * a WORD.
+   *
+   * ⭐ EXCEPT WHEN IT OPENS WITH THE PERCENT GLYPH (contract v3.1, T12/ANC-10).
+   * A unit such as `% change` is not `kind === 'percent'` (it is not one of the
+   * three percent spellings, so it is neither rounded nor re-spelt), and it fell
+   * to this word branch and printed "0 % change" — the glyph detached from its
+   * number, unlike every other percentage on the canvas ("8%", "6.5%").
+   * `applyUnitPlacement` (utils/unitClassifier) states the rule this follows: a
+   * percent SUFFIXES because "`49%` is how the glyph is read", while a word takes
+   * a space. So the glyph closes up to the figure and whatever follows it keeps
+   * its own spacing: "0% change". Only the join changes; the magnitude is
+   * printed exactly as before (no rounding is introduced).
+   */
+  if (canonical.startsWith('%')) return `${value.toLocaleString()}${canonical}`
   return `${value.toLocaleString()} ${canonical}`
 }
