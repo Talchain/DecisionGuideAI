@@ -174,19 +174,48 @@ test(`ROS ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ pag
    * the fixture — the same "can the probe see a presence" control, no longer
    * dependent on the widths of the day.
    */
-  const planted = await page.evaluate(() => {
-    const cards = [...document.querySelectorAll('.react-flow__node[data-id]')] as HTMLElement[]
-    const a = cards.find((c) => c.offsetWidth > 0)
-    if (!a) return { pairs: 0 }
-    const r = a.getBoundingClientRect()
-    // Two boxes: the card and a copy shifted by half its width → they overlap.
-    const A = { x: r.left, y: r.top, w: r.width, h: r.height }
-    const B = { x: r.left + r.width / 2, y: r.top, w: r.width, h: r.height }
-    const ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x)
-    const oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y)
-    return { pairs: ox > 0 && oy > 0 ? 1 : 0 }
+  // ⭐ THE PLANTED PAIR GOES THROUGH `SNAP` ITSELF (Codex CHANGES_REQUIRED
+  // 5809935418): two ACTUAL fixture nodes are made to overlap in the store,
+  // `SNAP` — the exact detector the after-reload assertion trusts — must report
+  // them, and only then are the rolled-back positions restored for the flush.
+  // A `SNAP` that returned zero for every board fails here, before it can clear
+  // the restore path.
+  const plantedPair = await page.evaluate(() => {
+    const w = window as unknown as {
+      useCanvasStore: {
+        getState: () => { nodes: Array<{ id: string; position: { x: number; y: number } }> }
+        setState: (partial: unknown) => void
+      }
+    }
+    const st = w.useCanvasStore.getState()
+    const shown = st.nodes.filter((n) => document.querySelector(`.react-flow__node[data-id="${n.id}"]`))
+    if (shown.length < 2) return null
+    const [a, b] = shown
+    const saved = { ...b.position }
+    w.useCanvasStore.setState({
+      nodes: st.nodes.map((n) => (n.id === b.id ? { ...n, position: { x: a.position.x + 10, y: a.position.y + 10 } } : n)),
+    })
+    return { a: a.id, b: b.id, saved }
   })
-  expect(planted.pairs, 'the overlap arithmetic cannot see a planted overlap — "zero overlaps" would prove nothing').toBe(1)
+  expect(plantedPair, 'fewer than two rendered fixture nodes to plant an overlap between').not.toBeNull()
+  await page.waitForTimeout(800)
+  const plantedSnap = await page.evaluate(SNAP)
+  expect(
+    plantedSnap.pairs,
+    `SNAP did not see a planted overlap between ${plantedPair!.a} and ${plantedPair!.b} — "zero overlaps after reload" would prove nothing`,
+  ).toBeGreaterThan(0)
+  // Restore the rolled-back position exactly, then prove the board is back.
+  await page.evaluate(({ id, saved }) => {
+    const w = window as unknown as {
+      useCanvasStore: { getState: () => { nodes: Array<{ id: string; position: { x: number; y: number } }> }; setState: (p: unknown) => void }
+    }
+    const st = w.useCanvasStore.getState()
+    w.useCanvasStore.setState({ nodes: st.nodes.map((n) => (n.id === id ? { ...n, position: saved } : n)) })
+  }, { id: plantedPair!.b, saved: plantedPair!.saved })
+  await page.waitForTimeout(800)
+  const unplanted = await page.evaluate(SNAP)
+  const bNow = unplanted.nodeList.find((n: { id: string }) => n.id === plantedPair!.b)
+  expect(bNow && Math.round(bNow.x) === Math.round(plantedPair!.saved.x) && Math.round(bNow.y) === Math.round(plantedPair!.saved.y), 'the planted node was not restored to its rolled-back position').toBe(true)
   expect(before.nodes, 'the rolled-back board rendered no cards').toBeGreaterThan(0)
 
   // ⛔ NON-VACUITY FIRST. A zero-node canvas reports zero overlapping pairs,
