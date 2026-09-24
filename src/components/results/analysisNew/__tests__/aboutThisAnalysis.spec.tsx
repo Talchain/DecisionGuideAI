@@ -296,8 +296,13 @@ describe('Values and ranges — the view model\'s range and share, formatted by 
     expect(cell('opt_a', 'share')).toBe(a.winReadout)
     // An absent p50 is said, never drawn as zero.
     expect(cell('opt_b', 'mid')).toBe(ABOUT_COPY.values.notReturned)
-    // The share row is named neutrally.
-    expect(within(screen.getByTestId(`${TID}-values-opt_a`)).getByText(ABOUT_COPY.values.share)).toBeInTheDocument()
+    // ⚠ RE-POINTED (V2 gap 28): the share label used to print PER OPTION,
+    // inside `${TID}-values-opt_a` itself (a `dt`/`dd` pair repeated per
+    // option, four lines deep). It is now said ONCE, in the compact table's
+    // shared header row, which is the whole point of the fix — so the claim
+    // "the share row is named neutrally" now means the label is on screen at
+    // all, not that it repeats inside every option's own element.
+    expect(screen.getByText(ABOUT_COPY.values.share)).toBeInTheDocument()
     expect(screen.queryByTestId(`${TID}-values-normalised`)).toBeNull()
   })
 
@@ -343,6 +348,44 @@ describe('Values and ranges — the view model\'s range and share, formatted by 
     openDetail('values')
     expect(screen.getByTestId(`${TID}-values-normalised`)).toHaveTextContent(ABOUT_COPY.values.normalised)
     expect(screen.getByTestId(`${TID}-values-opt_a-low`).textContent).toBe(formatThreshold(1200, undefined, undefined, true))
+  })
+
+  /**
+   * V2 fidelity gap 28: "'Values and ranges' stacks four lines per option
+   * where the prototype uses one compact table." Before the fix, each option
+   * was a `<div>` holding its own label plus a four-row `dl` (low/mid/high/
+   * share, each with its OWN `dt` label) — three options ran to fifteen
+   * lines, and every fact's name printed once PER OPTION instead of once for
+   * the whole table.
+   *
+   * ⚠ REVERT THE PRODUCTION CHANGE TO SEE THIS RED: `rowA.tagName` reads
+   * `'DIV'`, not `'TR'`, and `screen.getAllByText(ABOUT_COPY.values.low)`
+   * returns one match per option (2, for `ranged()`'s two options) rather
+   * than the single shared header this fix introduces.
+   */
+  it('V2 gap 28: one compact table row per option, not a label plus a four-line list', () => {
+    const vm = build(ranged())
+    renderAbout(vm, { outcomeFormat: GBP })
+    open()
+    openDetail('values')
+    const rowA = screen.getByTestId(`${TID}-values-opt_a`)
+    const rowB = screen.getByTestId(`${TID}-values-opt_b`)
+    // The compact grammar is a single table row — not a `<div>` carrying a
+    // label paragraph plus a four-row definition list.
+    expect(rowA.tagName).toBe('TR')
+    expect(rowB.tagName).toBe('TR')
+    // Every fact's name is said ONCE, in the table's shared header row — a
+    // row itself carries no label text, only its option name and the values.
+    for (const label of [ABOUT_COPY.values.low, ABOUT_COPY.values.mid, ABOUT_COPY.values.high, ABOUT_COPY.values.share]) {
+      expect(within(rowA).queryByText(label), `"${label}" must not repeat inside every option's own row`).toBeNull()
+      expect(screen.getAllByText(label), `"${label}" must be said exactly once, not once per option`).toHaveLength(1)
+    }
+    // Keeping the same facts: every value cell a caller could already query
+    // is still there, still correct — this is a layout change, not a content
+    // change.
+    expect(within(rowA).getByTestId(`${TID}-values-opt_a-low`)).toHaveTextContent(
+      formatThreshold(1200, 'currency', '£', false),
+    )
   })
 })
 
