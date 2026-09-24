@@ -24,7 +24,7 @@
  */
 
 import { useContext, useMemo } from 'react'
-import { AlertTriangle, MessageCircle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 /**
  * ⭐ REPOINTED 2026-09-11 — THIS FIXED A LIVE DEFECT, IT IS NOT A TIDY-UP.
@@ -49,6 +49,7 @@ import { typography } from '../../../styles/typography'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { HandOffToOlumi } from '../../conversation/olumiHandOff'
 import { Accordion } from '../../../components/results/Accordion'
+import { PanelIconButton } from '../../../components/results/analysisNew/PanelIconButton'
 import type { CeeQualityDimensions } from '../../store'
 import { DetailToggleContext } from './DetailToggleContext'
 import { describeAuditInferenceWarnings } from './auditInferenceWarnings'
@@ -627,30 +628,40 @@ function ModelHealthSectionInner({
                 the Olumi surface and only then sends, which is the rule
                 `olumiHandOff.ts` states and the v2 outline already obeys.
 
-                ⚠ AND THE ACCESSIBLE NAME IS NOT OPTIONAL HERE. The control is a
-                14px icon whose only name was a `title`, which is the one route a
-                keyboard or touch user cannot take — `ModelRowView.tsx:876-879`
-                states that limitation about a `title` in this very estate, and
-                `ModelGroupActions.tsx:10-19` cites THIS button by line as one of
-                the icon-only originals it moved away from. The label is the house
-                string for this capability, taken verbatim from the action written
-                to replace it (`groupActions.ts`'s recorded `DISCUSS_RELIABILITY`
-                label), so the name is a reuse rather than an invention. */}
-            <button
-              type="button"
+                ⚠ THE ACCESSIBLE NAME IS NOT OPTIONAL HERE, AND IT NO LONGER
+                LEANS ON `title` AT ALL. `PanelIconButton` sets `aria-label`
+                directly and its `Tooltip` deliberately BLANKS the native
+                `title` (`Tooltip.tsx`: "An empty title blocks native
+                tooltips inherited from an ancestor") — the accessible name
+                and the on-hover hint both come from `label` now, through two
+                different, tested mechanisms, neither of them a mouse-only
+                `title` string. `ModelRowView.tsx:876-879` states that
+                limitation about a bare `title` in this very estate, and
+                `ModelGroupActions.tsx:10-19` cites this button by line as one
+                of the icon-only originals it moved away from.
+
+                ⭐⭐ V2 GAP 33 — THE OLUMI AI ICON, AND A REAL 28PX TARGET.
+                `FIDELITY-GAPS-INDEX-20260924.txt` #33: this was a bare Lucide
+                `MessageCircle` at 14×14 with no padding — the one AI act on
+                the Model tab, and the one that never carried the Olumi glyph
+                (`git grep OlumiAiIcon -- src/canvas` found nothing). Reusing
+                `PanelIconButton` — the same primitive Reasoning's AI acts use
+                — rather than hand-rolling the geometry a second time. The
+                label is the house string for this capability, taken verbatim
+                from the action written to replace it (`groupActions.ts`'s
+                recorded `DISCUSS_RELIABILITY` label), so the name is a reuse
+                rather than an invention. */}
+            <PanelIconButton
+              ai
+              label={MODELCARD_DISCUSS_LABEL}
+              testId="modelcard-discuss"
               onClick={() =>
                 onHandOffToOlumi({
                   message: 'Help me understand the reliability and limitations of my model',
                   reason: 'modelcard-discuss',
                 })
               }
-              className="text-text-light hover:text-info cursor-pointer transition-colors"
-              aria-label={MODELCARD_DISCUSS_LABEL}
-              title={MODELCARD_DISCUSS_LABEL}
-              data-testid="modelcard-discuss"
-            >
-              <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
-            </button>
+            />
           </div>
         )}
       </div>
