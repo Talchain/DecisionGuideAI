@@ -31,7 +31,9 @@ import {
   NODE_CARD_PADDING_X,
   NODE_HEADER_RESERVE_PX,
   NODE_LAYOUT_MIN_W,
-  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  MAX_CARDS_PER_ROW,
+  REPEATED_CARD_W,
+  REPEATED_CARD_TARGET_W,
   NODE_TITLE_MIN_MEASURE_PX,
   NODE_TITLE_WIDEST_WORD_PX,
   NODE_TITLE_RECLAIMED_PX,
@@ -292,8 +294,28 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // dated record; see the appended note in `nodeLayoutConstants.ts` and the
     // derived invariant in `src/canvas/__tests__/layout.sameRowGap.spec.ts`.
     // The DECOUPLING this test pins is unaffected and still correct.
-    expect(NODE_SINGLE_ROW_FAIR_SHARE_W).toBe(140)
-    expect(NODE_SINGLE_ROW_FAIR_SHARE_W).not.toBe(NODE_LAYOUT_MIN_W)
+    //
+    // ⭐ S4 (24 Sep 2026): the policy is now a COUNT (`MAX_CARDS_PER_ROW`, ED:
+    // rows above five wrap), which is decoupled from the card floor by
+    // construction — a count cannot move with the type ramp. The retired
+    // `NODE_SINGLE_ROW_FAIR_SHARE_W` is gone; what stays pinned is the policy
+    // and that it is not a width.
+    expect(MAX_CARDS_PER_ROW).toBe(5)
+    expect(Number.isInteger(MAX_CARDS_PER_ROW)).toBe(true)
+    expect(MAX_CARDS_PER_ROW).not.toBe(NODE_LAYOUT_MIN_W)
+  })
+
+  it('⭐ S4: the repeated card is the ED target raised to THIS file\'s floor — legibility wins', () => {
+    // ED #63 5806207128: "248 is the target unless a specific title/legibility
+    // test proves a bounded exception is necessary". This file IS that test:
+    // the floor above holds the widest starter word at the counter-scale bound,
+    // so the rendered width is max(target, floor) and follows the floor down if
+    // the scale ever moves.
+    expect(REPEATED_CARD_TARGET_W).toBe(248)
+    expect(REPEATED_CARD_W).toBe(Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W))
+    expect(REPEATED_CARD_W - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX).toBeGreaterThanOrEqual(
+      NODE_TITLE_MIN_MEASURE_PX,
+    )
   })
 
   it('a short label cannot be made to occupy the maximum card', () => {

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useReactFlow, getNodesBounds } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { computeFitPadding } from '../utils/computeFitPadding'
-import { excludeNonModelNodes } from '../utils/fitTargets'
+import { excludeNonModelNodes, fitFrameNodes } from '../utils/fitTargets'
 import { paddingToInsets, readFocusCamera, topAnchoredViewportWhenClamped } from '../utils/cameraComfort'
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
@@ -153,7 +153,18 @@ export function useFitViewOnLayoutVersion(): void {
   // the re-fit would silently stop agreeing (and how three copies of the dock
   // bounds drifted before `dockWidth.ts` existed).
   const fitNow = useRef(() => {
-    const nodes = getNodesRef.current ? excludeNonModelNodes(getNodesRef.current()) : []
+    /**
+     * ⭐ S4: THE FRAME IS THE MODEL PLUS ITS ROW-END PROMPTS (ED S4; NODE-ANATOMY-v32
+     * L4: "the WHOLE graph (all rows plus the prompt cards) is visible at
+     * landing"). Both exits below read this one list, so the clamped top-anchor
+     * and the fitting `fitView` frame the same box. The readiness predicates
+     * above keep `excludeNonModelNodes` — "is there a MODEL to aim at?" is a
+     * count, and a prompt is never part of the count.
+     */
+    // A frame of prompts alone frames nothing the user owns — with no model
+    // node the fit falls back exactly as it did before (xyflow's fit-all).
+    const all = getNodesRef.current ? getNodesRef.current() : []
+    const nodes = excludeNonModelNodes(all).length > 0 ? fitFrameNodes(all) : []
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
 

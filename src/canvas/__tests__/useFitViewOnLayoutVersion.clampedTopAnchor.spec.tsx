@@ -244,13 +244,13 @@ describe("fitNow's CLAMPED exit — the top-anchored setViewport", () => {
     expect(fitViewSpy).not.toHaveBeenCalled()
   })
 
-  it('the anchor is computed from MODEL nodes only — the ghost affordance cannot move the camera', () => {
+  it('⛔ a ghost that is NOT a row-end prompt cannot move the camera', () => {
     // Bound by IDENTITY, not by a value predicate (CLAUDE.md trap 19): the ghost
     // is placed where it WOULD widen the bounds, and the assertion is that the
     // camera lands on the same measured viewport as without it.
     currentNodes = [
       ...clampingNodes(),
-      { id: GHOST_OPTION_NODE_ID, position: { x: 4000, y: 24 }, measured: { width: NODE_W, height: NODE_H }, data: {} },
+      { id: '__ghost-not-a-prompt__', position: { x: 4000, y: 24 }, measured: { width: NODE_W, height: NODE_H }, data: {} },
     ]
     renderHook(() => useFitViewOnLayoutVersion())
 
@@ -259,5 +259,30 @@ describe("fitNow's CLAMPED exit — the top-anchored setViewport", () => {
 
     expect(setViewportSpy).toHaveBeenCalledTimes(1)
     expect(setViewportSpy.mock.calls[0][0]).toEqual(DEPLOYED_TOP_ANCHORED)
+  })
+
+  it('⭐ S4: the row-end prompt IS framed — the anchor is computed over the model AND its prompts', () => {
+    // ED S4 / NODE-ANATOMY-v32 L4: "the WHOLE graph (all rows plus the prompt
+    // cards) is visible at landing". Until S4 the option door was excluded here
+    // and could sit under the dock (FIT-DIAGNOSIS-20260924 §2). The same prompt,
+    // placed where it widens the bounds, now MOVES the camera — to exactly the
+    // top-anchored viewport of the widened box.
+    const prompt = { id: GHOST_OPTION_NODE_ID, position: { x: 4000, y: 24 }, measured: { width: NODE_W, height: NODE_H }, data: {} }
+    currentNodes = [...clampingNodes(), prompt]
+    renderHook(() => useFitViewOnLayoutVersion())
+
+    act(() => { userLayoutCommit() })
+    flushFrames()
+
+    expect(setViewportSpy).toHaveBeenCalledTimes(1)
+    const got = setViewportSpy.mock.calls[0][0]
+    expect(got, 'the prompt was left out of the frame').not.toEqual(DEPLOYED_TOP_ANCHORED)
+    const widened = getNodesBounds([...clampingNodes(), prompt] as never)
+    const frameW = PANE.width - 76 - 444
+    expect(got).toEqual({
+      x: 76 + (frameW - widened.width * LABEL_LEGIBLE_ZOOM) / 2 - widened.x * LABEL_LEGIBLE_ZOOM,
+      y: DEPLOYED_TOP_ANCHORED.y,
+      zoom: LABEL_LEGIBLE_ZOOM,
+    })
   })
 })
