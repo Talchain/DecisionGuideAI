@@ -1,20 +1,25 @@
 /**
  * Outcome + Risk cards against Paul's 23 Sep 2026 Visual Contract feedback,
- * points 8, 9 and 13.
+ * points 8, 9 and 13 — as HARDENED by contract v3.1 (VC-01, 23 Sep 2026).
  *
- *  · Point 8 — drop low-information Outcome copy. "N options connect to this"
- *    stays ONLY where it differentiates: some, not all, of the board's options
- *    reach this outcome. Measured across the five committed starters: 7 of 10
- *    outcomes are reached by EVERY option, where the line said nothing a reader
- *    could use. The kept form names its denominator (point 5's rule: a count
- *    must say what it is out of).
+ *  · Point 8 (v3.1) — drop low-information Outcome copy. v3.1's rule: remove
+ *    "N options move/connect" UNLESS it genuinely differentiates, e.g. "No option
+ *    moves this outcome"; its fixture removes the line from ALL outcomes. The
+ *    first cut kept a "2 of 3 options connect to this" form where SOME options
+ *    reached the outcome; Paul flagged that served line against v3.1 (gap U2,
+ *    24 Sep), so it is gone at every count. No zero-state sentence existed, and
+ *    none is invented here.
+ *  · U1 (v3.1 "Option and outcome limits": "Outcome/risk records are distinct
+ *    from the strength of their connections") — the card carries NO
+ *    "Link strength" row and no strength figure at ANY rung. Strength is the
+ *    connection's fact, inspectable on the edge and in its inspector.
  *  · Point 9 — risk uses the existing Danger treatment. The Detailed severity
  *    badge painted Tailwind yellow/orange defaults that are not in the design
  *    system; it is now the design-system outlined pill (`border-danger/30`,
  *    `text-text-body`), and the WORD carries the severity, not a colour.
- *  · Point 13 — bounded family heights, no filler. The risk's own-size facts sit
- *    together ABOVE the link-strength row, so outcome and risk share one anatomy
- *    (own state, then the link) and neither card gains a placeholder line.
+ *  · Point 13 — bounded family heights, no filler. The card keeps its OWN state
+ *    (risk likelihood/impact or the unset sentence, a recorded size, an
+ *    authored consequence) and gains no placeholder where copy was removed.
  *
  * `NodePopover` is NOT mocked: hidden popover children are absent from the DOM,
  * so everything found in a resting render is on the card face.
@@ -40,6 +45,11 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   edges: [],
   nodes: [],
   viewMode: 'standard',
+  editedSinceRunNodeIds: new Set(),
+  analysisHighlight: { source: null, edgeIds: new Set(), nodeIds: new Set() },
+  hoveredOptionId: null,
+  ceeAnalysisReady: null,
+  lodRung: 'full',
   ...overrides,
 })
 
@@ -56,6 +66,8 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
 
 const baseProps = {
   position: { x: 0, y: 0 }, selected: false, isConnectable: true,
@@ -91,8 +103,11 @@ const EDGES = [
   { id: 'f2t', source: 'factor-2', target: 'outcome-two', data: {} },
   // one of three reaches outcome-one
   { id: 'f3o', source: 'factor-3', target: 'outcome-one', data: {} },
-  // bridge edges, so the UI-SEM-089 link-strength row renders
-  { id: 'ag', source: 'outcome-all', target: 'goal-1', data: { weight: 0.6, direction: 'positive', weightSource: 'cee' } },
+  // Bridge edges in both provenance states: an Olumi estimate nobody settled
+  // (`strength_mean`, the producer shape) and a figure a person set. Before
+  // v3.1 each drew a "Link strength" row on the card.
+  { id: 'ag', source: 'outcome-all', target: 'goal-1', data: { strength_mean: 0.6, direction: 'positive', beliefExists: null } },
+  { id: 'tg', source: 'outcome-two', target: 'goal-1', data: { weight: 0.45, direction: 'positive', weightSource: 'user' } },
   { id: 'rg', source: 'risk-1', target: 'goal-1', data: { weight: 0.5, direction: 'negative', weightSource: 'user' } },
 ]
 
@@ -101,10 +116,10 @@ const applyStore = (overrides: Record<string, unknown> = {}) =>
     selector(makeStoreState({ nodes: NODES, edges: EDGES, ...overrides }) as any),
   )
 
-const renderOutcome = (id: string, label: string) =>
+const renderOutcome = (id: string, label: string, extra: Record<string, unknown> = {}) =>
   render(
     <ReactFlowProvider>
-      <OutcomeNode {...(baseProps as any)} id={id} type="outcome" data={{ label, type: 'outcome' }} />
+      <OutcomeNode {...(baseProps as any)} id={id} type="outcome" data={{ label, type: 'outcome', ...extra }} />
     </ReactFlowProvider>,
   )
 
@@ -115,40 +130,120 @@ const renderRisk = (data: Record<string, unknown> = {}) =>
     </ReactFlowProvider>,
   )
 
-describe('Paul 23 Sep point 8 — Outcome drops copy that does not differentiate', () => {
+describe('contract v3.1 pt 8 — the Outcome card carries no option-reach count (gap U2)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     applyStore()
   })
 
-  it.each(['idle', 'complete'])('says nothing about options when EVERY option connects (%s) — and keeps the assumed-strength row', (status) => {
-    applyStore({ results: { status, report: null } })
-    const { container } = renderOutcome('outcome-all', 'Revenue')
-    // Positive control, same render: the card and its UI-SEM-089 row are there.
-    expect(screen.getByTestId('outcome-strength-row')).toBeDefined()
-    expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
-    expect(container.textContent).not.toMatch(/options? connects? to this/)
-  })
-
-  it('keeps the line where it differentiates, and names what the count is out of', () => {
-    renderOutcome('outcome-two', 'Margin')
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('2 of 3 options connect to this')
-  })
-
-  it('uses the singular verb for one option', () => {
-    renderOutcome('outcome-one', 'Brand reach')
-    expect(screen.getByTestId('outcome-options-moving').textContent).toBe('1 of 3 options connects to this')
-  })
-
-  it('stays silent at zero — no counted-zero claim, no placeholder line', () => {
-    renderOutcome('outcome-none', 'Morale')
-    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
-    expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
+  it.each([
+    ['outcome-all', 'Revenue', 'every option'],
+    ['outcome-two', 'Margin', '2 of 3 — the form served on staging'],
+    ['outcome-one', 'Brand reach', '1 of 3'],
+    ['outcome-none', 'Morale', 'none'],
+  ])('%s (%s, reached by %s): no count line, in either phase', (id, label) => {
+    for (const status of ['idle', 'complete']) {
+      applyStore({ results: { status, report: null } })
+      const { container, unmount } = renderOutcome(id, label, { description: `${label} context` })
+      // CONTRAST, same render: the card and its own authored state are there.
+      expect(screen.getByTestId('outcome-context-preview').textContent).toBe(`${label} context`)
+      expect(screen.queryByTestId('outcome-options-moving')).toBeNull()
+      expect(container.textContent).not.toMatch(/\boptions? connects? to this|alternatives connect|options? moves? this/i)
+      unmount()
+    }
   })
 
   it('adds no filler line in place of the removed copy (point 13: no empty space)', () => {
-    const { container } = renderOutcome('outcome-all', 'Revenue')
-    expect(container.textContent).not.toMatch(/not quantified|alternatives connect/i)
+    const { container } = renderOutcome('outcome-two', 'Margin')
+    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(container.textContent).not.toMatch(/not quantified|alternatives connect|No option moves/i)
+  })
+})
+
+describe('contract v3.1 — Outcome/Risk records are distinct from the strength of their connections (gap U1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    applyStore()
+  })
+
+  const STRENGTH_ON_CARD = /Link strength|Olumi[’']s estimate|Estimate, not confirmed/
+
+  it.each(['idle', 'complete'])('an outcome whose link is an unsettled Olumi estimate shows no strength row (%s)', (status) => {
+    applyStore({ results: { status, report: null } })
+    const { container } = renderOutcome('outcome-all', 'Revenue', { description: 'Recurring revenue next year' })
+    expect(screen.getByTestId('outcome-context-preview').textContent).toBe('Recurring revenue next year')
+    expect(screen.queryByTestId('outcome-strength-row')).toBeNull()
+    expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
+    expect(container.textContent).not.toMatch(/\d+%/)
+  })
+
+  it('an outcome whose link strength a PERSON set shows no figure either — it is the connection’s fact', () => {
+    const { container } = renderOutcome('outcome-two', 'Margin')
+    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.queryByTestId('outcome-strength-row')).toBeNull()
+    expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
+    expect(container.textContent).not.toContain('45%')
+  })
+
+  it('a risk with a person-set link keeps its OWN unset statement and loses the strength row', () => {
+    const { container } = renderRisk()
+    // CONTRAST: the risk's own state, exact copy, still on the face.
+    expect(screen.getByTestId('risk-exposure-unset').textContent).toBe(RISK_EXPOSURE_UNSET_LINE)
+    expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet.')
+    expect(screen.queryByTestId('risk-strength-row')).toBeNull()
+    expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
+    expect(container.textContent).not.toContain('50%')
+  })
+
+  it('a risk with its own likelihood and impact shows them, and no link row', () => {
+    renderRisk({ probability: 0.3, impact: 'high' })
+    expect(screen.getByTestId('risk-exposure-line').textContent).toBe('Entered estimate · 30% likely · High impact')
+    expect(screen.queryByTestId('risk-strength-row')).toBeNull()
+  })
+
+  describe('…at the reduced (far-zoom) rung too', () => {
+    const lodLine = () => screen.queryByTestId('node-lod-line')?.textContent ?? null
+
+    it('an outcome with an Olumi-estimated link says nothing about its strength', () => {
+      applyStore({ lodRung: 'line' })
+      renderOutcome('outcome-all', 'Revenue')
+      expect(lodLine()).toBeNull()
+      expect(document.body.textContent).not.toMatch(STRENGTH_ON_CARD)
+    })
+
+    it('a risk with a person-set link does not print "Link strength 50%"', () => {
+      applyStore({ lodRung: 'line' })
+      renderRisk()
+      expect(lodLine()).toBeNull()
+      expect(document.body.textContent).not.toMatch(STRENGTH_ON_CARD)
+    })
+
+    it('CONTRAST — a risk that records its own size still speaks at this rung, in its own unit', () => {
+      applyStore({ lodRung: 'line' })
+      renderRisk({
+        observedState: { value: 0.5, unit: 'months', source: 'brief_extraction', raw_value: 12, cap: 24, extractionType: 'explicit', factor_type: 'time' },
+      })
+      expect(lodLine()).toBe('12 months')
+    })
+
+    it('⛔ removing the link line does not let the GOAL’s chance fall through onto an outcome', () => {
+      // `achievementProbability` on an outcome is the recommended option's chance
+      // of reaching THE GOAL (useNodeDisplayMetadata), identical on every
+      // outcome; it was removed from this card on 17 Sep. v3.1: "Probability of
+      // a goal … must never stand in" for another fact. With no owner line, the
+      // central resolver's outcome arm used to print it here.
+      vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+        sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+        achievementProbability: 0.62, achievementProbabilityIsModelledBasis: false,
+        stabilityPercentage: null, winRate: null, isResultsMode: true,
+        predictedOutcome: null, valueOfInformation: null, voiRank: null,
+      } as any)
+      applyStore({ lodRung: 'line', results: { status: 'complete', report: null } })
+      renderOutcome('outcome-none', 'Morale')
+      expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+      expect(lodLine()).toBeNull()
+      expect(document.body.textContent).not.toContain('62%')
+    })
   })
 })
 
@@ -171,26 +266,21 @@ describe('Paul 23 Sep point 9 — risk uses the existing Danger treatment, no in
   })
 })
 
-describe('Paul 23 Sep point 13 — one anatomy for the outcome/risk family', () => {
+describe('Paul 23 Sep point 13 (v3.1) — one anatomy for the outcome/risk family: own state, no link row', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     applyStore()
   })
 
-  const follows = (a: Element, b: Element) =>
-    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-
-  it("the risk's own size (likelihood/impact) sits above the link-strength row, not split around it", () => {
+  it("the risk's own size (likelihood/impact) is on the face; the link row that used to follow it is gone", () => {
     renderRisk({ probability: 0.3, impact: 'high' })
-    const own = screen.getByTestId('risk-exposure-line')
-    const link = screen.getByTestId('risk-strength-row')
-    expect(follows(own, link)).toBe(true)
+    expect(screen.getByTestId('risk-exposure-line')).toBeDefined()
+    expect(screen.queryByTestId('risk-strength-row')).toBeNull()
   })
 
-  it('…and so does the unset statement, which is a fact about the risk, not the link', () => {
+  it('…and so is the unset statement, which is a fact about the risk, not the link', () => {
     renderRisk()
-    const own = screen.getByTestId('risk-exposure-unset')
-    const link = screen.getByTestId('risk-strength-row')
-    expect(follows(own, link)).toBe(true)
+    expect(screen.getByTestId('risk-exposure-unset')).toBeDefined()
+    expect(screen.queryByTestId('risk-strength-row')).toBeNull()
   })
 })

@@ -30,16 +30,16 @@
  * ON AN ADJACENT DISCLOSURE MAY NOT APPEAR HERE.
  *
  * There is room for one line. There is no room for a caveat beside it, and a
- * number that needs a caveat is not made safe by shrinking the type. So an
- * outcome's achievement probability is shown only on the basis that carries no
- * mandatory caveat, and withheld on the basis that does — derived from the same
- * `achievementProbabilityIsModelledBasis` gate `OutcomeNode` itself renders
- * `GOAL_FIT_BASIS_CAVEAT_COPY` from, not from a second reading of the rule.
+ * number that needs a caveat is not made safe by shrinking the type. An
+ * outcome's achievement probability used to be shown here only on the basis
+ * that carries no mandatory caveat; contract v3.1 withdraws it on every basis
+ * (it is the goal's figure, not the outcome's — see the outcome arm).
  * Fail-closed everywhere: an absent gate value withholds.
  *
  * ⚠ SCOPE, STATED RATHER THAN IMPLIED (trap 20). This resolves the reduced line
  * for FACTOR, OPTION, RISK and OUTCOME — the four types whose figure is
- * reachable from `data` + `displayMetadata`.
+ * reachable from `data` + `displayMetadata`. (Since contract v3.1 the OUTCOME
+ * arm always withholds.)
  *
  * ⚠⚠ AND THE SCOPE DECISION WRITTEN HERE FIRST WAS WRONG, IN THE MOST VISIBLE
  * PLACE AVAILABLE. It read: *"`decision`, `goal` and `action` are untouched and
@@ -112,7 +112,9 @@
  * inconsistency to reconcile, and aligning them is the wrong fix):
  *
  *   factor · option · action     → THIS MODULE (no `lodMetric` prop is passed)
- *   risk · outcome               → `RiskNode` / `OutcomeNode` (#1074)
+ *   risk                         → `RiskNode` (#1074) — its recorded size;
+ *                                  else this module's severity arm
+ *   outcome                      → nobody: no line (contract v3.1, gap U1)
  *   goal · decision              → `GoalNode` / `DecisionNode` (#1085)
  *
  * ⭐ `action` MOVED INTO THIS MODULE ON 2 SEP 2026 (Z2), and the honest reading
@@ -137,7 +139,7 @@ import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { resolveFactorPriorRange } from './factorPriorRange'
 import { factorValueSourceMark } from './valueSourceMark'
-import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, METRIC_NOUN, OPTION_RESULT_COPY } from './metricVocabulary'
+import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './metricVocabulary'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
@@ -363,7 +365,8 @@ function resolveText({
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
         // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read
         // `Ahead ${…}` while its sibling arm, the `achievementProbability`
-        // return in this same function, already read `${METRIC_NOUN.chance}`.
+        // return in this same function (withdrawn by contract v3.1), already
+        // read the register's `chance` noun.
         // So a rename in the register changed the zoomed-IN card and left this
         // zoomed-OUT one saying the old word.
         //
@@ -423,25 +426,27 @@ function resolveText({
       )
       // ⚠ NO PRE-ANALYSIS FALLBACK HERE, AND ITS ABSENCE IS THE DECISION. A
       // drafted risk routinely carries neither probability nor impact, so this
-      // returns `null` — but the card is NOT blank, because `RiskNode` declares
-      // its own `Strength N% est.` line through `lodMetric`, which wins before
-      // this function is ever called (#1074, merged and deployed). An arm here
-      // would be unreachable code with a spec certifying its precedence.
+      // returns `null`. `RiskNode` declares its own recorded size through
+      // `lodMetric`, which wins when present; since contract v3.1 it no longer
+      // falls back to a link-strength line (gap U1), so with no recorded size
+      // this arm is the live path and a `null` keeps the card's body visible.
       if (severity === null) return null
       return `${severity.charAt(0).toUpperCase()}${severity.slice(1)} risk`
     }
 
     case 'outcome': {
-      const { achievementProbability, achievementProbabilityIsModelledBasis } = displayMetadata
-      // ⚠ AS FOR RISK ABOVE: no pre-analysis fallback, because `OutcomeNode`
-      // declares its own strength line through `lodMetric` and it wins here.
-      if (achievementProbability == null) return null
-      // ⛔ THE CAVEAT GATE. On the modelled basis `OutcomeNode` is REQUIRED to
-      // render `GOAL_FIT_BASIS_CAVEAT_COPY` adjacent to this figure. One line
-      // cannot carry both, so the figure is withheld rather than shown stripped
-      // of the disclosure that makes it honest.
-      if (achievementProbabilityIsModelledBasis === true) return null
-      return `${METRIC_NOUN.chance} ${Math.round(achievementProbability * 100)}%`
+      /**
+       * ⛔ WITHHELD — contract v3.1 (VC-01): "Probability of a goal … must never
+       * stand in" for another fact, and outcome records are distinct from their
+       * connections. `achievementProbability` on an outcome is the recommended
+       * OPTION's chance of reaching THE GOAL (`useNodeDisplayMetadata`),
+       * identical on every outcome — the figure `OutcomeNode` removed from the
+       * card on 17 Sep. This arm printed it as `Chance N%` wherever the card
+       * declared no line of its own, and since v3.1 took the link-strength line
+       * off the card (gap U1) that is every outcome. No outcome-scoped datum
+       * exists on the wire, so the outcome has no reduced line.
+       */
+      return null
     }
 
     case 'action': {

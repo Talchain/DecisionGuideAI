@@ -494,6 +494,10 @@ const BUCKETS: Array<
  *    state straight after a run and the one the driver line needs.
  *  · `Strength` → `Link strength` (ED 11:52Z point 5: "if strength is shown
  *    on-node, call it link strength"). Still a CAPTION.
+ *  · CONTRACT v3.1 (gap U1, 24 Sep 2026): `Link strength` LEAVES the risk and
+ *    outcome cards at every rung — "Outcome/risk records are distinct from the
+ *    strength of their connections". Removed from all eight risk/outcome
+ *    buckets below, and its two REACH positions are retired with it.
  *  · The factor `Influence` row is now the driver line (ED 02:31Z D1a); on this
  *    fixture's unranked factors its caption is the quantity's own noun, still
  *    `Influence` — the same CAPTION at its new surface.
@@ -561,8 +565,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'View parameters', // CONTROL
   ],
   'risk · pre · standard': [
-    'Link strength', // CAPTION — `LINK_STRENGTH_COPY.noun`, beside its bar or its
-    //                  unset text. WAS `Strength` (ED 11:52Z point 5).
+    // WAS `Link strength` (CAPTION; ED 11:52Z point 5) — retired by contract
+    // v3.1 (gap U1): strength is the connection's fact, not the card's.
     // ⭐ WAS ALSO `What would we see first?` (CONTROL, ADJUDICATED 9 Sep 2026,
     // promoted from the hover popover). Locked Canvas design (23 Sep 2026): it
     // is the rail's coaching icon now — still on the card, no visible run.
@@ -570,40 +574,38 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'risk · pre · expert': [
     'Driven by:', // HEADING
     'Explore mitigation', // CONTROL
-    'Link strength', // CAPTION
     'What reduces this?', // CONTROL
     'What would we see first?', // CONTROL
   ],
   'risk · post · standard': [
-    'Link strength', // CAPTION — the face question is the rail icon; see the pre bucket.
+    // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1). The
+    // face question is the rail icon; see the pre bucket.
   ],
   'risk · post · expert': [
     'Depends on:', // HEADING
     'Explore mitigation', // CONTROL
-    'Link strength', // CAPTION
     'What reduces this?', // CONTROL
     'What would we see first?', // CONTROL
   ],
   'outcome · pre · standard': [
-    'Link strength', // CAPTION
+    // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1).
     // ⭐ WAS ALSO `What would falsify this?` (CONTROL, ADJUDICATED 9 Sep 2026).
     // Locked Canvas design (23 Sep 2026): the rail's coaching icon asks it now.
   ],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
     'Explore consequences', // CONTROL
-    'Link strength', // CAPTION
     'What affects this?', // CONTROL
     'What would falsify this?', // CONTROL
   ],
   'outcome · post · standard': [
-    'Link strength', // CAPTION — and the falsification question is still asked
-    // after a run (the `!isPostAnalysis` gate stays gone), by the rail icon.
+    // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1). The
+    // falsification question is still asked after a run (the `!isPostAnalysis`
+    // gate stays gone), by the rail icon.
   ],
   'outcome · post · expert': [
     'Depends on:', // HEADING
     'Explore consequences', // CONTROL
-    'Link strength', // CAPTION
     'Validate this assumption', // CONTROL
     // ⭐ ADJUDICATED 9 Sep 2026 — the phase gate that deleted this question on a
     // completed run is gone, so Detailed post now carries it as Detailed pre
@@ -772,8 +774,10 @@ const ADJUDICATED_POSITIONS: Position[] = [
   // (ED 02:31Z D1a). Bound by the new identity — an exact testid, so the
   // Detailed copy (`factor-driver-line-detail`) cannot stand in for it.
   { what: 'factor · the driver line', by: 'census', present: (c) => c.querySelector('[data-testid="factor-driver-line"]') != null },
-  { what: 'risk · the `Link strength` metric row', by: 'census', present: byTestId('risk-strength-row') },
-  { what: 'outcome · the `Link strength` metric row', by: 'census', present: byTestId('outcome-strength-row') },
+  // ⛔ RETIRED (contract v3.1, gap U1): 'risk · the `Link strength` metric row'
+  // (`risk-strength-row`) and 'outcome · the `Link strength` metric row'
+  // (`outcome-strength-row`). Their absence is pinned by identity in
+  // `outcomeRisk.paulContractFeedback.spec.tsx`.
   { what: 'option · the not-computed badge', by: 'census', present: byTestId('-not-computed-option-1') },
   { what: 'factor · the `Confidence` readout', by: 'census', present: (_c, r) => r.some((x) => x.startsWith('Confidence')) },
   { what: 'risk · the coaching chips', by: 'census', present: (_c, r) => r.includes('What reduces this?') },
@@ -931,7 +935,13 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // disappearance would mean the collector had stopped reading cards.
     // Locked Canvas design (23 Sep 2026): the register captions by their new
     // names (ED 11:52Z points 4–5), and the retired ones must NOT survive.
-    expect(measured['risk · pre · standard']).toContain('Link strength')
+    // Contract v3.1 (gap U1): the risk/outcome `Link strength` caption is
+    // retired; the risk card is witnessed by its Detailed heading instead, and
+    // no risk/outcome bucket may carry the retired caption.
+    expect(measured['risk · pre · expert']).toContain('Driven by:')
+    for (const [bucket, runs] of Object.entries(measured)) {
+      if (bucket.startsWith('risk') || bucket.startsWith('outcome')) expect(runs, bucket).not.toContain('Link strength')
+    }
     expect(measured['factor · post · standard']).toContain('Influence')
     expect(measured['option · post · standard']).toContain('Current model')
     expect(Object.values(measured).flat()).not.toContain('Support')

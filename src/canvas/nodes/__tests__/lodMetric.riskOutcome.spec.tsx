@@ -31,6 +31,14 @@
  * The fixtures below are therefore built from the MEASURED shape: a bridge edge
  * carrying a weight, and a node carrying NO probability, NO impact and NO
  * achievement probability — which is what staging actually sends.
+ *
+ * ⛔⛔ CONTRACT v3.1 (VC-01, gap U1) RETIRES THE LINE THIS FILE DEFENDED.
+ * "Outcome/risk records are distinct from the strength of their connections":
+ * the bridge strength is the CONNECTION's fact and no longer speaks on the card
+ * at any rung. The finding above still stands — a central resolver must not ask
+ * a node for a datum it lacks — so what this file now pins is that neither card
+ * borrows the edge's strength, and that the card is not blanked for it: with no
+ * reduced line, `BaseNode` keeps the body visible (`lodBodyBlanked` needs a line).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -134,10 +142,10 @@ const modelWithBridge = (nodeId: string, kind: string, strength: number, userSta
 
 const lodLine = () => screen.queryByTestId('node-lod-line')?.textContent ?? null
 
-describe('the deployed defect: risk and outcome cards went blank when zoomed out', () => {
+describe('contract v3.1 — the reduced line never borrows the connection’s strength (gap U1)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('a risk states its bridge strength — the one figure its card reliably has', () => {
+  it('a risk with an Olumi-estimated bridge says nothing about link strength at this rung', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
       sel(makeStoreState(modelWithBridge('risk-1', 'risk', 0.5)) as any),
     )
@@ -147,33 +155,12 @@ describe('the deployed defect: risk and outcome cards went blank when zoomed out
         <RiskNode {...(baseProps as any)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    /*
-     * ⚠⚠ THIS ASSERTION USED TO READ `'Strength 50% est.'`, AND THIS PR CHANGES
-     * IT DELIBERATELY (3 Sep 2026).
-     *
-     * ⛔ AND THE REASON FIRST GIVEN HERE WAS WRONG. Round 1 wrote *"that string
-     * WAS THE DEFECT — `0.5` is `DEFAULT_EDGE_DATA.weight`, the no-information
-     * default"*. REFUTED by measurement: a bare default carries no provenance
-     * stamp and renders NO ROW AT ALL, so it could never have produced this
-     * string. The figure came from a producer, and the arm retired here was a
-     * legitimate rendering of a producer's estimate — NOT "a spec pinning a
-     * lie". Calling a product decision a defect fix is CLAUDE.md trap 14, and it
-     * is corrected rather than quietly dropped. The canonical record is
-     * `shared/metricVocabulary.ts`.
-     *
-     * ⭐ WHAT ACTUALLY CHANGED, STATED HONESTLY: a strength no HUMAN has settled
-     * no longer prints as a bare figure at this rung. The finding this file was
-     * written to record is untouched and still exactly right (a risk card's ONE
-     * reliable datum is its bridge edge, not `probability` × `impact`); the line
-     * still speaks, which is this file's whole point.
-     *
-     * Locked Canvas design (23 Sep 2026): ED 11:52Z names on-node strength
-     * "Link strength"; MT-15b — a producer value nobody settled reads "Olumi’s
-     * estimate" (whose guess it is), not "not set yet" beside an edge that shows
-     * a value. The line still speaks and still carries no figure.
-     */
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
-    expect(lodLine()).not.toMatch(/\d+%/)
+    // Was `Link strength · Olumi’s estimate` (locked design, ED 11:52Z + MT-15b).
+    expect(lodLine()).toBeNull()
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+    // CONTRAST, same render: the card is not blank — its own unset statement
+    // stays in the (un-blanked) body.
+    expect(screen.getByTestId('risk-exposure-unset')).toBeTruthy()
   })
 
   it('an outcome does the same, from the same seam', () => {
@@ -190,45 +177,12 @@ describe('the deployed defect: risk and outcome cards went blank when zoomed out
         />
       </ReactFlowProvider>,
     )
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" + MT-15b wording.
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
-    expect(lodLine()).not.toMatch(/\d+%/)
-  })
-})
-
-describe('⛔ the figure appears only where somebody stated it', () => {
-  /*
-   * THE DISCRIMINATING PAIR. Same node, same weight, two provenances. If the
-   * line ignored provenance both would print `50%`; if the fix had over-fired,
-   * neither would. One of each is the only result that shows the provenance is
-   * being read.
-   *
-   * ⚠⚠ RE-POINTED 3 Sep 2026, AND THE OLD FRAMING IS WORTH KEEPING VISIBLE.
-   * This block was titled *"`est.` is part of the figure, not decoration"*, and
-   * its reasoning — *"a figure may not appear at low zoom stripped of the
-   * disclosure the full card is required to show beside it"* — is exactly
-   * right. The error was in the remedy: it kept the figure and shrank the
-   * disclosure to 7px, when the figure was the claim the product could not
-   * support. The pair is unchanged in shape; what each arm expects is not.
-   */
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('states the unknown when nobody stated the weight', () => {
-    vi.mocked(useCanvasStore).mockImplementation(sel =>
-      sel(makeStoreState(modelWithBridge('risk-1', 'risk', 0.5)) as any),
-    )
-    render(
-      <ReactFlowProvider>
-        <RiskNode {...(baseProps as any)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
-      </ReactFlowProvider>,
-    )
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" + MT-15b —
-    // the unsettled CEE arm names Olumi's estimate, still with no figure.
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
-    expect(lodLine()).not.toContain('50%')
+    expect(lodLine()).toBeNull()
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+    expect(screen.getByLabelText(/outcome node/i)).toBeTruthy()
   })
 
-  it('and drops it when the user set the weight themselves', () => {
+  it('a strength a PERSON set is still the connection’s fact — no "Link strength 50%" on the card', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
       sel(makeStoreState(modelWithBridge('risk-1', 'risk', 0.5, true)) as any),
     )
@@ -237,13 +191,34 @@ describe('⛔ the figure appears only where somebody stated it', () => {
         <RiskNode {...(baseProps as any)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" noun.
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} 50%`)
+    // Was `${LINK_STRENGTH_COPY.noun} 50%`.
+    expect(lodLine()).toBeNull()
+    expect(document.body.textContent).not.toContain('50%')
   })
 })
 
-describe('CONTRAST CONTROL — the line is the bridge strength, not a default', () => {
+describe('CONTRAST CONTROL — the reduced line still speaks where the card has its own datum', () => {
   beforeEach(() => { vi.clearAllMocks() })
+
+  it('a risk that records its own size states it at this rung, bridge or no bridge', () => {
+    vi.mocked(useCanvasStore).mockImplementation(sel =>
+      sel(makeStoreState(modelWithBridge('risk-1', 'risk', 0.5)) as any),
+    )
+    render(
+      <ReactFlowProvider>
+        <RiskNode
+          {...(baseProps as any)}
+          id="risk-1"
+          data={{
+            label: 'Time to Reach Customer Target',
+            type: 'risk',
+            observedState: { value: 0.5, unit: 'months', source: 'brief_extraction', raw_value: 12, cap: 24, extractionType: 'explicit', factor_type: 'time' },
+          }}
+        />
+      </ReactFlowProvider>,
+    )
+    expect(lodLine()).toBe('12 months')
+  })
 
   it('a risk with no bridge edge states nothing rather than inventing a figure', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
