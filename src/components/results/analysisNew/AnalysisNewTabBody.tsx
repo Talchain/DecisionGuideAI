@@ -2917,7 +2917,10 @@ export function AnalysisNewTabBody({
              * the dumping-ground complaint this restructure exists to answer,
              * re-created by over-eager promotion.
              */
-            defaultOpen={biasGroundingItems.length > 0}
+            /* ⚠ V2 fidelity gap 25 (24 Sep 2026): CLOSED AT REST, always. The
+               prototype opens nothing below the commitment section at rest;
+               opening on bias findings ended the resting panel in a block of
+               citations. The grounding is one click away, unchanged. */
             testId="analysis-new-coaching-and-method"
           >
           {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
@@ -3028,7 +3031,9 @@ export function AnalysisNewTabBody({
             icon={ClipboardCheck}
             title={COPY.sections.howWorkedOut}
             subtitle={COPY.sectionSubtitles.howWorkedOut}
-            count={vm.checks.items.length}
+            /* V2 gap 26: count what this group HOLDS (the uncertainty findings);
+               the checks now render as About's rows. */
+            count={vm.uncertainty.findings.length}
             open={methodOpen}
             onOpenChange={setMethodOpen}
             testId="analysis-new-how-worked-out"

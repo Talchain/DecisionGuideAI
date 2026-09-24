@@ -417,9 +417,9 @@ export const ANALYSIS_NEW_COPY = {
   },
 
   sectionSubtitles: {
-    howWorkedOut: 'Checks the run ran, and what it could not settle',
+    howWorkedOut: 'What the run was given, and what it could not settle',
     coachingAndMethod: 'Where this reasoning comes from',
-    whatMovesTheOutcome: 'Drivers, what is worth resolving, and the receipts',
+    whatMovesTheOutcome: 'Drivers, and what is worth resolving',
     drivers: 'What moves the outcome, and through what',
     uncertainty: 'What this run could not settle',
     deeper: 'Method, provenance and receipts',
