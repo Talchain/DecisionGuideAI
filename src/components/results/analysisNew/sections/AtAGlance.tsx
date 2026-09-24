@@ -1215,7 +1215,9 @@ export function AtAGlance({
                 className={`${typography.panelMeta} text-text-light flex items-start gap-1.5`}
                 data-testid={`${testId}-excluded-option`}
                 data-option-id={o.id}
-                title={o.reasonCopy}
+                /* ⛔ `null` IS NO TOOLTIP, not an empty one: the view model
+                   withheld a ground it could not license (see `reasonCopy`). */
+                title={o.reasonCopy ?? undefined}
               >
                 <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
@@ -1240,7 +1242,7 @@ export function AtAGlance({
                       survive — the label and the badge are untouched. */}
                   {'. '}
                   {NOT_ANALYSED_BADGE}
-                  <span className="sr-only">{`. ${o.reasonCopy}`}</span>
+                  {o.reasonCopy !== null ? <span className="sr-only">{`. ${o.reasonCopy}`}</span> : null}
                 </span>
               </li>
             ))}

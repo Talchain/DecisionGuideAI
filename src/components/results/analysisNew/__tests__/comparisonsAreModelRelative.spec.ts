@@ -39,6 +39,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import type { ConditionalWinner, UncertaintyItem } from '../../types'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import {
+  decisionWithLeaderWithheld,
   genuineDecision,
   makeData,
   makeDriver,
@@ -300,6 +301,43 @@ describe('inspect rows', () => {
     for (const label of labels) {
       for (const phrase of RETIRED) expect(label).not.toMatch(phrase)
     }
+  })
+
+  /**
+   * ⛔ THE DRIVER ROW'S TWIN OF THE HINGE GATE (#1933). "Chance another option
+   * leads in this model" presupposes an option that leads NOW, so on a run whose
+   * ranking was withheld it is the leader claim restated as a percentage. The
+   * hinge insight above was gated on `rankingWasWithheld`; the identical row in
+   * a driver's Inspect list was not, and still printed "31%" on a withheld run.
+   *
+   * ⭐ A MUTANT PAIR ON ONE DRIVER. The twins differ ONLY in the licence
+   * (`decisionWithLeaderWithheld` spreads `genuineDecision` and moves the two
+   * licence fields together); both carry the same fragile-edge driver. The
+   * permitted twin is the positive control, so the withheld absence cannot pass
+   * because the row never built. And the withheld row keeps its OTHER Inspect
+   * rows: the gate removes one claim, not the finding.
+   */
+  it('⛔ WITHHELD: a driver row states no chance another option leads; the PERMITTED twin does', () => {
+    const FRAGILE = makeDriver({
+      factorKey: 'f_elasticity',
+      factorLabel: 'Price elasticity',
+      fragileEdgeInfo: { switchProbability: 0.31, alternativeWinnerLabel: 'Hold price' },
+    })
+    const withFragileDriver = (data: ResultsSectionDataReturn): ResultsSectionDataReturn => ({
+      ...data,
+      drivers: { ...data.drivers, drivers: [FRAGILE] },
+    })
+
+    const permitted = build(withFragileDriver(genuineDecision())).drivers.findings[0]
+    expect(permitted, 'the permitted driver row did not build').toBeDefined()
+    expect(permitted!.inspect.find((r) => r.label === CHANCE)?.value).toBe('31%')
+
+    const withheld = build(withFragileDriver(decisionWithLeaderWithheld())).drivers.findings[0]
+    expect(withheld, 'the withheld driver row did not build — the absence below would be vacuous').toBeDefined()
+    expect(withheld!.id).toBe(permitted!.id)
+    expect(withheld!.inspect.map((r) => r.label)).not.toContain(CHANCE)
+    // The finding survives: only the leader-presupposing row is withheld.
+    expect(withheld!.inspect.map((r) => r.label)).toContain('Influence')
   })
 })
 

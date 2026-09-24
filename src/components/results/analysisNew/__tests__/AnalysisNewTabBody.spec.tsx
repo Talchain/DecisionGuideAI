@@ -1132,6 +1132,11 @@ describe('the coaching and the answer — V2 zone order', () => {
  * spreads `genuineDecision` and moves `verdict.hasLeadingOption` and
  * `leaderDesignationPermitted` together), and both carry the same computed row.
  * Nothing is opened: the glance renders at rest, and "at rest" is the claim.
+ *
+ * ⛔ THE PERMITTED TWIN NO LONGER READS "passes 0.9 binary", AND THAT WAS A LEAK
+ * THIS SPEC USED TO PIN. `binary` is the factor's TYPE descriptor, not a unit
+ * (`isSuppressedUnit`), so the permitted sentence takes the unit-less
+ * `current -> flip` form. Pinned in full by `anInternalTypeIsNeverAUnit.spec.tsx`.
  */
 describe('the glance states no tipping point on a withheld run', () => {
   const ENTERPRISE_ROW = {
@@ -1157,7 +1162,7 @@ describe('the glance states no tipping point on a withheld run', () => {
     // POSITIVE CONTROL FIRST, same mount path: the row IS renderable, and on
     // the permitted twin it reaches the glance at rest.
     expect(screen.getByTestId('analysis-new-glance-condition')).toHaveTextContent(
-      'Could change if Enterprise tier availability passes 0.9 binary',
+      'Could change if Enterprise tier availability moves from 0 to 0.9',
     )
     permitted.unmount()
 
@@ -1166,6 +1171,7 @@ describe('the glance states no tipping point on a withheld run', () => {
     // The whole body at rest, not one testid: the sentence must not surface
     // through any sibling either.
     expect(container.textContent ?? '').not.toContain('Could change if')
-    expect(container.textContent ?? '').not.toContain('Enterprise tier availability passes')
+    // The permitted twin's OWN sentence, so this absence is not vacuous.
+    expect(container.textContent ?? '').not.toContain('Enterprise tier availability moves from')
   })
 })

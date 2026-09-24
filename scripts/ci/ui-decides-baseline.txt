@@ -74,7 +74,7 @@ src/types/constraints.ts:78
 #    tab's OWN bar scale ("the top bar is full width because it is the
 #    strongest factor shown, not because it reached 100%"), keyed on the
 #    DISPLAYED top figure. It states nothing about the model or the world;
-#    its docblock (:2380-2429) records why the figure is not rescaled and
+#    its docblock (:2391-2440) records why the figure is not rescaled and
 #    why the else-arm names no cause. A self-observation of the display the
 #    scanner's `isSelfObservation` cannot see through a function parameter.
 #    (`store.ts:7878` -> `7884` above is a pure line shift from #1921's six
@@ -91,4 +91,8 @@ src/types/constraints.ts:78
 #    "Could not open a draft" because nothing is sent any more. The literal is
 #    kept INLINE on purpose: hoisting it to a constant would also have made the
 #    scanner stop seeing this site, shrinking the baseline by hiding it.)
-src/components/results/analysisNew/analysisNewCopy.ts:2440
+#    (`analysisNewCopy.ts:2440` -> `2451`, and the docblock range by the same
+#    +11, is a pure line shift from `panel/v2-truth-wave2`: one import and the
+#    `isSuppressedUnit` guard in `disclosure.tippingPoint`, both above this
+#    site. Line text identical; scanner added/gone were exactly this pair.)
+src/components/results/analysisNew/analysisNewCopy.ts:2451
