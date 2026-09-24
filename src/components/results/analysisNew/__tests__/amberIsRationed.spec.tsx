@@ -107,23 +107,11 @@ const census = (data: ResultsSectionDataReturn): number => {
 }
 
 /** MEASURED, not chosen. Update only with a stated reason. */
-/**
- * ⭐ LOWERED 24 Sep 2026 — AMBER FELL, reported by this file's own ratchet.
- * Reasoning-V2 fidelity gap #14 (`FIDELITY-WORKFLOW-RESULT-20260924.json`)
- * removed the `bg-warning/10` / `bg-warning/20` tinted fills from
- * `ModelStrip`'s two worklist toggles (`-verify-toggle`, `-no-value-toggle`),
- * replacing them with an outlined pill; the pressed ring recolours
- * `ring-warning` -> `ring-info`. `text-warning-ink` stays on both (severity
- * ink, not "amber" by this file's own boundary — see the CONTRAST control
- * above: a bare `text-warning` token is amber, `text-warning-ink` is not),
- * so what left the census is exactly the two elements whose only remaining
- * amber channel was the fill or the pressed ring.
- */
 const PINNED: Record<string, number> = {
-  highUncertainty: 2,
-  manyFragileEdges: 2,
-  openStrategicChallenge: 2,
-  genuineDecision: 1,
+  highUncertainty: 5,
+  manyFragileEdges: 4,
+  openStrategicChallenge: 4,
+  genuineDecision: 4,
 }
 
 beforeEach(() => {
