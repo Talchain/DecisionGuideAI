@@ -1403,6 +1403,14 @@ export const ANALYSIS_NEW_COPY = {
    */
   whyNoAnalysis: {
     heading: 'What this model needs before it can be analysed',
+    /**
+     * ⭐ THE REPAIR ACT (Paul's brief: "blocked analysis with a repair action").
+     * It DRAFTS a request in the composer and sends nothing; the reader reads
+     * it, edits it and sends it, and any change Olumi proposes is theirs to
+     * approve. The blocker sentence is quoted verbatim, never reworded.
+     */
+    askFix: 'Ask Olumi to help fix this',
+    askFixDraft: (blocker: string): string => `Help me fix this so the analysis can run: ${blocker}`,
   },
   successTarget: {
     label: 'Target',

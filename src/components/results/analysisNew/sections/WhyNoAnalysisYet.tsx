@@ -52,6 +52,8 @@ import { AlertCircle } from 'lucide-react'
 import { icon } from '../panelSurfaces'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { PanelIconButton } from '../PanelIconButton'
+import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import type { GateBlockedListing } from '../../../../canvas/utils/canRunAnalysis'
 
 export interface WhyNoAnalysisYetProps {
@@ -86,6 +88,12 @@ export interface WhyNoAnalysisYetProps {
   reason?: string | null
   /** Route to a node on canvas. The tab already owns this. */
   onFocusTarget: (id: string) => void
+  /**
+   * The repair act: drafts "help me fix this" for ONE blocker in the composer,
+   * bound to its node when the gate named one. Absent = no act, never a dead
+   * one (the fail-closed shape `onSendMessage` uses on this tab).
+   */
+  onAsk?: (payload: AskOlumiPayload) => void
   testId?: string
 }
 
@@ -93,6 +101,7 @@ export function WhyNoAnalysisYet({
   listing,
   reason = null,
   onFocusTarget,
+  onAsk,
   testId = 'analysis-new-why-no-analysis',
 }: WhyNoAnalysisYetProps) {
   const itemised = listing?.sentences ?? []
@@ -128,10 +137,11 @@ export function WhyNoAnalysisYet({
           return (
             <li
               key={`${item.text}-${i}`}
-              className={`${typography.panelMeta} text-text-light min-w-0`}
+              className={`${typography.panelMeta} text-text-light min-w-0 flex items-start gap-1`}
               data-testid={`${testId}-item`}
               data-has-route={targetId ? 'true' : 'false'}
             >
+              <span className="min-w-0 flex-1">
               {/* ⚠ THE SENTENCE IS RENDERED VERBATIM, INSIDE THE CONTROL OR
                   OUTSIDE IT — never re-worded for the clickable case. The two
                   branches differ only in whether the row routes. */}
@@ -148,6 +158,22 @@ export function WhyNoAnalysisYet({
               ) : (
                 item.text
               )}
+              </span>
+              {onAsk ? (
+                <PanelIconButton
+                  ai
+                  label={COPY.whyNoAnalysis.askFix}
+                  onClick={() =>
+                    onAsk({
+                      context: item.text,
+                      draft: COPY.whyNoAnalysis.askFixDraft(item.text),
+                      label: COPY.whyNoAnalysis.askFix,
+                      ...(targetId ? { targetId } : {}),
+                    })
+                  }
+                  testId={`${testId}-ask`}
+                />
+              ) : null}
             </li>
           )
         })}

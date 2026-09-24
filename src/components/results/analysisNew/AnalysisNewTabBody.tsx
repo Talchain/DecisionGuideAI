@@ -1612,6 +1612,7 @@ export function AnalysisNewTabBody({
                    invent an obstacle. */
                 reason={runRefusedByGate ? runBlockedReason : null}
                 onFocusTarget={focusTarget}
+                onAsk={openAskOlumi}
               />
             )}
             {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
