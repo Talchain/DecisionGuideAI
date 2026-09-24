@@ -925,6 +925,17 @@ export const OPTION_RESULT_COPY = {
     `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
     'A finding about the model as it stands, not a recommendation.',
   unconfirmedNote: 'Olumi can’t confirm this run reflects the current model.',
+  /**
+   * ⭐ GOAL-ONLY, WHEN THE LIMIT VERDICT WITHHOLDS THE LEADER CLAIM (RC #63
+   * 5803875794 P0 #3(c); Paul's 23 Sep staging test: "£20k MRR" + "churn < 4%",
+   * `leader_claim: { permitted: false, withheld_reason:
+   * 'constraint_verdict_withheld' }`, cards showing 81% / 17% / 2% bare).
+   * True in all three producer states behind that token: the win share is
+   * computed on the goal outcome alone, so it never claims WHICH of
+   * infeasible / unevaluated / unmatched happened (`analysisNewCopy.ts`).
+   */
+  goalOnly: 'Goal only · your limits aren’t in this share',
+  goalOnlyNote: 'This share compares the options on the goal alone; the limits you set are not part of it.',
   changedNote: 'The model has changed since this run.',
 } as const
 

@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:135
 src/canvas/hooks/useScienceIcons.ts:150
-src/canvas/store.ts:7878
+src/canvas/store.ts:7884
 src/canvas/stores/readinessStore.ts:744
 src/canvas/stores/readinessStore.ts:840
 src/canvas/utils/briefValidation.ts:43
@@ -63,3 +63,23 @@ src/lib/stability.ts:110
 src/lib/stability.ts:123
 src/lib/stability.ts:136
 src/types/constraints.ts:78
+#
+# -- INHERITED, AND NEWLY VISIBLE ON 24 Sep 2026 (#1921), for the same reason
+#    as the 15 Sep block: `canvas/nodes/OptionNode.tsx` now imports
+#    `leaderWithholdCause` from `analysisNewCopy.ts`, which puts that module
+#    ONE HOP from a render surface. The site below is byte-identical on
+#    staging `24e06704` (blame: 15 Sep) and is not touched by #1921.
+#    CLASSIFIED (Canvas, 24 Sep; Panel owns the copy and may overturn):
+#    ACCEPTED EXCEPTION. `guaranteedHundredClause` explains the Reasoning
+#    tab's OWN bar scale ("the top bar is full width because it is the
+#    strongest factor shown, not because it reached 100%"), keyed on the
+#    DISPLAYED top figure. It states nothing about the model or the world;
+#    its docblock (:2380-2429) records why the figure is not rescaled and
+#    why the else-arm names no cause. A self-observation of the display the
+#    scanner's `isSelfObservation` cannot see through a function parameter.
+#    (`store.ts:7878` -> `7884` above is a pure line shift from #1921's six
+#    added lines in `resultsWithholdLeaderClaim`; the line text is identical.)
+#    (V2 #1925: `analysisNewCopy.ts:2433` -> `2440` is a pure line shift from
+#    #1922's seven added lines above this site; line text `: topFigurePercent
+#    === 100` is identical. No new site.)
+src/components/results/analysisNew/analysisNewCopy.ts:2440
