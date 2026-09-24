@@ -39,6 +39,14 @@
  * the wire as the raw 0–100 number the user typed; CEE owns the /100. A
  * second place that rescales is a second place the scale can drift.
  *
+ * ⭐ 24 SEP 2026: A POSITION, AND A NEXT ACTION. The first control is now a
+ * choice between an option and "Not ready to choose" (a position, never a
+ * decision; see the `position` state below for which fields it hides and
+ * why), and every record may carry an optional next action. A signed-in save
+ * sends the rationale, assumption and next action as additive keys; today's
+ * CEE ignores them and refuses a not-ready commit before writing, so both
+ * degrade to the local copy exactly as any failed commit does.
+ *
  * Mount once; open from anywhere via openDecisionRecord() (the commit
  * rec's INTENDED wiring — the spec flags the prototype's 'ask' routing as
  * a critical wiring bug not to copy).
@@ -48,7 +56,11 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { useAuth } from '../../../contexts/AuthContext'
 import { sanitiseUserId } from '../../../lib/guestIdentity'
-import { commitDecisionRecord } from '../../../services/decisionRecordCommitService'
+import {
+  commitDecisionRecord,
+  DECISION_RECORD_NEXT_ACTION_MAX_CHARS,
+  DECISION_RECORD_TEXT_MAX_CHARS,
+} from '../../../services/decisionRecordCommitService'
 import { typography } from '../../../styles/typography'
 import {
   FIELD_INPUT_CLASS,
@@ -62,17 +74,44 @@ import {
 import { selectAnalysedOptions, type AnalysedOption } from './analysedOptions'
 import { resolveScenarioKey } from './scenarioKey'
 import {
+  isNotReadyRecord,
+  NOT_READY_POSITION_LABEL,
   selectDecisionRecord,
   useDecisionRecordStore,
   type DecisionRecord,
+  type DecisionRecordPosition,
 } from './decisionRecordStore'
 
 export const DECISION_RECORD_COPY = {
   title: 'Record the decision',
   subtitle: 'Capture the choice and what would justify revisiting it.',
   // Before save, identity licenses an attempt, not a claim of remote success.
+  //
+  // ⚠ Superseded text: ~~The rationale, assumption and revisit trigger stay on
+  // this device for this scenario.~~ Since 24 Sep 2026 they are SENT with the
+  // commit, so "stay on this device" would deny a transmission that happens.
+  // What is still true, and all that is claimed: they are sent, and they are
+  // kept here. No CEE response confirms the account kept them.
   persistenceNote:
-    'We’ll try to save your choice, confidence, expectation and review date to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
+    'We’ll try to save your choice, confidence, expectation and review date to your account. The rationale, assumption, next action and revisit trigger are sent with them, and kept on this device for this scenario.',
+  /** The same attempt, for "Not ready to choose": no choice, confidence or expectation exists. */
+  notReadyPersistenceNote:
+    'We’ll try to save your position to your account. The rationale, assumption, next action and revisit trigger are sent with it, and kept on this device for this scenario.',
+  positionLegend: 'Your position',
+  positionOption: 'Choose an option',
+  positionNotReady: NOT_READY_POSITION_LABEL,
+  /** Whose record this is. Nothing here is Olumi's decision, or the team's. */
+  yourViewNote: 'Your view, not an agreed team decision.',
+  notReadyRationalePlaceholder: 'Why you are not ready to choose yet',
+  notReadyAssumptionPlaceholder: 'The assumption most likely to decide the choice',
+  notReadyRevisitHelp: 'Enter a date, or what would make you ready to choose.',
+  nextActionLabel: 'Next action',
+  nextActionPlaceholder: 'What will you resolve, accept or monitor?',
+  saveNotReady: 'Record your position',
+  toastSavedNotReady: 'Your position is recorded and saved to your account.',
+  toastSavedLocalNotReady: 'Your position is recorded on this device.',
+  toastSavedLocalAfterErrorNotReady:
+    'Your position is recorded on this device. We could not save it to your account.',
   guestNote:
     'Signed out: this record stays on this device for this scenario. It is not saved to an account.',
   identityPendingNote: 'We’re checking your sign-in. Account saving is not confirmed.',
@@ -140,18 +179,38 @@ export function DecisionRecordModal() {
   const accountUserId = sanitiseUserId(user?.id)
   const canAttemptAccountSave = !loading && accountUserId !== null &&
     typeof currentScenarioId === 'string' && currentScenarioId !== ''
+
+  /**
+   * ⭐ THE FIRST CHOICE: an option, or "Not ready to choose". Not-ready HIDES
+   * the chosen option, the confidence and the expectation, because each is a
+   * claim about a CHOSEN option: the expectation is what that option's outcome
+   * is scored against and the confidence is the user's belief in it. With no
+   * choice, both would be claims about nothing. It KEEPS the rationale, the
+   * assumption, the revisit trigger and the next action, which all make sense
+   * of a position that is still open. Hidden drafts are kept, never cleared,
+   * so switching back loses nothing; they are simply not saved or sent.
+   */
+  const [position, setPosition] = useState<DecisionRecordPosition>('option')
+  const notReady = position === 'not_ready'
+
   const persistenceNote = loading
     ? DECISION_RECORD_COPY.identityPendingNote
     : accountUserId === null
       ? DECISION_RECORD_COPY.guestNote
       : canAttemptAccountSave
-        ? DECISION_RECORD_COPY.persistenceNote
+        ? notReady
+          ? DECISION_RECORD_COPY.notReadyPersistenceNote
+          : DECISION_RECORD_COPY.persistenceNote
         : DECISION_RECORD_COPY.localOnlyNote
-  const revisitHelp = loading
-    ? DECISION_RECORD_COPY.identityPendingRevisitHelp
-    : canAttemptAccountSave
-      ? DECISION_RECORD_COPY.revisitHelp
-      : DECISION_RECORD_COPY.localRevisitHelp
+  // ⚠ Not-ready never promises a review date: whether the account sets one for
+  // a position without a choice is the server's call, and is not claimed here.
+  const revisitHelp = notReady
+    ? DECISION_RECORD_COPY.notReadyRevisitHelp
+    : loading
+      ? DECISION_RECORD_COPY.identityPendingRevisitHelp
+      : canAttemptAccountSave
+        ? DECISION_RECORD_COPY.revisitHelp
+        : DECISION_RECORD_COPY.localRevisitHelp
 
   /**
    * ⚠⚠ THIS PREDICATE NOW LIVES IN `analysedOptions.ts` AND IS SHARED. It used
@@ -178,6 +237,8 @@ export function DecisionRecordModal() {
   const revisitId = useId()
   const rationaleId = useId()
   const assumptionId = useId()
+  const nextActionId = useId()
+  const positionName = useId()
   const confidenceErrorId = useId()
   const expectationErrorId = useId()
   const revisitErrorId = useId()
@@ -190,6 +251,7 @@ export function DecisionRecordModal() {
   const [revisit, setRevisit] = useState('')
   const [rationale, setRationale] = useState('')
   const [assumption, setAssumption] = useState('')
+  const [nextAction, setNextAction] = useState('')
   const [saving, setSaving] = useState(false)
   const [touched, setTouched] = useState<{
     confidence?: boolean
@@ -209,7 +271,19 @@ export function DecisionRecordModal() {
     setSaving(false)
     const scenarioKey = resolveScenarioKey(useCanvasStore.getState().currentScenarioId)
     const saved = selectDecisionRecord(useDecisionRecordStore.getState(), scenarioKey)
-    if (saved) {
+    if (saved && isNotReadyRecord(saved)) {
+      // A not-ready record has no option, confidence or expectation to
+      // prefill; the option picker starts where a fresh one would.
+      setPosition('not_ready')
+      setChosenOptionId(options[0]?.id ?? '')
+      setConfidence('')
+      setExpectation('')
+      setRevisit(saved.revisitTrigger)
+      setRationale(saved.rationale)
+      setAssumption(saved.assumptionToWatch)
+      setNextAction(saved.nextAction ?? '')
+    } else if (saved) {
+      setPosition('option')
       setChosenOptionId(
         options.some((o) => o.id === saved.optionId) ? saved.optionId : options[0]?.id ?? '',
       )
@@ -220,13 +294,16 @@ export function DecisionRecordModal() {
       setRevisit(saved.revisitTrigger)
       setRationale(saved.rationale)
       setAssumption(saved.assumptionToWatch)
+      setNextAction(saved.nextAction ?? '')
     } else {
+      setPosition('option')
       setChosenOptionId(options[0]?.id ?? '')
       setConfidence('')
       setExpectation('')
       setRevisit('')
       setRationale('')
       setAssumption('')
+      setNextAction('')
     }
     setTouched({})
     // options is deliberately read at open time only — a mid-edit analysis
@@ -242,17 +319,23 @@ export function DecisionRecordModal() {
   const rationaleValid = rationale.trim() !== ''
   const assumptionValid = assumption.trim() !== ''
   const chosenOption = options.find((o) => o.id === chosenOptionId) ?? null
-  const valid =
-    hasOptions &&
-    chosenOption !== null &&
-    confidenceValid &&
-    expectationValid &&
-    revisitValid &&
-    rationaleValid &&
-    assumptionValid
+  // The next action is OPTIONAL in both positions; only its length is bounded.
+  const trimmedNextAction = nextAction.trim()
+  // ⚠ The analysed-option gate holds for BOTH positions: the door onto this
+  // modal is gated on the same predicate, and CEE anchors every record to an
+  // analysed graph.
+  const valid = notReady
+    ? hasOptions && revisitValid && rationaleValid && assumptionValid
+    : hasOptions &&
+      chosenOption !== null &&
+      confidenceValid &&
+      expectationValid &&
+      revisitValid &&
+      rationaleValid &&
+      assumptionValid
 
   const handleSave = () => {
-    if (!valid || chosenOption === null) {
+    if (!valid || (!notReady && chosenOption === null)) {
       setTouched({
         confidence: true,
         expectation: true,
@@ -267,19 +350,37 @@ export function DecisionRecordModal() {
 
     const scenarioId = useCanvasStore.getState().currentScenarioId
     const scenarioKey = resolveScenarioKey(scenarioId)
-    const record: DecisionRecord = {
-      optionId: chosenOption.id,
-      optionLabel: chosenOption.label,
-      optionNumber: chosenOption.number,
-      confidence: parsedConfidence,
-      expectation: expectation.trim(),
+    const common = {
       rationale: rationale.trim(),
       assumptionToWatch: assumption.trim(),
       revisitTrigger: revisit.trim(),
+      // A blank next action is never stored as '' — the key is simply absent.
+      ...(trimmedNextAction !== '' ? { nextAction: trimmedNextAction } : {}),
       analysisHash,
       savedAt: Date.now(),
       remote: null,
     }
+    const record: DecisionRecord = notReady || chosenOption === null
+      ? { position: 'not_ready', ...common }
+      : {
+          optionId: chosenOption.id,
+          optionLabel: chosenOption.label,
+          optionNumber: chosenOption.number,
+          confidence: parsedConfidence,
+          expectation: expectation.trim(),
+          ...common,
+        }
+    const copy = isNotReadyRecord(record)
+      ? {
+          saved: DECISION_RECORD_COPY.toastSavedNotReady,
+          local: DECISION_RECORD_COPY.toastSavedLocalNotReady,
+          localAfterError: DECISION_RECORD_COPY.toastSavedLocalAfterErrorNotReady,
+        }
+      : {
+          saved: DECISION_RECORD_COPY.toastSaved,
+          local: DECISION_RECORD_COPY.toastSavedLocal,
+          localAfterError: DECISION_RECORD_COPY.toastSavedLocalAfterError,
+        }
     // LOCAL FIRST, ALWAYS. Whatever happens on the network, the user's input
     // is already kept — a failed commit degrades the record from "durable" to
     // "on this device", never to "lost".
@@ -302,23 +403,35 @@ export function DecisionRecordModal() {
       // No persisted scenario ⇒ nothing CEE could anchor an owner to. Local
       // only, said plainly.
       close()
-      showToast(DECISION_RECORD_COPY.toastSavedLocal)
+      showToast(copy.local)
       return
     }
 
     setSaving(true)
-    void commitDecisionRecord({
+    const shared = {
       scenarioId,
-      chosenOptionId: chosenOption.id,
-      chosenOptionLabel: chosenOption.label,
-      // RAW 0–100 — CEE owns the /100 (no arithmetic on probabilities here).
-      confidence0to100: parsedConfidence,
-      expectationStatement: record.expectation ?? '',
       revisitTriggerOrDate: record.revisitTrigger,
+      // ⚠ ADDITIVE KEYS — see the commit service's header for what today's CEE
+      // does with them (reads none of them, refuses none of them).
+      rationale: record.rationale,
+      keyAssumption: record.assumptionToWatch,
+      nextAction: record.nextAction,
       clientCommitId,
       expectedOwnerId: capture.ownerId,
       isCurrentCapture: () => useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture),
-    }).then((result) => {
+    }
+    void commitDecisionRecord(
+      isNotReadyRecord(record)
+        ? { ...shared, position: 'not_ready' }
+        : {
+            ...shared,
+            chosenOptionId: record.optionId,
+            chosenOptionLabel: record.optionLabel,
+            // RAW 0–100 — CEE owns the /100 (no arithmetic on probabilities here).
+            confidence0to100: record.confidence,
+            expectationStatement: record.expectation ?? '',
+          },
+    ).then((result) => {
       // A different capture or account may now own this modal. An old response
       // must neither confirm its text nor close it or toast for the new user.
       if (!useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture)) return
@@ -331,7 +444,7 @@ export function DecisionRecordModal() {
         })
         if (!promoted) return
         close()
-        showToast(DECISION_RECORD_COPY.toastSaved)
+        showToast(copy.saved)
         return
       }
       close()
@@ -339,11 +452,7 @@ export function DecisionRecordModal() {
       // to get a durable record (records require sign-in by design), while an
       // error means we tried and failed. Telling a signed-in user the guest
       // story would hide a real failure.
-      showToast(
-        result.status === 'guest'
-          ? DECISION_RECORD_COPY.toastSavedLocal
-          : DECISION_RECORD_COPY.toastSavedLocalAfterError,
-      )
+      showToast(result.status === 'guest' ? copy.local : copy.localAfterError)
     })
   }
 
@@ -374,6 +483,49 @@ export function DecisionRecordModal() {
         )}
 
         <div className="mt-[11px] grid grid-cols-2 gap-2">
+          <fieldset
+            className="col-span-2 m-0 flex flex-col gap-1 border-0 p-0"
+            data-testid="decision-record-position"
+          >
+            <legend className={`${typography.panelMeta} text-text-light mb-1 p-0`}>
+              {DECISION_RECORD_COPY.positionLegend}
+            </legend>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {(
+                [
+                  ['option', DECISION_RECORD_COPY.positionOption],
+                  ['not_ready', DECISION_RECORD_COPY.positionNotReady],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className={`inline-flex min-h-[24px] items-center gap-1.5 ${typography.panelBody} text-text-body`}
+                >
+                  <input
+                    type="radio"
+                    name={positionName}
+                    value={value}
+                    data-testid={`decision-record-position-${value}`}
+                    checked={position === value}
+                    onChange={() => setPosition(value)}
+                    disabled={!hasOptions}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <p
+              data-testid="decision-record-your-view"
+              className={`${typography.panelMeta} text-text-light m-0`}
+            >
+              {DECISION_RECORD_COPY.yourViewNote}
+            </p>
+          </fieldset>
+
+          {/* ⚠ HIDDEN, NOT DISABLED, for not-ready: a disabled confidence or
+              expectation would still read as a question about a choice. */}
+          {!notReady && (
+          <>
           <div className="col-span-2 flex flex-col gap-1">
             <FieldLabel htmlFor={optionId}>
               {DECISION_RECORD_COPY.chosenOptionLabel}
@@ -459,6 +611,8 @@ export function DecisionRecordModal() {
               {DECISION_RECORD_COPY.expectationError}
             </FieldError>
           </div>
+          </>
+          )}
 
           <div className="col-span-2 flex flex-col gap-1">
             <FieldLabel htmlFor={revisitId}>{DECISION_RECORD_COPY.revisitLabel}</FieldLabel>
@@ -467,6 +621,7 @@ export function DecisionRecordModal() {
               data-testid="decision-record-revisit"
               type="text"
               placeholder={DECISION_RECORD_COPY.revisitPlaceholder}
+              maxLength={DECISION_RECORD_TEXT_MAX_CHARS}
               value={revisit}
               onChange={(e) => setRevisit(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, revisit: true }))}
@@ -496,7 +651,12 @@ export function DecisionRecordModal() {
               id={rationaleId}
               data-testid="decision-record-rationale"
               rows={3}
-              placeholder={DECISION_RECORD_COPY.rationalePlaceholder}
+              placeholder={
+                notReady
+                  ? DECISION_RECORD_COPY.notReadyRationalePlaceholder
+                  : DECISION_RECORD_COPY.rationalePlaceholder
+              }
+              maxLength={DECISION_RECORD_TEXT_MAX_CHARS}
               value={rationale}
               onChange={(e) => setRationale(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, rationale: true }))}
@@ -523,7 +683,12 @@ export function DecisionRecordModal() {
               id={assumptionId}
               data-testid="decision-record-assumption"
               type="text"
-              placeholder={DECISION_RECORD_COPY.assumptionPlaceholder}
+              placeholder={
+                notReady
+                  ? DECISION_RECORD_COPY.notReadyAssumptionPlaceholder
+                  : DECISION_RECORD_COPY.assumptionPlaceholder
+              }
+              maxLength={DECISION_RECORD_TEXT_MAX_CHARS}
               value={assumption}
               onChange={(e) => setAssumption(e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, assumption: true }))}
@@ -543,6 +708,26 @@ export function DecisionRecordModal() {
               {DECISION_RECORD_COPY.assumptionError}
             </FieldError>
           </div>
+
+          {/* ⭐ NEXT ACTION: optional in both positions, bounded at the length
+              the commit request allows. No error state: blank is a valid answer
+              and `maxLength` makes an over-long one untypeable. */}
+          <div className="col-span-2 flex flex-col gap-1">
+            <FieldLabel htmlFor={nextActionId}>
+              {DECISION_RECORD_COPY.nextActionLabel}
+            </FieldLabel>
+            <input
+              id={nextActionId}
+              data-testid="decision-record-next-action"
+              type="text"
+              placeholder={DECISION_RECORD_COPY.nextActionPlaceholder}
+              maxLength={DECISION_RECORD_NEXT_ACTION_MAX_CHARS}
+              value={nextAction}
+              onChange={(e) => setNextAction(e.target.value)}
+              disabled={!hasOptions}
+              className={FIELD_INPUT_CLASS}
+            />
+          </div>
         </div>
 
         <div className="mt-[11px] flex justify-end gap-[7px]">
@@ -556,7 +741,11 @@ export function DecisionRecordModal() {
             disabled={!valid || saving}
             className={PRIMARY_BUTTON_CLASS}
           >
-            {saving ? DECISION_RECORD_COPY.saving : DECISION_RECORD_COPY.save}
+            {saving
+              ? DECISION_RECORD_COPY.saving
+              : notReady
+                ? DECISION_RECORD_COPY.saveNotReady
+                : DECISION_RECORD_COPY.save}
           </button>
         </div>
       </ModalShell>

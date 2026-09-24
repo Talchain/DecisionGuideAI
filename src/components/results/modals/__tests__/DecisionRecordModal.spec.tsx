@@ -19,12 +19,15 @@ vi.mock('../../../../contexts/AuthContext', () => ({ useAuth: () => authState })
 // DecisionRecordModal.durableCommit.spec.tsx (real service, mocked fetch).
 // Here the commit is stubbed to the GUEST result so this file keeps testing
 // exactly what it was written to test: local capture, validation and a11y.
-vi.mock('../../../../services/decisionRecordCommitService', () => ({
+// ⚠ PARTIAL: the modal also reads the service's text limits, which must stay real.
+vi.mock('../../../../services/decisionRecordCommitService', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../services/decisionRecordCommitService')>()),
   commitDecisionRecord: vi.fn(async () => ({ status: 'guest' as const })),
 }))
 
 import { DecisionRecordModal, DECISION_RECORD_COPY } from '../DecisionRecordModal'
 import {
+  NOT_READY_POSITION_LABEL,
   openDecisionRecord,
   selectDecisionRecord,
   useDecisionRecordStore,
@@ -148,7 +151,12 @@ describe('DecisionRecordModal — chrome and a11y', () => {
     openModal()
     const note = screen.getByTestId('decision-record-note')
     expect(note).toHaveTextContent('try to save your choice, confidence, expectation and review date to your account')
-    expect(note).toHaveTextContent('rationale, assumption and revisit trigger stay on this device for this scenario')
+    // ⚠ Superseded: ~~'rationale, assumption and revisit trigger stay on this
+    // device for this scenario'~~. Since 24 Sep 2026 the text is SENT with the
+    // commit, so "stay on this device" would deny a transmission that happens.
+    // The note says it is sent AND kept here, and never that the account keeps it.
+    expect(note).toHaveTextContent('rationale, assumption, next action and revisit trigger are sent with them, and kept on this device for this scenario')
+    expect(note).not.toHaveTextContent('stay on this device')
     expect(note).not.toHaveTextContent('are saved')
     expect(note.textContent ?? '').not.toContain('Prototype only')
     const revisitHelp = screen.getByTestId('decision-record-revisit-help')
@@ -356,5 +364,213 @@ describe('DecisionRecordModal — capture', () => {
     expect(screen.getByTestId('decision-record-expectation')).toHaveValue(
       'Runway holds above 9 months through Q1.',
     )
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 24 Sep 2026: the first choice is a POSITION (an option, or "Not ready to
+// choose"), and every record may carry a NEXT ACTION.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function fillNotReady() {
+  fireEvent.click(screen.getByTestId('decision-record-position-not_ready'))
+  fireEvent.change(screen.getByTestId('decision-record-revisit'), {
+    target: { value: 'When the hiring market data lands' },
+  })
+  fireEvent.change(screen.getByTestId('decision-record-rationale'), {
+    target: { value: 'The two options depend on a hiring market we have not sized.' },
+  })
+  fireEvent.change(screen.getByTestId('decision-record-assumption'), {
+    target: { value: 'Senior candidates are available this quarter.' },
+  })
+}
+
+describe('DecisionRecordModal — position: not ready to choose', () => {
+  it('offers the two positions first, defaulting to an option, labelled as the user’s view', () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    const option = screen.getByTestId('decision-record-position-option') as HTMLInputElement
+    const notReady = screen.getByTestId('decision-record-position-not_ready') as HTMLInputElement
+    expect(option.checked).toBe(true)
+    expect(notReady.checked).toBe(false)
+    expect(notReady.closest('label')).toHaveTextContent(NOT_READY_POSITION_LABEL)
+    expect(screen.getByTestId('decision-record-your-view')).toHaveTextContent(
+      DECISION_RECORD_COPY.yourViewNote,
+    )
+  })
+
+  it('not-ready HIDES the option, confidence and expectation, and keeps the reasoning fields', () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fireEvent.click(screen.getByTestId('decision-record-position-not_ready'))
+    expect(screen.queryByTestId('decision-record-option')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('decision-record-confidence')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('decision-record-expectation')).not.toBeInTheDocument()
+    for (const kept of ['rationale', 'assumption', 'revisit', 'next-action']) {
+      expect(screen.getByTestId(`decision-record-${kept}`)).toBeInTheDocument()
+    }
+    expect(screen.getByTestId('decision-record-rationale')).toHaveAttribute(
+      'placeholder',
+      DECISION_RECORD_COPY.notReadyRationalePlaceholder,
+    )
+    expect(screen.getByTestId('decision-record-revisit-help')).toHaveTextContent(
+      DECISION_RECORD_COPY.notReadyRevisitHelp,
+    )
+    expect(screen.getByTestId('decision-record-save')).toHaveTextContent(
+      DECISION_RECORD_COPY.saveNotReady,
+    )
+  })
+
+  it('a signed-in not-ready note names the position, never a choice, confidence or expectation', () => {
+    authState.user = { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }
+    render(<DecisionRecordModal />)
+    openModal()
+    const note = screen.getByTestId('decision-record-note')
+    expect(note).toHaveTextContent(DECISION_RECORD_COPY.persistenceNote)
+    fireEvent.click(screen.getByTestId('decision-record-position-not_ready'))
+    expect(note).toHaveTextContent(DECISION_RECORD_COPY.notReadyPersistenceNote)
+    expect(note).not.toHaveTextContent(/choice|confidence|expectation|review date/i)
+  })
+
+  it('CONTRAST: the option position still shows all three, with today’s copy', () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    expect(screen.getByTestId('decision-record-option')).toBeInTheDocument()
+    expect(screen.getByTestId('decision-record-confidence')).toBeInTheDocument()
+    expect(screen.getByTestId('decision-record-expectation')).toBeInTheDocument()
+    expect(screen.getByTestId('decision-record-rationale')).toHaveAttribute(
+      'placeholder',
+      DECISION_RECORD_COPY.rationalePlaceholder,
+    )
+    expect(screen.getByTestId('decision-record-save')).toHaveTextContent(DECISION_RECORD_COPY.save)
+  })
+
+  it('saves WITHOUT a confidence or expectation, and the record carries no option at all', async () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fillNotReady()
+    fireEvent.change(screen.getByTestId('decision-record-next-action'), {
+      target: { value: '  Size the senior hiring market by Friday.  ' },
+    })
+    expect(screen.getByTestId('decision-record-save')).toBeEnabled()
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('decision-record-save'))
+    })
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_test')
+    expect(record).not.toBeNull()
+    expect(record!.position).toBe('not_ready')
+    // ⭐ ABSENT, not blank: a not-ready record states no choice, belief or forecast.
+    for (const absent of ['optionId', 'optionLabel', 'optionNumber', 'confidence', 'expectation']) {
+      expect(Object.prototype.hasOwnProperty.call(record, absent)).toBe(false)
+    }
+    expect(record).toMatchObject({
+      rationale: 'The two options depend on a hiring market we have not sized.',
+      assumptionToWatch: 'Senior candidates are available this quarter.',
+      revisitTrigger: 'When the hiring market data lands',
+      nextAction: 'Size the senior hiring market by Friday.',
+      analysisHash: 'hash_run_1',
+    })
+    expect(screen.getByTestId('decision-record-toast')).toHaveTextContent(
+      DECISION_RECORD_COPY.toastSavedLocalNotReady,
+    )
+    expect(screen.getByTestId('decision-record-toast')).not.toHaveTextContent(/decision/i)
+  })
+
+  it('not-ready still requires the rationale, assumption and revisit trigger', () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fillNotReady()
+    expect(screen.getByTestId('decision-record-save')).toBeEnabled()
+    fireEvent.change(screen.getByTestId('decision-record-rationale'), { target: { value: '  ' } })
+    expect(screen.getByTestId('decision-record-save')).toBeDisabled()
+  })
+
+  it('reopening a not-ready record prefills the position and its fields', async () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fillNotReady()
+    fireEvent.change(screen.getByTestId('decision-record-next-action'), {
+      target: { value: 'Size the senior hiring market.' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('decision-record-save'))
+    })
+    openModal()
+    expect((screen.getByTestId('decision-record-position-not_ready') as HTMLInputElement).checked).toBe(true)
+    expect(screen.queryByTestId('decision-record-option')).not.toBeInTheDocument()
+    expect(screen.getByTestId('decision-record-next-action')).toHaveValue('Size the senior hiring market.')
+    expect(screen.getByTestId('decision-record-rationale')).toHaveValue(
+      'The two options depend on a hiring market we have not sized.',
+    )
+  })
+
+  it('switching back to an option loses no draft: the hidden fields were kept', () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fillValid()
+    fireEvent.click(screen.getByTestId('decision-record-position-not_ready'))
+    fireEvent.click(screen.getByTestId('decision-record-position-option'))
+    expect(screen.getByTestId('decision-record-confidence')).toHaveValue('70')
+    expect(screen.getByTestId('decision-record-expectation')).toHaveValue(
+      'Runway holds above 9 months through Q1.',
+    )
+  })
+})
+
+describe('DecisionRecordModal — next action', () => {
+  it('the option path is UNCHANGED when no next action is given: no position, no nextAction key', async () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fireEvent.change(screen.getByTestId('decision-record-option'), { target: { value: 'opt_b' } })
+    fillValid()
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('decision-record-save'))
+    })
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_test')!
+    // ⭐ The exact key set a pre-24-Sep save produced, in the same order.
+    expect(Object.keys(record)).toEqual([
+      'optionId', 'optionLabel', 'optionNumber', 'confidence', 'expectation',
+      'rationale', 'assumptionToWatch', 'revisitTrigger', 'analysisHash', 'savedAt', 'remote',
+    ])
+    expect(screen.getByTestId('decision-record-toast')).toHaveTextContent(
+      DECISION_RECORD_COPY.toastSavedLocal,
+    )
+  })
+
+  it('an option record carries the next action when one is given, trimmed', async () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fillValid()
+    fireEvent.change(screen.getByTestId('decision-record-next-action'), {
+      target: { value: ' Brief the board on Tuesday. ' },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('decision-record-save'))
+    })
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_test')!
+    expect(record.nextAction).toBe('Brief the board on Tuesday.')
+    expect(record.position).toBeUndefined()
+  })
+
+  it('a whitespace-only next action is not stored, and does not block saving', async () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    fillValid()
+    fireEvent.change(screen.getByTestId('decision-record-next-action'), { target: { value: '   ' } })
+    expect(screen.getByTestId('decision-record-save')).toBeEnabled()
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('decision-record-save'))
+    })
+    const record = selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_test')!
+    expect(Object.prototype.hasOwnProperty.call(record, 'nextAction')).toBe(false)
+  })
+
+  it('bounds the next action at 500 characters and the other text at 2,000', () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    expect(screen.getByTestId('decision-record-next-action')).toHaveAttribute('maxLength', '500')
+    for (const id of ['rationale', 'assumption', 'revisit']) {
+      expect(screen.getByTestId(`decision-record-${id}`)).toHaveAttribute('maxLength', '2000')
+    }
   })
 })
