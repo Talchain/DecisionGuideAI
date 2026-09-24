@@ -122,7 +122,8 @@ describe('applyScenarioAnalysisRead — a withheld payload marks the held report
       analysisResult: null,
       store: q1Only.store,
     })
-    expect(q1Only.withhold).toHaveBeenCalledWith('leader_claim_withheld')
+    // #1921: the producer's own cause rides with the collapsed reason.
+    expect(q1Only.withhold).toHaveBeenCalledWith('leader_claim_withheld', 'separation_unavailable')
 
     const q3Only = makeStore()
     applyScenarioAnalysisRead({
@@ -130,7 +131,8 @@ describe('applyScenarioAnalysisRead — a withheld payload marks the held report
       analysisResult: null,
       store: q3Only.store,
     })
-    expect(q3Only.withhold).toHaveBeenCalledWith('analysis_unusable')
+    // blocked_unusable is not a leader_claim cause, so no producer cause is carried.
+    expect(q3Only.withhold).toHaveBeenCalledWith('analysis_unusable', null)
   })
 
   it('CONTRAST CONTROL — a permitting, usable verdict withholds NOTHING', () => {

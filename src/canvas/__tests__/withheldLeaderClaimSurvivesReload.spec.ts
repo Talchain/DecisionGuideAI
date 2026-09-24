@@ -206,6 +206,8 @@ describe('a withheld leader claim survives the reload the refusal does not', () 
     expect(stored?.analysis?.report?.producer_leader_permission).toEqual({
       permitted: false,
       withheld_reason: 'leader_claim_withheld',
+      // #1921: the producer's own cause is persisted WITH the result it qualifies.
+      producer_cause: 'separation_unavailable',
     })
   })
 

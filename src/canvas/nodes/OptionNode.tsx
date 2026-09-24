@@ -158,6 +158,7 @@ import {
 import { NodeRailIcon } from './shared/NodeRailIcons'
 import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
+import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { UNCONFIRMED_ESTIMATE_TOKEN } from '../domain/vocabulary'
 import { ValueSourceMark } from './shared/valueSourceMark'
 
@@ -1832,10 +1833,27 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate])
   const runCurrency = useRunCurrency()
   const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
+  /**
+   * ⭐ THE SHARE IS GOAL-ONLY — SAID WHEN THE LIMIT VERDICT WITHHELD THE LEADER
+   * CLAIM (RC P0 #3(c)). The producer's own `leader_claim.withheld_reason`,
+   * carried with the result it qualifies (`producer_cause`), by exact token; any
+   * other reason (or none) adds nothing, so nothing is inferred. A boolean
+   * selector keeps the React-185 guard satisfied.
+   */
+  const shareIsGoalOnly = useCanvasStore(s => {
+    // Read from the RESULT (its persisted stamp), never the session-local
+    // `analysisStateV1` envelope: that is not persisted and a later turn without
+    // it would strip the qualification from a still-displayed result (Codex
+    // #1921 5804215687).
+    const permission = s.results.report?.producer_leader_permission
+    return permission?.permitted === false && permission.producer_cause === 'constraint_verdict_withheld'
+  })
   const winReadoutDescription = winReadout
     ? [
         `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)}.`,
         OPTION_RESULT_COPY.sentence(winReadout.formatted),
+        shareIsGoalOnly ? OPTION_RESULT_COPY.goalOnlyNote : null,
+        shareIsGoalOnly ? leaderWithholdCause('constraint_verdict_withheld') : null,
         runCurrency === 'changed'
           ? OPTION_RESULT_COPY.changedNote
           : runCurrency === 'current'
@@ -2196,6 +2214,15 @@ export const OptionNode = memo((props: NodeProps) => {
             </span>
           </div>
           </Tooltip>
+        )}
+        {winReadout && shareIsGoalOnly && (
+          <p
+            data-testid={`option-share-goal-only-${props.id}`}
+            className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}
+            aria-hidden="true"
+          >
+            {OPTION_RESULT_COPY.goalOnly}
+          </p>
         )}
 
         {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.
