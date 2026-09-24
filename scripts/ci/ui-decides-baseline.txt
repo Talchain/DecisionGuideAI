@@ -80,3 +80,12 @@ src/types/constraints.ts:78
 #    (`store.ts:7878` -> `7884` above is a pure line shift from #1921's six
 #    added lines in `resultsWithholdLeaderClaim`; the line text is identical.)
 src/components/results/analysisNew/analysisNewCopy.ts:2433
+#
+# -- ACCEPTED DISPLAY FORMATTING, 24 Sep 2026 (#1927), recorded for review, not
+#    endorsed by silence: `pre-analysis-v3/constants.ts:591` chooses between
+#    NAMING the factors with no value (when all have labels and there are at
+#    most four) and COUNTING them, by `total <= 4`. `total` is the UI's own count
+#    of canvas factors with no value (the same check that puts "Needs input" on
+#    a node), not a producer figure, and the choice is list length, not a claim
+#    about the model. Remove this line if the reviewer rules otherwise.
+src/canvas/components/pre-analysis-v3/constants.ts:591
