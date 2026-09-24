@@ -298,13 +298,35 @@ function edgeMapperDefaults(): Record<string, unknown> {
  * wire-supplied path — the OVER-applying direction this module already declares
  * fail-safe two comments up, rather than silently dropping an update.
  */
+/**
+ * ⭐ KEY ORDER IS NOT A CHANGE (manual-edit proof D1 root cause, 24 Sep).
+ *
+ * Serialise with object keys SORTED, recursively, so two objects holding the
+ * same values compare equal whatever order their keys arrived in. Measured on
+ * the served build: the agent lane's readback returns `observedState` / `prior`
+ * keys shortest-first (the order Postgres `jsonb` stores), the canvas holds the
+ * order it was built in, and a plain `JSON.stringify` counted every such node as
+ * UPDATED — re-marking the model edited just after a run cleared it. Arrays keep
+ * their order: an ordered list is not a set.
+ */
+function canonicalJson(v: unknown): string {
+  return JSON.stringify(v, (_key, value: unknown) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+    const sorted: Record<string, unknown> = {}
+    for (const k of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[k] = (value as Record<string, unknown>)[k]
+    }
+    return sorted
+  })
+}
+
 function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true
   // Exactly one side is `undefined` (both-undefined was caught above), so they
   // cannot be equal and there is nothing to serialise.
   if (a === undefined || b === undefined) return false
   try {
-    return JSON.stringify(a) === JSON.stringify(b)
+    return canonicalJson(a) === canonicalJson(b)
   } catch {
     return false
   }
