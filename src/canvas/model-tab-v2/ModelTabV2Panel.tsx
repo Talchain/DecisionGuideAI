@@ -158,6 +158,16 @@ import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspector
 import { optionInterventionDeclinedNotice } from '../ui/inspector-v2/shared/useOptionInterventionCommit'
 
 /**
+ * The Plain/Advanced arms, each ONE complete colour pair. Inline in the
+ * className template, the per-site contrast scan (which reads a template
+ * literal whole, on purpose) paired the idle arm's text colour with the
+ * selected arm's fill and reported 2.19:1, though no rendered arm combines
+ * them. Same repair as the Reasoning tab's lens toggles (PR #1978).
+ */
+const TIER_ARM_SELECTED = 'bg-primary text-text-on-color'
+const TIER_ARM_IDLE = 'text-text-body'
+
+/**
  * ⭐⭐ WHAT THE ROW SAYS WHEN AGREEING WITH AN ESTIMATE DOES NOT LAND.
  *
  * ⛔ Until now it said NOTHING. `proposeEdgeStrengthConfirmation`'s send was
@@ -1553,7 +1563,7 @@ export function ModelTabV2Panel({
                 aria-pressed={tier === 'plain'}
                 onClick={() => setTier('plain')}
                 className={`${typography.buttonSmall} min-h-[24px] px-2.5 rounded-full ${
-                  tier === 'plain' ? 'bg-primary text-text-on-color' : 'text-text-body'
+                  tier === 'plain' ? TIER_ARM_SELECTED : TIER_ARM_IDLE
                 }`}
               >
                 Plain
@@ -1564,7 +1574,7 @@ export function ModelTabV2Panel({
                 aria-pressed={tier === 'advanced'}
                 onClick={() => setTier('advanced')}
                 className={`${typography.buttonSmall} min-h-[24px] px-2.5 rounded-full ${
-                  tier === 'advanced' ? 'bg-primary text-text-on-color' : 'text-text-body'
+                  tier === 'advanced' ? TIER_ARM_SELECTED : TIER_ARM_IDLE
                 }`}
               >
                 Advanced
