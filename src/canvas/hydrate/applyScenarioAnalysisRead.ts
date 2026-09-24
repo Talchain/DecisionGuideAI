@@ -117,6 +117,18 @@ export type LeaderClaimWithholdingReason = 'leader_claim_withheld' | 'analysis_u
  * deliberately excluded (it is staleness, and admitting it would withdraw the
  * leading option on every ordinary edit).
  */
+/**
+ * The producer's own `leader_claim.withheld_reason` token, verbatim, or null —
+ * carried onto the stamp beside the collapsed reason by all three legs (turn,
+ * poll, boot) so a surface can read WHY on the result it qualifies (#1921).
+ */
+export function producerLeaderClaimCause(verdict: AnalysisStateV1 | null | undefined): string | null {
+  const claim = (verdict as { leader_claim?: { permitted?: boolean; withheld_reason?: unknown } } | null | undefined)?.leader_claim
+  if (!claim || claim.permitted !== false) return null
+  const token = typeof claim.withheld_reason === 'string' ? claim.withheld_reason.trim() : ''
+  return token === '' ? null : token
+}
+
 export function leaderClaimWithholdingReason(
   verdict: AnalysisStateV1,
 ): LeaderClaimWithholdingReason | null {
@@ -268,7 +280,7 @@ export interface ScenarioAnalysisApplyStore {
    * Optional like every other member here: a store view that predates this
    * field behaves exactly as it does today.
    */
-  readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason, producerCause?: string | null) => void
   /**
    * Record that a run COMPLETED without this leg seeing an explicit freshness
    * verdict — which is the read leg's ONLY possible branch, because
@@ -474,7 +486,7 @@ export function applyScenarioAnalysisRead(
       // claim the first one withdrew — the dedupe exists to stop a re-WRITE, not
       // to stop the producer changing its mind about what may be said.
       if (withholdingReason !== null) {
-        input.store.resultsWithholdLeaderClaim?.(withholdingReason)
+        input.store.resultsWithholdLeaderClaim?.(withholdingReason, producerLeaderClaimCause(verdict))
       }
       return { outcome: 'alreadyHeld', kind }
     }
@@ -517,7 +529,7 @@ export function applyScenarioAnalysisRead(
   // the write it would simply be overwritten by it, and CEE may legitimately
   // ship an analysis AND refuse the designation over it on the same turn.
   if (withholdingReason !== null) {
-    input.store.resultsWithholdLeaderClaim?.(withholdingReason)
+    input.store.resultsWithholdLeaderClaim?.(withholdingReason, producerLeaderClaimCause(verdict))
   }
 
   // ── The freshness transition this leg never performed ────────────────────
@@ -905,7 +917,7 @@ export function applyBootAnalysisVerdict(input: {
 // machinery — the failure is a lost withholding, not a wrong claim.
 
 export interface BootLeaderClaimWithholdingStore {
-  readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason, producerCause?: string | null) => void
 }
 
 export type BootLeaderClaimWithholdingOutcome =
@@ -934,6 +946,6 @@ export function applyBootLeaderClaimWithholding(input: {
   const reason = leaderClaimWithholdingReason(verdict)
   if (reason === null) return { outcome: 'noop', reason: 'not_withheld' }
 
-  input.store.resultsWithholdLeaderClaim?.(reason)
+  input.store.resultsWithholdLeaderClaim?.(reason, producerLeaderClaimCause(verdict))
   return { outcome: 'withheld', reason }
 }

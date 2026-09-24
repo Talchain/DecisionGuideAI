@@ -133,7 +133,8 @@ describe('applyBootLeaderClaimWithholding — a refusal outlives the reload', ()
       store: { resultsWithholdLeaderClaim },
     })
     expect(resultsWithholdLeaderClaim).toHaveBeenCalledTimes(1)
-    expect(resultsWithholdLeaderClaim).toHaveBeenCalledWith('analysis_unusable')
+    // blocked_unusable with the leader permitted: no leader_claim cause to carry (#1921).
+    expect(resultsWithholdLeaderClaim).toHaveBeenCalledWith('analysis_unusable', null)
     expect(outcome).toEqual({ outcome: 'withheld', reason: 'analysis_unusable' })
   })
 

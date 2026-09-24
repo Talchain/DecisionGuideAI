@@ -1550,7 +1550,7 @@ interface CanvasState {
    * report object carrying no stamp at all, which is how permission comes back
    * — never by a client deciding the producer has changed its mind.
    */
-  resultsWithholdLeaderClaim: (reason: LeaderClaimWithholdingReason) => void
+  resultsWithholdLeaderClaim: (reason: LeaderClaimWithholdingReason, producerCause?: string | null) => void
   /**
    * RECORD THE ADMISSION THE HELD REPORT'S OWN RUN WAS DELIVERED UNDER, as
    * `report.run_analysis_admission` (#1206; ruling olumi-programme-docs#63,
@@ -6005,7 +6005,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     return true
   },
 
-  resultsWithholdLeaderClaim: (reason) => {
+  resultsWithholdLeaderClaim: (reason, producerCause) => {
     const held = get().results.report
     // ⚠ NOTHING HELD, NOTHING TO WITHDRAW — and NOTHING is the operative word,
     // not an empty stamp. A withholding written with no report to attach it to
@@ -6016,7 +6016,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // IDEMPOTENT. The polling leg can deliver the same refusal on consecutive
     // reads; re-stamping would allocate a new report object on every poll and
     // re-render every results surface for no change.
-    if (existing && existing.permitted === false && existing.withheld_reason === reason) return
+    const cause = typeof producerCause === 'string' && producerCause.trim() !== '' ? producerCause.trim() : undefined
+    if (existing && existing.permitted === false && existing.withheld_reason === reason && existing.producer_cause === cause) return
 
     set(s => ({
       results: {
@@ -6024,7 +6025,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // Spread, never mutate: the previous object is held by `previousReport`
         // snapshots and by the Compare capture, and rewriting it in place would
         // retro-edit records of what was actually shown.
-        report: { ...held, producer_leader_permission: { permitted: false, withheld_reason: reason } },
+        report: {
+          ...held,
+          producer_leader_permission: cause === undefined
+            ? { permitted: false, withheld_reason: reason }
+            : { permitted: false, withheld_reason: reason, producer_cause: cause },
+        },
       },
     }))
 

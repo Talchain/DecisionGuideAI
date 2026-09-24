@@ -75,6 +75,7 @@ import {
 } from '../mutations/structuralAdd'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
+import { dropRepeatedAnalysisCards, lastRenderedAnalysisHash } from './analysisCardDedupe'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
 import { deriveV5Stage } from '../../v5/stageMapper'
@@ -5565,11 +5566,21 @@ export function useConversation(): UseConversationReturn {
           // conditional spread attaches nothing, and the bubble asserts
           // neither an omission nor a completeness.
           const modelBuildingNotices = extractModelBuildingNoticesSidecar(target.response)
+          // ⭐ ONE ANALYSIS CARD PER RUN (RC #63 5803875794; directive
+          // 5803995225). CEE re-sends a still-fresh prior `analysis_result` on
+          // later turns; on a non-run turn an identical result (same content
+          // hash as the transcript's last card) is dropped here, so an ideation
+          // or edit reply no longer re-surfaces it. Explicit runs and changed
+          // results always show. See `analysisCardDedupe.ts`.
+          const transcriptBlocks = dropRepeatedAnalysisCards(renderBlocks, {
+            isRunAnalysisTurn,
+            lastHash: lastRenderedAnalysisHash(messagesRef.current),
+          })
           addMessage({
             id: crypto.randomUUID(),
             role: 'assistant',
             content: target.response.assistant_text,
-            ...(renderBlocks.length > 0 ? { blocks: renderBlocks } : {}),
+            ...(transcriptBlocks.length > 0 ? { blocks: transcriptBlocks } : {}),
             ...(actionChips.length > 0 ? { actionChips } : {}),
             ...(reasoning ? { reasoning } : {}),
             ...(answerShape ? { answerShape } : {}),
