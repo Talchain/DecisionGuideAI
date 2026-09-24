@@ -177,52 +177,42 @@ describe('the two lenses', () => {
     expect(rowIds()).toEqual(given)
   })
 
-  it('⭐ no goal figures: Goal fit is LOCKED — lock, reason, aria-disabled — and a click changes nothing', () => {
+  /**
+   * ⭐ NO DEAD CONTROL (ChatGPT's V2 ruling, programme-docs #63 5806258826 §2:
+   * "if the figure is unavailable, do not add a dead/locked control here — the
+   * Success row already owns target-setting"). Served `c5000550`/`11ed8874`
+   * showed a locked "Goal fit" arm with "Goal fit needs a measurable target and
+   * a result for every option" on the first screen of a run whose target was
+   * set: a control that can never be pressed, stating a cause it cannot know.
+   * With one lens there is nothing to choose, so no control is offered.
+   */
+  it('⭐ no goal figures: no lens control at all — the outcome view shows, nothing locked', () => {
     renderRun(dataFor({ goals: false }))
-
-    const goal = lensArm('goal')
-    expect(goal).toHaveAttribute('aria-disabled', 'true')
-    expect(within(goal).getByTestId(`${T}-lens-goal-lock`)).toBeInTheDocument()
-    // The reason is reachable without a pointer: the arm is DESCRIBED by it.
-    const reasonId = goal.getAttribute('aria-describedby')
-    expect(reasonId).not.toBeNull()
-    expect(document.getElementById(reasonId as string)).toHaveTextContent(LENS_COPY.goalLocked)
-
-    // The outcome lens is what shows, and a click on the locked arm moves nothing.
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
-    fireEvent.click(goal)
-    expect(goal).toHaveAttribute('aria-checked', 'false')
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.queryByTestId(`${T}-lens-control`), 'one lens: nothing to choose').toBeNull()
+    expect(screen.queryByTestId(`${T}-lens-goal`)).toBeNull()
+    expect(document.querySelector('[data-locked="true"]')).toBeNull()
+    expect(document.querySelector('[aria-disabled="true"]')).toBeNull()
+    // The outcome figures are what shows.
     expect(bandsDrawn()).toEqual(IDS)
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
   })
 
-  it('CONTRAST: with goal figures, the same arm carries no lock, no reason and no aria-disabled', () => {
+  it('CONTRAST: with goal figures, the control is offered and both arms can be chosen', () => {
     renderRun(dataFor({}))
+    expect(screen.getByTestId(`${T}-lens-control`)).toBeInTheDocument()
     const goal = lensArm('goal')
-    expect(goal).not.toHaveAttribute('aria-disabled')
-    expect(goal).not.toHaveAttribute('aria-describedby')
-    expect(within(goal).queryByTestId(`${T}-lens-goal-lock`)).toBeNull()
-    expect(screen.queryByTestId(`${T}-lens-goal-locked-reason`)).toBeNull()
-  })
-
-  it('the locked reason names both grounds and none of the contest vocabulary', () => {
-    expect(LENS_COPY.goalLocked).toMatch(/target/)
-    expect(LENS_COPY.goalLocked).toMatch(/every option/)
-    expect(LENS_COPY.goalLocked).not.toMatch(/\b(win|winner|best|lead|ahead|recommend)/i)
-    expect(LENS_COPY.goalLocked).not.toContain('—')
-  })
-
-  it('arrow keys: onto the locked arm moves FOCUS only; between open arms they select', () => {
-    renderRun(dataFor({ goals: false }))
     const outcome = lensArm('outcome')
-    expect(outcome).toHaveAttribute('tabindex', '0')
-    expect(lensArm('goal')).toHaveAttribute('tabindex', '-1')
-    fireEvent.keyDown(outcome, { key: 'ArrowRight' })
-    expect(document.activeElement).toBe(lensArm('goal'))
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
+    expect(goal).not.toHaveAttribute('aria-disabled')
+    expect(outcome).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(outcome)
+    expect(outcome).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(goal)
+    expect(goal).toHaveAttribute('aria-checked', 'true')
+  })
 
-    cleanup()
+  // ⚠ The locked-arm half of this case went with the locked arm (no control is
+  // offered with one lens); the keyboard contract between open arms stands.
+  it('arrow keys: between the two open arms they select, and focus follows', () => {
     renderRun(dataFor({}))
     fireEvent.keyDown(lensArm('goal'), { key: 'ArrowLeft' })
     expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
@@ -258,7 +248,8 @@ describe('the two lenses', () => {
     expect(lensArm('goal'), 'PRECONDITION: the reader is on Goal fit').toHaveAttribute('aria-checked', 'true')
     const vm2 = vmFor(dataFor({ goals: false }))
     rerender(<OptionsComparison options={vm2.optionsComparison} defaultOpen />)
-    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
+    // One lens left: the control goes, and the outcome view is what shows.
+    expect(screen.queryByTestId(`${T}-lens-control`)).toBeNull()
     expect(bandsDrawn()).toEqual(IDS)
   })
 })

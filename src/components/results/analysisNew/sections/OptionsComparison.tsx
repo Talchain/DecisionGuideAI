@@ -160,8 +160,7 @@
  */
 
 import { Fragment, useCallback, useId, useState } from 'react'
-import { Crosshair, Info, Lock, Scale, Search, Sparkles } from 'lucide-react'
-import Tooltip from '../../../Tooltip'
+import { Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -439,12 +438,15 @@ export function OptionsComparison({
       ? chosenLens
       : initialComparisonLens(lensAvailability)
   /**
-   * The control is offered only where the outcome lens has a view. With goal
-   * figures alone there is one lens and nothing to choose; with neither there
-   * is no lens at all. Goal fit without figures is shown LOCKED rather than
-   * absent, so the reader learns the lens exists and what it needs.
+   * The control is offered only where BOTH lenses have a view. With one lens
+   * there is nothing to choose; with neither there is no lens at all.
+   * ⛔ NO LOCKED ARM (ChatGPT's V2 ruling, #63 5806258826 §2): Goal fit without
+   * figures used to render as a locked arm stating "needs a measurable target
+   * and a result for every option" — a control that can never be pressed, on
+   * runs whose target WAS set (served `11ed8874`). The Success row owns
+   * target-setting; this section shows only what it can draw.
    */
-  const offerLensControl = lensAvailability.outcome
+  const offerLensControl = lensAvailability.outcome && lensAvailability.goal
   const rowActionsEnabled =
     onInspectOption !== undefined || onFocusOption !== undefined || onAskAboutOption !== undefined
 
@@ -545,10 +547,8 @@ export function OptionsComparison({
           control below: one tab stop on the selected arm, arrow keys traverse
           and wrap, and focus follows the selection.
 
-          ⚠ GOAL FIT LOCKED, NOT HIDDEN, when the view model sent no goal
-          figures. It stays reachable by the arrow keys so its reason (tooltip,
-          and `aria-describedby` for a screen reader) can be met, but it cannot
-          be selected, so no reader lands on an empty lens.
+          Offered only when both lenses have figures (see `offerLensControl`),
+          so every arm can be chosen and no reader lands on an empty lens.
 
           ⛔ A LENS REORDERS NOTHING. It changes which figure sits under each
           name and never which name comes first; the rows below are rendered in
@@ -565,19 +565,14 @@ export function OptionsComparison({
             data-testid={`${testId}-lens`}
           >
             {COMPARISON_LENSES.map((arm, i) => {
-              const locked = !lensAvailability[arm]
               const selected = lens === arm
               const control = (
                 <button
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  aria-disabled={locked ? true : undefined}
-                  aria-describedby={locked ? `${lensGroupId}-${arm}-locked` : undefined}
                   tabIndex={selected ? 0 : -1}
-                  onClick={() => {
-                    if (!locked) setChosenLens(arm)
-                  }}
+                  onClick={() => setChosenLens(arm)}
                   onKeyDown={(e) => {
                     const step =
                       e.key === 'ArrowRight' || e.key === 'ArrowDown'
@@ -599,40 +594,16 @@ export function OptionsComparison({
                   }}
                   className={`${typography.panelMeta} ${action('quiet')} flex-1 justify-center gap-1 px-2 no-underline ${
                     selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
-                  } ${locked ? 'cursor-default opacity-60' : ''}`}
+                  }`}
                   data-lens={arm}
-                  data-locked={locked ? 'true' : undefined}
                   data-testid={`${testId}-lens-${arm}`}
                 >
-                  {locked ? (
-                    <Lock
-                      className={icon('inline')}
-                      aria-hidden="true"
-                      data-testid={`${testId}-lens-${arm}-lock`}
-                    />
-                  ) : null}
                   {LENS_COPY.arms[arm]}
                 </button>
               )
-              return locked ? (
-                <Tooltip key={arm} asChild content={LENS_COPY.goalLocked}>
-                  {control}
-                </Tooltip>
-              ) : (
-                <Fragment key={arm}>{control}</Fragment>
-              )
+              return <Fragment key={arm}>{control}</Fragment>
             })}
           </div>
-          {COMPARISON_LENSES.filter((arm) => !lensAvailability[arm]).map((arm) => (
-            <span
-              key={arm}
-              id={`${lensGroupId}-${arm}-locked`}
-              className="sr-only"
-              data-testid={`${testId}-lens-${arm}-locked-reason`}
-            >
-              {LENS_COPY.goalLocked}
-            </span>
-          ))}
         </div>
       ) : null}
 
