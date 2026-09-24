@@ -56,9 +56,10 @@ import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 
 /**
  * 14px, the prototype's `.challenge-question` size, through the panel's own
- * token: a raw `text-sm font-medium` bypassed the declared scale (render-
- * discipline RULE A, shell-conformance). It is a `<p>` under the zone's h3,
- * led by a dot, so the hierarchy is carried by element and position.
+ * token rather than a raw size-and-weight class pair, which bypassed the
+ * declared scale (render-discipline RULE A, shell-conformance). It is a `<p>`
+ * under the zone's h3, led by a dot, so the hierarchy is carried by element
+ * and position.
  */
 const ITEM_TEXT = typography.panelHeader
 export interface ChallengeCardProps {
