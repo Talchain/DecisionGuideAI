@@ -9,7 +9,10 @@
  *    why the destination could not keep that promise.)
  *  - With threshold: `GOAL_TARGET_PREFIX` + value ("Target: 15%") + provenance
  *    icon. The SAME string is this card's reduced line below the legibility
- *    floor — see `targetLine`, which is the only place it is built.
+ *    floor — see `targetLine`, which is the only place it is built. Beside it,
+ *    in Standard, the user-stated limits as compact boundary pills
+ *    (`goalLimitPills`; NODE-ANATOMY v3.2, ED #63 choice 2), full sentence on
+ *    hover/focus. Never beside the no-target chip (one pill in that state).
  *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
  *    — only when the run PRODUCED one; no Chance row otherwise (contract v3.1 goal anatomy, gap U3)
  *  - No risks chip (always)
@@ -24,6 +27,7 @@
  * No ExpertOverlay. No MetricPills.
  */
 import { memo, useMemo } from 'react'
+import Tooltip from '../../components/Tooltip'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -66,6 +70,7 @@ import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 /**
  * ⭐ THE TWO STRINGS THIS CARD USES TO STATE ITS TARGET, DECLARED ONCE.
@@ -256,6 +261,42 @@ export const GOAL_TARGET_ROUTE_TESTID = 'goal-target-route'
  */
 export const GOAL_STATE_WORD_CLASSES = `${typography.edgeLabel} inline-flex items-center gap-1 whitespace-nowrap font-normal text-text-body bg-panel border border-solid border-warning-ink/40 rounded-full`
 export const GOAL_STATE_WORD_STYLE = { padding: '0.1em 0.6em', lineHeight: 1.3 } as const
+
+/**
+ * ⭐ THE USER-STATED LIMITS, AS BOUNDARY PILLS ON THE TARGET ROW —
+ * NODE-ANATOMY v3.2 row "Goal" (`Target: <amount> <mark>` + boundary pill(s)
+ * `Churn < 7%`; "user-stated limits live HERE") and ED #63 5806207128 /
+ * 5806266691 choice 2 ("limits on the Goal, not repeated on the Factor at
+ * rest"; "Full constraint detail remains reachable on focus/inspector").
+ *
+ * ONE derivation for the resting face: the pill's visible text is the SAME
+ * `goalConstraintText` sentence Layer 2's `goal-constraint-badge` prints, so
+ * the resting pill and its details can never name a limit two ways. `name` is
+ * the full statement — hover, keyboard focus and the accessible name — and says
+ * whose limit it is only where the constraint's own provenance says so:
+ * `explicit` (the brief or a panel edit) → "Limit you set"; anything else →
+ * "Limit", with `goalConstraintText`'s own " · Inferred limit" / " · Proxy
+ * limit" origin already in the text. No satisfaction figure: that is a run
+ * finding about the limit, and it stays in Layer 2.
+ *
+ * `key` is the constraint's own identity (`constraint_id`, then `id`), so a
+ * probe binds to THIS limit; the list index is the last resort for a legacy
+ * constraint that carries neither.
+ */
+export function goalLimitPills(
+  constraints: readonly CEEGoalConstraint[] | null | undefined,
+  nodes: readonly { id: string; data?: unknown }[],
+): Array<{ key: string; text: string; name: string }> {
+  if (!constraints?.length) return []
+  return constraints.map((c, i) => {
+    const text = goalConstraintText(c, nodes)
+    return {
+      key: c.constraint_id ?? c.id ?? String(i),
+      text,
+      name: `${c.provenance === 'explicit' ? 'Limit you set' : 'Limit'}: ${text}`,
+    }
+  })
+}
 
 /**
  * ⭐⭐⭐ A TARGET THAT IS SET GETS THE SAME ROUTE AS A TARGET THAT IS MISSING.
@@ -862,6 +903,21 @@ export const GoalNode = memo((props: NodeProps) => {
     </>
   ) : null
 
+  /*
+   * The resting face's limit pills (see `goalLimitPills`). Three gates, each a
+   * ruling:
+   *   · a TARGET is on the row — the missing state shows ONE pill only,
+   *     "Target not captured" (NODE-ANATOMY v3.2 Goal: "Never … a second pill");
+   *     the limits stay in Layer 2 (popover / Detailed) there;
+   *   · Standard only — Detailed renders Layer 2 inline, whose constraint list
+   *     already states each limit (with its run figure), so one view never says
+   *     a limit twice;
+   *   · the SAME `activeConstraints` Layer 2 reads, so the pill and its details
+   *     are one set.
+   */
+  const restingLimitPills =
+    targetLine !== null && !isDetailed ? goalLimitPills(activeConstraints, nodes) : []
+
   // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes:
   // no." The goal node used to carry a two-sentence instruction plus a
   // "Help me set a target" chip — a billboard on the canvas. Both no-target
@@ -1044,6 +1100,29 @@ export const GoalNode = memo((props: NodeProps) => {
           {targetSourceMark !== null && (
             <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} />
           )}
+          {/* ⭐ The user-stated limits beside the target (NODE-ANATOMY v3.2;
+              ED choice 2: "Target: £20k/month   Churn < 7%"). Contract v3.1
+              `.pill.mini` — the SAME neutral hairline Layer 2's constraint
+              badge wears (PILL-12: 1px `border-field/40`, radius 999, 1px 7px),
+              never the state word and never Info. Compact at rest: a long
+              limit truncates inside the card and its full sentence is the
+              pill's name, on hover AND keyboard focus (`Tooltip` opens on
+              both) — the same focusable-readout pattern as the option share
+              row (`role="img"` + `aria-label`, one accessible name). */}
+          {restingLimitPills.map((l) => (
+            <Tooltip key={l.key} asChild delay={NODE_TOOLTIP_DELAY_MS} content={l.name}>
+              <span
+                role="img"
+                tabIndex={0}
+                aria-label={l.name}
+                data-node-tooltip="true"
+                data-testid={`goal-limit-pill-${props.id}-${l.key}`}
+                className={`${typography.edgeLabel} nodrag nopan inline-block max-w-full truncate align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              >
+                {l.text}
+              </span>
+            </Tooltip>
+          ))}
         </div>
 
         {showAchievementReadout && (

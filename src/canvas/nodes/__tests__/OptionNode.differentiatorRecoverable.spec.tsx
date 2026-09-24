@@ -31,6 +31,15 @@
  *
  * Assertions bind by IDENTITY (the exact factor label under test), never by a
  * value predicate another node could satisfy.
+ *
+ * ⚠ FIXTURES WIDENED WITH THEIR REASON (NODE-ANATOMY v3.2, ED #63 5806266691:
+ * "differentiator only when additive"). The footer now renders only when it
+ * adds something the change rows don't — never "<only row> is the key
+ * difference", never "<shown row> → <its value>". So each fixture gives option-1
+ * a second, SHARED change (equal on both options, so it never differentiates):
+ * the key-difference form then says which of two changes matters, and the
+ * "→ value" form names a change that sits behind "+N more". The recovery
+ * standard is untouched.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -169,13 +178,14 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
       selector(makeStoreState({
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-ae': 0.9 } },
-            { id: 'option-2', interventions: { 'factor-budget': 0.9 } },
+            { id: 'option-1', interventions: { 'factor-ae': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
+            { id: 'option-2', interventions: { 'factor-budget': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
           ],
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { label: 'Hire Three Account Executives', type: 'option' } },
           { id: 'option-2', type: 'option', data: { label: 'Hold Headcount', type: 'option' } },
+          { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
           {
             id: 'factor-ae',
             type: 'factor',
@@ -218,13 +228,17 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
       selector(makeStoreState({
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-pe': { value: 0.1, display_value: 'Low (0)' } } },
-            { id: 'option-2', interventions: { 'factor-pe': { value: 0.9, display_value: 'High (1)' } } },
+            // Two shared, equal changes come first in the shared order, so the
+            // differentiating factor sits behind "+1 more" and the footer ADDS it.
+            { id: 'option-1', interventions: { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' }, 'factor-pe': { value: 0.1, display_value: 'Low (0)' } } },
+            { id: 'option-2', interventions: { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' }, 'factor-pe': { value: 0.9, display_value: 'High (1)' } } },
           ],
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { label: 'Hire Three Account Executives', type: 'option' } },
           { id: 'option-2', type: 'option', data: { label: 'Hold Headcount', type: 'option' } },
+          { id: 'factor-tools', type: 'factor', data: { label: 'Tooling spend' } },
+          { id: 'factor-hours', type: 'factor', data: { label: 'Weekly hours' } },
           {
             id: 'factor-pe',
             type: 'factor',
@@ -238,6 +252,9 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
 
     // Same casing change as above; the recovery standard is what this asserts.
     // Same fixture lengthening as above, same reason.
+    // Precondition: the factor it names is NOT a shown row (it is behind "+1 more").
+    expect(screen.queryByTestId('option-change-row-option-1-factor-pe')).toBeNull()
+    expect(screen.getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
     const p = screen.getByText(/Platform engineers hired… → Low \(0\)/)
     expect(p.tagName).toBe('P')
     assertRecoverable(p, 'Platform engineers hired onto the team → Low (0)')
@@ -250,13 +267,14 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
       selector(makeStoreState({
         ceeAnalysisReady: {
           options: [
-            { id: 'option-1', interventions: { 'factor-budget': 0.9 } },
-            { id: 'option-2', interventions: { 'factor-other': 0.9 } },
+            { id: 'option-1', interventions: { 'factor-budget': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
+            { id: 'option-2', interventions: { 'factor-other': 0.9, 'factor-shared': { value: 3, display_value: '£3k' } } },
           ],
         },
         nodes: [
           { id: 'option-1', type: 'option', data: { label: 'Hire Three Account Executives', type: 'option' } },
           { id: 'option-2', type: 'option', data: { label: 'Hold Headcount', type: 'option' } },
+          { id: 'factor-shared', type: 'factor', data: { label: 'Tooling spend' } },
           {
             id: 'factor-budget',
             type: 'factor',

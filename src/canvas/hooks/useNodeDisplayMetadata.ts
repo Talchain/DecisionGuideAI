@@ -126,11 +126,12 @@ export interface NodeDisplayMetadata {
    */
   influenceSetSize?: number | null
   /**
-   * Contract v3.1 pt 5: the `M` the driver line PRINTS — how many factors the
-   * run's rank rule ranked (`rankFactor`'s `rankedSetSize`). Optional for the
-   * same mock-ratchet reason as `influenceSetSize`; assigned beside it,
-   * unconditionally in the factor branch. Absent ⇒ `driverRankFor` states no
-   * rank (fail closed, never a borrowed denominator).
+   * How many factors the run's rank rule ranked (`rankFactor`'s
+   * `rankedSetSize`) — the PUBLICATION guard `driverRankFor` reads: a rank
+   * beyond it, or an absent count, states no rank (fail closed). NOT the
+   * printed `M`: since ED #63 5806207128 the line prints `influenceSetSize`,
+   * the eligible analysed factors. Optional for the same mock-ratchet reason as
+   * `influenceSetSize`; assigned beside it, unconditionally in the factor branch.
    */
   influenceRankedCount?: number | null
   /**
