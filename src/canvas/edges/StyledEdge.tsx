@@ -37,6 +37,7 @@ import {
   type RankedCausalEdge,
 } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
+import { resolveSameRowRoute, routeBoxOf, type RouteBox, type SameRowRoute } from './sameRowRoute'
 import {
   readContestedState,
   resolveEdgeStroke,
@@ -806,8 +807,52 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [label, confidence, outgoingEdgeCount, kind]
   )
 
+  /**
+   * ⭐ A SAME-ROW LINK IS ROUTED BETWEEN THE CARDS (canvas polish #1, 24 Sep
+   * 2026) — see `sameRowRoute.ts`. Bottom port → top handle with the target's
+   * top at or above the source's bottom is the only geometry that loops; the
+   * store is read only then. A SUBSCRIPTION (like the glyph's below), not an
+   * imperative `getNode`, so a card moving into or out of the gap re-routes
+   * the link. Returned as a string: `useStore` compares by reference.
+   */
+  const sameRowRouteKey = useStore((st) => {
+    if (pathType === 'straight' || pathType === 'smoothstep') return ''
+    if (sourcePosition !== Position.Bottom || targetPosition !== Position.Top || targetY > sourceY) return ''
+    // Tolerate a partial store slice (see the glyph selector's note).
+    const storeNodes = Array.isArray(st.nodes) ? st.nodes : []
+    let src: RouteBox | null = null
+    let tgt: RouteBox | null = null
+    const others: RouteBox[] = []
+    for (const n of storeNodes) {
+      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (!box) continue
+      if (n.id === source) src = box
+      else if (n.id === target) tgt = box
+      else others.push(box)
+    }
+    if (!src || !tgt) return ''
+    const route = resolveSameRowRoute(src, tgt, others)
+    return route ? JSON.stringify(route) : ''
+  })
+  const sameRowRoute = useMemo<SameRowRoute | null>(
+    () => (sameRowRouteKey === '' ? null : (JSON.parse(sameRowRouteKey) as SameRowRoute)),
+    [sameRowRouteKey],
+  )
+
   // Compute edge path based on pathType
   const [edgePath, labelX, labelY] = useMemo(() => {
+    if (sameRowRoute) {
+      // The label anchors ON the drawn path. `side` keeps the handle midpoint
+      // (already on the connector for row-mates, so `labelAnchor` is null);
+      // `under` anchors on its gutter run. The placement pass is fed the same
+      // anchor below, so the chip's dodge and leader start where it sits.
+      return [
+        sameRowRoute.path,
+        sameRowRoute.labelAnchor?.x ?? (sourceX + targetX) / 2,
+        sameRowRoute.labelAnchor?.y ?? (sourceY + targetY) / 2,
+      ] as [string, number, number]
+    }
     switch (pathType) {
       case 'straight':
         return getStraightPath({ sourceX, sourceY, targetX, targetY })
@@ -842,8 +887,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
          * placement pass (which clears boxes around the handle midpoint) and
          * the leader line are unaffected. The end tangent is still vertical, so
          * the arrowhead (`orient="auto"`) still points straight into the card.
-         * Every other orientation (a same-band or upward edge, and every
-         * non-default path type) keeps xyflow's own path.
+         * Every other orientation (an upward edge between rows, and every
+         * non-default path type) keeps xyflow's own path; a SAME-ROW pair was
+         * routed above (`sameRowRoute.ts`).
          */
         if (sourcePosition === Position.Bottom && targetPosition === Position.Top && targetY > sourceY) {
           const bend = Math.max(6, Math.min(30, (targetY - sourceY) / 2))
@@ -866,7 +912,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         })
       }
     }
-  }, [pathType, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, visualProps.curvature])
+  }, [sameRowRoute, pathType, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, visualProps.curvature])
   
   // Improved accessible name using node titles
   const sourceNode = getNode(source)
@@ -1500,6 +1546,31 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       width: n.measured?.width ?? n.width ?? 200,
       height: n.measured?.height ?? n.height ?? 80,
     })
+    // The same boxes the same-row route above resolves against (visible,
+    // measured cards), so every edge's placement anchor matches where that
+    // edge actually renders its label (`sameRowRoute.ts` `labelAnchor`).
+    const routeBoxes: RouteBox[] = []
+    for (const n of getNodes()) {
+      if (n.hidden || lensHiddenNodeIds.has(n.id)) continue
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (box) routeBoxes.push(box)
+    }
+    const routeAnchorFor = (e: { id: string; source: string; target: string; data?: unknown }) => {
+      // This edge: exactly the route it renders (its own handle positions
+      // decide whether it routes at all — a Right→Left edge never does).
+      if (e.id === id) return sameRowRoute?.labelAnchor ?? undefined
+      const pt = (e.data as { pathType?: EdgePathType } | undefined)?.pathType ?? 'bezier'
+      if (pt === 'straight' || pt === 'smoothstep') return undefined
+      const src = routeBoxes.find((b) => b.id === e.source)
+      const tgt = routeBoxes.find((b) => b.id === e.target)
+      if (!src || !tgt) return undefined
+      // Another edge: BaseNode and the ghost nodes declare one source handle
+      // (Bottom) and one target handle (Top), so its render guard reduces to
+      // the handle-height test — which the resolver's row-band overlap
+      // already implies (target top above source bottom).
+      const others = routeBoxes.filter((b) => b.id !== e.source && b.id !== e.target)
+      return resolveSameRowRoute(src, tgt, others)?.labelAnchor ?? undefined
+    }
     const placementEdges: PlacementEdge[] = []
     for (const e of getEdges()) {
       const rows = rowsFor(e.id)
@@ -1510,7 +1581,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const sn = getNode(e.source)
       const tn = getNode(e.target)
       if (!sn || !tn) continue
-      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn), rows })
+      const anchor = routeAnchorFor(e)
+      placementEdges.push({ id: e.id, sourceRect: rectOf(sn), targetRect: rectOf(tn), rows, ...(anchor ? { anchor } : {}) })
     }
     const nodeRects = getNodes()
       // C2 review fix 1: lens-hidden cards are invisible — not obstacles.
@@ -1521,7 +1593,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // nodeRectsSignature is the recompute trigger for node movement (the
     // whole placement is derived from node geometry, so it covers this
     // edge's own endpoints too).
-  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature])
+  }, [isPersistentChipEdge, topStrengthIds, fragileLabelIds, getEdges, getNode, getNodes, id, lensHiddenNodeIds, lensHiddenEdgeIds, nodeRectsSignature, sameRowRoute])
 
   // Total label displacement (Task 9c proximity nudge + collision stack),
   // relative to the rendered label anchor (labelX/labelY).
@@ -1827,6 +1899,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}
         data-selection-dimmed={isSelectionDimmed ? 'true' : undefined}
+        data-same-row-route={sameRowRoute?.kind}
         style={{
           opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
           transition: prefersReducedMotion ? 'none' : 'opacity 300ms ease',
@@ -2249,7 +2322,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${targetX + glyphOffset.dx}px,${targetY + glyphOffset.dy}px)`,
+              // A same-row route ends away from the top handle, so its glyph sits
+              // where that route's arrow is (`sameRowRoute.ts`).
+              transform: sameRowRoute
+                ? `translate(-50%, -50%) translate(${sameRowRoute.glyphX}px,${sameRowRoute.glyphY}px)`
+                : `translate(-50%, -50%) translate(${targetX + glyphOffset.dx}px,${targetY + glyphOffset.dy}px)`,
               pointerEvents: 'none',
               // contract v3.1 (E2/T09): the glyph knocks the line out behind it.
               textShadow: POLARITY_GLYPH_HALO,
