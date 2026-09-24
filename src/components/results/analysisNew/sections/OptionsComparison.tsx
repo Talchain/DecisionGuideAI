@@ -710,7 +710,7 @@ export function OptionsComparison({
                     all, so nothing on it said "option" the way the canvas
                     already does. `aria-hidden` by construction (`NodeMark`),
                     so it adds nothing to the button's `aria-label`. */}
-                <NodeMark kind="option" className="w-2 h-2 mr-1 inline-block align-[-1px]" />
+                <NodeMark kind="option" className={`${icon('inline')} mr-1 inline-block align-[-1px]`} />
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
                   /* ⚠ `role="img"` WITH THE FULL SENTENCE AS ITS NAME. A bare
