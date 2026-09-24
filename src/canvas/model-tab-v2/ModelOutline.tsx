@@ -32,6 +32,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
@@ -843,7 +844,26 @@ export function ModelOutline({
                and must not drift back to the container. */
             className={`${typography.panelHeader} text-text-header text-left py-1.5`}
           >
-            {group.open ? '▾' : '▸'} {GROUP_TITLE[group.id]}
+            {/*
+              ⭐⭐ V2 GAP 32 — ONE LUCIDE CHEVRON THAT ROTATES, NOT A TEXT
+              TRIANGLE. `FIDELITY-GAPS-INDEX-20260924.txt` #32: this heading
+              rendered the Unicode characters `▾`/`▸` while the Model card
+              two components below used a Lucide `ChevronRight` that rotates
+              (`Accordion.tsx`) — three glyphs, two mechanisms, one tab. The
+              design authority's `.disclose .chev` is the same rotating
+              chevron everywhere. `aria-hidden` is safe here: the toggle
+              already carries an explicit `aria-label` two attributes above
+              (`GROUP_TITLE[group.id]`, the count, the unset summary), so the
+              glyph was never part of the accessible name and removing it
+              from the text node changes nothing a screen reader announces.
+            */}
+            <ChevronRight
+              aria-hidden="true"
+              className={`inline w-3.5 h-3.5 text-text-light transition-transform ${
+                group.open ? 'rotate-90' : ''
+              }`}
+            />{' '}
+            {GROUP_TITLE[group.id]}
             <span className={`${typography.panelMeta} text-text-light ml-2`}>
               {group.headingRows.length}
             </span>
