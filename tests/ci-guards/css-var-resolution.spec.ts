@@ -391,7 +391,10 @@ const KNOWN_FALLBACK_DRIFT = [
   '--semantic-danger|#ef4444',
   '--semantic-info|#3b82f6',
   '--semantic-success|#22c55e',
-  '--semantic-warning|#eab308',
+  // contract v3.1 (T16, 24 Sep 2026): `--semantic-warning|#eab308` REMOVED — a
+  // repair, not a scope shrink. Its one remaining site was the evidence-lens
+  // 'assumed' stroke in `canvas/edges/edgePresentation.ts`, which now paints the
+  // bare token; this census reported it as no longer drifting.
   '--shadow-2|0 4px 12px rgba(0,0,0,0.08)',
   '--success-light|rgba(103,200,158,0.3)',
   '--surface-card|#FEF9F3',

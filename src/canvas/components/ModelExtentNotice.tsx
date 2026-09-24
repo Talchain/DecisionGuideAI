@@ -244,8 +244,10 @@ export function ModelExtentNotice() {
   const body = (
     <div
       data-testid="model-extent-notice"
+      // contract v3.1 CHR-6: one elevation for the cell's floating chrome —
+      // DS `shadow-2` (was `shadow-1`, the resting-card token).
       className="pointer-events-auto flex items-center gap-3 rounded-lg border
-                 border-panel-border bg-panel shadow-1 px-3 py-2"
+                 border-panel-border bg-panel shadow-2 px-3 py-2"
     >
       <span className={`${typography.caption} text-text-body`} data-testid="model-extent-count">
         {/* States the REMAINDER, never a bare fade — the same honesty rule the
