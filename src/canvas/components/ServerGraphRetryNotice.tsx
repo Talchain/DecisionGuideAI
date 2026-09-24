@@ -72,7 +72,7 @@
  * would pass the narration-honesty invariants if it were ever moved under them.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * ⚠ THE THREE GATES, AND WHY EACH IS LOAD-BEARING
+ * ⚠ THE FOUR GATES, AND WHY EACH IS LOAD-BEARING
  * ═══════════════════════════════════════════════════════════════════════════
  * 1. STAGE is not `idle`. Nothing to say otherwise.
  * 2. The stage's scenario MATCHES the live one. `contextIntegrityStore`'s header
@@ -85,12 +85,20 @@
  *    would be frightening and false-to-experience. It also makes the notice
  *    SELF-CLEARING: the moment a late graph merges, `nodes.length` is non-zero
  *    and this unmounts, with no store write needed to retract it.
+ * 4. THIS PAGE IS NOT STILL DRAFTING THIS DECISION (contract v3.1 gap U14, Paul
+ *    24 Sep). A guest's first Send mints the id, the boot read then answers
+ *    `absent` for the row the turn just provisioned, and the strip showed over
+ *    the empty canvas of a draft that was simply still streaming. That is not
+ *    the returning-guest window. Scenario-keyed via `draftStreamPhaseFor`; it
+ *    comes back unchanged the moment the stream ends.
  */
 import { useCanvasStore } from '../store'
 import {
   useDraftStore,
   draftStreamGraphDeliveredFor,
   draftStreamGraphDiscardedByFenceFor,
+  draftStreamInFlight,
+  draftStreamPhaseFor,
 } from '../stores/draftStore'
 import { useServerGraphRetryStore } from '../stores/serverGraphRetryStore'
 import { typography } from '../../styles/typography'
@@ -155,6 +163,10 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
   // is only honest when this client saw no model arrive on ANY transport AND did
   // not throw one away itself. Either observation refutes it.
   const modelWasDelivered = modelArrivedForThisTurn || modelDiscardedByThisClient
+  // GATE 4's input — contract v3.1 gap U14. Keyed on the live id, like GATE 2.
+  const draftingThisDecision = useDraftStore((s) =>
+    draftStreamInFlight(draftStreamPhaseFor(s, currentScenarioId ?? null)),
+  )
 
   // GATE 1 — nothing to say.
   if (stage === 'idle') return null
@@ -172,6 +184,10 @@ export function ServerGraphRetryNotice(): JSX.Element | null {
 
   // GATE 3 — the user's work is on screen; there is nothing to reassure about.
   if (nodeCount > 0) return null
+
+  // GATE 4 — this page's own draft for this decision is still streaming; the
+  // empty canvas is a model being drafted, not one the page failed to find.
+  if (draftingThisDecision) return null
 
   const exhausted = stage === 'exhausted'
 

@@ -12,7 +12,23 @@
  * default (standard) view once results exist, so the few key relationships are
  * legible without switching views. The interaction-driven triggers stay
  * Detailed-only to keep the default map uncluttered.
+ *
+ * ⛔ E2 WITHDRAWN — contract v3.1 (U10; pts 4 and 12). The default view pins NO
+ * strength label at rest: stroke width carries magnitude (the 23 Sep ruling),
+ * the `+`/`−`/`±` glyph carries direction, one discreet cue carries fragility,
+ * and "strength, uncertainty and explanation remain in the existing
+ * relationship inspector" (and the hover). Detailed view is unchanged.
  */
+
+/**
+ * Whether this view mode paints strength labels on the canvas AT ALL — pinned
+ * or interaction-driven. One predicate for the render gate AND the placement
+ * set, so the resolver never clears a box for a label that cannot paint.
+ * contract v3.1 (U10): false for the default (standard) view.
+ */
+export function viewShowsStrengthLabels(viewMode: string): boolean {
+  return viewMode !== 'standard'
+}
 export interface EdgeLabelVisibilityInput {
   /** The active graph view mode ('standard' = the default map). */
   viewMode: string
@@ -31,12 +47,12 @@ export interface EdgeLabelVisibilityInput {
 
 export function shouldShowEdgeLabel(input: EdgeLabelVisibilityInput): boolean {
   if (!input.isResultsMode || input.isStructuralEdge) return false
-  // E2: top-strength labels surface in EITHER view once results exist.
-  if (input.isTopStrengthEdge) return true
-  // Interaction-driven triggers remain Detailed/Model-only.
+  // contract v3.1 (U10): no strength label in the default view — pinned
+  // (E2 withdrawn) or interaction-driven (Detailed-only since C1).
+  if (!viewShowsStrengthLabels(input.viewMode)) return false
   return (
-    input.viewMode !== 'standard' &&
-    (input.selected || input.isHovered || input.hasSuggestion || (input.isFirstEdge && input.showEdgeHint))
+    input.isTopStrengthEdge ||
+    input.selected || input.isHovered || input.hasSuggestion || (input.isFirstEdge && input.showEdgeHint)
   )
 }
 

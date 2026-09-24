@@ -1,0 +1,209 @@
+/**
+ * ⭐ U9 — EACH "WHAT ELSE…" QUESTION HAS ONE ENTRY POINT, AND NONE SITS ON A
+ * CARD AT REST (contract v3.1 pt 6; ED 11:52Z pt 5, #63 5794306145).
+ *
+ * Served `24e06704`, Paul's screenshot B: the rightmost option carried an
+ * in-card "What else could you do?" link while the dashed ghost card beside the
+ * Options row asked the SAME question; the rightmost factor carried "What else
+ * drives this?"; the consequence row's last card stacked "What else could go
+ * wrong?" and "Where else could this lead?".
+ *
+ * Contract v3.1 pt 6: coaching is ONE discreet icon per card — "Only meaningful
+ * signals appear. The coaching action remains available without adding a panel
+ * inside the card." ED 11:52Z pt 5 names "What else could go wrong?" as stacked
+ * coaching to move behind the one coaching affordance.
+ *
+ * What stays reachable, bound here by identity (testid / exact label):
+ *   · option  → the ghost card `__ghost-option__` ONLY, which now lands an
+ *     editable draft (v3.1: "does not send or mutate silently");
+ *   · factor / risk / outcome → the row's last card, inline, in Detailed view —
+ *     where every secondary coaching question already renders (ED 02:31Z D4).
+ *
+ * CLAUDE.md trap 3: jsdom proves presence/absence of elements, not visibility.
+ */
+import type { ComponentType } from 'react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { ReactFlowProvider } from '@xyflow/react'
+import type { Node, NodeProps } from '@xyflow/react'
+import { FactorNode } from '../FactorNode'
+import { OptionNode } from '../OptionNode'
+import { GhostOptionNode } from '../GhostOptionNode'
+import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
+import {
+  GHOST_OPTION_DOOR_LABEL,
+  GHOST_OPTION_NODE_ID,
+  GHOST_TIERS,
+  ghostOptionPrompt,
+  tierInvitations,
+} from '../../utils/ghostTiers'
+
+vi.mock('@xyflow/react', async () => {
+  const actual = await vi.importActual('@xyflow/react')
+  return { ...actual, Handle: () => null }
+})
+
+/** A drafted board: two options on one row, two factors on the next. */
+const at = (id: string, type: string, label: string, x: number, y: number): Node =>
+  ({ id, type, position: { x, y }, data: { label, type } }) as Node
+
+const MODEL: Node[] = [
+  at('d1', 'decision', 'Raise the Pro price?', 0, 0),
+  at('o1', 'option', 'Keep £49', 0, 300),
+  at('o2', 'option', 'Move to £59', 300, 300),
+  at('f1', 'factor', 'Trial conversion', 0, 600),
+  at('f2', 'factor', 'Monthly price', 300, 600),
+]
+
+const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
+  hoveredOptionId: null,
+  nodes: MODEL,
+  edges: [],
+  ceeAnalysisReady: null,
+  results: { status: 'idle', report: null },
+  highlightedNodes: new Set(),
+  dimmedNodeIds: new Set(),
+  editedSinceRunNodeIds: new Set(),
+  analysisHighlight: { source: null, edgeIds: new Set(), nodeIds: new Set() },
+  lens: { _dimmedNodeIds: new Set(), _hiddenNodeIds: new Set(), active: 'full' },
+  goalThreshold: null,
+  goalConstraints: [],
+  viewMode: 'standard',
+  lodRung: 'full',
+  ...overrides,
+})
+
+vi.mock('../../store', () => ({
+  useCanvasStore: vi.fn((selector) => selector(makeStoreState())),
+}))
+
+const setView = (viewMode: 'standard' | 'expert') => {
+  vi.mocked(useCanvasStore).mockImplementation((selector) =>
+    (selector as (s: unknown) => unknown)(makeStoreState({ viewMode }) as never),
+  )
+}
+
+const cardProps = (id: string, type: string): Record<string, unknown> =>
+  ({
+    id,
+    type,
+    position: { x: 0, y: 0 },
+    selected: false,
+    isConnectable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
+    dragging: false,
+    zIndex: 0,
+    deletable: true,
+    selectable: true,
+    draggable: true,
+    width: 240,
+    height: 100,
+  })
+
+function mountCard(kind: 'factor' | 'option', id: string, label: string) {
+  // NodeProps carries a dozen fields no assertion reads; the sibling node specs
+  // cast the same way.
+  const Comp = (kind === 'factor' ? FactorNode : OptionNode) as unknown as ComponentType<Record<string, unknown>>
+  const data = kind === 'factor'
+    ? { label, type: 'factor', category: 'external', observedState: { raw_value: 0.3, unit: null } }
+    : { label, type: 'option' }
+  render(
+    <ReactFlowProvider>
+      <Comp {...cardProps(id, kind)} data={data} />
+    </ReactFlowProvider>,
+  )
+  // Positive control before any absence is read: the card mounted.
+  expect(screen.getAllByTestId('node-title').length, 'the card did not mount').toBeGreaterThan(0)
+}
+
+const OPTION_LABEL = GHOST_TIERS.find((t) => t.siblingType === 'option')!.label
+const FACTOR_LABEL = GHOST_TIERS.find((t) => t.siblingType === 'factor')!.label
+
+let prefills: string[]
+let sends: string[]
+
+beforeEach(() => {
+  cleanup()
+  prefills = []
+  sends = []
+  // A composer is registered, so every ask-gated affordance CAN render — an
+  // absence below is then the gate under test, not a missing surface.
+  useGuidanceStore.setState({
+    _prefillChat: (t: string) => { prefills.push(t) },
+    _sendMessage: (t: string) => { sends.push(t) },
+  } as never)
+  setView('standard')
+})
+
+describe('the option question has ONE entry point: the ghost card', () => {
+  it('⭐ the in-card list never offers the option tier — the ghost card owns it', () => {
+    const tiers = [...tierInvitations(MODEL).values()].flat().map((i) => i.tier)
+    expect(tiers).not.toContain('option')
+    // CONTRAST: the factor tier is still offered, on the factor row's last card.
+    expect(tierInvitations(MODEL).get('f2')?.map((i) => i.tier)).toEqual(['factor'])
+  })
+
+  it('⭐ Standard view: the last option card carries no "What else could you do?" link', () => {
+    mountCard('option', 'o2', 'Move to £59')
+    expect(screen.queryByTestId('tier-invitation-option')).toBeNull()
+    expect(screen.queryByRole('button', { name: OPTION_LABEL })).toBeNull()
+  })
+
+  it('⭐ Detailed view too: never the ghost card AND an in-card link for the same question', () => {
+    setView('expert')
+    mountCard('option', 'o2', 'Move to £59')
+    expect(screen.queryByTestId('tier-invitation-option')).toBeNull()
+    expect(screen.queryByRole('button', { name: OPTION_LABEL })).toBeNull()
+  })
+
+  it('⭐ the ghost card lands an editable draft of THIS model’s question — never a silent send', () => {
+    const props = {
+      id: GHOST_OPTION_NODE_ID,
+      type: 'ghost-option',
+      data: { prompt: ghostOptionPrompt(MODEL) },
+      selected: false,
+      zIndex: 0,
+      isConnectable: false,
+      dragging: false,
+    } as unknown as NodeProps
+    render(
+      <ReactFlowProvider>
+        <GhostOptionNode {...props} />
+      </ReactFlowProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: GHOST_OPTION_DOOR_LABEL }))
+    expect(prefills).toEqual([ghostOptionPrompt(MODEL)])
+    expect(prefills[0]).toContain('Move to £59')
+    expect(sends, 'the ghost card sent the question on the user’s behalf').toEqual([])
+  })
+})
+
+describe('the factor / risk / outcome questions leave the resting card', () => {
+  it('⭐ Standard view: the factor row’s last card renders no invitation row', () => {
+    // Positive control: the anchor resolver DOES pick this card, so an absence
+    // below is the view gate, not a mis-anchored invitation.
+    expect(tierInvitations(MODEL).get('f2')?.[0]?.label).toBe(FACTOR_LABEL)
+    mountCard('factor', 'f2', 'Monthly price')
+    expect(screen.queryByTestId('tier-invitations')).toBeNull()
+    expect(screen.queryByRole('button', { name: FACTOR_LABEL })).toBeNull()
+  })
+
+  it('⛔ CONTRAST: Detailed view keeps the question reachable on that card', () => {
+    setView('expert')
+    mountCard('factor', 'f2', 'Monthly price')
+    const link = screen.getByTestId('tier-invitation-factor')
+    expect(link.getAttribute('aria-label')).toBe(FACTOR_LABEL)
+    fireEvent.click(link)
+    expect(prefills.length).toBe(1)
+    expect(prefills[0]).toContain('Trial conversion')
+    expect(sends).toEqual([])
+  })
+
+  it('⛔ CONTRAST: a factor that does not end its row carries none in either view', () => {
+    setView('expert')
+    mountCard('factor', 'f1', 'Trial conversion')
+    expect(screen.queryByTestId('tier-invitations')).toBeNull()
+  })
+})

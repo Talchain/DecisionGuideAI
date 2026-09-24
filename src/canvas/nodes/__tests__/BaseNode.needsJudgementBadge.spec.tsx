@@ -145,8 +145,8 @@ function renderIncompleteOption() {
 }
 
 /** A goal with no success target — `isGoalDefined` false on both threshold and constraints. */
-function renderTargetlessGoal(over: Record<string, unknown> = {}) {
-  const data = { label: 'Increase revenue', type: 'goal' }
+function renderTargetlessGoal(over: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) {
+  const data = { label: 'Increase revenue', type: 'goal', ...extra }
   mockStore({ nodes: [{ id: GOAL_ID, type: 'goal', data }], ...over })
   return render(
     <ReactFlowProvider>
@@ -207,7 +207,18 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
   })
 
   it('GOAL (no success target) — badge inside THIS goal\'s corner stack', () => {
+    // ⚠ CONTRACT v3.1 (gap U4, 24 Sep 2026): one state, once. With no target
+    // ANYWHERE the goal card's own "Target not captured" chip states the gap and
+    // the pill is withheld; the node is still incomplete.
     renderTargetlessGoal()
+    expect(screen.getByTestId('overlay-missing-threshold-node')).toBeTruthy()
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeTruthy()
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
+
+    // The pill still reaches a goal whose NODE carries a target while the store
+    // scalar has none (the chip is silent there) — inside THIS goal's stack.
+    cleanup()
+    renderTargetlessGoal({}, { goal_threshold_raw: 12, goal_threshold_unit: '%' })
     expect(screen.getByTestId('overlay-missing-threshold-node')).toBeTruthy()
     expect(within(stackOf(GOAL_ID)).getByTestId('needs-input-pill')).toBeTruthy()
 

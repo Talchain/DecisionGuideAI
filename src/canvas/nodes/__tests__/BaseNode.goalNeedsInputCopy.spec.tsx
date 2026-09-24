@@ -45,6 +45,12 @@
  * BaseNode now imports rather than re-types. The literal negative guard below
  * is what stops that indirection from laundering a future gate claim through
  * the constant.
+ *
+ * ⚠ CONTRACT v3.1 (gap U4, 24 Sep 2026): one state, once. While GoalNode's own
+ * "Target not captured" chip is stating the gap, the pill is WITHHELD
+ * (`incompleteStatedOnCard`). The pill therefore only reaches a goal whose NODE
+ * carries a target while the STORE scalar has none — so the copy cases below
+ * render that goal, and a separate case pins the withholding.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -113,13 +119,16 @@ const baseProps = {
   zIndex: 0,
 }
 
-function renderGoal(storeOverrides: Record<string, unknown> = {}) {
+/** A node-level target the store scalar does not carry: the chip is silent, so the pill speaks. */
+const NODE_TARGET = { goal_threshold_raw: 12, goal_threshold_unit: '%' }
+
+function renderGoal(storeOverrides: Record<string, unknown> = {}, data: Record<string, unknown> = NODE_TARGET) {
   vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
     selector(makeStoreState(storeOverrides) as never),
   )
   return render(
     <ReactFlowProvider>
-      <GoalNode {...(baseProps as any)} data={{ label: 'Increase revenue', type: 'goal' }} />
+      <GoalNode {...(baseProps as any)} data={{ label: 'Increase revenue', type: 'goal', ...data }} />
     </ReactFlowProvider>,
   )
 }
@@ -139,6 +148,14 @@ describe('goal "Needs input" pill — the sentence states a consequence, not a g
     cleanup()
     renderGoal({ goalThreshold: { value: 12, unit: '%' } })
     expect(screen.queryByTestId('needs-input-pill')).toBeNull()
+  })
+
+  it('contract v3.1 (gap U4): with no target anywhere the card chip states it ONCE and the pill is withheld', () => {
+    renderGoal({}, {})
+    expect(screen.getByTestId('goal-node-no-target-chip')).toBeTruthy()
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
+    // Still incomplete — only the duplicate words went.
+    expect(screen.getByTestId('overlay-missing-threshold-node')).toBeTruthy()
   })
 
   it('⭐ the aria-label — the screen-reader user\'s ONLY signal — carries the ratified consequence', () => {

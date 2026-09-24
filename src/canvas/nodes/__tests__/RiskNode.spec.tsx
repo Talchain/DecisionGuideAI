@@ -4,21 +4,7 @@
  * Severity badge rendering
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { METRIC_UNSET, LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
-
-/**
- * ⭐ THE SEEN HALF OF THE ROW, AND THE DISTINCTION IS LOAD-BEARING (3 Sep 2026).
- *
- * Where nobody set the bridge strength, the producer's assumed figure is
- * disclosed as an assumption through the tooltip and accessible name. The
- * resting row must still carry no numeric bar. This helper reads only the
- * visible labels, which `NodeMetricRow` marks `aria-hidden` because the row's
- * accessible name carries their meaning.
- */
-const seenText = (root: HTMLElement): string =>
-  Array.from(root.querySelectorAll('[aria-hidden="true"]'))
-    .map((el) => el.textContent ?? '')
-    .join(' ')
+import { LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -260,7 +246,7 @@ describe('RiskNode', () => {
     expect(screen.queryByText(/influence on goal/)).toBeNull()
   })
 
-  it('shows bridge edge impact on goal in results mode', () => {
+  it('shows NO bridge strength on the card in results mode, even one a person set (contract v3.1)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         results: { status: 'complete', report: null },
@@ -285,17 +271,17 @@ describe('RiskNode', () => {
         ],
       }) as any)
     )
-    renderRisk()
-    // UI-SEM-089 (F3, display honesty): the Layer-1 percentage is the static
-    // assumed edge strength, NOT a computed goal drag. Post-analysis it must
-    // keep the honest "assumed strength" wording and must NEVER relabel to
-    // "goal drag" just because results.status flipped to 'complete'.
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is
-    // named "Link strength"; the noun is still asserted PRESENT (UI-SEM-089).
-    expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument() // UI-SEM-089: the noun, always
-    expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
+    const { container } = renderRisk()
+    // ⚠ SUPERSEDED BY CONTRACT v3.1 (gap U1): this pinned the "Link strength"
+    // noun + figure on the card (UI-SEM-089 display honesty; ED 11:52Z). v3.1:
+    // "Outcome/risk records are distinct from the strength of their
+    // connections" — the figure lives on the connection. With no readout on
+    // the card there is nothing to relabel as a computed output.
+    expect(screen.getByText('Key person dependency')).toBeInTheDocument() // CONTRAST: the card rendered
+    expect(screen.queryByTestId('risk-strength-row')).toBeNull()
+    expect(container.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+    expect(container.textContent).not.toContain('60%')
     expect(screen.queryByText(/goal drag/)).toBeNull()
-    expect(screen.getByText(/60%/)).toBeDefined()
   })
 
   it('does not show certainty even when beliefExists is present', () => {
@@ -412,7 +398,16 @@ describe('RiskNode', () => {
   // DEFAULT_EDGE_DATA / USER_EDGE_DEFAULTS always define `weight` — so every
   // edge rendered the default as a bold coloured contribution figure. Same
   // shape as F1's dead read gate, in a different file.
-  describe('bridge-to-goal contribution % (NEW-1)', () => {
+  describe('bridge-to-goal strength (NEW-1) — off the card in every provenance state (contract v3.1)', () => {
+    /*
+     * ⚠ SUPERSEDED BY CONTRACT v3.1 (gap U1). These cases pinned what the card's
+     * link-strength row said in each provenance state (a person's figure; an
+     * Olumi estimate disclosed as an assumption; "not set" for an edge nobody
+     * characterised). v3.1 takes the row off the card, so NEW-1's defect — a UI
+     * default printed as a contribution — cannot reach this card at all. The
+     * provenance reading now lives on the connection (`EdgePills`, the edge
+     * hover, `EdgePanel`) and `domain/edgeStrengthSettlement.ts`.
+     */
     const bridgeStore = (edgeData: Record<string, unknown>) =>
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
@@ -425,108 +420,45 @@ describe('RiskNode', () => {
         }) as any)
       )
 
-    it('POSITIVE CONTROL: renders the figure for a strength somebody set', () => {
-      bridgeStore({ weight: 0.6, direction: 'negative', weightSource: 'user' })
-      renderRisk()
-      // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is named "Link strength".
-      expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument() // UI-SEM-089: the noun, always
-    expect(screen.queryByTestId('estimate-marker')).toBeNull() // user-stated: no `est.`
-      expect(screen.getByText(/60%/)).toBeDefined()
-    })
-
-
-    it('⛔ a strength nobody stated states the UNKNOWN — no figure, no bar, no `est.`', () => {
-      /*
-       * ⚠⚠ THIS TEST USED TO ASSERT THE OPPOSITE, AND THE OPPOSITE WAS THE
-       * DEFECT. It read: *"R6 POSITIVE CONTROL: a strength nobody stated
-       * carries the est. marker"* — i.e. it certified that a producer's guess
-       * printed as `60%` beside a proportional bar, qualified only by `est.` at
-       * 7px. Measured on a real canvas 3 Sep 2026: five cards reading
-       * `Strength 50% est.` at once, each bar exactly half full — the DRAFTING
-       * MODEL's figures, which no human had settled. (Round 1 read that 0.5 as
-       * `DEFAULT_EDGE_DATA.weight`; REFUTED — an unstamped default carries no
-       * provenance stamp and renders no row at all. Canonical record:
-       * `shared/metricVocabulary.ts`.) The disclaimer was never the fix; the
-       * figure was the claim.
-       */
-      bridgeStore({ weight: 0.6, direction: 'positive', weightSource: 'cee' })
-      const { container } = renderRisk()
-      expect(seenText(container)).not.toMatch(/60%/)
-      // Locked Canvas design (23 Sep 2026): MT-15b — "Not set yet" beside an edge
-      // that SHOWS a value was the defect. A producer value nobody settled reads
-      // "Olumi’s estimate" (whose guess, not "unset"); the figure stays in the
-      // disclosure only, never on the face.
-      const row = screen.getByTestId('risk-strength-row')
-      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
-      expect(row).not.toHaveTextContent(METRIC_UNSET.standalone)
-      expect(row).not.toHaveTextContent(LINK_STRENGTH_COPY.notSet)
-      expect(row).toHaveAccessibleName(/Olumi is assuming 60%/)
-      expect(row.querySelector('[style]')).toBeNull() // no bar
-      expect(screen.queryByTestId('estimate-marker')).toBeNull()
-    })
-    it('renders NO FIGURE for an edge nobody characterised (USER_EDGE_DEFAULTS) — it states the unknown', () => {
-      // ⚠ RENAMED 3 Sep 2026. It said "renders NOTHING", and nothing is what it
-      // used to do — which reads as "no connection here". The row now stays and
-      // names the open question. The figure assertion is unchanged and is still
-      // the load-bearing half: a UI fallback may never be printed.
-      bridgeStore({ ...USER_EDGE_DEFAULTS })
-      const { container } = renderRisk()
+    it('fixture precondition: the UI defaults are the values NEW-1 printed', () => {
       expect(USER_EDGE_DEFAULTS.weight).toBe(0.3)
-      expect(seenText(container)).not.toMatch(/30%/)
-      expect(screen.queryByTestId('estimate-marker')).toBeNull()
-      // Locked Canvas design (23 Sep 2026): MT-15b — genuinely no value reads
-      // "not set" (and never "Olumi’s estimate": no producer supplied one).
-      const row = screen.getByTestId('risk-strength-row')
-      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.notSet)
-      expect(row).not.toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
-    })
-
-    it('renders NO FIGURE for a bare DEFAULT_EDGE_DATA weight of 0.5 — unstamped, so the gate refuses it', () => {
-      bridgeStore({ ...DEFAULT_EDGE_DATA })
-      renderRisk()
       expect(DEFAULT_EDGE_DATA.weight).toBe(0.5)
-      expect(screen.queryByText(/50%/)).toBeNull()
-      expect(screen.queryByTestId('estimate-marker')).toBeNull()
-      // ⭐ 0.5 IS THE WITNESSED NUMERAL — BUT THIS CASE IS NOT THE WITNESSED
-      // ONE, AND CONFLATING THEM IS THE REFUTED ROUND-1 READING. The five cards
-      // carried a STAMPED wire 0.5 from the drafting model; a bare default is
-      // unstamped, so it never reached the row. Pinned here so that path stays
-      // refused. The row stays; the figure does not.
-      // Locked Canvas design (23 Sep 2026): MT-15b — no value reads "not set".
-      const row = screen.getByTestId('risk-strength-row')
-      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.notSet)
-      expect(row).not.toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
     })
 
-    it('discloses CEE back-compat strength_mean as an assumption, without a settled bar', async () => {
-      const user = userEvent.setup()
-      bridgeStore({ strength_mean: -0.45, weight: 0.3 })
-      renderRisk()
-      const row = screen.getByTestId('risk-strength-row')
-      // Locked Canvas design (23 Sep 2026): MT-15b — a back-compat CEE
-      // `strength_mean` is Olumi's value, so the row names whose estimate it is
-      // rather than "Not set yet"; the figure stays in the disclosure only.
-      expect(row).toHaveTextContent(LINK_STRENGTH_COPY.olumiEstimate)
-      expect(row).not.toHaveTextContent(METRIC_UNSET.standalone)
-      expect(row).not.toHaveTextContent('45%')
-      expect(row.querySelector('[style]')).toBeNull()
-      expect(row).toHaveAccessibleName(/assum.*45%/i)
-      await user.hover(row)
-      expect(await screen.findByRole('tooltip')).toHaveTextContent(/assum.*45%/i)
+    it.each([
+      ['a person set it', { weight: 0.6, direction: 'negative', weightSource: 'user' }, '60%'],
+      ['Olumi estimated it', { weight: 0.6, direction: 'negative', weightSource: 'cee' }, '60%'],
+      ['an edge merely drawn (USER_EDGE_DEFAULTS)', { ...USER_EDGE_DEFAULTS }, '30%'],
+      ['a bare DEFAULT_EDGE_DATA weight', { ...DEFAULT_EDGE_DATA }, '50%'],
+      ['CEE back-compat strength_mean', { strength_mean: 0.45, weight: 0.3 }, '45%'],
+    ])('%s: no row, no figure, no noun, no `est.` on the card', (_state, edgeData, figure) => {
+      bridgeStore(edgeData as Record<string, unknown>)
+      const { container } = renderRisk()
+      expect(screen.getByText('Key person dependency')).toBeInTheDocument() // CONTRAST: the card rendered
+      expect(screen.queryByTestId('risk-strength-row')).toBeNull()
+      expect(container.textContent).not.toContain(figure)
+      expect(container.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+      expect(container.textContent).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
+      expect(container.innerHTML).not.toMatch(/assum\w* {0,1}\d+%/i)
+      expect(screen.queryByTestId('estimate-marker')).toBeNull()
     })
   })
 })
 
 /**
- * UI-SEM-089 anti-relabel guard, restored as a PRESENCE assertion.
+ * UI-SEM-089 anti-relabel guard — SUPERSEDED BY CONTRACT v3.1 (gap U1).
  *
- * This is the assertion the review found missing. It is written against the
- * SPEC — "the number always carries a noun that names it as an input, and never
- * one that names it as a computed output" — not against the single relabel that
- * happened to be tried. So it bites on any member of the forbidden family, in
- * both phases, on both provenance branches.
+ * This block pinned a PRESENCE assertion: the bridge figure always carried an
+ * honest noun ("Link strength"), never one naming it a computed output, on both
+ * provenance branches (R6: an absence-only guard could not see a relabel).
+ * v3.1 removes the readout from the card ("Outcome/risk records are distinct
+ * from the strength of their connections"), which satisfies UI-SEM-089 by
+ * construction: no on-card number exists to masquerade. The guard is kept as
+ * the stronger claim that is now true — neither the figure NOR any member of the
+ * forbidden family appears, on either branch — with the card's own label as the
+ * presence control that stops it passing on an empty render.
  */
-describe('RiskNode — UI-SEM-089: the bridge strength always carries an honest noun', () => {
+describe('RiskNode — UI-SEM-089 superseded: no bridge figure on the card, so none to relabel', () => {
   const FORBIDDEN = [/contribution/i, /of your goal/i, /goal drag/i, /impact on/i]
 
   const seedBridge = (weightSource: string) =>
@@ -541,70 +473,18 @@ describe('RiskNode — UI-SEM-089: the bridge strength always carries an honest 
       }) as any)
     )
 
-  /**
-   * ⭐ THE DISCRIMINATING PAIR, RE-POINTED (3 Sep 2026). Both branches used to
-   * assert the SAME thing — figure + noun — which made this table blind to the
-   * one difference that matters. It now asserts what each branch is ENTITLED to
-   * say. UI-SEM-089's actual requirement (the noun is never dropped, so an
-   * unlabelled percentage cannot read as a computed contribution) holds on both.
-   */
-  it('renders the figure AND its noun on the user-stated branch', () => {
-    seedBridge('user')
-    renderRisk()
-    expect(screen.getByText('85%')).toBeInTheDocument()
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is named "Link strength".
-    expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument()
-  })
-
-  it('renders the NOUN and the unknown, and no figure, on the estimated branch', () => {
-    seedBridge('cee')
-    const { container } = renderRisk()
-    expect(seenText(container)).not.toMatch(/85%/)
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z noun "Link strength"; MT-15b —
-    // an unsettled CEE value reads "Olumi’s estimate", not "Not set yet".
-    expect(screen.getByText(LINK_STRENGTH_COPY.olumiEstimate)).toBeInTheDocument()
-    expect(screen.queryByText(METRIC_UNSET.standalone)).toBeNull()
-    expect(screen.getByText(LINK_STRENGTH_COPY.noun)).toBeInTheDocument()
-  })
-
   it.each([['user-stated', 'user'], ['estimated', 'cee']])(
-    'never names it as a computed output on the %s branch',
+    'the %s branch renders neither the figure nor a computed-output noun',
     (_label, source) => {
       seedBridge(source)
       const { container } = renderRisk()
       const text = container.textContent ?? ''
+      expect(screen.getByText('Key person dependency')).toBeInTheDocument() // presence control
+      expect(text).not.toContain('85%')
+      expect(text).not.toContain(LINK_STRENGTH_COPY.noun)
       for (const banned of FORBIDDEN) {
         expect(text).not.toMatch(banned)
       }
-      // …and the permitted noun IS there, so this cannot pass by rendering
-      // nothing at all — the failure mode an absence-only guard has.
-      // Locked Canvas design (23 Sep 2026): ED 11:52Z — strength shown on-node is named "Link strength".
-      expect(text).toMatch(new RegExp(LINK_STRENGTH_COPY.noun))
     },
   )
-
-  it('⭐ the two claims stay separable — a figure on one branch, the unknown on the other', () => {
-    /*
-     * THE PAIR. If the row ignored provenance both branches would look alike;
-     * if the fix had over-fired, the user-stated figure would have gone too —
-     * the opposite-direction twin (CLAUDE.md trap 22b), and the reason this
-     * asserts BOTH directions rather than only the one that was wrong.
-     */
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z noun "Link strength"; MT-15b —
-    // the unsettled branch names Olumi's estimate instead of "Not set yet".
-    seedBridge('user')
-    const stated = renderRisk()
-    expect(seenText(stated.container)).toMatch(new RegExp(LINK_STRENGTH_COPY.noun))
-    expect(seenText(stated.container)).toMatch(/85%/)
-    expect(stated.queryByText(LINK_STRENGTH_COPY.olumiEstimate)).toBeNull()
-    expect(stated.queryByText(METRIC_UNSET.standalone)).toBeNull()
-    stated.unmount()
-
-    seedBridge('cee')
-    const estimated = renderRisk()
-    expect(seenText(estimated.container)).toMatch(new RegExp(LINK_STRENGTH_COPY.noun))
-    expect(seenText(estimated.container)).not.toMatch(/85%/)
-    expect(estimated.getByText(LINK_STRENGTH_COPY.olumiEstimate)).toBeInTheDocument()
-    expect(estimated.queryByTestId('estimate-marker')).toBeNull()
-  })
 })

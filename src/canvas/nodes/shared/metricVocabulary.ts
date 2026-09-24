@@ -91,8 +91,9 @@ export const METRIC_NOUN = {
    * ⭐ 'Link strength', NOT 'Strength' (locked Canvas design, 23 Sep 2026; ED
    * 11:52Z point 5: "if strength is shown on-node, call it **link strength**").
    * The noun names the LINK, so it can never be read as the node's own
-   * likelihood or value. One value, so the card row (`LinkStrengthRow`) and the
-   * legend's row heading move together.
+   * likelihood or value. One value, so `EdgePills`, the edge hover and the
+   * legend's row heading move together. (The outcome/risk card row that also
+   * read it is gone: contract v3.1, gap U1.)
    */
   strength: 'Link strength',
 } as const

@@ -386,6 +386,19 @@ function contextFor(siblings: readonly Node[], subject: ModelSubject | null): Gh
 }
 
 /**
+ * The tiers whose question may be drawn ON a card: every tier except options.
+ *
+ * ⭐ ONE ENTRY POINT PER QUESTION (contract v3.1 pt 6; gap U9, 24 Sep). The
+ * option question already has its door — `__ghost-option__`, which stands
+ * beside the Options row — so a card copy of it put the same question on screen
+ * twice (Paul's screenshot B, served `24e06704`). Resolved by id, like
+ * `OPTION_TIER` below, so a reorder of `GHOST_TIERS` cannot drop the wrong tier.
+ */
+export const CARD_INVITATION_TIERS: readonly GhostTier[] = GHOST_TIERS.filter(
+  (t) => t.id !== GHOST_OPTION_NODE_ID,
+)
+
+/**
  * ⭐⭐ THE INVITATION MOVES ONTO THE CARD, BECAUSE THERE IS NOWHERE ELSE TO PUT IT.
  *
  * ## Measured, 15 Sep 2026, on all five starters
@@ -441,7 +454,8 @@ export interface TierInvitation {
  */
 export function tierInvitations(
   nodes: Node[],
-  enabledTiers: readonly GhostTier[] = GHOST_TIERS,
+  // contract v3.1 pt 6: the option tier's one entry point is the ghost card.
+  enabledTiers: readonly GhostTier[] = CARD_INVITATION_TIERS,
 ): ReadonlyMap<string, readonly TierInvitation[]> {
   const out = new Map<string, TierInvitation[]>()
   const subject = readSubject(nodes)
