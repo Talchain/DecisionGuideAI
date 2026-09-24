@@ -209,15 +209,15 @@ describe('bullet 2 — what remains uncertain, by fixed priority', () => {
     expect(buildCommitmentSynthesis(vm).open).toBeNull()
   })
 
-  it('(b) permitted + a found threshold → `COPY.disclosure.tippingPoint` over `sensitivity.tippingPoints[0]`', () => {
+  it('(b) RETIRED: a found threshold is NOT restated here — the Challenge signals row owns it', () => {
     const vm = vmOf(withFlip(genuineDecision(), [FOUND_ROW, SECOND_FOUND_ROW]))
-    expect(vm.leaderClaimPermitted).toBe(true)
-    expect(vm.sensitivity.tippingPoints.map((t) => t.factorLabel)).toEqual(['Tech Lead Presence', 'Hiring cost'])
+    expect(vm.leaderClaimPermitted, 'PRECONDITION').toBe(true)
+    expect(vm.sensitivity.tippingPoints.length, 'PRECONDITION: a tipping point exists').toBeGreaterThan(0)
     const t = vm.sensitivity.tippingPoints[0]!
-    expect(buildCommitmentSynthesis(vm).open).toEqual({
-      text: COPY.disclosure.tippingPoint(t.factorLabel, t.currentValue, t.flipValue, t.alternativeLabel, t.unit),
-      source: 'tipping_point',
-    })
+    const sentence = COPY.disclosure.tippingPoint(t.factorLabel, t.currentValue, t.flipValue, t.alternativeLabel, t.unit)
+    const open = buildCommitmentSynthesis(vm).open
+    expect(open?.text ?? '').not.toBe(sentence)
+    expect(open?.source).not.toBe('tipping_point')
   })
 
   it('(b) is strict: a row the producer did not mark `found` is not a tipping point', () => {
@@ -271,9 +271,9 @@ describe('bullet 2 — what remains uncertain, by fixed priority', () => {
     expect(synth(data).open).toEqual({ text: COPY.checks.robustness_not_established.meaning, source: 'robustness' })
   })
 
-  it('(b) OUTRANKS (c): a threshold beats an unassessed robustness check', () => {
+  it('with (b) retired, an unassessed robustness check is the open item even when a threshold exists', () => {
     const data = withFlip(twoOptionRun(null, { robustnessVerdict: 'not_assessed' }))
-    expect(synth(data).open?.source).toBe('tipping_point')
+    expect(synth(data).open?.source).toBe('robustness')
   })
 
   it('CONTRAST for (c): a licensed "robust" verdict is not an open item', () => {

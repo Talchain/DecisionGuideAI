@@ -183,11 +183,10 @@ function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSo
  *   (a) the leader was withheld (`checks.leaderWithheld`): the producer's cause
  *       (`checks.leaderWithholdCause`) where it is nameable, else the standing
  *       sentence for that state (`checks.leader_not_assessed.meaning`).
- *   (b) the first grounded tipping point (`sensitivity.tippingPoints[0]`, built
- *       by `buildTippingPoints`'s strict `flip_reason === 'found'` gate), ONLY
- *       where `leaderClaimPermitted`. Its sentence ("…before Y leads in this
- *       model") implies which option leads now, so on a run whose leader may not
- *       be named it would rebuild the withheld claim.
+ *   (b) RETIRED. The tipping condition was restated here as well as in the
+ *       Challenge zone's signals row, so the same sentence showed twice at rest
+ *       (measured by the V2 spec re-point). It has one owner now: the signals
+ *       row, where the brief places it.
  *   (c) robustness not established (`checks` robustness code in
  *       `ROBUSTNESS_NOT_ESTABLISHED`): that code's own `meaning`.
  *   (d) the top evidence gap: only when `checks` says gaps are OUTSTANDING
@@ -212,20 +211,9 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
       : { text: COPY.checks.leader_not_assessed.meaning, source: 'leader_withheld' }
   }
 
-  // (b)
-  const tipping = vm.leaderClaimPermitted ? vm.sensitivity.tippingPoints[0] : undefined
-  if (tipping) {
-    return {
-      text: COPY.disclosure.tippingPoint(
-        tipping.factorLabel,
-        tipping.currentValue,
-        tipping.flipValue,
-        tipping.alternativeLabel,
-        tipping.unit,
-      ),
-      source: 'tipping_point',
-    }
-  }
+  // (b) RETIRED: the tipping condition has ONE owner on this tab, the
+  // Challenge zone's signals row (same strict builder, same leader gate).
+  // Restating it here put the same sentence on screen twice at rest.
 
   // (c)
   const robustness = vm.checks.items.find((i) => i.id === 'robustness')

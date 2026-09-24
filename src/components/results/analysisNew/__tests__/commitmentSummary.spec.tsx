@@ -214,7 +214,7 @@ describe('⛔ a withheld-leader run: no winner wording anywhere', () => {
     })
   }
 
-  it('CONTRAST: on the PERMITTED twin, the same threshold IS stated', () => {
+  it('on the PERMITTED twin the threshold is still not restated here: the Challenge signals row owns it', () => {
     const base = genuineDecision()
     const data = {
       ...base,
@@ -227,8 +227,9 @@ describe('⛔ a withheld-leader run: no winner wording anywhere', () => {
     } as ResultsSectionDataReturn
     const vm = vmOf(data)
     renderZone({ synthesis: buildCommitmentSynthesis(vm) })
-    expect(screen.getByTestId(`${TID}-open`)).toHaveAttribute('data-source', 'tipping_point')
-    expect(screen.getByTestId(`${TID}-open-text`).textContent).toContain('Hold price')
+    // One owner for the tipping sentence: this zone never repeats it.
+    expect(screen.queryByTestId(`${TID}-open`)?.getAttribute('data-source') ?? '').not.toBe('tipping_point')
+    expect(screen.queryByTestId(`${TID}-open-text`)?.textContent ?? '').not.toContain('Hold price')
   })
 })
 
