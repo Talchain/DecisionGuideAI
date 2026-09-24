@@ -735,17 +735,42 @@ describe('provenance at rest = exceptions to the board default (spec §6; ED 11:
   ]
   const boardProps = (id: string): Record<string, unknown> => ({ ...props('fac-price'), id, data: board.find(n => n.id === id)!.data })
 
-  it('the repeated default (Olumi) mark is quiet at rest; the exception (a person’s value) is shown; Detailed shows both', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16).
+   *
+   * This board is all FACTOR cards, so every mark this test could ever see is
+   * a `claim: 'value'` mark — and GAP-16 removes those from the header
+   * unconditionally (contract §03: "Show useful exceptions, not the same
+   * provenance mark everywhere"; the same number already carries its own
+   * mark on the value line, `valueSourceMark.tsx`). The board-default
+   * "exception" mechanism this test exercised (`hideKind`, spec §6 / ED
+   * 11:52Z point 8) is now moot for factors specifically: Gamma's
+   * `user_override` value used to be the "shown exception" against Alpha/
+   * Beta's quieted "AI estimate" default; both are quiet now, in every view,
+   * because there is no header value mark left to show OR quiet. `hideKind`
+   * itself is untouched (it still governs STRUCTURAL-claim repetition on
+   * option/decision/outcome boards), so this file's other describe blocks
+   * are unaffected — only the factor-only board below loses its
+   * distinguishing case.
+   */
+  it('factor cards never carry a header provenance mark any more — the value is stated once, on the value line', () => {
     setState({ phase: 'pre', over: { nodes: board, edges: [] } })
     render(<ReactFlowProvider><FactorCard {...boardProps('fa')} /></ReactFlowProvider>)
     expect(within(face('Alpha')).queryByTestId('node-provenance-mark')).toBeNull()
     cleanup()
     render(<ReactFlowProvider><FactorCard {...boardProps('fc')} /></ReactFlowProvider>)
-    expect(within(face('Gamma')).getByTestId('node-provenance-mark').getAttribute('data-provenance-kind')).toBe('edited')
+    // Gamma's human-edited value used to be the shown "exception" against the
+    // repeated Olumi default. It is quiet now too — de-duplicated, not lost:
+    // its own value-line mark (`data-value-source="you"`/"edited") still
+    // renders, proven in `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`.
+    expect(within(face('Gamma')).queryByTestId('node-provenance-mark')).toBeNull()
     cleanup()
     setState({ phase: 'pre', viewMode: 'expert', over: { nodes: board, edges: [] } })
     render(<ReactFlowProvider><FactorCard {...boardProps('fa')} /></ReactFlowProvider>)
-    expect(within(face('Alpha')).getByTestId('node-provenance-mark').getAttribute('data-provenance-kind')).toBe('ai')
+    // Detailed view used to show every mark, board default included. It still
+    // shows every mark `resolveProvenanceMarks` returns — there just aren't
+    // any value-claim ones left to show.
+    expect(within(face('Alpha')).queryByTestId('node-provenance-mark')).toBeNull()
   })
 })
 

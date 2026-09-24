@@ -374,12 +374,22 @@ describe('ED 5809278282 · Factor · post-run NOT ranked', () => {
 })
 
 describe('ED 5809278282 · Factor · the external prior-range line moves to the popover with its mark', () => {
-  it.each(['pre', 'post'] as const)('%s-run: not on the card; in the popover with its `no source` mark', (phase) => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16):
+   * `unknown`'s visible glyph was the word "no source" — a fifth wire-facing
+   * phrase the v3/v3.1 contract never sanctioned (they name exactly `est.` /
+   * `you` / `brief` / `panel`). `VALUE_SOURCE_MARK_TOKEN.unknown` is now `''`
+   * — nothing prints — while the accessible name stays "Source not recorded"
+   * (`VALUE_SOURCE_MARK_LABEL.unknown`, asserted via `data-value-source`
+   * below), since nothing else on the card states that this range's source
+   * was never stamped.
+   */
+  it.each(['pre', 'post'] as const)('%s-run: not on the card; in the popover, unmarked visually but its source stays "unknown" for assistive tech', (phase) => {
     seed(RANGE_ONLY, { phase })
     renderFactor(RANGE_ONLY)
     expectNoFindingOnTheCard()
     const pop = popover()
-    expect(visibleText(within(pop).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
+    expect(visibleText(within(pop).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8')
     expect(within(pop).getByTestId(`factor-range-source-${ID}`).getAttribute('data-value-source')).toBe('unknown')
   })
 

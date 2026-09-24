@@ -398,17 +398,42 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
    */
   const authorshipIsClaimable = !olumiAuthorshipIsAmbiguous(data)
 
-  if (disagree && authorshipIsClaimable) {
-    return [
-      { claim: 'structural', kind: nodeAuthorship.kind },
-      { claim: 'value', kind: valueProvenance.kind },
-    ]
-  }
+  const marks: ResolvedProvenanceMark[] =
+    disagree && authorshipIsClaimable
+      ? [
+          { claim: 'structural', kind: nodeAuthorship.kind },
+          { claim: 'value', kind: valueProvenance.kind },
+        ]
+      : (() => {
+          const cls = valueProvenance ?? nodeAuthorship
+          return cls ? [{ claim, kind: cls.kind }] : []
+        })()
 
-  const cls = valueProvenance ?? nodeAuthorship
-  if (!cls) return []
-
-  return [{ claim, kind: cls.kind }]
+  /**
+   * ⛔ GAP-16 (DESIGN-GAP-AUDIT-20260924.md row 16; contract §03 "Show useful
+   * exceptions, not the same provenance mark everywhere").
+   *
+   * A `claim: 'value'` mark says where a NUMBER came from — and every kind
+   * that can EARN a `'value'` claim (`claimFromKindAndCarrier`: factor, risk;
+   * constraint is never rendered) ALSO renders its own value-line source
+   * mark right on the card body (`valueSourceMark.tsx`'s `ValueSourceMark`,
+   * mounted by `FactorNode`/`RiskNode`), classified through the SAME
+   * function (`classifyValueProvenance(observedState.source)`). So a
+   * `'value'` header mark is not a second fact, it is the first fact painted
+   * twice — once at the top of the card, once on the row that IS the number.
+   *
+   * `claim: 'structural'` is UNTOUCHED. It answers "who put this element on
+   * the board", which nothing else on a factor/risk card states — including
+   * the rare two-mark disagreement case above, where it is now the ONLY
+   * mark that survives (previously the value half of that pair duplicated
+   * the value line exactly as the common single-mark case did).
+   *
+   * Nothing here silences the FACT — `factorValueSourceMark` /
+   * `ValueSourceMark` render unconditionally wherever a value exists, so the
+   * number's provenance is still told, just once rather than twice. See
+   * `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`.
+   */
+  return marks.filter((m) => m.claim !== 'value')
 }
 
 /**
