@@ -82,7 +82,7 @@ const placementAt = (z: number, node: React.ReactElement, id: string): string | 
   return placement
 }
 
-const decision = () => <DecisionNode {...baseProps} type="decision" id="dec-1" data={{ label: 'How should we price the Pro plan?', type: 'decision' }} />
+const decision = () => <DecisionNode {...({ ...baseProps, type: 'decision', id: 'dec-1', data: { label: 'How should we price the Pro plan?', type: 'decision' } } as any)} />
 const factor = () => <FactorNode {...baseProps} id="fac-1" data={{ label: 'Hiring spend', type: 'factor' }} />
 
 describe('anchor rail beside the text only at or above the old Normal floor', () => {
