@@ -17,7 +17,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { VoiRanking } from '../../voi/voiRanking'
-import { evidenceGapWithNullConfidence, highUncertainty, makeData, makeDriver } from './analysisNewFixtures'
+import { evidenceGapWithNullConfidence, genuineDecision, highUncertainty, makeData, makeDriver } from './analysisNewFixtures'
 
 afterEach(cleanup)
 
@@ -179,9 +179,28 @@ describe('the tipping point: the STRICT gate, one row, the existing sentence', (
   it('⛔ a row only the LOOSER glance gate admits does not reach this zone', () => {
     // No `flip_reason` at all: `glanceCondition` admits it (undefined is allowed
     // there), the strict gate requires 'found'.
+    //
+    // ⚠ ON A PERMITTED RUN, AND THAT IS WHAT KEEPS THE CONTRAST ABOUT `flip_reason`.
+    // The glance condition is LEADER-GATED in the view model (24 Sep 2026), and
+    // this zone's tipping row is leader-gated at its mount (`AnalysisNewTabBody`
+    // passes `flipThresholds` only when permitted). On a withheld run the glance
+    // would be silent for the licence's sake, and the strict-vs-loose
+    // difference this case exists to pin would never be exercised.
     const loose = [{ label: 'Tech Lead Presence', node_id: '3457913d', current_value: 0.6, flip_value: 0.9619, alternative_winner_label: 'Two Developers' }]
-    const data = withFlips(fourDrivers(), loose)
+    const permitted = fourDrivers()
+    const data = withFlips(
+      {
+        ...permitted,
+        recommendation: {
+          ...permitted.recommendation,
+          leaderDesignationPermitted: true,
+          verdict: genuineDecision().recommendation.verdict,
+        },
+      },
+      loose,
+    )
     const vm = vmOf(data)
+    expect(vm.leaderClaimPermitted, 'precondition: the licence is granted, so only the gate SHAPE differs').toBe(true)
     // CONTRAST (same run): the looser gate really does fire on this row.
     expect(vm.atAGlance.condition).not.toBeNull()
     expect(vm.sensitivity.tippingPoints).toHaveLength(0)

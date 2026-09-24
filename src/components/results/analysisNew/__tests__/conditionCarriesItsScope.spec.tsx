@@ -30,11 +30,32 @@
  *
  * Reachability is derived COMPONENT-SIDE and producer-side reachability is
  * NOT established: it is not shown here that the producer emits a partial
- * comparison scope together with a computed flip threshold on a run that
- * withholds both the leader and the robustness verdict. `AtAGlance`'s own
- * header records that limit and keeps an open re-surface trigger for it. This
- * file pins the SURFACE's obligation — if that state arrives, the scope is
- * disclosed — and is silent about how often it arrives.
+ * comparison scope together with a computed flip threshold on a run with no
+ * named leader and no robustness verdict. `AtAGlance`'s own header records
+ * that limit and keeps an open re-surface trigger for it. This file pins the
+ * SURFACE's obligation — if that state arrives, the scope is disclosed — and
+ * is silent about how often it arrives.
+ *
+ * ## ⛔ THE CONDITION IS LEADER-GATED (24 Sep 2026) — the fixture moved, the claim did not
+ *
+ * This file was written on a run that WITHHELD the leader, and on the served
+ * build (UI `c3a39ae7`) exactly that shape put "Could change if …" on screen at
+ * rest beside a withheld leader claim. A flip threshold is where the CURRENT
+ * ORDER changes, so it presupposes a reading the run is not entitled to state;
+ * the glance now says it only when `leaderDesignationPermitted === true`. The
+ * withheld form of this run is therefore unreachable BY DESIGN, and the last
+ * case below pins that it says nothing.
+ *
+ * ⭐ THE CONDITION-ONLY STATE SURVIVES ON A PERMITTED RUN, so the obligation
+ * above still has a state to bind to: permission granted and two arms
+ * separated, but no `recommendedOption` on the recommendation (the headline is
+ * `permitted && leader && !isSingleOption`, so no leader object means no
+ * superlative and no share) and no robustness verdict. Producer-side, that is
+ * traced — NOT witnessed — to a report whose recommended id is absent from the
+ * current option nodes (`determineWinnerSelection` returns the backend id, no
+ * row matches it, `recommendedOption` is null) while two visible arms still
+ * separate. The run carries THREE options so a separating verdict is coherent:
+ * `deriveDecisionVerdict` returns no leading option below two comparable arms.
  *
  * ## The twin is the load-bearing half
  *
@@ -73,10 +94,11 @@ const option = (over: Partial<OptionResult> & { id: string; label: string }): Op
 const FLIP_ROW = { label: 'Two-month timeframe', node_id: 'n_time', current_value: 2, flip_value: 3 }
 
 /**
- * A partial candidate set — Beta was never scored — with every OTHER
- * set-dependent claim withheld. Only the flip threshold varies between the two
- * cases, so a difference in output is attributable to the condition and to
- * nothing else.
+ * A partial candidate set — Beta was never scored — on a run PERMITTED to name
+ * a leader that carries no leader object and no robustness verdict, so the
+ * superlative, the share and the ordering verdict are all absent. Only the flip
+ * threshold varies between the two cases, so a difference in output is
+ * attributable to the condition and to nothing else.
  */
 const glanceWith = (over: Record<string, unknown>) => {
   const base = genuineDecision()
@@ -87,10 +109,12 @@ const glanceWith = (over: Record<string, unknown>) => {
         ...base.recommendation,
         allOptions: [
           option({ id: 'o_a', label: 'Alpha', winProbability: 0.55 }),
+          option({ id: 'o_c', label: 'Gamma', winProbability: 0.45 }),
           option({ id: 'o_b', label: 'Beta', notAnalysed: true, notAnalysedReason: 'not_returned' }),
         ],
-        verdict: { hasLeadingOption: false },
-        leaderDesignationPermitted: false,
+        verdict: { leaderId: 'o_a', hasLeadingOption: true },
+        leaderDesignationPermitted: true,
+        recommendedOption: null,
         robustnessVerdict: undefined,
         robustnessVerdictReason: undefined,
         ...over,
@@ -135,8 +159,8 @@ const mount = (glance: ReturnType<typeof glanceWith>) =>
  * `excludedClause()` — so this constant gains a full stop and loses nothing.
  * Anything shorter than both halves is a regression, not a re-wording.
  */
-const SCOPE_SENTENCE = 'Comparing 1 of your 2 options. Beta was left out.'
-const DETAIL_SENTENCE = 'Ranks and comparative percentages describe those 1 only.'
+const SCOPE_SENTENCE = 'Comparing 2 of your 3 options. Beta was left out.'
+const DETAIL_SENTENCE = 'Ranks and comparative percentages describe those 2 only.'
 const CONDITION_SENTENCE = 'Could change if Two-month timeframe moves from 2 to 3'
 
 describe('a flip condition carries the scope of the set it was computed over', () => {
@@ -146,6 +170,7 @@ describe('a flip condition carries the scope of the set it was computed over', (
     // Preconditions, pinned in-test so the outcome below is provably the
     // gate's doing and not a fixture that quietly stopped reproducing the
     // state (trap 13b — a discriminator whose precondition nothing pins).
+    expect(glance.comparativeClaim, 'precondition: the condition is the ONLY claim').toBe('condition')
     expect(glance.headline, 'precondition: no superlative').toBeNull()
     expect(glance.winShare, 'precondition: no percentage').toBeNull()
     expect(glance.verdict, 'precondition: no ordering verdict').toBeNull()
@@ -205,5 +230,26 @@ describe('a flip condition carries the scope of the set it was computed over', (
     // classified partial and still holds the excluded option. Suppression is
     // not reclassification, and this is the control that says so.
     expect(glance.comparisonScope.kind).toBe('partial')
+  })
+
+  it('⛔ WITHHELD: the same run with the leader claim refused states no condition, so there is nothing to scope', () => {
+    // The state this file was first written on, now unreachable BY DESIGN: the
+    // flip threshold presupposes the current order, which a withheld run may
+    // not state. Same partial set, same computed row — only the permission moves.
+    const withheld = glanceWith({
+      flipThresholdsStatus: 'computed',
+      flipThresholds: [FLIP_ROW],
+      verdict: { leaderId: 'o_a', hasLeadingOption: false },
+      leaderDesignationPermitted: false,
+    })
+    expect(withheld.condition).toBeNull()
+    expect(withheld.comparativeClaim).toBe('none')
+    // CONTRAST, same builder: the permitted twin does make the claim.
+    expect(withCondition().condition?.text).toBe('Two-month timeframe moves from 2 to 3')
+
+    mount(withheld)
+    expect(screen.queryByTestId('analysis-new-glance-condition')).toBeNull()
+    expect(screen.queryByTestId('comparison-scope-note-analysisNew')).toBeNull()
+    expect(withheld.comparisonScope.kind).toBe('partial')
   })
 })

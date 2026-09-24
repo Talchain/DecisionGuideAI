@@ -2538,7 +2538,13 @@ function buildAtAGlance(
   // flip condition is candidate-set-dependent, so a run whose only claim was a
   // condition resolved to `'none'` and `AtAGlance` suppressed the scope note —
   // printing a threshold derived from 1 of 2 options with nothing saying so.
-  const condition = glanceCondition(data)
+  // ⛔ LEADER-GATED (served witness, UI c3a39ae7, 24 Sep 2026): the glance's
+  // "Could change if <factor> passes <value>" presupposes a current reading of
+  // which option leads — a flip threshold is where THAT ordering changes. On a
+  // run whose leader claim is withheld there is no such reading, and the line
+  // rendered at rest anyway. Same rule V2 applied to the sensitivity header and
+  // the Challenge signals row (DATA-MAP truth risk 1).
+  const condition = leaderDesignationPermitted(data.recommendation) === true ? glanceCondition(data) : null
 
   /**
    * ⭐⭐ EVERY SET-DEPENDENT CLAIM THIS PANEL CAN MAKE, IN ONE PLACE, AND THE

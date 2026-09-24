@@ -25,6 +25,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import {
+  decisionWithLeaderWithheld,
   decisionWithLeaderWithheldAndReason,
   genuineDecision,
   highUncertainty,
@@ -1112,5 +1113,59 @@ describe('the coaching and the answer — V2 zone order', () => {
     const second = root.querySelector('#second')!
     expect(precedes(first, second)).toBe(true)
     expect(precedes(second, first)).toBe(false)
+  })
+})
+
+/**
+ * ⛔ "COULD CHANGE IF" IS NOT SAID AT REST ON A RUN WHOSE LEADER IS WITHHELD.
+ *
+ * Served witness, UI `c3a39ae7`, OpenAI path, scenario `3d00c023`: a run with
+ * `leader_claim.permitted: false` (`constraint_verdict_withheld`) showed, at
+ * rest, "Could change if Enterprise tier availability passes 0.9 binary". A
+ * flip threshold is where the CURRENT ORDER of the options changes, so it
+ * presupposes a leader reading this run is not entitled to state — the same
+ * rule V2 already applies to the sensitivity header and the Challenge tipping
+ * row. The row below is shaped to reproduce that sentence; it is a fixture,
+ * not a capture of the wire.
+ *
+ * ⚠ THE TWINS DIFFER IN THE TWO LICENCE FIELDS ONLY (`decisionWithLeaderWithheld`
+ * spreads `genuineDecision` and moves `verdict.hasLeadingOption` and
+ * `leaderDesignationPermitted` together), and both carry the same computed row.
+ * Nothing is opened: the glance renders at rest, and "at rest" is the claim.
+ */
+describe('the glance states no tipping point on a withheld run', () => {
+  const ENTERPRISE_ROW = {
+    label: 'Enterprise tier availability',
+    node_id: 'n_enterprise',
+    current_value: 0,
+    flip_value: 0.9,
+    unit: 'binary',
+    flip_reason: 'found',
+  }
+  const withRow = (data: ResultsSectionDataReturn): ResultsSectionDataReturn =>
+    ({
+      ...data,
+      recommendation: {
+        ...data.recommendation,
+        flipThresholdsStatus: 'computed',
+        flipThresholds: [ENTERPRISE_ROW],
+      },
+    }) as unknown as ResultsSectionDataReturn
+
+  it('⛔ WITHHELD: no "Could change if" line anywhere at rest; the PERMITTED twin shows it', () => {
+    const permitted = renderBody(withRow(genuineDecision()))
+    // POSITIVE CONTROL FIRST, same mount path: the row IS renderable, and on
+    // the permitted twin it reaches the glance at rest.
+    expect(screen.getByTestId('analysis-new-glance-condition')).toHaveTextContent(
+      'Could change if Enterprise tier availability passes 0.9 binary',
+    )
+    permitted.unmount()
+
+    const { container } = renderBody(withRow(decisionWithLeaderWithheld()))
+    expect(screen.queryByTestId('analysis-new-glance-condition')).toBeNull()
+    // The whole body at rest, not one testid: the sentence must not surface
+    // through any sibling either.
+    expect(container.textContent ?? '').not.toContain('Could change if')
+    expect(container.textContent ?? '').not.toContain('Enterprise tier availability passes')
   })
 })

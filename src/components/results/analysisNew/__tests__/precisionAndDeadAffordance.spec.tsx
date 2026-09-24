@@ -100,9 +100,17 @@ function conditionalWinnerFinding(data: ResultsSectionDataReturn) {
 }
 
 /** A glance condition, with or without a focus target. */
+/**
+ * ⚠ ON A RUN PERMITTED TO NAME A LEADER. The glance's condition is
+ * leader-gated (24 Sep 2026: a flip threshold is where the current order
+ * changes, so a withheld run may not state one). These cases are about the
+ * AFFORDANCE, not the licence, so they run where the line is licensed.
+ */
 function glanceWithCondition(nodeId: string): ResultsSectionDataReturn {
   return makeData({
     recommendation: {
+      leaderDesignationPermitted: true,
+      verdict: genuineDecision().recommendation.verdict,
       flipThresholdsStatus: 'computed',
       flipThresholds: [
         {
