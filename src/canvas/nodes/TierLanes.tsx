@@ -26,12 +26,31 @@
 import { memo, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import { ViewportPortal, type Node } from '@xyflow/react'
-import { deriveTierLanes } from '../utils/tierLanes'
+import { deriveTierLanes, type TierLane } from '../utils/tierLanes'
 
-/** Breathing room around a band, in graph units. Enough that the band reads as
- *  a lane the cards sit IN, not a box drawn tight around them. */
-const LANE_PAD_Y = 48
-const LANE_PAD_X = 120
+/**
+ * ⭐ BREATHING ROOM AROUND A BAND, IN GRAPH UNITS — AND NO MORE THAN THE FIT'S
+ * OWN CHROME GAP (contract v3.1, CHR-1 / CHR-2).
+ *
+ * The band is furniture and never enters the fit, so every unit of padding
+ * lands OUTSIDE the fitted box. It used to be 120 at the sides and 48 above and
+ * below: at the 0.65 landing zoom the band's left end sat under the left
+ * toolbar, the Goal band ran ~31px below the goal card into the bottom notice
+ * strip, and — because the tallest-card-to-next-row gap is 88 units on all five
+ * starters and 48 + 48 = 96 — every pair of adjacent bands overlapped by 8
+ * units, where two half-alpha sheets drew a brighter seam.
+ *
+ *   · SIDES and BOTTOM are 16: at any zoom ≤ 1 that is ≤ 16px on screen, which
+ *     is `computeFitPadding`'s GAP, so the band never reaches the sidebar, the
+ *     dock or the bottom notice strip.
+ *   · TOP is 44: the zone the title sits in. 44 + 16 leaves a 28-unit clear
+ *     gutter between rows (18px at 0.65), so the rows read as distinct and
+ *     nothing overlaps. At the counter-scale ceiling (2×) the title is 11 × 2 =
+ *     22 units tall plus the 8-unit gap — still inside the 44.
+ */
+const LANE_PAD_X = 16
+const LANE_PAD_TOP = 44
+const LANE_PAD_BOTTOM = 16
 
 /**
  * ⭐ WHERE A BAND'S TITLE SITS, IN GRAPH UNITS (contract v3.1, `.layer-label`:
@@ -46,10 +65,31 @@ const LANE_PAD_X = 120
  * Anchored by its BOTTOM, `LANE_TITLE_GAP` above the first card's top: the
  * label counter-scales, so at far zoom it grows several times taller, and it
  * must grow up into the space between bands, never down over a card.
+ *
+ * ⚠ EXCEPT THE FIRST ROW, WHEN THERE IS ROOM BESIDE ITS CARD (contract v3.1,
+ * CHR-3). Nothing sits above the Question row, so "just above it" is the top
+ * of the fitted box — the fit keeps only a 16px gap under the floating header,
+ * and the title's upper half landed under it. The Question card is always
+ * alone in its row and centred, so the board-left column at its top edge is
+ * empty; the title sits there, level with the card's top, and so inside the
+ * fitted box by construction. `LANE_TITLE_BESIDE_MIN` is the widest title at
+ * the 2× counter-scale ceiling plus a 24-unit gap; a board narrow enough that
+ * the Question card starts at board-left falls back to the placement above.
  */
 export const LANE_TITLE_GAP = 8
-export function laneTitleFlowAnchor(lane: { x: number; y: number }): { x: number; bottomY: number } {
-  return { x: lane.x, bottomY: lane.y - LANE_TITLE_GAP }
+export const LANE_TITLE_BESIDE_MIN = 160
+
+export type LaneTitleAnchor =
+  | { readonly placement: 'above'; readonly x: number; readonly bottomY: number }
+  | { readonly placement: 'beside'; readonly x: number; readonly topY: number }
+
+export function laneTitleFlowAnchor(
+  lane: Pick<TierLane, 'tier' | 'x' | 'y' | 'contentLeft'>,
+): LaneTitleAnchor {
+  if (lane.tier === 0 && lane.contentLeft - lane.x >= LANE_TITLE_BESIDE_MIN) {
+    return { placement: 'beside', x: lane.x, topY: lane.y }
+  }
+  return { placement: 'above', x: lane.x, bottomY: lane.y - LANE_TITLE_GAP }
 }
 
 export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly Node[] }) {
@@ -59,16 +99,26 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
   return (
     <ViewportPortal>
       <div aria-hidden="true" style={{ pointerEvents: 'none' }} data-testid="tier-lanes">
-        {lanes.map((lane) => (
+        {lanes.map((lane) => {
+          const anchor = laneTitleFlowAnchor(lane)
+          // A title beside its card needs no title zone above the row, so the
+          // band claims none: nothing of it reaches above the fitted box.
+          const padTop = anchor.placement === 'beside' ? LANE_PAD_BOTTOM : LANE_PAD_TOP
+          return (
           <div
             key={lane.tier}
             data-testid={`tier-lane-${lane.tier}`}
-            className="absolute rounded-2xl bg-panel"
+            className="absolute bg-panel"
             style={{
               left: lane.x - LANE_PAD_X,
-              top: lane.y - LANE_PAD_Y,
+              top: lane.y - padTop,
               width: lane.width + LANE_PAD_X * 2,
-              height: lane.height + LANE_PAD_Y * 2,
+              height: lane.height + padTop + LANE_PAD_BOTTOM,
+              // Concentric with the cards it holds (contract v3.1, CHR-11):
+              // outer radius = the cards' own radius token + the side padding.
+              // A fixed `rounded-2xl` (16) around 14-unit card corners 16 units
+              // in read as a tighter corner outside a looser one.
+              borderRadius: `calc(var(--radius-lg) + ${LANE_PAD_X}px)`,
               pointerEvents: 'none',
               // Quiet by construction. The band's job is to group, not to
               // attract: at full strength it competes with the cards it holds.
@@ -129,25 +179,54 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
                * inline fontSize it cannot resolve to a literal as an ERROR
                * rather than as a hit. A size that no census can see is exactly
                * how a surface drifts off the scale without anything going red.
-               * `typography.nodeLabel` is the same idea as a TOKEN the census
-               * resolves, and 12px is the canvas's own label size — 13 was a
-               * number I chose, which is the smaller half of the same defect.
+               * A census-resolvable TOKEN is the fix.
+               *
+               * ⭐ LANE FURNITURE, NOT CARD CONTENT (contract v3.1, T11 / CHR-4:
+               * `.layer-label{font-size:10px;letter-spacing:.5px;color:#777870}`).
+               * At `nodeLabel` (12px) the title was the same size, weight and
+               * colour as the cards' own eyebrow text, so "Question" read twice
+               * in one style. `edgeLabel` is the smallest counter-scaled canvas
+               * token (11px; 10px is the canvas text floor and has no token),
+               * tracked 0.05em — the contract's .5px at 10px. `text-text-light`
+               * is the DS muted token (#6E6B6B, ~5:1 on the half-alpha band),
+               * the nearest to the contract's #777870, so no colour is added.
+               *
+               * ⛔ SENTENCE CASE, NOT THE CONTRACT'S ALL-CAPS. DS v5 §2 and
+               * §17.3 require sentence case, and `check-ds-compliance.mjs`
+               * enforces it as a ratchet on the required check: the all-caps
+               * class that briefly sat on this line was a NET-NEW violation
+               * that turned `--enforce` red. The words themselves stay bound
+               * to the Model outline's spelling (`MODEL_GROUP_TITLE`).
                */
-              className={`absolute uppercase text-text-light ${typography.nodeLabel}`}
-              style={{
-                // Band-local coordinates of `laneTitleFlowAnchor`.
-                left: LANE_PAD_X,
-                top: LANE_PAD_Y - LANE_TITLE_GAP,
-                transform: 'translateY(-100%)',
-                lineHeight: 1.2,
-                letterSpacing: '0.06em',
-                whiteSpace: 'nowrap',
-              }}
+              className={`absolute text-text-light ${typography.edgeLabel}`}
+              style={
+                anchor.placement === 'beside'
+                  ? {
+                      // Band-local coordinates of `laneTitleFlowAnchor`:
+                      // level with the Question card's top, in the empty
+                      // board-left column beside it.
+                      left: anchor.x - (lane.x - LANE_PAD_X),
+                      top: anchor.topY - (lane.y - padTop),
+                      lineHeight: 1,
+                      letterSpacing: '0.05em',
+                      whiteSpace: 'nowrap',
+                    }
+                  : {
+                      // Band-local coordinates of `laneTitleFlowAnchor`.
+                      left: anchor.x - (lane.x - LANE_PAD_X),
+                      top: anchor.bottomY - (lane.y - padTop),
+                      transform: 'translateY(-100%)',
+                      lineHeight: 1,
+                      letterSpacing: '0.05em',
+                      whiteSpace: 'nowrap',
+                    }
+              }
             >
               {lane.title}
             </span>
           </div>
-        ))}
+          )
+        })}
       </div>
     </ViewportPortal>
   )

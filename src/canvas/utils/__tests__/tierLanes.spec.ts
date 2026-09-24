@@ -62,11 +62,44 @@ describe('the board’s grammar, drawn', () => {
     expect(lanes[0].width).toBe(1400 - 100)        // to the rightmost card's right edge
   })
 
-  it('⛔ ghosts are not members — a lane never claims the model reaches further than it does', () => {
-    const withGhost = [...BOARD, n('__ghost-risk__', 'ghost-tier', 5000, 1600, 187, 121)]
+  /**
+   * contract v3.1 CHR-10 — superseded the old "ghost changes no width" pin. A
+   * ghost is still NOT a member (no tier, no top/bottom, no count), but the
+   * option door stands at the end of its row, and a row that stops short of
+   * its own door draws the door on bare canvas. So the rows reach it — right
+   * edge only.
+   */
+  it('⛔ ghosts are not members — a lane never claims the model is taller or holds more than it does', () => {
+    const withGhost = [...BOARD, n('__ghost-option__', 'ghost-option', 5000, 500, 160, 56)]
     const a = deriveTierLanes(BOARD)
     const b = deriveTierLanes(withGhost)
-    expect(b.map(l => l.width)).toEqual(a.map(l => l.width))
+    expect(b.map(l => l.tier)).toEqual(a.map(l => l.tier))
+    expect(b.map(l => l.y)).toEqual(a.map(l => l.y))
+    expect(b.map(l => l.height)).toEqual(a.map(l => l.height))
+    expect(b.map(l => l.contentLeft)).toEqual(a.map(l => l.contentLeft))
+    expect(b.map(l => l.x)).toEqual(a.map(l => l.x))
+  })
+
+  it('⭐ CHR-10: the rows reach the door that stands in them — every lane’s right edge covers the ghost', () => {
+    const withGhost = [...BOARD, n('__ghost-option__', 'ghost-option', 5000, 500, 160, 56)]
+    for (const lane of deriveTierLanes(withGhost)) {
+      expect(lane.x + lane.width).toBe(5000 + 160)
+    }
+  })
+
+  it('⛔ CHR-10 CONTRAST: a door inside the board changes nothing, and a door never moves the left edge', () => {
+    const inside = [...BOARD, n('__ghost-option__', 'ghost-option', 900, 500, 160, 56)]
+    expect(deriveTierLanes(inside)).toEqual(deriveTierLanes(BOARD))
+    const left = [...BOARD, n('__ghost-option__', 'ghost-option', -900, 500, 160, 56)]
+    expect(deriveTierLanes(left).map(l => l.x)).toEqual(deriveTierLanes(BOARD).map(l => l.x))
+  })
+
+  it('CHR-3: a lane carries its OWN cards’ left edge, distinct from the board’s', () => {
+    const lanes = deriveTierLanes(BOARD)
+    expect(lanes.find(l => l.tier === 0)!.contentLeft).toBe(1064)   // the centred Question
+    expect(lanes.find(l => l.tier === 1)!.contentLeft).toBe(100)    // board-left
+    expect(lanes.find(l => l.tier === 3)!.contentLeft).toBe(300)    // min over risk + outcome
+    expect(lanes.every(l => l.x === 100)).toBe(true)
   })
 
   it('⛔ an empty board gets no lanes — a lane on nothing would be a judgement', () => {

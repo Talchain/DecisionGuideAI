@@ -28,6 +28,15 @@
  * ⚠ GHOSTS ARE NOT MEMBERS. They are excluded from the fit and from every model
  * count by the `__ghost-` prefix, and a lane sized to include one would claim the
  * model extends further than it does.
+ *
+ * ⚠ BUT A GHOST STILL STANDS IN A ROW, SO THE ROWS REACH IT — to the right, and
+ * horizontally only (contract v3.1, CHR-10). The option door is placed past the
+ * rightmost option (`rowRightCard.x + width + 60`), so whenever the option row
+ * is the board's widest the dashed door landed on bare canvas past every
+ * band's right end: a door that belongs to a row, drawn outside it. The door
+ * now widens the board's RIGHT edge and nothing else — not a lane's top or
+ * bottom, not its membership, not `contentLeft`, and not the left edge, which
+ * is the card column the fit parks at the sidebar's gap and the titles align to.
  */
 import type { Node } from '@xyflow/react'
 import { TIER_BY_KIND } from './nodeLayoutConstants'
@@ -41,10 +50,17 @@ export interface TierLane {
   /** The product's own name for this group — the SAME string the Model outline
    *  heads it with. Never a second spelling. */
   readonly title: string
+  /** The board's left edge — every lane shares it, so the bands align. */
   readonly x: number
   readonly y: number
   readonly width: number
   readonly height: number
+  /**
+   * The left edge of THIS tier's own cards (min x over its members). Differs
+   * from `x` when the row is narrower than the board — the Question row, whose
+   * one card is centred, is the case a title placement reads it for.
+   */
+  readonly contentLeft: number
 }
 
 /**
@@ -96,8 +112,12 @@ function boxOf(n: Node): { w: number; h: number } {
  */
 export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
   const members = new Map<number, Node[]>()
+  const ghosts: Node[] = []
   for (const n of nodes) {
-    if (isGhostNode(n.id)) continue
+    if (isGhostNode(n.id)) {
+      ghosts.push(n)
+      continue
+    }
     const kind = kindOf(n)
     if (kind === undefined) continue
     const tier = TIER_BY_KIND[kind]
@@ -119,6 +139,11 @@ export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
       if (x + w > boardRight) boardRight = x + w
     }
   }
+  // A door stands in its row: the rows reach it (right edge only — see header).
+  for (const g of ghosts) {
+    const right = (g.position?.x ?? 0) + boxOf(g).w
+    if (right > boardRight) boardRight = right
+  }
 
   const lanes: TierLane[] = []
   for (const [tier, list] of [...members.entries()].sort((a, b) => a[0] - b[0])) {
@@ -126,11 +151,14 @@ export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
     if (title === undefined) continue
     let top = Number.POSITIVE_INFINITY
     let bottom = Number.NEGATIVE_INFINITY
+    let contentLeft = Number.POSITIVE_INFINITY
     for (const n of list) {
       const { h } = boxOf(n)
       const y = n.position?.y ?? 0
       if (y < top) top = y
       if (y + h > bottom) bottom = y + h
+      const x = n.position?.x ?? 0
+      if (x < contentLeft) contentLeft = x
     }
     lanes.push({
       tier,
@@ -139,6 +167,7 @@ export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
       y: top,
       width: boardRight - boardLeft,
       height: bottom - top,
+      contentLeft,
     })
   }
   return lanes

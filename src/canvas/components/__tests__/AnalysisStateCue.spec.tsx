@@ -109,4 +109,11 @@ describe('AnalysisStateCue — Paul 23 Sep point 14', () => {
     // The band and its cells set pointer-events: none; the cue re-enables it.
     expect(cue.className).toContain('pointer-events-auto')
   })
+
+  it('⭐ contract v3.1 CHR-6: the overlay band’s floating-chrome recipe — warm DS shadow-2, not Tailwind’s cool shadow-sm', () => {
+    render(<AnalysisStateCue />)
+    const cls = screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).className.split(/\s+/)
+    for (const c of ['bg-panel', 'border', 'border-panel-border', 'shadow-2', 'rounded-lg']) expect(cls).toContain(c)
+    expect(cls).not.toContain('shadow-sm')
+  })
 })
