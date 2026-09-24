@@ -417,8 +417,8 @@ export function deriveReadinessDisplay(input: ReadinessDisplayInput): ReadinessD
   if (awaiting.length > 0) {
     return {
       dot: 'warning',
-      headline: FOOTER_COPY.needsInputBeforeRun,
-      subline: FOOTER_COPY.needsInputBeforeRunSub(
+      headline: FOOTER_COPY.inputsUnconfirmed,
+      subline: FOOTER_COPY.inputsUnconfirmedSub(
         awaiting.length,
         awaiting.flatMap((v) => (v.label === null ? [] : [v.label])),
       ),

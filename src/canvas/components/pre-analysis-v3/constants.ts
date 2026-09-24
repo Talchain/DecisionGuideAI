@@ -579,13 +579,13 @@ export const FOOTER_COPY = {
    * then a refused Run). States what is missing; claims nothing about whether
    * a run would be admitted, because the producer's own fields disagree on that.
    */
-  needsInputBeforeRun: 'Needs input before a run',
+  inputsUnconfirmed: 'Some inputs are still unconfirmed',
   /**
    * Names the factors when every one has a label and there are at most four;
    * otherwise counts them and names up to three. A factor with no honest label
    * is counted, never named by its id.
    */
-  needsInputBeforeRunSub: (total: number, labels: readonly string[]): string => {
+  inputsUnconfirmedSub: (total: number, labels: readonly string[]): string => {
     const join = (xs: readonly string[]) =>
       xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
     if (labels.length === total && total <= 4) return `No value yet for ${join(labels)}.`

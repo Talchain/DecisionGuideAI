@@ -126,10 +126,10 @@ describe('the evidence state really is the contradiction (preconditions, not ass
 })
 
 describe('the Olumi bar — conservative headline, gate untouched', () => {
-  it('EVIDENCE: says "Needs input before a run", NOT "Analysis available", and names the four', () => {
+  it('EVIDENCE: says "Some inputs are still unconfirmed", NOT "Analysis available", and names the four', () => {
     renderBar(valuesAwaitingInputBeforeRun(EVIDENCE_NODES))
     const headline = screen.getByTestId('analysis-readiness-bar-headline')
-    expect(headline).toHaveTextContent(FOOTER_COPY.needsInputBeforeRun)
+    expect(headline).toHaveTextContent(FOOTER_COPY.inputsUnconfirmed)
     expect(headline).not.toHaveTextContent(FOOTER_COPY.ready)
     expect(screen.getByTestId('analysis-readiness-bar-reason')).toHaveTextContent(
       'No value yet for New Pro conversion rate, Monthly churn, Pro subscriber count and Pro feature value perception.',
@@ -144,6 +144,9 @@ describe('the Olumi bar — conservative headline, gate untouched', () => {
     renderBar(valuesAwaitingInputBeforeRun(EVIDENCE_NODES))
     expect(screen.getByTestId('analysis-readiness-bar')).toHaveAttribute('data-blocked', 'false')
     expect(screen.getByTestId('analysis-readiness-bar-analyse')).toBeEnabled()
+    // RC copy ruling (#63 5807115857): while Run is enabled this state must not
+    // read as a blocking precondition.
+    expect(document.body.textContent ?? '').not.toMatch(/before a run/i)
   })
 
   it('CONTRAST: every value set → the success headline returns', () => {
@@ -187,7 +190,7 @@ describe('the Olumi bar — conservative headline, gate untouched', () => {
 })
 
 describe('the Analysis footer says the SAME headline for the same state', () => {
-  it('EVIDENCE: footer headline equals the bar headline — "Needs input before a run"', () => {
+  it('EVIDENCE: footer headline equals the bar headline — "Some inputs are still unconfirmed"', () => {
     const awaiting = valuesAwaitingInputBeforeRun(EVIDENCE_NODES)
     render(
       <PanelFooter
@@ -202,7 +205,7 @@ describe('the Analysis footer says the SAME headline for the same state', () => 
     cleanup()
     renderBar(awaiting)
     expect(screen.getByTestId('analysis-readiness-bar-headline').textContent).toBe(footerHeadline)
-    expect(footerHeadline).toBe(FOOTER_COPY.needsInputBeforeRun)
+    expect(footerHeadline).toBe(FOOTER_COPY.inputsUnconfirmed)
   })
 
   it('CONTRAST: the footer keeps its own resting detail when nothing awaits input', () => {

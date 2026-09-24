@@ -792,7 +792,7 @@ describe('THE TWO SURFACES AGREE — the resting arm too', () => {
  * headline; and neither may invent a second gate.
  */
 describe('THE TWO SURFACES AGREE — may_run true while the canvas says Needs input', () => {
-  it('EVIDENCE — both say "Needs input before a run", the control stays the gate’s', async () => {
+  it('EVIDENCE — both say "Some inputs are still unconfirmed", the control stays the gate’s', async () => {
     seedSideCar(SIDE_CAR_AGREES)
     seedCanvasWithModel()
     useCanvasStore.setState({
@@ -811,7 +811,7 @@ describe('THE TWO SURFACES AGREE — may_run true while the canvas says Needs in
     // Precondition pinned in-test: the GATE is open — this is not a refusal.
     expect(analyse).toBeEnabled()
     const footerHeadline = screen.getByTestId('pre-analysis-v3-footer-headline').textContent ?? ''
-    expect(footerHeadline).toBe(FOOTER_COPY.needsInputBeforeRun)
+    expect(footerHeadline).toBe(FOOTER_COPY.inputsUnconfirmed)
     expect(screen.getByTestId('pre-analysis-v3-footer-subline')).toHaveTextContent(
       'No value yet for Support headcount.',
     )
