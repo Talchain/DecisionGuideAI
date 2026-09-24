@@ -533,7 +533,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
     if (nodeType === 'factor') {
-      // One rank wording on every rung: "Driver N of M analysed", from the
+      // One rank wording on every rung: "Driver N of M ranked in this run"
+      // (contract v3.1 pt 5, M = the ranked count), from the
       // SAME rule the card's driver line reads (`driverRankFor`): a current run,
       // or a known-changed model's last run labelled `Last run · ` (#1891's rule,
       // Paul's Ruling 3). Never-run / cannot-confirm → null.
@@ -542,6 +543,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         displayMetadata.sensitivityRank,
         displayMetadata.influenceSetSize,
         resultsFromLastRun,
+        displayMetadata.influenceRankedCount,
       )
       return { influenceRank, driverRank, influenceFromLastRun: resultsFromLastRun }
     }
@@ -555,7 +557,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       }),
       optionResultCaption: resultCaption ?? null,
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, resultCaption, resultsFromLastRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, resultCaption, resultsFromLastRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }

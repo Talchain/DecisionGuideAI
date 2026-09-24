@@ -17,8 +17,19 @@ import type { selectDriverPolicyFeed } from '../../../components/results/useResu
 type DriverFeed = ReturnType<typeof selectDriverPolicyFeed>
 
 export interface FactorRanks {
-  /** Distinct factors in the ranked set — the `M` of "Driver N of M". */
+  /**
+   * Distinct factors in the ranked set — the LICENCE set `influenceRankReadout`
+   * checks (a rank inside a comparison of at least two). No longer the printed
+   * `M`: see `rankedSetSize`.
+   */
   influenceSetSize: number
+  /**
+   * Contract v3.1 pt 5: the `M` of "Driver N of M ranked in this run" — the
+   * number of factors this rule gives a rank (inside `determinedDepth`), so every one
+   * of the M ranks is on a card and none reads as omitted. Set-level, the same
+   * for every factor in the feed.
+   */
+  rankedSetSize: number
   /** 1..MAX_BADGED_RANK where the ordering is determined; otherwise null. */
   sensitivityRank: number | null
   /** 1..3 by value of information; otherwise null. */
@@ -201,6 +212,10 @@ export function rankFactor(
   )
   const determinedDepth = Math.min(depthByBasis, depthByDisplayed)
   sensitivityRank = rank > 0 && rank <= determinedDepth ? rank : null
+  // Contract v3.1 pt 5: M counts the factors this rule gives a rank — the
+  // distinct keys whose position is inside the SAME depth that licenses each
+  // one (a duplicate row is one factor, as in `influenceSetSize`).
+  const rankedSetSize = new Set(ranked.slice(0, determinedDepth).map((f) => f.key)).size
 
   // VoI rank: top-3 factors by value_of_information. Keyed off the shared
   // feed's canonical key (node_id → factor_id → id → label), so a row
@@ -212,5 +227,5 @@ export function rankFactor(
     .sort((a, b) => b.voi - a.voi)
   const voiPos = rankedByVoi.findIndex(f => f.id === nodeId) + 1
   if (voiPos > 0 && voiPos <= 3) voiRank = voiPos
-  return { influenceSetSize, sensitivityRank, voiRank }
+  return { influenceSetSize, rankedSetSize, sensitivityRank, voiRank }
 }

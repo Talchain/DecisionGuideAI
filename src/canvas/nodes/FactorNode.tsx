@@ -23,7 +23,7 @@ import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { useRunCurrency } from './shared/runCurrency'
-import { FactorDriverLine } from './shared/FactorDriverLine'
+import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { selectFactorTurningPointState } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
@@ -418,7 +418,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
    * every driver render on this card. (Historical: it fed the Standard-view
    * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
-   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
+   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M ranked in this run".) They show the same figure, so they carry the
    * same misread, and fixing one would have left `Relative influence … 100%`
    * reachable one view away — four presentations of one idea, which is the
    * inconsistency this card's rows were unified to remove.
@@ -515,20 +515,29 @@ export const FactorNode = memo((props: NodeProps) => {
   const resultsFromLastRun = runCurrency === 'changed'
   const runCuesShown = runCurrency === 'current' || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
+  // Contract v3.1 pt 5: "Driver N of M ranked in this run" (M = the ranked
+  // count) on a RANKED factor only. A factor the run did not rank shows no line
+  // and no bar; it says "Not ranked in this run" to AT (`FactorDriverNotRanked`).
+  const driverRank =
+    isPostAnalysis && runCuesShown
+      ? driverRankFor(
+          influenceRank,
+          displayMetadata.sensitivityRank,
+          displayMetadata.influenceSetSize,
+          resultsFromLastRun,
+          displayMetadata.influenceRankedCount,
+        )
+      : null
   const driverLine =
-    isPostAnalysis && runCuesShown && influencePct != null && displayMetadata.influenceProvenance != null
+    driverRank !== null && influencePct != null && displayMetadata.influenceProvenance != null
       ? {
-          rank: driverRankFor(
-            influenceRank,
-            displayMetadata.sensitivityRank,
-            displayMetadata.influenceSetSize,
-            resultsFromLastRun,
-          ),
+          rank: driverRank,
           value: influencePct / 100,
           provenance: displayMetadata.influenceProvenance,
           importanceBasis: displayMetadata.influenceImportanceBasis,
         }
       : null
+  const driverNotRanked = isPostAnalysis && runCuesShown && driverRank === null
   // Paul 23 Sep contract feedback point 3(d): the slot always says something
   // after a run it may speak for — the track for a PLoT `found` row, else the
   // quiet "No turning point …" fallback. Never-run / cannot-confirm stay null
@@ -864,7 +873,7 @@ export const FactorNode = memo((props: NodeProps) => {
               provenance means no influence number is rendered. */}
           {/* ⭐ ONE DRIVER VOCABULARY IN EVERY VIEW. Detailed and the popover
               render the SAME `FactorDriverLine` the resting face does ("Driver N
-              of M analysed" + relative bar, the % in its tooltip), and it
+              of M ranked in this run" + relative bar, the % in its tooltip), and it
               is withheld on a stale run exactly as it is there. The old
               "Most influential ▬ of 5" row here was the fourth wording of one
               rank (purpose audit, #1899 finding 3). */}
@@ -1114,6 +1123,9 @@ export const FactorNode = memo((props: NodeProps) => {
             fromLastRun={resultsFromLastRun}
           />
         )}
+        {/* Contract v3.1 pt 5: no rank, no line, no bar — said once to AT, in
+            both views. */}
+        {driverNotRanked && <FactorDriverNotRanked fromLastRun={resultsFromLastRun} />}
 
         {/* ⭐ AT MOST ONE MINI-VISUAL (spec §3 precedence): a real turning point
             (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external
