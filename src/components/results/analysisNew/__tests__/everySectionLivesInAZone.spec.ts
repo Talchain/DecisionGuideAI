@@ -82,7 +82,8 @@ describe('the zone grammar has contents, not just names', () => {
     .filter((r): r is { i: number; m: RegExpExecArray } => r.m !== null)
 
   it('PRECONDITION: the four zones are found in the source — otherwise this spec reads nothing', () => {
-    expect(zoneOpens.map((z) => z.m[1])).toEqual(['focus', 'answer', 'also', 'further'])
+    // Answer before focus since 22 Sep 2026 (Experience Design; pending Paul's confirmation).
+    expect(zoneOpens.map((z) => z.m[1])).toEqual(['answer', 'focus', 'also', 'further'])
   })
 
   it('⛔ every top-level section sits inside a zone, or is NAMED as furniture above them', () => {

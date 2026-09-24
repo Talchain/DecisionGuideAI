@@ -178,4 +178,22 @@ describe('the panel is grouped into named zones', () => {
     }
     expect(checked, 'precondition: this arm inspected every zone').toBe(ZONES.length)
   })
+
+  /**
+   * ⭐ ORDER: THE ANSWER LEADS, THE METHODS FOLLOW IT. Reversed 22 Sep 2026 on
+   * Experience Design's recommendation ("methods first-class, not first"),
+   * pending Paul's confirmation of his 18 Sep methods-first ruling. `getByTestId`
+   * throws on an absent zone, so this cannot pass by absence.
+   */
+  it('⭐ the zones render answer → focus → also → further', () => {
+    renderBody(genuineDecision(), EARNS_A_NUDGE)
+    const order = ['answer', 'focus', 'also', 'further'] as const
+    const groups = order.map((z) => screen.getByTestId(`analysis-new-zone-${z}-group`))
+    for (let i = 1; i < groups.length; i += 1) {
+      expect(
+        Boolean(groups[i - 1].compareDocumentPosition(groups[i]) & Node.DOCUMENT_POSITION_FOLLOWING),
+        `the ${order[i - 1]} zone must precede the ${order[i]} zone`,
+      ).toBe(true)
+    }
+  })
 })
