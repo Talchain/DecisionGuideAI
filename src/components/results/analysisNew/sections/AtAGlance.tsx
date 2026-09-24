@@ -159,6 +159,12 @@ export interface AtAGlanceProps {
    * that would assert a fact from an absence.
    */
   staleKind?: 'changed' | 'unconfirmed' | null
+  /**
+   * The LATEST attempt did not produce the result on screen (refused, or
+   * failed). Leads the status line, and supersedes the vaguer "cannot confirm"
+   * sentence it explains. `null`/absent = the displayed run is the latest.
+   */
+  runNote?: { testId: string; text: string } | null
   /** The producer disclosed the result as partial. */
   isProvisional?: boolean
   /**
@@ -331,6 +337,7 @@ export function AtAGlance({
   onFocusTarget,
   isStale = false,
   staleKind = 'unconfirmed',
+  runNote = null,
   isProvisional = false,
   onReanalyse,
   onReviewEstimates,
@@ -372,7 +379,10 @@ export function AtAGlance({
    * statement of fact — on this panel's FIRST line. The dock's own comment
    * forbids it and the old Analysis tab honours it with strict equality.
    */
-  if (isStale) {
+  if (runNote) ribbon.push(runNote)
+  // A run note explains an unconfirmed freshness; a model that CHANGED is a
+  // separate fact and still gets its own line.
+  if (isStale && !(runNote && staleKind !== 'changed')) {
     ribbon.push(
       staleKind === 'changed'
         ? { testId: 'analysis-new-status-stale', text: COPY.status.stale }
