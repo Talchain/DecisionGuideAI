@@ -38,8 +38,9 @@
  * it. Settled renders through the native `disabled` attribute, which
  * CHIP_CLASS styles distinctly.
  */
-import { useCallback, useState, type ReactElement } from 'react'
+import { useCallback, useRef, useState, type ReactElement } from 'react'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { typography } from '../../styles/typography'
 import { CHIP_CLASS } from './chipClass'
 
 export interface ActionChipProps {
@@ -66,40 +67,135 @@ export interface ActionChipProps {
    * The transport was never a missing handler. It was this argument.
    */
   intent?: string
+  /**
+   * The card this chip belongs to cannot be shown as current — its model moved,
+   * or the producer marked it stale / pending / failed. The chip renders
+   * DISABLED and a click sends nothing: acting on advice written for a model
+   * that no longer exists is the exact harm the card's own notice warns about,
+   * and a live button beside that notice contradicts it. The caller owns the
+   * decision (it already holds the currency verdict); this component only
+   * enforces it.
+   */
+  inert?: boolean
+  /** Id of the visible element that explains why the chip is inert (the card's notice). */
+  describedBy?: string
 }
 
-export function ActionChip({ label, message, testId, intent }: ActionChipProps): ReactElement {
+/**
+ * RECEIPT COPY. Each line states only what the transcript itself has
+ * established about THIS chip's turn — never that the model changed or that
+ * anything ran. The reply, when it arrives, is the actual result; the receipt
+ * only points at it.
+ */
+export const ACTION_CHIP_RECEIPT = {
+  pending: 'Sending…',
+  sent: 'Sent — see the reply below',
+  failed: 'Not sent — try again',
+  unconfirmed: 'Couldn’t confirm this was sent',
+} as const
+
+type ReceiptState = keyof typeof ACTION_CHIP_RECEIPT
+
+/**
+ * Read a delivery verdict off whatever the chip seam returned.
+ *
+ * ⚠ "SENT" IS A CLAIM ABOUT DELIVERY, SO IT NEEDS A WITNESS. The click is all
+ * this component knows first-hand; a 504 after the click would otherwise sit
+ * under a receipt saying the message went. So a receipt is shown ONLY when the
+ * seam hands back the turn's own delivery outcome — a promise resolving to the
+ * `deliveryState` that `sendTurn` records on the user bubble
+ * (`sent | failed | unconfirmed`). A seam that returns nothing (today's
+ * `withOlumiReveal`-wrapped `_sendChip`) yields NO receipt at all: the chip
+ * settles exactly as it always has and asserts nothing. Anything else that
+ * resolves is treated as unconfirmed rather than guessed at.
+ */
+function isThenable(v: unknown): v is PromiseLike<unknown> {
+  return typeof (v as { then?: unknown } | null)?.then === 'function'
+}
+
+function toReceipt(outcome: unknown): ReceiptState {
+  return outcome === 'sent' || outcome === 'failed' || outcome === 'unconfirmed'
+    ? outcome
+    : 'unconfirmed'
+}
+
+export function ActionChip({
+  label,
+  message,
+  testId,
+  intent,
+  inert = false,
+  describedBy,
+}: ActionChipProps): ReactElement {
   const sendChip = useGuidanceStore((s) => s._sendChip)
-  const [settled, setSettled] = useState(false)
+  const [clicked, setClicked] = useState(false)
+  const [receipt, setReceipt] = useState<ReceiptState | null>(null)
+  // A failed send re-arms the chip: nothing reached CEE, so a second click is a
+  // first delivery, not a duplicate. Every other post-click state stays settled.
+  const settled = clicked && receipt !== 'failed'
+  // Synchronous twin of `settled`. State only updates on the next render, so two
+  // clicks inside one tick would both read `settled === false` and send twice;
+  // the ref closes that window. Cleared only when a send is known to have failed.
+  const inFlight = useRef(false)
 
   const handleClick = useCallback(() => {
     // Bounded re-fire: one chip, one turn. Belt-and-braces with `disabled`
     // below, which already removes pointer events — this guard also covers a
     // programmatic click and any future path that renders the chip enabled.
-    if (settled) return
+    if (settled || inert || inFlight.current) return
     // Fail closed WITHOUT acknowledging (see header).
     if (!sendChip) return
+    inFlight.current = true
+    setClicked(true)
+    setReceipt(null)
     // The producer's typed intent travels as chip META, not just as a DOM
     // attribute. `buildV5Payload`'s send gate
     // (`KNOWN_INTENTS ∧ CEE_ACCEPTED_INTENTS`) still decides whether it reaches
     // the wire and still fails CLOSED, so this can only ever forward an intent
     // the PRODUCER declared and the deployed CEE routes.
-    sendChip(label, message, intent ? { intent } : undefined)
-    setSettled(true)
-  }, [settled, sendChip, label, message, intent])
+    const outcome: unknown = sendChip(label, message, intent ? { intent } : undefined)
+    if (isThenable(outcome)) {
+      setReceipt('pending')
+      outcome.then(
+        (v) => {
+          const next = toReceipt(v)
+          if (next === 'failed') inFlight.current = false
+          setReceipt(next)
+        },
+        () => {
+          inFlight.current = false
+          setReceipt('failed')
+        },
+      )
+    }
+  }, [settled, inert, sendChip, label, message, intent])
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={settled}
-      data-testid={testId}
-      {...(settled ? { 'data-settled': 'true' } : {})}
-      {...(intent ? { 'data-action-intent': intent } : {})}
-      className={CHIP_CLASS}
-    >
-      {label}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={settled || inert}
+        data-testid={testId}
+        {...(settled ? { 'data-settled': 'true' } : {})}
+        {...(inert ? { 'data-inert': 'true' } : {})}
+        {...(inert && describedBy ? { 'aria-describedby': describedBy } : {})}
+        {...(intent ? { 'data-action-intent': intent } : {})}
+        className={CHIP_CLASS}
+      >
+        {label}
+      </button>
+      {receipt !== null && (
+        <span
+          role="status"
+          data-testid={`${testId}-receipt`}
+          data-delivery={receipt}
+          className={`${typography.panelMeta} self-center ml-2 text-text-light`}
+        >
+          {ACTION_CHIP_RECEIPT[receipt]}
+        </span>
+      )}
+    </>
   )
 }
 
