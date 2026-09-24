@@ -49,6 +49,14 @@
  * `strength_mean` (not a bare `weight`) is what makes the strength arm render at
  * all — a fixture built from `weight` alone renders nothing and every assertion
  * here would pass vacuously.
+ *
+ * ⛔ CONTRACT v3.1 (gap U1) REMOVES THE STRENGTH ARM ENTIRELY: "Outcome/risk
+ * records are distinct from the strength of their connections". Rule 2's
+ * precedence still holds — the recorded magnitude is the line — and where the
+ * risk records nothing of its own there is now NO line (the card keeps its body)
+ * rather than a score about its edge. The two cases that pinned the strength
+ * arm are re-pointed to that absence, with the recorded-magnitude cases above
+ * them as the contrast that proves the rung still speaks.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -162,7 +170,7 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
    * against a card that renders no line at all, which is exactly the vacuity the
    * inherited fixtures' header warns about.
    */
-  it('precondition: the strength arm genuinely renders when there is nothing of the risk\'s own', () => {
+  it('precondition (v3.1): with nothing of the risk\'s own, the rung borrows no score from its edge', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
       sel(makeStoreState(modelWithBridge('risk-1', 'risk', 0.4)) as any),
     )
@@ -171,11 +179,12 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
         <RiskNode {...(baseProps as unknown as NodeProps)} id="risk-1" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    // A weighted edge, no recorded magnitude: the score is the only thing to say.
-    // Locked Canvas design (23 Sep 2026): on-node strength is the LINK's
-    // strength (ED 11:52Z "call it link strength"), and an unconfirmed producer
-    // value reads as Olumi's estimate (MT-15b) — was `Strength not set yet`.
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
+    // Was `Link strength · Olumi’s estimate` (ED 11:52Z + MT-15b); contract v3.1
+    // (gap U1) takes the connection's strength off the card at every rung.
+    expect(lodLine()).toBeNull()
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+    // The card is not blanked for it: its own unset statement stays.
+    expect(screen.getByTestId('risk-exposure-unset')).toBeTruthy()
   })
 
   /**
@@ -254,7 +263,7 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
    * NOT meant to touch, or it trades one for another and the suite applauds.
    * A risk with no magnitude of its own must be byte-identical to today.
    */
-  it('a risk with nothing of its own still states the strength, unchanged', () => {
+  it('a risk with nothing of its own states no human-settled strength either (v3.1)', () => {
     vi.mocked(useCanvasStore).mockImplementation(sel =>
       sel(makeStoreState(modelWithBridge('risk-4', 'risk', 0.4, true)) as any),
     )
@@ -263,8 +272,9 @@ describe("rule 2 — a risk's own magnitude outranks a score about one of its ed
         <RiskNode {...(baseProps as unknown as NodeProps)} id="risk-4" data={{ label: 'Budget Overrun', type: 'risk' }} />
       </ReactFlowProvider>,
     )
-    // Locked Canvas design (23 Sep 2026): a human-settled strength reads
-    // `Link strength N%` (ED 11:52Z "call it link strength") — was `Strength 40%`.
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} 40%`)
+    // Was `Link strength 40%` (ED 11:52Z). Contract v3.1 (gap U1): a settled
+    // strength is still the connection's fact, shown on the connection.
+    expect(lodLine()).toBeNull()
+    expect(document.body.textContent).not.toContain('40%')
   })
 })

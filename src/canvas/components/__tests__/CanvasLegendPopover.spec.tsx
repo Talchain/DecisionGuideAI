@@ -803,9 +803,12 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // noun and the relative-to-strongest disclosure this row explains.
     { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
     // ⚠ RE-DERIVED (locked design, 23 Sep 2026; ED 11:52Z point 5): the noun is
-    // now "Link strength" (`METRIC_NOUN.strength`'s value), rendered by the
-    // shared `LinkStrengthRow` both cards mount.
-    { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /<LinkStrengthRow\b/ },
+    // now "Link strength" (`METRIC_NOUN.strength`'s value).
+    // ⚠ RE-DERIVED AGAIN (contract v3.1, gap U1): the outcome/risk card row
+    // (`LinkStrengthRow`) is deleted — "Outcome/risk records are distinct from
+    // the strength of their connections". The card-side producer left is the
+    // factor card's `EdgePills` (Detailed); the edge hover also says it.
+    { noun: METRIC_NOUN.strength, files: ['shared/EdgePills.tsx'], pattern: /LINK_STRENGTH_COPY\.noun/ },
     // ⚠ PATTERN AND NOUN BOTH RE-DERIVED; THE CLAIM IS UNCHANGED. The comment
     //   here read "The rank badge prints the numeral itself — there is no noun
     //   constant", and BaseNode's JSX was `#{displayMetadata.sensitivityRank}`.
@@ -823,9 +826,11 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // "Link strength · not set yet" — the register's inline form — through the
     // shared row both cards mount (MT-15b: an unconfirmed producer value now
     // reads as Olumi's estimate instead).
+    // ⚠ RE-DERIVED (contract v3.1, gap U1): `LinkStrengthRow` is deleted; the
+    // unset link pill in `EdgePills` is the remaining card-side producer.
     {
       noun: METRIC_UNSET.standalone,
-      files: ['shared/LinkStrengthRow.tsx'],
+      files: ['shared/EdgePills.tsx'],
       pattern: /LINK_STRENGTH_COPY\.notSet/,
     },
     // ⭐ THE ONE THE DEFECT WAS IN. Three sites → one; this is what would have

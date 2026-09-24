@@ -30,13 +30,30 @@
  * needs to know the connection exists and that its strength is an open
  * question. The three cases are pinned as a set below, because a fix that
  * closes a lie by opening a gap is this estate's trap 22b.
+ *
+ * ⛔⛔ SUPERSEDED BY CONTRACT v3.1 (VC-01, gap U1, 24 Sep 2026) — THE ROW IS NOW
+ * DELETED, AND THE TWO PARAGRAPHS ABOVE ARE KEPT AS THE RECORD OF WHY IT
+ * SURVIVED UNTIL NOW. v3.1: "Outcome/risk records are distinct from the strength
+ * of their connections"; strength is "a different fact, inspectable on the
+ * edge". The connection itself (its line, hover, `EdgePills`, `EdgePanel`) is
+ * what tells a reader the link exists and whether its strength is settled — so
+ * "an absent row reads as nothing to see" no longer holds on the card.
+ *
+ * What this file pins now is the stronger claim the deletion makes true: in
+ * EVERY provenance state it used to discriminate (person, Olumi, template,
+ * adjudicated, dismissed, none), on both cards and at both rungs, the card draws
+ * no bar, prints no figure and names no link strength — so the witnessed defect
+ * (a half-full bar for a strength nobody set) cannot recur here. The F1
+ * precondition (two authorities, two facts) is kept: `strengthIsHumanSettled`
+ * is still the connection's admission (`EdgePills`, `StyledEdge`).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
 import { OutcomeNode } from '../OutcomeNode'
-import { METRIC_UNSET, LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
+import { LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
+import { NodeMetricRow } from '../shared/NodeMetricRow'
 import { strengthIsHumanSettled } from '../../domain/edgeStrengthSettlement'
 import { edgeValueSource } from '../../domain/edgeValueProvenance'
 
@@ -187,244 +204,67 @@ const mountOutcome = (state: Record<string, unknown>) => {
   )
 }
 
-/**
- * ⭐ THE BAR, BY IDENTITY. `NodeMetricRow`'s fill is the ONLY element inside the
- * row that carries an inline `width` style, and it is found INSIDE the row's own
- * testid — never by a class another element could also carry, and never by a
- * value predicate (`width: 50%`) that a differently-derived element could
- * satisfy. Returns the fill's declared width, or `null` when no bar was drawn.
- */
-const barWidthIn = (testId: string): string | null => {
-  const row = screen.queryByTestId(testId)
-  if (row === null) return null
-  const filled = Array.from(row.querySelectorAll<HTMLElement>('div[style]'))
-    .filter(el => el.style.width !== '')
-  return filled.length === 0 ? null : filled[filled.length - 1]!.style.width
-}
-
-/**
- * ⭐ THE VISIBLE TEXT ONLY, AND THE DISTINCTION IS THE WHOLE POINT OF THE FIX.
- *
- * `textContent` on the row also picks up the screen-reader phrase — which is
- * exactly where the producer's assumed figure was MOVED to. Asserting "no
- * percentage" against the whole row would therefore refuse the demotion this
- * change is built on. `NodeMetricRow` marks every seen element `aria-hidden`
- * and carries the sentence in a separate `sr-only` span, so the two audiences
- * are already separated at the DOM; this reads the seen half.
- */
-const seenTextIn = (testId: string): string => {
-  const row = screen.queryByTestId(testId)
-  if (row === null) return ''
-  return Array.from(row.querySelectorAll('[aria-hidden="true"]'))
-    .map(el => el.textContent ?? '')
-    .join(' ')
-}
-
 const lodLine = () => screen.queryByTestId('node-lod-line')?.textContent ?? null
+
+/**
+ * A drawn proportional bar: `NodeMetricRow`'s fill is a div whose inline width
+ * carries a PERCENTAGE (`max(4px, 50%)`). Read over the whole card, since the
+ * row that owned it is gone. The instrument control below proves it sees one.
+ */
+const barsIn = (): HTMLElement[] =>
+  Array.from(document.body.querySelectorAll<HTMLElement>('div[style]')).filter(el => /\d%/.test(el.style.width))
 
 beforeEach(() => { vi.clearAllMocks() })
 
-describe('⛔ the witnessed defect: a bar drawn for a strength nobody set', () => {
-  it('a risk whose bridge strength CEE supplied draws NO bar and states no percentage', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
-    screen.getByTestId('risk-strength-row')
-    expect(barWidthIn('risk-strength-row')).toBeNull()
-    expect(seenTextIn('risk-strength-row')).not.toMatch(/\d+%/)
-  })
+const PROVENANCES: Provenance[] = ['user', 'cee', 'template', 'adjudicated', 'dismissed', 'none']
 
-  it('an outcome does the same, from the same seam', () => {
-    mountOutcome(makeStoreState(modelWithBridge('outcome-1', 'outcome', 'cee', 0.5)))
-    expect(barWidthIn('outcome-strength-row')).toBeNull()
-    expect(seenTextIn('outcome-strength-row')).not.toMatch(/\d+%/)
-  })
-
-  it('the row STAYS, and says what is unknown rather than vanishing', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
-    const row = screen.getByTestId('risk-strength-row')
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z names the row "Link
-    // strength"; MT-15b — "Not set yet" beside an edge that shows a value was
-    // itself the defect, so a CEE value nobody settled reads "Olumi’s estimate"
-    // (whose guess it is) — still no figure and no bar (asserted above).
-    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.noun)
-    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.olumiEstimate)
-    expect(row.textContent).not.toContain(METRIC_UNSET.standalone)
-  })
-
-  it('and it names the way out, in words a reader can act on', async () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
-    const row = screen.getByTestId('risk-strength-row')
-    fireEvent.mouseEnter(row)
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Open the details/)
-    expect(row).toHaveAccessibleName(/Open the details/)
-  })
-
-  it('⭐ the producer figure is DEMOTED, not deleted — it is disclosed as an assumption', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
-    const title = screen.getByTestId('risk-strength-row').getAttribute('aria-label') ?? ''
-    expect(title).toContain('50%')
-    expect(title).toMatch(/assum/i)
-  })
+it('INSTRUMENT CONTROL — the bar probe sees a real `NodeMetricRow` fill (so an empty result is a finding)', () => {
+  render(<NodeMetricRow label="Probe" value={0.5} formatted="50%" fillClass="bg-success" testId="probe-row" />)
+  expect(barsIn()).toHaveLength(1)
 })
 
-describe('⭐ THE DISCRIMINATING PAIR — the row reads the PROVENANCE, not the number', () => {
-  /*
-   * Same node, same 0.5, three provenances. If the bar were unconditional all
-   * three would draw one; if it were removed outright none would. One of each is
-   * the only result that shows `weightSource` is being read — and the
-   * user-stated arm is the opposite-direction twin (trap 22b): a fix for a lie
-   * must not be able to delete a figure that was already honest.
-   */
-  it('a strength the USER set keeps its bar and its percentage — unchanged', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'user', 0.5)))
-    expect(barWidthIn('risk-strength-row')).toBe('max(4px, 50%)')
-    expect(screen.getByTestId('risk-strength-row').textContent).toContain('50%')
-  })
-
-  it('a strength the user set at a DIFFERENT magnitude draws a DIFFERENT bar', () => {
-    // Binds the bar to the value rather than to the mere fact of being stated.
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'user', 0.8)))
-    expect(barWidthIn('risk-strength-row')).toBe('max(4px, 80%)')
-  })
-
-  it('a bridge edge carrying NO stated strength at all still gets the row', () => {
-    // Previously this rendered NOTHING — the provenance gate withheld and the
-    // card fell silent, which reads as "nothing to see". The connection exists.
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'none', 0.5)))
-    const row = screen.getByTestId('risk-strength-row')
-    // Locked Canvas design (23 Sep 2026): MT-15b — genuinely no value reads
-    // "not set", and never "Olumi’s estimate" (nobody supplied one).
-    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.notSet)
-    expect(row.textContent).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
-    expect(barWidthIn('risk-strength-row')).toBeNull()
-    // ⚠ AND IT MUST NOT CLAIM AN ASSUMPTION NOBODY MADE. Nothing supplied a
-    // figure here, so the disclosure may not invent one.
-    expect(row.getAttribute('aria-label') ?? '').not.toMatch(/\d+%/)
-  })
-
-  it('CONTRAST CONTROL — no bridge edge, no row: absence of a connection is not an unknown strength', () => {
-    mountRisk(makeStoreState({ nodes: [{ id: 'risk-1', type: 'risk', data: { type: 'risk' } }], edges: [] }))
+describe('⛔ contract v3.1 — no provenance state puts the connection’s strength on the card', () => {
+  it.each(PROVENANCES)('risk, %s: no row, no bar, no figure, no link-strength words', (provenance) => {
+    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', provenance, 0.5)))
+    // CONTRAST, same render: the card and its OWN unset statement are there.
+    expect(screen.getByTestId('risk-exposure-unset')).toBeTruthy()
     expect(screen.queryByTestId('risk-strength-row')).toBeNull()
+    expect(barsIn()).toEqual([])
+    expect(document.body.textContent).not.toContain('50%')
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
+  })
+
+  it.each(PROVENANCES)('outcome, %s: no row, no bar, no figure, no link-strength words', (provenance) => {
+    mountOutcome(makeStoreState(modelWithBridge('outcome-1', 'outcome', provenance, 0.5)))
+    expect(screen.getByText('MRR Growth Rate')).toBeTruthy()
+    expect(screen.queryByTestId('outcome-strength-row')).toBeNull()
+    expect(barsIn()).toEqual([])
+    expect(document.body.textContent).not.toContain('50%')
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+  })
+
+  it.each(PROVENANCES)('reduced rung, %s: neither card speaks the link’s strength', (provenance) => {
+    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', provenance, 0.5, 'line')))
+    expect(lodLine()).toBeNull()
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+    document.body.innerHTML = ''
+    mountOutcome(makeStoreState(modelWithBridge('outcome-1', 'outcome', provenance, 0.5, 'line')))
+    expect(lodLine()).toBeNull()
+    expect(document.body.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
   })
 })
 
-describe('⛔ F1 — THE ROW MUST NOT DENY AN ADJUDICATION THE USER ACTUALLY MADE', () => {
-  /*
-   * The defect this closes was RENDER-WITNESSED at PR #1174 round 1: an edge
-   * carrying `weightSource: 'cee'` AND `validation.user_action: 'accepted_pass2',
-   * resolved_by: 'user'` rendered "Strength Not set yet" over the sentence
-   * "Nobody has set the strength of this connection". The product told a user
-   * who had explicitly adjudicated that strength that nobody had, and invited
-   * them to do it again.
-   */
-
-  it('⭐ PRECONDITION, PINNED IN-TEST — the two authorities return DIFFERENT facts on this exact payload', () => {
-    // Without this the cases below could pass for the wrong reason: if the
-    // fixture failed to reproduce the divergence, a row that still read
-    // `weightSource` would look correct. This asserts the payload genuinely
-    // separates the two questions BEFORE anything is rendered from it.
+describe('the settlement predicate the CONNECTION still reads (F1, kept)', () => {
+  it('⭐ PRECONDITION — the two authorities return DIFFERENT facts on the adjudicated payload', () => {
+    // `strengthIsHumanSettled` no longer drives a card row, but `EdgePills` and
+    // the edge still read it, and the divergence it was built for is a property
+    // of the payload, not of the card.
     const data = edgeDataFor('adjudicated', 0.5)
     expect(edgeValueSource(data, 'weight')).toBe('cee')   // whose NUMBER is it → the producer's
-    expect(edgeValueSource(data, 'weight')).not.toBe('user')
     expect(strengthIsHumanSettled(data)).toBe(true)       // has a PERSON settled it → yes
-    // The old predicate and the new one disagree here. That disagreement is the
-    // whole finding, so it is an assertion rather than a comment.
     expect(edgeValueSource(data, 'weight') === 'user').not.toBe(strengthIsHumanSettled(data))
-  })
-
-  it('an adjudicated strength KEEPS its bar and its percentage', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'adjudicated', 0.5)))
-    expect(barWidthIn('risk-strength-row')).toBe('max(4px, 50%)')
-    expect(seenTextIn('risk-strength-row')).toContain('50%')
-  })
-
-  it('and NEVER says nobody set it', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'adjudicated', 0.5)))
-    const row = screen.getByTestId('risk-strength-row')
-    expect(row.textContent ?? '').not.toMatch(/Nobody has set/i)
-    expect(row.getAttribute('aria-label') ?? '').not.toMatch(/Nobody has set/i)
-    expect(row.textContent ?? '').not.toContain(METRIC_UNSET.standalone)
-    // Locked Canvas design (23 Sep 2026): "Not set yet" is no longer a wording the
-    // row can produce (MT-15b), so the guard above alone would be vacuous. Pin
-    // BOTH of the row's current unsettled wordings as absent on a settled edge.
-    expect(seenTextIn('risk-strength-row')).not.toContain(LINK_STRENGTH_COPY.notSet)
-    expect(seenTextIn('risk-strength-row')).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
-  })
-
-  it('an outcome behaves identically — the seam is shared, not copied', () => {
-    mountOutcome(makeStoreState(modelWithBridge('outcome-1', 'outcome', 'adjudicated', 0.8)))
-    expect(barWidthIn('outcome-strength-row')).toBe('max(4px, 80%)')
-  })
-
-  it('⭐ OPPOSITE-DIRECTION TWIN — a DISMISSED contested edge is NOT settled, and the invitation stands', () => {
-    // `resolved_by: 'user'` is present here too. If the predicate had taken the
-    // obvious one-field shortcut, this would wrongly read as settled and the
-    // product would stop asking — suppressing the very invitation the user's
-    // dismissal left open. Same `resolved_by`, opposite verdict.
-    const data = edgeDataFor('dismissed', 0.5)
-    expect((data.validation as Record<string, unknown>).resolved_by).toBe('user')
-    expect(strengthIsHumanSettled(data)).toBe(false)
-
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'dismissed', 0.5)))
-    expect(barWidthIn('risk-strength-row')).toBeNull()
-    // Locked Canvas design (23 Sep 2026): MT-15b — the unsettled CEE value now
-    // reads "Olumi’s estimate" rather than "Not set yet"; the INVITATION this
-    // case guards is the disclosure's "Nobody has set … Open the details", which
-    // must still stand after a dismissal.
-    const row = screen.getByTestId('risk-strength-row')
-    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.olumiEstimate)
-    expect(row.getAttribute('aria-label') ?? '').toMatch(/Nobody has set/i)
-    expect(row.getAttribute('aria-label') ?? '').toMatch(/Open the details/)
-  })
-})
-
-describe('⛔ F5 — the disclosure names the figure\'s AUTHOR from the data, never assuming Olumi', () => {
-  it('a TEMPLATE-authored strength is not credited to Olumi', () => {
-    // `'template'` is a live third author (`hooks/useBlueprintInsert.ts`, via
-    // `edgeValueSourcePatch`). Saying "Olumi is assuming" here would credit
-    // Olumi with a number a template author wrote — the same fabrication class
-    // this row exists to close, one clause along.
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'template', 0.5)))
-    const title = screen.getByTestId('risk-strength-row').getAttribute('aria-label') ?? ''
-    expect(title).toContain('50%')
-    expect(title).not.toMatch(/Olumi/i)
-    expect(title).toMatch(/template/i)
-    // Locked Canvas design (23 Sep 2026): MT-15b — the SEEN text now names an
-    // author too ("Olumi’s estimate" for CEE), so the same rule is pinned there:
-    // a template figure reads as an unconfirmed estimate, never as Olumi's.
-    expect(seenTextIn('risk-strength-row')).not.toMatch(/Olumi/i)
-    expect(seenTextIn('risk-strength-row')).toContain('Estimate, not confirmed')
-  })
-
-  it('CONTRAST CONTROL — a CEE-supplied strength IS still credited to Olumi', () => {
-    // Proves the assertion above discriminates by SOURCE rather than the
-    // sentence having simply lost the word "Olumi" everywhere.
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
-    const title = screen.getByTestId('risk-strength-row').getAttribute('aria-label') ?? ''
-    expect(title).toMatch(/Olumi/i)
-    // Locked Canvas design (23 Sep 2026): the seen-text contrast for the case above.
-    expect(seenTextIn('risk-strength-row')).toContain(LINK_STRENGTH_COPY.olumiEstimate)
-  })
-})
-
-describe('the reduced line below the legibility floor says the same true thing', () => {
-  // Locked Canvas design (23 Sep 2026): ED 11:52Z "Link strength" + MT-15b — the
-  // reduced line speaks the full row's wording on every rung: an unsettled CEE
-  // value is "Link strength · Olumi’s estimate" (no figure), a settled one
-  // "Link strength N%".
-  it('states the unknown rather than a half-full-bar percentage', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5, 'line')))
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
-    expect(lodLine()).not.toMatch(/\d+%/)
-  })
-
-  it('and still states a percentage the user set themselves', () => {
-    mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'user', 0.5, 'line')))
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} 50%`)
-  })
-
-  it('an outcome behaves identically at the same rung', () => {
-    mountOutcome(makeStoreState(modelWithBridge('outcome-1', 'outcome', 'cee', 0.7, 'line')))
-    expect(lodLine()).toBe(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
-    expect(lodLine()).not.toMatch(/\d+%/)
+    // …and its opposite-direction twin: a dismissed review is not a settlement.
+    expect(strengthIsHumanSettled(edgeDataFor('dismissed', 0.5))).toBe(false)
   })
 })
