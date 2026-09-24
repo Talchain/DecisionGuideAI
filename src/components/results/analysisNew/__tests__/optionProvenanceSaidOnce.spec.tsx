@@ -158,11 +158,34 @@ describe('the options list says its provenance once', () => {
    * a legend that rendered regardless — or a marker that replaced the sentence
    * unconditionally — fails here while the arms above still pass.
    */
-  it('⛔ one option alone keeps its sentence, and no legend is drawn', () => {
+  /*
+   * ⭐ DESIGN TWEAK C (24 Sep 2026): ONE OPTION ALONE NOW GETS THE MARK TOO, AND
+   * ITS SENTENCE STOPS BEING A SEPARATE VISIBLE LINE. The product owner read a
+   * not-analysed row carrying three stacked lines (reason, link, "Olumi
+   * suggested this option, you did not name it") as heavy. The mark next to
+   * the name carries the words as its tooltip; the sentence itself stays in the
+   * row, visually hidden, so a screen reader still hears it exactly once.
+   *
+   * ⚠ WHY THE WORDS ARE NOT ONLY THE MARK'S `aria-label`: the mark sits inside
+   * the option's name button, whose own `aria-label` REPLACES its content in
+   * the accessible name. A label on a child there reaches no screen reader, so
+   * the sentence is carried as text beside the button instead.
+   */
+  it('⛔ one option alone: no legend; the mark sits by the name and the sentence is spoken once, not shown as a line', () => {
     renderOpen(ONLY_ONE)
     expect(screen.queryByTestId(`${TESTID}-option-origin-legend`)).toBeNull()
-    expect(rowOf(OLUMI_A).queryByTestId(`${TESTID}-option-origin-mark-${OLUMI_A}`)).toBeNull()
-    expect(rowOf(OLUMI_A).getByTestId(`${TESTID}-option-origin-${OLUMI_A}`)).toHaveTextContent(OLUMIS)
+    // RED-FIRST (tweak C): the mark is next to the name, INSIDE the name button.
+    const mark = rowOf(OLUMI_A).getByTestId(`${TESTID}-option-origin-mark-${OLUMI_A}`)
+    expect(mark.closest(`[data-testid="${TESTID}-focus"]`), 'the mark sits next to the name').not.toBeNull()
+    expect(mark).toHaveAttribute('title', OLUMIS)
+    // Decorative to assistive tech: the sentence below is what is spoken.
+    expect(mark).toHaveAttribute('aria-hidden', 'true')
+    // The sentence is still in the row, but no longer a separate visible line.
+    const sentence = rowOf(OLUMI_A).getByTestId(`${TESTID}-option-origin-${OLUMI_A}`)
+    expect(sentence).toHaveTextContent(OLUMIS)
+    expect(sentence.tagName, 'not a paragraph line').not.toBe('P')
+    expect(sentence).toHaveClass('sr-only')
+    expect(sentence.closest(`[data-testid="${TESTID}-focus"]`), 'outside the name button, so it is spoken').toBeNull()
     // Contrast in the same arm: the claim is still made exactly once, so this
     // is measuring the threshold and not a render that marked nothing.
     expect(spokenCount()).toBe(1)

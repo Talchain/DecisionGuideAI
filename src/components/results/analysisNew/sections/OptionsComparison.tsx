@@ -558,70 +558,91 @@ export function OptionsComparison({
           <span id={`${lensGroupId}-label`} className="sr-only">
             {LENS_COPY.groupLabel}
           </span>
-          <div
-            role="radiogroup"
-            aria-labelledby={`${lensGroupId}-label`}
-            className="flex w-full items-center gap-1 rounded-md border border-panel-border p-0.5"
-            data-testid={`${testId}-lens`}
-          >
-            {COMPARISON_LENSES.map((arm, i) => {
-              const locked = !lensAvailability[arm]
-              const selected = lens === arm
-              const control = (
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-disabled={locked ? true : undefined}
-                  aria-describedby={locked ? `${lensGroupId}-${arm}-locked` : undefined}
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => {
-                    if (!locked) setChosenLens(arm)
-                  }}
-                  onKeyDown={(e) => {
-                    const step =
-                      e.key === 'ArrowRight' || e.key === 'ArrowDown'
-                        ? 1
-                        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
-                          ? -1
-                          : 0
-                    if (step === 0) return
-                    e.preventDefault()
-                    const next =
-                      COMPARISON_LENSES[
-                        (i + step + COMPARISON_LENSES.length) % COMPARISON_LENSES.length
-                      ]
-                    if (lensAvailability[next]) setChosenLens(next)
-                    e.currentTarget
-                      .closest('[role="radiogroup"]')
-                      ?.querySelector<HTMLButtonElement>(`[data-lens="${next}"]`)
-                      ?.focus()
-                  }}
-                  className={`${typography.panelMeta} ${action('quiet')} flex-1 justify-center gap-1 px-2 no-underline ${
-                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
-                  } ${locked ? 'cursor-default opacity-60' : ''}`}
-                  data-lens={arm}
-                  data-locked={locked ? 'true' : undefined}
-                  data-testid={`${testId}-lens-${arm}`}
-                >
-                  {locked ? (
-                    <Lock
-                      className={icon('inline')}
-                      aria-hidden="true"
-                      data-testid={`${testId}-lens-${arm}-lock`}
-                    />
-                  ) : null}
-                  {LENS_COPY.arms[arm]}
-                </button>
-              )
-              return locked ? (
-                <Tooltip key={arm} asChild content={LENS_COPY.goalLocked}>
-                  {control}
-                </Tooltip>
-              ) : (
-                <Fragment key={arm}>{control}</Fragment>
-              )
-            })}
+          {/* ⭐ DESIGN TWEAK C (24 Sep 2026): THE LENS AND ITS (i) ON ONE LINE.
+              The range info button sat alone at the bottom-right of the
+              comparison, far from the dots and lines it explains and from the
+              control that switches them on. `flex-1` on the group keeps the
+              lens at full width when the button is absent (Goal fit). */}
+          <div className="flex items-center gap-1">
+            <div
+              role="radiogroup"
+              aria-labelledby={`${lensGroupId}-label`}
+              className="flex min-w-0 flex-1 items-center gap-1 rounded-md border border-panel-border p-0.5"
+              data-testid={`${testId}-lens`}
+            >
+              {COMPARISON_LENSES.map((arm, i) => {
+                const locked = !lensAvailability[arm]
+                const selected = lens === arm
+                const control = (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    aria-disabled={locked ? true : undefined}
+                    aria-describedby={locked ? `${lensGroupId}-${arm}-locked` : undefined}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => {
+                      if (!locked) setChosenLens(arm)
+                    }}
+                    onKeyDown={(e) => {
+                      const step =
+                        e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                          ? 1
+                          : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                            ? -1
+                            : 0
+                      if (step === 0) return
+                      e.preventDefault()
+                      const next =
+                        COMPARISON_LENSES[
+                          (i + step + COMPARISON_LENSES.length) % COMPARISON_LENSES.length
+                        ]
+                      if (lensAvailability[next]) setChosenLens(next)
+                      e.currentTarget
+                        .closest('[role="radiogroup"]')
+                        ?.querySelector<HTMLButtonElement>(`[data-lens="${next}"]`)
+                        ?.focus()
+                    }}
+                    className={`${typography.panelMeta} ${action('quiet')} flex-1 justify-center gap-1 px-2 no-underline ${
+                      selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                    } ${locked ? 'cursor-default opacity-60' : ''}`}
+                    data-lens={arm}
+                    data-locked={locked ? 'true' : undefined}
+                    data-testid={`${testId}-lens-${arm}`}
+                  >
+                    {locked ? (
+                      <Lock
+                        className={icon('inline')}
+                        aria-hidden="true"
+                        data-testid={`${testId}-lens-${arm}-lock`}
+                      />
+                    ) : null}
+                    {LENS_COPY.arms[arm]}
+                  </button>
+                )
+                return locked ? (
+                  <Tooltip key={arm} asChild content={LENS_COPY.goalLocked}>
+                    {control}
+                  </Tooltip>
+                ) : (
+                  <Fragment key={arm}>{control}</Fragment>
+                )
+              })}
+            </div>
+            {/* ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn:
+                a legend for something not on screen is furniture. Same button,
+                same name, same disclosure as before the move. */}
+            {lens === 'outcome' && rangeScale !== null ? (
+              <span className="flex shrink-0 items-center" data-testid={`${testId}-axis`}>
+                <PanelIconButton
+                  Icon={Info}
+                  label={COPY.optionFigures.rangeLegend(rangeAppetite)}
+                  expanded={rangeInfoOpen}
+                  onClick={() => setRangeInfoOpen((open) => !open)}
+                  testId={`${testId}-range-info`}
+                />
+              </span>
+            ) : null}
           </div>
           {COMPARISON_LENSES.filter((arm) => !lensAvailability[arm]).map((arm) => (
             <span
@@ -633,6 +654,93 @@ export function OptionsComparison({
               {LENS_COPY.goalLocked}
             </span>
           ))}
+        </div>
+      ) : null}
+
+      {/* ⭐⭐ THE AXIS, AND THE SENTENCE THE RANGES EXIST FOR, BEHIND ITS INFO
+          BUTTON (V2). "Where ranges overlap, treat the order as unsettled" is
+          the one line that tells a reader when NOT to trust the order; it is
+          now the info button's accessible name and tooltip, and its click
+          discloses the same sentence inline (a tooltip alone does not reach a
+          touch reader) together with the range-arm control.
+
+          ⚠ THE NAME IS A FUNCTION OF THE ARM, because the sentence names the
+          percentile the dot marks. The arm persists while the disclosure is
+          closed, so the name must follow it or it would name p50 over a p90 dot.
+
+          ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn: a
+          legend for something not on screen is furniture.
+
+          ⭐ DESIGN TWEAK C (24 Sep 2026): the button now sits in the lens row
+          above, and what it discloses opens here, directly under that row,
+          rather than at the foot of the list. */}
+      {lens === 'outcome' && rangeScale !== null && rangeInfoOpen ? (
+        <div className="mb-2" data-testid={`${testId}-range-detail`}>
+          <p
+            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+            data-testid={`${testId}-outcome-range-legend`}
+          >
+            {COPY.optionFigures.rangeLegend(rangeAppetite)}
+          </p>
+          <div className="mt-1 flex items-center gap-1 flex-wrap">
+            <span
+              id={`${rangeLensId}-label`}
+              className={`${typography.panelMeta} text-text-light mr-1`}
+            >
+              {COPY.optionFigures.rangeLensLabel}
+            </span>
+            {/* ⚠⚠ THE ARROW KEYS ARE IMPLEMENTED, NOT ASSUMED. `role="radio"`
+                is a PROMISE to a screen-reader user; ARIA supplies the
+                announcement and none of the behaviour. One tab stop, on the
+                selected arm. The tier owns the 24px touch target. */}
+            <div
+              role="radiogroup"
+              aria-labelledby={`${rangeLensId}-label`}
+              className="flex items-center gap-1"
+              data-testid={`${testId}-range-lens`}
+            >
+              {RANGE_LENS_ARMS.map((arm, i) => {
+                const selected = rangeAppetite === arm
+                return (
+                  <button
+                    key={arm}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    tabIndex={selected ? 0 : -1}
+                    onClick={() => setRangeAppetite(arm)}
+                    onKeyDown={(e) => {
+                      const step =
+                        e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                          ? 1
+                          : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                            ? -1
+                            : 0
+                      if (step === 0) return
+                      e.preventDefault()
+                      // Wraps, as a native radio group does.
+                      const next =
+                        RANGE_LENS_ARMS[
+                          (i + step + RANGE_LENS_ARMS.length) % RANGE_LENS_ARMS.length
+                        ]
+                      setRangeAppetite(next)
+                      // Selection FOLLOWS focus, so focus must follow with it.
+                      e.currentTarget.parentElement
+                        ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
+                        ?.focus()
+                    }}
+                    className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                      selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                    }`}
+                    data-arm={arm}
+                    data-testid={`${testId}-range-lens-${arm}`}
+                  >
+                    {COPY.optionFigures.rangeLensArms[arm]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -716,8 +824,43 @@ export function OptionsComparison({
                   >
                     <Sparkles className={`${icon('inline')}`} aria-hidden="true" />
                   </span>
+                ) : o.origin !== null ? (
+                  /* ⭐ DESIGN TWEAK C (24 Sep 2026): ONE OPTION ALONE GETS THE
+                     SAME MARK, NOT A LINE OF ITS OWN. A not-analysed row read as
+                     three stacked lines (reason, link, and "Olumi suggested this
+                     option, you did not name it"); the provenance now rides on
+                     the name as a mark whose words are its tooltip.
+
+                     ⚠ `aria-hidden`, UNLIKE THE SHARED-ORIGIN MARK ABOVE, AND ON
+                     PURPOSE. This mark is inside the name button, whose own
+                     `aria-label` REPLACES its content in the accessible name, so
+                     a label here would reach no screen reader. The sentence is
+                     carried as visually hidden text beside the button instead
+                     (below), which is spoken — once. */
+                  <span
+                    aria-hidden="true"
+                    title={OPTION_ORIGIN_COPY[o.origin]}
+                    data-testid={`${testId}-option-origin-mark-${o.id}`}
+                    className="ml-1 inline-flex align-[-2px] text-text-light"
+                  >
+                    <Sparkles className={`${icon('inline')}`} aria-hidden="true" />
+                  </span>
                 ) : null}
               </button>
+
+              {/* The single-origin sentence, for assistive tech: outside the
+                  button so the button's `aria-label` cannot swallow it. Same
+                  copy constant, same testid, same `data-option-origin` as the
+                  visible line it replaces — only its visibility changed. */}
+              {o.origin !== null && !(sharedOrigin !== null && o.origin === sharedOrigin) ? (
+                <span
+                  className="sr-only"
+                  data-testid={`${testId}-option-origin-${o.id}`}
+                  data-option-origin={o.origin}
+                >
+                  {OPTION_ORIGIN_COPY[o.origin]}
+                </span>
+              ) : null}
 
               {/* ⚠ THE BADGE NAMES WHICH NUMBERLESS STATE THIS IS, and the two
                   are not interchangeable. "Not analysed" says the option was
@@ -832,16 +975,9 @@ export function OptionsComparison({
 
             {/* ⭐⭐ WHOSE IDEA THIS OPTION WAS — ON EVERY ROW, NOT JUST THE
                 LEADER'S. Silent unless the claim is warranted; the same copy
-                constant the glance renders. */}
-            {o.origin !== null && !(sharedOrigin !== null && o.origin === sharedOrigin) ? (
-              <p
-                className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
-                data-testid={`${testId}-option-origin-${o.id}`}
-                data-option-origin={o.origin}
-              >
-                {OPTION_ORIGIN_COPY[o.origin]}
-              </p>
-            ) : null}
+                constant the glance renders. Since design tweak C it is carried
+                by the mark on the name (and, for a screen reader, the hidden
+                sentence beside it), not by a separate line here. */}
 
             {/* ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION, VERBATIM. If the
                 producer sent no sentence, none is shown. */}
@@ -959,100 +1095,6 @@ export function OptionsComparison({
           <Sparkles className={`${icon('inline')} shrink-0`} aria-hidden="true" />
           {OPTION_ORIGIN_COPY[sharedOrigin]}
         </p>
-      ) : null}
-
-      {/* ⭐⭐ THE AXIS, AND THE SENTENCE THE RANGES EXIST FOR, BEHIND ITS INFO
-          BUTTON (V2). "Where ranges overlap, treat the order as unsettled" is
-          the one line that tells a reader when NOT to trust the order; it is
-          now the info button's accessible name and tooltip, and its click
-          discloses the same sentence inline (a tooltip alone does not reach a
-          touch reader) together with the range-arm control.
-
-          ⚠ THE NAME IS A FUNCTION OF THE ARM, because the sentence names the
-          percentile the dot marks. The arm persists while the disclosure is
-          closed, so the name must follow it or it would name p50 over a p90 dot.
-
-          ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn: a
-          legend for something not on screen is furniture. */}
-      {lens === 'outcome' && rangeScale !== null ? (
-        <div className="mt-1 flex items-center justify-end" data-testid={`${testId}-axis`}>
-          <PanelIconButton
-            Icon={Info}
-            label={COPY.optionFigures.rangeLegend(rangeAppetite)}
-            expanded={rangeInfoOpen}
-            onClick={() => setRangeInfoOpen((open) => !open)}
-            testId={`${testId}-range-info`}
-          />
-        </div>
-      ) : null}
-      {lens === 'outcome' && rangeScale !== null && rangeInfoOpen ? (
-        <div data-testid={`${testId}-range-detail`}>
-          <p
-            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-            data-testid={`${testId}-outcome-range-legend`}
-          >
-            {COPY.optionFigures.rangeLegend(rangeAppetite)}
-          </p>
-          <div className="mt-1 flex items-center gap-1 flex-wrap">
-            <span
-              id={`${rangeLensId}-label`}
-              className={`${typography.panelMeta} text-text-light mr-1`}
-            >
-              {COPY.optionFigures.rangeLensLabel}
-            </span>
-            {/* ⚠⚠ THE ARROW KEYS ARE IMPLEMENTED, NOT ASSUMED. `role="radio"`
-                is a PROMISE to a screen-reader user; ARIA supplies the
-                announcement and none of the behaviour. One tab stop, on the
-                selected arm. The tier owns the 24px touch target. */}
-            <div
-              role="radiogroup"
-              aria-labelledby={`${rangeLensId}-label`}
-              className="flex items-center gap-1"
-              data-testid={`${testId}-range-lens`}
-            >
-              {RANGE_LENS_ARMS.map((arm, i) => {
-                const selected = rangeAppetite === arm
-                return (
-                  <button
-                    key={arm}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    tabIndex={selected ? 0 : -1}
-                    onClick={() => setRangeAppetite(arm)}
-                    onKeyDown={(e) => {
-                      const step =
-                        e.key === 'ArrowRight' || e.key === 'ArrowDown'
-                          ? 1
-                          : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
-                            ? -1
-                            : 0
-                      if (step === 0) return
-                      e.preventDefault()
-                      // Wraps, as a native radio group does.
-                      const next =
-                        RANGE_LENS_ARMS[
-                          (i + step + RANGE_LENS_ARMS.length) % RANGE_LENS_ARMS.length
-                        ]
-                      setRangeAppetite(next)
-                      // Selection FOLLOWS focus, so focus must follow with it.
-                      e.currentTarget.parentElement
-                        ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
-                        ?.focus()
-                    }}
-                    className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-                      selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
-                    }`}
-                    data-arm={arm}
-                    data-testid={`${testId}-range-lens-${arm}`}
-                  >
-                    {COPY.optionFigures.rangeLensArms[arm]}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
       ) : null}
     </SectionShell>
   )

@@ -279,16 +279,25 @@ describe('the diverging scale names its two ends differently', () => {
       />,
     )
 
+  /* ⭐ DESIGN TWEAK C (24 Sep 2026): THE SECOND LEGEND WENT, SO THESE CASES
+     BIND TO THE ONE THAT STAYS. The "lowers most / no effect / raises most"
+     row restated the arrows legend directly above it; the product owner read
+     two axis legends over two bars as clutter. The property these cases pin —
+     the two ends are told apart, and each names its own side — is a property
+     of whichever legend the chart draws, so it moved with the legend rather
+     than being deleted with the retired one. */
+  const axisEnds = () =>
+    Array.from(screen.getByTestId(`${CHART_TID}-axis`).children).filter((el) => el.tagName === 'SPAN')
+
   it('the left and right endpoint labels are not the same words', () => {
     // THE WITNESSED DEFECT, stated as a property rather than as two strings:
     // whatever the endpoints are called, they must be distinguishable. Written
     // this way so a later rewording cannot silently re-collapse them.
     renderChart()
-    const scale = screen.getByTestId(`${CHART_TID}-scale`)
-    const ends = Array.from(scale.querySelectorAll('span.w-1\\/2'))
+    const ends = axisEnds()
     // CONTROL: the probe must have found both endpoint spans. Reading zero
     // would make the inequality below vacuously true on an empty array.
-    expect(ends, 'the scale must render two endpoint labels').toHaveLength(2)
+    expect(ends, 'the axis legend must render two endpoint labels').toHaveLength(2)
     const [left, right] = ends.map((el) => (el.textContent ?? '').trim())
     expect(left.length, 'the left endpoint must be labelled').toBeGreaterThan(0)
     expect(right.length, 'the right endpoint must be labelled').toBeGreaterThan(0)
@@ -300,9 +309,7 @@ describe('the diverging scale names its two ends differently', () => {
     // agree with the legend directly above them, or the chart contradicts
     // itself. Bound to the shared direction words, not to new strings.
     renderChart()
-    const ends = Array.from(
-      screen.getByTestId(`${CHART_TID}-scale`).querySelectorAll('span.w-1\\/2'),
-    ).map((el) => (el.textContent ?? '').toLowerCase())
+    const ends = axisEnds().map((el) => (el.textContent ?? '').toLowerCase())
     expect(ends).toHaveLength(2)
     expect(ends[0]).toContain('lower')
     expect(ends[1]).toContain('raise')
@@ -359,13 +366,13 @@ describe('the diverging scale names its two ends differently', () => {
     expect(label, 'no truncating label left to contrast the prose rule against').not.toBeNull()
   })
 
-  it('DISCRIMINATOR: the scale still refuses to assert a share of the outcome', () => {
+  it('DISCRIMINATOR: the axis legend still refuses to assert a share of the outcome', () => {
     // Inherited from `driverChartHasAScale.spec.tsx` and restated here because
     // the endpoints are being reworded: "raises 40% of the outcome" is the
     // easiest thing to reach for while renaming them, and it is the one claim
     // neither basis licenses (`buildAnalysisNewViewModel`'s `strongest`).
     renderChart()
-    const text = screen.getByTestId(`${CHART_TID}-scale`).textContent ?? ''
+    const text = screen.getByTestId(`${CHART_TID}-axis`).textContent ?? ''
     expect(text, `the scale must not assert a percentage: "${text}"`).not.toMatch(/\d\s*%/)
     expect(text).not.toMatch(/share|of the outcome|total/i)
   })

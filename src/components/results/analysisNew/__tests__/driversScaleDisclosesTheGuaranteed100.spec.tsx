@@ -354,15 +354,18 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
     expect(scale, 'the scale denial must render').not.toBeNull()
     expect(scale!.textContent ?? '', 'the scale note rendered empty').not.toBe('')
     expect(scale!).toHaveTextContent(SCALE_IS_RELATIVE)
-    // ⭐ ON THE TOP ROW, NOT ANYWHERE IN THE SECTION. The clause is about ONE
-    // row's figure; a union assertion would pass with it on the wrong row.
-    expect(topRow, 'the guarantee must render on the top row').not.toBeNull()
+    // ⭐ DESIGN TWEAK C (24 Sep 2026): IN THE CHART'S ONE CAPTION, BESIDE THE
+    // SCALE SENTENCE, AND NO LONGER UNDER THE FIRST BAR. The product owner read
+    // a legend, a second legend, a scale sentence AND a clause under bar one as
+    // clutter. The clause names its own subject ("the top driver" / "the top
+    // bar"), so it does not need a row to be about; what it must not do is
+    // leave the chart, or sit apart from the scale sentence it completes.
+    expect(topRow, 'the guarantee must render').not.toBeNull()
     expect(topRow!).toHaveTextContent(HUNDRED_IS_GUARANTEED)
-    expect(
-      screen.getAllByTestId(`${SECTION}-row`)[0]!.contains(topRow!) ||
-        screen.getAllByTestId('analysis-new-driver-chart-row')[0]!.contains(topRow!),
-      'the clause must sit on the FIRST row, which is the row it is about',
-    ).toBe(true)
+    const caption = screen.getByTestId('analysis-new-driver-chart-caption')
+    expect(caption.contains(topRow!), 'the clause must sit in the chart caption').toBe(true)
+    expect(caption.contains(scale!), 'beside the scale sentence it completes').toBe(true)
+    expect(topRow!.closest('li'), 'and on no single row').toBeNull()
     // ⭐ BOUND TO THE NUMBER THE SENTENCE IS ABOUT. Without this the case
     // passes on any run at all, which is how the false promise survived.
     expect(
@@ -555,12 +558,17 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
       ).not.toBe('true')
       node = node.parentElement
     }
-    // CONTRAST IN THE SAME RUN: the legend directly above it IS hidden, so this
-    // is a discrimination between two adjacent nodes and not a probe that
-    // cannot find `aria-hidden` anywhere.
+    // CONTRAST IN THE SAME RUN: the bar graphic in the same chart IS hidden, so
+    // this is a discrimination between two nodes of one chart and not a probe
+    // that cannot find `aria-hidden` anywhere. (It was the scale legend until
+    // design tweak C removed that legend as a restatement of the arrows line.)
+    const barGraphic = screen
+      .getAllByTestId('analysis-new-driver-chart-bar')[0]!
+      .querySelector('span[aria-hidden="true"]')
+    expect(barGraphic, 'CONTRAST: the bar graphic must be found').not.toBeNull()
     expect(
-      screen.getByTestId('analysis-new-driver-chart-scale').getAttribute('aria-hidden'),
-      'CONTRAST: the scale legend is hidden, which is what makes the above meaningful',
+      barGraphic!.getAttribute('aria-hidden'),
+      'CONTRAST: the bar graphic is hidden, which is what makes the above meaningful',
     ).toBe('true')
   })
 

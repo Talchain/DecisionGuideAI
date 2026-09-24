@@ -4,9 +4,13 @@
  * rest, and nothing at all when the run gave nothing grounded.
  *
  * ⛔ THIS FILE SELECTS NOTHING AND WORDS NOTHING ABOUT THE RUN. Which rows
- * appear, in what order, with which ids, is `buildReasoningSignals`; every
- * sentence is the view model's or an existing copy owner's. Read that module's
- * header before changing what shows here.
+ * appear, with which ids, is `buildReasoningSignals`; every sentence is the
+ * view model's or an existing copy owner's. Read that module's header before
+ * changing what shows here.
+ *
+ * ⚠ ONE PRESENTATION EXCEPTION: THE DISPLAY ORDER OF THE THREE DRIVER ROWS.
+ * See `byProducerRank` below — it re-orders the rows the builder selected by
+ * the rank each row already prints, and changes nothing else.
  *
  * ⚠ NO PERCENTAGE ANYWHERE. The bar is `fraction` (magnitude / strongest in
  * this run), a rank comparison. The scale note that says so is reachable from
@@ -24,7 +28,7 @@ import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 import type { AnalysisNewViewModel } from '../analysisNewTypes'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelFigure } from '../PanelFigure'
-import { buildReasoningSignals, type FlipThresholdRow } from '../reasoningSignals'
+import { buildReasoningSignals, type FlipThresholdRow, type SignalDriverRow } from '../reasoningSignals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 
 export interface ReasoningSignalsProps {
@@ -40,6 +44,44 @@ export interface ReasoningSignalsProps {
   /** Receives an `openAskOlumi` payload; the body passes `openAskOlumi`. */
   onAsk?: (payload: AskOlumiPayload) => void
   testId?: string
+}
+
+/**
+ * ⭐⭐ THE DRIVER ROWS READ IN THE ORDER OF THE NUMBER THEY PRINT (design
+ * tweak C, 24 Sep 2026).
+ *
+ * WHY THEY WERE OUT OF ORDER. `buildReasoningSignals` takes the first three of
+ * `vm.drivers.influenceRows`, which the builder sorts by `displayInfluence`
+ * (this run's magnitude). The number each row prints is the PRODUCER's rank
+ * (`influenceRank ?? rank`, via the finding's `Rank` inspect row). Those are
+ * two different quantities, and on the served run they disagreed for the
+ * lower two rows — so the zone printed "#1, #4, #3", a numbered list whose
+ * numbers go backwards. A reader takes a numbered list to be in number order,
+ * and reads that as broken.
+ *
+ * WHAT THIS DOES: sorts the SELECTED rows by that same printed rank, ascending,
+ * so the list reads "#1, #3, #4". Stable, so rows with equal ranks keep the
+ * builder's order; a row with no usable rank goes last, in builder order.
+ *
+ * ⛔ WHAT IT DOES NOT DO:
+ *   · RENUMBER. The rank stays the producer's. A gap (here #2) stays a gap:
+ *     that factor is controlled by the options, and the Drivers section's
+ *     "not ranked here" line says so — the honest reading of the gap.
+ *   · RESELECT. Which three rows appear is still the builder's decision.
+ *   · RESCALE. Each bar keeps its own `fraction`; rows move whole. Where rank
+ *     and magnitude disagree, the bars will not shrink monotonically down the
+ *     list — which is the same disagreement the old order showed through the
+ *     numbers, now shown through the bars, where it is not read as an error.
+ */
+function byProducerRank(rows: readonly SignalDriverRow[]): SignalDriverRow[] {
+  const rankOf = (row: SignalDriverRow): number => {
+    const n = row.rank === null ? NaN : Number(row.rank)
+    return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
+  }
+  return rows
+    .map((row, i) => ({ row, i, rank: rankOf(row) }))
+    .sort((a, b) => (a.rank === b.rank ? a.i - b.i : a.rank - b.rank))
+    .map(({ row }) => row)
 }
 
 interface RowActionsProps {
@@ -82,7 +124,8 @@ export function ReasoningSignals({
   const [scaleOpen, setScaleOpen] = useState(false)
   const signals = buildReasoningSignals(vm, flipThresholds)
   if (!signals) return null
-  const { drivers, tipping, gap } = signals
+  const { tipping, gap } = signals
+  const drivers = byProducerRank(signals.drivers)
   const scaleNoteId = `${testId}-scale-note`
 
   return (

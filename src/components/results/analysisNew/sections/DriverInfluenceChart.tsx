@@ -83,7 +83,8 @@ export interface DriverInfluenceChartProps {
    *
    * ⛔ IT DOES NOT MOVE BEHIND A DISCLOSURE. A caveat that does not travel with
    * its number stops being a caveat. It moves ONTO the thing it qualifies: this
-   * sentence denies a reading of the SCALE, so it belongs under the scale.
+   * sentence denies a reading of the SCALE, so it belongs with the bars — since
+   * design tweak C (24 Sep 2026), as their caption, directly under them.
    *
    * ⚠ THE CALLER OWNS THE WORDS. This component never composes the sentence —
    * it is `analysisNewCopy`'s, and `driversSeamSaysOneThing` bans a second
@@ -91,12 +92,14 @@ export interface DriverInfluenceChartProps {
    */
   scaleNote?: string | null
   /**
-   * ⭐ THE CLAUSE ABOUT THE TOP BAR'S FIGURE, ATTACHED TO THE TOP BAR.
+   * ⭐ THE CLAUSE ABOUT THE TOP BAR'S FIGURE.
    *
-   * ⚠ AND IT IS A CLAIM ABOUT ONE ROW, WHICH IS WHY IT MOVED. Above the chart
-   * it read as a property of the chart; it is a property of the FIRST row, and
-   * it is the row a reader is most likely to over-read. Rendered on that row
-   * and nowhere else.
+   * ⚠ SUPERSEDED PLACEMENT, RECORDED RATHER THAN ERASED. This was rendered on
+   * the FIRST row, as a claim about that row. Design tweak C (24 Sep 2026)
+   * moved it into the chart's one caption, beside `scaleNote`: the product
+   * owner read a clause under bar one plus a sentence and two legends above
+   * the bars as clutter, and the clause's words name their own subject ("The
+   * top driver …"), so it reads correctly without a row to sit on.
    */
   topRowNote?: string | null
   testId: string
@@ -199,69 +202,27 @@ export function DriverInfluenceChart({
         </span>
       </div>
 
-      {/* ⚠⚠ THE SCALE, WHICH THE CHART SHIPPED WITHOUT. Direction was named and
-          magnitude was not, so a bar's length and position were unreadable:
-          nothing said what the outer edge or the centre meant.
+      {/* ⭐⭐ DESIGN TWEAK C (24 Sep 2026): ONE AXIS LEGEND. A second, aria-hidden
+          legend used to sit here — "lowers most / no effect / raises most" —
+          added when the chart named its directions but not its scale (Paul,
+          deployed `a9c2e050`). The product owner then read the stack above two
+          bars — arrows legend, that second legend, the scale sentence, and a
+          clause under the first bar — as "a mess": two axis legends and three
+          explanations.
 
-          It is NOT a 0-100% axis, deliberately. The bars are scaled to the
-          strongest driver in this run, so a percentage axis would assert a
-          share of the outcome — the exact claim the builder refuses to make
-          (`buildAnalysisNewViewModel.ts:555-557`). Naming the two real points
-          is the only scale this data supports.
+          What the second legend answered is still answered, once each:
+          · the OUTER EDGE ("… most") — the caption under the bars says it in
+            words: influence is relative to the strongest factor in this run;
+          · the CENTRE ("no effect") — the zero line between the two sides of
+            the arrows legend, drawn in its own ink (see the zero line below);
+          · NO PERCENTAGE AXIS — unchanged, and still the one claim the basis
+            does not license (`buildAnalysisNewViewModel`'s `strongest`).
 
-          `aria-hidden` for the same reason the bars are: it is a legend for a
-          graphic that is itself hidden, so announcing "most" / "none" / "most"
-          would name the endpoints of something assistive tech never receives.
-
-          ⚠ A CORRECTION TO THIS COMMENT'S OWN FIRST DRAFT, which said the
-          scale is "a redraw of `data-fraction` and of the sorted order, both
-          of which a screen reader already has". THE `data-fraction` HALF IS
-          FALSE: `data-*` attributes carry no accessibility semantics and take
-          no part in accessible-name or accessible-description computation, so
-          no screen reader has it. Measured on a two-row render, not inferred:
-          each bar button's accessible name is the factor LABEL alone, with
-          `aria-label`, `aria-valuenow`, `aria-valuetext`, `aria-describedby`
-          and `role` all null, while `data-fraction` read 100 and 60. What AT
-          actually receives from this chart is the label and the LIST ORDERING
-          — rank, never magnitude. Hiding the scale is still right; the reason
-          above is the true one. The false version mattered because it is the
-          sentence a successor reads before deciding whether magnitude needs an
-          `aria-valuetext` — and it says the answer is already there. It is
-          not. Whether to add one is open, and is not decided here. */}
-      <div
-        className={`${typography.panelMeta} text-text-light flex items-center mb-1 px-0.5`}
-        data-testid={`${testId}-scale`}
-        aria-hidden="true"
-      >
-        {/* ⚠ TWO STRINGS, NOT ONE RENDERED TWICE. Both ends read "strongest
-            this run" until `e15416ad`, so the scale's two poles were labelled
-            identically and discriminated nothing. The words are the legend's
-            own verbs, so the two rows agree by construction; the LEFT span must
-            stay the lowering side, because it sits under the legend's left
-            arrow and the bars extend leftwards for `negative`. */}
-        <span className="w-1/2 text-left">{COPY.driverChart.axisEdgeLowers}</span>
-        <span className="text-center whitespace-nowrap px-1">{COPY.driverChart.axisCentre}</span>
-        <span className="w-1/2 text-right">{COPY.driverChart.axisEdgeRaises}</span>
-      </div>
-
-      {/* ⭐⭐ THE SCALE DENIAL, UNDER THE SCALE IT DENIES A READING OF.
-          ⛔ NOT `aria-hidden`, and that is the one difference from the row
-          above it. The scale legend is hidden because it labels the endpoints
-          of a graphic assistive tech never receives; this is a sentence in
-          words qualifying a claim everyone is making, so hiding it would
-          withhold the qualification from exactly the readers who cannot see
-          the bars at all. */}
-      {scaleNote !== null && scaleNote !== undefined && scaleNote !== '' ? (
-        <p
-          className={`${typography.panelMeta} text-text-light mb-1.5 px-0.5`}
-          data-testid={`${testId}-scale-note`}
-        >
-          {scaleNote}
-        </p>
-      ) : null}
+          `COPY.driverChart.axisEdge*` / `axisCentre` stay in the copy owner;
+          `driverChartHasAScale.spec.tsx` binds the absence to them. */}
 
       <ul className="space-y-1">
-        {rows.map((row, rowIndex) => {
+        {rows.map((row) => {
           const isEditing = editingFor === row.id
           /* ⚠ A SEPARATE DISCLOSURE FROM `isEditing`, NOT A REUSE OF IT. The
              row's own expand gesture already means "edit this value"; reading
@@ -320,7 +281,13 @@ export function DriverInfluenceChart({
                     `data-fraction`", and the scale comment above inherited the
                     clause from here. It is false — `data-*` has no
                     accessibility semantics, so `data-fraction` reaches no
-                    screen reader; see the measurement recorded on the scale.
+                    screen reader. Measured on a two-row render: each bar
+                    button's accessible name is the factor LABEL alone, with
+                    `aria-label`, `aria-valuenow`, `aria-valuetext`,
+                    `aria-describedby` and `role` all null, while
+                    `data-fraction` read 100 and 60. (This measurement was
+                    recorded on the second scale legend, which design tweak C
+                    removed; it is kept here with the bar it is about.)
                     The ordering half is true and is the whole justification.
                     Consequence, stated rather than hidden: AT gets the RANK of
                     each driver and never its MAGNITUDE. */}
@@ -406,21 +373,6 @@ export function DriverInfluenceChart({
                 ) : null}
               </button>
 
-              {/* ⭐⭐ THE "FULL WIDTH" CLAUSE, ON THE ROW IT IS ABOUT.
-                  ⚠ BOUND BY POSITION, NOT BY A VALUE PREDICATE (trap 19). The
-                  claim is about whichever row is drawn FIRST — the one whose
-                  bar reaches the edge because the scale is relative to it — so
-                  it binds to index 0 and never to "the row whose fraction is
-                  100", which a second row could satisfy after a rescale. */}
-              {rowIndex === 0 && topRowNote !== null && topRowNote !== undefined && topRowNote !== '' ? (
-                <p
-                  className={`${typography.panelMeta} text-text-light mt-0.5`}
-                  data-testid={`${testId}-top-row-note`}
-                >
-                  {topRowNote}
-                </p>
-              ) : null}
-
               {/* ⭐ DESIGN PICK C2 — TRUNCATE AND DISCLOSE, NEVER REWRITE.
                   Outside the row `<button>` because a nested button is invalid
                   markup, and the row's own press means "edit the value".
@@ -505,6 +457,40 @@ export function DriverInfluenceChart({
           )
         })}
       </ul>
+
+      {/* ⭐⭐ THE CAPTION — ONE, UNDER THE BARS (design tweak C, 24 Sep 2026).
+          The scale sentence and the top-bar clause used to live apart: the
+          first between two legends above the bars, the second under row 0.
+          Both qualify the SAME thing — what a bar's length means — so they are
+          read together, as the figure's caption.
+
+          ⚠ THE TOP-BAR CLAUSE LEFT ROW 0 AND IS STILL ABOUT ROW 0. Its words
+          name their own subject ("The top driver …" / "The top bar …"), so it
+          no longer needs a row to be bound to. It stays nullable exactly as
+          before: the caller withholds it on a basis with no figure, and swaps
+          it when the producer's strongest row was filtered out.
+
+          ⛔ NOT `aria-hidden`. This is a sentence in words qualifying a claim
+          everyone is making; hiding it would withhold the qualification from
+          exactly the readers who cannot see the bars at all.
+
+          ⚠ THE CALLER STILL OWNS BOTH SENTENCES. This component composes
+          neither; it only decides where they sit. */}
+      {hasText(scaleNote) || hasText(topRowNote) ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1.5 mb-0 px-0.5`}
+          data-testid={`${testId}-caption`}
+        >
+          {hasText(scaleNote) ? <span data-testid={`${testId}-scale-note`}>{scaleNote}</span> : null}
+          {hasText(scaleNote) && hasText(topRowNote) ? ' ' : null}
+          {hasText(topRowNote) ? <span data-testid={`${testId}-top-row-note`}>{topRowNote}</span> : null}
+        </p>
+      ) : null}
     </div>
   )
+}
+
+/** A caption slot is filled only by a non-empty string. */
+function hasText(v: string | null | undefined): v is string {
+  return v !== null && v !== undefined && v !== ''
 }

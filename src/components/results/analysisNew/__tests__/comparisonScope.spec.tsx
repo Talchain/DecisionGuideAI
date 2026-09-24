@@ -734,3 +734,57 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     )
   })
 })
+
+/**
+ * ⭐ DESIGN TWEAK C (24 Sep 2026): THE LIST DOES NOT REPEAT A SENTENCE THAT
+ * ALREADY NAMES EVERY LEFT-OUT OPTION.
+ *
+ * Served: "Comparing 2 of your 3 options. Delay Rise After Release was left
+ * out." and directly under it "• Delay Rise After Release. Not analysed". The
+ * bullet restated the sentence for a sighted reader.
+ *
+ * ⚠ HIDDEN FROM SIGHT, NOT DELETED. The rows carry one thing the sentence does
+ * not: each option's not-analysed REASON (sr-only text and tooltip). Removing
+ * the rows would delete that disclosure from the glance, so the list stays in
+ * the accessibility tree and leaves only the visual layout.
+ */
+describe('6 · the bullet list is not drawn when the sentence names every left-out option', () => {
+  const list = () =>
+    screen.getAllByTestId('analysis-new-glance-excluded-option')[0]!.closest('ul')!
+  const outOf = (n: number) => [
+    option({ id: 'o_kept', label: 'The one that was analysed', winProbability: 0.6 }),
+    ...Array.from({ length: n }, (_, i) =>
+      option({ id: `o_out_${i}`, label: `Excluded option ${i}`, notAnalysed: true, notAnalysedReason: 'not_returned' }),
+    ),
+  ]
+  const mountWith = (opts: OptionResult[]) =>
+    render(<AtAGlance isRunning={false} reanalyseBlocked={false} reanalyseBlockedReason={null} glance={glanceOf(withOptions(opts))} />)
+
+  it('RED-FIRST: one option left out and named in the sentence: the list is visually hidden', () => {
+    mountWith(THREE_OPTIONS_TWO_ANALYSED)
+    const scope = deriveComparisonScope(THREE_OPTIONS_TWO_ANALYSED)!
+    // PRECONDITION: the sentence really does name the option by its label.
+    expect(screen.getByTestId('comparison-scope-note-analysisNew')).toHaveTextContent(
+      COMPARISON_SCOPE_COPY.sentence(scope),
+    )
+    expect(COMPARISON_SCOPE_COPY.sentence(scope)).toContain('Hybrid: In-house core plus 3PL overflow')
+    expect(list()).toHaveClass('sr-only')
+    // Nothing is taken from a screen reader: the row and its reason stay.
+    expect(screen.getByTestId('analysis-new-glance-excluded-option')).toHaveTextContent(
+      notAnalysedReasonCopy('not_returned'),
+    )
+  })
+
+  it('two left out, both named (at the cap): hidden too', () => {
+    mountWith(outOf(EXCLUDED_OPTION_VISIBLE_CAP))
+    expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(EXCLUDED_OPTION_VISIBLE_CAP)
+    expect(list()).toHaveClass('sr-only')
+  })
+
+  it('CONTRAST: more left out than the sentence names ("and 1 other"): the list IS drawn', () => {
+    mountWith(outOf(EXCLUDED_OPTION_VISIBLE_CAP + 1))
+    const scope = deriveComparisonScope(outOf(EXCLUDED_OPTION_VISIBLE_CAP + 1))!
+    expect(COMPARISON_SCOPE_COPY.sentence(scope), 'PRECONDITION: the sentence is partial').toMatch(/other/)
+    expect(list()).not.toHaveClass('sr-only')
+  })
+})

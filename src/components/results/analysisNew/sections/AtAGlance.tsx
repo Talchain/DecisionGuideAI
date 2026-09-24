@@ -141,6 +141,31 @@ function reassuranceIsStale(tone: string, isStale: boolean): boolean {
  */
 export const EXCLUDED_OPTION_VISIBLE_CAP = EXCLUDED_LABEL_NAME_CAP
 
+/**
+ * Does the scope sentence above the list already name EVERY option that was
+ * left out, by the same label the list would print? (Design tweak C.)
+ *
+ * ⚠ READ OFF THE SENTENCE'S OWN INPUTS, AND FAIL TOWARD DRAWING THE LIST.
+ * `COMPARISON_SCOPE_COPY.excludedClause` names
+ * `excludedLabels.slice(0, min(EXCLUDED_LABEL_NAME_CAP, total - analysed))`
+ * and appends "N other(s)" for any remainder. So the sentence names everyone
+ * exactly when every missing option is nameable within that cap. Beyond the
+ * arithmetic, every row the list would draw must be named by that exact label
+ * — identity, not a count — so a label mismatch (trimmed, blank, or a node id
+ * the scope refused to print) keeps the list on screen rather than hiding an
+ * option the sentence never named.
+ */
+function sentenceNamesEveryExcluded(partial: {
+  scope: { analysed: number; total: number; excludedLabels: readonly string[] }
+  excluded: ReadonlyArray<{ label: string }>
+}): boolean {
+  const missing = partial.scope.total - partial.scope.analysed
+  if (missing <= 0 || missing > EXCLUDED_LABEL_NAME_CAP) return false
+  const named = partial.scope.excludedLabels.slice(0, missing)
+  if (named.length !== missing || partial.excluded.length !== missing) return false
+  return partial.excluded.every((o) => named.includes(o.label))
+}
+
 export interface AtAGlanceProps {
   glance: AtAGlanceModel
   onFocusTarget?: (targetId: string) => void
@@ -1205,7 +1230,25 @@ export function AtAGlance({
             surface="analysisNew"
             withDetail={glance.comparativeClaim === 'value'}
           />
-          <ul className="mt-1 space-y-0.5 list-none p-0 m-0">
+          {/* ⭐ DESIGN TWEAK C (24 Sep 2026): NOT DRAWN WHEN THE SENTENCE
+              ALREADY NAMES EVERY LEFT-OUT OPTION. Served: "Comparing 2 of your
+              3 options. Delay Rise After Release was left out." then, directly
+              under it, "• Delay Rise After Release. Not analysed" — the same
+              option named twice in two lines. See `sentenceNamesEveryExcluded`.
+
+              ⚠ HIDDEN FROM SIGHT, NOT REMOVED FROM THE PAGE. Each row carries
+              the one thing the sentence does not: the option's not-analysed
+              REASON (the `sr-only` text below). Deleting the rows would delete
+              that disclosure from the glance, which is a semantics change this
+              layout tweak may not make; `sr-only` removes only the visual
+              repetition. Where the sentence names fewer than were left out
+              ("… and 1 other"), the list is drawn exactly as before. */}
+          <ul
+            className={`mt-1 space-y-0.5 list-none p-0 m-0${
+              sentenceNamesEveryExcluded(partialScope) ? ' sr-only' : ''
+            }`}
+            data-testid={`${testId}-excluded-list`}
+          >
             {(showAllExcluded
               ? partialScope.excluded
               : partialScope.excluded.slice(0, EXCLUDED_OPTION_VISIBLE_CAP)

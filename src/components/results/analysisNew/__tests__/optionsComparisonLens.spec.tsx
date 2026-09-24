@@ -316,6 +316,32 @@ describe('the range explanation left the resting view', () => {
     expect(screen.getByTestId(`${T}-outcome-range-opt_a-marker`).getAttribute('data-mark-at')).toBe('60')
   })
 
+  /*
+   * ⭐ DESIGN TWEAK C (24 Sep 2026): THE (i) SITS BY THE LENS IT EXPLAINS. It
+   * rendered alone at the bottom-right of the comparison, far from the range
+   * dots and lines it explains and from the control that switches them on. It
+   * now sits inline with the lens control; same button, same name.
+   */
+  it('RED-FIRST (tweak C): the range info button sits inline with the lens control, and discloses beside it', () => {
+    renderRun(dataFor({ goals: false }))
+    const lensControl = screen.getByTestId(`${T}-lens-control`)
+    const info = screen.getByTestId(`${T}-range-info`)
+    expect(lensControl.contains(info), 'the (i) sits with the lens control').toBe(true)
+    // It is NOT inside the radio group: it is not a lens.
+    expect(within(screen.getByTestId(`${T}-lens`)).queryByTestId(`${T}-range-info`)).toBeNull()
+    // Same tooltip text as before the move.
+    expect(info).toHaveAccessibleName(COPY.optionFigures.rangeLegend('middle'))
+    // And what it discloses opens above the rows, next to the button, not at
+    // the foot of the list.
+    fireEvent.click(info)
+    const detail = screen.getByTestId(`${T}-range-detail`)
+    const rows = screen.getByTestId(`${T}-rows`)
+    expect(
+      detail.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the disclosed legend precedes the rows',
+    ).toBeTruthy()
+  })
+
   it('no info button under the Goal fit lens — a legend for a drawing not on screen is furniture', () => {
     renderRun(dataFor({}))
     expect(lensArm('goal'), 'PRECONDITION').toHaveAttribute('aria-checked', 'true')

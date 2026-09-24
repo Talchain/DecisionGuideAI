@@ -71,6 +71,25 @@ const threeWithheldOfFive = () =>
 
 const driverRows = () => screen.getAllByTestId('analysis-new-signals-driver')
 
+/**
+ * The served shape (design tweak C, 24 Sep 2026): one factor controlled by the
+ * options (rank #2, suppressed), and the survivors' producer ranks DISAGREE
+ * with their `displayInfluence` order. The builder sorts by magnitude, so the
+ * zone printed "#1, #4, #3" — producer ranks in magnitude order.
+ */
+const rankDisagreesWithMagnitude = () =>
+  makeData({
+    drivers: {
+      driversStatus: 'computed',
+      drivers: [
+        makeDriver({ factorKey: 'f_one', factorLabel: 'One', rank: 1, displayInfluence: 1 }),
+        makeDriver({ factorKey: 'f_pin', factorLabel: 'Pinned', rank: 2, displayInfluence: 0.9, zeroReason: 'intervention_override' }),
+        makeDriver({ factorKey: 'f_four', factorLabel: 'Four', rank: 4, displayInfluence: 0.6 }),
+        makeDriver({ factorKey: 'f_three', factorLabel: 'Three', rank: 3, displayInfluence: 0.3 }),
+      ],
+    },
+  })
+
 describe('drivers: the top three, the producer’s rank, a bar and no percentage', () => {
   it('shows exactly the top three by influence, in the view model’s order', () => {
     const vm = vmOf(fourDrivers())
@@ -111,6 +130,32 @@ describe('drivers: the top three, the producer’s rank, a bar and no percentage
     render(<ReasoningSignals vm={vm} flipThresholds={null} />)
     const ranks = screen.getAllByTestId('analysis-new-signals-driver-rank').map((r) => r.textContent)
     expect(ranks).toEqual(['#3', '#5'])
+  })
+
+  it('RED-FIRST (tweak C): rows read in producer-rank order, #1 #3 #4 — never #1 #4 #3, never renumbered', () => {
+    const vm = vmOf(rankDisagreesWithMagnitude())
+    // PRECONDITIONS, in-test: the builder's order is by magnitude and it
+    // DISAGREES with the producer's ranks, and one rank is really withheld.
+    expect(vm.drivers.influenceRows.map((r) => r.id)).toEqual(['f_one', 'f_four', 'f_three'])
+    expect(vm.drivers.suppressedZeroCount).toBe(1)
+    render(<ReasoningSignals vm={vm} flipThresholds={null} />)
+    // Bound by IDENTITY: each factor id carries its own producer rank.
+    expect(driverRows().map((r) => r.getAttribute('data-factor-id'))).toEqual(['f_one', 'f_three', 'f_four'])
+    const ranks = screen.getAllByTestId('analysis-new-signals-driver-rank').map((r) => r.textContent)
+    // The gap at #2 stays: that factor is controlled by the options, and the
+    // Drivers section's "not ranked here" line says so. Never renumbered.
+    expect(ranks).toEqual(['#1', '#3', '#4'])
+  })
+
+  it('reordering moves whole rows: each bar keeps its OWN fraction, bound by factor id', () => {
+    const vm = vmOf(rankDisagreesWithMagnitude())
+    render(<ReasoningSignals vm={vm} flipThresholds={null} />)
+    const byId = new Map(vm.drivers.influenceRows.map((r) => [r.id, r.fraction * 100]))
+    for (const row of driverRows()) {
+      const id = row.getAttribute('data-factor-id')!
+      const fill = within(row).getByTestId('analysis-new-signals-driver-bar-fill')
+      expect(parseFloat(fill.style.width), `${id} bar`).toBeCloseTo(byId.get(id)!, 6)
+    }
   })
 
   it('CONTRAST: with nothing withheld the top driver reads #1', () => {
