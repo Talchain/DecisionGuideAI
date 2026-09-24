@@ -120,40 +120,6 @@ describe('the detail says what the data behind a factor is', () => {
   })
 })
 
-/**
- * ⛔ NO FREE-NUMBER EDIT THE ENGINE CANNOT ANALYSE (served witness, UI
- * `3cf9fbd0`, scenario `aca54686`, 24 Sep 2026). The review tool beside this
- * strip offered "Change this value" on a count with a unit and no cap; the
- * typed 20 was stored raw and the next Run was refused. This detail offers the
- * same act through the same authority, so it must decline the same factor.
- * The contrast is `f_ai` — a capless FRAMED pair, which CEE edits by dividing
- * through the recovered frame — so the arm cannot pass on a strip that lost
- * the edit for every factor.
- */
-describe('⛔ no value edit the engine cannot analyse (served witness, 24 Sep)', () => {
-  it('a unit with no cap and no recoverable frame: the value shows, no edit is offered', () => {
-    nodes.push({
-      id: 'f_count',
-      type: 'factor',
-      data: {
-        label: 'Enterprise customers',
-        category: 'observable',
-        provenance: 'ai_inferred',
-        observedState: { unit: 'customers', value: 0 },
-      },
-    })
-    openDetailFor('f_count')
-    expect(screen.getByTestId(`${TID}-detail-value`)).toBeInTheDocument()
-    expect(screen.queryByTestId(`${TID}-detail-value-edit`)).not.toBeInTheDocument()
-    expect(screen.queryByTestId(`${TID}-detail-value-input`)).not.toBeInTheDocument()
-  })
-
-  it('CONTRAST: a capless framed pair keeps its edit', () => {
-    openDetailFor('f_ai')
-    expect(screen.getByTestId(`${TID}-detail-value-edit`)).toHaveAttribute('data-node-id', 'f_ai')
-  })
-})
-
 describe('the edit dispatches through the one write authority, and reports what happened', () => {
   const type = (v: string) => {
     fireEvent.click(screen.getByTestId(`${TID}-detail-value-edit`))

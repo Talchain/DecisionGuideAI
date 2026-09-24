@@ -57,8 +57,6 @@
 import { useId, useState } from 'react'
 import { ArrowLeft, ArrowRight, Minus } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
-import { useCanvasStore } from '../../../../canvas/store'
-import { freeValueEditIsUnanalysable } from '../../../../canvas/conversation/factorValueEdit'
 import { useFactorValueCommit } from '../useFactorValueCommit'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
@@ -169,25 +167,6 @@ export function DriverInfluenceChart({
   const claimRegionId = useId()
   const [draft, setDraft] = useState('')
   const { commit } = useFactorValueCommit(editingFor)
-  /**
-   * ⛔ THE ROWS WHOSE TYPED NUMBER THE ENGINE COULD NOT ANALYSE — no editor on
-   * them. Witnessed live 24 Sep 2026 on the review tool: a count with a unit and
-   * no cap stored the typed 20 raw and the next Run was refused. This chart
-   * offers the same act through the same authority, so it asks the same
-   * question (`freeValueEditIsUnanalysable`, imported). Such a row still
-   * focuses its factor; it just stops inviting the dead end.
-   *
-   * ⚠ A JOINED STRING, NOT A SET — a selector returning a new collection would
-   * re-render this chart on every unrelated store update. Called above the
-   * early return so the hook order never changes.
-   */
-  const withheldKey = useCanvasStore((s) =>
-    (s.nodes ?? [])
-      .filter((n) => freeValueEditIsUnanalysable(n.data))
-      .map((n) => n.id)
-      .join('|'),
-  )
-  const editWithheld = new Set(withheldKey === '' ? [] : withheldKey.split('|'))
 
   if (rows.length === 0) return null
 
@@ -283,8 +262,7 @@ export function DriverInfluenceChart({
 
       <ul className="space-y-1">
         {rows.map((row, rowIndex) => {
-          const canEdit = !editWithheld.has(row.id)
-          const isEditing = canEdit && editingFor === row.id
+          const isEditing = editingFor === row.id
           /* ⚠ A SEPARATE DISCLOSURE FROM `isEditing`, NOT A REUSE OF IT. The
              row's own expand gesture already means "edit this value"; reading
              what a factor is called must not require entering an editor, and
@@ -310,14 +288,11 @@ export function DriverInfluenceChart({
                     setEditingFor(null)
                     return
                   }
-                  if (canEdit) {
-                    setEditingFor(row.id)
-                    setDraft('')
-                  }
+                  setEditingFor(row.id)
+                  setDraft('')
                   if (row.targetId) onFocusTarget?.(row.targetId)
                 }}
-                // No editor to disclose on a withheld row, so no expanded state.
-                aria-expanded={canEdit ? isEditing : undefined}
+                aria-expanded={isEditing}
                 className="w-full text-left rounded px-1 py-0.5 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
                 data-testid={`${testId}-bar`}
                 data-direction={row.direction ?? 'none'}
