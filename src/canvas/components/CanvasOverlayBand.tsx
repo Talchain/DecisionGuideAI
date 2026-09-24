@@ -117,7 +117,17 @@ export type OverlayCell = 'bottom-left' | 'bottom-centre' | 'bottom-right'
  * the same set in both directions.
  */
 export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
-  'bottom-left': ['lens-info-panel'],
+  /**
+   * DESIGN-GAP-AUDIT row 6, 24 Sep 2026 (gap-frame-footer lane):
+   * `canvas-footer-summary` (`CanvasFooterSummary.tsx`) is the contract's
+   * `.canvas-foot` line — node/edge counts plus the "Visual key" link. It
+   * joins the ONE existing claimant here rather than getting its own cell:
+   * `lens-info-panel` is a live, user-invoked disclosure and the footer is a
+   * standing fact about the whole model, so `lens-info-panel` OUTRANKS it —
+   * the same "a control/live-transformation outranks a standing disclosure"
+   * rule `bottom-centre`'s ordering already states and justifies above.
+   */
+  'bottom-left': ['lens-info-panel', 'canvas-footer-summary'],
   'bottom-centre': [
     /**
      * ⭐⭐ THE LIVE TRANSFORMATION OUTRANKS THE STANDING FACT — and this order

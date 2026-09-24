@@ -25,6 +25,7 @@ import { CanvasLabelScaleSync } from './components/CanvasLabelScaleSync'
 import { CanvasLodNotice } from './components/CanvasLodNotice'
 import { AnalysisStateCue } from './components/AnalysisStateCue'
 import { CanvasOverlayBand, CanvasOverlayBandProvider } from './components/CanvasOverlayBand'
+import { CanvasFooterSummary } from './components/CanvasFooterSummary'
 import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
@@ -2923,6 +2924,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* Paul 23 Sep contract feedback point 14 — the canvas-level line that
           explains the cards' `Last run ·` labels. Bottom-right cell. */}
       <AnalysisStateCue />
+      {/* DESIGN-GAP-AUDIT row 6, 24 Sep 2026 — contract v3.1 `.canvas-foot`:
+          node/edge counts plus "Visual key". Bottom-left cell. NOT
+          `ModelExtentNotice` (see that component's own header for the
+          distinction) — no camera action, and never zooms the model. */}
+      <CanvasFooterSummary />
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />

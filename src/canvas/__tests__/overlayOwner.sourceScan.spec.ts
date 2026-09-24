@@ -44,6 +44,9 @@ const MIGRATED = [
   'LensInfoPanel.tsx',
   // Paul 23 Sep contract feedback point 14 — the bottom-right cell's claimant.
   'AnalysisStateCue.tsx',
+  // DESIGN-GAP-AUDIT row 6, 24 Sep 2026 — the bottom-left cell's second
+  // claimant, joining `LensInfoPanel.tsx`.
+  'CanvasFooterSummary.tsx',
 ] as const
 
 function readComponent(file: string): string {

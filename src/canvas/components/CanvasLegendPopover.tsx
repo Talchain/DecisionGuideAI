@@ -965,7 +965,24 @@ function LegendGroup({ rows }: { rows: LegendRow[] }) {
  */
 const VIEWPORT_GUTTER_PX = 12
 
-export function CanvasLegendPopover() {
+/**
+ * `variant` — the trigger's chrome ONLY. Everything else (open state, the
+ * dialog, its content) is one instance's worth of behaviour, unchanged.
+ *
+ * ⭐ ADDED FOR DESIGN-GAP-AUDIT ROW 6 (24 Sep 2026, gap-frame-footer lane):
+ * contract v3.1 `.canvas-foot` carries a "Visual key" TEXT link, not the
+ * toolbar's icon button. Rather than a second component re-declaring this
+ * one's open/close/measure machinery, the trigger's presentation is
+ * parameterised and the footer mounts THIS component with `variant:
+ * 'text-link'`. `variant` defaults to `'icon'`, byte-identical to the
+ * pre-existing render, so every toolbar-mounted instance and its specs are
+ * unaffected by this addition.
+ */
+export interface CanvasLegendPopoverProps {
+  variant?: 'icon' | 'text-link'
+}
+
+export function CanvasLegendPopover({ variant = 'icon' }: CanvasLegendPopoverProps = {}) {
   // Local open-state — this is now the only canvas legend (the edge-thickness
   // scale is folded in below), so there's no second legend to coordinate with.
   // Display-only; not persisted.
@@ -1097,20 +1114,38 @@ export function CanvasLegendPopover() {
 
   return (
     <div ref={wrapRef} className="relative">
-      <button
-        type="button"
-        onClick={toggle}
-        /* Shared with the LeftSidebar and the rest of this toolbar; open takes
-           the same active treatment the sidebar's lens menu uses. */
-        className={open ? toolbarStyles.iconButtonActive : toolbarStyles.iconButton}
-        aria-label="How to read this"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title="How to read this"
-        data-testid="btn-canvas-legend"
-      >
-        <HelpCircle className={toolbarStyles.icon} aria-hidden="true" />
-      </button>
+      {variant === 'text-link' ? (
+        <button
+          type="button"
+          onClick={toggle}
+          /* contract v3.1 `.canvas-foot .text-button`: underlined, info-blue,
+             no button chrome — the same quiet-link treatment the Question
+             card's resting CTA uses (`decision-node-resting-cta`,
+             DecisionNode.tsx). */
+          className={`${typography.caption} text-info underline decoration-from-font underline-offset-2 hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+          aria-label="Visual key"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          data-testid="canvas-footer-visual-key"
+        >
+          Visual key
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={toggle}
+          /* Shared with the LeftSidebar and the rest of this toolbar; open takes
+             the same active treatment the sidebar's lens menu uses. */
+          className={open ? toolbarStyles.iconButtonActive : toolbarStyles.iconButton}
+          aria-label="How to read this"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          title="How to read this"
+          data-testid="btn-canvas-legend"
+        >
+          <HelpCircle className={toolbarStyles.icon} aria-hidden="true" />
+        </button>
+      )}
 
       {open && (
         <div
