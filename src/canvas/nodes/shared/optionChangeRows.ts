@@ -283,6 +283,7 @@ export function buildOptionChangeRow({
       fullLabel,
       change: `${targetText} · ${direction}`,
       fullChange: `${fromFull} → ${targetFull}`,
+      target: targetFull,
       reference,
       estimated,
       targetSource,

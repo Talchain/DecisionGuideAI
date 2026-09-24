@@ -27,6 +27,9 @@ describe('a change inside one band never prints the same word on both sides of a
     expect(r.change).not.toMatch(/^(\S.*) → \1$/)
     expect(r.change).toBe('Low · slightly higher')
     expect(r.fullChange, 'the full text keeps both readings').toBe('Low (0.2) → Low (0.3)')
+    // The target ALONE — what the inspector prints for this row, so the card and
+    // the inspector print one string (S2 #1930 DEFECT 5; `target` is required).
+    expect(r.target).toBe('Low (0.3)')
   })
 
   it('…and "slightly lower" the other way', () => {
