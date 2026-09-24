@@ -29,6 +29,12 @@ import { CONTESTED_WORD, bareFragilityFigures, perceivableStrings } from './__he
 let mockReport: Record<string, unknown> | null = null
 let mockEdges: Array<Record<string, unknown>> = []
 let mockStatus = 'complete'
+/**
+ * contract v3.1 (U10): the default view pins no strength row, so the edge
+ * corpus (`renderEverySurface`) renders in Detailed view — the only view that
+ * still paints BOTH chip rows. The key's tests stay in the default view.
+ */
+let mockViewMode = 'standard'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -56,7 +62,7 @@ vi.mock('../../store', () => ({
       updateEdgeData: vi.fn(),
       runMeta: { ceeReview: null },
       results: { status: mockStatus, report: mockReport },
-      viewMode: 'standard',
+      viewMode: mockViewMode,
       nodes: [],
       optionNumbering: {},
       lodRung: 'full',
@@ -137,6 +143,7 @@ const props = {
 /** Render the edge with BOTH chip rows and the hover popover open. */
 function renderEverySurface(data: Record<string, unknown>): HTMLElement {
   mockEdges = [{ id: 'e1', source: 'n1', target: 'n2', data }]
+  mockViewMode = 'expert'
   const { container } = render(<StyledEdge {...(props as any)} data={data} />)
   const hit = container.querySelector('path[stroke="transparent"]')
   act(() => { fireEvent.mouseEnter(hit!) })
@@ -148,6 +155,7 @@ beforeEach(() => {
   mockReport = { robustness: { fragile_edges: [{ edge_id: 'e1', switch_probability: 0.42 }] } }
   mockEdges = []
   mockStatus = 'complete'
+  mockViewMode = 'standard'
   vi.useFakeTimers()
 })
 afterEach(() => {
