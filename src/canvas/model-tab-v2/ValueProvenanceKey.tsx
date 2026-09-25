@@ -62,9 +62,20 @@ export function ValueProvenanceKey() {
   }, [open])
 
   return (
-    <div ref={wrap} className="relative inline-flex">
+    /* ⭐ NARROW-7: `relative` DROPPED FROM THIS WRAPPER. The wrapper used to be
+       the popover's own positioning ancestor, which put the popover's right
+       edge at this button and its left edge about 100px off the panel at the
+       280px dock — clipped and unscrollable. `ModelTabV2Panel.tsx`'s filter
+       row is now the positioned ancestor (MODEL-6), so the popover anchors to
+       the content's right edge instead and fits at any dock width. The `wrap`
+       ref stays on this div regardless, since outside-click detection does
+       not depend on positioning. */
+    <div ref={wrap} className="inline-flex">
       {/* A real button, so it is reachable by keyboard and announced as one —
-          the same shape as the canvas legend's control. */}
+          the same shape as the canvas legend's control. ⭐ MODEL-6: `w-7 h-7
+          rounded-full` replaces the 22×22 `p-1` square — below the panel's
+          24px target floor — with the same 28px icon-circle recipe as the
+          row's own Rename control, no fill at rest. */}
       <button
         type="button"
         aria-label="How to read these marks"
@@ -72,7 +83,7 @@ export function ValueProvenanceKey() {
         aria-expanded={open}
         data-testid="model-tab-v2-provenance-key-toggle"
         onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center justify-center p-1 rounded text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        className="inline-flex items-center justify-center w-7 h-7 rounded-full text-text-light hover:ring-1 hover:ring-inset hover:ring-border-emphasis focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
       >
         <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
@@ -82,7 +93,7 @@ export function ValueProvenanceKey() {
           role="dialog"
           aria-label="How to read these marks"
           data-testid="model-tab-v2-provenance-key"
-          className="absolute right-0 top-full mt-1 z-20 w-56 rounded border border-panel-border bg-panel p-3 shadow-lg space-y-2"
+          className="absolute right-0 top-full mt-1 z-20 w-56 max-w-full rounded border border-panel-border bg-panel p-3 shadow-lg space-y-2"
         >
           <p className={`${typography.panelMeta} text-text-header m-0`}>Where each value came from</p>
           {GROUPS.map(group => (

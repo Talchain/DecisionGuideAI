@@ -121,7 +121,10 @@ describe('the ROW CONTAINER — the half of the contract the atoms depend on', (
     // dropped in a refactor that made it temporarily redundant.
     expect(hasClass('model-row-v2-f1', 'grid')).toBe(true)
     expect(hasClass('model-row-v2-f1', 'grid-cols-subgrid')).toBe(true)
-    expect(hasClass('model-row-v2-f1', 'items-center')).toBe(true)
+    // ⭐ MODEL-1, 25 Sep 2026: `items-center` → `items-start`. The row became
+    // TWO lines (name, then value/meta below it), so there is no longer a
+    // single shared centre line for the row's direct children to align to.
+    expect(hasClass('model-row-v2-f1', 'items-start')).toBe(true)
 
     // ⭐ The regression the reviewer constructed: wrapping the row silently
     // re-opens ragged heights while every atom assertion stays green.
@@ -173,9 +176,15 @@ describe('the label is the one atom that may lose characters — and it has a fl
    * floor: without it, measured, 24 labels were crushed and "GDPR EU Data
    * Residency Compliance" rendered in 26px — one character and an ellipsis.
    */
-  it('carries truncate, a flex basis of zero, and a legibility floor', () => {
+  it('carries break-words, a flex basis of zero, and a legibility floor', () => {
+    // ⭐ MODEL-1, 25 Sep 2026: `truncate` → `break-words`. The label now owns
+    // its own full-width LINE 1 (`ModelRowView.tsx`'s CELL 2, `col-span-3`)
+    // rather than sharing one line with the value — that sharing is what cut
+    // names to 96px at the 280px dock. `flex-1` and the `min-w-[6rem]` floor
+    // are unchanged: they still decide how much of the row's WIDTH the label
+    // claims before it wraps onto a second visual line of its own.
     render(<ModelRowView row={row({ id: 'f1' })} tier="plain" onBeginEdit={() => {}} />)
-    expect(hasClass('model-row-v2-f1-label', 'truncate')).toBe(true)
+    expect(hasClass('model-row-v2-f1-label', 'break-words')).toBe(true)
     expect(hasClass('model-row-v2-f1-label', 'flex-1')).toBe(true)
     expect(hasClass('model-row-v2-f1-label', 'min-w-[6rem]')).toBe(true)
   })
@@ -359,7 +368,9 @@ describe('the `proposed` cell — the one LIVE path the first pass left unfixed'
     render(<ModelRowView row={row({ id: 'f1' })} tier="plain" onBeginEdit={() => {}} />)
     // Present, absent, and — the case that caught me — an ARBITRARY VALUE whose
     // brackets defeat a `\b`-anchored regex.
-    expect(hasClass('model-row-v2-f1-label', 'truncate')).toBe(true)
+    // ⭐ MODEL-1, 25 Sep 2026: `truncate` → `break-words` (see the describe
+    // block above).
+    expect(hasClass('model-row-v2-f1-label', 'break-words')).toBe(true)
     expect(hasClass('model-row-v2-f1-label', 'min-w-[6rem]')).toBe(true)
     expect(hasClass('model-row-v2-f1-label', 'zz-not-a-real-class')).toBe(false)
     // And prove the OLD predicate was the broken one, so nobody reinstates it.

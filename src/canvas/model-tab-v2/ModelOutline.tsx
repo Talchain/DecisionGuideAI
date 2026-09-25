@@ -406,7 +406,11 @@ function SectionWriterNotice({
   return (
     <p
       data-testid={SECTION_WRITER_NOTICE_TESTID(group)}
-      className={`${typography.panelBody} text-text-light px-4 py-1`}
+      /* ⭐ MODEL-7: PLAIN TEXT GETS px-0, NOT ITS OWN GUTTER. This block sat
+         at +16 (`px-4`) while the row above it sits at +8 (`px-2`) — one of
+         five different left edges on the tab. There is no interactive
+         surface here to give a hanging inset to. */
+      className={`${typography.panelBody} text-text-light px-0 py-1`}
     >
       {sectionWriterNoticeText(blocked.length, discuss.label)}
     </p>
@@ -764,8 +768,12 @@ export function ModelOutline({
           affordance shape as `pre-analysis-v3-groups-toggle-all`, so the two
           model surfaces do not teach the reader two different controls for one
           act. */}
+      {/* ⭐ MODEL-7: `-mr-2 px-2` below — a HANGING INSET. The text stays on
+          the gutter (the row above and below both sit at `px-2`), but the
+          hit area still reaches the panel's right edge rather than stopping
+          8px short of it. */}
       {governed.length > 0 && (
-      <div className="flex justify-end px-2 pb-1">
+      <div className="flex justify-end -mr-2 px-2 pb-1">
         <button
           type="button"
           onClick={toggleAll}
@@ -843,7 +851,12 @@ export function ModelOutline({
           */}
           <div
             data-testid={`model-group-heading-v2-${group.id}`}
-            className="flex w-full items-baseline px-2"
+            /* ⭐ MODEL-7: `-mx-2 px-2` — the text and controls stay on the
+               same gutter as the rows beneath them (`px-2` is kept, which
+               `theCountIsTheWayIn.spec` binds to), while the hanging
+               `-mx-2` lets the row's own hover/hit box reach the panel
+               edges either side instead of stopping short of them. */
+            className="flex w-full items-baseline -mx-2 px-2"
           >
           <button
             type="button"
@@ -1041,7 +1054,9 @@ export function ModelOutline({
               {group.rows.length === 0 ? (
                 <p
                   data-testid={`model-group-v2-${group.id}-empty`}
-                  className={`${typography.panelBody} text-text-light px-4 py-1`}
+                  // ⭐ MODEL-7: px-0, matching the left-edge sweep — see the
+                  // writer notice above for the same reasoning.
+                  className={`${typography.panelBody} text-text-light px-0 py-1`}
                 >
                   {filter.trim() === ''
                     ? 'Nothing in this group yet'
@@ -1324,7 +1339,11 @@ export function ModelOutline({
                      zero-minimum track reserves its cap even when empty.
                      `rowAtomsAlignToOneGrid.spec.tsx` pins both halves: the
                      automatic minimum, and the cap. */
-                  className="grid grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]"
+                  /* ⭐ MODEL-7: `-mx-2` — the rows below keep their own
+                     `px-2` (ModelRowView.tsx), so this hangs the LIST's
+                     inset to match the group heading above it rather than
+                     adding a second, nested gutter. */
+                  className="grid -mx-2 grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]"
                 >
                   {group.rows.map(row => (
                     <ModelRowView

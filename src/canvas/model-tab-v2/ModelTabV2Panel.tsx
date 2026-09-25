@@ -1536,10 +1536,6 @@ export function ModelTabV2Panel({
               longer disagree with the scientific transparency block
               directly beneath it.
             */}
-            {/* The key for the row marks, beside the tier control — the
-                marks are useless as a code until something states what
-                they mean. */}
-            <ValueProvenanceKey />
             {/*
               ⭐⭐ V2 GAP 31 — A SEGMENTED CONTROL, NOT A TINTED-FILL TOGGLE.
               Was `bg-panel-hover` for BOTH the group and the pressed state
@@ -1563,7 +1559,7 @@ export function ModelTabV2Panel({
                 data-testid="model-tab-v2-tier-plain"
                 aria-pressed={tier === 'plain'}
                 onClick={() => setTier('plain')}
-                className={`${typography.buttonSmall} min-h-[24px] px-2.5 rounded-full ${
+                className={`${typography.panelBody} min-h-[28px] px-2 rounded-full ${
                   tier === 'plain' ? TIER_ARM_SELECTED : TIER_ARM_IDLE
                 }`}
               >
@@ -1574,7 +1570,7 @@ export function ModelTabV2Panel({
                 data-testid="model-tab-v2-tier-advanced"
                 aria-pressed={tier === 'advanced'}
                 onClick={() => setTier('advanced')}
-                className={`${typography.buttonSmall} min-h-[24px] px-2.5 rounded-full ${
+                className={`${typography.panelBody} min-h-[28px] px-2 rounded-full ${
                   tier === 'advanced' ? TIER_ARM_SELECTED : TIER_ARM_IDLE
                 }`}
               >
@@ -1591,16 +1587,30 @@ export function ModelTabV2Panel({
           (`styles/controls.ts`, `EditableLabel.tsx` — not invented here).
           `bodySmall` (14px) is unchanged: the design authority's own
           `.form input` rule.
+
+          ⭐ MODEL-6 / NARROW-7: THE KEY MOVED HERE, AND THIS ROW IS NOW ITS
+          POSITIONED ANCESTOR. At the 280px dock 'Model outline' + the key +
+          the tier group needed 268px against 243 available, so the title
+          wrapped onto two lines. The key's own wrapper no longer carries
+          `relative` (see `ValueProvenanceKey.tsx`), so this row does instead
+          — its popover anchors to the CONTENT's right edge rather than to a
+          22px button sitting 100px into the panel, which is what clipped it
+          at 280. `min-w-0` on the input is required: a `w-full` flex item
+          still takes its content's minimum width unless told otherwise, and
+          that pinned the row wider than the dock.
         */}
-        <input
-          data-testid="model-tab-v2-filter"
-          type="search"
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          placeholder="Filter the model…"
-          aria-label="Filter the model"
-          className={`${typography.bodySmall} w-full bg-panel border border-field rounded px-2 py-1`}
-        />
+        <div className="relative flex items-center gap-2">
+          <input
+            data-testid="model-tab-v2-filter"
+            type="search"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter the model…"
+            aria-label="Filter the model"
+            className={`${typography.bodySmall} w-full min-w-0 bg-panel border border-field rounded px-2 py-1`}
+          />
+          <ValueProvenanceKey />
+        </div>
       </header>
 
       {/*

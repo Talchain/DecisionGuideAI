@@ -291,8 +291,21 @@ function ModelHealthSectionInner({
    * would make a LIVE control dead instead of leaving a dead one). So the
    * card opens whenever there is EITHER real detail OR a real hand-off to
    * show; it closes only when there is truly nothing in the body at all.
+   *
+   * ⭐ MODEL-4, 25 Sep 2026 — REVISED, NOW `modelcard-discuss` HAS ITS OWN
+   * HEADER SLOT. The paragraph above is kept because the REASONING still
+   * holds for every OTHER caller of `hasAnyBodyContent` below — it is cited
+   * by both `defaultExpanded` and `isExpanded` — but the premise changed:
+   * `onHandOffToOlumi &&` no longer renders inside the collapsible body, so
+   * it can no longer be the thing keeping an empty card open. Witnessed on
+   * served `5f8d9095`: with `ceeQuality={{overall: 7.2}}` alone, plain mode,
+   * the card opened at rest onto a 379×60 body holding nothing but that one
+   * icon — exactly the "empty card" the truth rule bans. Moving the ask to
+   * `Accordion`'s `headerAction` slot (below) makes it reachable REGARDLESS
+   * of whether the card is open, so `hasAnyBodyContent` can go back to
+   * answering only "is there detail" — `hasRenderableBody` alone.
    */
-  const hasAnyBodyContent = hasRenderableBody || onHandOffToOlumi != null
+  const hasAnyBodyContent = hasRenderableBody
 
   // Collapsed summary visible in accordion header via tierLabel.
   // ⛔ The `"{N}% stability"` half is REMOVED (2.1273) — see the file header.
@@ -409,6 +422,23 @@ function ModelHealthSectionInner({
       // V2 gap 29 — the Model card is a full-width divider, not a bordered
       // card, matching the outline wrapper above it.
       flush
+      // ⭐ MODEL-4 — see `modelcard-discuss` below, moved out of the
+      // collapsible body so the ask stays reachable while the card is shut.
+      headerAction={
+        onHandOffToOlumi ? (
+          <PanelIconButton
+            ai
+            label={MODELCARD_DISCUSS_LABEL}
+            testId="modelcard-discuss"
+            onClick={() =>
+              onHandOffToOlumi({
+                message: 'Help me understand the reliability and limitations of my model',
+                reason: 'modelcard-discuss',
+              })
+            }
+          />
+        ) : undefined
+      }
     >
       <div className="space-y-1.5">
 
@@ -619,51 +649,15 @@ function ModelHealthSectionInner({
             )}
           </div>
         )}
-        {onHandOffToOlumi && (
-          <div className="flex justify-end mt-2">
-            {/* ⚠ FRONT FIRST, THEN SEND — and the hand-off owns both halves.
-                This called `onSendMessage(...)` directly, so the turn landed in a
-                panel that is `hidden` + `aria-hidden` while Model is the active
-                tab (`OutputsDock.tsx:3735-3737`). `createOlumiHandOff` reveals
-                the Olumi surface and only then sends, which is the rule
-                `olumiHandOff.ts` states and the v2 outline already obeys.
-
-                ⚠ THE ACCESSIBLE NAME IS NOT OPTIONAL HERE, AND IT NO LONGER
-                LEANS ON `title` AT ALL. `PanelIconButton` sets `aria-label`
-                directly and its `Tooltip` deliberately BLANKS the native
-                `title` (`Tooltip.tsx`: "An empty title blocks native
-                tooltips inherited from an ancestor") — the accessible name
-                and the on-hover hint both come from `label` now, through two
-                different, tested mechanisms, neither of them a mouse-only
-                `title` string. `ModelRowView.tsx:876-879` states that
-                limitation about a bare `title` in this very estate, and
-                `ModelGroupActions.tsx:10-19` cites this button by line as one
-                of the icon-only originals it moved away from.
-
-                ⭐⭐ V2 GAP 33 — THE OLUMI AI ICON, AND A REAL 28PX TARGET.
-                `FIDELITY-GAPS-INDEX-20260924.txt` #33: this was a bare Lucide
-                `MessageCircle` at 14×14 with no padding — the one AI act on
-                the Model tab, and the one that never carried the Olumi glyph
-                (`git grep OlumiAiIcon -- src/canvas` found nothing). Reusing
-                `PanelIconButton` — the same primitive Reasoning's AI acts use
-                — rather than hand-rolling the geometry a second time. The
-                label is the house string for this capability, taken verbatim
-                from the action written to replace it (`groupActions.ts`'s
-                recorded `DISCUSS_RELIABILITY` label), so the name is a reuse
-                rather than an invention. */}
-            <PanelIconButton
-              ai
-              label={MODELCARD_DISCUSS_LABEL}
-              testId="modelcard-discuss"
-              onClick={() =>
-                onHandOffToOlumi({
-                  message: 'Help me understand the reliability and limitations of my model',
-                  reason: 'modelcard-discuss',
-                })
-              }
-            />
-          </div>
-        )}
+        {/* ⭐ MODEL-4: `modelcard-discuss` MOVED TO THE ACCORDION HEADER
+            (`headerAction` above). It used to render here, inside the
+            collapsible body — reachable only while the card is open, which
+            is exactly why `hasAnyBodyContent` used to have to treat this
+            single control as "body content" to keep an otherwise-empty card
+            from closing over it. See `olumiHandOff.ts` and
+            `ModelRowView.tsx:876-879` for why it fronts through
+            `createOlumiHandOff` and carries `aria-label` rather than a bare
+            `title`; that reasoning is unchanged by the move. */}
       </div>
     </Accordion>
   )
