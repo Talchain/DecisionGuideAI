@@ -268,7 +268,14 @@ function nonBlank(value: unknown): boolean {
  * The first block IN PRODUCER ORDER that is all of:
  *   · a `v5_coaching` card authored by `run_analysis` (the run-turn rule's
  *     cards — `coachingCurrency.isRunTurnCoachingCard`, one definition);
- *   · aimed at something: non-empty `target_refs`;
+ *   · NOT required to carry a target. A `run_analysis` card is bound to its
+ *     run by the run-turn currency rule (hash, `computed_at`, run state), which
+ *     is what keeps a stale one inert. The no-flagged-link card (CEE #1869) is
+ *     about the run as a whole, so its `target_refs` is `[]` by design. Producer
+ *     census at CEE staging e39f6e0: the ONLY coaching producers stamping
+ *     `run_analysis` are the fragile-link card (always targeted) and that card;
+ *     EVPPI's `run_analysis` stamp is on a `review_card`, which this never reads.
+ *     Ordinary target-less cards from any other handler stay unpromotable;
  *   · actionable as the producer authored it: non-blank `action_label` AND
  *     non-blank `action_prompt` — the pair that makes `ActionChip` a real
  *     button. A label alone renders a display-only pill, and promoting a card
@@ -287,7 +294,6 @@ export function firstPromotableActionIndex(blocks: readonly ConversationBlock[])
     const block = blocks[i]
     if (block.type !== 'v5_coaching') continue
     if (!isRunTurnCoachingCard(block.source_handler)) continue
-    if (!Array.isArray(block.target_refs) || block.target_refs.length === 0) continue
     if (!nonBlank(block.action_label) || !nonBlank(block.action_prompt)) continue
     if (!isRoutableActionIntent(block.action_intent)) continue
     if (block.freshness !== 'fresh') continue
