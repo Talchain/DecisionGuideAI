@@ -96,8 +96,7 @@ import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
-  leaderWithholdCause,
-  LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS,
+  withheldLeaderCause,
 } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -165,8 +164,11 @@ function admissionRefusalAsksForAnEstimate(
   admission: Parameters<typeof licensesComparativeLeaderClaim>[0],
 ): boolean {
   if (licensesComparativeLeaderClaim(admission) !== false) return false
-  const code = admission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode')?.code
-  return typeof code === 'string' && ESTIMATE_REMEDY_ADMISSION_CAUSES.has(code)
+  const reason = admission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode')
+  // The glance's remedy also needs the producer's sentence (`designationWithheldReason
+  // !== null`); without it the estimates cause would stand alone (review 5826901387).
+  const hasSentence = typeof reason?.message === 'string' && reason.message.trim() !== ''
+  return hasSentence && typeof reason?.code === 'string' && ESTIMATE_REMEDY_ADMISSION_CAUSES.has(reason.code)
 }
 
 /**
@@ -3552,23 +3554,6 @@ function dedupeAgainstGlance(
  * severity — a "worst first" order would be a judgement across three
  * incommensurable checks that no producer field supports.
  */
-/**
- * The withheld-leader tokens the producer's admission can explain.
- *
- * `constraint_verdict_withheld` is emitted for ANY not-entitled verdict
- * (`composeLeaderClaim`: `!entitled`), and CEE's `unrequested_analysis_withheld`
- * (Canonical, `bank/unrequested-analysis-withheld-reason`, RC 5825756972) for an
- * automatic first pass. Where the admission also refused the comparative claim,
- * "until an estimate is yours" is the cause behind either. Any other token names
- * its own cause (`separation_unavailable`: the run could not tell how far apart
- * the options are), and an admission refusal beside it must not replace it
- * (pre-review of bundle 3, 25 Sep).
- */
-const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
-  'constraint_verdict_withheld',
-  'unrequested_analysis_withheld',
-])
-
 function buildChecks(
   data: ResultsSectionDataReturn,
   producerWithholdReason: string | null | undefined,
@@ -3709,12 +3694,9 @@ function buildChecks(
   const withheldCause =
     leaderCode !== 'leader_not_assessed'
       ? null
-      : // Where the admission refused the comparative claim FOR AN ESTIMATE, that
-        // refusal IS the cause, but only behind a token the admission can explain;
-        // see ADMISSION_EXPLAINS_THE_WITHHOLD and admissionRefusalAsksForAnEstimate.
-        refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)
-        ? LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
-        : leaderWithholdCause(producerWithholdReason)
+      : // One rule for every surface; see `withheldLeaderCause`. It is handed the
+        // narrow refusal (one that asks for an estimate), never any refusal.
+        withheldLeaderCause(producerWithholdReason, refusalAsksForAnEstimate)
   /*
    * ⚠ A NAMEABLE CAUSE IS NOT ALWAYS A DURABLE ONE. `constraint_verdict_withheld`
    * covers the automatic first pass's own policy, and an explicit Run on the

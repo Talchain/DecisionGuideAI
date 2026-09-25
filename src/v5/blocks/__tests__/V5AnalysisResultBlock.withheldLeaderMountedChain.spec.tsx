@@ -105,6 +105,10 @@ function permittedTwinOf57f(): Wire {
   const rank1 = twin.analysis_ready!.options!.find((o) => o.label === rank1Label)
   if (!rank1) throw new Error(`capture has no option labelled "${rank1Label}"`)
   block.leading_option_id = rank1.option_id
+  // The producer's separated verdict names its top option, as a permitted run
+  // does, so the verdict LICENSES the leader (not only "no refusal held").
+  const robustness = (block as unknown as { enrichment: { robustness: { near_tie: Record<string, unknown> } } }).enrichment.robustness
+  robustness.near_tie = { ...robustness.near_tie, top_option_id: rank1.option_id }
   twin.analysis_state!.leader_claim = { permitted: true, separation: 'separated' }
   return twin
 }
@@ -288,6 +292,8 @@ describe('PERMITTED (derived control): the row renders, seen and heard', () => {
       expect(items[i]).toHaveTextContent(label)
       expect(items[i]).toHaveTextContent(formatProbability(share))
     })
+    // A LICENSED leader: the verdict names it, so it is crowned and first.
+    expect(items[0]).toHaveAttribute('data-leader', 'true')
   })
 
   it('a withheld Run, then a permitted one: the EARLIER card stays withheld (per card, not the latest verdict)', async () => {
