@@ -19,7 +19,9 @@
  * 20px box with the rail's one 14px glyph size (`NODE_RAIL_GLYPH_PX`; the
  * contract's is 25/15), the target glyph drawn with Lucide's `LocateFixed` — the stock equivalent of the
  * contract's circle + centre + four ticks (DS v5 §9: Lucide only), at the
- * contract's lighter 1.6 stroke. It keeps a panel fill (`bg-panel/90`)
+ * contract's lighter 1.6 stroke. Glyph and stroke come from `cardCueGlyphs`,
+ * the one owner the visual key reads too, so the key cannot draw a different
+ * mark (design-gap audit row 28). It keeps a panel fill (`bg-panel/90`)
  * because the corner stack floats it over the layer gap, where a bare glyph
  * would sit on edges. Info stays its colour at rest: it is the ONE
  * Info-at-rest mark on a card (Paul 23 Sep pt 9, attention = Info blue).
@@ -37,7 +39,7 @@
  * a new panel").
  */
 import type { MouseEvent } from 'react'
-import { LocateFixed } from 'lucide-react'
+import { ATTENTION_CUE_GLYPH, ATTENTION_CUE_STROKE } from './cardCueGlyphs'
 import Tooltip from '../../../components/Tooltip'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
@@ -45,6 +47,8 @@ import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_QUICK_ACTION_BOX_PX } from './canvasG
 import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 
 export const ATTENTION_MARKER_TESTID_PREFIX = 'attention-marker-'
+
+const AttentionGlyph = ATTENTION_CUE_GLYPH
 
 export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sentence: string }) {
   return (
@@ -62,11 +66,11 @@ export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sent
         onDoubleClick={(e) => e.stopPropagation()}
         className={`nodrag nopan shrink-0 inline-flex items-center justify-center rounded bg-panel/90 text-info hover:bg-info/10 focus-visible:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]}`}
       >
-        <LocateFixed
+        <AttentionGlyph
           aria-hidden="true"
           data-testid="attention-marker-ring"
           size={NODE_RAIL_GLYPH_PX}
-          strokeWidth={1.6}
+          strokeWidth={ATTENTION_CUE_STROKE}
           className={NODE_RAIL_GLYPH_CLASSES}
         />
       </button>

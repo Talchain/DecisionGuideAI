@@ -63,7 +63,7 @@
  * is revealed first so the turn never lands where the user is not looking.
  */
 import { memo, useCallback } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { COACHING_CUE_GLYPH } from './cardCueGlyphs'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -77,6 +77,9 @@ import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
+
+/** From `cardCueGlyphs`, the one owner the visual key reads too (design-gap audit row 28). */
+const CoachingGlyph = COACHING_CUE_GLYPH
 
 /** A typed chip keeps its typed route; `run_analysis` is a run, not a question. */
 export function coachingChipIsTyped(chip: CoachingChip): boolean {
@@ -224,8 +227,9 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
         {/* ⭐ `MessageCircle` EXACTLY — Panel's R3 (#63 5796486697, settled for the
             canvas by 5796609717): "ask / hand this to Olumi" is one meaning, so
             one glyph, shared with the quick-action "Ask Olumi" and the panel.
-            `MessageCircleQuestion` would be a second glyph for the same act. */}
-        <MessageCircle aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
+            `MessageCircleQuestion` would be a second glyph for the same act.
+            Owned by `COACHING_CUE_GLYPH` so the visual key draws the same one. */}
+        <CoachingGlyph aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
       </button>
     </Tooltip>
   )

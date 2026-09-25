@@ -35,6 +35,13 @@
  * Design's banked wording where it exists, and the one owner the edge and the
  * key both import where it does not.
  *
+ * ⭐ 24 Sep 2026 — design-gap audit row 28: contract v3 §03's icon box ("Icons
+ * make the next reasoning move accessible") is the instruction given a third
+ * time. Its five rows (`CUE_ROWS`) draw each card cue's glyph from the card's
+ * own owner (`nodes/shared/cardCueGlyphs.ts`, `VALUE_PROVENANCE_ICON`); the
+ * titles are the contract's, and the one-line descriptions are NEW copy,
+ * flagged on the PR for Experience Design and Paul.
+ *
  * L-49: the canvas spoke four vocabularies with no key — solid vs dashed, +/-
  * markers, thickness, and colour. The legend explained the first and the third.
  * Worse, it taught up/down ARROWS for direction, which the canvas has never
@@ -53,7 +60,15 @@ import { DECISION_NODE_LABEL, CANVAS_STRENGTH_BANDS } from '../domain/vocabulary
 import { classifyNodeProvenance } from '../domain/valueProvenance'
 import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
-import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, WORTH_REVIEWING, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
+import {
+  ATTENTION_CUE_GLYPH,
+  ATTENTION_CUE_STROKE,
+  BEHAVIOUR_CUE_GLYPH,
+  COACHING_CUE_GLYPH,
+  EVIDENCE_CUE_GLYPH,
+} from '../nodes/shared/cardCueGlyphs'
+import { NODE_RAIL_GLYPH_PX } from '../nodes/shared/nodeCardRailStyles'
 import { useCanvasStore } from '../store'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { DIRECTION_DISPUTED_STROKE } from '../edges/edgePresentation'
@@ -549,6 +564,97 @@ const UNCERTAINTY_ROWS: LegendRow[] = [
 ]
 
 /**
+ * ⭐⭐ THE CARD'S ICONS — design-gap audit row 28 (contract v3 §03, the "Icons
+ * make the next reasoning move accessible" box: Worth reviewing, Evidence worth
+ * seeking, Behavioural check, Source exception, Explore with Olumi).
+ *
+ * The rows above key the LINES; nothing keyed the marks ON the cards, so the
+ * five cues a card can carry were a private code — the same defect the
+ * provenance block below was written to close for its three glyphs.
+ *
+ * ⭐ THE GLYPH IS THE CARD'S, BY REFERENCE. Each row draws the glyph the card
+ * component draws for that cue, imported from the one owner both read:
+ * `cardCueGlyphs` for the attention marker, the rail's evidence and behaviour
+ * icons and the coaching icon; `VALUE_PROVENANCE_ICON` for source marks. The
+ * attention glyph also takes the card's lighter stroke. Nothing here is a
+ * lookalike, and `CanvasLegendPopover.iconRows.spec.tsx` renders each card
+ * component beside this key and compares what they paint.
+ *
+ * ⚠ THE RESTING COLOUR IS RE-TYPED, AND THE SPEC IS ITS GUARD. Each card keeps
+ * its tone inline (`NodeAttentionMarker`: Info; `NodeRailIcon` tones; the
+ * coaching icon and provenance mark: muted), so the classes below restate
+ * them; the spec compares each against the card's rendered token.
+ *
+ * ⚠ SOURCE EXCEPTION KEYS THE KINDS A CARD CAN DRAW — derived through
+ * `classifyNodeProvenance` from the three literals, exactly as
+ * `PROVENANCE_ROWS` is — in the contract's order (spark, page, person). The
+ * per-glyph rows directly below it name each mark; this row says what an
+ * exception is.
+ *
+ * ⚠ EVERY ROW SHOWS IN EVERY PHASE, and says so where its cue does not. This
+ * is a key to marks, not a list of findings: the evidence cue is run-derived,
+ * so its description opens "After an analysis" rather than the row being
+ * withheld — a row that is true in both phases needs no gate.
+ */
+type CueId = 'attention' | 'evidence' | 'behaviour' | 'source' | 'coaching'
+
+interface CueLegendRow {
+  id: CueId
+  /** The contract's name for the cue. */
+  title: string
+  /** What the cue means for the reader, in one or two short sentences. */
+  description: string
+  glyphs: ReactNode
+}
+
+const CUE_GLYPH_PROPS = { size: NODE_RAIL_GLYPH_PX, 'aria-hidden': true } as const
+const AttentionGlyph = ATTENTION_CUE_GLYPH
+const EvidenceGlyph = EVIDENCE_CUE_GLYPH
+const BehaviourGlyph = BEHAVIOUR_CUE_GLYPH
+const CoachingGlyph = COACHING_CUE_GLYPH
+
+const SOURCE_EXCEPTION_KINDS = (['ai_inferred', 'from_brief', 'user_set'] as const)
+  .map((literal) => classifyNodeProvenance(literal)!.kind)
+
+const CUE_ROWS: readonly CueLegendRow[] = [
+  {
+    id: 'attention',
+    title: WORTH_REVIEWING,
+    description: 'Olumi has a specific reason to look again here. Select it to see why. It is not a warning.',
+    glyphs: <AttentionGlyph {...CUE_GLYPH_PROPS} strokeWidth={ATTENTION_CUE_STROKE} className="text-info shrink-0" />,
+  },
+  {
+    id: 'evidence',
+    title: 'Evidence worth seeking',
+    description: 'After an analysis: evidence here would most reduce the uncertainty in the comparison.',
+    glyphs: <EvidenceGlyph {...CUE_GLYPH_PROPS} className="text-text-light shrink-0" />,
+  },
+  {
+    id: 'behaviour',
+    title: 'Behavioural check',
+    description: 'A specific finding suggests a common judgement bias may apply here. A prompt to reflect, not a diagnosis.',
+    glyphs: <BehaviourGlyph {...CUE_GLYPH_PROPS} className="text-text-body shrink-0" />,
+  },
+  {
+    id: 'source',
+    title: 'Source exception',
+    description:
+      'Where it came from: an Olumi estimate, your brief, or you. Usually marked only where it differs from most of the board. It does not mean it is right.',
+    glyphs: SOURCE_EXCEPTION_KINDS.map((kind) => {
+      const Icon = VALUE_PROVENANCE_ICON[kind]
+      // The same declared 14px as `PROVENANCE_ROWS`; panel DOM, so no counter-scale.
+      return <Icon key={kind} className="w-3.5 h-3.5 text-text-light shrink-0" aria-hidden="true" />
+    }),
+  },
+  {
+    id: 'coaching',
+    title: 'Explore with Olumi',
+    description: 'Hover to see a question worth asking here. Click to take it to Olumi, with this element already in context.',
+    glyphs: <CoachingGlyph {...CUE_GLYPH_PROPS} className="text-text-light shrink-0" />,
+  },
+]
+
+/**
  * ⭐⭐ WHERE AN ELEMENT CAME FROM — the key that stops the new card glyphs being
  * a PRIVATE CODE.
  *
@@ -884,6 +990,29 @@ function MetricGroup({ board }: { board: LegendBoardState }) {
       {visibleMetricRows(board).map(r => (
         <div key={r.noun} className={`${typography.panelMeta} text-text-light`}>
           <span className="text-text-body font-medium">{r.noun}</span>: {r.gloss}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The icon rows: glyph(s), then the cue's name over one line of meaning. Not
+ * `LegendGroup` because a cue needs a title AND a description, and the
+ * source-exception row carries three glyphs, so its glyph column may widen.
+ */
+function CueLegendGroup({ rows }: { rows: readonly CueLegendRow[] }) {
+  return (
+    <div className="space-y-1.5" data-cue-group="true">
+      {rows.map(r => (
+        <div key={r.id} className="flex items-start gap-2" data-testid={`legend-cue-${r.id}`} data-cue-id={r.id}>
+          <span className="min-w-6 pt-px flex items-center justify-center gap-0.5 shrink-0" data-testid={`legend-cue-glyphs-${r.id}`}>
+            {r.glyphs}
+          </span>
+          <span className="min-w-0">
+            <span className={`block ${typography.panelMeta} text-text-body font-medium`} data-testid="legend-cue-title">{r.title}</span>
+            <span className={`block ${typography.panelMeta} text-text-light`} data-testid="legend-cue-description">{r.description}</span>
+          </span>
         </div>
       ))}
     </div>
@@ -1227,6 +1356,10 @@ export function CanvasLegendPopover({ variant = 'icon' }: CanvasLegendPopoverPro
                 <LegendGroup rows={FRAGILITY_ROWS} />
               </>
             )}
+            <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            {/* The card's icons (contract §03), then the per-glyph source rows
+                that name the Source exception row's three marks. */}
+            <CueLegendGroup rows={CUE_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <LegendGroup rows={PROVENANCE_ROWS} />
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />

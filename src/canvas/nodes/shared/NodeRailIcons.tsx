@@ -15,7 +15,7 @@
  * Both read the SAME reasons the "Worth reviewing" marker reads, so an icon and
  * the marker can never disagree about whether a signal exists.
  */
-import { SearchCheck, Brain, type LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
@@ -24,6 +24,8 @@ import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
 import { selectRestingGlyphsShown } from './restingGlyphRung'
 import type { AttentionReason } from './nodeAttention'
+// The glyphs' one owner, shared with the visual key (design-gap audit row 28).
+import { BEHAVIOUR_CUE_GLYPH, EVIDENCE_CUE_GLYPH } from './cardCueGlyphs'
 
 /**
  * ⭐ REVEALED ON HOVER/FOCUS — contract v3.1 `.icon-btn.revealed` (deltas
@@ -129,7 +131,7 @@ export function NodeSignalRailIcons({
         <NodeRailIcon
           testId={`node-rail-evidence-${nodeId}`}
           label={EVIDENCE_ICON_LABEL}
-          icon={SearchCheck}
+          icon={EVIDENCE_CUE_GLYPH}
           // Contract v3.1: a data icon is `.icon-btn` muted at rest and Info on
           // hover/focus (ICON-06 / F11). The attention marker, which reads the
           // same evidence_gap reason, is the one Info-at-rest mark (Paul pt 9),
@@ -142,7 +144,7 @@ export function NodeSignalRailIcons({
         <NodeRailIcon
           testId={`node-rail-behaviour-${nodeId}`}
           label={`${behaviour.label} A reflective prompt, not a diagnosis.`}
-          icon={Brain}
+          icon={BEHAVIOUR_CUE_GLYPH}
           tone="behaviour"
           onActivate={() => {
             const store = useCanvasStore.getState() as { selectNodeWithoutHistory?: (id: string) => void }
