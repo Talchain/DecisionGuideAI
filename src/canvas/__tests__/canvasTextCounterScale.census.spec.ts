@@ -549,10 +549,10 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     const read = (line: string) => [...line.matchAll(ARBITRARY_TEXT_SIZE)].map(m => m[1])
     expect(read("'text-[color:rgb(var(--rail-icon-rgb))]'")).toEqual([])
     // CONTRAST — the forms the census exists for are still read, on the same line.
-    expect(read("'text-[length:calc(14px*var(--canvas-label-scale,1))] text-[color:rgb(var(--x))] text-[10px]'"))
+    expect(read("'text-[length:calc(14px*var(--canvas-label-scale,1))] text-[color:rgb(var(--rail-icon-rgb))] text-[10px]'"))
       .toEqual(['calc(14px*var(--canvas-label-scale,1))', '10px'])
     // CONTRAST — without the hint the value is still captured (and errors as unresolvable).
-    expect(read("'text-[rgb(var(--x))]'")).toEqual(['rgb(var(--x))'])
+    expect(read("'text-[rgb(var(--rail-icon-rgb))]'")).toEqual(['rgb(var(--rail-icon-rgb))'])
   })
 
   it('CONTRAST CONTROL: the census can tell counter-scaled from fixed', () => {

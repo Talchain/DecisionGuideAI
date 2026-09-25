@@ -331,6 +331,18 @@ export function joinFactorDisplayParts(parts: FactorDisplayParts): string {
 }
 
 /**
+ * The text the factor card SHOWS for its value: the split when it joins back to
+ * (or `restates`) the readout, else the readout itself. The ONE authority for
+ * the card (`FactorValueFigure`) and every surface that quotes it (an option
+ * row's "from") — so a row can never print `49 GBP/month` beside a card that
+ * reads `£49/month`.
+ */
+export function factorCardVisibleText(readout: string | null, parts: FactorDisplayParts | null): string | null {
+  if (readout === null || parts === null) return readout
+  return (parts.restates ?? joinFactorDisplayParts(parts)) === readout ? joinFactorDisplayParts(parts) : readout
+}
+
+/**
  * ⭐ A CURRENCY RATE, SPELT THE WAY IT IS READ (Paul, 25 Sep: the card must
  * match the prototype, where a price reads `£49` and not `49 GBP`).
  *

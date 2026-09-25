@@ -23,7 +23,7 @@
  * this card's readout. The rate suffix is attached to the figure with no space.
  */
 import { typography } from '../../../styles/typography'
-import { joinFactorDisplayParts, type FactorDisplayParts } from '../../../utils/formatFactorDisplayValue'
+import { factorCardVisibleText, joinFactorDisplayParts, type FactorDisplayParts } from '../../../utils/formatFactorDisplayValue'
 
 export function FactorValueFigure({ readout, parts, nodeId }: {
   /** The card's recorded readout — the one string every affordance shows. */
@@ -32,7 +32,7 @@ export function FactorValueFigure({ readout, parts, nodeId }: {
   parts: FactorDisplayParts | null
   nodeId: string
 }) {
-  if (readout === null || parts === null || (parts.restates ?? joinFactorDisplayParts(parts)) !== readout) return <>{readout}</>
+  if (readout === null || parts === null || factorCardVisibleText(readout, parts) !== joinFactorDisplayParts(parts)) return <>{readout}</>
   return (
     <>
       <strong data-testid={`factor-value-figure-${nodeId}`} className="font-[610]">{parts.figure}</strong>

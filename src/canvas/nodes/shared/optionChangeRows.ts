@@ -41,6 +41,8 @@ import {
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 import {
   encodingMapPhrase,
+  factorCardVisibleText,
+  factorDisplayParts,
   factorDisplayText,
   placeholderMagnitudeNumber,
   readFactorDisplayValue,
@@ -100,7 +102,8 @@ export function factorCardReading(
   data: Record<string, unknown> | null | undefined,
 ): string | null {
   if (!data || typeof data !== 'object') return null
-  return factorDisplayText(factorCardInput(data))
+  const input = factorCardInput(data)
+  return factorCardVisibleText(factorDisplayText(input), factorDisplayParts(input))
 }
 
 /** The node data exactly as the factor card formats it: label cleaned, a suppressed unit dropped. */
@@ -146,16 +149,17 @@ export function carriedFactorCardReading(
   const input = factorCardInput(data)
   const reading = factorDisplayText(input)
   if (reading === null) return null
+  const shown = factorCardVisibleText(reading, factorDisplayParts(input))
   const obs = input.observedState as Record<string, unknown> | undefined
   const unit = typeof obs?.unit === 'string' && obs.unit !== '' ? obs.unit : null
   const raw = obs?.raw_value
   const carriesRaw = unwrapInterventionValue(raw).value !== null || (typeof raw === 'string' && raw.trim() !== '')
-  if (carriesRaw && (unit === null || classifyUnit(unit).kind !== 'placeholder')) return reading
+  if (carriesRaw && (unit === null || classifyUnit(unit).kind !== 'placeholder')) return shown
   const displayValue = readFactorDisplayValue(input)
   if (displayValue !== undefined && (reading === displayValue || reading === placeholderMagnitudeNumber(displayValue))) {
-    return reading
+    return shown
   }
-  if (reading === encodingMapPhrase(input.encoding_map, unwrapInterventionValue(obs?.value).value)) return reading
+  if (reading === encodingMapPhrase(input.encoding_map, unwrapInterventionValue(obs?.value).value)) return shown
   return null
 }
 
