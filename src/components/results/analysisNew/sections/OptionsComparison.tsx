@@ -230,8 +230,9 @@ const AXIS_TICK_FRACTIONS = [0, 1 / 3, 2 / 3, 1] as const
  * or any other symbol this surface was not given.
  */
 function formatAxisTick(value: number): string {
-  const rounded = Math.round(value * 100) / 100
-  return rounded.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  // Three significant figures, compact for large magnitudes (190K, not
+  // "423,333.33" — the served 25 Sep check). Still no unit symbol.
+  return value.toLocaleString(undefined, { notation: 'compact', maximumSignificantDigits: 3 })
 }
 
 export interface OptionsComparisonProps {
