@@ -649,6 +649,7 @@ export function AnalysisHeroPanel({
       */}
       <AssumedStrengthCard
         decision={model.evidence.assumedStrength}
+        rankingWithheld={model.evidence.assumedStrengthRankingWithheld}
         onResolve={selection => {
           openAskOlumi({
             context: ASSUMED_STRENGTH_ASK_CONTEXT,

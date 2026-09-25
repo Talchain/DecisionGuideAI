@@ -742,6 +742,7 @@ describe('Wave 2 (§6.6): Why and what could change it disclosure', () => {
     return {
       ...m,
       evidence: {
+        assumedStrengthRankingWithheld: false,
         assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
         // `isEstimate` is REQUIRED on the row (see `HeroDriverValueProvenance`).
         // This suite's subject is the drivers/flip-risks/trade-offs rendering,
