@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNodesInitialized, useStore as useReactFlowStore } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import { useAnchorRailFloorStore } from '../nodes/shared/anchorRailFloor'
 import {
   evaluateMeasurementGate,
   allUnlockedNodesMeasured,
@@ -126,9 +127,18 @@ export function useMeasureThenLayout(): void {
    * absorbed). `laidOutHeightsRef` stays the current rung's view of it.
    */
   const baselineByRungRef = useRef<Map<string, Map<string, number>>>(new Map())
+  /**
+   * ⛔ THE BASELINE KEY IS EVERYTHING THAT CHANGES THE RENDERED LAYOUT, NOT THE
+   * RUNG ALONE (review 5825181742). Since landing counts as Normal, Detailed
+   * option rows switch stacked → grid at `ICON_LEGIBLE_ZOOM` INSIDE the `full`
+   * rung (`anchorRailFloor`). Keyed on the rung alone, the first zoom-in past
+   * that floor read as growth and re-laid out the model under the reader.
+   */
+  const layoutStateKey = (): string =>
+    `${useCanvasStore.getState().lodRung ?? 'full'}|${useAnchorRailFloorStore.getState().fitsBeside ? 'at-or-above-floor' : 'below-floor'}`
   const recordLayoutHeights = (heights: Map<string, number>) => {
     laidOutHeightsRef.current = heights
-    baselineByRungRef.current = new Map([[useCanvasStore.getState().lodRung ?? 'full', heights]])
+    baselineByRungRef.current = new Map([[layoutStateKey(), heights]])
   }
 
   useEffect(() => {
@@ -260,7 +270,7 @@ export function useMeasureThenLayout(): void {
        * is the same defect one step later.
        */
       const heights = currentHeights()
-      const rung = useCanvasStore.getState().lodRung ?? 'full'
+      const rung = layoutStateKey()
       const rungBaseline = baselineByRungRef.current.get(rung)
       if (!rungBaseline) {
         // A rung this layout was not recorded at: its first reading IS its
