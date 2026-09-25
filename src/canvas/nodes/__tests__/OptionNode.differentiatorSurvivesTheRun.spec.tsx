@@ -53,7 +53,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows, optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -309,29 +309,33 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     )
   }
 
-  /** THIS option's row for a factor, inside its popover detail (bounded anatomy). */
-  const previewRow = (factorId: string) =>
-    optionPreviewDetail('option-1')?.querySelector(`[data-testid="option-change-row-option-1-${factorId}"]`) ?? null
+  /** THIS option's row for a factor, ON THE CARD (Paul 25 Sep: rows at rest). */
+  const cardRow = (factorId: string) =>
+    optionCardRows('option-1').querySelector(`[data-testid="option-change-row-option-1-${factorId}"]`)
   /**
-   * The card's ONE body line — the seat measured ZERO lines on the bare card.
-   * Everything outside the popover detail that is a primary or run line.
+   * The card's RUN line(s) — the share line or its absence line. The rows are
+   * the card's own facts and stay in both phases (Paul 25 Sep); the run ADDS
+   * one line below them, never in place of them.
    */
-  const cardLine = () => {
-    const ids = ['option-primary-change-option-1', 'option-analysis-currency-option-1', 'option-result-unavailable-option-1']
+  const runLines = () => {
+    const ids = ['option-analysis-currency-option-1', 'option-result-unavailable-option-1']
     return ids.map((id) => document.querySelector(`[data-testid="${id}"]`)).filter((el): el is Element => el !== null)
   }
 
   it('⭐ POST-ANALYSIS the card is not left bare — its change row still says which factor differs', () => {
     const { container } = renderShared({ results: { status: 'complete', report: {} } })
-    // Bind by IDENTITY to THIS option's row for the shared factor — in its popover.
-    const row = previewRow('f-head')
+    // Bind by IDENTITY to THIS option's row for the shared factor — on the card.
+    const row = cardRow('f-head')
     expect(row, 'the change row for the shared factor renders after the run').not.toBeNull()
     expect(row!.textContent).toContain('3 engineers')
     expect(container.textContent).toContain('Developer headcount')
-    // The card is not bare: it carries exactly ONE line of its own, outside the popover.
-    const lines = cardLine()
-    expect(lines).toHaveLength(1)
-    expect(optionPreviewDetail('option-1')!.contains(lines[0])).toBe(false)
+    // The card is not bare: its rows STAY after the run (this fixture's run
+    // carries no share for the option, so no run line is added), and any run
+    // line would sit BELOW them — never a one-line primary change in their place.
+    for (const line of runLines()) {
+      expect(row!.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(document.querySelector('[data-testid="option-primary-change-option-1"]')).toBeNull()
     // NODE-ANATOMY v3.2: the footer "Developer headcount → 3 engineers" would
     // only repeat that row, so it does not render — anywhere.
     expect(screen.queryByTestId(DIFF_TESTID)).toBeNull()
@@ -340,18 +344,24 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
 
   it('THE TWIN: pre-analysis reads the same — the row, and no repeating footer', () => {
     renderShared({ results: { status: 'idle', report: null } })
-    expect(previewRow('f-head')).not.toBeNull()
-    expect(cardLine()).toHaveLength(1)
+    expect(cardRow('f-head')).not.toBeNull()
+    expect(runLines()).toHaveLength(0)
     expect(screen.queryByTestId(DIFF_TESTID)).toBeNull()
     expect(document.body.textContent).not.toContain('Developer headcount → 3 engineers')
   })
 
   it('⭐ WHERE THE `→ value` FOOTER ADDS (its factor is behind "+1 more"), it survives the run', () => {
-    // Two equal shared changes lead the shared order, so the differentiating
-    // factor is NOT a shown row and the footer names it.
+    // THREE equal shared changes lead the shared order (the card shows three
+    // rows — Paul 25 Sep; it was two), so the differentiating factor is NOT a
+    // shown row and the footer names it.
     const TOOLS = { id: 'f-tools', type: 'factor', data: { label: 'Tooling spend', type: 'factor' } }
     const HOURS = { id: 'f-hours', type: 'factor', data: { label: 'Weekly hours', type: 'factor' } }
-    const equal = { 'f-tools': { value: 3, display_value: '£3k' }, 'f-hours': { value: 40, display_value: '40h' } }
+    const SEATS = { id: 'f-seats', type: 'factor', data: { label: 'Seats per account', type: 'factor' } }
+    const equal = {
+      'f-tools': { value: 3, display_value: '£3k' },
+      'f-hours': { value: 40, display_value: '40h' },
+      'f-seats': { value: 4, display_value: '4 seats' },
+    }
     const hidden = {
       ceeAnalysisReady: {
         options: [
@@ -359,12 +369,12 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
           { id: 'option-2', interventions: { ...equal, 'f-head': { value: 9, display_value: '9 engineers' } } },
         ],
       },
-      nodes: [TOOLS, HOURS, SHARED_FACTOR, OPTION_1, OPTION_2],
+      nodes: [TOOLS, HOURS, SEATS, SHARED_FACTOR, OPTION_1, OPTION_2],
     }
     const pre = renderShared({ ...hidden, results: { status: 'idle', report: null } })
-    expect(previewRow('f-head')).toBeNull()
-    // Positive control for that absence: the popover DOES carry this option's rows.
-    expect(previewRow('f-tools')).not.toBeNull()
+    expect(cardRow('f-head')).toBeNull()
+    // Positive control for that absence: the card DOES carry this option's rows.
+    expect(cardRow('f-tools')).not.toBeNull()
     // Whole sentence, from the popover line (bounded anatomy: it renders whole there).
     const preEl = optionPreviewDetail('option-1')!.querySelector(`[data-testid="${DIFF_TESTID}"]`)
     const before = fullSentence(preEl)
@@ -391,7 +401,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     // `<li>` list is replaced by the compact change rows. Bound by identity to
     // THIS option's row for the shared factor, from the baseline's value.
     expect(pre.container.querySelectorAll('li').length).toBe(0)
-    const row = previewRow('f-head')
+    const row = cardRow('f-head')
     expect(row, 'the change row for the shared factor must render').not.toBeNull()
     // Paul 23 Sep contract feedback point 7: an unsourced target is marked on
     // the row (never left bare, never "you") — as "no source", not as Olumi's

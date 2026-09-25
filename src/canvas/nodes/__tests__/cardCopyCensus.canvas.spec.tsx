@@ -200,6 +200,8 @@ const NODES = [
   { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'Channel depth', category: 'controllable', observedState: { value: 0.42, extractionType: 'explicit', unit: 'scale' } } },
   { id: 'factor-5', type: 'factor', data: { type: 'factor', label: 'Regional demand', category: 'external', observedState: { value: 0.24, extractionType: 'explicit', unit: 'scale' } } },
   { id: 'factor-6', type: 'factor', data: { type: 'factor', label: 'Pricing latitude', category: 'controllable', observedState: { value: 0.66, extractionType: 'explicit', unit: 'scale' } } },
+  // Option-3's fourth target (Paul 25 Sep: three rows, so a fourth reaches `+N more`).
+  { id: 'factor-7', type: 'factor', data: { type: 'factor', label: 'Partner margin', category: 'controllable', observedState: { value: 0.35, extractionType: 'explicit', unit: 'scale' } } },
   { id: 'option-1', type: 'option', data: { type: 'option', label: 'Aggressive plan' } },
   { id: 'option-2', type: 'option', data: { type: 'option', label: 'Phased rollout' } },
   { id: 'option-3', type: 'option', data: { type: 'option', label: 'Partner first' } },
@@ -247,7 +249,11 @@ const CEE = {
   options: [
     { id: 'option-1', interventions: { 'factor-1': 0.65 } },
     { id: 'option-2', interventions: { 'factor-2': 0.11, 'factor-4': 0.5 } },
-    { id: 'option-3', interventions: { 'factor-3': 0.93, 'factor-5': 0.72, 'factor-6': 0.17 } },
+    // FOUR targets, so `+N more` is reached: the face shows three rows (Paul 25
+    // Sep; it was two). The fourth is `factor-7`, a factor no other option sets
+    // (disjointness holds), last in the model order — so it is the one behind
+    // `+1 more` and adds no visible run.
+    { id: 'option-3', interventions: { 'factor-3': 0.93, 'factor-5': 0.72, 'factor-6': 0.17, 'factor-7': 0.4 } },
   ],
 }
 
@@ -514,15 +520,15 @@ const BUCKETS: Array<
  *    target with no reading while this change was in review; production now
  *    says the direction instead (`optionChangeRows.ts`, "NEVER AN ARROW
  *    POINTING AT NOTHING"), so a bare `→` is not in the allowed set anywhere.
- *  · BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "Option = top change
- *    pre-run or current-model share post-run … The fuller S3 reasoning detail
- *    — change rows … — can move to the existing hover/focus popover"). In
- *    STANDARD view the rows, `+N more` and the differentiator left the resting
- *    card for the popover this census excludes. Pre-run the face keeps ONE line
- *    — the top change, value and mark first — so its mark and separator stay in
- *    `option · pre · standard`; post-run the share line replaces it, so they
- *    LEAVE the two Standard post-run buckets. Detailed keeps its inline rows and
- *    its buckets are unchanged.
+ *  · BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026) moved the Standard rows,
+ *    `+N more` and the differentiator into the popover and kept ONE face line.
+ *  · ⭐ RE-ADJUDICATED 25 Sep 2026 — Paul ruled from live screenshots that the
+ *    card must match the PROTOTYPE, whose resting option face IS its change
+ *    rows (up to three, then `+N more`) in BOTH phases; a run adds its line
+ *    below them. So the rows' mark and separator (`no source`, `·`) are back in
+ *    the two Standard post-run buckets, from the rows themselves; the one-line
+ *    face is retired. The computed differentiator stays in the popover this
+ *    census excludes. Detailed buckets are unchanged.
  */
 const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · pre · standard': [
@@ -530,8 +536,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // deployed `79866c44`, 4 of 4 option cards asked nothing on their face).
     // Locked Canvas design (23 Sep 2026): the question is still on the card, as
     // the rail's coaching icon — no visible run. See REACH.
-    // Bounded anatomy (ED #63 5809278282): the two runs below now come from the
-    // face's ONE line — the top change's mark and its separators.
+    // The two runs below come from the face's change ROWS (Paul 25 Sep, the
+    // prototype) — each row's mark and its separator.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
@@ -548,9 +554,12 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     //            ⭐ WAS 'Ahead' until 7 Sep 2026, then 'Support' until the
     //            locked Canvas design (23 Sep 2026; ED 11:52Z point 4). The
     //            sentence is on the `title` and in `sr-only` text.
-    // ⛔ `no source` and `·` LEFT this bucket (bounded anatomy, ED #63
-    // 5809278282): post-run the share line is the face's one line and the
-    // change rows — whose marks they were — are in the popover.
+    // ⭐ RE-ADJUDICATED 25 Sep 2026: `no source` and `·` are BACK. They left
+    // with the bounded anatomy (ED #63 5809278282, rows in the popover); Paul's
+    // prototype ruling puts the rows on the face in both phases, the share line
+    // below them. Same MARK and SEPARATOR as `option · pre · standard`.
+    'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
+    '·', // MARK SEPARATOR — contract v3.1 pt 7 (gap U12, "→ 1 brief" read as a unit): punctuation, not wording, aria-hidden; the mark it sets apart is the run above.
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
@@ -685,9 +694,11 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // that explains the state is already where this lane would have put it:
     // on the `title` and in sr-only text, neither of which the census counts.
     'Not computed',
-    // ⛔ `no source` and `·` LEFT this bucket with the change rows (bounded
-    // anatomy, ED #63 5809278282): after a run the face's one line is the run's
-    // own line (here the not-computed badge); the rows are in the popover.
+    // ⭐ RE-ADJUDICATED 25 Sep 2026: `no source` and `·` are BACK with the change
+    // rows (Paul's prototype ruling: the rows stay on the face after a run; the
+    // not-computed badge is added below them). See `option · post · standard`.
+    'no source', // MARK — see `option · post · standard`.
+    '·', // MARK SEPARATOR — see `option · post · standard`.
   ],
   // The change-COUNT fallback lives here and nowhere else. It does NOT enter
   // the census — `Changes 1 factor` / `Changes 2 factors` / `Changes 3 factors`
@@ -897,15 +908,11 @@ const ADJUDICATED_POSITIONS: Position[] = [
   // reach it here; its presence and wording are pinned by identity in
   // `OptionNode.boundedAnatomy.spec.tsx` and
   // `OptionNode.differentiatorRecoverable.spec.tsx`.
-  {
-    what: 'option · the one primary change line (bounded anatomy)',
-    by: 'hand',
-    why: 'KEPT — ED #63 5809278282: "Option = top change pre-run". Its value, '
-      + 'mark and factor label vary per option, so the census cannot rule on '
-      + 'them; the invariant runs it adds (the mark and its separator) are in '
-      + '`option · pre · standard`. The whole sentence is its title and sr-only text.',
-    present: byTestId('-primary-change-option-1'),
-  },
+  // ⛔ RETIRED FROM THE CARD (Paul, 25 Sep 2026 — the prototype supersedes ED #63
+  // 5809278282's one-line option face): 'option · the one primary change line
+  // (bounded anatomy)'. It no longer renders anywhere, so no bucket can reach
+  // it; the face is the change rows, whose invariant runs (the mark and its
+  // separator) are measured in the option buckets above.
   {
     what: 'risk · the severity badge `{Severity} risk`',
     by: 'hand',
@@ -1072,8 +1079,10 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     const card = mountCard('option', 'option-3', 'pre')
     twoCarrier(
       card.querySelector('[data-testid="option-completeness-option-3"]'),
-      '3 of 6 factors',
-      '3 of 6 factors specified for this option',
+      // Was '3 of 6' — option-3 now sets a fourth factor of seven (`factor-7`,
+      // see `CEE`), so `+N more` is reached with three rows.
+      '4 of 7 factors',
+      '4 of 7 factors specified for this option',
       'completeness',
     )
   })
@@ -1109,18 +1118,18 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(pencil!.getAttribute('aria-label')).toBe(optionTargetsChannels({ count: 2 }).full)
 
     // THE COUNT: `+N more`, N from the ONE total, on the option with more
-    // targets than rows (option-3: 3 targets, 2 rows). The sighted reader gets
-    // the short form; the accessible name carries the whole sentence.
+    // targets than rows (option-3: 4 targets, 3 rows — Paul 25 Sep). The sighted
+    // reader gets the short form; the accessible name carries the whole sentence.
     applyStore('pre', 'expert', 'full', NODES_NO_BASELINE)
     const card3 = mountCard('option', 'option-3', 'pre')
     const more = card3.querySelector('[data-testid="option-change-more-option-3"]')
     expect(more, '+N more: the control did not mount').not.toBeNull()
     expect(more!.tagName).toBe('BUTTON')
     expect(more!.textContent).toBe('+1 more')
-    const full3 = optionTargetsChannels({ count: 3 }).full
-    expect(more!.getAttribute('aria-label')).toContain(full3)
+    const full4 = optionTargetsChannels({ count: 4 }).full
+    expect(more!.getAttribute('aria-label')).toContain(full4)
     // The compaction is real: the sentence is genuinely off the visible line.
-    expect(more!.textContent).not.toContain(full3)
+    expect(more!.textContent).not.toContain(full4)
   })
 
   /**
