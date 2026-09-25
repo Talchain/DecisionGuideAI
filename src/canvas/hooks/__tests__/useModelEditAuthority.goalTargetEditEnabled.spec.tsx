@@ -1,8 +1,9 @@
 /**
- * `proposeGoalTarget` with `GOAL_TARGET_EDIT_ENABLED` forced `true` —
- * simulating the world AFTER CEE deploys a `goal_target_edit` reader. The
- * production default is `false` (`goalTargetEdit.ts`'s header); this file
- * exists only to prove the flagged branch, and is the flag-ON half of a pair
+ * `proposeGoalTarget` with `GOAL_TARGET_EDIT_ENABLED` at its PRODUCTION value
+ * — `true` since the flip (`goalTargetEdit.ts`). ⚠ DELIBERATELY UNMOCKED: this
+ * file used to force the flag `true`, which meant flipping production back to
+ * `false` left it green. It now reads the real constant, so that regression
+ * REDs here. It is the flag-ON half of a pair
  * with `useModelEditAuthority.goalTargetEdit.spec.tsx` (the flag-OFF
  * contrast). See that file's header for why they are split rather than
  * combined: `vi.mock` is hoisted per file, not per `describe`.
@@ -20,13 +21,10 @@ vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   return { ...actual, useOptionalConversationContext: () => ({ sendSystemEvent, dispatchAction }) }
 })
-vi.mock('../../conversation/goalTargetEdit', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  return { ...actual, GOAL_TARGET_EDIT_ENABLED: true }
-})
 
 import { useModelEditAuthority } from '../useModelEditAuthority'
 import { useCanvasStore } from '../../store'
+import { GOAL_TARGET_EDIT_ENABLED } from '../../conversation/goalTargetEdit'
 
 const GOAL = 'goal_reduce_churn'
 const SCENARIO = 'scn_1'
@@ -56,6 +54,12 @@ function authorityFor() {
 beforeEach(() => {
   vi.clearAllMocks()
   seed()
+})
+
+describe('the production flag', () => {
+  it('is ARMED — the typed carrier, not add_constraint, is what ships', () => {
+    expect(GOAL_TARGET_EDIT_ENABLED).toBe(true)
+  })
 })
 
 describe('the dispatched payload', () => {
