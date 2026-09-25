@@ -3689,16 +3689,26 @@ function buildChecks(
   // The cause this surface states for a withheld leader: null when the leader
   // was not withheld, or was withheld for a reason it cannot name.
   const token = typeof producerWithholdReason === 'string' ? producerWithholdReason.trim() : ''
+  const admissionRefused = licensesComparativeLeaderClaim(data.recommendation.analysisAdmission) === false
   const withheldCause =
     leaderCode !== 'leader_not_assessed'
       ? null
       : // Where the admission refused the comparative claim, that refusal IS the
         // cause, but only behind a token the admission can explain; see
         // ADMISSION_EXPLAINS_THE_WITHHOLD.
-        licensesComparativeLeaderClaim(data.recommendation.analysisAdmission) === false &&
-          ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)
+        admissionRefused && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)
         ? LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
         : leaderWithholdCause(producerWithholdReason)
+  /*
+   * ⚠ A NAMEABLE CAUSE IS NOT ALWAYS A DURABLE ONE. `constraint_verdict_withheld`
+   * covers the automatic first pass's own policy, and an explicit Run on the
+   * same pricing model PERMITTED the leader (25 Sep 02:37Z). So that generic
+   * token earns "a re-run would not help" only behind an admission refusal (a
+   * property of the model). Tokens that name their own cause keep it as before.
+   * Found by an independent pre-review of bundle 3 (#63 5826233187).
+   */
+  const causeIsDurable =
+    withheldCause !== null && (token !== 'constraint_verdict_withheld' || admissionRefused)
 
   return {
     items: [
@@ -3765,9 +3775,10 @@ function buildChecks(
      */
     rerunWouldNotHelp:
       leaderCode === 'leader_not_assessed' &&
-      // The cause as DISPLAYED: an admission refusal is nameable even behind a
-      // token the copy map does not know (`unrequested_analysis_withheld`).
-      withheldCause !== null &&
+      // The cause as DISPLAYED, and only where it is durable (see above): an
+      // admission refusal is nameable even behind a token the copy map does not
+      // know (`unrequested_analysis_withheld`).
+      causeIsDurable &&
       staleReason !== 'changed',
   }
 }
