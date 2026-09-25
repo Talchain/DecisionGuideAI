@@ -1,0 +1,32 @@
+/**
+ * CanvasFooterSummary — width guard.
+ *
+ * The footer draws in the overlay band's bottom-left cell. The band is a
+ * `1fr auto 1fr` grid whose side cells have `min-width: 0`, and its `auto`
+ * centre track is sized before any `fr` track. So a wide bottom-centre occupant
+ * (the "Saved example" banner at 1280 with the dock open) squeezes this cell to
+ * nothing, and the line used to wrap into a 70px, 5-line column that ran off
+ * the bottom of the canvas (served 25 Sep, `580d135b`).
+ *
+ * The band deliberately gives this cell NO floor: the banner is a provenance
+ * disclosure and outranks a standing count. So the footer withdraws instead.
+ * The wrapper is a size container that takes the cell's width and adds nothing
+ * to it (inline-size containment makes its min-content 0, so the grid is never
+ * widened by the footer).
+ */
+.fit {
+  container-type: inline-size;
+  flex: 1 1 0%;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* 160px keeps the wrapped line to three 18px lines (54px), inside the band's
+   64px reservation; measured on the served build: 140px → 72px, 120px → 90px.
+   Bound to `CANVAS_FOOTER_MIN_WIDTH_PX` by `CanvasFooterSummary.spec.tsx`. */
+@container (max-width: 159px) {
+  .footer {
+    display: none;
+  }
+}
