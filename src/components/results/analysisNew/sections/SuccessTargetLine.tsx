@@ -299,6 +299,13 @@ export function SuccessTargetLine({
    */
   const showToast = useShowToastSafe()
   const wordsInputId = useId()
+  /**
+   * Only the LATEST commit attempt may report a send settlement. The editor
+   * closes on dispatch and can reopen while an earlier send is still pending, so
+   * attempt A's late reply must not overwrite attempt B's status (pre-review
+   * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
+   */
+  const attemptSeqRef = useRef(0)
 
   // No goal node, nothing to attach a target to. A target line over a model
   // with no goal would be an affordance writing into nowhere.
@@ -390,13 +397,6 @@ export function SuccessTargetLine({
     }
   }
 
-  /**
-   * Only the LATEST commit attempt may report a send settlement. The editor
-   * closes on dispatch and can reopen while an earlier send is still pending, so
-   * attempt A's late reply must not overwrite attempt B's status (pre-review
-   * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
-   */
-  const attemptSeqRef = useRef(0)
   const commit = () => {
     const attempt = ++attemptSeqRef.current
     const typed = draft.trim()
