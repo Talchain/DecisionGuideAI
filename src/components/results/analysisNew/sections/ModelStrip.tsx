@@ -188,6 +188,7 @@ import { SuccessTargetLine } from './SuccessTargetLine'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
+import { goalTargetSettlementNotice } from '../../../../canvas/conversation/goalTargetEdit'
 import { highlightNode, clearHighlight } from '../../../../canvas/utils/highlightHelpers'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
@@ -947,6 +948,17 @@ export function ModelStrip({
                     : COPY.successTarget.notEncodable,
           )
         }
+        /* ⭐⭐ THE SETTLEMENT, AND WITHOUT IT A REFUSAL HERE WAS SILENT. With the
+           typed `goal_target_edit` carrier armed (`GOAL_TARGET_EDIT_ENABLED`), a
+           refused send is a SYSTEM EVENT, and a refused system event renders NO
+           transcript bubble — so unlike the `add_constraint` turn it replaced,
+           no reply ever arrived to say the target was not recorded. The one
+           shared derivation (`goalTargetSettlementNotice`) names what happened;
+           `sent` is `null` because CEE's own receipt reply does render. */
+        onSendSettled={(settlement, detail) => {
+          const notice = goalTargetSettlementNotice(settlement, detail)
+          if (notice !== null) showToast(notice, settlement === 'refused' ? 'error' : 'warning')
+        }}
         testId={`${testId}-target`}
       />
 
