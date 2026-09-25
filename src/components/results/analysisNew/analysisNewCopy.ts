@@ -2878,3 +2878,41 @@ export function strengthenWhyLine(signal: string, whyNow?: string): string {
  */
 export const LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS =
   'No option can be put forward until at least one of the estimates it rests on is yours.'
+
+/**
+ * The withheld-leader tokens the producer's admission can explain.
+ * `constraint_verdict_withheld` is emitted for ANY not-entitled verdict
+ * (`composeLeaderClaim`: `!entitled`), and CEE's `unrequested_analysis_withheld`
+ * (#1876) for an automatic first pass. Any other token names its own cause
+ * (`separation_unavailable`), and an admission refusal must not replace it.
+ */
+const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
+  'constraint_verdict_withheld',
+  'unrequested_analysis_withheld',
+])
+
+/**
+ * ⭐ THE WITHHELD LEADER'S CAUSE, ONE RULE FOR EVERY SURFACE.
+ *
+ * The Reasoning tab's `checks.leaderWithholdCause` and the canvas option card
+ * state the same cause from the same inputs. Canvas asked to import this rather
+ * than copy it (#63 5826170658).
+ * - `admissionRefusedTheClaim` is true only where the RUN's own admission
+ *   refused the comparative claim AND its `permitted_analysis_mode` reason asks
+ *   for an estimate (`admissionRefusalAsksForAnEstimate`, independent review of
+ *   #1993, 5826650947). Any refusal is too wide: "Name at least two different
+ *   options" is not about estimates. It is a boolean, so this copy module
+ *   imports no canvas hook.
+ * - The result is null where no cause can be named. The caller decides whether
+ *   the leader was withheld at all.
+ */
+export function withheldLeaderCause(
+  producerReason: string | null | undefined,
+  admissionRefusedTheClaim: boolean,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  if (admissionRefusedTheClaim && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
+    return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
+  }
+  return leaderWithholdCause(producerReason)
+}
