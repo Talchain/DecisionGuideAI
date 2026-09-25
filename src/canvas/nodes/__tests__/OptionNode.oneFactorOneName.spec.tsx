@@ -47,7 +47,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { sentenceCaseFactorLabel } from '../../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows, optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -194,11 +194,13 @@ describe('OptionNode — one factor, one name', () => {
     // The producer's Title Case must not survive anywhere in this sentence.
     expect(differentiator.textContent).not.toMatch(/Usage-Based/)
 
-    // ⭐ BOTH CARRIERS, SIDE BY SIDE: the change row for the SAME factor, in the
-    // same popover, names it in the same casing (its full name is the row's
-    // title and accessible text).
-    const row = within(optionPreviewDetail('option-1')!).getByTestId('option-change-row-option-1-factor-usage')
+    // ⭐ BOTH CARRIERS, SIDE BY SIDE: the change row for the SAME factor, on the
+    // card (Paul 25 Sep: rows at rest), names it in the same casing (its full
+    // name is the row's title and its label cell's text and title).
+    const row = within(optionCardRows('option-1')).getByTestId('option-change-row-option-1-factor-usage')
     expect(row.getAttribute('title')?.startsWith(`${expected}: `)).toBe(true)
+    expect((row.previousElementSibling as HTMLElement).textContent).toBe(expected)
+    expect(optionCardRows('option-1').innerHTML).not.toMatch(/Usage-Based/)
     expect(optionPreviewDetail('option-1')!.innerHTML).not.toMatch(/Usage-Based/)
   })
 
@@ -315,7 +317,12 @@ describe('OptionNode — one factor, one name', () => {
   it('the "→ value" branch carries the same casing', () => {
     // The differentiator has two sentence frames. A fix applied to one and not
     // the other would leave the defect live on every shared-factor option.
-    const EQUAL = { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' } }
+    // THREE equal changes (the card shows three rows — Paul 25 Sep; it was two).
+    const EQUAL = {
+      'factor-tools': { value: 3, display_value: '£3k' },
+      'factor-hours': { value: 40, display_value: '40h' },
+      'factor-seats': { value: 4, display_value: '4 seats' },
+    }
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -330,9 +337,10 @@ describe('OptionNode — one factor, one name', () => {
           { id: 'option-2', type: 'option', data: { label: 'Hybrid Platform Fee', type: 'option' } },
           { id: 'option-3', type: 'option', data: { label: 'New Logos Only', type: 'option' } },
           // Earlier in the model than the differentiating factor, so the shared
-          // order shows these two rows and puts `factor-usage` behind "+1 more".
+          // order shows these three rows and puts `factor-usage` behind "+1 more".
           { id: 'factor-tools', type: 'factor', data: { label: 'Tooling spend' } },
           { id: 'factor-hours', type: 'factor', data: { label: 'Weekly hours' } },
+          { id: 'factor-seats', type: 'factor', data: { label: 'Seats per account' } },
           { id: 'factor-usage', type: 'factor', data: { label: TITLE_CASE_LABEL, observedState: { unit: 'scale', value: 0.0 } } },
         ],
         viewMode: 'standard',
@@ -346,11 +354,11 @@ describe('OptionNode — one factor, one name', () => {
     // the two carriers. The claim here is the DIFFERENTIATOR's frame, so bind by
     // its identity rather than by text another carrier can also satisfy.
     // Precondition: the factor is behind "+1 more", so the footer ADDS it.
-    const preview = within(optionPreviewDetail('option-1')!)
-    expect(preview.queryByTestId('option-change-row-option-1-factor-usage')).toBeNull()
-    // Positive control for that absence: the popover does carry option-1's rows.
-    expect(preview.getByTestId('option-change-row-option-1-factor-tools')).toBeTruthy()
-    const p = preview.getByTestId('option-differentiator-option-1')
+    const rows = within(optionCardRows('option-1'))
+    expect(rows.queryByTestId('option-change-row-option-1-factor-usage')).toBeNull()
+    // Positive control for that absence: the card does carry option-1's rows.
+    expect(rows.getByTestId('option-change-row-option-1-factor-tools')).toBeTruthy()
+    const p = within(optionPreviewDetail('option-1')!).getByTestId('option-differentiator-option-1')
     expect(p.tagName).toBe('P')
     // Bounded anatomy: the popover line is the whole sentence with the
     // producer's full reading (the at-rest collapse was a card-budget measure).

@@ -172,66 +172,20 @@ import { OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVo
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
-import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
+import { ValueSourceMark } from './shared/valueSourceMark'
 import { TRUNCATING_LABEL_CLASS } from '../ui/truncation'
+import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 
 /**
- * ⭐ BOUNDED ANATOMY — THE OPTION CARD IS TITLE + ONE PRIMARY LINE (Standard
- * view, every rung). Experience Design, #63 5809278282, 24 Sep 2026:
- *
- *   "Proceed with (2), modified; do not build rung-triggered re-layout … Keep
- *    one stable layout geometry. Landing / quiet: repeated cards may reduce to
- *    title + one primary line inside the fixed fit-safe box. Option = top
- *    change pre-run or current-model share post-run … The fuller S3 reasoning
- *    detail — change rows, driver wording, turning-point explanation/findings —
- *    can move to the existing hover/focus popover and inspector rather than
- *    expanding layout geometry … Never hide provenance or staleness in
- *    tooltip-only copy. This is a fit implementation of the locked anatomy,
- *    not a new design gate."
- *
- * MEASURED (the lead, 24 Sep): at 1280×800 with the dock open the landing zoom
- * is the 0.5 floor, `--canvas-label-scale` 2, ~19 characters a line, and the
- * layout reserves every card's height AT that bound — so each body line costs
- * 28 flow units of whole-graph height against a ~149-unit allowance per card:
- * padding + a title of ≤2 lines + exactly ONE line.
- *
- * The line's budget is the estate's own per-line budget at the worst-case
- * counter-scale (`NODE_ROW_LABEL_MAX_CHARS`, derived from the card width and
- * measured type — the same budget `OPTION_ROW_CHANGE_BUDGET_CHARS` doubles).
- * It is a constant, not a zoom reading, so the choice below never moves with
- * the rung (ED: "do not build rung-triggered re-layout").
+ * ⭐ THE ONE-LINE OPTION BODY IS RETIRED — Paul, 25 Sep 2026, from live
+ * screenshots: the canvas must match the PROTOTYPE, which shows one ROW per
+ * concrete change at rest. That supersedes ED #63 5809278282's "title + ONE
+ * primary line" for option cards (its `OPTION_PRIMARY_LINE_BUDGET_CHARS` and
+ * `optionRestingChangeValue`, which chose between `from → to` and `→ to` for
+ * that one line, are deleted with it: a constant nothing reads is a claim
+ * nothing checks). The rows themselves are `renderChangeRows` below; the height
+ * they add is reserved by measurement (`measureNodeHeightsAtLabelBound`).
  */
-export const OPTION_PRIMARY_LINE_BUDGET_CHARS = NODE_ROW_LABEL_MAX_CHARS
-
-/**
- * The value the ONE line shows for the option's top change — value FIRST, never
- * cut (contract: "label truncates, value NEVER truncates"; `ui/truncation.ts`).
- *
- *   · `change` — the row's own `from → to` (or `→ to`, or its direction form),
- *     byte-identical to the popover row, when it and its source mark fit the
- *     line;
- *   · `target` — `→ <target>` when a `from → to` would not. The "from" is the
- *     REFERENCE (the baseline option's target, or the factor's current value),
- *     which is the same on every option card in the row; the target is what
- *     this option sets. ED 02:31Z D2 already rules this direction for the
- *     resting card: "reduce visible rows at that LOD before truncating the
- *     value" — here, reduce what the line carries before cutting a value. The
- *     full `from → to` stays in the line's title and accessible text, the
- *     popover row and the inspector.
- *
- * A value too long to fit even as its target is NOT shortened: the render lets
- * it WRAP (values wrap, never clip — ED 02:31Z D2, `ui/truncation.ts`).
- */
-export function optionRestingChangeValue(
-  row: Pick<OptionChangeRow, 'change' | 'after' | 'targetSource'>,
-): { value: string; form: 'change' | 'target' } {
-  const token = VALUE_SOURCE_MARK_TOKEN[row.targetSource.kind]
-  const clusterLength = (value: string) => `${value} ${OPTION_ROW_SOURCE_MARK_SEPARATOR} ${token}`.length
-  if (row.after === undefined || clusterLength(row.change) <= OPTION_PRIMARY_LINE_BUDGET_CHARS) {
-    return { value: row.change, form: 'change' }
-  }
-  return { value: `→ ${row.after}`, form: 'target' }
-}
 
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
@@ -1886,10 +1840,10 @@ export const OptionNode = memo((props: NodeProps) => {
     : ''
 
   /**
-   * ⭐ WHICH RUN-DERIVED LINE THE CARD CARRIES — ONE SPELLING, READ BY THE RENDER
-   * AND BY THE PRIMARY-LINE DECISION BELOW. Hoisted from the four JSX gates
-   * verbatim (each gate's reasoning stays at its render site); a second spelling
-   * here would let the card show a change line AND a run line, i.e. two rows.
+   * ⭐ WHICH RUN-DERIVED LINE THE CARD CARRIES — ONE SPELLING, READ BY THE RENDER.
+   * Hoisted from the JSX gates verbatim (each gate's reasoning stays at its
+   * render site). The change rows no longer read it: they stay on the card in
+   * both phases and the run adds its line below them (prototype, Paul 25 Sep).
    */
   const notAnalysedRenders = displayMetadata.isResultsMode && leftOutOfRunReason !== null
   const notComputedRenders = displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true
@@ -1898,17 +1852,15 @@ export const OptionNode = memo((props: NodeProps) => {
     displayMetadata.winComputationFailed !== true &&
     leftOutOfRunReason === null &&
     !supportShareRunWideAbsent
-  const runLineRenders = winReadout !== null || notAnalysedRenders || notComputedRenders || resultUnavailableRenders
 
   /**
-   * A change row's whole sentence — the row's hover, and the card line's hover
-   * AND accessible text. Byte-identical to the row title it was lifted from;
-   * `withEstimate` adds the `est.` mark's own note, because on the card line
-   * that mark sits inside the line's single accessible name rather than being
-   * announced on its own.
+   * A change row's whole sentence — the row's hover and accessible name (the
+   * `dd`'s `title`). The `est.` mark carries its own note
+   * (`OPTION_ROW_ESTIMATE_TITLE`), so the sentence does not repeat it. A Row 22
+   * row (a target the option names with no value) says only the gap: there is
+   * no target to describe, attribute or compare.
    */
-  const changeRowSentence = (r: OptionChangeRow, withEstimate = false): string => r.needsInput
-    // Row 22: no target to describe, attribute or compare — say only the gap.
+  const changeRowSentence = (r: OptionChangeRow): string => r.needsInput
     ? `${r.fullLabel}: ${r.fullChange}. This option names this factor but sets no target value yet.`
     : [
     `${r.fullLabel}: ${r.fullChange}.`,
@@ -1918,22 +1870,24 @@ export const OptionNode = memo((props: NodeProps) => {
         ? 'From the factor’s current value in the model.'
         : null,
     // Point 7 (Paul 23 Sep): where the TARGET came from, in words.
-    r.estimated ? (withEstimate ? OPTION_ROW_ESTIMATE_NOTE : null) : `Target: ${r.targetSource.label.toLowerCase()}.`,
+    r.estimated ? null : `Target: ${r.targetSource.label.toLowerCase()}.`,
   ].filter(Boolean).join(' ')
 
   /**
-   * ⭐ THE S3 CHANGE ROWS — ONE BLOCK, RENDERED IN EXACTLY ONE PLACE PER VIEW, so
-   * its test ids stay unique: inline on the card in DETAILED view (which keeps
-   * its inline detail, with the S5 landing stack), and in the option's popover
-   * in STANDARD view (always the contract grid — see `rowsStacked`). Same rows,
-   * same order, same marks, same `+N more` → inspector.
+   * ⭐ THE CHANGE ROWS — ONE BLOCK, RENDERED IN EXACTLY ONE PLACE, ON THE CARD, so
+   * its test ids stay unique. DETAILED view keeps its inline detail (the S5
+   * landing stack, JS-compacted wrapping labels). STANDARD view is the
+   * prototype's resting grid (Paul 25 Sep, supersedes ED 5809278282's popover
+   * placement): `restingLabels` gives each row the factor's FULL name in ONE
+   * CSS-truncating cell with its own `title` (`data-truncates="label"`, the
+   * clipping scan's recoverable exemption), while `from → to` and its mark are
+   * never in a truncating element — they wrap if they must, never cut. Same
+   * rows, same order, same marks, same `+N more` → inspector.
+   *
+   * No rung term: the Standard rows are the grid at every zoom, so the body is
+   * byte-identical at Normal and landing (no rung-triggered re-layout).
    */
-  /**
-   * `surface` names where the rows are read: on the card (Detailed view) or in
-   * the popover (Standard view, ED 5809278282). `+N more`'s accessible name
-   * says what is not shown THERE — "on the card" would be false in the popover.
-   */
-  const renderChangeRows = (layout: 'grid' | 'stacked', surface: 'card' | 'preview' = 'card') => {
+  const renderChangeRows = (layout: 'grid' | 'stacked', restingLabels = false) => {
     const stacked = layout === 'stacked'
     return (
     <div className="mt-1" data-testid={`option-change-rows-${props.id}`} data-row-layout={stacked ? 'stacked' : 'grid'}>
@@ -1942,6 +1896,15 @@ export const OptionNode = memo((props: NodeProps) => {
         : 'm-0 grid grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))] items-baseline gap-x-2 gap-y-1'}>
         {changeRows.map((r, i) => (
           <Fragment key={r.factorId}>
+            {restingLabels ? (
+              <dt
+                className={`${typography.edgeLabel} !leading-tight ${TRUNCATING_LABEL_CLASS} text-text-light`}
+                title={r.fullLabel}
+                data-truncates="label"
+              >
+                {r.fullLabel}
+              </dt>
+            ) : (
             <dt
               className={`${typography.edgeLabel} !leading-tight min-w-0 break-words text-text-light${stacked && i > 0 ? ' mt-1' : ''}`}
               title={r.fullLabel !== r.label ? r.fullLabel : undefined}
@@ -1949,6 +1912,7 @@ export const OptionNode = memo((props: NodeProps) => {
               <span aria-hidden={r.fullLabel !== r.label ? true : undefined}>{r.label}</span>
               {r.fullLabel !== r.label && <span className={typography.screenReaderOnly}>{r.fullLabel}</span>}
             </dt>
+            )}
             <dd
               className={`${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${stacked ? 'text-left' : 'text-right'} text-text-body`}
               data-testid={`option-change-row-${props.id}-${r.factorId}`}
@@ -2025,7 +1989,7 @@ export const OptionNode = memo((props: NodeProps) => {
              one rhythm. */
           className={`nodrag nopan ${typography.edgeLabel} mt-1 block text-left text-info no-underline underline-offset-2 hover:underline focus-visible:underline`}
           data-testid={`option-change-more-${props.id}`}
-          aria-label={`${optionTargetsChannels({ count: totalInterventionCount }).full} ${changeRowsMore} more not shown ${surface === 'preview' ? 'here' : 'on the card'}.`}
+          aria-label={`${optionTargetsChannels({ count: totalInterventionCount }).full} ${changeRowsMore} more not shown on the card.`}
           onPointerDown={(e) => e.stopPropagation()}
           onDoubleClick={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -2041,82 +2005,61 @@ export const OptionNode = memo((props: NodeProps) => {
   }
 
   /**
-   * ⭐ THE ONE PRIMARY LINE, PRE-RUN (Standard view): the option's TOP change —
-   * the first row of the shared change order (`optionChangeRows.ts`), so a row of
-   * option cards compares like with like. Value and source mark FIRST and never
-   * cut; the factor label LAST, in the one span allowed to ellipsize
-   * (`TRUNCATING_LABEL_CLASS`), with the whole sentence on the line's `title`
-   * and in its accessible text. The rows, `+N more` and the differentiator are
-   * in the popover (`restingDetailInPreview`) and the inspector.
-   *
-   * Absent in Detailed view (its rows stay inline) and whenever a run-derived
-   * line renders — post-run the share line replaces it (ED #63 5809278282:
-   * "Option = top change pre-run or current-model share post-run").
-   *
-   * ⚠ HEIGHT SAFETY (brief rule 2): nothing here reads the rung, so the line is
-   * byte-identical at Normal and landing; at Normal its type is smaller, so it
-   * can only take the same or fewer lines. Any Normal-rung cue must sit INLINE
-   * on this line, never as a new row.
-   *
-   * ⚠ `data-truncates="label"` marks the one CSS ellipsis this card now uses,
-   * for the browser clipping scan (`e2e/visual/nodeTextClipping.visual.spec.ts`
-   * reds on ANY clipped leaf): the label is recoverable here by construction.
+   * ⭐ THE OPTION'S OWN DIFFERENTIATOR LINE — the prototype's muted sentence under
+   * the rows ("Price changes without a feature release."), rendered ONLY from a
+   * field the option node carries: its description (the user's body, with any
+   * drafter's `Also drafted as:` note removed — `parseDraftingNotes`, the
+   * inspector's own reader) or, failing that, its `rationale`. Verbatim. Never a
+   * UI-composed sentence: the computed "X is the key difference" stays in the
+   * popover (`restingDetailInPreview`), and with neither field the card shows no
+   * line at all (Paul 25 Sep: "never invent one").
    */
-  const primaryChangeRow = !isDetailed && !runLineRenders ? changeRows[0] ?? null : null
-  const primaryChange = primaryChangeRow ? optionRestingChangeValue(primaryChangeRow) : null
-  const primaryChangeSentence = primaryChangeRow ? changeRowSentence(primaryChangeRow, true) : ''
-  const primaryChangeLine = primaryChangeRow && primaryChange ? (
+  const ownDifferentiator = (() => {
+    const body = parseDraftingNotes(typeof props.data?.description === 'string' ? props.data.description : null).body.trim()
+    if (body) return body
+    const rationale = (props.data as { rationale?: unknown } | undefined)?.rationale
+    return typeof rationale === 'string' && rationale.trim() ? rationale.trim() : null
+  })()
+  const ownDifferentiatorLine = ownDifferentiator ? (
     <p
-      className={`${typography.edgeLabel} !leading-tight mt-1 m-0 flex min-w-0 items-baseline gap-x-1 overflow-hidden`}
-      data-testid={`option-primary-change-${props.id}`}
-      data-factor-id={primaryChangeRow.factorId}
-      data-value-form={primaryChange.form}
-      title={primaryChangeSentence}
+      className={`${typography.edgeLabel} !leading-tight mt-1 m-0 line-clamp-2 text-text-light`}
+      data-testid={`option-card-differentiator-${props.id}`}
+      title={ownDifferentiator}
     >
-      {/* Value + mark: may WRAP when the value alone exceeds the line (values
-          wrap, never clip); never shrinks while the label still has width to
-          give, because the label's flex basis is 0. */}
-      {primaryChangeRow.needsInput ? (
-        /* Row 22: the option's top row names a factor with no target — the
-           line states the gap in the value's place, with no mark. */
-        <span
-          className={STATE_WORD_CLASSES}
-          style={STATE_WORD_STYLE}
-          aria-hidden="true"
-          data-testid={`option-primary-change-needs-input-${props.id}`}
-        >
-          {primaryChangeRow.change}
-        </span>
-      ) : (
-      <span className="min-w-0 break-words text-text-body" aria-hidden="true">
-        <span data-testid={`option-primary-change-value-${props.id}`}>{primaryChange.value}</span>
-        {' '}
-        <span className="whitespace-nowrap">
-          <span className="text-text-light">{OPTION_ROW_SOURCE_MARK_SEPARATOR}{' '}</span>
-          <ValueSourceMark
-            mark={primaryChangeRow.targetSource}
-            testId={`option-primary-change-source-${props.id}`}
-            title={primaryChangeRow.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
-          />
-        </span>
-      </span>
-      )}
-      <span
-        className={`${TRUNCATING_LABEL_CLASS} flex-1 text-text-light`}
-        aria-hidden="true"
-        data-testid={`option-primary-change-label-${props.id}`}
-        data-truncates="label"
-      >
-        {OPTION_ROW_SOURCE_MARK_SEPARATOR}{' '}{primaryChangeRow.fullLabel}
-      </span>
-      <span className={typography.screenReaderOnly}>{primaryChangeSentence}</span>
+      {ownDifferentiator}
     </p>
   ) : null
 
   /**
-   * The baseline's meta line (contract v3.1 OPT-12). Before a run it IS the
-   * baseline's one line; after a run the share line takes the card and this
-   * moves to the popover (Standard). Detailed keeps it inline in both phases.
+   * ⭐ THE BASELINE'S SECOND LINE — ROW 22 (contract v3 §02) and the prototype:
+   * "Reference for the other alternatives." (`OPTION_BASELINE_REFERENCE`), on
+   * the card at rest under "Baseline · no changes", in both views and both
+   * phases. Stated only when it is TRUE OF THE DATA:
+   *   · this option is the ONE DECLARED baseline (`is_baseline === true`, and no
+   *     other option declares it — `resolveBaselineOptionReference`'s rule: a
+   *     label like "Status quo" declares nothing, and two declared baselines
+   *     leave no single reference);
+   *   · at least one other option exists for it to be the reference of.
+   * The option's own description, when it carries one, is the line instead —
+   * one differentiator line, never two.
+   */
+  const isDeclaredReference =
+    props.data?.is_baseline === true &&
+    nodes.filter(n => (n.type === 'option' || n.data?.type === 'option') && n.data?.is_baseline === true).length === 1 &&
+    nodes.some(n => n.id !== props.id && (n.type === 'option' || n.data?.type === 'option'))
+  const baselineReferenceLine = isDeclaredReference && !ownDifferentiator ? (
+    <p
+      className={`${typography.edgeLabel} !leading-tight mt-1 m-0 text-text-light`}
+      data-testid={`option-baseline-reference-${props.id}`}
+    >
+      {OPTION_BASELINE_REFERENCE}
+    </p>
+  ) : null
+
+  /**
+   * The baseline's meta line (contract v3.1 OPT-12). On the card in both phases
+   * and both views (prototype, Paul 25 Sep): a run adds its line BELOW it, never
+   * in place of it — the option's own facts first (OPT-09).
    */
   const baselineMeta = (
     <div
@@ -2126,29 +2069,7 @@ export const OptionNode = memo((props: NodeProps) => {
       {totalInterventionCount === 0 ? 'Baseline · no changes' : 'Baseline option'}
     </div>
   )
-  const baselineMetaOnCard = isBaselineOption && (isDetailed || !runLineRenders)
-  const baselineMetaInPreview = isBaselineOption && !isDetailed && runLineRenders
-
-  /**
-   * ⭐ ROW 22 (contract v3 §02): "Reference for the other alternatives." — said
-   * only of the ONE DECLARED baseline (`is_baseline === true`, and no other
-   * option declares it), the option the others are read against. A label that
-   * merely looks like a status quo declares nothing, and two declared
-   * baselines leave no single reference (`resolveBaselineOptionReference`'s
-   * rule). It rides with the baseline meta: inline in Detailed, in the popover
-   * in Standard — the card's ONE line stays the meta (ED 5809278282).
-   */
-  const isDeclaredReference =
-    (props.data as { is_baseline?: unknown } | undefined)?.is_baseline === true &&
-    nodes.filter(n => (n.type === 'option' || n.data?.type === 'option') && n.data?.is_baseline === true).length === 1
-  const baselineReference = isDeclaredReference ? (
-    <p
-      className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
-      data-testid={`option-baseline-reference-${props.id}`}
-    >
-      {OPTION_BASELINE_REFERENCE}
-    </p>
-  ) : null
+  const baselineMetaOnCard = isBaselineOption
 
   /**
    * ⭐ ROW 22 (contract v3 §02): the stale option state, "Last run · no new
@@ -2157,8 +2078,10 @@ export const OptionNode = memo((props: NodeProps) => {
    * no "last run" may be manufactured (ED 02:31Z). The last run's result is NOT
    * replaced: the card keeps `Last run` + share (ED 11:52Z point 8); this line
    * adds that no comparison of the current model exists yet. Inline in
-   * Detailed; in the popover in Standard (the card's ONE line, ED 5809278282),
-   * and in the share line's accessible name and tooltip.
+   * Detailed; in the popover in Standard, and in the share line's accessible
+   * name and tooltip. (The prototype ruling of 25 Sep moved the change rows and
+   * the baseline lines onto the card; it did not rule on this line, so its
+   * placement is unchanged.)
    */
   const staleStateShown = isPostAnalysis && runCurrency === 'changed'
   const staleStateLine = staleStateShown ? (
@@ -2171,17 +2094,17 @@ export const OptionNode = memo((props: NodeProps) => {
   ) : null
 
   /**
-   * ⭐ MOVE, DON'T DELETE — the S3 detail the card body no longer carries, at the
-   * top of the option's popover in BOTH phases (Standard view): the change rows
-   * (grid, marks, `+N more` → inspector), the differentiator's full sentence,
-   * and — after a run — the baseline meta. Placed at the popover call sites
-   * rather than inside `preAnalysisPopoverContent` / `layer2Content`, whose
-   * several return branches would each need a copy.
+   * The computed differentiator's full sentence, and — after a run whose model
+   * has since changed — the stale state line, at the top of the option's
+   * popover in BOTH phases (Standard view). The change rows and the baseline
+   * lines are back ON the card (prototype, Paul 25 Sep), so they are not
+   * repeated here. Placed at the popover call sites rather than inside
+   * `preAnalysisPopoverContent` / `layer2Content`, whose several return branches
+   * would each need a copy.
    */
-  const restingDetailInPreview = !isDetailed && (changeRows.length > 0 || differentiatorRenders || baselineMetaInPreview || baselineReference !== null || staleStateLine !== null) ? (
+  const restingDetailInPreview = !isDetailed && (differentiatorRenders || staleStateLine !== null) ? (
     <div className="mb-1" data-testid={`option-preview-detail-${props.id}`}>
       {staleStateLine}
-      {changeRows.length > 0 && renderChangeRows('grid', 'preview')}
       {differentiatorRenders && differentiator && (
         <p
           className={`${typography.edgeLabel} text-text-body mt-1 m-0`}
@@ -2190,8 +2113,6 @@ export const OptionNode = memo((props: NodeProps) => {
           {differentiator.fullLabel}
         </p>
       )}
-      {baselineMetaInPreview && baselineMeta}
-      {baselineReference}
     </div>
   ) : null
 
@@ -2395,11 +2316,13 @@ export const OptionNode = memo((props: NodeProps) => {
             whole graph paid for it. At Normal zoom it is the contract grid,
             unchanged. Same rows, same order, same bytes. Height safety is
             argued in `OptionNode.landingRowsStack.spec.tsx`. */}
-        {isDetailed && changeRows.length > 0 && renderChangeRows(rowsStacked ? 'stacked' : 'grid')}
-        {primaryChangeLine}
+        {changeRows.length > 0 && (isDetailed
+          ? renderChangeRows(rowsStacked ? 'stacked' : 'grid')
+          : renderChangeRows('grid', true))}
         {baselineMetaOnCard && baselineMeta}
-        {/* Row 22: Detailed carries the reference sentence inline (Standard: popover). */}
-        {baselineMetaOnCard && isDetailed && baselineReference}
+        {ownDifferentiatorLine}
+        {/* Row 22 + prototype: the declared baseline's reference sentence, on the card in both views. */}
+        {baselineReferenceLine}
 
         {/* Pre-analysis: structured deltas — one ROW per change.
             ⭐ THIS REPLACED WRAPPING PILLS, AND THE MEASUREMENT IS THE REASON.

@@ -49,7 +49,7 @@ import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { changeRow } from './__helpers__/optionChangeRowText'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -185,8 +185,8 @@ describe('OptionNode — the run must not delete the model content', () => {
    */
   const ROW = 'option-change-row-option-1-f-head'
   const REFERENCE_TITLE = 'From Status quo (the baseline option)'
-  /** option-1's popover detail — where its change rows live (bounded anatomy). */
-  const preview = () => within(optionPreviewDetail('option-1')!)
+  /** option-1's change rows ON THE CARD — where they live at rest (Paul 25 Sep, the prototype). */
+  const preview = () => within(optionCardRows('option-1'))
   const expectReferenceOnTheRow = () => {
     const row = preview().getByTestId(ROW)
     // Paul 23 Sep contract feedback point 7: the target's source is named on the
@@ -216,12 +216,12 @@ describe('OptionNode — the run must not delete the model content', () => {
     expectReferenceOnTheRow()
   })
 
-  it('⭐ POST-ANALYSIS: the delta chip is still there — in the option\'s popover', () => {
+  it('⭐ POST-ANALYSIS: the delta chip is still there — on the card', () => {
     renderCard(COMPLETE)
     expect(preview().getByText(changeRow(CHIP))).toBeInTheDocument()
   })
 
-  it('⭐ POST-ANALYSIS: the reference is still there — on the popover row', () => {
+  it('⭐ POST-ANALYSIS: the reference is still there — on the card row', () => {
     // What the option is measured AGAINST. Without it a delta names a number
     // with no basis, and a ranking has nothing to be a ranking of.
     renderCard(COMPLETE)

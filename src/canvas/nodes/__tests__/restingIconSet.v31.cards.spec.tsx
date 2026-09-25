@@ -58,7 +58,7 @@ import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreC
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 import { OutcomeNode } from '../OutcomeNode'
 import { RiskNode } from '../RiskNode'
 import { DecisionNode } from '../DecisionNode'
@@ -254,9 +254,9 @@ describe('U8 · v3.1 pts 1/7 — no card-level "From your brief" icon on an opti
   it('CONTRAST: the change row keeps its own source mark ("brief")', () => {
     setState({ phase: 'post', lodRung: 'full' })
     renderCard('opt-raise')
-    // Bounded anatomy (ED #63 5809278282): in Standard view the change rows live
-    // in the option's popover detail — the row's own mark is read THERE.
-    expect(optionPreviewDetail('opt-raise')!.querySelector('[data-testid="option-change-row-source-opt-raise-fac-price"]')).toHaveTextContent('brief')
+    // The change rows are ON THE CARD at rest (Paul 25 Sep, the prototype) — the
+    // row's own mark is read THERE.
+    expect(optionCardRows('opt-raise').querySelector('[data-testid="option-change-row-source-opt-raise-fac-price"]')).toHaveTextContent('brief')
   })
 
   it('REPORTED, NOT CHANGED: any document glyph left on the option at rest is the node-authorship mark', () => {
