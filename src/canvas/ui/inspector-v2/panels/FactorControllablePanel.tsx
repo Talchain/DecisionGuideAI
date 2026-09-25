@@ -136,6 +136,10 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * success claim: no tick, no success tone.
    */
   const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | null>(null)
+  // A4b: the window during which the context pill must not read `source` —
+  // the edit has moved the value locally but has not yet earned (or been
+  // refused) a receipt, so no provenance claim is honest yet.
+  const isValueEditPending = valueCommitOutcome === 'sending' || valueCommitOutcome === 'local_only'
   /**
    * Which commit the notice belongs to. The wire attempt is fire-and-forget,
    * so its outcome can land after a later commit — or after the person has
@@ -643,7 +647,17 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         )}
         </fieldset>
 
-        {/* Provenance pills: factor type identity + extraction source */}
+        {/* Provenance pills: factor type identity + extraction source
+         *
+         * ⚠⚠ A4b — WHILE AN EDIT IS UNCONFIRMED, `source` LIES. `source` reads
+         * `observedState.source`, which this panel never stamps optimistically
+         * (ROADMAP 2.304: the authorship claim is receipt-gated, see the write
+         * path above). So the instant a user types a new value the field on
+         * screen has moved but this pill has not — it keeps crediting whatever
+         * the PRODUCER last claimed (measured: "Estimated by Olumi" over a
+         * hand-typed 0.7) until the receipt lands and re-stamps `source`. While
+         * `valueCommitOutcome` is `sending` or `local_only` the number is real
+         * but the claim is not, so the pill says so instead of guessing. */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
           {node.data?.factorType && (
             <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
@@ -651,7 +665,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             </span>
           )}
           <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-            {getExtractionLabel(source, attributedTo)}
+            {isValueEditPending
+              ? 'Your edit — not saved to the model yet'
+              : getExtractionLabel(source, attributedTo)}
           </span>
         </div>
 
@@ -1025,7 +1041,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             ) : valueCommitOutcome === 'sending' ? (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sending to Olumi…" tone="pending" hold />
             ) : valueCommitOutcome === 'local_only' ? (
-              <EditConfirmation trigger={lastConfirmed.ts} label="Not sent to Olumi" tone="pending" />
+              // A4b: `hold` — this stayed genuinely unsent (blocked or a real
+              // send failure), which does not resolve on its own the way
+              // `sending` does. Fading it at 1500ms left the re-run prompt
+              // beside it with nothing telling the reader the edit it would
+              // re-run was never sent in the first place.
+              <EditConfirmation trigger={lastConfirmed.ts} label="Not sent to Olumi" tone="pending" hold />
             ) : (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sent to Olumi" tone="pending" />
             )}
