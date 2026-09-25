@@ -643,6 +643,20 @@ export function composeReadinessBlockedReason(
   readiness: GraphReadiness | null | undefined,
   optionsNeedingValues: readonly OptionNeedingValues[] = [],
   verdictIsStale: boolean = false,
+  /**
+   * A5: whether any analysis run has EVER completed for this model. Defaults
+   * to `true`, the same defensive default `analysisFreshness.ts`'s own
+   * `hasCompletedFirstRun` parameter uses, so every existing call site keeps
+   * today's behaviour exactly until it threads the real store value.
+   *
+   * `BLOCKED_REASON_COPY.staleRecheck` — "Your model changed since the last
+   * check" — asserts a PRIOR check the model has since moved on from. With no
+   * run ever completed there is no "since" for that claim to be about, the
+   * same category error `classifyFreshnessForDisplay` guards against on its
+   * own 'changed'/'never_run' fork. A never-run model must never be told its
+   * (nonexistent) analysis changed.
+   */
+  hasCompletedFirstRun: boolean = true,
 ): string {
   // ── ROADMAP 2.635 (I-3): a stale verdict is not quoted as current ──
   //
@@ -656,7 +670,9 @@ export function composeReadinessBlockedReason(
   // claim-free, but "Olumi is not able to run this yet" still asserts the
   // verdict's `can_run_analysis: false` as a present-tense fact about the model
   // on screen, and that is exactly the assertion staleness invalidates.
-  if (verdictIsStale) return BLOCKED_REASON_COPY.staleRecheck
+  //
+  // A5: gated on `hasCompletedFirstRun` too — see the parameter doc above.
+  if (verdictIsStale && hasCompletedFirstRun) return BLOCKED_REASON_COPY.staleRecheck
 
   const trustNames = verifyAgainstVerdict(readiness, optionsNeedingValues)
   const labelled = trustNames

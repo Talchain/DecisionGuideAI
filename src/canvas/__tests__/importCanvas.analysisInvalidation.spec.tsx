@@ -354,6 +354,11 @@ describe('interim 2.467 — import invalidates pre-import analysis (rewalk-2459b
     act(() => {
       useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
       useCanvasStore.getState().clearAnalysisFreshnessDirty()
+      // A5: a real rerun's apply-results pipeline also flips this — this test
+      // drives only the freshness slice, so it must set it explicitly, or a
+      // genuine post-rerun scenario misreads as never-run against the fix
+      // that reads this field directly (`ReanalyseBar.tsx`).
+      useCanvasStore.setState({ hasCompletedFirstRun: true })
     })
 
     renderFreshnessSurfaces()
@@ -787,6 +792,8 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
     expect(useCanvasStore.getState().importPendingServerRegistration).toBe(true)
     act(() => {
       useCanvasStore.getState().setAnalysisFreshness(SERVER_FRESH_VERDICT_AFTER_RERUN)
+      // A5: see the sibling test above — a genuine rerun also sets this.
+      useCanvasStore.setState({ hasCompletedFirstRun: true })
     })
 
     renderFreshnessSurfaces()
@@ -819,6 +826,8 @@ describe('interim 2.467 round 2 — the hold is derived from the graph, not from
         current_graph_hash: 'server-current-different',
         computed_at: POST_RERUN_COMPUTED_AT,
       })
+      // A5: see the sibling tests above — a genuine rerun also sets this.
+      useCanvasStore.setState({ hasCompletedFirstRun: true })
     })
     renderFreshnessSurfaces()
     expect(screen.getByTestId('analysis-freshness-notice')).toHaveAttribute(
