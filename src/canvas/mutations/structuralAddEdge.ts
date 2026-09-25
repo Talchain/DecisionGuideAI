@@ -210,6 +210,38 @@ export interface CaptureStructuralAddEdgeInput {
   /** Same discipline for the direction claim. */
   readonly resolveDirection: (data: unknown) => { show: boolean; direction?: string }
   readonly makeId: () => string
+  /**
+   * The kind of the node at an endpoint id (`decision` / `option` / `factor` …),
+   * read from the graph the gesture produced. Optional: without it every link is
+   * treated as causal, exactly as before.
+   */
+  readonly endpointKind?: (id: string) => string | undefined
+}
+
+/**
+ * ⭐ CEE'S STRUCTURAL-LINK CONVENTION — the one form every Decision → option and
+ * option → factor link takes in the committed graph (read back on served CEE,
+ * scenario 9b0c62d6, 24 Sep 2026: all four `dec_pricing → opt_*` and every
+ * `opt_* → fac_*` edge carry `strength {mean: 1, std: 0.01}`,
+ * `effect_direction: 'positive'`, `exists_probability: 1`).
+ *
+ * These links make NO causal claim — the option's effect lives in its
+ * interventions, not in the link — so sending the convention is not the
+ * fabricated strength the stand-down below exists to stop. Without it,
+ * Decision "+ Add option" persisted an option CEE could never compare ("It isn't
+ * connected to anything yet").
+ */
+export const STRUCTURAL_LINK_CONVENTION = { magnitude: 1, direction: 'positive' } as const
+
+const STRUCTURAL_KIND_PAIRS: ReadonlySet<string> = new Set(['decision>option', 'option>factor'])
+
+/** The convention when `source → target` is structural by kind, else `null` (a causal link). */
+export function structuralLinkConvention(
+  sourceKind: string | undefined,
+  targetKind: string | undefined,
+): typeof STRUCTURAL_LINK_CONVENTION | null {
+  if (!sourceKind || !targetKind) return null
+  return STRUCTURAL_KIND_PAIRS.has(`${sourceKind}>${targetKind}`) ? STRUCTURAL_LINK_CONVENTION : null
 }
 
 export function captureStructuralAddEdge(
@@ -230,6 +262,29 @@ export function captureStructuralAddEdge(
   // straight read of `edge.data.weight`. Both halves must be SET: a stated
   // magnitude with an unstated direction is an edge whose sign cannot be
   // recovered, which the contract excludes by construction.
+  const rawBaseForStructural = input.baseGraphHash
+  const structural = structuralLinkConvention(
+    input.endpointKind?.(edge.source),
+    input.endpointKind?.(edge.target),
+  )
+  if (structural) {
+    const base =
+      typeof rawBaseForStructural === 'string' && rawBaseForStructural.length > 0 ? rawBaseForStructural : null
+    return {
+      ok: true,
+      deferred: base === null,
+      intent: {
+        id: input.makeId(),
+        edgeId: edge.id,
+        from: edge.source,
+        to: edge.target,
+        magnitude: structural.magnitude,
+        direction: structural.direction,
+        baseGraphHash: base,
+      },
+    }
+  }
+
   const strength = input.resolveSignedStrength(edge.data)
   const direction = input.resolveDirection(edge.data)
   if (!strength.show || typeof strength.value !== 'number') {
