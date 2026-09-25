@@ -62,7 +62,7 @@ import { ReanalyseBar } from '../../components/model-tab/ReanalyseBar'
 import { staleReasonFromTrustSemantic } from '../../../components/results/analysisNew/staleReason'
 import { buildAnalysisNewViewModel } from '../../../components/results/analysisNew/buildAnalysisNewViewModel'
 import { AtAGlance } from '../../../components/results/analysisNew/sections/AtAGlance'
-import { decisionWithLeaderWithheld } from '../../../components/results/analysisNew/__tests__/analysisNewFixtures'
+import { decisionWithLeaderWithheldAndReason } from '../../../components/results/analysisNew/__tests__/analysisNewFixtures'
 
 vi.mock('../../../components/results/coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -441,9 +441,13 @@ describe('what the user sees after a value edit answered by a no_graph_this_turn
     const isStale =
       composed.displayedFreshness === 'stale' || composed.displayedFreshness === 'unknown'
 
+    // ⚠ THE FIXTURE CARRIES THE ADMISSION REFUSAL: since bundle 3 the generic
+    // token earns "a re-run would not help" only behind one (an explicit Run
+    // recovered pricing's first pass, 25 Sep), so the precondition below needs
+    // it to discriminate. The subject is unchanged.
     const vmFor = (reason: 'changed' | 'unconfirmed') =>
       buildAnalysisNewViewModel({
-        data: decisionWithLeaderWithheld(),
+        data: decisionWithLeaderWithheldAndReason(),
         producerLeaderWithholdReason: WITHHOLD_REASON,
         recommendations: [],
         isPreRun: false,

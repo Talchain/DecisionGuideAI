@@ -131,7 +131,21 @@ describe('the withheld leader is not blamed on limits the user never set', () =>
     expect(checks.leaderWithholdCause).not.toBeNull()
     expect(checks.leaderWithholdCause).not.toMatch(/limit/i)
     expect(checks.leaderWithholdCause).toBe(leaderWithholdCause(REASON))
-    // Still nameable, so a re-run of the SAME model is not offered as the remedy.
+    // ⭐ A NAMEABLE CAUSE, NOT A DURABLE ONE: an explicit Run on this model
+    // permitted the leader (02:37Z), so Run stays the honest next action and the
+    // surfaces must not swap it for "Review estimates" (pre-review 5826233187).
+    expect(checks.rerunWouldNotHelp).toBe(false)
+  })
+
+  it('OPPOSITE CONTROL: the same token behind a REFUSING admission is durable (a re-run would not help)', () => {
+    const checks = checksOf(decisionWithLeaderWithheldAndReason())
+    expect(checks.leaderWithholdCause).toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
+    expect(checks.rerunWouldNotHelp).toBe(true)
+  })
+
+  it('CONTROL: a token that names its own cause keeps the suppression (separation_unavailable, no admission)', () => {
+    const checks = checksOf(decisionWithLeaderWithheld(), SEPARATION)
+    expect(checks.leaderWithholdCause).toBe(leaderWithholdCause(SEPARATION))
     expect(checks.rerunWouldNotHelp).toBe(true)
   })
 
