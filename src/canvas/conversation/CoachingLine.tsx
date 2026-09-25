@@ -133,7 +133,7 @@ import { typography } from '../../styles/typography'
 import { guidanceCategoryIcon } from '../stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
 import {
-  RUN_TURN_COACHING_PROMOTION_ENABLED,
+  shouldPromoteRunTurnCard,
   firstPromotableActionIndex,
   isPinnedBlock,
   isPointCandidate,
@@ -290,7 +290,7 @@ export interface LinePlan {
  */
 export function planCoachingLines(
   blocks: readonly ConversationBlock[],
-  options: { promoteRunTurnCoaching?: boolean } = {},
+  options: { promoteRunTurnCoaching?: boolean; consentPending?: boolean } = {},
 ): Map<ConversationBlock, LinePlan> {
   const plan = new Map<ConversationBlock, LinePlan>()
   const byTitle = new Map<string, ConversationBlock[]>()
@@ -320,7 +320,7 @@ export function planCoachingLines(
     }
   }
 
-  if (options.promoteRunTurnCoaching ?? RUN_TURN_COACHING_PROMOTION_ENABLED) {
+  if (shouldPromoteRunTurnCard(options)) {
     const promoted = firstPromotableActionIndex(blocks)
     if (promoted >= 0) {
       const block = blocks[promoted]
