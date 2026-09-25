@@ -202,12 +202,11 @@ describe('same-row link, ADJACENT cards — straight between the facing sides', 
 describe('same-row link with a card BETWEEN — a shallow run under the row', () => {
   it('price → churn passes UNDER resistance and rises into churn from below', () => {
     const { container } = renderLink(PRICE, CHURN)
-    // From price's bottom port (200, 441); run at 441 + 18; one card between,
-    // so churn is entered a quarter-width in from its centre on the source side
-    // (760 − 62), 4 below its bottom edge.
-    expect(hitPathOf(container).getAttribute('d')).toBe(
-      'M200,441 Q200,459 216,459 L682,459 Q698,459 698,445',
-    )
+    // From price's bottom port (200, 441), ONE arc (Paul 25 Sep: no flat run a
+    // second span could share) into churn a quarter-width in from its centre on
+    // the source side (760 − 62), 4 below its bottom edge. Both control points
+    // sit straight below their ends: h = 18 + 0.06 × 498 = 47.88.
+    expect(hitPathOf(container).getAttribute('d')).toBe('M200,441 C200,488.88 698,492.88 698,445')
     expect(groupOf(container).getAttribute('data-same-row-route')).toBe('under')
   })
 
@@ -240,13 +239,13 @@ describe('the causal label sits ON the drawn path', () => {
   it('under (price → churn): on the gutter run, not at the handle midpoint near the row', () => {
     const { container } = renderLink(PRICE, CHURN, 'e-link', true)
     expect(groupOf(container).getAttribute('data-same-row-route')).toBe('under')
-    // Path 'M200,441 Q200,459 216,459 L682,459 Q698,459 698,445': the run is
-    // y 459 from x 216 to 682, so its midpoint is ((200 + 698) / 2, 459).
+    // Path 'M200,441 C200,488.88 698,492.88 698,445': its t = 0.5 point is
+    // ((200 + 698) / 2, (441 + 445) / 2 + 0.75 × 47.88) = (449, 478.91).
     const at = labelAnchorOf(container)
-    expect(at.y).toBeCloseTo(459, 5)
+    expect(at.y).toBeCloseTo(478.91, 2)
     expect(at.x).toBeCloseTo(449, 5)
-    expect(at.x).toBeGreaterThanOrEqual(216)
-    expect(at.x).toBeLessThanOrEqual(682)
+    expect(at.x).toBeGreaterThanOrEqual(200)
+    expect(at.x).toBeLessThanOrEqual(698)
     // CONTRAST: the handle midpoint ((200 + 760) / 2, (447 + 318) / 2) =
     // (480, 382.5) is on the row, over the middle card — where it used to sit.
     expect(Math.abs(at.y - 382.5)).toBeGreaterThan(60)
@@ -273,14 +272,14 @@ describe('the placement pass is fed the SAME anchor (a persistent chip)', () => 
     // placement pass runs. Its HANDLE midpoint (480, 382.5) lies inside the
     // middle card (resistance, x 356..604, y 324..441): placed from that basis
     // the chip would be dodged and a leader drawn back to the row. Placed from
-    // the gutter anchor (449, 459) it is clear of every card.
+    // the arc's midpoint anchor (449, 478.91) it is clear of every card.
     mockRf = {
       nodes: [OPTION, CHURN, MRR, RESIST, PRICE],
       edges: [{ id: 'e-link', source: 'price', target: 'churn', data: positive }],
     }
     const { container } = renderLink(PRICE, CHURN)
     expect(groupOf(container).getAttribute('data-same-row-route')).toBe('under')
-    expect(labelAnchorOf(container)).toEqual({ x: 449, y: 459 })
+    expect(labelAnchorOf(container)).toEqual({ x: 449, y: 478.91 })
     expect(container.querySelector('[data-testid="edge-label-leader"]')).toBeNull()
   })
 

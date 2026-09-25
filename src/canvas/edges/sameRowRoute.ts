@@ -82,8 +82,12 @@ export const SAME_ROW_MIN_OVERLAP = 24
 export const UNDER_ROW_DIP = 18
 /** Extra depth per additional card between the pair. */
 export const UNDER_ROW_STEP = 8
-/** Corner radius of the `under` run. */
+/** Corner radius of the `under` run (kept for importers; the route is an arc now). */
 export const UNDER_ROW_CORNER = 16
+/** Extra arc depth per graph unit of horizontal span, so longer links sit lower. */
+export const UNDER_ARC_PER_UNIT = 0.06
+/** Minimum clearance between the arc and any card it passes (graph units). */
+export const UNDER_ROW_CLEARANCE = 8
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
@@ -146,25 +150,41 @@ export function resolveSameRowRoute(
 
   const k = between.length
   const lowest = Math.max(rowBottom, ...between.map((o) => o.y + o.height))
-  const low = r2(lowest + UNDER_ROW_DIP + (k - 1) * UNDER_ROW_STEP)
   const sx = r2(source.x + source.width / 2)
   const tCentre = target.x + target.width / 2
   const inset = Math.min(target.width / 2 - 12, target.width / 4 + (k - 1) * GLYPH_RING_STEP)
   const tx = r2(tCentre - dir * inset)
   const ty = r2(tBottom + SAME_ROW_TARGET_STANDOFF)
-  const r = Math.min(UNDER_ROW_CORNER, Math.abs(tx - sx) / 2)
+  // ⭐ ONE ARC, NEVER A FLAT RUN (Paul's 25 Sep screenshots: two spans that
+  // overlap by one card drew their flat runs on top of each other for a whole
+  // card slot and read as one cable). A cubic from the source's port to the
+  // target's bottom, with both control points straight below their ends, dips
+  // `0.75·h` below its ends at its midpoint. Two arcs with different ends can
+  // only CROSS at a point, never share a segment. `h` grows with the span, so
+  // longer links sit lower, and grows again per card between them.
+  const base = Math.max(sBottom, ty)
+  const spanX = Math.abs(tx - sx)
+  const wanted = UNDER_ROW_DIP + UNDER_ARC_PER_UNIT * spanX + (k - 1) * UNDER_ROW_STEP
+  // Clear every card standing between the pair...
+  const hClear = (lowest + UNDER_ROW_CLEARANCE - base) / 0.75
+  // ...and never reach a card in the next sub-row under the span.
+  const spanLo = Math.min(sx, tx)
+  const spanHi = Math.max(sx, tx)
+  const belowTops = others
+    .filter((o) => o.y >= rowBottom && o.x < spanHi && o.x + o.width > spanLo)
+    .map((o) => o.y)
+  const hRoom = belowTops.length > 0 ? (Math.min(...belowTops) - UNDER_ROW_CLEARANCE - base) / 0.75 : Infinity
+  const h = r2(Math.max(hClear, Math.min(wanted, hRoom)))
   const glyphSide = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
   return {
     kind: 'under',
-    path:
-      `M${sx},${sBottom} Q${sx},${low} ${r2(sx + dir * r)},${low} ` +
-      `L${r2(tx - dir * r)},${low} Q${tx},${low} ${tx},${ty}`,
-    // Beside the rising lead, on the side away from the run.
+    path: `M${sx},${sBottom} C${sx},${r2(sBottom + h)} ${tx},${r2(ty + h)} ${tx},${ty}`,
+    // Beside the rising lead, on the side away from the arc.
     glyphX: r2(tx + dir * glyphSide),
     glyphY: r2(ty + glyphSide),
-    // The midpoint of the horizontal gutter run: `(sx + tx) / 2` is the centre
-    // of the straight segment between the two corners, at the run's depth.
-    labelAnchor: { x: r2((sx + tx) / 2), y: low },
+    // The arc's own midpoint (t = 0.5): x is the ends' mean because each control
+    // point shares its end's x; y is the ends' mean plus 0.75·h.
+    labelAnchor: { x: r2((sx + tx) / 2), y: r2((sBottom + ty) / 2 + 0.75 * h) },
   }
 }
 

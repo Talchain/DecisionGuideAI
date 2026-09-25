@@ -58,21 +58,98 @@ describe('the label anchor sits ON the drawn path', () => {
     ['A → C (one card between)', A, C],
     ['A → D (two cards between)', A, D],
     ['E → A (target to the LEFT)', E, A],
-  ])('under, %s: the midpoint of the horizontal gutter run', (_label, s, t) => {
+  ])('under, %s: the midpoint of the arc (t = 0.5)', (_label, s, t) => {
     const route = resolveSameRowRoute(s, t, othersFor(s, t))!
     expect(route.kind).toBe('under')
-    // The straight run is `... ,LOW L X2,LOW ...`, entered from `X1,LOW`.
-    const m = /Q[-\d.]+,[-\d.]+ ([-\d.]+),([-\d.]+) L([-\d.]+),([-\d.]+)/.exec(route.path)
-    expect(m, `PRECONDITION: the under path has a straight gutter run — ${route.path}`).not.toBeNull()
-    const [x1, y1, x2, y2] = m!.slice(1).map(Number)
-    expect(y1).toBe(y2)
+    const pts = samplePath(route.path)
+    expect(pts.length, `PRECONDITION: the under path parses — ${route.path}`).toBeGreaterThan(10)
+    const mid = pts[Math.floor(pts.length / 2)]
     expect(route.labelAnchor).not.toBeNull()
-    expect(route.labelAnchor!.y).toBe(y1)
-    expect(route.labelAnchor!.x).toBeCloseTo((x1 + x2) / 2, 5)
+    expect(route.labelAnchor!.x).toBeCloseTo(mid.x, 0)
+    expect(route.labelAnchor!.y).toBeCloseTo(mid.y, 0)
     // Below the row, never on a card.
     expect(route.labelAnchor!.y).toBeGreaterThan(s.y + s.height)
   })
 })
+
+/**
+ * ⭐ PAUL'S 25 SEP SCREENSHOT: two same-row links whose spans overlap by one card
+ * (salary → capacity over admin; admin → higher-value time over capacity) drew
+ * their flat gutter runs ON TOP of each other for a whole card slot, so they read
+ * as one cable. Bound by edge id; the run-sharing length is measured on the
+ * drawn geometry.
+ */
+describe('overlapping same-row spans stay individually traceable', () => {
+  const OUTCOME = box('outcome', 280, 324 + 117 + 60)
+  const routeOf = (s: RouteBox, t: RouteBox) => resolveSameRowRoute(s, t, [...othersFor(s, t), OUTCOME])!
+  const eSalCap = routeOf(A, C) // e-sal-cap: a → c, one card (b) between
+  const eDawHvt = routeOf(B, D) // e-daw-hvt: b → d, one card (c) between
+
+  it('the two routes share less than 40 units of drawn length (a flat run shared ~220)', () => {
+    expect(eSalCap.kind).toBe('under')
+    expect(eDawHvt.kind).toBe('under')
+    const a = samplePath(eSalCap.path)
+    const b = samplePath(eDawHvt.path)
+    let shared = 0
+    for (let i = 1; i < a.length; i++) {
+      const p = a[i]
+      const near = b.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 3)
+      if (near) shared += Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y)
+    }
+    expect(shared).toBeLessThan(40)
+  })
+
+  it('each arc clears the card in the next sub-row by at least 8 units', () => {
+    for (const r of [eSalCap, eDawHvt]) {
+      const lowestY = Math.max(...samplePath(r.path).map((p) => p.y))
+      expect(lowestY).toBeLessThanOrEqual(OUTCOME.y - 8)
+    }
+  })
+
+  it('CONTRAST: the adjacent pair c → b still takes the side route', () => {
+    expect(routeOf(C, B).kind).toBe('side')
+  })
+})
+
+/** Samples an `M … L … Q … C …` path (absolute commands only) into points. */
+function samplePath(d: string): Array<{ x: number; y: number }> {
+  const tok = d.match(/[MLQC]|-?\d+(?:\.\d+)?/g) ?? []
+  const pts: Array<{ x: number; y: number }> = []
+  let i = 0
+  let cx = 0
+  let cy = 0
+  const num = () => Number(tok[i++])
+  while (i < tok.length) {
+    const cmd = tok[i++]
+    if (cmd === 'M') {
+      cx = num(); cy = num(); pts.push({ x: cx, y: cy })
+    } else if (cmd === 'L') {
+      const x = num(), y = num()
+      for (let s = 1; s <= 40; s++) pts.push({ x: cx + ((x - cx) * s) / 40, y: cy + ((y - cy) * s) / 40 })
+      cx = x; cy = y
+    } else if (cmd === 'Q') {
+      const x1 = num(), y1 = num(), x = num(), y = num()
+      for (let s = 1; s <= 40; s++) {
+        const t = s / 40, u = 1 - t
+        pts.push({ x: u * u * cx + 2 * u * t * x1 + t * t * x, y: u * u * cy + 2 * u * t * y1 + t * t * y })
+      }
+      cx = x; cy = y
+    } else if (cmd === 'C') {
+      const x1 = num(), y1 = num(), x2 = num(), y2 = num(), x = num(), y = num()
+      for (let s = 1; s <= 80; s++) {
+        const t = s / 80, u = 1 - t
+        pts.push({
+          x: u * u * u * cx + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,
+          y: u * u * u * cy + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y,
+        })
+      }
+      cx = x; cy = y
+    } else {
+      break
+    }
+  }
+  return pts
+}
 
 describe('CONTRAST — not a same-row pair → null (the caller keeps its path)', () => {
   it('a card in the next row down', () => {
