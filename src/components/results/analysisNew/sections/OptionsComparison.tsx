@@ -607,7 +607,10 @@ export function OptionsComparison({
           this component. */}
       {noneNumbered && lens === null ? (
         <p
-          className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
+          /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
+             grey — this line states the chart's own uncertainty and reads as
+             part of the argument, the same ruling as the qualifier below it. */
+          className={`${typography.panelMeta} text-text-body mb-2 mt-0`}
           data-testid={`${testId}-no-figures`}
         >
           {COPY.checks.leader_not_assessed.orderingCaveat}
@@ -627,7 +630,9 @@ export function OptionsComparison({
           (the paragraph above already carries the cause there). */}
       {sharesExcludeLimits && !noneNumbered ? (
         <p
-          className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
+          /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
+             grey — see the `-no-figures` paragraph above. */
+          className={`${typography.panelMeta} text-text-body mb-2 mt-0`}
           data-testid={`${testId}-goal-only`}
         >
           {COPY.optionFigures.goalOnlyQualifier}
@@ -779,7 +784,7 @@ export function OptionsComparison({
                    a tier: it is the option's NAME. 2px of padding, and not
                    `inline-flex items-center`, which would change how a long
                    option name wraps. */
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {/* ⭐ V2 FIDELITY (gap 20): THE OPTION'S OWN SHAPE, before its
                     name — the row head's `.option-top` grid in the prototype
@@ -833,7 +838,7 @@ export function OptionsComparison({
                   say this to assistive tech. */}
               {rowActionsEnabled ? (
                 <ChevronRight
-                  className={`${icon('inline')} text-text-light shrink-0 transition-transform ${
+                  className={`${icon('inline')} text-text-light shrink-0 self-center transition-transform ${
                     actionsOpenFor === o.id ? 'rotate-90' : ''
                   }`}
                   aria-hidden={true}
@@ -922,7 +927,10 @@ export function OptionsComparison({
                 </div>
                 <PanelFigure
                   variant="goal"
-                  className="mt-1"
+                  /* ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-6): the same inset as
+                     the range figure above, so switching lens does not move
+                     where the bar starts and ends against the name column. */
+                  className="mt-1 ml-4 mr-5"
                   fraction={o.goalFraction}
                   testId={`${testId}-goal-bar`}
                 />

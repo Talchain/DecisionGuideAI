@@ -32,12 +32,13 @@
  * full-width rule ABOVE the section, not the inset bottom border this
  * docblock used to describe. See `panelSurfaces.ts` for why.
  */
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronRight, GitCompare, Info, NotebookPen } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { COMMITMENT_QUALIFIER_COPY, type CommitmentQualifier } from '../commitmentQualifier'
 import {
   COMMITMENT_COPY,
   commitmentAskContext,
@@ -88,9 +89,10 @@ export interface CommitmentSummaryProps {
   children?: ReactNode
   /**
    * `buildCommitmentQualifier(vm)` — one borderless line directly under the
-   * comparison it qualifies (V2 prototype `.qualifier`). Null renders nothing.
+   * comparison it qualifies (V2 prototype `.qualifier`), plus whatever is one
+   * click away behind it (`qualifier.detail`). Null renders nothing.
    */
-  qualifier?: string | null
+  qualifier?: CommitmentQualifier | null
   testId?: string
 }
 
@@ -147,18 +149,29 @@ function RecordYourView({
             spot, the label reaches for the tier this same file already uses
             for the identical shape (`action('inline')`, on "Update" below):
             `text-info underline`, no tint — tints fail SC 1.4.3 on this
-            ground, per the guard's own measurement. */}
+            ground, per the guard's own measurement.
+
+            ⭐⭐ WAVE 3 (25 Sep 2026, gap ACTION-8): THE CHEVRON MOVES NEXT TO
+            THE LABEL, AND THE ROW STOPS BEING FULL-WIDTH. `w-full`/`-ml-2`/
+            `justify-between` flung the chevron 370px away to the row's far
+            edge — an accident of the button spanning the whole line, not a
+            deliberate cue — and `hover:bg-panel-hover` composited to an
+            invisible 1.038:1 tint (the same defect CHART-11 fixes on the
+            option name above). The control is now a normal inline act, sized
+            to its own label like every other act on this panel, with an
+            explicit `hover:text-info-hover` doing the work
+            `hover:bg-panel-hover` could not. `underline` is UNCHANGED — see
+            the note above; the WCAG 1.4.1 guard this panel already passed
+            does not get re-litigated by a layout change. */}
         <button
           type="button"
           onClick={onRecord}
-          className="w-full -ml-2 flex items-center justify-between gap-1.5 min-h-6 px-2 py-1 rounded text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          className={`${typography.panelBody} ${action('inline')} gap-1.5 text-left underline hover:text-info-hover`}
           data-testid={`${testId}-open`}
         >
-          <span className={`${typography.panelBody} inline-flex items-center gap-1.5 text-info underline`}>
-            <NotebookPen className={`${icon('inline')} text-text-light`} aria-hidden={true} />
-            {COMMITMENT_COPY.record.open}
-          </span>
-          <ChevronRight className={`${icon('inline')} text-text-light shrink-0`} aria-hidden={true} />
+          <NotebookPen className={`${icon('row')} text-text-light shrink-0`} aria-hidden={true} />
+          <span className="text-info underline">{COMMITMENT_COPY.record.open}</span>
+          <ChevronRight className={`${icon('row')} text-text-light shrink-0`} aria-hidden={true} />
         </button>
       </div>
     )
@@ -239,6 +252,7 @@ export function CommitmentSummary({
   qualifier = null,
   testId = 'analysis-new-commitment',
 }: CommitmentSummaryProps) {
+  const [qualifierDetailOpen, setQualifierDetailOpen] = useState(false)
   if (isPreRun) return null
 
   const bullets = commitmentBullets(synthesis)
@@ -331,13 +345,40 @@ export function CommitmentSummary({
           `<p>`'s new body ink — and the prototype's amber icon is deliberately
           not adopted, because amber is rationed. */}
       {hasSlot && qualifier ? (
-        <p
-          className={`${typography.panelMeta} text-text-body m-0 mt-1.5 flex items-center gap-1`}
-          data-testid={`${testId}-qualifier`}
-        >
-          <Info className="h-3 w-3 shrink-0 text-text-light" aria-hidden={true} />
-          <span>{qualifier}</span>
-        </p>
+        <>
+          <p
+            className={`${typography.panelMeta} text-text-body m-0 mt-1.5 flex items-center gap-1`}
+            data-testid={`${testId}-qualifier`}
+          >
+            <Info className="h-3 w-3 shrink-0 text-text-light" aria-hidden={true} />
+            <span>{qualifier.text}</span>
+            {/* ⭐ WAVE 3: facts moved off the one-line qualifier stay reachable
+                in one click, never deleted — see commitmentQualifier.ts. */}
+            {qualifier.detail ? (
+              <button
+                type="button"
+                onClick={() => setQualifierDetailOpen((open) => !open)}
+                aria-expanded={qualifierDetailOpen}
+                aria-controls={`${testId}-qualifier-detail`}
+                className={`${typography.panelMeta} ${action('inline')}`}
+                data-testid={`${testId}-qualifier-toggle`}
+              >
+                {qualifierDetailOpen
+                  ? COMMITMENT_QUALIFIER_COPY.detailToggle.hide
+                  : COMMITMENT_QUALIFIER_COPY.detailToggle.show}
+              </button>
+            ) : null}
+          </p>
+          {qualifier.detail && qualifierDetailOpen ? (
+            <p
+              id={`${testId}-qualifier-detail`}
+              className={`${typography.panelMeta} text-text-light m-0 mt-0.5`}
+              data-testid={`${testId}-qualifier-detail`}
+            >
+              {qualifier.detail}
+            </p>
+          ) : null}
+        </>
       ) : null}
 
       {showRecord ? (

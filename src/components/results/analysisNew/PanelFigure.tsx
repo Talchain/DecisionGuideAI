@@ -77,14 +77,22 @@ export const FIGURE_TRACK_HEIGHT = 'h-[5px]'
 export const FIGURE_RADIUS = 'rounded-full'
 export const FIGURE_TRACK_TONE = 'bg-panel-border'
 /**
- * The marker's diameter. V2: an 11px dot in the option colour with a
- * panel-coloured ring (gap 20) replaces the old 6px dark tick, which read as a
- * different ink from the range it marks. `markerLeft` uses this for its
- * horizontal clamp, so the two can never drift apart.
+ * The marker's diameter. V2: an 11px dot in the option colour replaces the
+ * old 6px dark tick, which read as a different ink from the range it marks.
+ * `markerLeft` uses this for its horizontal clamp, so the two can never
+ * drift apart.
+ *
+ * ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-5): the `ring-2 ring-panel` border
+ * gave the dot a 15px footprint — about 2.5× the prototype's core area — and
+ * notched the band it sits on. `border-2 border-panel` draws the SAME
+ * panel-coloured separation from the band as a border-box 2px inset (an 11px
+ * border-box leaves a 7px `bg-option` core, matching the prototype's
+ * `.rangemean`), and `ring-1 ring-option/50` replaces it with the
+ * prototype's own thin lavender halo instead of doubling the white ring.
  */
 export const FIGURE_MARKER_W = 11
 export const FIGURE_MARKER_CLASS =
-  'absolute top-1/2 -translate-y-1/2 w-[11px] h-[11px] rounded-full bg-option ring-2 ring-panel'
+  'absolute top-1/2 -translate-y-1/2 w-[11px] h-[11px] rounded-full bg-option border-2 border-panel ring-1 ring-option/50'
 /**
  * `range` ONLY: the band's own height. Taller than the 1px hairline it sits
  * on (below) so it reads as the figure, not the track.
