@@ -635,3 +635,128 @@ describe('StyledEdge — why the edge tap path is not the node tap path', () => 
     expect(popover()).not.toBeNull()
   })
 })
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ROW 35 (gap audit `DESIGN-GAP-AUDIT-20260924.md`) — ENTER/SPACE OPENS WHAT
+ * A CLICK OPENS
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * React Flow's own `onKeyDown` on `.react-flow__edge` already answers
+ * Enter/Space (`elementSelectionKeys`, read at the installed
+ * `@xyflow/system@0.0.76` bytes) — by calling `addSelectedEdges([id])` alone.
+ * It never calls the `onClick` prop that carries this app's real behaviour
+ * (`ReactFlowGraph.tsx`'s `handleEdgeClick` → `setShowFullInspector(true)`).
+ *
+ * This harness cannot reach `ReactFlowGraph.tsx` — `StyledEdge` is rendered in
+ * isolation, exactly as every other case in this file does. What it CAN prove,
+ * by identity rather than by inference: that pressing Enter/Space on the
+ * FOCUSED edge dispatches the SAME `click` event the library's own
+ * `onEdgeClick` (bound as a real DOM listener on `.react-flow__edge`, the
+ * identical anchor `EdgeWrapper` uses) would consume — so whatever the real
+ * click path does, the keyboard path now triggers it too.
+ */
+describe('StyledEdge — Enter/Space on the focused edge triggers the SAME click event a mouse would', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    cleanup()
+    document.querySelectorAll(`[${HARNESS_ATTR}]`).forEach((n) => n.remove())
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  /**
+   * `onClick` bound the way `EdgeWrapper` itself binds it: a real DOM
+   * listener on `.react-flow__edge`. Standing in for React Flow's own
+   * click handling without re-implementing the library.
+   */
+  function withClickSpy(rfEdge: SVGGElement) {
+    const onClick = vi.fn()
+    rfEdge.addEventListener('click', onClick)
+    return onClick
+  }
+
+  it('PIN: Enter on the focused edge fires a click on .react-flow__edge', () => {
+    const { rfEdge } = renderEdgeInReactFlowWrapper()
+    const onClick = withClickSpy(rfEdge)
+    focusEdge(rfEdge)
+
+    act(() => {
+      fireEvent.keyDown(rfEdge, { key: 'Enter' })
+    })
+
+    expect(onClick, 'Enter must reach the same click React Flow\'s own onClick consumes').toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['metaKey', 'ctrlKey', 'altKey', 'shiftKey'] as const)(
+    'CONTRAST: a MODIFIED Enter (%s) is left to the canvas shortcuts — no click (review 5823365172 N1)',
+    (modifier) => {
+      const { rfEdge } = renderEdgeInReactFlowWrapper()
+      const onClick = withClickSpy(rfEdge)
+      focusEdge(rfEdge)
+      act(() => {
+        fireEvent.keyDown(rfEdge, { key: 'Enter', [modifier]: true })
+      })
+      expect(onClick).not.toHaveBeenCalled()
+    },
+  )
+
+  it('PIN: Space (" ") does the same, and its default (page scroll) is prevented', () => {
+    const { rfEdge } = renderEdgeInReactFlowWrapper()
+    const onClick = withClickSpy(rfEdge)
+    focusEdge(rfEdge)
+
+    // A raw, cancelable event dispatched directly: `dispatchEvent` returns
+    // `false` when some handler called `preventDefault()`, which is the one
+    // reliable cross-version way to observe it (RTL's `fireEvent` result is
+    // not that signal).
+    const evt = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+    let notPrevented = true
+    act(() => { notPrevented = rfEdge.dispatchEvent(evt) })
+
+    expect(onClick, 'Space must ALSO reach the click, not only Enter').toHaveBeenCalledTimes(1)
+    expect(notPrevented, 'Space must not be left free to scroll the page').toBe(false)
+  })
+
+  it('CONTRAST: a key that is not Enter or Space does nothing', () => {
+    const { rfEdge } = renderEdgeInReactFlowWrapper()
+    const onClick = withClickSpy(rfEdge)
+    focusEdge(rfEdge)
+
+    act(() => {
+      fireEvent.keyDown(rfEdge, { key: 'a' })
+    })
+
+    expect(onClick, 'an unrelated key must not open anything').not.toHaveBeenCalled()
+  })
+
+  /**
+   * ⭐⭐ THE DISCRIMINATION THIS FIX EXISTS FOR — without it, "Enter opens a
+   * click" could be satisfied by a global `document`-level listener that
+   * ALSO fires for a keystroke that landed on a totally unrelated control
+   * inside this edge's own group (the fragile-cue-only glyph, which has its
+   * OWN tabIndex/onKeyDown and bubbles its keydown up through this same
+   * `.react-flow__edge`). Binding on `event.target !== rfEdge` — the
+   * identical guard `focusIn` above already uses — means a descendant's own
+   * Enter/Space is left to that descendant's own handler alone.
+   */
+  it('does NOT fire when Enter lands on a DESCENDANT control, only when it lands on the edge itself', () => {
+    const { rfEdge } = renderEdgeInReactFlowWrapper()
+    const onClick = withClickSpy(rfEdge)
+    // A stand-in descendant control, inside the edge's own DOM subtree —
+    // reproducing the fragile-cue glyph's own focusable child without
+    // depending on that fixture's own render gates.
+    const descendant = document.createElement('button')
+    rfEdge.appendChild(descendant)
+
+    act(() => {
+      // `fireEvent.keyDown` dispatches with `bubbles: true` by default, so
+      // this reaches the SAME ancestor listener a real bubble would.
+      fireEvent.keyDown(descendant, { key: 'Enter' })
+    })
+
+    expect(onClick, 'a descendant\'s own Enter must not also open the whole edge').not.toHaveBeenCalled()
+  })
+})

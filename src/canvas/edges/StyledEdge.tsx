@@ -75,6 +75,8 @@ import {
 import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
+import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
+import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
@@ -85,6 +87,8 @@ import {
   DIRECTION_DISPUTED_SENTENCE,
   directionInUseSentence,
   linkStrengthCaption,
+  edgeArrowSentence,
+  EDGE_EXISTENCE_DOUBT_SENTENCE,
 } from './connectorCopy'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -437,15 +441,44 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isFragileEdge, report, id, source, target, fragileMatchCtx])
 
   /**
+   * ⭐ ROW 38 — A STALE FIGURE IS LABELLED "LAST RUN", NEVER PRESENTED AS
+   * CURRENT. `paintFragileCue` (below) gates on `isResultsMode`
+   * (`results.status === 'complete'`) alone — and a completed run's report
+   * stays ON SCREEN after the user edits the model (`store.ts` never resets
+   * `results.status` on an edit), so this cue kept painting from a report the
+   * model has since outgrown, with no word saying so.
+   *
+   * `useModelChangedSinceRunLight` reads the SAME composed freshness verdict
+   * (`composeAnalysisState`) the factor cards' `LAST_RUN_PREFIX` already keys
+   * on — never a second "is this stale" rule (CLAUDE.md trap 12) — and the
+   * `Light` variant exists only to skip the one input
+   * (`useAnalysisStateSource`'s flag-gated `source`) that its own docblock
+   * proves cannot change a `'changed'` verdict, which matters here because
+   * this hook mounts once PER EDGE on the canvas.
+   *
+   * Paul's Ruling 3 (ROADMAP 2.651): "out-of-date results are labelled, not
+   * withheld" — the same choice `sensitivityRankBadgeLabel`'s `fromLastRun`
+   * already makes for the card's `Key driver N` badge, so this cue and that
+   * badge cannot tell a reader two different stories about staleness.
+   */
+  const modelChangedSinceRun = useModelChangedSinceRunLight()
+
+  /**
    * The fragility sentence — ONE owner (`connectorCopy.fragileEdgeSentence`,
    * moved there verbatim), three readers here: the cue's accessible name, the
-   * cue's `title`, and the chip container's composed title and name. So the
-   * figure is never stated without its noun on any of them.
+   * cue's `title`, and the chip container's composed title and name — PLUS
+   * the popover's fragility line below, which reads this SAME variable rather
+   * than recomputing (it used to call `fragileEdgeSentence` a second time,
+   * which would have painted the cue as "Last run" while the popover stayed
+   * silent about it — one sentence, one call site, never two). So the figure
+   * is never stated without its noun, and the staleness label never appears
+   * on only one of the two surfaces that speak it.
    * Presence-branched on a MEASURED switch probability: absent means NOT
    * COMPUTED, and `marginal_switch_probability` is a different Monte Carlo,
    * never a fallback (pinned by StyledEdge.fragilePresence.spec).
    */
-  const fragileSentence = fragileEdgeSentence(fragileEdgeSwitchProb)
+  const fragileSentence =
+    (modelChangedSinceRun ? LAST_RUN_PREFIX : '') + fragileEdgeSentence(fragileEdgeSwitchProb)
 
   /**
    * Every edge whose chip will carry a fragility ROW, graph-wide.
@@ -1226,6 +1259,69 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       popoverEl?.removeEventListener('focusout', focusOut as EventListener)
     }
   }, [isStructuralEdge, edgeIdKey, showHoverPopover])
+
+  /**
+   * ⭐⭐ ROW 35 — ENTER/SPACE OPENS WHAT A CLICK OPENS.
+   *
+   * React Flow's OWN `onKeyDown` is already bound to this same ancestor
+   * (`elementSelectionKeys = ['Enter', ' ', 'Escape']`, `@xyflow/system@0.0.76`
+   * `dist/esm/index.mjs:27`, consumed at `@xyflow/react@12.10.2`
+   * `dist/esm/index.mjs:2895-2907`) — but it only ever calls
+   * `addSelectedEdges([id])`. It never calls the `onClick` prop, so the click
+   * path this app actually wires — `ReactFlowGraph.tsx`'s `handleEdgeClick`,
+   * bound as `onEdgeClick={handleEdgeClick}` → `setShowFullInspector(true)` —
+   * stays a MOUSE-ONLY route. A keyboard user who presses Enter on a focused
+   * edge gets a SELECTED edge and nothing else: not what a click gets them,
+   * and — worse — selection then SUPPRESSES this edge's own hover popover
+   * (`showHoverPopover && !selected`, read at the popover's own gate below),
+   * so the one thing focus had JUST opened closes under the very key meant to
+   * act on the edge.
+   *
+   * The fix re-uses the SAME click path a mouse already drives, rather than
+   * inventing a second one: dispatching a real `click` on the ancestor
+   * `.react-flow__edge` reaches React Flow's own `onEdgeClick` — bound via
+   * its synthetic listener on that element — which both selects the edge AND
+   * calls the app's `onClick`, so a keyboard activation and a mouse click
+   * become the SAME event once it lands. No new "what does Enter do" rule is
+   * written here; Enter just triggers the click that already has one.
+   *
+   * Bound to the ANCESTOR for the same reason the focus listener above is:
+   * `onKeyDown` in the library's own render (`dist/esm/index.mjs:2911`) is
+   * wired to `g.react-flow__edge`, an ancestor of the group THIS component
+   * renders, so a listener on our own group would never see a key React Flow
+   * had already consumed on that ancestor — `focusin`/`focusout` bubble UP
+   * from a descendant; this is the mirror case, a listener that must sit
+   * WHERE the key lands rather than try to catch it on the way there.
+   *
+   * ⚠ ONLY WHEN THE EVENT TARGET IS THE EDGE ITSELF. A descendant control —
+   * the fragile-cue-only glyph (`handleFragileCueKeyDown`, its own
+   * `tabIndex`/`onKeyDown`) — has its OWN Enter/Space behaviour and its own
+   * `stopPropagation`-free keydown, which BUBBLES to this same ancestor; the
+   * `event.target !== rfEdge` guard (the identical check `focusIn` above
+   * uses) stops this listener from ALSO dispatching a click for that
+   * keystroke and opening the full inspector on top of the glyph's own
+   * editor. Space is prevented for the same reason
+   * `handleFragileCueKeyDown` prevents it: unprevented, it scrolls the page.
+   */
+  useEffect(() => {
+    const group = edgeGroupRef.current
+    if (!group) return
+    const rfEdge = group.closest('.react-flow__edge')
+    if (!rfEdge) return
+
+    const onEdgeKeyDown = (event: KeyboardEvent) => {
+      if (event.target !== rfEdge) return
+      // A modified Enter belongs to the canvas shortcuts (Cmd/Ctrl+Enter runs),
+      // never to "open this link" (review 5823365172 N1).
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      rfEdge.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    }
+
+    rfEdge.addEventListener('keydown', onEdgeKeyDown as EventListener)
+    return () => rfEdge.removeEventListener('keydown', onEdgeKeyDown as EventListener)
+  }, [])
 
   /**
    * ⭐ DISMISSIBLE — the second of WCAG 1.4.13's three obligations, and the one
@@ -2843,6 +2939,25 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               onMouseEnter={handlePopoverEnter}
               onMouseLeave={handlePopoverLeave}
             >
+              {/* ⭐ ROW 29 — contract §03's lead sentence, ADDED as the
+                  popover's first line rather than replacing the rich content
+                  below (which carries editing affordances the plain contract
+                  tooltip has none of — "Set strength", "Ask Olumi…"). The
+                  direction word is `dirLabel`, the SAME value the bold
+                  Direction row a few lines down reads (never a second
+                  derivation). The doubt clause is bound to `existenceDash` —
+                  the SAME field `resolveEdgeDash` reads to draw the dashed
+                  stroke — so a doubt is never asserted on this sentence that
+                  the line itself is not also drawing. */}
+              <div
+                data-testid="edge-hover-arrow-sentence"
+                className={`${typography.edgeLabel} text-text-body`}
+              >
+                {edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel, { signDisputed })}
+                {existenceDash.kind === 'stated' && existenceDash.dash !== undefined
+                  ? ` ${EDGE_EXISTENCE_DOUBT_SENTENCE}`
+                  : ''}
+              </div>
               {/* Direction — only when the producer or the user STATED one, and
                   never as a bare fact while Olumi's review passes dispute it. */}
               {signDisputed ? (
@@ -2941,7 +3056,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   className={`${typography.edgeLabel} text-text-body flex items-start gap-1`}
                 >
                   <Activity size={10} className={`flex-shrink-0 mt-0.5 ${CANVAS_GLYPH_SIZE_CLASSES[10]}`} aria-hidden="true" />
-                  <span>{fragileEdgeSentence(fragileEdgeSwitchProb)}</span>
+                  <span>{fragileSentence}</span>
                 </div>
               )}
               {/* Coaching chips */}

@@ -16,6 +16,7 @@ import {
   buildEdgeAccessibleName,
   withEdgeAccessibleNames,
   UNTITLED_NODE_NAME,
+  EDGE_ARIA_ROLE,
   type NameableEdge,
 } from '../edgeAccessibleName'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
@@ -112,6 +113,61 @@ describe('every edge gets named, and no id survives', () => {
   it('never flattens a name a caller already chose', () => {
     const withOwn: NameableEdge[] = [{ ...edges[0], ariaLabel: 'A considered name' }]
     expect(withEdgeAccessibleNames(withOwn, labels, 'human')[0].ariaLabel).toBe('A considered name')
+  })
+})
+
+/**
+ * ⭐⭐ ROW 35 — contract §01: "edges focusable … role=button". Read at the
+ * INSTALLED `@xyflow/react@12.10.2` runtime bytes (`dist/esm/index.mjs`,
+ * `EdgeWrapper`): `role: edge.ariaRole ?? (isFocusable ? 'group' : 'img')` —
+ * every focusable edge announced the generic `group` because nothing ever
+ * supplied `ariaRole`. Named at the SAME seam as the accessible name
+ * (`withEdgeAccessibleNames`), for the same reason (CLAUDE.md trap 12): a
+ * second construction site would silently ship `group` again.
+ */
+describe('every edge also gets role=button (contract §01), independently of the name', () => {
+  it('names the role, EDGE_ARIA_ROLE, so the seam and this pin cannot drift on the literal', () => {
+    expect(EDGE_ARIA_ROLE).toBe('button')
+  })
+
+  it('sets ariaRole to EDGE_ARIA_ROLE on an edge that had none', () => {
+    const [named] = withEdgeAccessibleNames(edges, labels, 'human')
+    expect(named.ariaRole).toBe(EDGE_ARIA_ROLE)
+  })
+
+  it('names ALL of them — the same completeness property as the accessible name', () => {
+    const named = withEdgeAccessibleNames(edges, labels, 'human')
+    for (const e of named) {
+      expect(e.ariaRole, `${e.id} has no role`).toBe(EDGE_ARIA_ROLE)
+    }
+  })
+
+  it('⛔ a caller-supplied ariaRole is NEVER overwritten', () => {
+    const withOwn: NameableEdge[] = [{ ...edges[0], ariaRole: 'img' }]
+    expect(withEdgeAccessibleNames(withOwn, labels, 'human')[0].ariaRole).toBe('img')
+  })
+
+  /**
+   * ⭐⭐ THE INDEPENDENCE CASE. `ariaLabel` and `ariaRole` are checked
+   * SEPARATELY (`hasOwnAriaLabel` / `hasOwnAriaRole`) rather than as one
+   * "already named" bit — a caller could supply a considered NAME with no
+   * opinion on ROLE. Without this case, collapsing the two checks into one
+   * early return (`if (hasOwnAriaLabel) return edge`) would leave this
+   * edge's role un-set and still pass every case above.
+   */
+  it('supplying only ariaLabel still gets the role — the two fields are independent', () => {
+    const withOwnLabelOnly: NameableEdge[] = [{ ...edges[0], ariaLabel: 'A considered name' }]
+    const [named] = withEdgeAccessibleNames(withOwnLabelOnly, labels, 'human')
+    expect(named.ariaLabel).toBe('A considered name')
+    expect(named.ariaRole).toBe(EDGE_ARIA_ROLE)
+  })
+
+  /** And the mirror: a caller's own role must not block the NAME from being built. */
+  it('supplying only ariaRole still gets the built name — the two fields are independent', () => {
+    const withOwnRoleOnly: NameableEdge[] = [{ ...edges[0], ariaRole: 'img' }]
+    const [named] = withEdgeAccessibleNames(withOwnRoleOnly, labels, 'human')
+    expect(named.ariaRole).toBe('img')
+    expect(named.ariaLabel).toContain('Outsource Overflow to a Third-Party Logistics Provider')
   })
 })
 
