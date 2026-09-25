@@ -158,6 +158,22 @@ export interface GoalConstraintTextOptions {
   readonly omitLabel?: boolean
 }
 
+/**
+ * ⭐ A11 AUDIT — THE LABEL SOMETIMES ALREADY IS THE LIMIT SENTENCE.
+ *
+ * Witnessed on Paul's staging: `label: "Annual PA salary < 40000GBP/year"`
+ * arrives with its own operator and value baked in by the producer.
+ * Appending the reconstructed "≤ 40,000 GBP/year" after it states the same
+ * limit twice, with two different operators. When the label already carries
+ * a comparison glyph and a digit, it IS the limit sentence — show it alone,
+ * never alongside a second reconstructed operator.
+ */
+const LABEL_OPERATOR_PATTERN = /[<>≤≥]=?/
+
+function labelAlreadyStatesLimit(label: string): boolean {
+  return LABEL_OPERATOR_PATTERN.test(label) && /\d/.test(label)
+}
+
 export function goalConstraintText(
   constraint: CEEGoalConstraint,
   nodes: readonly { id: string; data?: unknown }[] = [],
@@ -243,6 +259,9 @@ export function goalConstraintText(
     // ⛔ Still never invents a direction — the ruled behaviour, unchanged. With
     // the label omitted the separator goes too, or it opens with a stray "·".
     return options.omitLabel ? `Limit not captured${origin}` : `${label} · limit not captured${origin}`
+  }
+  if (!options.omitLabel && labelAlreadyStatesLimit(label)) {
+    return `${label}${origin}`
   }
   const value = formatLimitMagnitude(constraint.value, constraint.unit)
   return `${prefix}${renderLimitOperator(constraint.operator)} ${value}${origin}`

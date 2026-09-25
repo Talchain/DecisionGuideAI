@@ -29,3 +29,18 @@ describe('goalConstraintText provenance', () => {
       .toBe('Budget ≤ £50,000 · Proxy limit')
   })
 })
+
+describe('goalConstraintText A11 — label already states the limit', () => {
+  it('shows the label alone when it already carries its own operator and value, real served shape', () => {
+    const paulStaging: CEEGoalConstraint = {
+      label: 'Annual PA salary < 40000GBP/year',
+      operator: '<=',
+      value: 40000,
+      unit: 'GBP/year',
+    }
+    const text = goalConstraintText(paulStaging)
+    expect(text).toBe('Annual PA salary < 40000GBP/year')
+    // Bind by count, not just a substring: exactly one operator glyph.
+    expect(text.match(/[<>≤≥]=?/g)).toHaveLength(1)
+  })
+})
