@@ -623,29 +623,33 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
 // QUESTION + GOAL
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('Question — wide and shallow: option count + ONE focus signal; coaching behind the icon (ED 11:52Z point 1)', () => {
+describe('Question — wide and shallow: option count + at most one short segment; coaching behind the icon (ED 11:52Z point 1; prototype 25 Sep)', () => {
   it('no coaching chip row on the face; the rail icon asks "Explore more options"', () => {
     setState({ phase: 'pre' })
     renderCard(DecisionNode as never, 'decision-1')
     const card = face('How should we price the new plan\\?')
     expect(within(card).queryByRole('button', { name: 'Explore more options' })?.getAttribute('data-testid')).toBe('node-coaching-icon-decision-1')
-    expect(within(card).getByTestId('decision-node-option-count').textContent).toBe('4 options')
+    expect(within(card).getByTestId('decision-node-option-count').textContent).toBe('4 alternatives')
   })
 
-  it('the top gap is ONE clamped line with full-text recovery for keyboard and screen reader (ED 02:31Z)', () => {
+  // ⚠ SUPERSEDED BY THE PROTOTYPE (Paul, 25 Sep 2026): this pinned the top gap
+  // as ONE clamped line ON the face (polish #4, `line-clamp-1`). Served, the
+  // clamp still cut the sentence ("3 options · A success target on your model
+  // can't be…"). The prototype row is "N alternatives · Evidence priority: …",
+  // so the sentence is OFF the face, WHOLE in the popover, and the full-text
+  // recovery for a screen reader is a card-side `.sr-only` copy.
+  it('the top gap is off the face, whole in the popover, and a screen reader still reaches it from the card', () => {
     setState({ phase: 'pre', over: { goalThreshold: null } })
     renderCard(DecisionNode as never, 'decision-1')
-    const gap = within(face('How should we price the new plan\\?')).getByTestId('decision-node-top-gap')
-    expect(gap.getAttribute('tabindex')).toBe('0')
-    // Polish #4: still ONE line, now broken at a WORD — `line-clamp-1` on a
-    // wrapping run replaced `truncate` (nowrap + character-granular ellipsis).
-    // The clamp sits on the span that paints the text (its own box is one line).
-    const painted = gap.querySelector('[aria-hidden="true"]') as HTMLElement
-    const gapTokens = painted.className.split(/\s+/)
-    expect(gapTokens).toContain('line-clamp-1')
-    expect(gapTokens).not.toContain('truncate')
-    expect(gap.className.split(/\s+/)).not.toContain('truncate')
-    expect(gap.querySelector('.sr-only')!.textContent).toMatch(/^Top gap: /)
+    const card = face('How should we price the new plan\\?')
+    expect(within(card).queryByTestId('decision-node-top-gap')).toBeNull()
+    const gap = within(screen.getByTestId('node-popover')).getByTestId('decision-node-top-gap')
+    expect(gap.textContent).toMatch(/^Top gap: /)
+    expect(gap.textContent).not.toContain('\u2026')
+    expect(gap.className.split(/\s+/)).not.toContain('line-clamp-1')
+    const sr = within(card).getByTestId('decision-focus-signal-sr')
+    expect(sr.className.split(/\s+/)).toContain('sr-only')
+    expect(sr.textContent).toBe(gap.textContent)
   })
 
   it('after a run, the icon keeps "Challenge this result" TYPED (what_would_flip)', () => {

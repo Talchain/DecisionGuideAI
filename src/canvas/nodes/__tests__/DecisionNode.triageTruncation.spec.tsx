@@ -41,9 +41,18 @@
  * recovery for a one-line clamp. So the whole-sentence identity assertions
  * below read the VISIBLE span, and each truncating case also asserts the
  * recovery carries the untruncated label.
+ *
+ * ⭐⭐ SUPERSEDED FOR THE TRIAGE LINE (Paul, 25 Sep 2026 — the canvas matches
+ * the PROTOTYPE). Served, the clamped row read "3 options · A success target on
+ * your model can't be…": still cut mid-sentence. The prototype row carries no
+ * sentence, so the triage line moved OFF the resting row and renders WHOLE in
+ * the popover, with a card-side `.sr-only` copy. `truncateAtWord` had no caller
+ * left and was removed. The first block below therefore pins the opposite of
+ * what it pinned before: NO truncation, at any length, of any label. The second
+ * block (the `labelUtils` twin) is untouched — it pins a different helper.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 import { compactFactorLabel } from '../../utils/labelUtils'
@@ -160,15 +169,15 @@ function graph(inferredLabel: string, otherLabel = 'Headcount') {
 }
 
 /**
- * Locked Canvas design (23 Sep 2026): the top gap bound by IDENTITY — the
- * visible (truncated) text and the screen-reader (full) text, read apart.
+ * The top gap bound by IDENTITY where it now lives: the popover's
+ * `decision-node-top-gap` (whole), the card-side screen-reader copy, and the
+ * resting row, which must not carry it.
  */
 const topGap = () => {
-  const el = screen.getByTestId('decision-node-top-gap')
-  const visible = el.querySelector('[aria-hidden="true"]')
-  const full = el.querySelector('.sr-only')
-  if (!visible || !full) throw new Error('refusing to assert: top gap lacks its visible or sr-only half')
-  return { visible: visible.textContent ?? '', full: full.textContent ?? '' }
+  const inPopover = within(screen.getByTestId('decision-node-popover')).getByTestId('decision-node-top-gap')
+  const sr = screen.getByTestId('decision-focus-signal-sr')
+  const row = screen.getByTestId('decision-node-resting-state')
+  return { popover: inPopover.textContent ?? '', sr: sr.textContent ?? '', row: row.textContent ?? '' }
 }
 
 const renderWith = (inferredLabel: string, otherLabel?: string) => {
@@ -182,112 +191,57 @@ const renderWith = (inferredLabel: string, otherLabel?: string) => {
   )
 }
 
-describe('DecisionNode triage line — truncation never cuts inside a word', () => {
+describe('DecisionNode triage line — never truncated: off the row, whole in the popover', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   /**
-   * THE DISCRIMINATING CASE. The second word runs past the measure, so the old
-   * 0.6-heuristic rule kept a mid-word fragment of it and the new rule drops it
-   * whole. Both halves are asserted: the sentence the user now sees, and the
-   * absence of the fragment they used to see.
+   * THE DISCRIMINATING CASE for the old rule: a second word past the measure.
+   * The old clamp showed "Top gap: validate Use a…"; now the whole label shows.
    */
-  it('drops a word that runs past the measure rather than cutting it open', () => {
+  it('a word past the old measure is kept, not dropped', () => {
     const label = 'Use a supercalifragilisticexpialidociousmetricvalue here'
     expect(label.length).toBeGreaterThan(TRIAGE_MEASURE)
 
     renderWith(label)
 
-    expect(screen.getByText('Top gap: validate Use a…')).toBeTruthy()
-    // The mid-word fragment the OLD rule shipped. Asserted absent by its own
-    // text, so this REDs if the old behaviour ever returns.
-    expect(screen.queryByText(/supercalifragilisticexpialidocious…/)).toBeNull()
-    expect(screen.queryByText(/supercalifragilisticexpialidocious[^m]/)).toBeNull()
+    const { popover, sr, row } = topGap()
+    expect(popover).toBe(`Top gap: validate ${label}`)
+    expect(sr).toBe(popover)
+    expect(row).not.toMatch(/Top gap/)
+    expect(screen.queryByText('Top gap: validate Use a\u2026')).toBeNull()
   })
 
-  /**
-   * The ordinary long label — several words, a boundary at or before the
-   * measure. The cut lands on that boundary, and the word after it is gone
-   * entirely rather than clipped.
-   */
-  it('cuts at the last word boundary at or before the measure', () => {
+  it('an ordinary long label arrives whole — no cut at the last boundary', () => {
     const label = 'Snowflake-Native Build Capacity In The Data Platform Team'
     expect(label.length).toBeGreaterThan(TRIAGE_MEASURE)
 
     renderWith(label)
 
-    // Locked Canvas design (23 Sep 2026): the visible span carries the cut; the
-    // sr-only copy carries the untruncated sentence (ED 02:31Z full-text
-    // recovery), so the fragment check is on what is SEEN.
-    const { visible, full } = topGap()
-    expect(visible).toBe('Top gap: validate Snowflake-Native Build Capacity In The…')
-    expect(visible).not.toMatch(/In The Dat/)
-    expect(full).toBe(`Top gap: validate ${label}`)
+    const { popover, sr, row } = topGap()
+    expect(popover).toBe(`Top gap: validate ${label}`)
+    expect(popover).not.toContain('\u2026')
+    expect(sr).toBe(popover)
+    expect(row).not.toMatch(/Top gap/)
   })
 
-  /**
-   * ⚠ THE DELIBERATE OVERRUN, AND IT IS THE ONE WITH A CONSEQUENCE. A single
-   * unbroken token has no boundary to cut at, so the rule returns it WHOLE and
-   * the string exceeds the measure. The triage line has NO clamp and NO
-   * `break-words`, so this is the case where the new rule prints a LONGER line
-   * than the old one did, with nothing in this file bounding it.
-   *
-   * ⚠ THE SIZE OF THAT TRADE IS NOT STATED IN PROSE HERE, BECAUSE AN EARLIER
-   * DRAFT STATED IT WRONG: it said "60 characters here against the old rule's
-   * 41", and 60 matches NEITHER frame — the label is 52 and the whole line 70.
-   * It is now DERIVED IN-TEST below, in both frames, against the pre-PR rule
-   * reproduced verbatim from `5b764fa6`. A number a test derives cannot drift;
-   * a number a comment asserts already has. Clamping this line is rowed in the
-   * PR body rather than silently absorbed.
-   */
-  it('returns a single unbroken token whole, exceeding the measure by design', () => {
+  it('a single unbroken token arrives whole', () => {
     const token = 'Snowflakenativebuildcapacityinthedataplatformteamnow'
     expect(token.length).toBeGreaterThan(TRIAGE_MEASURE)
     expect(token).not.toContain(' ')
 
     renderWith(token)
 
-    // Locked Canvas design (23 Sep 2026): read the visible span by identity —
-    // the sr-only recovery legitimately repeats the same sentence.
-    const { visible, full } = topGap()
-    expect(visible).toBe(`Top gap: validate ${token}`)
-    // No ellipsis anywhere on this line: nothing was cut, so nothing may claim
-    // to have been.
-    expect(visible).not.toMatch(/Top gap: validate .*…/)
-    expect(full).toBe(visible)
-
-    // ---- THE TRADE, MEASURED FROM THIS FIXTURE ----------------------------
-    // `OLD_RULE` is the pre-PR `DecisionNode` helper reproduced verbatim from
-    // `5b764fa6` (0.6 heuristic, single-character ellipsis) so the comparison
-    // is against what actually shipped, not a remembered version of it. It is
-    // deliberately a local copy: importing it is impossible (the helper is
-    // private and this PR replaced it), and pinning the old OUTPUT is the only
-    // way the size of the regression can be stated without drifting.
-    const OLD_RULE = (text: string, maxLength: number): string => {
-      if (text.length <= maxLength) return text
-      const truncated = text.substring(0, maxLength)
-      const lastSpace = truncated.lastIndexOf(' ')
-      return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '\u2026'
-    }
-    const PREFIX = 'Top gap: validate '
-    const oldLabel = OLD_RULE(token, TRIAGE_MEASURE)
-
-    // Label frame: whole token vs the old cap of measure + one ellipsis char.
-    expect(token.length).toBe(52)
-    expect(oldLabel.length).toBe(41)
-    // Whole-line frame — what the user actually reads on the card.
-    expect((PREFIX + token).length).toBe(70)
-    expect((PREFIX + oldLabel).length).toBe(59)
-    // The precondition that makes the two frames a COMPARISON and not two
-    // unrelated numbers: the old rule really did cut this token, mid-word.
-    expect(oldLabel).not.toBe(token)
-    expect(token.startsWith(oldLabel.slice(0, -1))).toBe(true)
+    const { popover, sr } = topGap()
+    expect(popover).toBe(`Top gap: validate ${token}`)
+    expect(popover).not.toContain('\u2026')
+    expect(sr).toBe(popover)
   })
 
   /**
-   * The control that lets this file PASS as well as fail: a label under the
-   * measure is returned untouched, with no ellipsis invented.
+   * The control that lets this file PASS as well as fail: a short label is the
+   * same sentence it always was.
    */
   it('leaves a label shorter than the measure exactly as it is', () => {
     const label = 'Brand perception'
@@ -295,11 +249,9 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
 
     renderWith(label)
 
-    // Locked Canvas design (23 Sep 2026): bound to the top gap's visible span;
-    // the sr-only recovery is the same sentence, since nothing was cut.
-    const { visible, full } = topGap()
-    expect(visible).toBe('Top gap: validate Brand perception')
-    expect(full).toBe(visible)
+    const { popover, sr } = topGap()
+    expect(popover).toBe('Top gap: validate Brand perception')
+    expect(sr).toBe(popover)
   })
 })
 

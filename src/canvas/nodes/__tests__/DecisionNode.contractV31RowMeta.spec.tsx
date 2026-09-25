@@ -124,7 +124,7 @@ describe('T04 / ANC-03 — the question row is one muted row-meta run', () => {
   it('the option count is row-meta (edgeLabel, text-light), not the value token in body ink', () => {
     renderDecision()
     const count = screen.getByTestId('decision-node-option-count')
-    expect(count.textContent).toBe('2 options')
+    expect(count.textContent).toBe('2 alternatives')
     const t = tokens(count)
     for (const cls of EDGE_LABEL) expect(t).toContain(cls)
     expect(t).toContain('text-text-light')
@@ -135,17 +135,33 @@ describe('T04 / ANC-03 — the question row is one muted row-meta run', () => {
     for (const cls of NODE_VALUE_ONLY) expect(t).not.toContain(cls)
   })
 
-  it('count · focus signal: one separator, BETWEEN them, and the signal is muted too', () => {
+  // ⚠ SUPERSEDED BY THE PROTOTYPE (Paul, 25 Sep 2026): this pinned
+  // "count · top gap" on the row. The prototype row carries no sentence
+  // ("3 alternatives · Evidence priority: conversion", and the priority only
+  // after a current run — `DecisionNode.prototypeSubtitle.spec.tsx` pins that
+  // join). Before a run the row is the count alone; the top gap is WHOLE in the
+  // popover and still muted. The separator's own properties are pinned on the
+  // unnamed row below, which still joins items.
+  it('before a run the count stands alone; the top gap is off the row, muted, in the popover', () => {
     setStore({ nodes: [decisionNode, ...optionNodes, missingFactor] })
     renderDecision()
-    expect(rowSequence()).toEqual(['decision-node-option-count', SEP, 'decision-node-top-gap'])
-    const sep = screen.getByTestId(SEP)
-    expect(sep.textContent).toBe(READINESS_SEPARATOR.trim())
-    expect(sep.getAttribute('aria-hidden')).toBe('true')
-    expect(tokens(sep)).toContain('text-text-light')
-    const signal = tokens(screen.getByTestId('decision-node-top-gap'))
+    expect(rowSequence()).toEqual(['decision-node-option-count'])
+    expect(screen.queryByTestId(SEP)).toBeNull()
+    const gap = within(screen.getByTestId('decision-node-popover')).getByTestId('decision-node-top-gap')
+    const signal = tokens(gap)
     expect(signal).toContain('text-text-light')
     expect(signal).not.toContain('text-text-body')
+  })
+
+  it('the separator is the one READINESS_SEPARATOR glyph, decorative and muted', () => {
+    renderDecision('')
+    const seps = screen.getAllByTestId(SEP)
+    expect(seps.length).toBeGreaterThan(0)
+    for (const sep of seps) {
+      expect(sep.textContent).toBe(READINESS_SEPARATOR.trim())
+      expect(sep.getAttribute('aria-hidden')).toBe('true')
+      expect(tokens(sep)).toContain('text-text-light')
+    }
   })
 
   it('no separator when the count stands alone (nothing to join)', () => {
