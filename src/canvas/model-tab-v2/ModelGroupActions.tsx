@@ -60,7 +60,9 @@ export function ModelGroupActions({
   return (
     <div
       data-testid={`model-group-v2-${groupId}-actions`}
-      className="flex flex-wrap items-center gap-3 px-4 py-1.5"
+      // ⭐ MODEL-7: px-0. This block sat at +16 against the outline's +8 rows
+      // and +0 header — one more of the five left edges the sweep removes.
+      className="flex flex-wrap items-center gap-3 px-0 py-1.5"
     >
       {actions.map(action => (
         <button
