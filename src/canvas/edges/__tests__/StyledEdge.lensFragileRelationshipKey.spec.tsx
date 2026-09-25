@@ -1,15 +1,16 @@
 /**
- * ⛔ THE FRAGILE-EDGE HOVER LABEL NAMES THE ALTERNATIVE WITHOUT A WINNER VERB.
+ * ⛔ THE SERVED FRAGILE ROW SHAPE RESOLVES ON THE MOUNTED EDGE, AND ITS LENS
+ * LABEL IS THE WITHHELD FORM.
  *
- * AI Quality's audit of served UI `b017e3c2`, row L3 (#69 5827943157): hovering
- * a fragile edge in the robustness lens rendered "If wrong → {alt}", which
- * presupposes a leader to flip from on a run whose ranking the producer may have
- * withheld. The register's withheld form is "the comparison could shift towards
- * {alt}" (`fragileEdgeCopy.ts`), which is true on a permitted run too.
+ * CEE `0303ef5` pricing: drafted edges carry no id (canvas `e-N`), and the row's
+ * `edge_id` is the producer's `"<from>-><to>"` relationship key (pre-review
+ * 5828017429). With #2002's matcher the mounted StyledEdge resolves the row, so
+ * the lens hover names the alternative, in #2001's withheld form.
  *
- * Harness: the mock pattern of `StyledEdge.causalLens.2954.spec.tsx`, with the
- * lens flag ON (the deployed posture), the robustness lens active, and this edge
- * in `_fragileEdgeIds`. The label renders on hover/selection; `selected: true`.
+ * A separate file from #2001's `StyledEdge.lensFragileNamesNoWinner.spec.tsx`,
+ * so that file lands byte-identical from both branches (a squash of #2001 plus
+ * an edit here would otherwise be an add/add conflict). The harness is that
+ * spec's (the lens flag ON, the deployed posture).
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
@@ -97,29 +98,14 @@ function renderEdge(): string {
   return container.textContent ?? ''
 }
 
-describe('the lens fragile-edge label names the alternative without a winner verb', () => {
-  it('⭐ an entry with an alternative renders the withheld form', () => {
-    holder.fragileEntry = { edge_id: 'e-under-test', from_id: 'src', to_id: 'tgt', switch_probability: 0.85, alternative_winner_label: 'Plan B' }
+describe('the lens fragile-edge label on the served row shape', () => {
+  it('⭐ the served row shape (composite relationship key, local edge id) resolves, in the withheld form', () => {
+    // CEE 0303ef5 pricing: drafted edges have no id (canvas `e-N`); the row's
+    // `edge_id` is the producer's `"<from>-><to>"` key (pre-review 5828017429).
+    holder.fragileEntry = { edge_id: 'src->tgt', from_id: 'src', to_id: 'tgt', switch_probability: 0.5504, alternative_winner_label: 'Keep £49 Price' }
     const text = renderEdge()
-    expect(text).toContain('The comparison could shift towards Plan B')
-    expect(text).not.toMatch(/If wrong/)
-    expect(text).not.toMatch(/→\s*Plan B/)
-  })
-
-  it('CONTROL — an entry with no alternative keeps the existing "Sensitive" word', () => {
-    holder.fragileEntry = { edge_id: 'e-under-test', from_id: 'src', to_id: 'tgt', switch_probability: 0.85 }
-    const text = renderEdge()
-    expect(text).toContain('Sensitive')
+    expect(text).toContain('The comparison could shift towards Keep £49 Price')
     expect(text).not.toMatch(/If wrong/)
   })
 
-  it('CONTROL — outside the fragile lens, no label renders at all', () => {
-    holder.lensActive = 'full'
-    holder.fragileEntry = { edge_id: 'e-under-test', from_id: 'src', to_id: 'tgt', switch_probability: 0.85, alternative_winner_label: 'Plan B' }
-    try {
-      expect(renderEdge()).not.toContain('Plan B')
-    } finally {
-      holder.lensActive = 'robustness'
-    }
-  })
 })
