@@ -26,7 +26,6 @@
 import { memo, useMemo } from 'react'
 import { ViewportPortal, type Node } from '@xyflow/react'
 import { deriveTierLanes } from '../utils/tierLanes'
-import tierLaneStyles from './TierLanes.module.css'
 
 /**
  * ⭐ THE BANDS ARE LABELS ONLY, IN ONE LEFT COLUMN (Paul, 24 Sep: "Keep the
@@ -51,17 +50,12 @@ import tierLaneStyles from './TierLanes.module.css'
  * titles mid-screen above their centred cards; one column keeps them "on the
  * left" as asked.
  *
- * The DOM text stays SENTENCE CASE — the product words `TITLE_BY_TIER` already
- * carries (DECISION_NODE_LABEL, MODEL_GROUP_TITLE) — and the contract's
- * ALL-CAPS display is applied as a CSS `text-transform` in
- * `TierLanes.module.css`, never by respelling the strings themselves (DS-gap
- * audit row 4, 24 Sep 2026: keep the product vocabulary, adopt the contract's
- * STYLE). `check-ds-compliance.mjs` ratchets a Tailwind class this file no
- * longer uses (its id, spelled out, would itself trip the very ratchet it
- * names — `tools/ci-guards/check-ds-compliance.mjs` documents that class as
- * scanning `.tsx` files INCLUDING comments) — one more reason the transform
- * lives in `TierLanes.module.css` rather than as an inline style or a
- * Tailwind class here.
+ * The label is SENTENCE CASE in the shared muted token (`text-text-light`),
+ * the product words `TITLE_BY_TIER` carries. From contract v3.1's `.layer-label`
+ * it takes only the 10px size and 0.5px tracking: DS v5 §2 forbids styling-driven
+ * all-caps and Paul's pt 9 already ruled the design system overrides the
+ * contract here (review 5824187641 reversed a CSS-module workaround that hid the
+ * all-caps and a raw hex from the compliance guard).
  *
  * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
  * counter-scales, so at far zoom it grows several times taller and must grow up
@@ -94,12 +88,12 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
             <span
               key={lane.tier}
               data-testid={`tier-lane-${lane.tier}-title`}
-              /* contract v3.1 `.layer-label`: ALL-CAPS display + #777870, in
-                 the CSS module (see its header for why not here); the counter-scaled
-                 size drops from `typography.edgeLabel`'s 11px base to the
-                 contract's 10px — a LOCAL arbitrary-value class, not an edit
-                 to the shared token, since no other canvas surface uses 10px. */
-              className={`absolute ${tierLaneStyles.tierLabel ?? ''} text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans`}
+              /* contract v3.1 `.layer-label` size only: the counter-scaled base
+                 drops from `typography.edgeLabel`'s 11px to the contract's 10px — a
+                 LOCAL arbitrary-value class, not an edit to the shared token, since
+                 no other canvas surface uses 10px. Sentence case and the shared
+                 muted token stay (DS v5 §2; see the header). */
+              className={`absolute text-text-light text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans`}
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,
