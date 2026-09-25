@@ -74,7 +74,7 @@ import { buildAskAIPrompt } from '../../contextMenu/actions'
 import type { NodeType } from '../../domain/nodes'
 import type { CoachingChip, ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
 
@@ -205,13 +205,13 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={chip.label}>
       <button
         type="button"
-        /* Discreet at rest (`text-text-light`, the design system's muted icon
-           token); Info on an info-soft ground on hover AND keyboard focus, so
+        /* Discreet at rest (the rail's `.icon-btn` grey, #777B77 — gap 34; it
+           was `text-text-light`); Info on an info-soft ground on hover AND keyboard focus, so
            focus shows the same cue as hover (Paul 23 Sep contract feedback
            point 12). The hover/focus half now lives in `NODE_RAIL_BUTTON_CLASSES`
            for EVERY rail member (contract v3.1 `.icon-btn:hover`, ICON-01), so
            this icon no longer carries a private copy of it. */
-        className={`${NODE_RAIL_BUTTON_CLASSES} text-text-light`}
+        className={`${NODE_RAIL_BUTTON_CLASSES} ${NODE_RAIL_REST_TONE_CLASS}`}
         onClick={handleClick}
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}

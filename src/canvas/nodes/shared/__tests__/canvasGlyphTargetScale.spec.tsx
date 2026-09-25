@@ -686,8 +686,20 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       // 230 -> 260 and the SAME row now occupies a smaller share of the
       // narrowest card. 67.0% -> 59.2% is a bound getting looser because the
       // card grew, not a trade being retuned to fit a regression.
-      expect(visual, 'the row visual width moved').toBe(144)
-      expect(occupied, 'the row footprint moved').toBe(154)
+      //
+      // ⭐ RE-DECIDED BY THE DESIGN (2026-09-25, gap 34). Visual Contract §02
+      // sets the rail button at `.icon-btn{width:25px;height:25px}` (it was 20),
+      // so the SAME three-button row is wider — by the design's decision, not by
+      // drift. Old → new, at the bound:
+      //   3 x 40px + 2 x 12px  = 144   →   3 x 50px + 2 x 12px  = 174 CSS px
+      //   6 + 144 + 4          = 154   →   6 + 174 + 4          = 184 CSS px
+      //   154 / 260            = 59.2% →   184 / 260            = 70.8%
+      // The card underneath did not move (260). At 100% the row is 3 x 25 +
+      // 2 x 6 = 87px on the card, against the contract's 3 x 25 + 2 x 1 = 77:
+      // the 6px scaled gap stays because `gap > 2 x slop` keeps adjacent hit
+      // areas apart (`CANVAS_GAP_CLASSES`).
+      expect(visual, 'the row visual width moved').toBe(174)
+      expect(occupied, 'the row footprint moved').toBe(184)
       expect(NODE_LAYOUT_MIN_W, 'the narrowest card moved').toBe(260)
 
       // …and the RELATIONSHIP, which is the thing that actually matters and the
@@ -696,7 +708,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       expect(
         Math.round((occupied / NODE_LAYOUT_MIN_W) * 1000) / 10,
         'the row footprint as a % of the narrowest card is the accepted trade — re-decide it, do not retune it',
-      ).toBe(59.2)
+      ).toBe(70.8)
     })
   })
 })

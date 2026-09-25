@@ -21,7 +21,13 @@ import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import {
+  NODE_RAIL_BEHAVIOUR_TONE_CLASS,
+  NODE_RAIL_BUTTON_CLASSES,
+  NODE_RAIL_GLYPH_CLASSES,
+  NODE_RAIL_GLYPH_PX,
+  NODE_RAIL_REST_TONE_CLASS,
+} from './nodeCardRailStyles'
 import { selectRestingGlyphsShown } from './restingGlyphRung'
 import type { AttentionReason } from './nodeAttention'
 
@@ -64,6 +70,9 @@ export function NodeRailIcon({
    * `NODE_RAIL_BUTTON_CLASSES`, so the rail has one hover language.
    * `info` is Info at rest too. Contract v3.1 keeps Info at rest for the
    * attention cue (Paul 23 Sep pt 9), so a DATA icon is `muted`.
+   * `muted` is the contract's `.icon-btn` grey (#777B77) and `behaviour` its
+   * `.icon-btn.behaviour` violet (#736DA0) — gap 34; they were `text-text-light`
+   * and body ink (`text-text-body`), the loudest glyph on the card.
    */
   tone: 'info' | 'behaviour' | 'muted'
   onActivate: () => void
@@ -71,7 +80,7 @@ export function NodeRailIcon({
   reveal?: boolean
 }) {
   const toneClass =
-    tone === 'info' ? 'text-info' : tone === 'behaviour' ? 'text-text-body' : 'text-text-light'
+    tone === 'info' ? 'text-info' : tone === 'behaviour' ? NODE_RAIL_BEHAVIOUR_TONE_CLASS : NODE_RAIL_REST_TONE_CLASS
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={label}>
       <button

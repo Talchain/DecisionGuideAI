@@ -333,6 +333,16 @@
   --factor-light: rgb(var(--factor-light-rgb));
   /* Border: rgba(176, 168, 153, 0.3) */
 
+  /* Card rail glyphs (Visual Contract §02, gap 34): `.icon-btn{color:#777B77}`
+     and `.icon-btn.behaviour{color:#736DA0}`. GLYPH colours for the card rail
+     only (nodeCardRailStyles.ts) — deliberately not Tailwind `colors` entries:
+     #777B77 is ~4.3:1 on --bg-panel, which clears SC 1.4.11's 3:1 for an icon
+     and must never be used as body text. #736DA0 is ~4.7:1. */
+  --rail-icon-rgb: 119 123 119;
+  --rail-icon: rgb(var(--rail-icon-rgb));
+  --behaviour-icon-rgb: 115 109 160;
+  --behaviour-icon: rgb(var(--behaviour-icon-rgb));
+
   /* ============================================
      LEGACY SEMANTIC TOKENS
      (Mapped to new two-shade system)

@@ -147,12 +147,24 @@ beforeEach(() => {
   useGuidanceStore.getState().clearGuidanceItems()
 })
 
-describe('BaseNode — "Needs input" pill joins the corner stack', () => {
-  it('the pill renders INSIDE the corner stack, not as its own positioned element', () => {
+/**
+ * ⛔ UPDATED 25 Sep 2026 (GAP 11, DESIGN-GAP-AUDIT-20260924.md row 11; Visual
+ * Contract §02 `.node .attention{right:7px;top:5px}` inside the card, and
+ * `.state-word` in the card body): the corner stack moved INSIDE the card and
+ * holds only the fixed-size marks, so the worded pill LEFT it for the card's
+ * in-flow state row (`node-state-row-{id}`). What this file pinned — ONE owner
+ * for the corner, and a pill with no positioning authority of its own — still
+ * holds; the pill's owner is now the state row. The single source of that
+ * layout is pinned in `BaseNode.marksInsideCardRail.spec.tsx`.
+ */
+describe('BaseNode — "Needs input" pill: one owner, no positioning of its own', () => {
+  it('the pill renders in the card\'s state row — NOT in the corner stack, and not as its own positioned element', () => {
     renderNode()
     const stack = screen.getByTestId('node-corner-stack-node-a')
+    const row = screen.getByTestId('node-state-row-node-a')
     const pill = screen.getByTestId('needs-input-pill')
-    expect(stack).toContainElement(pill)
+    expect(row).toContainElement(pill)
+    expect(stack).not.toContainElement(pill)
   })
 
   it('the pill carries NO positioning authority of its own', () => {
@@ -172,30 +184,29 @@ describe('BaseNode — "Needs input" pill joins the corner stack', () => {
    * is kept opted-in below to prove the pill alone now owns the stack even
    * when the store says the node was edited.
    */
-  it('the pill alone owns the stack — the (now-removed) edited-since-run dot never joins it', () => {
+  it('the pill alone owns the state row — and the (now-removed) edited-since-run dot joins neither row nor stack', () => {
     editedNodeIds.add('node-a')
     renderNode()
     const stack = screen.getByTestId('node-corner-stack-node-a')
+    const row = screen.getByTestId('node-state-row-node-a')
     const pill = screen.getByTestId('needs-input-pill')
-    expect(stack).toContainElement(pill)
     expect(screen.queryByTestId('edited-since-run-node-a')).toBeNull()
-    const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(1)
-    expect(kids[0]).toBe(pill)
+    expect(Array.from(row.children)).toEqual([pill])
+    // CONTRAST — with no mark the corner stack is empty: the pill did not stay behind.
+    expect(stack.children).toHaveLength(0)
   })
 
-  it('pill · coaching are two ordered siblings, coaching rightmost (the edited-dot no longer sits between them)', () => {
+  it('pill and coaching are split by kind: the pill in the state row, the coaching MARK alone in the corner', () => {
     editedNodeIds.add('node-a')
     useGuidanceStore.getState().setGuidanceItems([makeItem()])
     renderNode()
     const stack = screen.getByTestId('node-corner-stack-node-a')
+    const row = screen.getByTestId('node-state-row-node-a')
     const pill = screen.getByTestId('needs-input-pill')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
     expect(screen.queryByTestId('edited-since-run-node-a')).toBeNull()
-    const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(2)
-    expect(kids[0]).toBe(pill)
-    expect(kids[1]).toBe(coaching)
+    expect(Array.from(stack.children)).toEqual([coaching])
+    expect(Array.from(row.children)).toEqual([pill])
     expect(coaching.className).not.toContain('absolute')
   })
 

@@ -325,9 +325,13 @@ describe('bounded anatomy: below Normal, factor and option cards reserve NO dead
 })
 
 describe('contract v3.1 — the rendered rail band tracks the live scale (RHY-01)', () => {
-  it('an ordinary card renders the band as a calc over --canvas-label-scale, not a fixed 50px', () => {
+  // ⛔ UPDATED 25 Sep 2026 (gap 34): 22 → 27 because the DESIGN moved the rail
+  // box to the contract's 25px (`.icon-btn{width:25px;height:25px}`); the band is
+  // derived from it, 6 + (25 + 2) × scale. The claim — a calc over the live
+  // scale, not a fixed band — is unchanged.
+  it('an ordinary card renders the band as a calc over --canvas-label-scale, not a fixed band', () => {
     const { root } = renderCard('option', { label: 'O' }, { children: <div>row</div> })
-    expect(root.style.paddingBottom).toBe('calc(6px + 22px * var(--canvas-label-scale, 1))')
+    expect(root.style.paddingBottom).toBe('calc(6px + 27px * var(--canvas-label-scale, 1))')
   })
 })
 

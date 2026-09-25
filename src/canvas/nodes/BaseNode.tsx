@@ -20,7 +20,7 @@ import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, ty
 import { useEditPreviewStore } from '../stores/editPreviewStore'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
-import { NodeCoachingMarker } from './shared/NodeCoachingMarker'
+import { NodeCoachingMarker, useNodeCoachingMarkerShown } from './shared/NodeCoachingMarker'
 import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
@@ -82,6 +82,9 @@ import {
   anchorRailButtonsKey,
   anchorRailReservePx,
   CANVAS_QUICK_ACTION_INSET_PX,
+  CANVAS_CARD_FRAME_PX,
+  cornerMarksHeaderReserveCss,
+  cornerMarksTitleSpacerCss,
 } from './shared/canvasGlyphScale'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -123,6 +126,11 @@ interface BaseNodeProps extends NodeProps {
   maxWidth?: number
   headerSlot?: ReactNode
   /**
+   * ⭐ GAP 11: this now renders FIRST IN THE CARD'S STATE ROW (under the title),
+   * with the state pill — not in the corner stack, which holds only the
+   * fixed-size marks inside the card. The history below describes the slot as
+   * it was when it joined the corner.
+   *
    * A caller-supplied member of the TOP-RIGHT CORNER STACK, rendered first in
    * that container's DOM order.
    *
@@ -165,7 +173,8 @@ interface BaseNodeProps extends NodeProps {
   borderClassOverride?: string
   /**
    * The card's own body already states the `isIncomplete` gap in its own words
-   * (the goal's "Target not captured" chip), so the corner "Needs input" pill
+   * (the goal's "Target not captured" chip), so the "Needs input" pill (the
+   * state row since gap 11; the corner before)
    * would say it twice. Withholds the PILL only — `isIncomplete` still drives the
    * border and the overlay testid. Contract v3.1: one state, once (gap U4).
    */
@@ -507,6 +516,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         candidates: attention.candidateCount,
       })
     : null
+  /**
+   * ⭐ HOW MANY MARKS THE CORNER STACK DRAWS (gap 11) — the attention cue, and the
+   * coaching slot when it draws (`useNodeCoachingMarkerShown`, the marker's own
+   * three gates). The title keeps clear of exactly these, and of nothing when
+   * there are none: the reserve follows the MARK, so a rung that hides the
+   * coaching glyph gives its width back.
+   */
+  const coachingMarkShown = useNodeCoachingMarkerShown(id)
+  const cornerMarkCount = (attentionText !== null ? 1 : 0) + (coachingMarkShown ? 1 : 0)
 
   /**
    * The ONE line a node still says when it is too small to say anything else.
@@ -1336,6 +1354,315 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const cardPadding = (): CSSProperties => cardPaddingAt(atNormalZoom)
   const rungPadding = JSON.stringify({ landing: cardPaddingAt(false), normal: cardPaddingAt(true) })
 
+  /**
+   * ⭐⭐ THE TITLE NEVER RUNS UNDER A CORNER MARK (gap 11; contract §02
+   * `.node h3{padding-right:21px}` beside `.node .attention{right:7px}`).
+   *
+   * Two cases, split by whether the title has its line to itself:
+   *   · It SHARES its line (a wide card — the Question and Goal): the header row
+   *     is reserved, so the title AND the header glyphs beside it stop 1px clear
+   *     of the marks on every line. The title keeps at least its minimum measure
+   *     there at every scale, so the widest-word bound still holds.
+   *   · It has the line to ITSELF (every repeated card: its minimum measure is
+   *     the card's whole text measure): a first-line spacer inside the title.
+   *     Lines 2+ keep the full measure the widest-word bound was derived for — an
+   *     all-lines reserve would break "Concentration" mid-word at the bound. The
+   *     header glyphs on the row below are clear of the marks at 100%, and at
+   *     the bound overlap only the mark box's empty lower padding.
+   * Both are `undefined` when no mark is drawn. The spacer's arithmetic is taken
+   * from the title box at its minimum measure (`max(0px, …)` zeroes it wherever
+   * the box already stops short of the marks).
+   */
+  const liveCardPadding = cardPadding()
+  const titleSharesItsLine =
+    renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX > titleMinMeasurePx
+  const cornerHeaderReserve = titleSharesItsLine
+    ? cornerMarksHeaderReserveCss(cornerMarkCount, String(liveCardPadding.paddingRight))
+    : undefined
+  const cornerTitleSpacer = cornerMarksTitleSpacerCss(
+    cornerMarkCount,
+    renderedCardW - 2 * CANVAS_CARD_FRAME_PX - parseFloat(String(liveCardPadding.paddingLeft)) - titleMinMeasurePx,
+  )
+  // The causal lens draws the title as one full-width block, so its box reaches
+  // the card padding: the clearance past that padding is the whole spacer.
+  const causalTitleSpacer = cornerMarksHeaderReserveCss(cornerMarkCount, String(liveCardPadding.paddingRight))
+  const hasCornerSlot = cornerSlot !== undefined && cornerSlot !== null && cornerSlot !== false
+
+  /**
+   * ⭐⭐ THE STATE WORD LEAVES THE CORNER (gap 11, 25 Sep 2026). Everything below
+   * this note is unchanged — the arms, their precedence, their copy and their
+   * reasons — except WHERE the one pill renders: it used to be a member of the
+   * top-right corner stack, which floated ABOVE the card in the row gap. The
+   * corner now holds only the fixed-size MARKS, inside the card at the contract's
+   * offsets, and the worded state renders in the card's own in-flow state row
+   * under the title (contract §02 puts `.state-word` in the card body; ED
+   * 5809278282: `Needs input` stays ON the card). A pill can be wider than the
+   * title's whole line at the counter-scale bound, so it could never share the
+   * corner with the title. References below to "the corner stack … pinned at
+   * three children" describe the stack as it was.
+   */
+  /* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
+      factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
+      / GoalNoTargetPre.
+
+      ⭐⭐⭐ IT IS NOW THE ONLY CARRIER OF THAT STATE, ON EVERY NODE TYPE
+      `isIncomplete` ADMITS (Paul's re-ruling, 8 Sep 2026). This gate read
+      `isIncomplete && (nodeType === 'factor' || nodeType === 'goal')`, and
+      the sentence beside it read *"Decision/option keep the warning border
+      only"* — which was true until that border stopped being amber. Paul
+      ruled the kind hue stays and the state becomes a badge, so the
+      hand-listed pair was DELETED rather than complemented: leaving it
+      would have left `decision` and `option` with no channel at all, and
+      adding a second, different marker for them would be two renderings of
+      one state that nothing keeps in step (CLAUDE.md trap 12).
+
+      ⚠ WHY NOT A DOT. The lane brief proposed reusing the edited-since-run
+      dot's shape. A mute coloured dot moves the defect rather than closing
+      it: for a sighted user its only channel is still a colour, and the
+      ruling exists because colour was the sole channel. The pill says the
+      words. It is also the affordance that already existed for this exact
+      state, so this adds no new amber vocabulary.
+
+      ⚠ NO NEW COPY WAS MINTED. Both strings below already shipped, and the
+      non-goal arm — `'Missing required input'` — was already the default
+      for anything that was not a goal. Extending the gate reaches it for
+      the first time on `decision` and `option`; it is true of both (an
+      option CEE assessed with no interventions, a decision with no option
+      linked). Anything more specific would be a new claim needing its own
+      derivation, and this commit is a re-ruling, not a copy change.
+
+      ⚠ EXTERNAL FACTORS STILL NEVER GET IT, and for the same structural
+      reason the border never gave it to them: `isFactorNeedsInput` returns
+      false for `category === 'external'`, so they never reach
+      `isIncomplete`. The exemption survived the move for free — asserted,
+      not assumed, in `BaseNode.needsJudgementBadge.spec.tsx`.
+
+      ⭐ THE GOAL SENTENCE STATES A CONSEQUENCE, NEVER A GATE (28 Aug 2026).
+      It read "Set a success threshold to enable analysis" — and NOTHING gates
+      analysis on a threshold.
+
+      `isIncomplete`'s goal arm and `canRunAnalysis` answer DIFFERENT questions
+      and are CORRECTLY different. This marker asks "before results exist, does
+      this goal node carry a success target?" — completeness, one node. The run
+      gate (`canRunAnalysis` → `readinessObjectsToRun`) asks "has an authority
+      stated this model cannot be analysed now?" — admissibility, whole model,
+      producer-decided; it never reads node data at all. Aligning them is banned
+      by `readinessObjectsToRun`'s own header, which spends ~80 lines forbidding
+      exactly the parallel UI-side rule a threshold check would create. The gate
+      is right; this sentence was false.
+
+      What actually happens with no target: the run SUCCEEDS. The producer
+      synthesises `auto_goal_threshold` and returns a real analysis with goal-fit
+      claims honestly suppressed (GoalNode.tsx, crownCompliance.ts,
+      goalThresholdResolvers.ts). Then `results.status === 'complete'` clears
+      `isPreRunMode` and this pill vanishes with nothing set — the product
+      silently retracted its own claim rather than ever being contradicted.
+      `StatusPill` reuses `title` as `aria-label`, so a screen-reader user
+      received ONLY the false sentence: that is the path this fixes.
+
+      The replacement is IMPORTED, not re-typed. It is the string the
+      pre-analysis footer already ships for this exact state, and a re-typed
+      variant is invisible to every runtime check (that module's copy is also
+      scanned by the glossary guard). Both surfaces answer one question —
+      "success is undefined, what follows?" — so a single string is correct
+      here rather than a two-questions-one-name conflation.
+      ⚠ THIS BLOCK ONCE READ that the ACTION is not duplicated "because
+      GoalNode co-renders its `Target not captured — add one` chip … and that
+      chip carries both the action and its own aria-label". BOTH HALVES WERE
+      FALSE AT THIS HEAD, and they were written by an earlier round of THIS PR,
+      then not re-synced when the same PR withdrew that copy — the exact defect
+      class the final commit exists to correct, one file over.
+      Derived: `GoalNode.tsx:160` `export const GOAL_NO_TARGET_STATE =
+      'Target not captured'` — there is no "— add one", and after the
+      withdrawal the co-rendered chip states the FACT and offers NO action.
+      So the reason `StatusPill` needs no action here is NOT that a sibling
+      supplies one. It is that there is no action to offer while the
+      destination is inert.
+      ⚠ AN EARLIER DRAFT OF THIS BLOCK ADDED "…the fact plus a route to the
+      details, which is what both surfaces now give". THAT WAS FALSE, and it
+      was written while correcting a false sentence four lines above — which
+      is worth recording, because it is the same failure one round later.
+      `StatusPill` is a `<span role="status">` (`StatusPill.tsx:45-46`) with
+      NO handler: its channels are "Needs input" and the title sentence, and
+      neither is a route. Only the sibling chip is a real
+      `<button onClick={openNodeInspector}>` (`GoalNode.tsx:623`). So exactly
+      ONE of the two surfaces offers a route, and this pill states the fact
+      alone — which is the honest thing for an inert destination, and is the
+      whole reason it needs no action. */
+  /* ⭐ EXCLUSION OUTRANKS "NEEDS INPUT", AND IT REPLACES IT RATHER THAN
+      STACKING BESIDE IT. Two reasons, one of them structural:
+
+      · It states the CONSEQUENCE rather than the cause. "Needs input"
+        tells a user something is missing; "Not in this analysis" tells
+        them what that costs them, and carries the cause in its title —
+        CEE's OWN sentence, not one this component composed.
+      · The corner stack is pinned at three children by
+        `BaseNode.cornerStack.spec.tsx`. A fourth child is a breaking
+        change to a deliberate layout constraint, and this claim does not
+        need one: the two pills answer questions in the same family and
+        the stronger one subsumes the weaker.
+
+      ⚠ The title falls back only when CEE sent an EMPTY message. It is
+      never used to manufacture a reason — the pill states the exclusion,
+      which CEE stamped, and nothing about why beyond what CEE said. */
+  const statePill: ReactNode = isExcludedFromAnalysis ? (
+    <StatusPill
+      testId="excluded-from-analysis-pill"
+      label="Not in this analysis"
+      title={[
+        asSentence(exclusionMessage !== null && exclusionMessage !== ''
+          ? exclusionMessage
+          : 'The analysis will run without this option'),
+        exclusionAction?.missingFactor ? `Missing: ${exclusionAction.missingFactor}.` : null,
+        exclusionAction?.tellOlumi
+          ? `${NOT_ANALYSED_ACTION_LABEL}.`
+          : 'Open its details.',
+      ].filter(Boolean).join(' ')}
+      onActivate={() => {
+        /* ⭐ #1911 IS MERGED (826e69c39), so the "no values yet" arm opens
+           the option's OWN value input — `openOptionValueInput` (Model tab
+           → options section → this option's first empty effect input) —
+           rather than a chat draft (Experience Design, #63 5796039276
+           priority 2; design-integration checklist). This replaces #1915's
+           MT-21 route (the results panel's `openAskOlumi` prefill). It is
+           navigation, not a mutation: the input's own authority decides
+           what saves. An option linked to no factor still lands on its
+           detail, whose notice says to link it first. */
+        if (exclusionAction?.tellOlumi) {
+          openOptionValueInput(id)
+          return
+        }
+        openNodeInspector(id)
+      }}
+    />
+  ) : isRetainedExcluded ? (
+    /* ⭐ A THIRD ARM OF THE SAME TERNARY — NOT A FOURTH CHILD OF THE STACK.
+       `BaseNode.cornerStack.spec.tsx` pins this container at three
+       children, and that pin is a deliberate layout constraint rather
+       than an accident. Joining the existing chain REPLACES rather than
+       stacks, so the child count is unchanged and no measurement anyone
+       took in a browser is invalidated by this change.
+
+       PRECEDENCE, and each position is argued rather than inherited:
+       · BELOW the readiness exclusion, which is untouched. That pill is
+         shipped, measured and reasoned about at length above; an inert
+         new claim does not get to reorder a live one on the strength of
+         an argument nobody has run the product against. On an option
+         where both could fire, the user keeps exactly what they see today.
+       · ABOVE `isIncomplete`, for the reason the block above already
+         gives for the exclusion pill: it states the CONSEQUENCE rather
+         than the cause. "Needs input" tells a user something is missing;
+         this tells them what that cost them — the calculation went ahead
+         without the node. The stronger claim subsumes the weaker, and it
+         carries the weaker inside it ("Unfinished").
+
+       ⚠ ONE STRING IN BOTH SLOTS, DELIBERATELY. `StatusPill` reuses
+       `title` as `aria-label`, so label and title identical means the
+       screen-reader user and the sighted user receive the SAME sentence —
+       the founder's ruled wording, whole. A shortened label with the full
+       sentence in the tooltip would give them different claims, and the
+       shorter of the two would be one the UI authored. */
+    <StatusPill
+      testId={UNFINISHED_CONTRIBUTION_TEST_ID}
+      label={UNFINISHED_CONTRIBUTION_COPY}
+      title={UNFINISHED_CONTRIBUTION_COPY}
+    />
+  ) : isIncomplete && !incompleteStatedOnCard ? (
+    /* ⭐⭐ NOT MODELLED IS NOT NOT ESTIMATED — ONE PILL WAS SAYING BOTH.
+
+       `isIncomplete` admits four node types, and until this change all
+       four rendered the identical pill: `needs-input-pill`, label
+       "Needs input", title "Missing required input". Three of the arms
+       are quantitative — a factor with no value, a goal with no target,
+       an option with no interventions. The DECISION arm is not, and this
+       file's own spec had already written the distinction down:
+       `BaseNode.needsJudgementBadge.spec.tsx` — *"a decision node's
+       incompleteness is the ONLY one of the four that is a property of
+       the GRAPH rather than of the node's own data"*. The difference was
+       known, documented in the suite, and drawn the same way anyway.
+
+       ⛔ THE COST IS THE NEXT STEP. "Missing required input" tells a
+       reader to supply a value to this card. On an optionless decision
+       there is no value to supply — what is absent is the alternatives
+       themselves, and the repair is to create them. Pooling the two
+       means a reader cannot tell "nobody estimated this" from "this was
+       never modelled", so they take the wrong action or none.
+
+       ⚠ THE CARD WAS ALREADY DISAGREEING WITH ITSELF. `DecisionNode`'s
+       resting line has said `No options linked yet` with an `Add options`
+       CTA for some time, on the SAME card, at the SAME moment this pill
+       said "Needs input". Two surfaces, one fact, two vocabularies — and
+       the one with no route was the one using the misleading word. Both
+       now read `STRUCTURAL_UNSET`, one record, so they cannot drift back
+       apart (CLAUDE.md trap 12). They read DIFFERENT MEMBERS of it on
+       purpose: the pill states the CONSEQUENCE ("nothing to compare
+       yet") and the body states the CAUSE. Giving both surfaces the
+       identical string was the first cut of this change, and
+       `DecisionNode.readinessSummary.spec.tsx` caught it — the card
+       rendered one sentence twice.
+
+       ⛔⛔ AND THE FIRST FIX ONLY MOVED THAT DUPLICATE ONTO THE CHANNEL
+       NOBODY WAS LOOKING AT — NO `title` HERE, DELIBERATELY.
+
+       This arm shipped `title={STRUCTURAL_UNSET.noOptions}`, and
+       `StatusPill` composes `aria-label={title ?? label}` as well as the
+       tooltip (`StatusPill.tsx` — the same reuse this file's goal-arm
+       block above already records as load-bearing, naming the symbol
+       rather than an offset for the reason the corner-stack block gives).
+       So the pill ANNOUNCED the body line's sentence verbatim,
+       `role="status"`, on a card whose body announces it too: the sighted
+       user got two sentences and the screen-reader user got one sentence
+       twice — the exact defect this block exists to remove, surviving in
+       the accessibility tree.
+
+       ⛔ AND THE GREEN CAME FROM THE INSTRUMENT, NOT FROM THE FIX. What
+       caught the visible duplicate was `getByText`, which reads TEXT
+       CONTENT and cannot see `aria-label`. Moving the string from `label`
+       into `title` therefore turned that assertion green while leaving
+       the duplication exactly where it was, one channel over
+       (CLAUDE.md trap 13b — a guard that cannot observe the property it
+       certifies).
+
+       ⭐ THE FIX IS TO OMIT `title`, NOT TO PARAPHRASE IT. A third
+       sentence about one fact, visible to no reviewer, is this defect one
+       round later; a paraphrase still says the same sentence twice to
+       AT. With `title` absent the component's documented fallback makes
+       BOTH the accessible name and the tooltip the VISIBLE label, so the
+       two channels agree by construction and there is no second string
+       left to drift into the body's (WCAG 2.5.3 Label in Name, which the
+       shipped arm also failed: name and visible label were different
+       sentences).
+
+       ⚠ NOTHING IS LOST ON THE UNNAMED ARM. The cause lives on the body
+       line wherever that line renders; where it does not — an UNNAMED
+       optionless decision, which renders `unnamedLine` — "Nothing to
+       compare yet" is a complete statement of the structural absence and
+       prescribes no act. That restraint is this file's own goal-arm rule:
+       a `role="status"` span with no handler is not a route, so it states
+       the fact and offers no action the card cannot perform.
+
+       ⚠ ITS OWN TESTID, FOR THE REASON `StatusPill` ALREADY ARGUES in
+       its own header: a second claim reusing `needs-input-pill` makes an
+       assertion pass on a node that says no such thing (trap 19). The
+       exclusion pill above set this precedent; this follows it.
+
+       ⛔ STILL ONE CHILD, NOT TWO. This REPLACES the pill for decisions
+       rather than adding beside it — the corner stack is pinned at three
+       children, and these two arms answer the same question. No hue, no
+       geometry and no other arm's copy changes. */
+    nodeType === 'decision' ? (
+      <StatusPill
+        testId="no-options-linked-pill"
+        label={STRUCTURAL_UNSET.nothingCompared}
+      />
+    ) : (
+      <StatusPill
+        label="Needs input"
+        title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
+      />
+    )
+  ) : null
+
   return (
     <div
       role="group"
@@ -1618,7 +1945,19 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </div>
       )}
 
-      {/* Top-right corner STACK — a single absolutely-positioned flex row that
+      {/* ⭐⭐ GAP 11 (25 Sep 2026) — READ THIS FIRST. The stack now holds only the
+          fixed-size MARKS — the attention cue and the coaching slot — and sits
+          INSIDE the card's top-right corner at the contract's offsets
+          (`CANVAS_CORNER_STACK_CLASSES`: `.node .attention{right:7px;top:5px}`),
+          with the title kept clear of it by `cornerHeaderReserve` /
+          `cornerTitleSpacer`. The worded members (`cornerSlot`, the state pill)
+          and the retired rank badge / edited dot are no longer here: the pill
+          and the slot render in the card's state row below the title. The
+          history that follows is kept as the record of how the corner got its
+          members; its member counts and its "above the card" anchor are the
+          PAST state.
+
+          Top-right corner STACK — a single absolutely-positioned flex row that
           OWNS this corner so the sensitivity-rank badge, the edited-since-run
           dot and the coaching marker never collide. All three previously
           rendered independently in this same corner (rank + coaching at
@@ -1786,6 +2125,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       <div
         data-testid={`node-corner-stack-${id}`}
         /**
+         * ⭐ SUPERSEDED BY GAP 11: the stack is now anchored INSIDE the card at
+         * the contract's `top:5px; right:7px` (see `CANVAS_CORNER_STACK_CLASSES`).
+         * The growing pill this note was about has left the stack, so its
+         * collision cannot recur from the fixed-size marks that remain. Kept as
+         * the record of why the `-top-2` anchor was withdrawn.
+         *
          * ⛔⛔ ANCHORED BY ITS OWN HEIGHT, NOT BY A FIXED −8px — because the two
          * halves of this corner scale DIFFERENTLY and only one of them knew it.
          *
@@ -1811,290 +2156,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
          */
         className={CANVAS_CORNER_STACK_CLASSES}
       >
-        {/* Caller-supplied corner member — first in DOM order. Today it has
-            exactly one caller: OptionNode's "Leading option" pill, which used
-            to hand-write this container's own `absolute -top-2 -right-2 z-10`
-            as a separate box outside it. It enters here so the corner keeps
-            exactly ONE positioning authority.
-
-            ⚠ Its position relative to the `StatusPill` below is UNOBSERVABLE
-            — but NOT for the reason this comment carried until 8 Sep 2026. It
-            said the pill was gated to `factor`/`goal`; Paul's badge re-ruling
-            DELETED that node-type pair, so the pill reaches option cards too and
-            that reason is now false. They are disjoint on RESULTS MODE instead:
-            `cornerSlot`'s caller renders under `isRecommended`, which needs
-            `isResultsMode`; the pill's OPTION arm — the only arm reachable on
-            an option card, and the qualification matters, see the contract
-            above — needs `isPreRunMode`. One store field,
-            opposite tests — derived in full in the five-member contract above and
-            pinned by `BaseNode.needsJudgementBadge.spec.tsx`. Widest-first governs each of
-            them against the three badges that follow, which is what keeps those
-            at their existing distance from the corner and the coaching marker
-            rightmost. See the `cornerSlot` prop. */}
-        {cornerSlot}
-
-        {/* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
-            factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
-            / GoalNoTargetPre.
-
-            ⭐⭐⭐ IT IS NOW THE ONLY CARRIER OF THAT STATE, ON EVERY NODE TYPE
-            `isIncomplete` ADMITS (Paul's re-ruling, 8 Sep 2026). This gate read
-            `isIncomplete && (nodeType === 'factor' || nodeType === 'goal')`, and
-            the sentence beside it read *"Decision/option keep the warning border
-            only"* — which was true until that border stopped being amber. Paul
-            ruled the kind hue stays and the state becomes a badge, so the
-            hand-listed pair was DELETED rather than complemented: leaving it
-            would have left `decision` and `option` with no channel at all, and
-            adding a second, different marker for them would be two renderings of
-            one state that nothing keeps in step (CLAUDE.md trap 12).
-
-            ⚠ WHY NOT A DOT. The lane brief proposed reusing the edited-since-run
-            dot's shape. A mute coloured dot moves the defect rather than closing
-            it: for a sighted user its only channel is still a colour, and the
-            ruling exists because colour was the sole channel. The pill says the
-            words. It is also the affordance that already existed for this exact
-            state, so this adds no new amber vocabulary.
-
-            ⚠ NO NEW COPY WAS MINTED. Both strings below already shipped, and the
-            non-goal arm — `'Missing required input'` — was already the default
-            for anything that was not a goal. Extending the gate reaches it for
-            the first time on `decision` and `option`; it is true of both (an
-            option CEE assessed with no interventions, a decision with no option
-            linked). Anything more specific would be a new claim needing its own
-            derivation, and this commit is a re-ruling, not a copy change.
-
-            ⚠ EXTERNAL FACTORS STILL NEVER GET IT, and for the same structural
-            reason the border never gave it to them: `isFactorNeedsInput` returns
-            false for `category === 'external'`, so they never reach
-            `isIncomplete`. The exemption survived the move for free — asserted,
-            not assumed, in `BaseNode.needsJudgementBadge.spec.tsx`.
-
-            ⭐ THE GOAL SENTENCE STATES A CONSEQUENCE, NEVER A GATE (28 Aug 2026).
-            It read "Set a success threshold to enable analysis" — and NOTHING gates
-            analysis on a threshold.
-
-            `isIncomplete`'s goal arm and `canRunAnalysis` answer DIFFERENT questions
-            and are CORRECTLY different. This marker asks "before results exist, does
-            this goal node carry a success target?" — completeness, one node. The run
-            gate (`canRunAnalysis` → `readinessObjectsToRun`) asks "has an authority
-            stated this model cannot be analysed now?" — admissibility, whole model,
-            producer-decided; it never reads node data at all. Aligning them is banned
-            by `readinessObjectsToRun`'s own header, which spends ~80 lines forbidding
-            exactly the parallel UI-side rule a threshold check would create. The gate
-            is right; this sentence was false.
-
-            What actually happens with no target: the run SUCCEEDS. The producer
-            synthesises `auto_goal_threshold` and returns a real analysis with goal-fit
-            claims honestly suppressed (GoalNode.tsx, crownCompliance.ts,
-            goalThresholdResolvers.ts). Then `results.status === 'complete'` clears
-            `isPreRunMode` and this pill vanishes with nothing set — the product
-            silently retracted its own claim rather than ever being contradicted.
-            `StatusPill` reuses `title` as `aria-label`, so a screen-reader user
-            received ONLY the false sentence: that is the path this fixes.
-
-            The replacement is IMPORTED, not re-typed. It is the string the
-            pre-analysis footer already ships for this exact state, and a re-typed
-            variant is invisible to every runtime check (that module's copy is also
-            scanned by the glossary guard). Both surfaces answer one question —
-            "success is undefined, what follows?" — so a single string is correct
-            here rather than a two-questions-one-name conflation.
-            ⚠ THIS BLOCK ONCE READ that the ACTION is not duplicated "because
-            GoalNode co-renders its `Target not captured — add one` chip … and that
-            chip carries both the action and its own aria-label". BOTH HALVES WERE
-            FALSE AT THIS HEAD, and they were written by an earlier round of THIS PR,
-            then not re-synced when the same PR withdrew that copy — the exact defect
-            class the final commit exists to correct, one file over.
-            Derived: `GoalNode.tsx:160` `export const GOAL_NO_TARGET_STATE =
-            'Target not captured'` — there is no "— add one", and after the
-            withdrawal the co-rendered chip states the FACT and offers NO action.
-            So the reason `StatusPill` needs no action here is NOT that a sibling
-            supplies one. It is that there is no action to offer while the
-            destination is inert.
-            ⚠ AN EARLIER DRAFT OF THIS BLOCK ADDED "…the fact plus a route to the
-            details, which is what both surfaces now give". THAT WAS FALSE, and it
-            was written while correcting a false sentence four lines above — which
-            is worth recording, because it is the same failure one round later.
-            `StatusPill` is a `<span role="status">` (`StatusPill.tsx:45-46`) with
-            NO handler: its channels are "Needs input" and the title sentence, and
-            neither is a route. Only the sibling chip is a real
-            `<button onClick={openNodeInspector}>` (`GoalNode.tsx:623`). So exactly
-            ONE of the two surfaces offers a route, and this pill states the fact
-            alone — which is the honest thing for an inert destination, and is the
-            whole reason it needs no action. */}
-        {/* ⭐ EXCLUSION OUTRANKS "NEEDS INPUT", AND IT REPLACES IT RATHER THAN
-            STACKING BESIDE IT. Two reasons, one of them structural:
-
-            · It states the CONSEQUENCE rather than the cause. "Needs input"
-              tells a user something is missing; "Not in this analysis" tells
-              them what that costs them, and carries the cause in its title —
-              CEE's OWN sentence, not one this component composed.
-            · The corner stack is pinned at three children by
-              `BaseNode.cornerStack.spec.tsx`. A fourth child is a breaking
-              change to a deliberate layout constraint, and this claim does not
-              need one: the two pills answer questions in the same family and
-              the stronger one subsumes the weaker.
-
-            ⚠ The title falls back only when CEE sent an EMPTY message. It is
-            never used to manufacture a reason — the pill states the exclusion,
-            which CEE stamped, and nothing about why beyond what CEE said. */}
-        {isExcludedFromAnalysis ? (
-          <StatusPill
-            testId="excluded-from-analysis-pill"
-            label="Not in this analysis"
-            title={[
-              asSentence(exclusionMessage !== null && exclusionMessage !== ''
-                ? exclusionMessage
-                : 'The analysis will run without this option'),
-              exclusionAction?.missingFactor ? `Missing: ${exclusionAction.missingFactor}.` : null,
-              exclusionAction?.tellOlumi
-                ? `${NOT_ANALYSED_ACTION_LABEL}.`
-                : 'Open its details.',
-            ].filter(Boolean).join(' ')}
-            onActivate={() => {
-              /* ⭐ #1911 IS MERGED (826e69c39), so the "no values yet" arm opens
-                 the option's OWN value input — `openOptionValueInput` (Model tab
-                 → options section → this option's first empty effect input) —
-                 rather than a chat draft (Experience Design, #63 5796039276
-                 priority 2; design-integration checklist). This replaces #1915's
-                 MT-21 route (the results panel's `openAskOlumi` prefill). It is
-                 navigation, not a mutation: the input's own authority decides
-                 what saves. An option linked to no factor still lands on its
-                 detail, whose notice says to link it first. */
-              if (exclusionAction?.tellOlumi) {
-                openOptionValueInput(id)
-                return
-              }
-              openNodeInspector(id)
-            }}
-          />
-        ) : isRetainedExcluded ? (
-          /* ⭐ A THIRD ARM OF THE SAME TERNARY — NOT A FOURTH CHILD OF THE STACK.
-             `BaseNode.cornerStack.spec.tsx` pins this container at three
-             children, and that pin is a deliberate layout constraint rather
-             than an accident. Joining the existing chain REPLACES rather than
-             stacks, so the child count is unchanged and no measurement anyone
-             took in a browser is invalidated by this change.
-
-             PRECEDENCE, and each position is argued rather than inherited:
-             · BELOW the readiness exclusion, which is untouched. That pill is
-               shipped, measured and reasoned about at length above; an inert
-               new claim does not get to reorder a live one on the strength of
-               an argument nobody has run the product against. On an option
-               where both could fire, the user keeps exactly what they see today.
-             · ABOVE `isIncomplete`, for the reason the block above already
-               gives for the exclusion pill: it states the CONSEQUENCE rather
-               than the cause. "Needs input" tells a user something is missing;
-               this tells them what that cost them — the calculation went ahead
-               without the node. The stronger claim subsumes the weaker, and it
-               carries the weaker inside it ("Unfinished").
-
-             ⚠ ONE STRING IN BOTH SLOTS, DELIBERATELY. `StatusPill` reuses
-             `title` as `aria-label`, so label and title identical means the
-             screen-reader user and the sighted user receive the SAME sentence —
-             the founder's ruled wording, whole. A shortened label with the full
-             sentence in the tooltip would give them different claims, and the
-             shorter of the two would be one the UI authored. */
-          <StatusPill
-            testId={UNFINISHED_CONTRIBUTION_TEST_ID}
-            label={UNFINISHED_CONTRIBUTION_COPY}
-            title={UNFINISHED_CONTRIBUTION_COPY}
-          />
-        ) : isIncomplete && !incompleteStatedOnCard ? (
-          /* ⭐⭐ NOT MODELLED IS NOT NOT ESTIMATED — ONE PILL WAS SAYING BOTH.
-
-             `isIncomplete` admits four node types, and until this change all
-             four rendered the identical pill: `needs-input-pill`, label
-             "Needs input", title "Missing required input". Three of the arms
-             are quantitative — a factor with no value, a goal with no target,
-             an option with no interventions. The DECISION arm is not, and this
-             file's own spec had already written the distinction down:
-             `BaseNode.needsJudgementBadge.spec.tsx` — *"a decision node's
-             incompleteness is the ONLY one of the four that is a property of
-             the GRAPH rather than of the node's own data"*. The difference was
-             known, documented in the suite, and drawn the same way anyway.
-
-             ⛔ THE COST IS THE NEXT STEP. "Missing required input" tells a
-             reader to supply a value to this card. On an optionless decision
-             there is no value to supply — what is absent is the alternatives
-             themselves, and the repair is to create them. Pooling the two
-             means a reader cannot tell "nobody estimated this" from "this was
-             never modelled", so they take the wrong action or none.
-
-             ⚠ THE CARD WAS ALREADY DISAGREEING WITH ITSELF. `DecisionNode`'s
-             resting line has said `No options linked yet` with an `Add options`
-             CTA for some time, on the SAME card, at the SAME moment this pill
-             said "Needs input". Two surfaces, one fact, two vocabularies — and
-             the one with no route was the one using the misleading word. Both
-             now read `STRUCTURAL_UNSET`, one record, so they cannot drift back
-             apart (CLAUDE.md trap 12). They read DIFFERENT MEMBERS of it on
-             purpose: the pill states the CONSEQUENCE ("nothing to compare
-             yet") and the body states the CAUSE. Giving both surfaces the
-             identical string was the first cut of this change, and
-             `DecisionNode.readinessSummary.spec.tsx` caught it — the card
-             rendered one sentence twice.
-
-             ⛔⛔ AND THE FIRST FIX ONLY MOVED THAT DUPLICATE ONTO THE CHANNEL
-             NOBODY WAS LOOKING AT — NO `title` HERE, DELIBERATELY.
-
-             This arm shipped `title={STRUCTURAL_UNSET.noOptions}`, and
-             `StatusPill` composes `aria-label={title ?? label}` as well as the
-             tooltip (`StatusPill.tsx` — the same reuse this file's goal-arm
-             block above already records as load-bearing, naming the symbol
-             rather than an offset for the reason the corner-stack block gives).
-             So the pill ANNOUNCED the body line's sentence verbatim,
-             `role="status"`, on a card whose body announces it too: the sighted
-             user got two sentences and the screen-reader user got one sentence
-             twice — the exact defect this block exists to remove, surviving in
-             the accessibility tree.
-
-             ⛔ AND THE GREEN CAME FROM THE INSTRUMENT, NOT FROM THE FIX. What
-             caught the visible duplicate was `getByText`, which reads TEXT
-             CONTENT and cannot see `aria-label`. Moving the string from `label`
-             into `title` therefore turned that assertion green while leaving
-             the duplication exactly where it was, one channel over
-             (CLAUDE.md trap 13b — a guard that cannot observe the property it
-             certifies).
-
-             ⭐ THE FIX IS TO OMIT `title`, NOT TO PARAPHRASE IT. A third
-             sentence about one fact, visible to no reviewer, is this defect one
-             round later; a paraphrase still says the same sentence twice to
-             AT. With `title` absent the component's documented fallback makes
-             BOTH the accessible name and the tooltip the VISIBLE label, so the
-             two channels agree by construction and there is no second string
-             left to drift into the body's (WCAG 2.5.3 Label in Name, which the
-             shipped arm also failed: name and visible label were different
-             sentences).
-
-             ⚠ NOTHING IS LOST ON THE UNNAMED ARM. The cause lives on the body
-             line wherever that line renders; where it does not — an UNNAMED
-             optionless decision, which renders `unnamedLine` — "Nothing to
-             compare yet" is a complete statement of the structural absence and
-             prescribes no act. That restraint is this file's own goal-arm rule:
-             a `role="status"` span with no handler is not a route, so it states
-             the fact and offers no action the card cannot perform.
-
-             ⚠ ITS OWN TESTID, FOR THE REASON `StatusPill` ALREADY ARGUES in
-             its own header: a second claim reusing `needs-input-pill` makes an
-             assertion pass on a node that says no such thing (trap 19). The
-             exclusion pill above set this precedent; this follows it.
-
-             ⛔ STILL ONE CHILD, NOT TWO. This REPLACES the pill for decisions
-             rather than adding beside it — the corner stack is pinned at three
-             children, and these two arms answer the same question. No hue, no
-             geometry and no other arm's copy changes. */
-          nodeType === 'decision' ? (
-            <StatusPill
-              testId="no-options-linked-pill"
-              label={STRUCTURAL_UNSET.nothingCompared}
-            />
-          ) : (
-            <StatusPill
-              label="Needs input"
-              title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}
-            />
-          )
-        ) : null}
-
         {/* ⭐ THE KEY-DRIVER BADGE IS RETIRED (ED 02:31Z, D1a: "RETIRE the
             Key-driver badge once the body driver line is present"). One rank is
             stated once, in one vocabulary — the factor card's driver line
@@ -2173,6 +2234,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {!isCausalLens && (
 
       <div
+        data-testid="node-header-row"
         style={{
           display: 'flex',
           alignItems: 'flex-start',
@@ -2180,6 +2242,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           // is sized for is the gap it renders (NODE_HEADER_RESERVE_PX).
           gap: `${NODE_HEADER_GAP_PX}px`,
           marginBottom: '4px',
+          // Gap 11: clear of the corner marks when the title shares its line.
+          ...(cornerHeaderReserve !== undefined ? { paddingRight: cornerHeaderReserve } : {}),
           // Let the header slot drop below the title rather than squeezing the
           // title's measure below NODE_TITLE_MIN_MEASURE_PX. At normal card
           // widths there is ample room and nothing wraps.
@@ -2322,6 +2386,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                (`text-text-header`) as the hierarchy step. */
             style={lodHideTitle ? { visibility: 'hidden', fontWeight: NODE_TITLE_WEIGHT } : { fontWeight: NODE_TITLE_WEIGHT }}
           >
+            {/* Gap 11: a right float one title line tall keeps LINE 1 clear of
+                the corner marks (see `cornerTitleSpacer`). Empty and
+                aria-hidden, so the title's text, name and `title` are unchanged. */}
+            {cornerTitleSpacer !== undefined && (
+              <span
+                aria-hidden="true"
+                data-testid="node-title-corner-spacer"
+                style={{ float: 'right', width: cornerTitleSpacer, height: '1lh' }}
+              />
+            )}
             {titleOverride ?? label}
           </div>
         </div>
@@ -2467,7 +2541,57 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* Causal lens: show label only (header hidden) */}
       {isCausalLens && (
         <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-2`}>
+          {causalTitleSpacer !== undefined && (
+            <span
+              aria-hidden="true"
+              data-testid="node-title-corner-spacer"
+              style={{ float: 'right', width: causalTitleSpacer, height: '1lh' }}
+            />
+          )}
           {label}
+        </div>
+      )}
+
+      {/* ⭐⭐ THE CARD'S STATE ROW (gap 11) — the worded state that used to sit in
+          the corner stack ABOVE the card: "Needs input", "Not in this analysis",
+          "Nothing to compare yet", the retained-exclusion sentence, and the
+          caller's `cornerSlot`. In flow, directly under the title, outside the
+          LOD-blanked body (so it is on the card at every rung, as the corner
+          was), and only when there is a word to say — no empty band. Its height
+          is part of the card, so `measureNodeHeightsAtLabelBound` reserves it.
+          ⚠ `[&>*]:whitespace-normal` + `max-w-full`: the state word is
+          `whitespace-nowrap`, and the retained-exclusion sentence is wider than
+          the card at the bound; inside the card it wraps rather than running
+          past the frame. */}
+      {(hasCornerSlot || statePill !== null) && (
+        <div
+          data-testid={`node-state-row-${id}`}
+          className="flex flex-wrap items-center gap-1 [&>*]:max-w-full [&>*]:whitespace-normal"
+          style={{ marginBottom: '4px' }}
+        >
+          {/* Caller-supplied state member — first in DOM order. Today it has
+              exactly one caller: OptionNode's "Leading option" pill, which used
+              to hand-write this container's own `absolute -top-2 -right-2 z-10`
+              as a separate box outside it. It enters here so the corner keeps
+              exactly ONE positioning authority.
+
+              ⚠ Its position relative to the `StatusPill` below is UNOBSERVABLE
+              — but NOT for the reason this comment carried until 8 Sep 2026. It
+              said the pill was gated to `factor`/`goal`; Paul's badge re-ruling
+              DELETED that node-type pair, so the pill reaches option cards too and
+              that reason is now false. They are disjoint on RESULTS MODE instead:
+              `cornerSlot`'s caller renders under `isRecommended`, which needs
+              `isResultsMode`; the pill's OPTION arm — the only arm reachable on
+              an option card, and the qualification matters, see the contract
+              above — needs `isPreRunMode`. One store field,
+              opposite tests — derived in full in the five-member contract above and
+              pinned by `BaseNode.needsJudgementBadge.spec.tsx`. Widest-first governs each of
+              them against the three badges that follow, which is what keeps those
+              at their existing distance from the corner and the coaching marker
+              rightmost. See the `cornerSlot` prop. */}
+          {cornerSlot}
+
+          {statePill}
         </div>
       )}
 
