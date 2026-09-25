@@ -160,6 +160,22 @@ export const MODEL_GROUP_TITLE = {
   relationships: 'Relationships',
 } as const
 
+/**
+ * ⭐ A21 AUDIT — THE MODEL TAB'S 'goal' GROUP HOLDS TWO KINDS, NOT ONE.
+ *
+ * `model-tab-v2/adapters.ts`'s `KIND_GROUP` files BOTH `decision` (the
+ * Question) and `goal` under the same `'goal'` group id, so the outline's
+ * heading read `MODEL_GROUP_TITLE.goal` ("Goal") beside a row count that
+ * included the Question — "Goal 2" for one goal and one question.
+ *
+ * ⛔ NOT A REASSIGNMENT OF `MODEL_GROUP_TITLE.goal` ITSELF. That constant has
+ * a second reader, `utils/tierLanes.ts`, which labels the CANVAS's goal tier
+ * lane — a different surface where the decision already has its own tier and
+ * "Question & goal" would be wrong. This is a dedicated second constant for
+ * the Model tab's own combined heading, not a retitling of the shared one.
+ */
+export const MODEL_TAB_GOAL_GROUP_TITLE = 'Question & goal'
+
 
 /**
  * ⭐⭐ HOW A FACTOR'S CATEGORY READS — the ONE spelling, for the same reason

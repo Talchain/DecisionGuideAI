@@ -689,6 +689,24 @@ describe('(g) a kind that can hold no value is in no unset bucket', () => {
   })
 
   /**
+   * A21 AUDIT — THE OTHER HALF OF THE SAME SCREENSHOT. "▾ Goal 2" names the
+   * group as if it held two goals; it holds one goal and one question
+   * (`decisionRow`, `valuedGoalRow`). `KIND_GROUP` (`adapters.ts`) files
+   * `decision` and `goal` under the SAME group id total-by-construction — the
+   * count above is honest about there being two elements, but the heading's
+   * WORD claims a kind neither the second row nor the reader would call a
+   * goal. The heading now says what the group actually holds.
+   */
+  it('⭐ RED-FIRST: the heading says "Question & goal", not the bare goal word, when the group holds a decision too', () => {
+    drawGoal([decisionRow, valuedGoalRow])
+    // Bound by IDENTITY (the toggle's own textContent = title + count, with
+    // no separator — the a11y note two components up documents exactly this
+    // concatenation), never a substring another heading could also satisfy.
+    expect(toggle('goal').textContent).toBe('Question & goal2')
+    expect(toggle('goal').getAttribute('aria-label')).toBe('Question & goal, 2 elements')
+  })
+
+  /**
    * ⭐⭐ THE ARM THAT KEEPS THE FIX HONEST. A goal that genuinely has no
    * target IS a gap the reader can close, and it must still be named —
    * otherwise this change trades an invented gap for a hidden one.
