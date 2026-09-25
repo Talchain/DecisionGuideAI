@@ -141,9 +141,9 @@ export function ActionChip({
     //
     // G1: `sourceBlockKey` rides the same meta. It is UI-only:
     // `useConversation.sendChip` stamps it on the user bubble BESIDE the chip
-    // metadata, so it never reaches the wire — provided the registered seam
+    // metadata, so it never reaches the wire; the registered seam
     // (`ConversationPanel.sendChipByLabelMessage`) carries it onto the chip.
-    const meta: (SendChipMeta & { sourceBlockKey?: string }) | undefined =
+    const meta: SendChipMeta | undefined =
       intent || sourceBlockKey
         ? { ...(intent ? { intent } : {}), ...(sourceBlockKey ? { sourceBlockKey } : {}) }
         : undefined

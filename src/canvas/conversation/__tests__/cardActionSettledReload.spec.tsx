@@ -13,19 +13,17 @@
  * (`coach:<turnId>:<block_id>` / `held:<turnId>:<proposal_id>`), the transcript
  * store persists it, and the restored conversation derives settlement from it.
  *
- * ## The layers, and the one hop this file cannot drive
- *   1. CARD → SEAM: `ActionChip` puts its key in the `_sendChip` meta.
+ * ## The layers
+ *   1. CARD → SEAM: `ActionChip` (and `V5HeldProposalBlock`'s Confirm) puts its
+ *      key in the `_sendChip` meta.
  *   2. SEAM → CHIP: the registered `_sendChip` (`ConversationPanel`
- *      `sendChipByLabelMessage`) builds the chip from the meta. It does so from
- *      an allowlist, so today it DROPS the key — that one line is outside this
- *      lane's lease and is reported, not edited. Held Confirm's own send
- *      (`V5HeldProposalBlock`) is likewise outside the lease.
+ *      `sendChipByLabelMessage`) builds the chip from the meta, key included.
  *   3. CHIP → BUBBLE → SAVE: `useConversation.sendChip` stamps the key on the
  *      user bubble; the store saves it once delivered.
  *   4. RELOAD → SETTLED: the restored transcript settles the card (coaching via
  *      the conversation context; held via the registry the card already reads).
- * Layers 1, 3 and 4 are driven here for real; layer 3 is entered exactly where
- * the seam will hand over (`sendChip(chip)` with the key on the chip).
+ * Each layer has its own block below, and "end to end" drives all four in one
+ * go: a real click in the mounted panel, then a reload.
  *
  * ## What is real and what is mocked
  * REAL: `useConversation` (send, bubble, persist, mount-restore, seeding),
@@ -238,10 +236,21 @@ async function mountRestoredPanel(): Promise<void> {
     </ConversationProvider>,
   )
   await screen.findAllByTestId('chat-message-assistant')
-  // Open every "Show N more" tier, so a demoted card is mounted and clickable.
+  openAllTiers()
+}
+
+/** Open every "Show N more" tier, so a demoted card is mounted and clickable. */
+function openAllTiers(): void {
   for (const toggle of screen.queryAllByTestId('block-detail-toggle')) {
     if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
   }
+}
+
+/** A reload after THIS page load's own sends: unmount, re-stamp, mount fresh. */
+async function reloadPanel(): Promise<void> {
+  cleanup()
+  restampAsEarlierPageLoad()
+  await mountRestoredPanel()
 }
 
 /**
@@ -568,6 +577,101 @@ describe('layer 4 — after a reload the card is settled iff the transcript reco
     const [card] = heldCards(HANDLE)
     expect(card).not.toHaveAttribute('data-settled')
     expect(within(card).getByTestId('v5-held-proposal-confirm')).toBeInTheDocument()
+  })
+})
+
+describe('end to end — a real click in the mounted panel, delivered, then a reload', () => {
+  it('coaching: the key survives the registered seam; after reload the card is settled and its sibling is live', async () => {
+    storePriorSession([
+      assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha'), coachingCard(CARD_Y, 'Bravo')]),
+    ])
+    await mountRestoredPanel()
+
+    await act(async () => {
+      fireEvent.click(chipOf(CARD_X, 'Alpha'))
+    })
+    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
+    // The turn that went out is the producer's prompt, unchanged.
+    expect((mockCallV5Turn.mock.calls[0][0] as { message: string }).message).toBe('Please help me with Alpha.')
+    // Layer 2: the seam carried the key, so the saved bubble names this card.
+    await waitFor(() =>
+      expect(savedUserMessages().map((m) => m.sourceBlockKey)).toEqual([KEY_X]),
+    )
+
+    await reloadPanel()
+
+    const taken = chipOf(CARD_X, 'Alpha')
+    expect(taken).toBeDisabled()
+    expect(taken).toHaveAttribute('data-settled', 'true')
+    await act(async () => {
+      fireEvent.click(taken)
+      taken.click()
+    })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(chipOf(CARD_Y, 'Bravo')).not.toBeDisabled()
+  })
+
+  it('held: Confirm through the real seam → reload → the card reads confirmed and offers no Confirm', async () => {
+    storePriorSession([assistantTurn(TURN_A, [heldBlock(HANDLE, 'Remove the Pricing node')])])
+    await mountRestoredPanel()
+
+    await act(async () => {
+      fireEvent.click(within(heldCards(HANDLE)[0]).getByTestId('v5-held-proposal-confirm'))
+    })
+    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
+    // CEE resolves a confirm by its exact message, so it goes out untouched.
+    expect((mockCallV5Turn.mock.calls[0][0] as { message: string }).message).toBe(`confirm ${HANDLE}`)
+    await waitFor(() =>
+      expect(savedUserMessages().map((m) => m.sourceBlockKey)).toEqual([KEY_HELD]),
+    )
+
+    await reloadPanel()
+
+    const [restored] = heldCards(HANDLE)
+    expect(restored).toHaveAttribute('data-settled', 'accepted')
+    expect(within(restored).queryByTestId('v5-held-proposal-confirm')).toBeNull()
+    expect(within(restored).queryByTestId('v5-held-proposal-dismiss')).toBeNull()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  })
+
+  // R&C (#63 5824576658 §4): ChatThread can remount a message's subtree within
+  // the session (e.g. when the next reply swaps its chip group). That resets
+  // ActionChip's LOCAL settled state, so settlement must not live there alone.
+  it('a remount within the session keeps the taken card settled — local state dies, the transcript does not', async () => {
+    storePriorSession([assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha')])])
+    const view = render(
+      <ConversationProvider>
+        <OlumiTabBody key="first-mount" />
+      </ConversationProvider>,
+    )
+    await screen.findAllByTestId('chat-message-assistant')
+    openAllTiers()
+
+    const before = chipOf(CARD_X, 'Alpha')
+    await act(async () => {
+      fireEvent.click(before)
+    })
+    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
+
+    // Same provider (same conversation), fresh panel subtree.
+    view.rerender(
+      <ConversationProvider>
+        <OlumiTabBody key="second-mount" />
+      </ConversationProvider>,
+    )
+    await screen.findAllByTestId('chat-message-assistant')
+    openAllTiers()
+
+    const after = chipOf(CARD_X, 'Alpha')
+    // Precondition: the chip really is a new node, so its local state is new.
+    expect(after).not.toBe(before)
+    expect(after).toBeDisabled()
+    expect(after).toHaveAttribute('data-settled', 'true')
+    await act(async () => {
+      fireEvent.click(after)
+      after.click()
+    })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
   })
 })
 

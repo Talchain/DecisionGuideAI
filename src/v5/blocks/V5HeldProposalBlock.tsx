@@ -51,6 +51,7 @@ import { type ReactElement, useCallback, useMemo } from 'react'
 import { Check, Hand, X } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { heldProposalSourceBlockKey } from '../../canvas/conversation/utils/transcriptStore'
 import { dedupeRenderedText, splitRenderSegments } from '../../canvas/conversation/messageComposition'
 import { CHIP_CLASS } from './chipClass'
 import type {
@@ -271,10 +272,20 @@ export function V5HeldProposalBlock({
     // Without it this click was a bare text send and CEE routed the apply as
     // ordinary chat — the affordance said "confirm", the reply said "you did not
     // ask me to edit the model". Absent ⇒ omitted, i.e. exactly today's turn.
+    //
+    // G1: the meta also names THIS card (`held:<turnId>:<proposal_id>`). It is
+    // stamped on the user message, never sent, and it is what lets a reload
+    // restore this card as confirmed instead of offering Confirm again.
+    const sourceBlockKey = heldProposalSourceBlockKey(turnId, block.proposal_id)
     sendChip(
       confirmCopy.record,
       confirm.message,
-      confirm.action_type ? { action_type: confirm.action_type } : undefined,
+      confirm.action_type || sourceBlockKey
+        ? {
+            ...(confirm.action_type ? { action_type: confirm.action_type } : {}),
+            ...(sourceBlockKey ? { sourceBlockKey } : {}),
+          }
+        : undefined,
     )
     onSettle?.(block.proposal_id, 'accepted', turnId)
   }, [
