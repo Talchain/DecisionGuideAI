@@ -108,6 +108,15 @@ const NEW_LABEL = 'Monthly engineering spend'
 const OTHER_USERS_LABEL = 'Engineering run rate'
 
 /**
+ * The fence's own per-verdict sentences (`FENCE_REFUSAL_COPY`,
+ * `v5/failureTypeRetryability.ts`), bound by the EXACT string.
+ */
+const FENCE_STOPPED_COPY =
+  "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it."
+const FENCE_SUPERSEDED_COPY =
+  "That change wasn't saved because a newer change to this decision got in first. Nothing was overwritten. Check the latest state, then make the edit again if it's still needed."
+
+/**
  * The canvas AFTER the optimistic local rename — the real pre-state, because
  * `store.updateNodeLabel` writes synchronously and the drain sends after.
  *
@@ -363,6 +372,29 @@ describe('structural_rename 409 — a guaranteed no-write reverts and says so', 
     expect(notices).toContain(STRUCTURAL_RENAME_NOTICE.base_hash_diverged)
   })
 
+  /**
+   * CEE #1868 (`013fae8d`, served `92b1bf8`): a `TurnFenceRejectedError` with
+   * verdict `superseded` or `stopped` is a 409 with `commitPerformed: false` —
+   * "The turn fence refused the write inside the append transaction, so nothing
+   * of this edit landed." So the old name comes back, and the sentence is the
+   * fence's own: "The saved model changed while you were renaming that" is
+   * false about a stopped turn.
+   */
+  it.each([
+    ['turn_fence_superseded', FENCE_SUPERSEDED_COPY],
+    ['turn_fence_stopped', FENCE_STOPPED_COPY],
+  ])("'%s' puts the old name back under the fence's own sentence", async (category, fenceCopy) => {
+    stub409(category)
+    const { labelOf, notices } = await driveRename()
+
+    // Bound by IDENTITY — the node the intent named, and the sibling untouched.
+    expect(labelOf(NODE_ID)).toBe(PREVIOUS_LABEL)
+    expect(labelOf(SIBLING_ID)).toBe(NEW_LABEL)
+    expect(notices).toContain(fenceCopy)
+    expect(notices).not.toContain(STRUCTURAL_RENAME_NOTICE.base_hash_diverged)
+    expect(notices).not.toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
+  })
+
   it('OPPOSITE TWIN: an unknown future category does NOT revert and takes the cannot-confirm line', async () => {
     stub409('some_future_conflict_category')
     const { labelOf, notices } = await driveRename()
@@ -372,12 +404,13 @@ describe('structural_rename 409 — a guaranteed no-write reverts and says so', 
     expect(notices).not.toContain(STRUCTURAL_RENAME_NOTICE.base_hash_diverged)
   })
 
-  it('OPPOSITE TWIN: a turn-fence category does NOT revert either', async () => {
-    stub409('turn_fence_superseded')
+  it("OPPOSITE TWIN: 'turn_fence_unclaimed' does NOT revert (the producer keeps it a retryable 500, never a no-write 409)", async () => {
+    stub409('turn_fence_unclaimed')
     const { labelOf, notices } = await driveRename()
 
     expect(labelOf(NODE_ID)).toBe(NEW_LABEL)
     expect(notices).toContain(STRUCTURAL_RENAME_NOTICE.unconfirmed_server)
+    expect(notices).not.toContain(STRUCTURAL_RENAME_NOTICE.base_hash_diverged)
   })
 })
 
@@ -425,6 +458,18 @@ describe('structural_rename — the lifecycle verdict, one per arm', () => {
     stub409('BASE_HASH_DIVERGED')
     await driveRename()
     expect(verdictFor('sr-1')).toBe('refused')
+  })
+
+  it('a fence 409 the producer states wrote nothing (`turn_fence_stopped`) settles `refused`', async () => {
+    stub409('turn_fence_stopped')
+    await driveRename()
+    expect(verdictFor('sr-1')).toBe('refused')
+  })
+
+  it('OPPOSITE TWIN — `turn_fence_unclaimed` settles `unconfirmed`, never `refused`', async () => {
+    stub409('turn_fence_unclaimed')
+    await driveRename()
+    expect(verdictFor('sr-1')).toBe('unconfirmed')
   })
 
   it('OPPOSITE TWIN — an UNKNOWN 409 category settles `unconfirmed`, never `refused`', async () => {

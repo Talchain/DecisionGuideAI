@@ -53,18 +53,43 @@
  *     can receive it and this addition changes no existing consumer's
  *     behaviour.
  *
- * Both arrive identically: `system-events/dispatch.ts:1176-1197` copies
+ *   · `turn_fence_superseded` — CEE #1868 (`013fae8d`, served `92b1bf8`),
+ *     `system-events/dispatch.ts`, the `factor_value_edit` arm. A
+ *     `TurnFenceRejectedError` with verdict `superseded` returns 409
+ *     `GRAPH_DIVERGED`, `retryable: false`, `commitPerformed: false`, and the
+ *     arm states the guarantee: *"The turn fence refused the write inside the
+ *     append transaction, so nothing of this edit landed."* The error's only
+ *     throw site, `session/supabase-store.ts:1185-1208`, logs *"Nothing was
+ *     written; the turn row rolled back with it"* and, on the atomic channel,
+ *     *"The fence check ran INSIDE the append transaction
+ *     (append_turn_atomic_v4); the whole turn rolled back."*
+ *   · `turn_fence_stopped`    — the same arm, the same 409, the same stated
+ *     guarantee, for verdict `stopped`.
+ *
+ *     ⛔ `turn_fence_unclaimed` AND `turn_fence_unavailable` ARE NOT MEMBERS,
+ *     though they share the prefix. #1868 deliberately keeps them the retryable
+ *     500 on that arm — infrastructure refusals, "until their code is decided"
+ *     — so the producer makes no no-write statement for them on the edit path.
+ *     Membership is by exact name, never by prefix.
+ *
+ *     ⚠ THE COPY IS NOT THE PROVEN-NO-WRITE COPY. Every writer's revert notice
+ *     for the first three members says the saved model changed under the user,
+ *     which is false for a turn the user STOPPED. A reverting writer asks
+ *     `fenceRefusalCopyForCategory` (`v5/failureTypeRetryability.ts`) first and
+ *     shows the fence's own per-verdict sentence when it answers.
+ *
+ * All of them arrive identically: `system-events/dispatch.ts:1176-1197` copies
  * `err.conflict_category` onto `graphConflict`, and `orchestrator/route-v2.ts`
  * sends it as a 409 `GRAPH_DIVERGED` with the category in
  * `details.conflict_category` and `retryable: false`. The UI reads exactly that
  * field via `extractConflictCategory`.
  *
- * ⚠ THIS IS A CLOSED SET AND MUST STAY ONE. A category absent from it — a
- * turn-fence verdict, the untyped 500 a contended commit actually returns, or
- * any future category — is an UNKNOWN, and an unknown takes the cannot-confirm
- * line. Add a member only with the producer line that states the guarantee, and
- * pin its opposite-direction twin: widening a set is safe only if the OUTSIDE
- * of the set is pinned too.
+ * ⚠ THIS IS A CLOSED SET AND MUST STAY ONE. A category absent from it — the
+ * two infrastructure fence verdicts, the untyped 500 a contended commit
+ * actually returns, or any future category — is an UNKNOWN, and an unknown
+ * takes the cannot-confirm line. Add a member only with the producer line that
+ * states the guarantee, and pin its opposite-direction twin: widening a set is
+ * safe only if the OUTSIDE of the set is pinned too.
  *
  * ⚠ AND MEMBERSHIP IS NOT DERIVABLE FROM `retryable: false` — do not be tempted.
  * Non-retryable means "re-sending cannot work"; it says nothing about whether
@@ -76,6 +101,8 @@ export const PROVEN_NO_WRITE_CONFLICT_CATEGORIES: ReadonlySet<string> = new Set(
   'BASE_HASH_DIVERGED',
   'rpc_cas_conflict',
   'stale_base_graph_hash',
+  'turn_fence_superseded',
+  'turn_fence_stopped',
 ])
 
 /**

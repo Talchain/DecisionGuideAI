@@ -51,6 +51,7 @@ import {
   resolveRetryable as resolveV5Retryable,
   resolveFailureCopyForError,
   extractConflictCategory,
+  fenceRefusalCopyForCategory,
 } from '../../v5/failureTypeRetryability'
 import {
   readStructuralDeleteReceipt,
@@ -3105,6 +3106,9 @@ export function useConversation(): UseConversationReturn {
     ) => {
       const store = useCanvasStore.getState()
       let notice: StructuralDeleteNoticeKey | null = null
+      // The fence's own sentence, when the proven no-write was a turn fence —
+      // see the typed_error arm below.
+      let fenceCopy: string | null = null
       let shouldRevert = false
 
       if (outcome.kind === 'response') {
@@ -3165,14 +3169,24 @@ export function useConversation(): UseConversationReturn {
         // STRUCTURAL_DELETE_NOTICE.base_hash_diverged for why the two more
         // obvious instructions are affordances terminating in refusal (P8).
         //
-        // A fence category or an unknown one is still NOT in the set: it gets
-        // the honest cannot-confirm line rather than a promise we cannot keep.
-        // Through the SHARED predicate, which `factor_value_edit` also calls —
-        // the two optimistic writers must not be able to disagree about which
+        // Two TURN-FENCE verdicts are in the set too — `turn_fence_superseded`
+        // and `turn_fence_stopped`, which CEE #1868 (`013fae8d`) answers as a
+        // no-write 409 ("The turn fence refused the write inside the append
+        // transaction, so nothing of this edit landed"). They revert like the
+        // rest, but under the FENCE's own sentence: `base_hash_diverged` says
+        // "the saved model changed since you deleted that", which is false about
+        // a turn the user stopped.
+        //
+        // The infrastructure fence verdicts (`unclaimed`, `unavailable`) and any
+        // unknown category are still NOT in the set: they get the honest
+        // cannot-confirm line rather than a promise we cannot keep. Through the
+        // SHARED predicate, which `factor_value_edit` also calls — the two
+        // optimistic writers must not be able to disagree about which
         // categories carry a no-write guarantee.
         const provenNoWrite = isProvenNoWriteConflict(outcome.conflictCategory)
         shouldRevert = provenNoWrite
         notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+        fenceCopy = provenNoWrite ? fenceRefusalCopyForCategory(outcome.conflictCategory) : null
       } else {
         notice = 'unconfirmed_transport'
       }
@@ -3207,7 +3221,7 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: STRUCTURAL_DELETE_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_DELETE_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -3266,6 +3280,8 @@ export function useConversation(): UseConversationReturn {
     ) => {
       const store = useCanvasStore.getState()
       let notice: StructuralRenameNoticeKey | null = null
+      // The fence's own sentence, when the proven no-write was a turn fence.
+      let fenceCopy: string | null = null
       let shouldRevert = false
 
       // ⭐ SETTLE THE LIFECYCLE RECORD ON EVERY ARM, INCLUDING THE EARLY
@@ -3307,6 +3323,10 @@ export function useConversation(): UseConversationReturn {
         settle(provenNoWrite ? 'refused' : 'unconfirmed')
         shouldRevert = provenNoWrite
         notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+        // A turn-fence member (CEE #1868) reverts under the fence's own cause —
+        // "the saved model changed while you were renaming" is false about a
+        // stopped turn. See the delete twin above.
+        fenceCopy = provenNoWrite ? fenceRefusalCopyForCategory(outcome.conflictCategory) : null
       } else {
         settle('unconfirmed')
         notice = 'unconfirmed_transport'
@@ -3334,7 +3354,7 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: STRUCTURAL_RENAME_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_RENAME_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -3393,6 +3413,8 @@ export function useConversation(): UseConversationReturn {
     ) => {
       const store = useCanvasStore.getState()
       let notice: StructuralAddNoticeKey | null = null
+      // The fence's own sentence, when the proven no-write was a turn fence.
+      let fenceCopy: string | null = null
       let shouldRevert = false
 
       // ⭐ SETTLE THE LIFECYCLE RECORD ON EVERY ARM, INCLUDING THE EARLY
@@ -3435,6 +3457,12 @@ export function useConversation(): UseConversationReturn {
         settle(provenNoWrite ? 'refused' : 'unconfirmed')
         shouldRevert = provenNoWrite
         notice = provenNoWrite ? 'base_hash_diverged' : 'unconfirmed_server'
+        // A turn-fence member (CEE #1868) removes the node under the fence's own
+        // cause — "the saved model changed while you were adding that" is false
+        // about a stopped turn. It replaces `base_hash_diverged` ONLY: the
+        // stood-down-connected sentence below names the canvas state, which the
+        // fence sentence does not.
+        fenceCopy = provenNoWrite ? fenceRefusalCopyForCategory(outcome.conflictCategory) : null
       } else {
         settle('unconfirmed')
         notice = 'unconfirmed_transport'
@@ -3478,7 +3506,7 @@ export function useConversation(): UseConversationReturn {
           id: crypto.randomUUID(),
           role: 'assistant',
           synthetic: true,
-          content: STRUCTURAL_ADD_NOTICE[notice],
+          content: (notice === 'base_hash_diverged' ? fenceCopy : null) ?? STRUCTURAL_ADD_NOTICE[notice],
           timestamp: new Date(),
         })
       }
@@ -3573,7 +3601,13 @@ export function useConversation(): UseConversationReturn {
         id: crypto.randomUUID(),
         role: 'assistant',
         synthetic: true,
-        content: OPTIMISTIC_FACTOR_EDIT_NOTICE[notice],
+        // A turn-fence member (CEE #1868, the `factor_value_edit` arm: "nothing
+        // of this edit landed") reverts under the FENCE's own sentence —
+        // `proven_no_write` says "the saved model changed since you typed that",
+        // which is false about a turn the user stopped.
+        content:
+          (notice === 'proven_no_write' ? fenceRefusalCopyForCategory(conflictCategory) : null) ??
+          OPTIMISTIC_FACTOR_EDIT_NOTICE[notice],
         timestamp: new Date(),
       })
     },

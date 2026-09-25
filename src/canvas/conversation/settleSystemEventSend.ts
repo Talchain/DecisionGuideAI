@@ -53,6 +53,13 @@ export type SystemEventSendSettlement =
  * - `conflict` — a proven-no-write CONFLICT CATEGORY (`isProvenNoWriteConflict`):
  *   the model moved on under the send. A turn refreshes the base, after which
  *   the same edit can land.
+ *   ⚠ Since CEE #1868 the set also holds `turn_fence_superseded` and
+ *   `turn_fence_stopped`, which CEE states on the `factor_value_edit` arm only.
+ *   A STOPPED turn is not "the model moved on". The factor-edit carrier reads
+ *   only `blocked` here; its revert and notice come from `useConversation`,
+ *   which shows the fence's own sentence (`fenceRefusalCopyForCategory`). A
+ *   caller that names a cause for `conflict` on another carrier must not assume
+ *   a moved model if CEE ever sends a fence verdict there.
  * - `declined` — a proven-no-write REASON (`isProvenNoWriteReason`): the
  *   producer declined the request itself (`retryable: false`). Nothing moved,
  *   and repeating the request cannot succeed — so a "the model moved on" line
