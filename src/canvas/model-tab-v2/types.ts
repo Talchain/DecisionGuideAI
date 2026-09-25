@@ -321,6 +321,33 @@ export interface ModelRow {
    */
   declaresNoRange?: boolean
   /**
+   * ⭐⭐ A17 AUDIT — THE RECORDED RANGE, WHEN NOBODY HAS SUPPLIED A
+   * VALUE AND CEE HAS SENT NO `display_value` OF ITS OWN.
+   *
+   * Witnessed: a factor with `prior.range_min` / `prior.range_max` recorded —
+   * the same range PLoT samples when it runs — showed a bare "Not set" with no
+   * hint at all, because `estimateText` only carries CEE's own computed
+   * words and this range is not one of them.
+   *
+   * ⚠ THE SIBLING OF `estimateText`, NOT A REPLACEMENT. Populated ONLY when
+   * `primaryValue === null` AND `estimateText` is absent — CEE's own words, when
+   * it sent any, still win; this is what the row falls back to when it sent
+   * none but the node's own `prior` still declares a range. The two are
+   * mutually exclusive on any one row, kept as separate fields (rather than
+   * folded into `estimateText`) because `estimateText` is rendered "Olumi:
+   * …" and a recorded range is not Olumi's estimate — it is the node's own
+   * declared support, the same number `valueAdmission` already reads via
+   * `resolveFactorValueAdmission`, formatted for reading rather than for
+   * comparison.
+   *
+   * ⚠ THE CARRIED NUMBERS ONLY. No unit conversion, no cap multiplication —
+   * `resolveFactorValueAdmission`'s own `priorMin`/`priorMax`, run through
+   * `factorValueAsTyped` for the same float-noise trim the admission
+   * refusal's own bound sentence uses. Never invents a bound: absent when
+   * `declaresNoRange` is true or the prior does not resolve to a range.
+   */
+  recordedRangeText?: string
+  /**
    * The factor records no unit (`observed_state.unit` absent or blank). A unit
    * typed into its editor has nowhere to go: the commit sends the number alone
    * (`proposeFactorValue(parseFloat(draft))`), so "8%" would be stored as 8.

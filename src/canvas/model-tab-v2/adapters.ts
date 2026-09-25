@@ -173,7 +173,7 @@ import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
 import { classifyValueProvenance, factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
-import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
+import { resolveFactorValueAdmission, factorValueAsTyped } from '../conversation/factorValueEdit'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -595,43 +595,68 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     if (kind === 'factor') {
       const value = factorValue(data)
       const obs = observedStateOf(data)
+      // ⭐⭐ RESOLVED ONCE, READ TWICE — see `ModelRow.valueAdmission` and
+      // `ModelRow.recordedRangeText`. Both come off the SAME `prior` read
+      // (`resolveFactorValueAdmission`), one for the editor's comparison and
+      // one for the resting cell's display text, so the two can never carry
+      // different numbers for the same node.
+      //
+      // ⚠ UNCONDITIONAL, MATCHING THE PRE-EXISTING `valueAdmission` READ IT
+      // REPLACES: that field was resolved regardless of whether `value` is
+      // set, so narrowing this to `value === null` would silently drop
+      // `valueAdmission` off every row that carries both a value and a range.
+      // `recordedRangeText` below applies its OWN `value === null` gate on
+      // top, since only that one is new.
+      const admission = resolveFactorValueAdmission(data)
+      // ⛔⛔ `factorDisplayText`, NOT `readFactorDisplayValue`, AND THE
+      // DIFFERENCE IS A LIVE DEFECT. This comment used to say it had joined
+      // "the SHARED reader" that `FactorNode`, the inspector panels and the
+      // debug bundle use — but it named the wrong one. `readFactorDisplayValue`
+      // only decides WHICH `display_value` field to read (top level before
+      // `observedState`); it returns the producer's string verbatim and
+      // applies no unit policy at all. `factorDisplayText` is the entry point
+      // those three surfaces actually share, and it is the one that runs the
+      // value through `formatFactorDisplayValue`.
+      //
+      // MEASURED on the deployed build `13371bc4`, guest, saved example
+      // *Customer Data Platform Selection*: a whole-page text scan found the
+      // placeholder unit rendered exactly once —
+      // `model-row-v2-fac_ops_overhead-value-estimate` reading **"0.5 scale"**
+      // — with canvas cards at **zero**. So the estate's own policy
+      // (*"`0.3 scale` renders `0.3`, minus a unit word that asserts a scale
+      // nobody defined"*) was applied everywhere EXCEPT this field, because
+      // this field alone bypassed the formatter.
+      //
+      // ⚠ `0.5` is a NORMALISED model number. Printing it beside a pseudo-unit
+      // invites the reader to argue with a figure that has no real-world scale,
+      // on the tab whose whole job is to be a true representation.
+      const estimateText = value === null ? factorDisplayText(data, label) : null
       rows.push({
         id: node.id,
         kind,
         group: KIND_GROUP[kind],
         label,
         primaryValue: value,
+        /* ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`. */
+        ...(estimateText === null ? {} : { estimateText }),
         /*
-         * ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`.
+         * ⭐⭐ A17 AUDIT — THE RECORDED RANGE, WHEN CEE SENT NO WORDS OF ITS
+         * OWN. See `ModelRow.recordedRangeText`.
          *
-         * ⛔⛔ `factorDisplayText`, NOT `readFactorDisplayValue`, AND THE
-         * DIFFERENCE IS A LIVE DEFECT. This comment used to say it had joined
-         * "the SHARED reader" that `FactorNode`, the inspector panels and the
-         * debug bundle use — but it named the wrong one. `readFactorDisplayValue`
-         * only decides WHICH `display_value` field to read (top level before
-         * `observedState`); it returns the producer's string verbatim and
-         * applies no unit policy at all. `factorDisplayText` is the entry point
-         * those three surfaces actually share, and it is the one that runs the
-         * value through `formatFactorDisplayValue`.
-         *
-         * MEASURED on the deployed build `13371bc4`, guest, saved example
-         * *Customer Data Platform Selection*: a whole-page text scan found the
-         * placeholder unit rendered exactly once —
-         * `model-row-v2-fac_ops_overhead-value-estimate` reading **"0.5 scale"**
-         * — with canvas cards at **zero**. So the estate's own policy
-         * (*"`0.3 scale` renders `0.3`, minus a unit word that asserts a scale
-         * nobody defined"*) was applied everywhere EXCEPT this field, because
-         * this field alone bypassed the formatter.
-         *
-         * ⚠ `0.5` is a NORMALISED model number. Printing it beside a pseudo-unit
-         * invites the reader to argue with a figure that has no real-world scale,
-         * on the tab whose whole job is to be a true representation.
+         * ⚠ `value === null` IS RESTATED HERE, NOT INHERITED FROM `admission`.
+         * `admission` is resolved UNCONDITIONALLY (see its own note above), so
+         * a row with a set value and a declared range would otherwise pick up
+         * a "not measured" sentence about a value that has, in fact, been
+         * measured. Mutually exclusive with `estimateText` by the `=== null`
+         * check on that too — CEE's own words, on the rows that carry them,
+         * are never displaced by this fallback.
          */
-        ...(value === null
-          ? (() => {
-              const text = factorDisplayText(data, label)
-              return text === null ? {} : { estimateText: text }
-            })()
+        ...(value === null && estimateText === null && admission !== null
+          ? {
+              recordedRangeText:
+                `Range ${factorValueAsTyped(admission.priorMin)}–` +
+                `${factorValueAsTyped(admission.priorMax)}, not measured`,
+            }
           : {}),
         /*
          * ⭐⭐ THE ROW CARRIES WHETHER THE NODE RECORDS A RANGE — see
@@ -663,10 +688,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
          * PRESENT to `in` and `Object.keys`, and this contract's absences are
          * load-bearing.
          */
-        ...(() => {
-          const admission = resolveFactorValueAdmission(data)
-          return admission === null ? {} : { valueAdmission: admission }
-        })(),
+        ...(admission === null ? {} : { valueAdmission: admission }),
         editable: true,
       })
       continue

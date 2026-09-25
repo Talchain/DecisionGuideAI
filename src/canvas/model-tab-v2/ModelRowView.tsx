@@ -2613,6 +2613,24 @@ function ValueCell({
       >
         Olumi: {row.estimateText}
       </span>
+    ) : display === null && row.recordedRangeText !== undefined ? (
+      /*
+       * ⭐⭐ A17 AUDIT — THE SAME HINT SLOT, A DIFFERENT SENTENCE. See
+       * `ModelRow.recordedRangeText`. Laid out exactly like the `estimate`
+       * span above it (same truncation trade, same reasoning) because it is
+       * the same KIND of fact — secondary text beside "Not set" on a row
+       * nobody has supplied a value for — but it carries NO "Olumi:" prefix:
+       * a recorded prior range is the node's own declared support, not
+       * something Olumi estimated, and prefixing it that way would misname
+       * whose fact this is.
+       */
+      <span
+        data-testid={`${testid}-recorded-range`}
+        title={row.recordedRangeText}
+        className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
+      >
+        {row.recordedRangeText}
+      </span>
     ) : null
 
   if (!row.editable || !editorAvailable) {
