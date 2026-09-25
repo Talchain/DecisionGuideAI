@@ -24,6 +24,7 @@ import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding } from './applyScenarioAnalysisRead'
+import { applyBootRunCurrency } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -365,6 +366,35 @@ async function readAndMergeServerGraph(
     })
   }
 
+  // ── FIX 2 — A RELOAD WITH NOTHING CHANGED KEEPS A CURRENT RUN CURRENT ──────
+  //
+  // `restoreVerdict` above still declines `complete_current`, and every reason
+  // it gives stands for the verdict ALONE. This leg restores it only WITH the
+  // proof that decline says is missing — the canvas carries exactly the values
+  // this read carries — and binds it to the read's own `graph_hash`, so the Run
+  // card can tell it is still current. Called at the SAME two accepted exits,
+  // AFTER the merge (whose model-change mark it reads) and the base adoption.
+  // See `applyBootRunCurrency.ts` for the derivation.
+  const restoreRunCurrency = (): void => {
+    const st = useCanvasStore.getState()
+    const currencyOutcome = applyBootRunCurrency({
+      analysisState: result.analysisState,
+      graphHash: result.graphHash,
+      canvasProvenEqualToRead: canvasProvenEqualToRead(scenarioId, result.graph),
+      store: {
+        analysisFreshnessDirty: st.analysisFreshnessDirty,
+        setAnalysisStateV1: st.setAnalysisStateV1,
+        setAnalysisFreshness: st.setAnalysisFreshness,
+        readCurrentGraphHash: () => useCanvasStore.getState().analysisFreshness?.currentGraphHash,
+      },
+    })
+    logger.debug('server_graph_hydration.boot_run_currency', {
+      scenarioId,
+      outcome: currencyOutcome.outcome,
+      detail: currencyOutcome.outcome === 'declined' ? currencyOutcome.reason : 'complete_current',
+    })
+  }
+
   // ── ⚠⚠ THE VERDICT IS GATED ON GRAPH ACCEPTANCE, AND THAT IS THE WHOLE POINT ──
   //
   // THE DEFECT THIS CLOSES, live on staging at `01755479`: this call used to sit
@@ -418,6 +448,7 @@ async function readAndMergeServerGraph(
     // user is looking at. Skipping here would leave the ordinary restore with no
     // base, which is the whole defect.
     adoptServerWriteBase(result.graphHash, baseAtDispatch)
+    restoreRunCurrency()
     return 'unchanged'
   }
 
@@ -506,6 +537,7 @@ async function readAndMergeServerGraph(
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
   acknowledgeCanvasThatMatchesTheRead(scenarioId, result.graph)
+  restoreRunCurrency()
 
   return 'merged'
 }
@@ -559,11 +591,23 @@ async function readAndMergeServerGraph(
  * the scenario that was read.
  */
 function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unknown): void {
+  if (!canvasProvenEqualToRead(scenarioId, wireGraph)) return
   const st = useCanvasStore.getState()
-  if (st.currentScenarioId !== scenarioId) return
-  if (editDeliveryHold(st as never) !== null) return
-  if (!readCarriesEveryProjectedValue(wireGraph, st.nodes as never, st.edges as never)) return
   markGraphServerAcknowledged(scenarioId, st.nodes as never, st.edges as never)
+}
+
+/**
+ * THE PROOF, stated once: the canvas bound to `scenarioId` holds exactly what
+ * this read carries, with no edit between the user and CEE. The acknowledgement
+ * above and the boot run-currency restore both ask this, so it has ONE body.
+ * An unregistered import is never proven equal: the server has seen none of it.
+ */
+function canvasProvenEqualToRead(scenarioId: string, wireGraph: unknown): boolean {
+  const st = useCanvasStore.getState()
+  if (st.currentScenarioId !== scenarioId) return false
+  if (st.importPendingServerRegistration === true) return false
+  if (editDeliveryHold(st as never) !== null) return false
+  return readCarriesEveryProjectedValue(wireGraph, st.nodes as never, st.edges as never)
 }
 
 /**
