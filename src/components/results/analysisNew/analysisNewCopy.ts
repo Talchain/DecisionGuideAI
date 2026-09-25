@@ -2897,7 +2897,7 @@ const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
  * The Reasoning tab's `checks.leaderWithholdCause` and the canvas option card
  * state the same cause from the same inputs. Canvas asked to import this rather
  * than copy it (#63 5826170658).
- * - `admissionRefusedTheClaim` is true only where the RUN's own admission
+ * - `refusalAsksForAnEstimate` is true only where the RUN's own admission
  *   refused the comparative claim AND its `permitted_analysis_mode` reason asks
  *   for an estimate (`admissionRefusalAsksForAnEstimate`, independent review of
  *   #1993, 5826650947). Any refusal is too wide: "Name at least two different
@@ -2908,10 +2908,10 @@ const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
  */
 export function withheldLeaderCause(
   producerReason: string | null | undefined,
-  admissionRefusedTheClaim: boolean,
+  refusalAsksForAnEstimate: boolean,
 ): string | null {
   const token = typeof producerReason === 'string' ? producerReason.trim() : ''
-  if (admissionRefusedTheClaim && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
+  if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
     return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
   }
   return leaderWithholdCause(producerReason)
