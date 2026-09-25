@@ -111,13 +111,13 @@ describe('the outcome inspector does not rank options whose ranking was withheld
   const SERVED_ORDER = served.options.map((o) => o.label)
   const BY_SHARE = ['£59 With Next Release', 'Keep £49 Price', '£54 With Next Release']
 
-  function seed(opts: { permitted: boolean }) {
+  function seed(opts: { permitted: boolean; canvasOptions?: typeof served.options }) {
     const report = mapV5AnalysisToReport(served.analysis_result as never, {} as never) as unknown as Record<string, unknown>
     useCanvasStore.setState({
       hasCompletedFirstRun: true,
       nodes: [
         { id: 'out1', type: 'outcome', position: { x: 0, y: 0 }, data: { label: 'MRR', kind: 'outcome' } },
-        ...served.options.map((o, i) => ({
+        ...(opts.canvasOptions ?? served.options).map((o, i) => ({
           id: o.id, type: 'option', position: { x: i * 220, y: 200 }, data: { label: o.label, kind: 'option' },
         })),
       ] as never,
@@ -160,6 +160,16 @@ describe('the outcome inspector does not rank options whose ranking was withheld
     // The served shares would put £59 first; the inspector must not.
     expect(renderedOrder()).toEqual(SERVED_ORDER)
     expect(SERVED_ORDER).not.toEqual(BY_SHARE)
+  })
+
+  it('the withheld order is the CANVAS order, not the report order (canvas options reversed)', () => {
+    // Review 5828358211: the served `option_comparison` arrives in canvas order
+    // already, so the case above cannot tell canvas order from report order.
+    const reversed = [...served.options].reverse()
+    seed({ permitted: false, canvasOptions: reversed })
+    expect(rankingWasWithheld(recommendation())).toBe(true)
+    expect(renderedOrder()).toEqual(reversed.map((o) => o.label))
+    expect(reversed.map((o) => o.label)).not.toEqual(SERVED_ORDER)
   })
 
   it('CONTRAST — a permitted run on the same numbers is still sorted by share', () => {
