@@ -411,6 +411,16 @@ export const ACTION_TIER = {
    * than a fill so it reads as available, not urged.
    */
   neutral: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
+  /**
+   * AN INFO TEXT-BUTTON, LED BY AN ICON — the prototype's `.textbutton`
+   * shape (design-audit-20260925, gap ACTION-2): a control that is neither
+   * underlined prose (`inline`) nor a pill (`secondary`), for an act whose
+   * own leading glyph is the affordance. No consumer in this bundle's owned
+   * files yet — declared here because this module is the one place a tier
+   * may be added; the call site (`ChallengeCard.tsx`'s Respond act) belongs
+   * to a different bundle.
+   */
+  text: 'inline-flex items-center gap-1 min-h-[24px] min-w-[24px] py-1 text-info hover:text-info-hover',
 } as const
 
 /**
