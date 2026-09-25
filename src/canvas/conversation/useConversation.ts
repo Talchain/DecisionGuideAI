@@ -3449,14 +3449,16 @@ export function useConversation(): UseConversationReturn {
       // the user "I couldn't confirm" about an add that plainly committed.
       // `settleStructuralAdd` is idempotent, so whichever authority writes first
       // owns the verdict.
-      const settle = (status: 'committed' | 'refused' | 'unconfirmed') => {
-        useCanvasStore.getState().settleStructuralAdd(intent.id, status)
+      const settle = (status: 'committed' | 'refused' | 'unconfirmed', committedGraphHash?: unknown) => {
+        useCanvasStore.getState().settleStructuralAdd(intent.id, status, committedGraphHash)
       }
 
       if (outcome.kind === 'response') {
         const receipt = readStructuralAddReceipt(intent, outcome.response)
         if (receipt === 'proven') {
-          settle('committed')
+          // The committing turn's hash rides WITH the verdict: it is the base a
+          // link chained to this node ("+ Add option") must be sent on.
+          settle('committed', outcome.response.graph_hash)
           return
         }
         if (receipt === 'refuted') {

@@ -120,6 +120,7 @@ import {
 } from './mutations/structuralAdd'
 import {
   captureStructuralAddEdge,
+  chainStructuralAddEdgeToNodeAdd,
   STRUCTURAL_ADD_EDGE_DEFERRED_NOTICE,
   STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
   type StructuralAddEdgeIntent,
@@ -1773,8 +1774,16 @@ interface CanvasState {
   takePendingStructuralRenames: () => StructuralRenameIntent[]
   /** 0.50.0: the add twin — one atomic read-and-clear. */
   takePendingStructuralAdds: () => StructuralAddIntent[]
-  /** Drain the captured edge adds. Same contract as the node sibling above. */
-  takePendingStructuralAddEdges: () => StructuralAddEdgeIntent[]
+  /**
+   * Drain the captured edge adds. Same contract as the node sibling above.
+   *
+   * With `sendable`, takes ONLY the intents it admits and leaves the rest queued
+   * in order, in the same atomic read — how a link chained to a node add that
+   * has not settled yet stays held (`readChainedStructuralAddEdge`).
+   */
+  takePendingStructuralAddEdges: (
+    sendable?: (intent: StructuralAddEdgeIntent) => boolean,
+  ) => StructuralAddEdgeIntent[]
   /**
    * 0.50.0: move the HEAD of the add queue into the lifecycle as `in_flight`, in
    * ONE `set()`, and return it. Null when the queue is empty.
@@ -1797,6 +1806,11 @@ interface CanvasState {
   settleStructuralAdd: (
     intentId: string,
     status: StructuralAddTerminalStatus,
+    /**
+     * The committing turn's `graph_hash`, recorded on a `committed` verdict
+     * only — the base for a link chained to this node. Ignored otherwise.
+     */
+    committedGraphHash?: unknown,
   ) => void
   /**
    * 0.50.0: take back a node the server did not save.
@@ -2763,7 +2777,13 @@ function planStructuralAddEdgeIntent(
   edgesAfter: ReadonlyArray<{ id: string; source: string; target: string; data?: unknown }>,
   edgeId: string,
   nodesAfter: ReadonlyArray<{ id: string; type?: string; data?: unknown }> = state.nodes,
-): { patch: Partial<CanvasState>; deferred: boolean; needsStrength: boolean } {
+): {
+  patch: Partial<CanvasState>
+  deferred: boolean
+  needsStrength: boolean
+  /** The captured intent, when there is one — `addNodeWithEdge` chains it. */
+  intent?: StructuralAddEdgeIntent
+} {
   const result = captureStructuralAddEdge({
     edgesAfter,
     edgeId,
@@ -2791,6 +2811,7 @@ function planStructuralAddEdgeIntent(
     patch: { pendingStructuralAddEdges: [...state.pendingStructuralAddEdges, result.intent] },
     deferred: result.deferred,
     needsStrength: false,
+    intent: result.intent,
   }
 }
 
@@ -2875,7 +2896,7 @@ function planStructuralAddIntent(
   state: CanvasState,
   nodesAfter: Node[],
   nodeId: string,
-): { patch: Partial<CanvasState>; deferred: boolean } {
+): { patch: Partial<CanvasState>; deferred: boolean; intent?: StructuralAddIntent } {
   const result = captureStructuralAdd({
     nodesAfter,
     nodeId,
@@ -2896,6 +2917,7 @@ function planStructuralAddIntent(
   return {
     patch: { pendingStructuralAdds: [...state.pendingStructuralAdds, result.intent] },
     deferred: result.deferred,
+    intent: result.intent,
   }
 }
 
@@ -3618,6 +3640,23 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ]
       const nodePlan = planStructuralAddIntent(s, nodesAfter, nodeId)
       const edgePlan = planStructuralAddEdgeIntent(s, edgesAfter, edgeId, nodesAfter)
+      // ⭐⭐ THE LINK IS CHAINED TO THE NODE ADD — served 409 BASE_HASH_DIVERGED
+      // (UI `eec722ab`, 25 Sep 2026). Both captures read the SAME
+      // `lastServerGraphHash`, the node's write moves it, and the link then
+      // asserted the pre-add graph and was refused: an option CEE holds with no
+      // decision link. The link now carries no base of its own and is sent on
+      // the hash the node's write RETURNS (`chainStructuralAddEdgeToNodeAdd`,
+      // drained by `useStructuralAddEdgeEvents`). Only when BOTH halves were
+      // captured: a link whose node stood down has nothing to chain to.
+      const edgePatch: Partial<CanvasState> =
+        nodePlan.intent && edgePlan.intent
+          ? {
+              pendingStructuralAddEdges: [
+                ...s.pendingStructuralAddEdges,
+                chainStructuralAddEdgeToNodeAdd(edgePlan.intent, nodePlan.intent),
+              ],
+            }
+          : edgePlan.patch
       addOutcome = {
         nodeDeferred: nodePlan.deferred,
         edgeDeferred: edgePlan.deferred,
@@ -3635,7 +3674,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         edges: edgesWithReceipt,
         selection: { nodeIds: new Set([nodeId]), edgeIds: new Set<string>(), anchorPosition: null },
         ...nodePlan.patch,
-        ...edgePlan.patch,
+        ...edgePatch,
       }
     })
 
@@ -7313,11 +7352,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     return queued
   },
 
-  takePendingStructuralAddEdges: () => {
+  takePendingStructuralAddEdges: (sendable) => {
     const queued = get().pendingStructuralAddEdges
     if (queued.length === 0) return []
-    set({ pendingStructuralAddEdges: [] })
-    return queued
+    if (!sendable) {
+      set({ pendingStructuralAddEdges: [] })
+      return queued
+    }
+    const taken = queued.filter((intent) => sendable(intent))
+    if (taken.length === 0) return []
+    set({ pendingStructuralAddEdges: queued.filter((intent) => !taken.includes(intent)) })
+    return taken
   },
 
   beginStructuralAddSend: () => {
@@ -7342,7 +7387,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     return record
   },
 
-  settleStructuralAdd: (intentId, status: StructuralAddTerminalStatus) => {
+  settleStructuralAdd: (intentId, status: StructuralAddTerminalStatus, committedGraphHash) => {
     set((s) => {
       const idx = s.structuralAddLifecycle.findIndex((r) => r.intent.id === intentId)
       if (idx === -1) return {}
@@ -7352,7 +7397,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // every-exit settle), and the second must not downgrade the first.
       if (existing.status !== 'in_flight') return {}
       const next = s.structuralAddLifecycle.slice()
-      next[idx] = { ...existing, status }
+      // The committing turn's hash, kept WITH the verdict it evidences — the
+      // base a link chained to this node is sent on. Never on another verdict.
+      const hash =
+        status === 'committed' && typeof committedGraphHash === 'string' && committedGraphHash.length > 0
+          ? committedGraphHash
+          : undefined
+      next[idx] = hash ? { ...existing, status, committedGraphHash: hash } : { ...existing, status }
       return { structuralAddLifecycle: next }
     })
   },

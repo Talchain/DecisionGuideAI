@@ -557,6 +557,19 @@ export interface StructuralAddLifecycleRecord {
   /** The scenario this attempt was made against, captured at DISPATCH. */
   readonly scenarioId: string | null
   readonly status: StructuralAddLifecycleStatus
+  /**
+   * The `graph_hash` CEE returned on the turn that COMMITTED this add — the
+   * persisted graph that now contains the node. Written only with a
+   * `committed` verdict, and only when the response carried one.
+   *
+   * ⭐ IT IS THE BASE FOR A WRITE THAT DEPENDS ON THIS NODE. "+ Add option"
+   * captures the option and its decision link in one `set()`; the link's
+   * endpoint does not exist on the server until this add lands, and the add
+   * moves the hash, so the link must assert THIS hash — read here by identity,
+   * never from `lastServerGraphHash`, which another turn may already have moved.
+   * See `readChainedStructuralAddEdge`.
+   */
+  readonly committedGraphHash?: string
 }
 
 /** Everything except `in_flight` — the states a settle may write. */
