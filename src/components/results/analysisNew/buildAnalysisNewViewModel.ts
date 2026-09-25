@@ -96,8 +96,7 @@ import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
-  leaderWithholdCause,
-  LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS,
+  withheldLeaderCause,
 } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -3536,23 +3535,6 @@ function dedupeAgainstGlance(
  * severity — a "worst first" order would be a judgement across three
  * incommensurable checks that no producer field supports.
  */
-/**
- * The withheld-leader tokens the producer's admission can explain.
- *
- * `constraint_verdict_withheld` is emitted for ANY not-entitled verdict
- * (`composeLeaderClaim`: `!entitled`), and CEE's `unrequested_analysis_withheld`
- * (Canonical, `bank/unrequested-analysis-withheld-reason`, RC 5825756972) for an
- * automatic first pass. Where the admission also refused the comparative claim,
- * "until an estimate is yours" is the cause behind either. Any other token names
- * its own cause (`separation_unavailable`: the run could not tell how far apart
- * the options are), and an admission refusal beside it must not replace it
- * (pre-review of bundle 3, 25 Sep).
- */
-const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
-  'constraint_verdict_withheld',
-  'unrequested_analysis_withheld',
-])
-
 function buildChecks(
   data: ResultsSectionDataReturn,
   producerWithholdReason: string | null | undefined,
@@ -3688,17 +3670,14 @@ function buildChecks(
 
   // The cause this surface states for a withheld leader: null when the leader
   // was not withheld, or was withheld for a reason it cannot name.
-  const token = typeof producerWithholdReason === 'string' ? producerWithholdReason.trim() : ''
   const withheldCause =
     leaderCode !== 'leader_not_assessed'
       ? null
-      : // Where the admission refused the comparative claim, that refusal IS the
-        // cause, but only behind a token the admission can explain; see
-        // ADMISSION_EXPLAINS_THE_WITHHOLD.
-        licensesComparativeLeaderClaim(data.recommendation.analysisAdmission) === false &&
-          ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)
-        ? LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
-        : leaderWithholdCause(producerWithholdReason)
+      : // One rule for every surface; see `withheldLeaderCause`.
+        withheldLeaderCause(
+          producerWithholdReason,
+          licensesComparativeLeaderClaim(data.recommendation.analysisAdmission) === false,
+        )
 
   return {
     items: [
