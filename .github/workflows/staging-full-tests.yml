@@ -1,9 +1,10 @@
-# Full test suite for staging pushes and PRs into staging.
+# Fast checks on PRs into staging; full regression on integrated staging pushes.
 #
 # The local pre-push hook (scripts/validate-prepush.sh) runs only fast checks
 # (typecheck, lint on changed files, smoke tests). This workflow runs the
-# complete 6,900+ test suite on every push to staging and every PR targeting
-# staging, so regressions are caught before any merge to main.
+# complete 6,900+ test suite on integrated staging pushes and manual/merge-queue
+# runs. PRs get typecheck, lint, production build and dependency audit; riskier
+# changes also get focused affected-path tests and independent review before merge.
 #
 # Sharding (ROADMAP 1.26, chronic-CI-red fix): the vitest job runs as a
 # 4-way matrix (`--shard=N/4`), each shard on its own runner. This is
@@ -20,8 +21,8 @@
 # ratchets/fixtures/mocks, same lane) that only a completed run's summary
 # could surface. See docs/ops/vitest-full-suite-oom-diagnosis.md Option C.
 #
-# Branch protection: configure "Staging Gate" as a required status check on
-# main to block merges when any job fails. (Requires repo admin access.)
+# Branch protection on staging requires TypeScript + Lint and Production Build.
+# Staging Gate still reports the full integrated regression, but is not a PR gate.
 
 name: Staging Tests
 
@@ -70,7 +71,9 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A staging push keeps its running full regression and replaces only the
+  # pending one with the newest integrated commit. Superseded PR heads cancel.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 env:
   TZ: UTC
@@ -207,6 +210,7 @@ jobs:
   typecheck-selftest:
     name: Typecheck Gate Self-Test
     needs: install
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -285,6 +289,7 @@ jobs:
   flag-drift:
     name: Flag Deployment Drift (report only)
     needs: install
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -417,6 +422,7 @@ jobs:
   canvas-gate:
     name: Canvas Browser Gate (advisory)
     needs: install
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
     # ⚠ THIS IS THE HANG DETECTOR, NOT THE BUDGET, and they are two different
@@ -537,6 +543,7 @@ jobs:
   visual-regression:
     name: Visual Regression (advisory)
     needs: install
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -683,16 +690,14 @@ jobs:
   # this branch's code — it is whatever staging was serving when the job ran. So:
   #   - a RED here is a claim about the DEPLOYED product, not about the diff;
   #   - a GREEN here is NOT evidence that this PR is safe;
-  #   - the exception, and the case that motivated the job, is a PR that changes
-  #     `e2e/core/**` or `playwright.core.config.ts` — there the suite under test IS
-  #     the diff, and this job is the only thing that executes it.
+  #   - changes to `e2e/core/**` or `playwright.core.config.ts` need a focused
+  #     pre-merge run; the broad suite runs after integration.
   # The step summary prints the served build so the result is attributable at all.
   #
   # NOT SCHEDULED, and that is a fact about GitHub rather than a preference:
   # `schedule:` fires only on the default branch (`main`), so a cron added here
-  # would not run these specs until they reach main. Running on every push to
-  # `staging` and every PR into it gives a signal now; `workflow_dispatch` covers
-  # an ad-hoc run against a pinned target.
+  # would not run these specs until they reach main. Integrated staging pushes
+  # give a signal now; `workflow_dispatch` covers an ad-hoc pinned target.
   #
   # IT CANNOT REPORT SUCCESS HAVING EXECUTED NOTHING. `globalSetup` fails if the
   # declared spec set has drifted from the files on disk, and `globalTeardown`
@@ -729,14 +734,15 @@ jobs:
   #     via `CORE_EXPECT_COMMIT`, which is the only posture in which its verdict was
   #     ever attributable.
   #   - `workflow_dispatch` — UNCHANGED.
-  #   - PR that touches the suite — STILL RUNS, which is the docblock's own exception.
-  #   - PR that does not — skipped, because its result was never about that PR.
+  #   - PRs do not run the broad suite; an owner changing the suite runs focused
+  #     checks before merge, and the integrated staging run covers the result.
   #
   # The completeness guard is untouched: `tests/ci-guards/core-completeness-guard.spec.ts`
-  # runs in the REQUIRED suite, so "this job cannot report success having executed
-  # nothing" is still pinned whether or not the browser suite runs.
+  # runs in the integrated full suite, so "this job cannot report success having
+  # executed nothing" is still pinned when the browser suite runs.
   core-scope:
     name: Does this PR change the Core suite itself?
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       touched: ${{ steps.check.outputs.touched }}
@@ -944,6 +950,7 @@ jobs:
   vitest:
     name: Full Test Suite (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     needs: install
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1127,7 +1134,7 @@ jobs:
   vitest-summary:
     name: Full Test Suite Summary
     needs: vitest
-    if: always()
+    if: ${{ github.event_name != 'pull_request' && always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Download all shard outputs
@@ -1324,7 +1331,7 @@ jobs:
   gate:
     name: Staging Gate
     needs: [tsc, typecheck-selftest, vitest, vitest-summary, build]
-    if: always()
+    if: ${{ github.event_name != 'pull_request' && always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Check all jobs passed
