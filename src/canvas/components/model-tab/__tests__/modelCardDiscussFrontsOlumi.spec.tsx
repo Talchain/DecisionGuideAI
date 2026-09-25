@@ -196,17 +196,59 @@ describe('⭐ modelcard-discuss — an icon-only control carries a real name', (
     expect(screen.getByRole('button', { name: EXPECTED_NAME })).toBe(byName)
   })
 
-  it('⚠ does not rely on `title` as its only name — the pointer-only route', () => {
+  /**
+   * ⭐⭐ RE-POINTED FOR V2 GAP 33 (24 Sep 2026,
+   * `FIDELITY-GAPS-INDEX-20260924.txt` #33). The control moved to the shared
+   * `PanelIconButton` primitive, which renders its hover hint through a real
+   * floating tooltip (`Tooltip.tsx`, Floating UI) rather than the native
+   * `title` attribute — and DELIBERATELY BLANKS `title` so no browser tooltip
+   * fights the floating one (`Tooltip.tsx`: "An empty title blocks native
+   * tooltips inherited from an ancestor"). So the property this test guards
+   * — the name must not rely SOLELY on a mouse-only `title` — now holds more
+   * strongly than before: `title` carries no name AT ALL, and both the
+   * accessible name (`aria-label`) and the on-hover hint (the tooltip's
+   * `content`) come from the same `label` prop through two DIFFERENT,
+   * already-tested mechanisms (`panelIconButton.spec.tsx`, `Tooltip.tsx`),
+   * neither of them `title`.
+   */
+  it('⚠ carries no name in `title` at all any more — the name is `aria-label`, not the pointer-only route', () => {
     renderCard()
 
     const button = screen.getByTestId('modelcard-discuss')
 
-    // `title` is kept (it is a useful hover affordance) but it must no longer be
-    // the ONLY name. `ModelRowView.tsx:876-879` states the limitation this
-    // guards: a `title` on a control with no accessible name is mouse-hover
-    // only — invisible to touch, and not reliably announced.
-    expect(button).toHaveAttribute('title', EXPECTED_NAME)
-    expect(button.getAttribute('aria-label')).not.toBeNull()
-    expect(button.getAttribute('aria-label')).not.toBe('')
+    // `ModelRowView.tsx:876-879` states the limitation this guards: a `title`
+    // on a control with no accessible name is mouse-hover only — invisible to
+    // touch, and not reliably announced. This control no longer has that
+    // shape at all: `title` is blank, not a copy of the name.
+    expect(button.getAttribute('title') ?? '').toBe('')
+    expect(button.getAttribute('aria-label')).toBe(EXPECTED_NAME)
+  })
+})
+
+/**
+ * ⭐⭐ V2 GAP 33 (new coverage, 24 Sep 2026) — THE OLUMI AI ICON, AND A REAL
+ * ≥24PX TARGET.
+ *
+ * Witnessed on served `4549b66b`: `modelcard-discuss` was a bare 14×14
+ * `MessageCircle`, with no `OlumiAiIcon` reference anywhere under
+ * `src/canvas` (`git grep OlumiAiIcon -- src/canvas` — zero hits). A mutant
+ * that reverts `ModelHealthSection` back to the hand-rolled `MessageCircle`
+ * button REDs both tests below and nowhere else in this file.
+ */
+describe('⭐ V2 gap 33 — the AI glyph and the touch target', () => {
+  it('renders the Olumi AI icon, never the old MessageCircle glyph', () => {
+    renderCard()
+    const button = screen.getByTestId('modelcard-discuss')
+    expect(button.querySelector('[data-icon="olumi-ai"]')).not.toBeNull()
+    expect(button.querySelector('.lucide-message-circle')).toBeNull()
+  })
+
+  it('carries a real ≥24px target, via the shared PanelIconButton geometry', () => {
+    renderCard()
+    const button = screen.getByTestId('modelcard-discuss')
+    // `PanelIconButton`'s own geometry class (`PanelIconButton.tsx:71`) — the
+    // same primitive Reasoning's AI acts use, not a bespoke re-derivation.
+    expect(button.className).toContain('min-w-[24px]')
+    expect(button.className).toContain('min-h-[24px]')
   })
 })
