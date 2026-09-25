@@ -307,6 +307,17 @@ export interface AtAGlanceProps {
    */
   rerunWouldNotHelp?: boolean
   missingResults?: readonly string[]
+  /**
+   * ⭐ WHICH HALF TO RENDER. `'status'` is the ribbon alone: the freshness,
+   * run-note and partial lines with the one act that answers them. `'reading'`
+   * is everything else: the withheld reason and its act, the reading, the
+   * provenance, the scope and the condition. The tab mounts the status above
+   * "Move towards commitment" and the reading after it, as the V2 prototype
+   * does (its stale row sits inside the commitment block, above the chart, and
+   * it has no reading above the chart), so the chart and its qualifier reach
+   * the first screen. `'all'` (the default) is both, in one section, as before.
+   */
+  part?: 'all' | 'status' | 'reading'
   testId?: string
 }
 
@@ -347,6 +358,7 @@ export function AtAGlance({
   rerunWouldNotHelp = false,
   missingResults = [],
   testId = 'analysis-new-glance',
+  part = 'all',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
   const excludedKey =
@@ -687,18 +699,24 @@ export function AtAGlance({
    * `scopeDisclosureOnScreen` was named above for exactly that reason. Guard
    * and renderer now share their predicates and cannot drift apart silently.
    */
-  const hasAnything =
-    ribbon.length > 0 ||
+  const showStatus = part !== 'reading'
+  const showReading = part !== 'status'
+  const hasReading =
     Boolean(glance.designationWithheldReason) ||
     verdictCarriesItsOwnReading ||
     showInputProvenance ||
     scopeDisclosureOnScreen ||
     Boolean(glance.condition)
+  const hasAnything = (showStatus && ribbon.length > 0) || (showReading && hasReading)
   if (!hasAnything) return null
 
   return (
-    <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
-      {ribbon.length > 0 ? (
+    <section
+      className="space-y-3"
+      data-testid={part === 'status' ? `${testId}-status` : testId}
+      aria-label={COPY.sections.atAGlance}
+    >
+      {showStatus && ribbon.length > 0 ? (
         <div
           /* ⚠ WRAPS RATHER THAN CRUSHES. Measured in a browser at the 280px
              dock floor: "Re-run to be sure" is 102.7px — 45% of the 230px
@@ -825,6 +843,8 @@ export function AtAGlance({
           ) : null}
         </div>
       ) : null}
+      {showReading ? (
+      <>
 
       {/* ── THE ANSWER ─────────────────────────────────────────────────────
           The only large type on the surface. `headline`'s present-tense
@@ -1391,6 +1411,8 @@ export function AtAGlance({
           judgement: the note there records a disjunct outliving its content
           once already, which "would have rendered the section's wrapper and
           heading over empty space". */}
+      </>
+      ) : null}
     </section>
   )
 }

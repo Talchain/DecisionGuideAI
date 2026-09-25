@@ -152,7 +152,9 @@ describe('the zone grammar has contents, not just names', () => {
       .map((m) => m[1])
 
     expect(found.length, 'the detector found no top-level components at all').toBeGreaterThan(8)
-    expect(found, 'a section known to be inside the answer zone').toContain('AtAGlance')
+    // V2 (fidelity gap 1): `AtAGlance` is built once in `renderGlance` and
+    // mounted by call, so the known answer-zone section here is the chart.
+    expect(found, 'a section known to be inside the answer zone').toContain('OptionsComparison')
     expect(found, 'and one known to be above the zones').toContain('ModelStrip')
   })
 

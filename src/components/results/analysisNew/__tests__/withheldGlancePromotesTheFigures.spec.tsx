@@ -136,7 +136,10 @@ describe('the figures rise only when the glance said nothing', () => {
     // The answer is ONE block: the glance and the figures both live in it.
     expect(answer).toContainElement(glance)
     expect(answer).toContainElement(options)
-    expect(precedes(glance, options), 'the glance leads, the figures follow it').toBe(true)
+    // V2 (fidelity gap 1, 25 Sep 2026): the figures lead and the glance's
+    // READING follows them, as the prototype has no reading above the chart.
+    // Its status ribbon stays above (`theChartLeadsTheReading.spec.tsx`).
+    expect(precedes(options, glance), 'the figures lead, the glance reading follows them').toBe(true)
     // V2: the review and the challenge come before the answer, on every run.
     expect(precedes(review, answer), 'the model-wide review sits above the answer').toBe(true)
     expect(precedes(challenge, answer), '"Challenge the thinking" sits above the answer').toBe(true)
