@@ -25,6 +25,8 @@ import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { useRunCurrency } from './shared/runCurrency'
+import { useHasCompletedFirstRun } from '../selectors/results'
+import { FACTOR_NO_ANALYSIS_YET } from './shared/metricVocabulary'
 import { FactorDriverLine, FactorDriverNotRanked, driverLineCaption } from './shared/FactorDriverLine'
 import { LAST_RUN_PREFIX } from './shared/metricVocabulary'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
@@ -544,6 +546,17 @@ export const FactorNode = memo((props: NodeProps) => {
   // (cannot-confirm) still show an UNQUALIFIED cue over locally fresh fields.
   const runCurrency = useRunCurrency()
   const resultsFromLastRun = runCurrency === 'changed'
+  /**
+   * ⭐ DESIGN-GAP ROW 10 (contract v3 §02 draft): "Working assumption · no
+   * analysis yet" — said only where NO analysis exists at all, never after a
+   * run: no completed result on screen, no run EVER completed for this model
+   * (`hasCompletedFirstRun`, monotonic across reruns), and a composed verdict
+   * that speaks of no run (`'none'`) — so a wire stating a completed run that
+   * has not hydrated never gets "no analysis yet" over it. Only on a factor
+   * that SHOWS a value (the contract's branch); a missing value states its gap.
+   */
+  const hasCompletedFirstRun = useHasCompletedFirstRun()
+  const noAnalysisYet = !isPostAnalysis && !hasCompletedFirstRun && runCurrency === 'none' && valueDisplay !== null
   const runCuesShown = runCurrency === 'current' || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
   // ED #63 5806207128: "Driver N of M analysed" (M = the eligible analysed
@@ -1107,11 +1120,21 @@ export const FactorNode = memo((props: NodeProps) => {
    * `null` in Detailed, where these stay inline on the card.
    */
   const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
+  // Row 10: Standard carries the pre-run line here (the card body is ONE row, ED 5809278282).
+  const noAnalysisYetMoved = !isDetailed && noAnalysisYet
   const hasStandardFindings =
     !isDetailed &&
-    (needsInputSentenceMoved || driverLine !== null || (turningPointShown && turningPointState !== null) || priorRangeLine !== null)
+    (needsInputSentenceMoved || noAnalysisYetMoved || driverLine !== null || (turningPointShown && turningPointState !== null) || priorRangeLine !== null)
   const standardFindings = hasStandardFindings ? (
     <div data-testid={`factor-popover-findings-${props.id}`} className="mb-1">
+      {noAnalysisYetMoved && (
+        <p
+          data-testid={`factor-popover-no-analysis-${props.id}`}
+          className={`${typography.edgeLabel} text-text-light m-0`}
+        >
+          {FACTOR_NO_ANALYSIS_YET}
+        </p>
+      )}
       {needsInputSentenceMoved && (
         <p
           data-testid={`factor-popover-needs-input-${props.id}`}
@@ -1327,7 +1350,24 @@ export const FactorNode = memo((props: NodeProps) => {
               </span>
             )}
             {driverCue}
+            {/* Row 10, Standard: the pre-run state in the line's accessible
+                text; visible in the popover (`factor-popover-no-analysis-*`),
+                never as a second body row (ED 5809278282). */}
+            {noAnalysisYetMoved && (
+              <span className={typography.screenReaderOnly} data-testid={`factor-no-analysis-sr-${props.id}`}>
+                {FACTOR_NO_ANALYSIS_YET}
+              </span>
+            )}
           </div>
+        )}
+        {/* Row 10, Detailed ("adds information"): the pre-run state inline. */}
+        {isDetailed && noAnalysisYet && (
+          <p
+            className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}
+            data-testid={`factor-no-analysis-${props.id}`}
+          >
+            {FACTOR_NO_ANALYSIS_YET}
+          </p>
         )}
 
         {/* ⭐ NODE-ANATOMY v3.2, Factor, missing: "`Needs input · Value not set
