@@ -20,7 +20,7 @@
  *   · `canvasProvenEqualToRead` — the scenario is the one read, no edit is
  *     between the user and CEE (`editDeliveryHold`), no unregistered import, and
  *     EVERY analytical value the canvas would send is carried, deep-equal, by
- *     the read (`readCarriesEveryProjectedValue`: same elements, same values).
+ *     the read (`firstProjectedValueTheReadLacks`: same elements, same values).
  *     The `observed_state 0.7` case — a canvas key the read omits — fails it.
  *   · no local edit since the read (`analysisFreshnessDirty` false — the boot
  *     merge sets it on any model change).
