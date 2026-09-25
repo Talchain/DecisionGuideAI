@@ -958,6 +958,12 @@ export const OPTION_RESULT_COPY = {
 } as const
 
 /**
+ * A factor card before ANY analysis (visual contract v3 §02 draft; design-gap
+ * row 10) — its value is a working assumption no run has used yet.
+ */
+export const FACTOR_NO_ANALYSIS_YET = 'Working assumption · no analysis yet'
+
+/**
  * The one attention cue (spec §2 "Attention cue — add"; ED 11:52Z point 7).
  * It reads as "worth thinking about", never as a warning or an error.
  */
