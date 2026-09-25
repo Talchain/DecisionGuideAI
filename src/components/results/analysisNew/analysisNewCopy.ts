@@ -1715,12 +1715,12 @@ export const ANALYSIS_NEW_COPY = {
     },
     partitionCaption: 'In this model, every simulated scenario is accounted for above.',
     /**
-     * Above the shares when the leader was withheld because the user's limits
-     * could not be checked (RC 5803875794 P0 #3). The shares are computed on
-     * the goal outcome alone; this says so, and claims nothing about which
-     * limit or why. Same words as Canvas's option-card qualifier (#63 5804041993).
+     * Above the shares when the producer withheld the leader with the generic
+     * `constraint_verdict_withheld`, which also covers briefs with NO limits. The
+     * shares are computed on the goal outcome alone; this says only that and
+     * presumes no limits. Canvas's option card says the same (#1990, #63 5826533245).
      */
-    goalOnlyQualifier: "Goal only: your limits aren't in these figures.",
+    goalOnlyQualifier: 'Goal only: these figures compare the options on the goal alone.',
   },
   modelStrip: {
     /**
