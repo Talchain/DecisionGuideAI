@@ -158,7 +158,11 @@ describe('held proposal settlement propagates across surfaces', () => {
     fireEvent.click(within(dock).getByTestId('v5-held-proposal-confirm'))
 
     expect(sendChip).toHaveBeenCalledTimes(1)
-    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_A}`, undefined)
+    // G1: the only meta is the card's own turn-scoped key (UI-only, never on
+    // the wire — `cardActionSettledReload.spec.tsx`).
+    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_A}`, {
+      sourceBlockKey: heldProposalMountKey('msg-held-settlement', HANDLE_A),
+    })
 
     // THE DEFECT: this is the copy that kept live controls over a change that
     // had already happened.
@@ -250,7 +254,9 @@ describe('held proposal settlement propagates across surfaces', () => {
     // The apply path is unchanged: the producer's own message goes out through
     // the single-writer chip seam, and CEE applies it server-side.
     expect(sendChip).toHaveBeenCalledTimes(1)
-    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_B}`, undefined)
+    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_B}`, {
+      sourceBlockKey: heldProposalMountKey('msg-held-settlement', HANDLE_B),
+    })
   })
 
   it('does not double-dispatch when a second surface re-presses an already-settled proposal', () => {
