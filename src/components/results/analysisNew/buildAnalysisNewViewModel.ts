@@ -97,6 +97,7 @@ import {
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
   leaderWithholdCause,
+  LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS,
 } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -3672,7 +3673,14 @@ function buildChecks(
      * presence.
      */
     leaderWithholdCause:
-      leaderCode === 'leader_not_assessed' ? leaderWithholdCause(producerWithholdReason) : null,
+      leaderCode !== 'leader_not_assessed'
+        ? null
+        : // Where the admission refused the comparative claim, that refusal IS the
+          // cause, whatever token rode `withheld_reason`; see the constant's doc.
+          licensesComparativeLeaderClaim(data.recommendation.analysisAdmission) === false &&
+            leaderWithholdCause(producerWithholdReason) !== null
+          ? LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
+          : leaderWithholdCause(producerWithholdReason),
     /**
      * ⭐ THE FACT, SEPARATE FROM THE NAMEABLE CAUSE — AND THEY ARE DIFFERENT
      * QUESTIONS.
