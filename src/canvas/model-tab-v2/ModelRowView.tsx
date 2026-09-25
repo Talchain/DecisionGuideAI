@@ -536,8 +536,14 @@ export function ModelRowView({
         it — the guard in `rowAtomsAlignToOneGrid.spec.tsx` asserts the two
         agree, derived from the `<ul>`, so drift REDs rather than mis-renders.
       */
+      /* ⭐ MODEL-9: selection is an outline, never a fill (the prototype's
+         `.mark:hover,.mark[aria-pressed="true"]` and `.iconbtn.active` are
+         both border-only — `Olumi_Reasoning_Prototype_V2.html` :81, :96). The
+         former `bg-panel-hover` tint measured 1.03:1 against the panel
+         ground — functionally invisible — so a click had no visible effect
+         on the row it selected. */
       className={`grid grid-cols-subgrid col-span-4 items-center gap-2 px-2 py-1.5 border-b border-panel-border ${
-        selected ? 'bg-panel-hover' : ''
+        selected ? 'ring-1 ring-inset ring-info rounded-sm' : ''
       }`}
       onClick={() => onSelect?.(row.id)}
     >
