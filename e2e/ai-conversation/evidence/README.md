@@ -38,3 +38,17 @@ The Run reply is `fixtures/prb-route-c933aabf-explicit-run.json`: the HTTP respo
 Asserted in each viewport: turns = opening, ONE run, ONE card action; the card action's turn carries the producer's `action_prompt` verbatim, and a second click sends nothing. Store after the reply: `complete_current`, `computed_at` = card `created_at`, `currentGraphHash` = card hash, not dirty. No suggested-chip row, because the route offers none on a completed Run. 0 off-origin responses.
 
 Harness caveats (read before judging the photos): the canvas is the seeded `pricing-model` starter, a DIFFERENT model (NRR, 4 options) from the one the route body analysed (MRR/Pro price, 3 options, served t2). The route body's `draft_graph` is the CEE harness's 5-node READY_GRAPH, and the product's zero-overlap guard declines to apply it over the seeded canvas. The opening turn's reply and the card action's reply are harness fixtures, labelled as such.
+
+## 10 — the Run reply's first sentence is in view on arrival (`ai-conversation/reply-start-in-view` `7ec4d83e`)
+
+Spec: `prbRunReply.witness.measure.ts`, tests "reply start in view @ {vp}". Same journey, route body and network rules as 09. Local witness branch = `witness/ai-conversation-local` + `ai-conversation/reply-start-in-view`.
+
+| File | What it shows |
+|---|---|
+| `10-reply-start-in-view-{1280x800,1440x900}.png` | The moment the Run reply lands. The spec does not scroll the thread. The reply's first sentence (bold finding + caveat) is at the top of the thread, then both bullets, the next step and the analysis-result card |
+
+Measured with a DOM Range over the first sentence's text: every line box is inside the thread's scroll box, and a hit test at the first line lands in the reply body. The spec reads this on arrival and again after 1.5 s. Readings (both viewports): `scrollTop 258`, `scrollHeight 1006`, `clientHeight` 608 / 708; the reply's top is 12 px below the thread's top; not at the bottom; no "New messages" pill; the dock stayed on the Olumi tab.
+
+Negative control (same spec, hold bypassed, scratch output): both viewports RED on "every line of the first sentence is inside the thread". Readings: `scrollTop` 398 / 298 (pinned to the bottom); the reply's top at −128 / −28 px, which reproduces 09. The same spec is also RED when arrival detection runs in a passive effect instead of a layout effect (`scrollTop` 398 / 298).
+
+Trade-off: at 1280×800 the coaching line ("Pressure-test a sensitive link") is now below the fold on arrival. In 09 it was in view. At 1440×900 it is still in view.

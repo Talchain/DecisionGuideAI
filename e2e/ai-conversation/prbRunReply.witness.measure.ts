@@ -355,3 +355,144 @@ for (const vp of VIEWPORTS) {
     assertNoModelCalls(net)
   })
 }
+
+// ── 10 — the reply's START is in view on arrival (branch ai-conversation/reply-start-in-view) ──
+//
+// Same journey, same route body, same network discipline as above. The only
+// question asked: the moment the Run reply lands — the thread's own scroll
+// position, untouched by the spec — is the reply's FIRST SENTENCE (its
+// conclusion) inside the thread's visible band? At 09 it was not: the thread
+// pinned to the bottom. Measured with a DOM Range over the sentence's own text,
+// every line box, against the scroll container's box, plus a hit test at the
+// first line so "in view" cannot mean "in view but covered".
+
+const FIRST_SENTENCE_START = 'This run can’t yet say which pricing path to take'
+const FIRST_SENTENCE_END = 'checked against it.'
+const FIRST_BULLET_START = 'On the MRR goal alone'
+
+interface StartReading {
+  scrollTop: number | null
+  scrollHeight: number | null
+  clientHeight: number | null
+  atBottom: boolean | null
+  replyTopFromThreadTop: number | null
+  firstSentence: { found: boolean; lines: number; allLinesInView: boolean; hitTestable: boolean }
+  firstBulletInView: boolean | null
+  analysisResultTopInView: boolean | null
+  pillShown: boolean
+}
+
+async function readReplyStart(page: Page): Promise<StartReading> {
+  return page.evaluate(({ blockId, start, end, bullet }) => {
+    const thread = document.querySelector('[data-testid="chat-thread"]') as HTMLElement | null
+    const scroller = (() => {
+      let n: HTMLElement | null = thread
+      while (n && !(n.scrollHeight > n.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(n).overflowY))) n = n.parentElement
+      return n
+    })()
+    const box = scroller?.getBoundingClientRect() ?? null
+    const within = (r: DOMRect) => !!box && r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5
+    const assistants = [...document.querySelectorAll('[data-testid="chat-message-assistant"]')]
+    const runMsg = assistants.find((a) => a.querySelector(`[data-block-id="${blockId}"]`)) ?? null
+    const body = runMsg?.querySelector('[data-testid="message-body-text"]') ?? null
+
+    // A Range from the first character of `from` to the last character of `to`.
+    const rangeFor = (from: string, to: string | null): Range | null => {
+      if (!body) return null
+      const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT)
+      const texts: Text[] = []
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) texts.push(n as Text)
+      const full = texts.map((t) => t.data).join('')
+      const s = full.indexOf(from)
+      if (s < 0) return null
+      const e = to === null ? s + from.length : full.indexOf(to, s) + to.length
+      if (e < s) return null
+      const locate = (offset: number) => {
+        let acc = 0
+        for (const t of texts) {
+          if (offset <= acc + t.data.length) return { node: t, off: offset - acc }
+          acc += t.data.length
+        }
+        return null
+      }
+      const a = locate(s)
+      const b = locate(e)
+      if (!a || !b) return null
+      const r = document.createRange()
+      r.setStart(a.node, a.off)
+      r.setEnd(b.node, b.off)
+      return r
+    }
+
+    const sentence = rangeFor(start, end)
+    const lines = sentence ? [...sentence.getClientRects()].filter((r) => r.width > 0 && r.height > 0) : []
+    const first = lines[0]
+    const hit = first ? document.elementFromPoint(first.left + Math.min(8, first.width / 2), first.top + first.height / 2) : null
+    const bulletRange = rangeFor(bullet, null)
+    const bulletRects = bulletRange ? [...bulletRange.getClientRects()].filter((r) => r.width > 0) : []
+    const card = runMsg?.querySelector('[data-testid="v5-analysis-result"]') ?? null
+    const cardTop = card?.getBoundingClientRect().top ?? null
+    return {
+      scrollTop: scroller?.scrollTop ?? null,
+      scrollHeight: scroller?.scrollHeight ?? null,
+      clientHeight: scroller?.clientHeight ?? null,
+      atBottom: scroller ? scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2 : null,
+      replyTopFromThreadTop: runMsg && box ? Math.round((runMsg.getBoundingClientRect().top - box.top) * 10) / 10 : null,
+      firstSentence: {
+        found: lines.length > 0,
+        lines: lines.length,
+        allLinesInView: lines.length > 0 && lines.every(within),
+        hitTestable: !!hit && !!body && body.contains(hit),
+      },
+      firstBulletInView: bulletRects.length > 0 ? within(bulletRects[0]) : null,
+      analysisResultTopInView: cardTop === null || !box ? null : cardTop >= box.top && cardTop < box.bottom,
+      pillShown: !!document.querySelector('[data-testid="new-messages-pill"]'),
+    }
+  }, { blockId: CARD.block_id, start: FIRST_SENTENCE_START, end: FIRST_SENTENCE_END, bullet: FIRST_BULLET_START })
+}
+
+for (const vp of VIEWPORTS) {
+  const tag = `${vp.width}x${vp.height}`
+  test(`reply start in view @ ${tag}: the Run reply's first sentence is on screen the moment it lands`, async ({ page }) => {
+    await preparePage(page, vp)
+    const net = await installWitnessNetwork(page)
+    await openCanvas(page)
+    await seedStarterDraft(page, STARTER)
+    await clearNotifications(page)
+    await page.getByTestId('outputs-dock-tab-olumi').click()
+    const composer = page.getByTestId('ai-input-bar-strip-textarea')
+    await expect(composer).toBeVisible()
+    await composer.fill(OPENING_MESSAGE)
+    await composer.press('Enter')
+    await expect(page.getByText(TURN_TEXT.opening, { exact: true })).toBeVisible()
+    const runChip = page.getByTestId(`suggested-chip-${RUN_CHIP.id}`)
+    await expect(runChip).toBeEnabled()
+
+    await runChip.click({ timeout: 5_000 })
+    await expect(page.getByTestId(`coaching-line-${CARD.block_id}`)).toBeVisible({ timeout: 30_000 })
+    // Read at once, and again after the thread has settled: the first reading
+    // is "on arrival"; the second proves nothing later pulled it to the bottom.
+    const onArrival = await readReplyStart(page)
+    await settle(page)
+    const activeTab = await page.evaluate(() => document.querySelector('[data-testid^="outputs-dock-tab-"][aria-selected="true"]')?.getAttribute('data-testid') ?? null)
+    const dockMovedOffChat = activeTab !== 'outputs-dock-tab-olumi'
+    await clearNotifications(page)
+    const settled = await readReplyStart(page)
+    await page.screenshot({ path: evidencePath(`10-reply-start-in-view-${tag}.png`) })
+
+    await Promise.all(net.pending)
+    const { pending: _p, ...netSummary } = net
+    console.log(`AICWITNESS reply-start-in-view ${tag} ${JSON.stringify({ dockMovedOffChat, onArrival, settled, net: netSummary })}`)
+
+    expect(dockMovedOffChat, 'the Run kept the dock on the chat, so this is the arrival view').toBe(false)
+    expect(net.turns.map((t) => t.answeredWith)).toEqual(['opening', 'run'])
+    for (const [when, r] of [['on arrival', onArrival], ['after settling', settled]] as const) {
+      expect(r.firstSentence.found, `${when}: the first sentence is in the DOM`).toBe(true)
+      expect(r.firstSentence.allLinesInView, `${when}: every line of the first sentence is inside the thread`).toBe(true)
+      expect(r.firstSentence.hitTestable, `${when}: the first line is not covered`).toBe(true)
+      expect(r.atBottom, `${when}: the reply is taller than the thread, so it is NOT pinned to the bottom`).toBe(false)
+      expect(r.pillShown, `${when}: no "New messages" pill for the reader's own reply`).toBe(false)
+    }
+    assertNoModelCalls(net)
+  })
+}
