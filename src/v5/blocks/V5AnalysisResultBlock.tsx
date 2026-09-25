@@ -336,9 +336,20 @@ function V5AnalysisResultBlockImpl({
   // the two services stay deploy-order independent.
   const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
-  const leaderKeys = verdict.hasLeadingOption && modelLicensesComparativeClaim
+  const leaderClaimLicensed = verdict.hasLeadingOption && modelLicensesComparativeClaim
+  const leaderKeys = leaderClaimLicensed
     ? resolveLeaderKeys(block.enrichment, block.leading_option_id)
     : new Set<string>()
+
+  // ⭐ A RUN THAT MAY NOT NAME A LEADER MAY NOT CALL ITSELF "FAIRLY CONFIDENT"
+  // (#63 5821253411, OpenAI pricing run, `constraint_verdict_withheld`: the
+  // reply said the run did not establish the choice while this card said it
+  // looked fairly confident). The calibration reads robustness and one option's
+  // interval and never asks whether a comparative claim is licensed, so the
+  // CONFIDENT tier is gated on the same conjunction as the leader treatment.
+  // The hedged tiers state doubt and name no winner, so they still render.
+  const shownUncertaintyCopy =
+    uncertaintyCopy?.tier === 'confident' && !leaderClaimLicensed ? null : uncertaintyCopy
 
   // Sort so the leading option appears first and the rest descending by prob.
   //
@@ -377,12 +388,12 @@ function V5AnalysisResultBlockImpl({
         {block.summary}
       </p>
 
-      {uncertaintyCopy && (
+      {shownUncertaintyCopy && (
         <p
           className={`${typography.panelMeta} text-text-light`}
           data-testid="v5-analysis-result-uncertainty-copy"
         >
-          {uncertaintyCopy.text}
+          {shownUncertaintyCopy.text}
         </p>
       )}
 

@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Wrench } from 'lucide-react'
+import { ChevronRight, Wrench } from 'lucide-react'
 import { typography } from '@/styles/typography'
 
 interface ModelAdjustment {
@@ -301,9 +301,11 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
       ? 'Olumi adjusted 1 factor'
       : 'Olumi applied 1 adjustment'
     return (
-      <div className="rounded-lg border border-info/30 bg-panel px-3 py-2" data-testid="model-adjustments">
+      // V2 gap 35 — no blue-bordered card; the same full-width hairline every
+      // other top-level Model-tab section now uses.
+      <div className="border-b border-panel-border py-2.5" data-testid="model-adjustments">
         <div className="flex items-start gap-2">
-          <Wrench size={14} className="text-info flex-shrink-0 mt-0.5" />
+          <Wrench size={14} className="text-text-light flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className={`${typography.panelHeader} text-text-header mb-0.5`}>
               {headerCopy}
@@ -319,16 +321,20 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
     )
   }
 
-  // Multiple fixes: collapsible section (Brief 4 Task 11 — info-tinted full border)
+  // Multiple fixes: collapsible section.
+  // V2 gap 35 — no blue-bordered card; a full-width hairline, matching the
+  // other top-level Model-tab sections (`border-b … py-2.5`, split as
+  // padding-inclusive header + body below rather than one wrapping padding,
+  // since the body's own `px-3 pb-2` continues past the header unchanged).
   return (
-    <div className="rounded-lg border border-info/30 bg-panel" data-testid="model-adjustments">
+    <div className="border-b border-panel-border" data-testid="model-adjustments">
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-panel-hover transition-colors rounded-lg"
+        className="flex items-center gap-2 w-full px-3 py-2.5 text-left hover:bg-panel-hover transition-colors"
         aria-expanded={isExpanded}
       >
-        <Wrench size={14} className="text-info flex-shrink-0" />
+        <Wrench size={14} className="text-text-light flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <span className={`${typography.panelHeader} text-text-header`}>
             {/* ⚠ THE THIRD BRANCH IS NOT DEFENSIVE PADDING — it is a state the
@@ -350,11 +356,13 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
               : `Olumi applied ${adjustmentTally} ${adjustmentTally === 1 ? 'adjustment' : 'adjustments'}`}
           </span>
         </div>
-        {isExpanded ? (
-          <ChevronDown size={14} className="text-text-light" />
-        ) : (
-          <ChevronRight size={14} className="text-text-light" />
-        )}
+        {/* V2 gap 32 — one rotating chevron, not a swap between two Lucide
+            icons (the outline's own toggle and Accordion's already work
+            this way). */}
+        <ChevronRight
+          size={14}
+          className={`text-text-light transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+        />
       </button>
 
       {isExpanded && (
@@ -417,11 +425,12 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
             <span className={`${typography.panelMeta} text-text-light flex-1`}>
               {postRunRepairs.length} analysis-time {postRunRepairs.length === 1 ? 'adjustment' : 'adjustments'}
             </span>
-            {showPostRun ? (
-              <ChevronDown size={14} className="text-text-light" />
-            ) : (
-              <ChevronRight size={14} className="text-text-light" />
-            )}
+            {/* V2 gap 32 — one rotating chevron, not a swap between two
+                Lucide icons. */}
+            <ChevronRight
+              size={14}
+              className={`text-text-light transition-transform ${showPostRun ? 'rotate-90' : ''}`}
+            />
           </button>
           {showPostRun && (
             <div className="px-3 pb-2 space-y-1" id="post-run-repairs-list" data-testid="post-run-repairs-list">

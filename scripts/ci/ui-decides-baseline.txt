@@ -103,4 +103,11 @@ src/types/constraints.ts:78
 #    copy (#1957), all above this site. Line text identical
 #    (`: topFigurePercent === 100`); CI shard 2 on `ffea022e` reported added
 #    and gone as exactly this pair.)
-src/components/results/analysisNew/analysisNewCopy.ts:2463
+#    (`analysisNewCopy.ts:2463` -> `2471`, a pure +8 line shift from Panel
+#    bundle 2: copy for the blocker repair ask and #1963's tail subtitles,
+#    both above this site. Line text identical; added and gone were
+#    exactly this pair in `theUiRendersItDoesNotDecide.spec.ts`.)
+#    (`analysisNewCopy.ts:2471` -> `2472`, a pure +1 line shift: the read-back's
+#    `decisionRecord.nextActionLabel`, added above this site so the Reasoning
+#    tab does not import the record modal. Line text identical.)
+src/components/results/analysisNew/analysisNewCopy.ts:2472

@@ -92,7 +92,7 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(qualifier()).not.toBeNull()
     expect(qualifier()!.textContent).toBe('Goal only')
     expect(label()).toMatch(/your limits aren’t in this share/i)
-    expect(label()).toContain('The check against the limits you set does not support putting one option forward.')
+    expect(label()).toContain("Olumi's checks on this run do not support putting one option forward.")
   })
 
   it('ED choice 3 — ON THE SHARE LINE: `Goal only` sits in the same row as the share, after it; no second line', () => {

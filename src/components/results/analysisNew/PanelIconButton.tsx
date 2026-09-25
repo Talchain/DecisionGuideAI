@@ -64,11 +64,13 @@ export function PanelIconButton({
         onClick={onClick}
         data-testid={testId}
         data-ai={ai ? 'true' : undefined}
-        className={`relative inline-flex shrink-0 items-center justify-center w-7 h-7 min-w-[24px] min-h-[24px] rounded-md [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 ${
-          ai ? 'text-info' : 'text-text-light'
-        } hover:bg-panel-hover disabled:opacity-40 disabled:cursor-default ${
-          pressed ? 'bg-panel-hover text-text-header' : ''
-        } ${ACTION_FOCUS}`}
+        /* ⭐ V2 fidelity gap 12: a CIRCLE, an outline on hover and an info ring
+           when pressed. The old hover/pressed fill was bg-panel-hover, which
+           measures 1.038:1 against bg-panel: a selected state nobody could see.
+           No fill now, so pressed is a visible ring and colour, not a tint. */
+        className={`relative inline-flex shrink-0 items-center justify-center w-7 h-7 min-w-[24px] min-h-[24px] rounded-full [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 ${
+          pressed ? 'text-info ring-1 ring-inset ring-info' : ai ? 'text-info' : 'text-text-light'
+        } hover:ring-1 hover:ring-inset hover:ring-border-emphasis disabled:opacity-40 disabled:cursor-default disabled:hover:ring-0 ${ACTION_FOCUS}`}
       >
         {Glyph ? <Glyph className={icon('section')} aria-hidden={true} /> : null}
         {marked ? (
