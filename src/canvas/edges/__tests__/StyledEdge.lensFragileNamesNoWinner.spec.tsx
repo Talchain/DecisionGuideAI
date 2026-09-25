@@ -106,6 +106,15 @@ describe('the lens fragile-edge label names the alternative without a winner ver
     expect(text).not.toMatch(/→\s*Plan B/)
   })
 
+  it('⭐ the served row shape (composite relationship key, local edge id) resolves, in the withheld form', () => {
+    // CEE 0303ef5 pricing: drafted edges have no id (canvas `e-N`); the row's
+    // `edge_id` is the producer's `"<from>-><to>"` key (pre-review 5828017429).
+    holder.fragileEntry = { edge_id: 'src->tgt', from_id: 'src', to_id: 'tgt', switch_probability: 0.5504, alternative_winner_label: 'Keep £49 Price' }
+    const text = renderEdge()
+    expect(text).toContain('The comparison could shift towards Keep £49 Price')
+    expect(text).not.toMatch(/If wrong/)
+  })
+
   it('CONTROL — an entry with no alternative keeps the existing "Sensitive" word', () => {
     holder.fragileEntry = { edge_id: 'e-under-test', from_id: 'src', to_id: 'tgt', switch_probability: 0.85 }
     const text = renderEdge()
