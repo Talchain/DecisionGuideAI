@@ -89,13 +89,22 @@ describe('the provisional answer is on the first screen', () => {
     expect(precedes(challenge, commitment), 'challenge, then the answer').toBe(true)
     expect(within(commitment).getByTestId('analysis-new-options')).toBe(options)
 
-    // The drivers detail that used to push the chart below the fold now follows
-    // it — bounded: inside the answer zone, never sunk to the foot of the tab.
-    const whatMoves = screen.getByTestId('analysis-new-what-moves-the-outcome')
+    // V2 prototype (Paul, 25 Sep 2026): the drivers detail that used to push the
+    // chart below the fold is not on the default scroll at all. At rest only the
+    // "Assumptions and evidence" door stands in the challenge zone; the detail
+    // renders only inside that door once opened — never in the answer zone.
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    expect(challenge, 'the drivers detail left the challenge zone').not.toContainElement(whatMoves)
-    expect(answer, 'it follows the answer, inside the answer zone').toContainElement(whatMoves)
-    expect(precedes(commitment, whatMoves), 'after the commitment block').toBe(true)
+    const door = screen.getByTestId('analysis-new-signals-disclose')
+    expect(challenge, 'the door is in the challenge zone').toContainElement(door)
+    expect(door, 'the door is closed at rest').toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByTestId('analysis-new-what-moves-the-outcome'),
+      'nothing of the drivers detail sits on the default scroll',
+    ).toBeNull()
+    fireEvent.click(door)
+    const whatMoves = screen.getByTestId('analysis-new-what-moves-the-outcome')
+    expect(screen.getByTestId('analysis-new-signals'), 'it renders inside the opened door').toContainElement(whatMoves)
+    expect(answer, 'and never in the answer zone').not.toContainElement(whatMoves)
 
     // "What would change your mind" is the challenge to the answer: it stays
     // in the challenge zone, above the answer, wherever it renders.
@@ -104,10 +113,9 @@ describe('the provisional answer is on the first screen', () => {
       expect(challenge).toContainElement(sensitivity)
       expect(precedes(sensitivity, commitment), 'the challenge is read before the answer').toBe(true)
     }
-    const focus = screen.queryByTestId('analysis-new-zone-focus-group')
-    if (focus !== null) {
-      expect(precedes(answer, focus), '"Focus now" nudges come after the answer').toBe(true)
-    }
+    // V2 prototype (Paul, 25 Sep 2026): no "Focus now" block on this tab. The
+    // zones found above are this absence's contrast control.
+    expect(screen.queryByTestId('analysis-new-zone-focus-group')).toBeNull()
   })
 
   /** The fixture `AnalysisNewTabBody.spec.tsx` uses for the strip: a real engine caveat. */

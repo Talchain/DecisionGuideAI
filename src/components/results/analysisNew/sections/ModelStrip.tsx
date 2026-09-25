@@ -826,7 +826,9 @@ export function ModelStrip({
   // derivation over `strip` — on an empty strip `visible`, `narrowedIds` and
   // `narrowedKey` are all empty or null and the effect returns without writing
   // — so the move is behaviour-preserving and the render below is unchanged.
-  if (!stripHasContent(strip)) return null
+  // The review tool still renders on an empty strip: its acts (edit the brief,
+  // ask about the framing) do not depend on the census.
+  if (!stripHasContent(strip)) return reviewSlot ? <>{reviewSlot}</> : null
 
   /**
    * Resolved against the VISIBLE rows — see `activeNodeId`.

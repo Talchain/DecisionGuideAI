@@ -35,7 +35,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -103,8 +103,8 @@ const glanceOf = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefi
     nodeLabels,
   }).atAGlance
 
-const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefined = LABELS) =>
-  render(
+const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefined = LABELS) => {
+  const result = render(
     <AtAGlance
       glance={glanceOf(adm, nodeLabels)}
       isRunning={false}
@@ -113,6 +113,16 @@ const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | un
       onReanalyse={() => {}}
     />,
   )
+  // V2 prototype (Paul, 25 Sep 2026): the refusal and its parameters sit behind
+  // one door, closed at rest. Assert it was shut, then open it, so the absence
+  // cases below are read with the door OPEN and cannot pass because it is shut.
+  const door = screen.getByTestId('analysis-new-glance-withheld-toggle')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).toBeNull()
+  fireEvent.click(door)
+  expect(door).toHaveAttribute('aria-expanded', 'true')
+  return result
+}
 
 describe('the refusal names the parameters it is about', () => {
   it('renders every published name, bound by identity', () => {

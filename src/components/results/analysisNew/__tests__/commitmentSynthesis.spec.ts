@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel, type AnalysisNewViewModelInputs } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY, leaderWithholdCause } from '../analysisNewCopy'
-import {
+import { RESPOND_OR_RECORD,
   EVIDENCE_GAP_ID_PREFIX,
   buildCommitmentSynthesis,
   commitmentAskContext,
@@ -459,9 +459,19 @@ describe("bullet 3 never repeats the Challenge card's own item (V2 census B1)", 
     expect(s.before?.text).toBe('Next item')
   })
 
-  it('CONTRAST: with nothing excluded, the top item is used; with only the card item, no bullet', () => {
+  it('CONTRAST: with nothing excluded, the top item is used; with only the card item, the V2 respond-or-record line', () => {
     const vm = vmOf(genuineDecision(), { recommendations: [rec({ id: 'r1', title: 'Card item' })] })
     expect(buildCommitmentSynthesis(vm).before?.text).toBe('Card item')
-    expect(buildCommitmentSynthesis(vm, { excludeInterventionIds: ['r1'] }).before).toBeNull()
+    // V2 prototype (Paul, 25 Sep): "Before acting" still never repeats the card's
+    // item — it falls back to the always-true next move instead of vanishing.
+    const fallback = buildCommitmentSynthesis(vm, { excludeInterventionIds: ['r1'] }).before
+    expect(fallback?.source).toBe('respond_or_record')
+    expect(fallback?.text).toBe(RESPOND_OR_RECORD)
+    expect(fallback?.text).not.toContain('Card item')
+  })
+
+  it('the respond-or-record line needs a card item to point at: nothing excluded and no items, no bullet', () => {
+    const vm = vmOf(genuineDecision(), { recommendations: [] })
+    expect(buildCommitmentSynthesis(vm).before).toBeNull()
   })
 })
