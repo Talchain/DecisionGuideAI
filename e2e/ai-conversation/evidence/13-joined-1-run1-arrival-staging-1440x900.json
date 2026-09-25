@@ -1,0 +1,164 @@
+{
+  "tree": "staging",
+  "viewport": "1440x900",
+  "seeded": {
+    "nodeCount": 15,
+    "edgeCount": 30,
+    "layoutVersion": 1,
+    "pendingLayout": false,
+    "layoutInProgress": false,
+    "starterStamped": false
+  },
+  "onArrival": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 298,
+      "scrollHeight": 1006,
+      "clientHeight": 708,
+      "atBottom": true
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 2,
+    "userMessages": 2,
+    "run1Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -28,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -26,
+        "bottom": -12
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "current",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "card2": {
+      "linePresent": false,
+      "lineOpen": null,
+      "lineSummary": null,
+      "cardPresent": false,
+      "currency": null,
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": null
+    },
+    "store": {
+      "runStateKind": "complete_current",
+      "computedAt": "2026-09-24T16:47:26.848Z",
+      "currentGraphHash": "2cac03f2a47449be",
+      "currentScenarioId": "1cdbe8e9-6512-44fb-8a50-3734eb781c06"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 4,
+      "userMessagesWithSourceBlockKey": []
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "after1500ms": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 298,
+      "scrollHeight": 1006,
+      "clientHeight": 708,
+      "atBottom": true
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 2,
+    "userMessages": 2,
+    "run1Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -28,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -26,
+        "bottom": -12
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "current",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "card2": {
+      "linePresent": false,
+      "lineOpen": null,
+      "lineSummary": null,
+      "cardPresent": false,
+      "currency": null,
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": null
+    },
+    "store": {
+      "runStateKind": "complete_current",
+      "computedAt": "2026-09-24T16:47:26.848Z",
+      "currentGraphHash": "2cac03f2a47449be",
+      "currentScenarioId": "1cdbe8e9-6512-44fb-8a50-3734eb781c06"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 4,
+      "userMessagesWithSourceBlockKey": []
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "turnsSoFar": [
+    {
+      "seq": 1,
+      "phase": "before-reload",
+      "answeredWith": "opening",
+      "message": "Help me decide how to price this",
+      "chip": null,
+      "aiModeHeader": "openai"
+    },
+    {
+      "seq": 2,
+      "phase": "before-reload",
+      "answeredWith": "run1",
+      "message": "Run analysis",
+      "chip": {
+        "action_type": "run_analysis"
+      },
+      "aiModeHeader": "openai"
+    }
+  ]
+}

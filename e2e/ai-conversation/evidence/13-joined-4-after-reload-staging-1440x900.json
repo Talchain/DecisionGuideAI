@@ -1,0 +1,263 @@
+{
+  "tree": "staging",
+  "viewport": "1440x900",
+  "transcriptBeforeReload": {
+    "key": true,
+    "messageCount": 8,
+    "userMessagesWithSourceBlockKey": []
+  },
+  "restored": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 1312,
+      "scrollHeight": 1973,
+      "clientHeight": 661,
+      "atBottom": true
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 4,
+    "userMessages": 4,
+    "run1Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -1042,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -1040,
+        "bottom": -1026
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -248,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -246,
+        "bottom": -232
+      },
+      "firstSentenceInView": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "cannot_confirm",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "cannot_confirm",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "store": {
+      "runStateKind": null,
+      "computedAt": null,
+      "currentGraphHash": null,
+      "currentScenarioId": "1cdbe8e9-6512-44fb-8a50-3734eb781c06"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 9,
+      "userMessagesWithSourceBlockKey": []
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "card2Opened": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 1312,
+      "scrollHeight": 2217,
+      "clientHeight": 661,
+      "atBottom": false
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 4,
+    "userMessages": 4,
+    "run1Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -1042,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -1040,
+        "bottom": -1026
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -248,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -246,
+        "bottom": -232
+      },
+      "firstSentenceInView": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "cannot_confirm",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": true,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "cannot_confirm",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "store": {
+      "runStateKind": null,
+      "computedAt": null,
+      "currentGraphHash": null,
+      "currentScenarioId": "1cdbe8e9-6512-44fb-8a50-3734eb781c06"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 9,
+      "userMessagesWithSourceBlockKey": []
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "postReloadClick": "clicked (force)",
+  "afterPostReloadClick": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 1698,
+      "scrollHeight": 2359,
+      "clientHeight": 661,
+      "atBottom": true
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 5,
+    "userMessages": 5,
+    "run1Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -1428,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -1426,
+        "bottom": -1412
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": null,
+      "replyTopMinusScrollerTop": -634,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -632,
+        "bottom": -618
+      },
+      "firstSentenceInView": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "cannot_confirm",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": true,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "cannot_confirm",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": "true",
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "store": {
+      "runStateKind": null,
+      "computedAt": null,
+      "currentGraphHash": null,
+      "currentScenarioId": "1cdbe8e9-6512-44fb-8a50-3734eb781c06"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 11,
+      "userMessagesWithSourceBlockKey": []
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "turnPostsSentByPostReloadClick": 1,
+  "turnsSentByPostReloadClick": [
+    {
+      "seq": 5,
+      "phase": "after-reload",
+      "answeredWith": "card_action",
+      "message": "Talk me through what would change if the link from Pro subscriber base to MRR were weaker or stronger. Don't change the model or re-run anything yet.",
+      "chip": {
+        "id": "evidence-apply-1786957200000"
+      },
+      "aiModeHeader": "openai"
+    }
+  ]
+}

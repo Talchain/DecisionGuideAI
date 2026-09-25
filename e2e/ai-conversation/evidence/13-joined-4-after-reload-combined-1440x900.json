@@ -1,0 +1,260 @@
+{
+  "tree": "combined",
+  "viewport": "1440x900",
+  "transcriptBeforeReload": {
+    "key": true,
+    "messageCount": 8,
+    "userMessagesWithSourceBlockKey": [
+      "coach:3d554b1d-58fd-4b1d-b28b-b81bd548b1dd:a13b0002-0000-4000-8000-000000000002"
+    ]
+  },
+  "restored": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 1312,
+      "scrollHeight": 1973,
+      "clientHeight": 661,
+      "atBottom": true
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 4,
+    "userMessages": 4,
+    "run1Reply": {
+      "present": true,
+      "messageId": "55e6cff3-b214-4831-a5be-824748cea1a7",
+      "replyTopMinusScrollerTop": -1042,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -1040,
+        "bottom": -1026
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": "3d554b1d-58fd-4b1d-b28b-b81bd548b1dd",
+      "replyTopMinusScrollerTop": -248,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -246,
+        "bottom": -232
+      },
+      "firstSentenceInView": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_analysis",
+      "notice": "Written about an earlier analysis — re-run to check it still holds.",
+      "noticeId": ":re3:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": null,
+        "dataInert": "true",
+        "ariaDescribedBy": ":re3:"
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_analysis",
+      "notice": "Written about an earlier analysis — re-run to check it still holds.",
+      "noticeId": ":re5:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": "true",
+        "dataInert": "true",
+        "ariaDescribedBy": ":re5:"
+      }
+    },
+    "store": {
+      "runStateKind": null,
+      "computedAt": null,
+      "currentGraphHash": null,
+      "currentScenarioId": "1d7800ec-4a0c-44ad-9d98-89f1e186b8fd"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 9,
+      "userMessagesWithSourceBlockKey": [
+        "coach:3d554b1d-58fd-4b1d-b28b-b81bd548b1dd:a13b0002-0000-4000-8000-000000000002"
+      ]
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "card2Opened": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 1344,
+      "scrollHeight": 2255,
+      "clientHeight": 661,
+      "atBottom": false
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 4,
+    "userMessages": 4,
+    "run1Reply": {
+      "present": true,
+      "messageId": "55e6cff3-b214-4831-a5be-824748cea1a7",
+      "replyTopMinusScrollerTop": -1074,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -1072,
+        "bottom": -1058
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": "3d554b1d-58fd-4b1d-b28b-b81bd548b1dd",
+      "replyTopMinusScrollerTop": -280,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -278,
+        "bottom": -264
+      },
+      "firstSentenceInView": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_analysis",
+      "notice": "Written about an earlier analysis — re-run to check it still holds.",
+      "noticeId": ":re3:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": null,
+        "dataInert": "true",
+        "ariaDescribedBy": ":re3:"
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": true,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_analysis",
+      "notice": "Written about an earlier analysis — re-run to check it still holds.",
+      "noticeId": ":re5:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": "true",
+        "dataInert": "true",
+        "ariaDescribedBy": ":re5:"
+      }
+    },
+    "store": {
+      "runStateKind": null,
+      "computedAt": null,
+      "currentGraphHash": null,
+      "currentScenarioId": "1d7800ec-4a0c-44ad-9d98-89f1e186b8fd"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 9,
+      "userMessagesWithSourceBlockKey": [
+        "coach:3d554b1d-58fd-4b1d-b28b-b81bd548b1dd:a13b0002-0000-4000-8000-000000000002"
+      ]
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "postReloadClick": "clicked (force)",
+  "afterPostReloadClick": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 1344,
+      "scrollHeight": 2255,
+      "clientHeight": 661,
+      "atBottom": false
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 4,
+    "userMessages": 4,
+    "run1Reply": {
+      "present": true,
+      "messageId": "55e6cff3-b214-4831-a5be-824748cea1a7",
+      "replyTopMinusScrollerTop": -1074,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -1072,
+        "bottom": -1058
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": "3d554b1d-58fd-4b1d-b28b-b81bd548b1dd",
+      "replyTopMinusScrollerTop": -280,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -278,
+        "bottom": -264
+      },
+      "firstSentenceInView": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_analysis",
+      "notice": "Written about an earlier analysis — re-run to check it still holds.",
+      "noticeId": ":re3:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": null,
+        "dataInert": "true",
+        "ariaDescribedBy": ":re3:"
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": true,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_analysis",
+      "notice": "Written about an earlier analysis — re-run to check it still holds.",
+      "noticeId": ":re5:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": "true",
+        "dataInert": "true",
+        "ariaDescribedBy": ":re5:"
+      }
+    },
+    "store": {
+      "runStateKind": null,
+      "computedAt": null,
+      "currentGraphHash": null,
+      "currentScenarioId": "1d7800ec-4a0c-44ad-9d98-89f1e186b8fd"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 9,
+      "userMessagesWithSourceBlockKey": [
+        "coach:3d554b1d-58fd-4b1d-b28b-b81bd548b1dd:a13b0002-0000-4000-8000-000000000002"
+      ]
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "turnPostsSentByPostReloadClick": 0,
+  "turnsSentByPostReloadClick": []
+}

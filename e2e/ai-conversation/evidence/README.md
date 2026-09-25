@@ -93,3 +93,67 @@ Outside the areas above, the exact diffs are sub-threshold (max channel delta �
 Note: the outage is disclosed only on the Olumi tab. On B, the Reasoning panel and the ReanalyseBar (Model and Reasoning tabs) show an enabled run with **no** readiness-outage line. Neither component takes the readiness error as input (`ReanalyseBar` props: `canRun`, `blockedReason`, `isAnalysing`). They draw an open gate the way they draw any unknown verdict, e.g. an outage on first load. #1982 does not introduce this. On A, these same surfaces claimed a check was running when it had failed. On B they make no readiness claim.
 
 Unrelated harness behaviour seen here: `blocked-provisional` does not mount on either head (`[data-testid="pre-analysis-v3"]` not found). Under the dock-clipped tab states, the canvas fit alternates between `scale(0.5)` and `scale(0.511838)` from run to run on either head. The clipped images cannot see this. The full-viewport `fresh-draft` was stable across all five runs per viewport.
+
+## 13 — joined pre-merge witness: #1968 + #1981 + #1985 on staging 64a3b385
+
+Spec: `joinedPreMerge.witness.measure.ts`. One journey, the same script on two trees, at 1280×800 and 1440×900:
+
+- **combined** = `origin/staging` `64a3b385` + `ai-conversation/run-turn-coaching` (#1968, `b17bfbe0`) + `ai-conversation/reply-start-in-view` (#1981, `7ec4d83e`) + `ai-conversation/card-action-settled-reload` (#1985 "G1", `06648ffd`). A detached scratch tree at merge `cea2908e`, not pushed. Since then #1985's head has moved to `99576e4a`. That commit changes only the held-proposal confirm restore (`useConversation.ts` + its spec), not the coaching chip measured here. It was not re-measured.
+- **staging** = `origin/staging` `64a3b385` alone: the control.
+
+The only files added to either tree were this spec, `runChipGateFixtures.ts`, the c673223 fixture and the config. The spec asks the dev server which tree it is serving (does `transcriptStore.ts` contain `settledSourceBlockKeys`?), and refuses to measure if the answer differs from `WITNESS_TREE`.
+
+**Journey.** The whole app on `/#/canvas?ai=openai`. Every turn carried `x-olumi-ai-mode: openai`, and the dock reads "AI: OpenAI". The Olumi tab is docked, with the app's own `ConversationPanel` + `useConversation`. The canvas is the seeded `pricing-model` starter, as in 09–11.
+
+1. The opening turn, then the Run chip. **Run #1** is answered with the c673223 route body, byte for byte (sha256 re-derived).
+2. **Run #2** on the same model. The suggested Run chip is gone after a confirmed-current run (product rule `decideRunAnalysisPolish` → `suppress`; count 0 on both trees). So the Olumi tab's own "Re-run analysis" control (`ai-input-bar-strip-analyse`) is used. It sends a `run_analysis` chip turn. That turn is answered with the SAME c673223 bytes, with only the run identity moved to `2026-09-24T17:02:11.004Z`: `analysis_state.run_state.computed_at`, `analysis_ready.computed_at`, and the card's `created_at`, `signal_id` and `block_id` (`a13b0002-…0002`, harness-made). Same `graph_hash`. A test asserts that reverting those fields gives back run #1's bytes exactly.
+3. Card #2's action chip is clicked once. The reply is the harness's short "Card action received" (no `analysis_state`, the same reply 11 uses).
+4. A real `page.reload()`. The transcript is restored from localStorage. Card #2's chip is read, then force-clicked, and the turn POSTs are counted.
+- 4b. A second real reload. Then one typed turn whose harness reply restates run #2's `analysis_state`, `analysis_ready` and `graph_hash` verbatim, with no blocks. Card #2's chip is read, force-clicked and counted again. Why: after a reload the store has no `analysis_state`, because it is turn-scoped and not persisted. So on a tree with #1968, step 4's disabled chip is ALSO inert, and step 4 alone cannot credit G1. 4b removes the inert cause.
+
+**Network.** Every `/proxy/v5/turn` and `/bff/cee/graph-readiness` POST is fulfilled from a fixture. Every other `/bff` / `/api` call gets the harness's in-page 503. Every non-localhost request is aborted. **Completed off-origin requests: 0 in all four runs.** Each run attempted 3 off-origin requests, all to the Google Fonts CSS (one per page load), and all were aborted. No model or provider host was contacted or probed.
+
+Harness departure: `preparePage` clears localStorage in an init script on EVERY navigation, so a reload would wipe the transcript. `prepareOnce` in the spec is `preparePage` line for line, except that the clear runs only on the test's first navigation.
+
+### Facts (DOM read in-page; per-step JSON beside each image)
+
+"chip" = card #2's `v5-coaching-action` unless stated. ∅ = attribute absent.
+
+| Step | combined 1280×800 | combined 1440×900 | staging 1280×800 | staging 1440×900 |
+|---|---|---|---|---|
+| **1** Run #1 on arrival: first sentence in the thread's visible band? | **yes**. `scrollTop 258`/1006, not at bottom; reply top +12 px, first line +14…+28 px | **yes**. `scrollTop 258`/1006; reply top +12 px | **no**. `scrollTop 398` (pinned to bottom); reply top **−128 px**, first line −126…−112 | **no**. `scrollTop 298` (bottom); reply top **−28 px**, first line −26…−12 |
+| 1, after 1.5 s | unchanged (258, in view) | unchanged | unchanged (398, out of view) | unchanged (298, out of view) |
+| **2** Run #2 on arrival (same reading) | in view: `scrollTop 1052`/1800, reply top +12 | in view: `scrollTop 1052`/1800, reply top +12 | out of view: `scrollTop 1192` (bottom), reply top −128 | out of view: `scrollTop 1092` (bottom), reply top −28 |
+| **2** card #1 after run #2 (store `complete_current` @ 17:02:11.004Z, hash unchanged) | `data-currency="changed"`, `data-run-turn-reason="earlier_run"`, notice **"Written about an earlier run of this model — the latest run may point somewhere else."**, chip `disabled`, `data-inert="true"`, `aria-describedby` = the notice | same | `data-currency="current"`, **no notice, chip live** (`disabled=false`) | same |
+| 2 card #2 | current, no notice, chip live | same | same | same |
+| **3** click card #2's chip | 1 card-action turn. Chip `disabled`, **`data-settled="true"`**, also `data-inert="true"` (see finding B). Transcript saves `sourceBlockKey coach:<turn>:a13b0002-…` | same | 1 turn. Chip `disabled`, `data-settled="true"`, currency still current. Transcript saves no key | same |
+| **4** after reload: card #2's chip | `disabled`, **`data-settled="true"`**, `data-inert="true"`, notice "Written about an earlier analysis — re-run to check it still holds." (store: no verdict) | same | **live again**: `disabled=false`, `data-settled` ∅, `data-currency="cannot_confirm"`, no notice | same |
+| 4 card #1 (never clicked) | `disabled`, `data-settled` ∅, `data-inert="true"`, "earlier analysis" notice | same | live, `cannot_confirm` | same |
+| **4** force-click card #2 after reload | **0 turn POSTs** | **0** | **1 turn POST** (a second `card_action`, same prompt) | **1** |
+| **4b** second reload, verdict restated: card #2 | `data-currency="current"`, no notice, `data-inert` ∅, **`disabled`, `data-settled="true"`**. The transcript alone holds it | same | current, **live**, `data-settled` ∅ | same |
+| 4b card #1 | `earlier_run` notice again, inert, `data-settled` ∅ | same | current, live | same |
+| **4b** force-click card #2 | **0 turn POSTs** | **0** | **1 turn POST** | **1** |
+| Turns fulfilled (in order) | opening, run1, run2, card_action, [reload], [reload] restate | same | opening, run1, run2, card_action, [reload] **card_action**, [reload] restate, **card_action** | same |
+
+Images per tree and viewport: `13-joined-1-run1-arrival-*`, `13-joined-2-run2-arrival-*`, `13-joined-2-later-run-card1{,-crop}-*`, `13-joined-3-card2-action-clicked{,-crop}-*`, `13-joined-4-after-reload-card2{,-crop}-*`, `13-joined-4b-verdict-restated-card2{,-crop}-*`. JSON: `13-joined-{1-run1-arrival,2-later-run,3-card-action,4-after-reload,4b-verdict-restated}-*.json` and `13-joined-network-*.json`.
+
+### Verdict
+
+The combined tree shows each fixed behaviour at both viewports:
+- #1981: both Run replies open at their first sentence.
+- #1968: the earlier run's card has the notice and its action is disabled.
+- G1: the taken action stays settled across reloads, and a click sends 0 turns. 4b shows this with the card current and not inert.
+
+Staging shows each defect:
+- The replies are pinned to the bottom.
+- The earlier run's card looks current and its action is live.
+- After a reload the taken action is live again, and one click sends a duplicate turn, twice in this journey.
+
+### Findings to read alongside the table
+
+- **A. Overlap between #1968 and G1 after any reload.** `analysis_state` is turn-scoped and is not persisted. After a reload, every run-turn card on the combined tree reads "Written about an earlier analysis — re-run to check it still holds." with its action inert. This lasts until the next turn restates a verdict. It happens even when the card IS about the latest run: card #2 in step 4. Card #1 also loses its more specific "earlier run" reason until then. G1's `data-settled` is present underneath, but in step 4 it is not what the user sees. This is #1968's fail-closed rule (b) (`classifyRunTurn`: no `complete_current` → `earlier_analysis`), not G1.
+- **B. A verdict-less turn flips the current card.** In step 3 the harness's card-action reply carries no `analysis_state`. `applyV5State` CLEARS the verdict on absence, by contract. So on the combined tree, card #2 changes from "current" to "Written about an earlier analysis…" the moment its own reply lands, and card #1 changes from "earlier run" to "earlier analysis". Whether users see this depends on CEE stamping `analysis_state` on every turn, as the applicator's comments say it does. The harness replies (as in 11) do not.
+- **C. The settled chip does not explain itself.** In 4b, card #2's chip is greyed and disabled with no notice and no `aria-describedby`. The only record of the action is the user bubble above it.
+- **D. Staging after a reload.** Staging's cards read `data-currency="cannot_confirm"` but render no notice and a live action.
+
+Re-run: `WITNESS_TREE=combined|staging GEOMETRY_PORT=5301 WITNESS_OUT_DIR=<dir> PW_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm exec playwright test -c playwright.aiconversation.config.ts joinedPreMerge`

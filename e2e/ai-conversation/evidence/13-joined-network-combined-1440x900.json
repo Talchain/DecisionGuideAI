@@ -1,0 +1,65 @@
+{
+  "tree": "combined",
+  "viewport": "1440x900",
+  "offOriginAttempted": [
+    "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap"
+  ],
+  "offOriginAborted": [
+    "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap",
+    "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap"
+  ],
+  "offOriginCompleted": 0,
+  "turns": [
+    {
+      "seq": 1,
+      "phase": "before-reload",
+      "answeredWith": "opening",
+      "message": "Help me decide how to price this",
+      "chip": null,
+      "aiModeHeader": "openai"
+    },
+    {
+      "seq": 2,
+      "phase": "before-reload",
+      "answeredWith": "run1",
+      "message": "Run analysis",
+      "chip": {
+        "action_type": "run_analysis"
+      },
+      "aiModeHeader": "openai"
+    },
+    {
+      "seq": 3,
+      "phase": "before-reload",
+      "answeredWith": "run2",
+      "message": "Run analysis",
+      "chip": {
+        "action_type": "run_analysis"
+      },
+      "aiModeHeader": "openai"
+    },
+    {
+      "seq": 4,
+      "phase": "before-reload",
+      "answeredWith": "card_action",
+      "message": "Talk me through what would change if the link from Pro subscriber base to MRR were weaker or stronger. Don't change the model or re-run anything yet.",
+      "chip": {
+        "id": "evidence-apply-1786957200000"
+      },
+      "aiModeHeader": "openai"
+    },
+    {
+      "seq": 5,
+      "phase": "after-second-reload",
+      "answeredWith": "restate",
+      "message": "Is the latest run still current?",
+      "chip": null,
+      "aiModeHeader": "openai"
+    }
+  ],
+  "readinessServed": 5,
+  "totalRequests": 3875
+}

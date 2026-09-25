@@ -1,0 +1,199 @@
+{
+  "tree": "combined",
+  "viewport": "1280x800",
+  "suggestedRunChipAfterRun1": 0,
+  "rerunControl": {
+    "testId": "ai-input-bar-strip-analyse",
+    "ariaLabel": "Re-run analysis"
+  },
+  "run2OnArrival": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 1052,
+      "scrollHeight": 1800,
+      "clientHeight": 608,
+      "atBottom": false
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 3,
+    "userMessages": 3,
+    "run1Reply": {
+      "present": true,
+      "messageId": "b0e70d75-9233-464f-9a86-ab52e594ed4d",
+      "replyTopMinusScrollerTop": -782,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -780,
+        "bottom": -766
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": "5d8f8903-f52e-4264-affd-3a7db52deac2",
+      "replyTopMinusScrollerTop": 12,
+      "replyTopInsideBand": true,
+      "firstSentenceLineFromScrollerTop": {
+        "top": 14,
+        "bottom": 28
+      },
+      "firstSentenceInView": true
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_run",
+      "notice": "Written about an earlier run of this model — the latest run may point somewhere else.",
+      "noticeId": ":rjf:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": null,
+        "dataInert": "true",
+        "ariaDescribedBy": ":rjf:"
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "current",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "store": {
+      "runStateKind": "complete_current",
+      "computedAt": "2026-09-24T17:02:11.004Z",
+      "currentGraphHash": "2cac03f2a47449be",
+      "currentScenarioId": "7eaff7e6-cc0f-4770-8aba-768142f78746"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 6,
+      "userMessagesWithSourceBlockKey": []
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "card1Opened": {
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "scroll": {
+      "scrollTop": 611,
+      "scrollHeight": 2082,
+      "clientHeight": 608,
+      "atBottom": false
+    },
+    "newMessagesPill": false,
+    "assistantMessages": 3,
+    "userMessages": 3,
+    "run1Reply": {
+      "present": true,
+      "messageId": "b0e70d75-9233-464f-9a86-ab52e594ed4d",
+      "replyTopMinusScrollerTop": -341,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": -339,
+        "bottom": -325
+      },
+      "firstSentenceInView": false
+    },
+    "run2Reply": {
+      "present": true,
+      "messageId": "5d8f8903-f52e-4264-affd-3a7db52deac2",
+      "replyTopMinusScrollerTop": 735,
+      "replyTopInsideBand": false,
+      "firstSentenceLineFromScrollerTop": {
+        "top": 737,
+        "bottom": 751
+      },
+      "firstSentenceInView": false
+    },
+    "card1": {
+      "linePresent": true,
+      "lineOpen": true,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "changed",
+      "runTurnReason": "earlier_run",
+      "notice": "Written about an earlier run of this model — the latest run may point somewhere else.",
+      "noticeId": ":rjf:",
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": true,
+        "dataSettled": null,
+        "dataInert": "true",
+        "ariaDescribedBy": ":rjf:"
+      }
+    },
+    "card2": {
+      "linePresent": true,
+      "lineOpen": false,
+      "lineSummary": "Pressure-test a sensitive link",
+      "cardPresent": true,
+      "currency": "current",
+      "runTurnReason": null,
+      "notice": null,
+      "noticeId": null,
+      "chip": {
+        "text": "Pressure-test this link",
+        "disabled": false,
+        "dataSettled": null,
+        "dataInert": null,
+        "ariaDescribedBy": null
+      }
+    },
+    "store": {
+      "runStateKind": "complete_current",
+      "computedAt": "2026-09-24T17:02:11.004Z",
+      "currentGraphHash": "2cac03f2a47449be",
+      "currentScenarioId": "7eaff7e6-cc0f-4770-8aba-768142f78746"
+    },
+    "transcript": {
+      "key": true,
+      "messageCount": 6,
+      "userMessagesWithSourceBlockKey": []
+    },
+    "aiModeLabel": "AI: OpenAI"
+  },
+  "turnsSoFar": [
+    {
+      "seq": 1,
+      "phase": "before-reload",
+      "answeredWith": "opening",
+      "message": "Help me decide how to price this",
+      "chip": null,
+      "aiModeHeader": "openai"
+    },
+    {
+      "seq": 2,
+      "phase": "before-reload",
+      "answeredWith": "run1",
+      "message": "Run analysis",
+      "chip": {
+        "action_type": "run_analysis"
+      },
+      "aiModeHeader": "openai"
+    },
+    {
+      "seq": 3,
+      "phase": "before-reload",
+      "answeredWith": "run2",
+      "message": "Run analysis",
+      "chip": {
+        "action_type": "run_analysis"
+      },
+      "aiModeHeader": "openai"
+    }
+  ]
+}
