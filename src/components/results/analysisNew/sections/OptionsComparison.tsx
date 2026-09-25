@@ -216,6 +216,24 @@ import {
 const RANGE_LENS_ARMS = ['cautious', 'middle', 'optimistic'] as const
 type RangeLensArm = (typeof RANGE_LENS_ARMS)[number]
 
+/**
+ * ⭐ FOUR EVENLY-SPACED POINTS ACROSS THE SHARED DOMAIN, prototype-matched
+ * (`chartHTML()` prints four ticks). `0` and `1` are the domain's own bounds,
+ * so the end ticks always land on the same values the range bands are
+ * fractioned against (`toFraction` in the row below).
+ */
+const AXIS_TICK_FRACTIONS = [0, 1 / 3, 2 / 3, 1] as const
+
+/**
+ * ⛔ NO UNIT SYMBOL. See the call site's note: `outcomeRange` carries no unit,
+ * so this prints the scale's own number and nothing else — never a `%`, `$`
+ * or any other symbol this surface was not given.
+ */
+function formatAxisTick(value: number): string {
+  const rounded = Math.round(value * 100) / 100
+  return rounded.toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
   /**
@@ -485,6 +503,34 @@ export function OptionsComparison({
    * the three cannot drift onto three different readings of "is a range drawn".
    */
   const showAxis = lens === 'outcome' && rangeScale !== null
+
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): THE AXIS ROW'S OWN TICK
+   * LABELS, so a withheld run's ranges can be READ rather than only seen. The
+   * prototype (`Olumi_Reasoning_Prototype_V2.html`, `chartHTML()`) prints four
+   * ticks — `0%`, `10%`, `20%`, `30%` — under the rows; before this the info
+   * button sat alone with no scale to read the bands against.
+   *
+   * ⛔⛔ NOT A PERCENTAGE, AND NOT A POINT FIGURE. `outcomeRange` carries no
+   * unit — PanelFigure's own rule 3 ("THE FIGURE CLAIMS NOTHING IN UNITS",
+   * `PanelFigure.tsx:51-56`), this file's own range-band note ("PRESENTATIONAL
+   * ONLY, AND IT MAKES NO CLAIM IN UNITS", above at the range's render site)
+   * and `analysisNewTypes.ts:640-644` (a captured real run whose values are
+   * `-0.163` / `0.027` / `0.211`, not percentages) all document the same
+   * producer gap: the outcome may be currency, a count or a normalised scale,
+   * and this surface is never told which. Printing "0% 10% 20% 30%" here would
+   * be exactly the fabrication those three sites refuse — a unit invented
+   * where none was sent. So these four ticks are the SCALE'S OWN VALUES,
+   * spread evenly across the shared domain (`rangeScale.lo` .. `.hi`), plain
+   * numbers with no appended symbol — readable against the bands without
+   * claiming a unit the producer never gave. Reported, not silently narrowed:
+   * see the PR description for the same finding against the per-option point
+   * figure this wave does NOT add for the identical reason.
+   */
+  const axisTicks: readonly string[] | null =
+    showAxis && rangeScale !== null
+      ? AXIS_TICK_FRACTIONS.map((f) => formatAxisTick(rangeScale.lo + f * rangeScale.span))
+      : null
 
   /**
    * ⭐⭐ THE PROVENANCE SENTENCE, SAID ONCE WHEN SEVERAL OPTIONS SHARE IT.
@@ -1059,7 +1105,23 @@ export function OptionsComparison({
               `showAxis` alone, never on the row, so this button's own
               presence/absence is unchanged by the merge. */}
           {showAxis ? (
-            <span className="-my-1.5 shrink-0" data-testid={`${testId}-axis`}>
+            <span className="-my-1.5 flex shrink-0 items-center gap-2" data-testid={`${testId}-axis`}>
+              {/* ⭐⭐ WAVE 2: THE SCALE ITSELF, so the bands above can be READ
+                  rather than only seen — see `axisTicks`'s own note for why
+                  these are plain numbers and never a `%`. */}
+              {axisTicks !== null ? (
+                <span
+                  className={`${typography.panelMeta} text-text-light flex items-center gap-2 tabular-nums`}
+                  data-testid={`${testId}-axis-ticks`}
+                  aria-hidden="true"
+                >
+                  {axisTicks.map((tick, i) => (
+                    <span key={i} data-testid={`${testId}-axis-tick-${i}`}>
+                      {tick}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
               <PanelIconButton
                 Icon={Info}
                 label={COPY.optionFigures.rangeLegend(rangeAppetite)}
