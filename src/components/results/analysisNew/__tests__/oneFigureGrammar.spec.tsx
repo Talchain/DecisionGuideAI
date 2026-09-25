@@ -78,6 +78,11 @@ describe('rule 2 — a marker never leaves its track', () => {
    * ⚠ BOTH EXTREMES, because a range figure's domain is defined by them, so
    * these are the positions that occur on EVERY run rather than rare ones.
    */
+  // ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 13/20): the marker grew
+  // from a 6px dark tick to an 11px option-coloured dot (a dot the range band
+  // it sits on actually reads as, rather than a tick in a different ink), so
+  // `FIGURE_MARKER_W` moved from 6 to 11 and the clamp's own offsets moved
+  // with it: half of 11 is 5.5, and the far bound is `100% - 11px`.
   it.each([
     ['the low extreme', 0],
     ['the high extreme', 1],
@@ -85,13 +90,13 @@ describe('rule 2 — a marker never leaves its track', () => {
   ])('%s is clamped inside the track', (_name, fraction) => {
     const css = markerLeft(fraction)
     expect(css.startsWith('clamp(0px,'), `must not go below 0: ${css}`).toBe(true)
-    expect(css.endsWith('calc(100% - 6px))'), `must not exceed the track: ${css}`).toBe(true)
+    expect(css.endsWith('calc(100% - 11px))'), `must not exceed the track: ${css}`).toBe(true)
   })
 
   it('PRECONDITION: the unclamped expression really would overhang', () => {
-    // Without the clamp the low extreme is `calc(0% - 3px)` — half a 6px marker
-    // outside its own track. This asserts the offset the clamp is protecting.
-    expect(markerLeft(0)).toContain('calc(0% - 3px)')
+    // Without the clamp the low extreme is `calc(0% - 5.5px)` — half an 11px
+    // marker outside its own track. This asserts the offset the clamp protects.
+    expect(markerLeft(0)).toContain('calc(0% - 5.5px)')
   })
 
   it('places the marker only when there is one', () => {

@@ -10,6 +10,7 @@ import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
+import { useAnchorRailFloorStore, selectAtOrAboveIconLegibleZoom } from './shared/anchorRailFloor'
 import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
@@ -158,14 +159,17 @@ import {
   type OptionSetLike,
 } from './shared/optionChangeRows'
 import {
+  buildOptionNeedsInputTargetRow,
   buildOptionTargetRow,
   resolveBaselineOptionReference,
   resolveOptionTargets,
+  resolveUnsetOptionTargets,
   type CeeOptionTargetsLike,
   type TargetNodeLike,
 } from './shared/optionTargetDisplay'
 import { NodeRailIcon } from './shared/NodeRailIcons'
-import { OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
@@ -1115,8 +1119,8 @@ export const OptionNode = memo((props: NodeProps) => {
    * then `+N more` from the one total. Olumi-chosen targets stay marked `est.`.
    * Nothing here grows on selection.
    */
-  const optionSet = useMemo<OptionSetLike[]>(() => {
-    const out: OptionSetLike[] = []
+  const optionSet = useMemo<Array<OptionSetLike & { unsetSources: ReadonlyMap<string, string | null> }>>(() => {
+    const out: Array<OptionSetLike & { unsetSources: ReadonlyMap<string, string | null> }> = []
     for (const n of nodes) {
       if (n.type !== 'option' && n.data?.type !== 'option') continue
       const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
@@ -1130,7 +1134,12 @@ export const OptionNode = memo((props: NodeProps) => {
         n.data as Record<string, unknown> | undefined,
         ceeOpt as CeeOptionTargetsLike | undefined,
       )
-      out.push({ id: n.id, isBaseline, targets })
+      // Row 22: the targets it NAMES with no value — kept, as `Needs input` rows.
+      const unset = resolveUnsetOptionTargets(
+        n.data as Record<string, unknown> | undefined,
+        ceeOpt as CeeOptionTargetsLike | undefined,
+      )
+      out.push({ id: n.id, isBaseline, targets, unsetTargets: new Set(unset.keys()), unsetSources: unset })
     }
     return out
   }, [nodes, ceeAnalysisReady])
@@ -1138,15 +1147,16 @@ export const OptionNode = memo((props: NodeProps) => {
   const changeRows = useMemo(() => {
     if (isBaselineOption) return []
     const me = optionSet.find(o => o.id === props.id)
-    if (!me || me.targets.size === 0) return []
+    if (!me || (me.targets.size === 0 && me.unsetSources.size === 0)) return []
     const modelOrder = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor').map(n => n.id)
     const order = sharedChangeOrder(optionSet, modelOrder)
-    return fitRowsToBudget(rowFactorIdsFor(me, order).map(fid => buildOptionTargetRow({
-      factorId: fid,
-      target: me.targets.get(fid)!,
-      factorNode: nodes.find(n => n.id === fid) as TargetNodeLike | undefined,
-      baselineReference: baselineOptionReference,
-    })))
+    return fitRowsToBudget(rowFactorIdsFor(me, order).map(fid => {
+      const factorNode = nodes.find(n => n.id === fid) as TargetNodeLike | undefined
+      const target = me.targets.get(fid)
+      return target
+        ? buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: baselineOptionReference })
+        : buildOptionNeedsInputTargetRow({ factorId: fid, factorNode, source: me.unsetSources.get(fid) ?? null })
+    }))
   }, [isBaselineOption, optionSet, props.id, nodes, baselineOptionReference])
   const changeRowsMore = moreCount(totalInterventionCount, changeRows.length)
   // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.
@@ -1157,7 +1167,18 @@ export const OptionNode = memo((props: NodeProps) => {
   // the popover, which is portalled outside the React Flow transform
   // (`--canvas-label-scale` resolves to 1 there at every rung), so it is always
   // the contract grid — a rung-dependent stack would be moot.
-  const rowsStacked = !useCanvasStore(selectRestingGlyphsShown)
+  //
+  // ⛔ NOT THE RUNG ALONE ANY MORE (24 Sep 2026). Paul's ruling "the landing view
+  // counts as Normal zoom" (gap-audit row 3) moved the `full` floor to 0.5, so
+  // landing is now `full` and the resting ICONS show there. It did not rule on
+  // row layout, and the grid at landing is the MEASURED defect this switch exists
+  // for: at scale 2 the label column is ~45px and "Germany market…" wraps to four
+  // lines (OptionNode.landingRowsStack.spec header). So the rows keep the grid
+  // only at or above the OLD Normal floor (`ICON_LEGIBLE_ZOOM`), exactly as
+  // before the ruling; below it they stack.
+  const atNormalRung = useCanvasStore(selectRestingGlyphsShown)
+  const atOrAboveIconLegibleZoom = useAnchorRailFloorStore(selectAtOrAboveIconLegibleZoom)
+  const rowsStacked = !(atNormalRung && atOrAboveIconLegibleZoom)
 
   /**
    * ⭐⭐ THE DIFFERENTIATOR DE-DUPLICATION IS RETIRED — Paul, 10 Sep 2026:
@@ -1857,7 +1878,7 @@ export const OptionNode = memo((props: NodeProps) => {
         OPTION_RESULT_COPY.sentence(winReadout.formatted),
         shareIsGoalOnly ? leaderWithholdCause('constraint_verdict_withheld') : null,
         runCurrency === 'changed'
-          ? OPTION_RESULT_COPY.changedNote
+          ? `${OPTION_RESULT_COPY.changedNote} ${OPTION_RESULT_COPY.noNewComparisonNote}`
           : runCurrency === 'current'
             ? null
             : OPTION_RESULT_COPY.unconfirmedNote,
@@ -1886,7 +1907,10 @@ export const OptionNode = memo((props: NodeProps) => {
    * that mark sits inside the line's single accessible name rather than being
    * announced on its own.
    */
-  const changeRowSentence = (r: OptionChangeRow, withEstimate = false): string => [
+  const changeRowSentence = (r: OptionChangeRow, withEstimate = false): string => r.needsInput
+    // Row 22: no target to describe, attribute or compare — say only the gap.
+    ? `${r.fullLabel}: ${r.fullChange}. This option names this factor but sets no target value yet.`
+    : [
     `${r.fullLabel}: ${r.fullChange}.`,
     r.reference === 'baseline_option' && baselineOptionReference
       ? `From ${baselineOptionReference.label} (the baseline option).`
@@ -1938,7 +1962,18 @@ export const OptionNode = memo((props: NodeProps) => {
                   a direction-only row and a same-as-baseline row render
                   `r.change` whole, exactly as before. The dd's text is
                   byte-identical to `r.change` either way. */}
-              {r.before !== undefined && r.after !== undefined ? (
+              {r.needsInput ? (
+                /* Row 22 (contract v3 §02): the amount cell of a target the
+                   option names with no value is the state word — no mark,
+                   because there is no target to attribute. */
+                <span
+                  className={STATE_WORD_CLASSES}
+                  style={STATE_WORD_STYLE}
+                  data-testid={`option-change-row-needs-input-${props.id}-${r.factorId}`}
+                >
+                  {r.change}
+                </span>
+              ) : r.before !== undefined && r.after !== undefined ? (
                 <>
                   <span
                     className="text-text-light"
@@ -1960,7 +1995,7 @@ export const OptionNode = memo((props: NodeProps) => {
                   the cluster never wraps apart, and every mark — `est.`
                   included — is the factor card's muted italic mark with an
                   accessible name. */}
-              {' '}
+              {!r.needsInput && (<>{' '}
               <span
                 className="whitespace-nowrap"
                 data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
@@ -1975,7 +2010,7 @@ export const OptionNode = memo((props: NodeProps) => {
                     : `option-change-row-source-${props.id}-${r.factorId}`}
                   title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
                 />
-              </span>
+              </span></>)}
             </dd>
           </Fragment>
         ))}
@@ -2041,6 +2076,18 @@ export const OptionNode = memo((props: NodeProps) => {
       {/* Value + mark: may WRAP when the value alone exceeds the line (values
           wrap, never clip); never shrinks while the label still has width to
           give, because the label's flex basis is 0. */}
+      {primaryChangeRow.needsInput ? (
+        /* Row 22: the option's top row names a factor with no target — the
+           line states the gap in the value's place, with no mark. */
+        <span
+          className={STATE_WORD_CLASSES}
+          style={STATE_WORD_STYLE}
+          aria-hidden="true"
+          data-testid={`option-primary-change-needs-input-${props.id}`}
+        >
+          {primaryChangeRow.change}
+        </span>
+      ) : (
       <span className="min-w-0 break-words text-text-body" aria-hidden="true">
         <span data-testid={`option-primary-change-value-${props.id}`}>{primaryChange.value}</span>
         {' '}
@@ -2053,6 +2100,7 @@ export const OptionNode = memo((props: NodeProps) => {
           />
         </span>
       </span>
+      )}
       <span
         className={`${TRUNCATING_LABEL_CLASS} flex-1 text-text-light`}
         aria-hidden="true"
@@ -2082,6 +2130,47 @@ export const OptionNode = memo((props: NodeProps) => {
   const baselineMetaInPreview = isBaselineOption && !isDetailed && runLineRenders
 
   /**
+   * ⭐ ROW 22 (contract v3 §02): "Reference for the other alternatives." — said
+   * only of the ONE DECLARED baseline (`is_baseline === true`, and no other
+   * option declares it), the option the others are read against. A label that
+   * merely looks like a status quo declares nothing, and two declared
+   * baselines leave no single reference (`resolveBaselineOptionReference`'s
+   * rule). It rides with the baseline meta: inline in Detailed, in the popover
+   * in Standard — the card's ONE line stays the meta (ED 5809278282).
+   */
+  const isDeclaredReference =
+    (props.data as { is_baseline?: unknown } | undefined)?.is_baseline === true &&
+    nodes.filter(n => (n.type === 'option' || n.data?.type === 'option') && n.data?.is_baseline === true).length === 1
+  const baselineReference = isDeclaredReference ? (
+    <p
+      className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+      data-testid={`option-baseline-reference-${props.id}`}
+    >
+      {OPTION_BASELINE_REFERENCE}
+    </p>
+  ) : null
+
+  /**
+   * ⭐ ROW 22 (contract v3 §02): the stale option state, "Last run · no new
+   * comparison yet". Only on the composed `'changed'` verdict (the same
+   * `useRunCurrency` the share caption reads) — never on cannot-confirm, where
+   * no "last run" may be manufactured (ED 02:31Z). The last run's result is NOT
+   * replaced: the card keeps `Last run` + share (ED 11:52Z point 8); this line
+   * adds that no comparison of the current model exists yet. Inline in
+   * Detailed; in the popover in Standard (the card's ONE line, ED 5809278282),
+   * and in the share line's accessible name and tooltip.
+   */
+  const staleStateShown = isPostAnalysis && runCurrency === 'changed'
+  const staleStateLine = staleStateShown ? (
+    <p
+      className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
+      data-testid={`option-stale-state-${props.id}`}
+    >
+      {OPTION_RESULT_COPY.lastRunNoNewComparison}
+    </p>
+  ) : null
+
+  /**
    * ⭐ MOVE, DON'T DELETE — the S3 detail the card body no longer carries, at the
    * top of the option's popover in BOTH phases (Standard view): the change rows
    * (grid, marks, `+N more` → inspector), the differentiator's full sentence,
@@ -2089,8 +2178,9 @@ export const OptionNode = memo((props: NodeProps) => {
    * rather than inside `preAnalysisPopoverContent` / `layer2Content`, whose
    * several return branches would each need a copy.
    */
-  const restingDetailInPreview = !isDetailed && (changeRows.length > 0 || differentiatorRenders || baselineMetaInPreview) ? (
+  const restingDetailInPreview = !isDetailed && (changeRows.length > 0 || differentiatorRenders || baselineMetaInPreview || baselineReference !== null || staleStateLine !== null) ? (
     <div className="mb-1" data-testid={`option-preview-detail-${props.id}`}>
+      {staleStateLine}
       {changeRows.length > 0 && renderChangeRows('grid', 'preview')}
       {differentiatorRenders && differentiator && (
         <p
@@ -2101,6 +2191,7 @@ export const OptionNode = memo((props: NodeProps) => {
         </p>
       )}
       {baselineMetaInPreview && baselineMeta}
+      {baselineReference}
     </div>
   ) : null
 
@@ -2307,6 +2398,8 @@ export const OptionNode = memo((props: NodeProps) => {
         {isDetailed && changeRows.length > 0 && renderChangeRows(rowsStacked ? 'stacked' : 'grid')}
         {primaryChangeLine}
         {baselineMetaOnCard && baselineMeta}
+        {/* Row 22: Detailed carries the reference sentence inline (Standard: popover). */}
+        {baselineMetaOnCard && isDetailed && baselineReference}
 
         {/* Pre-analysis: structured deltas — one ROW per change.
             ⭐ THIS REPLACED WRAPPING PILLS, AND THE MEASUREMENT IS THE REASON.
@@ -2500,6 +2593,8 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
           </Tooltip>
         )}
+        {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
+        {isDetailed && staleStateLine}
 
         {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.
             Mutually exclusive with the readout above by construction, not by a

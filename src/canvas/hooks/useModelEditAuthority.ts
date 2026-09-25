@@ -146,6 +146,8 @@ import {
   goalTargetBoundPhrase,
   manualGoalTargetMessage,
 } from '../conversation/manualGoalTarget'
+import { buildGoalTargetEditEvent, GOAL_TARGET_EDIT_ENABLED } from '../conversation/goalTargetEdit'
+import { statedTargetNumber } from '../domain/goalTarget'
 import type { ConstraintType } from '../../v5/chipParameters'
 import {
   buildOptionInterventionEditEvent,
@@ -397,8 +399,30 @@ export interface ModelEditAuthorityLive {
     unit: string,
     scenarioId: string | null,
     direction: ConstraintType,
+    /**
+     * ⭐ ONLY EVER INVOKED WHEN `GOAL_TARGET_EDIT_ENABLED` IS TRUE.
+     * `goalTargetEdit.ts`'s typed carrier reports a real send settlement
+     * (`settleSystemEventSend`); the `add_constraint` path this authority
+     * still takes while the flag is `false` is LLM-mediated and has no
+     * settlement to report — passing `opts` there is inert, never a silent
+     * behaviour change, so existing callers that omit it are unaffected.
+     */
+    opts?: {
+      onSendSettled?: (
+        settlement: SystemEventSendSettlement,
+        detail: SystemEventSendSettlementDetail,
+      ) => void
+    },
   ) => 'dispatched' | 'not_encodable'
-  proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
+  proposeFactorValue: (
+    typedValue: number,
+    /**
+     * Reports how the dispatched send settled (`settleSystemEventSend`), so a
+     * surface can say "Not saved" on a refusal instead of guessing. Called
+     * only on the `'dispatched'` path, exactly once.
+     */
+    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+  ) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
    *
@@ -480,11 +504,54 @@ export function useModelEditAuthority(
 
   const proposeGoalTarget = useCallback((
     draft: string, unit: string, scenarioId: string | null, direction: ConstraintType,
+    opts?: {
+      onSendSettled?: (
+        settlement: SystemEventSendSettlement,
+        detail: SystemEventSendSettlementDetail,
+      ) => void
+    },
   ) => {
     const state = useCanvasStore.getState()
     const node = state.nodes.find(n => n.id === activeNodeId)
-    if (!node || resolveNodeTypeLiteral(node) !== 'goal' || !dispatchAction ||
+    if (!node || resolveNodeTypeLiteral(node) !== 'goal' ||
         !scenarioId || state.currentScenarioId !== scenarioId) return 'not_encodable' as const
+
+    // ⭐⭐ THE TYPED CARRIER — dormant until `GOAL_TARGET_EDIT_ENABLED` flips
+    // true (see `goalTargetEdit.ts`'s header; CEE has not shipped a reader).
+    // Mirrors `proposeOptionIntervention`'s discipline on this exact surface:
+    // NO LOCAL ECHO (the goal draft never changes the store before a real
+    // applied response, same as the `add_constraint` path below), and the
+    // send SETTLES through `settleSystemEventSend` so a caller can report
+    // sent / not recorded / may-not-be-recorded rather than one static
+    // "dispatched" sentence for every outcome.
+    if (GOAL_TARGET_EDIT_ENABLED) {
+      if (!sendSystemEvent) return 'not_encodable' as const
+      const value = statedTargetNumber(draft)
+      if (value === null) return 'not_encodable' as const
+      const built = buildGoalTargetEditEvent({
+        goalNodeId: node.id,
+        constraintType: direction,
+        rawValue: value,
+        unit,
+        baseGraphHash: state.lastServerGraphHash,
+      })
+      // ⚠ `needs_fresh_base` IS FOLDED INTO `not_encodable` HERE, AND THAT IS A
+      // SCOPE DECISION, NOT AN OVERSIGHT. `proposeOptionIntervention` splits
+      // it out because its OWN outcome union was built to carry it. This
+      // authority's `proposeGoalTarget` return type predates that split and
+      // its one caller (`SuccessTargetLine` → `GoalPanel`'s
+      // `GOAL_TARGET_RECEIPT`) has no slot for a sixth member — widening the
+      // pane's whole outcome vocabulary is out of this change's scope. The
+      // caller still gets an honest refusal, never a fabricated dispatch.
+      if (!built.ok) return 'not_encodable' as const
+      settleSystemEventSend(
+        sendSystemEvent(built.event, { deferIfBusy: false }),
+        opts?.onSendSettled,
+      )
+      return 'dispatched' as const
+    }
+
+    if (!dispatchAction) return 'not_encodable' as const
     const parameters = buildManualGoalTarget(node.id, draft, unit, direction)
     if (!parameters) return 'not_encodable' as const
     // Do not echo the draft into the store or claim saved on promise resolution.
@@ -503,10 +570,13 @@ export function useModelEditAuthority(
       message: manualGoalTargetMessage(parameters.value, parameters.unit, direction),
     })).catch(() => { /* The conversation's existing failure channel owns this. */ })
     return 'dispatched' as const
-  }, [activeNodeId, dispatchAction])
+  }, [activeNodeId, dispatchAction, sendSystemEvent])
 
   const proposeFactorValue = useCallback(
-    (typedValue: number): FactorValueProposalOutcome => {
+    (
+      typedValue: number,
+      opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+    ): FactorValueProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
       const node = useCanvasStore.getState().nodes.find(n => n.id === activeNodeId)
       if (!node) return 'not_encodable'
@@ -606,12 +676,14 @@ export function useModelEditAuthority(
       settleSystemEventSend(
         dispatch(event, undo ? { optimisticFactorEdit: undo } : undefined),
         (settlement) => {
-          if (settlement !== 'blocked') return
-          // Never admitted, so the receipt that would have earned the stamp is
-          // never coming. Apply the local stamp this write withheld, so the
-          // number is at least truthfully the user's own — the same branch the
-          // no-dispatcher case above takes, for the same reason.
-          mutations.setObservedValue(modelValue, rawMagnitude, USER_VALUE_STAMP)
+          if (settlement === 'blocked') {
+            // Never admitted, so the receipt that would have earned the stamp is
+            // never coming. Apply the local stamp this write withheld, so the
+            // number is at least truthfully the user's own — the same branch the
+            // no-dispatcher case above takes, for the same reason.
+            mutations.setObservedValue(modelValue, rawMagnitude, USER_VALUE_STAMP)
+          }
+          opts?.onSendSettled?.(settlement)
         },
       )
       return 'dispatched'

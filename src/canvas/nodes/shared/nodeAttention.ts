@@ -23,9 +23,11 @@
  * the reasons above — it adds a sentence, never a mark. `Not set` and "analysis
  * out of date" are explicit states already, so neither is a trigger.
  *
- * ⛔ STALE HIDES THE RUN-DERIVED REASONS (spec §8): the caller passes run inputs
- * only while the analysis is current. CEE's pre-run bias findings are not run
- * output and are cleared by their own producer when stale.
+ * ⛔ STALE HIDES THE RUN-DERIVED REASONS FROM THIS PLAN (spec §8): the caller
+ * passes run inputs only while the analysis is current. CEE's pre-run bias
+ * findings are not run output and are cleared by their own producer when stale.
+ * A model KNOWN to have changed keeps the last run's reasons in a SEPARATE plan,
+ * labelled (`useNodeAttention`'s `fromLastRun`; design-gap row 23).
  *
  * ── HOW IT STAYS SELECTIVE, AND SAYS SO ─────────────────────────────────────
  *
@@ -257,17 +259,68 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
 /**
  * The marker's full text — the visible tooltip AND the accessible name, built
  * once so the two channels cannot say different things.
+ *
+ * ⭐ `fromLastRun` (design-gap row 23; visual contract v3 §02): the reasons are
+ * the LAST run's, on a model known to have changed since it. The contract's
+ * stale sentence LEADS in place of "Worth reviewing:", so the reasons are never
+ * read as a current finding. The selection disclosure is omitted in that form:
+ * its "the rest are in each element's details" is a claim about the CURRENT
+ * plan, which the inspector shows, and the last run's reasons are not there.
  */
 export function attentionSentence(
   reasons: readonly AttentionReason[],
-  opts: { unconfirmedEstimate: boolean; marked: number; candidates: number },
+  opts: { unconfirmedEstimate: boolean; marked: number; candidates: number; fromLastRun?: boolean },
 ): string {
-  const parts = [`${WORTH_REVIEWING_LEAD}`, ...reasons.map((r) => r.label)]
+  const parts = [opts.fromLastRun ? LAST_RUN_FOCUS_LEAD : WORTH_REVIEWING_LEAD, ...reasons.map((r) => r.label)]
   if (opts.unconfirmedEstimate) parts.push('Its value is Olumi’s estimate, not yet confirmed.')
-  if (opts.candidates > opts.marked) {
+  if (!opts.fromLastRun && opts.candidates > opts.marked) {
     parts.push(`Olumi marks ${opts.marked} of ${opts.candidates} elements with a signal; the rest are in each element’s details.`)
   }
   return parts.join(' ')
 }
 
 const WORTH_REVIEWING_LEAD = 'Worth reviewing:'
+
+/** Visual contract v3 §02, the stale attention tooltip — verbatim. */
+export const LAST_RUN_FOCUS_LEAD = 'Last run focus: these reasons refer to the previous model.'
+
+/**
+ * ⭐ THE CARD'S ONE CUE SENTENCE — the marker's tooltip AND accessible name, or
+ * `null` for no marker (design-gap row 23). A current mark wins; otherwise a
+ * mark from the LAST run (`useNodeAttention`'s `fromLastRun`, present only when
+ * the model is KNOWN to have changed since it), led by the contract's "Last run
+ * focus" sentence. An absent `fromLastRun` (a stubbed hook) reads as none.
+ */
+export function attentionCueSentence(
+  attention: {
+    reasons: readonly AttentionReason[]
+    marked: boolean
+    markedCount: number
+    candidateCount: number
+    fromLastRun?: {
+      reasons: readonly AttentionReason[]
+      marked: boolean
+      markedCount: number
+      candidateCount: number
+    } | null
+  },
+  unconfirmedEstimate: boolean,
+): string | null {
+  if (attention.marked) {
+    return attentionSentence(attention.reasons, {
+      unconfirmedEstimate,
+      marked: attention.markedCount,
+      candidates: attention.candidateCount,
+    })
+  }
+  const last = attention.fromLastRun
+  if (last?.marked) {
+    return attentionSentence(last.reasons, {
+      unconfirmedEstimate,
+      marked: last.markedCount,
+      candidates: last.candidateCount,
+      fromLastRun: true,
+    })
+  }
+  return null
+}

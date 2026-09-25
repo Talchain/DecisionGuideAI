@@ -225,7 +225,7 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
  */
 const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   constraint_verdict_withheld:
-    'The check against the limits you set does not support putting one option forward.',
+    "Olumi's checks on this run do not support putting one option forward.",
   /**
    * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
    * could establish; "they are level" would be a finding about the options,
@@ -417,9 +417,9 @@ export const ANALYSIS_NEW_COPY = {
   },
 
   sectionSubtitles: {
-    howWorkedOut: 'Checks the run ran, and what it could not settle',
+    howWorkedOut: 'What the run was given, and what it could not settle',
     coachingAndMethod: 'Where this reasoning comes from',
-    whatMovesTheOutcome: 'Drivers, what is worth resolving, and the receipts',
+    whatMovesTheOutcome: 'Drivers, and what is worth resolving',
     drivers: 'What moves the outcome, and through what',
     uncertainty: 'What this run could not settle',
     deeper: 'Method, provenance and receipts',
@@ -1330,6 +1330,7 @@ export const ANALYSIS_NEW_COPY = {
     rationaleLabel: 'Because',
     assumptionLabel: 'Assumption to watch',
     revisitLabel: 'Revisit',
+    nextActionLabel: 'Next action',
     /**
      * ⚠ "of 100", NOT "%". The capture field is labelled "Confidence, 0–100"
      * and the producer is the user's own typed number. Rendering it as a
@@ -1403,6 +1404,14 @@ export const ANALYSIS_NEW_COPY = {
    */
   whyNoAnalysis: {
     heading: 'What this model needs before it can be analysed',
+    /**
+     * ⭐ THE REPAIR ACT (Paul's brief: "blocked analysis with a repair action").
+     * It DRAFTS a request in the composer and sends nothing; the reader reads
+     * it, edits it and sends it, and any change Olumi proposes is theirs to
+     * approve. The blocker sentence is quoted verbatim, never reworded.
+     */
+    askFix: 'Ask Olumi to help fix this',
+    askFixDraft: (blocker: string): string => `Help me fix this so the analysis can run: ${blocker}`,
   },
   successTarget: {
     label: 'Target',
@@ -2852,4 +2861,58 @@ export const ANALYSIS_NEW_COPY = {
 export function strengthenWhyLine(signal: string, whyNow?: string): string {
   if (!whyNow || whyNow === signal) return signal
   return `${signal} ${whyNow}`
+}
+
+/**
+ * ⭐ THE WITHHELD LEADER'S CAUSE WHEN THE PRODUCER'S ADMISSION REFUSED IT.
+ *
+ * CEE emits `constraint_verdict_withheld` whenever its claim-safety verdict is
+ * not entitled, for any reason (`composeLeaderClaim`, CEE `c673223`). On an
+ * automatic first run that reason is the admission's own: every estimate is
+ * Olumi's. `LEADER_WITHHOLD_CAUSE` reads the token as "the limits you set",
+ * which was false on a brief that set none. This is said instead where the
+ * admission refused the comparative claim. "It rests on" keeps it true after
+ * the user sets a value the comparison does not turn on (the admission then
+ * says so: "The values you have set sit outside what this comparison turns
+ * on…"). Pinned by `theWithholdNamesNoLimitsTheUserNeverSet.spec.tsx`.
+ */
+export const LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS =
+  'No option can be put forward until at least one of the estimates it rests on is yours.'
+
+/**
+ * The withheld-leader tokens the producer's admission can explain.
+ * `constraint_verdict_withheld` is emitted for ANY not-entitled verdict
+ * (`composeLeaderClaim`: `!entitled`), and CEE's `unrequested_analysis_withheld`
+ * (#1876) for an automatic first pass. Any other token names its own cause
+ * (`separation_unavailable`), and an admission refusal must not replace it.
+ */
+const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
+  'constraint_verdict_withheld',
+  'unrequested_analysis_withheld',
+])
+
+/**
+ * ⭐ THE WITHHELD LEADER'S CAUSE, ONE RULE FOR EVERY SURFACE.
+ *
+ * The Reasoning tab's `checks.leaderWithholdCause` and the canvas option card
+ * state the same cause from the same inputs. Canvas asked to import this rather
+ * than copy it (#63 5826170658).
+ * - `refusalAsksForAnEstimate` is true only where the RUN's own admission
+ *   refused the comparative claim AND its `permitted_analysis_mode` reason asks
+ *   for an estimate (`admissionRefusalAsksForAnEstimate`, independent review of
+ *   #1993, 5826650947). Any refusal is too wide: "Name at least two different
+ *   options" is not about estimates. It is a boolean, so this copy module
+ *   imports no canvas hook.
+ * - The result is null where no cause can be named. The caller decides whether
+ *   the leader was withheld at all.
+ */
+export function withheldLeaderCause(
+  producerReason: string | null | undefined,
+  refusalAsksForAnEstimate: boolean,
+): string | null {
+  const token = typeof producerReason === 'string' ? producerReason.trim() : ''
+  if (refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)) {
+    return LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
+  }
+  return leaderWithholdCause(producerReason)
 }

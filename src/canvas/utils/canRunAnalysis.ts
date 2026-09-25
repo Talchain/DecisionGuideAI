@@ -354,6 +354,12 @@ export interface CanRunAnalysisParams {
    * the refusal stops making specific claims sourced from a verdict nobody
    * asked about the current graph.
    *
+   * ⚠ "The last real answer" means a SERVER answer. The zero-node arm's local
+   * verdict is not one, and `readinessStore`'s `publishCheckFailure` drops it
+   * when the re-check fails — so that state reaches this gate as `null`, and
+   * the unknown-verdict rule on `readinessObjectsToRun` decides it, instead of
+   * a refusal that says "Olumi is checking again" about a check that failed.
+   *
    * The store has carried this flag since 2.332, and its docstring said it "is
    * what stops a surface presenting that verdict as current". The V3 footer
    * honoured it; this gate did not, so the blocked copy quoted a stale

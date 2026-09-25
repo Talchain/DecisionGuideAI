@@ -521,6 +521,44 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
 
 // ── Core fetch logic ───────────────────────────────────────────────
 
+/**
+ * Publish a FAILED readiness check: no verdict is invented, and the error says
+ * why. Every failure arm below ends here, so they cannot disagree about what a
+ * failure retains.
+ *
+ * Each arm's own comment states what it keeps: `readiness` "EXACTLY as it was —
+ * null on first load … otherwise the last answer the server actually gave".
+ * There was a third case that premise missed: the zero-node arm's LOCALLY
+ * composed verdict (`can_run_analysis: false`, stamped `verdictAtMs: null`
+ * because no request was made). A failure can only follow a request, and a
+ * request is only made for a graph WITH nodes — so a local verdict retained
+ * here is never about the model the failed check was asked about, and no
+ * server ever gave it. (If the canvas is emptied mid-request, dropping it costs
+ * nothing: the gate's zero-node rung says the same sentence, and the next
+ * fetch re-composes it.)
+ *
+ * Retaining it closed the run gate on it and, because it was stale, made the
+ * gate say "Olumi is checking again" beside a dock saying the check had failed
+ * (HTTP 503) — witnessed on `witness/ai-conversation-local`, evidence 08.
+ *
+ * So a verdict no server gave is not retained past a failed check: the store
+ * publishes its own "unknown" state (`readiness: null` + `error`), and the gate
+ * applies its documented rule to that — "A `null` verdict is UNKNOWN, and
+ * unknown does not object" (`readinessObjectsToRun`, canRunAnalysis.ts). The
+ * discriminator is `verdictAtMs`, the one this estate already uses for "set
+ * from an ANSWER" (`describeReadinessCheck`). A server answer is untouched:
+ * still retained by identity, still stale if the model moved.
+ */
+function publishCheckFailure(message: string): void {
+  const { readiness, verdictAtMs } = useReadinessStore.getState()
+  const retainedVerdictIsLocal = readiness !== null && verdictAtMs === null
+  useReadinessStore.setState({
+    error: message,
+    loading: false,
+    ...(retainedVerdictIsLocal ? { readiness: null } : {}),
+  })
+}
+
 async function fetchReadiness(): Promise<void> {
   // ROADMAP 2.332 amendment 1 — defer, never discard. See `fetchQueued`.
   if (fetchInFlight) {
@@ -736,7 +774,7 @@ async function fetchReadiness(): Promise<void> {
             ? 'Could not read the readiness service response'
             : 'Could not reach the readiness service'
         console.warn(`[readinessStore] ${message} — publishing no verdict:`, fetchErr)
-        useReadinessStore.setState({ error: message, loading: false })
+        publishCheckFailure(message)
         return
       }
 
@@ -787,10 +825,7 @@ async function fetchReadiness(): Promise<void> {
           // not the rate-limit handling. `lastPayloadHash` is likewise still
           // unset, so the identical graph can be re-asked once the window
           // clears; a failure here must not be sticky.
-          useReadinessStore.setState({
-            error: 'Could not check readiness right now — the service is rate limited',
-            loading: false,
-          })
+          publishCheckFailure('Could not check readiness right now — the service is rate limited')
           return
         }
 
@@ -843,7 +878,7 @@ async function fetchReadiness(): Promise<void> {
             `[readinessStore] ${message} (HTTP 404) — publishing no verdict:`,
             response.errorBody,
           )
-          useReadinessStore.setState({ error: message, loading: false })
+          publishCheckFailure(message)
           return
         }
 
@@ -898,10 +933,7 @@ async function fetchReadiness(): Promise<void> {
           '[readinessStore] Readiness response carried no can_run_analysis boolean — publishing no verdict:',
           { received: typeof data.can_run_analysis },
         )
-        useReadinessStore.setState({
-          error: 'Could not read the readiness service response',
-          loading: false,
-        })
+        publishCheckFailure('Could not read the readiness service response')
         return
       }
 
@@ -1192,7 +1224,7 @@ async function fetchReadiness(): Promise<void> {
           ? `The readiness service could not answer (HTTP ${err.status})`
           : 'Could not complete the readiness check'
       console.warn(`[readinessStore] ${message} — publishing no verdict:`, err)
-      useReadinessStore.setState({ error: message, loading: false })
+      publishCheckFailure(message)
     }
   } finally {
     fetchInFlight = false

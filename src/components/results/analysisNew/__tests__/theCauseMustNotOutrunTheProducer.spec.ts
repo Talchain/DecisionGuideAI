@@ -84,9 +84,13 @@ describe('leaderWithholdCause — the cause may not outrun the producer', () => 
     expect(sentence).not.toMatch(/violat/i)
   })
 
-  it('names the limits as the reason, so the clause is about something', () => {
+  it('names what declined (Olumi\'s checks), so the clause is about something, and names no limits', () => {
+    // 25 Sep: the token also covers the automatic first pass's own policy and the
+    // fail-closed reads, and "the limits you set" was false on briefs with none
+    // (theWithholdNamesNoLimitsTheUserNeverSet). The clause names the checks.
     const sentence = leaderWithholdCause('constraint_verdict_withheld') ?? ''
-    expect(sentence).toMatch(/limit/i)
+    expect(sentence).toMatch(/checks/i)
+    expect(sentence).not.toMatch(/limit/i)
   })
 
   it('returns null for an inherited key, not a prototype member', () => {
@@ -214,7 +218,9 @@ describe('separation_unavailable, now wire-witnessed', () => {
     )
   })
 
-  it('the earlier entry is untouched', () => {
-    expect(leaderWithholdCause('constraint_verdict_withheld')).toContain('limits you set')
+  it('the earlier entry is its own sentence, distinct from this one', () => {
+    const constraint = leaderWithholdCause('constraint_verdict_withheld')
+    expect(constraint).not.toBeNull()
+    expect(constraint).not.toBe(leaderWithholdCause('separation_unavailable'))
   })
 })

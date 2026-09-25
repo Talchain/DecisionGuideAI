@@ -215,6 +215,12 @@ interface InlineBlocksProps {
   alreadyRendered?: readonly string[]
   /** L-42: only the newest assistant turn's applied-edit card may claim the staleness voice. */
   isLatestAssistantTurn?: boolean
+  /**
+   * This turn asks the user to consent to a proposal (`offersPendingConsent`
+   * over the message's own chips). The run card then keeps its line — the
+   * consent is the turn's one next action (`shouldPromoteRunTurnCard`).
+   */
+  consentPending?: boolean
 }
 
 export const InlineBlocks = memo(function InlineBlocks({
@@ -230,12 +236,13 @@ export const InlineBlocks = memo(function InlineBlocks({
   assistantTextWordCount = 0,
   alreadyRendered,
   isLatestAssistantTurn = false,
+  consentPending = false,
 }: InlineBlocksProps) {
   /** One disclosure, one piece of state — replaces the two independent toggles. */
   const [detailExpanded, setDetailExpanded] = useState(false)
 
   // THE composition. Pure; the message/store still holds every block.
-  const composition = useMemo(() => composeMessage(blocks), [blocks])
+  const composition = useMemo(() => composeMessage(blocks, null, { consentPending }), [blocks, consentPending])
 
   /**
    * Top-level entries in PRODUCER ORDER. Pinned and points are merged and
@@ -481,8 +488,8 @@ export const InlineBlocks = memo(function InlineBlocks({
    */
   const linePlan = useMemo(() => {
     const resolved = blocks.map((b, i) => proseOverriddenBlocks.get(i) ?? b)
-    return planCoachingLines(resolved)
-  }, [blocks, proseOverriddenBlocks])
+    return planCoachingLines(resolved, { consentPending })
+  }, [blocks, proseOverriddenBlocks, consentPending])
 
   const renderEntry = (index: number) => {
     const block = proseOverriddenBlocks.get(index) ?? blocks[index]
@@ -813,6 +820,7 @@ function BlockRenderer({
           block={block}
           variant={isBiasSignalCoachingBlock(block) ? 'bias_signal' : 'default'}
           suppressHeader={suppressHeader}
+          turnId={turnId}
         />
       )
 

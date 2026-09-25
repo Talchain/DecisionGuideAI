@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -87,6 +87,10 @@ import {
 } from '../../../../canvas/domain/goalTarget'
 import { formatGoalTarget } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
+import type {
+  SystemEventSendSettlement,
+  SystemEventSendSettlementDetail,
+} from '../../../../canvas/conversation/settleSystemEventSend'
 import type { ConstraintType } from '../../../../v5/chipParameters'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -95,7 +99,7 @@ import {
 import { action, icon } from '../panelSurfaces'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
-import { OlumiAiIcon } from '../OlumiAiIcon'
+import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
 
 /**
@@ -190,12 +194,25 @@ export interface SuccessTargetLineProps {
   onCommitOutcome: (
     outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit' | 'not_a_number',
   ) => void
+  /**
+   * ⭐ ADDITIVE, AND ONLY EVER FIRES BEHIND `GOAL_TARGET_EDIT_ENABLED`.
+   * `authority.proposeGoalTarget`'s `add_constraint` path (the flag OFF) never
+   * calls this — it has no send settlement to report, only the dispatch
+   * outcome `onCommitOutcome` already carries. A caller that omits this prop
+   * sees no behaviour change at all, which is the point: today's `dispatched`
+   * sentence stays correct until the flag flips.
+   */
+  onSendSettled?: (
+    settlement: SystemEventSendSettlement,
+    detail: SystemEventSendSettlementDetail,
+  ) => void
   testId: string
 }
 
 export function SuccessTargetLine({
   goalNodeId,
   onCommitOutcome,
+  onSendSettled,
   testId,
 }: SuccessTargetLineProps) {
   /**
@@ -282,6 +299,13 @@ export function SuccessTargetLine({
    */
   const showToast = useShowToastSafe()
   const wordsInputId = useId()
+  /**
+   * Only the LATEST commit attempt may report a send settlement. The editor
+   * closes on dispatch and can reopen while an earlier send is still pending, so
+   * attempt A's late reply must not overwrite attempt B's status (pre-review
+   * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
+   */
+  const attemptSeqRef = useRef(0)
 
   // No goal node, nothing to attach a target to. A target line over a model
   // with no goal would be an affordance writing into nowhere.
@@ -374,6 +398,7 @@ export function SuccessTargetLine({
   }
 
   const commit = () => {
+    const attempt = ++attemptSeqRef.current
     const typed = draft.trim()
     /**
      * ⚠ ONE PARSE RULE, IMPORTED. `statedTargetNumber` is the estate's anchored
@@ -440,7 +465,13 @@ export function SuccessTargetLine({
         onCommitOutcome('no_unit')
         return
       }
-      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction)
+      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction, {
+        onSendSettled: onSendSettled
+          ? (settlement, detail) => {
+              if (attempt === attemptSeqRef.current) onSendSettled(settlement, detail)
+            }
+          : undefined,
+      })
       onCommitOutcome(outcome)
       if (outcome === 'not_encodable') return
       setEditing(false)
@@ -802,16 +833,17 @@ export function SuccessTargetLine({
                 reinvented); the sr-only span carries what makes THIS ask
                 specific, the same two-tier pattern `detail-method` already
                 uses below in `ModelStrip`. */}
-            <button
-              type="button"
+            {/* ⚠ ICON-ONLY, as the prototype's `ai('ask-goal', …)`. The text
+                button ("Work through with Olumi") made this group 223px wide
+                and non-shrinking: measured on served `7f39c88b` at the 280px
+                dock, it pushed the tab into a horizontal scroll (scrollWidth
+                359 against 267). The accessible name keeps the specific ask. */}
+            <PanelIconButton
+              ai
+              label={ASK_DEFINE_SUCCESS_LABEL}
               onClick={openHelpDefineSuccess}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
-              data-testid={`${testId}-ask`}
-            >
-              <OlumiAiIcon className={`${icon('inline')}`} aria-hidden={true} />
-              {COPY.disclosure.askOlumi}
-              <span className="sr-only">{ASK_DEFINE_SUCCESS_LABEL}</span>
-            </button>
+              testId={`${testId}-ask`}
+            />
             <button
               type="button"
               onClick={() => {

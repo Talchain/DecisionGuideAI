@@ -59,6 +59,27 @@ describe('the challenge is compact at rest', () => {
     expect(screen.queryByTestId('analysis-new-signals-drivers')).toBeNull()
   })
 
+  /**
+   * ⛔ SERVED WITNESS, `7e256bd3` (24 Sep 22:0xZ, OpenAI pricing run): the line
+   * read "Top drivers: #2 Active Pro subscribers · #1 Monthly churn · #4 New
+   * Pro subscriptions". The order is the chart's influence order and the
+   * number is the producer's own rank, a different measure; with the bars
+   * hidden at rest the pair read as a contradiction. The line names the
+   * drivers in the chart's order and prints no rank; the ranks stay beside
+   * their bars behind "Assumptions and evidence".
+   */
+  it('the compact line prints no rank without its bar, and keeps the chart order', () => {
+    const drivers = buildReasoningSignals(vm(), undefined)!.drivers
+    expect(drivers.some((d) => d.rank !== null), 'PRECONDITION: the fixture carries producer ranks').toBe(true)
+    render(<ReasoningSignals vm={vm()} flipThresholds={undefined} closedAtRest />)
+    const line = screen.getByTestId('analysis-new-signals-drivers-line')
+    expect(line.textContent).not.toMatch(/#\d/)
+    const text = line.textContent ?? ''
+    const positions = drivers.map((d) => text.indexOf(d.label))
+    expect(positions.every((i) => i >= 0), 'every driver is named').toBe(true)
+    expect([...positions].sort((a, b) => a - b), 'in the chart order').toEqual(positions)
+  })
+
   it('CONTRAST: another caller, with no prop, keeps the open list and no door', () => {
     render(<ReasoningSignals vm={vm()} flipThresholds={undefined} />)
     expect(screen.getByTestId('analysis-new-signals-drivers')).toBeInTheDocument()

@@ -129,6 +129,42 @@ describe('the surface renders real content on a completed run', () => {
   })
 })
 
+/**
+ * V2 fidelity gap 23: "Drivers appear twice in Challenge: the 'Top drivers'
+ * rows sit directly above a 'What moves the outcome' header with a nested
+ * 'Drivers and dynamics' header and an orphan 'Value of information' h3."
+ *
+ * `highUncertainty()` is used because it is the one fixture in this file that
+ * carries BOTH a driver (`f_adopt`) and `decisionVoi: 'measured_non_zero'`, so
+ * a single render exercises everything nested inside "What moves the
+ * outcome": the driver chart section AND the value-of-information block.
+ *
+ * ⚠ REVERT THE PRODUCTION CHANGE TO SEE THIS RED. Before the fix, "Drivers and
+ * dynamics" was `SectionShell`'s own `<h3>` and "Value of information" was a
+ * bare `<h3>` in `AnalysisNewTabBody.tsx` — both landed inside the region this
+ * test queries, so `headings.length` read 2, not 0.
+ */
+describe('V2 gap 23: nothing nested inside "What moves the outcome" reads as a second heading', () => {
+  it('the region holds no h1-h4 — its own title, outside the region, is the only heading', () => {
+    renderBody(highUncertainty())
+    openAllSections()
+    const region = screen.getByTestId('analysis-new-what-moves-the-outcome-region')
+    const headings = region.querySelectorAll('h1, h2, h3, h4')
+    expect(
+      Array.from(headings).map((h) => h.textContent),
+      'a heading element nested here reads as a second (or third) section title under "What moves the outcome"',
+    ).toEqual([])
+    // Positive control: the content the old headings named must still be on
+    // screen — this is a flatten, not a deletion.
+    expect(region).toHaveTextContent(COPY.sections.drivers)
+    expect(region).toHaveTextContent(COPY.decisionVoi.label)
+    // And every factor keeps its edit control — the chart bar that opens the
+    // value editor (`DriverInfluenceChart`, unTouched by this change).
+    expect(within(region).getAllByTestId('analysis-new-drivers-row').length).toBeGreaterThan(0)
+    expect(within(region).getAllByTestId('analysis-new-driver-chart-bar').length).toBeGreaterThan(0)
+  })
+})
+
 describe('F · the three scenario classes (§24F)', () => {
   it('OPEN STRATEGIC CHALLENGE — no forced winner or option framing', () => {
     renderBody(openStrategicChallenge())
@@ -211,13 +247,12 @@ describe('F · the three scenario classes (§24F)', () => {
     // comparison is the licensed printer. If it stops rendering, the subtraction
     // below silently becomes `body.textContent` and the case changes meaning.
     expect(options, 'the comparison must render, or this assertion is a different one').not.toBeNull()
-    // ⚠ V2 (24 Sep 2026): OPENED BY IDENTITY FIRST. The section now opens by
-    // default only where it draws a figure the glance does not state, and with
-    // the win shares gone from the resting view this fixture (no ranges, no
-    // goal) draws none — so it mounts CLOSED and printed no label to subtract.
-    // The licensed printer must be showing its labels for the claim to bite.
-    openSection('analysis-new-options')
-    expect(options).toHaveAttribute('data-section-open', 'true')
+    // ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 17): NO OPENING STEP
+    // LEFT. The section is `bare` inside "Move towards commitment" now — no
+    // `SectionShell`, no toggle, no closed state — so its labels are in the
+    // DOM unconditionally and `openSection` (a no-op against a section with no
+    // `-toggle`) is not needed to reach them.
+    expect(options).not.toHaveAttribute('data-section-open')
     expect(options!.textContent).toContain('Raise price')
     const elsewhere = (body.textContent ?? '').split(options!.textContent ?? '\u0000').join('')
     expect(elsewhere).not.toContain('Raise price')
@@ -380,7 +415,9 @@ describe('progressive disclosure on the real surface (§24E)', () => {
   it('keeps deeper technical material out of the first screen', () => {
     const ABOUT = 'analysis-new-about'
     renderBody(genuineDecision())
-    openGroups()
+    // V2 fidelity gap 24: About is now itself a named group (`openGroups` would
+    // open it), and this case is about About's own rest state — so it is driven
+    // by hand and no group is pre-opened.
     // No second, stale mount of the old section.
     expect(screen.queryByTestId('analysis-new-deeper')).toBeNull()
     // Unconditional: the run-identity group always exists when a hash is
@@ -1111,14 +1148,16 @@ describe('the coaching and the answer — V2 zone order', () => {
    * from the old rule: the glance leads the figures, and the coaching is above
    * the DETAIL. Each case below states its V2 relation.
    */
-  it('V2: the review sits above the answer, and the glance leads the figures inside it', () => {
+  it('V2: the review sits above the answer, and the figures lead the glance reading inside it', () => {
     renderBody(genuineDecision())
     const glance = screen.getByTestId('analysis-new-glance')
     const options = screen.getByTestId('analysis-new-options')
     const review = screen.getByTestId('analysis-new-review')
     expect(new Set([glance, options, review]).size, 'three distinct elements').toBe(3)
 
-    expect(precedes(glance, options), 'the glance leads; the figures follow it').toBe(true)
+    // V2 (fidelity gap 1, 25 Sep 2026): the figures lead; the glance's reading
+    // follows them. Its status ribbon stays above (`theChartLeadsTheReading.spec.tsx`).
+    expect(precedes(options, glance), 'the figures lead; the glance reading follows them').toBe(true)
     expect(precedes(review, glance), 'V2: the model-wide review comes before the answer').toBe(true)
   })
 

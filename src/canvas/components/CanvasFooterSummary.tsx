@@ -51,8 +51,16 @@ import { excludeNonModelNodes, isGhostNode } from '../utils/fitTargets'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { CanvasLegendPopover } from './CanvasLegendPopover'
 import { typography } from '../../styles/typography'
+import styles from './CanvasFooterSummary.module.css'
 
 export const CANVAS_FOOTER_SUMMARY_TESTID = 'canvas-footer-summary'
+
+/**
+ * Below this cell width the footer withdraws rather than wrap into a column
+ * taller than the band (see `CanvasFooterSummary.module.css`). The stylesheet's
+ * `@container` threshold is bound to this number by the spec.
+ */
+export const CANVAS_FOOTER_MIN_WIDTH_PX = 160
 
 /** "Model-relative findings · N nodes · M connections" — exported so a spec
  *  can bind to the composer rather than to a rendered string. */
@@ -86,17 +94,19 @@ export function CanvasFooterSummary() {
   if (!wants || !granted) return null
 
   const body = (
-    <div
-      data-testid={CANVAS_FOOTER_SUMMARY_TESTID}
-      className="pointer-events-auto flex items-center gap-2"
-    >
-      <span
-        className={`${typography.caption} text-text-light`}
-        data-testid="canvas-footer-summary-text"
+    <div className={styles.fit} data-testid={`${CANVAS_FOOTER_SUMMARY_TESTID}-fit`}>
+      <div
+        data-testid={CANVAS_FOOTER_SUMMARY_TESTID}
+        className={`${styles.footer ?? ''} pointer-events-auto flex items-center gap-2`}
       >
-        {composeCanvasFooterLine(nodeCount, edgeCount)}
-      </span>
-      <CanvasLegendPopover variant="text-link" />
+        <span
+          className={`${typography.caption} text-text-light`}
+          data-testid="canvas-footer-summary-text"
+        >
+          {composeCanvasFooterLine(nodeCount, edgeCount)}
+        </span>
+        <CanvasLegendPopover variant="text-link" />
+      </div>
     </div>
   )
 

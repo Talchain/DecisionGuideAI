@@ -25,6 +25,7 @@
 import { joinInterventionDetails, unwrapInterventionValue } from '../../utils/labelUtils'
 import {
   buildOptionChangeRow,
+  buildOptionNeedsInputRow,
   type FactorContext,
   type OptionChangeRow,
   type OptionTargetLike,
@@ -88,6 +89,47 @@ export function resolveOptionTargets(
     targets.set(fid, { value: u.value, displayValue: u.displayValue, source })
   }
   return targets
+}
+
+/**
+ * ⭐ THE TARGETS THIS OPTION NAMES AND NEVER SET (design-gap row 22) — factorId →
+ * the entry's own `source` (or null). Read from the SAME map `resolveOptionTargets`
+ * reads (CEE's, joined with its details, when present; else the node's own), and
+ * exactly the entries it skips for having no number: those that ALSO carry no
+ * reading (`display_value`). An entry with a reading but no number is a
+ * different state (a named value awaiting encoding) and is not claimed here.
+ * `resolveOptionInterventionCount` already counts these keys, so the card's
+ * `+N more` counted rows it could never show.
+ */
+export function resolveUnsetOptionTargets(
+  optionData: Record<string, unknown> | null | undefined,
+  ceeOpt: CeeOptionTargetsLike | null | undefined,
+): Map<string, string | null> {
+  const raw = ceeOpt?.interventions && typeof ceeOpt.interventions === 'object'
+    ? joinInterventionDetails(
+        ceeOpt.interventions as Record<string, unknown>,
+        ceeOpt.intervention_details as Record<string, unknown> | undefined,
+      )
+    : Object.entries((optionData?.interventions ?? {}) as Record<string, unknown>)
+  const unset = new Map<string, string | null>()
+  for (const [fid, entry] of raw) {
+    const u = unwrapInterventionValue(entry)
+    if (u.value == null && u.displayValue == null) unset.set(fid, u.source ?? null)
+  }
+  return unset
+}
+
+/** The `Needs input` row for an unset target, labelled exactly as a change row is. */
+export function buildOptionNeedsInputTargetRow({
+  factorId,
+  factorNode,
+  source,
+}: {
+  factorId: string
+  factorNode: TargetNodeLike | undefined
+  source: string | null
+}): OptionChangeRow {
+  return buildOptionNeedsInputRow({ factorId, factor: optionFactorContext(factorNode, factorId), source })
 }
 
 /**
