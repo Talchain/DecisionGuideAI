@@ -12,7 +12,8 @@
  * WHICH notice depends on WHICH limb failed (R&C #63 5821034205, producer
  * copy verbatim), with the contract's precedence:
  *   (a) hashes known and different          → "Your model has changed…"
- *   (b) run not complete_current / unknown  → "Written about an earlier analysis…"
+ *   (b) a new run is in flight               → "A new analysis is running…"
+ *       run not complete_current / unknown  → "Written about an earlier analysis…"
  *   (c) same model, newer run               → "Written about an earlier run of this model…"
  * The first version said "Your model has changed" for all three, which is
  * FALSE for (c); the "same model, newer run" arm below pins that it no longer
@@ -79,7 +80,7 @@ function verdict(runState: Record<string, unknown>): AnalysisStateV1 {
     usable_for_chips: current,
     usable_for_followup: current,
     requires_rerun: !current,
-    blocked_unusable: false,
+    blocked_unusable: runState.kind === 'blocked',
     contradictions: [],
   })
 }
@@ -185,11 +186,21 @@ describe('RUN_TURN_NOTICE — producer-authored copy, verbatim (R&C #63 58210342
   it('pins each sentence character-for-character', () => {
     expect(RUN_TURN_NOTICE).toEqual({
       model_changed: 'Your model has changed since this was written — it may no longer apply.',
-      earlier_analysis: 'Written about an earlier analysis — re-run to check it still holds.',
+      running: 'A new analysis is running — this card is about the earlier one.',
+      earlier_analysis: 'Written about an earlier analysis — it may no longer hold.',
       earlier_run: 'Written about an earlier run of this model — the latest run may point somewhere else.',
     })
     // `model_changed` IS the shared stale sentence, not a copy of it that could drift.
     expect(RUN_TURN_NOTICE.model_changed).toBe(STALE_SENTENCE)
+  })
+
+  it('names no remedy: the card cannot know a Run control is reachable (R&C #63 5822347235 §2)', () => {
+    // While the run is `running`, `blocked` or `refused`, a "re-run" remedy points
+    // at a control that is absent or refused. CEE's own Run chip, when offered,
+    // is the control — the notice states the fact and nothing else.
+    for (const sentence of Object.values(RUN_TURN_NOTICE)) {
+      expect(sentence).not.toMatch(/re-?run|run it|click|press|button|try again/i)
+    }
   })
 })
 
@@ -219,7 +230,13 @@ describe('runTurnStaleReason — which limb failed, with the contract’s preced
     // (b) — the run is not complete_current, or anything needed is unknown
     ['run_state is complete_stale', HASH, HASH, { runStateKind: 'complete_stale' }, 'earlier_analysis'],
     ['run_state is complete_stale AND a newer stamp (b beats c)', HASH, HASH, { runStateKind: 'complete_stale', runComputedAt: LATER_RUN_AT }, 'earlier_analysis'],
-    ['run_state is running', HASH, HASH, { runStateKind: 'running', runComputedAt: undefined }, 'earlier_analysis'],
+    // (b) — a run in flight is its own first-hand fact, and its own sentence
+    ['run_state is running', HASH, HASH, { runStateKind: 'running', runComputedAt: undefined }, 'running'],
+    ['run_state is running AND created_at is unknown (still running)', HASH, HASH, { runStateKind: 'running', runComputedAt: undefined, createdAt: undefined }, 'running'],
+    ['run_state is running AND the current hash is unknown (still running)', HASH, undefined, { runStateKind: 'running', runComputedAt: undefined }, 'running'],
+    ['hashes differ AND a run is in flight (a beats b)', HASH, OTHER_HASH, { runStateKind: 'running', runComputedAt: undefined }, 'model_changed'],
+    ['run_state is blocked', HASH, HASH, { runStateKind: 'blocked', runComputedAt: undefined }, 'earlier_analysis'],
+    ['run_state is refused', HASH, HASH, { runStateKind: 'refused', runComputedAt: undefined }, 'earlier_analysis'],
     ['run_state is unknown_degraded', HASH, HASH, { runStateKind: 'unknown_degraded', runComputedAt: undefined }, 'earlier_analysis'],
     ['no run state was stated this turn', HASH, HASH, { runStateKind: undefined, runComputedAt: undefined }, 'earlier_analysis'],
     ['created_at is unknown', HASH, HASH, { createdAt: undefined }, 'earlier_analysis'],
@@ -347,6 +364,14 @@ describe('a run_analysis card on screen — notice and action follow the failed 
 
   it.each<[string, StoreInputs, Record<string, unknown>]>([
     ['the run state is complete_stale', { currentGraphHash: HASH, analysisState: STALE_RUN }, {}],
+    ['the model is blocked', {
+      currentGraphHash: HASH,
+      analysisState: verdict({ kind: 'blocked', reason_code: 'no_options', blockers: [] }),
+    }, {}],
+    ['this turn refused to analyse', {
+      currentGraphHash: HASH,
+      analysisState: verdict({ kind: 'refused', reason_code: 'user_declined' }),
+    }, {}],
     ['the turn stated no run state', { currentGraphHash: HASH, analysisState: null }, {}],
     ['the run state is unknown_degraded', {
       currentGraphHash: HASH,
@@ -360,7 +385,18 @@ describe('a run_analysis card on screen — notice and action follow the failed 
     expect(card.getAttribute('data-currency')).toBe('changed')
     expect(card.getAttribute('data-run-turn-reason')).toBe('earlier_analysis')
     expect(notice(card)).toBe(RUN_TURN_NOTICE.earlier_analysis)
+    expect(notice(card)).toBe('Written about an earlier analysis — it may no longer hold.')
     expect(notice(card)).not.toContain('Your model has changed')
+    expectInertBesideNotice(card)
+  })
+
+  it('A NEW RUN IN FLIGHT: says a new analysis is running and this card is about the earlier one — action inert', () => {
+    install({ currentGraphHash: HASH, analysisState: verdict({ kind: 'running', started_at: LATER_RUN_AT }) })
+    const card = mount(rawRunCard())
+    expect(card.getAttribute('data-currency')).toBe('changed')
+    expect(card.getAttribute('data-run-turn-reason')).toBe('running')
+    expect(notice(card)).toBe('A new analysis is running — this card is about the earlier one.')
+    expect(notice(card)).not.toMatch(/re-?run/i)
     expectInertBesideNotice(card)
   })
 
