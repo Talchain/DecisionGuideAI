@@ -45,8 +45,8 @@ src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
 src/canvas/store.ts:7884
-src/canvas/stores/readinessStore.ts:744
-src/canvas/stores/readinessStore.ts:840
+src/canvas/stores/readinessStore.ts:782
+src/canvas/stores/readinessStore.ts:875
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
