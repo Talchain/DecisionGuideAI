@@ -1,0 +1,22 @@
+{
+  "__provenance": {
+    "what": "The served C1 (first brief) assistant_text on the OpenAI route, verbatim, one per served CEE build. Each ends with the producer-appended open-questions line (CEE src/orchestrator-v5/agent-lane/write-outcome.ts openQuestionsLine).",
+    "route": "UI POST /proxy/v5/turn with x-olumi-ai-mode: openai -> CEE /agent/v1/turn; provider ledger OpenAI only",
+    "source": "extracted from openai-route-coaching-journey.<build>.json turns[0].json.assistant_text (R&C served captures, 25 Sep 2026)",
+    "redaction": "none needed: no ids in the text"
+  },
+  "replies": {
+    "e39f6e0": {
+      "served_cee_build": "e39f6e0",
+      "captured_at": "2026-09-25T01:42:16.316Z",
+      "turn": "C1 brief",
+      "assistant_text": "I’ve drafted a provisional comparison, but it cannot yet support a price-change decision.\n\n- Your stated target is £20k MRR with churn below 4%; the model treats £49→£59 as the proposed change.\n- Its current 300 Pro subscribers, 3% churn, and feature-value score of 50/100 are Olumi assumptions, not your data.\n- The first pass is deliberately non-conclusive: price elasticity and whether the release offsets churn are unknown. It also cannot represent the 12‑month deadline directly.\n\nThe most useful next move is to replace the assumed subscriber count and current churn with your actual figures.\n\nThe model was saved as version 1. Questions this model does not answer yet: Current Pro subscriber count is not supplied. The provisional 300-subscriber baseline is an AI modelling assumption only; it should be replaced with the current count before relying on projected MRR. Current monthly churn is not supplied. The provisional 3% baseline is an AI modelling assumption only and is close to the stated 4% limit. The value and adoption impact of the next Pro feature release are unknown. The provisional value score of 50/100 is only a placeholder for calculation. Price elasticity is unknown: how many prospective or existing Pro subscribers would be lost at £59 versus £49, and whether the feature release offsets that response. Clarify whether the £20k MRR target is total company MRR or Pro-plan MRR; this model treats it as the MRR outcome affected by Pro pricing and Pro subscribers. No option changes Feature-release value, so I held it as fixed context rather than a lever — tell me if one of the options should change it."
+    },
+    "c673223": {
+      "served_cee_build": "c673223",
+      "captured_at": "2026-09-25T00:41:30.646Z",
+      "turn": "C1 brief",
+      "assistant_text": "Not yet—the first pass cannot put the £59 increase forward reliably.\n\n- Your stated baseline is £49/month; £59 with the release is compared with keeping £49 and an Olumi-generated £54 middle option.\n- The model’s provisional first pass uses Olumi estimates of 250 Pro subscribers, 3% monthly churn, and feature value of 50/100—not measurements or your figures.\n- The pivotal unknown is price elasticity: whether higher price reduces conversion, upgrades, or retention enough to jeopardise the under-4% churn constraint and offset the extra £10.\n- The £20k goal is represented, but the 12-month deadline could not be modelled directly.\n\nThe useful next move is to test the subscriber-loss and churn-change assumptions around £59.\n\nThe model was saved as version 1. Questions this model does not answer yet: The current Pro subscriber count is not supplied; 250 is a provisional modelling estimate, not a measurement. The current monthly churn rate is not supplied; 3% is a provisional modelling estimate used to assess the stated under-4% constraint. The feature release scope and its expected customer value are not supplied; the value score of 50/100 is a provisional assumption shared across the options. The price elasticity of Pro conversion, upgrades, and churn is unknown. This determines whether the extra £10 per subscriber outweighs any loss of subscribers or increase in churn. It is unclear how much existing MRR comes from plans other than Pro and whether that revenue is expected to change during the 12-month horizon."
+    }
+  }
+}

@@ -34,6 +34,7 @@ import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
 import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
+import { OPEN_QUESTIONS_LABEL, splitServerOpenQuestions } from './serverOpenQuestions'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -222,7 +223,21 @@ export const MessageBubble = memo(function MessageBubble({
     () => dedupeRenderedText(rawDisplayContent, consentSurfaceText),
     [rawDisplayContent, consentSurfaceText],
   )
-  const displayContent = dedupedBody.text
+  /**
+   * Detail on demand: the build's open questions, split off the reply at the
+   * producer's exact marker and shown VERBATIM behind a closed toggle
+   * (serverOpenQuestions.ts). Settled assistant free-text turns only — never
+   * the user's own words, never mid-stream or stopped, never when AnswerBody
+   * owns the body. `null` → the reply renders exactly as before.
+   */
+  const openQuestions = useMemo(
+    () => (isUser || isStreaming || message.stoppedByUser || message.answerShape
+      ? null
+      : splitServerOpenQuestions(dedupedBody.text)),
+    [isUser, isStreaming, message.stoppedByUser, message.answerShape, dedupedBody.text],
+  )
+  const [openQuestionsShown, setOpenQuestionsShown] = useState(false)
+  const displayContent = openQuestions ? openQuestions.atRest : dedupedBody.text
   /**
    * What the turn has ALREADY PUT ON SCREEN above its blocks — tier 0 plus the
    * body, whichever body this turn actually renders.
@@ -465,6 +480,26 @@ export const MessageBubble = memo(function MessageBubble({
         >
           {expanded ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show more</>}
         </button>
+      )}
+      {/* The build's open questions, on demand and verbatim. Plain text via a
+        * text node, like the reasoning panel below. */}
+      {openQuestions && (
+        <>
+          <button
+            type="button"
+            className={styles.inlineDisclosureToggle}
+            onClick={() => setOpenQuestionsShown(v => !v)}
+            data-testid="message-show-open-questions"
+            aria-expanded={openQuestionsShown}
+          >
+            {openQuestionsShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {OPEN_QUESTIONS_LABEL}
+          </button>
+          {openQuestionsShown && (
+            <div className={styles.reasoningPanel} data-testid="message-open-questions">
+              <p className={styles.reasoningPanelBody}>{openQuestions.questions}</p>
+            </div>
+          )}
+        </>
       )}
       {/* ROADMAP 1.42: Show-reasoning progressive disclosure — Paul ruled
         * VERBATIM-with-label. Collapsed by default; renders nothing when
