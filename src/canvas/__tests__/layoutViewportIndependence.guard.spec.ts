@@ -674,13 +674,36 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    *
    * Every R1 test, `s4NoSameRowOverlap` and the rest of the layout reader set
    * (72 files) stayed GREEN at the new gap before this was recorded.
+   *
+   * ── GAP 7 (25 Sep 2026), a THIRD re-record, again for the reviewer ──
+   * One cause only: `MAX_CARDS_PER_ROW` 5 → 4 (ED #63 5808428246 — 1280×800
+   * with the dock open is the acceptance size; Canvas lead, decide-and-flag).
+   * Every starter carries a five-card band, which now wraps 3 + 2 inside its
+   * own band. Recorded in its OWN commit, after the commit that moves them,
+   * each bound by its OLD value. Measured with this file's own
+   * `positionSignature` before recording:
+   *
+   *     vendor-selection      17e010f6a9b20b34 → 4e269bb622203282
+   *     market-entry          807cb16f08f1311a → c5ebdfcd10bd0c6a
+   *     build-vs-buy          fdc5a378a826407d → 8f6201d39f2b7f91
+   *     headcount-allocation  28785b8d552bebaa → 90ce19d7bf969579
+   *     pricing-model         b81897d92b72a9e1 → 678045251956b85e
+   *
+   * What moved, and nothing else: the board is 316 units narrower (1740 →
+   * 1424, so every block re-centres 158 left); each five-card band gains a
+   * second sub-row; every tier below it moves down by one sub-row. Node counts
+   * are unchanged. Before recording, the layout reader set (112 collected
+   * files, 1175 tests) was GREEN except these five: every R1 "one canonical
+   * layout" test, `s4NoSameRowOverlap`, the restated consequence-BAND guard
+   * above and `laptopFit1280.bandRows.spec.ts` (every band row ≤ 1520 at
+   * 1280, reading order unchanged, bound by card id).
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '17e010f6a9b20b34', nodes: 19 },
-    'market-entry': { digest: '807cb16f08f1311a', nodes: 18 },
-    'build-vs-buy': { digest: 'fdc5a378a826407d', nodes: 19 },
-    'headcount-allocation': { digest: '28785b8d552bebaa', nodes: 16 },
-    'pricing-model': { digest: 'b81897d92b72a9e1', nodes: 15 },
+    'vendor-selection': { digest: '4e269bb622203282', nodes: 19 },
+    'market-entry': { digest: 'c5ebdfcd10bd0c6a', nodes: 18 },
+    'build-vs-buy': { digest: '8f6201d39f2b7f91', nodes: 19 },
+    'headcount-allocation': { digest: '90ce19d7bf969579', nodes: 16 },
+    'pricing-model': { digest: '678045251956b85e', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(
