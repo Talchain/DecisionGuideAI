@@ -13,13 +13,14 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { NodeValueEditor } from './shared/NodeValueEditor'
+import { FactorValueFigure } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
-import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
+import { factorDisplayParts, factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
@@ -198,8 +199,8 @@ export const FactorNode = memo((props: NodeProps) => {
 
   // Retain the shared value reader and the card's existing display-only guard
   // against internal descriptors such as "other" being shown as units.
-  const valueDisplay = useMemo(
-    () => factorDisplayText({
+  const valueDisplayData = useMemo(
+    () => ({
       ...props.data,
       label: cleanedLabel,
       // Top level, never inside observedState: the observed state is the
@@ -212,6 +213,10 @@ export const FactorNode = memo((props: NodeProps) => {
     }),
     [props.data, cleanedLabel, observedState, pendingEditValue],
   )
+  const valueDisplay = useMemo(() => factorDisplayText(valueDisplayData), [valueDisplayData])
+  // Contract §02: the SAME value split into figure + unit word, from the same
+  // read — or null, and the card keeps the one string (see FactorValueFigure).
+  const valueParts = useMemo(() => factorDisplayParts(valueDisplayData), [valueDisplayData])
 
   // Prior range for external factors (only the range values, no "Variable"
   // prefix). Lane C3: prior.range_min/max are NORMALISED 0–1 values. Only a
@@ -1335,7 +1340,7 @@ export const FactorNode = memo((props: NodeProps) => {
               <span className="min-w-0">
                 <NodeValueEditor
                   value={resolveValueInputSeed(props.data).seed ?? observedState.value}
-                  readout={recordedValueReadout}
+                  readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />}
                   onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
                   readCommittedValue={() =>
                     resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
@@ -1344,7 +1349,9 @@ export const FactorNode = memo((props: NodeProps) => {
                 />
               </span>
             ) : (
-              <span className="min-w-0 break-words">{recordedValueReadout}</span>
+              <span className="min-w-0 break-words">
+                <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />
+              </span>
             )}
             {valueSourceMark !== null && (
               <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
