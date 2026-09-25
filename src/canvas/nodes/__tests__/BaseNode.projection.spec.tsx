@@ -6,6 +6,11 @@
  * data-analysis-driver marker + an info outline when — and only when — the slice
  * names it. The ring uses `outline` (a separate CSS channel) so it composes with
  * the selection / hover rings rather than replacing them.
+ *
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the `getByRole('group', {name: …})` queries below match
+ * "Question: …" — a decision node's user-facing Kind word — not the old
+ * "decision node: …" wording.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -87,27 +92,27 @@ describe('BaseNode — analysis-graph projection marker (driver node)', () => {
 
   it('marks the node when the drivers slice names it', () => {
     renderWith({ analysisHighlight: { source: 'drivers', nodeIds: new Set(['decision-1']), edgeIds: new Set() } })
-    const group = screen.getByRole('group', { name: /decision/i })
+    const group = screen.getByRole('group', { name: /^Question:/i })
     expect(group.getAttribute('data-analysis-driver')).toBe('true')
     expect(group.style.outline).toContain('var(--semantic-info)')
   })
 
   it('does NOT mark the node when the slice is empty', () => {
     renderWith({ analysisHighlight: { source: null, nodeIds: new Set(), edgeIds: new Set() } })
-    const group = screen.getByRole('group', { name: /decision/i })
+    const group = screen.getByRole('group', { name: /^Question:/i })
     expect(group.getAttribute('data-analysis-driver')).toBeNull()
     expect(group.style.outline).toBe('')
   })
 
   it('does NOT mark the node when a DIFFERENT node is named', () => {
     renderWith({ analysisHighlight: { source: 'drivers', nodeIds: new Set(['other-node']), edgeIds: new Set() } })
-    const group = screen.getByRole('group', { name: /decision/i })
+    const group = screen.getByRole('group', { name: /^Question:/i })
     expect(group.getAttribute('data-analysis-driver')).toBeNull()
   })
 
   it('does NOT mark when the source is flip_risks (node ids belong only to drivers)', () => {
     renderWith({ analysisHighlight: { source: 'flip_risks', nodeIds: new Set(['decision-1']), edgeIds: new Set() } })
-    const group = screen.getByRole('group', { name: /decision/i })
+    const group = screen.getByRole('group', { name: /^Question:/i })
     expect(group.getAttribute('data-analysis-driver')).toBeNull()
   })
 })

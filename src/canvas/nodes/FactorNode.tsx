@@ -28,7 +28,6 @@ import { useRunCurrency } from './shared/runCurrency'
 import { useHasCompletedFirstRun } from '../selectors/results'
 import { FACTOR_NO_ANALYSIS_YET } from './shared/metricVocabulary'
 import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
-import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { selectFactorTurningPointState, turningPointNumberPrints } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
@@ -1165,9 +1164,17 @@ export const FactorNode = memo((props: NodeProps) => {
    * ⭐ WHERE THE S3 FINDINGS LIVE IN THE STANDARD VIEW NOW (ED 5809278282: "can
    * move to the existing hover/focus popover and inspector rather than
    * expanding layout geometry"). Exactly the lines the resting card used to
-   * carry, in the same order and under the same gates — moved, not re-worded:
-   *   · the `Needs input · Value not set yet` sentence (the card keeps the
-   *     ruled word `Needs input`; this is the longer sentence);
+   * carry, in the same order and under the same gates:
+   *   · the `Needs input · Value not set yet` sentence — ⚠ GAP-9 (24 Sep
+   *     2026, DESIGN-GAP-AUDIT-20260924.md row 9): this is no longer the
+   *     sentence's ONLY visible appearance. The card's own body row now
+   *     shows "Value not set yet" too (contract §02), so this popover
+   *     paragraph is a deliberate duplicate rather than the sentence's one
+   *     home. Left in place — this gap did not ask to remove it, and a
+   *     hover echo of visible card text is not the harm the provenance-mark
+   *     "don't say it twice" rule targets (that rule is about DIFFERENT
+   *     provenance facts competing for one glyph, not the same sentence
+   *     appearing on the card and in its own popover);
    *   · `Driver N of M analysed` + its neutral bar, `Last run · ` when stale;
    *   · a FOUND turning point (Standard never shows the "none" fallback —
    *     ED 5806207128), `Last run · ` when stale;
@@ -1428,13 +1435,24 @@ export const FactorNode = memo((props: NodeProps) => {
             reached the connector glyph at landing zoom). Same `StatusPill`, same
             test id and accessible name the corner used, so "the card says Needs
             input" is still bound by identity.
-            ⭐ ED 5809278282 (bounded anatomy): in STANDARD the row is ONE line
-            — "Needs input · Value not set yet" is ~31 characters and the landing
-            rung holds ~19 — so the card keeps the ruled word `Needs input`
-            (explicit, never tooltip-only) and the sentence is the row's sr-only
-            description and hover `title`, and is in the popover
-            (`factor-popover-needs-input-{id}`). Detailed keeps both inline. */}
-        {needsInput && valueDisplay === null && (isDetailed ? (
+            ⛔ GAP-9 (DESIGN-GAP-AUDIT-20260924.md row 9; contract §02): "Value
+            not set yet" is now VISIBLE text in BOTH views, not sr-only/title-
+            only in Standard. ED 5809278282's ~19-character landing-rung budget
+            is the reason it was hidden there; the contract's own fixture shows
+            the sentence on the resting card regardless, and this gap follows
+            the contract. `StatusPill`'s own label/props are UNCHANGED (no pill
+            token moves) — only the row's layout and the sentence's visibility
+            change: Standard now shares Detailed's wrap-friendly classes so the
+            longer line can drop to a second row rather than being clipped or
+            overflowing the card, and the native `title` duplicate is dropped
+            (the sentence is no longer hidden, so a hover echo of it would just
+            repeat what is already on screen — the same reasoning
+            `NodeProvenanceMark` already applies to its own tooltip). The
+            popover's own copy of this sentence (`standardFindings`, below) is
+            untouched — out of scope for this gap. */}
+        {/* One row in both views now: the Standard arm differed only by the
+            retired inline driver cue (prototype, Paul 25 Sep). */}
+        {needsInput && valueDisplay === null && (
           <div
             className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5"
             data-testid={`factor-needs-input-row-${props.id}`}
@@ -1442,16 +1460,7 @@ export const FactorNode = memo((props: NodeProps) => {
             <StatusPill label="Needs input" title="Missing required input" />
             <span className={`${typography.edgeLabel} text-text-light`}>Value not set yet</span>
           </div>
-        ) : (
-          <div
-            className="flex max-w-full min-w-0 flex-nowrap items-center gap-x-1.5"
-            data-testid={`factor-needs-input-row-${props.id}`}
-            title="Needs input · Value not set yet"
-          >
-            <StatusPill label="Needs input" title="Missing required input" />
-            <span className={typography.screenReaderOnly}>Value not set yet</span>
-          </div>
-        ))}
+        )}
 
         {/* ⭐ THE TINY RELATIVE DRIVER VISUAL — a current run, or a known-changed
             model's last run LABELLED `Last run · ` (never-run / cannot-confirm

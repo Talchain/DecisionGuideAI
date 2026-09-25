@@ -1,8 +1,9 @@
 /**
  * The card rail's one button geometry, shared by every rail member (coaching,
  * evidence, behaviour, provenance, and the hover-only quick actions) so the rail
- * reads as ONE row of equal targets — the quick actions' own 20px box and 2px
- * hit slop, counter-scaled with `--canvas-label-scale` like every canvas glyph.
+ * reads as ONE row of equal targets — the contract's 25px `.icon-btn` box
+ * (`CANVAS_QUICK_ACTION_BOX_PX`, 20 until gap 34) and a 2px hit slop,
+ * counter-scaled with `--canvas-label-scale` like every canvas glyph.
  *
  * ⭐ ONE ICON-BUTTON LANGUAGE — contract v3.1 (`.icon-btn`, `.icon-btn:hover`,
  * `.icon-btn svg`; deltas ICON-01 / ICON-02 / OPT-13 / F12 / FRAME-11). Every
@@ -15,8 +16,9 @@
  * quick actions went to text-body) — one row, three hover languages.
  *
  * The focus ring keeps an offset (contract `outline-offset`, DS v5 §6.3) so it
- * separates from the info-soft ground it now sits on. Box, slop and gap are
- * unchanged, so `NODE_QUICK_ACTION_BAND_PX` — and every card height — is too.
+ * separates from the info-soft ground it now sits on. (That change moved no
+ * box; gap 34's 20 → 25 box does, and `NODE_QUICK_ACTION_BAND_PX` is derived
+ * from it, so the band a card reserves moves with the rail rather than apart.)
  */
 import {
   CANVAS_GLYPH_SIZE_CLASSES,
@@ -35,15 +37,41 @@ export const NODE_RAIL_BUTTON_CLASSES =
 
 /**
  * The glyph inside EVERY rail button — the resting members and the hover quick
- * actions alike (contract v3.1 `.icon-btn svg`, one size for the row; ICON-02).
- * 14px, counter-scaled: DS v5 §9.1 "Canvas node badge 14px", the size the
- * header provenance glyph on the same card already uses, and the nearest map
- * size to the contract's 15px. Lucide's 2/24 stroke then renders 1.17px, the
- * contract's 1.8/24 at 15px (1.125px). The 20px box is unchanged.
+ * actions alike (contract `.icon-btn svg{width:15px;height:15px}`, one size for
+ * the row; ICON-02). 15px, counter-scaled, in the contract's 25px box (gap 34;
+ * it was 14 in a 20px box — the nearest map size then, before the map carried
+ * 15). Lucide's 2/24 stroke renders 1.25px here.
  *
  * ⚠ On a Lucide icon pass `size={NODE_RAIL_GLYPH_PX}` WITH the class (see
  * `CANVAS_GLYPH_SIZE_CLASSES`): the attribute is the fallback where the
  * stylesheet did not load.
  */
-export const NODE_RAIL_GLYPH_PX = 14
+export const NODE_RAIL_GLYPH_PX = 15
 export const NODE_RAIL_GLYPH_CLASSES = CANVAS_GLYPH_SIZE_CLASSES[NODE_RAIL_GLYPH_PX]
+
+/**
+ * ⭐ THE RAIL'S RESTING COLOURS (gap 34; contract `.icon-btn{color:#777B77}`,
+ * `.icon-btn.behaviour{color:#736DA0}`), each from a `brand.css` channel token,
+ * so the value lives in the token file and nowhere else.
+ *
+ *   · REST — every data icon, the hover quick actions and the coaching icon.
+ *     ⚠ The coaching icon stays in this grey at rest (Paul 23 Sep pt 6 overrides
+ *     the contract's `.icon-btn.coaching{color:var(--info)}`); it goes Info only
+ *     on hover/focus, like every member (`NODE_RAIL_BUTTON_CLASSES`).
+ *   · BEHAVIOUR — the one behavioural-finding icon. It was body ink, which read
+ *     as the loudest glyph on the card; the contract gives it its own muted
+ *     violet.
+ *
+ * Contrast on the card fill (#FEFEFE), for a non-text glyph (SC 1.4.11, 3:1):
+ * #777B77 ≈ 4.3:1, #736DA0 ≈ 4.7:1.
+ *
+ * ⚠ ARBITRARY-VALUE CLASSES OVER A TOKEN, NOT `theme.colors` ENTRIES, and on
+ * purpose: a `colors` key generates `text-*`/`bg-*`/`border-*` for the whole app,
+ * and #777B77 sits in the 3:1–4.5:1 band that
+ * `tests/ci-guards/reasoning-model-text-contrast-per-site.spec.ts` pins for
+ * config colours, because it must never be painted as body TEXT. These classes
+ * are glyph colours for the rail only. Literal strings, no spaces, so the
+ * Tailwind scanner emits them.
+ */
+export const NODE_RAIL_REST_TONE_CLASS = 'text-[color:rgb(var(--rail-icon-rgb))]'
+export const NODE_RAIL_BEHAVIOUR_TONE_CLASS = 'text-[color:rgb(var(--behaviour-icon-rgb))]'

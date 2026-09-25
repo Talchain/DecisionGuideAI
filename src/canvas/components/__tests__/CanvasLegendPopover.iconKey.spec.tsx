@@ -32,14 +32,19 @@ import { NodeCoachingIcon } from '../../nodes/shared/NodeCoachingIcon'
 import type { AttentionReason } from '../../nodes/shared/nodeAttention'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { NODE_RAIL_BEHAVIOUR_TONE_CLASS, NODE_RAIL_REST_TONE_CLASS } from '../../nodes/shared/nodeCardRailStyles'
 
 const tokens = (el: Element | null | undefined): string[] =>
   (el?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
 /** The one lucide identity class on a rendered glyph (`lucide-<name>`). */
 const lucideName = (svg: Element | null | undefined) =>
   tokens(svg).find((t) => t.startsWith('lucide-') && t !== 'lucide') ?? null
-/** The resting ink — the one `text-<colour>` token that is not a hover/focus variant. */
-const INKS = ['text-info', 'text-text-light', 'text-text-body'] as const
+/**
+ * The resting ink — the one `text-<colour>` token that is not a hover/focus variant.
+ * The rail's own grey and violet (gap 34, `nodeCardRailStyles`) are inks too: without
+ * them the evidence, behaviour and coaching pairs compared null with null.
+ */
+const INKS = ['text-info', 'text-text-light', 'text-text-body', NODE_RAIL_REST_TONE_CLASS, NODE_RAIL_BEHAVIOUR_TONE_CLASS] as const
 const ink = (el: Element | null | undefined) => tokens(el).find((t) => (INKS as readonly string[]).includes(t)) ?? null
 
 const NODE = 'n-card'
@@ -135,6 +140,7 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     const card = cardGlyph(`node-rail-evidence-${NODE}`)
     const key = keyRow(openKey(), 'legend-icon-evidence')
     expect(lucideName(key.svg)).toBe(lucideName(card.svg))
+    expect(ink(card.button)).not.toBeNull()
     expect(ink(key.svg)).toBe(ink(card.button))
   })
 
@@ -143,6 +149,7 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     const card = cardGlyph(`node-rail-behaviour-${NODE}`)
     const key = keyRow(openKey(), 'legend-icon-behaviour')
     expect(lucideName(key.svg)).toBe(lucideName(card.svg))
+    expect(ink(card.button)).not.toBeNull()
     expect(ink(key.svg)).toBe(ink(card.button))
   })
 
@@ -151,6 +158,7 @@ describe('⭐ each row draws the glyph the card draws, in the card’s resting i
     const card = cardGlyph(`node-coaching-icon-${NODE}`)
     const key = keyRow(openKey(), 'legend-icon-coaching')
     expect(lucideName(key.svg)).toBe(lucideName(card.svg))
+    expect(ink(card.button)).not.toBeNull()
     expect(ink(key.svg)).toBe(ink(card.button))
   })
 

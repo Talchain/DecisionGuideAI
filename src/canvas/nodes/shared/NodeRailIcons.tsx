@@ -21,7 +21,13 @@ import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import {
+  NODE_RAIL_BEHAVIOUR_TONE_CLASS,
+  NODE_RAIL_BUTTON_CLASSES,
+  NODE_RAIL_GLYPH_CLASSES,
+  NODE_RAIL_GLYPH_PX,
+  NODE_RAIL_REST_TONE_CLASS,
+} from './nodeCardRailStyles'
 import { selectRestingGlyphsShown } from './restingGlyphRung'
 import type { AttentionReason } from './nodeAttention'
 
@@ -47,11 +53,16 @@ export const NODE_RAIL_REVEAL_CLASSES =
   'group-focus-within:opacity-100 group-focus-within:pointer-events-auto ' +
   '[@media(pointer:coarse)]:opacity-100 [@media(pointer:coarse)]:pointer-events-auto'
 
-/** Each rail tone's RESTING ink — the one owner the icons and the canvas key read. */
+/**
+ * Each rail tone's RESTING ink — the one owner the icons and the canvas key read.
+ * `muted` is the contract's `.icon-btn` grey (#777B77) and `behaviour` its
+ * `.icon-btn.behaviour` violet (#736DA0) — gap 34; they were `text-text-light`
+ * and body ink (`text-text-body`).
+ */
 export const NODE_RAIL_TONE_CLASS = {
   info: 'text-info',
-  behaviour: 'text-text-body',
-  muted: 'text-text-light',
+  behaviour: NODE_RAIL_BEHAVIOUR_TONE_CLASS,
+  muted: NODE_RAIL_REST_TONE_CLASS,
 } as const
 
 /**
@@ -79,6 +90,9 @@ export function NodeRailIcon({
    * `NODE_RAIL_BUTTON_CLASSES`, so the rail has one hover language.
    * `info` is Info at rest too. Contract v3.1 keeps Info at rest for the
    * attention cue (Paul 23 Sep pt 9), so a DATA icon is `muted`.
+   * `muted` is the contract's `.icon-btn` grey (#777B77) and `behaviour` its
+   * `.icon-btn.behaviour` violet (#736DA0) — gap 34; they were `text-text-light`
+   * and body ink (`text-text-body`), the loudest glyph on the card.
    */
   tone: 'info' | 'behaviour' | 'muted'
   onActivate: () => void

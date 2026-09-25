@@ -13,6 +13,7 @@ import Tooltip from '../../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { useCanvasStore } from '../../store'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
+import { factorValueSourceMark } from './valueSourceMark'
 
 /**
  * ⭐⭐ WHO PUT THIS ELEMENT HERE — on the card, at a fixed position, on every
@@ -398,17 +399,53 @@ export function resolveProvenanceMarks(nodeType: NodeType, data: unknown): Resol
    */
   const authorshipIsClaimable = !olumiAuthorshipIsAmbiguous(data)
 
-  if (disagree && authorshipIsClaimable) {
-    return [
-      { claim: 'structural', kind: nodeAuthorship.kind },
-      { claim: 'value', kind: valueProvenance.kind },
-    ]
-  }
+  const marks: ResolvedProvenanceMark[] =
+    disagree && authorshipIsClaimable
+      ? [
+          { claim: 'structural', kind: nodeAuthorship.kind },
+          { claim: 'value', kind: valueProvenance.kind },
+        ]
+      : (() => {
+          const cls = valueProvenance ?? nodeAuthorship
+          return cls ? [{ claim, kind: cls.kind }] : []
+        })()
 
-  const cls = valueProvenance ?? nodeAuthorship
-  if (!cls) return []
-
-  return [{ claim, kind: cls.kind }]
+  /**
+   * ⛔ GAP-16 (DESIGN-GAP-AUDIT-20260924.md row 16; contract §03 "Show useful
+   * exceptions, not the same provenance mark everywhere").
+   *
+   * A `claim: 'value'` mark says where a NUMBER came from — and every kind
+   * that can EARN a `'value'` claim (`claimFromKindAndCarrier`: factor, risk;
+   * constraint is never rendered) ALSO renders its own value-line source
+   * mark right on the card body (`valueSourceMark.tsx`'s `ValueSourceMark`,
+   * mounted by `FactorNode`/`RiskNode`), classified through the SAME
+   * function (`classifyValueProvenance(observedState.source)`). So a
+   * `'value'` header mark is not a second fact, it is the first fact painted
+   * twice — once at the top of the card, once on the row that IS the number.
+   *
+   * `claim: 'structural'` is UNTOUCHED. It answers "who put this element on
+   * the board", which nothing else on a factor/risk card states — including
+   * the rare two-mark disagreement case above, where it is now the ONLY
+   * mark that survives (previously the value half of that pair duplicated
+   * the value line exactly as the common single-mark case did).
+   *
+   * Nothing here silences the FACT — `factorValueSourceMark` /
+   * `ValueSourceMark` render unconditionally wherever a value exists, so the
+   * number's provenance is still told, just once rather than twice. See
+   * `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`.
+   */
+  //
+  // ⛔ ONLY A TRUE DUPLICATE IS DROPPED (review 5822866079). The value line is
+  // `factorValueSourceMark`, which is NOT the header's classifier: a stamped
+  // `ai` source without `extractionType: 'inferred'`, or no source at all,
+  // reads `unknown` there, while the header fell back to node authorship
+  // ("AI estimate"). In those cases the header was the only mark with a kind,
+  // and dropping it left "8%" with no provenance a sighted user could read
+  // (53 of 198 valued factors in the corpus). Paul, 23 Sep point 1: a number
+  // is never unmarked.
+  const valueLine = factorValueSourceMark(data)
+  const valueLineStatesTheSource = valueLine !== null && valueLine.kind !== 'unknown'
+  return valueLineStatesTheSource ? marks.filter((m) => m.claim !== 'value') : marks
 }
 
 /**

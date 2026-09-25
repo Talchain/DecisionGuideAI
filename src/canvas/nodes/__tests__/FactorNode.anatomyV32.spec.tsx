@@ -301,10 +301,11 @@ describe('NODE-ANATOMY v3.2 · Factor · missing value — "Needs input" in the 
     renderFactor(MISSING)
     mounted()
     const row = screen.getByTestId(`factor-needs-input-row-${ID}`)
-    // ED 5809278282: one line at ~19 characters — the ruled word stays visible;
-    // "Value not set yet" is the row's sr-only description and is in the popover.
-    expect(visibleText(row)).toBe('Needs input')
-    expect(row.querySelector('.sr-only')?.textContent).toBe('Value not set yet')
+    // ⛔ UPDATED 24 Sep 2026 (GAP-9, DESIGN-GAP-AUDIT-20260924.md row 9;
+    // contract §02): "Value not set yet" is now VISIBLE on the card, not
+    // sr-only/title-only. The popover keeps its own (now duplicate) copy.
+    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    expect(row.querySelector('.sr-only')).toBeNull()
     expect(within(popover()).getByTestId(`factor-popover-needs-input-${ID}`).textContent).toBe('Needs input · Value not set yet')
     // ONE "Needs input" on the card, and it is the one in the body row.
     const pills = screen.getAllByTestId('needs-input-pill')
