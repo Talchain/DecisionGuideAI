@@ -2,8 +2,10 @@
  * V5AnalysisResultBlock — renders V5 OlumiResponse.analysis_result.
  *
  * Card content:
- *   - Always: summary text, uncertainty calibration copy, win_probabilities
- *     as pills.
+ *   - Always: summary text and uncertainty calibration copy.
+ *   - win_probabilities as pills, ONLY when the producer did not withhold the
+ *     leader claim (UI-SEM-097): leader-first then largest-first for a
+ *     licensed leader, otherwise in canvas order.
  *   - When the turn carries a 0.30 `decision_review` with prose: the five
  *     fields no other wire block delivers — `narrative_summary`,
  *     `story_headlines`, `robustness_explanation`, `readiness_rationale`,
