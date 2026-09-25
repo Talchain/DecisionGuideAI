@@ -734,6 +734,9 @@ export const ConversationPanel = memo(function ConversationPanel({
         // being set on the line above.
         ...(meta?.intent ? { wire_intent: meta.intent } : {}),
         ...(meta?.parameters ? { parameters: meta.parameters } : {}),
+        // G1 — which card this send is. UI-only: stamped on the user message
+        // so a reload can tell the action was already taken; never on the wire.
+        ...(meta?.sourceBlockKey ? { sourceBlockKey: meta.sourceBlockKey } : {}),
       })
     // Prefill the visible composer (see prefillInto): the legacy ChatComposer
     // ref when mounted, else the ConversationContext draft AIInputBar renders
