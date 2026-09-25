@@ -638,30 +638,36 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
      * could satisfy (trap 19). A fixture rendering two buttons would compute a
      * comfortable footprint and pass a test that had measured nothing.
      */
-    it('measures the FULL three-button row, named one by one', () => {
+    // ⚠ WAS "the FULL three-button row". Design-gap row 20 (contract v3 §02) put
+    // the EDIT route back on the factor's row, so the widest row is four again.
+    it('measures the FULL four-button row (factor), named one by one', () => {
       render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
       const { buttons } = measureRow()
       expect(buttons.map(idOf).sort()).toEqual([
         'node-action-ask-node-a',
         'node-action-challenge-node-a',
+        'node-action-edit-node-a',
         'node-action-menu-node-a',
       ])
     })
 
     /**
-     * ⚠ THE THIRD BUTTON IS ON EVERY KIND — asserted, not assumed, because
-     * the whole point of pinning the row is that it is the row every
-     * card gets. If a kind stops reaching it this REDs and the footprint claim
-     * has to be re-scoped.
+     * ⚠ THE ROW IS NO LONGER THE SAME ON EVERY KIND — asserted per kind, not
+     * assumed. Design-gap row 20: Question (`decision`), Goal and Factor carry
+     * the EDIT route (four buttons); Outcome and Risk get coaching only, Option's
+     * edit route is its own card pencil, and `constraint` has none (three). The
+     * footprint below is pinned to the WIDER row, so it bounds every kind. If a
+     * kind moves between the two this REDs and the footprint claim is re-scoped.
      */
-    it('every node kind reaches the same three-button row', () => {
+    it('each node kind reaches the row the footprint is pinned against — four with an edit route, three without', () => {
+      const withEdit = new Set(['decision', 'goal', 'factor'])
       for (const kind of ['factor', 'risk', 'outcome', 'goal', 'decision', 'option', 'constraint'] as const) {
         document.body.innerHTML = ''
         render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
         expect(
           targetsIn(screen.getByTestId('node-quick-actions-node-a')).length,
-          `${kind} does not render the three-button row the footprint is pinned to`,
-        ).toBe(3)
+          `${kind} does not render the row the footprint is pinned to`,
+        ).toBe(withEdit.has(kind) ? 4 : 3)
       }
     })
 
@@ -686,8 +692,21 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       // 230 -> 260 and the SAME row now occupies a smaller share of the
       // narrowest card. 67.0% -> 59.2% is a bound getting looser because the
       // card grew, not a trade being retuned to fit a regression.
-      expect(visual, 'the row visual width moved').toBe(144)
-      expect(occupied, 'the row footprint moved').toBe(154)
+      //
+      // ⭐ RE-DECIDED, PRICED BEFORE THE CHANGE (2026-09-25, design-gap row 20).
+      // Contract v3 §02 draws an EDIT icon in the rail for Question, Goal and
+      // Factor, so their row is four buttons again — the same four-button
+      // arithmetic the 7 Sep block above measured, on today's wider card:
+      //   4 x 40px + 3 x 12px          = 196 CSS px
+      //   6 (inset) + 196 + 4 (slop)   = 206 CSS px
+      //   206 / 260                    = 79.2%   (was 59.2%; 89.6% of 230 was
+      //                                           accepted on 7 Sep for this row)
+      // Accepted because the contract asks for the route and the row does not
+      // overflow the narrowest card. ⚠ The contract's own rail carries only edit
+      // + coaching; Ask / Challenge / More are this product's additions, so the
+      // way to buy this width back is a ruling on those, not a smaller box.
+      expect(visual, 'the row visual width moved').toBe(196)
+      expect(occupied, 'the row footprint moved').toBe(206)
       expect(NODE_LAYOUT_MIN_W, 'the narrowest card moved').toBe(260)
 
       // …and the RELATIONSHIP, which is the thing that actually matters and the
@@ -696,7 +715,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       expect(
         Math.round((occupied / NODE_LAYOUT_MIN_W) * 1000) / 10,
         'the row footprint as a % of the narrowest card is the accepted trade — re-decide it, do not retune it',
-      ).toBe(59.2)
+      ).toBe(79.2)
     })
   })
 })
