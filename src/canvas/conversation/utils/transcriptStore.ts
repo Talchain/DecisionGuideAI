@@ -39,6 +39,7 @@
 
 import type { ConversationMessage } from '../types'
 import { heldProposalMountKey } from '../selectors'
+import { offersPendingConsent } from '../messageComposition'
 
 // ── G1: which CARD ACTION created a user message ─────────────────────────────
 //
@@ -70,6 +71,31 @@ import { heldProposalMountKey } from '../selectors'
 export type SourceKeyedMessage = ConversationMessage & {
   /** `coach:<turnId>:<block_id>` or `held:<turnId>:<proposal_id>`. */
   sourceBlockKey?: string
+  /**
+   * The turn asked the user to consent to a proposal: its chips carried CEE's
+   * approve chip (`offersPendingConsent`). Set only on a RESTORED message,
+   * whose chips are dropped on save. See `turnOfferedConsent`.
+   */
+  consentOffered?: true
+}
+
+// ── The consent turn keeps its layout after a reload ─────────────────────────
+//
+// THE DEFECT. A turn that asks for consent keeps its run card as a closed line
+// (`shouldPromoteRunTurnCard`), and `MessageBubble` decided that from the
+// turn's own `actionChips`. Chips are dropped on save (they would re-arm a
+// stale interaction), so after a reload the same turn read as "no consent",
+// and its run card jumped onto the face of the reply: a layout the user never
+// saw live.
+//
+// THE RULE. Whether a turn OFFERED consent is a fact about that turn, not a
+// live control. The store records the fact (`consentOffered`), never the
+// chips, so the restored turn composes exactly as it did live and offers no
+// consent button to click again.
+
+/** Whether this turn asked the user to consent: live chips, or the restored fact. */
+export function turnOfferedConsent(m: SourceKeyedMessage): boolean {
+  return m.consentOffered === true || offersPendingConsent(m.actionChips)
 }
 
 /** Key for a coaching card's action chip: `coach:<turnId>:<block_id>`. */
@@ -155,6 +181,9 @@ interface StoredMessage {
    * absent.
    */
   deliveryState?: 'unconfirmed'
+  /** The turn asked for consent (`turnOfferedConsent`). The chips themselves
+   *  are never stored. Absent on older saves and on every other turn. */
+  consentOffered?: true
   sessionDivider?: string
   synthetic?: boolean
 }
@@ -257,6 +286,7 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.chipInitiated) out.chipInitiated = true
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
+  if (turnOfferedConsent(m)) out.consentOffered = true
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   return out
@@ -282,6 +312,7 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       ? { sourceBlockKey: s.sourceBlockKey }
       : {}),
     ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
+    ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
   }
