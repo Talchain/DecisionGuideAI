@@ -224,8 +224,24 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
    * OWN PRECONDITION: it asserts the stroke really is the distinct value its
    * rule produces, so a case cannot silently degrade back into the neutral one
    * and keep passing. That is the failure this table exists to make impossible.
-   * Four DIFFERENT rules, five distinct values, including the `color-mix()` that
+   * Four DIFFERENT rules, four distinct values, including the `color-mix()` that
    * an explicit `fill` attribute is most likely to mishandle.
+   *
+   * ⭐ GAP 1 FIX, 24 Sep 2026 (design-gap audit row 13, contract §03 "Colour
+   * and sign = direction") REMOVED THE `highlighted` ROW THAT STOOD HERE. It
+   * pinned the DEFECT this fix removes: `resolveEdgeStroke`'s `highlighted`
+   * branch used to return `var(--semantic-info)` outright, so a selected
+   * node's path edges lost their +/− polarity colour. Post-fix, `highlighted`
+   * returns `state.polarityStroke` — i.e. for ANY given edge data it now
+   * paints the SAME value the `polarity` rule would, which is the whole
+   * point of the fix and is exactly why it can no longer supply this table's
+   * fifth DISTINCT value. That property — a highlighted path keeps its own
+   * direction colour, and separately gains a soft Info glow rather than a
+   * recolour — is asserted where it belongs: `edgePresentation.spec.ts`
+   * ("GAP 1: a highlighted path keeps its direction colour", value-level) and
+   * `StyledEdge.pathHighlightColour.spec.tsx` (DOM-level: stroke AND glow,
+   * bound by identity, with contrasts for unhighlighted and selection-dimmed
+   * edges).
    */
   const COLOUR_CASES: ReadonlyArray<{
     rule: string
@@ -243,16 +259,10 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
       stroke: 'var(--edge-negative)',
       data: { strength_mean: 0.6, effect_direction: 'negative', exists_probability: 0.8 },
     },
-    {
-      rule: 'highlighted',
-      stroke: 'var(--semantic-info)',
-      data: { direction: 'positive', direction_source: 'user' },
-      store: { highlightedEdges: new Set(['e1']) },
-    },
     // ⭐ REPLACED 23 Sep 2026. This row was `contested_needs_user_input`
     // (full `var(--semantic-warning)`), a rule the locked connector grammar
     // deleted ("orange = AI review SIGN disagreement only"). A stated POSITIVE
-    // takes its place so the table still carries five distinct strokes.
+    // takes its place so the table still carries distinct strokes.
     {
       rule: 'polarity (a stated positive — same rule, third value)',
       stroke: 'var(--edge-positive)',
@@ -260,8 +270,8 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
     },
     // contract v3.1 (E12/T07, 24 Sep 2026): the dispute hue is now the SOLID
     // Warning token (Paul 23 Sep point 9), no longer a 70% color-mix — so the
-    // arrowhead is no longer translucent where it crosses another edge. Still a
-    // fifth distinct value: no other rule paints `var(--semantic-warning)`.
+    // arrowhead is no longer translucent where it crosses another edge. Still
+    // a fourth distinct value: no other rule paints `var(--semantic-warning)`.
     {
       rule: 'contested_direction_disputed (the Warning token)',
       stroke: 'var(--semantic-warning)',
@@ -300,7 +310,7 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
    * value — the precise thing that happened here — this REDs, whereas every
    * individual row would keep passing.
    */
-  it('exercises five DISTINCT stroke values, so agreement is not one constant coinciding', () => {
+  it('exercises four DISTINCT stroke values, so agreement is not one constant coinciding', () => {
     const seen = new Set<string>()
     for (const c of COLOUR_CASES) {
       for (const k of Object.keys(storeOverrides)) delete storeOverrides[k]
