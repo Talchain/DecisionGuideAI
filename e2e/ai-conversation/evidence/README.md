@@ -52,3 +52,19 @@ Measured with a DOM Range over the first sentence's text: every line box is insi
 Negative control (same spec, hold bypassed, scratch output): both viewports RED on "every line of the first sentence is inside the thread". Readings: `scrollTop` 398 / 298 (pinned to the bottom); the reply's top at −128 / −28 px, which reproduces 09. The same spec is also RED when arrival detection runs in a passive effect instead of a layout effect (`scrollTop` 398 / 298).
 
 Trade-off: at 1280×800 the coaching line ("Pressure-test a sensitive link") is now below the fold on arrival. In 09 it was in view. At 1440×900 it is still in view.
+
+## 11 — served-equivalent: the CEE commit served on staging tonight (`c673223`), rendered by current staging
+
+Spec: `servedC673223RunReply.witness.measure.ts`. The Run reply is `fixtures/served-route-c673223-explicit-run.json`: the HTTP response body of CEE `POST /agent/v1/turn` at `c673223d7bc3f83fc344b68de53b44baf04c75f7` (the CEE staging head on 2026-09-25), produced by CEE's own route test double with a **scripted model**. It is **route-generated, not a live capture**: no OpenAI or Anthropic call was made. It is byte-identical to the c933aabf body served in 09 (sha256 `ca8ad216…675e`, re-derived by the spec). Same journey, network rules and harness caveats as 09.
+
+Two trees were measured, because the witness branch carries UI that staging does not:
+
+| File | Tree | What it shows |
+|---|---|---|
+| `11-served-c673223-run-reply-{1280x800,1440x900}.png` | THIS branch: `witness/ai-conversation-local` + `origin/staging` `64a3b385` merged. So it also carries the unmerged PR-B UI (run-turn currency, promotion OFF) and `reply-start-in-view` | The moment the reply lands, untouched. The reply's first sentence is at the top of the thread (`scrollTop 258`, not at the bottom). At 1280×800 the coaching line is below the fold; at 1440×900 it is in view |
+| `11-served-c673223-run-reply-{1280x800,1440x900}-staging-only.png` | `origin/staging` `64a3b385` + ONLY this spec, its fixture, `runChipGateFixtures.ts` and the config (scratch tree, not pushed) | **What tonight's build shows.** The thread is pinned to the bottom (`scrollTop` 398 / 298, `atBottom: true`): the reply's first sentence — the finding and its caveat — is out of view (1280×800: first sentence and first bullet above the fold; 1440×900: first line cut). The last sentence, the analysis-result card and the coaching line are in view |
+| `11-served-c673223-run-reply-card-open-crop-*.png` (both trees) | | The line opened: body verbatim, "Grounded in decision science · medium evidence", the `Pro subscriber base → MRR` pill, the live "Pressure-test this link" chip. `data-currency="current"`, no notice |
+
+Asserted in each viewport, on both trees (3 passed each): turns = opening, ONE run, ONE card action; the card action's turn carries `action_prompt` verbatim and a second click sends nothing; the reply renders in full (93 words); no suggested-chip row; no `data-leader="true"`; one closed line titled "Pressure-test a sensitive link", current; the store holds `complete_current`, `computed_at` = card `created_at`, `currentGraphHash` = card hash, not dirty; `leader_claim` withheld (`constraint_verdict_withheld`). 0 off-origin responses (only the Google Fonts CSS was attempted, and it was aborted).
+
+Harness caveat visible in the photos: the canvas is the seeded `pricing-model` starter (NRR, **4** options) while the reply and result card speak of the analysed pricing model (MRR, **3** options). That mismatch is the harness's, not the product's.
