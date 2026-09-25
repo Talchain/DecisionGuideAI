@@ -34,7 +34,8 @@ export function FocusNowPanel({
   rerunDisabled = false,
   showFreshnessBanner = true,
   className = '',
-}: FocusNowProps) {
+  bare = false,
+}: FocusNowProps & { bare?: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [revealed, setRevealed] = useState(false)
   const listId = useId()
@@ -58,20 +59,25 @@ export function FocusNowPanel({
     <section
       aria-label={FOCUS_COPY.panelAria}
       data-testid="focus-now-panel"
-      className={`overflow-hidden rounded-2xl border border-panel-border bg-panel shadow-sm ${className}`}
+      className={`${bare ? '' : 'overflow-hidden rounded-2xl border border-panel-border bg-panel shadow-sm'} ${className}`.trim()}
+      data-bare={bare ? 'true' : undefined}
     >
-      <div className="px-3.5 pb-2 pt-3">
-        <h2 className={`${typography.panelHeader} text-text-header`}>{FOCUS_COPY.header}</h2>
-      </div>
+      {/* ⭐ Reasoning V2 (`bare`): no card, no shadow, and no second heading under
+          the zone's own label. The section keeps its aria-label. */}
+      {bare ? null : (
+        <div className="px-3.5 pb-2 pt-3">
+          <h2 className={`${typography.panelHeader} text-text-header`}>{FOCUS_COPY.header}</h2>
+        </div>
+      )}
 
       {showFreshnessBanner && banner.kind !== 'none' && (
-        <div className="px-3.5 pb-2">
+        <div className={bare ? 'pb-2' : 'px-3.5 pb-2'}>
           <FocusBanner state={banner} onRerun={onRerun} rerunDisabled={rerunDisabled} />
         </div>
       )}
 
       {summary && (
-        <div className="px-3.5 pb-2">
+        <div className={bare ? 'pb-2' : 'px-3.5 pb-2'}>
           <p className={`${typography.panelBody} text-text-body`} data-testid="focus-summary">
             {summary}
           </p>
@@ -79,7 +85,7 @@ export function FocusNowPanel({
       )}
 
       {safeRows.length === 0 ? (
-        <div className="px-3.5 pb-3">
+        <div className={bare ? 'pb-3' : 'px-3.5 pb-3'}>
           <FocusNowEmpty />
         </div>
       ) : (
@@ -92,13 +98,14 @@ export function FocusNowPanel({
                   isOpen={openId === row.id}
                   onToggle={() => setOpenId((prev) => (prev === row.id ? null : row.id))}
                   onTryAction={handleTry}
+                  bare={bare}
                 />
               </li>
             ))}
           </ul>
 
           {hiddenCount > 0 && (
-            <div className="px-3.5 pb-3 pt-2">
+            <div className={bare ? 'pb-3 pt-2' : 'px-3.5 pb-3 pt-2'}>
               <button
                 type="button"
                 aria-expanded={revealed}

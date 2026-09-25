@@ -33,6 +33,7 @@ import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPil
 import { resolveFreshnessNotice } from './coachingCurrency'
 import { useCoachingCurrency } from './useCoachingCurrency'
 import type { V5EvidenceBlock as V5EvidenceBlockType } from '../../canvas/conversation/types'
+import { ProducerActionText } from './ProducerActionText'
 
 export interface V5EvidenceBlockProps {
   block: V5EvidenceBlockType
@@ -140,20 +141,13 @@ export function V5EvidenceBlock({ block, suppressHeader = false }: V5EvidenceBlo
           ))}
         </div>
       )}
+      {/* No `action_prompt` on this block type, so no command: text, not a dead chip (ProducerActionText). */}
       {block.action_label && (
-        <div className="flex">
-          <span
-            data-testid="v5-evidence-action"
-            {...(block.action_intent ? { 'data-action-intent': block.action_intent } : {})}
-            className={[
-              'inline-flex items-center rounded-full px-2.5 py-0.5',
-              'bg-transparent border border-info/30 text-text-body',
-              typography.panelMeta,
-            ].join(' ')}
-          >
-            {block.action_label}
-          </span>
-        </div>
+        <ProducerActionText
+          label={block.action_label}
+          intent={block.action_intent}
+          testId="v5-evidence-action"
+        />
       )}
     </div>
   )
