@@ -246,14 +246,15 @@ function runTurn(opts: { nodes: unknown[]; pA: number; hash: string; computedAt:
  * header for why this, not the label, is what flips `overlayNode`'s
  * comparison once the optimistic write has already applied the label.
  */
-function renameTurnReply(intent: StructuralRenameIntent, computedAt: string, committedHash: string = H_HELD) {
+function renameTurnReply(intent: StructuralRenameIntent, computedAt: string, committedHash: string | null = H_HELD) {
   return {
     ok: true,
     response: {
       assistant_text: `Renamed to "${intent.label}". That doesn't change the analysis — nothing about the numbers moved.`,
       blocks: [],
       suggested_actions: [],
-      graph_hash: committedHash,
+      // `null` models a reply that carries NO `graph_hash` at all.
+      ...(committedHash === null ? {} : { graph_hash: committedHash }),
       analysis_ready: readiness({ computed_at: computedAt }),
       analysis_state: completeCurrent(computedAt),
       draft_graph: draftGraph([
@@ -454,7 +455,7 @@ describe('a pure rename does not claim the model changed since the run', () => {
    * reads, so the run is no longer current. A UI-taxonomy gate reads this as
    * "nothing analytical moved" and presents the old run as current.
    */
-  async function renameThenReply(opts: { committedHash: string }) {
+  async function renameThenReply(opts: { committedHash: string | null }) {
     const { result } = renderHook(() => useConversation())
     await run(result, runTurn({ nodes: nodesAtOpen, pA: 0.61, hash: H_HELD, computedAt: '2026-09-24T09:00:00.000Z' }))
     expect(currency(), 'precondition: the run is current').toBe('current')
@@ -491,6 +492,24 @@ describe('a pure rename does not claim the model changed since the run', () => {
       useCanvasStore.getState().analysisFreshnessDirty,
       "CEE's analysis-affecting hash moved: the run no longer describes the model",
     ).toBe(true)
+    expect(currency()).toBe('changed')
+    expect(modelChangedSinceRun()).toBe(true)
+  })
+
+  /**
+   * ⛔ NOTHING TO COMPARE IS NOT "UNMOVED" (review 5826775062, non-blocking).
+   * The skip needs BOTH sides of the comparison: the base CEE checked and the
+   * hash it committed. A reply with no `graph_hash` cannot show the analysis
+   * hash held, so the run must read as no longer current.
+   *
+   * The event-side absence is not driven here: a `structural_rename` sent
+   * without `base_graph_hash` never reaches the wire on this path (its reply
+   * stays queued, measured while writing this case), so it never reaches the
+   * reconcile. The reachable absence is the reply's.
+   */
+  it("CONTRAST: a base hash was sent but the reply carries no graph_hash — reads 'changed'", async () => {
+    await renameThenReply({ committedHash: null })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
     expect(currency()).toBe('changed')
     expect(modelChangedSinceRun()).toBe(true)
   })
