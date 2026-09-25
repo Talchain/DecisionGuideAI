@@ -50,15 +50,17 @@ vi.mock('../shared/openNodeInspector', () => ({ openNodeInspector: vi.fn(() => t
 
 const FACTOR_PRICE = { id: 'f-price', type: 'factor', data: { label: 'Pro plan monthly price', type: 'factor' } }
 /**
- * Anchored (`raw_value` + a real unit), so the factor card reads "0 engineers"
- * and the row's "from" is that short figure. With the old `{value: 0, unit:
- * 'count'}` the factor card reads "No developer headcount in place", the row
- * runs past `OPTION_ROW_CHANGE_BUDGET_CHARS` and the card shows ONE row (ED D2:
- * fewer rows before a cut value) — correct, but not what these order tests read.
+ * The fixture this file has always had: `{value: 0, unit: 'count'}` and NO
+ * raw_value, so the factor card's reading is the formatter's value-only guess
+ * ("No developer headcount in place") — a phrase the data does not carry, so it
+ * is never the row's "from" and the row reads "→ 30 engineers". (e0490565 had
+ * anchored this fixture to dodge the guess; restored so the order tests below
+ * also stand guard over the faithfulness rule — with the guess as a "from" the
+ * row runs past `OPTION_ROW_CHANGE_BUDGET_CHARS` and the card drops to one row.)
  */
 const FACTOR_HEAD = {
   id: 'f-head', type: 'factor',
-  data: { label: 'Developer headcount', type: 'factor', observedState: { value: 0, raw_value: 0, unit: 'engineers' }, unit: 'engineers' },
+  data: { label: 'Developer headcount', type: 'factor', observedState: { value: 0, unit: 'count' }, unit: 'count' },
 }
 const FACTOR_ADOPT = { id: 'f-adopt', type: 'factor', data: { label: 'Adoption friction', type: 'factor' } }
 const OPTION_1 = { id: 'option-1', type: 'option', data: { label: 'Raise the Pro price', type: 'option' } }

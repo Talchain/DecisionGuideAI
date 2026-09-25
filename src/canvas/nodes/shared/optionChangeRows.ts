@@ -30,9 +30,21 @@ import {
   formatInterventionTargetText,
   isInterventionNoChange,
 } from '../../utils/interventionDisplay'
-import { cleanFactorLabel, sentenceCaseFactorLabel, compactFactorLabel, isSuppressedUnit } from '../../utils/labelUtils'
+import {
+  cleanFactorLabel,
+  sentenceCaseFactorLabel,
+  compactFactorLabel,
+  isSuppressedUnit,
+  classifyUnit,
+  unwrapInterventionValue,
+} from '../../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
-import { factorDisplayText, placeholderMagnitudeNumber } from '../../../utils/formatFactorDisplayValue'
+import {
+  encodingMapPhrase,
+  factorDisplayText,
+  placeholderMagnitudeNumber,
+  readFactorDisplayValue,
+} from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
 
@@ -88,11 +100,63 @@ export function factorCardReading(
   data: Record<string, unknown> | null | undefined,
 ): string | null {
   if (!data || typeof data !== 'object') return null
+  return factorDisplayText(factorCardInput(data))
+}
+
+/** The node data exactly as the factor card formats it: label cleaned, a suppressed unit dropped. */
+function factorCardInput(data: Record<string, unknown>): Record<string, unknown> {
   const obs = data.observedState as Record<string, unknown> | undefined
   const unit = typeof obs?.unit === 'string' ? obs.unit : undefined
   const label = cleanFactorLabel((data.label as string | undefined) ?? '')
   const observedState = obs && { ...obs, unit: isSuppressedUnit(unit) ? undefined : unit }
-  return factorDisplayText({ ...data, label, observedState })
+  return { ...data, label, observedState }
+}
+
+/**
+ * ⛔⛔ THE FACTOR CARD'S READING, ONLY WHEN THE DATA CARRIES IT — else `null`.
+ *
+ * A row's "from" is the factor's current value "when the data carries it;
+ * otherwise show `→ to` only" (Paul 25 Sep). The factor card's formatter does
+ * more than read: from a bare model value it GUESSES — "No <label> in place" for
+ * 0, "<Label> active" for 1 (`formatFactorDisplayValue`'s value-only branch).
+ * Those phrases are in no field of the data, so they are never a "from". e0490565
+ * took any reading and put "No tech lead headcount in place → 1" on the served
+ * hiring board (verifier FIX_NEEDED).
+ *
+ * Accepted, each traced to a field the node carries:
+ *   1. a `raw_value` on a unit that is not a placeholder (or no unit): from
+ *      there every branch the formatter can take prints that figure with its
+ *      unit, the `display_value` or the `encoding_map` phrase — the guessing
+ *      branch needs `raw_value` absent or a placeholder unit. (A zero on a
+ *      `cost` factor prints "No cost allocated": the carried 0, in words.)
+ *   2. otherwise, the producer's own words only: the `display_value` verbatim
+ *      (or its figure with the placeholder word dropped — the forwarding gate
+ *      the card applies), or the `encoding_map` phrase for the value.
+ *
+ * ⚠ DELIBERATELY CONSERVATIVE, recorded rather than hidden: a figure the
+ * formatter prints from a bare `value` (a user-stated number on a placeholder
+ * scale, the percent recovered from a contradicted `display_value`) is NOT
+ * accepted. Those rows lose their "from" and read `→ to` — a missing "from" is
+ * incomplete; a guessed one is false.
+ */
+export function carriedFactorCardReading(
+  data: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!data || typeof data !== 'object') return null
+  const input = factorCardInput(data)
+  const reading = factorDisplayText(input)
+  if (reading === null) return null
+  const obs = input.observedState as Record<string, unknown> | undefined
+  const unit = typeof obs?.unit === 'string' && obs.unit !== '' ? obs.unit : null
+  const raw = obs?.raw_value
+  const carriesRaw = unwrapInterventionValue(raw).value !== null || (typeof raw === 'string' && raw.trim() !== '')
+  if (carriesRaw && (unit === null || classifyUnit(unit).kind !== 'placeholder')) return reading
+  const displayValue = readFactorDisplayValue(input)
+  if (displayValue !== undefined && (reading === displayValue || reading === placeholderMagnitudeNumber(displayValue))) {
+    return reading
+  }
+  if (reading === encodingMapPhrase(input.encoding_map, unwrapInterventionValue(obs?.value).value)) return reading
+  return null
 }
 
 export interface OptionSetLike {
@@ -302,7 +366,7 @@ export function buildOptionChangeRow({
   let reference: OptionChangeRow['reference'] = 'none'
   let fromText = ''
   let sameAsReference = false
-  const currentReading = factorCardReading(factor.factorData)
+  const currentReading = carriedFactorCardReading(factor.factorData)
   if (baselineOptionTarget && Boolean(baselineOptionTarget.displayValue) === Boolean(target.displayValue)) {
     reference = 'baseline_option'
     sameAsReference =
@@ -319,8 +383,10 @@ export function buildOptionChangeRow({
     // puts a display string on EVERY target (`intervention_details[]
     // .display_value`, debug bundle 5fe89207) — so no served row ever had a
     // "from" while the factor card beside it read "0 GBP/year". Both halves are
-    // now READINGS (the factor card's string, the producer's string), so the
-    // old worry — a display string beside a model number — no longer applies.
+    // READINGS the data carries (the factor card's string, the producer's
+    // string). ⛔ Only a CARRIED reading: the formatter's value-only guesses
+    // ("No X in place", "X active") are refused by `carriedFactorCardReading`,
+    // and the row falls through to the older arms — `→ to` for a served target.
     // No pair when the target IS the current value, or reads identically.
     const unchanged = typeof factor.observedValue === 'number' && isInterventionNoChange(factor.observedValue, target.value)
     const currentFull = unitless(currentReading)
