@@ -97,6 +97,7 @@ import { useCanvasStore } from '../../store'
 import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 import { useRunCurrency } from '../../nodes/shared/runCurrency'
 import { useModelChangedSinceRun } from '../../hooks/useModelChangedSinceRun'
+import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { __resetPendingFactorEditsForTest } from '../pendingFactorEdit'
 import type { StructuralRenameIntent } from '../../mutations/structuralRename'
 
@@ -257,6 +258,45 @@ function renameTurnReply(intent: StructuralRenameIntent, computedAt: string, com
       ...(committedHash === null ? {} : { graph_hash: committedHash }),
       analysis_ready: readiness({ computed_at: computedAt }),
       analysis_state: completeCurrent(computedAt),
+      draft_graph: draftGraph([
+        GOAL,
+        OPT_A,
+        OPT_B,
+        { id: FACTOR, kind: 'factor', label: intent.label, category: 'external' },
+      ]),
+    },
+  }
+}
+
+/**
+ * THE SERVED RENAME REPLY, BYTE-SHAPED. CEE `7f9a16d`, Canonical's capture
+ * `evidence/canonical-state-20260925/runs/1860-edit-reply-after-window-7f9a16d-0512/e1.json`
+ * (21 of 21 renames alike): `analysis_state.run_state` is
+ * `unknown_degraded / no_graph_this_turn`, readiness `unknown`, NO
+ * `analysis_ready` key, and `graph_hash` equal to the base.
+ */
+function servedRenameReply(intent: StructuralRenameIntent, committedHash: string = H_HELD) {
+  const parsed = AnalysisStateV1Schema.safeParse({
+    run_state: { kind: 'unknown_degraded', cause: 'no_graph_this_turn' },
+    readiness: { status: 'unknown', blockers: [] },
+    leader_claim: { permitted: false, withheld_reason: 'constraint_verdict_withheld' },
+    robustness: {},
+    usable_for_prose: false,
+    usable_for_chips: false,
+    usable_for_followup: false,
+    requires_rerun: false,
+    blocked_unusable: false,
+    contradictions: [],
+  })
+  if (!parsed.success) throw new Error(`fixture: ${JSON.stringify(parsed.error.issues)}`)
+  return {
+    ok: true,
+    response: {
+      assistant_text: `Renamed to "${intent.label}". That change is saved.`,
+      blocks: [],
+      suggested_actions: [],
+      graph_hash: committedHash,
+      analysis_state: parsed.data,
       draft_graph: draftGraph([
         GOAL,
         OPT_A,
@@ -455,7 +495,7 @@ describe('a pure rename does not claim the model changed since the run', () => {
    * reads, so the run is no longer current. A UI-taxonomy gate reads this as
    * "nothing analytical moved" and presents the old run as current.
    */
-  async function renameThenReply(opts: { committedHash: string | null }) {
+  async function renameThenReply(opts: { committedHash: string | null; served?: boolean }) {
     const { result } = renderHook(() => useConversation())
     await run(result, runTurn({ nodes: nodesAtOpen, pA: 0.61, hash: H_HELD, computedAt: '2026-09-24T09:00:00.000Z' }))
     expect(currency(), 'precondition: the run is current').toBe('current')
@@ -464,7 +504,11 @@ describe('a pure rename does not claim the model changed since the run', () => {
     })
     const intent = useCanvasStore.getState().pendingStructuralRenames.at(-1)
     expect(intent?.baseGraphHash, 'harness: the intent captured a real base hash').toBe(H_HELD)
-    replies.push(renameTurnReply(intent!, '2026-09-24T09:05:00.000Z', opts.committedHash))
+    replies.push(
+      opts.served
+        ? servedRenameReply(intent!, opts.committedHash ?? H_HELD)
+        : renameTurnReply(intent!, '2026-09-24T09:05:00.000Z', opts.committedHash),
+    )
     await act(async () => {
       await result.current
         .sendSystemEvent(
@@ -512,6 +556,29 @@ describe('a pure rename does not claim the model changed since the run', () => {
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
     expect(currency()).toBe('changed')
     expect(modelChangedSinceRun()).toBe(true)
+  })
+
+  /**
+   * ⭐ ON THE SERVED WIRE, THIS PR REMOVES THE FALSE CHANGE — AND NO MORE.
+   * Measured with the byte shape of CEE `7f9a16d`'s rename reply
+   * (`servedRenameReply`):
+   * - staging `580d135b` (without this PR): semantic `changed`, dirty `true`.
+   *   That is the served false "Model changed".
+   * - this PR: dirty `false`, no "changed", semantic **`cannot_confirm`**. The
+   *   reply's `unknown_degraded / no_graph_this_turn` replaces the run's verdict
+   *   (`analysisStateSelector.ts`), and its carve-out applies only when dirty.
+   * "Current" needs the producer to state the verdict from the bytes that
+   * landed (Canonical's every-writer PR). Until then the honest display is
+   * "can't confirm", never "changed". This case pins that boundary, and the
+   * `complete_current` cases above pin the full outcome once CEE states it.
+   */
+  it('SERVED SHAPE: a rename reply with no verdict does not claim a change (reads cannot-confirm until CEE states one)', async () => {
+    await renameThenReply({ committedHash: H_HELD, served: true })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    expect(modelChangedSinceRun()).toBe(false)
+    expect(currency()).not.toBe('changed')
+    const trust = renderHook(() => useAnalysisTrust()).result.current as { semantic?: string }
+    expect(trust.semantic).toBe('cannot_confirm')
   })
 
 })
