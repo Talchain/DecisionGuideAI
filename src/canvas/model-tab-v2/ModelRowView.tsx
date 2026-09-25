@@ -542,7 +542,21 @@ export function ModelRowView({
          former `bg-panel-hover` tint measured 1.03:1 against the panel
          ground — functionally invisible — so a click had no visible effect
          on the row it selected. */
-      className={`grid grid-cols-subgrid col-span-4 items-center gap-2 px-2 py-1.5 border-b border-panel-border ${
+      /* ⭐⭐ MODEL-1, 25 Sep 2026 — TWO LINES, NOT A TRUNCATED ONE. Names cut
+         to "Technical coor…" while a value took 160px, plus a sideways
+         scrollbar at the 280px dock, made the tab that lists the model
+         unreadable at the width the dock actually opens at (the known
+         instrument, `modelRowCellOverlap.measure.ts`, read 33/45
+         overlapping pairs at 280). The LI itself is NOT subgridded on the
+         row axis (only `grid-cols-subgrid` — columns — is declared below),
+         so its own row tracks stay the default `auto`, and placing children
+         on two explicit `row-start` lines costs nothing beyond what is
+         already free. `border-b` moves to `divide-y` territory conceptually
+         but is simply dropped per the fix (`py-[5px]` is the row's own
+         rhythm now, matching the prototype's `.reviewitem{padding:5px 0}`
+         with no rule between rows). `items-start`, not `items-center`: a
+         two-line row has no single centre for its children to share. */
+      className={`grid grid-cols-subgrid col-span-4 items-start gap-x-2 gap-y-0.5 px-2 py-[5px] ${
         selected ? 'ring-1 ring-inset ring-info rounded-sm' : ''
       }`}
       onClick={() => onSelect?.(row.id)}
@@ -581,17 +595,27 @@ export function ModelRowView({
         aria-label={KIND_LABEL[row.kind]}
         title={KIND_LABEL[row.kind]}
         data-testid={`model-row-v2-${row.id}-glyph`}
-        className="flex items-center justify-center text-text-light select-none"
+        /* ⭐ MODEL-1: `row-start-1 col-start-1 self-start`, explicit — the
+           glyph sits on LINE 1 beside the label, never line 2. `mt-0.5`
+           optically centres the 11px shape on the label's first line of
+           text rather than the two-line row's overall box. */
+        className="row-start-1 col-start-1 self-start mt-0.5 flex items-center justify-center text-text-light select-none"
       >
         {row.kind === 'relationship'
           ? KIND_GLYPH.relationship
           : <NodeShapeIndicator nodeKind={row.kind} size={11} />}
       </span>
 
-      {/* ── CELL 2 · IDENTITY — the flexible track. `min-w-0` is required or
-          the button's automatic minimum keeps the column from ever shrinking,
-          which is the defect this file already fixed once at the atom level. */}
-      <span className="flex items-center gap-1.5 min-w-0">
+      {/* ── CELL 2 · IDENTITY — LINE 1, spanning the three remaining tracks.
+          ⭐ MODEL-1: `row-start-1 col-start-2 col-span-3`. This cell no
+          longer competes with the value and meta cells for column 2's
+          width alone — it now has the whole row's remaining width on its
+          own line, which is what lets the label below drop `truncate` for
+          `break-words` without losing characters. `min-w-0` is required or
+          the button's automatic minimum keeps the column from ever
+          shrinking, which is the defect this file already fixed once at the
+          atom level. */}
+      <span className="row-start-1 col-start-2 col-span-3 flex items-center gap-1.5 min-w-0">
       {renaming ? (
         /*
           ⭐ THE RENAME EDITOR. It REPLACES the label rather than sitting beside
@@ -637,7 +661,14 @@ export function ModelRowView({
              bodySmall otherwise". A rename is text, so bodySmall. It is
              deliberately 2px larger than the label button it replaces — the
              button is not a text-entry control and the rule does not reach it. */
-          className={`${typography.bodySmall} text-text-body bg-panel-hover border border-panel-border rounded px-1 py-0 flex-1 min-w-[6rem]`}
+          /* ⭐ MODEL-5: `bg-panel border-field`, NOT A TINTED GROUND. The former
+             `bg-panel-hover`/`border-panel-border` pair measured about 1.2:1
+             against its own ground, well under WCAG 1.4.11's 3:1 — a field a
+             user could barely see they were typing into. `border-field` is
+             the estate's own field-border token (used elsewhere in this same
+             tab's filter row). No vertical padding, so the row's reserved
+             height is unchanged. */
+          className={`${typography.bodySmall} text-text-body bg-panel border border-field rounded-sm px-2 flex-1 min-w-[6rem]`}
         />
       ) : (
       <button
@@ -734,10 +765,17 @@ export function ModelRowView({
            would need the name itself to change, which is a vocabulary decision
            and is ratified elsewhere. */
         title={labelIsTypeDefault(row) ? UNWRITTEN_QUESTION_TITLE : row.label}
+        /* ⭐ MODEL-1: `break-words`, NOT `truncate`, for the plain-label
+           case — the label now owns its own full-width line (see CELL 2
+           above), so there is no longer a value cell six words away
+           fighting it for the same row. A directed relationship's two
+           endpoints keep their own `truncate` below (unchanged): they are a
+           different shape (two independently-identified halves either side
+           of an arrow) and MODEL-1's fix does not touch that case. */
         className={`${typography.panelBody} ${
           labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'
         } text-left min-w-[6rem] flex-1 ${
-          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'truncate'
+          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'break-words'
         }`}
         onClick={e => {
           e.stopPropagation()
@@ -925,6 +963,19 @@ export function ModelRowView({
       )}
 
       </span>
+
+      {/* ── LINE 2, MODEL-1 — VALUE + META TOGETHER, BELOW THE NAME.
+          `row-start-2 col-start-2 col-span-3`: the same three tracks CELL 2
+          spans above it, one row down. CELL 3 (value) and CELL 4 (meta) are
+          UNCHANGED below — same elements, same classes, same testids, same
+          `shrink-0`/`whitespace-nowrap` reasoning that this file's own long
+          comments already justify — only their SHARED ANCESTOR moved. Given
+          its own line, the row no longer needs the value and the label to
+          divide one line's width between them, which is what the sideways
+          scroll at 280px measured. `flex-wrap` lets a wide `proposed` cell
+          (the arm already documented as deliberately taller) grow onto a
+          third line rather than force this one wider than the dock. */}
+      <span className="row-start-2 col-start-2 col-span-3 flex flex-wrap items-center gap-1.5 min-w-0">
       {/* ── CELL 3 · VALUE — the column this whole change exists to create.
 
           ⚠⚠ THE TRACK IS `fit-content(5.5rem)` (declared once, in
@@ -1319,6 +1370,14 @@ export function ModelRowView({
         </span>
       )}
       </span>
+      {/* ⭐ MODEL-1: closes the LINE 2 wrapper opened before CELL 3. Everything
+          from the value cell through the Advanced id above sat inside it; the
+          three full-width lines below (band, goal fields, editor actions) stay
+          OUTSIDE it and remain direct `col-span-4` children of the `<li>`,
+          exactly as their own comments require — wrapping them into LINE 2
+          would silently un-child them from the row and break the load-bearing
+          `col-span-4` grant `rowAtomsDoNotWrap.spec` pins. */}
+      </span>
 
       {/* ── QUICK-SET BAND LINE · THE SAME FIX, FOR THE CONTROL #1410 DID NOT REACH.
           ⭐⭐ MEASURED IN A REAL BROWSER AT `9574b5c4`, on relationship row `e-4`.
@@ -1524,6 +1583,18 @@ function EditorActionLine({
   // reachable from the UI only through this line.
   const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit, row.valueAdmission, row.declaresNoUnit)
   const blockedId = `model-row-v2-${row.id}-value-blocked`
+  /* ⭐ TWO SEPARATE STRING LITERALS, NOT ONE TERNARY INSIDE A TEMPLATE.
+     `tests/helpers/semanticTextContrastScan.ts` reads a WHOLE template
+     literal's span as one shared class list, interpolations included —
+     deliberately, so it cannot be fooled into missing a ground. Nesting
+     `bg-primary text-text-on-color` and `text-text-light` inside one
+     `` `…${cond ? 'a' : 'b'}…` `` therefore reads as `text-text-light`
+     painted on `bg-primary` (1.10:1), even though the two never render
+     together. Pre-computing the whole conditional as its own `'…' : '…'`
+     expression — no enclosing backtick — gives the scanner two genuinely
+     separate literals to attribute, which is what actually happens at
+     runtime. */
+  const reviewStateClass = blocked === null ? 'bg-primary text-text-on-color' : 'text-text-light'
   return (
     <span
       data-testid={`model-row-v2-${row.id}-edit-actions`}
@@ -1632,11 +1703,14 @@ function EditorActionLine({
           aria-describedby={blocked === null ? undefined : blockedId}
           disabled={blocked !== null}
           onClick={() => onProposeEdit(row.id)}
-          className={`${typography.buttonSmall} border rounded px-2 py-0.5 whitespace-nowrap ${
-            blocked === null
-              ? 'text-info border-info/50'
-              : 'text-text-light border-panel-border'
-          }`}
+          /* ⭐ MODEL-5: A PRIMARY PILL, NOT AN 18PX BORDERED CHIP. The former
+             `buttonSmall` (12px/600) chip at `py-0.5` measured 18px tall with
+             a 4px-radius border — the product's core commit act rendered as
+             a barely-there square. `rounded-full bg-primary` matches the
+             prototype's `.primary` recipe; blocked keeps the same shape with
+             no fill, so disabled reads as disabled rather than as a second
+             style of button. */
+          className={`${typography.panelBody} inline-flex items-center px-2.5 rounded-full whitespace-nowrap ${reviewStateClass}`}
         >
           Review change
         </button>
@@ -1645,7 +1719,7 @@ function EditorActionLine({
           data-testid={`model-row-v2-${row.id}-discard-edit`}
           aria-label={`Discard the new value for ${row.label}`}
           onClick={() => onDiscardEdit(row.id)}
-          className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5 whitespace-nowrap`}
+          className={`${typography.panelBody} text-info whitespace-nowrap`}
         >
           Discard
         </button>
@@ -2116,7 +2190,7 @@ function GoalTargetFieldsLine({
           onChange={e =>
             onDraftChange(row.id, commit.draft, commit.unit, e.target.value as ConstraintType)
           }
-          className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+          className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
         >
           <option value="at_least">at least</option>
           <option value="at_most">at most</option>
@@ -2139,7 +2213,7 @@ function GoalTargetFieldsLine({
             if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
             if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
           }}
-          className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+          className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
         />
       </label>
     </span>
@@ -2213,7 +2287,7 @@ function ValueCell({
                     onDiscardEdit(row.id)
                   }
                 }}
-                className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
               />
             </span>
 
@@ -2290,7 +2364,10 @@ function ValueCell({
                   data-testid={`model-row-v2-${row.id}-confirm`}
                   aria-label={`Confirm new value for ${row.label}`}
                   onClick={() => onConfirmEdit(row.id)}
-                  className={`${typography.buttonSmall} text-info border border-info/50 rounded px-2 py-0.5`}
+                  /* ⭐ MODEL-5: SAME PRIMARY-PILL RECIPE AS `-review` ABOVE.
+                     Confirm stays its OWN separate step after Review — this
+                     is a restyle of the chip, not a merge of the two acts. */
+                  className={`${typography.panelBody} inline-flex items-center px-2.5 rounded-full bg-primary text-text-on-color whitespace-nowrap`}
                 >
                   Confirm
                 </button>
@@ -2299,7 +2376,7 @@ function ValueCell({
                   data-testid={`model-row-v2-${row.id}-discard`}
                   aria-label={`Discard new value for ${row.label}`}
                   onClick={() => onDiscardEdit(row.id)}
-                  className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5`}
+                  className={`${typography.panelBody} text-info whitespace-nowrap`}
                 >
                   Discard
                 </button>
