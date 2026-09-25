@@ -423,6 +423,24 @@ describe('settling a contested connection — what it says depends on how the se
     await flushSettlement()
   })
 
+  it('REFUSED, FENCE: a STOPPED turn (CEE #1868 `turn_fence_stopped`) keeps the row and says the fence\'s own sentence', async () => {
+    nextSend = async () => {
+      throw new SystemEventSendError('server', { conflictCategory: 'turn_fence_stopped' })
+    }
+    oneContested()
+    renderPanel()
+
+    fireEvent.click(screen.getByTestId(settleBtn('accepted_pass2')))
+    await flushSettlement()
+
+    expect(screen.getByTestId(`pre-analysis-v3-contested-row-${EDGE}`)).toBeInTheDocument()
+    expect(storedValidation()?.user_action).toBe('pending')
+    const line = screen.getByTestId(stateLine())
+    expect(line).toHaveAttribute('data-settlement', 'refused')
+    expect(line).toHaveTextContent("That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.")
+    expect(line.textContent ?? '').not.toContain(CONTESTED_COPY.settleState.refused)
+  })
+
   it('NOT SENT: a send that never reached the server keeps the row and says so', async () => {
     // `SEND_BLOCKED` is returned with NO NETWORK CALL AT ALL when the orchestrator flag is off
     // or serialisation drops the event. Nothing left the browser.

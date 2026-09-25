@@ -444,7 +444,7 @@ export interface ModelEditAuthorityLive {
    */
   proposeEdgeStrengthConfirmation: (
     edgeId: string,
-    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void },
   ) => EdgeStrengthConfirmOutcome
   proposeEdgeStrength: (
     edgeId: string,
@@ -839,7 +839,7 @@ export function useModelEditAuthority(
          * `MODEL_TAB_ROW_HAS_NO_SETTLEMENT_SURFACE` at module scope, which is greppable
          * and will show up the moment anyone asks who is still swallowing one.
          */
-        onSendSettled?: (settlement: SystemEventSendSettlement) => void
+        onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
       },
     ): EdgeStrengthProposalOutcome => {
       // The hook is keyed to ONE edge. An id that is not that edge is a caller
@@ -902,7 +902,7 @@ export function useModelEditAuthority(
          * are unchanged; a caller that renders a pending state must pass it, or
          * that state has no way to end.
          */
-        onSendSettled?: (settlement: SystemEventSendSettlement) => void
+        onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
       },
     ): EdgeStrengthConfirmOutcome => {
       // Keyed to ONE edge, same fail-closed rule as `proposeEdgeStrength`: an id

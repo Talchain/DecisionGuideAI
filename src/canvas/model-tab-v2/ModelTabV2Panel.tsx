@@ -154,6 +154,7 @@ import { goalTargetBoundPhrase } from '../conversation/manualGoalTarget'
 import { formatValueWithUnit } from '../components/model-tab/utils'
 import type { ConstraintType } from '../../v5/chipParameters'
 import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
+import { fenceRefusalCopyForCategory } from '../../v5/failureTypeRetryability'
 import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspectorMutations'
 import { optionInterventionDeclinedNotice } from '../ui/inspector-v2/shared/useOptionInterventionCommit'
 
@@ -720,9 +721,12 @@ export function ModelTabV2Panel({
 
     if (pendingConfirm.kind === 'edge') {
       const outcome = confirmAuthority.proposeEdgeStrengthConfirmation(rowId, {
-        onSendSettled: settlement => {
+        onSendSettled: (settlement, detail) => {
           if (settlement === 'sent') return
-          say(CONFIRM_SEND_NOTICE[settlement])
+          // A STOPPED or SUPERSEDED turn (CEE #1868) is not "the model moved on":
+          // the fence states its own cause.
+          const fence = settlement === 'refused' ? fenceRefusalCopyForCategory(detail.conflictCategory) : null
+          say(fence ?? CONFIRM_SEND_NOTICE[settlement])
         },
       })
       // The synchronous half. These return BEFORE any send, so no settlement
@@ -1316,6 +1320,11 @@ export function ModelTabV2Panel({
             // harm as the optimistic write this surface replaced.
             if (settlement === 'refused') {
               const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+              // ⭐ A THIRD PROVEN NO-WRITE: a turn fence (CEE #1868). A STOPPED or
+              // SUPERSEDED turn settles `conflict` like a stale base, and "the
+              // model moved on" is false about it. The fence states its own cause.
+              const fence = fenceRefusalCopyForCategory(detail.conflictCategory)
+              if (fence) return { ...rest, phase: 'editing', notice: fence }
               // ⚠ TWO PROVEN NO-WRITES, AND ONLY ONE OF THEM IS A STALE BASE.
               // CEE also declines an unhonourable request outright and says so
               // on `details.reason` (`system_event_refused_no_write`,

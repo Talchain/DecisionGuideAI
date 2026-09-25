@@ -271,6 +271,52 @@ describe('D2 — a refused option target says "Not saved · <reason>" under its 
     expect(screen.queryByTestId(`intervention-unapplied-${COST}`)).toBeNull()
   })
 
+  /**
+   * A GRAPH_DIVERGED 409 in the WITNESSED envelope: `useConversation.fence409Honesty.spec.ts`'s
+   * `fence409Body` (journey-walk §4/§8, the producer's literal shape from CEE `turn-executor.ts`).
+   * The `boundary` / `direction` / `validator` fields are load-bearing: without them the body is
+   * not a BoundaryError, the router takes the parse-error path, and the send settles
+   * `unverified` whatever the category (measured: a first draft of this fixture without them
+   * made the BASE_HASH_DIVERGED contrast read "Could not confirm"). The fence verdict is
+   * dormant on this carrier today (CEE emits it on `factor_value_edit` only), so this pins the
+   * copy before CEE widens it.
+   */
+  const graphDiverged409 = (category: string) => ({
+    error: 'GRAPH_DIVERGED',
+    boundary: 'B1',
+    direction: 'egress',
+    validator: 'turn_commit',
+    details: {
+      phase: 'commit',
+      conflict_category: category,
+      ...(category.startsWith('turn_fence_') ? { fence_verdict: category.slice('turn_fence_'.length) } : {}),
+    },
+    request_id: `req_${category}`,
+    retryable: false,
+  })
+
+  it('⭐ 409 `turn_fence_stopped` → the fence\'s own sentence under the field, never "the model changed"', async () => {
+    answers.push({ status: 409, body: graphDiverged409('turn_fence_stopped') })
+    renderPanel()
+
+    await typeAndEnter(GDPR, '0.7')
+
+    const line = await screen.findByTestId(`intervention-unapplied-${GDPR}`)
+    expect(line.textContent).toBe("That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.")
+    expect(line.textContent ?? '').not.toMatch(/model changed/i)
+    expect(inputFor(GDPR).value).toBe('0.7')
+  })
+
+  it('CONTRAST — 409 `BASE_HASH_DIVERGED` keeps the conflict line, exactly', async () => {
+    answers.push({ status: 409, body: graphDiverged409('BASE_HASH_DIVERGED') })
+    renderPanel()
+
+    await typeAndEnter(GDPR, '0.7')
+
+    const line = await screen.findByTestId(`intervention-unapplied-${GDPR}`)
+    expect(line.textContent).toBe(OPTION_INTERVENTION_NOT_SAVED_CONFLICT)
+  })
+
   it('⭐ CONTRAST — the same 422 on a row whose stored entry HAS a source says the same generic line (the local source never decides the copy)', async () => {
     seed({ gdprSource: 'brief_extraction' })
     answers.push({ status: 422, body: REFUSED_NO_WRITE_422 })
