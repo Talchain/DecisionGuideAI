@@ -22,7 +22,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -72,6 +72,9 @@ describe('the chart leads the glance reading', () => {
   it('the withheld reading keeps its act, in the reading', () => {
     renderBody(decisionWithLeaderWithheldAndReason())
     const reading = screen.getByTestId('analysis-new-glance')
+    // S1 (design wave 2, panel-lane design audit 2026-09-25): the refusal now
+    // sits behind a closed-at-rest disclosure, still inside this same reading.
+    fireEvent.click(screen.getByTestId('analysis-new-glance-withheld-toggle'))
     expect(reading).toContainElement(screen.getByTestId('analysis-new-glance-withheld-reason'))
     // The act mounts only where a route exists (none in this harness); where it
     // does, it travels with its sentence.

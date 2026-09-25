@@ -7,7 +7,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -16,7 +16,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
-import { genuineDecision } from './analysisNewFixtures'
+import { genuineDecision, openStrategicChallenge } from './analysisNewFixtures'
 
 const node = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: { label: id } })
 /** Earns a "Focus now" nudge, the same fixture theFocusZoneHasASectionTitle.spec.tsx uses. */
@@ -91,5 +91,58 @@ describe('TAIL-1 — "What moves the outcome" is a quiet SectionShell disclose d
     const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
     expect(toggle.className).toMatch(/text-xs/)
     expect(toggle.className).not.toMatch(/font-semibold/)
+  })
+})
+
+describe('TAIL-3 — "Drivers and dynamics" is not a second closed door inside "What moves the outcome"', () => {
+  /** Two live drivers, so the OLD nested SectionShell would default CLOSED
+   * (`sectionOpensItself` only auto-opens on exactly one finding) — the exact
+   * state that hid a second toggle behind the first. */
+  const renderTwoDrivers = () =>
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={openStrategicChallenge()}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="h-tail-3"
+      />,
+    )
+
+  const openWhatMovesTheOutcome = () => {
+    const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  }
+
+  it('has no nested drivers toggle — the outer disclosure is the only door', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    expect(screen.getByTestId('analysis-new-drivers')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-drivers-toggle')).toBeNull()
+  })
+
+  it('the count the badge used to show is still carried, on the section itself', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    expect(screen.getByTestId('analysis-new-drivers')).toHaveAttribute('data-section-count', '2')
+    expect(screen.queryByTestId('analysis-new-drivers-count')).toBeNull()
+  })
+
+  it('every driver row is on screen the moment the outer door opens — no second click', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    // Both fixture drivers survive ranking (neither is zero-reasoned out), so
+    // both rows must be visible with no further interaction.
+    expect(screen.getAllByTestId('analysis-new-drivers-row')).toHaveLength(2)
+  })
+
+  it('row headlines read at the quiet body weight, not the section-header weight', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    const rowToggle = screen.getAllByTestId('analysis-new-drivers-row-toggle')[0]
+    const headline = rowToggle.querySelector('span > span')
+    expect(headline?.className).toMatch(/text-xs/)
+    expect(headline?.className).not.toMatch(/font-semibold/)
   })
 })

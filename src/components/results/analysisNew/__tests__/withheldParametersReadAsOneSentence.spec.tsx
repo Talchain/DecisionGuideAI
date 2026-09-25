@@ -45,7 +45,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -118,6 +118,11 @@ function lineFor(n: number): HTMLElement {
       onReanalyse={() => {}}
     />,
   )
+  // S1 (design wave 2, panel-lane design audit 2026-09-25): the refusal now
+  // sits behind a closed-at-rest disclosure — open it before reading anything
+  // inside.
+  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
+  if (toggle) fireEvent.click(toggle)
   // PRECONDITION, pinned in-test: the refusal itself is rendered, so an
   // assertion about this line cannot pass because the panel vanished, and the
   // set was not voided by the fail-closed label gate in

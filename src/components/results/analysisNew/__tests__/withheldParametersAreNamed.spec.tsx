@@ -35,7 +35,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -103,8 +103,13 @@ const glanceOf = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefi
     nodeLabels,
   }).atAGlance
 
-const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefined = LABELS) =>
-  render(
+/**
+ * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run may
+ * not conclude" is now a closed-at-rest disclosure inside `AtAGlance`, so
+ * every render must open it before the parameters line is reachable.
+ */
+const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefined = LABELS) => {
+  const result = render(
     <AtAGlance
       glance={glanceOf(adm, nodeLabels)}
       isRunning={false}
@@ -113,6 +118,10 @@ const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | un
       onReanalyse={() => {}}
     />,
   )
+  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
+  if (toggle) fireEvent.click(toggle)
+  return result
+}
 
 describe('the refusal names the parameters it is about', () => {
   it('renders every published name, bound by identity', () => {

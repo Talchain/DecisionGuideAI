@@ -49,9 +49,14 @@ const SECTIONS = [
   // toggle, count or region — so `${id}-toggle` below would throw for it.
   // See `theWithheldRunShowsItsFigures.spec.tsx` for its own, positive,
   // always-open coverage.
+  //
+  // ⛔ TAIL-3 (panel-lane design audit 2026-09-25, wave 2): `analysis-new-
+  // drivers` REMOVED from this list for the same reason. "Drivers and
+  // dynamics" is now `bare` inside "What moves the outcome" — no toggle, no
+  // `data-section-open`, always visible once the outer door is open. See the
+  // dedicated positive case below.
   'analysis-new-key-insights',
   'analysis-new-strengthen',
-  'analysis-new-drivers',
   'analysis-new-uncertainty',
 ]
 
@@ -85,7 +90,11 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     const present = SECTIONS.filter((id) => screen.queryByTestId(id))
     // POSITIVE CONTROL: a run rendering no sections would satisfy the loop
     // below vacuously — this is the census's own lesson (trap 13).
-    expect(present.length, 'no sections rendered — this case would be vacuous').toBeGreaterThan(2)
+    // ⚠ TAIL-3 (wave 2): the threshold was `> 2` against a 4-entry `SECTIONS`
+    // (three of which this fixture actually renders); `analysis-new-drivers`
+    // moving to `bare` shrank the mirror to 3 entries, of which this fixture
+    // renders 2 (`manyFragileEdges` carries no Strengthen interventions).
+    expect(present.length, 'no sections rendered — this case would be vacuous').toBeGreaterThan(1)
 
     for (const id of present) {
       expect(screen.getByTestId(id)).toHaveAttribute('data-section-open', 'false')
@@ -134,6 +143,27 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     expect(screen.getAllByTestId('analysis-new-options-row').length).toBeGreaterThan(0)
   })
 
+  /**
+   * ⛔ TAIL-3 (panel-lane design audit 2026-09-25, wave 2): the same rule as
+   * "mounts the options section OPEN…" above, for the second `bare` section
+   * this panel now has. Opening "What moves the outcome" (its parent
+   * disclosure) is the only click "Drivers and dynamics" answers to — it no
+   * longer has a door of its own.
+   */
+  it('mounts "Drivers and dynamics" OPEN once its parent group is open, with no toggle, count or region — it is bare', () => {
+    renderBody(withLeaderLicensed(openStrategicChallenge()))
+    openGroups()
+    const section = screen.getByTestId('analysis-new-drivers')
+    expect(section).toBeInTheDocument()
+
+    // `bare` renders no `SectionShell` chrome at all — none of these attach.
+    expect(section).not.toHaveAttribute('data-section-open')
+    expect(screen.queryByTestId('analysis-new-drivers-toggle')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-drivers-region')).toBeNull()
+    // The rows are on screen with no further click, which is the whole point.
+    expect(screen.getAllByTestId('analysis-new-drivers-row').length).toBeGreaterThan(0)
+  })
+
   it('opens on click, and only the section clicked', () => {
     renderBody(manyFragileEdges())
     openGroups()
@@ -142,8 +172,11 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     expect(screen.getByTestId('analysis-new-uncertainty')).toHaveAttribute('data-section-open', 'true')
     expect(screen.getByTestId('analysis-new-uncertainty-region')).toBeInTheDocument()
     // The discriminating half: a shell that opened everything would pass the
-    // assertion above and destroy the IA.
-    expect(screen.getByTestId('analysis-new-drivers')).toHaveAttribute('data-section-open', 'false')
+    // assertion above and destroy the IA. `analysis-new-drivers` is `bare`
+    // (TAIL-3) and so carries no `data-section-open` of its own any more —
+    // `analysis-new-key-insights` is the still-toggling sibling that proves
+    // the click did not cascade.
+    expect(screen.getByTestId('analysis-new-key-insights')).toHaveAttribute('data-section-open', 'false')
   })
 
   it('states the count on the CLOSED row, so the row promises what is behind it', () => {

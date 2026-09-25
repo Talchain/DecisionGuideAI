@@ -322,26 +322,16 @@ export interface AtAGlanceProps {
 }
 
 /**
- * The small label above a block.
- *
- * ⚠ THE FIRST DRAFT BROKE DS v5 §2.4 THREE WAYS ON ONE LINE — an arbitrary
- * 10px size, a raw weight, and a caps transform — caught by the
- * shell-conformance guard and the DS ratchet. Panel scope renders exactly three
- * sizes, and only from `panelHeader` / `panelBody` / `panelMeta`.
- *
- * ⚠ AND THE GUARD SCANS COMMENTS TOO. Naming the offending utilities literally
- * here re-triggered both checks on a file that no longer uses any of them, so
- * this note describes them instead of quoting them.
- *
- * The eyebrow still reads as an eyebrow: it is the smallest step, the lightest
- * colour, and slightly tracked. The hierarchy comes from the scale and the
- * spacing, which is what the scale is for.
+ * ⚠ THE EYEBROW COMPONENT THIS DOCBLOCK DESCRIBED IS GONE — S1 (design wave 2,
+ * panel-lane design audit 2026-09-25) removed its one remaining call site: the
+ * label it printed ("What this run may not conclude") is now also the closed
+ * disclosure toggle's own label, on screen in both states, so restating it
+ * inside the opened region was the same text in two sections at once
+ * (`firstViewportCensus.spec.tsx`'s cross-section duplicate detector). Left as
+ * a comment rather than deleted outright, because the DS v5 §2.4 lesson it
+ * records — panel scope renders exactly three sizes, only from `panelHeader` /
+ * `panelBody` / `panelMeta` — outlives the one component that taught it.
  */
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className={`${typography.panelMeta} text-text-light tracking-wide m-0`}>{children}</p>
-  )
-}
 
 export function AtAGlance({
   glance,
@@ -361,6 +351,13 @@ export function AtAGlance({
   part = 'all',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
+  /**
+   * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run
+   * may not conclude" no longer sits on the default scroll — it is a
+   * collapsed disclosure, closed at rest, one click away. Content and
+   * copy are unchanged; only the render is gated. See the block below.
+   */
+  const [withheldOpen, setWithheldOpen] = useState(false)
   const excludedKey =
     glance.comparisonScope.kind === 'partial'
       ? JSON.stringify(glance.comparisonScope.excluded.map((o) => o.id))
@@ -913,9 +910,49 @@ export function AtAGlance({
 
            ⚠ `role="status"` — this is a statement about the run, in the slot
            where the answer would otherwise be, so it must reach a screen reader
-           the way the ribbon above does rather than as unannounced prose. */
+           the way the ribbon above does rather than as unannounced prose.
+
+           ⭐⭐ S1 (design wave 2, panel-lane design audit 2026-09-25): PAUL'S
+           WITHHELD-RUN BRIEF FOUND THIS ON THE DEFAULT SCROLL, directly under
+           "Record your view" — the prototype's tail is a single quiet
+           "About this analysis" line and nothing else. The claim is not
+           removed and not reworded: it moves behind a closed-at-rest
+           disclosure, one click away, exactly the rule
+           `whatTheRunCouldNotSettleIsOnePlace.spec.tsx` already pins for the
+           checks/uncertainty pair. Every sentence below — the refusal, the
+           named parameters, the "Review or set an estimate" act — is
+           byte-identical; only the toggle around it is new. */
+        <div data-testid={`${testId}-withheld-disclosure`}>
+          <button
+            type="button"
+            onClick={() => setWithheldOpen((o) => !o)}
+            aria-expanded={withheldOpen}
+            aria-controls={`${testId}-withheld-region`}
+            /* min-h-[28px], the same target `SectionShell`'s own `disclose`
+               toggle uses — never the literal WCAG minimum, because this
+               file also calls `action('inline')` elsewhere and that pair
+               (a hand-rolled 24px target plus `action('inline')`) is exactly
+               the drift `everyInlineActIsReachableByTouch.spec.ts` exists to
+               catch (the tier is the touch-target's only owner). 28px clears
+               the same guarantee without re-deriving it here. */
+            className={`${typography.panelMeta} text-text-light flex items-center gap-1.5 min-h-[28px] text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid={`${testId}-withheld-toggle`}
+          >
+            <ChevronRight
+              className={`${icon('row')} shrink-0 transition-transform${withheldOpen ? ' rotate-90' : ''}`}
+              aria-hidden={true}
+            />
+            {COPY.glance.eyebrowWhyWithheld}
+          </button>
+          {withheldOpen ? (
+            <div id={`${testId}-withheld-region`} data-testid={`${testId}-withheld-region`}>
         <div role="status">
-          <Eyebrow>{COPY.glance.eyebrowWhyWithheld}</Eyebrow>
+          {/* The eyebrow is not repeated here — the toggle button above
+              already carries `COPY.glance.eyebrowWhyWithheld` and stays on
+              screen in both states, so restating it inside the opened region
+              would say the same label twice, once per section
+              (`firstViewportCensus.spec.tsx`'s cross-section duplicate
+              detector: "root + …-withheld-region"). */}
           <p
             className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
             data-testid={`${testId}-withheld-reason`}
@@ -1050,6 +1087,9 @@ export function AtAGlance({
             >
               {COPY.glance.reviewEstimates}
             </button>
+          ) : null}
+        </div>
+          </div>
           ) : null}
         </div>
       ) : null}

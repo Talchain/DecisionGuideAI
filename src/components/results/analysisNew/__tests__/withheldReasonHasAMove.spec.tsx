@@ -36,7 +36,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn(() => true) }))
@@ -50,6 +50,18 @@ import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtur
 
 const SENTENCE = 'analysis-new-glance-withheld-reason'
 const CONTROL = 'analysis-new-glance-withheld-review-estimates'
+
+/**
+ * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run may
+ * not conclude" is now a closed-at-rest disclosure inside `AtAGlance`, so
+ * every render below must open it before `SENTENCE`/`CONTROL` are reachable.
+ * A no-op when the toggle is absent (a run that did not withhold), which is
+ * exactly the state some cases below assert.
+ */
+const openWithheldIfPresent = () => {
+  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
+  if (toggle) fireEvent.click(toggle)
+}
 
 /**
  * The live capture, verbatim — the same payload `refusalIsLegible.spec.tsx`
@@ -242,8 +254,8 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
     isStale: false,
   }).atAGlance
 
-const renderGlance = (data: ResultsSectionDataReturn, over: Record<string, unknown> = {}) =>
-  render(
+const renderGlance = (data: ResultsSectionDataReturn, over: Record<string, unknown> = {}) => {
+  const result = render(
     <AtAGlance
       glance={glanceOf(data)}
       isRunning={false}
@@ -253,6 +265,9 @@ const renderGlance = (data: ResultsSectionDataReturn, over: Record<string, unkno
       {...over}
     />,
   )
+  openWithheldIfPresent()
+  return result
+}
 
 /** The withheld state, pinned in-test everywhere it is used. */
 const withheld = () => withAdmission(decisionWithLeaderWithheld(), CAPTURED_REFUSAL)
@@ -485,6 +500,7 @@ describe('the act is offered only where the refusal asks for an estimate', () =>
         onReviewEstimates={vi.fn()}
       />,
     )
+    openWithheldIfPresent()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.getByTestId(CONTROL)).toBeInTheDocument()
   })
@@ -583,6 +599,7 @@ describe('the tab actually threads the handler', () => {
         onReviewEstimates={onReviewEstimates}
       />,
     )
+    openWithheldIfPresent()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId(CONTROL))
     expect(onReviewEstimates).toHaveBeenCalledTimes(1)
@@ -600,6 +617,7 @@ describe('the tab actually threads the handler', () => {
         runBlockedReason={null}
       />,
     )
+    openWithheldIfPresent()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
   })

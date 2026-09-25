@@ -28,7 +28,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -108,8 +108,13 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
     isStale: false,
   }).atAGlance
 
-const renderGlance = (data: ResultsSectionDataReturn) =>
-  render(
+/**
+ * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run may
+ * not conclude" is now a closed-at-rest disclosure inside `AtAGlance` — open
+ * it before the refusal sentence is reachable.
+ */
+const renderGlance = (data: ResultsSectionDataReturn) => {
+  const result = render(
     <AtAGlance
       glance={glanceOf(data)}
       isRunning={false}
@@ -118,6 +123,10 @@ const renderGlance = (data: ResultsSectionDataReturn) =>
       onReanalyse={vi.fn()}
     />,
   )
+  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
+  if (toggle) fireEvent.click(toggle)
+  return result
+}
 
 afterEach(() => cleanup())
 

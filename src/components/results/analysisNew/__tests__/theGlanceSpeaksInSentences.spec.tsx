@@ -34,7 +34,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -122,6 +122,10 @@ const run = (): ResultsSectionDataReturn => {
       />,
     )
     openGroupsIfPresent()
+    // S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run
+    // may not conclude" is now a closed-at-rest disclosure inside `AtAGlance`.
+    const withheldToggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
+    if (withheldToggle) fireEvent.click(withheldToggle)
   }
 
   const glanceLines = (): string[] =>
