@@ -972,6 +972,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * for every input class: the shared focusable tooltip (hover and keyboard)
    * and a screen-reader copy of the full sentence (ED 02:31Z: "do not rely on
    * native `title` as the only full-text recovery for a one-line clamp").
+   *
+   * ⭐ THE CLAMP BREAKS AT A WORD (polish #4, Paul's staging 24 Sep: "3 options
+   * A success target on your model can't be eval…"). It was `truncate` —
+   * `nowrap` + `text-overflow: ellipsis`, whose ellipsis is CHARACTER-granular,
+   * so it cut wherever the width ran out. `line-clamp-1` on a WRAPPING run
+   * breaks the line at a word and shows only that first line: still ONE line
+   * (no card grows at any rung), full sentence still in the tooltip and the
+   * `.sr-only` copy. Same shape as `ActionNode`'s `line-clamp-1 break-words`.
+   * The clamp is on the painted inner span, so its own box is one line.
    */
   const clampedSignal = (testId: string, short: string, full: string, extra?: Record<string, string>) => (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={full}>
@@ -980,9 +989,16 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         data-node-tooltip="true"
         data-testid={testId}
         {...extra}
-        className={`${typography.edgeLabel} min-w-0 flex-1 truncate text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+        className={`${typography.edgeLabel} min-w-0 flex-1 overflow-hidden text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
       >
-        <span aria-hidden="true">{short}</span>
+        {/* The clamp sits on the span that PAINTS the text, not its wrapper:
+            clamped on the wrapper, this inline span's box still spanned the
+            hidden second line, which ran under the hover action row
+            (Canvas Browser Gate, 24 Sep, `dec_cdp`, 649.6px² "covered").
+            ⛔ NEVER add `block` here: Tailwind emits `.block` after
+            `.line-clamp-1`, so it wins and the clamp does nothing (review
+            5822943043 at c781dd5f: 3 visible lines; InferenceWarningStrip.tsx:157). */}
+        <span aria-hidden="true" className="line-clamp-1 break-words">{short}</span>
         <span className={typography.screenReaderOnly}>{full}</span>
       </span>
     </Tooltip>

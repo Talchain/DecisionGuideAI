@@ -419,6 +419,43 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, NOT ranked — the card says 
   })
 })
 
+/*
+ * ED (Paul 24 Sep polish, defect 3): "NO generic `Structural influence` / `No
+ * turning point available` clutter on unranked factors" — at EVERY rung and
+ * view, current or stale. The blocks above bind the Normal rung (`full`); this
+ * sweep closes `quiet`, `line` and Detailed, where the fallback's gate is the
+ * RANK, never the view.
+ */
+describe('NODE-ANATOMY v3.2 · Factor · post-run, NOT ranked — no generic line at any rung or view', () => {
+  const RUNGS = ['full', 'quiet', 'line'] as const
+  const VIEWS = ['standard', 'expert'] as const
+  const CASES = RUNGS.flatMap((rung) => VIEWS.flatMap((view) => [false, true].map((stale) => [rung, view, stale] as const)))
+
+  it.each(CASES)('rung %s · view %s · stale %s: neither "Structural influence" nor "No turning point" on the card', (rung, view, stale) => {
+    displayMetadata = UNRANKED()
+    seed(VALUED, { phase: 'post', flipRows: [ATTESTED_NO_FLIP_ROW], viewMode: view })
+    act(() => useCanvasStore.setState({ lodRung: rung } as never))
+    renderFactor(VALUED)
+    if (stale) editTheModel()
+    expect(semantic()).toBe(stale ? 'changed' : 'current')
+    mounted()
+    const text = face().textContent ?? ''
+    expect(text).not.toContain('Structural influence')
+    expect(text).not.toContain('No turning point')
+    expect(within(face()).queryByTestId('factor-turning-point-none')).toBeNull()
+    // (Not `expectNothingItMustNeverSay`: Detailed legitimately carries the
+    // border badges — see the pre-run CONTRAST. This sweep's claim is the two lines.)
+  })
+
+  it.each(RUNGS)('CONTRAST — rung %s, Detailed: a RANKED factor still states the attested search, so the probe sees the line', (rung) => {
+    displayMetadata = RANKED()
+    seed(VALUED, { phase: 'post', flipRows: [ATTESTED_NO_FLIP_ROW], viewMode: 'expert' })
+    act(() => useCanvasStore.setState({ lodRung: rung } as never))
+    renderFactor(VALUED)
+    expect(visibleText(within(face()).getByTestId('factor-turning-point-none'))).toBe('No turning point in this run')
+  })
+})
+
 describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', () => {
   it('`Last run ·` rides ONLY the derived results shown — the rank and the found turning point', () => {
     displayMetadata = RANKED()

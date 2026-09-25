@@ -85,13 +85,13 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
             <span
               key={lane.tier}
               data-testid={`tier-lane-${lane.tier}-title`}
-              className={`absolute text-text-light ${typography.nodeLabel}`}
+              className={`absolute text-text-light ${typography.edgeLabel}`}
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,
                 transform: 'translateY(-100%)',
                 lineHeight: 1.2,
-                letterSpacing: '0.01em',
+                letterSpacing: '0.5px',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
               }}
