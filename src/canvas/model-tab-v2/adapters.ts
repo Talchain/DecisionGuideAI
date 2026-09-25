@@ -173,7 +173,10 @@ import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
 import { classifyValueProvenance, factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
-import { resolveFactorValueAdmission, factorValueAsTyped } from '../conversation/factorValueEdit'
+import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
+// ⭐⭐ THE ONE DISPLAY READER OF A FACTOR'S PRIOR RANGE — the owner the card and
+// the reduced low-zoom line already share. See `recordedRangeText` below.
+import { resolveFactorPriorRange, userValueReplacesPrior } from '../nodes/shared/factorPriorRange'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -595,18 +598,15 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     if (kind === 'factor') {
       const value = factorValue(data)
       const obs = observedStateOf(data)
-      // ⭐⭐ RESOLVED ONCE, READ TWICE — see `ModelRow.valueAdmission` and
-      // `ModelRow.recordedRangeText`. Both come off the SAME `prior` read
-      // (`resolveFactorValueAdmission`), one for the editor's comparison and
-      // one for the resting cell's display text, so the two can never carry
-      // different numbers for the same node.
+      // ⭐ THE EDITOR'S GUARD — see `ModelRow.valueAdmission`. Resolved
+      // unconditionally (a row with both a value and a range keeps it).
       //
-      // ⚠ UNCONDITIONAL, MATCHING THE PRE-EXISTING `valueAdmission` READ IT
-      // REPLACES: that field was resolved regardless of whether `value` is
-      // set, so narrowing this to `value === null` would silently drop
-      // `valueAdmission` off every row that carries both a value and a range.
-      // `recordedRangeText` below applies its OWN `value === null` gate on
-      // top, since only that one is new.
+      // ⛔ NEVER THE DISPLAY TEXT. This resolver answers "does the prior ADMIT
+      // this number?" on the MODEL scale (normalised 0–1) and deliberately does
+      // not ask `isUnquantifiedPrior`. Printing its numbers put "Range 0–1" on
+      // an ignorance prior and "Range 0.2–0.8" on a £ factor whose card reads
+      // "£20,000 to £80,000" (review 2039). `recordedRangeText` reads the
+      // display owner instead.
       const admission = resolveFactorValueAdmission(data)
       // ⛔⛔ `factorDisplayText`, NOT `readFactorDisplayValue`, AND THE
       // DIFFERENCE IS A LIVE DEFECT. This comment used to say it had joined
@@ -631,6 +631,27 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       // invites the reader to argue with a figure that has no real-world scale,
       // on the tab whose whole job is to be a true representation.
       const estimateText = value === null ? factorDisplayText(data, label) : null
+      // ⭐⭐ A17 — THE LINE THE CARD PRINTS, FROM THE CARD'S OWN OWNER.
+      // `resolveFactorPriorRange` takes every suppression the card's "Range:"
+      // line takes (ignorance prior, non-external factor, non-finite ends),
+      // converts through the cap for a real unit, and prefers CEE's authored
+      // range string where it sent one — or returns `null`, and then the row
+      // says nothing. Called exactly as the reduced low-zoom line calls it
+      // (`lodMetricLine.ts`): `valueDisplay: null`, because this is only read
+      // when the row states no value, so there is nothing for it to dedupe.
+      //
+      // ⚠ A user value that REPLACES the range is excluded before the call:
+      // the owner then restates the range as replaced, and "not measured"
+      // beside a user's own value would be false.
+      const recordedRangeLine =
+        value === null && estimateText === null && !userValueReplacesPrior(data)
+          ? resolveFactorPriorRange({
+              data: data as Record<string, unknown> | undefined,
+              nodeCategory: (data as { category?: unknown } | undefined)?.category as string | undefined,
+              observedState: obs as { unit?: string | null; cap?: number | null } | undefined,
+              valueDisplay: null,
+            })
+          : null
       rows.push({
         id: node.id,
         kind,
@@ -640,24 +661,16 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         /* ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`. */
         ...(estimateText === null ? {} : { estimateText }),
         /*
-         * ⭐⭐ A17 AUDIT — THE RECORDED RANGE, WHEN CEE SENT NO WORDS OF ITS
-         * OWN. See `ModelRow.recordedRangeText`.
+         * ⭐⭐ A17 AUDIT — THE RECORDED RANGE, ON A ROW WITH NO VALUE AND NO
+         * `estimateText`. See `ModelRow.recordedRangeText`.
          *
-         * ⚠ `value === null` IS RESTATED HERE, NOT INHERITED FROM `admission`.
-         * `admission` is resolved UNCONDITIONALLY (see its own note above), so
-         * a row with a set value and a declared range would otherwise pick up
-         * a "not measured" sentence about a value that has, in fact, been
-         * measured. Mutually exclusive with `estimateText` by the `=== null`
-         * check on that too — CEE's own words, on the rows that carry them,
-         * are never displaced by this fallback.
+         * ⚠ GATED ON `value === null` AND `estimateText === null` above, so a
+         * measured value never picks up "not measured" and CEE's own words, on
+         * the rows that carry them, are never displaced by this fallback.
          */
-        ...(value === null && estimateText === null && admission !== null
-          ? {
-              recordedRangeText:
-                `Range ${factorValueAsTyped(admission.priorMin)}–` +
-                `${factorValueAsTyped(admission.priorMax)}, not measured`,
-            }
-          : {}),
+        ...(recordedRangeLine === null
+          ? {}
+          : { recordedRangeText: `${recordedRangeLine}, not measured` }),
         /*
          * ⭐⭐ THE ROW CARRIES WHETHER THE NODE RECORDS A RANGE — see
          * `ModelRow.declaresNoRange`. Read off the NODE's own `prior`, which is

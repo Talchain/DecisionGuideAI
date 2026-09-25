@@ -336,15 +336,18 @@ export interface ModelRow {
    * mutually exclusive on any one row, kept as separate fields (rather than
    * folded into `estimateText`) because `estimateText` is rendered "Olumi:
    * …" and a recorded range is not Olumi's estimate — it is the node's own
-   * declared support, the same number `valueAdmission` already reads via
-   * `resolveFactorValueAdmission`, formatted for reading rather than for
-   * comparison.
+   * declared support.
    *
-   * ⚠ THE CARRIED NUMBERS ONLY. No unit conversion, no cap multiplication —
-   * `resolveFactorValueAdmission`'s own `priorMin`/`priorMax`, run through
-   * `factorValueAsTyped` for the same float-noise trim the admission
-   * refusal's own bound sentence uses. Never invents a bound: absent when
-   * `declaresNoRange` is true or the prior does not resolve to a range.
+   * ⭐⭐ ONE DISPLAY AUTHORITY (review 2039). The text is exactly the line
+   * `resolveFactorPriorRange` returns — the owner the factor card's "Range:"
+   * line and the reduced low-zoom line already read — followed by
+   * ", not measured". So a £ factor with a cap reads "Range: £20,000 to
+   * £80,000", never its normalised "0.2". ⛔ NOT `valueAdmission`'s
+   * `priorMin`/`priorMax`: those are MODEL-scale numbers for the editor's
+   * guard, and that resolver does not suppress an ignorance prior. Never
+   * invents a bound: absent whenever the owner returns `null` (no range,
+   * `prior_is_unquantified`, a non-external factor) and when a user value
+   * replaces the range.
    */
   recordedRangeText?: string
   /**
