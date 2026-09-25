@@ -241,6 +241,19 @@ export function factorDisplayText(
   data: Record<string, unknown> | null | undefined,
   fallbackLabel?: string,
 ): string | null {
+  const input = factorDisplayInputFromData(data, fallbackLabel)
+  return input === null ? null : formatFactorDisplayValue(input)
+}
+
+/**
+ * The ONE read of node data into the formatter's input, shared by
+ * `factorDisplayText` and `factorDisplayParts` so the string and its split can
+ * never be computed from two different readings of the same node.
+ */
+function factorDisplayInputFromData(
+  data: Record<string, unknown> | null | undefined,
+  fallbackLabel?: string,
+): FactorDisplayInput | null {
   if (!data || typeof data !== 'object') return null
   const label = (data.label as string | undefined) ?? fallbackLabel ?? ''
   const observedState = (data.observedState as Record<string, unknown> | undefined) ?? undefined
@@ -260,7 +273,7 @@ export function factorDisplayText(
   // observedState. Shared priority via readFactorDisplayValue (top-level →
   // observedState); `?? null` preserves this function's prior null contract.
   const displayValue = readFactorDisplayValue(data) ?? null
-  return formatFactorDisplayValue({
+  return {
     label,
     value: valueUnwrapped,
     raw_value: rawValueForFormatter,
@@ -280,7 +293,81 @@ export function factorDisplayText(
     // Top-level on node data (`mapDraftNodeToCanvas` spreads the wire node's
     // remaining keys verbatim), NOT inside observed_state.
     encoding_map: data.encoding_map,
-  })
+  }
+}
+
+/**
+ * A factor value split into the FIGURE and its UNIT WORD, for the card's
+ * contract §02 anatomy: `<strong>` figure at weight 610, the unit as a separate
+ * smaller, muted, regular-weight span.
+ *
+ * `unit` is `null` when the unit is written INTO the figure (`£49`, `CHF 500`,
+ * `45%`): the currency mark and the percent sign are how the amount is
+ * written, not a unit word beside it (contract fixture: `<strong>£49</strong>`,
+ * `<strong>8%</strong>`). When `unit` is present the two are joined by exactly
+ * one space, which is the formatter's own spacing (`1,200 customers`).
+ */
+export interface FactorDisplayParts {
+  figure: string
+  unit: string | null
+}
+
+/** The visible text of a split — byte-identical to the unsplit string. */
+export function joinFactorDisplayParts(parts: FactorDisplayParts): string {
+  return parts.unit === null ? parts.figure : `${parts.figure} ${parts.unit}`
+}
+
+/**
+ * ⭐ THE SAME VALUE AS `formatFactorDisplayValue`, SPLIT — OR `null`.
+ *
+ * Returns a split ONLY when the formatter's string was COMPOSED here from a raw
+ * NUMBER plus a known real-world unit (Pattern 1: currency symbol, ISO code,
+ * percent, or a unit word). Everything else returns `null` and the caller keeps
+ * rendering the one string exactly as today:
+ *   · a producer `display_value` (CEE's own text) — it cannot be split
+ *     reliably, and splitting it would mean parsing a unit out of prose;
+ *   · a placeholder unit (`scale`, `index`, …) — no unit is shown at all;
+ *   · a non-numeric `raw_value` string, the cost-at-zero sentence, the binary
+ *     "No X in place" heuristic and every other branch.
+ *
+ * ⛔ IT NEVER PARSES OR INVENTS A UNIT and never substitutes a figure: the
+ * unit is the node's own `unit` (canonicalised by the shared `classifyUnit`,
+ * exactly as Pattern 1 prints it), and the split is returned ONLY if joining it
+ * reproduces `formatFactorDisplayValue(input)` BYTE FOR BYTE. If the formatter
+ * ever changes, the split stops firing and the card falls back to the one
+ * string — it can never show different text from every other surface.
+ */
+export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDisplayParts | null {
+  const text = formatFactorDisplayValue(input)
+  if (text === null) return null
+  const { raw_value, unit } = input
+  // Built from a raw NUMBER. A string `raw_value` is the producer's text.
+  if (typeof raw_value !== 'number' || !Number.isFinite(raw_value)) return null
+  if (!unit) return null
+  const { kind, canonical } = classifyUnit(unit)
+  const amount = formatNumber(raw_value)
+  let parts: FactorDisplayParts
+  if (kind === 'symbol') parts = { figure: `${canonical}${amount}`, unit: null }
+  else if (kind === 'iso') parts = { figure: `${canonical} ${amount}`, unit: null }
+  else if (kind === 'percent') {
+    // Pattern 1's own 0–1 rule; the byte check below binds it to the original.
+    const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
+    parts = { figure: `${Math.round(scaled)}%`, unit: null }
+  } else if (kind === 'other') parts = { figure: amount, unit: canonical || unit }
+  else return null
+  return joinFactorDisplayParts(parts) === text ? parts : null
+}
+
+/**
+ * `factorDisplayText`, split — the same node-data read, the same string, or
+ * `null` wherever `formatFactorDisplayParts` declines. See that function.
+ */
+export function factorDisplayParts(
+  data: Record<string, unknown> | null | undefined,
+  fallbackLabel?: string,
+): FactorDisplayParts | null {
+  const input = factorDisplayInputFromData(data, fallbackLabel)
+  return input === null ? null : formatFactorDisplayParts(input)
 }
 
 /**
