@@ -62,6 +62,7 @@ import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 import { deriveDecisionVerdict, readProducerLeaderPermission } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { useCanvasStore } from '../../canvas/store'
+import { resolveNodeTypeLiteral } from '../../canvas/domain/nodes'
 import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
@@ -422,15 +423,25 @@ function V5AnalysisResultBlockImpl({
   // inspector's option comparison (#2001, L2) use, so every surface lists options
   // alike. Largest-first there would be a ranking nobody licensed. A key that
   // matches no canvas option keeps its wire position, after the matched ones.
-  const canvasLabels = useCanvasNodeLabels()
-  /** Position of a win-share key (an option id or its label) among canvas nodes. */
+  //
+  // Only OPTION nodes are ranked (kind read through `resolveNodeTypeLiteral`, the
+  // estate's one owner of "what kind is this node"): a factor or outcome that
+  // shares an option's label must not pull that option's share forward.
+  const canvasNodes = useCanvasStore((s: { nodes?: Array<{ id: string; type?: string; data?: unknown }> }) => s.nodes)
+  const canvasOptions = useMemo(
+    () =>
+      (canvasNodes ?? [])
+        .filter((n) => resolveNodeTypeLiteral(n) === 'option')
+        .map((n) => {
+          const label = (n.data as { label?: unknown } | undefined)?.label
+          return { id: n.id, label: typeof label === 'string' ? label : '' }
+        }),
+    [canvasNodes],
+  )
+  /** Position of a win-share key (an option id or its label) among canvas OPTION nodes. */
   const canvasRank = (key: string): number => {
-    let i = 0
-    for (const [id, label] of canvasLabels) {
-      if (id === key || label === key) return i
-      i += 1
-    }
-    return Number.MAX_SAFE_INTEGER
+    const i = canvasOptions.findIndex((o) => o.id === key || (o.label !== '' && o.label === key))
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i
   }
   const winEntries = showWinShares
     ? Object.entries(block.win_probabilities as Record<string, number>)

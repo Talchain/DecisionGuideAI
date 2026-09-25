@@ -139,6 +139,13 @@ describe('NO licensed leader: every number, in canvas order', () => {
     expect(order()).toEqual([MAC, DELL, STATUS_QUO])
   })
 
+  it('only OPTION nodes set the order: a factor that shares an option label cannot pull it forward', () => {
+    setAdmission('exploratory')
+    setCanvas([{ id: 'fac_mac_echo', type: 'factor', label: MAC }, ...CANVAS])
+    render(<V5AnalysisResultBlock block={block()} />)
+    expect(order()).toEqual(CANVAS_ORDER)
+  })
+
   it('id-keyed shares (some paths key by option id) follow canvas order too', () => {
     setAdmission('exploratory')
     const idKeyed = { ...block(), win_probabilities: { opt_dell: 0.3234, opt_sq: 0.2489, opt_mac: 0.4277 } }
