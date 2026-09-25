@@ -278,8 +278,8 @@ export interface LinePlan {
  *
  * ## The run turn's promoted card renders its FACE, not a line
  *
- * Gated OFF by `RUN_TURN_COACHING_PROMOTION_ENABLED` (messageComposition.ts).
- * When on, the block at `firstPromotableActionIndex` — the one card
+ * Gated by `RUN_TURN_COACHING_PROMOTION_ENABLED` (messageComposition.ts), which
+ * is ON. The block at `firstPromotableActionIndex` — the one card
  * `composeMessage` promotes to a top-level point — is planned
  * `collapsible: false`, so its title, body and action are on screen rather
  * than one click away: promoting a card to a point and then hiding its action
