@@ -114,6 +114,17 @@ export interface FactorValueSourceMark {
  *      would be a guess, but an unmarked number would break point 1 (Codex
  *      #1919 5802926467). Transient by construction (the receipt resolves it
  *      to `you`).
+ *      ⭐ WITHDRAWN IS A PRESENT KEY, NOT AN ABSENT ONE. Both writers
+ *      (`setObservedValue`, `applyV5State`'s set-factor-value path) write
+ *      `extractionType: undefined`, so the key is there. A value the producer
+ *      drafted without the marker has NO key: served on CEE `9417228` (the
+ *      OpenAI draft, `source: 'cee_inference'`, node `provenance:
+ *      'ai_inferred'`), where rule 4 used to mark four first-pass values
+ *      "no source" while the assistant called them Olumi assumptions (reviewer
+ *      5827605617). That value's own `source` names its author, so it is
+ *      Olumi's estimate, as the Model tab already reads it
+ *      (`usePreAnalysisData.ts`: "CEE may omit extractionType while still
+ *      setting source to an AI value").
  *   5. Anything else — no stamp, or a literal nobody classifies — is marked
  *      `unknown` ("no source" / "Source not recorded"). Still never unmarked
  *      (Paul 23 Sep contract feedback point 1: never "unmarked = Olumi"), but
@@ -136,6 +147,11 @@ export function factorValueSourceMark(data: unknown): FactorValueSourceMark | nu
   if (stamped?.kind === 'brief' || obs?.extractionType === 'explicit' || d?.extractionType === 'explicit') {
     return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
   }
+  if (stamped?.kind === 'ai' && !extractionMarkerWithdrawn(obs)) {
+    // Rule 4a — the producer drafted this value and never wrote a marker: its
+    // own `source` names the author.
+    return { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }
+  }
   if (stamped?.kind === 'ai') {
     // Rule 4 — the writer withdrew the estimate claim (a dispatched edit keeps
     // the OLD `cee_inference` source and clears both extraction markers until
@@ -145,6 +161,16 @@ export function factorValueSourceMark(data: unknown): FactorValueSourceMark | nu
     return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
   }
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
+}
+
+/**
+ * True when a writer WITHDREW the extraction marker (the key is present and
+ * `undefined`), as opposed to a producer that never wrote one (the key is
+ * absent). See rule 4 above. Both writers clear BOTH spellings, so the
+ * `observedState` one (the one rule 4 reads `source` from) is sufficient.
+ */
+function extractionMarkerWithdrawn(obs: Record<string, unknown> | undefined): boolean {
+  return obs !== undefined && 'extractionType' in obs && obs.extractionType === undefined
 }
 
 /**
