@@ -115,7 +115,11 @@ Everything in this lane's tests and harnesses is fixture-served or model-free.
 - **RC ruling (#69 5835243907), under Paul's instruction to make confident decisions and alert him:** **option (b). The UI staging default flips to `openai`.** `?ai=conventional` stays explicit, so the control path is preserved.
   - **Tests RC specified:** RED-first, no `?ai=` on the staging host → `openai` plus header `x-olumi-ai-mode: openai`; an explicit `?ai=conventional` still → conventional; production unchanged.
   - **Not self-mergeable** (provider routing): it needs an independent exact-head verdict.
-  - Runtime was asked to report, by source read or a zero-spend probe, what served CEE does with a header-less turn.
+  - **Runtime's answer (#69 5835289234, source read plus the Render env; no served probe):** a header-less turn is **NOT refused. It CALLS Anthropic.**
+    - `proxy-v5-turn.ts:66-72` routes no-header traffic by `PROXY_V5_TARGET`, which is `orchestrator` on cee-staging, to `/orchestrate/v2/turn`.
+    - That route runs outside any provider policy (`provider-policy.ts:279-282`), with `CEE_MODEL_ORCHESTRATOR = claude-sonnet-5` and `ANTHROPIC_API_KEY` present.
+    - **So the UI flip closes the browser path only.** A script, a curl, an old tab, or `/bff/orchestrate/v2/turn` still reaches Anthropic.
+    - **The server-side closure is Paul's call (env or credentials):** (1) set cee-staging `PROXY_V5_TARGET=agent`, or (2) remove `ANTHROPIC_API_KEY` from cee-staging, which fails closed everywhere.
 - **Status:** this session wrote the RED spec (3/6 RED on the current source), but **the permission system blocked editing the provider-routing default**. Nothing was pushed; the branch was discarded. Reported in #69 5835286407.
 - **Next:** do it only in a session with that permission, or with Paul's explicit approval. The edit is `aiComparisonMode.ts:39` (`'conventional'` → `'openai'`), its doc comment, and `src/v5/__tests__/aiComparisonMode.spec.ts`. The current spec pins the old default, so update it. `V5GraphPatchBlock.explainDiffHiddenInOpenAiMode.spec.tsx` sets `?ai=conventional` explicitly and is unaffected.
 - **Until it is served:** every link must carry `?ai=openai` (RC's interim rule).
