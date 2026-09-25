@@ -3403,11 +3403,22 @@ const REQUIRED_RESULT_KEYS: ReadonlySet<string> = new Set([
 
 // ── STATUS ──────────────────────────────────────────────────────────────────
 
+/**
+ * ⭐ WITHHELD, NOT MISSING. Where the producer withheld the leader
+ * designation, its withheld projection drops the win share and the robustness
+ * rating on purpose. Naming them as results that "did not come back" told the
+ * reader something was lost (joined witness, #63 5824916222, both briefs'
+ * automatic first run). The admission beside it already says why they are
+ * withheld. Pinned by `aWithheldShareIsNotALostOne.spec.tsx`.
+ */
+const WITHHELD_WITH_THE_LEADER: ReadonlySet<string> = new Set(['win_probability', 'robustness_level'])
+
 function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
   const { data } = inputs
   const status = data.recommendation.analysisStatus
-  const missingRequired = (data.completeness?.missing ?? []).filter((k) =>
-    REQUIRED_RESULT_KEYS.has(k),
+  const leaderWithheld = data.recommendation.leaderDesignationPermitted === false
+  const missingRequired = (data.completeness?.missing ?? []).filter(
+    (k) => REQUIRED_RESULT_KEYS.has(k) && !(leaderWithheld && WITHHELD_WITH_THE_LEADER.has(k)),
   )
   return {
     isPreRun: inputs.isPreRun,
