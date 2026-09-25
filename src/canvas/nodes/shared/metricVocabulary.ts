@@ -952,8 +952,15 @@ export const OPTION_RESULT_COPY = {
    * only in a tooltip, and never styled as a verdict.
    */
   goalOnly: 'Goal only',
-  /** The full meaning of `goalOnly` (ED: "your limits aren't in this share"). */
-  goalOnlyNote: 'Your limits aren’t in this share: it compares the options on the goal alone.',
+  /**
+   * The full meaning of `goalOnly`. ⛔ It must be true of EVERY cause the token
+   * covers: CEE emits `constraint_verdict_withheld` whenever its claim-safety
+   * verdict is not entitled, including an automatic first run on a brief with
+   * NO limits (DL #63 5825413732; Panel bundle 3 rewords the shared cause the
+   * same way). ED's original "Your limits aren't in this share" presumed limits
+   * the user may never have set, so it states only what the share IS.
+   */
+  goalOnlyNote: 'This share compares the options on the goal alone.',
   changedNote: 'The model has changed since this run.',
 } as const
 
