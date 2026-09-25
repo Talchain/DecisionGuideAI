@@ -91,6 +91,14 @@ describe('the chart leads the glance reading', () => {
     expect(screen.getAllByTestId('analysis-new-status-stale')).toHaveLength(1)
   })
 
+  it('⭐ both halves on screen → ONE "At a glance" landmark (the status half is not a second region)', () => {
+    renderBody(decisionWithLeaderWithheldAndReason(), true)
+    expect(screen.getByTestId('analysis-new-glance-status'), 'PRECONDITION: the status half renders').toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-glance'), 'PRECONDITION: the reading half renders').toBeInTheDocument()
+    expect(screen.getAllByRole('region', { name: 'At a glance' })).toHaveLength(1)
+    expect(screen.getByRole('region', { name: 'At a glance' })).toBe(screen.getByTestId('analysis-new-glance'))
+  })
+
   it('CONTROL: a current run with nothing to say renders no empty status block', () => {
     renderBody(genuineDecision())
     expect(screen.queryByTestId('analysis-new-status-stale')).toBeNull()
