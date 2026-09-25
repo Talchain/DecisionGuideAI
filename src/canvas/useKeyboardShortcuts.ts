@@ -10,6 +10,8 @@ import {
 } from './mutations/mutationAuthority'
 import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../lib/persistenceSession'
+import { deleteSelectionAction, type ShowToastFn } from './contextMenu/actions'
+import { useConfirmDialogStore } from './stores/confirmDialogStore'
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -337,6 +339,44 @@ export function isClipboardMutationGesture(
   return lowered === 'x' || lowered === 'v'
 }
 
+/**
+ * ⛔ REACT FLOW'S OWN DELETE KEY IS SWITCHED OFF — pass this as `deleteKeyCode`
+ * on every `<ReactFlow>` wired to the store's change handlers.
+ *
+ * Without the prop, `<ReactFlow>` binds Backspace to a delete of its own that
+ * removes the selection through `onNodesChange` / `onEdgesChange` — straight
+ * past `deleteAction`, so past the impact check, the confirm dialog and the
+ * last-goal refusal. The store's own comment on that branch said it "may well be
+ * the path that actually runs": its listener sits nearer the event target than
+ * ours on `window`. Guarding only our listener would have left the commoner key
+ * unguarded.
+ *
+ * ⭐ WHY OFF, AND NOT `onBeforeDelete`. The hook would have to ASK — await the
+ * confirm dialog, then resolve true/false — from inside React Flow's handler,
+ * while our window listener answers the same keypress. Two listeners, one key:
+ * either both ask (two dialogs, or one overwriting the other) or they must
+ * agree which one stands down, which is the ordering guess the store comment
+ * already refused to rely on. Switching the built-in off leaves ONE entry point,
+ * Delete/Backspace below → `deleteSelectionAction` → `deleteAction`, the same
+ * function the menu calls. `null` is the value `useKeyPress` reads as "watch
+ * no key"; `undefined` would bring back the library default.
+ *
+ * The store's `onNodesChange` / `onEdgesChange` remove branches stay, and keep
+ * recording durable removals: they are the backstop if anything ever emits a
+ * remove change again, not a second door.
+ */
+export const REACT_FLOW_DELETE_KEY_CODE = null
+
+/**
+ * `deleteAction` reports through a `showToast`; this hook has no ToastProvider,
+ * so it uses the canvas's canonical bridge — the event `ReactFlowGraph`
+ * forwards to its own `showToast`, level for level.
+ */
+const showCanvasToast: ShowToastFn = (message, level) => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', { detail: { message, level } }))
+}
+
 /** Repeat window, so holding ⌘Z does not stack a column of identical toasts. */
 const UNDO_NOTICE_QUIET_MS = 3000
 
@@ -495,10 +535,18 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
-      // Delete: Delete or Backspace
+      // Delete: Delete or Backspace — through the menu's own `deleteAction`, so
+      // the key asks exactly what the menu asks (see REACT_FLOW_DELETE_KEY_CODE).
+      // ⛔ Never `state.deleteSelected()` here: that is the unguarded delete.
+      // One keypress, one attempt: a held key's auto-repeat must not re-ask or
+      // re-refuse, and a key landing on an open confirm dialog (its Remove
+      // button has focus) must not replace the question being answered.
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault()
-        state.deleteSelected()
+        if (event.repeat || useConfirmDialogStore.getState().pending) return
+        void deleteSelectionAction(showCanvasToast).catch((err) => {
+          console.error('[useKeyboardShortcuts] delete failed:', err)
+        })
         return
       }
 

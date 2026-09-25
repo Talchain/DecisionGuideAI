@@ -1,7 +1,7 @@
 /**
  * The store's four delete actions are the ONE chokepoint every delete gesture
- * crosses — keyboard (`useKeyboardShortcuts` → `deleteSelected`), context menu
- * (`commitValidatedMutation`'s localApply → `deleteNodeById` / `deleteSelected`
+ * crosses — context menu AND keyboard (both `deleteAction` →
+ * `commitValidatedMutation`'s localApply → `deleteNodeById` / `deleteSelected`
  * / `deleteEdge`) and the edge inspector (`deleteEdge`). If any one of them
  * fails to record, that gesture is silently local-only again.
  *
@@ -258,8 +258,8 @@ describe('setLastServerGraphHash — retain on absence', () => {
 // React Flow's BUILT-IN delete — paths 5 and 6 of the six-path manifest.
 //
 // ⚠ THESE EXIST BECAUSE THE ORIGINAL MANIFEST SAID FOUR AND WAS WRONG. No
-// `deleteKeyCode` prop is set on `<ReactFlow>`, so its default Backspace/Delete
-// binding is live, and `onEdgesChange`'s own comment already recorded that
+// `deleteKeyCode` prop was set on `<ReactFlow>` (it is `null` since 25 Sep 2026;
+// these stay as the backstop), and `onEdgesChange`'s own comment recorded that
 // built-in edge removals *"reach the store ONLY through this handler — they
 // never go through deleteEdgeById / deleteSelected"*. The app's own shortcut
 // listener is on `window` (bubble phase) while React Flow's sits nearer the

@@ -25,11 +25,22 @@ import type { PatchOperation } from '../conversation/types'
 import type { ContextTarget, NodeTarget, EdgeTarget, MultiTarget } from './types'
 import type { NodeType } from '../domain/nodes'
 
-type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
+export type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
 // ---------------------------------------------------------------------------
 // Delete (with structural guardrails — Graph Editing Experience Task 2d)
 // ---------------------------------------------------------------------------
+
+/**
+ * What a delete gesture names — the three fields `deleteAction` reads, and no
+ * more. Every `ContextTarget` the menu builds already satisfies it; the keyboard
+ * builds one from the selection (`deleteTargetFromSelection`) without having to
+ * invent a screen position or a node object it has no use for.
+ */
+export type DeleteTarget =
+  | Pick<NodeTarget, 'kind' | 'nodeId'>
+  | Pick<EdgeTarget, 'kind' | 'edgeId'>
+  | Pick<MultiTarget, 'kind' | 'nodeIds' | 'edgeIds'>
 
 /** Execute the raw deletion through commitValidatedMutation */
 async function executeNodeDelete(nodeId: string, showToast: ShowToastFn): Promise<void> {
@@ -59,8 +70,22 @@ async function executeMultiDelete(nodeIds: string[], edgeIds: string[], showToas
   await commitValidatedMutation(ops, () => store.deleteSelected(), showToast)
 }
 
+/**
+ * ⭐ THE ONE DELETE QUESTION — asked by the context menu AND by Delete/Backspace.
+ *
+ * Assess the structural impact; refuse (toast) when the removal would take the
+ * last goal or decision; ask first (`useConfirmDialogStore`) when it would cut
+ * an option off from the goal or orphan a node; otherwise delete at once.
+ *
+ * ⛔ THE KEYBOARD USED TO SKIP ALL OF THIS (fixed 25 Sep 2026). Delete/Backspace
+ * called `store.deleteSelected()` directly, so the same card the menu would ask
+ * about went with no question — and there is no Undo on the canvas. The key now
+ * enters HERE, through `deleteSelectionAction`, so the two gestures cannot drift:
+ * one assessment, one set of messages, one execute path. Do not give the
+ * keyboard a second copy of any of it.
+ */
 export async function deleteAction(
-  target: ContextTarget,
+  target: ContextTarget | DeleteTarget,
   showToast: ShowToastFn,
 ): Promise<void> {
   const store = useCanvasStore.getState()
@@ -122,19 +147,39 @@ export async function deleteAction(
       if (impact.removesLastGoal) aggregated.removesLastGoal = true
       if (impact.removesLastDecision) aggregated.removesLastDecision = true
     }
-    // Deduplicate
+    // ⚠ SELECTED CONNECTIONS COUNT TOO (25 Sep 2026). This loop used to read
+    // `nodeIds` only, so a marquee or ⌘-click selection holding the one link
+    // between an option and the goal went without a question — from the menu
+    // and, once the keyboard came through here, from Delete/Backspace as well.
+    // An edge can never be "the last goal", so this adds dialogs, never refusals.
+    for (const edgeId of target.edgeIds) {
+      const impact = assessEdgeDeletion(nodes, edges, edgeId)
+      aggregated.disconnectsOptions.push(...impact.disconnectsOptions)
+      aggregated.orphansNodes.push(...impact.orphansNodes)
+    }
+    // Nothing that is itself being deleted is warned about: an option going in
+    // the same gesture has no path left to lose, and a node going cannot be
+    // left disconnected. Without the option half, selecting an option together
+    // with its own link would ask about the option being removed.
+    const deletingIds = new Set(target.nodeIds)
     const seenOptions = new Set<string>()
     aggregated.disconnectsOptions = aggregated.disconnectsOptions.filter(o => {
-      if (seenOptions.has(o.optionId)) return false
+      if (deletingIds.has(o.optionId) || seenOptions.has(o.optionId)) return false
       seenOptions.add(o.optionId)
       return true
     })
-    // Don't warn about nodes being orphaned if they're also being deleted
-    const deletingIds = new Set(target.nodeIds)
-    aggregated.orphansNodes = aggregated.orphansNodes.filter(o => !deletingIds.has(o.nodeId))
+    const seenOrphans = new Set<string>()
+    aggregated.orphansNodes = aggregated.orphansNodes.filter(o => {
+      if (deletingIds.has(o.nodeId) || seenOrphans.has(o.nodeId)) return false
+      seenOrphans.add(o.nodeId)
+      return true
+    })
 
     if (isSignificantImpact(aggregated)) {
-      const label = `${target.nodeIds.length} element${target.nodeIds.length > 1 ? 's' : ''}`
+      // Counts connections as well as cards, as `deleteSelected`'s own history
+      // label does — a selection of two links is not "0 elements".
+      const count = target.nodeIds.length + target.edgeIds.length
+      const label = `${count} element${count !== 1 ? 's' : ''}`
       const { title, message, blocked } = buildDeletionMessage(aggregated, label)
       if (blocked) {
         showToast(message, 'warning')
@@ -150,6 +195,37 @@ export async function deleteAction(
     }
     await executeMultiDelete(target.nodeIds, target.edgeIds, showToast)
   }
+}
+
+/**
+ * The delete target the current selection names, shaped exactly as the menu
+ * shapes it (`handleKeyboardContextMenu`): one card → `node`, one connection →
+ * `edge`, anything more → `multi`. `null` when nothing is selected.
+ */
+export function deleteTargetFromSelection(selection: {
+  nodeIds: ReadonlySet<string>
+  edgeIds: ReadonlySet<string>
+}): DeleteTarget | null {
+  const nodeIds = [...selection.nodeIds]
+  const edgeIds = [...selection.edgeIds]
+  if (nodeIds.length === 0 && edgeIds.length === 0) return null
+  if (nodeIds.length === 1 && edgeIds.length === 0) return { kind: 'node', nodeId: nodeIds[0] }
+  if (edgeIds.length === 1 && nodeIds.length === 0) return { kind: 'edge', edgeId: edgeIds[0] }
+  return { kind: 'multi', nodeIds, edgeIds }
+}
+
+/**
+ * Delete/Backspace on the canvas: `deleteAction` on whatever is selected.
+ *
+ * ⚠ AN EMPTY SELECTION RETURNS BEFORE `deleteAction`, NOT INSIDE IT. An empty
+ * `multi` would still reach `commitValidatedMutation`, whose local path marks
+ * the analysis freshness dirty after `deleteSelected` has removed nothing — a
+ * keypress on an empty canvas would quietly downgrade a `fresh` verdict.
+ */
+export function deleteSelectionAction(showToast: ShowToastFn): Promise<void> {
+  const target = deleteTargetFromSelection(useCanvasStore.getState().selection)
+  if (!target) return Promise.resolve()
+  return deleteAction(target, showToast)
 }
 
 // ---------------------------------------------------------------------------
