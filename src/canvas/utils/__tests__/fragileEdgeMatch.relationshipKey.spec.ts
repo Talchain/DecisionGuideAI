@@ -91,6 +91,15 @@ describe('the producer relationship key resolves to the id-less canvas edge (ser
     expect(isEdgeFragile('e-parallel', 'pro_plan_price', 'mrr', rows, ctx)).toBe(false)
   })
 
+  it('CONTROL — a caller with NO parallel context gets the old exclusive answer (fail closed)', () => {
+    // Pre-review 5828511534: without the context this path cannot tell one edge
+    // from two, so it must not guess.
+    expect(isEdgeFragile(priceToMrr.id, priceToMrr.source, priceToMrr.target, rows)).toBe(false)
+    expect(getFragileEdgeSwitchProbability(priceToMrr.id, priceToMrr.source, priceToMrr.target, rows)).toBeNull()
+    // …while an exact id still matches with or without it.
+    expect(isEdgeFragile('pro_plan_price->mrr', 'pro_plan_price', 'mrr', rows)).toBe(true)
+  })
+
   it('CONTROL — a row below the display floor stays unshown however it is keyed', () => {
     const low = rows.find((r) => (r.switch_probability ?? 1) <= 0.15)!
     const edge = canvasEdges.find((e) => e.source === low.from_id && e.target === low.to_id)!

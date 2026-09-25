@@ -37,7 +37,7 @@ import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { UncertaintyBand } from '../shared/UncertaintyBand'
 import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
-import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
+import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching } from '../coachingConfig'
 import {
   edgeValueBand,
@@ -564,6 +564,14 @@ export const EdgePanel = memo(function EdgePanel({
     [strengthDisplay, stdDisplay],
   )
 
+  // The edges sharing this edge's endpoints: the SAME identity context
+  // StyledEdge hands the matcher, so a finding one parallel edge owns is never
+  // shown in the other's inspector (pre-review 5828511534).
+  const fragileMatchCtx = useMemo(
+    () => ({ parallelEdgeIds: parallelEdgeIdsFor(edges, edge?.source ?? '', edge?.target ?? '') }),
+    [edges, edge?.source, edge?.target],
+  )
+
   // Fragility check
   const isFragile = useMemo(() => {
     if (!robustness?.fragile_edges) return false
@@ -572,8 +580,9 @@ export const EdgePanel = memo(function EdgePanel({
       edge?.source ?? '',
       edge?.target ?? '',
       robustness.fragile_edges as import('../../../utils/fragileEdgeMatch').FragileEdgeCandidate[],
+      fragileMatchCtx,
     )
-  }, [robustness, edgeId, edge?.source, edge?.target])
+  }, [robustness, edgeId, edge?.source, edge?.target, fragileMatchCtx])
 
   // E-value for this edge
   const edgeEValue = useMemo(() => {
@@ -590,8 +599,9 @@ export const EdgePanel = memo(function EdgePanel({
       edge?.source ?? '',
       edge?.target ?? '',
       robustness.fragile_edges as unknown[],
+      fragileMatchCtx,
     )
-  }, [isFragile, robustness, edgeId, edge?.source, edge?.target])
+  }, [isFragile, robustness, edgeId, edge?.source, edge?.target, fragileMatchCtx])
 
   // Edit impact preview
   const { previewEdit, clearPreview } = useEditImpactPreview()

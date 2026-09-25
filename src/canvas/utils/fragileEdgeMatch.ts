@@ -77,7 +77,12 @@ function entryMatchesEdge(
     // its id matched exactly above; any other edge sharing those endpoints is
     // then parallel to it, so the parallel withhold below refuses it. Any other
     // supplied id still never falls back (#1919).
-    if (feEdgeId !== `${from}->${to}`) return false
+    //
+    // ⚠ ONLY WITH THE CALLER'S PARALLEL CONTEXT. Without `parallelEdgeIds` this
+    // path cannot tell one edge from two on the same endpoints, and would hand
+    // both the finding (pre-review 5828511534: EdgePanel called without it). A
+    // caller that has not supplied it gets the old exclusive answer: no match.
+    if (feEdgeId !== `${from}->${to}` || parallel == null) return false
   }
 
   if (from !== edgeSource || to !== edgeTarget) return false
