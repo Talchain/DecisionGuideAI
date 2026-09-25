@@ -106,7 +106,9 @@ export interface FactorValueSourceMark {
  *      (`FactorNode.anEditedValueIsNotAnEstimate.spec.tsx`).
  *   2. The existing `est.` gate — unchanged, one owner, three readers.
  *   3. A brief stamp (`source` classifies `brief`, or `extractionType:
- *      'explicit'`, which CEE writes beside `brief_extraction`).
+ *      'explicit'`, which CEE writes beside `brief_extraction`) — UNLESS the
+ *      marker is withdrawn: only an edit does that, so it is rule 4's pending
+ *      edit, never the brief's number (`valueSourceMark.editOverBriefValue.spec.ts`).
  *   4. ⚠ `source` still says Olumi but the writer has WITHDRAWN `extractionType`
  *      — the signature `setObservedValue` leaves when a person types over an
  *      estimate, before the receipt stamps `user_override`. Marked `unknown`
@@ -168,6 +170,12 @@ function resolveFactorValueSource(data: unknown): {
   }
   if (factorValueIsUnconfirmedEstimate(data)) {
     return { mark: { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }, awaitingReceipt: false }
+  }
+  if (stamped?.kind === 'brief' && extractionMarkerWithdrawn(obs)) {
+    // Rule 4 over a BRIEF value — only an edit withdraws the marker, so this is
+    // a person's number awaiting its receipt, not the brief's. Before this
+    // check, rule 3 credited the typed number to the brief on card and pill.
+    return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: true }
   }
   if (stamped?.kind === 'brief' || obs?.extractionType === 'explicit' || d?.extractionType === 'explicit') {
     return { mark: { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }, awaitingReceipt: false }
