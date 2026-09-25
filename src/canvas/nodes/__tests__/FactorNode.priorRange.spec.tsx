@@ -522,7 +522,9 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
       prior: { range_min: 0.08, range_max: 0.28 },
       observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
     })
-    expect(screen.getByText('18 month')).toBeDefined()
+    // Contract §02 (GAP 14): figure and unit word are separate elements now;
+    // bound to this card's own figure, its host still reads "18 month".
+    expect(screen.getByTestId('factor-value-figure-factor-1').parentElement!.textContent).toBe('18 month')
     // The exact before/after of this card, pinned. BEFORE (measured at
     // pristine, and the string the journey witnessed):
     //   "Sales Payback Period18 monthRange: 0.08 to 0.28"

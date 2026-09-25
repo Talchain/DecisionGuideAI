@@ -1251,7 +1251,13 @@ describe('FactorNode — QA Brief A-series', () => {
   // A2: raw_value=20, unit="engineers" → "20 engineers"
   it('A2: raw_value=20 with unit="engineers" renders "20 engineers"', () => {
     renderFactor({ label: 'Team size', type: 'factor', observedState: { raw_value: 20, unit: 'engineers' } })
-    expect(screen.getByText('20 engineers')).toBeDefined()
+    // Contract §02 splits the figure from its unit word (GAP 14), so the text
+    // spans two elements; bound to the card's own figure, the host reads the
+    // same string byte for byte.
+    const figure = screen.getByTestId('factor-value-figure-factor-1')
+    expect(figure.textContent).toBe('20')
+    expect(screen.getByTestId('factor-value-unit-factor-1').textContent).toBe('engineers')
+    expect(figure.parentElement!.textContent).toBe('20 engineers')
   })
 
   // A3: raw_value=4.5, unit="months" → "4.5 months"
