@@ -737,25 +737,45 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * carry a FIVE-card consequence layer, which now wraps 3 + 2 inside its own
    * band — so risks and outcomes can no longer all share one Y there. The
    * founder ruling this guards (14 Sep: risks and outcomes are ONE causal
-   * layer) is about the LAYER, and the claim is restated at that level:
-   *   · the layer's sub-rows are the balanced wrap of the WHOLE layer, recorded
-   *     per starter below — a risk row apart from an outcome row would split by
-   *     KIND instead (2 + 3 on the four five-card starters, 2 + 2 on
-   *     pricing-model), and REDs by name;
+   * layer) is about the LAYER, and the claim is restated at that level, BY
+   * CARD ID:
+   *   · each sub-row, top to bottom and left to right, is the recorded list of
+   *     card ids below — the layer's ONE-ROW reading order at the base
+   *     (103e1ca6, cap five, this file's own `buildGraph`), wrapped 3 + 2;
    *   · no card of another family sits between the layer's first and last
    *     sub-row;
    *   · a layer that fits one row (pricing-model, four) is ONE exact Y — the
-   *     original assertion, carried by its recorded `[4]`.
+   *     original assertion, carried by its recorded single row.
+   *
+   * ⛔ WHY IDS AND NOT SUB-ROW SIZES. The first restatement recorded only the
+   * sizes (`[3, 2]`) and claimed a split by KIND would change them. It would
+   * not: vendor-selection, market-entry, build-vs-buy and headcount-allocation
+   * each carry THREE risks and TWO outcomes, so risks-row-then-outcomes-row is
+   * also `[3, 2]`. Measured (fixer, 25 Sep): a mutant sorting `risk_` ids ahead
+   * of `out_` ids in `applyTierRowSplitting` left all five sizes-only arms
+   * GREEN. Bound by id, the same mutant REDs the four five-card starters by name.
    */
-  const CONSEQUENCE_SUB_ROWS: Record<StarterId, number[]> = {
-    'vendor-selection': [3, 2],
-    'market-entry': [3, 2],
-    'build-vs-buy': [3, 2],
-    'headcount-allocation': [3, 2],
-    'pricing-model': [4],
+  const CONSEQUENCE_SUB_ROWS: Record<StarterId, string[][]> = {
+    'vendor-selection': [
+      ['out_budget_headroom', 'risk_gdpr_breach', 'risk_team_overload'],
+      ['risk_migration_delay', 'out_platform_capability'],
+    ],
+    'market-entry': [
+      ['out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag'],
+      ['risk_uk_distraction', 'risk_team_overstretch'],
+    ],
+    'build-vs-buy': [
+      ['risk_eng_overload', 'out_delivery_speed', 'risk_billing_errors'],
+      ['out_billing_accuracy', 'risk_vendor_lock'],
+    ],
+    'headcount-allocation': [
+      ['out_reliability', 'risk_eng_attrition', 'risk_churn'],
+      ['out_new_arr', 'risk_sales_miss'],
+    ],
+    'pricing-model': [['risk_pricing_complexity', 'out_bottom_up_growth', 'risk_enterprise_churn', 'out_nrr']],
   }
   it.each(Object.keys(STARTERS) as StarterId[])(
-    '%s: every risk and every outcome sits in ONE shared consequence band',
+    '%s: every risk and every outcome sits in ONE shared consequence band, in its recorded reading order',
     async (id) => {
       presentViewport(1280)
       const { nodes, edges } = buildGraph(id)
@@ -769,13 +789,19 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
       expect(consequence.some((n) => kindOf.get(n.id) === 'risk'), `${id}: no risks laid out — this guard asserts nothing here`).toBe(true)
       expect(consequence.some((n) => kindOf.get(n.id) === 'outcome'), `${id}: no outcomes laid out — this guard asserts nothing here`).toBe(true)
 
-      // The layer's sub-rows, top to bottom, by EXACT y — never a tolerance: a
-      // near-miss is a sub-row split, which is a different layout.
+      // The layer's sub-rows, top to bottom by EXACT y (never a tolerance: a
+      // near-miss is a sub-row split, which is a different layout), each left to
+      // right — compared as card ids against the record. Every laid-out risk and
+      // outcome is in `rows`, so a card missing from the record, or an extra
+      // one, REDs here too.
       const bandYs = [...new Set(consequence.map((n) => n.position.y))].sort((a, b) => a - b)
-      expect(
-        bandYs.map((y) => consequence.filter((n) => n.position.y === y).length),
-        `${id}: the consequence layer is not the one balanced band`,
-      ).toEqual(CONSEQUENCE_SUB_ROWS[id])
+      const rows = bandYs.map((y) =>
+        consequence
+          .filter((n) => n.position.y === y)
+          .sort((a, b) => a.position.x - b.position.x)
+          .map((n) => n.id),
+      )
+      expect(rows, `${id}: the consequence layer is not its recorded one-row order, wrapped`).toEqual(CONSEQUENCE_SUB_ROWS[id])
 
       // …and nothing of another family inside it.
       const inside = out.nodes.filter(

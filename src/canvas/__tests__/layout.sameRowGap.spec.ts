@@ -211,7 +211,7 @@ describe('the capture is complete before anything is derived from it', () => {
   )
 })
 
-describe('same-row gap holds at BOTH packing branches, for every shipped starter', () => {
+describe('same-row gap holds at BOTH packing branches — every shipped starter (all multi-row since gap 7) and a synthetic tier at the cap (single-row)', () => {
   // The corpus must actually contain both branches, or "BOTH" in this
   // describe's name is a claim nothing checks (trap 13: an absence/coverage
   // claim needs a control).
@@ -220,9 +220,10 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
      * "BOTH" in this describe's name is a claim, so it is checked (trap 13: a
      * coverage claim needs a control). From 12 Sep to S4 it was false — every
      * starter single-rowed and the multi-row arm was synthetic only. S4's
-     * five-card cap puts the eight-factor starters back on the multi-row
-     * packing, so the corpus covers both, and the synthetic arm stays as a
-     * boundary control.
+     * five-card cap put the eight-factor starters back on the multi-row
+     * packing, so the corpus covered both. Gap 7's four-card cap makes every
+     * starter multi-row, so the corpus covers ONE branch again and the
+     * single-row branch is reached synthetically — the at-cap contrast below.
      */
     // ⚠ GAP 7: the shipped corpus is now multi-row throughout (see
     // `BRANCH_OF`), so the single-row BRANCH is covered by the synthetic
