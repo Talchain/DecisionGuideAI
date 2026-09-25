@@ -7,7 +7,7 @@
     "model": "The harness's scripted fetch stub. Every model call hit the stub with 'Bearer ' (empty key). A throwaway setup guard refused every non-loopback fetch and socket (and the loopback egress-proxy port); its ledger did not move during the capture. Env: OPENAI_API_KEY='', ANTHROPIC_API_KEY='', ANTHROPIC_BASE_URL unset, proxy variables unset.",
     "generated": "2026-09-24",
     "turn": "Explicit Run: the typed Run chip {id:'agent-run-analysis', action_type:'run_analysis'} after a build turn whose automatic first pass ran (fast path 3: the run, then ONE tool_choice:'none' interpretation call).",
-    "scripted_reply": "assistant_text is a fixed 95-word interpretation written for this capture in the Interpreter v0.2 / AI Quality shape (finding + caveat first, two grounded bullets, one next step), grounded only in the t2 run. It is NOT model output.",
+    "scripted_reply": "assistant_text is a fixed 93-word interpretation (95 whitespace tokens, 2 of them bullet markers) written for this capture in the Interpreter v0.2 / AI Quality shape (finding + caveat first, two grounded bullets, one next step), grounded only in the t2 run. It is NOT model output.",
     "known_harness_artefacts": [
       "draft_graph is the harness's READY_GRAPH (Choose an option / Outcome / Delivery reliability / Option A / Option B) while analysis_result, analysis_ready and the coaching card come from the served pricing run t2 — the CEE harness pairs them. A served turn would carry the analysed model's own graph.",
       "suggested_actions is [] — the route offers no chip on a COMPLETED explicit Run (by design: run-fast-path.test.ts \"a COMPLETED Run offers no remedy chip\")."
