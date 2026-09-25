@@ -139,6 +139,23 @@ export const DECISION_RECORD_COPY = {
   assumptionLabel: 'Key assumption to watch',
   assumptionPlaceholder: 'The assumption most likely to change the choice',
   cancel: 'Cancel',
+  /**
+   * Beside the disabled Record button: what is still missing, by name. A
+   * button that stays grey without saying why is a dead end (witnessed 25 Sep
+   * on "Not ready to choose": three required fields, no sign which).
+   */
+  stillNeeded: (fields: readonly string[]): string =>
+    `Still needed to record: ${
+      fields.length <= 1 ? fields.join('') : `${fields.slice(0, -1).join(', ')} and ${fields[fields.length - 1]}`
+    }.`,
+  missingField: {
+    option: 'a chosen option',
+    confidence: 'a confidence from 0 to 100',
+    expectation: 'what you expect to happen',
+    revisit: 'a revisit trigger or date',
+    rationale: 'a rationale',
+    assumption: 'an assumption to watch',
+  },
   save: 'Record the decision',
   saving: 'Saving…',
   confidenceError: 'Add a confidence between 0 and 100.',
@@ -232,6 +249,7 @@ export function DecisionRecordModal() {
   const hasOptions = options.length > 0
 
   const titleId = useId()
+  const missingId = useId()
   const optionId = useId()
   const confidenceId = useId()
   const expectationId = useId()
@@ -325,6 +343,18 @@ export function DecisionRecordModal() {
   // ⚠ The analysed-option gate holds for BOTH positions: the door onto this
   // modal is gated on the same predicate, and CEE anchors every record to an
   // analysed graph.
+  // The same conjuncts as `valid` below, named, so the button can say why it
+  // is disabled. No options is the door's own gate, not a field to fill.
+  const missing: string[] = !hasOptions
+    ? []
+    : [
+        ...(!notReady && chosenOption === null ? [DECISION_RECORD_COPY.missingField.option] : []),
+        ...(!notReady && !confidenceValid ? [DECISION_RECORD_COPY.missingField.confidence] : []),
+        ...(!notReady && !expectationValid ? [DECISION_RECORD_COPY.missingField.expectation] : []),
+        ...(!revisitValid ? [DECISION_RECORD_COPY.missingField.revisit] : []),
+        ...(!rationaleValid ? [DECISION_RECORD_COPY.missingField.rationale] : []),
+        ...(!assumptionValid ? [DECISION_RECORD_COPY.missingField.assumption] : []),
+      ]
   const valid = notReady
     ? hasOptions && revisitValid && rationaleValid && assumptionValid
     : hasOptions &&
@@ -744,6 +774,7 @@ export function DecisionRecordModal() {
             data-testid="decision-record-save"
             onClick={handleSave}
             disabled={!valid || saving}
+            aria-describedby={missing.length > 0 ? missingId : undefined}
             className={PRIMARY_BUTTON_CLASS}
           >
             {saving
@@ -753,6 +784,15 @@ export function DecisionRecordModal() {
                 : DECISION_RECORD_COPY.save}
           </button>
         </div>
+        {missing.length > 0 ? (
+          <p
+            id={missingId}
+            data-testid="decision-record-missing"
+            className={`${typography.panelMeta} text-text-light mt-[5px] text-right`}
+          >
+            {DECISION_RECORD_COPY.stillNeeded(missing)}
+          </p>
+        ) : null}
       </ModalShell>
       {toastElement}
     </>

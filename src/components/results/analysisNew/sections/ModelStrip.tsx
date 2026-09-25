@@ -832,11 +832,19 @@ export function ModelStrip({
               never as an empty string. */}
           <span
             id={subjectId}
-            // ⚠ CLAMPED TO ONE LINE WHILE CLOSED, FULL WHILE OPEN — one
-            // element, not two. A second copy of the subject inside the region
-            // would put the same sentence on screen twice, which is exactly
-            // what the first-viewport census exists to stop.
-            className={`${typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
+            // ⚠⚠ 24 Sep 2026 — NO LONGER CLAMPED. Reasoning-V2 fidelity gap #8
+            // (`FIDELITY-WORKFLOW-RESULT-20260924.json`, against
+            // prototype-v2-reference.html's `.briefrow h2`, which sets
+            // `text-wrap:pretty;overflow-wrap:anywhere` and never clips) found
+            // this line — the panel's own loudest text — cut to one truncated
+            // ellipsis while closed. `truncate` is removed; the subject wraps
+            // instead, open or closed.
+            //
+            // ⚠ WHAT THIS DOES NOT CHANGE: still one element, not two — a
+            // second copy of the subject inside the region would put the same
+            // sentence on screen twice, which is exactly what the
+            // first-viewport census exists to stop. Only the clamp is gone.
+            className={`${typography.reasoningLead} text-text-header block break-words`}
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >
@@ -989,17 +997,27 @@ export function ModelStrip({
                "3 to verify" alone announces a count and not what pressing it
                does. */
             aria-label={COPY.modelStrip.toVerifyToggleName(strip.needsCheckTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               /* ⚠ PRESSED IS A RING, NOT A HOTTER AMBER. Solid `bg-warning`
                  made amber carry TWO questions at once: "how urgent is this?"
                  and "is this filter on?" — so switching a filter ON made the
                  panel look like something had got worse. Severity keeps the
                  hue; the pressed state is carried by a ring, which no other
                  status on this panel uses. `aria-pressed` above already says
-                 it to assistive tech; this is the sighted half. */
+                 it to assistive tech; this is the sighted half.
+
+                 ⚠⚠ 24 Sep 2026 — AND THE FILL ITSELF IS GONE. Fidelity gap #14
+                 (`FIDELITY-WORKFLOW-RESULT-20260924.json`): `bg-warning/10` and
+                 `bg-warning/20` are tinted backgrounds, banned by
+                 BUILDER-RULES ("Neutral/transparent surfaces. NO tinted
+                 backgrounds"), and the prototype's own equivalent
+                 (`.source-pill`) is outline-only, never filled. An outlined
+                 pill replaces the fill; the ring recolours warning -> info so
+                 "pressed" does not double as a second, stronger severity
+                 read — text-warning-ink alone still carries severity. */
               verifyActive
-                ? 'bg-warning/20 text-warning-ink ring-1 ring-warning'
-                : 'bg-warning/10 text-warning-ink hover:bg-warning/20'
+                ? 'text-warning-ink ring-1 ring-inset ring-info'
+                : 'text-warning-ink hover:bg-panel-hover'
             }`}
             data-testid={`${testId}-verify-toggle`}
           >
@@ -1030,10 +1048,13 @@ export function ModelStrip({
             onClick={toggleNoValue}
             aria-pressed={noValueActive}
             aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            // ⚠⚠ 24 Sep 2026 — SAME RECOLOUR AS THE VERIFY TOGGLE ABOVE, same
+            // reason: fidelity gap #14, no tinted `bg-warning/*` fill, an
+            // outlined pill instead, pressed carried by `ring-info`.
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               noValueActive
-                ? 'bg-warning/20 text-warning-ink ring-1 ring-warning'
-                : 'bg-warning/10 text-warning-ink hover:bg-warning/20'
+                ? 'text-warning-ink ring-1 ring-inset ring-info'
+                : 'text-warning-ink hover:bg-panel-hover'
             }`}
             data-testid={`${testId}-no-value-toggle`}
           >
@@ -1374,7 +1395,11 @@ export function ModelStrip({
                   door and the guard caught it, which is what it is for. */}
               {active.needsCheck ? (
                 <span
-                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-warning-ink`}
+                  // ⚠⚠ 24 Sep 2026 — fidelity gap #14: `bg-warning/10` was a
+                  // tinted fill; BUILDER-RULES bans it. An outlined pill (the
+                  // prototype's `.source-pill` shape) replaces it — the ink
+                  // still carries the severity signal.
+                  className={`${typography.panelMeta} inline-flex items-center rounded-full border border-panel-border px-2 py-0.5 text-warning-ink`}
                   data-testid={`${testId}-detail-verify`}
                 >
                   {UNCONFIRMED_ESTIMATE_LABEL}

@@ -645,6 +645,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
          * untouched: this adds no affordance and removes none.
          */
         ...(factorDeclaresNoRange(data) ? { declaresNoRange: true } : {}),
+        ...(typeof obs?.unit === 'string' && obs.unit.trim() !== '' ? {} : { declaresNoUnit: true }),
         provenanceSource: typeof obs?.source === 'string' ? obs.source : undefined,
         // ⚠ UNCHANGED, DELIBERATELY. `attention` is the AFFORDANCE axis and it
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no

@@ -479,6 +479,8 @@ export interface AnalysisNewStatus {
   staleKind: 'changed' | 'unconfirmed' | null
   /** The producer disclosed the result as partial/incomplete. */
   isProvisional: boolean
+  /** CEE's typed marker: Olumi started this run by itself (`run_provenance.provisional`). */
+  runProvisional?: boolean
   /** Producer-owned reason, verbatim, when there is one. Never authored here. */
   statusNote: string | null
   /**
@@ -908,7 +910,17 @@ export type ModelImplication =
    * every one of those we are not entitled to a second claim AND have no honest
    * unlock to offer, so we say nothing.
    */
-  | { kind: 'needs_target'; outcome: ImplicationClaim }
+  | {
+      kind: 'needs_target'
+      outcome: ImplicationClaim
+      /**
+       * The producer's PERMITTED leader is a different option from `outcome`'s
+       * (it leads on win share; `outcome` has the highest expected value). Two
+       * readings then point at different options, and neither may be stated as
+       * "what we have" alone. Present only when true.
+       */
+      leaderIsAnotherOption?: true
+    }
   /** Nothing this run is entitled to say. Renders nothing at all. */
   | { kind: 'none' }
 

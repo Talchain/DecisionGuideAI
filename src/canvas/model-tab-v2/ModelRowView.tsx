@@ -1528,7 +1528,7 @@ function EditorActionLine({
   // range guard would fail open on every render, the suite would stay green,
   // and the measured `+250` ranking reversal would be live again. The guard is
   // reachable from the UI only through this line.
-  const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit, row.valueAdmission)
+  const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit, row.valueAdmission, row.declaresNoUnit)
   const blockedId = `model-row-v2-${row.id}-value-blocked`
   return (
     <span
@@ -1754,11 +1754,36 @@ function bandReadback(draft: string): string {
  * and the sentence is specific to the characters they just entered. One string,
  * on one row, about one draft.
  */
+/**
+ * ⭐ REVIEW SHOWS WHAT WILL BE STORED (RC 5825756972, ruling 3).
+ *
+ * Witnessed 25 Sep 02:30Z on Paul's pricing brief: "Price-driven churn rate"
+ * records no unit; typing `8%` reviewed as "Not set → 8%", and Confirm stored
+ * `{value: 8, raw_value: 8}`, because the commit sends `parseFloat(draft)`
+ * alone. The rerun was then refused ("no recorded range or unit"). Carrying the
+ * typed unit on the wire is framing (#1832) and is not made here; the Review
+ * step says plainly that the unit cannot be used, instead of dropping it.
+ */
+export const FACTOR_UNIT_NOT_USABLE_YET =
+  "Olumi can't use a unit on this value yet. Enter the number on its own."
+
+/**
+ * The draft is a number WITH a unit or symbol (`8%`, `95 seats`, `£40`). A
+ * draft with no number at all (`abc`) is not one: it keeps "Enter a number".
+ */
+function draftCarriesAUnit(draft: string): boolean {
+  const t = draft.trim()
+  const number = /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?/i.exec(t)
+  if (number === null) return /^[£$€]\s*[\d.]/.test(t)
+  return /[%£$€\p{L}]/u.test(t.slice(number[0].length))
+}
+
 export function unproposableDraftReason(
   rowId: string,
   draft: string,
   unit: string | undefined,
   admission?: ModelRow['valueAdmission'],
+  declaresNoUnit?: boolean,
 ): string | null {
   if (unit !== undefined) {
     /*
@@ -1780,6 +1805,7 @@ export function unproposableDraftReason(
     // one, because the user acts on it.
     return 'This target cannot be reviewed yet'
   }
+  if (declaresNoUnit === true && draftCarriesAUnit(draft)) return FACTOR_UNIT_NOT_USABLE_YET
   if (!Number.isFinite(parseFloat(draft))) return 'Enter a number to review this change'
   /*
    * ⭐⭐ AND THE FACTOR'S OWN DECLARED RANGE, LAST — after the parse, never

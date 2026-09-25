@@ -89,14 +89,49 @@ describe('Analysis (New) — a section title is typed as a section title', () =>
    * value-predicate binding this directory's own header bans. The count is now
    * asserted, so the claim and the check are the same claim.
    */
-  it('the two headings this closed are on panelHeader — one heading per file, asserted', () => {
+  //
+  // ⚠ RE-BOUND (V2 fidelity gaps 10 and 16): the Reasoning tab's zone names
+  // are now section-title h3s in `AnalysisNewTabBody.tsx` ("Challenge the
+  // thinking", "Focus now"), so that file holds more than one heading and a
+  // per-file count no longer identifies anything. Its binding moved to the
+  // heading's own testid, still asserted exactly once. The new titles are held
+  // to panelHeader by the positive requirement below and by their own specs.
+  it('the WhatWeChecked heading is on panelHeader — bound by identity, asserted', () => {
     const all = headings()
-    const byFile = (f: string) => all.filter((h) => h.file.endsWith(f))
-    for (const f of ['sections/WhatWeChecked.tsx', 'AnalysisNewTabBody.tsx']) {
-      const found = byFile(f)
-      expect(found.length, `${f} must hold exactly one h1-h3 for this binding to BE an identity binding`).toBe(1)
-      expect(/typography\.panelHeader/.test(found[0]!.snippet), f).toBe(true)
+    const whatWeChecked = all.filter((h) => h.file.endsWith('sections/WhatWeChecked.tsx'))
+    expect(whatWeChecked.length, 'WhatWeChecked must hold exactly one h1-h3 for this binding to BE an identity binding').toBe(1)
+    expect(/typography\.panelHeader/.test(whatWeChecked[0]!.snippet), 'WhatWeChecked').toBe(true)
+  })
+
+  /**
+   * ⚠ RE-POINTED (V2 gap 23): this used to assert the decision-VOI heading
+   * was an h3/`panelHeader` "closed" section title — the exact defect gap 23
+   * names ("an orphan 'Value of information' h3"), nested inside "What moves
+   * the outcome" below a second nested "Drivers and dynamics" h3. It is now a
+   * plain `<p>` at `panelMeta` weight: not a heading at all, so it cannot
+   * read as a second or third section title under any tag level. The FIRST
+   * half proves no h1-h4 with this id exists anywhere in scope (so a
+   * regression to ANY heading tag is caught, not just h3); the second proves
+   * the element that DOES carry the id kept the quiet weight.
+   */
+  it('V2 gap 23: the decision-VOI label is not a heading tag at all (h1-h4), anywhere in scope', () => {
+    const decisionVoiHeadingTag = /<h[1-4]\b[^>]*\bid="analysis-new-decision-voi-heading"/
+    for (const file of sourceFilesIn(DIR)) {
+      if (file.includes('__tests__')) continue
+      const code = stripComments(readFileSync(file, 'utf8'), file)
+      expect(
+        decisionVoiHeadingTag.test(code),
+        `${file.slice(DIR.length + 1)}: the decision-VOI label must not render as an h1-h4 — it nests inside "What moves the outcome" and must not compete with its h3`,
+      ).toBe(false)
     }
+
+    const src = stripComments(readFileSync(join(DIR, 'AnalysisNewTabBody.tsx'), 'utf8'), join(DIR, 'AnalysisNewTabBody.tsx'))
+    const pMatch = /<p\s+id="analysis-new-decision-voi-heading"[^>]*>/.exec(src)
+    expect(pMatch, 'the VOI label must exist, rendered as a non-heading element').not.toBeNull()
+    expect(
+      /typography\.panelMeta/.test(pMatch![0]),
+      'decision-VOI label must carry panelMeta, the quiet weight',
+    ).toBe(true)
   })
 
   /**

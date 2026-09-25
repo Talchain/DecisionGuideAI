@@ -95,8 +95,15 @@ const TESTID = 'analysis-new-options'
  * derived from a sibling on this surface rather than copied from the Analysis
  * tab, because #1346 ruled that GEOMETRY IS GRAMMAR AND IS FIXED and importing a
  * second tab's treatment would re-open the drift it closed.
+ *
+ * ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 13/20): `PanelFigure`'s track
+ * moved from `h-2` (8px) to `h-[5px]` — the same lightening pass that made the
+ * track a visible `bg-panel-border` line instead of a barely-there
+ * `bg-panel-hover` fill (measured 1.038:1). `DriverInfluenceChart` moved with
+ * it (`sections/DriverInfluenceChart.tsx`), so the two bar figures on this tab
+ * still share one height; only the shared NUMBER changed.
  */
-const FIGURE_HEIGHT = 'h-2'
+const FIGURE_HEIGHT = 'h-[5px]'
 const HAIRLINE_HEIGHT = 'h-1'
 
 // ═══════════════════════════════════════════════════════════════════════════
