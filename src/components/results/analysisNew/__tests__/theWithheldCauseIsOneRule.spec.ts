@@ -33,6 +33,25 @@ describe('the withheld cause is one rule', () => {
     expect(tabCause(decisionWithLeaderWithheld(), token)).toBe(withheldLeaderCause(token, false))
   })
 
+  it('⭐ a refusal NOT about estimates is handed over as false: the tab matches the rule with `false`, not `true`', () => {
+    // Independent review of #1993 (5826650947): "Name at least two different
+    // options" refuses the claim but asks for no estimate.
+    const data = decisionWithLeaderWithheldAndReason()
+    const adm = data.recommendation.analysisAdmission as unknown as { reasons: { field: string; code: string }[] }
+    const nothingToCompare = {
+      ...data,
+      recommendation: {
+        ...data.recommendation,
+        analysisAdmission: {
+          ...adm,
+          reasons: adm.reasons.map((r) => (r.field === 'permitted_analysis_mode' ? { ...r, code: 'NOTHING_TO_COMPARE' } : r)),
+        },
+      },
+    } as ResultsSectionDataReturn
+    expect(tabCause(nothingToCompare, 'constraint_verdict_withheld')).toBe(withheldLeaderCause('constraint_verdict_withheld', false))
+    expect(tabCause(nothingToCompare, 'constraint_verdict_withheld')).not.toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
+  })
+
   it('the rule itself: the estimates cause only behind a refusing admission AND a token it can explain', () => {
     expect(withheldLeaderCause('constraint_verdict_withheld', true)).toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
     expect(withheldLeaderCause('unrequested_analysis_withheld', true)).toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
