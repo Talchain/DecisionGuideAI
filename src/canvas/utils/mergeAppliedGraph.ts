@@ -607,7 +607,16 @@ function receiptIsTheAttestedAnalysedGraph(draftData: unknown): boolean {
 }
 
 export function reconcileAppliedGraph(
-  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response
+  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response,
+  opts?: {
+    /**
+     * The turn's committed response carries a `graph_hash` equal to the
+     * `base_graph_hash` its edit was sent (and CAS-checked) against: CEE
+     * states the edit moved nothing its analysis reads. See the dirty-mark
+     * note below. Omitted → false.
+     */
+    readonly analysisHashUnmoved?: boolean
+  },
 ): ReconcileAppliedGraphResult {
   const canonicalReceipt = canonicalReceiptFromAugmentedDraft(draftData)
   const rawNodes: any[] =
@@ -940,7 +949,26 @@ export function reconcileAppliedGraph(
   // the canvas TO the analysed graph, so "the analysis no longer describes the
   // canvas" would be false. Unconditional, this re-dirtied every run that
   // followed an edit ~39 ms after the run cleared it (D1, served `a4434670`).
-  if (!analysedGraphAttested) useCanvasStore.getState().markGraphStructurallyEdited?.()
+  //
+  // ⛔ AND EXCEPT when THE PRODUCER says its analysis-affecting hash did not
+  // move (`opts.analysisHashUnmoved`, computed by the caller from the turn's
+  // own wire: the committed response's `graph_hash` equals the
+  // `base_graph_hash` the edit was CAS-checked against). Served witness 25 Sep
+  // (UI `64a3b385` / CEE `e39f6e0`, scenario `51c9ce82…`): a `structural_rename`
+  // sent at base `31f5adf8e5043c9c` came back at `graph_hash`
+  // `31f5adf8e5043c9c`, 0 provider calls — and this commit still marked the
+  // model structurally edited, so the canvas said "Model changed" until a
+  // reload. `changed` above is TRUE for any byte difference the overlay picks
+  // up, cosmetic keys included; it still decides the COMMIT. Only the DIRTY
+  // CLAIM now defers to CEE's own hash projection — never to a UI list of
+  // "analytical fields", which is narrower than that projection
+  // (`category`, `factor_type`, `intercept`, `encoding_map`, `edge_type`:
+  // review 5821463627) and would read a real change as "current".
+  // Absent, or any other wire → the mark stands (fail closed: a false
+  // "changed" costs a rerun; a false "current" costs a decision).
+  if (!analysedGraphAttested && opts?.analysisHashUnmoved !== true) {
+    useCanvasStore.getState().markGraphStructurallyEdited?.()
+  }
 
   // Warning-only schema validation on the added nodes (mirrors applyDraftResult).
   validateNodesBatch(addedNodes)

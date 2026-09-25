@@ -45,11 +45,51 @@
  * So this closes the field ONLY on `dispatched`. A refused or local-only edit
  * stays on screen, still editable, with the typed text intact — fail-visible,
  * the same behaviour the goal-target path has always had.
+ *
+ * ## ⛔⛔ A `dispatched` OUTCOME IS NOT A SETTLED ONE EITHER (DESIGN-GAP-AUDIT
+ * row 37 — "Edit-state words on the card")
+ *
+ * The paragraph above closes the field on `dispatched`, which is right — but
+ * `dispatched` only means the wire event left `useModelEditAuthority
+ * .proposeFactorValue`'s closure; it says nothing about whether CEE applied
+ * it. Before this section existed, the field closed and the card said
+ * NOTHING further: a refusal arriving a second later — the exact case
+ * `FactorControllablePanel.aRefusedEditIsNotShownAsSaved.spec.tsx` pins for
+ * the INSPECTOR — reverted the value with no word on the CARD at all (`rg
+ * "Not applied yet\|Saving…\|Not saved\|Could not confirm" src/canvas/nodes`
+ * found zero hits; the truth strip's four words lived only in the inspector
+ * and in `model-tab-v2`).
+ *
+ * ⭐ SETTLED ON THE SEND ITSELF, NOT GUESSED FROM THE VALUE. The caller passes
+ * `opts.onSendSettled` through to `proposeFactorValue`, which reports the
+ * estate's own `settleSystemEventSend` classification. `sendTurn` resolves only
+ * after it has ingested the reply and applied or reverted the optimistic write,
+ * so on `'sent'` the live value says which — the same read
+ * `FactorControllablePanel` makes (`didValueCommitRevert`, shared so the two
+ * cannot drift):
+ *
+ *   refused → "Not saved"          (the server certified it wrote nothing)
+ *   sent + reverted → "Not saved"  (a 200 that wrote nothing)
+ *   sent + kept → no word          (the card already shows the saved value)
+ *   unverified → "Could not confirm"
+ *   blocked → "Saved on this device only"
+ *   queued → no word               (the flush queue owns it and holds "Model changed")
+ *
+ * ⛔ An earlier draft inferred settlement from the `value` prop with an 8s
+ * timer. It could not see success, so EVERY accepted edit ended on "Could not
+ * confirm" — a false alarm on the happy path, which teaches the user to ignore
+ * the one word that matters.
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
 import { admitNumericField } from '../../ui/inspector-v2/shared/numericFieldAdmission'
+import {
+  didValueCommitRevert,
+  VALUE_COMMIT_SETTLEMENT_COPY,
+  type ValueCommitSettlementWord,
+} from '../../conversation/valueCommitSettlement'
+import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
 
 export interface NodeValueEditorProps {
   /**
@@ -64,9 +104,19 @@ export interface NodeValueEditorProps {
   readout: React.ReactNode
   /**
    * Commit. Returns the authority's own outcome so this component can keep a
-   * refusal on screen rather than reporting a save that did not happen.
+   * refusal on screen rather than reporting a save that did not happen, and
+   * forwards `onSendSettled` so a dispatched commit is settled on the send.
    */
-  onCommit: (value: number) => 'dispatched' | 'local_only' | 'not_encodable'
+  onCommit: (
+    value: number,
+    opts: { onSendSettled: (settlement: SystemEventSendSettlement) => void },
+  ) => 'dispatched' | 'local_only' | 'not_encodable'
+  /**
+   * The model's CURRENT value, read at settlement time from the store rather
+   * than from this render's prop, which may not have re-rendered yet when the
+   * send resolves. Defaults to the latest `value` prop.
+   */
+  readCommittedValue?: () => number | null
   min?: number
   max?: number
   ariaLabel: string
@@ -74,16 +124,36 @@ export interface NodeValueEditorProps {
 }
 
 export function NodeValueEditor({
-  value, readout, onCommit, min, max, ariaLabel, testId,
+  value, readout, onCommit, readCommittedValue, min, max, ariaLabel, testId,
 }: NodeValueEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [refusal, setRefusal] = useState<string | null>(null)
+  /** The word this card shows for a `dispatched` commit's eventual fate. */
+  const [settlement, setSettlement] = useState<ValueCommitSettlementWord | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
+  /** Only the LATEST commit may write a settlement word; an older send's reply is stale. */
+  const commitSeqRef = useRef(0)
+  const mountedRef = useRef(true)
+  const valueRef = useRef(value)
+  valueRef.current = value
 
-  useEffect(() => { if (isEditing) inputRef.current?.focus() }, [isEditing])
+  useEffect(() => () => { mountedRef.current = false }, [])
+
+  // Open with the whole number selected, so typing replaces it rather than
+  // appending to it (served witness 24 Sep: "60000" + "70000" → "6000070000").
+  useEffect(() => {
+    if (!isEditing) return
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [isEditing])
 
   const open = useCallback(() => {
+    // A NEW edit retires any settlement word from a PRIOR commit — the same
+    // rule `GoalPanel`'s `targetSettlement` follows for the goal target: a
+    // stale "Not saved" must not survive past the edit that supersedes it.
+    commitSeqRef.current += 1
+    setSettlement(null)
     setDraft(value != null ? String(value) : '')
     setRefusal(null)
     setIsEditing(true)
@@ -95,15 +165,33 @@ export function NodeValueEditor({
     if (!admission.ok) { setRefusal(admission.reason); return }
     // A commit that changes nothing is a no-op, not a dispatch.
     if (value != null && admission.value === value) { setIsEditing(false); return }
-    const outcome = onCommit(admission.value)
-    if (outcome === 'dispatched') { setIsEditing(false); setRefusal(null); return }
+    const seq = ++commitSeqRef.current
+    const beforeCommit = value
+    const committedTo = admission.value
+    const onSendSettled = (s: SystemEventSendSettlement) => {
+      if (!mountedRef.current || seq !== commitSeqRef.current) return
+      if (s === 'refused') return setSettlement('not_applied')
+      if (s === 'unverified') return setSettlement('unconfirmed')
+      if (s === 'blocked') return setSettlement('local_only')
+      if (s === 'queued') return setSettlement(null)
+      const now = readCommittedValue ? readCommittedValue() : valueRef.current
+      setSettlement(didValueCommitRevert(beforeCommit, committedTo, now) ? 'not_applied' : null)
+    }
+    const outcome = onCommit(committedTo, { onSendSettled })
+    if (outcome === 'dispatched') {
+      setIsEditing(false)
+      setRefusal(null)
+      // Unless the send already settled synchronously, say it is in flight.
+      setSettlement(prev => (seq === commitSeqRef.current && prev === null ? 'saving' : prev))
+      return
+    }
     // ⛔ STAY OPEN. See the header: a refusal must not read as a save.
     setRefusal(
       outcome === 'not_encodable'
         ? 'This value cannot be sent to the model yet.'
         : 'Saved on this device only — not sent to the model yet.',
     )
-  }, [draft, min, max, value, onCommit])
+  }, [draft, min, max, value, onCommit, readCommittedValue])
 
   // `nodrag nopan` and the pointer stop are not optional: without them React
   // Flow treats a drag inside the field as a node drag and the caret never
@@ -118,18 +206,36 @@ export function NodeValueEditor({
   // edit cue on hover and focus; the input then takes the SAME box, so opening
   // it moves nothing. `controls.editableResting` stays the inspector's.
   if (!isEditing) {
+    const settlementCopy = settlement ? VALUE_COMMIT_SETTLEMENT_COPY[settlement] : null
     return (
-      <button
-        type="button"
-        data-testid={testId}
-        className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
-        aria-label={`${ariaLabel} — click to edit`}
-        title="Click to edit"
-        {...guard}
-        onClick={(e) => { e.stopPropagation(); open() }}
-      >
-        <span className="min-w-0">{readout}</span>
-      </button>
+      <span className="inline-flex flex-col items-start gap-0.5">
+        <button
+          type="button"
+          data-testid={testId}
+          className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
+          aria-label={`${ariaLabel} — click to edit`}
+          title="Click to edit"
+          {...guard}
+          onClick={(e) => { e.stopPropagation(); open() }}
+        >
+          <span className="min-w-0">{readout}</span>
+        </button>
+        {/* DESIGN-GAP-AUDIT row 37 — the truth strip's words, on the card. A
+            `dispatched` commit is not a settled one (see this file's header);
+            this is the ONLY new visible state, since `refusal` below already
+            covers the two synchronous outcomes. */}
+        {settlementCopy && (
+          <span
+            role={settlementCopy.role}
+            data-testid={`${testId}-settlement`}
+            className={`${typography.edgeLabel} ${
+              settlementCopy.role === 'alert' ? 'text-text-body' : 'text-text-light'
+            }`}
+          >
+            {settlementCopy.message}
+          </span>
+        )}
+      </span>
     )
   }
 

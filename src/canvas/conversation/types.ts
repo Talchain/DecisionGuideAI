@@ -1184,6 +1184,27 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // then the UI emitter ships. CEE's reader is `olumi-assistants-service` #1445,
   // OPEN at the time of writing. **This PR must not merge before it deploys.**
   'finding_dissent',
+  // ⛔⛔ PREPARED, NOT ARMED — CEE HAS NOT SHIPPED A READER FOR THIS MEMBER.
+  // Talchain/olumi-programme-docs#63 comment 5821033941 (Codex amendment
+  // 5821693599) describes the strict system-event CEE's Canonical State lane
+  // is adding: `goal_target_edit { goal_node_id, constraint_type, raw_value,
+  // unit, base_graph_hash }`, with the server deriving `cap`,
+  // `goal_threshold`, `frame` and provenance. Checked verbatim against the
+  // pinned `@talchain/schemas` (0.55.0, `node_modules/@talchain/schemas`) at
+  // the time this member was added here: NOT PRESENT. See
+  // `conversation/goalTargetEdit.ts`'s header for the full reasoning.
+  //
+  // ⚠⚠ READER-FIRST STILL APPLIES AND IS DELIBERATELY NOT SATISFIED BY MERGE
+  // ORDERING THIS TIME. Every member above solved it by not existing in the
+  // tree until CEE's writer had shipped; this PR is "prepare now, CEE ships
+  // the carrier separately", so the member must exist and be TESTABLE before
+  // that writer exists. `GOAL_TARGET_EDIT_ENABLED`
+  // (`conversation/goalTargetEdit.ts`) is the substitute gate: the ONLY
+  // production caller (`useModelEditAuthority.proposeGoalTarget`) checks it
+  // before ever building one of these, and it is `false` here. A CEE pinned
+  // without the reader would fail the DISCRIMINATOR and 422 the WHOLE turn —
+  // which is exactly why nothing may flip this flag before CEE deploys.
+  'goal_target_edit',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
@@ -1281,6 +1302,17 @@ export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
   // freshness verdict computed without it describes a graph the user has
   // already changed. CEE declares this kind `'mutating'`.
   'option_intervention_edit',
+  // ⛔ HELD, THE MOMENT THE FLAG EVER PERMITS EMISSION — not held today, in
+  // practice, because `GOAL_TARGET_EDIT_ENABLED` (`goalTargetEdit.ts`) is
+  // `false` and this kind cannot be dispatched while it is. It is listed here
+  // now, rather than the day the flag flips, because the contract's own
+  // description of the member states the server derives `cap`,
+  // `goal_threshold` and `frame` from it — squarely inside the
+  // analysis-affecting projection — and a member left off this list the day
+  // it starts dispatching would silently reopen the false-currency defect
+  // this file exists to close. See `goalTargetEdit.ts` for the reader-first
+  // gate that keeps it inert until then.
+  'goal_target_edit',
 ] as const satisfies readonly WireSystemEventType[]
 
 /** A system event whose dispatch changes the graph CEE holds. */
