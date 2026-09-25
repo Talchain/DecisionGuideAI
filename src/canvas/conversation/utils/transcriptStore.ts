@@ -26,9 +26,11 @@
  * WHAT IS AND IS NOT RESTORED — the honesty contract:
  * the real history is restored verbatim (role, text, rendered blocks), never a
  * synthesised summary of it. Fields that are documented-ephemeral in
- * `types.ts` (`reasoning`, `answerShape`) or that would re-arm a stale
- * interaction (`actionChips`) are dropped, and anything dropped for SIZE is
- * declared on screen via `droppedCount` — a placeholder that means "you have
+ * `types.ts` (`reasoning`) or that would re-arm a stale interaction
+ * (`actionChips`) are dropped. `answerShape` IS kept: it is the producer's own
+ * layout of the reply (headline, bullets, detail behind "Show more"), so a
+ * reply reads the same after a reload as it did live. Anything dropped for
+ * SIZE is declared on screen via `droppedCount` — a placeholder that means "you have
  * never been here" is a factual claim, and it must not be made falsely.
  *
  * The inverse also holds: a card action the user already TOOK must not come
@@ -40,6 +42,7 @@
 import type { ConversationMessage } from '../types'
 import { heldProposalMountKey } from '../selectors'
 import { offersPendingConsent } from '../messageComposition'
+import { parseAnswerShape, type AnswerShape } from '../answerShape'
 
 // ── G1: which CARD ACTION created a user message ─────────────────────────────
 //
@@ -184,6 +187,16 @@ interface StoredMessage {
   /** The turn asked for consent (`turnOfferedConsent`). The chips themselves
    *  are never stored. Absent on older saves and on every other turn. */
   consentOffered?: true
+  /**
+   * The producer's answer shape (`_answer_shape`: headline, bullets, detail),
+   * verbatim. Stored so a reply that arrived short, with its detail behind
+   * "Show more", comes back the same way after a reload instead of as the full
+   * wall of text (the brief: detail sits behind disclosure). It is producer
+   * text only, carries no action, and so re-arms nothing. Re-validated on
+   * restore through `parseAnswerShape`, the same fail-closed reader the live
+   * turn uses; a malformed or older save simply renders the full text.
+   */
+  answerShape?: AnswerShape
   sessionDivider?: string
   synthetic?: boolean
 }
@@ -287,6 +300,7 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
   if (turnOfferedConsent(m)) out.consentOffered = true
+  if (m.answerShape) out.answerShape = m.answerShape
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   return out
@@ -313,9 +327,16 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
       : {}),
     ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
+    ...restoredAnswerShape(s.answerShape),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
   }
+}
+
+/** A stored answer shape, re-read through the live turn's own validator. */
+function restoredAnswerShape(raw: unknown): { answerShape?: AnswerShape } {
+  const shape = parseAnswerShape(raw)
+  return shape ? { answerShape: shape } : {}
 }
 
 function isStoredMessage(v: unknown): v is StoredMessage {
