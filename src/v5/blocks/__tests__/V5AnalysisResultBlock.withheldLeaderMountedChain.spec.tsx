@@ -360,6 +360,21 @@ describe("the turn's own refusal is stamped on its card, and stays there", () =>
     expect(within(later).getByTestId('v5-analysis-result-probabilities'), 'the later, permitted card').toBeInTheDocument()
   })
 
+  it('the OPPOSITE direction fails closed: an earlier permitted card hides once a later withheld report is held', async () => {
+    // #2004 review 5829820343: pin both directions. The held-report half reads
+    // the LATEST report, so a later refusal also hides an earlier permitted
+    // card's row. That over-suppresses (fail-closed), never over-claims.
+    await mount()
+    await say(laterPermittedRun(), 'Run the analysis.')
+    expect(within(latestCard()).getByTestId('v5-analysis-result-probabilities'), 'live, before the refusal').toBeInTheDocument()
+    await say(RUN_57F, 'Run it again.')
+
+    const [earlier, later] = cardsNow()
+    expect(cardsNow()).toHaveLength(2)
+    expectNoWinShares(earlier, resultBlockOf(RUN_57F).win_probabilities, 'the earlier permitted card, after a later refusal')
+    expectNoWinShares(later, resultBlockOf(RUN_57F).win_probabilities, 'the later withheld card')
+  })
+
   it('... and after a reload, from the saved transcript alone', async () => {
     await mount()
     await say(withheldClaimNamedLeader(), 'Run the analysis.')
