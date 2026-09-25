@@ -1,0 +1,680 @@
+{
+  "_capture": {
+    "source": "Reasoning & Coaching served capture openai-route-coaching-journey.c673223.json (branch rc/promotion-on-v2), turns[0].json: the pricing brief's automatic first pass on CEE c673223, OpenAI",
+    "trimmed": "blocks reduced to the analysis_result identity; assistant_text cut to its first line; everything the freshness path reads (analysis_state, analysis_ready, graph_hash, draft_graph) is verbatim."
+  },
+  "response_version": 2,
+  "assistant_text": "Not yet—the first pass cannot put the £59 increase forward reliably.",
+  "blocks": [
+    {
+      "type": "analysis_result",
+      "summary": "Olumi ran a first pass on the model it had just drafted. Nothing in it is confirmed yet, so no option is put forward and no result is called reliable. Use it to find what is wrong.",
+      "leading_option_id": null,
+      "computed_against_hash": "5598ade38e83be66"
+    }
+  ],
+  "stage_indicator": "frame",
+  "analysis_state": {
+    "run_state": {
+      "kind": "complete_current",
+      "computed_at": "2026-09-25T00:41:14.831Z"
+    },
+    "readiness": {
+      "status": "unknown",
+      "blockers": []
+    },
+    "leader_claim": {
+      "permitted": false,
+      "withheld_reason": "constraint_verdict_withheld"
+    },
+    "robustness": {},
+    "usable_for_prose": true,
+    "usable_for_chips": true,
+    "usable_for_followup": true,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+  },
+  "graph_hash": "5598ade38e83be66",
+  "analysis_ready": {
+    "options": [
+      {
+        "option_id": "raise_to_59_with_release",
+        "label": "Raise to £59 with release",
+        "status": "ready",
+        "interventions": {
+          "pro_plan_price": 0.295
+        },
+        "is_baseline": false,
+        "intervention_details": {
+          "pro_plan_price": {
+            "display_value": "59 GBP per month",
+            "normalised_value": 0.295,
+            "raw_value": 59,
+            "unit": "GBP per month"
+          }
+        },
+        "status_reason": "1 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "keep_49_with_release",
+        "label": "Keep £49 with release",
+        "status": "ready",
+        "interventions": {
+          "pro_plan_price": 0.245
+        },
+        "is_baseline": false,
+        "intervention_details": {
+          "pro_plan_price": {
+            "display_value": "49 GBP per month",
+            "normalised_value": 0.245,
+            "raw_value": 49,
+            "unit": "GBP per month"
+          }
+        },
+        "status_reason": "1 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "raise_to_54_with_release",
+        "label": "Raise to £54 with release",
+        "status": "ready",
+        "interventions": {
+          "pro_plan_price": 0.27
+        },
+        "is_baseline": false,
+        "intervention_details": {
+          "pro_plan_price": {
+            "display_value": "54 GBP per month",
+            "normalised_value": 0.27,
+            "raw_value": 54,
+            "unit": "GBP per month"
+          }
+        },
+        "status_reason": "1 intervention(s) ready for analysis"
+      }
+    ],
+    "goal_node_id": "monthly_recurring_revenue",
+    "status": "needs_user_input",
+    "blockers": [
+      {
+        "option_id": "raise_to_59_with_release",
+        "option_label": "Raise to £59 with release",
+        "factor_id": "feature_release_value",
+        "factor_label": "Feature release value",
+        "blocker_type": "missing_value",
+        "message": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £59 with release\" set it to?",
+        "suggested_action": "add_value"
+      },
+      {
+        "option_id": "keep_49_with_release",
+        "option_label": "Keep £49 with release",
+        "factor_id": "feature_release_value",
+        "factor_label": "Feature release value",
+        "blocker_type": "missing_value",
+        "message": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Keep £49 with release\" set it to?",
+        "suggested_action": "add_value"
+      },
+      {
+        "option_id": "raise_to_54_with_release",
+        "option_label": "Raise to £54 with release",
+        "factor_id": "feature_release_value",
+        "factor_label": "Feature release value",
+        "blocker_type": "missing_value",
+        "message": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £54 with release\" set it to?",
+        "suggested_action": "add_value"
+      }
+    ],
+    "goal_threshold": 0.8,
+    "goal_threshold_raw": 20000,
+    "goal_threshold_unit": "GBP per month",
+    "goal_threshold_cap": 25000,
+    "goal_threshold_cap_provenance": "target_derived_headroom",
+    "bias_findings": [],
+    "readiness_issues": [
+      {
+        "issue_id": "semantic_1",
+        "repairability": "human_input_required",
+        "option_id": "raise_to_59_with_release",
+        "option_label": "Raise to £59 with release",
+        "factor_id": "feature_release_value",
+        "factor_label": "Feature release value",
+        "code": "MISSING_OPTION_VALUE",
+        "category": "option_values",
+        "message": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £59 with release\" set it to?",
+        "provenance": "ai_drafted",
+        "obligation": "offered"
+      },
+      {
+        "issue_id": "semantic_2",
+        "repairability": "human_input_required",
+        "option_id": "keep_49_with_release",
+        "option_label": "Keep £49 with release",
+        "factor_id": "feature_release_value",
+        "factor_label": "Feature release value",
+        "code": "MISSING_OPTION_VALUE",
+        "category": "option_values",
+        "message": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Keep £49 with release\" set it to?",
+        "provenance": "ai_drafted",
+        "obligation": "offered"
+      },
+      {
+        "issue_id": "semantic_3",
+        "repairability": "human_input_required",
+        "option_id": "raise_to_54_with_release",
+        "option_label": "Raise to £54 with release",
+        "factor_id": "feature_release_value",
+        "factor_label": "Feature release value",
+        "code": "MISSING_OPTION_VALUE",
+        "category": "option_values",
+        "message": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £54 with release\" set it to?",
+        "provenance": "ai_drafted",
+        "obligation": "offered"
+      }
+    ],
+    "repair_proposal": {
+      "proposal_version": "readiness_repair_v1",
+      "complete": true,
+      "issue_ids": [
+        "semantic_1",
+        "semantic_2",
+        "semantic_3"
+      ],
+      "changes": [],
+      "unresolved_inputs": [
+        {
+          "issue_id": "semantic_1",
+          "kind": "option_effect_value",
+          "prompt": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £59 with release\" set it to?",
+          "option_id": "raise_to_59_with_release",
+          "factor_id": "feature_release_value",
+          "obligation": "offered",
+          "provenance": "ai_drafted"
+        },
+        {
+          "issue_id": "semantic_2",
+          "kind": "option_effect_value",
+          "prompt": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Keep £49 with release\" set it to?",
+          "option_id": "keep_49_with_release",
+          "factor_id": "feature_release_value",
+          "obligation": "offered",
+          "provenance": "ai_drafted"
+        },
+        {
+          "issue_id": "semantic_3",
+          "kind": "option_effect_value",
+          "prompt": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £54 with release\" set it to?",
+          "option_id": "raise_to_54_with_release",
+          "factor_id": "feature_release_value",
+          "obligation": "offered",
+          "provenance": "ai_drafted"
+        }
+      ]
+    },
+    "may_run": true,
+    "analysis_admission": {
+      "structurally_analysable": true,
+      "missing_important_inputs": [
+        {
+          "issue_id": "semantic_1",
+          "code": "MISSING_OPTION_VALUE",
+          "option_id": "raise_to_59_with_release",
+          "option_label": "Raise to £59 with release",
+          "factor_id": "feature_release_value",
+          "factor_label": "Feature release value",
+          "why_it_matters": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £59 with release\" set it to?",
+          "obligation": "offered",
+          "waived_by_exclusion": false
+        },
+        {
+          "issue_id": "semantic_2",
+          "code": "MISSING_OPTION_VALUE",
+          "option_id": "keep_49_with_release",
+          "option_label": "Keep £49 with release",
+          "factor_id": "feature_release_value",
+          "factor_label": "Feature release value",
+          "why_it_matters": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Keep £49 with release\" set it to?",
+          "obligation": "offered",
+          "waived_by_exclusion": false
+        },
+        {
+          "issue_id": "semantic_3",
+          "code": "MISSING_OPTION_VALUE",
+          "option_id": "raise_to_54_with_release",
+          "option_label": "Raise to £54 with release",
+          "factor_id": "feature_release_value",
+          "factor_label": "Feature release value",
+          "why_it_matters": "Factor \"Feature release value\" is currently 50 value score out of 100. What should option \"Raise to £54 with release\" set it to?",
+          "obligation": "offered",
+          "waived_by_exclusion": false
+        }
+      ],
+      "semantic_quality_sufficient": true,
+      "permitted_analysis_mode": "comparative_leader",
+      "reasons": [
+        {
+          "field": "structurally_analysable",
+          "code": "READY_TO_COMPARE",
+          "message": "Analysis can run on this model as it stands."
+        },
+        {
+          "field": "missing_important_inputs",
+          "code": "MODEL_HAS_BLOCKERS",
+          "message": "Olumi filled in the gaps here itself; you can review them, and nothing is required of you."
+        },
+        {
+          "field": "semantic_quality_sufficient",
+          "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+          "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+        },
+        {
+          "field": "permitted_analysis_mode",
+          "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+          "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+        }
+      ],
+      "graph_hash": "5598ade38e83be668038e5c1bf308f88e07b2f75b857f9796317d80d21a10df6",
+      "semantic_signals": {
+        "confidence_parameters_total": 15,
+        "confidence_parameters_user_stated": 1,
+        "confidence_parameters_machine_authored": 12,
+        "confidence_parameters_unattributed": 2,
+        "material_parameters_total": 12,
+        "material_parameters_user_stated": 1,
+        "intervened_factor_baselines_total": 1,
+        "intervened_factor_baselines_user_stated": 1,
+        "material_parameters_awaiting_user_node_ids": [
+          "monthly_recurring_revenue",
+          "pro_subscribers",
+          "monthly_churn_rate",
+          "churn_limit_breach"
+        ],
+        "goal_target_stated": true
+      }
+    },
+    "freshness": "fresh",
+    "freshness_reason": "agent_readback_run_state_current",
+    "graph_hash_at_run": "5598ade38e83be66",
+    "current_graph_hash": "5598ade38e83be66",
+    "computed_at": "2026-09-25T00:41:14.831Z"
+  },
+  "draft_graph": {
+    "nodes": [
+      {
+        "id": "decision_monthly_recurring_revenue",
+        "kind": "decision",
+        "label": "Decision: Monthly recurring…",
+        "provenance": "ai_inferred",
+        "description": "Decision: Monthly recurring revenue"
+      },
+      {
+        "id": "monthly_recurring_revenue",
+        "kind": "goal",
+        "label": "Monthly recurring revenue",
+        "provenance": "from_brief",
+        "goal_threshold": 0.8,
+        "goal_threshold_cap": 25000,
+        "goal_threshold_raw": 20000,
+        "goal_threshold_unit": "GBP per month",
+        "goal_threshold_frame": "level",
+        "goal_threshold_cap_provenance": "target_derived_headroom"
+      },
+      {
+        "id": "raise_to_59_with_release",
+        "kind": "option",
+        "label": "Raise to £59 with release",
+        "provenance": "from_brief",
+        "interventions": {
+          "pro_plan_price": {
+            "value": 0.295,
+            "source": "brief_extraction"
+          }
+        }
+      },
+      {
+        "id": "keep_49_with_release",
+        "kind": "option",
+        "label": "Keep £49 with release",
+        "provenance": "ai_inferred",
+        "interventions": {
+          "pro_plan_price": {
+            "value": 0.245,
+            "source": "brief_extraction"
+          }
+        }
+      },
+      {
+        "id": "raise_to_54_with_release",
+        "kind": "option",
+        "label": "Raise to £54 with release",
+        "provenance": "ai_inferred",
+        "interventions": {
+          "pro_plan_price": {
+            "value": 0.27,
+            "source": "cee_hypothesis"
+          }
+        }
+      },
+      {
+        "id": "pro_plan_price",
+        "kind": "factor",
+        "label": "Pro plan price",
+        "category": "controllable",
+        "provenance": "from_brief",
+        "observed_state": {
+          "cap": 200,
+          "unit": "GBP per month",
+          "value": 0.245,
+          "source": "brief_extraction",
+          "raw_value": 49,
+          "declared_scale": "unit_interval"
+        }
+      },
+      {
+        "id": "feature_release_value",
+        "kind": "factor",
+        "label": "Feature release value",
+        "category": "controllable",
+        "provenance": "ai_inferred",
+        "scale_frame": 100,
+        "observed_state": {
+          "unit": "value score out of 100",
+          "value": 0.5,
+          "source": "cee_inference",
+          "raw_value": 50
+        }
+      },
+      {
+        "id": "pro_subscribers",
+        "kind": "factor",
+        "label": "Pro subscribers",
+        "category": "observable",
+        "provenance": "ai_inferred",
+        "scale_frame": 5000,
+        "observed_state": {
+          "unit": "subscribers",
+          "value": 0.05,
+          "source": "cee_inference",
+          "raw_value": 250
+        }
+      },
+      {
+        "id": "monthly_churn_rate",
+        "kind": "factor",
+        "label": "Monthly churn rate",
+        "category": "observable",
+        "provenance": "ai_inferred",
+        "scale_frame": 100,
+        "observed_state": {
+          "unit": "percent per month",
+          "value": 0.03,
+          "source": "cee_inference",
+          "raw_value": 3
+        }
+      },
+      {
+        "id": "churn_limit_breach",
+        "kind": "risk",
+        "label": "Churn limit breach",
+        "provenance": "ai_inferred"
+      }
+    ],
+    "edges": [
+      {
+        "to": "raise_to_59_with_release",
+        "from": "decision_monthly_recurring_revenue",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "keep_49_with_release",
+        "from": "decision_monthly_recurring_revenue",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "raise_to_54_with_release",
+        "from": "decision_monthly_recurring_revenue",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "pro_plan_price",
+        "from": "raise_to_59_with_release",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "brief_extraction"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "feature_release_value",
+        "from": "raise_to_59_with_release",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "pro_plan_price",
+        "from": "keep_49_with_release",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "brief_extraction"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "feature_release_value",
+        "from": "keep_49_with_release",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "pro_plan_price",
+        "from": "raise_to_54_with_release",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "feature_release_value",
+        "from": "raise_to_54_with_release",
+        "strength": {
+          "std": 0.01,
+          "mean": 1
+        },
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 1
+      },
+      {
+        "to": "monthly_recurring_revenue",
+        "from": "pro_plan_price",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "pro_subscribers",
+        "from": "pro_plan_price",
+        "strength": {
+          "std": 0.125,
+          "mean": -0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "negative",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "monthly_churn_rate",
+        "from": "pro_plan_price",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "pro_subscribers",
+        "from": "feature_release_value",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "monthly_churn_rate",
+        "from": "feature_release_value",
+        "strength": {
+          "std": 0.125,
+          "mean": -0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "negative",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "pro_subscribers",
+        "from": "monthly_churn_rate",
+        "strength": {
+          "std": 0.125,
+          "mean": -0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "negative",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "churn_limit_breach",
+        "from": "monthly_churn_rate",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "monthly_recurring_revenue",
+        "from": "churn_limit_breach",
+        "strength": {
+          "std": 0.125,
+          "mean": -0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "negative",
+        "exists_probability": 0.8
+      },
+      {
+        "to": "monthly_recurring_revenue",
+        "from": "pro_subscribers",
+        "strength": {
+          "std": 0.125,
+          "mean": 0.5
+        },
+        "defaulted": true,
+        "provenance": {
+          "source": "cee_hypothesis"
+        },
+        "effect_direction": "positive",
+        "exists_probability": 0.8
+      }
+    ],
+    "node_count": 10,
+    "edge_count": 18,
+    "goal_constraints": [
+      {
+        "unit": "percent per month",
+        "label": "Monthly churn rate < 4percent per month",
+        "value": 4,
+        "node_id": "monthly_churn_rate",
+        "operator": "<=",
+        "provenance": "explicit",
+        "constraint_id": "agent-lane:monthly_churn_rate:<="
+      }
+    ]
+  }
+}

@@ -36,19 +36,29 @@
  * READY case is asserted below as well. Without it this file would pass on a
  * deletion.
  *
- * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z points 1–2). The goal card's
- * "Run analysis" chip (`goal_run_analysis`) is REMOVED: the Question card's
- * rail carries the canvas's ONE run affordance, `decision-run-analysis-<id>`
- * (label "Run the analysis now", or the held notice), which calls
- * `runAnalysisFromCard('decision_run_analysis', …)`. So the KNOWN GAP pinned
- * below — two cards, one question, opposite answers — is closed by there being
- * ONE surface, not by the goal card adopting a predicate. The arms now assert
- * both halves: the goal card offers nothing in either state, and the Question
- * card's rail offers the run exactly when its own predicate admits it (the
- * ready case), so "hide the goal chip" cannot pass as a deletion.
- * ⚠ THE AUTHORITY IS STILL NOT READ: the Question card's gate is still
- * `allFactorsPresent && goalDefined`, not `canRunAnalysis`. That half of the
- * title remains true and is not claimed fixed here.
+ * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z points 1–2), SUPERSEDED
+ * 24 Sep 2026. The 23 Sep ruling removed the goal card's "Run analysis" chip
+ * (`goal_run_analysis`) and put the canvas's one run affordance on the
+ * Question card's rail, `decision-run-analysis-<id>` (label "Run the analysis
+ * now", or the held notice), calling `runAnalysisFromCard('decision_run_analysis',
+ * …)`. Recorded here rather than deleted, per this file's own header rule
+ * about defects pinned rather than repaired.
+ *
+ * ⭐⭐ DESIGN-GAP-AUDIT row 5(b) (24 Sep 2026, gap-frame-footer lane) goes one
+ * step further: contract v3.1 §02's Question rail is edit + coaching only, no
+ * run action, and running lives in the panel's Analyse button. So the Question
+ * card's rail action is ALSO removed — `DecisionNode.tsx`'s `railIcons` prop no
+ * longer exists at all. The tests below are updated to the new fact: NEITHER
+ * card ever offers a run affordance, in either the withheld or the ready case.
+ * The "…not a deletion" framing in the second test's title is now historical —
+ * it describes why the 23 Sep move was not a regression, not a constraint on
+ * this one. This file still answers the same underlying question the header
+ * above asks ("is there one authority for 'may this model be analysed now?'"),
+ * and the honest answer after this change is: the authority is the panel's
+ * Analyse button, which neither card duplicates any more.
+ * ⚠ THE AUTHORITY IS STILL NOT READ ON THE CARDS: they simply no longer assert
+ * anything about it. `canRunAnalysis` is the panel's own gate and is out of
+ * scope for this lane.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -121,7 +131,6 @@ vi.mock('../shared/NodeChip', async (importOriginal) => ({
   runAnalysisFromCard: vi.fn(),
 }))
 
-import { fireEvent } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { GoalNode } from '../GoalNode'
@@ -227,7 +236,7 @@ describe('"Run analysis" — the two cards, and the authority neither of them re
    * `canRunAnalysis`, this test REDs by design and is replaced by one asserting
    * the agreement — which is exactly the signal wanted at that moment.
    */
-  it('GAP CLOSED (locked design): with a factor missing its value, NEITHER card offers the action', () => {
+  it('GAP CLOSED: with a factor missing its value, NEITHER card offers the action', () => {
     // Locked Canvas design (23 Sep 2026; ED 11:52Z point 2): the goal card's run
     // chip is removed, so it can no longer answer "yes" where the Question card
     // answers "no".
@@ -244,20 +253,23 @@ describe('"Run analysis" — the two cards, and the authority neither of them re
     expect(anyRunAffordance(decision.container)).toHaveLength(0)
   })
 
-  it('…and when everything IS present the ONE run affordance is the Question card\'s rail — not a deletion', () => {
-    // Locked Canvas design (23 Sep 2026; ED 11:52Z point 1): the ready case must
-    // still offer the run somewhere, or this file would pass on "hide it".
+  it('…and when everything IS present, NEITHER card offers a run affordance — DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026: running lives in the panel', () => {
+    // Superseded arm. Until 24 Sep 2026 this asserted the READY case put the
+    // run affordance on the Question card's rail — the "not a deletion" this
+    // title used to name. Contract v3.1 §02 has no run action on the Question
+    // card at all, so the ready case is now just as silent as the withheld
+    // one above: BOTH arms of this file now agree, which is the honest end
+    // state for "one authority" once neither card duplicates it.
     const goal = renderGoalWith([READY_FACTOR])
     expect(anyRunAffordance(goal.container)).toHaveLength(0)
     cleanup()
 
     const decision = renderDecisionWith([READY_FACTOR])
-    const icon = decision.getByTestId(DECISION_RUN)
-    expect(anyRunAffordance(decision.container)).toEqual([icon])
-    expect(icon.getAttribute('aria-label')).toBe('Run the analysis now')
-    fireEvent.click(icon)
-    expect(vi.mocked(runAnalysisFromCard)).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(runAnalysisFromCard).mock.calls[0][0]).toBe('decision_run_analysis')
+    expect(decision.queryByTestId(DECISION_RUN)).toBeNull()
+    expect(anyRunAffordance(decision.container)).toHaveLength(0)
+    // `runAnalysisFromCard` is no longer imported by `DecisionNode.tsx` at
+    // all — nothing on this card can call it any more.
+    expect(vi.mocked(runAnalysisFromCard)).not.toHaveBeenCalled()
   })
 
   it('the readiness hook is whole-graph and takes no node id', () => {

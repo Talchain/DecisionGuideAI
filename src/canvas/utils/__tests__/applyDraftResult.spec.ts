@@ -176,7 +176,8 @@ describe('applyDraftResult', () => {
     } as any
 
     applyDraftResult(draftData)
-    expect(mockSetOutcomeNode).toHaveBeenCalledWith('g1')
+    // The draft's own goal selection does not self-dirty: the draft owns its freshness mark.
+    expect(mockSetOutcomeNode).toHaveBeenCalledWith('g1', { fromProducerSync: true })
   })
 
   it('does not auto-select goal when multiple goals exist', () => {
