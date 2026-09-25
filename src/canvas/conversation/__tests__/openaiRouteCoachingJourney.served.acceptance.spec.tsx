@@ -35,6 +35,7 @@ import { render, act, fireEvent, waitFor } from '@testing-library/react'
 
 import servedBeforeCopyV2 from './fixtures/openai-route-coaching-journey.c673223.json'
 import servedCopyV2 from './fixtures/openai-route-coaching-journey.e39f6e0.json'
+import servedFirstPassWithConsent from './fixtures/openai-route-first-pass-with-consent.e39f6e0.json'
 import { useConversation, type UseConversationReturn } from '../useConversation'
 import { ConversationPanel } from '../ConversationPanel'
 import { ToastProvider } from '../../ToastContext'
@@ -190,9 +191,10 @@ function expectConclusionFirst(label: string) {
 
 async function mount(journey: Journey): Promise<void> {
   TURNS = journey.turns
+  const has = (label: string) => journey.turns.some((t) => t.turn === label)
   C1_CARD = cardOf('C1 brief')
-  C2_CARD = cardOf('C2 run')
-  C6_CARD = cardOf('C6 re-run')
+  C2_CARD = has('C2 run') ? cardOf('C2 run') : {}
+  C6_CARD = has('C6 re-run') ? cardOf('C6 re-run') : {}
   queue.length = 0
   sent.length = 0
   Element.prototype.scrollIntoView = vi.fn()
@@ -331,5 +333,36 @@ describe.each(JOURNEYS)('the served OpenAI run turn (%s), through the shipped ch
     expect(sent.length).toBe(TURNS.length)
     expect(sent.map((s) => s.mode)).toEqual(TURNS.map(() => 'openai'))
   })
+  })
+})
+
+/**
+ * "ONE real next action" when the same turn ALSO asks for consent.
+ *
+ * Served browser capture (UI 64a3b385 + CEE e39f6e0): the first brief's reply
+ * drafted the model, ran the automatic first pass (so it carries the run card)
+ * AND proposed starting assumptions — "Shall I save these four assumptions?" —
+ * with CEE's consent pair (`approval-chips.ts`: "Use as starting assumptions" /
+ * "Change something first"). That consent IS the turn's next action; promoting
+ * the card too would put a second, competing live button on the face. So the
+ * card keeps its line (one click away, never hidden), and the pair stays the
+ * action. The two journeys above are the control: no consent pair, so the card
+ * is the one live action on the face.
+ */
+describe('the served first pass that ALSO asks for consent (browser capture, e39f6e0)', () => {
+  it('one real next action: the consent pair is live; the run card keeps its line', async () => {
+    await mount(servedFirstPassWithConsent as Journey)
+    await step('C1 — the reply asks for consent and carries the first-pass card', async () => {
+      await say('C1 brief', 'We sell a Pro plan at £49/month. Should we raise it to £59 with the next feature release?')
+      const approve = document.querySelector('[data-testid^="suggested-chip-agent-approve-proposal"]') as HTMLButtonElement | null
+      expect(approve, 'the consent chip is offered').not.toBeNull()
+      expect(approve!.disabled).toBe(false)
+      const line = document.querySelector(`[data-testid="coaching-line-${String(C1_CARD.block_id)}"]`) as HTMLDetailsElement | null
+      expect(line, 'the run card keeps its line (not promoted)').not.toBeNull()
+      expect(line!.open, 'the line is closed at rest').toBe(false)
+      expect(line!.contains(cardEl(C1_CARD)), 'the card is inside its line').toBe(true)
+      const onTheFace = liveCardActions().filter((b) => b.closest('details:not([open])') === null)
+      expect(onTheFace, 'no live card action competes with the consent pair').toEqual([])
+    })
   })
 })

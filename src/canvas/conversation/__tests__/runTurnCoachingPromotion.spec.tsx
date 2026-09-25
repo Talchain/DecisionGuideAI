@@ -41,6 +41,7 @@ import {
   assertTotalPartition,
   composeMessage,
   firstPromotableActionIndex,
+  offersPendingConsent,
 } from '../messageComposition'
 import { planCoachingLines } from '../CoachingLine'
 import type { ConversationBlock, V5CoachingBlock, V5ExerciseBlock } from '../types'
@@ -477,5 +478,47 @@ describe('what can never be promoted', () => {
     const composed = composeMessage(blocks, null, { promoteRunTurnCoaching: true })
     expect(indices(composed.points)).toEqual([0, 1, 3])
     expect(indices(composed.detail)).toEqual([2, 4])
+  })
+})
+
+// ── One real next action ─────────────────────────────────────────────────────
+
+/**
+ * A turn that asks the user to consent to a proposal already has its one next
+ * action: that consent (CEE `approval-chips.ts`). The run card keeps its line
+ * there. Served evidence: `openaiRouteCoachingJourney.served.acceptance.spec`
+ * §"the served first pass that ALSO asks for consent".
+ */
+describe('ONE REAL NEXT ACTION — a turn that asks for consent keeps the run card as its line', () => {
+  it("offersPendingConsent reads CEE's approve chip, and only it", () => {
+    expect(offersPendingConsent([{ id: 'agent-approve-proposal:prop_6e4bc413' }, { id: 'agent-amend-proposal' }])).toBe(true)
+    expect(offersPendingConsent([{ id: 'agent-amend-proposal' }])).toBe(false)
+    expect(offersPendingConsent([{ id: 'agent-run-analysis' }])).toBe(false)
+    expect(offersPendingConsent([{ id: 'x-agent-approve-proposal:prop_1' }])).toBe(false)
+    expect(offersPendingConsent([])).toBe(false)
+    expect(offersPendingConsent(undefined)).toBe(false)
+  })
+
+  it('composeMessage: consent pending ⇒ exactly the pre-promotion composition', () => {
+    const blocks = runTurn()
+    expect(firstPromotableActionIndex(blocks), 'precondition: the card IS promotable').toBe(3)
+    expect(JSON.stringify(composeMessage(blocks, null, { consentPending: true }))).toBe(
+      JSON.stringify(composeMessage(blocks, null, { promoteRunTurnCoaching: false })),
+    )
+    expect(indices(composeMessage(blocks, null, { consentPending: false }).points), 'control: no consent ⇒ promoted').toEqual([0, 1, 3])
+  })
+
+  it('planCoachingLines: consent pending ⇒ the card keeps its line; no consent ⇒ promoted', () => {
+    const blocks = runTurn()
+    expect(planCoachingLines(blocks, { consentPending: true }).get(blocks[3])?.collapsible).toBe(true)
+    expect(planCoachingLines(blocks, { consentPending: false }).get(blocks[3])?.collapsible).toBe(false)
+  })
+
+  it('mounted: with consent pending the card is a closed line, not on the face', () => {
+    installRun(RUN_COMPUTED_AT)
+    render(<InlineBlocks blocks={runTurn()} turnId="turn_run" patchBlockStates={new Map()} consentPending />)
+    expect(fragileCard(), 'not a top-level point while the disclosure is closed').toBeNull()
+    fireEvent.click(screen.getByTestId('block-detail-toggle'))
+    expect(screen.getByTestId(`coaching-line-${FRAGILE_ID}`)).toBeInTheDocument()
   })
 })
