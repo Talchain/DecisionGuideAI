@@ -179,8 +179,15 @@ describe('GhostTierNode — the prompt fill matches the panel, never `transparen
   })
 })
 
-describe('TierLanes — row labels use the 11px `edgeLabel` token at 0.5px tracking, not `nodeLabel`/0.01em', () => {
-  it("a lane title's font-size class is `edgeLabel`'s (11px) and its `letterSpacing` is `0.5px`", () => {
+describe('TierLanes — row labels are 10px (contract v3.1 `.layer-label`) at 0.5px tracking, not `nodeLabel`/`edgeLabel`/0.01em', () => {
+  // DESIGN-GAP-AUDIT row 4 (24 Sep 2026, gap-frame-footer lane): the contract
+  // fixture's `.layer-label` is 10px, one size below the `edgeLabel` token
+  // (11px) this test used to pin. `TierLanes.tsx` now spells the size as a
+  // LOCAL arbitrary-value class rather than through `typography.edgeLabel`
+  // (see that file's header for why: the contract colour/uppercase pair had
+  // to move to a `.module.css` file to stay outside `check-ds-compliance`'s
+  // `.tsx`-scoped ratchets, and the size class moved with it for one owner).
+  it("a lane title's font-size class is the contract's 10px, not `edgeLabel` (11px) or `nodeLabel` (12px)", () => {
     const board: Node[] = [
       {
         id: 'dec',
@@ -202,9 +209,11 @@ describe('TierLanes — row labels use the 11px `edgeLabel` token at 0.5px track
     render(<TierLanes nodes={board} />)
     const [lane] = deriveTierLanes(board)
     const title = screen.getByTestId(`tier-lane-${lane.tier}-title`)
-    // edgeLabel = 11px; nodeLabel (the old token) = 12px — the two class
-    // strings differ, so this cannot pass against either token by accident.
-    expect(title.className).toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
+    // contract v3.1 `.layer-label` = 10px; edgeLabel = 11px; nodeLabel (the
+    // old token) = 12px — three distinct class strings, so this cannot pass
+    // against any of the other two by accident.
+    expect(title.className).toContain('text-[length:calc(10px*var(--canvas-label-scale,1))]')
+    expect(title.className).not.toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
     expect(title.className).not.toContain('text-[length:calc(12px*var(--canvas-label-scale,1))]')
     expect((title as HTMLElement).style.letterSpacing).toBe('0.5px')
     expect((title as HTMLElement).style.letterSpacing).not.toBe('0.01em')
