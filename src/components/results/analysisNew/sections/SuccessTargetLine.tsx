@@ -678,7 +678,7 @@ export function SuccessTargetLine({
                 onChange={(e) => setDirection(e.target.value as ConstraintType)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.directionLabel}
-                className={`${typography.panelMeta} shrink-0 rounded border border-panel-border bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} shrink-0 rounded-sm border border-field bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-direction`}
               >
                 <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
@@ -692,7 +692,7 @@ export function SuccessTargetLine({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.inputLabel}
-                className={`${typography.panelMeta} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} min-w-0 flex-1 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-input`}
               />
               {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
@@ -719,7 +719,7 @@ export function SuccessTargetLine({
                   onKeyDown={onEditorKeyDown}
                   aria-label={COPY.successTarget.unitInputLabel}
                   placeholder={COPY.successTarget.unitPlaceholder}
-                  className={`${typography.panelMeta} w-24 shrink-0 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} w-24 shrink-0 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-unit`}
                 />
               ) : null}
@@ -739,7 +739,7 @@ export function SuccessTargetLine({
                 onKeyDown={onWordsKeyDown}
                 placeholder={WORDS_PLACEHOLDER}
                 rows={2}
-                className={`${typography.panelMeta} min-w-0 rounded border border-panel-border bg-surface px-1.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} min-w-0 rounded-sm border border-field bg-surface px-1.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-words-input`}
               />
             </span>
@@ -756,7 +756,7 @@ export function SuccessTargetLine({
               <button
                 type="button"
                 onClick={commit}
-                className={`${typography.panelMeta} ${action('primary')}`}
+                className={`${typography.panelBody} ${action('primary')}`}
                 data-testid={`${testId}-save`}
               >
                 {COPY.modelStrip.saveValue}
@@ -766,7 +766,7 @@ export function SuccessTargetLine({
                 type="button"
                 onClick={sendWordsToOlumi}
                 disabled={wordsDraft.trim() === ''}
-                className={`${typography.panelMeta} ${action('primary')} disabled:opacity-50`}
+                className={`${typography.panelBody} ${action('primary')} disabled:opacity-50`}
                 data-testid={`${testId}-words-send`}
               >
                 {SEND_WORDS_LABEL}
@@ -782,7 +782,7 @@ export function SuccessTargetLine({
             <button
               type="button"
               onClick={closeEditor}
-              className={`${typography.panelMeta} ${action('quiet')}`}
+              className={`${typography.panelBody} ${action('quiet')}`}
               data-testid={`${testId}-cancel`}
             >
               {COPY.modelStrip.cancelValue}
@@ -790,7 +790,7 @@ export function SuccessTargetLine({
             <button
               type="button"
               onClick={deferTarget}
-              className={`${typography.panelMeta} ${action('quiet')}`}
+              className={`${typography.panelBody} ${action('quiet')}`}
               data-testid={`${testId}-defer`}
             >
               {NOT_SURE_YET_LABEL}
@@ -912,7 +912,7 @@ export function SuccessTargetLine({
                * `successTargetLine.spec.tsx`'s `toHaveTextContent` pin — so the
                * pencil is additive, not a replacement for the accessible name.
                */
-              className={`${typography.panelMeta} shrink-0 inline-flex items-center gap-1 ${
+              className={`${typography.panelBody} shrink-0 inline-flex items-center gap-1 ${
                 shownText !== null ? action('quiet') : action('primary')
               }`}
               data-testid={`${testId}-edit`}

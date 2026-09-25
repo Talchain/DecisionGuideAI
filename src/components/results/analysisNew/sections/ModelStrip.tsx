@@ -1566,7 +1566,7 @@ export function ModelStrip({
             <button
               type="button"
               onClick={() => focusOrSay(active.id)}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
               data-testid={`${testId}-detail-focus`}
               data-node-id={active.id}
             >
@@ -1592,7 +1592,7 @@ export function ModelStrip({
                   source: 'chip',
                 })
               }}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
               data-testid={`${testId}-detail-propose`}
               data-node-id={active.id}
             >
@@ -1611,7 +1611,7 @@ export function ModelStrip({
                   source: 'chip',
                 })
               }}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
               data-testid={`${testId}-detail-ask`}
               data-node-id={active.id}
             >
@@ -1684,13 +1684,13 @@ export function ModelStrip({
                           setEditingFor(null)
                         }
                       }}
-                      className={`${typography.panelBody} w-24 min-w-0 rounded border border-panel-border bg-panel px-2 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      className={`${typography.panelBody} w-24 min-w-0 rounded-sm border border-field bg-panel px-2 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-detail-value-input`}
                     />
                     <button
                       type="button"
                       onClick={commitValue}
-                      className={`${typography.panelMeta} inline-flex items-center ${action('secondary')}`}
+                      className={`${typography.panelBody} inline-flex items-center ${action('secondary')}`}
                       data-testid={`${testId}-detail-value-save`}
                     >
                       {COPY.modelStrip.saveValue}
@@ -1728,7 +1728,7 @@ export function ModelStrip({
                       setDraft(seed != null ? String(seed) : '')
                       setEditingFor(active.id)
                     }}
-                    className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
                     data-testid={`${testId}-detail-value-edit`}
                     data-node-id={active.id}
                   >
@@ -1791,7 +1791,7 @@ export function ModelStrip({
                         targetId: active.id,
                       })
                     }
-                    className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
                     data-testid={`${testId}-detail-method`}
                     data-method-id={method.id}
                     title={method.description}

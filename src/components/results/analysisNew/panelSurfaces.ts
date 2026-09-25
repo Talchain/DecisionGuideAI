@@ -421,6 +421,15 @@ export const ACTION_TIER = {
    * to a different bundle.
    */
   text: 'inline-flex items-center gap-1 min-h-[24px] min-w-[24px] py-1 text-info hover:text-info-hover',
+  /**
+   * A DISCLOSURE DOOR — body-ink, no underline, no info colour at rest
+   * (design-audit-20260925, gap TYPE-4). 'Assumptions and evidence' rendered
+   * as an 11px underlined blue link; the prototype's door
+   * (`#challenge .disclose`) is 12px/400 body ink with a grey chevron, never
+   * a link. TOKEN ONLY this pass — no consumer in this bundle's owned files;
+   * the call site (`ReasoningSignals.tsx`) belongs to a different bundle.
+   */
+  disclose: 'inline-flex items-center gap-1.5 min-h-[24px] min-w-[24px] py-1 rounded text-left text-text-body hover:text-info',
 } as const
 
 /**

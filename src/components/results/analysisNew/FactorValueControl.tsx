@@ -448,7 +448,7 @@ export function FactorValueControl({
               setEditing(false)
             }
           }}
-          className={`${typography.panelBody} w-20 min-w-0 rounded border border-panel-border bg-panel px-1.5 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          className={`${typography.panelBody} w-20 min-w-0 rounded-sm border border-field bg-panel px-1.5 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         />
         <button
           type="button"
