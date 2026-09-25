@@ -216,6 +216,24 @@ import {
 const RANGE_LENS_ARMS = ['cautious', 'middle', 'optimistic'] as const
 type RangeLensArm = (typeof RANGE_LENS_ARMS)[number]
 
+/**
+ * ⭐ FOUR EVENLY-SPACED POINTS ACROSS THE SHARED DOMAIN, prototype-matched
+ * (`chartHTML()` prints four ticks). `0` and `1` are the domain's own bounds,
+ * so the end ticks always land on the same values the range bands are
+ * fractioned against (`toFraction` in the row below).
+ */
+const AXIS_TICK_FRACTIONS = [0, 1 / 3, 2 / 3, 1] as const
+
+/**
+ * ⛔ NO UNIT SYMBOL. See the call site's note: `outcomeRange` carries no unit,
+ * so this prints the scale's own number and nothing else — never a `%`, `$`
+ * or any other symbol this surface was not given.
+ */
+function formatAxisTick(value: number): string {
+  const rounded = Math.round(value * 100) / 100
+  return rounded.toLocaleString(undefined, { maximumFractionDigits: 2 })
+}
+
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
   /**
@@ -478,6 +496,41 @@ export function OptionsComparison({
   const offerLensControl = lensAvailability.outcome && lensAvailability.goal
   const rowActionsEnabled =
     onInspectOption !== undefined || onFocusOption !== undefined || onAskAboutOption !== undefined
+  /**
+   * ⭐ V2 FIDELITY (25 Sep 2026, gaps FIRST-1/SPACE-5): whether the range axis
+   * row (its info button) has anything to attach to. Shared with `noneNumbered`
+   * below (gap CHART-3) and with the merged legend/axis row further down, so
+   * the three cannot drift onto three different readings of "is a range drawn".
+   */
+  const showAxis = lens === 'outcome' && rangeScale !== null
+
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): THE AXIS ROW'S OWN TICK
+   * LABELS, so a withheld run's ranges can be READ rather than only seen. The
+   * prototype (`Olumi_Reasoning_Prototype_V2.html`, `chartHTML()`) prints four
+   * ticks — `0%`, `10%`, `20%`, `30%` — under the rows; before this the info
+   * button sat alone with no scale to read the bands against.
+   *
+   * ⛔⛔ NOT A PERCENTAGE, AND NOT A POINT FIGURE. `outcomeRange` carries no
+   * unit — PanelFigure's own rule 3 ("THE FIGURE CLAIMS NOTHING IN UNITS",
+   * `PanelFigure.tsx:51-56`), this file's own range-band note ("PRESENTATIONAL
+   * ONLY, AND IT MAKES NO CLAIM IN UNITS", above at the range's render site)
+   * and `analysisNewTypes.ts:640-644` (a captured real run whose values are
+   * `-0.163` / `0.027` / `0.211`, not percentages) all document the same
+   * producer gap: the outcome may be currency, a count or a normalised scale,
+   * and this surface is never told which. Printing "0% 10% 20% 30%" here would
+   * be exactly the fabrication those three sites refuse — a unit invented
+   * where none was sent. So these four ticks are the SCALE'S OWN VALUES,
+   * spread evenly across the shared domain (`rangeScale.lo` .. `.hi`), plain
+   * numbers with no appended symbol — readable against the bands without
+   * claiming a unit the producer never gave. Reported, not silently narrowed:
+   * see the PR description for the same finding against the per-option point
+   * figure this wave does NOT add for the identical reason.
+   */
+  const axisTicks: readonly string[] | null =
+    showAxis && rangeScale !== null
+      ? AXIS_TICK_FRACTIONS.map((f) => formatAxisTick(rangeScale.lo + f * rangeScale.span))
+      : null
 
   /**
    * ⭐⭐ THE PROVENANCE SENTENCE, SAID ONCE WHEN SEVERAL OPTIONS SHARE IT.
@@ -537,8 +590,22 @@ export function OptionsComparison({
           list as a tie. The ordering clause stays in `meaning`, which is the
           half that renders on a withheld run whose options DO carry figures —
           the run this section says nothing on at all. The cause is still
-          appended below. */}
-      {noneNumbered ? (
+          appended below.
+
+          ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-3): `&& lens === null`, ADDED.
+          `noneNumbered` alone asks only "did any option come back with a WIN
+          SHARE?" — a question about a figure this section stopped printing at
+          rest. A withheld run can carry no win share and still draw every
+          option's own range (the "Modelled outcome" lens): that run has rows
+          FULL of figures, and calling it "a list with no figures beside it"
+          was false on the very run it was meant to protect. Gating on `lens`
+          too restricts the denial to a row that TRULY shows nothing — no
+          range, no goal figure — which is the only population this sentence
+          may address. The cause stays appended: a withheld run with figures
+          keeps stating it, through the commitment synthesis's own "Still
+          open" bullet, which reads `checks.leaderWithheld` independently of
+          this component. */}
+      {noneNumbered && lens === null ? (
         <p
           className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
           data-testid={`${testId}-no-figures`}
@@ -803,7 +870,13 @@ export function OptionsComparison({
                 return (
                   <PanelFigure
                     variant="range"
-                    className="mt-1"
+                    /* ⭐ V2 FIDELITY (25 Sep 2026, gap SPACE-3): INSET FROM THE
+                       NAME AND THE CHEVRON COLUMN. The track used to run edge
+                       to edge under the option's own square mark and under
+                       the row chevron; `ml-4` clears the mark (`w-3` plus
+                       `mr-1`, the button's `-ml-1 px-1` cancelling) and
+                       `mr-5` clears the chevron (`w-3` plus `gap-2`). */
+                    className="mt-1 ml-4 mr-5"
                     band={{
                       start: toFraction(o.outcomeRange.p10),
                       end: toFraction(o.outcomeRange.p90),
@@ -985,44 +1058,82 @@ export function OptionsComparison({
         ) : null}
       </ul>
 
-      {/* ⭐ THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
-          constant the rows used and the glance renders. */}
-      {sharedOrigin !== null ? (
-        <p
-          className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-center gap-1`}
-          data-testid={`${testId}-option-origin-legend`}
-          data-option-origin={sharedOrigin}
-        >
-          <Sparkles className={`${icon('inline')} shrink-0`} aria-hidden="true" />
-          {OPTION_ORIGIN_COPY[sharedOrigin]}
-        </p>
-      ) : null}
+      {/* ⭐⭐ V2 FIDELITY (25 Sep 2026, gap FIRST-1): ONE ROW FOR THE LEGEND
+          AND THE RANGE-INFO BUTTON, NOT TWO. The (i) button used to sit alone
+          on its own 32px row below the provenance legend, adding a full row
+          of height the range's own info button never earns on the prototype
+          (there it hangs off the axis row's right edge). Measured cost: about
+          32px, enough on its own to push "Provisional…" below the 1440 fold.
+          Merged whenever EITHER has something to say — the legend keeps its
+          own testid, class and text unchanged (only `mt-1` moves to the row);
+          the button keeps its own testid, gated on the range alone, never on
+          the row, so `optionsComparisonLens.spec` and
+          `theWithheldRunShowsItsFigures.spec` see the same presence/absence
+          they always did. */}
+      {sharedOrigin !== null || showAxis ? (
+        <div className="mt-1 flex items-center justify-between gap-2">
+          {/* ⭐ THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same
+              copy constant the rows used and the glance renders. */}
+          {sharedOrigin !== null ? (
+            <p
+              className={`${typography.panelMeta} text-text-light m-0 flex-1 min-w-0 flex items-center gap-1`}
+              data-testid={`${testId}-option-origin-legend`}
+              data-option-origin={sharedOrigin}
+            >
+              <Sparkles className={`${icon('inline')} shrink-0`} aria-hidden="true" />
+              {OPTION_ORIGIN_COPY[sharedOrigin]}
+            </p>
+          ) : (
+            <span className="flex-1" aria-hidden="true" />
+          )}
 
-      {/* ⭐⭐ THE AXIS, AND THE SENTENCE THE RANGES EXIST FOR, BEHIND ITS INFO
-          BUTTON (V2). "Where ranges overlap, treat the order as unsettled" is
-          the one line that tells a reader when NOT to trust the order; it is
-          now the info button's accessible name and tooltip, and its click
-          discloses the same sentence inline (a tooltip alone does not reach a
-          touch reader) together with the range-arm control.
+          {/* ⭐⭐ THE AXIS, AND THE SENTENCE THE RANGES EXIST FOR, BEHIND ITS
+              INFO BUTTON (V2). "Where ranges overlap, treat the order as
+              unsettled" is the one line that tells a reader when NOT to trust
+              the order; it is now the info button's accessible name and
+              tooltip, and its click discloses the same sentence inline (a
+              tooltip alone does not reach a touch reader) together with the
+              range-arm control.
 
-          ⚠ THE NAME IS A FUNCTION OF THE ARM, because the sentence names the
-          percentile the dot marks. The arm persists while the disclosure is
-          closed, so the name must follow it or it would name p50 over a p90 dot.
+              ⚠ THE NAME IS A FUNCTION OF THE ARM, because the sentence names
+              the percentile the dot marks. The arm persists while the
+              disclosure is closed, so the name must follow it or it would
+              name p50 over a p90 dot.
 
-          ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn: a
-          legend for something not on screen is furniture. */}
-      {lens === 'outcome' && rangeScale !== null ? (
-        <div className="mt-1 flex items-center justify-end" data-testid={`${testId}-axis`}>
-          <PanelIconButton
-            Icon={Info}
-            label={COPY.optionFigures.rangeLegend(rangeAppetite)}
-            expanded={rangeInfoOpen}
-            onClick={() => setRangeInfoOpen((open) => !open)}
-            testId={`${testId}-range-info`}
-          />
+              ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn:
+              a legend for something not on screen is furniture. Gated on
+              `showAxis` alone, never on the row, so this button's own
+              presence/absence is unchanged by the merge. */}
+          {showAxis ? (
+            <span className="-my-1.5 flex shrink-0 items-center gap-2" data-testid={`${testId}-axis`}>
+              {/* ⭐⭐ WAVE 2: THE SCALE ITSELF, so the bands above can be READ
+                  rather than only seen — see `axisTicks`'s own note for why
+                  these are plain numbers and never a `%`. */}
+              {axisTicks !== null ? (
+                <span
+                  className={`${typography.panelMeta} text-text-light flex items-center gap-2 tabular-nums`}
+                  data-testid={`${testId}-axis-ticks`}
+                  aria-hidden="true"
+                >
+                  {axisTicks.map((tick, i) => (
+                    <span key={i} data-testid={`${testId}-axis-tick-${i}`}>
+                      {tick}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
+              <PanelIconButton
+                Icon={Info}
+                label={COPY.optionFigures.rangeLegend(rangeAppetite)}
+                expanded={rangeInfoOpen}
+                onClick={() => setRangeInfoOpen((open) => !open)}
+                testId={`${testId}-range-info`}
+              />
+            </span>
+          ) : null}
         </div>
       ) : null}
-      {lens === 'outcome' && rangeScale !== null && rangeInfoOpen ? (
+      {showAxis && rangeInfoOpen ? (
         <div data-testid={`${testId}-range-detail`}>
           <p
             className={`${typography.panelMeta} text-text-light mt-1 mb-0`}

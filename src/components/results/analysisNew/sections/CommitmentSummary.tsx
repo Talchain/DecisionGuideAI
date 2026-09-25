@@ -120,38 +120,41 @@ function RecordYourView({
   if (record === null) {
     return (
       <div className="mt-3" data-testid={testId}>
-        {/* ⭐ V2 FIDELITY (gap 21): a DISCLOSURE-SHAPED control, not an
-            underlined hyperlink. The prototype's `.disclose` carries no
-            underline (`button{background:transparent;border:0}` is the only
-            rule that touches it) — the icon-plus-chevron SHAPE is what marks
-            it as a control, the way `SectionShell`'s own toggle already does,
-            so dropping `action('inline')`'s underline here does not trade away
-            the "shape or fill, never colour alone" rule that underline exists
-            to satisfy elsewhere on this panel. The route is UNCHANGED: this
-            still opens the existing decision-record modal (`onRecord`); no
-            inline form is added, because `DecisionRecord` has no "next action"
-            or "not ready" field to back one. */}
-        {/* ⚠ `min-h-6` (24px from Tailwind's own scale), NOT the literal
-            `min-h-[24px]` — this file also carries `action('inline')` (the
-            "Update" button below), and `everyInlineActIsReachableByTouch`
-            bans a hand-rolled 24px literal anywhere beside it: that guard
-            exists because `action('inline')` is the ONE owner of the 24px
-            fix, and a second, file-local spelling is exactly the 1-of-12 drift
-            it was written to stop. This button is not `action('inline')`
-            (it is shape-carried, not underlined — see above), so it still
-            needs its OWN target; `min-h-6` reaches the identical 24px without
-            re-deriving the tier's literal, the same move `OptionsComparison`'s
-            option-name button already makes for the same reason. */}
+        {/* ⭐ V2 FIDELITY (gap 21): a DISCLOSURE-SHAPED control. The route is
+            UNCHANGED: this still opens the existing decision-record modal
+            (`onRecord`); no inline form is added, because `DecisionRecord`
+            has no "next action" or "not ready" field to back one.
+
+            ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): THE LABEL IS
+            `text-info underline`, CORRECTED FROM `text-text-body`. Gap 21's
+            premise — "the prototype's `.disclose` door is `--text-body`" —
+            read the BASE `.disclose{color:var(--text-body)}` rule and missed
+            the row's own override that wins the cascade:
+            `.commitrow .disclose{color:var(--info)}`
+            (`Olumi_Reasoning_Prototype_V2.html`; the design-audit screenshot
+            `proto-panel-1440.png` shows "Record your view" in blue).
+
+            ⚠⚠ AND `underline` IS ADDED, WHICH THE PROTOTYPE DOES NOT CARRY —
+            a deliberate departure, not an oversight. This panel's OWN live
+            guard (`tests/ci-guards/reasoning-panel-render-discipline.spec.ts`,
+            RULE B, WCAG SC 1.4.1) scans the `text-info`-bearing element's OWN
+            className for a shape signal and reds on a bare one; it cannot see
+            that the icon and chevron below are SIBLINGS rather than the
+            label's own attributes — its docblock names this EXACT class of
+            false negative ("a className scan … cannot see an icon inside it")
+            and records it as open, not closed, rather than promising the
+            scanner will one day see through it. Rather than rely on a blind
+            spot, the label reaches for the tier this same file already uses
+            for the identical shape (`action('inline')`, on "Update" below):
+            `text-info underline`, no tint — tints fail SC 1.4.3 on this
+            ground, per the guard's own measurement. */}
         <button
           type="button"
           onClick={onRecord}
           className="w-full -ml-2 flex items-center justify-between gap-1.5 min-h-6 px-2 py-1 rounded text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           data-testid={`${testId}-open`}
         >
-          {/* Body colour, not `text-info`: the prototype's `.disclose` door is
-              `--text-body` with an icon and a chevron, and a blue label with no
-              underline relied on colour alone (render-discipline RULE B). */}
-          <span className={`${typography.panelBody} inline-flex items-center gap-1.5 text-text-body`}>
+          <span className={`${typography.panelBody} inline-flex items-center gap-1.5 text-info underline`}>
             <NotebookPen className={`${icon('inline')} text-text-light`} aria-hidden={true} />
             {COMMITMENT_COPY.record.open}
           </span>
@@ -318,13 +321,21 @@ export function CommitmentSummary({
 
       {/* Directly under the comparison slot, never above it (it renders only
           beside that slot). Neutral ink: the words carry the caution, not an
-          amber box. */}
+          amber box.
+
+          ⭐ V2 FIDELITY (25 Sep 2026, gap FIRST-1/CHART-10): `text-text-body`,
+          not `text-text-light`. The sentence that tells a reader how far to
+          trust the chart was set as tertiary grey, reading as fine print
+          rather than part of the argument. The icon stays grey — given its
+          OWN `text-text-light` here, because it would otherwise inherit the
+          `<p>`'s new body ink — and the prototype's amber icon is deliberately
+          not adopted, because amber is rationed. */}
       {hasSlot && qualifier ? (
         <p
-          className={`${typography.panelMeta} text-text-light m-0 mt-1.5 flex items-center gap-1`}
+          className={`${typography.panelMeta} text-text-body m-0 mt-1.5 flex items-center gap-1`}
           data-testid={`${testId}-qualifier`}
         >
-          <Info className="h-3 w-3 shrink-0" aria-hidden={true} />
+          <Info className="h-3 w-3 shrink-0 text-text-light" aria-hidden={true} />
           <span>{qualifier}</span>
         </p>
       ) : null}
