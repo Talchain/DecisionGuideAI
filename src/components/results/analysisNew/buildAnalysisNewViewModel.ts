@@ -164,8 +164,11 @@ function admissionRefusalAsksForAnEstimate(
   admission: Parameters<typeof licensesComparativeLeaderClaim>[0],
 ): boolean {
   if (licensesComparativeLeaderClaim(admission) !== false) return false
-  const code = admission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode')?.code
-  return typeof code === 'string' && ESTIMATE_REMEDY_ADMISSION_CAUSES.has(code)
+  const reason = admission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode')
+  // The glance's remedy also needs the producer's sentence (`designationWithheldReason
+  // !== null`); without it the estimates cause would stand alone (review 5826901387).
+  const hasSentence = typeof reason?.message === 'string' && reason.message.trim() !== ''
+  return hasSentence && typeof reason?.code === 'string' && ESTIMATE_REMEDY_ADMISSION_CAUSES.has(reason.code)
 }
 
 /**
