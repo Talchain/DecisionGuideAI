@@ -31,6 +31,7 @@
  * - a real edit after the first run turns the result stale until a rerun, and
  *   the rerun makes it current again.
  */
+import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
@@ -39,6 +40,7 @@ import { attachAnalysisReadyToInlineDraftGraph } from '../../conversation/useCon
 import { applyV5State } from '../../../v5/applyV5State'
 import { useAnalysisState } from '../../state/analysisStateSelector'
 import capture from './fixtures/hiring-auto-first-run.c673223.terminal.json'
+import pricingCapture from './fixtures/pricing-auto-first-run.c673223.terminal.json'
 
 type Json = Record<string, unknown>
 const HASH = '0f46ca687c1be23f'
@@ -55,7 +57,10 @@ function replayTurn(response: Json) {
   if (response.draft_graph && useCanvasStore.getState().nodes.length === 0) {
     const inline = attachAnalysisReadyToInlineDraftGraph(response.draft_graph, response)
     expect(inline, 'PRECONDITION: the inline path has a graph to apply').toBeTruthy()
-    applyDraftResult(inline as never)
+    // As useConversation's inline call site passes it: this response's raw verdict.
+    applyDraftResult(inline as never, {
+      turnVerdict: { analysisReady: response.analysis_ready, graphHash: response.graph_hash },
+    })
   }
 }
 
@@ -97,6 +102,51 @@ describe('the automatic first run is not a change to the model', () => {
     expect(s.analysisFreshness?.freshness, 'PRECONDITION: the freshness verdict was ingested').toBe('fresh')
     expect(s.analysisFreshnessDirty).toBe(false)
     expect(semantic()).not.toBe('changed')
+  })
+
+  /**
+   * R&C 5825272740, measured on served bytes: the pricing first pass carries
+   * `analysis_ready.status: 'needs_user_input'`, so the contract drops it from
+   * the inline draft and only the raw response still holds the verdict.
+   */
+  it('⭐ the pricing first pass, whose readiness is needs_user_input, also reads current', () => {
+    const r = JSON.parse(JSON.stringify(pricingCapture)) as Json
+    const ready = r.analysis_ready as Json
+    expect(ready.status, 'PRECONDITION: the contract will not admit this readiness').toBe('needs_user_input')
+    expect((r.analysis_state as Json).run_state).toMatchObject({ kind: 'complete_current' })
+    expect(ready.graph_hash_at_run).toBe(r.graph_hash)
+    expect(ready.current_graph_hash).toBe(r.graph_hash)
+    const inline = attachAnalysisReadyToInlineDraftGraph(r.draft_graph, r) as Json
+    expect(inline.analysis_ready, 'PRECONDITION: the inline draft carries no verdict').toBeUndefined()
+
+    replayTurn(r)
+    const s = useCanvasStore.getState()
+    expect(s.nodes.length, 'PRECONDITION: the draft reached the canvas').toBeGreaterThan(0)
+    expect(s.analysisStateV1?.run_state.kind).toBe('complete_current')
+    expect(s.analysisFreshnessDirty).toBe(false)
+    expect(semantic()).not.toBe('changed')
+  })
+
+  it('CONTROL: a response whose own graph_hash disagrees with its verdict is not affirmed', () => {
+    const r = JSON.parse(JSON.stringify(pricingCapture)) as Json
+    r.graph_hash = 'ffffffffffffffff'
+    replayTurn(r)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
+  })
+
+  it('CONTROL: a later draft with no verdict of its own does not inherit the fresh one in the store', () => {
+    replayTurn(clone())
+    expect(useCanvasStore.getState().analysisFreshness?.freshness, 'PRECONDITION: a fresh verdict is held').toBe('fresh')
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    // A redraft on a cleared canvas, carrying a graph and nothing else.
+    const redraft = clone()
+    delete redraft.analysis_ready
+    delete redraft.analysis_state
+    delete redraft.graph_hash
+    useCanvasStore.setState({ nodes: [], edges: [] } as never)
+    replayTurn(redraft)
+    expect(useCanvasStore.getState().nodes.length).toBe(12)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
   })
 
   it('OPPOSITE CONTROL: a "fresh" that carries no hashes is not evidence it describes this graph', () => {
@@ -145,5 +195,20 @@ describe('the automatic first run is not a change to the model', () => {
     replayTurn(rerun)
     expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
     expect(semantic()).not.toBe('changed')
+  })
+})
+
+/**
+ * The spec above replays the inline call site; this pins that the real one
+ * still passes the response's raw verdict. Interim, until R&C's served-journey
+ * spec (`openaiRouteCoachingJourney.served.acceptance.spec.tsx`, which drives
+ * the real `useConversation`) is on staging.
+ */
+describe('the inline draft call site passes this response\'s own verdict', () => {
+  it('useConversation hands applyDraftResult the raw analysis_ready and graph_hash', () => {
+    const src = readFileSync('src/canvas/conversation/useConversation.ts', 'utf8')
+    const calls = src.match(/applyDraftResult\(inlineGraph[\s\S]*?\)\n/g) ?? []
+    expect(calls.length, 'PRECONDITION: the inline call site is found').toBe(1)
+    expect(calls[0]).toContain('turnVerdict: { analysisReady: target.response.analysis_ready, graphHash: target.response.graph_hash }')
   })
 })

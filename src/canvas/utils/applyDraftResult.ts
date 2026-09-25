@@ -199,6 +199,25 @@ function draftCarriesItsOwnCurrentVerdict(draftData: unknown): boolean {
 }
 
 /**
+ * The same question asked of the RESPONSE rather than of the draft: does this
+ * turn's raw verdict say the run was on this graph? Bound to the response by
+ * its `graph_hash`, which must equal the verdict's hashes. A store read would
+ * not be bound: a "fresh" left there by an earlier turn would be affirmed over
+ * a draft that carried no verdict of its own.
+ */
+function turnVerdictIsCurrentForThisDraft(
+  turnVerdict: { analysisReady?: unknown; graphHash?: unknown } | undefined,
+): boolean {
+  if (turnVerdict === undefined) return false
+  const { graphHash } = turnVerdict
+  if (typeof graphHash !== 'string' || graphHash.length === 0) return false
+  return (
+    draftCarriesItsOwnCurrentVerdict({ analysis_ready: turnVerdict.analysisReady }) &&
+    (turnVerdict.analysisReady as Record<string, unknown>).current_graph_hash === graphHash
+  )
+}
+
+/**
  * Apply a CEE draft response to the canvas, replacing the current graph.
  *
  * This function replaces all existing nodes/edges, pushes history, triggers
@@ -221,7 +240,19 @@ function draftCarriesItsOwnCurrentVerdict(draftData: unknown): boolean {
  */
 export function applyDraftResult(
   draftData: CEEDraftResponse | CEEv2Response | CEEv3Response,
-  opts: { skipHistory?: boolean; skipAutosave?: boolean } = {},
+  opts: {
+    skipHistory?: boolean
+    skipAutosave?: boolean
+    /**
+     * THIS response's own verdict, raw: `analysis_ready` as the wire sent it and
+     * the response's `graph_hash`. The inline V5 call site passes it because the
+     * contract-validated `analysis_ready` on `draftData` is dropped whenever its
+     * `status` is not `ready` (a pricing first pass carries `needs_user_input`),
+     * yet the run's freshness verdict on it is still this graph's. See
+     * `turnVerdictIsCurrentForThisDraft`.
+     */
+    turnVerdict?: { analysisReady?: unknown; graphHash?: unknown }
+  } = {},
 ): { nodeCount: number; edgeCount: number } {
   const rawNodes = draftData?.nodes ?? (draftData as any)?.graph?.nodes ?? []
   const rawEdges = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []
@@ -336,8 +367,11 @@ export function applyDraftResult(
   // function runs. The copy below is then refused as an echo, so it could
   // never clear a mark made here: every first run read "The model has
   // changed" with no edit (joined witness, #63 5824916222). The verdict's own
-  // hashes are the evidence that it ran on the graph being applied.
-  if (!draftCarriesItsOwnCurrentVerdict(draftData)) {
+  // hashes are the evidence that it ran on the graph being applied. That verdict
+  // is read from the draft when its contract admitted it, else from the raw
+  // response the inline call site passes (R&C 5825272740: a pricing first pass
+  // whose `status` is `needs_user_input` reached here with none attached).
+  if (!draftCarriesItsOwnCurrentVerdict(draftData) && !turnVerdictIsCurrentForThisDraft(opts.turnVerdict)) {
     useCanvasStore.getState().markAnalysisFreshnessDirty?.()
   }
 
