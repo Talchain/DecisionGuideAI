@@ -48,6 +48,13 @@
  * always rendered and merely QUIET (`text-text-light`, 12px glyph), which is
  * what "discreet" has to mean on a surface people also use by finger.
  *
+ * ⚠ REFINED AT THE CALL SITE (`ChatMessage.tsx`, `MENU_QUIET_AT_REST`): the
+ * latest reply shows its trigger at rest; earlier messages reveal theirs on
+ * hover, on keyboard focus, and always on touch (no-hover) devices. The trigger
+ * stays rendered and in the tab order everywhere, so none of the three reasons
+ * above is given up; only the repetition Paul saw ("…" under every message)
+ * goes.
+ *
  * Target size: the 24×24 trigger meets WCAG 2.2 SC 2.5.8 (Target Size
  * Minimum, AA, 24×24 CSS px). It does NOT meet SC 2.5.5 (Enhanced, AAA,
  * 44×44), which is what DS v5 §26.1 currently states for every target —
