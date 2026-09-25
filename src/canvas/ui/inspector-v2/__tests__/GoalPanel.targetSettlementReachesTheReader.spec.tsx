@@ -173,3 +173,32 @@ describe('the sentence is the one the settlement earned', () => {
     expect(new Set([sent, refused, unverified]).size).toBe(3)
   })
 })
+
+describe('two attempts: the status belongs to the NEWEST attempt (pre-review finding 5825017549)', () => {
+  it('A pending, B blocked, then A settles — the panel still shows B\'s "Not sent"', async () => {
+    let resolveA: (v: unknown) => void = () => {}
+    sendSystemEvent
+      .mockImplementationOnce(() => new Promise(r => { resolveA = r }))
+      .mockResolvedValueOnce('send_blocked')
+    openGoal()
+    await stateTarget('30000')
+    await stateTarget('35000')
+    await waitFor(() =>
+      expect(screen.getByTestId('goal-panel-target-outcome').textContent).toMatch(/^Not sent/),
+    )
+    resolveA('sent')
+    await new Promise(r => setTimeout(r, 50))
+    expect(sendSystemEvent).toHaveBeenCalledTimes(2)
+    expect(screen.getByTestId('goal-panel-target-outcome').textContent).toMatch(/^Not sent/)
+    expect(screen.queryByText('Sent to Olumi. Its reply says whether the target was recorded.')).toBeNull()
+  })
+
+  it('CONTRAST — a single attempt that settles `sent` does show the sent sentence', async () => {
+    sendSystemEvent.mockResolvedValueOnce('sent')
+    openGoal()
+    await stateTarget('30000')
+    await waitFor(() =>
+      expect(screen.getByText('Sent to Olumi. Its reply says whether the target was recorded.')).toBeTruthy(),
+    )
+  })
+})

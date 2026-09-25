@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -390,7 +390,15 @@ export function SuccessTargetLine({
     }
   }
 
+  /**
+   * Only the LATEST commit attempt may report a send settlement. The editor
+   * closes on dispatch and can reopen while an earlier send is still pending, so
+   * attempt A's late reply must not overwrite attempt B's status (pre-review
+   * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
+   */
+  const attemptSeqRef = useRef(0)
   const commit = () => {
+    const attempt = ++attemptSeqRef.current
     const typed = draft.trim()
     /**
      * ⚠ ONE PARSE RULE, IMPORTED. `statedTargetNumber` is the estate's anchored
@@ -458,7 +466,11 @@ export function SuccessTargetLine({
         return
       }
       const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction, {
-        onSendSettled,
+        onSendSettled: onSendSettled
+          ? (settlement, detail) => {
+              if (attempt === attemptSeqRef.current) onSendSettled(settlement, detail)
+            }
+          : undefined,
       })
       onCommitOutcome(outcome)
       if (outcome === 'not_encodable') return
