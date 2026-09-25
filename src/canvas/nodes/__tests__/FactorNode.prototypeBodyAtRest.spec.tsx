@@ -231,12 +231,79 @@ describe('prototype · the TOP driver carries its turning-point track at rest', 
     const driver = within(c).getByTestId('factor-driver-line')
     const tp = within(c).getByTestId('factor-turning-point')
     expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 analysed')
-    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    // The prototype's ONE caption line (`flipPlot`): words, then the number.
+    expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Model comparison changes')
+    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
     expect(within(tp).getByTestId('factor-turning-point-track')).toBeTruthy()
     expect(before(within(c).getByTestId('factor-recorded-value'), driver)).toBe(true)
     expect(before(driver, tp)).toBe(true)
     const pop = popover()
     if (pop) expect(within(pop).queryByTestId('factor-turning-point')).toBeNull()
+  })
+
+  /**
+   * ⭐ VERIFIER FIX_NEEDED 1 (c5adac48): the 49-character direction sentence at
+   * rest made the top-driver card 5 body lines at Normal and ~7 at the landing
+   * zoom. At rest the card carries the prototype's caption + number; the
+   * direction sentence (Paul 23 Sep point 3(a)) follows it in the accessible name.
+   */
+  it('at rest the direction sentence is NOT card text — it follows the visible caption in the accessible name; the number prints once', () => {
+    displayMetadata = TOP()
+    seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
+    renderFactor(VALUED)
+    const c = card()
+    const tp = within(c).getByTestId('factor-turning-point')
+    expect(visibleText(c)).not.toContain('the current model comparison changes')
+    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
+    expect(visibleText(c).split('6.5%').length - 1).toBe(1)
+  })
+
+  it('stale: the caption is the prototype’s `Last run · comparison changes`', () => {
+    displayMetadata = TOP()
+    seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
+    renderFactor(VALUED)
+    act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
+    const tp = within(card()).getByTestId('factor-turning-point')
+    expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Last run · comparison changes')
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ')).toBe(true)
+  })
+
+  /**
+   * ⛔ THE FAITHFULNESS GATE AT THE NEW RENDER SITE (verifier mutant on c5adac48:
+   * the at-rest slot passed `factorUnit={undefined}` and survived 235 tests).
+   * A turning point in `%` on a factor valued in `GBP/year` may not print its
+   * number or draw its track; at rest it is not on the card at all (the caption
+   * is never shown without its number) — the popover keeps the sentence.
+   */
+  it('⛔ top driver, factor unit `GBP/year`, row unit `%`: no track and no `6.5%` on the card — CONTRAST: `%` on `%` is on the card (above)', () => {
+    const MONEY = {
+      label: 'Trial conversion', type: 'factor', category: 'controllable',
+      observedState: { value: 0.39, raw_value: 39000, cap: 100000, unit: 'GBP/year', extractionType: 'inferred', source: 'cee_inference' },
+    }
+    displayMetadata = TOP()
+    seed(MONEY, { phase: 'post', flipRows: [FOUND_ROW] })
+    renderFactor(MONEY)
+    const c = card()
+    // Positive controls: the card and its driver line mounted.
+    expect(within(c).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(within(c).queryByTestId('factor-turning-point')).toBeNull()
+    expect(within(c).queryByTestId('factor-turning-point-track')).toBeNull()
+    expect(visibleText(c)).not.toContain('6.5%')
+    const inPop = within(popover()!).getByTestId('factor-turning-point')
+    expect(within(inPop).queryByTestId('factor-turning-point-value')).toBeNull()
+    expect(inPop.getAttribute('aria-label')).not.toContain('6.5%')
+  })
+
+  it('⛔ top driver, NORMALISED row: not on the card (no number may print) — the popover keeps the sentence', () => {
+    displayMetadata = TOP()
+    seed(VALUED, { phase: 'post', flipRows: [{ ...FOUND_ROW, value_scale: 'normalised' }] })
+    renderFactor(VALUED)
+    const c = card()
+    expect(within(c).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(within(c).queryByTestId('factor-turning-point')).toBeNull()
+    expect(within(popover()!).getByTestId('factor-turning-point-caption').textContent).toBe(
+      'Below a turning point, the current model comparison changes.',
+    )
   })
 
   it('CONTRAST — rank 2 with a found turning point: the driver line is on the card, the turning point stays in the popover', () => {

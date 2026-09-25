@@ -22,6 +22,12 @@
  *       (the caller gates it: "Nothing is shown just to say that nothing
  *       exists"). A found turning point still shows on any factor.
  *
+ * ⭐ AT REST (`atRest`; prototype `flipPlot`, Paul 25 Sep 2026) the visible
+ * caption is the prototype's `Model comparison changes  6.5%` on ONE line, and
+ * the sentence above moves into the accessible name and the tooltip — the
+ * 49-character sentence on the resting card broke the ~4-body-line limit.
+ * Popover and Detailed keep the full form.
+ *
  * ⛔ The number prints ONLY on the display scale (`factorTurningPoint.ts`,
  * ROADMAP 2.1371) AND only when the row's unit is compatible with the factor's
  * (`turningPointUnitsCompatible`). Otherwise the sentence keeps its direction,
@@ -44,7 +50,7 @@ import { formatFlipValue } from '../../../components/results/utils/flipThreshold
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
 import type { FactorTurningPoint } from './nodeAttention'
-import { turningPointUnitsCompatible, type FactorTurningPointState } from './factorTurningPoint'
+import { turningPointNumberPrints, type FactorTurningPointState } from './factorTurningPoint'
 import { TURNING_POINT_TRACK_COPY } from './turningPointCopy'
 
 const NEAR_PCT = 20
@@ -56,6 +62,7 @@ export function FactorTurningPointTrack({
   turningPoint,
   fromLastRun = false,
   factorUnit,
+  atRest = false,
 }: {
   nodeId: string
   factorLabel: string
@@ -68,10 +75,17 @@ export function FactorTurningPointTrack({
    * the display-scale gate alone applies.
    */
   factorUnit?: string | null
+  /**
+   * ⭐ THE RESTING CARD'S FORM (prototype `flipPlot`, Paul 25 Sep 2026): the
+   * caption is `Model comparison changes` with the number beside it on ONE
+   * line, and the number is not repeated on the track. The direction sentence
+   * follows it in the accessible name and opens the tooltip. Only when the number
+   * prints — otherwise the full sentence is kept (never a bare caption).
+   */
+  atRest?: boolean
 }) {
   const falls = turningPoint.flipValue < turningPoint.currentValue
-  const unitsOk = factorUnit === undefined || turningPointUnitsCompatible(turningPoint.unit, factorUnit)
-  const numeric = turningPoint.displayScale && unitsOk
+  const numeric = turningPointNumberPrints(turningPoint, factorUnit)
   const flipText = numeric ? formatFlipValue(turningPoint.flipValue, turningPoint.unit) : null
   const runText = numeric
     ? TURNING_POINT_TRACK_COPY.runValue(formatFlipValue(turningPoint.currentValue, turningPoint.unit), fromLastRun)
@@ -88,11 +102,18 @@ export function FactorTurningPointTrack({
       : turningPoint.displayScale
         ? TURNING_POINT_TRACK_COPY.unitMismatch
         : TURNING_POINT_TRACK_COPY.internalScale
+  // The prototype's one-line caption, only where its number prints.
+  const compact = atRest && flipText !== null && runText !== null
+  const restCaption = TURNING_POINT_TRACK_COPY.restCaption(fromLastRun)
+  // Label in Name (WCAG 2.5.3): the visible words open the spoken name; the
+  // direction sentence (point 3(a)) and the domain follow, moved not deleted.
+  const name = compact ? `${restCaption} ${flipText}. ${sentence} ${detail}` : `${sentence} ${detail}`
   // Low → high, left → right: a flip below the run's value is drawn first.
   const flipAtPct = falls ? NEAR_PCT : FAR_PCT
   const currentAtPct = falls ? FAR_PCT : NEAR_PCT
 
-  const flipLabel = flipText !== null && (
+  // At rest the number is in the caption, so the track does not print it again.
+  const flipLabel = flipText !== null && !compact && (
     <span data-testid="factor-turning-point-value" className={`${typography.edgeLabel} text-text-body tabular-nums`}>
       {flipText}
     </span>
@@ -104,12 +125,12 @@ export function FactorTurningPointTrack({
   )
 
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={detail}>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={compact ? `${sentence} ${detail}` : detail}>
       <button
         type="button"
         data-testid="factor-turning-point"
         data-node-tooltip="true"
-        aria-label={`${sentence} ${detail}`}
+        aria-label={name}
         className="group nodrag nopan mt-1 flex w-full flex-col items-start gap-0.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
         onClick={(e) => {
           e.stopPropagation()
@@ -121,12 +142,30 @@ export function FactorTurningPointTrack({
         {/* The finding is the card's strongest analysis line (contract
             `.plot-caption b{font-weight:500}`, hover underline), heavier than
             the regular-weight rank above it — the served card had it reversed. */}
-        <span
-          data-testid="factor-turning-point-caption"
-          className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
-        >
-          {sentence}
-        </span>
+        {compact ? (
+          // Contract `.plot-caption`: the words left, the number right, one row.
+          <span className="flex w-full items-baseline justify-between gap-2">
+            <span
+              data-testid="factor-turning-point-caption"
+              className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
+            >
+              {restCaption}
+            </span>
+            <span
+              data-testid="factor-turning-point-caption-value"
+              className={`${typography.edgeLabel} shrink-0 text-text-body tabular-nums`}
+            >
+              {flipText}
+            </span>
+          </span>
+        ) : (
+          <span
+            data-testid="factor-turning-point-caption"
+            className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
+          >
+            {sentence}
+          </span>
+        )}
         {flipText !== null && runText !== null && (
           // The track spans the card between its two labels (contract
           // `.mini-plot svg{width:100%}`), not a fixed 54px squeezed between
@@ -203,12 +242,15 @@ export function FactorTurningPointSlot({
   state,
   fromLastRun = false,
   factorUnit,
+  atRest = false,
 }: {
   nodeId: string
   factorLabel: string
   state: FactorTurningPointState
   fromLastRun?: boolean
   factorUnit?: string | null
+  /** The resting card's one-line caption form (see `FactorTurningPointTrack`). */
+  atRest?: boolean
 }) {
   return state.kind === 'found' ? (
     <FactorTurningPointTrack
@@ -217,6 +259,7 @@ export function FactorTurningPointSlot({
       turningPoint={state.turningPoint}
       fromLastRun={fromLastRun}
       factorUnit={factorUnit}
+      atRest={atRest}
     />
   ) : (
     <FactorTurningPointNone nodeId={nodeId} attested={state.attested} fromLastRun={fromLastRun} />

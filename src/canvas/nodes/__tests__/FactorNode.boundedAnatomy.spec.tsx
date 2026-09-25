@@ -291,7 +291,10 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     const tp = onCardNotInPopover('factor-turning-point')
     expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
-    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    // Prototype caption + number at rest; the direction sentence follows in the name.
+    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
+    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
+    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
     expect(before(row, driver)).toBe(true)
     expect(before(driver, tp)).toBe(true)
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
@@ -306,7 +309,10 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     onCardNotInPopover('factor-driver-line')
     onCardNotInPopover('factor-turning-point')
     expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
+    expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
+    expect(within(card()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
+      'Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ',
+    )).toBe(true)
     expect(within(card()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8%est.')
   })

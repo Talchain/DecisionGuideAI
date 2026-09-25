@@ -209,6 +209,16 @@ const popoverFinding = (label: string, testId: string) => {
   if (pop) expect(within(pop).queryByTestId(testId), `${testId} is repeated in the popover`).toBeNull()
   return within(face(label)).getByTestId(testId)
 }
+/**
+ * A TOP driver's turning point whose number may not print (normalised row, or
+ * incompatible units) is NOT on the resting face: the prototype's caption is
+ * never shown without its number (verifier FIX_NEEDED 1, 25 Sep). It stays in
+ * the popover with its sentence and the reason no number is shown.
+ */
+const inPopoverNotOnFace = (label: string, testId: string) => {
+  expect(within(face(label)).queryByTestId(testId), `${testId} is on the face`).toBeNull()
+  return within(screen.getByTestId('node-popover')).getByTestId(testId)
+}
 
 beforeEach(() => {
   selectNode.mockReset()
@@ -285,7 +295,8 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
     expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
-    expect(popoverFinding('Trial conversion', 'factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
+    // At rest: the prototype's caption + number (verifier FIX_NEEDED 1, 25 Sep).
+    expect(popoverFinding('Trial conversion', 'factor-turning-point').textContent).toMatch(/^Model comparison changes6\.5%/)
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
@@ -295,8 +306,8 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
-    expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
-    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
+    expect(tp.textContent).toMatch(/^Last run · comparison changes6\.5%/)
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes.')).toBe(true)
   })
 
   it('⛔ CANNOT-CONFIRM and NEVER-RUN HIDE the driver line and the turning point — no past analysis is invented', () => {
@@ -336,7 +347,8 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setMeta({ 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-conv')
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
-    expect(within(tp).getByTestId('factor-turning-point-value').textContent).toBe('6.5%')
+    // At rest the number is in the caption row (printed once), not on the track.
+    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
     expect(tp.getAttribute('aria-label')).toContain('Below 6.5%, the current model comparison changes.')
   })
 
@@ -345,7 +357,7 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setCurrency('current')
     setMeta({ 'fac-seats': DRIVER_META })
     renderCard(FactorNode as never, 'fac-seats')
-    const tp = popoverFinding('Seat count', 'factor-turning-point')
+    const tp = inPopoverNotOnFace('Seat count', 'factor-turning-point')
     expect(within(tp).queryByTestId('factor-turning-point-value')).toBeNull()
     expect(tp.getAttribute('aria-label')).not.toContain('0.5')
     expect(tp.getAttribute('aria-label')).toContain('internal scale')

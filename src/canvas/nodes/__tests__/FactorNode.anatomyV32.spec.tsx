@@ -324,7 +324,11 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     const tp = onFaceNotInPopover('factor-turning-point')
     expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
     expect(within(face()).getByTestId('factor-driver-line-bar')).toBeTruthy()
-    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    // At rest: the prototype's one-line caption + number; the direction
+    // sentence follows it in the accessible name (verifier FIX_NEEDED 1, 25 Sep).
+    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
+    expect(within(face()).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
+    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
     // The retired inline cue: the line it stood in for is on the face.
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     expect(before(value, driver)).toBe(true)
@@ -471,9 +475,10 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     onFaceNotInPopover('factor-driver-line')
     onFaceNotInPopover('factor-turning-point')
     expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe(
-      'Last run · Below 6.5%, the model comparison changes.',
-    )
+    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
+    expect(within(face()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
+      'Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ',
+    )).toBe(true)
     // The run's value stays distinct from the current value line.
     expect(within(face()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // The value is the factor's own state, not a finding: never prefixed.

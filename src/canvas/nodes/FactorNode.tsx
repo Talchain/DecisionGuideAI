@@ -27,7 +27,7 @@ import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { useRunCurrency } from './shared/runCurrency'
 import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
-import { selectFactorTurningPointState } from './shared/factorTurningPoint'
+import { selectFactorTurningPointState, turningPointNumberPrints } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -596,6 +596,10 @@ export const FactorNode = memo((props: NodeProps) => {
     [isPostAnalysis, runCuesShown, resultsReport, props.id],
   )
   const turningPoint = turningPointState?.kind === 'found' ? turningPointState.turningPoint : null
+  // The factor's own unit, for the turning point's compatible-units gate — one
+  // expression for every slot (at rest, popover, Detailed). `undefined` when
+  // the factor carries no numeric value: nothing to check against.
+  const turningPointFactorUnit = typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined
   /*
    * ⭐ ED #63 5806207128 ("Factor anatomy"): "No `No turning point
    * available/in this run` line at rest. Absence of a turning point = no
@@ -675,12 +679,21 @@ export const FactorNode = memo((props: NodeProps) => {
    * popover. The wording of each line is unchanged (`Driver N of M analysed`,
    * ED 5806207128). Pinned in `__tests__/FactorNode.prototypeBodyAtRest.spec.tsx`.
    */
+  //
+  // ⛔ AND ONLY WHEN ITS NUMBER PRINTS (display scale + compatible units). The
+  // resting form is the prototype's one-line caption, `Model comparison changes
+  // 6.5%` (verifier FIX_NEEDED 1: the 49-character sentence broke the ~4-line
+  // limit), and that caption is never shown without its number — contract
+  // "only render it when a real threshold is found with compatible units". A
+  // row whose number may not print stays in the popover, with its sentence and
+  // the reason no number is shown.
   const turningPointAtRest =
     !isDetailed &&
     driverLine !== null &&
     driverLine.rank.rank === 1 &&
     turningPointState !== null &&
-    turningPointState.kind === 'found'
+    turningPointState.kind === 'found' &&
+    turningPointNumberPrints(turningPointState.turningPoint, turningPointFactorUnit)
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -1167,7 +1180,7 @@ export const FactorNode = memo((props: NodeProps) => {
           factorLabel={cleanedLabel}
           state={turningPointState}
           fromLastRun={resultsFromLastRun}
-          factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
+          factorUnit={turningPointFactorUnit}
         />
       ) : null}
     </div>
@@ -1428,7 +1441,8 @@ export const FactorNode = memo((props: NodeProps) => {
             factorLabel={cleanedLabel}
             state={turningPointState}
             fromLastRun={resultsFromLastRun}
-            factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
+            factorUnit={turningPointFactorUnit}
+            atRest
           />
         ) : null}
         {!isDetailed && priorRangeLine}
@@ -1449,7 +1463,7 @@ export const FactorNode = memo((props: NodeProps) => {
             fromLastRun={resultsFromLastRun}
             // Contract "compatible units": checked only when the card shows a
             // value — an unvalued factor has no unit to disagree with.
-            factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
+            factorUnit={turningPointFactorUnit}
           />
         ) : null}
         {/* The range line — see `priorRangeLine` for its rules. */}
