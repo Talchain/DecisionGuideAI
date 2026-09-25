@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:7887
+src/canvas/store.ts:7894
 src/canvas/stores/readinessStore.ts:744
 src/canvas/stores/readinessStore.ts:840
 src/canvas/utils/briefValidation.ts:43
@@ -82,6 +82,9 @@ src/types/constraints.ts:78
 #    (`store.ts:7884` -> `7887` is a pure line shift from the three lines the
 #    `setOutcomeNode` `fromProducerSync` doc comment adds above it (25 Sep
 #    2026, the automatic-first-run freshness fix); the line text is identical.)
+#    (`store.ts:7887` -> `7894` is a pure line shift from #1974's net +7 lines
+#    in `addNodeWithEdge` (the endpoint kinds passed to the structural-link
+#    capture); the line text is identical.)
 #    (`analysisNewCopy.ts:2433` -> `2440`, and the docblock range above by the
 #    same +7, is a pure line shift from #1922's seven added lines —
 #    `optionFigures.goalOnlyQualifier` and its docblock, above this site — when
