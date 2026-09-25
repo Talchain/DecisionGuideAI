@@ -434,7 +434,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
    * every driver render on this card. (Historical: it fed the Standard-view
    * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
-   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
+   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M ranked in this run".) They show the same figure, so they carry the
    * same misread, and fixing one would have left `Relative influence … 100%`
    * reachable one view away — four presentations of one idea, which is the
    * inconsistency this card's rows were unified to remove.
@@ -503,7 +503,7 @@ export const FactorNode = memo((props: NodeProps) => {
    *   1  title
    *   2  `<value> <mark>` as plain text (no chip), OR "Needs input · Value not
    *      set yet" in the body (no border pill). Pre-run with a value: nothing more.
-   *   3+ ONLY for a factor the run RANKED: "Driver N of M analysed" + a thin
+   *   3+ ONLY for a factor the run RANKED: "Driver N of M ranked in this run" + a thin
    *      neutral bar, M = the eligible ANALYSED factors (ED #63 5806207128:
    *      "not 'number of ranks we happen to render'"). Then a FOUND turning
    *      point, on any factor (it is the run's finding for THIS factor).
@@ -511,7 +511,7 @@ export const FactorNode = memo((props: NodeProps) => {
    *      5806207128: "Absence of a turning point = no mini-visual"); a limit
    *      line (the Goal's); a badge on the border (Standard).
    *   STALE `Last run ·` only on the rank and a found turning point (ED #63
-   *      5805528520 §6): `Last run · Driver 1 of 6 analysed`.
+   *      5805528520 §6): `Last run · Driver 1 of 3 ranked`.
    * Pinned state by state in `__tests__/FactorNode.anatomyV32.spec.tsx`.
    *
    * ⭐ THE LOCKED FACTOR FACE (spec §3 Normal; ED 02:31Z D1a; ED 11:52Z point 3):
@@ -559,8 +559,8 @@ export const FactorNode = memo((props: NodeProps) => {
   const noAnalysisYet = !isPostAnalysis && !hasCompletedFirstRun && runCurrency === 'none' && valueDisplay !== null
   const runCuesShown = runCurrency === 'current' || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
-  // ED #63 5806207128: "Driver N of M analysed" (M = the eligible analysed
-  // factors, `driverRankFor`) on a RANKED factor only. A factor the run did not
+  // Contract v3.1 pt 5 (row 39): "Driver N of M ranked in this run" (M = the
+  // factors the run ranked, `driverRankFor`) on a RANKED factor only. A factor the run did not
   // rank shows no line, no bar and no substitute; it says "Not ranked in this
   // run" to AT (`FactorDriverNotRanked`).
   const driverRank =
@@ -643,7 +643,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * So, in the STANDARD view only (Detailed keeps its inline detail):
    *   · card body = the value line (value + mark) OR the `Needs input` row —
    *     one row, whose mark can never wrap or be cut (`factor-value-mark-slot`);
-   *   · the S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
+   *   · the S3 findings — `Driver N of M ranked in this run` + bar, a FOUND turning point,
    *     the external prior-range line — MOVE, verbatim and with their
    *     `Last run ·` labels, into this factor's `NodePopover` (`standardFindings`
    *     below), which now mounts for them whatever the factor's priority; the
@@ -986,7 +986,7 @@ export const FactorNode = memo((props: NodeProps) => {
               provenance means no influence number is rendered. */}
           {/* ⭐ ONE DRIVER VOCABULARY IN EVERY VIEW. Detailed and the popover
               render the SAME `FactorDriverLine` the resting face does ("Driver N
-              of M analysed" + relative bar, the % in its tooltip), and it
+              of M ranked in this run" + relative bar, the % in its tooltip), and it
               is withheld on a stale run exactly as it is there. The old
               "Most influential ▬ of 5" row here was the fourth wording of one
               rank (purpose audit, #1899 finding 3). */}
@@ -1112,7 +1112,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * carry, in the same order and under the same gates — moved, not re-worded:
    *   · the `Needs input · Value not set yet` sentence (the card keeps the
    *     ruled word `Needs input`; this is the longer sentence);
-   *   · `Driver N of M analysed` + its neutral bar, `Last run · ` when stale;
+   *   · `Driver N of M ranked in this run` + its neutral bar, `Last run · ` when stale;
    *   · a FOUND turning point (Standard never shows the "none" fallback —
    *     ED 5806207128), `Last run · ` when stale;
    *   · the external prior-range line, with its `no source` mark when it is
@@ -1623,7 +1623,7 @@ function FactorDriverCue({
   rank: { rank: number; setSize: number }
   fromLastRun: boolean
 }) {
-  const name = `${fromLastRun ? LAST_RUN_PREFIX : ''}${driverLineCaption(rank)}`
+  const name = `${fromLastRun ? LAST_RUN_PREFIX : ''}${driverLineCaption(rank, fromLastRun)}`
   return (
     <span
       role="img"

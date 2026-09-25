@@ -24,7 +24,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * LOCKED CANVAS DESIGN (23 Sep 2026) — WHAT THE CARD NOW SAYS
  * ─────────────────────────────────────────────────────────────────────────────
- * The card's rank is now its driver line, `Driver N of M analysed`
+ * The card's rank is now its driver line, `Driver N of M ranked in this run`
  * (ED 02:31Z D1a: "`Driver N of M`, not `Driver #N of M`"), and the bare
  * percentage is no longer a face fallback at ANY rung (ED 11:52Z: "no
  * pseudo-precise `% influence` on the face") — it lives in the driver line's
@@ -79,8 +79,8 @@ const metadata = {
   influence: 0.62,
   influenceProvenance: 'influence_score',
   influenceSetSize: 5,
-  // The ranked count — the publication guard; the printed M is the analysed
-  // set (ED #63 5806207128), deliberately a different number.
+  // The ranked count — the printed M (contract v3.1 pt 5, row 39) and the
+  // publication guard; the analysed set above is deliberately a different number.
   influenceRankedCount: 3,
   confidence: null,
   inSensitivityAnalysis: false,
@@ -202,11 +202,11 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
 
   it('a CURRENT run: the reduced line states the card’s driver caption', () => {
     mount('current')
-    // ED #63 5806207128: M is the analysed set (5), never the ranked count (3).
+    // Contract v3.1 pt 5 (row 39): M is the ranked count (3), never the analysed set (5).
     expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
-      driverLineCaption({ rank: 1, setSize: 5 }),
+      driverLineCaption({ rank: 1, setSize: 3 }),
     )
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 5 analysed')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 3 ranked in this run')
   })
 
   /*
@@ -218,11 +218,11 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
    */
   it('CHANGED — the SAME card labels the rank as the last run’s, never as current', () => {
     mount('changed')
-    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
+    // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
     expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
-      `Last run · ${driverLineCaption({ rank: 1, setSize: 5 })}`,
+      `Last run · ${driverLineCaption({ rank: 1, setSize: 3 }, true)}`,
     )
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 5 analysed')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 3 ranked')
   })
 
   it('CONTRAST — the SAME card on a cannot-confirm run states no rank and no percentage', () => {

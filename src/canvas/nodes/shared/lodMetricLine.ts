@@ -335,8 +335,8 @@ function resolveText({
         // cannot-confirm (`driverRank` is absent there).
         const driver = facts?.driverRank
         const lastRun = facts?.influenceFromLastRun === true ? LAST_RUN_PREFIX : ''
-        // ED 5806207128 stale form: "Last run · Driver N of M analysed".
-        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize)}`
+        // Contract v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
+        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize, lastRun !== '')}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules

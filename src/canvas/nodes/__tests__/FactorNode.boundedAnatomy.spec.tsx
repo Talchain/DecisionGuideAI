@@ -29,7 +29,7 @@
  *     (`factor-recorded-value`: value + mark, never cut, mark `shrink-0`) or the
  *     `Needs input` row (the ruled word, visible; "Value not set yet" moved to
  *     the popover and kept as the row's sr-only description and `title`).
- *   · The S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
+ *   · The S3 findings — `Driver N of M ranked in this run` + bar, a FOUND turning point,
  *     the external prior-range line — are NOT in the card; they ARE in the
  *     factor's `NodePopover`, with `Last run ·` when stale, and the popover
  *     mounts for them whatever the factor's priority.
@@ -272,8 +272,8 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     expectNoFindingOnTheCard()
     // The neutral cue: inside the value line, no words, the caption as its name.
     const cue = within(row).getByTestId(`factor-driver-cue-${ID}`)
-    expect(cue.getAttribute('aria-label')).toBe('Driver 1 of 6 analysed')
-    expect(cue.getAttribute('title')).toBe('Driver 1 of 6 analysed')
+    expect(cue.getAttribute('aria-label')).toBe('Driver 1 of 3 ranked in this run')
+    expect(cue.getAttribute('title')).toBe('Driver 1 of 3 ranked in this run')
     expect(visibleText(cue)).toBe('')
     expect(tokens(cue).has('shrink-0')).toBe(true)
     expect(before(screen.getByTestId(`factor-value-mark-slot-${ID}`), cue)).toBe(true)
@@ -282,7 +282,7 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     const pop = popover()
     const driver = within(pop).getByTestId('factor-driver-line')
     const tp = within(pop).getByTestId('factor-turning-point')
-    expect(within(pop).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(pop).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     expect(within(pop).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(within(pop).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
     expect(before(driver, tp)).toBe(true)
@@ -295,10 +295,10 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     editTheModel()
     expect(semantic()).toBe('changed')
     const cue = within(card()).getByTestId(`factor-driver-cue-${ID}`)
-    expect(cue.getAttribute('aria-label')).toBe('Last run · Driver 1 of 6 analysed')
+    expect(cue.getAttribute('aria-label')).toBe('Last run · Driver 1 of 3 ranked')
     expect(cue.getAttribute('data-from-last-run')).toBe('true')
     const pop = popover()
-    expect(within(pop).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
+    expect(within(pop).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
     expect(within(pop).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(pop).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8%est.')
@@ -313,7 +313,7 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     expect(visibleBodyRows(quietRow)).toEqual([quietRow])
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     // Positive control: the finding is still reachable at this rung.
-    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     cleanup()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], lodRung: 'full' })
     renderFactor(VALUED)
@@ -344,7 +344,7 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     expectNoFindingOnTheCard()
     // Positive control: the rank is still disclosed, in the popover.
-    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
   })
 
   it('CONTRAST — Detailed keeps the driver line and the turning point inline, and needs no cue', () => {
@@ -352,7 +352,7 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], viewMode: 'expert' })
     renderFactor(VALUED)
     const c = card()
-    expect(within(c).getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(c).getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     expect(within(c).getByTestId('factor-turning-point')).toBeTruthy()
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     expect(screen.queryByTestId('factor-node-popover')).toBeNull()

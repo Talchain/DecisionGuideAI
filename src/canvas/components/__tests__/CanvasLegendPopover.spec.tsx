@@ -819,7 +819,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     //   which is this marking's identity now (trap 19).
     // ⚠ RE-DERIVED (locked design, 23 Sep 2026; ED 02:31Z D1a): the corner
     // badge is RETIRED; the rank is stated once, on the factor card's driver
-    // line ("Driver N of M analysed"), and the heading moved with it.
+    // line ("Driver N of M ranked in this run"), and the heading moved with it.
     { noun: SENSITIVITY_RANK_LEGEND_NOUN, files: ['FactorNode.tsx'], pattern: /<FactorDriverLine\b/ },
     { noun: ORDINAL_NOUN, files: ['OptionNode.tsx'], pattern: /\{stableOptionNumber\}/ },
     // ⚠ RE-DERIVED (locked design, 23 Sep 2026): a link with NO value reads

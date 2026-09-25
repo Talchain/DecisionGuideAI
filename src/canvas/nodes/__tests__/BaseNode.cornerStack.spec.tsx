@@ -29,7 +29,7 @@
  *
  * ⭐ Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: "RETIRE the Key-driver
  * badge once the body driver line is present." The rank is now stated once, by
- * the factor card's driver line ("Driver N of M analysed"), never in this
+ * the factor card's driver line ("Driver N of M ranked in this run"), never in this
  * corner. ITS SLOT is held by the ONE "Worth reviewing" marker
  * (`attention-marker-<id>`, spec §2, ED 02:31Z D1b), so every structural pin
  * below is re-pointed from the rank badge to that marker — the same slot, the

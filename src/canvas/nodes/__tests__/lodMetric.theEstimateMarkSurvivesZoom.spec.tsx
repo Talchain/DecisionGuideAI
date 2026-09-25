@@ -24,7 +24,7 @@
  * last test here pins that.
  *
  * Locked Canvas design (23 Sep 2026): the influence arm now states the DRIVER
- * RANK (`Driver N of M analysed`, ED 02:31Z D1a) from the `driverRank`
+ * RANK (`Driver N of M ranked in this run`, v3.1 pt 5) from the `driverRank`
  * fact, never a bare `Influence N%` (ED 11:52Z). Still a different object from
  * the factor's value, so the rule — and the tests below — are unchanged in
  * intent; the fixtures now carry the rank so that arm actually fires.
@@ -219,9 +219,9 @@ describe('the mark names the factor’s own value and no other number', () => {
       } as never,
       facts: { driverRank: { rank: 1, setSize: 4 } },
     })
-    // ED #63 5806207128 wording ("Driver N of M analysed").
+    // Contract v3.1 pt 5 wording ("Driver N of M ranked in this run").
     expect(detail.text, 'the influence arm produced no line — fixture is vacuous').toBe(
-      'Driver 1 of 4 analysed',
+      'Driver 1 of 4 ranked in this run',
     )
     expect(detail.unconfirmedEstimate).toBe(false)
   })

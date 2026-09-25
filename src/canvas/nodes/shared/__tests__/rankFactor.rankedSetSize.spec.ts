@@ -1,9 +1,10 @@
 /**
  * `rankFactor` publishes `rankedSetSize` — how many factors its rule ranks —
  * beside `influenceSetSize` (the analysed set). Contract v3.1 pt 5 made the
- * ranked count the printed M; ED #63 5806207128 (24 Sep) restored the ANALYSED
- * set as the printed M ("Driver 1 of 6 analysed"), so `rankedSetSize` is now
- * the publication GUARD `driverRankFor` and the attention plan read. The
+ * ranked count the printed M ("Driver 1 of 3 ranked in this run"); ED #63
+ * 5806207128 briefly restored the analysed set; design-gap row 39 restores
+ * pt 5. `rankedSetSize` is both the printed M and the publication GUARD
+ * `driverRankFor` and the attention plan read. The
  * invariant pinned here still holds and is what makes it a sound guard: over
  * the whole feed, the published ranks are EXACTLY 1..M_ranked, one factor
  * each — no card claims a rank beyond the ranked count.

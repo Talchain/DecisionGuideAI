@@ -387,7 +387,7 @@ describe('the five walked components render no centred copy (see header: 9 of 14
      * ⭐ Locked Canvas design (23 Sep 2026), ED 02:31Z D1a: "RETIRE the
      * Key-driver badge once the body driver line is present". The badge is gone
      * from the chrome — the rank is stated once, by the factor card's driver
-     * line ("Driver N of M analysed", `FactorDriverLine`, left-aligned
+     * line ("Driver N of M ranked in this run", `FactorDriverLine`, left-aligned
      * `text-left` copy) — so this arm now pins that the retired badge does NOT
      * come back (neither the word, nor a bare `#2`, nor its test id), even with
      * a rank in the metadata (`sensitivityRank: 2` in this file's mock). The

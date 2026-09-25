@@ -18,19 +18,18 @@ type DriverFeed = ReturnType<typeof selectDriverPolicyFeed>
 
 export interface FactorRanks {
   /**
-   * Distinct factors in the run's driver feed — the ELIGIBLE ANALYSED factors.
-   * Both the LICENCE set `influenceRankReadout` checks (a rank inside a
-   * comparison of at least two) AND, again since ED #63 5806207128, the printed
-   * `M` of "Driver N of M analysed" ("Denominator = eligible analysed factors,
-   * not 'number of ranks we happen to render'").
+   * Distinct factors in the run's driver feed — the ELIGIBLE ANALYSED factors:
+   * the LICENCE set `influenceRankReadout` checks (a rank inside a comparison of
+   * at least two). Not printed since design-gap row 39 (contract v3.1 pt 5);
+   * ED #63 5806207128 had printed it as M.
    */
   influenceSetSize: number
   /**
    * The number of factors this rule gives a rank (inside `determinedDepth`).
-   * Set-level, the same for every factor in the feed. Since ED 5806207128 it
-   * is NOT printed: it is the fail-closed PUBLICATION guard `driverRankFor` and
-   * the attention plan read (a rank beyond it states nothing). Contract v3.1
-   * pt 5 had made it the printed `M`; that reading is retired.
+   * Set-level, the same for every factor in the feed. The printed `M` of
+   * "Driver N of M ranked in this run" (contract v3.1 pt 5, design-gap row 39)
+   * AND the fail-closed PUBLICATION guard `driverRankFor` and the attention
+   * plan read (a rank beyond it states nothing).
    */
   rankedSetSize: number
   /** 1..MAX_BADGED_RANK where the ordering is determined; otherwise null. */
