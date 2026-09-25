@@ -245,14 +245,22 @@ export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_
 export const ANCHOR_CARD_MAX_W = 460
 
 /**
- * ⭐ ROWS ABOVE FIVE REAL CARDS WRAP into balanced sub-rows under ONE family
- * label (ED S4): 6→3+3, 7→4+3, 8→4+4, 9→5+4, 10→5+5. A COUNT, not a width
+ * ⭐ ROWS ABOVE FOUR REAL CARDS WRAP into balanced sub-rows under ONE family
+ * label: 5→3+2, 6→3+3, 7→4+3, 8→4+4, 9→3+3+3, 10→4+3+3. A COUNT, not a width
  * threshold, so the label scale can never move a tier between packings — the
- * property `NODE_SINGLE_ROW_FAIR_SHARE_W` (retired with this change) existed to
- * protect, now true by construction. Row-end prompts are not real cards and are
- * not counted.
+ * property `NODE_SINGLE_ROW_FAIR_SHARE_W` (retired with S4) existed to protect,
+ * now true by construction. Row-end prompts are not real cards and are not
+ * counted.
+ *
+ * ⭐ GAP 7 (25 Sep 2026): FIVE → FOUR. ED S4 (#63 5806207128) ruled the wrap at
+ * five; ED #63 5808428246 then made 1280×800 with the dock open the ACCEPTANCE
+ * size, whose fit frame is 1520 flow units at the 0.5 floor. Five cards and the
+ * 160 prompt need 1740 there (a 220-unit, 110px spill); four need 1424. The
+ * Canvas lead's decide-and-flag call is to wrap at four, keeping S4's balanced
+ * sub-rows, reading order and one family label — so every band fits the frame
+ * on width (`laptopFit.arithmetic.spec.ts`, `laptopFit1280.bandRows.spec.ts`).
  */
-export const MAX_CARDS_PER_ROW = 5
+export const MAX_CARDS_PER_ROW = 4
 
 /**
  * ⭐ THE ROW-END REASONING PROMPT (ED S4: "160px is approved as the target width
@@ -570,9 +578,9 @@ export const NODE_ROW_LABEL_MAX_CHARS = Math.floor(
  *
  * for the widest sub-row of k cards. With today's floor (260) and caps (260 /
  * 460) the share never binds on a repeated tier — the floor and the cap are the
- * same number — and a five-card row with its 160 prompt (1740 units visible)
- * OVERRUNS this budget, because legibility wins over the budget. That overrun
- * is stated in `laptopFit.arithmetic.spec.ts`, not hidden here.
+ * same number. A five-card row with its 160 prompt (1740 units visible) overran
+ * this budget; since gap 7 caps a row at four cards (1424 units with its
+ * prompt), no row does. `laptopFit.arithmetic.spec.ts` states both numbers.
  *
  * R1 is untouched: it is still a constant, still viewport-independent, and
  * `layoutViewportIndependence.guard.spec.ts` still enforces that at the bytes.

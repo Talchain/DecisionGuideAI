@@ -707,31 +707,58 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * future change separates them again, or splits either kind across sub-rows,
    * this REDs by name and says which starter — where the digest would only say
    * that sixteen hex characters differ.
+   *
+   * ⚠ GAP 7 (25 Sep 2026): "ONE shared consequence ROW" BECAME "ONE shared
+   * consequence BAND". The row cap moved five → four so every band fits the
+   * 1280 dock-open frame (ED #63 5808428246), and four of the five starters
+   * carry a FIVE-card consequence layer, which now wraps 3 + 2 inside its own
+   * band — so risks and outcomes can no longer all share one Y there. The
+   * founder ruling this guards (14 Sep: risks and outcomes are ONE causal
+   * layer) is about the LAYER, and the claim is restated at that level:
+   *   · the layer's sub-rows are the balanced wrap of the WHOLE layer, recorded
+   *     per starter below — a risk row apart from an outcome row would split by
+   *     KIND instead (2 + 3 on the four five-card starters, 2 + 2 on
+   *     pricing-model), and REDs by name;
+   *   · no card of another family sits between the layer's first and last
+   *     sub-row;
+   *   · a layer that fits one row (pricing-model, four) is ONE exact Y — the
+   *     original assertion, carried by its recorded `[4]`.
    */
+  const CONSEQUENCE_SUB_ROWS: Record<StarterId, number[]> = {
+    'vendor-selection': [3, 2],
+    'market-entry': [3, 2],
+    'build-vs-buy': [3, 2],
+    'headcount-allocation': [3, 2],
+    'pricing-model': [4],
+  }
   it.each(Object.keys(STARTERS) as StarterId[])(
-    '%s: every risk and every outcome sits on ONE shared consequence row',
+    '%s: every risk and every outcome sits in ONE shared consequence band',
     async (id) => {
       presentViewport(1280)
       const { nodes, edges } = buildGraph(id)
       const out = await layoutGraph(nodes, edges, {})
       const kindOf = new Map(nodes.map((n) => [n.id, (n.data as { kind?: string })?.kind]))
-      const ysOf = (kind: string) =>
-        [...new Set(out.nodes.filter((n) => kindOf.get(n.id) === kind).map((n) => Math.round(n.position.y)))]
-
-      const riskYs = ysOf('risk')
-      const outcomeYs = ysOf('outcome')
+      const isConsequence = (nid: string) => kindOf.get(nid) === 'risk' || kindOf.get(nid) === 'outcome'
+      const consequence = out.nodes.filter((n) => isConsequence(n.id))
 
       // Non-vacuity: a starter with no risks or no outcomes would satisfy every
       // assertion below by having nothing to compare (CLAUDE.md trap 13).
-      expect(riskYs.length, `${id}: no risks laid out — this guard asserts nothing here`).toBeGreaterThan(0)
-      expect(outcomeYs.length, `${id}: no outcomes laid out — this guard asserts nothing here`).toBeGreaterThan(0)
+      expect(consequence.some((n) => kindOf.get(n.id) === 'risk'), `${id}: no risks laid out — this guard asserts nothing here`).toBe(true)
+      expect(consequence.some((n) => kindOf.get(n.id) === 'outcome'), `${id}: no outcomes laid out — this guard asserts nothing here`).toBe(true)
 
-      // One row each…
-      expect(riskYs, `${id}: risks are split across rows`).toHaveLength(1)
-      expect(outcomeYs, `${id}: outcomes are split across rows`).toHaveLength(1)
-      // …and it is the SAME row. Exact equality, never a tolerance: a near-miss
-      // is a sub-row split, which is a different layout and not this one.
-      expect(riskYs[0], `${id}: risks and outcomes are on different rows`).toBe(outcomeYs[0])
+      // The layer's sub-rows, top to bottom, by EXACT y — never a tolerance: a
+      // near-miss is a sub-row split, which is a different layout.
+      const bandYs = [...new Set(consequence.map((n) => n.position.y))].sort((a, b) => a - b)
+      expect(
+        bandYs.map((y) => consequence.filter((n) => n.position.y === y).length),
+        `${id}: the consequence layer is not the one balanced band`,
+      ).toEqual(CONSEQUENCE_SUB_ROWS[id])
+
+      // …and nothing of another family inside it.
+      const inside = out.nodes.filter(
+        (n) => !isConsequence(n.id) && n.position.y >= bandYs[0] && n.position.y <= bandYs[bandYs.length - 1],
+      )
+      expect(inside.map((n) => n.id), `${id}: another family sits inside the consequence band`).toEqual([])
     },
   )
 })
@@ -765,13 +792,20 @@ describe('S4: the packing is a COUNT — the whole table, recorded against the r
     return [...byY.entries()].sort((a, b) => a[0] - b[0]).map(([, c]) => c)
   }
 
+  /*
+   * ⚠ GAP 7 (25 Sep 2026): THE CAP MOVED FIVE → FOUR, so 5, 9 and 10 re-pack
+   * (5→3+2, 9→3+3+3, 10→4+3+3; were 5, 5+4, 5+5). ED #63 5808428246 made
+   * 1280×800 with the dock open the acceptance size, whose frame is 1520 flow
+   * units at the 0.5 floor: five cards and the prompt need 1740, four need
+   * 1424. Canvas lead, decide-and-flag. The wrap stays ED S4's balanced one.
+   */
   const RULED: Record<number, number[]> = {
-    2: [2], 3: [3], 4: [4], 5: [5],
-    6: [3, 3], 7: [4, 3], 8: [4, 4], 9: [5, 4], 10: [5, 5],
+    2: [2], 3: [3], 4: [4], 5: [3, 2],
+    6: [3, 3], 7: [4, 3], 8: [4, 4], 9: [3, 3, 3], 10: [4, 3, 3],
   }
 
-  it('the cap is five real cards per row (ED S4)', () => {
-    expect(MAX_CARDS_PER_ROW).toBe(5)
+  it('the cap is four real cards per row (gap 7; five under ED S4)', () => {
+    expect(MAX_CARDS_PER_ROW).toBe(4)
   })
 
   it('the whole packing table, recorded — arithmetic', () => {
@@ -786,11 +820,11 @@ describe('S4: the packing is a COUNT — the whole table, recorded against the r
     }
   })
 
-  it('the derivation DISCRIMINATES, and the 5/6 boundary is real in the layout', async () => {
+  it('the derivation DISCRIMINATES, and the 4/5 boundary is real in the layout', async () => {
     // Trap 20: a probe returning the same answer for every input is reporting on
-    // itself. Five stays on one row; six does not.
-    expect(await rowsInLayout(5)).toEqual([5])
-    expect(await rowsInLayout(6)).toEqual([3, 3])
+    // itself. Four stays on one row; five does not (gap 7 — it was 5/6).
+    expect(await rowsInLayout(4)).toEqual([4])
+    expect(await rowsInLayout(5)).toEqual([3, 2])
     // ⭐ AND THE OLD BOUNDARY IS GONE, pinned as its own assertion: under the
     // retired gate seven and eight stayed on one row (a 2544-unit factor row).
     expect((await rowsInLayout(8)).length).toBeGreaterThan(1)

@@ -109,13 +109,20 @@ type Branch = 'single-row' | 'multi-row'
  * eight-factor tier are multi-row (4 + 4) and the two five-factor starters stay
  * single-row. Recorded, not derived — the `describe` below proves each claim by
  * node identity.
+ *
+ * ⚠ GAP 7 (25 Sep 2026): THE CAP IS FOUR, SO EVERY STARTER IS MULTI-ROW. Each
+ * shipped starter carries a five-card band, which now wraps 3 + 2 to fit the
+ * 1280 dock-open frame; the two five-factor starters therefore move to
+ * `multi-row`. The single-row packing is still in every starter (its bands of
+ * four and fewer) and is reached as a BRANCH synthetically — the contrast
+ * control below holds a tier at the cap on one row.
  */
 const BRANCH_OF: Record<StarterId, Branch> = {
   'vendor-selection': 'multi-row',
   'market-entry': 'multi-row',
   'build-vs-buy': 'multi-row',
-  'headcount-allocation': 'single-row',
-  'pricing-model': 'single-row',
+  'headcount-allocation': 'multi-row',
+  'pricing-model': 'multi-row',
 }
 
 /** The widest tier that still single-rows — the ruled count, imported. */
@@ -208,7 +215,7 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
   // The corpus must actually contain both branches, or "BOTH" in this
   // describe's name is a claim nothing checks (trap 13: an absence/coverage
   // claim needs a control).
-  it('⭐ the shipped corpus straddles BOTH packings again (S4), and the synthetic arm still reaches the split', async () => {
+  it('⭐ the shipped corpus is multi-row throughout (gap 7), and the synthetic arms reach BOTH sides of the cap', async () => {
     /**
      * "BOTH" in this describe's name is a claim, so it is checked (trap 13: a
      * coverage claim needs a control). From 12 Sep to S4 it was false — every
@@ -217,8 +224,11 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
      * packing, so the corpus covers both, and the synthetic arm stays as a
      * boundary control.
      */
+    // ⚠ GAP 7: the shipped corpus is now multi-row throughout (see
+    // `BRANCH_OF`), so the single-row BRANCH is covered by the synthetic
+    // contrast control at the cap, below, not by a starter.
     const covered = new Set(Object.values(BRANCH_OF))
-    expect([...covered].sort()).toEqual(['multi-row', 'single-row'])
+    expect([...covered].sort()).toEqual(['multi-row'])
 
     // …so the multi-row branch is reached synthetically, and it is REACHED —
     // asserted here rather than assumed, because a synthetic that quietly
@@ -316,13 +326,15 @@ describe('the branches this suite claims to straddle are the branches it exercis
     'fac_snowflake_build',
   ] as const
 
-  it('headcount-allocation (5-wide tier) packs its factor tier on ONE row', async () => {
+  it('headcount-allocation (5-wide tier) wraps its factor tier 3 + 2 (gap 7: the cap is four)', async () => {
+    // ⚠ WAS "packs its factor tier on ONE row" under the five-card cap. Gap 7
+    // (ED #63 5808428246, 1280x800 dock open is the acceptance size) caps a row
+    // at four, so the same five ids now wrap — still bound by identity.
     const rects = await layOut('headcount-allocation')
-    const ys = new Set(
-      FACTOR_TIER_OF_HEADCOUNT.map((nid) => rects.find((r) => r.id === nid)!.y),
-    )
-    expect(ys.size, 'expected the single-row branch').toBe(1)
-    expect(BRANCH_OF['headcount-allocation']).toBe('single-row')
+    const ys = [...new Set(FACTOR_TIER_OF_HEADCOUNT.map((nid) => rects.find((r) => r.id === nid)!.y))].sort((a, b) => a - b)
+    expect(ys.length, 'expected the multi-row packing').toBe(2)
+    expect(ys.map((y) => FACTOR_TIER_OF_HEADCOUNT.filter((nid) => rects.find((r) => r.id === nid)!.y === y).length)).toEqual([3, 2])
+    expect(BRANCH_OF['headcount-allocation']).toBe('multi-row')
   })
 
   it('⭐ vendor-selection (8-wide tier) wraps its factor tier 4 + 4 (S4)', async () => {
