@@ -165,12 +165,27 @@ export function factorValueSourceMark(data: unknown): FactorValueSourceMark | nu
 
 /**
  * True when a writer WITHDREW the extraction marker (the key is present and
- * `undefined`), as opposed to a producer that never wrote one (the key is
+ * holds no value), as opposed to a producer that never wrote one (the key is
  * absent). See rule 4 above. Both writers clear BOTH spellings, so the
  * `observedState` one (the one rule 4 reads `source` from) is sufficient.
+ *
+ * ⚠⚠ BOTH `undefined` AND `null` COUNT (independent review, PR #2046
+ * Blocking 2). The writers used to clear with `extractionType: undefined`,
+ * which `JSON.stringify` DROPS — so the withdrawal did not survive the
+ * autosave round trip or a boot restore with no server readback, and this
+ * function read the key as ABSENT (never written) rather than WITHDRAWN
+ * (pending), sending a user's own unconfirmed edit to rule 4a's "Olumi
+ * estimate" instead of rule 4's "no source". The writers now clear with
+ * `null`, which survives serialisation; `undefined` stays accepted here too,
+ * for the in-session write before any round trip and for any caller this
+ * function does not control.
  */
 function extractionMarkerWithdrawn(obs: Record<string, unknown> | undefined): boolean {
-  return obs !== undefined && 'extractionType' in obs && obs.extractionType === undefined
+  return (
+    obs !== undefined &&
+    'extractionType' in obs &&
+    (obs.extractionType === undefined || obs.extractionType === null)
+  )
 }
 
 /**

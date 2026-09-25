@@ -1089,8 +1089,19 @@ export function applyV5State(
                * false and leaves the field for the server to re-author. And
                * `after` is merged BELOW this line, so if CEE sends its own
                * `extractionType` for the new value, the server still wins.
+               *
+               * ⚠⚠ `null`, NOT `undefined` (independent review, PR #2046
+               * Blocking 2). `JSON.stringify` drops a key whose value is
+               * `undefined`, so this withdrawal did not survive the autosave
+               * round trip or a boot restore with no server readback — a
+               * withdrawn (pending) edit came back indistinguishable from a
+               * producer draft that never wrote a marker, and
+               * `valueSourceMark.tsx`'s rule 4a then read it as Olumi's
+               * estimate. `null` is a present key that survives serialisation
+               * and is still overridden by anything spread after it, so
+               * "cleared, not re-authored" is unchanged.
                */
-              extractionType: undefined,
+              extractionType: null,
               observedState: {
                 ...((node.data as { observedState?: Record<string, unknown> }).observedState ?? {}),
                 /**
@@ -1123,8 +1134,10 @@ export function applyV5State(
                  * The sibling writer `useInspectorMutations.ts:706`/`:739` already
                  * clears BOTH, and its own comment warns of exactly this defect
                  * being "reopened by its neighbour". This is that neighbour.
+                 *
+                 * ⚠⚠ `null`, NOT `undefined` — see the top-level clear above.
                  */
-                extractionType: undefined,
+                extractionType: null,
                 ...after,
               },
             } as typeof node.data,
