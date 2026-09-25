@@ -191,13 +191,14 @@ describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
   })
 
   describe('fails closed — must never become an OVER-claim (guards 1.223)', () => {
-    it('marks NO leader when leading_option_id is null, label-keyed', () => {
+    // UI-SEM-097: a run that named no leader shows no win-share row at all,
+    // so there is nothing left to mark. This is stronger than "no leader pill".
+    it('marks NO leader, and ranks nothing, when leading_option_id is null, label-keyed', () => {
       render(<V5AnalysisResultBlock block={block({ leading_option_id: null })} />)
-      expect(pills()).toHaveLength(3)
-      expect(leaderPills()).toHaveLength(0)
+      expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
     })
 
-    it('marks NO leader when leading_option_id is null, id-keyed', () => {
+    it('marks NO leader, and ranks nothing, when leading_option_id is null, id-keyed', () => {
       render(
         <V5AnalysisResultBlock
           block={block({
@@ -206,13 +207,12 @@ describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
           })}
         />,
       )
-      expect(pills()).toHaveLength(3)
-      expect(leaderPills()).toHaveLength(0)
+      expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
     })
 
-    it('marks NO leader when leading_option_id is the empty string', () => {
+    it('marks NO leader, and ranks nothing, when leading_option_id is the empty string', () => {
       render(<V5AnalysisResultBlock block={block({ leading_option_id: '' })} />)
-      expect(leaderPills()).toHaveLength(0)
+      expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
     })
 
     it('marks NO leader when the leader label is shared by two options', () => {
@@ -273,8 +273,9 @@ describe('V5AnalysisResultBlock — leader identity space (1.222)', () => {
           })}
         />,
       )
-      expect(pills()).toHaveLength(3)
-      expect(leaderPills()).toHaveLength(0)
+      // Withheld (UI-SEM-097): the card renders, with no win-share row.
+      expect(screen.getByTestId('v5-analysis-result-summary')).toBeDefined()
+      expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
     })
 
     it('renders when option_comparison is a non-array (malformed passthrough)', () => {
