@@ -33,6 +33,7 @@ import {
   Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
+import { OlumiAiIcon } from '../../../../components/results/analysisNew/OlumiAiIcon'
 import { typography } from '@/styles/typography'
 import Tooltip from '@/components/Tooltip'
 import { EntityTarget } from '../EntityTarget'
@@ -53,9 +54,11 @@ interface FocusRowCardProps {
   isOpen: boolean
   onToggle: () => void
   onTryAction?: (row: FocusRow) => void
+  /** Reasoning V2: rows sit on the panel (no inset), 16px icons, the Olumi AI glyph. */
+  bare?: boolean
 }
 
-function RowMarker({ row }: { row: FocusRow }) {
+function RowMarker({ row, bare = false }: { row: FocusRow; bare?: boolean }) {
   // Server rows that name an entity use the shape-first cue; static rows use a
   // neutral topical icon; anything else degrades to EntityTarget's neutral dot.
   if (row.targetKind) {
@@ -63,12 +66,12 @@ function RowMarker({ row }: { row: FocusRow }) {
   }
   const Icon = row.iconKey ? ICON_MAP[row.iconKey] : undefined
   if (Icon) {
-    return <Icon className="h-[18px] w-[18px] text-text-light" aria-hidden="true" />
+    return <Icon className={`${bare ? 'h-4 w-4' : 'h-[18px] w-[18px]'} text-text-light`} aria-hidden="true" />
   }
   return <EntityTarget />
 }
 
-export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCardProps) {
+export function FocusRowCard({ row, isOpen, onToggle, onTryAction, bare = false }: FocusRowCardProps) {
   const regionId = useId()
   const labelId = useId()
   const Chevron = isOpen ? ChevronDown : ChevronRight
@@ -97,10 +100,10 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
         aria-expanded={isOpen}
         aria-controls={regionId}
         aria-label={hasPrimary ? undefined : FOCUS_COPY.itemFallback}
-        className="flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset"
+        className={`flex w-full items-start gap-2.5 ${bare ? 'px-0' : 'px-3.5'} py-2.5 text-left transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset`}
       >
         <span className="mt-0.5 flex-none">
-          <RowMarker row={row} />
+          <RowMarker row={row} bare={bare} />
         </span>
         <span
           id={labelId}
@@ -117,7 +120,7 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
           id={regionId}
           role="region"
           {...(hasPrimary ? { 'aria-labelledby': labelId } : { 'aria-label': FOCUS_COPY.itemFallback })}
-          className="flex flex-col gap-2 pb-3 pl-[42px] pr-3.5 pt-1"
+          className={`flex flex-col gap-2 pb-3 ${bare ? 'pl-[26px] pr-0' : 'pl-[42px] pr-3.5'} pt-1`}
           data-testid="focus-card-body"
         >
           {/* Server rows only — a static row never claims a detection. */}
@@ -161,7 +164,7 @@ export function FocusRowCard({ row, isOpen, onToggle, onTryAction }: FocusRowCar
                   data-testid="focus-ask-olumi"
                   className="ml-auto inline-flex h-7 w-7 flex-none items-center justify-center rounded-full border border-panel-border text-info outline-none transition-colors hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-info"
                 >
-                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  {bare ? <OlumiAiIcon size={16} aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
                 </button>
               </Tooltip>
             </div>
