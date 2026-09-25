@@ -30,17 +30,12 @@ const MODULE_DIR = join(SRC, 'canvas', 'components', 'coaching-panel', 'focus-no
 // second Analysis-tab panel. Any OTHER external importer is a guard violation.
 const AUTHORIZED_IMPORTERS = new Set([
   join(SRC, 'components', 'results', 'ResultsBody.tsx'),
-  // ⭐ THE REASONING TAB, ADDED DELIBERATELY — this guard is an ALLOW-LIST, so
-  // a second mount is a reviewed entry here and not a silent import. The
-  // prototype `reasoningpanelv3` puts FOCUS NOW directly under the model strip
-  // as the panel's one primary action; the tab Paul actually uses had none,
-  // because the only mount was on the Analysis tab his scope ruling excludes.
-  //
-  // ⚠ IT MOUNTS NARROWED. `AnalysisNewTabBody` passes `applicableStaticIds`, so
-  // only nudges this model demonstrably lacks render, and an empty list renders
-  // nothing. ResultsBody still passes nothing and still gets all six, so the
-  // Analysis tab is untouched by the addition.
-  join(SRC, 'components', 'results', 'analysisNew', 'AnalysisNewTabBody.tsx'),
+  // ⛔ THE REASONING TAB'S MOUNT WAS REMOVED — V2 prototype (Paul, 25 Sep
+  // 2026: "match the prototype"; #2036). `AnalysisNewTabBody.tsx` stood here
+  // as a reviewed second importer; the prototype has no "Focus now" block on
+  // that tab, so the entry is gone and a re-import from it is an offender
+  // again. `analysisNew/__tests__/focusNowMountIsReal.spec.tsx` pins the
+  // absence in the DOM, with ResultsBody as the present control.
 ])
 
 // Capture the specifier of any import / re-export / dynamic import() / require().
