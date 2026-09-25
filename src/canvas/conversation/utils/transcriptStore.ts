@@ -145,6 +145,16 @@ interface StoredMessage {
   /** G1 — the card action that created this user message. Optional: saves
    *  written before it existed load exactly as they always did. */
   sourceBlockKey?: string
+  /**
+   * Only ever `'unconfirmed'`: a send whose reply the client never received
+   * (ROADMAP 2.665: the server may or may not have it). Stored so the bubble
+   * still says "Sent — reply not received" after a reload. Without it, the
+   * restored bubble looked delivered while its card (G1) read as taken: an
+   * unknown outcome silently becoming a known one. `failed` and `pending` are
+   * never stored (`isPersistable`), and `sent` is the default, so it is left
+   * absent.
+   */
+  deliveryState?: 'unconfirmed'
   sessionDivider?: string
   synthetic?: boolean
 }
@@ -246,6 +256,7 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.clientTurnId) out.clientTurnId = m.clientTurnId
   if (m.chipInitiated) out.chipInitiated = true
   if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
+  if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   return out
@@ -270,6 +281,7 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...(typeof s.sourceBlockKey === 'string' && s.sourceBlockKey
       ? { sourceBlockKey: s.sourceBlockKey }
       : {}),
+    ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
   }

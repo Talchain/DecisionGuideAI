@@ -445,6 +445,11 @@ describe('layer 3 — a delivered card send is saved with its key (real useConve
     ])
     const loaded = loadTranscript(SID)!
     expect(loaded.messages.map((m) => m.id)).toEqual([TURN_A, 'u-sent', 'u-unconfirmed', 'u-legacy'])
+    // An UNCONFIRMED send keeps saying so after the round trip; a delivered one
+    // restores with no state, which is the default.
+    const byId = new Map(loaded.messages.map((m) => [m.id, m]))
+    expect(byId.get('u-unconfirmed')?.deliveryState).toBe('unconfirmed')
+    expect(byId.get('u-sent')?.deliveryState).toBeUndefined()
     expect([...settledSourceBlockKeys(loaded.messages)].sort()).toEqual(
       [key('legacy'), key('sent'), key('unconfirmed')].sort(),
     )
@@ -500,6 +505,38 @@ describe('layer 4 — after a reload the card is settled iff the transcript reco
     // …and clicking the sibling settles only the sibling.
     expect(chipOf(CARD_Y, 'Bravo')).toBeDisabled()
     expect(chipOf(CARD_X, 'Alpha')).toBeDisabled()
+  })
+
+  // Pre-review 5827937918 on #1985: a send whose reply never arrived must not
+  // come back looking delivered. The card stays taken, because re-offering it
+  // could write twice (RC 5824744004 §3). But the bubble still says the reply
+  // was not received, so nothing claims the action succeeded.
+  it('(a′) UNCONFIRMED → reload → the card stays taken, and the bubble still says the reply was not received', async () => {
+    storePriorSession([
+      assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha')]),
+      cardActionMessage('u-x', KEY_X, 'unconfirmed'),
+    ])
+    await mountRestoredPanel()
+
+    const chip = chipOf(CARD_X, 'Alpha')
+    expect(chip).toBeDisabled()
+    expect(chip).toHaveAttribute('data-settled', 'true')
+    expect(screen.getByTestId('send-unconfirmed-indicator')).toHaveTextContent('Sent — reply not received')
+    await act(async () => {
+      fireEvent.click(chip)
+      chip.click()
+    })
+    expect(mockCallV5Turn).not.toHaveBeenCalled()
+  })
+
+  it('(a′) CONTROL — a DELIVERED card send restores with no uncertainty marker', async () => {
+    storePriorSession([
+      assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha')]),
+      cardActionMessage('u-x', KEY_X, 'sent'),
+    ])
+    await mountRestoredPanel()
+    expect(chipOf(CARD_X, 'Alpha')).toBeDisabled()
+    expect(screen.queryByTestId('send-unconfirmed-indicator')).toBeNull()
   })
 
   it('(b) never clicked → reload → live, and a click sends exactly once', async () => {
