@@ -110,6 +110,7 @@ import { useOptionalConversationContext } from '../../../conversation/Conversati
 import { buildEdgeAdjudicationEvent } from '../../../conversation/edgeAdjudication'
 import { settleSystemEventSend } from '../../../conversation/settleSystemEventSend'
 import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
+import { fenceRefusalCopyForCategory } from '../../../../v5/failureTypeRetryability'
 import type { EdgeData } from '../../../domain/edges'
 import type { ValidationMetadata } from '../../../domain/validation'
 import { CONTESTED_COPY } from '../constants'
@@ -202,9 +203,15 @@ function retireSettledRow(
 const ContestedRow = memo(function ContestedRow({
   row,
   settleState,
+  refusalCopy,
   onSettle,
 }: {
   row: ContestedRowModel
+  /**
+   * The turn fence's own sentence when a `refused` settlement was a STOPPED or SUPERSEDED turn
+   * (CEE #1868) — "Olumi did not take this judgement" is false about a turn the user stopped.
+   */
+  refusalCopy?: string | null
   /**
    * How this row's verdict settled, or `undefined` when none has been sent this session.
    *
@@ -227,7 +234,7 @@ const ContestedRow = memo(function ContestedRow({
    */
   const settleLine =
     settleState !== undefined && !settlementLanded(settleState)
-      ? CONTESTED_COPY.settleState[settleState]
+      ? (settleState === 'refused' && refusalCopy ? refusalCopy : CONTESTED_COPY.settleState[settleState])
       : null
   return (
     <div
@@ -377,6 +384,7 @@ export const ContestedSection = memo(function ContestedSection({
 
   /** How each connection's verdict settled. Absent = never pressed. */
   const [settleState, setSettleState] = useState<Record<string, ContestedSettleState>>({})
+  const [refusalCopy, setRefusalCopy] = useState<Record<string, string | null>>({})
 
   /**
    * Verdicts that LEFT the browser this session, newest first — the acknowledgement's only
@@ -427,8 +435,12 @@ export const ContestedSection = memo(function ContestedSection({
           debugInitiatedBy: 'user',
           debugSourceSurface: 'pre-analysis',
         }),
-        settlement => {
+        (settlement, detail) => {
           setSettleState(prev => ({ ...prev, [row.edgeId]: settlement }))
+          setRefusalCopy(prev => ({
+            ...prev,
+            [row.edgeId]: settlement === 'refused' ? fenceRefusalCopyForCategory(detail.conflictCategory) : null,
+          }))
           // ⭐ THE LATCH GUARDS THE IN-FLIGHT WINDOW AND NOTHING WIDER, SO IT RELEASES ON EVERY
           // SETTLEMENT. Holding it shut afterwards looks tidier and is worse: this row is
           // re-raised by the producer at the next draft or patch (see the header), and a
@@ -489,6 +501,7 @@ export const ContestedSection = memo(function ContestedSection({
             key={row.edgeId}
             row={row}
             settleState={settleState[row.edgeId]}
+            refusalCopy={refusalCopy[row.edgeId]}
             onSettle={sendSystemEvent ? handleSettle : null}
           />
         ))}

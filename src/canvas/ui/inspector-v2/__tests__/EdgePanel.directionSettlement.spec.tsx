@@ -124,6 +124,42 @@ describe('a direction change is settled, never assumed', () => {
     expect(feedback().textContent).not.toContain(SENT)
   })
 
+  it('REFUSED, FENCE — a STOPPED turn reverts the flip and says the fence\'s own sentence, not "Olumi did not take this"', async () => {
+    sendSystemEvent.mockImplementation(() =>
+      Promise.reject(new SystemEventSendError('server', { conflictCategory: 'turn_fence_stopped' })))
+    await flipToDecreases()
+
+    await waitFor(() => expect(feedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(readEdgeData().direction).toBe('positive')
+    expect(feedback().textContent).toContain("That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.")
+    expect(feedback().textContent).not.toContain(NOT_RECORDED)
+  })
+
+  it('REFUSED, FENCE — a STOPPED strength edit says the fence\'s own sentence too (the strength conduit carries it)', async () => {
+    sendSystemEvent.mockImplementation(() =>
+      Promise.reject(new SystemEventSendError('server', { conflictCategory: 'turn_fence_stopped' })))
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={() => {}} />)
+    fireEvent.click(await screen.findByTestId('strength-band-strong'))
+    await waitFor(() => expect(sendSystemEvent).toHaveBeenCalledTimes(1))
+
+    const strengthFeedback = () => screen.getByTestId('edge-strength-edit-feedback')
+    await waitFor(() => expect(strengthFeedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(strengthFeedback().textContent).toContain("That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.")
+    expect(strengthFeedback().textContent).not.toContain(NOT_RECORDED)
+  })
+
+  it('CONTRAST — a `BASE_HASH_DIVERGED` strength edit keeps "Not recorded"', async () => {
+    sendSystemEvent.mockImplementation(() =>
+      Promise.reject(new SystemEventSendError('server', { conflictCategory: 'BASE_HASH_DIVERGED' })))
+    render(<InspectorRouter nodeId={null} edgeId="e1" onClose={() => {}} />)
+    fireEvent.click(await screen.findByTestId('strength-band-strong'))
+    await waitFor(() => expect(sendSystemEvent).toHaveBeenCalledTimes(1))
+
+    const strengthFeedback = () => screen.getByTestId('edge-strength-edit-feedback')
+    await waitFor(() => expect(strengthFeedback()).toHaveAttribute('data-settlement', 'refused'))
+    expect(strengthFeedback().textContent).toContain(NOT_RECORDED)
+  })
+
   it('LOST RESPONSE — the flip is kept, and the panel says Olumi may not have recorded it', async () => {
     sendSystemEvent.mockImplementation(() => Promise.reject(new SystemEventSendError('transport')))
     await flipToDecreases()

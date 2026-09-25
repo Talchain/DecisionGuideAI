@@ -11,7 +11,7 @@ import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
 import { settleSystemEventSend } from '../../conversation/settleSystemEventSend'
 import { markEdgeEditInFlight, resolveEdgeEditSettlement } from '../../conversation/pendingEdgeEdit'
-import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../conversation/settleSystemEventSend'
 import {
   buildEdgeStrengthEditEvent,
   buildEdgeDirectionEditEvent,
@@ -1097,7 +1097,7 @@ export function useEdgeMutations(edgeId: string) {
        * at all and was discovered only because the compiler demanded it. A gap
        * a type system can find is worth more than a rule a reader must recall.
        */
-      onSendSettled: (settlement: SystemEventSendSettlement) => void
+      onSendSettled: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
     },
   ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
@@ -1200,7 +1200,9 @@ export function useEdgeMutations(edgeId: string) {
     markEdgeEditInFlight(edgeId, absWeight, before)
     settleSystemEventSend(
       sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before } }),
-      (settlement) => opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement)),
+      // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
+      // turn is not a moved model) is the envelope's fact, not the resolver's.
+      (settlement, detail) => opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail),
     )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
@@ -1316,7 +1318,7 @@ export function useEdgeMutations(edgeId: string) {
     direction: 'positive' | 'negative',
     opts?: {
       /** How the send settled, resolved against the model — the same channel `setStrength` reports on. */
-      onSendSettled?: (settlement: SystemEventSendSettlement) => void
+      onSendSettled?: (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) => void
     },
   ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
@@ -1342,8 +1344,8 @@ export function useEdgeMutations(edgeId: string) {
     markEdgeEditInFlight(edgeId, sentMagnitude, before, direction)
     settleSystemEventSend(
       sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction } }),
-      (settlement) =>
-        opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction)),
+      (settlement, detail) =>
+        opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail),
     )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])

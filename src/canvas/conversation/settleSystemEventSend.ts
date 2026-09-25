@@ -76,6 +76,13 @@ export interface SystemEventSendSettlementDetail {
   /** Set on `refused` only. */
   readonly refusal?: SystemEventRefusalCause
   /**
+   * The producer's `details.conflict_category`, set on `refused` / `conflict` only.
+   * ⭐ It is how a caller tells a STOPPED or SUPERSEDED turn (`turn_fence_*`, CEE
+   * #1868) from a moved base: both settle `conflict`, and only the second one is
+   * "the model moved on". Ask `fenceRefusalCopyForCategory` first.
+   */
+  readonly conflictCategory?: string
+  /**
    * The producer's `details.reason`, RAW — a machine token as often as prose.
    * Show it only through `isDisplaySafeReason`.
    */
@@ -148,7 +155,7 @@ export function settleSystemEventSend(
         if (err.kind === 'server') {
           const reason = err.reason !== undefined ? { reason: err.reason } : {}
           if (isProvenNoWriteConflict(err.conflictCategory)) {
-            return settleOnce('refused', { ...reason, refusal: 'conflict' })
+            return settleOnce('refused', { ...reason, refusal: 'conflict', conflictCategory: err.conflictCategory })
           }
           // ⭐ The producer's other no-write statement, on `details.reason`.
           // Without this arm a request CEE declined without writing settled as
