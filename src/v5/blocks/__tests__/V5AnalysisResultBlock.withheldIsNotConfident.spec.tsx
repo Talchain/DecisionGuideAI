@@ -95,10 +95,30 @@ describe('the confident tier needs a licensed leader', () => {
     expect(screen.queryByText(CONFIDENT)).toBeNull()
   })
 
-  it('a hedged tier still renders on a withheld run — doubt names no winner', () => {
+  it('the tentative tier still renders on a withheld run — it states doubt and names no winner', () => {
     render(<V5AnalysisResultBlock block={block({ leadingOptionId: null, nearTie: withheldProjection(), robustnessLabel: 'fragile' })} />)
     const copy = screen.getByTestId(COPY_ID)
     expect(copy).not.toHaveTextContent(CONFIDENT)
     expect(copy.textContent?.length ?? 0).toBeGreaterThan(0)
+  })
+
+  // ⭐ MODERATE is not a statement of doubt: it opens "This result appears to
+  // hold". On a run that may not name a leader that reads as an endorsement,
+  // so it is withheld with CONFIDENT (served defect: R&C bw-89716c13-8a2f291,
+  // pinned from the producer's bytes in withheldModerateIsNotEndorsement.spec).
+  it('a NEAR-TIE run does not say the result appears to hold either', () => {
+    expect(calibrateUncertaintyCopy({ robustnessLevel: 'moderate', robustnessLabel: null, p10: 0.1, p90: 0.4 } as never)?.tier)
+      .toBe('moderate')
+    render(
+      <V5AnalysisResultBlock
+        block={block({ leadingOptionId: 'opt_raise', nearTie: { ...permitting(), is_tie: true }, robustnessLevel: 'moderate' })}
+      />,
+    )
+    expect(screen.queryByTestId(COPY_ID)).toBeNull()
+  })
+
+  it('CONTRAST: a permitted run with a moderate band still says it appears to hold', () => {
+    render(<V5AnalysisResultBlock block={block({ leadingOptionId: 'opt_raise', nearTie: permitting(), robustnessLevel: 'moderate' })} />)
+    expect(screen.getByTestId(COPY_ID).textContent ?? '').toMatch(/^This result appears to hold/)
   })
 })
