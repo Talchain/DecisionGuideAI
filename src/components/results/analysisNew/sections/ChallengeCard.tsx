@@ -49,7 +49,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
 import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
-import { action } from '../panelSurfaces'
+import { action, icon } from '../panelSurfaces'
 import { respondToIntervention, respondToMethod } from '../challengeResponse'
 import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 
@@ -262,7 +262,7 @@ export function ChallengeCard({
           className={`${typography.panelBody} ${action('text')}`}
           data-testid={`${testId}-respond`}
         >
-          <Pencil className="w-3.5 h-3.5 shrink-0" aria-hidden={true} />
+          <Pencil className={`${icon('inline')} shrink-0`} aria-hidden={true} />
           {ZONE.respond}
         </button>
         <div className="flex shrink-0 items-center gap-1">

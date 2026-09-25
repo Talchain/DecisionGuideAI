@@ -72,7 +72,7 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
     fireEvent.click(screen.getByTestId('dock-overflow-trigger'))
     expect(screen.getByTestId('dock-versions-trigger')).toBeInTheDocument()
     expect(
-      screen.getByRole('menuitem', { name: /expert mode/i }),
+      screen.getByRole('button', { name: /expert mode/i }),
       'the expert-mode toggle is reachable inside the open menu',
     ).toBeInTheDocument()
   })
@@ -82,9 +82,34 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
     const trigger = screen.getByTestId('dock-overflow-trigger')
     fireEvent.click(trigger)
     expect(screen.getByTestId('dock-overflow-menu')).toBeInTheDocument()
-    fireEvent.keyDown(screen.getByTestId('dock-overflow-menu'), { key: 'Escape' })
+    // ⭐ The path a keyboard user actually takes: focus is still ON THE TRIGGER
+    // after opening (review 5833758302 B1), so Escape must work from there.
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'Escape' })
     expect(screen.queryByTestId('dock-overflow-menu')).toBeNull()
     expect(trigger).toHaveFocus()
+  })
+
+  it('⭐⭐ focus leaving the control closes the disclosure (review B2: tabbing out left it open)', () => {
+    draw(280)
+    const trigger = screen.getByTestId('dock-overflow-trigger')
+    fireEvent.click(trigger)
+    const inside = screen.getByRole('button', { name: /expert mode/i })
+    fireEvent.blur(trigger, { relatedTarget: inside })
+    expect(screen.getByTestId('dock-overflow-menu')).toBeInTheDocument()
+    fireEvent.blur(inside, { relatedTarget: document.body })
+    expect(screen.queryByTestId('dock-overflow-menu')).toBeNull()
+  })
+
+  it('⭐⭐ it is a disclosure, not a malformed ARIA menu (review B3)', () => {
+    draw(280)
+    const trigger = screen.getByTestId('dock-overflow-trigger')
+    fireEvent.click(trigger)
+    expect(trigger).not.toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.queryByRole('menuitem')).toBeNull()
+    expect(trigger.getAttribute('aria-controls')).toBe(screen.getByTestId('dock-overflow-menu').id)
   })
 
   it('⭐ CONTRAST: at the default 416px width, both controls render inline and no overflow trigger exists', () => {

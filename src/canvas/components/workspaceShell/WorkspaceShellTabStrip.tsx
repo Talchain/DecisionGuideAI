@@ -29,7 +29,7 @@
  * ellipsise AND the two protected testids must be painted with a non-zero box.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, MoreHorizontal } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
@@ -175,7 +175,8 @@ function TabStripOverflowMenu({
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const menuId = useId()
 
   const close = useCallback((returnFocus: boolean) => {
     setOpen(false)
@@ -188,7 +189,7 @@ function TabStripOverflowMenu({
     if (!open) return
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node
-      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return
+      if (wrapperRef.current?.contains(target)) return
       close(false)
     }
     document.addEventListener('mousedown', handlePointerDown)
@@ -196,34 +197,40 @@ function TabStripOverflowMenu({
   }, [open, close])
 
   return (
-    <div className="relative shrink-0">
+    /* ⭐ A DISCLOSURE, NOT AN ARIA MENU (review 5833758302, option a). The
+       keyboard contract lives on the WRAPPER, so it holds wherever focus is —
+       on the trigger or on either control inside: Escape closes and returns
+       focus to the trigger; focus leaving the wrapper closes it. */
+    <div
+      ref={wrapperRef}
+      className="relative shrink-0"
+      onKeyDown={event => {
+        if (event.key === 'Escape' && open) {
+          event.stopPropagation()
+          close(true)
+        }
+      }}
+      onBlur={event => {
+        const next = event.relatedTarget as Node | null
+        if (open && (next === null || !wrapperRef.current?.contains(next))) close(false)
+      }}
+    >
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(prev => !prev)}
         className={ROW_ICON_CONTROL}
         aria-label="More controls"
-        aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
         data-testid="dock-overflow-trigger"
       >
         <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
       {open && (
         <div
-          ref={menuRef}
-          role="menu"
-          aria-label="More controls"
+          id={menuId}
           data-testid="dock-overflow-menu"
-          // Escape closes the menu and returns focus to the trigger that
-          // opened it — the same contract a native `<select>` or `<dialog>`
-          // gives a keyboard user, so this control does not read as a trap.
-          onKeyDown={event => {
-            if (event.key === 'Escape') {
-              event.stopPropagation()
-              close(true)
-            }
-          }}
           className="absolute right-0 top-full mt-1 z-20 flex flex-col gap-1 p-1 rounded border border-field bg-panel shadow-md"
         >
           <VersionsTrigger
@@ -233,7 +240,6 @@ function TabStripOverflowMenu({
           />
           <button
             type="button"
-            role="menuitem"
             onClick={onToggleExpertMode}
             className={`${typography.panelBody} inline-flex items-center gap-2 px-3 py-2 rounded-md border w-full justify-start transition-colors ${
               expertMode

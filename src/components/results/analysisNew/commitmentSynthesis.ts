@@ -346,7 +346,7 @@ function beforeBullet(
 }
 
 /** Bullet 3's fallback — the prototype's own sentence, adapted to this panel's acts. */
-export const RESPOND_OR_RECORD = 'Answer the challenge above, or record why you accept the result.'
+export const RESPOND_OR_RECORD = 'Answer the challenge above, or record your view and why you hold it.'
 
 const EMPTY: CommitmentSynthesis = { describesLastRun: false, staleKind: null, founded: null, open: null, before: null }
 
