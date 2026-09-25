@@ -109,12 +109,11 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
   }).atAGlance
 
 /**
- * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run may
- * not conclude" is now a closed-at-rest disclosure inside `AtAGlance` — open
- * it before the refusal sentence is reachable.
+ * ⚠ DOES NOT OPEN THE DOOR — `openWithheld()` below does that explicitly,
+ * asserting it was closed first. This helper only renders.
  */
-const renderGlance = (data: ResultsSectionDataReturn) => {
-  const result = render(
+const renderGlance = (data: ResultsSectionDataReturn) =>
+  render(
     <AtAGlance
       glance={glanceOf(data)}
       isRunning={false}
@@ -123,10 +122,6 @@ const renderGlance = (data: ResultsSectionDataReturn) => {
       onReanalyse={vi.fn()}
     />,
   )
-  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
-  if (toggle) fireEvent.click(toggle)
-  return result
-}
 
 /**
  * V2 prototype (Paul, 25 Sep 2026): the refusal sits behind ONE door, closed at
