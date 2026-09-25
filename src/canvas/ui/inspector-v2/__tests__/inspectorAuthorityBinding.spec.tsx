@@ -118,11 +118,26 @@ function setStoreState(nodes: unknown[], edges: unknown[] = []) {
   } as never)
 }
 
+/**
+ * A node kind the Router still blanket-wraps, used for every "still wrapped"
+ * assertion below.
+ *
+ * ⚠⚠ THIS WAS A RISK NODE, AND CANNOT BE ONE ANY MORE (A10, 25 Sep 2026).
+ * `risk` joined `InspectorRouter`'s `AUTHORITY_OWNING_PANELS` — its two real
+ * writers (`setProbability`/`setImpact`) now fence themselves inside
+ * `RiskPanel`, so the panel no longer renders
+ * `fieldset[data-authority="disabled"]` at all and every helper below would
+ * open with `PRECONDITION FAILED: no authority boundary rendered`. An
+ * unresolved node kind falls through `resolvePanelType`'s default arm to
+ * `GenericNodePanel`, which is still wrapped and — with a `description` set —
+ * renders a real `<textarea>`, so the "at least one real control" precondition
+ * still holds.
+ */
 const NODE_FIXTURE = [
   {
     id: 'r1',
-    type: 'risk',
-    data: { label: 'Operational risk', kind: 'risk', probability: 0.4, impact: 'medium' },
+    type: 'milestone',
+    data: { label: 'Ship the migration', kind: 'milestone', description: 'No bespoke panel exists for this node kind yet.' },
     position: { x: 0, y: 0 },
   },
 ]
@@ -528,11 +543,12 @@ describe('Inspector read-only policy — no control escapes the boundary', () =>
   })
 
   it('leaves no editing control outside the boundary in the node panel', () => {
-    // ⚠ THE RISK FIXTURE, DELIBERATELY, for the OUTSIDE question: it is a node
-    // panel with NO decision-scoped exception, so every shell-level entry must
-    // still match here and nothing else may sit outside. The INSIDE questions
-    // (a real input, the scope-limit pin) use the decision fixture below — see
-    // its header for why no factor panel can serve any more.
+    // ⚠ THE GENERIC FIXTURE, DELIBERATELY, for the OUTSIDE question: it is a
+    // node panel with NO decision-scoped exception, so every shell-level entry
+    // must still match here and nothing else may sit outside. The INSIDE
+    // questions (a real input, the scope-limit pin) use the decision fixture
+    // below — see its header for why no factor or risk panel can serve any
+    // more.
     setStoreState(NODE_FIXTURE)
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
     expect(escapedControls()).toEqual([])

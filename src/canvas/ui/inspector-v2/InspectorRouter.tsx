@@ -13,7 +13,6 @@ import { useTechToggle } from './useTechToggle'
 import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
-import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 
 // Panel imports — lazy would be premature, these are small
 import { EdgePanel } from './panels/EdgePanel'
@@ -24,8 +23,8 @@ import { FactorControllablePanel } from './panels/FactorControllablePanel'
 import { DecisionPanel, DecisionAddOption } from './panels/DecisionPanel'
 import { FactorObservablePanel } from './panels/FactorObservablePanel'
 import { FactorExternalPanel } from './panels/FactorExternalPanel'
-import { OutcomePanel } from './panels/OutcomePanel'
-import { RiskPanel } from './panels/RiskPanel'
+import { OutcomePanel, INSPECTOR_OUTCOME_REASON } from './panels/OutcomePanel'
+import { RiskPanel, INSPECTOR_RISK_REASON } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
@@ -33,7 +32,22 @@ import { InspectorAttentionContext, attentionAskContext } from './shared/Inspect
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
-import { nodeConfidenceBadgeReadout } from './nodeConfidenceBadge'
+import { isStructuralEdge } from '../../domain/edgeUtils'
+import type { EdgeData } from '../../domain/edges'
+import type { Edge } from '@xyflow/react'
+
+/**
+ * A14 — a structural link (organisational wiring, e.g. decision→option) is
+ * not a causal claim: it has no strength for the model to check a change
+ * against, so it earns neither a confidence badge nor
+ * `INSPECTOR_EDGE_REASON`'s "the link strength saves" claim. Defined here
+ * rather than in `useInspectorMutations.ts` because this pane is the only
+ * reader — the edge accessible-name module states the matching fact on the
+ * assistive channel, independently, from the shared `isStructuralEdge`
+ * predicate rather than from this string.
+ */
+const INSPECTOR_EDGE_STRUCTURAL_REASON =
+  'This is a structural link, not a causal claim. It carries no strength, and nothing here is sent to the model.'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -208,12 +222,23 @@ export const InspectorRouter = memo(function InspectorRouter({
     const targetLabel = resolveElementLabel(targetNode?.data)
     const edgeLabel = `${sourceLabel} \u2192 ${targetLabel}`
 
+    // A14 — a structural link's canonical strength signature is
+    // `beliefExists === 1.0`, which is exactly the shape that used to render
+    // a "✓ 100%" confidence badge: the organisational-wiring signature read
+    // back as if it were a stated measurement. Asked of the ONE shared
+    // predicate, not re-derived from the raw field here.
+    const getNodeKindForEdge = (id: string) => {
+      const n = nodes.find(nn => nn.id === id)
+      return ((n?.data as Record<string, unknown> | undefined)?.kind as string | undefined) ?? n?.type
+    }
+    const isStructural = isStructuralEdge(edge as unknown as Edge<EdgeData>, getNodeKindForEdge)
+
     // Edge confidence from beliefExists — PROVENANCE-GATED.
     // `getEdgeConfidence` returns the raw field, which is `0.8` on any edge the
     // user merely drew. Rendering that as a "high · 80%" badge presents a UI
     // default as a measurement.
     const epDisplay = resolveEdgeValueDisplay(edge.data as Record<string, unknown> | undefined, 'beliefExists')
-    const ep = epDisplay.show ? epDisplay.value : null
+    const ep = !isStructural && epDisplay.show ? epDisplay.value : null
     const edgeConfidenceLevel = ep !== null ? (ep >= 0.7 ? 'high' as const : ep >= 0.4 ? 'medium' as const : 'low' as const) : undefined
     const confidencePct = ep !== null ? Math.round(ep * 100) : undefined
 
@@ -271,11 +296,13 @@ export const InspectorRouter = memo(function InspectorRouter({
         }
       >
         <InspectorAgencyNote>
-          {edgeStrengthReaches
-            ? INSPECTOR_EDGE_REASON
-            : edgeAwaitingStatedStrength
-              ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
-              : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
+          {isStructural
+            ? INSPECTOR_EDGE_STRUCTURAL_REASON
+            : edgeStrengthReaches
+              ? INSPECTOR_EDGE_REASON
+              : edgeAwaitingStatedStrength
+                ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
+                : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
         </InspectorAgencyNote>
         {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
             This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
@@ -348,38 +375,11 @@ export const InspectorRouter = memo(function InspectorRouter({
   const pillColor = PILL_COLORS[nodeType]
   const typePill = getTypeLabel(nodeType, category)
 
-  // Confidence badge — only for specific node types
-  let confidenceBadge: React.ReactNode | undefined
-  let nodeConfidenceLevel: 'high' | 'medium' | 'low' | undefined
-  if (nodeType === 'goal' || nodeType === 'outcome' || nodeType === 'risk') {
-    // Derive from inbound edge confidence average
-    const inboundEdges = edges.filter(e => e.target === nodeId)
-    if (inboundEdges.length > 0) {
-      // PROVENANCE-GATED, and this one is worse than the edge case: an
-      // AVERAGE reads as far more evidentiary than a single field. On a freshly
-      // drawn graph every inbound edge returned the same `0.8`, so the goal
-      // node showed "high · 80%" — a synthetic aggregate of a constant.
-      // Unset edges are EXCLUDED from the mean rather than counted as 0.8; when
-      // none of the inbound edges was characterised there is no badge at all.
-      const confidences = inboundEdges
-        .map(e => resolveEdgeValueDisplay(e.data as Record<string, unknown> | undefined, 'beliefExists'))
-        .filter((d): d is { show: true; value: number; source: EdgeValueSource } => d.show)
-        .map(d => d.value)
-      // ⛔ AND THE SENTENCE ABOVE IS NOW ENFORCED, NOT ONLY WRITTEN (22 Sep
-      // 2026). Excluding UNSET edges did not close the case it describes: on
-      // Paul's board (bundle `482ec9e0`, served `1f77130d`) both inbound edges
-      // carry `belief_exists: 0.8` with `belief_exists_source: "cee"` — real
-      // provenance, so they pass the gate above — and the panel rendered
-      // `✓ 80%`, the exact synthetic aggregate of a constant. The second
-      // question, whether what survived the gate says anything, is
-      // `nodeConfidenceBadgeReadout`'s.
-      const readout = nodeConfidenceBadgeReadout(confidences)
-      if (readout) {
-        nodeConfidenceLevel = readout.level
-        confidenceBadge = <ConfidenceBadge level={readout.level} value={readout.value} />
-      }
-    }
-  }
+  // A8 — a "✓ N%" header badge used to render here for goal/outcome/risk
+  // nodes: the MEAN of inbound edges' `exists_probability`. No producer field
+  // carries that number; it was a UI computation over data that answers a
+  // different question. Removed rather than fixed — see
+  // `__tests__/InspectorRouter.A8.noInventedNumbers.spec.tsx`.
 
   const panelProps = {
     nodeId,
@@ -457,6 +457,33 @@ export const InspectorRouter = memo(function InspectorRouter({
    * carrier, and will it fence the rest itself? Stating it as a number is how a
    * doctrine comment drifts from the code beside it.
    *
+   * ⭐ SIXTH PANEL — `risk`, and the admission test is NOT a carrier this time.
+   * `setProbability`/`setImpact` commit through a bare `updateNode`, same as
+   * the goal pane's own target control, so they stay fenced — `RiskPanel`
+   * wraps those two controls in `data-writer-fence="probability-impact"`
+   * (`INSPECTOR_RISK_REASON` says so). What earns the pane its exit is that the
+   * blanket wrap was ALSO inerting the coaching card's Ask/Dismiss/Explore
+   * buttons beneath it, and the "What drives this" navigation rows — none of
+   * which write anything at all.
+   *
+   * ⭐ SEVENTH PANEL — `outcome`, read-first ("No primary editing surface" —
+   * the pane's own docblock). The Router's wrap was disabling its coaching
+   * card and result-navigation rows, none of which writes.
+   *
+   * ⛔ NEITHER PANE IS WRITER-FREE BEYOND THOSE CONTROLS (review 2038 on
+   * `1cd208f5`). This note said outcome "owns no writer whatsoever" and named
+   * likelihood/impact as risk's writers. Both panes' advanced editors, behind
+   * "Show model detail", hold a Description textarea committing
+   * `setDescription` — no carrier, spelled in `editors/*AdvancedEditor.tsx`,
+   * not in the pane. Opting out un-fenced it on both; each pane now fences its
+   * editor in `data-writer-fence="advanced-editor"`, pinned by
+   * `InspectorRouter.A10.coachingReachable.spec.tsx`. Audit the tree, not the
+   * file.
+   *
+   * ⚠ `decision` STAYS WRAPPED. Its description textarea has no carrier either,
+   * and unfencing it would require the same self-fence discipline as the panes
+   * above — left for a follow-up so this change stays reviewable.
+   *
    * Every panel NOT in the set keeps the wrap below byte-for-byte. The question
    * "does this control reach a mutation?" is answerable only inside the panel —
    * in `OptionPanel` two buttons eighteen lines apart differ on it — so a
@@ -468,7 +495,7 @@ export const InspectorRouter = memo(function InspectorRouter({
    * asserts as a discriminating pair — every writer disabled AND every
    * non-writer enabled — so it cannot pass by fencing everything or nothing.
    */
-  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable', 'goal'])
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable', 'goal', 'risk', 'outcome'])
   const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
@@ -492,8 +519,6 @@ export const InspectorRouter = memo(function InspectorRouter({
       label={label}
       typePill={typePill}
       typePillColor={pillColor}
-      confidenceBadge={confidenceBadge}
-      confidenceLevel={nodeConfidenceLevel}
       techMode={techMode}
       onTechToggleChange={setTechMode}
       onClose={onClose}
@@ -572,7 +597,11 @@ export const InspectorRouter = memo(function InspectorRouter({
               ? INSPECTOR_FACTOR_EXTERNAL_REASON
               : panelType === 'goal'
                 ? INSPECTOR_GOAL_REASON
-                : INSPECTOR_OPTION_READ_ONLY_REASON}
+                : panelType === 'risk'
+                  ? INSPECTOR_RISK_REASON
+                  : panelType === 'outcome'
+                    ? INSPECTOR_OUTCOME_REASON
+                    : INSPECTOR_OPTION_READ_ONLY_REASON}
       </InspectorAgencyNote>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto

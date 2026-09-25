@@ -30,7 +30,7 @@ import { DriversList, type DriverItem } from '../shared/DriversList'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
-import { useNodeMutations } from '../useInspectorMutations'
+import { useNodeMutations, RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
 import { useEditConfirmation } from '../useEditConfirmation'
 import {
   calculateRiskSeverity,
@@ -50,10 +50,29 @@ const IMPACT_OPTIONS: { value: RiskImpact; label: string }[] = [
   { value: 'critical', label: 'Critical' },
 ]
 
+/**
+ * A10 — likelihood and impact write through `setProbability`/`setImpact`,
+ * which commit via a bare `updateNode` (no wire carrier), the same class as
+ * the goal pane's own `GoalThresholdEditor`. That write stays fenced; the
+ * fence just moved from the Router's panel-wide wrap (which also inerted the
+ * coaching card's Ask/Dismiss/Explore buttons below, none of which write
+ * anything) to here, scoped to the controls that do.
+ *
+ * ⛔ THEY ARE NOT THE PANE'S ONLY WRITERS (review 2038 on `1cd208f5`). The
+ * advanced editor under "Show model detail" holds a Description textarea that
+ * commits `setDescription` — also a bare store write, spelled in ANOTHER FILE.
+ * It is fenced separately (`data-writer-fence="advanced-editor"`), and this
+ * notice leaves the complement open rather than naming likelihood and impact
+ * as the whole of what is unsaved.
+ */
+export const INSPECTOR_RISK_REASON =
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood, impact and other edits here are not yet saved to the shared model — ask Olumi to record them instead.`
+
 export const RiskPanel = memo(function RiskPanel({
   nodeId,
   techMode,
   onNavigate,
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -123,6 +142,7 @@ export const RiskPanel = memo(function RiskPanel({
 
       {/* ── Your input: likelihood × impact (P1.7) ─────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="probability-impact">
         <PrimaryControlCard>
           {(probability != null || impact != null) && (
             <p className={`${typography.panelMeta} text-text-light mb-2`}>Entered estimate</p>
@@ -199,6 +219,7 @@ export const RiskPanel = memo(function RiskPanel({
             </div>
           )}
         </PrimaryControlCard>
+        </fieldset>
 
         <p className={`${typography.panelMeta} text-text-light mt-2`}>Severity combines the likelihood and impact entered above.</p>
       </PanelGroup>
@@ -219,8 +240,13 @@ export const RiskPanel = memo(function RiskPanel({
       </PanelGroup>
 
       {/* ── Expert-only model detail ──────────────────────────── */}
+      {/* ⚠ `RiskAdvancedEditor`'s Description field commits `setDescription`,
+          a bare store write with no carrier — fenced here exactly as the factor
+          pane fences its editor (review 2038). */}
       <TechnicalDisclosure visible={techMode}>
-        <RiskAdvancedEditor nodeId={nodeId} />
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+          <RiskAdvancedEditor nodeId={nodeId} />
+        </fieldset>
       </TechnicalDisclosure>
     </div>
   )

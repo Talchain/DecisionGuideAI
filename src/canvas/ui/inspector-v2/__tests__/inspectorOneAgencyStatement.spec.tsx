@@ -35,6 +35,8 @@ vi.mock('../../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn(
 
 import { InspectorRouter } from '../InspectorRouter'
 import { INSPECTOR_GOAL_REASON } from '../panels/GoalPanel'
+import { INSPECTOR_RISK_REASON } from '../panels/RiskPanel'
+import { INSPECTOR_OUTCOME_REASON } from '../panels/OutcomePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
@@ -92,8 +94,13 @@ const PANES: Array<{ name: string; nodeId: string | null; edgeId: string | null;
   // commits through `factor_value_edit`, the controllable pane's carrier — so it
   // says the controllable pane's facts, not the blanket's.
   { name: 'factor-observable', nodeId: 'fo', edgeId: null, truth: INSPECTOR_FACTOR_CONTROLLABLE_REASON },
-  { name: 'outcome (blanket)', nodeId: 'oc', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
-  { name: 'risk (blanket)', nodeId: 'r1', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
+  // A10 (25 Sep 2026): the outcome pane opted out of the blanket — it owns no
+  // writer at all — so it says its own facts, not the blanket's.
+  { name: 'outcome', nodeId: 'oc', edgeId: null, truth: INSPECTOR_OUTCOME_REASON },
+  // A10 (25 Sep 2026): the risk pane opted out of the blanket too — its two
+  // writers (likelihood, impact) now fence themselves, so it says its own
+  // facts instead of the generic notice.
+  { name: 'risk', nodeId: 'r1', edgeId: null, truth: INSPECTOR_RISK_REASON },
   { name: 'generic (blanket)', nodeId: 'x1', edgeId: null, truth: INSPECTOR_READ_ONLY_REASON },
   { name: 'edge, no strength basis', nodeId: null, edgeId: 'e1', truth: INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON },
   { name: 'edge, drawn and awaiting a strength', nodeId: null, edgeId: 'e2', truth: INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON },

@@ -195,13 +195,20 @@ describe('the carrierless neighbours stay shut', () => {
    * claim stays visible. This list held `paste`, `undo` and `redo` asserting
    * ABSENCE. #1304 changed the policy for keyboard-reachable gestures from
    * REMOVAL to a disabled row carrying an honest reason, so for those three the
-   * true property is now "not ACTIONABLE", not "not PRESENT".
+   * true property became "not ACTIONABLE", not "not PRESENT".
    *
    * ⭐ Keeping both fixes required this split. Asserting absence would have
    * forced #1304's surfacing back out; dropping the assertion entirely would
    * have lost #1538's guarantee that no carrierless gesture becomes actionable.
    * The menu-only ids below are unaffected — they are still hidden and folded
    * into the grouped note.
+   *
+   * ⚠⚠ `paste` REJOINED THIS LIST 25 Sep 2026 (A20), REVERSING THE SPLIT ABOVE
+   * FOR THAT ONE ID. It is no longer surfaced disabled-with-a-reason at all:
+   * `useMenuItems.ts` stopped building the row, so "not PRESENT" is once again
+   * the true property. `Copy`, its only producer, wrote to a clipboard Paste
+   * had no durable way to consume — both are hidden from every menu that
+   * showed them. See `useMenuItems.A20.noDeadClipboard.spec.ts`.
    */
   it.each([
     'add-connected-factor',
@@ -213,17 +220,21 @@ describe('the carrierless neighbours stay shut', () => {
     'set-value',
     'mark-assumption',
     'reverse-edge',
+    'paste',
   ])('does not offer %s anywhere on the pane menu', id => {
     expect(paneMenuIds().has(id)).toBe(false)
   })
 
   /**
-   * The three keyboard-reachable gestures the pane menu does offer: SURFACED so
-   * the row can say why before the user presses the key, and INERT so nothing
+   * The keyboard-reachable gestures the pane menu does offer: SURFACED so the
+   * row can say why before the user presses the key, and INERT so nothing
    * carrierless becomes actionable. Both halves asserted — presence alone would
    * pass on a re-enabled gesture.
+   *
+   * ⚠ `paste` LEFT THIS LIST (A20, 25 Sep 2026) — see the note above the
+   * `does not offer %s` cases, where it now belongs.
    */
-  it.each(['paste', 'undo', 'redo'])(
+  it.each(['undo', 'redo'])(
     'offers %s as a disabled row with a reason, never as an actionable one',
     id => {
       const entry = paneMenuEntries().find(e => e.id === id)

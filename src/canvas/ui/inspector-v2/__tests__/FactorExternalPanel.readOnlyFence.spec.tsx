@@ -68,11 +68,15 @@ function seed() {
           observedState: { value: 0.5 },
         },
       },
+      // ⚠ `risk` joined `AUTHORITY_OWNING_PANELS` (A10, 25 Sep 2026) — its two
+      // writers now fence themselves inside `RiskPanel`, so it can no longer
+      // stand in for "a panel that owns no fence of its own". An unresolved
+      // node kind falls through to `GenericNodePanel`, still blanket-wrapped.
       {
         id: RISK_ID,
-        type: 'risk',
+        type: 'milestone',
         position: { x: 0, y: 0 },
-        data: { kind: 'risk', label: 'Churn spikes' },
+        data: { kind: 'milestone', label: 'Churn spikes', description: 'No bespoke panel exists for this node kind yet.' },
       },
     ] as never[],
     edges: [] as never[],

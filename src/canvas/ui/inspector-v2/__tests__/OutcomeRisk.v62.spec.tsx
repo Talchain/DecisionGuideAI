@@ -96,17 +96,16 @@ describe('OutcomePanel v6.2', () => {
     expect(screen.getByText('Customer acquisition cost')).toBeTruthy()
   })
 
-  it('shows goal contribution bar', () => {
+  // A8 (25 Sep 2026): the goal contribution bar was `abs(strength) × 100` on
+  // the outbound goal edge — a UI computation with no carried field — and is
+  // removed rather than fixed. See `InspectorRouter.A8.noInventedNumbers.spec.tsx`
+  // for the RED-then-GREEN guard.
+  it('shows no invented goal-contribution bar', () => {
     setOutcomeStore()
     render(<OutcomePanel {...outcomeProps} />)
-    expect(screen.getByText('Contributes to your goal')).toBeTruthy()
-    expect(screen.getByText('80%')).toBeTruthy()
-  })
-
-  it('shows "Based on model structure" text pre-analysis', () => {
-    setOutcomeStore()
-    render(<OutcomePanel {...outcomeProps} />)
-    expect(screen.getByText('Based on model structure')).toBeTruthy()
+    expect(screen.queryByText('Contributes to your goal')).toBeNull()
+    expect(screen.queryByText('80%')).toBeNull()
+    expect(screen.queryByText('Based on model structure')).toBeNull()
   })
 })
 

@@ -49,7 +49,7 @@ function seedCanvas() {
     nodes: [
       {
         id: NODE_ID,
-        type: 'outcome',
+        type: 'milestone',
         position: { x: 0, y: 0 },
         /**
          * ⚠ THE CATEGORY IS LOAD-BEARING NOW, AND IT WAS NOT WHEN THIS WAS
@@ -66,19 +66,24 @@ function seedCanvas() {
          * untouched.
          *
          * `observable` kept the blanket — until 24 Sep 2026, when it too
-         * became authority-owning (its value now commits through
-         * `factor_value_edit`). The panel moved out from under the fixture a
-         * SECOND time, so it now points at an OUTCOME: outcomes are computed,
-         * their pane has no value writer at all, and it keeps the blanket. The
-         * assertion is unchanged; only what it is pointed at moved.
+         * became authority-owning. The panel moved out from under the fixture a
+         * SECOND time, so it pointed at an OUTCOME: outcomes are computed, their
+         * pane had no value writer at all, and it kept the blanket — until A10
+         * (25 Sep 2026) moved `outcome` into `AUTHORITY_OWNING_PANELS` too (its
+         * blanket was ALSO disabling its coaching card's Ask/Dismiss buttons,
+         * which write nothing). THIRD move: an unresolved node kind falls
+         * through `resolvePanelType`'s default arm to `GenericNodePanel`, the
+         * Router's actual fallback and the one node panel nothing will ever
+         * specifically claim out of the blanket. The assertion is unchanged;
+         * only what it is pointed at moved, again.
          */
-        data: { label: SHARED_LABEL, kind: 'outcome' },
+        data: { label: SHARED_LABEL, kind: 'milestone' },
       },
       {
         id: SIBLING_ID,
-        type: 'outcome',
+        type: 'milestone',
         position: { x: 200, y: 0 },
-        data: { label: SHARED_LABEL, kind: 'outcome' },
+        data: { label: SHARED_LABEL, kind: 'milestone' },
       },
     ] as never,
     edges: [] as never,

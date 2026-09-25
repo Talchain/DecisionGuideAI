@@ -1013,11 +1013,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       return true
     })
     const nodeLabelById = new Map<string, string>()
+    const nodeKindById = new Map<string, string | undefined>()
     for (const node of memoizedNodes) {
       const label = (node.data as { label?: unknown } | undefined)?.label
       if (typeof label === 'string') nodeLabelById.set(node.id, label)
+      nodeKindById.set(node.id, (node.data as { kind?: unknown } | undefined)?.kind as string | undefined ?? node.type)
     }
-    return withEdgeAccessibleNames(unique, nodeLabelById, useEdgeLabelMode.getState().mode)
+    // A14 — lets `withEdgeAccessibleNames` ask the shared `isStructuralEdge`
+    // predicate, same lookup shape as the context-menu's own `getNodeKind`
+    // above.
+    return withEdgeAccessibleNames(
+      unique,
+      nodeLabelById,
+      useEdgeLabelMode.getState().mode,
+      (id) => nodeKindById.get(id),
+    )
   }, [edges, memoizedNodes])
 
   // Actions are stable references - don't need shallow comparison

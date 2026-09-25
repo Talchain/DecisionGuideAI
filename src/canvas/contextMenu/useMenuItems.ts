@@ -8,7 +8,7 @@
 import { useMemo } from 'react'
 import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
-  RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
+  RotateCcw, Pencil, Plus, Flag, Scissors, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
   Undo2, Redo2, LayoutGrid, PanelRight, MousePointer2, Hand,
 } from 'lucide-react'
@@ -40,9 +40,7 @@ import {
   markAsAssumption,
   traceToGoal,
   askAI,
-  copyAction,
   cutAction,
-  pasteAction,
   duplicateAction,
   setValueBestCase,
   setValueWorstCase,
@@ -225,13 +223,19 @@ const CONNECTED_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
 /**
  * Local React-Flow mutations that look like shared-model edits. Delete is not
  * in this set: it has its own server-hash/CAS authority gate in the store.
- * Copy, layout, selection, lenses and AI questions are presentation/read-only
+ * Layout, selection, lenses and AI questions are presentation/read-only
  * actions and remain available.
+ *
+ * A20 — `paste` LEFT THIS SET (25 Sep 2026): the row it judged is gone, not
+ * merely re-judged. It was always `enabled: false` whenever `connected` was
+ * false (the observed default), and `Copy` — the row's own producer — writes
+ * only to an in-memory clipboard `store.ts` never gives Paste a durable way to
+ * consume, so both were hidden from every menu that showed them rather than
+ * left present and inert. See `useMenuItems.A20.noDeadClipboard.spec.ts`.
  */
 export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
   'undo',
   'redo',
-  'paste',
   'set-value',
   // ⚠ `add-connected-factor` / `-outcome` / `-risk` LEFT THIS SET ON 18 Sep 2026.
   // They are judged by `CONNECTED_NODE_ADD_MENU_IDS` above, against the two
@@ -257,7 +261,7 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
  * One menu id, judged by the authority of the carrier IT uses.
  *
  * ⚠ An id in NEITHER set is authorised: this filter subtracts, it does not
- * admit. Copy, layout, selection, lens and "Ask AI" items reach a user because
+ * admit. Layout, selection, lens and "Ask AI" items reach a user because
  * nothing here claims them, which is why adding a genuinely local mutation
  * needs an entry in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` rather than silence.
  */
@@ -326,7 +330,6 @@ function menuIdIsAuthorised(id: string, connected: boolean): boolean {
 export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
   'undo',
   'redo',
-  'paste',
   'cut',
   // ⛔ `duplicate` REMOVED 13 Sep 2026 — it FAILED BOTH CLAUSES of this set's own
   // stated criterion, and the contradiction was already written down fifteen
@@ -479,15 +482,12 @@ export function useMenuItems({
   interactionMode,
   onSetInteractionMode,
 }: UseMenuItemsOptions): MenuEntry[] {
-  const clipboard = useCanvasStore((s) => s.clipboard)
-  const hasClipboard = clipboard !== null && clipboard.nodes.length > 0
-
   return useMemo(() => {
     const wrap = (action: () => void | Promise<void>) => () => { void action(); onClose() }
 
     if (target.kind === 'pane') {
       return applyContextMenuMutationAuthority(
-        buildPaneMenu(target, showToast, screenToFlowPosition, hasClipboard, wrap, interactionMode, onSetInteractionMode),
+        buildPaneMenu(target, showToast, screenToFlowPosition, wrap, interactionMode, onSetInteractionMode),
       )
     }
     if (target.kind === 'node') {
@@ -499,10 +499,10 @@ export function useMenuItems({
       return applyContextMenuMutationAuthority(buildEdgeMenu(target, showToast, wrap))
     }
     if (target.kind === 'multi') {
-      return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, hasClipboard, wrap))
+      return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, wrap))
     }
     return []
-  }, [target, showToast, screenToFlowPosition, hasClipboard, onClose, onOpenCustomValue])
+  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue])
 }
 
 // ---------------------------------------------------------------------------
@@ -513,7 +513,6 @@ function buildPaneMenu(
   target: Extract<ContextTarget, { kind: 'pane' }>,
   showToast: ShowToastFn,
   screenToFlowPosition: (pos: { x: number; y: number }) => { x: number; y: number },
-  hasClipboard: boolean,
   wrap: (action: () => void | Promise<void>) => () => void,
   interactionMode: 'select' | 'hand' | undefined,
   onSetInteractionMode: ((mode: 'select' | 'hand') => void) | undefined,
@@ -625,16 +624,6 @@ function buildPaneMenu(
       enabled: store.canRedo(),
       disabledReason: store.canRedo() ? undefined : 'Nothing to redo',
       action: wrap(() => useCanvasStore.getState().redo()),
-    },
-    {
-      id: 'paste',
-      label: 'Paste',
-      icon: ClipboardPaste,
-      shortcut: '\u2318V',
-      tooltip: 'Paste copied elements',
-      enabled: hasClipboard,
-      disabledReason: hasClipboard ? undefined : 'Nothing to paste',
-      action: wrap(() => pasteAction(flowPos, showToast)),
     },
     DIV,
     {
@@ -922,15 +911,6 @@ function buildNodeMenu(
       action: wrap(() => cutAction(showToast)),
     },
     {
-      id: 'copy',
-      label: 'Copy',
-      icon: Copy,
-      shortcut: '\u2318C',
-      tooltip: 'Copy selected elements',
-      enabled: true,
-      action: wrap(() => copyAction()),
-    },
-    {
       id: 'duplicate',
       label: 'Duplicate',
       icon: CopyPlus,
@@ -1083,7 +1063,6 @@ function buildEdgeMenu(
 function buildMultiMenu(
   target: Extract<ContextTarget, { kind: 'multi' }>,
   showToast: ShowToastFn,
-  _hasClipboard: boolean,
   wrap: (action: () => void | Promise<void>) => () => void,
 ): MenuEntry[] {
   return [
@@ -1115,15 +1094,6 @@ function buildMultiMenu(
       tooltip: 'Cut selected elements',
       enabled: true,
       action: wrap(() => cutAction(showToast)),
-    },
-    {
-      id: 'copy',
-      label: 'Copy',
-      icon: Copy,
-      shortcut: '\u2318C',
-      tooltip: 'Copy selected elements',
-      enabled: true,
-      action: wrap(() => copyAction()),
     },
     {
       id: 'duplicate',

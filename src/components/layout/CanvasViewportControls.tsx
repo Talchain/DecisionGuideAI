@@ -1,6 +1,20 @@
 /**
  * CanvasViewportControls — bottom-left vertical floating toolbar with zoom,
- * fit-view, auto-arrange, density and the "how to read this" legend.
+ * fit-view, auto-arrange and the "how to read this" legend.
+ *
+ * A19 — THE DENSITY TOGGLE WAS REMOVED (25 Sep 2026), NOT FIXED. Compact set
+ * `layerSpacing` to 30; `layout.ts`'s own floor,
+ * `Math.max(LAYOUT_LAYER_GAP, layerSpacing ?? …)` with `LAYOUT_LAYER_GAP = 48`
+ * (`nodeLayoutConstants.ts:611`), raised it straight back to 48 — the exact
+ * value comfortable already uses. So pressing the toggle changed no rendered
+ * spacing at all, while still firing `onAutoArrange()` and its "Auto-arranged
+ * layout." success toast — a control that told the user something happened
+ * when nothing did. The prototype has no density control, so this removes it
+ * rather than un-flooring `layout.ts`, which the item did not ask for and
+ * which existing callers may depend on. `layoutStore.ts`'s `setDensity` /
+ * `densityOf` / `LAYOUT_DENSITY_PRESETS` are left in place — untouched,
+ * unreachable from any UI now — since a full unwind is a separate cleanup
+ * from removing the one control that called them.
  *
  * Reads zoom level reactively from the @xyflow/react store.
  * All action handlers are passed as props from ReactFlowGraph.
@@ -33,11 +47,10 @@
  */
 
 import { memo } from 'react'
-import { ZoomOut, ZoomIn, Maximize2, LayoutGrid, Rows3, Rows4 } from 'lucide-react'
+import { ZoomOut, ZoomIn, Maximize2, LayoutGrid } from 'lucide-react'
 import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
 import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
-import { useLayoutStore, densityOf } from '../../canvas/layoutStore'
 import styles from './CanvasFloatingToolbar.module.css'
 
 interface CanvasViewportControlsProps {
@@ -60,16 +73,6 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   // name (see `.readout` — "400%" does not fit the shared circle legibly).
   const zoomWhole = String(Math.round(zoom * 100))
   const zoomPct = `${zoomWhole}%`
-
-  // D4: comfortable/compact density is derived from the persisted tier spacing.
-  const layerSpacing = useLayoutStore(s => s.layerSpacing)
-  const setDensity = useLayoutStore(s => s.setDensity)
-  const density = densityOf(layerSpacing)
-  const nextDensity = density === 'compact' ? 'comfortable' : 'compact'
-  const toggleDensity = () => {
-    setDensity(nextDensity)
-    onAutoArrange() // re-run layout with the new spacing
-  }
 
   return (
     <nav aria-label="Viewport controls" className={styles.viewportControls}>
@@ -114,7 +117,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
         </Tooltip>
       </div>
 
-      {/* Layout group: fit to view, auto-arrange, density */}
+      {/* Layout group: fit to view, auto-arrange */}
       <div className={styles.group}>
         <Tooltip content="Fit to view">
           <button
@@ -135,24 +138,6 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
             onClick={onAutoArrange}
           >
             <LayoutGrid className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        {/* D4: layout density — comfortable ⇄ compact (tighter tier spacing).
-            Pressed takes the sidebar's active treatment, the same grammar its
-            own mode toggles use. */}
-        <Tooltip content={density === 'compact' ? 'Comfortable spacing' : 'Compact spacing'}>
-          <button
-            type="button"
-            className={density === 'compact' ? styles.iconButtonActive : styles.iconButton}
-            aria-label={`Layout density: ${density}. Switch to ${nextDensity}.`}
-            aria-pressed={density === 'compact'}
-            data-testid="layout-density-toggle"
-            onClick={toggleDensity}
-          >
-            {density === 'compact'
-              ? <Rows3 className={styles.icon} aria-hidden="true" />
-              : <Rows4 className={styles.icon} aria-hidden="true" />}
           </button>
         </Tooltip>
       </div>

@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { isDivider, isMenuItem, type MenuEntry, type MenuItemDef } from './types'
@@ -62,11 +63,16 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
 
   let actionIdx = -1
 
-  return (
+  // A9 — same defect and fix as the parent menu (`CanvasContextMenu.tsx`):
+  // `position: fixed` at a z-index (101) below `OutputsDock`'s 900 sat under
+  // the dock for any submenu opened near it. Portalled to `document.body` so
+  // it is not left relying on always being rendered inside the parent menu's
+  // own portal, and raised above the dock.
+  return createPortal(
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-[101] min-w-[180px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
+      className="fixed z-[952] min-w-[180px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
       style={{ left: position.left, top: position.top }}
       onKeyDown={handleKeyDown}
     >
@@ -129,6 +135,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
           </button>
         )
       })}
-    </div>
+    </div>,
+    document.body,
   )
 }

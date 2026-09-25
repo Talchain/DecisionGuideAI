@@ -133,18 +133,18 @@ describe('pane menu', () => {
     }
   })
 
-  it('mounts paste as disabled-with-a-reason rather than deleting it', () => {
-    // The clipboard is null in this fixture, so paste would be disabled anyway.
-    // What matters is that the row EXISTS and carries a reason: a user who
-    // pressed ⌘C then found no Paste at all could not tell "constrained" from
-    // "broken", which is the defect this replaced.
+  it('A20 — mounts no paste row at all; Copy has no durable way to feed it', () => {
+    // ⚠ THIS TEST USED TO ASSERT THE OPPOSITE (disabled-with-a-reason), and the
+    // reversal is deliberate (25 Sep 2026). Paste was never reachable through
+    // any authority state this app has: it was gated on `canvasSemanticMutations`
+    // via `LOCAL_SEMANTIC_CONTEXT_MENU_IDS`, which is `'disabled'` by default,
+    // and its only producer — Copy — wrote to an in-memory clipboard with no
+    // durable carrier. A row that can never do anything is hidden, not shown
+    // inert. See `useMenuItems.A20.noDeadClipboard.spec.ts`.
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
-    const paste = findItem(result.current, 'paste')
-    expect(paste).toBeDefined()
-    expect(paste!.enabled).toBe(false)
-    expect(paste!.disabledReason).toBeTruthy()
+    expect(findItem(result.current, 'paste')).toBeUndefined()
   })
 
   /**
@@ -183,14 +183,16 @@ describe('factor node menu (full)', () => {
     kind: 'node', nodeId: 'f1', nodeType: 'factor', node, screenPos: { x: 0, y: 0 },
   }
 
-  it('keeps inquiry, copy and conditional delete while hiding local semantic writes', () => {
+  it('keeps inquiry and conditional delete while hiding local semantic writes and Copy (A20)', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
     expect(ids).toContain('ask-ai')
     expect(ids).toContain('explore')
-    expect(ids).toContain('copy')
+    // A20 — Copy wrote only to an in-memory clipboard Paste could never
+    // consume, so it is hidden alongside Paste rather than left as a dead end.
+    expect(ids).not.toContain('copy')
     expect(ids).toContain('delete')
     // ⚠ SHAPE CHANGED 7 Sep 2026: the keyboard-reachable gestures are now
     // SURFACED as disabled rows with a reason instead of deleted, so the
@@ -564,13 +566,15 @@ describe('multi-select menu', () => {
     kind: 'multi', nodeIds: ['f1', 'g1'], edgeIds: ['e1'], screenPos: { x: 0, y: 0 },
   }
 
-  it('keeps inquiry, copy and conditional delete but hides cut and duplicate', () => {
+  it('keeps inquiry and conditional delete but hides cut, duplicate and Copy (A20)', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
     expect(ids).toContain('ask-ai')
-    expect(ids).toContain('copy')
+    // A20 — Copy wrote only to an in-memory clipboard Paste could never
+    // consume, so it is hidden alongside Paste rather than left as a dead end.
+    expect(ids).not.toContain('copy')
     expect(ids).toContain('delete')
     // ⚠ SHAPE CHANGED 7 Sep 2026: the keyboard-reachable gestures are now
     // SURFACED as disabled rows with a reason instead of deleted, so the
