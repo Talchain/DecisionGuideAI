@@ -39,8 +39,8 @@ import { InspectorRouter } from '../InspectorRouter'
 import { INSPECTOR_READ_ONLY_REASON } from '../useInspectorMutations'
 import { useCanvasStore } from '../../../store'
 
-const NODE_ID = 'fac_monthly_eng_cost'
-const SIBLING_ID = 'fac_sibling'
+const NODE_ID = 'out_monthly_eng_cost'
+const SIBLING_ID = 'out_sibling'
 /** Two nodes, ONE label — so a value predicate cannot bind, only an id can. */
 const SHARED_LABEL = 'Monthly eng cost'
 
@@ -49,7 +49,7 @@ function seedCanvas() {
     nodes: [
       {
         id: NODE_ID,
-        type: 'factor',
+        type: 'outcome',
         position: { x: 0, y: 0 },
         /**
          * ⚠ THE CATEGORY IS LOAD-BEARING NOW, AND IT WAS NOT WHEN THIS WAS
@@ -65,18 +65,20 @@ function seedCanvas() {
          * finds none and fails — while the property it is really about is
          * untouched.
          *
-         * `observable` keeps the blanket, so the twin demonstrates exactly what
-         * it always demonstrated. Changed the fixture rather than weakening the
-         * assertion: the assertion is right, it was pointed at a panel that
-         * moved out from under it.
+         * `observable` kept the blanket — until 24 Sep 2026, when it too
+         * became authority-owning (its value now commits through
+         * `factor_value_edit`). The panel moved out from under the fixture a
+         * SECOND time, so it now points at an OUTCOME: outcomes are computed,
+         * their pane has no value writer at all, and it keeps the blanket. The
+         * assertion is unchanged; only what it is pointed at moved.
          */
-        data: { label: SHARED_LABEL, kind: 'factor', category: 'observable' },
+        data: { label: SHARED_LABEL, kind: 'outcome' },
       },
       {
         id: SIBLING_ID,
-        type: 'factor',
+        type: 'outcome',
         position: { x: 200, y: 0 },
-        data: { label: SHARED_LABEL, kind: 'factor', category: 'observable' },
+        data: { label: SHARED_LABEL, kind: 'outcome' },
       },
     ] as never,
     edges: [] as never,

@@ -55,12 +55,72 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 // was not hidden; it was on the next line of an existing import.
 import { canCaptureGoalTarget, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
+import {
+  SuccessTargetLine,
+  type SuccessTargetLineProps,
+} from '../../../../components/results/analysisNew/sections/SuccessTargetLine'
+import { ANALYSIS_NEW_COPY } from '../../../../components/results/analysisNew/analysisNewCopy'
+import { RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
+
+/**
+ * ⭐ THE GOAL PANE'S NOTICE, AND IT EXISTS SO THIS PANE CANNOT INHERIT A
+ * SENTENCE WRITTEN ABOUT ANOTHER ONE.
+ *
+ * The blanket string says "Other fields here can't yet be saved" — false the
+ * moment the target control below reaches the shared model. The option string
+ * names factor targets this pane does not have. So the goal pane says its own
+ * facts: the name (conditionally, the shared clause), the target (an ACTION —
+ * it is sent to Olumi, which may still refuse it, so no outcome is claimed), and
+ * an open complement for everything else, which stays fenced.
+ */
+export const INSPECTOR_GOAL_REASON =
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. You can also set this goal's target below, which asks Olumi to record it. Other fields here are read-only for now.`
+
+/** Every outcome `SuccessTargetLine` can report, taken from its own signature. */
+type GoalTargetCommitOutcome = Parameters<SuccessTargetLineProps['onCommitOutcome']>[0]
+
+/**
+ * ⛔ THE ONE RECEIPT THIS PANE DOES NOT BORROW (independent review of #1954,
+ * 5820109030). `dispatched` means `add_constraint` was HANDED to the
+ * conversation, not that anything was written: it is an LLM-mediated tool, and
+ * in OpenAI mode no goal-target writer exists (#63 5818078809 — served
+ * `goal_threshold_raw` unchanged). The register's "The shared model updates when
+ * it answers" then promised an outcome the reply contradicted, and it stayed
+ * under the control. The reply is the one surface that knows, so the receipt
+ * points at it and promises nothing.
+ */
+export const INSPECTOR_GOAL_TARGET_DISPATCHED = 'Sent to Olumi. Its reply says whether the target was recorded.'
+
+/**
+ * What the pane says after a target commit — the Model tab's OWN sentences
+ * (`ModelStrip` shows the same five through a toast), read from the register
+ * rather than re-typed, EXCEPT `dispatched` (above). A `Record` over the
+ * control's outcome union, so a sixth outcome fails the typecheck instead of
+ * borrowing one of these.
+ */
+const GOAL_TARGET_RECEIPT: Record<GoalTargetCommitOutcome, string> = {
+  dispatched: INSPECTOR_GOAL_TARGET_DISPATCHED,
+  local_only: ANALYSIS_NEW_COPY.successTarget.changedLocally,
+  no_unit: ANALYSIS_NEW_COPY.successTarget.noUnit,
+  not_a_number: ANALYSIS_NEW_COPY.successTarget.notANumber,
+  not_encodable: ANALYSIS_NEW_COPY.successTarget.notEncodable,
+}
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
   techMode,
   onClose,
   onNavigate,
+  /**
+   * ⛔ A DUTY, NOT A PERMISSION (see `InspectorPanelProps`). Present only when
+   * the Router has NOT wrapped this pane — i.e. in the mounted app, since `goal`
+   * joined `AUTHORITY_OWNING_PANELS`. Then every writer without a durable
+   * carrier sits behind this pane's own fence (description, constraints,
+   * advanced editor), and the target control is `SuccessTargetLine` — the
+   * Model tab's control, committing through `proposeGoalTarget` — instead of
+   * the store-only `GoalThresholdEditor`.
+   */
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -292,6 +352,9 @@ export const GoalPanel = memo(function GoalPanel({
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
+  /** The last target commit's outcome — rendered as the Model tab's own sentence. */
+  const [targetOutcome, setTargetOutcome] = useState<GoalTargetCommitOutcome | null>(null)
+
   // B.5: Add constraint form state.
   // The dropdown carries the factor's NODE ID, not its label: PLoT's constraint
   // preflight resolves `node_id` against graph.nodes, so a label here produces
@@ -397,11 +460,47 @@ export const GoalPanel = memo(function GoalPanel({
 
   if (!nodeId || !node) return null
 
+  /** The store's question (see the branch-gate note at §4.2): may a readout stand. */
+  const showsTargetReadout = goalThreshold != null && targetDisplay != null && !canCaptureTarget
+
+  /**
+   * The probability sentence under a stated target. One element, two readers:
+   * the readout arm below and the mounted target block, so the two cannot drift.
+   */
+  const targetProbabilityLine = typeof probGoal === 'number' ? (
+    <p className={`${typography.panelBody} text-text-body mt-1`}>
+      {/* ROADMAP 2.282. Withheld arm: the shared register's
+          compact readout verbatim, with the existing
+          "current model" qualifier kept as a trailing clause —
+          the only adaptation is the joining comma, which the
+          register's own no-full-stop `phrase()` form is designed
+          to accept. Permitted arm byte-identical. */}
+      {goalFitSubstituted
+        ? `${GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}, based on the current model.`
+        : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
+    </p>
+  ) : (
+    <p className={`${typography.panelMeta} text-text-light mt-1`}>
+      {GOAL_CONSTRAINT_COPY.runForProbability}
+    </p>
+  )
+
+  /** True only while the pipeline holds no number — see the note in the editor arm. */
+  const targetUnlocksLine = pipelineHoldsNoTargetNumber ? (
+    <p className={`${typography.panelMeta} text-info mt-1.5`}>
+      {GOAL_CONSTRAINT_COPY.targetUnlocks}
+    </p>
+  ) : null
+
   return (
     <div>
       {/* ── Context group ─────────────────────────────────────── */}
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty */}
+        {/* `mutations.setDescription` is a local store write with no carrier.
+            Fenced here so the target control, which has one, can stay live.
+            The fence wraps both branches, as `FactorControllablePanel`'s does. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
         {description || isEditingDescription ? (
           <textarea
             value={description}
@@ -422,6 +521,7 @@ export const GoalPanel = memo(function GoalPanel({
             onStartEditing={() => setIsEditingDescription(true)}
           />
         )}
+        </fieldset>
 
         {/* Post-analysis: ImportanceBar. Pre-analysis: GoalProgressChecklist. */}
         {isResultsMode ? (
@@ -459,29 +559,51 @@ export const GoalPanel = memo(function GoalPanel({
               ⭐ So: WHICH branch is the store's question, WHAT it says is the
               node's, and `targetDisplay != null` still guards against claiming a
               target we cannot state — which is #1844's withholding intent intact. */}
-          {goalThreshold != null && targetDisplay != null && !canCaptureTarget ? (
+          {readOnly ? (
+            /* ⭐⭐ THE MOUNTED TARGET CONTROL IS THE MODEL TAB'S, NOT A COPY OF IT.
+               `readOnly` is what the Router hands this pane since `goal` joined
+               `AUTHORITY_OWNING_PANELS` — i.e. this is the branch a user sees.
+               `GoalThresholdEditor` (the other arm) commits through
+               `setGoalThresholdAndUpdateNode`, a store-only write that reverts
+               on reload; the note beneath it records why carving it out of the
+               fence "would make things worse". So it is not carved out — it is
+               not rendered here at all, and `SuccessTargetLine` stands in its
+               place: the same direction selector (at least / at most), the same
+               value parse and the same unit rule as the Model tab, committing
+               through the same `useModelEditAuthority.proposeGoalTarget` →
+               typed `add_constraint`, with NO local echo (the applied response
+               owns the store write). Pinned through the real Router by
+               `GoalPanel.targetReachesTheModel.spec.tsx`.
+
+               ⚠ IT REPLACES THE "Success means reaching ≥ …" READOUT TOO, and
+               that is deliberate: `SuccessTargetLine` shows the stated figure
+               and whose it is, and paints NO bound onto a target whose direction
+               nobody recorded — the readout's `≥` did. The probability sentence
+               and the "unlocks" sentence keep their own gates. */
+            <div data-testid="goal-panel-target-block">
+              <SuccessTargetLine
+                goalNodeId={nodeId}
+                onCommitOutcome={setTargetOutcome}
+                testId="goal-panel-target"
+              />
+              {targetOutcome !== null && (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1`}
+                  data-testid="goal-panel-target-outcome"
+                  role="status"
+                >
+                  {GOAL_TARGET_RECEIPT[targetOutcome]}
+                </p>
+              )}
+              {showsTargetReadout ? targetProbabilityLine : targetUnlocksLine}
+            </div>
+          ) : showsTargetReadout ? (
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
                 Success means reaching {'\u2265'} {targetDisplay}
               </p>
               {/* Contextual probability when analysis exists */}
-              {typeof probGoal === 'number' ? (
-                <p className={`${typography.panelBody} text-text-body mt-1`}>
-                  {/* ROADMAP 2.282. Withheld arm: the shared register's
-                      compact readout verbatim, with the existing
-                      "current model" qualifier kept as a trailing clause —
-                      the only adaptation is the joining comma, which the
-                      register's own no-full-stop `phrase()` form is designed
-                      to accept. Permitted arm byte-identical. */}
-                  {goalFitSubstituted
-                    ? `${GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}, based on the current model.`
-                    : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
-                </p>
-              ) : (
-                <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {GOAL_CONSTRAINT_COPY.runForProbability}
-                </p>
-              )}
+              {targetProbabilityLine}
             </div>
           ) : (
             <div>
@@ -553,11 +675,7 @@ export const GoalPanel = memo(function GoalPanel({
                   IS `statedGoalTargetRaw(data) == null`, so a stated
                   `goal_threshold_raw` makes it false and gating the seed on that
                   admission preserves the pre-fill by construction. */}
-              {pipelineHoldsNoTargetNumber && (
-                <p className={`${typography.panelMeta} text-info mt-1.5`}>
-                  {GOAL_CONSTRAINT_COPY.targetUnlocks}
-                </p>
-              )}
+              {targetUnlocksLine}
             </div>
           )}
 
@@ -706,6 +824,10 @@ export const GoalPanel = memo(function GoalPanel({
                         )
                       })()}
                       {prob === null && (
+                        /* `setGoalConstraints` is not a `system_event` carrier;
+                           the edit stays behind the pane's fence, exactly as it
+                           sat behind the Router's. */
+                        <fieldset disabled={readOnly} className="contents" data-writer-fence="constraint-value">
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className={`${typography.panelMeta} text-text-light shrink-0`}>{c.operator}</span>
                           <input
@@ -749,6 +871,7 @@ export const GoalPanel = memo(function GoalPanel({
                             className={`${typography.panelMeta} w-20 border border-panel-border rounded px-1.5 py-0.5 bg-panel text-text-body`}
                           />
                         </div>
+                        </fieldset>
                       )}
                     </div>
                   )
@@ -800,6 +923,11 @@ export const GoalPanel = memo(function GoalPanel({
           {/* B.5: Add constraint button + inline form.
               Disabled in results mode — mutations write to preAnalysisConstraints but
               results mode renders postAnalysisConstraints, causing state mismatch. */}
+          {/* Fenced by the pane when the Router hands it `readOnly`: adding a
+              constraint writes `setGoalConstraints`, not a `system_event`
+              carrier, so it stays exactly as inert as the Router's blanket
+              left it. */}
+          <fieldset disabled={readOnly} className="contents" data-writer-fence="add-constraint">
           {isResultsMode ? null : !showAddConstraint ? (
             <button
               type="button"
@@ -875,6 +1003,7 @@ export const GoalPanel = memo(function GoalPanel({
               </div>
             </div>
           )}
+          </fieldset>
         </PrimaryControlCard>
 
         {/* Coaching — within Your input group, below the card */}
@@ -972,7 +1101,12 @@ export const GoalPanel = memo(function GoalPanel({
 
       {/* ── Expert-only model detail ──────────────────────────── */}
       <TechnicalDisclosure visible={techMode}>
-        <GoalAdvancedEditor nodeId={nodeId} />
+        {/* ⚠ `setThreshold` / `setGoalCap` here are bare `updateNode` writes —
+            NOT routed to `proposeGoalTarget`: the raw-threshold and unit fields
+            carry no direction, and the cap has no carrier at all. Fenced. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+          <GoalAdvancedEditor nodeId={nodeId} />
+        </fieldset>
       </TechnicalDisclosure>
     </div>
   )

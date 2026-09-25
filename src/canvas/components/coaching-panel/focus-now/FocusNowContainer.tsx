@@ -18,8 +18,11 @@ import { useFocusNow } from './useFocusNow'
 export function FocusNowContainer({
   className,
   applicableStaticIds,
+  bare = false,
 }: {
   className?: string
+  /** Reasoning V2: flat rows on the panel, no card. The Analysis tab omits it. */
+  bare?: boolean
   /**
    * ⚠ OPTIONAL, AND ABSENCE MEANS "NO OPINION". Omitted — as ResultsBody omits
    * it — the six generic hygiene rows render exactly as before, so the
@@ -34,7 +37,7 @@ export function FocusNowContainer({
   // The Analysis tab already renders AnalysisFreshnessNotice as the freshness
   // surface, so the panel suppresses its OWN stale banner here to avoid a
   // duplicate stale notice (different wording) on the same trust surface.
-  return <FocusNowPanel {...props} showFreshnessBanner={false} className={className} />
+  return <FocusNowPanel {...props} showFreshnessBanner={false} className={className} bare={bare} />
 }
 
 export default FocusNowContainer

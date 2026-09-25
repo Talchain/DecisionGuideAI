@@ -324,6 +324,27 @@ describe('resolvePersistentLabelPlacements — C2 review: anchor basis + pre-res
     expect(clearOf(0 + off.dx, 140 + off.dy, blocker)).toBe(true)
   })
 
+  it('an ANCHOR OVERRIDE (a same-row `under` route) is placed from the override, not the handle midpoint', () => {
+    // The label of a same-row `under` link renders on its gutter run
+    // (`sameRowRoute.ts` `labelAnchor`), not at the handle midpoint (0, 140).
+    // Discriminating pair: a card over the handle midpoint is now irrelevant;
+    // a card over the override IS dodged.
+    const overHandleMidpoint = rect(-100, 60) // the blocker the arm above dodges
+    const clearOut = resolvePersistentLabelPlacements(
+      [{ id: 'e', sourceRect: source, targetRect: target, anchor: { x: 0, y: 400 } }],
+      [overHandleMidpoint],
+    )
+    expect(clearOut.get('e')).toEqual({ dx: 0, dy: 0 })
+
+    const overOverride = rect(-100, 330) // 330..410 covers y 400
+    const dodged = resolvePersistentLabelPlacements(
+      [{ id: 'e', sourceRect: source, targetRect: target, anchor: { x: 0, y: 400 } }],
+      [overOverride],
+    ).get('e')!
+    expect(Math.abs(dodged.dx) + Math.abs(dodged.dy)).toBeGreaterThan(0)
+    expect(clearOf(0 + dodged.dx, 400 + dodged.dy, overOverride)).toBe(true)
+  })
+
   it('a card over the node-centre midpoint (clear of the render anchor) is NOT dodged', () => {
     const phantom = rect(-100, 160) // hits the 160 box (142..178), misses the 140 box (122..158)
     const out = resolvePersistentLabelPlacements(

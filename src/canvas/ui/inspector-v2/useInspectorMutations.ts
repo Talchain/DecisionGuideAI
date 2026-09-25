@@ -17,6 +17,7 @@ import {
   buildEdgeDirectionEditEvent,
   buildEdgeStrengthConfirmEvent,
 } from '../../conversation/edgeStrengthEdit'
+import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStrength'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -1313,6 +1314,10 @@ export function useEdgeMutations(edgeId: string) {
    */
   const setDirection = useCallback((
     direction: 'positive' | 'negative',
+    opts?: {
+      /** How the send settled, resolved against the model — the same channel `setStrength` reports on. */
+      onSendSettled?: (settlement: SystemEventSendSettlement) => void
+    },
   ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
     if (!edge) return 'not_encodable'
@@ -1320,16 +1325,26 @@ export function useEdgeMutations(edgeId: string) {
     // assertion about the PAST, and the same read feeds both halves so the wire
     // event and the store update can never describe different edges.
     const event = buildEdgeDirectionEditEvent({ edge, direction })
+    const before = (edge.data ?? {}) as Record<string, unknown>
     // The user picking +/− is the ONLY thing that turns the defaulted
     // `direction: 'positive'` into a stated one (ROADMAP 2.263).
     updateEdge(edgeId, { data: { ...edge.data, direction, directionSource: 'user' } })
     if (!event) return 'not_wire_encodable'
     if (!sendSystemEvent) return 'local_only'
-    void Promise.resolve(sendSystemEvent(event)).catch(() => {
-      // Swallowed deliberately, exactly as `setStrength` does: a genuine send
-      // failure is recorded by the conversation's own failure channel, and a
-      // server REFUSAL is not a failure — the promise resolves normally.
-    })
+    // ⛔ THIS USED TO FIRE AND FORGET (`.catch(() => {})`), so a refused flip
+    // stayed on screen, in the store and in autosave while the model kept the
+    // old sign (independent review of #1950, 5820041073). It now takes the
+    // `setStrength` route: in flight, settled, reverted on a proven no-write.
+    // The magnitude is the one the event asserts (`buildEdgeDirectionEditEvent`
+    // sends `|expected.mean|`); the SIGN is what this edit changes, so it is
+    // carried as `sentDirection` and every proof asks it.
+    const sentMagnitude = Math.abs(serverStatedStrengthOf(before)?.mean ?? Number.NaN)
+    markEdgeEditInFlight(edgeId, sentMagnitude, before, direction)
+    settleSystemEventSend(
+      sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction } }),
+      (settlement) =>
+        opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction)),
+    )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 

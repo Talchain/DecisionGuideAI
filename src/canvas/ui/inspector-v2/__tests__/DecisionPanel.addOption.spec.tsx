@@ -7,10 +7,18 @@
  *
  * RED-first: before the wire, clicking did nothing, so the node/edge/selection
  * assertions below would fail.
+ *
+ * ⚠ 24 Sep 2026 — THE CONTROL MOVED, SO THIS FILE NOW RENDERS `DecisionAddOption`.
+ * It sat inside `DecisionPanel`'s options card, which the Router wraps in
+ * `<fieldset disabled>`, so it was inert for every user while this spec (which
+ * renders the panel directly, past the fence) stayed green. It is now its own
+ * component, mounted in the Router's `quickActions` slot. This file still pins
+ * the HANDLER; `DecisionPanel.addOptionIsReachable.spec.tsx` pins that a user
+ * can reach it through the mounted Router, and what it sends.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
-import { DecisionPanel } from '../panels/DecisionPanel'
+import { DecisionAddOption } from '../panels/DecisionPanel'
 import { useCanvasStore } from '../../../store'
 
 function setStore() {
@@ -26,12 +34,6 @@ function setStore() {
   } as any)
 }
 
-const panelProps = {
-  nodeId: 'dec1',
-  techMode: false,
-  onClose: () => {},
-  onNavigate: () => {},
-}
 
 describe('DecisionPanel — "+ Add option" wire', () => {
   beforeEach(() => {
@@ -40,7 +42,7 @@ describe('DecisionPanel — "+ Add option" wire', () => {
 
   it('creates an option node linked to the decision and focuses it', () => {
     setStore()
-    const { getByTestId } = render(<DecisionPanel {...panelProps} />)
+    const { getByTestId } = render(<DecisionAddOption decisionId="dec1" />)
 
     fireEvent.click(getByTestId('decision-add-option'))
 
