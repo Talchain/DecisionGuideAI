@@ -167,6 +167,12 @@ function runWithBothTargetKinds(
 function openUncertaintyAndCollectFocusButtons() {
   const buttons: HTMLElement[] = []
   for (const tid of ['analysis-new-sensitivity', 'analysis-new-uncertainty']) {
+    // ⚠ The sensitivity section stays CLOSED at rest when it holds one finding
+    // (bundle 3, `opensForOneFinding={false}`), and a closed SectionShell
+    // unmounts its rows. Open it the way a reader does, or its NODE row drops out.
+    if (screen.queryByTestId(tid)?.getAttribute('data-section-open') === 'false') {
+      fireEvent.click(screen.getByTestId(`${tid}-toggle`))
+    }
     if (screen.queryAllByTestId(`${tid}-row-toggle`).length === 0) continue
     for (const toggle of screen.getAllByTestId(`${tid}-row-toggle`)) {
       if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
