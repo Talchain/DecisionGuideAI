@@ -218,19 +218,21 @@ describe('a producer NOT-A-TIE keeps today behaviour exactly', () => {
 // same fixtures so the two conditions cannot be confused for one another.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('a WITHHELD turn (leading_option_id null) still marks no leader', () => {
-  it('marks no leader pill even though the verdict permits one', () => {
+describe('a WITHHELD turn (leading_option_id null) ranks nothing by win share (UI-SEM-097)', () => {
+  // This used to pin "all three pills still render, in probability order".
+  // That ordered list WAS the leak: a withheld leader restated as a ranking by
+  // win share (#69 5827478637, served on UI b017e3c2 · CEE 9417228).
+  it('renders no win-share row, even though the verdict permits a leader', () => {
     render(<V5AnalysisResultBlock block={withheldBlock()} />)
-    expect(leaderPills()).toHaveLength(0)
+    expect(screen.queryByTestId('v5-analysis-result-probabilities')).toBeNull()
+    expect(screen.queryByText(/43%|32%|25%/)).toBeNull()
   })
 
-  it('DATA PRESERVED: all three pills still render, in probability order', () => {
+  it('DATA PRESERVED: the summary line is untouched', () => {
     render(<V5AnalysisResultBlock block={withheldBlock()} />)
-    const rendered = pills()
-    expect(rendered).toHaveLength(3)
-    expect(rendered[0]).toHaveTextContent(MAC)
-    expect(rendered[1]).toHaveTextContent(DELL)
-    expect(rendered[2]).toHaveTextContent(STATUS_QUO)
+    expect(screen.getByTestId('v5-analysis-result-summary')).toHaveTextContent(
+      'The three options are close on total cost of ownership.',
+    )
   })
 })
 
