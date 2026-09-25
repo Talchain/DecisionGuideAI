@@ -59,6 +59,7 @@ import {
 } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { shouldShowLabel, getEdgeConfidence } from '../domain/edges'
+import { getStrengthLabel } from '../domain/vocabulary'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
@@ -2886,7 +2887,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         // second call — so the popover and the label cannot drift apart again.
         const confidenceDisplay = edgeLikelihood
         const signedVal = strengthDisplay.show ? strengthDisplay.value : null
+        // ⛔ A7 AUDIT — NO INVENTED PERCENT. The coefficient ×100 read as "20%"
+        // here while the inspector showed the same edge's value as `0.20` — an
+        // invented unit this popover minted and the Adjust-strength chip then
+        // sent to CEE as the user's own words. `strengthPct` still sizes the
+        // bar's WIDTH (a visual proportion, not a unit claim); every reader of
+        // the VALUE gets the signed figure in the data's own units plus the
+        // one canonical band word (`getStrengthLabel`, `domain/vocabulary.ts`).
         const strengthPct = signedVal !== null ? Math.round(Math.abs(signedVal) * 100) : null
+        const strengthSignedWithBand = signedVal !== null
+          ? `${signedVal > 0 ? '+' : signedVal < 0 ? '−' : ''}${Math.abs(signedVal).toFixed(2)} ${getStrengthLabel(Math.abs(signedVal))}`
+          : null
         const confidencePct = confidenceDisplay.show
           ? Math.round(confidenceDisplay.value * 100)
           : null
@@ -3028,7 +3039,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       }}
                     />
                   </div>
-                  <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{strengthPct}%</span>
+                  <span
+                    data-testid="edge-hover-strength-value"
+                    className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap`}
+                  >
+                    {strengthSignedWithBand}
+                  </span>
                 </div>
               )}
               {/* Nothing characterised yet — say that, rather than a number.
@@ -3131,8 +3147,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   actionType="adjust_edge_strength"
                   label={strengthIsEditable ? EDGE_AFFORDANCE_CHAT_ALTERNATIVE : 'Adjust strength'}
                   message={
-                    strengthPct !== null
-                      ? `I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`
+                    strengthSignedWithBand !== null
+                      ? `I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthSignedWithBand}.`
                       : `I want to set the strength of the relationship between ${srcTitle} and ${tgtTitle}. It has not been set yet.`
                   }
                 />
