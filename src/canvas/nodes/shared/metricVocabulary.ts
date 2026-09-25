@@ -955,7 +955,22 @@ export const OPTION_RESULT_COPY = {
   /** The full meaning of `goalOnly` (ED: "your limits aren't in this share"). */
   goalOnlyNote: 'Your limits aren’t in this share: it compares the options on the goal alone.',
   changedNote: 'The model has changed since this run.',
+  /**
+   * Visual contract v3 §02, the stale option state — verbatim (design-gap row
+   * 22). The LAST run's result stays on the card as `Last run` + share (ED 11:52Z
+   * point 8: kept, labelled, never deleted); this line says there is no
+   * comparison of the model as it now stands.
+   */
+  lastRunNoNewComparison: 'Last run · no new comparison yet',
+  /** The same state in the share line's accessible name and tooltip. */
+  noNewComparisonNote: 'No new comparison yet.',
 } as const
+
+/**
+ * Visual contract v3 §02, the baseline option — verbatim (design-gap row 22).
+ * Said only of the ONE declared baseline (`is_baseline === true`).
+ */
+export const OPTION_BASELINE_REFERENCE = 'Reference for the other alternatives.'
 
 /**
  * A factor card before ANY analysis (visual contract v3 §02 draft; design-gap
