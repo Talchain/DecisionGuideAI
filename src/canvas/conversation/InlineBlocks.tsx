@@ -820,6 +820,7 @@ function BlockRenderer({
           block={block}
           variant={isBiasSignalCoachingBlock(block) ? 'bias_signal' : 'default'}
           suppressHeader={suppressHeader}
+          turnId={turnId}
         />
       )
 

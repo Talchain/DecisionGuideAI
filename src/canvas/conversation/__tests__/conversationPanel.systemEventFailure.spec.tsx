@@ -118,6 +118,7 @@ function makeMockConversation(
     setPatchBlockState: (key: string, state: PatchBlockState) => {
       patchStates.set(key, state)
     },
+    settledSourceBlockKeys: new Set<string>(),
     patchRejections,
     setPatchRejection: (key: string, info: PatchRejectionInfo) => {
       patchRejections.set(key, info)
