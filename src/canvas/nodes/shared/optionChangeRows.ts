@@ -67,7 +67,17 @@ export interface OptionSetLike {
   isBaseline: boolean
   /** factorId → the option's target for that factor. */
   targets: ReadonlyMap<string, OptionTargetLike>
+  /**
+   * Factors the option NAMES with no target value at all — no number and no
+   * reading (design-gap row 22, "Needs input"). They take their place in the
+   * shared order like any change, so the gap reads where the value would.
+   */
+  unsetTargets?: ReadonlySet<string>
 }
+
+/** Every factor an option names, set or not — the keys the row order reads. */
+const namedFactorIds = (o: OptionSetLike): string[] =>
+  [...o.targets.keys(), ...[...(o.unsetTargets ?? [])].filter((fid) => !o.targets.has(fid))]
 
 /**
  * The shared factor order for the whole option row: most-shared first, then
@@ -80,7 +90,7 @@ export function sharedChangeOrder(
   const coverage = new Map<string, number>()
   for (const o of options) {
     if (o.isBaseline) continue
-    for (const fid of o.targets.keys()) coverage.set(fid, (coverage.get(fid) ?? 0) + 1)
+    for (const fid of namedFactorIds(o)) coverage.set(fid, (coverage.get(fid) ?? 0) + 1)
   }
   const position = new Map(modelOrder.map((id, i) => [id, i]))
   return [...coverage.keys()].sort(
@@ -98,14 +108,15 @@ export function rowFactorIdsFor(
   limit: number = OPTION_CARD_ROW_LIMIT,
 ): string[] {
   const out: string[] = []
+  const named = new Set(namedFactorIds(option))
   for (const fid of order) {
     if (out.length >= limit) break
-    if (option.targets.has(fid)) out.push(fid)
+    if (named.has(fid)) out.push(fid)
   }
   // Any target the shared order did not reach (defensive — the order is built
   // from every option's targets, so this is only reachable with a stale order).
   if (out.length < limit) {
-    for (const fid of option.targets.keys()) {
+    for (const fid of named) {
       if (out.length >= limit) break
       if (!out.includes(fid)) out.push(fid)
     }
@@ -161,6 +172,45 @@ export interface OptionChangeRow {
   targetSource: FactorValueSourceMark
   /** The target equals the baseline option's — said, not hidden. */
   sameAsReference: boolean
+  /**
+   * The option names this factor with NO target value (design-gap row 22): the
+   * amount cell reads `Needs input` and carries no source mark — there is no
+   * target to attribute. `change` / `fullChange` are `OPTION_ROW_NEEDS_INPUT`.
+   */
+  needsInput?: true
+}
+
+/** Visual contract v3 §02: the amount cell of a target with no value. */
+export const OPTION_ROW_NEEDS_INPUT = 'Needs input'
+
+/**
+ * The row for a factor the option names with no target value — the same label
+ * rules as `buildOptionChangeRow`, and no invented change, reference or value.
+ */
+export function buildOptionNeedsInputRow({
+  factorId,
+  factor,
+  source,
+}: {
+  factorId: string
+  factor: Pick<FactorContext, 'label'>
+  source: string | null
+}): OptionChangeRow {
+  const fullLabel = sentenceCaseFactorLabel(cleanFactorLabel(factor.label || factorId)) || factorId
+  const targetSource = interventionTargetSourceMark(source)
+  return {
+    factorId,
+    label: compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS),
+    fullLabel,
+    change: OPTION_ROW_NEEDS_INPUT,
+    fullChange: OPTION_ROW_NEEDS_INPUT,
+    target: '',
+    reference: 'none',
+    estimated: targetSource.kind === 'olumi',
+    targetSource,
+    sameAsReference: false,
+    needsInput: true,
+  }
 }
 
 export function buildOptionChangeRow({
