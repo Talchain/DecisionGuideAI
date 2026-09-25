@@ -17,7 +17,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -29,9 +29,11 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { genuineDecision, makeData } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
+// V2 fidelity gap 24 (24 Sep 2026): "How this was worked out" and "Coaching and
+// method" are deleted; what they held folds into About, which carries their gate
+// ("a heading claims something is under it") from here on.
 const GROUPS = [
-  'analysis-new-how-worked-out',
-  'analysis-new-coaching-and-method',
+  'analysis-new-about',
   'analysis-new-what-moves-the-outcome',
 ] as const
 
@@ -73,7 +75,9 @@ describe('a group heading claims something is under it', () => {
    */
   it('renders no coaching or what-moves heading pre-run', () => {
     renderBody(makeData(), true)
-    for (const id of ['analysis-new-coaching-and-method', 'analysis-new-what-moves-the-outcome']) {
+    // V2 gap 24: the coaching shell is gone; About now holds the coaching, and
+    // pre-run with no brief it has nothing to hold.
+    for (const id of ['analysis-new-about', 'analysis-new-what-moves-the-outcome']) {
       expect(
         screen.queryByTestId(id),
         `${id} rendered a heading over sections that all returned null`,
@@ -101,8 +105,11 @@ describe('a group heading claims something is under it', () => {
     // `genuineDecision()` grounds no insight well enough to lead with, so the
     // section's honest empty message is the group's ONLY coaching content.
     renderBody(genuineDecision())
+    // V2 gap 24: re-pointed from the deleted coaching group to About, which now
+    // holds the Key insights section and its honest empty message.
+    fireEvent.click(screen.getByTestId('analysis-new-about-toggle'))
     expect(
-      screen.queryByTestId('analysis-new-coaching-and-method'),
+      within(screen.getByTestId('analysis-new-about')).queryByTestId('analysis-new-key-insights'),
       'a completed run that found no insights still owes the reader that sentence',
     ).not.toBeNull()
     // ⚠ NOT asserting the sentence's own testid here. `AnalysisNewSection` is
@@ -135,9 +142,16 @@ describe('a group heading claims something is under it', () => {
     } as never)
 
     renderBody(makeData(), true)
+    // V2 gap 24: re-pointed from the deleted method group to About, which now
+    // holds the register and must render pre-run for it.
     expect(
-      screen.queryByTestId('analysis-new-how-worked-out'),
-      'pre-run with a brief, the method group is the only thing the reader has — it must not be gated away',
+      screen.queryByTestId('analysis-new-about'),
+      'pre-run with a brief, About is the only thing the reader has — it must not be gated away',
+    ).not.toBeNull()
+    fireEvent.click(screen.getByTestId('analysis-new-about-toggle'))
+    expect(
+      within(screen.getByTestId('analysis-new-about')).queryByTestId('what-i-was-given-section'),
+      'and it opens onto the register',
     ).not.toBeNull()
   })
 })

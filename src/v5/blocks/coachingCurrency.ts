@@ -152,7 +152,50 @@
  * unanswerable, and the honest answer to an unanswerable question is to say so:
  * inferring `current` from absence would restore the exact silent-but-wrong state
  * this module exists to end, and inferring `changed` would cry wolf.
+ *
+ * ⚠ ONE DELIBERATE EXCEPTION — the run-turn rule below. A `run_analysis` card's
+ * absence resolves HISTORICAL, not cannot-confirm, and the section says why.
+ *
+ * ## The RUN-TURN rule — a `run_analysis` card is about ONE run
+ *
+ * Contract: Reasoning & Coaching, programme-docs #63 5819380376 §3. A card whose
+ * `source_handler` is `'run_analysis'` was written about a specific analysis
+ * RUN, and it carries a dispatching action that talks about that run's result.
+ * The hash pair above cannot tell two runs over the SAME graph apart (a rerun on
+ * an unchanged model re-stamps nothing either hash sees), so for these cards
+ * the verdict is CURRENT only when ALL THREE hold:
+ *
+ *   1. `analysis_state.run_state.kind === 'complete_current'` — CEE's own
+ *      statement that the latest run is complete and current;
+ *   2. `graph_hash_at_generation === analysis_ready.current_graph_hash` — the
+ *      same CEE-vs-CEE comparison as above, never a UI hash;
+ *   3. `created_at === run_state.computed_at` — exact string equality, as the
+ *      producer wrote both; never parsed, never normalised, so a format drift
+ *      fails CLOSED (historical), which is the safe direction.
+ *
+ * Anything else — including ANY of those five values being unknown — is
+ * HISTORICAL: the verdict resolves to `'changed'`, so a face notice speaks and
+ * the card's action goes inert beside it. Unknown is NOT cannot-confirm here,
+ * by the contract — and the mechanics show why it cannot be: a cannot-confirm
+ * card keeps a LIVE action (it has no face notice to disable it), so mapping
+ * unknown there would leave a run-turn action clickable on a card nobody can
+ * show is about the current run.
+ *
+ * ⚠ ONE SENTENCE PER FAILED LIMB, NOT ONE FOR ALL THREE. The first version of
+ * this rule reused `FRESHNESS_NOTICE.stale` ("Your model has changed…") for
+ * every failure, which is FALSE for a rerun on an unchanged model — the hashes
+ * agree and only the run moved. `runTurnStaleReason` names the failed limb and
+ * `RUN_TURN_NOTICE` carries the producer-authored sentence for each (R&C,
+ * #63 5821034205); `resolveFreshnessNotice` places it after the producer's own
+ * non-fresh verdict and before the generic derived sentence.
+ *
+ * Cards WITHOUT `source_handler === 'run_analysis'` never enter this rule: the
+ * branch is skipped outright and the verdict is the pre-existing one, byte for
+ * byte. When all three limbs hold, the verdict still falls through to the
+ * dirty-window borrow above — "current for this run" is not "current for the
+ * model the user has since edited".
  */
+import type { AnalysisRunStateKind } from '@talchain/schemas/boundary'
 import type { FreshnessDisplaySemantic } from '../../canvas/store/analysisFreshness'
 import type { V5Phase3Freshness } from '../../canvas/conversation/types'
 
@@ -198,9 +241,18 @@ export const FRESHNESS_NOTICE: Partial<Record<string, string>> = {
 export function resolveFreshnessNotice(
   producerFreshness: V5Phase3Freshness | undefined,
   currency: CoachingCurrency,
+  /**
+   * A `run_analysis` card's failed limb (`runTurnStaleReason`). It sits
+   * BETWEEN the two existing sources: the producer's own non-fresh verdict
+   * still wins, and the run-turn sentence replaces the generic derived one,
+   * which would otherwise say "your model has changed" about a same-model
+   * rerun. Omitted / null — every other card — and the result is unchanged.
+   */
+  runTurnReason?: RunTurnStaleReason | null,
 ): string | undefined {
   return (
     (producerFreshness ? FRESHNESS_NOTICE[producerFreshness] : undefined) ??
+    (runTurnReason ? RUN_TURN_NOTICE[runTurnReason] : undefined) ??
     (currency === 'changed' ? FRESHNESS_NOTICE.stale : undefined)
   )
 }
@@ -232,6 +284,154 @@ export interface LocalEditWindow {
   displaySemantic: FreshnessDisplaySemantic
 }
 
+/** The producer handler whose cards the run-turn rule governs. */
+export const RUN_ANALYSIS_SOURCE_HANDLER = 'run_analysis'
+
+/** Does the run-turn rule govern this card? Exact match on the producer's token. */
+export function isRunTurnCoachingCard(sourceHandler: string | undefined | null): boolean {
+  return sourceHandler === RUN_ANALYSIS_SOURCE_HANDLER
+}
+
+/**
+ * The run-turn inputs: two from the CARD, two from CEE's `analysis_state` for
+ * the current turn. Passed as data — like `LocalEditWindow` — so this module
+ * stays pure; the store reads live in `useCoachingCurrency`.
+ */
+export interface RunTurnCurrencyInputs {
+  /** The block's `source_handler`. The rule applies only to `'run_analysis'`. */
+  sourceHandler: string | undefined | null
+  /** The block's `created_at`, verbatim. */
+  createdAt: string | undefined | null
+  /** `analysis_state.run_state.kind`; absent when the turn stated no verdict. */
+  runStateKind: AnalysisRunStateKind | undefined | null
+  /** `analysis_state.run_state.computed_at` — carried only by the `complete_*` kinds. */
+  runComputedAt: string | undefined | null
+}
+
+/**
+ * WHICH limb of the three-part rule a `run_analysis` card failed — each one is
+ * a different fact about the card, and each gets its own sentence.
+ *
+ *   · `model_changed`    — the model moved since the card was written.
+ *   · `running`          — a new run is in flight; this card is about the
+ *                          earlier one.
+ *   · `earlier_analysis` — CEE STATED the latest run is not complete-and-current
+ *                          (`complete_stale`, `blocked`, `refused`, `never_run`).
+ *   · `unknown`          — nothing on hand says current OR not current: no run
+ *                          state (every reload — the boot path never restores
+ *                          `complete_current`), `unknown_degraded`, or a hash or
+ *                          stamp the rule needs is missing. "Written about an
+ *                          earlier analysis" was FALSE here about the latest run
+ *                          (AI Conversation #63 5825740518), so it gets its own
+ *                          sentence that claims nothing it cannot know.
+ *   · `earlier_run`      — same model, but a newer run has completed since.
+ */
+export type RunTurnStaleReason = 'model_changed' | 'running' | 'earlier_analysis' | 'unknown' | 'earlier_run'
+
+/**
+ * The notice per failed limb — PRODUCER-AUTHORED COPY, verbatim (Reasoning &
+ * Coaching, programme-docs #63 5821034205; `running` and `earlier_analysis`
+ * superseded by 5822347235 §2). Never re-worded here: the producer lane owns
+ * what this card says about itself.
+ *
+ * ⛔ NO NOTICE NAMES A REMEDY. The earlier "re-run to check it still holds"
+ * pointed at a control that is absent or refused while the run is `running`,
+ * `blocked` or `refused`. CEE's own Run chip, when offered, is the control.
+ *
+ * `model_changed` is deliberately the SAME sentence `FRESHNESS_NOTICE.stale`
+ * already carries — it is the one limb for which "your model has changed" is
+ * true. The other two exist because that sentence was FALSE for them: a
+ * rerun on an unchanged model left every hash equal, yet the card said the
+ * model had changed.
+ */
+export const RUN_TURN_NOTICE: Readonly<Record<RunTurnStaleReason, string>> = {
+  model_changed: FRESHNESS_NOTICE.stale as string,
+  running: 'A new analysis is running — this card is about the earlier one.',
+  earlier_analysis: 'Written about an earlier analysis — it may no longer hold.',
+  earlier_run: 'Written about an earlier run of this model — the latest run may point somewhere else.',
+  unknown: "Olumi can't confirm this still matches your latest analysis.",
+}
+
+/**
+ * The three-part rule, classified — UNGATED on the handler (the two exported
+ * readers below apply the gate). `null` ⇔ all three limbs hold on known values.
+ *
+ * PRECEDENCE, and it is the contract's (#63 5821034205):
+ *   (a) both hashes known and different    → `model_changed` — the strongest,
+ *       first-hand fact; it wins over whatever the run state says;
+ *   (b) a run in flight — first-hand, like (a) → `running`;
+ *       a STATED not-current kind           → `earlier_analysis` (a known kind
+ *       beats an unknown value);
+ *       no usable kind, or ANY value the rule needs is unknown → `unknown`;
+ *   (c) otherwise the hashes are known and EQUAL, so the only limb left is the
+ *       timestamp: `created_at !== computed_at` → `earlier_run`.
+ */
+/** Kinds in which CEE itself says the latest run is not complete-and-current. */
+const STATED_NOT_CURRENT: ReadonlySet<AnalysisRunStateKind> = new Set<AnalysisRunStateKind>([
+  'complete_stale', 'blocked', 'refused', 'never_run',
+])
+
+function classifyRunTurn(
+  blockGraphHash: string | undefined | null,
+  currentGraphHash: string | undefined | null,
+  runTurn: RunTurnCurrencyInputs,
+): RunTurnStaleReason | null {
+  const authored = usableHash(blockGraphHash)
+  const current = usableHash(currentGraphHash)
+  // (a)
+  if (authored && current && authored !== current) return 'model_changed'
+  const createdAt = usableStamp(runTurn.createdAt)
+  const computedAt = usableStamp(runTurn.runComputedAt)
+  // (b)
+  if (runTurn.runStateKind === 'running') return 'running'
+  if (runTurn.runStateKind && STATED_NOT_CURRENT.has(runTurn.runStateKind)) return 'earlier_analysis'
+  if (
+    runTurn.runStateKind !== 'complete_current' ||
+    !authored ||
+    !current ||
+    createdAt === undefined ||
+    computedAt === undefined
+  ) {
+    return 'unknown'
+  }
+  // (c) — hashes are known and equal here, by (a) and (b).
+  if (createdAt !== computedAt) return 'earlier_run'
+  return null
+}
+
+/**
+ * Why a `run_analysis` card is HISTORICAL, or `null` — and `null` for every
+ * card NOT authored by `run_analysis`, which the run-turn rule never governs.
+ * On `null` the card's pre-existing currency logic (the dirty-window borrow and
+ * its copy) applies exactly as before.
+ */
+export function runTurnStaleReason(
+  blockGraphHash: string | undefined | null,
+  currentGraphHash: string | undefined | null,
+  runTurn: RunTurnCurrencyInputs,
+): RunTurnStaleReason | null {
+  if (!isRunTurnCoachingCard(runTurn.sourceHandler)) return null
+  return classifyRunTurn(blockGraphHash, currentGraphHash, runTurn)
+}
+
+/**
+ * The three-part rule (module header, "The RUN-TURN rule"). True only when all
+ * three limbs hold on known values; every unknown is a `false`. The same
+ * classification `runTurnStaleReason` reports — one definition, two readers.
+ */
+export function isRunTurnCardCurrent(
+  blockGraphHash: string | undefined | null,
+  currentGraphHash: string | undefined | null,
+  runTurn: RunTurnCurrencyInputs,
+): boolean {
+  return classifyRunTurn(blockGraphHash, currentGraphHash, runTurn) === null
+}
+
+/** A timestamp is usable only as a non-blank string, and is compared VERBATIM — never parsed. */
+function usableStamp(v: string | undefined | null): string | undefined {
+  return typeof v === 'string' && v.trim().length > 0 ? v : undefined
+}
+
 /**
  * Compare the model this card was written about with the model CEE currently
  * reports, then — only where those two CEE hashes are structurally blind — fill
@@ -242,12 +442,25 @@ export interface LocalEditWindow {
  * @param blockGraphHash   the block's `graph_hash_at_generation`
  * @param currentGraphHash `analysis_ready.current_graph_hash` from the store
  * @param localEdits       the shared authority's reading; omit where unavailable
+ * @param runTurn          the run-turn inputs; consulted ONLY when the card's
+ *                         `source_handler` is `'run_analysis'` — omitted, or any
+ *                         other handler, and the verdict is the pre-existing one
  */
 export function deriveCoachingCurrency(
   blockGraphHash: string | undefined | null,
   currentGraphHash: string | undefined | null,
   localEdits?: LocalEditWindow,
+  runTurn?: RunTurnCurrencyInputs,
 ): CoachingCurrency {
+  // THE RUN-TURN RULE, first and only for its own cards. A `run_analysis` card
+  // that fails any limb is HISTORICAL — `'changed'`, so the stale notice speaks
+  // and the action goes inert — including when a limb is merely unknown (see
+  // the module header for why unknown is not cannot-confirm here). Passing all
+  // three falls through: the limbs have already proved both hashes present and
+  // equal, so the only branch left to decide is the dirty-window borrow.
+  if (runTurn && runTurnStaleReason(blockGraphHash, currentGraphHash, runTurn) !== null) {
+    return 'changed'
+  }
   const authored = usableHash(blockGraphHash)
   const current = usableHash(currentGraphHash)
   // Either side missing ⇒ the question cannot be answered. Stated, never guessed.

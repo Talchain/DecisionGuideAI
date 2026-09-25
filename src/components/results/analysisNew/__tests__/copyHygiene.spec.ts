@@ -131,6 +131,10 @@ describe('the Reasoning tab authors no banned term', () => {
       'optionFigures.rangeLegend',
       'status.provisionalNaming',
       'trustLine.counts',
+      // NEW (blocker repair ask). Its fixed text, "Help me fix this so the
+      // analysis can run: ", carries no banned term; the interpolated part is
+      // the blocker sentence already shown above it, quoted into the draft.
+      'whyNoAnalysis.askFixDraft',
     ])
   })
 })

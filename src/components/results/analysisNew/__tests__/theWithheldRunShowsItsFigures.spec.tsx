@@ -52,7 +52,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -158,15 +158,22 @@ describe('the withheld run is the state this opens for', () => {
   /**
    * ⭐ (1) THE TWO PER-OPTION READOUTS ARE PRESENT — the user win itself.
    *
-   * RED AT PRISTINE: without the `defaultOpen` override the section mounts
-   * closed, `SectionShell` UNMOUNTS a closed region, and this reads `[]`.
+   * RED AT PRISTINE: on the unmodified base the section mounts CLOSED behind
+   * `SectionShell` (`defaultOpen` gated on `headline === null`), which
+   * UNMOUNTS a closed region, and this reads `[]`.
+   *
+   * ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 17): NO MORE
+   * `data-section-open` TO ASSERT. The section is now `bare` on every run,
+   * unconditionally — there is no `SectionShell`, no toggle and no disclosure
+   * state left to check on the shell; "open on mount" is now simply "the rows
+   * are in the DOM", which the assertions below already prove.
    */
   it('(1) both per-option figures render WITHOUT a click, bound by option id', () => {
     renderBody(withRanges(decisionWithLeaderWithheld()))
 
-    // The section is open on mount — asserted on the SHELL, so the mount path
-    // itself fails loud if a flag or a caller stops passing the default.
-    expect(screen.getByTestId(T)).toHaveAttribute('data-section-open', 'true')
+    // Bare: no SectionShell chrome to be open or closed.
+    expect(screen.getByTestId(T)).not.toHaveAttribute('data-section-open')
+    expect(screen.queryByTestId(`${T}-toggle`)).toBeNull()
 
     // ⚠ V2: the figures on a withheld run are each option's own range; the
     // win shares are not printed at rest.
@@ -219,9 +226,10 @@ describe('the withheld run is the state this opens for', () => {
     renderBody(withRanges(decisionWithLeaderWithheld()))
     const section = screen.getByTestId(T)
 
-    // Scoped to the SECTION, and the section is open — asserted above, and
-    // re-asserted here so this case cannot pass by reading an empty region.
-    expect(section).toHaveAttribute('data-section-open', 'true')
+    // Scoped to the SECTION. V2 (gap 17): bare, so "open" is not a state to
+    // assert any more — re-asserted here as "no shell" so this case cannot
+    // pass by reading an empty region either.
+    expect(section).not.toHaveAttribute('data-section-open')
     expect(screen.getAllByTestId(`${T}-row`).length).toBe(2)
 
     const text = section.textContent ?? ''
@@ -280,52 +288,43 @@ describe('the withheld run is the state this opens for', () => {
   })
 
   /**
-   * ⛔⛔ (5) OPENING THE SECTION DOES NOT MOVE `comparativeClaim`.
+   * ⛔⛔ (5) MOUNTING THE SECTION DOES NOT MOVE `comparativeClaim`.
    *
    * The near-miss this pins: a change in this area flipped the value
    * `'order'` → `'value'` and would have switched comparative bars on for a run
    * whose model withheld the ranking.
    *
-   * ⚠ ASSERTED BEFORE **AND** AFTER, ON ONE MOUNT, with the bars re-checked on
-   * both sides. The value alone is a claim about the view model; the bars are
-   * the claim about what a reader meets. Both, or the case only half-covers the
-   * harm it is named for.
+   * ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 17): THE TOGGLE-CYCLE IS
+   * GONE, NOT WEAKENED. `bare` removes the `SectionShell` disclosure this case
+   * used to open/close/re-open — there is no toggle left to click, and no
+   * `data-section-open` to flip. The invariant this case guards
+   * (`comparativeClaim` is the view model's alone, never something rendering
+   * feeds back into) is now asserted the only way still available: derived
+   * fresh from the SAME data both before AND after the component has
+   * rendered, with the bars checked against it both times.
    */
-  it('(5) comparativeClaim is UNCHANGED by opening the section — and so are the bars', () => {
+  it('(5) comparativeClaim is the view model\'s alone — rendering the (now-bare) section moves nothing', () => {
     const data = withRanges(decisionWithLeaderWithheld())
-    const vm = vmFor(data)
-    const before = vm.optionsComparison.comparativeClaim
+    const before = vmFor(data).optionsComparison.comparativeClaim
     expect(before, 'precondition: the withheld run licenses an ORDER, not a value').toBe('order')
 
     renderBody(data)
     const section = screen.getByTestId(T)
 
-    // Open on mount — the state this test is about.
-    expect(section).toHaveAttribute('data-section-open', 'true')
-    // ⭐ THE BAR COUNT IS NOW AN INVARIANT ACROSS THE TOGGLE, not a zero.
-    // Paul's ruling draws the shares on every state; what this case guards is
-    // that OPENING THE SECTION MOVES NOTHING — the near-miss in its header was
-    // a change that flipped `'order'` -> `'value'`, and that flip is still the
-    // harm. Pinning a count that must not CHANGE catches it; pinning zero no
-    // longer would, because zero is no longer the licensed answer.
+    // Bare: no shell, no disclosure state — rendered directly.
+    expect(section).not.toHaveAttribute('data-section-open')
+    // ⭐ THE BAR COUNT IS THE CLAIM ABOUT WHAT A READER MEETS. Paul's ruling
+    // draws the shares on every state; what this case guards is that the
+    // MOUNT moves nothing — the near-miss in its header was a change that
+    // flipped `'order'` -> `'value'`, and that flip is still the harm.
     // ⚠ V2: counted on the range bands, the figures this section draws now.
-    const barsWhileOpen = bands().length
-    expect(barsWhileOpen, 'the withheld run still draws its per-option figures').toBeGreaterThan(0)
-
-    // Close it, and open it again through the TOGGLE — the other route to the
-    // same state, so the assertion covers both ways in.
-    fireEvent.click(screen.getByTestId(`${T}-toggle`))
-    expect(section).toHaveAttribute('data-section-open', 'false')
-    fireEvent.click(screen.getByTestId(`${T}-toggle`))
-    expect(section).toHaveAttribute('data-section-open', 'true')
+    const barsAfterMount = bands().length
+    expect(barsAfterMount, 'the withheld run still draws its per-option figures').toBeGreaterThan(0)
 
     // The authority is where it was. Re-derived from the SAME data, so a
-    // mutation that made disclosure feed back into the view model would show.
+    // mutation that made rendering feed back into the view model would show.
     expect(vmFor(data).optionsComparison.comparativeClaim).toBe(before)
-    expect(
-      bands().length,
-      'toggling the section changed the drawn figures — opening must move nothing',
-    ).toBe(barsWhileOpen)
+    expect(bands().length, 'a second read of the DOM finds the same figures').toBe(barsAfterMount)
 
     // ⭐ THE DISCRIMINATING HALF. A run that DOES license a value draws bars —
     // so "no bars" above is the licence talking, not a section that never
@@ -334,42 +333,55 @@ describe('the withheld run is the state this opens for', () => {
     const permitted = withRanges(genuineDecision())
     expect(vmFor(permitted).optionsComparison.comparativeClaim).toBe('value')
     renderBody(permitted)
-    fireEvent.click(screen.getByTestId(`${T}-toggle`))
     expect(bands().length, 'contrast control').toBeGreaterThan(0)
   })
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
-describe('the collapsed IA is unchanged where the glance already answered', () => {
-  /**
-   * ⭐⭐ THE HALF THAT KEEPS THIS FROM BEING A REGRESSION.
-   *
-   * `collapsedIA.spec.tsx` pins the whole surface as a list of CLOSED rows —
-   * written after that IA silently failed to ship, and measured at 1,584px
-   * against a 769px viewport. An UNCONDITIONAL open would contradict it.
-   *
-   * The licence is narrow and it is `SectionShell`'s own: a section may open by
-   * default only when something above it depends on the content being visible.
-   * On a permitted run the glance HAS answered, so nothing depends on it, so
-   * the row stays closed.
-   */
-  it('a run that names its leader keeps the options row CLOSED', () => {
+/**
+ * ⛔⛔ V2 FIDELITY (24 Sep 2026, gap 17): THIS WHOLE DESCRIBE BLOCK IS
+ * RE-POINTED, NOT DELETED — its premise is exactly the defect the fidelity
+ * finding named.
+ *
+ * It used to pin `SectionShell`'s own narrow licence: a section may open by
+ * default only when something above it depends on the content being visible,
+ * so a run whose glance HAD answered kept this row closed. Measured on
+ * deployed `4549b66b`: that meant every run naming a leader showed the
+ * bullets, then a CLOSED "How the options compare N ›" row, then "Record
+ * your view" — the chart this zone's own evidence rests on was one click
+ * away on the common case, not the rare one.
+ *
+ * `bare` (`OptionsComparison.tsx`) removes the licence question entirely: the
+ * comparison is the answer "Move towards commitment" promises, so it is
+ * always on screen, named leader or not. `collapsedIA.spec.tsx` is the file
+ * that would catch a regression the OTHER way (a section that should stay
+ * collapsed opening); this block is now the one that pins THIS section open,
+ * unconditionally, which is the fidelity finding's own fix.
+ */
+describe('V2: the options row is open on every run, named leader or not (gap 17)', () => {
+  it('a run that names its leader ALSO shows the options row open — no toggle at all', () => {
     renderBody(genuineDecision())
     // PRECONDITION: the glance really did answer.
     expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
 
-    expect(screen.getByTestId(T)).toHaveAttribute('data-section-open', 'false')
-    expect(screen.getByTestId(`${T}-toggle`)).toHaveAttribute('aria-expanded', 'false')
+    // Bare: no shell, no toggle, no region — just the rows, on screen.
+    expect(screen.getByTestId(T)).not.toHaveAttribute('data-section-open')
+    expect(screen.queryByTestId(`${T}-toggle`)).toBeNull()
     expect(screen.queryByTestId(`${T}-region`)).toBeNull()
+    expect(screen.getAllByTestId(`${T}-row`).length).toBeGreaterThan(0)
+    // V2: no win-share readout at rest, on this run either — unchanged by gap 17.
     expect(winReadouts()).toEqual([])
   })
 
   /**
-   * ⚠ THE SECOND CONJUNCT, PINNED. A withheld run with NOTHING to show must
-   * not open: the content below cannot supply what the glance withheld, and
-   * opening spends the IA for an empty region.
+   * ⚠ THE SECOND CONJUNCT, RE-POINTED RATHER THAN DROPPED. A withheld run with
+   * NOTHING to show still MOUNTS bare and still renders its own honest
+   * sentence about why (`noneNumbered`'s "no figures" paragraph,
+   * `OptionsComparison.tsx`) — nothing here fabricates a figure that is not
+   * there, and there is no longer a disclosure state for an empty region to
+   * hide behind.
    */
-  it('a withheld run with NO per-option figures stays CLOSED', () => {
+  it('a withheld run with NO per-option figures still mounts bare, and says so', () => {
     const base = decisionWithLeaderWithheld()
     const data: ResultsSectionDataReturn = {
       ...base,
@@ -391,6 +403,8 @@ describe('the collapsed IA is unchanged where the glance already answered', () =
     renderBody(data)
     expect(screen.getByTestId(T)).toBeInTheDocument()
 
-    expect(screen.getByTestId(T)).toHaveAttribute('data-section-open', 'false')
+    expect(screen.getByTestId(T)).not.toHaveAttribute('data-section-open')
+    expect(screen.queryByTestId(`${T}-toggle`)).toBeNull()
+    expect(screen.getByTestId(`${T}-no-figures`)).toBeInTheDocument()
   })
 })

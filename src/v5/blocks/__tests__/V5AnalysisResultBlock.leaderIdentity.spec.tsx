@@ -309,10 +309,12 @@ describe('CONTROL: headline-option resolution was already ID↔ID (refutes brief
     render(
       <V5AnalysisResultBlock
         block={block({
-          enrichment: { option_comparison: withOutcomes, robustness: { level: 'high' } },
+          enrichment: { option_comparison: withOutcomes, robustness: { level: 'high', near_tie: permittingNearTie() } },
         })}
       />,
     )
+    // The near-tie block keeps this a PERMITTED run: the confident tier renders
+    // only when the card may name a leader (withheldIsNotConfident.spec.tsx).
     // opt_mac is entries[1]. Its tight interval yields the confident copy;
     // entries[0] (opt_dell) straddles zero and would be downgraded to the
     // "meaningful uncertainty" wording.

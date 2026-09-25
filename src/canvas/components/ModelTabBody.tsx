@@ -547,17 +547,22 @@ export const ModelTabBody = memo(function ModelTabBody({
   const modelAdjustments = useMemo(() => {
     const raw = (ceeAnalysisReady as Record<string, unknown> | null)?.model_adjustments
     if (!Array.isArray(raw)) return []
+    /**
+     * ⭐⭐ V2 GAP 35 — THE FALLBACK WAS A TITLE-CASED WIRE ID, WHICH IS STILL A
+     * RAW ID. `target.replace(/^fac_/, '').replace(/_/g, ' ')…` turns
+     * `opt_segment_2` into `Opt Segment 2` — legible, but it is the wire
+     * token with capitals and spaces added, not a name the model gave this
+     * element. THE ONE id → label policy this file already imports
+     * (`resolveCanvasLabel` / `buildCanvasLabelMap` / `UNNAMED_ELEMENT_LABEL`,
+     * used four times elsewhere in this same file) resolves a genuine label
+     * or names the absence honestly instead of re-deriving one from the id.
+     */
+    const labels = buildCanvasLabelMap(nodes)
     return raw.map((adj: Record<string, unknown>) => {
       const target = adj.target
       if (!target || typeof target !== 'string') return adj
-      const node = nodes.find(n => n.id === target)
-      const nodeLabel = node ? (node.data as { label?: string })?.label : null
-      if (nodeLabel) return { ...adj, target: nodeLabel, targetNodeId: target }
-      const cleaned = target
-        .replace(/^fac_/, '')
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c: string) => c.toUpperCase())
-      return { ...adj, target: cleaned, targetNodeId: target }
+      const resolved = resolveCanvasLabel(target, labels) ?? UNNAMED_ELEMENT_LABEL
+      return { ...adj, target: resolved, targetNodeId: target }
     })
   }, [ceeAnalysisReady, nodes])
 
@@ -813,7 +818,15 @@ export const ModelTabBody = memo(function ModelTabBody({
 
   return (
     <div
-      className="space-y-4 pb-4"
+      // ⭐⭐ V2 GAP 29 — NO INTER-SECTION GAP HERE. `space-y-4` put a 16px gap
+      // BETWEEN every top-level section on top of each section's own
+      // `border-b … pb-2.5` — a card-era rhythm sitting on top of the new
+      // full-width-divider rhythm, doubling the space between sections that
+      // now already carry their own bottom rule and padding. The divider
+      // itself supplies the vertical rhythm (`pb-2.5` below, `pt-*` on the
+      // one below it where present), the same way Reasoning's `PANEL_RULE`
+      // sections need no parent `space-y-*` (`panelSurfaces.ts:119-148`).
+      className="space-y-0 pb-4"
       data-testid="model-tab"
       aria-busy={trust.isRunning || undefined}
     >
