@@ -78,6 +78,7 @@ import { useCanvasStore } from '../store'
 import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
+import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
@@ -411,8 +412,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       isEdgeFragileFn(String(id), String(source), String(target), [fe], fragileMatchCtx),
     ) as (FragileEdgeCandidate & { alternative_winner_label?: string; alternativeWinnerLabel?: string }) | undefined
     if (!entry) return 'Sensitive'
-    const altLabel = entry.alternative_winner_label ?? entry.alternativeWinnerLabel
-    return altLabel ? `If wrong → ${altLabel}` : 'Sensitive'
+    // The alternative's name in the register's withheld form — never "If wrong
+    // → {alt}", which named a winner the run may have withheld.
+    return lensFragileEdgeLabel(entry.alternative_winner_label ?? entry.alternativeWinnerLabel)
   }, [isLensFragile, report, id, source, target, fragileMatchCtx])
 
   // Check if this edge is fragile (switch_probability > 0.3)

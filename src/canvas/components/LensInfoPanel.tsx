@@ -13,6 +13,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
+import { lensFragileRowAlternative } from '../../components/results/utils/fragileEdgeCopy'
 import type { LensMode } from '../store'
 import type { CausalLensEdgeParams } from '../domain/edgeValueProvenance'
 
@@ -266,8 +267,8 @@ function RobustnessPanel() {
                 {fe.from} \u2192 {fe.to}
               </span>
               {fe.altWinner && (
-                <span className="text-text-light ml-auto flex-shrink-0" title={`Alternative: ${fe.altWinner}`}>
-                  \u2192 {fe.altWinner}
+                <span className="text-text-light ml-auto flex-shrink-0" title={lensFragileRowAlternative(fe.altWinner).title}>
+                  {lensFragileRowAlternative(fe.altWinner).text}
                 </span>
               )}
             </div>
