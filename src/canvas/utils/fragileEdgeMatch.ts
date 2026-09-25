@@ -65,27 +65,12 @@ function entryMatchesEdge(
   ctx?: FragileEdgeMatchContext,
 ): boolean {
   const feEdgeId = fe.edge_id ?? fe.edgeId
+  if (typeof feEdgeId === 'string' && feEdgeId.length > 0) return feEdgeId === edgeId
+
   const from = fe.from_id ?? fe.fromId ?? fe.source
   const to = fe.to_id ?? fe.toId ?? fe.target
-  const parallel = ctx?.parallelEdgeIds
-  if (typeof feEdgeId === 'string' && feEdgeId.length > 0) {
-    if (feEdgeId === edgeId) return true
-    // ⭐ The producer's relationship key, `"<from_id>-><to_id>"`, names no canvas
-    // edge: a drafted edge without an id gets a local `e-N` (pre-review
-    // 5828017429, served 0303ef5 pricing: a 55% relationship matched nothing).
-    // It is read as the endpoint pair below. An edge that really carries it as
-    // its id matched exactly above; any other edge sharing those endpoints is
-    // then parallel to it, so the parallel withhold below refuses it. Any other
-    // supplied id still never falls back (#1919).
-    //
-    // ⚠ ONLY WITH THE CALLER'S PARALLEL CONTEXT. Without `parallelEdgeIds` this
-    // path cannot tell one edge from two on the same endpoints, and would hand
-    // both the finding (pre-review 5828511534: EdgePanel called without it). A
-    // caller that has not supplied it gets the old exclusive answer: no match.
-    if (feEdgeId !== `${from}->${to}` || parallel == null) return false
-  }
-
   if (from !== edgeSource || to !== edgeTarget) return false
+  const parallel = ctx?.parallelEdgeIds
   return !(parallel != null && parallel.length > 1)
 }
 
