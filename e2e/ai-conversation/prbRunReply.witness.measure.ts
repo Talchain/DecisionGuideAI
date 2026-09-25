@@ -151,7 +151,7 @@ interface Reading {
   activeDockTab: string | null
   line: { present: boolean; open: boolean | null; summary: string | null; visible: boolean }
   card: { currency: string | null; runTurnReason: string | null; notice: string | null; body: string | null; actionText: string | null; actionDisabled: boolean | null; actionInert: string | null; actionVisible: boolean }
-  analysisResult: { present: boolean; summaryStart: string | null }
+  analysisResult: { present: boolean; summaryStart: string | null; summaryBehindDetails: boolean; detailsOpen: boolean | null }
   suggestedChips: number
   showMoreToggle: boolean
   store: { runStateKind: string | null; computedAt: string | null; currentGraphHash: string | null; dirty: boolean | null; nodeCount: number }
@@ -205,6 +205,8 @@ async function read(page: Page): Promise<Reading> {
       analysisResult: {
         present: Boolean(runMsg?.querySelector('[data-testid="v5-analysis-result"]')),
         summaryStart: runMsg?.querySelector('[data-testid="v5-analysis-result-summary"]')?.textContent?.slice(0, 80) ?? null,
+        summaryBehindDetails: Boolean(runMsg?.querySelector('[data-testid="v5-analysis-result-summary-details"] [data-testid="v5-analysis-result-summary"]')),
+        detailsOpen: (runMsg?.querySelector('[data-testid="v5-analysis-result-summary-details"]') as HTMLDetailsElement | null)?.open ?? null,
       },
       suggestedChips: runMsg?.querySelectorAll('[data-testid^="suggested-chip-"]').length ?? 0,
       showMoreToggle: Boolean(runMsg?.querySelector('[data-testid="message-show-more"], [data-testid="block-detail-toggle"]')),
@@ -262,8 +264,9 @@ for (const vp of VIEWPORTS) {
 
     // ── The Run: the chip dispatches ONE run turn; the route body answers it ──
     await runChip.click({ timeout: 5_000 })
-    const line = page.getByTestId(`coaching-line-${CARD.block_id}`)
-    await expect(line).toBeVisible({ timeout: 30_000 })
+    // Since run-turn promotion went ON, the card renders as a full card (no collapsed line).
+    const card = page.locator(`[data-block-id="${CARD.block_id}"]`).first()
+    await expect(card).toBeVisible({ timeout: 30_000 })
     await settle(page)
     const afterRun = await read(page)
     // If the reply moved the dock off the chat, bring it back — and say so in the log.
@@ -306,18 +309,20 @@ for (const vp of VIEWPORTS) {
     await page.screenshot({ path: evidencePath(`09-prb-run-reply-${tag}.png`) })
     await scrollReplyIntoView(page, 'end')
     await page.screenshot({ path: evidencePath(`09-prb-run-reply-${tag}-bottom.png`) })
-    await line.scrollIntoViewIfNeeded()
-    await line.screenshot({ path: evidencePath(`09-prb-run-reply-card-crop-${tag}.png`) })
+    await card.scrollIntoViewIfNeeded()
+    await card.screenshot({ path: evidencePath(`09-prb-run-reply-card-crop-${tag}.png`) })
     const closed = await read(page)
 
-    // ── Open the line: the card's face; then its action, once ──
-    await page.getByTestId(`coaching-line-summary-${CARD.block_id}`).click()
+    // ── #2035: the analysis summary sits behind a closed "Details"; open it once ──
+    const detailsToggle = page.getByTestId('v5-analysis-result-summary-toggle').last()
+    await detailsToggle.scrollIntoViewIfNeeded()
+    await detailsToggle.click()
     await settle(page)
     const opened = await read(page)
-    await line.scrollIntoViewIfNeeded()
-    await line.screenshot({ path: evidencePath(`09-prb-run-reply-card-open-crop-${tag}.png`) })
+    await scrollReplyIntoView(page, 'end')
+    await page.screenshot({ path: evidencePath(`09-prb-run-reply-${tag}-details-open.png`) })
 
-    const action = line.getByTestId('v5-coaching-action')
+    const action = card.getByTestId('v5-coaching-action')
     await action.click({ timeout: 5_000 })
     await expect(page.getByText(ACTION_REPLY_TEXT, { exact: true })).toBeVisible()
     await settle(page)
@@ -341,13 +346,15 @@ for (const vp of VIEWPORTS) {
     expect(closed.suggestedChips, 'the route offered no action on the completed Run').toBe(0)
     expect(closed.analysisResult.present).toBe(true)
 
-    // The card: a closed line on the face, its title verbatim; CURRENT.
-    expect(closed.line).toMatchObject({ present: true, open: false, summary: CARD.title, visible: true })
+    // The card: PROMOTED (a full card on the face, no collapsed line); CURRENT.
+    expect(closed.line.present).toBe(false)
     expect(closed.card.currency).toBe('current')
+    // #2035: the analysis summary is behind a CLOSED "Details" while the reply leads; one click opens it.
+    expect(closed.analysisResult).toMatchObject({ present: true, summaryBehindDetails: true, detailsOpen: false })
+    expect(opened.analysisResult.detailsOpen).toBe(true)
     expect(closed.store).toMatchObject({ runStateKind: 'complete_current', computedAt: CARD.created_at, currentGraphHash: CARD.graph_hash_at_generation, dirty: false })
 
-    // Opened: body + action verbatim, no notice, chip live.
-    expect(opened.line.open).toBe(true)
+    // On the face: body + action verbatim, no notice, chip live.
     expect(opened.card).toMatchObject({ currency: 'current', runTurnReason: null, notice: null, body: CARD.body, actionText: CARD.action_label, actionDisabled: false, actionInert: null, actionVisible: true })
     // One click, one turn; the chip settles.
     expect(afterAction.card.actionDisabled).toBe(true)
@@ -469,7 +476,7 @@ for (const vp of VIEWPORTS) {
     await expect(runChip).toBeEnabled()
 
     await runChip.click({ timeout: 5_000 })
-    await expect(page.getByTestId(`coaching-line-${CARD.block_id}`)).toBeVisible({ timeout: 30_000 })
+    await expect(page.locator(`[data-block-id="${CARD.block_id}"]`).first()).toBeVisible({ timeout: 30_000 })
     // Read at once, and again after the thread has settled: the first reading
     // is "on arrival"; the second proves nothing later pulled it to the bottom.
     const onArrival = await readReplyStart(page)
