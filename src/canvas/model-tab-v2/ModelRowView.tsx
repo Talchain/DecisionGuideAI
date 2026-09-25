@@ -1692,6 +1692,14 @@ function EditorActionLine({
           may say "Saved": the model is unchanged until the authority
           acknowledges, and a label claiming otherwise is the silent-local-write
           defect one word at a time. */}
+      {/* ⚠ `h-[18px]` ON BOTH CONTROLS, AND IT IS A MEASURED BUDGET, NOT TASTE.
+          MODEL-5 (#2036) moved them to `panelBody`, whose `leading-relaxed`
+          makes a 19.5px line box, and Canvas Browser Gate's
+          `modelRowEditReflow.measure.ts` holds this line to 18px (+1): the
+          height that tells ONE line from a button wrapping inside its own
+          border. A fixed height on the flex item keeps the pill without
+          inheriting the paragraph leading (appending `leading-none` would lose
+          to `leading-relaxed` on Tailwind's CSS order). */}
       <span className="flex flex-wrap items-center gap-1">
         <button
           type="button"
@@ -1710,7 +1718,7 @@ function EditorActionLine({
              prototype's `.primary` recipe; blocked keeps the same shape with
              no fill, so disabled reads as disabled rather than as a second
              style of button. */
-          className={`${typography.panelBody} inline-flex items-center px-2.5 rounded-full whitespace-nowrap ${reviewStateClass}`}
+          className={`${typography.panelBody} inline-flex items-center h-[18px] px-2.5 rounded-full whitespace-nowrap ${reviewStateClass}`}
         >
           Review change
         </button>
@@ -1719,7 +1727,7 @@ function EditorActionLine({
           data-testid={`model-row-v2-${row.id}-discard-edit`}
           aria-label={`Discard the new value for ${row.label}`}
           onClick={() => onDiscardEdit(row.id)}
-          className={`${typography.panelBody} text-info whitespace-nowrap`}
+          className={`${typography.panelBody} inline-flex items-center h-[18px] text-info whitespace-nowrap`}
         >
           Discard
         </button>
@@ -2367,7 +2375,7 @@ function ValueCell({
                   /* ⭐ MODEL-5: SAME PRIMARY-PILL RECIPE AS `-review` ABOVE.
                      Confirm stays its OWN separate step after Review — this
                      is a restyle of the chip, not a merge of the two acts. */
-                  className={`${typography.panelBody} inline-flex items-center px-2.5 rounded-full bg-primary text-text-on-color whitespace-nowrap`}
+                  className={`${typography.panelBody} inline-flex items-center h-[18px] px-2.5 rounded-full bg-primary text-text-on-color whitespace-nowrap`}
                 >
                   Confirm
                 </button>
@@ -2376,7 +2384,7 @@ function ValueCell({
                   data-testid={`model-row-v2-${row.id}-discard`}
                   aria-label={`Discard new value for ${row.label}`}
                   onClick={() => onDiscardEdit(row.id)}
-                  className={`${typography.panelBody} text-info whitespace-nowrap`}
+                  className={`${typography.panelBody} inline-flex items-center h-[18px] text-info whitespace-nowrap`}
                 >
                   Discard
                 </button>
