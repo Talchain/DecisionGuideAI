@@ -373,11 +373,82 @@ describe('promotion ON — the producer’s fragile-link card becomes a top-leve
   })
 })
 
+// ── A run-bound card WITHOUT a target (CEE #1869) ───────────────────────────
+
+/**
+ * The no-flagged-link card (CEE #1869, `coaching/no-flagged-link-card.ts`), field
+ * for field as its producer builds it on an explicit Run: run-bound like the
+ * fragile-link card (`source_handler: 'run_analysis'`, the run's hash and
+ * `computed_at`), but about the run as a whole, so `target_refs: []`.
+ */
+function adaptNoFlaggedLink(overrides: Record<string, unknown> = {}): V5CoachingBlock {
+  const adapted = adaptTypedCoachingBlock({
+    type: 'coaching',
+    block_id: '7a1c2e0b-9f3d-5b8e-a4c6-0d2f1e3b5a79',
+    signal_id: `coach:no_flagged_link:${RUN_HASH}:${RUN_COMPUTED_AT}:explicit_run`,
+    created_at: RUN_COMPUTED_AT,
+    source_handler: 'run_analysis',
+    graph_hash_at_generation: RUN_HASH,
+    freshness: 'fresh',
+    coaching_kind: 'assumption_check',
+    title: 'What the robustness check can\'t show',
+    body: 'The robustness check didn\'t single out any one link in the model. That doesn\'t show the estimates are right, '
+      + 'and the check can only test what is already in the model, not what the model leaves out. Both are worth a look.',
+    source: 'deterministic_signal',
+    target_refs: [],
+    priority_rank: 15,
+    action_label: 'Look for weak spots and gaps',
+    action_prompt: 'Ask me questions to help me spot which estimates in the model I\'m least sure of, and what matters to this '
+      + 'decision but isn\'t in the model, including anything I could still find out. Don\'t choose for me, and don\'t '
+      + 'change the model or re-run anything yet.',
+    ...overrides,
+  })
+  if (!adapted) throw new Error('the no-flagged-link card must adapt')
+  return adapted
+}
+
+describe('a run-bound card WITHOUT a target — the no-flagged-link card — is promoted too', () => {
+  it('it is the promotable card, and the promotion displaces the last point exactly as for the fragile-link card', () => {
+    const blocks = runTurn(adaptNoFlaggedLink())
+    expect(firstPromotableActionIndex(blocks)).toBe(3)
+    const composed = composeMessage(blocks, null, { promoteRunTurnCoaching: true })
+    expect(indices(composed.points)).toEqual([0, 1, 3])
+    expect(indices(composed.detail)).toEqual([2])
+    expect(assertTotalPartition(blocks.length, composed)).toBeNull()
+    expect(planCoachingLines(blocks, { promoteRunTurnCoaching: true }).get(blocks[3])?.collapsible).toBe(false)
+  })
+
+  it('CONTROL: an ordinary target-less card (another handler) is still never promoted', () => {
+    const blocks: ConversationBlock[] = [coaching(1), coaching(2), coaching(3), coaching(4)]
+    expect(blocks.every((b) => (b as V5CoachingBlock).target_refs.length === 0)).toBe(true)
+    expect(firstPromotableActionIndex(blocks)).toBe(-1)
+  })
+
+  it('mounted, CURRENT run: on the face of the reply, its action live — with no target pills', () => {
+    installRun(RUN_COMPUTED_AT)
+    render(<InlineBlocks blocks={runTurn(adaptNoFlaggedLink())} turnId="turn_run" patchBlockStates={new Map()} />)
+    const card = document.querySelector('[data-block-id="7a1c2e0b-9f3d-5b8e-a4c6-0d2f1e3b5a79"]') as HTMLElement | null
+    expect(card, 'rendered at top level while the disclosure is closed').not.toBeNull()
+    expect(screen.queryByTestId('coaching-line-7a1c2e0b-9f3d-5b8e-a4c6-0d2f1e3b5a79')).toBeNull()
+    const chip = card!.querySelector(`[data-testid="${card!.getAttribute('data-testid')}-action"]`) as HTMLButtonElement
+    expect(chip).toHaveTextContent('Look for weak spots and gaps')
+    expect(chip.disabled).toBe(false)
+  })
+
+  it('HISTORICAL (a later run on the same model): still inert — the run-turn rule binds it, not a target', () => {
+    promotion.forced = true
+    installRun(LATER_RUN_AT)
+    render(<InlineBlocks blocks={runTurn(adaptNoFlaggedLink())} turnId="turn_run" patchBlockStates={new Map()} />)
+    const card = document.querySelector('[data-block-id="7a1c2e0b-9f3d-5b8e-a4c6-0d2f1e3b5a79"]') as HTMLElement
+    const chip = card.querySelector(`[data-testid="${card.getAttribute('data-testid')}-action"]`) as HTMLButtonElement
+    expect(chip.disabled).toBe(true)
+  })
+})
+
 // ── Never promotable ─────────────────────────────────────────────────────────
 
 describe('what can never be promoted', () => {
   it.each<[string, Record<string, unknown>]>([
-    ['a target-less card', { target_refs: [] }],
     ['a card whose intent CEE does not route (confirm_factor)', { action_intent: 'confirm_factor' }],
     ['a card with no action_prompt', { action_prompt: undefined }],
     ['a card with a blank action_label', { action_label: '   ' }],
