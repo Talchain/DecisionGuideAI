@@ -1006,6 +1006,7 @@ export function ModelTabV2Panel({
     // row, so the host judges the SAME prior the control showed the user. Read
     // outside the updater: `setEdit`'s callback must stay pure.
     const admission = rows.find(r => r.id === rowId)?.valueAdmission
+    const declaresNoUnit = rows.find(r => r.id === rowId)?.declaresNoUnit
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
       /*
@@ -1021,7 +1022,7 @@ export function ModelTabV2Panel({
        * derivation, so a control that offers to advance and a host that refuses
        * to cannot disagree.
        */
-      if (unproposableDraftReason(rowId, prev.draft, prev.unit, admission) !== null) return prev
+      if (unproposableDraftReason(rowId, prev.draft, prev.unit, admission, declaresNoUnit) !== null) return prev
       return { ...prev, phase: 'proposed' }
     })
   }, [rows])
