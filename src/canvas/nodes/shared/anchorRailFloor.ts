@@ -25,6 +25,14 @@ export const anchorRailFitsBesideAtZoom = (zoom: number): boolean => zoom >= ICO
 
 export const selectAnchorRailFitsBeside = (s: AnchorRailFloorState): boolean => s.fitsBeside
 
+/**
+ * The same floor under its general name: "is the live zoom at or above the OLD
+ * Normal floor?" A second reader is `OptionNode`'s Detailed change rows, which
+ * keep the grid only here and stack below it (the grid at landing scale 2 is the
+ * measured 45px-label-column defect). One floor, so the two cannot disagree.
+ */
+export const selectAtOrAboveIconLegibleZoom = selectAnchorRailFitsBeside
+
 export function setAnchorRailFitsBeside(fitsBeside: boolean): void {
   if (useAnchorRailFloorStore.getState().fitsBeside !== fitsBeside) useAnchorRailFloorStore.setState({ fitsBeside })
 }
