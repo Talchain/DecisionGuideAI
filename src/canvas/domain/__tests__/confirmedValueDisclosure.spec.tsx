@@ -73,8 +73,10 @@ describe('2.638 S2 · D2 — the inspector stops calling a confirmed value an Ol
     expect(label).not.toContain('user_confirmed')
   })
 
-  it('leaves the pre-existing extraction labels byte-identical', () => {
-    expect(getExtractionLabel(undefined)).toBe('Estimated by Olumi')
+  it('leaves the pre-existing extraction labels byte-identical, except the A4a fix', () => {
+    // A4a: an absent source is not "Estimated by Olumi" — that asserts an
+    // origin the data does not carry.
+    expect(getExtractionLabel(undefined)).toBe('Source not recorded')
     expect(getExtractionLabel('brief_extraction')).toBe('From your brief')
     expect(getExtractionLabel('user')).toBe('Set by you')
     expect(getExtractionLabel('user_calibration')).toBe('Set by you')
