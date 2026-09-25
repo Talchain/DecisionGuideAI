@@ -76,6 +76,27 @@ import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { meaningfulUncertaintyDrivers } from '../../../utils/observedStateHelpers'
 
+/**
+ * ⚠⚠ A4b BLOCKING 1 FIX-FORWARD (independent review, PR #2046). The pending
+ * commit outcome used to live only in this component's own `useState`, and
+ * `InspectorRouter` mounts this panel keyed by `nodeId`
+ * (`InspectorRouter.tsx:592/600`) — so selecting another factor and coming
+ * back to THIS one is a full remount, which wipes plain component state.
+ * Reproduced by the review: commit an edit over a `cee_inference` value with
+ * the send blocked, reselect away and back — the pill fell back to
+ * `getExtractionLabel(source)`, reading the never-restamped `observedState.
+ * source`, and read "Estimated by Olumi" over the user's own unsent number.
+ *
+ * This module-level map survives the remount (read once at mount, written on
+ * every transition below). It does NOT survive a page reload — that is a
+ * durable-persistence question for the store, out of this fix's scope, which
+ * is exactly the remount the review reproduced.
+ */
+const pendingCommitOutcomeByNode = new Map<
+  string,
+  'sending' | 'sent' | 'local_only' | 'not_applied'
+>()
+
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
   techMode,
@@ -135,7 +156,23 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * `sending` is the honest state while the promise is open. It is not a
    * success claim: no tick, no success tone.
    */
-  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | null>(null)
+  const [valueCommitOutcome, setValueCommitOutcomeState] = useState<
+    'sending' | 'sent' | 'local_only' | 'not_applied' | null
+  >(() => (nodeId ? pendingCommitOutcomeByNode.get(nodeId) ?? null : null))
+  // A4b Blocking 1: write through to the module-level map (see its docblock)
+  // so a later remount of THIS node rehydrates the same outcome instead of
+  // resetting to null. `nodeId` is stable for the lifetime of one mount
+  // (the router remounts on a `key={nodeId}` change), so the closure below is
+  // never stale within a single mount.
+  const setValueCommitOutcome = useCallback(
+    (next: 'sending' | 'sent' | 'local_only' | 'not_applied' | null) => {
+      setValueCommitOutcomeState(next)
+      if (!nodeId) return
+      if (next === null) pendingCommitOutcomeByNode.delete(nodeId)
+      else pendingCommitOutcomeByNode.set(nodeId, next)
+    },
+    [nodeId],
+  )
   // A4b: the window during which the context pill must not read `source` —
   // the edit has moved the value locally but has not yet earned (or been
   // refused) a receipt, so no provenance claim is honest yet.
@@ -491,7 +528,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         // reaches here — the dispatcher reverts the optimistic write instead.
       })
     },
-    [mutations, confirmEdit, sendSystemEvent, nodeId, node?.data],
+    [mutations, confirmEdit, sendSystemEvent, nodeId, node?.data, setValueCommitOutcome],
   )
 
   const handleValueBlur = useCallback(() => {
