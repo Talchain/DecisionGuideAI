@@ -139,6 +139,7 @@ const SID = '7c1f5a52-3d0e-4b8a-9f61-2a4d6e8c0b13'
 
 const TURN_A = 'a-turn-coach-1'
 const TURN_B = 'a-turn-coach-2'
+const TURN_C = 'a-turn-coach-3'
 
 const CARD_X = 'blk-coach-x'
 const CARD_Y = 'blk-coach-y'
@@ -631,6 +632,46 @@ describe('end to end — a real click in the mounted panel, delivered, then a re
     expect(restored).toHaveAttribute('data-settled', 'accepted')
     expect(within(restored).queryByTestId('v5-held-proposal-confirm')).toBeNull()
     expect(within(restored).queryByTestId('v5-held-proposal-dismiss')).toBeNull()
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  })
+
+  // Independent review of 06648ffd (#1985 5825570570): CEE re-issues a handle
+  // to supersede it, and a confirm retires every copy at or before its acting
+  // turn (`heldProposalRetirementKeys`). The restore must apply that same rule,
+  // not just the acting card's own key, or the earlier copy comes back live.
+  it('held, re-issued: a reload restores the whole retirement — earlier copies stay settled; a LATER re-issue stays live', async () => {
+    storePriorSession([
+      assistantTurn(TURN_A, [heldBlock(HANDLE, 'Remove the Pricing node')]),
+      assistantTurn(TURN_B, [heldBlock(HANDLE, 'Remove the Pricing node')]),
+    ])
+    await mountRestoredPanel()
+    expect(heldCards(HANDLE)).toHaveLength(2)
+
+    await act(async () => {
+      fireEvent.click(within(heldCards(HANDLE)[1]).getByTestId('v5-held-proposal-confirm'))
+    })
+    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
+    // In session, both copies retire together.
+    expect(heldCards(HANDLE).map((el) => el.getAttribute('data-settled'))).toEqual(['accepted', 'accepted'])
+    // Only the acting card's key is saved; the restore derives the rest.
+    await waitFor(() =>
+      expect(savedUserMessages().map((m) => m.sourceBlockKey)).toEqual([
+        heldProposalSourceBlockKey(TURN_B, HANDLE),
+      ]),
+    )
+
+    // CEE later re-issues the same handle once more: a NEW offer.
+    cleanup()
+    const saved = loadTranscript(SID)!.messages
+    saveTranscript(SID, [...saved, assistantTurn(TURN_C, [heldBlock(HANDLE, 'Rename the Pricing node')])])
+    restampAsEarlierPageLoad()
+    await mountRestoredPanel()
+
+    const cards = heldCards(HANDLE)
+    expect(cards.map((el) => el.getAttribute('data-settled'))).toEqual(['accepted', 'accepted', null])
+    expect(within(cards[0]).queryByTestId('v5-held-proposal-confirm')).toBeNull()
+    expect(within(cards[1]).queryByTestId('v5-held-proposal-confirm')).toBeNull()
+    expect(within(cards[2]).getByTestId('v5-held-proposal-confirm')).toBeInTheDocument()
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
   })
 

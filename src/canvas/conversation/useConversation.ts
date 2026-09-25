@@ -117,7 +117,7 @@ import {
   releaseTranscriptTombstone,
   settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
-import { HELD_PROPOSAL_STATE_KEY_PREFIX } from './selectors'
+import { heldProposalMountKey, heldProposalRetirementKeys } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
@@ -3760,25 +3760,38 @@ export function useConversation(): UseConversationReturn {
   // A held proposal's settlement has ONE authority, the registry above, and
   // the card reads nothing else. So a confirm the transcript records is
   // written INTO the registry rather than consulted beside it — after a reload
-  // the registry starts empty and this is what restores the entry. Only a
+  // the registry starts empty and this is what restores the entries. Only a
   // missing entry is written: a live registry entry is never overridden, and
-  // an in-session confirm already wrote its own key on settle, so this is a
-  // no-op outside a restore. Layout effect, so a restored card never paints
-  // one live frame first.
+  // an in-session confirm already wrote its keys on settle, so this is a no-op
+  // outside a restore. Layout effect, so a restored card never paints one live
+  // frame first.
+  //
+  // The restore applies the SAME retirement rule the in-session settle does
+  // (`heldProposalRetirementKeys`, ConversationPanel `handleHeldProposalSettle`):
+  // a confirm retires every copy of the handle at or before its acting turn,
+  // because CEE re-issues a handle to supersede it. Seeding only the acting
+  // card's own key brought an earlier copy back with a live Confirm after a
+  // reload, and a click sent a second confirm for the same handle. Copies on
+  // LATER turns are new offers and stay live, exactly as in session.
   useLayoutEffect(() => {
-    const missing: string[] = []
-    for (const key of settledSourceBlockKeys) {
-      if (key.startsWith(HELD_PROPOSAL_STATE_KEY_PREFIX) && !patchBlockStates.has(key)) {
-        missing.push(key)
+    const missing = new Set<string>()
+    for (const message of messages) {
+      if (!message.blocks) continue
+      for (const block of message.blocks) {
+        if (block.type !== 'v5_held_proposal') continue
+        if (!settledSourceBlockKeys.has(heldProposalMountKey(message.id, block.proposal_id))) continue
+        for (const key of heldProposalRetirementKeys(messages, block.proposal_id, message.id)) {
+          if (!patchBlockStates.has(key)) missing.add(key)
+        }
       }
     }
-    if (missing.length === 0) return
+    if (missing.size === 0) return
     setPatchBlockStates((prev) => {
       const next = new Map(prev)
       for (const key of missing) if (!next.has(key)) next.set(key, 'accepted')
       return next
     })
-  }, [settledSourceBlockKeys, patchBlockStates])
+  }, [messages, settledSourceBlockKeys, patchBlockStates])
 
   const setPatchRejection = useCallback((key: string, info: PatchRejectionInfo) => {
     setPatchRejectionsMap((prev) => {
