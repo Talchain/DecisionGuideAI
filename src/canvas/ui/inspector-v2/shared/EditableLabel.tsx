@@ -97,7 +97,19 @@ export function EditableLabel({
     onAutoEditConsumed?.()
   }, [autoEdit, onSave, onAutoEditConsumed])
 
+  // Escape calls `revert()` then `blur()`. `revert()`'s `setDraft`/`setIsEditing`
+  // are async React state updates, but `blur()` fires `onBlur={save}`
+  // SYNCHRONOUSLY, before that state flushes — so `save` would still see the
+  // stale, half-typed `draft`. This ref is set synchronously by `revert()` so
+  // `save()` can detect the cancellation and bail out before reading `draft`.
+  const cancelledRef = useRef(false)
+
   const save = useCallback(() => {
+    if (cancelledRef.current) {
+      cancelledRef.current = false
+      setIsEditing(false)
+      return
+    }
     // The input already caps at `maxLength`; the slice is defensive only, and
     // can no longer discard text the user was allowed to type.
     const trimmed = draft.trim().slice(0, maxLength)
@@ -108,6 +120,7 @@ export function EditableLabel({
   }, [draft, maxLength, value, onSave])
 
   const revert = useCallback(() => {
+    cancelledRef.current = true
     setDraft(value)
     setIsEditing(false)
   }, [value])
