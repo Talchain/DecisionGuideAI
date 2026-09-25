@@ -38,13 +38,13 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:934
+src/canvas/contextMenu/actions.ts:1010
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:7887
+src/canvas/store.ts:7895
 src/canvas/stores/readinessStore.ts:782
 src/canvas/stores/readinessStore.ts:875
 src/canvas/utils/briefValidation.ts:43
@@ -106,6 +106,15 @@ src/types/constraints.ts:78
 #    copy (#1957), all above this site. Line text identical
 #    (`: topFigurePercent === 100`); CI shard 2 on `ffea022e` reported added
 #    and gone as exactly this pair.)
+#    (`contextMenu/actions.ts:934` -> `1010` and `store.ts:7887` -> `7895`
+#    (`7884` -> `7892` before staging `b017e3c2` moved it +3) are
+#    pure line shifts from `canvas/keyboard-delete-guard` (25 Sep 2026): the
+#    shared delete entry point, the multi-select edge assessment and their
+#    docblocks in `actions.ts`, and corrected `deleteKeyCode` comments in
+#    `store.ts`, all above these sites. Line text identical
+#    (`if (attempts < MAX_ATTEMPTS) {` / `if (currentTotal + displayBytes >
+#    MAX_TOTAL_CHARS) {`); the scanner's added/gone sets were exactly these
+#    two pairs.)
 #    (`analysisNewCopy.ts:2463` -> `2471`, a pure +8 line shift from Panel
 #    bundle 2: copy for the blocker repair ask and #1963's tail subtitles,
 #    both above this site. Line text identical; added and gone were

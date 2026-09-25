@@ -95,3 +95,67 @@ describe('CanvasFooterSummary — renders real counts', () => {
     expect(container.firstChild).toBeNull()
   })
 })
+
+/**
+ * ⛔ THE FOOTER YIELDS; IT NEVER RENDERS AS A CLIPPED COLUMN.
+ *
+ * Served 25 Sep on UI `580d135b` (deploy `6ab5f3822afa870008107e6e`), 1280x800,
+ * dock open, "Saved example" banner showing:
+ * - the band's columns read `0px 644px 0px`;
+ * - the footer drew 70px wide and 5 lines tall (90px), its bottom at 814px on
+ *   an 800px viewport, overlapping the banner.
+ * Same mechanism as N3 (`CanvasOverlayBand.cueColumnReserve.spec.tsx`): the
+ * `auto` centre track is sized before the `fr` side tracks.
+ *
+ * The banner is a provenance disclosure and outranks a standing count, so the
+ * band does NOT reserve a floor for this cell (that would squeeze the banner
+ * instead). The footer withdraws below the width at which it stops fitting the
+ * band. Measured on the served build, the line heights by cell width are:
+ * 160px → 54px (3 lines, inside the 64px band); 140px → 72px; 120px → 90px.
+ * The "Visual key" legend stays reachable from the toolbar, so nothing but the
+ * count line is missing while it withdraws.
+ *
+ * ⚠ SCOPE: jsdom computes no layout. These are STRUCTURAL pins, the same
+ * convention as the cue's guard. The pixel readings are in the PR.
+ */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { CANVAS_FOOTER_MIN_WIDTH_PX, CANVAS_FOOTER_SUMMARY_TESTID } from '../CanvasFooterSummary'
+import { OVERLAY_BAND_HEIGHT } from '../CanvasOverlayBand'
+
+const FOOTER_CSS = (() => {
+  try {
+    return readFileSync(resolve(__dirname, '../CanvasFooterSummary.module.css'), 'utf8')
+  } catch {
+    return ''
+  }
+})()
+
+describe('CanvasFooterSummary — withdraws instead of squeezing into a column', () => {
+  it('the wrapper is an inline-size container that adds no width to the band', () => {
+    expect(FOOTER_CSS).toMatch(/\.fit\s*\{[^}]*container-type:\s*inline-size/)
+    expect(FOOTER_CSS).toMatch(/\.fit\s*\{[^}]*min-width:\s*0/)
+  })
+
+  it('the stylesheet hides the footer below CANVAS_FOOTER_MIN_WIDTH_PX, bound to one number', () => {
+    const m = FOOTER_CSS.match(
+      /@container\s*\(\s*max-width:\s*(\d+)px\s*\)\s*\{\s*\.footer\s*\{\s*display:\s*none/,
+    )
+    expect(m, 'an @container rule hiding .footer').not.toBeNull()
+    expect(Number(m![1]) + 1).toBe(CANVAS_FOOTER_MIN_WIDTH_PX)
+  })
+
+  it('at the threshold the measured 3 lines of 18px still fit the band', () => {
+    expect(CANVAS_FOOTER_MIN_WIDTH_PX).toBe(160)
+    expect(3 * 18).toBeLessThanOrEqual(OVERLAY_BAND_HEIGHT)
+  })
+
+  it('renders the footer body inside the container wrapper', () => {
+    useCanvasStore.setState({ nodes: [node('q'), node('o1', 'option')], edges: [] })
+    render(<CanvasFooterSummary />)
+    const body = screen.getByTestId(CANVAS_FOOTER_SUMMARY_TESTID)
+    const fit = screen.getByTestId(`${CANVAS_FOOTER_SUMMARY_TESTID}-fit`)
+    expect(fit.contains(body)).toBe(true)
+    expect(fit).not.toBe(body)
+  })
+})
