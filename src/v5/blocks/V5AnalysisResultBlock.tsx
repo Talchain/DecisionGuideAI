@@ -399,21 +399,39 @@ function V5AnalysisResultBlockImpl({
   const winShareRankingWithheld = thisRunNamedNoLeader || heldReportWithholdsLeader
   const showWinShares = hasProbs && !winShareRankingWithheld
 
-  // Sort so the leading option appears first and the rest descending by prob.
-  // Reached only when a leader MAY be named (UI-SEM-097 above). The
-  // probability-descending tail then orders a set the producer itself ranked
-  // and licensed; with `leaderKeys` empty (a near tie) the `aLeads` branch is
-  // inert by construction.
-  const sortedProbs = showWinShares
-    ? Object.entries(block.win_probabilities as Record<string, number>).sort(
-        ([keyA, pA], [keyB, pB]) => {
-          const aLeads = leaderKeys.has(keyA)
-          const bLeads = leaderKeys.has(keyB)
-          if (aLeads !== bLeads) return aLeads ? -1 : 1
-          return pB - pA
-        },
-      )
+  // ⭐ UI-SEM-097, ORDER (RC ruling, #69 5829442152 §4): ORDER IS A DESIGNATION.
+  //
+  // A LICENSED leader (`leaderClaimLicensed`: the verdict found one AND the model
+  // licenses a comparative claim) goes first, and the rest follow largest-first:
+  // the producer ranked that set and licensed saying so.
+  //
+  // Any other card that still shows the row (an exploratory admission, a near
+  // tie) keeps EVERY number but lists the options in CANVAS order, the order the
+  // Reasoning tab (`sortOptionsForDisplay`, `designationsWithheld`) and the
+  // inspector's option comparison (#2001, L2) use, so every surface lists options
+  // alike. Largest-first there would be a ranking nobody licensed. A key that
+  // matches no canvas option keeps its wire position, after the matched ones.
+  const canvasLabels = useCanvasNodeLabels()
+  /** Position of a win-share key (an option id or its label) among canvas nodes. */
+  const canvasRank = (key: string): number => {
+    let i = 0
+    for (const [id, label] of canvasLabels) {
+      if (id === key || label === key) return i
+      i += 1
+    }
+    return Number.MAX_SAFE_INTEGER
+  }
+  const winEntries = showWinShares
+    ? Object.entries(block.win_probabilities as Record<string, number>)
     : []
+  const sortedProbs = leaderClaimLicensed
+    ? [...winEntries].sort(([keyA, pA], [keyB, pB]) => {
+        const aLeads = leaderKeys.has(keyA)
+        const bLeads = leaderKeys.has(keyB)
+        if (aLeads !== bLeads) return aLeads ? -1 : 1
+        return pB - pA
+      })
+    : [...winEntries].sort(([keyA], [keyB]) => canvasRank(keyA) - canvasRank(keyB))
 
   return (
     <div
