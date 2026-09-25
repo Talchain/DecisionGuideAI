@@ -1,8 +1,8 @@
 /**
- * Run-turn coaching PROMOTION — gated OFF by
- * `RUN_TURN_COACHING_PROMOTION_ENABLED` (messageComposition.ts), which
- * Reasoning & Coaching flips only after Runtime's click guard is served
- * (programme-docs #63 5819467504).
+ * Run-turn coaching PROMOTION — ON by default via
+ * `RUN_TURN_COACHING_PROMOTION_ENABLED` (messageComposition.ts), flipped by
+ * Reasoning & Coaching on the Delivery Lead's GO (programme-docs #63
+ * 5824423338 §2), shipping with Runtime's click guard (CEE #1854).
  *
  * When on, the first block in producer order that is a `run_analysis`
  * coaching card with a target, a producer-authored label + prompt, a routable
@@ -20,11 +20,11 @@
  * one served turn — not a UI route capture. The `explicit_run` card is the
  * subject; the `auto_first_pass` card is pinned as its sibling.
  *
- * The constant is forced ON here through the functions' own option seam
+ * Each arm is forced through the functions' own option seam
  * (`composeMessage(…, { promoteRunTurnCoaching })`,
  * `planCoachingLines(…, { promoteRunTurnCoaching })`), wrapped at the module
- * boundary so the REAL `InlineBlocks` mounts the promoted composition. With the
- * seam untouched, the real constant decides — which is the OFF arm.
+ * boundary so the REAL `InlineBlocks` mounts that composition. With the seam
+ * untouched, the real constant decides — which is now the ON arm.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -231,41 +231,62 @@ describe('the producer’s v3 fragile-link payload', () => {
   })
 })
 
-describe('the promotion is gated OFF, and OFF is byte-identical to before', () => {
-  it('the constant ships false', () => {
-    expect(RUN_TURN_COACHING_PROMOTION_ENABLED).toBe(false)
+describe('the promotion is ON by default; explicit OFF is byte-identical to before', () => {
+  it('the constant ships true', () => {
+    expect(RUN_TURN_COACHING_PROMOTION_ENABLED).toBe(true)
   })
 
-  it('composeMessage: the fragile-link card stays in overflow, exactly as the prefix rule puts it', () => {
+  it('composeMessage: the default IS the ON arm', () => {
     const blocks = runTurn()
-    // Precondition: the card IS promotable — so staying demoted proves the gate,
-    // not a fixture that never qualified.
+    // Precondition: the card IS promotable — so the default promoting it proves
+    // the constant, not a fixture that always qualified either way.
     expect(firstPromotableActionIndex(blocks)).toBe(3)
-    const composed = composeMessage(blocks)
+    expect(JSON.stringify(composeMessage(blocks))).toBe(
+      JSON.stringify(composeMessage(blocks, null, { promoteRunTurnCoaching: true })),
+    )
+    expect(indices(composeMessage(blocks).points)).toEqual([0, 1, 3])
+  })
+
+  it('planCoachingLines: the default IS the ON arm', () => {
+    const blocks = runTurn()
+    expect([...planCoachingLines(blocks).entries()]).toEqual([
+      ...planCoachingLines(blocks, { promoteRunTurnCoaching: true }).entries(),
+    ])
+    expect(planCoachingLines(blocks).get(blocks[3])?.collapsible).toBe(false)
+  })
+
+  it('explicit OFF — composeMessage: the fragile-link card stays in overflow, exactly as the prefix rule puts it', () => {
+    const blocks = runTurn()
+    const composed = composeMessage(blocks, null, { promoteRunTurnCoaching: false })
     expect(indices(composed.pinned)).toEqual([])
     expect(indices(composed.points)).toEqual([0, 1, 2])
     expect(indices(composed.detail)).toEqual([3])
-    expect(JSON.stringify(composed)).toBe(
-      JSON.stringify(composeMessage(blocks, null, { promoteRunTurnCoaching: false })),
-    )
   })
 
-  it('planCoachingLines: every card keeps its line', () => {
+  it('explicit OFF — planCoachingLines: every card keeps its line', () => {
     const blocks = runTurn()
-    const plan = planCoachingLines(blocks)
+    const plan = planCoachingLines(blocks, { promoteRunTurnCoaching: false })
     for (const block of blocks) expect(plan.get(block)).toEqual({ disambiguator: null, collapsible: true })
-    expect([...plan.entries()]).toEqual([
-      ...planCoachingLines(blocks, { promoteRunTurnCoaching: false }).entries(),
-    ])
   })
 
-  it('mounted: the card sits behind "Show 1 more" and, revealed, is a collapsed line', () => {
+  it('explicit OFF, mounted: the card sits behind "Show 1 more" and, revealed, is a collapsed line', () => {
+    promotion.forced = false
     installRun(RUN_COMPUTED_AT)
     render(<InlineBlocks blocks={runTurn()} turnId="turn_run" patchBlockStates={new Map()} />)
     expect(fragileCard(), 'demoted: not rendered while the disclosure is closed').toBeNull()
     fireEvent.click(screen.getByTestId('block-detail-toggle'))
     expect(fragileCard()).not.toBeNull()
     expect(screen.getByTestId(`coaching-line-${FRAGILE_ID}`)).toBeInTheDocument()
+  })
+
+  it('DEFAULT, mounted, current run: the card is on the face of the reply with its action live — no seam forced', () => {
+    installRun(RUN_COMPUTED_AT)
+    render(<InlineBlocks blocks={runTurn()} turnId="turn_run" patchBlockStates={new Map()} />)
+    expect(fragileCard(), 'top level while the disclosure is closed').not.toBeNull()
+    expect(screen.queryByTestId(`coaching-line-${FRAGILE_ID}`)).toBeNull()
+    const chip = fragilePart('action') as HTMLButtonElement
+    expect(chip).toHaveTextContent(String(RAW_FRAGILE.action_label))
+    expect(chip.disabled).toBe(false)
   })
 })
 

@@ -43,7 +43,7 @@
  *    phase3Pacing.ts documents at EXERCISE_RANK_AFTER_REVIEW_CARDS. The one
  *    exception is the companion reservation, which SWAPS one member of the
  *    point set and is bounded to one — plus, while
- *    `RUN_TURN_COACHING_PROMOTION_ENABLED` is on (it ships off), the run-turn
+ *    `RUN_TURN_COACHING_PROMOTION_ENABLED` is on (it is, since #63 5824423338), the run-turn
  *    promotion, the same kind of single bounded swap.
  *
  * ## ONE RENDER AUTHORITY (L-16 / NEW-9, 16 Aug 2026) — added, nothing weakened
@@ -225,24 +225,28 @@ function reserveCompanion(
 }
 
 // ---------------------------------------------------------------------------
-// RUN-TURN COACHING PROMOTION — gated OFF
+// RUN-TURN COACHING PROMOTION — ON
 // ---------------------------------------------------------------------------
 
 /**
  * Whether a run turn's actionable coaching card is PROMOTED to a top-level,
  * expanded point (see `firstPromotableActionIndex`).
  *
- * ⛔ OFF, AND FLIPPED ONLY BY REASONING & COACHING, ONLY AFTER RUNTIME'S CLICK
- * GUARD IS SERVED (programme-docs #63 5819467504). Promotion puts a live action
- * on the face of the reply, so it waits for that guard rather than resting on
- * this card's own currency verdict alone. With this `false`, `composeMessage`
- * and `planCoachingLines` are byte-identical to before the promotion existed;
- * `runTurnCoachingPromotion.spec.tsx` pins both the value and that identity.
+ * ⭐ ON — flipped by Reasoning & Coaching on the Delivery Lead's GO (programme-
+ * docs #63 5824423338 §2). With it off, a completed OpenAI Run showed the user
+ * NO action: the card sat collapsed behind "Show 1 more". It was held until
+ * Runtime's click guard (CEE #1854: a card click cannot authorise a change or
+ * start a Run) shipped in the same deploy, because promotion puts a live action
+ * on the face of the reply. Its action is live only while the run-turn currency
+ * rule says the card is about the current run; any currency failure makes it
+ * inert. `{ promoteRunTurnCoaching: false }` still gives the exact pre-promotion
+ * composition — `runTurnCoachingPromotion.spec.tsx` pins the value, that
+ * identity, and that the default now equals the ON arm.
  *
  * A constant, not a flag: the flip is a reviewed code change owned by one lane,
  * not a runtime toggle any session can set.
  */
-export const RUN_TURN_COACHING_PROMOTION_ENABLED = false
+export const RUN_TURN_COACHING_PROMOTION_ENABLED = true
 
 /** Is `intent` absent, or one the deployed CEE routes? Fails closed on anything else. */
 function isRoutableActionIntent(intent: string | undefined): boolean {
