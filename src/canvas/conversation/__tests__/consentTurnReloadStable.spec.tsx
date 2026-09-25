@@ -24,6 +24,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, waitFor, cleanup } from '@testing-library/react'
 
 import servedFirstPassWithConsent from './fixtures/openai-route-first-pass-with-consent.e39f6e0.json'
+import servedJourneyE39f6e0 from './fixtures/openai-route-coaching-journey.e39f6e0.json'
 import { useConversation, type UseConversationReturn } from '../useConversation'
 import { ConversationPanel } from '../ConversationPanel'
 import { ToastProvider } from '../../ToastContext'
@@ -74,6 +75,11 @@ const C1 = (servedFirstPassWithConsent as { turns: Array<{ turn: string; json: W
   (t) => t.turn === 'C1 brief',
 )!.json
 const RUN_CARD_ID = String((C1.blocks ?? []).find((b) => b.type === 'coaching')?.block_id)
+/** A later explicit Run with NO consent offer (served e39f6e0 journey, C2). */
+const C2_RUN = (servedJourneyE39f6e0 as { turns: Array<{ turn: string; json: Wire }> }).turns.find(
+  (t) => t.turn === 'C2 run',
+)!.json
+const C2_CARD_ID = String((C2_RUN.blocks ?? []).find((b) => b.type === 'coaching')?.block_id)
 
 function assistantTurn(id: string, chips: Array<{ id: string; label: string }> | undefined): SourceKeyedMessage {
   return {
@@ -226,6 +232,57 @@ describe('the served consent turn keeps its layout after a reload (e39f6e0)', ()
     expect(conv.current!.messages.some((m) => (m.actionChips ?? []).some((c) => c.id === APPROVE))).toBe(false)
 
     expectRunCardKeepsItsLine('after reload')
+  })
+})
+
+describe('the fact is per turn, never sticky (R&C 5829256737: served row R1)', () => {
+  beforeEach(() => {
+    queue.length = 0
+    Element.prototype.scrollIntoView = vi.fn()
+    window.history.replaceState(null, '', '/?ai=openai#/canvas')
+    useCanvasStore.setState({
+      currentScenarioId: SID,
+      nodes: [],
+      edges: [],
+      analysisFreshness: null,
+      analysisFreshnessDirty: false,
+      analysisStateV1: null,
+      results: { status: 'idle' } as never,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    } as never)
+    vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
+      if (!/\/v5\/turn(\?|$)/.test(String(url))) return new Response('{}', { status: 404 })
+      const body = queue.shift()
+      if (!body) throw new Error('the UI sent a request no served turn answers')
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
+    }))
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  /** The Run card is promoted: on the face of its reply, not inside a closed line. */
+  const promoted = (id: string) =>
+    document.querySelector(`[data-block-id="${id}"]`) !== null &&
+    document.querySelector(`[data-testid="coaching-line-${id}"]`) === null
+
+  it('a consent turn, then a Run with no consent offer: live and after a reload, only the consent turn keeps its line', async () => {
+    await mountPanel()
+    queue.push(C1)
+    await act(async () => { await conv.current!.sendMessage('We sell a Pro plan at £49/month. Should we raise it to £59?') })
+    queue.push(C2_RUN)
+    await act(async () => { await conv.current!.sendMessage('Go ahead.') })
+
+    expectRunCardKeepsItsLine('live, the consent turn')
+    expect(promoted(C2_CARD_ID), 'live: the later Run card is on the face').toBe(true)
+    await waitFor(() => expect(savedRaw().filter((m) => m.consentOffered === true)).toHaveLength(1))
+
+    cleanup()
+    restampAsEarlierPageLoad()
+    await mountPanel()
+    await waitFor(() => expect(runCard(), 'reload: the restored turns render').not.toBeNull())
+
+    expectRunCardKeepsItsLine('after reload, the consent turn')
+    expect(promoted(C2_CARD_ID), 'after reload: the later Run card is STILL on the face (no sticky consent)').toBe(true)
   })
 })
 
