@@ -56,13 +56,21 @@ describe('one surface, one disclosure treatment', () => {
       />,
     )
 
-    const present = NAMED_GROUPS.filter((id) => screen.queryByTestId(id) !== null)
+    // V2 fidelity gaps 24 + 27 (24 Sep 2026): About joined NAMED_GROUPS when the
+    // two tail groups folded into it, and it is deliberately NOT a SectionShell —
+    // the prototype draws it as a quiet audit footer (`.about .disclose`), not a
+    // peer section. Excluded by identity; it carries its own marker instead.
+    const present = NAMED_GROUPS.filter(
+      (id) => id !== 'analysis-new-about' && screen.queryByTestId(id) !== null,
+    )
+    expect(screen.getByTestId('analysis-new-about')).toHaveAttribute('data-about-open')
     // POSITIVE CONTROL: a fixture rendering no group would satisfy the loop
     // below vacuously, and this spec would then guard nothing (trap 13).
+    // V2 gap 24: two SectionShell groups left with the tail; one remains.
     expect(
       present.length,
       'no named group rendered — this case would be vacuous',
-    ).toBeGreaterThan(1)
+    ).toBeGreaterThan(0)
 
     for (const id of present) {
       expect(

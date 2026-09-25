@@ -95,7 +95,8 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     // ⛔ The token also covers a withhold on a brief with NO limits (DL #63
     // 5825413732; Panel bundle 3): the note must not presume limits exist.
     expect(label()).not.toMatch(/your limits/i)
-    expect(label()).toContain('The check against the limits you set does not support putting one option forward.')
+    // The reason sentence is Panel bundle 3's (#1993), read from the shared copy.
+    expect(label()).toContain("Olumi's checks on this run do not support putting one option forward.")
   })
 
   it('ED choice 3 — ON THE SHARE LINE: `Goal only` sits in the same row as the share, after it; no second line', () => {

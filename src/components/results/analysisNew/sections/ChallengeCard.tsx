@@ -53,6 +53,15 @@ import { action } from '../panelSurfaces'
 import { respondToIntervention, respondToMethod } from '../challengeResponse'
 import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 
+
+/**
+ * 14px, the prototype's `.challenge-question` size, through the panel's own
+ * token rather than a raw size-and-weight class pair, which bypassed the
+ * declared scale (render-discipline RULE A, shell-conformance). It is a `<p>`
+ * under the zone's h3, led by a dot, so the hierarchy is carried by element
+ * and position.
+ */
+const ITEM_TEXT = typography.panelHeader
 export interface ChallengeCardProps {
   /** The body's `glancePrimary` — `vm.strengthen.interventions`' pick. */
   intervention: Recommendation | null
@@ -236,9 +245,13 @@ export function ChallengeCard({
         </p>
       ) : null}
       <div className="flex items-start gap-1">
-        <h3 className={`${typography.panelHeader} text-text-header min-w-0 flex-1`} data-testid={`${testId}-heading`}>
-          {shown.heading}
-        </h3>
+        {/* ⭐ V2 (fidelity gap 16): the item is the zone's QUESTION, not a
+            second section title. 14px medium with a quiet leading dot, under
+            the zone's h3; still `.title` verbatim (ruling §3). */}
+        <p className={`${ITEM_TEXT} text-text-header m-0 min-w-0 flex-1 flex gap-1.5`}>
+          <span className="text-text-light" aria-hidden={true}>·</span>
+          <span className="min-w-0" data-testid={`${testId}-heading`}>{shown.heading}</span>
+        </p>
         <div className="flex shrink-0 items-center gap-1">
           <button
             ref={respondRef}
