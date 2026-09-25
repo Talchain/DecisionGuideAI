@@ -195,6 +195,7 @@ import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import {
   buildModelStrip,
+  CENSUS_ORDER,
   stripHasContent,
   MARK_CAP,
   stripNodeValueSignature,
@@ -332,6 +333,8 @@ interface VisibleRow {
   narrowed: boolean
   /** The selected row shows everything it has; see `MARK_CAP`. */
   uncapped: boolean
+  /** A census kind this model has NONE of, shown at rest as a count of 0. */
+  zero?: boolean
 }
 
 export interface ModelStripProps {
@@ -624,7 +627,7 @@ export function ModelStrip({
   const noValueActive = worklist === 'noValue' && strip.noValueTotal > 0
 
   /** The rows as the current narrowing leaves them — see `VisibleRow`. */
-  const visible: VisibleRow[] = strip.rows
+  const presentRows: VisibleRow[] = strip.rows
     .map((row) => {
       const nodes = verifyActive
         ? row.nodes.filter((n) => n.needsCheck)
@@ -664,6 +667,23 @@ export function ModelStrip({
     // same rule the builder applies to a kind the canvas does not carry, and
     // for the same reason: "Options 0" reads as a finding about the model.
     .filter((v) => v.nodes.length > 0)
+  /*
+   * ⭐ THE CENSUS SHOWS ALL FOUR KINDS AT REST, ZEROS INCLUDED — the V2
+   * prototype's `mapHTML()` always renders Options/Factors/Risks/Outcomes.
+   * Hiding an empty kind hid the one fact Paul needed in manual test
+   * `1a298d6d` ("There don't seem to be any outcomes"): the model had none and
+   * nothing on the tab said so. A count of 0 is a measured absence.
+   * ⚠ AT REST ONLY. A worklist or a picked kind narrows the list to what it
+   * names, and a zero row there would be a row the narrowing did not ask for.
+   * `strip.rows` is unchanged, so no consumer of it moves.
+   */
+  const showZeroKinds = !verifyActive && !noValueActive && kindFilter === null && strip.rows.length > 0
+  const visible: VisibleRow[] = CENSUS_ORDER.flatMap(({ kind, label }) => {
+    const present = presentRows.find((v) => v.row.kind === kind)
+    if (present) return [present]
+    if (!showZeroKinds || strip.rows.some((r) => r.kind === kind)) return []
+    return [{ row: { kind, label, nodes: [], overCap: false }, nodes: [], drawMarks: false, narrowed: false, uncapped: false, zero: true }]
+  })
 
   /**
    * Every node id the current narrowing names, in row order. This is what the
@@ -1011,7 +1031,9 @@ export function ModelStrip({
               className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 pr-5"
               data-testid={`${testId}-tallies`}
             >
-              {strip.rows.map((row) => (
+              {/* All four kinds, zeros included — the same census rule as the
+                  open rows (see `visible`). */}
+              {CENSUS_ORDER.map(({ kind, label }) => strip.rows.find((r) => r.kind === kind) ?? { kind, label, nodes: [], overCap: false }).map((row) => (
                 <span
                   key={row.kind}
                   className="flex items-center gap-1"
@@ -1195,7 +1217,30 @@ export function ModelStrip({
           data-testid={`${testId}-rows`}
           className="list-none p-0 m-0 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1"
         >
-          {visible.map(({ row, nodes, drawMarks, narrowed, uncapped }) => (
+          {visible.map(({ row, nodes, drawMarks, narrowed, uncapped, zero }) => zero ? (
+            <li
+              key={row.kind}
+              role="listitem"
+              className="contents"
+              data-testid={`${testId}-row`}
+              data-kind={row.kind}
+              data-zero="true"
+            >
+              {/* Not a control: there is nothing of this kind to ring or narrow to. */}
+              <span className="flex items-center gap-1 px-1 py-0.5 min-w-0">
+                <NodeMark kind={row.kind} />
+                <span className={`${typography.panelMeta} text-text-light truncate`}>{row.label}</span>
+              </span>
+              <span data-testid={`${testId}-marks`} />
+              <span
+                className={`${typography.panelMeta} text-text-light tabular-nums`}
+                data-testid={`${testId}-row-count`}
+                data-kind={row.kind}
+              >
+                0
+              </span>
+            </li>
+          ) : (
             <li
               key={row.kind}
               role="listitem"
