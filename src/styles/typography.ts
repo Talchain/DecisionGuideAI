@@ -286,6 +286,19 @@ export const typography = {
    */
   panelTabular: 'text-xs font-sans leading-relaxed tabular-nums',  // 12px — numbers in columns
 
+  /**
+   * 14px + medium weight — a question one visible notch quieter than
+   * `panelHeader` (14px/600). Same size, because DS v5 §2.2's three-size rule
+   * is about SIZE, not name; the distinction the panel needs here is WEIGHT,
+   * which §2.4 bans as a raw override on an existing token, so the weight gets
+   * its own name instead (design-audit-20260925, gap TYPE-2).
+   *
+   * Token declared here for `panelSurfaces.ts`'s ownership reasons even though
+   * this bundle's owned files carry no consumer yet — the challenge-question
+   * call site (`ChallengeCard.tsx`) belongs to a different bundle.
+   */
+  panelQuestion: 'text-sm font-medium font-sans leading-snug',    // 14px, weight 500
+
   // Conversation panel — ONE type scale (lane F3, register 1.69(a)).
   // The panel renders exactly three sizes — 14 (panelHeader / chatProse /
   // bodySmall), 12 (panelBody), 11 (panelMeta) — plus the named 24px
@@ -302,53 +315,6 @@ export const typography = {
   // elsewhere. Neutral letter spacing — display tightening
   // (tracking-tight) felt off on this hero scale.
   welcomeHeading: 'text-[24px] font-semibold font-sans leading-snug', // 24px — AI Panel v2 hero only
-
-  // ── ⭐⭐ THE REASONING PANEL'S ONE LEAD STEP, AND THE RULING IT ANSWERS ─────
-  // The note above `panelHeader` says: "A panel that needs a bigger size than
-  // `panelHeader` is a panel promoting a number; say it in words instead."
-  // That ruling is RIGHT, and this token does not contradict it — it is the
-  // case the ruling was written to permit.
-  //
-  // The rejected token promoted A NUMBER: the largest type in the product, on
-  // a figure computed partly from values Olumi invented rather than the user.
-  // `reasoningLead` carries WORDS THE USER OR THEIR MODEL AUTHORED — the
-  // decision being considered, or the option the run concluded for — and it can
-  // never carry a figure.
-  //
-  // ⚠⚠ AMENDED 17 Sep 2026, BECAUSE THIS SAID "its only consumer is the model
-  // strip's subject line" AND THAT IS NO LONGER TRUE. There are two consumers,
-  // and the rule is now a COUNT rather than a place: **exactly one element
-  // carries this token at a time** — the glance headline when the run reached a
-  // conclusion, the strip's subject line when it did not. Paul's ruling, same
-  // day: the slot means "the most important thing on this panel right now".
-  // `panelLead.ts` owns the predicate that decides, and
-  // `theLargestTypeIsTheAnswer.spec.tsx` REDs on two leads as loudly as on none.
-  // The "never a figure" ruling is untouched: a conclusion is an option's NAME,
-  // not its win share.
-  //
-  // WHY A STEP WAS NEEDED AT ALL, measured on deployed `d135ff7e`: the whole
-  // Reasoning panel rendered at 14/12/11 with SIX different strings tied for
-  // largest at 14px, so nothing led and the panel never named its own subject.
-  // Hierarchy needs one step, not a new scale — this is the only one added.
-  //
-  // 18px is an EXISTING design-system step (`h5`, `bodyLarge`), not a new
-  // size invented for the panel: one clear step above `panelHeader` (14px) and
-  // well below `welcomeHeading` (24px), which stays the product's loudest type.
-  //
-  // ⭐⭐ AND IT IS DELIBERATELY *NOT* `panel*`-PREFIXED. That family is pinned by
-  // `tests/ci-guards/panel-scale-has-exactly-three-sizes.spec.ts` to resolve to
-  // exactly {11,12,14} — a NAME rule, and a good one: it exists because #1179
-  // added a fourth token arguing the count was unchanged, correctly, with
-  // nothing enforcing it. Using the `panel*` prefix here would have forced that
-  // invariant open to four sizes and made the guard's own filename false.
-  //
-  // `welcomeHeading` (24px, panel context) already establishes the convention:
-  // a named hero sits OUTSIDE that family precisely so the family's three-size
-  // rule stays literally true. This follows it, and the exception is NOT hidden
-  // by the name — `reasoning-panel-render-discipline` RULE A governs what may
-  // render on a panel surface, and this token is declared there, which is the
-  // guard that actually answers "is a fourth size on screen?".
-  reasoningLead: 'text-lg font-semibold font-sans leading-snug', // 18px — the Reasoning panel's ONE lead: its conclusion, else its subject
 
   // Utility
   screenReaderOnly: 'sr-only',

@@ -442,7 +442,20 @@ export function ModelStrip({
    */
   const decisionLeads = strip.decisionLabel !== null && strip.decisionLabel !== strip.goalLabel
   const leadLabel = decisionLeads ? strip.decisionLabel : strip.goalLabel
-  const subjectSubLabel = decisionLeads ? strip.goalLabel : null
+  /**
+   * ⚠ CONTAINMENT, NOT JUST INEQUALITY (design-audit-20260925, gap FIRST-3).
+   * `decisionLeads` above is a STRING inequality: "Decision: Delivery
+   * velocity" !== "Delivery velocity" is true even though the decision line
+   * already carries every word of the goal. Rendering the goal again then
+   * restates it — the exact defect this two-element split exists to avoid.
+   * The subline earns its place only when the goal's words are NOT already
+   * inside the decision line.
+   */
+  const subjectSubLabel =
+    decisionLeads && strip.goalLabel !== null && strip.decisionLabel !== null &&
+    !strip.decisionLabel.includes(strip.goalLabel)
+      ? strip.goalLabel
+      : null
   const valueInputId = useId()
   /**
    * ⚠ THE NODE ID, NOT A BOOLEAN, AND FOR THE SAME REASON `activeNodeId` IS AN
@@ -809,7 +822,7 @@ export function ModelStrip({
         // Points at the region ONLY while it exists. A collapsed region is
         // UNMOUNTED rather than hidden, so a resting reference would dangle.
         aria-controls={open ? regionId : undefined}
-        className="w-full text-left flex items-start gap-2 py-1 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        className="w-full text-left relative flex items-start gap-2 py-1 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         data-testid={`${testId}-toggle`}
       >
         <span className="min-w-0 flex-1">
@@ -844,7 +857,9 @@ export function ModelStrip({
             // second copy of the subject inside the region would put the same
             // sentence on screen twice, which is exactly what the
             // first-viewport census exists to stop. Only the clamp is gone.
-            className={`${typography.reasoningLead} text-text-header block break-words`}
+            className={`${typography.panelHeader} text-text-header block break-words${
+              open && subjectSubLabel === null ? ' pr-5' : ''
+            }`}
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >
@@ -852,7 +867,7 @@ export function ModelStrip({
           </span>
           {subjectSubLabel === null ? null : (
             <span
-              className={`${typography.panelBody} text-text-light block ${open ? '' : 'truncate'}`}
+              className={`${typography.panelBody} text-text-light block ${open ? 'pr-5' : 'truncate'}`}
               data-testid={`${testId}-goal`}
               title={subjectSubLabel}
             >
@@ -872,7 +887,7 @@ export function ModelStrip({
               for. */}
           {open ? null : (
             <span
-              className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1"
+              className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 pr-5"
               data-testid={`${testId}-tallies`}
             >
               {strip.rows.map((row) => (
@@ -907,10 +922,18 @@ export function ModelStrip({
           )}
         </span>
 
+        {/* ⚠ ABSOLUTE, NOT A FLEX SIBLING (design-audit-20260925, gap
+            NARROW-2). A flex sibling reserves its own column beside the
+            subject text at every width, so at a narrow dock the lead's
+            available measure shrinks by the chevron's width and wraps a
+            word that would otherwise fit on one line. Anchored to the
+            toggle's own bottom-right corner instead, so the subject gets
+            the full row width and the line(s) below it (`pr-5`) leave room
+            for the glyph without it competing for the first line. */}
         {open ? (
-          <ChevronDown className={`${icon('section')} shrink-0 mt-0.5 text-text-light`} aria-hidden={true} />
+          <ChevronDown className={`${icon('section')} absolute right-0 bottom-1 text-text-light`} aria-hidden={true} />
         ) : (
-          <ChevronRight className={`${icon('section')} shrink-0 mt-0.5 text-text-light`} aria-hidden={true} />
+          <ChevronRight className={`${icon('section')} absolute right-0 bottom-1 text-text-light`} aria-hidden={true} />
         )}
       </button>
 
@@ -926,6 +949,7 @@ export function ModelStrip({
           hidden behind a disclosure is a target nobody sets. */}
       <SuccessTargetLine
         goalNodeId={strip.goalNodeId}
+        divider={false}
         /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
            This read TWO, on the premise that no server carrier for a goal
            threshold exists, and told every reader "It will be used the next time
