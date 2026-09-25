@@ -36,6 +36,7 @@ import { editDeliveryHold } from '../registration/editDeliveryHold'
 import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
 import { edgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
 import { canonicalJson } from '../../lib/canonical-hash'
+import { EdgeV3Schema } from '@talchain/schemas'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -380,7 +381,9 @@ async function readAndMergeServerGraph(
     const currencyOutcome = applyBootRunCurrency({
       analysisState: result.analysisState,
       graphHash: result.graphHash,
-      canvasProvenEqualToRead: canvasProvenEqualToRead(scenarioId, result.graph),
+      // BOTH directions: the canvas carries every value the read carries (the
+      // acknowledgement's proof) AND the read carries nothing the canvas lacks.
+      canvasProvenEqualToRead: canvasProvenEqualToReadBothWays(scenarioId, result.graph),
       store: {
         analysisFreshnessDirty: st.analysisFreshnessDirty,
         setAnalysisStateV1: st.setAnalysisStateV1,
@@ -608,6 +611,103 @@ function canvasProvenEqualToRead(scenarioId: string, wireGraph: unknown): boolea
   if (st.importPendingServerRegistration === true) return false
   if (editDeliveryHold(st as never) !== null) return false
   return readCarriesEveryProjectedValue(wireGraph, st.nodes as never, st.edges as never)
+}
+
+/**
+ * The read's graph with the published contract's defaults applied, and nothing
+ * else. `EdgeV3Schema` declares `edge_type: EdgeType.optional().default('directed')`,
+ * so a wire edge that omits `edge_type` IS a directed edge by contract, and the
+ * canvas projection always emits it (`buildRegistrationGraph`). Without this,
+ * the served pricing read (`fixtures/pricing-provisional-poll.json`) fails the
+ * equality proof on all 15 edges for that one key, so the restore could never
+ * fire on a real graph. The default is read FROM the schema, never re-spelled.
+ */
+function withContractEdgeDefaults(wireGraph: unknown): unknown {
+  if (wireGraph === null || typeof wireGraph !== 'object') return wireGraph
+  const g = wireGraph as { edges?: unknown }
+  if (!Array.isArray(g.edges)) return wireGraph
+  const edgeType = EdgeV3Schema.shape.edge_type
+  return {
+    ...(wireGraph as Record<string, unknown>),
+    edges: g.edges.map((e) => {
+      if (e === null || typeof e !== 'object') return e
+      const parsed = edgeType.safeParse((e as { edge_type?: unknown }).edge_type)
+      return parsed.success ? { ...(e as Record<string, unknown>), edge_type: parsed.data } : e
+    }),
+  }
+}
+
+/**
+ * The currency restore's proof: the acknowledgement's proof, run on the read
+ * with its contract defaults applied, AND the reverse direction. See
+ * `applyBootRunCurrency.ts`.
+ */
+function canvasProvenEqualToReadBothWays(scenarioId: string, wireGraph: unknown): boolean {
+  const read = withContractEdgeDefaults(wireGraph)
+  return canvasProvenEqualToRead(scenarioId, read) && canvasCarriesEveryReadValue(read)
+}
+
+/**
+ * Wire EDGE keys the canvas projection never carries, and why each cannot
+ * change what the analysis computes: `origin`, `provenance` and
+ * `provenance_display` are authorship metadata. CEE's analysis-affecting
+ * projection lists provenance under "Excluded (cosmetic / provenance /
+ * display)" (`graph-hash.ts` `computeAnalysisAffectingGraphHash`). Measured on
+ * the served pricing read (`fixtures/pricing-provisional-poll.json`): after
+ * the merge, these three are the ONLY wire keys, on nodes or edges, that the
+ * canvas projection does not carry. Any other missing key fails the check.
+ */
+const NOT_CARRIED_EDGE_KEYS: ReadonlySet<string> = new Set(['origin', 'provenance', 'provenance_display'])
+
+/**
+ * ⭐ THE REVERSE DIRECTION, used ONLY by the boot run-currency restore.
+ *
+ * `readCarriesEveryProjectedValue` proves the canvas holds nothing CEE lacks.
+ * It says nothing about a value CEE holds that the canvas does NOT, such as a
+ * factor `observed_state` or an option intervention the canvas never received.
+ * A "current" verdict about CEE's graph would then describe a model the user is
+ * not looking at (independent pre-review on #2015). So currency also requires
+ * that every key on every wire node (bar `NOT_VOUCHED_NODE_KEYS`) and every wire
+ * edge (bar `NOT_CARRIED_EDGE_KEYS`) appears in the canvas projection,
+ * deep-equal. Element sets are already equal under the forward check.
+ *
+ * ⚠ NOT added to the acknowledgement. There a stricter check would leave the
+ * canvas unacknowledged, and the re-arm could then write the canvas (which
+ * LACKS the value) into CEE. That is a different trade and out of this scope.
+ */
+function canvasCarriesEveryReadValue(wireGraph: unknown): boolean {
+  if (wireGraph === null || typeof wireGraph !== 'object') return false
+  const g = wireGraph as { nodes?: unknown; edges?: unknown }
+  const st = useCanvasStore.getState()
+  const projected = buildRegistrationGraph(st.nodes as never, st.edges as never)
+  if (!projected.ok) return false
+  const nodeById = new Map<string, Record<string, unknown>>()
+  for (const n of projected.graph.nodes) nodeById.set(String(n.id), n as unknown as Record<string, unknown>)
+  const edgeByPair = new Map<string, Record<string, unknown>>()
+  for (const e of projected.graph.edges) {
+    edgeByPair.set(edgePairKey(String(e.from), String(e.to)), e as unknown as Record<string, unknown>)
+  }
+  for (const w of Array.isArray(g.nodes) ? (g.nodes as unknown[]) : []) {
+    if (w === null || typeof w !== 'object') return false
+    const wire = w as Record<string, unknown>
+    const node = nodeById.get(String(wire.id))
+    if (node === undefined) return false
+    for (const [key, value] of Object.entries(wire)) {
+      if (NOT_VOUCHED_NODE_KEYS.has(key) || value === undefined) continue
+      if (!(key in node) || !sameNodeValue(key, node[key], value)) return false
+    }
+  }
+  for (const w of Array.isArray(g.edges) ? (g.edges as unknown[]) : []) {
+    if (w === null || typeof w !== 'object') return false
+    const key = wireEdgePairKey(w as never)
+    const edge = key === null ? undefined : edgeByPair.get(key)
+    if (edge === undefined) return false
+    for (const [k, value] of Object.entries(w as Record<string, unknown>)) {
+      if (k === 'from' || k === 'to' || NOT_CARRIED_EDGE_KEYS.has(k) || value === undefined) continue
+      if (!(k in edge) || !sameValue(edge[k], value)) return false
+    }
+  }
+  return true
 }
 
 /**

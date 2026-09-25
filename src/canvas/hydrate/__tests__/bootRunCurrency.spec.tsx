@@ -30,6 +30,8 @@ import {
 } from '../applyBootRunCurrency'
 import { buildRegistrationGraph } from '../../registration/buildRegistrationGraph'
 import { useCoachingCurrency } from '../../../v5/blocks/useCoachingCurrency'
+import { mergeServerGraphOnHydrate } from '../../utils/mergeServerGraph'
+import servedPricing from './fixtures/pricing-provisional-poll.json'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const IDENTITY = 'c'.repeat(63) + '9'
@@ -241,6 +243,94 @@ describe('every proof it needs, each broken alone: nothing is written and the ca
     useCanvasStore.setState({ currentScenarioId: '99999999-2222-4333-8444-555555555555' } as never)
     await pending
     await expectNoRestore()
+  })
+})
+
+/** The served pricing read's graph (CEE `c673223`-era bytes; see the fixture README). */
+function servedGraph(): { nodes: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> } {
+  const find = (o: unknown): unknown => {
+    if (o && typeof o === 'object') {
+      const r = o as Record<string, unknown>
+      const g = r.graph as { nodes?: unknown } | undefined
+      if (g && Array.isArray(g.nodes)) return g
+      for (const v of Object.values(r)) {
+        const hit = find(v)
+        if (hit) return hit
+      }
+    }
+    return null
+  }
+  const g = find(servedPricing)
+  if (!g) throw new Error('fixture: no graph in the served read')
+  return JSON.parse(JSON.stringify(g))
+}
+
+/** The canvas a reload of the served scenario restores: the served graph, merged once. */
+function seedCanvasFromServedRead(): void {
+  seedReloadedCanvas({ nodes: [], edges: [] })
+  mergeServerGraphOnHydrate(servedGraph() as never)
+  const { nodes, edges } = useCanvasStore.getState()
+  seedReloadedCanvas({ nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)) })
+}
+
+describe('the REVERSE direction: CEE holds a value the canvas lacks (pre-review 5831362210)', () => {
+  const CACHED_IDENTITY = { serverGraphIdentity: { value: IDENTITY, projectionVersion: 'identity.v1' } }
+
+  it('POSITIVE CONTROL on served bytes: the served pricing read, reloaded over its own canvas, restores', async () => {
+    seedCanvasFromServedRead()
+    respond(body({ graph: servedGraph() }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    expect(useCanvasStore.getState().analysisFreshnessDirty, 'the reload merge is idempotent').toBe(false)
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe(READ_HASH)
+  })
+
+  it('unchanged exit: the read carries a factor observed_state the canvas lacks, so nothing is restored', async () => {
+    seedReloadedCanvas(CACHED_IDENTITY)
+    const g = readGraphOfCanvas()
+    g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, observed_state: { value: 0.4 } } : n))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
+    expect(verdictWrites).not.toContainEqual(CURRENT)
+    expect(runCard().result.current).not.toBe('current')
+  })
+
+  it('unchanged exit, served bytes: the read carries an option intervention the canvas lacks, so nothing is restored', async () => {
+    seedCanvasFromServedRead()
+    const optionId = String(servedGraph().nodes.find((n) => n.kind === 'option' && n.interventions)?.id)
+    const stripped = useCanvasStore.getState().nodes.map((n) => {
+      if (n.id !== optionId) return n
+      const data = { ...(n.data as Record<string, unknown>) }
+      delete data.interventions
+      delete data.interventionKeys
+      return { ...n, data }
+    })
+    useCanvasStore.setState({ nodes: stripped, ...CACHED_IDENTITY } as never)
+    respond(body({ graph: servedGraph() }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
+    expect(verdictWrites).not.toContainEqual(CURRENT)
+  })
+
+  it('the edge default comes from the contract: an edge CEE marks bidirected is not the canvas\'s directed edge', async () => {
+    seedCanvasFromServedRead()
+    useCanvasStore.setState(CACHED_IDENTITY as never)
+    const g = servedGraph()
+    g.edges = g.edges.map((e, i) => (i === 0 ? { ...e, edge_type: 'bidirected' } : e))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
+    expect(verdictWrites).not.toContainEqual(CURRENT)
+  })
+
+  it('merged exit: the read adds an observed_state the canvas lacks, so nothing is restored', async () => {
+    const g = readGraphOfCanvas()
+    g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, observed_state: { value: 0.4 } } : n))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBeUndefined()
+    expect(verdictWrites).not.toContainEqual(CURRENT)
+    expect(runCard().result.current).not.toBe('current')
   })
 })
 
