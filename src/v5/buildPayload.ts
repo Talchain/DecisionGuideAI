@@ -481,6 +481,14 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'goal_target_edit': {
+      const event = adaptGoalTargetEdit(eventPayload)
+      if (event === null) return null
+      // ⚠ CAST, DELIBERATE AND DOCUMENTED — see `adaptGoalTargetEdit` below for
+      // why this is the one member here that cannot be typed from the vendored
+      // union.
+      return { ...base, event: event as unknown as SystemEventTurnPayload['event'] }
+    }
     case 'finding_dissent': {
       // schemas 0.55.0. The user's stated reason for disagreeing with a
       // finding, carried VERBATIM.
@@ -618,6 +626,37 @@ type EdgeStrengthEditWireEvent = Extract<
   SystemEventTurnPayload['event'],
   { kind: 'edge_strength_edit' }
 >
+
+/**
+ * The wire `goal_target_edit` event — ⚠⚠ HAND-TYPED, AND THAT IS THE ONE
+ * DELIBERATE EXCEPTION TO "DERIVE, NEVER HAND-ROLL" IN THIS FILE. Every other
+ * wire-event type alias above is `Extract<SystemEventTurnPayload['event'],
+ * {kind: '…'}>` — pulled out of the vendored `@talchain/schemas` union so it
+ * can never drift from what CEE will actually accept. That trick has nothing
+ * to extract from here: the pinned schemas package (0.55.0, checked verbatim
+ * in `node_modules/@talchain/schemas`) has no `goal_target_edit` member yet.
+ *
+ * The five fields are taken from the programme description of the member
+ * (Talchain/olumi-programme-docs#63 comment 5821033941, Codex amendment
+ * 5821693599) — see `canvas/conversation/goalTargetEdit.ts`'s header for the
+ * full citation. UNVERIFIED AGAINST THE REAL SCHEMA, because there is no real
+ * schema yet to verify against.
+ *
+ * ⛔ DELETE THIS TYPE AND THE CAST AT ITS ONE CALL SITE THE MOMENT
+ * `@talchain/schemas` VENDORS THE MEMBER, and replace both with the same
+ * `Extract<...>` every sibling above uses. Until then this event can only
+ * reach a turn through `adaptGoalTargetEdit`, whose caller is gated by
+ * `GOAL_TARGET_EDIT_ENABLED` (`goalTargetEdit.ts`) — the hand-type is a
+ * documented liability on DORMANT code, not on anything CEE will see today.
+ */
+interface GoalTargetEditWireEvent {
+  kind: 'goal_target_edit'
+  goal_node_id: string
+  constraint_type: 'at_least' | 'at_most'
+  raw_value: number
+  unit: string
+  base_graph_hash: string
+}
 
 // Narrow an optional unknown field to a FINITE number, or undefined.
 // Deliberately NOT `Number(x) || 0`: a 0 fallback is indistinguishable from a
@@ -1157,6 +1196,59 @@ function adaptOptionInterventionEdit(
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) return null
 
   return { kind: 'option_intervention_edit', option_id, factor_id, value, base_graph_hash }
+}
+
+/**
+ * `goal_target_edit` — PREPARED, NOT ARMED (see `GoalTargetEditWireEvent`
+ * above and `canvas/conversation/goalTargetEdit.ts`'s header for the full
+ * reasoning). FAIL-CLOSED on the same rules the client-side builder in
+ * `goalTargetEdit.ts` already applies — this is the SECOND, independent gate:
+ * that module binds MEANING (fail-closed re-derived so a drifted emitter
+ * cannot reach this function malformed), this one binds SHAPE (so a producer
+ * that bypassed the builder cannot either). Re-applying the rules here rather
+ * than trusting the caller is the same discipline every sibling adapter in
+ * this file follows.
+ *
+ * Re-checked rather than assumed:
+ *   · `goal_node_id` — non-blank, no surrounding whitespace, never a
+ *     `→`/`->` composite (same `isCanonicalEndpointId` rule as every other
+ *     canonical-id field in this file).
+ *   · `constraint_type` — exactly `'at_least'` or `'at_most'`; anything else
+ *     refuses rather than guessing a direction.
+ *   · `raw_value` — finite and `>= 0` for both directions, and additionally
+ *     `> 0` for `'at_least'` (a floor of exactly zero asserts nothing). `0` is
+ *     a real, sendable ceiling for `'at_most'` — Codex's amendment widened
+ *     this on purpose.
+ *   · `unit` — non-empty. Absence is not "the client did not say", the way it
+ *     is for `factor_value_edit`'s optional `unit` — this member's `unit` is
+ *     required, and a unit-less target is not a thing the client may assert.
+ *   · `base_graph_hash` — non-empty, the stale gate every mutating member
+ *     carries.
+ *
+ * A `null` return routes to `unsupported_system_event`, i.e. no turn at all —
+ * the right outcome: an unsendable target must not become a turn that claims
+ * something happened.
+ */
+function adaptGoalTargetEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): GoalTargetEditWireEvent | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  if (!base_graph_hash) return null
+
+  const goal_node_id = eventPayload?.goal_node_id
+  if (!isCanonicalEndpointId(goal_node_id)) return null
+
+  const constraint_type = stringField(eventPayload, 'constraint_type')
+  if (constraint_type !== 'at_least' && constraint_type !== 'at_most') return null
+
+  const raw_value = finiteNumberField(eventPayload, 'raw_value')
+  if (raw_value === undefined || raw_value < 0) return null
+  if (constraint_type === 'at_least' && raw_value <= 0) return null
+
+  const unit = stringField(eventPayload, 'unit')
+  if (!unit) return null
+
+  return { kind: 'goal_target_edit', goal_node_id, constraint_type, raw_value, unit, base_graph_hash }
 }
 
 // ActionType is a strict enum on the wire. If the UI passes an unknown

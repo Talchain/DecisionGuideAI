@@ -24,6 +24,7 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
+import { useAnchorRailFloorStore, selectAnchorRailFitsBeside } from './shared/anchorRailFloor'
 import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
@@ -373,6 +374,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    */
   const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
   const atNormalZoom = useCanvasStore(selectRestingGlyphsShown)
+  const anchorRailFitsBeside = useAnchorRailFloorStore(selectAnchorRailFitsBeside)
   /**
    * ⭐⭐⭐ THE LENS, NOT THE CAMERA, DECIDES DETAIL AT `quiet`.
    *
@@ -1266,7 +1268,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // own title and "Top gap" line. Below Normal the anchors take the repeated
   // cards' rule instead: the hover row is drawn BELOW the card and the text keeps
   // the full width.
-  const anchorRailBeside = isAnchorCard && showQuickActions && atNormalZoom
+  const anchorRailBeside = isAnchorCard && showQuickActions && atNormalZoom && anchorRailFitsBeside
+  /** Normal-rung quick-action layout: every card at Normal, except an anchor below the old floor. */
+  const quickActionsInset = atNormalZoom && (!isAnchorCard || anchorRailFitsBeside)
   /**
    * The card's padding AT A RUNG — `normal` is the Normal (`full`) rung, where the
    * rail is beside an anchor and the band is reserved under every other card.
@@ -1321,7 +1325,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     }
     return { paddingTop: side, paddingRight: side, paddingBottom: side, paddingLeft: side }
   }
-  const cardPadding = (): CSSProperties => cardPaddingAt(atNormalZoom)
+  const cardPadding = (): CSSProperties => cardPaddingAt(quickActionsInset)
   const rungPadding = JSON.stringify({ landing: cardPaddingAt(false), normal: cardPaddingAt(true) })
 
   return (
@@ -1526,7 +1530,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           nodeId={id}
           nodeType={nodeType}
           label={label}
-          placement={atNormalZoom ? 'inset' : 'below'}
+          placement={quickActionsInset ? 'inset' : 'below'}
           alwaysVisible={selected === true}
           coaching={coaching}
           restingIcons={

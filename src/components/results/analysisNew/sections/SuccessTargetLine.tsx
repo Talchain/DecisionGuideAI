@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -87,6 +87,10 @@ import {
 } from '../../../../canvas/domain/goalTarget'
 import { formatGoalTarget } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
+import type {
+  SystemEventSendSettlement,
+  SystemEventSendSettlementDetail,
+} from '../../../../canvas/conversation/settleSystemEventSend'
 import type { ConstraintType } from '../../../../v5/chipParameters'
 import {
   CANONICAL_EDIT_AUTHORITY,
@@ -190,6 +194,18 @@ export interface SuccessTargetLineProps {
   onCommitOutcome: (
     outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit' | 'not_a_number',
   ) => void
+  /**
+   * ⭐ ADDITIVE, AND ONLY EVER FIRES BEHIND `GOAL_TARGET_EDIT_ENABLED`.
+   * `authority.proposeGoalTarget`'s `add_constraint` path (the flag OFF) never
+   * calls this — it has no send settlement to report, only the dispatch
+   * outcome `onCommitOutcome` already carries. A caller that omits this prop
+   * sees no behaviour change at all, which is the point: today's `dispatched`
+   * sentence stays correct until the flag flips.
+   */
+  onSendSettled?: (
+    settlement: SystemEventSendSettlement,
+    detail: SystemEventSendSettlementDetail,
+  ) => void
   testId: string
   /**
    * Whether this row draws its own top rule. Defaults to `true` — the
@@ -208,6 +224,7 @@ export interface SuccessTargetLineProps {
 export function SuccessTargetLine({
   goalNodeId,
   onCommitOutcome,
+  onSendSettled,
   testId,
   divider = true,
 }: SuccessTargetLineProps) {
@@ -295,6 +312,13 @@ export function SuccessTargetLine({
    */
   const showToast = useShowToastSafe()
   const wordsInputId = useId()
+  /**
+   * Only the LATEST commit attempt may report a send settlement. The editor
+   * closes on dispatch and can reopen while an earlier send is still pending, so
+   * attempt A's late reply must not overwrite attempt B's status (pre-review
+   * finding 5825017549). Same rule as `NodeValueEditor`'s `commitSeqRef`.
+   */
+  const attemptSeqRef = useRef(0)
 
   // No goal node, nothing to attach a target to. A target line over a model
   // with no goal would be an affordance writing into nowhere.
@@ -387,6 +411,7 @@ export function SuccessTargetLine({
   }
 
   const commit = () => {
+    const attempt = ++attemptSeqRef.current
     const typed = draft.trim()
     /**
      * ⚠ ONE PARSE RULE, IMPORTED. `statedTargetNumber` is the estate's anchored
@@ -453,7 +478,13 @@ export function SuccessTargetLine({
         onCommitOutcome('no_unit')
         return
       }
-      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction)
+      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction, {
+        onSendSettled: onSendSettled
+          ? (settlement, detail) => {
+              if (attempt === attemptSeqRef.current) onSendSettled(settlement, detail)
+            }
+          : undefined,
+      })
       onCommitOutcome(outcome)
       if (outcome === 'not_encodable') return
       setEditing(false)
