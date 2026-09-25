@@ -195,7 +195,12 @@ export function buildRegistrationGraph(
       strength: { mean, ...(std !== undefined ? { std } : {}) },
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
       ...(effectDirection ? { effect_direction: effectDirection } : {}),
-      edge_type: typeof data.edge_type === 'string' ? data.edge_type : 'directed',
+      // ⚠ A1: never default `edge_type`. Minting 'directed' here made CEE echo
+      // it back, the readback merge wrote it onto the canvas edge, and
+      // StyledEdge's "any explicit type wins over node-kind inference" rule
+      // then rendered every structural link (option→factor, decision→option)
+      // as a strong causal one. An absent field must stay absent.
+      ...(typeof data.edge_type === 'string' ? { edge_type: data.edge_type } : {}),
     } satisfies Record<string, unknown>
   })
 

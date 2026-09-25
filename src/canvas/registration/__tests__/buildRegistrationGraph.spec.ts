@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 
 import { buildRegistrationGraph } from '../buildRegistrationGraph'
+import { isStructuralEdge } from '../../domain/edgeUtils'
 
 import IMPORTED_CANVAS from './fixtures/walk-import-modified.canvas.json'
 import ORIGINAL_CANVAS from './fixtures/walk-export-original.canvas.json'
@@ -318,5 +319,63 @@ describe('buildRegistrationGraph — refusals (2.467c: disagreement is refused, 
     const before = JSON.stringify(IMPORTED)
     buildRegistrationGraph(IMPORTED.nodes, IMPORTED.edges)
     expect(JSON.stringify(IMPORTED)).toBe(before)
+  })
+})
+
+describe('A1 — structural links are not defaulted to causal edge_type', () => {
+  // A canvas structural link (option→factor): no explicit `edge_type`, and the
+  // canonical strength signature `isStructuralEdge` uses as its condition (b)
+  // fallback for kinds it does not special-case by name.
+  const optionNode: Node = {
+    id: 'opt_price', type: 'option', position: { x: 0, y: 0 },
+    data: { kind: 'option', type: 'option', label: 'Keep £49 pricing' },
+  }
+  const factorNode: Node = {
+    id: 'fac_churn', type: 'factor', position: { x: 0, y: 0 },
+    data: { kind: 'factor', type: 'factor', label: 'Churn rate' },
+  }
+  const structuralEdge: Edge = {
+    id: 'e_opt_fac', source: 'opt_price', target: 'fac_churn',
+    data: { weight: 1.0, strengthStd: 0.01, beliefExists: 1.0 },
+  }
+  // isStructuralEdge takes the domain EdgeData shape; these fixtures only need
+  // the three strength-signature fields it actually reads.
+  const asStructuralCheckEdge = structuralEdge as unknown as Parameters<typeof isStructuralEdge>[0]
+  const getNodeKind = (id: string): string | undefined =>
+    ({ opt_price: 'option', fac_churn: 'factor' } as Record<string, string>)[id]
+
+  it('POSITIVE CONTROL: the fixture edge really is structural, and really carries no edge_type', () => {
+    expect(isStructuralEdge(asStructuralCheckEdge, getNodeKind)).toBe(true)
+    expect((structuralEdge.data as Record<string, unknown>).edge_type).toBeUndefined()
+  })
+
+  it('RED/A1: registration never mints edge_type for a structural link with none', () => {
+    // Was: `edge_type: typeof data.edge_type === 'string' ? data.edge_type : 'directed'`.
+    // CEE echoes the minted 'directed' back, the readback merge writes it onto
+    // the canvas edge, and StyledEdge treats any explicit type as an override
+    // of its node-kind structural inference — a client-side default alone
+    // turned this option→factor link into a strong causal one downstream.
+    const graph = okGraph(buildRegistrationGraph([optionNode, factorNode], [structuralEdge]))
+    expect(graph.edges).toHaveLength(1)
+    expect('edge_type' in graph.edges[0]).toBe(false)
+    expect(graph.edges[0].edge_type).toBeUndefined()
+  })
+
+  it('an edge with no edge_type still classifies as structural via the shared isStructuralEdge predicate', () => {
+    // Registration must not need to invent edge_type for downstream structural
+    // detection to keep working — isStructuralEdge never reads edge_type at
+    // all; it reads node kind and the canonical strength signature.
+    const graph = okGraph(buildRegistrationGraph([optionNode, factorNode], [structuralEdge]))
+    expect(graph.edges[0].edge_type).toBeUndefined()
+    expect(isStructuralEdge(asStructuralCheckEdge, getNodeKind)).toBe(true)
+  })
+
+  it('preserves an explicit edge_type unchanged (e.g. an override to causal)', () => {
+    const causalEdge: Edge = {
+      ...structuralEdge,
+      data: { ...(structuralEdge.data as Record<string, unknown>), edge_type: 'directed' },
+    }
+    const graph = okGraph(buildRegistrationGraph([optionNode, factorNode], [causalEdge]))
+    expect(graph.edges[0].edge_type).toBe('directed')
   })
 })
