@@ -313,17 +313,24 @@ export interface RunTurnCurrencyInputs {
  * a different fact about the card, and each gets its own sentence.
  *
  *   · `model_changed`    — the model moved since the card was written.
+ *   · `running`          — a new run is in flight; this card is about the
+ *                          earlier one.
  *   · `earlier_analysis` — the latest run is not complete-and-current, or a
  *                          value the rule needs is unknown: nothing on hand
  *                          ties the card to the analysis the user now has.
  *   · `earlier_run`      — same model, but a newer run has completed since.
  */
-export type RunTurnStaleReason = 'model_changed' | 'earlier_analysis' | 'earlier_run'
+export type RunTurnStaleReason = 'model_changed' | 'running' | 'earlier_analysis' | 'earlier_run'
 
 /**
  * The notice per failed limb — PRODUCER-AUTHORED COPY, verbatim (Reasoning &
- * Coaching, programme-docs #63 5821034205). Never re-worded here: the
- * producer lane owns what this card says about itself.
+ * Coaching, programme-docs #63 5821034205; `running` and `earlier_analysis`
+ * superseded by 5822347235 §2). Never re-worded here: the producer lane owns
+ * what this card says about itself.
+ *
+ * ⛔ NO NOTICE NAMES A REMEDY. The earlier "re-run to check it still holds"
+ * pointed at a control that is absent or refused while the run is `running`,
+ * `blocked` or `refused`. CEE's own Run chip, when offered, is the control.
  *
  * `model_changed` is deliberately the SAME sentence `FRESHNESS_NOTICE.stale`
  * already carries — it is the one limb for which "your model has changed" is
@@ -333,7 +340,8 @@ export type RunTurnStaleReason = 'model_changed' | 'earlier_analysis' | 'earlier
  */
 export const RUN_TURN_NOTICE: Readonly<Record<RunTurnStaleReason, string>> = {
   model_changed: FRESHNESS_NOTICE.stale as string,
-  earlier_analysis: 'Written about an earlier analysis — re-run to check it still holds.',
+  running: 'A new analysis is running — this card is about the earlier one.',
+  earlier_analysis: 'Written about an earlier analysis — it may no longer hold.',
   earlier_run: 'Written about an earlier run of this model — the latest run may point somewhere else.',
 }
 
@@ -344,8 +352,9 @@ export const RUN_TURN_NOTICE: Readonly<Record<RunTurnStaleReason, string>> = {
  * PRECEDENCE, and it is the contract's (#63 5821034205):
  *   (a) both hashes known and different    → `model_changed` — the strongest,
  *       first-hand fact; it wins over whatever the run state says;
- *   (b) run not `complete_current`, or ANY value the rule needs is unknown
- *                                          → `earlier_analysis`;
+ *   (b) a run in flight — first-hand, like (a) → `running`;
+ *       otherwise run not `complete_current`, or ANY value the rule needs is
+ *       unknown                            → `earlier_analysis`;
  *   (c) otherwise the hashes are known and EQUAL, so the only limb left is the
  *       timestamp: `created_at !== computed_at` → `earlier_run`.
  */
@@ -361,6 +370,7 @@ function classifyRunTurn(
   const createdAt = usableStamp(runTurn.createdAt)
   const computedAt = usableStamp(runTurn.runComputedAt)
   // (b)
+  if (runTurn.runStateKind === 'running') return 'running'
   if (
     runTurn.runStateKind !== 'complete_current' ||
     !authored ||
