@@ -45,10 +45,22 @@
  *              states the write did not land and marks `retryable: false`.
  *   NEVER    ⟵ everything else: the untyped 500 (`INTERNAL_ERROR`,
  *              `system_event_commit_failed`) that a contended commit actually
- *              returns today, an unknown future category, a fence verdict, and
- *              a transport failure. We hold no committed bytes, so we know
- *              neither that it landed nor that it did not — and an honest
- *              unknown may not be replaced by a convenient certainty.
+ *              returns today, an unknown future category, a fence verdict the
+ *              producer does NOT answer with a no-write 409 (`unclaimed`,
+ *              `unavailable`), and a transport failure. We hold no committed
+ *              bytes, so we know neither that it landed nor that it did not —
+ *              and an honest unknown may not be replaced by a convenient
+ *              certainty.
+ *
+ * ⭐ THE FENCE VERDICTS `superseded` AND `stopped` ARE NOW ON THE REVERT SIDE,
+ * because the producer says so (CEE #1868, `013fae8d`, served `92b1bf8`,
+ * `system-events/dispatch.ts`, the `factor_value_edit` arm): a
+ * `TurnFenceRejectedError` with either verdict returns 409 `GRAPH_DIVERGED`,
+ * `retryable: false`, `commitPerformed: false` — "The turn fence refused the
+ * write inside the append transaction, so nothing of this edit landed." They
+ * revert under the FENCE's own sentence, not the proven-no-write one: "the
+ * saved model changed since you typed that" is false when the user pressed
+ * Stop.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -129,6 +141,16 @@ const SERVER_VALUE = 0.3
 const SENT_VALUE = 0.8
 /** The bystander's value — must never move, whatever the outcome. */
 const BYSTANDER_VALUE = 0.55
+
+/**
+ * The fence's own per-verdict sentences (`FENCE_REFUSAL_COPY`,
+ * `v5/failureTypeRetryability.ts`), bound here by the EXACT string so no other
+ * notice can satisfy the assertion.
+ */
+const FENCE_STOPPED_COPY =
+  "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it."
+const FENCE_SUPERSEDED_COPY =
+  "That change wasn't saved because a newer change to this decision got in first. Nothing was overwritten. Check the latest state, then make the edit again if it's still needed."
 
 const PREV_OBSERVED = { value: SERVER_VALUE, raw_value: 3, unit: 'months', cap: 10 }
 const PREV_DISPLAY = '3 months'
@@ -307,6 +329,30 @@ describe('factor_value_edit 409 — a guaranteed no-write reverts and says so', 
     expect(r.bystanderValue).toBe(BYSTANDER_VALUE)
   })
 
+  it.each([
+    ['turn_fence_superseded', FENCE_SUPERSEDED_COPY],
+    ['turn_fence_stopped', FENCE_STOPPED_COPY],
+  ])(
+    "'%s' (CEE #1868: refused inside the append transaction, nothing landed) puts the SERVER's value back and says the FENCE's own sentence",
+    async (category, fenceCopy) => {
+      const r = await driveEdit(() => stubFailure(409, conflict409(category)))
+
+      // Bound by IDENTITY — the exact factor the event named.
+      expect(r.targetValue).toBe(SERVER_VALUE)
+      expect(r.targetDisplay).toBe(PREV_DISPLAY)
+      // The fence's cause, by the exact sentence…
+      expect(r.notices).toContain(fenceCopy)
+      // …and NOT "the saved model changed since you typed that", which is false
+      // about a stopped turn. Nor the cannot-confirm line: the producer stated it.
+      expect(r.notices).not.toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.proven_no_write)
+      expect(r.notices).not.toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server)
+      // ONE notice for one outcome.
+      expect(r.notices).toHaveLength(1)
+      // DISCRIMINATOR: the revert touched the factor the event named and nothing else.
+      expect(r.bystanderValue).toBe(BYSTANDER_VALUE)
+    },
+  )
+
   /**
    * THE DURABILITY HALF, and it is not decoration.
    *
@@ -369,11 +415,22 @@ describe('factor_value_edit — an unconfirmed outcome KEEPS the value and says 
     expect(r.freshnessDirty).toBe(true)
   })
 
-  it('OPPOSITE TWIN: a turn-fence verdict is a write conflict we cannot attribute — no revert', async () => {
-    const r = await driveEdit(() => stubFailure(409, conflict409('turn_fence_superseded')))
+  it("OPPOSITE TWIN: 'turn_fence_unclaimed' — a fence verdict the producer does NOT answer with a no-write 409 — keeps the value and says it cannot confirm", async () => {
+    // CEE #1868 deliberately keeps `unclaimed`/`unavailable` as the retryable
+    // 500 on this arm. A 409 carrying one is therefore not a statement the
+    // producer makes, and it must not borrow the members' revert by prefix.
+    const r = await driveEdit(() => stubFailure(409, conflict409('turn_fence_unclaimed')))
 
     expect(r.targetValue).toBe(SENT_VALUE)
+    expect(r.notices).toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server)
     expect(r.notices).not.toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.proven_no_write)
+    // The generic fence sentence says "nothing in your decision changed" — a
+    // claim this arm cannot make, so it must not appear either.
+    expect(r.notices).not.toContain(
+      "That change couldn't be saved, so nothing in your decision changed. Try it again in a moment.",
+    )
+    expect(r.freshnessDirty).toBe(true)
+    expect(r.bystanderValue).toBe(BYSTANDER_VALUE)
   })
 
   /**
