@@ -24,7 +24,6 @@
  * defect this pass exists to remove rather than add to.
  */
 import { memo, useMemo } from 'react'
-import { typography } from '../../styles/typography'
 import { ViewportPortal, type Node } from '@xyflow/react'
 import { deriveTierLanes } from '../utils/tierLanes'
 
@@ -51,8 +50,12 @@ import { deriveTierLanes } from '../utils/tierLanes'
  * titles mid-screen above their centred cards; one column keeps them "on the
  * left" as asked.
  *
- * Sentence case (DS v5 §2 — the contract fixture's all-caps `.layer-label` is
- * overridden by the design system, Paul pt 9; `check-ds-compliance` enforces it).
+ * The label is SENTENCE CASE in the shared muted token (`text-text-light`),
+ * the product words `TITLE_BY_TIER` carries. From contract v3.1's `.layer-label`
+ * it takes only the 10px size and 0.5px tracking: DS v5 §2 forbids styling-driven
+ * all-caps and Paul's pt 9 already ruled the design system overrides the
+ * contract here (review 5824187641 reversed a CSS-module workaround that hid the
+ * all-caps and a raw hex from the compliance guard).
  *
  * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
  * counter-scales, so at far zoom it grows several times taller and must grow up
@@ -85,7 +88,12 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
             <span
               key={lane.tier}
               data-testid={`tier-lane-${lane.tier}-title`}
-              className={`absolute text-text-light ${typography.edgeLabel}`}
+              /* contract v3.1 `.layer-label` size only: the counter-scaled base
+                 drops from `typography.edgeLabel`'s 11px to the contract's 10px — a
+                 LOCAL arbitrary-value class, not an edit to the shared token, since
+                 no other canvas surface uses 10px. Sentence case and the shared
+                 muted token stay (DS v5 §2; see the header). */
+              className={`absolute text-text-light text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans`}
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,

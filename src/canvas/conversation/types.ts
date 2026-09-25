@@ -407,6 +407,21 @@ export interface V5CoachingBlock {
    * all draft-path). Absent ⇒ cannot-confirm, never "current".
    */
   graph_hash_at_generation?: string
+  /**
+   * The producer handler that authored this card (schema-declared metadata,
+   * carried VERBATIM). `'run_analysis'` selects the three-part run-turn
+   * currency rule in `coachingCurrency.ts` and makes the card eligible for
+   * run-turn promotion (`messageComposition.firstPromotableActionIndex`).
+   * Any other value — or absence — leaves the card on the pre-existing path.
+   */
+  source_handler?: string
+  /**
+   * The producer's authoring timestamp, VERBATIM (never parsed). On a
+   * `run_analysis` card it is compared by exact string equality against
+   * `analysis_state.run_state.computed_at`: the card is about THIS run only
+   * when the two are the same instant as the producer wrote them.
+   */
+  created_at?: string
 }
 
 /**
