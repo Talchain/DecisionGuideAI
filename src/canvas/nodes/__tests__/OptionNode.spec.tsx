@@ -212,7 +212,9 @@ describe('OptionNode', () => {
   it('renders shape indicator (type line removed in v1.1)', () => {
     renderOption()
     // Type text label removed in v1.1 — shape icon with tooltip replaces it
-    expect(screen.getByLabelText(/option node/i)).toBeDefined()
+    // ⛔ UPDATED 24 Sep 2026 (GAP-36): accessible name is now "Option: …", not
+    // "option node: …" (contract §01, NODE_REGISTRY's user-facing Kind word).
+    expect(screen.getByLabelText(/^Option:/i)).toBeDefined()
   })
 
   // T7: Win probability

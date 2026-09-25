@@ -65,8 +65,10 @@
  * text 7.8px — under the 10px canvas floor) with a shadow and a `scale-110`
  * hover bounce, the only transform on the card, and it painted must_fix /
  * should_fix in Danger red. Now, like its corner-stack siblings: the rail's
- * counter-scaled 20px box and 14px glyph, borderless and shadowless on a panel
- * fill, a background-tint hover and a focus ring, and the shared focusable
+ * counter-scaled box and glyph (the contract's 25px / 15px since gap 34; 20 /
+ * 14 before), borderless and shadowless — and, since the stack moved INSIDE the
+ * card (gap 11), with no panel fill: it sits on the card's own panel — a
+ * background-tint hover and a focus ring, and the shared focusable
  * `Tooltip` rather than a native `title` (ED 02:31Z: native title is not
  * full-text recovery).
  *
@@ -98,14 +100,33 @@ import { typography } from '../../../styles/typography'
 import Tooltip from '../../../components/Tooltip'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
-import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
-import { NodeStructuralMarker } from './NodeStructuralMarker'
+import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
+import { NodeStructuralMarker, useNodeHasStructuralMarker } from './NodeStructuralMarker'
 import { useCanvasStore } from '../../store'
 import { selectRestingGlyphsShown } from './restingGlyphRung'
 
 interface NodeCoachingMarkerProps {
   /** The canvas node id this marker sits on. */
   nodeId: string
+}
+
+/**
+ * ⭐ WHETHER THIS SLOT DRAWS A MARK — the three gates `NodeCoachingMarker` renders
+ * through, read as one boolean so `BaseNode` can keep the title clear of the
+ * mark ONLY while the mark is there (gap 11): the rung (`full` only), then the
+ * producer (a live item naming this node — the same `target_object.id` test as
+ * the filter below), then the structural fallback (`useNodeHasStructuralMarker`,
+ * the gate `NodeStructuralMarker` itself renders from). Boolean selectors, so the
+ * card re-renders when the answer flips and not on every store change.
+ * `BaseNode.marksInsideCardRail.spec.tsx` pins mark-present ⇔ reserve-present.
+ */
+export function useNodeCoachingMarkerShown(nodeId: string): boolean {
+  const shownAtThisRung = useCanvasStore(selectRestingGlyphsShown)
+  const producerNamesThisNode = useGuidanceStore((s) =>
+    (s.guidanceItems ?? []).some((i) => i.target_object?.id === nodeId),
+  )
+  const structural = useNodeHasStructuralMarker(nodeId)
+  return shownAtThisRung && (producerNamesThisNode || structural)
 }
 
 export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
@@ -184,8 +205,13 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
         onPointerDown={(e) => e.stopPropagation()}
         aria-label={label}
         // ⚠ LITERAL arbitrary values (no spaces), so Tailwind's scanner emits
-        // them: a min-width box, because a "+N" count widens the marker.
-        className="nodrag nopan inline-flex items-center justify-center gap-0.5 h-[calc(20px*var(--canvas-label-scale,1))] min-w-[calc(20px*var(--canvas-label-scale,1))] px-[calc(3px*var(--canvas-label-scale,1))] rounded bg-panel/90 text-text-light cursor-pointer hover:bg-info/10 hover:text-info focus-visible:bg-info/10 focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        // them. The contract's 25px mark box (gap 34). NO horizontal padding
+        // (it was 3px × scale): the title's corner clearance reserves ONE box
+        // per mark (`cornerMarksRunPx`), and a "+N" count — 15px glyph + 2px +
+        // one tabular digit ≈ 22px × scale — fits inside that box without it,
+        // so the marker stays exactly one box wide. `min-w`, not `w`, so an
+        // improbable two-digit count grows the box rather than clipping.
+        className={`nodrag nopan inline-flex items-center justify-center gap-0.5 h-[calc(25px*var(--canvas-label-scale,1))] min-w-[calc(25px*var(--canvas-label-scale,1))] rounded ${NODE_RAIL_REST_TONE_CLASS} cursor-pointer hover:bg-info/10 hover:text-info focus-visible:bg-info/10 focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       >
         <Icon size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} aria-hidden="true" />
         {count > 1 && (

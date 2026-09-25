@@ -249,26 +249,48 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
 })
 
 describe('ED 5809278282 · Factor · missing value — `Needs input` stays ON the card, on one line', () => {
-  it.each(['pre', 'post'] as const)('%s-run: the row shows only the ruled word; the sentence is its description and is in the popover', (phase) => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-9, DESIGN-GAP-AUDIT-20260924.md row 9;
+   * contract §02). This used to pin "Value not set yet" as sr-only/title-only
+   * in Standard, with the visible row reading just "Needs input". The
+   * contract wants the sentence VISIBLE on the card in the missing-value
+   * state, so Standard now matches what "CONTRAST — Detailed" already
+   * asserted below (which is unchanged, since Detailed was already correct).
+   * `StatusPill`'s own label/title are UNCHANGED — only the row's wrap
+   * behaviour and the sentence's visibility move.
+   */
+  it.each(['pre', 'post'] as const)('%s-run: the row shows the pill AND the visible sentence — no hidden text, no title duplicate', (phase) => {
     seed(MISSING, { phase })
     renderFactor(MISSING)
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleText(row)).toBe('Needs input')
-    expect(tokens(row).has('flex-nowrap')).toBe(true)
+    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    expect(tokens(row).has('flex-wrap')).toBe(true)
+    expect(tokens(row).has('flex-nowrap')).toBe(false)
     expect(visibleBodyRows(row)).toEqual([row])
-    // Recoverable without the popover: sr-only description + hover title.
-    const described = row.querySelector('.sr-only')
-    expect(described?.textContent).toBe('Value not set yet')
-    expect(row.getAttribute('title')).toBe('Needs input · Value not set yet')
-    // …and IN the popover, by identity.
+    // GAP-9: nothing is hidden any more — no sr-only echo, no title duplicate
+    // of text that is now on screen.
+    expect(row.querySelector('.sr-only')).toBeNull()
+    expect(row.getAttribute('title')).toBeNull()
+    // The pill's own accessible contract is untouched (StatusPill reuses its
+    // `title` prop as the accessible name — unchanged by this gap).
+    expect(within(row).getByTestId('needs-input-pill')).toHaveAccessibleName('Missing required input')
+    // …the popover keeps its own (now duplicate, and that is fine — see the
+    // inline comment at `needsInputSentenceMoved`) copy of the sentence.
     expect(within(popover()).getByTestId(`factor-popover-needs-input-${ID}`).textContent).toBe('Needs input · Value not set yet')
     expect(within(card()).queryByTestId(`factor-popover-needs-input-${ID}`)).toBeNull()
   })
 
-  it('CONTRAST — Detailed keeps the full sentence inline on the card', () => {
+  it('CONTRAST — Detailed keeps the full sentence inline on the card (unchanged by GAP-9)', () => {
     seed(MISSING, { phase: 'pre', viewMode: 'expert' })
     renderFactor(MISSING)
     expect(visibleText(within(card()).getByTestId(`factor-needs-input-row-${ID}`))).toBe('Needs inputValue not set yet')
+  })
+
+  it('CONTRAST — a VALUED factor never shows "Value not set yet" anywhere on the card', () => {
+    seed(VALUED, { phase: 'pre' })
+    renderFactor(VALUED)
+    expect(screen.queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
+    expect(card().textContent ?? '').not.toContain('Value not set yet')
   })
 })
 
@@ -333,13 +355,18 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(body()).toEqual(quiet)
   })
 
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-9): the row's visible text now includes
+   * "Value not set yet" (contract §02) and the row may wrap. The prototype
+   * property (Paul 25 Sep) is unchanged: the driver line is its own row on the
+   * card, after the `Needs input` row — never inside it.
+   */
   it('a ranked factor that still needs input: `Needs input` stays one row, and the driver line follows it', () => {
     displayMetadata = RANKED()
     seed(MISSING, { phase: 'post' })
     renderFactor(MISSING)
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleText(row)).toBe('Needs input')
-    expect(tokens(row).has('flex-nowrap')).toBe(true)
+    expect(visibleText(row)).toBe('Needs inputValue not set yet')
     const driver = onCardNotInPopover('factor-driver-line')
     expect(row.contains(driver)).toBe(false)
     expect(before(row, driver)).toBe(true)
@@ -383,6 +410,18 @@ describe('ED 5809278282 · Factor · post-run NOT ranked', () => {
 })
 
 describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · the external prior-range line is ON the card with its mark', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16):
+   * `unknown`'s visible glyph was the word "no source" — a fifth wire-facing
+   * phrase the v3/v3.1 contract never sanctioned (they name exactly `est.` /
+   * `you` / `brief` / `panel`). `VALUE_SOURCE_MARK_TOKEN.unknown` is now `''`
+   * — nothing prints — while the accessible name stays "Source not recorded"
+   * (`VALUE_SOURCE_MARK_LABEL.unknown`, asserted via `data-value-source`
+   * below), since nothing else on the card states that this range's source
+   * was never stamped.
+   */
+  // ⛔ REVERSED (review 5822866079): "no source" stays visible. Paul, 23 Sep point 1 — a
+  // number (or range) is never unmarked; the header does not carry a range.
   it.each(['pre', 'post'] as const)('%s-run: on the card with its `no source` mark; not in the popover', (phase) => {
     seed(RANGE_ONLY, { phase })
     renderFactor(RANGE_ONLY)

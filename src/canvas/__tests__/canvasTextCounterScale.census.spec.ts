@@ -476,6 +476,9 @@ function census() {
       // 1. Arbitrary-value size: text-[10px] or text-[length:calc(...)]
       for (const m of text.matchAll(/text-\[(?:length:)?([^\]]+)\]/g)) {
         const value = m[1]
+        // Tailwind's `color:` type hint makes `text-[…]` a COLOUR, not a size
+        // (the rail's resting inks, `nodeCardRailStyles`, gap 34): nothing to census.
+        if (value.startsWith('color:')) continue
         if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-label-scale/.test(value)) {
           push(`counterscaled-${value.match(/(\d+)px/)?.[1]}`, 'arbitrary', true)
         } else if (/^\d+(?:\.\d+)?px$/.test(value)) {

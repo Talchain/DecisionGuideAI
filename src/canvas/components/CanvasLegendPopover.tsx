@@ -601,7 +601,7 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
  *
  * ⚠ IMPORTED FROM THE CARDS, NEVER REDRAWN. Each glyph, stroke and resting ink
  * is the owner's own export (`NodeAttentionMarker`, `NodeRailIcons`,
- * `NodeCoachingIcon`) at the rail's 14px, so a card that changes its mark
+ * `NodeCoachingIcon`) at the rail's `NODE_RAIL_GLYPH_PX`, so a card that changes its mark
  * changes this key with it. `CanvasLegendPopover.iconKey.spec.tsx` renders
  * each real card component beside the key and compares the two.
  *

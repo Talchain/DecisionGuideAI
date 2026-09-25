@@ -60,7 +60,7 @@ import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
  * is a TYPE ERROR at the call site rather than a silently missing class — which
  * is the whole reason this is a keyed map and not a free function.
  */
-export type CanvasGlyphPx = 9 | 10 | 11 | 12 | 14 | 20 | 24
+export type CanvasGlyphPx = 9 | 10 | 11 | 12 | 14 | 15 | 20 | 24 | 25
 
 /**
  * `width` + `height` for a glyph or a button box, counter-scaled.
@@ -76,8 +76,10 @@ export const CANVAS_GLYPH_SIZE_CLASSES: Readonly<Record<CanvasGlyphPx, string>> 
   11: 'w-[calc(11px*var(--canvas-label-scale,1))] h-[calc(11px*var(--canvas-label-scale,1))]',
   12: 'w-[calc(12px*var(--canvas-label-scale,1))] h-[calc(12px*var(--canvas-label-scale,1))]',
   14: 'w-[calc(14px*var(--canvas-label-scale,1))] h-[calc(14px*var(--canvas-label-scale,1))]',
+  15: 'w-[calc(15px*var(--canvas-label-scale,1))] h-[calc(15px*var(--canvas-label-scale,1))]',
   20: 'w-[calc(20px*var(--canvas-label-scale,1))] h-[calc(20px*var(--canvas-label-scale,1))]',
   24: 'w-[calc(24px*var(--canvas-label-scale,1))] h-[calc(24px*var(--canvas-label-scale,1))]',
+  25: 'w-[calc(25px*var(--canvas-label-scale,1))] h-[calc(25px*var(--canvas-label-scale,1))]',
 })
 
 /**
@@ -151,9 +153,10 @@ export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Ob
  * ~34px against a fixed −8px offset and its lower third lands on the card
  * header's provenance mark. Paul's 15 Sep manual test caught it on four cards.
  *
- * `bottom-full` anchors to the element's OWN height, so the band sits above the
- * card at every scale and the collision cannot recur — derived, rather than a
- * second hand-set number to keep in step with the first.
+ * `bottom-full` then anchored it to the element's OWN height, above the card.
+ * ⚠ SUPERSEDED (gap 11, below): the growing pill has left the stack, so the
+ * stack now sits INSIDE the card at the contract's offsets and the collision
+ * this paragraph closed cannot arise from the marks that remain (fixed boxes).
  *
  * ⚠ THREE SPECS PINNED THE OLD LITERAL (`BaseNode.cornerStack`, `FactorNode`,
  * `OptionNode.leadingPillCornerStack`). Each was asserting the MEASURING STICK,
@@ -163,23 +166,99 @@ export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Ob
  * and the invariant they actually exist for keeps biting.
  */
 /**
- * ⭐ CONTRACT v3.1 (FRAME-12 + PILL-11): NOTHING OVERHANGS THE FRAME, AND THE
- * OFFSETS SCALE WITH THE MEMBERS THEY SEPARATE.
+ * ⭐⭐ THE CORNER MARKS SIT INSIDE THE CARD, AT THE CONTRACT'S OFFSETS (gap 11;
+ * Visual Contract §02 `.node .attention{position:absolute;right:7px;top:5px;
+ * width:25px;height:25px}`, "Only meaningful signals appear").
  *
- * · `right-3`, not `right-[-8px]`. The stack hung 8px past the card's right
- *   border, detached from the frame — the pill Paul saw "sitting on the top
- *   edge". 12px is the card's own padding, so the stack now right-aligns with
- *   the title and header-glyph column instead of floating off the corner.
- * · `mb-` and `gap-` carry `--canvas-label-scale`. They were a fixed 2px and
- *   4px while every member scales, so at the 0.65 landing zoom the stack sat
- *   1.3 screen px above the border — reading as ON it — and members sat 2.6px
- *   apart. Counter-scaled, both are a steady 4 screen px at every zoom ≥ 0.5
- *   (the same reasoning `CANVAS_GAP_CLASSES` records for the rail).
- * The stack stays OUT OF FLOW (`bottom-full`), so no card box changes.
+ * ⛔ WHAT IT REPLACES. The stack was `absolute bottom-full right-3` with a scaled
+ * `mb-`: it floated ABOVE the top border, in the row gap between tiers, where it
+ * sat on the edges arriving at the card. That anchor was chosen to stop a
+ * growing `Needs input` pill landing on the header's provenance mark; the pills
+ * have since left this stack (they are worded STATE, and now sit in the card's
+ * own in-flow state row — `BaseNode`), so the stack holds only fixed-size MARKS
+ * (the attention cue and the coaching / structural marker, each one
+ * `CANVAS_QUICK_ACTION_BOX_PX` box) and can take the contract's corner.
+ *
+ * · The offsets are the contract's, and they are NOT counter-scaled, for the
+ *   reason `CANVAS_CORNER_INSET_CLASSES` gives for the rail's inset: an inset is
+ *   breathing room from the frame, not a thing the user must see or hit. The
+ *   members and the gap between them DO scale.
+ * · The stack stays OUT OF FLOW, so no card box changes; the title's clearance
+ *   is reserved by `cornerMarksHeaderReserveCss` / `cornerMarksTitleSpacerCss`
+ *   below, only while a mark is actually present.
  * ⚠ No spaces inside the arbitrary values — Tailwind would split the class.
  */
+export const CANVAS_CORNER_MARK_TOP_PX = 5 as const
+export const CANVAS_CORNER_MARK_RIGHT_PX = 7 as const
+/** The scaled gap between two marks in the stack (the class below spells it). */
+export const CANVAS_CORNER_MARK_GAP_PX = 4 as const
+/**
+ * The clearance between text and a mark: the contract's `.node h3{padding-right:
+ * 21px}` beside 12px of card padding puts the title's edge at 33px from the
+ * frame's inner edge, one pixel clear of the 25px mark at 7px (7 + 25 + 1).
+ */
+export const CANVAS_CORNER_MARK_CLEARANCE_PX = 1 as const
+/** The card's frame (`.node{border:1px}`, Tailwind `border` on the card root). */
+export const CANVAS_CARD_FRAME_PX = 1 as const
+
 export const CANVAS_CORNER_STACK_CLASSES =
-  'absolute bottom-full right-3 mb-[calc(4px*var(--canvas-label-scale,1))] z-10 flex items-center gap-[calc(4px*var(--canvas-label-scale,1))]'
+  'absolute top-[5px] right-[7px] z-10 flex items-center gap-[calc(4px*var(--canvas-label-scale,1))]'
+
+/** The run of `count` corner marks at scale 1: the boxes and the gaps between them. */
+export function cornerMarksRunPx(count: number): number {
+  const n = Math.max(0, Math.floor(count))
+  return n === 0 ? 0 : n * CANVAS_QUICK_ACTION_BOX_PX + (n - 1) * CANVAS_CORNER_MARK_GAP_PX
+}
+
+/**
+ * How far in from the card's inner (padding-box) right edge text must stop so it
+ * never runs under `count` marks — at the LIVE scale, because the marks grow
+ * with it while their inset does not.
+ */
+function cornerMarksClearanceCss(count: number): string {
+  return `calc(${CANVAS_CORNER_MARK_RIGHT_PX + CANVAS_CORNER_MARK_CLEARANCE_PX}px + ${cornerMarksRunPx(count)}px * var(--canvas-label-scale, 1))`
+}
+
+/**
+ * ⭐ THE HEADER ROW'S RIGHT RESERVE — for a card whose title SHARES its line with
+ * header glyphs (the wide Question and Goal cards). The card's own right padding
+ * already provides part of the clearance, so only the rest is reserved, and never
+ * a negative amount (an anchor whose rail sits beside it already reserves more
+ * than the marks need). `undefined` when there is no mark: no reserve at all.
+ *
+ * At 100% beside 12px of padding it is exactly the contract's 21px.
+ */
+export function cornerMarksHeaderReserveCss(count: number, cardPaddingRight: string): string | undefined {
+  if (cornerMarksRunPx(count) === 0) return undefined
+  return `max(0px, ${cornerMarksClearanceCss(count)} - ${cardPaddingRight})`
+}
+
+/**
+ * ⭐⭐ THE TITLE'S FIRST-LINE SPACER — for a card whose title has its line to
+ * itself (every repeated card: its title's minimum measure IS the card's text
+ * measure, so the title box reaches the corner).
+ *
+ * It is the width of a right float one title line tall, so ONLY THE FIRST LINE
+ * is shortened. ⛔ That is the point, and it was chosen over the contract's
+ * all-lines `padding-right` on a measurement rather than a preference: the
+ * title's minimum measure is derived so the widest word the product's content
+ * holds fits at the counter-scale bound (`NODE_TITLE_MIN_MEASURE_PX`), and a
+ * 46px all-lines reserve at the bound takes "Concentration" (pricing starter,
+ * a card a behavioural finding marks) under it — a mid-word break, which
+ * `e2e/visual/nodeLabelFit.visual.spec.ts` forbids at the settle zoom. With the
+ * reserve on line 1 only, lines 2+ keep the full measure the bound was derived
+ * for. Verified in headless Chromium (static harness, not the app): a float
+ * inside the `-webkit-line-clamp` title box shortens line 1 and leaves line 2.
+ *
+ * `titleRightToFramePx` is the distance from the title box's right edge to the
+ * card's inner right edge when the title box is at its minimum measure; the
+ * `max(0px, …)` makes the spacer vanish wherever the title box already stops
+ * short of the marks (a header reserve is doing the work, or the card is wide).
+ */
+export function cornerMarksTitleSpacerCss(count: number, titleRightToFramePx: number): string | undefined {
+  if (cornerMarksRunPx(count) === 0) return undefined
+  return `max(0px, ${cornerMarksClearanceCss(count)} - ${titleRightToFramePx}px)`
+}
 
 /**
  * ⭐⭐ THE RIGHT-HAND GROUP OF THE CARD HEADER — one string, every group that
@@ -273,8 +352,15 @@ export const CANVAS_CORNER_INSET_CLASSES: Readonly<Record<6, string>> = Object.f
  * (`NodeQuickActions.tsx`) to index the class maps above, and used again by
  * `NODE_QUICK_ACTION_BAND_PX` below. A mirror needs two independent copies of a
  * fact; there is one copy here, read twice.
+ *
+ * ⭐ 25, THE CONTRACT'S `.icon-btn{width:25px;height:25px}` (gap 34; it was 20).
+ * The rail, the corner marks and every rail member read this one number, so the
+ * band below, the anchor reserve and the marks' title clearance all move with
+ * it — derived, not restated. The hit area grows with it (25 + 2 x 2 = 29 from
+ * 24), so no target shrinks. At 100% the band is now 6 + 27 = 33px, against the
+ * contract's `.node{padding-bottom:32px}` (rail at bottom 5 + 25 + 2).
  */
-export const CANVAS_QUICK_ACTION_BOX_PX = 20 as const
+export const CANVAS_QUICK_ACTION_BOX_PX = 25 as const
 export const CANVAS_QUICK_ACTION_INSET_PX = 6 as const
 export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
 
@@ -352,7 +438,9 @@ export const NODE_QUICK_ACTION_BAND_PX =
  * reserved against the SAME height as before, and the only change is what the
  * user sees between reads: a card at a zoom above the settle zoom now draws
  * the band its rail actually needs (6 + 22 × scale) instead of 50px. At 100%
- * that was 22px of dead space under the last row of every card.
+ * that was 22px of dead space under the last row of every card. (Those figures
+ * are for the 20px box; with the contract's 25px box, gap 34, the band is
+ * 6 + 27 × scale, i.e. 60 at the bound.)
  *
  * The rendered card can only be SHORTER than its reservation, never taller —
  * `--canvas-label-scale` never exceeds its bound — so the bbox cannot grow.
@@ -399,10 +487,10 @@ export function anchorRailReservePx(buttons: AnchorRailButtons): number {
 }
 
 export const ANCHOR_RAIL_RESERVE_CLASSES: Readonly<Record<AnchorRailButtons, string>> = Object.freeze({
-  3: '[&>:last-child]:pr-[calc(6px+78px*var(--canvas-label-scale,1))]',
-  4: '[&>:last-child]:pr-[calc(6px+104px*var(--canvas-label-scale,1))]',
-  5: '[&>:last-child]:pr-[calc(6px+130px*var(--canvas-label-scale,1))]',
-  6: '[&>:last-child]:pr-[calc(6px+156px*var(--canvas-label-scale,1))]',
+  3: '[&>:last-child]:pr-[calc(6px+93px*var(--canvas-label-scale,1))]',
+  4: '[&>:last-child]:pr-[calc(6px+124px*var(--canvas-label-scale,1))]',
+  5: '[&>:last-child]:pr-[calc(6px+155px*var(--canvas-label-scale,1))]',
+  6: '[&>:last-child]:pr-[calc(6px+186px*var(--canvas-label-scale,1))]',
 })
 
 /** Clamp a counted rail to a key of `ANCHOR_RAIL_RESERVE_CLASSES`. */

@@ -150,8 +150,29 @@ describe('⛔ a card with no number does not claim one — but it still speaks',
   })
 })
 
-describe('⛔ THE TWIN — a valued card still makes the value claim on screen', () => {
-  it('FACTOR with an observed value — the VALUE claim reaches the card', () => {
+describe('⛔ THE TWIN, UPDATED 24 Sep 2026 (GAP-16) — a valued card states the value ONCE, on the value line, not in the header', () => {
+  /**
+   * GAP-16 (DESIGN-GAP-AUDIT-20260924.md row 16; contract §03: "Show useful
+   * exceptions, not the same provenance mark everywhere"). Both cases below
+   * used to assert `data-provenance-claim="value"` reached the HEADER mark.
+   * It no longer does, for any factor or risk: `FactorNode` (and `RiskNode`)
+   * mount their OWN value-line source mark for the exact same number,
+   * classified through the same `classifyValueProvenance`
+   * (`valueSourceMark.tsx`), so a header value mark duplicated it rather than
+   * adding information.
+   *
+   * ⚠ THE MOCKED-STORE HARNESS THIS FILE USES renders the header from `data`
+   * alone but leaves `FactorNode`'s value-line row unmounted (it depends on
+   * store fields this file's `mockStore` does not seed, e.g. `lodRung`,
+   * `analysisFreshness`). So "the header is empty" is everything provable
+   * here; the companion claim — "the fact still reaches the user, via the
+   * value line" — is proven with the real store in
+   * `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`, which is the file to
+   * read for the full picture.
+   */
+  // ⛔ review 5822866079: `cee_inference` WITHOUT extractionType reads `unknown` on the
+  // value line, so the header is the only mark with a kind and it stays.
+  it('FACTOR whose value line cannot classify the source — the header KEEPS its value mark', () => {
     renderNode(FactorNode, 'factor', 'fac_valued', {
       label: 'Hiring rate',
       type: 'factor',
@@ -159,30 +180,11 @@ describe('⛔ THE TWIN — a valued card still makes the value claim on screen',
       provenance: 'ai_inferred',
       observedState: { value: 0.7, source: 'cee_inference' },
     })
-    const el = mark()
-    expect(el).not.toBeNull()
-    expect(el!.getAttribute('data-provenance-claim')).toBe('value')
-    expect(el!.getAttribute('aria-label')).toBe(VALUE_PROVENANCE_LABEL.ai)
+    expect(mark(), 'the only kind-bearing mark must survive').not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
-  /**
-   * ⚠ ASSERTION SHARPENED, INTENT UNCHANGED — and recorded rather than quietly
-   * edited, because this is a deliberate pin.
-   *
-   * It read `VALUE_PROVENANCE_LABEL.human` ("Set by you") when the badge
-   * answered from NODE AUTHORSHIP (`provenance: 'user_set'`). A value claim now
-   * answers from the VALUE's own provenance, and this fixture's
-   * `source: 'user_override'` classifies as `edited` ("User edited") — which is
-   * what `user_override` literally means.
-   *
-   * ⭐ The property this test protects is untouched: both labels live in
-   * `VALUE_PROVENANCE_LABEL` and both are human-owned, so a valued human factor
-   * still "says so in the value vocabulary". Only the precision moved — from
-   * "a person set this" to "a person edited this". Its sibling above, which
-   * pairs `ai_inferred` authorship with `cee_inference` value, is UNCHANGED and
-   * still reads "AI estimate": the contrast that keeps this pair discriminating.
-   */
-  it('and a human-owned valued factor says so in the value vocabulary', () => {
+  it('and a human-owned valued factor: same de-duplication, other kind', () => {
     renderNode(FactorNode, 'factor', 'fac_human', {
       label: 'Hiring rate',
       type: 'factor',
@@ -190,7 +192,7 @@ describe('⛔ THE TWIN — a valued card still makes the value claim on screen',
       provenance: 'user_set',
       observedState: { value: 0.7, source: 'user_override' },
     })
-    expect(mark()!.getAttribute('aria-label')).toBe(VALUE_PROVENANCE_LABEL.edited)
+    expect(mark()).toBeNull()
   })
 })
 

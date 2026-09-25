@@ -17,6 +17,7 @@
  * The contrast controls are the same cards at the `full` rung.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { NODE_RAIL_REST_TONE_CLASS } from '../shared/nodeCardRailStyles'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
@@ -277,11 +278,15 @@ describe('Paul 23 Sep point 6 — a click PRE-FILLS a question with the element 
 })
 
 describe('Paul 23 Sep point 12 — the icon is discreet at rest and visibly labelled on focus', () => {
-  it('muted at rest (design-system text-light), info on hover AND keyboard focus, with a visible focus ring', () => {
+  // ⛔ UPDATED 25 Sep 2026 (gap 34, Visual Contract §02 `.icon-btn{color:#777B77}`):
+  // the resting grey is now the rail's contract grey, not `text-text-light`. The
+  // point-6 claim — grey at rest, never Info at rest — is unchanged.
+  it('muted at rest (the rail grey, #777B77), info on hover AND keyboard focus, with a visible focus ring', () => {
     setState({ lodRung: 'full' })
     renderCard('fac-price')
     const cls = icon('fac-price')!.className
-    expect(cls).toContain('text-text-light')
+    expect(cls.split(/\s+/)).toContain(NODE_RAIL_REST_TONE_CLASS)
+    expect(cls.split(/\s+/)).not.toContain('text-info')
     expect(cls).toContain('hover:text-info')
     expect(cls).toContain('focus-visible:text-info')
     expect(cls).toContain('focus-visible:ring-2')
