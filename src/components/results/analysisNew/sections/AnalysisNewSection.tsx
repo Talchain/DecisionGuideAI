@@ -112,6 +112,14 @@ export interface AnalysisNewSectionProps {
    * `'h3'`, the shape every other caller of this component already gets.
    */
   headingLevel?: 'h3' | 'label'
+  /**
+   * A section mounted ABOVE the answer keeps its one finding behind the row
+   * (the count badge advertises it) instead of opening itself, so the answer
+   * stays on the first screen. The header-only arm is untouched: with no
+   * findings there is no badge, and a closed section would hide the header.
+   * Default `true`, the rule every other caller gets.
+   */
+  opensForOneFinding?: boolean
 }
 
 /**
@@ -170,6 +178,7 @@ export function AnalysisNewSection({
   header,
   testId,
   headingLevel,
+  opensForOneFinding = true,
 }: AnalysisNewSectionProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -214,7 +223,10 @@ export function AnalysisNewSection({
        * made it a second copy of a rule that now has a named home — the mirror
        * this file's own header warns about (trap 12).
        */
-      defaultOpen={sectionOpensItself(findings.length, Boolean(header), Boolean(emptyMessage))}
+      defaultOpen={
+        (opensForOneFinding || findings.length !== 1) &&
+        sectionOpensItself(findings.length, Boolean(header), Boolean(emptyMessage))
+      }
       subtitle={subtitle}
       testId={testId}
       headingLevel={headingLevel}

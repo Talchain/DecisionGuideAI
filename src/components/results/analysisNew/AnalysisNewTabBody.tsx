@@ -2401,6 +2401,11 @@ export function AnalysisNewTabBody({
           onAskOlumi={askOlumiAbout}
           icon={GitBranch}
           testId="analysis-new-sensitivity"
+          /* Closed at rest, as this zone's note says. Measured 25 Sep 03:00Z on
+             a permitted pricing run: its one finding opened itself (323px at
+             1440, 387px at 290) and pushed "Move towards commitment" to the
+             fold and the chart below it. */
+          opensForOneFinding={false}
         />
         ) : null}
         </>
