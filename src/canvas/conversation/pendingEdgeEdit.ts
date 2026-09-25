@@ -54,13 +54,47 @@ export interface PendingEdgeEdit {
   readonly sentMagnitude: number
   /** The edge's data BEFORE the optimistic write — what a refusal restores. */
   readonly before: Readonly<Record<string, unknown>>
+  /**
+   * The direction sent, set ONLY by a direction edit (`setDirection`). A flip
+   * keeps `|mean|`, so every magnitude-keyed test below passes before the
+   * server has said anything about the SIGN; with this set, each of them asks
+   * the sign too. Absent on a strength edit, which is then judged exactly as
+   * before.
+   */
+  readonly sentDirection?: 'positive' | 'negative'
 }
 
 /** Keys the optimistic write can add or change (`setStrength`). A revert restores exactly these. */
 export const EDGE_EDIT_WRITTEN_KEYS = ['weight', 'weightSource', 'direction', 'directionSource'] as const
 
+/**
+ * Keys a DIRECTION edit writes (`setDirection`) — and so the only keys its
+ * refusal may restore. Restoring the strength keys too would undo a strength
+ * drag that is still pending beside it (independent review of #1950,
+ * 5820664860, scenario B).
+ */
+export const EDGE_DIRECTION_WRITTEN_KEYS = ['direction', 'directionSource'] as const
+
+/** The keys THIS edit wrote: a direction edit wrote only the direction. */
+export function edgeEditWrittenKeys(edit: { readonly sentDirection?: unknown }): readonly string[] {
+  return edit.sentDirection !== undefined ? EDGE_DIRECTION_WRITTEN_KEYS : EDGE_EDIT_WRITTEN_KEYS
+}
+
 /** The in-flight edit per edge. A second edit to the same link replaces the first. */
 const inFlight = new Map<string, PendingEdgeEdit>()
+
+/**
+ * ⛔ ONE ENTRY PER EDGE **PER EDIT KIND** — never one per edge (independent
+ * review of #1950 at `858d9159`, 5820986154). A flip and a strength drag on the
+ * same link are two edits with two settlements. Keyed by edge alone, whichever
+ * came second REPLACED the first: the first's refusal then reverted nothing,
+ * its hold ended when the second settled, and its sign check was skipped
+ * ("Sent" on a flip the model never took). Keyed by kind, each settlement finds
+ * its own entry. A newer edit of the SAME kind still replaces the older one.
+ */
+type EdgeEditKind = 'strength' | 'direction'
+const kindOf = (sentDirection: unknown): EdgeEditKind => (sentDirection !== undefined ? 'direction' : 'strength')
+const entryKey = (edgeId: string, kind: EdgeEditKind) => `${kind}\u0000${edgeId}`
 
 type Listener = () => void
 const listeners = new Set<Listener>()
@@ -74,25 +108,69 @@ export function edgeMagnitudeOf(edge: { data?: unknown } | undefined): number | 
   return typeof w === 'number' && Number.isFinite(w) ? Math.abs(w) : null
 }
 
+/** The direction the canvas shows — `'positive'` when unstated (UI-SEM-029's default). */
+function edgeDirectionOf(edge: { data?: unknown } | undefined): 'positive' | 'negative' {
+  return (edge?.data as Record<string, unknown> | undefined)?.direction === 'negative' ? 'negative' : 'positive'
+}
+
+/**
+ * Does the canvas still show this pending write? A strength edit: its
+ * magnitude. A DIRECTION edit: its SIGN, and only its sign — its
+ * `sentMagnitude` is the SERVER's `|mean|` (`edgeStrengthEdit.ts`, "THE
+ * MAGNITUDE IS THE SERVER'S, NOT THE CANVAS'S"), which the canvas weight need
+ * not equal: an unconfirmed strength drag beside the flip is the natural case,
+ * and comparing the two left a refused flip on screen (5820664860, A and B).
+ */
+export function edgeShowsPendingWrite(
+  edge: { data?: unknown } | undefined,
+  entry: { readonly sentMagnitude: number; readonly sentDirection?: 'positive' | 'negative' },
+): boolean {
+  if (!edge) return false
+  if (entry.sentDirection !== undefined) return edgeDirectionOf(edge) === entry.sentDirection
+  return edgeMagnitudeOf(edge) === entry.sentMagnitude
+}
+
 /** Record that `sentMagnitude` for `edgeId` is with the engine and unanswered. Called where the send is ADMITTED. */
 export function markEdgeEditInFlight(
   edgeId: string,
   sentMagnitude: number,
   before: Readonly<Record<string, unknown>> | undefined,
+  sentDirection?: 'positive' | 'negative',
 ): void {
   if (!edgeId || !Number.isFinite(sentMagnitude)) return
-  const prior = inFlight.get(edgeId)
-  // A newer edit to the same link keeps the ORIGINAL pre-edit data: that is
-  // what the server still holds while both are unanswered.
-  inFlight.set(edgeId, { edgeId, sentMagnitude, before: prior?.before ?? { ...(before ?? {}) } })
+  const key = entryKey(edgeId, kindOf(sentDirection))
+  const prior = inFlight.get(key)
+  // A newer edit of the SAME KIND keeps the ORIGINAL pre-edit data of the edit
+  // it replaces: that is what the server still holds while both are
+  // unanswered. The rule is the same for both kinds, because with per-kind
+  // entries a flip's predecessor can only be another flip, whose value is
+  // optimistic (5821294085: "decreases" then "increases", both refused, ended
+  // on the first flip's unconfirmed sign). A first flip beside a pending strength
+  // drag has no same-kind predecessor, so it keeps the direction on screen when
+  // it was pressed — which is what a drag that crossed zero needs (scenario C).
+  inFlight.set(key, {
+    edgeId,
+    sentMagnitude,
+    before: prior?.before ?? { ...(before ?? {}) },
+    ...(sentDirection !== undefined ? { sentDirection } : {}),
+  })
   emit()
 }
 
-/** End the pending state for `edgeId` — stands down if a newer edit superseded `sentMagnitude`. */
-export function settleEdgeEdit(edgeId: string, sentMagnitude: number): boolean {
-  const entry = inFlight.get(edgeId)
-  if (!entry || entry.sentMagnitude !== sentMagnitude) return false
-  inFlight.delete(edgeId)
+/**
+ * End the pending state for `edgeId` — stands down if a newer edit superseded
+ * this one. A direction edit and a strength edit at the same magnitude are
+ * different edits: the sign is part of the match.
+ */
+export function settleEdgeEdit(
+  edgeId: string,
+  sentMagnitude: number,
+  sentDirection?: 'positive' | 'negative',
+): boolean {
+  const key = entryKey(edgeId, kindOf(sentDirection))
+  const entry = inFlight.get(key)
+  if (!entry || entry.sentMagnitude !== sentMagnitude || entry.sentDirection !== sentDirection) return false
+  inFlight.delete(key)
   emit()
   return true
 }
@@ -106,7 +184,7 @@ export function unconfirmedEdgeEditOnGraph(edges: ReadonlyArray<{ id?: unknown; 
   if (inFlight.size === 0) return null
   for (const entry of inFlight.values()) {
     const edge = edges.find((e) => e.id === entry.edgeId)
-    if (edge && edgeMagnitudeOf(edge) === entry.sentMagnitude) return entry.edgeId
+    if (edgeShowsPendingWrite(edge, entry)) return entry.edgeId
   }
   return null
 }
@@ -120,23 +198,42 @@ export function unconfirmedEdgeEditOnGraph(edges: ReadonlyArray<{ id?: unknown; 
 export function edgeDataWithStrengthWriteUndone(
   current: Readonly<Record<string, unknown>>,
   before: Readonly<Record<string, unknown>>,
+  keys: readonly string[] = EDGE_EDIT_WRITTEN_KEYS,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { ...current }
-  for (const k of EDGE_EDIT_WRITTEN_KEYS) out[k] = before[k]
+  for (const k of keys) out[k] = before[k]
   return out
+}
+
+/**
+ * The keys THIS entry's refusal restores. A strength edit also writes the
+ * direction keys (the signed slider can cross zero), but while a FLIP on the
+ * same link is pending the direction is the flip's: the flip settles it, and a
+ * strength refusal restoring it would undo a flip the model may already hold
+ * (5820986154, scenario D).
+ */
+function revertKeysFor(entry: PendingEdgeEdit): readonly string[] {
+  const keys = edgeEditWrittenKeys(entry)
+  if (entry.sentDirection !== undefined) return keys
+  if (!inFlight.has(entryKey(entry.edgeId, 'direction'))) return keys
+  return keys.filter((k) => !(EDGE_DIRECTION_WRITTEN_KEYS as readonly string[]).includes(k))
 }
 
 function revertEdgeEdit(entry: PendingEdgeEdit): void {
   const store = useCanvasStore.getState()
   const edge = store.edges.find((e) => e.id === entry.edgeId)
-  // Only while the canvas still shows the sent magnitude — a person who has
+  // Only while the canvas still shows the sent write — a person who has
   // moved on keeps what they see.
-  if (!edge || edgeMagnitudeOf(edge) !== entry.sentMagnitude) return
+  if (!edge || !edgeShowsPendingWrite(edge, entry)) return
   // ⚠ A ROLLBACK, NOT A USER EDIT — the same framing the factor revert uses.
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     store.updateEdge(entry.edgeId, {
-      data: edgeDataWithStrengthWriteUndone((edge.data ?? {}) as Record<string, unknown>, entry.before),
+      data: edgeDataWithStrengthWriteUndone(
+        (edge.data ?? {}) as Record<string, unknown>,
+        entry.before,
+        revertKeysFor(entry),
+      ),
     } as never)
   } finally {
     store.endExternalGraphMutation?.()
@@ -173,24 +270,30 @@ export function resolveEdgeEditSettlement(
   edgeId: string,
   sentMagnitude: number,
   settlement: SystemEventSendSettlement,
+  sentDirection?: 'positive' | 'negative',
 ): SystemEventSendSettlement {
-  const entry = inFlight.get(edgeId)
-  if (!entry || entry.sentMagnitude !== sentMagnitude) return settlement
+  const entry = inFlight.get(entryKey(edgeId, kindOf(sentDirection)))
+  if (!entry || entry.sentMagnitude !== sentMagnitude || entry.sentDirection !== sentDirection) return settlement
   if (settlement === 'unverified' || settlement === 'queued') return settlement
   if (settlement === 'blocked') {
-    settleEdgeEdit(edgeId, sentMagnitude)
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
     return settlement
   }
   if (settlement === 'refused') {
     revertEdgeEdit(entry)
-    settleEdgeEdit(edgeId, sentMagnitude)
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
     return 'refused'
   }
-  // 'sent'
+  // 'sent' — for a direction edit the SIGN must be the model's too: a flip
+  // keeps `|mean|`, so the magnitude alone is already true before it lands.
   const edge = useCanvasStore.getState().edges.find((e) => e.id === edgeId)
   const stated = serverStatedStrengthOf(edge?.data as Record<string, unknown> | undefined)
-  if (stated && Math.abs(stated.mean) === sentMagnitude) {
-    settleEdgeEdit(edgeId, sentMagnitude)
+  if (
+    stated &&
+    Math.abs(stated.mean) === sentMagnitude &&
+    (sentDirection === undefined || stated.effect_direction === sentDirection)
+  ) {
+    settleEdgeEdit(edgeId, sentMagnitude, sentDirection)
     return 'sent'
   }
   return 'unverified'
