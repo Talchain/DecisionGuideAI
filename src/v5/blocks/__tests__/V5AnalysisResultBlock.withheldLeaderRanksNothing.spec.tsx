@@ -112,6 +112,11 @@ describe('a withheld leader is not ranked by win share', () => {
     )
   })
 
+  it('a whitespace-only leading_option_id names no one either: no row', () => {
+    render(<V5AnalysisResultBlock block={{ ...servedResultBlock(), leading_option_id: '   ' }} />)
+    expect(screen.queryByTestId(ROW)).toBeNull()
+  })
+
   it('the HELD REPORT’s refusal withholds too, even on a block that names a leader', () => {
     const [rank1] = Object.entries(servedResultBlock().win_probabilities ?? {}).sort(([, a], [, b]) => b - a)[0]
     holdReportWithPermission(false)
