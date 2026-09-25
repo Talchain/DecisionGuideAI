@@ -6,7 +6,7 @@
  * (not persisted). Clears on scenario switch.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { setCurrentScenarioId } from '../store/scenarios'
 // Session identity without React context — see that module's header for why it
@@ -115,7 +115,9 @@ import {
   saveTranscript,
   formatTruncationNotice,
   releaseTranscriptTombstone,
+  settledSourceBlockKeys as settledSourceBlockKeysOf,
 } from './utils/transcriptStore'
+import { HELD_PROPOSAL_STATE_KEY_PREFIX } from './selectors'
 import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
@@ -2283,7 +2285,16 @@ export interface DispatchActionOpts {
   hidden?: boolean
   /** Origin surface for telemetry */
   source: ActionSource
+  /** G1 — the card action this is; stamped on the user bubble, never on the wire. */
+  sourceBlockKey?: string
 }
+
+/**
+ * A chip as `sendChip` accepts it: the ordinary `ActionChip`, optionally
+ * naming the card action it stands for (G1). The key is forwarded to the user
+ * bubble beside the chip metadata — never into it, so never onto the wire.
+ */
+export type SourceKeyedChip = ActionChip & { sourceBlockKey?: string }
 
 function resolveUserTurnType(
   source: string | undefined,
@@ -2379,6 +2390,13 @@ export interface SendTurnOpts {
   chipMeta?: ChipMeta
   /** When true, render the user bubble as a compact action indicator */
   chipInitiated?: boolean
+  /**
+   * G1 — the card action this turn is (built by `coachingSourceBlockKey` /
+   * `heldProposalSourceBlockKey` in `utils/transcriptStore.ts`), stamped on the
+   * user bubble so the saved transcript records that the action was taken.
+   * NOT part of the wire payload: `buildV5Payload` is never handed it.
+   */
+  sourceBlockKey?: string
   /**
    * ROADMAP 2.129 (b) — how to UNDO the optimistic local write this system event
    * announces, if the server refuses it.
@@ -2575,7 +2593,7 @@ export interface UseConversationReturn {
     // `Promise<void>` made those two indistinguishable, which is how an
     // inspector edit made during an analysis was lost in silence.
   }) => Promise<SendTurnOutcome>
-  sendChip: (chip: ActionChip) => Promise<void>
+  sendChip: (chip: SourceKeyedChip) => Promise<void>
   /** Unified action dispatch — routes all pill/chip/action triggers through a single path with proper metadata */
   dispatchAction: (opts: DispatchActionOpts) => Promise<void>
   clearHistory: () => void
@@ -2595,6 +2613,12 @@ export interface UseConversationReturn {
   /** GraphPatchBlock state map (keyed by `${turnId}:${patchId}`) */
   patchBlockStates: Map<string, PatchBlockState>
   setPatchBlockState: (key: string, state: PatchBlockState) => void
+  /**
+   * G1 — the card actions the transcript records as taken
+   * (`SourceKeyedMessage.sourceBlockKey` of every delivered user message).
+   * A card whose key is here is settled, including after a reload.
+   */
+  settledSourceBlockKeys: ReadonlySet<string>
   /** Rejection details for patches that failed validation */
   patchRejections: Map<string, PatchRejectionInfo>
   setPatchRejection: (key: string, info: PatchRejectionInfo) => void
@@ -3723,6 +3747,39 @@ export function useConversation(): UseConversationReturn {
     })
   }, [])
 
+  // ── G1: a card action already taken stays taken across a reload ──────────
+  // The keys of every delivered user message a card action created — derived
+  // from the transcript by the SAME rule that decides what is saved, so the
+  // live answer and the post-reload answer are one answer. `ActionChip` reads
+  // this through the conversation context.
+  const settledSourceBlockKeys = useMemo(
+    () => settledSourceBlockKeysOf(messages),
+    [messages],
+  )
+
+  // A held proposal's settlement has ONE authority, the registry above, and
+  // the card reads nothing else. So a confirm the transcript records is
+  // written INTO the registry rather than consulted beside it — after a reload
+  // the registry starts empty and this is what restores the entry. Only a
+  // missing entry is written: a live registry entry is never overridden, and
+  // an in-session confirm already wrote its own key on settle, so this is a
+  // no-op outside a restore. Layout effect, so a restored card never paints
+  // one live frame first.
+  useLayoutEffect(() => {
+    const missing: string[] = []
+    for (const key of settledSourceBlockKeys) {
+      if (key.startsWith(HELD_PROPOSAL_STATE_KEY_PREFIX) && !patchBlockStates.has(key)) {
+        missing.push(key)
+      }
+    }
+    if (missing.length === 0) return
+    setPatchBlockStates((prev) => {
+      const next = new Map(prev)
+      for (const key of missing) if (!next.has(key)) next.set(key, 'accepted')
+      return next
+    })
+  }, [settledSourceBlockKeys, patchBlockStates])
+
   const setPatchRejection = useCallback((key: string, info: PatchRejectionInfo) => {
     setPatchRejectionsMap((prev) => {
       const next = new Map(prev)
@@ -3868,6 +3925,7 @@ export function useConversation(): UseConversationReturn {
         turnType,
         chipMeta,
         chipInitiated,
+        sourceBlockKey,
       } = opts
 
       // 1.16i swallow guard: a run_analysis (re-)click while a run turn is
@@ -4145,6 +4203,11 @@ export function useConversation(): UseConversationReturn {
           timestamp: new Date(),
           deliveryState: 'pending',
           ...(chipInitiated ? { chipInitiated: true } : {}),
+          // G1: the saved transcript's record that this card's action was
+          // taken. Persisted only once the bubble is delivered (the store
+          // drops 'pending'/'failed'), so a send that never went out cannot
+          // settle its card after a reload.
+          ...(sourceBlockKey ? { sourceBlockKey } : {}),
         })
       } else if (skipUserBubble && mode === 'user' && !hidden) {
         userBubbleIdForTurn = lastVisibleUserBubbleIdRef.current
@@ -6480,13 +6543,14 @@ export function useConversation(): UseConversationReturn {
         turnType,
         chipMeta,
         chipInitiated: !opts.hidden,
+        ...(opts.sourceBlockKey ? { sourceBlockKey: opts.sourceBlockKey } : {}),
       })
     },
     [sendTurn],
   )
 
   const sendChip = useCallback(
-    async (chip: ActionChip) => {
+    async (chip: SourceKeyedChip) => {
       if (chip.id === LOAD_SAVED_MODEL_CHIP_ID) {
         if (!missingDraftRecoveryRef.current) {
           throw new Error('This loading attempt is no longer active.')
@@ -6533,6 +6597,8 @@ export function useConversation(): UseConversationReturn {
           label: chip.label,
           message: messageToSend,
           source: 'chip',
+          // G1 — rides beside the chip metadata, never inside it.
+          ...(chip.sourceBlockKey ? { sourceBlockKey: chip.sourceBlockKey } : {}),
         })
       } else {
         // Chip has no message and is not an undo — this should not happen in practice
@@ -6923,6 +6989,7 @@ export function useConversation(): UseConversationReturn {
     startNewDraft,
     patchBlockStates,
     setPatchBlockState,
+    settledSourceBlockKeys,
     patchRejections,
     setPatchRejection,
   }

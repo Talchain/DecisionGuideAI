@@ -39,7 +39,8 @@
  * CHIP_CLASS styles distinctly.
  */
 import { useCallback, useRef, useState, type ReactElement } from 'react'
-import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
+import { useGuidanceStore, type SendChipMeta } from '../../canvas/stores/guidanceStore'
+import { useOptionalConversationContext } from '../../canvas/conversation/ConversationContext'
 import { CHIP_CLASS } from './chipClass'
 
 export interface ActionChipProps {
@@ -78,6 +79,16 @@ export interface ActionChipProps {
   inert?: boolean
   /** Id of the visible element that explains why the chip is inert (the card's notice). */
   describedBy?: string
+  /**
+   * G1 — this chip's card action (`coachingSourceBlockKey`). When present it
+   * travels with the send so the user message records which card it came
+   * from, and the chip reads back as SETTLED whenever the conversation's
+   * transcript holds a delivered message carrying it — which is what keeps an
+   * action the user already took from coming back live after a reload.
+   * Absent (or no conversation provider) ⇒ settlement is local state alone,
+   * exactly as before.
+   */
+  sourceBlockKey?: string
 }
 
 /*
@@ -97,9 +108,18 @@ export function ActionChip({
   intent,
   inert = false,
   describedBy,
+  sourceBlockKey,
 }: ActionChipProps): ReactElement {
   const sendChip = useGuidanceStore((s) => s._sendChip)
-  const [settled, setSettled] = useState(false)
+  const [settledLocally, setSettled] = useState(false)
+  // G1: local state answers "did THIS node get clicked?" and dies with the
+  // page. The transcript answers "was this card's action taken?" and survives
+  // it. Either one settles the chip; neither can un-settle it.
+  const transcriptKeys: ReadonlySet<string> | undefined =
+    useOptionalConversationContext()?.settledSourceBlockKeys
+  const settledByTranscript =
+    sourceBlockKey !== undefined && transcriptKeys?.has(sourceBlockKey) === true
+  const settled = settledLocally || settledByTranscript
   // Synchronous twin of `settled`. State only updates on the next render, so two
   // clicks inside one tick would both read `settled === false` and send twice;
   // the ref closes that window.
@@ -118,9 +138,18 @@ export function ActionChip({
     // (`KNOWN_INTENTS ∧ CEE_ACCEPTED_INTENTS`) still decides whether it reaches
     // the wire and still fails CLOSED, so this can only ever forward an intent
     // the PRODUCER declared and the deployed CEE routes.
-    sendChip(label, message, intent ? { intent } : undefined)
+    //
+    // G1: `sourceBlockKey` rides the same meta. It is UI-only:
+    // `useConversation.sendChip` stamps it on the user bubble BESIDE the chip
+    // metadata, so it never reaches the wire — provided the registered seam
+    // (`ConversationPanel.sendChipByLabelMessage`) carries it onto the chip.
+    const meta: (SendChipMeta & { sourceBlockKey?: string }) | undefined =
+      intent || sourceBlockKey
+        ? { ...(intent ? { intent } : {}), ...(sourceBlockKey ? { sourceBlockKey } : {}) }
+        : undefined
+    sendChip(label, message, meta)
     setSettled(true)
-  }, [settled, inert, sendChip, label, message, intent])
+  }, [settled, inert, sendChip, label, message, intent, sourceBlockKey])
 
   return (
     <button

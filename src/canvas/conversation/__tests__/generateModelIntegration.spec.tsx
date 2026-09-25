@@ -159,6 +159,7 @@ function makeMockConversation(): {
     retryLast: vi.fn().mockResolvedValue(undefined),
     patchBlockStates: new Map<string, PatchBlockState>(),
     setPatchBlockState: vi.fn(),
+    settledSourceBlockKeys: new Set<string>(),
     patchRejections: new Map<string, PatchRejectionInfo>(),
     setPatchRejection: vi.fn(),
   }

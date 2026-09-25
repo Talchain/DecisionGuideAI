@@ -104,6 +104,7 @@ import { BookOpenCheck } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import { ActionChip } from './ActionChip'
+import { coachingSourceBlockKey } from '../../canvas/conversation/utils/transcriptStore'
 import {
   guidanceCategoryIcon,
   guidanceCategoryTone,
@@ -126,6 +127,13 @@ export interface V5CoachingBlockProps {
    * Default `false`, so every other mount is byte-identical to before.
    */
   suppressHeader?: boolean
+  /**
+   * The assistant turn this card is mounted in (`message.id`). It scopes the
+   * action chip's `sourceBlockKey` (G1), so an action taken on THIS card
+   * stays settled after a reload while the same `block_id` on another turn
+   * does not. Absent ⇒ no key, and the chip settles on local state alone.
+   */
+  turnId?: string
 }
 
 type Tone = 'danger' | 'info'
@@ -248,7 +256,7 @@ const SOURCE_SENTENCE: Partial<Record<string, string>> = {
   deterministic_signal: 'Raised by an automatic check',
 }
 
-export function V5CoachingBlock({ block, variant = 'default', suppressHeader = false }: V5CoachingBlockProps): ReactElement {
+export function V5CoachingBlock({ block, variant = 'default', suppressHeader = false, turnId }: V5CoachingBlockProps): ReactElement {
   const testIdPrefix = variant === 'bias_signal' ? 'bias-signal-card' : 'v5-coaching'
 
   // The IMPORTANCE channel, derived from the shared authority so this card,
@@ -464,6 +472,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
               intent={block.action_intent}
               inert={actionInert}
               describedBy={actionInert ? freshnessNoticeId : undefined}
+              sourceBlockKey={coachingSourceBlockKey(turnId, block.block_id)}
             />
           ) : (
             <span

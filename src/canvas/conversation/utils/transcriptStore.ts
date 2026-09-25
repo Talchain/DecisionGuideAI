@@ -30,9 +30,73 @@
  * interaction (`actionChips`) are dropped, and anything dropped for SIZE is
  * declared on screen via `droppedCount` — a placeholder that means "you have
  * never been here" is a factual claim, and it must not be made falsely.
+ *
+ * The inverse also holds: a card action the user already TOOK must not come
+ * back live. A user message records which card created it (`sourceBlockKey`),
+ * and `settledSourceBlockKeys` reads that back, so the saved transcript is
+ * the one witness of what was done (G1).
  */
 
 import type { ConversationMessage } from '../types'
+import { heldProposalMountKey } from '../selectors'
+
+// ── G1: which CARD ACTION created a user message ─────────────────────────────
+//
+// THE DEFECT. After a reload a card action the user had already taken was live
+// again: a coaching chip's `settled` was component state, and a held proposal's
+// Confirm was settled only in the in-memory `patchBlockStates`. Both came back
+// clickable, and one more click sent a second turn.
+//
+// THE RULE. A card action is settled after a reload if and only if a DELIVERED
+// user message created by that action exists in the saved transcript. The
+// message carries a `sourceBlockKey`; this store persists it (optionally, so
+// older saves load unchanged); `settledSourceBlockKeys` reads it back. No
+// separate "settled" record exists: the transcript is the one witness.
+//
+// ⚠ THE KEY STRINGS ARE A STORED CONTRACT — they are written to localStorage,
+// so changing either format silently re-arms every action a returning user
+// already took. Both are scoped by the TURN the card is mounted in as well as
+// the block's own id: a `block_id` or a CEE hold handle can recur on a later
+// turn, and that later card is a new offer.
+//
+// The key is UI-only. It rides the send beside the chip metadata and is stamped
+// on the user bubble; it never enters the wire payload.
+
+/**
+ * A conversation message that may carry the G1 card-action key. Declared here,
+ * beside the one store that persists and reads it back; on any message other
+ * than a user message created by a card action it is absent.
+ */
+export type SourceKeyedMessage = ConversationMessage & {
+  /** `coach:<turnId>:<block_id>` or `held:<turnId>:<proposal_id>`. */
+  sourceBlockKey?: string
+}
+
+/** Key for a coaching card's action chip: `coach:<turnId>:<block_id>`. */
+export function coachingSourceBlockKey(
+  turnId: string | undefined,
+  blockId: string | undefined,
+): string | undefined {
+  if (!turnId || !blockId) return undefined
+  return `coach:${turnId}:${blockId}`
+}
+
+/**
+ * Key for a held proposal's Confirm: `held:<turnId>:<proposal_id>`.
+ *
+ * Deliberately the held-proposal registry's own MOUNT key
+ * (`heldProposalMountKey`), so a restored confirm seeds exactly the entry
+ * `resolveHeldProposalState` reads — one key space, not two to keep aligned.
+ * `turnId` absent ⇒ no key: the registry's bare-handle fallback would also
+ * settle a later offer CEE re-issues under the same handle.
+ */
+export function heldProposalSourceBlockKey(
+  turnId: string | undefined,
+  proposalId: string | undefined,
+): string | undefined {
+  if (!turnId || !proposalId) return undefined
+  return heldProposalMountKey(turnId, proposalId)
+}
 
 /** localStorage key. Sibling of `olumi-canvas-autosave` / `-scenarios`. */
 export const TRANSCRIPT_STORAGE_KEY = 'olumi-canvas-transcript'
@@ -78,6 +142,9 @@ interface StoredMessage {
   insights?: unknown[]
   clientTurnId?: string
   chipInitiated?: boolean
+  /** G1 — the card action that created this user message. Optional: saves
+   *  written before it existed load exactly as they always did. */
+  sourceBlockKey?: string
   sessionDivider?: string
   synthetic?: boolean
 }
@@ -94,7 +161,7 @@ interface StoredTranscript {
 type TranscriptFile = Record<string, StoredTranscript>
 
 export interface LoadedTranscript {
-  messages: ConversationMessage[]
+  messages: SourceKeyedMessage[]
   savedAt: Date | null
   /** >0 when older turns were dropped to fit — MUST be disclosed on screen. */
   droppedCount: number
@@ -144,7 +211,29 @@ function isPersistable(m: ConversationMessage): boolean {
   return true
 }
 
-function toStored(m: ConversationMessage): StoredMessage {
+/**
+ * G1 — the card actions a transcript records as TAKEN: the `sourceBlockKey` of
+ * every user message this store would persist (`isPersistable`), and nothing
+ * else.
+ *
+ * Built on the persistence rule rather than beside it, so "settled" cannot
+ * drift from "saved": a failed or still-pending send is never saved, so it
+ * never settles its card, and the answer read live is the answer a reload
+ * would give. Pure and total; an empty set when nothing was taken.
+ */
+export function settledSourceBlockKeys(
+  messages: readonly SourceKeyedMessage[],
+): ReadonlySet<string> {
+  const keys = new Set<string>()
+  for (const m of messages) {
+    if (m.role !== 'user' || !m.sourceBlockKey) continue
+    if (!isPersistable(m)) continue
+    keys.add(m.sourceBlockKey)
+  }
+  return keys
+}
+
+function toStored(m: SourceKeyedMessage): StoredMessage {
   const out: StoredMessage = {
     id: m.id,
     role: m.role,
@@ -156,12 +245,13 @@ function toStored(m: ConversationMessage): StoredMessage {
   if (m.insights && m.insights.length > 0) out.insights = m.insights as unknown[]
   if (m.clientTurnId) out.clientTurnId = m.clientTurnId
   if (m.chipInitiated) out.chipInitiated = true
+  if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   return out
 }
 
-function fromStored(s: StoredMessage): ConversationMessage {
+function fromStored(s: StoredMessage): SourceKeyedMessage {
   const ts = new Date(s.ts)
   return {
     id: s.id,
@@ -177,6 +267,9 @@ function fromStored(s: StoredMessage): ConversationMessage {
       : {}),
     ...(s.clientTurnId ? { clientTurnId: s.clientTurnId } : {}),
     ...(s.chipInitiated ? { chipInitiated: true } : {}),
+    ...(typeof s.sourceBlockKey === 'string' && s.sourceBlockKey
+      ? { sourceBlockKey: s.sourceBlockKey }
+      : {}),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
   }
