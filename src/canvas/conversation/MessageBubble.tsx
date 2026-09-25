@@ -33,7 +33,7 @@ import { useCanvasStore } from '../store'
 import { isSelfContradictoryStale } from '../store/analysisFreshness'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
-import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
+import { collectConsentSurfaceText, dedupeRenderedText, offersPendingConsent } from './messageComposition'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -531,6 +531,7 @@ export const MessageBubble = memo(function MessageBubble({
           onProposalConfirm={onProposalConfirm}
           onHeldProposalSettle={onHeldProposalSettle}
           assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
+          consentPending={offersPendingConsent(message.actionChips)}
           // ONE RENDER AUTHORITY: tier 0 (consent cards) then tier 2 (the prose
           // body as it was ACTUALLY rendered, post-suppression) — so a
           // commentary block inside the disclosure does not repeat a paragraph
