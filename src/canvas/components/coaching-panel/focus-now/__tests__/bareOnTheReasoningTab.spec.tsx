@@ -7,8 +7,10 @@
  * its own h2 "Strengthen your model" under the zone's "Focus now" label, i.e.
  * two headings over one list.
  *
- * `bare` is passed ONLY by the Reasoning tab; the Analysis tab's mount
- * (`ResultsBody.tsx`) is unchanged, which the contrast case pins.
+ * ⛔ The Reasoning tab no longer mounts Focus Now at all — V2 prototype (Paul,
+ * 25 Sep 2026; #2036). The `bare` rendering is kept and pinned below; the
+ * source case now pins that NO tab passes it: the Reasoning tab has no mount,
+ * and the Analysis tab's mount (`ResultsBody.tsx`) is the card, unchanged.
  */
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
@@ -61,11 +63,14 @@ describe('"Focus now" on the Reasoning tab', () => {
     expect(screen.getByRole('heading', { name: FOCUS_COPY.header })).toBeInTheDocument()
   })
 
-  it('only the Reasoning tab passes bare', () => {
+  it('the Reasoning tab mounts no Focus Now; the Analysis tab mounts the card, not bare', () => {
     const root = resolve(__dirname, '../../../../../..')
     const body = readFileSync(resolve(root, 'src/components/results/analysisNew/AnalysisNewTabBody.tsx'), 'utf8')
     const legacy = readFileSync(resolve(root, 'src/components/results/ResultsBody.tsx'), 'utf8')
-    expect(body).toMatch(/<FocusNowContainer[^>]*\bbare\b/)
+    // Present control: the probe sees the one real mount.
+    expect(legacy).toMatch(/<FocusNowContainer\b/)
     expect(legacy).not.toMatch(/<FocusNowContainer[^>]*\bbare\b/)
+    // The absence it exists to pin.
+    expect(body).not.toMatch(/<FocusNowContainer\b/)
   })
 })
