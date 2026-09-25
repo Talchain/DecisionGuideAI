@@ -91,6 +91,7 @@ function heroEvidenceModel(partial: Partial<HeroEvidenceModel> = {}): HeroEviden
     designationsWithheld: partial.designationsWithheld ?? false,
     decisionVoi: partial.decisionVoi ?? 'not_computed',
     attributionSuppression: partial.attributionSuppression ?? 'not_attested',
+    assumedStrengthRankingWithheld: false,
     assumedStrength:
       partial.assumedStrength ?? { selected: null, refusalReason: 'no_fragile_edges', assumedFragileCount: 0 },
   }
