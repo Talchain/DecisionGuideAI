@@ -95,7 +95,10 @@ export default defineConfig({
     env: {
       ENGINE_SERVICE_URL: UNREACHABLE, CEE_SERVICE_URL: UNREACHABLE, ISL_SERVICE_URL: UNREACHABLE,
       PLOT_API_URL: UNREACHABLE, ASSIST_BFF_URL: UNREACHABLE,
-      VITE_SUPABASE_URL: 'http://localhost:54321', VITE_SUPABASE_ANON_KEY: 'test_anon_key',
+      // Overridable (section 14 runs with VITE_SUPABASE_URL=http://localhost
+      // VITE_SUPABASE_ANON_KEY=test); the defaults are what 07–13 ran with.
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? 'http://localhost:54321',
+      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ?? 'test_anon_key',
       VITE_FEATURE_SSE: '0', TZ: 'UTC',
       // SAME-ORIGIN V5 endpoint, so the app's own `useConversation` can send a
       // turn at all (`v5Adapter.resolveEndpoint` throws when it is unset). Vite

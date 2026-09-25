@@ -1,0 +1,459 @@
+{
+  "section": 14,
+  "tree": "staging",
+  "viewport": "1440x900",
+  "checkout": {
+    "head": "b017e3c2fe361d95b6ca7ab4c074bcc61f620832",
+    "servedCardSource": {
+      "tree": "staging",
+      "sourceBytes": 82453
+    }
+  },
+  "fixture": {
+    "path": "src/canvas/conversation/__tests__/fixtures/openai-route-coaching-journey.e39f6e0.json",
+    "sha256": "c5f37961108c272a67db30bbb61fa49e5749a03b9a9d77ee5c266a403a8ef256",
+    "provenance": "e39f6e09759dc8923c5e6033c3df190917df9e45 (CEE staging: #1854 + #1866 copy v2; /healthz build e39f6e0 before and after)",
+    "c1Sha256": "0c311334c95590f4e399930126fe8a4491398119366d1deb5a083d2a2a848bf9",
+    "c2Sha256": "81d4486a271b184f8998fae666f4ca5bc0b771b94bc07b330609af8b3cdcf596"
+  },
+  "c2Wire": {
+    "leading_option_id": null,
+    "win_probabilities": {
+      "Keep Pro at £49": 0.5293666666666662,
+      "Phase Pro to £54": 0.004466666666666671,
+      "Raise Pro to £59": 0.4661666666666667
+    },
+    "leader_claim": {
+      "permitted": false,
+      "withheld_reason": "constraint_verdict_withheld",
+      "separation": "near_tie"
+    }
+  },
+  "c2Card": {
+    "exists": true,
+    "probabilitiesRowExists": true,
+    "probabilitiesRowText": "Keep Pro at £49\n·\n53%\nRaise Pro to £59\n·\n47%\nPhase Pro to £54\n·\n< 1%",
+    "probabilitiesPills": [
+      {
+        "text": "Keep Pro at £49 · 53%",
+        "dataLeader": "false"
+      },
+      {
+        "text": "Raise Pro to £59 · 47%",
+        "dataLeader": "false"
+      },
+      {
+        "text": "Phase Pro to £54 · < 1%",
+        "dataLeader": "false"
+      }
+    ],
+    "summaryRenders": true,
+    "visiblePercentStrings": [
+      "< 4%",
+      "53%",
+      "47%",
+      "< 1%"
+    ]
+  },
+  "olumiTabSelectedAfterC1": "true",
+  "afterC1": {
+    "cardCount": 1,
+    "cards": [
+      {
+        "index": 0,
+        "turn": "C1 brief",
+        "attrs": {
+          "data-has-decision-review": "false",
+          "data-decision-review-state": "absent"
+        },
+        "box": {
+          "x": 1029,
+          "y": 426,
+          "width": 382,
+          "height": 143
+        },
+        "heading": "Analysis result",
+        "summary": {
+          "present": true,
+          "visible": true,
+          "text": "Olumi ran a first pass on the model it had just drafted. Nothing in it is confirmed yet, so no option is put forward and no result is called reliable. Use it to find what is wrong."
+        },
+        "uncertaintyCopy": null,
+        "probabilities": {
+          "present": false
+        },
+        "visiblePercentStrings": [],
+        "percentStringsInDomText": [],
+        "testIds": [
+          "v5-analysis-result-heading",
+          "v5-analysis-result-summary"
+        ],
+        "innerText": "Analysis result\n\nOlumi ran a first pass on the model it had just drafted. Nothing in it is confirmed yet, so no option is put forward and no result is called reliable. Use it to find what is wrong."
+      }
+    ],
+    "c2ReplyOutsideCard": null,
+    "assistantMessages": 1,
+    "userMessages": 1,
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "aiModeLabel": "AI: OpenAI",
+    "store": {
+      "nodeCount": 11,
+      "runStateKind": "complete_current",
+      "computedAt": "2026-09-25T01:41:52.431Z",
+      "leaderClaim": {
+        "permitted": false,
+        "withheld_reason": "constraint_verdict_withheld",
+        "separation": "near_tie"
+      },
+      "resultsStatus": "complete",
+      "producerLeaderPermission": {
+        "permitted": false,
+        "withheld_reason": "leader_claim_withheld",
+        "producer_cause": "constraint_verdict_withheld"
+      },
+      "currentGraphHash": "8c77b2c5564aa59d",
+      "analysisFreshnessDirty": false
+    }
+  },
+  "onArrival": {
+    "cardCount": 2,
+    "cards": [
+      {
+        "index": 0,
+        "turn": "C1 brief",
+        "attrs": {
+          "data-has-decision-review": "false",
+          "data-decision-review-state": "absent"
+        },
+        "box": {
+          "x": 1029,
+          "y": -569,
+          "width": 382,
+          "height": 143
+        },
+        "heading": "Analysis result",
+        "summary": {
+          "present": true,
+          "visible": true,
+          "text": "Olumi ran a first pass on the model it had just drafted. Nothing in it is confirmed yet, so no option is put forward and no result is called reliable. Use it to find what is wrong."
+        },
+        "uncertaintyCopy": null,
+        "probabilities": {
+          "present": false
+        },
+        "visiblePercentStrings": [],
+        "percentStringsInDomText": [],
+        "testIds": [
+          "v5-analysis-result-heading",
+          "v5-analysis-result-summary"
+        ],
+        "innerText": "Analysis result\n\nOlumi ran a first pass on the model it had just drafted. Nothing in it is confirmed yet, so no option is put forward and no result is called reliable. Use it to find what is wrong."
+      },
+      {
+        "index": 1,
+        "turn": "C2 run",
+        "attrs": {
+          "data-has-decision-review": "false",
+          "data-decision-review-state": "absent"
+        },
+        "box": {
+          "x": 1029,
+          "y": 376,
+          "width": 382,
+          "height": 389
+        },
+        "heading": "Analysis result",
+        "summary": {
+          "present": true,
+          "visible": true,
+          "text": "Ran analysis on your current scenario. One limit on your model could not be checked: “Monthly churn < 4%”. We could not line it up with anything this analysis measures, so it was not part of the comparison. The part of your model it points at is worked out from other parts, so it has no measured starting point of its own, and restating the limit cannot give it one. Tell me which part of your model it applies to and I will record it there; this one stays on the model. Then run the analysis again. I supplied 3 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies."
+        },
+        "uncertaintyCopy": "This result is tentative. The uncertainty is substantial.",
+        "probabilities": {
+          "present": true,
+          "visible": true,
+          "text": "Keep Pro at £49\n·\n53%\nRaise Pro to £59\n·\n47%\nPhase Pro to £54\n·\n< 1%",
+          "ariaLabel": "Share of simulated scenarios supporting each option",
+          "pills": [
+            {
+              "text": "Keep Pro at £49 · 53%",
+              "dataLeader": "false"
+            },
+            {
+              "text": "Raise Pro to £59 · 47%",
+              "dataLeader": "false"
+            },
+            {
+              "text": "Phase Pro to £54 · < 1%",
+              "dataLeader": "false"
+            }
+          ]
+        },
+        "visiblePercentStrings": [
+          "< 4%",
+          "53%",
+          "47%",
+          "< 1%"
+        ],
+        "percentStringsInDomText": [
+          "< 4%",
+          "53%",
+          "47%",
+          "< 1%"
+        ],
+        "testIds": [
+          "v5-analysis-result-heading",
+          "v5-analysis-result-summary",
+          "v5-analysis-result-uncertainty-copy",
+          "v5-analysis-result-probabilities"
+        ],
+        "innerText": "Analysis result\n\nRan analysis on your current scenario. One limit on your model could not be checked: “Monthly churn < 4%”. We could not line it up with anything this analysis measures, so it was not part of the comparison. The part of your model it points at is worked out from other parts, so it has no measured starting point of its own, and restating the limit cannot give it one. Tell me which part of your model it applies to and I will record it there; this one stays on the model. Then run the analysis again. I supplied 3 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies.\n\nThis result is tentative. The uncertainty is substantial.\n\nKeep Pro at £49\n·\n53%\nRaise Pro to £59\n·\n47%\nPhase Pro to £54\n·\n< 1%"
+      }
+    ],
+    "c2ReplyOutsideCard": {
+      "text": "The analysis cannot put forward a pricing option: the comparison is a near tie and your churn constraint was not scored.Keeping Pro at £49/month and raising it to £59/month produce almost identical model outcomes; robustness is low, so this is uncertainty to resolve, not a decision signal.The monthly churn <4% limit could not be matched to the model’s calculated churn measure, so no option was checked against it.The most sensitive input is the assumed 300 Pro subscribers - an Olumi estimate, not user evidence. The assumed 3% monthly churn and feature-release value also materially shape the result. Investigation priority is not established from this alone.Pressure-test a sensitive linkThe robustness check found the result sensitive to the link from Pro subscribers to MRR — worth checking what the estimate of how strongly Pro subscribers drives MRR rests on.Grounded in decision science · medium evidencePro subscribers → MRRPressure-test this link▸Why this, and how sureThis instantiates a cited decision-science claim: “Consider-the-opposite as a debiasing strategy”, which the bundle rates medium evidence.An assumption worth checkingRaised by an automatic checkEvidence to strengthen first: Feature-release valueReview the evidence behind the current estimate or range for Feature-release value, then gather relevant data or expert judgement to narrow that uncertainty.Feature-release valueStrengthen this evidenceWhat do these terms mean?",
+      "testIds": [
+        "message-assistant",
+        "message-body-text",
+        "block-container",
+        "block-badge-dot",
+        "v5-coaching",
+        "v5-coaching-title",
+        "v5-coaching-body",
+        "v5-coaching-dsk-provenance",
+        "v5-coaching-refs",
+        "v5-coaching-action",
+        "v5-coaching-details",
+        "v5-coaching-details-toggle",
+        "v5-coaching-grounding-detail",
+        "v5-coaching-kind-detail",
+        "v5-coaching-source-detail",
+        "coaching-line-00000000-0000-4000-8000-000000000002",
+        "coaching-line-summary-00000000-0000-4000-8000-000000000002",
+        "v5-review-card",
+        "v5-review-card-body",
+        "v5-review-card-refs",
+        "target-ref-pill-feature_release_value",
+        "v5-review-card-action",
+        "message-menu",
+        "message-menu-trigger",
+        "message-action-status"
+      ]
+    },
+    "assistantMessages": 2,
+    "userMessages": 2,
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "aiModeLabel": "AI: OpenAI",
+    "store": {
+      "nodeCount": 11,
+      "runStateKind": "complete_current",
+      "computedAt": "2026-09-25T01:42:18.864Z",
+      "leaderClaim": {
+        "permitted": false,
+        "withheld_reason": "constraint_verdict_withheld",
+        "separation": "near_tie"
+      },
+      "resultsStatus": "complete",
+      "producerLeaderPermission": {
+        "permitted": false,
+        "withheld_reason": "leader_claim_withheld",
+        "producer_cause": "constraint_verdict_withheld"
+      },
+      "currentGraphHash": "8c77b2c5564aa59d",
+      "analysisFreshnessDirty": false
+    }
+  },
+  "final": {
+    "cardCount": 2,
+    "cards": [
+      {
+        "index": 0,
+        "turn": "C1 brief",
+        "attrs": {
+          "data-has-decision-review": "false",
+          "data-decision-review-state": "absent"
+        },
+        "box": {
+          "x": 1029,
+          "y": -569,
+          "width": 382,
+          "height": 143
+        },
+        "heading": "Analysis result",
+        "summary": {
+          "present": true,
+          "visible": true,
+          "text": "Olumi ran a first pass on the model it had just drafted. Nothing in it is confirmed yet, so no option is put forward and no result is called reliable. Use it to find what is wrong."
+        },
+        "uncertaintyCopy": null,
+        "probabilities": {
+          "present": false
+        },
+        "visiblePercentStrings": [],
+        "percentStringsInDomText": [],
+        "testIds": [
+          "v5-analysis-result-heading",
+          "v5-analysis-result-summary"
+        ],
+        "innerText": "Analysis result\n\nOlumi ran a first pass on the model it had just drafted. Nothing in it is confirmed yet, so no option is put forward and no result is called reliable. Use it to find what is wrong."
+      },
+      {
+        "index": 1,
+        "turn": "C2 run",
+        "attrs": {
+          "data-has-decision-review": "false",
+          "data-decision-review-state": "absent"
+        },
+        "box": {
+          "x": 1029,
+          "y": 376,
+          "width": 382,
+          "height": 389
+        },
+        "heading": "Analysis result",
+        "summary": {
+          "present": true,
+          "visible": true,
+          "text": "Ran analysis on your current scenario. One limit on your model could not be checked: “Monthly churn < 4%”. We could not line it up with anything this analysis measures, so it was not part of the comparison. The part of your model it points at is worked out from other parts, so it has no measured starting point of its own, and restating the limit cannot give it one. Tell me which part of your model it applies to and I will record it there; this one stays on the model. Then run the analysis again. I supplied 3 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies."
+        },
+        "uncertaintyCopy": "This result is tentative. The uncertainty is substantial.",
+        "probabilities": {
+          "present": true,
+          "visible": true,
+          "text": "Keep Pro at £49\n·\n53%\nRaise Pro to £59\n·\n47%\nPhase Pro to £54\n·\n< 1%",
+          "ariaLabel": "Share of simulated scenarios supporting each option",
+          "pills": [
+            {
+              "text": "Keep Pro at £49 · 53%",
+              "dataLeader": "false"
+            },
+            {
+              "text": "Raise Pro to £59 · 47%",
+              "dataLeader": "false"
+            },
+            {
+              "text": "Phase Pro to £54 · < 1%",
+              "dataLeader": "false"
+            }
+          ]
+        },
+        "visiblePercentStrings": [
+          "< 4%",
+          "53%",
+          "47%",
+          "< 1%"
+        ],
+        "percentStringsInDomText": [
+          "< 4%",
+          "53%",
+          "47%",
+          "< 1%"
+        ],
+        "testIds": [
+          "v5-analysis-result-heading",
+          "v5-analysis-result-summary",
+          "v5-analysis-result-uncertainty-copy",
+          "v5-analysis-result-probabilities"
+        ],
+        "innerText": "Analysis result\n\nRan analysis on your current scenario. One limit on your model could not be checked: “Monthly churn < 4%”. We could not line it up with anything this analysis measures, so it was not part of the comparison. The part of your model it points at is worked out from other parts, so it has no measured starting point of its own, and restating the limit cannot give it one. Tell me which part of your model it applies to and I will record it there; this one stays on the model. Then run the analysis again. I supplied 3 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies.\n\nThis result is tentative. The uncertainty is substantial.\n\nKeep Pro at £49\n·\n53%\nRaise Pro to £59\n·\n47%\nPhase Pro to £54\n·\n< 1%"
+      }
+    ],
+    "c2ReplyOutsideCard": {
+      "text": "The analysis cannot put forward a pricing option: the comparison is a near tie and your churn constraint was not scored.Keeping Pro at £49/month and raising it to £59/month produce almost identical model outcomes; robustness is low, so this is uncertainty to resolve, not a decision signal.The monthly churn <4% limit could not be matched to the model’s calculated churn measure, so no option was checked against it.The most sensitive input is the assumed 300 Pro subscribers - an Olumi estimate, not user evidence. The assumed 3% monthly churn and feature-release value also materially shape the result. Investigation priority is not established from this alone.Pressure-test a sensitive linkThe robustness check found the result sensitive to the link from Pro subscribers to MRR — worth checking what the estimate of how strongly Pro subscribers drives MRR rests on.Grounded in decision science · medium evidencePro subscribers → MRRPressure-test this link▸Why this, and how sureThis instantiates a cited decision-science claim: “Consider-the-opposite as a debiasing strategy”, which the bundle rates medium evidence.An assumption worth checkingRaised by an automatic checkEvidence to strengthen first: Feature-release valueReview the evidence behind the current estimate or range for Feature-release value, then gather relevant data or expert judgement to narrow that uncertainty.Feature-release valueStrengthen this evidenceWhat do these terms mean?",
+      "testIds": [
+        "message-assistant",
+        "message-body-text",
+        "block-container",
+        "block-badge-dot",
+        "v5-coaching",
+        "v5-coaching-title",
+        "v5-coaching-body",
+        "v5-coaching-dsk-provenance",
+        "v5-coaching-refs",
+        "v5-coaching-action",
+        "v5-coaching-details",
+        "v5-coaching-details-toggle",
+        "v5-coaching-grounding-detail",
+        "v5-coaching-kind-detail",
+        "v5-coaching-source-detail",
+        "coaching-line-00000000-0000-4000-8000-000000000002",
+        "coaching-line-summary-00000000-0000-4000-8000-000000000002",
+        "v5-review-card",
+        "v5-review-card-body",
+        "v5-review-card-refs",
+        "target-ref-pill-feature_release_value",
+        "v5-review-card-action",
+        "message-menu",
+        "message-menu-trigger",
+        "message-action-status"
+      ]
+    },
+    "assistantMessages": 2,
+    "userMessages": 2,
+    "activeDockTab": "outputs-dock-tab-olumi",
+    "aiModeLabel": "AI: OpenAI",
+    "store": {
+      "nodeCount": 11,
+      "runStateKind": "complete_current",
+      "computedAt": "2026-09-25T01:42:18.864Z",
+      "leaderClaim": {
+        "permitted": false,
+        "withheld_reason": "constraint_verdict_withheld",
+        "separation": "near_tie"
+      },
+      "resultsStatus": "complete",
+      "producerLeaderPermission": {
+        "permitted": false,
+        "withheld_reason": "leader_claim_withheld",
+        "producer_cause": "constraint_verdict_withheld"
+      },
+      "currentGraphHash": "8c77b2c5564aa59d",
+      "analysisFreshnessDirty": false
+    }
+  },
+  "guardProof": "rejected: Failed to fetch",
+  "network": {
+    "offOriginAttempted": [
+      "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap",
+      "https://guard-proof.invalid/witness-14"
+    ],
+    "offOriginAborted": [
+      "https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap",
+      "https://guard-proof.invalid/witness-14"
+    ],
+    "offOriginCompleted": 0,
+    "turns": [
+      {
+        "seq": 1,
+        "answeredWith": "C1 brief",
+        "message": "We sell a Pro plan at £49/month. Should we raise it to £59 with the next feature release?",
+        "chip": null,
+        "kind": "message",
+        "aiModeHeader": "openai",
+        "servedSha256": "0c311334c95590f4e399930126fe8a4491398119366d1deb5a083d2a2a848bf9"
+      },
+      {
+        "seq": 2,
+        "answeredWith": "C2 run",
+        "message": "Run the analysis",
+        "chip": null,
+        "kind": "message",
+        "aiModeHeader": "openai",
+        "servedSha256": "81d4486a271b184f8998fae666f4ca5bc0b771b94bc07b330609af8b3cdcf596"
+      }
+    ],
+    "turnSubpathsAborted": [
+      "POST /proxy/v5/turn/stream"
+    ],
+    "readinessServed": 2,
+    "backendAnswers": [
+      "503 POST /bff/cee/prompts/warm hermetic",
+      "503 GET /bff/engine/v1/health hermetic",
+      "503 GET /bff/engine/health hermetic",
+      "503 POST /bff/cee/scenarios/b6dbca3b-ee76-4e84-971d-6938ab720b08/graph hermetic",
+      "503 POST /bff/cee/scenarios/b6dbca3b-ee76-4e84-971d-6938ab720b08/graph hermetic",
+      "503 POST /bff/cee/scenarios/b6dbca3b-ee76-4e84-971d-6938ab720b08/graph hermetic"
+    ],
+    "totalRequests": 1298
+  }
+}

@@ -157,3 +157,72 @@ Staging shows each defect:
 - **D. Staging after a reload.** Staging's cards read `data-currency="cannot_confirm"` but render no notice and a live action.
 
 Re-run: `WITNESS_TREE=combined|staging GEOMETRY_PORT=5301 WITNESS_OUT_DIR=<dir> PW_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm exec playwright test -c playwright.aiconversation.config.ts joinedPreMerge`
+
+## 14 — withheld leader: no win-share ranking on the chat result card (bank ef03d078 vs staging b017e3c2)
+
+Spec: `withheldPills.witness.measure.ts`. The same script ran on two trees, at 1280×800 and 1440×900:
+
+- **fix** = `ai-conversation/withheld-leader-no-win-ranking` at `ef03d078`, one commit on staging `b017e3c2`. The bank's own worktree was used. The spec and the config were copied in as untracked files and removed afterwards.
+- **staging** = a detached worktree of `origin/staging` at `b017e3c2`, the control. It was installed with `pnpm install --frozen-lockfile --offline`.
+
+The only files added to either tree were this spec and `playwright.aiconversation.config.ts`, byte-identical to the committed copies. The spec checks which tree it is measuring in two ways: `git rev-parse HEAD` of its checkout, and whether the dev server's `/src/v5/blocks/V5AnalysisResultBlock.tsx` contains the fix's `winShareRankingWithheld`. It refuses to measure if either answer differs from `WITNESS_TREE`.
+
+**Journey.** The whole app on `/#/canvas?ai=openai`, starting from an **empty canvas**. Unlike 09–13, no starter is seeded, so the drafted model is the one the reply talks about.
+
+1. The first-use composer ("Describe your decision") takes the brief. That turn is answered with the fixture's **"C1 brief"** body. It drafts the 11-node Pro-pricing model through the product's own draft path, and carries a first-pass `analysis_result` with no win shares.
+2. In the Olumi tab's composer, the harness types "Run the analysis". The fixture's acceptance spec records that the served C2 was a typed Run. That turn is answered with **"C2 run"**.
+3. The C2 result card (the `v5-analysis-result` inside the assistant message that carries C2's coaching block) is scrolled into view, read and photographed.
+
+**Bytes.** The fixture is `src/canvas/conversation/__tests__/fixtures/openai-route-coaching-journey.e39f6e0.json`, identical in both trees (sha256 `c5f37961…f256`). It holds real OpenAI-route response bodies served by CEE staging `e39f6e0`, re-serialised with UUIDs redacted, as its `__provenance` states. It was not authored here. Each turn is served as `JSON.stringify` of its `json`: C1 sha256 `0c311334…8bf9`, C2 `81d4486a…f596`. The two typed user messages are the harness's. The brief is the text the fixture's own acceptance spec types.
+
+On the C2 wire:
+- `analysis_result.leading_option_id` is `null`.
+- `win_probabilities`, in wire order: Keep Pro at £49 0.5294, Phase Pro to £54 0.0045, Raise Pro to £59 0.4662.
+- `analysis_state.leader_claim` is `{permitted: false, withheld_reason: "constraint_verdict_withheld", separation: "near_tie"}`.
+
+**Network.**
+- Both `/proxy/v5/turn` POSTs are fulfilled from the fixture, in order, and both carried `x-olumi-ai-mode: openai`.
+- `/bff/cee/graph-readiness` gets a harness READY verdict.
+- The first-use draft first tries the streamed sibling, `POST /proxy/v5/turn/stream`. It is same-origin and is **aborted**, so the product takes its buffered path. This did not happen in 13, whose journey had no first-use draft.
+- Every other `/bff` / `/api` call gets the hermetic 503.
+- Every non-localhost request is aborted.
+- Off-origin attempts in each run: the Google Fonts CSS and a guard proof, a page `fetch` to `https://guard-proof.invalid/witness-14`. Both were aborted, and the guard proof's fetch rejected. That shows the counter sees what it counts.
+- **Completed off-origin requests: 0 in all four runs.** No staging, provider or model host was contacted or probed.
+
+### Facts (DOM read in-page; the full read is in the JSON beside each image)
+
+| C2 (Run) result card | fix 1280×800 | fix 1440×900 | staging 1280×800 | staging 1440×900 |
+|---|---|---|---|---|
+| `[data-testid="v5-analysis-result"]` exists | yes (the thread has 2: C1's first pass + C2's) | yes (2) | yes (2) | yes (2) |
+| `[data-testid="v5-analysis-result-probabilities"]` exists | **no** | **no** | **yes** | **yes** |
+| its text | — | — | **"Keep Pro at £49 · 53%", "Raise Pro to £59 · 47%", "Phase Pro to £54 · < 1%"**, largest first (the wire order is Keep, Phase, Raise). Every pill has `data-leader="false"`. The list's `aria-label` is "Share of simulated scenarios supporting each option" | same |
+| `[data-testid="v5-analysis-result-summary"]` renders | yes | yes | yes, same text | yes, same text |
+| uncertainty line | "This result is tentative. The uncertainty is substantial." | same | same | same |
+| visible "NN%" strings in the card (`innerText`) | `< 4%` only: the summary's "Monthly churn < 4%" limit, which is prose and not a win share | `< 4%` | `< 4%`, **`53%`, `47%`, `< 1%`** | same as 1280 |
+| card box | 382 × 326 px | 382 × 326 | 382 × 389 | 382 × 389 |
+| C1 first-pass card | no pill row (no `win_probabilities` on its wire); text identical across trees | same | same | same |
+| Store after C2 | `complete_current` @ 01:42:18.864Z. `leader_claim.permitted: false`. `results.report.producer_leader_permission` = `{permitted: false, withheld_reason: "leader_claim_withheld", producer_cause: "constraint_verdict_withheld"}`. 11 nodes, hash `8c77b2c5564aa59d`, not dirty | same | same | same |
+| Off-origin completed | 0 | 0 | 0 | 0 |
+
+### Verdict
+
+**On the fix tree, the withheld Run's result card shows NO win-share row, at both viewports. On staging it shows the row, ranked largest first: "Keep Pro at £49 · 53%", "Raise Pro to £59 · 47%", "Phase Pro to £54 · < 1%".** The producer withheld the leader (`leading_option_id: null`, `leader_claim.permitted: false`), and the reply itself opens "The analysis cannot put forward a pricing option".
+
+### Did anything else on the fix card change? Nothing was observed
+
+- **Text.** Staging's card `innerText` with the pill-row text removed equals the fix card's `innerText` exactly, at both viewports.
+- **Structure.** The fix card holds `heading`, `summary` and `uncertainty-copy`. Staging holds the same three, plus `probabilities`. Both have `data-has-decision-review="false"` and `data-decision-review-state="absent"`.
+- **Pixels (card crops, fix vs staging).** The top 315 rows are exactly identical: 0 px differ across the heading, summary and uncertainty line. Staging adds 63 rows, the pill row. The last ~13 rows (bottom padding, rounded corners, bottom border) differ by δ ≤ 38/255. These rows hold no content: the card's bottom edge falls on a different sub-pixel offset. The fix crops at 1280 and 1440 are byte-identical files, because the card is 382 px wide at both viewports (the dock does not widen).
+- **The rest of the C2 reply.** This is the assistant message with the result card removed from a detached clone: the prose, the coaching card and the review card. It has the same text and the same 25 `data-testid`s on both trees.
+- **Panel images.** At 1440×900 both cards sit at the same y (376). At 1280×800 staging's card sits 62 px higher (309 vs 371). That is the harness's `scrollIntoViewIfNeeded` fitting a taller card, not a product difference.
+
+Images per tree and viewport: `14-withheld-pills-<tree>-<vp>.png` (the C2 card, element screenshot) and `14-withheld-pills-<tree>-<vp>-panel.png` (the outputs dock, Olumi tab). JSON: `14-withheld-pills-<tree>-<vp>.json`. Each JSON holds the tree identity, fixture hashes, the C2 wire values, the card facts after C1, on arrival and at the shutter, the rest of the reply, the store, the guard proof and the network log.
+
+Harness notes:
+- The fixture exists only on trees at or after `02f0fcae` (#1992). This branch does not carry it, so the spec runs from a measured tree.
+- Env: `VITE_SUPABASE_URL=http://localhost VITE_SUPABASE_ANON_KEY=test`. The config now reads these two from the environment. The defaults that 07–13 ran with are unchanged.
+- Clock: the page clock is the harness's `FROZEN_TIME` (2026-08-17), as in 09–13.
+- Fonts: Google Fonts is aborted, so the fallback sans replaces Inter.
+
+Re-run (from the tree being measured, with the spec and config copied in):
+`WITNESS_TREE=fix|staging GEOMETRY_PORT=5341 WITNESS_OUT_DIR=<dir> VITE_SUPABASE_URL=http://localhost VITE_SUPABASE_ANON_KEY=test PW_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm exec playwright test -c playwright.aiconversation.config.ts withheldPills`
