@@ -88,7 +88,7 @@ import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { NodeProvenanceMark, useProvenanceDefaultKind } from './shared/NodeProvenanceMark'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { useNodeAttention } from './shared/useNodeAttention'
-import { attentionSentence } from './shared/nodeAttention'
+import { attentionCueSentence } from './shared/nodeAttention'
 import { NodeAttentionMarker } from './shared/NodeAttentionMarker'
 import { NodeSignalRailIcons } from './shared/NodeRailIcons'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
@@ -494,13 +494,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    */
   const isDetailedView = useCanvasStore(s => s.viewMode === 'expert')
   const provenanceDefault = useProvenanceDefaultKind()
-  const attentionText = attention.marked
-    ? attentionSentence(attention.reasons, {
-        unconfirmedEstimate: nodeType === 'factor' && factorValueIsUnconfirmedEstimate(data),
-        marked: attention.markedCount,
-        candidates: attention.candidateCount,
-      })
-    : null
+  // Row 23: a known-changed model keeps the last run's cue, labelled (`attentionCueSentence`).
+  const attentionText = attentionCueSentence(attention, nodeType === 'factor' && factorValueIsUnconfirmedEstimate(data))
 
   /**
    * The ONE line a node still says when it is too small to say anything else.
