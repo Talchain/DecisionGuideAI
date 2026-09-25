@@ -144,18 +144,28 @@ export function FactorTurningPointTrack({
             the regular-weight rank above it — the served card had it reversed. */}
         {compact ? (
           // Contract `.plot-caption`: the words left, the number right, one row.
-          <span className="flex w-full items-baseline justify-between gap-2">
-            <span
-              data-testid="factor-turning-point-caption"
-              className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
-            >
-              {restCaption}
-            </span>
+          // The number FLOATS right (first in source, so it holds the right of
+          // the FIRST line and the words flow round it) rather than taking a
+          // flex column: at the landing zoom the counter-scaled words wrap, and
+          // a flex column narrowed EVERY wrapped line (3 lines, measured in
+          // Chromium at label scale 2); floated, only the first line gives way
+          // (2 lines). One line at Normal, as in the prototype. `flow-root`
+          // contains the float, and carries the caption's own type so its line
+          // box is the caption's (an inherited larger strut made the row 9px
+          // taller at Normal, measured). The accessible name is the button's
+          // aria-label, so source order does not change what is spoken.
+          <span className={`${typography.edgeLabel} flow-root w-full`}>
             <span
               data-testid="factor-turning-point-caption-value"
-              className={`${typography.edgeLabel} shrink-0 text-text-body tabular-nums`}
+              className={`${typography.edgeLabel} float-right ml-2 text-text-body tabular-nums`}
             >
               {flipText}
+            </span>
+            <span
+              data-testid="factor-turning-point-caption"
+              className={`${typography.edgeLabel} font-medium text-text-body underline-offset-[3px] group-hover:underline`}
+            >
+              {restCaption}
             </span>
           </span>
         ) : (

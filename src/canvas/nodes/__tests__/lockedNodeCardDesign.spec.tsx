@@ -296,7 +296,9 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
     expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
     // At rest: the prototype's caption + number (verifier FIX_NEEDED 1, 25 Sep).
-    expect(popoverFinding('Trial conversion', 'factor-turning-point').textContent).toMatch(/^Model comparison changes6\.5%/)
+    const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
+    expect(within(freshTp).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
+    expect(within(freshTp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
@@ -306,7 +308,8 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
-    expect(tp.textContent).toMatch(/^Last run · comparison changes6\.5%/)
+    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
+    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
     expect(tp.getAttribute('aria-label')!.startsWith('Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes.')).toBe(true)
   })
 
