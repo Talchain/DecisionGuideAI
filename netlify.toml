@@ -52,6 +52,16 @@
   # Orchestrator V2 — AI conversation pipeline
   VITE_ENABLE_ORCHESTRATOR_V2 = "true"
 
+# Private production test slot: same UI source as the selected staging build,
+# with hosted branch credentials and backend URLs scoped to manual-test.
+[context.manual-test.environment]
+  VITE_STUB_SUPABASE = "0"
+  VITE_V5_CANONICAL_ANALYSIS = "true"
+  VITE_FEATURE_COMPARE_TAB = "1"
+  VITE_FEATURE_PRE_ANALYSIS_V3 = "1"
+  VITE_FEATURE_DECISION_OVERVIEW = "1"
+  VITE_FEATURE_STRENGTHEN_PANEL = "1"
+
 # =============================================================================
 # Staging-only env overrides
 # Netlify's deploy-context syntax scopes env vars to a specific branch's
@@ -240,7 +250,7 @@
   # isl-staging removed (login 3.4 item 4): the browser has no legitimate
   # direct ISL path — all ISL traffic is same-origin /bff/isl via the edge
   # proxy (adapters/isl/client.ts), which browser CSP does not govern.
-  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
+  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://plot-lite-service-staging.onrender.com https://plot-lite-service.onrender.com https://olumi-assistants-service.onrender.com https://cee-staging.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   # Prevent clickjacking
   X-Frame-Options = "DENY"
   # Prevent MIME sniffing
