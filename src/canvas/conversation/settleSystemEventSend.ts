@@ -54,7 +54,7 @@ export type SystemEventSendSettlement =
  *   the model moved on under the send. A turn refreshes the base, after which
  *   the same edit can land.
  *   ⚠ Since CEE #1868 the set also holds `turn_fence_superseded` and
- *   `turn_fence_stopped`, which CEE states on the `factor_value_edit` arm only.
+ *   `turn_fence_stopped`, which #1868 states on the `factor_value_edit` arm.
  *   A STOPPED turn is not "the model moved on". The factor-edit carrier reads
  *   only `blocked` here; its revert and notice come from `useConversation`,
  *   which shows the fence's own sentence (`fenceRefusalCopyForCategory`). A

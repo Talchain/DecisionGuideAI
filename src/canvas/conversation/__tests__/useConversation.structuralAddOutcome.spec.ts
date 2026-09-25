@@ -386,9 +386,11 @@ describe('structural_add — a 409 GRAPH_DIVERGED', () => {
 
   /**
    * The same closed set decides this writer, so the fence verdicts CEE #1868
-   * (`013fae8d`, served `92b1bf8`) states wrote nothing — "refused the write
-   * inside the append transaction, so nothing of this edit landed" — remove the
-   * node here too, and the sentence is the fence's own: "The saved model
+   * (`013fae8d`, served `92b1bf8`) states wrote nothing on its
+   * `factor_value_edit` arm — "refused the write inside the append transaction,
+   * so nothing of this edit landed" — remove the node here too (this pins the
+   * CLIENT's handling, not what the add arm emits), and the sentence is the
+   * fence's own: "The saved model
    * changed while you were adding that" is false about a stopped turn.
    */
   it.each([

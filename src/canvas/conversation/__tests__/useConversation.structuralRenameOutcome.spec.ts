@@ -373,10 +373,12 @@ describe('structural_rename 409 — a guaranteed no-write reverts and says so', 
   })
 
   /**
-   * CEE #1868 (`013fae8d`, served `92b1bf8`): a `TurnFenceRejectedError` with
-   * verdict `superseded` or `stopped` is a 409 with `commitPerformed: false` —
-   * "The turn fence refused the write inside the append transaction, so nothing
-   * of this edit landed." So the old name comes back, and the sentence is the
+   * CEE #1868 (`013fae8d`, served `92b1bf8`), on its `factor_value_edit` arm: a
+   * `TurnFenceRejectedError` with verdict `superseded` or `stopped` is a 409
+   * with `commitPerformed: false` — "The turn fence refused the write inside the
+   * append transaction, so nothing of this edit landed." The no-write set is per
+   * category and this writer reads it (this pins the CLIENT's handling, not what
+   * the rename arm emits). So the old name comes back, and the sentence is the
    * fence's own: "The saved model changed while you were renaming that" is
    * false about a stopped turn.
    */

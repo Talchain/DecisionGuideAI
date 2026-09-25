@@ -35,10 +35,13 @@
  * — so any turn refreshes the base hash, whichever gate refused.
  *
  * ⭐ THE SET WAS WIDENED AGAIN, BY THE PRODUCER: CEE #1868 (`013fae8d`, served
- * `92b1bf8`) answers a `TurnFenceRejectedError` with verdict `superseded` or
- * `stopped` as a 409 `GRAPH_DIVERGED` with `commitPerformed: false` — "The turn
- * fence refused the write inside the append transaction, so nothing of this
- * edit landed." Those two now REVERT, under the fence's own sentence: the
+ * `92b1bf8`), on its `factor_value_edit` arm, answers a `TurnFenceRejectedError`
+ * with verdict `superseded` or `stopped` as a 409 `GRAPH_DIVERGED` with
+ * `commitPerformed: false` — "The turn fence refused the write inside the
+ * append transaction, so nothing of this edit landed." The set is per category
+ * and this writer reads it, so those two now REVERT here too (this file pins
+ * the CLIENT's handling; it is not evidence of what the delete arm emits),
+ * under the fence's own sentence: the
  * `base_hash_diverged` copy ("The saved model changed since you deleted that")
  * is false about a stopped turn.
  *

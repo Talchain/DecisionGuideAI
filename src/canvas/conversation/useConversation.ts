@@ -3171,11 +3171,12 @@ export function useConversation(): UseConversationReturn {
         //
         // Two TURN-FENCE verdicts are in the set too — `turn_fence_superseded`
         // and `turn_fence_stopped`, which CEE #1868 (`013fae8d`) answers as a
-        // no-write 409 ("The turn fence refused the write inside the append
-        // transaction, so nothing of this edit landed"). They revert like the
-        // rest, but under the FENCE's own sentence: `base_hash_diverged` says
-        // "the saved model changed since you deleted that", which is false about
-        // a turn the user stopped.
+        // no-write 409 on its `factor_value_edit` arm ("The turn fence refused
+        // the write inside the append transaction, so nothing of this edit
+        // landed"). Membership is per category, so they revert here too, but
+        // under the FENCE's own sentence: `base_hash_diverged` says "the saved
+        // model changed since you deleted that", which is false about a turn
+        // the user stopped.
         //
         // The infrastructure fence verdicts (`unclaimed`, `unavailable`) and any
         // unknown category are still NOT in the set: they get the honest

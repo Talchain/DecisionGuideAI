@@ -78,11 +78,14 @@
  *     `fenceRefusalCopyForCategory` (`v5/failureTypeRetryability.ts`) first and
  *     shows the fence's own per-verdict sentence when it answers.
  *
- * All of them arrive identically: `system-events/dispatch.ts:1176-1197` copies
- * `err.conflict_category` onto `graphConflict`, and `orchestrator/route-v2.ts`
- * sends it as a 409 `GRAPH_DIVERGED` with the category in
- * `details.conflict_category` and `retryable: false`. The UI reads exactly that
- * field via `extractConflictCategory`.
+ * All of them reach the UI on the same envelope: a 409 `GRAPH_DIVERGED` with
+ * the category in `details.conflict_category` and `retryable: false`. For the
+ * first two, `system-events/dispatch.ts:1176-1197` copies
+ * `err.conflict_category` onto `graphConflict` and `orchestrator/route-v2.ts`
+ * sends it (CEE `293da078`); the fence members' route to that envelope is
+ * #1868's `factor_value_edit` arm. The UI reads exactly that field via
+ * `extractConflictCategory`. Membership is per CATEGORY, so every optimistic
+ * writer that reads this set reverts on a member whichever event carried it.
  *
  * ⚠ THIS IS A CLOSED SET AND MUST STAY ONE. A category absent from it — the
  * two infrastructure fence verdicts, the untyped 500 a contended commit
