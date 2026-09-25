@@ -176,8 +176,24 @@ describe('every clause of the qualifier is a fact the view model already states'
     const vm = base()
     const withEstimates = { ...vm, atAGlance: { ...vm.atAGlance, inputProvenance: 'estimated' as const } }
     const withYours = { ...vm, atAGlance: { ...vm.atAGlance, inputProvenance: 'user_supplied' as const } }
-    expect(buildCommitmentQualifier(withEstimates)?.text).toMatch(/Olumi's estimates/)
-    expect(buildCommitmentQualifier(withYours)?.text ?? '').not.toMatch(/estimates/)
+    // V2 one-line qualifier: the estimates fact is stated — on the line when
+    // it is the only licence, behind "Details" otherwise — never dropped.
+    const q = buildCommitmentQualifier(withEstimates)
+    expect(`${q?.text ?? ''} ${q?.detail ?? ''}`).toMatch(/Olumi's estimates/)
+    const yours = buildCommitmentQualifier(withYours)
+    expect(`${yours?.text ?? ''} ${yours?.detail ?? ''}`).not.toMatch(/estimates/)
+  })
+
+  it('V2: the line reads like the prototype when other clauses license it; the estimates sit behind Details', () => {
+    const vm = base()
+    const run = {
+      ...vm,
+      atAGlance: { ...vm.atAGlance, inputProvenance: 'estimated' as const, verdict: null },
+    }
+    const q = buildCommitmentQualifier(run)
+    expect(q?.text).toMatch(/^Provisional · /)
+    expect(q?.text).not.toMatch(/estimates/)
+    expect(q?.detail).toMatch(/Olumi's estimates are not yet confirmed by you/)
   })
 
   it('says robustness is not established only when there is no verdict', () => {
