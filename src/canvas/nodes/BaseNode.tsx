@@ -1372,20 +1372,34 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * Both are `undefined` when no mark is drawn. The spacer's arithmetic is taken
    * from the title box at its minimum measure (`max(0px, …)` zeroes it wherever
    * the box already stops short of the marks).
+   *   ⛔ And where the marks and the widest word cannot share line 1 (one mark
+   *   at the landing bound on a 260 card), the spacer takes the WHOLE line and
+   *   the title starts below the marks rather than cut a word mid-word — see
+   *   `cornerMarksTitleSpacerCss` (verifier FIX_NEEDED on 058c8331).
    */
   const liveCardPadding = cardPadding()
+  const cardPaddingLeftPx = parseFloat(String(liveCardPadding.paddingLeft))
+  const cardPaddingTopPx = parseFloat(String(liveCardPadding.paddingTop))
   const titleSharesItsLine =
     renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX > titleMinMeasurePx
   const cornerHeaderReserve = titleSharesItsLine
     ? cornerMarksHeaderReserveCss(cornerMarkCount, String(liveCardPadding.paddingRight))
     : undefined
-  const cornerTitleSpacer = cornerMarksTitleSpacerCss(
-    cornerMarkCount,
-    renderedCardW - 2 * CANVAS_CARD_FRAME_PX - parseFloat(String(liveCardPadding.paddingLeft)) - titleMinMeasurePx,
-  )
-  // The causal lens draws the title as one full-width block, so its box reaches
-  // the card padding: the clearance past that padding is the whole spacer.
-  const causalTitleSpacer = cornerMarksHeaderReserveCss(cornerMarkCount, String(liveCardPadding.paddingRight))
+  const cornerTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
+    measurePx: titleMinMeasurePx,
+    rightToFramePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - titleMinMeasurePx,
+    topPx: cardPaddingTopPx,
+  })
+  // The causal lens draws the title as one full-width block, so its box is the
+  // card's whole text measure and reaches the card's right padding. That
+  // padding is plain side padding in the lens (no rail is drawn there), so it
+  // reads as a number.
+  const causalPaddingRightPx = parseFloat(String(liveCardPadding.paddingRight))
+  const causalTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
+    measurePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - causalPaddingRightPx,
+    rightToFramePx: causalPaddingRightPx,
+    topPx: cardPaddingTopPx,
+  })
   const hasCornerSlot = cornerSlot !== undefined && cornerSlot !== null && cornerSlot !== false
 
   /**
@@ -2387,13 +2401,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             style={lodHideTitle ? { visibility: 'hidden', fontWeight: NODE_TITLE_WEIGHT } : { fontWeight: NODE_TITLE_WEIGHT }}
           >
             {/* Gap 11: a right float one title line tall keeps LINE 1 clear of
-                the corner marks (see `cornerTitleSpacer`). Empty and
-                aria-hidden, so the title's text, name and `title` are unchanged. */}
+                the corner marks, or — where they cannot share it with the
+                widest word — takes the whole line so the title starts below
+                them (see `cornerTitleSpacer`). Empty and aria-hidden, so the
+                title's text, name and `title` are unchanged. */}
             {cornerTitleSpacer !== undefined && (
               <span
                 aria-hidden="true"
                 data-testid="node-title-corner-spacer"
-                style={{ float: 'right', width: cornerTitleSpacer, height: '1lh' }}
+                style={{ float: 'right', width: cornerTitleSpacer.width, height: cornerTitleSpacer.height }}
               />
             )}
             {titleOverride ?? label}
@@ -2545,7 +2561,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             <span
               aria-hidden="true"
               data-testid="node-title-corner-spacer"
-              style={{ float: 'right', width: causalTitleSpacer, height: '1lh' }}
+              style={{ float: 'right', width: causalTitleSpacer.width, height: causalTitleSpacer.height }}
             />
           )}
           {label}

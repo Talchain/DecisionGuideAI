@@ -54,6 +54,7 @@
 
 import type { CSSProperties } from 'react'
 import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import { NODE_TITLE_WIDEST_WORD_PX } from '../../utils/nodeLayoutConstants'
 
 /**
  * The px sizes the canvas node surfaces actually use. A size that is not here
@@ -250,14 +251,73 @@ export function cornerMarksHeaderReserveCss(count: number, cardPaddingRight: str
  * for. Verified in headless Chromium (static harness, not the app): a float
  * inside the `-webkit-line-clamp` title box shortens line 1 and leaves line 2.
  *
- * `titleRightToFramePx` is the distance from the title box's right edge to the
+ * `rightToFramePx` is the distance from the title box's right edge to the
  * card's inner right edge when the title box is at its minimum measure; the
  * `max(0px, …)` makes the spacer vanish wherever the title box already stops
  * short of the marks (a header reserve is doing the work, or the card is wide).
+ *
+ * ⛔⛔ BUT LINE 1 ONLY SHORTENED IS NOT ENOUGH — IT CAN STILL BREAK THE WIDEST
+ * WORD, AND ON THE DEFAULT LANDING VIEW IT DID (independent verifier, FIX_NEEDED
+ * on 058c8331). The marks grow with the scale while the card does not, so at
+ * the bound ONE mark took 48 of a 260 card's 236px: 188 left, 94px of 14px type,
+ * and a title OPENING with "Concentration" (97.1px) or "Cannibalization"
+ * (105.3px) broke mid-word — headless Chromium 143, and the attention cue is not
+ * rung-gated, so it was the landing view of every "Worth reviewing" card. No
+ * width of spacer fixes that: at the bound the marks and the widest word cannot
+ * share line 1 on this card at all.
+ *
+ * ⭐ SO LINE 1 EITHER HOLDS THE WIDEST WORD OR YIELDS. Where the marks' clearance
+ * would leave line 1 narrower than the widest word the minimum measure was
+ * derived for (`NODE_TITLE_WIDEST_WORD_PX` × scale), the spacer becomes the
+ * whole line (`100%`) and reaches 1px past the marks' bottom, so the title
+ * starts BELOW the marks with both of its lines at the full measure — never a
+ * word cut, never a line under a mark. Everywhere else (every scale at 100%,
+ * one mark down to zoom ≈ 0.56, two down to ≈ 0.68 on a 260 card) it is the
+ * one-line spacer above, unchanged. The switch is a step in CSS
+ * (`clamp(0, … × gain, 1)`) on the live scale, not a React branch, because the
+ * scale is a CSS variable no render reads.
+ * ⚠ The yielded title is TALLER. `measureNodeHeightsAtLabelBound` reads the
+ * card at the bound with its marks, so the layout reserves it; the rendered card
+ * is only ever shorter than that elsewhere. Which of the mark and the first
+ * word gives way at the landing bound is an Experience Design call; this takes
+ * the readable one (no word is cut, no text runs under a mark) and is flagged
+ * for Experience Design to confirm.
+ *
+ * `box.topPx` is the title box's top below the card's padding-box top (the
+ * card's top padding), for the marks' bottom in the title's own coordinates.
  */
-export function cornerMarksTitleSpacerCss(count: number, titleRightToFramePx: number): string | undefined {
-  if (cornerMarksRunPx(count) === 0) return undefined
-  return `max(0px, ${cornerMarksClearanceCss(count)} - ${titleRightToFramePx}px)`
+export interface CornerMarksTitleBox {
+  /** The title box's width at its minimum measure (px). */
+  measurePx: number
+  /** From that box's right edge to the card's inner (padding-box) right edge (px). */
+  rightToFramePx: number
+  /** From the card's padding-box top to the title box's top (px). */
+  topPx: number
+}
+
+/** The first-line spacer's declared size: a right float `width` × `height`. */
+export interface CornerMarksTitleSpacer {
+  width: string
+  height: string
+}
+
+/** How sharply the yield switches: 0 → 1 across 1/gain of the step's argument. */
+const CORNER_MARKS_YIELD_GAIN = 10000
+
+export function cornerMarksTitleSpacerCss(count: number, box: CornerMarksTitleBox): CornerMarksTitleSpacer | undefined {
+  const run = cornerMarksRunPx(count)
+  if (run === 0) return undefined
+  const scale = 'var(--canvas-label-scale, 1)'
+  const inset = CANVAS_CORNER_MARK_RIGHT_PX + CANVAS_CORNER_MARK_CLEARANCE_PX
+  // Yield iff clearance − rightToFrame > measure − widest × scale, i.e.
+  // (run + widest) × scale > measure + rightToFrame − inset. 0 below, 1 above.
+  const yieldStep = `clamp(0, (${run + NODE_TITLE_WIDEST_WORD_PX} * ${scale} - ${box.measurePx + box.rightToFramePx - inset}) * ${CORNER_MARKS_YIELD_GAIN}, 1)`
+  // The marks' bottom plus the clearance, below the title box's top.
+  const marksBottom = `calc(${CANVAS_CORNER_MARK_TOP_PX + CANVAS_CORNER_MARK_CLEARANCE_PX - box.topPx}px + ${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale})`
+  return {
+    width: `max(0px, ${cornerMarksClearanceCss(count)} - ${box.rightToFramePx}px, calc(100% * ${yieldStep}))`,
+    height: `max(1lh, calc(${marksBottom} * ${yieldStep}))`,
+  }
 }
 
 /**

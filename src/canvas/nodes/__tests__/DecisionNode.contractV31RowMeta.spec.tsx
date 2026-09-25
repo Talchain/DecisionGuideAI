@@ -55,6 +55,7 @@ vi.mock('../../store', () => ({
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { DecisionNode, DECISION_RESTING_COPY, READINESS_SEPARATOR } from '../DecisionNode'
 import { typography } from '../../../styles/typography'
+import { NODE_RAIL_REST_TONE_CLASS } from '../shared/nodeCardRailStyles'
 
 const DECISION_ID = 'decision-1'
 const decisionNode = { id: DECISION_ID, type: 'decision', data: { type: 'decision' } }
@@ -205,12 +206,16 @@ describe('ANC-12 — "Name it" link treatment and hit slop', () => {
 })
 
 describe('ANC-09 — the run icon is muted at rest', () => {
-  it('Play renders text-text-light, not text-info', () => {
+  /* The rail's resting grey moved from `text-text-light` to the contract's
+     `.icon-btn{color:#777B77}` token (gap 34, `NODE_RAIL_REST_TONE_CLASS`): the
+     DESIGN moved this value. What ANC-09 pins — muted at rest, never Info — is
+     unchanged. */
+  it('Play renders the rail\'s resting grey, not text-info', () => {
     setStore({ goalThreshold: 0.5 })
     renderDecision()
     const run = screen.getByTestId(`decision-run-analysis-${DECISION_ID}`)
     const t = tokens(run)
-    expect(t).toContain('text-text-light')
+    expect(t).toContain(NODE_RAIL_REST_TONE_CLASS)
     expect(t).not.toContain('text-info')
   })
 })
