@@ -2,8 +2,10 @@
  * V5AnalysisResultBlock — renders V5 OlumiResponse.analysis_result.
  *
  * Card content:
- *   - Always: summary text, uncertainty calibration copy, win_probabilities
- *     as pills.
+ *   - Always: summary text and uncertainty calibration copy.
+ *   - win_probabilities as pills, ONLY when the producer did not withhold the
+ *     leader claim (UI-SEM-097): leader-first then largest-first for a
+ *     licensed leader, otherwise in canvas order.
  *   - When the turn carries a 0.30 `decision_review` with prose: the five
  *     fields no other wire block delivers — `narrative_summary`,
  *     `story_headlines`, `robustness_explanation`, `readiness_rationale`,
@@ -57,8 +59,9 @@ import {
 } from '../mapV5AnalysisToReport'
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
-import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
+import { deriveDecisionVerdict, readProducerLeaderPermission } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
+import { useCanvasStore } from '../../canvas/store'
 import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
@@ -351,25 +354,86 @@ function V5AnalysisResultBlockImpl({
   const shownUncertaintyCopy =
     uncertaintyCopy?.tier === 'confident' && !leaderClaimLicensed ? null : uncertaintyCopy
 
-  // Sort so the leading option appears first and the rest descending by prob.
+  // ⭐⭐ UI-SEM-097 — A WITHHELD LEADER IS NOT RANKED BY WIN SHARE EITHER.
   //
-  // The probability-descending tail is DATA ordering over a set the producer
-  // itself ranks, and it stays on a withheld run — the pills carry their own
-  // numbers, so the order restates a fact already on screen rather than
-  // designating a winner. What goes is the leader-first hoist, which promotes
-  // ONE option above its own number. With `leaderKeys` empty the `aLeads`
-  // branch is inert by construction; it is left in place because the sort is
-  // one comparator for both states.
-  const sortedProbs = hasProbs
-    ? Object.entries(block.win_probabilities as Record<string, number>).sort(
-        ([keyA, pA], [keyB, pB]) => {
-          const aLeads = leaderKeys.has(keyA)
-          const bLeads = leaderKeys.has(keyB)
-          if (aLeads !== bLeads) return aLeads ? -1 : 1
-          return pB - pA
-        },
-      )
+  // THE DEFECT, served on the final tuple (UI `b017e3c2` · CEE `9417228`,
+  // #69 5827478637): pricing's explicit Run carried
+  // `leader_claim { permitted: false, withheld_reason:
+  // 'constraint_verdict_withheld' }` and `leading_option_id: null`, and the reply
+  // said "No option can be put forward yet". This card still printed
+  // "Raise to £59 · 82%", "Keep £49 · 16%", "Raise to £55 · 2%", in descending
+  // order. That is an overall ranking by win share, the one thing the producer
+  // had just declined to state, on 29 of 30 served explicit Runs (AI Quality,
+  // #69 5827505713).
+  //
+  // The note that used to sit on the sort below ("the order restates a fact
+  // already on screen rather than designating a winner") was the error. A win
+  // share IS the share of runs in which an option comes out best, so a list of
+  // them ordered largest-first reads as a verdict whatever its styling. The
+  // agreed rule (#63, the C2 ruling) is: a withheld overall leader means no
+  // ranking through win percentages. The Reasoning tab already obeys it: it
+  // lists the options in canvas order with no percentages
+  // (`optionDisplayOrder.ts`, `designationsWithheld`).
+  //
+  // WITHHELD WHEN EITHER producer signal says so, which fails closed:
+  //   · THIS RUN named no leader: `block.leading_option_id` is null (or blank,
+  //     which names no one either). CEE nulls
+  //     it on a withheld claim while the win probabilities keep riding the wire
+  //     (UI-SEM-060). It is per card, and the transcript persists it, so an
+  //     earlier withheld run stays withheld after a later run permits.
+  //   · The HELD REPORT carries the producer's refusal
+  //     (`producer_leader_permission.permitted === false`, stamped by
+  //     `applyV5State` step 5b on the typed `leader_claim`). It is bound to the
+  //     report, so it survives a reload.
+  // A near tie keeps its `leading_option_id`, so it is untouched here; it has
+  // its own no-crown handling above.
+  //
+  // SUPPRESSION ONLY. No value is transformed, and the summary, the prose, the
+  // review's named metrics and the uncertainty line all render as before. What
+  // goes is the pill row, the one element that ranks by win share.
+  // Read through the ONE sanctioned reader (`readProducerLeaderPermission`,
+  // fail-OPEN on a malformed record), never the field directly.
+  const heldReportWithholdsLeader = useCanvasStore(
+    (s) => readProducerLeaderPermission(s.results?.report?.producer_leader_permission) === false,
+  )
+  const thisRunNamedNoLeader =
+    typeof block.leading_option_id !== 'string' || block.leading_option_id.trim() === ''
+  const winShareRankingWithheld = thisRunNamedNoLeader || heldReportWithholdsLeader
+  const showWinShares = hasProbs && !winShareRankingWithheld
+
+  // ⭐ UI-SEM-097, ORDER (RC ruling, #69 5829442152 §4): ORDER IS A DESIGNATION.
+  //
+  // A LICENSED leader (`leaderClaimLicensed`: the verdict found one AND the model
+  // licenses a comparative claim) goes first, and the rest follow largest-first:
+  // the producer ranked that set and licensed saying so.
+  //
+  // Any other card that still shows the row (an exploratory admission, a near
+  // tie) keeps EVERY number but lists the options in CANVAS order, the order the
+  // Reasoning tab (`sortOptionsForDisplay`, `designationsWithheld`) and the
+  // inspector's option comparison (#2001, L2) use, so every surface lists options
+  // alike. Largest-first there would be a ranking nobody licensed. A key that
+  // matches no canvas option keeps its wire position, after the matched ones.
+  const canvasLabels = useCanvasNodeLabels()
+  /** Position of a win-share key (an option id or its label) among canvas nodes. */
+  const canvasRank = (key: string): number => {
+    let i = 0
+    for (const [id, label] of canvasLabels) {
+      if (id === key || label === key) return i
+      i += 1
+    }
+    return Number.MAX_SAFE_INTEGER
+  }
+  const winEntries = showWinShares
+    ? Object.entries(block.win_probabilities as Record<string, number>)
     : []
+  const sortedProbs = leaderClaimLicensed
+    ? [...winEntries].sort(([keyA, pA], [keyB, pB]) => {
+        const aLeads = leaderKeys.has(keyA)
+        const bLeads = leaderKeys.has(keyB)
+        if (aLeads !== bLeads) return aLeads ? -1 : 1
+        return pB - pA
+      })
+    : [...winEntries].sort(([keyA], [keyB]) => canvasRank(keyA) - canvasRank(keyB))
 
   return (
     <div
@@ -407,7 +471,7 @@ function V5AnalysisResultBlockImpl({
           The ruling was applied to what the product SHOWS and left in what it
           SAYS. `byOptionAria` is the register's own answer for exactly this
           shape, taken by reference so it cannot drift back. */}
-      {hasProbs && (
+      {showWinShares && (
         <div
           className="flex flex-wrap gap-2"
           role="list"

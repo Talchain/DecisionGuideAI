@@ -375,6 +375,11 @@ export interface HeroEvidenceModel {
    * that re-ranks it is a consumer that can invert it.
    */
   assumedStrength: AssumedStrengthDecision
+  /**
+   * `rankingWasWithheld(recommendation)`, the SAME predicate the Reasoning tab
+   * gates this card's "why" sentence on. Required, so every constructor states it.
+   */
+  assumedStrengthRankingWithheld: boolean
 }
 
 export interface HeroChartModel {

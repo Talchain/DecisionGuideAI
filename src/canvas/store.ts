@@ -2518,22 +2518,28 @@ function nextDurableNoticeSeq(): number {
  * ⚠ THE COMPLETE MANIFEST OF DELETE PATHS IS SIX, NOT FOUR, and an earlier
  * version of this comment claimed four — corrected here rather than left as an
  * honest-sounding label that is wrong:
- *   1. `deleteSelected`   — the app's own Delete/Backspace shortcut and the
- *                           context menu's multi-select delete
- *   2. `deleteNodeById`   — the context menu's single-node delete
+ *   1. `deleteSelected`   — multi-select delete: the context menu's and (since
+ *                           25 Sep 2026, via `deleteAction`) Delete/Backspace's
+ *   2. `deleteNodeById`   — single-node delete: the context menu's and the key's
  *   3. `deleteEdgeById`   — the context menu's single-edge delete
  *   4. `deleteEdge`       — the edge inspector's Delete
  *   5. `onNodesChange`    — REACT FLOW'S BUILT-IN delete, node half
  *   6. `onEdgesChange`    — REACT FLOW'S BUILT-IN delete, edge half
- * 5 and 6 are not hypothetical: no `deleteKeyCode` prop is set on `<ReactFlow>`,
- * so its default Backspace/Delete binding is live, and `onEdgesChange`'s own
- * comment already records that built-in edge removals *"reach the store ONLY
- * through this handler — they never go through deleteEdgeById / deleteSelected"*.
- * The app's shortcut listener is on `window` (bubble phase) while React Flow's
- * is nearer the event target, so on a keypress React Flow's handler plausibly
- * runs FIRST and `deleteSelected` then finds nothing selected. Covering both
- * removes the need to be right about that ordering: whichever fires first
- * records, and the other stands down as `nothing_removed`.
+ * 5 and 6 WERE LIVE when this was written: no `deleteKeyCode` prop was set on
+ * `<ReactFlow>`, so its default Backspace binding deleted through them, and
+ * `onEdgesChange`'s own comment records that built-in edge removals *"reach the
+ * store ONLY through this handler — they never go through deleteEdgeById /
+ * deleteSelected"*. The app's shortcut listener is on `window` (bubble phase)
+ * while React Flow's is nearer the event target, so on a keypress React Flow's
+ * handler plausibly ran FIRST. Covering both removed the need to be right about
+ * that ordering: whichever fires first records, and the other stands down as
+ * `nothing_removed`.
+ *
+ * ⚠ SINCE 25 SEP 2026 THE BUILT-IN KEY IS OFF (`deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}`,
+ * i.e. `null`): it bypassed the impact check and confirm dialog in
+ * `deleteAction`, which Delete/Backspace now goes through (`useKeyboardShortcuts`).
+ * Paths 5 and 6 are kept as the recording BACKSTOP for any remove change React
+ * Flow might still emit — not as a keyboard door.
  *
  * DELIBERATELY NOT CALLED from the producer-driven removal paths
  * (`applyPatch`, `graphRepair`, receipt reconciliation): those are CEE's own
@@ -3830,12 +3836,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (removedChanges.length > 0) {
       const deletedNodeIds = removedChanges.map(c => (c as { id: string }).id)
       // 0.48.0 — durable removal, path 5 of 6. React Flow's built-in delete
-      // (default Backspace/Delete; no `deleteKeyCode` prop is set) removes nodes
-      // through this handler, and its listener sits nearer the event target than
-      // the app's window-level shortcut — so on a keypress this may well be the
-      // path that actually runs. Incident edges are NOT enumerated: CEE's
-      // `applyRemoveNode` owns that cascade. Recorded BEFORE the set() below,
-      // against the pre-delete graph.
+      // removed nodes through this handler while its default Backspace binding
+      // was live. ⚠ Since 25 Sep 2026 that key is OFF
+      // (`deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}`) because it bypassed
+      // `deleteAction`'s impact check; this branch stays as the recording
+      // backstop, not as a keyboard door. Incident edges are NOT enumerated:
+      // CEE's `applyRemoveNode` owns that cascade. Recorded BEFORE the set()
+      // below, against the pre-delete graph.
       const deleteAllowed = recordStructuralDeleteIntent(get, set, {
         nodeIds: deletedNodeIds,
         edgeIds: [],
@@ -3983,9 +3990,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const edgesBefore = get().edges
       // 0.48.0 — durable removal, path 6 of 6. The comment above is the reason
       // this line has to exist: built-in edge deletes reach the store ONLY here,
-      // so without it the commonest keyboard gesture would stay local-only and
-      // the connection would come back on the next re-run. Same tick as the node
-      // half, so the two fold into ONE payload.
+      // so without it a built-in delete would stay local-only and the connection
+      // would come back on the next re-run. Same tick as the node half, so the
+      // two fold into ONE payload. ⚠ The built-in KEY is off since 25 Sep 2026
+      // (`deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}`); this is the backstop.
       const deleteAllowed = recordStructuralDeleteIntent(get, set, {
         nodeIds: [],
         edgeIds: removedEdgeChanges.map((c) => (c as { id: string }).id),
