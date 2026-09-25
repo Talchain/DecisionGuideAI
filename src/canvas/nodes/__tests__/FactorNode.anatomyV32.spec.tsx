@@ -267,7 +267,12 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     for (const id of ['factor-driver-line', 'factor-turning-point', 'factor-turning-point-none', 'factor-driver-not-ranked', 'needs-input-pill', `factor-needs-input-row-${ID}`]) {
       expect(screen.queryByTestId(id), id).toBeNull()
     }
-    expect(document.body.textContent).not.toContain('Working assumption')
+    // Design-gap row 10 (contract v3 §02 draft, "Working assumption · no
+    // analysis yet"): v3.2's "nothing more" holds for the card FACE — no second
+    // visible row (ED 5809278282). The pre-run line lives in the popover (and
+    // the value line's accessible text), pinned by FactorNode.noAnalysisYet.spec.
+    expect(visibleText(face())).not.toContain('Working assumption')
+    expect(within(popover()).getByTestId(`factor-popover-no-analysis-${ID}`).textContent).toBe('Working assumption · no analysis yet')
     expectNothingItMustNeverSay()
   })
 

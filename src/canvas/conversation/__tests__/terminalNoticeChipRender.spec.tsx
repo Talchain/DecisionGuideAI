@@ -80,6 +80,7 @@ function makeMockConversation(messages: ConversationMessage[]) {
     retryLast,
     patchBlockStates: new Map(),
     setPatchBlockState: vi.fn(),
+    settledSourceBlockKeys: new Set<string>(),
     patchRejections: new Map(),
     setPatchRejection: vi.fn(),
   }

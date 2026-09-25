@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { commitValidatedMutation } from '../commitValidatedMutation'
+import { useCanvasStore } from '../../store'
 import type { PatchOperation } from '../../conversation/types'
 
 // Mock the plot adapter module. `validatePatch` is settable per-test (via the
@@ -64,9 +65,38 @@ describe('commitValidatedMutation', () => {
     expect(showToast).not.toHaveBeenCalled()
   })
 
+  // The mock store hands back one mutable object, so a `localApply` that writes
+  // the graph is modelled as replacing its `nodes` / `edges` arrays — exactly
+  // what every real store graph write does.
+  const graph = () => useCanvasStore.getState() as unknown as { nodes: unknown[]; edges: unknown[] }
+  const writesNodes = () => { graph().nodes = [...graph().nodes] }
+  const writesEdges = () => { graph().edges = [...graph().edges] }
+
   it('marks the freshness overlay dirty on a successful mutation (covers bare-setState localApply e.g. insert-factor-between)', async () => {
+    await commitValidatedMutation(ops, vi.fn(writesNodes), showToast)
+    expect(markAnalysisFreshnessDirty).toHaveBeenCalledTimes(1)
+  })
+
+  it('an edge-only write marks dirty too', async () => {
+    await commitValidatedMutation(ops, vi.fn(writesEdges), showToast)
+    expect(markAnalysisFreshnessDirty).toHaveBeenCalledTimes(1)
+  })
+
+  it('⛔ a localApply the store REFUSES (graph untouched) does NOT mark dirty', async () => {
+    // e.g. the fail-closed structural-delete gate returning before any removal.
+    const result = await commitValidatedMutation(ops, localApply, showToast)
+    expect(localApply).toHaveBeenCalledOnce()
+    expect(markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+    expect(result.success).toBe(true)
+  })
+
+  it('Phase-1 valid without a graph: the local fallback marks dirty only if it wrote', async () => {
+    plotState.validatePatch = vi.fn(async () => ({ valid: true }))
     await commitValidatedMutation(ops, localApply, showToast)
-    expect(markAnalysisFreshnessDirty).toHaveBeenCalled()
+    expect(markAnalysisFreshnessDirty).not.toHaveBeenCalled()
+
+    await commitValidatedMutation(ops, vi.fn(writesNodes), showToast)
+    expect(markAnalysisFreshnessDirty).toHaveBeenCalledTimes(1)
   })
 
   it('Phase-1 validated graph: marks dirty on success', async () => {
