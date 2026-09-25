@@ -74,7 +74,7 @@
  * is no dispatcher to own it and the copy says so plainly.
  */
 import { useId, useState, type KeyboardEvent } from 'react'
-import { Target } from 'lucide-react'
+import { Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -869,19 +869,26 @@ export function SuccessTargetLine({
                * tier is worth nothing if every row claims it, so it applies ONLY
                * where the target is absent — the state in which this is the
                * panel's highest-value move and the producer's own top
-               * recommendation. Once a target exists, "Change" is an ordinary
-               * affordance and drops back to `inline`.
+               * recommendation. Once a target exists, "Change" drops to `quiet`.
                *
-               * ⚠ AND THE CLASSES WERE A HAND-COPY OF `inline`, spelled out
-               * rather than named — the 31st spelling of a tier that already has
-               * a name, which is the drift `ACTION_TIER` exists to end. Both
-               * branches now name their tier.
+               * ⭐⭐ H4: NOT `inline` (BLUE, UNDERLINED) ANY MORE, ONCE A TARGET
+               * EXISTS — the prototype's own quiet pencil row, not a link
+               * (`Olumi_Reasoning_Prototype_V2.html`'s `.source-pill`-adjacent
+               * edit glyph). `quiet` keeps the underline (an affordance costs no
+               * contrast per `ACTION_TIER`'s own rule) but drops the info hue, so
+               * a row that already states its value and source in plain text does
+               * not also read as a hyperlink. The label stays — see
+               * `successTargetLine.spec.tsx`'s `toHaveTextContent` pin — so the
+               * pencil is additive, not a replacement for the accessible name.
                */
-              className={`${typography.panelMeta} shrink-0 ${
-                shownText !== null ? action('inline') : action('primary')
+              className={`${typography.panelMeta} shrink-0 inline-flex items-center gap-1 ${
+                shownText !== null ? action('quiet') : action('primary')
               }`}
               data-testid={`${testId}-edit`}
             >
+              {shownText !== null ? (
+                <Pencil className={icon('inline')} aria-hidden={true} />
+              ) : null}
               {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
             </button>
           </span>

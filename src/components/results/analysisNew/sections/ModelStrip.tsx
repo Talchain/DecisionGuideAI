@@ -151,7 +151,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
+import { Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
 /**
  * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
  * AND A GUARD IS WHY.
@@ -177,6 +177,7 @@ import { CircleDashed as NoValueMark } from 'lucide-react'
 
 import { OlumiAiIcon } from '../OlumiAiIcon'
 import { useCanvasStore } from '../../../../canvas/store'
+import { resolveNodeTypeLiteral } from '../../../../canvas/domain/nodes'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import {
   classifyValueProvenance,
@@ -203,6 +204,7 @@ import {
 } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 import { action, icon } from '../panelSurfaces'
+import { useCurrentBriefText } from './BriefEditForm'
 
 /**
  * The subject line when the model names neither a goal nor a decision.
@@ -221,6 +223,53 @@ const NO_INSIGHTS: NodeInsightIndex = new Map()
 
 /** What a node's detail has to say when the run named it nowhere. */
 const EMPTY_INSIGHT: NodeInsight = { mentions: [], driverLabel: null, findings: [], withheldFindings: 0 }
+
+/**
+ * ⭐ THE CLOSED TALLY'S GLYPH STRIP CAP — deliberately smaller than `MARK_CAP`
+ * (12), which caps the OPEN, interactive per-node marks. This one caps a
+ * DECORATIVE repeat of one glyph, so it may stay small: the prototype
+ * (`Olumi_Reasoning_Prototype_V2.html`) draws "Options ■■■■ 4" with the exact
+ * count up to a handful, then leans on the number for anything larger. The
+ * count beside it is never clamped — only the glyphs are.
+ */
+const SUMMARY_GLYPH_CAP = 6
+
+/**
+ * The CEE decision node carries no `question` field today (D1, reported to
+ * the model owners on #69 5832347190) — the decision node is only `{id, kind,
+ * label: 'Decision: <goal label>', provenance}`. This reads one defensively,
+ * so the day a `question` field lands here it is preferred with no code
+ * change downstream.
+ */
+function decisionQuestionOf(node: { data?: unknown } | undefined): string | null {
+  const data = node?.data as { question?: unknown } | undefined
+  const q = data?.question
+  return typeof q === 'string' && q.trim() !== '' ? q.trim() : null
+}
+
+/**
+ * The title is never more than one sentence — a brief can run to a paragraph,
+ * and the header is not the place to read it in full. Cuts at the first
+ * sentence terminator; a brief with none is used whole, trimmed.
+ */
+function oneSentence(text: string): string {
+  const trimmed = text.trim()
+  const match = trimmed.match(/^[^.!?\n]+[.!?]?/)
+  return (match ? match[0] : trimmed).trim()
+}
+
+/**
+ * ⭐ THE DATA GAP'S OWN WORDING, STRIPPED FOR DISPLAY ONLY. `buildModelStrip`
+ * is not touched by this file's lane — the raw `decisionLabel` it returns
+ * still carries CEE's literal `'Decision: <goal label>'`, and every OTHER
+ * reader of that field (there are none outside this component; see the
+ * source scan) is unaffected. This strips the producer's own label prefix so
+ * the panel's title reads as the question, never as a field name.
+ */
+function stripDecisionPrefix(label: string): string {
+  const stripped = label.replace(/^decision:\s*/i, '').trim()
+  return stripped.length > 0 ? stripped : label
+}
 
 /**
  * ⭐⭐ E10 OF THE EDITABILITY MAP — "Propose a change to this element" and
@@ -389,6 +438,39 @@ export function ModelStrip({
   )
 
   /**
+   * ⭐⭐ THE TITLE FALLBACK CHAIN (H1, design-audit-20260925 header rebuild).
+   * CEE sends no decision-QUESTION field (D1, #69 5832347190) — only a
+   * decision-LABEL, `'Decision: <goal label>'`. So the title prefers, in
+   * order: a `question` field on the decision node should one ever arrive
+   * (`decisionQuestionOf`, read here rather than in `buildModelStrip` because
+   * that builder is outside this lane); failing that, the brief the user
+   * themselves wrote, trimmed to one sentence (`useCurrentBriefText`, the
+   * SAME selector `BriefEditForm`'s "Edit the full question" already reads —
+   * one derivation, not two that could disagree, CLAUDE.md trap 12); and only
+   * then the structural decision/goal label further down, its own
+   * `'Decision: '` prefix stripped. Never invented: every arm here is either
+   * the producer's own field or the user's own words.
+   *
+   * ⚠ A PRIMITIVE STRING SELECTOR, NOT THE NODE. Returning `data` itself would
+   * re-render this component on every store write that touches the decision
+   * node for any reason; a string compares by value, so an untouched question
+   * causes no extra render.
+   */
+  const decisionQuestion = useCanvasStore((s) => {
+    for (const n of s.nodes ?? []) {
+      if (resolveNodeTypeLiteral(n) === 'decision') return decisionQuestionOf(n)
+    }
+    return null
+  })
+  const briefText = useCurrentBriefText()
+  const questionLead =
+    decisionQuestion !== null
+      ? oneSentence(decisionQuestion)
+      : briefText !== null && briefText.trim() !== ''
+        ? oneSentence(briefText)
+        : null
+
+  /**
    * `null` until the reader touches the control, so the default can keep
    * tracking the run state. An initialiser would freeze it at mount and the
    * strip would stay open across the pre-run boundary — see `isPreRun`.
@@ -440,8 +522,35 @@ export function ModelStrip({
    * Both null (a model naming neither) leaves `leadLabel` null and the render
    * falls through to `NO_SUBJECT_LABEL`, so the lead is never empty.
    */
-  const decisionLeads = strip.decisionLabel !== null && strip.decisionLabel !== strip.goalLabel
-  const leadLabel = decisionLeads ? strip.decisionLabel : strip.goalLabel
+  /**
+   * ⭐ THE STRUCTURAL FALLBACK'S OWN "Decision: " PREFIX, STRIPPED FOR DISPLAY.
+   * CEE's decision-node label is `'Decision: <goal label>'` verbatim
+   * (`buildModelStrip`'s own field, unmodified by this file's lane); a title
+   * that is a field name with its prefix intact is exactly Paul's report on
+   * the deployed build. Stripped once here, so every reader below — the lead,
+   * the equality check, the containment check — agrees on one string.
+   */
+  const decisionLabel = strip.decisionLabel === null ? null : stripDecisionPrefix(strip.decisionLabel)
+  /**
+   * `buildModelStrip`'s own `goalLabel` falls back to `decisionLabel` on a
+   * decision-only model (`goalLabel: goalLabel ?? decisionLabel`), so the SAME
+   * stripping must apply here or the fallback pair would disagree on the one
+   * label they share — one with the prefix, one without.
+   */
+  const goalLabel =
+    strip.goalLabel === null
+      ? null
+      : strip.goalLabel === strip.decisionLabel
+        ? decisionLabel
+        : strip.goalLabel
+  const decisionLeads = decisionLabel !== null && decisionLabel !== goalLabel
+  const structuralLeadLabel = decisionLeads ? decisionLabel : goalLabel
+  /**
+   * ⭐ THE QUESTION OUTRANKS THE STRUCTURAL FALLBACK. `questionLead` is either
+   * the producer's own `question` field or the user's own brief — see its own
+   * definition above — and neither is ever null on a run that has one.
+   */
+  const leadLabel = questionLead ?? structuralLeadLabel
   /**
    * ⚠ CONTAINMENT, NOT JUST INEQUALITY (design-audit-20260925, gap FIRST-3).
    * `decisionLeads` above is a STRING inequality: "Decision: Delivery
@@ -450,11 +559,17 @@ export function ModelStrip({
    * restates it — the exact defect this two-element split exists to avoid.
    * The subline earns its place only when the goal's words are NOT already
    * inside the decision line.
+   *
+   * ⚠⚠ AND NEVER WHEN THE QUESTION LEADS (H1). The prototype's title row
+   * carries no subtitle at all — the question already states the framing, so
+   * repeating the goal beneath it would be the identical restatement this
+   * containment check already exists to stop, one level up.
    */
   const subjectSubLabel =
-    decisionLeads && strip.goalLabel !== null && strip.decisionLabel !== null &&
-    !strip.decisionLabel.includes(strip.goalLabel)
-      ? strip.goalLabel
+    questionLead === null &&
+    decisionLeads && goalLabel !== null && decisionLabel !== null &&
+    !decisionLabel.includes(goalLabel)
+      ? goalLabel
       : null
   const valueInputId = useId()
   /**
@@ -897,7 +1012,21 @@ export function ModelStrip({
                   data-testid={`${testId}-tally`}
                   data-kind={row.kind}
                 >
-                  <NodeMark kind={row.kind} />
+                  {/* ⭐⭐ H2: A GLYPH STRIP, NOT ONE MARK — the prototype's own
+                      "Options ■■■■ 4" (`Olumi_Reasoning_Prototype_V2.html`).
+                      Capped at `SUMMARY_GLYPH_CAP` (6), well under `MARK_CAP`
+                      (12): these glyphs are decorative repetition, never a
+                      click target, so the cap only needs to read as "several"
+                      before the number takes over — a factor row of 20 draws
+                      six marks and the count says the rest. `aria-hidden` on
+                      the wrapper, because the number beside it already states
+                      the count in words a screen reader can use; repeating
+                      "factor, factor, factor…" six times would not. */}
+                  <span className="flex items-center gap-0.5" aria-hidden={true}>
+                    {Array.from({ length: Math.min(row.nodes.length, SUMMARY_GLYPH_CAP) }, (_, i) => (
+                      <NodeMark key={i} kind={row.kind} />
+                    ))}
+                  </span>
                   <span className={`${typography.panelMeta} text-text-light`}>{row.label}</span>
                   <span className={`${typography.panelMeta} text-text-light tabular-nums`}>
                     {row.nodes.length}
@@ -922,19 +1051,15 @@ export function ModelStrip({
           )}
         </span>
 
-        {/* ⚠ ABSOLUTE, NOT A FLEX SIBLING (design-audit-20260925, gap
-            NARROW-2). A flex sibling reserves its own column beside the
-            subject text at every width, so at a narrow dock the lead's
-            available measure shrinks by the chevron's width and wraps a
-            word that would otherwise fit on one line. Anchored to the
-            toggle's own bottom-right corner instead, so the subject gets
-            the full row width and the line(s) below it (`pr-5`) leave room
-            for the glyph without it competing for the first line. */}
-        {open ? (
-          <ChevronDown className={`${icon('section')} absolute right-0 bottom-1 text-text-light`} aria-hidden={true} />
-        ) : (
-          <ChevronRight className={`${icon('section')} absolute right-0 bottom-1 text-text-light`} aria-hidden={true} />
-        )}
+        {/* ⛔ NO CHEVRON (H1, design-audit-20260925). The prototype's title
+            row (`.briefrow h2`) carries no disclosure glyph — the census
+            beneath it is not something the title promises to expand. The
+            toggle affordance this button carries is NOT removed: the whole
+            block stays one button, so the title itself remains the way to
+            open or close the marks region, exactly as the prototype's own
+            title opens nothing and needs none. `pr-5` above still reserves
+            the strip's right-hand margin so the layout is unchanged by the
+            glyph's removal. */}
       </button>
 
       {/* ── THE SUCCESS TARGET ────────────────────────────────────────────────

@@ -324,7 +324,14 @@ export function ModelReviewTool({
               aria-expanded={isOpen}
               aria-controls={regionId}
               aria-label={COPY.toReviewName(total)}
-              className={`inline-flex items-center gap-1 rounded py-1 pr-1 text-text-body hover:text-text-header ${ACTION_FOCUS} ${typography.panelBody}`}
+              /* ⭐⭐ H3: ONE WORKLIST COUNT, IN INFO BLUE — the prototype's own
+                 "🔍 5 to review" (`Olumi_Reasoning_Prototype_V2.html`). This is
+                 the ONLY review-count affordance the first screen offers; the
+                 strip's separate amber "N to verify"/"N with no value" chips
+                 render only inside its own disclosure (`{open ? ... : null}`
+                 above them in `ModelStrip.tsx`), never on the closed first
+                 screen, so nothing here duplicates them or adds new amber. */
+              className={`inline-flex items-center gap-1 rounded py-1 pr-1 text-info hover:text-info-hover ${ACTION_FOCUS} ${typography.panelBody}`}
               data-testid={`${testId}-toggle`}
             >
               <Search className={icon('row')} aria-hidden={true} />

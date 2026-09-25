@@ -10,7 +10,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import { typography } from '../../../../styles/typography'
 import { ACTION_TIER } from '../panelSurfaces'
@@ -164,14 +164,24 @@ describe('gap ACTION-1: the selected tab is a border, never a fill or an underli
 // the goal's words.
 // ─────────────────────────────────────────────────────────────────────────
 describe('gap FIRST-3: the decision line is not restated when it already carries the goal', () => {
-  it('⭐⭐ "Decision: Delivery velocity" + goal "Delivery velocity" → ONE line, not two', () => {
+  /**
+   * ⚠⚠ AMENDED (wave 2, design-audit-20260925): THIS ASSERTED THE PREFIX,
+   * WHICH WAS ITSELF THE DEFECT (H1). CEE's decision label is a field name
+   * wearing a sentence's clothes — `'Decision: <goal label>'` — and Paul's
+   * own manual test named exactly this string on screen as the bug. Wave 1
+   * closed the RESTATEMENT (one line, not two); wave 2 closes the PREFIX, so
+   * the surviving line reads as the question the model is about, not as the
+   * producer's field name. See `stripDecisionPrefix` in `ModelStrip.tsx`.
+   */
+  it('⭐⭐ "Decision: Delivery velocity" + goal "Delivery velocity" → ONE line, not two, prefix stripped', () => {
     setNodes([
       { id: 'd1', type: 'decision', data: { label: 'Decision: Delivery velocity' } },
       { id: 'g1', type: 'goal', data: { label: 'Delivery velocity' } },
       { id: 'f1', type: 'factor', data: { label: 'Supplier lead time' } },
     ])
     render(<ModelStrip isPreRun={false} />)
-    expect(screen.getByTestId(`${TID}-lead`)).toHaveTextContent('Decision: Delivery velocity')
+    expect(screen.getByTestId(`${TID}-lead`)).toHaveTextContent('Delivery velocity')
+    expect(screen.getByTestId(`${TID}-lead`)).not.toHaveTextContent('Decision:')
     expect(
       screen.queryByTestId(`${TID}-goal`),
       'the goal\'s words already sit inside the decision line',
@@ -194,21 +204,32 @@ describe('gap FIRST-3: the decision line is not restated when it already carries
 // beside the subject.
 // ─────────────────────────────────────────────────────────────────────────
 describe('gap NARROW-2: the disclosure chevron never reserves an inline column beside the subject', () => {
-  it('⭐⭐ the toggle is a positioning context, and the chevron is absolutely placed inside it', () => {
+  /**
+   * ⚠⚠ AMENDED (wave 2, design-audit-20260925, H1): THE CHEVRON ITSELF IS
+   * GONE, NOT REPOSITIONED. The design authority's title row
+   * (`Olumi_Reasoning_Prototype_V2.html`'s `.briefrow h2`) carries no
+   * disclosure glyph at all — the census beneath it is not something the
+   * title promises to expand. Wave 1 fixed WHERE a chevron sat (absolute, so
+   * it could not steal the subject's line-wrap budget); wave 2 removes it,
+   * because Paul's own report named it directly ("...and a chevron"). The
+   * toggle affordance is NOT removed: the whole header stays one button, so
+   * the title itself remains how a reader opens or closes the marks region —
+   * this file's `aria-expanded` case, run separately, already covers that.
+   */
+  it('⭐⭐ no chevron renders in the title row — the toggle stays reachable by clicking the title itself', () => {
     setNodes([
       { id: 'd1', type: 'decision', data: { label: 'Which data platform to adopt' } },
       { id: 'f1', type: 'factor', data: { label: 'Supplier lead time' } },
     ])
     render(<ModelStrip isPreRun={false} />)
     const toggle = screen.getByTestId(`${TID}-toggle`)
-    expect(toggle.className).toMatch(/\brelative\b/)
-    // The chevron is a DIRECT child of the toggle button (a sibling of the
-    // subject span), not nested inside it — unlike the tally icons, which
-    // also carry `aria-hidden` but sit inside the subject span.
     const chevron = toggle.querySelector(':scope > svg[aria-hidden="true"]')
-    expect(chevron, 'PRECONDITION: a chevron must render').not.toBeNull()
-    expect(chevron!.getAttribute('class')).toMatch(/\babsolute\b/)
-    expect(chevron!.getAttribute('class')).not.toMatch(/\bshrink-0\b/)
+    expect(chevron, 'the prototype title carries no disclosure glyph').toBeNull()
+    // The affordance survives: the whole header is still one clickable
+    // button that flips `aria-expanded`.
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
   })
 })
 
