@@ -2057,7 +2057,7 @@ export function AnalysisNewTabBody({
             ratchet counts it as one child rather than several. A label added
             loose would have raised the count by five and the ceiling with it,
             which is the opposite of what the prototype asks for. */}
-        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
+        <div className="!mt-0 pt-1 space-y-3" data-testid="analysis-new-zone-also-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
@@ -2067,8 +2067,16 @@ export function AnalysisNewTabBody({
             grammar as "Move towards commitment" (a rule, then a 14px h3), not an
             11px caption over a bold item. That inverted hierarchy read the
             zone's name as a footnote to its own finding. */}
+        {/* ⭐⭐ SPACE-1 / FIRST-2 (panel-lane design audit 2026-09-25): the rule's
+            own pt-[11px] (panelSurfaces.ts PANEL_RULE), the ambient space-y-4
+            margin this group used to inherit (16px), and this title's own
+            pt-3 (12px) stacked to a 44px band above "Challenge the thinking" —
+            against the prototype's 18px (.section{margin-top:11px;padding-top:11px}
+            measured rule-to-cap). The group now overrides the ambient margin
+            with !mt-0 and states its own pt-1, so the total is 11 (rule) + 4
+            (group) ≈ the prototype's figure; the title no longer carries pt-3. */}
         <h3
-          className={`${typography.panelHeader} text-text-header m-0 pt-3`}
+          className={`${typography.panelHeader} text-text-header m-0`}
           data-testid="analysis-new-zone-also"
         >
           Challenge the thinking
@@ -2798,7 +2806,7 @@ export function AnalysisNewTabBody({
             such block between the model and the challenge, and on served
             `c5000550` it was 108px of what kept the chart below the fold. */}
         {focusApplicableIds.length > 0 ? (
-          <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
+          <div className="pt-3 space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
                 of its own: furniture that looked like a block would add the
@@ -2806,8 +2814,13 @@ export function AnalysisNewTabBody({
                 ⭐ V2 (fidelity gap 10): a SECTION TITLE, the same class string
                 as "Challenge the thinking" (gap 16). As an 11px caption over
                 14px rows it read as a footnote to its own items. */}
+            {/* ⭐ SPACE-1 (panel-lane design audit 2026-09-25): this zone has no
+                preceding rule, so its title's former pt-3 is relocated onto
+                this group unchanged — a byte-for-byte visual no-op here — so
+                the title's own className stays identical to the also-zone
+                title's, which theFocusZoneHasASectionTitle.spec.tsx pins. */}
             <h3
-              className={`${typography.panelHeader} text-text-header m-0 pt-3`}
+              className={`${typography.panelHeader} text-text-header m-0`}
               data-testid="analysis-new-zone-focus"
             >
               Focus now
