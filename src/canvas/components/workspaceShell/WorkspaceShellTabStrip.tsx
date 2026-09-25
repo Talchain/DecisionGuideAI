@@ -294,16 +294,24 @@ export function WorkspaceShellTabStrip({
               // correctly REDs it: the shell module is zero-tolerance for
               // off-scale spacing. 4px is on the scale AND buys more slack than
               // 6px did, so there was never a trade to make here.
-              className={`flex-auto min-w-0 px-1 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              //
+              // ⚠⚠ NO FILL, NO UNDERLINE (design-audit-20260925, gap ACTION-1).
+              // The selected tab used a `color-mix(…, 15%, …)` inline tint plus
+              // a `border-b-2` underline — encoding selection twice, and the
+              // tint measured 3.92:1 on the label, under SC 1.4.11's 3:1 floor
+              // for the label ink at that weight. A single `border` at `/80`
+              // clears 3.35:1 on both panel grounds (the same alpha
+              // `PANEL_INSET_ACTION` derives in `panelSurfaces.ts`) and a
+              // border, not a ring, so the existing focus ring still reads as
+              // its own separate rectangle rather than doubling one already
+              // there. `rounded-sm` is `SHELL_RADIUS_PX.input` (8px) — the
+              // shell's own "inputs, small buttons" step, not the loose
+              // Tailwind default.
+              className={`flex-auto min-w-0 px-1 py-1 rounded-sm border ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
-                  ? 'text-info border-b-2 border-info'
-                  : 'text-text-header hover:bg-panel border-b-2 border-transparent'
+                  ? 'text-info border-info/80'
+                  : 'text-text-body border-transparent hover:text-info'
               }`}
-              style={
-                isActive
-                  ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' }
-                  : undefined
-              }
             >
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${
