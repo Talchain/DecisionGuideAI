@@ -1,0 +1,1297 @@
+diff --git a/src/canvas/conversation/ConversationPanel.tsx b/src/canvas/conversation/ConversationPanel.tsx
+index d8c2fe15..12762430 100644
+--- a/src/canvas/conversation/ConversationPanel.tsx
++++ b/src/canvas/conversation/ConversationPanel.tsx
+@@ -687,6 +687,9 @@ export const ConversationPanel = memo(function ConversationPanel({
+         // being set on the line above.
+         ...(meta?.intent ? { wire_intent: meta.intent } : {}),
+         ...(meta?.parameters ? { parameters: meta.parameters } : {}),
++        // G1 — which card this send is. UI-only: stamped on the user message
++        // so a reload can tell the action was already taken; never on the wire.
++        ...(meta?.sourceBlockKey ? { sourceBlockKey: meta.sourceBlockKey } : {}),
+       })
+     // Prefill the visible composer (see prefillInto): the legacy ChatComposer
+     // ref when mounted, else the ConversationContext draft AIInputBar renders
+diff --git a/src/canvas/conversation/InlineBlocks.tsx b/src/canvas/conversation/InlineBlocks.tsx
+index 991ce07b..6b897768 100644
+--- a/src/canvas/conversation/InlineBlocks.tsx
++++ b/src/canvas/conversation/InlineBlocks.tsx
+@@ -813,6 +813,7 @@ function BlockRenderer({
+           block={block}
+           variant={isBiasSignalCoachingBlock(block) ? 'bias_signal' : 'default'}
+           suppressHeader={suppressHeader}
++          turnId={turnId}
+         />
+       )
+ 
+diff --git a/src/canvas/conversation/__tests__/SuggestedChips.runGate.spec.tsx b/src/canvas/conversation/__tests__/SuggestedChips.runGate.spec.tsx
+index ce6508bb..4bc2040c 100644
+--- a/src/canvas/conversation/__tests__/SuggestedChips.runGate.spec.tsx
++++ b/src/canvas/conversation/__tests__/SuggestedChips.runGate.spec.tsx
+@@ -90,6 +90,7 @@ function conversationOffering(
+     retryLast: vi.fn().mockResolvedValue(undefined),
+     patchBlockStates: patchStates,
+     setPatchBlockState: (key: string, state: PatchBlockState) => { patchStates.set(key, state) },
++    settledSourceBlockKeys: new Set<string>(),
+     patchRejections,
+     setPatchRejection: (key: string, info: PatchRejectionInfo) => { patchRejections.set(key, info) },
+   }
+diff --git a/src/canvas/conversation/__tests__/cardActionSettledReload.spec.tsx b/src/canvas/conversation/__tests__/cardActionSettledReload.spec.tsx
+new file mode 100644
+index 00000000..d86c64a2
+--- /dev/null
++++ b/src/canvas/conversation/__tests__/cardActionSettledReload.spec.tsx
+@@ -0,0 +1,680 @@
++/**
++ * G1 — A CARD ACTION THE USER ALREADY TOOK IS NOT LIVE AGAIN AFTER A RELOAD.
++ *
++ * ## The defect (proved by the prior probe)
++ * A coaching chip's `settled` was component state and a held proposal's
++ * Confirm was settled only in `patchBlockStates` (in-memory). The transcript is
++ * restored from localStorage on a reload, the card comes back with it, and the
++ * action is live again: one more click sends a second turn.
++ *
++ * ## The rule under test (the design, built as proposed)
++ * "Settled after reload" means a DELIVERED user message created by that card's
++ * action exists in the saved transcript. The message carries `sourceBlockKey`
++ * (`coach:<turnId>:<block_id>` / `held:<turnId>:<proposal_id>`), the transcript
++ * store persists it, and the restored conversation derives settlement from it.
++ *
++ * ## What is real and what is mocked
++ * REAL: `ConversationProvider` → `useConversation` (send, bubble, persist,
++ * mount-restore), `OlumiTabBody` → `ConversationPanel` (the `_sendChip`
++ * registration and its meta → chip hop), `InlineBlocks` → `V5CoachingBlock` →
++ * `ActionChip`, `V5HeldProposalBlock`, and `saveTranscript`/`loadTranscript`
++ * against jsdom's localStorage. MOCKED: the network runner only
++ * (`callV5Turn`, or `fetch` for the wire-byte case), plus the auth/scenario
++ * bridges. NO MODEL CALLS.
++ *
++ * ## What a "reload" is here
++ * Unmount the provider, re-stamp the saved transcript as written by an EARLIER
++ * page load (a transcript this page load wrote is deliberately not restored —
++ * see `transcriptStore.PAGE_LOAD_ID`), and mount a FRESH provider. Nothing
++ * survives but localStorage, which is exactly what a reload keeps.
++ *
++ * CLAIM TYPE: jsdom DOM + localStorage. Not the deployed build.
++ */
++import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
++import '@testing-library/jest-dom/vitest'
++import { render, screen, fireEvent, waitFor, within, act, cleanup } from '@testing-library/react'
++
++import { ConversationProvider } from '../ConversationContext'
++import { OlumiTabBody } from '../../components/OlumiTabBody'
++import { useCanvasStore } from '../../store'
++import { useGuidanceStore } from '../../stores/guidanceStore'
++import {
++  saveTranscript,
++  loadTranscript,
++  settledSourceBlockKeys,
++  TRANSCRIPT_STORAGE_KEY,
++  __resetTranscriptTombstonesForTests,
++} from '../utils/transcriptStore'
++import { coachingSourceBlockKey, heldProposalSourceBlockKey } from '../sourceBlockKey'
++import type {
++  ConversationBlock,
++  ConversationMessage,
++  V5CoachingBlock as V5CoachingBlockType,
++} from '../types'
++
++// ---------------------------------------------------------------------------
++// Mocks — the network runner and the auth/scenario bridges ONLY.
++// ---------------------------------------------------------------------------
++
++vi.mock('../turnService', () => ({
++  callOrchestratorTurn: () => new Promise(() => {}),
++  streamOrchestratorTurn: async function* () { /* never yields */ },
++  OrchestratorError: class extends Error {},
++}))
++
++const mockCallV5Turn = vi.fn()
++vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../../../v5/v5Adapter')>()
++  return {
++    ...actual,
++    callV5Turn: (...args: unknown[]) => mockCallV5Turn(...args),
++    getV5Endpoint: () => 'https://cee.test/orchestrate/v2/turn',
++  }
++})
++
++// The streamed sibling refuses, so every turn takes the buffered runner above —
++// the same explicit construction `useConversation.sendChipWireIntent.spec.ts` uses.
++vi.mock('../../../v5/streamedTurnTransport', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../../../v5/streamedTurnTransport')>()
++  return {
++    ...actual,
++    openV5TurnStream: async () => {
++      throw new TypeError('Failed to fetch')
++    },
++  }
++})
++
++vi.mock('../../../v5/eligibility', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../../../v5/eligibility')>()
++  const flags = await import('../../../flags')
++  return {
++    ...actual,
++    isV5Eligible: () => ({ eligible: true as const }),
++    isV5CanonicalRunPath: () => flags.isV5CanonicalAnalysisEnabled(),
++  }
++})
++
++vi.mock('../../../lib/supabase', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../../../lib/supabase')>()
++  return {
++    ...actual,
++    getUserId: async () => null,
++    getSessionIdentity: async () => ({ userId: null, accessToken: null }),
++  }
++})
++
++vi.mock('../../../services/scenarioService', async (importOriginal) => {
++  const actual = await importOriginal<typeof import('../../../services/scenarioService')>()
++  return { ...actual, loadScenario: async () => null }
++})
++
++vi.mock('../../../lib/posthog', () => ({ trackEvent: () => undefined }))
++
++// ---------------------------------------------------------------------------
++// Fixtures
++// ---------------------------------------------------------------------------
++
++/** A UUID, so `sendTurn` never mints a replacement scenario id. */
++const SID = '7c1f5a52-3d0e-4b8a-9f61-2a4d6e8c0b13'
++
++const TURN_A = 'a-turn-coach-1'
++const TURN_B = 'a-turn-coach-2'
++
++const CARD_X = 'blk-coach-x'
++const CARD_Y = 'blk-coach-y'
++const HANDLE = 'gmh_1a2b3c4d5e6f'
++
++function coachingCard(
++  blockId: string,
++  title: string,
++  extra: Partial<V5CoachingBlockType> = {},
++): V5CoachingBlockType {
++  return {
++    type: 'v5_coaching',
++    block_id: blockId,
++    title,
++    body: `${title}: the producer's body.`,
++    coaching_kind: 'strengthen',
++    source: 'decision_review',
++    category: 'must_fix',
++    target_refs: [],
++    action_label: `Do ${title}`,
++    action_prompt: `Please help me with ${title}.`,
++    ...extra,
++  }
++}
++
++function heldBlock(handle: string, summary: string): ConversationBlock {
++  return {
++    type: 'v5_held_proposal',
++    proposal_id: handle,
++    summary,
++    mutation_class: 'structural',
++    reason_code: 'STRUCTURAL_APPLY_HELD',
++    confirm: { label: 'Confirm these changes', message: `confirm ${handle}` },
++  } as unknown as ConversationBlock
++}
++
++function assistantTurn(id: string, blocks: ConversationBlock[]): ConversationMessage {
++  return {
++    id,
++    role: 'assistant',
++    content: 'Here is what I found.',
++    timestamp: new Date('2026-09-24T10:00:00Z'),
++    blocks,
++  }
++}
++
++const V5_SUCCESS = {
++  kind: 'response' as const,
++  response: {
++    response_version: 2,
++    assistant_text: 'Done.',
++    blocks: [] as unknown[],
++    suggested_actions: [] as unknown[],
++    insights: [] as unknown[],
++    stage_indicator: 'frame',
++  },
++}
++
++/**
++ * Write `messages` as the saved transcript of an EARLIER page load — "the user
++ * was here, closed the tab, and came back".
++ */
++function storePriorSession(messages: ConversationMessage[]): void {
++  saveTranscript(SID, messages)
++  restampAsEarlierPageLoad()
++}
++
++function restampAsEarlierPageLoad(): void {
++  const raw = localStorage.getItem(TRANSCRIPT_STORAGE_KEY)
++  expect(raw, 'a transcript must be saved before a reload can restore it').not.toBeNull()
++  const file = JSON.parse(raw!)
++  file[SID].pageLoadId = 'an-earlier-page-load'
++  localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(file))
++}
++
++function mountPanel() {
++  return render(
++    <ConversationProvider>
++      <OlumiTabBody />
++    </ConversationProvider>,
++  )
++}
++
++/** The reload: nothing survives but localStorage. */
++async function reload() {
++  cleanup()
++  restampAsEarlierPageLoad()
++  mountPanel()
++  await screen.findAllByTestId('chat-message-assistant')
++  expandCollapsedTiers()
++}
++
++/** Open every "Show N more" tier, so a demoted card is mounted and clickable. */
++function expandCollapsedTiers(): void {
++  for (const toggle of screen.queryAllByTestId('block-detail-toggle')) {
++    if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
++  }
++}
++
++/**
++ * The ONE coaching card with this block id AND title — bound by identity
++ * (block id) and by the turn-unique title, asserted to length 1 (trap 19).
++ */
++function coachingCardEl(blockId: string, title: string): HTMLElement {
++  const matches = screen
++    .getAllByTestId('v5-coaching')
++    .filter(
++      (el) =>
++        el.getAttribute('data-block-id') === blockId &&
++        within(el).queryByText(`${title}: the producer's body.`) !== null,
++    )
++  expect(matches, `exactly one card ${blockId} / ${title}`).toHaveLength(1)
++  return matches[0]
++}
++
++function chipOf(blockId: string, title: string): HTMLButtonElement {
++  return within(coachingCardEl(blockId, title)).getByTestId('v5-coaching-action') as HTMLButtonElement
++}
++
++function heldCard(handle: string): HTMLElement {
++  const matches = screen
++    .getAllByTestId('v5-held-proposal')
++    .filter((el) => el.getAttribute('data-block-id') === handle)
++  expect(matches).toHaveLength(1)
++  return matches[0]
++}
++
++/** Payloads the runner actually received. */
++function sentPayloads(): Array<{ message?: string; chip?: Record<string, unknown> }> {
++  return mockCallV5Turn.mock.calls.map((c) => c[0] as { message?: string; chip?: Record<string, unknown> })
++}
++
++/** The user messages the SAVED transcript holds (what a reload would restore). */
++function savedUserMessages(): ConversationMessage[] {
++  const file = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY) ?? '{}')
++  const stored = (file[SID]?.messages ?? []) as Array<{ role: string }>
++  return stored.filter((m) => m.role === 'user') as unknown as ConversationMessage[]
++}
++
++/** Click a live chip and wait until the turn it sent has resolved and been saved. */
++async function clickAndSettle(button: HTMLButtonElement, expectedKey: string): Promise<void> {
++  const before = mockCallV5Turn.mock.calls.length
++  await act(async () => {
++    fireEvent.click(button)
++  })
++  await waitFor(() => expect(mockCallV5Turn.mock.calls.length).toBe(before + 1))
++  await waitFor(() => {
++    const saved = savedUserMessages().filter((m) => m.sourceBlockKey === expectedKey)
++    expect(saved, `a delivered user message carrying ${expectedKey} is saved`).toHaveLength(1)
++  })
++}
++
++beforeEach(() => {
++  localStorage.clear()
++  __resetTranscriptTombstonesForTests()
++  mockCallV5Turn.mockReset()
++  mockCallV5Turn.mockResolvedValue(V5_SUCCESS)
++  useGuidanceStore.setState({ _sendChip: null } as never)
++  useCanvasStore.setState({
++    currentScenarioId: SID,
++    nodes: [],
++    edges: [],
++    analysisFreshness: null,
++    analysisFreshnessDirty: false,
++  } as never)
++  if (!Element.prototype.scrollIntoView) {
++    Element.prototype.scrollIntoView = () => {}
++  }
++  vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {})
++})
++
++afterEach(() => {
++  cleanup()
++  vi.restoreAllMocks()
++  useGuidanceStore.setState({ _sendChip: null } as never)
++})
++
++// ---------------------------------------------------------------------------
++
++describe('the keys are a stored contract', () => {
++  it('coaching and held keys have the designed shapes, scoped by turn', () => {
++    expect(coachingSourceBlockKey(TURN_A, CARD_X)).toBe(`coach:${TURN_A}:${CARD_X}`)
++    expect(heldProposalSourceBlockKey(TURN_A, HANDLE)).toBe(`held:${TURN_A}:${HANDLE}`)
++    // No turn ⇒ no key: an unscoped key would settle a later re-issue too.
++    expect(coachingSourceBlockKey(undefined, CARD_X)).toBeUndefined()
++    expect(heldProposalSourceBlockKey(undefined, HANDLE)).toBeUndefined()
++  })
++})
++
++describe('(a)/(b)/(c) coaching chip — settled after reload iff its action was taken', () => {
++  beforeEach(() => {
++    storePriorSession([
++      assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha'), coachingCard(CARD_Y, 'Bravo')]),
++    ])
++  })
++
++  it('(a) clicked → reload → settled, and a click sends 0 turns', async () => {
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    expandCollapsedTiers()
++
++    const key = coachingSourceBlockKey(TURN_A, CARD_X)!
++    await clickAndSettle(chipOf(CARD_X, 'Alpha'), key)
++    // The turn that went out is the producer's prompt, unchanged.
++    expect(sentPayloads()[0].message).toBe('Please help me with Alpha.')
++
++    await reload()
++
++    const chip = chipOf(CARD_X, 'Alpha')
++    expect(chip).toBeDisabled()
++    expect(chip).toHaveAttribute('data-settled', 'true')
++    // No "Sent" receipt (RC ruling): settlement is the only thing the chip says.
++    expect(coachingCardEl(CARD_X, 'Alpha').textContent ?? '').not.toMatch(/\bsent\b|sending/i)
++
++    const before = mockCallV5Turn.mock.calls.length
++    await act(async () => {
++      fireEvent.click(chip)
++      chip.click()
++    })
++    expect(mockCallV5Turn.mock.calls.length).toBe(before)
++  })
++
++  it('(b) never clicked → reload → live, and a click sends exactly once', async () => {
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    await reload()
++
++    const chip = chipOf(CARD_X, 'Alpha')
++    expect(chip).not.toBeDisabled()
++    expect(chip).not.toHaveAttribute('data-settled')
++
++    await act(async () => {
++      fireEvent.click(chip)
++      chip.click()
++    })
++    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
++    expect(sentPayloads()[0].message).toBe('Please help me with Alpha.')
++  })
++
++  it('(c) two cards on one turn: clicking one settles only that one, live and after reload', async () => {
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    expandCollapsedTiers()
++
++    await clickAndSettle(chipOf(CARD_X, 'Alpha'), coachingSourceBlockKey(TURN_A, CARD_X)!)
++    expect(chipOf(CARD_X, 'Alpha')).toBeDisabled()
++    expect(chipOf(CARD_Y, 'Bravo')).not.toBeDisabled()
++
++    await reload()
++
++    expect(chipOf(CARD_X, 'Alpha')).toBeDisabled()
++    const other = chipOf(CARD_Y, 'Bravo')
++    expect(other).not.toBeDisabled()
++    expect(other).not.toHaveAttribute('data-settled')
++
++    const before = mockCallV5Turn.mock.calls.length
++    await act(async () => {
++      fireEvent.click(other)
++    })
++    await waitFor(() => expect(mockCallV5Turn.mock.calls.length).toBe(before + 1))
++    expect(sentPayloads().at(-1)?.message).toBe('Please help me with Bravo.')
++  })
++})
++
++describe('(d) the same block_id on a different turn is a different card', () => {
++  it('settling turn A’s card leaves turn B’s card (same block_id) live after reload', async () => {
++    storePriorSession([
++      assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha')]),
++      assistantTurn(TURN_B, [coachingCard(CARD_X, 'Charlie')]),
++    ])
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    expandCollapsedTiers()
++    // Precondition: the SAME block id really is on screen twice.
++    expect(
++      screen.getAllByTestId('v5-coaching').filter((el) => el.getAttribute('data-block-id') === CARD_X),
++    ).toHaveLength(2)
++
++    await clickAndSettle(chipOf(CARD_X, 'Alpha'), coachingSourceBlockKey(TURN_A, CARD_X)!)
++    await reload()
++
++    expect(chipOf(CARD_X, 'Alpha')).toBeDisabled()
++    const later = chipOf(CARD_X, 'Charlie')
++    expect(later).not.toBeDisabled()
++    expect(later).not.toHaveAttribute('data-settled')
++  })
++})
++
++describe('(e) a send that never went out does not settle the card after reload', () => {
++  it('failed send → the bubble is not saved → reload → live, and it sends once', async () => {
++    storePriorSession([assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha')])])
++    mockCallV5Turn.mockReset()
++    mockCallV5Turn.mockRejectedValueOnce(new TypeError('Failed to fetch'))
++
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    expandCollapsedTiers()
++
++    await act(async () => {
++      fireEvent.click(chipOf(CARD_X, 'Alpha'))
++    })
++    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
++    // Precondition: the send really FAILED, and the live transcript says so
++    // (the chip-initiated bubble's own "Not delivered" marker).
++    await screen.findByTestId('send-failed-indicator')
++    // In-session the clicked chip stays settled (one chip, one turn) — the
++    // bubble's own retry affordance is the way to try again.
++    expect(chipOf(CARD_X, 'Alpha')).toBeDisabled()
++    // …and the failed bubble was never committed to the saved transcript.
++    expect(savedUserMessages()).toHaveLength(0)
++
++    mockCallV5Turn.mockResolvedValue(V5_SUCCESS)
++    await reload()
++
++    const chip = chipOf(CARD_X, 'Alpha')
++    expect(chip).not.toBeDisabled()
++    await act(async () => {
++      fireEvent.click(chip)
++    })
++    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(2))
++  })
++
++  it('PIN — the store drops failed and pending sends, so they can never settle a card', () => {
++    const at = new Date('2026-09-24T10:00:00Z')
++    const key = (n: string) => `coach:${TURN_A}:${n}`
++    saveTranscript(SID, [
++      assistantTurn(TURN_A, [coachingCard('f', 'F')]),
++      { id: 'u-failed', role: 'user', content: 'x', timestamp: at, deliveryState: 'failed', sourceBlockKey: key('failed') },
++      { id: 'u-pending', role: 'user', content: 'x', timestamp: at, deliveryState: 'pending', sourceBlockKey: key('pending') },
++      { id: 'u-sent', role: 'user', content: 'x', timestamp: at, deliveryState: 'sent', sourceBlockKey: key('sent') },
++      { id: 'u-unconfirmed', role: 'user', content: 'x', timestamp: at, deliveryState: 'unconfirmed', sourceBlockKey: key('unconfirmed') },
++      { id: 'u-legacy', role: 'user', content: 'x', timestamp: at, sourceBlockKey: key('legacy') },
++    ])
++    const loaded = loadTranscript(SID)!
++    expect(loaded.messages.map((m) => m.id)).toEqual([TURN_A, 'u-sent', 'u-unconfirmed', 'u-legacy'])
++    expect([...settledSourceBlockKeys(loaded.messages)].sort()).toEqual(
++      [key('legacy'), key('sent'), key('unconfirmed')].sort(),
++    )
++    // Read LIVE, the same rule applies: a failed or pending message settles nothing.
++    expect(
++      settledSourceBlockKeys([
++        { id: 'p', role: 'user', content: 'x', timestamp: at, deliveryState: 'pending', sourceBlockKey: key('p') },
++        { id: 'f', role: 'user', content: 'x', timestamp: at, deliveryState: 'failed', sourceBlockKey: key('f') },
++        // An assistant message can never settle a card, whatever it carries.
++        { id: 'a', role: 'assistant', content: 'x', timestamp: at, sourceBlockKey: key('a') },
++      ]).size,
++    ).toBe(0)
++  })
++})
++
++describe('(f) held proposal Confirm — confirmed → reload → settled, not re-confirmable', () => {
++  it('the restored card shows the confirmed state and offers no Confirm', async () => {
++    storePriorSession([
++      assistantTurn(TURN_A, [heldBlock(HANDLE, 'Remove the Pricing node')]),
++    ])
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    expandCollapsedTiers()
++
++    const key = heldProposalSourceBlockKey(TURN_A, HANDLE)!
++    await clickAndSettle(
++      within(heldCard(HANDLE)).getByTestId('v5-held-proposal-confirm') as HTMLButtonElement,
++      key,
++    )
++    expect(sentPayloads()[0].message).toBe(`confirm ${HANDLE}`)
++
++    await reload()
++
++    const card = heldCard(HANDLE)
++    expect(card).toHaveAttribute('data-settled', 'accepted')
++    expect(within(card).queryByTestId('v5-held-proposal-confirm')).toBeNull()
++    expect(within(card).queryByTestId('v5-held-proposal-dismiss')).toBeNull()
++    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
++  })
++
++  it('CONTROL — never confirmed → reload → Confirm is live and sends once', async () => {
++    storePriorSession([
++      assistantTurn(TURN_A, [heldBlock(HANDLE, 'Remove the Pricing node')]),
++    ])
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    await reload()
++
++    const card = heldCard(HANDLE)
++    expect(card).not.toHaveAttribute('data-settled')
++    await act(async () => {
++      fireEvent.click(within(card).getByTestId('v5-held-proposal-confirm'))
++    })
++    await waitFor(() => expect(mockCallV5Turn).toHaveBeenCalledTimes(1))
++  })
++
++  it('a LATER turn re-issuing the same handle stays live after reload (turn-scoped key)', async () => {
++    storePriorSession([
++      assistantTurn(TURN_A, [heldBlock(HANDLE, 'Remove the Pricing node')]),
++    ])
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    await clickAndSettle(
++      within(heldCard(HANDLE)).getByTestId('v5-held-proposal-confirm') as HTMLButtonElement,
++      heldProposalSourceBlockKey(TURN_A, HANDLE)!,
++    )
++    cleanup()
++
++    // CEE later re-issues the same handle on a new turn (a different offer).
++    const saved = loadTranscript(SID)!.messages
++    saveTranscript(SID, [...saved, assistantTurn(TURN_B, [heldBlock(HANDLE, 'Rename the Pricing node')])])
++    await reload()
++
++    const cards = screen
++      .getAllByTestId('v5-held-proposal')
++      .filter((el) => el.getAttribute('data-block-id') === HANDLE)
++    expect(cards).toHaveLength(2)
++    const [earlier, later] = cards
++    expect(earlier).toHaveAttribute('data-settled', 'accepted')
++    expect(later).not.toHaveAttribute('data-settled')
++    expect(within(later).getByTestId('v5-held-proposal-confirm')).toBeInTheDocument()
++  })
++})
++
++describe('(g) an old transcript with no sourceBlockKey loads exactly as before', () => {
++  it('pre-G1 save: loads unchanged, and every card is live', async () => {
++    // Written by hand in the PRE-G1 stored shape — no `sourceBlockKey` anywhere.
++    const legacyFile = {
++      [SID]: {
++        savedAt: '2026-09-20T09:00:00.000Z',
++        pageLoadId: 'an-earlier-page-load',
++        dropped: 0,
++        messages: [
++          { id: 'u-old', role: 'user', content: 'Please help me with Alpha.', ts: '2026-09-20T08:59:00.000Z', displayContent: 'Do Alpha', chipInitiated: true },
++          {
++            id: TURN_A,
++            role: 'assistant',
++            content: 'Here is what I found.',
++            ts: '2026-09-20T09:00:00.000Z',
++            blocks: [coachingCard(CARD_X, 'Alpha'), heldBlock(HANDLE, 'Remove the Pricing node')],
++          },
++        ],
++      },
++    }
++    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(legacyFile))
++
++    const loaded = loadTranscript(SID)!
++    expect(loaded.messages).toEqual([
++      {
++        id: 'u-old',
++        role: 'user',
++        content: 'Please help me with Alpha.',
++        timestamp: new Date('2026-09-20T08:59:00.000Z'),
++        displayContent: 'Do Alpha',
++        chipInitiated: true,
++      },
++      {
++        id: TURN_A,
++        role: 'assistant',
++        content: 'Here is what I found.',
++        timestamp: new Date('2026-09-20T09:00:00.000Z'),
++        blocks: [coachingCard(CARD_X, 'Alpha'), heldBlock(HANDLE, 'Remove the Pricing node')],
++      },
++    ])
++    expect(loaded.messages.some((m) => 'sourceBlockKey' in m)).toBe(false)
++    expect(settledSourceBlockKeys(loaded.messages).size).toBe(0)
++
++    // Round trip: re-saving a key-less transcript writes no key.
++    saveTranscript(SID, loaded.messages)
++    expect(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)).not.toContain('sourceBlockKey')
++
++    restampAsEarlierPageLoad()
++    mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    expandCollapsedTiers()
++    expect(chipOf(CARD_X, 'Alpha')).not.toBeDisabled()
++    expect(heldCard(HANDLE)).not.toHaveAttribute('data-settled')
++  })
++})
++
++describe('(h) the key never reaches the wire — the POSTed body is byte-identical', () => {
++  const V5_ENDPOINT = 'https://cee.test/orchestrate/v2/turn'
++
++  /**
++   * Drive the REAL `_sendChip` seam (registered by the real ConversationPanel)
++   * down to the REAL `callV5Turn`, capturing the exact string handed to
++   * `fetch`. Ids that are minted per send (`crypto.randomUUID`, the panel's
++   * `evidence-apply-${Date.now()}` chip id) are made deterministic so the two
++   * bodies can be compared byte for byte.
++   */
++  async function postedBodyFor(meta: Record<string, unknown>): Promise<{ body: string; userKeys: (string | undefined)[] }> {
++    const bodies: string[] = []
++    const actual = await vi.importActual<typeof import('../../../v5/v5Adapter')>('../../../v5/v5Adapter')
++    vi.stubEnv('VITE_V5_ENDPOINT', V5_ENDPOINT)
++    const fetchImpl = vi.fn(async (url: unknown, init?: RequestInit) => {
++      // Only the TURN is under test. A successful turn is followed by the
++      // graph registration (`/bff/cee/scenarios/:id/graph`), a separate write.
++      if (String(url) === V5_ENDPOINT) bodies.push(String(init?.body))
++      return new Response(JSON.stringify(V5_SUCCESS.response), {
++        status: 200,
++        headers: { 'Content-Type': 'application/json' },
++      })
++    })
++    vi.stubGlobal('fetch', fetchImpl)
++    mockCallV5Turn.mockImplementation((payload: unknown, opts: unknown) =>
++      actual.callV5Turn(payload as never, opts as never),
++    )
++
++    storePriorSession([assistantTurn(TURN_A, [coachingCard(CARD_X, 'Alpha')])])
++    const view = mountPanel()
++    await screen.findAllByTestId('chat-message-assistant')
++    await waitFor(() => expect(useGuidanceStore.getState()._sendChip).not.toBeNull())
++
++    let n = 0
++    const uuid = vi
++      .spyOn(crypto, 'randomUUID')
++      .mockImplementation(() => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}` as `${string}-${string}-${string}-${string}-${string}`)
++    const now = vi.spyOn(Date, 'now').mockReturnValue(1_790_000_000_000)
++    try {
++      await act(async () => {
++        useGuidanceStore.getState()._sendChip!('Do Alpha', 'Please help me with Alpha.', meta)
++      })
++    } finally {
++      uuid.mockRestore()
++      now.mockRestore()
++    }
++    await waitFor(() => expect(bodies).toHaveLength(1))
++    const savedKeys = await waitFor(() => {
++      const users = savedUserMessages()
++      expect(users.length).toBeGreaterThan(0)
++      return users.map((m) => m.sourceBlockKey)
++    })
++    view.unmount()
++    localStorage.clear()
++    vi.unstubAllEnvs()
++    vi.unstubAllGlobals()
++    return { body: bodies[0], userKeys: savedKeys }
++  }
++
++  it('coaching meta: body with the key === body without it; the key rode only the bubble', async () => {
++    const key = coachingSourceBlockKey(TURN_A, CARD_X)!
++    const without = await postedBodyFor({ intent: 'add_option' })
++    const withKey = await postedBodyFor({ intent: 'add_option', sourceBlockKey: key })
++
++    expect(withKey.body).toBe(without.body)
++    expect(withKey.body).not.toContain(key)
++    expect(withKey.body).not.toContain('sourceBlockKey')
++    // Discriminating: the key DID travel — to the saved user message, not the wire.
++    expect(withKey.userKeys).toEqual([key])
++    expect(without.userKeys).toEqual([undefined])
++    // The intent pass-through is untouched by the key riding beside it.
++    expect(JSON.parse(withKey.body).chip?.intent).toBe('add_option')
++  })
++
++  it('held meta: body with the key === body without it', async () => {
++    const key = heldProposalSourceBlockKey(TURN_A, HANDLE)!
++    const without = await postedBodyFor({})
++    const withKey = await postedBodyFor({ sourceBlockKey: key })
++
++    expect(withKey.body).toBe(without.body)
++    expect(withKey.body).not.toContain(key)
++    expect(withKey.userKeys).toEqual([key])
++  })
++})
+diff --git a/src/canvas/conversation/__tests__/conversationPanel.runRefusalIsAudible.spec.tsx b/src/canvas/conversation/__tests__/conversationPanel.runRefusalIsAudible.spec.tsx
+index 408e547b..afc5837e 100644
+--- a/src/canvas/conversation/__tests__/conversationPanel.runRefusalIsAudible.spec.tsx
++++ b/src/canvas/conversation/__tests__/conversationPanel.runRefusalIsAudible.spec.tsx
+@@ -134,6 +134,7 @@ function makeConversation(dispatchAction: ReturnType<typeof vi.fn>): UseConversa
+     retryLast: vi.fn().mockResolvedValue(undefined),
+     patchBlockStates: patchStates,
+     setPatchBlockState: (key: string, state: PatchBlockState) => { patchStates.set(key, state) },
++    settledSourceBlockKeys: new Set<string>(),
+     patchRejections,
+     setPatchRejection: (key: string, info: PatchRejectionInfo) => { patchRejections.set(key, info) },
+   }
+diff --git a/src/canvas/conversation/__tests__/conversationPanel.systemEventFailure.spec.tsx b/src/canvas/conversation/__tests__/conversationPanel.systemEventFailure.spec.tsx
+index 19096540..40538cf2 100644
+--- a/src/canvas/conversation/__tests__/conversationPanel.systemEventFailure.spec.tsx
++++ b/src/canvas/conversation/__tests__/conversationPanel.systemEventFailure.spec.tsx
+@@ -118,6 +118,7 @@ function makeMockConversation(
+     setPatchBlockState: (key: string, state: PatchBlockState) => {
+       patchStates.set(key, state)
+     },
++    settledSourceBlockKeys: new Set<string>(),
+     patchRejections,
+     setPatchRejection: (key: string, info: PatchRejectionInfo) => {
+       patchRejections.set(key, info)
+diff --git a/src/canvas/conversation/__tests__/generateModelIntegration.spec.tsx b/src/canvas/conversation/__tests__/generateModelIntegration.spec.tsx
+index 2d62f33e..597f8889 100644
+--- a/src/canvas/conversation/__tests__/generateModelIntegration.spec.tsx
++++ b/src/canvas/conversation/__tests__/generateModelIntegration.spec.tsx
+@@ -159,6 +159,7 @@ function makeMockConversation(): {
+     retryLast: vi.fn().mockResolvedValue(undefined),
+     patchBlockStates: new Map<string, PatchBlockState>(),
+     setPatchBlockState: vi.fn(),
++    settledSourceBlockKeys: new Set<string>(),
+     patchRejections: new Map<string, PatchRejectionInfo>(),
+     setPatchRejection: vi.fn(),
+   }
+diff --git a/src/canvas/conversation/__tests__/heldProposalSettlement.crossSurface.spec.tsx b/src/canvas/conversation/__tests__/heldProposalSettlement.crossSurface.spec.tsx
+index 48977f54..e1262bfd 100644
+--- a/src/canvas/conversation/__tests__/heldProposalSettlement.crossSurface.spec.tsx
++++ b/src/canvas/conversation/__tests__/heldProposalSettlement.crossSurface.spec.tsx
+@@ -158,7 +158,11 @@ describe('held proposal settlement propagates across surfaces', () => {
+     fireEvent.click(within(dock).getByTestId('v5-held-proposal-confirm'))
+ 
+     expect(sendChip).toHaveBeenCalledTimes(1)
+-    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_A}`, undefined)
++    // G1: the only meta is the card's own turn-scoped key (UI-only, never on
++    // the wire — `cardActionSettledReload.spec.tsx` (h)).
++    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_A}`, {
++      sourceBlockKey: heldProposalMountKey('msg-held-settlement', HANDLE_A),
++    })
+ 
+     // THE DEFECT: this is the copy that kept live controls over a change that
+     // had already happened.
+@@ -250,7 +254,9 @@ describe('held proposal settlement propagates across surfaces', () => {
+     // The apply path is unchanged: the producer's own message goes out through
+     // the single-writer chip seam, and CEE applies it server-side.
+     expect(sendChip).toHaveBeenCalledTimes(1)
+-    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_B}`, undefined)
++    expect(sendChip).toHaveBeenCalledWith('Confirm these changes', `confirm ${HANDLE_B}`, {
++      sourceBlockKey: heldProposalMountKey('msg-held-settlement', HANDLE_B),
++    })
+   })
+ 
+   it('does not double-dispatch when a second surface re-presses an already-settled proposal', () => {
+diff --git a/src/canvas/conversation/__tests__/patchAcceptLogic.spec.tsx b/src/canvas/conversation/__tests__/patchAcceptLogic.spec.tsx
+index 082afcdb..fddcf9a3 100644
+--- a/src/canvas/conversation/__tests__/patchAcceptLogic.spec.tsx
++++ b/src/canvas/conversation/__tests__/patchAcceptLogic.spec.tsx
+@@ -97,6 +97,7 @@ function makeMockConversation(messages: ConversationMessage[]): {
+     setPatchBlockState: (key: string, state: PatchBlockState) => {
+       patchStates.set(key, state)
+     },
++    settledSourceBlockKeys: new Set<string>(),
+     patchRejections,
+     setPatchRejection: (key: string, info: PatchRejectionInfo) => {
+       patchRejections.set(key, info)
+diff --git a/src/canvas/conversation/__tests__/terminalNoticeChipRender.spec.tsx b/src/canvas/conversation/__tests__/terminalNoticeChipRender.spec.tsx
+index e66a612c..8a82114a 100644
+--- a/src/canvas/conversation/__tests__/terminalNoticeChipRender.spec.tsx
++++ b/src/canvas/conversation/__tests__/terminalNoticeChipRender.spec.tsx
+@@ -80,6 +80,7 @@ function makeMockConversation(messages: ConversationMessage[]) {
+     retryLast,
+     patchBlockStates: new Map(),
+     setPatchBlockState: vi.fn(),
++    settledSourceBlockKeys: new Set<string>(),
+     patchRejections: new Map(),
+     setPatchRejection: vi.fn(),
+   }
+diff --git a/src/canvas/conversation/sourceBlockKey.ts b/src/canvas/conversation/sourceBlockKey.ts
+new file mode 100644
+index 00000000..d8da512d
+--- /dev/null
++++ b/src/canvas/conversation/sourceBlockKey.ts
+@@ -0,0 +1,49 @@
++/**
++ * sourceBlockKey — which CARD ACTION created a user message (G1).
++ *
++ * THE DEFECT. After a reload, a card action the user had already taken was
++ * live again: a coaching chip's `settled` was component state, and a held
++ * proposal's Confirm was settled only in `patchBlockStates`, which is
++ * in-memory. Both came back clickable, and a click sent a second turn.
++ *
++ * THE RULE. A card action is settled after a reload if and only if a
++ * DELIVERED user message created by that action exists in the saved
++ * transcript. The message carries this key; `transcriptStore` persists it;
++ * `settledSourceBlockKeys` reads it back. Nothing else is persisted and no
++ * separate "settled" record exists, so the transcript is the one witness.
++ *
++ * ⚠ THESE STRINGS ARE A STORED CONTRACT. They are written to localStorage
++ * (`olumi-canvas-transcript`), so changing either format silently re-arms
++ * every action a returning user already took. Both are scoped by the TURN the
++ * card is mounted in as well as the block's own id: a `block_id` or a CEE hold
++ * handle can recur on a later turn, and that later card is a new offer.
++ *
++ * The held key is deliberately the held-proposal registry's own MOUNT key
++ * (`heldProposalMountKey`), so a restored confirm seeds exactly the entry
++ * `resolveHeldProposalState` reads — one key space, not two to keep aligned.
++ */
++import { heldProposalMountKey } from './selectors'
++
++/** Key for a coaching card's action chip: `coach:<turnId>:<block_id>`. */
++export function coachingSourceBlockKey(
++  turnId: string | undefined,
++  blockId: string | undefined,
++): string | undefined {
++  if (!turnId || !blockId) return undefined
++  return `coach:${turnId}:${blockId}`
++}
++
++/**
++ * Key for a held proposal's Confirm: `held:<turnId>:<proposal_id>`.
++ *
++ * `turnId` absent ⇒ no key. The registry's bare-handle fallback is NOT a
++ * usable transcript key: a handle is re-minted for later offers against the
++ * same target, so an unscoped key would settle those too.
++ */
++export function heldProposalSourceBlockKey(
++  turnId: string | undefined,
++  proposalId: string | undefined,
++): string | undefined {
++  if (!turnId || !proposalId) return undefined
++  return heldProposalMountKey(turnId, proposalId)
++}
+diff --git a/src/canvas/conversation/types.ts b/src/canvas/conversation/types.ts
+index 71f08eac..c55b57b0 100644
+--- a/src/canvas/conversation/types.ts
++++ b/src/canvas/conversation/types.ts
+@@ -50,6 +50,20 @@ export interface ConversationMessage {
+   /** When true, this user message was initiated by a pill/chip click.
+    *  Renders as a compact action indicator instead of a full user bubble. */
+   chipInitiated?: boolean
++  /**
++   * G1 (card action settled after reload): on a USER message, the card action
++   * that created it — `coach:<turnId>:<block_id>` for a coaching chip,
++   * `held:<turnId>:<proposal_id>` for a held-proposal confirm (built only by
++   * `sourceBlockKey.ts`). Absent on every other message.
++   *
++   * UI-ONLY. It never reaches the wire: it rides `SendTurnOpts`, not
++   * `chipMeta`, so `buildV5Payload` cannot see it. It IS persisted by
++   * `utils/transcriptStore.ts`, and that is its whole purpose: after a reload
++   * the card is settled if and only if a saved user message carries its key
++   * (`settledSourceBlockKeys`). The store already drops failed/pending sends,
++   * so a send that never went out leaves the card live.
++   */
++  sourceBlockKey?: string
+   /**
+    * T6 (Stop button): set on the streaming assistant message when the user
+    * clicks Stop and the AbortController fires. Once set, the indicator must
+@@ -937,6 +951,12 @@ export interface ActionChip {
+   wire_intent?: string
+   /** Structured parameters for action execution */
+   parameters?: Record<string, unknown>
++  /**
++   * The card action this chip stands for (`ConversationMessage.sourceBlockKey`),
++   * stamped onto the user message the click creates. UI-only — `sendChip`
++   * forwards it to the bubble, never into chip metadata or the wire.
++   */
++  sourceBlockKey?: string
+ }
+ 
+ /** Max chips per assistant turn (coaching + suggested actions combined) */
+diff --git a/src/canvas/conversation/useConversation.ts b/src/canvas/conversation/useConversation.ts
+index dcb71171..597f9e7a 100644
+--- a/src/canvas/conversation/useConversation.ts
++++ b/src/canvas/conversation/useConversation.ts
+@@ -6,7 +6,7 @@
+  * (not persisted). Clears on scenario switch.
+  */
+ 
+-import { useState, useCallback, useRef, useEffect } from 'react'
++import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+ import { useCanvasStore } from '../store'
+ import { setCurrentScenarioId } from '../store/scenarios'
+ // Session identity without React context — see that module's header for why it
+@@ -115,7 +115,9 @@ import {
+   saveTranscript,
+   formatTruncationNotice,
+   releaseTranscriptTombstone,
++  settledSourceBlockKeys as settledSourceBlockKeysOf,
+ } from './utils/transcriptStore'
++import { HELD_PROPOSAL_STATE_KEY_PREFIX } from './selectors'
+ import { appendThreadEntries } from '../../services/threadService'
+ import type { ThreadEntry } from '../journey/threadTypes'
+ import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
+@@ -2283,6 +2285,8 @@ export interface DispatchActionOpts {
+   hidden?: boolean
+   /** Origin surface for telemetry */
+   source: ActionSource
++  /** G1 — the card action this is; stamped on the user bubble, never on the wire. */
++  sourceBlockKey?: string
+ }
+ 
+ function resolveUserTurnType(
+@@ -2379,6 +2383,12 @@ export interface SendTurnOpts {
+   chipMeta?: ChipMeta
+   /** When true, render the user bubble as a compact action indicator */
+   chipInitiated?: boolean
++  /**
++   * G1 — the card action this turn is (`sourceBlockKey.ts`), stamped on the
++   * user bubble so the saved transcript records that the action was taken.
++   * NOT part of the wire payload: `buildV5Payload` is never handed it.
++   */
++  sourceBlockKey?: string
+   /**
+    * ROADMAP 2.129 (b) — how to UNDO the optimistic local write this system event
+    * announces, if the server refuses it.
+@@ -2595,6 +2605,12 @@ export interface UseConversationReturn {
+   /** GraphPatchBlock state map (keyed by `${turnId}:${patchId}`) */
+   patchBlockStates: Map<string, PatchBlockState>
+   setPatchBlockState: (key: string, state: PatchBlockState) => void
++  /**
++   * G1 — the card actions the transcript records as taken
++   * (`ConversationMessage.sourceBlockKey` of every delivered user message).
++   * A card whose key is here is settled, including after a reload.
++   */
++  settledSourceBlockKeys: ReadonlySet<string>
+   /** Rejection details for patches that failed validation */
+   patchRejections: Map<string, PatchRejectionInfo>
+   setPatchRejection: (key: string, info: PatchRejectionInfo) => void
+@@ -3723,6 +3739,39 @@ export function useConversation(): UseConversationReturn {
+     })
+   }, [])
+ 
++  // ── G1: a card action already taken stays taken across a reload ──────────
++  // The keys of every delivered user message a card action created — derived
++  // from the transcript by the SAME rule that decides what is saved, so the
++  // live answer and the post-reload answer are one answer. `ActionChip` reads
++  // this through the conversation context.
++  const settledSourceBlockKeys = useMemo(
++    () => settledSourceBlockKeysOf(messages),
++    [messages],
++  )
++
++  // A held proposal's settlement has ONE authority, the registry above, and
++  // the card reads nothing else. So a confirm the transcript records is
++  // written INTO the registry rather than consulted beside it — after a reload
++  // the registry starts empty and this is what restores the entry. Only a
++  // missing entry is written: a live registry entry is never overridden, and
++  // an in-session confirm already wrote its own key on settle, so this is a
++  // no-op outside a restore. Layout effect, so a restored card never paints
++  // one live frame first.
++  useLayoutEffect(() => {
++    const missing: string[] = []
++    for (const key of settledSourceBlockKeys) {
++      if (key.startsWith(HELD_PROPOSAL_STATE_KEY_PREFIX) && !patchBlockStates.has(key)) {
++        missing.push(key)
++      }
++    }
++    if (missing.length === 0) return
++    setPatchBlockStates((prev) => {
++      const next = new Map(prev)
++      for (const key of missing) if (!next.has(key)) next.set(key, 'accepted')
++      return next
++    })
++  }, [settledSourceBlockKeys, patchBlockStates])
++
+   const setPatchRejection = useCallback((key: string, info: PatchRejectionInfo) => {
+     setPatchRejectionsMap((prev) => {
+       const next = new Map(prev)
+@@ -3868,6 +3917,7 @@ export function useConversation(): UseConversationReturn {
+         turnType,
+         chipMeta,
+         chipInitiated,
++        sourceBlockKey,
+       } = opts
+ 
+       // 1.16i swallow guard: a run_analysis (re-)click while a run turn is
+@@ -4145,6 +4195,11 @@ export function useConversation(): UseConversationReturn {
+           timestamp: new Date(),
+           deliveryState: 'pending',
+           ...(chipInitiated ? { chipInitiated: true } : {}),
++          // G1: the saved transcript's record that this card's action was
++          // taken. Persisted only once the bubble is delivered (the store
++          // drops 'pending'/'failed'), so a send that never went out cannot
++          // settle its card after a reload.
++          ...(sourceBlockKey ? { sourceBlockKey } : {}),
+         })
+       } else if (skipUserBubble && mode === 'user' && !hidden) {
+         userBubbleIdForTurn = lastVisibleUserBubbleIdRef.current
+@@ -6480,6 +6535,7 @@ export function useConversation(): UseConversationReturn {
+         turnType,
+         chipMeta,
+         chipInitiated: !opts.hidden,
++        ...(opts.sourceBlockKey ? { sourceBlockKey: opts.sourceBlockKey } : {}),
+       })
+     },
+     [sendTurn],
+@@ -6533,6 +6589,8 @@ export function useConversation(): UseConversationReturn {
+           label: chip.label,
+           message: messageToSend,
+           source: 'chip',
++          // G1 — rides beside the chip metadata, never inside it.
++          ...(chip.sourceBlockKey ? { sourceBlockKey: chip.sourceBlockKey } : {}),
+         })
+       } else {
+         // Chip has no message and is not an undo — this should not happen in practice
+@@ -6923,6 +6981,7 @@ export function useConversation(): UseConversationReturn {
+     startNewDraft,
+     patchBlockStates,
+     setPatchBlockState,
++    settledSourceBlockKeys,
+     patchRejections,
+     setPatchRejection,
+   }
+diff --git a/src/canvas/conversation/utils/transcriptStore.ts b/src/canvas/conversation/utils/transcriptStore.ts
+index 87de91f6..0aeb00f8 100644
+--- a/src/canvas/conversation/utils/transcriptStore.ts
++++ b/src/canvas/conversation/utils/transcriptStore.ts
+@@ -30,6 +30,11 @@
+  * interaction (`actionChips`) are dropped, and anything dropped for SIZE is
+  * declared on screen via `droppedCount` — a placeholder that means "you have
+  * never been here" is a factual claim, and it must not be made falsely.
++ *
++ * The inverse also holds: a card action the user already TOOK must not come
++ * back live. A user message records which card created it (`sourceBlockKey`),
++ * and `settledSourceBlockKeys` reads that back, so the saved transcript is
++ * the one witness of what was done (G1).
+  */
+ 
+ import type { ConversationMessage } from '../types'
+@@ -78,6 +83,9 @@ interface StoredMessage {
+   insights?: unknown[]
+   clientTurnId?: string
+   chipInitiated?: boolean
++  /** G1 — the card action that created this user message. Optional: saves
++   *  written before it existed load exactly as they always did. */
++  sourceBlockKey?: string
+   sessionDivider?: string
+   synthetic?: boolean
+ }
+@@ -144,6 +152,28 @@ function isPersistable(m: ConversationMessage): boolean {
+   return true
+ }
+ 
++/**
++ * G1 — the card actions a transcript records as TAKEN: the `sourceBlockKey` of
++ * every user message this store would persist (`isPersistable`), and nothing
++ * else.
++ *
++ * Built on the persistence rule rather than beside it, so "settled" cannot
++ * drift from "saved": a failed or still-pending send is never saved, so it
++ * never settles its card, and the answer read live is the answer a reload
++ * would give. Pure and total; an empty set when nothing was taken.
++ */
++export function settledSourceBlockKeys(
++  messages: readonly ConversationMessage[],
++): ReadonlySet<string> {
++  const keys = new Set<string>()
++  for (const m of messages) {
++    if (m.role !== 'user' || !m.sourceBlockKey) continue
++    if (!isPersistable(m)) continue
++    keys.add(m.sourceBlockKey)
++  }
++  return keys
++}
++
+ function toStored(m: ConversationMessage): StoredMessage {
+   const out: StoredMessage = {
+     id: m.id,
+@@ -156,6 +186,7 @@ function toStored(m: ConversationMessage): StoredMessage {
+   if (m.insights && m.insights.length > 0) out.insights = m.insights as unknown[]
+   if (m.clientTurnId) out.clientTurnId = m.clientTurnId
+   if (m.chipInitiated) out.chipInitiated = true
++  if (m.sourceBlockKey) out.sourceBlockKey = m.sourceBlockKey
+   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
+   if (m.synthetic) out.synthetic = true
+   return out
+@@ -177,6 +208,9 @@ function fromStored(s: StoredMessage): ConversationMessage {
+       : {}),
+     ...(s.clientTurnId ? { clientTurnId: s.clientTurnId } : {}),
+     ...(s.chipInitiated ? { chipInitiated: true } : {}),
++    ...(typeof s.sourceBlockKey === 'string' && s.sourceBlockKey
++      ? { sourceBlockKey: s.sourceBlockKey }
++      : {}),
+     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
+     ...(s.synthetic ? { synthetic: true } : {}),
+   }
+diff --git a/src/canvas/stores/guidanceStore.ts b/src/canvas/stores/guidanceStore.ts
+index 420e5150..7f3f56bf 100644
+--- a/src/canvas/stores/guidanceStore.ts
++++ b/src/canvas/stores/guidanceStore.ts
+@@ -243,7 +243,8 @@ export function withOlumiReveal<Args extends unknown[]>(
+ /**
+  * The producer-declared intent a card-hosted inline action may carry alongside
+  * its display label and submitted message. Every field is optional and every
+- * field is the PRODUCER's — the UI never authors one (see `_sendChip`).
++ * WIRE field is the PRODUCER's — the UI never authors one (see `_sendChip`).
++ * `sourceBlockKey` is the one UI-owned field, and it never reaches the wire.
+  */
+ export interface SendChipMeta {
+   /** Stable chip id, when the caller has one (otherwise the seam mints one). */
+@@ -279,6 +280,14 @@ export interface SendChipMeta {
+   intent?: string
+   /** `suggested_actions[].parameters`, forwarded unchanged. */
+   parameters?: Record<string, unknown>
++  /**
++   * G1 — the card whose action this send is (`coach:…` / `held:…`, built by
++   * `conversation/sourceBlockKey.ts`). The ONE field here that is the UI's
++   * own rather than the producer's, and it never reaches the wire: it is
++   * stamped on the user message this send creates, so a reload can tell the
++   * action was already taken. Absent ⇒ the send is exactly as before.
++   */
++  sourceBlockKey?: string
+ }
+ 
+ export interface GuidanceState {
+diff --git a/src/v5/blocks/ActionChip.tsx b/src/v5/blocks/ActionChip.tsx
+index 4a25efd5..ef7e201b 100644
+--- a/src/v5/blocks/ActionChip.tsx
++++ b/src/v5/blocks/ActionChip.tsx
+@@ -40,6 +40,7 @@
+  */
+ import { useCallback, useRef, useState, type ReactElement } from 'react'
+ import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
++import { useOptionalConversationContext } from '../../canvas/conversation/ConversationContext'
+ import { CHIP_CLASS } from './chipClass'
+ 
+ export interface ActionChipProps {
+@@ -78,6 +79,16 @@ export interface ActionChipProps {
+   inert?: boolean
+   /** Id of the visible element that explains why the chip is inert (the card's notice). */
+   describedBy?: string
++  /**
++   * G1 — this chip's card action (`coachingSourceBlockKey`). When present it
++   * travels with the send so the user message records which card it came
++   * from, and the chip reads back as SETTLED whenever the conversation's
++   * transcript holds a delivered message carrying it — which is what keeps an
++   * action the user already took from coming back live after a reload.
++   * Absent (or no conversation provider) ⇒ settlement is local state alone,
++   * exactly as before.
++   */
++  sourceBlockKey?: string
+ }
+ 
+ /*
+@@ -97,9 +108,18 @@ export function ActionChip({
+   intent,
+   inert = false,
+   describedBy,
++  sourceBlockKey,
+ }: ActionChipProps): ReactElement {
+   const sendChip = useGuidanceStore((s) => s._sendChip)
+-  const [settled, setSettled] = useState(false)
++  const [settledLocally, setSettled] = useState(false)
++  // G1: local state answers "did THIS node get clicked?" and dies with the
++  // page. The transcript answers "was this card's action taken?" and survives
++  // it. Either one settles the chip; neither can un-settle it.
++  const transcriptKeys: ReadonlySet<string> | undefined =
++    useOptionalConversationContext()?.settledSourceBlockKeys
++  const settledByTranscript =
++    sourceBlockKey !== undefined && transcriptKeys?.has(sourceBlockKey) === true
++  const settled = settledLocally || settledByTranscript
+   // Synchronous twin of `settled`. State only updates on the next render, so two
+   // clicks inside one tick would both read `settled === false` and send twice;
+   // the ref closes that window.
+@@ -118,9 +138,18 @@ export function ActionChip({
+     // (`KNOWN_INTENTS ∧ CEE_ACCEPTED_INTENTS`) still decides whether it reaches
+     // the wire and still fails CLOSED, so this can only ever forward an intent
+     // the PRODUCER declared and the deployed CEE routes.
+-    sendChip(label, message, intent ? { intent } : undefined)
++    //
++    // `sourceBlockKey` rides the same meta but never reaches the wire: it is
++    // stamped on the user message this send creates (G1).
++    sendChip(
++      label,
++      message,
++      intent || sourceBlockKey
++        ? { ...(intent ? { intent } : {}), ...(sourceBlockKey ? { sourceBlockKey } : {}) }
++        : undefined,
++    )
+     setSettled(true)
+-  }, [settled, inert, sendChip, label, message, intent])
++  }, [settled, inert, sendChip, label, message, intent, sourceBlockKey])
+ 
+   return (
+     <button
+diff --git a/src/v5/blocks/V5CoachingBlock.tsx b/src/v5/blocks/V5CoachingBlock.tsx
+index 684952e8..af0530d7 100644
+--- a/src/v5/blocks/V5CoachingBlock.tsx
++++ b/src/v5/blocks/V5CoachingBlock.tsx
+@@ -104,6 +104,7 @@ import { BookOpenCheck } from 'lucide-react'
+ import { typography } from '../../styles/typography'
+ import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
+ import { ActionChip } from './ActionChip'
++import { coachingSourceBlockKey } from '../../canvas/conversation/sourceBlockKey'
+ import {
+   guidanceCategoryIcon,
+   guidanceCategoryTone,
+@@ -126,6 +127,13 @@ export interface V5CoachingBlockProps {
+    * Default `false`, so every other mount is byte-identical to before.
+    */
+   suppressHeader?: boolean
++  /**
++   * The assistant turn this card is mounted in (`message.id`). It scopes the
++   * action chip's `sourceBlockKey` (G1), so an action taken on THIS card
++   * stays settled after a reload while the same `block_id` on another turn
++   * does not. Absent ⇒ no key, and the chip settles on local state alone.
++   */
++  turnId?: string
+ }
+ 
+ type Tone = 'danger' | 'info'
+@@ -248,7 +256,7 @@ const SOURCE_SENTENCE: Partial<Record<string, string>> = {
+   deterministic_signal: 'Raised by an automatic check',
+ }
+ 
+-export function V5CoachingBlock({ block, variant = 'default', suppressHeader = false }: V5CoachingBlockProps): ReactElement {
++export function V5CoachingBlock({ block, variant = 'default', suppressHeader = false, turnId }: V5CoachingBlockProps): ReactElement {
+   const testIdPrefix = variant === 'bias_signal' ? 'bias-signal-card' : 'v5-coaching'
+ 
+   // The IMPORTANCE channel, derived from the shared authority so this card,
+@@ -464,6 +472,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
+               intent={block.action_intent}
+               inert={actionInert}
+               describedBy={actionInert ? freshnessNoticeId : undefined}
++              sourceBlockKey={coachingSourceBlockKey(turnId, block.block_id)}
+             />
+           ) : (
+             <span
+diff --git a/src/v5/blocks/V5HeldProposalBlock.tsx b/src/v5/blocks/V5HeldProposalBlock.tsx
+index a005ab12..821c64c6 100644
+--- a/src/v5/blocks/V5HeldProposalBlock.tsx
++++ b/src/v5/blocks/V5HeldProposalBlock.tsx
+@@ -51,6 +51,7 @@ import { type ReactElement, useCallback, useMemo } from 'react'
+ import { Check, Hand, X } from 'lucide-react'
+ import { typography } from '../../styles/typography'
+ import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
++import { heldProposalSourceBlockKey } from '../../canvas/conversation/sourceBlockKey'
+ import { dedupeRenderedText, splitRenderSegments } from '../../canvas/conversation/messageComposition'
+ import { CHIP_CLASS } from './chipClass'
+ import type {
+@@ -271,10 +272,20 @@ export function V5HeldProposalBlock({
+     // Without it this click was a bare text send and CEE routed the apply as
+     // ordinary chat — the affordance said "confirm", the reply said "you did not
+     // ask me to edit the model". Absent ⇒ omitted, i.e. exactly today's turn.
++    //
++    // G1: the meta also names THIS card (`held:<turnId>:<proposal_id>`). It is
++    // stamped on the user message, never sent, and it is what lets a reload
++    // restore this card as confirmed instead of offering Confirm again.
++    const sourceBlockKey = heldProposalSourceBlockKey(turnId, block.proposal_id)
+     sendChip(
+       confirmCopy.record,
+       confirm.message,
+-      confirm.action_type ? { action_type: confirm.action_type } : undefined,
++      confirm.action_type || sourceBlockKey
++        ? {
++            ...(confirm.action_type ? { action_type: confirm.action_type } : {}),
++            ...(sourceBlockKey ? { sourceBlockKey } : {}),
++          }
++        : undefined,
+     )
+     onSettle?.(block.proposal_id, 'accepted', turnId)
+   }, [
