@@ -260,8 +260,13 @@ describe('every clause of the qualifier is a fact the view model already states'
     const vm = base()
     const one = { ...vm, deeper: { ...vm.deeper, critiques: [], caveats: [vm.deeper.caveats[0] ?? ({} as never)] } }
     const none = { ...vm, deeper: { ...vm.deeper, critiques: [], caveats: [] } }
-    expect(buildCommitmentQualifier(one)?.text).toMatch(/1 caveat in About/)
+    // V2 one-line qualifier (Paul, 25 Sep): beside another clause the count sits
+    // one click away in `detail`; ALONE it stays on the line, never silenced.
+    const q = buildCommitmentQualifier(one)
+    expect(`${q?.text ?? ''} ${q?.detail ?? ''}`).toMatch(/1 caveat in About/)
+    if (q && q.text !== 'Provisional · 1 caveat in About') expect(q.detail ?? '').toMatch(/1 caveat in About/)
     expect(buildCommitmentQualifier(none)?.text ?? '').not.toMatch(/caveat/)
+    expect(buildCommitmentQualifier(none)?.detail ?? '').not.toMatch(/caveat/)
   })
 
   it('renders nothing before a run', () => {

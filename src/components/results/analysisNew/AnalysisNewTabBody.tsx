@@ -1874,6 +1874,7 @@ export function AnalysisNewTabBody({
             that can still swing is a flag that will. */}
         <ModelStrip
           isPreRun={vm.status.isPreRun}
+          openAtRest
           insights={nodeInsights}
           reviewSlot={
             <ModelReviewTool

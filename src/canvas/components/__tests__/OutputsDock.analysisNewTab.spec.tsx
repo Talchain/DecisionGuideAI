@@ -146,7 +146,16 @@ const REASONING_GROUPS = [
   'analysis-new-about',
   'analysis-new-what-moves-the-outcome',
 ]
+/**
+ * ⭐ V2 prototype (Paul, 25 Sep 2026): "What moves the outcome" renders ONLY
+ * inside the challenge's "Assumptions and evidence" door (`ReasoningSignals`'
+ * `evidenceSlot`), closed at rest — so that door is now the outer level of the
+ * group and is opened first. Its button ends `-disclose`, not `-toggle`.
+ */
+const EVIDENCE_DOOR = 'analysis-new-signals-disclose'
 function openReasoningGroups(): void {
+  const door = screen.queryByTestId(EVIDENCE_DOOR)
+  if (door !== null && door.getAttribute('aria-expanded') === 'false') fireEvent.click(door)
   for (const id of REASONING_GROUPS) {
     const toggle = screen.queryByTestId(`${id}-toggle`)
     if (toggle !== null && toggle.getAttribute('aria-expanded') === 'false') {
@@ -199,6 +208,21 @@ function frontAnalysisTab() {
  */
 function seedCompletedRun() {
   useCanvasStore.setState({ hasCompletedFirstRun: true } as never)
+}
+
+/**
+ * ⭐ A MODEL ON THE CANVAS, for the case that binds the review tool. V2
+ * prototype (Paul, 25 Sep 2026): "N to review" (`analysis-new-review`) renders
+ * INSIDE the model strip (`reviewSlot`), and the strip draws only over a model
+ * that has rows (with none, the tool renders bare). Restored to
+ * `HARNESS_NODES` after every case.
+ */
+const HARNESS_NODES = useCanvasStore.getState().nodes
+function seedModelNodes() {
+  const node = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: { label: id } })
+  useCanvasStore.setState({
+    nodes: [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor'), node('out1', 'outcome')],
+  } as never)
 }
 
 function ensureMatchMedia() {
@@ -269,6 +293,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  // `seedModelNodes()` writes the canvas; put back what the harness started with.
+  useCanvasStore.setState({ nodes: HARNESS_NODES } as never)
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -489,10 +515,10 @@ describe('C · THE SECTION STRUCTURE', () => {
       // opens the census. The finding under it is a 14px question, not an h3.
       'Challenge the thinking',
       // ⚠ V2 FIRST SCREEN (24 Sep 2026): the answer zone's commitment block now
-      // leads the sections. Paul's 17 Sep "what matters most means the drivers"
-      // is still met BEFORE it, at rest, by the challenge's "Top drivers" signal
-      // rows (which carry no h3); the full drivers section, closed, follows the
-      // answer it explains so the options chart reaches the first screen.
+      // leads the sections. ⛔ REVERSED, V2 prototype (Paul, 25 Sep 2026): the
+      // at-rest "Top drivers" line is gone, and the drivers ("What moves the
+      // outcome", no h3) render inside the challenge's "Assumptions and
+      // evidence" door — before this heading, one click away.
       COMMITMENT_COPY.heading,
       // ⚠ RE-POINTED (V2 gap 23): "Drivers and dynamics" WAS here as a second
       // h3 nested one level inside "What moves the outcome" — exactly the
@@ -539,6 +565,8 @@ describe('C · THE SECTION STRUCTURE', () => {
       // the two that remain in "If you want to go further". RUN DETAILS LAST is
       // untouched — `howWorkedOut` is still last, which is the part of this
       // line the prototype actually rules on.
+      // ⭐ V2 prototype (Paul, 25 Sep 2026): it now opens from INSIDE the
+      // "Assumptions and evidence" door (`openReasoningGroups` opens it first).
       //
       // ⭐ THIS ASSERTION WAS NEVER REACHED BEFORE THE FIX ABOVE, and that is
       // worth recording: it sits in the same `it` as the section census, after
@@ -589,6 +617,9 @@ describe('C · THE SECTION STRUCTURE', () => {
     // here: two derivations of one claim disagree the first time either moves
     // (trap 12).
     seedCompletedRun()
+    // V2 prototype (Paul, 25 Sep 2026): the review tool is bound below, in its
+    // V2 home inside the model strip, which draws only over a model.
+    seedModelNodes()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
     openReasoningGroups()
@@ -600,8 +631,10 @@ describe('C · THE SECTION STRUCTURE', () => {
      * thinking", which V2 places ABOVE the answer zone. So the claim is now
      * stronger than the 17 Sep list it replaces: no `h3` on the tab precedes
      * the coaching — not the drivers, not the answer, no detail. (Scope, per
-     * the note above: the `h3` census of THIS harness, which seeds no canvas
-     * nodes, so Focus Now — an `h2`, and run-conditional — is not in view.)
+     * the note above: the `h3` census of THIS harness. It seeds four canvas
+     * nodes so the model strip, and the review tool inside it, render; the
+     * strip carries no `h3`, and "Focus now" is gone from this tab — V2
+     * prototype, Paul 25 Sep 2026.)
      *
      * ⚠ STATED AS AN EXACT RELATION, NOT AN INDEX, and bound by IDENTITY (the
      * card's testid), because the card's text is the engine's own title and
@@ -620,8 +653,10 @@ describe('C · THE SECTION STRUCTURE', () => {
     expect(uncertainty, 'precondition: the detail this is measured against rendered').not.toBeNull()
     expect(all.indexOf(zoneTitle as HTMLHeadingElement)).toBeLessThan(all.indexOf(uncertainty as HTMLHeadingElement))
     // …and the rest of the findings are one step above it: the review tool
-    // sits under the model strip, before the card in document order.
+    // sits INSIDE the model strip (V2 prototype, Paul 25 Sep 2026: "N to
+    // review" follows the rows), before the card in document order.
     const review = screen.getByTestId('analysis-new-review')
+    expect(screen.getByTestId('analysis-new-model-strip')).toContainElement(review)
     expect(
       review.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
       'the review tool must precede the Challenge card',
