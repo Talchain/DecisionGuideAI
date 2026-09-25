@@ -49,6 +49,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
@@ -535,8 +536,28 @@ export function ModelRowView({
         it — the guard in `rowAtomsAlignToOneGrid.spec.tsx` asserts the two
         agree, derived from the `<ul>`, so drift REDs rather than mis-renders.
       */
-      className={`grid grid-cols-subgrid col-span-4 items-center gap-2 px-2 py-1.5 border-b border-panel-border ${
-        selected ? 'bg-panel-hover' : ''
+      /* ⭐ MODEL-9: selection is an outline, never a fill (the prototype's
+         `.mark:hover,.mark[aria-pressed="true"]` and `.iconbtn.active` are
+         both border-only — `Olumi_Reasoning_Prototype_V2.html` :81, :96). The
+         former `bg-panel-hover` tint measured 1.03:1 against the panel
+         ground — functionally invisible — so a click had no visible effect
+         on the row it selected. */
+      /* ⭐⭐ MODEL-1, 25 Sep 2026 — TWO LINES, NOT A TRUNCATED ONE. Names cut
+         to "Technical coor…" while a value took 160px, plus a sideways
+         scrollbar at the 280px dock, made the tab that lists the model
+         unreadable at the width the dock actually opens at (the known
+         instrument, `modelRowCellOverlap.measure.ts`, read 33/45
+         overlapping pairs at 280). The LI itself is NOT subgridded on the
+         row axis (only `grid-cols-subgrid` — columns — is declared below),
+         so its own row tracks stay the default `auto`, and placing children
+         on two explicit `row-start` lines costs nothing beyond what is
+         already free. `border-b` moves to `divide-y` territory conceptually
+         but is simply dropped per the fix (`py-[5px]` is the row's own
+         rhythm now, matching the prototype's `.reviewitem{padding:5px 0}`
+         with no rule between rows). `items-start`, not `items-center`: a
+         two-line row has no single centre for its children to share. */
+      className={`grid grid-cols-subgrid col-span-4 items-start gap-x-2 gap-y-0.5 px-2 py-[5px] ${
+        selected ? 'ring-1 ring-inset ring-info rounded-sm' : ''
       }`}
       onClick={() => onSelect?.(row.id)}
     >
@@ -574,17 +595,27 @@ export function ModelRowView({
         aria-label={KIND_LABEL[row.kind]}
         title={KIND_LABEL[row.kind]}
         data-testid={`model-row-v2-${row.id}-glyph`}
-        className="flex items-center justify-center text-text-light select-none"
+        /* ⭐ MODEL-1: `row-start-1 col-start-1 self-start`, explicit — the
+           glyph sits on LINE 1 beside the label, never line 2. `mt-0.5`
+           optically centres the 11px shape on the label's first line of
+           text rather than the two-line row's overall box. */
+        className="row-start-1 col-start-1 self-start mt-0.5 flex items-center justify-center text-text-light select-none"
       >
         {row.kind === 'relationship'
           ? KIND_GLYPH.relationship
           : <NodeShapeIndicator nodeKind={row.kind} size={11} />}
       </span>
 
-      {/* ── CELL 2 · IDENTITY — the flexible track. `min-w-0` is required or
-          the button's automatic minimum keeps the column from ever shrinking,
-          which is the defect this file already fixed once at the atom level. */}
-      <span className="flex items-center gap-1.5 min-w-0">
+      {/* ── CELL 2 · IDENTITY — LINE 1, spanning the three remaining tracks.
+          ⭐ MODEL-1: `row-start-1 col-start-2 col-span-3`. This cell no
+          longer competes with the value and meta cells for column 2's
+          width alone — it now has the whole row's remaining width on its
+          own line, which is what lets the label below drop `truncate` for
+          `break-words` without losing characters. `min-w-0` is required or
+          the button's automatic minimum keeps the column from ever
+          shrinking, which is the defect this file already fixed once at the
+          atom level. */}
+      <span className="row-start-1 col-start-2 col-span-3 flex items-center gap-1.5 min-w-0">
       {renaming ? (
         /*
           ⭐ THE RENAME EDITOR. It REPLACES the label rather than sitting beside
@@ -630,7 +661,14 @@ export function ModelRowView({
              bodySmall otherwise". A rename is text, so bodySmall. It is
              deliberately 2px larger than the label button it replaces — the
              button is not a text-entry control and the rule does not reach it. */
-          className={`${typography.bodySmall} text-text-body bg-panel-hover border border-panel-border rounded px-1 py-0 flex-1 min-w-[6rem]`}
+          /* ⭐ MODEL-5: `bg-panel border-field`, NOT A TINTED GROUND. The former
+             `bg-panel-hover`/`border-panel-border` pair measured about 1.2:1
+             against its own ground, well under WCAG 1.4.11's 3:1 — a field a
+             user could barely see they were typing into. `border-field` is
+             the estate's own field-border token (used elsewhere in this same
+             tab's filter row). No vertical padding, so the row's reserved
+             height is unchanged. */
+          className={`${typography.bodySmall} text-text-body bg-panel border border-field rounded-sm px-2 flex-1 min-w-[6rem]`}
         />
       ) : (
       <button
@@ -727,10 +765,17 @@ export function ModelRowView({
            would need the name itself to change, which is a vocabulary decision
            and is ratified elsewhere. */
         title={labelIsTypeDefault(row) ? UNWRITTEN_QUESTION_TITLE : row.label}
+        /* ⭐ MODEL-1: `break-words`, NOT `truncate`, for the plain-label
+           case — the label now owns its own full-width line (see CELL 2
+           above), so there is no longer a value cell six words away
+           fighting it for the same row. A directed relationship's two
+           endpoints keep their own `truncate` below (unchanged): they are a
+           different shape (two independently-identified halves either side
+           of an arrow) and MODEL-1's fix does not touch that case. */
         className={`${typography.panelBody} ${
           labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'
         } text-left min-w-[6rem] flex-1 ${
-          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'truncate'
+          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'break-words'
         }`}
         onClick={e => {
           e.stopPropagation()
@@ -885,46 +930,26 @@ export function ModelRowView({
           title="Rename this element"
           aria-label={`Rename ${row.label}`}
           /*
-           * ⛔⛔ `min-w-0 truncate`, NOT `shrink-0 whitespace-nowrap` — AN ACTION
-           * MUST NOT DRAW OVER THE MODEL.
+           * ⭐ MODEL-2: AN ICON BUTTON, NOT A WORD. The prototype's row action
+           * is `.iconbtn` — a 28px circle holding a 14px glyph, never text
+           * (`Olumi_Reasoning_Prototype_V2.html` `btn('edit', …)`). The former
+           * text link ("Rename", `buttonSmall` 12px/600 underlined) clipped to
+           * "Ren…" on every factor row at the widths this dock actually opens
+           * at (32px rendered against a 47px scrollWidth) — a link whose own
+           * label is unreadable. A FIXED-SIZE icon has no text to clip and
+           * nothing to overflow across the value cell it sits beside, which
+           * is the same overlap MODEL-1's `min-w-0 truncate` history above
+           * this comment was fighting from the text side.
            *
-           * `shrink-0` meant this control could not yield, so when the row ran
-           * out of room it OVERFLOWED and painted across the value. Measured on
-           * the deployed build (guest, 1024x768, dock 317px): **8 overlapping
-           * atom pairs, and every single one of them `rename-start x value`** —
-           * the word "Rename" drawn through the number. That is the
-           * `Ren£20,000` in Paul's manual-test screenshot, 21 Sep.
-           *
-           * ⭐ IT IS UNIVERSAL, NOT ONE MODEL'S. `modelRowCellOverlap.measure.ts`
-           * swept all five starters at three dock widths: 10-16 pairs at 320px,
-           * 5-8 at 361px, 0 at 392px — the same monotone curve on every one.
-           *
-           * ⭐ CONTROLLED EXPERIMENT ON THE LIVE BUILD, base -> shrinkable ->
-           * base: **8 -> 0 -> 8**. Hiding the control entirely also gives 0, so
-           * letting it YIELD is sufficient and removing it is unnecessary.
-           *
-           * ⚠ THE TARGET SURVIVES, MEASURED RATHER THAN ASSUMED. Across 19
-           * controls the rendered width goes from a uniform 46.91px to a range
-           * of 30-46.91px: the narrowest is **30px**, still clear of WCAG 2.2 AA
-           * 2.5.8's 24px, and `under24w` is 0 both before and after. The
-           * accessible name is `aria-label` (the full "Rename <label>") and the
-           * hover text is `title`, so neither is affected by visual truncation.
-           *
-           * ⛔⛔ `min-w-[2rem]`, NOT `min-w-0`, AND THE FLOOR IS THE POINT. With
-           * unbounded shrink the measure read **0 overlapping pairs and 181
-           * atoms** at a 320px dock, against 189 at 361px: EIGHT Rename controls
-           * had shrunk to zero width and vanished from the layout entirely. A
-           * zero-area control is invisible AND unclickable, so that trade swaps
-           * a visible defect for a worse invisible one — and the overlap count
-           * would have reported it as a clean pass. 2rem = 32px keeps it clear
-           * of the 24px target at every width the dock allows.
-           *
-           * ⚠ ROWED, NOT FIXED: this button's BOX HEIGHT measures 12px, which is
-           * under the same 24px bar — before this change as well as after. It is
-           * pre-existing and out of scope here, but it is real and nothing else
-           * records it.
+           * `w-6 h-6` (24px) is the WCAG 2.2 AA 2.5.8 floor; the prototype's
+           * own `.iconbtn` is 28px, but the row is a dense list rather than a
+           * toolbar and 24px is the estate's own floor everywhere else in
+           * this file (`MIN_TARGET_RENDERED_PX`). `rounded-full` +
+           * `hover:ring-1 hover:ring-inset hover:ring-border-emphasis` mirrors
+           * `.iconbtn`'s `border-radius:99px` and its hover ring, with no
+           * fill at rest (DS v5 — no tinted idle chrome).
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted min-w-[2rem] truncate`}
+          className="inline-flex items-center justify-center w-6 h-6 shrink-0 rounded-full text-text-light hover:ring-1 hover:ring-inset hover:ring-border-emphasis focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           onClick={e => {
             /* The row is `role="option"` with its own `onClick`; without this,
                starting a rename would also select the row. Same reason, same
@@ -933,11 +958,24 @@ export function ModelRowView({
             beginRename()
           }}
         >
-          Rename
+          <Pencil aria-hidden="true" className="w-3.5 h-3.5" />
         </button>
       )}
 
       </span>
+
+      {/* ── LINE 2, MODEL-1 — VALUE + META TOGETHER, BELOW THE NAME.
+          `row-start-2 col-start-2 col-span-3`: the same three tracks CELL 2
+          spans above it, one row down. CELL 3 (value) and CELL 4 (meta) are
+          UNCHANGED below — same elements, same classes, same testids, same
+          `shrink-0`/`whitespace-nowrap` reasoning that this file's own long
+          comments already justify — only their SHARED ANCESTOR moved. Given
+          its own line, the row no longer needs the value and the label to
+          divide one line's width between them, which is what the sideways
+          scroll at 280px measured. `flex-wrap` lets a wide `proposed` cell
+          (the arm already documented as deliberately taller) grow onto a
+          third line rather than force this one wider than the dock. */}
+      <span className="row-start-2 col-start-2 col-span-3 flex flex-wrap items-center gap-1.5 min-w-0">
       {/* ── CELL 3 · VALUE — the column this whole change exists to create.
 
           ⚠⚠ THE TRACK IS `fit-content(5.5rem)` (declared once, in
@@ -1178,8 +1216,15 @@ export function ModelRowView({
            * OVERLAPS the value. A fake affordance and an affordance painted
            * across the number are both bad, and the ruling was written before
            * anything measured the second one. Raised, not resolved.
+           *
+           * ⭐ TYPE-11 / MODEL-2: `panelBody` (12px/400), not `buttonSmall`
+           * (12px/600) — DS v5 §2.2 and the prototype's `.textbutton` are both
+           * regular weight; a semibold blue link beside every row read as a
+           * button rather than the model. The underline is dropped with it
+           * (the prototype's `.textbutton` carries none); `min-h-[24px]`
+           * keeps the WCAG 2.2 AA 2.5.8 target the underline used to imply.
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
+          className={`${typography.panelBody} text-info shrink-0 whitespace-nowrap min-h-[24px] inline-flex items-center`}
           onClick={e => {
             e.stopPropagation()
             confirmHandler?.(row.id)
@@ -1324,6 +1369,14 @@ export function ModelRowView({
           {row.id}
         </span>
       )}
+      </span>
+      {/* ⭐ MODEL-1: closes the LINE 2 wrapper opened before CELL 3. Everything
+          from the value cell through the Advanced id above sat inside it; the
+          three full-width lines below (band, goal fields, editor actions) stay
+          OUTSIDE it and remain direct `col-span-4` children of the `<li>`,
+          exactly as their own comments require — wrapping them into LINE 2
+          would silently un-child them from the row and break the load-bearing
+          `col-span-4` grant `rowAtomsDoNotWrap.spec` pins. */}
       </span>
 
       {/* ── QUICK-SET BAND LINE · THE SAME FIX, FOR THE CONTROL #1410 DID NOT REACH.
@@ -1530,6 +1583,18 @@ function EditorActionLine({
   // reachable from the UI only through this line.
   const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit, row.valueAdmission, row.declaresNoUnit)
   const blockedId = `model-row-v2-${row.id}-value-blocked`
+  /* ⭐ TWO SEPARATE STRING LITERALS, NOT ONE TERNARY INSIDE A TEMPLATE.
+     `tests/helpers/semanticTextContrastScan.ts` reads a WHOLE template
+     literal's span as one shared class list, interpolations included —
+     deliberately, so it cannot be fooled into missing a ground. Nesting
+     `bg-primary text-text-on-color` and `text-text-light` inside one
+     `` `…${cond ? 'a' : 'b'}…` `` therefore reads as `text-text-light`
+     painted on `bg-primary` (1.10:1), even though the two never render
+     together. Pre-computing the whole conditional as its own `'…' : '…'`
+     expression — no enclosing backtick — gives the scanner two genuinely
+     separate literals to attribute, which is what actually happens at
+     runtime. */
+  const reviewStateClass = blocked === null ? 'bg-primary text-text-on-color' : 'text-text-light'
   return (
     <span
       data-testid={`model-row-v2-${row.id}-edit-actions`}
@@ -1638,11 +1703,14 @@ function EditorActionLine({
           aria-describedby={blocked === null ? undefined : blockedId}
           disabled={blocked !== null}
           onClick={() => onProposeEdit(row.id)}
-          className={`${typography.buttonSmall} border rounded px-2 py-0.5 whitespace-nowrap ${
-            blocked === null
-              ? 'text-info border-info/50'
-              : 'text-text-light border-panel-border'
-          }`}
+          /* ⭐ MODEL-5: A PRIMARY PILL, NOT AN 18PX BORDERED CHIP. The former
+             `buttonSmall` (12px/600) chip at `py-0.5` measured 18px tall with
+             a 4px-radius border — the product's core commit act rendered as
+             a barely-there square. `rounded-full bg-primary` matches the
+             prototype's `.primary` recipe; blocked keeps the same shape with
+             no fill, so disabled reads as disabled rather than as a second
+             style of button. */
+          className={`${typography.panelBody} inline-flex items-center px-2.5 rounded-full whitespace-nowrap ${reviewStateClass}`}
         >
           Review change
         </button>
@@ -1651,7 +1719,7 @@ function EditorActionLine({
           data-testid={`model-row-v2-${row.id}-discard-edit`}
           aria-label={`Discard the new value for ${row.label}`}
           onClick={() => onDiscardEdit(row.id)}
-          className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5 whitespace-nowrap`}
+          className={`${typography.panelBody} text-info whitespace-nowrap`}
         >
           Discard
         </button>
@@ -2122,7 +2190,7 @@ function GoalTargetFieldsLine({
           onChange={e =>
             onDraftChange(row.id, commit.draft, commit.unit, e.target.value as ConstraintType)
           }
-          className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+          className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
         >
           <option value="at_least">at least</option>
           <option value="at_most">at most</option>
@@ -2145,7 +2213,7 @@ function GoalTargetFieldsLine({
             if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
             if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
           }}
-          className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+          className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
         />
       </label>
     </span>
@@ -2219,7 +2287,7 @@ function ValueCell({
                     onDiscardEdit(row.id)
                   }
                 }}
-                className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                className={`${typography.tabular} w-24 bg-panel border border-field rounded-sm px-2`}
               />
             </span>
 
@@ -2296,7 +2364,10 @@ function ValueCell({
                   data-testid={`model-row-v2-${row.id}-confirm`}
                   aria-label={`Confirm new value for ${row.label}`}
                   onClick={() => onConfirmEdit(row.id)}
-                  className={`${typography.buttonSmall} text-info border border-info/50 rounded px-2 py-0.5`}
+                  /* ⭐ MODEL-5: SAME PRIMARY-PILL RECIPE AS `-review` ABOVE.
+                     Confirm stays its OWN separate step after Review — this
+                     is a restyle of the chip, not a merge of the two acts. */
+                  className={`${typography.panelBody} inline-flex items-center px-2.5 rounded-full bg-primary text-text-on-color whitespace-nowrap`}
                 >
                   Confirm
                 </button>
@@ -2305,7 +2376,7 @@ function ValueCell({
                   data-testid={`model-row-v2-${row.id}-discard`}
                   aria-label={`Discard new value for ${row.label}`}
                   onClick={() => onDiscardEdit(row.id)}
-                  className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5`}
+                  className={`${typography.panelBody} text-info whitespace-nowrap`}
                 >
                   Discard
                 </button>

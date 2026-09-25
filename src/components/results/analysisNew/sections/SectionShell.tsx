@@ -52,7 +52,7 @@
  * file is the one legitimate exception to the both-dimensions rule and says so.
  */
 import { useId, useState, type ReactNode } from 'react'
-import { icon } from '../panelSurfaces'
+import { ACTION_FOCUS, icon } from '../panelSurfaces'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
@@ -143,6 +143,15 @@ export interface SectionShellProps {
    * disclosure semantics and every testid are identical either way.
    */
   headingLevel?: 'h3' | 'label'
+  /**
+   * TAIL-1 (panel-lane design audit 2026-09-25): the prototype's tail groups
+   * are a plain `.disclose` door — a chevron and one line of text, nothing
+   * else. `'disclose'` drops the icon slot, subtitle, count and heading tag
+   * entirely: just the toggle, holding a leading chevron that rotates open,
+   * and the title. Opt-in and used only where a caller has a product ruling
+   * to drop those; every other caller is unaffected.
+   */
+  variant?: 'disclose'
 }
 
 export function SectionShell({
@@ -156,6 +165,7 @@ export function SectionShell({
   children,
   testId,
   headingLevel = 'h3',
+  variant,
 }: SectionShellProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen)
   const open = controlledOpen ?? uncontrolledOpen
@@ -174,6 +184,40 @@ export function SectionShell({
     count != null && subtitle != null
       ? new RegExp(`(^|[^0-9])${count}([^0-9]|$)`).test(subtitle)
       : false
+
+  if (variant === 'disclose') {
+    return (
+      <section
+        className="border-b border-panel-border last:border-b-0"
+        data-testid={testId}
+        aria-labelledby={`${testId}-heading`}
+        data-section-open={open ? 'true' : 'false'}
+        data-section-count={count != null ? String(count) : undefined}
+      >
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-controls={open ? regionId : undefined}
+          className={`${typography.panelBody} text-text-body flex items-center gap-1.5 min-h-[28px] text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+          data-testid={`${testId}-toggle`}
+        >
+          <ChevronRight
+            className={`${icon('row')} shrink-0 text-text-light transition-transform${open ? ' rotate-90' : ''}`}
+            aria-hidden={true}
+          />
+          <span id={`${testId}-heading`} data-testid={`${testId}-title`}>
+            {title}
+          </span>
+        </button>
+        {open ? (
+          <div id={regionId} className="pb-3" data-testid={`${testId}-region`}>
+            {children}
+          </div>
+        ) : null}
+      </section>
+    )
+  }
 
   return (
     <section

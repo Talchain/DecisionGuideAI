@@ -59,8 +59,19 @@ describe('"What we have" and the producer\'s leader', () => {
     expect(buildCommitmentSynthesis(vm).founded?.text).toContain('Raise price')
   })
 
-  it('CONTROL: a withheld leader is not a reading to diverge from (the bullet is silent, as before)', () => {
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): RE-POINTED, NOT DELETED.
+   * A withheld leader is still not a reading to diverge from — there is no
+   * `leaderIsAnotherOption` claim, and the text is never `divergedLead` or a
+   * named option. What changed is that the bullet is no longer SILENT: it
+   * states the option count, the one fact a withheld run can state with no
+   * reading at all (`commitmentSynthesis.ts`'s `withheldFoundedBullet`).
+   */
+  it('CONTROL: a withheld leader is not a reading to diverge from (bullet states the count, not a divergence)', () => {
     const vm = vmOf(withExpected(decisionWithLeaderWithheld(), 12, 6))
-    expect(buildCommitmentSynthesis(vm).founded).toBeNull()
+    const founded = buildCommitmentSynthesis(vm).founded
+    expect(founded?.source).toBe('withheld_count')
+    expect(founded?.text).not.toBe(COPY.implications.divergedLead)
+    expect(founded?.text).not.toMatch(/opt_a|opt_b|Raise price|Hold price/)
   })
 })

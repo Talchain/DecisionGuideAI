@@ -73,8 +73,10 @@ export interface ConversationMessage {
    * renders a concise headline + ≤3 bullets with the long tail behind a
    * "Show more" toggle; when absent the bubble renders `content` exactly as
    * today (no regression). No flag — auto-lights-up when the sidecar lands on
-   * the wire. Ephemeral: derived from the live turn, NOT persisted — hydrated
-   * history falls back to the full-text render (same treatment as `reasoning`).
+   * the wire. PERSISTED with the transcript (`transcriptStore.ts`), re-read on
+   * restore through `parseAnswerShape`, so a reload shows the same concise
+   * reply the user saw live rather than the full text. (It was session-only
+   * until the agent lane began emitting it on every Run turn.)
    */
   answerShape?: AnswerShape
   /**

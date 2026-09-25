@@ -59,6 +59,7 @@ import {
   INTERVENTION_PROVENANCE_SOURCES,
   classifyInterventionProvenance,
   classifyValueProvenance,
+  VALUE_PROVENANCE_LABEL,
 } from '../../domain/valueProvenance'
 
 // ── The deployed draw, verbatim ──────────────────────────────────────────────
@@ -192,7 +193,7 @@ function optionRow(id: string, label: string): ModelRow {
 }
 
 /** The pill's own copy, keyed off the ONE classifier — never re-spelled here. */
-const AI_LABEL = 'AI estimate'
+const AI_LABEL = VALUE_PROVENANCE_LABEL.ai
 const BRIEF_LABEL = 'From brief'
 const ABSENT_LABEL = 'Not set'
 
@@ -375,7 +376,7 @@ describe('⭐ the option projection carries each intervention’s OWN provenance
 // ── 4. The surface — what the user actually reads ────────────────────────────
 
 describe('⭐ the detail region marks an invented target where the number is read', () => {
-  it('shows "AI estimate" on the invented row', () => {
+  it('shows "Olumi estimate" on the invented row', () => {
     const detail = toRowDetail(projection(), OPTION_PHASED)!
     render(
       <ModelDetailRegion

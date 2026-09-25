@@ -583,6 +583,15 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // component reaching past the tokens. The size itself is an arbitrary-value
     // fragment byte-identical to `nodeTitle`'s, so it adds no new raw size.
     // Any rise in ANY OTHER file in this map is still the real defect.
+    // ⚠ STILL 40, design-audit-20260925 (gaps TYPE-1 + TYPE-2, same PR). Two
+    // independent movements happen to cancel and are recorded separately so
+    // the cancellation is not mistaken for "nothing changed": `reasoningLead`
+    // ('text-lg font-semibold') and its docblock were DELETED — Paul's 18 Sep
+    // ruling retired the fourth-size case it existed to permit — a burn-down
+    // of exactly 2 raw occurrences. `panelQuestion` ('text-sm font-medium') is
+    // a NEW token declaration in this same file, adding exactly 2 back by the
+    // same "a token's own declaration is the one legitimate raw size" rule
+    // as `panelTabular`/`reasoningLead`/`nodeValue` above. 40 - 2 + 2 = 40.
     'src/styles/typography.ts': 40,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,

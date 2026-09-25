@@ -46,6 +46,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
+import { useCanvasStore } from '../../../../canvas/store'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import {
   decisionWithLeaderWithheld,
@@ -125,24 +126,41 @@ describe('the figures rise only when the glance said nothing', () => {
     // labelled landmark with nothing inside it.
     ['a glance that withheld', decisionWithLeaderWithheldAndReason],
   ])('the answer sits in one place, in the V2 order — %s', (_name, make) => {
-    renderBody(make())
-    const glance = screen.getByTestId('analysis-new-glance')
-    const options = screen.getByTestId('analysis-new-options')
-    const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    const review = screen.getByTestId('analysis-new-review')
-    const challenge = screen.getByTestId('analysis-new-zone-also-group')
-    expect(new Set([glance, options, answer, review, challenge]).size, 'five distinct elements').toBe(5)
+    // V2 prototype (Paul, 25 Sep 2026): the review tool now renders INSIDE the
+    // model strip, after its rows. A run implies a model, so seed one (the
+    // fixtures' own option ids) and read the review in that home.
+    const previousNodes = useCanvasStore.getState().nodes
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'g1', type: 'goal', data: { label: 'Protect margin' } },
+        { id: 'opt_a', type: 'option', data: { label: 'Hold price' } },
+        { id: 'opt_b', type: 'option', data: { label: 'Raise price' } },
+        { id: 'f_demand', type: 'factor', data: { label: 'Demand' } },
+      ],
+    } as never)
+    try {
+      renderBody(make())
+      const glance = screen.getByTestId('analysis-new-glance')
+      const options = screen.getByTestId('analysis-new-options')
+      const answer = screen.getByTestId('analysis-new-zone-answer-group')
+      const review = screen.getByTestId('analysis-new-review')
+      const challenge = screen.getByTestId('analysis-new-zone-also-group')
+      expect(new Set([glance, options, answer, review, challenge]).size, 'five distinct elements').toBe(5)
+      expect(screen.getByTestId('analysis-new-model-strip'), 'the review lives in the strip').toContainElement(review)
 
-    // The answer is ONE block: the glance and the figures both live in it.
-    expect(answer).toContainElement(glance)
-    expect(answer).toContainElement(options)
-    // V2 (fidelity gap 1, 25 Sep 2026): the figures lead and the glance's
-    // READING follows them, as the prototype has no reading above the chart.
-    // Its status ribbon stays above (`theChartLeadsTheReading.spec.tsx`).
-    expect(precedes(options, glance), 'the figures lead, the glance reading follows them').toBe(true)
-    // V2: the review and the challenge come before the answer, on every run.
-    expect(precedes(review, answer), 'the model-wide review sits above the answer').toBe(true)
-    expect(precedes(challenge, answer), '"Challenge the thinking" sits above the answer').toBe(true)
+      // The answer is ONE block: the glance and the figures both live in it.
+      expect(answer).toContainElement(glance)
+      expect(answer).toContainElement(options)
+      // V2 (fidelity gap 1, 25 Sep 2026): the figures lead and the glance's
+      // READING follows them, as the prototype has no reading above the chart.
+      // Its status ribbon stays above (`theChartLeadsTheReading.spec.tsx`).
+      expect(precedes(options, glance), 'the figures lead, the glance reading follows them').toBe(true)
+      // V2: the review and the challenge come before the answer, on every run.
+      expect(precedes(review, answer), 'the model-wide review sits above the answer').toBe(true)
+      expect(precedes(challenge, answer), '"Challenge the thinking" sits above the answer').toBe(true)
+    } finally {
+      useCanvasStore.setState({ nodes: previousNodes } as never)
+    }
   })
 
   /**

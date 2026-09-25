@@ -135,6 +135,16 @@ describe('"How the options compare" states it above the shares', () => {
     expect(qualifier()).toBeNull()
   })
 
+  it('⭐ the qualifier presumes no limits: the token also covers briefs that have none', () => {
+    // `constraint_verdict_withheld` is emitted for ANY not-entitled verdict
+    // (CEE `composeLeaderClaim`: `!entitled`), and Paul's pricing and hiring
+    // briefs set no limits. So the line may say only what is true on every run
+    // the token covers: the shares compare the options on the goal alone.
+    // Canvas's option card says the same (#1990; review note #63 5826533245).
+    expect(COPY.optionFigures.goalOnlyQualifier).not.toMatch(/your limits|limits you|limits aren/i)
+    expect(COPY.optionFigures.goalOnlyQualifier).toMatch(/goal alone/i)
+  })
+
   it('the qualifier never claims a leader or a limit verdict', () => {
     expect(COPY.optionFigures.goalOnlyQualifier).not.toMatch(/lead|best|win|recommend/i)
     expect(COPY.optionFigures.goalOnlyQualifier).not.toContain('—')

@@ -35,7 +35,7 @@ import {
   isCountUnit,
   isTierLabel,
 } from './labelUtils'
-import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
+import { factorCardVisibleText, formatFactorDisplayParts, formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 
 /**
  * Maximum tolerated difference between baseline and target for a "no change"
@@ -158,15 +158,18 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
     // numbers; other units keep ≤2 decimals. Display-only.
     rawValue = isCountUnit(effectiveUnit) ? Math.round(raw) : Math.round(raw * 100) / 100
   }
-  const contextual = formatFactorDisplayValue({
+  const targetInput = {
     label: chip.label,
     value: chip.value,
     raw_value: rawValue,
     unit: effectiveUnit,
     factor_type: chip.factorType ?? null,
     cap: chip.cap ?? null,
-  })
-  if (contextual) return singulariseCountUnitText(contextual, effectiveUnit)
+  }
+  const contextual = formatFactorDisplayValue(targetInput)
+  // Spelt as the factor card spells it (`£59/month`, not `59 GBP/month`), so a
+  // row's "from" and "to" never use two spellings of one unit.
+  if (contextual) return singulariseCountUnitText(factorCardVisibleText(contextual, formatFactorDisplayParts(targetInput)) ?? contextual, effectiveUnit)
   // Fallback: prefer numeric formatting over qualitative tier labels and raw normalised values
   const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
   // Tier labels stay tier labels.

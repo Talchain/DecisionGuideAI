@@ -787,6 +787,7 @@ function BlockRenderer({
         <V5AnalysisResultBlock
           block={block}
           narrativeDeliveredByTypedCard={narrativeDeliveredByTypedCard}
+          summaryBehindDisclosure={assistantTextWordCount > 0}
         />
       )
 

@@ -52,7 +52,7 @@ import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
-import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -277,10 +277,12 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
     it('forms `from → to` when the target carries a display string and the factor carries a value', () => {
       renderCard({ id: 'option-2' })
       const dd = onCard('option-change-row-option-2-f-price')!
-      const factorCardReading = factorDisplayText(PRICE_DATA)
-      expect(factorCardReading, 'precondition: the factor card has a reading').toBeTruthy()
-      // IDENTITY: the muted "before" IS the factor card's text, not a re-formatting.
+      const factorCardReading = factorCardVisibleText(factorDisplayText(PRICE_DATA), factorDisplayParts(PRICE_DATA))
+      expect(factorCardReading, 'precondition: the factor card has a reading').toBe('£49/month')
+      // IDENTITY: the muted "before" IS the factor card's VISIBLE text, not a re-formatting.
       expect(onCard('option-change-row-before-option-2-f-price')?.textContent).toBe(factorCardReading)
+      // The "to" is CEE's own display_value, verbatim (thin layer) — the UI does
+      // not re-spell producer text. Producer ask D8 (#69): send "£59/month".
       expect(dd.textContent!.startsWith(`${factorCardReading} → 59 GBP/month`)).toBe(true)
     })
 
@@ -295,7 +297,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       const dd = onCard('option-change-row-option-1-f-price')!
       // "£59" is CEE's own string. Its raw 59 is NOT re-read through the factor
       // card's formatter into "59 GBP/month" — that would be a UI-substituted value.
-      expect(dd.textContent!.startsWith(`${factorDisplayText(PRICE_DATA)} → £59`)).toBe(true)
+      expect(dd.textContent!.startsWith(`${factorCardVisibleText(factorDisplayText(PRICE_DATA), factorDisplayParts(PRICE_DATA))} → £59`)).toBe(true)
       expect(dd.textContent).not.toContain('59 GBP/month')
     })
   })
@@ -364,9 +366,9 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(before?.textContent).toBe('No paid plan')
     })
 
-    it('CONTRAST — a raw_value with a real unit is carried: "49 GBP/month → £59"', () => {
+    it('CONTRAST — a raw_value with a real unit is carried: "£49/month → £59"', () => {
       const { before } = priceRow(PRICE_DATA)
-      expect(before?.textContent).toBe('49 GBP/month')
+      expect(before?.textContent).toBe('£49/month')
     })
 
     it('CONTRAST — a unitless raw_value is carried: its own figure is the "from"', () => {

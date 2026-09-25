@@ -104,36 +104,24 @@ const ROOT = resolvePath(__dirname, '../../src')
 const PANEL_DIR = resolvePath(ROOT, 'components/results/analysisNew')
 
 /**
- * The three sizes DS v5 §2.2 declares for the panel context, plus ONE governed
- * exception.
+ * The three sizes DS v5 §2.2 declares for the panel context.
  *
- * ⚠⚠ `reasoningLead` IS A FOURTH SIZE AND IS DELIBERATE. Measured on deployed
- * `d135ff7e`: the whole Reasoning panel rendered at 14/12/11 with SIX strings
- * tied for largest at 14px, so nothing led — and the panel never named the
- * decision it was about. Hierarchy needs one step, and one is what this is.
+ * ⛔ `reasoningLead` (18px) IS RETIRED (design-audit-20260925, gap TYPE-1).
+ * Paul's 18 Sep ruling — "lead with the decision label and goal … there
+ * shouldn't be a conclusion" — removed the fourth-size case this token
+ * existed to permit: the decision line is now `panelHeader` (14px), the
+ * largest thing the panel renders. The token and its docblock are deleted
+ * from `typography.ts` rather than demoted, so nothing keeps re-deriving the
+ * old size from a name still on the page.
  *
- * ⛔ IT IS NOT THE TOKEN THIS PANEL REJECTED TWICE. That one promoted a
- * FIGURE computed partly from values Olumi invented; `reasoningLead` carries WORDS
- * the user's model authored — the decision being considered, or the option the
- * run concluded for. ⚠ AMENDED 17 Sep 2026: this said "its only consumer is the
- * model strip's subject line", which stopped being true when the conclusion took
- * the slot. Two consumers, ONE element at a time — pinned by
- * `theLargestTypeIsTheAnswer.spec.tsx`, which counts them in both run states.
- * `typography.ts:228`'s ruling — "a panel that needs a bigger
- * size than `panelHeader` is a panel promoting a number; say it in words
- * instead" — is answered, not waived.
- *
- * ⚠ IT IS NOT `panel*`-PREFIXED, AND THAT IS THE POINT. The sibling guard
- * `panel-scale-has-exactly-three-sizes` pins that FAMILY to {11,12,14} BY NAME
- * and is preserved untouched. THIS guard asks the render question — "what
- * sizes reach a panel surface?" — so the exception is declared here, where it
- * is visible, rather than by forcing the family rule open.
- *
- * ⚠ ONE, AND THE TEST BELOW PINS THAT IT STAYS ONE. Adding a fifth size is a
- * design decision, not an allowlist edit; if this array grows again the panel
- * has a scale rather than a hierarchy.
+ * `panelQuestion` (added the same PR, gap TYPE-2) does NOT reopen a fourth
+ * size — it shares `panelHeader`'s 14px and differs only in weight, which is
+ * exactly why `derivedSizesPx()` below still resolves to three values. See
+ * `theLargestTypeIsTheDecision.spec.tsx` for the render-side invariant this
+ * retirement answers: no panel text resolves above 14px, and the -lead
+ * element is the first text in the panel body.
  */
-const DECLARED_TOKENS = ['panelHeader', 'panelBody', 'panelMeta', 'panelTabular', 'reasoningLead'] as const
+const DECLARED_TOKENS = ['panelHeader', 'panelBody', 'panelMeta', 'panelTabular', 'panelQuestion'] as const
 
 /**
  * The sizes those tokens resolve to — `panelTabular` shares `panelBody`'s.
@@ -144,7 +132,7 @@ const DECLARED_TOKENS = ['panelHeader', 'panelBody', 'panelMeta', 'panelTabular'
  * itself — which is what the first version of the test below did — is a
  * tautology wearing a rule's name.
  */
-const DECLARED_SIZES_PX = [18, 14, 12, 11] as const
+const DECLARED_SIZES_PX = [14, 12, 11] as const
 
 /**
  * ⭐ THE SIZES THE PANEL ACTUALLY RENDERS, DERIVED FROM THE TOKENS THEMSELVES.
@@ -311,7 +299,7 @@ describe('Reasoning panel — RULE A: only the declared panel sizes are rendered
    * assertion, so growing the panel's scale costs a deliberate edit here with
    * a reason attached, rather than a quiet append.
    */
-  it('⛔ the panel has FOUR sizes — a fifth is a design decision, not an allowlist edit', () => {
+  it('⛔ the panel has THREE sizes — a fourth is a design decision, not an allowlist edit', () => {
     // ⛔ THIS TEST DID NOT ENFORCE ITS OWN TITLE, and an independent reviewer
     // (`github-c6`) found it in the PR that added it. `DECLARED_SIZES_PX` was
     // hand-written and never resolved from `typography`, so both assertions
@@ -325,10 +313,25 @@ describe('Reasoning panel — RULE A: only the declared panel sizes are rendered
     // Proven against that exact mutation before this landed: `panelTabular`
     // 12 -> 13 REDs this test, and read GREEN on the version it replaces.
     expect(derivedSizesPx()).toEqual([...DECLARED_SIZES_PX])
-    // The exception is named, so a rename cannot smuggle a second one through.
-    expect(DECLARED_TOKENS.filter((t) => !['panelHeader', 'panelBody', 'panelMeta', 'panelTabular'].includes(t))).toEqual([
-      'reasoningLead',
-    ])
+    // ⚠ RE-DERIVED FOR gap TYPE-1/TYPE-2 (design-audit-20260925): the old
+    // assertion here named the ONE governed exception BY STRING
+    // (`reasoningLead`) because that token was both a new NAME and a new
+    // SIZE. `panelQuestion` is a new name at an EXISTING size, so naming it
+    // here would ban any future same-size, different-weight token by
+    // construction — a stricter rule than the one the guard's title states.
+    // The invariant that survives is about SIZE: every token beyond the base
+    // four-token panel family must resolve to a size already in
+    // `DECLARED_SIZES_PX`, never a new one.
+    const baseTokens = ['panelHeader', 'panelBody', 'panelMeta', 'panelTabular'] as const
+    const extra = DECLARED_TOKENS.filter((t) => !baseTokens.includes(t as never))
+    expect(extra.length, 'PRECONDITION: there must be an extra token to check').toBeGreaterThan(0)
+    for (const t of extra) {
+      const r = resolveSizePx((typography as Record<string, string>)[t], `typography.${t}`)
+      if (r.outcome !== 'resolved' || typeof r.px !== 'number') {
+        throw new Error(`typography.${t} -> ${r.outcome}: unresolvable`)
+      }
+      expect(DECLARED_SIZES_PX, `typography.${t} must not introduce a fourth size`).toContain(r.px)
+    }
   })
 })
 

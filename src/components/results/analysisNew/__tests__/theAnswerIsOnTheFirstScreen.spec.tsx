@@ -89,13 +89,22 @@ describe('the provisional answer is on the first screen', () => {
     expect(precedes(challenge, commitment), 'challenge, then the answer').toBe(true)
     expect(within(commitment).getByTestId('analysis-new-options')).toBe(options)
 
-    // The drivers detail that used to push the chart below the fold now follows
-    // it — bounded: inside the answer zone, never sunk to the foot of the tab.
-    const whatMoves = screen.getByTestId('analysis-new-what-moves-the-outcome')
+    // V2 prototype (Paul, 25 Sep 2026): the drivers detail that used to push the
+    // chart below the fold is not on the default scroll at all. At rest only the
+    // "Assumptions and evidence" door stands in the challenge zone; the detail
+    // renders only inside that door once opened — never in the answer zone.
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    expect(challenge, 'the drivers detail left the challenge zone').not.toContainElement(whatMoves)
-    expect(answer, 'it follows the answer, inside the answer zone').toContainElement(whatMoves)
-    expect(precedes(commitment, whatMoves), 'after the commitment block').toBe(true)
+    const door = screen.getByTestId('analysis-new-signals-disclose')
+    expect(challenge, 'the door is in the challenge zone').toContainElement(door)
+    expect(door, 'the door is closed at rest').toHaveAttribute('aria-expanded', 'false')
+    expect(
+      screen.queryByTestId('analysis-new-what-moves-the-outcome'),
+      'nothing of the drivers detail sits on the default scroll',
+    ).toBeNull()
+    fireEvent.click(door)
+    const whatMoves = screen.getByTestId('analysis-new-what-moves-the-outcome')
+    expect(screen.getByTestId('analysis-new-signals'), 'it renders inside the opened door').toContainElement(whatMoves)
+    expect(answer, 'and never in the answer zone').not.toContainElement(whatMoves)
 
     // "What would change your mind" is the challenge to the answer: it stays
     // in the challenge zone, above the answer, wherever it renders.
@@ -104,10 +113,9 @@ describe('the provisional answer is on the first screen', () => {
       expect(challenge).toContainElement(sensitivity)
       expect(precedes(sensitivity, commitment), 'the challenge is read before the answer').toBe(true)
     }
-    const focus = screen.queryByTestId('analysis-new-zone-focus-group')
-    if (focus !== null) {
-      expect(precedes(answer, focus), '"Focus now" nudges come after the answer').toBe(true)
-    }
+    // V2 prototype (Paul, 25 Sep 2026): no "Focus now" block on this tab. The
+    // zones found above are this absence's contrast control.
+    expect(screen.queryByTestId('analysis-new-zone-focus-group')).toBeNull()
   })
 
   /** The fixture `AnalysisNewTabBody.spec.tsx` uses for the strip: a real engine caveat. */
@@ -153,7 +161,7 @@ describe('the provisional answer is on the first screen', () => {
     renderBody(data)
     const qualifier = screen.getByTestId('analysis-new-commitment-qualifier')
     const options = screen.getByTestId('analysis-new-options')
-    expect(qualifier).toHaveTextContent(expected as string)
+    expect(qualifier).toHaveTextContent(expected?.text ?? '')
     expect(qualifier.textContent).toMatch(/^Provisional · /)
     expect(precedes(options, qualifier), 'the qualifier follows the chart it qualifies').toBe(true)
     const record = screen.queryByTestId('analysis-new-commitment-record')
@@ -168,17 +176,66 @@ describe('every clause of the qualifier is a fact the view model already states'
     const vm = base()
     const withEstimates = { ...vm, atAGlance: { ...vm.atAGlance, inputProvenance: 'estimated' as const } }
     const withYours = { ...vm, atAGlance: { ...vm.atAGlance, inputProvenance: 'user_supplied' as const } }
-    expect(buildCommitmentQualifier(withEstimates)).toMatch(/Olumi's estimates/)
-    expect(buildCommitmentQualifier(withYours) ?? '').not.toMatch(/estimates/)
+    expect(buildCommitmentQualifier(withEstimates)?.text).toMatch(/Olumi's estimates/)
+    expect(buildCommitmentQualifier(withYours)?.text ?? '').not.toMatch(/estimates/)
   })
 
   it('says robustness is not established only when there is no verdict', () => {
     const vm = base()
     const noVerdict = { ...vm, atAGlance: { ...vm.atAGlance, verdict: null } }
-    expect(buildCommitmentQualifier(noVerdict)).toMatch(/robustness not established/)
+    expect(buildCommitmentQualifier(noVerdict)?.text).toMatch(/robustness not established/)
     if (vm.atAGlance.verdict !== null) {
-      expect(buildCommitmentQualifier(vm) ?? '').not.toMatch(/robustness not established/)
+      expect(buildCommitmentQualifier(vm)?.text ?? '').not.toMatch(/robustness not established/)
     }
+  })
+
+  /**
+   * ⭐⭐ WAVE 3 (25 Sep 2026): THE ONE-LINE SHAPE — the reason #2025 was
+   * blocked. On BASE (before this change) `evidenceNotAssessed` and
+   * `robustnessNotEstablished` were always two separate clauses, so a run
+   * missing both read "Provisional · evidence not assessed · robustness not
+   * established", never the prototype's own witness line. MUTANT: reverting
+   * the `if/else if/else if` in `buildCommitmentQualifier` to two independent
+   * `if`s (the BASE shape) turns this red, because the combined sentence stops
+   * appearing.
+   */
+  it('combines evidence-not-assessed and robustness-not-established into the prototype\'s one clause', () => {
+    const vm = base()
+    const both = {
+      ...vm,
+      atAGlance: { ...vm.atAGlance, inputProvenance: 'user_supplied' as const, verdict: null },
+      checks: {
+        ...vm.checks,
+        items: vm.checks.items.map((i) => (i.id === 'evidence' ? { ...i, code: 'evidence_not_assessed' as const } : i)),
+      },
+      deeper: { ...vm.deeper, critiques: [], caveats: [] },
+    }
+    expect(buildCommitmentQualifier(both as never)?.text).toBe('Provisional · evidence and robustness not established')
+  })
+
+  it('states only evidence, or only robustness, when just one is true', () => {
+    const vm = base()
+    const evidenceOnly = {
+      ...vm,
+      atAGlance: { ...vm.atAGlance, inputProvenance: 'user_supplied' as const, verdict: { label: 'Holds', tone: 'stable' as const } },
+      checks: {
+        ...vm.checks,
+        items: vm.checks.items.map((i) => (i.id === 'evidence' ? { ...i, code: 'evidence_not_assessed' as const } : i)),
+      },
+      deeper: { ...vm.deeper, critiques: [], caveats: [] },
+    }
+    expect(buildCommitmentQualifier(evidenceOnly as never)?.text).toBe('Provisional · evidence not assessed')
+
+    const robustnessOnly = {
+      ...vm,
+      atAGlance: { ...vm.atAGlance, inputProvenance: 'user_supplied' as const, verdict: null },
+      checks: {
+        ...vm.checks,
+        items: vm.checks.items.map((i) => (i.id === 'evidence' ? { ...i, code: 'evidence_none_flagged' as const } : i)),
+      },
+      deeper: { ...vm.deeper, critiques: [], caveats: [] },
+    }
+    expect(buildCommitmentQualifier(robustnessOnly as never)?.text).toBe('Provisional · robustness not established')
   })
 
   it('renders nothing when no clause is licensed', () => {
@@ -203,8 +260,8 @@ describe('every clause of the qualifier is a fact the view model already states'
     const vm = base()
     const one = { ...vm, deeper: { ...vm.deeper, critiques: [], caveats: [vm.deeper.caveats[0] ?? ({} as never)] } }
     const none = { ...vm, deeper: { ...vm.deeper, critiques: [], caveats: [] } }
-    expect(buildCommitmentQualifier(one)).toMatch(/1 caveat in About/)
-    expect(buildCommitmentQualifier(none) ?? '').not.toMatch(/caveat/)
+    expect(buildCommitmentQualifier(one)?.text).toMatch(/1 caveat in About/)
+    expect(buildCommitmentQualifier(none)?.text ?? '').not.toMatch(/caveat/)
   })
 
   it('renders nothing before a run', () => {
@@ -216,8 +273,18 @@ describe('every clause of the qualifier is a fact the view model already states'
 /**
  * ⭐ THE TYPED PROVISIONAL MARKER (RC 5818628860; Runtime 5818605567):
  * `analysis_result.enrichment.run_provenance.provisional`. It licenses
- * "Provisional" by itself, so an automatic first run is never unlabelled, and
- * nothing else can license its clause.
+ * "Provisional" by itself, so an automatic first run is never unlabelled.
+ *
+ * ⭐⭐ WAVE 3 (25 Sep 2026): THE WORDS MOVE OFF THE LINE. #2025 was blocked
+ * because the composed line could carry five clauses at once, pushing
+ * "Record your view" off the first screen on a withheld automatic run — the
+ * common case. "automatic first pass" is a fact about the run's OWN
+ * provenance mechanics, not what a reader needs at a glance, so it now
+ * licenses `detail` — reachable in the one click `CommitmentSummary`'s
+ * disclosure toggle offers — rather than joining `text`. MUTANT: pushing
+ * `COMMITMENT_QUALIFIER_COPY.automaticFirstPass` into `lineClauses` instead
+ * of returning it as `detail` turns every test below red, because "automatic"
+ * would reappear in `.text`.
  */
 describe('the automatic-first-pass clause', () => {
   const settled = () => {
@@ -234,15 +301,22 @@ describe('the automatic-first-pass clause', () => {
     expect(buildCommitmentQualifier(settled())).toBeNull()
   })
 
-  it('the marker alone licenses the line, and leads it', () => {
-    expect(buildCommitmentQualifier(settled(), { runProvisional: true })).toBe('Provisional · automatic first pass')
-    const full = buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason()), { runProvisional: true }) ?? ''
-    expect(full).toMatch(/^Provisional · automatic first pass · /)
+  it('the marker alone licenses "Provisional", with the words behind the detail disclosure', () => {
+    const q = buildCommitmentQualifier(settled(), { runProvisional: true })
+    expect(q?.text).toBe('Provisional')
+    expect(q?.detail).toBe('automatic first pass')
   })
 
-  it('CONTRAST: an explicit or unmarked run never says "automatic"', () => {
-    expect(buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason()), { runProvisional: false }) ?? '').not.toMatch(/automatic/)
-    expect(buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason())) ?? '').not.toMatch(/automatic/)
+  it('on a run that also licenses a visible clause, the marker still never joins the line', () => {
+    const full = buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason()), { runProvisional: true })
+    expect(full?.text ?? '').not.toMatch(/automatic/)
+    expect(full?.text).toMatch(/^Provisional · /)
+    expect(full?.detail).toBe('automatic first pass')
+  })
+
+  it('CONTRAST: an explicit or unmarked run has nothing to disclose', () => {
+    expect(buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason()), { runProvisional: false })?.detail).toBeNull()
+    expect(buildCommitmentQualifier(vmOf(decisionWithLeaderWithheldAndReason()))?.detail ?? null).toBeNull()
   })
 
   it('pre-run: nothing, marker or not', () => {
@@ -251,21 +325,28 @@ describe('the automatic-first-pass clause', () => {
   })
 })
 
-describe('the marker, read from the stored report, reaches the qualifier on the tab', () => {
-  it('a report stamped provisional leads the qualifier with "automatic first pass"', async () => {
+describe('the marker, read from the stored report, reaches the qualifier on the tab — one click away', () => {
+  it('a report stamped provisional keeps the line short; "automatic first pass" is behind the toggle', async () => {
     const { useCanvasStore } = await import('../../../../canvas/store')
     const previous = useCanvasStore.getState().results
     useCanvasStore.setState({ results: { ...previous, report: { run_provenance: { initiated_by: 'auto_post_construction', provisional: true } } } } as never)
     try {
       renderBody(decisionWithLeaderWithheldAndReason())
-      expect(screen.getByTestId('analysis-new-commitment-qualifier').textContent).toMatch(/^Provisional · automatic first pass/)
+      const qualifier = screen.getByTestId('analysis-new-commitment-qualifier')
+      expect(qualifier.textContent ?? '').not.toMatch(/automatic/)
+      expect(screen.queryByTestId('analysis-new-commitment-qualifier-detail')).toBeNull()
+
+      const toggle = screen.getByTestId('analysis-new-commitment-qualifier-toggle')
+      fireEvent.click(toggle)
+      expect(screen.getByTestId('analysis-new-commitment-qualifier-detail').textContent).toMatch(/automatic first pass/)
     } finally {
       useCanvasStore.setState({ results: previous } as never)
     }
   })
 
-  it('CONTRAST: an unstamped report never says "automatic"', () => {
+  it('CONTRAST: an unstamped report never says "automatic", and offers no toggle', () => {
     renderBody(decisionWithLeaderWithheldAndReason())
     expect(screen.getByTestId('analysis-new-commitment-qualifier').textContent ?? '').not.toMatch(/automatic/)
+    expect(screen.queryByTestId('analysis-new-commitment-qualifier-toggle')).toBeNull()
   })
 })

@@ -12,9 +12,9 @@ describe('SourceProvenancePill', () => {
     expect(screen.getByText('From brief')).toBeInTheDocument()
   })
 
-  it('shows "AI estimate" for cee_inference', () => {
+  it('shows "Olumi estimate" for cee_inference', () => {
     render(<SourceProvenancePill source="cee_inference" />)
-    expect(screen.getByText('AI estimate')).toBeInTheDocument()
+    expect(screen.getByText('Olumi estimate')).toBeInTheDocument()
   })
 
   it('shows "User edited" for user', () => {
@@ -34,7 +34,7 @@ describe('SourceProvenancePill', () => {
 
   it('uses outlined pill pattern (bg-transparent)', () => {
     render(<SourceProvenancePill source="cee_inference" />)
-    const pill = screen.getByText('AI estimate')
+    const pill = screen.getByText('Olumi estimate')
     expect(pill.className).toContain('bg-transparent')
   })
 
@@ -46,7 +46,7 @@ describe('SourceProvenancePill', () => {
 
   it('uses warning border for cee_inference', () => {
     render(<SourceProvenancePill source="cee_inference" />)
-    const pill = screen.getByText('AI estimate')
+    const pill = screen.getByText('Olumi estimate')
     expect(pill.className).toContain('border-warning/30')
   })
 

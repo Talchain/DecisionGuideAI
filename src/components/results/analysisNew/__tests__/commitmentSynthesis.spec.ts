@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel, type AnalysisNewViewModelInputs } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY, leaderWithholdCause } from '../analysisNewCopy'
-import {
+import { RESPOND_OR_RECORD,
   EVIDENCE_GAP_ID_PREFIX,
   buildCommitmentSynthesis,
   commitmentAskContext,
@@ -168,23 +168,38 @@ describe('bullet 1 — what seems well-founded (vm.modelImplication)', () => {
     expect(buildCommitmentSynthesis(vm).founded).toBeNull()
   })
 
-  it('withheld leader → the VM emits `none`, so bullet 1 is absent', () => {
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): RE-POINTED, NOT DELETED.
+   * Bullet 1 used to go silent on every withheld run — Paul's manual test of
+   * the provisional PA-hire run showed only "Still open", nothing under
+   * "What we have". The withheld gate still forbids a READING (this case's
+   * own `modelImplication.kind === 'none'` proves no reading exists to
+   * silence); what it no longer does is drop the bullet to `null` when there
+   * IS a truthful, reading-free fact to state — the option count.
+   */
+  it('withheld leader → the VM emits `none`, but bullet 1 states the option COUNT, never a reading', () => {
     const withheld = twoOptionRun(null, {
       verdict: { leaderId: 'opt_a', hasLeadingOption: false } as DecisionResultData['verdict'],
       leaderDesignationPermitted: false,
     })
     const vm = vmOf(withheld)
     expect(vm.modelImplication.kind).toBe('none')
-    expect(buildCommitmentSynthesis(vm).founded).toBeNull()
-    // CONTRAST: the permitted twin of the same run does speak.
-    expect(buildCommitmentSynthesis(vmOf(twoOptionRun(null))).founded).not.toBeNull()
+    expect(vm.optionsComparison.rows.length, 'PRECONDITION: two named options').toBe(2)
+    expect(buildCommitmentSynthesis(vm).founded).toEqual({
+      text: COMMITMENT_COPY.withheldFounded(2),
+      source: 'withheld_count',
+    })
+    // CONTRAST: the permitted twin of the same run states a READING, not a count.
+    expect(buildCommitmentSynthesis(vmOf(twoOptionRun(null))).founded?.source).not.toBe('withheld_count')
   })
 
-  it('⛔ NO VERDICT: the implication still says "most likely" but the checks say not assessed → no bullet', () => {
+  it('⛔ NO VERDICT: the implication still says "most likely", but bullet 1 states the count, never "most likely"', () => {
     // The Rich-fixture contradiction: `modelImplication` withholds only on a
     // verdict that arrived and refused; with NO verdict it stays `aligned`
     // while `checks` reads `leader_not_assessed`. Side by side, bullet 1 said
     // "most likely" and bullet 2 "could not confirm which option is most likely".
+    // Wave 2: bullet 1 no longer goes silent OR contradicts bullet 2 — it
+    // states the one fact that cannot contradict anything, the count.
     const noVerdict = twoOptionRun({ a: 0.8, b: 0.3 }, {
       verdict: undefined,
       leaderDesignationPermitted: undefined,
@@ -192,6 +207,17 @@ describe('bullet 1 — what seems well-founded (vm.modelImplication)', () => {
     const vm = vmOf(noVerdict)
     expect(vm.modelImplication.kind, 'PRECONDITION: the implication still speaks').toBe('aligned')
     expect(vm.checks.leaderWithheld, 'PRECONDITION: the checks say not assessed').toBe(true)
+    expect(buildCommitmentSynthesis(vm).founded).toEqual({
+      text: COMMITMENT_COPY.withheldFounded(vm.optionsComparison.rows.length),
+      source: 'withheld_count',
+    })
+    expect(buildCommitmentSynthesis(vm).founded!.text).not.toMatch(/most likely/i)
+  })
+
+  it('withheld AND zero options compared → still no bullet (nothing truthful to count)', () => {
+    const vm = vmOf(makeData({ recommendation: { allOptions: [], verdict: { leaderId: null, hasLeadingOption: false } as DecisionResultData['verdict'], leaderDesignationPermitted: false } }))
+    expect(vm.checks.leaderWithheld, 'PRECONDITION').toBe(true)
+    expect(vm.optionsComparison.rows.length, 'PRECONDITION: nothing to count').toBe(0)
     expect(buildCommitmentSynthesis(vm).founded).toBeNull()
   })
 })
@@ -433,9 +459,19 @@ describe("bullet 3 never repeats the Challenge card's own item (V2 census B1)", 
     expect(s.before?.text).toBe('Next item')
   })
 
-  it('CONTRAST: with nothing excluded, the top item is used; with only the card item, no bullet', () => {
+  it('CONTRAST: with nothing excluded, the top item is used; with only the card item, the V2 respond-or-record line', () => {
     const vm = vmOf(genuineDecision(), { recommendations: [rec({ id: 'r1', title: 'Card item' })] })
     expect(buildCommitmentSynthesis(vm).before?.text).toBe('Card item')
-    expect(buildCommitmentSynthesis(vm, { excludeInterventionIds: ['r1'] }).before).toBeNull()
+    // V2 prototype (Paul, 25 Sep): "Before acting" still never repeats the card's
+    // item — it falls back to the always-true next move instead of vanishing.
+    const fallback = buildCommitmentSynthesis(vm, { excludeInterventionIds: ['r1'] }).before
+    expect(fallback?.source).toBe('respond_or_record')
+    expect(fallback?.text).toBe(RESPOND_OR_RECORD)
+    expect(fallback?.text).not.toContain('Card item')
+  })
+
+  it('the respond-or-record line needs a card item to point at: nothing excluded and no items, no bullet', () => {
+    const vm = vmOf(genuineDecision(), { recommendations: [] })
+    expect(buildCommitmentSynthesis(vm).before).toBeNull()
   })
 })

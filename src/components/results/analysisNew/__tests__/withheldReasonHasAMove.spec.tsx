@@ -36,7 +36,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn(() => true) }))
@@ -50,6 +50,21 @@ import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtur
 
 const SENTENCE = 'analysis-new-glance-withheld-reason'
 const CONTROL = 'analysis-new-glance-withheld-review-estimates'
+const DOOR = 'analysis-new-glance-withheld-toggle'
+
+/**
+ * V2 prototype (Paul, 25 Sep 2026): "What this run may not conclude" sits behind
+ * one door, closed at rest. Asserts it WAS closed (sentence and act absent), then
+ * opens it, so every case below reads the refusal a reader reaches in one click.
+ */
+const openWithheld = () => {
+  const door = screen.getByTestId(DOOR)
+  expect(door, 'the refusal door must be closed at rest').toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId(SENTENCE)).not.toBeInTheDocument()
+  expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
+  fireEvent.click(door)
+  expect(door).toHaveAttribute('aria-expanded', 'true')
+}
 
 /**
  * The live capture, verbatim — the same payload `refusalIsLegible.spec.tsx`
@@ -269,6 +284,7 @@ describe('the withheld-designation sentence carries the act that answers it', ()
 
     const onReviewEstimates = vi.fn()
     renderGlance(withheld(), { onReviewEstimates })
+    openWithheld()
 
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId(CONTROL))
@@ -286,6 +302,7 @@ describe('the withheld-designation sentence carries the act that answers it', ()
    */
   it('renders INSIDE the refusal block, not merely elsewhere on the panel', () => {
     renderGlance(withheld(), { onReviewEstimates: vi.fn() })
+    openWithheld()
     const sentence = screen.getByTestId(SENTENCE)
     const control = screen.getByTestId(CONTROL)
     const block = sentence.closest('[role="status"]')
@@ -303,6 +320,7 @@ describe('the withheld-designation sentence carries the act that answers it', ()
    */
   it('renders the sentence ALONE when no handler is supplied', () => {
     renderGlance(withheld(), { onReviewEstimates: undefined })
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
   })
@@ -317,6 +335,8 @@ describe('the withheld-designation sentence carries the act that answers it', ()
     const data = genuineDecision()
     expect(glanceOf(data).designationWithheldReason).toBeFalsy()
     renderGlance(data, { onReviewEstimates: vi.fn() })
+    // No door either: the sentence's absence alone is also true behind a closed one.
+    expect(screen.queryByTestId(DOOR)).not.toBeInTheDocument()
     expect(screen.queryByTestId(SENTENCE)).not.toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
   })
@@ -443,6 +463,7 @@ describe('the act is offered only where the refusal asks for an estimate', () =>
       ).toBeTruthy()
 
       renderGlance(data, { onReviewEstimates: vi.fn() })
+      openWithheld()
 
       // The refusal stays LEGIBLE under every cause — the first half of this lane.
       expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
@@ -485,6 +506,7 @@ describe('the act is offered only where the refusal asks for an estimate', () =>
         onReviewEstimates={vi.fn()}
       />,
     )
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.getByTestId(CONTROL)).toBeInTheDocument()
   })
@@ -583,6 +605,7 @@ describe('the tab actually threads the handler', () => {
         onReviewEstimates={onReviewEstimates}
       />,
     )
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId(CONTROL))
     expect(onReviewEstimates).toHaveBeenCalledTimes(1)
@@ -600,6 +623,7 @@ describe('the tab actually threads the handler', () => {
         runBlockedReason={null}
       />,
     )
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
   })

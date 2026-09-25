@@ -89,6 +89,31 @@ describe('it shows the target the user already stated', () => {
     draw()
     expect(screen.getByTestId(`${TID}-edit`)).toHaveTextContent(COPY.successTarget.change)
   })
+
+  /**
+   * ⭐⭐ H4 (design-b1w2-header-structure): NOT A BLUE UNDERLINED LINK ONCE A
+   * TARGET EXISTS. Paul's manual test named this exact control — "Target 20%
+   * From brief ... Change" (a blue underlined link) — as unlike the
+   * prototype's quiet pencil row. `action('inline')` (`text-info underline`)
+   * is replaced with `action('quiet')` plus a leading pencil glyph; the label
+   * itself is UNCHANGED (see the case above), so the control's accessible
+   * name never regresses.
+   */
+  it('⭐⭐ H4: "Change" is a quiet pencil row, not an info-blue link', () => {
+    state.goalThreshold = 110
+    state.goalThresholdRepresentation = 'raw'
+    draw()
+    const change = screen.getByTestId(`${TID}-edit`)
+    expect(change.className).not.toMatch(/\btext-info\b/)
+    expect(change.querySelector('svg')).not.toBeNull()
+  })
+
+  /** CONTRAST: the unset state keeps its filled primary CTA, untouched by H4 — see the ONE-ACT discipline pinned in `theOneActCarriesTheOnePrimary.spec.tsx`. */
+  it('⭐ CONTRAST: "Set a target" (no target yet) stays the filled primary act', () => {
+    draw()
+    const set = screen.getByTestId(`${TID}-edit`)
+    expect(set.className).toMatch(/\bbg-primary\b/)
+  })
 })
 
 describe('the GOAL NODE is the source, and it is in the user\'s units', () => {

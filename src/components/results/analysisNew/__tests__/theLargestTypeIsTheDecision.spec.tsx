@@ -27,12 +27,36 @@
  * else: every component renders, every other suite is green, and only the
  * deployed pixels would show it. So every case below counts.
  *
- * ⚠ 18px IS THE PANEL'S CEILING, AND THAT IS PINNED ELSEWHERE, NOT HERE.
- * `tests/ci-guards/reasoning-panel-render-discipline.spec.ts` derives the
- * declared sizes through `typography` and holds the maximum at 18 — so "the
- * largest type" and "the `reasoningLead` token" are the same claim on this
- * surface. This file does not restate that; it would be a second copy of a
- * fact with an owner.
+ * ⛔⛔ RE-DERIVED 25 Sep 2026 (design-audit-20260925, gap TYPE-1). Paul's 18
+ * Sep ruling above stayed; the SLOT it describes changed shape. The 18px
+ * `reasoningLead` token this file used to key its selector on is DELETED —
+ * not demoted — because the ruling it answered ("lead with the decision
+ * label and goal") no longer needs a size ABOVE `panelHeader` to say it: the
+ * decision line now IS `panelHeader` (14px), which is also the size of every
+ * zone title on the panel. A selector built from `panelHeader` would
+ * therefore match every zone title too, and "exactly one element at the
+ * panel's largest size" would break the moment a second zone rendered.
+ *
+ * ⭐⭐ THE INVARIANT IS RE-STATED, NOT WEAKENED. What Paul's ruling actually
+ * requires — the decision is what the panel says FIRST, and nothing on it is
+ * typeset LOUDER — survives as two separate, independently checkable facts:
+ *
+ *   1. NO panel text resolves above 14px (the ceiling `panelHeader` itself
+ *      sits at) — pinned here as a render fact, over and above
+ *      `reasoning-panel-render-discipline`'s SOURCE-level derivation, so a
+ *      component that reached for a raw class rather than the retired token
+ *      would still be caught by what actually paints.
+ *   2. The `-lead` element (the decision, or the goal when there is no
+ *      distinct decision) is the FIRST text the panel body renders — proven
+ *      by walking the rendered DOM's text nodes in document order, not by a
+ *      size comparison, which is the only way "leads" can mean something once
+ *      several elements share one size.
+ *
+ * ⚠ 18px IS NO LONGER THE PANEL'S CEILING; 14px IS. That distinction is
+ * pinned at `tests/ci-guards/reasoning-panel-render-discipline.spec.ts`
+ * ("the panel has THREE sizes"), which is the size-vocabulary owner. This
+ * file does not restate that derivation; it restates only the RENDER-level
+ * consequence Paul's ruling cares about.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -69,16 +93,28 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
     .atAGlance
 
 /**
- * ⭐ BOUND TO THE TOKEN, NOT TO A SIZE I TYPED. Derived from `typography` at
- * run time, so a token whose classes change still resolves to whatever it now
- * is — and a case that stops matching fails loud instead of matching nothing
- * quietly. Every class must be present, so `text-lg` used raw elsewhere cannot
- * satisfy it.
+ * ⭐ THE SIZES THAT WOULD MAKE THE DECISION LINE NOT THE CEILING. Every
+ * Tailwind step above `text-sm` (14px, `panelHeader`'s own size) — a class
+ * found anywhere in the render is by construction a bigger element than the
+ * decision, and Paul's ruling is broken whether or not anything is
+ * data-testid'd as a "lead".
  */
-const LEAD_SELECTOR = '.' + typography.reasoningLead.trim().split(/\s+/).join('.')
+const OVERSIZED_SIZE_CLASSES = ['text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl']
 
-const leadElements = (root: HTMLElement): HTMLElement[] =>
-  Array.from(root.querySelectorAll<HTMLElement>(LEAD_SELECTOR))
+/**
+ * The first non-whitespace TEXT NODE the panel body renders, in document
+ * order. `jsdom` supports `TreeWalker`, so this reads the real DOM rather
+ * than re-deriving order from React's tree — the same "measure what rendered"
+ * discipline the file's ceiling check uses.
+ */
+function firstNonWhitespaceTextNode(root: HTMLElement): Text | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    if (node.textContent && node.textContent.trim().length > 0) return node as Text
+  }
+  return null
+}
 
 /**
  * ⛔ THE STRIP RENDERS NOTHING ON AN EMPTY CANVAS, AND THAT IS WHY THIS IS HERE.
@@ -140,30 +176,30 @@ describe('the panel leads with the decision being made', () => {
     expect(screen.getByTestId('analysis-new-model-strip-goal')).toBeInTheDocument()
   })
 
-  it('PRECONDITION: the lead selector resolves and finds a lead', () => {
-    expect(LEAD_SELECTOR).toContain('.text-lg')
-    const { container } = renderBody(genuineDecision())
-    expect(leadElements(container).length, 'the selector must see at least one lead').toBeGreaterThan(0)
-  })
-
   it.each([
     ['a run that reached a conclusion', genuineDecision],
     ['a run whose leader was withheld', decisionWithLeaderWithheld],
-  ])('⭐ %s puts EXACTLY ONE element at the panel\'s largest size', (_name, fixture) => {
+  ])('⭐⭐ %s: NO panel text resolves above 14px', (_name, fixture) => {
     const { container } = renderBody(fixture())
-    const leads = leadElements(container)
+    const oversized = OVERSIZED_SIZE_CLASSES.filter((cls) => container.querySelector(`.${cls}`))
+    expect(oversized, 'nothing on the panel should render larger than panelHeader (14px)').toEqual([])
+  })
+
+  it('⭐⭐ the -lead element is the FIRST text the panel body renders', () => {
+    const { container } = renderBody(genuineDecision())
+    const firstText = firstNonWhitespaceTextNode(container)
+    expect(firstText, 'PRECONDITION: the panel body must render some text').not.toBeNull()
+    const lead = screen.getByTestId('analysis-new-model-strip-lead')
     expect(
-      leads.map((el) => el.getAttribute('data-testid') ?? el.textContent?.slice(0, 40)),
-      'never two leads, and never none',
-    ).toHaveLength(1)
+      lead.contains(firstText!.parentElement),
+      'the decision line must be the first thing the panel says',
+    ).toBe(true)
   })
 
   it('⭐ the DECISION leads even on a run that reached a conclusion', () => {
-    const { container } = renderBody(genuineDecision())
-    const [lead] = leadElements(container)
-    expect(lead.getAttribute('data-testid'), 'the decision leads, never the conclusion').toBe(
-      'analysis-new-model-strip-lead',
-    )
+    renderBody(genuineDecision())
+    const lead = screen.getByTestId('analysis-new-model-strip-lead')
+    expect(lead.className, 'the lead carries the panel ceiling, panelHeader').toContain(typography.panelHeader.split(' ')[0]!)
 
     /**
      * ⛔⛔ AND THERE IS NO CONCLUSION AT ALL — DELETED, NOT DEMOTED.
@@ -190,11 +226,11 @@ describe('the panel leads with the decision being made', () => {
   })
 
   it('⭐ the DECISION also leads when no conclusion was reached', () => {
-    const { container } = renderBody(decisionWithLeaderWithheld())
-    const [lead] = leadElements(container)
-    expect(lead.getAttribute('data-testid'), 'the decision being worked on leads').toBe(
-      'analysis-new-model-strip-lead',
-    )
+    renderBody(decisionWithLeaderWithheld())
+    expect(
+      screen.getByTestId('analysis-new-model-strip-lead'),
+      'the decision being worked on leads',
+    ).toBeInTheDocument()
     expect(
       screen.queryByTestId('analysis-new-glance-headline'),
       'a withheld run names no conclusion to lead with',

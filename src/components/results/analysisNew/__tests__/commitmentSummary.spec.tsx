@@ -12,7 +12,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { CommitmentSummary, type CommitmentSummaryProps } from '../sections/CommitmentSummary'
 import { buildAnalysisNewViewModel, type AnalysisNewViewModelInputs } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -212,7 +212,12 @@ describe('⛔ a withheld-leader run: no winner wording anywhere', () => {
       // …and none of the banned vocabulary, nor the threshold that implies a leader.
       expect(said).not.toMatch(WINNER)
       expect(said).not.toContain('Hold price')
-      expect(screen.queryByTestId(`${TID}-founded`)).toBeNull()
+      // ⭐⭐ WAVE 2 (commitment structure): bullet 1 is no longer silent on a
+      // withheld run — it states the option count, which is not a reading and
+      // so is not banned by this probe (already asserted above via `said`).
+      expect(screen.getByTestId(`${TID}-founded-text`).textContent).toBe(
+        COMMITMENT_COPY.withheldFounded(vm.optionsComparison.rows.length),
+      )
     })
   }
 
@@ -260,6 +265,22 @@ describe('record your view — the existing decision record', () => {
     expect(door.textContent).toBe(COMMITMENT_COPY.record.open)
     fireEvent.click(door)
     expect(onRecord).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): the door reads as a BLUE
+   * link, like the prototype's `.commitrow .disclose{color:var(--info)}` —
+   * not the body-ink text gap 21 shipped from a misread of the base
+   * `.disclose` rule (see `CommitmentSummary.tsx`'s own note at this site).
+   * The icon and chevron are unchanged, so this pins colour ADDED to an
+   * already shape-carried control, never colour alone.
+   */
+  it('the door reads as a blue link — text-info, alongside its icon and chevron', () => {
+    renderZone({})
+    const door = screen.getByTestId(`${TID}-record-open`)
+    const label = within(door).getByText(COMMITMENT_COPY.record.open)
+    expect(label.className).toMatch(/\btext-info\b/)
+    expect(label.className).not.toMatch(/\btext-text-body\b/)
   })
 
   it('no record + no capture → no door (the modal would open disabled)', () => {

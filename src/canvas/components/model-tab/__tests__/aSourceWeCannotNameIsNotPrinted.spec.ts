@@ -29,7 +29,7 @@ describe('a source we cannot classify is not printed', () => {
     // Without this the assertions below could pass by the function returning
     // null for everything, which would silently strip provenance from the pill.
     expect(mapSourceToDisplay('user_confirmed')).toBe('Confirmed by you')
-    expect(mapSourceToDisplay('cee_inference')).toBe('AI estimate')
+    expect(mapSourceToDisplay('cee_inference')).toBe('Olumi estimate')
   })
 
   it('an unclassifiable token returns nothing, rather than itself', () => {

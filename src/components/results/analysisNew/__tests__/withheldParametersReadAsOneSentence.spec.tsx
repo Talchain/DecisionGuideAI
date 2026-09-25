@@ -45,7 +45,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -118,6 +118,12 @@ function lineFor(n: number): HTMLElement {
       onReanalyse={() => {}}
     />,
   )
+  // V2 prototype (Paul, 25 Sep 2026): the refusal and its parameters sit behind
+  // one door, closed at rest. Assert it was shut, then open it.
+  const door = screen.getByTestId('analysis-new-glance-withheld-toggle')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId('analysis-new-glance-withheld-parameters')).toBeNull()
+  fireEvent.click(door)
   // PRECONDITION, pinned in-test: the refusal itself is rendered, so an
   // assertion about this line cannot pass because the panel vanished, and the
   // set was not voided by the fail-closed label gate in

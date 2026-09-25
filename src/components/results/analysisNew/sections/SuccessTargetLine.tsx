@@ -74,7 +74,7 @@
  * is no dispatcher to own it and the copy says so plainly.
  */
 import { useId, useRef, useState, type KeyboardEvent } from 'react'
-import { Target } from 'lucide-react'
+import { Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -207,13 +207,29 @@ export interface SuccessTargetLineProps {
     detail: SystemEventSendSettlementDetail,
   ) => void
   testId: string
+  /**
+   * Whether this row draws its own top rule. Defaults to `true` — the
+   * Inspector's `GoalPanel` keeps it, because it is the top-level element
+   * there and needs the separation.
+   *
+   * ⚠ `false` FOR THE MODEL STRIP (design-audit-20260925, gaps SPACE-4 /
+   * NARROW-8). Inside the strip this row already sits between
+   * `ModelReviewTool`'s row above and the section rule below, so its own
+   * `border-t` was a THIRD hairline in the same 101px band. The row still
+   * needs SOME separation from whatever precedes it — hence `mt-1`, not 0.
+   */
+  divider?: boolean
 }
+
+/** V2 prototype's success row, verbatim, for a goal with no target. */
+const SUCCESS_QUESTION = 'What would success look like?'
 
 export function SuccessTargetLine({
   goalNodeId,
   onCommitOutcome,
   onSendSettled,
   testId,
+  divider = true,
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -589,13 +605,21 @@ export function SuccessTargetLine({
        attach a target to (the component returns null above), so the rule can
        never appear over nothing. */
     <div
-      className="flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2"
+      className={
+        divider
+          ? 'flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2'
+          : 'flex items-baseline gap-1.5 mt-1'
+      }
       data-testid={testId}
     >
       <Target className={`${icon('inline')} self-center shrink-0 text-text-light`} aria-hidden="true" />
-      <span className={`${typography.panelMeta} text-text-light shrink-0`}>
-        {COPY.successTarget.label}
-      </span>
+      {/* V2 prototype: with no target the row IS the question ("What would
+          success look like?"); the "Target" label only heads a stated value. */}
+      {editing || shownText !== null || unexpressible ? (
+        <span className={`${typography.panelMeta} text-text-light shrink-0`}>
+          {COPY.successTarget.label}
+        </span>
+      ) : null}
 
       {editing ? (
         <span
@@ -661,7 +685,7 @@ export function SuccessTargetLine({
                 onChange={(e) => setDirection(e.target.value as ConstraintType)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.directionLabel}
-                className={`${typography.panelMeta} shrink-0 rounded border border-panel-border bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} shrink-0 rounded-sm border border-field bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-direction`}
               >
                 <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
@@ -675,7 +699,7 @@ export function SuccessTargetLine({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.inputLabel}
-                className={`${typography.panelMeta} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} min-w-0 flex-1 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-input`}
               />
               {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
@@ -702,7 +726,7 @@ export function SuccessTargetLine({
                   onKeyDown={onEditorKeyDown}
                   aria-label={COPY.successTarget.unitInputLabel}
                   placeholder={COPY.successTarget.unitPlaceholder}
-                  className={`${typography.panelMeta} w-24 shrink-0 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} w-24 shrink-0 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-unit`}
                 />
               ) : null}
@@ -722,7 +746,7 @@ export function SuccessTargetLine({
                 onKeyDown={onWordsKeyDown}
                 placeholder={WORDS_PLACEHOLDER}
                 rows={2}
-                className={`${typography.panelMeta} min-w-0 rounded border border-panel-border bg-surface px-1.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} min-w-0 rounded-sm border border-field bg-surface px-1.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-words-input`}
               />
             </span>
@@ -739,7 +763,7 @@ export function SuccessTargetLine({
               <button
                 type="button"
                 onClick={commit}
-                className={`${typography.panelMeta} ${action('primary')}`}
+                className={`${typography.panelBody} ${action('primary')}`}
                 data-testid={`${testId}-save`}
               >
                 {COPY.modelStrip.saveValue}
@@ -749,7 +773,7 @@ export function SuccessTargetLine({
                 type="button"
                 onClick={sendWordsToOlumi}
                 disabled={wordsDraft.trim() === ''}
-                className={`${typography.panelMeta} ${action('primary')} disabled:opacity-50`}
+                className={`${typography.panelBody} ${action('primary')} disabled:opacity-50`}
                 data-testid={`${testId}-words-send`}
               >
                 {SEND_WORDS_LABEL}
@@ -765,7 +789,7 @@ export function SuccessTargetLine({
             <button
               type="button"
               onClick={closeEditor}
-              className={`${typography.panelMeta} ${action('quiet')}`}
+              className={`${typography.panelBody} ${action('quiet')}`}
               data-testid={`${testId}-cancel`}
             >
               {COPY.modelStrip.cancelValue}
@@ -773,7 +797,7 @@ export function SuccessTargetLine({
             <button
               type="button"
               onClick={deferTarget}
-              className={`${typography.panelMeta} ${action('quiet')}`}
+              className={`${typography.panelBody} ${action('quiet')}`}
               data-testid={`${testId}-defer`}
             >
               {NOT_SURE_YET_LABEL}
@@ -791,14 +815,18 @@ export function SuccessTargetLine({
             </span>
           ) : (
             <span
-              className={`${typography.panelMeta} text-text-light`}
+              className={
+                unexpressible
+                  ? `${typography.panelMeta} text-text-light`
+                  : `${typography.panelBody} text-text-body flex-1 min-w-0`
+              }
               data-testid={`${testId}-none`}
             >
               {/* ⚠ TWO DIFFERENT ABSENCES, TWO SENTENCES. "No target set" is a
                   fact about the MODEL; "we hold one we cannot show in your
                   units" is a fact about the VALUE. Collapsing them would tell a
                   user who set a target that they never did. */}
-              {unexpressible ? COPY.successTarget.unexpressible : COPY.successTarget.none}
+              {unexpressible ? COPY.successTarget.unexpressible : SUCCESS_QUESTION}
             </span>
           )}
           {/* Provenance in the SAME vocabulary the factor rows use — one thing
@@ -883,20 +911,29 @@ export function SuccessTargetLine({
                * tier is worth nothing if every row claims it, so it applies ONLY
                * where the target is absent — the state in which this is the
                * panel's highest-value move and the producer's own top
-               * recommendation. Once a target exists, "Change" is an ordinary
-               * affordance and drops back to `inline`.
+               * recommendation. Once a target exists, "Change" drops to `quiet`.
                *
-               * ⚠ AND THE CLASSES WERE A HAND-COPY OF `inline`, spelled out
-               * rather than named — the 31st spelling of a tier that already has
-               * a name, which is the drift `ACTION_TIER` exists to end. Both
-               * branches now name their tier.
+               * ⭐⭐ H4: NOT `inline` (BLUE, UNDERLINED) ANY MORE, ONCE A TARGET
+               * EXISTS — the prototype's own quiet pencil row, not a link
+               * (`Olumi_Reasoning_Prototype_V2.html`'s `.source-pill`-adjacent
+               * edit glyph). `quiet` keeps the underline (an affordance costs no
+               * contrast per `ACTION_TIER`'s own rule) but drops the info hue, so
+               * a row that already states its value and source in plain text does
+               * not also read as a hyperlink. The label stays — see
+               * `successTargetLine.spec.tsx`'s `toHaveTextContent` pin — so the
+               * pencil is additive, not a replacement for the accessible name.
                */
-              className={`${typography.panelMeta} shrink-0 ${
-                shownText !== null ? action('inline') : action('primary')
+              className={`${typography.panelBody} shrink-0 inline-flex items-center gap-1 ${action('quiet')} ${
+                shownText !== null ? '' : 'no-underline text-text-light hover:text-info'
               }`}
+              aria-label={shownText !== null ? undefined : COPY.successTarget.set}
+              title={shownText !== null ? undefined : COPY.successTarget.set}
               data-testid={`${testId}-edit`}
             >
-              {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
+              {/* V2 prototype: a quiet pencil. Unset, it is icon-only and its
+                  accessible name is still "Set a target". */}
+              <Pencil className={icon('inline')} aria-hidden={true} />
+              {shownText !== null ? COPY.successTarget.change : null}
             </button>
           </span>
         </>
