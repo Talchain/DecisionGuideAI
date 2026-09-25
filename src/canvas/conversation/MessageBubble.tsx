@@ -237,7 +237,7 @@ export const MessageBubble = memo(function MessageBubble({
     [isUser, isStreaming, message.stoppedByUser, message.answerShape, dedupedBody.text],
   )
   const [openQuestionsShown, setOpenQuestionsShown] = useState(false)
-  const displayContent = openQuestions ? openQuestions.lead : dedupedBody.text
+  const displayContent = openQuestions ? openQuestions.atRest : dedupedBody.text
   /**
    * What the turn has ALREADY PUT ON SCREEN above its blocks — tier 0 plus the
    * body, whichever body this turn actually renders.
