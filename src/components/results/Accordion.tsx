@@ -61,6 +61,17 @@ export interface AccordionProps {
   testId?: string
   /** Additional class for the container */
   className?: string
+  /**
+   * ⭐⭐ V2 GAP 29 — OPT-IN, GEOMETRY ONLY. `FIDELITY-GAPS-INDEX-20260924.txt`
+   * #29: "At rest the Model tab is two bordered cards. Reasoning uses
+   * full-width dividers." Renders the section as ONE bottom hairline instead
+   * of a bordered, radiused, padded card, and drops the header's own
+   * `border-b` (redundant once the header is no longer inside a box with its
+   * own border). Default `false`, so every existing caller — `ResultsBody`,
+   * `AdvancedSection`, the pre-analysis primitives — is BYTE-IDENTICAL to
+   * before; only a caller that opts in changes shape.
+   */
+  flush?: boolean
 }
 
 const badgeStates = {
@@ -97,6 +108,7 @@ export function Accordion({
   children,
   testId,
   className = '',
+  flush = false,
 }: AccordionProps) {
   // Support both controlled and uncontrolled modes
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
@@ -149,7 +161,11 @@ export function Accordion({
 
   return (
     <section
-      className={`border border-panel-border rounded-lg overflow-hidden ${className}`}
+      className={
+        flush
+          ? `border-b border-panel-border ${className}`
+          : `border border-panel-border rounded-lg overflow-hidden ${className}`
+      }
       data-testid={testId}
       aria-labelledby={headingId}
     >
@@ -159,7 +175,11 @@ export function Accordion({
         onClick={handleToggle}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className="w-full px-3 py-2 bg-panel border-b border-panel-border flex items-start justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset"
+        className={
+          flush
+            ? 'w-full px-3 py-2 bg-panel flex items-start justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset'
+            : 'w-full px-3 py-2 bg-panel border-b border-panel-border flex items-start justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset'
+        }
       >
         <div className="flex items-start gap-2 flex-1">
           <ChevronRight

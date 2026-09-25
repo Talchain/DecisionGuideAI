@@ -42,7 +42,9 @@
  *    `priority_rank`, and a UI-invented rank is exactly the defect
  *    phase3Pacing.ts documents at EXERCISE_RANK_AFTER_REVIEW_CARDS. The one
  *    exception is the companion reservation, which SWAPS one member of the
- *    point set and is bounded to one.
+ *    point set and is bounded to one — plus, while
+ *    `RUN_TURN_COACHING_PROMOTION_ENABLED` is on (it is, since #63 5824423338), the run-turn
+ *    promotion, the same kind of single bounded swap.
  *
  * ## ONE RENDER AUTHORITY (L-16 / NEW-9, 16 Aug 2026) — added, nothing weakened
  *
@@ -95,6 +97,8 @@
  */
 import type { ConversationBlock, GraphPatchBlock } from './types'
 import { readDecisionReviewWireState } from '../../v5/decisionReviewAdapter'
+import { CEE_ACCEPTED_INTENTS } from '../../v5/buildPayload'
+import { isRunTurnCoachingCard } from '../../v5/blocks/coachingCurrency'
 import { isLensCompanionBlock } from './phase3Pacing'
 import {
   isGraphPatchApplied,
@@ -220,6 +224,139 @@ function reserveCompanion(
   return chosen
 }
 
+// ---------------------------------------------------------------------------
+// RUN-TURN COACHING PROMOTION — ON
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a run turn's actionable coaching card is PROMOTED to a top-level,
+ * expanded point (see `firstPromotableActionIndex`).
+ *
+ * ⭐ ON — flipped by Reasoning & Coaching on the Delivery Lead's GO (programme-
+ * docs #63 5824423338 §2). With it off, a completed OpenAI Run showed the user
+ * NO action: the card sat collapsed behind "Show 1 more". It was held until
+ * Runtime's click guard (CEE #1854: a card click cannot authorise a change or
+ * start a Run) shipped in the same deploy, because promotion puts a live action
+ * on the face of the reply. Its action is live only while the run-turn currency
+ * rule says the card is about the current run; any currency failure makes it
+ * inert. `{ promoteRunTurnCoaching: false }` still gives the exact pre-promotion
+ * composition — `runTurnCoachingPromotion.spec.tsx` pins the value, that
+ * identity, and that the default now equals the ON arm.
+ *
+ * A constant, not a flag: the flip is a reviewed code change owned by one lane,
+ * not a runtime toggle any session can set.
+ */
+export const RUN_TURN_COACHING_PROMOTION_ENABLED = true
+
+/** Is `intent` absent, or one the deployed CEE routes? Fails closed on anything else. */
+function isRoutableActionIntent(intent: string | undefined): boolean {
+  if (intent === undefined) return true
+  // `CEE_ACCEPTED_INTENTS` is THE acceptance registry (`buildPayload.ts`) — read,
+  // never restated. It is typed to the vendored `Intent` enum, so it is widened
+  // to `string` for the lookup rather than narrowing an unvalidated producer
+  // token into the enum.
+  return (CEE_ACCEPTED_INTENTS as ReadonlySet<string>).has(intent)
+}
+
+function nonBlank(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+/**
+ * The index of the ONE block a run turn may promote, or −1.
+ *
+ * The first block IN PRODUCER ORDER that is all of:
+ *   · a `v5_coaching` card authored by `run_analysis` (the run-turn rule's
+ *     cards — `coachingCurrency.isRunTurnCoachingCard`, one definition);
+ *   · NOT required to carry a target. A `run_analysis` card is bound to its
+ *     run by the run-turn currency rule (hash, `computed_at`, run state), which
+ *     is what keeps a stale one inert. The no-flagged-link card (CEE #1869) is
+ *     about the run as a whole, so its `target_refs` is `[]` by design. Producer
+ *     census at CEE staging e39f6e0: the ONLY coaching producers stamping
+ *     `run_analysis` are the fragile-link card (always targeted) and that card;
+ *     EVPPI's `run_analysis` stamp is on a `review_card`, which this never reads.
+ *     Ordinary target-less cards from any other handler stay unpromotable;
+ *   · actionable as the producer authored it: non-blank `action_label` AND
+ *     non-blank `action_prompt` — the pair that makes `ActionChip` a real
+ *     button. A label alone renders a display-only pill, and promoting a card
+ *     for an action it cannot take would be a headline with nothing behind it;
+ *   · routable: `action_intent` absent, or in `CEE_ACCEPTED_INTENTS`. An intent
+ *     the deployed CEE does not route is withheld at the send gate, so its
+ *     click would arrive as anonymous prose — not a card to put first;
+ *   · `freshness === 'fresh'` as the PRODUCER stamped it. This is the pure,
+ *     ingest-time half; the render-time currency verdict still decides whether
+ *     the promoted card's action is live (`V5CoachingBlock` → `actionInert`).
+ *
+ * Producer order, never a UI rank: CEE has already sorted by `priority_rank`.
+ */
+export function firstPromotableActionIndex(blocks: readonly ConversationBlock[]): number {
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]
+    if (block.type !== 'v5_coaching') continue
+    if (!isRunTurnCoachingCard(block.source_handler)) continue
+    if (!nonBlank(block.action_label) || !nonBlank(block.action_prompt)) continue
+    if (!isRoutableActionIntent(block.action_intent)) continue
+    if (block.freshness !== 'fresh') continue
+    return i
+  }
+  return -1
+}
+
+/** Caller overrides for `composeMessage`. Omitted ⇒ the module constants decide. */
+export interface ComposeMessageOptions {
+  /** Defaults to `RUN_TURN_COACHING_PROMOTION_ENABLED`. */
+  promoteRunTurnCoaching?: boolean
+  /** The same turn asks the user to consent to a proposal (`offersPendingConsent`). */
+  consentPending?: boolean
+}
+
+/**
+ * CEE's consent chip — `agent-approve-proposal:<proposal id>`, offered with
+ * `agent-amend-proposal` (`src/orchestrator-v5/agent-lane/approval-chips.ts`,
+ * `APPROVE_PREFIX`, at CEE 21e3b38b).
+ */
+export const CONSENT_CHIP_PREFIX = 'agent-approve-proposal:'
+
+/** Whether a turn's own chips ask the user to consent to a proposal. */
+export function offersPendingConsent(chips: readonly { id?: unknown }[] | undefined): boolean {
+  return (chips ?? []).some((c) => typeof c.id === 'string' && c.id.startsWith(CONSENT_CHIP_PREFIX))
+}
+
+/**
+ * ⭐ ONE REAL NEXT ACTION (Paul's goal, 25 Sep). A turn that asks the user to
+ * consent — served: the first brief drafts the model, runs the automatic first
+ * pass AND asks "Shall I save these four assumptions?" — already has its next
+ * action: that consent pair. Promoting the run card as well would put a second,
+ * competing live button on the face. So on such a turn the card keeps its line
+ * (one click away, never hidden) and the pair stays the action; on every other
+ * run turn the card is promoted as before. ONE predicate, read by BOTH
+ * `composeMessage` and `planCoachingLines`, so they cannot disagree.
+ */
+export function shouldPromoteRunTurnCard(options: ComposeMessageOptions): boolean {
+  return (options.promoteRunTurnCoaching ?? RUN_TURN_COACHING_PROMOTION_ENABLED) && options.consentPending !== true
+}
+
+/**
+ * Promote the run turn's actionable card into the point set by DISPLACING the
+ * last chosen point that is not a lens companion — the `reserveCompanion`
+ * discipline: displace, never grow, so `MAX_POINTS` holds on every turn and
+ * the 2.242 companion reservation is never undone by this one.
+ *
+ * Mutates `chosen` in place (it is local to `composeMessage`). A no-op when
+ * there is no promotable card, when it is already a point, or when every
+ * chosen point is a companion — the promotion yields rather than grow the set.
+ */
+function reserveRunTurnAction(blocks: readonly ConversationBlock[], chosen: Set<number>): void {
+  const promotable = firstPromotableActionIndex(blocks)
+  if (promotable < 0 || chosen.has(promotable)) return
+  const displaceable = [...chosen]
+    .filter((i) => !isLensCompanionBlock(blocks[i]))
+    .sort((a, b) => b - a)
+  if (displaceable.length === 0) return
+  chosen.delete(displaceable[0])
+  chosen.add(promotable)
+}
+
 /**
  * THE composition function. Pure: reads blocks, mutates nothing, returns the
  * partition. The message/store keeps every block exactly as ingested — this
@@ -228,6 +365,7 @@ function reserveCompanion(
 export function composeMessage(
   blocks: readonly ConversationBlock[],
   headline: string | null = null,
+  options: ComposeMessageOptions = {},
 ): MessageComposition {
   const entry = (index: number): CompositionEntry => ({ index, blockType: blocks[index].type })
 
@@ -236,6 +374,13 @@ export function composeMessage(
     if (isPointCandidate(blocks[i])) candidateIndices.push(i)
   }
   const chosenPoints = reserveCompanion(blocks, candidateIndices)
+  // The run turn's actionable card, gated OFF (see the constant). Applied AFTER
+  // the companion reservation so it displaces around the companion, and BEFORE
+  // the fill — a promotable card is always a point candidate, so it only ever
+  // needs a slot when the candidates alone already filled every one.
+  if (shouldPromoteRunTurnCard(options)) {
+    reserveRunTurnAction(blocks, chosenPoints)
+  }
 
   /**
    * FILL. The cap governs TOTAL top-level exposure, not the coaching family

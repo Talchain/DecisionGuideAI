@@ -110,7 +110,7 @@ import {
 } from '../../canvas/stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
 import { isRefreshActionIntent, resolveFreshnessNotice } from './coachingCurrency'
-import { useCoachingCurrency } from './useCoachingCurrency'
+import { useCoachingCurrency, useRunTurnStaleReason } from './useCoachingCurrency'
 import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conversation/types'
 
 export interface V5CoachingBlockProps {
@@ -294,9 +294,22 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
     `resolveFreshnessNotice` from the same mechanism module: the producer's
     verdict wins where it has said anything (stale/pending/failed); the derived
     verdict fills its silence and never overwrites its speech.
+
+    The card's run-turn provenance rides along: a `run_analysis` card is
+    current only for the run it was written about (the three-part rule in
+    `coachingCurrency.ts`); every other handler's verdict is unchanged.
+
+    And a `run_analysis` card that fails the rule says WHICH limb failed, in
+    the producer's own words (`RUN_TURN_NOTICE`, R&C #63 5821034205) — "your
+    model has changed" is false for a same-model rerun. Order: the producer's
+    own non-fresh verdict, then the run-turn sentence, then the generic
+    derived one. Every other card gets `null` here, so its notice is exactly
+    what it was.
   */
-  const currency = useCoachingCurrency(block.graph_hash_at_generation)
-  const freshnessNotice = resolveFreshnessNotice(block.freshness, currency)
+  const provenance = { sourceHandler: block.source_handler, createdAt: block.created_at }
+  const currency = useCoachingCurrency(block.graph_hash_at_generation, provenance)
+  const runTurnReason = useRunTurnStaleReason(block.graph_hash_at_generation, provenance)
+  const freshnessNotice = resolveFreshnessNotice(block.freshness, currency, runTurnReason)
   /*
     ONE VERDICT, TWO CONSEQUENCES. When the card says its advice may no longer
     apply, its action must not stay live beside that sentence — a click would
@@ -319,6 +332,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
       data-coaching-source={block.source}
       data-freshness={block.freshness}
       data-currency={currency}
+      {...(runTurnReason ? { 'data-run-turn-reason': runTurnReason } : {})}
       data-tone={tone}
       {...(block.category ? { 'data-category': block.category } : {})}
       {...(block.signal_code ? { 'data-signal-code': block.signal_code } : {})}

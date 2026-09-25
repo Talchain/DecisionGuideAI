@@ -103,7 +103,8 @@ src/types/constraints.ts:78
 #    copy (#1957), all above this site. Line text identical
 #    (`: topFigurePercent === 100`); CI shard 2 on `ffea022e` reported added
 #    and gone as exactly this pair.)
-#    (`contextMenu/actions.ts:934` -> `1010` and `store.ts:7884` -> `7892` are
+#    (`contextMenu/actions.ts:934` -> `1010` and `store.ts:7887` -> `7895`
+#    (`7884` -> `7892` before staging `b017e3c2` moved it +3) are
 #    pure line shifts from `canvas/keyboard-delete-guard` (25 Sep 2026): the
 #    shared delete entry point, the multi-select edge assessment and their
 #    docblocks in `actions.ts`, and corrected `deleteKeyCode` comments in
@@ -111,4 +112,11 @@ src/types/constraints.ts:78
 #    (`if (attempts < MAX_ATTEMPTS) {` / `if (currentTotal + displayBytes >
 #    MAX_TOTAL_CHARS) {`); the scanner's added/gone sets were exactly these
 #    two pairs.)
-src/components/results/analysisNew/analysisNewCopy.ts:2463
+#    (`analysisNewCopy.ts:2463` -> `2471`, a pure +8 line shift from Panel
+#    bundle 2: copy for the blocker repair ask and #1963's tail subtitles,
+#    both above this site. Line text identical; added and gone were
+#    exactly this pair in `theUiRendersItDoesNotDecide.spec.ts`.)
+#    (`analysisNewCopy.ts:2471` -> `2472`, a pure +1 line shift: the read-back's
+#    `decisionRecord.nextActionLabel`, added above this site so the Reasoning
+#    tab does not import the record modal. Line text identical.)
+src/components/results/analysisNew/analysisNewCopy.ts:2472

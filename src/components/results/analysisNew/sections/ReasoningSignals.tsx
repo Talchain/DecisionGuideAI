@@ -136,7 +136,11 @@ export function ReasoningSignals({
         {atRest.length > 0 ? (
           <p className={`${typography.panelMeta} text-text-body`} data-testid={`${testId}-drivers-line`}>
             <span className="text-text-light">{ZONE.driversKicker}: </span>
-            {atRest.map((d) => (d.rank ? `#${d.rank} ${d.label}` : d.label)).join(' · ')}
+            {/* Names only, in the chart's influence order. The producer's rank
+                is a different measure: printed here without its bar it read as
+                "#2 · #1 · #4" on the served pricing run (7e256bd3). The ranks
+                stay beside their bars behind the disclosure. */}
+            {atRest.map((d) => d.label).join(' · ')}
           </p>
         ) : null}
         {tippingRow}

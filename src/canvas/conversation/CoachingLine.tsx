@@ -132,7 +132,12 @@ import type { ReactNode } from 'react'
 import { typography } from '../../styles/typography'
 import { guidanceCategoryIcon } from '../stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
-import { isPinnedBlock, isPointCandidate } from './messageComposition'
+import {
+  shouldPromoteRunTurnCard,
+  firstPromotableActionIndex,
+  isPinnedBlock,
+  isPointCandidate,
+} from './messageComposition'
 import { ICON_DENSE } from './panelIcons'
 import { evidenceBlockTitle } from '../../v5/blocks/V5EvidenceBlock'
 import type { V5EvidenceBlock as V5EvidenceBlockType } from './types'
@@ -270,9 +275,22 @@ export interface LinePlan {
  *
  * ⭐ DEDUPING IS NOT ON THE TABLE. Collapsing two blocks into one would hide a
  * block the producer sent, which is a content decision this lane does not own.
+ *
+ * ## The run turn's promoted card renders its FACE, not a line
+ *
+ * Gated by `RUN_TURN_COACHING_PROMOTION_ENABLED` (messageComposition.ts), which
+ * is ON. The block at `firstPromotableActionIndex` — the one card
+ * `composeMessage` promotes to a top-level point — is planned
+ * `collapsible: false`, so its title, body and action are on screen rather
+ * than one click away: promoting a card to a point and then hiding its action
+ * inside a closed disclosure would promote nothing. It is the SAME index
+ * function composeMessage reads, so the two cannot pick different cards.
+ * Every other card keeps its line — including stale ones, which the index
+ * function never selects. With the constant off, the plan is byte-identical.
  */
 export function planCoachingLines(
   blocks: readonly ConversationBlock[],
+  options: { promoteRunTurnCoaching?: boolean; consentPending?: boolean } = {},
 ): Map<ConversationBlock, LinePlan> {
   const plan = new Map<ConversationBlock, LinePlan>()
   const byTitle = new Map<string, ConversationBlock[]>()
@@ -299,6 +317,15 @@ export function planCoachingLines(
     } else {
       // No honest way to tell these apart on one line — show the cards.
       for (const block of group) plan.set(block, { disambiguator: null, collapsible: false })
+    }
+  }
+
+  if (shouldPromoteRunTurnCard(options)) {
+    const promoted = firstPromotableActionIndex(blocks)
+    if (promoted >= 0) {
+      const block = blocks[promoted]
+      // Keep any disambiguator already planned; only the collapse decision moves.
+      plan.set(block, { disambiguator: plan.get(block)?.disambiguator ?? null, collapsible: false })
     }
   }
 

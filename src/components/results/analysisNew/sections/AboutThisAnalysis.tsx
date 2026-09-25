@@ -25,20 +25,29 @@
  *   · `ModelHeldUp` — the panel's terminal state, stated with its limit "in the
  *     same breath as the good news". It qualifies the reading too, and it reads
  *     `useRobustnessCaveatOnScreen` so it must stay paired with the caveat.
- *   · `WhatIWasGivenSection` — it cannot shed its own chrome: in BOTH
- *     `useSurfaceGrammar` modes it draws a bordered section box and its own
- *     heading-sized toggle, so mounting it here would be a card inside a
- *     disclosure inside a disclosure. The inputs ROW below carries its counts;
- *     the register itself stays where the body mounts it.
  *
- * ⚠ PRE-RUN IT RENDERS NOTHING. Every row is a statement about a run; the tab
+ * ⭐ V2 FIDELITY GAP 24 (24 Sep 2026): THE TAIL FOLDS IN HERE. The "If you want
+ * to go further" zone and its two group shells ("Coaching and method", "How
+ * this was worked out") are gone; the prototype ends commitment → About. What
+ * they held — bias grounding, key insights, the input register
+ * (`WhatIWasGivenSection`) and "Uncertainty and gaps" — arrives as `folded`,
+ * mounted by the body UNCHANGED (same components, same gates, same testids,
+ * same acts) at the end of this region. The reach is the same: one toggle
+ * (About) where there used to be one toggle (the group). This component does
+ * not know what the folded blocks are; it only places them.
+ *
+ * ⚠ PRE-RUN IT RENDERS NO ROWS. Every row is a statement about a run; the tab
  * already says "No analysis has run yet for this model" once, and a Freshness
- * row reading "Not run" would say it a second time.
+ * row reading "Not run" would say it a second time. It renders NOTHING AT ALL
+ * pre-run unless `foldedHasContent` says a folded block will render — the input
+ * register renders pre-run by design (it is about the brief, not the run), and
+ * folding it in here must not delete the one section a reader has before any
+ * analysis exists.
  *
  * @panel-act-opt-out full-width disclosure toggles; a tier is an inline control and would shrink each row to its text width
  */
 import { useId, useState } from 'react'
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -71,7 +80,7 @@ import { FactorValueControl } from '../FactorValueControl'
 import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../../InferenceWarningStrip'
 import { PanelIconButton } from '../PanelIconButton'
-import { ACTION_FOCUS, icon } from '../panelSurfaces'
+import { ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Copy. Furniture and short status values only; every claim-bearing sentence
@@ -210,6 +219,17 @@ export interface AboutThisAnalysisProps {
   offerFactorValueControl?: boolean
   /** Absent ⇒ no AI act is drawn. Never a control that does nothing. */
   onAsk?: (payload: AboutAskPayload) => void
+  /**
+   * V2 gap 24: the blocks the deleted "If you want to go further" tail held,
+   * mounted by the body as they were. Rendered last in the open region.
+   */
+  folded?: ReactNode
+  /**
+   * ⚠ THE BODY'S OWN GATE for "will any folded block render" — never re-derived
+   * here. It decides ONLY whether About renders pre-run; post-run About renders
+   * regardless. False (the default) keeps the old rule: nothing pre-run.
+   */
+  foldedHasContent?: boolean
   testId?: string
 }
 
@@ -338,6 +358,8 @@ export function AboutThisAnalysis({
   outcomeFormat,
   offerFactorValueControl = false,
   onAsk,
+  folded = null,
+  foldedHasContent = false,
   testId = 'analysis-new-about',
 }: AboutThisAnalysisProps) {
   const [open, setOpen] = useState(false)
@@ -351,9 +373,11 @@ export function AboutThisAnalysis({
   // Hooks before the pre-run return, as hooks must be.
   const briefDetail = useBriefDetail()
 
-  if (vm.status.isPreRun) return null
+  const preRun = vm.status.isPreRun
+  if (preRun && !foldedHasContent) return null
 
-  const rows: StatusRow[] = [
+  // Pre-run: no row and no detail — each is a statement about a run.
+  const rows: StatusRow[] = preRun ? [] : [
     { key: 'freshness', Icon: Clock, value: freshnessValue(vm), detail: [] },
     comparedRow(vm),
     evidenceRow(vm),
@@ -391,7 +415,7 @@ export function AboutThisAnalysis({
       return 'meaning' in entry ? [{ id: i.id, text: entry.meaning }] : []
     })
 
-  const details: DetailKey[] = [
+  const details: DetailKey[] = preRun ? [] : [
     ...(analysed.length > 0 ? (['values'] as const) : []),
     'limitations',
     ...(vm.deeper.groups.length > 0 ? (['record'] as const) : []),
@@ -410,41 +434,52 @@ export function AboutThisAnalysis({
     formatThreshold(v, outcomeFormat.unit, outcomeFormat.symbol, outcomeFormat.isNormalised)
 
   return (
+    /* ⭐ V2 FIDELITY GAP 27: A QUIET AUDIT FOOTER, NOT A PEER SECTION. The
+       prototype's `.about .disclose` is 11px light text with the chevron FIRST
+       (rotating 90° open), under a rule that runs the full panel width
+       (`.about:before{left:-16px;right:-16px}` against the 16px scroll gutter).
+       `-mx-4 px-4` cancels the content column's `px-4` so the rule reaches both
+       edges; the text stays on the column's measure. */
     <section
-      className="border-t border-panel-border"
+      /* fidelity gap 6/11: `PANEL_RULE` — the shared full-width rule, not a
+         bare `border-t` inset inside the column's own `px-4` gutter.
+         Prototype `.about`: 11px above, 10px under a full-width rule. */
+      className={PANEL_RULE}
       data-testid={testId}
       aria-labelledby={`${testId}-heading`}
       data-about-open={open ? 'true' : 'false'}
     >
       <div className="flex items-center gap-1.5">
-        {/* Heading wraps button — the accordion pattern `SectionShell` uses. */}
-        <h3
-          id={`${testId}-heading`}
-          className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}
+        {/* ⚠ V2 gap 27: NOT A HEADING. The prototype's About toggle is a bare
+            `.disclose` button, not a section title — and this panel reserves
+            h1–h3 for section titles on `panelHeader`
+            (`sectionHeadingsUseHeaderToken.spec.ts`). A footer line typed as a
+            heading would either lie about the outline or wear the peer-section
+            type gap 27 removes. The region stays a labelled landmark: its name
+            is the title span below. */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={open ? regionId : undefined}
+          className={`${typography.panelMeta} text-text-light flex min-w-0 flex-1 min-h-[27px] items-center gap-1.5 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+          data-testid={`${testId}-toggle`}
         >
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            aria-controls={open ? regionId : undefined}
-            className={`flex w-full min-h-[24px] items-center gap-1.5 py-3 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
-            data-testid={`${testId}-toggle`}
-          >
-            <span className="min-w-0 flex-1">{ABOUT_COPY.title}</span>
-            {open ? (
-              <ChevronDown className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
-            ) : (
-              <ChevronRight className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
-            )}
-          </button>
-        </h3>
-        {open && onAsk ? (
+          <ChevronRight
+            className={`${icon('row')} shrink-0 text-text-light transition-transform${open ? ' rotate-90' : ''}`}
+            aria-hidden={true}
+            data-testid={`${testId}-chevron`}
+          />
+          <span id={`${testId}-heading`} className="min-w-0 flex-1">{ABOUT_COPY.title}</span>
+        </button>
+        {open && onAsk && !preRun ? (
           <PanelIconButton ai label={ABOUT_COPY.ask} onClick={ask} testId={`${testId}-ask`} />
         ) : null}
       </div>
 
       {open ? (
         <div id={regionId} className="pb-3" data-testid={`${testId}-region`}>
+          {rows.length > 0 ? (
           <dl className="m-0 space-y-0.5" data-testid={`${testId}-rows`}>
             {rows.map((r) => (
               /* dl > div > dt + dd(s): the value in column two, any supporting
@@ -476,7 +511,9 @@ export function AboutThisAnalysis({
               </div>
             ))}
           </dl>
+          ) : null}
 
+          {details.length > 0 ? (
           <div className="mt-2">
             {details.map((key) => {
               const isOpen = detailOpen.has(key)
@@ -555,6 +592,15 @@ export function AboutThisAnalysis({
               )
             })}
           </div>
+          ) : null}
+
+          {/* V2 gap 24 — the folded tail, last. `data-testid` so a reader of
+              the DOM can tell a folded block from About's own rows. */}
+          {folded !== null && folded !== undefined ? (
+            <div className="mt-2 space-y-3" data-testid={`${testId}-folded`}>
+              {folded}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

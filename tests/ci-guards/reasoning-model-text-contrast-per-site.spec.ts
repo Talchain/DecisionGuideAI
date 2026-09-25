@@ -285,7 +285,6 @@ const KNOWN_UNREPAIRED: Record<string, number> = {
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-warning text': 2,
   'src/canvas/components/model-tab/ModelHealthSection.tsx text-danger icon': 1,
   'src/canvas/components/model-tab/ModelHealthSection.tsx text-danger text': 1,
-  'src/canvas/components/model-tab/ReanalyseBar.tsx text-text-light/80 text': 1,
   'src/canvas/components/model-tab/utils.ts text-danger text': 1,
   'src/canvas/components/model-tab/utils.ts text-success text': 1,
   'src/canvas/model-tab-v2/ModelDetailRegion.tsx text-danger text': 1,
@@ -438,7 +437,12 @@ describe('Reasoning + Model surfaces: per-site text and icon contrast', () => {
      * reason it was not done there: it changes how the control WORKS, and a
      * repair PR is not where you rewrite the instrument that judges it.
      */
-    expect(violations.length, 'and it must still be finding the failures').toBeGreaterThan(15)
+    // ⭐ 15 -> 12 BECAUSE A SITE WAS REPAIRED (V2 gap 34, 24 Sep 2026):
+    // `ReanalyseBar`'s faded `text-text-light/80` label now uses the plain
+    // token, so the scan measures exactly 15 and the pin above drops that
+    // entry. Same reasoning, and the same deliberately-deferred ratio fix, as
+    // the 20 -> 15 note above.
+    expect(violations.length, 'and it must still be finding the failures').toBeGreaterThan(12)
 
     // 8. The scan sees BOTH roles and resolves grounds both ways, or a whole
     //    classification arm is dead code nothing exercises.
