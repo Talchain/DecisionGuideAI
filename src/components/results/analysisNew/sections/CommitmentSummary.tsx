@@ -137,24 +137,26 @@ function RecordYourView({
             ⚠⚠ AND `underline` IS ADDED, WHICH THE PROTOTYPE DOES NOT CARRY —
             a deliberate departure, not an oversight. This panel's OWN live
             guard (`tests/ci-guards/reasoning-panel-render-discipline.spec.ts`,
-            RULE B, WCAG SC 1.4.1) scans the `text-info`-bearing element's OWN
-            className for a shape signal and reds on a bare one; it cannot see
-            that the icon and chevron below are SIBLINGS rather than the
-            label's own attributes — its docblock names this EXACT class of
-            false negative ("a className scan … cannot see an icon inside it")
-            and records it as open, not closed, rather than promising the
-            scanner will one day see through it. Rather than rely on a blind
-            spot, the label reaches for the tier this same file already uses
-            for the identical shape (`action('inline')`, on "Update" below):
-            `text-info underline`, no tint — tints fail SC 1.4.3 on this
-            ground, per the guard's own measurement. */}
+            RULE B, WCAG SC 1.4.1) reds on a bare `text-info` control with no
+            other affordance signal, so the label needs the colour-plus-shape
+            pair some route already provides.
+            ⛔⛔ NOT HAND-SPELLED — `noActIsSpelledByHand.spec.ts` reds on
+            `text-info` + `underline` appearing together with no `action(…)`
+            call in the same literal (proven: this file shipped exactly that
+            spelling first, and the guard caught it). That guard's own remedy
+            is this file's OWN existing tier — `action('inline')`, the same
+            one "Update" below already uses for the identical shape — so the
+            label reaches for it by name rather than re-typing its classes:
+            no tint (tints fail SC 1.4.3 on this ground, per the render-
+            discipline guard's own measurement), and any future touch-target
+            or geometry fix to the tier now reaches this control too. */}
         <button
           type="button"
           onClick={onRecord}
           className="w-full -ml-2 flex items-center justify-between gap-1.5 min-h-6 px-2 py-1 rounded text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           data-testid={`${testId}-open`}
         >
-          <span className={`${typography.panelBody} inline-flex items-center gap-1.5 text-info underline`}>
+          <span className={`${typography.panelBody} ${action('inline')} !min-h-0 !min-w-0 !p-0 !rounded-none gap-1.5`}>
             <NotebookPen className={`${icon('inline')} text-text-light`} aria-hidden={true} />
             {COMMITMENT_COPY.record.open}
           </span>
