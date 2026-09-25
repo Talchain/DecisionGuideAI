@@ -2871,8 +2871,10 @@ export function strengthenWhyLine(signal: string, whyNow?: string): string {
  * automatic first run that reason is the admission's own: every estimate is
  * Olumi's. `LEADER_WITHHOLD_CAUSE` reads the token as "the limits you set",
  * which was false on a brief that set none. This is said instead where the
- * admission refused the comparative claim. Pinned by
- * `theWithholdNamesNoLimitsTheUserNeverSet.spec.tsx`.
+ * admission refused the comparative claim. "It rests on" keeps it true after
+ * the user sets a value the comparison does not turn on (the admission then
+ * says so: "The values you have set sit outside what this comparison turns
+ * on…"). Pinned by `theWithholdNamesNoLimitsTheUserNeverSet.spec.tsx`.
  */
 export const LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS =
-  'No option can be put forward until you set at least one of the estimates yourself.'
+  'No option can be put forward until at least one of the estimates it rests on is yours.'
