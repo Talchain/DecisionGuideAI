@@ -277,6 +277,8 @@ describe('ANTI-RECURRENCE — a NAME TRIPWIRE over the module\'s exports', () =>
     'fragileEdgeConsequence',
     'fragileEValueNote',
     'fragileDiscussDraft',
+    'lensFragileEdgeLabel',
+    'lensFragileRowAlternative',
   ].sort()
 
   it('NAME TRIPWIRE: the covered set IS the exported function set — a new export REDs here (adding the name silences it; that is the limit)', () => {
@@ -307,5 +309,17 @@ describe('ANTI-RECURRENCE — a NAME TRIPWIRE over the module\'s exports', () =>
     // …and the alternative is still named in the two sentences that carry it.
     expect(strings[0]).toContain(ALT)
     expect(strings[3]).toContain(ALT)
+  })
+
+  it('the lens copy (edge hover label, lens row) names the alternative with no flip claim and no winner arrow', () => {
+    // These take no verdict: the withheld form is true on every run, so there is
+    // no attested/withheld branch to exercise — the check is the vocabulary.
+    const row = fragileEdgeCopy.lensFragileRowAlternative(ALT)
+    const lens = [fragileEdgeCopy.lensFragileEdgeLabel(ALT), row.text, row.title]
+    for (const s of lens) {
+      expect(s).not.toMatch(FLIP_CLAIM_RE)
+      expect(s).not.toMatch(/If wrong|→/)
+      expect(s).toContain(ALT)
+    }
   })
 })
