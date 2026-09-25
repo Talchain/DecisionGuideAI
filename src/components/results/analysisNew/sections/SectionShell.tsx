@@ -215,6 +215,19 @@ export function SectionShell({
         <span id={`${testId}-heading`} className="sr-only" data-testid={`${testId}-title`}>
           {title}
         </span>
+        {/* ⚠ THE TOPIC LINE, KEPT — flagged by review as dropped in the
+            first cut. Every other variant renders `subtitle`; bare has no
+            heading of its own to hang it under (the title above is
+            `sr-only`), so it renders as its own quiet line instead. Not a
+            claim, but a topic sentence a reader lost with no replacement. */}
+        {subtitle ? (
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mb-1`}
+            data-testid={`${testId}-subtitle`}
+          >
+            {subtitle}
+          </p>
+        ) : null}
         {children}
       </section>
     )

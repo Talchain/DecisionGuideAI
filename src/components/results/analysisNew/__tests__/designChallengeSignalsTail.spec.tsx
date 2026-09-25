@@ -173,4 +173,17 @@ describe('TAIL-3 — "Drivers and dynamics" is not a second closed door inside "
     expect(headline?.className).toMatch(/text-xs/)
     expect(headline?.className).not.toMatch(/font-semibold/)
   })
+
+  /**
+   * ⚠ FLAGGED BY REVIEW (session cse_018ayLaY2kMyRD4mdEunrkWF, verdict on
+   * ca519213): `bare` dropped `COPY.sectionSubtitles.drivers` outright — no
+   * heading to hang it under, so `SectionShell`'s bare branch never rendered
+   * `subtitle` at all. Not a claim, but a topic line a reader lost with no
+   * replacement. Restored as its own quiet line above the chart.
+   */
+  it('keeps the topic subtitle, even with no heading to hang it under', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    expect(screen.getByTestId('analysis-new-drivers-subtitle')).toBeInTheDocument()
+  })
 })
