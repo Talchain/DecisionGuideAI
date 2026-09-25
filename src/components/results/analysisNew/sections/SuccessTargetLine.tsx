@@ -74,7 +74,7 @@
  * is no dispatcher to own it and the copy says so plainly.
  */
 import { useId, useState, type KeyboardEvent } from 'react'
-import { Target } from 'lucide-react'
+import { Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -191,12 +191,25 @@ export interface SuccessTargetLineProps {
     outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit' | 'not_a_number',
   ) => void
   testId: string
+  /**
+   * Whether this row draws its own top rule. Defaults to `true` — the
+   * Inspector's `GoalPanel` keeps it, because it is the top-level element
+   * there and needs the separation.
+   *
+   * ⚠ `false` FOR THE MODEL STRIP (design-audit-20260925, gaps SPACE-4 /
+   * NARROW-8). Inside the strip this row already sits between
+   * `ModelReviewTool`'s row above and the section rule below, so its own
+   * `border-t` was a THIRD hairline in the same 101px band. The row still
+   * needs SOME separation from whatever precedes it — hence `mt-1`, not 0.
+   */
+  divider?: boolean
 }
 
 export function SuccessTargetLine({
   goalNodeId,
   onCommitOutcome,
   testId,
+  divider = true,
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -558,7 +571,11 @@ export function SuccessTargetLine({
        attach a target to (the component returns null above), so the rule can
        never appear over nothing. */
     <div
-      className="flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2"
+      className={
+        divider
+          ? 'flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2'
+          : 'flex items-baseline gap-1.5 mt-1'
+      }
       data-testid={testId}
     >
       <Target className={`${icon('inline')} self-center shrink-0 text-text-light`} aria-hidden="true" />
@@ -852,19 +869,26 @@ export function SuccessTargetLine({
                * tier is worth nothing if every row claims it, so it applies ONLY
                * where the target is absent — the state in which this is the
                * panel's highest-value move and the producer's own top
-               * recommendation. Once a target exists, "Change" is an ordinary
-               * affordance and drops back to `inline`.
+               * recommendation. Once a target exists, "Change" drops to `quiet`.
                *
-               * ⚠ AND THE CLASSES WERE A HAND-COPY OF `inline`, spelled out
-               * rather than named — the 31st spelling of a tier that already has
-               * a name, which is the drift `ACTION_TIER` exists to end. Both
-               * branches now name their tier.
+               * ⭐⭐ H4: NOT `inline` (BLUE, UNDERLINED) ANY MORE, ONCE A TARGET
+               * EXISTS — the prototype's own quiet pencil row, not a link
+               * (`Olumi_Reasoning_Prototype_V2.html`'s `.source-pill`-adjacent
+               * edit glyph). `quiet` keeps the underline (an affordance costs no
+               * contrast per `ACTION_TIER`'s own rule) but drops the info hue, so
+               * a row that already states its value and source in plain text does
+               * not also read as a hyperlink. The label stays — see
+               * `successTargetLine.spec.tsx`'s `toHaveTextContent` pin — so the
+               * pencil is additive, not a replacement for the accessible name.
                */
-              className={`${typography.panelMeta} shrink-0 ${
-                shownText !== null ? action('inline') : action('primary')
+              className={`${typography.panelMeta} shrink-0 inline-flex items-center gap-1 ${
+                shownText !== null ? action('quiet') : action('primary')
               }`}
               data-testid={`${testId}-edit`}
             >
+              {shownText !== null ? (
+                <Pencil className={icon('inline')} aria-hidden={true} />
+              ) : null}
               {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
             </button>
           </span>

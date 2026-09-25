@@ -13,14 +13,18 @@
  * matcher can see a clamp at all via a contrast control (the sibling goal
  * subline, owned by another lane, is left clamped).
  *
- * ⛔ NOT DONE, same gap: defaulting the strip OPEN post-run (the map-collapse
- * half of gap #3) and demoting the token from `reasoningLead` (18px) to
- * `panelHeader` (14px, the rest of gap #8). Both are left as filed — see the
- * PR body: the first breaks ~a dozen existing ModelStrip specs that assume
- * closed-by-default post-run (e.g. `censusLabelsFit.spec.tsx`'s `openStrip()`
- * helper), the second collides with Paul's 18 Sep ruling pinned by
- * `theLargestTypeIsTheDecision.spec.tsx` ("the largest type is the decision,
- * always") and needs sign-off this lane does not have.
+ * ⛔ STILL NOT DONE: defaulting the strip OPEN post-run (the map-collapse
+ * half of gap #3). Left as filed — it breaks ~a dozen existing ModelStrip
+ * specs that assume closed-by-default post-run (e.g.
+ * `censusLabelsFit.spec.tsx`'s `openStrip()` helper).
+ *
+ * ⭐⭐ DONE (design-audit-20260925, gap TYPE-1): the token demotion this note
+ * used to defer — `reasoningLead` (18px) to `panelHeader` (14px) — landed in
+ * this PR. It does NOT collide with Paul's 18 Sep ruling; it ANSWERS it more
+ * directly than the 18px token did, because "lead with the decision label"
+ * no longer needs a size step above the rest of the panel to be true — see
+ * `theLargestTypeIsTheDecision.spec.tsx`'s re-derived invariant (no panel
+ * text above 14px; the -lead element is the first text rendered).
  *
  * #14 — the worklist toggles (`-verify-toggle`, `-no-value-toggle`) and the
  * node-detail "Estimate not yet confirmed" chip (`-detail-verify`) carried
