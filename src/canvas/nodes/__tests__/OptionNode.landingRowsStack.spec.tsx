@@ -1,10 +1,21 @@
 /**
- * ⭐ AT THE LANDING ZOOM THE CHANGE ROWS STACK; AT NORMAL ZOOM THEY KEEP THE
- * CONTRACT GRID (S5, 24 Sep 2026 — Paul: "the content on the nodes is an
+ * ⭐ AT THE LANDING ZOOM THE CHANGE ROWS STACK; AT ORDINARY NORMAL ZOOM THEY KEEP
+ * THE CONTRACT GRID (S5, 24 Sep 2026 — Paul: "the content on the nodes is an
  * absolute mess"; "make it fit on a standard laptop screen").
  *
+ * ⛔ UPDATED LATER ON 24 Sep 2026: THE LANDING ZOOM IS NO LONGER THE `quiet` RUNG.
+ * Paul's ruling "the landing view counts as Normal zoom" (gap-audit row 3) moved
+ * the `full` floor from `ICON_LEGIBLE_ZOOM` (≈0.714) to `LABEL_LEGIBLE_ZOOM` (0.5),
+ * so the landing band (0.5–0.53) is now `full` and the resting icons show there.
+ * `quiet` is reached only by zooming OUT past the landing floor. The ruling named
+ * icons, not row layout, and the measurement below is why the rows did not
+ * follow the rung: they keep the grid only at or above the OLD Normal floor
+ * (`anchorRailFloor.selectAtOrAboveIconLegibleZoom`), and stack below it —
+ * landing included. The last describe block pins this through the REAL zoom
+ * (`resolveLodRung` + `anchorRailFitsBesideAtZoom`), not a hand-set rung.
+ *
  * MEASURED on the S3+S4 build (Chromium, 1440×900, dock open, `market-entry`,
- * landing zoom 0.5 → `--canvas-label-scale` 2, rung `quiet`): the contract grid
+ * landing zoom 0.5 → `--canvas-label-scale` 2, then the `quiet` rung): the contract grid
  * `minmax(0,1fr) fit-content(60%)` gives the LABEL column 45px on screen, so
  * "Germany market…" wrapped onto FOUR lines (dt 45×55px) and the option card
  * stood 171px tall carrying two rows; `vendor-selection` 222px. The grid is the
@@ -20,7 +31,8 @@
  * HEIGHT SAFETY (why this cannot overlap the row beneath): the layout measures
  * at scale 2. If it measures at `quiet`, it reserves the STACKED height at scale
  * 2; a later zoom to `full` renders the GRID at scale ≤ 1.47, whose rows are
- * shorter (smaller type AND a wider label column). If it measures at `full`, it
+ * shorter (smaller type AND a wider label column). (Since the floor above, the
+ * grid renders only at zoom ≥ `ICON_LEGIBLE_ZOOM`, i.e. scale ≤ 1.4.) If it measures at `full`, it
  * reserves the GRID at scale 2 — the tallest form of all. Both directions leave
  * the reservation ≥ the rendered card. The browser geometry gates are the pixel
  * witness; this file pins the DOM contract (trap 3: jsdom proves no pixels).
@@ -52,6 +64,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { resolveLodRung, ICON_LEGIBLE_ZOOM, LABEL_LEGIBLE_ZOOM } from '../../utils/zoomLegibility'
+import { anchorRailFitsBesideAtZoom, setAnchorRailFitsBeside } from '../shared/anchorRailFloor'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -157,10 +171,10 @@ const rowText = () => screen.getByTestId('option-change-row-option-1-f-head').te
 const inPopover = (el: Element) => document.querySelector('[data-testid="node-popover"]')?.contains(el) ?? false
 
 describe('S5: in DETAILED view the inline change rows stack below Normal zoom, grid at Normal zoom', () => {
-  beforeEach(() => { winRate = null })
+  beforeEach(() => { winRate = null; setAnchorRailFitsBeside(true) })
   const expert = { viewMode: 'expert' }
 
-  it('quiet rung (the landing zoom): rows are STACKED — no two-column grid', () => {
+  it('quiet rung (reached only by zooming out past the landing floor): rows are STACKED — no two-column grid', () => {
     renderCard({ store: { ...expert, lodRung: 'quiet' } })
     // Precondition: Detailed keeps the rows ON THE CARD (not the popover).
     expect(inPopover(rowsEl())).toBe(false)
@@ -214,5 +228,44 @@ describe('bounded anatomy: in STANDARD view the rows are in the popover, the con
     renderCard({ store: { lodRung: 'quiet' } })
     expect(inPopover(screen.getByTestId('option-change-row-option-1-f-head'))).toBe(true)
     expect(rowText()).toBe(inline)
+  })
+})
+
+/**
+ * ⭐ DRIVEN BY THE REAL ZOOM, NOT A HAND-SET RUNG. Both inputs the card reads are
+ * derived from one zoom exactly as `LodSync` derives them from the viewport: the
+ * rung (`resolveLodRung`, no previous rung — a fresh landing) and the old-Normal
+ * floor (`anchorRailFitsBesideAtZoom`).
+ */
+describe('Detailed change rows at the REAL landing zoom: rung is Normal, rows still STACK', () => {
+  const expert = { viewMode: 'expert' }
+  const renderAtZoom = (zoom: number) => {
+    setAnchorRailFitsBeside(anchorRailFitsBesideAtZoom(zoom))
+    return renderCard({ store: { ...expert, lodRung: resolveLodRung(zoom) } })
+  }
+  beforeEach(() => { winRate = null; setAnchorRailFitsBeside(true) })
+
+  for (const zoom of [LABEL_LEGIBLE_ZOOM, 0.53]) {
+    it(`landing zoom ${zoom}: the rung IS Normal (the ruling) and the rows are STACKED (the measured fit)`, () => {
+      expect(resolveLodRung(zoom), 'precondition: landing counts as Normal').toBe('full')
+      renderAtZoom(zoom)
+      expect(rowsEl().getAttribute('data-row-layout')).toBe('stacked')
+      expect(listEl().className).not.toMatch(/grid-cols-\[/)
+    })
+  }
+
+  it('CONTRAST — at the old Normal floor and above: the contract grid', () => {
+    for (const zoom of [ICON_LEGIBLE_ZOOM, 1]) {
+      const r = renderAtZoom(zoom)
+      expect(rowsEl().getAttribute('data-row-layout'), `zoom ${zoom}`).toBe('grid')
+      r.unmount()
+    }
+  })
+
+  it('CONTRAST — zoomed out past the landing floor (quiet): stacked', () => {
+    const zoom = 0.48
+    expect(resolveLodRung(zoom), 'precondition').toBe('quiet')
+    renderAtZoom(zoom)
+    expect(rowsEl().getAttribute('data-row-layout')).toBe('stacked')
   })
 })

@@ -42,7 +42,13 @@ const SECTIONS = [
   // mints it; the `present` filter means a fixture without options simply
   // drops out rather than failing, so adding an id is always safe and never
   // adding one is the drift.
-  'analysis-new-options',
+  //
+  // ⛔ V2 FIDELITY (24 Sep 2026, gap 17): `analysis-new-options` REMOVED from
+  // this list. It no longer mounts as a collapsed `SectionShell` row at all —
+  // it is `bare` inside "Move towards commitment", always visible, with no
+  // toggle, count or region — so `${id}-toggle` below would throw for it.
+  // See `theWithheldRunShowsItsFigures.spec.tsx` for its own, positive,
+  // always-open coverage.
   'analysis-new-key-insights',
   'analysis-new-strengthen',
   'analysis-new-drivers',
@@ -69,12 +75,24 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
+/**
+ * V2 prototype: "What moves the outcome" (and the drivers section inside it)
+ * renders only inside the challenge's "Assumptions and evidence" door. Opens
+ * that door, asserting it was closed at rest.
+ */
+function openEvidenceDoor(): void {
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(door)
+}
+
 describe('the surface below the glance is a list of collapsed rows', () => {
   it('mounts every section CLOSED, with its content unmounted rather than hidden', () => {
     // ⚠ LICENSED (24 Sep 2026): "What would change your mind" mounts only on a
     // run allowed to name a leader; unlicensed, it would drop out of `present`
     // and this rule would stop covering it.
     renderBody(withLeaderLicensed(manyFragileEdges()))
+    openEvidenceDoor()
     openGroups()
     const present = SECTIONS.filter((id) => screen.queryByTestId(id))
     // POSITIVE CONTROL: a run rendering no sections would satisfy the loop
@@ -103,23 +121,34 @@ describe('the surface below the glance is a list of collapsed rows', () => {
    * `genuineDecision()` carries two labelled options, so the section mounts and
    * the assertions below actually bind to it.
    */
-  it('mounts the options section CLOSED on a run that HAS options', () => {
+  /**
+   * ⛔ V2 FIDELITY (24 Sep 2026, gap 17): RE-POINTED FROM "…CLOSED…" TO
+   * "…OPEN, WITH NO DISCLOSURE AT ALL…". The deployed build nested this
+   * section inside "Move towards commitment" as a `SectionShell` row, closed
+   * at rest whenever the glance named a leader — hiding the comparison on the
+   * run it is the entitled account of (the fidelity finding's own
+   * measurement). `bare` (`OptionsComparison.tsx`) replaces the toggle/count/
+   * region shell with the identical body, always visible: there is no longer
+   * a collapsed state for this section to be in.
+   */
+  it('mounts the options section OPEN, with no toggle, count or region — it is bare', () => {
     renderBody(genuineDecision())
     // PRECONDITION, PINNED IN-TEST: without this the case silently becomes the
     // vacuous one it exists to replace.
     const section = screen.getByTestId('analysis-new-options')
     expect(section).toBeInTheDocument()
 
-    expect(section).toHaveAttribute('data-section-open', 'false')
-    expect(screen.getByTestId('analysis-new-options-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    )
+    // `bare` renders no `SectionShell` chrome at all — none of these attach.
+    expect(section).not.toHaveAttribute('data-section-open')
+    expect(screen.queryByTestId('analysis-new-options-toggle')).toBeNull()
     expect(screen.queryByTestId('analysis-new-options-region')).toBeNull()
+    // The rows are on screen with no click, which is the whole point.
+    expect(screen.getAllByTestId('analysis-new-options-row').length).toBeGreaterThan(0)
   })
 
   it('opens on click, and only the section clicked', () => {
     renderBody(manyFragileEdges())
+    openEvidenceDoor()
     openGroups()
     fireEvent.click(screen.getByTestId('analysis-new-uncertainty-toggle'))
 

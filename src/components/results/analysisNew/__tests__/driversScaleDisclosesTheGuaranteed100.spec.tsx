@@ -231,6 +231,12 @@ const renderBody = (data: ResultsSectionDataReturn) => {
  * file is not a module this one should depend on.
  */
 const openDrivers = () => {
+  // V2 prototype (25 Sep): the drivers' group renders only inside the
+  // challenge's "Assumptions and evidence" door. The caveat and the 100% move
+  // behind it together, so they stay at the same depth.
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  if (door.getAttribute('aria-expanded') !== 'true') fireEvent.click(door)
+  openGroupsIfPresent()
   const toggle = screen.getByTestId(`${SECTION}-toggle`)
   if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
   expect(toggle, 'PRECONDITION: the drivers section must be open').toHaveAttribute(

@@ -89,7 +89,7 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
    * question — *did Olumi suggest this, or did I bring it?* — unanswerable.
    *
    * ⭐ THE ORIGINAL FIX IS ASSERTED UNCHANGED BELOW: the VALUE mark still reads
-   * "From brief" and still must not read "AI estimate" over the user's own £49.
+   * "From brief" and still must not read "Olumi estimate" over the user's own £49.
    * The second mark ADDS a true fact; it does not soften the first.
    */
   it('⭐ THE MEASURED CASE: model-named node, user-stated number ⇒ BOTH facts', () => {
@@ -105,7 +105,7 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
     // The number's basis — the original claim of this spec, unchanged.
     expect(claimLabel('value')).toContain('From brief')
     // ⛔ The half that makes it a fix rather than a relabel.
-    expect(claimLabel('value')).not.toContain('AI estimate')
+    expect(claimLabel('value')).not.toContain('Olumi estimate')
     // The authorship fact that used to vanish: Olumi named this node.
     //
     // ⭐ ASSERTED POSITIVELY, AND THAT IS THE POINT. `not.toContain('From
@@ -141,7 +141,7 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
    * passes the row above — and that is the same lie pointed the other way,
    * told to the population the current code serves CORRECTLY.
    */
-  it('⛔ CONTRAST: a genuinely model-supplied number still reads "AI estimate"', () => {
+  it('⛔ CONTRAST: a genuinely model-supplied number still reads "Olumi estimate"', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
@@ -151,7 +151,7 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         })}
       />,
     )
-    expect(label()).toContain('AI estimate')
+    expect(label()).toContain('Olumi estimate')
   })
 
   /**
@@ -159,7 +159,7 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
    *
    * `classifyValueProvenance` returns `null` for an absent or unrecognised
    * `source`. Reading it INSTEAD of node authorship would blank the badge here —
-   * and for these nodes "AI estimate" is frequently TRUE, so that is not a safe
+   * and for these nodes "Olumi estimate" is frequently TRUE, so that is not a safe
    * default but a LOST DISCLOSURE. The identical regression stopped the CEE-side
    * attempt: 20 assertions' worth of honest disclosures went silent.
    *
@@ -175,7 +175,7 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
       />,
     )
     expect(mark(), 'the badge went silent — a true disclosure was lost').not.toBeNull()
-    expect(label()).toContain('AI estimate')
+    expect(label()).toContain('Olumi estimate')
   })
 
   it('⛔⛔ CONTRAST: an UNRECOGNISED value source behaves the same as an absent one', () => {
@@ -185,7 +185,7 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         data={factorWith({ provenance: 'ai_inferred', observedState: { value: 0.2, source: 'something_new' } })}
       />,
     )
-    expect(label()).toContain('AI estimate')
+    expect(label()).toContain('Olumi estimate')
   })
 
   /**
@@ -202,6 +202,6 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         data={{ label: 'Revenue grows', kind: 'outcome', provenance: 'ai_inferred' }}
       />,
     )
-    expect(label()).not.toContain('AI estimate')
+    expect(label()).not.toContain('Olumi estimate')
   })
 })

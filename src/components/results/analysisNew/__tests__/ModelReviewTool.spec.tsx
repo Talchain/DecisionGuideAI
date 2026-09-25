@@ -131,6 +131,24 @@ describe('the collapsed row', () => {
     render(<ModelReviewTool interventions={[ABOUT_MINE, ROBUSTNESS]} excludeId={ROBUSTNESS.id} onAsk={vi.fn()} />)
     expect(screen.getByTestId(`${TID}-count`)).toHaveTextContent(COPY.toReview(3))
   })
+
+  /**
+   * ⭐⭐ H3 (design-b1w2-header-structure): ONE WORKLIST COUNT, IN INFO BLUE —
+   * the prototype's own "🔍 5 to review" (`Olumi_Reasoning_Prototype_V2.html`).
+   * On the deployed build this toggle rendered `text-text-body`, indistinguishable
+   * from plain prose, while the strip's SEPARATE amber "N to verify" line sat
+   * above it on the same first screen — two counts, two colours, the same
+   * worklist. Amber now lives ONLY inside the strip's own disclosure
+   * (`ModelStrip.tsx`'s `{open ? ... : null}`), never on the closed first
+   * screen, so this is the one count a reader meets before opening anything.
+   */
+  it('⭐⭐ H3: the toggle reads in info blue, never amber or plain body text', () => {
+    render(<ModelReviewTool interventions={[ABOUT_MINE, ROBUSTNESS]} onAsk={vi.fn()} />)
+    const toggle = screen.getByTestId(`${TID}-toggle`)
+    expect(toggle.className).toMatch(/\btext-info\b/)
+    expect(toggle.className).not.toMatch(/\btext-warning/)
+    expect(toggle.className).not.toMatch(/\btext-text-body\b/)
+  })
 })
 
 describe('the pager', () => {

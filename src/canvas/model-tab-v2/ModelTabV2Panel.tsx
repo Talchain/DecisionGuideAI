@@ -159,6 +159,16 @@ import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspector
 import { optionInterventionDeclinedNotice } from '../ui/inspector-v2/shared/useOptionInterventionCommit'
 
 /**
+ * The Plain/Advanced arms, each ONE complete colour pair. Inline in the
+ * className template, the per-site contrast scan (which reads a template
+ * literal whole, on purpose) paired the idle arm's text colour with the
+ * selected arm's fill and reported 2.19:1, though no rendered arm combines
+ * them. Same repair as the Reasoning tab's lens toggles (PR #1978).
+ */
+const TIER_ARM_SELECTED = 'bg-primary text-text-on-color'
+const TIER_ARM_IDLE = 'text-text-body'
+
+/**
  * ⭐⭐ WHAT THE ROW SAYS WHEN AGREEING WITH AN ESTIMATE DOES NOT LAND.
  *
  * ⛔ Until now it said NOTHING. `proposeEdgeStrengthConfirmation`'s send was
@@ -1000,6 +1010,7 @@ export function ModelTabV2Panel({
     // row, so the host judges the SAME prior the control showed the user. Read
     // outside the updater: `setEdit`'s callback must stay pure.
     const admission = rows.find(r => r.id === rowId)?.valueAdmission
+    const declaresNoUnit = rows.find(r => r.id === rowId)?.declaresNoUnit
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
       /*
@@ -1015,7 +1026,7 @@ export function ModelTabV2Panel({
        * derivation, so a control that offers to advance and a host that refuses
        * to cannot disagree.
        */
-      if (unproposableDraftReason(rowId, prev.draft, prev.unit, admission) !== null) return prev
+      if (unproposableDraftReason(rowId, prev.draft, prev.unit, admission, declaresNoUnit) !== null) return prev
       return { ...prev, phase: 'proposed' }
     })
   }, [rows])
@@ -1497,61 +1508,117 @@ export function ModelTabV2Panel({
     <section
       data-testid="model-tab-v2-panel"
       aria-label="Model outline"
-      className="flex flex-col gap-2 border border-panel-border rounded-lg p-2"
+      /**
+       * ⭐⭐ V2 GAP 29 — NO CARD. Reasoning already closes its top-level
+       * sections with ONE full-width divider (`PANEL_RULE`,
+       * `panelSurfaces.ts:148`); the Model tab was still a bordered,
+       * radiused, padded box (`FIDELITY-GAPS-INDEX-20260924.txt` #29,
+       * matching the design authority's `.section` — no card, a hairline).
+       * `border-b border-panel-border pb-2.5`: bottom rule only, no radius,
+       * no side borders, no top padding (this section opens the tab, so
+       * nothing sits above it to divide from).
+       */
+      className="flex flex-col gap-2 border-b border-panel-border pb-2.5"
     >
-      <header className="flex items-center gap-2 flex-wrap">
-        <h3 className={`${typography.panelHeader} text-text-header`}>Model outline</h3>
-        <input
-          data-testid="model-tab-v2-filter"
-          type="search"
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          placeholder="Filter the model…"
-          aria-label="Filter the model"
-          className={`${typography.bodySmall} flex-1 min-w-[10rem] bg-panel-hover border border-panel-border rounded px-2 py-1`}
-        />
-        {/*
-          The tier control, IN the tab (design §4.3 rule 3). A content switch
-          only: `ModelOutline`'s layout function takes no tier argument, so
-          flipping this cannot reorder, open or close anything.
+      {/*
+        ⭐⭐ V2 GAP 31 — TWO ROWS, NOT THREE, AND NO TINT FILLS.
+        `FIDELITY-GAPS-INDEX-20260924.txt` #31: at the 280px dock floor the
+        single `flex-wrap` row of h3 + filter + key + toggle wrapped to
+        THREE rows. The design authority puts the title and controls on one
+        row (`justify-between`) and gives the filter its OWN full-width row
+        beneath it — two rows at any width, including 280px.
+      */}
+      <header className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className={`${typography.panelHeader} text-text-header`}>Model outline</h3>
+          <div className="flex items-center gap-2 shrink-0">
+            {/*
+              The tier control, IN the tab (design §4.3 rule 3). A content
+              switch only: `ModelOutline`'s layout function takes no tier
+              argument, so flipping this cannot reorder, open or close
+              anything.
 
-          ⭐ WHAT IT WRITES CHANGED; WHERE IT LIVES DID NOT. It now sets the
-          product's ONE expert preference (`olumi.expertMode`) rather than a
-          private tier, so the user's choice persists across tab switches and
-          sessions and the outline can no longer disagree with the scientific
-          transparency block directly beneath it.
+              ⭐ WHAT IT WRITES CHANGED; WHERE IT LIVES DID NOT. It now sets
+              the product's ONE expert preference (`olumi.expertMode`)
+              rather than a private tier, so the user's choice persists
+              across tab switches and sessions and the outline can no
+              longer disagree with the scientific transparency block
+              directly beneath it.
+            */}
+            {/*
+              ⭐⭐ V2 GAP 31 — A SEGMENTED CONTROL, NOT A TINTED-FILL TOGGLE.
+              Was `bg-panel-hover` for BOTH the group and the pressed state
+              (a beige tint on a beige tint), and 16px tall
+              (`buttonSmall` = `leading-none` + `py-0.5`, no height floor).
+              Now a pill group (`rounded-full … p-[3px] gap-[3px]`, matching
+              the design authority's `.lens`) holding two ≥24px pill
+              buttons, the pressed one filled `bg-primary` rather than
+              tinted — the same "shape and fill carry emphasis, never a
+              tint alone" rule `panelSurfaces.ts`'s `ACTION_TIER` states for
+              Reasoning's own controls.
+            */}
+            <div
+              role="group"
+              aria-label="Detail tier"
+              data-testid="model-tab-v2-tier-toggle"
+              className="inline-flex rounded-full border border-panel-border p-[3px] gap-[3px]"
+            >
+              <button
+                type="button"
+                data-testid="model-tab-v2-tier-plain"
+                aria-pressed={tier === 'plain'}
+                onClick={() => setTier('plain')}
+                className={`${typography.panelBody} min-h-[28px] px-2 rounded-full ${
+                  tier === 'plain' ? TIER_ARM_SELECTED : TIER_ARM_IDLE
+                }`}
+              >
+                Plain
+              </button>
+              <button
+                type="button"
+                data-testid="model-tab-v2-tier-advanced"
+                aria-pressed={tier === 'advanced'}
+                onClick={() => setTier('advanced')}
+                className={`${typography.panelBody} min-h-[28px] px-2 rounded-full ${
+                  tier === 'advanced' ? TIER_ARM_SELECTED : TIER_ARM_IDLE
+                }`}
+              >
+                Advanced
+              </button>
+            </div>
+          </div>
+        </div>
+        {/*
+          ⭐⭐ V2 GAP 31 — THE FILTER'S OWN ROW, AND NO TINTED GROUND.
+          Was `bg-panel-hover border-panel-border` (a beige field on a beige
+          field — the same tinted-ground defect as the toggle above). Now
+          `bg-panel border-field`, the estate's own field-border token
+          (`styles/controls.ts`, `EditableLabel.tsx` — not invented here).
+          `bodySmall` (14px) is unchanged: the design authority's own
+          `.form input` rule.
+
+          ⭐ MODEL-6 / NARROW-7: THE KEY MOVED HERE, AND THIS ROW IS NOW ITS
+          POSITIONED ANCESTOR. At the 280px dock 'Model outline' + the key +
+          the tier group needed 268px against 243 available, so the title
+          wrapped onto two lines. The key's own wrapper no longer carries
+          `relative` (see `ValueProvenanceKey.tsx`), so this row does instead
+          — its popover anchors to the CONTENT's right edge rather than to a
+          22px button sitting 100px into the panel, which is what clipped it
+          at 280. `min-w-0` on the input is required: a `w-full` flex item
+          still takes its content's minimum width unless told otherwise, and
+          that pinned the row wider than the dock.
         */}
-        {/* The key for the row marks, beside the tier control — the marks are
-            useless as a code until something states what they mean. */}
-        <ValueProvenanceKey />
-        <div
-          role="group"
-          aria-label="Detail tier"
-          data-testid="model-tab-v2-tier-toggle"
-          className="inline-flex rounded border border-panel-border overflow-hidden"
-        >
-          <button
-            type="button"
-            data-testid="model-tab-v2-tier-plain"
-            aria-pressed={tier === 'plain'}
-            onClick={() => setTier('plain')}
-            className={`${typography.buttonSmall} px-2 py-0.5 ${
-              tier === 'plain' ? 'bg-panel-hover text-text-header' : 'text-text-light'
-            }`}
-          >
-            Plain
-          </button>
-          <button
-            type="button"
-            data-testid="model-tab-v2-tier-advanced"
-            aria-pressed={tier === 'advanced'}
-            onClick={() => setTier('advanced')}
-            className={`${typography.buttonSmall} px-2 py-0.5 ${
-              tier === 'advanced' ? 'bg-panel-hover text-text-header' : 'text-text-light'
-            }`}
-          >
-            Advanced
-          </button>
+        <div className="relative flex items-center gap-2">
+          <input
+            data-testid="model-tab-v2-filter"
+            type="search"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter the model…"
+            aria-label="Filter the model"
+            className={`${typography.bodySmall} w-full min-w-0 bg-panel border border-field rounded px-2 py-1`}
+          />
+          <ValueProvenanceKey />
         </div>
       </header>
 

@@ -88,7 +88,7 @@ describe('editing a value on the card', () => {
     fireEvent.click(screen.getByTestId('nve'))
     fireEvent.change(screen.getByTestId('nve-input'), { target: { value: '70000' } })
     fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Enter' })
-    expect(onCommit).toHaveBeenCalledWith(70000)
+    expect(onCommit).toHaveBeenCalledWith(70000, expect.objectContaining({ onSendSettled: expect.any(Function) }))
     expect(screen.queryByTestId('nve-input')).toBeNull()
   })
 
@@ -97,7 +97,7 @@ describe('editing a value on the card', () => {
     fireEvent.click(screen.getByTestId('nve'))
     fireEvent.change(screen.getByTestId('nve-input'), { target: { value: '70000' } })
     fireEvent.keyDown(screen.getByTestId('nve-input'), { key: 'Enter' })
-    expect(onCommit).toHaveBeenCalledWith(70000)
+    expect(onCommit).toHaveBeenCalledWith(70000, expect.objectContaining({ onSendSettled: expect.any(Function) }))
     expect(screen.getByTestId('nve-input')).toBeDefined()
     expect(screen.getByTestId('nve-refusal').textContent).toMatch(/not sent to the model/i)
   })

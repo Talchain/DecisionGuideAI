@@ -61,13 +61,49 @@
  */
 import type { ReactNode } from 'react'
 
-/** Geometry. Fixed, exported so guards can assert against it rather than a literal. */
-export const FIGURE_TRACK_HEIGHT = 'h-2'
+/**
+ * Geometry. Fixed, exported so guards can assert against it rather than a literal.
+ *
+ * ⭐ V2 FIDELITY (24 Sep 2026, census gaps 13/20): `bg-panel-hover` measured at
+ * 1.038:1 against the panel — a track no reader could see, and the ONLY thing
+ * on screen was the fill, which is what made a `range` band read as a heavy
+ * solid slab rather than a fill ON a track. `bg-panel-border` is the token
+ * every other rule on this panel already uses to be seen; the same lightening
+ * pass drops the track from 8px to 5px, so the resting bars read as a line
+ * rather than a slab. `h-2`/`bg-panel-hover` are kept as dead literals nowhere
+ * so a reviewer diffing this cannot mistake the change for a typo.
+ */
+export const FIGURE_TRACK_HEIGHT = 'h-[5px]'
 export const FIGURE_RADIUS = 'rounded-full'
-export const FIGURE_TRACK_TONE = 'bg-panel-hover'
-/** The marker is 6px wide and slightly taller than the track, so it reads as a mark ON it. */
-export const FIGURE_MARKER_W = 6
-export const FIGURE_MARKER_CLASS = 'absolute top-[-1px] w-1.5 h-[9px] rounded-full bg-text-body'
+export const FIGURE_TRACK_TONE = 'bg-panel-border'
+/**
+ * The marker's diameter. V2: an 11px dot in the option colour replaces the
+ * old 6px dark tick, which read as a different ink from the range it marks.
+ * `markerLeft` uses this for its horizontal clamp, so the two can never
+ * drift apart.
+ *
+ * ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-5): the `ring-2 ring-panel` border
+ * gave the dot a 15px footprint — about 2.5× the prototype's core area — and
+ * notched the band it sits on. `border-2 border-panel` draws the SAME
+ * panel-coloured separation from the band as a border-box 2px inset (an 11px
+ * border-box leaves a 7px `bg-option` core, matching the prototype's
+ * `.rangemean`), and `ring-1 ring-option/50` replaces it with the
+ * prototype's own thin lavender halo instead of doubling the white ring.
+ */
+export const FIGURE_MARKER_W = 11
+export const FIGURE_MARKER_CLASS =
+  'absolute top-1/2 -translate-y-1/2 w-[11px] h-[11px] rounded-full bg-option border-2 border-panel ring-1 ring-option/50'
+/**
+ * `range` ONLY: the band's own height. Taller than the 1px hairline it sits
+ * on (below) so it reads as the figure, not the track.
+ *
+ * ⭐ V2 FIDELITY (25 Sep 2026, gaps CHART-1/CHART-2/SPACE-3): the range track
+ * used to be a 5px beige SLAB the same height as the band — a range read as a
+ * slider with a thumb, not a spread on a scale. It is now a centred 1px
+ * hairline (`FIGURE_TRACK_TONE`, moved off the outer track and onto that
+ * hairline alone), and the band gets its OWN height, independent of it.
+ */
+export const FIGURE_BAND_HEIGHT = 'h-1.5'
 /** Enough to be seen at all. Two device pixels at 1x. */
 const NON_ZERO_FLOOR_PX = 2
 
@@ -79,11 +115,33 @@ const NON_ZERO_FLOOR_PX = 2
  * — because they can disagree, and a reader who sees one colour learns to read
  * them as one quantity. `range` is the distributional one and is quieter than
  * both: it qualifies an ordering rather than asserting one.
+ *
+ * ⚠ V2 FIDELITY (gaps 13/20): `range`'s fill was a solid `bg-option` band —
+ * measured as reading heavy, the loudest thing on the row. A transparent
+ * `bg-option/20` with a `border-option/30` outline keeps the same hue (still
+ * distinct from `share`/`goal`'s blue) while dropping the weight, which is
+ * the fill a distributional figure earns rather than a magnitude one.
+ *
+ * ⚠ `bg-option/20`, NOT `bg-option-light`. `eslint-rules/no-bare-light-bg.js`
+ * (DS v5 §3.2) forbids a bare `bg-{semantic}-light` FILL BY NAME — the rule
+ * is a string match on the token, so it flags the class no matter what sits
+ * beside it, and my first draft here (a border next to `bg-option-light`)
+ * still tripped it. Its own message names the fix literally: "a transparent
+ * background with a border-{colour}/30 outline", i.e. the base colour at
+ * reduced ALPHA, not the dedicated `-light` swatch — the same construction
+ * `panelSurfaces.ts` already uses for `PANEL_INSET_ACTION` (`bg-info/[0.06]`).
+ *
+ * ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-1): `range`'s TINT alone, not its
+ * base. A translucent fill straight on the track let the hairline
+ * (`FIGURE_TRACK_TONE`, now centred under the band) show through the band's
+ * own middle as a visible stripe. `PanelFigure`'s `range` branch below layers
+ * this tint on an OPAQUE `bg-panel` base, so `FILL.range` is applied to the
+ * inner span only.
  */
 const FILL: Record<FigureVariant, string> = {
   share: 'bg-info',
   goal: 'bg-info',
-  range: 'bg-option',
+  range: 'bg-option/40 ring-1 ring-inset ring-option/70',
   influence: 'bg-info',
   partition: 'bg-info',
 }
@@ -170,6 +228,28 @@ export function PanelFigure({
 }: PanelFigureProps): JSX.Element {
   const a11y = label ? { role: 'img' as const, 'aria-label': label } : { 'aria-hidden': true as const }
   const track = `relative block w-full ${FIGURE_TRACK_HEIGHT} ${FIGURE_RADIUS} ${FIGURE_TRACK_TONE} overflow-hidden ${className}`
+  /**
+   * ⭐ V2 FIDELITY (gap 20): `range` ALONE gets `overflow-visible`, not
+   * `overflow-hidden`. The marker grew from a 6×9 tick (which fit, clipped
+   * flush, inside an 8px track) to an 11px dot — taller than the now-5px
+   * track on every variant. Clipping it would draw a half-moon, not a dot.
+   * Height and radius still come from the SAME constants every other variant
+   * uses (rule 3, `oneFigureGrammar.spec.tsx`), so the track's SIZE has not
+   * left the shared grammar — only whether it crops its own marker has,
+   * and only for the one variant whose marker is taller than the line.
+   *
+   * ⭐ V2 FIDELITY (25 Sep 2026, gaps CHART-1/CHART-2/SPACE-3): `FIGURE_TRACK_TONE`
+   * (the beige fill) COMES OFF this element. The outer track keeps
+   * `FIGURE_TRACK_HEIGHT`/`FIGURE_RADIUS` — rule 3 still holds — but paints no
+   * colour of its own; a centred 1px hairline, drawn as the first child below,
+   * carries the tone instead. A 5px beige slab the same height as the band
+   * read as a slider's groove, not a range on a scale.
+   */
+  const rangeTrack = `relative block w-full ${FIGURE_TRACK_HEIGHT} ${FIGURE_RADIUS} overflow-visible ${className}`
+  /** The hairline every range track draws, whether or not a band is present. */
+  const rangeHairline = (
+    <span aria-hidden="true" className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-panel-border" />
+  )
 
   if (variant === 'range') {
     // ⚠ `!= null`, LOOSE, ON EVERY BOUND. These arrive from view models whose
@@ -178,16 +258,19 @@ export function PanelFigure({
     // silently invisible figure — worse than a throw, because nothing reports
     // it. CI caught exactly that on `outcomeRange` once already.
     if (band == null || band.start == null || band.end == null) {
-      return <span className={track} data-testid={testId} {...a11y} />
+      return (
+        <span className={rangeTrack} data-testid={testId} {...a11y}>
+          {rangeHairline}
+        </span>
+      )
     }
     const width = Math.max(band.end - band.start, 0)
     /*
-     * ⚠ NO `overflow-visible` OVERRIDE. My first draft added one beside the
-     * track's `overflow-hidden`, which is two competing classes whose winner
-     * depends on stylesheet order rather than on intent. The clamp below already
-     * guarantees the marker sits INSIDE the track, so there is nothing to let
-     * out — the containment that override was protecting is the thing rule 2
-     * removed.
+     * ⚠ THE HORIZONTAL CLAMP (rule 2) IS UNCHANGED AND STILL THE REASON THE
+     * MARKER NEVER LEAVES THE TRACK SIDEWAYS. `overflow-visible` above is a
+     * VERTICAL relaxation only, for an 11px dot centred on a 5px line
+     * (`top-1/2 -translate-y-1/2` on the marker, below) — it does not touch
+     * `left`, which `markerLeft`'s clamp still bounds to `[0, 100% - 11px]`.
      *
      * ⚠ AND THIS COMMENT SITS OUTSIDE THE `return`, WHICH IS WHY IT IS A BLOCK
      * COMMENT. A `{/* … *\/}` JSX comment placed before the root element inside
@@ -196,12 +279,21 @@ export function PanelFigure({
      * the defect is JSX GRAMMAR, not delimiters. Only the build caught it.
      */
     return (
-      <span className={track} data-testid={testId} {...a11y}>
+      <span className={rangeTrack} data-testid={testId} {...a11y}>
+        {rangeHairline}
+        {/* ⭐ V2 FIDELITY (gap CHART-1): OPAQUE BASE, TINT ON TOP. `bg-panel`
+            hides the hairline running underneath the band's own middle — the
+            fill this replaces was translucent, and the hairline showed
+            through it as a visible seam. `${testId}-band` and `left` stay on
+            THIS outer span: `optionsComparisonFigure.spec` asserts `left`
+            here. */}
         <span
-          className={`absolute top-0 ${FIGURE_TRACK_HEIGHT} ${FIGURE_RADIUS} ${FILL.range}`}
+          className={`absolute top-1/2 -translate-y-1/2 ${FIGURE_BAND_HEIGHT} ${FIGURE_RADIUS} bg-panel`}
           style={{ left: pct(band.start), width: `max(${pct(width)}, ${NON_ZERO_FLOOR_PX}px)` }}
           data-testid={`${testId}-band`}
-        />
+        >
+          <span className={`absolute inset-0 ${FIGURE_RADIUS} ${FILL.range}`} />
+        </span>
         {band.marker != null ? (
           <span
             className={FIGURE_MARKER_CLASS}

@@ -16,7 +16,7 @@
  * component cannot become a second focus or ask route. An absent handler hides
  * its control; a row without an id shows no controls at all.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Info, Search } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -49,6 +49,13 @@ export interface ReasoningSignalsProps {
    * other caller unchanged.
    */
   closedAtRest?: boolean
+  /**
+   * ⭐ V2 prototype: "Assumptions and evidence … holds the drivers and
+   * evidence". The Reasoning tab passes its "What moves the outcome" block
+   * here, so it renders INSIDE the door instead of as its own block on the
+   * default scroll. Rendered only while the door is open.
+   */
+  evidenceSlot?: ReactNode
   testId?: string
 }
 
@@ -88,13 +95,34 @@ export function ReasoningSignals({
   onInspect,
   onAsk,
   closedAtRest = false,
+  evidenceSlot = null,
   testId = 'analysis-new-signals',
 }: ReasoningSignalsProps) {
   const [scaleOpen, setScaleOpen] = useState(false)
   const [open, setOpen] = useState(!closedAtRest)
   const signals = buildReasoningSignals(vm, flipThresholds)
   // Nothing to disclose ⇒ no door either: an empty disclosure is a dead control.
-  if (!signals) return null
+  if (!signals) {
+    if (!evidenceSlot) return null
+    return (
+      <div data-testid={testId}>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className={`${typography.panelBody} ${action('disclose')}`}
+          data-testid={`${testId}-disclose`}
+        >
+          <ChevronRight
+            className={`h-3.5 w-3.5 shrink-0 text-text-light ${open ? 'rotate-90' : ''}`}
+            aria-hidden={true}
+          />
+          {ZONE.assumptionsAndEvidence}
+        </button>
+        {open ? <div className="mt-1">{evidenceSlot}</div> : null}
+      </div>
+    )
+  }
   const { drivers, tipping, gap } = signals
   /**
    * ⭐ THE TIPPING CONDITION STAYS AT REST, open or closed. It is the one line
@@ -130,24 +158,20 @@ export function ReasoningSignals({
     // by the producer (the gap in "#1, #2, #5" is real and is kept), on one
     // line; only their bars, the gap and the drivers' acts move behind the
     // disclosure. The tipping row stays (see `tippingRow`).
-    const atRest = drivers
     return (
       <div data-testid={testId} className="space-y-0.5">
-        {atRest.length > 0 ? (
-          <p className={`${typography.panelMeta} text-text-body`} data-testid={`${testId}-drivers-line`}>
-            <span className="text-text-light">{ZONE.driversKicker}: </span>
-            {atRest.map((d) => (d.rank ? `#${d.rank} ${d.label}` : d.label)).join(' · ')}
-          </p>
-        ) : null}
+        {/* ⭐ V2 prototype (22 Sep, supersedes the 18 Sep rest line): at rest the
+            zone shows ONLY the "Assumptions and evidence" door; the ranked
+            drivers, their bars and the evidence gap all live behind it. */}
         {tippingRow}
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-expanded={false}
-          className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1`}
+          className={`${typography.panelBody} ${action('disclose')}`}
           data-testid={`${testId}-disclose`}
         >
-          <ChevronRight className="h-3 w-3 shrink-0" aria-hidden={true} />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-light" aria-hidden={true} />
           {ZONE.assumptionsAndEvidence}
         </button>
       </div>
@@ -162,10 +186,10 @@ export function ReasoningSignals({
           type="button"
           onClick={() => setOpen(false)}
           aria-expanded={true}
-          className={`${typography.panelMeta} ${action('inline')} inline-flex items-center gap-1 mb-1`}
+          className={`${typography.panelBody} ${action('disclose')} mb-1`}
           data-testid={`${testId}-disclose`}
         >
-          <ChevronDown className="h-3 w-3 shrink-0" aria-hidden={true} />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-text-light" aria-hidden={true} />
           {ZONE.assumptionsAndEvidence}
         </button>
       ) : null}
@@ -261,6 +285,7 @@ export function ReasoningSignals({
           />
         </div>
       ) : null}
+      {evidenceSlot ? <div className="mt-2">{evidenceSlot}</div> : null}
     </div>
   )
 }

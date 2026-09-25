@@ -122,6 +122,7 @@ function canaryEvidenceModel(): HeroEvidenceModel {
     designationsWithheld: false,
     decisionVoi: 'not_computed',
     attributionSuppression: 'not_attested',
+    assumedStrengthRankingWithheld: false,
     assumedStrength: { selected: null, refusalReason: 'no_fragile_edges', assumedFragileCount: 0 },
   }
 }

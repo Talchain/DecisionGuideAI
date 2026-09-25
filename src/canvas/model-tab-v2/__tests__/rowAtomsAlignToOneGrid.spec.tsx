@@ -407,18 +407,30 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
       // and painted against. `display:contents` removes it.
       expect(r.getAttribute('role')).toBe('option')
       expect(r.getAttribute('aria-selected')).not.toBeNull()
-      // The border and the selection background are painted on the row itself.
-      expect(hasClass(r, 'border-b')).toBe(true)
+      // ⭐ MODEL-1, 25 Sep 2026: the per-row `border-b` is DROPPED (the
+      // prototype's `.reviewitem` carries no rule between rows), so the box
+      // is no longer proven by a border — it is proven by the row staying a
+      // real `grid` container (never `display:contents`) with its own
+      // padding, which is what the selection ring and click target still
+      // paint against.
+      expect(hasClass(r, 'grid')).toBe(true)
+      expect(hasClass(r, 'py-[5px]')).toBe(true)
       // And the box must never be dissolved.
       expect(hasClass(r, 'contents')).toBe(false)
     }
   })
 
-  it('every row contributes exactly four cells, so no row can drift a column', () => {
+  it('every row contributes exactly three top-level cells, so no row can drift a column', () => {
+    // ⭐ MODEL-1, 25 Sep 2026: four cells → three. The value cell (CELL 3) and
+    // the meta cell (CELL 4) are still both present, unchanged, with the same
+    // testids and classes — but they are now NESTED inside one LINE-2
+    // wrapper (`row-start-2 col-start-2 col-span-3`) rather than being two
+    // separate direct children of the row, because sharing one line with the
+    // identity cell is exactly what forced the label to truncate at 96px.
     render(<ModelOutline rows={FIXTURE} tier="plain" />)
     for (const r of rowsIn(list('factors'))) {
       // Element children only — text nodes and comments are not grid items.
-      expect(r.children.length).toBe(4)
+      expect(r.children.length).toBe(3)
     }
   })
 
@@ -431,9 +443,13 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
     const identity = long!.children[1]
     expect(hasClass(identity, 'min-w-0')).toBe(true)
 
-    // Discriminating twin: the META cell must ALSO be able to shrink, and it is
-    // a different element. Asserting only one leaves the other free to drift.
-    const meta = long!.children[3]
+    // Discriminating twin: the LINE-2 wrapper (value + meta) must ALSO be
+    // able to shrink, and it is a different element — MODEL-1 nested the
+    // META cell inside it (see above), so it is reached as line2's second
+    // child rather than as a direct sibling of identity.
+    const line2 = long!.children[2]
+    expect(hasClass(line2, 'min-w-0')).toBe(true)
+    const meta = line2.children[1]
     expect(hasClass(meta, 'min-w-0')).toBe(true)
     expect(hasClass(meta, 'justify-end')).toBe(true)
   })

@@ -52,7 +52,7 @@
  * file is the one legitimate exception to the both-dimensions rule and says so.
  */
 import { useId, useState, type ReactNode } from 'react'
-import { icon } from '../panelSurfaces'
+import { ACTION_FOCUS, icon } from '../panelSurfaces'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
@@ -130,6 +130,28 @@ export interface SectionShellProps {
   onOpenChange?: (open: boolean) => void
   children: ReactNode
   testId: string
+  /**
+   * V2 gap 23: a SectionShell nested one level inside another SectionShell
+   * ("Drivers and dynamics" inside "What moves the outcome") read as a
+   * second, equal-weight section title under the first — the same
+   * `panelHeader` h3 twice in a row, one nested inside the other.
+   * `'label'` demotes it OUT of the heading map entirely (no h1-h6 at all —
+   * `id`/button/chevron/count/toggle move to a plain `<div>`, quiet
+   * `panelMeta` type): the parent section's own h3 is the only heading a
+   * screen reader's heading navigation meets here, and this reads as a
+   * sub-part of it rather than a second section title. Default `'h3'` — the
+   * disclosure semantics and every testid are identical either way.
+   */
+  headingLevel?: 'h3' | 'label'
+  /**
+   * TAIL-1 (panel-lane design audit 2026-09-25): the prototype's tail groups
+   * are a plain `.disclose` door — a chevron and one line of text, nothing
+   * else. `'disclose'` drops the icon slot, subtitle, count and heading tag
+   * entirely: just the toggle, holding a leading chevron that rotates open,
+   * and the title. Opt-in and used only where a caller has a product ruling
+   * to drop those; every other caller is unaffected.
+   */
+  variant?: 'disclose'
 }
 
 export function SectionShell({
@@ -142,6 +164,8 @@ export function SectionShell({
   onOpenChange,
   children,
   testId,
+  headingLevel = 'h3',
+  variant,
 }: SectionShellProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen)
   const open = controlledOpen ?? uncontrolledOpen
@@ -160,6 +184,40 @@ export function SectionShell({
     count != null && subtitle != null
       ? new RegExp(`(^|[^0-9])${count}([^0-9]|$)`).test(subtitle)
       : false
+
+  if (variant === 'disclose') {
+    return (
+      <section
+        className="border-b border-panel-border last:border-b-0"
+        data-testid={testId}
+        aria-labelledby={`${testId}-heading`}
+        data-section-open={open ? 'true' : 'false'}
+        data-section-count={count != null ? String(count) : undefined}
+      >
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-controls={open ? regionId : undefined}
+          className={`${typography.panelBody} text-text-body flex items-center gap-1.5 min-h-[28px] text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+          data-testid={`${testId}-toggle`}
+        >
+          <ChevronRight
+            className={`${icon('row')} shrink-0 text-text-light transition-transform${open ? ' rotate-90' : ''}`}
+            aria-hidden={true}
+          />
+          <span id={`${testId}-heading`} data-testid={`${testId}-title`}>
+            {title}
+          </span>
+        </button>
+        {open ? (
+          <div id={regionId} className="pb-3" data-testid={`${testId}-region`}>
+            {children}
+          </div>
+        ) : null}
+      </section>
+    )
+  }
 
   return (
     <section
@@ -226,8 +284,68 @@ export function SectionShell({
           reason is that BOTH facts are true at once: this is a heading in the
           document outline AND a control that expands a region. Making it only
           a button deletes it from the heading map; making it only a heading
-          deletes the control. The button carries the interaction, the `h3`
-          carries the structure. */}
+          deletes the control. The button carries the interaction, the
+          heading tag carries the structure.
+
+          ⚠ V2 GAP 23 — `headingLevel="label"` DROPS THE HEADING TAG, NOT JUST
+          ITS WEIGHT. A nested SectionShell ("Drivers and dynamics" inside
+          "What moves the outcome") kept its own `<h3>`, so a screen reader's
+          heading navigation met TWO section-weight headings in a row — a
+          visual-only fix (a quieter font on the same `<h3>`) would not have
+          closed that. The parent section's own heading is the only one a
+          reader navigating by heading meets; this control is still reachable
+          (by Tab, and by role="button"), just not doubly announced as a
+          section. `id` stays on the wrapper either way, so `aria-labelledby`
+          on the surrounding `<section>` still resolves. */}
+      {headingLevel === 'label' ? (
+        <div id={`${testId}-heading`} className="m-0">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            aria-controls={open ? regionId : undefined}
+            className={`w-full flex items-center gap-2.5 min-h-[24px] py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid={`${testId}-toggle`}
+          >
+            {Icon ? (
+              <span className="shrink-0 w-6 h-6 flex items-center justify-center">
+                <Icon className={`${icon('row')} text-text-light`} aria-hidden={true} />
+              </span>
+            ) : null}
+            <span className="min-w-0 flex-1">
+              {/* V2 gap 23: `panelMeta`, not `panelHeader` — the quiet weight
+                  this control reads at now that it is not a heading at all. */}
+              <span
+                className={`${typography.panelMeta} text-text-header block`}
+                data-testid={`${testId}-title`}
+              >
+                {title}
+              </span>
+              {subtitle ? (
+                <span
+                  className={`${typography.panelMeta} text-text-light block mt-0.5`}
+                  data-testid={`${testId}-subtitle`}
+                >
+                  {subtitle}
+                </span>
+              ) : null}
+            </span>
+            {count != null && count > 0 && !subtitleStatesCount ? (
+              <span
+                className={`${typography.panelMeta} text-text-light shrink-0`}
+                data-testid={`${testId}-count`}
+              >
+                {count}
+              </span>
+            ) : null}
+            {open ? (
+              <ChevronDown className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
+            ) : (
+              <ChevronRight className={`${icon('section')} shrink-0 text-text-light`} aria-hidden={true} />
+            )}
+          </button>
+        </div>
+      ) : (
       <h3 id={`${testId}-heading`} className="m-0">
       <button
         type="button"
@@ -302,6 +420,7 @@ export function SectionShell({
         )}
       </button>
       </h3>
+      )}
 
       {open ? (
         <div id={regionId} className="pb-3" data-testid={`${testId}-region`}>

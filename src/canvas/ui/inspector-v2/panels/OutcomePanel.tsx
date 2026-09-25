@@ -6,6 +6,8 @@
  */
 
 import { memo, useMemo } from 'react'
+import { useResultsSectionData } from '../../../../components/results/useResultsSectionData'
+import { rankingWasWithheld } from '../../../../components/results/leaderDesignation'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -63,10 +65,16 @@ function OptionComparisonSection({
   report,
   techMode,
   onNavigate,
+  rankingWithheld,
+  canvasOptionOrder,
 }: {
   report: unknown
   techMode: boolean
   onNavigate: (id: string) => void
+  /** `rankingWasWithheld(recommendation)`: the dock's and Reasoning tab's reader. */
+  rankingWithheld: boolean
+  /** Option node ids in canvas order, for the withheld listing. */
+  canvasOptionOrder: readonly string[]
 }) {
   const r = report as Record<string, unknown> | null
   const status = r?.option_comparison_status as string | undefined
@@ -84,9 +92,17 @@ function OptionComparisonSection({
     )
   }
 
-  const sorted = [...comparisons].sort((a, b) =>
-    (b.win_probability ?? 0) - (a.win_probability ?? 0),
-  )
+  // ⛔ ORDER IS A RANKING. Sorting by share names a front-runner, so a run whose
+  // ranking the producer WITHHELD lists options in canvas order instead, the
+  // order the option cards themselves sit in (AI Quality audit of `b017e3c2`,
+  // row L2; #69 5827943157). The shares stay: each card shows its own.
+  const sorted = rankingWithheld
+    ? [...comparisons].sort((a, b) => canvasRank(a.option_id) - canvasRank(b.option_id))
+    : [...comparisons].sort((a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0))
+  function canvasRank(id: string): number {
+    const i = canvasOptionOrder.indexOf(id)
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i
+  }
 
   return (
     <div className="space-y-1.5" data-testid="option-comparison-section">
@@ -168,6 +184,13 @@ export const OutcomePanel = memo(function OutcomePanel({
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const resultsReport = useCanvasStore(s => s.results?.report)
   const isResultsMode = resultsStatus === 'complete'
+  // The SAME composed reader the dock and the Reasoning tab use: never a second
+  // spelling of "may this run be ranked".
+  const rankingWithheld = rankingWasWithheld(useResultsSectionData().recommendation)
+  const canvasOptionOrder = useMemo(
+    () => nodes.filter((n) => n.type === 'option' || (n.data as { type?: string } | undefined)?.type === 'option').map((n) => n.id),
+    [nodes],
+  )
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
 
@@ -249,7 +272,13 @@ export const OutcomePanel = memo(function OutcomePanel({
           <InlineSectionLabel>{SECTION_TITLES.predictedRange.label}</InlineSectionLabel>
           <StaleGuardBanner hasResults={isResultsMode}>
             {isResultsMode ? (
-              <OptionComparisonSection report={resultsReport} techMode={techMode} onNavigate={onNavigate} />
+              <OptionComparisonSection
+                report={resultsReport}
+                techMode={techMode}
+                onNavigate={onNavigate}
+                rankingWithheld={rankingWithheld}
+                canvasOptionOrder={canvasOptionOrder}
+              />
             ) : (
               <div className="bg-panel border border-panel-border rounded-lg p-3">
                 <p className={`${typography.panelMeta} text-text-light`}>

@@ -86,6 +86,7 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
       attributionSuppression: 'not_attested',
       // Same contract as the two above: the gallery names no assumption
       // unless a fixture supplies one, and the refusal renders nothing.
+      assumedStrengthRankingWithheld: false,
       assumedStrength: { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 },
     },
     trustLine: null,

@@ -45,18 +45,45 @@ describe('the challenge is compact at rest', () => {
     expect(door).toHaveTextContent(ZONE.assumptionsAndEvidence)
     expect(door).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByTestId('analysis-new-signals-drivers')).toBeNull()
-    // Paul's 18 Sep ruling: the drivers are READ before the answer, so the rest
-    // state still names them, in the producer's order, on one line.
-    const line = within(zone).getByTestId('analysis-new-signals-drivers-line')
-    for (const d of buildReasoningSignals(vm(), undefined)!.drivers) expect(line).toHaveTextContent(d.label)
+    // V2 prototype (supersedes the 18 Sep rest line): at rest the zone shows
+    // ONLY the door, so no drivers line either.
+    expect(screen.queryByTestId('analysis-new-signals-drivers-line')).toBeNull()
 
     fireEvent.click(door)
-    expect(within(zone).getByTestId('analysis-new-signals-drivers')).toBeInTheDocument()
+    const list = within(zone).getByTestId('analysis-new-signals-drivers')
+    // Nothing is lost: every driver is named once the door is open.
+    for (const d of buildReasoningSignals(vm(), undefined)!.drivers) expect(list).toHaveTextContent(d.label)
     const openDoor = within(zone).getByTestId('analysis-new-signals-disclose')
     expect(openDoor).toHaveAttribute('aria-expanded', 'true')
 
     fireEvent.click(openDoor)
     expect(screen.queryByTestId('analysis-new-signals-drivers')).toBeNull()
+  })
+
+  /**
+   * ⛔ SERVED WITNESS, `7e256bd3` (24 Sep 22:0xZ, OpenAI pricing run): the
+   * at-rest line read "Top drivers: #2 Active Pro subscribers · #1 Monthly
+   * churn · #4 New Pro subscriptions" — the chart's order beside the
+   * producer's rank, a different measure. The V2 rest state prints no driver
+   * at all; the ranks appear only beside their bars, in the chart's order.
+   */
+  it('prints no rank without its bar: nothing at rest, and opened each rank shares a row with its bar, in chart order', () => {
+    const drivers = buildReasoningSignals(vm(), undefined)!.drivers
+    expect(drivers.some((d) => d.rank !== null), 'PRECONDITION: the fixture carries producer ranks').toBe(true)
+    render(<ReasoningSignals vm={vm()} flipThresholds={undefined} closedAtRest />)
+    const rest = screen.getByTestId('analysis-new-signals')
+    expect(rest.textContent).not.toMatch(/#\d/)
+    for (const d of drivers) expect(rest.textContent ?? '').not.toContain(d.label)
+
+    fireEvent.click(screen.getByTestId('analysis-new-signals-disclose'))
+    const rows = screen.getAllByTestId('analysis-new-signals-driver')
+    expect(rows.map((r) => r.getAttribute('data-factor-id')), 'in the chart order').toEqual(drivers.map((d) => d.id))
+    for (const row of rows) {
+      if (/#\d/.test(within(row).getByTestId('analysis-new-signals-driver-rank').textContent ?? '')) {
+        expect(within(row).getByTestId('analysis-new-signals-driver-bar')).toBeInTheDocument()
+      }
+    }
+    expect(rows.some((r) => /#\d/.test(r.textContent ?? '')), 'CONTROL: a rank is printed once open').toBe(true)
   })
 
   it('CONTRAST: another caller, with no prop, keeps the open list and no door', () => {

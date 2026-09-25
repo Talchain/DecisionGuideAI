@@ -116,6 +116,38 @@ export const SURFACE_TONE = {
 export type SurfaceTone = keyof typeof SURFACE_TONE
 
 /**
+ * ⭐⭐ THE TOP-LEVEL SECTION RULE (fidelity gaps 6 and 11, 24 Sep 2026).
+ *
+ * One hairline between the Reasoning tab's top-level sections — the model
+ * block and "Challenge the thinking", "Move towards commitment", "About this
+ * analysis" — matching the design authority's `.section:before` /
+ * `.about:before` (`prototype-v2-reference.html`, `reasoningHTML()`): a rule
+ * that runs the full panel width, always on the TOP edge, in the neutral
+ * border token only, with the SAME gap on both sides of the line.
+ *
+ * ⚠ `-mx-4 px-4` IS THE FULL-WIDTH PART. The content column's own gutter is
+ * `px-4` (16px); the negative margin cancels it for this element alone so
+ * the border-box reaches both panel edges, then the padding puts the
+ * content back where the column's other children already sit — the same
+ * trick the prototype's `left:-16px;right:-16px` performs against its own
+ * 16px `.scroll` padding.
+ *
+ * ⚠ `!mt-[11px]` CARRIES THE `!` DELIBERATELY. Every call site sits inside
+ * SOME ancestor's `space-y-N`, and Tailwind's `space-y` selector
+ * (`> :not([hidden]) ~ :not([hidden])`) out-specifies a plain `mt-*`
+ * utility, so an unmarked override would silently lose to whatever rhythm
+ * the caller's parent happens to carry — a different, unstated gap above
+ * the rule depending on which zone it was dropped into. The `!important`
+ * pins the same 11px the prototype's `.section{margin-top:11px}` uses,
+ * regardless of ancestor, matching the `pt-[11px]` below it exactly.
+ *
+ * ⚠ NOT A TONE. `SURFACE_TONE` exists for boxes that may carry a caller's
+ * colour; this rule never does — it is `border-panel-border` at every call
+ * site, full stop, which is what "never a tint" means.
+ */
+export const PANEL_RULE = '-mx-4 px-4 !mt-[11px] border-t border-panel-border pt-[11px]'
+
+/**
  * A PRESSABLE box at inset level — the glance's promoted action, and today its
  * only consumer.
  *
@@ -379,6 +411,25 @@ export const ACTION_TIER = {
    * than a fill so it reads as available, not urged.
    */
   neutral: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
+  /**
+   * AN INFO TEXT-BUTTON, LED BY AN ICON — the prototype's `.textbutton`
+   * shape (design-audit-20260925, gap ACTION-2): a control that is neither
+   * underlined prose (`inline`) nor a pill (`secondary`), for an act whose
+   * own leading glyph is the affordance. No consumer in this bundle's owned
+   * files yet — declared here because this module is the one place a tier
+   * may be added; the call site (`ChallengeCard.tsx`'s Respond act) belongs
+   * to a different bundle.
+   */
+  text: 'inline-flex items-center gap-1 min-h-[24px] min-w-[24px] py-1 text-info hover:text-info-hover',
+  /**
+   * A DISCLOSURE DOOR — body-ink, no underline, no info colour at rest
+   * (design-audit-20260925, gap TYPE-4). 'Assumptions and evidence' rendered
+   * as an 11px underlined blue link; the prototype's door
+   * (`#challenge .disclose`) is 12px/400 body ink with a grey chevron, never
+   * a link. TOKEN ONLY this pass — no consumer in this bundle's owned files;
+   * the call site (`ReasoningSignals.tsx`) belongs to a different bundle.
+   */
+  disclose: 'inline-flex items-center gap-1.5 min-h-[24px] min-w-[24px] py-1 rounded text-left text-text-body hover:text-info',
 } as const
 
 /**

@@ -78,6 +78,7 @@ import { useCanvasStore } from '../store'
 import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
+import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
 import { isEdgeFragile as isEdgeFragileFn, getFragileEdgeSwitchProbability, isTopFragileEdge as isTopFragileEdgeFn, type FragileEdgeCandidate, type FragileEdgeMatchContext } from '../utils/fragileEdgeMatch'
 import { resolveExistenceDash, calculateEdgeImportance, weightMagnitudeToStrokeWidth, UNSET_EDGE_STROKE_WIDTH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
@@ -130,10 +131,12 @@ export const EDGE_HIT_AREA_WIDTH = 28
 /**
  * contract v3.1 (E6): the opacity of a connection outside the selected
  * element's neighbourhood — line, ribbon, halo, arrowhead, polarity glyph and
- * chip together. DS v5 §7.4 ("dims unconnected nodes and edges to 20%"); the
- * lens dim already uses the same 0.2. Exported so specs bind to the identity.
+ * chip together. The locked visual contract §03 paints this exact state as
+ * `.edge-group.dimmed{opacity:.18}`; it was DS v5 §7.4's 20% until 25 Sep
+ * 2026. The lens dim (a different producer) keeps its own 0.2. Exported so
+ * specs bind to the identity.
  */
-export const EDGE_SELECTION_DIM_OPACITY = 0.2
+export const EDGE_SELECTION_DIM_OPACITY = 0.18
 
 /**
  * ⭐ ONE GLOW RECIPE FOR EVERY TRANSIENT EDGE EMPHASIS (contract v3.1, E5/T09,
@@ -411,8 +414,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       isEdgeFragileFn(String(id), String(source), String(target), [fe], fragileMatchCtx),
     ) as (FragileEdgeCandidate & { alternative_winner_label?: string; alternativeWinnerLabel?: string }) | undefined
     if (!entry) return 'Sensitive'
-    const altLabel = entry.alternative_winner_label ?? entry.alternativeWinnerLabel
-    return altLabel ? `If wrong → ${altLabel}` : 'Sensitive'
+    // The alternative's name in the register's withheld form — never "If wrong
+    // → {alt}", which named a winner the run may have withheld.
+    return lensFragileEdgeLabel(entry.alternative_winner_label ?? entry.alternativeWinnerLabel)
   }, [isLensFragile, report, id, source, target, fragileMatchCtx])
 
   // Check if this edge is fragile (switch_probability > 0.3)
@@ -1893,8 +1897,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           CONNECTION'S, NOT THE LINE'S. It used to be a 0.25 on `BaseEdge` alone,
           so the ribbon, the assistant halo and the arrowhead's line dimmed
           unevenly and the portalled glyph and chip floated at full strength
-          over a faded line. The contract dims `.edge-group` as one unit, and DS
-          v5 §7.4 names 20%; the portalled marks below carry the same value. */}
+          over a faded line. The contract dims `.edge-group` as one unit, at
+          .18 (§03); the portalled marks below carry the same value. */}
       <g
         ref={edgeGroupRef}
         onMouseEnter={handleMouseEnter}
@@ -2059,7 +2063,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         // the `non_directional_type` rule exists to refuse.
         markerEnd={directionMarker.show ? `url(#${arrowheadId})` : undefined}
         style={{
-          // Graph Interaction P1: Highlighted edges get thicker stroke
+          // Interaction widths: selected +2, hovered +1 (a highlighted path adds none)
           strokeWidth: (() => {
             const base = (() => {
             // Structural edges: fixed 1px regardless of lens / hover / highlight
@@ -2098,7 +2102,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             // meaning before and after analysis"). An offset keeps every rung in
             // order in every state; DS v5 §7.3's hover is "+1" (1.5px → 2.5px).
             if (selected) return edgeStrokeWidth + 2
-            if (isHovered || isHighlightedEdge) return edgeStrokeWidth + 1
+            // A highlighted PATH edge (another node's selection) is NOT here:
+            // contract §03 marks it with the soft glow in `filter` below and no
+            // width rule, because width is the strength channel and a +1 made a
+            // slight link on the path read as a moderate one while selected.
+            if (isHovered) return edgeStrokeWidth + 1
             return edgeStrokeWidth
             })()
             // Analysis-graph projection: a viewed flip-risk edge is marked by its

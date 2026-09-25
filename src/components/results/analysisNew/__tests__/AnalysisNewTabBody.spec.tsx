@@ -19,8 +19,12 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
-import { openGroups, openAllSections } from './openNamedGroups'
+import {
+  openGroups as openNamedGroupsOnly,
+  openAllSections as openAllToggles,
+} from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
@@ -104,10 +108,54 @@ const openSection = (testId: string) => {
  * collision fix, so this cannot accidentally expand every row on the panel.
  */
 
+/**
+ * ⭐ THE EVIDENCE DOOR (V2 prototype, Paul 25 Sep 2026). "What moves the
+ * outcome" — the drivers, their chart and the value-of-information line — now
+ * renders ONLY inside the challenge's "Assumptions and evidence" door
+ * (`ReasoningSignals`' `evidenceSlot`), closed at rest. Its button ends
+ * `-disclose`, not `-toggle`, so the shared helpers cannot see it.
+ *
+ * ⚠ SO EVERY OPEN-EVERYTHING CALL IN THIS FILE OPENS THE DOOR FIRST. Without
+ * it an absence asserted after `openAllSections()` would be read against a
+ * closed door and pass vacuously (trap 13). The door is opened, never toggled:
+ * `aria-expanded` is read first, as `openSection` does.
+ */
+const EVIDENCE_DOOR = 'analysis-new-signals-disclose'
+const openEvidenceDoor = (): void => {
+  const door = screen.queryByTestId(EVIDENCE_DOOR)
+  if (door !== null && door.getAttribute('aria-expanded') === 'false') fireEvent.click(door)
+}
+const openGroups = (): void => {
+  openEvidenceDoor()
+  openNamedGroupsOnly()
+}
+const openAllSections = (): void => {
+  openEvidenceDoor()
+  openAllToggles()
+}
+
+/**
+ * ⭐ A MODEL ON THE CANVAS, for the cases that bind the review tool.
+ * V2 prototype (Paul, 25 Sep 2026): "N to review" (`analysis-new-review`) now
+ * renders INSIDE the model strip, after its rows (`reviewSlot`). The strip
+ * draws only over a model that has rows (with none, the tool renders bare), so
+ * these cases seed one to measure the tool in its V2 home. The canvas every
+ * sibling spec uses to earn a strip: two options, a factor, an outcome.
+ */
+const stripNode = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: { label: id } })
+const seedModel = (): void => {
+  useCanvasStore.setState({
+    nodes: [stripNode('o1', 'option'), stripNode('o2', 'option'), stripNode('f1', 'factor'), stripNode('out1', 'outcome')],
+  } as never)
+}
+
 beforeEach(() => {
   useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never)
 })
-afterEach(() => cleanup())
+afterEach(() => {
+  cleanup()
+  useCanvasStore.setState({ nodes: [] } as never)
+})
 
 describe('the surface renders real content on a completed run', () => {
   it('shows all four sections with findings, not just headings', () => {
@@ -126,6 +174,42 @@ describe('the surface renders real content on a completed run', () => {
   it('carries the run identity both tabs share, so the comparison is checkable on screen', () => {
     renderBody(genuineDecision())
     expect(screen.getByTestId('analysis-new-tab-body')).toHaveAttribute('data-run-identity', 'run_abc123')
+  })
+})
+
+/**
+ * V2 fidelity gap 23: "Drivers appear twice in Challenge: the 'Top drivers'
+ * rows sit directly above a 'What moves the outcome' header with a nested
+ * 'Drivers and dynamics' header and an orphan 'Value of information' h3."
+ *
+ * `highUncertainty()` is used because it is the one fixture in this file that
+ * carries BOTH a driver (`f_adopt`) and `decisionVoi: 'measured_non_zero'`, so
+ * a single render exercises everything nested inside "What moves the
+ * outcome": the driver chart section AND the value-of-information block.
+ *
+ * ⚠ REVERT THE PRODUCTION CHANGE TO SEE THIS RED. Before the fix, "Drivers and
+ * dynamics" was `SectionShell`'s own `<h3>` and "Value of information" was a
+ * bare `<h3>` in `AnalysisNewTabBody.tsx` — both landed inside the region this
+ * test queries, so `headings.length` read 2, not 0.
+ */
+describe('V2 gap 23: nothing nested inside "What moves the outcome" reads as a second heading', () => {
+  it('the region holds no h1-h4 — its own title, outside the region, is the only heading', () => {
+    renderBody(highUncertainty())
+    openAllSections()
+    const region = screen.getByTestId('analysis-new-what-moves-the-outcome-region')
+    const headings = region.querySelectorAll('h1, h2, h3, h4')
+    expect(
+      Array.from(headings).map((h) => h.textContent),
+      'a heading element nested here reads as a second (or third) section title under "What moves the outcome"',
+    ).toEqual([])
+    // Positive control: the content the old headings named must still be on
+    // screen — this is a flatten, not a deletion.
+    expect(region).toHaveTextContent(COPY.sections.drivers)
+    expect(region).toHaveTextContent(COPY.decisionVoi.label)
+    // And every factor keeps its edit control — the chart bar that opens the
+    // value editor (`DriverInfluenceChart`, unTouched by this change).
+    expect(within(region).getAllByTestId('analysis-new-drivers-row').length).toBeGreaterThan(0)
+    expect(within(region).getAllByTestId('analysis-new-driver-chart-bar').length).toBeGreaterThan(0)
   })
 })
 
@@ -197,6 +281,15 @@ describe('F · the three scenario classes (§24F)', () => {
     // claim "the name appears nowhere outside the comparison" is checked
     // against a glance that actually has words in it.
     renderBody(decisionWithLeaderWithheldAndReason())
+    // ⚠ V2 prototype (Paul, 25 Sep 2026): "What this run may not conclude" now
+    // sits behind ONE closed door. This case's premise is a glance WITH its
+    // withheld sentence on screen, so the door is opened and the sentence
+    // pinned present before any absence below is read.
+    const withheldDoor = screen.getByTestId('analysis-new-glance-withheld-toggle')
+    expect(withheldDoor).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('analysis-new-glance-withheld-reason'), 'closed at rest').toBeNull()
+    fireEvent.click(withheldDoor)
+    expect(screen.getByTestId('analysis-new-glance-withheld-reason').textContent?.trim()).not.toBe('')
     const body = screen.getByTestId('analysis-new-tab-body')
     expect(body.textContent).not.toContain('currently scores higher')
 
@@ -211,13 +304,12 @@ describe('F · the three scenario classes (§24F)', () => {
     // comparison is the licensed printer. If it stops rendering, the subtraction
     // below silently becomes `body.textContent` and the case changes meaning.
     expect(options, 'the comparison must render, or this assertion is a different one').not.toBeNull()
-    // ⚠ V2 (24 Sep 2026): OPENED BY IDENTITY FIRST. The section now opens by
-    // default only where it draws a figure the glance does not state, and with
-    // the win shares gone from the resting view this fixture (no ranges, no
-    // goal) draws none — so it mounts CLOSED and printed no label to subtract.
-    // The licensed printer must be showing its labels for the claim to bite.
-    openSection('analysis-new-options')
-    expect(options).toHaveAttribute('data-section-open', 'true')
+    // ⭐ V2 FIDELITY (24 Sep 2026, re-pointed for gap 17): NO OPENING STEP
+    // LEFT. The section is `bare` inside "Move towards commitment" now — no
+    // `SectionShell`, no toggle, no closed state — so its labels are in the
+    // DOM unconditionally and `openSection` (a no-op against a section with no
+    // `-toggle`) is not needed to reach them.
+    expect(options).not.toHaveAttribute('data-section-open')
     expect(options!.textContent).toContain('Raise price')
     const elsewhere = (body.textContent ?? '').split(options!.textContent ?? '\u0000').join('')
     expect(elsewhere).not.toContain('Raise price')
@@ -380,7 +472,9 @@ describe('progressive disclosure on the real surface (§24E)', () => {
   it('keeps deeper technical material out of the first screen', () => {
     const ABOUT = 'analysis-new-about'
     renderBody(genuineDecision())
-    openGroups()
+    // V2 fidelity gap 24: About is now itself a named group (`openGroups` would
+    // open it), and this case is about About's own rest state — so it is driven
+    // by hand and no group is pre-opened.
     // No second, stale mount of the old section.
     expect(screen.queryByTestId('analysis-new-deeper')).toBeNull()
     // Unconditional: the run-identity group always exists when a hash is
@@ -951,6 +1045,9 @@ describe('"What would change your mind" — its place on the tab (V2: in "Challe
    * ordering claim can hold vacuously and a move back REDs by name.
    */
   it('V2: sits in "Challenge the thinking" — below the model-wide review, above the glance', () => {
+    // V2 prototype (Paul, 25 Sep 2026): the review tool lives in the model
+    // strip, which draws only over a model on the canvas.
+    seedModel()
     renderBody(withLeaderLicensed(manyFragileEdges()))
 
     const review = screen.getByTestId('analysis-new-review')
@@ -1111,14 +1208,20 @@ describe('the coaching and the answer — V2 zone order', () => {
    * from the old rule: the glance leads the figures, and the coaching is above
    * the DETAIL. Each case below states its V2 relation.
    */
-  it('V2: the review sits above the answer, and the glance leads the figures inside it', () => {
+  it('V2: the review sits above the answer, and the figures lead the glance reading inside it', () => {
+    seedModel()
     renderBody(genuineDecision())
     const glance = screen.getByTestId('analysis-new-glance')
     const options = screen.getByTestId('analysis-new-options')
     const review = screen.getByTestId('analysis-new-review')
     expect(new Set([glance, options, review]).size, 'three distinct elements').toBe(3)
+    // ⭐ V2 prototype (Paul, 25 Sep 2026): "N to review" renders INSIDE the
+    // model strip (its `reviewSlot`), not as a sibling block below it.
+    expect(screen.getByTestId('analysis-new-model-strip')).toContainElement(review)
 
-    expect(precedes(glance, options), 'the glance leads; the figures follow it').toBe(true)
+    // V2 (fidelity gap 1, 25 Sep 2026): the figures lead; the glance's reading
+    // follows them. Its status ribbon stays above (`theChartLeadsTheReading.spec.tsx`).
+    expect(precedes(options, glance), 'the figures lead; the glance reading follows them').toBe(true)
     expect(precedes(review, glance), 'V2: the model-wide review comes before the answer').toBe(true)
   })
 
@@ -1133,6 +1236,7 @@ describe('the coaching and the answer — V2 zone order', () => {
     // the case reads green. `getByTestId` THROWS on an id that does not
     // render, so a stale entry fails loudly rather than dropping out — which
     // is the property that makes adding to it safe and never adding the drift.
+    seedModel()
     renderBody(genuineDecision())
     openGroups()
     // ⚠ V2 (24 Sep 2026): the coaching is the review tool (the Strengthen mount
@@ -1189,18 +1293,41 @@ describe('the coaching and the answer — V2 zone order', () => {
    * challenge signals — and the full drivers chart (closed at rest) now follows
    * the answer it explains, so the options chart reaches the first screen.
    */
-  it('V2: the top drivers are read in the challenge, before the answer; the full chart follows it', () => {
+  /**
+   * ⛔ REVERSED, V2 prototype (Paul, 25 Sep 2026: "match the prototype"). This
+   * pinned the "Top drivers" line at rest in the challenge and the full chart
+   * in the ANSWER zone. The prototype's "Assumptions and evidence" door holds
+   * the drivers and evidence, so at rest the challenge shows only the door, and
+   * "What moves the outcome" renders inside it — in the challenge, before the
+   * answer, one click away. Still distinct named elements, so a move back into
+   * the answer zone, or back onto the default scroll, REDs by name.
+   */
+  it('V2: the drivers live behind the "Assumptions and evidence" door, in the challenge, before the answer', () => {
+    seedModel()
     renderBody(genuineDecision())
-    openGroups()
     const review = screen.getByTestId('analysis-new-review')
     const signals = screen.getByTestId('analysis-new-signals')
-    const drivers = screen.getByTestId('analysis-new-drivers')
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    expect(new Set([review, signals, drivers, answer]).size, 'four distinct elements').toBe(4)
     expect(screen.getByTestId('analysis-new-zone-also-group')).toContainElement(signals)
+
+    // AT REST: the door only — no drivers line, no "What moves the outcome".
+    const door = screen.getByTestId(EVIDENCE_DOOR)
+    expect(signals).toContainElement(door)
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('analysis-new-signals-drivers-line')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-what-moves-the-outcome')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-drivers')).toBeNull()
+
+    // OPENED: the block is inside the door, and not in the answer zone.
+    openGroups()
+    const whatMoves = screen.getByTestId('analysis-new-what-moves-the-outcome')
+    const drivers = screen.getByTestId('analysis-new-drivers')
+    expect(new Set([review, signals, drivers, answer]).size, 'four distinct elements').toBe(4)
+    expect(signals, 'the drivers render inside the evidence door').toContainElement(whatMoves)
+    expect(whatMoves).toContainElement(drivers)
+    expect(answer, 'the drivers no longer sit in the answer zone').not.toContainElement(drivers)
     expect(precedes(review, signals), 'the model-wide review comes first').toBe(true)
-    expect(precedes(signals, answer), 'what the answer turns on is read before the answer').toBe(true)
-    expect(answer, 'the full drivers chart follows the answer, inside its zone').toContainElement(drivers)
+    expect(precedes(drivers, answer), 'what the answer turns on is read before the answer').toBe(true)
   })
 
   it('the ordering probe can actually detect a wrong order', () => {

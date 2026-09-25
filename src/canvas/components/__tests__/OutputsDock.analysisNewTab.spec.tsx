@@ -90,7 +90,6 @@ import {
 } from '../workspaceShell/shellContract'
 import { ANALYSIS_NEW_COPY } from '../../../components/results/analysisNew/analysisNewCopy'
 import { COMMITMENT_COPY } from '../../../components/results/analysisNew/commitmentSynthesis'
-import { ABOUT_COPY } from '../../../components/results/analysisNew/sections/AboutThisAnalysis'
 
 const NEW_TAB = 'outputs-dock-tab-analysisNew'
 const OLD_TAB = 'outputs-dock-tab-results'
@@ -143,11 +142,20 @@ function renderDock() {
  * the collapsed-IA claim these cases rest on is unchanged.
  */
 const REASONING_GROUPS = [
-  'analysis-new-how-worked-out',
-  'analysis-new-coaching-and-method',
+  // V2 fidelity gap 24: the two tail groups are gone; what they held opens from About.
+  'analysis-new-about',
   'analysis-new-what-moves-the-outcome',
 ]
+/**
+ * ⭐ V2 prototype (Paul, 25 Sep 2026): "What moves the outcome" renders ONLY
+ * inside the challenge's "Assumptions and evidence" door (`ReasoningSignals`'
+ * `evidenceSlot`), closed at rest — so that door is now the outer level of the
+ * group and is opened first. Its button ends `-disclose`, not `-toggle`.
+ */
+const EVIDENCE_DOOR = 'analysis-new-signals-disclose'
 function openReasoningGroups(): void {
+  const door = screen.queryByTestId(EVIDENCE_DOOR)
+  if (door !== null && door.getAttribute('aria-expanded') === 'false') fireEvent.click(door)
   for (const id of REASONING_GROUPS) {
     const toggle = screen.queryByTestId(`${id}-toggle`)
     if (toggle !== null && toggle.getAttribute('aria-expanded') === 'false') {
@@ -200,6 +208,21 @@ function frontAnalysisTab() {
  */
 function seedCompletedRun() {
   useCanvasStore.setState({ hasCompletedFirstRun: true } as never)
+}
+
+/**
+ * ⭐ A MODEL ON THE CANVAS, for the case that binds the review tool. V2
+ * prototype (Paul, 25 Sep 2026): "N to review" (`analysis-new-review`) renders
+ * INSIDE the model strip (`reviewSlot`), and the strip draws only over a model
+ * that has rows (with none, the tool renders bare). Restored to
+ * `HARNESS_NODES` after every case.
+ */
+const HARNESS_NODES = useCanvasStore.getState().nodes
+function seedModelNodes() {
+  const node = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: { label: id } })
+  useCanvasStore.setState({
+    nodes: [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor'), node('out1', 'outcome')],
+  } as never)
 }
 
 function ensureMatchMedia() {
@@ -270,6 +293,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  // `seedModelNodes()` writes the canvas; put back what the harness started with.
+  useCanvasStore.setState({ nodes: HARNESS_NODES } as never)
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -446,15 +471,22 @@ describe('C · THE SECTION STRUCTURE', () => {
     // the title element keeps this an exact claim about WHICH sections appear
     // and in WHAT order (CLAUDE.md trap 19).
     const body = screen.getByTestId('analysis-new-tab-body')
+    // V2 fidelity gap 24: "How this was worked out" and "Coaching and method" are gone.
     const GROUP_TITLES: readonly string[] = [
-      ANALYSIS_NEW_COPY.sections.howWorkedOut,
-      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
       ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
     ]
-    const allHeadings = Array.from(body.querySelectorAll('h3')).map(
-      (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
-    )
-    const groupHeadings = allHeadings.filter((t) => t !== null && GROUP_TITLES.includes(t))
+    /**
+     * ⚠ RE-POINTED (TAIL-1, panel-lane design audit 2026-09-25): "What moves
+     * the outcome" is now `SectionShell`'s `variant="disclose"` — the
+     * prototype's plain `.disclose` door, a chevron and one line inside a
+     * `<button>` with no heading tag at all (dropping the icon slot, subtitle
+     * and count badge along with it). `querySelectorAll('h3')` therefore no
+     * longer finds it, so the group census binds it by its own title testid
+     * instead of folding it into the h3 sweep above.
+     */
+    const groupHeadings = [
+      body.querySelector('[data-testid="analysis-new-what-moves-the-outcome-title"]')?.textContent ?? null,
+    ].filter((t): t is string => t !== null)
     /*
      * ⭐⭐⭐ REASONING V2 (24 Sep 2026) — THE CENSUS WENT RED BY NAME, AS IT IS
      * MEANT TO WHEN A MOVE LANDS. Every change below is a V2 decision, listed
@@ -478,19 +510,31 @@ describe('C · THE SECTION STRUCTURE', () => {
       .map((h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent)
       .filter((t) => t === null || !GROUP_TITLES.includes(t))
     expect(sectionHeadings).toEqual([
+      // ⭐ V2 fidelity gap 16 (24 Sep 2026): the challenge zone's name is now
+      // its section title (an h3, the "Move towards commitment" grammar), so it
+      // opens the census. The finding under it is a 14px question, not an h3.
+      'Challenge the thinking',
       // ⚠ V2 FIRST SCREEN (24 Sep 2026): the answer zone's commitment block now
-      // leads the sections. Paul's 17 Sep "what matters most means the drivers"
-      // is still met BEFORE it, at rest, by the challenge's "Top drivers" signal
-      // rows (which carry no h3); the full drivers section, closed, follows the
-      // answer it explains so the options chart reaches the first screen.
+      // leads the sections. ⛔ REVERSED, V2 prototype (Paul, 25 Sep 2026): the
+      // at-rest "Top drivers" line is gone, and the drivers ("What moves the
+      // outcome", no h3) render inside the challenge's "Assumptions and
+      // evidence" door — before this heading, one click away.
       COMMITMENT_COPY.heading,
-      ANALYSIS_NEW_COPY.sections.drivers,
+      // ⚠ RE-POINTED (V2 gap 23): "Drivers and dynamics" WAS here as a second
+      // h3 nested one level inside "What moves the outcome" — exactly the
+      // "reads as a second section title" defect gap 23 names. It now renders
+      // as a plain `<div>` (`SectionShell`'s `headingLevel="label"`), no
+      // heading tag at all, so `querySelectorAll('h3')` no longer finds it;
+      // its content, count and every testid are unchanged, and its own
+      // presence is asserted in the landmark case below (`analysis-new-drivers`,
+      // `analysis-new-drivers-heading`).
+      // V2 fidelity gaps 24 + 27: what the deleted tail groups held now opens
+      // INSIDE About (opened above), so Key insights and Uncertainty still close
+      // the census, RUN DETAILS LAST. About's own label is the prototype's
+      // footer `.disclose` line, not an h3 — its presence and its name are
+      // asserted in the landmark case below.
       ANALYSIS_NEW_COPY.sections.keyInsights,
-      // ⭐ Uncertainty stays inside "How this was worked out", RUN DETAILS LAST
-      // per the prototype — only "What we checked" left it (for About).
       ANALYSIS_NEW_COPY.sections.uncertainty,
-      // V2: one collapsed audit surface closes the panel.
-      ABOUT_COPY.title,
     ])
     // The pre-V2 census, kept as the record of what moved (not asserted):
     // methods, drivers, strengthen, keyInsights, checks, uncertainty.
@@ -509,7 +553,7 @@ describe('C · THE SECTION STRUCTURE', () => {
      */
     expect(
       groupHeadings,
-      'the three disclosure groups must render, in reading order',
+      'the disclosure groups must render, in reading order',
     ).toEqual([
       // ⚠ RUN DETAILS LAST, per the prototype — see the census note above. The
       // group order is asserted separately from the section census on purpose,
@@ -521,14 +565,18 @@ describe('C · THE SECTION STRUCTURE', () => {
       // the two that remain in "If you want to go further". RUN DETAILS LAST is
       // untouched — `howWorkedOut` is still last, which is the part of this
       // line the prototype actually rules on.
+      // ⭐ V2 prototype (Paul, 25 Sep 2026): it now opens from INSIDE the
+      // "Assumptions and evidence" door (`openReasoningGroups` opens it first).
       //
       // ⭐ THIS ASSERTION WAS NEVER REACHED BEFORE THE FIX ABOVE, and that is
       // worth recording: it sits in the same `it` as the section census, after
       // it, so while the census REDed this line never executed. One test, two
       // claims, and the second is invisible whenever the first fails.
       ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
-      ANALYSIS_NEW_COPY.sections.coachingAndMethod,
-      ANALYSIS_NEW_COPY.sections.howWorkedOut,
+      // V2 fidelity gap 24 (24 Sep 2026): `coachingAndMethod` and `howWorkedOut`
+      // are deleted with the "If you want to go further" zone; their contents
+      // fold into About (asserted in the census above and in
+      // `theTailFoldsIntoAbout.spec.tsx`).
     ])
   })
 
@@ -569,6 +617,9 @@ describe('C · THE SECTION STRUCTURE', () => {
     // here: two derivations of one claim disagree the first time either moves
     // (trap 12).
     seedCompletedRun()
+    // V2 prototype (Paul, 25 Sep 2026): the review tool is bound below, in its
+    // V2 home inside the model strip, which draws only over a model.
+    seedModelNodes()
     renderDock()
     fireEvent.click(screen.getByTestId(NEW_TAB))
     openReasoningGroups()
@@ -580,22 +631,32 @@ describe('C · THE SECTION STRUCTURE', () => {
      * thinking", which V2 places ABOVE the answer zone. So the claim is now
      * stronger than the 17 Sep list it replaces: no `h3` on the tab precedes
      * the coaching — not the drivers, not the answer, no detail. (Scope, per
-     * the note above: the `h3` census of THIS harness, which seeds no canvas
-     * nodes, so Focus Now — an `h2`, and run-conditional — is not in view.)
+     * the note above: the `h3` census of THIS harness. It seeds four canvas
+     * nodes so the model strip, and the review tool inside it, render; the
+     * strip carries no `h3`, and "Focus now" is gone from this tab — V2
+     * prototype, Paul 25 Sep 2026.)
      *
      * ⚠ STATED AS AN EXACT RELATION, NOT AN INDEX, and bound by IDENTITY (the
      * card's testid), because the card's text is the engine's own title and
      * varies with the finding. It REDs the moment any section creeps above it.
      */
     const all = Array.from(body.querySelectorAll('h3'))
+    // ⚠ RE-POINTED, V2 fidelity gap 16 (24 Sep 2026): the zone's own title is
+    // now the h3 ("Challenge the thinking", the same grammar as "Move towards
+    // commitment") and the finding is its 14px-medium question under it. What
+    // this pins is unchanged: the coaching is the FIRST heading on the tab.
+    const zoneTitle = screen.getByTestId('analysis-new-zone-also')
     const card = screen.getByTestId('analysis-new-challenge-heading')
-    expect(all.indexOf(card as HTMLHeadingElement), 'the coaching must be the first heading on the tab').toBe(0)
+    expect(all.indexOf(zoneTitle as HTMLHeadingElement), 'the coaching must be the first heading on the tab').toBe(0)
+    expect(zoneTitle.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING, 'its finding follows it').toBeTruthy()
     const uncertainty = document.getElementById('analysis-new-uncertainty-heading')
     expect(uncertainty, 'precondition: the detail this is measured against rendered').not.toBeNull()
-    expect(all.indexOf(card as HTMLHeadingElement)).toBeLessThan(all.indexOf(uncertainty as HTMLHeadingElement))
+    expect(all.indexOf(zoneTitle as HTMLHeadingElement)).toBeLessThan(all.indexOf(uncertainty as HTMLHeadingElement))
     // …and the rest of the findings are one step above it: the review tool
-    // sits under the model strip, before the card in document order.
+    // sits INSIDE the model strip (V2 prototype, Paul 25 Sep 2026: "N to
+    // review" follows the rows), before the card in document order.
     const review = screen.getByTestId('analysis-new-review')
+    expect(screen.getByTestId('analysis-new-model-strip')).toContainElement(review)
     expect(
       review.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
       'the review tool must precede the Challenge card',
@@ -619,6 +680,8 @@ describe('C · THE SECTION STRUCTURE', () => {
       ['analysis-new-drivers', 'analysis-new-drivers-heading'],
       ['analysis-new-uncertainty', 'analysis-new-uncertainty-heading'],
       ['analysis-new-commitment', 'analysis-new-commitment-title'],
+      // V2 gap 27: About's label is its footer toggle's title span, not a
+      // heading element (the prototype draws none) — still a labelled region.
       ['analysis-new-about', 'analysis-new-about-heading'],
     ] as const) {
       const section = screen.getByTestId(testId)

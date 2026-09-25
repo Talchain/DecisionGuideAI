@@ -307,6 +307,17 @@ export interface AtAGlanceProps {
    */
   rerunWouldNotHelp?: boolean
   missingResults?: readonly string[]
+  /**
+   * ⭐ WHICH HALF TO RENDER. `'status'` is the ribbon alone: the freshness,
+   * run-note and partial lines with the one act that answers them. `'reading'`
+   * is everything else: the withheld reason and its act, the reading, the
+   * provenance, the scope and the condition. The tab mounts the status above
+   * "Move towards commitment" and the reading after it, as the V2 prototype
+   * does (its stale row sits inside the commitment block, above the chart, and
+   * it has no reading above the chart), so the chart and its qualifier reach
+   * the first screen. `'all'` (the default) is both, in one section, as before.
+   */
+  part?: 'all' | 'status' | 'reading'
   testId?: string
 }
 
@@ -326,12 +337,6 @@ export interface AtAGlanceProps {
  * colour, and slightly tracked. The hierarchy comes from the scale and the
  * spacing, which is what the scale is for.
  */
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className={`${typography.panelMeta} text-text-light tracking-wide m-0`}>{children}</p>
-  )
-}
-
 export function AtAGlance({
   glance,
   onFocusTarget,
@@ -347,8 +352,10 @@ export function AtAGlance({
   rerunWouldNotHelp = false,
   missingResults = [],
   testId = 'analysis-new-glance',
+  part = 'all',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
+  const [withheldOpen, setWithheldOpen] = useState(false)
   const excludedKey =
     glance.comparisonScope.kind === 'partial'
       ? JSON.stringify(glance.comparisonScope.excluded.map((o) => o.id))
@@ -687,18 +694,28 @@ export function AtAGlance({
    * `scopeDisclosureOnScreen` was named above for exactly that reason. Guard
    * and renderer now share their predicates and cannot drift apart silently.
    */
-  const hasAnything =
-    ribbon.length > 0 ||
+  const showStatus = part !== 'reading'
+  const showReading = part !== 'status'
+  const hasReading =
     Boolean(glance.designationWithheldReason) ||
     verdictCarriesItsOwnReading ||
     showInputProvenance ||
     scopeDisclosureOnScreen ||
     Boolean(glance.condition)
+  const hasAnything = (showStatus && ribbon.length > 0) || (showReading && hasReading)
   if (!hasAnything) return null
 
+  // The status half is a row above "Move towards commitment", not a second
+  // "At a glance" region: when both halves mount, a screen reader must meet
+  // one landmark of that name (pre-review of bundle 3, 25 Sep).
+  const Wrapper = part === 'status' ? 'div' : 'section'
   return (
-    <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
-      {ribbon.length > 0 ? (
+    <Wrapper
+      className="space-y-3"
+      data-testid={part === 'status' ? `${testId}-status` : testId}
+      aria-label={part === 'status' ? undefined : COPY.sections.atAGlance}
+    >
+      {showStatus && ribbon.length > 0 ? (
         <div
           /* ⚠ WRAPS RATHER THAN CRUSHES. Measured in a browser at the 280px
              dock floor: "Re-run to be sure" is 102.7px — 45% of the 230px
@@ -775,7 +792,12 @@ export function AtAGlance({
             <button
               type="button"
               onClick={onReviewEstimates}
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): `hover:text-info-hover`,
+                 not `hover:opacity-80` — opacity on `text-info` composited to
+                 3.33:1 on hover, below AA (measured on this exact control).
+                 `text-info-hover` reads `--info-hover`, the same token the
+                 prototype's own `button:hover` rule uses, and it stays AA. */
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover`}
               data-testid={`${testId}-ribbon-review-estimates`}
             >
               {COPY.glance.reviewEstimates}
@@ -817,7 +839,10 @@ export function AtAGlance({
                  could never reach it. The disabled treatment stays here because
                  it is genuinely this control's own; the geometry and the colour
                  are the tier's. */
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the review-estimates
+                 control above — `hover:text-info-hover` replaces the failing
+                 `hover:opacity-80`. The disabled treatment is untouched. */
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
               data-testid={`${testId}-ribbon-reanalyse`}
             >
               {COPY.status.reanalyseToBeSure}
@@ -825,6 +850,8 @@ export function AtAGlance({
           ) : null}
         </div>
       ) : null}
+      {showReading ? (
+      <>
 
       {/* ── THE ANSWER ─────────────────────────────────────────────────────
           The only large type on the surface. `headline`'s present-tense
@@ -890,8 +917,26 @@ export function AtAGlance({
            ⚠ `role="status"` — this is a statement about the run, in the slot
            where the answer would otherwise be, so it must reach a screen reader
            the way the ribbon above does rather than as unannounced prose. */
+        /* ⭐ V2 prototype: the refusal sentence is not on the default scroll.
+           It sits behind ONE door, closed at rest — still the producer's
+           sentence, unparaphrased, one click away (the "Still open" bullet
+           and the qualifier already say the ordering is unconfirmed). */
+        <div data-testid={`${testId}-withheld-disclosure`}>
+          <button
+            type="button"
+            aria-expanded={withheldOpen}
+            onClick={() => setWithheldOpen((o) => !o)}
+            className={`${typography.panelBody} ${action('disclose')}`}
+            data-testid={`${testId}-withheld-toggle`}
+          >
+            <ChevronRight
+              className={`h-3.5 w-3.5 shrink-0 text-text-light ${withheldOpen ? 'rotate-90' : ''}`}
+              aria-hidden={true}
+            />
+            {COPY.glance.eyebrowWhyWithheld}
+          </button>
+          {withheldOpen ? (
         <div role="status">
-          <Eyebrow>{COPY.glance.eyebrowWhyWithheld}</Eyebrow>
           <p
             className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
             data-testid={`${testId}-withheld-reason`}
@@ -1021,11 +1066,16 @@ export function AtAGlance({
                  actually lands on: **133×15**. The per-call-site spelling is the
                  defect the tier exists to end, surviving inside the control the
                  tier was created for. */
-              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:opacity-80`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the ribbon's
+                 review-estimates control above — `hover:text-info-hover`
+                 replaces the failing `hover:opacity-80`. */
+              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:text-info-hover`}
               data-testid={`${testId}-withheld-review-estimates`}
             >
               {COPY.glance.reviewEstimates}
             </button>
+          ) : null}
+        </div>
           ) : null}
         </div>
       ) : null}
@@ -1391,6 +1441,8 @@ export function AtAGlance({
           judgement: the note there records a disjunct outliving its content
           once already, which "would have rendered the section's wrapper and
           heading over empty space". */}
-    </section>
+      </>
+      ) : null}
+    </Wrapper>
   )
 }

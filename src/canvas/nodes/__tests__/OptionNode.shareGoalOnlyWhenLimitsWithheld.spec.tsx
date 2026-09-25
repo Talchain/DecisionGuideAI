@@ -91,8 +91,12 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(readout().textContent).toBe('81% of runs') // the data is not withheld — only the claim
     expect(qualifier()).not.toBeNull()
     expect(qualifier()!.textContent).toBe('Goal only')
-    expect(label()).toMatch(/your limits aren’t in this share/i)
-    expect(label()).toContain('The check against the limits you set does not support putting one option forward.')
+    expect(label()).toContain('This share compares the options on the goal alone.')
+    // ⛔ The token also covers a withhold on a brief with NO limits (DL #63
+    // 5825413732; Panel bundle 3): the note must not presume limits exist.
+    expect(label()).not.toMatch(/your limits/i)
+    // The reason sentence is Panel bundle 3's (#1993), read from the shared copy.
+    expect(label()).toContain("Olumi's checks on this run do not support putting one option forward.")
   })
 
   it('ED choice 3 — ON THE SHARE LINE: `Goal only` sits in the same row as the share, after it; no second line', () => {
@@ -111,7 +115,7 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
   it('ED choice 3 — label in name: the spoken string opens with the visible line, then the full meaning', () => {
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()
-    expect(label().startsWith('Current model · 81% of runs · Goal only. Your limits aren’t in this share')).toBe(true)
+    expect(label().startsWith('Current model · 81% of runs · Goal only. This share compares the options on the goal alone.')).toBe(true)
   })
 
   it('ED choice 3 — the full meaning is on keyboard FOCUS as well as hover', async () => {
@@ -121,7 +125,7 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     act(() => shareRow().focus())
     expect(document.activeElement).toBe(shareRow())
     const tip = await screen.findByRole('tooltip')
-    expect(tip).toHaveTextContent('Goal only. Your limits aren’t in this share')
+    expect(tip).toHaveTextContent('Goal only. This share compares the options on the goal alone.')
   })
 
   it('ED choice 3 — it must not look like endorsement: muted text, no colour channel', () => {

@@ -150,8 +150,8 @@
  *     it dispatches through `openAskOlumi` with no branching of its own.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Crosshair, Lightbulb, Pencil } from 'lucide-react'
 /**
  * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
  * AND A GUARD IS WHY.
@@ -173,10 +173,10 @@ import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } f
  * ⚠ I chose `CircleDashed` independently before finding that map, and it
  * happened to agree. That is luck. The spec is what turns it into a mechanism.
  */
-import { CircleDashed as NoValueMark } from 'lucide-react'
 
 import { OlumiAiIcon } from '../OlumiAiIcon'
 import { useCanvasStore } from '../../../../canvas/store'
+import { resolveNodeTypeLiteral } from '../../../../canvas/domain/nodes'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import {
   classifyValueProvenance,
@@ -203,6 +203,7 @@ import {
 } from '../buildModelStrip'
 import type { NodeInsight, NodeInsightIndex } from '../nodeInsights'
 import { action, icon } from '../panelSurfaces'
+import { useCurrentBriefText } from './BriefEditForm'
 
 /**
  * The subject line when the model names neither a goal nor a decision.
@@ -221,6 +222,53 @@ const NO_INSIGHTS: NodeInsightIndex = new Map()
 
 /** What a node's detail has to say when the run named it nowhere. */
 const EMPTY_INSIGHT: NodeInsight = { mentions: [], driverLabel: null, findings: [], withheldFindings: 0 }
+
+/**
+ * ⭐ THE CLOSED TALLY'S GLYPH STRIP CAP — deliberately smaller than `MARK_CAP`
+ * (12), which caps the OPEN, interactive per-node marks. This one caps a
+ * DECORATIVE repeat of one glyph, so it may stay small: the prototype
+ * (`Olumi_Reasoning_Prototype_V2.html`) draws "Options ■■■■ 4" with the exact
+ * count up to a handful, then leans on the number for anything larger. The
+ * count beside it is never clamped — only the glyphs are.
+ */
+const SUMMARY_GLYPH_CAP = 6
+
+/**
+ * The CEE decision node carries no `question` field today (D1, reported to
+ * the model owners on #69 5832347190) — the decision node is only `{id, kind,
+ * label: 'Decision: <goal label>', provenance}`. This reads one defensively,
+ * so the day a `question` field lands here it is preferred with no code
+ * change downstream.
+ */
+function decisionQuestionOf(node: { data?: unknown } | undefined): string | null {
+  const data = node?.data as { question?: unknown } | undefined
+  const q = data?.question
+  return typeof q === 'string' && q.trim() !== '' ? q.trim() : null
+}
+
+/**
+ * The title is never more than one sentence — a brief can run to a paragraph,
+ * and the header is not the place to read it in full. Cuts at the first
+ * sentence terminator; a brief with none is used whole, trimmed.
+ */
+function oneSentence(text: string): string {
+  const trimmed = text.trim()
+  const match = trimmed.match(/^[^.!?\n]+[.!?]?/)
+  return (match ? match[0] : trimmed).trim()
+}
+
+/**
+ * ⭐ THE DATA GAP'S OWN WORDING, STRIPPED FOR DISPLAY ONLY. `buildModelStrip`
+ * is not touched by this file's lane — the raw `decisionLabel` it returns
+ * still carries CEE's literal `'Decision: <goal label>'`, and every OTHER
+ * reader of that field (there are none outside this component; see the
+ * source scan) is unaffected. This strips the producer's own label prefix so
+ * the panel's title reads as the question, never as a field name.
+ */
+function stripDecisionPrefix(label: string): string {
+  const stripped = label.replace(/^decision:\s*/i, '').trim()
+  return stripped.length > 0 ? stripped : label
+}
 
 /**
  * ⭐⭐ E10 OF THE EDITABILITY MAP — "Propose a change to this element" and
@@ -313,6 +361,12 @@ export interface ModelStripProps {
    */
   isPreRun?: boolean
   /**
+   * V2 prototype (Paul, 25 Sep): the Reasoning tab shows the census as four
+   * glyph rows at rest, before AND after a run. The host opts in; a bare mount
+   * keeps the pre-run default. The reader's own toggle still wins.
+   */
+  openAtRest?: boolean
+  /**
    * The panel reached a conclusion and `AtAGlance` is rendering it, so the
    * subject line gives up the 18px slot and drops one step.
    *
@@ -330,12 +384,20 @@ export interface ModelStripProps {
    * cannot tell which decision the conclusion belongs to; it drops to the size
    * the panel's section titles use, second-loudest rather than quiet.
    */
+  /**
+   * V2 prototype: the review worklist ("N to review") renders between the
+   * census rows and the success row. The body owns the tool (it sees the view
+   * model); the strip only places it.
+   */
+  reviewSlot?: ReactNode
 }
 
 export function ModelStrip({
   testId = 'analysis-new-model-strip',
   isPreRun = false,
+  openAtRest = false,
   insights = NO_INSIGHTS,
+  reviewSlot = null,
 }: ModelStripProps) {
   const showToast = useShowToastSafe()
   /**
@@ -389,6 +451,39 @@ export function ModelStrip({
   )
 
   /**
+   * ⭐⭐ THE TITLE FALLBACK CHAIN (H1, design-audit-20260925 header rebuild).
+   * CEE sends no decision-QUESTION field (D1, #69 5832347190) — only a
+   * decision-LABEL, `'Decision: <goal label>'`. So the title prefers, in
+   * order: a `question` field on the decision node should one ever arrive
+   * (`decisionQuestionOf`, read here rather than in `buildModelStrip` because
+   * that builder is outside this lane); failing that, the brief the user
+   * themselves wrote, trimmed to one sentence (`useCurrentBriefText`, the
+   * SAME selector `BriefEditForm`'s "Edit the full question" already reads —
+   * one derivation, not two that could disagree, CLAUDE.md trap 12); and only
+   * then the structural decision/goal label further down, its own
+   * `'Decision: '` prefix stripped. Never invented: every arm here is either
+   * the producer's own field or the user's own words.
+   *
+   * ⚠ A PRIMITIVE STRING SELECTOR, NOT THE NODE. Returning `data` itself would
+   * re-render this component on every store write that touches the decision
+   * node for any reason; a string compares by value, so an untouched question
+   * causes no extra render.
+   */
+  const decisionQuestion = useCanvasStore((s) => {
+    for (const n of s.nodes ?? []) {
+      if (resolveNodeTypeLiteral(n) === 'decision') return decisionQuestionOf(n)
+    }
+    return null
+  })
+  const briefText = useCurrentBriefText()
+  const questionLead =
+    decisionQuestion !== null
+      ? oneSentence(decisionQuestion)
+      : briefText !== null && briefText.trim() !== ''
+        ? oneSentence(briefText)
+        : null
+
+  /**
    * `null` until the reader touches the control, so the default can keep
    * tracking the run state. An initialiser would freeze it at mount and the
    * strip would stay open across the pre-run boundary — see `isPreRun`.
@@ -440,9 +535,55 @@ export function ModelStrip({
    * Both null (a model naming neither) leaves `leadLabel` null and the render
    * falls through to `NO_SUBJECT_LABEL`, so the lead is never empty.
    */
-  const decisionLeads = strip.decisionLabel !== null && strip.decisionLabel !== strip.goalLabel
-  const leadLabel = decisionLeads ? strip.decisionLabel : strip.goalLabel
-  const subjectSubLabel = decisionLeads ? strip.goalLabel : null
+  /**
+   * ⭐ THE STRUCTURAL FALLBACK'S OWN "Decision: " PREFIX, STRIPPED FOR DISPLAY.
+   * CEE's decision-node label is `'Decision: <goal label>'` verbatim
+   * (`buildModelStrip`'s own field, unmodified by this file's lane); a title
+   * that is a field name with its prefix intact is exactly Paul's report on
+   * the deployed build. Stripped once here, so every reader below — the lead,
+   * the equality check, the containment check — agrees on one string.
+   */
+  const decisionLabel = strip.decisionLabel === null ? null : stripDecisionPrefix(strip.decisionLabel)
+  /**
+   * `buildModelStrip`'s own `goalLabel` falls back to `decisionLabel` on a
+   * decision-only model (`goalLabel: goalLabel ?? decisionLabel`), so the SAME
+   * stripping must apply here or the fallback pair would disagree on the one
+   * label they share — one with the prefix, one without.
+   */
+  const goalLabel =
+    strip.goalLabel === null
+      ? null
+      : strip.goalLabel === strip.decisionLabel
+        ? decisionLabel
+        : strip.goalLabel
+  const decisionLeads = decisionLabel !== null && decisionLabel !== goalLabel
+  const structuralLeadLabel = decisionLeads ? decisionLabel : goalLabel
+  /**
+   * ⭐ THE QUESTION OUTRANKS THE STRUCTURAL FALLBACK. `questionLead` is either
+   * the producer's own `question` field or the user's own brief — see its own
+   * definition above — and neither is ever null on a run that has one.
+   */
+  const leadLabel = questionLead ?? structuralLeadLabel
+  /**
+   * ⚠ CONTAINMENT, NOT JUST INEQUALITY (design-audit-20260925, gap FIRST-3).
+   * `decisionLeads` above is a STRING inequality: "Decision: Delivery
+   * velocity" !== "Delivery velocity" is true even though the decision line
+   * already carries every word of the goal. Rendering the goal again then
+   * restates it — the exact defect this two-element split exists to avoid.
+   * The subline earns its place only when the goal's words are NOT already
+   * inside the decision line.
+   *
+   * ⚠⚠ AND NEVER WHEN THE QUESTION LEADS (H1). The prototype's title row
+   * carries no subtitle at all — the question already states the framing, so
+   * repeating the goal beneath it would be the identical restatement this
+   * containment check already exists to stop, one level up.
+   */
+  const subjectSubLabel =
+    questionLead === null &&
+    decisionLeads && goalLabel !== null && decisionLabel !== null &&
+    !decisionLabel.includes(goalLabel)
+      ? goalLabel
+      : null
   const valueInputId = useId()
   /**
    * ⚠ THE NODE ID, NOT A BOOLEAN, AND FOR THE SAME REASON `activeNodeId` IS AN
@@ -468,7 +609,7 @@ export function ModelStrip({
    */
   const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
 
-  const open = override ?? isPreRun
+  const open = override ?? (openAtRest || isPreRun)
 
   /**
    * ⚠ DERIVED, NOT READ OFF THE STATE, AND IT IS THE STRANDING GUARD. The
@@ -623,13 +764,6 @@ export function ModelStrip({
     writeRing(narrowedIds(next, null))
   }
 
-  const pickWorklist = (mode: 'verify' | 'noValue') => {
-    const next = activeMode === mode ? null : mode
-    setWorklist(next)
-    setKindFilter(null)
-    writeRing(narrowedIds(null, next))
-  }
-
   /**
    * ⭐⭐ THE NARROWING FOLLOWS THE MODEL, NOT ONLY THE GESTURE.
    *
@@ -699,9 +833,9 @@ export function ModelStrip({
   // derivation over `strip` — on an empty strip `visible`, `narrowedIds` and
   // `narrowedKey` are all empty or null and the effect returns without writing
   // — so the move is behaviour-preserving and the render below is unchanged.
-  if (!stripHasContent(strip)) return null
-  const toggleVerify = () => pickWorklist('verify')
-  const toggleNoValue = () => pickWorklist('noValue')
+  // The review tool still renders on an empty strip: its acts (edit the brief,
+  // ask about the framing) do not depend on the census.
+  if (!stripHasContent(strip)) return reviewSlot ? <>{reviewSlot}</> : null
 
   /**
    * Resolved against the VISIBLE rows — see `activeNodeId`.
@@ -809,7 +943,7 @@ export function ModelStrip({
         // Points at the region ONLY while it exists. A collapsed region is
         // UNMOUNTED rather than hidden, so a resting reference would dangle.
         aria-controls={open ? regionId : undefined}
-        className="w-full text-left flex items-start gap-2 py-1 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        className="w-full text-left relative flex items-start gap-2 py-1 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         data-testid={`${testId}-toggle`}
       >
         <span className="min-w-0 flex-1">
@@ -832,11 +966,21 @@ export function ModelStrip({
               never as an empty string. */}
           <span
             id={subjectId}
-            // ⚠ CLAMPED TO ONE LINE WHILE CLOSED, FULL WHILE OPEN — one
-            // element, not two. A second copy of the subject inside the region
-            // would put the same sentence on screen twice, which is exactly
-            // what the first-viewport census exists to stop.
-            className={`${typography.reasoningLead} text-text-header block ${open ? '' : 'truncate'}`}
+            // ⚠⚠ 24 Sep 2026 — NO LONGER CLAMPED. Reasoning-V2 fidelity gap #8
+            // (`FIDELITY-WORKFLOW-RESULT-20260924.json`, against
+            // prototype-v2-reference.html's `.briefrow h2`, which sets
+            // `text-wrap:pretty;overflow-wrap:anywhere` and never clips) found
+            // this line — the panel's own loudest text — cut to one truncated
+            // ellipsis while closed. `truncate` is removed; the subject wraps
+            // instead, open or closed.
+            //
+            // ⚠ WHAT THIS DOES NOT CHANGE: still one element, not two — a
+            // second copy of the subject inside the region would put the same
+            // sentence on screen twice, which is exactly what the
+            // first-viewport census exists to stop. Only the clamp is gone.
+            className={`${typography.panelHeader} text-text-header block break-words${
+              open && subjectSubLabel === null ? ' pr-5' : ''
+            }`}
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >
@@ -844,7 +988,7 @@ export function ModelStrip({
           </span>
           {subjectSubLabel === null ? null : (
             <span
-              className={`${typography.panelBody} text-text-light block ${open ? '' : 'truncate'}`}
+              className={`${typography.panelBody} text-text-light block ${open ? 'pr-5' : 'truncate'}`}
               data-testid={`${testId}-goal`}
               title={subjectSubLabel}
             >
@@ -864,7 +1008,7 @@ export function ModelStrip({
               for. */}
           {open ? null : (
             <span
-              className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1"
+              className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 pr-5"
               data-testid={`${testId}-tallies`}
             >
               {strip.rows.map((row) => (
@@ -874,7 +1018,21 @@ export function ModelStrip({
                   data-testid={`${testId}-tally`}
                   data-kind={row.kind}
                 >
-                  <NodeMark kind={row.kind} />
+                  {/* ⭐⭐ H2: A GLYPH STRIP, NOT ONE MARK — the prototype's own
+                      "Options ■■■■ 4" (`Olumi_Reasoning_Prototype_V2.html`).
+                      Capped at `SUMMARY_GLYPH_CAP` (6), well under `MARK_CAP`
+                      (12): these glyphs are decorative repetition, never a
+                      click target, so the cap only needs to read as "several"
+                      before the number takes over — a factor row of 20 draws
+                      six marks and the count says the rest. `aria-hidden` on
+                      the wrapper, because the number beside it already states
+                      the count in words a screen reader can use; repeating
+                      "factor, factor, factor…" six times would not. */}
+                  <span className="flex items-center gap-0.5" aria-hidden={true}>
+                    {Array.from({ length: Math.min(row.nodes.length, SUMMARY_GLYPH_CAP) }, (_, i) => (
+                      <NodeMark key={i} kind={row.kind} />
+                    ))}
+                  </span>
                   <span className={`${typography.panelMeta} text-text-light`}>{row.label}</span>
                   <span className={`${typography.panelMeta} text-text-light tabular-nums`}>
                     {row.nodes.length}
@@ -887,23 +1045,20 @@ export function ModelStrip({
                   Reading it and pressing it are the same gesture — the press
                   opens the strip, where the toggle it names is waiting. Absent
                   at zero, like every other tally here. */}
-              {strip.needsCheckTotal > 0 ? (
-                <span
-                  className={`${typography.panelMeta} text-warning-ink`}
-                  data-testid={`${testId}-verify-summary`}
-                >
-                  {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
-                </span>
-              ) : null}
+              {/* V2: no "N to verify" here — the one worklist count is the review tool's "N to review". */}
             </span>
           )}
         </span>
 
-        {open ? (
-          <ChevronDown className={`${icon('section')} shrink-0 mt-0.5 text-text-light`} aria-hidden={true} />
-        ) : (
-          <ChevronRight className={`${icon('section')} shrink-0 mt-0.5 text-text-light`} aria-hidden={true} />
-        )}
+        {/* ⛔ NO CHEVRON (H1, design-audit-20260925). The prototype's title
+            row (`.briefrow h2`) carries no disclosure glyph — the census
+            beneath it is not something the title promises to expand. The
+            toggle affordance this button carries is NOT removed: the whole
+            block stays one button, so the title itself remains the way to
+            open or close the marks region, exactly as the prototype's own
+            title opens nothing and needs none. `pr-5` above still reserves
+            the strip's right-hand margin so the layout is unchanged by the
+            glyph's removal. */}
       </button>
 
       {/* ── THE SUCCESS TARGET ────────────────────────────────────────────────
@@ -916,39 +1071,6 @@ export function ModelStrip({
           ⚠ RENDERED WHETHER THE STRIP IS OPEN OR CLOSED. "What does success
           look like" is the question a strategist answers first, and a target
           hidden behind a disclosure is a target nobody sets. */}
-      <SuccessTargetLine
-        goalNodeId={strip.goalNodeId}
-        /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
-           This read TWO, on the premise that no server carrier for a goal
-           threshold exists, and told every reader "It will be used the next time
-           you analyse" over a store-only write that reverted on reload. The
-           typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
-           the control can now dispatch and must report which of the three
-           things happened - exactly as the factor editor twenty lines above
-           already does. Collapsing any two of these is the estate's signature
-           defect, an affordance reporting an outcome it never observed. */
-        /* ⚠⚠ FOUR OUTCOMES NOW, AND THE FOURTH IS THE ONLY ONE A READER CAN
-           ACT ON. `no_unit` used to fall through to `notEncodable` — "That
-           target could not be applied, so nothing changed." — which is true and
-           useless: it names one of three causes' shared shape and no move.
-           Collapsing any two of these is the estate's signature defect, an
-           affordance reporting an outcome it never observed; collapsing a
-           CAUSE is the same defect wearing a different coat. */
-        onCommitOutcome={(outcome) =>
-          showToast(
-            outcome === 'dispatched'
-              ? COPY.successTarget.dispatched
-              : outcome === 'local_only'
-                ? COPY.successTarget.changedLocally
-                : outcome === 'no_unit'
-                  ? COPY.successTarget.noUnit
-                  : outcome === 'not_a_number'
-                    ? COPY.successTarget.notANumber
-                    : COPY.successTarget.notEncodable,
-          )
-        }
-        testId={`${testId}-target`}
-      />
 
       {/* ── THE MARKS, one per node, each a route to that node on canvas ─────
           Unchanged from the always-visible version, including the cap: this is
@@ -978,71 +1100,10 @@ export function ModelStrip({
             ⚠ THE WRAPPER IS CONDITIONAL. An unconditional flex row renders an
             empty 4px-tall box on every model with no worklist at all — trading
             a visible misalignment for an invisible one. */}
-        {strip.needsCheckTotal > 0 || strip.noValueTotal > 0 ? (
-          <div className="flex flex-wrap items-center gap-1 mb-1">
-        {strip.needsCheckTotal > 0 ? (
-          <button
-            type="button"
-            onClick={toggleVerify}
-            aria-pressed={verifyActive}
-            /* CONTAINS the visible text, so the control keeps label-in-name.
-               "3 to verify" alone announces a count and not what pressing it
-               does. */
-            aria-label={COPY.modelStrip.toVerifyToggleName(strip.needsCheckTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-              /* ⚠ PRESSED IS A RING, NOT A HOTTER AMBER. Solid `bg-warning`
-                 made amber carry TWO questions at once: "how urgent is this?"
-                 and "is this filter on?" — so switching a filter ON made the
-                 panel look like something had got worse. Severity keeps the
-                 hue; the pressed state is carried by a ring, which no other
-                 status on this panel uses. `aria-pressed` above already says
-                 it to assistive tech; this is the sighted half. */
-              verifyActive
-                ? 'bg-warning/20 text-warning-ink ring-1 ring-warning'
-                : 'bg-warning/10 text-warning-ink hover:bg-warning/20'
-            }`}
-            data-testid={`${testId}-verify-toggle`}
-          >
-            <ListChecks className={`${icon('inline')}`} aria-hidden={true} />
-            {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
-          </button>
-        ) : null}
-
-        {/* ── THE SECOND WORKLIST ──────────────────────────────────────────
-            ⭐⭐ THE STRIP WAS QUIETEST ON THE MODELS WITH LEAST IN THEM.
-            `needsCheck` is `factorIsConfirmable`, which REQUIRES a value, so a
-            factor with none cannot be "to verify" and had no affordance here at
-            all. Measured on deployed `80ccf768` (guest, seeded "Customer Data
-            Platform Selection"): the Model tab's own outline heading read "2
-            with no value yet" while this strip offered nothing.
-
-            ⚠ A SECOND COUNT, NOT A WIDER PREDICATE. Widening
-            `factorIsConfirmable` would re-ship the defect its narrowing fixed —
-            "an enabled Confirm that silently did nothing" (`FactorsSection.tsx`).
-            Two questions, named apart.
-
-            Same rules as the toggle above, deliberately: renders only above
-            zero, amber keeps the hue and the ring carries pressed, and the
-            criterion is a visible sentence rather than a `title`. */}
-        {strip.noValueTotal > 0 ? (
-          <button
-            type="button"
-            onClick={toggleNoValue}
-            aria-pressed={noValueActive}
-            aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-              noValueActive
-                ? 'bg-warning/20 text-warning-ink ring-1 ring-warning'
-                : 'bg-warning/10 text-warning-ink hover:bg-warning/20'
-            }`}
-            data-testid={`${testId}-no-value-toggle`}
-          >
-            <NoValueMark className={`${icon('inline')}`} aria-hidden={true} />
-            {COPY.modelStrip.noValueCount(strip.noValueTotal)}
-          </button>
-        ) : null}
-          </div>
-        ) : null}
+        {/* V2 prototype: ONE worklist count on the first screen — the review
+            tool's "N to review" below the rows. The strip's own "to verify" /
+            "no value" chips duplicated it (Paul, 25 Sep) and are gone; the
+            Model tab keeps its filters. */}
 
         {/* ⚠ THE CRITERION, VISIBLE AND ONLY WHILE IT APPLIES. "3 to verify"
             does not say what qualified them, and a `title` would put that
@@ -1298,14 +1359,9 @@ export function ModelStrip({
             strings this component contributes are the affordance line, the
             absence line and the cap disclosure — furniture and honesty, never a
             statement about the model. */}
-        {active === null ? (
-          <p
-            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-            data-testid={`${testId}-hint`}
-          >
-            {isPreRun ? COPY.modelStrip.hintPreRun : COPY.modelStrip.hint}
-          </p>
-        ) : (
+        {/* V2 prototype: no standing hint line under the rows — a mark's own
+            tooltip and focus ring say what picking it does. */}
+        {active === null ? null : (
           <div
             id={detailId}
             /* `min-w-0` on the flex children and wrapping on every producer
@@ -1374,7 +1430,11 @@ export function ModelStrip({
                   door and the guard caught it, which is what it is for. */}
               {active.needsCheck ? (
                 <span
-                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-warning/10 px-2 py-0.5 text-warning-ink`}
+                  // ⚠⚠ 24 Sep 2026 — fidelity gap #14: `bg-warning/10` was a
+                  // tinted fill; BUILDER-RULES bans it. An outlined pill (the
+                  // prototype's `.source-pill` shape) replaces it — the ink
+                  // still carries the severity signal.
+                  className={`${typography.panelMeta} inline-flex items-center rounded-full border border-panel-border px-2 py-0.5 text-warning-ink`}
                   data-testid={`${testId}-detail-verify`}
                 >
                   {UNCONFIRMED_ESTIMATE_LABEL}
@@ -1392,7 +1452,7 @@ export function ModelStrip({
             <button
               type="button"
               onClick={() => focusOrSay(active.id)}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
               data-testid={`${testId}-detail-focus`}
               data-node-id={active.id}
             >
@@ -1418,7 +1478,7 @@ export function ModelStrip({
                   source: 'chip',
                 })
               }}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
               data-testid={`${testId}-detail-propose`}
               data-node-id={active.id}
             >
@@ -1437,7 +1497,7 @@ export function ModelStrip({
                   source: 'chip',
                 })
               }}
-              className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
               data-testid={`${testId}-detail-ask`}
               data-node-id={active.id}
             >
@@ -1510,13 +1570,13 @@ export function ModelStrip({
                           setEditingFor(null)
                         }
                       }}
-                      className={`${typography.panelBody} w-24 min-w-0 rounded border border-panel-border bg-panel px-2 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                      className={`${typography.panelBody} w-24 min-w-0 rounded-sm border border-field bg-panel px-2 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-detail-value-input`}
                     />
                     <button
                       type="button"
                       onClick={commitValue}
-                      className={`${typography.panelMeta} inline-flex items-center ${action('secondary')}`}
+                      className={`${typography.panelBody} inline-flex items-center ${action('secondary')}`}
                       data-testid={`${testId}-detail-value-save`}
                     >
                       {COPY.modelStrip.saveValue}
@@ -1554,7 +1614,7 @@ export function ModelStrip({
                       setDraft(seed != null ? String(seed) : '')
                       setEditingFor(active.id)
                     }}
-                    className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
                     data-testid={`${testId}-detail-value-edit`}
                     data-node-id={active.id}
                   >
@@ -1617,7 +1677,7 @@ export function ModelStrip({
                         targetId: active.id,
                       })
                     }
-                    className={`${typography.panelMeta} inline-flex items-center gap-1 ${action('secondary')}`}
+                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
                     data-testid={`${testId}-detail-method`}
                     data-method-id={method.id}
                     title={method.description}
@@ -1733,6 +1793,44 @@ export function ModelStrip({
         )}
         </div>
       ) : null}
+      {/* V2 prototype order: the rows, then "N to review", then "What would
+          success look like?" — the worklist and the success row sit BELOW the
+          census, not above it. */}
+      {reviewSlot}
+      <SuccessTargetLine
+        goalNodeId={strip.goalNodeId}
+        divider={false}
+        /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
+           This read TWO, on the premise that no server carrier for a goal
+           threshold exists, and told every reader "It will be used the next time
+           you analyse" over a store-only write that reverted on reload. The
+           typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
+           the control can now dispatch and must report which of the three
+           things happened - exactly as the factor editor twenty lines above
+           already does. Collapsing any two of these is the estate's signature
+           defect, an affordance reporting an outcome it never observed. */
+        /* ⚠⚠ FOUR OUTCOMES NOW, AND THE FOURTH IS THE ONLY ONE A READER CAN
+           ACT ON. `no_unit` used to fall through to `notEncodable` — "That
+           target could not be applied, so nothing changed." — which is true and
+           useless: it names one of three causes' shared shape and no move.
+           Collapsing any two of these is the estate's signature defect, an
+           affordance reporting an outcome it never observed; collapsing a
+           CAUSE is the same defect wearing a different coat. */
+        onCommitOutcome={(outcome) =>
+          showToast(
+            outcome === 'dispatched'
+              ? COPY.successTarget.dispatched
+              : outcome === 'local_only'
+                ? COPY.successTarget.changedLocally
+                : outcome === 'no_unit'
+                  ? COPY.successTarget.noUnit
+                  : outcome === 'not_a_number'
+                    ? COPY.successTarget.notANumber
+                    : COPY.successTarget.notEncodable,
+          )
+        }
+        testId={`${testId}-target`}
+      />
     </section>
   )
 }

@@ -12,7 +12,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { CommitmentSummary, type CommitmentSummaryProps } from '../sections/CommitmentSummary'
 import { buildAnalysisNewViewModel, type AnalysisNewViewModelInputs } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -31,6 +31,7 @@ import {
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { DecisionRecord } from '../../modals'
+import { DECISION_RECORD_COPY } from '../../modals/DecisionRecordModal'
 
 afterEach(cleanup)
 
@@ -211,7 +212,12 @@ describe('⛔ a withheld-leader run: no winner wording anywhere', () => {
       // …and none of the banned vocabulary, nor the threshold that implies a leader.
       expect(said).not.toMatch(WINNER)
       expect(said).not.toContain('Hold price')
-      expect(screen.queryByTestId(`${TID}-founded`)).toBeNull()
+      // ⭐⭐ WAVE 2 (commitment structure): bullet 1 is no longer silent on a
+      // withheld run — it states the option count, which is not a reading and
+      // so is not banned by this probe (already asserted above via `said`).
+      expect(screen.getByTestId(`${TID}-founded-text`).textContent).toBe(
+        COMMITMENT_COPY.withheldFounded(vm.optionsComparison.rows.length),
+      )
     })
   }
 
@@ -261,6 +267,22 @@ describe('record your view — the existing decision record', () => {
     expect(onRecord).toHaveBeenCalledTimes(1)
   })
 
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): the door reads as a BLUE
+   * link, like the prototype's `.commitrow .disclose{color:var(--info)}` —
+   * not the body-ink text gap 21 shipped from a misread of the base
+   * `.disclose` rule (see `CommitmentSummary.tsx`'s own note at this site).
+   * The icon and chevron are unchanged, so this pins colour ADDED to an
+   * already shape-carried control, never colour alone.
+   */
+  it('the door reads as a blue link — text-info, alongside its icon and chevron', () => {
+    renderZone({})
+    const door = screen.getByTestId(`${TID}-record-open`)
+    const label = within(door).getByText(COMMITMENT_COPY.record.open)
+    expect(label.className).toMatch(/\btext-info\b/)
+    expect(label.className).not.toMatch(/\btext-text-body\b/)
+  })
+
   it('no record + no capture → no door (the modal would open disabled)', () => {
     renderZone({ canCapture: false })
     expect(screen.queryByTestId(`${TID}-record`)).toBeNull()
@@ -282,6 +304,27 @@ describe('record your view — the existing decision record', () => {
     expect(screen.getByTestId(`${TID}-record-storage`).textContent).toContain(storageSentenceFor(RECORD))
     // Never an Olumi decision.
     expect(screen.getByTestId(`${TID}-record`).textContent).not.toMatch(/olumi|recommend|decided/i)
+  })
+
+  /**
+   * ⭐ THE NEXT ACTION IS READ BACK (V2 prototype `positionHTML()`: "Your view ·
+   * Next · Revisit when"). The modal has collected it since #1929 and the store
+   * keeps it (`decisionRecordStore.ts` `nextAction`), but the read-back never
+   * showed it — the user wrote it and the tab dropped it.
+   */
+  it('a recorded next action is read back, labelled as in the form', () => {
+    renderZone({ record: { ...RECORD, nextAction: 'Size the market by Friday' } })
+    expect(screen.getByTestId(`${TID}-record-next-action`).textContent).toBe(
+      `${COPY.decisionRecord.nextActionLabel}: Size the market by Friday`,
+    )
+    // "Labelled as in the form": the Reasoning tab keeps its own copy (so it
+    // does not import the modal and its copy scope), bound here to the form's.
+    expect(COPY.decisionRecord.nextActionLabel).toBe(DECISION_RECORD_COPY.nextActionLabel)
+  })
+
+  it('CONTRAST: no next action, no row', () => {
+    renderZone({ record: { ...RECORD, nextAction: undefined } })
+    expect(screen.queryByTestId(`${TID}-record-next-action`)).toBeNull()
   })
 
   it('CONTRAST: a non-blank rationale does get its row', () => {

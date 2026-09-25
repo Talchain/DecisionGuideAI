@@ -243,7 +243,8 @@ export function withOlumiReveal<Args extends unknown[]>(
 /**
  * The producer-declared intent a card-hosted inline action may carry alongside
  * its display label and submitted message. Every field is optional and every
- * field is the PRODUCER's — the UI never authors one (see `_sendChip`).
+ * WIRE field is the PRODUCER's — the UI never authors one (see `_sendChip`).
+ * `sourceBlockKey` is the one UI-owned field, and it never reaches the wire.
  */
 export interface SendChipMeta {
   /** Stable chip id, when the caller has one (otherwise the seam mints one). */
@@ -279,6 +280,14 @@ export interface SendChipMeta {
   intent?: string
   /** `suggested_actions[].parameters`, forwarded unchanged. */
   parameters?: Record<string, unknown>
+  /**
+   * G1 — the card whose action this send is (`coach:…` / `held:…`, built by
+   * `conversation/utils/transcriptStore.ts`). The ONE field here that is the
+   * UI's own rather than the producer's, and it never reaches the wire: it is
+   * stamped on the user message this send creates, so a reload can tell the
+   * action was already taken. Absent ⇒ the send is exactly as before.
+   */
+  sourceBlockKey?: string
 }
 
 export interface GuidanceState {

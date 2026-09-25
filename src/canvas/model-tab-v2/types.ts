@@ -321,6 +321,13 @@ export interface ModelRow {
    */
   declaresNoRange?: boolean
   /**
+   * The factor records no unit (`observed_state.unit` absent or blank). A unit
+   * typed into its editor has nowhere to go: the commit sends the number alone
+   * (`proposeFactorValue(parseFloat(draft))`), so "8%" would be stored as 8.
+   * Present only when true, like `declaresNoRange`.
+   */
+  declaresNoUnit?: boolean
+  /**
    * ⭐ THIS OPTION IS THE BASELINE — `is_baseline === true` on the node, read
    * strictly, as CEE's run gate reads it (`analysable-option-gate.ts`
    * `isBaselineOption`). Present only on such option rows.

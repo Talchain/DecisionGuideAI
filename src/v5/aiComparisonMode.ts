@@ -21,9 +21,12 @@ function isOlumiStagingHost(hostname: string): boolean {
  *   #/canvas?ai=conventional  -> original/conventional CEE route
  *   #/canvas?ai=openai       -> OpenAI Agent route
  *
- * Staging defaults to conventional so the original PoC cannot be silently
- * replaced again. Production keeps its deployment-configured behaviour unless
- * a future product decision explicitly introduces a selector there.
+ * Staging defaults to OpenAI (25 Sep 2026, Paul's OpenAI-only constraint of
+ * 24 Sep 18:15Z): a plain link, bookmark or shared URL must never reach the
+ * conventional route, which calls Anthropic. The conventional control stays
+ * reachable, but only explicitly via ?ai=conventional. Production keeps its
+ * deployment-configured behaviour unless a future product decision explicitly
+ * introduces a selector there.
  */
 export function resolveAiComparisonMode(href?: string): AiComparisonMode | null {
   if (typeof window === 'undefined' && href == null) return null
@@ -36,7 +39,7 @@ export function resolveAiComparisonMode(href?: string): AiComparisonMode | null 
   }
   const explicit = explicitModeFromUrl(url)
   if (explicit !== null) return explicit
-  return isOlumiStagingHost(url.hostname) ? 'conventional' : null
+  return isOlumiStagingHost(url.hostname) ? 'openai' : null
 }
 
 export function aiComparisonHeaders(href?: string): Record<string, string> {

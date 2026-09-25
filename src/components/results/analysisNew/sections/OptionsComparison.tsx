@@ -160,7 +160,8 @@
  */
 
 import { Fragment, useCallback, useId, useState } from 'react'
-import { Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
+import { ChevronRight, Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
+import { NodeMark } from '../nodeMarks'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
@@ -182,7 +183,17 @@ import type { OptionOrigin } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 import { PanelFigure } from '../PanelFigure'
-import { action, icon } from '../panelSurfaces'
+import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
+
+/**
+ * The lens arms, each ONE complete colour pair. Inline in the className
+ * template, the per-site contrast scan (which reads a template literal whole,
+ * on purpose) paired the idle arm's text colour with the selected arm's fill
+ * and reported 1.00:1, though no rendered arm ever combined them. Each
+ * constant is now exactly what one arm renders.
+ */
+const LENS_ARM_SELECTED = 'bg-primary text-text-on-color'
+const LENS_ARM_IDLE = 'text-text-body hover:text-info'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
@@ -204,6 +215,25 @@ import {
  */
 const RANGE_LENS_ARMS = ['cautious', 'middle', 'optimistic'] as const
 type RangeLensArm = (typeof RANGE_LENS_ARMS)[number]
+
+/**
+ * ⭐ FOUR EVENLY-SPACED POINTS ACROSS THE SHARED DOMAIN, prototype-matched
+ * (`chartHTML()` prints four ticks). `0` and `1` are the domain's own bounds,
+ * so the end ticks always land on the same values the range bands are
+ * fractioned against (`toFraction` in the row below).
+ */
+const AXIS_TICK_FRACTIONS = [0, 1 / 3, 2 / 3, 1] as const
+
+/**
+ * ⛔ NO UNIT SYMBOL. See the call site's note: `outcomeRange` carries no unit,
+ * so this prints the scale's own number and nothing else — never a `%`, `$`
+ * or any other symbol this surface was not given.
+ */
+function formatAxisTick(value: number): string {
+  // Three significant figures, compact for large magnitudes (190K, not
+  // "423,333.33" — the served 25 Sep check). Still no unit symbol.
+  return value.toLocaleString(undefined, { notation: 'compact', maximumSignificantDigits: 3 })
+}
 
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
@@ -253,6 +283,23 @@ export interface OptionsComparisonProps {
    */
   defaultOpen?: boolean
   /**
+   * ⭐⭐ BARE (V2 fidelity, gap 17): NO `SectionShell` — no heading, icon
+   * circle, count or chevron, and no disclosure. Renders the same body
+   * (qualifiers, lens control, rows, range detail) in a plain wrapper.
+   *
+   * ⚠ FOR THE ONE MOUNT WHERE THE COMPARISON IS ALREADY THE ANSWER. Nested
+   * inside "Move towards commitment", `SectionShell` gave this section its
+   * own 14px heading beside the zone's own, and closed it at rest whenever the
+   * glance named a leader — hiding the chart on the run it is the entitled
+   * account of. `defaultOpen` (above) is now IGNORED when `bare` is true: a
+   * bare mount has no disclosure state to default.
+   *
+   * ⚠ DEFAULT `false`. Every other caller of this component — the standalone
+   * specs, `collapsedIA.spec.tsx` — renders it unbare and keeps the existing
+   * toggle, count and region.
+   */
+  bare?: boolean
+  /**
    * ⭐ THE ROW ACTIONS (V2). Each is OPTIONAL and each renders only where it is
    * supplied: a host with no Model route renders no "Inspect in Model", never a
    * control that routes nowhere.
@@ -278,6 +325,7 @@ export function OptionsComparison({
   sharesExcludeLimits = false,
   onSendMessage,
   defaultOpen = false,
+  bare = false,
   onInspectOption,
   onFocusOption,
   onAskAboutOption,
@@ -449,6 +497,41 @@ export function OptionsComparison({
   const offerLensControl = lensAvailability.outcome && lensAvailability.goal
   const rowActionsEnabled =
     onInspectOption !== undefined || onFocusOption !== undefined || onAskAboutOption !== undefined
+  /**
+   * ⭐ V2 FIDELITY (25 Sep 2026, gaps FIRST-1/SPACE-5): whether the range axis
+   * row (its info button) has anything to attach to. Shared with `noneNumbered`
+   * below (gap CHART-3) and with the merged legend/axis row further down, so
+   * the three cannot drift onto three different readings of "is a range drawn".
+   */
+  const showAxis = lens === 'outcome' && rangeScale !== null
+
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): THE AXIS ROW'S OWN TICK
+   * LABELS, so a withheld run's ranges can be READ rather than only seen. The
+   * prototype (`Olumi_Reasoning_Prototype_V2.html`, `chartHTML()`) prints four
+   * ticks — `0%`, `10%`, `20%`, `30%` — under the rows; before this the info
+   * button sat alone with no scale to read the bands against.
+   *
+   * ⛔⛔ NOT A PERCENTAGE, AND NOT A POINT FIGURE. `outcomeRange` carries no
+   * unit — PanelFigure's own rule 3 ("THE FIGURE CLAIMS NOTHING IN UNITS",
+   * `PanelFigure.tsx:51-56`), this file's own range-band note ("PRESENTATIONAL
+   * ONLY, AND IT MAKES NO CLAIM IN UNITS", above at the range's render site)
+   * and `analysisNewTypes.ts:640-644` (a captured real run whose values are
+   * `-0.163` / `0.027` / `0.211`, not percentages) all document the same
+   * producer gap: the outcome may be currency, a count or a normalised scale,
+   * and this surface is never told which. Printing "0% 10% 20% 30%" here would
+   * be exactly the fabrication those three sites refuse — a unit invented
+   * where none was sent. So these four ticks are the SCALE'S OWN VALUES,
+   * spread evenly across the shared domain (`rangeScale.lo` .. `.hi`), plain
+   * numbers with no appended symbol — readable against the bands without
+   * claiming a unit the producer never gave. Reported, not silently narrowed:
+   * see the PR description for the same finding against the per-option point
+   * figure this wave does NOT add for the identical reason.
+   */
+  const axisTicks: readonly string[] | null =
+    showAxis && rangeScale !== null
+      ? AXIS_TICK_FRACTIONS.map((f) => formatAxisTick(rangeScale.lo + f * rangeScale.span))
+      : null
 
   /**
    * ⭐⭐ THE PROVENANCE SENTENCE, SAID ONCE WHEN SEVERAL OPTIONS SHARE IT.
@@ -487,17 +570,14 @@ export function OptionsComparison({
     return origins.every((x) => x === origins[0]) ? origins[0] : null
   })()
 
-  return (
-    <SectionShell
-      title={COPY.sections.options}
-      icon={Scale}
-      // The count is the FULL population, and the body accounts for every one
-      // of them — named rows plus the unnamed disclosure. A collapsed row is a
-      // promise about what is behind it.
-      count={options.totalCount}
-      defaultOpen={defaultOpen}
-      testId={testId}
-    >
+  /**
+   * ⭐ V2 FIDELITY (gap 17): THE BODY, SEPARATED FROM ITS SHELL. `bare` (below)
+   * needs the exact same qualifiers/lens/rows/range-detail this section has
+   * always drawn — one JSX tree, built once, so a bare mount and a shelled one
+   * can never quietly diverge. Each wrapper only decides the CHROME.
+   */
+  const body = (
+    <>
       {/* ⚠ THIS SECTION'S OWN HALF OF A SENTENCE THAT USED TO SERVE TWO.
           `checks.leader_not_assessed.meaning` is "What we checked"'s — it
           answers what the run CHECKED. This answers HOW TO READ THIS LIST, and
@@ -511,10 +591,27 @@ export function OptionsComparison({
           list as a tie. The ordering clause stays in `meaning`, which is the
           half that renders on a withheld run whose options DO carry figures —
           the run this section says nothing on at all. The cause is still
-          appended below. */}
-      {noneNumbered ? (
+          appended below.
+
+          ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-3): `&& lens === null`, ADDED.
+          `noneNumbered` alone asks only "did any option come back with a WIN
+          SHARE?" — a question about a figure this section stopped printing at
+          rest. A withheld run can carry no win share and still draw every
+          option's own range (the "Modelled outcome" lens): that run has rows
+          FULL of figures, and calling it "a list with no figures beside it"
+          was false on the very run it was meant to protect. Gating on `lens`
+          too restricts the denial to a row that TRULY shows nothing — no
+          range, no goal figure — which is the only population this sentence
+          may address. The cause stays appended: a withheld run with figures
+          keeps stating it, through the commitment synthesis's own "Still
+          open" bullet, which reads `checks.leaderWithheld` independently of
+          this component. */}
+      {noneNumbered && lens === null ? (
         <p
-          className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
+          /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
+             grey — this line states the chart's own uncertainty and reads as
+             part of the argument, the same ruling as the qualifier below it. */
+          className={`${typography.panelMeta} text-text-body mb-2 mt-0`}
           data-testid={`${testId}-no-figures`}
         >
           {COPY.checks.leader_not_assessed.orderingCaveat}
@@ -534,7 +631,9 @@ export function OptionsComparison({
           (the paragraph above already carries the cause there). */}
       {sharesExcludeLimits && !noneNumbered ? (
         <p
-          className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
+          /* ⭐ V2 FIDELITY (25 Sep 2026, gap TYPE-10): body ink, not tertiary
+             grey — see the `-no-figures` paragraph above. */
+          className={`${typography.panelMeta} text-text-body mb-2 mt-0`}
           data-testid={`${testId}-goal-only`}
         >
           {COPY.optionFigures.goalOnlyQualifier}
@@ -558,10 +657,15 @@ export function OptionsComparison({
           <span id={`${lensGroupId}-label`} className="sr-only">
             {LENS_COPY.groupLabel}
           </span>
+          {/* ⭐ V2 FIDELITY (gap 19): PILL, NOT A SQUARED BOX. `rounded-md`
+              read as ~12px on a ~30px-tall box, close to a pill already; the
+              arms inside it were the squared part (`rounded` ≈ 4px against the
+              prototype's 99px). `p-[3px] gap-[3px]` matches the prototype's
+              own `.lens{padding:3px;gap:3px}`. */}
           <div
             role="radiogroup"
             aria-labelledby={`${lensGroupId}-label`}
-            className="flex w-full items-center gap-1 rounded-md border border-panel-border p-0.5"
+            className="flex w-full items-center rounded-full border border-panel-border p-[3px] gap-[3px]"
             data-testid={`${testId}-lens`}
           >
             {COMPARISON_LENSES.map((arm, i) => {
@@ -592,8 +696,19 @@ export function OptionsComparison({
                       ?.querySelector<HTMLButtonElement>(`[data-lens="${next}"]`)
                       ?.focus()
                   }}
-                  className={`${typography.panelMeta} ${action('quiet')} flex-1 justify-center gap-1 px-2 no-underline ${
-                    selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                  /* ⭐ V2 FIDELITY (gap 19): a SOLID selected state, not a
+                     cream tint. `bg-panel-hover` on `bg-panel` measured at
+                     1.038:1 (`SectionShell.tsx`'s own contrast note) — which
+                     of the two lenses was active was barely readable, and DS
+                     v5 bans a tinted background outright. `bg-primary
+                     text-text-on-color` is the panel's ONE filled control
+                     (`ACTION_TIER.primary`); unselected arms drop to
+                     `text-text-body` so the pair reads as "chosen" vs "not",
+                     never as two different intensities of one tint. Not
+                     `action('quiet')` — that tier is UNDERLINED text-light
+                     furniture, the opposite of a segmented control's arm. */
+                  className={`${typography.panelBody} ${ACTION_FOCUS} flex-1 inline-flex items-center justify-center min-h-[28px] gap-1 rounded-full px-2 no-underline ${
+                    selected ? LENS_ARM_SELECTED : LENS_ARM_IDLE
                   }`}
                   data-lens={arm}
                   data-testid={`${testId}-lens-${arm}`}
@@ -670,8 +785,15 @@ export function OptionsComparison({
                    a tier: it is the option's NAME. 2px of padding, and not
                    `inline-flex items-center`, which would change how a long
                    option name wraps. */
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
+                {/* ⭐ V2 FIDELITY (gap 20): THE OPTION'S OWN SHAPE, before its
+                    name — the row head's `.option-top` grid in the prototype
+                    leads with an 8px option square; this row had no mark at
+                    all, so nothing on it said "option" the way the canvas
+                    already does. `aria-hidden` by construction (`NodeMark`),
+                    so it adds nothing to the button's `aria-label`. */}
+                <NodeMark kind="option" className={`${icon('inline')} mr-1 inline-block align-[-1px]`} />
                 <span data-testid={`${testId}-label`}>{o.label}</span>
                 {sharedOrigin !== null && o.origin === sharedOrigin ? (
                   /* ⚠ `role="img"` WITH THE FULL SENTENCE AS ITS NAME. A bare
@@ -707,6 +829,23 @@ export function OptionsComparison({
                   {o.kind === 'not_computed' ? NOT_COMPUTED_BADGE : NOT_ANALYSED_BADGE}
                 </span>
               ) : null}
+
+              {/* ⭐ V2 FIDELITY (gap 20): AN EXPAND CUE, where the row has
+                  actions to expand. The button above already toggles
+                  `actionsOpenFor` and carries `aria-expanded`; nothing on
+                  screen said so, so a reader met a row that opened with no
+                  visible affordance for it. Decorative only — `aria-hidden`,
+                  because the button's own `aria-expanded`/`aria-label` already
+                  say this to assistive tech. */}
+              {rowActionsEnabled ? (
+                <ChevronRight
+                  className={`${icon('inline')} text-text-light shrink-0 self-center transition-transform ${
+                    actionsOpenFor === o.id ? 'rotate-90' : ''
+                  }`}
+                  aria-hidden={true}
+                  data-testid={`${testId}-row-chevron-${o.id}`}
+                />
+              ) : null}
             </div>
 
             {/* ⭐⭐ MODELLED OUTCOME: THE RANGE THIS OPTION ACTUALLY PRODUCED.
@@ -737,7 +876,13 @@ export function OptionsComparison({
                 return (
                   <PanelFigure
                     variant="range"
-                    className="mt-1"
+                    /* ⭐ V2 FIDELITY (25 Sep 2026, gap SPACE-3): INSET FROM THE
+                       NAME AND THE CHEVRON COLUMN. The track used to run edge
+                       to edge under the option's own square mark and under
+                       the row chevron; `ml-4` clears the mark (`w-3` plus
+                       `mr-1`, the button's `-ml-1 px-1` cancelling) and
+                       `mr-5` clears the chevron (`w-3` plus `gap-2`). */
+                    className="mt-1 ml-4 mr-5"
                     band={{
                       start: toFraction(o.outcomeRange.p10),
                       end: toFraction(o.outcomeRange.p90),
@@ -783,7 +928,10 @@ export function OptionsComparison({
                 </div>
                 <PanelFigure
                   variant="goal"
-                  className="mt-1"
+                  /* ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-6): the same inset as
+                     the range figure above, so switching lens does not move
+                     where the bar starts and ends against the name column. */
+                  className="mt-1 ml-4 mr-5"
                   fraction={o.goalFraction}
                   testId={`${testId}-goal-bar`}
                 />
@@ -919,34 +1067,39 @@ export function OptionsComparison({
         ) : null}
       </ul>
 
-      {/* ⭐ THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
-          constant the rows used and the glance renders. */}
-      {sharedOrigin !== null ? (
-        <p
-          className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-center gap-1`}
-          data-testid={`${testId}-option-origin-legend`}
-          data-option-origin={sharedOrigin}
-        >
-          <Sparkles className={`${icon('inline')} shrink-0`} aria-hidden="true" />
-          {OPTION_ORIGIN_COPY[sharedOrigin]}
-        </p>
-      ) : null}
-
-      {/* ⭐⭐ THE AXIS, AND THE SENTENCE THE RANGES EXIST FOR, BEHIND ITS INFO
-          BUTTON (V2). "Where ranges overlap, treat the order as unsettled" is
-          the one line that tells a reader when NOT to trust the order; it is
-          now the info button's accessible name and tooltip, and its click
-          discloses the same sentence inline (a tooltip alone does not reach a
-          touch reader) together with the range-arm control.
-
-          ⚠ THE NAME IS A FUNCTION OF THE ARM, because the sentence names the
-          percentile the dot marks. The arm persists while the disclosure is
-          closed, so the name must follow it or it would name p50 over a p90 dot.
-
-          ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn: a
-          legend for something not on screen is furniture. */}
-      {lens === 'outcome' && rangeScale !== null ? (
-        <div className="mt-1 flex items-center justify-end" data-testid={`${testId}-axis`}>
+      {/* ⭐⭐ V2 FIDELITY (25 Sep 2026, gap FIRST-1): ONE ROW FOR THE LEGEND
+          AND THE RANGE-INFO BUTTON, NOT TWO. The (i) button used to sit alone
+          on its own 32px row below the provenance legend, adding a full row
+          of height the range's own info button never earns on the prototype
+          (there it hangs off the axis row's right edge). Measured cost: about
+          32px, enough on its own to push "Provisional…" below the 1440 fold.
+          Merged whenever EITHER has something to say — the legend keeps its
+          own testid, class and text unchanged (only `mt-1` moves to the row);
+          the button keeps its own testid, gated on the range alone, never on
+          the row, so `optionsComparisonLens.spec` and
+          `theWithheldRunShowsItsFigures.spec` see the same presence/absence
+          they always did. */}
+      {/* ⭐ V2 prototype (`.axis`): the scale is its OWN full-width row under the
+          plots — ticks spread across the plot inset, the (i) at the end — and
+          the shared-origin sentence is its own line below it. Sharing one flex
+          row crushed the sentence into a 40px column at the 280px dock. */}
+      {showAxis ? (
+        <div className="mt-1 flex items-center gap-1" data-testid={`${testId}-axis`}>
+          {axisTicks !== null ? (
+            <span
+              className={`${typography.panelMeta} text-text-light flex-1 min-w-0 ml-4 flex items-center justify-between tabular-nums`}
+              data-testid={`${testId}-axis-ticks`}
+              aria-hidden="true"
+            >
+              {axisTicks.map((tick, i) => (
+                <span key={i} data-testid={`${testId}-axis-tick-${i}`}>
+                  {tick}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="flex-1" aria-hidden="true" />
+          )}
           <PanelIconButton
             Icon={Info}
             label={COPY.optionFigures.rangeLegend(rangeAppetite)}
@@ -956,7 +1109,19 @@ export function OptionsComparison({
           />
         </div>
       ) : null}
-      {lens === 'outcome' && rangeScale !== null && rangeInfoOpen ? (
+      {/* THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
+          constant the rows used and the glance renders. */}
+      {sharedOrigin !== null ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-start gap-1`}
+          data-testid={`${testId}-option-origin-legend`}
+          data-option-origin={sharedOrigin}
+        >
+          <Sparkles className={`${icon('inline')} shrink-0 mt-px`} aria-hidden="true" />
+          {OPTION_ORIGIN_COPY[sharedOrigin]}
+        </p>
+      ) : null}
+      {showAxis && rangeInfoOpen ? (
         <div data-testid={`${testId}-range-detail`}>
           <p
             className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
@@ -975,10 +1140,12 @@ export function OptionsComparison({
                 is a PROMISE to a screen-reader user; ARIA supplies the
                 announcement and none of the behaviour. One tab stop, on the
                 selected arm. The tier owns the 24px touch target. */}
+            {/* ⭐ V2 FIDELITY (gap 19): the same pill treatment as the
+                comparison lens above — one segmented-control grammar, not two. */}
             <div
               role="radiogroup"
               aria-labelledby={`${rangeLensId}-label`}
-              className="flex items-center gap-1"
+              className="flex items-center rounded-full border border-panel-border p-[3px] gap-[3px]"
               data-testid={`${testId}-range-lens`}
             >
               {RANGE_LENS_ARMS.map((arm, i) => {
@@ -1011,8 +1178,8 @@ export function OptionsComparison({
                         ?.querySelector<HTMLButtonElement>(`[data-arm="${next}"]`)
                         ?.focus()
                     }}
-                    className={`${typography.panelMeta} ${action('quiet')} px-2 no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-                      selected ? 'bg-panel-hover text-text-header' : 'text-text-light'
+                    className={`${typography.panelBody} ${ACTION_FOCUS} inline-flex items-center justify-center min-h-[28px] rounded-full px-2 no-underline ${
+                      selected ? LENS_ARM_SELECTED : LENS_ARM_IDLE
                     }`}
                     data-arm={arm}
                     data-testid={`${testId}-range-lens-${arm}`}
@@ -1025,6 +1192,44 @@ export function OptionsComparison({
           </div>
         </div>
       ) : null}
+    </>
+  )
+
+  /**
+   * ⭐⭐ BARE (V2 fidelity, gap 17): NO `SectionShell`. Mounted inside "Move
+   * towards commitment", the comparison IS the answer that zone promises — a
+   * closed "How the options compare 3 ›" row hid the only evidence the zone
+   * has, on every run that named a leader (the deployed-build measurement
+   * behind this gap). `bare` renders the identical body with no heading, no
+   * count, no chevron and no disclosure: the one caller that passes it
+   * (`AnalysisNewTabBody.tsx`'s commitment mount) has already decided this
+   * content belongs on screen at rest.
+   *
+   * ⚠ EVERY OTHER MOUNT IS UNCHANGED. `bare` defaults to `false`, and
+   * `collapsedIA.spec.tsx` plus the standalone `OptionsComparison` specs
+   * render this component with no `bare` prop, so they keep the existing
+   * `SectionShell` toggle, count and region untouched.
+   */
+  if (bare) {
+    return (
+      <div data-testid={testId} data-comparison-bare="true">
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <SectionShell
+      title={COPY.sections.options}
+      icon={Scale}
+      // The count is the FULL population, and the body accounts for every one
+      // of them — named rows plus the unnamed disclosure. A collapsed row is a
+      // promise about what is behind it.
+      count={options.totalCount}
+      defaultOpen={defaultOpen}
+      testId={testId}
+    >
+      {body}
     </SectionShell>
   )
 }

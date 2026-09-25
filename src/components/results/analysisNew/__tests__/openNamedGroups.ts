@@ -15,8 +15,10 @@ import { expect } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 
 export const NAMED_GROUPS = [
-  'analysis-new-how-worked-out',
-  'analysis-new-coaching-and-method',
+  // V2 fidelity gap 24 (24 Sep 2026): "How this was worked out" and "Coaching
+  // and method" are gone; everything they held folds into About, which is now
+  // the disclosure these blocks live behind.
+  'analysis-new-about',
   'analysis-new-what-moves-the-outcome',
 ] as const
 
@@ -29,7 +31,19 @@ export const NAMED_GROUPS = [
  * children mounted). So a spec querying an inner section without this was
  * reading content the reader could not see — passing for the wrong reason.
  */
+
+/**
+ * V2 prototype (Paul, 25 Sep): "What moves the outcome" and the drivers live
+ * INSIDE the challenge's "Assumptions and evidence" door. Open it first, so a
+ * census over the named groups reads what a reader can open, not a closed door.
+ */
+function openEvidenceDoor(): void {
+  const door = screen.queryByTestId('analysis-new-signals-disclose')
+  if (door !== null && door.getAttribute('aria-expanded') === 'false') fireEvent.click(door)
+}
+
 export function openGroups(): void {
+  openEvidenceDoor()
   let opened = 0
   for (const id of NAMED_GROUPS) {
     const toggle = screen.queryByTestId(`${id}-toggle`)
@@ -62,6 +76,7 @@ export function openGroups(): void {
  * questions, two names (CLAUDE.md trap 21).
  */
 export function openGroupsIfPresent(): void {
+  openEvidenceDoor()
   for (const id of NAMED_GROUPS) {
     const toggle = screen.queryByTestId(`${id}-toggle`)
     if (toggle !== null && toggle.getAttribute('aria-expanded') === 'false') {
@@ -89,7 +104,9 @@ export function openGroupsIfPresent(): void {
  */
 export function openAllSections(): void {
   const closed = () =>
-    Array.from(document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"]')).filter(
+    Array.from(
+      document.querySelectorAll<HTMLElement>('[data-testid$="-toggle"], [data-testid="analysis-new-signals-disclose"]'),
+    ).filter(
       (t) => t.getAttribute('aria-expanded') === 'false',
     )
   let passes = 0

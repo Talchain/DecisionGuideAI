@@ -25,6 +25,14 @@ import { memo } from 'react'
 import { MessageBubble } from '../MessageBubble'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { MessageMenu } from './MessageMenu'
+
+/**
+ * An earlier message's menu is quiet at rest: hidden by opacity only (still
+ * rendered, still focusable), revealed on row hover, on keyboard focus inside
+ * it, and always where the device has no hover (touch).
+ */
+export const MENU_QUIET_AT_REST =
+  'opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100'
 import { MESSAGE_ID_ATTRIBUTE } from '../hooks/useSmartScroll'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -143,10 +151,25 @@ export const ChatMessage = memo(function ChatMessage({
       {/*
         One quiet overflow control per message, in the message's OWN flow —
         replacing both the floating Copy/Retry bar and the per-message
-        "Explain more · Summarise" row. It is rendered at rest rather than on
-        hover: see the MessageMenu header on why hover-only is refused here.
+        "Explain more · Summarise" row.
+
+        ⭐ AT REST IT SHOWS ON THE LATEST REPLY ONLY (Paul's manual test,
+        #69 5832347190 §C: "a stray '…' line under every message", four in one
+        viewport). Every other message keeps its trigger IN THE DOM AND IN
+        THE TAB ORDER, and reveals it on hover, on keyboard focus
+        (`focus-within`, so tabbing to it shows it) and always on a device
+        with no hover (`@media (hover: none)`, touch). That keeps the three
+        reasons the MessageMenu header refused hover-only: discoverable (the
+        latest reply always shows it), keyboard-reachable, and touch-visible.
+        Opacity only: no layout moves, so nothing reflows under the pointer.
       */}
-      <div className="mt-1 flex items-center">
+      <div
+        className={`mt-1 flex items-center ${
+          isLatestAssistantTurn ? '' : MENU_QUIET_AT_REST
+        }`}
+        data-testid="message-menu-slot"
+        data-menu-at-rest={isLatestAssistantTurn ? 'shown' : 'on-hover-or-focus'}
+      >
         <MessageMenu
           role={message.role}
           content={message.content}

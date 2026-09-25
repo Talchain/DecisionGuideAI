@@ -41,7 +41,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -79,8 +79,9 @@ const DIR = resolvePath(__dirname, '..')
  * ⭐ V2 (Reasoning V2 recomposition, 24 Sep 2026) — TWO DELIBERATE, REVIEWABLE
  * ADDITIONS, each placed outside the zones by the V2 composition itself:
  * · `analysis-new-review` — `ModelReviewTool`, the model strip's own "N to
- *   review" queue, mounted directly under the strip. It reviews the model the
- *   strip describes, so it belongs with the strip's subject header.
+ *   review" queue. It reviews the model the strip describes, so it belongs with
+ *   the strip's subject header. (V2 prototype, 25 Sep: the strip renders it
+ *   after its rows; on an empty strip it renders alone, outside the strip.)
  * · `analysis-new-about` — `AboutThisAnalysis`, the one collapsed audit utility,
  *   LAST on the tab after "If you want to go further". It absorbs the trust
  *   line, "What we checked" and the run record; it qualifies the whole run.
@@ -233,31 +234,51 @@ describe('every section belongs to a zone', () => {
  * rest. What the ruling protects is (1) the drivers are NOT demoted to further
  * reading and (2) they are read BEFORE the answer's figures. Both are re-pinned
  * below against the V2 zone, positively and without a skip.
+ *
+ * ⭐ V2 PROTOTYPE (Paul, 25 Sep 2026) — THE AT-REST "Top drivers" LINE IS GONE.
+ * The ranked drivers and "What moves the outcome" now live behind the
+ * challenge's closed "Assumptions and evidence" door. Both halves still hold:
+ * the door and everything behind it sit in the challenge zone, above the
+ * answer's figures, and never in FURTHER.
  */
 describe('the drivers answer "what matters most", so they are read before the answer', () => {
   const DRIVERS = 'analysis-new-what-moves-the-outcome'
   const CHALLENGE = 'analysis-new-zone-also-group'
+  const precedes = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-  it('PRECONDITION: the fixture renders the section at all', () => {
+  /** Opens the challenge's "Assumptions and evidence" door, asserting it rested closed. */
+  const openEvidence = () => {
+    const door = within(screen.getByTestId(CHALLENGE)).getByTestId('analysis-new-signals-disclose')
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(door)
+  }
+
+  it('PRECONDITION: the fixture renders the section at all, once its door is open', () => {
     renderBody(manyFragileEdges())
+    expect(screen.queryByTestId(DRIVERS), 'V2: behind the closed door at rest').toBeNull()
+    openEvidence()
     expect(screen.queryByTestId(DRIVERS), 'nothing to place if it does not render').not.toBeNull()
   })
 
   /**
-   * ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026): the full section now
-   * follows the answer, closed, inside the ANSWER group — it explains the figures
-   * it follows. What the ruling protects (the drivers are read before the
-   * answer) is carried at rest by the challenge's "Top drivers" signal rows; see
-   * the case below. It is still never demoted to FURTHER.
+   * ⚠ RE-POINTED, V2 prototype (25 Sep 2026): the full section now renders
+   * inside the challenge's "Assumptions and evidence" door. It is in the
+   * CHALLENGE zone, not the answer group, and still never demoted to FURTHER.
    */
-  it('⭐ the full section is inside the ANSWER group, after the figures, not FURTHER', () => {
+  it('⭐ the full section is inside the CHALLENGE zone\'s evidence door, not ANSWER, not FURTHER', () => {
     renderBody(manyFragileEdges())
-    const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    expect(answer.contains(screen.getByTestId(DRIVERS)), 'the full drivers section follows the answer it explains').toBe(true)
-    expect(screen.getByTestId(CHALLENGE).contains(screen.getByTestId(DRIVERS))).toBe(false)
+    openEvidence()
+    const drivers = screen.getByTestId(DRIVERS)
+    const challenge = screen.getByTestId(CHALLENGE)
+    expect(challenge.contains(drivers), 'the full drivers section lives in the challenge zone').toBe(true)
+    expect(
+      within(challenge).getByTestId('analysis-new-signals').contains(drivers),
+      'inside the "Assumptions and evidence" door',
+    ).toBe(true)
+    expect(screen.getByTestId('analysis-new-zone-answer-group').contains(drivers)).toBe(false)
     const further = screen.queryByTestId('analysis-new-zone-further-group')
     if (further !== null) {
-      expect(further.contains(screen.getByTestId(DRIVERS)), 'and not to the further-reading group').toBe(false)
+      expect(further.contains(drivers), 'and not to the further-reading group').toBe(false)
     }
   })
 
@@ -288,25 +309,29 @@ describe('the drivers answer "what matters most", so they are read before the an
     ['a run that reached a conclusion', genuineDecision],
     ['a withheld run — the surface the ruling is about', decisionWithLeaderWithheld],
   ])('⭐ %s reads the drivers BEFORE the answer\'s figures — Paul\'s ruling, not an accident', (_name, fixture) => {
-    // ⚠ RE-POINTED, Reasoning V2 first screen (24 Sep 2026): the drivers read
-    // before the answer are the challenge's "Top drivers" signal rows, at rest;
-    // the full chart (closed) follows the figures so they reach the first screen.
+    // ⚠ RE-POINTED, V2 prototype (25 Sep 2026): at rest the challenge shows only
+    // the "Assumptions and evidence" door; the ranked drivers are behind it. The
+    // door, and the drivers once it opens, both precede the answer's figures.
     renderBody(fixture())
     const challenge = screen.getByTestId(CHALLENGE)
     const answer = screen.getByTestId('analysis-new-zone-answer-group')
-    const signals = within(challenge).getByTestId('analysis-new-signals')
-    // PRECONDITION: this case must not be able to pass by absence.
-    expect(signals.textContent ?? '', 'the challenge must name the top drivers at rest').toMatch(/Top drivers/)
+    const door = within(challenge).getByTestId('analysis-new-signals-disclose')
     const figures = ['analysis-new-options', 'analysis-new-implication']
       .map((id) => answer.querySelector(`[data-testid="${id}"]`))
       .filter((el): el is Element => el !== null)
     expect(figures.length, 'at least one of the answer figures must render, or this asserts nothing').toBeGreaterThan(0)
-
     for (const fig of figures) {
-      expect(
-        signals.compareDocumentPosition(fig) & Node.DOCUMENT_POSITION_FOLLOWING,
-        `the top drivers must precede ${fig.getAttribute('data-testid')}`,
-      ).toBeTruthy()
+      expect(precedes(door, fig), `the drivers' door must precede ${fig.getAttribute('data-testid')}`).toBe(true)
+    }
+
+    openEvidence()
+    // PRECONDITION: this case must not be able to pass by absence.
+    const rows = within(challenge).queryAllByTestId('analysis-new-signals-driver')
+    expect(rows.length, 'the challenge must list the ranked drivers once opened').toBeGreaterThan(0)
+    for (const fig of figures) {
+      for (const row of rows) {
+        expect(precedes(row, fig), `the ranked drivers must precede ${fig.getAttribute('data-testid')}`).toBe(true)
+      }
     }
   })
 })
@@ -358,7 +383,9 @@ describe('the next action lives with the other actions', () => {
   it('PRECONDITION: the card is mounted, and the zone probe can see a zone', () => {
     expect(body, 'the body must mount the card at all').toContain('<ChallengeCard')
     // the probe must be able to name a zone for a mount we KNOW is in one
-    expect(zoneOfMount('<AtAGlance'), 'control: the glance is in the answer zone').toBe('answer')
+    // V2 (fidelity gap 1): the glance element is built once in `renderGlance`
+    // and mounted twice, so the control is its status MOUNT, not its JSX tag.
+    expect(zoneOfMount("{renderGlance('status')}"), 'control: the glance is in the answer zone').toBe('answer')
   })
 
   it('⭐ the primary intervention is mounted in ALSO, not in the ANSWER zone', () => {

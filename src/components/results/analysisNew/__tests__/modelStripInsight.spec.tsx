@@ -262,9 +262,19 @@ describe('⭐ the detail is bound to the mark’s OWN node', () => {
 })
 
 describe('⭐ three routes in, and the canvas route is unchanged', () => {
-  it('before anything is picked the strip states the affordance and mounts no detail', () => {
+  /**
+   * V2 (Paul, 25 Sep 2026): no standing hint line under the rows. The
+   * affordance is carried by the mark itself — its accessible name says where
+   * it goes — so that is what is pinned now.
+   */
+  it('before anything is picked the mark states its own affordance and no detail mounts', () => {
     renderOpen()
-    expect(screen.getByTestId(`${TID}-hint`)).toHaveTextContent(COPY.modelStrip.hint)
+    // CONTRAST: the region is open and the marks are drawn.
+    expect(mark('r1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Migration delay on the canvas' })).toBe(
+      mark('r1'),
+    )
+    expect(screen.queryByTestId(`${TID}-hint`)).toBeNull()
     expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
   })
 

@@ -28,7 +28,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -119,6 +119,25 @@ const renderGlance = (data: ResultsSectionDataReturn) =>
     />,
   )
 
+/**
+ * V2 prototype (Paul, 25 Sep 2026): the refusal sits behind ONE door, closed at
+ * rest — still the producer's sentence, one click away. The door is on the first
+ * screen; the sentence is not until it is opened.
+ */
+const DOOR = 'analysis-new-glance-withheld-toggle'
+const openWithheld = () => {
+  const door = screen.getByTestId(DOOR)
+  expect(door, 'the refusal door must be closed at rest').toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
+  fireEvent.click(door)
+  expect(door).toHaveAttribute('aria-expanded', 'true')
+}
+/** No refusal means no door: a shut door would also hide the sentence, so both are asserted. */
+const expectNoRefusal = () => {
+  expect(screen.queryByTestId(DOOR)).not.toBeInTheDocument()
+  expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
+}
+
 afterEach(() => cleanup())
 
 describe('a withheld leader designation says why', () => {
@@ -130,12 +149,14 @@ describe('a withheld leader designation says why', () => {
     expect(glanceOf(data).headline).toBeNull()
 
     renderGlance(data)
+    openWithheld()
     expect(screen.getByTestId('analysis-new-glance-withheld-reason')).toHaveTextContent(REMEDY)
   })
 
   it('carries the REMEDY, not the affirmative reason sitting at index 0', () => {
     const data = withAdmission(decisionWithLeaderWithheld(), CAPTURED_REFUSAL)
     renderGlance(data)
+    openWithheld()
     const slot = screen.getByTestId('analysis-new-glance-withheld-reason')
     // The discriminator: reasons[0] is affirmative. A positional read renders it.
     expect(slot).not.toHaveTextContent(AFFIRMATIVE)
@@ -159,7 +180,7 @@ describe('a withheld leader designation says why', () => {
     // present would put "a leading option can be named" under a refusal heading.
     const data = withAdmission(genuineDecision(), CAPTURED_PERMITTED)
     renderGlance(data)
-    expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
+    expectNoRefusal()
   })
 
   it('says NOTHING when the model licensed but the ARMS did not separate', () => {
@@ -187,7 +208,7 @@ describe('a withheld leader designation says why', () => {
     expect(CAPTURED_PERMITTED.permitted_analysis_mode).toBe('comparative_leader')
 
     renderGlance(data)
-    expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
+    expectNoRefusal()
   })
 
   it('says NOTHING when there is no admission at all', () => {
@@ -198,7 +219,7 @@ describe('a withheld leader designation says why', () => {
     // refusal the producer never made, on a run that may never have happened.
     const data = withAdmission(decisionWithLeaderWithheld(), undefined)
     renderGlance(data)
-    expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
+    expectNoRefusal()
   })
 
   it('NAMES the leader when there is no admission and the arms DID separate', () => {
@@ -240,7 +261,7 @@ describe('a withheld leader designation says why', () => {
     expect(glanceOf(data).headline, 'precondition: the glance must have an answer to give').not.toBeNull()
 
     renderGlance(data)
-    expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
+    expectNoRefusal()
     expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
   })
 })

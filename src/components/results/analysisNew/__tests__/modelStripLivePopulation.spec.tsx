@@ -21,6 +21,10 @@
  * defect, and it reported 21/21 while both defects were live. This file uses a
  * REAL zustand store and REPLACES the node array immutably, which is the
  * mechanism under test (CLAUDE.md trap 13 — an instrument that cannot fail).
+ *
+ * ⚠ V2 (Paul, 25 Sep 2026): the no-value chip left the strip. Defect 1 is now
+ * read off the detail's value line (same memo); defect 2 off the Factors row's
+ * ring (same reconcile effect). The claims are unchanged.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -80,7 +84,31 @@ const bare = (id: string, label: string): Node => ({ id, type: 'factor', data: {
  */
 const setNodes = (nodes: Node[]) => act(() => { h.store.setState({ nodes }) })
 
-const noValueToggle = () => screen.getByTestId(`${TID}-no-value-toggle`)
+/**
+ * The detail's value line for one factor, pinned by activating its mark.
+ *
+ * ⚠ RE-POINTED FOR V2 (Paul, 25 Sep 2026). These cases read the no-value
+ * CHIP's count, and the chip left the strip. The defect is unchanged: a memo
+ * that never recomputes. The detail's value line comes out of the same memo,
+ * so it goes stale in exactly the same way.
+ */
+const valueLine = (nodeId: string) => {
+  const mark = screen
+    .getAllByTestId(`${TID}-mark`)
+    .find((el) => el.getAttribute('data-node-id') === nodeId)!
+  fireEvent.click(mark)
+  const detail = screen.getByTestId(`${TID}-detail`)
+  // PRECONDITION: the detail belongs to THIS factor, not the last one picked.
+  expect(detail).toHaveAttribute('data-node-id', nodeId)
+  return screen.getByTestId(`${TID}-detail-value-text`)
+}
+const markIds = () =>
+  screen.queryAllByTestId(`${TID}-mark`).map((el) => el.getAttribute('data-node-id'))
+/** The Factors row control — the one narrowing the strip still offers. */
+const factorRow = () =>
+  screen
+    .getAllByTestId(`${TID}-row-filter`)
+    .find((el) => el.getAttribute('data-kind') === 'factor')!
 const lastRing = () => h.ringWrites[h.ringWrites.length - 1]
 
 beforeEach(() => {
@@ -93,14 +121,16 @@ describe('the mounted strip follows the live model', () => {
   it('sees a TOP-LEVEL display_value arrive on a factor with no observed state', () => {
     setNodes([bare('f_a', 'Alpha'), bare('f_b', 'Beta')])
     render(<ModelStrip isPreRun />)
-    expect(noValueToggle()).toHaveTextContent(COPY.modelStrip.noValueCount(2))
+    expect(valueLine('f_a')).toHaveAttribute('data-has-value', 'false')
+    expect(valueLine('f_a')).toHaveTextContent(COPY.modelStrip.noValue)
 
     // Olumi's estimate: `display_value` at the TOP LEVEL, no observed state.
     setNodes([
       { ...bare('f_a', 'Alpha'), data: { label: 'Alpha', display_value: '0.25 to 0.75' } },
       bare('f_b', 'Beta'),
     ])
-    expect(noValueToggle()).toHaveTextContent(COPY.modelStrip.noValueCount(1))
+    expect(valueLine('f_a')).toHaveAttribute('data-has-value', 'true')
+    expect(valueLine('f_a')).toHaveTextContent('0.25 to 0.75')
   })
 
   /**
@@ -110,10 +140,10 @@ describe('the mounted strip follows the live model', () => {
    * the case above could be failing because the mount never updates for ANY
    * reason, which is a different (and much larger) claim.
    */
-  it('CONTROL: the same text inside observedState also updates the count', () => {
+  it('CONTROL: the same text inside observedState also updates the value line', () => {
     setNodes([bare('f_a', 'Alpha'), bare('f_b', 'Beta')])
     render(<ModelStrip isPreRun />)
-    expect(noValueToggle()).toHaveTextContent(COPY.modelStrip.noValueCount(2))
+    expect(valueLine('f_a')).toHaveAttribute('data-has-value', 'false')
 
     setNodes([
       {
@@ -122,23 +152,24 @@ describe('the mounted strip follows the live model', () => {
       },
       bare('f_b', 'Beta'),
     ])
-    expect(noValueToggle()).toHaveTextContent(COPY.modelStrip.noValueCount(1))
+    expect(valueLine('f_a')).toHaveAttribute('data-has-value', 'true')
+    expect(valueLine('f_a')).toHaveTextContent('0.25 to 0.75')
   })
 
-  it('re-rings the canvas when the selected worklist loses a member', () => {
+  /**
+   * ⚠ RE-POINTED FOR V2. The reconcile was witnessed through the no-value
+   * worklist, which left with its chip. The same effect keeps the Factors
+   * row's ring in step with the model, so the membership change here is a
+   * factor leaving the canvas while that row is selected.
+   */
+  it('re-rings the canvas when the selected row loses a member', () => {
     setNodes([bare('f_a', 'Alpha'), bare('f_b', 'Beta')])
     render(<ModelStrip isPreRun />)
-    fireEvent.click(noValueToggle())
+    fireEvent.click(factorRow())
     expect(lastRing()).toEqual(['f_a', 'f_b'])
 
-    setNodes([
-      {
-        ...bare('f_a', 'Alpha'),
-        data: { label: 'Alpha', observedState: { value: 0.7, source: 'user_override' } },
-      },
-      bare('f_b', 'Beta'),
-    ])
-    expect(noValueToggle()).toHaveTextContent(COPY.modelStrip.noValueCount(1))
+    setNodes([bare('f_b', 'Beta')])
+    expect(markIds()).toEqual(['f_b'])
     expect(lastRing()).toEqual(['f_b'])
   })
 
@@ -151,7 +182,7 @@ describe('the mounted strip follows the live model', () => {
   it('CONTROL: a position-only move rewrites nothing', () => {
     setNodes([bare('f_a', 'Alpha'), bare('f_b', 'Beta')])
     render(<ModelStrip isPreRun />)
-    fireEvent.click(noValueToggle())
+    fireEvent.click(factorRow())
     const before = h.ringWrites.length
 
     setNodes([
@@ -165,28 +196,24 @@ describe('the mounted strip follows the live model', () => {
   /**
    * ⭐⭐ THE DISCRIMINATING PAIR FOR THE HOVER GUARD — and it took both halves
    * to get the guard right. A boolean "a mark owns the ring" passed the first
-   * half and STRANDED the second: answering the factor you are pointing at
-   * removes its own mark, so no `mouseLeave` ever arrives on it, the flag
-   * stayed set forever, and the canvas kept the obsolete pair until the reader
-   * made another gesture. One case alone would have shipped that.
+   * half and STRANDED the second: when the node you are pointing at leaves the
+   * narrowing, its own mark goes with it, so no `mouseLeave` ever arrives on
+   * it, the flag stayed set forever, and the canvas kept the obsolete pair
+   * until the reader made another gesture. One case alone would have shipped
+   * that.
    */
   it('DEFERS while the hovered mark survives the change, then lands it on leave', () => {
     setNodes([bare('f_a', 'Alpha'), bare('f_b', 'Beta')])
     render(<ModelStrip isPreRun />)
-    fireEvent.click(noValueToggle())
+    fireEvent.click(factorRow())
 
-    // Point at `f_b` — the one that will STILL be in the worklist afterwards.
+    // Point at `f_b` — the one that will STILL be in the row afterwards.
     const surviving = screen.getAllByTestId(`${TID}-mark`)[1]
+    expect(surviving).toHaveAttribute('data-node-id', 'f_b')
     fireEvent.mouseEnter(surviving)
     const duringHover = h.ringWrites.length
 
-    setNodes([
-      {
-        ...bare('f_a', 'Alpha'),
-        data: { label: 'Alpha', observedState: { value: 0.7, source: 'user_override' } },
-      },
-      bare('f_b', 'Beta'),
-    ])
+    setNodes([bare('f_b', 'Beta')])
     // The mark under the cursor is untouched: nothing is written while it owns
     // the channel.
     expect(h.ringWrites.length).toBe(duringHover)
@@ -195,22 +222,18 @@ describe('the mounted strip follows the live model', () => {
     expect(lastRing()).toEqual(['f_b'])
   })
 
-  it('reconciles IMMEDIATELY when the hovered mark is the one answered', () => {
+  it('reconciles IMMEDIATELY when the hovered mark is the one that leaves', () => {
     setNodes([bare('f_a', 'Alpha'), bare('f_b', 'Beta')])
     render(<ModelStrip isPreRun />)
-    fireEvent.click(noValueToggle())
+    fireEvent.click(factorRow())
 
-    // Point at `f_a` — the one about to leave the worklist. Its mark goes with
-    // the change, so no leave event can ever arrive to reconcile.
-    fireEvent.mouseEnter(screen.getAllByTestId(`${TID}-mark`)[0])
+    // Point at `f_a` — the one about to leave the row. Its mark goes with the
+    // change, so no leave event can ever arrive to reconcile.
+    const leaving = screen.getAllByTestId(`${TID}-mark`)[0]
+    expect(leaving).toHaveAttribute('data-node-id', 'f_a')
+    fireEvent.mouseEnter(leaving)
 
-    setNodes([
-      {
-        ...bare('f_a', 'Alpha'),
-        data: { label: 'Alpha', observedState: { value: 0.7, source: 'user_override' } },
-      },
-      bare('f_b', 'Beta'),
-    ])
+    setNodes([bare('f_b', 'Beta')])
     expect(lastRing()).toEqual(['f_b'])
   })
 })
