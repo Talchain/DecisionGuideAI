@@ -15,7 +15,7 @@ import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
 import { ThinkingIndicator } from './ThinkingIndicator'
-import { SuggestedChips } from './SuggestedChips'
+import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 import { useCanvasStore } from '../../store'
@@ -128,6 +128,13 @@ interface ChatThreadProps {
    * See the mount-identity note above.
    */
   testId?: string
+  /**
+   * The host's run-gate verdict, forwarded untouched to `SuggestedChips` so a
+   * Run chip renders disabled with the gate's own sentence instead of looking
+   * live and refusing on click. Optional: absent ⇒ the chip row behaves exactly
+   * as before. See `RunChipGate`.
+   */
+  runGate?: RunChipGate
 }
 
 /**
@@ -191,6 +198,7 @@ export const ChatThread = memo(function ChatThread({
   compact,
   scrollListRef,
   testId = THREAD_TESTID_DOCKED,
+  runGate,
 }: ChatThreadProps) {
   // Has the conversation produced any finalized (non-streaming) assistant messages?
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
@@ -346,7 +354,12 @@ export const ChatThread = memo(function ChatThread({
           return (
             <div key={msg.id} className="response-chip-group" data-testid="response-chip-group">
               {chatMsg}
-              <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} isThinking={isThinking} />
+              <SuggestedChips
+                chips={suggestedChips}
+                onChipClick={onChipClick}
+                isThinking={isThinking}
+                runGate={runGate}
+              />
             </div>
           )
         }
