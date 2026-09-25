@@ -315,12 +315,18 @@ export interface RunTurnCurrencyInputs {
  *   · `model_changed`    — the model moved since the card was written.
  *   · `running`          — a new run is in flight; this card is about the
  *                          earlier one.
- *   · `earlier_analysis` — the latest run is not complete-and-current, or a
- *                          value the rule needs is unknown: nothing on hand
- *                          ties the card to the analysis the user now has.
+ *   · `earlier_analysis` — CEE STATED the latest run is not complete-and-current
+ *                          (`complete_stale`, `blocked`, `refused`, `never_run`).
+ *   · `unknown`          — nothing on hand says current OR not current: no run
+ *                          state (every reload — the boot path never restores
+ *                          `complete_current`), `unknown_degraded`, or a hash or
+ *                          stamp the rule needs is missing. "Written about an
+ *                          earlier analysis" was FALSE here about the latest run
+ *                          (AI Conversation #63 5825740518), so it gets its own
+ *                          sentence that claims nothing it cannot know.
  *   · `earlier_run`      — same model, but a newer run has completed since.
  */
-export type RunTurnStaleReason = 'model_changed' | 'running' | 'earlier_analysis' | 'earlier_run'
+export type RunTurnStaleReason = 'model_changed' | 'running' | 'earlier_analysis' | 'unknown' | 'earlier_run'
 
 /**
  * The notice per failed limb — PRODUCER-AUTHORED COPY, verbatim (Reasoning &
@@ -343,6 +349,7 @@ export const RUN_TURN_NOTICE: Readonly<Record<RunTurnStaleReason, string>> = {
   running: 'A new analysis is running — this card is about the earlier one.',
   earlier_analysis: 'Written about an earlier analysis — it may no longer hold.',
   earlier_run: 'Written about an earlier run of this model — the latest run may point somewhere else.',
+  unknown: "Olumi can't confirm this still matches your latest analysis.",
 }
 
 /**
@@ -353,11 +360,17 @@ export const RUN_TURN_NOTICE: Readonly<Record<RunTurnStaleReason, string>> = {
  *   (a) both hashes known and different    → `model_changed` — the strongest,
  *       first-hand fact; it wins over whatever the run state says;
  *   (b) a run in flight — first-hand, like (a) → `running`;
- *       otherwise run not `complete_current`, or ANY value the rule needs is
- *       unknown                            → `earlier_analysis`;
+ *       a STATED not-current kind           → `earlier_analysis` (a known kind
+ *       beats an unknown value);
+ *       no usable kind, or ANY value the rule needs is unknown → `unknown`;
  *   (c) otherwise the hashes are known and EQUAL, so the only limb left is the
  *       timestamp: `created_at !== computed_at` → `earlier_run`.
  */
+/** Kinds in which CEE itself says the latest run is not complete-and-current. */
+const STATED_NOT_CURRENT: ReadonlySet<AnalysisRunStateKind> = new Set<AnalysisRunStateKind>([
+  'complete_stale', 'blocked', 'refused', 'never_run',
+])
+
 function classifyRunTurn(
   blockGraphHash: string | undefined | null,
   currentGraphHash: string | undefined | null,
@@ -371,6 +384,7 @@ function classifyRunTurn(
   const computedAt = usableStamp(runTurn.runComputedAt)
   // (b)
   if (runTurn.runStateKind === 'running') return 'running'
+  if (runTurn.runStateKind && STATED_NOT_CURRENT.has(runTurn.runStateKind)) return 'earlier_analysis'
   if (
     runTurn.runStateKind !== 'complete_current' ||
     !authored ||
@@ -378,7 +392,7 @@ function classifyRunTurn(
     createdAt === undefined ||
     computedAt === undefined
   ) {
-    return 'earlier_analysis'
+    return 'unknown'
   }
   // (c) — hashes are known and equal here, by (a) and (b).
   if (createdAt !== computedAt) return 'earlier_run'
