@@ -3070,9 +3070,19 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
      * claim either. Both take the silent branch.
      */
     const goalAvailable = hasAnyGoalValue(options, goalValue, { hasUserTarget })
-    return !goalAvailable && rec.goalThreshold == null
-      ? { kind: 'needs_target', outcome }
-      : { kind: 'none' }
+    if (goalAvailable || rec.goalThreshold != null) return { kind: 'none' }
+    /*
+     * ⭐ THE PRODUCER'S LEADER IS A SECOND READING, COMPARED BY ID (trap 19).
+     * Witnessed 25 Sep 03:07Z, hiring, OpenAI, CEE `21e3b38`: the producer
+     * permitted "Hire Two Developers" (42% win share, "slightly ahead"); the
+     * highest expected value was "Hire Lead Then Developer". "What we have"
+     * named the second while the chart and the chat named the first.
+     */
+    const producerLeaderId =
+      rec.verdict?.hasLeadingOption === true && leaderDesignationPermitted(rec) === true ? rec.verdict.leaderId : null
+    return producerLeaderId != null && producerLeaderId !== outcomeRow.id
+      ? { kind: 'needs_target', outcome, leaderIsAnotherOption: true }
+      : { kind: 'needs_target', outcome }
   }
 
   const goal: ImplicationClaim = {

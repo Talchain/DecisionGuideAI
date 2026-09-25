@@ -189,7 +189,12 @@ function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSo
     case 'diverged':
       return { text: COPY.implications.divergedLead, source: 'implication_diverged_lead' }
     case 'needs_target':
-      return { text: mi.outcome.sentence, source: 'implication_outcome_claim' }
+      // Where the producer's leader is another option, naming the
+      // highest-expected-value option alone would contradict the chart and the
+      // chat; the two readings are stated as diverging instead.
+      return mi.leaderIsAnotherOption === true
+        ? { text: COPY.implications.divergedLead, source: 'implication_diverged_lead' }
+        : { text: mi.outcome.sentence, source: 'implication_outcome_claim' }
     case 'none':
       return null
   }
