@@ -304,7 +304,14 @@ export function ModelReviewTool({
   const menuItemClass = `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`
 
   return (
-    <div data-testid={testId} className="border-b border-panel-border py-1">
+    /* ⭐ NO RULE OF ITS OWN (design-audit-20260925, gaps SPACE-2 / FIRST-2 /
+       NARROW-8). This row used to draw an inset `border-b`, 12px above the
+       full-bleed section rule that already separates the model block from
+       "Challenge the thinking" — two hairlines that close read as a
+       rendering mistake. `!mt-1` overrides whatever `space-y-*` rhythm the
+       parent applies (the same override PANEL_RULE's `!mt-[11px]` uses, for
+       the same reason: `space-y`'s selector out-specifies a plain `mt-*`). */
+    <div data-testid={testId} className="!mt-1 py-1">
       <div className="flex items-center justify-between gap-1">
         {total > 0 ? (
           <Tooltip asChild content={COPY.entryTip}>

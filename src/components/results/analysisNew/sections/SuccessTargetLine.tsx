@@ -191,12 +191,25 @@ export interface SuccessTargetLineProps {
     outcome: 'dispatched' | 'local_only' | 'not_encodable' | 'no_unit' | 'not_a_number',
   ) => void
   testId: string
+  /**
+   * Whether this row draws its own top rule. Defaults to `true` — the
+   * Inspector's `GoalPanel` keeps it, because it is the top-level element
+   * there and needs the separation.
+   *
+   * ⚠ `false` FOR THE MODEL STRIP (design-audit-20260925, gaps SPACE-4 /
+   * NARROW-8). Inside the strip this row already sits between
+   * `ModelReviewTool`'s row above and the section rule below, so its own
+   * `border-t` was a THIRD hairline in the same 101px band. The row still
+   * needs SOME separation from whatever precedes it — hence `mt-1`, not 0.
+   */
+  divider?: boolean
 }
 
 export function SuccessTargetLine({
   goalNodeId,
   onCommitOutcome,
   testId,
+  divider = true,
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -558,7 +571,11 @@ export function SuccessTargetLine({
        attach a target to (the component returns null above), so the rule can
        never appear over nothing. */
     <div
-      className="flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2"
+      className={
+        divider
+          ? 'flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2'
+          : 'flex items-baseline gap-1.5 mt-1'
+      }
       data-testid={testId}
     >
       <Target className={`${icon('inline')} self-center shrink-0 text-text-light`} aria-hidden="true" />
