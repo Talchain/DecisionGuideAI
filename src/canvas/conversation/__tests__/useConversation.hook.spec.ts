@@ -328,7 +328,7 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 
 // Minimal valid V5 response (for "success" path in lastSendFailure.inputText tests)
 import { EXTENDED_TIMEOUT_MS } from '../../../v5/getTimeoutMs'
-import { NON_DELIVERY_CLAIM_PATTERNS, assertsDeliveryUnknown } from '../deliveryUnknown'
+import { NON_DELIVERY_CLAIM_PATTERNS, assertsDeliveryUnknown, WAIT_EXPIRY_UNKNOWN_COPY } from '../deliveryUnknown'
 
 const makeV5SuccessResult = (text = 'OK') => ({
   kind: 'response' as const,
@@ -2868,6 +2868,57 @@ describe('ROADMAP 2.665 — wait expiry never claims non-delivery (V5 path)', ()
   it('I-B: the send-failure notice does not advertise a retry affordance', async () => {
     const result = await expireTheWait()
     expect(result.current.lastSendFailure?.retryable).toBe(false)
+  })
+
+  // A18 AUDIT — the wait-expiry timer used to be armed before the endpoint
+  // lookup and the fetch itself, so a SLOW (or throwing) pre-flight step —
+  // `getSessionIdentity()`, here — could let the countdown expire and print
+  // "Your message did reach the server…" while the request had not been
+  // dispatched at all. The timer is armed immediately before the fetch is
+  // dispatched now: hanging the identity lookup forever must mean the fetch
+  // (`mockCallV5Turn`) is never called AND the countdown never fires either.
+  it('A18: a slow pre-fetch step (session identity) never falsely claims the message reached the server', async () => {
+    mockGetUserId.mockReturnValue(new Promise(() => {}))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('add three options and a risk for each')
+    })
+    act(() => {
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
+    })
+    // PRECONDITION: the fetch genuinely never went out — otherwise this test
+    // would be exercising the already-covered `expireTheWait` race instead.
+    expect(mockCallV5Turn).not.toHaveBeenCalled()
+    // So there is nothing for the wait-expiry timer to be armed against, and
+    // it must not have fired: still thinking, no synthetic bubble of any
+    // kind — "did reach the server" or otherwise.
+    expect(result.current.isThinking).toBe(true)
+    expect(result.current.messages.some((m) => m.synthetic)).toBe(false)
+  })
+
+  // The other half of the same fix, stated positively: once pre-flight work
+  // genuinely throws (rather than hanging), the existing not-sent path
+  // handles it — and must do so WITHOUT a competing "did reach the server"
+  // bubble from a timer that should never have been armed for this send.
+  it('A18: a pre-fetch throw (session identity rejects) goes to the honest not-sent path, never the wait-expiry copy', async () => {
+    mockGetUserId.mockRejectedValueOnce(new Error('identity lookup failed'))
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      result.current.sendMessage('add three options and a risk for each')
+    })
+    expect(mockCallV5Turn).not.toHaveBeenCalled()
+    const last = result.current.messages[result.current.messages.length - 1]
+    expect(last.synthetic).toBe(true)
+    expect(last.content).toMatch(/didn['’]t reach the server/i)
+    expect(last.content).not.toBe(WAIT_EXPIRY_UNKNOWN_COPY)
+
+    // And advancing time cannot ADD a second, contradictory bubble — the
+    // timer for this send was never armed, so there is nothing left to fire.
+    const countBeforeAdvance = result.current.messages.length
+    act(() => {
+      vi.advanceTimersByTime(EXTENDED_TIMEOUT_MS + 1_000)
+    })
+    expect(result.current.messages.length).toBe(countBeforeAdvance)
   })
 })
 // ─────────────────────────────────────────────────────────────────────────────
