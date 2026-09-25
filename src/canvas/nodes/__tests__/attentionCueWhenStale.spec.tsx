@@ -244,9 +244,17 @@ describe('row 23 — the last-run cue spends only what the current plan left', (
   const IDS = ['fac_a', 'fac_b', 'fac_c', 'fac_d', 'fac_e'] as const
 
   function BudgetProbe() {
-    const all = IDS.map((id) => [id, useNodeAttention(id)] as const)
-    const current = all.find(([, a]) => a.reasons.length > 0)?.[1]
-    const last = all.find(([, a]) => a.fromLastRun)?.[1].fromLastRun
+    // One call per id, in a fixed order — a hook inside `IDS.map` breaks
+    // rules-of-hooks (the CI lint step reads specs too).
+    const all = [
+      useNodeAttention(IDS[0]),
+      useNodeAttention(IDS[1]),
+      useNodeAttention(IDS[2]),
+      useNodeAttention(IDS[3]),
+      useNodeAttention(IDS[4]),
+    ]
+    const current = all.find((a) => a.reasons.length > 0)
+    const last = all.find((a) => a.fromLastRun)?.fromLastRun
     return (
       <span
         data-testid="budget-probe"
