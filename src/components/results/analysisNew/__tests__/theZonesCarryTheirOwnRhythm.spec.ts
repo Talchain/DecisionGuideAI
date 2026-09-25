@@ -69,12 +69,22 @@ function zoneRhythms(): Array<{ zone: string; px: number | null }> {
 }
 
 describe('every zone carries its own vertical rhythm', () => {
-  it('⭐ the sweep finds all three zones — a precondition, not an assumption', () => {
+  it('⭐ the sweep finds both zones, and only those — a precondition, not an assumption', () => {
     // Without this, a regex that stopped matching would make every assertion
     // below pass by iterating an empty list (trap 13).
     // V2 fidelity gap 24 (24 Sep 2026): 'further' is deleted; the tail is About.
+    // ⛔ V2 prototype (Paul, 25 Sep 2026): 'focus' is deleted too — no "Focus
+    // now" block on the Reasoning tab. Exact, so a zone coming back REDs here.
     const found = zoneRhythms().map((z) => z.zone).sort()
-    expect(found).toEqual(['also', 'answer', 'focus'])
+    expect(found).toEqual(['also', 'answer'])
+  })
+
+  it('⛔ the sweep sees every zone group the source declares, whatever its attribute order', () => {
+    // Contrast for the precondition above: a zone group written with its testid
+    // before its className would escape both sweep patterns and go unmeasured.
+    const declared = [...src.matchAll(/data-testid="analysis-new-zone-(\w+)-group"/g)].map((m) => m[1]).sort()
+    expect(declared.length).toBeGreaterThan(0)
+    expect(declared).toEqual(zoneRhythms().map((z) => z.zone).sort())
   })
 
   it('⛔ no zone is a bare wrapper — that is what removed the rhythm in #1647', () => {

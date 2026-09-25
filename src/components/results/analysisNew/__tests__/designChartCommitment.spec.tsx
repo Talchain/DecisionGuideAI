@@ -220,8 +220,10 @@ describe('CHART-3 — a withheld run that draws ranges is not told it has no fig
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
-describe('FIRST-1 — the legend and the range-info button share one row, and the qualifier is body ink', () => {
-  it('the option-origin legend and the range-info button are siblings in one flex row', () => {
+describe('FIRST-1 (V2 revision) — the axis owns its full row; the legend reads beneath it; the qualifier is body ink', () => {
+  it('the axis row carries the ticks and the range-info button; the origin legend is a separate line below it', () => {
+    // V2 (25 Sep served check at 280px): sharing one row crushed the legend and
+    // bunched the ticks. The axis now spans the chart width; the legend follows.
     // Two options sharing an origin (so the legend renders) that ALSO carry
     // ranges on a shared domain (so the axis/range-info button renders).
     const options = [
@@ -244,11 +246,12 @@ describe('FIRST-1 — the legend and the range-info button share one row, and th
 
     const axis = screen.getByTestId(`${T}-axis`)
     const legend = screen.getByTestId(`${T}-option-origin-legend`)
+    expect(axis.contains(legend), 'the legend is not squeezed into the axis row').toBe(false)
     expect(
-      axis.parentElement,
-      'the axis button and the legend must be the SAME row',
-    ).toBe(legend.parentElement)
-    expect(axis.parentElement).toHaveClass('justify-between')
+      axis.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the legend reads after the axis',
+    ).toBeTruthy()
+    expect(axis.querySelector('button'), 'the range-info button sits on the axis row').not.toBeNull()
   })
 
   it('the chart qualifier is body ink, not tertiary grey', () => {

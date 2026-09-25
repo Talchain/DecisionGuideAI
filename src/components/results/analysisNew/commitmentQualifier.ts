@@ -42,8 +42,10 @@ import type { AnalysisNewViewModel } from './analysisNewTypes'
 
 export const COMMITMENT_QUALIFIER_COPY = {
   lead: 'Provisional',
-  estimated: "rests on Olumi's estimates, not yet confirmed",
-  partlyEstimated: "rests partly on Olumi's estimates, not yet confirmed",
+  estimated: "rests on Olumi's estimates",
+  partlyEstimated: "rests partly on Olumi's estimates",
+  /** Behind "Details": the rest of the estimates sentence (V2 one-line qualifier). */
+  estimatesNotConfirmed: "Olumi's estimates are not yet confirmed by you",
   evidenceNotAssessed: 'evidence not assessed',
   robustnessNotEstablished: 'robustness not established',
   /** Both facts at once, in the prototype's own words — not two clauses. */
@@ -85,10 +87,16 @@ export function buildCommitmentQualifier(
 
   const lineClauses: string[] = []
 
+  const detailClauses: string[] = []
+  if (facts.runProvisional === true) detailClauses.push(COMMITMENT_QUALIFIER_COPY.automaticFirstPass)
+
   const inputs = vm.atAGlance.inputProvenance
   if (inputs === 'estimated') lineClauses.push(COMMITMENT_QUALIFIER_COPY.estimated)
   else if (inputs === 'partly_estimated' || inputs === 'mixed') {
     lineClauses.push(COMMITMENT_QUALIFIER_COPY.partlyEstimated)
+  }
+  if (inputs === 'estimated' || inputs === 'partly_estimated' || inputs === 'mixed') {
+    detailClauses.push(COMMITMENT_QUALIFIER_COPY.estimatesNotConfirmed)
   }
 
   const evidence = vm.checks.items.find((i) => i.id === 'evidence')?.code ?? null
@@ -105,10 +113,16 @@ export function buildCommitmentQualifier(
   // The engine's own caveats (critiques + strip-eligible inference warnings)
   // are listed in About › Limitations; the count keeps them visible at rest,
   // beside the chart, so moving them there never hides that they exist.
+  // V2 one-line qualifier (Paul, 25 Sep): the count moves behind "Details"
+  // whenever the line already says something; alone, it stays on the line so
+  // the qualifier is never silenced.
   const limitations = vm.deeper.critiques.length + vm.deeper.caveats.length
-  if (limitations > 0) lineClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
+  if (limitations > 0) {
+    if (lineClauses.length === 0) lineClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
+    else detailClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
+  }
 
-  const detail = facts.runProvisional === true ? COMMITMENT_QUALIFIER_COPY.automaticFirstPass : null
+  const detail = detailClauses.length > 0 ? detailClauses.join(' · ') : null
 
   if (lineClauses.length === 0 && detail === null) return null
 

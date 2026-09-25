@@ -41,8 +41,11 @@ vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
 import { SuccessTargetLine } from '../sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
+import { action } from '../panelSurfaces'
 
 const TID = 'target'
+/** V2 prototype's success row, verbatim; the component holds it as a local constant. */
+const SUCCESS_QUESTION = 'What would success look like?'
 
 beforeEach(() => {
   setGoalThresholdAndUpdateNode.mockReset()
@@ -77,17 +80,32 @@ describe('it shows the target the user already stated', () => {
     expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent(VALUE_PROVENANCE_LABEL.brief)
   })
 
-  it('offers "Set a target" when the model has none', () => {
+  /**
+   * V2 prototype (Paul, 25 Sep 2026): with no target the row IS the question,
+   * the "Target" label does not show, and the edit control is an icon-only
+   * pencil whose accessible name is still "Set a target".
+   */
+  it('asks "What would success look like?" with an icon-only "Set a target" pencil when the model has none', () => {
     draw()
-    expect(screen.getByTestId(`${TID}-none`)).toHaveTextContent(COPY.successTarget.none)
-    expect(screen.getByTestId(`${TID}-edit`)).toHaveTextContent(COPY.successTarget.set)
+    expect(screen.getByTestId(`${TID}-none`).textContent).toBe(SUCCESS_QUESTION)
+    expect(screen.getByTestId(TID)).not.toHaveTextContent(COPY.successTarget.label)
+    const edit = screen.getByTestId(`${TID}-edit`)
+    // Identity: the control named "Set a target" IS the edit control.
+    expect(screen.getByRole('button', { name: COPY.successTarget.set })).toBe(edit)
+    expect(edit).toHaveAttribute('title', COPY.successTarget.set)
+    expect((edit.textContent ?? '').trim()).toBe('')
+    expect(edit.querySelector('svg')).not.toBeNull()
   })
 
+  /** The twin: with a target the label heads the value and the question goes. */
   it('offers "Change" when it already holds one', () => {
     state.goalThreshold = 110
     state.goalThresholdRepresentation = 'raw'
     draw()
     expect(screen.getByTestId(`${TID}-edit`)).toHaveTextContent(COPY.successTarget.change)
+    expect(screen.getByTestId(TID)).toHaveTextContent(COPY.successTarget.label)
+    expect(screen.queryByTestId(`${TID}-none`)).toBeNull()
+    expect(screen.queryByText(SUCCESS_QUESTION)).toBeNull()
   })
 
   /**
@@ -108,11 +126,19 @@ describe('it shows the target the user already stated', () => {
     expect(change.querySelector('svg')).not.toBeNull()
   })
 
-  /** CONTRAST: the unset state keeps its filled primary CTA, untouched by H4 — see the ONE-ACT discipline pinned in `theOneActCarriesTheOnePrimary.spec.tsx`. */
-  it('⭐ CONTRAST: "Set a target" (no target yet) stays the filled primary act', () => {
+  /**
+   * V2 prototype (Paul, 25 Sep 2026): the unset pencil is quiet too — the
+   * prototype's header has no filled primary. Reverses the old "stays the
+   * filled primary" contrast; see `theOneActCarriesTheOnePrimary.spec.tsx`.
+   */
+  it('⭐ V2: "Set a target" (no target yet) is a quiet pencil, not a filled primary', () => {
     draw()
-    const set = screen.getByTestId(`${TID}-edit`)
-    expect(set.className).toMatch(/\bbg-primary\b/)
+    const classes = screen.getByTestId(`${TID}-edit`).className.split(/\s+/)
+    for (const c of action('quiet').split(' ')) expect(classes).toContain(c)
+    expect(classes).toContain('no-underline')
+    for (const c of action('primary').split(' ').filter((t) => t.startsWith('bg-'))) {
+      expect(classes).not.toContain(c)
+    }
   })
 })
 

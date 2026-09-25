@@ -197,10 +197,14 @@ describe('with a goal — the strip owns the ask, and the glance does not repeat
   it('the model strip renders the target control', () => {
     renderPanel()
     expect(screen.getByTestId('analysis-new-model-strip-target')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-model-strip-target-none')).toHaveTextContent(
-      COPY.successTarget.none,
+    // V2 prototype (Paul, 25 Sep 2026): the unset row is the question, and the
+    // control is an icon-only pencil still named "Set a target".
+    expect(screen.getByTestId('analysis-new-model-strip-target-none').textContent).toBe(
+      'What would success look like?',
     )
-    expect(screen.getByTestId('analysis-new-model-strip-target-edit')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-model-strip-target-edit')).toHaveAccessibleName(
+      COPY.successTarget.set,
+    )
   })
 
   it('the glance does not promote the success-measure recommendation', () => {

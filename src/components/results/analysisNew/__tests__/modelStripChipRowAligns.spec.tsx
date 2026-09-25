@@ -1,31 +1,18 @@
 /**
- * ⭐ THE SECOND WORKLIST CHIP DREW ITSELF 4px IN FROM EVERYTHING ELSE — on
- * exactly the models it was built for.
+ * ⭐ V2 (Paul, 25 Sep 2026): THE STRIP CARRIES NO WORKLIST CHIPS.
  *
- * The two worklist chips carried their spacing as PER-ELEMENT MARGINS: `mb-1`
- * on both, and `ml-1` on the second to separate it from the first. So the gap
- * between them lived on the second chip.
+ * This file used to pin how the two worklist chips ("N to verify", "N with no
+ * value yet") lined up: no per-chip margins, one flex row carrying the gap.
+ * The V2 prototype removed both chips from the strip — they duplicated the
+ * review tool's "N to review" — so the alignment cases went with them.
  *
- * `needsCheck` is `factorIsConfirmable`, which REQUIRES a value — so a model
- * whose factors carry no values scores `needsCheckTotal === 0`, the FIRST chip
- * does not render, and the second one keeps its `ml-1` with nothing to its left.
- * It draws itself 4px in from the strip's title, its tallies and its marks.
+ * What remains is the ruling itself: on the models that used to draw one chip,
+ * or both, the strip draws NEITHER. Each absence is paired with a builder
+ * precondition that the chip's population is really there, so it cannot pass
+ * on an empty worklist (trap 13b). And the old wrapper must not linger as an
+ * empty box.
  *
- * ⚠⚠ AND THAT IS PRECISELY THE POPULATION THE SECOND WORKLIST EXISTS FOR. It
- * was added because "the strip was quietest on the models with least in them"
- * (`modelStripNoValueWorklist.spec.tsx`). The misalignment therefore fires on
- * the models the feature was written to serve, and never on the models its
- * author had in hand while writing it — which is why nothing caught it.
- *
- * The fix is CLAUDE.md's own rule and the repo's: spacing between siblings
- * belongs to the CONTAINER, not to the siblings. One flex row, one `gap`.
- *
- * ── WHAT THIS SPEC CAN AND CANNOT CLAIM ────────────────────────────────────
- * jsdom applies no CSS and cannot prove alignment (trap 3). It therefore
- * asserts the STRUCTURAL fact that produces the alignment and is checkable:
- * neither chip carries a horizontal margin of its own, and both share one
- * parent that carries the gap. A layout claim would need a real browser and is
- * not made here.
+ * jsdom applies no CSS (trap 3); nothing here claims layout.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -131,69 +118,54 @@ describe('THE FIXTURES REACH THE TWO STATES (precondition)', () => {
   })
 })
 
-describe('the second chip does not indent itself when it renders alone', () => {
-  it('⭐ renders alone on a value-less model, carrying no left margin', () => {
+const chipsIn = () => ({
+  verify: screen.queryByTestId(`${TID}-verify-toggle`),
+  noValue: screen.queryByTestId(`${TID}-no-value-toggle`),
+})
+const markIds = () =>
+  screen.queryAllByTestId(`${TID}-mark`).map((el) => el.getAttribute('data-node-id'))
+
+describe('V2: neither chip renders, on the models that used to draw them', () => {
+  it('⭐ the value-less model: no no-value chip (it used to render alone here)', () => {
     setNodes([bare('f_a', 'Competitive pressure'), bare('f_b', 'Switching friction')])
     openStrip()
-
-    // The state that produces the defect: second chip present, first absent.
-    const second = screen.getByTestId(`${TID}-no-value-toggle`)
-    expect(screen.queryByTestId(`${TID}-verify-toggle`)).toBeNull()
-
-    // ⚠ ANY horizontal margin, not just `ml-1` — a fix that swapped the
-    // utility for `ms-1` or `mx-1` would leave the defect and pass a
-    // token-exact check.
-    expect(second.className).not.toMatch(/\bm[lrxse]-/)
+    // CONTRAST: the strip is open and drawing both factors.
+    expect(markIds()).toEqual(['f_a', 'f_b'])
+    expect(chipsIn()).toEqual({ verify: null, noValue: null })
   })
 
-  it('…and carries none when it renders BESIDE the first — the twin', () => {
+  it('⭐ the mixed model: no chip of either kind (both used to render here)', () => {
     setNodes([bare('f_a', 'Competitive pressure'), needsCheck('f_c', 'Vendor licensing cost')])
     openStrip()
-
-    const first = screen.getByTestId(`${TID}-verify-toggle`)
-    const second = screen.getByTestId(`${TID}-no-value-toggle`)
-    expect(first.className).not.toMatch(/\bm[lrxse]-/)
-    expect(second.className).not.toMatch(/\bm[lrxse]-/)
+    expect(markIds()).toEqual(['f_a', 'f_c'])
+    expect(chipsIn()).toEqual({ verify: null, noValue: null })
   })
 })
 
-describe('the gap lives on the container, which is where it can be right', () => {
-  it('both chips share one parent, and that parent carries the gap', () => {
-    setNodes([bare('f_a', 'Competitive pressure'), needsCheck('f_c', 'Vendor licensing cost')])
-    openStrip()
+describe('no empty container is left behind', () => {
+  /**
+   * The chips' wrapper was conditional so a clean model drew no empty box. With
+   * the chips gone it must not linger as one on ANY model — including the two
+   * that used to fill it, which is where an emptied-but-kept wrapper would show.
+   */
+  const MODELS: Array<[string, Array<{ id: string; type: string; data: unknown }>]> = [
+    ['clean', [settled('f_c', 'Vendor licensing cost')]],
+    ['value-less', [bare('f_a', 'Competitive pressure'), bare('f_b', 'Switching friction')]],
+    ['mixed', [bare('f_a', 'Competitive pressure'), needsCheck('f_c', 'Vendor licensing cost')]],
+  ]
 
-    const first = screen.getByTestId(`${TID}-verify-toggle`)
-    const second = screen.getByTestId(`${TID}-no-value-toggle`)
-    expect(first.parentElement).toBe(second.parentElement)
-
-    const row = first.parentElement as HTMLElement
-    expect(row.className).toMatch(/\bgap-/)
-    expect(row.className).toContain('flex')
-  })
-
-  it('⛔ the row is NOT rendered when there is no worklist at all', () => {
-    // An unconditional flex row is an empty 4px box on every clean model —
-    // trading a visible misalignment for an invisible one.
-    const model = [settled('f_c', 'Vendor licensing cost')]
-
-    // ⚠ THE PRECONDITION, PINNED IN-TEST. This assertion is the whole reason
-    // the test can observe anything: unless BOTH counts are zero, neither chip
-    // is absent and the container is never empty. The first version of this
-    // file omitted it and passed while measuring nothing.
-    const strip = buildModelStrip(model)
+  it('⛔ PRECONDITION: the clean model really is in neither count', () => {
+    const strip = buildModelStrip(MODELS[0][1])
     expect(`needsCheck=${strip.needsCheckTotal} noValue=${strip.noValueTotal}`).toBe(
       'needsCheck=0 noValue=0',
     )
+  })
 
+  it.each(MODELS)('⛔ the %s model leaves no empty box in the open region', (_name, model) => {
     setNodes(model)
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-
-    expect(screen.queryByTestId(`${TID}-verify-toggle`)).toBeNull()
-    expect(screen.queryByTestId(`${TID}-no-value-toggle`)).toBeNull()
-
-    // Whatever chips exist, no empty container is left behind: every element
-    // inside the region either is a chip or holds content.
+    openStrip()
+    // CONTRAST: the region is open and holds marks.
+    expect(markIds().length).toBeGreaterThan(0)
     const region = screen.getByTestId(`${TID}-region`)
     const empties = Array.from(region.querySelectorAll('div')).filter(
       (el) => el.children.length === 0 && (el.textContent ?? '').trim() === '',
