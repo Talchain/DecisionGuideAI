@@ -26,6 +26,7 @@ import { plot } from '../../adapters/plot'
 import { logger } from '../../lib/logger'
 import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
+import { isRunAnalysisAffordance, type RunChipGate } from './zones/SuggestedChips'
 import { heldProposalRetirementKeys } from './selectors'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import { useOptionalConversationContext } from './ConversationContext'
@@ -165,40 +166,9 @@ export const ConversationPanel = memo(function ConversationPanel({
   // Track 2: Thread persistence (best-effort, flag-gated)
   const { onBlockAction, onChipTaken } = useThreadPersistence(scenarioId, messages)
 
-  // ── Chip handler ──────────────────────────────────────────────────────
-  const handleChipClick = useCallback(
-    async (chip: ActionChip): Promise<void> => {
-      // Chips routed BY ID to a local handler. These never reach `sendChip`, so
-      // they carry no `message` — which is why the chip rows have to be told
-      // about them (`isChipRenderable`, ROADMAP 2.138); before that, the
-      // `start_new_draft` chip existed on every terminal notice and rendered on
-      // none of them.
-      //
-      // Typed as `Record<LocallyRoutedChipId, …>` deliberately: adding an id to
-      // that union without wiring a handler here is a TYPECHECK ERROR, not a
-      // chip that silently does nothing. (ROADMAP 2.122 round 2 / review F3:
-      // `start_new_draft` goes to a handler that CAN deliver what its label
-      // says — `retryLast` provably cannot, because CEE declines to re-draft a
-      // committed scenario.)
-      const localRoutes: Record<LocallyRoutedChipId, () => void | Promise<void>> = {
-        [RETRY_CHIP_ID]: retryLast,
-        [START_NEW_DRAFT_CHIP_ID]: startNewDraft,
-      }
-      const localRoute = (localRoutes as Record<string, (() => void | Promise<void>) | undefined>)[chip.id]
-      if (localRoute) { await localRoute(); return }
-      await sendChip(chip)
-
-      // Track 2: mark suggested action as taken
-      let lastAssistant: typeof messages[number] | undefined
-      for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'assistant') { lastAssistant = messages[i]; break }
-      }
-      if (lastAssistant) {
-        onChipTaken(lastAssistant.id, chip.id)
-      }
-    },
-    [sendChip, retryLast, startNewDraft, messages, onChipTaken],
-  )
+  // ── Chip handler: `handleChipClick` lives below the run gate ────────
+  // (a Run chip is routed through the gated runner, so it must be declared
+  // after `runGateResult`).
 
   // ── Artefact action handler ─────────────────────────────────────────
   const handleArtefactMessage = useCallback(
@@ -597,8 +567,29 @@ export const ConversationPanel = memo(function ConversationPanel({
   // fact, never two facts.
   const showRunRefusal = useShowToastSafe()
 
+  // ⭐ The chat's Run chips get the SAME verdict and the SAME sentence the
+  // composer's Analyse control uses (`canRunAnalysis` / `runBlockedReason`
+  // below) — the same expressions over the same `runGateResult`, not a second
+  // gate — so a closed gate renders them disabled with that sentence rather
+  // than live-and-refusing-on-click. Memoised: `ChatThread` is `memo`.
+  const runGate = useMemo<RunChipGate>(
+    () => ({ allowed: runGateResult.allowed && !isAnalysisRunning, reason: runBlockedReason }),
+    [runGateResult.allowed, isAnalysisRunning, runBlockedReason],
+  )
+
   // ── Top bar callbacks ─────────────────────────────────────────────────
-  const handleRunAnalysis = useCallback(() => {
+  /**
+   * The gated runner behind every run trigger on this surface. Resolves `true`
+   * when it dispatched, `false` when the gate refused (out loud).
+   *
+   * `echoLabel` is the transcript echo: `dispatchAction` renders `label` as the
+   * user's bubble, so a Run chip passes its OWN label and the transcript shows
+   * what the user actually clicked ("Rerun analysis", or the polished "Rerun")
+   * instead of a hardcoded "Run analysis". The message CEE receives stays the
+   * canonical one — only the echo changes. No label (the Analyse control, the
+   * guidance store) ⇒ "Run analysis", as before.
+   */
+  const runAnalysisGated = useCallback(async (echoLabel?: string): Promise<boolean> => {
     // Hotfix item 4 hardening: guard all run-trigger paths (composer button,
     // guidance store callback, any future caller) against structural readiness
     // AND in-flight state. The button's disabled prop already blocks the UI
@@ -634,7 +625,7 @@ export const ConversationPanel = memo(function ConversationPanel({
     // then populates that slice honestly.
     if (!runGateResult.allowed || isAnalysisRunning) {
       showRunRefusal(runBlockedReason ?? BLOCKED_REASON_COPY.unspecified, 'warning')
-      return
+      return false
     }
     const composerText = composerRef.current?.peekText().trim() ?? ''
     beginInteractionChain({
@@ -656,13 +647,69 @@ export const ConversationPanel = memo(function ConversationPanel({
     // browser→PLoT `/v2/run` call that bypassed the CEE orchestration seam.
     // That seam is retired, so the gate has nothing left to choose between.
     // Same exact payload shape as suggested chips — never free-text.
-    void dispatchAction({
+    await dispatchAction({
       action_type: 'run_analysis',
-      label: 'Run analysis',
+      label: echoLabel && echoLabel.trim().length > 0 ? echoLabel : 'Run analysis',
       message: 'Run analysis',
       source: 'chip',
     })
+    return true
   }, [messages.length, runGateResult.allowed, isAnalysisRunning, dispatchAction, runBlockedReason, showRunRefusal])
+
+  // The composer button and the guidance store's `_runAnalysis` take no label.
+  const handleRunAnalysis = useCallback(() => {
+    void runAnalysisGated()
+  }, [runAnalysisGated])
+
+  // ── Chip handler ──────────────────────────────────────────────────────
+  const handleChipClick = useCallback(
+    async (chip: ActionChip): Promise<void> => {
+      // Chips routed BY ID to a local handler. These never reach `sendChip`, so
+      // they carry no `message` — which is why the chip rows have to be told
+      // about them (`isChipRenderable`, ROADMAP 2.138); before that, the
+      // `start_new_draft` chip existed on every terminal notice and rendered on
+      // none of them.
+      //
+      // Typed as `Record<LocallyRoutedChipId, …>` deliberately: adding an id to
+      // that union without wiring a handler here is a TYPECHECK ERROR, not a
+      // chip that silently does nothing. (ROADMAP 2.122 round 2 / review F3:
+      // `start_new_draft` goes to a handler that CAN deliver what its label
+      // says — `retryLast` provably cannot, because CEE declines to re-draft a
+      // committed scenario.)
+      const localRoutes: Record<LocallyRoutedChipId, () => void | Promise<void>> = {
+        [RETRY_CHIP_ID]: retryLast,
+        [START_NEW_DRAFT_CHIP_ID]: startNewDraft,
+      }
+      const localRoute = (localRoutes as Record<string, (() => void | Promise<void>) | undefined>)[chip.id]
+      if (localRoute) { await localRoute(); return }
+
+      // Track 2: mark suggested action as taken
+      const recordTaken = () => {
+        let lastAssistant: typeof messages[number] | undefined
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'assistant') { lastAssistant = messages[i]; break }
+        }
+        if (lastAssistant) {
+          onChipTaken(lastAssistant.id, chip.id)
+        }
+      }
+
+      // ⭐ A Run chip goes through the SAME gated runner as the Analyse control
+      // (never `sendChip`, which consults no gate), recognised by the SAME
+      // detector `SuggestedChips` uses to disable it while the gate is closed.
+      // It carries its own label as the transcript echo, and — like every other
+      // chip — is recorded as taken once the run is actually dispatched. A
+      // refused run is not a taken chip, so it is not recorded.
+      if (isRunAnalysisAffordance(chip)) {
+        if (await runAnalysisGated(chip.label)) recordTaken()
+        return
+      }
+
+      await sendChip(chip)
+      recordTaken()
+    },
+    [sendChip, retryLast, startNewDraft, messages, onChipTaken, runAnalysisGated],
+  )
 
   useEffect(() => {
     // L-59: forward the producer's own typed intent when the caller has one.
@@ -844,6 +891,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         compact={compact}
         scrollListRef={scrollListRef}
         testId={threadTestId}
+        runGate={runGate}
       />
 
       {!hideComposer && (

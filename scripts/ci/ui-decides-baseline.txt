@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:7884
+src/canvas/store.ts:7887
 src/canvas/stores/readinessStore.ts:782
 src/canvas/stores/readinessStore.ts:875
 src/canvas/utils/briefValidation.ts:43
@@ -79,6 +79,12 @@ src/types/constraints.ts:78
 #    scanner's `isSelfObservation` cannot see through a function parameter.
 #    (`store.ts:7878` -> `7884` above is a pure line shift from #1921's six
 #    added lines in `resultsWithholdLeaderClaim`; the line text is identical.)
+#    (`store.ts:7884` -> `7887` is a pure line shift from the three lines the
+#    `setOutcomeNode` `fromProducerSync` doc comment adds above it (25 Sep
+#    2026, the automatic-first-run freshness fix); the line text is identical.)
+#    (`readinessStore.ts:744` -> `782` and `:840` -> `875` are pure line shifts
+#    from the `publishCheckFailure` helper #1982 adds above them (25 Sep 2026,
+#    the readiness-outage gate fix); the 429 and 404 branch text is identical.)
 #    (`analysisNewCopy.ts:2433` -> `2440`, and the docblock range above by the
 #    same +7, is a pure line shift from #1922's seven added lines —
 #    `optionFigures.goalOnlyQualifier` and its docblock, above this site — when
