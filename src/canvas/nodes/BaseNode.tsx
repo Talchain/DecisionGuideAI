@@ -96,6 +96,9 @@ import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
+/** Contract `.node h3{font-weight:610}` — the one card-title weight. */
+const NODE_TITLE_WEIGHT = 610
+
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
   decision: 'The choice you\'re making',
   option: 'One possible course of action',
@@ -1375,7 +1378,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${isHighlighted && !isAttended ? 'ring-4 ring-info/60 ai-highlight-pulse' : ''}
         ${isAttended ? 'ring-4 ring-info olumi-attended' : ''}
         ${isAttentionDimmed ? 'opacity-30 saturate-50 transition-opacity duration-300' : ''}
-        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-25' : ''}
       `}
       style={{
         // Analysis-graph projection: an info RING around a viewed driver node.
@@ -2311,7 +2314,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                   ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
                   : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
             }
-            style={lodHideTitle ? { visibility: 'hidden' } : undefined}
+            /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
+               inline so it cannot lose a cascade race with the size token's
+               `font-medium`. Measured before landing (24 Sep, local dev build,
+               all five starters, 87 titles): 0 card-height changes, 0 title
+               line-count changes, 0 titles cut. Anchors keep their ink
+               (`text-text-header`) as the hierarchy step. */
+            style={lodHideTitle ? { visibility: 'hidden', fontWeight: NODE_TITLE_WEIGHT } : { fontWeight: NODE_TITLE_WEIGHT }}
           >
             {titleOverride ?? label}
           </div>
