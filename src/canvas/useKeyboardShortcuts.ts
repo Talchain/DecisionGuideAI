@@ -11,6 +11,7 @@ import {
 import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../lib/persistenceSession'
 import { deleteSelectionAction, type ShowToastFn } from './contextMenu/actions'
+import { useConfirmDialogStore } from './stores/confirmDialogStore'
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -537,8 +538,12 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       // Delete: Delete or Backspace — through the menu's own `deleteAction`, so
       // the key asks exactly what the menu asks (see REACT_FLOW_DELETE_KEY_CODE).
       // ⛔ Never `state.deleteSelected()` here: that is the unguarded delete.
+      // One keypress, one attempt: a held key's auto-repeat must not re-ask or
+      // re-refuse, and a key landing on an open confirm dialog (its Remove
+      // button has focus) must not replace the question being answered.
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault()
+        if (event.repeat || useConfirmDialogStore.getState().pending) return
         void deleteSelectionAction(showCanvasToast).catch((err) => {
           console.error('[useKeyboardShortcuts] delete failed:', err)
         })

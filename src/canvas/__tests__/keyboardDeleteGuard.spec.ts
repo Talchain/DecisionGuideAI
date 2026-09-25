@@ -30,7 +30,8 @@ import { useKeyboardShortcuts } from '../useKeyboardShortcuts'
 import { useCanvasStore } from '../store'
 import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { deleteAction } from '../contextMenu/actions'
-import type { NodeTarget } from '../contextMenu/types'
+import type { EdgeTarget, NodeTarget } from '../contextMenu/types'
+import { STRUCTURAL_DELETE_STOOD_DOWN_NOTICE } from '../mutations/structuralDelete'
 import type { EdgeData } from '../domain/edges'
 
 // ── the graph ────────────────────────────────────────────────────────────────
@@ -101,8 +102,8 @@ function captureToasts(): { toasts: Toast[]; dispose: () => void } {
 }
 
 /** A keydown that bubbles to `window` from `target` (default: the body). */
-function press(key: string, target: EventTarget = document.body) {
-  target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+function press(key: string, target: EventTarget = document.body, init: KeyboardEventInit = {}) {
+  target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }))
 }
 
 /**
@@ -375,5 +376,125 @@ describe('multi-selection: one question for the whole gesture', () => {
     expect(toastCapture.toasts).toEqual([])
     expect(nodeIds()).not.toContain('option_a')
     expect(edgeIds()).not.toContain('e-opt-price')
+  })
+})
+
+/**
+ * ⛔ A DELETE THE STORE REFUSES MUST NOT MARK THE RESULTS UNCONFIRMED.
+ *
+ * With a server scenario and no current CAS base, the store's fail-closed gate
+ * (`recordStructuralDeleteIntent`, reason `no_server_graph_hash`) refuses the
+ * removal and says "Nothing was removed". `commitValidatedMutation` used to
+ * mark the freshness overlay dirty after `localApply` regardless — so a
+ * keypress whose own toast says nothing changed downgraded a retained `fresh`
+ * verdict to "cannot confirm", and only a NEW analysis cleared it. The three
+ * execute paths (node, connection, multi) each reach a different store action,
+ * so each is driven here; the contrast proves the same seed with a hash DOES
+ * delete and DOES mark, inside the same `settle()`.
+ */
+describe('a refused delete leaves analysis freshness alone', () => {
+  const refusedSeed = () =>
+    seed({ currentScenarioId: 's1', lastServerGraphHash: null, analysisFreshnessDirty: false })
+  const dirty = () => useCanvasStore.getState().analysisFreshnessDirty
+  const STOOD_DOWN = { message: STRUCTURAL_DELETE_STOOD_DOWN_NOTICE, level: 'warning' }
+
+  it('(j) keyboard, one unlinked card: kept, the stood-down toast, and freshness NOT dirty', async () => {
+    refusedSeed()
+    renderHook(() => useKeyboardShortcuts())
+    select(['factor_loose'])
+
+    press('Backspace')
+    await settle()
+
+    expect(nodeIds()).toContain('factor_loose')
+    expect(useCanvasStore.getState().pendingStructuralDeletes).toEqual([])
+    expect(toastCapture.toasts).toEqual([STOOD_DOWN])
+    expect(dirty()).toBe(false)
+  })
+
+  it('(j) CONTRAST: the same card with a CAS base is deleted and freshness IS dirty', async () => {
+    seed({ currentScenarioId: 's1', lastServerGraphHash: HASH, analysisFreshnessDirty: false })
+    renderHook(() => useKeyboardShortcuts())
+    select(['factor_loose'])
+
+    press('Backspace')
+    await settle()
+
+    expect(nodeIds()).not.toContain('factor_loose')
+    expect(toastCapture.toasts).toEqual([])
+    expect(dirty()).toBe(true)
+  })
+
+  it('(j′) a confirmed multi-delete the store refuses: both kept, freshness NOT dirty', async () => {
+    refusedSeed()
+    renderHook(() => useKeyboardShortcuts())
+    select(['factor_price', 'factor_loose'])
+
+    press('Delete')
+    await settle()
+    pending()!.onConfirm()
+    useConfirmDialogStore.getState().dismiss()
+    await settle()
+
+    expect(nodeIds()).toEqual(expect.arrayContaining(['factor_price', 'factor_loose']))
+    expect(toastCapture.toasts).toEqual([STOOD_DOWN])
+    expect(dirty()).toBe(false)
+  })
+
+  it('(j″) the menu\'s connection delete the store refuses: kept, freshness NOT dirty', async () => {
+    refusedSeed()
+    const target: EdgeTarget = {
+      kind: 'edge',
+      edgeId: 'e-price-goal',
+      edge: useCanvasStore.getState().edges.find((e) => e.id === 'e-price-goal')! as EdgeTarget['edge'],
+      isStructural: false,
+      screenPos: { x: 0, y: 0 },
+    }
+    await deleteAction(target, () => {})
+    // Removing this link cuts the option off, so the menu asks first.
+    pending()!.onConfirm()
+    useConfirmDialogStore.getState().dismiss()
+    await settle()
+
+    expect(edgeIds()).toContain('e-price-goal')
+    expect(toastCapture.toasts).toEqual([STOOD_DOWN])
+    expect(dirty()).toBe(false)
+  })
+})
+
+describe('one keypress, one delete attempt', () => {
+  it('(k) a held key (auto-repeat) does not re-run the delete — one refusal toast, not a column', async () => {
+    renderHook(() => useKeyboardShortcuts())
+    select(['goal'])
+
+    press('Backspace')
+    press('Backspace', document.body, { repeat: true })
+    press('Backspace', document.body, { repeat: true })
+    await settle()
+
+    expect(toastCapture.toasts).toEqual([{ message: LAST_GOAL_REFUSAL, level: 'warning' }])
+  })
+
+  it('(l) Delete while the confirm dialog is open does not re-open it', async () => {
+    renderHook(() => useKeyboardShortcuts())
+    select(['factor_price'])
+
+    press('Delete')
+    await settle()
+    const first = pending()
+    expect(first?.title).toBe(LINKED_TITLE)
+
+    // Focus sits on the dialog's Remove button; a second Backspace lands there.
+    const button = document.createElement('button')
+    document.body.append(button)
+    try {
+      press('Backspace', button)
+      await settle()
+    } finally {
+      button.remove()
+    }
+
+    expect(pending()).toBe(first)
+    expect(nodeIds()).toContain('factor_price')
   })
 })
