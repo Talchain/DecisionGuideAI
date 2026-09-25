@@ -1,0 +1,103 @@
+/**
+ * THROWAWAY (not committed to CEE) — the PR-B route-capture network guard.
+ *
+ * Loaded as the FIRST vitest setupFile by `vitest.prb.config.ts`, before any module under test is
+ * imported. It makes a model/provider call structurally impossible for the whole test process:
+ *
+ *   1. ENV: refuses to start unless OPENAI_API_KEY and ANTHROPIC_API_KEY are empty and
+ *      ANTHROPIC_BASE_URL is unset (and every proxy variable is unset, so nothing can tunnel).
+ *   2. FETCH: `globalThis.fetch` is wrapped — any URL whose host is not loopback (or that points
+ *      at the agent egress proxy port) rejects with PRB_NETWORK_GUARD before a request is built.
+ *   3. SOCKETS: `net.Socket.prototype.connect` is wrapped — the layer under undici (Node fetch),
+ *      http, https, tls and every SDK. A non-loopback host, or the loopback egress-proxy port, is
+ *      destroyed with PRB_NETWORK_GUARD before DNS or connect. Unix sockets / pipes are allowed.
+ *
+ * Every refusal is recorded on `globalThis.__PRB_BLOCKED__` so a test can assert the count.
+ */
+import net from 'node:net';
+
+type Blocked = { layer: 'fetch' | 'socket'; target: string; at: string };
+const g = globalThis as typeof globalThis & {
+  __PRB_BLOCKED__?: Blocked[];
+  __PRB_REAL_FETCH__?: typeof fetch;
+  __PRB_GUARDED_FETCH__?: typeof fetch;
+  __PRB_GUARD_INSTALLED__?: boolean;
+};
+
+const blocked: Blocked[] = (g.__PRB_BLOCKED__ ??= []);
+
+function fail(msg: string): never {
+  throw new Error(`PRB_NETWORK_GUARD env refusal: ${msg}`);
+}
+if ((process.env.OPENAI_API_KEY ?? '') !== '') fail('OPENAI_API_KEY must be empty');
+if ((process.env.ANTHROPIC_API_KEY ?? '') !== '') fail('ANTHROPIC_API_KEY must be empty');
+if (process.env.ANTHROPIC_BASE_URL !== undefined) fail('ANTHROPIC_BASE_URL must be unset');
+for (const k of ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy', 'GLOBAL_AGENT_HTTPS_PROXY', 'GLOBAL_AGENT_HTTP_PROXY']) {
+  if (process.env[k] !== undefined) fail(`${k} must be unset`);
+}
+// c673223 re-run hardening: ANY variable whose name ENDS in "proxy" (npm_config_https_proxy,
+// YARN_HTTPS_PROXY, DOCKER_HTTPS_PROXY, …) must be unset too — not just the eight above.
+for (const k of Object.keys(process.env)) {
+  if (/proxy$/i.test(k)) fail(`${k} must be unset`);
+}
+
+/** The sandbox's loopback egress proxy tunnels to the internet: treat its port as off-host. */
+const PROXY_PORTS = new Set<number>([45543]);
+for (const v of [process.env.CLOUDSDK_PROXY_PORT, process.env.PRB_EXTRA_BLOCKED_PORT]) {
+  const n = Number(v);
+  if (Number.isInteger(n) && n > 0) PROXY_PORTS.add(n);
+}
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0:0:0:0:0:0:0:1']);
+const isLoopbackHost = (h: string | undefined) => h === undefined || h === '' || LOOPBACK.has(h) || /^127\./.test(h);
+
+if (!g.__PRB_GUARD_INSTALLED__) {
+  g.__PRB_GUARD_INSTALLED__ = true;
+
+  // ── Layer 3: sockets ──────────────────────────────────────────────────────
+  const realConnect = net.Socket.prototype.connect;
+  net.Socket.prototype.connect = function guardedConnect(this: net.Socket, ...args: unknown[]) {
+    let first = args[0] as unknown;
+    if (Array.isArray(first)) first = first[0]; // net.connect passes [options, cb] normalised
+    let host: string | undefined;
+    let port: number | undefined;
+    let path: string | undefined;
+    if (first !== null && typeof first === 'object') {
+      const o = first as { host?: string | null; port?: number | string | null; path?: string | null };
+      // ⚠ node:http(s) agents pass `path: null` for TCP. Only a NON-EMPTY string is an IPC path
+      // (the first version tested `!== undefined`, let `null` through as "IPC", and one https probe
+      // escaped — see the report).
+      host = o.host ?? undefined;
+      port = o.port === undefined || o.port === null ? undefined : Number(o.port);
+      path = typeof o.path === 'string' && o.path.length > 0 ? o.path : undefined;
+    } else if (typeof first === 'number' || (typeof first === 'string' && /^\d+$/.test(first))) {
+      port = Number(first); host = typeof args[1] === 'string' ? args[1] : undefined;
+    } else if (typeof first === 'string' && first.length > 0) {
+      path = first;
+    }
+    if (path === undefined && (!isLoopbackHost(host) || (port !== undefined && PROXY_PORTS.has(port)))) {
+      const target = `${host ?? 'localhost'}:${port ?? '?'}`;
+      blocked.push({ layer: 'socket', target, at: new Error().stack?.split('\n').slice(2, 5).join(' | ') ?? '' });
+      const err = new Error(`PRB_NETWORK_GUARD: blocked socket connect to ${target}`);
+      process.nextTick(() => this.destroy(err));
+      return this;
+    }
+    return (realConnect as (...a: unknown[]) => net.Socket).apply(this, args);
+  } as typeof net.Socket.prototype.connect;
+
+  // ── Layer 2: fetch ────────────────────────────────────────────────────────
+  const realFetch = globalThis.fetch;
+  g.__PRB_REAL_FETCH__ = realFetch;
+  const guardedFetch: typeof fetch = async (input, init) => {
+    const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+    let u: URL;
+    try { u = new URL(raw); } catch { u = new URL(raw, 'http://localhost'); }
+    const port = u.port === '' ? undefined : Number(u.port);
+    if (!isLoopbackHost(u.hostname) || (port !== undefined && PROXY_PORTS.has(port))) {
+      blocked.push({ layer: 'fetch', target: u.href, at: new Error().stack?.split('\n').slice(2, 5).join(' | ') ?? '' });
+      throw new Error(`PRB_NETWORK_GUARD: blocked fetch to ${u.href}`);
+    }
+    return realFetch(input, init);
+  };
+  g.__PRB_GUARDED_FETCH__ = guardedFetch;
+  globalThis.fetch = guardedFetch;
+}

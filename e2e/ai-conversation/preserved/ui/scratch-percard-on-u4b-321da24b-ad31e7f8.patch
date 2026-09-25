@@ -1,0 +1,365 @@
+From 321da24b428ef8fe2a1a470f7b083020886241f1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 25 Sep 2026 08:32:59 +0000
+Subject: [PATCH 1/2] fix(chat): a withheld claim stays with its own result
+ card (UI-SEM-097 per-card carrier, NOT LOW)
+
+Pre-review on #2004 (5829256617), confirmed on the mounted chain: a turn
+whose typed leader_claim is withheld but whose block still names a leader
+lost its refusal when a later Run permitted, because the card's only other
+refusal source, the held report's producer_leader_permission, belongs to the
+LATEST report. RC accepted this carrier as a follow-up after U4
+(#69 5829442152 section 4).
+
+`mapV5Blocks` now takes the turn's context and stamps
+`leader_claim_permitted: false` on the v5_analysis_result block when the
+turn's `analysis_state.leader_claim.permitted` is false, read by
+`turnLeaderClaimPermitted` with the same AnalysisStateV1Schema that
+applyV5State step 4 uses. It only ever withholds: a permitted or unknown
+claim stamps nothing, so every other card is byte-identical. The one call
+site (useConversation) passes the turn's analysis_state. The transcript
+persists blocks, so the stamp survives a reload. The card withholds on the
+stamp as well as the null id and the held report.
+
+Tests (mounted chain, served 57f903c body, derived conflicting wire):
+the mapper stamps false and nothing else; a withheld claim that kept its
+id, then a permitted Run: the earlier card stays withheld; the same after
+a reload from the saved transcript alone. Mutants: card ignores the stamp
+(2 fail), call site passes no context (2 fail), mapper never stamps (3
+fail). src/v5 + src/canvas/conversation: 376 files, 5192 tests green.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Q5bxkDMkNnEcRXKYsV9zEa
+---
+ CLAUDE.md                                     |  2 +-
+ src/canvas/conversation/types.ts              |  5 ++
+ src/canvas/conversation/useConversation.ts    |  8 +-
+ src/v5/blocks/V5AnalysisResultBlock.tsx       | 15 +++-
+ ...tBlock.withheldLeaderMountedChain.spec.tsx | 77 +++++++++++++++++++
+ src/v5/blocks/mapV5Blocks.ts                  | 37 ++++++++-
+ 6 files changed, 136 insertions(+), 8 deletions(-)
+
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 08498348..55f03da5 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -261,7 +261,7 @@ pnpm run build                      # production build (separate concern)
+ | UI-SEM-094 | `src/v5/buildPayload.ts` (`deriveSelectedElements`) | Selected React Flow edge identity → canonical relationship-address conversion: the live V5 turn builder resolves an opaque selected edge id only by exact equality against the current canvas edge collection, then emits that same edge's trimmed endpoint composite (`from→to`) as a published `{ id, kind: 'edge' }` selected-element ref. Stale ids, blank endpoints, and delimiter-bearing endpoints fail closed by omission; there is no array-head, neighbouring-edge, label, or fuzzy substitute. Node refs remain unchanged, refs are derived without mutating selection/render state, and the combined raw selection remains subject to the published 20-element cap | Keep — wire identity format conversion; remove only if GraphV3 gains a stable canonical edge id that both UI and CEE consume |
+ | UI-SEM-095 | `src/components/results/StressTestSection.tsx` (`mergedFragileCards`) → `src/components/results/utils/dedupeFragileEdges.ts` | Fragile-edge dedup by relationship identity, and therefore a change to the user-visible "Fragile factors (N)" count. A repeated producer row rendered twice AND consumed one of only three display slots (manual test, 2026-08-16: "If Leadership capacity shifts" listed twice, counted twice). The key is `edge_id` → `from_id`→`to_id` → `from_label`→`to_label`, paired with the alternative winner so the same edge flipping to two different winners survives as two findings. Never keyed on the rendered string: two edges sharing a source factor legitimately render the same row. Fail-open — an entry with no derivable identity is kept. Duplicate-free input is byte-identical | Remove when the producer guarantees `robustness.fragile_edges` is already distinct by relationship |
+ | UI-SEM-096 | `src/canvas/conversation/normalisePastedText.ts`, applied at `src/canvas/components/AIInputBar.tsx` (`handlePaste`) | **Composer paste normalisation — the user's own text, in the user's own box, before send.** Line-leading bullet GLYPHS become the `- ` marker `safeRichText` understands, and CRLF/CR become LF. ⚠ The first version of this claimed a pasted `•` list "renders as run-on prose"; that is FALSE — `safeRichText.ts:264` matches `/^[-*•‣◦]\s+(.+)$/` and already emits a `<ul>` for `•`, `‣`, `◦`. The REAL residue is the glyphs it does not know (`▪ ▫ ● ○ ■ □ ∙ · ⁃ −` — what Word, Outlook and Google Docs actually paste), plus making the marker uniform so the user SEES which pasted lines the product read as a list. Pinned by a cross-check spec that REDs if `safeRichText` ever widens its class. Whitespace after the marker is carried through character for character; returns its input BY IDENTITY when nothing matched, which is what lets `handlePaste` skip `preventDefault` and keep native undo for every paste that needed no help | Remove when `safeRichText` owns the whole glyph set (the upstream fix — it would serve producer copy too, which this cannot reach) |
+-| UI-SEM-097 | `src/v5/blocks/V5AnalysisResultBlock.tsx` (`showWinShares`) | **A withheld leader is not ranked by win share.** The chat's Analysis result card hides its win-share pill row whenever the producer withheld the leader claim. Withheld means EITHER this run named no leader (`leading_option_id` null or blank; CEE nulls it on a withheld claim while the probabilities keep riding the wire), OR the held report carries the producer's refusal (`producer_leader_permission`, read only through `readProducerLeaderPermission`). Fails closed. The per-card half keeps an earlier withheld run withheld after a later run permits. Served defect: final tuple UI `b017e3c2` · CEE `9417228`. The reply said "No option can be put forward yet" while the card listed 82% / 16% / 2% largest-first, on 29 of 30 served explicit Runs (#69 5827478637, 5827505713). This supersedes the card's old note that a descending win-share tail "restates a fact rather than designating a winner": an ordered list of win shares IS a ranking (the C2 rule). The summary, prose, named metrics and uncertainty line are untouched. A near tie keeps its `leading_option_id`, so it is not affected. Suppression only; no value transformed | Keep — display honesty (same class as UI-SEM-071/082); revisit if CEE stops shipping win probabilities on a withheld claim |
++| UI-SEM-097 | `src/v5/blocks/V5AnalysisResultBlock.tsx` (`showWinShares`) | **A withheld leader is not ranked by win share.** The chat's Analysis result card hides its win-share pill row whenever the producer withheld the leader claim. Withheld means ANY of: this run named no leader (`leading_option_id` null or blank; CEE nulls it on a withheld claim while the probabilities keep riding the wire); this turn's typed `leader_claim` was withheld (`leader_claim_permitted: false`, stamped on the block at ingestion by `mapV5Blocks` via `turnLeaderClaimPermitted`, the same schema `applyV5State` step 4 reads; UI-only, never on the wire); or the held report carries the producer's refusal (`producer_leader_permission`, read only through `readProducerLeaderPermission`; latest report only). Fails closed. The two per-card halves persist with the transcript, so an earlier withheld card stays withheld after a later run permits and after a reload, even if a withheld claim ever kept its id. Served defect: final tuple UI `b017e3c2` · CEE `9417228`. The reply said "No option can be put forward yet" while the card listed 82% / 16% / 2% largest-first, on 29 of 30 served explicit Runs (#69 5827478637, 5827505713). This supersedes the card's old note that a descending win-share tail "restates a fact rather than designating a winner": an ordered list of win shares IS a ranking (the C2 rule). The summary, prose, named metrics and uncertainty line are untouched. A near tie keeps its `leading_option_id`, so it is not affected. Suppression only; no value transformed | Keep — display honesty (same class as UI-SEM-071/082); revisit if CEE stops shipping win probabilities on a withheld claim |
+ 
+ - Check for stale `.js` files co-located with `.ts`/`.tsx` source files in `src/` when debugging unexpected behaviour.
+ - This is a React app — check for stale component state, missing dependency arrays in hooks, and incorrect memoisation when debugging rendering issues.
+diff --git a/src/canvas/conversation/types.ts b/src/canvas/conversation/types.ts
+index 735ae8c7..f8ad4dac 100644
+--- a/src/canvas/conversation/types.ts
++++ b/src/canvas/conversation/types.ts
+@@ -219,6 +219,11 @@ export interface V5AnalysisResultBlock {
+   leading_option_id: string | null
+   win_probabilities?: Record<string, number>
+   enrichment?: Record<string, unknown>
++  /**
++   * UI-only, stamped at ingestion (`mapV5Blocks`): the turn's own typed
++   * `leader_claim` was withheld. Present only as `false`; never on the wire.
++   */
++  leader_claim_permitted?: false
+ }
+ 
+ export interface V5GraphPatchBlock {
+diff --git a/src/canvas/conversation/useConversation.ts b/src/canvas/conversation/useConversation.ts
+index 5eed86aa..f5e75336 100644
+--- a/src/canvas/conversation/useConversation.ts
++++ b/src/canvas/conversation/useConversation.ts
+@@ -74,7 +74,7 @@ import {
+   type StructuralAddNoticeKey,
+ } from '../mutations/structuralAdd'
+ import { resolveNodeTypeLiteral } from '../domain/nodes'
+-import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
++import { mapV5Blocks, turnLeaderClaimPermitted } from '../../v5/blocks/mapV5Blocks'
+ import { dropRepeatedAnalysisCards, lastRenderedAnalysisHash } from './analysisCardDedupe'
+ import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
+ import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
+@@ -5536,7 +5536,11 @@ export function useConversation(): UseConversationReturn {
+               // Pass suggested_actions so the held-proposal mapper (R8) can
+               // resolve confirm_action_id / decline_action_id refs into the
+               // {label, message} the card dispatches through the chip seam.
+-              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions)
++              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions, {
++                  leaderClaimPermitted: turnLeaderClaimPermitted(
++                    (target.response as { analysis_state?: unknown }).analysis_state,
++                  ),
++                })
+               : []
+ 
+           // Phase 3 rendering bridge (Track C slice 1, D-5) — surface
+diff --git a/src/v5/blocks/V5AnalysisResultBlock.tsx b/src/v5/blocks/V5AnalysisResultBlock.tsx
+index 9925931a..013f84ce 100644
+--- a/src/v5/blocks/V5AnalysisResultBlock.tsx
++++ b/src/v5/blocks/V5AnalysisResultBlock.tsx
+@@ -373,16 +373,20 @@ function V5AnalysisResultBlockImpl({
+   // lists the options in canvas order with no percentages
+   // (`optionDisplayOrder.ts`, `designationsWithheld`).
+   //
+-  // WITHHELD WHEN EITHER producer signal says so, which fails closed:
++  // WITHHELD WHEN ANY producer signal says so, which fails closed:
+   //   · THIS RUN named no leader: `block.leading_option_id` is null (or blank,
+   //     which names no one either). CEE nulls
+   //     it on a withheld claim while the win probabilities keep riding the wire
+   //     (UI-SEM-060). It is per card, and the transcript persists it, so an
+   //     earlier withheld run stays withheld after a later run permits.
++  //   · THIS TURN's typed claim was withheld: `block.leader_claim_permitted`,
++  //     stamped from the turn's `analysis_state.leader_claim` at ingestion
++  //     (`mapV5Blocks`). Per card and persisted, so it holds even if CEE ever
++  //     withheld a claim WITHOUT nulling the id (pre-review 5829256617).
+   //   · The HELD REPORT carries the producer's refusal
+   //     (`producer_leader_permission.permitted === false`, stamped by
+   //     `applyV5State` step 5b on the typed `leader_claim`). It is bound to the
+-  //     report, so it survives a reload.
++  //     LATEST report, so it speaks only for the card whose report is held.
+   // A near tie keeps its `leading_option_id`, so it is untouched here; it has
+   // its own no-crown handling above.
+   //
+@@ -396,7 +400,12 @@ function V5AnalysisResultBlockImpl({
+   )
+   const thisRunNamedNoLeader =
+     typeof block.leading_option_id !== 'string' || block.leading_option_id.trim() === ''
+-  const winShareRankingWithheld = thisRunNamedNoLeader || heldReportWithholdsLeader
++  // The turn's own typed refusal, stamped on this card at ingestion
++  // (`mapV5Blocks`). Unlike the held report, it stays with THIS card when a
++  // later Run permits, and it survives a reload with the transcript.
++  const thisTurnWithheldClaim = block.leader_claim_permitted === false
++  const winShareRankingWithheld =
++    thisRunNamedNoLeader || thisTurnWithheldClaim || heldReportWithholdsLeader
+   const showWinShares = hasProbs && !winShareRankingWithheld
+ 
+   // Sort so the leading option appears first and the rest descending by prob.
+diff --git a/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx b/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx
+index cff3ac6d..edc5d108 100644
+--- a/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx
++++ b/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx
+@@ -50,6 +50,11 @@ import { useCanvasStore } from '../../../canvas/store'
+ import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
+ import { readProducerLeaderPermission } from '../../../lib/decisionVerdict'
+ import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
++import { mapV5Blocks, turnLeaderClaimPermitted } from '../mapV5Blocks'
++import {
++  TRANSCRIPT_STORAGE_KEY,
++  __resetTranscriptTombstonesForTests,
++} from '../../../canvas/conversation/utils/transcriptStore'
+ 
+ vi.mock('../../../canvas/conversation/turnService', () => ({
+   callOrchestratorTurn: vi.fn(),
+@@ -163,6 +168,7 @@ function expectNoWinShares(card: HTMLElement, shares: Record<string, number>, wh
+ beforeEach(() => {
+   queue.length = 0
+   localStorage.clear()
++  __resetTranscriptTombstonesForTests()
+   Element.prototype.scrollIntoView = vi.fn()
+   window.history.replaceState(null, '', '/?ai=openai#/canvas')
+   useCanvasStore.setState({
+@@ -301,3 +307,74 @@ describe('PERMITTED (derived control): the row renders, seen and heard', () => {
+     expect(within(cards[1]).getByTestId('v5-analysis-result-probabilities'), 'the later, permitted card').toBeInTheDocument()
+   })
+ })
++
++// ── The turn's own refusal travels with its card (pre-review 5829256617) ────
++
++/** A withheld claim whose block still names the rank-1 option (derived; never seen on the wire). */
++function withheldClaimNamedLeader(): Wire {
++  const body = permittedTwinOf57f()
++  body.analysis_state!.leader_claim = { ...RUN_57F.analysis_state!.leader_claim }
++  return body
++}
++
++/** A later permitted Run, distinct from the first so the thread keeps both cards. */
++function laterPermittedRun(): Wire {
++  const later = permittedTwinOf57f()
++  resultBlockOf(later).summary = 'A later run.'
++  later.assistant_text = 'A later run.'
++  return later
++}
++
++const cardsNow = () => [...document.querySelectorAll('[data-testid="v5-analysis-result"]')] as HTMLElement[]
++
++describe("the turn's own refusal is stamped on its card, and stays there", () => {
++  it('mapV5Blocks stamps a withheld claim and nothing else; the reader uses the store schema', () => {
++    const blocks = RUN_57F.blocks as Parameters<typeof mapV5Blocks>[0]
++    const plain = mapV5Blocks(blocks, [])
++    const result = (ctx: Parameters<typeof mapV5Blocks>[2]) =>
++      mapV5Blocks(blocks, [], ctx).find((b) => b.type === 'v5_analysis_result') as unknown as Record<string, unknown>
++
++    expect(turnLeaderClaimPermitted(RUN_57F.analysis_state)).toBe(false)
++    expect(turnLeaderClaimPermitted(permittedTwinOf57f().analysis_state)).toBe(true)
++    expect(turnLeaderClaimPermitted(undefined)).toBeNull()
++    expect(turnLeaderClaimPermitted({ leader_claim: 'not an object' })).toBeNull()
++
++    expect(result({ leaderClaimPermitted: false }).leader_claim_permitted).toBe(false)
++    // Permitted or unknown stamps nothing: every other card is byte-identical.
++    expect(mapV5Blocks(blocks, [], { leaderClaimPermitted: true })).toEqual(plain)
++    expect(mapV5Blocks(blocks, [], { leaderClaimPermitted: null })).toEqual(plain)
++  })
++
++  it('a withheld claim that kept its id, then a permitted Run: the EARLIER card stays withheld', async () => {
++    await mount()
++    await say(withheldClaimNamedLeader(), 'Run the analysis.')
++    await say(laterPermittedRun(), 'Run it again.')
++
++    const [earlier, later] = cardsNow()
++    expect(cardsNow(), 'one card per Run').toHaveLength(2)
++    expect(
++      readProducerLeaderPermission(useCanvasStore.getState().results?.report?.producer_leader_permission),
++      'the held report now PERMITS, so it cannot speak for the earlier card',
++    ).not.toBe(false)
++    expectNoWinShares(earlier, resultBlockOf(RUN_57F).win_probabilities, 'the earlier card, its own claim withheld')
++    expect(within(later).getByTestId('v5-analysis-result-probabilities'), 'the later, permitted card').toBeInTheDocument()
++  })
++
++  it('... and after a reload, from the saved transcript alone', async () => {
++    await mount()
++    await say(withheldClaimNamedLeader(), 'Run the analysis.')
++    await say(laterPermittedRun(), 'Run it again.')
++    await waitFor(() => expect(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)).not.toBeNull())
++
++    cleanup()
++    const file = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)
++    file[SID].pageLoadId = 'an-earlier-page-load'
++    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(file))
++    await mount()
++    await waitFor(() => expect(cardsNow()).toHaveLength(2))
++
++    const [earlier, later] = cardsNow()
++    expectNoWinShares(earlier, resultBlockOf(RUN_57F).win_probabilities, 'after reload, the earlier card')
++    expect(within(later).getByTestId('v5-analysis-result-probabilities'), 'after reload, the later card').toBeInTheDocument()
++  })
++})
+diff --git a/src/v5/blocks/mapV5Blocks.ts b/src/v5/blocks/mapV5Blocks.ts
+index 2d452ae3..91b8ba15 100644
+--- a/src/v5/blocks/mapV5Blocks.ts
++++ b/src/v5/blocks/mapV5Blocks.ts
+@@ -23,7 +23,7 @@
+  * degrade to `v5_unsupported` to keep the renderer crash-free. DEV logs
+  * and telemetry-track in InlineBlocks' default branch pick up drift.
+  */
+-import type { OlumiResponse } from '@talchain/schemas/boundary'
++import { AnalysisStateV1Schema, type OlumiResponse } from '@talchain/schemas/boundary'
+ 
+ import type { ConversationBlock } from '../../canvas/conversation/types'
+ 
+@@ -37,9 +37,38 @@ type V5Block = OlumiResponse['blocks'][number]
+  */
+ type SuggestedActionRef = OlumiResponse['suggested_actions'][number]
+ 
++/**
++ * UI-SEM-097 — the TURN's own leader claim, carried onto its result card.
++ *
++ * The wire `analysis_result` block does not carry the typed claim; it rides
++ * the response's `analysis_state.leader_claim`. The card's other refusal
++ * source, the held report's `producer_leader_permission`, belongs to the
++ * LATEST report, so after a later permitted Run it no longer speaks for an
++ * earlier card (pre-review on #2004, 5829256617). Stamping the turn's refusal
++ * on the block at ingestion keeps it with THAT card, and the transcript
++ * persists blocks, so it survives a reload.
++ */
++export interface MapV5BlocksTurnContext {
++  /** `analysis_state.leader_claim.permitted` of the turn these blocks came from. */
++  leaderClaimPermitted?: boolean | null
++}
++
++/**
++ * The turn's typed `leader_claim.permitted`, read with the SAME schema
++ * `applyV5State` step 4 uses, so the card and the store cannot disagree about
++ * what this turn said. Absent or malformed ⇒ `null` (no refusal is known; the
++ * card's null-id half still applies).
++ */
++export function turnLeaderClaimPermitted(rawAnalysisState: unknown): boolean | null {
++  if (rawAnalysisState == null) return null
++  const parsed = AnalysisStateV1Schema.safeParse(rawAnalysisState)
++  return parsed.success ? parsed.data.leader_claim.permitted : null
++}
++
+ export function mapV5Block(
+   block: V5Block,
+   suggestedActions: readonly SuggestedActionRef[] = [],
++  turn: MapV5BlocksTurnContext = {},
+ ): ConversationBlock | null {
+   switch (block.type) {
+     case 'text':
+@@ -65,6 +94,9 @@ export function mapV5Block(
+         leading_option_id: block.leading_option_id,
+         ...(block.win_probabilities ? { win_probabilities: block.win_probabilities } : {}),
+         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
++        // Only ever WITHHOLDS: a permitted or unknown claim stamps nothing, so
++        // every other card is byte-identical to before.
++        ...(turn.leaderClaimPermitted === false ? { leader_claim_permitted: false as const } : {}),
+       }
+     case 'graph_patch':
+       return {
+@@ -258,6 +290,7 @@ export function mapV5Block(
+ export function mapV5Blocks(
+   blocks: V5Block[],
+   suggestedActions: readonly SuggestedActionRef[] = [],
++  turn: MapV5BlocksTurnContext = {},
+ ): ConversationBlock[] {
+   // The `= []` default only covers `undefined`. A null (schema drift, or a
+   // caller bypassing the parser) would make the held_proposal branch's
+@@ -267,7 +300,7 @@ export function mapV5Blocks(
+   const actions = Array.isArray(suggestedActions) ? suggestedActions : []
+   const out: ConversationBlock[] = []
+   for (const b of blocks) {
+-    const mapped = mapV5Block(b, actions)
++    const mapped = mapV5Block(b, actions, turn)
+     if (mapped) out.push(mapped)
+   }
+   return out
+-- 
+2.43.0
+
+
+From ad31e7f8a5309d206f7c3fc4fbcfb737bfd22ddb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 25 Sep 2026 09:22:16 +0000
+Subject: [PATCH 2/2] test(chat): pin the opposite direction: a later refusal
+ hides an earlier permitted card (fails closed)
+
+#2004 review 5829820343 asked the carrier follow-up to pin both
+directions. The held-report half reads the latest report, so a later
+withheld Run also hides an earlier permitted card's row: over-suppression,
+never an over-claim. Pinned on the mounted chain.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Q5bxkDMkNnEcRXKYsV9zEa
+---
+ ...esultBlock.withheldLeaderMountedChain.spec.tsx | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx b/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx
+index edc5d108..70fa537d 100644
+--- a/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx
++++ b/src/v5/blocks/__tests__/V5AnalysisResultBlock.withheldLeaderMountedChain.spec.tsx
+@@ -360,6 +360,21 @@ describe("the turn's own refusal is stamped on its card, and stays there", () =>
+     expect(within(later).getByTestId('v5-analysis-result-probabilities'), 'the later, permitted card').toBeInTheDocument()
+   })
+ 
++  it('the OPPOSITE direction fails closed: an earlier permitted card hides once a later withheld report is held', async () => {
++    // #2004 review 5829820343: pin both directions. The held-report half reads
++    // the LATEST report, so a later refusal also hides an earlier permitted
++    // card's row. That over-suppresses (fail-closed), never over-claims.
++    await mount()
++    await say(laterPermittedRun(), 'Run the analysis.')
++    expect(within(latestCard()).getByTestId('v5-analysis-result-probabilities'), 'live, before the refusal').toBeInTheDocument()
++    await say(RUN_57F, 'Run it again.')
++
++    const [earlier, later] = cardsNow()
++    expect(cardsNow()).toHaveLength(2)
++    expectNoWinShares(earlier, resultBlockOf(RUN_57F).win_probabilities, 'the earlier permitted card, after a later refusal')
++    expectNoWinShares(later, resultBlockOf(RUN_57F).win_probabilities, 'the later withheld card')
++  })
++
+   it('... and after a reload, from the saved transcript alone', async () => {
+     await mount()
+     await say(withheldClaimNamedLeader(), 'Run the analysis.')
+-- 
+2.43.0
+

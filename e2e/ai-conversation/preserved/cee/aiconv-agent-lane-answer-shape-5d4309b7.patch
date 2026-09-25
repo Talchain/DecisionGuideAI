@@ -1,0 +1,612 @@
+From 5d4309b77fedf685b8433b3cbfbfb03635c36d64 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 24 Sep 2026 20:39:26 +0000
+Subject: [PATCH] feat(agent-lane): derive the `_answer_shape` sidecar from the
+ final Agent reply
+
+`/agent/v1/turn` never passes through route-v2's egress, so an Agent reply
+reached the UI with no `_answer_shape` (measured on the real OpenAI route
+captures at staging 57f903c) and rendered as free text only.
+
+Deterministic, provider-free read-back of the shape the Agent already writes:
+headline = a one-line, one-sentence first paragraph (verbatim; a `**...**`
+pair is removed only when it wraps the whole sentence); bullets = the
+top-level items of the first list, markers removed, capped at 3;
+detail = the whole sent text. Anything else omits the key. Validated with
+the conventional lane's `AnswerShapeSchema` / `isSingleSentence`.
+`assistant_text` is unchanged. Attached on the main 200 path and on the
+lost-response replay path (same pure derivation over the same recorded words).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Q5bxkDMkNnEcRXKYsV9zEa
+---
+ .../__tests__/agent-turn-answer-shape.test.ts | 135 ++++++++++++
+ .../__tests__/answer-shape-sidecar.test.ts    | 203 ++++++++++++++++++
+ .../served-agent-reply-texts-57f903c.json     |  41 ++++
+ .../agent-lane/answer-shape-sidecar.ts        | 113 ++++++++++
+ src/routes/agent-v1-turn.ts                   |  23 +-
+ 5 files changed, 510 insertions(+), 5 deletions(-)
+ create mode 100644 src/orchestrator-v5/agent-lane/__tests__/agent-turn-answer-shape.test.ts
+ create mode 100644 src/orchestrator-v5/agent-lane/__tests__/answer-shape-sidecar.test.ts
+ create mode 100644 src/orchestrator-v5/agent-lane/__tests__/fixtures/served-agent-reply-texts-57f903c.json
+ create mode 100644 src/orchestrator-v5/agent-lane/answer-shape-sidecar.ts
+
+diff --git a/src/orchestrator-v5/agent-lane/__tests__/agent-turn-answer-shape.test.ts b/src/orchestrator-v5/agent-lane/__tests__/agent-turn-answer-shape.test.ts
+new file mode 100644
+index 00000000..da19e45e
+--- /dev/null
++++ b/src/orchestrator-v5/agent-lane/__tests__/agent-turn-answer-shape.test.ts
+@@ -0,0 +1,135 @@
++/**
++ * ⭐ `_answer_shape` REACHES THE HTTP BODY OF `/agent/v1/turn` — the route-level
++ * half of `answer-shape-sidecar.test.ts`.
++ *
++ * The provider is a scripted `fetch` stub: no model is called. Its reply is a
++ * SERVED Agent reply (CEE 57f903c, `fixtures/served-agent-reply-texts-57f903c.json`),
++ * so the text goes through the route's real composition (write-outcome
++ * narration, disclosures, proposal-id scrub, finaliser) before the sidecar is
++ * read back from what is actually sent.
++ *
++ * Pinned: the sidecar survives serialisation; `assistant_text` is unchanged;
++ * `detail` is exactly the sent text; a reply without the shape carries NO key
++ * and otherwise the same body; a lost-response replay carries the identical
++ * sidecar; the route's own fallback copy is never shaped.
++ */
++import { readFileSync } from 'node:fs';
++import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
++import Fastify, { type FastifyInstance } from 'fastify';
++
++const SERVED = JSON.parse(
++  readFileSync(new URL('./fixtures/served-agent-reply-texts-57f903c.json', import.meta.url), 'utf8'),
++) as { replies: Record<string, { assistant_text: string }> };
++const PRICING_RUN = SERVED.replies['pricing-run-complete.explicit-run']!.assistant_text;
++const PRICING_CONSTRUCTION = SERVED.replies['pricing-run-complete.construction']!.assistant_text;
++
++type Row = { id: string; turn_id: string; request_hash: string; assistant_message: string | null; user_message: string | null };
++const rows = new Map<string, Row>();
++const store = {
++  ensureScenarioExists: vi.fn(async () => ({ user_id: null })),
++  readCommittedTurn: vi.fn(async (_sid: string, turnId: string) => rows.get(turnId) ?? null),
++  append: vi.fn(async (w: { turn_id: string; request_hash: string; assistantMessage?: string; userMessage?: string }) => {
++    const prior = rows.get(w.turn_id);
++    if (prior !== undefined) return prior.request_hash === w.request_hash ? { id: prior.id, replayedPriorTurn: true as const } : { id: prior.id, priorTurnConflict: true as const };
++    const row: Row = { id: `row-${rows.size + 1}`, turn_id: w.turn_id, request_hash: w.request_hash, assistant_message: w.assistantMessage ?? null, user_message: w.userMessage ?? null };
++    rows.set(w.turn_id, row);
++    return { id: row.id };
++  }),
++};
++vi.mock('../../session/index.js', () => ({ getSessionStore: () => store }));
++vi.mock('../../../orchestrator/user-identity.js', async (importOriginal) => {
++  const actual = await importOriginal<Record<string, unknown>>();
++  return { ...actual, resolveUserIdentity: async () => ({ mode: 'off' }) };
++});
++
++/** The scripted provider: answers with `nextReply`, and records every URL it was asked for. */
++let nextReply = PRICING_RUN;
++const provider: { urls: string[] } = { urls: [] };
++const fakeFetch = vi.fn(async (url: unknown) => {
++  provider.urls.push(String(url));
++  return new Response(JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: nextReply }] }] }), { status: 200 });
++});
++
++const SID = '7a2b3c4d-5e6f-4a70-8b91-a2b3c4d5e6f7';
++const T1 = '3e4f5a6b-7c8d-4e9f-8a0b-1c2d3e4f5a6b';
++
++type Body = Record<string, unknown> & { assistant_text: string; _answer_shape?: { headline: string; bullets: string[]; detail: string } };
++
++describe('/agent/v1/turn carries `_answer_shape` on the wire', () => {
++  let app: FastifyInstance;
++  beforeEach(async () => {
++    rows.clear(); provider.urls = []; nextReply = PRICING_RUN;
++    store.append.mockClear(); store.readCommittedTurn.mockClear();
++    vi.stubGlobal('fetch', fakeFetch);
++    vi.resetModules();
++    process.env.AGENT_LANE_ENABLED = 'true';
++    process.env.AGENT_LANE_PREVIEW = 'false';
++    const { agentV1TurnRoute } = await import('../../../routes/agent-v1-turn.js');
++    app = Fastify({ logger: false });
++    app.post('/assist/v1/scenarios/:id/graph', async () => ({ graph: { nodes: [], edges: [] }, graph_hash: 'h1' }));
++    await app.register(agentV1TurnRoute);
++    await app.ready();
++  }, 60_000);
++  afterEach(async () => { await app.close(); vi.unstubAllGlobals(); delete process.env.AGENT_LANE_ENABLED; delete process.env.AGENT_LANE_PREVIEW; });
++
++  const say = (message: string, turnId?: string) =>
++    app.inject({ method: 'POST', url: '/agent/v1/turn', payload: { kind: 'message', scenario_id: SID, message, ...(turnId ? { turn_id: turnId } : {}) } });
++
++  it('a served reply with the shape → `_answer_shape` in the HTTP body, assistant_text untouched, detail === assistant_text', async () => {
++    const r = await say('What did the run show?');
++    expect(r.statusCode).toBe(200);
++    // `r.json()` parses the SERIALISED payload: the key survived to the wire.
++    const body = r.json() as Body;
++    expect(body.assistant_text, 'the reply text is exactly what the model said — nothing rewritten').toBe(PRICING_RUN);
++    expect(body._answer_shape).toBeDefined();
++    expect(body._answer_shape!.headline).toBe(
++      '**This run does not establish whether you should raise Pro to £59**, because it could not test the stated churn limit and did not convert the £20k MRR threshold into the analysis’s outcome frame.',
++    );
++    expect(body._answer_shape!.bullets).toHaveLength(3);
++    expect(body._answer_shape!.detail, 'the whole sent text, byte for byte').toBe(body.assistant_text);
++    expect(provider.urls, 'the only "provider" was the stub').toEqual(['https://api.openai.com/v1/responses']);
++  });
++
++  it('a served reply WITHOUT the shape → no `_answer_shape` key, and otherwise the same body keys', async () => {
++    const shaped = (await say('What did the run show?')).json() as Body;
++    nextReply = PRICING_CONSTRUCTION;
++    const r = await say('Set up the pricing model.');
++    expect(r.statusCode).toBe(200);
++    const plain = r.json() as Body;
++    // The route's own write-outcome narration edits this text (no tool saved
++    // anything here), so only its two-sentence opener is asserted.
++    expect(plain.assistant_text.startsWith(PRICING_CONSTRUCTION.split('\n')[0]!)).toBe(true);
++    expect('_answer_shape' in plain, 'absent, not null or {}').toBe(false);
++    expect(Object.keys(plain).sort(), 'the sidecar is the ONLY key this adds').toEqual(
++      Object.keys(shaped).filter((k) => k !== '_answer_shape').sort(),
++    );
++  });
++
++  it('a lost-response replay (same turn_id) carries the identical sidecar, with no second model call', async () => {
++    const first = (await say('What did the run show?', T1)).json() as Body;
++    expect(first._answer_shape).toBeDefined();
++    const retry = await say('What did the run show?', T1);
++    expect(retry.statusCode).toBe(200);
++    const again = retry.json() as Body & { _agent?: { replayed?: boolean } };
++    expect(again._agent?.replayed).toBe(true);
++    expect(provider.urls, 'the replay did not call the model').toHaveLength(1);
++    expect(again.assistant_text).toBe(first.assistant_text);
++    expect(again._answer_shape).toEqual(first._answer_shape);
++  });
++
++  it('the route’s own fallback copy is never shaped', async () => {
++    const { interpretationUnavailableText } = await import('../../../routes/agent-v1-turn.js');
++    const { deriveAgentAnswerShape } = await import('../answer-shape-sidecar.js');
++    for (const copy of [
++      interpretationUnavailableText({ ok: true, ran: true }),
++      interpretationUnavailableText({ ok: true, what_is_missing: 'No option has a path to the goal.' }),
++      interpretationUnavailableText({ ok: true, refusal: 'model_too_large' }),
++      // The hop-limit copy, as the route writes it.
++      'I was not able to finish that within this turn. Ask me again and I will continue.',
++      // The read-only preview refusal.
++      'This is a read-only preview, so I can’t change the model from the board. Tell me what you want to change and I’ll talk it through.',
++    ]) {
++      expect(deriveAgentAnswerShape(copy), copy).toBeNull();
++    }
++  });
++});
+diff --git a/src/orchestrator-v5/agent-lane/__tests__/answer-shape-sidecar.test.ts b/src/orchestrator-v5/agent-lane/__tests__/answer-shape-sidecar.test.ts
+new file mode 100644
+index 00000000..0cb4b289
+--- /dev/null
++++ b/src/orchestrator-v5/agent-lane/__tests__/answer-shape-sidecar.test.ts
+@@ -0,0 +1,203 @@
++/**
++ * ⭐ AN AGENT REPLY CARRIES ITS OWN CONCISE VIEW — `_answer_shape` read back
++ * from the final text, never invented.
++ *
++ * Measured at CEE staging 57f903c on the real OpenAI route: every Agent reply
++ * already had the shape in markdown (a one-sentence conclusion, a `- ` list, a
++ * closing paragraph) and NONE carried `_answer_shape`, so the UI could only
++ * render it as a wall of text. The inputs below are those replies, byte for
++ * byte (`fixtures/served-agent-reply-texts-57f903c.json`).
++ *
++ * Both directions are pinned: the served replies that have the shape get it,
++ * and every reply that does not — a two-sentence opener, a bare receipt, the
++ * route's own fallback copy, empty text — gets NOTHING.
++ */
++import { readFileSync } from 'node:fs';
++import { describe, it, expect } from 'vitest';
++import { answerShapeSidecarFor, deriveAgentAnswerShape } from '../answer-shape-sidecar.js';
++import { AnswerShapeSchema } from '../../routing/answer-shape.js';
++
++const SERVED = JSON.parse(
++  readFileSync(new URL('./fixtures/served-agent-reply-texts-57f903c.json', import.meta.url), 'utf8'),
++) as { replies: Record<string, { assistant_text: string }> };
++const served = (name: string): string => {
++  const reply = SERVED.replies[name];
++  if (reply === undefined) throw new Error(`fixture has no reply named ${name}`);
++  return reply.assistant_text;
++};
++
++/** The UI's own acceptance rule (DecisionGuideAI `answerShape.ts` parseAnswerShape), restated as assertions. */
++function expectUiRenders(shape: ReturnType<typeof deriveAgentAnswerShape>): void {
++  expect(shape).not.toBeNull();
++  expect(shape!.headline.trim().length, 'the UI needs a non-blank headline').toBeGreaterThan(0);
++  expect(shape!.detail.trim().length, 'the UI needs a non-blank detail').toBeGreaterThan(0);
++  expect(shape!.bullets.length, 'at most three bullets').toBeLessThanOrEqual(3);
++  for (const b of shape!.bullets) expect(b.trim().length).toBeGreaterThan(0);
++  expect(AnswerShapeSchema.safeParse(shape).success, 'and the conventional lane’s own contract').toBe(true);
++}
++
++describe('served Agent replies (CEE 57f903c) that have the shape get the sidecar', () => {
++  it('pricing, explicit Run: one-sentence opener, the three bullets verbatim, the whole reply as detail', () => {
++    const text = served('pricing-run-complete.explicit-run');
++    const shape = deriveAgentAnswerShape(text);
++    expectUiRenders(shape);
++    // The bold covers only the opening clause, not the whole sentence, so it
++    // is kept exactly as written (the UI renders `**` as <strong>).
++    expect(shape!.headline).toBe(
++      '**This run does not establish whether you should raise Pro to £59**, because it could not test the stated churn limit and did not convert the £20k MRR threshold into the analysis’s outcome frame.',
++    );
++    expect(shape!.bullets).toEqual([
++      'On the model’s **MRR-only, normalised outcome scale**, the £59-at-release path was most often highest in the simulated comparison (**83.28%** of runs), versus **15.39%** for keeping £49 and **1.33%** for phasing. Those are comparative model results, not probabilities of achieving £20k MRR.',
++      'The decisive caveat is that **“monthly churn rate < 4%” was unscored**: the model treats churn as calculated from other factors, and the constraint’s frame was unspecified. So this result does not show whether £59 keeps churn below 4%.',
++      'The comparison also rests on adopted starting assumptions, notably **3% monthly churn**, **250 Pro subscribers**, and **£49/month MRR per Pro subscriber**. The model flags churn, subscriber base, and MRR per subscriber as its strongest structural drivers.',
++    ]);
++    expect(shape!.detail, 'nothing is lost: detail IS the reply').toBe(text);
++  });
++
++  it('hiring, explicit Run (blocked): one-sentence opener with inner bold kept, the three bullets under the lead-in', () => {
++    const text = served('hiring-run-blocked.explicit-run');
++    const shape = deriveAgentAnswerShape(text);
++    expectUiRenders(shape);
++    expect(shape!.headline).toBe(
++      'The comparison cannot run yet because **Continue Current Staffing** has no stated effect on any factor, so it has no connection to the productivity goal.',
++    );
++    expect(shape!.bullets).toEqual([
++      'Tech Lead sets Tech-lead capacity to **8 capacity points (0–10)**.',
++      'Two Developers sets Developer capacity to **12 capacity points (0–20)**.',
++      'One Developer sets Developer capacity to **10 capacity points (0–20)**.',
++    ]);
++    expect(shape!.detail).toBe(text);
++  });
++
++  it('hiring, construction: one-sentence opener → shaped; bullets are the FIRST list only (the assumption lists stay in detail)', () => {
++    const text = served('hiring-run-blocked.construction');
++    const shape = deriveAgentAnswerShape(text);
++    expectUiRenders(shape);
++    expect(shape!.headline).toBe(
++      'I’ve set up a comparison model, but it cannot yet tell us which hiring path leads under your circumstances.',
++    );
++    expect(shape!.bullets).toEqual([
++      '**Hire a Tech Lead**',
++      '**Hire Two Developers**',
++      'Also, for context: **Hire One Developer** and **Continue Current Staffing**',
++    ]);
++    expect(shape!.detail).toBe(text);
++    expect(shape!.detail).toContain('Tech-lead capacity: **4 capacity points (0–10)**');
++  });
++});
++
++describe('served Agent replies without the shape get NOTHING', () => {
++  it.each([
++    ['pricing-run-complete.construction', 'a two-sentence opener'],
++    ['pricing-run-complete.approve', 'a multi-sentence disclosure paragraph'],
++    ['hiring-run-blocked.approve', 'a two-sentence receipt'],
++  ])('%s (%s) → no sidecar', (name) => {
++    expect(deriveAgentAnswerShape(served(name))).toBeNull();
++    expect(answerShapeSidecarFor(served(name)), 'the KEY is absent, not an empty object').toEqual({});
++    expect('_answer_shape' in answerShapeSidecarFor(served(name))).toBe(false);
++  });
++});
++
++describe('rules — each limb, both directions', () => {
++  it('no bullets anywhere: still shaped when the opener is one sentence and more follows', () => {
++    const text = 'The model cannot compare these options yet.\n\nNeither option changes any factor, so the analysis has nothing to separate them on.';
++    const shape = deriveAgentAnswerShape(text);
++    expectUiRenders(shape);
++    expect(shape!.headline).toBe('The model cannot compare these options yet.');
++    expect(shape!.bullets).toEqual([]);
++    expect(shape!.detail).toBe(text);
++  });
++
++  it('a multi-sentence opener is declined, even with a list after it', () => {
++    expect(deriveAgentAnswerShape('The run finished. The price rise leads.\n\n- a point\n- another')).toBeNull();
++  });
++
++  it('a second sentence hidden behind bold markers is still a second sentence', () => {
++    // The shared detector alone reads both of these as ONE sentence, because
++    // `**` sits between the full stop and the space.
++    expect(deriveAgentAnswerShape('**The run finished.** The price rise leads.\n\nMore follows.')).toBeNull();
++    expect(deriveAgentAnswerShape('The run finished. **The price rise leads.**\n\nMore follows.')).toBeNull();
++  });
++
++  it.each([
++    ['empty', ''],
++    ['whitespace only', '  \n\n \t'],
++    ['not a string', undefined],
++    ['null', null],
++  ])('%s → null', (_label, input) => {
++    expect(deriveAgentAnswerShape(input)).toBeNull();
++    expect(answerShapeSidecarFor(input)).toEqual({});
++  });
++
++  it('a reply that is ONLY its headline is declined — there is nothing to put behind "Show more"', () => {
++    expect(deriveAgentAnswerShape('The analysis ran on the current model.')).toBeNull();
++    expect(deriveAgentAnswerShape('The analysis ran on the current model.\n\n  \n')).toBeNull();
++  });
++
++  it('more than three bullets: the first three are shown and detail keeps all of them', () => {
++    const text = 'Five things changed.\n\n- one\n- two\n- three\n- four\n- five\n\nThat is all.';
++    const shape = deriveAgentAnswerShape(text);
++    expectUiRenders(shape);
++    expect(shape!.bullets).toEqual(['one', 'two', 'three']);
++    expect(shape!.detail).toBe(text);
++    expect(shape!.detail).toContain('- four\n- five');
++  });
++
++  it('only the FIRST list is read; a later list after a paragraph is not', () => {
++    const shape = deriveAgentAnswerShape('Two lists follow.\n\n- a\n- b\n\nA paragraph between.\n\n- c\n- d');
++    expect(shape!.bullets).toEqual(['a', 'b']);
++  });
++
++  it('indented sub-items and continuation lines are not top-level bullets', () => {
++    const shape = deriveAgentAnswerShape('Nested list.\n\n- a\n  - a.1\n  continued\n- b\n\nEnd.');
++    expect(shape!.bullets).toEqual(['a', 'b']);
++  });
++
++  it('`* ` items count as bullets; loose lists (blank lines between items) stay one list', () => {
++    const shape = deriveAgentAnswerShape('Star list.\n\n* one\n\n* two\n\nClosing words.');
++    expect(shape!.bullets).toEqual(['one', 'two']);
++  });
++
++  it('a list directly under the opener (no blank line) is read', () => {
++    const shape = deriveAgentAnswerShape('Here are the options:\n- keep the price\n- raise it');
++    expectUiRenders(shape);
++    expect(shape!.headline).toBe('Here are the options:');
++    expect(shape!.bullets).toEqual(['keep the price', 'raise it']);
++  });
++
++  it('a WHOLLY bold sentence loses only its wrapping `**`; partial bold is kept verbatim', () => {
++    expect(deriveAgentAnswerShape('**Raise the price at release.**\n\nMore follows.')!.headline).toBe('Raise the price at release.');
++    expect(deriveAgentAnswerShape('**Raise the price at release**.\n\nMore follows.')!.headline).toBe('Raise the price at release.');
++    expect(deriveAgentAnswerShape('**Raise** the price at release.\n\nMore follows.')!.headline).toBe('**Raise** the price at release.');
++    // Two bold spans are not one wrapping span.
++    expect(deriveAgentAnswerShape('**Raise** it and **keep** it.\n\nMore follows.')!.headline).toBe('**Raise** it and **keep** it.');
++  });
++
++  it.each([
++    ['a heading', '## Result\n\nThe run finished.'],
++    ['a list', '- first point\n- second point\n\nClosing.'],
++    ['a numbered list', '1. first\n2. second\n\nClosing.'],
++    ['a quote', '> quoted\n\nClosing.'],
++    ['a table', '| a | b |\n|---|---|\n\nClosing.'],
++    ['a code fence', '```\ncode\n```\n\nClosing.'],
++  ])('a reply that opens with %s is declined', (_label, text) => {
++    expect(deriveAgentAnswerShape(text)).toBeNull();
++  });
++
++  it('an opening paragraph that wraps onto a second line is declined (re-joining it would be rewriting)', () => {
++    expect(deriveAgentAnswerShape('This is one sentence\nthat wraps onto a second line.\n\n- a')).toBeNull();
++  });
++
++  it('CRLF replies are read the same way, and detail keeps the original bytes', () => {
++    const text = 'Line endings differ.\r\n\r\n- a\r\n- b\r\n\r\nEnd.';
++    const shape = deriveAgentAnswerShape(text);
++    expect(shape!.headline).toBe('Line endings differ.');
++    expect(shape!.bullets).toEqual(['a', 'b']);
++    expect(shape!.detail).toBe(text);
++  });
++
++  it('is pure: the same text always yields the same shape', () => {
++    const text = served('pricing-run-complete.explicit-run');
++    expect(deriveAgentAnswerShape(text)).toEqual(deriveAgentAnswerShape(text));
++  });
++});
+diff --git a/src/orchestrator-v5/agent-lane/__tests__/fixtures/served-agent-reply-texts-57f903c.json b/src/orchestrator-v5/agent-lane/__tests__/fixtures/served-agent-reply-texts-57f903c.json
+new file mode 100644
+index 00000000..00b38b42
+--- /dev/null
++++ b/src/orchestrator-v5/agent-lane/__tests__/fixtures/served-agent-reply-texts-57f903c.json
+@@ -0,0 +1,41 @@
++{
++  "source": "assistant_text, verbatim, from real POST /agent/v1/turn responses on the OpenAI route at CEE staging 57f903c (AI Quality's route captures for the pricing and hiring journeys: the construction, approve and explicit-run turns of each). Each value is the response body's `assistant_text` field copied byte for byte; `capture_sha256` is the sha256 of the whole captured response file it came from. None of these bodies carried `_answer_shape`. Not hand-written.",
++  "replies": {
++    "pricing-run-complete.explicit-run": {
++      "capture_sha256": "f4022d8b67bd64de645f4c7f707e6d2246acdf344a9af5e57772d9ab3df18188",
++      "exit_path": "agent_lane_v1",
++      "fast_path": "run",
++      "assistant_text": "**This run does not establish whether you should raise Pro to £59**, because it could not test the stated churn limit and did not convert the £20k MRR threshold into the analysis’s outcome frame.\n\n- On the model’s **MRR-only, normalised outcome scale**, the £59-at-release path was most often highest in the simulated comparison (**83.28%** of runs), versus **15.39%** for keeping £49 and **1.33%** for phasing. Those are comparative model results, not probabilities of achieving £20k MRR.\n- The decisive caveat is that **“monthly churn rate < 4%” was unscored**: the model treats churn as calculated from other factors, and the constraint’s frame was unspecified. So this result does not show whether £59 keeps churn below 4%.\n- The comparison also rests on adopted starting assumptions, notably **3% monthly churn**, **250 Pro subscribers**, and **£49/month MRR per Pro subscriber**. The model flags churn, subscriber base, and MRR per subscriber as its strongest structural drivers.\n\nThe next useful reasoning step is to define the churn constraint in a comparable form—whether it is an absolute monthly rate or a change from a measured baseline—so the £59 path can be assessed against the limit rather than on MRR alone."
++    },
++    "hiring-run-blocked.explicit-run": {
++      "capture_sha256": "34916c7a54847d54d143148e098a4ed97477397abb6b369d0442cb75b3d7050b",
++      "exit_path": "agent_lane_v1",
++      "fast_path": "run",
++      "assistant_text": "The comparison cannot run yet because **Continue Current Staffing** has no stated effect on any factor, so it has no connection to the productivity goal.\n\nThe three hiring options are structurally ready:\n- Tech Lead sets Tech-lead capacity to **8 capacity points (0–10)**.\n- Two Developers sets Developer capacity to **12 capacity points (0–20)**.\n- One Developer sets Developer capacity to **10 capacity points (0–20)**.\n\nTo include the status-quo option, say which factor it changes and to what level — for example, whether it leaves developer capacity at **8 capacity points (0–20)**, tech-lead capacity at **4 capacity points (0–10)**, or both."
++    },
++    "pricing-run-complete.construction": {
++      "capture_sha256": "f0aa3d8908474b94e2741752fb0f88d4259966b19e16790f9c17d67d3ea37740",
++      "exit_path": "agent_lane_v1",
++      "fast_path": null,
++      "assistant_text": "I’ve set up a comparison model with three paths: keep Pro at £49, raise it to £59 with the release, or phase the increase. It cannot yet determine the implication because key inputs were not supplied.\n\nHere is one **single set of starting assumptions** to adopt or correct — these are **not measurements**:\n\n**Current starting point**\n- Monthly churn: **3%**, cautiously below the 4% constraint.\n- Pro subscriber base: **250 subscribers** — a round planning baseline, implying about **£12,250/month** at £49 before other plans.\n- Pro conversion rate: **5%** — neutral placeholder pending funnel data.\n- Perceived Pro value: **60%** — moderate, because no evidence was provided on the feature’s willingness-to-pay effect.\n- Price–release alignment: **50%** — neutral because the strength of the feature/price connection is unknown.\n- MRR per Pro subscriber: **£49/month**, matching the current price.\n\n**Option levels**\n- **Raise Pro to £59 at release:** price–release alignment **100%**, since the increase occurs with the release.\n- **Phase Pro price increase:** Pro price **£54/month** and price–release alignment **50%**. This is a midpoint assumption only; no actual phasing path was specified.\n- The existing model already has **£49/month** for keeping price flat and **£59/month** for the direct increase.\n\nIf you approve, I’ll save this whole starting point and run the comparison. The result will show what the model implies, and especially whether the £59 move risks the **under-4% churn** constraint.\n\nThe model was saved. Questions this model does not answer yet: Does the £59 price apply to existing Pro subscribers, new subscribers, or both? What is the current Pro subscriber base, conversion rate, and monthly churn rate? What feature is being released, and is its expected effect on perceived Pro value or retention known? Would a phased increase have a defined price path and timing before the 12-month horizon?"
++    },
++    "hiring-run-blocked.construction": {
++      "capture_sha256": "dbca50db1ece3f019401fd7deeba2230da96402864d51a56c7dc7b9989967d83",
++      "exit_path": "agent_lane_v1",
++      "fast_path": null,
++      "assistant_text": "I’ve set up a comparison model, but it cannot yet tell us which hiring path leads under your circumstances.\n\nIt includes:\n- **Hire a Tech Lead**\n- **Hire Two Developers**\n- Also, for context: **Hire One Developer** and **Continue Current Staffing**\n\nThe key uncertainty is whether your present constraint is **technical leadership, prioritisation and coordination** or simply **engineering delivery capacity**. The model currently has six unknown starting factors, and “continue current staffing” has no stated effect, so it cannot be compared.\n\nI can use the following **machine-authored assumptions** as a first test — these are not measurements. Please adopt or correct them:\n\n**Starting position**\n- Tech-lead capacity: **4 capacity points (0–10)** — some leadership exists, but a bottleneck remains.\n- Developer capacity: **8 capacity points (0–20)** — a modest existing delivery base.\n- Work prioritisation: **60 index points (0–100)** — workable, with meaningful room to improve.\n- Engineering coordination: **60 index points (0–100)** — adequate, but not yet strong at scale.\n- Delivery capacity: **12 capacity points (0–30)** — below the middle of the model range.\n- New-hire ramp-up: **50 index points (0–100)** — a typical moderate ramp-up burden.\n\n**What each hire would set**\n- Hire a Tech Lead → Tech-lead capacity: **8**\n- Hire One Developer → Developer capacity: **10**\n- Hire Two Developers → Developer capacity: **12**\n\nThese assumptions deliberately separate the direct capacity added by developers from the leadership/coordination effect of a Tech Lead. They do not yet represent salary, time-to-hire, or your exact team size.\n\nIf you approve this starting point, I’ll save it and run the comparison.\n\nThe model was saved. Questions this model does not answer yet: What is the current team size and existing technical-leadership capacity? How will productivity be measured (for example, throughput, cycle time, quality-adjusted output, or business outcomes)? What hiring timeline and ramp-up period should be evaluated? Are budget, salary, or headcount constraints material to this decision? Is the current primary constraint insufficient engineering capacity, weak technical direction/prioritisation, or both?"
++    },
++    "pricing-run-complete.approve": {
++      "capture_sha256": "ce3bf431a95ed02b6cc1a65437db1cb9af65f7f75f8aa1cd87410385e1c8c487",
++      "exit_path": "agent_lane_v1",
++      "fast_path": "approve",
++      "assistant_text": "Note: the analysis needed a range for some factors and Olumi chose one so it could run — Price-release alignment (0 to 100). Those ranges are not yours. Tell me the right ones and I will replace them.\n\nSaved 6 of 6 starting values. Saved 3 of 3 option levels."
++    },
++    "hiring-run-blocked.approve": {
++      "capture_sha256": "46cdd7a06d5e3bfdd1eea34cbff20be025a3c9d9fa9b56c233464d09166d87a9",
++      "exit_path": "agent_lane_v1",
++      "fast_path": "approve",
++      "assistant_text": "Saved 6 of 6 starting values. Saved 3 of 3 option levels."
++    }
++  }
++}
+diff --git a/src/orchestrator-v5/agent-lane/answer-shape-sidecar.ts b/src/orchestrator-v5/agent-lane/answer-shape-sidecar.ts
+new file mode 100644
+index 00000000..fe2ea745
+--- /dev/null
++++ b/src/orchestrator-v5/agent-lane/answer-shape-sidecar.ts
+@@ -0,0 +1,113 @@
++/**
++ * ⭐ THE AGENT LANE'S `_answer_shape` SIDECAR — derived from the FINAL reply
++ * text, deterministically, with no model call.
++ *
++ * The UI renders `_answer_shape` ({ headline, bullets, detail }) as a concise
++ * headline + at most three bullets, with `detail` behind "Show more"
++ * (DecisionGuideAI `src/canvas/conversation/answerShape.ts`). The conventional
++ * lane attaches it in `route-v2.ts`'s `sendFinalised200`; `/agent/v1/turn`
++ * never goes through that egress, so an Agent reply arrived with NO sidecar —
++ * measured on the real OpenAI route captures at CEE staging `57f903c`
++ * (`__tests__/fixtures/served-agent-reply-texts-57f903c.json`).
++ *
++ * The Agent already writes the shape as markdown: a first-paragraph
++ * conclusion, then a `- ` list, then a closing paragraph. This reads that
++ * shape back; it never writes one.
++ *
++ * RULES — fail closed: any doubt returns `null` and the reply ships as free
++ * text, exactly as before. No text is ever invented, reworded or reordered.
++ *   - headline: the first paragraph, and only when it is ONE line and ONE
++ *     sentence (`isSingleSentence` — the conventional lane's own detector, so
++ *     the two lanes cannot disagree on what a sentence is). Kept verbatim; the
++ *     one edit allowed is removing a `**…**` pair that wraps the WHOLE
++ *     sentence. Partial bold stays exactly as written.
++ *   - bullets: the top-level `- ` / `* ` / `• ` items of the FIRST list after
++ *     the headline, marker removed, inner markdown kept, at most
++ *     `ANSWER_SHAPE_MAX_BULLETS`. Indented lines stay in `detail` only.
++ *   - detail: the WHOLE reply, byte for byte. Nothing is lost when the UI
++ *     shows the structured view in place of the free text.
++ *   - null when the reply is only its headline (nothing to put behind
++ *     "Show more"), when it opens with a list, heading, quote, table or code
++ *     block, or when the result fails `AnswerShapeSchema` (the same contract
++ *     the conventional lane validates against).
++ *
++ * ⚠ THIS SIDECAR DOES NOT SATISFY THE CONVENTIONAL LANE'S TIE, AND SAYS SO.
++ * There `assistant_text === deriveAnswerTextFromShape(shape)` because that
++ * lane REWRITES `assistant_text` from the shape. Here `assistant_text` is left
++ * exactly as it was and `detail` carries all of it, so the headline and
++ * bullets are copies of text `detail` already holds. The sidecar is therefore
++ * derived from the text ACTUALLY SENT, as the last step before sending, so no
++ * later rewrite can leave it describing text the user never received.
++ */
++
++import {
++  ANSWER_SHAPE_MAX_BULLETS,
++  AnswerShapeSchema,
++  isSingleSentence,
++  type AnswerShape,
++} from '../routing/answer-shape.js';
++
++/** A top-level list item: marker in column 0, whitespace, then content. */
++const TOP_LEVEL_BULLET = /^[-*•][ \t]+(\S.*)$/;
++/** An opening line that is structure, not a sentence: heading, list, quote, table, code fence, rule. */
++const NOT_A_HEADLINE = /^(?:#{1,6}\s|[-*+•]\s|\d+[.)]\s|>|\||```|~~~|---|___|\*\*\*$)/;
++/** `**Whole sentence.**` or `**Whole sentence**.` — one bold span covering the entire line. */
++const WHOLLY_BOLD = /^\*\*((?:(?!\*\*).)+)\*\*([.!?]?)$/;
++
++const isBlank = (line: string): boolean => line.trim().length === 0;
++
++/**
++ * The sentence test runs on the headline with emphasis markers removed. The
++ * shared detector needs whitespace straight after the terminator, so
++ * `**One.** Two.` and `One. **Two.**` would each read as ONE sentence with the
++ * markers in place — and Agent replies are markdown. Used only to decide; the
++ * headline itself keeps its markers.
++ */
++const withoutEmphasis = (text: string): string => text.replace(/\*+|_{2}|`/g, '');
++
++function headlineFrom(line: string): string {
++  const bold = WHOLLY_BOLD.exec(line);
++  return bold === null ? line : `${bold[1]}${bold[2]}`;
++}
++
++export function deriveAgentAnswerShape(finalText: unknown): AnswerShape | null {
++  if (typeof finalText !== 'string' || finalText.trim().length === 0) return null;
++
++  const lines = finalText.trim().split(/\r?\n/);
++  const opener = lines[0]!.trim();
++  if (NOT_A_HEADLINE.test(opener)) return null;
++  // The first paragraph must be the opener alone. A paragraph that wraps onto
++  // a second line would have to be re-joined to become a headline — that is
++  // rewriting, so it is declined. A list may follow the opener directly.
++  const second = lines[1];
++  if (second !== undefined && !isBlank(second) && !TOP_LEVEL_BULLET.test(second)) return null;
++  const headline = headlineFrom(opener);
++  if (!isSingleSentence(headline) || !isSingleSentence(withoutEmphasis(headline))) return null;
++  // Only the headline: there is nothing to disclose, and a "Show more" that
++  // reveals the same sentence again is worse than the plain reply.
++  if (lines.slice(1).every(isBlank)) return null;
++
++  const bullets: string[] = [];
++  let inList = false;
++  for (const line of lines.slice(1)) {
++    const item = TOP_LEVEL_BULLET.exec(line);
++    if (item !== null) {
++      inList = true;
++      if (bullets.length < ANSWER_SHAPE_MAX_BULLETS) bullets.push(item[1]!.trimEnd());
++      continue;
++    }
++    // Blank lines and indented continuation / sub-items belong to the list.
++    if (isBlank(line) || /^\s/.test(line)) continue;
++    // The first non-list line after the list ends it: only the FIRST list counts.
++    if (inList) break;
++  }
++
++  const parsed = AnswerShapeSchema.safeParse({ headline, bullets, detail: finalText });
++  return parsed.success ? parsed.data : null;
++}
++
++/** Spread into the response body: `{ _answer_shape }` when the text has the shape, else nothing at all. */
++export function answerShapeSidecarFor(finalText: unknown): { _answer_shape?: AnswerShape } {
++  const shape = deriveAgentAnswerShape(finalText);
++  return shape === null ? {} : { _answer_shape: shape };
++}
+diff --git a/src/routes/agent-v1-turn.ts b/src/routes/agent-v1-turn.ts
+index 177adc13..9eb96d56 100644
+--- a/src/routes/agent-v1-turn.ts
++++ b/src/routes/agent-v1-turn.ts
+@@ -54,6 +54,7 @@ import { narrateWriteOutcome, notAdoptedLine, withWriteOutcome } from '../orches
+ import { disclosuresFor, valueChangeDisclosures, withDisclosures } from '../orchestrator-v5/agent-lane/disclosure.js';
+ import { collectTurnStateFacts } from '../orchestrator-v5/agent-lane/turn-state-facts.js';
+ import { withoutProposalIds } from '../orchestrator-v5/agent-lane/display-ids.js';
++import { answerShapeSidecarFor } from '../orchestrator-v5/agent-lane/answer-shape-sidecar.js';
+ import { AMEND_CHIP, approvalChipsFor, typedApprovalOf } from '../orchestrator-v5/agent-lane/approval-chips.js';
+ import type { SuggestedAction } from '../orchestrator-v5/compose/types.js';
+ import { derivePendingActionsFromFinalizedChips } from '../orchestrator-v5/compose/derive-pending-actions.js';
+@@ -1043,12 +1044,15 @@ export async function agentV1TurnRoute(app: FastifyInstance): Promise<void> {
+           modelExists: state.draftGraph !== undefined,
+         }),
+       });
++      const finalisedReplay = finaliseV5Response(composedReplay, { scenarioId });
+       return {
+-        ...finaliseV5Response(composedReplay, { scenarioId }),
++        ...finalisedReplay,
+         ...(state.graphHash !== undefined ? { graph_hash: state.graphHash } : {}),
+         ...(state.analysisReady !== undefined ? { analysis_ready: state.analysisReady } : {}),
+         ...(state.analysisState !== undefined ? { analysis_state: state.analysisState } : {}),
+         ...(state.draftGraph !== undefined ? { draft_graph: state.draftGraph } : {}),
++        // The same pure derivation over the same recorded words, so a replay renders as the original did.
++        ...answerShapeSidecarFor((finalisedReplay as { assistant_text?: unknown }).assistant_text),
+         _diagnostic_trace: { exit_path: 'agent_lane_v1', agent_mode: mode, hops: 0, stopped_reason: 'replayed', tools_called: [], replayed: true },
+         _agent: { session_id: sessionId, mode, tool_calls: [], mutated: false, hops: 0, stopped_reason: 'replayed', replayed: true, turn_id: turnId },
+         _provider_calls: recordedProviderCalls(),
+@@ -1352,10 +1356,11 @@ export async function agentV1TurnRoute(app: FastifyInstance): Promise<void> {
+       ? 'I was not able to finish that within this turn. Ask me again and I will continue.'
+       : result.assistant_text;
+ 
+-    // ⭐ `answerKind` is REQUIRED and load-bearing: route egress synthesises
+-    // `_answer_shape` only for 'substantive'. An Agent's conversational reply
+-    // is substantive by construction — it is the answer, not a confirmation of
+-    // a mechanical action.
++    // ⭐ `answerKind` is REQUIRED: an Agent's conversational reply is
++    // substantive by construction — it is the answer, not a confirmation of a
++    // mechanical action. ⚠ This route never passes through route-v2's egress,
++    // so that egress does NOT shape it; `_answer_shape` is attached at the
++    // send below, from the final text (`answer-shape-sidecar.ts`).
+     // ⭐ OLUMI OWES THE DISCLOSURE, NOT THE AGENT. When a write had to carry a
+     // placeholder strength the user never gave, the user is told — whether or
+     // not the model chose to mention it.
+@@ -1546,6 +1551,14 @@ export async function agentV1TurnRoute(app: FastifyInstance): Promise<void> {
+       // finaliser's own honest no-context verdict stays (present, never deleted).
+       ...(analysisState !== undefined ? { analysis_state: analysisState } : {}),
+       ...(draftGraph !== undefined ? { draft_graph: draftGraph } : {}),
++      /**
++       * ⭐ THE CONCISE VIEW OF THIS REPLY — `{ headline, bullets, detail }`, read
++       * back from the text actually sent (never from the model's draft), with
++       * `detail` carrying all of it. Absent — the key itself, not an empty
++       * object — whenever the reply is not a one-sentence opener followed by
++       * more. `assistant_text` is untouched. See `answer-shape-sidecar.ts`.
++       */
++      ...answerShapeSidecarFor((finalised as { assistant_text?: unknown }).assistant_text),
+       /**
+        * ⭐ SAY WHICH PATH SERVED THIS TURN.
+        *
+-- 
+2.43.0
+

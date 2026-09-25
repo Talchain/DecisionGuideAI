@@ -1,0 +1,17 @@
+/**
+ * THROWAWAY (not committed to CEE) — runs ONLY the PR-B route-capture files, with the network
+ * guard loaded as the FIRST setup file: before the repo's own setup (which imports src/config)
+ * and before any test module.
+ */
+import { defineConfig } from 'vitest/config';
+import base from './vitest.config.js';
+
+export default defineConfig({
+  ...base,
+  test: {
+    ...base.test,
+    setupFiles: ['./prb-no-network.setup.ts', './vitest.setup.ts'],
+    include: ["src/orchestrator-v5/agent-lane/__tests__/zz-prb-guard-proof.test.ts", "src/orchestrator-v5/agent-lane/__tests__/zz-prb-route-capture.test.ts"],
+    fileParallelism: false,
+  },
+});
