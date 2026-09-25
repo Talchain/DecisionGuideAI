@@ -605,10 +605,14 @@ describe('DecisionNode — the readiness summary on the card', () => {
     })
     renderDecision()
     // Precondition: the pre-analysis branch really did render its own content.
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the triage line is
-    // now the row's ONE focus signal, `decision-node-top-gap`.
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the triage line
+    // was the row's ONE focus signal. Prototype row (Paul, 25 Sep 2026): it is
+    // off the row, whole in the popover; the row carries the count.
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-top-gap').textContent).toMatch(/Top gap:/i)
+    expect(within(resting).queryByTestId('decision-node-top-gap')).toBeNull()
+    expect(within(screen.getByTestId('decision-node-popover')).getByTestId('decision-node-top-gap').textContent)
+      .toMatch(/Top gap:/i)
+    expect(within(resting).getByTestId('decision-node-option-count')).toBeDefined()
     // The row is always the face now, so "never reaches the fallback" is its
     // text: none of the four resting lines, and no summary.
     for (const line of [

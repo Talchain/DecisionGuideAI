@@ -7,17 +7,20 @@
  * Before: none of the three texts rendered. A target the option names but never
  * set was SILENTLY dropped from the rows (while still counted in `+N more`).
  *
- * WHAT IS HONEST, AND WHERE (ED #63 5809278282 keeps the Standard option card to
- * title + ONE primary line — `OptionNode.boundedAnatomy.spec.tsx` pins it; the
- * landing layout reserves card height at that bound):
+ * WHAT IS HONEST, AND WHERE. Paul, 25 Sep 2026: the option card matches the
+ * PROTOTYPE — one ROW per change on the card at rest, and the baseline card
+ * reads "Baseline · no changes" / "Reference for the other alternatives."
+ * (`OptionNode.prototypeChangeRows.spec.tsx`). That superseded ED #63
+ * 5809278282's "title + ONE primary line", which first placed these states in
+ * the popover:
  *   · the reference sentence is said only of the ONE DECLARED baseline
  *     (`is_baseline === true`, exactly one) — the option the others are read
- *     against; a label heuristic ("Status quo") declares nothing. It rides with
- *     the baseline meta: the popover in Standard, inline in Detailed;
+ *     against; a label heuristic ("Status quo") declares nothing. It sits on
+ *     the card under the baseline meta, in both views and both phases;
  *   · `Needs input` fills the amount cell of a row whose target carries no
- *     number and no reading, wherever rows render (popover grid, Detailed grid,
- *     and the one primary line when it is the option's top row) — with NO
- *     source mark, because there is no target to attribute;
+ *     number and no reading, wherever rows render (the Standard resting rows,
+ *     the Detailed grid) — with NO source mark, because there is no target to
+ *     attribute; the row's accessible name is the needs-input sentence;
  *   · stale keeps the LAST RUN'S result visible and labelled (`Last run`, the
  *     share, the bar — never deleted), and adds the contract's state line in
  *     the popover (Standard) / inline (Detailed) and in the share line's
@@ -132,13 +135,15 @@ afterEach(() => {
 })
 
 describe('row 22a — the declared baseline is "Reference for the other alternatives."', () => {
-  it('Standard, pre-run: the sentence is in the popover; the card keeps its ONE line, the baseline meta', () => {
+  it('Standard, pre-run: the sentence is ON THE CARD under the baseline meta (prototype), never also in the popover', () => {
     seed()
     renderOption(BASELINE)
-    const meta = onCard('option-baseline-meta-option-b')
-    expect(meta?.textContent).toBe('Baseline · no changes')
-    expect(onCard('option-baseline-reference-option-b')).toBeNull()
-    expect(inPopover('option-baseline-reference-option-b')?.textContent).toBe(REFERENCE)
+    const meta = onCard('option-baseline-meta-option-b')!
+    expect(meta.textContent).toBe('Baseline · no changes')
+    const ref = onCard('option-baseline-reference-option-b')
+    expect(ref?.textContent).toBe(REFERENCE)
+    expect(Boolean(meta.compareDocumentPosition(ref!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(inPopover('option-baseline-reference-option-b')).toBeNull()
   })
 
   it('Detailed: the sentence is inline on the card, after the meta', () => {
@@ -150,11 +155,16 @@ describe('row 22a — the declared baseline is "Reference for the other alternat
     expect(Boolean(meta.compareDocumentPosition(ref!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
   })
 
-  it('post-run (Standard): it moves to the popover with the meta', () => {
+  it('post-run (Standard): the meta and the sentence stay on the card, above the share line', () => {
     seed({ phase: 'current' })
     renderOption(BASELINE)
-    expect(onCard('option-analysis-currency-option-b')).not.toBeNull()
-    expect(inPopover('option-baseline-reference-option-b')?.textContent).toBe(REFERENCE)
+    const share = onCard('option-analysis-currency-option-b')
+    expect(share).not.toBeNull()
+    const ref = onCard('option-baseline-reference-option-b')
+    expect(ref?.textContent).toBe(REFERENCE)
+    expect(onCard('option-baseline-meta-option-b')?.textContent).toBe('Baseline · no changes')
+    expect(Boolean(ref!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(inPopover('option-baseline-reference-option-b')).toBeNull()
   })
 
   it('CONTRAST — a label-only "Status quo" (nothing declared) is NOT called the reference', () => {
@@ -203,23 +213,37 @@ describe('row 22b — a target with no value reads "Needs input" in its amount c
     expect(onCard('option-change-row-needs-input-option-1-f-price')).toBeNull()
   })
 
-  it('Standard: the popover grid carries the gap, and `+N more` no longer counts a row it never showed', () => {
+  it('Standard: the card\'s resting rows carry the gap, and `+N more` no longer counts a row it never showed', () => {
     seed()
     renderOption(OPTION_1)
-    expect(inPopover('option-change-row-needs-input-option-1-f-conv')?.textContent).toBe('Needs input')
-    expect(inPopover('option-change-row-option-1-f-price')?.textContent).toContain('£59')
-    expect(inPopover('option-change-more-option-1')).toBeNull()
+    expect(onCard('option-change-row-needs-input-option-1-f-conv')?.textContent).toBe('Needs input')
+    expect(onCard('option-change-row-mark-option-1-f-conv')).toBeNull()
+    // Contrast in the same render: the set target keeps its value and its mark.
+    expect(onCard('option-change-row-option-1-f-price')?.textContent).toContain('£59')
+    expect(onCard('option-change-row-mark-option-1-f-price')).not.toBeNull()
+    expect(screen.queryByTestId('option-change-more-option-1')).toBeNull()
+    // The rows render once — on the card, never also in the popover.
+    expect(inPopover('option-change-rows-option-1')).toBeNull()
   })
 
-  it('Standard: when the gap is the option\'s TOP row, the one primary line says "Needs input", with no mark', () => {
+  it('Standard: when the gap is the option\'s TOP row, that resting row says "Needs input" in its value cell, with no mark, and its accessible text is the gap', () => {
     seed()
     renderOption(OPTION_3)
-    const line = onCard('option-primary-change-option-3')
-    expect(line, 'the card line must not vanish because the target is unset').not.toBeNull()
-    expect(line!.getAttribute('data-factor-id')).toBe('f-conv')
-    expect(within(line!).getByTestId('option-primary-change-needs-input-option-3').textContent).toBe('Needs input')
-    expect(within(line!).queryByTestId('option-primary-change-source-option-3')).toBeNull()
-    expect(within(line!).getByTestId('option-primary-change-label-option-3').textContent).toContain('Trial conversion')
+    const rows = onCard('option-change-rows-option-3')
+    expect(rows, 'the card row must not vanish because the target is unset').not.toBeNull()
+    const dd = onCard('option-change-row-option-3-f-conv')!
+    expect(rows!.querySelector('dd')).toBe(dd)
+    expect(within(dd).getByTestId('option-change-row-needs-input-option-3-f-conv').textContent).toBe('Needs input')
+    expect(onCard('option-change-row-mark-option-3-f-conv')).toBeNull()
+    expect((dd.previousElementSibling as HTMLElement).textContent).toBe('Trial conversion')
+    expect(dd.getAttribute('title')).toBe(
+      'Trial conversion: Needs input. This option names this factor but sets no target value yet.',
+    )
+    expect(screen.getByRole('definition', {
+      name: 'Trial conversion: Needs input. This option names this factor but sets no target value yet.',
+    })).toBe(dd)
+    // The retired one-line primary change is gone (prototype, Paul 25 Sep).
+    expect(screen.queryByTestId('option-primary-change-option-3')).toBeNull()
   })
 
   it('CONTRAST — an option whose targets are all set shows no "Needs input"', () => {

@@ -23,8 +23,10 @@
  *
  * ── WHAT THIS FILE PINS THAT NO OTHER FILE DOES ────────────────────────────
  *  1. The badge on EACH node type the state admits, bound BY NODE IDENTITY —
- *     inside `node-corner-stack-{id}` of the node under test, never "some node
- *     on screen has a pill" (CLAUDE.md trap 19).
+ *     inside `node-state-row-{id}` of the node under test (it was
+ *     `node-corner-stack-{id}` until gap 11, 25 Sep 2026, moved the worded
+ *     state out of the corner and into the card's in-flow state row), never
+ *     "some node on screen has a pill" (CLAUDE.md trap 19).
  *  2. The external-factor exemption surviving the MOVE. Amber leaving the
  *     border is not a licence for it to arrive as a badge.
  *  3. What assistive technology is handed, because the badge is the whole
@@ -114,8 +116,12 @@ function mockStore(over: Record<string, unknown>) {
   )
 }
 
-/** The corner stack OF THE NODE UNDER TEST — the identity every badge assertion binds through. */
+/** The corner stack OF THE NODE UNDER TEST — since gap 11 it holds only marks, never a pill. */
 const stackOf = (id: string) => screen.getByTestId(`node-corner-stack-${id}`)
+/** The state row OF THE NODE UNDER TEST — the identity every badge PRESENCE assertion binds through (gap 11). */
+const stateRowOf = (id: string) => screen.getByTestId(`node-state-row-${id}`)
+/** The card OF THE NODE UNDER TEST — the stack's own parent — for ABSENCE assertions that must cover the whole card. */
+const cardOf = (id: string) => stackOf(id).parentElement as HTMLElement
 
 function renderFactor(data: Record<string, unknown>) {
   mockStore({ nodes: [{ id: FACTOR_ID, type: 'factor', data }] })
@@ -224,7 +230,8 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
     cleanup()
     renderTargetlessGoal({}, { goal_threshold_raw: 12, goal_threshold_unit: '%' })
     expect(screen.getByTestId('overlay-missing-threshold-node')).toBeTruthy()
-    expect(within(stackOf(GOAL_ID)).getByTestId('needs-input-pill')).toBeTruthy()
+    expect(within(stateRowOf(GOAL_ID)).getByTestId('needs-input-pill')).toBeTruthy()
+    expect(within(stackOf(GOAL_ID)).queryByTestId('needs-input-pill')).toBeNull()
 
     // OPPOSITE DIRECTION, same component, same props — only the target differs.
     // Without this the case above could pass on a card that always shows a pill.
@@ -236,7 +243,7 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
   it('⭐ OPTION (assessed, no interventions) — NEWLY COVERED by the re-ruling', () => {
     renderIncompleteOption()
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
-    expect(within(stackOf(OPTION_ID)).getByTestId('needs-input-pill')).toBeTruthy()
+    expect(within(stateRowOf(OPTION_ID)).getByTestId('needs-input-pill')).toBeTruthy()
   })
 
   it('⭐ DECISION (no options linked) — its own pill, because its absence is a different KIND', () => {
@@ -254,8 +261,8 @@ describe('the badge renders on every node type `isIncomplete` admits', () => {
        It now binds by IDENTITY to the structural pill (trap 19) and pins the
        pooled one ABSENT in the same case — so a revert that puts "Needs input"
        back on a decision REDs here rather than passing. */
-    expect(within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
-    expect(within(stackOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
+    expect(within(stateRowOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
+    expect(within(cardOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
 
     // OPPOSITE DIRECTION: give the decision an option and the badge must go.
     // A decision node's incompleteness is the ONLY one of the four that is a
@@ -278,7 +285,7 @@ describe('⛔ external factors are outside your control, not awaiting your judge
   it('EXTERNAL factor with no value — no badge, and not incomplete at all', () => {
     renderFactor({ label: 'Market rate', type: 'factor', category: 'external' })
     expect(screen.queryByTestId('overlay-missing-value')).toBeNull()
-    expect(within(stackOf(FACTOR_ID)).queryByTestId('needs-input-pill')).toBeNull()
+    expect(within(cardOf(FACTOR_ID)).queryByTestId('needs-input-pill')).toBeNull()
     // The dash — this node's real signal — is untouched by the ruling.
     expect(screen.getByRole('group')).toHaveAttribute('title', 'Outside your control')
   })
@@ -298,11 +305,18 @@ describe('⛔ external factors are outside your control, not awaiting your judge
  * the next edit is what breaks it.
  * ──────────────────────────────────────────────────────────────────────────── */
 describe('what a screen reader is handed', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+   * contract §01): the accessible name now starts "Option: …" — the
+   * user-facing kind word from `NODE_REGISTRY` — never the internal code id
+   * "option node:". The property this test protects (the badge does not
+   * swallow the card's own name) is unchanged.
+   */
   it('the node keeps its OWN accessible name — the badge does not swallow it', () => {
     renderIncompleteOption()
     const card = screen.getByRole('group')
     // The node's identity, not its state, is what names the card.
-    expect(card).toHaveAccessibleName(/^option node: Rebuild\./)
+    expect(card).toHaveAccessibleName(/^Option: Rebuild\./)
     // Named by the label the user gave it — asserted separately so a change
     // that kept the shape and dropped the label REDs here.
     expect(card.getAttribute('aria-label')).toContain('Rebuild')
@@ -486,7 +500,7 @@ describe('the structural absence says one sentence per channel — and the sente
     // about a card that renders a pill unconditionally (trap 13b).
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
 
-    const pill = within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')
+    const pill = within(stateRowOf(DECISION_ID)).getByTestId('no-options-linked-pill')
 
     // LITERALS — what a user sees, what a pointer user hovers, what AT says.
     expect(pill.textContent).toBe('Nothing to compare yet')
@@ -510,7 +524,7 @@ describe('the structural absence says one sentence per channel — and the sente
 
   it('⭐ THE CARD: the cause is stated ONCE in the visible channel, and it is the body that states it', () => {
     renderOptionlessDecision()
-    const pill = within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')
+    const pill = within(stateRowOf(DECISION_ID)).getByTestId('no-options-linked-pill')
     expect(pill).toBeTruthy()
 
     // The body still carries the cause — LITERAL, so a copy change REDs here
@@ -588,10 +602,11 @@ describe('⭐ the pill claims "no options", so it must be ABOUT options', () => 
     renderOptionlessDecision(edges, [OPTION_NODE])
 
     // The claim under test: no structural pill, because there IS something to
-    // compare. Bound by identity to THIS decision's corner stack (trap 19).
-    expect(within(stackOf(DECISION_ID)).queryByTestId('no-options-linked-pill')).toBeNull()
+    // compare. Bound by identity to THIS decision's card (trap 19) — the whole
+    // card, since the pill left the corner stack for the state row (gap 11).
+    expect(within(cardOf(DECISION_ID)).queryByTestId('no-options-linked-pill')).toBeNull()
     // And not re-pooled into the quantitative one on the way out.
-    expect(within(stackOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
+    expect(within(cardOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
     // The sentence itself, as a literal — so a testid rename cannot hide it.
     expect(screen.queryByText('Nothing to compare yet')).toBeNull()
   })
@@ -607,8 +622,8 @@ describe('⭐ the pill claims "no options", so it must be ABOUT options', () => 
 
     renderOptionlessDecision(edges, [OUTCOME_NODE])
 
-    expect(within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
-    expect(within(stackOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
+    expect(within(stateRowOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
+    expect(within(cardOf(DECISION_ID)).queryByTestId('needs-input-pill')).toBeNull()
     expect(screen.getByText('Nothing to compare yet')).toBeTruthy()
   })
 
@@ -616,6 +631,6 @@ describe('⭐ the pill claims "no options", so it must be ABOUT options', () => 
     // The state the old predicate treated as "has options": an outgoing edge
     // whose far end is not in `nodes` at all. An id is not an option.
     renderOptionlessDecision([{ id: 'e1', source: DECISION_ID, target: 'ghost_node' }], [])
-    expect(within(stackOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
+    expect(within(stateRowOf(DECISION_ID)).getByTestId('no-options-linked-pill')).toBeTruthy()
   })
 })

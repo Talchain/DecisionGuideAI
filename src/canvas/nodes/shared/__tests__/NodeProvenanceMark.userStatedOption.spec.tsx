@@ -175,7 +175,21 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
     observed_state: { value: 0.04 },
   }
 
-  it('a VALUED factor still makes its value claim despite the ambiguous pair', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16). This
+   * used to assert the header rendered a value-claim mark ("not silence").
+   * GAP-16 makes silence HERE the correct answer for any factor whose only
+   * eligible claim is `'value'`: `FactorNode` carries that fact on its own
+   * value line unconditionally (`valueSourceMark.tsx`), so the header no
+   * longer duplicates it. What this test still must prove — untouched —
+   * is that the card does NOT say "Olumi suggested this" about an element
+   * whose authorship is ambiguous; a null header mark trivially satisfies
+   * that, but it is asserted by identity rather than as a side effect of the
+   * null check.
+   */
+  // ⛔ review 5822866079: `{ value: 0.04 }` has no source, so the value line reads
+  // `unknown` and the header KEEPS its value mark (a number is never unmarked).
+  it('a VALUED factor with an ambiguous pair: never the Olumi authorship claim; the value mark stays', () => {
     const { data } = mapDraftNodeToCanvas(valuedFactorWithAmbiguousPair)
     // Precondition pinned in-test: the pair really is present and the value
     // really did survive ingestion, so a pass here cannot be the fixture's doing.
@@ -184,10 +198,10 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
     expect(data.observedState).toEqual({ value: 0.04 })
 
     render(<NodeProvenanceMark nodeType="factor" data={data} />)
-    const el = screen.queryByTestId('node-provenance-mark')
-    expect(el).not.toBeNull()
-    // The VALUE vocabulary, not the structural one, and not silence.
-    expect(el!.getAttribute('aria-label')).not.toBe(OLUMI_CLAIM)
+    expect(screen.queryByLabelText(OLUMI_CLAIM), 'the ambiguous element must never be claimed as Olumi\'s').toBeNull()
+    const header = screen.queryByTestId('node-provenance-mark')
+    expect(header, 'the value line cannot classify this source, so the header is the only mark with a kind').not.toBeNull()
+    expect(header!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
   /**
@@ -221,6 +235,19 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
     observed_state: { value: 0.04, source: 'brief_extraction' },
   }
 
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16). The "true fact about the NUMBER" this
+   * test protects used to be asserted as a HEADER mark (`marksFor('value')`).
+   * GAP-16 moves that fact to the card's own value line unconditionally —
+   * `factorValueSourceMark` never returns null for a stated value — so this
+   * isolated `NodeProvenanceMark` render (which has no value line to show)
+   * correctly shows NEITHER claim now. The two things this test exists to
+   * protect — no Olumi-authorship claim, AND the number's provenance is not
+   * silenced product-wide — are re-asserted below: the first directly, the
+   * second by reference to `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`,
+   * which renders the full `FactorNode` and proves the value line still
+   * carries "From brief" for this exact shape.
+   */
   it('⛔ a BRIEF-SOURCED number does not license claiming the ELEMENT as Olumi\'s', () => {
     const { data } = mapDraftNodeToCanvas(ambiguousPairWithABriefSourcedNumber)
     // Preconditions pinned in-test, so a pass cannot be the fixture failing to
@@ -238,19 +265,26 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
     ).toBeNull()
     expect(marksFor('structural'), 'an authorship mark rendered on an ambiguous node').toHaveLength(0)
 
-    // ⭐ …and the true fact about the NUMBER is still told.
-    const valueMarks = marksFor('value')
-    expect(valueMarks, 'the number\'s own provenance went silent').toHaveLength(1)
-    expect(valueMarks[0].getAttribute('aria-label')).toContain('brief')
+    // ⭐ …and the header does not duplicate the number's provenance either —
+    // GAP-16 moved that disclosure to the value line (proved elsewhere), so
+    // this isolated render is silent on BOTH claims for this fixture.
+    expect(marksFor('value'), 'the header must not carry a value-claim mark of its own').toHaveLength(0)
   })
 
   /**
    * ⛔ THE DISCRIMINATING TWIN. Identical node, quote REMOVED — a genuine Olumi
-   * invention whose number came out of the brief. Both marks must render, so the
-   * fix above is proven to suppress the AMBIGUOUS case specifically and not to
-   * have simply disabled the two-mark branch.
+   * invention whose number came out of the brief. The structural mark must
+   * render, so the fix above is proven to suppress the AMBIGUOUS case
+   * specifically and not to have simply disabled the two-mark branch outright.
+   *
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16): "gets BOTH marks" is no longer true of
+   * the HEADER — the value half is now suppressed everywhere (it duplicates
+   * `FactorNode`'s own value-line mark), so this genuine invention gets its
+   * ONE structural mark, same as the ambiguous twin above gets none. The
+   * discrimination this test protects — genuine invention vs ambiguous pair —
+   * still lives entirely in the structural claim.
    */
-  it('⭐ the same node WITHOUT a quote is a real invention and still gets BOTH marks', () => {
+  it('⭐ the same node WITHOUT a quote is a real invention and gets its structural mark (value stays on the value line)', () => {
     const { source_quote: _dropped, ...genuineInvention } = ambiguousPairWithABriefSourcedNumber
     const { data } = mapDraftNodeToCanvas(genuineInvention)
     expect(data.source_quote).toBeUndefined()
@@ -258,7 +292,7 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
     render(<NodeProvenanceMark nodeType="factor" data={data} />)
     expect(screen.queryByLabelText(OLUMI_CLAIM)).not.toBeNull()
     expect(marksFor('structural')).toHaveLength(1)
-    expect(marksFor('value')).toHaveLength(1)
+    expect(marksFor('value')).toHaveLength(0)
   })
 
   /**
@@ -283,7 +317,15 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
     observed_state: { value: 0.04, source: 'user_override' },
   }
 
-  it('⭐ a brief-authored element with an edited number keeps BOTH true facts', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16): "keeps BOTH true facts" used to mean
+   * both facts reach the HEADER. The value fact ("User edited") now lives
+   * exclusively on `FactorNode`'s own value line — a duplicate of the header
+   * copy this test used to assert — so the header keeps only the structural
+   * disclosure this test was actually written to protect (see the docstring
+   * above: `mayClaimOlumiAuthorship` is the wrong gate for it).
+   */
+  it('⭐ a brief-authored element with an edited number: the structural fact survives in the header', () => {
     const { data } = mapDraftNodeToCanvas(briefAuthoredElementWithAnEditedNumber)
     // Neither authorship predicate is true here — that is the whole point.
     expect(data.source_quote).toBeUndefined()
@@ -294,7 +336,7 @@ describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guard
       marksFor('structural'),
       'the brief-authorship disclosure was silenced — mayClaimOlumiAuthorship is the WRONG gate here',
     ).toHaveLength(1)
-    expect(marksFor('value')).toHaveLength(1)
+    expect(marksFor('value'), 'the value fact is on the value line now, not duplicated in the header').toHaveLength(0)
   })
 
   it('the same factor WITHOUT a value falls to structural, and is then gated', () => {

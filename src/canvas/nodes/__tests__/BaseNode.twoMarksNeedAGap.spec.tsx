@@ -156,12 +156,28 @@ beforeEach(() => {
 })
 
 describe('⭐ the two provenance marks do not touch', () => {
-  it('the disagreeing card mounts TWO marks — the precondition, pinned in-test', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16).
+   *
+   * `TWO_MARK_DATA`'s disagreement used to mount BOTH a structural and a
+   * value mark. The value half is now suppressed everywhere, unconditionally
+   * — `FactorNode` carries that same fact on its own value line
+   * (`valueSourceMark.tsx`), so the header copy was a duplicate (contract
+   * §03). The two-mark disagreement branch in `resolveProvenanceMarks` still
+   * exists and still fires (it decides WHICH facts are eligible), but its
+   * output is now filtered down to the structural entry alone — so a
+   * genuinely disagreeing card mounts exactly ONE header mark, same as an
+   * agreeing one. The "two marks never touch" GROUP-CLASS machinery below
+   * (gap-1, the width arithmetic) is kept: it is shared with OTHER
+   * counter-scaled glyph groups on the card (`CANVAS_HEADER_GLYPH_GROUP_CLASSES`
+   * per this file's own header comment), so it is not dead code, just
+   * unreachable through THIS path until/unless a future design re-admits a
+   * second concurrent header mark.
+   */
+  it('the disagreeing card now mounts exactly ONE mark (structural) — the value half moved to the value line', () => {
     renderFactor('fac_two', TWO_MARK_DATA)
-    // Asserted first and by COUNT, so every assertion below is provably about a
-    // card that really is rendering the pair. A guard whose precondition is not
-    // pinned passes vacuously the day the fixture stops reproducing it (trap 13b).
-    expect(marks()).toHaveLength(2)
+    expect(marks()).toHaveLength(1)
+    expect(marks()[0].getAttribute('data-provenance-claim')).toBe('structural')
     expect(group()).not.toBeNull()
   })
 
@@ -178,13 +194,23 @@ describe('⭐ the two provenance marks do not touch', () => {
     expect(group().className).not.toBe(THE_GAPLESS_STRING)
   })
 
-  it('⛔ CONTRAST — an AGREEING card still renders exactly one mark, in the same group', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-16). `ONE_MARK_DATA` agrees (`ai_inferred` +
+   * `cee_inference`, both kind `ai`), which produced a single VALUE-claim
+   * mark before GAP-16. That mark is now suppressed too (the value line
+   * carries it instead), so the agreeing card renders NO header mark at all
+   * — the discriminating property this test protects is now "disagreement
+   * still gets its one structural mark; agreement gets none", not "two
+   * marks vs one".
+   */
+  // ⛔ review 5822866079: ONE_MARK_DATA's `cee_inference` has no extractionType, so the
+  // value line reads `unknown` and the header keeps its single value mark.
+  it('⛔ CONTRAST — an AGREEING card whose value line reads unknown keeps ONE header mark; the group still mounts unconditionally', () => {
     renderFactor('fac_one', ONE_MARK_DATA)
-    // The discrimination: the mark COUNT tracks the data, so "two" above is a
-    // measurement of this branch and not a constant of the component.
     expect(marks()).toHaveLength(1)
-    // The group is unconditional, so the gap cannot be present only on the path
-    // the author happened to test.
+    expect(marks()[0].getAttribute('data-provenance-claim')).toBe('value')
+    // The group is unconditional, so the gap class stays available for
+    // whatever DOES mount inside it (structural-only today).
     expect(group().className).toBe(CANVAS_HEADER_GLYPH_GROUP_CLASSES)
   })
 })

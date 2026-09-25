@@ -27,13 +27,13 @@
  * the face. The routes are now (1) a persistent rail PENCIL
  * (`option-edit-targets-<id>`, accessible name = the SAME composed sentence,
  * "N factor targets. Open the inspector to change them.") and (2) `+N more`
- * (`option-change-more-<id>`) under the ≤2 change rows. Both open the inspector
+ * (`option-change-more-<id>`) under the ≤3 change rows (Paul 25 Sep; was ≤2). Both open the inspector
  * via `openNodeInspector`. Every test below keeps its claim and is re-pointed
  * to those carriers; each also asserts the old line stays gone.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
-import { openOptionPreview } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 import {
   OptionNode,
@@ -69,9 +69,10 @@ const NODES = [
   { id: OPTION_ID, type: 'option', data: { label: 'Hybrid Platform Fee Plus Usage', type: 'option' } },
   { id: 'fac_usage_exposure', type: 'factor', data: { label: 'Usage-Based Pricing Exposure', type: 'factor' } },
   { id: 'fac_top_account', type: 'factor', data: { label: 'Top Account Revenue Concentration', type: 'factor' } },
-  // Carries no target in the default fixture; the third target for the
-  // `+N more` case (Locked Canvas design, 23 Sep 2026: ≤2 rows + `+N more`).
+  // Carry no target in the default fixture; the third and fourth targets for
+  // the `+N more` case (Paul 25 Sep: ≤3 rows + `+N more`; it was ≤2).
   { id: 'fac_churn', type: 'factor', data: { label: 'Churn', type: 'factor' } },
+  { id: 'fac_margin', type: 'factor', data: { label: 'Gross margin', type: 'factor' } },
 ]
 const EDGES = [
   { id: 'e1', source: OPTION_ID, target: 'fac_usage_exposure' },
@@ -80,9 +81,9 @@ const EDGES = [
 const CEE = {
   options: [{ id: OPTION_ID, interventions: { fac_usage_exposure: 0.6, fac_top_account: 0.3 } }],
 }
-/** Three targets: two rows on the card, one counted by `+1 more`. */
-const CEE_THREE = {
-  options: [{ id: OPTION_ID, interventions: { fac_usage_exposure: 0.6, fac_top_account: 0.3, fac_churn: 0.1 } }],
+/** Four targets: three rows on the card (Paul 25 Sep), one counted by `+1 more`. */
+const CEE_FOUR = {
+  options: [{ id: OPTION_ID, interventions: { fac_usage_exposure: 0.6, fac_top_account: 0.3, fac_churn: 0.1, fac_margin: 0.4 } }],
 }
 /** No targets at all — the contrast for the pencil's two labels. */
 const CEE_NONE = { options: [{ id: OPTION_ID, interventions: {} }] }
@@ -181,10 +182,10 @@ describe('the factor-targets line is a route, not a sentence about one', () => {
     ;(renderCard() as HTMLButtonElement).click()
     expect(openNodeInspector).toHaveBeenCalledWith(OPTION_ID)
     // Locked Canvas design (23 Sep 2026): the SECOND route, `+N more`, opens
-    // the same option — three targets, two rows, one counted.
+    // the same option — four targets, three rows, one counted.
     cleanup()
     openNodeInspector.mockClear()
-    renderCard('expert', undefined, 'idle', CEE_THREE)
+    renderCard('expert', undefined, 'idle', CEE_FOUR)
     const more = moreRoute() as HTMLButtonElement | null
     expect(more, '`+N more` must render when a target is not shown').not.toBeNull()
     expect(more?.tagName.toLowerCase()).toBe('button')
@@ -209,15 +210,15 @@ describe('the factor-targets line is a route, not a sentence about one', () => {
     // Two targets, two rows shown: nothing left to count.
     expect(moreRoute()).toBeNull()
 
-    // Three targets: two rows + `+1 more`, whose name carries the full sentence
+    // Four targets: three rows + `+1 more`, whose name carries the full sentence
     // for the ONE total and says how many are not shown.
     cleanup()
-    const three = renderCard('expert', undefined, 'idle', CEE_THREE)
-    const full3 = optionTargetsChannels({ count: 3 }).full
-    expect(three?.getAttribute('aria-label')).toBe(full3)
-    expect(document.querySelector(`[data-testid="option-change-rows-${OPTION_ID}"]`)!.querySelectorAll('dd').length).toBe(2)
+    const four = renderCard('expert', undefined, 'idle', CEE_FOUR)
+    const full4 = optionTargetsChannels({ count: 4 }).full
+    expect(four?.getAttribute('aria-label')).toBe(full4)
+    expect(document.querySelector(`[data-testid="option-change-rows-${OPTION_ID}"]`)!.querySelectorAll('dd').length).toBe(3)
     expect(moreRoute()?.textContent).toBe('+1 more')
-    expect(moreRoute()?.getAttribute('aria-label')).toBe(`${full3} 1 more not shown on the card.`)
+    expect(moreRoute()?.getAttribute('aria-label')).toBe(`${full4} 1 more not shown on the card.`)
   })
 })
 
@@ -356,21 +357,16 @@ describe('the route renders in the view the product opens in', () => {
   })
 
   /**
-   * ⭐ BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026): in Standard view the
-   * rows and `+N more` left the card body for the option's popover. The SECOND
-   * route must still be reachable in the view the product opens in — in the
-   * popover (hover, tap, keyboard focus), opening THIS option's inspector — and
-   * must not be on the face.
+   * ⭐ THE SECOND ROUTE IS ON THE FACE AGAIN (Paul 25 Sep: the prototype's
+   * resting rows supersede ED #63 5809278282's popover placement). In the view
+   * the product opens in, `+N more` sits on the card under the rows, with no
+   * hover needed, and opens THIS option's inspector.
    */
-  it('STANDARD view: `+N more` is in the option\'s popover, off the face, and opens THIS option', async () => {
-    renderCard('standard', undefined, 'idle', CEE_THREE)
-    expect(moreRoute(), 'precondition: the popover is closed, so `+N more` is not on the face').toBeNull()
-    // The render container (RTL mounts it directly under <body>) — its first
-    // element is the option's wrapper, which owns the hover handlers.
-    const container = document.querySelector('[data-testid="node-title"]')!.closest('body > div') as HTMLElement
-    const preview = await openOptionPreview(container, OPTION_ID)
-    const more = preview.querySelector<HTMLButtonElement>(`[data-testid="option-change-more-${OPTION_ID}"]`)
+  it('STANDARD view: `+N more` is on the card, under the rows, and opens THIS option', () => {
+    renderCard('standard', undefined, 'idle', CEE_FOUR)
+    const more = optionCardRows(OPTION_ID).querySelector<HTMLButtonElement>(`[data-testid="option-change-more-${OPTION_ID}"]`)
     expect(more?.textContent).toBe('+1 more')
+    expect(document.querySelectorAll(`[data-testid="option-change-more-${OPTION_ID}"]`).length).toBe(1)
     openNodeInspector.mockClear()
     more!.click()
     expect(openNodeInspector).toHaveBeenCalledTimes(1)

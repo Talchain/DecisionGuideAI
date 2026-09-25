@@ -21,6 +21,16 @@
  * CLAIM SCOPE: jsdom proves the class tokens and the text — never layout. That
  * the browser breaks at a word is CSS behaviour of `-webkit-line-clamp` on a
  * wrapping block, not something this file can observe.
+ *
+ * ⭐⭐ SUPERSEDED BY THE PROTOTYPE (Paul, 25 Sep 2026, from live screenshots).
+ * The word-boundary clamp shipped and the served card still read "3 options ·
+ * A success target on your model can't be…": a clamp of ANY granularity cuts
+ * a sentence that does not fit. The prototype row carries no sentence
+ * ("3 alternatives · Evidence priority: conversion"), so the sentence is OFF
+ * the face and WHOLE where it went — the popover in Standard, the body in
+ * Detailed after a run — with a card-side `.sr-only` copy for screen readers.
+ * This file now pins that: same identities (test id + producer code), whole
+ * text, and NO clamp token anywhere on the sentence.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -99,32 +109,18 @@ const renderDecision = () =>
   )
 
 const tokens = (el: Element): string[] => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean)
-const visible = (el: Element) => el.querySelector('[aria-hidden="true"]')?.textContent ?? ''
-
-/** The clamp contract every focus signal must meet. */
-const expectWordBoundaryOneLineClamp = (signal: Element) => {
-  // The clamp belongs on the span that PAINTS the text. On the wrapper, the
-  // inline text span's own box kept the hidden second line, which the hover
-  // action row then "covered" (Canvas Browser Gate, 24 Sep, dec_cdp).
-  const painted = signal.querySelector('[aria-hidden="true"]')
-  expect(painted, 'the visible text span').not.toBeNull()
-  expect(tokens(signal).filter(c => /^line-clamp-/.test(c)), 'the wrapper carries no clamp').toEqual([])
-  expect(tokens(signal)).toContain('overflow-hidden')
-  expect(tokens(signal)).toContain('min-w-0')
-  expect(tokens(signal)).toContain('flex-1')
-  const el = painted as Element
-  const t = tokens(el)
-  // `.block` is emitted after `.line-clamp-1` and would override its
-  // `display: -webkit-box`, silently un-clamping the line.
-  expect(t).not.toContain('block')
-  // ONE line — never two (the card may not grow)…
-  expect(t).toContain('line-clamp-1')
-  expect(t.filter(c => /^line-clamp-/.test(c))).toEqual(['line-clamp-1'])
-  // …and it WRAPS, so the clamped line ends at a word: no nowrap, no
-  // character-granular `text-overflow: ellipsis`.
-  expect(t).not.toContain('truncate')
-  expect(t).not.toContain('whitespace-nowrap')
-  expect(t).not.toContain('text-ellipsis')
+const row = () => screen.getByTestId('decision-node-resting-state')
+const popover = () => screen.getByTestId('decision-node-popover')
+/** The sentence is never clamped or cut, by class or by text. */
+const expectWhole = (el: Element, sentence: string) => {
+  expect(el.textContent).toBe(sentence)
+  expect(el.textContent).not.toContain('\u2026')
+  for (const node of [el, ...Array.from(el.querySelectorAll('*'))]) {
+    const t = tokens(node)
+    expect(t.filter(c => /^line-clamp-/.test(c))).toEqual([])
+    expect(t).not.toContain('truncate')
+    expect(t).not.toContain('whitespace-nowrap')
+  }
 }
 
 beforeEach(() => {
@@ -136,8 +132,8 @@ afterEach(() => {
   useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as any)
 })
 
-describe('Question card focus signal — one line, broken at a WORD (polish #4)', () => {
-  it("after a run: Paul's withheld-leader sentence is whole on the face, clamped at a word, fully recoverable", () => {
+describe('Question card reasoning sentence — off the row, never cut (prototype, 25 Sep)', () => {
+  it("after a run: Paul's withheld-leader sentence is off the row and whole in the popover, with its producer code", () => {
     setStore({
       results: {
         status: 'complete',
@@ -145,27 +141,27 @@ describe('Question card focus signal — one line, broken at a WORD (polish #4)'
       },
     })
     renderDecision()
-    const signal = screen.getByTestId('decision-leader-withheld')
-    expect(signal.getAttribute('data-withheld-code')).toBe('CONSTRAINT_TARGET_UNRELIABLE')
-    // The face carries the WHOLE title — the only cut is the CSS clamp.
-    expect(visible(signal)).toBe(WITHHELD_TITLE)
-    // Full-text recovery for AT (and the same sentence is the tooltip content).
-    expect(signal.querySelector('.sr-only')?.textContent).toBe(`${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
-    expect(signal.getAttribute('tabindex')).toBe('0')
-    expectWordBoundaryOneLineClamp(signal)
+    expect(row().textContent).not.toContain(WITHHELD_TITLE)
+    const signal = popover().querySelector('[data-testid="decision-leader-withheld"]')
+    expect(signal, 'the disclosure in the popover').not.toBeNull()
+    expect(signal!.getAttribute('data-withheld-code')).toBe('CONSTRAINT_TARGET_UNRELIABLE')
+    expectWhole(signal!, `${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
+    expect(screen.getByTestId('decision-focus-signal-sr').textContent).toBe(`${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
   })
 
-  it('before a run: the top gap uses the same word-boundary one-line clamp', () => {
+  it('before a run: the top gap is off the row and whole in the popover', () => {
     renderDecision()
-    const gap = screen.getByTestId('decision-node-top-gap')
-    expect(visible(gap)).toBe('Top gap: set a success target')
-    expectWordBoundaryOneLineClamp(gap)
+    expect(row().textContent).not.toMatch(/Top gap/)
+    const gap = popover().querySelector('[data-testid="decision-node-top-gap"]')
+    expect(gap, 'the top gap in the popover').not.toBeNull()
+    expectWhole(gap!, 'Top gap: set a success target')
   })
 
-  it('CONTRAST: the option count beside it stays unclamped and whole (the discriminator is the signal, not the row)', () => {
+  it('CONTRAST: the count stays on the row, whole and unclamped', () => {
     renderDecision()
     const count = screen.getByTestId('decision-node-option-count')
-    expect(count.textContent).toBe('3 options')
+    expect(count.closest('[data-testid="decision-node-resting-state"]')).not.toBeNull()
+    expect(count.textContent).toBe('3 alternatives')
     expect(tokens(count)).not.toContain('line-clamp-1')
     expect(tokens(count)).toContain('shrink-0')
   })

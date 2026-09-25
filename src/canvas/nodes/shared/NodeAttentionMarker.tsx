@@ -4,7 +4,8 @@
  *
  * ── HOW IT LOOKS ────────────────────────────────────────────────────────────
  *
- * A small INFO-tinted ring in the card's top-right corner stack — visually
+ * A small INFO-tinted ring in the card's top-right corner stack, INSIDE the
+ * card at the contract's `right:7px;top:5px` (gap 11) — visually
  * separate from the bottom icon rail (spec §2). ⛔ NEVER the warning family:
  * "Worth reviewing" can mean a top driver or an evidence opportunity, not
  * danger, and ED 02:31Z rejected a semantic-warning outline at every rung. The
@@ -16,12 +17,15 @@
  * 2px was NOT counter-scaled, so the ring thinned with zoom) — read as a radio
  * button. It is now the contract's attention mark: a borderless, shadowless
  * Info glyph button with an info-soft hover, in the rail's own counter-scaled
- * 20px box with the rail's one 14px glyph size (`NODE_RAIL_GLYPH_PX`; the
- * contract's is 25/15), the target glyph drawn with Lucide's `LocateFixed` — the stock equivalent of the
+ * box with the rail's one glyph size — the contract's 25/15 since gap 34
+ * (`CANVAS_QUICK_ACTION_BOX_PX` / `NODE_RAIL_GLYPH_PX`; 20/14 before) — the
+ * target glyph drawn with Lucide's `LocateFixed` — the stock equivalent of the
  * contract's circle + centre + four ticks (DS v5 §9: Lucide only), at the
- * contract's lighter 1.6 stroke. It keeps a panel fill (`bg-panel/90`)
- * because the corner stack floats it over the layer gap, where a bare glyph
- * would sit on edges. Info stays its colour at rest: it is the ONE
+ * contract's lighter 1.6 stroke. NO panel fill (contract `background:none`):
+ * it had `bg-panel/90` only because the corner stack floated it over the layer
+ * gap, where a bare glyph would sit on edges; the stack is now INSIDE the card's
+ * top-right corner (gap 11), on the card's own panel, and a fill there could
+ * only paint over the card's own text. Info stays its colour at rest: it is the ONE
  * Info-at-rest mark on a card (Paul 23 Sep pt 9, attention = Info blue).
  *
  * ── HOW IT EXPLAINS ITSELF ──────────────────────────────────────────────────
@@ -46,6 +50,13 @@ import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyle
 
 export const ATTENTION_MARKER_TESTID_PREFIX = 'attention-marker-'
 
+/**
+ * The mark as drawn — glyph, stroke and resting ink — owned HERE and read by
+ * the canvas key (`CanvasLegendPopover`, contract v3.1 §03 "Worth reviewing"),
+ * so the key imports this mark rather than redrawing one.
+ */
+export const ATTENTION_MARKER_GLYPH = { Icon: LocateFixed, strokeWidth: 1.6, inkClass: 'text-info' } as const
+
 export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sentence: string }) {
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={sentence}>
@@ -60,13 +71,13 @@ export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sent
         }}
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
-        className={`nodrag nopan shrink-0 inline-flex items-center justify-center rounded bg-panel/90 text-info hover:bg-info/10 focus-visible:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]}`}
+        className={`nodrag nopan shrink-0 inline-flex items-center justify-center rounded ${ATTENTION_MARKER_GLYPH.inkClass} hover:bg-info/10 focus-visible:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]}`}
       >
-        <LocateFixed
+        <ATTENTION_MARKER_GLYPH.Icon
           aria-hidden="true"
           data-testid="attention-marker-ring"
           size={NODE_RAIL_GLYPH_PX}
-          strokeWidth={1.6}
+          strokeWidth={ATTENTION_MARKER_GLYPH.strokeWidth}
           className={NODE_RAIL_GLYPH_CLASSES}
         />
       </button>

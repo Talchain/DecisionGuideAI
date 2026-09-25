@@ -3,6 +3,8 @@
  *
  *   · FRAME-12 + PILL-11 — the corner stack no longer hangs off the frame
  *     (`right-[-8px]`) and its offsets scale with the members they separate.
+ *     Since gap 11 (25 Sep) it sits INSIDE the card at the contract's
+ *     `top:5px; right:7px` — see the updated block below.
  *   · RHY-01 — the card RENDERS the rail band as a calc over the live scale,
  *     which equals `NODE_QUICK_ACTION_BAND_PX` exactly at the bound (the only
  *     scale `measureNodeHeightsAtLabelBound` reads heights at).
@@ -30,25 +32,34 @@ import { MAX_LABEL_COUNTER_SCALE } from '../../../utils/zoomLegibility'
 
 const tokens = (s: string) => s.split(/\s+/).filter(Boolean)
 
-describe('corner stack — nothing overhangs the frame (contract v3.1 FRAME-12, PILL-11)', () => {
-  it('right-aligns at the card padding, never past the right border', () => {
+describe('corner stack — inside the card at the contract offsets (gap 11; was FRAME-12 + PILL-11)', () => {
+  /**
+   * ⛔ UPDATED 25 Sep 2026 (gap 11, DESIGN-GAP-AUDIT-20260924.md row 11): the
+   * DESIGN moved this anchor. Visual Contract §02 puts the mark INSIDE the card —
+   * `.node .attention{position:absolute;right:7px;top:5px}` — where FRAME-12 had
+   * it `bottom-full right-3` with a scaled `mb-` gap, floating above the border
+   * in the row gap. Old pins: `right-3`, `mb-[calc(4px*…)]`, `bottom-full`.
+   * New: `top-[5px]`, `right-[7px]`. What FRAME-12 guarded still holds: nothing
+   * overhangs the frame, and the gap BETWEEN members carries the scale.
+   */
+  it('anchors inside the top-right corner at the contract offsets, never past the right border', () => {
     const t = tokens(CANVAS_CORNER_STACK_CLASSES)
-    expect(t).toContain('right-3')
-    expect(t.some((c) => /^right-\[-/.test(c) || c.startsWith('-right-'))).toBe(false)
+    expect(t).toContain('top-[5px]')
+    expect(t).toContain('right-[7px]')
+    expect(t.some((c) => /^right-\[-/.test(c) || c.startsWith('-right-') || c.startsWith('-top-'))).toBe(false)
   })
 
-  it('the gap to the border and between members carries --canvas-label-scale', () => {
+  it('the gap between members carries --canvas-label-scale; there is no margin into the row gap', () => {
     const t = tokens(CANVAS_CORNER_STACK_CLASSES)
-    expect(t).toContain('mb-[calc(4px*var(--canvas-label-scale,1))]')
     expect(t).toContain('gap-[calc(4px*var(--canvas-label-scale,1))]')
-    expect(t).not.toContain('mb-[2px]')
+    expect(t.some((c) => c.startsWith('mb-'))).toBe(false)
     expect(t).not.toContain('gap-1')
   })
 
-  it('stays out of flow above the card (no box change)', () => {
+  it('stays out of flow (no card box changes) — but no longer above the card', () => {
     const t = tokens(CANVAS_CORNER_STACK_CLASSES)
     expect(t).toContain('absolute')
-    expect(t).toContain('bottom-full')
+    expect(t).not.toContain('bottom-full')
   })
 })
 

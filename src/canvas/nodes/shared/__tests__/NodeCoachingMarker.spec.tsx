@@ -17,6 +17,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NodeCoachingMarker } from '../NodeCoachingMarker'
 import { useGuidanceStore, guidanceCategoryIcon, type GuidanceItem } from '../../../stores/guidanceStore'
 import { useCanvasStore } from '../../../store'
+import { NODE_RAIL_REST_TONE_CLASS } from '../nodeCardRailStyles'
 
 function makeItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
@@ -193,6 +194,10 @@ describe('NodeCoachingMarker — cap (1 + count)', () => {
 // cue's; no warning styling on a coaching cue. The CATEGORY is still carried —
 // by the glyph SHAPE (`guidanceCategoryIcon`, the inspector card's own glyph)
 // and by `data-guidance-category` — and the inspector card keeps its tone.
+// ⛔ UPDATED 25 Sep 2026 (gap 34, Visual Contract §02 `.icon-btn{color:#777B77}`):
+// "muted" is now the rail's contract grey, `NODE_RAIL_REST_TONE_CLASS`, not
+// `text-text-light` — the design moved the value; the claim (neutral at rest,
+// Info on hover) is unchanged.
 
 describe('NodeCoachingMarker — category by shape, colour neutral on the canvas', () => {
   const svgClass = (marker: HTMLElement) => marker.querySelector('svg')?.getAttribute('class') ?? ''
@@ -213,7 +218,7 @@ describe('NodeCoachingMarker — category by shape, colour neutral on the canvas
     expect(marker).toHaveAttribute('data-guidance-category', 'must_fix')
     expect(marker.className).not.toContain('danger')
     expect(svgClass(marker)).not.toContain('text-danger')
-    expect(marker.className).toContain('text-text-light')
+    expect(marker.className).toContain(NODE_RAIL_REST_TONE_CLASS)
     expect(marker.className).toContain('hover:text-info')
     expect(svgClass(marker)).toContain(glyphOf('must_fix')!)
   })
@@ -224,7 +229,7 @@ describe('NodeCoachingMarker — category by shape, colour neutral on the canvas
       .setGuidanceItems([makeItem({ category: 'could_fix', target_object: { type: 'node', id: 'node-a' } })])
     render(<NodeCoachingMarker nodeId="node-a" />)
     const marker = screen.getByTestId('node-coaching-marker-node-a')
-    expect(marker.className).toContain('text-text-light')
+    expect(marker.className).toContain(NODE_RAIL_REST_TONE_CLASS)
     expect(svgClass(marker)).not.toContain('text-info')
     expect(glyphOf('could_fix')).not.toBe(glyphOf('must_fix'))
     expect(svgClass(marker)).toContain(glyphOf('could_fix')!)

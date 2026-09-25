@@ -55,10 +55,11 @@ vi.mock('../shared/NodePopover', () => ({
   ),
 }))
 const face = () => screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
-/** A run cue: in the popover, never on the card face (ED 5809278282). */
+/** A run cue: ON the card face, never repeated in the popover (prototype, Paul 25 Sep; superseding ED 5809278282). */
 const cue = (testId: string) => {
-  expect(within(face()).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
-  return within(screen.getByTestId('factor-node-popover')).getByTestId(testId)
+  const pop = screen.queryByTestId('factor-node-popover')
+  if (pop) expect(within(pop).queryByTestId(testId), `${testId} is repeated in the popover`).toBeNull()
+  return within(face()).getByTestId(testId)
 }
 
 const FACTOR_ID = 'fac_hiring_speed'

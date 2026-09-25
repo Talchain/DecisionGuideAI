@@ -267,12 +267,16 @@ describe('normaliseTierRows — direct fixture (I.2)', () => {
     // All four options share a single Y (within the same canonical row).
     expect(new Set(optionYs).size).toBe(1)
 
-    // Sanity check: factors share their tier's Y too (5 factors).
+    // Sanity check: factors share their SUB-ROW's Y too (5 factors). ⚠ GAP 7
+    // (25 Sep 2026): the row cap is four, so these five wrap DELIBERATELY into
+    // the ruled 3 + 2 — two splitter-created sub-rows, each on ONE exact Y. An
+    // ELK-induced stagger would show as a third Y or a 4 + 1 / 2 + 2 + 1 split.
     const factorYs = result.nodes
       .filter((node) => node.type === 'factor')
       .map((node) => node.position.y)
     expect(factorYs.length).toBe(5)
-    expect(new Set(factorYs).size).toBe(1)
+    const factorRowYs = [...new Set(factorYs)].sort((a, b) => a - b)
+    expect(factorRowYs.map((y) => factorYs.filter((fy) => fy === y).length)).toEqual([3, 2])
   })
 })
 
@@ -491,12 +495,15 @@ describe('balanced row splits (exact remainder)', () => {
   // ⚠ WAS 6 AND 7. `CANONICAL_LAYOUT_WIDTH` moved 1185 → 1482 so that seven-
   // and eight-wide tiers single-row; at 1185 those tiers split and three of the
   // five shipped starters came out portrait in a landscape pane.
-  it('8 factors split 4 + 4 (S4) — rows above five cards wrap; five is the widest single row', async () => {
+  it('8 factors split 4 + 4 (S4) — rows above four cards wrap (gap 7); four is the widest single row', async () => {
     // ⚠ WAS "8 factors do NOT split": the retired fair-share gate kept up to
     // eight on one row. ED S4 (#63 5806207128): "Rows above 5 cards wrap into
-    // balanced sub-rows … 8→4+4".
+    // balanced sub-rows … 8→4+4". ⚠ GAP 7 (25 Sep 2026, ED #63 5808428246 —
+    // 1280x800 dock open is the acceptance size): the cap is four, so five now
+    // wraps 3 + 2 and four is the widest single row.
     expect(rowSizesFor(await layoutFactors(8), 'f')).toEqual([4, 4])
-    expect(rowSizesFor(await layoutFactors(5), 'f')).toEqual([5])
+    expect(rowSizesFor(await layoutFactors(5), 'f')).toEqual([3, 2])
+    expect(rowSizesFor(await layoutFactors(4), 'f')).toEqual([4])
   })
 
   it('10 factors split balanced', async () => {
@@ -626,11 +633,11 @@ describe('constants contract', () => {
     // The row-split policy is deliberately NOT the card floor. It was the fair
     // share `NODE_SINGLE_ROW_FAIR_SHARE_W` (140) until S4; it is now a COUNT,
     // `MAX_CARDS_PER_ROW`, which by construction cannot move with the label
-    // scale.
+    // scale. (Five until gap 7, 25 Sep 2026: four fits the 1280 frame.)
     expect(NODE_LAYOUT_MIN_W).toBe(
       NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X,
     )
-    expect(MAX_CARDS_PER_ROW).toBe(5)
+    expect(MAX_CARDS_PER_ROW).toBe(4)
   })
 
   it('COLLISION_GAP does not exceed the rendered node-node gap', () => {

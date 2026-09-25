@@ -81,15 +81,17 @@ vi.mock('../shared/NodePopover', () => ({
 }))
 
 /**
- * ⭐ ED #63 5809278282 (bounded anatomy, 24 Sep): the Standard driver line moved
- * off the card FACE into the factor's popover. Every "the face states the rank"
- * claim below is re-pointed here: the line is bound INSIDE the popover and
- * asserted ABSENT from BaseNode's face.
+ * ⭐ PROTOTYPE (Paul, 25 Sep 2026 — superseding ED #63 5809278282's bounded
+ * anatomy for card bodies): the Standard driver line is back ON the card FACE.
+ * Every "the face states the rank" claim below is bound here: the line is bound
+ * INSIDE BaseNode's face and asserted ABSENT from the popover (never both). The
+ * helper keeps its name.
  */
 const popoverDriverLine = () => {
   const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
-  expect(within(face).queryByTestId('factor-driver-line'), 'the driver line is on the card face').toBeNull()
-  return within(screen.getByTestId('factor-node-popover')).getByTestId('factor-driver-line')
+  const pop = screen.queryByTestId('factor-node-popover')
+  if (pop) expect(within(pop).queryByTestId('factor-driver-line'), 'the driver line is repeated in the popover').toBeNull()
+  return within(face).getByTestId('factor-driver-line')
 }
 
 // Default: graph badges OFF, lens OFF. Individual tests override as needed.
@@ -566,11 +568,11 @@ describe('FactorNode', () => {
     expect(screen.queryByTestId('sensitivity-rank-factor-1')).toBeNull()
     expect(screen.queryByText(sensitivityRankBadgeLabel(1))).toBeNull()
     expect(container.textContent).not.toContain('#1')
-    // The rank is stated by the driver line instead — in the popover since the
-    // bounded anatomy (ED 5809278282), with the neutral cue on the face's row.
+    // The rank is stated by the driver line instead — on the face again
+    // (prototype, Paul 25 Sep; the inline cue is retired).
     // ED #63 5806207128: "Driver N of M analysed", M = the eligible analysed factors.
     expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 5 analysed')
-    expect(screen.getByTestId('factor-driver-cue-factor-1').getAttribute('aria-label')).toBe('Driver 1 of 5 analysed')
+    expect(screen.queryByTestId('factor-driver-cue-factor-1')).toBeNull()
     // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
     // members that remain in it are static flex children.
     // ⚠ DERIVED FROM THE COMPONENT'S OWN CONSTANT, NOT A COPY OF IT. This read
@@ -922,8 +924,8 @@ describe('FactorNode', () => {
     // stripped of the sentence that stops it being read as an absolute. Both
     // channels stay pinned — the opened tooltip and the accessible name — and
     // both carry the value AND its scale.
-    // ⭐ AND MOVED AGAIN (ED 5809278282, bounded anatomy): the line is the
-    // popover's now; both channels are pinned there.
+    // ⭐ MOVED TO THE POPOVER (ED 5809278282) AND BACK TO THE FACE (prototype,
+    // Paul 25 Sep); both channels are pinned on the face's line.
     const line = popoverDriverLine()
     fireEvent.mouseEnter(line)
     const RANKED_DISCLOSURE =
@@ -1081,12 +1083,12 @@ describe('FactorNode', () => {
       renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('Standard view: influence is the driver line (popover, ED 5809278282); confidence is off the face, in the popover', () => {
+    it('Standard view: influence is the driver line (on the face, prototype 25 Sep); confidence is off the face, in the popover', () => {
       setup('standard')
       // ⚠ THE HIERARCHY IS STILL THE POINT. Influence — the headline — is the
       // driver line; the retired `% influence` row is gone, and the line prints
-      // no figure (ED 11:52Z point 3). Since the bounded anatomy it opens the
-      // popover (ED 5809278282), ahead of the confidence row.
+      // no figure (ED 11:52Z point 3). On the face again (prototype, Paul 25
+      // Sep), so it precedes the popover's confidence row in document order.
       const line = popoverDriverLine()
       expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
       expect(line.textContent).not.toContain('80%')
@@ -1100,7 +1102,7 @@ describe('FactorNode', () => {
       // the hover popover (mocked transparent here) for this top-ranked factor.
       const popover = screen.getByTestId('factor-node-popover')
       expect(within(popover).getByRole('group', { name: 'Confidence' })).toHaveTextContent('45%')
-      // ED 5809278282: the moved driver line opens the popover, ahead of confidence.
+      // The face's driver line comes before the popover's confidence row.
       expect(line.compareDocumentPosition(within(popover).getByRole('group', { name: 'Confidence' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
@@ -1251,7 +1253,13 @@ describe('FactorNode — QA Brief A-series', () => {
   // A2: raw_value=20, unit="engineers" → "20 engineers"
   it('A2: raw_value=20 with unit="engineers" renders "20 engineers"', () => {
     renderFactor({ label: 'Team size', type: 'factor', observedState: { raw_value: 20, unit: 'engineers' } })
-    expect(screen.getByText('20 engineers')).toBeDefined()
+    // Contract §02 splits the figure from its unit word (GAP 14), so the text
+    // spans two elements; bound to the card's own figure, the host reads the
+    // same string byte for byte.
+    const figure = screen.getByTestId('factor-value-figure-factor-1')
+    expect(figure.textContent).toBe('20')
+    expect(screen.getByTestId('factor-value-unit-factor-1').textContent).toBe('engineers')
+    expect(figure.parentElement!.textContent).toBe('20 engineers')
   })
 
   // A3: raw_value=4.5, unit="months" → "4.5 months"

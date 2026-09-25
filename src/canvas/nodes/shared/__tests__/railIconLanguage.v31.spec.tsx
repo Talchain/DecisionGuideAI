@@ -15,11 +15,19 @@
  * the exact class token — and each block was run RED against the base
  * (3eb22326 + the gap-icons slice) before the source change (see the PR notes).
  * Delta ids are cited per block.
+ *
+ * ⛔ UPDATED 25 Sep 2026 (gap 34, DESIGN-GAP-AUDIT-20260924.md row 34; Visual
+ * Contract §02 `.icon-btn{width:25px;height:25px;color:#777B77}`,
+ * `.icon-btn svg{width:15px;height:15px}`): the DESIGN changed the pinned
+ * values, so these pins moved with it — box 20 → 25, glyph 14 → 15, resting
+ * grey `text-text-light` (#6E6B6B) → the contract's #777B77
+ * (`NODE_RAIL_REST_TONE_CLASS`, a brand.css token). Every assertion still binds
+ * the same element by the same identity; only the value it expects moved.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, renderHook } from '@testing-library/react'
 import { SearchCheck } from 'lucide-react'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from '../nodeCardRailStyles'
+import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from '../nodeCardRailStyles'
 import { CANVAS_GLYPH_SIZE_CLASSES } from '../canvasGlyphScale'
 import { NodeRailIcon, NodeSignalRailIcons, NODE_RAIL_REVEAL_CLASSES } from '../NodeRailIcons'
 import { NodeQuickActions } from '../NodeQuickActions'
@@ -84,7 +92,7 @@ describe('ICON-01 / OPT-13 / F12 / FRAME-11 / OPT-11 — one hover language for 
     const ids = ['node-action-ask-node-a', 'node-action-challenge-node-a', 'node-action-menu-node-a']
     for (const id of ids) {
       const b = screen.getByTestId(id)
-      expect(b.className, id).toBe(`${NODE_RAIL_BUTTON_CLASSES} text-text-light`)
+      expect(b.className, id).toBe(`${NODE_RAIL_BUTTON_CLASSES} ${NODE_RAIL_REST_TONE_CLASS}`)
       expect(has(b, 'hover:text-text-body'), id).toBe(false)
       expect(has(b, 'nopan'), id).toBe(true)
     }
@@ -93,9 +101,9 @@ describe('ICON-01 / OPT-13 / F12 / FRAME-11 / OPT-11 — one hover language for 
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail row', () => {
-  it('the rail glyph is 14px counter-scaled (DS v5 §9.1 canvas node badge), not 12', () => {
-    expect(NODE_RAIL_GLYPH_PX).toBe(14)
-    expect(NODE_RAIL_GLYPH_CLASSES).toBe(CANVAS_GLYPH_SIZE_CLASSES[14])
+  it('the rail glyph is the contract 15px counter-scaled (was 14 before gap 34), not 12', () => {
+    expect(NODE_RAIL_GLYPH_PX).toBe(15)
+    expect(NODE_RAIL_GLYPH_CLASSES).toBe(CANVAS_GLYPH_SIZE_CLASSES[15])
   })
 
   it('quick-action glyphs and resting glyphs are the SAME size (no 11px member left)', () => {
@@ -115,9 +123,9 @@ describe('ICON-02 / OPT-14 / F12 / FRAME-11 — one glyph size across the rail r
     // Positive control: challenge + more + the resting icon + the coaching icon.
     expect(svgs.length).toBeGreaterThanOrEqual(4)
     for (const svg of svgs) {
-      expect(svg.getAttribute('class'), lucideName(svg) ?? 'svg').toContain(CANVAS_GLYPH_SIZE_CLASSES[14])
+      expect(svg.getAttribute('class'), lucideName(svg) ?? 'svg').toContain(CANVAS_GLYPH_SIZE_CLASSES[15])
       expect(svg.getAttribute('class')).not.toContain(CANVAS_GLYPH_SIZE_CLASSES[11])
-      expect(svg.getAttribute('width')).toBe('14')
+      expect(svg.getAttribute('width')).toBe('15')
     }
   })
 })
@@ -147,10 +155,10 @@ describe('OPT-02 / ICON-03 — an edit route is revealed on hover/focus, never r
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('ICON-06 / F11 — the evidence rail icon is muted at rest; Info at rest is the attention cue alone', () => {
-  it('evidence icon: text-text-light at rest, Info only on hover/focus', () => {
+  it('evidence icon: the rail grey at rest (#777B77 since gap 34), Info only on hover/focus', () => {
     render(<NodeSignalRailIcons nodeId="f1" label="Trial conversion" reasons={[EVIDENCE]} />)
     const b = screen.getByTestId('node-rail-evidence-f1')
-    expect(has(b, 'text-text-light')).toBe(true)
+    expect(has(b, NODE_RAIL_REST_TONE_CLASS)).toBe(true)
     expect(has(b, 'text-info')).toBe(false)
     expect(has(b, 'hover:text-info')).toBe(true)
   })
@@ -181,7 +189,7 @@ describe('ICON-04 (fallback) — the rail data icons leave with the coaching ico
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('PILL-03 / ICON-05 / F13 — the attention marker is the contract glyph, not a bordered donut', () => {
-  it('borderless, shadowless, counter-scaled 20px box; a LocateFixed target glyph at the rail size', () => {
+  it('borderless, shadowless, counter-scaled contract 25px box (20 before gap 34); a LocateFixed target glyph at the rail size', () => {
     render(<NodeAttentionMarker nodeId="n1" sentence="Worth reviewing: a top driver." />)
     const b = screen.getByTestId('attention-marker-n1')
     for (const t of tokens(b)) {
@@ -189,7 +197,10 @@ describe('PILL-03 / ICON-05 / F13 — the attention marker is the contract glyph
       expect(t, 'no shadow').not.toMatch(/^shadow/)
     }
     expect(has(b, 'rounded-full')).toBe(false)
-    expect(b.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[20])
+    expect(b.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[25])
+    // Contract `.node .attention{background:none}`: inside the card (gap 11) it
+    // has no panel fill of its own.
+    expect(tokens(b).some((t) => t.startsWith('bg-'))).toBe(false)
     expect(has(b, 'hover:bg-info/10')).toBe(true)
     expect(b.getAttribute('style') ?? '').not.toMatch(/18px/)
     const ring = screen.getByTestId('attention-marker-ring')
@@ -227,10 +238,10 @@ describe('PILL-07 / PILL-08 (colour) / T14(b) / ICON-09 — the coaching marker 
       expect(t).not.toBe('transition-transform')
       expect(t).not.toMatch(/danger/)
     }
-    expect(has(m, 'text-text-light')).toBe(true)
+    expect(has(m, NODE_RAIL_REST_TONE_CLASS)).toBe(true)
     expect(has(m, 'hover:text-info')).toBe(true)
     expect(has(m, 'hover:bg-info/10')).toBe(true)
-    expect(has(m, 'h-[calc(20px*var(--canvas-label-scale,1))]')).toBe(true)
+    expect(has(m, 'h-[calc(25px*var(--canvas-label-scale,1))]')).toBe(true)
     const svg = m.querySelector('svg')
     expect(tokens(svg).some((t) => /danger/.test(t))).toBe(false)
     expect(svg?.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)
@@ -280,8 +291,8 @@ describe('PILL-07 / ICON-09 — the structural marker drops the dash and gains a
       expect(t).not.toMatch(/^border/)
       expect(t).not.toMatch(/^shadow/)
     }
-    expect(m.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[20])
-    expect(has(m, 'text-text-light')).toBe(true)
+    expect(m.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[25])
+    expect(has(m, NODE_RAIL_REST_TONE_CLASS)).toBe(true)
     expect(m.querySelector('svg')?.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)
   })
 

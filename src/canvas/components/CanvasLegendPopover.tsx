@@ -55,6 +55,10 @@ import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { CURRENT_MODEL_NOUN, METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, SENSITIVITY_RANK_LEGEND_NOUN, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
+import { ATTENTION_MARKER_GLYPH } from '../nodes/shared/NodeAttentionMarker'
+import { EVIDENCE_RAIL_GLYPH, BEHAVIOUR_RAIL_GLYPH, NODE_RAIL_TONE_CLASS } from '../nodes/shared/NodeRailIcons'
+import { COACHING_ICON_GLYPH } from '../nodes/shared/NodeCoachingIcon'
+import { NODE_RAIL_GLYPH_PX } from '../nodes/shared/nodeCardRailStyles'
 import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH, EXISTENCE_UNCERTAIN_DASH, uncertaintyBandHalfWidth, UNCERTAINTY_BAND_STROKE, UNCERTAINTY_BAND_OPACITY } from '../utils/graphDisplayCalculations'
 import { DIRECTION_DISPUTED_STROKE } from '../edges/edgePresentation'
 import {
@@ -589,6 +593,63 @@ const PROVENANCE_ROWS: LegendRow[] = (['user_set', 'from_brief', 'ai_inferred'] 
   })
 
 /**
+ * ⭐ THE CARD ICONS — contract v3.1 §03 "Icons make the next reasoning move
+ * accessible" (DESIGN-GAP-AUDIT row 28, 25 Sep 2026). The key named the
+ * provenance glyphs and none of the four other icons a card carries, so a
+ * reader could meet the attention target, the evidence and behaviour marks and
+ * the coaching door with nothing to decode them.
+ *
+ * ⚠ IMPORTED FROM THE CARDS, NEVER REDRAWN. Each glyph, stroke and resting ink
+ * is the owner's own export (`NodeAttentionMarker`, `NodeRailIcons`,
+ * `NodeCoachingIcon`) at the rail's `NODE_RAIL_GLYPH_PX`, so a card that changes its mark
+ * changes this key with it. `CanvasLegendPopover.iconKey.spec.tsx` renders
+ * each real card component beside the key and compares the two.
+ *
+ * The words are the contract's row titles, verbatim. The contract's
+ * "Source exception" row is the provenance glyphs, which already have their
+ * own rows below, so it heads that group instead of adding a fifth row.
+ *
+ * ⚠ POST-RUN ONLY for the evidence row: `evidence_gap` is read from a completed
+ * report (`useNodeAttention`), so a pre-run reader is not shown a row for a
+ * mark no card can carry yet — the rule the fragility row already follows.
+ */
+function CardIconSwatch({ Icon, inkClass, strokeWidth }: {
+  Icon: typeof ATTENTION_MARKER_GLYPH.Icon
+  inkClass: string
+  strokeWidth?: number
+}) {
+  return <Icon size={NODE_RAIL_GLYPH_PX} strokeWidth={strokeWidth} className={`${inkClass} shrink-0`} aria-hidden="true" />
+}
+
+const ATTENTION_ROW: LegendRow = {
+  label: 'Worth reviewing',
+  swatch: <CardIconSwatch Icon={ATTENTION_MARKER_GLYPH.Icon} inkClass={ATTENTION_MARKER_GLYPH.inkClass} strokeWidth={ATTENTION_MARKER_GLYPH.strokeWidth} />,
+  testId: 'legend-icon-attention',
+}
+const EVIDENCE_ROW: LegendRow = {
+  label: 'Evidence worth seeking',
+  swatch: <CardIconSwatch Icon={EVIDENCE_RAIL_GLYPH.Icon} inkClass={NODE_RAIL_TONE_CLASS[EVIDENCE_RAIL_GLYPH.tone]} />,
+  testId: 'legend-icon-evidence',
+}
+const BEHAVIOUR_ROW: LegendRow = {
+  label: 'Behavioural check',
+  swatch: <CardIconSwatch Icon={BEHAVIOUR_RAIL_GLYPH.Icon} inkClass={NODE_RAIL_TONE_CLASS[BEHAVIOUR_RAIL_GLYPH.tone]} />,
+  testId: 'legend-icon-behaviour',
+}
+const COACHING_ROWS: LegendRow[] = [
+  {
+    label: 'Explore with Olumi',
+    swatch: <CardIconSwatch Icon={COACHING_ICON_GLYPH.Icon} inkClass={COACHING_ICON_GLYPH.inkClass} />,
+    testId: 'legend-icon-coaching',
+  },
+]
+
+/** The card-icon rows a reader in this phase can meet on a card. */
+function cardIconRows(isPostAnalysis: boolean): LegendRow[] {
+  return isPostAnalysis ? [ATTENTION_ROW, EVIDENCE_ROW, BEHAVIOUR_ROW] : [ATTENTION_ROW, BEHAVIOUR_ROW]
+}
+
+/**
  * ⭐⭐ THE NUMBERS — Paul, 31 Aug 2026: "Four different number vocabularies on
  * one screen, none explained… one noun per idea, and a legend where the model
  * is, not in a panel."
@@ -926,7 +987,7 @@ function LegendGroup({ rows }: { rows: LegendRow[] }) {
  *     no automated witness**".
  *
  *  2. THE ANCHOR GROWS UPWARD, OFF THE TOP, WITH NO CLAMP. The toolbar is
- *     `position: fixed; bottom: 12px` (`CanvasFloatingToolbar.module.css`) and
+ *     `position: fixed; bottom: 12px` then, 40px now (`CanvasFloatingToolbar.module.css`) and
  *     this panel is `absolute … bottom-0` inside it. So the panel's BOTTOM is
  *     pinned near the foot of the window and its TOP is
  *     `wrapperBottom − panelHeight` — a number that goes NEGATIVE the moment the
@@ -1228,7 +1289,17 @@ export function CanvasLegendPopover({ variant = 'icon' }: CanvasLegendPopoverPro
               </>
             )}
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
+            <LegendGroup rows={cardIconRows(isPostAnalysis)} />
+            <div
+              className={`${typography.panelMeta} text-text-light mt-1.5 mb-1.5`}
+              data-testid="legend-caption-source-exception"
+            >
+              Source exception
+            </div>
             <LegendGroup rows={PROVENANCE_ROWS} />
+            <div className="mt-1.5">
+              <LegendGroup rows={COACHING_ROWS} />
+            </div>
             <div className="h-px bg-panel-border my-2" aria-hidden="true" />
             <MetricGroup board={board} />
           </div>

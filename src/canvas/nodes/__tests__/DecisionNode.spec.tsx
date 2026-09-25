@@ -110,9 +110,15 @@ describe('DecisionNode', () => {
     expect(screen.getByText('Should we hire?')).toBeDefined()
   })
 
-  it('has accessible name containing "decision"', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+   * contract §01): the accessible name uses the user-facing Kind word from
+   * `NODE_REGISTRY` — "Question" for a decision node (`DECISION_NODE_LABEL`)
+   * — never the internal code id "decision".
+   */
+  it('has accessible name containing "Question"', () => {
     renderDecision()
-    expect(screen.getByRole('group', { name: /decision/i })).toBeDefined()
+    expect(screen.getByRole('group', { name: /^Question:/i })).toBeDefined()
   })
 
   // T11: "options compared" text removed in v1.1 — health pills replace it

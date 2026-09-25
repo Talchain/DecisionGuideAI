@@ -16,7 +16,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -186,8 +186,17 @@ const FactorCard = FactorNode as unknown as CardComponent
 const renderCard = (Comp: CardComponent, id: string) =>
   render(<ReactFlowProvider><Comp {...props(id)} /></ReactFlowProvider>)
 
-/** The card's own face: BaseNode's root, which excludes the sibling popover. */
-const face = (label: string) => screen.getByRole('group', { name: new RegExp(`node: ${label}`) })
+/**
+ * The card's own face: BaseNode's root, which excludes the sibling popover.
+ *
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the accessible name dropped the literal word "node" —
+ * "<code id> node: <label>." became "<Kind>: <label>. Open details." The
+ * colon before the label is the one thing common to both templates and to
+ * every kind, so matching on that (rather than re-adding a specific kind
+ * word) keeps this helper correct across all six kinds.
+ */
+const face = (label: string) => screen.getByRole('group', { name: new RegExp(`: ${label}`) })
 /**
  * ⭐ ED #63 5809278282 (bounded anatomy, 24 Sep): the factor's S3 findings —
  * the driver line, a found turning point, the prior-range line — moved off the
@@ -198,8 +207,25 @@ const face = (label: string) => screen.getByRole('group', { name: new RegExp(`no
  * rides the value line; these fixtures' bare amounts print no value line, so
  * the cue is pinned in `FactorNode.boundedAnatomy.spec.tsx`, not here.)
  */
+/*
+ * ⛔ SUPERSEDED for the driver line, the TOP driver's turning point and the
+ * range line (prototype, Paul 25 Sep 2026: where ED 5809278282 conflicts with
+ * the prototype's card bodies, the prototype wins): those findings are ON the
+ * face again, and never repeated in the popover. The helper keeps its name.
+ */
 const popoverFinding = (label: string, testId: string) => {
-  expect(within(face(label)).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
+  const pop = screen.queryByTestId('node-popover')
+  if (pop) expect(within(pop).queryByTestId(testId), `${testId} is repeated in the popover`).toBeNull()
+  return within(face(label)).getByTestId(testId)
+}
+/**
+ * A TOP driver's turning point whose number may not print (normalised row, or
+ * incompatible units) is NOT on the resting face: the prototype's caption is
+ * never shown without its number (verifier FIX_NEEDED 1, 25 Sep). It stays in
+ * the popover with its sentence and the reason no number is shown.
+ */
+const inPopoverNotOnFace = (label: string, testId: string) => {
+  expect(within(face(label)).queryByTestId(testId), `${testId} is on the face`).toBeNull()
   return within(screen.getByTestId('node-popover')).getByTestId(testId)
 }
 
@@ -278,7 +304,10 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
     expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
-    expect(popoverFinding('Trial conversion', 'factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
+    // At rest: the prototype's caption + number (verifier FIX_NEEDED 1, 25 Sep).
+    const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
+    expect(within(freshTp).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
+    expect(within(freshTp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
@@ -288,8 +317,9 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
-    expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
-    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
+    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
+    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes.')).toBe(true)
   })
 
   it('⛔ CANNOT-CONFIRM and NEVER-RUN HIDE the driver line and the turning point — no past analysis is invented', () => {
@@ -329,7 +359,8 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setMeta({ 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-conv')
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
-    expect(within(tp).getByTestId('factor-turning-point-value').textContent).toBe('6.5%')
+    // At rest the number is in the caption row (printed once), not on the track.
+    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
     expect(tp.getAttribute('aria-label')).toContain('Below 6.5%, the current model comparison changes.')
   })
 
@@ -338,7 +369,7 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setCurrency('current')
     setMeta({ 'fac-seats': DRIVER_META })
     renderCard(FactorNode as never, 'fac-seats')
-    const tp = popoverFinding('Seat count', 'factor-turning-point')
+    const tp = inPopoverNotOnFace('Seat count', 'factor-turning-point')
     expect(within(tp).queryByTestId('factor-turning-point-value')).toBeNull()
     expect(tp.getAttribute('aria-label')).not.toContain('0.5')
     expect(tp.getAttribute('aria-label')).toContain('internal scale')
@@ -422,57 +453,63 @@ describe('Factor — coaching is ONE rail icon, not a chip row (spec §2; ED 11:
 // ═════════════════════════════════════════════════════════════════════════════
 
 /*
- * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "Option =
- * top change pre-run or current-model share post-run … The fuller S3 reasoning
- * detail — change rows … — can move to the existing hover/focus popover and
- * inspector"). The ≤2 rows, their shared order, `+N more` and their marks now
- * live in the option's popover detail (`option-preview-detail-<id>`); the FACE
- * carries ONE line — the FIRST row of that same shared order, value and mark
- * first. So "options compare like with like" is asserted on the face too.
+ * ⭐ RE-POINTED TWICE. The bounded anatomy (ED #63 5809278282, 24 Sep) moved the
+ * rows, `+N more` and their marks into the popover and kept a one-line face.
+ * Paul (25 Sep) ruled the card must match the PROTOTYPE: the resting FACE is the
+ * change rows — up to THREE, in the ONE shared order, then `+N more` from the one
+ * total — so "options compare like with like" is asserted on the face itself.
  */
-const preview = (optionId: string) => within(optionPreviewDetail(optionId)!)
+const cardRows = (optionId: string) => within(optionCardRows(optionId))
 
-describe('Option — "what this option changes": ≤2 rows in ONE shared order, +N more from the one total (spec §4; ED 11:52Z point 4)', () => {
-  it('two options that change the same factors show the SAME rows in the SAME order — and lead the face with the same one', () => {
+describe('Option — "what this option changes": ≤3 rows in ONE shared order, +N more from the one total (spec §4; Paul 25 Sep)', () => {
+  it('two options that change the same factors show the SAME rows in the SAME order, on the face', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    const raiseRows = preview('opt-raise').getByTestId('option-change-rows-opt-raise')
+    const raiseFace = face('Raise the plan price')
+    const raiseRows = within(raiseFace).getByTestId('option-change-rows-opt-raise')
     const raiseOrder = [...raiseRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
-    const raiseFace = within(face('Raise the plan price')).getByTestId('option-primary-change-opt-raise')
-    expect(within(face('Raise the plan price')).queryByTestId('option-change-rows-opt-raise')).toBeNull()
+    expect(within(raiseFace).queryByTestId('option-primary-change-opt-raise')).toBeNull()
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
-    const bundleRows = preview('opt-bundle').getByTestId('option-change-rows-opt-bundle')
+    const bundleRows = within(face('Bundle seats')).getByTestId('option-change-rows-opt-bundle')
     const bundleOrder = [...bundleRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
-    const bundleFace = within(face('Bundle seats')).getByTestId('option-primary-change-opt-bundle')
-    // fac-price (set by both) leads, then fac-seats (set by both) — shared across the row.
-    expect(raiseOrder).toEqual(['option-change-row-opt-raise-fac-price', 'option-change-row-opt-raise-fac-seats'])
+    // fac-price (set by both) leads, then fac-seats (set by both) — shared across
+    // the row; opt-raise's own fac-conv follows.
+    expect(raiseOrder).toEqual([
+      'option-change-row-opt-raise-fac-price',
+      'option-change-row-opt-raise-fac-seats',
+      'option-change-row-opt-raise-fac-conv',
+    ])
     expect(bundleOrder).toEqual(['option-change-row-opt-bundle-fac-price', 'option-change-row-opt-bundle-fac-seats'])
-    // …and each FACE's one line is that shared order's first row.
-    expect(raiseFace.getAttribute('data-factor-id')).toBe('fac-price')
-    expect(bundleFace.getAttribute('data-factor-id')).toBe('fac-price')
   })
 
-  it('+N more counts from the ONE total (3 targets − 2 rows = +1), and the from→to uses the baseline option', () => {
-    setState({ phase: 'pre' })
+  it('+N more counts from the ONE total (4 targets − 3 rows = +1), and the from→to uses the baseline option', () => {
+    // A fourth target, so one change is behind `+1 more` (three rows at rest).
+    const cee = {
+      ...CEE,
+      options: CEE.options.map(o => (o.id === 'opt-raise'
+        ? { ...o, interventions: { ...o.interventions, 'fac-extra': { value: 3, source: 'cee_hypothesis' } } }
+        : o)),
+    }
+    setState({ phase: 'pre', over: { ceeAnalysisReady: cee } })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(preview('opt-raise').getByTestId('option-change-more-opt-raise').textContent).toBe('+1 more')
-    expect(preview('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('→')
-    // Off the face: the face carries its one line, not the overflow link.
-    expect(within(face('Raise the plan price')).queryByTestId('option-change-more-opt-raise')).toBeNull()
+    const more = within(face('Raise the plan price')).getByTestId('option-change-more-opt-raise')
+    expect(more.textContent).toBe('+1 more')
+    expect(cardRows('opt-raise').getByTestId('option-change-more-opt-raise')).toBe(more)
+    expect(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('£49 → £59')
   })
 
-  it('an Olumi-chosen target stays marked est.; a user-set one is not — and the face line keeps its own mark', () => {
+  it('an Olumi-chosen target stays marked est.; a user-set one is not — each row on the face keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(preview('opt-raise').getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
-    // Truth stays on the card: the face's value carries its mark beside it.
-    expect(within(face('Raise the plan price')).getByTestId('option-primary-change-source-opt-raise').getAttribute('data-value-source')).toBe('brief')
+    expect(cardRows('opt-raise').getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
+    // Truth stays on the card: the price row carries its own `brief` mark.
+    expect(cardRows('opt-raise').getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
-    // Positive control: the user-set row IS in the preview, marked as the user's.
-    expect(preview('opt-bundle').getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
-    expect(preview('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
+    // Positive control: the user-set row IS on the face, marked as the user's.
+    expect(cardRows('opt-bundle').getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
+    expect(cardRows('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
   it('⛔ MT-18: no bare numeral at rest — control: Detailed still carries the ordinal', () => {
@@ -623,29 +660,33 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
 // QUESTION + GOAL
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('Question — wide and shallow: option count + ONE focus signal; coaching behind the icon (ED 11:52Z point 1)', () => {
+describe('Question — wide and shallow: option count + at most one short segment; coaching behind the icon (ED 11:52Z point 1; prototype 25 Sep)', () => {
   it('no coaching chip row on the face; the rail icon asks "Explore more options"', () => {
     setState({ phase: 'pre' })
     renderCard(DecisionNode as never, 'decision-1')
     const card = face('How should we price the new plan\\?')
     expect(within(card).queryByRole('button', { name: 'Explore more options' })?.getAttribute('data-testid')).toBe('node-coaching-icon-decision-1')
-    expect(within(card).getByTestId('decision-node-option-count').textContent).toBe('4 options')
+    expect(within(card).getByTestId('decision-node-option-count').textContent).toBe('4 alternatives')
   })
 
-  it('the top gap is ONE clamped line with full-text recovery for keyboard and screen reader (ED 02:31Z)', () => {
+  // ⚠ SUPERSEDED BY THE PROTOTYPE (Paul, 25 Sep 2026): this pinned the top gap
+  // as ONE clamped line ON the face (polish #4, `line-clamp-1`). Served, the
+  // clamp still cut the sentence ("3 options · A success target on your model
+  // can't be…"). The prototype row is "N alternatives · Evidence priority: …",
+  // so the sentence is OFF the face, WHOLE in the popover, and the full-text
+  // recovery for a screen reader is a card-side `.sr-only` copy.
+  it('the top gap is off the face, whole in the popover, and a screen reader still reaches it from the card', () => {
     setState({ phase: 'pre', over: { goalThreshold: null } })
     renderCard(DecisionNode as never, 'decision-1')
-    const gap = within(face('How should we price the new plan\\?')).getByTestId('decision-node-top-gap')
-    expect(gap.getAttribute('tabindex')).toBe('0')
-    // Polish #4: still ONE line, now broken at a WORD — `line-clamp-1` on a
-    // wrapping run replaced `truncate` (nowrap + character-granular ellipsis).
-    // The clamp sits on the span that paints the text (its own box is one line).
-    const painted = gap.querySelector('[aria-hidden="true"]') as HTMLElement
-    const gapTokens = painted.className.split(/\s+/)
-    expect(gapTokens).toContain('line-clamp-1')
-    expect(gapTokens).not.toContain('truncate')
-    expect(gap.className.split(/\s+/)).not.toContain('truncate')
-    expect(gap.querySelector('.sr-only')!.textContent).toMatch(/^Top gap: /)
+    const card = face('How should we price the new plan\\?')
+    expect(within(card).queryByTestId('decision-node-top-gap')).toBeNull()
+    const gap = within(screen.getByTestId('node-popover')).getByTestId('decision-node-top-gap')
+    expect(gap.textContent).toMatch(/^Top gap: /)
+    expect(gap.textContent).not.toContain('\u2026')
+    expect(gap.className.split(/\s+/)).not.toContain('line-clamp-1')
+    const sr = within(card).getByTestId('decision-focus-signal-sr')
+    expect(sr.className.split(/\s+/)).toContain('sr-only')
+    expect(sr.textContent).toBe(gap.textContent)
   })
 
   it('after a run, the icon keeps "Challenge this result" TYPED (what_would_flip)', () => {
@@ -742,17 +783,42 @@ describe('provenance at rest = exceptions to the board default (spec §6; ED 11:
   ]
   const boardProps = (id: string): Record<string, unknown> => ({ ...props('fac-price'), id, data: board.find(n => n.id === id)!.data })
 
-  it('the repeated default (Olumi) mark is quiet at rest; the exception (a person’s value) is shown; Detailed shows both', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16).
+   *
+   * This board is all FACTOR cards, so every mark this test could ever see is
+   * a `claim: 'value'` mark — and GAP-16 removes those from the header
+   * unconditionally (contract §03: "Show useful exceptions, not the same
+   * provenance mark everywhere"; the same number already carries its own
+   * mark on the value line, `valueSourceMark.tsx`). The board-default
+   * "exception" mechanism this test exercised (`hideKind`, spec §6 / ED
+   * 11:52Z point 8) is now moot for factors specifically: Gamma's
+   * `user_override` value used to be the "shown exception" against Alpha/
+   * Beta's quieted "AI estimate" default; both are quiet now, in every view,
+   * because there is no header value mark left to show OR quiet. `hideKind`
+   * itself is untouched (it still governs STRUCTURAL-claim repetition on
+   * option/decision/outcome boards), so this file's other describe blocks
+   * are unaffected — only the factor-only board below loses its
+   * distinguishing case.
+   */
+  it('factor cards never carry a header provenance mark any more — the value is stated once, on the value line', () => {
     setState({ phase: 'pre', over: { nodes: board, edges: [] } })
     render(<ReactFlowProvider><FactorCard {...boardProps('fa')} /></ReactFlowProvider>)
     expect(within(face('Alpha')).queryByTestId('node-provenance-mark')).toBeNull()
     cleanup()
     render(<ReactFlowProvider><FactorCard {...boardProps('fc')} /></ReactFlowProvider>)
-    expect(within(face('Gamma')).getByTestId('node-provenance-mark').getAttribute('data-provenance-kind')).toBe('edited')
+    // Gamma's human-edited value used to be the shown "exception" against the
+    // repeated Olumi default. It is quiet now too — de-duplicated, not lost:
+    // its own value-line mark (`data-value-source="you"`/"edited") still
+    // renders, proven in `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`.
+    expect(within(face('Gamma')).queryByTestId('node-provenance-mark')).toBeNull()
     cleanup()
     setState({ phase: 'pre', viewMode: 'expert', over: { nodes: board, edges: [] } })
     render(<ReactFlowProvider><FactorCard {...boardProps('fa')} /></ReactFlowProvider>)
-    expect(within(face('Alpha')).getByTestId('node-provenance-mark').getAttribute('data-provenance-kind')).toBe('ai')
+    // Detailed view used to show every mark, board default included. It still
+    // shows every mark `resolveProvenanceMarks` returns — there just aren't
+    // any value-claim ones left to show.
+    expect(within(face('Alpha')).queryByTestId('node-provenance-mark')).toBeNull()
   })
 })
 
