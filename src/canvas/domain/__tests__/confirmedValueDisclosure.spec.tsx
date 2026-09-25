@@ -103,7 +103,7 @@ describe('2.638 S2 · D3 — the Model tab stops rendering a confirmed value as 
 
   it('leaves the pre-existing Model-tab copy byte-identical', () => {
     expect(mapSourceToDisplay('brief_extraction')).toBe('From brief')
-    expect(mapSourceToDisplay('cee_inference')).toBe('AI estimate')
+    expect(mapSourceToDisplay('cee_inference')).toBe('Olumi estimate')
     expect(mapSourceToDisplay('user')).toBe('User edited')
     expect(mapSourceToDisplay(undefined)).toBeNull()
   })

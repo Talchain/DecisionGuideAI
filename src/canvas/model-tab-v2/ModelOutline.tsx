@@ -35,6 +35,8 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
+import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
+import type { NodeType } from '../domain/nodes'
 import { ModelRowView } from './ModelRowView'
 import { ModelGroupActions } from './ModelGroupActions'
 import { GROUP_ACTIONS, type GroupAction, type GroupActionContext } from './groupActions'
@@ -44,7 +46,7 @@ import {
   sectionWriterNoticeText,
   SECTION_WRITER_NOTICE_TESTID,
 } from './sectionWriterNotice'
-import { GROUP_TITLE } from './rowPresentation'
+import { GROUP_TITLE, KIND_GLYPH } from './rowPresentation'
 import {
   MODEL_GROUP_IDS,
   type DetailTier,
@@ -52,6 +54,46 @@ import {
   type ModelGroupId,
   type ModelRow,
 } from './types'
+
+/**
+ * MODEL-3 — the group toggle's kind mark, matching the shape channel every
+ * other row-bearing surface in this tab already speaks (`NodeShapeIndicator`,
+ * DS v4 §10.1). `relationships` has no node shape (it is an edge, not a
+ * node), so it keeps the outline's own arrow glyph. `outcomes-risks` shows
+ * only the kinds genuinely present in the group, since a heading is not the
+ * place to assert a kind the model does not currently hold.
+ */
+const GROUP_SHAPE_KIND: Partial<Record<ModelGroupId, NodeType>> = {
+  goal: 'goal',
+  options: 'option',
+  factors: 'factor',
+}
+
+function GroupKindMark({ groupId, headingRows }: { groupId: ModelGroupId; headingRows: readonly ModelRow[] }) {
+  if (groupId === 'relationships') {
+    return (
+      <span aria-hidden="true" className="inline-flex items-center justify-center text-text-light select-none">
+        {KIND_GLYPH.relationship}
+      </span>
+    )
+  }
+  if (groupId === 'outcomes-risks') {
+    const kinds = Array.from(new Set(headingRows.map(r => r.kind))).filter(
+      (k): k is 'outcome' | 'risk' => k === 'outcome' || k === 'risk',
+    )
+    if (kinds.length === 0) return null
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {kinds.map(k => (
+          <NodeShapeIndicator key={k} nodeKind={k} size={8} />
+        ))}
+      </span>
+    )
+  }
+  const kind = GROUP_SHAPE_KIND[groupId]
+  if (!kind) return null
+  return <NodeShapeIndicator nodeKind={kind} size={8} />
+}
 
 export interface ModelOutlineProps {
   /**
@@ -839,10 +881,15 @@ export function ModelOutline({
             }${unset === null ? '' : `, ${unset}`}`}
             /* ⚠ `py-1.5` IS THE TARGET, NOT DECORATION. A button's hit area is
                its own border box, so this 6px each side is what takes the
-               control from a 19.25px line box to 31.25px — over 2.5.8's 24px.
-               It used to sit on this element as part of `w-full px-2 py-1.5`
-               and must not drift back to the container. */
-            className={`${typography.panelHeader} text-text-header text-left py-1.5`}
+               control's line box up to (and past) 2.5.8's 24px. It used to
+               sit on this element as part of `w-full px-2 py-1.5` and must
+               not drift back to the container.
+               ⭐ MODEL-3: `panelHeader` (14px/600) made every group toggle
+               read as the same weight as the tab's own title ("Model
+               outline"), so the tab had no hierarchy — DS v5 §2.2/the
+               prototype's `.reviewitem>button` put entries at 12px/400
+               (`panelBody`); only the view title stays 14px/600. */
+            className={`${typography.panelBody} text-text-body text-left py-1.5 inline-flex items-center gap-1.5`}
           >
             {/*
               ⭐⭐ V2 GAP 32 — ONE LUCIDE CHEVRON THAT ROTATES, NOT A TEXT
@@ -862,7 +909,14 @@ export function ModelOutline({
               className={`inline w-3.5 h-3.5 text-text-light transition-transform ${
                 group.open ? 'rotate-90' : ''
               }`}
-            />{' '}
+            />
+            {/* ⭐ MODEL-3: the kind mark — the same shape channel every row
+                already carries (`NodeShapeIndicator`, `ModelRowView.tsx`), so
+                the eye that has learned "square = option, circle = factor"
+                on the rows can use it here too. `aria-hidden`: the toggle's
+                `aria-label` above is the accessible name and already states
+                the group by its title. */}
+            <GroupKindMark groupId={group.id} headingRows={group.headingRows} />
             {GROUP_TITLE[group.id]}
             <span className={`${typography.panelMeta} text-text-light ml-2`}>
               {group.headingRows.length}

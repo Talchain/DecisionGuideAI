@@ -187,7 +187,7 @@ describe('the Model tab makes no semantic claim it has no producer for', () => {
     draw(EVERY_STATE)
     const marks = Array.from(document.querySelectorAll('[aria-label]'))
       .map((e) => e.getAttribute('aria-label') ?? '')
-    expect(marks.join(' | ')).toMatch(/AI estimate/i)
+    expect(marks.join(' | ')).toMatch(/Olumi estimate/i)
     expect(marks.join(' | ')).toMatch(/Estimate not yet confirmed/i)
   })
 })
