@@ -21,6 +21,7 @@ import { useStore } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { LABEL_LEGIBLE_ZOOM, labelsRenderedAtZoom, resolveLodRung } from '../utils/zoomLegibility'
 import type { LodRung } from '../utils/zoomLegibility'
+import { anchorRailFitsBesideAtZoom, setAnchorRailFitsBeside } from '../nodes/shared/anchorRailFloor'
 
 /**
  * Below this zoom, full node cards are unreadable soup — simplify (D2).
@@ -75,5 +76,7 @@ export function LodSync() {
     const { setLodRung } = useCanvasStore.getState()
     if (typeof setLodRung === 'function') setLodRung(rung)
   }, [rung])
+  const anchorRailFitsBeside = useStore((s) => anchorRailFitsBesideAtZoom(s.transform[2]))
+  useEffect(() => { setAnchorRailFitsBeside(anchorRailFitsBeside) }, [anchorRailFitsBeside])
   return null
 }
