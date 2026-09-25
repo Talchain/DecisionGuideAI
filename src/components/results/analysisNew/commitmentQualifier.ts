@@ -32,7 +32,8 @@
  *      "Provisional" and WHY at a glance, not the run's own provenance
  *      mechanics.
  * `estimated`/`partlyEstimated` and the caveat count stay on the visible
- * line: `theAnswerIsOnTheFirstScreen.spec.tsx` and `AnalysisNewTabBody.spec.tsx`
+ * line ONLY when nothing else licenses it (V2, 25 Sep); otherwise they move
+ * behind "Details". Why they may never simply vanish: `theAnswerIsOnTheFirstScreen.spec.tsx` and `AnalysisNewTabBody.spec.tsx`
  * (outside this change's file set) both pin a fixture whose ONLY licensing
  * clause is the caveat count, so moving it behind a click would silence the
  * qualifier on that run. `openBullet` in `commitmentSynthesis.ts` never states
@@ -42,8 +43,10 @@ import type { AnalysisNewViewModel } from './analysisNewTypes'
 
 export const COMMITMENT_QUALIFIER_COPY = {
   lead: 'Provisional',
-  estimated: "rests on Olumi's estimates, not yet confirmed",
-  partlyEstimated: "rests partly on Olumi's estimates, not yet confirmed",
+  estimated: "rests on Olumi's estimates",
+  partlyEstimated: "rests partly on Olumi's estimates",
+  /** Behind "Details": the rest of the estimates sentence (V2 one-line qualifier). */
+  estimatesNotConfirmed: "Olumi's estimates are not yet confirmed by you",
   evidenceNotAssessed: 'evidence not assessed',
   robustnessNotEstablished: 'robustness not established',
   /** Both facts at once, in the prototype's own words — not two clauses. */
@@ -85,11 +88,12 @@ export function buildCommitmentQualifier(
 
   const lineClauses: string[] = []
 
+  const detailClauses: string[] = []
+  if (facts.runProvisional === true) detailClauses.push(COMMITMENT_QUALIFIER_COPY.automaticFirstPass)
+
   const inputs = vm.atAGlance.inputProvenance
-  if (inputs === 'estimated') lineClauses.push(COMMITMENT_QUALIFIER_COPY.estimated)
-  else if (inputs === 'partly_estimated' || inputs === 'mixed') {
-    lineClauses.push(COMMITMENT_QUALIFIER_COPY.partlyEstimated)
-  }
+  const estimated = inputs === 'estimated' || inputs === 'partly_estimated' || inputs === 'mixed'
+  if (estimated) detailClauses.push(COMMITMENT_QUALIFIER_COPY.estimatesNotConfirmed)
 
   const evidence = vm.checks.items.find((i) => i.id === 'evidence')?.code ?? null
   const evidenceNotAssessed = evidence === 'evidence_not_assessed'
@@ -102,13 +106,29 @@ export function buildCommitmentQualifier(
     lineClauses.push(COMMITMENT_QUALIFIER_COPY.robustnessNotEstablished)
   }
 
+  // V2 one-line qualifier (served 25 Sep, 3 lines at 280px): the prototype's
+  // line is "Provisional · evidence and robustness not established". The
+  // estimates fact rides on the line only when nothing else licenses it;
+  // otherwise it is behind "Details" (and the glance's provenance line says it).
+  if (estimated && lineClauses.length === 0) {
+    lineClauses.push(
+      inputs === 'estimated' ? COMMITMENT_QUALIFIER_COPY.estimated : COMMITMENT_QUALIFIER_COPY.partlyEstimated,
+    )
+  }
+
   // The engine's own caveats (critiques + strip-eligible inference warnings)
   // are listed in About › Limitations; the count keeps them visible at rest,
   // beside the chart, so moving them there never hides that they exist.
+  // V2 one-line qualifier (Paul, 25 Sep): the count moves behind "Details"
+  // whenever the line already says something; alone, it stays on the line so
+  // the qualifier is never silenced.
   const limitations = vm.deeper.critiques.length + vm.deeper.caveats.length
-  if (limitations > 0) lineClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
+  if (limitations > 0) {
+    if (lineClauses.length === 0) lineClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
+    else detailClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
+  }
 
-  const detail = facts.runProvisional === true ? COMMITMENT_QUALIFIER_COPY.automaticFirstPass : null
+  const detail = detailClauses.length > 0 ? detailClauses.join(' · ') : null
 
   if (lineClauses.length === 0 && detail === null) return null
 

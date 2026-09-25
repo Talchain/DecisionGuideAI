@@ -135,7 +135,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
@@ -237,6 +237,14 @@ const renderBody = (data: ResultsSectionDataReturn) => {
  * already put its rows on screen; there is no second door to open.
  */
 const openDrivers = () => {
+  // V2 prototype (25 Sep): the drivers' group renders only inside the
+  // challenge's "Assumptions and evidence" door. The caveat and the 100% move
+  // behind it together, so they stay at the same depth.
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  if (door.getAttribute('aria-expanded') !== 'true') fireEvent.click(door)
+  openGroupsIfPresent()
+  // TAIL-3 (design wave 2): "Drivers and dynamics" is `bare` — no toggle of
+  // its own to open once the evidence door above is open.
   expect(screen.queryByTestId(`${SECTION}-toggle`)).toBeNull()
 }
 

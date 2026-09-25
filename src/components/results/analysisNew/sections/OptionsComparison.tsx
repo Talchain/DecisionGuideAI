@@ -230,8 +230,9 @@ const AXIS_TICK_FRACTIONS = [0, 1 / 3, 2 / 3, 1] as const
  * or any other symbol this surface was not given.
  */
 function formatAxisTick(value: number): string {
-  const rounded = Math.round(value * 100) / 100
-  return rounded.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  // Three significant figures, compact for large magnitudes (190K, not
+  // "423,333.33" — the served 25 Sep check). Still no unit symbol.
+  return value.toLocaleString(undefined, { notation: 'compact', maximumSignificantDigits: 3 })
 }
 
 export interface OptionsComparisonProps {
@@ -1078,68 +1079,47 @@ export function OptionsComparison({
           the row, so `optionsComparisonLens.spec` and
           `theWithheldRunShowsItsFigures.spec` see the same presence/absence
           they always did. */}
-      {sharedOrigin !== null || showAxis ? (
-        <div className="mt-1 flex items-center justify-between gap-2">
-          {/* ⭐ THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same
-              copy constant the rows used and the glance renders. */}
-          {sharedOrigin !== null ? (
-            <p
-              className={`${typography.panelMeta} text-text-light m-0 flex-1 min-w-0 flex items-center gap-1`}
-              data-testid={`${testId}-option-origin-legend`}
-              data-option-origin={sharedOrigin}
+      {/* ⭐ V2 prototype (`.axis`): the scale is its OWN full-width row under the
+          plots — ticks spread across the plot inset, the (i) at the end — and
+          the shared-origin sentence is its own line below it. Sharing one flex
+          row crushed the sentence into a 40px column at the 280px dock. */}
+      {showAxis ? (
+        <div className="mt-1 flex items-center gap-1" data-testid={`${testId}-axis`}>
+          {axisTicks !== null ? (
+            <span
+              className={`${typography.panelMeta} text-text-light flex-1 min-w-0 ml-4 flex items-center justify-between tabular-nums`}
+              data-testid={`${testId}-axis-ticks`}
+              aria-hidden="true"
             >
-              <Sparkles className={`${icon('inline')} shrink-0`} aria-hidden="true" />
-              {OPTION_ORIGIN_COPY[sharedOrigin]}
-            </p>
+              {axisTicks.map((tick, i) => (
+                <span key={i} data-testid={`${testId}-axis-tick-${i}`}>
+                  {tick}
+                </span>
+              ))}
+            </span>
           ) : (
             <span className="flex-1" aria-hidden="true" />
           )}
-
-          {/* ⭐⭐ THE AXIS, AND THE SENTENCE THE RANGES EXIST FOR, BEHIND ITS
-              INFO BUTTON (V2). "Where ranges overlap, treat the order as
-              unsettled" is the one line that tells a reader when NOT to trust
-              the order; it is now the info button's accessible name and
-              tooltip, and its click discloses the same sentence inline (a
-              tooltip alone does not reach a touch reader) together with the
-              range-arm control.
-
-              ⚠ THE NAME IS A FUNCTION OF THE ARM, because the sentence names
-              the percentile the dot marks. The arm persists while the
-              disclosure is closed, so the name must follow it or it would
-              name p50 over a p90 dot.
-
-              ⚠ ONLY UNDER THE OUTCOME LENS, and only where a range is drawn:
-              a legend for something not on screen is furniture. Gated on
-              `showAxis` alone, never on the row, so this button's own
-              presence/absence is unchanged by the merge. */}
-          {showAxis ? (
-            <span className="-my-1.5 flex shrink-0 items-center gap-2" data-testid={`${testId}-axis`}>
-              {/* ⭐⭐ WAVE 2: THE SCALE ITSELF, so the bands above can be READ
-                  rather than only seen — see `axisTicks`'s own note for why
-                  these are plain numbers and never a `%`. */}
-              {axisTicks !== null ? (
-                <span
-                  className={`${typography.panelMeta} text-text-light flex items-center gap-2 tabular-nums`}
-                  data-testid={`${testId}-axis-ticks`}
-                  aria-hidden="true"
-                >
-                  {axisTicks.map((tick, i) => (
-                    <span key={i} data-testid={`${testId}-axis-tick-${i}`}>
-                      {tick}
-                    </span>
-                  ))}
-                </span>
-              ) : null}
-              <PanelIconButton
-                Icon={Info}
-                label={COPY.optionFigures.rangeLegend(rangeAppetite)}
-                expanded={rangeInfoOpen}
-                onClick={() => setRangeInfoOpen((open) => !open)}
-                testId={`${testId}-range-info`}
-              />
-            </span>
-          ) : null}
+          <PanelIconButton
+            Icon={Info}
+            label={COPY.optionFigures.rangeLegend(rangeAppetite)}
+            expanded={rangeInfoOpen}
+            onClick={() => setRangeInfoOpen((open) => !open)}
+            testId={`${testId}-range-info`}
+          />
         </div>
+      ) : null}
+      {/* THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy
+          constant the rows used and the glance renders. */}
+      {sharedOrigin !== null ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1 mb-0 flex items-start gap-1`}
+          data-testid={`${testId}-option-origin-legend`}
+          data-option-origin={sharedOrigin}
+        >
+          <Sparkles className={`${icon('inline')} shrink-0 mt-px`} aria-hidden="true" />
+          {OPTION_ORIGIN_COPY[sharedOrigin]}
+        </p>
       ) : null}
       {showAxis && rangeInfoOpen ? (
         <div data-testid={`${testId}-range-detail`}>

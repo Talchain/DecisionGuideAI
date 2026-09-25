@@ -71,8 +71,8 @@ afterEach(() => {
   setHighlightedNodesSpy.mockClear()
 })
 
-/** A factor whose value needs verification — the only shape that renders both
- * the `-verify-toggle` chip and lets a mark open `-detail-verify`. */
+/** A factor whose value needs verification — the shape that lets a mark open
+ * `-detail-verify`. */
 const needsCheckFactor = (id: string, label: string) => ({
   id,
   type: 'factor',
@@ -119,31 +119,8 @@ describe('fidelity gaps #3 / #8 — the subject line no longer clamps', () => {
 })
 
 describe('fidelity gap #14 — the model-strip pills carry no tinted fill', () => {
-  it('⭐⭐ CONTRAST: the verify toggle keeps its severity ink at rest and pressed,\n      only the fill is gone', () => {
-    setNodes([needsCheckFactor('f1', 'Supplier lead time')])
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-
-    const toggle = screen.getByTestId(`${TID}-verify-toggle`)
-    expect(toggle.className, 'severity stays legible without a fill').toContain('text-warning-ink')
-    expect(toggle.className, 'no tinted background at rest').not.toMatch(/bg-warning/)
-
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    expect(toggle.className, 'no tinted background pressed either').not.toMatch(/bg-warning/)
-    expect(toggle.className, 'pressed is a ring, recoloured off amber').toMatch(/ring-info/)
-  })
-
-  it('⭐ the no-value toggle carries no tinted fill', () => {
-    setNodes([{ id: 'f_a', type: 'factor', data: { label: 'Competitive pressure' } }])
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-
-    const toggle = screen.getByTestId(`${TID}-no-value-toggle`)
-    expect(toggle.className).not.toMatch(/bg-warning/)
-    expect(toggle.className).toContain('text-warning-ink')
-  })
-
+  // V2 (Paul, 25 Sep 2026): the two worklist toggles left the strip, so their
+  // no-fill cases went with them. The detail chip below is the pill that stays.
   it('⭐ the node-detail "not yet confirmed" chip carries no tinted fill', () => {
     setNodes([needsCheckFactor('f1', 'Supplier lead time')])
     render(<ModelStrip isPreRun={false} />)

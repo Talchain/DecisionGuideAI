@@ -141,6 +141,14 @@ function freshnessStatements(root: HTMLElement): Array<{ text: string; testId: s
  * where the reader sees 3, and would keep reading 2 if the badge came back.
  */
 const openEverySection = () => {
+  // V2 prototype: "What moves the outcome" (the drivers' group) renders only
+  // inside the challenge's "Assumptions and evidence" door, and the withheld
+  // sentence sits behind its own door. Open both where present, then the group.
+  for (const door of ['analysis-new-signals-disclose', 'analysis-new-glance-withheld-toggle']) {
+    const toggle = screen.queryByTestId(door)
+    if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  }
+  openGroupsIfPresent()
   for (const id of [
     'analysis-new-key-insights',
     'analysis-new-drivers',

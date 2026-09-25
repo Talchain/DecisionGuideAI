@@ -114,6 +114,11 @@ const renderPanel = () => {
   // ⚠ THE FINDING SECTIONS SIT INSIDE NAMED GROUPS, and `SectionShell` UNMOUNTS
   // a closed region — without this the strip's reach is measured against
   // sections that are not on screen.
+  // V2 prototype: the Drivers group ("What moves the outcome") renders only
+  // inside the challenge's "Assumptions and evidence" door, closed at rest.
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(door)
   openGroupsIfPresent()
   return result
 }

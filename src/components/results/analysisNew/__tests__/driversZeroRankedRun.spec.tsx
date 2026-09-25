@@ -77,8 +77,14 @@ const sectionText = () => screen.getByTestId('analysis-new-drivers').textContent
  * one-at-a-time accordion, so opening every closed toggle re-closes a sibling.
  * ⚠ ASSERTED OPEN: most cases below assert a sentence is ABSENT, and an absence
  * read off an unmounted section would pass vacuously.
+ * V2 prototype (25 Sep): "What moves the outcome" now renders only inside the
+ * challenge's "Assumptions and evidence" door, so that door is opened first.
  */
 const openDrivers = () => {
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  if (door.getAttribute('aria-expanded') !== 'true') fireEvent.click(door)
+  expect(screen.getByTestId('analysis-new-signals-disclose'), 'the evidence door must be open before it is read')
+    .toHaveAttribute('aria-expanded', 'true')
   const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
   if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
   expect(toggle, 'analysis-new-what-moves-the-outcome must be open before it is read')

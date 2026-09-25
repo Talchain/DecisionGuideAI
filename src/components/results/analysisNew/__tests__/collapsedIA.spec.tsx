@@ -80,12 +80,24 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
+/**
+ * V2 prototype: "What moves the outcome" (and the drivers section inside it)
+ * renders only inside the challenge's "Assumptions and evidence" door. Opens
+ * that door, asserting it was closed at rest.
+ */
+function openEvidenceDoor(): void {
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(door)
+}
+
 describe('the surface below the glance is a list of collapsed rows', () => {
   it('mounts every section CLOSED, with its content unmounted rather than hidden', () => {
     // ⚠ LICENSED (24 Sep 2026): "What would change your mind" mounts only on a
     // run allowed to name a leader; unlicensed, it would drop out of `present`
     // and this rule would stop covering it.
     renderBody(withLeaderLicensed(manyFragileEdges()))
+    openEvidenceDoor()
     openGroups()
     const present = SECTIONS.filter((id) => screen.queryByTestId(id))
     // POSITIVE CONTROL: a run rendering no sections would satisfy the loop
@@ -166,6 +178,7 @@ describe('the surface below the glance is a list of collapsed rows', () => {
 
   it('opens on click, and only the section clicked', () => {
     renderBody(manyFragileEdges())
+    openEvidenceDoor()
     openGroups()
     fireEvent.click(screen.getByTestId('analysis-new-uncertainty-toggle'))
 

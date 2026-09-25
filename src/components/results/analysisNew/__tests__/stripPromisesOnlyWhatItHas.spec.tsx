@@ -36,6 +36,11 @@
  * (CLAUDE.md trap 12). Both directions are asserted, because a suppression test
  * that only checks the pre-run side would pass on a strip that had lost the
  * post-run promise entirely.
+ *
+ * ⚠ V2 (Paul, 25 Sep 2026): the strip's hint line is removed in both states,
+ * so the pre-run case now reads the whole strip and the post-run case pins
+ * that the detail still delivers. The `hint`/`hintPreRun` copy checks below
+ * are kept; those keys no longer render.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -82,8 +87,8 @@ const renderPanel = (isPreRun: boolean) =>
 
 /**
  * ⚠⚠ THE STRIP DEFAULTS CLOSED AFTER A RUN AND OPEN BEFORE ONE
- * (`ModelStrip`: `const open = override ?? isPreRun`), and its marks and hint
- * are UNMOUNTED while closed. Without this, every post-run assertion here runs
+ * (`ModelStrip`: `const open = override ?? isPreRun`), and its marks are
+ * UNMOUNTED while closed. Without this, every post-run assertion here runs
  * against an empty tree — which is how a `toBe(null)` matcher would have
  * "passed" both directions and certified nothing. Opening is asserted, not
  * assumed.
@@ -98,6 +103,7 @@ const openStrip = () => {
 }
 
 const hintText = () => screen.queryByTestId('analysis-new-model-strip-hint')?.textContent ?? null
+const stripText = () => screen.getByTestId('analysis-new-model-strip').textContent ?? ''
 
 /** Pick the first mark and return the detail's absence line, or null. */
 const pickFirstMarkAndReadAbsence = (): string | null => {
@@ -130,7 +136,12 @@ describe('THE INSTRUMENT — the two states are genuinely different sentences', 
 })
 
 describe('before a run — the strip offers only what it can deliver', () => {
-  it('the hint does not promise what the analysis says', () => {
+  /**
+   * V2 (Paul, 25 Sep 2026): the standing hint line is gone in BOTH states. The
+   * property survives it and is now asserted over the whole strip: before a
+   * run, nothing in it promises what the analysis says.
+   */
+  it('the strip does not promise what the analysis says', () => {
     renderPanel(true)
     // ⚠ The pre-run half pins its own precondition: open by default is the
     // behaviour these assertions rely on, and it is a real rule, not a given.
@@ -138,8 +149,12 @@ describe('before a run — the strip offers only what it can deliver', () => {
       'aria-expanded',
       'true',
     )
-    expect(hintText()).toBe(COPY.modelStrip.hintPreRun)
-    expect(hintText()).not.toBe(COPY.modelStrip.hint)
+    // CONTRAST: the strip is drawing marks, so its text is not an empty tree.
+    expect(screen.queryAllByTestId('analysis-new-model-strip-mark').length).toBeGreaterThan(0)
+    expect(hintText()).toBeNull()
+    // PROBE CONTROL: the phrase is the one the old post-run promise carried.
+    expect(COPY.modelStrip.hint.toLowerCase()).toContain('this analysis says')
+    expect(stripText().toLowerCase()).not.toContain('this analysis says')
   })
 
   it('picking a mark names the missing RUN, not a gap in the model', () => {
@@ -158,10 +173,22 @@ describe('before a run — the strip offers only what it can deliver', () => {
 })
 
 describe('after a run — the promise is kept, and must not be lost to this fix', () => {
-  it('the hint offers what the analysis says', () => {
+  /**
+   * V2: no hint after a run either — the removal is not a pre-run suppression.
+   * What the hint used to promise is still delivered: a picked mark opens its
+   * detail, for THAT node.
+   */
+  it('no hint line after a run, and a picked mark still opens its detail', () => {
     renderPanel(false)
     openStrip()
-    expect(hintText()).toBe(COPY.modelStrip.hint)
+    expect(hintText()).toBeNull()
+    const marks = screen.queryAllByTestId('analysis-new-model-strip-mark')
+    expect(marks.length).toBeGreaterThan(0)
+    fireEvent.click(marks[0])
+    expect(screen.getByTestId('analysis-new-model-strip-detail')).toHaveAttribute(
+      'data-node-id',
+      marks[0].getAttribute('data-node-id') as string,
+    )
   })
 
   it('an absent finding is still reported as an absence about this node', () => {

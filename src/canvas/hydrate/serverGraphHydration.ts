@@ -376,14 +376,15 @@ async function readAndMergeServerGraph(
   // card can tell it is still current. Called at the SAME two accepted exits,
   // AFTER the merge (whose model-change mark it reads) and the base adoption.
   // See `applyBootRunCurrency.ts` for the derivation.
-  const restoreRunCurrency = (): void => {
+  const restoreRunCurrency = (exit: 'unchanged' | 'merged', mergeChanged: boolean | null): void => {
     const st = useCanvasStore.getState()
+    // BOTH directions: the canvas carries every value the read carries (the
+    // acknowledgement's proof) AND the read carries nothing the canvas lacks.
+    const notProvenEqual = whyCanvasNotProvenEqualToReadBothWays(scenarioId, result.graph)
     const currencyOutcome = applyBootRunCurrency({
       analysisState: result.analysisState,
       graphHash: result.graphHash,
-      // BOTH directions: the canvas carries every value the read carries (the
-      // acknowledgement's proof) AND the read carries nothing the canvas lacks.
-      canvasProvenEqualToRead: canvasProvenEqualToReadBothWays(scenarioId, result.graph),
+      canvasProvenEqualToRead: notProvenEqual === null,
       store: {
         analysisFreshnessDirty: st.analysisFreshnessDirty,
         setAnalysisStateV1: st.setAnalysisStateV1,
@@ -391,10 +392,26 @@ async function readAndMergeServerGraph(
         readCurrentGraphHash: () => useCanvasStore.getState().analysisFreshness?.currentGraphHash,
       },
     })
-    logger.debug('server_graph_hydration.boot_run_currency', {
+    if (currencyOutcome.outcome === 'restored') {
+      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored' })
+      return
+    }
+    // ⚠ WARN, NOT DEBUG: a declined restore is what the user sees as "Olumi
+    // can't confirm this still matches your latest analysis" after a plain
+    // reload, and PROD logs at `warn`. At debug the served decline was
+    // invisible (R&C #69 5834151007). Console only; `logger` sends nothing off
+    // the device. `unproven` names the first failing clause of the equality
+    // proof, computed whatever the decline reason, so one served reload names
+    // the exact element and key.
+    logger.warn('server_graph_hydration.boot_run_currency_declined', {
       scenarioId,
-      outcome: currencyOutcome.outcome,
-      detail: currencyOutcome.outcome === 'declined' ? currencyOutcome.reason : 'complete_current',
+      exit,
+      reason: currencyOutcome.reason,
+      unproven: notProvenEqual,
+      dirty: useCanvasStore.getState().analysisFreshnessDirty === true,
+      mergeChanged,
+      runStateKind: result.analysisState?.run_state.kind ?? null,
+      graphHash: result.graphHash,
     })
   }
 
@@ -451,7 +468,7 @@ async function readAndMergeServerGraph(
     // user is looking at. Skipping here would leave the ordinary restore with no
     // base, which is the whole defect.
     adoptServerWriteBase(result.graphHash, baseAtDispatch)
-    restoreRunCurrency()
+    restoreRunCurrency('unchanged', null)
     return 'unchanged'
   }
 
@@ -540,7 +557,7 @@ async function readAndMergeServerGraph(
 
   adoptServerWriteBase(result.graphHash, baseAtDispatch)
   acknowledgeCanvasThatMatchesTheRead(scenarioId, result.graph)
-  restoreRunCurrency()
+  restoreRunCurrency('merged', merge.changed)
 
   return 'merged'
 }
@@ -606,11 +623,26 @@ function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unkn
  * An unregistered import is never proven equal: the server has seen none of it.
  */
 function canvasProvenEqualToRead(scenarioId: string, wireGraph: unknown): boolean {
+  return whyCanvasNotProvenEqualToRead(scenarioId, wireGraph) === null
+}
+
+/**
+ * The same proof, answering WHICH clause failed: `null` when the canvas is
+ * proven equal, else the first failing clause (and, for a value clause, the
+ * element, key and a short excerpt of both sides). One body, so the reason a
+ * decline reports can never disagree with the decision it explains.
+ */
+function whyCanvasNotProvenEqualToRead(
+  scenarioId: string,
+  wireGraph: unknown,
+  normalise?: GraphNormaliser,
+): string | null {
   const st = useCanvasStore.getState()
-  if (st.currentScenarioId !== scenarioId) return false
-  if (st.importPendingServerRegistration === true) return false
-  if (editDeliveryHold(st as never) !== null) return false
-  return readCarriesEveryProjectedValue(wireGraph, st.nodes as never, st.edges as never)
+  if (st.currentScenarioId !== scenarioId) return 'scenario_not_current'
+  if (st.importPendingServerRegistration === true) return 'import_pending_registration'
+  const hold = editDeliveryHold(st as never)
+  if (hold !== null) return `edit_delivery_hold:${hold}`
+  return firstProjectedValueTheReadLacks(wireGraph, st.nodes as never, st.edges as never, normalise)
 }
 
 /**
@@ -642,9 +674,87 @@ function withContractEdgeDefaults(wireGraph: unknown): unknown {
  * with its contract defaults applied, AND the reverse direction. See
  * `applyBootRunCurrency.ts`.
  */
-function canvasProvenEqualToReadBothWays(scenarioId: string, wireGraph: unknown): boolean {
-  const read = withContractEdgeDefaults(wireGraph)
-  return canvasProvenEqualToRead(scenarioId, read) && canvasCarriesEveryReadValue(read)
+function whyCanvasNotProvenEqualToReadBothWays(scenarioId: string, wireGraph: unknown): string | null {
+  const read = withoutNonAnalysisFields(withContractEdgeDefaults(wireGraph))
+  return (
+    whyCanvasNotProvenEqualToRead(scenarioId, read, withoutNonAnalysisFields) ??
+    firstReadValueTheCanvasLacks(read, withoutNonAnalysisFields)
+  )
+}
+
+/** Applied to BOTH graphs of a comparison, so the two are compared like for like. */
+type GraphNormaliser = (graph: unknown) => unknown
+
+/**
+ * ⭐ WHAT THE CURRENCY PROOF MAY IGNORE: exactly what CEE's own
+ * analysis-affecting projection ignores, and nothing else.
+ *
+ * The Run card's `graph_hash_at_generation`, the read's `graph_hash` and
+ * `complete_current` are all statements in CEE's analysis-affecting hash space
+ * (`graph-hash.ts` `computeAnalysisAffectingGraphHash`), whose header lists
+ * these as "Excluded (cosmetic / provenance / display)". A difference in one of
+ * them cannot make the verdict describe a different model, so it must not stop
+ * the restore.
+ *
+ * THE SERVED DEFECT: a drafted canvas never carries CEE's edge `defaulted` flag
+ * (9 of 18 edges on the served OpenAI pricing draft, `c673223` "C1 brief"), so
+ * the reverse check declined every reload of a drafted model
+ * (`bootRunCurrency.draftedCanvasReplay.spec.tsx`; R&C #69 5834151007).
+ *
+ * FAIL-CLOSED BY CONSTRUCTION: this is a list of EXCLUSIONS, never a whitelist.
+ * Every key not named here is still compared, so a field CEE adds to its
+ * projection later keeps blocking ("can't confirm") rather than passing a
+ * "current" it cannot vouch for. Used by the currency proof ONLY: the
+ * acknowledgement keeps its own strict comparison (its trade is the re-arm
+ * write, a different question).
+ */
+const NOT_ANALYSIS_AFFECTING = {
+  node: new Set(['description', 'display_value', 'provenance', 'provenance_display', 'origin']),
+  observedState: new Set(['unit', 'source', 'raw_value', 'extractionType']),
+  intervention: new Set(['unit', 'source', 'reasoning', 'value_confidence', 'display_value']),
+  targetMatch: new Set(['match_type', 'confidence']),
+  edge: new Set(['provenance', 'provenance_display', 'origin', 'validation', 'defaulted']),
+} as const
+
+function omitKeys(value: unknown, keys: ReadonlySet<string>): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) if (!keys.has(k)) out[k] = v
+  return out
+}
+
+function withoutNonAnalysisIntervention(value: unknown): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+  const stripped = omitKeys(value, NOT_ANALYSIS_AFFECTING.intervention) as Record<string, unknown>
+  if ('target_match' in stripped) {
+    stripped.target_match = omitKeys(stripped.target_match, NOT_ANALYSIS_AFFECTING.targetMatch)
+  }
+  return stripped
+}
+
+function withoutNonAnalysisFields(graph: unknown): unknown {
+  if (graph === null || typeof graph !== 'object') return graph
+  const g = graph as { nodes?: unknown; edges?: unknown }
+  const nodes = Array.isArray(g.nodes)
+    ? g.nodes.map((n) => {
+        if (n === null || typeof n !== 'object') return n
+        const node = omitKeys(n, NOT_ANALYSIS_AFFECTING.node) as Record<string, unknown>
+        if ('observed_state' in node) {
+          node.observed_state = omitKeys(node.observed_state, NOT_ANALYSIS_AFFECTING.observedState)
+        }
+        const interventions = node.interventions
+        if (interventions !== null && typeof interventions === 'object' && !Array.isArray(interventions)) {
+          node.interventions = Object.fromEntries(
+            Object.entries(interventions as Record<string, unknown>).map(([k, v]) => [k, withoutNonAnalysisIntervention(v)]),
+          )
+        }
+        return node
+      })
+    : g.nodes
+  const edges = Array.isArray(g.edges)
+    ? g.edges.map((e) => omitKeys(e, NOT_ANALYSIS_AFFECTING.edge))
+    : g.edges
+  return { ...(graph as Record<string, unknown>), nodes, edges }
 }
 
 /**
@@ -662,7 +772,7 @@ const NOT_CARRIED_EDGE_KEYS: ReadonlySet<string> = new Set(['origin', 'provenanc
 /**
  * ⭐ THE REVERSE DIRECTION, used ONLY by the boot run-currency restore.
  *
- * `readCarriesEveryProjectedValue` proves the canvas holds nothing CEE lacks.
+ * `firstProjectedValueTheReadLacks` proves the canvas holds nothing CEE lacks.
  * It says nothing about a value CEE holds that the canvas does NOT, such as a
  * factor `observed_state` or an option intervention the canvas never received.
  * A "current" verdict about CEE's graph would then describe a model the user is
@@ -675,39 +785,46 @@ const NOT_CARRIED_EDGE_KEYS: ReadonlySet<string> = new Set(['origin', 'provenanc
  * canvas unacknowledged, and the re-arm could then write the canvas (which
  * LACKS the value) into CEE. That is a different trade and out of this scope.
  */
-function canvasCarriesEveryReadValue(wireGraph: unknown): boolean {
-  if (wireGraph === null || typeof wireGraph !== 'object') return false
+function firstReadValueTheCanvasLacks(wireGraph: unknown, normalise?: GraphNormaliser): string | null {
+  if (wireGraph === null || typeof wireGraph !== 'object') return 'rev:read_not_a_graph'
   const g = wireGraph as { nodes?: unknown; edges?: unknown }
   const st = useCanvasStore.getState()
   const projected = buildRegistrationGraph(st.nodes as never, st.edges as never)
-  if (!projected.ok) return false
+  if (!projected.ok) return 'rev:canvas_projection_failed'
+  const canvasGraph = (normalise ? normalise(projected.graph) : projected.graph) as typeof projected.graph
   const nodeById = new Map<string, Record<string, unknown>>()
-  for (const n of projected.graph.nodes) nodeById.set(String(n.id), n as unknown as Record<string, unknown>)
+  for (const n of canvasGraph.nodes) nodeById.set(String(n.id), n as unknown as Record<string, unknown>)
   const edgeByPair = new Map<string, Record<string, unknown>>()
-  for (const e of projected.graph.edges) {
+  for (const e of canvasGraph.edges) {
     edgeByPair.set(edgePairKey(String(e.from), String(e.to)), e as unknown as Record<string, unknown>)
   }
   for (const w of Array.isArray(g.nodes) ? (g.nodes as unknown[]) : []) {
-    if (w === null || typeof w !== 'object') return false
+    if (w === null || typeof w !== 'object') return 'rev:node_not_an_object'
     const wire = w as Record<string, unknown>
     const node = nodeById.get(String(wire.id))
-    if (node === undefined) return false
+    if (node === undefined) return `rev:node:${String(wire.id)}:absent_on_canvas`
     for (const [key, value] of Object.entries(wire)) {
       if (NOT_VOUCHED_NODE_KEYS.has(key) || value === undefined) continue
-      if (!(key in node) || !sameNodeValue(key, node[key], value)) return false
+      if (!(key in node)) return `rev:node:${String(wire.id)}:${key}:canvas_lacks read=${excerpt(value)}`
+      if (!sameNodeValue(key, node[key], value)) {
+        return `rev:node:${String(wire.id)}:${key}:differs canvas=${excerpt(node[key])} read=${excerpt(value)}`
+      }
     }
   }
   for (const w of Array.isArray(g.edges) ? (g.edges as unknown[]) : []) {
-    if (w === null || typeof w !== 'object') return false
+    if (w === null || typeof w !== 'object') return 'rev:edge_not_an_object'
     const key = wireEdgePairKey(w as never)
     const edge = key === null ? undefined : edgeByPair.get(key)
-    if (edge === undefined) return false
+    if (edge === undefined) return `rev:edge:${String(key)}:absent_on_canvas`
     for (const [k, value] of Object.entries(w as Record<string, unknown>)) {
       if (k === 'from' || k === 'to' || NOT_CARRIED_EDGE_KEYS.has(k) || value === undefined) continue
-      if (!(k in edge) || !sameValue(edge[k], value)) return false
+      if (!(k in edge)) return `rev:edge:${String(key)}:${k}:canvas_lacks read=${excerpt(value)}`
+      if (!sameValue(edge[k], value)) {
+        return `rev:edge:${String(key)}:${k}:differs canvas=${excerpt(edge[k])} read=${excerpt(value)}`
+      }
     }
   }
-  return true
+  return null
 }
 
 /**
@@ -767,19 +884,24 @@ function sameNodeValue(key: string, projected: unknown, wire: unknown): boolean 
   return sameValue(projected, wire)
 }
 
-/** Does the read's graph carry every analytical value the canvas would send? */
-function readCarriesEveryProjectedValue(
+/**
+ * Does the read's graph carry every analytical value the canvas would send?
+ * `null` when it does; otherwise the first element and key it does not carry.
+ */
+function firstProjectedValueTheReadLacks(
   wireGraph: unknown,
   nodes: Parameters<typeof buildRegistrationGraph>[0],
   edges: Parameters<typeof buildRegistrationGraph>[1],
-): boolean {
-  if (wireGraph === null || typeof wireGraph !== 'object') return false
+  normalise?: GraphNormaliser,
+): string | null {
+  if (wireGraph === null || typeof wireGraph !== 'object') return 'fwd:read_not_a_graph'
   const g = wireGraph as { nodes?: unknown; edges?: unknown }
   const rawNodes = Array.isArray(g.nodes) ? (g.nodes as unknown[]) : []
   const rawEdges = Array.isArray(g.edges) ? (g.edges as unknown[]) : []
 
-  const projected = buildRegistrationGraph(nodes, edges)
-  if (!projected.ok) return false
+  const built = buildRegistrationGraph(nodes, edges)
+  if (!built.ok) return 'fwd:canvas_projection_failed'
+  const projected = { graph: (normalise ? normalise(built.graph) : built.graph) as typeof built.graph }
 
   // Same indexing rule as the merge: first occurrence wins.
   const wireNodeById = new Map<string, Record<string, unknown>>()
@@ -798,26 +920,48 @@ function readCarriesEveryProjectedValue(
   // EXACTLY the same elements: nothing the canvas holds that CEE lacks, and
   // nothing CEE holds that the canvas lacks (the merge adds CEE's elements, so
   // a gap here means it declined one — e.g. a dangling edge).
-  if (projected.graph.nodes.length !== wireNodeById.size) return false
-  if (projected.graph.edges.length !== wireEdgeByPair.size) return false
+  if (projected.graph.nodes.length !== wireNodeById.size) {
+    return `fwd:node_count canvas=${projected.graph.nodes.length} read=${wireNodeById.size}`
+  }
+  if (projected.graph.edges.length !== wireEdgeByPair.size) {
+    return `fwd:edge_count canvas=${projected.graph.edges.length} read=${wireEdgeByPair.size}`
+  }
 
   for (const node of projected.graph.nodes) {
     const wire = wireNodeById.get(String(node.id))
-    if (wire === undefined) return false
+    if (wire === undefined) return `fwd:node:${String(node.id)}:absent_in_read`
     for (const [key, value] of Object.entries(node)) {
       if (NOT_VOUCHED_NODE_KEYS.has(key)) continue
       const wireValue = wireNodeValue(wire, key)
-      if (wireValue === undefined || !sameNodeValue(key, value, wireValue)) return false
+      if (wireValue === undefined) return `fwd:node:${String(node.id)}:${key}:read_lacks canvas=${excerpt(value)}`
+      if (!sameNodeValue(key, value, wireValue)) {
+        return `fwd:node:${String(node.id)}:${key}:differs canvas=${excerpt(value)} read=${excerpt(wireValue)}`
+      }
     }
   }
   for (const edge of projected.graph.edges) {
-    const wire = wireEdgeByPair.get(edgePairKey(String(edge.from), String(edge.to)))
-    if (wire === undefined) return false
+    const pair = edgePairKey(String(edge.from), String(edge.to))
+    const wire = wireEdgeByPair.get(pair)
+    if (wire === undefined) return `fwd:edge:${pair}:absent_in_read`
     for (const [key, value] of Object.entries(edge)) {
       if (key === 'from' || key === 'to') continue
       const wireValue = wire[key]
-      if (wireValue === undefined || !sameValue(value, wireValue)) return false
+      if (wireValue === undefined) return `fwd:edge:${pair}:${key}:read_lacks canvas=${excerpt(value)}`
+      if (!sameValue(value, wireValue)) {
+        return `fwd:edge:${pair}:${key}:differs canvas=${excerpt(value)} read=${excerpt(wireValue)}`
+      }
     }
   }
-  return true
+  return null
+}
+
+/** A short, console-only excerpt of a value for a decline reason. */
+function excerpt(value: unknown): string {
+  let text: string
+  try {
+    text = canonicalJson(value) ?? String(value)
+  } catch {
+    text = String(value)
+  }
+  return text.length > 80 ? `${text.slice(0, 77)}...` : text
 }

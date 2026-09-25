@@ -57,11 +57,10 @@ describe('"Challenge the thinking" is a section title over its question', () => 
     expect(heading.textContent).toBe(shown.title)
     expect(heading.closest('h1,h2,h3,h4,h5,h6')).toBeNull()
     const line = heading.parentElement as HTMLElement
-    // Re-pointed (render-discipline RULE A): the prototype's 14px question,
-    // through the panel's own 14px token rather than a raw `text-sm
-    // font-medium`. The hierarchy under the h3 is carried by element (a <p>,
-    // asserted above) and position, not by a weight the scale does not have.
-    expect(line.className).toContain(typography.panelHeader)
+    // V2 prototype `.challenge-question`: 14px/500 through the panel's own
+    // question token, so it is not the h3's 14px/600 weight either.
+    expect(line.className).toContain(typography.panelQuestion)
+    expect(line.className).not.toContain(typography.panelHeader)
     expect(line.tagName).not.toMatch(/^H[1-6]$/)
   })
 })
