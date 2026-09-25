@@ -185,6 +185,20 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
 }
 
 /**
+ * Does the draft carry its own run's verdict, stating that the run was on this
+ * very graph? Only the verdict's own hashes can say so: `graph_hash_at_run`
+ * equal to `current_graph_hash`, both present, under `freshness: 'fresh'`. A
+ * "fresh" label without them is not that evidence, so the caller still marks
+ * the overlay dirty.
+ */
+function draftCarriesItsOwnCurrentVerdict(draftData: unknown): boolean {
+  const ready = (draftData as { analysis_ready?: unknown } | null | undefined)?.analysis_ready
+  if (ready == null || typeof ready !== 'object') return false
+  const { freshness, graph_hash_at_run: atRun, current_graph_hash: current } = ready as Record<string, unknown>
+  return freshness === 'fresh' && typeof atRun === 'string' && atRun.length > 0 && atRun === current
+}
+
+/**
  * Apply a CEE draft response to the canvas, replacing the current graph.
  *
  * This function replaces all existing nodes/edges, pushes history, triggers
@@ -315,7 +329,17 @@ export function applyDraftResult(
   // chokepoints), so mark the freshness overlay dirty. If the draft carries an
   // analysis_ready verdict it is routed through setAnalysisFreshness below, which
   // clears the overlay only when a genuine fresh verdict accompanies it.
-  useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+  //
+  // ⚠ EXCEPT WHEN THE DRAFT CARRIES ITS OWN RUN'S VERDICT FOR THIS GRAPH. The
+  // automatic first run sends the draft and the run's verdict in ONE turn, and
+  // the turn handler ingests that verdict (applyV5State step 4) BEFORE this
+  // function runs. The copy below is then refused as an echo, so it could
+  // never clear a mark made here: every first run read "The model has
+  // changed" with no edit (joined witness, #63 5824916222). The verdict's own
+  // hashes are the evidence that it ran on the graph being applied.
+  if (!draftCarriesItsOwnCurrentVerdict(draftData)) {
+    useCanvasStore.getState().markAnalysisFreshnessDirty?.()
+  }
 
   // Defer layout until React Flow has measured the inserted nodes (D2 of
   // layout-stabilisation brief). The measurement hook in ReactFlowGraph
@@ -358,7 +382,9 @@ export function applyDraftResult(
   // Auto-select goal node if exactly one exists
   const goalNodes = nodes.filter((n: any) => n.type === 'goal')
   if (goalNodes.length === 1) {
-    useCanvasStore.getState().setOutcomeNode(goalNodes[0].id)
+    // The draft's own goal selection. The draft marked the overlay above
+    // wherever it must; this write must not add a second mark of its own.
+    useCanvasStore.getState().setOutcomeNode(goalNodes[0].id, { fromProducerSync: true })
   }
 
   // Store analysis_ready for pre-analysis panel & run pipeline
