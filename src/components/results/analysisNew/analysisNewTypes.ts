@@ -1179,6 +1179,25 @@ export interface ChecksSection {
    */
   leaderWithheld: boolean
   /**
+   * ⭐ THE PRODUCER'S TYPED REASON THE RECOMMENDATION WAS WITHHELD, AS ONE
+   * SENTENCE — or null. Paul's manual test `1a298d6d`: the run carried
+   * `CONSTRAINT_TARGET_UNRELIABLE` (his churn limit could not be scored) and the
+   * tab said only "Olumi's checks on this run do not support putting one option
+   * forward". Selected by the canvas's own authority
+   * (`selectWithheldLeaderDisclosureFromWarnings`: the closed, spec-pinned code
+   * set and the code-keyed template, never the producer's raw `message`).
+   *
+   * ⚠ TITLE ONLY, NOT THE TEMPLATE'S REMEDY. That remedy ("Set a current value
+   * or range…") is not established for a limit on a CALCULATED node — the
+   * engine cannot score those at all (#69 5837623066) — and the typed warning
+   * carries no node to tell the two cases apart. Stating a remedy that does not
+   * work is worse than stating none.
+   *
+   * Gated on `leaderWithheld`: a run that put an option forward states nothing
+   * here even if the code is present.
+   */
+  leaderWithholdDetail: string | null
+  /**
    * ⭐ THE SHARES COMPARE THE GOAL ONLY — the leader was withheld BECAUSE the
    * check against the user's limits could not support one
    * (`constraint_verdict_withheld`). "How the options compare" states it above

@@ -126,6 +126,7 @@ import type {
 // is a different question — see `buildChecks`.
 import { everyEvidenceGapAddressed } from '../utils/evidenceGapConfidenceDisplay'
 import { buildTippingPoints, type FlipThresholdLike } from './tippingPoints'
+import { selectWithheldLeaderDisclosureFromWarnings } from '../../../canvas/nodes/withheldLeaderDisclosure'
 
 /**
  * ⭐⭐ THE ADMISSION CAUSES WHOSE SENTENCE NAMES AN ESTIMATE AS THE REMEDY.
@@ -3736,6 +3737,10 @@ function buildChecks(
      * So the fact gets its own field, from the same gate.
      */
     leaderWithheld: leaderCode === 'leader_not_assessed',
+    leaderWithholdDetail:
+      leaderCode === 'leader_not_assessed'
+        ? (selectWithheldLeaderDisclosureFromWarnings(data.confidence?.inferenceWarnings)?.title ?? null) || null
+        : null,
     sharesExcludeLimits:
       leaderCode === 'leader_not_assessed' &&
       typeof producerWithholdReason === 'string' &&
@@ -4050,7 +4055,7 @@ export function buildAnalysisNewViewModel(
         // distinction matters downstream — the glance ribbon uses this to
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
-        { items: [], leaderWithholdCause: null, leaderWithheld: false, sharesExcludeLimits: false, rerunWouldNotHelp: false }
+        { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, rerunWouldNotHelp: false }
       : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }

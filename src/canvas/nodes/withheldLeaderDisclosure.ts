@@ -140,7 +140,20 @@ export function selectWithheldLeaderDisclosure(
    *  `field` and no `affected_nodes` (measured on export `44e349fa`). */
   nodeLabels?: ReadonlyMap<string, string>,
 ): WithheldLeaderDisclosure | null {
-  const raw = readInferenceWarnings(report)
+  return selectWithheldLeaderDisclosureFromWarnings(readInferenceWarnings(report), nodeLabels)
+}
+
+/**
+ * ⭐ THE SAME SELECTION, FROM WARNINGS A CALLER HAS ALREADY READ. The Reasoning
+ * tab holds `resultsSectionData.confidence.inferenceWarnings` — the output of
+ * this same `readInferenceWarnings` — and never the raw report. One loop, two
+ * entry points, so the canvas and the tab cannot drift into two authorities on
+ * which codes withhold a recommendation (trap 21).
+ */
+export function selectWithheldLeaderDisclosureFromWarnings(
+  raw: unknown,
+  nodeLabels?: ReadonlyMap<string, string>,
+): WithheldLeaderDisclosure | null {
   if (!Array.isArray(raw)) return null
 
   for (const entry of raw) {
