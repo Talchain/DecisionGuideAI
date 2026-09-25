@@ -403,12 +403,13 @@ export function DebugPanel() {
         // Clears CanvasViewportControls, which now shares the LeftSidebar's floating-
         // toolbar metrics (CanvasFloatingToolbar.module.css). MEASURED in a real browser
         // at 1280x800, not computed: the toolbar's own height is 320px and it is anchored
-        // 12px off the bottom, so its top edge sits 332px up. 338 leaves 6px.
+        // 40px off the bottom (contract v3.1 `.zoom-tools`; was 12), so its top edge sits
+        // 360px up. 366 leaves 6px.
         // ⚠ This is a hand-maintained mirror of another component's height, and it was
         // ALREADY stale before the toolbars were aligned — it read 200px against a
         // measured 263px, its comment counting 5 buttons and 1 separator where the
         // toolbar has 7 and 2. Re-measure it here rather than re-deriving the sum.
-        bottom: 338,
+        bottom: 366,
         left: 12,
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',

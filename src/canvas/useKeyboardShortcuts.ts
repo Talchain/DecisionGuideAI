@@ -377,6 +377,37 @@ const showCanvasToast: ShowToastFn = (message, level) => {
   window.dispatchEvent(new CustomEvent('topbar:show-toast', { detail: { message, level } }))
 }
 
+/**
+ * ⭐ ESCAPE BELONGS TO WHATEVER IS OPEN — contract v3.1 §01 (DESIGN-GAP-AUDIT
+ * row 36). The canvas takes Escape to clear focus and selection ONLY when
+ * nothing else is answering it: text entry is guarded above; here, the confirm
+ * dialog, a modal dialog / alert dialog / menu anywhere, an expanded popup
+ * trigger anywhere (the visual key, a card's "more" menu), and focus inside any
+ * dialog or menu, or on an expanded control (a card's guidance popover).
+ *
+ * ⚠ A NON-MODAL DIALOG DOES NOT BLOCK BY ITS MERE PRESENCE. The Olumi panel is
+ * a persistent `role="dialog"` (mounted, even while minimised), so a
+ * presence test would switch the key off for good. The inspector is the other
+ * non-modal one: its own listener closes it on the same press, which is the
+ * contract's own Escape (inspector hidden AND `focusGraph(null)`).
+ *
+ * ⛔ NOT `event.defaultPrevented`: `LayerProvider` preventDefaults EVERY Escape
+ * on `window`, open layer or not, so that test would read "handled" always.
+ */
+const ESCAPE_OWNING_SURFACE = '[role="dialog"], [role="alertdialog"], [role="menu"]'
+const ESCAPE_OPEN_ELSEWHERE =
+  '[role="dialog"][aria-modal="true"], [role="alertdialog"], [role="menu"], ' +
+  '[aria-haspopup]:not([aria-haspopup="false"])[aria-expanded="true"]'
+
+function escapeBelongsToAnOpenSurface(target: Element | null): boolean {
+  if (useConfirmDialogStore.getState().pending) return true
+  if (target && typeof target.closest === 'function') {
+    if (target.closest(ESCAPE_OWNING_SURFACE)) return true
+    if (target.getAttribute('aria-expanded') === 'true') return true
+  }
+  return typeof document !== 'undefined' && document.querySelector(ESCAPE_OPEN_ELSEWHERE) !== null
+}
+
 /** Repeat window, so holding ⌘Z does not stack a column of identical toasts. */
 const UNDO_NOTICE_QUIET_MS = 3000
 
@@ -532,6 +563,21 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       if (cmdOrCtrl && event.key === 's') {
         event.preventDefault()
         state.saveSnapshot()
+        return
+      }
+
+      // Escape: clear focus and selection — the dim is derived from the
+      // selection (`usePathHighlight`), so this restores the reference view.
+      // A no-op write is skipped, so an idle Escape re-renders nothing.
+      if (event.key === 'Escape') {
+        if (escapeBelongsToAnOpenSurface(target)) return
+        const { selection, nodes, edges } = state
+        if (
+          selection.nodeIds.size > 0 || selection.edgeIds.size > 0 ||
+          nodes.some((n) => n.selected) || edges.some((e) => e.selected)
+        ) {
+          state.clearSelection()
+        }
         return
       }
 

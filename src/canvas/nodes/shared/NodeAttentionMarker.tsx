@@ -46,6 +46,13 @@ import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyle
 
 export const ATTENTION_MARKER_TESTID_PREFIX = 'attention-marker-'
 
+/**
+ * The mark as drawn — glyph, stroke and resting ink — owned HERE and read by
+ * the canvas key (`CanvasLegendPopover`, contract v3.1 §03 "Worth reviewing"),
+ * so the key imports this mark rather than redrawing one.
+ */
+export const ATTENTION_MARKER_GLYPH = { Icon: LocateFixed, strokeWidth: 1.6, inkClass: 'text-info' } as const
+
 export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sentence: string }) {
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={sentence}>
@@ -60,13 +67,13 @@ export function NodeAttentionMarker({ nodeId, sentence }: { nodeId: string; sent
         }}
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
-        className={`nodrag nopan shrink-0 inline-flex items-center justify-center rounded bg-panel/90 text-info hover:bg-info/10 focus-visible:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]}`}
+        className={`nodrag nopan shrink-0 inline-flex items-center justify-center rounded bg-panel/90 ${ATTENTION_MARKER_GLYPH.inkClass} hover:bg-info/10 focus-visible:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]}`}
       >
-        <LocateFixed
+        <ATTENTION_MARKER_GLYPH.Icon
           aria-hidden="true"
           data-testid="attention-marker-ring"
           size={NODE_RAIL_GLYPH_PX}
-          strokeWidth={1.6}
+          strokeWidth={ATTENTION_MARKER_GLYPH.strokeWidth}
           className={NODE_RAIL_GLYPH_CLASSES}
         />
       </button>
