@@ -175,12 +175,17 @@ function OptionComparisonSection({
 
 /**
  * A10 — this pane is read-first BY DESIGN (its own docblock: "No primary
- * editing surface, outcomes are computed"). It owns no writer at all, so
- * unlike the controllable-factor or goal panes it fences nothing internally
- * — there is nothing here for a fence to protect. The Router's panel-wide
- * wrap it used to sit inside was disabling the coaching card's Ask/Dismiss
- * buttons and the option-comparison navigation rows for no reason: none of
- * it writes to the shared model.
+ * editing surface, outcomes are computed"). The Router's panel-wide wrap it
+ * used to sit inside was disabling the coaching card's Ask/Dismiss buttons and
+ * the option-comparison navigation rows, none of which writes to the shared
+ * model.
+ *
+ * ⛔ BUT IT IS NOT WRITER-FREE (review 2038 on `1cd208f5`). An earlier version
+ * of this note said the pane "owns no writer at all". The advanced editor under
+ * "Show model detail" holds a Description textarea that commits
+ * `setDescription` — a bare store write with no carrier — so the pane fences
+ * that editor itself (`data-writer-fence="advanced-editor"`, the factor pane's
+ * pattern). The notice below stays true only because that fence exists.
  */
 export const INSPECTOR_OUTCOME_REASON =
   `Renaming ${RENAME_AUTHORITY_CLAUSE}. This pane is read-first — nothing else here is sent to the shared model.`
@@ -190,6 +195,7 @@ export const OutcomePanel = memo(function OutcomePanel({
   techMode,
   onClose,
   onNavigate,
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -281,8 +287,13 @@ export const OutcomePanel = memo(function OutcomePanel({
       </PanelGroup>
 
       {/* ── Expert-only model detail ──────────────────────────── */}
+      {/* ⚠ `OutcomeAdvancedEditor`'s Description field commits
+          `setDescription`, a bare store write with no carrier — fenced here
+          exactly as the factor pane fences its editor (review 2038). */}
       <TechnicalDisclosure visible={techMode}>
-        <OutcomeAdvancedEditor nodeId={nodeId} />
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+          <OutcomeAdvancedEditor nodeId={nodeId} />
+        </fieldset>
       </TechnicalDisclosure>
     </div>
   )

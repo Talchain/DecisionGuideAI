@@ -379,7 +379,7 @@ export const InspectorRouter = memo(function InspectorRouter({
   // nodes: the MEAN of inbound edges' `exists_probability`. No producer field
   // carries that number; it was a UI computation over data that answers a
   // different question. Removed rather than fixed — see
-  // `INSPECTOR_HEADER_HAS_NO_CONFIDENCE_BADGE.spec.tsx`.
+  // `__tests__/InspectorRouter.A8.noInventedNumbers.spec.tsx`.
 
   const panelProps = {
     nodeId,
@@ -460,16 +460,25 @@ export const InspectorRouter = memo(function InspectorRouter({
    * ⭐ SIXTH PANEL — `risk`, and the admission test is NOT a carrier this time.
    * `setProbability`/`setImpact` commit through a bare `updateNode`, same as
    * the goal pane's own target control, so they stay fenced — `RiskPanel`
-   * wraps exactly those two controls in `data-writer-fence="probability-impact"`
+   * wraps those two controls in `data-writer-fence="probability-impact"`
    * (`INSPECTOR_RISK_REASON` says so). What earns the pane its exit is that the
    * blanket wrap was ALSO inerting the coaching card's Ask/Dismiss/Explore
    * buttons beneath it, and the "What drives this" navigation rows — none of
    * which write anything at all.
    *
-   * ⭐ SEVENTH PANEL — `outcome`, which owns no writer whatsoever ("Read-first
-   * panel. No primary editing surface" — the pane's own docblock). It fences
-   * nothing internally because there is nothing to fence; the Router's wrap
-   * was disabling its coaching card and result-navigation rows for no reason.
+   * ⭐ SEVENTH PANEL — `outcome`, read-first ("No primary editing surface" —
+   * the pane's own docblock). The Router's wrap was disabling its coaching
+   * card and result-navigation rows, none of which writes.
+   *
+   * ⛔ NEITHER PANE IS WRITER-FREE BEYOND THOSE CONTROLS (review 2038 on
+   * `1cd208f5`). This note said outcome "owns no writer whatsoever" and named
+   * likelihood/impact as risk's writers. Both panes' advanced editors, behind
+   * "Show model detail", hold a Description textarea committing
+   * `setDescription` — no carrier, spelled in `editors/*AdvancedEditor.tsx`,
+   * not in the pane. Opting out un-fenced it on both; each pane now fences its
+   * editor in `data-writer-fence="advanced-editor"`, pinned by
+   * `InspectorRouter.A10.coachingReachable.spec.tsx`. Audit the tree, not the
+   * file.
    *
    * ⚠ `decision` STAYS WRAPPED. Its description textarea has no carrier either,
    * and unfencing it would require the same self-fence discipline as the panes

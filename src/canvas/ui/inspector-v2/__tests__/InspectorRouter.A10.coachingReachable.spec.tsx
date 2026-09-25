@@ -6,9 +6,16 @@
  * the blanket disabled all of it.
  *
  * `RiskPanel`'s likelihood/impact controls DO write (via a bare `updateNode`,
- * no durable carrier), so they stay fenced — now inside `RiskPanel` itself,
- * scoped to just those two controls. `OutcomePanel` owns no writer at all
- * ("Read-first panel" — its own docblock), so nothing inside it is fenced.
+ * no durable carrier), so they stay fenced — now inside `RiskPanel` itself.
+ *
+ * ⛔ CORRECTED (review 2038 on `1cd208f5`): this header said `OutcomePanel`
+ * "owns no writer at all". It owns one, and so does Risk beyond the two above:
+ * the Description textarea in each pane's ADVANCED EDITOR, behind "Show
+ * technical detail" → "Show model detail", commits `setDescription` — a bare
+ * store write with no carrier. Leaving the Router's blanket un-fenced it on
+ * both panes. Each pane now fences that editor itself
+ * (`data-writer-fence="advanced-editor"`, the factor pane's pattern), pinned by
+ * the last block below.
  *
  * THE DISCRIMINATING PAIR, for Risk: "every writer disabled" alone passes if
  * the panel disables everything (the defect this replaces); "every
@@ -17,6 +24,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
@@ -109,7 +117,7 @@ describe('the risk panel — writers stay fenced, everything else does not', () 
   })
 })
 
-describe('the outcome panel — a read-first pane fences nothing', () => {
+describe('the outcome panel — a read-first pane, fenced only where it writes', () => {
   beforeEach(() => setStoreState(OUTCOME_FIXTURE))
 
   it('is NOT wrapped by the Router — the panel-wide blanket is gone', () => {
@@ -117,7 +125,7 @@ describe('the outcome panel — a read-first pane fences nothing', () => {
     expect(document.querySelector('fieldset[data-authority="disabled"]')).toBeNull()
   })
 
-  it('declares no writer fence at all — the pane has nothing to protect', () => {
+  it('declares no writer fence in the default view — its one writer sits behind technical detail', () => {
     render(<InspectorRouter nodeId="out1" edgeId={null} onClose={vi.fn()} />)
     expect(document.querySelectorAll('fieldset[data-writer-fence]')).toHaveLength(0)
   })
@@ -128,6 +136,51 @@ describe('the outcome panel — a read-first pane fences nothing', () => {
       screen.getByRole('button', { name: 'Dismiss suggestion' }),
     ).not.toBeDisabled()
   })
+})
+
+describe('review 2038 — the advanced editor\'s Description writer stays fenced on Risk AND Outcome', () => {
+  // ⚠ jsdom's `.disabled` IDL property reflects only the element's OWN
+  // attribute, never an ancestor `<fieldset disabled>`, so `toBeDisabled()` on
+  // `.disabled` is the wrong probe here. `:disabled` is the selector the
+  // browser applies, and it DOES inherit from the fieldset.
+  const PANES = [
+    { name: 'risk', fixture: RISK_FIXTURE, nodeId: 'r1' },
+    { name: 'outcome', fixture: OUTCOME_FIXTURE, nodeId: 'out1' },
+  ] as const
+
+  for (const pane of PANES) {
+    it(`${pane.name}: the Description textarea under model detail is :disabled, and typing + blur writes nothing`, async () => {
+      setStoreState(pane.fixture)
+      const user = userEvent.setup()
+      const { container } = render(<InspectorRouter nodeId={pane.nodeId} edgeId={null} onClose={vi.fn()} />)
+      await user.click(screen.getByRole('button', { name: 'Show technical detail' }))
+      await user.click(screen.getByRole('button', { name: /Show model detail/i }))
+
+      // Bound by IDENTITY: the editor's own labelled control, and it must be
+      // the textarea (anti-vacuity — a readonly row would have no control).
+      const description = screen.getByLabelText('Description')
+      expect(description.tagName).toBe('TEXTAREA')
+      expect(
+        description.matches(':disabled'),
+        `${pane.name}: the carrier-less setDescription writer is live`,
+      ).toBe(true)
+      expect(
+        description.closest('fieldset[data-writer-fence="advanced-editor"]'),
+        `${pane.name}: the writer must sit behind the pane's own advanced-editor fence`,
+      ).not.toBeNull()
+      expect(container.querySelector('fieldset[data-authority="disabled"]')).toBeNull()
+
+      // The OUTCOME, not the symptom: a user's edit must not land in the store
+      // as a silent local-only description.
+      await user.click(description)
+      await user.type(description, 'edited locally')
+      await user.tab()
+      const node = useCanvasStore.getState().nodes.find(n => n.id === pane.nodeId) as
+        { data?: { description?: unknown } } | undefined
+      expect(node, 'PRECONDITION: the node is still in the store').toBeDefined()
+      expect(node?.data?.description, `${pane.name}: the fenced editor wrote a local-only description`).toBeUndefined()
+    })
+  }
 })
 
 describe('CONTRAST — a panel that took on no duty keeps the Router wrap', () => {
