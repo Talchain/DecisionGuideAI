@@ -49,14 +49,17 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Check, Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
+import { IconBtn } from '../components/pre-analysis/primitives/IconBtn'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
-import { ValueProvenanceMark } from './ValueProvenanceMark'
+import { ValueProvenanceMark, provenanceMarkKind } from './ValueProvenanceMark'
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   ATTENTION_IS_SEVERE,
@@ -322,13 +325,21 @@ export function valueMayShrink(display: string | null): boolean {
  * The number stays Olumi's. The judgement becomes the user's. That is the
  * whole act and the name now says it.
  */
+/*
+ * ⭐ `title` IS NOW THE TOOLTIP OF AN ICON, SO IT LEADS WITH THE WORD THE ICON
+ * REPLACED (23 Sep 2026, Paul: repeated row text becomes icons). The visible
+ * "Confirm" is gone from the row; a sighted reader who hovers the tick must meet
+ * that word first. The relationship arm keeps its 13 Sep sentence after it, so
+ * the claim is still judgement, never correctness. The accessible NAME (`label`)
+ * is unchanged, byte for byte.
+ */
 const CONFIRM_AS_IS_COPY = {
   value: {
     title: 'Confirm this value is correct',
     label: (rowLabel: string) => `Confirm ${rowLabel} is correct`,
   },
   relationship: {
-    title: 'Adopt this estimate as your own judgement',
+    title: 'Confirm. Adopt this estimate as your own judgement.',
     label: (rowLabel: string) => `Adopt Olumi’s estimate for ${rowLabel} as your own judgement`,
   },
 } as const
@@ -879,11 +890,25 @@ export function ModelRowView({
         is a browser question and it is not answered here.
       */}
       {renameAvailable && !renaming && (
-        <button
-          type="button"
-          data-testid={`model-row-v2-${row.id}-rename-start`}
-          title="Rename this element"
-          aria-label={`Rename ${row.label}`}
+        /*
+         * ⭐⭐ A PENCIL, NOT THE WORD (23 Sep 2026, Paul). "Rename" rendered on
+         * 18 of 18 node rows of the captured market-entry draft (19 of 19 on
+         * build-vs-buy), at a uniform 46.91px. `Pencil` is the panel's EDIT
+         * ACT (R2) — possible only because R2 moved the "User edited" STATUS
+         * off it (`valueProvenanceIcon.ts`), so a user-edited row does not draw
+         * two pencils meaning two things.
+         *
+         * ⚠ The accessible name ("Rename <label>") is unchanged; the tooltip
+         * leads with "Rename". Same shared `IconBtn`, `-my-1` and
+         * `stopPropagation` as the row's confirm tick — see there for why.
+         */
+        <IconBtn
+          icon={Pencil}
+          testId={`model-row-v2-${row.id}-rename-start`}
+          tooltip="Rename this element"
+          ariaLabel={`Rename ${row.label}`}
+          stopPropagation
+          onClick={beginRename}
           /*
            * ⛔⛔ `min-w-0 truncate`, NOT `shrink-0 whitespace-nowrap` — AN ACTION
            * MUST NOT DRAW OVER THE MODEL.
@@ -923,18 +948,16 @@ export function ModelRowView({
            * under the same 24px bar — before this change as well as after. It is
            * pre-existing and out of scope here, but it is real and nothing else
            * records it.
+           *
+           * ⭐ SUPERSEDED BY THE ICON (23 Sep 2026), AND THE HISTORY ABOVE IS
+           * KEPT BECAUSE IT SAYS WHY THE ICON IS SAFE. The pencil is a fixed
+           * 28px visual — under the 2rem floor that was chosen — with the
+           * shared 44px touch target, so it neither draws over the value nor
+           * shrinks to nothing, and the 12px box height noted above is gone.
+           * None of that is re-measured in a browser here; jsdom has no layout.
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted min-w-[2rem] truncate`}
-          onClick={e => {
-            /* The row is `role="option"` with its own `onClick`; without this,
-               starting a rename would also select the row. Same reason, same
-               line, as the editor and the two sibling action buttons. */
-            e.stopPropagation()
-            beginRename()
-          }}
-        >
-          Rename
-        </button>
+          className="shrink-0 -my-1"
+        />
       )}
 
       </span>
@@ -1160,11 +1183,34 @@ export function ModelRowView({
         is removing, at the scale of an attribute.
       */}
       {canConfirmAsIs && (
-        <button
-          type="button"
-          data-testid={`model-row-v2-${row.id}-confirm-as-is`}
-          title={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].title}
-          aria-label={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].label(row.label)}
+        /*
+         * ⭐⭐ A TICK, NOT THE WORD (23 Sep 2026, Paul). "Confirm" rendered on
+         * 21 of 21 relationship rows of the captured market-entry draft (19 of
+         * 19 on build-vs-buy). R4: the confirm ACT is `Check`; the confirmed
+         * STATUS it produces is `CheckCircle` ("Confirmed by you"), so act and
+         * outcome share one glyph family without sharing one glyph.
+         *
+         * ⚠ THE SHARED `IconBtn`, so the tooltip, the 44px touch target and the
+         * 28px visual are the panel's one treatment rather than a local copy.
+         * `variant` stays `default`: the `confirm` variant is `text-success`,
+         * 2.02:1 on the panel, under SC 1.4.11's 3:1.
+         *
+         * ⚠ `-my-1` KEEPS THE ROW AT ITS HEIGHT, UNMEASURED IN A BROWSER. The
+         * row's content line is 23px (row 36px = 23 + py-1.5 + border); a 28px
+         * button would grow every confirmable row by 5px. The negative margin
+         * lets the circle sit 2.5px into the row's own 6px padding instead.
+         * jsdom performs no layout, so this is arithmetic, not a measurement.
+         *
+         * ⚠ `stopPropagation` because the row is `role="option"` with its own
+         * `onClick` — the text button this replaced stopped it by hand.
+         */
+        <IconBtn
+          icon={Check}
+          testId={`model-row-v2-${row.id}-confirm-as-is`}
+          tooltip={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].title}
+          ariaLabel={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].label(row.label)}
+          stopPropagation
+          onClick={() => confirmHandler?.(row.id)}
           /*
            * ⚠ NOT CHANGED, AND THE RULING IS WHY. I made this yield too, and
            * `rowAtomsDoNotWrap.spec.tsx` REDDED it by name: *"Confirm never
@@ -1178,15 +1224,15 @@ export function ModelRowView({
            * OVERLAPS the value. A fake affordance and an affordance painted
            * across the number are both bad, and the ruling was written before
            * anything measured the second one. Raised, not resolved.
+           *
+           * ⭐ AND THE ICON DISSOLVES THE TENSION RATHER THAN RULING ON IT. The
+           * tick is a fixed 28px that cannot truncate, so it is still not a
+           * fake affordance, and it is narrower than the word it replaced, so
+           * the value has more room. Whether the 17 overlapping pairs at 280px
+           * reach zero is a browser question and is NOT measured here.
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
-          onClick={e => {
-            e.stopPropagation()
-            confirmHandler?.(row.id)
-          }}
-        >
-          Confirm
-        </button>
+          className="shrink-0 whitespace-nowrap -my-1"
+        />
       )}
 
       {/*
@@ -1228,7 +1274,7 @@ export function ModelRowView({
               ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
             }`}
           >
-            <Mark className="w-3.5 h-3.5" aria-hidden="true" />
+            <Mark className={icon('row')} aria-hidden="true" />
           </span>
         )
       })}
@@ -2417,6 +2463,12 @@ function ValueCell({
    * strings drown the outline. These strings are distinct per row and each one
    * is a fact the product computed.
    */
+  /** Does this row's provenance cell draw the `Sparkles` "AI estimate" mark?
+   *  The SAME gate the cell renders under (`provenanceSource !== undefined`)
+   *  and the SAME classifier the mark draws from — never a second predicate. */
+  const olumiMarkOnRow =
+    row.provenanceSource !== undefined && provenanceMarkKind(row.provenanceSource) === 'ai'
+
   const estimate =
     display === null && row.estimateText !== undefined ? (
       <span
@@ -2514,7 +2566,19 @@ function ValueCell({
         title={`Olumi: ${row.estimateText}`}
         className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
       >
-        Olumi: {row.estimateText}
+        {/* ⭐ "Olumi:" IS SAID ONCE PER ROW (C5, 23 Sep 2026). Where this row's
+            provenance mark is Olumi's own `Sparkles` "AI estimate", the visible
+            prefix restated it — audit row #8, 3 of 3 such rows on the
+            market-entry render. The words stay for assistive tech (`sr-only`)
+            and on hover (`title` above), so only the visible duplicate goes.
+
+            ⚠ ONLY WHEN THE MARK IS REALLY DRAWN, asked of the mark's own
+            classifier. `ValueProvenanceMark` records that the hint text and the
+            value's provenance are owned independently: a row can carry Olumi's
+            estimate with no AI mark, and there the word is the only
+            attribution, so it stays visible. */}
+        {olumiMarkOnRow ? <span className="sr-only">Olumi: </span> : 'Olumi: '}
+        {row.estimateText}
       </span>
     ) : null
 

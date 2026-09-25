@@ -21,10 +21,11 @@
  * key describing something the product no longer does (trap 12).
  */
 import { useEffect, useRef, useState } from 'react'
-import { HelpCircle } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 
 /**
  * The questions a reader asks, and which kinds answer each. TOTAL over the
@@ -64,7 +65,13 @@ export function ValueProvenanceKey() {
   return (
     <div ref={wrap} className="relative inline-flex">
       {/* A real button, so it is reachable by keyboard and announced as one —
-          the same shape as the canvas legend's control. */}
+          the same shape as the canvas legend's control.
+
+          ⭐ `Info`, NOT `HelpCircle` — RULED 23 Sep 2026 (R1). `HelpCircle` is
+          the panel's one glyph for an UNRESOLVED question: this very tab draws
+          it as "Estimate not yet confirmed", 25 times on the market-entry
+          render, on the same screen as this button. A key that opens an
+          explanation is information, not an open question. */}
       <button
         type="button"
         aria-label="How to read these marks"
@@ -74,7 +81,7 @@ export function ValueProvenanceKey() {
         onClick={() => setOpen(o => !o)}
         className="inline-flex items-center justify-center p-1 rounded text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
       >
-        <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
+        <Info className={icon('row')} aria-hidden="true" />
       </button>
 
       {open && (
@@ -93,7 +100,7 @@ export function ValueProvenanceKey() {
                 return (
                   <div key={kind} className="flex items-center gap-2" data-provenance-kind={kind}>
                     <span className="w-4 flex items-center justify-center text-text-light">
-                      <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                      <Icon className={icon('row')} aria-hidden="true" />
                     </span>
                     <span className={`${typography.panelMeta} text-text-body`}>
                       {VALUE_PROVENANCE_LABEL[kind]}

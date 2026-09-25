@@ -30,14 +30,26 @@
  * a band like "0.4 to 0.9" has the first and not the second. A mark that
  * absorbed the ⚠ would destroy that distinction, so it does not.
  */
-import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../domain/valueProvenance'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 
 export interface ValueProvenanceMarkProps {
   /** The row's `observed_state.source` literal, straight off the model. */
   source: string | null | undefined
   /** Row id, for a testid that binds to THIS row and not to a sibling. */
   rowId: string
+}
+
+/**
+ * Which kind this mark DRAWS for a source literal, or `null` when it draws
+ * nothing. Exported so a sibling cell can ask "is the AI mark on this row?"
+ * through the same classifier the mark uses, rather than a second predicate
+ * that could drift from it (C5, 23 Sep 2026: the value cell drops its visible
+ * "Olumi:" only when this answers `'ai'`).
+ */
+export function provenanceMarkKind(source: string | null | undefined): ValueProvenanceKind | null {
+  return classifyValueProvenance(source)?.kind ?? null
 }
 
 export function ValueProvenanceMark({ source, rowId }: ValueProvenanceMarkProps) {
@@ -59,7 +71,7 @@ export function ValueProvenanceMark({ source, rowId }: ValueProvenanceMarkProps)
       title={label}
       className="inline-flex shrink-0 items-center text-text-light"
     >
-      <Icon aria-hidden="true" className="w-3.5 h-3.5" />
+      <Icon aria-hidden="true" className={icon('row')} />
     </span>
   )
 }

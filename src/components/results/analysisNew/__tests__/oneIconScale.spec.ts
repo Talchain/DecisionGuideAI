@@ -109,3 +109,54 @@ describe('the icon scale', () => {
     ).not.toEqual([])
   })
 })
+
+/**
+ * ⭐ THE MODEL TAB IS THE OTHER HALF OF THE SAME PANEL, AND IT WAS UNGUARDED.
+ *
+ * The icon audit (23 Sep 2026) found the scale enforced in `analysisNew/` only;
+ * the Model tab hand-wrote `w-3.5 h-3.5` at four sites — the same value, with
+ * nothing to stop a fifth size appearing. The one-icon-one-meaning pass touches
+ * those files, so the guard now reads them too, through the SAME detector.
+ *
+ * ⚠ SCOPE, NAMED: `src/canvas/model-tab-v2/**` (non-test `.tsx`). The Model
+ * card (`components/model-tab/`) is not swept here.
+ */
+const MODEL_TAB_DIR = path.resolve(__dirname, '../../../../canvas/model-tab-v2')
+
+function modelTabSources(): { name: string; code: string }[] {
+  const out: { name: string; code: string }[] = []
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir)) {
+      if (entry === '__tests__') continue
+      const full = path.join(dir, entry)
+      if (fs.statSync(full).isDirectory()) walk(full)
+      else if (/\.tsx$/.test(full) && !/\.(spec|test)\./.test(full))
+        out.push({ name: path.relative(MODEL_TAB_DIR, full), code: stripComments(fs.readFileSync(full, 'utf8')) })
+    }
+  }
+  walk(MODEL_TAB_DIR)
+  return out
+}
+
+describe('the icon scale — the Model tab too', () => {
+  it('⛔ no Model-tab file writes a square icon size by hand', () => {
+    const sources = modelTabSources()
+    // ⚠ The directory holds 9 `.tsx` files at 2177f45c (its logic is `.ts`), so
+    // the magnitude floor is 8 and the files this pass touches are named.
+    expect(sources.length, 'PRECONDITION: the sweep found too few Model-tab sources').toBeGreaterThanOrEqual(8)
+    for (const required of [
+      'ModelRowView.tsx',
+      'ModelOutline.tsx',
+      'ModelGroupActions.tsx',
+      'ValueProvenanceMark.tsx',
+      'ValueProvenanceKey.tsx',
+    ]) {
+      expect(sources.map((f) => f.name), `PRECONDITION: ${required} is in the sweep`).toContain(required)
+    }
+
+    const offenders = sources.flatMap((f) =>
+      (f.code.match(BARE_SQUARE) ?? []).map((c) => `model-tab-v2/${f.name}: ${c.slice(0, 70)}`),
+    )
+    expect(offenders, "use `icon('row')` from `analysisNew/panelSurfaces`").toEqual([])
+  })
+})

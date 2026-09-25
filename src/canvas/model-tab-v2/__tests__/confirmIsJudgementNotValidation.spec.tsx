@@ -43,7 +43,14 @@ describe('confirming a RELATIONSHIP records judgement, never correctness', () =>
     )
     const chip = screen.getByTestId('model-row-v2-e-1-confirm-as-is')
     expect(chip.getAttribute('aria-label')).not.toMatch(/is correct/i)
-    expect(chip.getAttribute('title')).not.toMatch(/is correct/i)
+    // ⚠ 23 Sep 2026: the chip is now the shared icon button, whose hover text is
+    // the panel's `Tooltip` rather than a native `title`. Same claim, read where
+    // it now lives — and asserted PRESENT first, so a missing tooltip cannot pass.
+    expect(chip.getAttribute('title')).toBeNull()
+    fireEvent.mouseEnter(chip)
+    const tip = screen.getByRole('tooltip').textContent ?? ''
+    expect(tip).toMatch(/your own judgement/i)
+    expect(tip).not.toMatch(/is correct/i)
     // ⭐ And it says what the act actually does — the producer's own vocabulary.
     expect(chip.getAttribute('aria-label')).toMatch(/your own judgement/i)
     expect(chip.getAttribute('aria-label')).toContain('Demand → Revenue')

@@ -25,9 +25,26 @@
  * The label is the same DS idiom the v1 STRUCTURAL CTAs already use, so this is
  * conformance to the existing visual language rather than a new one — no new
  * token, no new size, no new colour.
+ *
+ * ⭐⭐ SUPERSEDED FOR `discuss`, 23 Sep 2026 (Paul: repeated text becomes icons;
+ * R3: every hand-to-Olumi act is `MessageCircle`). The sentence repeated once
+ * per open group — five times with every group open — and said the same act
+ * each time. It is now the shared `IconBtn`, and the objection above is met
+ * rather than ignored: the sentence is a real `aria-label` (not a `title`),
+ * and the hover/focus text is the panel's `Tooltip`. What is genuinely lost is
+ * the words for a SIGHTED TOUCH reader before they tap — stated, not hidden.
+ * `sectionWriterNotice` still quotes the sentence; it is the button's name and
+ * tooltip, so a voice user can still say it.
+ *
+ * ⚠ STRUCTURAL acts keep their words — they are distinct per group ("Add a
+ * factor", "Add a relationship") — and lead with the DS Tier-2 `Plus` glyph in
+ * place of a typed "+ " (DS v5 §9: no unicode symbol used as an icon).
  */
 
+import { MessageCircle, Plus } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { IconBtn } from '../components/pre-analysis/primitives/IconBtn'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import type { GroupAction, GroupActionContext } from './groupActions'
 import type { ModelGroupId } from './types'
 
@@ -60,20 +77,34 @@ export function ModelGroupActions({
       data-testid={`model-group-v2-${groupId}-actions`}
       className="flex flex-wrap items-center gap-3 px-4 py-1.5"
     >
-      {actions.map(action => (
+      {actions.map(action =>
+        action.intent === 'discuss' ? (
+          <IconBtn
+            key={action.id}
+            icon={MessageCircle}
+            tooltip={action.label}
+            ariaLabel={action.label}
+            testId={`model-action-v2-${action.id}`}
+            dataAttrs={{ 'data-intent': action.intent }}
+            onClick={() => onAction(action, action.message(context))}
+          />
+        ) : (
         <button
           key={action.id}
           type="button"
           data-testid={`model-action-v2-${action.id}`}
           data-intent={action.intent}
           onClick={() => onAction(action, action.message(context))}
-          className={`${typography.panelMeta} cursor-pointer hover:underline ${
-            action.intent === 'structural' ? 'text-info' : 'text-text-light hover:text-info'
-          }`}
+          className={`${typography.panelMeta} inline-flex items-center gap-1 cursor-pointer hover:underline text-info`}
         >
-          {action.intent === 'structural' ? `+ ${action.label}` : action.label}
+          {/* C6, 23 Sep 2026: the DS Tier-2 `Plus`, not a typed "+ ". Only the
+              structural acts reach this arm now — `discuss` is the icon button
+              above — so the old per-intent colour branch is gone with it. */}
+          <Plus className={`${icon('row')} shrink-0`} aria-hidden="true" />
+          {action.label}
         </button>
-      ))}
+        ),
+      )}
     </div>
   )
 }

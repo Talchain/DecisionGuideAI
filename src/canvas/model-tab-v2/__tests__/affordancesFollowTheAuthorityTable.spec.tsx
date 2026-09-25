@@ -235,11 +235,13 @@ describe('the surface agrees with the authority table', () => {
     const rowCode = stripComments(rowRaw, ROW_SRC)
     const panelCode = stripComments(readFileSync(PANEL_SRC, 'utf8'), PANEL_SRC)
 
-    expect(rowCode).toContain('data-testid={`model-row-v2-${row.id}-confirm-as-is`}')
+    // ⚠ 23 Sep 2026: the row's confirm is now the shared `IconBtn`, which takes
+    // the id as its `testId` prop and puts it on the button itself.
+    expect(rowCode).toContain('testId={`model-row-v2-${row.id}-confirm-as-is`}')
     expect(panelCode).toContain('data-testid="model-tab-v2-chip-confirm-estimates"')
 
     // CONTRAST CONTROL — the matcher discriminates rather than matching anything.
-    expect(rowCode).not.toContain('data-testid={`model-row-v2-${row.id}-confirm-as-was`}')
+    expect(rowCode).not.toContain('testId={`model-row-v2-${row.id}-confirm-as-was`}')
     expect(panelCode).not.toContain('data-testid="model-tab-v2-chip-confirm-guesses"')
 
     // ⭐ AND THE PIPELINE CONTROL, through the SAME helper the claims above use.

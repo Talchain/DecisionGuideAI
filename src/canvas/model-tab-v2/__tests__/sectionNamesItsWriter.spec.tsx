@@ -159,7 +159,12 @@ describe('⭐ the rendered notice — the section names what can resolve the blo
     renderOutline({ editConnectedIds: new Set(['fac-1']), optionIdsWithValueInputs: new Set() })
     const notice = screen.getByTestId(SECTION_WRITER_NOTICE_TESTID('options'))
     const button = screen.getByTestId('model-action-v2-options-discuss')
-    expect(notice.textContent).toContain(button.textContent!)
+    // ⚠ 23 Sep 2026: the discuss act is now an icon button, so its NAME is the
+    // label (its visible text is empty — and `toContain('')` would pass for any
+    // notice at all). Bound to the accessible name, asserted non-empty first.
+    const name = button.getAttribute('aria-label') ?? ''
+    expect(name).toBe('Discuss the options with Olumi')
+    expect(notice.textContent).toContain(name)
   })
 
   it('it states HOW MANY rows are affected, derived from the same predicate', () => {

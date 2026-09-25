@@ -384,7 +384,8 @@ describe('WHAT THE REMOVED SURFACES WERE CARRYING', () => {
     openEverySection()
     const badges = screen.getAllByTestId('analysis-new-drivers-marker')
     expect(badges.length).toBeGreaterThan(0)
-    for (const b of badges) expect(b).toHaveTextContent(COPY.markers.notAssessed)
+    // ⚠ 23 Sep 2026: the row badge is now a HelpCircle mark named by the words.
+    for (const b of badges) expect(b).toHaveAccessibleName(COPY.markers.notAssessed)
   })
 })
 

@@ -19,7 +19,7 @@
 
 import { useId, useState } from 'react'
 import { PanelFigure } from './PanelFigure'
-import { ChevronDown, ChevronRight, Crosshair, Pencil, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, HelpCircle, MessageCircle, Pencil } from 'lucide-react'
 import { IconBtn } from '../../../canvas/components/pre-analysis/primitives/IconBtn'
 import { typography } from '../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
@@ -66,9 +66,11 @@ export interface DisclosureRowProps {
    * row's own words - there is no producer record to look up.
    *
    * ⚠ IT SHARES THE SLOT WITH THE INTERVENTION, IT DOES NOT SIT BESIDE IT.
-   * Both are "work on this with Olumi" and both are the sparkle; two sparkles
-   * on one row would be the panel asking a reader to tell apart two icons it
-   * had already said were the same act. Where the producer named a move, the
+   * Both are "work on this with Olumi" and both are the speech bubble
+   * (`MessageCircle`, R3, 23 Sep 2026 — it was the sparkle, which the panel
+   * now reserves for content Olumi ORIGINATED); two bubbles on one row would be
+   * the panel asking a reader to tell apart two icons it had already said were
+   * the same act. Where the producer named a move, the
    * act RUNS it and the tooltip says which. Where it did not, the act opens the
    * conversation. One icon, one meaning, and the accessible name discriminates.
    */
@@ -139,7 +141,28 @@ export function DisclosureRow({
         <span className="min-w-0 flex-1">
           <span className={`${typography.panelHeader} text-text-header block`}>
             {finding.headline}
-            {marker ? (
+            {/* ⭐ "NOT ASSESSED" IS A STATUS, SO IT IS A MARK (23 Sep 2026, Paul:
+                repeated row text becomes icons; the DS's Tier 3 — status icons
+                replace text labels). It rendered on 5 rows of the market-entry
+                render. R1 makes `HelpCircle` the panel's one glyph for an
+                UNRESOLVED question, and it is already this tab's own "not
+                assessed" glyph (`WhatWeChecked`). `role="img"` + `aria-label`
+                keeps the words in the row toggle's accessible name, and `title`
+                on hover — the shape the Model tab's attention marks use.
+
+                ⚠ ONLY `not_assessed`. "Provisional" and "From an earlier run"
+                are different claims with no ruled glyph, and stay words. */}
+            {marker && finding.marker === 'not_assessed' ? (
+              <span
+                role="img"
+                aria-label={marker}
+                title={marker}
+                className="inline-flex align-middle text-text-light ml-2"
+                data-testid={`${testIdPrefix}-marker`}
+              >
+                <HelpCircle className={icon('row')} aria-hidden="true" />
+              </span>
+            ) : marker ? (
               <span
                 className={`${typography.panelMeta} text-text-light ml-2`}
                 data-testid={`${testIdPrefix}-marker`}
@@ -307,13 +330,19 @@ export function DisclosureRow({
                 (CLAUDE.md trap 21).
 
                 ⛔ AND IT IS ONE SLOT, NOT TWO. Both arms are "work on this with
-                Olumi" and both are the sparkle. Two sparkles on one row would
-                ask the reader to tell apart two icons the panel had just said
-                were the same act. The tooltip and the accessible name carry the
-                difference, which is where a difference of INTENT belongs. */}
+                Olumi" and both are the speech bubble. Two on one row would ask
+                the reader to tell apart two icons the panel had just said were
+                the same act. The tooltip and the accessible name carry the
+                difference, which is where a difference of INTENT belongs.
+
+                ⭐ `MessageCircle`, NOT `Sparkles` — RULED 23 Sep 2026 (R3, one
+                icon, one meaning). `Sparkles` was this act AND the "AI estimate"
+                status AND the "Olumi proposed this option" mark, on the same
+                panel. It now means only content Olumi ORIGINATED; every
+                hand-to-Olumi act is the bubble the Model card already drew. */}
             {finding.intervention && finding.intervention.label.trim() !== '' && onRunIntervention ? (
               <IconBtn
-                icon={Sparkles}
+                icon={MessageCircle}
                 tooltip={finding.intervention.label}
                 ariaLabel={finding.intervention.label}
                 variant="primary"
@@ -328,7 +357,7 @@ export function DisclosureRow({
                  a control that cannot say what it acts on. The title is what
                  seeds the drawer, so an empty one would open it blank. */
               <IconBtn
-                icon={Sparkles}
+                icon={MessageCircle}
                 tooltip={COPY.disclosure.askOlumi}
                 ariaLabel={COPY.disclosure.askOlumi}
                 onClick={() => onAskOlumi(finding)}

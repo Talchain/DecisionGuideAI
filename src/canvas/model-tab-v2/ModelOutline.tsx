@@ -32,6 +32,8 @@
  */
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import { icon } from '../../components/results/analysisNew/panelSurfaces'
 import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
@@ -843,7 +845,20 @@ export function ModelOutline({
                and must not drift back to the container. */
             className={`${typography.panelHeader} text-text-header text-left py-1.5`}
           >
-            {group.open ? '▾' : '▸'} {GROUP_TITLE[group.id]}
+            {/* ⭐ LUCIDE CHEVRONS, NOT TYPED `▾`/`▸` (C6, 23 Sep 2026). DS v5 §9:
+                no unicode symbol used as an icon; the Reasoning tab's
+                disclosures are already `ChevronDown`/`ChevronRight`, so the two
+                halves of the panel now open a section with one glyph.
+                Decorative — `aria-label` above names the control and
+                `aria-expanded` carries the state. `align-middle` keeps the glyph
+                inline, so the heading's `items-baseline` still aligns on the
+                title's text (not re-measured in a browser here). */}
+            {group.open ? (
+              <ChevronDown className={`${icon('row')} inline-block align-middle mr-1`} aria-hidden="true" />
+            ) : (
+              <ChevronRight className={`${icon('row')} inline-block align-middle mr-1`} aria-hidden="true" />
+            )}
+            {GROUP_TITLE[group.id]}
             <span className={`${typography.panelMeta} text-text-light ml-2`}>
               {group.headingRows.length}
             </span>
