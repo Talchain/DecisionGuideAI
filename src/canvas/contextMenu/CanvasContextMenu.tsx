@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useShowToast } from '../ToastContext'
@@ -185,8 +186,15 @@ export function CanvasContextMenu({
   let actionIdx = -1
 
   // When custom value popover is open, hide menu but keep component mounted
+  //
+  // A9 — portalled to `document.body`, same reason as the menu below: a
+  // `position: fixed` descendant still stacks UNDER any ancestor-independent
+  // element with a higher z-index (measured: the 900 dock over this control's
+  // undocumented z-101), and `NodePopover.tsx`'s own header names the fix for
+  // exactly this class of control — "Renders via createPortal to escape
+  // ReactFlow's stacking context."
   if (customValueNodeId) {
-    return (
+    return createPortal(
       <SetValuePopover
         nodeId={customValueNodeId}
         anchorPos={target.screenPos}
@@ -194,16 +202,30 @@ export function CanvasContextMenu({
           void setValueCustom(nodeId, value, showToast)
         }}
         onClose={() => { setCustomValueNodeId(null); onClose() }}
-      />
+      />,
+      document.body,
     )
   }
 
-  return (
+  // A9 — THE DEFECT, MEASURED. `CanvasContextMenu` and `Submenu` both render
+  // `position: fixed` at z-100/101, siblings in the DOM to `OutputsDock`'s
+  // `position: fixed; z-index: 900` aside. Stacking order is decided by
+  // z-index alone once both are `fixed`, independent of DOM nesting order —
+  // so for any card near the dock, the dock painted OVER the menu and its
+  // submenu, and every click on "Explain", "Challenge" or "Trace" landed on
+  // the dock instead. Portalling to `document.body` is not what fixes the
+  // stacking order (z-index alone does that); it is what keeps this control
+  // in the SAME stacking context as the dock rather than nested inside some
+  // future ReactFlow-transformed ancestor, matching the established pattern
+  // (`NodePopover.tsx`) for every other floating control this canvas has.
+  return createPortal(
     <>
       {/* Invisible backdrop catches all outside clicks/right-clicks to dismiss menu */}
       <div
         role="presentation"
-        className="fixed inset-0 z-[99]"
+        // A9 — above OutputsDock's `zIndex: 900` aside, so the backdrop
+        // actually catches a click made through where the dock paints.
+        className="fixed inset-0 z-[950]"
         onMouseDown={onClose}
         onContextMenu={(e) => { e.preventDefault(); onClose() }}
       />
@@ -211,7 +233,7 @@ export function CanvasContextMenu({
         ref={menuRef}
         role="menu"
         aria-label="Canvas context menu"
-        className="fixed z-[100] min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
+        className="fixed z-[951] min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
         style={{ left: position.x, top: position.y }}
       >
         {items.map((entry, i) => {
@@ -345,6 +367,7 @@ export function CanvasContextMenu({
         visible={!!activeTooltip}
       />
 
-    </>
+    </>,
+    document.body,
   )
 }

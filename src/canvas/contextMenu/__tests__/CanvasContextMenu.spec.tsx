@@ -235,7 +235,9 @@ describe('CanvasContextMenu — shared-model authority', () => {
     const askAi = screen.getByText('Ask AI').closest('button')!
     fireEvent.click(askAi)
 
-    const submenu = screen.getAllByRole('menu').find(menu => menu.classList.contains('z-[101]'))
+    // A9 — the submenu's z-index moved from 101 to 952 (above OutputsDock's
+    // 900), so it no longer sits under the dock for a card near it.
+    const submenu = screen.getAllByRole('menu').find(menu => menu.classList.contains('z-[952]'))
     expect(submenu).toBeDefined()
     expect(submenu).toHaveTextContent("What's missing from this model?")
     expect(submenu!.className).toContain('border-panel-border')
@@ -247,7 +249,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
   it('keeps tooltip identity coherent on an available presentation control', () => {
     vi.useFakeTimers()
     try {
-      const { container } = render(
+      render(
         <CanvasContextMenu
           target={paneTarget}
           onClose={onClose}
@@ -257,7 +259,10 @@ describe('CanvasContextMenu — shared-model authority', () => {
       const toggle = screen.getByText('Switch to Detailed').closest('button')!
       fireEvent.mouseEnter(toggle)
       act(() => { vi.advanceTimersByTime(350) })
-      const tooltip = container.querySelector('[role="tooltip"]')
+      // A9 — the whole menu (and this tooltip within it) is now portalled to
+      // `document.body`, outside RTL's own `container` wrapper, so the query
+      // is scoped to the document rather than to `container`.
+      const tooltip = document.querySelector('[role="tooltip"]')
       expect(tooltip).not.toBeNull()
       expect(tooltip!.id).toBe('tooltip-toggle-view-mode')
       expect(toggle).toHaveAttribute('aria-describedby', 'tooltip-toggle-view-mode')
