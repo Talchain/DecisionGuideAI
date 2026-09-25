@@ -91,6 +91,54 @@ export const UNDER_ROW_CLEARANCE = 8
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
+/** Parameter resolution for `underArcClearanceH`'s solve — fine enough that
+ *  discretisation error is far below `UNDER_ROW_CLEARANCE`; the margin below
+ *  covers what falls between samples. */
+const UNDER_ARC_CLEARANCE_SAMPLES = 2000
+/** Safety margin folded into the solved depth, covering the gap between
+ *  sampled parameter values (the true worst point can fall between two of
+ *  them). Small next to `UNDER_ROW_CLEARANCE` (8). */
+const UNDER_ARC_CLEARANCE_MARGIN = 1
+
+/**
+ * The smallest control-point depth `h` (each control point sits `h` straight
+ * below its own end) that keeps the under arc's y at or below `targetY` at
+ * every sampled point whose x falls inside one of `between`'s spans.
+ *
+ * Both control points share their end's x, so x(t) is the standard smoothstep
+ * ease and the cubic's y at parameter t decomposes as:
+ *   y(t) = [smoothstep blend of sy, ty] + 3·t·(1−t)·h
+ * the same identity the arc's `labelAnchor` already relies on at t = 0.5
+ * (0.75·h there). The second term is the only place h enters, is zero at the
+ * ends, and is non-negative and strictly increasing in h at every interior
+ * t — so solving h from the sample with the largest requirement clears every
+ * other sample too; no search needed.
+ */
+function underArcClearanceH(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  between: readonly RouteBox[],
+  targetY: number,
+): number {
+  let need = 0
+  for (let s = 1; s < UNDER_ARC_CLEARANCE_SAMPLES; s++) {
+    const t = s / UNDER_ARC_CLEARANCE_SAMPLES
+    const u = 1 - t
+    const easeS = u * u * (1 + 2 * t)
+    const easeT = t * t * (3 - 2 * t)
+    const x = sx * easeS + tx * easeT
+    if (!between.some((o) => x >= o.x && x <= o.x + o.width)) continue
+    const bump = 3 * t * u
+    if (bump <= 1e-9) continue
+    const baseline = sy * easeS + ty * easeT
+    const h = (targetY + UNDER_ARC_CLEARANCE_MARGIN - baseline) / bump
+    if (h > need) need = h
+  }
+  return need
+}
+
 /**
  * The same-row route for `source → target`, or `null` when the pair is not in
  * one row (no shared vertical band) or overlaps horizontally.
@@ -165,8 +213,11 @@ export function resolveSameRowRoute(
   const base = Math.max(sBottom, ty)
   const spanX = Math.abs(tx - sx)
   const wanted = UNDER_ROW_DIP + UNDER_ARC_PER_UNIT * spanX + (k - 1) * UNDER_ROW_STEP
-  // Clear every card standing between the pair...
-  const hClear = (lowest + UNDER_ROW_CLEARANCE - base) / 0.75
+  // Clear every between card across its WHOLE x-range, not only at the arc's
+  // midpoint (review 2033: a taller between card climbed back inside the arc
+  // before and after t = 0.5, since the control points only guarantee depth
+  // there).
+  const hClear = underArcClearanceH(sx, sBottom, tx, ty, between, lowest + UNDER_ROW_CLEARANCE)
   // ...and never reach a card in the next sub-row under the span.
   const spanLo = Math.min(sx, tx)
   const spanHi = Math.max(sx, tx)
