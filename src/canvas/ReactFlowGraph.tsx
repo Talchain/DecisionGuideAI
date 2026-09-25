@@ -36,6 +36,7 @@ import {
   useKeyboardShortcuts,
   resolveEffectiveInteractionMode,
   shouldReleaseTextFocusOnCanvasPointerDown,
+  REACT_FLOW_DELETE_KEY_CODE,
 } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import { armRecoveryNotice, consumeRecoveryNotice } from './persist/recoveryNotice'
@@ -2762,6 +2763,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             selectionOnDrag={canDragSelect}
             selectionMode={SelectionMode.Partial}
             multiSelectionKeyCode={['Meta', 'Control']}
+            // ⛔ React Flow's own Backspace delete is OFF: it removed the
+            // selection through `onNodesChange`, past the impact check and the
+            // confirm dialog. Delete/Backspace is handled once, by
+            // `useKeyboardShortcuts` → `deleteAction` — see the constant's header.
+            deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
             nodesConnectable={CANVAS_EDGE_ADD_CONNECTED}
