@@ -4,15 +4,21 @@
  * `applyContextMenuMutationAuthority` used to remove all 13
  * `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` outright, so a user could not tell
  * "this product cannot do that" from "this product is broken" — the sharpest
- * case being a node menu that offers Copy and Delete while Cut, Duplicate and
- * Paste have vanished.
+ * case being a node menu that offers Delete while Cut and Duplicate have
+ * vanished.
+ *
+ * ⚠ A20 (25 Sep 2026): `Copy` and `Paste` are no longer part of this story at
+ * all. `paste` left `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` because the row itself
+ * is gone — hidden structurally in `useMenuItems.ts`, not authority-gated —
+ * and `Copy` was never gated here (it was always enabled, see the header
+ * above this file's density block); it too is now simply absent from the
+ * entry lists the builders return. The density counts below reflect that.
  *
  * ⭐ THE DENSITY CHOICE IS MEASURED, NOT ASSERTED — see the
  * "menu density" block at the foot of this file, which builds every menu under
- * BOTH candidate policies and pins the counts. Rendering all thirteen disabled
- * makes the factor-node menu 11 rows with 7 greyed (64%); the shipped policy
- * makes it 7 rows with 3 non-actionable (43%). That measurement is why the
- * all-disabled policy lost.
+ * BOTH candidate policies and pins the counts. That measurement is why the
+ * all-disabled policy lost; the exact figures are re-pinned at each case as
+ * the entry lists change, most recently by A20's removal of Copy and Paste.
  *
  * ⚠ THE VACUITY TRAP THIS FILE IS BUILT AGAINST: an assertion that an item is
  * ABSENT passes trivially when the whole menu fails to render. Every case below
@@ -166,7 +172,9 @@ beforeEach(() => {
 })
 
 describe('the removed gestures are surfaced with a reason, not deleted', () => {
-  it.each(['undo', 'redo', 'paste'])('pane menu shows %s as present-but-disabled', id => {
+  // A20 (25 Sep 2026): `paste` left this list — it is hidden entirely now,
+  // not surfaced disabled-with-a-reason. See `useMenuItems.A20.noDeadClipboard.spec.ts`.
+  it.each(['undo', 'redo'])('pane menu shows %s as present-but-disabled', id => {
     const menu = items(PANE)
     expectMenuRendered(menu, 'ask-ai-pane')
     const item = findItem(menu, id)
@@ -365,11 +373,13 @@ describe('menu density — the measurement that chose the policy', () => {
     //   · The same three become enabled rows under the shipped policy:
     //     rows 7 -> 10, inert unchanged at 2 (`cut` + the note),
     //     pct round(2/10*100) = 20.
-    expect(a).toEqual({ rows: 12, inert: 4, pct: 33 })
-    // ⚠ RE-PINNED 18 Sep 2026: 7/2/29 -> 10/2/20. The shipped policy got LESS
-    // grey again, and this time because three rows became ACTIONABLE rather than
-    // because one moved into the note — a better reason than the last move's.
-    expect(shipped).toEqual({ rows: 10, inert: 2, pct: 20 })
+    // ⚠ RE-PINNED 25 Sep 2026 (A20): `copy` left the pristine entry list
+    // entirely — it is hidden structurally now, not authority-gated — so the
+    // baseline lost one always-enabled row: rows 12 -> 11, inert unchanged at
+    // 4, pct round(4/11*100) = 36.
+    expect(a).toEqual({ rows: 11, inert: 4, pct: 36 })
+    // Same reason on the shipped side: one fewer always-enabled row.
+    expect(shipped).toEqual({ rows: 9, inert: 2, pct: 22 })
     expect(shipped.inert).toBeLessThan(a.inert)
     expect(shipped.rows).toBeLessThan(a.rows)
   })
@@ -392,8 +402,12 @@ describe('menu density — the measurement that chose the policy', () => {
     expectMenuRendered(base, 'ask-ai-pane')
     const a = density(policyAllDisabled(base))
     const shipped = density(items(PANE))
-    expect(a).toEqual({ rows: 7, inert: 3, pct: 43 })
-    expect(shipped).toEqual({ rows: 7, inert: 3, pct: 43 })
+    // ⚠ RE-PINNED 25 Sep 2026 (A20): `paste` left the pristine entry list
+    // entirely — it is hidden structurally now, not authority-gated — so both
+    // policies lost the same always-present row: rows 7 -> 6, inert 3 -> 2,
+    // pct round(2/6*100) = 33. The tie is unchanged; only the tied value moved.
+    expect(a).toEqual({ rows: 6, inert: 2, pct: 33 })
+    expect(shipped).toEqual({ rows: 6, inert: 2, pct: 33 })
     expect(shipped).toEqual(a) // the tie, asserted as a relation rather than twice by value
   })
 

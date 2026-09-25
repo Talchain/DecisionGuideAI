@@ -121,12 +121,19 @@ function expectConnectedAddsOffered(): void {
 }
 
 /**
- * The five gestures a user can also reach by KEY. They are rendered as
- * disabled rows carrying a reason rather than deleted, so silence cannot be
- * mistaken for breakage — see `menuSaysWhyUnavailable.spec.ts` for the density
+ * The gestures a user can also reach by KEY. They are rendered as disabled
+ * rows carrying a reason rather than deleted, so silence cannot be mistaken
+ * for breakage — see `menuSaysWhyUnavailable.spec.ts` for the density
  * measurement behind that split.
+ *
+ * ⚠ `Paste` LEFT THIS SET (A20, 25 Sep 2026): it is no longer rendered at
+ * all, surfaced-disabled or otherwise — Copy, its only producer, writes to a
+ * clipboard Paste had no durable way to consume, so both are hidden from
+ * every menu that showed them. `Paste` stays in `RETIRED_LOCAL_ACTIONS`
+ * above; the check below now expects it ABSENT like every other id not in
+ * this set.
  */
-const SURFACED_DISABLED_LABELS = new Set(['Paste', 'Undo', 'Redo', 'Cut', 'Duplicate'])
+const SURFACED_DISABLED_LABELS = new Set(['Undo', 'Redo', 'Cut', 'Duplicate'])
 
 /**
  * ⚠ SHAPE CHANGED 7 Sep 2026. This used to demand every retired label be
@@ -180,7 +187,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
     expect(storeSpies.applyLayout).not.toHaveBeenCalled()
   })
 
-  it('retains an accessible disabled presentation action without reviving Paste', () => {
+  it('retains an accessible disabled presentation action, and hides Paste (A20)', () => {
     render(
       <CanvasContextMenu
         target={paneTarget}
@@ -192,13 +199,10 @@ describe('CanvasContextMenu — shared-model authority', () => {
     expect(arrange).toHaveAttribute('aria-disabled', 'true')
     expect(arrange).not.toBeDisabled()
 
-    // Paste is now PRESENT and inert rather than deleted. Pairing the two in
-    // one test is deliberate: both rows are disabled, and the menu must look
-    // the same either way — a disabled row is a disabled row, whether the
-    // reason is "Nothing to paste" or "ask Olumi".
-    const paste = screen.getByText('Paste').closest('button')
-    expect(paste).toHaveAttribute('aria-disabled', 'true')
-    expect(paste).not.toBeDisabled()
+    // A20 — Paste was always disabled with no server authority, and its only
+    // producer (Copy) writes to a clipboard it had no durable way to consume:
+    // a control that could never work is hidden, not left present and inert.
+    expect(screen.queryByText('Paste')).toBeNull()
   })
 
   it('renders the REASON beside a disabled row, not just the grey', () => {
@@ -321,7 +325,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     )
     expect(screen.getByText('Ask AI')).toBeInTheDocument()
     expect(screen.getByText('Explore')).toBeInTheDocument()
-    expect(screen.getByText('Copy')).toBeInTheDocument()
+    expect(screen.queryByText('Copy')).toBeNull() // A20 — Copy is hidden
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expectConnectedAddsOffered()
     expectLocalSemanticActionsInert()
@@ -349,7 +353,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
       />,
     )
     expect(screen.getByText('Ask AI')).toBeInTheDocument()
-    expect(screen.getByText('Copy')).toBeInTheDocument()
+    expect(screen.queryByText('Copy')).toBeNull() // A20 — Copy is hidden
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expect(screen.queryByText('Explore')).toBeNull()
     // ⚠ A DECISION NODE GETS THEM TOO, and that is not an oversight: the builder
@@ -387,7 +391,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expectLocalSemanticActionsInert()
   })
 
-  it('keeps multi-selection explainable and copyable without batch local mutation', () => {
+  it('keeps multi-selection explainable without batch local mutation, and hides Copy (A20)', () => {
     const target: MultiTarget = {
       kind: 'multi',
       nodeIds: ['f1', 'g1'],
@@ -402,7 +406,10 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
       />,
     )
     expect(screen.getByText('Ask AI')).toBeInTheDocument()
-    expect(screen.getByText('Copy')).toBeInTheDocument()
+    // A20 — Copy wrote only to an in-memory clipboard Paste could never
+    // consume (Paste was always disabled with no server authority), so both
+    // are hidden entirely rather than shown as a dead end.
+    expect(screen.queryByText('Copy')).toBeNull()
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expectLocalSemanticActionsInert()
   })
