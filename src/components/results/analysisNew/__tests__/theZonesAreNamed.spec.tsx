@@ -37,6 +37,12 @@
  *   · the methods left ZONE: FOCUS for the method strip at the top, so FOCUS
  *     holds only the run's nudges again and an empty canvas earns NO focus
  *     zone at all — arm 2 below is back to asserting that absence.
+ *
+ * ⛔ V2 PROTOTYPE (Paul, 25 Sep 2026: "match the prototype"). ZONE: FOCUS is
+ * deleted from this tab. Its nudges stay on the Analysis tab; the success nudge
+ * is the model strip's own "What would success look like?" row. Two zones
+ * remain, `also` and `answer`, and the list below is checked against the DOM,
+ * so a zone coming back (focus or any other) REDs by name.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -59,17 +65,24 @@ import { COMMITMENT_COPY } from '../commitmentSynthesis'
  */
 // V2 fidelity gap 24 (24 Sep 2026): the 'further' zone is deleted — the prototype
 // ends commitment → About, and About is a footer, not a zone.
-const ZONES = ['focus', 'answer', 'also'] as const
+// V2 prototype (Paul, 25 Sep 2026): the 'focus' zone is deleted from this tab.
+const ZONES = ['answer', 'also'] as const
 /**
  * The zones that carry a label. V2 retired the ANSWER zone's label; its heading
  * is the commitment block's (asserted below), so it is listed apart rather than
  * dropped — every zone is still in `ZONES`.
  */
-const LABELLED_ZONES = ['focus', 'also'] as const
+const LABELLED_ZONES = ['also'] as const
 const HEADED_BY_ITS_BLOCK = 'answer'
 
-/** A canvas with options, a factor and an outcome but NO risk: the model
- *  demonstrably lacks one, so Focus Now earns exactly one row. */
+/** Every zone group actually in the DOM — what `ZONES` is checked against. */
+const renderedZones = (): string[] =>
+  Array.from(document.querySelectorAll<HTMLElement>('[data-testid^="analysis-new-zone-"][data-testid$="-group"]'))
+    .map((el) => (el.getAttribute('data-testid') ?? '').replace(/^analysis-new-zone-/, '').replace(/-group$/, ''))
+    .sort()
+
+/** A canvas with options, a factor and an outcome but NO risk: before V2 the
+ *  model demonstrably lacked one, so Focus Now earned a row on this tab. */
 const node = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: { label: id } })
 const EARNS_A_NUDGE = [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor'), node('out1', 'outcome')]
 
@@ -103,6 +116,9 @@ describe('the panel is grouped into named zones', () => {
     renderBody(genuineDecision(), EARNS_A_NUDGE)
     const found = ZONES.filter((z) => screen.queryByTestId(`analysis-new-zone-${z}-group`) !== null)
     expect(found.length, 'precondition: every zone renders on a rich run').toBe(ZONES.length)
+    // EXHAUSTIVE BY THE DOM, not by recollection: no zone renders that the list
+    // does not name — which is what makes the list above a guard.
+    expect(renderedZones(), 'a zone rendered that ZONES does not name').toEqual([...ZONES].sort())
 
     for (const z of LABELLED_ZONES) {
       expect(
@@ -131,8 +147,14 @@ describe('the panel is grouped into named zones', () => {
    */
   it('⛔ no zone label renders over nothing — every label has content under it', () => {
     renderBody(genuineDecision(), EARNS_A_NUDGE)
-    expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 1: the model lacks a risk, so the zone is earned').not.toBeNull()
-    expect(contentBeyondLabel('focus')).toBeGreaterThan(0)
+    // ⛔ REVERSED, V2 prototype (Paul, 25 Sep 2026). This arm asserted the
+    // focus zone was EARNED here (the model lacks a risk). The prototype has no
+    // "Focus now" block on this tab, so the canvas that used to earn it now
+    // earns no zone and no label — and the labelled zones keep their content.
+    expect(screen.queryByTestId('analysis-new-zone-focus-group'), 'arm 1: no focus zone on this tab').toBeNull()
+    expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 1: and no focus label').toBeNull()
+    for (const z of LABELLED_ZONES) expect(contentBeyondLabel(z), `arm 1: ${z}`).toBeGreaterThan(0)
+    expect(renderedZones()).toEqual([...ZONES].sort())
 
     cleanup()
     /**
@@ -146,6 +168,7 @@ describe('the panel is grouped into named zones', () => {
     renderBody(genuineDecision(), [])
     expect(screen.queryByTestId('analysis-new-zone-focus-group'), 'arm 2: nothing earned, so no zone').toBeNull()
     expect(screen.queryByTestId('analysis-new-zone-focus'), 'arm 2: and no label over nothing').toBeNull()
+    for (const z of LABELLED_ZONES) expect(contentBeyondLabel(z), `arm 2: ${z}`).toBeGreaterThan(0)
     // Contrast in the SAME arm: the unconditional zones are still there, so
     // arm 2 is measuring the gate and not a failed render.
     expect(screen.queryByTestId('analysis-new-zone-answer-group')).not.toBeNull()

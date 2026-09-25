@@ -361,6 +361,12 @@ export interface ModelStripProps {
    */
   isPreRun?: boolean
   /**
+   * V2 prototype (Paul, 25 Sep): the Reasoning tab shows the census as four
+   * glyph rows at rest, before AND after a run. The host opts in; a bare mount
+   * keeps the pre-run default. The reader's own toggle still wins.
+   */
+  openAtRest?: boolean
+  /**
    * The panel reached a conclusion and `AtAGlance` is rendering it, so the
    * subject line gives up the 18px slot and drops one step.
    *
@@ -389,6 +395,7 @@ export interface ModelStripProps {
 export function ModelStrip({
   testId = 'analysis-new-model-strip',
   isPreRun = false,
+  openAtRest = false,
   insights = NO_INSIGHTS,
   reviewSlot = null,
 }: ModelStripProps) {
@@ -602,7 +609,7 @@ export function ModelStrip({
    */
   const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
 
-  const open = override ?? isPreRun
+  const open = override ?? (openAtRest || isPreRun)
 
   /**
    * ⚠ DERIVED, NOT READ OFF THE STATE, AND IT IS THE STRANDING GUARD. The
@@ -1038,14 +1045,7 @@ export function ModelStrip({
                   Reading it and pressing it are the same gesture — the press
                   opens the strip, where the toggle it names is waiting. Absent
                   at zero, like every other tally here. */}
-              {strip.needsCheckTotal > 0 ? (
-                <span
-                  className={`${typography.panelMeta} text-warning-ink`}
-                  data-testid={`${testId}-verify-summary`}
-                >
-                  {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
-                </span>
-              ) : null}
+              {/* V2: no "N to verify" here — the one worklist count is the review tool's "N to review". */}
             </span>
           )}
         </span>

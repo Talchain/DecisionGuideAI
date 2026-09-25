@@ -1,28 +1,44 @@
 /**
- * ⭐⭐ THE MOUNT IS REAL, AND THE NARROWING IS NOT VACUOUS — the discriminating
- * pair, because either half alone proves nothing.
+ * ⛔ REVERSED — V2 prototype (Paul, 25 Sep 2026: "match the prototype").
  *
- * The existing section census went GREEN the moment Focus Now was mounted. That
- * is exactly what a mount rendering NOTHING looks like, so the census cannot
- * tell "narrowed correctly" from "never mounted" (CLAUDE.md trap 3b). This file
- * drives the two outcomes through the DATA:
+ * This file proved the Reasoning tab's Focus Now mount was LIVE and NARROWED,
+ * with a discriminating pair driven through the model facts: a model with no
+ * risk earned the add-risk nudge, a real model with no target earned
+ * define-success, an empty canvas earned nothing. The prototype has no
+ * "Focus now" block on this tab, so that mount is removed. Its nudges stay on
+ * the Analysis tab (`ResultsBody`'s un-narrowed `<FocusNowContainer />`), and
+ * the success nudge is the model strip's own "What would success look like?"
+ * row.
  *
- *   · a model with no risk node  -> the add-risk nudge RENDERS   (the mount is live)
- *   · a model with everything    -> Focus Now renders NOTHING    (the narrowing bites)
+ * So the pair is kept, pointed the other way, and each absence carries a
+ * present control in the same run (trap 13):
+ *   · SOURCE: `AnalysisNewTabBody.tsx` neither imports the focus-now module nor
+ *     mounts `<FocusNowContainer`, while `ResultsBody.tsx` does both — the
+ *     contrast that proves the probe sees the one real mount. (Rendering the
+ *     container here is not an option: `focus-now/__tests__/inertness.spec.ts`
+ *     walks every file under src/, tests included, and allows only listed
+ *     importers. The Analysis tab's rows are pinned rendering by
+ *     `ResultsBody.focusPlacement.spec.tsx`.)
+ *   · DOM: on the canvas that used to earn add-risk, the Reasoning tab renders
+ *     no Focus Now panel or row, over a model strip that did render;
+ *   · on a real model with no target, the Reasoning tab renders no
+ *     define-success row, and the strip's success row asks the question.
  *
- * Neither case alone is evidence. Together they bind the surface to the model
- * fact rather than to the fixture.
+ * Bound to each nudge by IDENTITY (`data-row-id`, `STATIC_HYGIENE_ROWS`), not
+ * by text: the engine's success-measure finding can carry the same words.
  *
- * ⭐ REASONING V2 (24 Sep 2026): BOUND TO THE NUDGE BY IDENTITY. V2's Challenge
- * card prints the ENGINE's recommendation title verbatim, and the engine's
- * success-measure finding is titled "Define what success looks like" — the same
- * words as Focus Now's static nudge. A page-wide `getByText` can no longer tell
- * the two apart, so each nudge is now read off Focus Now's own row by its
- * `data-row-id` (`STATIC_HYGIENE_ROWS`). The claims are unchanged.
+ * Deleted cases (they pinned the removed Reasoning-tab mount): "RENDERS the
+ * nudge for a gap this model actually has — the mount is live", "renders
+ * NOTHING once the model has the thing each nudge asks for", "⛔ AN EMPTY
+ * CANVAS EARNS NO NUDGE — unknown is not absent", "⛔ an empty canvas earns no
+ * DEFINE SUCCESS even when the hook reports hasGoalTarget FALSE", "but a REAL
+ * model with no target DOES earn it — the gate must not swallow the signal".
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import fs from 'node:fs'
+import path from 'node:path'
 
 vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -35,19 +51,17 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 const node = (id: string, type: string) => ({ id, type, position: { x: 0, y: 0 }, data: { label: id } })
 
-const ADD_RISK = 'Add a risk worth watching'
-const DEFINE_SUCCESS = 'Define what success looks like'
 const ADD_RISK_ID = 'static:add-risk'
 const DEFINE_SUCCESS_ID = 'static:define-success'
 
-/**
- * The Focus Now row with this static id, or null. Identity, not text: the
- * engine's own recommendations can carry the same words elsewhere on the tab.
- */
+/** Options, a factor and an outcome, but NO risk: the canvas that earned add-risk. */
+const NO_RISK = [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor'), node('out1', 'outcome')]
+
+/** The Focus Now row with this static id, or null. Identity, not text. */
 const nudge = (rowId: string): HTMLElement | null =>
   screen.queryAllByTestId('focus-card').find((c) => c.getAttribute('data-row-id') === rowId) ?? null
 
-function renderWith(nodes: ReturnType<typeof node>[], data: ResultsSectionDataReturn) {
+function renderTab(nodes: ReturnType<typeof node>[], data: ResultsSectionDataReturn) {
   useCanvasStore.setState({ nodes } as never)
   return render(
     <AnalysisNewTabBody
@@ -65,89 +79,46 @@ afterEach(() => {
   useCanvasStore.setState({ nodes: [] } as never)
 })
 
-describe('Focus Now on the Reasoning tab', () => {
-  it('RENDERS the nudge for a gap this model actually has — the mount is live', () => {
-    const data = makeData(genuineDecision())
-    // Options, a factor and an outcome, but NO risk node.
-    renderWith(
-      [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor'), node('out1', 'outcome')],
-      data,
-    )
-    expect(nudge(ADD_RISK_ID), 'the add-risk nudge did not render').not.toBeNull()
-    expect(nudge(ADD_RISK_ID)).toHaveTextContent(ADD_RISK)
+describe('Focus Now is not mounted on the Reasoning tab (V2 prototype, 25 Sep)', () => {
+  it('the mount is gone from this tab and kept on the Analysis tab — by source, with its contrast', () => {
+    const read = (rel: string) => fs.readFileSync(path.resolve(__dirname, rel), 'utf8')
+    const FOCUS_IMPORT = /from\s*['"][^'"]*coaching-panel\/focus-now['"]/
+    const FOCUS_MOUNT = /<FocusNowContainer\b/
+    const reasoning = read('../AnalysisNewTabBody.tsx')
+    const analysis = read('../../ResultsBody.tsx')
+    // PRESENT CONTROL FIRST: the Analysis tab's mount, same probes.
+    expect(analysis, 'control: ResultsBody imports Focus Now').toMatch(FOCUS_IMPORT)
+    expect(analysis, 'control: ResultsBody mounts Focus Now').toMatch(FOCUS_MOUNT)
+    expect(reasoning).not.toMatch(FOCUS_IMPORT)
+    expect(reasoning).not.toMatch(FOCUS_MOUNT)
   })
 
-  it('renders NOTHING once the model has the thing each nudge asks for', () => {
-    const data = makeData(genuineDecision())
-    renderWith(
-      [
-        node('o1', 'option'),
-        node('o2', 'option'),
-        node('f1', 'factor'),
-        node('out1', 'outcome'),
-        node('r1', 'risk'),
-      ],
-      data,
-    )
+  it('on the canvas that used to earn add-risk, the Reasoning tab renders no Focus Now panel or row', () => {
+    renderTab(NO_RISK, makeData(genuineDecision()))
     expect(nudge(ADD_RISK_ID)).toBeNull()
-  })
-
-  it('⛔ AN EMPTY CANVAS EARNS NO NUDGE — unknown is not absent', () => {
-    // Without the `stripHasContent` guard every kind reads absent here and the
-    // panel would demand an outcome and a risk before anything has been built.
-    const data = makeData(genuineDecision())
-    renderWith([], data)
-    expect(nudge(ADD_RISK_ID)).toBeNull()
-    expect(nudge(DEFINE_SUCCESS_ID)).toBeNull()
+    expect(screen.queryByTestId('focus-now-panel')).toBeNull()
+    expect(screen.queryAllByTestId('focus-card')).toHaveLength(0)
+    // The tab rendered over this model, so the absence is the ruling.
+    expect(screen.getByTestId('analysis-new-model-strip')).toBeInTheDocument()
   })
 
   /**
-   * ⛔⛔ THE PAIR THE CASE ABOVE COULD NOT MAKE — and its absence hid a real
-   * defect through a whole review.
-   *
-   * That case feeds `genuineDecision()`, which already carries a goal target,
-   * so DEFINE_SUCCESS was absent because the FIXTURE said a target existed —
-   * never because the guard held. The fixture was answering the question.
-   *
-   * ⭐ WHAT THE REAL HOOK EMITS, derived at `useResultsSectionData.ts:1676`:
-   * `hasStatedGoalTarget` is a plain `boolean` with no unknown branch. On an
-   * empty canvas — no goal node, no threshold, no readiness — every arm is
-   * false and it returns `false`. A MEASURED false, indistinguishable at the
-   * consumer from "this model was built and has no target".
-   *
-   * So the mount's `?? null` was catching `undefined`, which the real hook
-   * NEVER emits, while the `false` it always emits flowed straight through.
-   * The guard caught the case that cannot happen and missed the one that does.
-   *
-   * These two bind the gate to the model fact rather than to the fixture, and
-   * they must disagree with each other — same `hasGoalTarget: false`, opposite
-   * outcomes, decided only by whether a model exists.
+   * ⭐ THE SUCCESS NUDGE MOVED, IT DID NOT DISAPPEAR. `hasGoalTarget: false` on
+   * a real model with a goal: before V2 this earned the define-success row;
+   * now the strip's own success row asks the question, with the pencil named
+   * "Set a target".
    */
-  const noStatedTarget = (): ResultsSectionDataReturn => {
+  it('a real model with no target: no define-success row — the strip asks "What would success look like?"', () => {
     const base = genuineDecision()
-    return {
+    const noStatedTarget = {
       ...base,
       recommendation: { ...base.recommendation, hasGoalTarget: false },
     } as ResultsSectionDataReturn
-  }
-
-  it('⛔ an empty canvas earns no DEFINE SUCCESS even when the hook reports hasGoalTarget FALSE', () => {
-    renderWith([], noStatedTarget())
+    renderTab([node('g1', 'goal'), ...NO_RISK, node('r1', 'risk')], noStatedTarget)
     expect(nudge(DEFINE_SUCCESS_ID)).toBeNull()
-  })
-
-  it('but a REAL model with no target DOES earn it — the gate must not swallow the signal', () => {
-    renderWith(
-      [
-        node('o1', 'option'),
-        node('o2', 'option'),
-        node('f1', 'factor'),
-        node('out1', 'outcome'),
-        node('r1', 'risk'),
-      ],
-      noStatedTarget(),
-    )
-    expect(nudge(DEFINE_SUCCESS_ID), 'the define-success nudge did not render').not.toBeNull()
-    expect(nudge(DEFINE_SUCCESS_ID)).toHaveTextContent(DEFINE_SUCCESS)
+    expect(screen.queryByTestId('focus-now-panel')).toBeNull()
+    const row = screen.getByTestId('analysis-new-model-strip-target')
+    expect(row).toHaveTextContent('What would success look like?')
+    expect(within(row).getByRole('button', { name: 'Set a target' })).toBeInTheDocument()
   })
 })

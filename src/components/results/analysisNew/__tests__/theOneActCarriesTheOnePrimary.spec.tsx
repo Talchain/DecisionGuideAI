@@ -1,27 +1,21 @@
 /**
- * THE PANEL'S ONE ACT MUST CARRY THE PANEL'S ONE PRIMARY — AND UNTIL NOW
- * NOTHING ON THE SURFACE CARRIED IT AT ALL.
+ * THE SUCCESS ROW IS A QUESTION WITH A QUIET PENCIL — AND THE STRIP CARRIES NO
+ * FILLED PRIMARY.
  *
- * ⛔ THE CENSUS THIS EXISTS FOR, taken on the DEPLOYED build (`6f90588f`),
- * driving a real run as a guest, read off the DOM at rest:
+ * ⛔ THIS FILE'S PREMISE WAS REVERSED BY THE V2 PROTOTYPE. It pinned the unset
+ * "Set a target" as the panel's one filled primary (`ACTION_TIER.primary`),
+ * after a deployed census (`6f90588f`) found 25 controls and no primary at
+ * all. Paul, 25 Sep 2026: match the V2 prototype, whose header has no filled
+ * primary — the unset success row reads "What would success look like?" with
+ * a quiet pencil.
  *
- *     25 controls  ·  ZERO `ACTION_TIER.primary`
- *     the act ("Set a target")   an 11px underlined text link, right-aligned
- *     "Strengthen the reasoning" aria-expanded="false"
+ * ⭐ THE PAIR IS STILL THE POINT. UNSET → the question, an icon-only pencil
+ * named "Set a target", no fill. SET → "Change", no fill, and the question
+ * gone. And the "no fill anywhere in the strip" probe is shown to see a filled
+ * control before its zero is trusted.
  *
- * `ACTION_TIER.primary` is declared *"THE ONE ACT. A filled control, and the
- * panel should carry at most one of them in view"* — written from the approved
- * prototype's own rule — and it had NO consumer that renders. Paul's reading of
- * the same surface, independently: *"nothing reads as primary"*.
- *
- * ⭐ THE PAIR IS THE POINT, NOT THE PRESENCE. A guard that only asserted "the
- * unset state is primary" would pass just as happily on a panel where EVERY
- * control is primary — which is the same defect with the opposite sign, and the
- * tier's own docblock says so. So the discrimination is UNSET → primary AND
- * SET → not primary, in one spec, on the same component.
- *
- * ⚠ BOUND BY TESTID, NOT BY TEXT. "Set a target" and "Change" are copy and can
- * move; `${TARGET}-edit` is the control's identity (trap 19).
+ * ⚠ BOUND BY TESTID AND ACCESSIBLE NAME, NOT BY VISIBLE TEXT (trap 19). The
+ * unset control has no visible text at all now; its name is its identity.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -70,12 +64,23 @@ vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
 }))
 
 import { ModelStrip } from '../sections/ModelStrip'
-import { ACTION_TIER } from '../panelSurfaces'
+import { ACTION_TIER, action } from '../panelSurfaces'
+import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 
-const TARGET = 'analysis-new-model-strip-target'
+const STRIP = 'analysis-new-model-strip'
+const TARGET = `${STRIP}-target`
+/** V2 prototype's success row, verbatim; the component holds it as a local constant. */
+const SUCCESS_QUESTION = 'What would success look like?'
 
 /** The filled-control signature, read from the token so it cannot drift. */
 const FILL = ACTION_TIER.primary.split(' ').filter((c) => c.startsWith('bg-'))
+
+/** Every element under `root` carrying the whole fill signature. */
+const filledIn = (root: Element) =>
+  Array.from(root.querySelectorAll('*')).filter((el) => {
+    const classes = (el.getAttribute('class') ?? '').split(/\s+/)
+    return FILL.every((c) => classes.includes(c))
+  })
 
 const goal = (withTarget: boolean) => ({
   id: 'g1',
@@ -96,28 +101,47 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
-describe('the one act carries the one primary', () => {
-  it('UNSET — "Set a target" is the filled control', () => {
+// V2 prototype (Paul, 25 Sep 2026): no filled primary in the header; the unset
+// success row is a question with a quiet pencil.
+describe('the success row is a question with a quiet pencil, and nothing in the strip is filled', () => {
+  it('PROBE CONTROL: the fill probe finds a filled control when one is there', () => {
+    const { container } = render(
+      <div>
+        <button type="button" className={action('primary')}>probe</button>
+        <button type="button" className={action('quiet')}>probe</button>
+      </div>,
+    )
+    expect(filledIn(container)).toHaveLength(1)
+  })
+
+  it('UNSET — the row asks the question, and the pencil is icon-only, named "Set a target"', () => {
     seed(false)
     render(<ModelStrip isPreRun={false} />)
+    expect(screen.getByTestId(`${TARGET}-none`).textContent).toBe(SUCCESS_QUESTION)
     const edit = screen.getByTestId(`${TARGET}-edit`)
+    expect(screen.getByRole('button', { name: COPY.successTarget.set })).toBe(edit)
+    expect((edit.textContent ?? '').trim(), 'icon-only: no visible label').toBe('')
+    expect(edit.querySelector('svg'), 'the pencil').not.toBeNull()
     for (const c of FILL) {
-      expect(
-        edit.className.split(' '),
-        `the act must carry ${c}: on the deployed build it was an 11px underlined link and the panel had no primary at all`,
-      ).toContain(c)
+      expect(edit.className.split(' '), 'V2: the unset act is quiet, not filled').not.toContain(c)
     }
   })
 
-  it('SET — "Change" drops back, so the emphasis is not spent on an ordinary affordance', () => {
+  it('UNSET — the strip carries no filled primary anywhere', () => {
+    seed(false)
+    render(<ModelStrip isPreRun={false} />)
+    // CONTRAST: the strip and its success row really rendered.
+    expect(screen.getByTestId(`${TARGET}-edit`)).toBeInTheDocument()
+    expect(filledIn(screen.getByTestId(STRIP))).toEqual([])
+  })
+
+  it('SET — "Change" is not filled either, and the question is gone', () => {
     seed(true)
     render(<ModelStrip isPreRun={false} />)
     const edit = screen.getByTestId(`${TARGET}-edit`)
-    for (const c of FILL) {
-      expect(
-        edit.className.split(' '),
-        'an emphasis every state shares is an emphasis none of them has',
-      ).not.toContain(c)
-    }
+    expect(edit).toHaveTextContent(COPY.successTarget.change)
+    for (const c of FILL) expect(edit.className.split(' ')).not.toContain(c)
+    expect(screen.queryByTestId(`${TARGET}-none`)).toBeNull()
+    expect(filledIn(screen.getByTestId(STRIP))).toEqual([])
   })
 })

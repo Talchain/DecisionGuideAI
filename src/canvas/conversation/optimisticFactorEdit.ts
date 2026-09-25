@@ -681,13 +681,19 @@ export const OPTIMISTIC_FACTOR_EDIT_NOTICE = {
    * DOES refresh it is a turn — `applyV5State` captures the top-level
    * `graph_hash` off every response — so the copy asks for the one thing that
    * works, and it works in-session with no reload at all.
+   *
+   * ⚠ NOT SHOWN FOR THE TWO TURN-FENCE MEMBERS (`turn_fence_superseded`,
+   * `turn_fence_stopped`, CEE #1868). They revert too, but "the saved model
+   * changed since you typed that" is false about a stopped turn, so the writer
+   * shows the fence's own sentence (`fenceRefusalCopyForCategory`) instead.
    */
   proven_no_write:
     "The saved model changed since you typed that, so your edit wasn't applied — I've put the previous value back rather than show you a number the model never took. Ask me anything about this decision and I'll re-sync with the saved model, then you can make the change again.",
   /**
    * The turn reached the server and failed there, but nothing states the write
    * did not land — the untyped 500 a contended commit actually returns, an
-   * unknown conflict category, a fence verdict. We hold no committed bytes, so
+   * unknown conflict category, a fence verdict outside the no-write set
+   * (`turn_fence_unclaimed` / `_unavailable`). We hold no committed bytes, so
    * "couldn't confirm" is the only claim the evidence supports, and the value
    * stands because discarding it would be data loss on a guess.
    *

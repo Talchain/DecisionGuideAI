@@ -115,6 +115,11 @@ const renderBody = (data: ResultsSectionDataReturn) => {
   // UNMOUNTS a closed region — so without this every query below reads an
   // absence rather than the section. Opening the GROUP only; the section
   // inside keeps its own default, which the helper below still respects.
+  // V2 prototype (25 Sep): that group renders only inside the challenge's
+  // "Assumptions and evidence" door, closed at rest, so that door opens first.
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(door)
   openGroups()
   return result
 }

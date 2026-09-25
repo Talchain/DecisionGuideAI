@@ -96,12 +96,29 @@ describe('the axis row reads the ranges it sits under', () => {
     // Domain is [10, 90] (opt_a p10=10 .. opt_b p90=90): four evenly-spaced
     // ticks land on 10, 36.67, 63.33, 90 — the SCALE's own values, not the
     // prototype's fixed 0/10/20/30 (this run's data is not a percentage).
-    expect(labels).toEqual(['10', '36.67', '63.33', '90'])
+    expect(labels).toEqual(['10', '36.7', '63.3', '90'])
     // ⛔ NO FABRICATED UNIT — the whole point of using the scale's own values.
     for (const l of labels) {
       expect(l, 'no % or other unit symbol may be invented').not.toMatch(/[%$£€]/)
     }
     expect(ticks).toBeInTheDocument()
+  })
+
+  it('large magnitudes read as three significant figures, never "423,333.33" (served 25 Sep)', () => {
+    const LARGE: Record<string, { mean: number; p10: number; p50: number; p90: number }> = {
+      opt_a: { mean: 400000, p10: 190000, p50: 400000, p90: 600000 },
+      opt_b: { mean: 700000, p10: 500000, p50: 700000, p90: 890000 },
+    }
+    const data = decisionWithLeaderWithheld()
+    renderOpen({
+      ...data,
+      recommendation: {
+        ...data.recommendation,
+        allOptions: data.recommendation.allOptions.map((o) => (LARGE[o.id] ? { ...o, outcome: LARGE[o.id] } : o)),
+      },
+    })
+    const labels = screen.getAllByTestId(/^analysis-new-options-axis-tick-\d$/).map((e) => e.textContent)
+    expect(labels).toEqual(['190K', '423K', '657K', '890K'])
   })
 
   it('the ticks and the info button share the SAME axis element (FIRST-1 stays merged)', () => {

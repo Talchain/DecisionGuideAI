@@ -54,7 +54,6 @@ vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.f
 import { ModelStrip } from '../sections/ModelStrip'
 import { buildModelStrip } from '../buildModelStrip'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { ATTENTION_MARK } from '../../../../canvas/model-tab-v2/rowPresentation'
 
 const TID = 'analysis-new-model-strip'
 
@@ -105,13 +104,6 @@ afterEach(() => {
   setHighlightedNodesSpy.mockClear()
 })
 
-/** The ids the canvas was last asked to ring. */
-function highlightedIds(): string[] {
-  const calls = setHighlightedNodesSpy.mock.calls
-  if (calls.length === 0) return []
-  return [...((calls[calls.length - 1][0] as string[]) ?? [])].sort()
-}
-
 describe('the strip counts the factors that carry no value at all', () => {
   it('⭐ counts them — and this is the state `needsCheck` cannot see', () => {
     const strip = buildModelStrip([
@@ -148,167 +140,55 @@ describe('the strip counts the factors that carry no value at all', () => {
     expect(strip.rows[0].nodes[0].valueText).not.toBeNull()
     expect(strip.noValueTotal).toBe(0)
   })
+
+  /*
+   * ⛔ THE COUNT ASKS `hasValue`, NEVER THE DISPLAY TEXT. The count half of the
+   * deleted "count and worklist ask one question" case, re-pointed to the
+   * builder, where it is still live. Only the snake-case shape separates the
+   * two questions.
+   */
+  it('⛔ a snake-case value is a value — the count does not read display text', () => {
+    const strip = buildModelStrip([
+      bare('f_a', 'Competitive pressure'),
+      snakeValue('f_snake', 'Vendor licensing cost'),
+    ])
+    const snake = strip.rows[0].nodes.find((n) => n.id === 'f_snake')!
+    // PRECONDITION: this is the shape on which the two questions disagree.
+    expect(snake.valueText).toBeNull()
+    expect(snake.hasValue).toBe(true)
+    expect(strip.noValueTotal).toBe(1)
+  })
 })
 
-describe('the worklist toggle', () => {
-  it('⭐ renders above zero, narrows the strip to exactly those factors, and un-narrows', () => {
-    setNodes([
+/*
+ * ⚠ V2 (Paul, 25 Sep 2026): the no-value CHIP left the strip — it duplicated
+ * the review tool's "N to review". The cases that pressed it (narrowing, count
+ * vs worklist, canvas ring, one-at-a-time, derived icon) were deleted with it.
+ * The count above is still live builder logic; what the strip owes now is the
+ * chip's ABSENCE, on exactly the model it used to render for.
+ */
+describe('V2: the strip carries no no-value chip', () => {
+  it('⛔ ABSENT even when factors carry no value — the review tool owns the count', () => {
+    const model = [
       bare('f_a', 'Competitive pressure'),
       bare('f_b', 'Switching friction'),
       withValue('f_c', 'Vendor licensing cost'),
-    ])
+    ]
+    // PRECONDITION: the population the chip used to count is really there, so
+    // the absence below is the V2 ruling and not an empty worklist.
+    expect(buildModelStrip(model).noValueTotal).toBe(2)
+
+    setNodes(model)
     render(<ModelStrip isPreRun={false} />)
     fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-
-    const marks = () =>
-      screen.queryAllByTestId(`${TID}-mark`).map((el) => el.getAttribute('data-node-id'))
-    // PRECONDITION, pinned in-test: all three are on screen before the filter.
-    expect(marks()).toEqual(expect.arrayContaining(['f_a', 'f_b', 'f_c']))
-
-    const toggle = screen.getByTestId(`${TID}-no-value-toggle`)
-    expect(toggle).toHaveTextContent(COPY.modelStrip.noValueCount(2))
-    expect(toggle).toHaveAttribute('aria-pressed', 'false')
-
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    // Bound by IDENTITY to the two valueless factors — not to a count another
-    // pair of nodes could satisfy.
-    expect(marks().sort()).toEqual(['f_a', 'f_b'])
-    expect(screen.getByTestId(`${TID}-no-value-narrowed-note`)).toBeInTheDocument()
-
-    fireEvent.click(toggle)
-    expect(marks()).toEqual(expect.arrayContaining(['f_a', 'f_b', 'f_c']))
-  })
-
-  /*
-   * ⛔ THE COUNT AND THE WORKLIST ARE ONE QUESTION — pinned by IDENTITY.
-   *
-   * A review found them apart at the previous head: the count had moved to
-   * `hasValue` and the worklist filter (and the canvas ring) were still on
-   * `valueText === null`. Two questions under similar names, inside one PR —
-   * this estate's signature defect.
-   *
-   * The failure is user-visible in BOTH directions, which is why the assertion
-   * is an equality and not a bound: a worklist SHORTER than its count is a
-   * button promising work it will not show; a worklist LONGER is a factor that
-   * carries a value being listed as valueless.
-   *
-   * ⚠ AND IT NEEDS THE SNAKE-CASE FIXTURE TO SEE ANYTHING. On `bare`, `camel`
-   * and `topDisplay` the two predicates agree, so this case would pass on the
-   * defective code. That is the whole reason `snakeValue` exists.
-   */
-  it('⛔ THE COUNT AND THE WORKLIST ASK ONE QUESTION — REDs if they drift apart', () => {
-    setNodes([
-      bare('f_a', 'Competitive pressure'),
-      snakeValue('f_snake', 'Vendor licensing cost'),
-      withValue('f_c', 'Switching friction'),
-    ])
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-
-    const marks = () =>
-      screen.queryAllByTestId(`${TID}-mark`).map((el) => el.getAttribute('data-node-id'))
-    // PRECONDITION PINNED IN-TEST: all three are on screen before the filter,
-    // so what follows measures the narrowing and not an absent node.
-    expect(marks()).toEqual(expect.arrayContaining(['f_a', 'f_snake', 'f_c']))
-
-    const toggle = screen.getByTestId(`${TID}-no-value-toggle`)
-    // The count says ONE — only `f_a` carries no value at all.
-    expect(toggle).toHaveTextContent(COPY.modelStrip.noValueCount(1))
-
-    fireEvent.click(toggle)
-    // …and the worklist shows exactly that one, BY IDENTITY. On the defective
-    // predicate `f_snake` appears here too: it has a value, and no display text.
-    expect(marks()).toEqual(['f_a'])
-  })
-
-  it('⛔ THE CANVAS RING NAMES THE SAME SET AS THE MARKS', () => {
-    setNodes([bare('f_a', 'Competitive pressure'), snakeValue('f_snake', 'Vendor licensing cost')])
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-    fireEvent.click(screen.getByTestId(`${TID}-no-value-toggle`))
-
-    /*
-     * The ring is a SECOND consumer of the same question and it drifted with
-     * the first. If the panel narrows to one factor while the canvas rings two,
-     * the two halves of the product contradict each other on screen — and the
-     * marks alone cannot see it.
-     */
-    const marks = screen
-      .queryAllByTestId(`${TID}-mark`)
-      .map((el) => el.getAttribute('data-node-id'))
-    expect(marks).toEqual(['f_a'])
-    expect(highlightedIds()).toEqual(['f_a'])
-  })
-
-  it('⛔ IS ABSENT AT ZERO — a control that cannot change anything is furniture', () => {
-    // The same rule the verify toggle already applies to its own number.
-    setNodes([withValue('f_c', 'Vendor licensing cost')])
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-    // CONTRAST CONTROL: the strip really did render, so the absence below is
-    // absence and not an unmounted panel.
-    expect(screen.getAllByTestId(`${TID}-mark`).length).toBeGreaterThan(0)
+    // CONTRAST CONTROL: the strip rendered and every factor is on screen.
+    expect(
+      screen.queryAllByTestId(`${TID}-mark`).map((el) => el.getAttribute('data-node-id')),
+    ).toEqual(['f_a', 'f_b', 'f_c'])
     expect(screen.queryByTestId(`${TID}-no-value-toggle`)).toBeNull()
-  })
-
-  it('⛔ ONE WORKLIST AT A TIME — pressing one releases the other', () => {
-    // Two independent booleans would admit "both on", which names the EMPTY
-    // intersection: `factorIsConfirmable` requires a value and this requires
-    // its absence. Mutual exclusion by construction, asserted here.
-    setNodes([
-      bare('f_a', 'Competitive pressure'),
-      {
-        id: 'f_v',
-        type: 'factor',
-        data: {
-          label: 'Vendor licensing cost',
-          observedState: { value: 0.49, raw_value: 49, unit: '£', source: 'cee_inference' },
-        },
-      },
-    ])
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-    const verify = screen.queryByTestId(`${TID}-verify-toggle`)
-    const noValue = screen.getByTestId(`${TID}-no-value-toggle`)
-    if (verify === null) {
-      // The fixture did not produce a confirmable factor; the mutual-exclusion
-      // claim is then untested rather than passing vacuously, so say so loudly.
-      throw new Error(
-        'PRECONDITION FAILED: no verify toggle rendered, so mutual exclusion is untested',
-      )
-    }
-    fireEvent.click(verify)
-    expect(verify).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(noValue)
-    expect(noValue).toHaveAttribute('aria-pressed', 'true')
-    expect(verify).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('⛔ THE MARK IS DERIVED FROM THE MODEL TAB, NOT CHOSEN HERE', () => {
-    // A hand-picked icon is a mirror of `ATTENTION_MARK['no-value']` and would
-    // drift the first time either surface changed. This pins the derivation
-    // itself, so a divergence REDs rather than shipping two vocabularies.
-    setNodes([bare('f_a', 'Competitive pressure')])
-    render(<ModelStrip isPreRun={false} />)
-    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-    const svg = screen.getByTestId(`${TID}-no-value-toggle`).querySelector('svg')
-    expect(svg).not.toBeNull()
-    const shipped = svg!.getAttribute('class') ?? ''
-
-    // Render the Model tab's OWN answer and compare the two, so the assertion
-    // is about agreement rather than about "some lucide icon rendered".
-    const Expected = ATTENTION_MARK['no-value']
-    const probe = render(<Expected />)
-    const expectedSvg = probe.container.querySelector('svg')
-    expect(expectedSvg).not.toBeNull()
-    const expectedClass = expectedSvg!.getAttribute('class') ?? ''
-
-    // DISCRIMINATION: the class must be a real icon name, not an empty string
-    // that both sides would trivially satisfy.
-    expect(expectedClass).toMatch(/lucide-[a-z-]+/)
-    expect(shipped).toContain(expectedClass.split(' ').find(c => c.startsWith('lucide-'))!)
-    probe.unmount()
+    expect(screen.queryByTestId(`${TID}-no-value-narrowed-note`)).toBeNull()
+    // Nor is its count restated anywhere in the strip.
+    expect(screen.getByTestId(TID)).not.toHaveTextContent(COPY.modelStrip.noValueCount(2))
   })
 })
 

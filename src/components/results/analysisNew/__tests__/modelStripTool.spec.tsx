@@ -2,6 +2,9 @@
  * ⭐⭐⭐ "YOUR MODEL SO FAR" AS A TOOL, NOT A STATUS BAR — the rows are controls,
  * the strip carries a worklist, and the detail can be acted on.
  *
+ * ⚠ V2 (Paul, 25 Sep 2026): the worklist CHIPS left the strip — the review
+ * tool's "N to review" is the one worklist count. See block B.
+ *
  * Paul, 1 Sep 2026: *"The top component still doesn't feel like a tool. The
  * information shown when you hover over it isn't very action-oriented. It
  * doesn't give you any additional icons or clickable elements to make it
@@ -224,96 +227,47 @@ describe('⭐ a row is a control, and it says what it does', () => {
 })
 
 // ── B. THE WORKLIST ─────────────────────────────────────────────────────────
+//
+// V2 prototype (Paul, 25 Sep 2026): the strip's "N to verify" / "N with no
+// value" chips duplicated the review tool's "N to review" and are gone. The
+// cases that pressed them (count phrase, narrowing, both numbers, criterion
+// note, ring, mutual exclusion) were deleted with the control. What stays is
+// the closed line's count and the absence of the chips themselves.
 
 describe('⭐ the strip carries a worklist, in the product’s own count', () => {
-  it('the toggle states the count in the phrase the rest of the product uses', () => {
-    renderOpen()
-    const toggle = screen.getByTestId(`${TID}-verify-toggle`)
-    expect(toggle).toHaveTextContent(COPY.modelStrip.toVerify(NEEDS_CHECK.length))
-    expect(toggle).toHaveAttribute('aria-pressed', 'false')
-    // The accessible name CONTAINS the visible text (label-in-name) and says
-    // what pressing does, which the count alone does not.
-    expect(toggle).toHaveAttribute(
-      'aria-label',
-      COPY.modelStrip.toVerifyToggleName(NEEDS_CHECK.length),
-    )
-    expect(toggle).not.toHaveAttribute('title')
-  })
-
   /**
-   * ⭐ THE OPPOSITE-DIRECTION TWIN, and it is the one that stops this becoming
-   * furniture. A control reading "0 to verify" is a dead affordance — the rule
-   * `ModelTabV2Panel` already applies to the same number.
+   * ⭐ V2: NO WORKLIST CHIP IN THE STRIP, even with factors to verify. The
+   * precondition is the count itself, read off the closed line, so the absence
+   * below is a removed control and not an empty worklist.
    */
-  it('and it does not exist at all when nothing needs a check', () => {
-    setCanvas([
-      node('g1', 'goal', 'A goal'),
-      node('f1', 'factor', 'Settled', {
-        observed_state: { value: 0.5, source: 'user_confirmed' },
-      }),
-    ])
-    renderOpen()
+  it('V2: the open strip carries no worklist chip, even when factors need a check', () => {
+    render(<ModelStrip isPreRun={false} />)
+    // PRECONDITION: the model really does hold factors to verify.
+    expect(NEEDS_CHECK.length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
+    // CONTRAST: the region is open and drawing marks.
+    expect(markIds()).toEqual(['o1', 'o2', 'f1', 'f2', 'f3', 'f4', 'f5', 'r1'])
     expect(screen.queryByTestId(`${TID}-verify-toggle`)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-no-value-toggle`)).toBeNull()
+    // And nothing is narrowed, so no criterion line stands under the rows.
     expect(screen.queryByTestId(`${TID}-narrowed-note`)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-no-value-narrowed-note`)).toBeNull()
   })
 
-  it('pressing it narrows the strip to EXACTLY those factors', () => {
-    renderOpen()
-    fireEvent.click(screen.getByTestId(`${TID}-verify-toggle`))
-
-    // Bound by id. A component that showed "the factors" would render five
-    // here; one that showed "factors with an observed_state" would render four.
-    expect(markIds()).toEqual(NEEDS_CHECK)
-    expect(screen.getByTestId(`${TID}-verify-toggle`)).toHaveAttribute('aria-pressed', 'true')
-    // The rows the worklist empties are dropped, never drawn at zero.
-    expect(screen.getAllByTestId(`${TID}-row`).map((el) => el.getAttribute('data-kind'))).toEqual([
-      'factor',
-    ])
-  })
-
-  it('a narrowed row states BOTH numbers, so the model does not silently shrink', () => {
-    renderOpen()
-    fireEvent.click(screen.getByTestId(`${TID}-verify-toggle`))
-    expect(rowCount('factor')).toHaveTextContent(COPY.modelStrip.narrowedCount(2, 5))
-  })
-
-  it('the criterion is stated in visible text while the filter is on, and only then', () => {
-    renderOpen()
-    expect(screen.queryByTestId(`${TID}-narrowed-note`)).toBeNull()
-    fireEvent.click(screen.getByTestId(`${TID}-verify-toggle`))
-    expect(screen.getByTestId(`${TID}-narrowed-note`)).toHaveTextContent(
-      COPY.modelStrip.toVerifyNarrowed,
-    )
-  })
-
-  it('and rings exactly those nodes on the canvas', () => {
-    renderOpen()
-    fireEvent.click(screen.getByTestId(`${TID}-verify-toggle`))
-    expect(setHighlightedNodes).toHaveBeenCalledWith(NEEDS_CHECK)
-  })
-
-  it('the CLOSED strip advertises the count too — and not when it is zero', () => {
-    render(<ModelStrip isPreRun={false} />)
-    expect(screen.getByTestId(`${TID}-verify-summary`)).toHaveTextContent(
-      COPY.modelStrip.toVerify(NEEDS_CHECK.length),
-    )
-
+  it('V2: a host that asks for openAtRest gets the census open after a run; a bare mount stays closed', () => {
+    render(<ModelStrip isPreRun={false} openAtRest />)
+    expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'true')
     cleanup()
-    setCanvas([node('g1', 'goal', 'A goal'), node('f1', 'factor', 'Settled')])
     render(<ModelStrip isPreRun={false} />)
-    expect(screen.queryByTestId(`${TID}-verify-summary`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('the two narrowings are mutually exclusive — no state with nothing in it', () => {
-    renderOpen()
-    fireEvent.click(rowFilter('option'))
-    expect(rowFilter('option')).toHaveAttribute('aria-pressed', 'true')
-
-    fireEvent.click(screen.getByTestId(`${TID}-verify-toggle`))
-    // The kind selection is released rather than intersected: "options needing
-    // a check" is empty for every model by the predicate's own domain.
-    expect(screen.getByTestId(`${TID}-verify-toggle`)).toHaveAttribute('aria-pressed', 'true')
-    expect(markIds()).toEqual(NEEDS_CHECK)
+  it('V2: the CLOSED strip carries no amber "N to verify" — the one worklist count is the review tool’s', () => {
+    render(<ModelStrip isPreRun={false} />)
+    // PRECONDITION: factors do need a check, so an old tally would have drawn.
+    expect(NEEDS_CHECK.length).toBeGreaterThan(0)
+    expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId(`${TID}-verify-summary`)).toBeNull()
   })
 })
 

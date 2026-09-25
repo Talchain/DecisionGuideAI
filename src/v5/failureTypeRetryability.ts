@@ -150,14 +150,33 @@ export function extractConflictCategory(err: BoundaryError | undefined): string 
 }
 
 /**
+ * The same honest fence copy, read from a bare `details.conflict_category`
+ * rather than the envelope — or null when the category is not fence-class.
+ *
+ * ⭐ ONE SOURCE OF THIS COPY. The optimistic writers (factor value edit,
+ * structural delete / rename / add) hold `SystemEventSendError.conflictCategory`,
+ * never the envelope. Since CEE #1868 (`013fae8d`) they REVERT on
+ * `turn_fence_superseded` / `turn_fence_stopped` (members of
+ * `PROVEN_NO_WRITE_CONFLICT_CATEGORIES`), and their own revert notices say the
+ * saved model changed under the user — false for a turn the user stopped. So
+ * they show this sentence instead, read from this map, rather than keeping a
+ * second copy of it. `resolveFenceRefusalCopy` delegates here.
+ *
+ * Fail closed exactly as the envelope reader does: an unknown `turn_fence_`
+ * verdict → the generic fence copy, never null.
+ */
+export function fenceRefusalCopyForCategory(category: string | undefined | null): string | null {
+  if (typeof category !== 'string' || !category.startsWith(FENCE_CONFLICT_PREFIX)) return null
+  return FENCE_REFUSAL_COPY[category] ?? FENCE_GENERIC_COPY
+}
+
+/**
  * Honest copy for a fence-class GRAPH_DIVERGED, or null when the error is not
  * fence-class (no conflict_category, or a non-fence category) — callers fall
  * back to `resolveFailureBaseCopy` for those.
  */
 export function resolveFenceRefusalCopy(err: BoundaryError | undefined): string | null {
-  const category = extractConflictCategory(err)
-  if (!category.startsWith(FENCE_CONFLICT_PREFIX)) return null
-  return FENCE_REFUSAL_COPY[category] ?? FENCE_GENERIC_COPY
+  return fenceRefusalCopyForCategory(extractConflictCategory(err))
 }
 
 /**

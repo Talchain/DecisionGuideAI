@@ -61,14 +61,24 @@
  * here because **no typed 409 exists on this path at all**, on this surface or
  * on the Model tab / inspector that share the machinery.
  *
+ * ⚠ SUPERSEDED IN PART BY THE PRODUCER (CEE #1868, `013fae8d`, served
+ * `92b1bf8`; source-derived, NOT wire-witnessed by this file): the
+ * `factor_value_edit` arm of `system-events/dispatch.ts` now answers a
+ * `TurnFenceRejectedError` with verdict `superseded` or `stopped` as a typed
+ * 409 `GRAPH_DIVERGED` (`details.conflict_category: 'turn_fence_<verdict>'`,
+ * `retryable: false`, `commitPerformed: false`). `unclaimed` / `unavailable`
+ * stay the retryable 500. The last describe below pins what the client does
+ * with each.
+ *
  * ⚠ AND THIS FILE DOES NOT VERIFY THE `mode === 'user'` GATE. Mutating
  * `if (mode === 'user')` → `if (true)` at `useConversation.ts:4953` leaves all
  * 11 tests here GREEN. The spec that REDs on that mutant is the pre-existing
  * `conversation/__tests__/useConversation.systemEventFailure.spec.ts:212` —
  * cite that one, never this file, for the gating claim. The last describe below
- * pins only what it drives: with a typed 409 injected at the transport, no
- * fence copy renders, the optimistic value stands, and no reviewed stamp is
- * written.
+ * pins only what it drives: with a typed fence 409 injected at the transport,
+ * `superseded` / `stopped` revert the optimistic value under the fence's own
+ * transcript notice, `unclaimed` keeps it under the cannot-confirm notice, and
+ * no reviewed stamp is written in any of them.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -117,7 +127,11 @@ vi.mock('../../../../../flags', async (importOriginal) => {
 import { CalibrateDrillIn } from '../CalibrateDrillIn'
 import { EstimateRow } from '../EstimateRow'
 import { buildEstimateRows } from '../../selectors/buildEstimateRows'
-import { ConversationProvider } from '../../../../conversation/ConversationContext'
+import {
+  ConversationProvider,
+  useConversationContext,
+} from '../../../../conversation/ConversationContext'
+import { OPTIMISTIC_FACTOR_EDIT_NOTICE } from '../../../../conversation/optimisticFactorEdit'
 import { useCanvasStore } from '../../../../store'
 import { getObservedState } from '../../../../utils/observedStateHelpers'
 import type { RankingResult } from '../../types'
@@ -231,18 +245,56 @@ const REFUSAL = {
 /**
  * A fence-class GRAPH_DIVERGED 409 — the typed refusal shape (#559).
  *
- * ⚠ SYNTHETIC. The #560 live probe measured a contended commit on this path
- * returning an UNTYPED HTTP 500 (`INTERNAL_ERROR`, `system_event_commit_failed`)
- * instead, so this shape is not what CEE emits here. It is injected anyway to
- * pin the CLIENT's handling of a typed error on a system turn; do not cite this
- * fixture as evidence that CEE sends a typed 409 on this path.
+ * ⚠ SHAPE, NOT A WIRE CAPTURE. The #560 live probe measured a contended commit
+ * on this path returning an UNTYPED HTTP 500 (`INTERNAL_ERROR`,
+ * `system_event_commit_failed`). CEE #1868 (`013fae8d`, served `92b1bf8`) has
+ * since made the `factor_value_edit` arm answer a `superseded` / `stopped` turn
+ * fence with exactly this typed 409 and `retryable: false` — derived from the
+ * producer's SOURCE, not witnessed on the wire by this file. `unclaimed` is
+ * built here only to pin the OUTSIDE of the no-write set: the producer keeps it
+ * a retryable 500 on this arm, so a 409 carrying it is not a statement CEE makes.
  */
-const FENCE_409 = {
-  error: 'GRAPH_DIVERGED',
-  message: 'graph fence conflict',
-  retryable: true,
-  request_id: 'req_fence_1',
-  details: { phase: 'commit', conflict_category: 'turn_fence_superseded' },
+function fence409(verdict: 'superseded' | 'stopped' | 'unclaimed') {
+  return {
+    error: 'GRAPH_DIVERGED',
+    message: 'graph fence conflict',
+    retryable: false,
+    request_id: `req_fence_${verdict}`,
+    details: { phase: 'commit', conflict_category: `turn_fence_${verdict}` },
+  }
+}
+
+/**
+ * The fence's own per-verdict sentences (`FENCE_REFUSAL_COPY`,
+ * `v5/failureTypeRetryability.ts`), bound by the EXACT string.
+ */
+const FENCE_STOPPED_COPY =
+  "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it."
+const FENCE_SUPERSEDED_COPY =
+  "That change wasn't saved because a newer change to this decision got in first. Nothing was overwritten. Check the latest state, then make the edit again if it's still needed."
+const FENCE_GENERIC_COPY =
+  "That change couldn't be saved, so nothing in your decision changed. Try it again in a moment."
+
+/**
+ * The transcript's synthetic notices, read from the REAL provider. Rendered only
+ * by the typed-error describe below, so no other case's DOM changes.
+ */
+let syntheticNotices: string[] = []
+function NoticeProbe(): null {
+  const { messages } = useConversationContext()
+  syntheticNotices = messages
+    .filter((m) => m.role === 'assistant' && m.synthetic === true)
+    .map((m) => m.content)
+  return null
+}
+
+function renderHarnessWithNotices() {
+  return render(
+    <ConversationProvider>
+      <Harness />
+      <NoticeProbe />
+    </ConversationProvider>,
+  )
 }
 
 function factorValueEdits(): Array<Record<string, unknown>> {
@@ -278,6 +330,7 @@ beforeEach(() => {
   dispatched.length = 0
   replies.length = 0
   boundaryErrors.length = 0
+  syntheticNotices = []
   holdFirstTurn = false
   resolveInFlight = null
   seed()
@@ -473,53 +526,67 @@ describe('controls — the fix must not be satisfiable by something cheaper and 
   })
 })
 
-describe('typed-error posture on this path — pins CURRENT behaviour, inherited from the shared machinery', () => {
-  it('a typed 409 injected at the transport surfaces no fence copy, leaves the optimistic value standing, and writes no reviewed stamp', async () => {
-    boundaryErrors.push(FENCE_409)
-    renderHarness()
+describe('typed-error posture on this path — a fence 409 the producer states wrote nothing', () => {
+  it.each([
+    ['superseded', FENCE_SUPERSEDED_COPY],
+    ['stopped', FENCE_STOPPED_COPY],
+  ] as const)(
+    "turn_fence_%s REVERTS the optimistic number, says the fence's own sentence, and writes no reviewed stamp",
+    async (verdict, fenceCopy) => {
+      boundaryErrors.push(fence409(verdict))
+      renderHarnessWithNotices()
+      await act(async () => {
+        typeAndSave(String(NEW_RAW))
+        await flush()
+      })
+
+      expect(factorValueEdits()).toHaveLength(1)
+      // ⭐ THE NOTE THAT USED TO STAND HERE SAID A FENCE "tells us the turn was
+      // refused, never that no bytes landed". The producer now says the
+      // opposite, in terms, for these two verdicts: CEE #1868 (`013fae8d`,
+      // served `92b1bf8`), `system-events/dispatch.ts`, the `factor_value_edit`
+      // arm — "The turn fence refused the write inside the append transaction,
+      // so nothing of this edit landed." — and its only throw site,
+      // `session/supabase-store.ts:1185-1208`, logs "Nothing was written; the
+      // turn row rolled back with it." So `turn_fence_superseded` and
+      // `turn_fence_stopped` are members of `PROVEN_NO_WRITE_CONFLICT_CATEGORIES`
+      // and the canvas must stop showing a number the model never took.
+      //
+      // Bound by IDENTITY: the named factor's value AND magnitude are back at
+      // CEE's own estimate.
+      expect(observedNow().value).toBe(PRIOR_OBSERVED.value)
+      expect(observedNow().raw_value).toBe(PRIOR_OBSERVED.raw_value)
+      // The sentence is the FENCE's — "the saved model changed since you typed
+      // that" is false about a stopped turn — and there is exactly one.
+      expect(syntheticNotices).toContain(fenceCopy)
+      expect(syntheticNotices).not.toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.proven_no_write)
+      expect(syntheticNotices).not.toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server)
+      // The completion claim still requires a receipt, which never arrived — this
+      // half IS the 2.304 guarantee, and it holds in the failure direction too.
+      expect(observedNow().source).toBe('cee_inference')
+      expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
+      expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
+      expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
+    },
+  )
+
+  it('OPPOSITE TWIN: turn_fence_unclaimed keeps the optimistic number and says it cannot confirm', async () => {
+    // The producer keeps `unclaimed` (and `unavailable`) as the retryable 500 on
+    // this arm — an infrastructure refusal "until their code is decided" — so it
+    // states no no-write, and reverting on it would be data loss on a guess.
+    boundaryErrors.push(fence409('unclaimed'))
+    renderHarnessWithNotices()
     await act(async () => {
       typeAndSave(String(NEW_RAW))
       await flush()
     })
 
     expect(factorValueEdits()).toHaveLength(1)
-    // No fence copy. NOTE the reason, restated on measured evidence (#560 live
-    // probe): a contended commit on this path returns an UNTYPED HTTP 500
-    // (`INTERNAL_ERROR`, `system_event_commit_failed`), so the typed 409 this
-    // test injects does not occur in production at all — `resolveFenceRefusalCopy`
-    // keys on GRAPH_DIVERGED + `details.conflict_category` and is unreachable
-    // here for that reason, not because system turns are silent (they are not:
-    // the probe saw a system turn render a full receipt card). This assertion
-    // therefore pins the CLIENT's handling of the shape, not a claim about what
-    // CEE emits.
-    expect(
-      screen.queryByText(/wasn't saved because a newer change/i),
-    ).not.toBeInTheDocument()
-    // The optimistic write SURVIVES this typed error.
-    //
-    // ⚠ THE REASON CHANGED, THE ASSERTION DID NOT — and that is why this note
-    // is rewritten rather than left standing. The gap it used to describe IS
-    // NOW CLOSED: `useConversation` no longer excludes `typed_error` from
-    // optimistic-edit resolution, so a 409 whose `details.conflict_category`
-    // carries CEE's own no-write guarantee now REVERTS the value and says so
-    // (`useConversation.optimisticFactorEditConflict.spec.ts`).
-    //
-    // This case still keeps the value because `FENCE_409` is a `turn_fence_…`
-    // verdict, which is deliberately NOT in
-    // `PROVEN_NO_WRITE_CONFLICT_CATEGORIES`: a fence tells us the turn was
-    // refused, never that no bytes landed, so reverting on it would be data
-    // loss on a guess. So this is now the OPPOSITE-DIRECTION TWIN of the fix —
-    // load-bearing, and it must keep passing.
-    //
-    // What DID change on this path, and is not asserted here: an unconfirmed
-    // outcome now raises a cannot-confirm notice and marks analysis freshness
-    // dirty, instead of passing in silence.
     expect(observedNow().value).toBe(NEW_MODEL)
-    // The completion claim still requires a receipt, which never arrived — this
-    // half IS the 2.304 guarantee, and it holds in the failure direction too.
+    expect(syntheticNotices).toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.unconfirmed_server)
+    expect(syntheticNotices).not.toContain(FENCE_GENERIC_COPY)
+    expect(syntheticNotices).not.toContain(OPTIMISTIC_FACTOR_EDIT_NOTICE.proven_no_write)
     expect(observedNow().source).toBe('cee_inference')
     expect(screen.queryByText('checked by you')).not.toBeInTheDocument()
-    expect(screen.queryByText('edited by you')).not.toBeInTheDocument()
-    expect(screen.queryByText('confirmed by you')).not.toBeInTheDocument()
   })
 })

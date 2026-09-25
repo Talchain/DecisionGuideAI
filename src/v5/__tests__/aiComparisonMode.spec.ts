@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { aiComparisonHeaders, aiComparisonLabel, resolveAiComparisonMode } from '../aiComparisonMode'
 
 describe('AI comparison mode', () => {
-  it('defaults staging to the conventional PoC', () => {
+  it('defaults staging to OpenAI, so a plain link never reaches the conventional (Anthropic) route', () => {
     const url = 'https://staging--olumi.netlify.app/#/canvas?diag=1'
-    expect(resolveAiComparisonMode(url)).toBe('conventional')
-    expect(aiComparisonLabel(url)).toBe('Conventional')
-    expect(aiComparisonHeaders(url)).toEqual({ 'x-olumi-ai-mode': 'conventional' })
+    expect(resolveAiComparisonMode(url)).toBe('openai')
+    expect(aiComparisonLabel(url)).toBe('OpenAI')
+    expect(aiComparisonHeaders(url)).toEqual({ 'x-olumi-ai-mode': 'openai' })
+  })
+
+  it('defaults a plain staging root and a deploy preview to OpenAI too', () => {
+    expect(aiComparisonHeaders('https://staging--olumi.netlify.app/')).toEqual({ 'x-olumi-ai-mode': 'openai' })
+    expect(resolveAiComparisonMode('https://deploy-preview-2044--olumi.netlify.app/#/canvas')).toBe('openai')
   })
 
   it('makes OpenAI an explicit separate staging surface', () => {

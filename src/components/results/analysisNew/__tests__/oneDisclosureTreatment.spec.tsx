@@ -30,7 +30,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: () => true }))
 
@@ -55,6 +55,11 @@ describe('one surface, one disclosure treatment', () => {
         responseHash="run_one_chrome"
       />,
     )
+    // V2 prototype: "What moves the outcome" lives inside the challenge's
+    // "Assumptions and evidence" door, so open that door first.
+    const door = screen.getByTestId('analysis-new-signals-disclose')
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(door)
 
     // V2 fidelity gaps 24 + 27 (24 Sep 2026): About joined NAMED_GROUPS when the
     // two tail groups folded into it, and it is deliberately NOT a SectionShell —
