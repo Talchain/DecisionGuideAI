@@ -32,7 +32,8 @@
  *      "Provisional" and WHY at a glance, not the run's own provenance
  *      mechanics.
  * `estimated`/`partlyEstimated` and the caveat count stay on the visible
- * line: `theAnswerIsOnTheFirstScreen.spec.tsx` and `AnalysisNewTabBody.spec.tsx`
+ * line ONLY when nothing else licenses it (V2, 25 Sep); otherwise they move
+ * behind "Details". Why they may never simply vanish: `theAnswerIsOnTheFirstScreen.spec.tsx` and `AnalysisNewTabBody.spec.tsx`
  * (outside this change's file set) both pin a fixture whose ONLY licensing
  * clause is the caveat count, so moving it behind a click would silence the
  * qualifier on that run. `openBullet` in `commitmentSynthesis.ts` never states
@@ -91,13 +92,8 @@ export function buildCommitmentQualifier(
   if (facts.runProvisional === true) detailClauses.push(COMMITMENT_QUALIFIER_COPY.automaticFirstPass)
 
   const inputs = vm.atAGlance.inputProvenance
-  if (inputs === 'estimated') lineClauses.push(COMMITMENT_QUALIFIER_COPY.estimated)
-  else if (inputs === 'partly_estimated' || inputs === 'mixed') {
-    lineClauses.push(COMMITMENT_QUALIFIER_COPY.partlyEstimated)
-  }
-  if (inputs === 'estimated' || inputs === 'partly_estimated' || inputs === 'mixed') {
-    detailClauses.push(COMMITMENT_QUALIFIER_COPY.estimatesNotConfirmed)
-  }
+  const estimated = inputs === 'estimated' || inputs === 'partly_estimated' || inputs === 'mixed'
+  if (estimated) detailClauses.push(COMMITMENT_QUALIFIER_COPY.estimatesNotConfirmed)
 
   const evidence = vm.checks.items.find((i) => i.id === 'evidence')?.code ?? null
   const evidenceNotAssessed = evidence === 'evidence_not_assessed'
@@ -108,6 +104,16 @@ export function buildCommitmentQualifier(
     lineClauses.push(COMMITMENT_QUALIFIER_COPY.evidenceNotAssessed)
   } else if (robustnessNotEstablished) {
     lineClauses.push(COMMITMENT_QUALIFIER_COPY.robustnessNotEstablished)
+  }
+
+  // V2 one-line qualifier (served 25 Sep, 3 lines at 280px): the prototype's
+  // line is "Provisional · evidence and robustness not established". The
+  // estimates fact rides on the line only when nothing else licenses it;
+  // otherwise it is behind "Details" (and the glance's provenance line says it).
+  if (estimated && lineClauses.length === 0) {
+    lineClauses.push(
+      inputs === 'estimated' ? COMMITMENT_QUALIFIER_COPY.estimated : COMMITMENT_QUALIFIER_COPY.partlyEstimated,
+    )
   }
 
   // The engine's own caveats (critiques + strip-eligible inference warnings)
