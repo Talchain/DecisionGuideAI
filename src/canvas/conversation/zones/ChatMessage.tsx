@@ -25,6 +25,7 @@ import { memo } from 'react'
 import { MessageBubble } from '../MessageBubble'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { MessageMenu } from './MessageMenu'
+import { MESSAGE_ID_ATTRIBUTE } from '../hooks/useSmartScroll'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
 
@@ -118,6 +119,9 @@ export const ChatMessage = memo(function ChatMessage({
       style={{ marginBottom: 12 }}
       data-testid={`chat-message-${message.role}`}
       data-message-category={category !== 'answer' ? category : undefined}
+      /* How `useSmartScroll` finds an arriving reply by identity, to put its
+         first line at the top of the thread. */
+      {...{ [MESSAGE_ID_ATTRIBUTE]: message.id }}
     >
 
       <MessageBubble

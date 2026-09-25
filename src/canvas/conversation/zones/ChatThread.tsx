@@ -70,8 +70,9 @@ export const THREAD_TESTID_DOCKED = 'chat-thread'
 export const THREAD_TESTID_FLOATING = 'chat-thread-floating'
 
 /**
- * The element `useSmartScroll` aims `scrollIntoView` at (`useSmartScroll.ts:63`
- * and `:70` — the only two call sites). Exported so no spec has to identify it
+ * The element `useSmartScroll` aims `scrollIntoView` at (`pinOrNotify` and
+ * `scrollToBottom` — the only two call sites; the reply-start hold sets the
+ * thread's `scrollTop` instead). Exported so no spec has to identify it
  * by a property other elements share: `OutputsDock.runReturnsToOlumi.spec.tsx`
  * used to find it as "the scrolled element that has NO `data-testid`", which
  * any untagged element satisfied and which this constant's very existence
@@ -225,8 +226,10 @@ export const ChatThread = memo(function ChatThread({
   let renderedMessageCount = 0
   for (const m of messages) if (isRendered(m)) renderedMessageCount++
 
+  // `messages` lets the hook see a reply ARRIVE (appended, not restored), so a
+  // reply taller than the thread lands at its first line, not its last.
   const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
-    useSmartScroll({ messageCount: renderedMessageCount, isThinking })
+    useSmartScroll({ messageCount: renderedMessageCount, isThinking, messages })
 
   // Mirror the internal listRef into an externally-provided ref so the
   // parent (AI panel v2 layout) can capture and restore scrollTop
