@@ -209,6 +209,16 @@ describe('the withheld leader is not blamed on limits the user never set', () =>
     },
   )
 
+  it('⭐ an estimate-coded refusal with a BLANK message is not stated as the estimates cause (one predicate with the glance)', () => {
+    // Review note 5826901387: the glance's remedy also requires a non-empty
+    // reason message (`designationWithheldReason !== null`). With no producer
+    // sentence beside it, the estimates cause would stand alone.
+    const checks = checksOf(refusalCoded('CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED', '   '))
+    expect(checks.leaderWithholdCause).not.toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
+    expect(checks.leaderWithholdCause).toBe(leaderWithholdCause(REASON))
+    expect(checks.rerunWouldNotHelp).toBe(false)
+  })
+
   it('CONTROL: the same re-coding helper with an estimate code keeps the estimates cause (the helper is not what changes it)', () => {
     const checks = checksOf(
       refusalCoded('USER_STATED_PARAMETERS_NOT_MATERIAL', 'None of the estimates you set changes the comparison.'),
