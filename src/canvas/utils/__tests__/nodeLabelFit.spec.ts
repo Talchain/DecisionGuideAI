@@ -299,8 +299,9 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // rows above five wrap), which is decoupled from the card floor by
     // construction — a count cannot move with the type ramp. The retired
     // `NODE_SINGLE_ROW_FAIR_SHARE_W` is gone; what stays pinned is the policy
-    // and that it is not a width.
-    expect(MAX_CARDS_PER_ROW).toBe(5)
+    // and that it is not a width. Gap 7 (25 Sep 2026) moved the count to four
+    // so a band row fits the 1280 dock-open frame (ED #63 5808428246).
+    expect(MAX_CARDS_PER_ROW).toBe(4)
     expect(Number.isInteger(MAX_CARDS_PER_ROW)).toBe(true)
     expect(MAX_CARDS_PER_ROW).not.toBe(NODE_LAYOUT_MIN_W)
   })

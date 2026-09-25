@@ -308,8 +308,9 @@ describe('ELK Layout', () => {
     // admitted against. S4 narrows repeated cards to `REPEATED_CARD_W` and puts
     // the 160-unit row-end prompt INSIDE the row budget, so the same tier now
     // fits it — pinned symbolically, from the shipped constants, so a constant
-    // move surfaces here by name. (A five-card row with its prompt still
-    // overruns; `laptopFit.arithmetic.spec.ts` states that.)
+    // move surfaces here by name. (A five-card row with its prompt would
+    // overrun, which is why gap 7 caps a row at four; `laptopFit.arithmetic.spec.ts`
+    // states both.)
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -381,7 +382,7 @@ describe('ELK Layout', () => {
   it('nodeW is the repeated-card width for a five-wide tier — not compressed below it, not widened past it', async () => {
     // 5 factors once compressed every node to ~241px; later every node was pinned
     // to NODE_CARD_MAX_W. S4 (ED #63): repeated cards rest at `REPEATED_CARD_W`
-    // and a five-card tier stays on one row.
+    // (since gap 7 a five-card tier wraps 3 + 2; a wrapped row keeps full width).
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -404,9 +405,13 @@ describe('ELK Layout', () => {
   })
 
   it('uses an identical horizontal GAP across tiers with different node counts', async () => {
-    // 3 options vs 5 factors. Adjacent-pair gaps must be equal both within
+    // 3 options vs 4 factors. Adjacent-pair gaps must be equal both within
     // and across tiers — narrower tiers do not spread to fill the wider tier.
     // Tolerance allows for ELK's sub-pixel rounding.
+    //
+    // ⚠ WAS 5 FACTORS. Gap 7 (25 Sep 2026) caps a row at four, so five wrap
+    // 3 + 2 and a sorted-x gap list would read across two sub-rows. Four is
+    // the widest single row, which is the case this test is about.
     //
     // ⚠ RENAMED FROM "identical STRIDE" ON 15 Sep 2026, AND THE RENAME IS THE
     // POINT. Stride is `width + gap`, and width is now per TIER
@@ -421,14 +426,14 @@ describe('ELK Layout', () => {
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
       makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
-      makeNode('f4', 'factor'), makeNode('f5', 'factor'),
+      makeNode('f4', 'factor'),
       makeNode('g', 'goal'),
     ]
     const edges: Edge[] = [
       makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
       makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
-      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
-      makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
+      makeEdge('e8', 'o3', 'f4'),
+      makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f4', 'g'),
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {})
 
@@ -441,7 +446,7 @@ describe('ELK Layout', () => {
     const widths = solveLayoutCardWidths(nodes)
     // Stride minus that tier's own card width IS the gap.
     const optionGaps = gapsFor(['o1', 'o2', 'o3']).map(g => g - widths.option)
-    const factorGaps = gapsFor(['f1', 'f2', 'f3', 'f4', 'f5']).map(g => g - widths.factor)
+    const factorGaps = gapsFor(['f1', 'f2', 'f3', 'f4']).map(g => g - widths.factor)
 
     const allGaps = [...optionGaps, ...factorGaps]
     const minGap = Math.min(...allGaps)
@@ -453,7 +458,7 @@ describe('ELK Layout', () => {
     // agreement — equal gaps now also means equal STRIDES, asserted directly on
     // the raw positions, which is the stronger of the two claims.
     expect(widths.option).toBe(widths.factor)
-    const rawStrides = [...gapsFor(['o1', 'o2', 'o3']), ...gapsFor(['f1', 'f2', 'f3', 'f4', 'f5'])]
+    const rawStrides = [...gapsFor(['o1', 'o2', 'o3']), ...gapsFor(['f1', 'f2', 'f3', 'f4'])]
     expect(Math.max(...rawStrides) - Math.min(...rawStrides)).toBeLessThanOrEqual(2)
   })
 
@@ -462,18 +467,22 @@ describe('ELK Layout', () => {
     // mean X-centre should be the same (within tolerance), so adjacent tiers
     // stack vertically aligned. This was the gap left by the per-tier
     // centroid approach in the first iteration.
+    //
+    // ⚠ WAS 5 FACTORS. Gap 7 (25 Sep 2026) caps a row at four; a wrapped tier
+    // is a left-aligned block, so a card MEAN is not its centre. Four factors
+    // keep this a claim about two single-row tiers of different counts.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
       makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
-      makeNode('f4', 'factor'), makeNode('f5', 'factor'),
+      makeNode('f4', 'factor'),
       makeNode('g', 'goal'),
     ]
     const edges: Edge[] = [
       makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
       makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
-      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
-      makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
+      makeEdge('e8', 'o3', 'f4'),
+      makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f4', 'g'),
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {})
 
@@ -489,7 +498,7 @@ describe('ELK Layout', () => {
       return xs.reduce((a, b) => a + b, 0) / xs.length + (cardW[kind] ?? NODE_CARD_MAX_W) / 2
     }
     const optionCentre = tierMean(['o1', 'o2', 'o3'], 'option')
-    const factorCentre = tierMean(['f1', 'f2', 'f3', 'f4', 'f5'], 'factor')
+    const factorCentre = tierMean(['f1', 'f2', 'f3', 'f4'], 'factor')
 
     // Tolerance: 1 px for sub-pixel rounding.
     expect(Math.abs(optionCentre - factorCentre)).toBeLessThanOrEqual(1)
