@@ -59,12 +59,20 @@ const NODE_FILES = [
  * The only two `<NodeChip>` usages permitted to remain inline, by chip id, each
  * because its own file classifies it as a primary action rather than coaching.
  */
-// ⭐ Locked Canvas design (23 Sep 2026): the Goal card's duplicate "Run
-// analysis" chip is gone (its Question card carries the run), and the Question
-// card's run is a RAIL action through the shared `runAnalysisFromCard` — the
-// same canonical pipeline and the same chip id, just not a text chip. The
-// allowlist keeps the one live run affordance.
-const RUN_AFFORDANCES = ['decision_run_analysis'] as const
+// Locked Canvas design (23 Sep 2026): the Goal card's duplicate "Run
+// analysis" chip was removed (its Question card carried the run), and the
+// Question card's run was a RAIL action through the shared
+// `runAnalysisFromCard` — the same canonical pipeline and the same chip id,
+// just not a text chip. The allowlist kept that one live run affordance.
+//
+// DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026 (gap-frame-footer lane): the
+// Question card's rail action is ALSO removed — contract v3.1 §02's rail is
+// edit + coaching only, and running lives in the panel's Analyse button. No
+// card authors a run affordance any more, so the allowlist is EMPTY rather
+// than deleted: an empty array still documents that the exception class
+// existed and was retired, which is what the next reader needs to know if a
+// run chip ever reappears on a card.
+const RUN_AFFORDANCES = [] as const
 
 const readNode = (file: string) =>
   stripComments(readFileSync(resolve(__dirname, '../..', file), 'utf8'), file)
@@ -136,9 +144,17 @@ describe('node coaching is resolved, never authored inline', () => {
    * or renamed, its entry here stops matching anything and silently starts
    * permitting nothing — which is harmless — but it also stops documenting a
    * real exception, and the next reader cannot tell a live exemption from a dead
-   * one. Both entries must still be found.
+   * one. Every entry must still be found.
+   *
+   * DESIGN-GAP-AUDIT row 5(b), 24 Sep 2026: `RUN_AFFORDANCES` is now EMPTY —
+   * the Question card's rail action (the last surviving entry,
+   * `decision_run_analysis`) was removed, so this loop is vacuously true by
+   * construction. Asserted explicitly rather than left to run zero times
+   * silently, so a later re-add of an entry without updating this comment is
+   * visible as a diff here too.
    */
   it('both allowlisted run affordances are still present — a stale entry is a dead licence', () => {
+    expect(RUN_AFFORDANCES, 'no card authors a run affordance any more — see the constant’s own header').toEqual([])
     const allIds = NODE_FILES.flatMap(f => inlineChipIds(readNode(f)))
     for (const id of RUN_AFFORDANCES) {
       expect(allIds, `allowlisted "${id}" no longer exists — remove it from RUN_AFFORDANCES`).toContain(id)

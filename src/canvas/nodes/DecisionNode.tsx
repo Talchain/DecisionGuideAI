@@ -21,7 +21,7 @@
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
-import { Crosshair, Play } from 'lucide-react'
+import { Crosshair } from 'lucide-react'
 import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useModelReadiness } from '../hooks/useModelReadiness'
@@ -33,12 +33,8 @@ import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodePopover } from './shared'
-import { runAnalysisFromCard } from './shared/NodeChip'
-import { NodeRailIcon } from './shared/NodeRailIcons'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
-import { useShowToastSafe } from '../ToastContext'
-import { analysisHeldNotice } from '../utils/analysisHeldOnInjectedModel'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
@@ -1069,8 +1065,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         : null,
     [isPostAnalysisBranch, isPreAnalysisBranch, showRunAnalysis, optionCount],
   )
-  const showToast = useShowToastSafe()
-  const runHeldNotice = useCanvasStore((st) => analysisHeldNotice(st))
   const postRunPopoverChips = useMemo(() => {
     const rest = isPostAnalysisBranch ? (decisionCoaching ?? []).slice(1) : []
     return rest.length > 0 ? (
@@ -1106,24 +1100,20 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         data={data}
         selected={selected}
         coaching={decisionCoaching}
-        railIcons={
-          /* The run affordance is an ACTION in the rail (spec §2: "Bottom rail is
-             one consistent location for icons/actions") rather than a row of
-             its own — same canonical pipeline as the chip it replaces. */
-          !isPostAnalysisBranch && showRunAnalysis && optionCount > 0 ? (
-            <NodeRailIcon
-              testId={`decision-run-analysis-${id}`}
-              label={runHeldNotice ?? 'Run the analysis now'}
-              icon={Play}
-              /* Contract v3.1 ANC-09: `.icon-btn` is muted at rest and Info on
-                 hover/focus; only `.attention` is Info at rest. The card's
-                 other rail icon (coaching) is already muted, so one rail no
-                 longer carries two resting treatments. */
-              tone="muted"
-              onActivate={() => runAnalysisFromCard('decision_run_analysis', showToast)}
-            />
-          ) : undefined
-        }
+        /* ⛔⛔ NO `railIcons` HERE ANY MORE — DESIGN-GAP-AUDIT row 5(b), 24 Sep
+           2026. The rail used to carry a Play action (`decision-run-analysis-
+           <id>`, label "Run the analysis now" or the held notice), gated on
+           `!isPostAnalysisBranch && showRunAnalysis && optionCount > 0`. That
+           consolidated the goal card's duplicate "Run analysis" chip onto this
+           one surface (23 Sep 2026, `runAnalysisOneAuthority.spec.tsx`'s
+           "locked design"). This is a FURTHER move, not a reversion to the
+           duplicate: running lives in the panel's Analyse button, so NEITHER
+           card offers a run affordance now — see that spec file's updated
+           header for the record of the ruling this supersedes. `showRunAnalysis`
+           itself stays: `resolveNodeCoaching` still reads it to keep the rail's
+           ONE coaching icon from offering "What could go wrong?" at the same
+           moment the analysis is ready to run — a coupling that predates the
+           Play icon and is unrelated to it. */
       >
         {/* ⭐⭐ THE QUESTION CARD IS WIDE AND SHALLOW (ED 11:52Z point 1: "target:
             wide + shallow, meaningful canonical question/framing label, option

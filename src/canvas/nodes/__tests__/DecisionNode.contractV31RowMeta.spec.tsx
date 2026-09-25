@@ -204,14 +204,16 @@ describe('ANC-12 — "Name it" link treatment and hit slop', () => {
   })
 })
 
-describe('ANC-09 — the run icon is muted at rest', () => {
-  it('Play renders text-text-light, not text-info', () => {
+describe('ANC-09 — SUPERSEDED 24 Sep 2026 (DESIGN-GAP-AUDIT row 5(b)): the rail carries no run icon at all', () => {
+  // ANC-09 governed the Play icon's RESTING tone (muted, not Info) while it
+  // still rendered. `DecisionNode.railHasNoRunAction.spec.tsx` now owns the
+  // removal itself; this block is kept, updated rather than deleted, as the
+  // regression pin for the exact ready-state fixture ANC-09 used to render
+  // the icon in — running lives in the panel's Analyse button.
+  it('no `decision-run-analysis-<id>` renders, even in the state that used to be ANC-09’s positive case', () => {
     setStore({ goalThreshold: 0.5 })
     renderDecision()
-    const run = screen.getByTestId(`decision-run-analysis-${DECISION_ID}`)
-    const t = tokens(run)
-    expect(t).toContain('text-text-light')
-    expect(t).not.toContain('text-info')
+    expect(screen.queryByTestId(`decision-run-analysis-${DECISION_ID}`)).toBeNull()
   })
 })
 
