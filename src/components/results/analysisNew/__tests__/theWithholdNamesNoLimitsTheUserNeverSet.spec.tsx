@@ -17,7 +17,26 @@
  * The rule: where the producer's admission refused the comparative leader
  * claim, the withheld cause names the estimates, not limits. The cause stays
  * nameable, so "a re-run would not help" still holds and no re-run is offered.
- * Where no admission refused it, today's sentence about limits stands.
+ *
+ * ⭐ THE SECOND CASE (25 Sep 02:20Z, same build, Paul's PRICING brief, CEE
+ * `e39f6e0`, OpenAI): one estimate is his own, so the admission PERMITTED a
+ * leader (`CONFIDENCE_PARAMETERS_PARTLY_USER_STATED`), and the automatic first
+ * pass still withheld it with the same token. "Still open" again said "the
+ * limits you set" on a brief with none. An explicit Run on the same model then
+ * PERMITTED the leader (02:37Z), so the withhold was the first-pass policy.
+ *
+ * The token's own sentence is now the one true of every cause it covers (the
+ * constraint states, the fail-closed reads, the first-pass policy): "Olumi's
+ * checks on this run…". No limits are named.
+ *
+ * ⛔ NOT GATED ON THE CANVAS `goalConstraints` SLICE. That was tried twice and
+ * is wrong: the slice is readiness state (`READINESS_CLEAR_FIELDS`), nulled by
+ * every analysis-affecting edit and every turn without `analysis_ready`, so on a
+ * real limits model the sentence would vanish after an ordinary follow-up turn.
+ *
+ * CEE's own fix (Canonical, RC 5825756972) emits `unrequested_analysis_withheld`
+ * for the first pass. It is unmapped here (no cause, so the retry stays), and
+ * the admission override covers it where the admission refused.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -28,7 +47,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
-import { leaderWithholdCause } from '../analysisNewCopy'
+import { leaderWithholdCause, LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS } from '../analysisNewCopy'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { decisionWithLeaderWithheld, decisionWithLeaderWithheldAndReason } from './analysisNewFixtures'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -36,7 +55,7 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 const REASON = 'constraint_verdict_withheld'
 const LIMITS = 'limits you set'
 
-const checksOf = (data: ResultsSectionDataReturn) =>
+const checksOf = (data: ResultsSectionDataReturn, reason: string = REASON) =>
   buildAnalysisNewViewModel({
     data,
     recommendations: [],
@@ -44,15 +63,45 @@ const checksOf = (data: ResultsSectionDataReturn) =>
     isRunning: false,
     isStale: false,
     responseHash: 'run_x',
-    producerLeaderWithholdReason: REASON,
+    producerLeaderWithholdReason: reason,
   }).checks
+
+const FIRST_PASS = 'unrequested_analysis_withheld'
+const SEPARATION = 'separation_unavailable'
+
+/** Paul's pricing run's admission, verbatim (CEE `e39f6e0`, 25 Sep 02:20Z): it PERMITS a leader. */
+const CAPTURED_PRICING_ADMISSION = {
+  structurally_analysable: true,
+  missing_important_inputs: [],
+  semantic_quality_sufficient: true,
+  permitted_analysis_mode: 'comparative_leader',
+  reasons: [
+    { field: 'structurally_analysable', code: 'READY_TO_COMPARE', message: 'Analysis can run on this model as it stands.' },
+    {
+      field: 'semantic_quality_sufficient',
+      code: 'CONFIDENCE_PARAMETERS_PARTLY_USER_STATED',
+      message: 'At least one of the estimates this comparison rests on is yours, so a leading option can be named.',
+    },
+    {
+      field: 'permitted_analysis_mode',
+      code: 'CONFIDENCE_PARAMETERS_PARTLY_USER_STATED',
+      message: 'At least one of the estimates this comparison rests on is yours, so a leading option can be named.',
+    },
+  ],
+}
+
+const pricingFirstPass = (): ResultsSectionDataReturn => {
+  const data = decisionWithLeaderWithheld()
+  return { ...data, recommendation: { ...data.recommendation, analysisAdmission: CAPTURED_PRICING_ADMISSION } } as ResultsSectionDataReturn
+}
 
 beforeEach(() => useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never))
 afterEach(cleanup)
 
 describe('the withheld leader is not blamed on limits the user never set', () => {
-  it('PRECONDITION: the producer token alone still maps to the limits sentence', () => {
-    expect(leaderWithholdCause(REASON)).toContain(LIMITS)
+  it('PRECONDITION: the producer token alone maps to a sentence, and it names no limits', () => {
+    expect(leaderWithholdCause(REASON)).not.toBeNull()
+    expect(leaderWithholdCause(REASON)).not.toContain(LIMITS)
   })
 
   it('⭐ where the admission refused the claim, the cause names the estimates, not limits', () => {
@@ -76,8 +125,40 @@ describe('the withheld leader is not blamed on limits the user never set', () =>
     expect(screen.getByTestId('analysis-new-commitment')).not.toHaveTextContent(LIMITS)
   })
 
-  it('OPPOSITE CONTROL: with no admission refusal, the limits sentence stands', () => {
-    const checks = checksOf(decisionWithLeaderWithheld())
-    expect(checks.leaderWithholdCause).toContain(LIMITS)
+  it('⭐ pricing: the admission permits a leader, the first pass withholds it → the cause names no limits', () => {
+    const checks = checksOf(pricingFirstPass())
+    expect(checks.leaderWithheld, 'PRECONDITION: the leader is withheld').toBe(true)
+    expect(checks.leaderWithholdCause).not.toBeNull()
+    expect(checks.leaderWithholdCause).not.toMatch(/limit/i)
+    expect(checks.leaderWithholdCause).toBe(leaderWithholdCause(REASON))
+    // Still nameable, so a re-run of the SAME model is not offered as the remedy.
+    expect(checks.rerunWouldNotHelp).toBe(true)
+  })
+
+  it('the token\'s sentence is true of every cause it covers: no limits, no "unchecked", no breach, no estimates', () => {
+    const sentence = leaderWithholdCause(REASON) ?? ''
+    expect(sentence).not.toBe('')
+    expect(sentence).not.toMatch(/limit|could not be checked|unchecked|break|estimate/i)
+    expect(sentence).not.toContain('—')
+  })
+
+  it('⭐ CEE\'s first-pass token behind a refusing admission → the estimates cause, and no re-run as the remedy', () => {
+    const checks = checksOf(decisionWithLeaderWithheldAndReason(), FIRST_PASS)
+    expect(checks.leaderWithholdCause).toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
+    expect(checks.rerunWouldNotHelp).toBe(true)
+  })
+
+  it('CEE\'s first-pass token behind a PERMITTING admission → no cause is named, so the run stays offered', () => {
+    // An explicit Run on the same model permitted the leader (02:37Z).
+    const checks = checksOf(pricingFirstPass(), FIRST_PASS)
+    expect(checks.leaderWithheld).toBe(true)
+    expect(checks.leaderWithholdCause).toBeNull()
+    expect(checks.rerunWouldNotHelp).toBe(false)
+  })
+
+  it('⭐ an admission refusal does not replace a cause the producer named for itself (separation_unavailable)', () => {
+    const checks = checksOf(decisionWithLeaderWithheldAndReason(), SEPARATION)
+    expect(leaderWithholdCause(SEPARATION), 'PRECONDITION: the separation token has its own sentence').not.toBeNull()
+    expect(checks.leaderWithholdCause).toBe(leaderWithholdCause(SEPARATION))
   })
 })
