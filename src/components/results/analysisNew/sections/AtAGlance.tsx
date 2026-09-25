@@ -710,11 +710,15 @@ export function AtAGlance({
   const hasAnything = (showStatus && ribbon.length > 0) || (showReading && hasReading)
   if (!hasAnything) return null
 
+  // The status half is a row above "Move towards commitment", not a second
+  // "At a glance" region: when both halves mount, a screen reader must meet
+  // one landmark of that name (pre-review of bundle 3, 25 Sep).
+  const Wrapper = part === 'status' ? 'div' : 'section'
   return (
-    <section
+    <Wrapper
       className="space-y-3"
       data-testid={part === 'status' ? `${testId}-status` : testId}
-      aria-label={COPY.sections.atAGlance}
+      aria-label={part === 'status' ? undefined : COPY.sections.atAGlance}
     >
       {showStatus && ribbon.length > 0 ? (
         <div
@@ -1413,6 +1417,6 @@ export function AtAGlance({
           heading over empty space". */}
       </>
       ) : null}
-    </section>
+    </Wrapper>
   )
 }
