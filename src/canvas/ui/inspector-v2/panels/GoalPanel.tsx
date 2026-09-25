@@ -61,6 +61,7 @@ import {
 } from '../../../../components/results/analysisNew/sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY } from '../../../../components/results/analysisNew/analysisNewCopy'
 import { RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
+import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
 
 /**
  * ⭐ THE GOAL PANE'S NOTICE, AND IT EXISTS SO THIS PANE CANNOT INHERIT A
@@ -104,6 +105,37 @@ const GOAL_TARGET_RECEIPT: Record<GoalTargetCommitOutcome, string> = {
   no_unit: ANALYSIS_NEW_COPY.successTarget.noUnit,
   not_a_number: ANALYSIS_NEW_COPY.successTarget.notANumber,
   not_encodable: ANALYSIS_NEW_COPY.successTarget.notEncodable,
+}
+
+/**
+ * ⭐⭐ THE SETTLEMENT SENTENCES — reachable ONLY behind `GOAL_TARGET_EDIT_ENABLED`
+ * (`goalTargetEdit.ts`). `SuccessTargetLine.onSendSettled` fires with a
+ * `SystemEventSendSettlement` when, and only when, the typed carrier actually
+ * sent something; while the flag is off nothing ever calls it, so
+ * `GOAL_TARGET_RECEIPT`'s static `dispatched` sentence stays what a reader
+ * sees, exactly as it does today.
+ *
+ * ⚠ `sent` REUSES `INSPECTOR_GOAL_TARGET_DISPATCHED` VERBATIM, DELIBERATELY —
+ * not a new sentence. `SystemEventSendSettlement`'s own header states `'sent'`
+ * "says NOTHING about what the server did", which is exactly the honest
+ * uncertainty that sentence already carries ("Its reply says whether the
+ * target was recorded").
+ *
+ * `refused` / `unverified` are the two the flag-off path could never report at
+ * all — an LLM-mediated `add_constraint` turn has no settlement, only a
+ * turn-level reply somewhere in the conversation. `'blocked'` and `'queued'`
+ * share one sentence: `queued` cannot actually occur here (`proposeGoalTarget`
+ * opts out of the sender's hidden queue with `deferIfBusy: false`, the same
+ * choice `proposeOptionIntervention` makes and documents), so it is mapped
+ * defensively rather than left to fall through unattributed.
+ */
+const GOAL_TARGET_SETTLEMENT_RECEIPT: Record<SystemEventSendSettlement, string> = {
+  sent: INSPECTOR_GOAL_TARGET_DISPATCHED,
+  refused: 'Not recorded. The model kept its previous target — Olumi’s reply says why.',
+  unverified:
+    'Olumi may not have recorded this — its reply did not arrive. Check before setting it again.',
+  blocked: 'Not sent — another edit is in progress. Try again in a moment.',
+  queued: 'Not sent — another edit is in progress. Try again in a moment.',
 }
 
 export const GoalPanel = memo(function GoalPanel({
@@ -354,6 +386,15 @@ export const GoalPanel = memo(function GoalPanel({
 
   /** The last target commit's outcome — rendered as the Model tab's own sentence. */
   const [targetOutcome, setTargetOutcome] = useState<GoalTargetCommitOutcome | null>(null)
+  /**
+   * The last SEND settlement, when the typed carrier reported one —
+   * `GOAL_TARGET_EDIT_ENABLED` only; see `GOAL_TARGET_SETTLEMENT_RECEIPT`.
+   * Cleared on every new commit attempt so a stale settlement from a PRIOR
+   * send can never outlive it (the same reason `targetOutcome` above and
+   * `valueCommitOutcome` on the factor panel are reset per commit, not per
+   * mount).
+   */
+  const [targetSettlement, setTargetSettlement] = useState<SystemEventSendSettlement | null>(null)
 
   // B.5: Add constraint form state.
   // The dropdown carries the factor's NODE ID, not its label: PLoT's constraint
@@ -583,17 +624,37 @@ export const GoalPanel = memo(function GoalPanel({
             <div data-testid="goal-panel-target-block">
               <SuccessTargetLine
                 goalNodeId={nodeId}
-                onCommitOutcome={setTargetOutcome}
+                onCommitOutcome={(outcome) => {
+                  // A fresh commit attempt retires any settlement from a PRIOR
+                  // send — see `targetSettlement`'s own comment. `onCommitOutcome`
+                  // always fires synchronously before `onSendSettled` ever could
+                  // (the settlement resolves later, off the network), so clearing
+                  // here can never race a settlement this same attempt is about
+                  // to report.
+                  setTargetSettlement(null)
+                  setTargetOutcome(outcome)
+                }}
+                onSendSettled={setTargetSettlement}
                 testId="goal-panel-target"
               />
-              {targetOutcome !== null && (
+              {targetSettlement !== null ? (
                 <p
                   className={`${typography.panelMeta} text-text-light mt-1`}
                   data-testid="goal-panel-target-outcome"
                   role="status"
                 >
-                  {GOAL_TARGET_RECEIPT[targetOutcome]}
+                  {GOAL_TARGET_SETTLEMENT_RECEIPT[targetSettlement]}
                 </p>
+              ) : (
+                targetOutcome !== null && (
+                  <p
+                    className={`${typography.panelMeta} text-text-light mt-1`}
+                    data-testid="goal-panel-target-outcome"
+                    role="status"
+                  >
+                    {GOAL_TARGET_RECEIPT[targetOutcome]}
+                  </p>
+                )
               )}
               {showsTargetReadout ? targetProbabilityLine : targetUnlocksLine}
             </div>

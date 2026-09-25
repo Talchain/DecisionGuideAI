@@ -1336,7 +1336,9 @@ export const FactorNode = memo((props: NodeProps) => {
                 <NodeValueEditor
                   value={resolveValueInputSeed(props.data).seed ?? observedState.value}
                   readout={recordedValueReadout}
-                  onCommit={(v) => editAuthority.proposeFactorValue(v)}
+                  onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
+                  readCommittedValue={() =>
+                    resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
                   testId={`node-value-editor-${props.id}`}
                 />

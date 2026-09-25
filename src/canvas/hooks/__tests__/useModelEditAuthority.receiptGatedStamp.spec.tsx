@@ -179,3 +179,34 @@ describe('the Model tab waits for the engine before claiming authorship', () => 
     expect(resolveReviewSource(currentNode())).toBe(USER_VALUE_STAMP.source)
   })
 })
+
+describe('proposeFactorValue reports how the send settled (the card editor says "Not saved" on it)', () => {
+  beforeEach(() => {
+    seed()
+  })
+
+  it('a send that left settles `sent`, once', async () => {
+    const sendSystemEvent = vi.fn().mockResolvedValue('SENT')
+    conversationContext = { sendSystemEvent }
+    const { result } = renderHook(() => useModelEditAuthority(NODE_ID))
+    const onSendSettled = vi.fn()
+    act(() => {
+      result.current.proposeFactorValue(20000, { onSendSettled })
+    })
+    await vi.waitFor(() => expect(onSendSettled).toHaveBeenCalled())
+    expect(onSendSettled.mock.calls).toEqual([['sent']])
+  })
+
+  it('CONTRAST — a send the busy lock refused settles `blocked`, and the local stamp is still applied', async () => {
+    const sendSystemEvent = vi.fn().mockResolvedValue('send_blocked')
+    conversationContext = { sendSystemEvent }
+    const { result } = renderHook(() => useModelEditAuthority(NODE_ID))
+    const onSendSettled = vi.fn()
+    act(() => {
+      result.current.proposeFactorValue(20000, { onSendSettled })
+    })
+    await vi.waitFor(() => expect(onSendSettled).toHaveBeenCalled())
+    expect(onSendSettled.mock.calls).toEqual([['blocked']])
+    expect(resolveReviewSource(currentNode())).toBe(USER_VALUE_STAMP.source)
+  })
+})
