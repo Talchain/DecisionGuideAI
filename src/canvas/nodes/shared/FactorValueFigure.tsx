@@ -16,6 +16,11 @@
  * estimate or any other string renders exactly as it did — one string, no
  * markup — and so does a split that no longer joins back to `readout`
  * byte for byte (the visible text can never differ from the unsplit value).
+ *
+ * The ONE exception is the currency-rate re-spelling (`39,000 GBP/year` shown
+ * as `£39,000/year`, prototype 25 Sep): it binds through `parts.restates`, the
+ * formatter's own unsplit string, so it still renders only when that string IS
+ * this card's readout. The rate suffix is attached to the figure with no space.
  */
 import { typography } from '../../../styles/typography'
 import { joinFactorDisplayParts, type FactorDisplayParts } from '../../../utils/formatFactorDisplayValue'
@@ -27,13 +32,13 @@ export function FactorValueFigure({ readout, parts, nodeId }: {
   parts: FactorDisplayParts | null
   nodeId: string
 }) {
-  if (readout === null || parts === null || joinFactorDisplayParts(parts) !== readout) return <>{readout}</>
+  if (readout === null || parts === null || (parts.restates ?? joinFactorDisplayParts(parts)) !== readout) return <>{readout}</>
   return (
     <>
       <strong data-testid={`factor-value-figure-${nodeId}`} className="font-[610]">{parts.figure}</strong>
       {parts.unit !== null && (
         <>
-          {' '}
+          {parts.attached ? null : ' '}
           <span
             data-testid={`factor-value-unit-${nodeId}`}
             className={`${typography.edgeLabel} font-normal text-text-light`}

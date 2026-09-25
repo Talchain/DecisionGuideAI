@@ -826,16 +826,22 @@ const ADJUDICATED_POSITIONS: Position[] = [
   // match on the face: the line must be reached INSIDE the popover. (The face's
   // wordless driver cue rides the value line, which these bare-amount fixtures
   // do not print; it is pinned in `FactorNode.boundedAnatomy.spec.tsx`.)
+  // ⭐ RE-POINTED AGAIN — prototype, Paul 25 Sep 2026: where ED 5809278282
+  // conflicts with the prototype's card bodies, the prototype wins. The driver
+  // line is back ON the resting face (and the wordless cue is retired). It stays
+  // a HAND call: `Driver N of M analysed` varies per card, so it is no invariant
+  // run (see 'factor · post · standard'). `present` now binds the exact testid
+  // ON the face and refuses a match inside the popover.
   {
-    what: 'factor · the driver line (popover content since ED 5809278282)',
+    what: 'factor · the driver line (on the resting face, prototype 25 Sep)',
     by: 'hand',
-    why: 'COMPACTED — moved, not deleted: the S3 driver wording is hover/focus disclosure '
-      + 'now (ED #63 5809278282), outside the resting-copy census by construction. Its '
-      + 'wording and stale label are pinned where it lives: FactorNode.anatomyV32 / '
-      + 'driverLineContractV31 / influenceRanking, each bound inside the popover.',
+    why: 'KEPT — the prototype puts `Driver N of M` + its bar on the resting factor card '
+      + '(Paul 25 Sep, superseding ED #63 5809278282 for card bodies). Its wording and '
+      + 'stale label are pinned where it lives: FactorNode.anatomyV32 / '
+      + 'driverLineContractV31 / influenceRanking / prototypeBodyAtRest, each bound on the face.',
     present: (c) => {
       const line = c.querySelector('[data-testid="factor-driver-line"]')
-      return line != null && line.closest('[data-testid="node-popover"]') != null
+      return line != null && line.closest('[data-testid="node-popover"]') == null
     },
   },
   // ⛔ RETIRED (contract v3.1, gap U1): 'risk · the `Link strength` metric row'

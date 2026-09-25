@@ -201,12 +201,12 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     // 'inferred'` still on the node. The value's mark would say `est.`.
     setState()
     const { container } = renderNode(FactorNode, 'fac-range')
-    // ED #63 5809278282 (bounded anatomy): in Standard the range line is the
-    // factor's POPOVER content, not the face — and its mark travels with it.
+    // Prototype (Paul 25 Sep, superseding ED #63 5809278282): in Standard the
+    // range line is back ON the face — and its mark travels with it.
     const face = container.querySelector('[role="group"]')!
     expect(face.querySelector('[data-testid="node-title"]')?.textContent).toBeTruthy()
-    expect(face.querySelector('[data-testid="factor-prior-range-fac-range"]')).toBeNull()
-    const range = container.querySelector('[data-testid="node-popover"] [data-testid="factor-prior-range-fac-range"]')
+    expect(container.querySelector('[data-testid="node-popover"] [data-testid="factor-prior-range-fac-range"]')).toBeNull()
+    const range = face.querySelector('[data-testid="factor-prior-range-fac-range"]')
     expect(range).toBeTruthy()
     expect(range!.querySelector('[data-testid="estimate-marker"]')).toBeNull()
     expect(range!.textContent ?? '').not.toMatch(/filled in for you|est\./)

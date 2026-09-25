@@ -198,9 +198,16 @@ const face = (label: string) => screen.getByRole('group', { name: new RegExp(`no
  * rides the value line; these fixtures' bare amounts print no value line, so
  * the cue is pinned in `FactorNode.boundedAnatomy.spec.tsx`, not here.)
  */
+/*
+ * ⛔ SUPERSEDED for the driver line, the TOP driver's turning point and the
+ * range line (prototype, Paul 25 Sep 2026: where ED 5809278282 conflicts with
+ * the prototype's card bodies, the prototype wins): those findings are ON the
+ * face again, and never repeated in the popover. The helper keeps its name.
+ */
 const popoverFinding = (label: string, testId: string) => {
-  expect(within(face(label)).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
-  return within(screen.getByTestId('node-popover')).getByTestId(testId)
+  const pop = screen.queryByTestId('node-popover')
+  if (pop) expect(within(pop).queryByTestId(testId), `${testId} is repeated in the popover`).toBeNull()
+  return within(face(label)).getByTestId(testId)
 }
 
 beforeEach(() => {

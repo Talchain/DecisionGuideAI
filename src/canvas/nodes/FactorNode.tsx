@@ -1,6 +1,5 @@
 import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
-import { BarChartHorizontal } from 'lucide-react'
 import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
 import type { EvidenceGapEscalation } from './EvidenceGapBadge'
@@ -26,10 +25,7 @@ import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { useRunCurrency } from './shared/runCurrency'
-import { FactorDriverLine, FactorDriverNotRanked, driverLineCaption } from './shared/FactorDriverLine'
-import { LAST_RUN_PREFIX } from './shared/metricVocabulary'
-import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
-import { CANVAS_GLYPH_SIZE_CLASSES } from './shared/canvasGlyphScale'
+import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { selectFactorTurningPointState } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
@@ -40,7 +36,8 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, EdgePills, Es
 import { StatusPill } from './shared/StatusPill'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
-import { resolveFactorPriorRange } from './shared/factorPriorRange'
+import { resolveFactorPriorRange, resolveFactorPriorRangeEnds } from './shared/factorPriorRange'
+import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { classifyValueProvenance, VALUE_PROVENANCE_LABEL, factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
@@ -236,6 +233,17 @@ export const FactorNode = memo((props: NodeProps) => {
   // same owner, so they cannot state different ranges for one factor.
   const priorRangeDisplay = useMemo(
     () => resolveFactorPriorRange({
+      data: props.data as Record<string, unknown> | undefined,
+      nodeCategory,
+      observedState,
+      valueDisplay,
+    }),
+    [nodeCategory, observedState, props.data, valueDisplay],
+  )
+  // The band's two ends — the SAME strings the range line prints, from the same
+  // owner, or null (replaced by a user value, authored prose, or no line).
+  const priorRangeEnds = useMemo(
+    () => resolveFactorPriorRangeEnds({
       data: props.data as Record<string, unknown> | undefined,
       nodeCategory,
       observedState,
@@ -647,11 +655,32 @@ export const FactorNode = memo((props: NodeProps) => {
    *     (`selectRestingGlyphsShown`), like the rail's coaching icon.
    * Pinned in `__tests__/FactorNode.boundedAnatomy.spec.tsx`.
    */
-  const restingGlyphsShown = useCanvasStore(selectRestingGlyphsShown)
-  const driverCue =
-    !isDetailed && restingGlyphsShown && driverLine !== null ? (
-      <FactorDriverCue nodeId={props.id} rank={driverLine.rank} fromLastRun={resultsFromLastRun} />
-    ) : null
+  /*
+   * ⭐⭐ SUPERSEDED AT REST BY THE PROTOTYPE — Paul, 25 Sep 2026, from live
+   * screenshots: the canvas must match the prototype
+   * (`olumi-canvas-connected-reference.png`, `olumi-canvas-visual-contract.html`
+   * `nodeHTML` factor branch), and where ED 5809278282's bounded anatomy
+   * conflicts with the prototype's card bodies, THE PROTOTYPE WINS.
+   *
+   * The prototype's resting factor (after a run):
+   *   `8%  trials convert` → `Driver 1 of 3` + a small rank bar → for the TOP
+   *   driver only, the turning-point track; an external factor shows its
+   *   working range with a band.
+   * So in the STANDARD view the driver line, the top driver's FOUND turning
+   * point and the external range line (now with its band) are back ON the card
+   * body, in that order, at EVERY rung (one stable geometry: no rung-triggered
+   * re-layout, ED 5808428246). They leave the popover (never both at once);
+   * the inline `FactorDriverCue` is retired, since the line it stood in for is
+   * now on the card. A non-top factor's found turning point stays in the
+   * popover. The wording of each line is unchanged (`Driver N of M analysed`,
+   * ED 5806207128). Pinned in `__tests__/FactorNode.prototypeBodyAtRest.spec.tsx`.
+   */
+  const turningPointAtRest =
+    !isDetailed &&
+    driverLine !== null &&
+    driverLine.rank.rank === 1 &&
+    turningPointState !== null &&
+    turningPointState.kind === 'found'
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -1077,6 +1106,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const priorRangeShown =
     nodeCategory === 'external' && priorRangeDisplay !== null && (!turningPoint || isDetailed)
   const priorRangeLine = priorRangeShown ? (
+    <>
     <div
       className={`${typography.edgeLabel} mt-1 text-text-light`}
       data-testid={`factor-prior-range-${props.id}`}
@@ -1095,6 +1125,13 @@ export const FactorNode = memo((props: NodeProps) => {
         <> <ValueSourceMark mark={PRIOR_RANGE_SOURCE_MARK} testId={`factor-range-source-${props.id}`} /></>
       )}
     </div>
+    {/* Prototype (Paul 25 Sep): the working range with a band — a SIBLING of the
+        line, so the line's own text is unchanged. Only the two ends the line
+        prints; none once a user value replaces the range. */}
+    {priorRangeEnds !== null && (
+      <FactorRangeBand nodeId={props.id} low={priorRangeEnds[0]} high={priorRangeEnds[1]} />
+    )}
+    </>
   ) : null
 
   /**
@@ -1112,9 +1149,8 @@ export const FactorNode = memo((props: NodeProps) => {
    * `null` in Detailed, where these stay inline on the card.
    */
   const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
-  const hasStandardFindings =
-    !isDetailed &&
-    (needsInputSentenceMoved || driverLine !== null || (turningPointShown && turningPointState !== null) || priorRangeLine !== null)
+  const turningPointInPopover = !isDetailed && turningPointShown && turningPointState !== null && !turningPointAtRest
+  const hasStandardFindings = !isDetailed && (needsInputSentenceMoved || turningPointInPopover)
   const standardFindings = hasStandardFindings ? (
     <div data-testid={`factor-popover-findings-${props.id}`} className="mb-1">
       {needsInputSentenceMoved && (
@@ -1125,17 +1161,7 @@ export const FactorNode = memo((props: NodeProps) => {
           Needs input &middot; Value not set yet
         </p>
       )}
-      {driverLine && (
-        <FactorDriverLine
-          nodeId={props.id}
-          rank={driverLine.rank}
-          value={driverLine.value}
-          provenance={driverLine.provenance}
-          importanceBasis={driverLine.importanceBasis}
-          fromLastRun={resultsFromLastRun}
-        />
-      )}
-      {turningPointShown && turningPointState ? (
+      {turningPointInPopover && turningPointState ? (
         <FactorTurningPointSlot
           nodeId={props.id}
           factorLabel={cleanedLabel}
@@ -1144,7 +1170,6 @@ export const FactorNode = memo((props: NodeProps) => {
           factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
         />
       ) : null}
-      {priorRangeLine}
     </div>
   ) : null
 
@@ -1253,9 +1278,9 @@ export const FactorNode = memo((props: NodeProps) => {
             to a second line or be cut, and nothing on the line is ellipsised —
             values are never cut. Only a value longer than the whole line would
             wrap, and then inside its own `min-w-0` span, with the mark still
-            beside it. A ranked factor's neutral driver cue ends the line at the
-            Normal rung (`driverCue`) — inline, never a row. Detailed keeps the
-            wrapping row it had. */}
+            beside it. (The inline driver cue that ended this line is retired: the
+            driver line is on the card again — prototype, Paul 25 Sep.) Detailed
+            keeps the wrapping row it had. */}
         {valueDisplay !== null && (
           <div
             className={isDetailed
@@ -1335,7 +1360,6 @@ export const FactorNode = memo((props: NodeProps) => {
                 {renderValueSourceMark()}
               </span>
             )}
-            {driverCue}
           </div>
         )}
 
@@ -1370,29 +1394,53 @@ export const FactorNode = memo((props: NodeProps) => {
           >
             <StatusPill label="Needs input" title="Missing required input" />
             <span className={typography.screenReaderOnly}>Value not set yet</span>
-            {driverCue}
           </div>
         ))}
 
         {/* ⭐ THE TINY RELATIVE DRIVER VISUAL — a current run, or a known-changed
             model's last run LABELLED `Last run · ` (never-run / cannot-confirm
-            hide it). ⭐ ED 5809278282: OFF THE STANDARD CARD BODY — it is in
-            the popover (`standardFindings`), and the card keeps the inline
-            `driverCue` on its primary line. Detailed renders the line once,
+            hide it). ⭐ Prototype (Paul 25 Sep, superseding ED 5809278282's
+            move to the popover): ON THE STANDARD CARD BODY again, just below
+            (`turningPointAtRest`). Detailed renders the line once,
             inside its Layer 2 block (with the confidence row), so the rank is
             never stated twice on one card. */}
         {/* Contract v3.1 pt 5: no rank, no line, no bar — said once to AT, in
             both views. */}
         {driverNotRanked && <FactorDriverNotRanked fromLastRun={resultsFromLastRun} />}
 
+        {/* ⭐ PROTOTYPE AT REST (Paul 25 Sep; see `turningPointAtRest`): the
+            Standard card carries the driver line, then the TOP driver's found
+            turning point, then an external factor's range line with its band.
+            Detailed renders the same three below / in Layer 2, as before. */}
+        {!isDetailed && driverLine && (
+          <FactorDriverLine
+            nodeId={props.id}
+            rank={driverLine.rank}
+            value={driverLine.value}
+            provenance={driverLine.provenance}
+            importanceBasis={driverLine.importanceBasis}
+            fromLastRun={resultsFromLastRun}
+          />
+        )}
+        {turningPointAtRest && turningPointState ? (
+          <FactorTurningPointSlot
+            nodeId={props.id}
+            factorLabel={cleanedLabel}
+            state={turningPointState}
+            fromLastRun={resultsFromLastRun}
+            factorUnit={typeof observedState?.value === 'number' ? (observedState.unit ?? null) : undefined}
+          />
+        ) : null}
+        {!isDetailed && priorRangeLine}
+
         {/* ⭐ AT MOST ONE MINI-VISUAL (spec §3 precedence): a real turning point
             (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external
             factor's producer prior — never a fabricated fallback), else nothing.
             Detailed shows the range beside the turning point: it adds
             information, not a different card.
-            ⭐ ED 5809278282: both lines are off the STANDARD card body — they
-            are in the popover (`standardFindings`) under the same gates and
-            precedence. Detailed keeps them here. */}
+            In STANDARD they render above (the top driver's turning point and
+            the range line, prototype 25 Sep); a non-top factor's found turning
+            point is in the popover (`standardFindings`). Detailed keeps them here. */}
         {isDetailed && turningPointShown && turningPointState ? (
           <FactorTurningPointSlot
             nodeId={props.id}
@@ -1559,50 +1607,3 @@ export const FactorNode = memo((props: NodeProps) => {
 })
 
 FactorNode.displayName = 'FactorNode'
-
-/**
- * ⭐ THE NEUTRAL DRIVER CUE — the quiet reasoning signal a RANKED factor keeps at
- * rest once its driver wording moved to the popover (ED #63 5809278282: "At
- * Normal/Focused, keep a quiet reasoning signal visible at rest where one exists
- * (attention mark and neutral driver cue)").
- *
- *   · NO WORDS AND NO FIGURE. A fixed glyph, not the bar: the bar's length is a
- *     run-derived figure (% of the strongest factor), and a figure on the card
- *     would need a visible `Last run ·` it has no room for. The cue says only
- *     "the run ranked this factor"; the rank, its denominator and the bar are
- *     the popover's `FactorDriverLine` and the inspector's.
- *   · ITS NAME IS THE CAPTION, from the same `driverLineCaption` the popover's
- *     line prints, prefixed `Last run · ` when the model changed since the run —
- *     so AT and hover read exactly what the popover shows, never a second
- *     wording. The visible stale statement stays the popover's caption and the
- *     whole-graph stale cue; the name is not the only place it is said.
- *   · NEUTRAL INK (`text-text-light`): Info blue is the attention marker's
- *     channel (Paul 23 Sep contract feedback point 9 — the driver cue must not
- *     compete with attention). Counter-scaled like every canvas glyph.
- *   · INLINE, `shrink-0`, at the END of the primary line: it can never become a
- *     row, which is what keeps a `full`-rung card no taller than the same card
- *     at `quiet` (where the caller does not render it).
- */
-function FactorDriverCue({
-  nodeId,
-  rank,
-  fromLastRun,
-}: {
-  nodeId: string
-  rank: { rank: number; setSize: number }
-  fromLastRun: boolean
-}) {
-  const name = `${fromLastRun ? LAST_RUN_PREFIX : ''}${driverLineCaption(rank)}`
-  return (
-    <span
-      role="img"
-      aria-label={name}
-      title={name}
-      data-testid={`factor-driver-cue-${nodeId}`}
-      data-from-last-run={fromLastRun ? 'true' : undefined}
-      className="shrink-0 inline-flex items-center self-center text-text-light"
-    >
-      <BarChartHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
-    </span>
-  )
-}

@@ -84,8 +84,15 @@ vi.mock('../shared/NodePopover', () => ({
     <div data-testid="factor-node-popover">{children}</div>
   ),
 }))
-/** A Standard finding: in the popover, never on the card face (ED 5809278282). */
+/** A Standard finding: ON the card face, never repeated in the popover (prototype, Paul 25 Sep; superseding ED 5809278282). The helper keeps its name. */
 const inPopover = (testId: string) => {
+  const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
+  const pop = screen.queryByTestId('factor-node-popover')
+  if (pop) expect(within(pop).queryByTestId(testId), `${testId} is repeated in the popover`).toBeNull()
+  return within(face).getByTestId(testId)
+}
+/** A NON-top factor's found turning point: still in the popover, never on the face (ED 5809278282; unchanged by the prototype). */
+const inThePopoverOnly = (testId: string) => {
   const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
   expect(within(face).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
   return within(screen.getByTestId('factor-node-popover')).getByTestId(testId)
@@ -264,11 +271,13 @@ describe('factor card — the turning-point track', () => {
     seedCompletedRun(UNVALUED)
     renderFactor(UNVALUED)
     expect(semantic()).toBe('current')
-    expect(inPopover('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
+    // This factor is not ranked (not the top driver), so its found turning point
+    // stays in the popover under the prototype too.
+    expect(inThePopoverOnly('factor-turning-point').textContent).toMatch(/^Below 6\.5%, the current model comparison changes\./)
 
     editTheModel()
     expect(semantic()).toBe('changed')
-    const tp = inPopover('factor-turning-point')
+    const tp = inThePopoverOnly('factor-turning-point')
     expect(tp.textContent).toMatch(/^Last run · Below 6\.5%, the model comparison changes\./)
     expect(tp.getAttribute('aria-label')).toMatch(/^Last run · Below 6\.5%, the model comparison changes\. /)
   })

@@ -60,10 +60,14 @@ vi.mock('../shared/NodePopover', () => ({
   ),
 }))
 const face = () => screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
-/** The Standard driver line: in the popover, never on the card face (ED 5809278282). */
+/**
+ * The Standard driver line: ON the card face, never repeated in the popover
+ * (prototype, Paul 25 Sep 2026 — superseding ED 5809278282's move to the popover).
+ */
 const popoverLine = (testId = 'factor-driver-line') => {
-  expect(within(face()).queryByTestId(testId), `${testId} is on the card face`).toBeNull()
-  return within(screen.getByTestId('factor-node-popover')).getByTestId(testId)
+  const pop = screen.queryByTestId('factor-node-popover')
+  if (pop) expect(within(pop).queryByTestId(testId), `${testId} is repeated in the popover`).toBeNull()
+  return within(face()).getByTestId(testId)
 }
 
 const FACTOR_ID = 'fac_conversion'
