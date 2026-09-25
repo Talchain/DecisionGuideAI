@@ -318,13 +318,21 @@ export function CommitmentSummary({
 
       {/* Directly under the comparison slot, never above it (it renders only
           beside that slot). Neutral ink: the words carry the caution, not an
-          amber box. */}
+          amber box.
+
+          ⭐ V2 FIDELITY (25 Sep 2026, gap FIRST-1/CHART-10): `text-text-body`,
+          not `text-text-light`. The sentence that tells a reader how far to
+          trust the chart was set as tertiary grey, reading as fine print
+          rather than part of the argument. The icon stays grey — given its
+          OWN `text-text-light` here, because it would otherwise inherit the
+          `<p>`'s new body ink — and the prototype's amber icon is deliberately
+          not adopted, because amber is rationed. */}
       {hasSlot && qualifier ? (
         <p
-          className={`${typography.panelMeta} text-text-light m-0 mt-1.5 flex items-center gap-1`}
+          className={`${typography.panelMeta} text-text-body m-0 mt-1.5 flex items-center gap-1`}
           data-testid={`${testId}-qualifier`}
         >
-          <Info className="h-3 w-3 shrink-0" aria-hidden={true} />
+          <Info className="h-3 w-3 shrink-0 text-text-light" aria-hidden={true} />
           <span>{qualifier}</span>
         </p>
       ) : null}
