@@ -511,7 +511,7 @@ export function DriverInfluenceChart({
                       }
                     }}
                     aria-label={COPY.modelStrip.valueInputLabel(row.label)}
-                    className={`${typography.panelBody} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelBody} min-w-0 flex-1 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-input`}
                   />
                   <button
