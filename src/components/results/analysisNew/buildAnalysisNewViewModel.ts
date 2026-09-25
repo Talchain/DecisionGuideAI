@@ -98,7 +98,6 @@ import {
   formatConjunctionList,
   leaderWithholdCause,
   LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS,
-  LEADER_WITHHELD_BY_THIS_RUNS_CHECKS,
 } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -223,13 +222,6 @@ export interface AnalysisNewViewModelInputs {
    * "automatic first pass" clause and nothing else.
    */
   runProvisional?: boolean
-  /**
-   * The model carries at least one limit (the canvas `goalConstraints` slice,
-   * the one a run sends to PLoT). Licenses the withheld cause's "limits you
-   * set" and nothing else. Absent or anything but `true` = no limit is known,
-   * so that sentence is not said.
-   */
-  modelHasLimits?: boolean
   /** Engine output, already lifecycle-filtered by the hook. */
   recommendations: Recommendation[]
   isPreRun: boolean
@@ -3544,7 +3536,6 @@ function buildChecks(
    * evidence either way and must not earn a suppression.
    */
   staleReason: 'changed' | 'unconfirmed' | null | undefined,
-  modelHasLimits: boolean,
 ): AnalysisNewViewModel['checks'] {
   const rec = data.recommendation
   const conf = data.confidence
@@ -3689,11 +3680,7 @@ function buildChecks(
           licensesComparativeLeaderClaim(data.recommendation.analysisAdmission) === false &&
             leaderWithholdCause(producerWithholdReason) !== null
           ? LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
-          : // "The limits you set" is said only where the model has limits; the
-            // token alone does not mean any exist (see the constant's doc).
-            !modelHasLimits && producerWithholdReason?.trim() === 'constraint_verdict_withheld'
-            ? LEADER_WITHHELD_BY_THIS_RUNS_CHECKS
-            : leaderWithholdCause(producerWithholdReason),
+          : leaderWithholdCause(producerWithholdReason),
     /**
      * ⭐ THE FACT, SEPARATE FROM THE NAMEABLE CAUSE — AND THEY ARE DIFFERENT
      * QUESTIONS.
@@ -3709,9 +3696,6 @@ function buildChecks(
     leaderWithheld: leaderCode === 'leader_not_assessed',
     sharesExcludeLimits:
       leaderCode === 'leader_not_assessed' &&
-      // "Your limits aren't in these shares" presupposes limits; the token alone
-      // does not mean the model has any.
-      modelHasLimits &&
       typeof producerWithholdReason === 'string' &&
       producerWithholdReason.trim() === 'constraint_verdict_withheld',
     /**
@@ -4022,7 +4006,7 @@ export function buildAnalysisNewViewModel(
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
         { items: [], leaderWithholdCause: null, leaderWithheld: false, sharesExcludeLimits: false, rerunWouldNotHelp: false }
-      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason, inputs.modelHasLimits === true),
+      : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }
 

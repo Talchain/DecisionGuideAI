@@ -171,8 +171,6 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       (s.results?.report as { run_provenance?: { provisional?: unknown } } | null | undefined)?.run_provenance
         ?.provisional === true,
   )
-  /** The model carries a limit: the slice a run sends to PLoT. Licenses "the limits you set". */
-  const modelHasLimits = useCanvasStore((s) => (s.goalConstraints?.length ?? 0) > 0)
   const producerLeaderWithholdReason = useCanvasStore((s) =>
     // `results` itself can be null (no analysis yet): that is the no-cause path,
     // never a crash (Codex pre-read on #1924, shard 4: 13 mounts threw).
@@ -250,7 +248,6 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         data,
         producerLeaderWithholdReason,
         runProvisional,
-        modelHasLimits,
         recommendations,
         isPreRun,
         isRunning,
@@ -299,7 +296,6 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       // same object (Codex pre-read on #1922).
       producerLeaderWithholdReason,
       runProvisional,
-      modelHasLimits,
       recommendations,
       isPreRun,
       isRunning,

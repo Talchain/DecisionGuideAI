@@ -2878,19 +2878,3 @@ export function strengthenWhyLine(signal: string, whyNow?: string): string {
  */
 export const LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS =
   'No option can be put forward until at least one of the estimates it rests on is yours.'
-
-/**
- * ⭐ THE WITHHELD LEADER'S CAUSE WHEN THE MODEL HAS NO LIMITS.
- *
- * `constraint_verdict_withheld` says only that CEE's entitlement check declined
- * (`composeLeaderClaim`: `!entitled`, CEE `e39f6e0`). "The limits you set" is a
- * claim about the model, and it was false on Paul's pricing brief (local
- * integration witness, 25 Sep 02:20Z, OpenAI): no limits, one estimate his own
- * (the admission permitted a leader), leader withheld by the automatic first
- * pass. CEE's typed first-pass marker (`enrichment.run_provenance`) is stripped
- * by its transport keep-list, so the precise cause is not on the wire. This is
- * true of every cause the token covers. Pinned by
- * `theWithholdNamesNoLimitsTheUserNeverSet.spec.tsx`.
- */
-export const LEADER_WITHHELD_BY_THIS_RUNS_CHECKS =
-  "Olumi's checks on this run do not support putting one option forward."
