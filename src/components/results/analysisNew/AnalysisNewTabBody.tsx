@@ -43,7 +43,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Star, TrendingUp, GitBranch, Activity } from 'lucide-react'
+import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -2057,7 +2057,7 @@ export function AnalysisNewTabBody({
             ratchet counts it as one child rather than several. A label added
             loose would have raised the count by five and the ceiling with it,
             which is the opposite of what the prototype asks for. */}
-        <div className="space-y-3" data-testid="analysis-new-zone-also-group">
+        <div className="!mt-0 pt-1 space-y-3" data-testid="analysis-new-zone-also-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
             own: furniture that looked like a block would add the weight this
@@ -2067,8 +2067,16 @@ export function AnalysisNewTabBody({
             grammar as "Move towards commitment" (a rule, then a 14px h3), not an
             11px caption over a bold item. That inverted hierarchy read the
             zone's name as a footnote to its own finding. */}
+        {/* ⭐⭐ SPACE-1 / FIRST-2 (panel-lane design audit 2026-09-25): the rule's
+            own pt-[11px] (panelSurfaces.ts PANEL_RULE), the ambient space-y-4
+            margin this group used to inherit (16px), and this title's own
+            pt-3 (12px) stacked to a 44px band above "Challenge the thinking" —
+            against the prototype's 18px (.section{margin-top:11px;padding-top:11px}
+            measured rule-to-cap). The group now overrides the ambient margin
+            with !mt-0 and states its own pt-1, so the total is 11 (rule) + 4
+            (group) ≈ the prototype's figure; the title no longer carries pt-3. */}
         <h3
-          className={`${typography.panelHeader} text-text-header m-0 pt-3`}
+          className={`${typography.panelHeader} text-text-header m-0`}
           data-testid="analysis-new-zone-also"
         >
           Challenge the thinking
@@ -2640,18 +2648,30 @@ export function AnalysisNewTabBody({
             ruling buys the drivers that space. Measured, not hidden. */}
         {whatMovesHasContent ? (
           <SectionShell
-            icon={Activity}
             title={COPY.sections.whatMovesTheOutcome}
-            subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
             /* ⛔ A COUNT IS A PROMISE. This read
                `findings.length + influenceRows.length` and so advertised 4 while
                holding TWO factors — witnessed on deployed `219209ad`. The two
                lists are one-to-one by this codebase's own stated invariant ("a
                row can never appear without its bar"), so adding them double-counts
                every driver. Counted as SUBJECTS, by union, so a future divergence
-               grows the number honestly instead of hiding inside it. */
+               grows the number honestly instead of hiding inside it.
+               ⭐ TAIL-1 (panel-lane design audit 2026-09-25): the badge no
+               longer draws (variant="disclose" drops it), but the count still
+               reaches `data-section-count` on the wrapping <section> —
+               "the count is always carried here, whether or not the badge
+               draws" (SectionShell's own doc). */
             count={distinctDriverSubjects(vm.drivers.findings, vm.drivers.influenceRows)}
             testId="analysis-new-what-moves-the-outcome"
+            /* ⭐⭐ TAIL-1: the prototype's tail door is `.disclose` — a chevron
+               and one line, no icon slot, no subtitle and no count badge (the
+               auditor's citation: aboutHTML()/insightsHTML() disclosures carry
+               none of those). `COPY.sectionSubtitles.whatMovesTheOutcome`
+               (analysisNewCopy.ts) stops being RENDERED here, deliberately —
+               the constant itself is kept, unread, so the file's line count
+               (and the ui-decides-baseline.txt keying pinned to it) is
+               unchanged. */
+            variant="disclose"
           >
           {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
           {/* V2 gap 23: this section is NESTED inside the "What moves the
@@ -2798,7 +2818,7 @@ export function AnalysisNewTabBody({
             such block between the model and the challenge, and on served
             `c5000550` it was 108px of what kept the chart below the fold. */}
         {focusApplicableIds.length > 0 ? (
-          <div className="space-y-3" data-testid="analysis-new-zone-focus-group">
+          <div className="pt-3 space-y-3" data-testid="analysis-new-zone-focus-group">
             {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
                 GROUP of blocks, so it carries no border, no fill and no radius
                 of its own: furniture that looked like a block would add the
@@ -2806,8 +2826,13 @@ export function AnalysisNewTabBody({
                 ⭐ V2 (fidelity gap 10): a SECTION TITLE, the same class string
                 as "Challenge the thinking" (gap 16). As an 11px caption over
                 14px rows it read as a footnote to its own items. */}
+            {/* ⭐ SPACE-1 (panel-lane design audit 2026-09-25): this zone has no
+                preceding rule, so its title's former pt-3 is relocated onto
+                this group unchanged — a byte-for-byte visual no-op here — so
+                the title's own className stays identical to the also-zone
+                title's, which theFocusZoneHasASectionTitle.spec.tsx pins. */}
             <h3
-              className={`${typography.panelHeader} text-text-header m-0 pt-3`}
+              className={`${typography.panelHeader} text-text-header m-0`}
               data-testid="analysis-new-zone-focus"
             >
               Focus now
