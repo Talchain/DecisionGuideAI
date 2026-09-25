@@ -93,9 +93,14 @@ describe('3. the pressed tier is filled, never tinted the same as its own ground
 })
 
 describe('4. both tier buttons carry a real ≥24px target', () => {
-  it('min-h-[24px] on Plain and Advanced', () => {
+  /* ⭐ MODEL-6: 24px → 28px. TYPE-11/D1 moved these arms off `buttonSmall`
+     (12px/600) onto `panelBody` (12px/400), matching the row's own Rename
+     and the prototype's `.lens>button` (min-height:28px). The 24px floor
+     stays met — 28 is the estate's own 28px control height, not a new
+     rule. */
+  it('min-h-[28px] on Plain and Advanced', () => {
     renderPanel()
-    expect(classTokens(screen.getByTestId('model-tab-v2-tier-plain'))).toContain('min-h-[24px]')
-    expect(classTokens(screen.getByTestId('model-tab-v2-tier-advanced'))).toContain('min-h-[24px]')
+    expect(classTokens(screen.getByTestId('model-tab-v2-tier-plain'))).toContain('min-h-[28px]')
+    expect(classTokens(screen.getByTestId('model-tab-v2-tier-advanced'))).toContain('min-h-[28px]')
   })
 })
