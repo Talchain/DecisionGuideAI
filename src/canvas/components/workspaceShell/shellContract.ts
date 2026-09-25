@@ -100,6 +100,22 @@ export const SHELL_CONTENT_BUDGET_PX = shellContentBudget(DOCK_RESPONSIVE_MAX_WI
 export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
 
 /**
+ * Below this dock width, in px, the tab strip goes compact
+ * (design-audit-20260925, gap NARROW-1). At the 280px drag floor, four
+ * `px-2` tabs plus VersionsTrigger, the expert-mode toggle and the collapse
+ * control do not fit one row and wrap into a 2×2 grid, doubling the header's
+ * height. Below this width `WorkspaceShellTabStrip` drops the tabs to
+ * `panelMeta` (11px) and folds VersionsTrigger and the expert-mode toggle
+ * into a single overflow menu, so both stay keyboard-reachable rather than
+ * being silently omitted from the strip.
+ *
+ * 320, not a dock-width literal — R1 flags only 280/416/480 as named widths;
+ * this is the narrowest width at which four 12px tabs plus three 28px
+ * controls fit, plus headroom, per the audit's own measurement.
+ */
+export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 320
+
+/**
  * The CSS custom property the shell publishes its LIVE measured width on.
  *
  * Written from the dock's own `getBoundingClientRect()`, the same derive-don't-
