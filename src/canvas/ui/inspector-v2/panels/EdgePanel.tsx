@@ -20,7 +20,8 @@ import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useEdgeMutations, type EdgeStrengthConfirmOutcome, type EdgeStrengthCommitOutcome } from '../useInspectorMutations'
-import type { SystemEventSendSettlement } from '../../../conversation/settleSystemEventSend'
+import type { SystemEventSendSettlement, SystemEventSendSettlementDetail } from '../../../conversation/settleSystemEventSend'
+import { fenceRefusalCopyForCategory } from '../../../../v5/failureTypeRetryability'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -58,6 +59,18 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 import { formatNumber } from '../../../utils/formatValueWithUnit'
+
+/**
+ * The turn fence's own sentence for a `refused` edge edit (CEE #1868 `turn_fence_*`), else null.
+ * A STOPPED or SUPERSEDED turn settles `refused` like any proven no-write, and "Olumi did not
+ * take this change" is false about a turn the user stopped.
+ */
+function fenceCopyOf(
+  settlement: SystemEventSendSettlement,
+  detail?: SystemEventSendSettlementDetail,
+): string | null {
+  return settlement === 'refused' ? fenceRefusalCopyForCategory(detail?.conflictCategory) : null
+}
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -410,7 +423,7 @@ export const EdgePanel = memo(function EdgePanel({
    * the window between the press and the server's answer.
    */
   const [strengthEditSend, setStrengthEditSend] =
-    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' } | null>(null)
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent'; fenceCopy?: string | null } | null>(null)
   /**
    * ⭐ HOW THE LAST DIRECTION CHANGE SETTLED — its own state, for the reason
    * `strengthEditSend` is apart from `strengthConfirm`: a different act with its
@@ -418,7 +431,7 @@ export const EdgePanel = memo(function EdgePanel({
    * the sequence number drops a late answer to a superseded click.
    */
   const [directionEditSend, setDirectionEditSend] =
-    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' | 'pending' } | null>(null)
+    useState<{ ts: number; settlement: SystemEventSendSettlement | 'not_sent' | 'pending'; fenceCopy?: string | null } | null>(null)
   const directionSendSeqRef = useRef(0)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
@@ -615,7 +628,8 @@ export const EdgePanel = memo(function EdgePanel({
    * Three copies of this closure would be three chances to drift.
    */
   const handleStrengthSendSettled = useCallback(
-    (settlement: SystemEventSendSettlement) => setStrengthEditSend({ ts: Date.now(), settlement }),
+    (settlement: SystemEventSendSettlement, detail?: SystemEventSendSettlementDetail) =>
+      setStrengthEditSend({ ts: Date.now(), settlement, fenceCopy: fenceCopyOf(settlement, detail) }),
     [],
   )
 
@@ -735,9 +749,9 @@ export const EdgePanel = memo(function EdgePanel({
     const seq = ++directionSendSeqRef.current
     setDirectionEditSend({ ts: Date.now(), settlement: 'pending' })
     const outcome = mutations.setDirection(next, {
-      onSendSettled: (settlement) => {
+      onSendSettled: (settlement, detail) => {
         if (seq !== directionSendSeqRef.current) return
-        setDirectionEditSend({ ts: Date.now(), settlement })
+        setDirectionEditSend({ ts: Date.now(), settlement, fenceCopy: fenceCopyOf(settlement, detail) })
       },
     })
     // Anything but a dispatch means no settlement is coming (the strength
@@ -1069,7 +1083,7 @@ export const EdgePanel = memo(function EdgePanel({
                             : directionEditSend.settlement === 'not_sent'
                               ? ACTION_LABELS.strengthConfirmNotSent
                               : directionEditSend.settlement === 'refused' || directionEditSend.settlement === 'blocked'
-                                ? ACTION_LABELS.strengthEditNotRecorded
+                                ? (directionEditSend.fenceCopy ?? ACTION_LABELS.strengthEditNotRecorded)
                                 : directionEditSend.settlement === 'unverified'
                                   ? ACTION_LABELS.strengthEditUnverified
                                   : ACTION_LABELS.strengthConfirmSent}
@@ -1224,7 +1238,7 @@ export const EdgePanel = memo(function EdgePanel({
                       : strengthEditNotSent
                         ? ACTION_LABELS.strengthConfirmNotSent
                         : strengthEditDidNotLand
-                          ? ACTION_LABELS.strengthEditNotRecorded
+                          ? (strengthEditSend?.fenceCopy ?? ACTION_LABELS.strengthEditNotRecorded)
                           : strengthEditIsUnverified
                             ? ACTION_LABELS.strengthEditUnverified
                             : ACTION_LABELS.strengthConfirmSent}

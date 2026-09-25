@@ -277,6 +277,34 @@ describe('the sender settles, and two of its three answers mean nothing was sent
     ).not.toBeInTheDocument()
   })
 
+  it('REFUSED, FENCE — a STOPPED turn (CEE #1868 `turn_fence_stopped`) says the fence\'s own sentence, never "moved on"', async () => {
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', { conflictCategory: 'turn_fence_stopped' }),
+    )
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent).toBe("That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.")
+    expect(notice.textContent ?? '').not.toMatch(/moved on/i)
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+    ).not.toBeInTheDocument()
+  })
+
+  it('CONTRAST — `BASE_HASH_DIVERGED` keeps the moved-on line, exactly', async () => {
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', { conflictCategory: 'BASE_HASH_DIVERGED' }),
+    )
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent).toBe(
+      'Not saved — the model moved on while this was in flight. Ask me anything about this decision, then set this value again.',
+    )
+  })
+
   it('REFUSED, DECLINED — the producer\'s `system_event_refused_no_write` says NOT SAVED and never "moved on"', async () => {
     // The 422 CEE sends when it declines the request itself (served UI
     // `a4434670`, CDP starter). Its no-write guarantee is stated on

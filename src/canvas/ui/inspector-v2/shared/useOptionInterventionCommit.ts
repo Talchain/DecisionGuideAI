@@ -52,6 +52,7 @@ import {
   type OptionInterventionSendSettlement,
 } from '../../../hooks/useModelEditAuthority'
 import type { SystemEventSendSettlementDetail } from '../../../conversation/settleSystemEventSend'
+import { fenceRefusalCopyForCategory } from '../../../../v5/failureTypeRetryability'
 import { isDisplaySafeReason } from '../../../conversation/ceeRecovery'
 
 /**
@@ -200,6 +201,10 @@ function describeSettlement(
     return { state: 'Not sent', message: OPTION_INTERVENTION_BLOCKED, retryable: true }
   }
   if (settlement === 'refused') {
+    // ⭐ A STOPPED or SUPERSEDED turn (CEE #1868 `turn_fence_*`) settles `conflict` too,
+    // and "the model changed" is false about it. The fence states its own cause.
+    const fence = fenceRefusalCopyForCategory(detail.conflictCategory)
+    if (fence) return { state: 'Not saved', message: fence, retryable: false }
     if (detail.refusal !== 'declined') {
       return { state: 'Not saved', message: OPTION_INTERVENTION_NOT_SAVED_CONFLICT, retryable: false }
     }

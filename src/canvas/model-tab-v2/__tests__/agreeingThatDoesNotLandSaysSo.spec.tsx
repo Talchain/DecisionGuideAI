@@ -180,6 +180,29 @@ describe('the host reports what happened to the statement', () => {
     expect(el.textContent).toMatch(/not recorded/i)
   })
 
+  it('⭐ a STOPPED turn (CEE #1868 `turn_fence_stopped`) says the fence\'s own sentence, never "moved on"', async () => {
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', { conflictCategory: 'turn_fence_stopped' }),
+    )
+    renderPanel()
+    agree()
+    const el = await screen.findByTestId(`model-row-v2-${EDGE}-value-confirm-unsettled`)
+    expect(el.textContent).toBe("That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it.")
+    expect(el.textContent).not.toMatch(/moved on/i)
+  })
+
+  it('CONTRAST — `BASE_HASH_DIVERGED` keeps the moved-on line, exactly', async () => {
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', { conflictCategory: 'BASE_HASH_DIVERGED' }),
+    )
+    renderPanel()
+    agree()
+    const el = await screen.findByTestId(`model-row-v2-${EDGE}-value-confirm-unsettled`)
+    expect(el.textContent).toBe(
+      'Not recorded — the model moved on while this was in flight. Ask Olumi about this link, then agree again.',
+    )
+  })
+
   it('⛔ a failure that proves nothing says so, and does NOT claim "not sent"', async () => {
     // The more dangerous half: answering "not sent" to a failure that MAY have
     // written invites the user to re-send something the model already holds.
