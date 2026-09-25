@@ -34,6 +34,7 @@ import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePi
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   classifyInterventionProvenance,
+  VALUE_PROVENANCE_LABEL,
   type ValueProvenanceKind,
 } from '../domain/valueProvenance'
 import { KIND_LABEL } from './rowPresentation'
@@ -84,16 +85,10 @@ const NO_AUTHORITY_INTERVENTION =
  * a claim about the value, over a value that is set. The wording is kept
  * identical to the pill's on purpose: same tab, same register, one voice.
  */
-const INTERVENTION_PROVENANCE_LABEL: Record<ValueProvenanceKind, string> = {
-  brief: 'From brief',
-  ai: 'AI estimate',
-  confirmed: 'Confirmed by you',
-  edited: 'User edited',
-  assumption: 'Your assumption',
-  human: 'Set by you',
-  panel: 'From your panel',
-}
-
+/* ⭐ MODEL-11: this used to be its own hand-maintained copy of
+   `VALUE_PROVENANCE_LABEL` (word-for-word, until the `ai` string drifted) —
+   now it imports the shared map, so the two can no longer disagree about
+   what one source is called. */
 const INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, string> = {
   brief: 'border-info/30',
   ai: 'border-warning/30',
@@ -119,7 +114,7 @@ function InterventionProvenanceMark({ source }: { source: string | undefined }) 
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${INTERVENTION_PROVENANCE_BORDER[cls.kind]} text-text-body ${typography.panelMeta}`}
     >
-      {INTERVENTION_PROVENANCE_LABEL[cls.kind]}
+      {VALUE_PROVENANCE_LABEL[cls.kind]}
     </span>
   )
 }

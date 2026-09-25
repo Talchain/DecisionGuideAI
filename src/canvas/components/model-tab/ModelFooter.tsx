@@ -57,10 +57,16 @@ export function ModelFooter({ onCopyText, onCopyJson }: ModelFooterProps) {
       className="border-t border-panel-border pt-3 -mx-3 px-3 flex items-center justify-end gap-2"
       data-testid="model-footer"
     >
+      {/* ⭐ MODEL-12: `.textbutton`, NOT AN 11PX SQUARE CHIP. The prototype's
+          export/secondary acts carry no border and no fill (`Olumi_Reasoning_
+          Prototype_V2.html` `.textbutton`, 12px info, 28px, `:110`/`:555`) —
+          this was `panelMeta` (11px) in a `border-panel-border` box at a
+          1.23:1 contrast, which read as leftover chrome. `text-info` plus
+          `hover:underline` carries the act without a border. */}
       <button
         type="button"
         onClick={handleCopyText}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
+        className={`inline-flex items-center gap-1.5 min-h-[28px] shrink-0 ${typography.panelBody} text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm`}
         data-testid="model-copy"
       >
         <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -69,7 +75,7 @@ export function ModelFooter({ onCopyText, onCopyJson }: ModelFooterProps) {
       <button
         type="button"
         onClick={handleCopyJson}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
+        className={`inline-flex items-center gap-1.5 min-h-[28px] shrink-0 ${typography.panelBody} text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded-sm`}
         data-testid="model-copy-json"
       >
         <ClipboardCopy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />

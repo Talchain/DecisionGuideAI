@@ -72,6 +72,18 @@ export interface AccordionProps {
    * before; only a caller that opts in changes shape.
    */
   flush?: boolean
+  /**
+   * ⭐ MODEL-4: AN OPT-IN SLOT FOR AN ACT THAT SURVIVES REGARDLESS OF DETAIL.
+   * `ModelHealthSection`'s `modelcard-discuss` ask used to be the ONLY reason
+   * the Model card was ever forced open at rest — it sat inside the
+   * collapsible body, so keeping the card reachable while closed meant
+   * `hasAnyBodyContent` had to count a control that was not detail. Rendered
+   * as a SIBLING of the toggle button (never nested inside it — a button
+   * cannot contain another interactive element), in the same header row, so
+   * it stays in the accessibility tree — and reachable by touch and keyboard
+   * — whether the card is open or shut.
+   */
+  headerAction?: ReactNode
 }
 
 const badgeStates = {
@@ -109,6 +121,7 @@ export function Accordion({
   testId,
   className = '',
   flush = false,
+  headerAction,
 }: AccordionProps) {
   // Support both controlled and uncontrolled modes
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
@@ -169,66 +182,94 @@ export function Accordion({
       data-testid={testId}
       aria-labelledby={headingId}
     >
-      {/* Header button - accessible trigger */}
-      <button
-        type="button"
-        onClick={handleToggle}
-        aria-expanded={isExpanded}
-        aria-controls={contentId}
-        className={
-          flush
-            ? 'w-full px-3 py-2 bg-panel flex items-start justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset'
-            : 'w-full px-3 py-2 bg-panel border-b border-panel-border flex items-start justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset'
-        }
-      >
-        <div className="flex items-start gap-2 flex-1">
-          <ChevronRight
-            className={`h-4 w-4 text-text-light transition-transform duration-200 mt-0.5 ${
-              isExpanded ? 'rotate-90' : ''
-            }`}
-            aria-hidden="true"
-          />
-          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              {icon && (
-                <span className="inline-flex shrink-0" aria-hidden="true">
-                  {icon}
-                </span>
-              )}
-              <h3
-                id={headingId}
-                className={`${typography.panelHeader} text-text-header`}
-              >
-                {title}
-              </h3>
-              {badgeCount !== undefined && badgeCount > 0 && (
-                <span
-                  className={`
-                    inline-flex min-w-[22px] items-center justify-center rounded-full border
-                    bg-transparent px-1.5 py-0.5 text-text-body
-                    ${typography.panelMeta} ${resolvedBadgeState ? badgeStates[resolvedBadgeState] : ''}
-                  `}
-                >
-                  {badgeCount}
-                </span>
-              )}
-              {tierLabel && tierVariant && (
-                <span
-                  className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
-                  title={tierTitle}
-                >
-                  {tierLabel}
-                </span>
-              )}
+      {/* Header button - accessible trigger.
+          ⭐ MODEL-4: WHEN `headerAction` IS PASSED, IT RENDERS AS A SIBLING OF
+          THIS BUTTON INSIDE A `flex items-center justify-between` WRAPPER —
+          never nested inside the button itself, which would be invalid HTML
+          (a button cannot contain another interactive element) and would put
+          the action inside the `inert` region when the card is closed, the
+          opposite of what makes it reachable at rest. Existing callers that
+          do not pass `headerAction` render the bare button exactly as
+          before — this slot is opt-in geometry, like `flush`.
+
+          ⚠ THE GEOMETRY BELOW IS KEYED ON `flush` ALONE, NOT ON WHETHER
+          `headerAction` IS ALSO PRESENT. `ModelHealthSection` is the one
+          flush caller and passes `headerAction` only when a hand-off exists
+          — an earlier draft of this file made the MODEL-7 gutter fix
+          (`px-0 py-1.5`, the 14px chevron) conditional on `headerAction`
+          too, so a flush card with no hand-off silently kept the old
+          12px-gutter geometry. Flush means flush either way. */}
+      {(() => {
+        const headerButton = (
+          <button
+            type="button"
+            onClick={handleToggle}
+            aria-expanded={isExpanded}
+            aria-controls={contentId}
+            className={[
+              headerAction ? 'flex-1 min-w-0' : 'w-full',
+              flush ? 'px-0 py-1.5' : 'px-3 py-2',
+              'bg-panel flex items-start justify-between transition-colors',
+              flush ? '' : 'border-b border-panel-border hover:bg-panel-hover',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset',
+            ].filter(Boolean).join(' ')}
+          >
+            <div className="flex items-start gap-2 flex-1">
+              <ChevronRight
+                className={`${flush ? 'w-3.5 h-3.5' : 'h-4 w-4'} text-text-light transition-transform duration-200 mt-0.5 ${
+                  isExpanded ? 'rotate-90' : ''
+                }`}
+                aria-hidden="true"
+              />
+              <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {icon && (
+                    <span className="inline-flex shrink-0" aria-hidden="true">
+                      {icon}
+                    </span>
+                  )}
+                  <h3
+                    id={headingId}
+                    className={`${typography.panelHeader} text-text-header`}
+                  >
+                    {title}
+                  </h3>
+                  {badgeCount !== undefined && badgeCount > 0 && (
+                    <span
+                      className={`
+                        inline-flex min-w-[22px] items-center justify-center rounded-full border
+                        bg-transparent px-1.5 py-0.5 text-text-body
+                        ${typography.panelMeta} ${resolvedBadgeState ? badgeStates[resolvedBadgeState] : ''}
+                      `}
+                    >
+                      {badgeCount}
+                    </span>
+                  )}
+                  {tierLabel && tierVariant && (
+                    <span
+                      className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
+                      title={tierTitle}
+                    >
+                      {tierLabel}
+                    </span>
+                  )}
+                </div>
+                {subtitle && (
+                  <p className={`${typography.panelMeta} text-text-light text-left`}>
+                    {subtitle}
+                  </p>
+                )}
+              </div>
             </div>
-            {subtitle && (
-              <p className={`${typography.panelMeta} text-text-light text-left`}>
-                {subtitle}
-              </p>
-            )}
+          </button>
+        )
+        return headerAction ? (
+          <div className="flex items-center justify-between">
+            {headerButton}
+            <span className="shrink-0 flex items-center">{headerAction}</span>
           </div>
-        </div>
-      </button>
+        ) : headerButton
+      })()}
 
       {/* Collapsible content with smooth height transition */}
       {/* Issue 2 fix: aria-hidden + inert prevent focus when collapsed */}
@@ -246,8 +287,11 @@ export function Accordion({
           opacity: isExpanded ? 1 : 0,
         }}
       >
-        {/* Inner wrapper maintains padding regardless of collapsed state */}
-        <div className="p-3">
+        {/* Inner wrapper maintains padding regardless of collapsed state.
+            ⭐ MODEL-4: flush arm drops the side padding it no longer needs
+            once the header above it is also `px-0` — a flush section's body
+            sits flush with the panel gutter, like Reasoning's own sections. */}
+        <div className={flush ? 'py-2' : 'p-3'}>
           {children}
         </div>
       </div>

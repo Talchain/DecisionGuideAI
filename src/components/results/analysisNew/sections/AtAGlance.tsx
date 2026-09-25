@@ -337,12 +337,6 @@ export interface AtAGlanceProps {
  * colour, and slightly tracked. The hierarchy comes from the scale and the
  * spacing, which is what the scale is for.
  */
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className={`${typography.panelMeta} text-text-light tracking-wide m-0`}>{children}</p>
-  )
-}
-
 export function AtAGlance({
   glance,
   onFocusTarget,
@@ -361,6 +355,7 @@ export function AtAGlance({
   part = 'all',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
+  const [withheldOpen, setWithheldOpen] = useState(false)
   const excludedKey =
     glance.comparisonScope.kind === 'partial'
       ? JSON.stringify(glance.comparisonScope.excluded.map((o) => o.id))
@@ -797,7 +792,12 @@ export function AtAGlance({
             <button
               type="button"
               onClick={onReviewEstimates}
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): `hover:text-info-hover`,
+                 not `hover:opacity-80` — opacity on `text-info` composited to
+                 3.33:1 on hover, below AA (measured on this exact control).
+                 `text-info-hover` reads `--info-hover`, the same token the
+                 prototype's own `button:hover` rule uses, and it stays AA. */
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover`}
               data-testid={`${testId}-ribbon-review-estimates`}
             >
               {COPY.glance.reviewEstimates}
@@ -839,7 +839,10 @@ export function AtAGlance({
                  could never reach it. The disabled treatment stays here because
                  it is genuinely this control's own; the geometry and the colour
                  are the tier's. */
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the review-estimates
+                 control above — `hover:text-info-hover` replaces the failing
+                 `hover:opacity-80`. The disabled treatment is untouched. */
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
               data-testid={`${testId}-ribbon-reanalyse`}
             >
               {COPY.status.reanalyseToBeSure}
@@ -914,8 +917,26 @@ export function AtAGlance({
            ⚠ `role="status"` — this is a statement about the run, in the slot
            where the answer would otherwise be, so it must reach a screen reader
            the way the ribbon above does rather than as unannounced prose. */
+        /* ⭐ V2 prototype: the refusal sentence is not on the default scroll.
+           It sits behind ONE door, closed at rest — still the producer's
+           sentence, unparaphrased, one click away (the "Still open" bullet
+           and the qualifier already say the ordering is unconfirmed). */
+        <div data-testid={`${testId}-withheld-disclosure`}>
+          <button
+            type="button"
+            aria-expanded={withheldOpen}
+            onClick={() => setWithheldOpen((o) => !o)}
+            className={`${typography.panelBody} ${action('disclose')}`}
+            data-testid={`${testId}-withheld-toggle`}
+          >
+            <ChevronRight
+              className={`h-3.5 w-3.5 shrink-0 text-text-light ${withheldOpen ? 'rotate-90' : ''}`}
+              aria-hidden={true}
+            />
+            {COPY.glance.eyebrowWhyWithheld}
+          </button>
+          {withheldOpen ? (
         <div role="status">
-          <Eyebrow>{COPY.glance.eyebrowWhyWithheld}</Eyebrow>
           <p
             className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
             data-testid={`${testId}-withheld-reason`}
@@ -1045,11 +1066,16 @@ export function AtAGlance({
                  actually lands on: **133×15**. The per-call-site spelling is the
                  defect the tier exists to end, surviving inside the control the
                  tier was created for. */
-              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:opacity-80`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the ribbon's
+                 review-estimates control above — `hover:text-info-hover`
+                 replaces the failing `hover:opacity-80`. */
+              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:text-info-hover`}
               data-testid={`${testId}-withheld-review-estimates`}
             >
               {COPY.glance.reviewEstimates}
             </button>
+          ) : null}
+        </div>
           ) : null}
         </div>
       ) : null}

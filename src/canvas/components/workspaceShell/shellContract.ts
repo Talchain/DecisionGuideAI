@@ -100,6 +100,22 @@ export const SHELL_CONTENT_BUDGET_PX = shellContentBudget(DOCK_RESPONSIVE_MAX_WI
 export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
 
 /**
+ * Below this dock width, in px, the tab strip goes compact
+ * (design-audit-20260925, gap NARROW-1). At the 280px drag floor, four
+ * `px-2` tabs plus VersionsTrigger, the expert-mode toggle and the collapse
+ * control do not fit one row and wrap into a 2×2 grid, doubling the header's
+ * height. Below this width `WorkspaceShellTabStrip` drops the tabs to
+ * `panelMeta` (11px) and folds VersionsTrigger and the expert-mode toggle
+ * into a single overflow menu, so both stay keyboard-reachable rather than
+ * being silently omitted from the strip.
+ *
+ * 320, not a dock-width literal — R1 flags only 280/416/480 as named widths;
+ * this is the narrowest width at which four 12px tabs plus three 28px
+ * controls fit, plus headroom, per the audit's own measurement.
+ */
+export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 320
+
+/**
  * The CSS custom property the shell publishes its LIVE measured width on.
  *
  * Written from the dock's own `getBoundingClientRect()`, the same derive-don't-
@@ -149,20 +165,12 @@ export const SHELL_TYPOGRAPHY_KEYS = [
   'panelBody',
   'panelMeta',
   'panelTabular',
-  // ⚠⚠ A GENUINE FOURTH SIZE — 18px, 17 Sep 2026. Unlike `panelTabular` it does
-  // NOT share an existing size, so it is a real widening and is recorded as one
-  // rather than argued away. Measured on deployed `d135ff7e`: the whole
-  // Reasoning panel rendered at 14/12/11 with SIX strings tied for largest at
-  // 14px, so nothing led and the panel never named the decision it was about.
-  // Its only consumer is the model strip's subject line.
-  //
-  // ⚠ NOT `panel*`-PREFIXED, so the `panel*` family's three-size rule (pinned
-  // by name in `panel-scale-has-exactly-three-sizes`) is untouched —
-  // `welcomeHeading` set that convention. Listed here for the same reason
-  // `panelTabular` is: this list is what the conformance guard names as legal,
-  // and omitting a token the panel is meant to use would send the next lane to
-  // delete it.
-  'reasoningLead',
+  // ⚠ SAME SIZE AS `panelHeader` (14px), a different NAME for a different
+  // weight (500 vs 600) — design-audit-20260925 gap TYPE-2. `panelHeader`'s
+  // 18 Sep ruling retired the one token that added a genuine fourth SIZE
+  // (`reasoningLead`, 18px); this is not that shape, because deriving the
+  // rendered sizes still yields exactly {14, 12, 11}.
+  'panelQuestion',
 ] as const
 export type ShellTypographyKey = (typeof SHELL_TYPOGRAPHY_KEYS)[number]
 

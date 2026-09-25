@@ -38,7 +38,7 @@ export interface ReviewItemEditorProps {
   testIdPrefix: string
 }
 
-const fieldClass = `${typography.panelBody} w-full rounded border border-panel-border bg-panel px-2 py-1.5 text-text-header ${ACTION_FOCUS}`
+const fieldClass = `${typography.panelBody} w-full min-h-[64px] rounded-sm border border-field bg-panel px-2 py-1.5 text-text-header ${ACTION_FOCUS}`
 const fieldGroupClass = `${typography.panelMeta} flex flex-col gap-0.5 text-text-light`
 
 export function ReviewItemEditor({ item, focusField, onAsk, onClose, testIdPrefix }: ReviewItemEditorProps) {

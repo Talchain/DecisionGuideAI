@@ -119,7 +119,13 @@ export interface ValueProvenanceClass {
  */
 export const VALUE_PROVENANCE_LABEL: Readonly<Record<ValueProvenanceKind, string>> = Object.freeze({
   brief: 'From brief',
-  ai: 'AI estimate',
+  /* ⭐ MODEL-11: 'Olumi estimate', not 'AI estimate'. The prototype never says
+     "AI" (`Olumi_Reasoning_Prototype_V2.html` :479-497: 'Olumi estimate',
+     'Olumi assumption') and this tab said both — five factor marks read 'AI
+     estimate' while `ModelOutline` said '{n} estimated by Olumi' two
+     components away, one fact under two names. Keyed to the `ai` kind only:
+     a brief-sourced, confirmed or user value must never read as Olumi's. */
+  ai: 'Olumi estimate',
   confirmed: 'Confirmed by you',
   edited: 'User edited',
   assumption: 'Your assumption',

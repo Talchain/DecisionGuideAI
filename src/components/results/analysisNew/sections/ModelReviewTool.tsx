@@ -304,7 +304,14 @@ export function ModelReviewTool({
   const menuItemClass = `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`
 
   return (
-    <div data-testid={testId} className="border-b border-panel-border py-1">
+    /* ⭐ NO RULE OF ITS OWN (design-audit-20260925, gaps SPACE-2 / FIRST-2 /
+       NARROW-8). This row used to draw an inset `border-b`, 12px above the
+       full-bleed section rule that already separates the model block from
+       "Challenge the thinking" — two hairlines that close read as a
+       rendering mistake. `!mt-1` overrides whatever `space-y-*` rhythm the
+       parent applies (the same override PANEL_RULE's `!mt-[11px]` uses, for
+       the same reason: `space-y`'s selector out-specifies a plain `mt-*`). */
+    <div data-testid={testId} className="!mt-1 py-1">
       <div className="flex items-center justify-between gap-1">
         {total > 0 ? (
           <Tooltip asChild content={COPY.entryTip}>
@@ -317,7 +324,14 @@ export function ModelReviewTool({
               aria-expanded={isOpen}
               aria-controls={regionId}
               aria-label={COPY.toReviewName(total)}
-              className={`inline-flex items-center gap-1 rounded py-1 pr-1 text-text-body hover:text-text-header ${ACTION_FOCUS} ${typography.panelBody}`}
+              /* ⭐⭐ H3: ONE WORKLIST COUNT, IN INFO BLUE — the prototype's own
+                 "🔍 5 to review" (`Olumi_Reasoning_Prototype_V2.html`). This is
+                 the ONLY review-count affordance the first screen offers; the
+                 strip's separate amber "N to verify"/"N with no value" chips
+                 render only inside its own disclosure (`{open ? ... : null}`
+                 above them in `ModelStrip.tsx`), never on the closed first
+                 screen, so nothing here duplicates them or adds new amber. */
+              className={`inline-flex items-center gap-1 rounded py-1 pr-1 text-info hover:text-info-hover ${ACTION_FOCUS} ${typography.panelBody}`}
               data-testid={`${testId}-toggle`}
             >
               <Search className={icon('row')} aria-hidden={true} />

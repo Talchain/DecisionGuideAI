@@ -94,7 +94,7 @@ describe('the detail says what the data behind a factor is', () => {
     // did not mint a second formatter and start disagreeing with the node.
     expect(shown).toHaveTextContent('£49')
     expect(shown).toHaveAttribute('data-has-value', 'true')
-    expect(screen.getByTestId(`${TID}-detail-value-source`)).toHaveTextContent('AI estimate')
+    expect(screen.getByTestId(`${TID}-detail-value-source`)).toHaveTextContent('Olumi estimate')
   })
 
   /**

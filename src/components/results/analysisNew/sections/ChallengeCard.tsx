@@ -35,7 +35,7 @@
  * under the decision the dismissal was filed against.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Pencil } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY, strengthenWhyLine } from '../analysisNewCopy'
 import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
@@ -49,7 +49,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
 import { REVIEW_TOOL_COPY } from '../buildReviewQueue'
-import { action } from '../panelSurfaces'
+import { action, icon } from '../panelSurfaces'
 import { respondToIntervention, respondToMethod } from '../challengeResponse'
 import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
 
@@ -61,7 +61,7 @@ import type { MethodEntry } from '../../decision-overview/actionsCatalogue'
  * under the zone's h3, led by a dot, so the hierarchy is carried by element
  * and position.
  */
-const ITEM_TEXT = typography.panelHeader
+const ITEM_TEXT = typography.panelQuestion
 export interface ChallengeCardProps {
   /** The body's `glancePrimary` — `vm.strengthen.interventions`' pick. */
   intervention: Recommendation | null
@@ -244,25 +244,28 @@ export function ChallengeCard({
           {shown.kicker.title}
         </p>
       ) : null}
-      <div className="flex items-start gap-1">
-        {/* ⭐ V2 (fidelity gap 16): the item is the zone's QUESTION, not a
-            second section title. 14px medium with a quiet leading dot, under
-            the zone's h3; still `.title` verbatim (ruling §3). */}
-        <p className={`${ITEM_TEXT} text-text-header m-0 min-w-0 flex-1 flex gap-1.5`}>
-          <span className="text-text-light" aria-hidden={true}>·</span>
-          <span className="min-w-0" data-testid={`${testId}-heading`}>{shown.heading}</span>
-        </p>
+      {/* ⭐ V2 prototype (`.challenge-question` + `.challenge-footer`): the item
+          is the zone's QUESTION on its own line — 14px/500 with a quiet leading
+          dot — and the acts sit on the row BELOW it: "✎ Respond" as an
+          icon-led info text-button on the left, the AI and "…" icons on the
+          right. Still `.title` verbatim (ruling §3). */}
+      <p className={`${ITEM_TEXT} text-text-header m-0 mt-1.5 min-w-0 flex gap-1.5`}>
+        <span className="text-text-light" aria-hidden={true}>·</span>
+        <span className="min-w-0" data-testid={`${testId}-heading`}>{shown.heading}</span>
+      </p>
+      <div className="flex items-center justify-between gap-2 mt-0.5 min-h-[27px]">
+        <button
+          ref={respondRef}
+          type="button"
+          onClick={() => (respondOpen ? closeRespond() : setRespond({ key: shown.key, text: '' }))}
+          aria-expanded={respondOpen}
+          className={`${typography.panelBody} ${action('text')}`}
+          data-testid={`${testId}-respond`}
+        >
+          <Pencil className={`${icon('inline')} shrink-0`} aria-hidden={true} />
+          {ZONE.respond}
+        </button>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            ref={respondRef}
-            type="button"
-            onClick={() => (respondOpen ? closeRespond() : setRespond({ key: shown.key, text: '' }))}
-            aria-expanded={respondOpen}
-            className={`${typography.panelMeta} ${action('inline')}`}
-            data-testid={`${testId}-respond`}
-          >
-            {ZONE.respond}
-          </button>
           <PanelIconButton ai label={ZONE.workThrough} onClick={run} testId={`${testId}-work-through`} />
           {shown.kind === 'intervention' ? (
             <div className="relative" ref={menuRef}>

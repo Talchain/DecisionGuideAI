@@ -449,10 +449,18 @@ describe('C · THE SECTION STRUCTURE', () => {
     const GROUP_TITLES: readonly string[] = [
       ANALYSIS_NEW_COPY.sections.whatMovesTheOutcome,
     ]
-    const allHeadings = Array.from(body.querySelectorAll('h3')).map(
-      (h) => h.querySelector('[data-testid$="-title"]')?.textContent ?? h.textContent,
-    )
-    const groupHeadings = allHeadings.filter((t) => t !== null && GROUP_TITLES.includes(t))
+    /**
+     * ⚠ RE-POINTED (TAIL-1, panel-lane design audit 2026-09-25): "What moves
+     * the outcome" is now `SectionShell`'s `variant="disclose"` — the
+     * prototype's plain `.disclose` door, a chevron and one line inside a
+     * `<button>` with no heading tag at all (dropping the icon slot, subtitle
+     * and count badge along with it). `querySelectorAll('h3')` therefore no
+     * longer finds it, so the group census binds it by its own title testid
+     * instead of folding it into the h3 sweep above.
+     */
+    const groupHeadings = [
+      body.querySelector('[data-testid="analysis-new-what-moves-the-outcome-title"]')?.textContent ?? null,
+    ].filter((t): t is string => t !== null)
     /*
      * ⭐⭐⭐ REASONING V2 (24 Sep 2026) — THE CENSUS WENT RED BY NAME, AS IT IS
      * MEANT TO WHEN A MOVE LANDS. Every change below is a V2 decision, listed

@@ -331,7 +331,11 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 w-full px-3 py-2.5 text-left hover:bg-panel-hover transition-colors"
+        /* ⭐ MODEL-7: `-mx-2 px-2`, NOT `px-3`. This header keeps its hover
+           fill, so it takes a hanging inset (text on the gutter, hit/hover
+           box reaching the panel edges) rather than `px-0`, which would
+           leave the fill 8px short of the edge it should cover. */
+        className="flex items-center gap-2 w-full -mx-2 px-2 py-2.5 text-left hover:bg-panel-hover transition-colors"
         aria-expanded={isExpanded}
       >
         <Wrench size={14} className="text-text-light flex-shrink-0" />
@@ -366,7 +370,8 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
       </button>
 
       {isExpanded && (
-        <div className="px-3 pb-2 space-y-1.5">
+        // ⭐ MODEL-7: px-0 — plain text/rows, no hover fill to preserve.
+        <div className="px-0 pb-2 space-y-1.5">
           {constraintAdj.length > 0 && (
             <>
               <p className={`${typography.panelMeta} text-text-light`}>
@@ -417,7 +422,8 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
           <button
             type="button"
             onClick={() => setShowPostRun(!showPostRun)}
-            className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-panel-hover transition-colors"
+            // ⭐ MODEL-7: hanging inset — same reasoning as the header above.
+            className="flex items-center gap-2 w-full -mx-2 px-2 py-2 text-left hover:bg-panel-hover transition-colors"
             aria-expanded={showPostRun}
             aria-controls="post-run-repairs-list"
             data-testid="post-run-repairs-toggle"
@@ -433,7 +439,8 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
             />
           </button>
           {showPostRun && (
-            <div className="px-3 pb-2 space-y-1" id="post-run-repairs-list" data-testid="post-run-repairs-list">
+            // ⭐ MODEL-7: px-0 — plain rows, no hover fill to preserve.
+            <div className="px-0 pb-2 space-y-1" id="post-run-repairs-list" data-testid="post-run-repairs-list">
               {postRunRepairs.map((repair) => (
                 <div key={`${repair.label}-${repair.action}`} className={`flex items-start gap-2 ${typography.panelMeta} text-text-light`}>
                   <span className="mt-0.5 flex-shrink-0">&bull;</span>

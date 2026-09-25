@@ -30,6 +30,16 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { OptionsComparison } from '../sections/OptionsComparison'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 
+/**
+ * ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-3): `outcomeRange`/`goalReadout`/
+ * `goalFraction` NOW SET EXPLICITLY, AS `null`. The caveat this file pins is
+ * now additionally gated on `lens === null` (no range, no goal figure to
+ * draw) — a real view model always carries these fields, `null` when absent,
+ * never `undefined`. Leaving them off this fixture left them `undefined`,
+ * which `goalFitAvailable`'s `!== null` check reads as a PRESENT figure — a
+ * cast-through-`never` artefact, not a state any real run reaches, and it
+ * silenced the caveat here for a reason that had nothing to do with the gate.
+ */
 const OPT = (id: string, label: string, winReadout: string | null) => ({
   id,
   label,
@@ -37,6 +47,9 @@ const OPT = (id: string, label: string, winReadout: string | null) => ({
   winReadout,
   winFraction: winReadout === null ? null : 0.5,
   notAnalysedReason: null,
+  outcomeRange: null,
+  goalReadout: null,
+  goalFraction: null,
 })
 
 /**
