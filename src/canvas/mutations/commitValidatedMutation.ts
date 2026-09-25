@@ -50,15 +50,11 @@ export async function commitValidatedMutation(
             nodes: validatedGraph.nodes,
             edges: validatedGraph.edges,
           })
+          markFreshnessDirty()
         } else {
           // PLoT validated but didn't return full graph — apply locally
-          localApply()
+          if (applyLocally(localApply)) markFreshnessDirty()
         }
-        // Every context-menu mutation is a user model edit → dirty the freshness
-        // overlay. Covers localApply paths that bare-setState (e.g. insert-factor-
-        // between) and the validated-graph branch; idempotent for callers whose
-        // localApply already dirties via a store action.
-        markFreshnessDirty()
         return { success: true }
       } else {
         // PLoT rejected the mutation
@@ -72,9 +68,28 @@ export async function commitValidatedMutation(
   }
 
   // Phase 2: Local application (current behaviour for all mutations)
-  localApply()
-  markFreshnessDirty()
+  if (applyLocally(localApply)) markFreshnessDirty()
   return { success: true }
+}
+
+/**
+ * Run `localApply` and report whether it moved the graph.
+ *
+ * Every context-menu mutation that lands is a user model edit, so it dirties the
+ * freshness overlay — including `localApply` paths that bare-setState (e.g.
+ * insert-factor-between); the mark is idempotent for store actions that already
+ * dirty. ⛔ But a store action can REFUSE inside `localApply` and return before
+ * touching the graph: the fail-closed structural-delete gate (reason
+ * `no_server_graph_hash`) does, and says "Nothing was removed". Marking then
+ * would downgrade a retained `fresh` verdict to "cannot confirm" after a gesture
+ * whose own toast says nothing changed — and only a NEW analysis clears it.
+ * Every store graph write replaces `nodes` and/or `edges`, so identity is the test.
+ */
+function applyLocally(localApply: () => void): boolean {
+  const { nodes, edges } = useCanvasStore.getState()
+  localApply()
+  const after = useCanvasStore.getState()
+  return after.nodes !== nodes || after.edges !== edges
 }
 
 /** Mark the freshness overlay dirty (optional-chained for partial test store doubles). */
