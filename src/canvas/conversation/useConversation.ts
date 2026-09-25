@@ -5417,7 +5417,18 @@ export function useConversation(): UseConversationReturn {
                     canvasBeforeOwnWrite.nodes as never,
                     canvasBeforeOwnWrite.edges as never,
                   ))
-              const merged = reconcileAppliedGraph(inlineGraph as any)
+              // ⭐ WHETHER THE ANALYSIS STILL DESCRIBES THE MODEL IS CEE'S CALL.
+              // CEE CAS-checks `base_graph_hash` before it writes, and its
+              // `graph_hash` is the analysis-affecting projection, so a
+              // committed response at the SAME hash is the producer saying this
+              // edit moved nothing the analysis reads (a rename: served 25 Sep,
+              // base = response = `31f5adf8e5043c9c`). No base sent → no claim.
+              const sentBaseHash = systemEvent?.payload?.base_graph_hash
+              const analysisHashUnmoved =
+                typeof sentBaseHash === 'string' &&
+                sentBaseHash.length > 0 &&
+                target.response.graph_hash === sentBaseHash
+              const merged = reconcileAppliedGraph(inlineGraph as any, { analysisHashUnmoved })
               if (receiptExtendsAcknowledgement) {
                 const afterReceipt = useCanvasStore.getState()
                 markGraphServerAcknowledged(
