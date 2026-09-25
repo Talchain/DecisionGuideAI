@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:7902
+src/canvas/store.ts:7953
 src/canvas/stores/readinessStore.ts:782
 src/canvas/stores/readinessStore.ts:875
 src/canvas/utils/briefValidation.ts:43
@@ -121,6 +121,12 @@ src/types/constraints.ts:78
 #    (`store.ts:7895` -> `7902`, the union of #1991's +8 (landed in U4b) and this
 #    branch's +7, both above this site. Line text identical
 #    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
+#    (`store.ts:7902` -> `7953`, a pure +51 line shift from
+#    `canvas/add-option-hash-chain` (26 Sep 2026): the chained-link capture in
+#    `addNodeWithEdge`, the `takePendingStructuralAddEdges` filter and the
+#    committed-hash settle, all above this site. Line text identical
+#    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`); added and gone
+#    were exactly this pair.)
 #    (`analysisNewCopy.ts:2463` -> `2471`, a pure +8 line shift from Panel
 #    bundle 2: copy for the blocker repair ask and #1963's tail subtitles,
 #    both above this site. Line text identical; added and gone were
