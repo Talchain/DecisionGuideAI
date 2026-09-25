@@ -199,12 +199,49 @@ export function getExtractionLabel(
   source?: string,
   attributedTo?: ParticipantNameResolution,
 ): string {
-  if (!source) return 'Estimated by Olumi'
+  // ⛔ THIS ARM USED TO RETURN 'Estimated by Olumi' — an estimate claimed over
+  // NOTHING, on three unflagged panels. `source = obs?.source` is undefined
+  // whenever `schema-v3.ts:456` never built an `observed_state`, so a factor
+  // carrying no number at all was labelled as Olumi's estimate. The honest
+  // sibling returns this same string for the identical input.
+  if (!source) return 'No evidence yet'
   const attributed = attributedLabelFor(source, attributedTo)
   if (attributed) return attributed
   switch (source) {
-    case 'brief_extraction': return 'From your brief'
-    default:                 return 'Estimated by Olumi'
+    // The ONLY copy this function owns, and the only place it may differ from
+    // `getProvenanceLabel`: the brief register is terser here ("From your
+    // brief", not "Generated from your brief").
+    //
+    // ⛔ `explicit` WAS MISSING AND THAT WAS THE THIRD INSTANCE OF THIS FILE'S
+    // OLDEST DEFECT. `valueProvenance.ts:154` classifies it as kind `brief`,
+    // whose `ATTRIBUTED_LABEL` entry is deliberately `null` so "producer kinds
+    // keep each function's own pre-existing copy" — and this function's copy
+    // listed only `brief_extraction`. So a value the USER STATED IN THEIR BRIEF
+    // (`:143` calls the two alike, and `BADGE_TOOLTIPS.explicit` says "This
+    // value was stated in your decision brief") fell to the default and was
+    // attributed to the machine. Same shape as `user_confirmed` and
+    // `panel_elicited` before it.
+    case 'brief_extraction':
+    case 'explicit':
+      return 'From your brief'
+    // Kept deliberately: where Olumi genuinely did infer the number, saying so
+    // is the honest disclosure this surface exists to make. Pinned by the
+    // non-vacuity case in `extractionLabelHonesty.spec.ts` so a later "remove
+    // the claim" change cannot quietly delete a true statement. Agrees with
+    // `InterventionRow.tsx:28`.
+    case 'cee_inference':
+    case 'inferred':
+      return 'Estimated by Olumi'
+    // ⭐ DELEGATE, DO NOT ASSERT. The old default ARM WAS A CLAIM, which is the
+    // mechanism by which this defect recurred three times: every source added
+    // upstream and not literally listed here printed the machine claiming
+    // authorship. Deferring to `getProvenanceLabel` leaves ONE list to maintain
+    // instead of two that must be kept in step — two lists always drift, one
+    // cannot — and makes the failure mode of an unknown source a neutral
+    // statement rather than a false claim. `cee_repair`, `ai-suggested`,
+    // `default` and the `evidence:` prefix are all already handled there.
+    default:
+      return getProvenanceLabel(source, attributedTo)
   }
 }
 
