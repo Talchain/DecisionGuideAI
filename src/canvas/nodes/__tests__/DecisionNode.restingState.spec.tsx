@@ -430,10 +430,11 @@ describe('DecisionNode — honest resting state', () => {
     // over a line it never saw — the corpus-excludes-the-class defect
     // (CLAUDE.md trap 13d). All four buckets are populated so every segment the
     // composer can emit passes under the guard.
-    // Locked Canvas design (23 Sep 2026): the top gap is now INSIDE the guarded
-    // row (its one pre-analysis focus signal), so the corpus renders it too —
-    // extended, never weakened.
-    ['pre-analysis, options linked, top gap on the row', () => {
+    // Locked Canvas design (23 Sep 2026): the top gap was INSIDE the guarded
+    // row, so the corpus rendered it too. Prototype row (Paul, 25 Sep 2026):
+    // the sentence is OFF the row, whole, in the popover — so this case now
+    // guards it THERE as well as the row, extended, never weakened.
+    ['pre-analysis, options linked, top gap in the popover', () => {
       setStore({
         nodes: [
           decisionNode,
@@ -443,8 +444,12 @@ describe('DecisionNode — honest resting state', () => {
         edges: optionEdges,
       })
       renderDecision()
-      // The case pins its own precondition: the top gap really is on the row.
-      expect(within(screen.getByTestId(RESTING)).getByTestId('decision-node-top-gap')).toBeDefined()
+      // The case pins its own precondition: the top gap is OFF the row and
+      // whole in the popover — and the guard runs over it where it now lives.
+      expect(within(screen.getByTestId(RESTING)).queryByTestId('decision-node-top-gap')).toBeNull()
+      const gap = within(screen.getByTestId('decision-node-popover')).getByTestId('decision-node-top-gap')
+      expect(gap.textContent).toBe('Top gap: estimate Attrition')
+      expect(canvasCopyIsHonest(visibleText(gap))).toBe(true)
     }],
     ['post-analysis Standard, leader withheld, factor-bearing model (summary off the face)', () => {
       setStore({
@@ -468,7 +473,7 @@ describe('DecisionNode — honest resting state', () => {
       // and the row the guard scans carries the option count, so the corpus is
       // not certifying an empty subtree.
       expect(screen.queryByTestId('decision-node-readiness-summary')).toBeNull()
-      expect(within(screen.getByTestId(RESTING)).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+      expect(within(screen.getByTestId(RESTING)).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
     }],
   ]
 
@@ -573,7 +578,7 @@ describe('DecisionNode — honest resting state', () => {
     // Locked Canvas design (23 Sep 2026): the content-free wayfinding line is
     // off the face; the row states the option count instead.
     expect(within(resting).queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
-    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
     // "yet" would assert that nothing has happened. A run had.
     expect(visibleText(resting)).not.toMatch(/\byet\b/i)
     // No authoring CTA here: the absence is not something the user writes away,
@@ -592,13 +597,16 @@ describe('DecisionNode — honest resting state', () => {
       edges: optionEdges,
     })
     renderDecision()
-    // Positive control: the body genuinely has content on this fixture.
-    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — the triage line is
-    // the row's ONE focus signal (`decision-node-top-gap`), and the row itself
-    // is the face in every state. "Does NOT render" is re-pointed to what it
-    // guarded: no resting fallback LINE and no CTA beside real content.
+    // Positive control: the card genuinely has content on this fixture.
+    // Locked Canvas design (23 Sep 2026): ED 11:52Z point 1 — "Does NOT render"
+    // is re-pointed to what it guarded: no resting fallback LINE and no CTA
+    // beside real content. Prototype row (Paul, 25 Sep 2026): the triage
+    // sentence is off the row, whole, in the popover; the row carries the count.
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-top-gap').textContent).toMatch(/Top gap: estimate/i)
+    expect(within(resting).queryByTestId('decision-node-top-gap')).toBeNull()
+    expect(within(screen.getByTestId('decision-node-popover')).getByTestId('decision-node-top-gap').textContent)
+      .toMatch(/Top gap: estimate/i)
+    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
     for (const line of FALLBACK_LINES) expect(resting.textContent).not.toContain(line)
     expect(within(resting).queryByTestId(RESTING_CTA)).toBeNull()
   })
@@ -639,7 +647,7 @@ describe('DecisionNode — honest resting state', () => {
       // line and the readiness summary are off the face. The row renders under
       // BOTH permissions and states the same structural fact (the option count),
       // which is the property: the verdict does not change what the row shows.
-      expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+      expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
       expect(within(resting).queryByText(DECISION_RESTING_COPY.completedRunLine)).toBeNull()
       expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
       // ⚠ NO CTA IS ASSERTED HERE, deliberately: the completed-run arm of
@@ -693,7 +701,7 @@ describe('DecisionNode — honest resting state', () => {
 
     // …and the resting row is NOT suppressed by it (Paul's 9 Sep ruling kept).
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
     expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
 
     // The copy still may not explain the analysis, chips or no chips.
@@ -738,7 +746,7 @@ describe('DecisionNode — honest resting state', () => {
     // …and the resting row is present alongside, per the ruling; the summary is
     // off the face (ED 11:52Z point 1).
     const resting = screen.getByTestId(RESTING)
-    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 options')
+    expect(within(resting).getByTestId('decision-node-option-count').textContent).toBe('2 alternatives')
     expect(within(resting).queryByTestId('decision-node-readiness-summary')).toBeNull()
   })
 

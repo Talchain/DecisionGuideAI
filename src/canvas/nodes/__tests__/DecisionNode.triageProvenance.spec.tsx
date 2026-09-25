@@ -23,7 +23,7 @@
  * behaviour) the first would.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 
@@ -168,8 +168,11 @@ describe('DecisionNode triage — leverage ranking is provenance-gated', () => {
     // — its visible span and its sr-only full-text recovery both carry the
     // sentence, so it is read by identity rather than by a text match that now
     // finds both halves.
-    const gap = screen.getByTestId('decision-node-top-gap')
-    expect(gap.querySelector('[aria-hidden="true"]')?.textContent).toBe('Top gap: validate Brand perception')
-    expect(gap.querySelector('.sr-only')?.textContent).toBe('Top gap: validate Brand perception')
+    //
+    // Prototype row (Paul, 25 Sep 2026): the sentence is off the resting row,
+    // WHOLE in the popover, with the card-side screen-reader copy beside it.
+    const gap = within(screen.getByTestId('decision-node-popover')).getByTestId('decision-node-top-gap')
+    expect(gap.textContent).toBe('Top gap: validate Brand perception')
+    expect(screen.getByTestId('decision-focus-signal-sr').textContent).toBe('Top gap: validate Brand perception')
   })
 })
