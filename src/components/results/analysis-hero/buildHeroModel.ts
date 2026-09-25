@@ -43,7 +43,7 @@
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import { leaderDesignationPermitted } from '../leaderDesignation'
+import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
@@ -1461,6 +1461,7 @@ export function buildHeroModel(
         refusalReason: 'no_robustness_data',
         assumedFragileCount: 0,
       },
+      assumedStrengthRankingWithheld: rankingWasWithheld(recommendation),
     },
     // Producer-gap slots — the LIVE adapter NEVER populates these (no
     // display-safe trust/status label: issues 219/221; no coaching
