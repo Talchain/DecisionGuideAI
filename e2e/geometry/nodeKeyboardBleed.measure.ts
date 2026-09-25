@@ -1002,13 +1002,71 @@ async function showNormalZoom(page: Page): Promise<void> {
 /**
  * ⭐ EACH DRIVEN ROW AT THE ZOOM WHERE ITS CONTROL LIVES. Point 6 made the two
  * "ask Olumi" doors mutually exclusive by zoom rung: the rail coaching icon at
- * Normal (full) zoom, the hover `node-action-ask` below it. Landing-rung rows
+ * Normal (full) zoom, the hover `node-action-ask` below it — at the QUIET rung,
+ * one step below the landing view, since #1975 made landing Normal (see
+ * `showQuietZoom`). Landing-rung rows
  * are driven FIRST on the untouched landing view (a fresh load — "Fit to view"
  * frames differently from the landing auto-fit, so it is never used to get
  * back); the coaching rows run LAST at 100%.
  */
 async function showZoomForKind(page: Page, kind: string): Promise<void> {
   if (kind.startsWith('node-coaching-icon')) await showNormalZoom(page)
+  if (kind === 'node-action-ask') await showQuietZoom(page)
+}
+
+/**
+ * ⭐ THE HOVER "ASK" LIVES AT THE QUIET RUNG NOW (#1975, landing = Normal).
+ * `useCoachingIconChip` (`NodeCoachingIcon.tsx`) returns a chip only at the
+ * `full` rung, and `NodeQuickActions` renders `node-action-ask` only when that
+ * chip is null — so the two doors stay mutually exclusive (point 6). Once the
+ * landing view became `full`, neither the landing census nor the 100% census
+ * can see the hover Ask: CI job 107911660700 at `ab731622`, 'render path
+ * "node-action-ask" is not in the census', with NORMALZOOMDIAG `askActions: 0`
+ * at both 55% and 100%. It is still a real, reachable control — one zoom step
+ * below the landing view — so it is censused and driven THERE, not dropped.
+ *
+ * 0.44 sits inside the quiet band on the way DOWN from `full`: above the body
+ * cliff (`LOD_BODY_HIDDEN_ZOOM` ≈ 0.4167, below which the card body — and its
+ * quick actions — unmount) and below the full rung's dead-band exit
+ * (`LABEL_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN` ≈ 0.463). Driven by ctrl+wheel,
+ * the user's own gesture (same mechanism as `nodeControlOcclusion.measure.ts`),
+ * and the RUNG is asserted, not assumed: a camera that parks elsewhere fails
+ * here instead of censusing the wrong rung.
+ */
+const QUIET_RUNG_ZOOM = 0.44
+
+async function showQuietZoom(page: Page): Promise<void> {
+  const achieved = await page.evaluate(async (z: number) => {
+    const pane = document.querySelector('.react-flow__pane') as HTMLElement | null
+    const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null
+    if (!pane || !vp) return NaN
+    const zoomNow = () => new DOMMatrixReadOnly(getComputedStyle(vp).transform).a
+    const r = pane.getBoundingClientRect()
+    for (let i = 0; i < 600; i += 1) {
+      const cur = zoomNow()
+      if (Math.abs(cur - z) < 0.004) break
+      pane.dispatchEvent(
+        new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: true,
+          clientX: r.left + r.width / 2,
+          clientY: r.top + r.height / 2,
+          deltaY: cur > z ? 4 : -4,
+        }),
+      )
+      await new Promise((res) => requestAnimationFrame(() => res(null)))
+    }
+    return zoomNow()
+  }, QUIET_RUNG_ZOOM)
+  await waitForVisualQuiescence(page)
+  const rung = await page.evaluate(() => {
+    const w = window as unknown as { useCanvasStore?: { getState: () => { lodRung?: string } } }
+    return w.useCanvasStore?.getState?.().lodRung ?? null
+  })
+  // eslint-disable-next-line no-console
+  console.log(`QUIETZOOMDIAG ${JSON.stringify({ achieved, rung })}`)
+  expect(rung, `the camera parked at ${achieved}, not on the quiet rung the hover Ask lives on`).toBe('quiet')
 }
 
 /** A genuinely fresh document, for the first seed and when the starter changes. */
@@ -1194,14 +1252,25 @@ test.describe('in-node keyboard bleed', () => {
     for (const starter of new Set(DRIVEN_KINDS.map((k) => k.starter))) {
       await loadCanvas(page, starter)
       loaded = starter
-      // Census at BOTH rungs and merge: each "ask Olumi" door exists at exactly one.
+      // Census at ALL THREE zooms and merge: each "ask Olumi" door exists at exactly one rung.
       const landingRows = await censusFocusables(page)
       await showNormalZoom(page)
       const normalRows = await censusFocusables(page)
+      // The hover Ask's rung (see showQuietZoom), from a fresh landing view.
+      await loadCanvas(page, starter)
+      await showQuietZoom(page)
+      const quietRows = await censusFocusables(page)
       // Back to the TRUE landing view for the landing-rung rows (see showZoomForKind).
       await loadCanvas(page, starter)
       const seen = new Set(landingRows.map((r) => `${r.nodeId}|${r.kind}|${r.name}`))
-      const rows = [...landingRows, ...normalRows.filter((r) => !seen.has(`${r.nodeId}|${r.kind}|${r.name}`))]
+      const rows = [...landingRows]
+      for (const r of [...normalRows, ...quietRows]) {
+        const key = `${r.nodeId}|${r.kind}|${r.name}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          rows.push(r)
+        }
+      }
       expect(rows.length, `no focusable control found inside any node of "${starter}" — the probe is blind`).toBeGreaterThan(0)
       censusByStarter.set(starter, rows)
     }
