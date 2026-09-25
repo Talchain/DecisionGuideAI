@@ -241,7 +241,13 @@ export const typography = {
   // have. Heights only SHRINK (every card's title block, measured from the DOM
   // by the layout), widths are untouched, and 1.25 still clears the font's
   // ascent + descent, so a clamped title does not clip its descenders.
-  nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
+  //
+  // ⭐ TRACKING -0.08px — contract `.node h3{letter-spacing:-.08px}`, on EVERY
+  // card title (`.node.wide h3` overrides only the size). Counter-scaled like
+  // the size beside it, so it reads -0.08px on screen across the legible band
+  // rather than halving at the landing zoom. Widths only narrow.
+  // `cardTitleTracking.contract.spec.tsx` binds it to the title element.
+  nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] tracking-[calc(-0.08px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
   // ⚠ 14px WRITTEN OUT, NOT INTERPOLATED FROM CANVAS_TYPE_PX. This file's own
   // header records why: Tailwind's scanner reads SOURCE TEXT, so an
   // arbitrary-value class built by template interpolation is never generated and
