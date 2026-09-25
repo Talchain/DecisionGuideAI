@@ -53,6 +53,16 @@ export const TURNING_POINT_TRACK_COPY = {
     const verb = alternative ? `shifts towards ${alternative}` : 'changes'
     return `${fromLastRun ? LAST_RUN_PREFIX : ''}${where}, ${subject} ${verb}.`
   },
+  /**
+   * ⭐ THE RESTING CARD'S CAPTION — the prototype's words, verbatim
+   * (`olumi-canvas-visual-contract.html` `flipPlot`: `Model comparison changes`,
+   * stale `Last run · comparison changes`), printed beside the number on ONE
+   * line. Paul, 25 Sep 2026: the canvas matches the prototype. The direction
+   * sentence above (point 3(a)) is moved, not deleted — it follows these words in the track's
+   * accessible name and its tooltip. Never printed without its number.
+   */
+  restCaption: (fromLastRun: boolean): string =>
+    fromLastRun ? `${LAST_RUN_PREFIX}comparison changes` : 'Model comparison changes',
   /** The label beside the run's own value on the track. */
   runValue: (value: string, fromLastRun: boolean): string =>
     fromLastRun ? `${value} in last run` : `${value} in this run`,

@@ -310,11 +310,59 @@ function factorDisplayInputFromData(
 export interface FactorDisplayParts {
   figure: string
   unit: string | null
+  /**
+   * `true` only for a RATE SUFFIX written onto the figure with no space
+   * (`£39,000` + `/year`). See `currencyRateParts`.
+   */
+  attached?: true
+  /**
+   * The formatter's own unsplit string, present ONLY when the visible text is a
+   * re-spelling of it (the currency-rate form: `39,000 GBP/year` is shown as
+   * `£39,000/year`). The card binds the split to its readout through this, so
+   * the re-spelling can only ever restate the string every other surface shows.
+   */
+  restates?: string
 }
 
-/** The visible text of a split — byte-identical to the unsplit string. */
+/** The visible text of a split — byte-identical to the unsplit string, except a `restates` re-spelling. */
 export function joinFactorDisplayParts(parts: FactorDisplayParts): string {
-  return parts.unit === null ? parts.figure : `${parts.figure} ${parts.unit}`
+  if (parts.unit === null) return parts.figure
+  return parts.attached ? `${parts.figure}${parts.unit}` : `${parts.figure} ${parts.unit}`
+}
+
+/**
+ * ⭐ A CURRENCY RATE, SPELT THE WAY IT IS READ (Paul, 25 Sep: the card must
+ * match the prototype, where a price reads `£49` and not `49 GBP`).
+ *
+ * The producer writes a salary as `unit: "GBP/year"`. `classifyUnit` does not
+ * know that compound (it is not an ISO code), so Pattern 1 prints it as a unit
+ * WORD: `39,000 GBP/year`. This re-spells THAT string — the same amount, the
+ * same currency, the same rate — as `£39,000/year`.
+ *
+ * ⛔ FORMATTING OF THE CARRIED UNIT, NEVER A SUBSTITUTION, and deliberately narrow:
+ *   · only when the formatter's string is EXACTLY `<amount> <unit>` — composed
+ *     here from the raw number and this unit, never a producer `display_value`;
+ *   · only the three codes whose glyph is unambiguous in this product and that
+ *     the patch receipt already maps (`v5GraphPatchDescription` CURRENCY_PREFIXES);
+ *     any other code keeps its unit untouched;
+ *   · only a single-word rate (`/year`, `/month`); anything else is untouched;
+ *   · only a non-negative amount (`£-500` is not how a negative is written, and
+ *     choosing a sign convention is not this function's call).
+ * `formatFactorDisplayValue` and all of its callers are unchanged: this lives in
+ * the split only, and carries `restates` so the card can bind it to the one
+ * string (`FactorValueFigure`).
+ */
+const CURRENCY_RATE_GLYPH: Readonly<Record<string, string>> = { GBP: '£', USD: '$', EUR: '€' }
+const CURRENCY_RATE_UNIT = /^([A-Za-z]{3})\s*\/\s*([A-Za-z]+)$/
+
+function currencyRateParts(amount: string, rawValue: number, unit: string, text: string): FactorDisplayParts | null {
+  if (rawValue < 0) return null
+  if (text !== `${amount} ${unit}`) return null
+  const m = CURRENCY_RATE_UNIT.exec(unit)
+  if (!m) return null
+  const glyph = CURRENCY_RATE_GLYPH[m[1].toUpperCase()]
+  if (glyph === undefined) return null
+  return { figure: `${glyph}${amount}`, unit: `/${m[2]}`, attached: true, restates: text }
 }
 
 /**
@@ -353,8 +401,11 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
     // Pattern 1's own 0–1 rule; the byte check below binds it to the original.
     const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
     parts = { figure: `${Math.round(scaled)}%`, unit: null }
-  } else if (kind === 'other') parts = { figure: amount, unit: canonical || unit }
-  else return null
+  } else if (kind === 'other') {
+    const rate = currencyRateParts(amount, raw_value, canonical || unit, text)
+    if (rate !== null) return rate
+    parts = { figure: amount, unit: canonical || unit }
+  } else return null
   return joinFactorDisplayParts(parts) === text ? parts : null
 }
 
