@@ -107,15 +107,37 @@ describe('⭐ closed, the strip states the census and draws no per-node marks', 
   })
 
   /**
-   * Constraint: an empty kind is a CLAIM ("you have no risks") and must never
-   * render at zero. Pinned at the RENDER level, not only in the builder.
+   * ⛔ REVERSED — V2 prototype (`mapHTML()` always renders Options/Factors/
+   * Risks/Outcomes) and Paul's manual test `1a298d6d` ("There don't seem to be
+   * any outcomes": the model had none and the tab said nothing). The census is
+   * counted from the canvas's own nodes, so a zero here is a MEASURED absence,
+   * not an inference. Pinned at the RENDER level, not only in the builder.
    */
-  it('a kind absent from the canvas gets no tally at all, never a zero', () => {
+  it('a kind absent from the canvas is tallied at zero, in the prototype order', () => {
     setCanvas([node('o1', 'option', 'Adopt Segment'), node('o2', 'option', 'Adopt RudderStack')])
     render(<ModelStrip isPreRun={false} />)
-    expect(screen.getAllByTestId(`${TID}-tally`)).toHaveLength(1)
-    expect(tally('option')).toBeInTheDocument()
-    expect(tally('risk')).toBeUndefined()
+    const tallies = screen.getAllByTestId(`${TID}-tally`)
+    expect(tallies.map((t) => t.getAttribute('data-kind'))).toEqual(['option', 'factor', 'risk', 'outcome'])
+    expect(tally('option')).toHaveTextContent('2')
+    expect(tally('outcome')).toHaveTextContent('0')
+    expect(tally('risk')).toHaveTextContent('0')
+  })
+
+  it('open at rest, the zero kinds are rows too: count 0, not a control', () => {
+    setCanvas([node('o1', 'option', 'Adopt Segment'), node('f1', 'factor', 'Cost')])
+    render(<ModelStrip isPreRun={false} openAtRest />)
+    const rowKinds = () => screen.getAllByTestId(`${TID}-row`).map((r) => r.getAttribute('data-kind'))
+    expect(rowKinds()).toEqual(['option', 'factor', 'risk', 'outcome'])
+    const outcome = screen.getAllByTestId(`${TID}-row`).find((r) => r.getAttribute('data-kind') === 'outcome')!
+    expect(outcome).toHaveAttribute('data-zero', 'true')
+    expect(outcome.querySelector('button')).toBeNull()
+    expect(outcome.querySelector(`[data-testid="${TID}-row-count"]`)).toHaveTextContent('0')
+  })
+
+  it('CONTRAST: a canvas with no census node (goal only) still renders no tally at all', () => {
+    setCanvas([node('g1', 'goal', 'Reach £20k MRR')])
+    render(<ModelStrip isPreRun={false} />)
+    expect(screen.queryAllByTestId(`${TID}-tally`)).toHaveLength(0)
   })
 
   it('an empty canvas renders no strip at all, not an empty frame', () => {

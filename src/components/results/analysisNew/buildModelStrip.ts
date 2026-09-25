@@ -240,7 +240,12 @@ export interface ModelStrip {
   noValueTotal: number
 }
 
-const ROW_ORDER: ReadonlyArray<{ kind: StripRow['kind']; label: string }> = [
+/**
+ * The census, in the V2 prototype's order (`mapHTML()`: Options, Factors,
+ * Risks, Outcomes). Exported so the strip can show a kind at ZERO at rest —
+ * see `ModelStrip`'s `visible` — without changing what `rows` means.
+ */
+export const CENSUS_ORDER: ReadonlyArray<{ kind: StripRow['kind']; label: string }> = [
   { kind: 'option', label: 'Options' },
   { kind: 'factor', label: 'Factors' },
   { kind: 'risk', label: 'Risks' },
@@ -507,7 +512,7 @@ export function buildModelStrip(
   }
 
   const rows: StripRow[] = []
-  for (const { kind, label } of ROW_ORDER) {
+  for (const { kind, label } of CENSUS_ORDER) {
     const found = byKind.get(kind)
     if (!found || found.length === 0) continue
     rows.push({ kind, label, nodes: found, overCap: found.length > MARK_CAP })
