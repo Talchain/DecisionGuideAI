@@ -2862,3 +2862,17 @@ export function strengthenWhyLine(signal: string, whyNow?: string): string {
   if (!whyNow || whyNow === signal) return signal
   return `${signal} ${whyNow}`
 }
+
+/**
+ * ⭐ THE WITHHELD LEADER'S CAUSE WHEN THE PRODUCER'S ADMISSION REFUSED IT.
+ *
+ * CEE emits `constraint_verdict_withheld` whenever its claim-safety verdict is
+ * not entitled, for any reason (`composeLeaderClaim`, CEE `c673223`). On an
+ * automatic first run that reason is the admission's own: every estimate is
+ * Olumi's. `LEADER_WITHHOLD_CAUSE` reads the token as "the limits you set",
+ * which was false on a brief that set none. This is said instead where the
+ * admission refused the comparative claim. Pinned by
+ * `theWithholdNamesNoLimitsTheUserNeverSet.spec.tsx`.
+ */
+export const LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS =
+  'No option can be put forward until you set at least one of the estimates yourself.'
