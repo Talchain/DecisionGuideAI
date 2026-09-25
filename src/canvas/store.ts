@@ -1470,7 +1470,10 @@ interface CanvasState {
   reset: () => void
   cleanup: () => void
   // Outcome node
-  setOutcomeNode: (nodeId: string | null, opts?: { rederiveThreshold?: boolean }) => void
+  /** `fromProducerSync`: the producer's own goal selection on ingesting a draft
+   *  (applyDraftResult), which owns its own freshness mark. Same contract as
+   *  `setGoalConstraints`: the ingestion write does not self-dirty. */
+  setOutcomeNode: (nodeId: string | null, opts?: { rederiveThreshold?: boolean; fromProducerSync?: boolean }) => void
   /** P0-1 (external review round 2): atomic goal-RESELECTION — invalidate the
    *  previous goal's producer target fields on readiness, select the new goal,
    *  and re-derive the scalar from it. The single transition the pre-analysis
@@ -5246,7 +5249,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ? deriveGoalThresholdFromNode(get().nodes, nodeId)
       : null
     set(derived ? { outcomeNodeId: nodeId, ...derived } : { outcomeNodeId: nodeId })
-    if (changed) markAnalysisFreshnessDirty(get, set)
+    if (changed && !opts?.fromProducerSync) markAnalysisFreshnessDirty(get, set)
   },
 
   reselectGoalNode: (goalId) => {
