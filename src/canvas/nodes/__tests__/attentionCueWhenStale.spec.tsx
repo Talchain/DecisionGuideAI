@@ -29,7 +29,7 @@ import { useCanvasStore } from '../../store'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useNodeAttention } from '../shared/useNodeAttention'
 import { ATTENTION_MARKER_TESTID_PREFIX } from '../shared/NodeAttentionMarker'
-import { attentionCueSentence, LAST_RUN_FOCUS_LEAD, type AttentionReason } from '../shared/nodeAttention'
+import { ATTENTION_BUDGET, attentionCueSentence, LAST_RUN_FOCUS_LEAD, type AttentionReason } from '../shared/nodeAttention'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -228,5 +228,62 @@ describe('row 23 — the one cue sentence (pure)', () => {
   it('no mark in either set → no cue; an absent `fromLastRun` (a stubbed hook) reads as none', () => {
     expect(attentionCueSentence({ ...base, reasons: [R] }, false)).toBeNull()
     expect(attentionCueSentence({ ...base, fromLastRun: { reasons: [R], marked: false, markedCount: 0, candidateCount: 1 } }, false)).toBeNull()
+  })
+})
+
+/**
+ * ⭐ THE LAST RUN'S CUE SHARES THE BOARD'S BUDGET (#1984 review 5825619572: a
+ * mutant that gave the last-run plan the FULL `ATTENTION_BUDGET` survived).
+ * The board never carries more than `ATTENTION_BUDGET` markers in total: the
+ * last run gets only what the current plan left. Seeded so the discrimination
+ * is real — the current plan marks one card (a grounded bias finding, which is
+ * not run-derived), and the last run has MORE turning points than the
+ * remainder, so a full-budget last-run plan would overspend.
+ */
+describe('row 23 — the last-run cue spends only what the current plan left', () => {
+  const IDS = ['fac_a', 'fac_b', 'fac_c', 'fac_d', 'fac_e'] as const
+
+  function BudgetProbe() {
+    const all = IDS.map((id) => [id, useNodeAttention(id)] as const)
+    const current = all.find(([, a]) => a.reasons.length > 0)?.[1]
+    const last = all.find(([, a]) => a.fromLastRun)?.[1].fromLastRun
+    return (
+      <span
+        data-testid="budget-probe"
+        data-current-marked={String(current?.markedCount ?? 0)}
+        data-last-marked={String(last?.markedCount ?? 0)}
+        data-last-candidates={String(last?.candidateCount ?? 0)}
+      />
+    )
+  }
+
+  it('changed → current marks + last-run marks never exceed ATTENTION_BUDGET', () => {
+    seed('complete_stale')
+    useCanvasStore.setState({
+      nodes: IDS.map((id, i) => ({ id, type: 'factor', position: { x: i * 10, y: 0 }, data: { label: `Factor ${id}`, type: 'factor', category: 'external' } })),
+      ceeAnalysisReady: { bias_findings: [{ id: 'b1', code: 'anchoring', severity: 'medium', target_factor_id: 'fac_e', explanation: 'x' }] },
+      results: {
+        status: 'complete', hash: 'run-1',
+        report: {
+          ...REPORT,
+          flip_thresholds: ['fac_a', 'fac_b', 'fac_c', 'fac_d'].map((id, i) => ({
+            node_id: id, label: `Factor ${id}`, current_value: 8 + i, flip_value: 6 + i, unit: '%', flip_reason: 'found', value_scale: 'display',
+          })),
+        },
+      },
+    } as never)
+    render(<><TrustProbe /><BudgetProbe /></>)
+    const p = screen.getByTestId('budget-probe')
+    const currentMarked = Number(p.getAttribute('data-current-marked'))
+    const lastMarked = Number(p.getAttribute('data-last-marked'))
+    const lastCandidates = Number(p.getAttribute('data-last-candidates'))
+
+    expect(semantic(), 'precondition: the model changed since the run').toBe('changed')
+    expect(currentMarked, 'precondition: the current plan marks a card').toBeGreaterThanOrEqual(1)
+    expect(lastCandidates, 'precondition: the last run has more candidates than the remainder').toBeGreaterThan(
+      ATTENTION_BUDGET - currentMarked,
+    )
+    expect(currentMarked + lastMarked, 'the board carries at most ATTENTION_BUDGET markers').toBeLessThanOrEqual(ATTENTION_BUDGET)
+    expect(lastMarked, 'the last run spends exactly the remainder').toBe(ATTENTION_BUDGET - currentMarked)
   })
 })
