@@ -16,8 +16,17 @@
  * THE CHAIN: the REAL `useConversation` hook drives the REAL `ConversationPanel`
  * (which registers the chip seam with `guidanceStore`), so a card click goes
  * `ActionChip` → guidanceStore `_sendChip` → the panel's glue → the hook →
- * `fetch`, exactly as shipped. Only `fetch` is stubbed: it returns the served
- * body for each turn, in order, and records what the UI sent.
+ * `fetch`, as shipped. `fetch` returns the served body for each turn, in order,
+ * and records what the UI sent.
+ *
+ * ⚠ WHAT ELSE IS MOCKED, AND SO WHAT THIS DOES NOT PROVE (#1989 review
+ * 5826427081). Besides `fetch`, the spec stubs `turnService`, the streamed
+ * transport (forced to fail, so every turn takes the BUFFERED path),
+ * `supabase`, `scenarioService`, `posthog`, `useThreadPersistence`,
+ * `flags.isOrchestratorV2Enabled` and `v5/eligibility`. It proves composition,
+ * currency and the click on the buffered path. It does NOT cover the streamed
+ * transport or the persistence / reload path — the served browser witness
+ * (`construction-witness/browser-coaching-witness.mjs`) covers reload.
  *
  * WHAT THE USER MUST GET, per the goal and `run-turn-coaching/v1`:
  *   · the reply leads with its conclusion (the wire's first sentence, first);
