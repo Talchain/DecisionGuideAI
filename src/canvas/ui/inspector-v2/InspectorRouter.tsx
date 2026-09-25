@@ -32,6 +32,22 @@ import { InspectorAttentionContext, attentionAskContext } from './shared/Inspect
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
+import { isStructuralEdge } from '../../domain/edgeUtils'
+import type { EdgeData } from '../../domain/edges'
+import type { Edge } from '@xyflow/react'
+
+/**
+ * A14 — a structural link (organisational wiring, e.g. decision→option) is
+ * not a causal claim: it has no strength for the model to check a change
+ * against, so it earns neither a confidence badge nor
+ * `INSPECTOR_EDGE_REASON`'s "the link strength saves" claim. Defined here
+ * rather than in `useInspectorMutations.ts` because this pane is the only
+ * reader — the edge accessible-name module states the matching fact on the
+ * assistive channel, independently, from the shared `isStructuralEdge`
+ * predicate rather than from this string.
+ */
+const INSPECTOR_EDGE_STRUCTURAL_REASON =
+  'This is a structural link, not a causal claim. It carries no strength, and nothing here is sent to the model.'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -206,12 +222,23 @@ export const InspectorRouter = memo(function InspectorRouter({
     const targetLabel = resolveElementLabel(targetNode?.data)
     const edgeLabel = `${sourceLabel} \u2192 ${targetLabel}`
 
+    // A14 — a structural link's canonical strength signature is
+    // `beliefExists === 1.0`, which is exactly the shape that used to render
+    // a "✓ 100%" confidence badge: the organisational-wiring signature read
+    // back as if it were a stated measurement. Asked of the ONE shared
+    // predicate, not re-derived from the raw field here.
+    const getNodeKindForEdge = (id: string) => {
+      const n = nodes.find(nn => nn.id === id)
+      return ((n?.data as Record<string, unknown> | undefined)?.kind as string | undefined) ?? n?.type
+    }
+    const isStructural = isStructuralEdge(edge as unknown as Edge<EdgeData>, getNodeKindForEdge)
+
     // Edge confidence from beliefExists — PROVENANCE-GATED.
     // `getEdgeConfidence` returns the raw field, which is `0.8` on any edge the
     // user merely drew. Rendering that as a "high · 80%" badge presents a UI
     // default as a measurement.
     const epDisplay = resolveEdgeValueDisplay(edge.data as Record<string, unknown> | undefined, 'beliefExists')
-    const ep = epDisplay.show ? epDisplay.value : null
+    const ep = !isStructural && epDisplay.show ? epDisplay.value : null
     const edgeConfidenceLevel = ep !== null ? (ep >= 0.7 ? 'high' as const : ep >= 0.4 ? 'medium' as const : 'low' as const) : undefined
     const confidencePct = ep !== null ? Math.round(ep * 100) : undefined
 
@@ -269,11 +296,13 @@ export const InspectorRouter = memo(function InspectorRouter({
         }
       >
         <InspectorAgencyNote>
-          {edgeStrengthReaches
-            ? INSPECTOR_EDGE_REASON
-            : edgeAwaitingStatedStrength
-              ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
-              : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
+          {isStructural
+            ? INSPECTOR_EDGE_STRUCTURAL_REASON
+            : edgeStrengthReaches
+              ? INSPECTOR_EDGE_REASON
+              : edgeAwaitingStatedStrength
+                ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
+                : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
         </InspectorAgencyNote>
         {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
             This toggle first shipped INSIDE `EdgePanel`, whose only mount is the

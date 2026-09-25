@@ -45,6 +45,7 @@
  * `useNodeConnections` and `usePreAnalysisInbound` rather than minting a third
  * word for the same absence.
  */
+import type { Edge } from '@xyflow/react'
 import {
   resolveEdgeSignedStrengthDisplay,
   resolveEdgeValueDisplay,
@@ -52,9 +53,25 @@ import {
 } from './edgeValueProvenance'
 import { getEdgeLabel, type EdgeLabelMode } from './edgeLabels'
 import { edgeDoubleClickAffordance } from '../edges/edgeAffordance'
+import { isStructuralEdge } from './edgeUtils'
+import type { EdgeData } from './edges'
 
 /** What the estate already calls a node with no label. Not re-invented here. */
 export const UNTITLED_NODE_NAME = 'Untitled'
+
+/**
+ * A14 — a structural link (decision→option organisational wiring, or the
+ * canonical structural strength signature `isStructuralEdge` also detects) is
+ * not a causal claim, so it carries no strength word, no confidence badge and
+ * no strength-setting gesture, on EITHER channel. This is the spoken half of
+ * the same fact `StyledEdge`'s own `structuralTooltip` shows a sighted user.
+ * Not imported from there: `StyledEdge` derives its own local structural
+ * flag from `edge_type`/node-kind inference for its visual sub-type text,
+ * where this module uses the one shared `isStructuralEdge` predicate —
+ * matching the audit's instruction, not a second vocabulary for the same
+ * fact.
+ */
+export const STRUCTURAL_EDGE_ACCESSIBLE_DESCRIPTION = 'Structural link (not analysed)'
 
 export interface EdgeAccessibleNameInput {
   /** The source node's visible label, or `null`/absent when it has none. */
@@ -175,11 +192,20 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
   edges: readonly E[],
   nodeLabelById: ReadonlyMap<string, string>,
   mode: EdgeLabelMode,
+  /**
+   * A14 — resolves a node's kind by id, so each edge's structural status can
+   * be asked of the one shared `isStructuralEdge` predicate rather than
+   * re-derived here. Optional and defaulting to "no kind known" (never
+   * structural by the node-kind arm) so existing callers that have not been
+   * updated keep their prior behaviour rather than silently changing it.
+   */
+  getNodeKind: (nodeId: string) => string | undefined = () => undefined,
 ): E[] {
   return edges.map(edge => {
     const hasOwnAriaLabel = typeof edge.ariaLabel === 'string' && edge.ariaLabel.trim().length > 0
     const hasOwnAriaRole = typeof edge.ariaRole === 'string' && edge.ariaRole.trim().length > 0
     if (hasOwnAriaLabel && hasOwnAriaRole) return edge
+    const structural = isStructuralEdge(edge as unknown as Edge<EdgeData>, getNodeKind)
     return {
       ...edge,
       ...(hasOwnAriaLabel ? {} : {
@@ -187,7 +213,11 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
           // Bound by the edge's OWN endpoint ids — never by position or order.
           sourceLabel: nodeLabelById.get(edge.source),
           targetLabel: nodeLabelById.get(edge.target),
-          description: describeEdgeForSpeech(edge.data, mode),
+          // A14 — a structural link states what it structurally IS, never a
+          // strength word it does not carry.
+          description: structural
+            ? STRUCTURAL_EDGE_ACCESSIBLE_DESCRIPTION
+            : describeEdgeForSpeech(edge.data, mode),
           // ⭐ THE OUTER GROUP IS WHERE THIS HAS TO LAND. `StyledEdge` carries the
           // same sentence, but on an INNER element that exists only while the
           // edge's label renders — the exact asymmetry this module's header was
@@ -195,7 +225,11 @@ export function withEdgeAccessibleNames<E extends NameableEdge>(
           // announcing a strength, 3 rendering a label, and 0 announcing the
           // affordance. Passed through `edgeDoubleClickAffordance` so the spoken
           // word and the hovered word cannot drift apart.
-          affordance: edgeDoubleClickAffordance(edge as never),
+          //
+          // A14 — NO GESTURE on a structural link: there is no strength to
+          // set, so "Double-click to set its strength" would announce a
+          // control that does nothing.
+          affordance: structural ? null : edgeDoubleClickAffordance(edge as never),
         }),
       }),
       ...(hasOwnAriaRole ? {} : { ariaRole: EDGE_ARIA_ROLE }),
