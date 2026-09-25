@@ -60,9 +60,7 @@ import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewType
 const NO_FINDINGS: AnalysisNewFinding[] = []
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
-import { buildModelStrip, stripHasContent, stripRendersTargetAffordance } from './buildModelStrip'
-import { FocusNowContainer } from '../../../canvas/components/coaching-panel/focus-now'
-import { applicableStaticFocusIds } from './focusNowApplicability'
+import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
@@ -1202,22 +1200,6 @@ export function AnalysisNewTabBody({
    * announce that the model needs an outcome and a risk before the person has
    * built anything. Unknown yields `null`, which earns no row.
    */
-  const focusApplicableIds = useMemo(() => {
-    const known = stripHasContent(modelStrip)
-    const countOf = (kind: 'risk' | 'outcome'): number | null =>
-      known ? (modelStrip.rows.find((r) => r.kind === kind)?.nodes.length ?? 0) : null
-    return applicableStaticFocusIds({
-      // ⚠ `known` GATES THIS ONE TOO, and its absence was a real defect: the
-      // real `useResultsSectionData` returns `hasGoalTarget: false` on an empty
-      // canvas — a measured `false`, not an unknown — so without this gate the
-      // panel asked a person to define success before they had built anything.
-      // The reading is the same as the counts': no model means no fact, and no
-      // fact earns no row.
-      hasGoalTarget: known ? (resultsSectionData.recommendation.hasGoalTarget ?? null) : null,
-      outcomeCount: countOf('outcome'),
-      riskCount: countOf('risk'),
-    })
-  }, [modelStrip, resultsSectionData.recommendation.hasGoalTarget])
   /** V2: the method the user picked in the strip; the Challenge card shows it. */
   const [pickedMethodId, setPickedMethodId] = useState<string | null>(null)
   const glancePrimary = useMemo(() => {
@@ -1893,6 +1875,23 @@ export function AnalysisNewTabBody({
         <ModelStrip
           isPreRun={vm.status.isPreRun}
           insights={nodeInsights}
+          reviewSlot={
+            <ModelReviewTool
+              interventions={vm.strengthen.interventions}
+              excludeId={glancePrimary?.id ?? null}
+              onAsk={openAskOlumi}
+              onInspect={onReviewTarget}
+              onFocus={(id) => {
+                if (!focusModelTarget(id)) {
+                  showToast(COPY.canvas.focusFailed)
+                  return false
+                }
+                onFocusNode?.(id)
+                return true
+              }}
+              analysisHash={responseHash ?? null}
+            />
+          }
         />
         {/* ⭐ V2 — ONE REVIEW AFFORDANCE FOR THE WHOLE MODEL. The strip's
             "to verify" badge counted factors only; the engine's findings about
@@ -1901,21 +1900,6 @@ export function AnalysisNewTabBody({
             holds both (`buildReviewQueue`), one item at a time, with edit /
             inspect / focus / ask. The finding the glance promotes is excluded so
             it is never offered twice. */}
-        <ModelReviewTool
-          interventions={vm.strengthen.interventions}
-          excludeId={glancePrimary?.id ?? null}
-          onAsk={openAskOlumi}
-          onInspect={onReviewTarget}
-          onFocus={(id) => {
-            if (!focusModelTarget(id)) {
-              showToast(COPY.canvas.focusFailed)
-              return false
-            }
-            onFocusNode?.(id)
-            return true
-          }}
-          analysisHash={responseHash ?? null}
-        />
 
         {/* ── FOCUS NOW ──────────────────────────────────────────────────────
             ⭐ THE PROTOTYPE'S PRIMARY ACTION, AND IT WAS BUILT ON THE WRONG TAB.
@@ -2126,6 +2110,211 @@ export function AnalysisNewTabBody({
           onInspect={onReviewTarget}
           onAsk={openAskOlumi}
           closedAtRest={true}
+          evidenceSlot={
+          vm.status.isPreRun ? null : (
+          <>
+          {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
+              ⭐⭐⭐ MOVED INTO THE ANSWER ZONE, 17 Sep 2026, ON PAUL'S RULING.
+  
+              Against Paul's own acceptance bar — *"a user opens the Reasoning
+              panel and immediately understands the decision, the current state of
+              the reasoning, what Olumi can and cannot responsibly conclude, WHAT
+              MATTERS MOST, and what they can do next"* — this was the one question
+              of six the panel could not answer in the first viewport.
+  
+              Measured on deployed `66854e6c`, guest, an answered run at 1600x1000,
+              panel box 869px: the decision at 20 · the state of the reasoning at
+              177 · what it CAN conclude at 185 · what it CANNOT at 542 · what to
+              do next at 355 — and **this section's title at 1118, 249px below the
+              fold** (358px on a stale run, which carries the ribbon). It sat in
+              ZONE: FURTHER, below "Coaching and method", second from last.
+  
+              ⛔ THE RATIONALE THIS REPLACES IS RECORDED RATHER THAN DELETED,
+              because it was reasoned and it is what made me refuse to move this
+              on my own reading. It said: *"The last group: what the answer turns
+              on, what is worth resolving before committing, and the method
+              receipts. All three are DETAIL a reader goes looking for — none of
+              them is something the panel needs to say unprompted, and stacked
+              open they were most of the length Paul was scrolling through."*
+  
+              That is a density argument, and it was right about the length. What
+              it got wrong is the classification: Paul ruled that "what matters
+              most" MEANS the drivers — what the answer turns on — not the
+              recommended next move. A reader who has to scroll for that is
+              scrolling for part of the answer. **The section still rests CLOSED,
+              so the density argument is honoured: this costs 61px, not the
+              stacked-open length that argument was written against.**
+  
+              ⚠ PLACED AFTER THE CAVEAT AND BEFORE "WHAT WOULD CHANGE YOUR MIND",
+              and the position was measured rather than preferred. Both candidate
+              positions clear the fold; this one reads in the right order — here is
+              the answer, how far it held, what moves it, what would change it —
+              and gives the drivers the higher of the two slots, which is what the
+              ruling asks for.
+  
+              ⚠ THE TRADE, STATED: on a STALE run the ribbon costs 44px and
+              "What would change your mind" then ends 22px below the fold. The
+              ruling buys the drivers that space. Measured, not hidden. */}
+          {whatMovesHasContent ? (
+            <SectionShell
+              title={COPY.sections.whatMovesTheOutcome}
+              /* ⛔ A COUNT IS A PROMISE. This read
+                 `findings.length + influenceRows.length` and so advertised 4 while
+                 holding TWO factors — witnessed on deployed `219209ad`. The two
+                 lists are one-to-one by this codebase's own stated invariant ("a
+                 row can never appear without its bar"), so adding them double-counts
+                 every driver. Counted as SUBJECTS, by union, so a future divergence
+                 grows the number honestly instead of hiding inside it.
+                 ⭐ TAIL-1 (panel-lane design audit 2026-09-25): the badge no
+                 longer draws (variant="disclose" drops it), but the count still
+                 reaches `data-section-count` on the wrapping <section> —
+                 "the count is always carried here, whether or not the badge
+                 draws" (SectionShell's own doc). */
+              count={distinctDriverSubjects(vm.drivers.findings, vm.drivers.influenceRows)}
+              testId="analysis-new-what-moves-the-outcome"
+              /* ⭐⭐ TAIL-1: the prototype's tail door is `.disclose` — a chevron
+                 and one line, no icon slot, no subtitle and no count badge (the
+                 auditor's citation: aboutHTML()/insightsHTML() disclosures carry
+                 none of those). `COPY.sectionSubtitles.whatMovesTheOutcome`
+                 (analysisNewCopy.ts) stops being RENDERED here, deliberately —
+                 the constant itself is kept, unread, so the file's line count
+                 (and the ui-decides-baseline.txt keying pinned to it) is
+                 unchanged. */
+              variant="disclose"
+            >
+            {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
+            {/* V2 gap 23: this section is NESTED inside the "What moves the
+                outcome" SectionShell above, so its own SectionShell used to
+                repeat the identical h3/panelHeader grammar one level down — the
+                "Top drivers rows sit directly above a 'What moves the outcome'
+                header with a nested 'Drivers and dynamics' header" gap.
+                `headingLevel="label"` drops the nested heading tag entirely (not
+                just its weight — see `SectionShell`'s doc for why a visual-only
+                demotion would not have closed this); content, count, rows and
+                every testid are unchanged. */}
+            <AnalysisNewSection
+              title={COPY.sections.drivers}
+              subtitle={COPY.sectionSubtitles.drivers}
+              headingLevel="label"
+              findings={vm.drivers.findings}
+              preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
+              // ⚠ The caveat is a function of the PRODUCER's provenance token, not
+              // of taste: a set-relative influence is "largest in this set", never
+              // a causal share of the outcome.
+              caveat={driverCaveatParts.sectionCaveat}
+              // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
+              // A LIVE FALSEHOOD. A run whose factors all came back with a producer
+              // `zero_reason` DID return influence and measured it at zero, and was
+              // told the run returned nothing — in the same words as a run that
+              // genuinely returned nothing. The two were indistinguishable.
+              //
+              // ⚠ THE ORDER IS LOAD-BEARING AND `driversStatus` IS NOT THE FIRST
+              // TEST. `useResultsSectionData.ts:3235` defaults `drivers_status` to
+              // 'computed' when absent on the V5 path, so 'computed' does NOT imply
+              // rows were returned; keying the zero claim on it would manufacture
+              // the MIRROR falsehood on a rows-empty run. `suppressedZeroCount` is
+              // the sufficient one — it is non-zero only because the producer sent a
+              // row it had scored at zero.
+              emptyMessage={driversEmpty}
+              onFocusTarget={focusTarget}
+              onRunIntervention={runIntervention}
+              onAskOlumi={askOlumiAbout}
+              icon={TrendingUp}
+              testId="analysis-new-drivers"
+              /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
+                 WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
+                 The consolidation that took this panel from fourteen elements to
+                 six is the reason: a chart and the prose about the same drivers are
+                 one subject, and splitting them would re-open the restatement the
+                 consolidation closed. */
+              header={
+                <DriverInfluenceChart
+                  rows={vm.drivers.influenceRows}
+                  onFocusTarget={focusTarget}
+                  scaleNote={driverCaveatParts.scaleNote}
+                  topRowNote={driverCaveatParts.topRowNote}
+                  /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
+                     reports which of them happened and this surface owns the
+                     words — the same vocabulary the model strip's editor uses,
+                     because it is the same write through the same authority. */
+                  onCommitOutcome={(outcome) =>
+                    showToast(
+                      outcome === 'dispatched'
+                        ? COPY.modelStrip.valueDispatched
+                        : outcome === 'local_only'
+                          ? COPY.modelStrip.valueLocalOnly
+                          : COPY.modelStrip.valueNotEncodable,
+                    )
+                  }
+                  testId="analysis-new-driver-chart"
+                />
+              }
+            />
+  
+  
+            {/* Whole-decision value of information — a VERDICT, never the number.
+                'not_computed' renders nothing: it is a distinct state from a
+                measured zero and must not be collapsed into one.
+  
+                ⭐⭐ THE LABEL IS THE FIX, AND IT IS A TOPIC RATHER THAN A CLAIM.
+                This shipped as a bare `<p>` at the body's TOP LEVEL, between two
+                accordions, with no heading — so the sentence's subject was never
+                named. "This run did not come back at zero" leaves a reader asking
+                *what* did not come back at zero, and the answer was nowhere on
+                screen. Witnessed on staging `e685dafa`.
+  
+                ⚠ THE SENTENCE ITSELF IS UNCHANGED, DELIBERATELY. It answers to
+                `UNLICENSED_SIGNIFICANCE_CLAIMS` — `decision_evpi` arrives with no
+                noise floor, no CI and no `n_samples`, so a small positive is not
+                distinguishable from estimator noise and NOTHING here may say the
+                value MEANS anything. The label names the measure, which is the
+                owner's own vocabulary (`RESOLVE_NEXT_COPY.note` — "value of
+                information"), and it is checked against the same imported ceiling
+                by `analysisNewCopyCeiling.spec.ts`.
+  
+                ⚠ AND IT TAKES `WhatWeChecked`'S SHELL RATHER THAN A NEW ONE. A
+                third micro-section shape on a panel already criticised for
+                inconsistency would be the defect, not the fix. */}
+            {vm.uncertainty.decisionVoi !== 'not_computed' ? (
+              <section
+                className="border-t border-panel-border pt-3"
+                data-testid="analysis-new-decision-voi-section"
+                aria-labelledby="analysis-new-decision-voi-heading"
+              >
+                {/* V2 gap 23: WAS an h3/`panelHeader` — an orphan THIRD section
+                    title nested inside "What moves the outcome", below "Drivers
+                    and dynamics". Demoted to a plain `<p>` at the same quiet
+                    `panelMeta` weight the nested driver label now uses: not a
+                    heading at all, so it does not compete with the section's
+                    own h3 in a screen reader's heading navigation, and it reads
+                    as a sub-part of the section it sits in rather than a peer
+                    of it. `id`, `data-testid` and the `aria-labelledby` link on
+                    the wrapping `<section>` are unchanged, so the region keeps
+                    the same accessible name. */}
+                <p
+                  id="analysis-new-decision-voi-heading"
+                  className={`${typography.panelMeta} text-text-header mb-1`}
+                  data-testid="analysis-new-decision-voi-heading"
+                >
+                  {COPY.decisionVoi.label}
+                </p>
+                <p
+                  className={`${typography.panelMeta} text-text-light m-0`}
+                  data-testid="analysis-new-decision-voi"
+                >
+                  {vm.uncertainty.decisionVoi === 'measured_non_zero'
+                    ? COPY.decisionVoi.measuredNonZero
+                    : COPY.decisionVoi.measuredZero}
+                </p>
+              </section>
+            ) : null}
+  
+            {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
+            </SectionShell>
+          ) : null}
+          </>
+          )
+          }
         />
         {/* V2: "Strengthen the reasoning" and this tab's Actions dropdown are
             gone from here. Their findings are the review tool's queue (under
@@ -2602,209 +2791,8 @@ export function AnalysisNewTabBody({
             the full chart (drivers, value of information, receipts) follows the
             answer it explains, still closed, still post-run only. "What would
             change your mind" did NOT move: it stays in the challenge. */}
-        {vm.status.isPreRun ? null : (
-        <>
-        {/* ── WHAT MOVES THE OUTCOME ────────────────────────────────────────
-            ⭐⭐⭐ MOVED INTO THE ANSWER ZONE, 17 Sep 2026, ON PAUL'S RULING.
-
-            Against Paul's own acceptance bar — *"a user opens the Reasoning
-            panel and immediately understands the decision, the current state of
-            the reasoning, what Olumi can and cannot responsibly conclude, WHAT
-            MATTERS MOST, and what they can do next"* — this was the one question
-            of six the panel could not answer in the first viewport.
-
-            Measured on deployed `66854e6c`, guest, an answered run at 1600x1000,
-            panel box 869px: the decision at 20 · the state of the reasoning at
-            177 · what it CAN conclude at 185 · what it CANNOT at 542 · what to
-            do next at 355 — and **this section's title at 1118, 249px below the
-            fold** (358px on a stale run, which carries the ribbon). It sat in
-            ZONE: FURTHER, below "Coaching and method", second from last.
-
-            ⛔ THE RATIONALE THIS REPLACES IS RECORDED RATHER THAN DELETED,
-            because it was reasoned and it is what made me refuse to move this
-            on my own reading. It said: *"The last group: what the answer turns
-            on, what is worth resolving before committing, and the method
-            receipts. All three are DETAIL a reader goes looking for — none of
-            them is something the panel needs to say unprompted, and stacked
-            open they were most of the length Paul was scrolling through."*
-
-            That is a density argument, and it was right about the length. What
-            it got wrong is the classification: Paul ruled that "what matters
-            most" MEANS the drivers — what the answer turns on — not the
-            recommended next move. A reader who has to scroll for that is
-            scrolling for part of the answer. **The section still rests CLOSED,
-            so the density argument is honoured: this costs 61px, not the
-            stacked-open length that argument was written against.**
-
-            ⚠ PLACED AFTER THE CAVEAT AND BEFORE "WHAT WOULD CHANGE YOUR MIND",
-            and the position was measured rather than preferred. Both candidate
-            positions clear the fold; this one reads in the right order — here is
-            the answer, how far it held, what moves it, what would change it —
-            and gives the drivers the higher of the two slots, which is what the
-            ruling asks for.
-
-            ⚠ THE TRADE, STATED: on a STALE run the ribbon costs 44px and
-            "What would change your mind" then ends 22px below the fold. The
-            ruling buys the drivers that space. Measured, not hidden. */}
-        {whatMovesHasContent ? (
-          <SectionShell
-            title={COPY.sections.whatMovesTheOutcome}
-            /* ⛔ A COUNT IS A PROMISE. This read
-               `findings.length + influenceRows.length` and so advertised 4 while
-               holding TWO factors — witnessed on deployed `219209ad`. The two
-               lists are one-to-one by this codebase's own stated invariant ("a
-               row can never appear without its bar"), so adding them double-counts
-               every driver. Counted as SUBJECTS, by union, so a future divergence
-               grows the number honestly instead of hiding inside it.
-               ⭐ TAIL-1 (panel-lane design audit 2026-09-25): the badge no
-               longer draws (variant="disclose" drops it), but the count still
-               reaches `data-section-count` on the wrapping <section> —
-               "the count is always carried here, whether or not the badge
-               draws" (SectionShell's own doc). */
-            count={distinctDriverSubjects(vm.drivers.findings, vm.drivers.influenceRows)}
-            testId="analysis-new-what-moves-the-outcome"
-            /* ⭐⭐ TAIL-1: the prototype's tail door is `.disclose` — a chevron
-               and one line, no icon slot, no subtitle and no count badge (the
-               auditor's citation: aboutHTML()/insightsHTML() disclosures carry
-               none of those). `COPY.sectionSubtitles.whatMovesTheOutcome`
-               (analysisNewCopy.ts) stops being RENDERED here, deliberately —
-               the constant itself is kept, unread, so the file's line count
-               (and the ui-decides-baseline.txt keying pinned to it) is
-               unchanged. */
-            variant="disclose"
-          >
-          {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
-          {/* V2 gap 23: this section is NESTED inside the "What moves the
-              outcome" SectionShell above, so its own SectionShell used to
-              repeat the identical h3/panelHeader grammar one level down — the
-              "Top drivers rows sit directly above a 'What moves the outcome'
-              header with a nested 'Drivers and dynamics' header" gap.
-              `headingLevel="label"` drops the nested heading tag entirely (not
-              just its weight — see `SectionShell`'s doc for why a visual-only
-              demotion would not have closed this); content, count, rows and
-              every testid are unchanged. */}
-          <AnalysisNewSection
-            title={COPY.sections.drivers}
-            subtitle={COPY.sectionSubtitles.drivers}
-            headingLevel="label"
-            findings={vm.drivers.findings}
-            preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
-            // ⚠ The caveat is a function of the PRODUCER's provenance token, not
-            // of taste: a set-relative influence is "largest in this set", never
-            // a causal share of the outcome.
-            caveat={driverCaveatParts.sectionCaveat}
-            // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
-            // A LIVE FALSEHOOD. A run whose factors all came back with a producer
-            // `zero_reason` DID return influence and measured it at zero, and was
-            // told the run returned nothing — in the same words as a run that
-            // genuinely returned nothing. The two were indistinguishable.
-            //
-            // ⚠ THE ORDER IS LOAD-BEARING AND `driversStatus` IS NOT THE FIRST
-            // TEST. `useResultsSectionData.ts:3235` defaults `drivers_status` to
-            // 'computed' when absent on the V5 path, so 'computed' does NOT imply
-            // rows were returned; keying the zero claim on it would manufacture
-            // the MIRROR falsehood on a rows-empty run. `suppressedZeroCount` is
-            // the sufficient one — it is non-zero only because the producer sent a
-            // row it had scored at zero.
-            emptyMessage={driversEmpty}
-            onFocusTarget={focusTarget}
-            onRunIntervention={runIntervention}
-            onAskOlumi={askOlumiAbout}
-            icon={TrendingUp}
-            testId="analysis-new-drivers"
-            /* ⭐ THE ONLY CHART ON THIS PANEL, AND IT SITS INSIDE THE SECTION
-               WHOSE QUESTION IT ANSWERS rather than becoming a tenth heading.
-               The consolidation that took this panel from fourteen elements to
-               six is the reason: a chart and the prose about the same drivers are
-               one subject, and splitting them would re-open the restatement the
-               consolidation closed. */
-            header={
-              <DriverInfluenceChart
-                rows={vm.drivers.influenceRows}
-                onFocusTarget={focusTarget}
-                scaleNote={driverCaveatParts.scaleNote}
-                topRowNote={driverCaveatParts.topRowNote}
-                /* ⚠ THE THREE OUTCOMES KEEP THEIR THREE SENTENCES. The chart
-                   reports which of them happened and this surface owns the
-                   words — the same vocabulary the model strip's editor uses,
-                   because it is the same write through the same authority. */
-                onCommitOutcome={(outcome) =>
-                  showToast(
-                    outcome === 'dispatched'
-                      ? COPY.modelStrip.valueDispatched
-                      : outcome === 'local_only'
-                        ? COPY.modelStrip.valueLocalOnly
-                        : COPY.modelStrip.valueNotEncodable,
-                  )
-                }
-                testId="analysis-new-driver-chart"
-              />
-            }
-          />
-
-
-          {/* Whole-decision value of information — a VERDICT, never the number.
-              'not_computed' renders nothing: it is a distinct state from a
-              measured zero and must not be collapsed into one.
-
-              ⭐⭐ THE LABEL IS THE FIX, AND IT IS A TOPIC RATHER THAN A CLAIM.
-              This shipped as a bare `<p>` at the body's TOP LEVEL, between two
-              accordions, with no heading — so the sentence's subject was never
-              named. "This run did not come back at zero" leaves a reader asking
-              *what* did not come back at zero, and the answer was nowhere on
-              screen. Witnessed on staging `e685dafa`.
-
-              ⚠ THE SENTENCE ITSELF IS UNCHANGED, DELIBERATELY. It answers to
-              `UNLICENSED_SIGNIFICANCE_CLAIMS` — `decision_evpi` arrives with no
-              noise floor, no CI and no `n_samples`, so a small positive is not
-              distinguishable from estimator noise and NOTHING here may say the
-              value MEANS anything. The label names the measure, which is the
-              owner's own vocabulary (`RESOLVE_NEXT_COPY.note` — "value of
-              information"), and it is checked against the same imported ceiling
-              by `analysisNewCopyCeiling.spec.ts`.
-
-              ⚠ AND IT TAKES `WhatWeChecked`'S SHELL RATHER THAN A NEW ONE. A
-              third micro-section shape on a panel already criticised for
-              inconsistency would be the defect, not the fix. */}
-          {vm.uncertainty.decisionVoi !== 'not_computed' ? (
-            <section
-              className="border-t border-panel-border pt-3"
-              data-testid="analysis-new-decision-voi-section"
-              aria-labelledby="analysis-new-decision-voi-heading"
-            >
-              {/* V2 gap 23: WAS an h3/`panelHeader` — an orphan THIRD section
-                  title nested inside "What moves the outcome", below "Drivers
-                  and dynamics". Demoted to a plain `<p>` at the same quiet
-                  `panelMeta` weight the nested driver label now uses: not a
-                  heading at all, so it does not compete with the section's
-                  own h3 in a screen reader's heading navigation, and it reads
-                  as a sub-part of the section it sits in rather than a peer
-                  of it. `id`, `data-testid` and the `aria-labelledby` link on
-                  the wrapping `<section>` are unchanged, so the region keeps
-                  the same accessible name. */}
-              <p
-                id="analysis-new-decision-voi-heading"
-                className={`${typography.panelMeta} text-text-header mb-1`}
-                data-testid="analysis-new-decision-voi-heading"
-              >
-                {COPY.decisionVoi.label}
-              </p>
-              <p
-                className={`${typography.panelMeta} text-text-light m-0`}
-                data-testid="analysis-new-decision-voi"
-              >
-                {vm.uncertainty.decisionVoi === 'measured_non_zero'
-                  ? COPY.decisionVoi.measuredNonZero
-                  : COPY.decisionVoi.measuredZero}
-              </p>
-            </section>
-          ) : null}
-
-          {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
-          </SectionShell>
-        ) : null}
-        </>
-        )}
+        {/* V2 prototype: "What moves the outcome" now renders INSIDE the challenge's
+            "Assumptions and evidence" door (ReasoningSignals `evidenceSlot`). */}
 
 
         </div>
@@ -2817,36 +2805,10 @@ export function AnalysisNewTabBody({
             your model · Add an outcome you care about"). The V2 prototype has no
             such block between the model and the challenge, and on served
             `c5000550` it was 108px of what kept the chart below the fold. */}
-        {focusApplicableIds.length > 0 ? (
-          <div className="pt-3 space-y-3" data-testid="analysis-new-zone-focus-group">
-            {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a
-                GROUP of blocks, so it carries no border, no fill and no radius
-                of its own: furniture that looked like a block would add the
-                weight this change exists to remove.
-                ⭐ V2 (fidelity gap 10): a SECTION TITLE, the same class string
-                as "Challenge the thinking" (gap 16). As an 11px caption over
-                14px rows it read as a footnote to its own items. */}
-            {/* ⭐ SPACE-1 (panel-lane design audit 2026-09-25): this zone has no
-                preceding rule, so its title's former pt-3 is relocated onto
-                this group unchanged — a byte-for-byte visual no-op here — so
-                the title's own className stays identical to the also-zone
-                title's, which theFocusZoneHasASectionTitle.spec.tsx pins. */}
-            <h3
-              className={`${typography.panelHeader} text-text-header m-0`}
-              data-testid="analysis-new-zone-focus"
-            >
-              Focus now
-            </h3>
-            {/* ⚠ THE RUN'S OWN NUDGES COME FIRST WHERE THEY EXIST. They are
-                specific to THIS model; the methods are always available. A
-                reader who has a run-specific prompt should meet it before the
-                general shelf — prominence for the shelf was the instruction,
-                not precedence over the run. */}
-            {focusApplicableIds.length > 0 ? (
-              <FocusNowContainer applicableStaticIds={focusApplicableIds} bare />
-            ) : null}
-          </div>
-        ) : null}
+        {/* V2 prototype (Paul, 25 Sep): no "Focus now" block on this tab. Its
+            run-specific nudges stay on the Analysis tab (FocusNowContainer's
+            home); the success nudge is the model strip's own "What would
+            success look like?" row. */}
 
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.

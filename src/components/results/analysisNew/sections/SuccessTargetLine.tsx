@@ -221,6 +221,9 @@ export interface SuccessTargetLineProps {
   divider?: boolean
 }
 
+/** V2 prototype's success row, verbatim, for a goal with no target. */
+const SUCCESS_QUESTION = 'What would success look like?'
+
 export function SuccessTargetLine({
   goalNodeId,
   onCommitOutcome,
@@ -610,9 +613,13 @@ export function SuccessTargetLine({
       data-testid={testId}
     >
       <Target className={`${icon('inline')} self-center shrink-0 text-text-light`} aria-hidden="true" />
-      <span className={`${typography.panelMeta} text-text-light shrink-0`}>
-        {COPY.successTarget.label}
-      </span>
+      {/* V2 prototype: with no target the row IS the question ("What would
+          success look like?"); the "Target" label only heads a stated value. */}
+      {editing || shownText !== null || unexpressible ? (
+        <span className={`${typography.panelMeta} text-text-light shrink-0`}>
+          {COPY.successTarget.label}
+        </span>
+      ) : null}
 
       {editing ? (
         <span
@@ -808,14 +815,18 @@ export function SuccessTargetLine({
             </span>
           ) : (
             <span
-              className={`${typography.panelMeta} text-text-light`}
+              className={
+                unexpressible
+                  ? `${typography.panelMeta} text-text-light`
+                  : `${typography.panelBody} text-text-body flex-1 min-w-0`
+              }
               data-testid={`${testId}-none`}
             >
               {/* ⚠ TWO DIFFERENT ABSENCES, TWO SENTENCES. "No target set" is a
                   fact about the MODEL; "we hold one we cannot show in your
                   units" is a fact about the VALUE. Collapsing them would tell a
                   user who set a target that they never did. */}
-              {unexpressible ? COPY.successTarget.unexpressible : COPY.successTarget.none}
+              {unexpressible ? COPY.successTarget.unexpressible : SUCCESS_QUESTION}
             </span>
           )}
           {/* Provenance in the SAME vocabulary the factor rows use — one thing
@@ -912,15 +923,17 @@ export function SuccessTargetLine({
                * `successTargetLine.spec.tsx`'s `toHaveTextContent` pin — so the
                * pencil is additive, not a replacement for the accessible name.
                */
-              className={`${typography.panelBody} shrink-0 inline-flex items-center gap-1 ${
-                shownText !== null ? action('quiet') : action('primary')
+              className={`${typography.panelBody} shrink-0 inline-flex items-center gap-1 ${action('quiet')} ${
+                shownText !== null ? '' : 'no-underline text-text-light hover:text-info'
               }`}
+              aria-label={shownText !== null ? undefined : COPY.successTarget.set}
+              title={shownText !== null ? undefined : COPY.successTarget.set}
               data-testid={`${testId}-edit`}
             >
-              {shownText !== null ? (
-                <Pencil className={icon('inline')} aria-hidden={true} />
-              ) : null}
-              {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}
+              {/* V2 prototype: a quiet pencil. Unset, it is icon-only and its
+                  accessible name is still "Set a target". */}
+              <Pencil className={icon('inline')} aria-hidden={true} />
+              {shownText !== null ? COPY.successTarget.change : null}
             </button>
           </span>
         </>

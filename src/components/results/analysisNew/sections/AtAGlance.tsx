@@ -337,12 +337,6 @@ export interface AtAGlanceProps {
  * colour, and slightly tracked. The hierarchy comes from the scale and the
  * spacing, which is what the scale is for.
  */
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className={`${typography.panelMeta} text-text-light tracking-wide m-0`}>{children}</p>
-  )
-}
-
 export function AtAGlance({
   glance,
   onFocusTarget,
@@ -361,6 +355,7 @@ export function AtAGlance({
   part = 'all',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
+  const [withheldOpen, setWithheldOpen] = useState(false)
   const excludedKey =
     glance.comparisonScope.kind === 'partial'
       ? JSON.stringify(glance.comparisonScope.excluded.map((o) => o.id))
@@ -922,8 +917,26 @@ export function AtAGlance({
            ⚠ `role="status"` — this is a statement about the run, in the slot
            where the answer would otherwise be, so it must reach a screen reader
            the way the ribbon above does rather than as unannounced prose. */
+        /* ⭐ V2 prototype: the refusal sentence is not on the default scroll.
+           It sits behind ONE door, closed at rest — still the producer's
+           sentence, unparaphrased, one click away (the "Still open" bullet
+           and the qualifier already say the ordering is unconfirmed). */
+        <div data-testid={`${testId}-withheld-disclosure`}>
+          <button
+            type="button"
+            aria-expanded={withheldOpen}
+            onClick={() => setWithheldOpen((o) => !o)}
+            className={`${typography.panelBody} ${action('disclose')}`}
+            data-testid={`${testId}-withheld-toggle`}
+          >
+            <ChevronRight
+              className={`h-3.5 w-3.5 shrink-0 text-text-light ${withheldOpen ? 'rotate-90' : ''}`}
+              aria-hidden={true}
+            />
+            {COPY.glance.eyebrowWhyWithheld}
+          </button>
+          {withheldOpen ? (
         <div role="status">
-          <Eyebrow>{COPY.glance.eyebrowWhyWithheld}</Eyebrow>
           <p
             className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
             data-testid={`${testId}-withheld-reason`}
@@ -1061,6 +1074,8 @@ export function AtAGlance({
             >
               {COPY.glance.reviewEstimates}
             </button>
+          ) : null}
+        </div>
           ) : null}
         </div>
       ) : null}

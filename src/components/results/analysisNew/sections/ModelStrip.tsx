@@ -150,8 +150,8 @@
  *     it dispatches through `openAskOlumi` with no branching of its own.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Crosshair, Lightbulb, Pencil } from 'lucide-react'
 /**
  * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
  * AND A GUARD IS WHY.
@@ -173,7 +173,6 @@ import { Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
  * ⚠ I chose `CircleDashed` independently before finding that map, and it
  * happened to agree. That is luck. The spec is what turns it into a mechanism.
  */
-import { CircleDashed as NoValueMark } from 'lucide-react'
 
 import { OlumiAiIcon } from '../OlumiAiIcon'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -379,12 +378,19 @@ export interface ModelStripProps {
    * cannot tell which decision the conclusion belongs to; it drops to the size
    * the panel's section titles use, second-loudest rather than quiet.
    */
+  /**
+   * V2 prototype: the review worklist ("N to review") renders between the
+   * census rows and the success row. The body owns the tool (it sees the view
+   * model); the strip only places it.
+   */
+  reviewSlot?: ReactNode
 }
 
 export function ModelStrip({
   testId = 'analysis-new-model-strip',
   isPreRun = false,
   insights = NO_INSIGHTS,
+  reviewSlot = null,
 }: ModelStripProps) {
   const showToast = useShowToastSafe()
   /**
@@ -751,13 +757,6 @@ export function ModelStrip({
     writeRing(narrowedIds(next, null))
   }
 
-  const pickWorklist = (mode: 'verify' | 'noValue') => {
-    const next = activeMode === mode ? null : mode
-    setWorklist(next)
-    setKindFilter(null)
-    writeRing(narrowedIds(null, next))
-  }
-
   /**
    * ⭐⭐ THE NARROWING FOLLOWS THE MODEL, NOT ONLY THE GESTURE.
    *
@@ -828,8 +827,6 @@ export function ModelStrip({
   // `narrowedKey` are all empty or null and the effect returns without writing
   // — so the move is behaviour-preserving and the render below is unchanged.
   if (!stripHasContent(strip)) return null
-  const toggleVerify = () => pickWorklist('verify')
-  const toggleNoValue = () => pickWorklist('noValue')
 
   /**
    * Resolved against the VISIBLE rows — see `activeNodeId`.
@@ -1072,40 +1069,6 @@ export function ModelStrip({
           ⚠ RENDERED WHETHER THE STRIP IS OPEN OR CLOSED. "What does success
           look like" is the question a strategist answers first, and a target
           hidden behind a disclosure is a target nobody sets. */}
-      <SuccessTargetLine
-        goalNodeId={strip.goalNodeId}
-        divider={false}
-        /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
-           This read TWO, on the premise that no server carrier for a goal
-           threshold exists, and told every reader "It will be used the next time
-           you analyse" over a store-only write that reverted on reload. The
-           typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
-           the control can now dispatch and must report which of the three
-           things happened - exactly as the factor editor twenty lines above
-           already does. Collapsing any two of these is the estate's signature
-           defect, an affordance reporting an outcome it never observed. */
-        /* ⚠⚠ FOUR OUTCOMES NOW, AND THE FOURTH IS THE ONLY ONE A READER CAN
-           ACT ON. `no_unit` used to fall through to `notEncodable` — "That
-           target could not be applied, so nothing changed." — which is true and
-           useless: it names one of three causes' shared shape and no move.
-           Collapsing any two of these is the estate's signature defect, an
-           affordance reporting an outcome it never observed; collapsing a
-           CAUSE is the same defect wearing a different coat. */
-        onCommitOutcome={(outcome) =>
-          showToast(
-            outcome === 'dispatched'
-              ? COPY.successTarget.dispatched
-              : outcome === 'local_only'
-                ? COPY.successTarget.changedLocally
-                : outcome === 'no_unit'
-                  ? COPY.successTarget.noUnit
-                  : outcome === 'not_a_number'
-                    ? COPY.successTarget.notANumber
-                    : COPY.successTarget.notEncodable,
-          )
-        }
-        testId={`${testId}-target`}
-      />
 
       {/* ── THE MARKS, one per node, each a route to that node on canvas ─────
           Unchanged from the always-visible version, including the cap: this is
@@ -1135,84 +1098,10 @@ export function ModelStrip({
             ⚠ THE WRAPPER IS CONDITIONAL. An unconditional flex row renders an
             empty 4px-tall box on every model with no worklist at all — trading
             a visible misalignment for an invisible one. */}
-        {strip.needsCheckTotal > 0 || strip.noValueTotal > 0 ? (
-          <div className="flex flex-wrap items-center gap-1 mb-1">
-        {strip.needsCheckTotal > 0 ? (
-          <button
-            type="button"
-            onClick={toggleVerify}
-            aria-pressed={verifyActive}
-            /* CONTAINS the visible text, so the control keeps label-in-name.
-               "3 to verify" alone announces a count and not what pressing it
-               does. */
-            aria-label={COPY.modelStrip.toVerifyToggleName(strip.needsCheckTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-              /* ⚠ PRESSED IS A RING, NOT A HOTTER AMBER. Solid `bg-warning`
-                 made amber carry TWO questions at once: "how urgent is this?"
-                 and "is this filter on?" — so switching a filter ON made the
-                 panel look like something had got worse. Severity keeps the
-                 hue; the pressed state is carried by a ring, which no other
-                 status on this panel uses. `aria-pressed` above already says
-                 it to assistive tech; this is the sighted half.
-
-                 ⚠⚠ 24 Sep 2026 — AND THE FILL ITSELF IS GONE. Fidelity gap #14
-                 (`FIDELITY-WORKFLOW-RESULT-20260924.json`): `bg-warning/10` and
-                 `bg-warning/20` are tinted backgrounds, banned by
-                 BUILDER-RULES ("Neutral/transparent surfaces. NO tinted
-                 backgrounds"), and the prototype's own equivalent
-                 (`.source-pill`) is outline-only, never filled. An outlined
-                 pill replaces the fill; the ring recolours warning -> info so
-                 "pressed" does not double as a second, stronger severity
-                 read — text-warning-ink alone still carries severity. */
-              verifyActive
-                ? 'text-warning-ink ring-1 ring-inset ring-info'
-                : 'text-warning-ink hover:bg-panel-hover'
-            }`}
-            data-testid={`${testId}-verify-toggle`}
-          >
-            <ListChecks className={`${icon('inline')}`} aria-hidden={true} />
-            {COPY.modelStrip.toVerify(strip.needsCheckTotal)}
-          </button>
-        ) : null}
-
-        {/* ── THE SECOND WORKLIST ──────────────────────────────────────────
-            ⭐⭐ THE STRIP WAS QUIETEST ON THE MODELS WITH LEAST IN THEM.
-            `needsCheck` is `factorIsConfirmable`, which REQUIRES a value, so a
-            factor with none cannot be "to verify" and had no affordance here at
-            all. Measured on deployed `80ccf768` (guest, seeded "Customer Data
-            Platform Selection"): the Model tab's own outline heading read "2
-            with no value yet" while this strip offered nothing.
-
-            ⚠ A SECOND COUNT, NOT A WIDER PREDICATE. Widening
-            `factorIsConfirmable` would re-ship the defect its narrowing fixed —
-            "an enabled Confirm that silently did nothing" (`FactorsSection.tsx`).
-            Two questions, named apart.
-
-            Same rules as the toggle above, deliberately: renders only above
-            zero, amber keeps the hue and the ring carries pressed, and the
-            criterion is a visible sentence rather than a `title`. */}
-        {strip.noValueTotal > 0 ? (
-          <button
-            type="button"
-            onClick={toggleNoValue}
-            aria-pressed={noValueActive}
-            aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
-            // ⚠⚠ 24 Sep 2026 — SAME RECOLOUR AS THE VERIFY TOGGLE ABOVE, same
-            // reason: fidelity gap #14, no tinted `bg-warning/*` fill, an
-            // outlined pill instead, pressed carried by `ring-info`.
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full border border-panel-border px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
-              noValueActive
-                ? 'text-warning-ink ring-1 ring-inset ring-info'
-                : 'text-warning-ink hover:bg-panel-hover'
-            }`}
-            data-testid={`${testId}-no-value-toggle`}
-          >
-            <NoValueMark className={`${icon('inline')}`} aria-hidden={true} />
-            {COPY.modelStrip.noValueCount(strip.noValueTotal)}
-          </button>
-        ) : null}
-          </div>
-        ) : null}
+        {/* V2 prototype: ONE worklist count on the first screen — the review
+            tool's "N to review" below the rows. The strip's own "to verify" /
+            "no value" chips duplicated it (Paul, 25 Sep) and are gone; the
+            Model tab keeps its filters. */}
 
         {/* ⚠ THE CRITERION, VISIBLE AND ONLY WHILE IT APPLIES. "3 to verify"
             does not say what qualified them, and a `title` would put that
@@ -1468,14 +1357,9 @@ export function ModelStrip({
             strings this component contributes are the affordance line, the
             absence line and the cap disclosure — furniture and honesty, never a
             statement about the model. */}
-        {active === null ? (
-          <p
-            className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-            data-testid={`${testId}-hint`}
-          >
-            {isPreRun ? COPY.modelStrip.hintPreRun : COPY.modelStrip.hint}
-          </p>
-        ) : (
+        {/* V2 prototype: no standing hint line under the rows — a mark's own
+            tooltip and focus ring say what picking it does. */}
+        {active === null ? null : (
           <div
             id={detailId}
             /* `min-w-0` on the flex children and wrapping on every producer
@@ -1907,6 +1791,44 @@ export function ModelStrip({
         )}
         </div>
       ) : null}
+      {/* V2 prototype order: the rows, then "N to review", then "What would
+          success look like?" — the worklist and the success row sit BELOW the
+          census, not above it. */}
+      {reviewSlot}
+      <SuccessTargetLine
+        goalNodeId={strip.goalNodeId}
+        divider={false}
+        /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
+           This read TWO, on the premise that no server carrier for a goal
+           threshold exists, and told every reader "It will be used the next time
+           you analyse" over a store-only write that reverted on reload. The
+           typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
+           the control can now dispatch and must report which of the three
+           things happened - exactly as the factor editor twenty lines above
+           already does. Collapsing any two of these is the estate's signature
+           defect, an affordance reporting an outcome it never observed. */
+        /* ⚠⚠ FOUR OUTCOMES NOW, AND THE FOURTH IS THE ONLY ONE A READER CAN
+           ACT ON. `no_unit` used to fall through to `notEncodable` — "That
+           target could not be applied, so nothing changed." — which is true and
+           useless: it names one of three causes' shared shape and no move.
+           Collapsing any two of these is the estate's signature defect, an
+           affordance reporting an outcome it never observed; collapsing a
+           CAUSE is the same defect wearing a different coat. */
+        onCommitOutcome={(outcome) =>
+          showToast(
+            outcome === 'dispatched'
+              ? COPY.successTarget.dispatched
+              : outcome === 'local_only'
+                ? COPY.successTarget.changedLocally
+                : outcome === 'no_unit'
+                  ? COPY.successTarget.noUnit
+                  : outcome === 'not_a_number'
+                    ? COPY.successTarget.notANumber
+                    : COPY.successTarget.notEncodable,
+          )
+        }
+        testId={`${testId}-target`}
+      />
     </section>
   )
 }

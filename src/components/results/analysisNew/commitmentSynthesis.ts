@@ -134,6 +134,13 @@ export type BeforeSource =
   | 'rerun'
   /** `vm.strengthen.interventions[0].title`, verbatim. */
   | 'intervention'
+  /**
+   * ⭐ V2 prototype ("Before acting: Test the belief or record why you accept
+   * it."). The always-true next move when no other source applies and the
+   * Challenge card already shows an item: answer it, or record the view.
+   * Names no option and claims nothing about the run.
+   */
+  | 'respond_or_record'
 
 export interface CommitmentBullet<S extends string> {
   text: string
@@ -334,8 +341,12 @@ function beforeBullet(
   // screen twice (V2 census, B1). Skip it, as the review queue does.
   const top = vm.strengthen.interventions.find((r) => !excluded.has(r.id))
   if (top && top.title.trim() !== '') return { text: top.title, source: 'intervention' }
+  if (excluded.size > 0) return { text: RESPOND_OR_RECORD, source: 'respond_or_record' }
   return null
 }
+
+/** Bullet 3's fallback — the prototype's own sentence, adapted to this panel's acts. */
+export const RESPOND_OR_RECORD = 'Answer the challenge above, or record why you accept the result.'
 
 const EMPTY: CommitmentSynthesis = { describesLastRun: false, staleKind: null, founded: null, open: null, before: null }
 
