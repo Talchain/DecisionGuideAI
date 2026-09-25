@@ -112,6 +112,11 @@ describe('a withheld leader is not ranked by win share', () => {
     )
   })
 
+  it('a whitespace-only leading_option_id names no one either: no row', () => {
+    render(<V5AnalysisResultBlock block={{ ...servedResultBlock(), leading_option_id: '   ' }} />)
+    expect(screen.queryByTestId(ROW)).toBeNull()
+  })
+
   it('the HELD REPORT’s refusal withholds too, even on a block that names a leader', () => {
     const [rank1] = Object.entries(servedResultBlock().win_probabilities ?? {}).sort(([, a], [, b]) => b - a)[0]
     holdReportWithPermission(false)
@@ -125,13 +130,21 @@ describe('a withheld leader is not ranked by win share', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('PERMITTED controls keep the win-share row', () => {
-  it('the same served block, with a leader named and no refusal held, shows every share, largest first', () => {
+  it('the same served block, with a leader named and no refusal held, shows every share (in canvas order: no leader is LICENSED here)', () => {
+    // RE-PINNED (RC ruling #69 5829442152 §4). This was "largest first". The
+    // served block is the producer's near tie (`is_tie: true`) and carries no
+    // band, so the verdict licenses no leader. Such a card keeps EVERY number
+    // ("the claim is withheld, never the numbers" still holds) and lists the
+    // options in canvas order; this test's canvas has no options, so the order
+    // is the wire's own. Largest-first is `unlicensedCanvasOrder.spec.tsx`'s
+    // licensed control.
     const shares = servedResultBlock().win_probabilities ?? {}
-    const ranked = Object.entries(shares).sort(([, a], [, b]) => b - a)
-    render(<V5AnalysisResultBlock block={{ ...servedResultBlock(), leading_option_id: ranked[0][0] }} />)
+    const [rank1] = Object.entries(shares).sort(([, a], [, b]) => b - a)[0]
+    render(<V5AnalysisResultBlock block={{ ...servedResultBlock(), leading_option_id: rank1 }} />)
     const pills = within(screen.getByTestId(ROW)).getAllByRole('listitem')
-    expect(pills).toHaveLength(ranked.length)
-    ranked.forEach(([label], i) => expect(pills[i]).toHaveTextContent(label))
+    const wire = Object.keys(shares)
+    expect(pills).toHaveLength(wire.length)
+    wire.forEach((label, i) => expect(pills[i]).toHaveTextContent(label))
   })
 
   it('a held report that PERMITS does not withhold (the stamp only ever withholds)', () => {
