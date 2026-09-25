@@ -43,7 +43,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Star, TrendingUp, GitBranch, Activity } from 'lucide-react'
+import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -2648,18 +2648,30 @@ export function AnalysisNewTabBody({
             ruling buys the drivers that space. Measured, not hidden. */}
         {whatMovesHasContent ? (
           <SectionShell
-            icon={Activity}
             title={COPY.sections.whatMovesTheOutcome}
-            subtitle={COPY.sectionSubtitles.whatMovesTheOutcome}
             /* ⛔ A COUNT IS A PROMISE. This read
                `findings.length + influenceRows.length` and so advertised 4 while
                holding TWO factors — witnessed on deployed `219209ad`. The two
                lists are one-to-one by this codebase's own stated invariant ("a
                row can never appear without its bar"), so adding them double-counts
                every driver. Counted as SUBJECTS, by union, so a future divergence
-               grows the number honestly instead of hiding inside it. */
+               grows the number honestly instead of hiding inside it.
+               ⭐ TAIL-1 (panel-lane design audit 2026-09-25): the badge no
+               longer draws (variant="disclose" drops it), but the count still
+               reaches `data-section-count` on the wrapping <section> —
+               "the count is always carried here, whether or not the badge
+               draws" (SectionShell's own doc). */
             count={distinctDriverSubjects(vm.drivers.findings, vm.drivers.influenceRows)}
             testId="analysis-new-what-moves-the-outcome"
+            /* ⭐⭐ TAIL-1: the prototype's tail door is `.disclose` — a chevron
+               and one line, no icon slot, no subtitle and no count badge (the
+               auditor's citation: aboutHTML()/insightsHTML() disclosures carry
+               none of those). `COPY.sectionSubtitles.whatMovesTheOutcome`
+               (analysisNewCopy.ts) stops being RENDERED here, deliberately —
+               the constant itself is kept, unread, so the file's line count
+               (and the ui-decides-baseline.txt keying pinned to it) is
+               unchanged. */
+            variant="disclose"
           >
           {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
           {/* V2 gap 23: this section is NESTED inside the "What moves the

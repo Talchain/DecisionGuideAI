@@ -62,3 +62,34 @@ describe('SPACE-1 / FIRST-2 — "Challenge the thinking" sits close under its ru
     expect(group.className).toBe('pt-3 space-y-3')
   })
 })
+
+describe('TAIL-1 — "What moves the outcome" is a quiet SectionShell disclose door, not a peer section header', () => {
+  it('renders no icon slot, no subtitle line and no count badge', () => {
+    renderBody()
+    expect(screen.queryByTestId('analysis-new-what-moves-the-outcome-subtitle')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-what-moves-the-outcome-count')).toBeNull()
+  })
+
+  it('the toggle is a plain button, not wrapped in an h1-h3 heading tag', () => {
+    renderBody()
+    const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
+    expect(toggle.tagName).toBe('BUTTON')
+    expect(toggle.closest('h1,h2,h3')).toBeNull()
+  })
+
+  it('the title carries the section-labelling id directly, so aria-labelledby still resolves', () => {
+    renderBody()
+    const section = screen.getByTestId('analysis-new-what-moves-the-outcome')
+    const labelledBy = section.getAttribute('aria-labelledby')
+    expect(labelledBy).toBe('analysis-new-what-moves-the-outcome-heading')
+    const title = screen.getByTestId('analysis-new-what-moves-the-outcome-title')
+    expect(title.id).toBe('analysis-new-what-moves-the-outcome-heading')
+  })
+
+  it('the door is typed panelBody (12px), not panelHeader — the prototype .disclose, not a section title', () => {
+    renderBody()
+    const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
+    expect(toggle.className).toMatch(/text-xs/)
+    expect(toggle.className).not.toMatch(/font-semibold/)
+  })
+})
