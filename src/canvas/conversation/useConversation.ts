@@ -74,7 +74,7 @@ import {
   type StructuralAddNoticeKey,
 } from '../mutations/structuralAdd'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
-import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
+import { mapV5Blocks, turnLeaderClaimPermitted } from '../../v5/blocks/mapV5Blocks'
 import { dropRepeatedAnalysisCards, lastRenderedAnalysisHash } from './analysisCardDedupe'
 import { buildSuggestedActionChips } from '../../v5/blocks/suggestedActionChips'
 import { ACTION_TO_TURN_TYPE } from './actionTurnTypes'
@@ -5460,7 +5460,11 @@ export function useConversation(): UseConversationReturn {
               // Pass suggested_actions so the held-proposal mapper (R8) can
               // resolve confirm_action_id / decline_action_id refs into the
               // {label, message} the card dispatches through the chip seam.
-              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions)
+              ? mapV5Blocks(target.response.blocks, target.response.suggested_actions, {
+                  leaderClaimPermitted: turnLeaderClaimPermitted(
+                    (target.response as { analysis_state?: unknown }).analysis_state,
+                  ),
+                })
               : []
 
           // Phase 3 rendering bridge (Track C slice 1, D-5) — surface

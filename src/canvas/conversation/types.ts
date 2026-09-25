@@ -219,6 +219,11 @@ export interface V5AnalysisResultBlock {
   leading_option_id: string | null
   win_probabilities?: Record<string, number>
   enrichment?: Record<string, unknown>
+  /**
+   * UI-only, stamped at ingestion (`mapV5Blocks`): the turn's own typed
+   * `leader_claim` was withheld. Present only as `false`; never on the wire.
+   */
+  leader_claim_permitted?: false
 }
 
 export interface V5GraphPatchBlock {

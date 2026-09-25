@@ -23,7 +23,7 @@
  * degrade to `v5_unsupported` to keep the renderer crash-free. DEV logs
  * and telemetry-track in InlineBlocks' default branch pick up drift.
  */
-import type { OlumiResponse } from '@talchain/schemas/boundary'
+import { AnalysisStateV1Schema, type OlumiResponse } from '@talchain/schemas/boundary'
 
 import type { ConversationBlock } from '../../canvas/conversation/types'
 
@@ -37,9 +37,38 @@ type V5Block = OlumiResponse['blocks'][number]
  */
 type SuggestedActionRef = OlumiResponse['suggested_actions'][number]
 
+/**
+ * UI-SEM-097 — the TURN's own leader claim, carried onto its result card.
+ *
+ * The wire `analysis_result` block does not carry the typed claim; it rides
+ * the response's `analysis_state.leader_claim`. The card's other refusal
+ * source, the held report's `producer_leader_permission`, belongs to the
+ * LATEST report, so after a later permitted Run it no longer speaks for an
+ * earlier card (pre-review on #2004, 5829256617). Stamping the turn's refusal
+ * on the block at ingestion keeps it with THAT card, and the transcript
+ * persists blocks, so it survives a reload.
+ */
+export interface MapV5BlocksTurnContext {
+  /** `analysis_state.leader_claim.permitted` of the turn these blocks came from. */
+  leaderClaimPermitted?: boolean | null
+}
+
+/**
+ * The turn's typed `leader_claim.permitted`, read with the SAME schema
+ * `applyV5State` step 4 uses, so the card and the store cannot disagree about
+ * what this turn said. Absent or malformed ⇒ `null` (no refusal is known; the
+ * card's null-id half still applies).
+ */
+export function turnLeaderClaimPermitted(rawAnalysisState: unknown): boolean | null {
+  if (rawAnalysisState == null) return null
+  const parsed = AnalysisStateV1Schema.safeParse(rawAnalysisState)
+  return parsed.success ? parsed.data.leader_claim.permitted : null
+}
+
 export function mapV5Block(
   block: V5Block,
   suggestedActions: readonly SuggestedActionRef[] = [],
+  turn: MapV5BlocksTurnContext = {},
 ): ConversationBlock | null {
   switch (block.type) {
     case 'text':
@@ -65,6 +94,9 @@ export function mapV5Block(
         leading_option_id: block.leading_option_id,
         ...(block.win_probabilities ? { win_probabilities: block.win_probabilities } : {}),
         ...(block.enrichment ? { enrichment: block.enrichment } : {}),
+        // Only ever WITHHOLDS: a permitted or unknown claim stamps nothing, so
+        // every other card is byte-identical to before.
+        ...(turn.leaderClaimPermitted === false ? { leader_claim_permitted: false as const } : {}),
       }
     case 'graph_patch':
       return {
@@ -258,6 +290,7 @@ export function mapV5Block(
 export function mapV5Blocks(
   blocks: V5Block[],
   suggestedActions: readonly SuggestedActionRef[] = [],
+  turn: MapV5BlocksTurnContext = {},
 ): ConversationBlock[] {
   // The `= []` default only covers `undefined`. A null (schema drift, or a
   // caller bypassing the parser) would make the held_proposal branch's
@@ -267,7 +300,7 @@ export function mapV5Blocks(
   const actions = Array.isArray(suggestedActions) ? suggestedActions : []
   const out: ConversationBlock[] = []
   for (const b of blocks) {
-    const mapped = mapV5Block(b, actions)
+    const mapped = mapV5Block(b, actions, turn)
     if (mapped) out.push(mapped)
   }
   return out

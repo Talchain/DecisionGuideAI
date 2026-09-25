@@ -50,6 +50,11 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { readProducerLeaderPermission } from '../../../lib/decisionVerdict'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
+import { mapV5Blocks, turnLeaderClaimPermitted } from '../mapV5Blocks'
+import {
+  TRANSCRIPT_STORAGE_KEY,
+  __resetTranscriptTombstonesForTests,
+} from '../../../canvas/conversation/utils/transcriptStore'
 
 vi.mock('../../../canvas/conversation/turnService', () => ({
   callOrchestratorTurn: vi.fn(),
@@ -167,6 +172,7 @@ function expectNoWinShares(card: HTMLElement, shares: Record<string, number>, wh
 beforeEach(() => {
   queue.length = 0
   localStorage.clear()
+  __resetTranscriptTombstonesForTests()
   Element.prototype.scrollIntoView = vi.fn()
   window.history.replaceState(null, '', '/?ai=openai#/canvas')
   useCanvasStore.setState({
@@ -305,5 +311,76 @@ describe('PERMITTED (derived control): the row renders, seen and heard', () => {
     expect(cards, 'one card per Run').toHaveLength(2)
     expectNoWinShares(cards[0], resultBlockOf(RUN_57F).win_probabilities, 'the earlier, withheld card')
     expect(within(cards[1]).getByTestId('v5-analysis-result-probabilities'), 'the later, permitted card').toBeInTheDocument()
+  })
+})
+
+// ── The turn's own refusal travels with its card (pre-review 5829256617) ────
+
+/** A withheld claim whose block still names the rank-1 option (derived; never seen on the wire). */
+function withheldClaimNamedLeader(): Wire {
+  const body = permittedTwinOf57f()
+  body.analysis_state!.leader_claim = { ...RUN_57F.analysis_state!.leader_claim }
+  return body
+}
+
+/** A later permitted Run, distinct from the first so the thread keeps both cards. */
+function laterPermittedRun(): Wire {
+  const later = permittedTwinOf57f()
+  resultBlockOf(later).summary = 'A later run.'
+  later.assistant_text = 'A later run.'
+  return later
+}
+
+const cardsNow = () => [...document.querySelectorAll('[data-testid="v5-analysis-result"]')] as HTMLElement[]
+
+describe("the turn's own refusal is stamped on its card, and stays there", () => {
+  it('mapV5Blocks stamps a withheld claim and nothing else; the reader uses the store schema', () => {
+    const blocks = RUN_57F.blocks as Parameters<typeof mapV5Blocks>[0]
+    const plain = mapV5Blocks(blocks, [])
+    const result = (ctx: Parameters<typeof mapV5Blocks>[2]) =>
+      mapV5Blocks(blocks, [], ctx).find((b) => b.type === 'v5_analysis_result') as unknown as Record<string, unknown>
+
+    expect(turnLeaderClaimPermitted(RUN_57F.analysis_state)).toBe(false)
+    expect(turnLeaderClaimPermitted(permittedTwinOf57f().analysis_state)).toBe(true)
+    expect(turnLeaderClaimPermitted(undefined)).toBeNull()
+    expect(turnLeaderClaimPermitted({ leader_claim: 'not an object' })).toBeNull()
+
+    expect(result({ leaderClaimPermitted: false }).leader_claim_permitted).toBe(false)
+    // Permitted or unknown stamps nothing: every other card is byte-identical.
+    expect(mapV5Blocks(blocks, [], { leaderClaimPermitted: true })).toEqual(plain)
+    expect(mapV5Blocks(blocks, [], { leaderClaimPermitted: null })).toEqual(plain)
+  })
+
+  it('a withheld claim that kept its id, then a permitted Run: the EARLIER card stays withheld', async () => {
+    await mount()
+    await say(withheldClaimNamedLeader(), 'Run the analysis.')
+    await say(laterPermittedRun(), 'Run it again.')
+
+    const [earlier, later] = cardsNow()
+    expect(cardsNow(), 'one card per Run').toHaveLength(2)
+    expect(
+      readProducerLeaderPermission(useCanvasStore.getState().results?.report?.producer_leader_permission),
+      'the held report now PERMITS, so it cannot speak for the earlier card',
+    ).not.toBe(false)
+    expectNoWinShares(earlier, resultBlockOf(RUN_57F).win_probabilities, 'the earlier card, its own claim withheld')
+    expect(within(later).getByTestId('v5-analysis-result-probabilities'), 'the later, permitted card').toBeInTheDocument()
+  })
+
+  it('... and after a reload, from the saved transcript alone', async () => {
+    await mount()
+    await say(withheldClaimNamedLeader(), 'Run the analysis.')
+    await say(laterPermittedRun(), 'Run it again.')
+    await waitFor(() => expect(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)).not.toBeNull())
+
+    cleanup()
+    const file = JSON.parse(localStorage.getItem(TRANSCRIPT_STORAGE_KEY)!)
+    file[SID].pageLoadId = 'an-earlier-page-load'
+    localStorage.setItem(TRANSCRIPT_STORAGE_KEY, JSON.stringify(file))
+    await mount()
+    await waitFor(() => expect(cardsNow()).toHaveLength(2))
+
+    const [earlier, later] = cardsNow()
+    expectNoWinShares(earlier, resultBlockOf(RUN_57F).win_probabilities, 'after reload, the earlier card')
+    expect(within(later).getByTestId('v5-analysis-result-probabilities'), 'after reload, the later card').toBeInTheDocument()
   })
 })

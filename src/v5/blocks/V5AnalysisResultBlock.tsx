@@ -375,16 +375,20 @@ function V5AnalysisResultBlockImpl({
   // lists the options in canvas order with no percentages
   // (`optionDisplayOrder.ts`, `designationsWithheld`).
   //
-  // WITHHELD WHEN EITHER producer signal says so, which fails closed:
+  // WITHHELD WHEN ANY producer signal says so, which fails closed:
   //   · THIS RUN named no leader: `block.leading_option_id` is null (or blank,
   //     which names no one either). CEE nulls
   //     it on a withheld claim while the win probabilities keep riding the wire
   //     (UI-SEM-060). It is per card, and the transcript persists it, so an
   //     earlier withheld run stays withheld after a later run permits.
+  //   · THIS TURN's typed claim was withheld: `block.leader_claim_permitted`,
+  //     stamped from the turn's `analysis_state.leader_claim` at ingestion
+  //     (`mapV5Blocks`). Per card and persisted, so it holds even if CEE ever
+  //     withheld a claim WITHOUT nulling the id (pre-review 5829256617).
   //   · The HELD REPORT carries the producer's refusal
   //     (`producer_leader_permission.permitted === false`, stamped by
   //     `applyV5State` step 5b on the typed `leader_claim`). It is bound to the
-  //     report, so it survives a reload.
+  //     LATEST report, so it speaks only for the card whose report is held.
   // A near tie keeps its `leading_option_id`, so it is untouched here; it has
   // its own no-crown handling above.
   //
@@ -398,7 +402,12 @@ function V5AnalysisResultBlockImpl({
   )
   const thisRunNamedNoLeader =
     typeof block.leading_option_id !== 'string' || block.leading_option_id.trim() === ''
-  const winShareRankingWithheld = thisRunNamedNoLeader || heldReportWithholdsLeader
+  // The turn's own typed refusal, stamped on this card at ingestion
+  // (`mapV5Blocks`). Unlike the held report, it stays with THIS card when a
+  // later Run permits, and it survives a reload with the transcript.
+  const thisTurnWithheldClaim = block.leader_claim_permitted === false
+  const winShareRankingWithheld =
+    thisRunNamedNoLeader || thisTurnWithheldClaim || heldReportWithholdsLeader
   const showWinShares = hasProbs && !winShareRankingWithheld
 
   // ⭐ UI-SEM-097, ORDER (RC ruling, #69 5829442152 §4): ORDER IS A DESIGNATION.
