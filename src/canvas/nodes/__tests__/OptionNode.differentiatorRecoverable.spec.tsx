@@ -54,7 +54,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows, optionPreviewDetail } from './__helpers__/optionPreview'
 import { compactFactorLabel } from '../../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 
@@ -247,10 +247,11 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
       selector(makeStoreState({
         ceeAnalysisReady: {
           options: [
-            // Two shared, equal changes come first in the shared order, so the
+            // THREE shared, equal changes come first in the shared order (the
+            // card shows three rows — Paul 25 Sep; it was two), so the
             // differentiating factor sits behind "+1 more" and the footer ADDS it.
-            { id: 'option-1', interventions: { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' }, 'factor-pe': { value: 0.1, display_value: 'Low (0)' } } },
-            { id: 'option-2', interventions: { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' }, 'factor-pe': { value: 0.9, display_value: 'High (1)' } } },
+            { id: 'option-1', interventions: { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' }, 'factor-seats': { value: 4, display_value: '4 seats' }, 'factor-pe': { value: 0.1, display_value: 'Low (0)' } } },
+            { id: 'option-2', interventions: { 'factor-tools': { value: 3, display_value: '£3k' }, 'factor-hours': { value: 40, display_value: '40h' }, 'factor-seats': { value: 4, display_value: '4 seats' }, 'factor-pe': { value: 0.9, display_value: 'High (1)' } } },
           ],
         },
         nodes: [
@@ -258,6 +259,7 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
           { id: 'option-2', type: 'option', data: { label: 'Hold Headcount', type: 'option' } },
           { id: 'factor-tools', type: 'factor', data: { label: 'Tooling spend' } },
           { id: 'factor-hours', type: 'factor', data: { label: 'Weekly hours' } },
+          { id: 'factor-seats', type: 'factor', data: { label: 'Seats per account' } },
           {
             id: 'factor-pe',
             type: 'factor',
@@ -273,7 +275,7 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     // Same fixture lengthening as above, same reason.
     // Precondition: the factor it names is NOT a shown row (it is behind "+1 more").
     expect(screen.queryByTestId('option-change-row-option-1-factor-pe')).toBeNull()
-    expect(within(optionPreviewDetail('option-1')!).getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
+    expect(within(optionCardRows('option-1')).getByTestId('option-change-more-option-1').textContent).toBe('+1 more')
     // Same S4 cut as above (18 characters at the 260 card, 9914ffa3).
     // S5 (24 Sep): at rest the reading sheds its internal-scale number (R6, as
     // every change row does); the hover keeps the producer's full reading.

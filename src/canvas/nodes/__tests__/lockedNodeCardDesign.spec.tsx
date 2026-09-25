@@ -16,7 +16,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => {
@@ -444,57 +444,63 @@ describe('Factor — coaching is ONE rail icon, not a chip row (spec §2; ED 11:
 // ═════════════════════════════════════════════════════════════════════════════
 
 /*
- * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "Option =
- * top change pre-run or current-model share post-run … The fuller S3 reasoning
- * detail — change rows … — can move to the existing hover/focus popover and
- * inspector"). The ≤2 rows, their shared order, `+N more` and their marks now
- * live in the option's popover detail (`option-preview-detail-<id>`); the FACE
- * carries ONE line — the FIRST row of that same shared order, value and mark
- * first. So "options compare like with like" is asserted on the face too.
+ * ⭐ RE-POINTED TWICE. The bounded anatomy (ED #63 5809278282, 24 Sep) moved the
+ * rows, `+N more` and their marks into the popover and kept a one-line face.
+ * Paul (25 Sep) ruled the card must match the PROTOTYPE: the resting FACE is the
+ * change rows — up to THREE, in the ONE shared order, then `+N more` from the one
+ * total — so "options compare like with like" is asserted on the face itself.
  */
-const preview = (optionId: string) => within(optionPreviewDetail(optionId)!)
+const cardRows = (optionId: string) => within(optionCardRows(optionId))
 
-describe('Option — "what this option changes": ≤2 rows in ONE shared order, +N more from the one total (spec §4; ED 11:52Z point 4)', () => {
-  it('two options that change the same factors show the SAME rows in the SAME order — and lead the face with the same one', () => {
+describe('Option — "what this option changes": ≤3 rows in ONE shared order, +N more from the one total (spec §4; Paul 25 Sep)', () => {
+  it('two options that change the same factors show the SAME rows in the SAME order, on the face', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    const raiseRows = preview('opt-raise').getByTestId('option-change-rows-opt-raise')
+    const raiseFace = face('Raise the plan price')
+    const raiseRows = within(raiseFace).getByTestId('option-change-rows-opt-raise')
     const raiseOrder = [...raiseRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
-    const raiseFace = within(face('Raise the plan price')).getByTestId('option-primary-change-opt-raise')
-    expect(within(face('Raise the plan price')).queryByTestId('option-change-rows-opt-raise')).toBeNull()
+    expect(within(raiseFace).queryByTestId('option-primary-change-opt-raise')).toBeNull()
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
-    const bundleRows = preview('opt-bundle').getByTestId('option-change-rows-opt-bundle')
+    const bundleRows = within(face('Bundle seats')).getByTestId('option-change-rows-opt-bundle')
     const bundleOrder = [...bundleRows.querySelectorAll('dd')].map(d => d.getAttribute('data-testid'))
-    const bundleFace = within(face('Bundle seats')).getByTestId('option-primary-change-opt-bundle')
-    // fac-price (set by both) leads, then fac-seats (set by both) — shared across the row.
-    expect(raiseOrder).toEqual(['option-change-row-opt-raise-fac-price', 'option-change-row-opt-raise-fac-seats'])
+    // fac-price (set by both) leads, then fac-seats (set by both) — shared across
+    // the row; opt-raise's own fac-conv follows.
+    expect(raiseOrder).toEqual([
+      'option-change-row-opt-raise-fac-price',
+      'option-change-row-opt-raise-fac-seats',
+      'option-change-row-opt-raise-fac-conv',
+    ])
     expect(bundleOrder).toEqual(['option-change-row-opt-bundle-fac-price', 'option-change-row-opt-bundle-fac-seats'])
-    // …and each FACE's one line is that shared order's first row.
-    expect(raiseFace.getAttribute('data-factor-id')).toBe('fac-price')
-    expect(bundleFace.getAttribute('data-factor-id')).toBe('fac-price')
   })
 
-  it('+N more counts from the ONE total (3 targets − 2 rows = +1), and the from→to uses the baseline option', () => {
-    setState({ phase: 'pre' })
+  it('+N more counts from the ONE total (4 targets − 3 rows = +1), and the from→to uses the baseline option', () => {
+    // A fourth target, so one change is behind `+1 more` (three rows at rest).
+    const cee = {
+      ...CEE,
+      options: CEE.options.map(o => (o.id === 'opt-raise'
+        ? { ...o, interventions: { ...o.interventions, 'fac-extra': { value: 3, source: 'cee_hypothesis' } } }
+        : o)),
+    }
+    setState({ phase: 'pre', over: { ceeAnalysisReady: cee } })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(preview('opt-raise').getByTestId('option-change-more-opt-raise').textContent).toBe('+1 more')
-    expect(preview('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('→')
-    // Off the face: the face carries its one line, not the overflow link.
-    expect(within(face('Raise the plan price')).queryByTestId('option-change-more-opt-raise')).toBeNull()
+    const more = within(face('Raise the plan price')).getByTestId('option-change-more-opt-raise')
+    expect(more.textContent).toBe('+1 more')
+    expect(cardRows('opt-raise').getByTestId('option-change-more-opt-raise')).toBe(more)
+    expect(cardRows('opt-raise').getByTestId('option-change-row-opt-raise-fac-price').textContent).toContain('£49 → £59')
   })
 
-  it('an Olumi-chosen target stays marked est.; a user-set one is not — and the face line keeps its own mark', () => {
+  it('an Olumi-chosen target stays marked est.; a user-set one is not — each row on the face keeps its own mark', () => {
     setState({ phase: 'pre' })
     renderCard(OptionNode as never, 'opt-raise')
-    expect(preview('opt-raise').getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
-    // Truth stays on the card: the face's value carries its mark beside it.
-    expect(within(face('Raise the plan price')).getByTestId('option-primary-change-source-opt-raise').getAttribute('data-value-source')).toBe('brief')
+    expect(cardRows('opt-raise').getByTestId('option-change-row-estimate-opt-raise-fac-seats')).toBeTruthy()
+    // Truth stays on the card: the price row carries its own `brief` mark.
+    expect(cardRows('opt-raise').getByTestId('option-change-row-source-opt-raise-fac-price').getAttribute('data-value-source')).toBe('brief')
     cleanup()
     renderCard(OptionNode as never, 'opt-bundle')
-    // Positive control: the user-set row IS in the preview, marked as the user's.
-    expect(preview('opt-bundle').getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
-    expect(preview('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
+    // Positive control: the user-set row IS on the face, marked as the user's.
+    expect(cardRows('opt-bundle').getByTestId('option-change-row-source-opt-bundle-fac-seats').getAttribute('data-value-source')).toBe('you')
+    expect(cardRows('opt-bundle').queryByTestId('option-change-row-estimate-opt-bundle-fac-seats')).toBeNull()
   })
 
   it('⛔ MT-18: no bare numeral at rest — control: Detailed still carries the ordinal', () => {

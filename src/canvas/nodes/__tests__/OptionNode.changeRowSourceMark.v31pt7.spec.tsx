@@ -23,11 +23,11 @@
  * from `data-value-source`, exact labels. CLAIM SCOPE: jsdom proves DOM text and
  * attributes, never layout, wrapping, contrast or visibility.
  *
- * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
- * change rows move "to the existing hover/focus popover"; the face keeps ONE
- * line, the top change). The rows are read in the option's popover detail
- * (`option-preview-detail-<id>`) by identity, and the face's one line is pinned
- * to the SAME grammar — value, muted separator, then the mark.
+ * ⭐ RE-POINTED TWICE. The bounded anatomy (ED #63 5809278282, 24 Sep) moved the
+ * rows into the popover and kept a one-line face; Paul (25 Sep) ruled the card
+ * must match the PROTOTYPE, whose resting face IS the rows. So the rows are read
+ * ON THE CARD (`optionCardRows`, which refuses a block inside a popover), and the
+ * grammar — value, muted separator, then the mark — is pinned on the row.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -67,7 +67,7 @@ import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreC
 import { OptionNode } from '../OptionNode'
 import { VALUE_SOURCE_MARK_LABEL } from '../shared/valueSourceMark'
 import { buildOptionChangeRow } from '../shared/optionChangeRows'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 
 type N = { id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }
 const factor = (id: string, label: string, observedState: Record<string, unknown>): N => ({
@@ -166,8 +166,9 @@ function visibleText(el: Element): string {
 }
 
 function row(_container: HTMLElement, opt: string, fid: string): HTMLElement {
-  // Bounded anatomy: the rows live in the option's popover detail — read THERE.
-  const dd = optionPreviewDetail(opt)?.querySelector<HTMLElement>(`[data-testid="option-change-row-${opt}-${fid}"]`) ?? null
+  // The rows are ON THE CARD at rest (Paul 25 Sep, the prototype; supersedes the
+  // bounded anatomy's popover placement) — read THERE, bound by identity.
+  const dd = optionCardRows(opt).querySelector<HTMLElement>(`[data-testid="option-change-row-${opt}-${fid}"]`)
   expect(dd, `row ${opt}/${fid}`).not.toBeNull()
   return dd!
 }
@@ -184,7 +185,10 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
   it('screenshot A: "→ 1 brief" now reads "→ 1 · brief", the mark in its own cluster with the name "From your brief"', () => {
     const { container } = renderOption('opt-hire')
     const dd = row(container, 'opt-hire', 'fac-lead')
-    expect(visibleText(dd)).toBe('→ 1 · brief')
+    // ⚠ DESIGN CHANGE (Paul 25 Sep): the row's "from" is now the factor card's
+    // own reading of the current value, so the served target "1" gains its
+    // "from". Was '→ 1 · brief'. The mark grammar this test pins is unchanged.
+    expect(visibleText(dd)).toBe('No tech lead headcount in place → 1 · brief')
     expect(visibleText(dd)).not.toMatch(/\d\s+brief/)
 
     const cluster = dd.querySelector('[data-testid="option-change-row-mark-opt-hire-fac-lead"]')
@@ -217,21 +221,21 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     )
   })
 
-  it('the FACE\'s one line keeps the same grammar: "→ 1 · brief", the mark set apart, named in the line\'s own text', () => {
+  it('the resting FACE is the row itself: "… → 1 · brief", the mark set apart, the source in the row\'s own title', () => {
+    // The one-line face (`option-primary-change-*`) is retired (Paul 25 Sep): the
+    // card's resting surface IS the rows, so the grammar is pinned on the row.
     const { container } = renderOption('opt-hire')
-    const line = container.querySelector<HTMLElement>('[data-testid="option-primary-change-opt-hire"]')
-    expect(line, 'the face line renders').not.toBeNull()
-    expect(optionPreviewDetail('opt-hire')!.contains(line!)).toBe(false)
-    expect(line!.getAttribute('data-factor-id')).toBe('fac-lead')
-    expect(visibleText(line!).startsWith('→ 1 · brief')).toBe(true)
-    expect(visibleText(line!)).not.toMatch(/\d\s+brief/)
-    const mark = line!.querySelector('[data-testid="option-primary-change-source-opt-hire"]')
+    expect(container.querySelector('[data-testid="option-primary-change-opt-hire"]')).toBeNull()
+    const dd = row(container, 'opt-hire', 'fac-lead')
+    expect(visibleText(dd).endsWith('→ 1 · brief')).toBe(true)
+    expect(visibleText(dd)).not.toMatch(/\d\s+brief/)
+    const mark = dd.querySelector('[data-testid="option-change-row-source-opt-hire-fac-lead"]')
     expect(mark?.getAttribute('data-value-source')).toBe('brief')
     // The separator is decorative and outside the mark.
     const sep = mark!.previousElementSibling!
     expect(sep.textContent?.trim()).toBe('·')
     expect(sep.contains(mark)).toBe(false)
-    expect(line!.getAttribute('title')).toContain('Target: from your brief.')
+    expect(dd.getAttribute('title')).toContain('Target: from your brief.')
   })
 
   it('CONTRAST — a user-set target still renders its "you" mark (no est.), inside the same cluster', () => {

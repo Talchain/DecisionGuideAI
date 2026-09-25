@@ -30,13 +30,19 @@ import {
   formatInterventionTargetText,
   isInterventionNoChange,
 } from '../../utils/interventionDisplay'
-import { cleanFactorLabel, sentenceCaseFactorLabel, compactFactorLabel } from '../../utils/labelUtils'
+import { cleanFactorLabel, sentenceCaseFactorLabel, compactFactorLabel, isSuppressedUnit } from '../../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
-import { placeholderMagnitudeNumber } from '../../../utils/formatFactorDisplayValue'
+import { factorDisplayText, placeholderMagnitudeNumber } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
 
-export const OPTION_CARD_ROW_LIMIT = 2
+/**
+ * ⭐ THREE, NOT TWO — Paul, 25 Sep 2026, from live screenshots: the card must
+ * match the PROTOTYPE, which shows one row per concrete change at rest (up to
+ * three, then `+N more`). This supersedes ED 11:52Z point 4's "max two change
+ * rows" and ED #63 5809278282's one-line option body.
+ */
+export const OPTION_CARD_ROW_LIMIT = 3
 
 /**
  * The muted separator between a row's value and its source mark (contract v3.1
@@ -60,6 +66,33 @@ export interface OptionTargetLike {
   value: number
   displayValue?: string | null
   source?: string | null
+}
+
+/**
+ * ⭐⭐ THE FACTOR CARD'S OWN READING — the exact call `FactorNode` makes for its
+ * value line: `factorDisplayText` over the node's data, the label cleaned and a
+ * suppressed unit dropped. So a row's "from" and the factor card beside it print
+ * ONE string (Paul 25 Sep: "use the SAME value formatter the factor cards use,
+ * so units match the factor card exactly"). The one input the card adds and this
+ * omits is the unacknowledged keystroke (`pending_user_value`): a row reads the
+ * persisted model, never a half-typed number.
+ *
+ * ⚠ ONLY THE "FROM". A target CEE authored a display string for still prints
+ * that string verbatim (`formatInterventionTargetText`'s passthrough; Paul 20
+ * Sep: "a thin layer, not performing excessive data manipulation";
+ * `OptionNode.ceeDisplayValueIsNotRederived.spec.tsx`). Re-reading the target
+ * through the factor card's formatter would turn CEE's "£18k" into a UI
+ * "£18,000" — a UI-substituted value.
+ */
+export function factorCardReading(
+  data: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!data || typeof data !== 'object') return null
+  const obs = data.observedState as Record<string, unknown> | undefined
+  const unit = typeof obs?.unit === 'string' ? obs.unit : undefined
+  const label = cleanFactorLabel((data.label as string | undefined) ?? '')
+  const observedState = obs && { ...obs, unit: isSuppressedUnit(unit) ? undefined : unit }
+  return factorDisplayText({ ...data, label, observedState })
 }
 
 export interface OptionSetLike {
@@ -131,6 +164,12 @@ export interface FactorContext {
   cap?: number
   observedValue?: number
   observedRawValue?: string | number
+  /**
+   * The factor node's own data, when the caller has it — what the factor card
+   * reads (`factorCardReading`). Absent, the row keeps its older, context-only
+   * formatting.
+   */
+  factorData?: Record<string, unknown> | null
 }
 
 export interface OptionChangeRow {
@@ -249,11 +288,9 @@ export function buildOptionChangeRow({
   // figure — the factor card's rule (`placeholderMagnitudeNumber`), not a new one.
   // Nothing to recover, so the full text drops it too. Real units are untouched.
   const unitless = (text: string) => placeholderMagnitudeNumber(text) ?? text
-  const targetFull = unitless(formatInterventionTargetText({
-    ...context,
-    value: target.value,
-    displayValue: target.displayValue ?? undefined,
-  }))
+  const formatTarget = (t: OptionTargetLike): string =>
+    formatInterventionTargetText({ ...context, value: t.value, displayValue: t.displayValue ?? undefined })
+  const targetFull = unitless(formatTarget(target))
   const targetText = rest(targetFull)
   let fromFull = ''
 
@@ -265,16 +302,32 @@ export function buildOptionChangeRow({
   let reference: OptionChangeRow['reference'] = 'none'
   let fromText = ''
   let sameAsReference = false
+  const currentReading = factorCardReading(factor.factorData)
   if (baselineOptionTarget && Boolean(baselineOptionTarget.displayValue) === Boolean(target.displayValue)) {
     reference = 'baseline_option'
     sameAsReference =
       isInterventionNoChange(baselineOptionTarget.value, target.value) &&
       (baselineOptionTarget.displayValue ?? null) === (target.displayValue ?? null)
     if (!sameAsReference) {
-      fromFull = unitless(baselineOptionTarget.displayValue
-        ? baselineOptionTarget.displayValue
-        : formatInterventionTargetText({ ...context, value: baselineOptionTarget.value }))
+      fromFull = unitless(formatTarget(baselineOptionTarget))
       fromText = rest(fromFull)
+    }
+  } else if (currentReading) {
+    // ⭐ THE FACTOR'S CURRENT VALUE, AS ITS OWN CARD READS IT (Paul 25 Sep:
+    // "`from` is the factor's baseline/status-quo value when the data carries
+    // it"). This arm used to require `!target.displayValue`, and the served wire
+    // puts a display string on EVERY target (`intervention_details[]
+    // .display_value`, debug bundle 5fe89207) — so no served row ever had a
+    // "from" while the factor card beside it read "0 GBP/year". Both halves are
+    // now READINGS (the factor card's string, the producer's string), so the
+    // old worry — a display string beside a model number — no longer applies.
+    // No pair when the target IS the current value, or reads identically.
+    const unchanged = typeof factor.observedValue === 'number' && isInterventionNoChange(factor.observedValue, target.value)
+    const currentFull = unitless(currentReading)
+    if (!unchanged && currentFull !== targetFull) {
+      fromFull = currentFull
+      fromText = rest(fromFull)
+      reference = 'current_value'
     }
   } else if (!target.displayValue && typeof factor.observedValue === 'number') {
     const change = formatInterventionChange({

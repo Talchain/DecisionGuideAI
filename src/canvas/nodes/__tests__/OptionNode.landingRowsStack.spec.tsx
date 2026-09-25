@@ -208,25 +208,33 @@ describe('S5: in DETAILED view the inline change rows stack below Normal zoom, g
   })
 })
 
-describe('bounded anatomy: in STANDARD view the rows are in the popover, the contract grid at EVERY rung', () => {
+/**
+ * ⭐ STANDARD VIEW: THE ROWS ARE ON THE CARD, THE CONTRACT GRID AT EVERY RUNG
+ * (Paul 25 Sep: the prototype's resting rows supersede ED 5809278282's popover
+ * placement). The Standard rows never stack: each label is ONE CSS-truncating
+ * line (its full text in its title) and the value wraps if it must, so the body
+ * is identical at every rung — no rung-triggered re-layout. The Detailed stack
+ * above is unchanged.
+ */
+describe('resting anatomy: in STANDARD view the rows are ON THE CARD, the contract grid at EVERY rung', () => {
   beforeEach(() => { winRate = null })
 
   for (const lodRung of ['quiet', 'line', 'full'] as const) {
-    it(`${lodRung} rung: the popover rows are the grid, and the card carries none`, () => {
+    it(`${lodRung} rung: the card rows are the grid, rendered once, and never in the popover`, () => {
       renderCard({ store: { lodRung } })
-      expect(inPopover(rowsEl()), 'the rows render in the popover').toBe(true)
+      expect(inPopover(rowsEl()), 'the rows render on the card').toBe(false)
       expect(document.querySelectorAll('[data-testid="option-change-rows-option-1"]').length).toBe(1)
       expect(rowsEl().getAttribute('data-row-layout')).toBe('grid')
       expect(listEl().className).toContain('grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))]')
     })
   }
 
-  it('IDENTITY — the popover row is byte-identical to the Detailed inline row', () => {
+  it('IDENTITY — the card row\'s value is byte-identical to the Detailed inline row', () => {
     const a = renderCard({ store: { viewMode: 'expert', lodRung: 'quiet' } })
     const inline = rowText()
     a.unmount()
     renderCard({ store: { lodRung: 'quiet' } })
-    expect(inPopover(screen.getByTestId('option-change-row-option-1-f-head'))).toBe(true)
+    expect(inPopover(screen.getByTestId('option-change-row-option-1-f-head'))).toBe(false)
     expect(rowText()).toBe(inline)
   })
 })
