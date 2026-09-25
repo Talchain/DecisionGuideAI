@@ -78,6 +78,13 @@ import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX }
 
 export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
 
+/**
+ * The coaching door as drawn — glyph and resting ink — owned HERE and read by
+ * the canvas key (`CanvasLegendPopover`, contract v3.1 §03 "Explore with
+ * Olumi"), so the key imports this mark rather than redrawing one.
+ */
+export const COACHING_ICON_GLYPH = { Icon: MessageCircle, inkClass: 'text-text-light' } as const
+
 /** A typed chip keeps its typed route; `run_analysis` is a run, not a question. */
 export function coachingChipIsTyped(chip: CoachingChip): boolean {
   return chip.actionType !== null && chip.actionType !== 'run_analysis'
@@ -211,7 +218,7 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
            point 12). The hover/focus half now lives in `NODE_RAIL_BUTTON_CLASSES`
            for EVERY rail member (contract v3.1 `.icon-btn:hover`, ICON-01), so
            this icon no longer carries a private copy of it. */
-        className={`${NODE_RAIL_BUTTON_CLASSES} text-text-light`}
+        className={`${NODE_RAIL_BUTTON_CLASSES} ${COACHING_ICON_GLYPH.inkClass}`}
         onClick={handleClick}
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
@@ -225,7 +232,7 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
             canvas by 5796609717): "ask / hand this to Olumi" is one meaning, so
             one glyph, shared with the quick-action "Ask Olumi" and the panel.
             `MessageCircleQuestion` would be a second glyph for the same act. */}
-        <MessageCircle aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
+        <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
       </button>
     </Tooltip>
   )

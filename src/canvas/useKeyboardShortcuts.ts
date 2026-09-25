@@ -377,6 +377,51 @@ const showCanvasToast: ShowToastFn = (message, level) => {
   window.dispatchEvent(new CustomEvent('topbar:show-toast', { detail: { message, level } }))
 }
 
+/**
+ * ⭐ ESCAPE BELONGS TO WHATEVER IS OPEN — contract v3.1 §01 (DESIGN-GAP-AUDIT
+ * row 36). The canvas takes Escape to clear focus and selection ONLY when
+ * nothing else is answering it: text entry is guarded above; here, the confirm
+ * dialog, a modal dialog / alert dialog / menu anywhere (a card's "more"
+ * menu), an expanded popup trigger anywhere (the visual key, a card's guidance
+ * popover), and focus inside any dialog or menu, or on an expanded control.
+ *
+ * ⛔⛔ READ AT THE START OF THE PRESS, NOT WHEN THIS LISTENER RUNS. The popovers
+ * (`ScienceIcon`, `CanvasLegendPopover`) close from their own `document` keydown
+ * listeners, which run BEFORE this `window` one; for a key press the browser delivers, Chromium runs
+ * a microtask checkpoint in between and React commits the close in it, so by
+ * now the popover is gone (witnessed: `aria-expanded` read "true" in a
+ * `window` capture listener, "false" in the `window` bubble listener). So
+ * `handleEscapeCapture` takes the reading in the capture phase and the handler
+ * acts on that. Script-dispatched events have no checkpoint, which is why a
+ * jsdom spec needs `pressAsTheBrowserDelivers`
+ * (`__tests__/escapeYieldsToAnOpenPopover.spec.tsx`) to see this at all.
+ *
+ * ⚠ A NON-MODAL DIALOG DOES NOT BLOCK BY ITS MERE PRESENCE. The Olumi panel is
+ * a persistent `role="dialog"` (mounted, even while minimised), so a
+ * presence test would switch the key off for good. The inspector is the other
+ * non-modal one: its own listener closes it on the same press, which is the
+ * contract's own Escape (inspector hidden AND `focusGraph(null)`).
+ *
+ * ⛔ NOT `event.defaultPrevented`: `LayerProvider` preventDefaults EVERY Escape
+ * on `window`, open layer or not. Whether it has done so before this handler
+ * runs depends only on which of the two registered first (on mount this hook
+ * does — child effects run first — so the flag reads false here), never on
+ * whether anything is open.
+ */
+const ESCAPE_OWNING_SURFACE = '[role="dialog"], [role="alertdialog"], [role="menu"]'
+const ESCAPE_OPEN_ELSEWHERE =
+  '[role="dialog"][aria-modal="true"], [role="alertdialog"], [role="menu"], ' +
+  '[aria-haspopup]:not([aria-haspopup="false"])[aria-expanded="true"]'
+
+function escapeBelongsToAnOpenSurface(target: Element | null): boolean {
+  if (useConfirmDialogStore.getState().pending) return true
+  if (target && typeof target.closest === 'function') {
+    if (target.closest(ESCAPE_OWNING_SURFACE)) return true
+    if (target.getAttribute('aria-expanded') === 'true') return true
+  }
+  return typeof document !== 'undefined' && document.querySelector(ESCAPE_OPEN_ELSEWHERE) !== null
+}
+
 /** Repeat window, so holding ⌘Z does not stack a column of identical toasts. */
 const UNDO_NOTICE_QUIET_MS = 3000
 
@@ -417,6 +462,14 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       if (spaceHeldRef.current === held) return
       spaceHeldRef.current = held
       optionsRef.current?.onSpaceHeld?.(held)
+    }
+
+    // The Escape press an open surface owned, read before any listener on it
+    // ran (see `escapeBelongsToAnOpenSurface`). Compared by event identity.
+    let escapeOwnedAtCapture: Event | null = null
+    const handleEscapeCapture = (event: KeyboardEvent) => {
+      escapeOwnedAtCapture =
+        event.key === 'Escape' && escapeBelongsToAnOpenSurface(event.target as Element | null) ? event : null
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -535,6 +588,21 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
+      // Escape: clear focus and selection — the dim is derived from the
+      // selection (`usePathHighlight`), so this restores the reference view.
+      // A no-op write is skipped, so an idle Escape re-renders nothing.
+      if (event.key === 'Escape') {
+        if (escapeOwnedAtCapture === event) return
+        const { selection, nodes, edges } = state
+        if (
+          selection.nodeIds.size > 0 || selection.edgeIds.size > 0 ||
+          nodes.some((n) => n.selected) || edges.some((e) => e.selected)
+        ) {
+          state.clearSelection()
+        }
+        return
+      }
+
       // Delete: Delete or Backspace — through the menu's own `deleteAction`, so
       // the key asks exactly what the menu asks (see REACT_FLOW_DELETE_KEY_CODE).
       // ⛔ Never `state.deleteSelected()` here: that is the unguarded delete.
@@ -620,6 +688,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       }
     }
 
+    window.addEventListener('keydown', handleEscapeCapture, true)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('blur', handleBlur)
@@ -627,6 +696,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       document.addEventListener('visibilitychange', handleVisibilityChange)
     }
     return () => {
+      window.removeEventListener('keydown', handleEscapeCapture, true)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleBlur)
