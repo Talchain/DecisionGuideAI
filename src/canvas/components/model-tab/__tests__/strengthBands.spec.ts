@@ -19,27 +19,40 @@ import {
   STRENGTH_BAND_MIDPOINTS,
 } from '../strengthBands'
 import { directionFromProducerSignedMean } from '../../../domain/edgeValueProvenance'
+import { CANVAS_STRENGTH_BANDS } from '../../../domain/vocabulary'
 import type { EstimateBasis, ContestedReason } from '../../../domain/validation'
 
 // ── Strength bands ─────────────────────────────────────────────────────────────
 
 describe('getStrengthBand', () => {
-  // Boundary values from contract: strong ≥ 0.6, moderate ≥ 0.25, weak ≥ 0.05, else negligible
+  // A15: moderate/strong thresholds are READ from the canonical table
+  // (domain/vocabulary.ts CANVAS_STRENGTH_BANDS: moderate ≥ 0.2, strong ≥
+  // 0.4) — not re-typed here. weak ≥ 0.05, else negligible: unchanged,
+  // no canonical counterpart (see the file's own note).
   it('classifies -1 as strong', () => expect(getStrengthBand(-1)).toBe('strong'))
-  it('classifies -0.6 as strong', () => expect(getStrengthBand(-0.6)).toBe('strong'))
-  it('classifies -0.599 as moderate', () => expect(getStrengthBand(-0.599)).toBe('moderate'))
-  it('classifies -0.25 as moderate', () => expect(getStrengthBand(-0.25)).toBe('moderate'))
-  it('classifies -0.249 as weak', () => expect(getStrengthBand(-0.249)).toBe('weak'))
+  it('classifies -0.4 as strong', () => expect(getStrengthBand(-0.4)).toBe('strong'))
+  it('classifies -0.399 as moderate', () => expect(getStrengthBand(-0.399)).toBe('moderate'))
+  it('classifies -0.2 as moderate', () => expect(getStrengthBand(-0.2)).toBe('moderate'))
+  it('classifies -0.199 as weak', () => expect(getStrengthBand(-0.199)).toBe('weak'))
   it('classifies -0.05 as weak', () => expect(getStrengthBand(-0.05)).toBe('weak'))
   it('classifies -0.049 as negligible', () => expect(getStrengthBand(-0.049)).toBe('negligible'))
   it('classifies 0 as negligible', () => expect(getStrengthBand(0)).toBe('negligible'))
   it('classifies 0.049 as negligible', () => expect(getStrengthBand(0.049)).toBe('negligible'))
   it('classifies 0.05 as weak', () => expect(getStrengthBand(0.05)).toBe('weak'))
-  it('classifies 0.249 as weak', () => expect(getStrengthBand(0.249)).toBe('weak'))
-  it('classifies 0.25 as moderate', () => expect(getStrengthBand(0.25)).toBe('moderate'))
-  it('classifies 0.599 as moderate', () => expect(getStrengthBand(0.599)).toBe('moderate'))
-  it('classifies 0.6 as strong', () => expect(getStrengthBand(0.6)).toBe('strong'))
+  it('classifies 0.199 as weak', () => expect(getStrengthBand(0.199)).toBe('weak'))
+  it('classifies 0.2 as moderate', () => expect(getStrengthBand(0.2)).toBe('moderate'))
+  it('classifies 0.399 as moderate', () => expect(getStrengthBand(0.399)).toBe('moderate'))
+  it('classifies 0.4 as strong', () => expect(getStrengthBand(0.4)).toBe('strong'))
   it('classifies 1 as strong', () => expect(getStrengthBand(1)).toBe('strong'))
+
+  // ⭐ THE EXACT AUDIT REPRODUCTION (A15): -0.5 read "Strong" in the inspector
+  // (canonical `strong` starts at 0.4) and "Moderate" here (old threshold
+  // 0.6). Bound to the SAME predicate the inspector's own band table would
+  // answer for this magnitude — not a re-typed number.
+  it('A15: classifies 0.5 the same way the canonical inspector table does — strong, not moderate', () => {
+    expect(getStrengthBand(-0.5)).toBe('strong')
+    expect(getStrengthBand(0.5)).toBe('strong')
+  })
 })
 
 /**
@@ -71,8 +84,14 @@ describe('getDirectionalStrengthLabel', () => {
     expect(getDirectionalStrengthLabel(-0.01, dir(-0.01))).toBe('Negligible effect'))
   it('returns "Strong positive effect" at exact boundary 0.6', () =>
     expect(getDirectionalStrengthLabel(0.6, dir(0.6))).toBe('Strong positive effect'))
+  // A15: the strong/moderate boundary is READ from the canonical table (0.4).
+  it('returns "Strong positive effect" at the canonical boundary 0.4', () =>
+    expect(getDirectionalStrengthLabel(0.4, dir(0.4))).toBe('Strong positive effect'))
   it('returns "Moderate positive effect" at exact boundary 0.25', () =>
     expect(getDirectionalStrengthLabel(0.25, dir(0.25))).toBe('Moderate positive effect'))
+  // A15: the moderate/weak boundary is READ from the canonical table (0.2).
+  it('returns "Moderate positive effect" at the canonical boundary 0.2', () =>
+    expect(getDirectionalStrengthLabel(0.2, dir(0.2))).toBe('Moderate positive effect'))
   it('returns "Weak positive effect" at exact boundary 0.05', () =>
     expect(getDirectionalStrengthLabel(0.05, dir(0.05))).toBe('Weak positive effect'))
 })
@@ -164,6 +183,21 @@ describe('STRENGTH_BAND_MIDPOINTS', () => {
   it('orders weak < moderate < strong', () => {
     expect(STRENGTH_BAND_MIDPOINTS.weak).toBeLessThan(STRENGTH_BAND_MIDPOINTS.moderate)
     expect(STRENGTH_BAND_MIDPOINTS.moderate).toBeLessThan(STRENGTH_BAND_MIDPOINTS.strong)
+  })
+
+  // ⭐⭐ A15 — THE ONE-TABLE ASSERTION. Before this fix, clicking "Moderate"
+  // here wrote 0.40 while the inspector's own "Moderate" quick-set pill
+  // (`StrengthBandButtons`, reading `CANVAS_STRENGTH_BANDS` directly) wrote
+  // 0.30 — same word, two different numbers sent to the model. These
+  // compare against the canonical table LIVE, so a future edit to either
+  // side that lets them diverge again fails here, not in production.
+  it('A15: moderate and strong midpoints equal the canonical table, verbatim', () => {
+    const canonicalModerate = CANVAS_STRENGTH_BANDS.find(b => b.id === 'moderate')!
+    const canonicalStrong = CANVAS_STRENGTH_BANDS.find(b => b.id === 'strong')!
+    expect(STRENGTH_BAND_MIDPOINTS.moderate).toBe(canonicalModerate.midpoint)
+    expect(STRENGTH_BAND_MIDPOINTS.strong).toBe(canonicalStrong.midpoint)
+    expect(STRENGTH_BAND_MIDPOINTS.moderate).toBe(0.30)
+    expect(STRENGTH_BAND_MIDPOINTS.strong).toBe(0.55)
   })
 })
 

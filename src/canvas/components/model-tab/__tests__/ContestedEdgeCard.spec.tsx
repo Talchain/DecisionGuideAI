@@ -298,7 +298,7 @@ describe('ContestedEdgeCard', () => {
           validation={makeValidation()} isFragile={false} onResolve={onResolve} />
       )
       fireEvent.click(screen.getByTestId('contested-quickset-moderate-e1'))
-      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.40, 'cee')
+      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.30, 'cee')
     })
 
     it("carries 'user' through when the USER had stated the direction", () => {
@@ -309,7 +309,7 @@ describe('ContestedEdgeCard', () => {
           nodes={nodes} validation={makeValidation()} isFragile={false} onResolve={onResolve} />
       )
       fireEvent.click(screen.getByTestId('contested-quickset-moderate-e1'))
-      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.40, 'user')
+      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.30, 'user')
     })
 
     it('writes NO direction at all when nothing states one (non-finite pass-2 mean)', () => {
@@ -323,8 +323,9 @@ describe('ContestedEdgeCard', () => {
       )
       fireEvent.click(screen.getByTestId('contested-quickset-moderate-e1'))
       // UNSIGNED midpoint + an explicit `null`: the old code emitted a signed
-      // +0.40 built from a constant 'positive'.
-      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.40, null)
+      // +0.40 built from a constant 'positive'. A15: the moderate midpoint is
+      // now READ from the canonical table (0.30), not a Model-tab-only 0.40.
+      expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.30, null)
     })
   })
 
@@ -387,7 +388,8 @@ describe('ContestedEdgeCard', () => {
       />
     )
     fireEvent.click(screen.getByTestId('contested-quickset-strong-e1'))
-    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.7, 'cee')
+    // A15: the strong midpoint is now READ from the canonical table (0.55).
+    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.55, 'cee')
   })
 
   it('calls onResolve with dismissed when "Dismiss" clicked', () => {
