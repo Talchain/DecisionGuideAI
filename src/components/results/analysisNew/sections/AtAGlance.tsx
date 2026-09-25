@@ -322,17 +322,21 @@ export interface AtAGlanceProps {
 }
 
 /**
- * ⚠ THE EYEBROW COMPONENT THIS DOCBLOCK DESCRIBED IS GONE — S1 (design wave 2,
- * panel-lane design audit 2026-09-25) removed its one remaining call site: the
- * label it printed ("What this run may not conclude") is now also the closed
- * disclosure toggle's own label, on screen in both states, so restating it
- * inside the opened region was the same text in two sections at once
- * (`firstViewportCensus.spec.tsx`'s cross-section duplicate detector). Left as
- * a comment rather than deleted outright, because the DS v5 §2.4 lesson it
- * records — panel scope renders exactly three sizes, only from `panelHeader` /
- * `panelBody` / `panelMeta` — outlives the one component that taught it.
+ * The small label above a block.
+ *
+ * ⚠ THE FIRST DRAFT BROKE DS v5 §2.4 THREE WAYS ON ONE LINE — an arbitrary
+ * 10px size, a raw weight, and a caps transform — caught by the
+ * shell-conformance guard and the DS ratchet. Panel scope renders exactly three
+ * sizes, and only from `panelHeader` / `panelBody` / `panelMeta`.
+ *
+ * ⚠ AND THE GUARD SCANS COMMENTS TOO. Naming the offending utilities literally
+ * here re-triggered both checks on a file that no longer uses any of them, so
+ * this note describes them instead of quoting them.
+ *
+ * The eyebrow still reads as an eyebrow: it is the smallest step, the lightest
+ * colour, and slightly tracked. The hierarchy comes from the scale and the
+ * spacing, which is what the scale is for.
  */
-
 export function AtAGlance({
   glance,
   onFocusTarget,
@@ -351,12 +355,6 @@ export function AtAGlance({
   part = 'all',
 }: AtAGlanceProps) {
   const [showAllExcluded, setShowAllExcluded] = useState(false)
-  /**
-   * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run
-   * may not conclude" no longer sits on the default scroll — it is a
-   * collapsed disclosure, closed at rest, one click away. Content and
-   * copy are unchanged; only the render is gated. See the block below.
-   */
   const [withheldOpen, setWithheldOpen] = useState(false)
   const excludedKey =
     glance.comparisonScope.kind === 'partial'
@@ -794,7 +792,12 @@ export function AtAGlance({
             <button
               type="button"
               onClick={onReviewEstimates}
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): `hover:text-info-hover`,
+                 not `hover:opacity-80` — opacity on `text-info` composited to
+                 3.33:1 on hover, below AA (measured on this exact control).
+                 `text-info-hover` reads `--info-hover`, the same token the
+                 prototype's own `button:hover` rule uses, and it stays AA. */
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover`}
               data-testid={`${testId}-ribbon-review-estimates`}
             >
               {COPY.glance.reviewEstimates}
@@ -836,7 +839,10 @@ export function AtAGlance({
                  could never reach it. The disabled treatment stays here because
                  it is genuinely this control's own; the geometry and the colour
                  are the tier's. */
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the review-estimates
+                 control above — `hover:text-info-hover` replaces the failing
+                 `hover:opacity-80`. The disabled treatment is untouched. */
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
               data-testid={`${testId}-ribbon-reanalyse`}
             >
               {COPY.status.reanalyseToBeSure}
@@ -910,49 +916,27 @@ export function AtAGlance({
 
            ⚠ `role="status"` — this is a statement about the run, in the slot
            where the answer would otherwise be, so it must reach a screen reader
-           the way the ribbon above does rather than as unannounced prose.
-
-           ⭐⭐ S1 (design wave 2, panel-lane design audit 2026-09-25): PAUL'S
-           WITHHELD-RUN BRIEF FOUND THIS ON THE DEFAULT SCROLL, directly under
-           "Record your view" — the prototype's tail is a single quiet
-           "About this analysis" line and nothing else. The claim is not
-           removed and not reworded: it moves behind a closed-at-rest
-           disclosure, one click away, exactly the rule
-           `whatTheRunCouldNotSettleIsOnePlace.spec.tsx` already pins for the
-           checks/uncertainty pair. Every sentence below — the refusal, the
-           named parameters, the "Review or set an estimate" act — is
-           byte-identical; only the toggle around it is new. */
+           the way the ribbon above does rather than as unannounced prose. */
+        /* ⭐ V2 prototype: the refusal sentence is not on the default scroll.
+           It sits behind ONE door, closed at rest — still the producer's
+           sentence, unparaphrased, one click away (the "Still open" bullet
+           and the qualifier already say the ordering is unconfirmed). */
         <div data-testid={`${testId}-withheld-disclosure`}>
           <button
             type="button"
-            onClick={() => setWithheldOpen((o) => !o)}
             aria-expanded={withheldOpen}
-            aria-controls={`${testId}-withheld-region`}
-            /* min-h-[28px], the same target `SectionShell`'s own `disclose`
-               toggle uses — never the literal WCAG minimum, because this
-               file also calls `action('inline')` elsewhere and that pair
-               (a hand-rolled 24px target plus `action('inline')`) is exactly
-               the drift `everyInlineActIsReachableByTouch.spec.ts` exists to
-               catch (the tier is the touch-target's only owner). 28px clears
-               the same guarantee without re-deriving it here. */
-            className={`${typography.panelMeta} text-text-light flex items-center gap-1.5 min-h-[28px] text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            onClick={() => setWithheldOpen((o) => !o)}
+            className={`${typography.panelBody} ${action('disclose')}`}
             data-testid={`${testId}-withheld-toggle`}
           >
             <ChevronRight
-              className={`${icon('row')} shrink-0 transition-transform${withheldOpen ? ' rotate-90' : ''}`}
+              className={`h-3.5 w-3.5 shrink-0 text-text-light ${withheldOpen ? 'rotate-90' : ''}`}
               aria-hidden={true}
             />
             {COPY.glance.eyebrowWhyWithheld}
           </button>
           {withheldOpen ? (
-            <div id={`${testId}-withheld-region`} data-testid={`${testId}-withheld-region`}>
         <div role="status">
-          {/* The eyebrow is not repeated here — the toggle button above
-              already carries `COPY.glance.eyebrowWhyWithheld` and stays on
-              screen in both states, so restating it inside the opened region
-              would say the same label twice, once per section
-              (`firstViewportCensus.spec.tsx`'s cross-section duplicate
-              detector: "root + …-withheld-region"). */}
           <p
             className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
             data-testid={`${testId}-withheld-reason`}
@@ -1082,14 +1066,16 @@ export function AtAGlance({
                  actually lands on: **133×15**. The per-call-site spelling is the
                  defect the tier exists to end, surviving inside the control the
                  tier was created for. */
-              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:opacity-80`}
+              /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the ribbon's
+                 review-estimates control above — `hover:text-info-hover`
+                 replaces the failing `hover:opacity-80`. */
+              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:text-info-hover`}
               data-testid={`${testId}-withheld-review-estimates`}
             >
               {COPY.glance.reviewEstimates}
             </button>
           ) : null}
         </div>
-          </div>
           ) : null}
         </div>
       ) : null}

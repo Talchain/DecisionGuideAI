@@ -275,6 +275,17 @@ describe('measureNodeHeightsAtLabelBound', () => {
   // its Normal-rung band at scale 2 — a state no zoom draws — and the board's
   // row gaps were 64–109 units against 48. Re-laying out at the landing rung
   // took vendor-selection from 1344 to 1230 units tall.
+  //
+  // ⛔ "A STATE NO ZOOM DRAWS" STOPPED BEING TRUE THE SAME DAY (gap-audit row
+  // 3, `canvas/gap-landing-normal`: "the landing view counts as Normal zoom").
+  // `resolveLodRung`'s `full` floor moved to the landing floor, so a card at
+  // rest on the landing view now uses NORMAL padding at scale
+  // `MAX_LABEL_COUNTER_SCALE` — exactly the state this section's tests used to
+  // call unreachable. `MAX_NORMAL_RUNG_LABEL_SCALE` moved with it (now equal
+  // to `MAX_LABEL_COUNTER_SCALE`, see `zoomLegibility.ts`), so the two
+  // measurement passes below now run at the SAME scale; only the two tests
+  // that depended on them being DIFFERENT scales changed, and they are marked
+  // where they do.
 
   function declareRungs(root: HTMLElement, id: string, landing: string, normal: string): HTMLElement {
     const node = root.querySelector(`.react-flow__node[data-id="${id}"]`) as HTMLElement
@@ -286,7 +297,7 @@ describe('measureNodeHeightsAtLabelBound', () => {
     return card
   }
 
-  it('reads a declaring card at BOTH rungs\' bounds, each with its own padding, and reserves the larger', () => {
+  it('reads a declaring card at BOTH rungs\' bounds — now the SAME scale — each with its own padding, and reserves the larger', () => {
     const root = mountCanvas(['a'], {}, [])
     const card = declareRungs(root, 'a', '12px', 'calc(6px + 22px * var(--canvas-label-scale, 1))')
     const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
@@ -295,7 +306,11 @@ describe('measureNodeHeightsAtLabelBound', () => {
       get() {
         const scale = root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR)
         reads.push([scale, card.style.paddingBottom])
-        return scale === String(MAX_LABEL_COUNTER_SCALE) ? 138 : 141
+        // ⛔ THE DISCRIMINATOR MOVED FROM SCALE TO PADDING (gap-audit row 3, 24
+        // Sep 2026): `MAX_NORMAL_RUNG_LABEL_SCALE` now equals
+        // `MAX_LABEL_COUNTER_SCALE` (asserted below), so a mock keyed on scale
+        // alone could no longer tell the two passes apart.
+        return card.style.paddingBottom === '12px' ? 138 : 141
       },
     })
     const out = measureNodeHeightsAtLabelBound()
@@ -303,35 +318,45 @@ describe('measureNodeHeightsAtLabelBound', () => {
       [String(MAX_LABEL_COUNTER_SCALE), '12px'],
       [String(MAX_NORMAL_RUNG_LABEL_SCALE), 'calc(6px + 22px * var(--canvas-label-scale, 1))'],
     ])
+    expect(reads[0]![0], 'both passes now run at the same scale').toBe(reads[1]![0])
     expect(out.get('a')).toBe(141)
   })
 
-  it('⭐ THE DEFECT: a layout run at the Normal rung no longer reserves the Normal band at scale 2', () => {
-    // The live card carries Normal's band (the camera is at Normal when the
-    // landing layout runs). Height model: band at scale 2 → 181 (never drawn),
-    // landing padding at scale 2 → 138, band at Normal's own bound → 141.
+  it('⭐ THE REVERSAL: a layout run at the Normal rung correctly reserves the Normal band at scale 2 — because Normal DOES draw there now', () => {
+    // ⛔ THIS TEST USED TO PIN THE OPPOSITE VALUE, UNDER THE TITLE "THE DEFECT".
+    // It asserted `141`, on the premise that "the Normal band at scale 2" was
+    // a state no zoom ever draws, so reserving for it would be over-cautious.
+    // Gap-audit row 3 (24 Sep 2026, "the landing view counts as Normal zoom")
+    // makes that state the COMMON one: every card at rest on the landing view
+    // now uses Normal's own padding at `MAX_LABEL_COUNTER_SCALE`. `181` is the
+    // correct reservation for that real state, not a defect to avoid.
     const BAND = 'calc(6px + 22px * var(--canvas-label-scale, 1))'
     const root = mountCanvas(['a'], {}, [])
     const card = declareRungs(root, 'a', '12px', BAND)
     card.style.paddingBottom = BAND
     const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
     Object.defineProperty(node, 'offsetHeight', {
-      get() {
-        const atLanding = root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR) === String(MAX_LABEL_COUNTER_SCALE)
-        if (atLanding) return card.style.paddingBottom === BAND ? 181 : 138
-        return 141
-      },
+      // Both passes pin the same scale now, so the only thing distinguishing
+      // them is which padding `measureNodeHeightsAtLabelBound` has applied.
+      get() { return card.style.paddingBottom === BAND ? 181 : 138 },
     })
-    expect(measureNodeHeightsAtLabelBound().get('a')).toBe(141)
+    expect(measureNodeHeightsAtLabelBound().get('a')).toBe(181)
     expect(card.style.paddingBottom, 'the live padding is restored').toBe(BAND)
   })
 
-  it('the LANDING read wins when it is the larger — never the Normal band at scale 2', () => {
+  it('the taller padding wins the max, whichever rung it belongs to — both now read at the same scale', () => {
+    // ⛔ RENAMED FROM "the LANDING read wins … never the Normal band at scale
+    // 2" (gap-audit row 3, 24 Sep 2026): that claim is now false by
+    // construction — Normal DOES read at scale 2 — and the old mock keyed
+    // purely on scale could no longer discriminate landing's padding from
+    // Normal's, so it was passing without proving anything (CLAUDE.md trap
+    // 13b). Keyed on padding instead, which is the only thing that still
+    // varies between the two passes.
     const root = mountCanvas(['a'], {}, [])
-    declareRungs(root, 'a', '12px', '40px')
+    const card = declareRungs(root, 'a', '12px', '40px')
     const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
     Object.defineProperty(node, 'offsetHeight', {
-      get() { return root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR) === String(MAX_LABEL_COUNTER_SCALE) ? 143 : 136 },
+      get() { return card.style.paddingBottom === '12px' ? 136 : 143 },
     })
     expect(measureNodeHeightsAtLabelBound().get('a')).toBe(143)
   })
@@ -352,8 +377,13 @@ describe('measureNodeHeightsAtLabelBound', () => {
     expect(seen).toEqual([String(MAX_LABEL_COUNTER_SCALE)])
   })
 
-  it('Normal\'s own bound is below the landing bound (Normal never draws at scale 2)', () => {
-    expect(MAX_NORMAL_RUNG_LABEL_SCALE).toBeGreaterThan(1.4)
-    expect(MAX_NORMAL_RUNG_LABEL_SCALE).toBeLessThan(MAX_LABEL_COUNTER_SCALE)
+  it("Normal's own bound now EQUALS the landing bound — Normal draws at the cap too (gap-audit row 3, 24 Sep 2026: landing counts as Normal)", () => {
+    // ⛔ THIS PINNED THE OPPOSITE BEFORE: `toBeLessThan(MAX_LABEL_COUNTER_SCALE)`,
+    // titled "Normal never draws at scale 2". `resolveLodRung`'s `full` floor
+    // moved to `LABEL_LEGIBLE_ZOOM` (the landing floor), so Normal's dead-band
+    // exit (`LABEL_LEGIBLE_ZOOM / LOD_REENTRY_MARGIN`) now sits BELOW the
+    // landing floor, where `labelCounterScale` is already capped — so the two
+    // constants are provably equal, not merely close.
+    expect(MAX_NORMAL_RUNG_LABEL_SCALE).toBe(MAX_LABEL_COUNTER_SCALE)
   })
 })

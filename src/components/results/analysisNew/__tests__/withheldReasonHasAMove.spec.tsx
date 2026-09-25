@@ -50,17 +50,20 @@ import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtur
 
 const SENTENCE = 'analysis-new-glance-withheld-reason'
 const CONTROL = 'analysis-new-glance-withheld-review-estimates'
+const DOOR = 'analysis-new-glance-withheld-toggle'
 
 /**
- * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run may
- * not conclude" is now a closed-at-rest disclosure inside `AtAGlance`, so
- * every render below must open it before `SENTENCE`/`CONTROL` are reachable.
- * A no-op when the toggle is absent (a run that did not withhold), which is
- * exactly the state some cases below assert.
+ * V2 prototype (Paul, 25 Sep 2026): "What this run may not conclude" sits behind
+ * one door, closed at rest. Asserts it WAS closed (sentence and act absent), then
+ * opens it, so every case below reads the refusal a reader reaches in one click.
  */
-const openWithheldIfPresent = () => {
-  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
-  if (toggle) fireEvent.click(toggle)
+const openWithheld = () => {
+  const door = screen.getByTestId(DOOR)
+  expect(door, 'the refusal door must be closed at rest').toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId(SENTENCE)).not.toBeInTheDocument()
+  expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
+  fireEvent.click(door)
+  expect(door).toHaveAttribute('aria-expanded', 'true')
 }
 
 /**
@@ -254,8 +257,8 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
     isStale: false,
   }).atAGlance
 
-const renderGlance = (data: ResultsSectionDataReturn, over: Record<string, unknown> = {}) => {
-  const result = render(
+const renderGlance = (data: ResultsSectionDataReturn, over: Record<string, unknown> = {}) =>
+  render(
     <AtAGlance
       glance={glanceOf(data)}
       isRunning={false}
@@ -265,9 +268,6 @@ const renderGlance = (data: ResultsSectionDataReturn, over: Record<string, unkno
       {...over}
     />,
   )
-  openWithheldIfPresent()
-  return result
-}
 
 /** The withheld state, pinned in-test everywhere it is used. */
 const withheld = () => withAdmission(decisionWithLeaderWithheld(), CAPTURED_REFUSAL)
@@ -284,6 +284,7 @@ describe('the withheld-designation sentence carries the act that answers it', ()
 
     const onReviewEstimates = vi.fn()
     renderGlance(withheld(), { onReviewEstimates })
+    openWithheld()
 
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId(CONTROL))
@@ -301,6 +302,7 @@ describe('the withheld-designation sentence carries the act that answers it', ()
    */
   it('renders INSIDE the refusal block, not merely elsewhere on the panel', () => {
     renderGlance(withheld(), { onReviewEstimates: vi.fn() })
+    openWithheld()
     const sentence = screen.getByTestId(SENTENCE)
     const control = screen.getByTestId(CONTROL)
     const block = sentence.closest('[role="status"]')
@@ -318,6 +320,7 @@ describe('the withheld-designation sentence carries the act that answers it', ()
    */
   it('renders the sentence ALONE when no handler is supplied', () => {
     renderGlance(withheld(), { onReviewEstimates: undefined })
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
   })
@@ -332,6 +335,8 @@ describe('the withheld-designation sentence carries the act that answers it', ()
     const data = genuineDecision()
     expect(glanceOf(data).designationWithheldReason).toBeFalsy()
     renderGlance(data, { onReviewEstimates: vi.fn() })
+    // No door either: the sentence's absence alone is also true behind a closed one.
+    expect(screen.queryByTestId(DOOR)).not.toBeInTheDocument()
     expect(screen.queryByTestId(SENTENCE)).not.toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
   })
@@ -458,6 +463,7 @@ describe('the act is offered only where the refusal asks for an estimate', () =>
       ).toBeTruthy()
 
       renderGlance(data, { onReviewEstimates: vi.fn() })
+      openWithheld()
 
       // The refusal stays LEGIBLE under every cause — the first half of this lane.
       expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
@@ -500,7 +506,7 @@ describe('the act is offered only where the refusal asks for an estimate', () =>
         onReviewEstimates={vi.fn()}
       />,
     )
-    openWithheldIfPresent()
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.getByTestId(CONTROL)).toBeInTheDocument()
   })
@@ -599,7 +605,7 @@ describe('the tab actually threads the handler', () => {
         onReviewEstimates={onReviewEstimates}
       />,
     )
-    openWithheldIfPresent()
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId(CONTROL))
     expect(onReviewEstimates).toHaveBeenCalledTimes(1)
@@ -617,7 +623,7 @@ describe('the tab actually threads the handler', () => {
         runBlockedReason={null}
       />,
     )
-    openWithheldIfPresent()
+    openWithheld()
     expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
   })

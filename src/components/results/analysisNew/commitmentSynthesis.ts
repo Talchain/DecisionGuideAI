@@ -60,6 +60,20 @@ export const COMMITMENT_COPY = {
     open: 'Still open',
     before: 'Before acting',
   },
+  /**
+   * ⭐⭐ WAVE 2: bullet 1 on a withheld run — see `FoundedSource.withheld_count`.
+   *
+   * ⚠ COUNT ONLY, NOT THE GOAL. The prototype's own sentence names the goal
+   * too ("...compared for productivity"), but that label
+   * (`buildModelStrip.ts`'s `goalLabel`) is computed from canvas nodes in
+   * `AnalysisNewTabBody.tsx` — outside `AnalysisNewViewModel`, and outside
+   * this wave's file set — so it is not reachable from here without wiring a
+   * second input through a file this change does not own. Reported in the PR
+   * description; count-only is the truthful subset this module can state on
+   * its own.
+   */
+  withheldFounded: (count: number): string =>
+    `${count} option${count === 1 ? '' : 's'} compared.`,
   ask: {
     /** Tooltip and accessible name of the AI icon. */
     label: 'Ask Olumi what remains before committing',
@@ -92,6 +106,14 @@ export type FoundedSource =
   | 'implication_diverged_lead'
   /** `vm.modelImplication.outcome.sentence` (the `needs_target` state) */
   | 'implication_outcome_claim'
+  /**
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): a withheld run still has a
+   * TRUE first bullet — how many options this comparison actually holds
+   * (`optionsComparison.rows.length`). Prototype `synthesisHTML()`'s own
+   * `a` on this state: "Four options compared for productivity." — the count,
+   * never a reading of which option leads.
+   */
+  | 'withheld_count'
 
 /** Where bullet 2 came from, in priority order. */
 export type OpenSource =
@@ -112,6 +134,13 @@ export type BeforeSource =
   | 'rerun'
   /** `vm.strengthen.interventions[0].title`, verbatim. */
   | 'intervention'
+  /**
+   * ⭐ V2 prototype ("Before acting: Test the belief or record why you accept
+   * it."). The always-true next move when no other source applies and the
+   * Challenge card already shows an item: answer it, or record the view.
+   * Names no option and claims nothing about the run.
+   */
+  | 'respond_or_record'
 
 export interface CommitmentBullet<S extends string> {
   text: string
@@ -131,7 +160,15 @@ export interface CommitmentSynthesis {
 
 export type CommitmentSynthesisInput = Pick<
   AnalysisNewViewModel,
-  'status' | 'leaderClaimPermitted' | 'modelImplication' | 'checks' | 'sensitivity' | 'uncertainty' | 'strengthen'
+  | 'status'
+  | 'leaderClaimPermitted'
+  | 'modelImplication'
+  | 'checks'
+  | 'sensitivity'
+  | 'uncertainty'
+  | 'strengthen'
+  /** ⭐ WAVE 2: `withheldFoundedBullet`'s count — see its own note. */
+  | 'optionsComparison'
 >
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -164,6 +201,23 @@ const isRobustnessNotEstablished = (code: ChecksCode): code is RobustnessNotEsta
   (ROBUSTNESS_NOT_ESTABLISHED as readonly ChecksCode[]).includes(code)
 
 /**
+ * ⭐⭐ WAVE 2: BULLET 1 ON A WITHHELD RUN — the count, and NOTHING that reads
+ * as a ranking. `rows.length` is `OptionsComparison`'s own population (every
+ * row it renders, named options only — see `OptionsComparisonSection.rows`'s
+ * own note on why `totalCount` over-counts), so this states exactly what the
+ * chart beside it shows, never a second count computed here.
+ *
+ * `null` when there is nothing to count — pre-run already returns `EMPTY`
+ * above this call, but a withheld run with zero rows is not impossible, and a
+ * bullet naming zero options would be furniture over an empty chart.
+ */
+function withheldFoundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
+  const count = vm.optionsComparison.rows.length
+  if (count === 0) return null
+  return { text: COMMITMENT_COPY.withheldFounded(count), source: 'withheld_count' }
+}
+
+/**
  * BULLET 1 — "What seems well-founded".
  *
  * The `modelImplication` block's LEAD where the lead is itself a reading
@@ -179,9 +233,17 @@ const isRobustnessNotEstablished = (code: ChecksCode): code is RobustnessNotEsta
  * "most likely", bullet 2 "could not confirm which option is most likely"). The
  * checks' reading is the conservative one, so a withheld leader silences this
  * bullet whatever the implication says.
+ *
+ * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): "SILENCES" NO LONGER MEANS
+ * `null`. Paul's manual test of the provisional PA-hire run showed only the
+ * "Still open" bullet — "What we have" was blank on the one run a reader most
+ * needs orientation on. The withheld gate above still forbids a READING
+ * (aligned/diverged/outcome-claim all name or rank an option); what it does
+ * NOT forbid is the one fact this bullet can state with no reading at all —
+ * how many options this comparison holds. See `withheldFoundedBullet`.
  */
 function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
-  if (vm.checks.leaderWithheld) return null
+  if (vm.checks.leaderWithheld) return withheldFoundedBullet(vm)
   const mi = vm.modelImplication
   switch (mi.kind) {
     case 'aligned':
@@ -279,8 +341,12 @@ function beforeBullet(
   // screen twice (V2 census, B1). Skip it, as the review queue does.
   const top = vm.strengthen.interventions.find((r) => !excluded.has(r.id))
   if (top && top.title.trim() !== '') return { text: top.title, source: 'intervention' }
+  if (excluded.size > 0) return { text: RESPOND_OR_RECORD, source: 'respond_or_record' }
   return null
 }
+
+/** Bullet 3's fallback — the prototype's own sentence, adapted to this panel's acts. */
+export const RESPOND_OR_RECORD = 'Answer the challenge above, or record your view and why you hold it.'
 
 const EMPTY: CommitmentSynthesis = { describesLastRun: false, staleKind: null, founded: null, open: null, before: null }
 

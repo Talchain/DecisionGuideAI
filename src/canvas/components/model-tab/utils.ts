@@ -16,7 +16,7 @@ import {
   hasServerGraphAuthority,
   type MutationAuthority,
 } from '../../mutations/mutationAuthority'
-import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../../domain/valueProvenance'
 import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
 import { selectDriverDisplayModel, extractPolicyRow } from '../../../components/results/driverDisplayModel'
 import {
@@ -90,16 +90,11 @@ export function getPrimaryValue(obs: ObservedState): string | null {
  * TOTAL over `ValueProvenanceKind` — a new kind is a type error, not a silent
  * pass-through (trap 12).
  */
-const KIND_LABELS: Record<ValueProvenanceKind, string> = {
-  brief: 'From brief',
-  ai: 'AI estimate',
-  confirmed: 'Confirmed by you',
-  edited: 'User edited',
-  assumption: 'Your assumption',
-  human: 'Set by you',
-  // 0.40.0 — see SourceProvenancePill: no name on a persistent surface.
-  panel: 'From your panel',
-}
+/* ⭐ MODEL-11: this used to be its own hand-maintained copy of
+   `VALUE_PROVENANCE_LABEL` (word-for-word, until the `ai` string drifted to
+   "AI estimate" while `ModelOutline`/`ModelRowView` already said "Olumi") —
+   now it imports the shared map directly, so this tab's copy-to-clipboard
+   text can no longer disagree with what the tab itself displays. */
 
 export function mapSourceToDisplay(source: string | undefined): string | null {
   if (!source) return null
@@ -125,7 +120,7 @@ export function mapSourceToDisplay(source: string | undefined): string | null {
    * this surface cannot name that source — and both callers already branch on
    * an absent label, so nothing has to invent one.
    */
-  return cls ? KIND_LABELS[cls.kind] : null
+  return cls ? VALUE_PROVENANCE_LABEL[cls.kind] : null
 }
 
 // `mapSourceToTooltip` was REMOVED by the 16 Aug 2026 mount train (design

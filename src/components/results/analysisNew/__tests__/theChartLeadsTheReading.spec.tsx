@@ -72,9 +72,12 @@ describe('the chart leads the glance reading', () => {
   it('the withheld reading keeps its act, in the reading', () => {
     renderBody(decisionWithLeaderWithheldAndReason())
     const reading = screen.getByTestId('analysis-new-glance')
-    // S1 (design wave 2, panel-lane design audit 2026-09-25): the refusal now
-    // sits behind a closed-at-rest disclosure, still inside this same reading.
-    fireEvent.click(screen.getByTestId('analysis-new-glance-withheld-toggle'))
+    // V2 prototype (Paul, 25 Sep 2026): the refusal's door sits in the reading,
+    // closed at rest; the sentence is one click away, still in the reading.
+    const door = screen.getByTestId('analysis-new-glance-withheld-toggle')
+    expect(reading).toContainElement(door)
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(door)
     expect(reading).toContainElement(screen.getByTestId('analysis-new-glance-withheld-reason'))
     // The act mounts only where a route exists (none in this harness); where it
     // does, it travels with its sentence.

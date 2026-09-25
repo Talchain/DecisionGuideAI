@@ -93,6 +93,8 @@ import b1Fixture from '../../contextIntegrity/__tests__/fixtures/b1-cold-read.no
 /** The refusal's own two testids, as `withheldReasonHasAMove.spec.tsx` names them. */
 const SENTENCE = 'analysis-new-glance-withheld-reason'
 const CONTROL = 'analysis-new-glance-withheld-review-estimates'
+/** V2 prototype (Paul, 25 Sep 2026): the refusal sits behind one door, closed at rest. */
+const WITHHELD_DOOR = 'analysis-new-glance-withheld-toggle'
 /** The register, and the per-row control `#1491` put on it. */
 const TOGGLE = 'what-i-was-given-toggle'
 const ESTIMATED = 'what-i-was-given-estimated'
@@ -204,10 +206,13 @@ const renderTab = (onReviewEstimates?: () => void) => {
   // a closed region — so without this every query below reads an absence
   // rather than the section. Only the GROUP is opened.
   openGroupsIfPresent()
-  // S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run
-  // may not conclude" is now a closed-at-rest disclosure inside `AtAGlance`.
-  const withheldToggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
-  if (withheldToggle) fireEvent.click(withheldToggle)
+  // The refusal door is closed at rest (V2 prototype, Paul 25 Sep); every case
+  // here is about the act beside the sentence, so open it — asserting it was shut.
+  const door = screen.getByTestId(WITHHELD_DOOR)
+  expect(door, 'the refusal door must be closed at rest').toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId(SENTENCE)).not.toBeInTheDocument()
+  fireEvent.click(door)
+  expect(door).toHaveAttribute('aria-expanded', 'true')
   return result
 }
 

@@ -212,6 +212,11 @@ const run = (): ResultsSectionDataReturn => {
     renderGlance(decisionWithLeaderWithheldAndReason(), 'withheld_with_message')
     const landmark = screen.queryByTestId('analysis-new-glance')
     expect(landmark, 'the withheld run lost its glance entirely').not.toBeNull()
+    // V2 prototype (Paul, 25 Sep 2026): the withheld sentence sits behind one
+    // door, closed at rest. Open it so the census reads the sentence itself.
+    const door = screen.getByTestId('analysis-new-glance-withheld-toggle')
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(door)
 
     const lines = glanceLines()
     expect(lines.length, 'the withheld glance rendered no text — this arm is vacuous').toBeGreaterThan(

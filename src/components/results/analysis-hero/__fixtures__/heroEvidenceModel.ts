@@ -44,6 +44,7 @@ export function heroEvidenceModel(
     // Absence of a readable suppression disclosure is SILENCE, never a
     // withholding claim — the same fail-closed direction as `decisionVoi`.
     attributionSuppression: partial.attributionSuppression ?? 'not_attested',
+    assumedStrengthRankingWithheld: false,
     assumedStrength:
       partial.assumedStrength ?? {
         selected: null,

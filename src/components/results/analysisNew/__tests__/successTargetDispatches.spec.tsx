@@ -136,7 +136,17 @@ describe('the target the reader typed is actually sent', () => {
      * refinement. The direction the reader CHOOSES is the direction-pair file's
      * question (`successTargetDirection.spec.tsx`); this is the default's.
      */
-    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least')
+    /**
+     * ⭐ A FIFTH ARGUMENT JOINED HERE — `{ onSendSettled }` — additive for the
+     * `goal_target_edit` typed-carrier lane (`GOAL_TARGET_EDIT_ENABLED`,
+     * currently `false`). `SuccessTargetLine` now always forwards its own
+     * `onSendSettled` prop through; this harness never supplies one, so it
+     * arrives as `undefined` — inert on the `add_constraint` path this test
+     * exercises, and asserted so a later change cannot silently widen it.
+     */
+    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least', {
+      onSendSettled: undefined,
+    })
   })
 
   /**
@@ -355,7 +365,9 @@ describe('an unreadable amount says what to type, not just that it failed', () =
    */
   it('CONTROL: a digit amount still dispatches', () => {
     typeTarget('1300000')
-    expect(proposeGoalTarget).toHaveBeenCalledWith('1300000', '%', 'scenario-7', 'at_least')
+    expect(proposeGoalTarget).toHaveBeenCalledWith('1300000', '%', 'scenario-7', 'at_least', {
+      onSendSettled: undefined,
+    })
   })
 
   it('⛔ the witnessed input is not sent, and is not reported as a generic failure', () => {

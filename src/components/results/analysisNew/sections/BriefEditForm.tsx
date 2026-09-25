@@ -139,7 +139,7 @@ function BriefEditFormForScenario({ onAsk, onClose, focusRequest = 0, testIdPref
             onClose()
           }
         }}
-        className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded border border-panel-border bg-panel px-2 py-1.5 text-text-header ${ACTION_FOCUS}`}
+        className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-sm border border-field bg-panel px-2 py-1.5 text-text-header ${ACTION_FOCUS}`}
         data-testid={`${testIdPrefix}-brief-input`}
       />
       <div className="flex flex-wrap items-center justify-end gap-1">

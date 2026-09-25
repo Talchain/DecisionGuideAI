@@ -103,11 +103,6 @@ const glanceOf = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefi
     nodeLabels,
   }).atAGlance
 
-/**
- * S1 (design wave 2, panel-lane design audit 2026-09-25): "What this run may
- * not conclude" is now a closed-at-rest disclosure inside `AtAGlance`, so
- * every render must open it before the parameters line is reachable.
- */
 const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | undefined = LABELS) => {
   const result = render(
     <AtAGlance
@@ -118,8 +113,14 @@ const renderGlance = (adm: unknown, nodeLabels: ReadonlyMap<string, string> | un
       onReanalyse={() => {}}
     />,
   )
-  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
-  if (toggle) fireEvent.click(toggle)
+  // V2 prototype (Paul, 25 Sep 2026): the refusal and its parameters sit behind
+  // one door, closed at rest. Assert it was shut, then open it, so the absence
+  // cases below are read with the door OPEN and cannot pass because it is shut.
+  const door = screen.getByTestId('analysis-new-glance-withheld-toggle')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).toBeNull()
+  fireEvent.click(door)
+  expect(door).toHaveAttribute('aria-expanded', 'true')
   return result
 }
 

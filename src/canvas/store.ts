@@ -2762,10 +2762,17 @@ function planStructuralAddEdgeIntent(
   state: CanvasState,
   edgesAfter: ReadonlyArray<{ id: string; source: string; target: string; data?: unknown }>,
   edgeId: string,
+  nodesAfter: ReadonlyArray<{ id: string; type?: string; data?: unknown }> = state.nodes,
 ): { patch: Partial<CanvasState>; deferred: boolean; needsStrength: boolean } {
   const result = captureStructuralAddEdge({
     edgesAfter,
     edgeId,
+    // Structural links (Decision → option, option → factor) ride CEE's structural
+    // convention; the kinds come from the graph the gesture produced.
+    endpointKind: (id) => {
+      const n = nodesAfter.find((x) => x.id === id)
+      return n?.type ?? ((n?.data as { kind?: string } | undefined)?.kind)
+    },
     baseGraphHash: state.lastServerGraphHash,
     externalMutationActive: state._externalMutationActive > 0,
     resolveSignedStrength: (data) =>
@@ -3610,7 +3617,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         },
       ]
       const nodePlan = planStructuralAddIntent(s, nodesAfter, nodeId)
-      const edgePlan = planStructuralAddEdgeIntent(s, edgesAfter, edgeId)
+      const edgePlan = planStructuralAddEdgeIntent(s, edgesAfter, edgeId, nodesAfter)
       addOutcome = {
         nodeDeferred: nodePlan.deferred,
         edgeDeferred: edgePlan.deferred,

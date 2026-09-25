@@ -118,11 +118,12 @@ function lineFor(n: number): HTMLElement {
       onReanalyse={() => {}}
     />,
   )
-  // S1 (design wave 2, panel-lane design audit 2026-09-25): the refusal now
-  // sits behind a closed-at-rest disclosure — open it before reading anything
-  // inside.
-  const toggle = screen.queryByTestId('analysis-new-glance-withheld-toggle')
-  if (toggle) fireEvent.click(toggle)
+  // V2 prototype (Paul, 25 Sep 2026): the refusal and its parameters sit behind
+  // one door, closed at rest. Assert it was shut, then open it.
+  const door = screen.getByTestId('analysis-new-glance-withheld-toggle')
+  expect(door).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId('analysis-new-glance-withheld-parameters')).toBeNull()
+  fireEvent.click(door)
   // PRECONDITION, pinned in-test: the refusal itself is rendered, so an
   // assertion about this line cannot pass because the panel vanished, and the
   // set was not voided by the fail-closed label gate in

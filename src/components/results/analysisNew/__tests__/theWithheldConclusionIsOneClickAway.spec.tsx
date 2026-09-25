@@ -95,7 +95,9 @@ describe('the withheld conclusion is closed at rest', () => {
   it('does not restate its own label once opened', () => {
     renderBody(vi.fn())
     fireEvent.click(screen.getByTestId(TOGGLE))
-    const region = screen.getByTestId('analysis-new-glance-withheld-region')
+    // The opened content's own `role="status"` region, not the toggle above
+    // it (which legitimately carries the label as its button text).
+    const region = screen.getByRole('status')
     expect(region.textContent).not.toContain(COPY.glance.eyebrowWhyWithheld)
   })
 })

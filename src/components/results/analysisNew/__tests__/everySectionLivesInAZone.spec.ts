@@ -109,13 +109,15 @@ describe('the zone grammar has contents, not just names', () => {
 
   const renderRoot = lines.findIndex((l) => l.includes(RENDER_ROOT)) + 1
 
-  it('PRECONDITION: the three zones are found in the source — otherwise this spec reads nothing', () => {
+  it('PRECONDITION: the two zones are found in the source — otherwise this spec reads nothing', () => {
     // V2: "Challenge the thinking" (the `also` group) now sits ABOVE the answer.
     // V2 first screen (24 Sep 2026): "Focus now" follows the answer — the
     // prototype goes model → challenge → commitment with nothing between.
     // V2 fidelity gap 24 (24 Sep 2026): the 'further' zone is deleted; its
     // blocks fold into About, which mounts after the last zone.
-    expect(zoneOpens.map((z) => z.m[1])).toEqual(['also', 'answer', 'focus'])
+    // V2 prototype (Paul, 25 Sep 2026): "Focus now" is removed from this tab;
+    // model → challenge → commitment → About, with nothing else between.
+    expect(zoneOpens.map((z) => z.m[1])).toEqual(['also', 'answer'])
   })
 
   it('PRECONDITION: the render root is found, and it precedes the first zone', () => {

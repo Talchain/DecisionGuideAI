@@ -29,12 +29,13 @@
  * ellipsise AND the two protected testids must be painted with a non-zero box.
  */
 
-import { useCallback, useRef } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, MoreHorizontal } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
-import type { WorkspaceSurfaceDescriptor } from './shellContract'
+import { usePanelWidth } from './usePanelWidth'
+import { SHELL_TABSTRIP_COMPACT_BELOW_PX, type WorkspaceSurfaceDescriptor } from './shellContract'
 
 /**
  * The shared class for the row's icon controls. Named once because the row's
@@ -153,6 +154,109 @@ export function WorkspaceShellCollapsedStrip({ onToggleOpen }: { onToggleOpen: (
   )
 }
 
+/**
+ * The compact-width overflow control (design-audit-20260925, gap NARROW-1).
+ *
+ * Below `SHELL_TABSTRIP_COMPACT_BELOW_PX` there is no row width left for
+ * VersionsTrigger and the expert-mode toggle beside four tabs, so both fold
+ * into this single control instead of wrapping the strip into a 2×2 grid.
+ * Neither control is DROPPED — the gap's own truth-risk requirement is that
+ * both stay reachable, not merely reachable via some other screen — so this
+ * is a real menu: a keyboard-reachable trigger with an accessible name,
+ * opening a panel that holds both controls unchanged, closed by Escape or by
+ * clicking outside it.
+ */
+function TabStripOverflowMenu({
+  expertMode,
+  onToggleExpertMode,
+}: {
+  expertMode: boolean
+  onToggleExpertMode: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const wrapperRef = useRef<HTMLDivElement | null>(null)
+  const menuId = useId()
+
+  const close = useCallback((returnFocus: boolean) => {
+    setOpen(false)
+    if (returnFocus) triggerRef.current?.focus()
+  }, [])
+
+  // Clicking outside the open menu closes it, the same dismissal every other
+  // popover on the panel already gives a pointer user.
+  useEffect(() => {
+    if (!open) return
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (wrapperRef.current?.contains(target)) return
+      close(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [open, close])
+
+  return (
+    /* ⭐ A DISCLOSURE, NOT AN ARIA MENU (review 5833758302, option a). The
+       keyboard contract lives on the WRAPPER, so it holds wherever focus is —
+       on the trigger or on either control inside: Escape closes and returns
+       focus to the trigger; focus leaving the wrapper closes it. */
+    <div
+      ref={wrapperRef}
+      className="relative shrink-0"
+      onKeyDown={event => {
+        if (event.key === 'Escape' && open) {
+          event.stopPropagation()
+          close(true)
+        }
+      }}
+      onBlur={event => {
+        const next = event.relatedTarget as Node | null
+        if (open && (next === null || !wrapperRef.current?.contains(next))) close(false)
+      }}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(prev => !prev)}
+        className={ROW_ICON_CONTROL}
+        aria-label="More controls"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        data-testid="dock-overflow-trigger"
+      >
+        <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          id={menuId}
+          data-testid="dock-overflow-menu"
+          className="absolute right-0 top-full mt-1 z-20 flex flex-col gap-1 p-1 rounded border border-field bg-panel shadow-md"
+        >
+          <VersionsTrigger
+            variant="labelled"
+            className="w-full justify-start"
+            data-testid="dock-versions-trigger"
+          />
+          <button
+            type="button"
+            onClick={onToggleExpertMode}
+            className={`${typography.panelBody} inline-flex items-center gap-2 px-3 py-2 rounded-md border w-full justify-start transition-colors ${
+              expertMode
+                ? 'text-info border-info'
+                : 'text-text-light border-field hover:border-info hover:text-info'
+            }`}
+            aria-pressed={expertMode}
+          >
+            <span aria-hidden="true">{'</>'}</span>
+            {expertMode ? 'Disable expert mode' : 'Enable expert mode'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function WorkspaceShellTabStrip({
   surfaces,
   activeTab,
@@ -165,6 +269,12 @@ export function WorkspaceShellTabStrip({
   resultsStale,
   factorsToVerify,
 }: WorkspaceShellTabStripProps) {
+  // gap NARROW-1: below this width four tabs plus VersionsTrigger, the
+  // expert-mode toggle and the collapse control do not fit one row, so the
+  // strip goes compact rather than wrapping into a 2×2 grid.
+  const { width } = usePanelWidth()
+  const isCompact = width < SHELL_TABSTRIP_COMPACT_BELOW_PX
+
   // Roving focus: moving selection with the keyboard must move focus with it,
   // or the user's focus is left on a tab that is no longer selected and the
   // next arrow key steps from the wrong place.
@@ -247,7 +357,7 @@ export function WorkspaceShellTabStrip({
           rendered tab widths are 47/62/99/70 against the shipped 48/62/98/70 —
           the strip looks the same and simply stops clipping. */}
       <div
-        className="flex flex-1 min-w-0 gap-1 flex-wrap"
+        className={`flex flex-1 min-w-0 gap-1 ${isCompact ? 'flex-nowrap' : 'flex-wrap'}`}
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
@@ -294,16 +404,24 @@ export function WorkspaceShellTabStrip({
               // correctly REDs it: the shell module is zero-tolerance for
               // off-scale spacing. 4px is on the scale AND buys more slack than
               // 6px did, so there was never a trade to make here.
-              className={`flex-auto min-w-0 px-1 py-1 rounded ${typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              //
+              // ⚠⚠ NO FILL, NO UNDERLINE (design-audit-20260925, gap ACTION-1).
+              // The selected tab used a `color-mix(…, 15%, …)` inline tint plus
+              // a `border-b-2` underline — encoding selection twice, and the
+              // tint measured 3.92:1 on the label, under SC 1.4.11's 3:1 floor
+              // for the label ink at that weight. A single `border` at `/80`
+              // clears 3.35:1 on both panel grounds (the same alpha
+              // `PANEL_INSET_ACTION` derives in `panelSurfaces.ts`) and a
+              // border, not a ring, so the existing focus ring still reads as
+              // its own separate rectangle rather than doubling one already
+              // there. `rounded-sm` is `SHELL_RADIUS_PX.input` (8px) — the
+              // shell's own "inputs, small buttons" step, not the loose
+              // Tailwind default.
+              className={`flex-auto min-w-0 px-1 py-1 rounded-sm border ${isCompact ? typography.panelMeta : typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
-                  ? 'text-info border-b-2 border-info'
-                  : 'text-text-header hover:bg-panel border-b-2 border-transparent'
+                  ? 'text-info border-info/80'
+                  : 'text-text-body border-transparent hover:text-info'
               }`}
-              style={
-                isActive
-                  ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' }
-                  : undefined
-              }
             >
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${
@@ -359,30 +477,41 @@ export function WorkspaceShellTabStrip({
         })}
       </div>
       </nav>
-      {/* ⭐ R4 — version history's home in this panel (#739). The trigger
-          carries NO positioning of its own; layout belongs to this row, which
-          is the point of retiring the floating pill (L-08). Its `icon` variant
-          applies `className` with an EMPTY default, so it is given the SAME
-          class as the collapse control and the two read as one control set. */}
-      <VersionsTrigger
-        variant="icon"
-        className={ROW_ICON_CONTROL}
-        data-testid="dock-versions-trigger"
-      />
-      <button
-        type="button"
-        onClick={onToggleExpertMode}
-        className={`${typography.panelMeta} px-2 py-1 rounded-full border shrink-0 cursor-pointer transition-colors ${
-          expertMode
-            ? 'text-info border-info'
-            : 'text-text-light border-field hover:border-info hover:text-info'
-        }`}
-        aria-label={expertMode ? 'Disable expert mode' : 'Enable expert mode'}
-        aria-pressed={expertMode}
-        title="Toggle expert mode"
-      >
-        {'</>'}
-      </button>
+      {/* gap NARROW-1: below the compact threshold there is no row width for
+          both controls beside four tabs, so they fold into one overflow
+          menu rather than wrapping the strip into a 2×2 grid. Neither
+          control is omitted — both stay reachable, just behind one more
+          keypress. */}
+      {isCompact ? (
+        <TabStripOverflowMenu expertMode={expertMode} onToggleExpertMode={onToggleExpertMode} />
+      ) : (
+        <>
+          {/* ⭐ R4 — version history's home in this panel (#739). The trigger
+              carries NO positioning of its own; layout belongs to this row, which
+              is the point of retiring the floating pill (L-08). Its `icon` variant
+              applies `className` with an EMPTY default, so it is given the SAME
+              class as the collapse control and the two read as one control set. */}
+          <VersionsTrigger
+            variant="icon"
+            className={ROW_ICON_CONTROL}
+            data-testid="dock-versions-trigger"
+          />
+          <button
+            type="button"
+            onClick={onToggleExpertMode}
+            className={`${typography.panelMeta} px-2 py-1 rounded-full border shrink-0 cursor-pointer transition-colors ${
+              expertMode
+                ? 'text-info border-info'
+                : 'text-text-light border-field hover:border-info hover:text-info'
+            }`}
+            aria-label={expertMode ? 'Disable expert mode' : 'Enable expert mode'}
+            aria-pressed={expertMode}
+            title="Toggle expert mode"
+          >
+            {'</>'}
+          </button>
+        </>
+      )}
       <CollapseControl isOpen={isOpen} onToggle={onToggleOpen} />
     </div>
   )

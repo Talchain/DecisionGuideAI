@@ -157,16 +157,22 @@ describe('a relationship row carries both endpoints as structure', () => {
     expect(button).toHaveAttribute('title', 'Tech Lead Hired → Delivery Throughput')
   })
 
-  it("DISCRIMINATOR: a row with NO endpoint pair keeps the plain single truncate", () => {
+  it("DISCRIMINATOR: a row with NO endpoint pair keeps the plain single label, unsplit", () => {
     // The load-bearing render case. An authored edge label, a factor, a goal —
     // none has endpoints, and giving them a two-half layout would split text on
     // an arrow nobody wrote. Measured by the class the button itself carries.
+    //
+    // ⭐ MODEL-1, 25 Sep 2026: `truncate` → `break-words`. The plain-label
+    // button now owns its own full line-1 (see `ModelRowView.tsx`'s LINE 2
+    // wrapper) rather than sharing one line with the value, so it no longer
+    // needs to clip — the DISCRIMINATOR below (no per-half split) is the
+    // property this test actually exists to prove, and is unchanged.
     const button = renderRow({
       labelEndpoints: undefined,
       label: 'Hiring → faster only if onboarding holds',
     })
-    expect(button.className, 'a single label must keep its own truncate').toMatch(
-      /(^|\s)truncate(\s|$)/,
+    expect(button.className, 'a single label must keep its own break-words').toMatch(
+      /(^|\s)break-words(\s|$)/,
     )
     expect(
       Array.from(button.querySelectorAll('span')).filter((el) =>

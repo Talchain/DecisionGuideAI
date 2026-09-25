@@ -33,7 +33,7 @@
  *
  * Features:
  * - Uses two-phase algorithm for correct reconverging graph handling
- * - Dims nodes AND edges outside the focus (nodes opacity-60, edges 0.25)
+ * - Dims nodes AND edges outside the focus (nodes opacity-60, edges EDGE_SELECTION_DIM_OPACITY)
  * - Clears highlights on selection change (no timer-based auto-clear)
  * - Multi-select clears all highlights to prevent stale state
  * - F3 (graph-visuals): defers to an active focus dim (store.focusDimSourceId)

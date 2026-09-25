@@ -10,6 +10,7 @@ import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
+import { useAnchorRailFloorStore, selectAtOrAboveIconLegibleZoom } from './shared/anchorRailFloor'
 import { collapseEstimateDisplay } from './shared/collapseEstimateDisplay'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
@@ -1166,7 +1167,18 @@ export const OptionNode = memo((props: NodeProps) => {
   // the popover, which is portalled outside the React Flow transform
   // (`--canvas-label-scale` resolves to 1 there at every rung), so it is always
   // the contract grid — a rung-dependent stack would be moot.
-  const rowsStacked = !useCanvasStore(selectRestingGlyphsShown)
+  //
+  // ⛔ NOT THE RUNG ALONE ANY MORE (24 Sep 2026). Paul's ruling "the landing view
+  // counts as Normal zoom" (gap-audit row 3) moved the `full` floor to 0.5, so
+  // landing is now `full` and the resting ICONS show there. It did not rule on
+  // row layout, and the grid at landing is the MEASURED defect this switch exists
+  // for: at scale 2 the label column is ~45px and "Germany market…" wraps to four
+  // lines (OptionNode.landingRowsStack.spec header). So the rows keep the grid
+  // only at or above the OLD Normal floor (`ICON_LEGIBLE_ZOOM`), exactly as
+  // before the ruling; below it they stack.
+  const atNormalRung = useCanvasStore(selectRestingGlyphsShown)
+  const atOrAboveIconLegibleZoom = useAnchorRailFloorStore(selectAtOrAboveIconLegibleZoom)
+  const rowsStacked = !(atNormalRung && atOrAboveIconLegibleZoom)
 
   /**
    * ⭐⭐ THE DIFFERENTIATOR DE-DUPLICATION IS RETIRED — Paul, 10 Sep 2026:

@@ -215,10 +215,16 @@ describe('the implication block reaches a screen', () => {
 
   /**
    * ⛔ THE LOAD-BEARING DARK STATE, AT THE WIRING. A withheld leader silences
-   * bullet 1 whatever the implication would say — and the contrast twin above
+   * any READING bullet 1 would otherwise state — and the contrast twin above
    * (`divergingRun`, one conjunct apart) proves the probe can see the bullet.
+   *
+   * ⭐⭐ WAVE 2 (commitment structure, 25 Sep 2026): RE-POINTED, NOT DELETED.
+   * "NO implication on screen" used to mean the bullet did not render at all;
+   * it now means no READING renders — bullet 1 states the option count
+   * instead (`commitmentSynthesis.ts`'s `withheldFoundedBullet`), which is
+   * not an implication about which option is ahead.
    */
-  it('DISCRIMINATOR: a withheld leader puts NO implication on screen', () => {
+  it('DISCRIMINATOR: a withheld leader puts NO implication on screen (states the count instead)', () => {
     const vm = vmOf(withheldRun())
     expect(vm.checks.leaderWithheld, 'PRECONDITION: the leader is withheld').toBe(true)
 
@@ -226,7 +232,7 @@ describe('the implication block reaches a screen', () => {
     renderTab(withheldRun())
     // The zone rendered — so the absence is the gate's doing, not an empty tab.
     expect(screen.getByTestId(COMMIT)).toBeInTheDocument()
-    expect(screen.queryByTestId(FOUNDED)).toBeNull()
+    expect(screen.getByTestId(FOUNDED)).toHaveAttribute('data-source', 'withheld_count')
     const body = screen.getByTestId('analysis-new-tab-body').textContent ?? ''
     expect(body).not.toContain(COPY.implications.divergedLead)
     expect(body).not.toContain(COPY.implications.alignedLead('Segment'))

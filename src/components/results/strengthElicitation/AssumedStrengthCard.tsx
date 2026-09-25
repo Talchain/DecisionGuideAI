@@ -97,9 +97,17 @@ export interface AssumedStrengthCardProps {
    * assumption but renders no button, rather than a button that does nothing.
    */
   onResolve?: (selection: AssumedStrengthSelection) => void
+  /**
+   * True when the run withheld its ranking (`rankingWasWithheld`, the Reasoning
+   * tab's own predicate). The "why" sentence names an option that was "the
+   * stronger option" in some runs, which presupposes the ranking this run
+   * withheld, so it is omitted. The lead and the ask stay: setting a strength is
+   * the act that can lift the withholding (AI Quality #69 5827943157, leak 1).
+   */
+  rankingWithheld?: boolean
 }
 
-function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardProps) {
+function AssumedStrengthCardImpl({ decision, onResolve, rankingWithheld = false }: AssumedStrengthCardProps) {
   const { selected, refusalReason, assumedFragileCount } = decision
 
   if (selected === null) {
@@ -132,9 +140,11 @@ function AssumedStrengthCardImpl({ decision, onResolve }: AssumedStrengthCardPro
       <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-lead">
         {assumedStrengthLead(selected)}
       </p>
-      <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-why">
-        {assumedStrengthWhy(selected)}
-      </p>
+      {rankingWithheld ? null : (
+        <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-why">
+          {assumedStrengthWhy(selected)}
+        </p>
+      )}
       <p className={`${typography.panelBody} text-text-body`} data-testid="assumed-strength-ask">
         {assumedStrengthAsk(selected)}
       </p>

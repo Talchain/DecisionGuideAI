@@ -70,7 +70,10 @@ const NO_DATA: AssumedStrengthDecision = {
 }
 
 function renderAnalysisTab(assumedStrength: AssumedStrengthDecision) {
-  const data = { ...makeHeroData(), assumedStrength } as ResultsSectionDataReturn
+  // ⚠ LICENSED (25 Sep 2026): the card's "why" sentence presupposes a ranking, so it
+  // renders only when the run licensed one (`rankingWasWithheld`, AI Quality #69
+  // 5827943157). This file's subject is the mount path, not the licence.
+  const data = { ...makeHeroData({ recommendation: { leaderDesignationPermitted: true } }), assumedStrength } as ResultsSectionDataReturn
   return render(
     <ResultsBody
       resultsSectionData={data}

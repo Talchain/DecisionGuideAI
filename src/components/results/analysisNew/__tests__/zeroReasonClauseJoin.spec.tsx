@@ -100,13 +100,19 @@ const vmOf = (data: ResultsSectionDataReturn) =>
  * one-at-a-time accordion, so opening every closed toggle re-closes a sibling.
  */
 const openDrivers = () => {
-  const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(toggle, 'analysis-new-what-moves-the-outcome must be open before it is read')
-    .toHaveAttribute('aria-expanded', 'true')
-  // TAIL-3 (design wave 2): "Drivers and dynamics" is now `bare` inside that
-  // outer door — no second toggle to open, its rows are already on screen.
-  expect(screen.queryByTestId('analysis-new-drivers-toggle')).toBeNull()
+  // V2 prototype (Paul, 25 Sep 2026): "What moves the outcome" renders only inside
+  // the challenge's "Assumptions and evidence" door, closed at rest. Open it first.
+  const door = screen.getByTestId('analysis-new-signals-disclose')
+  expect(door, 'the Assumptions door must be closed at rest').toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId('analysis-new-what-moves-the-outcome')).toBeNull()
+  fireEvent.click(door)
+  expect(screen.getByTestId('analysis-new-signals-disclose')).toHaveAttribute('aria-expanded', 'true')
+  for (const id of ['analysis-new-what-moves-the-outcome', 'analysis-new-drivers']) {
+    const toggle = screen.getByTestId(`${id}-toggle`)
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    expect(screen.getByTestId(`${id}-toggle`), `${id} must be open before it is read`)
+      .toHaveAttribute('aria-expanded', 'true')
+  }
 }
 
 /** Survivors plus one suppressed row: the state that renders the CAVEAT. */

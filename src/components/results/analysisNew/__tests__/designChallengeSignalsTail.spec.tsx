@@ -93,7 +93,6 @@ describe('TAIL-1 — "What moves the outcome" is a quiet SectionShell disclose d
     expect(toggle.className).not.toMatch(/font-semibold/)
   })
 })
-
 describe('TAIL-3 — "Drivers and dynamics" is not a second closed door inside "What moves the outcome"', () => {
   /** Two live drivers, so the OLD nested SectionShell would default CLOSED
    * (`sectionOpensItself` only auto-opens on exactly one finding) — the exact
@@ -109,7 +108,18 @@ describe('TAIL-3 — "Drivers and dynamics" is not a second closed door inside "
       />,
     )
 
+  /**
+   * ⚠ TWO DOORS DEEP, NOW. The 25 Sep one-bundle pass relocated "What moves
+   * the outcome" from its own answer-zone SectionShell into the challenge's
+   * "Assumptions and evidence" door (`ReasoningSignals`'s `evidenceSlot`,
+   * gated on ITS OWN `open` state) — so `analysis-new-what-moves-the-outcome
+   * -toggle` is not even mounted until `analysis-new-signals-disclose` opens
+   * first. TAIL-3 itself (the nested drivers toggle) is unaffected by that
+   * move; only the path to reach it grew by one door.
+   */
   const openWhatMovesTheOutcome = () => {
+    const evidenceDoor = screen.getByTestId('analysis-new-signals-disclose')
+    if (evidenceDoor.getAttribute('aria-expanded') !== 'true') fireEvent.click(evidenceDoor)
     const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
     if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')

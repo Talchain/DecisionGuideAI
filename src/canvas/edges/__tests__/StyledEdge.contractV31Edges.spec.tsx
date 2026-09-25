@@ -220,8 +220,8 @@ describe('E6 — the selection dim is the whole connection, as one unit', () => 
     expect(byTestId(container, 'edge-influence-label')!.style.opacity).toBe('1')
   })
 
-  it('is the DS v5 §7.4 20%', () => {
-    expect(EDGE_SELECTION_DIM_OPACITY).toBe(0.2)
+  it('is the visual contract §03 `.edge-group.dimmed{opacity:.18}`', () => {
+    expect(EDGE_SELECTION_DIM_OPACITY).toBe(0.18)
   })
 })
 
