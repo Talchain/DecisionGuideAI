@@ -712,7 +712,7 @@ export function OptionsComparison({
                    a tier: it is the option's NAME. 2px of padding, and not
                    `inline-flex items-center`, which would change how a long
                    option name wraps. */
-                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -mx-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelBody} text-text-body min-w-0 flex-1 break-words text-left rounded-md -ml-1 px-1 py-0.5 cursor-pointer transition-colors hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {/* ⭐ V2 FIDELITY (gap 20): THE OPTION'S OWN SHAPE, before its
                     name — the row head's `.option-top` grid in the prototype
