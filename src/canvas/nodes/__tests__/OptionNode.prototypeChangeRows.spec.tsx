@@ -33,7 +33,10 @@
  *     its own `title`; `from → to` never inside a truncating element; the source
  *     mark trails the value;
  *   · "from" is the factor card's own reading of the factor's current value when
- *     the target carries a display string (the case the served board is in);
+ *     the target carries a display string (the case the served board is in) —
+ *     and ONLY a reading the data carries (raw_value with a real unit, the
+ *     factor's display_value, its encoding_map phrase), never the formatter's
+ *     value-only guess ("No X in place", "X active"), which leaves `→ to`;
  *   · the target stays the string CEE authored, verbatim (Paul 20 Sep, "thin
  *     layer") — only the "from" is read through the factor card's formatter;
  *   · the muted line under the rows is the option's OWN description or
@@ -297,6 +300,96 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
     })
   })
 
+  /**
+   * ⛔ A "FROM" IS ONLY A READING THE DATA CARRIES (verifier FIX_NEEDED on
+   * e0490565; Paul 25 Sep: "from" only "when the data carries it", otherwise
+   * "→ to" only). The factor card's formatter also produces GUESSES from a bare
+   * model value — "No <label> in place" for 0, "<Label> active" for 1
+   * (`formatFactorDisplayValue`'s value-only branch). Those phrases are not in
+   * the data, so they never become a row's "from".
+   *
+   * Every case renders option-1's f-price row (CEE's target "£59") with ONLY
+   * the factor's data changed, so each guess and its carried contrast differ in
+   * exactly the field under test.
+   */
+  describe('a "from" is only a reading the data CARRIES — never the formatter\'s guess', () => {
+    const PRICE_ROW = 'option-change-row-option-1-f-price'
+    const PRICE_BEFORE = 'option-change-row-before-option-1-f-price'
+    const withPriceFactor = (data: Record<string, unknown>) =>
+      (makeStoreState().nodes as StoreNode[]).map((n) =>
+        (n.id === 'f-price' ? { ...n, data: { label: 'Monthly price', type: 'factor', ...data } } : n))
+    const priceRow = (data: Record<string, unknown>) => {
+      renderCard({ store: { nodes: withPriceFactor(data) } })
+      const dd = onCard(PRICE_ROW)
+      expect(dd, 'precondition: the f-price row is on the card').not.toBeNull()
+      return { dd: dd!, before: onCard(PRICE_BEFORE) }
+    }
+
+    it('value 1, a real unit and NO raw_value: the card\'s "Monthly price active" is a guess → "→ £59"', () => {
+      const data = { observedState: { value: 1, unit: 'GBP/month' } }
+      expect(factorDisplayText({ label: 'Monthly price', ...data }), 'precondition: the formatter guesses').toBe('Monthly price active')
+      const { dd, before } = priceRow(data)
+      expect(before).toBeNull()
+      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
+      expect(dd.textContent).not.toContain('active')
+    })
+
+    it('value 0, a real unit and NO raw_value: "No monthly price in place" is a guess → "→ £59"', () => {
+      const data = { observedState: { value: 0, unit: 'GBP/month' } }
+      expect(factorDisplayText({ label: 'Monthly price', ...data }), 'precondition: the formatter guesses').toBe('No monthly price in place')
+      const { dd, before } = priceRow(data)
+      expect(before).toBeNull()
+      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
+      expect(dd.textContent).not.toContain('in place')
+    })
+
+    it('value 0 on a PLACEHOLDER unit, even with a raw_value: still the guess → "→ £59"', () => {
+      const data = { observedState: { value: 0, raw_value: 0, unit: 'scale' } }
+      expect(factorDisplayText({ label: 'Monthly price', ...data }), 'precondition: the formatter guesses').toBe('No monthly price in place')
+      const { dd, before } = priceRow(data)
+      expect(before).toBeNull()
+      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
+    })
+
+    it('CONTRAST — the factor\'s OWN display_value is carried, phrase or not: it IS the "from"', () => {
+      const { dd, before } = priceRow({ display_value: 'Free plan only', observedState: { value: 0 } })
+      expect(before?.textContent).toBe('Free plan only')
+      expect(dd.textContent!.startsWith('Free plan only → £59')).toBe(true)
+    })
+
+    it('CONTRAST — the factor\'s encoding_map phrase for its value is carried: it IS the "from"', () => {
+      const data = { display_value: 'Low (0)', encoding_map: { '0': 'No paid plan', '1': 'Paid plan' }, observedState: { value: 0 } }
+      expect(factorDisplayText({ label: 'Monthly price', ...data }), 'precondition: the map wins').toBe('No paid plan')
+      const { before } = priceRow(data)
+      expect(before?.textContent).toBe('No paid plan')
+    })
+
+    it('CONTRAST — a raw_value with a real unit is carried: "49 GBP/month → £59"', () => {
+      const { before } = priceRow(PRICE_DATA)
+      expect(before?.textContent).toBe('49 GBP/month')
+    })
+
+    it('CONTRAST — a unitless raw_value is carried: its own figure is the "from"', () => {
+      const { before } = priceRow({ observedState: { value: 0.245, raw_value: 49 } })
+      expect(before?.textContent).toBe('49')
+    })
+
+    it('a SUPPRESSED unit word ("other") is dropped exactly as the factor card drops it: "49", never "49 other"', () => {
+      const { dd, before } = priceRow({ observedState: { value: 0.245, raw_value: 49, unit: 'other' } })
+      expect(before?.textContent).toBe('49')
+      expect(dd.textContent).not.toContain('other')
+    })
+
+    it('a target EQUAL to the current value, formatted differently, is not a change: no "from"', () => {
+      // The factor card reads "59 GBP/month"; CEE's target is £59 at the SAME
+      // model value (0.295). "59 GBP/month → £59" would claim a change that is not one.
+      const { dd, before } = priceRow({ observedState: { cap: 200, unit: 'GBP/month', value: 0.295, raw_value: 59 } })
+      expect(before).toBeNull()
+      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
+      expect(dd.textContent).not.toContain('59 GBP/month')
+    })
+  })
+
   describe('post-run: the rows STAY and the run adds below them', () => {
     it('the card carries the rows AND the share line, rows first', () => {
       winRate = 0.42
@@ -350,6 +443,12 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(share).not.toBeNull()
       expect(meta?.textContent).toBe('Baseline · no changes')
       expect(follows(meta!, share!)).toBe(true)
+    })
+
+    it('a declared baseline WITH its own description shows that line INSTEAD of the reference — one muted line, never two', () => {
+      renderCard({ id: 'option-b', store: { nodes: withOptionData('option-b', { description: 'Hold the current plan while we learn.' }) } })
+      expect(onCard('option-card-differentiator-option-b')?.textContent).toBe('Hold the current plan while we learn.')
+      expect(onCard('option-baseline-reference-option-b')).toBeNull()
     })
 
     it('contrast: a baseline only by LABEL (no `is_baseline` declaration) states no reference', () => {

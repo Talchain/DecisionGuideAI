@@ -185,10 +185,15 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
   it('screenshot A: "→ 1 brief" now reads "→ 1 · brief", the mark in its own cluster with the name "From your brief"', () => {
     const { container } = renderOption('opt-hire')
     const dd = row(container, 'opt-hire', 'fac-lead')
-    // ⚠ DESIGN CHANGE (Paul 25 Sep): the row's "from" is now the factor card's
-    // own reading of the current value, so the served target "1" gains its
-    // "from". Was '→ 1 · brief'. The mark grammar this test pins is unchanged.
-    expect(visibleText(dd)).toBe('No tech lead headcount in place → 1 · brief')
+    // ⛔ NO "FROM" HERE, AND THAT IS THE FAITHFUL READING. fac-lead carries only
+    // `{value: 0}` — no raw_value, no unit, no display_value, no encoding_map —
+    // so the factor card's "No tech lead headcount in place" is the formatter's
+    // value-only GUESS, not a reading the data carries. A guess is never a row's
+    // "from" (Paul 25 Sep: "from" only "when the data carries it"; verifier
+    // FIX_NEEDED on e0490565, which had re-pinned this as
+    // 'No tech lead headcount in place → 1 · brief').
+    expect(visibleText(dd)).toBe('→ 1 · brief')
+    expect(visibleText(dd)).not.toContain('in place')
     expect(visibleText(dd)).not.toMatch(/\d\s+brief/)
 
     const cluster = dd.querySelector('[data-testid="option-change-row-mark-opt-hire-fac-lead"]')

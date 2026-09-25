@@ -2255,7 +2255,10 @@ export const OptionNode = memo((props: NodeProps) => {
                 token carries `leading-snug`, which sorts later), 4px row gap.
                 Net height per card can only fall: −2px top margin, and each
                 line saves more than the extra 2px row gap. */}
-        {/* ⭐ S5 (24 Sep): BELOW NORMAL ZOOM THE ROWS STACK — label line, then
+        {/* ⭐ S5 (24 Sep), DETAILED VIEW ONLY since Paul's 25 Sep prototype
+            ruling: Standard view always renders the contract grid below
+            (`renderChangeRows('grid', true)`), at every rung. In Detailed,
+            BELOW NORMAL ZOOM THE ROWS STACK — label line, then
             value + mark line, each full width. MEASURED at the landing zoom
             (counter-scale 2) the grid above left the label column 45px on
             screen, so "Germany market…" took four lines and the option card
@@ -2299,21 +2302,22 @@ export const OptionNode = memo((props: NodeProps) => {
             height-bound at the GRAPH level (build-vs-buy lays out 2693 units
             against ~1600 showable) and no card change reaches that. */}
 
-        {/* ⭐ BOUNDED ANATOMY (ED #63 5809278282) — THE DIFFERENTIATOR AND, AFTER A
-            RUN, THE BASELINE META ARE NO LONGER BODY LINES IN STANDARD VIEW.
-            Both moved to the option's popover (`restingDetailInPreview`), which
-            opens on hover, tap and keyboard focus in BOTH phases; nothing about
-            either changed except where it renders:
-              · the differentiator keeps every gate it had (`differentiatorRenders`:
-                not the baseline, not Detailed, only when it ADDS beyond the rows
-                — NODE-ANATOMY v3.2 — and not where the "Behind" reason renders)
-                and now shows its FULL sentence, because the popover has the room
-                the card never had (the retired recovery line's header says why);
+        {/* ⭐ WHERE THE OPTION'S OWN LINES RENDER (Paul 25 Sep, the prototype —
+            superseding ED #63 5809278282's bounded anatomy, which had moved the
+            differentiator and, after a run, the baseline meta into the popover):
+              · the COMPUTED differentiator ("X is the key difference") stays in
+                the option's popover (`restingDetailInPreview`) in Standard view,
+                with every gate it had (`differentiatorRenders`: not the baseline,
+                not Detailed, only when it ADDS beyond the rows — NODE-ANATOMY
+                v3.2 — and not where the "Behind" reason renders), full sentence;
               · the baseline meta ("Baseline · no changes" / "Baseline option",
-                contract v3.1 OPT-12) IS the baseline's one line before a run —
-                `baselineMetaOnCard` — and after a run the share line takes the
-                card, so the meta moves to the popover rather than adding a row.
-                Detailed view keeps it inline in both phases, as before. */}
+                contract v3.1 OPT-12) is ON THE CARD in both phases and both views
+                (`baselineMetaOnCard = isBaselineOption`); a run adds its share
+                line BELOW it, never in place of it;
+              · under the rows, ONE muted line at most: the option's own
+                description or rationale (`ownDifferentiatorLine`), else — on a
+                declared baseline with another option to be the reference of —
+                "Reference for the other alternatives." (`baselineReferenceLine`). */}
 
         {/* ⭐ CONTRACT v3.1 OPT-09 — THE OPTION'S OWN FACTS FIRST, THE RUN BELOW.
             The result and absence rows used to sit BETWEEN the change rows
