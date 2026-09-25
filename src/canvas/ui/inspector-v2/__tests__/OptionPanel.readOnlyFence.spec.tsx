@@ -87,16 +87,19 @@ function seed() {
     nodes: [
       factorNode(FACTOR_ID, FACTOR_LABEL),
       factorNode(SPARE_FACTOR_ID, SPARE_FACTOR_LABEL),
-      // ⚠ THE CONTRAST BELOW USED A CONTROLLABLE FACTOR AND CAN NO LONGER.
-      // `factor-controllable` joined AUTHORITY_OWNING_PANELS (its value has a
-      // durable carrier), so that node stopped being an example of a panel the
-      // Router still wraps — the contrast would have inverted into a second
-      // assertion of the same fact. A risk panel owns no fence of its own.
+      // ⚠ THE CONTRAST BELOW USED A CONTROLLABLE FACTOR, THEN A RISK, AND CAN BE
+      // NEITHER NOW. `factor-controllable` joined `AUTHORITY_OWNING_PANELS`
+      // first (its value has a durable carrier); `risk` joined it later (A10,
+      // 25 Sep 2026) — its two writers now fence themselves inside `RiskPanel`
+      // instead of sitting under the Router's blanket. Both stopped being
+      // examples of a panel the Router still wraps. An unresolved node kind
+      // falls through to `GenericNodePanel`, which owns no fence of its own and
+      // is the last node panel the Router still wraps unconditionally.
       {
         id: RISK_ID,
-        type: 'risk',
+        type: 'milestone',
         position: { x: 0, y: 0 },
-        data: { kind: 'risk', label: 'Churn spikes after the rise' },
+        data: { kind: 'milestone', label: 'Churn spikes after the rise' },
       },
       {
         id: OPTION_ID,

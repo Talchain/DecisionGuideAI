@@ -383,11 +383,17 @@ describe('InspectorRouter — semantic controls fail closed without GraphV3 auth
   const onClose = vi.fn()
 
   it('states the authority boundary and disables the whole node panel editor', () => {
+    // ⚠ THIS WAS A RISK NODE, AND CANNOT BE ONE ANY MORE (A10, 25 Sep 2026).
+    // `risk` joined `InspectorRouter`'s `AUTHORITY_OWNING_PANELS` — its two
+    // writers now fence themselves inside `RiskPanel`, under
+    // `INSPECTOR_RISK_REASON`, not the generic notice this case pins. An
+    // unresolved node kind falls through to `GenericNodePanel`, still
+    // blanket-wrapped and the last node panel that is.
     setStoreState([
       {
         id: 'r1',
-        type: 'risk',
-        data: { label: 'Operational risk', kind: 'risk', probability: 0.4, impact: 'medium' },
+        type: 'milestone',
+        data: { label: 'Operational risk', kind: 'milestone', description: 'No bespoke panel exists for this node kind yet.' },
         position: { x: 0, y: 0 },
       },
     ])

@@ -24,8 +24,8 @@ import { FactorControllablePanel } from './panels/FactorControllablePanel'
 import { DecisionPanel, DecisionAddOption } from './panels/DecisionPanel'
 import { FactorObservablePanel } from './panels/FactorObservablePanel'
 import { FactorExternalPanel } from './panels/FactorExternalPanel'
-import { OutcomePanel } from './panels/OutcomePanel'
-import { RiskPanel } from './panels/RiskPanel'
+import { OutcomePanel, INSPECTOR_OUTCOME_REASON } from './panels/OutcomePanel'
+import { RiskPanel, INSPECTOR_RISK_REASON } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
@@ -457,6 +457,24 @@ export const InspectorRouter = memo(function InspectorRouter({
    * carrier, and will it fence the rest itself? Stating it as a number is how a
    * doctrine comment drifts from the code beside it.
    *
+   * ⭐ SIXTH PANEL — `risk`, and the admission test is NOT a carrier this time.
+   * `setProbability`/`setImpact` commit through a bare `updateNode`, same as
+   * the goal pane's own target control, so they stay fenced — `RiskPanel`
+   * wraps exactly those two controls in `data-writer-fence="probability-impact"`
+   * (`INSPECTOR_RISK_REASON` says so). What earns the pane its exit is that the
+   * blanket wrap was ALSO inerting the coaching card's Ask/Dismiss/Explore
+   * buttons beneath it, and the "What drives this" navigation rows — none of
+   * which write anything at all.
+   *
+   * ⭐ SEVENTH PANEL — `outcome`, which owns no writer whatsoever ("Read-first
+   * panel. No primary editing surface" — the pane's own docblock). It fences
+   * nothing internally because there is nothing to fence; the Router's wrap
+   * was disabling its coaching card and result-navigation rows for no reason.
+   *
+   * ⚠ `decision` STAYS WRAPPED. Its description textarea has no carrier either,
+   * and unfencing it would require the same self-fence discipline as the panes
+   * above — left for a follow-up so this change stays reviewable.
+   *
    * Every panel NOT in the set keeps the wrap below byte-for-byte. The question
    * "does this control reach a mutation?" is answerable only inside the panel —
    * in `OptionPanel` two buttons eighteen lines apart differ on it — so a
@@ -468,7 +486,7 @@ export const InspectorRouter = memo(function InspectorRouter({
    * asserts as a discriminating pair — every writer disabled AND every
    * non-writer enabled — so it cannot pass by fencing everything or nothing.
    */
-  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable', 'goal'])
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external', 'factor-observable', 'goal', 'risk', 'outcome'])
   const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
@@ -572,7 +590,11 @@ export const InspectorRouter = memo(function InspectorRouter({
               ? INSPECTOR_FACTOR_EXTERNAL_REASON
               : panelType === 'goal'
                 ? INSPECTOR_GOAL_REASON
-                : INSPECTOR_OPTION_READ_ONLY_REASON}
+                : panelType === 'risk'
+                  ? INSPECTOR_RISK_REASON
+                  : panelType === 'outcome'
+                    ? INSPECTOR_OUTCOME_REASON
+                    : INSPECTOR_OPTION_READ_ONLY_REASON}
       </InspectorAgencyNote>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto

@@ -11,6 +11,7 @@ import { rankingWasWithheld } from '../../../../components/results/leaderDesigna
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
+import { RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
 import { typography } from '../../../../styles/typography'
 import {
   SECTION_TITLES,
@@ -172,6 +173,18 @@ function OptionComparisonSection({
 }
 
 // ─── Main panel ────────────────────────────────────────────────────
+
+/**
+ * A10 — this pane is read-first BY DESIGN (its own docblock: "No primary
+ * editing surface, outcomes are computed"). It owns no writer at all, so
+ * unlike the controllable-factor or goal panes it fences nothing internally
+ * — there is nothing here for a fence to protect. The Router's panel-wide
+ * wrap it used to sit inside was disabling the coaching card's Ask/Dismiss
+ * buttons and the option-comparison navigation rows for no reason: none of
+ * it writes to the shared model.
+ */
+export const INSPECTOR_OUTCOME_REASON =
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. This pane is read-first — nothing else here is sent to the shared model.`
 
 export const OutcomePanel = memo(function OutcomePanel({
   nodeId,

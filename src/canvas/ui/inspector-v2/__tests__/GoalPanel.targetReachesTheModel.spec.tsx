@@ -82,7 +82,13 @@ function seed() {
     currentScenarioId: SCENARIO_ID,
     nodes: [
       goalNode(),
-      { id: RISK_ID, type: 'risk', position: { x: 0, y: 0 }, data: { kind: 'risk', label: 'Churn spikes' } },
+      // ⚠ `risk` joined `AUTHORITY_OWNING_PANELS` (A10, 25 Sep 2026) — its two
+      // writers now fence themselves inside `RiskPanel`, so it can no longer
+      // stand in for "a pane that owns no fence". An unresolved node kind
+      // falls through to `GenericNodePanel`, still blanket-wrapped. The id and
+      // label stay `RISK_ID`/`'Churn spikes'` — reused below as a constraint's
+      // `node_id` purely for its label, unrelated to this node's panel type.
+      { id: RISK_ID, type: 'milestone', position: { x: 0, y: 0 }, data: { kind: 'milestone', label: 'Churn spikes', description: 'No bespoke panel exists for this node kind yet.' } },
     ] as never[],
     edges: [] as never[],
     results: { status: 'idle' },
