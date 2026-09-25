@@ -49,6 +49,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Pencil } from 'lucide-react'
 import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
@@ -885,46 +886,26 @@ export function ModelRowView({
           title="Rename this element"
           aria-label={`Rename ${row.label}`}
           /*
-           * ⛔⛔ `min-w-0 truncate`, NOT `shrink-0 whitespace-nowrap` — AN ACTION
-           * MUST NOT DRAW OVER THE MODEL.
+           * ⭐ MODEL-2: AN ICON BUTTON, NOT A WORD. The prototype's row action
+           * is `.iconbtn` — a 28px circle holding a 14px glyph, never text
+           * (`Olumi_Reasoning_Prototype_V2.html` `btn('edit', …)`). The former
+           * text link ("Rename", `buttonSmall` 12px/600 underlined) clipped to
+           * "Ren…" on every factor row at the widths this dock actually opens
+           * at (32px rendered against a 47px scrollWidth) — a link whose own
+           * label is unreadable. A FIXED-SIZE icon has no text to clip and
+           * nothing to overflow across the value cell it sits beside, which
+           * is the same overlap MODEL-1's `min-w-0 truncate` history above
+           * this comment was fighting from the text side.
            *
-           * `shrink-0` meant this control could not yield, so when the row ran
-           * out of room it OVERFLOWED and painted across the value. Measured on
-           * the deployed build (guest, 1024x768, dock 317px): **8 overlapping
-           * atom pairs, and every single one of them `rename-start x value`** —
-           * the word "Rename" drawn through the number. That is the
-           * `Ren£20,000` in Paul's manual-test screenshot, 21 Sep.
-           *
-           * ⭐ IT IS UNIVERSAL, NOT ONE MODEL'S. `modelRowCellOverlap.measure.ts`
-           * swept all five starters at three dock widths: 10-16 pairs at 320px,
-           * 5-8 at 361px, 0 at 392px — the same monotone curve on every one.
-           *
-           * ⭐ CONTROLLED EXPERIMENT ON THE LIVE BUILD, base -> shrinkable ->
-           * base: **8 -> 0 -> 8**. Hiding the control entirely also gives 0, so
-           * letting it YIELD is sufficient and removing it is unnecessary.
-           *
-           * ⚠ THE TARGET SURVIVES, MEASURED RATHER THAN ASSUMED. Across 19
-           * controls the rendered width goes from a uniform 46.91px to a range
-           * of 30-46.91px: the narrowest is **30px**, still clear of WCAG 2.2 AA
-           * 2.5.8's 24px, and `under24w` is 0 both before and after. The
-           * accessible name is `aria-label` (the full "Rename <label>") and the
-           * hover text is `title`, so neither is affected by visual truncation.
-           *
-           * ⛔⛔ `min-w-[2rem]`, NOT `min-w-0`, AND THE FLOOR IS THE POINT. With
-           * unbounded shrink the measure read **0 overlapping pairs and 181
-           * atoms** at a 320px dock, against 189 at 361px: EIGHT Rename controls
-           * had shrunk to zero width and vanished from the layout entirely. A
-           * zero-area control is invisible AND unclickable, so that trade swaps
-           * a visible defect for a worse invisible one — and the overlap count
-           * would have reported it as a clean pass. 2rem = 32px keeps it clear
-           * of the 24px target at every width the dock allows.
-           *
-           * ⚠ ROWED, NOT FIXED: this button's BOX HEIGHT measures 12px, which is
-           * under the same 24px bar — before this change as well as after. It is
-           * pre-existing and out of scope here, but it is real and nothing else
-           * records it.
+           * `w-6 h-6` (24px) is the WCAG 2.2 AA 2.5.8 floor; the prototype's
+           * own `.iconbtn` is 28px, but the row is a dense list rather than a
+           * toolbar and 24px is the estate's own floor everywhere else in
+           * this file (`MIN_TARGET_RENDERED_PX`). `rounded-full` +
+           * `hover:ring-1 hover:ring-inset hover:ring-border-emphasis` mirrors
+           * `.iconbtn`'s `border-radius:99px` and its hover ring, with no
+           * fill at rest (DS v5 — no tinted idle chrome).
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted min-w-[2rem] truncate`}
+          className="inline-flex items-center justify-center w-6 h-6 shrink-0 rounded-full text-text-light hover:ring-1 hover:ring-inset hover:ring-border-emphasis focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
           onClick={e => {
             /* The row is `role="option"` with its own `onClick`; without this,
                starting a rename would also select the row. Same reason, same
@@ -933,7 +914,7 @@ export function ModelRowView({
             beginRename()
           }}
         >
-          Rename
+          <Pencil aria-hidden="true" className="w-3.5 h-3.5" />
         </button>
       )}
 
@@ -1178,8 +1159,15 @@ export function ModelRowView({
            * OVERLAPS the value. A fake affordance and an affordance painted
            * across the number are both bad, and the ruling was written before
            * anything measured the second one. Raised, not resolved.
+           *
+           * ⭐ TYPE-11 / MODEL-2: `panelBody` (12px/400), not `buttonSmall`
+           * (12px/600) — DS v5 §2.2 and the prototype's `.textbutton` are both
+           * regular weight; a semibold blue link beside every row read as a
+           * button rather than the model. The underline is dropped with it
+           * (the prototype's `.textbutton` carries none); `min-h-[24px]`
+           * keeps the WCAG 2.2 AA 2.5.8 target the underline used to imply.
            */
-          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
+          className={`${typography.panelBody} text-info shrink-0 whitespace-nowrap min-h-[24px] inline-flex items-center`}
           onClick={e => {
             e.stopPropagation()
             confirmHandler?.(row.id)
