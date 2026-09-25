@@ -225,7 +225,7 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
  */
 const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
   constraint_verdict_withheld:
-    'The check against the limits you set does not support putting one option forward.',
+    "Olumi's checks on this run do not support putting one option forward.",
   /**
    * ⚠ ABOUT THE RUN, NOT ABOUT THE OPTIONS. A statement about what the run
    * could establish; "they are level" would be a finding about the options,
