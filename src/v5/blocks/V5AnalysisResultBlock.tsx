@@ -87,6 +87,15 @@ export interface V5AnalysisResultBlockProps {
    * content — the same default `collectConsentSurfaceText` takes.
    */
   narrativeDeliveredByTypedCard?: boolean
+  /**
+   * The turn's own reply text already said the conclusion above this card.
+   * Then the card's `summary` (a ~140-word paragraph on a served OpenAI Run,
+   * restating that conclusion) sits behind a closed "Details" disclosure
+   * instead of on the face: the brief's "detail behind disclosure". Nothing is
+   * removed or reworded; one click shows it verbatim. Defaults to FALSE, so a
+   * turn whose ONLY account of the run is this card still shows it open.
+   */
+  summaryBehindDisclosure?: boolean
 }
 
 /**
@@ -285,6 +294,7 @@ function useOptionLabelResolver(
 function V5AnalysisResultBlockImpl({
   block,
   narrativeDeliveredByTypedCard = false,
+  summaryBehindDisclosure = false,
 }: V5AnalysisResultBlockProps): ReactElement {
   // ROADMAP 2.154 — the wire has FOUR states and only ONE of them is an alarm.
   // `absent` (the enricher's soft-fail skips) and `degraded`
@@ -448,9 +458,26 @@ function V5AnalysisResultBlockImpl({
       >
         Analysis result
       </h3>
-      <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
-        {block.summary}
-      </p>
+      {summaryBehindDisclosure ? (
+        <details data-testid="v5-analysis-result-summary-details" className="group">
+          <summary
+            data-testid="v5-analysis-result-summary-toggle"
+            className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
+          >
+            <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
+              ▸
+            </span>
+            Details
+          </summary>
+          <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
+            {block.summary}
+          </p>
+        </details>
+      ) : (
+        <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
+          {block.summary}
+        </p>
+      )}
 
       {shownUncertaintyCopy && (
         <p
