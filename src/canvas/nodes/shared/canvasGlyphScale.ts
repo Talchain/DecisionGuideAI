@@ -374,7 +374,7 @@ export const NODE_QUICK_ACTION_BAND_CSS =
  * touches a button, all counter-scaled like the rail, plus the rail's unscaled
  * corner inset.
  *
- * ⚠ LITERAL CLASS STRINGS, ONE PER REACHABLE COUNT (3–6), NOT A FUNCTION AND
+ * ⚠ LITERAL CLASS STRINGS, ONE PER REACHABLE COUNT (3–7), NOT A FUNCTION AND
  * NOT A CUSTOM PROPERTY. Tailwind emits CSS only for class text it can SEE, so
  * a template-built class renders nothing; and an inline `--anchor-rail-w`
  * definition is invisible to `scripts/css-var-census.mjs`, which reported the
@@ -388,10 +388,14 @@ export const NODE_QUICK_ACTION_BAND_CSS =
  * Reachable counts: Challenge + More + one of Ask / coaching icon (mutually
  * exclusive in `NodeQuickActions`) = 3, plus the caller's `railIcons` and the
  * evidence / behaviour icons `NodeSignalRailIcons` draws — at most 6.
+ * ⚠ NOW 4 AND 7: design-gap row 20 added the EDIT route to both anchors' rail
+ * (`RAIL_EDIT_ROUTE_KINDS`), so BaseNode counts from 4 and the formula's
+ * maximum is 7. A table capped at 6 would clamp that rail and let it cover the
+ * text by one button. The floor stays 3 — it is a clamp, not a claim.
  */
 export const ANCHOR_RAIL_MIN_BUTTONS = 3 as const
-export const ANCHOR_RAIL_MAX_BUTTONS = 6 as const
-export type AnchorRailButtons = 3 | 4 | 5 | 6
+export const ANCHOR_RAIL_MAX_BUTTONS = 7 as const
+export type AnchorRailButtons = 3 | 4 | 5 | 6 | 7
 
 /** The scaled run the reserve covers, in px at scale 1 (see the classes). */
 export function anchorRailReservePx(buttons: AnchorRailButtons): number {
@@ -403,6 +407,7 @@ export const ANCHOR_RAIL_RESERVE_CLASSES: Readonly<Record<AnchorRailButtons, str
   4: '[&>:last-child]:pr-[calc(6px+104px*var(--canvas-label-scale,1))]',
   5: '[&>:last-child]:pr-[calc(6px+130px*var(--canvas-label-scale,1))]',
   6: '[&>:last-child]:pr-[calc(6px+156px*var(--canvas-label-scale,1))]',
+  7: '[&>:last-child]:pr-[calc(6px+182px*var(--canvas-label-scale,1))]',
 })
 
 /** Clamp a counted rail to a key of `ANCHOR_RAIL_RESERVE_CLASSES`. */

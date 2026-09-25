@@ -76,13 +76,16 @@ describe('the rendered rail band (contract v3.1 RHY-01)', () => {
 describe('the anchor rail reserve (contract v3.1 ANC-02, RHY-02)', () => {
   const keys = Object.keys(ANCHOR_RAIL_RESERVE_CLASSES).map(Number) as AnchorRailButtons[]
 
-  it('covers every reachable count, 3 to 6, and nothing else', () => {
-    expect(keys.sort()).toEqual([3, 4, 5, 6])
+  // ⚠ WAS 3 TO 6. Design-gap row 20 put the EDIT route on both anchors' rail, so
+  // BaseNode counts from 4 and the formula's maximum is 7 (Edit + Challenge +
+  // More + Ask/coaching + run icon + evidence + behaviour).
+  it('covers every reachable count, 3 to 7, and nothing else', () => {
+    expect(keys.sort()).toEqual([3, 4, 5, 6, 7])
     expect(ANCHOR_RAIL_MIN_BUTTONS).toBe(3)
-    expect(ANCHOR_RAIL_MAX_BUTTONS).toBe(6)
+    expect(ANCHOR_RAIL_MAX_BUTTONS).toBe(7)
   })
 
-  it.each([3, 4, 5, 6] as const)('the %i-button literal spells the derivation (inset + scaled run + one gap)', (n) => {
+  it.each([3, 4, 5, 6, 7] as const)('the %i-button literal spells the derivation (inset + scaled run + one gap)', (n) => {
     const cls = ANCHOR_RAIL_RESERVE_CLASSES[n]
     const m = cls.match(/^\[&>:last-child\]:pr-\[calc\((\d+)px\+(\d+)px\*var\(--canvas-label-scale,1\)\)\]$/)
     expect(m, `unparseable reserve class: ${cls}`).not.toBeNull()
@@ -96,6 +99,7 @@ describe('the anchor rail reserve (contract v3.1 ANC-02, RHY-02)', () => {
     expect(anchorRailButtonsKey(2)).toBe(3)
     expect(anchorRailButtonsKey(3)).toBe(3)
     expect(anchorRailButtonsKey(5)).toBe(5)
-    expect(anchorRailButtonsKey(9)).toBe(6)
+    expect(anchorRailButtonsKey(7)).toBe(7)
+    expect(anchorRailButtonsKey(9)).toBe(7)
   })
 })

@@ -96,7 +96,10 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
     expect(screen.getByRole('button', { name: 'Ask Olumi about Hiring spend' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Challenge Hiring spend' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'More actions for Hiring spend' })).toBeInTheDocument()
-    expect(screen.getAllByRole('button')).toHaveLength(3)
+    // ⚠ WAS 3. Design-gap row 20 (contract v3 §02) adds the factor's EDIT route
+    // to this row — pinned in `NodeQuickActions.editRoute.spec.tsx`.
+    expect(screen.getByRole('button', { name: 'Edit Hiring spend' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(4)
   })
 
   it('routes "ask about this" through the existing selection→conversation machinery', () => {

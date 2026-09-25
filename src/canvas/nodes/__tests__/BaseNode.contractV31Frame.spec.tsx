@@ -245,11 +245,12 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
       railIcons: <span data-testid="run-icon" />,
     })
     const body = screen.getByTestId('anchor-body-rail-beside')
-    // Challenge + More + Ask/coaching = 3, plus the caller's run icon = 4.
-    expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
-    expect(root.style.paddingRight).toBe(`calc(6px + ${anchorRailReservePx(4)}px * var(--canvas-label-scale, 1))`)
+    // Edit + Challenge + More + Ask/coaching = 4 (Edit: design-gap row 20), plus
+    // the caller's run icon = 5. Was 3 + 1 = 4 before the rail gained Edit.
+    expect(body.getAttribute('data-anchor-rail-buttons')).toBe('5')
+    expect(root.style.paddingRight).toBe(`calc(6px + ${anchorRailReservePx(5)}px * var(--canvas-label-scale, 1))`)
     // …and the body no longer carries the last-row-only reserve class.
-    expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
+    expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[5])
   })
 
   it('twin: a factor keeps the band below its rows and gets no beside-rail reserve', () => {

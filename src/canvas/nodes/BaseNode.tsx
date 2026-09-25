@@ -1257,7 +1257,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    */
   const isAnchorCard = nodeType === 'decision' || nodeType === 'goal'
   const anchorRailButtons =
-    3 +
+    4 + // + Edit (row 20: `RAIL_EDIT_ROUTE_KINDS` in NodeQuickActions holds both anchor kinds)
     (railIcons ? 1 : 0) +
     (attention.reasons.some(r => r.kind === 'evidence_gap') ? 1 : 0) +
     (attention.reasons.some(r => r.kind === 'behavioural') ? 1 : 0)

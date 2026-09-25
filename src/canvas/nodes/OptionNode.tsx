@@ -2134,9 +2134,13 @@ export const OptionNode = memo((props: NodeProps) => {
           /* ⭐ spec §4: "Standard view must indicate that real editable targets
              can be changed." A persistent pencil where a durable carrier exists
              (`OPTION_TARGETS_ROUTE_IS_LIVE`), routed to the existing option
-             editor in the inspector — never Expert-only. */
+             editor in the inspector — never Expert-only.
+             ⚠ "PERSISTENT" IS SUPERSEDED: contract v3 §02 draws the edit route
+             `revealed` (hover/focus, and always on touch) — design-gap row 20,
+             v3.1 OPT-02 / ICON-03. Still in every view, never on the baseline. */
           !isBaselineOption && OPTION_TARGETS_ROUTE_IS_LIVE ? (
             <NodeRailIcon
+              reveal
               testId={`option-edit-targets-${props.id}`}
               label={hasInterventions
                 ? optionTargetsChannels({ count: totalInterventionCount }).full

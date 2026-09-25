@@ -1,6 +1,7 @@
 import { memo, useCallback, type ReactNode } from 'react'
-import { MessageCircle, MoreHorizontal, Zap } from 'lucide-react'
+import { MessageCircle, MoreHorizontal, Pencil, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
+import { openNodeInspector } from './openNodeInspector'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
 import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
@@ -48,6 +49,32 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
 }
 
 /**
+ * ⭐ THE EDIT ROUTE IN THE RAIL — design-gap row 20, contract v3 §02 (VC-01):
+ * `if(['question','goal','factor','option'].includes(n.kind)&&!n.baseline)
+ *    rail += tooltipButton('edit', …, 'revealed')` — "The existing edit route is
+ * shown on hover/focus where the real carrier exists", and "Do not advertise
+ * unsupported risk/outcome editors." So Outcome and Risk get coaching only.
+ *
+ * ⚠ OPTION IS NOT IN THIS SET, AND THAT IS NOT AN OMISSION. The option card
+ * already owns its edit route — the rail pencil `option-edit-targets-<id>`,
+ * passed in as a resting member and gated on the two facts this row cannot
+ * see: `!isBaselineOption` (the contract's `!n.baseline`) and
+ * `OPTION_TARGETS_ROUTE_IS_LIVE` (the carrier). A second pencil here would
+ * duplicate it on every option and reappear on the baseline, where the
+ * contract draws none. That pencil now takes `reveal`, so all four families
+ * show the route on hover/focus only.
+ *
+ * WHERE IT GOES: `openNodeInspector` — the route "Open details" in the More
+ * menu and the option pencil already take. At this tip every one of the three
+ * panels owns a live carrier or a live header: the rename in the inspector
+ * header (`updateNodeLabel` → `structural_rename`) for all three, plus
+ * `factor_value_edit` on every factor pane and `proposeGoalTarget` on the goal
+ * pane (`AUTHORITY_OWNING_PANELS`, `InspectorRouter.tsx`). No new surface; and
+ * the click itself writes nothing, so it can never read as a save.
+ */
+const RAIL_EDIT_ROUTE_KINDS: ReadonlySet<NodeType> = new Set<NodeType>(['decision', 'goal', 'factor'])
+
+/**
  * NodeQuickActions — the contextual efficiency layer (R5, Paul, 16 Aug 2026).
  *
  * "nodes/edges carry a compact CONTEXTUAL EFFICIENCY LAYER — small clickable
@@ -77,6 +104,10 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * - THREE SHORTCUTS. Ask and Challenge keep their existing conversation
  *   routes; More opens the existing node menu. Selecting the node opens its
  *   inspector, so a fourth inspector button would duplicate that route.
+ *   ⚠ SUPERSEDED FOR QUESTION / GOAL / FACTOR by contract v3 §02 (row 20): the
+ *   contract draws an explicit, revealed EDIT icon in the rail, because a click
+ *   on the card is not a discoverable edit affordance. It is that same
+ *   inspector route, not a new one — see `RAIL_EDIT_ROUTE_KINDS`.
  * - POSITIONED TOOLTIPS. Tooltip attaches to the button itself, preserving
  *   the hit area and accessible name. usePopoverHover suppresses the node
  *   preview while this row is hovered or focused, so the two cannot overlap.
@@ -386,6 +417,14 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     e.stopPropagation()
   }, [])
 
+  // Row 20: the edit route. `openNodeInspector` selects THIS node and raises
+  // the inspector, fail-closed on a stale id; it writes nothing to the graph.
+  const handleEdit = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    openNodeInspector(nodeId)
+  }, [nodeId])
+  const hasEditRoute = RAIL_EDIT_ROUTE_KINDS.has(nodeType)
+
   /**
    * ⭐⭐ TOOLTIP COPY AND ACCESSIBLE NAME ANSWER DIFFERENT QUESTIONS.
    *
@@ -487,6 +526,25 @@ export const NodeQuickActions = memo(function NodeQuickActions({
       className={`node-quick-actions flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto [@media(pointer:coarse)]:pointer-events-auto motion-reduce:transition-none ${alwaysVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
+      {/* ⭐ THE EDIT ROUTE (row 20) — FIRST, as the contract's rail draws it
+          (edit leftmost, coaching rightmost), and inside this hover group so it
+          inherits the group's reveal and its opacity/pointer-events mirror
+          rather than carrying a second spelling of them. More stays last. */}
+      {hasEditRoute && (
+        <Tooltip asChild delay={300} content="Edit">
+          <button
+            type="button"
+            onClick={handleEdit}
+            onPointerDown={stopPointer}
+            className={BUTTON_CLASSES}
+            aria-label={`Edit ${label}`}
+            data-testid={`node-action-edit-${nodeId}`}
+          >
+            {/* `Pencil` — the glyph the option card's edit route already uses. */}
+            <Pencil size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
+          </button>
+        </Tooltip>
+      )}
       {canAsk && coachingChip === null && (
         <Tooltip asChild delay={300} content="Ask Olumi">
           <button
