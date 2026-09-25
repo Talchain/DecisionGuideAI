@@ -3,8 +3,9 @@
 # The local pre-push hook (scripts/validate-prepush.sh) runs only fast checks
 # (typecheck, lint on changed files, smoke tests). This workflow runs the
 # complete 6,900+ test suite on integrated staging pushes and manual/merge-queue
-# runs. PRs get typecheck, lint, production build and dependency audit; riskier
-# changes also get focused affected-path tests and independent review before merge.
+# runs. PRs get typecheck, lint, production build and dependency audit. Owners
+# supply focused affected-path evidence for staging changes; high-risk contracts
+# still need independent review under the current delivery policy.
 #
 # Sharding (ROADMAP 1.26, chronic-CI-red fix): the vitest job runs as a
 # 4-way matrix (`--shard=N/4`), each shard on its own runner. This is
@@ -21,8 +22,8 @@
 # ratchets/fixtures/mocks, same lane) that only a completed run's summary
 # could surface. See docs/ops/vitest-full-suite-oom-diagnosis.md Option C.
 #
-# Branch protection on staging requires TypeScript + Lint and Production Build.
-# Staging Gate still reports the full integrated regression, but is not a PR gate.
+# Staging has no required status checks. Staging Gate reports the integrated
+# regression; its result is diagnostic, not a merge gate.
 
 name: Staging Tests
 
@@ -31,31 +32,9 @@ on:
     branches: [ staging ]
   pull_request:
     branches: [ staging ]
-  # ⭐ MERGE QUEUE PREREQUISITE (10 Sep 2026). `strict: true` went live on
-  # `staging` and serialised merging: every merge makes every other open PR
-  # stale, so a 26-PR queue costs one full ~13-minute suite per PR, in sequence.
-  # A merge queue is the fix, and THIS TRIGGER IS ITS PRECONDITION — GitHub
-  # dispatches required checks for a queued batch against a `merge_group` ref,
-  # and a queue enabled without this trigger waits forever for a "Staging Gate"
-  # that is never dispatched. Landing the trigger BEFORE enabling the queue is
-  # the entire ordering requirement, and getting it backwards stalls all merges.
-  #
-  # Checked at the bytes against this workflow's own shape, because a trigger
-  # that dispatches a run in which the required job is SKIPPED is worse than no
-  # trigger — a skipped required check reads as pending forever:
-  #   · `gate` (the sole required context) is `if: always()` and carries no
-  #     event conditional, so a merge_group run produces it like any other.
-  #   · The only two `github.event_name` references in this file are in the
-  #     ADVISORY Core E2E job's `CORE_EXPECT_COMMIT`, which resolves to the
-  #     empty string here — advisory, and already its behaviour on PR runs.
-  #   · `concurrency` keys on `github.ref`. Each queue entry gets its own
-  #     `refs/heads/gh-readonly-queue/...` ref, so entries cannot cancel each
-  #     other. NOTE the contrast: pushes to `staging` DO share a ref, so
-  #     `cancel-in-progress: true` cancels the previous run on every merge —
-  #     which is why four consecutive staging commits read RED this morning
-  #     when only one had a genuine failure. A cancelled required check is
-  #     byte-identical to a failed one at the Gate level. Not changed here
-  #     (out of scope for this PR); rowed separately.
+  # Retain the merge_group trigger for queue or manual integration runs. Staging
+  # currently uses direct merges with no required status checks; the full
+  # regression runs after each integrated staging push.
   merge_group:
   # Manual runs, so System E can be pointed at an immutable SHA-pinned deploy URL
   # rather than the mutable staging alias when a verdict has to be attributable.
@@ -182,21 +161,8 @@ jobs:
         run: pnpm run ci:guard:schemas-version
 
       # ── Design System v5 drift ratchet ──────────────────────────────────
-      # ⚠ WIRED HERE ON PURPOSE, NOT ONLY IN ci.yml — same reasoning as the
-      # bundle-credentials guard in the `build` job below.
-      #
-      # `staging` protection requires exactly ONE check: "Staging Gate", whose
-      # `needs` list is [tsc, typecheck-selftest, vitest, vitest-summary, build].
-      # Nothing in ci.yml is required, so the DS guard living only there would
-      # advise and never block — which is precisely what happened: it shipped
-      # report-only in ci.yml, its false-positive class was diagnosed in the July
-      # soak and left unfixed, and from then on NO Design System rule gated
-      # anything at all.
-      #
-      # Derived 2026-08-17:
-      #   gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
-      #     --jq '.required_status_checks.contexts'   → ["Staging Gate"]
-      # Re-derive before assuming this is still where the blocking happens.
+      # Keep the Design System drift check in the quick PR signal. Staging has
+      # no required checks; a failure is reported for immediate repair.
       - name: Design System v5 drift (enforcing)
         run: pnpm run ci:guard:ds:enforce
 
@@ -390,19 +356,8 @@ jobs:
   # excluded and why, and the standing rule for admitting the next one are all
   # in `e2e/geometry/canvasGateSet.ts`.
   #
-  # ⚠ ADVISORY ON PURPOSE, AND ONLY FOR NOW — the same posture, for the same
-  # stated reason, as `visual-regression` and `core-e2e` above. `staging`
-  # protection currently requires exactly one context, "Staging Gate"
-  # (derived, not assumed:
-  #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
-  #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
-  # ), and this job is deliberately ABSENT from that aggregator's `needs` at the
-  # end of this file. Promoting it is a separate, explicit ruling, and the
-  # precondition for taking it is stated rather than left to taste: its
-  # false-positive rate on `ubuntu-latest` must be OBSERVED over a run of pushes,
-  # not assumed. Gating on an unmeasured flake rate is how a check becomes a red
-  # everyone learns to ignore (CLAUDE.md trap 7) — which is the disease this job
-  # exists to cure, so it must not be the first thing the cure does.
+  # Advisory on integrated staging pushes. Record failures against the served
+  # build; staging branch protection has no required status checks.
   #
   # ⚠ NO RETRIES, DELIBERATELY. `playwright.canvasgate.config.ts` pins
   # `retries: 0` and says why. A flake hidden by a retry is worse than a visible
@@ -1222,21 +1177,9 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      # ⚠ WIRED HERE ON PURPOSE, NOT ONLY IN ci.yml.
-      #
-      # `staging` branch protection requires exactly ONE check: "Staging Gate",
-      # whose `needs` list is [tsc, typecheck-selftest, vitest, vitest-summary,
-      # build]. Nothing in ci.yml is required, so a credential guard living only
-      # there would advise and never block — the same shape as the defect it
-      # exists to catch (the previous allow-list guard printed a 🚨 about a live
-      # credential on every run and exited 0).
-      #
-      # It runs AFTER the build in the job the gate already depends on, so it
-      # scans the artefact this job just produced and its failure fails the gate.
-      # Derived 2026-08-13:
-      #   gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
-      #     --jq '.required_status_checks.contexts'   → ["Staging Gate"]
-      # Re-derive before assuming this is still where the blocking happens.
+      # Scan the emitted bundle in the same job that builds it. A failure is a
+      # diagnostic on staging; a credential finding still requires immediate
+      # repair before using this build as a PoC candidate.
       - name: No credentials in the emitted bundle (value-shape scan)
         run: pnpm run ci:guard:bundle-credentials
 
@@ -1246,25 +1189,12 @@ jobs:
       # stripped — so a fence that FIRED and one that did not were
       # indistinguishable on a deployed build.
       #
-      # ⚠ WIRED HERE, IN THE `build` JOB, ON PURPOSE. A source-level spec cannot
-      # see a build-time strip: a jsdom test asserting the logger emits passed
-      # green throughout the whole defect. Only an assertion against the emitted
-      # artefact can hold it closed, and only a step inside a job the required
-      # check depends on can block a merge.
-      #   Derived 2026-08-28:
-      #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
-      #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      # A source-level spec cannot see a build-time strip: a jsdom test passed
+      # throughout the defect. This diagnostic reads the emitted artefact.
       - name: Application logger still emits in the built bundle
         run: pnpm run ci:guard:logger-emits
 
-      # ⚠ WIRED HERE, AFTER THE BUILD, IN THE JOB THE GATE ALREADY DEPENDS ON.
-      # Same reasoning as the two guards above: `staging` protection requires
-      # exactly ONE check, "Staging Gate", whose `needs` is [tsc,
-      # typecheck-selftest, vitest, vitest-summary, build]. Nothing in ci.yml is
-      # required, so a guard living only there would advise and never block.
-      #   Derived 2026-08-29:
-      #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
-      #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
+      # Run after the build so the generated output can be checked directly.
       #
       # `src/generated/validators.js` is COMMITTED (src/poc/io/validate.ts
       # imports it, and that import is reached from vitest, where no generation
@@ -1296,14 +1226,10 @@ jobs:
       # and after the fix. Only reading the emitted `dist/` distinguishes "a
       # substituter exists" from "the published bytes are stamped", which is the
       # distinction that failed here.
-      #   Derived 2026-09-01:
-      #     gh api repos/Talchain/DecisionGuideAI/branches/staging/protection \
-      #       --jq '.required_status_checks.contexts'   → ["Staging Gate"]
-      #
       # ⚠ AND HERE ONLY — deliberately NOT in `build:ci`, which is what Netlify
       # runs (netlify.toml:20). A missing build id is evidence the DIAGNOSTIC is
-      # broken, never that the artefact is unsafe to serve, so it must gate the
-      # MERGE and must not be able to fail the staging DEPLOY. Reasoning in the
+      # broken, never that the artefact is unsafe to serve. Keep it visible in
+      # CI without blocking the staging deploy. Reasoning in the
       # POSTURE block of scripts/ci/assert-build-id-stamped.mjs; pinned, with a
       # contrast control, in tests/ci-guards/build-id-stamp.spec.ts.
       - name: Build id is stamped into every published HTML file
@@ -1327,7 +1253,7 @@ jobs:
           fi
           echo "✅ working tree clean after pnpm run build"
 
-  # ── Gate (single required check for branch protection) ───────────────
+  # ── Integrated regression summary (advisory on staging) ──────────────
   gate:
     name: Staging Gate
     needs: [tsc, typecheck-selftest, vitest, vitest-summary, build]
