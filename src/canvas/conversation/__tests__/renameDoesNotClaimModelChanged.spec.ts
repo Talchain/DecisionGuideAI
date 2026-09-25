@@ -246,14 +246,14 @@ function runTurn(opts: { nodes: unknown[]; pA: number; hash: string; computedAt:
  * header for why this, not the label, is what flips `overlayNode`'s
  * comparison once the optimistic write has already applied the label.
  */
-function renameTurnReply(intent: StructuralRenameIntent, computedAt: string) {
+function renameTurnReply(intent: StructuralRenameIntent, computedAt: string, committedHash: string = H_HELD) {
   return {
     ok: true,
     response: {
       assistant_text: `Renamed to "${intent.label}". That doesn't change the analysis — nothing about the numbers moved.`,
       blocks: [],
       suggested_actions: [],
-      graph_hash: H_HELD,
+      graph_hash: committedHash,
       analysis_ready: readiness({ computed_at: computedAt }),
       analysis_state: completeCurrent(computedAt),
       draft_graph: draftGraph([
@@ -445,4 +445,54 @@ describe('a pure rename does not claim the model changed since the run', () => {
     expect(currency()).toBe('changed')
     expect(modelChangedSinceRun()).toBe(true)
   })
+
+  /**
+   * ⭐ THE GATE IS CEE'S HASH, NOT A UI LIST OF "ANALYTICAL FIELDS" (v2, review
+   * 5821463627). The SAME rename gesture and the SAME cosmetic-looking echo
+   * (`category` is outside the UI's stale taxonomy) — but CEE's committed
+   * `graph_hash` MOVED. CEE's projection is the authority on what the analysis
+   * reads, so the run is no longer current. A UI-taxonomy gate reads this as
+   * "nothing analytical moved" and presents the old run as current.
+   */
+  async function renameThenReply(opts: { committedHash: string }) {
+    const { result } = renderHook(() => useConversation())
+    await run(result, runTurn({ nodes: nodesAtOpen, pA: 0.61, hash: H_HELD, computedAt: '2026-09-24T09:00:00.000Z' }))
+    expect(currency(), 'precondition: the run is current').toBe('current')
+    act(() => {
+      useCanvasStore.getState().updateNodeLabel(FACTOR, NEW_LABEL)
+    })
+    const intent = useCanvasStore.getState().pendingStructuralRenames.at(-1)
+    expect(intent?.baseGraphHash, 'harness: the intent captured a real base hash').toBe(H_HELD)
+    replies.push(renameTurnReply(intent!, '2026-09-24T09:05:00.000Z', opts.committedHash))
+    await act(async () => {
+      await result.current
+        .sendSystemEvent(
+          {
+            type: 'structural_rename',
+            payload: {
+              node_id: intent!.nodeId,
+              label: intent!.label,
+              expected_label: intent!.expectedLabel,
+              base_graph_hash: intent!.baseGraphHash,
+            },
+          } as never,
+          { structuralRename: intent!, debugSource: 'canvas_rename' },
+        )
+        .catch(() => undefined)
+      await flush()
+    })
+    expect(replies.length, 'harness: the rename reply was consumed').toBe(0)
+    expect(labelOf(FACTOR), 'precondition: CEE confirmed the new label').toBe(NEW_LABEL)
+  }
+
+  it("CONTRAST: the same rename, but CEE's committed graph_hash MOVED — reads 'changed'", async () => {
+    await renameThenReply({ committedHash: 'ffffffffffffffff' })
+    expect(
+      useCanvasStore.getState().analysisFreshnessDirty,
+      "CEE's analysis-affecting hash moved: the run no longer describes the model",
+    ).toBe(true)
+    expect(currency()).toBe('changed')
+    expect(modelChangedSinceRun()).toBe(true)
+  })
+
 })

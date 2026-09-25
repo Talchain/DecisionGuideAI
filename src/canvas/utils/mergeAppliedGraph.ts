@@ -183,7 +183,6 @@ import {
   mapDraftEdgeToCanvas,
   mapDraftNodeToCanvas,
 } from './applyDraftResult'
-import { hasAnalyticalGraphChange } from '../domain/analyticalChange'
 import type { CEEDraftResponse, CEEGoalConstraint, CEEv2Response, CEEv3Response } from '../../adapters/cee/types'
 
 /**
@@ -608,7 +607,16 @@ function receiptIsTheAttestedAnalysedGraph(draftData: unknown): boolean {
 }
 
 export function reconcileAppliedGraph(
-  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response
+  draftData: CEEDraftResponse | CEEv2Response | CEEv3Response,
+  opts?: {
+    /**
+     * The turn's committed response carries a `graph_hash` equal to the
+     * `base_graph_hash` its edit was sent (and CAS-checked) against: CEE
+     * states the edit moved nothing its analysis reads. See the dirty-mark
+     * note below. Omitted → false.
+     */
+    readonly analysisHashUnmoved?: boolean
+  },
 ): ReconcileAppliedGraphResult {
   const canonicalReceipt = canonicalReceiptFromAugmentedDraft(draftData)
   const rawNodes: any[] =
@@ -942,39 +950,23 @@ export function reconcileAppliedGraph(
   // canvas" would be false. Unconditional, this re-dirtied every run that
   // followed an edit ~39 ms after the run cleared it (D1, served `a4434670`).
   //
-  // ⛔ AND EXCEPT when nothing ANALYSIS-AFFECTING actually moved (served UI
-  // `11ed8874` / CEE `8428207`, 24 Sep 2026, pinned by
-  // `renameDoesNotClaimModelChanged.spec.ts`). `changed` above is TRUE for any
-  // node/edge-data byte difference the overlay picks up — cosmetic fields
-  // (`label`, `category`, …) included, because `overlayNode`/`overlayEdge`
-  // exist to let the wire win on EVERY key it carries, not only the
-  // analytical ones. A `structural_rename` receipt is never the attested
-  // analysed graph (it carries no fresh `analysis_ready` hash pair — it is
-  // not an analysis turn), so before this gate ANY cosmetic diff in the
-  // echoed committed graph — a renamed label the optimistic write had not
-  // already applied, a bookkeeping field the canvas's copy lacked — marked
-  // the model "structurally edited" and the canvas told the user their
-  // current, CEE-confirmed-current analysis had gone stale. `changed` still
-  // decides the COMMIT (layout/position aside, the canvas must still show
-  // what CEE holds); only the DIRTY CLAIM is now asked to clear the same
-  // analytical-fields bar `hasAnalyticalNodeChange`/`hasAnalyticalGraphChange`
-  // already enforce for every other mutator (`analyticalChange.ts`) — one
-  // taxonomy of "does this change the analysis", not a second one here.
-  //
-  // ⛔ THE BASELINE IS THE CANVAS BEFORE THE RECONCILE, NOT THE SURVIVORS.
-  // Compared from `survivingNodes`/`survivingEdges`, a node or link CEE
-  // removed is already gone from both sides, the counts match, and a real
-  // structural change reads as "nothing moved" — the old analysis presented as
-  // current (`mergeAppliedGraph.removalStillMarksChanged.spec.ts`).
-  const priorGraph = { nodes: store.nodes, edges: store.edges }
-  const nextGraph = {
-    nodes: [...reconciledNodes, ...addedNodes],
-    edges: [...reconciledEdges, ...addedEdges],
-  }
-  if (
-    !analysedGraphAttested &&
-    hasAnalyticalGraphChange(priorGraph as never, nextGraph as never)
-  ) {
+  // ⛔ AND EXCEPT when THE PRODUCER says its analysis-affecting hash did not
+  // move (`opts.analysisHashUnmoved`, computed by the caller from the turn's
+  // own wire: the committed response's `graph_hash` equals the
+  // `base_graph_hash` the edit was CAS-checked against). Served witness 25 Sep
+  // (UI `64a3b385` / CEE `e39f6e0`, scenario `51c9ce82…`): a `structural_rename`
+  // sent at base `31f5adf8e5043c9c` came back at `graph_hash`
+  // `31f5adf8e5043c9c`, 0 provider calls — and this commit still marked the
+  // model structurally edited, so the canvas said "Model changed" until a
+  // reload. `changed` above is TRUE for any byte difference the overlay picks
+  // up, cosmetic keys included; it still decides the COMMIT. Only the DIRTY
+  // CLAIM now defers to CEE's own hash projection — never to a UI list of
+  // "analytical fields", which is narrower than that projection
+  // (`category`, `factor_type`, `intercept`, `encoding_map`, `edge_type`:
+  // review 5821463627) and would read a real change as "current".
+  // Absent, or any other wire → the mark stands (fail closed: a false
+  // "changed" costs a rerun; a false "current" costs a decision).
+  if (!analysedGraphAttested && opts?.analysisHashUnmoved !== true) {
     useCanvasStore.getState().markGraphStructurallyEdited?.()
   }
 
