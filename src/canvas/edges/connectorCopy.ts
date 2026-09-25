@@ -51,6 +51,52 @@ export function directionInUseSentence(directionWord: string): string {
   return `The model uses ${directionWord} for now. Open the connection to compare both readings.`
 }
 
+// ── The arrow sentence — the popover's own first line (contract §03) ────────
+
+/**
+ * ⭐ ROW 29 — contract §03's lead sentence: "<A> → <B>. Positive direction in
+ * this model." The popover this ships onto is not replaced: it keeps its
+ * editing affordances ("Set strength", "Ask Olumi…") the contract's plain
+ * tooltip has none of, and this sentence is ADDED ahead of that content as its
+ * first line.
+ *
+ * The direction word is never re-derived here: the caller passes the SAME
+ * `dirLabel` the popover's own bold Direction row already reads (itself built
+ * from `statedDirection` / `resolveEdgeDirectionDisplay` — one resolver for
+ * the stroke, the glyph and this sentence, CLAUDE.md trap 12). `null` means
+ * unstated/defaulted, and this says so HONESTLY, in the estate's own already-
+ * ratified words for that state (`domain/edgeLabels.describeEdge`: "…effect,
+ * direction not stated") — never a guessed sign.
+ */
+export function edgeArrowSentence(
+  sourceLabel: string,
+  targetLabel: string,
+  directionWord: 'Positive' | 'Negative' | null,
+  /**
+   * ⛔ A DISPUTED SIGN IS NOT A FACT (review 5823365172). When Olumi's own
+   * review disputes the sign, the arrow is stated alone: the popover's
+   * disputed block names the direction inside a sentence that says it is
+   * disputed. "Not stated" would be false too — a direction IS stated.
+   */
+  opts?: { readonly signDisputed?: boolean },
+): string {
+  if (opts?.signDisputed) return `${sourceLabel} → ${targetLabel}.`
+  const clause = directionWord === null
+    ? 'Direction not stated in this model.'
+    : `${directionWord} direction in this model.`
+  return `${sourceLabel} → ${targetLabel}. ${clause}`
+}
+
+/**
+ * §03's existence-doubt sentence, appended to the arrow sentence ONLY when a
+ * doubt is actually recorded. The caller binds this to `existenceDash` —
+ * `resolveExistenceDash`'s own `{ kind: 'stated', dash: string }` arm, the
+ * SAME field that draws the dashed stroke (`edgePresentation.resolveEdgeDash`)
+ * — never a second "doubt" concept invented for this sentence alone.
+ */
+export const EDGE_EXISTENCE_DOUBT_SENTENCE =
+  'A doubt was recorded about whether this relationship exists.'
+
 // ── The key's line-style and colour rows ────────────────────────────────────
 
 /**
