@@ -27,7 +27,6 @@ import { DriversList, type DriverItem } from '../shared/DriversList'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
-import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OutcomeAdvancedEditor } from '../editors/OutcomeAdvancedEditor'
@@ -207,25 +206,10 @@ export const OutcomePanel = memo(function OutcomePanel({
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
 
-  // Outbound edge to goal — for contribution bar
-  const goalContribution = useMemo(() => {
-    const goalEdge = edges.find(e => {
-      if (e.source !== nodeId) return false
-      const tgt = nodes.find(n => n.id === e.target)
-      const kind = tgt?.type || tgt?.data?.kind
-      return kind === 'goal'
-    })
-    if (!goalEdge) return null
-    // ⛔ Provenance gate. `goalEdge.data?.weight == null` was a TAUTOLOGY:
-    // `DEFAULT_EDGE_DATA`/`USER_EDGE_DEFAULTS` always define `weight`, so the
-    // null arm was dead and this rendered `USER_EDGE_DEFAULTS.weight` (0.3) as
-    // a green "Contributes to goal" bar plus a bold "30%". This is the literal
-    // twin of the defect already fixed in `OutcomeNode.tsx` — same shape, same
-    // comment, one file over, unfixed. Copied the fix rather than re-deriving.
-    const display = resolveEdgeSignedStrengthDisplay(goalEdge.data as Record<string, unknown> | undefined)
-    if (!display.show) return null
-    return Math.round(Math.abs(display.value) * 100)
-  }, [edges, nodes, nodeId])
+  // A8 — a "Contributes to your goal N%" bar used to render here, computed as
+  // `abs(strength) × 100` on the outbound goal edge. No producer field says
+  // how much an outcome contributes to a goal; that was a UI-invented number
+  // dressed as one. Removed rather than reworded.
 
   // Inbound factors (drivers)
   const inboundFactors: DriverItem[] = useMemo(() => {
@@ -256,27 +240,6 @@ export const OutcomePanel = memo(function OutcomePanel({
           ? <p className={`${typography.panelBody} text-text-body`}>{description}</p>
           : <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.outcome} />
         }
-
-        {/* Goal contribution bar */}
-        {goalContribution != null && (
-          <div className="mt-2 px-3 py-2 bg-panel border border-success/30 rounded-lg">
-            <div className="flex items-center gap-2">
-              <span className={`${typography.panelMeta} text-text-body`}>
-                {INLINE_LABELS.contributesToGoal}
-              </span>
-              <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
-                <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(goalContribution, 100)}%` }} />
-              </div>
-              <span className={`${typography.panelMeta} text-text-body`}>{goalContribution}%</span>
-            </div>
-            {!isResultsMode && (
-              <p className={`${typography.panelMeta} text-text-light mt-1`}>{INLINE_LABELS.basedOnModelStructure}</p>
-            )}
-            {isResultsMode && (
-              <div className="mt-1"><ResultsLink label={INLINE_LABELS.seeContributions} tab="results" /></div>
-            )}
-          </div>
-        )}
       </PanelGroup>
 
       {/* ── Predicted range group ─────────────────────────────── */}

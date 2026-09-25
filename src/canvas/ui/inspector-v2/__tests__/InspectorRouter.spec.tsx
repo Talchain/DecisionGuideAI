@@ -144,60 +144,13 @@ describe('InspectorRouter', () => {
     expect(screen.getByText('Marketing Budget')).toBeTruthy()
   })
 
-  // ─── Regression: outcome contribution bar ─────────────────────────
-  it('shows contribution percentage when outcome has goal edge', () => {
-    setStoreState(
-      [
-        { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
-        { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
-      ],
-      [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.65, direction: 'positive', weightSource: 'cee' } },
-      ],
-    )
-    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
-    expect(screen.getByText('65%')).toBeTruthy()
-    expect(screen.getByText('Contributes to your goal')).toBeTruthy()
-  })
-
-  it('hides contribution bar when outcome has no goal edge', () => {
-    setStoreState([
-      { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
-    ])
-    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
-    expect(screen.queryByText('Contributes to your goal')).toBeNull()
-  })
-
-  // ─── Regression: outcome contribution bar pre/post-analysis copy ──
-  it('shows "Based on model structure" helper pre-analysis when contribution bar is visible', () => {
-    setStoreState(
-      [
-        { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
-        { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
-      ],
-      [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive', weightSource: 'cee' } },
-      ],
-    )
-    // results status is 'idle' — pre-analysis
-    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
-    expect(screen.getByText('Based on model structure')).toBeTruthy()
-  })
-
-  it('hides "Based on model structure" helper post-analysis', () => {
-    setStoreState(
-      [
-        { id: 'out1', type: 'outcome', data: { label: 'Revenue', kind: 'outcome' }, position: { x: 0, y: 0 } },
-        { id: 'g1', type: 'goal', data: { label: 'Target', kind: 'goal' }, position: { x: 100, y: 0 } },
-      ],
-      [
-        { id: 'e1', source: 'out1', target: 'g1', data: { weight: 0.5, direction: 'positive', weightSource: 'cee' } },
-      ],
-    )
-    useCanvasStore.setState({ results: { status: 'complete' } } as never)
-    render(<InspectorRouter nodeId="out1" edgeId={null} onClose={onClose} />)
-    expect(screen.queryByText('Based on model structure')).toBeNull()
-  })
+  // A8 (25 Sep 2026): the "Contributes to your goal N%" bar was a UI
+  // computation (`abs(strength) × 100`) on the outbound goal edge, not a
+  // carried field, and was removed from `OutcomePanel` rather than fixed.
+  // The four regression cases that pinned it (contribution percentage shown,
+  // hidden with no goal edge, and its pre/post-analysis helper copy) are gone
+  // with the feature; see `InspectorRouter.A8.noInventedNumbers.spec.tsx` for
+  // the RED-then-GREEN guard that it stays gone.
 
   // ─── Regression: currency value display in controllable factor inspector ──
   it('renders GBP currency symbol adjacent to input for controllable factor (£49 — no space)', () => {
@@ -298,85 +251,14 @@ describe('InspectorRouter — confidence badges are provenance-gated', () => {
     expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
   })
 
-  /**
-   * ⚠ THIS CONTROL NOW USES TWO EDGES THAT DIFFER (22 Sep 2026), and it had to.
-   * It previously passed on a SINGLE edge at 0.8 — which is the very shape the
-   * node badge's own call-site comment calls "a synthetic aggregate of a
-   * constant", and which `nodeConfidenceBadgeReadout` now withholds. A positive
-   * control satisfied by the defect is not a control. 0.9 and 0.7 average to
-   * the same 80%, so the assertion is unchanged and the fixture is honest.
-   */
-  it('POSITIVE CONTROL: the goal node DOES average characterised inbound edges', () => {
-    setStoreState(
-      [
-        { id: 'f1', type: 'factor', data: { label: 'Price', kind: 'factor' }, position: { x: 0, y: 0 } },
-        { id: 'f2', type: 'factor', data: { label: 'Demand', kind: 'factor' }, position: { x: 0, y: 0 } },
-        { id: 'g1', type: 'goal', data: { label: 'Revenue target', kind: 'goal' }, position: { x: 0, y: 0 } },
-      ],
-      [
-        { id: 'e1', source: 'f1', target: 'g1', data: { ...drawn, beliefExists: 0.9, beliefExistsSource: 'user' } },
-        { id: 'e2', source: 'f2', target: 'g1', data: { ...drawn, beliefExists: 0.7, beliefExistsSource: 'user' } },
-      ],
-    )
-    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
-    expect(screen.getByTestId('inspector-confidence-badge').textContent ?? '').toMatch(/80%/)
-  })
-
-  it('withholds the NODE badge when every characterised inbound edge is the same number', () => {
-    // Paul's board, bundle `482ec9e0`: both inbound goal edges carry
-    // `belief_exists: 0.8` with `belief_exists_source: "cee"` — real
-    // provenance, so the gate above passes them — and the panel rendered
-    // `✓ 80%`. An average with no spread is the constant restated.
-    setStoreState(
-      [
-        { id: 'f1', type: 'factor', data: { label: 'Price', kind: 'factor' }, position: { x: 0, y: 0 } },
-        { id: 'f2', type: 'factor', data: { label: 'Demand', kind: 'factor' }, position: { x: 0, y: 0 } },
-        { id: 'g1', type: 'goal', data: { label: 'Revenue target', kind: 'goal' }, position: { x: 0, y: 0 } },
-      ],
-      [
-        { id: 'e1', source: 'f1', target: 'g1', data: { ...drawn, beliefExists: 0.8, beliefExistsSource: 'cee' } },
-        { id: 'e2', source: 'f2', target: 'g1', data: { ...drawn, beliefExists: 0.8, beliefExistsSource: 'cee' } },
-      ],
-    )
-    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
-    expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
-  })
-
-  it('does NOT synthesise a node-level aggregate out of defaulted edges', () => {
-    const g = graph(drawn)
-    setStoreState(g.nodes, g.edges)
-    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
-    expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
-  })
-
-  it('averages ONLY the characterised edges, never counting a default as 0.8', () => {
-    setStoreState(
-      [
-        { id: 'f1', type: 'factor', data: { label: 'Price', kind: 'factor' }, position: { x: 0, y: 0 } },
-        { id: 'f2', type: 'factor', data: { label: 'Demand', kind: 'factor' }, position: { x: 0, y: 0 } },
-        { id: 'f3', type: 'factor', data: { label: 'Churn', kind: 'factor' }, position: { x: 0, y: 0 } },
-        { id: 'g1', type: 'goal', data: { label: 'Revenue target', kind: 'goal' }, position: { x: 0, y: 0 } },
-      ],
-      [
-        { id: 'e1', source: 'f1', target: 'g1', data: { beliefExists: 0.4, beliefExistsSource: 'user' } },
-        // ⚠ A SECOND CHARACTERISED EDGE, ADDED 22 Sep 2026, AND IT MAKES THIS
-        // STRONGER. With one survivor the badge is now withheld for a DIFFERENT
-        // reason (zero spread), so the assertion could no longer tell "the
-        // default was excluded" from "the readout declined" — the two answers
-        // would be byte-identical. Two differing survivors keep the exclusion
-        // observable.
-        { id: 'e3', source: 'f3', target: 'g1', data: { beliefExists: 0.6, beliefExistsSource: 'user' } },
-        // Unstamped: must be EXCLUDED from the mean, not folded in as 0.8.
-        { id: 'e2', source: 'f2', target: 'g1', data: { beliefExists: 0.8 } },
-      ],
-    )
-    render(<InspectorRouter nodeId="g1" edgeId={null} onClose={onClose} />)
-    const text = screen.getByTestId('inspector-confidence-badge').textContent ?? ''
-    // Mean of the two characterised edges = 0.5 → 50%. Folding the default in
-    // would give (0.4 + 0.6 + 0.8) / 3 = 0.6 → 60%.
-    expect(text).toMatch(/50%/)
-    expect(text).not.toMatch(/60%/)
-  })
+  // A8 (25 Sep 2026): the NODE badge (goal/outcome/risk — the MEAN of inbound
+  // edges' `exists_probability`) is removed, not fixed; `nodeConfidenceBadge.ts`
+  // is deleted with it. The four cases that pinned its averaging and
+  // provenance-gating are gone with the feature; see
+  // `InspectorRouter.A8.noInventedNumbers.spec.tsx` for the RED-then-GREEN
+  // guard that no node ever renders `inspector-confidence-badge` again. The
+  // EDGE badge above is untouched — it is a single carried field, not an
+  // aggregate.
 })
 
 describe('InspectorRouter — semantic controls fail closed without GraphV3 authority', () => {

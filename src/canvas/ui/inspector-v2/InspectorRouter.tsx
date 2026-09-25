@@ -13,7 +13,6 @@ import { useTechToggle } from './useTechToggle'
 import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
-import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 
 // Panel imports — lazy would be premature, these are small
 import { EdgePanel } from './panels/EdgePanel'
@@ -33,7 +32,6 @@ import { InspectorAttentionContext, attentionAskContext } from './shared/Inspect
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
-import { nodeConfidenceBadgeReadout } from './nodeConfidenceBadge'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
@@ -348,38 +346,11 @@ export const InspectorRouter = memo(function InspectorRouter({
   const pillColor = PILL_COLORS[nodeType]
   const typePill = getTypeLabel(nodeType, category)
 
-  // Confidence badge — only for specific node types
-  let confidenceBadge: React.ReactNode | undefined
-  let nodeConfidenceLevel: 'high' | 'medium' | 'low' | undefined
-  if (nodeType === 'goal' || nodeType === 'outcome' || nodeType === 'risk') {
-    // Derive from inbound edge confidence average
-    const inboundEdges = edges.filter(e => e.target === nodeId)
-    if (inboundEdges.length > 0) {
-      // PROVENANCE-GATED, and this one is worse than the edge case: an
-      // AVERAGE reads as far more evidentiary than a single field. On a freshly
-      // drawn graph every inbound edge returned the same `0.8`, so the goal
-      // node showed "high · 80%" — a synthetic aggregate of a constant.
-      // Unset edges are EXCLUDED from the mean rather than counted as 0.8; when
-      // none of the inbound edges was characterised there is no badge at all.
-      const confidences = inboundEdges
-        .map(e => resolveEdgeValueDisplay(e.data as Record<string, unknown> | undefined, 'beliefExists'))
-        .filter((d): d is { show: true; value: number; source: EdgeValueSource } => d.show)
-        .map(d => d.value)
-      // ⛔ AND THE SENTENCE ABOVE IS NOW ENFORCED, NOT ONLY WRITTEN (22 Sep
-      // 2026). Excluding UNSET edges did not close the case it describes: on
-      // Paul's board (bundle `482ec9e0`, served `1f77130d`) both inbound edges
-      // carry `belief_exists: 0.8` with `belief_exists_source: "cee"` — real
-      // provenance, so they pass the gate above — and the panel rendered
-      // `✓ 80%`, the exact synthetic aggregate of a constant. The second
-      // question, whether what survived the gate says anything, is
-      // `nodeConfidenceBadgeReadout`'s.
-      const readout = nodeConfidenceBadgeReadout(confidences)
-      if (readout) {
-        nodeConfidenceLevel = readout.level
-        confidenceBadge = <ConfidenceBadge level={readout.level} value={readout.value} />
-      }
-    }
-  }
+  // A8 — a "✓ N%" header badge used to render here for goal/outcome/risk
+  // nodes: the MEAN of inbound edges' `exists_probability`. No producer field
+  // carries that number; it was a UI computation over data that answers a
+  // different question. Removed rather than fixed — see
+  // `INSPECTOR_HEADER_HAS_NO_CONFIDENCE_BADGE.spec.tsx`.
 
   const panelProps = {
     nodeId,
@@ -510,8 +481,6 @@ export const InspectorRouter = memo(function InspectorRouter({
       label={label}
       typePill={typePill}
       typePillColor={pillColor}
-      confidenceBadge={confidenceBadge}
-      confidenceLevel={nodeConfidenceLevel}
       techMode={techMode}
       onTechToggleChange={setTechMode}
       onClose={onClose}
