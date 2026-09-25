@@ -30,13 +30,33 @@ import {
   formatInterventionTargetText,
   isInterventionNoChange,
 } from '../../utils/interventionDisplay'
-import { cleanFactorLabel, sentenceCaseFactorLabel, compactFactorLabel } from '../../utils/labelUtils'
+import {
+  cleanFactorLabel,
+  sentenceCaseFactorLabel,
+  compactFactorLabel,
+  isSuppressedUnit,
+  classifyUnit,
+  unwrapInterventionValue,
+} from '../../utils/labelUtils'
 import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
-import { placeholderMagnitudeNumber } from '../../../utils/formatFactorDisplayValue'
+import {
+  encodingMapPhrase,
+  factorCardVisibleText,
+  factorDisplayParts,
+  factorDisplayText,
+  placeholderMagnitudeNumber,
+  readFactorDisplayValue,
+} from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
 
-export const OPTION_CARD_ROW_LIMIT = 2
+/**
+ * ⭐ THREE, NOT TWO — Paul, 25 Sep 2026, from live screenshots: the card must
+ * match the PROTOTYPE, which shows one row per concrete change at rest (up to
+ * three, then `+N more`). This supersedes ED 11:52Z point 4's "max two change
+ * rows" and ED #63 5809278282's one-line option body.
+ */
+export const OPTION_CARD_ROW_LIMIT = 3
 
 /**
  * The muted separator between a row's value and its source mark (contract v3.1
@@ -60,6 +80,87 @@ export interface OptionTargetLike {
   value: number
   displayValue?: string | null
   source?: string | null
+}
+
+/**
+ * ⭐⭐ THE FACTOR CARD'S OWN READING — the exact call `FactorNode` makes for its
+ * value line: `factorDisplayText` over the node's data, the label cleaned and a
+ * suppressed unit dropped. So a row's "from" and the factor card beside it print
+ * ONE string (Paul 25 Sep: "use the SAME value formatter the factor cards use,
+ * so units match the factor card exactly"). The one input the card adds and this
+ * omits is the unacknowledged keystroke (`pending_user_value`): a row reads the
+ * persisted model, never a half-typed number.
+ *
+ * ⚠ ONLY THE "FROM". A target CEE authored a display string for still prints
+ * that string verbatim (`formatInterventionTargetText`'s passthrough; Paul 20
+ * Sep: "a thin layer, not performing excessive data manipulation";
+ * `OptionNode.ceeDisplayValueIsNotRederived.spec.tsx`). Re-reading the target
+ * through the factor card's formatter would turn CEE's "£18k" into a UI
+ * "£18,000" — a UI-substituted value.
+ */
+export function factorCardReading(
+  data: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!data || typeof data !== 'object') return null
+  const input = factorCardInput(data)
+  return factorCardVisibleText(factorDisplayText(input), factorDisplayParts(input))
+}
+
+/** The node data exactly as the factor card formats it: label cleaned, a suppressed unit dropped. */
+function factorCardInput(data: Record<string, unknown>): Record<string, unknown> {
+  const obs = data.observedState as Record<string, unknown> | undefined
+  const unit = typeof obs?.unit === 'string' ? obs.unit : undefined
+  const label = cleanFactorLabel((data.label as string | undefined) ?? '')
+  const observedState = obs && { ...obs, unit: isSuppressedUnit(unit) ? undefined : unit }
+  return { ...data, label, observedState }
+}
+
+/**
+ * ⛔⛔ THE FACTOR CARD'S READING, ONLY WHEN THE DATA CARRIES IT — else `null`.
+ *
+ * A row's "from" is the factor's current value "when the data carries it;
+ * otherwise show `→ to` only" (Paul 25 Sep). The factor card's formatter does
+ * more than read: from a bare model value it GUESSES — "No <label> in place" for
+ * 0, "<Label> active" for 1 (`formatFactorDisplayValue`'s value-only branch).
+ * Those phrases are in no field of the data, so they are never a "from". e0490565
+ * took any reading and put "No tech lead headcount in place → 1" on the served
+ * hiring board (verifier FIX_NEEDED).
+ *
+ * Accepted, each traced to a field the node carries:
+ *   1. a `raw_value` on a unit that is not a placeholder (or no unit): from
+ *      there every branch the formatter can take prints that figure with its
+ *      unit, the `display_value` or the `encoding_map` phrase — the guessing
+ *      branch needs `raw_value` absent or a placeholder unit. (A zero on a
+ *      `cost` factor prints "No cost allocated": the carried 0, in words.)
+ *   2. otherwise, the producer's own words only: the `display_value` verbatim
+ *      (or its figure with the placeholder word dropped — the forwarding gate
+ *      the card applies), or the `encoding_map` phrase for the value.
+ *
+ * ⚠ DELIBERATELY CONSERVATIVE, recorded rather than hidden: a figure the
+ * formatter prints from a bare `value` (a user-stated number on a placeholder
+ * scale, the percent recovered from a contradicted `display_value`) is NOT
+ * accepted. Those rows lose their "from" and read `→ to` — a missing "from" is
+ * incomplete; a guessed one is false.
+ */
+export function carriedFactorCardReading(
+  data: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!data || typeof data !== 'object') return null
+  const input = factorCardInput(data)
+  const reading = factorDisplayText(input)
+  if (reading === null) return null
+  const shown = factorCardVisibleText(reading, factorDisplayParts(input))
+  const obs = input.observedState as Record<string, unknown> | undefined
+  const unit = typeof obs?.unit === 'string' && obs.unit !== '' ? obs.unit : null
+  const raw = obs?.raw_value
+  const carriesRaw = unwrapInterventionValue(raw).value !== null || (typeof raw === 'string' && raw.trim() !== '')
+  if (carriesRaw && (unit === null || classifyUnit(unit).kind !== 'placeholder')) return shown
+  const displayValue = readFactorDisplayValue(input)
+  if (displayValue !== undefined && (reading === displayValue || reading === placeholderMagnitudeNumber(displayValue))) {
+    return shown
+  }
+  if (reading === encodingMapPhrase(input.encoding_map, unwrapInterventionValue(obs?.value).value)) return shown
+  return null
 }
 
 export interface OptionSetLike {
@@ -131,6 +232,12 @@ export interface FactorContext {
   cap?: number
   observedValue?: number
   observedRawValue?: string | number
+  /**
+   * The factor node's own data, when the caller has it — what the factor card
+   * reads (`factorCardReading`). Absent, the row keeps its older, context-only
+   * formatting.
+   */
+  factorData?: Record<string, unknown> | null
 }
 
 export interface OptionChangeRow {
@@ -249,11 +356,9 @@ export function buildOptionChangeRow({
   // figure — the factor card's rule (`placeholderMagnitudeNumber`), not a new one.
   // Nothing to recover, so the full text drops it too. Real units are untouched.
   const unitless = (text: string) => placeholderMagnitudeNumber(text) ?? text
-  const targetFull = unitless(formatInterventionTargetText({
-    ...context,
-    value: target.value,
-    displayValue: target.displayValue ?? undefined,
-  }))
+  const formatTarget = (t: OptionTargetLike): string =>
+    formatInterventionTargetText({ ...context, value: t.value, displayValue: t.displayValue ?? undefined })
+  const targetFull = unitless(formatTarget(target))
   const targetText = rest(targetFull)
   let fromFull = ''
 
@@ -265,16 +370,34 @@ export function buildOptionChangeRow({
   let reference: OptionChangeRow['reference'] = 'none'
   let fromText = ''
   let sameAsReference = false
+  const currentReading = carriedFactorCardReading(factor.factorData)
   if (baselineOptionTarget && Boolean(baselineOptionTarget.displayValue) === Boolean(target.displayValue)) {
     reference = 'baseline_option'
     sameAsReference =
       isInterventionNoChange(baselineOptionTarget.value, target.value) &&
       (baselineOptionTarget.displayValue ?? null) === (target.displayValue ?? null)
     if (!sameAsReference) {
-      fromFull = unitless(baselineOptionTarget.displayValue
-        ? baselineOptionTarget.displayValue
-        : formatInterventionTargetText({ ...context, value: baselineOptionTarget.value }))
+      fromFull = unitless(formatTarget(baselineOptionTarget))
       fromText = rest(fromFull)
+    }
+  } else if (currentReading) {
+    // ⭐ THE FACTOR'S CURRENT VALUE, AS ITS OWN CARD READS IT (Paul 25 Sep:
+    // "`from` is the factor's baseline/status-quo value when the data carries
+    // it"). This arm used to require `!target.displayValue`, and the served wire
+    // puts a display string on EVERY target (`intervention_details[]
+    // .display_value`, debug bundle 5fe89207) — so no served row ever had a
+    // "from" while the factor card beside it read "0 GBP/year". Both halves are
+    // READINGS the data carries (the factor card's string, the producer's
+    // string). ⛔ Only a CARRIED reading: the formatter's value-only guesses
+    // ("No X in place", "X active") are refused by `carriedFactorCardReading`,
+    // and the row falls through to the older arms — `→ to` for a served target.
+    // No pair when the target IS the current value, or reads identically.
+    const unchanged = typeof factor.observedValue === 'number' && isInterventionNoChange(factor.observedValue, target.value)
+    const currentFull = unitless(currentReading)
+    if (!unchanged && currentFull !== targetFull) {
+      fromFull = currentFull
+      fromText = rest(fromFull)
+      reference = 'current_value'
     }
   } else if (!target.displayValue && typeof factor.observedValue === 'number') {
     const change = formatInterventionChange({

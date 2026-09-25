@@ -125,7 +125,7 @@ describe('a completed run does not turn the Question node into an option verdict
       results: { status: 'complete', report },
     })
     const line = lodLine()
-    expect(line).toBe('3 options')
+    expect(line).toBe('3 alternatives')
     expect(line).not.toContain(LEADER_LABEL)
     expect(line).not.toContain('%')
   })
@@ -168,7 +168,7 @@ describe('the anchor states what it holds, not that it holds nothing', () => {
 
   it('states the option count it already knows', () => {
     renderDecision({ nodes: OPTIONS_3, edges: EDGES_3 })
-    expect(lodLine()).toBe('3 options')
+    expect(lodLine()).toBe('3 alternatives')
   })
 
   /**
@@ -189,12 +189,12 @@ describe('the anchor states what it holds, not that it holds nothing', () => {
    */
   it('DISCRIMINATION — a different number of options produces a different line', () => {
     renderDecision({ nodes: OPTIONS_3.slice(0, 2), edges: EDGES_3.slice(0, 2) })
-    expect(lodLine()).toBe('2 options')
+    expect(lodLine()).toBe('2 alternatives')
   })
 
   it('and the singular is not a plural with an s bolted on', () => {
     renderDecision({ nodes: OPTIONS_3.slice(0, 1), edges: EDGES_3.slice(0, 1) })
-    expect(lodLine()).toBe('1 option')
+    expect(lodLine()).toBe('1 alternative')
   })
 
   /**
@@ -214,6 +214,6 @@ describe('the anchor states what it holds, not that it holds nothing', () => {
       edges: CLAIM_EDGES.slice(0, 1),
       results: { status: 'complete', report: PERMITTED_REPORT },
     })
-    expect(lodLine()).toBe('1 option')
+    expect(lodLine()).toBe('1 alternative')
   })
 })

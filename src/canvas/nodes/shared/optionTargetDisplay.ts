@@ -150,6 +150,7 @@ export function optionFactorContext(
     cap: obs?.cap,
     observedValue: obs?.value,
     observedRawValue: obs?.raw_value,
+    factorData: factorNode?.data ?? null,
   }
 }
 

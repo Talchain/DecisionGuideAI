@@ -47,12 +47,14 @@ describe('an adopted Olumi estimate is not "Set by you"', () => {
   })
 
   it('⭐ canvas card: one mark, "Your assumption", and no "Set by you"', () => {
-    expect(resolveProvenanceMarks('factor', adopted())).toEqual([{ claim: 'value', kind: 'assumption' }])
+    // GAP-16 (prototype pass): a value the value line can classify carries its
+    // mark THERE, so the header adds none — the card's ONE mark is the value
+    // line's (next test). The header must still say nothing about "Set by you".
+    expect(resolveProvenanceMarks('factor', adopted())).toEqual([])
     render(<NodeProvenanceMark nodeType="factor" data={adopted()} />)
-    const marks = screen.getAllByTestId('node-provenance-mark')
-    expect(marks).toHaveLength(1)
-    expect(marks[0]).toHaveAttribute('aria-label', 'Your assumption')
+    expect(screen.queryAllByTestId('node-provenance-mark')).toHaveLength(0)
     expect(screen.queryByLabelText(SET_BY_YOU)).toBeNull()
+    expect(factorValueSourceMark(adopted())?.label).toBe('Your assumption')
   })
 
   it('canvas value word: its accessible label is "Your assumption"', () => {

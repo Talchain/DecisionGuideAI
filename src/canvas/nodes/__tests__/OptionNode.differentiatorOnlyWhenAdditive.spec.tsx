@@ -25,17 +25,18 @@
  *
  * CLAIM SCOPE: jsdom — test ids and text. Not pixels.
  *
- * ⭐ RE-POINTED BY THE BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: the S3
- * detail — change rows, `+N more`, the differentiator — moves "to the existing
- * hover/focus popover and inspector"). The rule is unchanged; the rows and the
- * line it compares now live together in the option's popover, so every query
- * below reads THAT block (`option-preview-detail-<id>`) by identity.
+ * ⭐ RE-POINTED TWICE. The bounded anatomy (ED #63 5809278282, 24 Sep) moved
+ * the rows and the line into the popover; Paul (25 Sep) ruled the card must
+ * match the PROTOTYPE, so the rows (up to THREE) and `+N more` are back ON THE
+ * CARD (`optionCardRows`) while the computed line stays in the popover
+ * (`option-preview-detail-<id>`, mounted only when the line renders). The rule
+ * is unchanged: the line renders only when it adds beyond the rows the CARD shows.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows, optionPreviewDetail } from './__helpers__/optionPreview'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -46,12 +47,21 @@ vi.mock('../shared/NodePopover', () => ({
   NodePopover: ({ children }: { children: React.ReactNode }) => <div data-testid="node-popover">{children}</div>,
 }))
 
+/**
+ * ⚠ ANCHORED WITH ITS REASON (Paul 25 Sep): a row's "from" is now the factor
+ * card's own reading. Unanchored (`{value: 0}`), these factor cards read "No
+ * developer headcount in place" / "No coordination cost in place", every row
+ * runs past the 34-character budget and the card shows ONE row (ED 02:31Z D2) —
+ * so the cases this spec is about stop existing. A raw figure and a real unit
+ * make the readings short ("0 engineers", "£0", "0 incidents"); the observed
+ * model value (0) the differentiator reads is unchanged.
+ */
 const FACTOR_HEAD = {
   id: 'f-head', type: 'factor',
-  data: { label: 'Developer headcount', type: 'factor', observedState: { value: 0, unit: 'count' }, unit: 'count' },
+  data: { label: 'Developer headcount', type: 'factor', observedState: { value: 0, raw_value: 0, unit: 'engineers' }, unit: 'engineers' },
 }
-const FACTOR_COST = { id: 'f-cost', type: 'factor', data: { label: 'Coordination cost', type: 'factor', observedState: { value: 0 } } }
-const FACTOR_RISK = { id: 'f-risk', type: 'factor', data: { label: 'Delivery risk', type: 'factor', observedState: { value: 0 } } }
+const FACTOR_COST = { id: 'f-cost', type: 'factor', data: { label: 'Coordination cost', type: 'factor', observedState: { value: 0, raw_value: 0, unit: '£' } } }
+const FACTOR_RISK = { id: 'f-risk', type: 'factor', data: { label: 'Delivery risk', type: 'factor', observedState: { value: 0, raw_value: 0, unit: 'incidents' } } }
 const OPTION_1 = { id: 'option-1', type: 'option', data: { label: 'Hire two developers', type: 'option' } }
 const OPTION_2 = { id: 'option-2', type: 'option', data: { label: 'Hire a tech lead', type: 'option' } }
 const BASELINE = {
@@ -109,11 +119,14 @@ const renderOption1 = (options: Array<{ id: string; interventions: Record<string
   )
 }
 
-/** Everything this rule compares lives in option-1's popover detail block. */
-const preview = () => within(optionPreviewDetail('option-1')!)
-const row = (factorId: string) => preview().queryByTestId(`option-change-row-option-1-${factorId}`)
-const differentiator = () => preview().queryByTestId('option-differentiator-option-1')
-const more = () => preview().queryByTestId('option-change-more-option-1')
+/** The rows and `+N more` are on option-1's CARD; the computed line is in its popover detail (or absent). */
+const cardRows = () => within(optionCardRows('option-1'))
+const row = (factorId: string) => cardRows().queryByTestId(`option-change-row-option-1-${factorId}`)
+const differentiator = () => {
+  const detail = optionPreviewDetail('option-1')
+  return detail ? within(detail).queryByTestId('option-differentiator-option-1') : null
+}
+const more = () => cardRows().queryByTestId('option-change-more-option-1')
 /**
  * The whole sentence the line states: its visible text when nothing was elided,
  * else its hover recovery (`OptionNode.differentiatorRecoverable.spec` pins that
@@ -157,16 +170,19 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
   })
 
   it('it names a change hidden behind "+N more" → it adds, so it stays', () => {
-    // Short values, so the two-row budget binds (a long value drops to ONE row).
+    // Short values, so the row budget binds (a long value drops to ONE row). A
+    // THIRD shared change fills the card's three rows (Paul 25 Sep).
     const head = { value: 2, display_value: '2 engineers' }
     const cost = { value: 3, display_value: '£3k' }
+    const seats = { value: 4, display_value: '4 seats' }
     renderOption1([
-      { id: 'option-1', interventions: { 'f-head': head, 'f-cost': cost, 'f-risk': { value: 9, display_value: '9 incidents' } } },
-      { id: 'option-2', interventions: { 'f-head': head, 'f-cost': cost } },
+      { id: 'option-1', interventions: { 'f-head': head, 'f-cost': cost, 'f-seats': seats, 'f-risk': { value: 9, display_value: '9 incidents' } } },
+      { id: 'option-2', interventions: { 'f-head': head, 'f-cost': cost, 'f-seats': seats } },
     ])
-    // ≤2 rows + "+1 more": the shared order puts the common changes first.
+    // ≤3 rows + "+1 more": the shared order puts the common changes first.
     expect(row('f-head')).not.toBeNull()
     expect(row('f-cost')).not.toBeNull()
+    expect(row('f-seats')).not.toBeNull()
     expect(row('f-risk')).toBeNull()
     expect(more()?.textContent).toBe('+1 more')
     expect(differentiator()?.textContent).toBe('Delivery risk is the key difference')
@@ -185,15 +201,16 @@ describe('NODE-ANATOMY v3.2 · Option · the differentiator only when it adds be
     expect(document.body.innerHTML).not.toContain('Developer headcount → 6 engineers')
   })
 
-  it('≤2 change rows at rest, then "+N more" from the one total', () => {
+  it('≤3 change rows at rest (Paul 25 Sep; was 2), then "+N more" from the one total', () => {
     const head = { value: 2, display_value: '2 engineers' }
     const cost = { value: 3, display_value: '£3k' }
+    const seats = { value: 4, display_value: '4 seats' }
     renderOption1([
-      { id: 'option-1', interventions: { 'f-head': head, 'f-cost': cost, 'f-risk': { value: 9, display_value: '9 incidents' } } },
-      { id: 'option-2', interventions: { 'f-head': head, 'f-cost': cost, 'f-risk': { value: 1, display_value: '1 incident' } } },
+      { id: 'option-1', interventions: { 'f-head': head, 'f-cost': cost, 'f-seats': seats, 'f-risk': { value: 9, display_value: '9 incidents' } } },
+      { id: 'option-2', interventions: { 'f-head': head, 'f-cost': cost, 'f-seats': seats, 'f-risk': { value: 1, display_value: '1 incident' } } },
     ])
-    const rows = preview().getAllByTestId(/^option-change-row-option-1-f-/)
-    expect(rows).toHaveLength(2)
+    const rows = cardRows().getAllByTestId(/^option-change-row-option-1-f-/)
+    expect(rows).toHaveLength(3)
     expect(more()?.textContent).toBe('+1 more')
   })
 })

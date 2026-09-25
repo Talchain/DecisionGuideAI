@@ -1,13 +1,16 @@
 /**
  * ⭐ REAL-INTERACTION CONTROL for Codex CR 5810966650 (#1932, 24 Sep 2026): on
- * TOUCH, tapping `+N more` in an option's portalled popover must reach the
- * inspector. The bounded anatomy (ED 5809278282) moved the change rows and
- * `+N more` off the card into the popover, which renders under `document.body`
- * — outside the card — and `usePopoverHover`'s outside-tap close fired first.
+ * TOUCH, tapping `+N more` must reach the inspector. The bounded anatomy (ED
+ * 5809278282) had moved `+N more` into the portalled popover, where
+ * `usePopoverHover`'s outside-tap close fired first. Paul (25 Sep) put the rows
+ * and `+N more` back ON THE CARD (the prototype), so the tap now lands on the
+ * card itself — this pins that a single tap, with no preview opened first,
+ * still reaches THIS option's inspector, and that the control is not in the
+ * popover.
  *
- * Real `OptionNode`, real `NodePopover` (NOT mocked, unlike the bounded-anatomy
- * specs), emulated `(hover: none)`. Pre-run and post-run. jsdom has no layout:
- * this pins the event protocol, not a pixel.
+ * Real `OptionNode`, real `NodePopover` (NOT mocked), emulated `(hover: none)`.
+ * Pre-run and post-run. jsdom has no layout: this pins the event protocol, not
+ * a pixel.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -42,10 +45,8 @@ const BASELINE = {
 
 /**
  * Shared change order (non-baseline coverage, then model order): f-price (2),
- * f-adopt (2), f-head (1). option-1's top change is therefore f-price, and its
- * card shows two rows with one behind `+1 more`. Its differentiator is
- * "Developer headcount is the key difference" (f-head is option-1's alone and
- * sits behind `+1 more`, so the sentence ADDS — NODE-ANATOMY v3.2).
+ * f-adopt (2), f-head (1), f-seats (1). option-1 sets all four, so its card
+ * shows three rows (Paul 25 Sep) with one behind `+1 more`.
  */
 const CEE_READY = {
   options: [
@@ -55,6 +56,7 @@ const CEE_READY = {
         'f-price': { value: 79, display_value: '£79', source: 'user_specified' },
         'f-head': { value: 30, display_value: '30 engineers', source: 'cee_hypothesis' },
         'f-adopt': { value: 0.9, display_value: 'Very high', source: 'brief_extraction' },
+        'f-seats': { value: 12, display_value: '12 seats', source: 'cee_hypothesis' },
       },
     },
     {
@@ -161,20 +163,21 @@ beforeEach(() => {
 afterEach(() => { window.matchMedia = realMatchMedia })
 
 async function tapPlusMore(container: HTMLElement) {
-  // A tap opens the preview on touch (`nodeHandlers.onClick`).
-  act(() => { fireEvent.click(container.querySelector('.react-flow__node')!.firstElementChild as HTMLElement) })
+  // `+N more` is ON THE CARD — no preview has to open first.
   let more: HTMLElement | null = null
   await waitFor(() => {
-    more = document.querySelector<HTMLElement>('[data-node-popover] [data-testid="option-change-more-option-1"]')
-    expect(more, 'the portalled preview opened with `+N more` in it').not.toBeNull()
+    more = container.querySelector<HTMLElement>('[data-testid="option-change-more-option-1"]')
+    expect(more, '`+N more` is on the card').not.toBeNull()
   })
+  expect(more!.closest('[data-node-popover]'), '`+N more` is not in the popover').toBeNull()
+  expect(document.querySelectorAll('[data-testid="option-change-more-option-1"]').length).toBe(1)
   // The real sequence a tap produces: pointerdown (document capture sees it
   // first), then click.
   act(() => { fireEvent.pointerDown(more!) })
   act(() => { fireEvent.click(more!) })
 }
 
-describe('on touch, `+N more` in the portalled popover opens the inspector', () => {
+describe('on touch, `+N more` on the card opens the inspector', () => {
   it('pre-run', async () => {
     const { container } = renderCard()
     await tapPlusMore(container)

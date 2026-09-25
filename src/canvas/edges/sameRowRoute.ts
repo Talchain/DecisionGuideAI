@@ -82,10 +82,62 @@ export const SAME_ROW_MIN_OVERLAP = 24
 export const UNDER_ROW_DIP = 18
 /** Extra depth per additional card between the pair. */
 export const UNDER_ROW_STEP = 8
-/** Corner radius of the `under` run. */
+/** Corner radius of the `under` run (kept for importers; the route is an arc now). */
 export const UNDER_ROW_CORNER = 16
+/** Extra arc depth per graph unit of horizontal span, so longer links sit lower. */
+export const UNDER_ARC_PER_UNIT = 0.06
+/** Minimum clearance between the arc and any card it passes (graph units). */
+export const UNDER_ROW_CLEARANCE = 8
 
 const r2 = (n: number) => Math.round(n * 100) / 100
+
+/** Parameter resolution for `underArcClearanceH`'s solve — fine enough that
+ *  discretisation error is far below `UNDER_ROW_CLEARANCE`; the margin below
+ *  covers what falls between samples. */
+const UNDER_ARC_CLEARANCE_SAMPLES = 2000
+/** Safety margin folded into the solved depth, covering the gap between
+ *  sampled parameter values (the true worst point can fall between two of
+ *  them). Small next to `UNDER_ROW_CLEARANCE` (8). */
+const UNDER_ARC_CLEARANCE_MARGIN = 1
+
+/**
+ * The smallest control-point depth `h` (each control point sits `h` straight
+ * below its own end) that keeps the under arc's y at or below `targetY` at
+ * every sampled point whose x falls inside one of `between`'s spans.
+ *
+ * Both control points share their end's x, so x(t) is the standard smoothstep
+ * ease and the cubic's y at parameter t decomposes as:
+ *   y(t) = [smoothstep blend of sy, ty] + 3·t·(1−t)·h
+ * the same identity the arc's `labelAnchor` already relies on at t = 0.5
+ * (0.75·h there). The second term is the only place h enters, is zero at the
+ * ends, and is non-negative and strictly increasing in h at every interior
+ * t — so solving h from the sample with the largest requirement clears every
+ * other sample too; no search needed.
+ */
+function underArcClearanceH(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  between: readonly RouteBox[],
+  targetY: number,
+): number {
+  let need = 0
+  for (let s = 1; s < UNDER_ARC_CLEARANCE_SAMPLES; s++) {
+    const t = s / UNDER_ARC_CLEARANCE_SAMPLES
+    const u = 1 - t
+    const easeS = u * u * (1 + 2 * t)
+    const easeT = t * t * (3 - 2 * t)
+    const x = sx * easeS + tx * easeT
+    if (!between.some((o) => x >= o.x && x <= o.x + o.width)) continue
+    const bump = 3 * t * u
+    if (bump <= 1e-9) continue
+    const baseline = sy * easeS + ty * easeT
+    const h = (targetY + UNDER_ARC_CLEARANCE_MARGIN - baseline) / bump
+    if (h > need) need = h
+  }
+  return need
+}
 
 /**
  * The same-row route for `source → target`, or `null` when the pair is not in
@@ -146,25 +198,44 @@ export function resolveSameRowRoute(
 
   const k = between.length
   const lowest = Math.max(rowBottom, ...between.map((o) => o.y + o.height))
-  const low = r2(lowest + UNDER_ROW_DIP + (k - 1) * UNDER_ROW_STEP)
   const sx = r2(source.x + source.width / 2)
   const tCentre = target.x + target.width / 2
   const inset = Math.min(target.width / 2 - 12, target.width / 4 + (k - 1) * GLYPH_RING_STEP)
   const tx = r2(tCentre - dir * inset)
   const ty = r2(tBottom + SAME_ROW_TARGET_STANDOFF)
-  const r = Math.min(UNDER_ROW_CORNER, Math.abs(tx - sx) / 2)
+  // ⭐ ONE ARC, NEVER A FLAT RUN (Paul's 25 Sep screenshots: two spans that
+  // overlap by one card drew their flat runs on top of each other for a whole
+  // card slot and read as one cable). A cubic from the source's port to the
+  // target's bottom, with both control points straight below their ends, dips
+  // `0.75·h` below its ends at its midpoint. Two arcs with different ends can
+  // only CROSS at a point, never share a segment. `h` grows with the span, so
+  // longer links sit lower, and grows again per card between them.
+  const base = Math.max(sBottom, ty)
+  const spanX = Math.abs(tx - sx)
+  const wanted = UNDER_ROW_DIP + UNDER_ARC_PER_UNIT * spanX + (k - 1) * UNDER_ROW_STEP
+  // Clear every between card across its WHOLE x-range, not only at the arc's
+  // midpoint (review 2033: a taller between card climbed back inside the arc
+  // before and after t = 0.5, since the control points only guarantee depth
+  // there).
+  const hClear = underArcClearanceH(sx, sBottom, tx, ty, between, lowest + UNDER_ROW_CLEARANCE)
+  // ...and never reach a card in the next sub-row under the span.
+  const spanLo = Math.min(sx, tx)
+  const spanHi = Math.max(sx, tx)
+  const belowTops = others
+    .filter((o) => o.y >= rowBottom && o.x < spanHi && o.x + o.width > spanLo)
+    .map((o) => o.y)
+  const hRoom = belowTops.length > 0 ? (Math.min(...belowTops) - UNDER_ROW_CLEARANCE - base) / 0.75 : Infinity
+  const h = r2(Math.max(hClear, Math.min(wanted, hRoom)))
   const glyphSide = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
   return {
     kind: 'under',
-    path:
-      `M${sx},${sBottom} Q${sx},${low} ${r2(sx + dir * r)},${low} ` +
-      `L${r2(tx - dir * r)},${low} Q${tx},${low} ${tx},${ty}`,
-    // Beside the rising lead, on the side away from the run.
+    path: `M${sx},${sBottom} C${sx},${r2(sBottom + h)} ${tx},${r2(ty + h)} ${tx},${ty}`,
+    // Beside the rising lead, on the side away from the arc.
     glyphX: r2(tx + dir * glyphSide),
     glyphY: r2(ty + glyphSide),
-    // The midpoint of the horizontal gutter run: `(sx + tx) / 2` is the centre
-    // of the straight segment between the two corners, at the run's depth.
-    labelAnchor: { x: r2((sx + tx) / 2), y: low },
+    // The arc's own midpoint (t = 0.5): x is the ends' mean because each control
+    // point shares its end's x; y is the ends' mean plus 0.75·h.
+    labelAnchor: { x: r2((sx + tx) / 2), y: r2((sBottom + ty) / 2 + 0.75 * h) },
   }
 }
 

@@ -230,7 +230,19 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(coaching.className).not.toContain('-right-2')
   })
 
-  it('ALL THREE present: attention marker, edited-dot and coaching are distinct siblings in order, none absolute', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-11, DESIGN-GAP-AUDIT-20260924.md row 11; Paul
+   * v3.1 pt14). This used to be "ALL THREE present" — marker, edited-dot,
+   * coaching. The edited-since-run dot is REMOVED from the per-card corner
+   * entirely: it duplicated the single graph-level stale cue
+   * (`AnalysisStateCue`) the canvas already carries, and pt14 asks for ONE
+   * overall analysis-state cue, not one repeated per card. `editedNodeIds`
+   * below is now a no-op setup — kept to prove the removal is UNCONDITIONAL
+   * (setting the store slice that used to drive the dot no longer puts
+   * anything in the corner), not merely that this particular test stopped
+   * asking for it.
+   */
+  it('marker and coaching are distinct siblings in order, none absolute — the edited-dot is gone even when the store says edited', () => {
     sensitivityRank = 1
     attentionMarked = true
     editedNodeIds.add('node-a')
@@ -240,46 +252,54 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     const stack = screen.getByTestId('node-corner-stack-node-a')
     // Locked Canvas design (23 Sep 2026): the marker holds the retired rank badge's slot.
     const marker = screen.getByTestId('attention-marker-node-a')
-    const edited = screen.getByTestId('edited-since-run-node-a')
     const coaching = screen.getByTestId('node-coaching-marker-node-a')
     expect(screen.queryByTestId('sensitivity-rank-node-a')).toBeNull()
+    // GAP-11: never rendered, even with `editedNodeIds` opted in above.
+    expect(screen.queryByTestId('edited-since-run-node-a')).toBeNull()
 
-    // Three distinct children, all inside the single positioned stack.
+    // Two distinct children, both inside the single positioned stack.
     expect(stack).toContainElement(marker)
-    expect(stack).toContainElement(edited)
     expect(stack).toContainElement(coaching)
 
-    // Deterministic order: marker · edited-dot · coaching (smallest in the middle).
+    // Deterministic order: marker first, coaching beside it — unchanged by
+    // the dot's removal since it always sat BETWEEN them.
     const kids = Array.from(stack.children)
-    expect(kids).toHaveLength(3)
+    expect(kids).toHaveLength(2)
     expect(kids[0]).toBe(marker)
-    expect(kids[1]).toBe(edited)
-    expect(kids[2]).toBe(coaching)
+    expect(kids[1]).toBe(coaching)
     expect(marker.className).not.toContain('absolute')
-
-    // The edited dot is a static flex child — no absolute/offset of its own, so
-    // it can no longer be drawn under the coaching marker (the P2 defect).
-    expect(edited.className).not.toContain('absolute')
-    expect(edited.className).not.toContain('-right-1')
-    expect(edited.className).not.toContain('-top-1')
   })
 
-  it('EDITED alone: the edited-since-run dot renders in the stack, no rank or coaching', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-11): "EDITED alone" used to render the dot and
+   * nothing else. With the dot removed, opting a node into
+   * `editedSinceRunNodeIds` alone now puts NOTHING in the corner — the stack
+   * is empty, matching the "none of the five gates fire" case.
+   */
+  it('EDITED alone (store opts the node in): the corner stays EMPTY — the dot no longer reads that flag', () => {
     editedNodeIds.add('node-a')
     renderNode()
     const stack = screen.getByTestId('node-corner-stack-node-a')
-    expect(stack).toContainElement(screen.getByTestId('edited-since-run-node-a'))
+    expect(screen.queryByTestId('edited-since-run-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('sensitivity-rank-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('attention-marker-node-a')).not.toBeInTheDocument()
     expect(screen.queryByTestId('node-coaching-marker-node-a')).not.toBeInTheDocument()
+    expect(stack.children).toHaveLength(0)
   })
 
-  it('CLICK-THROUGH with edited dot present: coaching onClick still fires', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-11): this used to prove coaching's onClick
+   * fires with the edited dot present as a sibling. The dot is gone, so the
+   * click-through property this protects is now fully covered by "CLICK-
+   * THROUGH: coaching onClick still fires with the attention marker present"
+   * below; this case is repurposed to keep proving `editedNodeIds` is inert.
+   */
+  it('CLICK-THROUGH with the store opted-in (no dot to be a sibling): coaching onClick still fires', () => {
     editedNodeIds.add('node-a')
     useGuidanceStore.getState().setGuidanceItems([makeItem({ item_id: 'edit-item' })])
     renderNode()
 
-    expect(screen.getByTestId('edited-since-run-node-a')).toBeInTheDocument()
+    expect(screen.queryByTestId('edited-since-run-node-a')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('node-coaching-marker-node-a'))
     expect(useGuidanceStore.getState().activeGuidanceItemId).toBe('edit-item')
   })

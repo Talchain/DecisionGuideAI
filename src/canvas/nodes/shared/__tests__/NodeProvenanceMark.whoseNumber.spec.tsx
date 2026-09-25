@@ -89,10 +89,28 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
    * question — *did Olumi suggest this, or did I bring it?* — unanswerable.
    *
    * ⭐ THE ORIGINAL FIX IS ASSERTED UNCHANGED BELOW: the VALUE mark still reads
-   * "From brief" and still must not read "Olumi estimate" over the user's own £49.
+   * "From brief" and still must not read "AI estimate" over the user's own £49.
    * The second mark ADDS a true fact; it does not soften the first.
    */
-  it('⭐ THE MEASURED CASE: model-named node, user-stated number ⇒ BOTH facts', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16).
+   *
+   * This test used to assert the header rendered BOTH the structural fact
+   * ("Olumi named this node") AND the value fact ("From brief") side by side.
+   * The value half is now GONE from the header by design: `FactorNode` mounts
+   * its own value-line source mark (`valueSourceMark.tsx`) for the same
+   * number, classified through the identical `classifyValueProvenance`, so the
+   * header's copy of it was one fact stamped twice (contract §03: "Show
+   * useful exceptions, not the same provenance mark everywhere"). The
+   * STRUCTURAL fact this test was written to rescue is UNTOUCHED — it is now
+   * the only mark this component ever emits for a factor.
+   *
+   * See `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx` for the
+   * full-card proof that "From brief" still reaches the user, on the value
+   * line, so this is a de-duplication and not the silent regression this
+   * spec was originally written to prevent.
+   */
+  it('⭐ THE MEASURED CASE: model-named node, user-stated number ⇒ the STRUCTURAL fact survives, the VALUE half moves to the value line', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
@@ -102,46 +120,38 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         })}
       />,
     )
-    // The number's basis — the original claim of this spec, unchanged.
-    expect(claimLabel('value')).toContain('From brief')
-    // ⛔ The half that makes it a fix rather than a relabel.
-    expect(claimLabel('value')).not.toContain('Olumi estimate')
-    // The authorship fact that used to vanish: Olumi named this node.
-    //
-    // ⭐ ASSERTED POSITIVELY, AND THAT IS THE POINT. `not.toContain('From
-    // brief')` — what this line said until the type error below was found —
-    // passes on an EMPTY label, on a garbled one, and on any wrong-but-
-    // different sentence. It cannot distinguish "the authorship mark says the
-    // right thing" from "the authorship mark says nothing at all", which is
-    // the exact failure the two-mark change exists to prevent.
-    //
-    // ⚠ It also could not see a real defect that shipped past it: the first
-    // argument was `'node'`, which is not a member of
-    // `Exclude<NodeProvenanceClaim, 'none'>` — a TS2345 that reddened the
-    // typecheck gate while this assertion stayed green, because a type error
-    // still renders SOMETHING and that something did not contain "From brief".
-    // A negative assertion is satisfied by every wrong answer but one.
+    // The authorship fact that used to vanish before the two-mark change:
+    // Olumi named this node. Still asserted positively, still bound by claim
+    // identity rather than by a label predicate another mark could satisfy.
     expect(claimLabel('structural')).toBe(STRUCTURAL_PROVENANCE_LABEL.ai)
     expect(marksByClaim('structural')).toHaveLength(1)
 
-    // ⛔ AND NO FOURTH SPELLING. The two assertions above bind by identity, but
-    // each only proves its OWN claim is present — neither can see a mark
-    // carrying a value outside the domain vocabulary, which is precisely what
-    // shipped (`"node"`). This pins the EXACT SET the card emits, so a fourth
-    // spelling REDs here as well as at the compiler.
+    // ⛔ NO VALUE MARK IN THE HEADER, AND NO FOURTH SPELLING EITHER. The set
+    // this component emits for a valued, disagreeing factor is now exactly
+    // one entry.
     expect(
       screen.queryAllByTestId('node-provenance-mark')
         .map(el => el.getAttribute('data-provenance-claim'))
         .sort(),
-    ).toEqual(['structural', 'value'])
+    ).toEqual(['structural'])
   })
 
   /**
-   * ⛔ CONTRAST ONE. Without it, a component hardcoded to say "From brief"
-   * passes the row above — and that is the same lie pointed the other way,
-   * told to the population the current code serves CORRECTLY.
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-16). These three used to assert the header
+   * read "AI estimate" for a factor whose value classifies as `ai`. Under
+   * GAP-16 a `claim: 'value'` mark NEVER reaches the header — not because the
+   * fact went silent, but because `FactorNode`'s own value-line mark already
+   * carries it (the "est." token, or `ValueSourceMark`'s "no source" state
+   * for the unrecognised/absent cases — see `valueSourceMark.tsx`). These
+   * three cases share one property that is still worth a contrast: none of
+   * them produces a STRUCTURAL fact either (nothing here disagrees with
+   * anything), so the header is correctly and simply silent, matching a
+   * structural-only card with no provenance signal at all.
    */
-  it('⛔ CONTRAST: a genuinely model-supplied number still reads "Olumi estimate"', () => {
+  // ⛔ review 5822866079: none of these three sources classify on the value line
+  // (`factorValueSourceMark` → unknown), so the header's "AI estimate" is the
+  // only mark with a kind and it STAYS — a number is never unmarked.
+  it('⛔ CONTRAST: a model-supplied number the value line cannot classify keeps its header value mark', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
@@ -151,41 +161,35 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         })}
       />,
     )
-    expect(label()).toContain('Olumi estimate')
+    expect(mark()).not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
-  /**
-   * ⛔⛔ CONTRAST TWO — THE THIRD POPULATION, AND THE ONE A TWO-ARM PAIR CANNOT SEE.
-   *
-   * `classifyValueProvenance` returns `null` for an absent or unrecognised
-   * `source`. Reading it INSTEAD of node authorship would blank the badge here —
-   * and for these nodes "Olumi estimate" is frequently TRUE, so that is not a safe
-   * default but a LOST DISCLOSURE. The identical regression stopped the CEE-side
-   * attempt: 20 assertions' worth of honest disclosures went silent.
-   *
-   * ⭐ ASSERTED DELIBERATELY, NOT INHERITED. The rule is that the value answer
-   * wins only where it positively exists; absent ⇒ today's behaviour, unchanged.
-   * So this must keep saying exactly what it says today.
-   */
-  it('⛔⛔ CONTRAST: an ABSENT value source keeps today’s answer — it does not go silent', () => {
+  it('⛔⛔ CONTRAST: an ABSENT value source ALSO keeps its header value mark', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
         data={factorWith({ provenance: 'ai_inferred', observedState: { value: 0.2 } })}
       />,
     )
-    expect(mark(), 'the badge went silent — a true disclosure was lost').not.toBeNull()
-    expect(label()).toContain('Olumi estimate')
+    // ⚠ Unlike before GAP-16, silence HERE is correct: this isolated render
+    // cannot see `FactorNode`'s value line, which is where the disclosure now
+    // lives unconditionally (`factorValueSourceMark` never returns null for a
+    // stated value). `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`
+    // proves the full-card case does not go silent.
+    expect(mark()).not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
-  it('⛔⛔ CONTRAST: an UNRECOGNISED value source behaves the same as an absent one', () => {
+  it('⛔⛔ CONTRAST: an UNRECOGNISED value source behaves the same as an absent one (header mark kept)', () => {
     render(
       <NodeProvenanceMark
         nodeType={'factor' as never}
         data={factorWith({ provenance: 'ai_inferred', observedState: { value: 0.2, source: 'something_new' } })}
       />,
     )
-    expect(label()).toContain('Olumi estimate')
+    expect(mark()).not.toBeNull()
+    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
   })
 
   /**
@@ -202,6 +206,6 @@ describe('the badge says whose NUMBER it is, not who named the node', () => {
         data={{ label: 'Revenue grows', kind: 'outcome', provenance: 'ai_inferred' }}
       />,
     )
-    expect(label()).not.toContain('Olumi estimate')
+    expect(label()).not.toContain('AI estimate')
   })
 })

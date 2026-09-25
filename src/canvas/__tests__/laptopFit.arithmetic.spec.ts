@@ -217,7 +217,7 @@ function landing(bounds: Box, vp: { width: number; height: number }, seen: Box =
 }
 
 /** The widest row the layout can build, visible edge to visible edge, prompt included. */
-const FIVE_CARD_ROW_WITH_PROMPT =
+const WIDEST_ROW_WITH_PROMPT =
   MAX_CARDS_PER_ROW * (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + ROW_PROMPT_W
 
 describe('S4 laptop fit — the chrome the fit subtracts (verify and keep)', () => {
@@ -230,9 +230,18 @@ describe('S4 laptop fit — the chrome the fit subtracts (verify and keep)', () 
 })
 
 describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
-  it.each(MODELS.map((m) => [m.id, m] as const))('%s: no framed row is wider than five cards and a prompt', async (_id, m) => {
+  it.each(MODELS.map((m) => [m.id, m] as const))('%s: no framed row is wider than the widest row the layout builds (cards and a prompt)', async (_id, m) => {
     const { bounds } = await framedBoard(m.draft, m.heightOf)
-    expect(bounds.width).toBeLessThanOrEqual(FIVE_CARD_ROW_WITH_PROMPT)
+    expect(bounds.width).toBeLessThanOrEqual(WIDEST_ROW_WITH_PROMPT)
+  })
+
+  // ⭐ GAP 7 (ED #63 5808428246: 1280x800 with the dock open is the ACCEPTANCE
+  // size). Until the row cap moved to four, this arm was the stated gap: every
+  // starter framed 1740 units against the 1520 frame, a 220-unit (110px) spill.
+  it.each(MODELS.map((m) => [m.id, m] as const))('%s: at 1280x800, dock open, the board fits the frame on WIDTH at the floor', async (_id, m) => {
+    const { bounds } = await framedBoard(m.draft, m.heightOf)
+    const { frameFlowAtFloor } = landing(bounds, VIEWPORTS[0])
+    expect(bounds.width).toBeLessThanOrEqual(frameFlowAtFloor.w)
   })
 
   it.each(MODELS.map((m) => [m.id, m] as const))('%s: at 1440x900, dock open, the board fits the frame on WIDTH at the floor', async (_id, m) => {
@@ -241,15 +250,20 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
     expect(bounds.width).toBeLessThanOrEqual(frameFlowAtFloor.w)
   })
 
-  it('at 1280x800 a five-card row with its prompt is the one row that does not fit on WIDTH — by exactly 220 units (110px)', () => {
+  // ⭐ FLIPPED BY GAP 7 (25 Sep 2026). This arm used to assert the spill as a
+  // KNOWN gap — "a five-card row with its prompt is the one row that does not
+  // fit on WIDTH, by exactly 220 units (110px)" — and named a row cap of four as
+  // the smallest further lever. The Canvas lead took that lever (decide-and-flag,
+  // on ED 5808428246), so the arm now asserts the fit, and keeps the five-card
+  // arithmetic as the contrast that says why the cap is four and not five.
+  it('at 1280x800 the widest row the layout can build — four cards and its prompt, 1424 units — fits on WIDTH at the floor', () => {
     const { frameFlowAtFloor } = landing({ x: 0, y: 0, width: 1, height: 1 }, VIEWPORTS[0])
     expect(frameFlowAtFloor.w).toBe(1520)
-    expect(FIVE_CARD_ROW_WITH_PROMPT).toBe(1740)
-    expect(FIVE_CARD_ROW_WITH_PROMPT - frameFlowAtFloor.w).toBe(220)
-    // …while a four-card row with its prompt does fit, which is the smallest
-    // further lever's arithmetic (a row cap of four), not a change made here.
-    const fourCardRow = 4 * (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + ROW_PROMPT_W
-    expect(fourCardRow).toBeLessThanOrEqual(frameFlowAtFloor.w)
+    expect(WIDEST_ROW_WITH_PROMPT).toBe(1424)
+    expect(WIDEST_ROW_WITH_PROMPT).toBeLessThanOrEqual(frameFlowAtFloor.w)
+    // CONTRAST: one more card per row would spill again, by the old 220 units.
+    const oneMoreCard = WIDEST_ROW_WITH_PROMPT + (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP)
+    expect(oneMoreCard - frameFlowAtFloor.w).toBe(220)
   })
 })
 

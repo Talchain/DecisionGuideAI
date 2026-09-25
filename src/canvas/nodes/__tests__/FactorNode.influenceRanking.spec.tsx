@@ -227,13 +227,15 @@ const NOT_RANKED = 'Not ranked in this run'
 const notRanked = () => screen.getByTestId('factor-driver-not-ranked')
 
 /**
- * The Standard driver line — in the POPOVER, never on the card face (ED
- * 5809278282) — and the Detailed one, bound by test id.
+ * The Standard driver line — ON the card face, never repeated in the popover
+ * (prototype, Paul 25 Sep 2026, superseding ED 5809278282's move to the
+ * popover; the helper keeps its name) — and the Detailed one, bound by test id.
  */
 const popoverLine = () => {
   const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
-  expect(within(face).queryByTestId('factor-driver-line'), 'the driver line is on the card face').toBeNull()
-  return within(screen.getByTestId('factor-node-popover')).getByTestId('factor-driver-line')
+  const pop = screen.queryByTestId('factor-node-popover')
+  if (pop) expect(within(pop).queryByTestId('factor-driver-line'), 'the driver line is repeated in the popover').toBeNull()
+  return within(face).getByTestId('factor-driver-line')
 }
 const detailLine = () => screen.getByTestId('factor-driver-line-detail')
 const captionOf = (line: HTMLElement) => within(line).getByTestId(/-caption$/).textContent

@@ -177,17 +177,21 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
  * than expanding layout geometry"). Both cases now bind the line INSIDE the
  * popover and assert it is not on the face; the wording rule is unchanged.
  */
-/** The Standard range line: in the popover, never on the card face (ED 5809278282). */
+/**
+ * The Standard range line: ON the card face, never repeated in the popover
+ * (prototype, Paul 25 Sep 2026 — superseding ED 5809278282's move to the
+ * popover; the helper keeps its name). The wording rule is unchanged.
+ */
 const popoverRangeLine = () => {
   const face = screen.getByTestId('node-title').closest('[role="group"]') as HTMLElement
-  expect(face.querySelector(`[data-testid="factor-prior-range-${FACTOR_ID}"]`), 'the range line is on the card face').toBeNull()
-  const popover = screen.getByTestId('factor-node-popover')
-  const line = popover.querySelector(`[data-testid="factor-prior-range-${FACTOR_ID}"]`)
-  expect(line, 'the range line is not in the popover').not.toBeNull()
+  const popover = screen.queryByTestId('factor-node-popover')
+  if (popover) expect(popover.querySelector(`[data-testid="factor-prior-range-${FACTOR_ID}"]`), 'the range line is repeated in the popover').toBeNull()
+  const line = face.querySelector(`[data-testid="factor-prior-range-${FACTOR_ID}"]`)
+  expect(line, 'the range line is not on the card face').not.toBeNull()
   return line as HTMLElement
 }
 
-describe('design integration — the locked Standard view after a run (range line in the popover)', () => {
+describe('design integration — the Standard view after a run (range line on the card, prototype 25 Sep)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockViewMode = 'standard'

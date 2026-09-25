@@ -37,13 +37,13 @@
  * never by re-packing. Do not fix it here.
  *
  * ⭐ S4 UPDATE (24 Sep 2026). Experience Design has since ruled the packing
- * itself: rows above five cards wrap (`MAX_CARDS_PER_ROW`), the card width is a
- * fair share of the budget floored at legibility, and the row-end prompt's slot
- * is inside the budget. That is still a CONSTANT policy — nothing here reads the
- * viewport — so R1 holds; what it changes is that no row is wider than five
- * cards and a prompt (1740 units), against 2544 for an eight-card row before.
- * The residual overrun of a five-card row is stated, not hidden: see
- * `CANONICAL_LAYOUT_WIDTH` and `laptopFit.arithmetic.spec.ts`.
+ * itself: rows above a fixed count wrap (`MAX_CARDS_PER_ROW`), the card width is
+ * a fair share of the budget floored at legibility, and the row-end prompt's
+ * slot is inside the budget. That is still a CONSTANT policy — nothing here
+ * reads the viewport — so R1 holds. Gap 7 (25 Sep 2026) moved the count from
+ * five to four, so no row is wider than four cards and a prompt (1424 units),
+ * against 1740 for five and 2544 for an eight-card row before S4: see
+ * `MAX_CARDS_PER_ROW` and `laptopFit.arithmetic.spec.ts`.
  */
 // P1 Polish: Dynamic ELK import for code-splitting (Task F)
 import type { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
@@ -134,7 +134,8 @@ function kindsByTierOf(unlocked: Node[]): Map<number, Set<string>> {
 /**
  * ⭐⭐ S4 — HOW MANY CARDS GO ON EACH SUB-ROW OF A TIER (Experience Design, #63
  * 5806207128 / 5806266691: "Rows above 5 cards wrap into balanced sub-rows under
- * ONE left label … 6→3+3, 7→4+3, 8→4+4, 9→5+4 … 10→5+5").
+ * ONE left label … 6→3+3, 7→4+3, 8→4+4, 9→5+4 … 10→5+5"). Gap 7 moved the cap
+ * to four for the 1280 acceptance frame (see `MAX_CARDS_PER_ROW`): 5→3+2 … 9→3+3+3.
  *
  * `ceil(n / MAX_CARDS_PER_ROW)` rows, sizes differing by at most one, the larger
  * rows FIRST — so reading order runs left to right, then down, and the final
@@ -180,8 +181,8 @@ function promptSlotWidth(promptKinds: readonly string[], gap: number): number {
  * the floor would draw a card narrower than its widest title word at the
  * counter-scale bound, which is the mid-word-break defect #758 shipped. With
  * today's constants the share never binds on a repeated tier (its cap IS the
- * floor), so a five-card row with its prompt overruns the budget — measured and
- * stated in `laptopFit.arithmetic.spec.ts` rather than hidden here.
+ * floor); a four-card row with its prompt (1424) sits inside the budget, which
+ * a five-card row (1740) did not — see `laptopFit.arithmetic.spec.ts`.
  *
  * ⭐ A SPLIT ROW KEEPS FULL CARD WIDTH. The retired gate dropped every card on
  * the board to `NODE_LAYOUT_MIN_W` as soon as any tier split; here a tier's width

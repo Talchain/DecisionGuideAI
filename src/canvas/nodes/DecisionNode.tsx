@@ -1,12 +1,18 @@
 /**
  * Decision ("Question") node component.
  *
+ * ⭐ PROTOTYPE ROW (Paul, 25 Sep 2026 — the canvas matches the prototype):
+ *   Title (the question, the data label verbatim) → ONE line:
+ *   "N alternatives", then " · Evidence priority: <factor>" ONLY when the
+ *   current run ranks a canvas factor first (unnamed / no options: the resting
+ *   line and its one CTA). The reasoning sentences (top gap, withheld-leader
+ *   disclosure, run-wide share absence) are OFF the row, whole, in the popover
+ *   or the Detailed body — see `focusDetail`.
+ *
  * ⭐ LOCKED CANVAS DESIGN (23 Sep 2026; ED 11:52Z point 1): WIDE AND SHALLOW.
  *   Title (the question) → ONE line: the option count and at most ONE
- *   reasoning-focus signal (pre-analysis: the top gap, clamped with full-text
- *   recovery; after a run: the withheld-leader disclosure or the run-wide
- *   absence of per-option shares; unnamed / no options: the resting line and
- *   its one CTA) → the rail (the ONE coaching icon — "Explore more options"
+ *   reasoning-focus signal (superseded 25 Sep: the signal was a clamped
+ *   sentence and was served cut mid-sentence) → the rail (the ONE coaching icon — "Explore more options"
  *   before a run, the typed "Challenge this result" after it — and the run
  *   action).
  * Detailed: adds the robustness line and the chip rows, same width.
@@ -33,8 +39,6 @@ import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodePopover } from './shared'
-import Tooltip from '../../components/Tooltip'
-import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
@@ -43,6 +47,11 @@ import { cleanFactorLabel } from '../utils/labelUtils'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 import { decisionLabelIsUnwritten } from '../domain/vocabulary'
+import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
+import { rankFactor } from './shared/rankFactor'
+import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
+import type { ResultsReport } from '../../components/results/types'
 
 /**
  * EVERY static string the resting state can render or send.
@@ -170,22 +179,66 @@ export const DECISION_READINESS_COPY = {
  *
  * `optionCount` cannot see any of it. It counts distinct option nodes this
  * decision has an outgoing edge to \u2014 a STRUCTURAL fact the canvas owns and can
- * defend. So the word is "options". Upgrading a count into a claim about
- * comparability that the data does not carry is exactly the fabrication this
- * card's tombstones record removing twice already.
+ * defend. Upgrading a count into a claim about comparability that the data does
+ * not carry is exactly the fabrication this card's tombstones record removing
+ * twice already.
  *
- * ## Zero is not `0 options`
+ * ## "ALTERNATIVES" IS THE PROTOTYPE'S NOUN FOR THE SAME COUNT (Paul, 25 Sep 2026)
+ *
+ * The word was "options" until Paul ruled, from live screenshots, that the
+ * canvas matches the PROTOTYPE: `olumi-canvas-visual-contract.html:192` reads
+ * "3 alternatives \u00b7 Evidence priority: conversion", and its layer label is
+ * ALTERNATIVES. The noun changes; the claim does not \u2014 still a count of linked
+ * option nodes, still not "comparable". `OPTION_BASELINE_REFERENCE` in
+ * `metricVocabulary` already says "the other alternatives". No ED ruling in
+ * DESIGN-AUTHORITY.md fixes "options" (5809278282 leaves the Question card
+ * unchanged). The coaching MESSAGES ("My model has N options so far") are sent
+ * text, not card copy, and keep their wording.
+ *
+ * ## Zero is not `0 alternatives`
  *
  * Returns `null` at zero, so every caller falls through to
  * `DECISION_RESTING_COPY.noOptionsLine` \u2014 "No options linked yet", which carries
  * a working CTA. A decision with no options is a STRUCTURAL absence with an
- * authoring act behind it, not a metric reading zero; stating "0 options" would
+ * authoring act behind it, not a metric reading zero; stating "0 alternatives" would
  * delete that affordance and present an absence as a finding. This keeps the two
  * apart rather than re-merging them.
  */
 export function composeOptionCountLine(optionCount: number): string | null {
   if (!Number.isFinite(optionCount) || optionCount <= 0) return null
-  return `${optionCount} option${optionCount === 1 ? '' : 's'}`
+  return `${optionCount} alternative${optionCount === 1 ? '' : 's'}`
+}
+
+/**
+ * The prototype's label for the second segment of the Question row
+ * (`olumi-canvas-visual-contract.html:192`: "3 alternatives · Evidence
+ * priority: conversion"). What follows the colon is ALWAYS a factor label the
+ * canvas carries — see `selectEvidencePriorityFactorId`.
+ */
+export const EVIDENCE_PRIORITY_LABEL = 'Evidence priority'
+
+/**
+ * The id of the factor ON THIS CANVAS that the run ranks first by sensitivity,
+ * or `null`.
+ *
+ * It ranks with `rankFactor` over `selectDriverPolicyFeed` — the exact reader
+ * behind the factor card's "Driver 1 of N" — so a tie at the top, or a leader
+ * the canvas does not hold, yields `null` rather than a guess. This only FINDS
+ * the candidate; the card still licenses it through the factor card's own
+ * currency and measured-influence gates before naming it.
+ */
+export function selectEvidencePriorityFactorId(
+  report: unknown,
+  nodes: ReadonlyArray<{ id: string; type?: string; data?: { type?: unknown } | null }>,
+): string | null {
+  if (!report || typeof report !== 'object') return null
+  const feed = selectDriverPolicyFeed(report as ResultsReport)
+  if (feed.policyRows.length === 0) return null
+  for (const node of nodes) {
+    if (node.type !== 'factor' && node.data?.type !== 'factor') continue
+    if (rankFactor(feed.policyRows, feed.displayModel, node.id).sensitivityRank === 1) return node.id
+  }
+  return null
 }
 
 /** Same separator the inspector's guidance line already renders. */
@@ -196,98 +249,19 @@ export function popoverLabel(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1)
 }
 
-/**
- * Truncate text at a word boundary — and NEVER inside a word.
- *
- * ⚠ THE OLD FALLBACK CLIPPED MID-WORD. When no space sat past 60% of the
- * measure it returned the raw `substring`, so `"Snowflake-Native"` could arrive
- * as `"Snowflake-Nativ…"`. That is the same harm this file's own triage-line
- * comment records being measured on deployed `384a2b4f` — a word cut before it
- * names the thing to go and fix — just reached through the helper instead of
- * through CSS.
- *
- * ⚠⚠ THIS IS NOT THE ONE OWNER, AND AN EARLIER DRAFT OF THIS COMMENT SAID IT
- * WAS. The false sentence claimed the exact property this change does not have,
- * so it is corrected here rather than deleted.
- *
- * ⚠ NO COUNT OF THE REPO'S TRUNCATION HELPERS APPEARS HERE, DELIBERATELY. Two
- * versions of that count have already been written and both were false; the
- * second cited `grep -rn 'function truncateAtWord' src/` as its derivation,
- * and that command cannot see a helper bound to a `const`, a method, or a
- * differently-named twin. What follows names only the specific bodies that
- * were compared, and how.
- *
- * · `canvas/nodes/OptionNode.tsx:38` — same name, same signature. At the
- *   merge-base `5b764fa6` the two bodies differed on exactly ONE line, the
- *   suffix (`'…'` here, `'...'` there). This PR rewrites THIS one only, so
- *   they now produce different output for the same input. Its live caller at
- *   `OptionNode.tsx:1415` (`truncateAtWord(chip.label, 30)`) still clips
- *   mid-word. Cited by the string as well as the line because staging's #1281
- *   moved that line from :1326 while this branch sat unmerged.
- * · `canvas/utils/labelUtils.ts:123 truncateLabelAtWord` — a DIFFERENT name,
- *   invisible to any grep for this one, and BEHAVIOURALLY IDENTICAL to the
- *   merge-base rule this PR replaces. Measured by execution over 20,000
- *   generated inputs at random measures: 0 differing, while the same probe
- *   scored 13,281 differing against `OptionNode`'s body as a contrast control.
- *   Its sources differ only in the function name and in how the ellipsis is
- *   SPELLED. It is reached from the exported `compactFactorLabel`, and
- *   `__tests__/DecisionNode.triageTruncation.spec.tsx` asserts it still carries
- *   the pre-PR rule — so the divergence is pinned, not merely described.
- * · `components/results/analysisNew/nameOrClaim.ts:137` — exported, same name,
- *   different rules: it normalises unicode spaces, and `if (lastSpace <= 0)
- *   return t` returns the input UNCHANGED when the first word overruns.
- *
- * Converging them is the remedy; it is ROWED as an explicit follow-up in the
- * PR body rather than done here, because #1226 is already open against
- * `OptionNode.tsx` and two of this lane's PRs on one file is the overlap that
- * cost an adjudication cycle earlier the same night (CLAUDE.md trap 16).
- *
- * The rule now: cut at the last space at or before the measure; if the first
- * word is longer than the measure, keep that whole word and cut after it; if
- * there is no space at all, the text is one word and is returned whole. A FOURTH
- * case those three do not describe: text that BEGINS with a space and whose next
- * space sits past the measure collapses to a bare `…`, because both boundary
- * searches land on index 0. Unreachable at ALL THREE call sites in this file
- * today, but not for one reason: the two triage lines each pass a label through
- * `cleanFactorLabel`, which `.trim()`s, and the anchor brief trims its own input
- * (`recordedBriefText.trim()`) before measuring. So it is documented, not
- * guarded — and a fourth call site that skipped trimming would reach it.
- *
- * ⚠ A SINGLE UNBROKEN TOKEN CAN EXCEED THE MEASURE, AND WHETHER ANYTHING
- * BOUNDS IT DEPENDS ON THE CALL SITE. There are THREE, and they do not agree —
- * the third arrived when `staging` was merged into this branch, so an earlier
- * draft of this paragraph saying "both call sites" was true when written and
- * false on arrival.
- *
- * · The two TRIAGE lines (`Top gap: estimate …` / `Top gap: validate …`,
- *   measure 40) render in a div with NO clamp and NO `break-words`, so the only
- *   bound is the token's own length — unbounded above, where the old rule
- *   capped the label at the measure plus one ellipsis character. That is the
- *   deliberate trade: a word cut open is worse than a word that overruns.
- * · The ANCHOR BRIEF (`ANCHOR_BRIEF_MAX_CHARS`, 160) is bounded by CSS and not
- *   by this function — `line-clamp-3 break-words` on the blockquote, with the
- *   full text on `title`. #1229 shipped that site against the OLD rule and said
- *   so in its own comment; this merge replaces the rule underneath it, and the
- *   new rule is strictly better THERE, because the box was never relying on the
- *   truncator to bound it and a hard mid-token cut bought nothing.
- *
- * ⚠ THE SIZE OF THAT TRADE IS NOT STATED HERE. An earlier draft of this
- * sentence gave "60 characters where the old rule gave 41"; 60 matches neither
- * frame of the fixture it described. The trade is now DERIVED IN-TEST by
- * `__tests__/DecisionNode.triageTruncation.spec.tsx`, in the label frame and
- * the whole-line frame, against the pre-PR rule reproduced verbatim — so it
- * cannot drift out of agreement with the code beneath it. That spec is jsdom
- * and therefore says nothing about pixels; clamping this line is rowed in the
- * PR body, not done here.
+/*
+ * ⛔ `truncateAtWord` IS GONE, BECAUSE NOTHING ON THIS CARD IS CUT ANY MORE
+ * (Paul, 25 Sep 2026: the live Question card read "3 options · A success
+ * target on your model can't be…" — truncated mid-sentence). Its only callers
+ * were the two triage lines' 40-character SHORT forms, painted in the one-line
+ * clamp on the card face. The prototype's row carries no such sentence, so the
+ * sentences moved OFF the resting card, whole, into the popover (Standard) or
+ * the Detailed body; with no clamp there is no short form to compute. The
+ * record of the rule it carried, and of its twins (`OptionNode.tsx`,
+ * `labelUtils.ts truncateLabelAtWord`, `analysisNew/nameOrClaim.ts`), is in
+ * this file's history and in `__tests__/DecisionNode.triageTruncation.spec.tsx`,
+ * which still pins the `labelUtils` twin.
  */
-function truncateAtWord(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  const lastSpace = text.lastIndexOf(' ', maxLength)
-  if (lastSpace > 0) return text.substring(0, lastSpace).trimEnd() + '\u2026'
-  const firstSpace = text.indexOf(' ')
-  if (firstSpace === -1) return text
-  return text.substring(0, firstSpace).trimEnd() + '\u2026'
-}
 
 // ---- Model readiness helpers ----
 
@@ -423,7 +397,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const showRunAnalysis = allFactorsPresent && goalDefined
 
   // ---- Triage line: single most important next action (pre-analysis only) ----
-  const triage = useMemo<{ short: string; full: string } | null>(() => {
+  const triage = useMemo<{ full: string } | null>(() => {
     if (isPostAnalysis) return null
 
     const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
@@ -440,7 +414,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       if (value == null && !(prior?.range_min != null && prior?.range_max != null)) {
         const rawLabel = (d.label as string | undefined) ?? ''
         const cleaned = cleanFactorLabel(rawLabel) || rawLabel
-        return { short: `Top gap: estimate ${truncateAtWord(cleaned, 40)}`, full: `Top gap: estimate ${cleaned}` }
+        return { full: `Top gap: estimate ${cleaned}` }
       }
     }
 
@@ -479,14 +453,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     if (topInferred) {
       const rawLabel = (topInferred.node.data?.label as string | undefined) ?? ''
       const cleaned = cleanFactorLabel(rawLabel) || rawLabel
-      return { short: `Top gap: validate ${truncateAtWord(cleaned, 40)}`, full: `Top gap: validate ${cleaned}` }
+      return { full: `Top gap: validate ${cleaned}` }
     }
 
     // 3. Goal has no threshold
-    if (!goalDefined) return { short: 'Top gap: set a success target', full: 'Top gap: set a success target' }
+    if (!goalDefined) return { full: 'Top gap: set a success target' }
 
     // 4. Fewer than 3 options
-    if (optionNodes.length < 3) return { short: 'Top gap: explore more options', full: 'Top gap: explore more options' }
+    if (optionNodes.length < 3) return { full: 'Top gap: explore more options' }
 
     // 5. Model is reasonably complete — no triage line
     return null
@@ -765,6 +739,44 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    */
   const showSupportShareAbsent = isPostAnalysisBranch && supportShareRunWideAbsent
 
+  /**
+   * ⭐ "Evidence priority: <factor>" — the prototype's second segment, read
+   * from the RUN, never composed by the canvas. It names the factor the current
+   * run ranks FIRST by sensitivity: the same rank, from the same reader and the
+   * same licence, that the factor card states as "Driver 1 of N"
+   * (`useNodeDisplayMetadata` → `useInfluenceRank` → `driverRankFor`, plus the
+   * card's own measured-influence condition). So the two cards cannot disagree
+   * about which factor leads.
+   *
+   * Omitted — never substituted — when: there is no completed run; the run is
+   * not current; the top is a tie; the ranked factor is not on this canvas (the
+   * report's own label is not used); or the factor has no label.
+   */
+  const evidencePriorityFactorId = useMemo(
+    () => (isPostAnalysisBranch ? selectEvidencePriorityFactorId(report, nodes) : null),
+    [isPostAnalysisBranch, report, nodes],
+  )
+  const evidencePriorityMeta = useNodeDisplayMetadata(evidencePriorityFactorId ?? '', 'factor')
+  const evidencePriorityReadout = useInfluenceRank(
+    evidencePriorityMeta.sensitivityRank,
+    evidencePriorityMeta.influenceSetSize,
+  )
+  const evidencePriority = useMemo<{ factorId: string; label: string } | null>(() => {
+    if (evidencePriorityFactorId === null) return null
+    const rank = driverRankFor(
+      evidencePriorityReadout,
+      evidencePriorityMeta.sensitivityRank,
+      evidencePriorityMeta.influenceSetSize,
+      false,
+      evidencePriorityMeta.influenceRankedCount,
+    )
+    if (rank?.rank !== 1) return null
+    if (evidencePriorityMeta.influence == null || evidencePriorityMeta.influenceProvenance == null) return null
+    const rawLabel = nodes.find(n => n.id === evidencePriorityFactorId)?.data?.label
+    const label = typeof rawLabel === 'string' ? rawLabel.trim() : ''
+    return label.length > 0 ? { factorId: evidencePriorityFactorId, label } : null
+  }, [evidencePriorityFactorId, evidencePriorityReadout, evidencePriorityMeta, nodes])
+
   // ⛔ `showSupportShareAbsent` IS DELIBERATELY NOT A CONJUNCT HERE, AND IT WAS
   // ONCE. `bodyHasContent` gates `{!bodyHasContent && bodyFallback}` and
   // `bodyFallback` IS the resting state, so adding it displaced that block in
@@ -964,41 +976,55 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   )
 
   /**
-   * ⭐ ONE reasoning-focus signal, clamped to one line with FULL-TEXT RECOVERY
-   * for every input class: the shared focusable tooltip (hover and keyboard)
-   * and a screen-reader copy of the full sentence (ED 02:31Z: "do not rely on
-   * native `title` as the only full-text recovery for a one-line clamp").
+   * ⭐⭐ THE REASONING SENTENCE IS OFF THE RESTING CARD, AND WHOLE WHERE IT WENT
+   * (Paul, 25 Sep 2026, from live screenshots: the card must match the
+   * PROTOTYPE, whose row is "3 alternatives · Evidence priority: conversion" —
+   * one clean line). Served, the row's second segment was a SENTENCE clamped to
+   * one line: "3 options · A success target on your model can't be…".
+   * A word-boundary clamp still cut the sentence; no clamp can fit a sentence
+   * of unbounded length into a fixed row.
    *
-   * ⭐ THE CLAMP BREAKS AT A WORD (polish #4, Paul's staging 24 Sep: "3 options
-   * A success target on your model can't be eval…"). It was `truncate` —
-   * `nowrap` + `text-overflow: ellipsis`, whose ellipsis is CHARACTER-granular,
-   * so it cut wherever the width ran out. `line-clamp-1` on a WRAPPING run
-   * breaks the line at a word and shows only that first line: still ONE line
-   * (no card grows at any rung), full sentence still in the tooltip and the
-   * `.sr-only` copy. Same shape as `ActionNode`'s `line-clamp-1 break-words`.
-   * The clamp is on the painted inner span, so its own box is one line.
+   * So the three sentences that used to be the row's "focus signal" — the
+   * pre-run top gap, the withheld-leader disclosure, the run-wide absence of
+   * per-option shares — keep their selection logic and test ids unchanged and
+   * render WHOLE, with no clamp and no ellipsis:
+   *   · Standard: in the node popover, which already carries this card's
+   *     detail before and after a run;
+   *   · Detailed after a run: in the body (there is no post-run popover there);
+   *   · and a `.sr-only` copy stays on the card whenever the visible copy is in
+   *     the popover, so a screen reader reaches it without a hover (ED 02:31Z's
+   *     full-text-recovery rule, kept).
+   * Unnamed and no-option cards keep their resting line and CTA on the row.
    */
-  const clampedSignal = (testId: string, short: string, full: string, extra?: Record<string, string>) => (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={full}>
-      <span
-        tabIndex={0}
-        data-node-tooltip="true"
-        data-testid={testId}
-        {...extra}
-        className={`${typography.edgeLabel} min-w-0 flex-1 overflow-hidden text-text-light focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
-      >
-        {/* The clamp sits on the span that PAINTS the text, not its wrapper:
-            clamped on the wrapper, this inline span's box still spanned the
-            hidden second line, which ran under the hover action row
-            (Canvas Browser Gate, 24 Sep, `dec_cdp`, 649.6px² "covered").
-            ⛔ NEVER add `block` here: Tailwind emits `.block` after
-            `.line-clamp-1`, so it wins and the clamp does nothing (review
-            5822943043 at c781dd5f: 3 visible lines; InferenceWarningStrip.tsx:157). */}
-        <span aria-hidden="true" className="line-clamp-1 break-words">{short}</span>
-        <span className={typography.screenReaderOnly}>{full}</span>
-      </span>
-    </Tooltip>
-  )
+  const focusDetail: { testId: string; text: string; extra?: Record<string, string> } | null =
+    isUnnamed || (!isPostAnalysisBranch && !isPreAnalysisBranch)
+      ? null
+      : isPostAnalysisBranch
+        ? withheldLeader
+          ? {
+              testId: 'decision-leader-withheld',
+              text: withheldLeader.suggestion.length > 0 ? `${withheldLeader.title} ${withheldLeader.suggestion}` : withheldLeader.title,
+              extra: { 'data-withheld-code': withheldLeader.code },
+            }
+          : showSupportShareAbsent
+            ? {
+                testId: 'decision-support-share-absent',
+                text: 'On the data so far, this run gave no share of runs for the options. Compare them on what each one changes.',
+              }
+            : null
+        : triage
+          ? { testId: 'decision-node-top-gap', text: triage.full }
+          : null
+  const focusDetailInBody = isDetailed && isPostAnalysisBranch
+  const focusDetailLine = focusDetail !== null ? (
+    <div
+      data-testid={focusDetail.testId}
+      {...focusDetail.extra}
+      className={`${typography.edgeLabel} break-words text-text-light`}
+    >
+      {focusDetail.text}
+    </div>
+  ) : null
 
   const restingCta = resting.cta && canAsk ? (
     <button
@@ -1025,23 +1051,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       {restingCta !== null && rowMetaSeparator}
       {restingCta}
     </>
-  ) : isPostAnalysisBranch ? (
-    withheldLeader
-      ? clampedSignal(
-          'decision-leader-withheld',
-          withheldLeader.title,
-          withheldLeader.suggestion.length > 0 ? `${withheldLeader.title} ${withheldLeader.suggestion}` : withheldLeader.title,
-          { 'data-withheld-code': withheldLeader.code },
-        )
-      : showSupportShareAbsent
-        ? clampedSignal(
-            'decision-support-share-absent',
-            'No per-option share from this run',
-            'On the data so far, this run gave no share of runs for the options. Compare them on what each one changes.',
-          )
-        : null
-  ) : triage ? (
-    clampedSignal('decision-node-top-gap', triage.short, triage.full)
+  ) : evidencePriority !== null ? (
+    <span
+      data-testid="decision-evidence-priority"
+      data-factor-id={evidencePriority.factorId}
+      className={`${typography.edgeLabel} min-w-0 break-words text-text-light`}
+    >
+      {`${EVIDENCE_PRIORITY_LABEL}: ${evidencePriority.label}`}
+    </span>
   ) : null
 
   // The card's ONE coaching question (rail): before a run, "Explore more
@@ -1120,14 +1137,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             count + at most one reasoning-focus signal, coaching behind the one
             icon. Do not echo the whole brief").
 
-            ONE line under the title: how many options are in play, and at most
-            ONE reasoning-focus signal —
-              · pre-analysis: the top gap (clamped to one line; the full
-                sentence is its tooltip AND its accessible text — ED 02:31Z:
-                native `title` alone is not full-text recovery);
-              · after a run: the withheld-leader disclosure, else the run-wide
-                absence of per-option shares;
+            ONE line under the title (prototype, Paul 25 Sep 2026): how many
+            alternatives are in play, and — after a CURRENT run only — the
+            factor it ranks first, "Evidence priority: <label>";
               · unnamed / no options: the resting line and its one CTA.
+            The reasoning sentences that used to be the second segment are off
+            the row, whole (`focusDetail`).
             The coaching chips ("Explore more options", "Challenge this result")
             are the rail's ONE coaching icon — typed `what_would_flip` kept typed.
             Detailed adds the robustness line and the chip rows, as before. */}
@@ -1154,6 +1169,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           {optionCountLineText !== null && focusSignal !== null && rowMetaSeparator}
           {focusSignal}
         </div>
+        {/* The row's reasoning sentence, off the row (see `focusDetail`): a whole
+            line in the Detailed body after a run, where no popover mounts;
+            otherwise the popover carries it and AT gets this card-side copy. */}
+        {focusDetailInBody && focusDetailLine !== null && <div className="mt-1">{focusDetailLine}</div>}
+        {!focusDetailInBody && focusDetail !== null && (
+          <span data-testid="decision-focus-signal-sr" className={typography.screenReaderOnly}>
+            {focusDetail.text}
+          </span>
+        )}
         {isDetailed && showStabilityLine && robustnessVerdict && (
           <div
             className={`${typography.edgeLabel} text-text-light mt-1`}
@@ -1174,6 +1198,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
+          {focusDetailLine !== null && <div className="mb-1.5">{focusDetailLine}</div>}
           <div className={`${typography.edgeLabel} text-text-body space-y-1`}>
             <div className="font-medium text-text-header">Model readiness</div>
             {readiness.explicitCount > 0 && (
@@ -1225,6 +1250,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               against the option cards' support bar without being told they
               were the same number. There is no licensed robustness
               percentage, so there is no bar and no figure. */}
+          {focusDetailLine !== null && <div className="mb-1.5">{focusDetailLine}</div>}
           {robustnessVerdict && (
             <div className={`${typography.edgeLabel} text-text-body space-y-1.5`}>
               <div className="font-medium text-text-header">Robustness</div>

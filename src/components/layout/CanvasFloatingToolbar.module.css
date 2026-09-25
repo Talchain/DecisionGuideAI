@@ -43,7 +43,9 @@
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border-default);
-  border-radius: 16px;
+  /* contract v3.1 `.canvas-tools{border-radius:12px}` — both toolbars (the
+     contract's `.zoom-tools` is a `.canvas-tools` too). Was 16px. */
+  border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
@@ -55,7 +57,10 @@
 
 .viewportControls {
   composes: surface;
-  bottom: 12px;
+  /* contract v3.1 `.zoom-tools{bottom:40px}`. Was 12px. The footer summary
+     draws right of this column (`OVERLAY_BAND_LEFT_PAD`), so they cannot meet;
+     `DebugPanel`'s launcher is anchored above this offset and moves with it. */
+  bottom: 40px;
 }
 
 .group {

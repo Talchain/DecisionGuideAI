@@ -18,7 +18,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, cleanup } from '@testing-library/react'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -84,9 +84,21 @@ afterEach(() => {
   useGuidanceStore.setState(ASK_SURFACE_NULLS as never)
 })
 
-/** The card's own face — BaseNode's root group, which excludes the sibling popover. */
+/**
+ * The card's own face — BaseNode's root group, which excludes the sibling
+ * popover.
+ *
+ * ⛔ UPDATED 24 Sep 2026 (GAP-36, DESIGN-GAP-AUDIT-20260924.md row 36;
+ * contract §01): the accessible name changed shape from "<code id> node:
+ * <label>." to "<Kind>: <label>. Open details." — the literal word "node" is
+ * gone (a screen reader now hears "Factor: Demand", not "factor node:
+ * Demand"). The colon immediately before the label is the one thing common
+ * to every kind's name under BOTH the old and new template, so matching on
+ * that alone (rather than re-adding a specific kind word here) keeps this
+ * helper correct regardless of which of the six kinds a given call names.
+ */
 const faceOf = (label: string) =>
-  screen.getByRole('group', { name: new RegExp(`node: ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
+  screen.getByRole('group', { name: new RegExp(`: ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) })
 
 // Make NodePopover transparent so we can read its rendered content directly
 // (otherwise the popover is hidden behind a 300ms hover delay).
@@ -431,15 +443,12 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // the old delta list (spec §4 change rows). The reference IDENTITY is kept —
     // on the change row it qualifies, as that row's recovery title.
     expect(screen.queryByText('Reference: Keep current hiring')).toBeNull()
-    // ⭐ BOUNDED ANATOMY (ED #63 5809278282, 24 Sep 2026: "Option = top change
-    // pre-run … The fuller S3 reasoning detail — change rows … — can move to the
-    // existing hover/focus popover"): the change row lives in the option's
-    // popover detail; the FACE carries ONE line, which is this same change.
-    const row = within(optionPreviewDetail('option-1')!).getByTestId('option-change-row-option-1-factor-1')
-    expect(within(face).queryByTestId('option-change-row-option-1-factor-1')).toBeNull()
-    const faceLine = within(face).getByTestId('option-primary-change-option-1')
-    expect(faceLine.getAttribute('data-factor-id')).toBe('factor-1')
-    expect(faceLine.getAttribute('title')).toContain('From Keep current hiring (the baseline option)')
+    // ⭐ THE FACE IS THE CHANGE ROWS (Paul 25 Sep: the prototype supersedes ED #63
+    // 5809278282's one-line face and its popover rows). The row is on the face,
+    // rendered once, and its title names the baseline it is measured from.
+    const row = within(face).getByTestId('option-change-row-option-1-factor-1')
+    expect(within(optionCardRows('option-1')).getByTestId('option-change-row-option-1-factor-1')).toBe(row)
+    expect(within(face).queryByTestId('option-primary-change-option-1')).toBeNull()
     expect(row.getAttribute('title')).toContain('From Keep current hiring (the baseline option)')
     // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
     // "9 engineers"), so the change reads "3 engineers → 9 engineers".
@@ -454,10 +463,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // changes — it still does: `OptionNode.differentiatorOnlyWhenAdditive.spec`.)
     expect(row.textContent).toContain('9 engineers')
     expect(row.textContent).toContain('→')
-    // Every OTHER paragraph — the face's own change line is the one legitimate
-    // `<p>` carrying an arrow now, so it is excluded BY IDENTITY, not by text.
+    // Every paragraph: the rows are `<dd>`s, so no `<p>` on the card or in the
+    // popover may carry an arrow (the retired one-line face was the only
+    // exception, and it is gone).
     const allPs = Array.from(container.querySelectorAll('p'))
-      .filter(p => p.getAttribute('data-testid') !== 'option-primary-change-option-1')
     const differentiatorP = allPs.find(p => p.textContent?.includes('→'))
     expect(differentiatorP).toBeUndefined()
     expect(screen.queryByTestId('option-differentiator-option-1')).toBeNull()
@@ -476,12 +485,10 @@ describe('Render matrix — OptionNode × view × phase', () => {
     })
     const { container } = renderOption({})
     // No differentiator <p> should exist — both would produce identical text.
-    // Bounded anatomy (ED #63 5809278282): the face's one change line is a `<p>`
-    // with an arrow by design — excluded by identity; every other `<p>`, the
-    // popover's included, is scanned as before.
-    expect(screen.getByTestId('option-primary-change-option-1')).toBeTruthy()
+    // Positive control: the option's own change row IS on the face (a `<dd>`,
+    // so the `<p>` scan below cannot be satisfied by it — Paul 25 Sep).
+    expect(within(optionCardRows('option-1')).getByTestId('option-change-row-option-1-factor-1')).toBeTruthy()
     const allPs = Array.from(container.querySelectorAll('p'))
-      .filter(p => p.getAttribute('data-testid') !== 'option-primary-change-option-1')
     const differentiatorP = allPs.find(
       p => p.textContent?.includes('→') || /key difference/i.test(p.textContent ?? '')
     )
@@ -1635,25 +1642,24 @@ describe('N1 — per-type selection ring', () => {
     expect(group.className).toContain('ring-info/60')
   })
 
-  it('N3: a node in editedSinceRunNodeIds wears the amber edited dot', () => {
+  /**
+   * ⛔⛔ UPDATED 24 Sep 2026 (GAP-11, DESIGN-GAP-AUDIT-20260924.md row 11; Paul
+   * v3.1 pt14). The per-card amber "edited since run" dot is REMOVED — it
+   * duplicated the single graph-level stale cue the canvas already carries
+   * (`AnalysisStateCue`), and pt14 asks for ONE overall analysis-state cue,
+   * not one repeated per touched card. These two tests used to assert the
+   * dot's presence and accessible name; both are replaced by one twin test
+   * proving the removal is UNCONDITIONAL — the dot never renders even when
+   * `editedSinceRunNodeIds` names this exact node — plus the third (below,
+   * unchanged) which already asserted the negative case and needed no edit.
+   */
+  it('N3: a node in editedSinceRunNodeIds no longer wears any per-card dot (GAP-11)', () => {
     vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
       sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
     )
     render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
-    expect(screen.getByTestId('edited-since-run-factor-1')).toBeInTheDocument()
-  })
-
-  it('N3: the edited dot carries the ratified accessible name (screen readers, not just hover)', () => {
-    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
-      sel({ ...nodeState([]), editedSinceRunNodeIds: new Set(['factor-1']) }),
-    )
-    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
-    // A bare span with only `title` has no accessible name for most screen
-    // readers — the ratified N3 spec requires the dot itself to announce
-    // "Edited since the last analysis".
-    expect(screen.getByRole('img', { name: 'Edited since the last analysis' })).toBe(
-      screen.getByTestId('edited-since-run-factor-1'),
-    )
+    expect(screen.queryByTestId('edited-since-run-factor-1')).toBeNull()
+    expect(screen.queryByRole('img', { name: 'Edited since the last analysis' })).toBeNull()
   })
 
   it('N3: no edited dot when the node is not in the set (and no crash without the slice)', () => {

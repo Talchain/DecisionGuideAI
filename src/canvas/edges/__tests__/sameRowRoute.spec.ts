@@ -4,7 +4,13 @@
  * `StyledEdge.sameRowRoute.spec.tsx`; this pins the selection rules.
  */
 import { describe, it, expect } from 'vitest'
-import { resolveSameRowRoute, routeBoxOf, SAME_ROW_MIN_OVERLAP, type RouteBox } from '../sameRowRoute'
+import {
+  resolveSameRowRoute,
+  routeBoxOf,
+  SAME_ROW_MIN_OVERLAP,
+  UNDER_ROW_CLEARANCE,
+  type RouteBox,
+} from '../sameRowRoute'
 
 const box = (id: string, x: number, y = 324, width = 248, height = 117): RouteBox => ({ id, x, y, width, height })
 // A five-card row, 32-unit gutters.
@@ -58,21 +64,152 @@ describe('the label anchor sits ON the drawn path', () => {
     ['A → C (one card between)', A, C],
     ['A → D (two cards between)', A, D],
     ['E → A (target to the LEFT)', E, A],
-  ])('under, %s: the midpoint of the horizontal gutter run', (_label, s, t) => {
+  ])('under, %s: the midpoint of the arc (t = 0.5)', (_label, s, t) => {
     const route = resolveSameRowRoute(s, t, othersFor(s, t))!
     expect(route.kind).toBe('under')
-    // The straight run is `... ,LOW L X2,LOW ...`, entered from `X1,LOW`.
-    const m = /Q[-\d.]+,[-\d.]+ ([-\d.]+),([-\d.]+) L([-\d.]+),([-\d.]+)/.exec(route.path)
-    expect(m, `PRECONDITION: the under path has a straight gutter run — ${route.path}`).not.toBeNull()
-    const [x1, y1, x2, y2] = m!.slice(1).map(Number)
-    expect(y1).toBe(y2)
+    const pts = samplePath(route.path)
+    expect(pts.length, `PRECONDITION: the under path parses — ${route.path}`).toBeGreaterThan(10)
+    const mid = pts[Math.floor(pts.length / 2)]
     expect(route.labelAnchor).not.toBeNull()
-    expect(route.labelAnchor!.y).toBe(y1)
-    expect(route.labelAnchor!.x).toBeCloseTo((x1 + x2) / 2, 5)
+    expect(route.labelAnchor!.x).toBeCloseTo(mid.x, 0)
+    expect(route.labelAnchor!.y).toBeCloseTo(mid.y, 0)
     // Below the row, never on a card.
     expect(route.labelAnchor!.y).toBeGreaterThan(s.y + s.height)
   })
 })
+
+/**
+ * ⭐ PAUL'S 25 SEP SCREENSHOT: two same-row links whose spans overlap by one card
+ * (salary → capacity over admin; admin → higher-value time over capacity) drew
+ * their flat gutter runs ON TOP of each other for a whole card slot, so they read
+ * as one cable. Bound by edge id; the run-sharing length is measured on the
+ * drawn geometry.
+ */
+describe('overlapping same-row spans stay individually traceable', () => {
+  const OUTCOME = box('outcome', 280, 324 + 117 + 60)
+  const routeOf = (s: RouteBox, t: RouteBox) => resolveSameRowRoute(s, t, [...othersFor(s, t), OUTCOME])!
+  const eSalCap = routeOf(A, C) // e-sal-cap: a → c, one card (b) between
+  const eDawHvt = routeOf(B, D) // e-daw-hvt: b → d, one card (c) between
+
+  it('the two routes share less than 40 units of drawn length (a flat run shared ~220)', () => {
+    expect(eSalCap.kind).toBe('under')
+    expect(eDawHvt.kind).toBe('under')
+    const a = samplePath(eSalCap.path)
+    const b = samplePath(eDawHvt.path)
+    let shared = 0
+    for (let i = 1; i < a.length; i++) {
+      const p = a[i]
+      const near = b.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 3)
+      if (near) shared += Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y)
+    }
+    expect(shared).toBeLessThan(40)
+  })
+
+  it('each arc clears the card in the next sub-row by at least 8 units', () => {
+    for (const r of [eSalCap, eDawHvt]) {
+      const lowestY = Math.max(...samplePath(r.path).map((p) => p.y))
+      expect(lowestY).toBeLessThanOrEqual(OUTCOME.y - 8)
+    }
+  })
+
+  it('CONTRAST: the adjacent pair c → b still takes the side route', () => {
+    expect(routeOf(C, B).kind).toBe('side')
+  })
+})
+
+/**
+ * ⭐ REVIEW 2033 (blocking): the `under` arc's cubic dips `0.75·h` below its
+ * ends only AT t = 0.5. Both control points sit straight below their own
+ * ends, so the curve is SHALLOWER over a between card's left and right
+ * edges — when that card is taller than the ends, the arc climbs back INTO
+ * it well before and after the midpoint. Six configurations from the
+ * reviewer's repro: cards 260 wide, 56-unit gaps, source → between `m` →
+ * target, samples across `m`'s whole x-range (not just its centre).
+ */
+describe('the under arc clears the WHOLE between card, not just its centre (review 2033)', () => {
+  const GAP = 56
+  const CARD_W = 260
+  const mkCard = (id: string, x: number, height: number): RouteBox => ({ id, x, y: 0, width: CARD_W, height })
+
+  const configs: Array<{ label: string; sh: number; mh: number; th: number; reverse?: boolean }> = [
+    { label: '140/140/140', sh: 140, mh: 140, th: 140 },
+    { label: '140/180/140', sh: 140, mh: 180, th: 140 },
+    { label: '140/220/140', sh: 140, mh: 220, th: 140 },
+    { label: '140/320/140', sh: 140, mh: 320, th: 140 },
+    { label: '140/260/140, right→left', sh: 140, mh: 260, th: 140, reverse: true },
+    { label: '100/220/160', sh: 100, mh: 220, th: 160 },
+  ]
+
+  it.each(configs)(
+    '$label: every sample inside m\'s x-range clears m.bottom + UNDER_ROW_CLEARANCE',
+    ({ sh, mh, th, reverse }) => {
+      const left = mkCard('left', 0, sh)
+      const m = mkCard('m', CARD_W + GAP, mh)
+      const right = mkCard('right', (CARD_W + GAP) * 2, th)
+      const [s, t] = reverse ? [right, left] : [left, right]
+      const route = resolveSameRowRoute(s, t, [m])!
+      expect(route.kind, `PRECONDITION: this is an under route — ${JSON.stringify(route)}`).toBe('under')
+
+      const pts = samplePath(route.path, 2500)
+      expect(pts.length, 'PRECONDITION: >= 2,000 sampled points').toBeGreaterThanOrEqual(2000)
+
+      const inRange = pts.filter((p) => p.x >= m.x && p.x <= m.x + m.width)
+      expect(inRange.length, "PRECONDITION: some samples fall inside m's x-range").toBeGreaterThan(0)
+
+      const required = m.y + m.height + UNDER_ROW_CLEARANCE
+      const worst = Math.min(...inRange.map((p) => p.y - required))
+      for (const p of inRange) {
+        expect(p.y, `x=${p.x}: worst clearance in range was ${worst.toFixed(1)}`).toBeGreaterThanOrEqual(required)
+      }
+    },
+  )
+})
+
+/**
+ * Samples an `M … L … Q … C …` path (absolute commands only) into points.
+ * `curveSteps` controls the subdivisions per `C`/`Q`/`L` segment (default 40,
+ * matching the original fixed resolution); pass a higher value for a
+ * finer-grained clearance check across a whole segment's x-range.
+ */
+function samplePath(d: string, curveSteps = 40): Array<{ x: number; y: number }> {
+  const cSteps = curveSteps * 2
+  const tok = d.match(/[MLQC]|-?\d+(?:\.\d+)?/g) ?? []
+  const pts: Array<{ x: number; y: number }> = []
+  let i = 0
+  let cx = 0
+  let cy = 0
+  const num = () => Number(tok[i++])
+  while (i < tok.length) {
+    const cmd = tok[i++]
+    if (cmd === 'M') {
+      cx = num(); cy = num(); pts.push({ x: cx, y: cy })
+    } else if (cmd === 'L') {
+      const x = num(), y = num()
+      for (let s = 1; s <= curveSteps; s++) pts.push({ x: cx + ((x - cx) * s) / curveSteps, y: cy + ((y - cy) * s) / curveSteps })
+      cx = x; cy = y
+    } else if (cmd === 'Q') {
+      const x1 = num(), y1 = num(), x = num(), y = num()
+      for (let s = 1; s <= curveSteps; s++) {
+        const t = s / curveSteps, u = 1 - t
+        pts.push({ x: u * u * cx + 2 * u * t * x1 + t * t * x, y: u * u * cy + 2 * u * t * y1 + t * t * y })
+      }
+      cx = x; cy = y
+    } else if (cmd === 'C') {
+      const x1 = num(), y1 = num(), x2 = num(), y2 = num(), x = num(), y = num()
+      for (let s = 1; s <= cSteps; s++) {
+        const t = s / cSteps, u = 1 - t
+        pts.push({
+          x: u * u * u * cx + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,
+          y: u * u * u * cy + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y,
+        })
+      }
+      cx = x; cy = y
+    } else {
+      break
+    }
+  }
+  return pts
+}
 
 describe('CONTRAST — not a same-row pair → null (the caller keeps its path)', () => {
   it('a card in the next row down', () => {

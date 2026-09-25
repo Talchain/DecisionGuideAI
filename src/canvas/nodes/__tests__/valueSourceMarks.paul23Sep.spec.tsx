@@ -60,7 +60,7 @@ import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
-import { optionPreviewDetail } from './__helpers__/optionPreview'
+import { optionCardRows } from './__helpers__/optionPreview'
 import { interventionTargetSourceMark } from '../shared/valueSourceMark'
 
 type N = { id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }
@@ -201,12 +201,12 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     // 'inferred'` still on the node. The value's mark would say `est.`.
     setState()
     const { container } = renderNode(FactorNode, 'fac-range')
-    // ED #63 5809278282 (bounded anatomy): in Standard the range line is the
-    // factor's POPOVER content, not the face — and its mark travels with it.
+    // Prototype (Paul 25 Sep, superseding ED #63 5809278282): in Standard the
+    // range line is back ON the face — and its mark travels with it.
     const face = container.querySelector('[role="group"]')!
     expect(face.querySelector('[data-testid="node-title"]')?.textContent).toBeTruthy()
-    expect(face.querySelector('[data-testid="factor-prior-range-fac-range"]')).toBeNull()
-    const range = container.querySelector('[data-testid="node-popover"] [data-testid="factor-prior-range-fac-range"]')
+    expect(container.querySelector('[data-testid="node-popover"] [data-testid="factor-prior-range-fac-range"]')).toBeNull()
+    const range = face.querySelector('[data-testid="factor-prior-range-fac-range"]')
     expect(range).toBeTruthy()
     expect(range!.querySelector('[data-testid="estimate-marker"]')).toBeNull()
     expect(range!.textContent ?? '').not.toMatch(/filled in for you|est\./)
@@ -218,8 +218,8 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
 
 describe('Paul 23 Sep point 7 — an option change row says where its TARGET came from', () => {
   const rowMark = (_container: HTMLElement, opt: string, fid: string): string | null => {
-    // Bounded anatomy: the rows live in the option's popover detail — read THERE.
-    const dd = optionPreviewDetail(opt)?.querySelector(`[data-testid="option-change-row-${opt}-${fid}"]`)
+    // The rows are ON THE CARD at rest (Paul 25 Sep, the prototype) — read THERE.
+    const dd = optionCardRows(opt).querySelector(`[data-testid="option-change-row-${opt}-${fid}"]`)
     if (!dd) return 'NO-ROW'
     if (dd.querySelector(`[data-testid="option-change-row-estimate-${opt}-${fid}"]`)) return 'olumi'
     const m = dd.querySelector(`[data-testid="option-change-row-source-${opt}-${fid}"]`)
@@ -279,23 +279,18 @@ describe('Paul 23 Sep point 7 — an option change row says where its TARGET cam
     expect(rowMark(container, 'opt-a', 'fac-you')).toBe('unknown')
   })
 
-  it('the 2-row bound is unchanged', () => {
+  it('both of opt-a\'s changes are rows (the resting bound is three — Paul 25 Sep; it was two)', () => {
     setState()
     renderNode(OptionNode, 'opt-a')
-    expect(optionPreviewDetail('opt-a')!.querySelectorAll('[data-testid="option-change-rows-opt-a"] dd')).toHaveLength(2)
+    expect(optionCardRows('opt-a').querySelectorAll('dd')).toHaveLength(2)
   })
 
-  it('the FACE keeps its value marked: the one line carries the SAME mark as that factor\'s row', () => {
+  it('the resting FACE is the rows: no one-line face, and every row on the card keeps its own mark', () => {
     setState()
     const { container } = renderNode(OptionNode, 'opt-a')
-    const line = container.querySelector('[data-testid="option-primary-change-opt-a"]')
-    expect(line, 'the face line renders').not.toBeNull()
-    expect(optionPreviewDetail('opt-a')!.contains(line!)).toBe(false)
-    const fid = line!.getAttribute('data-factor-id')!
-    const faceMark = line!.querySelector('[data-testid="option-primary-change-source-opt-a"]')!.getAttribute('data-value-source')
-    expect(['you', 'olumi']).toContain(faceMark)
-    // Same factor, same mark, in both places (the row reports `est.` as 'olumi').
-    expect(rowMark(container, 'opt-a', fid)).toBe(faceMark)
+    expect(container.querySelector('[data-testid="option-primary-change-opt-a"]')).toBeNull()
+    expect(rowMark(container, 'opt-a', 'fac-you')).toBe('you')
+    expect(rowMark(container, 'opt-a', 'fac-est')).toBe('olumi')
   })
 
   it.each([

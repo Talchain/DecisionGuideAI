@@ -105,6 +105,22 @@ export function turningPointUnitsCompatible(
   return a.canonical.toLowerCase() === b.canonical.toLowerCase()
 }
 
+/**
+ * ⭐ ONE OWNER FOR "MAY THIS TURNING POINT PRINT ITS NUMBER?" — the display
+ * scale (ROADMAP 2.1371) AND compatible units. `factorUnit` `undefined` means
+ * the caller has no unit to check against (the factor carries no numeric
+ * value), so the display-scale gate alone applies. The track reads it to
+ * decide number-and-track; `FactorNode` reads it to decide whether the TOP
+ * driver's turning point may sit on the resting card, where the prototype's
+ * caption is never shown without its number.
+ */
+export function turningPointNumberPrints(
+  turningPoint: Pick<FactorTurningPoint, 'displayScale' | 'unit'>,
+  factorUnit: string | null | undefined,
+): boolean {
+  return turningPoint.displayScale && (factorUnit === undefined || turningPointUnitsCompatible(turningPoint.unit, factorUnit))
+}
+
 /** Every factor with a found turning point, keyed by node id. */
 export function selectTurningPoints(report: unknown): Map<string, FactorTurningPoint> {
   const out = new Map<string, FactorTurningPoint>()

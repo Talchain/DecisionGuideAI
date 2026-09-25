@@ -1,41 +1,35 @@
 /**
- * ⭐ BOUNDED ANATOMY — THE OPTION CARD IS TITLE + ONE PRIMARY LINE, AT EVERY RUNG
- * (Standard view). Experience Design, #63 5809278282, 24 Sep 2026:
+ * ⭐ RESTING ANATOMY — THE OPTION CARD IS TITLE + ITS CHANGE ROWS, AT EVERY RUNG
+ * (Standard view).
  *
- *   "Landing / quiet: repeated cards may reduce to title + one primary line
- *    inside the fixed fit-safe box. Option = top change pre-run or
- *    current-model share post-run … The fuller S3 reasoning detail — change
- *    rows, driver wording, turning-point explanation/findings — can move to the
- *    existing hover/focus popover and inspector rather than expanding layout
- *    geometry … Never hide provenance or staleness in tooltip-only copy."
+ * ⛔ SUPERSEDED BY PAUL, 25 Sep 2026: this file used to pin Experience Design's
+ * bounded anatomy (#63 5809278282, "title + ONE primary line … the fuller S3
+ * detail — change rows … — can move to the popover"). Paul ruled from live
+ * screenshots that the canvas must match the PROTOTYPE, whose option card shows
+ * one ROW per concrete change at rest, and that where ED's one-line body
+ * conflicts with the prototype, THE PROTOTYPE WINS. The file keeps its name (so
+ * its history stays one `git log` away) and every pin that still holds:
  *
- * WHY (measured by the lead): at 1280×800 with the dock open the landing zoom
- * is the 0.5 floor, `--canvas-label-scale` 2, ~19 characters a line; the layout
- * reserves each card's height AT that bound, so every body line costs 28 flow
- * units of whole-graph height, against a ~149-unit allowance per card.
- *
- * WHAT IS PINNED, BY IDENTITY (test ids carrying the option and factor id, exact
- * text, exact class tokens — never a value predicate another element could
- * satisfy):
- *   · the card's ONE body line pre-run is the option's TOP change — the first
- *     row of the shared change order — value and source mark FIRST, the factor
- *     label last and the only part allowed to ellipsize;
- *   · post-run the share line replaces it;
- *   · the S3 detail (rows, `+N more`, differentiator) is OFF the card and IN the
- *     option's popover, pre-run AND post-run, and `+N more` still opens the
- *     inspector;
+ *   · the card's rows follow the ONE shared change order, value never cut, the
+ *     factor label the only part allowed to ellipsize (CSS, with its title);
+ *   · the rows and `+N more` are ON THE CARD in both phases, never repeated in
+ *     the popover; post-run the share line is ADDED below them;
+ *   · the computed differentiator's full sentence stays in the popover;
  *   · the card body is byte-identical at the Normal and landing rungs (height
- *     safety: Normal is never taller than landing).
+ *     safety: no rung-triggered re-layout — ED's rule, which the prototype does
+ *     not contradict);
+ *   · Detailed view keeps its inline rows.
+ *
+ * The prototype-specific pins (three rows, the factor card's "from", the
+ * option's own description line, the baseline's reference line) live in
+ * `OptionNode.prototypeChangeRows.spec.tsx`.
  *
  * `NodePopover` is replaced by a pass-through that always renders its children
  * inside `[data-testid="node-popover"]`, so "in the popover" and "on the card"
- * are two DOM regions a test can tell apart. Whether the popover OPENS on hover,
- * tap and keyboard focus is `usePopoverHover`'s contract, pinned by
- * `everyNodePreviewOpensWithoutHover.spec.ts`; the real hover path is exercised
- * in `OptionNode.spec.tsx`.
+ * are two DOM regions a test can tell apart.
  *
  * CLAIM SCOPE (CLAUDE.md trap 3): jsdom — DOM text, attributes, class tokens and
- * order. No pixels: whether the line FITS is the browser geometry gates' job.
+ * order. No pixels: whether the rows FIT is the browser geometry gates' job.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
@@ -55,6 +49,15 @@ vi.mock('../shared/NodePopover', () => ({
 vi.mock('../shared/openNodeInspector', () => ({ openNodeInspector: vi.fn(() => true) }))
 
 const FACTOR_PRICE = { id: 'f-price', type: 'factor', data: { label: 'Pro plan monthly price', type: 'factor' } }
+/**
+ * The fixture this file has always had: `{value: 0, unit: 'count'}` and NO
+ * raw_value, so the factor card's reading is the formatter's value-only guess
+ * ("No developer headcount in place") — a phrase the data does not carry, so it
+ * is never the row's "from" and the row reads "→ 30 engineers". (e0490565 had
+ * anchored this fixture to dodge the guess; restored so the order tests below
+ * also stand guard over the faithfulness rule — with the guess as a "from" the
+ * row runs past `OPTION_ROW_CHANGE_BUDGET_CHARS` and the card drops to one row.)
+ */
 const FACTOR_HEAD = {
   id: 'f-head', type: 'factor',
   data: { label: 'Developer headcount', type: 'factor', observedState: { value: 0, unit: 'count' }, unit: 'count' },
@@ -72,10 +75,10 @@ const BASELINE = {
 
 /**
  * Shared change order (non-baseline coverage, then model order): f-price (2),
- * f-adopt (2), f-head (1). option-1's top change is therefore f-price, and its
- * card shows two rows with one behind `+1 more`. Its differentiator is
- * "Developer headcount is the key difference" (f-head is option-1's alone and
- * sits behind `+1 more`, so the sentence ADDS — NODE-ANATOMY v3.2).
+ * f-adopt (2), f-head (1). option-1 sets all three, so its card shows three
+ * rows and no `+N more` (Paul 25 Sep: up to three rows). Its differentiator is
+ * "Developer headcount is the key difference" — a `key` sentence over more than
+ * one change, which ADDS even with f-head shown (NODE-ANATOMY v3.2).
  */
 const CEE_READY = {
   options: [
@@ -196,41 +199,46 @@ const bodyLines = (anyBodyChild: HTMLElement) =>
     (el) => !el.matches('[data-testid="node-lod-line"], [data-testid="factor-constraint-lines"]'),
   )
 
-describe('bounded anatomy — the option card is title + ONE primary line (ED 5809278282)', () => {
+describe('resting anatomy — the option card is title + its change rows (Paul 25 Sep, supersedes ED 5809278282)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     winRate = null
   })
 
-  describe('pre-run: the ONE line is the top change, value and mark first', () => {
-    it('renders the first row of the shared change order as the card line', () => {
+  describe('pre-run: the rows are on the card, in the shared order', () => {
+    it('renders the shared change order as rows on the card — no one-line primary change', () => {
       renderCard()
-      const line = onCard('option-primary-change-option-1')
-      expect(line, 'precondition: the primary change line is on the card').not.toBeNull()
-      // IDENTITY: the shared order's first factor for option-1 (f-price), not
-      // option-1's biggest or its own first-listed target.
-      expect(line!.getAttribute('data-factor-id')).toBe('f-price')
-      expect(onCard('option-primary-change-value-option-1')!.textContent).toBe('£49 → £79')
-      expect(line!.getAttribute('data-value-form')).toBe('change')
+      const rows = onCard('option-change-rows-option-1')
+      expect(rows, 'precondition: the rows are on the card').not.toBeNull()
+      // IDENTITY: the shared order (f-price 2, f-adopt 2, f-head 1), not
+      // option-1's own listing order.
+      const dds = Array.from(rows!.querySelectorAll<HTMLElement>('dd[data-testid^="option-change-row-option-1-"]'))
+      expect(dds.map((d) => d.dataset.testid)).toEqual([
+        'option-change-row-option-1-f-price',
+        'option-change-row-option-1-f-adopt',
+        'option-change-row-option-1-f-head',
+      ])
+      expect(onCard('option-change-row-option-1-f-price')!.textContent!.startsWith('£49 → £79')).toBe(true)
+      expect(onCard('option-primary-change-option-1')).toBeNull()
     })
 
-    it('the value comes FIRST, then its source mark, then the label — which is the only truncating part', () => {
+    it('the label comes FIRST and is the only truncating part; the value and its trailing mark are never cut', () => {
       renderCard()
-      const value = onCard('option-primary-change-value-option-1')!
-      const mark = onCard('option-primary-change-source-option-1')!
-      const label = onCard('option-primary-change-label-option-1')!
+      const dd = onCard('option-change-row-option-1-f-price')!
+      const dt = dd.previousElementSibling as HTMLElement
+      const mark = onCard('option-change-row-source-option-1-f-price')!
       // Truth stays on the card: the mark is the row's own `you` (user_specified).
       expect(mark.getAttribute('data-value-source')).toBe('you')
-      expect(value.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(mark.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(dt.compareDocumentPosition(dd) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(dd.contains(mark)).toBe(true)
       // The label carries the factor's FULL name; CSS is what shortens it.
-      expect(label.textContent).toBe('· Pro plan monthly price')
-      const lt = tokens(label)
+      expect(dt.textContent).toBe('Pro plan monthly price')
+      const lt = tokens(dt)
       expect(lt.has('truncate')).toBe(true)
       expect(lt.has('min-w-0')).toBe(true)
-      expect(label.getAttribute('data-truncates')).toBe('label')
+      expect(dt.getAttribute('data-truncates')).toBe('label')
       // ⛔ The value and the mark are NEVER inside a truncating element.
-      for (const protectedEl of [value, mark]) {
+      for (const protectedEl of [dd, mark]) {
         let el: HTMLElement | null = protectedEl
         while (el && el !== document.body) {
           const t = tokens(el)
@@ -241,33 +249,25 @@ describe('bounded anatomy — the option card is title + ONE primary line (ED 58
       }
     })
 
-    it('the whole sentence is recoverable on the line: its title AND its accessible text', () => {
+    it('the whole sentence is recoverable on the row (its title) and the label on its cell (its title)', () => {
       renderCard()
-      const line = onCard('option-primary-change-option-1')!
-      const full = 'Pro plan monthly price: £49 → £79. From Status quo (the baseline option). Target: set by you.'
-      expect(line.getAttribute('title')).toBe(full)
-      // The line's OWN accessible text (its direct sr-only child) — the mark's
-      // own sr-only label sits inside the aria-hidden visible cluster.
-      const sr = Array.from(line.children).find((c) => c.classList.contains('sr-only'))
-      expect(sr?.textContent).toBe(full)
-      for (const visible of Array.from(line.children).filter((c) => c !== sr)) {
-        expect(visible.getAttribute('aria-hidden')).toBe('true')
-      }
+      const dd = onCard('option-change-row-option-1-f-price')!
+      expect(dd.getAttribute('title')).toBe(
+        'Pro plan monthly price: £49 → £79. From Status quo (the baseline option). Target: set by you.',
+      )
+      expect((dd.previousElementSibling as HTMLElement).getAttribute('title')).toBe('Pro plan monthly price')
     })
 
-    it('is EXACTLY ONE body line — no rows, no `+N more`, no differentiator on the card', () => {
+    it('the rows render ONCE — on the card, never repeated in the popover — and no computed differentiator on the card', () => {
       renderCard()
-      const line = onCard('option-primary-change-option-1')!
-      expect(bodyLines(line)).toEqual([line])
-      expect(onCard('option-change-rows-option-1')).toBeNull()
-      expect(onCard('option-change-more-option-1')).toBeNull()
+      expect(document.querySelectorAll('[data-testid="option-change-rows-option-1"]').length).toBe(1)
+      expect(inPopover('option-change-rows-option-1')).toBeNull()
       expect(onCard('option-differentiator-option-1')).toBeNull()
     })
 
-    it('drops the "from" at rest when `from → to` would not fit one line — the full pair stays in the title', () => {
-      // f-adopt is option-3's only (hence top) change: "Low → Very high · est."
-      // is 22 characters against the 18-character line budget; "→ Very high
-      // · est." is 18.
+    it('keeps the whole `from → to` at rest — the one-line body\'s "drop the from" is retired', () => {
+      // f-adopt is option-3's only change. The one-line body dropped the "from"
+      // here ("→ Very high"); a row has the room, so the pair stays whole.
       const option3 = { id: 'option-3', type: 'option', data: { label: 'Simplify onboarding', type: 'option' } }
       renderCard({
         id: 'option-3',
@@ -281,100 +281,102 @@ describe('bounded anatomy — the option card is title + ONE primary line (ED 58
           },
         },
       })
-      const line = onCard('option-primary-change-option-3')!
-      expect(line.getAttribute('data-factor-id')).toBe('f-adopt')
-      expect(line.getAttribute('data-value-form')).toBe('target')
-      expect(onCard('option-primary-change-value-option-3')!.textContent).toBe('→ Very high')
-      expect(onCard('option-primary-change-source-option-3')!.getAttribute('data-value-source')).toBe('olumi')
-      expect(line.getAttribute('title')).toContain('Adoption friction: Low → Very high.')
+      const dd = onCard('option-change-row-option-3-f-adopt')!
+      expect(dd.textContent!.startsWith('Low → Very high')).toBe(true)
+      expect(onCard('option-change-row-estimate-option-3-f-adopt')!.getAttribute('data-value-source')).toBe('olumi')
     })
 
-    it('a value that cannot fit even as its target WRAPS, never clips (values are never cut)', () => {
+    it('a value that cannot fit WRAPS, never clips (values are never cut)', () => {
       renderCard()
-      const value = onCard('option-primary-change-value-option-1')!
-      const cluster = value.parentElement!
-      const t = tokens(cluster)
+      const t = tokens(onCard('option-change-row-option-1-f-price'))
       expect(t.has('break-words')).toBe(true)
       expect(t.has('overflow-hidden')).toBe(false)
       expect(t.has('whitespace-nowrap')).toBe(false)
     })
   })
 
-  describe('the S3 detail moved INTO the popover, pre-run', () => {
-    it('carries the change rows, in the contract grid, with their marks', () => {
-      renderCard()
-      const rows = inPopover('option-change-rows-option-1')
-      expect(rows, 'the rows are in the popover').not.toBeNull()
-      expect(rows!.getAttribute('data-row-layout')).toBe('grid')
-      expect(inPopover('option-change-row-option-1-f-price')).not.toBeNull()
-      expect(inPopover('option-change-row-option-1-f-adopt')).not.toBeNull()
-      expect(inPopover('option-change-row-source-option-1-f-price')!.getAttribute('data-value-source')).toBe('you')
-      expect(inPopover('option-change-row-source-option-1-f-adopt')!.getAttribute('data-value-source')).toBe('brief')
-    })
-
-    it('`+N more` is in the popover and still opens the inspector', () => {
-      renderCard()
-      const more = inPopover('option-change-more-option-1')
+  describe('`+N more` and the differentiator', () => {
+    it('`+N more` is ON THE CARD, under the rows, and still opens the inspector', () => {
+      // A fourth target puts one change behind `+1 more`.
+      const FACTOR_SEATS = { id: 'f-seats', type: 'factor', data: { label: 'Seats per account', type: 'factor' } }
+      renderCard({
+        store: {
+          nodes: [FACTOR_PRICE, FACTOR_HEAD, FACTOR_ADOPT, FACTOR_SEATS, OPTION_1, OPTION_2, BASELINE],
+          ceeAnalysisReady: {
+            options: [
+              {
+                id: 'option-1',
+                interventions: {
+                  ...CEE_READY.options[0].interventions,
+                  'f-seats': { value: 12, display_value: '12 seats', source: 'cee_hypothesis' },
+                },
+              },
+              CEE_READY.options[1],
+            ],
+          },
+        },
+      })
+      const more = onCard('option-change-more-option-1')
       expect(more?.textContent).toBe('+1 more')
-      // Its name says what is not shown HERE — the popover — never "on the card".
-      expect(more!.getAttribute('aria-label')).toMatch(/ 1 more not shown here\.$/)
+      expect(onCard('option-change-rows-option-1')!.contains(more)).toBe(true)
+      expect(more!.getAttribute('aria-label')).toMatch(/ 1 more not shown on the card\.$/)
       fireEvent.click(more!)
       expect(openNodeInspector).toHaveBeenCalledWith('option-1')
     })
 
-    it('carries the differentiator as its FULL sentence — nothing elided where it lives', () => {
+    it('the popover carries the differentiator as its FULL sentence — nothing elided where it lives', () => {
       renderCard()
-      const diff = inPopover('option-differentiator-option-1')
-      expect(diff?.textContent).toBe('Developer headcount is the key difference')
+      expect(inPopover('option-differentiator-option-1')?.textContent).toBe('Developer headcount is the key difference')
     })
   })
 
-  describe('post-run: the share line replaces the change line', () => {
-    it('the card carries the share line and no change line', () => {
+  describe('post-run: the share line is ADDED below the rows', () => {
+    it('the card carries the rows AND the share line, rows first', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
       const share = onCard('option-analysis-currency-option-1')
+      const rows = onCard('option-change-rows-option-1')
       expect(share, 'precondition: the share line renders').not.toBeNull()
-      expect(onCard('option-primary-change-option-1')).toBeNull()
-      expect(onCard('option-change-rows-option-1')).toBeNull()
-      expect(bodyLines(share!)).toEqual([share])
+      expect(rows, 'the rows survive the run').not.toBeNull()
+      expect(rows!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it('the popover still carries the rows, `+N more` and the differentiator after the run', () => {
+    it('the popover still carries the differentiator after the run', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
-      expect(inPopover('option-change-rows-option-1')).not.toBeNull()
-      expect(inPopover('option-change-more-option-1')?.textContent).toBe('+1 more')
       expect(inPopover('option-differentiator-option-1')?.textContent).toBe('Developer headcount is the key difference')
     })
   })
 
   describe('the baseline', () => {
-    it('pre-run its one line is the baseline meta', () => {
+    it('pre-run it reads its meta, then — declared, with other options — the reference line', () => {
       renderCard({ id: 'option-b' })
       const meta = onCard('option-baseline-meta-option-b')
       expect(meta?.textContent).toBe('Baseline option')
-      expect(bodyLines(meta!)).toEqual([meta])
+      expect(bodyLines(meta!)).toEqual([meta, onCard('option-baseline-reference-option-b')])
     })
 
-    it('post-run the share line takes the card and the baseline meta moves to the popover', () => {
+    it('post-run the baseline meta STAYS on the card, above the share line', () => {
       winRate = 0.3
       renderCard({ id: 'option-b', store: { results: COMPLETE } })
-      expect(onCard('option-analysis-currency-option-b')).not.toBeNull()
-      expect(onCard('option-baseline-meta-option-b')).toBeNull()
-      expect(inPopover('option-baseline-meta-option-b')?.textContent).toBe('Baseline option')
+      const share = onCard('option-analysis-currency-option-b')
+      const meta = onCard('option-baseline-meta-option-b')
+      expect(share).not.toBeNull()
+      expect(meta?.textContent).toBe('Baseline option')
+      expect(meta!.compareDocumentPosition(share!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(inPopover('option-baseline-meta-option-b')).toBeNull()
     })
   })
 
   describe('height safety — the Normal rung adds nothing the landing rung lacks', () => {
     it('the card body is byte-identical at `full` and `quiet`', () => {
       const a = renderCard({ store: { lodRung: 'full' } })
-      const atFull = onCard('option-primary-change-option-1')!
+      const atFull = onCard('option-change-rows-option-1')!
       const fullHtml = atFull.parentElement!.innerHTML
       const fullCount = bodyLines(atFull).length
       a.unmount()
       renderCard({ store: { lodRung: 'quiet' } })
-      const atQuiet = onCard('option-primary-change-option-1')!
+      const atQuiet = onCard('option-change-rows-option-1')!
       expect(bodyLines(atQuiet).length).toBe(fullCount)
       expect(atQuiet.parentElement!.innerHTML).toBe(fullHtml)
     })

@@ -178,7 +178,7 @@ describe('contract v3.1 pt 8 — the Outcome card carries no option-reach count 
    */
   it("the removed count is not replaced by a count-shaped line; the outcome's own state is (contract v3.1 OR-02)", () => {
     const { container } = renderOutcome('outcome-two', 'Margin')
-    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
     // ED 5809278282: short form shown, the fixture sentence announced (and on title/popover).
     const line = screen.getByTestId('outcome-unquantified')
     expect(shown(line)).toBe('Not quantified')
@@ -207,7 +207,7 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
 
   it('an outcome whose link strength a PERSON set shows no figure either — it is the connection’s fact', () => {
     const { container } = renderOutcome('outcome-two', 'Margin')
-    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+    expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
     expect(screen.queryByTestId('outcome-strength-row')).toBeNull()
     expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
     expect(container.textContent).not.toContain('45%')
@@ -275,7 +275,7 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
       } as any)
       applyStore({ lodRung: 'line', results: { status: 'complete', report: null } })
       renderOutcome('outcome-none', 'Morale')
-      expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+      expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
       expect(lodLine()).toBeNull()
       expect(document.body.textContent).not.toContain('62%')
     })

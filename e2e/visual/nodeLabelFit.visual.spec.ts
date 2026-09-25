@@ -82,8 +82,11 @@ const readTitles = (): Reading => {
   for (const element of Array.from(document.querySelectorAll('[data-testid="node-title"]'))) {
     const node = element as HTMLElement
     const text = node.textContent ?? ''
-    const textNode = node.firstChild
-    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) continue
+    // ⚠ The title's TEXT node, not its first child: a card with a corner mark
+    // opens its title with an empty, aria-hidden first-line spacer (gap 11), and
+    // a `firstChild` read would silently SKIP exactly those titles.
+    const textNode = Array.from(node.childNodes).find((n) => n.nodeType === Node.TEXT_NODE) ?? null
+    if (!textNode) continue
 
     const range = document.createRange()
     const breaks: number[] = []

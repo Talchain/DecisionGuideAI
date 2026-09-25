@@ -42,7 +42,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, within, fireEvent, cleanup } from '@testing-library/react'
-import { openOptionPreview } from '../../../nodes/__tests__/__helpers__/optionPreview'
+import { optionCardRows } from '../../../nodes/__tests__/__helpers__/optionPreview'
 import { ReactFlowProvider } from '@xyflow/react'
 
 const sendSystemEvent = vi.fn()
@@ -180,14 +180,14 @@ function renderCard(optionData: Record<string, unknown>) {
 }
 
 /**
- * WHERE THE CARD'S CHANGE ROWS ARE READ (ED #63 5809278282, bounded anatomy):
- * in Standard view the rows moved off the card body into the option's
- * popover — the card keeps one primary line. The parity these tests pin is
- * between the inspector and the rows the card SHOWS, so they are read from the
- * popover, bound to it by identity (`option-preview-detail-<id>`).
+ * WHERE THE CARD'S CHANGE ROWS ARE READ: on the CARD body again (Paul 25 Sep:
+ * the prototype's resting rows supersede ED #63 5809278282's popover
+ * placement). The parity these tests pin is between the inspector and the rows
+ * the card SHOWS, so they are read from the card's rows block, bound to it by
+ * identity (`optionCardRows` refuses a block found in a popover).
  */
-async function cardRows(card: HTMLElement): Promise<HTMLElement> {
-  return openOptionPreview(card, OPTION_ID)
+async function cardRows(_card: HTMLElement): Promise<HTMLElement> {
+  return optionCardRows(OPTION_ID)
 }
 
 /** The card's visible TARGET: the text after its arrow, without the source mark. */
@@ -238,7 +238,7 @@ describe('(a) the inspector row reads like the card, never the internal 0–1 va
     const text = row(dialog, F_PRICE).textContent ?? ''
     expect(text).not.toContain('0.295')
     expect(text).not.toMatch(/model value/i)
-    expect(readout(dialog, F_PRICE)).toContain('59 GBP/month')
+    expect(readout(dialog, F_PRICE)).toContain('£59/month')
   })
 
   it('a CEE-authored reading is still rendered verbatim (the wire’s "£60k")', () => {

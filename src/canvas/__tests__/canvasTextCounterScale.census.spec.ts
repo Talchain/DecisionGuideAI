@@ -418,6 +418,19 @@ function isCounterScaled(classString: string): boolean {
 
 const CANVAS = path.join(ROOT, 'src/canvas')
 
+/**
+ * An arbitrary-value `text-[…]` class read as a SIZE: `text-[10px]`, or the
+ * explicit `length:` type hint the canvas tokens use.
+ *
+ * ⚠ A `color:` TYPE HINT IS A COLOUR, NOT A SIZE, and is skipped — Tailwind reads
+ * `text-[color:…]` as `color`, never `font-size`. Without the lookahead the card
+ * rail's resting tones (`nodeCardRailStyles.ts`, contract `.icon-btn{color:
+ * #777B77}`) landed in `errors` as "unresolvable arbitrary text size" (found by
+ * an independent verifier on 058c8331). Only the explicit hint is skipped: an
+ * UNHINTED `text-[rgb(…)]` is ambiguous to this census and still errors.
+ */
+const ARBITRARY_TEXT_SIZE = /text-\[(?!color:)(?:length:)?([^\]]+)\]/g
+
 function census() {
   const tokens = readTypographyTokens()
   const { dirs, entries, errors: scopeErrors } = deriveScope()
@@ -474,8 +487,11 @@ function census() {
         hits.push({ file: rel, line, key: `${rel}:${key}`, mechanism, counterScaled })
 
       // 1. Arbitrary-value size: text-[10px] or text-[length:calc(...)]
-      for (const m of text.matchAll(/text-\[(?:length:)?([^\]]+)\]/g)) {
+      for (const m of text.matchAll(ARBITRARY_TEXT_SIZE)) {
         const value = m[1]
+        // Tailwind's `color:` type hint makes `text-[…]` a COLOUR, not a size
+        // (the rail's resting inks, `nodeCardRailStyles`, gap 34): nothing to census.
+        if (value.startsWith('color:')) continue
         if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-label-scale/.test(value)) {
           push(`counterscaled-${value.match(/(\d+)px/)?.[1]}`, 'arbitrary', true)
         } else if (/^\d+(?:\.\d+)?px$/.test(value)) {
@@ -527,6 +543,16 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     expect(files, 'census walked no files').toBeGreaterThan(10)
     expect(tokens, 'typography.ts parsed no tokens').toBeGreaterThan(20)
     expect(hits.length, 'census found no font sizes at all').toBeGreaterThan(10)
+  })
+
+  it('DETECTOR CONTRACT: a `color:` type hint is a colour, a `length:` hint or bare px is a size, an unhinted colour is still read', () => {
+    const read = (line: string) => [...line.matchAll(ARBITRARY_TEXT_SIZE)].map(m => m[1])
+    expect(read("'text-[color:rgb(var(--rail-icon-rgb))]'")).toEqual([])
+    // CONTRAST — the forms the census exists for are still read, on the same line.
+    expect(read("'text-[length:calc(14px*var(--canvas-label-scale,1))] text-[color:rgb(var(--rail-icon-rgb))] text-[10px]'"))
+      .toEqual(['calc(14px*var(--canvas-label-scale,1))', '10px'])
+    // CONTRAST — without the hint the value is still captured (and errors as unresolvable).
+    expect(read("'text-[rgb(var(--rail-icon-rgb))]'")).toEqual(['rgb(var(--rail-icon-rgb))'])
   })
 
   it('CONTRAST CONTROL: the census can tell counter-scaled from fixed', () => {

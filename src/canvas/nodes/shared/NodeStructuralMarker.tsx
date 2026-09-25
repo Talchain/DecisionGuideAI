@@ -59,9 +59,10 @@
  * remains existence certainty only"; deltas PILL-07 / ICON-09). On this canvas
  * a dash says a CONNECTION may not exist; on a marker it said something else
  * with the same picture. The marker now speaks the corner stack's one language
- * (see `NodeCoachingMarker`): the rail's counter-scaled 20px box and 14px glyph
- * (it was a raw-px `h-5`, 13px at the 65% landing zoom), borderless and
- * shadowless on a panel fill, muted at rest and Info on hover/focus — Info at
+ * (see `NodeCoachingMarker`): the rail's counter-scaled box and glyph (25 / 15
+ * since gap 34; it was a raw-px `h-5`, 13px at the 65% landing zoom), borderless
+ * and shadowless (no panel fill since the stack moved inside the card, gap 11),
+ * muted at rest and Info on hover/focus — Info at
  * rest is the attention marker's alone (pt 9). Colour only on hover, no
  * info-soft ground: that ground marks a thing you can PRESS, and this is not
  * one (the header-provenance mark's `.prov:hover` treatment).
@@ -82,15 +83,15 @@
  * `nodes/shared/` is one of them. No declared size means nothing to pin.
  */
 
-import { useMemo } from 'react'
 import { Unplug, GitMerge, type LucideIcon } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_QUICK_ACTION_BOX_PX } from './canvasGlyphScale'
-import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
 import {
   computeStructuralAbsence,
+  type StructuralAbsence,
   type StructuralAbsenceKind,
 } from '../../components/pre-analysis-v3/selectors/computeStructuralAbsence'
 import { STRUCTURAL_MARKER_COPY } from '../../components/pre-analysis-v3/constants'
@@ -116,6 +117,59 @@ interface NodeStructuralMarkerProps {
   nodeId: string
 }
 
+/**
+ * The finding for the current graph, computed ONCE per `nodes`/`edges` pair
+ * however many cards ask. A single-entry identity cache: the store replaces both
+ * arrays on every change, so the last pair is the only one worth keeping, and
+ * every card on the board reads it in the same render pass.
+ */
+let lastNodes: unknown = null
+let lastEdges: unknown = null
+let lastFinding: StructuralAbsence | null = null
+function structuralAbsenceOf(
+  nodes: Parameters<typeof computeStructuralAbsence>[0],
+  edges: Parameters<typeof computeStructuralAbsence>[1],
+): StructuralAbsence | null {
+  if (nodes !== lastNodes || edges !== lastEdges) {
+    lastFinding = computeStructuralAbsence(nodes, edges)
+    lastNodes = nodes
+    lastEdges = edges
+  }
+  return lastFinding
+}
+
+/**
+ * ⭐ THE ONE GATE — whether THIS node carries the structural mark, and with what
+ * sentence and glyph. The marker below renders from it, and `BaseNode` reserves
+ * the title's corner clearance from it (through `useNodeCoachingMarkerShown`),
+ * so the reserve and the mark cannot disagree about whether a mark is there.
+ *
+ * No finding, or a finding that names no node, or a finding that names a
+ * DIFFERENT node: null. ⚠ `includes` is the whole binding — the marker is bound
+ * to this node by IDENTITY, never by a predicate another node could satisfy, and
+ * an `actionTargetIds` of `[]` therefore reaches every node and marks none of
+ * them, which is the honest empty the selector intends. Fail-closed: a kind with
+ * no sentence or no glyph is null rather than an unlabelled mark. Unreachable
+ * while the two maps agree with the union, and kept because an unlabelled glyph
+ * on a node is worse than no glyph.
+ */
+function structuralMarkerFor(
+  finding: StructuralAbsence | null,
+  nodeId: string,
+): { kind: StructuralAbsenceKind; label: string; Icon: LucideIcon } | null {
+  if (!finding || !finding.actionTargetIds.includes(nodeId)) return null
+  const label = STRUCTURAL_MARKER_COPY[finding.kind]
+  const Icon = STRUCTURAL_MARKER_ICON[finding.kind]
+  if (!label || !Icon) return null
+  return { kind: finding.kind, label, Icon }
+}
+
+/** Whether `NodeStructuralMarker` renders for this node — a boolean selector, so a
+ *  card re-renders only when the answer flips, never on every graph edit. */
+export function useNodeHasStructuralMarker(nodeId: string): boolean {
+  return useCanvasStore((s) => structuralMarkerFor(structuralAbsenceOf(s.nodes, s.edges), nodeId) !== null)
+}
+
 export function NodeStructuralMarker({ nodeId }: NodeStructuralMarkerProps) {
   // Subscribe to the raw arrays (stable Zustand references) then derive locally,
   // the same pattern `usePreAnalysisModel` and `useScienceIcons` use. An inline
@@ -123,24 +177,15 @@ export function NodeStructuralMarker({ nodeId }: NodeStructuralMarkerProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
 
-  const finding = useMemo(() => computeStructuralAbsence(nodes, edges), [nodes, edges])
-
-  // No finding, or a finding that names no node, or a finding that names a
-  // DIFFERENT node: nothing renders. ⚠ `includes` is the whole binding — the
-  // marker is bound to this node by IDENTITY, never by a predicate another node
-  // could satisfy, and an `actionTargetIds` of `[]` therefore reaches every node
-  // and marks none of them, which is the honest empty the selector intends.
-  if (!finding || !finding.actionTargetIds.includes(nodeId)) return null
-
-  const label = STRUCTURAL_MARKER_COPY[finding.kind]
-  const Icon = STRUCTURAL_MARKER_ICON[finding.kind]
-  // Fail-closed: a kind with no sentence or no glyph renders nothing rather than
-  // an unlabelled mark. Unreachable while the two maps agree with the union, and
-  // kept because an unlabelled glyph on a node is worse than no glyph.
-  if (!label || !Icon) return null
+  const mark = structuralMarkerFor(structuralAbsenceOf(nodes, edges), nodeId)
+  if (!mark) return null
+  const { label, Icon } = mark
 
   // Positioning is owned by BaseNode's top-right corner STACK; this renders as a
   // static flex child of the coaching slot and carries no offset of its own.
+  // No panel fill: the stack now sits INSIDE the card (gap 11), on the card's
+  // own panel, so the fill that kept it legible over the layer gap has no job.
+  // Resting grey is the rail's `.icon-btn` grey (gap 34).
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={label}>
       <span
@@ -148,10 +193,10 @@ export function NodeStructuralMarker({ nodeId }: NodeStructuralMarkerProps) {
         tabIndex={0}
         data-testid={`node-structural-marker-${nodeId}`}
         data-marker-source="canvas-structure"
-        data-structural-kind={finding.kind}
+        data-structural-kind={mark.kind}
         data-node-tooltip="true"
         aria-label={label}
-        className={`nodrag nopan inline-flex items-center justify-center ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]} rounded bg-panel/90 text-text-light hover:text-info focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        className={`nodrag nopan inline-flex items-center justify-center ${CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]} rounded ${NODE_RAIL_REST_TONE_CLASS} hover:text-info focus-visible:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       >
         <Icon size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} aria-hidden="true" />
       </span>

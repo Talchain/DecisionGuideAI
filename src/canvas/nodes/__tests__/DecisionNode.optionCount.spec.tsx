@@ -149,7 +149,7 @@ const linked = (n: number) => ({
 
 describe('composeOptionCountLine — the count, and the rules that make it honest', () => {
   it('states the number and the noun', () => {
-    expect(composeOptionCountLine(3)).toBe('3 options')
+    expect(composeOptionCountLine(3)).toBe('3 alternatives')
   })
 
   /**
@@ -157,9 +157,9 @@ describe('composeOptionCountLine — the count, and the rules that make it hones
    * rather than only through a render, because this is where the rule lives —
    * a render-only pin would go green against a caller that reimplemented it.
    */
-  it('one option is "1 option", never "1 options"', () => {
-    expect(composeOptionCountLine(1)).toBe('1 option')
-    expect(composeOptionCountLine(1)).not.toContain('options')
+  it('one option is "1 alternative", never "1 alternatives"', () => {
+    expect(composeOptionCountLine(1)).toBe('1 alternative')
+    expect(composeOptionCountLine(1)).not.toContain('alternatives')
   })
 
   /**
@@ -184,15 +184,18 @@ describe('composeOptionCountLine — the count, and the rules that make it hones
   })
 
   /**
-   * ⛔ THE WORD IS "OPTIONS", AND THIS CASE IS A REFUSAL RATHER THAN A STYLE
-   * PIN. Comparability is CEE's verdict (`waived_by_exclusion`), held in a
+   * ⛔ THE WORD IS A NOUN FOR A COUNT, AND THIS CASE IS A REFUSAL RATHER THAN A
+   * STYLE PIN. (The noun is "alternatives" since Paul's 25 Sep 2026 ruling that
+   * the canvas matches the prototype — `olumi-canvas-visual-contract.html:192`,
+   * "3 alternatives · Evidence priority: conversion". It was "options"; the
+   * refusal below is unchanged: still a count, still not "comparable".) Comparability is CEE's verdict (`waived_by_exclusion`), held in a
    * different store and not visible to `optionCount`. If a later change wants
    * "comparable" on this card it must first bring that verdict here, and this
    * case is what makes that a deliberate act instead of a copy tweak.
    */
   it('makes no claim the count cannot support', () => {
     const line = composeOptionCountLine(4)!
-    expect(line).toMatch(/^4 options$/)
+    expect(line).toMatch(/^4 alternatives$/)
     expect(line).not.toMatch(/\b(comparable|compared|comparing|viable|valid|complete)\b/i)
   })
 })
@@ -210,7 +213,7 @@ describe('the card states the alternatives AS CARD-FACE TEXT at reading zoom', (
    */
   it('pre-analysis: the count is on the card face, not only in the reduced line', () => {
     renderDecision(linked(3))
-    expect(cardFaceText()).toBe('3 options')
+    expect(cardFaceText()).toBe('3 alternatives')
   })
 
   /**
@@ -232,12 +235,12 @@ describe('the card states the alternatives AS CARD-FACE TEXT at reading zoom', (
    */
   it('DISCRIMINATION — a different number of options produces a different line', () => {
     renderDecision(linked(2))
-    expect(cardFaceText()).toBe('2 options')
+    expect(cardFaceText()).toBe('2 alternatives')
   })
 
   it('and the singular reaches the card face intact', () => {
     renderDecision(linked(1))
-    expect(cardFaceText()).toBe('1 option')
+    expect(cardFaceText()).toBe('1 alternative')
   })
 
   /**
@@ -251,7 +254,7 @@ describe('the card states the alternatives AS CARD-FACE TEXT at reading zoom', (
       ...linked(3),
       results: { status: 'complete', report: PERMITTED_REPORT },
     })
-    expect(cardFaceText()).toBe('3 options')
+    expect(cardFaceText()).toBe('3 alternatives')
   })
 
   /**
@@ -296,7 +299,7 @@ describe('de-duplication: two edges to one option are one option', () => {
       nodes: [optionNode(1), optionNode(2)],
       edges: [edgeTo(1), edgeTo(1, '-dup'), edgeTo(2)],
     })
-    expect(cardFaceText()).toBe('2 options')
+    expect(cardFaceText()).toBe('2 alternatives')
   })
 
   /**
@@ -311,7 +314,7 @@ describe('de-duplication: two edges to one option are one option', () => {
       nodes: [optionNode(1), optionNode(2), optionNode(3)],
       edges: [edgeTo(1), edgeTo(2), edgeTo(3)],
     })
-    expect(cardFaceText()).toBe('3 options')
+    expect(cardFaceText()).toBe('3 alternatives')
   })
 
   /**
@@ -333,7 +336,7 @@ describe('de-duplication: two edges to one option are one option', () => {
         { id: 'e-other', source: 'someone-else', target: 'opt-2' },
       ],
     })
-    expect(cardFaceText()).toBe('1 option')
+    expect(cardFaceText()).toBe('1 alternative')
   })
 })
 
@@ -438,8 +441,8 @@ describe('the count is painted exactly once at every rung', () => {
     expect(lod).not.toBeNull()
 
     // Same fact, same string — which is why the doubling would be visible.
-    expect(cardFaceText()).toBe('3 options')
-    expect(lodLineText()).toBe('3 options')
+    expect(cardFaceText()).toBe('3 alternatives')
+    expect(lodLineText()).toBe('3 alternatives')
 
     // The card-face line sits under the wrapper the LOD rung blanks...
     expect(face!.closest(`[${LOD_BLANKED_BODY_ATTR}]`)).not.toBeNull()
@@ -488,6 +491,6 @@ describe('the count is painted exactly once at every rung', () => {
   it('CONTRAST — an unnamed question spends its one reduced line on the prompt, and still shows the count at reading zoom', () => {
     renderDecision({ ...linked(3), lodRung: 'line' }, '')
     expect(lodLineText()).toBe(DECISION_RESTING_COPY.unnamedLine)
-    expect(cardFaceText()).toBe('3 options')
+    expect(cardFaceText()).toBe('3 alternatives')
   })
 })

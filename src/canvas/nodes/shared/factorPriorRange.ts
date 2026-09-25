@@ -361,7 +361,7 @@ function resolvePriorRangeBody(
    * so the authored string is then the user's number, not the range.
    */
   preferAuthoredCopy: boolean,
-): string | null {
+): PriorRangeBody | null {
   const prior = data?.prior as { range_min?: number; range_max?: number } | undefined
   const rangeMin = prior?.range_min
   const rangeMax = prior?.range_max
@@ -461,10 +461,13 @@ function resolvePriorRangeBody(
         // Strip a caption the producer may already have included, so the two
         // cannot stack into "Range: Range: …".
         const body = authored.trim().replace(/^Range:\s*/i, '')
-        if (body.length > 0) return body
+        // The producer's prose: no endpoints are parsed out of it, so no band.
+        if (body.length > 0) return { text: body, ends: null }
       }
     }
-    return `${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
+    const low = formatNormalisedRangeEnd(rangeMin)
+    const high = formatNormalisedRangeEnd(rangeMax)
+    return { text: `${low} to ${high}`, ends: [low, high] }
   }
 
   // Real unit with calibration (or percent): the Range line adds calibrated
@@ -485,7 +488,9 @@ function resolvePriorRangeBody(
     const rounded = Math.abs(denormed) >= 1 ? Math.round(denormed) : Math.round(denormed * 100) / 100
     return formatRawValueWithUnit(rounded, unit)
   }
-  const rendered = `${fmt(rangeMin)} to ${fmt(rangeMax)}`
+  const low = fmt(rangeMin)
+  const high = fmt(rangeMax)
+  const rendered = `${low} to ${high}`
   // Dedupe: a CEE-authored display_value that is EXACTLY the calibrated
   // range text (e.g. "£20,000 to £80,000") makes the Range line pure
   // repetition. Exact-string equality only — both sides must have come
@@ -494,7 +499,17 @@ function resolvePriorRangeBody(
   // numeric display_value ("20000 to 80000") deliberately does NOT dedupe
   // here: the calibrated Range line still adds the unit information.
   if (valueDisplay != null && valueDisplay.trim() === rendered) return null
-  return rendered
+  return { text: rendered, ends: [low, high] }
+}
+
+/**
+ * The range body and, when the body was COMPOSED here from the prior's two
+ * numbers, those two endpoints exactly as the text prints them. `ends` is
+ * `null` for the producer's authored string (prose is never parsed).
+ */
+interface PriorRangeBody {
+  text: string
+  ends: readonly [string, string] | null
 }
 
 /**
@@ -512,5 +527,23 @@ export function resolveFactorPriorRange(inputs: FactorPriorRangeInputs): string 
   const replaced = userValueReplacesPrior(inputs.data)
   const body = resolvePriorRangeBody(inputs, !replaced)
   if (body == null) return null
-  return replaced ? `${USER_VALUE_REPLACES_RANGE} ${body}` : `Range: ${body}`
+  return replaced ? `${USER_VALUE_REPLACES_RANGE} ${body.text}` : `Range: ${body.text}`
+}
+
+/**
+ * ⭐ THE TWO ENDS OF THE LIVE RANGE, for the card's working-range band
+ * (prototype, Paul 25 Sep: "Working range 25–45%" with a band) — or `null`.
+ *
+ * The SAME decision as `resolveFactorPriorRange` (every suppression is taken
+ * first and is unchanged), and the SAME two strings its text prints, so the
+ * band can never state a different range from the line above it. `null`:
+ *   · wherever the line itself is `null`;
+ *   · once a user-owned value REPLACES the range — visual contract v3: a
+ *     displaced prior is "disclosed as superseded, not plotted as active
+ *     uncertainty";
+ *   · for the producer's authored range string, which is never parsed.
+ */
+export function resolveFactorPriorRangeEnds(inputs: FactorPriorRangeInputs): readonly [string, string] | null {
+  if (userValueReplacesPrior(inputs.data)) return null
+  return resolvePriorRangeBody(inputs, true)?.ends ?? null
 }

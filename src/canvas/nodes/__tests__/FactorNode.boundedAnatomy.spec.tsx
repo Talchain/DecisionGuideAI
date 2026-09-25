@@ -1,4 +1,15 @@
 /**
+ * ⛔⛔ PARTLY SUPERSEDED — Paul, 25 Sep 2026, from live screenshots: the canvas
+ * must match the PROTOTYPE, and where this ruling (ED 5809278282, "title plus
+ * one primary line") conflicts with the prototype's card bodies, THE PROTOTYPE
+ * WINS. So after a run the driver line, the TOP driver's found turning point
+ * and the external range line (with its band) are back ON the Standard card —
+ * pinned in `FactorNode.prototypeBodyAtRest.spec.tsx`, and re-pointed below
+ * (each re-pointed case says so). What still holds from this file: the value
+ * line and the `Needs input` row are each ONE no-wrap row; `Needs input` stays
+ * on the card; a NON-top factor's found turning point stays in the popover; and
+ * the body is identical at `full` and `quiet` (no rung-triggered re-layout).
+ *
  * ⭐⭐ THE FACTOR CARD FITS ITS HEIGHT ALLOWANCE — title + ONE primary line.
  *
  * Experience Design, #63 5809278282 (24 Sep 2026):
@@ -238,102 +249,130 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
 })
 
 describe('ED 5809278282 · Factor · missing value — `Needs input` stays ON the card, on one line', () => {
-  it.each(['pre', 'post'] as const)('%s-run: the row shows only the ruled word; the sentence is its description and is in the popover', (phase) => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-9, DESIGN-GAP-AUDIT-20260924.md row 9;
+   * contract §02). This used to pin "Value not set yet" as sr-only/title-only
+   * in Standard, with the visible row reading just "Needs input". The
+   * contract wants the sentence VISIBLE on the card in the missing-value
+   * state, so Standard now matches what "CONTRAST — Detailed" already
+   * asserted below (which is unchanged, since Detailed was already correct).
+   * `StatusPill`'s own label/title are UNCHANGED — only the row's wrap
+   * behaviour and the sentence's visibility move.
+   */
+  it.each(['pre', 'post'] as const)('%s-run: the row shows the pill AND the visible sentence — no hidden text, no title duplicate', (phase) => {
     seed(MISSING, { phase })
     renderFactor(MISSING)
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleText(row)).toBe('Needs input')
-    expect(tokens(row).has('flex-nowrap')).toBe(true)
+    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    expect(tokens(row).has('flex-wrap')).toBe(true)
+    expect(tokens(row).has('flex-nowrap')).toBe(false)
     expect(visibleBodyRows(row)).toEqual([row])
-    // Recoverable without the popover: sr-only description + hover title.
-    const described = row.querySelector('.sr-only')
-    expect(described?.textContent).toBe('Value not set yet')
-    expect(row.getAttribute('title')).toBe('Needs input · Value not set yet')
-    // …and IN the popover, by identity.
+    // GAP-9: nothing is hidden any more — no sr-only echo, no title duplicate
+    // of text that is now on screen.
+    expect(row.querySelector('.sr-only')).toBeNull()
+    expect(row.getAttribute('title')).toBeNull()
+    // The pill's own accessible contract is untouched (StatusPill reuses its
+    // `title` prop as the accessible name — unchanged by this gap).
+    expect(within(row).getByTestId('needs-input-pill')).toHaveAccessibleName('Missing required input')
+    // …the popover keeps its own (now duplicate, and that is fine — see the
+    // inline comment at `needsInputSentenceMoved`) copy of the sentence.
     expect(within(popover()).getByTestId(`factor-popover-needs-input-${ID}`).textContent).toBe('Needs input · Value not set yet')
     expect(within(card()).queryByTestId(`factor-popover-needs-input-${ID}`)).toBeNull()
   })
 
-  it('CONTRAST — Detailed keeps the full sentence inline on the card', () => {
+  it('CONTRAST — Detailed keeps the full sentence inline on the card (unchanged by GAP-9)', () => {
     seed(MISSING, { phase: 'pre', viewMode: 'expert' })
     renderFactor(MISSING)
     expect(visibleText(within(card()).getByTestId(`factor-needs-input-row-${ID}`))).toBe('Needs inputValue not set yet')
   })
+
+  it('CONTRAST — a VALUED factor never shows "Value not set yet" anywhere on the card', () => {
+    seed(VALUED, { phase: 'pre' })
+    renderFactor(VALUED)
+    expect(screen.queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
+    expect(card().textContent ?? '').not.toContain('Value not set yet')
+  })
 })
 
-describe('ED 5809278282 · Factor · post-run RANKED with a found turning point — findings move to the popover', () => {
-  it('current: the card carries value + inline driver cue only; the popover carries the driver line then the turning point', () => {
+describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED with a found turning point — findings are ON the card', () => {
+  /** On the face, and never repeated in the popover. */
+  const onCardNotInPopover = (id: string) => {
+    const pop = screen.queryByTestId('factor-node-popover')
+    if (pop) expect(within(pop).queryByTestId(id), `${id} is repeated in the popover`).toBeNull()
+    return within(card()).getByTestId(id)
+  }
+
+  it('current: value line → driver line → turning point, in that order, on the card; no inline cue', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
     const row = within(card()).getByTestId('factor-recorded-value')
-    expect(visibleBodyRows(row)).toEqual([row])
-    expectNoFindingOnTheCard()
-    // The neutral cue: inside the value line, no words, the caption as its name.
-    const cue = within(row).getByTestId(`factor-driver-cue-${ID}`)
-    expect(cue.getAttribute('aria-label')).toBe('Driver 1 of 6 analysed')
-    expect(cue.getAttribute('title')).toBe('Driver 1 of 6 analysed')
-    expect(visibleText(cue)).toBe('')
-    expect(tokens(cue).has('shrink-0')).toBe(true)
-    expect(before(screen.getByTestId(`factor-value-mark-slot-${ID}`), cue)).toBe(true)
     expect(visibleText(row)).toBe('8%est.')
-    // The popover: the S3 lines, in the S3 order.
-    const pop = popover()
-    const driver = within(pop).getByTestId('factor-driver-line')
-    const tp = within(pop).getByTestId('factor-turning-point')
-    expect(within(pop).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
-    expect(within(pop).getByTestId('factor-driver-line-bar')).toBeTruthy()
-    expect(within(pop).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    const driver = onCardNotInPopover('factor-driver-line')
+    const tp = onCardNotInPopover('factor-turning-point')
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
+    // Prototype caption + number at rest; the direction sentence follows in the name.
+    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
+    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
+    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
+    expect(before(row, driver)).toBe(true)
     expect(before(driver, tp)).toBe(true)
+    expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
   })
 
-  it('stale: `Last run ·` rides the cue’s name AND both popover findings; the value is never prefixed', () => {
+  it('stale: `Last run ·` rides both findings on the card; the value is never prefixed', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
-    const cue = within(card()).getByTestId(`factor-driver-cue-${ID}`)
-    expect(cue.getAttribute('aria-label')).toBe('Last run · Driver 1 of 6 analysed')
-    expect(cue.getAttribute('data-from-last-run')).toBe('true')
-    const pop = popover()
-    expect(within(pop).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    expect(within(pop).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
-    expect(within(pop).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
+    onCardNotInPopover('factor-driver-line')
+    onCardNotInPopover('factor-turning-point')
+    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
+    expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
+    expect(within(card()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
+      'Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ',
+    )).toBe(true)
+    expect(within(card()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8%est.')
-    expectNoFindingOnTheCard()
   })
 
-  it('HEIGHT SAFETY — at `quiet` there is no cue, and at both rungs the body is the same single row', () => {
+  it('HEIGHT SAFETY — the body is the same at `quiet` and `full`: no rung-triggered re-layout', () => {
+    const body = () => {
+      const row = within(card()).getByTestId('factor-recorded-value')
+      return visibleBodyRows(row).map((el) => el.getAttribute('data-testid'))
+    }
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], lodRung: 'quiet' })
     renderFactor(VALUED)
-    const quietRow = within(card()).getByTestId('factor-recorded-value')
-    expect(visibleBodyRows(quietRow)).toEqual([quietRow])
-    expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
-    // Positive control: the finding is still reachable at this rung.
-    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    const quiet = body()
+    expect(quiet).toEqual(['factor-recorded-value', 'factor-driver-line', 'factor-turning-point'])
     cleanup()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], lodRung: 'full' })
     renderFactor(VALUED)
-    const fullRow = within(card()).getByTestId('factor-recorded-value')
-    expect(visibleBodyRows(fullRow)).toEqual([fullRow])
-    // The cue is a DESCENDANT of the one row — it cannot be a row of its own.
-    expect(fullRow.contains(screen.getByTestId(`factor-driver-cue-${ID}`))).toBe(true)
+    expect(body()).toEqual(quiet)
   })
 
-  it('a ranked factor that still needs input: the cue sits inside the `Needs input` row, never below it', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-9): the row's visible text now includes
+   * "Value not set yet" (contract §02) and the row may wrap. The prototype
+   * property (Paul 25 Sep) is unchanged: the driver line is its own row on the
+   * card, after the `Needs input` row — never inside it.
+   */
+  it('a ranked factor that still needs input: `Needs input` stays one row, and the driver line follows it', () => {
     displayMetadata = RANKED()
     seed(MISSING, { phase: 'post' })
     renderFactor(MISSING)
     const row = within(card()).getByTestId(`factor-needs-input-row-${ID}`)
-    expect(visibleBodyRows(row)).toEqual([row])
-    expect(row.contains(screen.getByTestId(`factor-driver-cue-${ID}`))).toBe(true)
-    expect(visibleText(row)).toBe('Needs input')
+    expect(visibleText(row)).toBe('Needs inputValue not set yet')
+    const driver = onCardNotInPopover('factor-driver-line')
+    expect(row.contains(driver)).toBe(false)
+    expect(before(row, driver)).toBe(true)
   })
 
-  it('a ranked factor with NO primary line (external, no value, no range) gets no cue — a cue may never be a row of its own', () => {
+  it('a ranked factor with NO primary line (external, no value, no range) still states its rank on the card', () => {
     const EMPTY_EXTERNAL = { label: 'Trial conversion', type: 'factor', category: 'external' }
     displayMetadata = RANKED()
     seed(EMPTY_EXTERNAL, { phase: 'post' })
@@ -341,10 +380,7 @@ describe('ED 5809278282 · Factor · post-run RANKED with a found turning point 
     const c = card()
     expect(within(c).queryByTestId('factor-recorded-value')).toBeNull()
     expect(within(c).queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
-    expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
-    expectNoFindingOnTheCard()
-    // Positive control: the rank is still disclosed, in the popover.
-    expect(within(popover()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(onCardNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
   })
 
   it('CONTRAST — Detailed keeps the driver line and the turning point inline, and needs no cue', () => {
@@ -373,14 +409,27 @@ describe('ED 5809278282 · Factor · post-run NOT ranked', () => {
   })
 })
 
-describe('ED 5809278282 · Factor · the external prior-range line moves to the popover with its mark', () => {
-  it.each(['pre', 'post'] as const)('%s-run: not on the card; in the popover with its `no source` mark', (phase) => {
+describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · the external prior-range line is ON the card with its mark', () => {
+  /**
+   * ⛔ UPDATED 24 Sep 2026 (GAP-16, DESIGN-GAP-AUDIT-20260924.md row 16):
+   * `unknown`'s visible glyph was the word "no source" — a fifth wire-facing
+   * phrase the v3/v3.1 contract never sanctioned (they name exactly `est.` /
+   * `you` / `brief` / `panel`). `VALUE_SOURCE_MARK_TOKEN.unknown` is now `''`
+   * — nothing prints — while the accessible name stays "Source not recorded"
+   * (`VALUE_SOURCE_MARK_LABEL.unknown`, asserted via `data-value-source`
+   * below), since nothing else on the card states that this range's source
+   * was never stamped.
+   */
+  // ⛔ REVERSED (review 5822866079): "no source" stays visible. Paul, 23 Sep point 1 — a
+  // number (or range) is never unmarked; the header does not carry a range.
+  it.each(['pre', 'post'] as const)('%s-run: on the card with its `no source` mark; not in the popover', (phase) => {
     seed(RANGE_ONLY, { phase })
     renderFactor(RANGE_ONLY)
-    expectNoFindingOnTheCard()
-    const pop = popover()
-    expect(visibleText(within(pop).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
-    expect(within(pop).getByTestId(`factor-range-source-${ID}`).getAttribute('data-value-source')).toBe('unknown')
+    const c = card()
+    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
+    expect(within(c).getByTestId(`factor-range-source-${ID}`).getAttribute('data-value-source')).toBe('unknown')
+    const pop = screen.queryByTestId('factor-node-popover')
+    if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
   })
 
   it('CONTRAST — Detailed keeps the range line on the card', () => {

@@ -142,7 +142,8 @@ describe('S4 card widths', () => {
   it('⭐ a wrapped row keeps full card width — and wrapping one tier does not shrink another', async () => {
     const { nodes, edges } = factorTier(9)
     const out = await layoutGraph(nodes, edges, {})
-    expect(subRows(out.nodes, 'fac_').length, 'precondition: the factor tier wrapped').toBe(2)
+    // 9 → 3 + 3 + 3 under the four-card cap (gap 7; it was 5 + 4 under five).
+    expect(subRows(out.nodes, 'fac_').length, 'precondition: the factor tier wrapped').toBe(3)
     expect(out.layoutCardWidths.factor).toBe(REPEATED_CARD_W)
     // The retired gate dropped EVERY tier to the floor once any tier split — the
     // Question included. Bound to the decision node's own tier.
@@ -152,24 +153,31 @@ describe('S4 card widths', () => {
 })
 
 describe('S4 row wrapping — balanced sub-rows, order preserved', () => {
-  it('the sizes are ED\'s table: 6→3+3, 7→4+3, 8→4+4, 9→5+4, 10→5+5; five or fewer stay on one row', () => {
-    expect(MAX_CARDS_PER_ROW).toBe(5)
-    expect(balancedRowSizes(5)).toEqual([5])
+  // ⚠ GAP 7 (25 Sep 2026): ED's S4 table wrapped above FIVE (…9→5+4, 10→5+5).
+  // ED #63 5808428246 made 1280x800 dock-open the acceptance size, where five
+  // cards and the prompt spill 220 units (110px), so the Canvas lead capped a row at
+  // FOUR with the same balanced wrap: 5→3+2, 9→3+3+3, 10→4+3+3; 6/7/8/11 are
+  // unchanged.
+  it('the sizes are the balanced table at a cap of four: 5→3+2, 6→3+3, 7→4+3, 8→4+4, 9→3+3+3, 10→4+3+3; four or fewer stay on one row', () => {
+    expect(MAX_CARDS_PER_ROW).toBe(4)
+    expect(balancedRowSizes(4)).toEqual([4])
+    expect(balancedRowSizes(5)).toEqual([3, 2])
     expect(balancedRowSizes(6)).toEqual([3, 3])
     expect(balancedRowSizes(7)).toEqual([4, 3])
     expect(balancedRowSizes(8)).toEqual([4, 4])
-    expect(balancedRowSizes(9)).toEqual([5, 4])
-    expect(balancedRowSizes(10)).toEqual([5, 5])
+    expect(balancedRowSizes(9)).toEqual([3, 3, 3])
+    expect(balancedRowSizes(10)).toEqual([4, 3, 3])
     expect(balancedRowSizes(11)).toEqual([4, 4, 3])
   })
 
   it.each([
-    [5, [5]],
+    [4, [4]],
+    [5, [3, 2]],
     [6, [3, 3]],
     [7, [4, 3]],
     [8, [4, 4]],
-    [9, [5, 4]],
-    [10, [5, 5]],
+    [9, [3, 3, 3]],
+    [10, [4, 3, 3]],
   ])('%i factors lay out as %j sub-rows, in reading order fac_0, fac_1, …', async (n, sizes) => {
     const { nodes, edges } = factorTier(n)
     const out = await layoutGraph(nodes, edges, {})
@@ -209,7 +217,8 @@ describe('S4 row-end prompts — placed in the slot the layout reserved', () => 
   })
 
   it('⭐ the prompt slot is INSIDE the row budget: the tier is centred as cards + prompt, so the prompt never widens the board past its widest row', async () => {
-    const { nodes, edges } = factorTier(5)
+    // The widest single row: four since gap 7 (five would wrap 3 + 2).
+    const { nodes, edges } = factorTier(4)
     const out = await layoutGraph(nodes, edges, {})
     const cards = out.nodes.filter((n) => n.id.startsWith('fac_')).sort((a, b) => a.position.x - b.position.x)
     const prompt = withGhostTiers(out.nodes).find((n) => n.id === '__ghost-factor__')!

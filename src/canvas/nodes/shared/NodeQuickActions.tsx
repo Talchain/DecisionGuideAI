@@ -13,7 +13,7 @@ import {
   CANVAS_QUICK_ACTION_INSET_PX,
 } from './canvasGlyphScale'
 import { NodeCoachingIcon, useCoachingIconChip } from './NodeCoachingIcon'
-import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX } from './nodeCardRailStyles'
+import { NODE_RAIL_BUTTON_CLASSES, NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
 import type { ResolvedCoaching } from '../coaching/resolveNodeCoaching'
 
 /**
@@ -105,7 +105,7 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
 /**
  * Shared button geometry, counter-scaled so a control keeps its AUTHORED size
  * at any zoom (#1274). Replaces three identical inline class strings: the box
- * (`CANVAS_GLYPH_SIZE_CLASSES[20]`) and the hit-slop (`CANVAS_HIT_SLOP_CLASSES[2]`)
+ * (`CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX]`, 25 since gap 34) and the hit-slop (`CANVAS_HIT_SLOP_CLASSES[2]`)
  * are the two terms the footprint bound in `canvasGlyphTargetScale.spec.tsx`
  * reads, so a literal here would be a second, undetected authority.
  */
@@ -130,7 +130,7 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * muted at rest; the box and the slop are the same constants, so the band
  * `BaseNode` reserves is unchanged.
  */
-const BUTTON_CLASSES = `${NODE_RAIL_BUTTON_CLASSES} text-text-light`
+const BUTTON_CLASSES = `${NODE_RAIL_BUTTON_CLASSES} ${NODE_RAIL_REST_TONE_CLASS}`
 
 export interface NodeQuickActionsProps {
   nodeId: string
@@ -507,7 +507,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           "Ask Olumi about this" because the two are the same kind of act — a
           question to the model about THIS element — and the overflow keeps its
           deliberate final position. Identical geometry to its siblings, so the
-          cluster stays one row of equal 20px controls.
+          cluster stays one row of equal controls (the shared rail box).
 
           `Zap` is the icon the context menu already uses for "Challenge this"
           (`useMenuItems.ts`), so the button and the menu entry it unburies read
@@ -548,7 +548,8 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           type="button"
           onClick={handleOpenMenu}
           onPointerDown={stopPointer}
-          /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
+          /* ⭐ 20px VISUAL, 24px TARGET (now 25 and 29: the contract box, gap
+             34) — and as of this change ALL of them, not
              just this one. `h-5 w-5` keeps the visual identical to its siblings;
              `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
              2.5.8's minimum. The comment here used to end "the siblings share the
