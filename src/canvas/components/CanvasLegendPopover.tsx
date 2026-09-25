@@ -987,7 +987,7 @@ function LegendGroup({ rows }: { rows: LegendRow[] }) {
  *     no automated witness**".
  *
  *  2. THE ANCHOR GROWS UPWARD, OFF THE TOP, WITH NO CLAMP. The toolbar is
- *     `position: fixed; bottom: 12px` (`CanvasFloatingToolbar.module.css`) and
+ *     `position: fixed; bottom: 12px` then, 40px now (`CanvasFloatingToolbar.module.css`) and
  *     this panel is `absolute … bottom-0` inside it. So the panel's BOTTOM is
  *     pinned near the foot of the window and its TOP is
  *     `wrapperBottom − panelHeight` — a number that goes NEGATIVE the moment the

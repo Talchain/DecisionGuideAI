@@ -209,7 +209,7 @@ export const OVERLAY_BAND_HEIGHT = 64
 export const OVERLAY_BAND_BOTTOM = 12
 /**
  * Left padding clears the viewport-controls toolbar, which is `fixed; left: 12;
- * bottom: 12; z-index: 1100` and ~150px tall (`CanvasFloatingToolbar.module.css`)
+ * bottom: 40; z-index: 1100` (`CanvasFloatingToolbar.module.css`; 320px tall per DebugPanel)
  * — an overlap that was in no register row before this lane.
  *
  * contract v3.1 CHR-12: 76, not 64. 64 started the bottom-left cell 4px from

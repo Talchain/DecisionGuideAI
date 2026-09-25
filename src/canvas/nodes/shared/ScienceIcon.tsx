@@ -108,6 +108,10 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
         onClick={handleClick}
         onPointerDown={(e) => e.stopPropagation()}
         aria-label={tooltip}
+        /* It opens a `role="dialog"` popover. Also what lets the canvas see
+           that popover open when focus is elsewhere, so the Escape that closes
+           it does not also clear the selection (`useKeyboardShortcuts`). */
+        aria-haspopup="dialog"
         aria-expanded={open}
         /* Identity for the known-shortfall pin in
            `__tests__/canvasGlyphTargetScale.spec.tsx`. The pin must not bind to

@@ -401,10 +401,10 @@ export function DebugPanel() {
       style={{
         position: 'fixed',
         // Clears CanvasViewportControls, which now shares the LeftSidebar's floating-
-        // toolbar metrics (CanvasFloatingToolbar.module.css). MEASURED in a real browser
-        // at 1280x800, not computed: the toolbar's own height is 320px and it is anchored
-        // 40px off the bottom (contract v3.1 `.zoom-tools`; was 12), so its top edge sits
-        // 360px up. 366 leaves 6px.
+        // toolbar metrics (CanvasFloatingToolbar.module.css). The toolbar's own height,
+        // 320px, was MEASURED in a real browser at 1280x800. Its 40px offset is the CSS
+        // value (contract v3.1 `.zoom-tools`; was 12), so 360px up and 366 (6px clear) are
+        // COMPUTED from that, not re-measured since the offset moved.
         // ⚠ This is a hand-maintained mirror of another component's height, and it was
         // ALREADY stale before the toolbars were aligned — it read 200px against a
         // measured 263px, its comment counting 5 buttons and 1 separator where the
