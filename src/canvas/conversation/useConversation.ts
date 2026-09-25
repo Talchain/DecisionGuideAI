@@ -5241,7 +5241,10 @@ export function useConversation(): UseConversationReturn {
               // preview graph on the undo stack, making undo one step deeper
               // than the buffered path's. Skipping here leaves the undo stack
               // identical.
-              applyDraftResult(inlineGraph as any, { skipHistory: streamedPreviewOwnsCanvas })
+              applyDraftResult(inlineGraph as any, {
+                skipHistory: streamedPreviewOwnsCanvas,
+                turnVerdict: { analysisReady: target.response.analysis_ready, graphHash: target.response.graph_hash },
+              })
               draftAppliedThisTurn = true
               // ── The user's brief, recorded for the decision it just drafted ──
               //
