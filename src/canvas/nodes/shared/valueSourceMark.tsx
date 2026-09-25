@@ -133,24 +133,49 @@ export interface FactorValueSourceMark {
  *      from an absence.
  */
 export function factorValueSourceMark(data: unknown): FactorValueSourceMark | null {
+  return resolveFactorValueSource(data).mark
+}
+
+/**
+ * ⭐ IS THIS VALUE A PERSON'S EDIT STILL WAITING FOR ITS RECEIPT? — exactly
+ * rule 4 above, read off the store's own record, and nothing else.
+ *
+ * The inspector's context pill reads THIS (independent review, PR #2046,
+ * 5840944379), not a memory of its own last commit. A panel-held outcome — in
+ * component state or a module-level map keyed by node id — did not survive a
+ * reload (the pill credited Olumi with the user's unsent number while this
+ * mark said "no source"), was never cleared when ANOTHER seam earned the
+ * receipt, and leaked onto a same-id factor in a different scenario. The
+ * record already carries the signature, and it survives serialisation (the
+ * writers withdraw with `null`, see `extractionMarkerWithdrawn`), so pill and
+ * card now answer from one owner: the same rule chain, in the same order.
+ */
+export function factorValueAwaitsReceipt(data: unknown): boolean {
+  return resolveFactorValueSource(data).awaitingReceipt
+}
+
+function resolveFactorValueSource(data: unknown): {
+  mark: FactorValueSourceMark
+  awaitingReceipt: boolean
+} {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   const source = typeof obs?.source === 'string' ? obs.source : null
   const stamped = classifyValueProvenance(source)
 
   if (stamped && (stamped.userOwned || stamped.kind === 'panel')) {
-    return { kind: markForKind(stamped.kind), label: labelForKind(stamped.kind) }
+    return { mark: { kind: markForKind(stamped.kind), label: labelForKind(stamped.kind) }, awaitingReceipt: false }
   }
   if (factorValueIsUnconfirmedEstimate(data)) {
-    return { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }
+    return { mark: { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }, awaitingReceipt: false }
   }
   if (stamped?.kind === 'brief' || obs?.extractionType === 'explicit' || d?.extractionType === 'explicit') {
-    return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
+    return { mark: { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }, awaitingReceipt: false }
   }
   if (stamped?.kind === 'ai' && !extractionMarkerWithdrawn(obs)) {
     // Rule 4a — the producer drafted this value and never wrote a marker: its
     // own `source` names the author.
-    return { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }
+    return { mark: { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }, awaitingReceipt: false }
   }
   if (stamped?.kind === 'ai') {
     // Rule 4 — the writer withdrew the estimate claim (a dispatched edit keeps
@@ -158,9 +183,10 @@ export function factorValueSourceMark(data: unknown): FactorValueSourceMark | nu
     // the receipt). Neither author is established yet, so the visible number
     // says so: `no source` — never `you` before acknowledgement, never the old
     // value's `est.` (Codex #1919 5802926467: every shown value has a source word).
-    return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
+    // The ONE rule that answers `factorValueAwaitsReceipt`.
+    return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: true }
   }
-  return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
+  return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: false }
 }
 
 /**

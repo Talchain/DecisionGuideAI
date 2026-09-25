@@ -75,27 +75,7 @@ import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { meaningfulUncertaintyDrivers } from '../../../utils/observedStateHelpers'
-
-/**
- * ⚠⚠ A4b BLOCKING 1 FIX-FORWARD (independent review, PR #2046). The pending
- * commit outcome used to live only in this component's own `useState`, and
- * `InspectorRouter` mounts this panel keyed by `nodeId`
- * (`InspectorRouter.tsx:592/600`) — so selecting another factor and coming
- * back to THIS one is a full remount, which wipes plain component state.
- * Reproduced by the review: commit an edit over a `cee_inference` value with
- * the send blocked, reselect away and back — the pill fell back to
- * `getExtractionLabel(source)`, reading the never-restamped `observedState.
- * source`, and read "Estimated by Olumi" over the user's own unsent number.
- *
- * This module-level map survives the remount (read once at mount, written on
- * every transition below). It does NOT survive a page reload — that is a
- * durable-persistence question for the store, out of this fix's scope, which
- * is exactly the remount the review reproduced.
- */
-const pendingCommitOutcomeByNode = new Map<
-  string,
-  'sending' | 'sent' | 'local_only' | 'not_applied'
->()
+import { factorValueAwaitsReceipt } from '../../../nodes/shared/valueSourceMark'
 
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
@@ -156,27 +136,28 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * `sending` is the honest state while the promise is open. It is not a
    * success claim: no tick, no success tone.
    */
-  const [valueCommitOutcome, setValueCommitOutcomeState] = useState<
-    'sending' | 'sent' | 'local_only' | 'not_applied' | null
-  >(() => (nodeId ? pendingCommitOutcomeByNode.get(nodeId) ?? null : null))
-  // A4b Blocking 1: write through to the module-level map (see its docblock)
-  // so a later remount of THIS node rehydrates the same outcome instead of
-  // resetting to null. `nodeId` is stable for the lifetime of one mount
-  // (the router remounts on a `key={nodeId}` change), so the closure below is
-  // never stale within a single mount.
-  const setValueCommitOutcome = useCallback(
-    (next: 'sending' | 'sent' | 'local_only' | 'not_applied' | null) => {
-      setValueCommitOutcomeState(next)
-      if (!nodeId) return
-      if (next === null) pendingCommitOutcomeByNode.delete(nodeId)
-      else pendingCommitOutcomeByNode.set(nodeId, next)
-    },
-    [nodeId],
-  )
-  // A4b: the window during which the context pill must not read `source` —
-  // the edit has moved the value locally but has not yet earned (or been
-  // refused) a receipt, so no provenance claim is honest yet.
-  const isValueEditPending = valueCommitOutcome === 'sending' || valueCommitOutcome === 'local_only'
+  // ⚠ THIS STATE DRIVES THE TRANSIENT NOTICE COPY ONLY ("Sending…", "Sent",
+  // "Not sent", "not applied") — never the provenance pill. See below.
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | 'not_applied' | null>(null)
+  /**
+   * ⚠⚠ A4b: the window during which the context pill must not read `source` —
+   * the edit has moved the value locally but has not yet earned (or been
+   * refused) a receipt, so no provenance claim is honest yet.
+   *
+   * READ FROM THE STORE'S OWN RECORD, NOT FROM THIS PANEL'S MEMORY
+   * (independent review, PR #2046, 5840944379). Two panel-held versions
+   * failed: component state was wiped by the `key={nodeId}` remount
+   * (`InspectorRouter.tsx:592/600`), and a module-level map keyed by node id
+   * then failed three more ways — gone after a reload (the pill said
+   * "Estimated by Olumi" over the user's unsent number while the card said
+   * "no source"), never cleared when ANOTHER seam earned the receipt, and
+   * inherited by a same-id factor in a different scenario. The persisted
+   * signature (`source` AI-kind, extraction marker withdrawn) is the card
+   * mark's own rule 4, read through the same predicate, so the pill and the
+   * card cannot disagree about it and it clears the moment a receipt re-stamps
+   * `source` or a producer re-authors the value.
+   */
+  const isValueEditPending = factorValueAwaitsReceipt(node?.data)
   /**
    * Which commit the notice belongs to. The wire attempt is fire-and-forget,
    * so its outcome can land after a later commit — or after the person has
@@ -528,7 +509,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         // reaches here — the dispatcher reverts the optimistic write instead.
       })
     },
-    [mutations, confirmEdit, sendSystemEvent, nodeId, node?.data, setValueCommitOutcome],
+    [mutations, confirmEdit, sendSystemEvent, nodeId, node?.data],
   )
 
   const handleValueBlur = useCallback(() => {
@@ -693,8 +674,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
          * screen has moved but this pill has not — it keeps crediting whatever
          * the PRODUCER last claimed (measured: "Estimated by Olumi" over a
          * hand-typed 0.7) until the receipt lands and re-stamps `source`. While
-         * `valueCommitOutcome` is `sending` or `local_only` the number is real
-         * but the claim is not, so the pill says so instead of guessing. */}
+         * the store still carries that unreceipted signature
+         * (`factorValueAwaitsReceipt`, see `isValueEditPending`) the number is
+         * real but the claim is not, so the pill says so instead of guessing. */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
           {node.data?.factorType && (
             <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
