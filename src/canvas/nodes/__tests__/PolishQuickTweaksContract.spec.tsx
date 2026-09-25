@@ -108,7 +108,8 @@ describe('BaseNode — path-dim rung is opacity-25, not the old opacity-60', () 
       </ReactFlowProvider>,
     )
     // Bound to THIS card by its own accessible name, not any group on the page.
-    const card = screen.getByRole('group', { name: /node: Ship the pilot/ })
+    // Accessible name per contract §01 (gap-36): "<Kind>: <title>. Open details."
+    const card = screen.getByRole('group', { name: /: Ship the pilot\. Open details\./ })
     const tokens = card.className.split(/\s+/).filter(Boolean)
     expect(tokens).toContain('opacity-25')
     expect(tokens).not.toContain('opacity-60')
