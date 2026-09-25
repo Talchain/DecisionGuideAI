@@ -1322,6 +1322,83 @@ export function AnalysisNewTabBody({
       stripOffersTarget ? SUCCESS_MEASURE_RECOMMENDATION_ID : null,
     ],
   })
+  /**
+   * The glance, mounted twice: its status ribbon above the commitment block and
+   * its reading after it (see the reading mount for why). One element, so the
+   * two halves cannot receive different props.
+   */
+  const renderGlance = (part: 'status' | 'reading') => (
+    <AtAGlance
+      glance={vm.atAGlance}
+      onFocusTarget={focusTarget}
+      /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
+         ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
+         `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
+         on the stated rationale that "the estimates live on the Model tab".
+         That was true when it was written and false the next morning — see
+         `reviewEstimates` above for the derivation and for why this body,
+         and only this body, can compose the two.
+
+         `AtAGlance` is still fail-closed and still not told where anything
+         lives: it receives one handler or `undefined`, exactly as before,
+         and `reviewEstimates` is `undefined` when there is neither an
+         in-page act nor a route. */
+      onReviewEstimates={reviewEstimates}
+      isStale={vm.status.isStale && !vm.status.isPreRun}
+      staleKind={vm.status.staleKind}
+      runNote={
+        latestRunNote === null
+          ? null
+          : latestRunNote.kind === 'did_not_run'
+            ? {
+                testId: 'analysis-new-status-did-not-run',
+                text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
+              }
+            : latestRunNote.kind === 'blocked'
+              ? {
+                  testId: 'analysis-new-status-blocked',
+                  text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
+                }
+              : {
+                  testId: 'analysis-new-status-run-failed',
+                  text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
+                }
+      }
+      isProvisional={vm.status.isProvisional}
+      /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
+         passed because they answer different questions and the section uses
+         each for its own. */
+      rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
+      onReanalyse={onReanalyse}
+      /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
+         IT — and not the verdict itself. `runRefusedByGate` is
+         `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
+         in it), and the reason is masked by that same boolean so a
+         permitted control carries no refusal text. What `AtAGlance` gets
+         is therefore a PRESENTATION predicate over the one admission, in
+         the shape `AnalysisReadinessBar` and `PanelFooter` already use —
+         not either of the two values the dock handed this component. */
+      reanalyseBlocked={runRefusedByGate}
+      reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
+      /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
+         questions the ribbon control has to answer. `reanalyseBlocked`
+         above says whether the gate REFUSED; this says whether a run is
+         ALREADY IN FLIGHT, and the button is disabled on either while only
+         the first may caption it.
+
+         ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
+         AGAINST — this prop, the dock's local flag — and deliberately NOT
+         `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
+         which answers the cover's question, not the gate's; pairing the
+         verdict with it would test a different run than the one that
+         produced the verdict. Two flags, two questions, and this is the
+         one the gate itself consumed. */
+      isRunning={isRunning}
+      missingResults={vm.status.missingResults}
+      part={part}
+    />
+  )
+
   const answerBlock = (
     <CommitmentSummary
       synthesis={commitmentSynthesis}
@@ -2338,74 +2415,7 @@ export function AnalysisNewTabBody({
             quietest of the panel's three sizes. */}
         {/* V2: no separate zone label here — the commitment block below carries
             the zone's heading ("Move towards commitment") with its own acts. */}
-        <AtAGlance
-          glance={vm.atAGlance}
-          onFocusTarget={focusTarget}
-          /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
-             ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
-             `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
-             on the stated rationale that "the estimates live on the Model tab".
-             That was true when it was written and false the next morning — see
-             `reviewEstimates` above for the derivation and for why this body,
-             and only this body, can compose the two.
-
-             `AtAGlance` is still fail-closed and still not told where anything
-             lives: it receives one handler or `undefined`, exactly as before,
-             and `reviewEstimates` is `undefined` when there is neither an
-             in-page act nor a route. */
-          onReviewEstimates={reviewEstimates}
-          isStale={vm.status.isStale && !vm.status.isPreRun}
-          staleKind={vm.status.staleKind}
-          runNote={
-            latestRunNote === null
-              ? null
-              : latestRunNote.kind === 'did_not_run'
-                ? {
-                    testId: 'analysis-new-status-did-not-run',
-                    text: `${COPY.status.latestDidNotRun} ${latestRunNote.reason} ${COPY.status.showingPrevious} ${ANALYSIS_REFUSAL_POINTER}`,
-                  }
-                : latestRunNote.kind === 'blocked'
-                  ? {
-                      testId: 'analysis-new-status-blocked',
-                      text: `${COPY.status.latestBlocked} ${COPY.status.showingPrevious}`,
-                    }
-                  : {
-                      testId: 'analysis-new-status-run-failed',
-                      text: `${COPY.status.latestRunFailed} ${COPY.status.showingPrevious}`,
-                    }
-          }
-          isProvisional={vm.status.isProvisional}
-          /* ⚠ THE ACT BINDS TO RECOVERABILITY, NOT TO PERMISSION. Both are
-             passed because they answer different questions and the section uses
-             each for its own. */
-          rerunWouldNotHelp={vm.checks.rerunWouldNotHelp}
-          onReanalyse={onReanalyse}
-          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
-             IT — and not the verdict itself. `runRefusedByGate` is
-             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
-             in it), and the reason is masked by that same boolean so a
-             permitted control carries no refusal text. What `AtAGlance` gets
-             is therefore a PRESENTATION predicate over the one admission, in
-             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
-             not either of the two values the dock handed this component. */
-          reanalyseBlocked={runRefusedByGate}
-          reanalyseBlockedReason={runRefusedByGate ? runBlockedReason : null}
-          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
-             questions the ribbon control has to answer. `reanalyseBlocked`
-             above says whether the gate REFUSED; this says whether a run is
-             ALREADY IN FLIGHT, and the button is disabled on either while only
-             the first may caption it.
-
-             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
-             AGAINST — this prop, the dock's local flag — and deliberately NOT
-             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
-             which answers the cover's question, not the gate's; pairing the
-             verdict with it would test a different run than the one that
-             produced the verdict. Two flags, two questions, and this is the
-             one the gate itself consumed. */
-          isRunning={isRunning}
-          missingResults={vm.status.missingResults}
-        />
+        {renderGlance('status')}
         {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
             reachable on this tab for the first time. `robustness_caveat` rides
             `results.report.decision_brief`, which the browser already holds; it
@@ -2474,6 +2484,13 @@ export function AnalysisNewTabBody({
             entitlement; splitting them is what put a withheld claim on screen
             before. Moving the fragment moves both. */}
         {answerBlock}
+        {/* ⭐ V2: THE READING FOLLOWS THE ANSWER. The prototype has no reading above
+            the chart; its stale row sits in the commitment block, above it. The
+            glance's status ribbon therefore stays above "Move towards
+            commitment" and its reading (the withheld reason and its act, the
+            reading, the scope, the condition) moves here, so the chart and its
+            qualifier reach the first screen (fidelity gap 1; #63 5825359499). */}
+        {renderGlance('reading')}
 
         {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
             One line where seven sections answered one question. It states the

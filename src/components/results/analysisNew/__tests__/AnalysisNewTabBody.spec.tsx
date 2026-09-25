@@ -1148,14 +1148,16 @@ describe('the coaching and the answer — V2 zone order', () => {
    * from the old rule: the glance leads the figures, and the coaching is above
    * the DETAIL. Each case below states its V2 relation.
    */
-  it('V2: the review sits above the answer, and the glance leads the figures inside it', () => {
+  it('V2: the review sits above the answer, and the figures lead the glance reading inside it', () => {
     renderBody(genuineDecision())
     const glance = screen.getByTestId('analysis-new-glance')
     const options = screen.getByTestId('analysis-new-options')
     const review = screen.getByTestId('analysis-new-review')
     expect(new Set([glance, options, review]).size, 'three distinct elements').toBe(3)
 
-    expect(precedes(glance, options), 'the glance leads; the figures follow it').toBe(true)
+    // V2 (fidelity gap 1, 25 Sep 2026): the figures lead; the glance's reading
+    // follows them. Its status ribbon stays above (`theChartLeadsTheReading.spec.tsx`).
+    expect(precedes(options, glance), 'the figures lead; the glance reading follows them').toBe(true)
     expect(precedes(review, glance), 'V2: the model-wide review comes before the answer').toBe(true)
   })
 
