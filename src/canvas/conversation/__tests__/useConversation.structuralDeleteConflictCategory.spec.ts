@@ -34,10 +34,21 @@
  * because `applyV5State` captures the top-level `graph_hash` off EVERY response
  * — so any turn refreshes the base hash, whichever gate refused.
  *
- * OPPOSITE-DIRECTION TWINS BELOW, and they are the point: a fence category and
- * an unknown future category must STILL take the honest cannot-confirm line
- * with NO revert. Widening a set is only safe if the outside of the set is
- * pinned.
+ * ⭐ THE SET WAS WIDENED AGAIN, BY THE PRODUCER: CEE #1868 (`013fae8d`, served
+ * `92b1bf8`), on its `factor_value_edit` arm, answers a `TurnFenceRejectedError`
+ * with verdict `superseded` or `stopped` as a 409 `GRAPH_DIVERGED` with
+ * `commitPerformed: false` — "The turn fence refused the write inside the
+ * append transaction, so nothing of this edit landed." The set is per category
+ * and this writer reads it, so those two now REVERT here too (this file pins
+ * the CLIENT's handling; it is not evidence of what the delete arm emits),
+ * under the fence's own sentence: the
+ * `base_hash_diverged` copy ("The saved model changed since you deleted that")
+ * is false about a stopped turn.
+ *
+ * OPPOSITE-DIRECTION TWINS BELOW, and they are the point: `turn_fence_unclaimed`
+ * (kept by the producer as a retryable 500, never a no-write 409) and an
+ * unknown future category must STILL take the honest cannot-confirm line with
+ * NO revert. Widening a set is only safe if the outside of the set is pinned.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -50,6 +61,15 @@ import {
   STRUCTURAL_DELETE_NOTICE,
   type StructuralDeleteIntent,
 } from '../../mutations/structuralDelete'
+
+/**
+ * The fence's own per-verdict sentences (`FENCE_REFUSAL_COPY`,
+ * `v5/failureTypeRetryability.ts`), bound by the EXACT string.
+ */
+const FENCE_STOPPED_COPY =
+  "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it."
+const FENCE_SUPERSEDED_COPY =
+  "That change wasn't saved because a newer change to this decision got in first. Nothing was overwritten. Check the latest state, then make the edit again if it's still needed."
 
 // ---------------------------------------------------------------------------
 // Mocks — seams only; the V5 adapter/parser/router chain stays REAL.
@@ -253,6 +273,24 @@ describe('structural_delete 409 — a guaranteed no-write reverts and says so', 
     expect(nodeIds).toContain(DELETED_NODE_ID)
     expect(notices).toContain(STRUCTURAL_DELETE_NOTICE.base_hash_diverged)
   })
+
+  it.each([
+    ['turn_fence_superseded', FENCE_SUPERSEDED_COPY],
+    ['turn_fence_stopped', FENCE_STOPPED_COPY],
+  ])(
+    "'%s' (CEE #1868: nothing of this edit landed) puts the element BACK under the fence's own sentence",
+    async (category, fenceCopy) => {
+      const { nodeIds, notices } = await driveDelete(category)
+
+      // Bound by IDENTITY — the exact node the intent named.
+      expect(nodeIds).toContain(DELETED_NODE_ID)
+      expect(notices).toContain(fenceCopy)
+      // "The saved model changed since you deleted that" is false about a
+      // stopped turn; the cannot-confirm line is false about a stated no-write.
+      expect(notices).not.toContain(STRUCTURAL_DELETE_NOTICE.base_hash_diverged)
+      expect(notices).not.toContain(STRUCTURAL_DELETE_NOTICE.unconfirmed_server)
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -269,8 +307,8 @@ describe('structural_delete 409 — everything else is still an honest unknown',
     expect(notices).not.toContain(STRUCTURAL_DELETE_NOTICE.base_hash_diverged)
   })
 
-  it('OPPOSITE TWIN: a turn-fence category does NOT revert either (no no-write guarantee for that class here)', async () => {
-    const { nodeIds, notices } = await driveDelete('turn_fence_superseded')
+  it("OPPOSITE TWIN: 'turn_fence_unclaimed' does NOT revert (the producer keeps it a retryable 500, never a no-write 409)", async () => {
+    const { nodeIds, notices } = await driveDelete('turn_fence_unclaimed')
 
     expect(nodeIds).not.toContain(DELETED_NODE_ID)
     expect(notices).toContain(STRUCTURAL_DELETE_NOTICE.unconfirmed_server)

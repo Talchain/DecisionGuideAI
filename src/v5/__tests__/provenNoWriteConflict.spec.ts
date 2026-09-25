@@ -24,15 +24,32 @@ import {
 } from '../provenNoWriteConflict'
 
 describe('the set is exactly these members', () => {
-  it('holds the three categories whose producer states a no-write guarantee', () => {
+  it('holds the five categories whose producer states a no-write guarantee', () => {
     // Exact, not superset: a member added without its producer line would be a
     // revert this estate cannot justify, and this is where that shows up.
     expect([...PROVEN_NO_WRITE_CONFLICT_CATEGORIES].sort()).toEqual([
       'BASE_HASH_DIVERGED',
       'rpc_cas_conflict',
       'stale_base_graph_hash',
+      'turn_fence_stopped',
+      'turn_fence_superseded',
     ])
   })
+
+  /**
+   * ⭐ THE TWO FENCE VERDICTS THE PRODUCER ANSWERS WITH A NO-WRITE 409 (CEE
+   * #1868, `013fae8d`, served `92b1bf8`): `system-events/dispatch.ts`, the
+   * `factor_value_edit` arm, returns 409 `GRAPH_DIVERGED` with
+   * `commitPerformed: false` for a `TurnFenceRejectedError` whose verdict is
+   * `superseded` or `stopped` — "The turn fence refused the write inside the
+   * append transaction, so nothing of this edit landed."
+   */
+  it.each(['turn_fence_superseded', 'turn_fence_stopped'])(
+    '%s is a proven no-write (the producer states it in the 409 arm)',
+    category => {
+      expect(isProvenNoWriteConflict(category)).toBe(true)
+    },
+  )
 
   it.each([...PROVEN_NO_WRITE_CONFLICT_CATEGORIES])('%s is a proven no-write', category => {
     expect(isProvenNoWriteConflict(category)).toBe(true)
@@ -46,7 +63,16 @@ describe('⚠ THE OUTSIDE OF THE SET, which is the half a widening endangers', (
     // "re-sending cannot work"; it says NOTHING about whether bytes landed.
     ['INGRESS_CONTRACT_VIOLATION', 'non-retryable, but carries no no-write guarantee'],
     ['TURN_BUDGET_EXCEEDED', 'non-retryable, but carries no no-write guarantee'],
-    // A turn-fence verdict and any future category are unknowns.
+    // The two fence verdicts the producer does NOT answer with a no-write 409
+    // on the edit path: CEE #1868 deliberately keeps `unclaimed` and
+    // `unavailable` as the retryable 500 (infrastructure refusals, "until their
+    // code is decided"). Pinned by name, because they share the members' prefix
+    // and a prefix gate would sweep them in.
+    ['turn_fence_unclaimed', 'an infrastructure refusal the producer has not decided a code for'],
+    ['turn_fence_unavailable', 'an infrastructure refusal the producer has not decided a code for'],
+    ['turn_fence_quarantined', 'an unknown future fence verdict is an unknown, not a member'],
+    ['turn_fence_', 'the bare prefix is not a verdict'],
+    // Any other future category is an unknown.
     ['fence_refusal', 'an unknown category takes the cannot-confirm line'],
     ['BASE_HASH_DIVERGED_v2', 'a near-miss name must not match by prefix or similarity'],
     ['base_hash_diverged', 'the comparison is exact — case is part of the identity'],

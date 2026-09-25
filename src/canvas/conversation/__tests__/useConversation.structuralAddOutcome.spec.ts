@@ -99,6 +99,15 @@ const BASE_GRAPH_HASH = 'cfded3af0aa14ebd'
 const MOVED_HASH = 'aaaa1111bbbb2222'
 const NEW_LABEL = 'Supplier concentration risk'
 
+/**
+ * The fence's own per-verdict sentences (`FENCE_REFUSAL_COPY`,
+ * `v5/failureTypeRetryability.ts`), bound by the EXACT string.
+ */
+const FENCE_STOPPED_COPY =
+  "That change wasn't saved because this turn was stopped. Nothing in your decision changed. Send the change again if you still want it."
+const FENCE_SUPERSEDED_COPY =
+  "That change wasn't saved because a newer change to this decision got in first. Nothing was overwritten. Check the latest state, then make the edit again if it's still needed."
+
 function addIntent(): StructuralAddIntent {
   return {
     id: 'sa-1',
@@ -375,6 +384,40 @@ describe('structural_add — a 409 GRAPH_DIVERGED', () => {
     expect(notices).toContain(STRUCTURAL_ADD_NOTICE.base_hash_diverged)
   })
 
+  /**
+   * The same closed set decides this writer, so the fence verdicts CEE #1868
+   * (`013fae8d`, served `92b1bf8`) states wrote nothing on its
+   * `factor_value_edit` arm — "refused the write inside the append transaction,
+   * so nothing of this edit landed" — remove the node here too (this pins the
+   * CLIENT's handling, not what the add arm emits), and the sentence is the
+   * fence's own: "The saved model
+   * changed while you were adding that" is false about a stopped turn.
+   */
+  it.each([
+    ['turn_fence_superseded', FENCE_SUPERSEDED_COPY],
+    ['turn_fence_stopped', FENCE_STOPPED_COPY],
+  ])("'%s' removes the node under the fence's own sentence", async (category, fenceCopy) => {
+    stub409(category)
+    const { hasNode, lifecycle, notices } = await driveAdd()
+
+    expect(lifecycle).toBe('refused')
+    // Bound by IDENTITY: the added id goes, the same-labelled sibling stays.
+    expect(hasNode(NEW_NODE_ID)).toBe(false)
+    expect(hasNode(SIBLING_ID)).toBe(true)
+    expect(notices).toContain(fenceCopy)
+    expect(notices).not.toContain(STRUCTURAL_ADD_NOTICE.base_hash_diverged)
+    expect(notices).not.toContain(STRUCTURAL_ADD_NOTICE.unconfirmed_server)
+  })
+
+  it("TWIN — 'turn_fence_unclaimed' (the producer keeps it a retryable 500, never a no-write 409) is an unknown, so the node STAYS", async () => {
+    stub409('turn_fence_unclaimed')
+    const { hasNode, lifecycle, notices } = await driveAdd()
+
+    expect(lifecycle).toBe('unconfirmed')
+    expect(hasNode(NEW_NODE_ID)).toBe(true)
+    expect(notices).toContain(STRUCTURAL_ADD_NOTICE.unconfirmed_server)
+  })
+
   it('TWIN — an UNRECOGNISED conflict category is an unknown, so the node STAYS', async () => {
     // A category the producer does not guarantee wrote nothing cannot be called
     // a refusal. Calling an unknown a refusal is the same overclaim in verdict
@@ -406,6 +449,20 @@ describe('structural_add — refused, but the removal must stand down', () => {
 
     expect(hasNode(NEW_NODE_ID)).toBe(true)
     expect(notices).toContain(STRUCTURAL_ADD_NOTICE.refused_left_on_canvas)
+  })
+
+  it('a fence refusal on a CONNECTED node keeps the stood-down sentence — the fence copy does not replace it', async () => {
+    // The fence sentence says nothing changed in the decision; it does not say
+    // the node is STILL ON THE CANVAS, which is the one thing this arm must tell
+    // the user. So the stood-down sentence stays the writer's own.
+    stub409('turn_fence_stopped')
+    const { hasNode, notices } = await driveAdd({
+      edges: [{ id: 'e1', source: NEW_NODE_ID, target: SIBLING_ID }] as never,
+    })
+
+    expect(hasNode(NEW_NODE_ID)).toBe(true)
+    expect(notices).toContain(STRUCTURAL_ADD_NOTICE.refused_left_on_canvas)
+    expect(notices).not.toContain(FENCE_STOPPED_COPY)
   })
 
   it('TWIN — with no edge attached, the very same refusal DOES remove the node', async () => {
