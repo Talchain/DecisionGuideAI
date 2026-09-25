@@ -95,6 +95,34 @@ const pricingFirstPass = (): ResultsSectionDataReturn => {
   return { ...data, recommendation: { ...data.recommendation, analysisAdmission: CAPTURED_PRICING_ADMISSION } } as ResultsSectionDataReturn
 }
 
+/**
+ * The captured refusal with its `permitted_analysis_mode` reason re-coded. Only 2 of
+ * the codes that reach that slot ask for an estimate (ESTIMATE_REMEDY_ADMISSION_CAUSES);
+ * the others (independent review of #1993, 5826650947) must not get the estimates cause.
+ */
+const refusalCoded = (code: string, message: string): ResultsSectionDataReturn => {
+  const data = decisionWithLeaderWithheldAndReason()
+  const adm = data.recommendation.analysisAdmission as unknown as {
+    reasons: { field: string; code: string; message: string }[]
+  }
+  return {
+    ...data,
+    recommendation: {
+      ...data.recommendation,
+      analysisAdmission: {
+        ...adm,
+        reasons: adm.reasons.map((r) => (r.field === 'permitted_analysis_mode' ? { ...r, code, message } : r)),
+      },
+    },
+  } as ResultsSectionDataReturn
+}
+
+const NOT_ABOUT_ESTIMATES = [
+  ['NOTHING_TO_COMPARE', 'Name at least two different options you are weighing.'],
+  ['NO_COMPARISON_SUBSTRATE', 'Nothing in this model connects the options to your goal.'],
+  ['MODEL_HAS_BLOCKERS', 'This model cannot be analysed yet.'],
+] as const
+
 beforeEach(() => useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never))
 afterEach(cleanup)
 
@@ -168,6 +196,25 @@ describe('the withheld leader is not blamed on limits the user never set', () =>
     expect(checks.leaderWithheld).toBe(true)
     expect(checks.leaderWithholdCause).toBeNull()
     expect(checks.rerunWouldNotHelp).toBe(false)
+  })
+
+  it.each(NOT_ABOUT_ESTIMATES)(
+    '⭐ OPPOSITE CONTROL: a refusal coded %s is not about estimates → the token\'s own sentence, and Run is not suppressed',
+    (code, message) => {
+      const checks = checksOf(refusalCoded(code, message))
+      expect(checks.leaderWithheld, 'PRECONDITION: the leader is withheld').toBe(true)
+      expect(checks.leaderWithholdCause).not.toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
+      expect(checks.leaderWithholdCause).toBe(leaderWithholdCause(REASON))
+      expect(checks.rerunWouldNotHelp).toBe(false)
+    },
+  )
+
+  it('CONTROL: the same re-coding helper with an estimate code keeps the estimates cause (the helper is not what changes it)', () => {
+    const checks = checksOf(
+      refusalCoded('USER_STATED_PARAMETERS_NOT_MATERIAL', 'None of the estimates you set changes the comparison.'),
+    )
+    expect(checks.leaderWithholdCause).toBe(LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS)
+    expect(checks.rerunWouldNotHelp).toBe(true)
   })
 
   it('⭐ an admission refusal does not replace a cause the producer named for itself (separation_unavailable)', () => {
