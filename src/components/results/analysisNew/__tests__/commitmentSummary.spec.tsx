@@ -31,6 +31,7 @@ import {
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { DecisionRecord } from '../../modals'
+import { DECISION_RECORD_COPY } from '../../modals/DecisionRecordModal'
 
 afterEach(cleanup)
 
@@ -282,6 +283,27 @@ describe('record your view — the existing decision record', () => {
     expect(screen.getByTestId(`${TID}-record-storage`).textContent).toContain(storageSentenceFor(RECORD))
     // Never an Olumi decision.
     expect(screen.getByTestId(`${TID}-record`).textContent).not.toMatch(/olumi|recommend|decided/i)
+  })
+
+  /**
+   * ⭐ THE NEXT ACTION IS READ BACK (V2 prototype `positionHTML()`: "Your view ·
+   * Next · Revisit when"). The modal has collected it since #1929 and the store
+   * keeps it (`decisionRecordStore.ts` `nextAction`), but the read-back never
+   * showed it — the user wrote it and the tab dropped it.
+   */
+  it('a recorded next action is read back, labelled as in the form', () => {
+    renderZone({ record: { ...RECORD, nextAction: 'Size the market by Friday' } })
+    expect(screen.getByTestId(`${TID}-record-next-action`).textContent).toBe(
+      `${COPY.decisionRecord.nextActionLabel}: Size the market by Friday`,
+    )
+    // "Labelled as in the form": the Reasoning tab keeps its own copy (so it
+    // does not import the modal and its copy scope), bound here to the form's.
+    expect(COPY.decisionRecord.nextActionLabel).toBe(DECISION_RECORD_COPY.nextActionLabel)
+  })
+
+  it('CONTRAST: no next action, no row', () => {
+    renderZone({ record: { ...RECORD, nextAction: undefined } })
+    expect(screen.queryByTestId(`${TID}-record-next-action`)).toBeNull()
   })
 
   it('CONTRAST: a non-blank rationale does get its row', () => {

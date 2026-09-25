@@ -39,7 +39,9 @@ describe('the producer\'s reason for withholding the leader', () => {
   it('⭐ states the cause for the reason a real run actually sent', () => {
     const cause = leaderWithholdCause(REAL)
     expect(cause, 'the reason CEE sent on 16 Sep must produce a sentence').not.toBeNull()
-    expect(cause).toContain('limit')
+    // 25 Sep: the sentence names the checks, not limits (the token covers more
+    // than a constraint verdict; theWithholdNamesNoLimitsTheUserNeverSet).
+    expect(cause).toMatch(/checks/i)
     // ⛔ Never the token. This is the assertion that stops a raw enum reaching a reader.
     expect(cause).not.toContain('constraint_verdict_withheld')
     expect(cause).not.toContain('_')

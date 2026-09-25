@@ -97,6 +97,7 @@ import {
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
   leaderWithholdCause,
+  LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS,
 } from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
@@ -151,6 +152,22 @@ const ESTIMATE_REMEDY_ADMISSION_CAUSES: ReadonlySet<string> = new Set([
   'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
   'USER_STATED_PARAMETERS_NOT_MATERIAL',
 ])
+
+/**
+ * True only where the admission refused the comparative claim AND its own
+ * `permitted_analysis_mode` reason asks for an estimate. That is the same
+ * (field, code) conjunct the glance's remedy reads, so the withheld cause and
+ * the button cannot name different acts (trap 21). A refusal coded
+ * `NOTHING_TO_COMPARE`, `NO_COMPARISON_SUBSTRATE` or `MODEL_HAS_BLOCKERS` is not
+ * about estimates (independent review of #1993, 5826650947).
+ */
+function admissionRefusalAsksForAnEstimate(
+  admission: Parameters<typeof licensesComparativeLeaderClaim>[0],
+): boolean {
+  if (licensesComparativeLeaderClaim(admission) !== false) return false
+  const code = admission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode')?.code
+  return typeof code === 'string' && ESTIMATE_REMEDY_ADMISSION_CAUSES.has(code)
+}
 
 /**
  * §2 of the brief: "a very small number of high-value insights".
@@ -214,6 +231,13 @@ export interface AnalysisNewViewModelInputs {
    * this surface can state it. Never rendered directly.
    */
   producerLeaderWithholdReason?: string | null
+  /**
+   * `results.report.run_provenance.provisional === true`: CEE's typed marker
+   * for the run Olumi started by itself (see `mapV5AnalysisToReport`). Absent
+   * or anything but `true` = not an automatic run. Licenses the qualifier's
+   * "automatic first pass" clause and nothing else.
+   */
+  runProvisional?: boolean
   /** Engine output, already lifecycle-filtered by the hook. */
   recommendations: Recommendation[]
   isPreRun: boolean
@@ -3062,9 +3086,19 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
      * claim either. Both take the silent branch.
      */
     const goalAvailable = hasAnyGoalValue(options, goalValue, { hasUserTarget })
-    return !goalAvailable && rec.goalThreshold == null
-      ? { kind: 'needs_target', outcome }
-      : { kind: 'none' }
+    if (goalAvailable || rec.goalThreshold != null) return { kind: 'none' }
+    /*
+     * ⭐ THE PRODUCER'S LEADER IS A SECOND READING, COMPARED BY ID (trap 19).
+     * Witnessed 25 Sep 03:07Z, hiring, OpenAI, CEE `21e3b38`: the producer
+     * permitted "Hire Two Developers" (42% win share, "slightly ahead"); the
+     * highest expected value was "Hire Lead Then Developer". "What we have"
+     * named the second while the chart and the chat named the first.
+     */
+    const producerLeaderId =
+      rec.verdict?.hasLeadingOption === true && leaderDesignationPermitted(rec) === true ? rec.verdict.leaderId : null
+    return producerLeaderId != null && producerLeaderId !== outcomeRow.id
+      ? { kind: 'needs_target', outcome, leaderIsAnotherOption: true }
+      : { kind: 'needs_target', outcome }
   }
 
   const goal: ImplicationClaim = {
@@ -3396,11 +3430,22 @@ const REQUIRED_RESULT_KEYS: ReadonlySet<string> = new Set([
 
 // ── STATUS ──────────────────────────────────────────────────────────────────
 
+/**
+ * ⭐ WITHHELD, NOT MISSING. Where the producer withheld the leader
+ * designation, its withheld projection drops the win share and the robustness
+ * rating on purpose. Naming them as results that "did not come back" told the
+ * reader something was lost (joined witness, #63 5824916222, both briefs'
+ * automatic first run). The admission beside it already says why they are
+ * withheld. Pinned by `aWithheldShareIsNotALostOne.spec.tsx`.
+ */
+const WITHHELD_WITH_THE_LEADER: ReadonlySet<string> = new Set(['win_probability', 'robustness_level'])
+
 function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
   const { data } = inputs
   const status = data.recommendation.analysisStatus
-  const missingRequired = (data.completeness?.missing ?? []).filter((k) =>
-    REQUIRED_RESULT_KEYS.has(k),
+  const leaderWithheld = data.recommendation.leaderDesignationPermitted === false
+  const missingRequired = (data.completeness?.missing ?? []).filter(
+    (k) => REQUIRED_RESULT_KEYS.has(k) && !(leaderWithheld && WITHHELD_WITH_THE_LEADER.has(k)),
   )
   return {
     isPreRun: inputs.isPreRun,
@@ -3418,6 +3463,9 @@ function buildStatus(inputs: AnalysisNewViewModelInputs): AnalysisNewStatus {
     // completeness verdict is the second, independent source — but only its
     // REQUIRED keys speak for it (see REQUIRED_RESULT_KEYS above).
     isProvisional: status === 'partial' || missingRequired.length > 0,
+    // ⚠ A DIFFERENT QUESTION from `isProvisional` (partial results): this is
+    // who started the run, as CEE typed it.
+    runProvisional: inputs.runProvisional === true,
     // Producer-owned, verbatim. Never authored here.
     statusNote: data.recommendation.statusReason ?? null,
     /**
@@ -3504,6 +3552,23 @@ function dedupeAgainstGlance(
  * severity — a "worst first" order would be a judgement across three
  * incommensurable checks that no producer field supports.
  */
+/**
+ * The withheld-leader tokens the producer's admission can explain.
+ *
+ * `constraint_verdict_withheld` is emitted for ANY not-entitled verdict
+ * (`composeLeaderClaim`: `!entitled`), and CEE's `unrequested_analysis_withheld`
+ * (Canonical, `bank/unrequested-analysis-withheld-reason`, RC 5825756972) for an
+ * automatic first pass. Where the admission also refused the comparative claim,
+ * "until an estimate is yours" is the cause behind either. Any other token names
+ * its own cause (`separation_unavailable`: the run could not tell how far apart
+ * the options are), and an admission refusal beside it must not replace it
+ * (pre-review of bundle 3, 25 Sep).
+ */
+const ADMISSION_EXPLAINS_THE_WITHHOLD: ReadonlySet<string> = new Set([
+  'constraint_verdict_withheld',
+  'unrequested_analysis_withheld',
+])
+
 function buildChecks(
   data: ResultsSectionDataReturn,
   producerWithholdReason: string | null | undefined,
@@ -3637,6 +3702,31 @@ function buildChecks(
         ? 'evidence_none_flagged'
         : 'evidence_not_assessed'
 
+  // The cause this surface states for a withheld leader: null when the leader
+  // was not withheld, or was withheld for a reason it cannot name.
+  const token = typeof producerWithholdReason === 'string' ? producerWithholdReason.trim() : ''
+  const refusalAsksForAnEstimate = admissionRefusalAsksForAnEstimate(data.recommendation.analysisAdmission)
+  const withheldCause =
+    leaderCode !== 'leader_not_assessed'
+      ? null
+      : // Where the admission refused the comparative claim FOR AN ESTIMATE, that
+        // refusal IS the cause, but only behind a token the admission can explain;
+        // see ADMISSION_EXPLAINS_THE_WITHHOLD and admissionRefusalAsksForAnEstimate.
+        refusalAsksForAnEstimate && ADMISSION_EXPLAINS_THE_WITHHOLD.has(token)
+        ? LEADER_WITHHELD_UNTIL_AN_ESTIMATE_IS_YOURS
+        : leaderWithholdCause(producerWithholdReason)
+  /*
+   * ⚠ A NAMEABLE CAUSE IS NOT ALWAYS A DURABLE ONE. `constraint_verdict_withheld`
+   * covers the automatic first pass's own policy, and an explicit Run on the
+   * same pricing model PERMITTED the leader (25 Sep 02:37Z). So that generic
+   * token earns "a re-run would not help" only behind an admission refusal that
+   * asks for an estimate (a property of the model). Tokens that name their own
+   * cause keep it as before. Found by an independent pre-review of bundle 3
+   * (#63 5826233187); narrowed to estimate refusals by its review (5826650947).
+   */
+  const causeIsDurable =
+    withheldCause !== null && (token !== 'constraint_verdict_withheld' || refusalAsksForAnEstimate)
+
   return {
     items: [
       { id: 'leader', code: leaderCode, state: CHECK_STATE[leaderCode] },
@@ -3650,8 +3740,7 @@ function buildChecks(
      * so the gate is this surface's OWN leader code, never the reason's
      * presence.
      */
-    leaderWithholdCause:
-      leaderCode === 'leader_not_assessed' ? leaderWithholdCause(producerWithholdReason) : null,
+    leaderWithholdCause: withheldCause,
     /**
      * ⭐ THE FACT, SEPARATE FROM THE NAMEABLE CAUSE — AND THEY ARE DIFFERENT
      * QUESTIONS.
@@ -3703,7 +3792,10 @@ function buildChecks(
      */
     rerunWouldNotHelp:
       leaderCode === 'leader_not_assessed' &&
-      leaderWithholdCause(producerWithholdReason) !== null &&
+      // The cause as DISPLAYED, and only where it is durable (see above): an
+      // admission refusal is nameable even behind a token the copy map does not
+      // know (`unrequested_analysis_withheld`).
+      causeIsDurable &&
       staleReason !== 'changed',
   }
 }

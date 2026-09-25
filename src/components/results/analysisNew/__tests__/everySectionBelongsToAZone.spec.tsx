@@ -358,7 +358,9 @@ describe('the next action lives with the other actions', () => {
   it('PRECONDITION: the card is mounted, and the zone probe can see a zone', () => {
     expect(body, 'the body must mount the card at all').toContain('<ChallengeCard')
     // the probe must be able to name a zone for a mount we KNOW is in one
-    expect(zoneOfMount('<AtAGlance'), 'control: the glance is in the answer zone').toBe('answer')
+    // V2 (fidelity gap 1): the glance element is built once in `renderGlance`
+    // and mounted twice, so the control is its status MOUNT, not its JSX tag.
+    expect(zoneOfMount("{renderGlance('status')}"), 'control: the glance is in the answer zone').toBe('answer')
   })
 
   it('⭐ the primary intervention is mounted in ALSO, not in the ANSWER zone', () => {

@@ -69,11 +69,12 @@ function zoneRhythms(): Array<{ zone: string; px: number | null }> {
 }
 
 describe('every zone carries its own vertical rhythm', () => {
-  it('⭐ the sweep finds all four zones — a precondition, not an assumption', () => {
+  it('⭐ the sweep finds all three zones — a precondition, not an assumption', () => {
     // Without this, a regex that stopped matching would make every assertion
     // below pass by iterating an empty list (trap 13).
+    // V2 fidelity gap 24 (24 Sep 2026): 'further' is deleted; the tail is About.
     const found = zoneRhythms().map((z) => z.zone).sort()
-    expect(found).toEqual(['also', 'answer', 'focus', 'further'])
+    expect(found).toEqual(['also', 'answer', 'focus'])
   })
 
   it('⛔ no zone is a bare wrapper — that is what removed the rhythm in #1647', () => {
