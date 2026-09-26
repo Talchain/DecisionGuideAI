@@ -27,7 +27,10 @@ import { useCanvasStore } from '@/canvas/store'
 import { selectActive, useStrengthenStore } from '@/canvas/stores/strengthenStore'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { selectDriverPolicyFeed } from '../useResultsSectionData'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import type { ResultsReport } from '../types'
+import { sensitivityLeader } from '@/canvas/nodes/shared/rankFactor'
 import { buildHeroModel } from './buildHeroModel'
 import type { HeroModel } from './heroTypes'
 
@@ -78,9 +81,23 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
    */
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
 
+  /**
+   * ⭐ ONE DRIVER AUTHORITY (design audit §2 #7, served 853feeb7) — the card's
+   * rank, read off the SAME store report and the SAME feed the canvas cards
+   * (`useNodeDisplayMetadata`) and the leader node rank from. With no driver
+   * rows the hero keeps its list-first read, which is then equally empty.
+   */
+  const report = useCanvasStore((s) => s.results?.report ?? null)
+  const driverLeader = useMemo(() => {
+    const feed = selectDriverPolicyFeed(report as unknown as ResultsReport | null)
+    return feed.policyRows.length > 0
+      ? sensitivityLeader(feed.policyRows, feed.displayModel)
+      : undefined
+  }, [report])
+
   const model = useMemo(
-    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources),
-    [data, optionNumbering, canvasNodeIds, nodeValueSources],
+    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader),
+    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader],
   )
 
   const strengthenOn = isStrengthenPanelEnabled()

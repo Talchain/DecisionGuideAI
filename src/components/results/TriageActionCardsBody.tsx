@@ -571,9 +571,33 @@ function T1DominantNudge({
     ? topMetric.value - runnerUpMetric.value > INFLUENCE_TIE_EPSILON
     : false
   const showNudge = comparableAbsolutePair && topMetric.value >= 0.8 && topIsClearOfRunnerUp
+  // ⛔ ONE DRIVER AUTHORITY (served 853feeb7, 26 Sep 2026). The list above is
+  // the Drivers panel's order — the displayed `influence_score`, PLoT's
+  // STRUCTURAL weight. On the served pricing run it put an option-set lever on
+  // top ("Dominant factor: Enterprise Revenue Cannibalization Risk has relative
+  // influence of 100%") while the canvas card, the hero's "Main driver" and
+  // PLoT's own DOMINANT_FACTOR warning all named Top Account Revenue
+  // Concentration; the lever's elasticity is 0 and its card reads "Not ranked
+  // in this run".
+  //
+  // "Dominant" is a main-driver claim, so it may name only the card's Driver 1
+  // (`drivers.driverLeader`, `rankFactor.sensitivityLeader`) — and the number
+  // printed beside it is this list's top row, so that row must BE that factor.
+  // Where the two orders disagree, or the card's lead is not clear, the nudge
+  // says nothing: re-labelling Driver 1 with a structural "60%" would print a
+  // dominance claim its own number does not support. `undefined` = no driver
+  // feed at all (legacy callers/fixtures); the influence-only read then stands.
+  const leader = drivers.driverLeader
+  const namedFactorId = drivers.dominantFactorId ?? topDriver?.factorKey
+  const agreesWithCard =
+    leader === undefined
+    || (leader !== null
+      && leader.leadIsClear
+      && topDriver?.factorKey === leader.key
+      && namedFactorId === leader.key)
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawLabel).label
-  if (!showNudge || !dominantLabel) return null
+  if (!showNudge || !agreesWithCard || !dominantLabel) return null
   const dominantFocusId = drivers.dominantFactorId
     ?? topDriver?.matchedNodeId
     ?? topDriver?.factorKey

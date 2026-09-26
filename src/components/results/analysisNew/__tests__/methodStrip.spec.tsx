@@ -117,7 +117,12 @@ describe('PRECONDITIONS — the subjects of these rules exist', () => {
   it('the two widths straddle the compact threshold (derived, not hand-typed)', () => {
     expect(shellContentBudget(NARROW)).toBeLessThan(300)
     expect(shellContentBudget(WIDE)).toBeGreaterThanOrEqual(300)
-    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBeGreaterThanOrEqual(300)
+    // ⚠ RE-PINNED 26 Sep 2026 (the design contract's flush 319px panel): the
+    // DEFAULT dock's content budget is now 293, under the 300 threshold, so at
+    // rest the strip is COMPACT — four icons, the pre-mortem in the ⋯ menu.
+    // Nothing is lost (the menu lists every method); a non-compact default
+    // would need a 326px dock. It was ≥300 (390) at the old 416 default.
+    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBeLessThan(300)
   })
 })
 
@@ -136,9 +141,11 @@ describe('the strip', () => {
     expect(more()).toHaveAttribute('aria-label', METHOD_STRIP_COPY.more)
   })
 
-  it('outside the shell it behaves as the default dock: five icons', () => {
+  it('outside the shell it behaves as the default dock: four icons since the 319px default (26 Sep 2026)', () => {
+    // RE-PINNED with the default width (was five at 416); see the precondition.
     draw()
-    expect(iconIds()).toHaveLength(5)
+    expect(screen.getByTestId(TID)).toHaveAttribute('data-compact', 'true')
+    expect(iconIds()).toEqual(['different_option', 'reframe_problem', 'consider_opposite', 'outside_view'])
   })
 
   /**

@@ -22,6 +22,8 @@ export interface OutcomeRangeScale {
   lo: number
   hi: number
   span: number
+  /** The four axis values at 0, 1/3, 2/3 and 1 of the domain, rounded to the step (no float residue). */
+  ticks?: readonly [number, number, number, number]
 }
 
 /**
@@ -43,6 +45,38 @@ export function outcomeRangeScale(rows: readonly ComparisonOption[]): OutcomeRan
   const lo = Math.min(...ranges.map((r) => r.p10))
   const hi = Math.max(...ranges.map((r) => r.p90))
   if (!(hi > lo)) return null
+  return niceDomain(lo, hi)
+}
+
+/** Multipliers a reader takes as round steps (per power of ten). */
+const NICE_STEPS = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8] as const
+
+/**
+ * ⭐ A ROUND DOMAIN FOR THE AXIS (V2 prototype `chartHTML()`: 0% · 10% · 20% · 30%).
+ * The four ticks sit at 0, 1/3, 2/3 and 1 of the domain. On the raw data range
+ * they read "0 · 0.0463 · 0.0925 · 0.139" (Panel's prototype comparison, served
+ * 1a8afc11, 26 Sep 2026). So the domain is widened, never narrowed, to the
+ * smallest round step whose three intervals contain [lo, hi]. The ticks then
+ * read "0 · 0.05 · 0.1 · 0.15". Every band is still fractioned against this one
+ * domain, so positions stay true, and no value is moved or rounded.
+ */
+export function niceDomain(lo: number, hi: number): OutcomeRangeScale {
+  const raw = (hi - lo) / 3
+  const base = Math.pow(10, Math.floor(Math.log10(raw)))
+  for (const mag of [base / 10, base, base * 10]) {
+    for (const m of NICE_STEPS) {
+      const step = m * mag
+      if (step < raw) continue
+      const decimals = Math.max(0, 2 - Math.floor(Math.log10(step)))
+      const clean = (v: number) => Number(v.toFixed(decimals)) + 0
+      const niceLo = clean(Math.floor(lo / step + 1e-9) * step)
+      const niceHi = clean(niceLo + 3 * step)
+      if (niceHi >= hi - 1e-12) {
+        const ticks = [niceLo, clean(niceLo + step), clean(niceLo + 2 * step), niceHi] as const
+        return { lo: niceLo, hi: niceHi, span: niceHi - niceLo, ticks }
+      }
+    }
+  }
   return { lo, hi, span: hi - lo }
 }
 

@@ -155,6 +155,7 @@ import {
   moreCount,
   OPTION_CARD_ROW_LIMIT,
   OPTION_ROW_SOURCE_MARK_SEPARATOR,
+  optionAmountSegmentNoWrap,
   rowFactorIdsFor,
   sharedChangeOrder,
   type OptionChangeRow,
@@ -175,7 +176,7 @@ import { OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVo
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
-import { ValueSourceMark } from './shared/valueSourceMark'
+import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 
 /**
@@ -192,6 +193,13 @@ import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
 const OPTION_ROW_ESTIMATE_TITLE = `${OPTION_ROW_ESTIMATE_NOTE} Open the details to set or confirm it.`
+
+/**
+ * The join between a change row's value and its source mark: ONE no-break
+ * space (U+00A0), never a breakable ' ', so the mark cannot drop to a line of
+ * its own (design audit #9). Its width is the space the old join took.
+ */
+const MARK_GLUE = '\u00A0'
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -1891,8 +1899,9 @@ export const OptionNode = memo((props: NodeProps) => {
    * landing stack, JS-compacted wrapping labels). STANDARD view is the
    * contract v3.1 resting rows (DESIGN-GAP-v31 #9; Paul 25 Sep, supersedes ED
    * 5809278282's popover placement): each row is the factor's FULL name
-   * (muted, never cut — it wraps inside its own column) and the amount
-   * `from → to · mark` (`.delta-rows .amount{white-space:nowrap}`).
+   * (muted; ONE line, clamped with an ellipsis — design audit #9, 26 Sep; it
+   * used to wrap inside its own column) and the amount `from → to · mark`
+   * (`.delta-rows .amount{white-space:nowrap}`).
    *
    * ⭐ ONE ROW = ONE WRAPPING FLEX LINE, NOT A SHARED GRID, AND THAT IS WHAT
    * KEEPS THE AMOUNT ON ONE LINE AT EVERY ZOOM. The contract's
@@ -1906,13 +1915,31 @@ export const OptionNode = memo((props: NodeProps) => {
    * Measured before (served `eec722ab`): labels CSS-clipped ("Bottom-up ado…"),
    * amounts wrapped mid-value ("Very high → Moderate / · brief").
    *
-   * The value and its mark are separate no-wrap segments: when even the amount
-   * alone is wider than the card, the MARK drops below the value — the value
-   * itself is never broken and never cut. Same rows, same order, same marks,
-   * same `+N more` → inspector. No rung term: byte-identical at Normal and
-   * landing (no rung-triggered re-layout).
+   * ⭐ THE MARK RIDES THE VALUE'S LAST LINE — NEVER A LINE OF ITS OWN (design
+   * audit #9, 26 Sep; served `853feeb7` pricing `opt_hybrid`: every row read
+   * label / value / "· brief", the mark ~15px BELOW its value, 250.1px of card
+   * against 139.1 for the baseline). The value and the mark cluster are joined
+   * by ONE no-break space (`MARK_GLUE`), so the only places the amount can break
+   * are inside the value — and a no-wrap run that ends the value is held whole
+   * only while it fits WITH the mark (`amountRunNoWrap`), so gluing can never
+   * push the amount past the card's edge. A value that fits
+   * one line of the row budget is held whole; a longer one breaks only BEFORE
+   * ITS ARROW (each half unbroken while it fits) — never cut, and never past
+   * the card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP per
+   * month · brief" overflowed, the value was one no-wrap run). Same rows, same order, same marks, same
+   * `+N more` → inspector. No rung term: byte-identical at Normal and landing
+   * (no rung-triggered re-layout).
    */
-  const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => (
+  const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => {
+    // The mark is glued to the value's last run, so that run is held whole only
+    // while it fits one line of the row budget WITH the mark (#2119's rule,
+    // `optionAmountSegmentNoWrap`, applied to run + " · mark"). A `Needs input`
+    // amount carries no mark, so its run is measured alone.
+    const markSuffix = r.needsInput
+      ? ''
+      : ` ${OPTION_ROW_SOURCE_MARK_SEPARATOR} ${VALUE_SOURCE_MARK_TOKEN[r.targetSource.kind]}`
+    const amountRunNoWrap = (run: string) => optionAmountSegmentNoWrap(`${run}${markSuffix}`)
+    return (
     <dd
       className={resting
         ? `${typography.edgeLabel} !leading-tight m-0 ml-auto max-w-full text-right text-text-body`
@@ -1940,21 +1967,38 @@ export const OptionNode = memo((props: NodeProps) => {
         </span>
       ) : (
         <span
-          className={resting ? 'whitespace-nowrap' : undefined}
+          className={resting ? (amountRunNoWrap(r.change) ? 'whitespace-nowrap' : 'break-words') : undefined}
           data-testid={`option-change-row-value-${props.id}-${r.factorId}`}
         >
+          {/* ⭐ NEVER PAST THE CARD'S EDGE, AT ANY RUNG (served cd6a82e4: "49
+              GBP per month → 59 GBP per month · brief" overflowed the right
+              border). An amount that fits one line of the row budget is held
+              whole (contract .delta-rows .amount nowrap); a longer one may
+              break in ONE place, before the arrow, each half unbroken while it
+              fits (optionAmountSegmentNoWrap). ED 02:31Z D2: a wrapped from → to
+              is accepted; a cut value is not. The text is byte-identical to
+              r.change either way. */}
           {r.before !== undefined && r.after !== undefined ? (
             <>
-              <span
-                className="text-text-light"
-                data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
-              >
-                {r.before}
+              <span className={resting && optionAmountSegmentNoWrap(r.before) ? 'whitespace-nowrap' : undefined}>
+                <span
+                  className="text-text-light"
+                  data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
+                >
+                  {r.before}
+                </span>
               </span>
-              {' → '}
-              {r.after}
+              {' '}
+              <span className={resting && amountRunNoWrap(`→ ${r.after}`) ? 'whitespace-nowrap' : undefined}>
+                {'→ '}
+                {r.after}
+              </span>
             </>
-          ) : r.change}
+          ) : (
+            <span className={resting && amountRunNoWrap(r.change) ? 'whitespace-nowrap' : undefined}>
+              {r.change}
+            </span>
+          )}
         </span>
       )}
       {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
@@ -1966,8 +2010,10 @@ export const OptionNode = memo((props: NodeProps) => {
           unit): a muted separator sets the mark apart from the value,
           the cluster never wraps apart, and every mark — `est.`
           included — is the contract's `.prov` mark: focusable, named,
-          and it opens this option's source detail (the inspector). */}
-      {!r.needsInput && (<>{' '}
+          and it opens this option's source detail (the inspector).
+          Audit #9: joined to the value by MARK_GLUE (U+00A0), never a
+          breakable space, so the mark stays on the value's line. */}
+      {!r.needsInput && (<>{MARK_GLUE}
       <span
         className="whitespace-nowrap"
         data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
@@ -1986,7 +2032,8 @@ export const OptionNode = memo((props: NodeProps) => {
         />
       </span></>)}
     </dd>
-  )
+    )
+  }
 
   const renderChangeRows = (layout: 'grid' | 'stacked', restingLabels = false) => {
     const stacked = layout === 'stacked'
@@ -2000,9 +2047,17 @@ export const OptionNode = memo((props: NodeProps) => {
               className="flex flex-wrap items-baseline gap-x-2"
               data-testid={`option-change-row-line-${props.id}-${r.factorId}`}
             >
-              {/* Contract v3.1 `.delta-rows .label`: muted, the FULL name,
-                  never cut — it wraps inside its own share of the line. */}
-              <dt className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_8em] break-words text-text-light`}>
+              {/* Contract v3.1 `.delta-rows .label`: muted, the FULL name in
+                  the DOM. Design audit #9 (26 Sep): ONE line at every rung —
+                  a wrapped label cost the card a line per row at the landing
+                  2× scale, and the layout reserves that height for the whole
+                  board. `line-clamp-1` ends line 1 with an ellipsis at a word
+                  break; the text is never cut in JS, so a screen reader reads
+                  the whole name, the option's popover lists it in full and a
+                  mark's accessible name carries it (ED 5809278282: the label
+                  half may ellipsize, never a value, unit or mark). No native
+                  `title` (#2126). */}
+              <dt className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_8em] break-words line-clamp-1 text-text-light`}>
                 {r.fullLabel}
               </dt>
               {renderChangeAmount(r, 'right', true)}
@@ -2464,12 +2519,39 @@ export const OptionNode = memo((props: NodeProps) => {
             The copy is never re-typed here: it comes from
             `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
             which is the ratified wording and the one owner of it. */}
+        {/* ⭐⭐ THE SHARE LINE HAS ONE RESERVED SLOT, PRE-RUN AND POST-RUN — A RUN
+            NEVER GROWS THE CARD (ED #63 5809278282: "Option = … current-model
+            share post-run", "no rung-triggered re-layout"; ED 5810951997: no
+            card grows). MEASURED on served 853feeb7 (pricing, 1280x800, design
+            audit 26 Sep #4): each option grew +49.4px on screen after the Run,
+            because this row did not exist pre-run and then wrapped to THREE
+            lines ("Current model ▬" / "34% of runs" / "· Goal only"). The
+            layout reserves the height it measured before the run, so the taller
+            cards pushed 7 edges under non-endpoint cards and 2 more cards off
+            screen.
+              · The slot is ONE `edgeLabel` line (`h-[1lh]`) with identical
+                classes in both phases, so the layout reserves the post-run
+                height before the run. Empty and aria-hidden before a run.
+              · The row never wraps. What does not fit gives way in a fixed
+                order, whole-text in the existing tooltip and the row's name:
+                the bar first, then the default `Current model` caption, then
+                `· Goal only` (ellipsis). The share itself never shrinks.
+                A non-default caption (`Last run`, `Model result`) is a
+                qualifier that must stay on the card, so it does not give way
+                ahead of `Goal only`.
+            Pinned in `__tests__/OptionNode.noGrowthAfterRun.spec.tsx`. */}
+        {/* Rendered in EVERY phase (MG, #2123 review B1): an option the Run does not score keeps this slot too,
+            empty and aria-hidden, or it would shrink after the Run and re-lay the board. */}
+        {(
+        <div
+          data-testid={`option-share-slot-${props.id}`}
+          className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden`}
+          aria-hidden={winReadout === null ? true : undefined}
+        >
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
-            // With `Goal only` the line may wrap rather than overflow a narrow
-            // card; without it the row is exactly what it was.
-            className={`mt-1 flex items-center gap-1.5 cursor-help${shareIsGoalOnly ? ' flex-wrap gap-y-0.5' : ''}`}
+            className="flex h-full min-w-0 flex-nowrap items-center gap-1.5 whitespace-nowrap cursor-help"
             role="img"
             aria-label={winReadoutDescription}
             tabIndex={0}
@@ -2529,15 +2611,30 @@ export const OptionNode = memo((props: NodeProps) => {
                 `Current model`; `Last run` only when the model is KNOWN to have
                 changed (ED 02:31Z Q2); `Model result` when currency cannot be
                 confirmed — it claims neither. */}
+            {/* Caption + bar give way TOGETHER, as one clipped unit.
+                · Default `Current model`: the unit yields FIRST and strictly
+                  (a shrink weight that leaves `· Goal only` no sub-pixel share),
+                  and its parts are whole-or-nothing — a part that does not fit
+                  wraps onto the unit's clipped second line (the zero-width
+                  spacer keeps line 1 open), so a squeezed caption leaves no
+                  sliver of a glyph. The bar goes before the caption.
+                · `Last run` / `Model result` is a qualifier that stays on the
+                  card: the unit yields only alongside `· Goal only`, and the
+                  caption truncates rather than disappearing. */}
+            <span
+              className={`flex h-full min-w-0 items-center gap-x-1.5 overflow-hidden ${runCurrency === 'current' ? 'shrink-[1000000] flex-wrap content-start' : 'shrink'}`}
+              aria-hidden="true"
+            >
+            <span className="h-full w-0 -mr-1.5" />
             <span
               data-testid={`option-win-anchor-${props.id}`}
-              className={`${typography.edgeLabel} text-text-light shrink-0`}
+              className={`${typography.edgeLabel} text-text-light ${runCurrency === 'current' ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate shrink'}`}
               aria-hidden="true"
             >
               {resultCaption}
             </span>
             <div
-              className="h-1 w-[54px] min-w-0 shrink bg-panel-border rounded-full overflow-hidden"
+              className={`h-1 w-[54px] bg-panel-border rounded-full overflow-hidden ${runCurrency === 'current' ? 'shrink-0' : 'min-w-0 shrink-[100000]'}`}
               aria-hidden="true"
             >
               <div
@@ -2545,6 +2642,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 style={{ width: winReadout.rate > 0 ? `max(4px, ${Math.round(winReadout.rate * 100)}%)` : '0%' }}
               />
             </div>
+            </span>
             <span
               data-testid={`option-win-readout-${props.id}`}
               className={`${typography.edgeLabel} text-text-body shrink-0 tabular-nums`}
@@ -2564,8 +2662,9 @@ export const OptionNode = memo((props: NodeProps) => {
                 row's name and tooltip (`winReadoutDescription`), which this
                 row's hover AND keyboard focus open. */}
             {shareIsGoalOnly && (
-              // The separator and the words never wrap apart.
-              <span className={`${typography.edgeLabel} text-text-light shrink-0 whitespace-nowrap`} aria-hidden="true">
+              // The separator and the words never wrap apart; on a narrow card
+              // the qualifier ends in an ellipsis (whole in the tooltip + name).
+              <span className={`${typography.edgeLabel} text-text-light min-w-0 truncate whitespace-nowrap`} aria-hidden="true">
                 {'· '}
                 <span
                   data-testid={`option-share-goal-only-${props.id}`}
@@ -2577,6 +2676,8 @@ export const OptionNode = memo((props: NodeProps) => {
             )}
           </div>
           </Tooltip>
+        )}
+        </div>
         )}
         {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
         {isDetailed && staleStateLine}

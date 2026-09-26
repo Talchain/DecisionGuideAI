@@ -133,6 +133,38 @@ export function constraintWithEditedValue(
   return { ...rest, value } as CEEGoalConstraint
 }
 
+/**
+ * ⭐ RUNG 1 — the producer handed us the reader's own figure (the contract's
+ * `provenance_unit_normalised` audit trail). ONE predicate, read by both
+ * formatters below and by `goalConstraintReadsInReadersTerms`, so the three cannot
+ * disagree about when the audited figure is usable.
+ */
+function hasAuditedFigure(constraint: CEEGoalConstraint): boolean {
+  const audit = constraint.provenance_unit_normalised
+  return Boolean(
+    audit &&
+    typeof audit.original_value === 'number' &&
+    Number.isFinite(audit.original_value) &&
+    constraint.operator,
+  )
+}
+
+/**
+ * ⭐⭐ DOES THIS AUTHORITY HOLD THE LIMIT IN THE READER'S OWN TERMS?
+ *
+ * True exactly when `goalConstraintText` / `goalConstraintShortText` answer
+ * from rung 1 (the audited figure) or rung 2 (the reader's quoted words) rather
+ * than reconstructing `value` + `unit`. Exported for `statedLimits.ts` (the
+ * Analysis tab's brief bar), which formats limits itself and so printed the
+ * pricing starter's `value: 1.1, unit: '%'` as "≥ 1.1%" beside a goal card
+ * reading "Target: 110%" (design audit §2 #5, served 853feeb7). A surface that
+ * formats its own limits must stand down to this authority whenever this is
+ * true — never by inferring a scale from the magnitude.
+ */
+export function goalConstraintReadsInReadersTerms(constraint: CEEGoalConstraint): boolean {
+  return hasAuditedFigure(constraint) || goalConstraintTextUsesQuote(constraint)
+}
+
 export function goalConstraintTextUsesQuote(constraint: CEEGoalConstraint): boolean {
   const q = typeof constraint.source_quote === 'string' ? constraint.source_quote.trim() : ''
   if (!q) return false
@@ -239,13 +271,8 @@ export function goalConstraintText(
    * ignored the way the field itself was until today.
    */
   const audit = constraint.provenance_unit_normalised
-  if (
-    audit &&
-    typeof audit.original_value === 'number' &&
-    Number.isFinite(audit.original_value) &&
-    constraint.operator
-  ) {
-    const stated = formatLimitMagnitude(audit.original_value, audit.original_unit)
+  if (audit && hasAuditedFigure(constraint)) {
+    const stated = formatLimitMagnitude(audit.original_value as number, audit.original_unit)
     const op = renderLimitOperator(constraint.operator)
     return options.omitLabel ? `${op} ${stated}${origin}` : `${label} ${op} ${stated}${origin}`
   }
@@ -306,8 +333,8 @@ export function goalConstraintShortText(
   const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
   const audit = constraint.provenance_unit_normalised
-  if (audit && typeof audit.original_value === 'number' && Number.isFinite(audit.original_value) && constraint.operator) {
-    return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value, audit.original_unit)}${origin}`
+  if (audit && hasAuditedFigure(constraint)) {
+    return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}${origin}`
   }
   if (goalConstraintTextUsesQuote(constraint)) {
     return `“${(constraint.source_quote as string).trim()}”${origin}`

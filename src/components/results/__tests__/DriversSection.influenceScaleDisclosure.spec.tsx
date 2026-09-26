@@ -49,7 +49,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 // change is a conscious, visible decision in this spec. No em dashes (DS ban,
 // review fix 3 — policed by influenceScaleCopy.copyHygiene.spec.ts).
 const RELATIVE_TOOLTIP =
-  'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+  'Influence: how much this factor affects the outcome, relative to the strongest. The strongest factor always shows 100%.'
 // ⚠ This is the PRODUCER-basis sentence as shipped by #1228 (`INFLUENCE_EXPLANATION_ABSOLUTE`).
 // It stayed hard-coded on purpose (see above) — and that is exactly why it went RED on the
 // PR's own head: the copy was re-worded to name its own quantity ("Olumi's structural
@@ -57,13 +57,13 @@ const RELATIVE_TOOLTIP =
 // mirror lagged the copy by one commit and the Staging Gate caught it. Update BOTH when the
 // sentence changes; the point of the duplication is that this file cannot drift silently.
 const ABSOLUTE_TOOLTIP =
-  "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The top driver always shows 100%."
+  "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The strongest factor always shows 100%."
 const GENERIC_TOOLTIP = 'Influence: how much this factor affects the outcome'
 const RELATIVE_EXPLAINER =
   'Ranked by how much each factor affects the outcome, relative to the strongest factor'
 const GENERIC_EXPLAINER = 'Ranked by how much each factor affects the outcome'
 const CAPTION_COPY =
-  'Influence is relative to the strongest factor. The top driver always shows 100%.'
+  'Influence is relative to the strongest factor. The strongest factor always shows 100%.'
 
 function makeDriver(overrides: Partial<DriverItem> & { factorKey: string }): DriverItem {
   return {

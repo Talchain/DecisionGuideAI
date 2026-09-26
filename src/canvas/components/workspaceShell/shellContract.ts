@@ -79,21 +79,29 @@ import { DOCK_MIN_WIDTH, DOCK_RESPONSIVE_MAX_WIDTH } from '../dockWidth'
  */
 export const SHELL_GUTTER_PX = 12
 
-/** The shell's 1px border, both sides. Part of the budget, so it is named. */
+/**
+ * The shell's 1px border. Part of the budget, so it is named.
+ *
+ * ⚠ Since the flush panel (26 Sep 2026) the shell draws ONE rule, on its left
+ * edge (contract `.ai-panel{border-left:1px solid #DCD7CF}`); `shellContentBudget`
+ * still subtracts it twice. That is 1px conservative, deliberately left alone:
+ * changing it moves every derived budget by a pixel for no visible gain.
+ */
 export const SHELL_BORDER_PX = 1
 
 /**
  * Content width available to a child at a given dock width.
  *
- * DERIVED — never write a content-width number into a child. At the 416px
- * default this is 390px; at the 280px drag floor it is 254px, and every child
- * surface must stay legible there.
+ * DERIVED — never write a content-width number into a child. At the 319px
+ * default (the contract's flush panel, 26 Sep 2026; it was 416px → 390px) this
+ * is 293px; at the 280px drag floor it is 254px, and every child surface must
+ * stay legible there.
  */
 export function shellContentBudget(dockWidth: number): number {
   return dockWidth - 2 * SHELL_BORDER_PX - 2 * SHELL_GUTTER_PX
 }
 
-/** The budget at the default width (416px) — 390px. */
+/** The budget at the default width (319px) — 293px. */
 export const SHELL_CONTENT_BUDGET_PX = shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)
 
 /** The budget at the drag floor (280px) — 254px. The legibility target. */
@@ -114,6 +122,23 @@ export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
  * controls fit, plus headroom, per the audit's own measurement.
  */
 export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 320
+
+/**
+ * ⭐ THE CONTRACT'S TAB STRIP GEOMETRY (26 Sep 2026). `.panel-tabs{height:45px}`
+ * and, measured by rendering `olumi-canvas-visual-contract.html` at 1280×800,
+ * each tab button is 37.9px tall (`padding:10px 8px`, 11px type, a 2px bottom
+ * rule) and sits centred in the strip. Heights, not padding, because 10px is
+ * off the DS spacing scale this file holds shell scope to; the box the user
+ * sees is the same.
+ *
+ * ⚠ AND THE DEFAULT WIDTH IS NOW BELOW `SHELL_TABSTRIP_COMPACT_BELOW_PX`, so
+ * the strip opens compact: VersionsTrigger and the expert-mode toggle sit in
+ * the overflow menu, which is the contract's row (four tabs and a close
+ * control, nothing else). Version history stays one click away there and in
+ * the top bar.
+ */
+export const SHELL_TABSTRIP_HEIGHT_PX = 45
+export const SHELL_TAB_HEIGHT_PX = 38
 
 /**
  * The CSS custom property the shell publishes its LIVE measured width on.
@@ -339,7 +364,21 @@ export interface WorkspaceSurfaceDescriptor {
    * was missing was a way for the surface the user is SENT TO to carry the fact
    * they were sent to ask about.
    */
-  readonly footerBar: 'none' | 'reanalyse' | 'readiness'
+  /*
+   *   'reanalyseAfterFirstRun' — `ReanalyseBar`, but ONLY once a run has
+   *                 completed (26 Sep 2026, design audit §2 item 6 / register
+   *                 row #31). Before the first run the Reasoning surface's own
+   *                 body carries the run control ("Run the analysis",
+   *                 `analysis-new-status-pre-run-act`, gate-aware and absent
+   *                 when the run would be refused), and the bar's never-run
+   *                 state ("This model has not been analysed yet." +
+   *                 "Analyse") was a SECOND Run button on the same screen —
+   *                 served at `853feeb7`: "Run the analysis" at y 238 and a
+   *                 footer "Analyse" at y 689. Same bar, same handler, same
+   *                 gate after the first run; so still no second run
+   *                 authority, only one fewer button before it.
+   */
+  readonly footerBar: 'none' | 'reanalyse' | 'reanalyseAfterFirstRun' | 'readiness'
 }
 
 /**
@@ -394,11 +433,13 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
    * one can be compared directly on one scenario. `results` above is UNCHANGED
    * as a SURFACE; this row was purely additive.
    *
-   * ⚠ ITS DEFAULT-TAB CLAUSE IS SUPERSEDED (Paul, 9 Sep 2026). This header used
-   * to end *"`results` … stays the default tab"*, which was true when written
-   * and is now false: `DEFAULT_WORKSPACE_SURFACE` below is `analysisNew`. The
-   * sentence is corrected rather than deleted, because a reader who remembers
-   * the old rule needs to see that it moved and when.
+   * ⚠ ITS DEFAULT-TAB CLAUSE IS SUPERSEDED — TWICE. This header used to end
+   * *"`results` … stays the default tab"*. Paul's 9 Sep 2026 ruling moved the
+   * default to THIS surface (`analysisNew`); the 25 Sep design prototype and
+   * Paul's 26 Sep instruction to complete it moved it again, to `olumi` (see
+   * `DEFAULT_WORKSPACE_SURFACE`). The sentence is corrected rather than
+   * deleted, because a reader who remembers either old rule needs to see that
+   * it moved and when.
    *
    * Sits directly after `results` so the two surfaces under comparison are
    * adjacent in the strip — the same placement rule the retired 'Alt view'
@@ -421,7 +462,11 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   analysisNew: {
     id: 'analysisNew',
     label: 'Reasoning',
-    footerBar: 'reanalyse',
+    // ONE pre-run Run control on this surface: its body's "Run the analysis".
+    // The shell's Rerun bar joins it only after the first run — see
+    // `footerBar`'s 'reanalyseAfterFirstRun' note. (Was 'reanalyse' until
+    // 26 Sep 2026, which put a second "Analyse" in the footer pre-run.)
+    footerBar: 'reanalyseAfterFirstRun',
     scroll: 'self',
     padding: 'self',
     presentedAsTab: true,
@@ -526,10 +571,24 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
 /**
  * THE SURFACE A SESSION OPENS ON WHEN NOBODY HAS CHOSEN ONE.
  *
- * RULING (Paul, 9 Sep 2026): a fresh, unchosen session lands on **Reasoning**.
- * It previously landed on Analysis — measured on the deployed build, where
- * `outputs-dock-tab-results` carried `aria-selected="true"` for a fresh
- * individual — and Analysis is the surface ruled OUT of scope for this work.
+ * ⭐⭐ NOW **OLUMI** (26 Sep 2026) — AND THE RULING IT SUPERSEDES IS KEPT BELOW.
+ *
+ *  - SUPERSEDED — RULING (Paul, 9 Sep 2026): *"a fresh, unchosen session lands
+ *    on Reasoning"*. It previously landed on Analysis — measured on the
+ *    deployed build, where `outputs-dock-tab-results` carried
+ *    `aria-selected="true"` for a fresh individual — and Analysis is the
+ *    surface ruled OUT of scope for this work.
+ *  - CURRENT — the 25 Sep 2026 design prototype (the locked canvas visual
+ *    contract, `olumi-canvas-visual-contract.html`: `.panel-tabs` opens with
+ *    `<button class="active">Olumi</button>`), which Paul on 26 Sep asked us to
+ *    complete. The newer, explicit instruction wins. Measured on served
+ *    `853feeb7` (design audit 26 Sep, register row #31): the dock opened on
+ *    Reasoning with TWO pre-run Run buttons; on Olumi the first screen carries
+ *    exactly one ("Analyse first pass", `analysis-readiness-bar-analyse`).
+ *
+ * Why NOT Analysis still holds: that surface stays out of scope. The 9 Sep
+ * ruling's second half — Default ≠ override — is unchanged and is the three
+ * NOTs below.
  *
  * ⚠⚠ READ THE THREE THINGS THIS IS NOT, BECAUSE THE DOCK HELD **EIGHT**
  * `'results'` LITERALS AND ONLY SOME OF THEM MEANT "the default".
@@ -539,9 +598,18 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
  *     by `FloatingOlumiPanel`'s yield gate and `CompareTabBody`, and neither of
  *     those distinguishes `results` from `analysisNew` — both ask only whether
  *     the tab is `olumi` / `compare`. On a fresh mount the dock therefore paints
- *     `analysisNew` while that global still reads `results`. That divergence is
- *     harmless BY DERIVATION, not by luck; re-derive it before adding a
- *     consumer that cares which of the two Analysis surfaces is fronted.
+ *     the default while that global still reads `results`.
+ *     ⚠ RE-DERIVED 26 Sep 2026, because the default is now `olumi` — exactly
+ *     the value the yield gate DOES ask about, so "harmless because it cannot
+ *     tell results from analysisNew" no longer covers it. The gate reads the
+ *     dock's PERSISTED tab first (`readPersistedActiveDockTab`) and the global
+ *     only when nothing is persisted; `useDockState` writes the painted tab to
+ *     sessionStorage in its first effect, and the dock's close-effect retires
+ *     an open floating panel whenever the docked Olumi tab is showing. So the
+ *     divergence is bounded to the frames before that first effect, and the
+ *     global stays untouched for the same reason as before (it is not the
+ *     default; changing it moves every consumer at once). The served-style
+ *     measurement in the PR samples the floating panel through landing.
  *  2. NOT `RightPanelMode` (`uiStore.ts:39`), whose `'results'` names the
  *     PERSISTENT RIGHT-SIDE REGION — a different union that has no
  *     `analysisNew` member at all. `openRightPanel('results')` means "the dock
@@ -555,7 +623,26 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
  * a literal, so the sites that genuinely mean "the default" move together and a
  * mutant here bites all of them at once.
  */
-export const DEFAULT_WORKSPACE_SURFACE: OutputTab = 'analysisNew'
+export const DEFAULT_WORKSPACE_SURFACE: OutputTab = 'olumi'
+
+/**
+ * ⚠ THE UNFLAGGED LANDING — NEEDED THE MOMENT THE DEFAULT BECAME OLUMI.
+ *
+ * While the default was `analysisNew` it was ALSO the safe fallback, because
+ * Reasoning is unflagged by ruling. Olumi is not: it exists only under
+ * `aiPanelV2`. Two sites in `OutputsDock` relied on "the default is always
+ * showable and is never Olumi", and both broke silently with the new default
+ * (caught by the reader set, 26 Sep 2026):
+ *   - the one-time flag guard sent a void persisted tab to the default — an
+ *     unpresented tab when `aiPanelV2` is off;
+ *   - the float-out swap target (`lastNonOlumiTabRef`) started as the default,
+ *     so a fresh session's float-out swapped Olumi for Olumi and the floating
+ *     panel yielded to it — the user saw nothing
+ *     (`OutputsDock.conversationSingleton.spec.tsx`).
+ * This names the surface both need: showable under every flag posture and
+ * never Olumi.
+ */
+export const UNFLAGGED_FALLBACK_SURFACE: OutputTab = 'analysisNew'
 
 /**
  * The number of tabs the strip is currently asked to lay out.

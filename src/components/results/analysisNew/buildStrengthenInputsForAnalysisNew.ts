@@ -112,6 +112,9 @@ export function buildStrengthenInputsForAnalysisNew({
         alternativeWinnerLabel:
           typeof fe.alternative_winner_label === 'string' ? fe.alternative_winner_label : undefined,
       })),
+    // ⭐ ONE DRIVER AUTHORITY: the card's Driver 1, quoted from the view-model.
+    // ⚠ MIRRORED in the sibling builder; `strengthenInputsMirror.drift.spec.tsx`.
+    driverLeader: data.drivers.driverLeader,
     factors: data.drivers.drivers.map((d) => ({
       factorId: d.matchedNodeId ?? d.factorKey,
       label: d.factorLabel,

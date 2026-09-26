@@ -186,8 +186,10 @@ describe('FactorNode', () => {
 
   it('shows dashed-border tooltip for external factors', () => {
     const { container } = renderFactor({ label: 'Market rate', type: 'factor', category: 'external' })
-    // "Outside your control" is now a border tooltip (not body text) per spec
-    expect(container.querySelector('[title="Outside your control"]')).not.toBeNull()
+    // "Outside your control" is the dashed border's meaning. Design audit #13
+    // (26 Sep): no native title on the card; it is the accessible description.
+    expect(container.querySelector('[title="Outside your control"]')).toBeNull()
+    expect(container.querySelector('[aria-description="Outside your control"]')).not.toBeNull()
   })
 
   it('omits old category icon tooltips when category is absent', () => {
@@ -845,7 +847,7 @@ describe('FactorNode', () => {
   // Lane C4 (influence-scale disclosure): the "I: NN%" pill shares the panel's
   // display number; when the shared model resolved it on the fallback
   // (set-relative) basis, FactorNode must pass that provenance through so the
-  // pill discloses "top driver always shows 100%" instead of reading as an
+  // pill discloses "strongest factor always shows 100%" instead of reading as an
   // absolute causal share.
   it('discloses the relative influence scale on the Standard driver line (C4)', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>

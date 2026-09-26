@@ -882,6 +882,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       inputs.factors,
       inputs.materialParametersAwaitingUserIds,
       inputs.analysisIdentityIsCurrent === true,
+      inputs.driverLeader,
     )
     // The ordinal's words are the copy owner's, never re-spelled here; it
     // refuses any rank it cannot publish, so a null readout is a null row.

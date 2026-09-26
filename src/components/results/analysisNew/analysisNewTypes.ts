@@ -328,7 +328,7 @@ export interface DriversSection {
    * the rows that survived filtering, so it is 1 for the leader by
    * construction. This is the FIGURE: the producer's own `displayInfluence`,
    * never rescaled. They diverge exactly when a stronger row was filtered out,
-   * and the drivers caveat's "the top driver always shows 100%" is a claim
+   * and the drivers caveat's "the strongest factor always shows 100%" is a claim
    * about THIS one.
    */
   topRowFigurePercent: number | null

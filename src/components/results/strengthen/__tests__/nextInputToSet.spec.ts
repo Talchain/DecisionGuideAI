@@ -178,3 +178,41 @@ describe('nextInputToSet — fails closed', () => {
     expect(selectNextInputToSet(blank, blocking, true)).toBeNull()
   })
 })
+
+/**
+ * ⭐ ONE DRIVER AUTHORITY (26 Sep 2026, served 853feeb7). When the caller hands
+ * in the canvas card's Driver 1, THAT is the rank-1 factor — the influence
+ * values no longer rank anything. The served pricing run is pinned end to end
+ * in `analysis-hero/__tests__/oneDriverEverywhere.servedPricing.spec.tsx`;
+ * these pin each arm of the parameter on its own.
+ */
+describe('nextInputToSet — the card\'s Driver 1 is the rank authority', () => {
+  // Structurally, `lever` is on top; on the card's basis `driver` is Driver 1.
+  const factors = [
+    { factorId: 'lever', label: 'Lever', influence: 1 },
+    { factorId: 'driver', label: 'Driver', influence: 0.6 },
+    { factorId: 'minor', label: 'Minor', influence: 0.4 },
+  ]
+
+  it('precondition: the legacy read (no leader) names the structural top', () => {
+    expect(selectNextInputToSet(factors, ['lever', 'driver'], true)?.factorId).toBe('lever')
+  })
+
+  it('names the card\'s Driver 1, not the structural top, when both are awaited', () => {
+    const got = selectNextInputToSet(factors, ['lever', 'driver'], true, { key: 'driver', leadIsClear: true })
+    expect(got).toEqual({ factorId: 'driver', label: 'Driver', setSize: 3, declaresNoRange: false })
+  })
+
+  it('names nothing when the card\'s Driver 1 is not awaited — never the next awaited factor', () => {
+    expect(selectNextInputToSet(factors, ['lever', 'minor'], true, { key: 'driver', leadIsClear: true })).toBeNull()
+  })
+
+  it('names nothing when the card\'s lead is not clear, or it ranks nothing', () => {
+    expect(selectNextInputToSet(factors, ['driver'], true, { key: 'driver', leadIsClear: false })).toBeNull()
+    expect(selectNextInputToSet(factors, ['driver'], true, null)).toBeNull()
+  })
+
+  it('names nothing when the card\'s Driver 1 is not one of these factors', () => {
+    expect(selectNextInputToSet(factors, ['ghost', 'driver'], true, { key: 'ghost', leadIsClear: true })).toBeNull()
+  })
+})

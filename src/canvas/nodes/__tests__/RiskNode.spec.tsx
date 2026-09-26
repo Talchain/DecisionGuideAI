@@ -233,7 +233,10 @@ describe('RiskNode', () => {
     const line = screen.getByTestId('risk-exposure-line')
     expect(line.querySelector('[aria-hidden="true"]')?.textContent).toBe('90% likely · High impact')
     expect(screen.getByTestId('risk-primary-line-full').textContent).toBe('Entered estimate · 90% likely · High impact')
-    expect(line).toHaveAttribute('title', 'Entered estimate · 90% likely · High impact')
+    // Design audit #13 (26 Sep): no native title. The provenance is on the
+    // line itself (" · entered"), in full for a screen reader, and in the popover.
+    expect(line).not.toHaveAttribute('title')
+    expect(screen.getByTestId('risk-exposure-provenance').textContent).toBe(' · entered')
   })
 
   // P1.7 — honest absence: no fabricated pair when data is missing.

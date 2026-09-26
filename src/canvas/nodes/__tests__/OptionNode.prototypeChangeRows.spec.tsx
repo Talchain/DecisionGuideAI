@@ -240,7 +240,9 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       if (pop) expect(within(pop).queryByTestId('option-change-rows-option-1')).toBeNull()
     })
 
-    it('each label is the FULL factor name, never cut — it wraps (contract v3.1 #9; was a CSS-truncating cell)', () => {
+    // RE-PINNED (design audit #9, 26 Sep): ONE clamped line (`line-clamp-1`) at
+    // every rung; the DOM text is still the whole name, never a horizontal cut.
+    it('each label is the FULL factor name on ONE clamped line, never a horizontal cut (contract v3.1 #9, audit #9)', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-adopt')!
       const dt = dd.previousElementSibling as HTMLElement
@@ -253,6 +255,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(t.has('truncate')).toBe(false)
       expect(t.has('break-words')).toBe(true)
       expect(t.has('min-w-0')).toBe(true)
+      expect(t.has('line-clamp-1')).toBe(true)
     })
 
     it('`from → to` is never inside a truncating element, and the source mark TRAILS the value', () => {
@@ -280,12 +283,15 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       renderCard({ id: 'option-2' })
       const dd = onCard('option-change-row-option-2-f-price')!
       const factorCardReading = factorCardVisibleText(factorDisplayText(PRICE_DATA), factorDisplayParts(PRICE_DATA))
-      expect(factorCardReading, 'precondition: the factor card has a reading').toBe('£49/month')
+      expect(factorCardReading, 'precondition: the factor card has a reading').toBe('£49 / month')
       // IDENTITY: the muted "before" IS the factor card's VISIBLE text, not a re-formatting.
       expect(onCard('option-change-row-before-option-2-f-price')?.textContent).toBe(factorCardReading)
-      // The "to" is CEE's own display_value, verbatim (thin layer) — the UI does
-      // not re-spell producer text. Producer ask D8 (#69): send "£59/month".
-      expect(dd.textContent!.startsWith(`${factorCardReading} → 59 GBP/month`)).toBe(true)
+      // The "to" is CEE's own display_value. Its FIGURE is never re-derived; the
+      // one re-spelling is the notation of the carried unit when CEE's string is
+      // exactly `<figure> <that unit>` ("59 GBP/month" on a `GBP/month` factor),
+      // the same compact owner the factor card reads (`compactCarriedReading`,
+      // served cd6a82e4). Producer ask D8 (#69) still stands: send "£59 / month".
+      expect(dd.textContent!.startsWith(`${factorCardReading} → £59 / month`)).toBe(true)
     })
 
     it('contrast: a factor with no value states the target alone — nothing is filled in', () => {
@@ -370,7 +376,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
 
     it('CONTRAST — a raw_value with a real unit is carried: "£49/month → £59"', () => {
       const { before } = priceRow(PRICE_DATA)
-      expect(before?.textContent).toBe('£49/month')
+      expect(before?.textContent).toBe('£49 / month')
     })
 
     it('CONTRAST — a unitless raw_value is carried: its own figure is the "from"', () => {
@@ -396,7 +402,7 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       // CONTRAST, same shape one pound apart: a real change keeps its row and its "from".
       cleanup()
       const { before } = priceRow({ observedState: { cap: 200, unit: 'GBP/month', value: 0.29, raw_value: 58 } })
-      expect(before?.textContent).toBe('£58/month')
+      expect(before?.textContent).toBe('£58 / month')
     })
   })
 

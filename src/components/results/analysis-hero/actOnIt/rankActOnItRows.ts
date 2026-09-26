@@ -48,6 +48,10 @@ import {
 // (not withheld) for a null run, so the `recommendation == null` withholding
 // route is a conjunct at the call site below, not a change to the shared answer.
 import { leaderClaimWithheld } from '../../analysisClaimPolicy'
+// Q2 of the flip vocabulary: may a factor's attestation re-word a claim another
+// instrument (here, the fragile EDGE) makes about that factor? Only the
+// algebraic proof `structurally_invariant` qualifies. See `fragileEdgeRow`.
+import { collectStructurallyProvenNoFlipIds } from '../../utils/flipReasonVocabulary'
 
 /**
  * READY-TO-BRIEF PREDICATE.
@@ -283,7 +287,29 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   const fragile = data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   if (!fragile) return null
   const rawLabel = fragile.fromLabel
-  const title = verbLeadTitle('risk', rawLabel)
+  // ⛔ THE FACTOR IS NOT THE FINDING WHEN THE RUN PROVES IT INERT (served
+  // 853feeb7, 26 Sep 2026). This row read "Verify Enterprise Revenue
+  // Cannibalization Risk — If the estimate changes for Enterprise Revenue
+  // Cannibalization Risk, the result could change." Every option in that run
+  // SETS the factor, so its estimate never enters the comparison; its flip row
+  // reads `structurally_invariant` (no value of it can move the winner), its
+  // elasticity is 0 and its card reads "Not ranked in this run". What IS
+  // fragile is the EDGE — how strongly it drives `toLabel` — a different
+  // measurement that the flip probe does not contradict (`fragileEdgeCopy.ts`).
+  //
+  // So the CLAIM moves from the factor to the relationship, and the finding
+  // stays: same row, same key, priority, actions and target. It is not
+  // withheld (the product says what it computed) and not re-picked (a second
+  // selection rule the producer never published). A factor attested only
+  // `no_effect_within_bounds`, or not attested, keeps the factor wording.
+  const sourceIsProvenInert =
+    typeof fragile.fromId === 'string'
+    && collectStructurallyProvenNoFlipIds(data?.recommendation?.flipThresholds).has(fragile.fromId)
+  const rawToLabel = (fragile.toLabel ?? '').trim()
+  const namesRelationship = sourceIsProvenInert && rawToLabel.length > 0 && rawLabel.trim().length > 0
+  const title = namesRelationship
+    ? `Verify how ${rawLabel.trim()} affects ${rawToLabel}`
+    : verbLeadTitle('risk', rawLabel)
   const { band, width } = bandFromVoi(0.6) // fragile edges are inherently high-priority
   // The verb leads and the label trails so no word ever lands adjacent to the
   // verb — earlier forms ("If {label} changes, …") produced mid-sentence
@@ -392,9 +418,12 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // producer-tie sentence in #1232.
   const mayNameLeader =
     data.recommendation != null && !leaderClaimWithheld(data.recommendation)
+  const subject = namesRelationship
+    ? 'this relationship is stronger or weaker than assumed'
+    : `the estimate changes for ${safeFromLabel}`
   const reason = mayNameLeader
-    ? `If the estimate changes for ${safeFromLabel}, the leading option could change.`
-    : `If the estimate changes for ${safeFromLabel}, the result could change.`
+    ? `If ${subject}, the leading option could change.`
+    : `If ${subject}, the result could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,
@@ -404,7 +433,9 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
     category: 'risk',
     actions: actionsForCategory('risk', !!fragile.fromId),
     targetNodeId: fragile.fromId,
-    chatPrompt: chatPromptFor(rawLabel),
+    chatPrompt: namesRelationship
+      ? chatPromptFor(`how ${safeFromLabel} affects ${safeOrFallback(rawToLabel, 'its target')}`)
+      : chatPromptFor(rawLabel),
     // A fragile edge carries no micro-intervention: only bias findings do.
     // Stated, not omitted — see the field docs in `types.ts`.
     steps: [],

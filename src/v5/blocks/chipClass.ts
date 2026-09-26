@@ -58,3 +58,44 @@ export const CHIP_CLASS = [
   'disabled:opacity-40 disabled:pointer-events-none',
   'transition-colors duration-200',
 ].join(' ')
+
+/**
+ * CHIP_PRIMARY_CLASS — the ONE filled chip: the answer "yes" to a proposal.
+ *
+ * DS v5 §21.2: "Accept → `bg-primary text-on-color`. Edit → secondary.
+ * Dismiss → `text-text-light` link." Contract v3.1 draws the same thing as
+ * `.button.primary` beside plain `.button`s. Every other chip stays
+ * `CHIP_CLASS`, so a consent pair reads as one clear yes and one way out
+ * (Paul, 26 Sep, Chat Atlas review: the approve chip carried no more weight
+ * than "Change something first").
+ *
+ * Same grammar as `CHIP_CLASS` in every other respect — size, 44px hit floor,
+ * focus ring, disabled state — so the pair still lines up as one row.
+ */
+export const CHIP_PRIMARY_CLASS = [
+  'inline-flex items-center gap-1.5',
+  'bg-primary border border-primary rounded-full',
+  'px-3 py-1.5 min-h-[44px]',
+  'hover:bg-primary/90 active:bg-primary/80',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
+  'text-text-on-color cursor-pointer font-sans',
+  typography.panelBody,
+  'disabled:opacity-40 disabled:pointer-events-none',
+  'transition-colors duration-200',
+].join(' ')
+
+/**
+ * CHIP_DISMISS_LINK_CLASS — DS v5 §21.2's "Dismiss → `text-text-light` link".
+ * No border and no pill, so it cannot be mistaken for a second answer; the
+ * 44px hit floor and the focus ring stay.
+ */
+export const CHIP_DISMISS_LINK_CLASS = [
+  'inline-flex items-center px-1 min-h-[44px]',
+  'bg-transparent rounded-sm',
+  'text-text-light underline underline-offset-2 hover:text-text-body',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
+  'cursor-pointer font-sans',
+  typography.panelBody,
+  'disabled:opacity-40 disabled:pointer-events-none',
+  'transition-colors duration-200',
+].join(' ')

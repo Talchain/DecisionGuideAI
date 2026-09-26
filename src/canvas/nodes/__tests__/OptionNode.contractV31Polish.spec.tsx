@@ -197,10 +197,16 @@ describe('contract v3.1 — option card polish', () => {
     it('sits on the body’s one 4px rhythm with nothing trailing (OPT-06, RHY-05)', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
-      const t = tokens(byTestId('option-analysis-currency-option-1'))
+      // The 4px top margin sits on the row's reserved slot (the no-growth fix:
+      // the slot exists pre-run too, so the margin is reserved with it).
+      const slot = byTestId('option-share-slot-option-1')
+      expect(slot!.contains(byTestId('option-analysis-currency-option-1'))).toBe(true)
+      const t = tokens(slot)
       expect(t.has('mt-1')).toBe(true)
       expect(t.has('mt-1.5')).toBe(false)
       expect(t.has('mb-1')).toBe(false)
+      const row = tokens(byTestId('option-analysis-currency-option-1'))
+      expect([...row].filter(c => /^m[tb]-/.test(c))).toEqual([])
     })
 
     it('the absence row shares the rhythm (OPT-06, RHY-05)', () => {
@@ -339,7 +345,24 @@ describe('contract v3.1 — option card polish', () => {
       expect(line.has('gap-x-2')).toBe(true)
       const dt = inRows('option-change-row-option-1-f-head')!.previousElementSibling!
       expect(tokens(dt).has('flex-[1_1_8em]')).toBe(true)
-      expect(tokens(inRows('option-change-row-value-option-1-f-head')).has('whitespace-nowrap')).toBe(true)
+      // Held whole while it fits one line of the row budget at the largest
+      // counter-scale; "0 engineers → 3 engineers" (21) does not, so it may break
+      // BEFORE THE ARROW — and never runs past the card's edge (served cd6a82e4,
+      // "49 GBP per month → 59 GBP per month" overflowed as one no-wrap run).
+      // RE-PINNED (design audit #9, 26 Sep): the source mark is now GLUED to the
+      // value's last run (one U+00A0), so that run is held whole only while it
+      // fits WITH the mark. "→ 3 engineers · <mark>" (≥20) does not, so it may
+      // wrap at its own spaces rather than push the mark past the card's edge;
+      // the "from" half is still one unbroken run. Was: both halves no-wrap, the
+      // mark free to drop to a line of its own.
+      const value = inRows('option-change-row-value-option-1-f-head')!
+      expect(tokens(value).has('whitespace-nowrap')).toBe(false)
+      const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
+      expect(halves).toEqual(['0 engineers'])
+      expect(value.textContent).toBe('0 engineers → 3 engineers')
+      const mark = inRows('option-change-row-mark-option-1-f-head')!
+      expect(mark.previousSibling?.textContent).toBe('\u00A0')
+      expect(mark.previousSibling?.previousSibling).toBe(value)
     })
 
     it('label and amount are both the 11px label size at tight leading', () => {
@@ -353,7 +376,8 @@ describe('contract v3.1 — option card polish', () => {
       }
       expect(dd.className).not.toContain(typography.nodeLabel)
       // v3.1 #9: the amount never exceeds the card (`max-w-full`); the LABEL is
-      // the part that wraps (`min-w-0` + `break-words`).
+      // the part that yields (`min-w-0` + `break-words`), held to ONE line by
+      // `line-clamp-1` since design audit #9 (26 Sep).
       expect(tokens(dd).has('max-w-full')).toBe(true)
       expect(tokens(dt).has('min-w-0')).toBe(true)
       expect(tokens(dt).has('break-words')).toBe(true)
