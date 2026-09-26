@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
 
 interface MockCanvasState {
   nodes: Array<{ id: string; data: Record<string, unknown> }>
@@ -24,6 +25,7 @@ interface MockCanvasState {
   showResultsPanel?: boolean
   showInspectorPanel?: boolean
   showDraftChat?: boolean
+  analysisStateV1?: unknown
 }
 
 let mockState: MockCanvasState
@@ -550,5 +552,77 @@ describe('captureDisplayState — rendered_factors.value_displayed (V5 fix)', ()
     expect(JSON.stringify(data)).toBe(beforeData)
     expect(JSON.stringify(observedState)).toBe(beforeObserved)
     expect(JSON.stringify(mockState.nodes)).toBe(beforeState)
+  })
+})
+
+/**
+ * ⭐ THE BUNDLE REPORTS THE SCREEN, NOT A SECOND DERIVATION OF IT.
+ *
+ * Manual test 1a298d6d (25 Sep): Paul's screen said "Set up your model" with no
+ * Run CTA, and the first diagnosis (ChatGPT, withdrawn in 5837344746) was built
+ * on this bundle. `captureDisplayState` fed `deriveAnalysisDisplayState` from
+ * `ceeAnalysisReady.status` alone, while the screen reads
+ * `useAnalysisState().displayState` — the ONE selector, which lets the wire's
+ * `run_state` force `blocked` (`analysisStateSelector.ts`, the
+ * `ceeAnalysisReadyStatus` fold). With the wire blocked and the retained
+ * readiness still `ready`, the screen says not_ready while the old bundle said
+ * `complete`.
+ */
+describe('captureDisplayState — reads the ONE selector the screen reads', () => {
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  const blockedWire = () => {
+    const parsed = AnalysisStateV1Schema.safeParse({
+      // CC-A / CC-D: a blocked kind forces blocked_unusable and every usable_for_* false.
+      run_state: { kind: 'blocked', reason_code: 'option_not_linked_to_decision', blockers: [] },
+      readiness: { status: 'blocked', blockers: [] },
+      leader_claim: { permitted: false },
+      robustness: {},
+      usable_for_prose: false,
+      usable_for_chips: false,
+      usable_for_followup: false,
+      requires_rerun: false,
+      blocked_unusable: true,
+      contradictions: [],
+    })
+    if (!parsed.success) throw new Error(`fixture does not meet the contract: ${parsed.error.message}`)
+    return parsed.data
+  }
+
+  it('⭐ wire run_state blocked + retained ceeAnalysisReady ready + a report → the bundle says what the screen says (not_ready)', async () => {
+    mockState = makeState({
+      ceeAnalysisReady: { status: 'ready' },
+      results: { status: 'complete', report: { option_comparison: [] } },
+      analysisStateV1: blockedWire(),
+    })
+    const { composeAnalysisState } = await import('../../../canvas/state/analysisStateSelector')
+    const screen = composeAnalysisState({
+      analysisState: blockedWire(),
+      freshness: null,
+      dirty: false,
+      source: null,
+      resultsStatus: 'complete',
+      importHold: false,
+      hasReport: true,
+      ceeAnalysisReadyStatus: 'ready',
+      aiPanelV2On: true,
+    }).displayState
+    expect(screen.state, 'PRECONDITION: the screen selector says not_ready here').toBe('not_ready')
+    const captureDisplayState = await importCapture()
+    const result = await captureDisplayState()
+    expect(result.analysis_display_state).toBe(screen.state)
+    expect(result.analysis_display_headline).toBe(screen.headline)
+  })
+
+  it('CONTRAST: with no wire verdict the bundle keeps the retained-readiness answer', async () => {
+    mockState = makeState({
+      ceeAnalysisReady: { status: 'ready' },
+      results: { status: 'idle', report: null },
+    })
+    const captureDisplayState = await importCapture()
+    const result = await captureDisplayState()
+    expect(result.analysis_display_state).toBe('ready_to_analyse')
   })
 })
