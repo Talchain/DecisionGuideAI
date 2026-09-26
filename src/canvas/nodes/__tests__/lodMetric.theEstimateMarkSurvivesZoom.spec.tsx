@@ -39,6 +39,44 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
 import { resolveLodMetricLineDetail } from '../shared/lodMetricLine'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+/* ── contrast from the real tokens (the `tierInvitationContrastOnTintedGround` method) ── */
+const BRAND_CSS = readFileSync(join(__dirname, '../../../styles/brand.css'), 'utf8')
+type RGB = readonly [number, number, number]
+function channels(css: string, name: string): RGB {
+  const triple = new RegExp(`--${name}-rgb:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)`).exec(css)
+  if (triple) return [Number(triple[1]), Number(triple[2]), Number(triple[3])] as const
+  const hex = new RegExp(`--${name}:\\s*#([0-9A-Fa-f]{6})`).exec(css)
+  if (!hex) throw new Error(`brand.css defines neither --${name}-rgb nor --${name} as a hex`)
+  const h = hex[1]
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)] as const
+}
+function luminance(c: RGB): number {
+  const f = (v: number) => {
+    const s = v / 255
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  }
+  return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+}
+function contrast(a: RGB, b: RGB): number {
+  const la = luminance(a)
+  const lb = luminance(b)
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+/** The element's ink: its one `text-text-*` colour class, resolved in brand.css. */
+function inkOf(el: HTMLElement): RGB {
+  const inks = el.className.split(/\s+/).filter(c => /^text-text-[a-z]+$/.test(c))
+  if (inks.length !== 1) throw new Error(`expected one text-text-* ink on ${el.dataset.testid}, got ${JSON.stringify(inks)}`)
+  return channels(BRAND_CSS, inks[0].replace(/^text-/, ''))
+}
+/** The card's ground: its inline `var(--token)` background, resolved in brand.css. */
+function groundOf(card: HTMLElement): RGB {
+  const m = /^var\(--([a-z-]+)\)$/.exec(card.style.backgroundColor)
+  if (!m) throw new Error(`the card's ground is not a token: ${card.style.backgroundColor}`)
+  return channels(BRAND_CSS, m[1])
+}
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -181,15 +219,48 @@ describe('the est. mark survives the zoom that hides the card body', () => {
     expect(text.contains(mark)).toBe(false)
   })
 
-  it('⭐ contract v3.1 T15 — on the line rung\'s KIND FILL the mark is body ink (text ≥ 4.5:1 on its actual ground)', () => {
+  /*
+   * ⭐ contract v3.1 T15, RE-GROUNDED ON WS1 #25 (26 Sep 2026, review of #2074).
+   * This test used to pin T15 on the line rung's KIND FILL: the card was
+   * `bg-*-light` there, `text-light` measured 3.05–4.26:1 on those fills, so the
+   * mark had to be body ink. WS1 #25 made the far card WHITE (the contract's
+   * `.far-example`), and the mark's ink was conditional on the fill — so it went
+   * muted beside a body-ink number. Muted still clears 4.5:1 on white (5.2:1),
+   * which is why the floor alone cannot hold the rule: the disclosure must not
+   * read fainter than the figure it discloses, or zooming out makes Olumi's
+   * guess look more certain — this file's whole subject.
+   */
+  it('⭐ contract v3.1 T15 — the line rung\'s card is WHITE, and on it the mark is body ink: ≥ 4.5:1 on its actual ground, and never fainter than the figure it qualifies', () => {
     renderAtLineRung(INFERRED)
-    // Precondition: the card really is on its kind fill at this rung.
+    // Precondition: the far card is white — no kind fill, the panel ground inline.
     const card = screen.getAllByRole('group')[0]
-    expect(card.className.split(/\s+/).some(c => /^bg-[a-z]+-light$/.test(c))).toBe(true)
-    const t = screen.getByTestId('node-lod-estimate-mark').className.split(/\s+/)
-    // `text-light` measures 3.05–4.26:1 on the six light fills; `text-body` 6.09–8.51:1.
+    expect(card.className.split(/\s+/).some(c => /^bg-[a-z]+-light$/.test(c))).toBe(false)
+    expect(card.style.backgroundColor).toBe('var(--bg-panel)')
+
+    const mark = screen.getByTestId('node-lod-estimate-mark')
+    const figure = screen.getByTestId('node-lod-line-text')
+    const t = mark.className.split(/\s+/)
     expect(t).toContain('text-text-body')
     expect(t).not.toContain('text-text-light')
+    for (const hide of ['invisible', 'opacity-0', 'sr-only', 'hidden']) expect(t).not.toContain(hide)
+
+    // From the ACTUAL token values in brand.css, resolved from the rendered
+    // classes and inline ground — not from a table typed here.
+    const ground = groundOf(card)
+    const markContrast = contrast(inkOf(mark), ground)
+    expect(markContrast).toBeGreaterThanOrEqual(4.5)
+    expect(markContrast).toBeGreaterThanOrEqual(contrast(inkOf(figure), ground))
+  })
+
+  it('CONTRAST — the contrast arm bites: muted ink on the white card reads fainter than the body-ink figure, and panel ink is invisible', () => {
+    const panel = channels(BRAND_CSS, 'bg-panel')
+    const body = channels(BRAND_CSS, 'text-body')
+    const muted = channels(BRAND_CSS, 'text-light')
+    // A muted mark passes the bare floor on white — which is exactly why the
+    // figure comparison is the arm that catches it.
+    expect(contrast(muted, panel)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(muted, panel)).toBeLessThan(contrast(body, panel))
+    expect(contrast(panel, panel)).toBeLessThan(4.5)
   })
 })
 

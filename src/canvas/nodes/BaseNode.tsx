@@ -2856,11 +2856,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 <span
                   data-testid="node-lod-estimate-mark"
                   title={ESTIMATE_SUBJECT_TITLE.value}
-                  /* ⭐ Text ≥ 4.5:1 ON ITS ACTUAL GROUND (contract v3.1 T15). At
-                     the line rung the card takes its kind fill, where
-                     `text-light` measures 3.05–4.26:1; `text-body` clears
-                     6.09–8.51:1 on every light fill. Unfilled, unchanged. */
-                  className={`${typography.nodeLabel} !leading-tight ${lodKindFillClass ? 'text-text-body' : 'text-text-light'} italic shrink-0`}
+                  /* ⭐ BODY INK, THE SAME INK AS THE FIGURE IT QUALIFIES
+                     (contract v3.1 T15: text ≥ 4.5:1 on its actual ground). It
+                     was body ink only ON the line rung's kind fill, where
+                     `text-light` measured 3.05–4.26:1, and muted elsewhere; WS1
+                     #25 made the far card white, which silently turned the mark
+                     muted beside a body-ink number — the disclosure fainter
+                     than the figure, the defect this line exists to close.
+                     On the white card body ink is 10.4:1, muted 5.2:1. */
+                  className={`${typography.nodeLabel} !leading-tight text-text-body italic shrink-0`}
                 >
                   {UNCONFIRMED_ESTIMATE_TOKEN}
                 </span>
