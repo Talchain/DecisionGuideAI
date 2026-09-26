@@ -226,3 +226,26 @@ export function getBaselineBadgeProps(isBaseline: boolean): {
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
   }
 }
+
+/**
+ * ⭐ IS THIS OPTION THE BASELINE? — the ONE resolver, typed sources first.
+ *
+ *   1. the option node's own `is_baseline` (the user's or a receipt's stamp);
+ *   2. CEE's typed `analysis_ready.options[].is_baseline` for the same id;
+ *   3. only when NEITHER states it, the label heuristic (`detectBaseline`).
+ *
+ * WHY STEP 2 EXISTS (served BF5, UI `5e984a1d`): an option CEE adds through chat
+ * ("Keep £49 and add a paid AI add-on") carries no `is_baseline` on its graph node,
+ * while CEE's options entry says `is_baseline: false`. Every surface fell straight
+ * to the heuristic, matched "keep", and the card read "Baseline · no changes"
+ * beside the real status quo. A typed `false` must suppress the heuristic.
+ */
+export function resolveOptionIsBaseline(
+  data: { is_baseline?: unknown; label?: unknown } | null | undefined,
+  ceeOption: object | null | undefined,
+): boolean {
+  if (typeof data?.is_baseline === 'boolean') return data.is_baseline
+  const typed = (ceeOption as { is_baseline?: unknown } | null | undefined)?.is_baseline
+  if (typeof typed === 'boolean') return typed
+  return detectBaseline(String(data?.label ?? '')).isBaseline
+}

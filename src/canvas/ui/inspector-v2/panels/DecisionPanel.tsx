@@ -13,7 +13,7 @@ import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { inspectorButton, inspectorDetailRow, INSPECTOR_RULE } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
-import { detectBaseline } from '../../../utils/baselineDetection'
+import { resolveOptionIsBaseline } from '../../../utils/baselineDetection'
 import { formatWinProbability } from '../../../utils/labelUtils'
 import {
   GROUP_LABELS,
@@ -124,6 +124,7 @@ export const DecisionPanel = memo(function DecisionPanel({
   // reported "No connections yet." while the canvas plainly drew the edges —
   // the very L-40 contradiction this file was changed to close, surviving in
   // the direction the first corpus never drew.
+  const ceeOptions = useCanvasStore(s => (s.ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options)
   const connectedOptions = useMemo(() => {
     const seen = new Set<string>()
     return edges
@@ -146,8 +147,10 @@ export const DecisionPanel = memo(function DecisionPanel({
         const label = resolveElementLabel(optNode.data)
         // Explicit `is_baseline` wins; regex fallback only fires when the flag is
         // absent — mirrors OptionNode.tsx / OptionPanel.tsx.
-        const explicitIsBaseline = (optNode.data as { is_baseline?: boolean | null })?.is_baseline
-        const isBaseline = explicitIsBaseline ?? detectBaseline(label).isBaseline
+        const isBaseline = resolveOptionIsBaseline(
+          { is_baseline: (optNode.data as { is_baseline?: boolean | null })?.is_baseline, label },
+          ceeOptions?.find((o: { id: string }) => o.id === otherId),
+        )
         // Raw win probability — formatted via formatWinProbability() at render.
         const rawWinProb = optionComparison && Array.isArray(optionComparison)
           ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === otherId)?.win_probability
@@ -161,7 +164,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         }
       })
       .filter(Boolean) as Array<{ nodeId: string; label: string; ivCount: number; isBaseline: boolean; winProb?: number }>
-  }, [edges, nodes, nodeId, optionComparison])
+  }, [edges, nodes, nodeId, optionComparison, ceeOptions])
 
   // Non-option connections (edges where decision is source/target and other end is not an option).
   // Options belong in the Input group; other connections (if any) go here.

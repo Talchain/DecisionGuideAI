@@ -382,6 +382,37 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     })
   })
 
+  describe('a "Keep …" option CEE types as NOT the baseline (served BF5, 5e984a1d)', () => {
+    // Served: "Keep £49 and add a paid AI add-on", added through chat with no level. The graph node
+    // carries no `is_baseline`; CEE's `analysis_ready.options[]` entry says `is_baseline: false`. The
+    // card fell through to the label heuristic ("keep") and read "Baseline · no changes".
+    const KEEP = { id: 'option-keep', type: 'option', data: { label: 'Keep £49 and add a paid AI add-on', type: 'option' } }
+    const withKeep = (ceeKeep: Record<string, unknown> | null) => ({
+      nodes: [FACTOR_PRICE, FACTOR_HEAD, FACTOR_ADOPT, OPTION_1, OPTION_2, BASELINE, KEEP],
+      ceeAnalysisReady: { options: [...CEE_READY.options, ...(ceeKeep ? [{ id: 'option-keep', interventions: {}, ...ceeKeep }] : [])] },
+    })
+
+    it('RED: CEE says is_baseline false → no baseline meta, however the label reads', () => {
+      renderCard({ id: 'option-keep', store: withKeep({ is_baseline: false }) })
+      expect(onCard('option-baseline-meta-option-keep')).toBeNull()
+    })
+
+    it('CEE says is_baseline true → the baseline meta, even with no node flag', () => {
+      renderCard({ id: 'option-keep', store: withKeep({ is_baseline: true }) })
+      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+    })
+
+    it('CONTRAST: with no typed source at all, the label heuristic still decides (unchanged)', () => {
+      renderCard({ id: 'option-keep', store: withKeep(null) })
+      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+    })
+
+    it('the node\'s own flag still wins over CEE', () => {
+      renderCard({ id: 'option-keep', data: { is_baseline: true }, store: withKeep({ is_baseline: false }) })
+      expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
+    })
+  })
+
   describe('height safety — the Normal rung adds nothing the landing rung lacks', () => {
     it('the card body is byte-identical at `full` and `quiet`', () => {
       const a = renderCard({ store: { lodRung: 'full' } })

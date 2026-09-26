@@ -26,7 +26,7 @@ import {
   OPTION_STRINGS,
 } from '../inspectorStrings'
 import { formatFactorValue, unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
-import { detectBaseline } from '../../../utils/baselineDetection'
+import { resolveOptionIsBaseline } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
@@ -474,9 +474,10 @@ export const OptionPanel = memo(function OptionPanel({
   // Baseline indication — mirrors OptionNode.tsx. Explicit `is_baseline` wins;
   // regex fallback only fires when the flag is absent (null/undefined).
   const optionData = node?.data as OptionNodeData | undefined
-  const explicitIsBaseline = optionData?.is_baseline
-  const isBaselineOption =
-    explicitIsBaseline ?? detectBaseline(String(optionData?.label ?? '')).isBaseline
+  const isBaselineOption = resolveOptionIsBaseline(
+    optionData,
+    (ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options?.find(o => o.id === nodeId),
+  )
 
   /**
    * ⭐⭐ EACH ROW'S READING IS THE CARD'S, BUILT BY THE CARD'S OWN CODE (DEFECT 5
