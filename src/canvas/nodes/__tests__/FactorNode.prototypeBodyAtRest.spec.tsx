@@ -399,14 +399,14 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     observedState: { value: 0.39, raw_value: 39000, cap: 100000, unit, extractionType: 'inferred', source: 'cee_inference' },
   })
 
-  it('GBP/year → figure `£39,000`, attached muted unit `/year`', () => {
+  it('GBP/year → figure `£39,000`, muted unit `/ year` (the compact-unit owner spaces every rate)', () => {
     const data = money('GBP/year')
     seed(data, { phase: 'pre' })
     renderFactor(data)
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('£39,000')
-    expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('/year')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000/yearest.')
+    expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('/ year')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / yearest.')
   })
 
   it('CONTRAST — a non-currency rate (`hours/week`) is untouched: `40 hours/week`', () => {

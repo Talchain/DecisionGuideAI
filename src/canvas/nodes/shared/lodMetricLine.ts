@@ -131,7 +131,7 @@
  * on any widening whatever, including one that printed an empty line, while the
  * pair discriminates on the datum itself.
  */
-import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
 import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
@@ -239,7 +239,11 @@ function factorStatedValue(data: Record<string, unknown>, label: string): string
   // The same rest-state shortening the body applies (R6): a trailing
   // all-numeric parenthetical is the raw default showing through. Display only —
   // it can shorten the string and can never change the value it states.
-  const text = collapseEstimateDisplay(factorDisplayText(normalised, label))
+  // ⭐ And the card's VISIBLE text, not the unsplit readout (served cd6a82e4):
+  // the body reads "7% / month" through `factorCardVisibleText`, and this line
+  // read "7 percent per month", CSS-cut to "7 percent per …" one rung down.
+  const readout = factorDisplayText(normalised, label)
+  const text = collapseEstimateDisplay(factorCardVisibleText(readout, factorDisplayParts(normalised, label)))
   // Contract v3.1 #20: the reduced line never says more than the full card —
   // a bare 0–1 model number is omitted there (`readoutIsBareModelScale`), so it
   // is omitted here too, and the line falls through to the rank or range arm.

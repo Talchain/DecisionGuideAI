@@ -345,7 +345,15 @@ describe('contract v3.1 — option card polish', () => {
       expect(line.has('gap-x-2')).toBe(true)
       const dt = inRows('option-change-row-option-1-f-head')!.previousElementSibling!
       expect(tokens(dt).has('flex-[1_1_8em]')).toBe(true)
-      expect(tokens(inRows('option-change-row-value-option-1-f-head')).has('whitespace-nowrap')).toBe(true)
+      // Held whole while it fits one line of the row budget at the largest
+      // counter-scale; "0 engineers → 3 engineers" (21) does not, so it may break
+      // BEFORE THE ARROW only — each half one unbroken run — and never runs past
+      // the card's edge (served cd6a82e4, "49 GBP per month → 59 GBP per month"
+      // overflowed as one no-wrap run).
+      const value = inRows('option-change-row-value-option-1-f-head')!
+      expect(tokens(value).has('whitespace-nowrap')).toBe(false)
+      const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
+      expect(halves).toEqual(['0 engineers', '→ 3 engineers'])
     })
 
     it('label and amount are both the 11px label size at tight leading', () => {

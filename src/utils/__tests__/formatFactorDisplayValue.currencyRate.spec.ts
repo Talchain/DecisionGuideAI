@@ -20,27 +20,30 @@ const salary = (unit: string, raw_value: number = 39000): FactorDisplayInput =>
 
 describe('formatFactorDisplayParts — currency rate', () => {
   it.each([
-    ['GBP/year', '£39,000', '/year'],
-    ['USD/month', '$39,000', '/month'],
-    ['eur / year', '€39,000', '/year'],
-  ])('%s → %s + attached %s, restating the unchanged formatter string', (unit, figure, suffix) => {
+    ['GBP/year', '£39,000', '/ year'],
+    ['USD/month', '$39,000', '/ month'],
+    ['eur / year', '€39,000', '/ year'],
+    // Served cd6a82e4 (26 Sep, Paul's pricing brief): the producer spells the
+    // rate with "per". It was a CONTRAST here ("not a /rate suffix") — the
+    // narrowness that left "49 GBP per month" on the served cards.
+    ['GBP per year', '£39,000', '/ year'],
+  ])('%s → %s + spaced %s, restating the unchanged formatter string', (unit, figure, suffix) => {
     const input = salary(unit)
     const text = formatFactorDisplayValue(input)
     expect(text).toBe(`39,000 ${unit.trim()}`)
     const parts = formatFactorDisplayParts(input)
-    expect(parts).toEqual({ figure, unit: suffix, attached: true, restates: text })
-    expect(joinFactorDisplayParts(parts!)).toBe(`${figure}${suffix}`)
+    expect(parts).toEqual({ figure, unit: suffix, restates: text })
+    expect(joinFactorDisplayParts(parts!)).toBe(`${figure} ${suffix}`)
   })
 
-  it('zero is a valid amount: `0 GBP/year` → `£0/year`', () => {
+  it('zero is a valid amount: `0 GBP/year` → `£0 / year`', () => {
     const parts = formatFactorDisplayParts(salary('GBP/year', 0))
     expect(formatFactorDisplayValue(salary('GBP/year', 0))).toBe('0 GBP/year')
-    expect(parts && joinFactorDisplayParts(parts)).toBe('£0/year')
+    expect(parts && joinFactorDisplayParts(parts)).toBe('£0 / year')
   })
 
   it.each([
     ['CHF/year', 'no glyph mapping'],
-    ['GBP per year', 'not a /rate suffix'],
     ['GBP/full year', 'multi-word rate'],
     ['hours/week', 'not a currency'],
   ])('CONTRAST — %s (%s) keeps the ordinary word split, byte-identical', (unit) => {
