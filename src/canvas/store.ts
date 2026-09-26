@@ -3646,6 +3646,29 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ]
       const nodePlan = planStructuralAddIntent(s, nodesAfter, nodeId)
       const edgePlan = planStructuralAddEdgeIntent(s, edgesAfter, edgeId, nodesAfter)
+      const edgesWithReceipt = edgePlan.needsStrength
+        ? edgesAfter.map((e) =>
+            e.id === edgeId
+              ? { ...e, data: { ...(e.data as EdgeData), structuralAddStandDown: 'strength_not_stated' as const } }
+              : e,
+          )
+        : edgesAfter
+      // The link this gesture drew is part of what it MINTED, so the add's
+      // receipt may undo it for the acknowledgement, and only while it still
+      // reads exactly as drawn (`beforeOwnAdd`).
+      const mintedLink = edgesWithReceipt.find((e) => e.id === edgeId)
+      const nodePatch: Partial<CanvasState> =
+        nodePlan.intent && mintedLink
+          ? {
+              pendingStructuralAdds: [
+                ...s.pendingStructuralAdds,
+                {
+                  ...nodePlan.intent,
+                  minted: { node: nodePlan.intent.minted?.node ?? nodesAfter[nodesAfter.length - 1]!, edges: [mintedLink] },
+                },
+              ],
+            }
+          : nodePlan.patch
       // ⭐⭐ THE LINK IS CHAINED TO THE NODE ADD — served 409 BASE_HASH_DIVERGED
       // (UI `eec722ab`, 25 Sep 2026). Both captures read the SAME
       // `lastServerGraphHash`, the node's write moves it, and the link then
@@ -3668,18 +3691,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         edgeDeferred: edgePlan.deferred,
         edgeNeedsStrength: edgePlan.needsStrength,
       }
-      const edgesWithReceipt = edgePlan.needsStrength
-        ? edgesAfter.map((e) =>
-            e.id === edgeId
-              ? { ...e, data: { ...(e.data as EdgeData), structuralAddStandDown: 'strength_not_stated' as const } }
-              : e,
-          )
-        : edgesAfter
       return {
         nodes: nodesAfter,
         edges: edgesWithReceipt,
         selection: { nodeIds: new Set([nodeId]), edgeIds: new Set<string>(), anchorPosition: null },
-        ...nodePlan.patch,
+        ...nodePatch,
         ...edgePatch,
       }
     })
