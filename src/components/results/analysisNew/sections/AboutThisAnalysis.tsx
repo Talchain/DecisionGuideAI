@@ -85,10 +85,9 @@ import { typography } from '../../../../styles/typography'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
 import { formatThreshold } from '../../RangeVisualization'
 
-/** A normalised model score, as the comparison axis prints it: 3 significant figures, no sign, no unit. */
-export function formatModelScore(value: number): string {
-  return value.toLocaleString(undefined, { maximumSignificantDigits: 3 })
-}
+/** ONE definition of a normalised model score for the tab (`modelScore.ts`); re-exported for this file's spec. */
+import { formatModelScore } from '../modelScore'
+export { formatModelScore }
 import type { OutcomeUnitType } from '../../types'
 import { NOT_ANALYSED_BADGE, NOT_COMPUTED_BADGE } from '../../utils/notAnalysedCopy'
 import {
