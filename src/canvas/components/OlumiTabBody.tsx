@@ -20,7 +20,7 @@ import { departedTabBodyCallbacks } from '../stores/tabBodyFallback'
 // Type-only: erased at compile time, so this adds no runtime edge to a module
 // whose specs mock ConversationContext/ConversationPanel and not useConversation.
 import type { DispatchActionOpts } from '../conversation/useConversation'
-import { aiComparisonLabel } from '../../v5/aiComparisonMode'
+import { aiComparisonBadge } from '../../v5/aiComparisonMode'
 import { typo } from '../../styles/typography'
 
 /** The three ask slots this component may fill. Nothing else is ever written. */
@@ -252,9 +252,9 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     // Attach evidence is handled by CogPopover, not here.
   }, [])
 
-  // Staging comparison mode is always visible so a tester cannot unknowingly
-  // compare two different AI engines under an identical-looking surface.
-  const comparisonLabel = aiComparisonLabel()
+  // A non-default engine is always visible, so a tester cannot unknowingly compare two AI engines under an
+  // identical-looking surface; the host's own default (staging: OpenAI) is not labelled on every screen.
+  const comparisonLabel = aiComparisonBadge()
   const topControls = comparisonLabel || onFloatOut ? (
     <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-0.5">
       {comparisonLabel ? (
