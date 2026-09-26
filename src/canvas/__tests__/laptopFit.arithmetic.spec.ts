@@ -167,7 +167,10 @@ function chromeAt(vp: { width: number; height: number }) {
   const dockW = responsiveDockWidth(W)
   const pane = rect({ left: 0, top: 0, right: W, bottom: H })
   const map: Record<string, HTMLElement> = {
-    [DOCK_SELECTOR]: rect({ left: W - 12 - dockW, top: 12, right: W - 12, bottom: H - 12 }),
+    // The contract's FLUSH panel (26 Sep 2026): right edge 0, from the 51px top
+    // bar to the viewport bottom — measured on the local build at 1280x800 as
+    // (961, 51, 319×749). It was a floating card at `right: 12`, 12px down.
+    [DOCK_SELECTOR]: rect({ left: W - dockW, top: 51, right: W, bottom: H }),
     [SIDEBAR_SELECTOR]: rect({ left: 12, top: 300, right: 60, bottom: 491 }),
     [TOP_BAR_SELECTOR]: rect({ left: 12, top: 12, right: W - 12, bottom: 57 }),
     [OVERLAY_BAND_SELECTOR]: rect({ left: 0, top: H - OVERLAY_BAND_BOTTOM - OVERLAY_BAND_HEIGHT, right: W, bottom: H - OVERLAY_BAND_BOTTOM }),
@@ -221,11 +224,17 @@ const WIDEST_ROW_WITH_PROMPT =
   MAX_CARDS_PER_ROW * (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) + ROW_PROMPT_W
 
 describe('S4 laptop fit — the chrome the fit subtracts (verify and keep)', () => {
-  it('the insets are the measured 76 / 444 / 73 / 92 at 1280x800 with the dock open', () => {
-    expect(chromeAt(VIEWPORTS[0]).insets).toEqual({ left: 76, right: 444, top: 73, bottom: 92 })
+  // ⚠ RE-PINNED 26 Sep 2026 — the design contract's flush 319px panel. The
+  // right inset was 444 (a 416 card at `right: 12`, + the 16px gap); it is now
+  // 319 + 16 = 335. The other three sides are unchanged, and so is every
+  // landing-camera arm below: the frame widens by 109px and the fit still
+  // parks at the 0.5 floor (measured: landing zoom 0.5 on all five starters at
+  // both sizes, before and after).
+  it('the insets are 76 / 335 / 73 / 92 at 1280x800 with the dock open', () => {
+    expect(chromeAt(VIEWPORTS[0]).insets).toEqual({ left: 76, right: 335, top: 73, bottom: 92 })
   })
-  it('…and the same at 1440x900 (the dock is 416 at both widths)', () => {
-    expect(chromeAt(VIEWPORTS[1]).insets).toEqual({ left: 76, right: 444, top: 73, bottom: 92 })
+  it('…and the same at 1440x900 (the dock is 319 at both widths)', () => {
+    expect(chromeAt(VIEWPORTS[1]).insets).toEqual({ left: 76, right: 335, top: 73, bottom: 92 })
   })
 })
 
@@ -258,12 +267,16 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
   // arithmetic as the contrast that says why the cap is four and not five.
   it('at 1280x800 the widest row the layout can build — four cards and its prompt, 1424 units — fits on WIDTH at the floor', () => {
     const { frameFlowAtFloor } = landing({ x: 0, y: 0, width: 1, height: 1 }, VIEWPORTS[0])
-    expect(frameFlowAtFloor.w).toBe(1520)
+    // RE-PINNED 26 Sep 2026 (flush 319px panel): the frame at the floor is
+    // (1280 − 76 − 335) / 0.5 = 1738 units; it was 1520 with the 416 card.
+    expect(frameFlowAtFloor.w).toBe(1738)
     expect(WIDEST_ROW_WITH_PROMPT).toBe(1424)
     expect(WIDEST_ROW_WITH_PROMPT).toBeLessThanOrEqual(frameFlowAtFloor.w)
-    // CONTRAST: one more card per row would spill again, by the old 220 units.
+    // CONTRAST: one more card per row would still spill — now by 2 units, where
+    // the 416 card made it 220. The row cap of four still holds at 1280, by a
+    // hair; it is no longer the dock that decides it.
     const oneMoreCard = WIDEST_ROW_WITH_PROMPT + (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP)
-    expect(oneMoreCard - frameFlowAtFloor.w).toBe(220)
+    expect(oneMoreCard - frameFlowAtFloor.w).toBe(2)
   })
 })
 
