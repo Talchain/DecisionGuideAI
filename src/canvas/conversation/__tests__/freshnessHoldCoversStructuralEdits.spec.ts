@@ -301,14 +301,11 @@ describe('what actually pins the model-changing set', () => {
     // a freshness verdict computed about a graph the user has already changed.
     // CEE declares the kind `'mutating'`, unconditionally.
     //
-    // `goal_target_edit` joins the WIRE type/allowlist PREPARED, NOT ARMED
-    // (`canvas/conversation/goalTargetEdit.ts`'s header — CEE has not shipped a
-    // reader, `GOAL_TARGET_EDIT_ENABLED` is `false`, and the member's only
-    // producer is gated on it). It is listed HELD here regardless, because
-    // membership in this list is a claim about what CEE will classify the
-    // moment it CAN dispatch, not about whether it can today — and the
-    // contract's own description of the member (the server derives `cap`,
-    // `goal_threshold` and `frame` from it) puts it squarely inside the
+    // `goal_target_edit` joined the WIRE type/allowlist PREPARED, and is now
+    // ARMED (`GOAL_TARGET_EDIT_ENABLED` is `true`, `goalTargetEdit.ts`). It is
+    // HELD because CEE #1859 declares the kind `'mutating'`
+    // (`SYSTEM_EVENT_HANDLING`, `system-events/dispatch.ts`) and every field it
+    // writes — `goal_threshold*` and `goal_constraints` — is inside the
     // analysis-affecting projection.
     expect([...MODEL_CHANGING_SYSTEM_EVENT_TYPES].sort()).toEqual([
       'edge_strength_edit',

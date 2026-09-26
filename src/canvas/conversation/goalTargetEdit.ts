@@ -1,6 +1,12 @@
 /**
- * `goal_target_edit` — the UI half of the DURABLE, TYPED goal-target write CEE
- * has not shipped yet.
+ * `goal_target_edit` — the UI half of the DURABLE, TYPED goal-target write.
+ *
+ * ⭐ ARMED (`GOAL_TARGET_EDIT_ENABLED = true`) on branch
+ * `canvas/goal-target-edit-live`, stacked on #1977. The history below is kept
+ * as written when the module was PREPARED; the flag's own docblock states the
+ * deploy sequencing the flip depends on. The UI still vendors
+ * `@talchain/schemas` 0.55.0, so the wire type stays hand-typed
+ * (`GoalTargetEditWireEvent`, `buildPayload.ts`) until the UI re-vendors ≥0.59.0.
  *
  * ── WHAT THIS CLOSES ─────────────────────────────────────────────────────────
  * Today `useModelEditAuthority.proposeGoalTarget` records a target through the
@@ -54,18 +60,102 @@
  */
 import type { WireSystemEvent } from './types'
 import type { ConstraintType } from '../../v5/chipParameters'
+import type {
+  SystemEventSendSettlement,
+  SystemEventSendSettlementDetail,
+} from './settleSystemEventSend'
+import { isDisplaySafeReason } from './ceeRecovery'
 
 /**
- * ⛔⛔ THE READER-FIRST GATE FOR THIS MEMBER. `false` until CEE's Canonical
- * State lane has DEPLOYED a reader for `goal_target_edit` — see this module's
- * header. While `false`, `useModelEditAuthority.proposeGoalTarget` takes the
- * existing `add_constraint` path and this builder has no production caller;
- * every other export below stays testable regardless of the flag's value.
+ * ⛔⛔ THE READER-FIRST GATE FOR THIS MEMBER — NOW ARMED (`true`).
+ *
+ * ⚠⚠ THIS FLIP IS SEQUENCED, NOT FREE-STANDING. It may reach `staging` only
+ * AFTER CEE's reader is DEPLOYED: olumi-assistants-service #1859
+ * (`dispatchGoalTargetEdit`, `system-events/dispatch.ts`, plus the adapter
+ * `system-events/goal-target-edit.ts`), which vendors `@talchain/schemas`
+ * 0.59.0 (olumi-schemas #67, `GoalTargetEditEvent`). A CEE without that reader
+ * fails the strict union's DISCRIMINATOR and 422s every goal-target turn.
+ *
+ * Checked against that reader, not assumed: the body `buildV5Payload` builds
+ * from {@link buildGoalTargetEditEvent} parses under CEE #1859's vendored
+ * 0.59.0 `OrchestratorTurnPayloadSchema` (`validateIngress`, `validators/b1.ts`),
+ * and every settlement its route can send back — 200 applied receipt, 409
+ * `GRAPH_DIVERGED` (`BASE_HASH_DIVERGED` / `rpc_cas_conflict`), 422
+ * `system_event_refused_no_write`, 500 `system_event_commit_failed` — is
+ * pinned through the real wire chain in
+ * `inspector-v2/__tests__/GoalPanel.goalTargetEditLive.wire.spec.tsx`.
+ *
+ * With the flag `true`, `useModelEditAuthority.proposeGoalTarget` sends this
+ * typed event and the `add_constraint` branch beneath it is the flag-OFF
+ * fallback only (pinned by `useModelEditAuthority.goalTargetEdit.spec.tsx`).
  *
  * `rg GOAL_TARGET_EDIT_ENABLED` finds every place that reads it — there is
  * deliberately exactly one place that WRITES it: this line.
  */
-export const GOAL_TARGET_EDIT_ENABLED = false
+export const GOAL_TARGET_EDIT_ENABLED = true
+
+/**
+ * ⭐⭐ WHAT A GOAL-TARGET SURFACE SAYS WHEN THE SEND DID NOT SIMPLY LAND — ONE
+ * DERIVATION FOR EVERY SURFACE THAT CAN SEND ONE.
+ *
+ * ⛔ WHY THIS EXISTS: a SYSTEM-EVENT refusal renders NO transcript bubble
+ * (`useConversation`: "System turns get NO transcript bubble — the failure
+ * propagates to the dispatcher instead"). On the `add_constraint` path every
+ * refusal arrived as Olumi's reply in the conversation; on this carrier a 409
+ * or 422 reaches the reader ONLY if the surface that sent it says so. Three
+ * surfaces send it (the inspector `GoalPanel`, the Reasoning tab's
+ * `ModelStrip`, the Model tab's goal row) — so the sentences live here, once
+ * (CLAUDE.md trap 12), rather than as three spellings.
+ *
+ * `sent` returns `null`: the send completed and CEE's own receipt is the
+ * reply, which DOES render. The caller keeps its existing dispatched line.
+ *
+ * ⚠ THE TWO REFUSALS ARE NAMED APART, because their remedies are opposite
+ * (`SystemEventRefusalCause`):
+ *   · `conflict` — the model moved under the send (409 `GRAPH_DIVERGED`,
+ *     `BASE_HASH_DIVERGED` / `rpc_cas_conflict`). Any turn refreshes the base,
+ *     after which the same target can land — so the remedy is named.
+ *   · `declined` — CEE refused the request itself and wrote nothing (422
+ *     `system_event_refused_no_write`, `retryable: false`): an unknown or
+ *     non-goal id, a floor of 0, a unit the goal cannot take. Repeating it
+ *     cannot succeed and the envelope does not say which cause, so no remedy
+ *     is guessed; the producer's own words are appended only when they are
+ *     prose (`isDisplaySafeReason`).
+ * Neither may say "Olumi's reply says why" — for a refused system event there
+ * IS no reply.
+ */
+export const GOAL_TARGET_NOT_RECORDED_CONFLICT =
+  'Not recorded — the model changed while this was sending, so nothing was written. Ask Olumi anything, then set the target again.'
+export const GOAL_TARGET_NOT_RECORDED_DECLINED =
+  'Not recorded — this target was refused, so the model is unchanged.'
+export const GOAL_TARGET_UNVERIFIED =
+  'Olumi may not have recorded this — its reply did not arrive. Check before setting it again.'
+export const GOAL_TARGET_NOT_SENT_BUSY =
+  'Not sent — another edit is in progress. Try again in a moment.'
+
+export function goalTargetSettlementNotice(
+  settlement: SystemEventSendSettlement,
+  detail: SystemEventSendSettlementDetail = {},
+): string | null {
+  switch (settlement) {
+    case 'sent':
+      return null
+    case 'refused':
+      if (detail.refusal === 'declined') {
+        return detail.reason !== undefined && isDisplaySafeReason(detail.reason)
+          ? `${GOAL_TARGET_NOT_RECORDED_DECLINED} Reason given: ${detail.reason.trim()}`
+          : GOAL_TARGET_NOT_RECORDED_DECLINED
+      }
+      return GOAL_TARGET_NOT_RECORDED_CONFLICT
+    case 'unverified':
+      return GOAL_TARGET_UNVERIFIED
+    // `queued` cannot occur while every producer passes `deferIfBusy: false`;
+    // mapped to the busy line rather than left to fall through unattributed.
+    case 'blocked':
+    case 'queued':
+      return GOAL_TARGET_NOT_SENT_BUSY
+  }
+}
 
 export interface BuildGoalTargetEditArgs {
   /** The GOAL node whose target is being set. Canonical id, never a label. */
