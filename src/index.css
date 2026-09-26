@@ -532,13 +532,24 @@
   /* Canvas dock layout */
   --dock-left-expanded: 20rem;
   --dock-left-collapsed: 2.5rem;
-  /* 416px. ⛔ MIRRORS `DOCK_RESPONSIVE_MAX_WIDTH` in
+  /* 19.9375rem = 319px — the design contract's flush `.ai-panel` width
+     (26 Sep 2026; was 26rem = 416px). Spelled in rem to match the
+     `OutputsDock` fallback, which `shell-conformance` keeps out of px. ⛔ MIRRORS `DOCK_RESPONSIVE_MAX_WIDTH` in
      src/canvas/components/dockWidth.ts, and the mirror is UNAVOIDABLE: this
      custom property must have a value before that module runs, so it is the
      pre-hydration fallback. `dockCssFallbackAgrees.spec.ts` REDs if the two
      ever disagree — do not change one without the other. */
-  --dock-right-expanded: 26rem;
+  --dock-right-expanded: 19.9375rem;
   --dock-right-collapsed: 2.5rem;
+  /* The right panel's three contract rules (olumi-canvas-visual-contract.html,
+     26 Sep 2026): `.ai-panel{border-left:1px solid #DCD7CF}`,
+     `.panel-tabs{border-bottom:1px solid #E6E1D8}` and
+     `.panel-tabs button.active{background:#F3F8FA}`. Named here once so the
+     shell (`OutputsDock.tsx`, `WorkspaceShellTabStrip.tsx`) reads tokens, never
+     raw hex. */
+  --panel-edge-rule: #DCD7CF;
+  --panel-tab-rule: #E6E1D8;
+  --panel-tab-active-bg: #F3F8FA;
   /* Effective offsets used by the canvas container; updated by dock components. */
   --dock-left-offset: 0rem;
   --dock-right-offset: 0rem;

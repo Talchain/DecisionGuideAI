@@ -414,7 +414,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-text-light break-words`}
               data-testid="outcome-unquantified"
               data-card-primary-line="outcome"
-              title={OUTCOME_UNQUANTIFIED_LINE}
             >
               <span aria-hidden="true">{OUTCOME_UNQUANTIFIED_LINE}</span>
               <span className={typography.screenReaderOnly}>{OUTCOME_UNQUANTIFIED_LINE}</span>

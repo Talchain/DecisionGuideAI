@@ -99,6 +99,14 @@ export const COMMITMENT_COPY = {
    * the re-run is for.
    */
   rerunBefore: 'Re-run before relying on this comparison.',
+  /**
+   * V2 `synthesisHTML()` (edited): bullet 2 on a run the model has moved past.
+   * What is open is the change itself. Repeating the last run's withholding
+   * reason here mixed an old run with a verdict re-read on the edit turn: on
+   * Paul's MRR brief it changed wording with no new run (Panel's prototype
+   * comparison, served 1a8afc11, 26 Sep 2026).
+   */
+  changeNotAnalysed: 'The effect of the latest change has not been analysed yet.',
   /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
   openAsk: {
     label: 'Ask Olumi about unresolved uncertainty',
@@ -141,6 +149,8 @@ export type FoundedSource =
 
 /** Where bullet 2 came from, in priority order. */
 export type OpenSource =
+  /** (0) `COMMITMENT_COPY.changeNotAnalysed`, on a run the model has moved past (a re-run would change it). */
+  | 'change_not_analysed'
   /** (a) `vm.checks.leaderWithholdCause`, when the leader was withheld and the cause is nameable. */
   | 'leader_withheld_cause'
   /** (a) `COPY.checks.leader_not_assessed.meaning`, when withheld and the cause is not nameable. */
@@ -313,6 +323,10 @@ function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSo
  * states it through `leaderWithholdCause` either way.
  */
 function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> | null {
+  // (0) The same condition bullet 3 uses for its re-run advice, so the two can never disagree.
+  if (vm.status.isStale && vm.status.staleKind === 'changed' && !vm.checks.rerunWouldNotHelp) {
+    return { text: COMMITMENT_COPY.changeNotAnalysed, source: 'change_not_analysed' }
+  }
   // (a)
   if (vm.checks.leaderWithheld) {
     const cause = vm.checks.leaderWithholdCause

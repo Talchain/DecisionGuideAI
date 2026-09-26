@@ -45,8 +45,8 @@ import { getScenario } from '../store/scenarios'
 // scroll regions, the footer region or the type/spacing/radius scales here.
 import {
   DEFAULT_WORKSPACE_SURFACE,
+  UNFLAGGED_FALLBACK_SURFACE,
   SHELL_CONTAINER_NAME,
-  SHELL_RADIUS_PX,
   presentedSurfaces,
   shellBodyClassName,
   surfaceFor,
@@ -574,18 +574,23 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // Tab guards: a persisted tab whose flag is off cannot be honoured, so the
   // choice is void and the session falls back to the DEFAULT. Not an override —
   // there is nothing left to override, because the surface the user chose does
-  // not exist under this flag posture. `DEFAULT_WORKSPACE_SURFACE` is always a
-  // safe landing: `analysisNew` is unflagged by ruling (see its row in
-  // `shellContract.ts`), so this fallback can never itself be flagged off.
+  // not exist under this flag posture.
+  //
+  // ⚠ 26 Sep 2026: the default is now Olumi, which IS flagged (`aiPanelV2`), so
+  // "the default is always a safe landing" stopped being true. The landing is
+  // the default when Olumi can be shown, else `UNFLAGGED_FALLBACK_SURFACE`
+  // (Reasoning, unflagged by ruling) — so this fallback can never itself be
+  // flagged off.
   useEffect(() => {
+    const landing = isAiPanelV2Enabled() ? DEFAULT_WORKSPACE_SURFACE : UNFLAGGED_FALLBACK_SURFACE
     if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
+      setState(prev => ({ ...prev, activeTab: landing }))
     }
     if (state.activeTab === 'compare' && !isCompareTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
+      setState(prev => ({ ...prev, activeTab: landing }))
     }
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
-      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
+      setState(prev => ({ ...prev, activeTab: UNFLAGGED_FALLBACK_SURFACE }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
@@ -869,12 +874,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // float-out path can return them to that context (Reasoning / Analysis /
   // Compare / Model / Journey) rather than always landing on one surface.
   //
-  // The `DEFAULT_WORKSPACE_SURFACE` arm is reached only when the session
-  // RESTORED straight into the Olumi tab, so no non-Olumi tab was ever
-  // recorded: there is no choice to honour and this is the default, not an
-  // override of one.
+  // The fallback arm is reached when the session OPENED or RESTORED straight
+  // into the Olumi tab, so no non-Olumi tab was ever recorded. It must never be
+  // Olumi itself — a swap from Olumi to Olumi leaves the floating panel
+  // yielding to the dock and the float-out showing nothing — which is why it is
+  // `UNFLAGGED_FALLBACK_SURFACE` and not the (now Olumi) default.
   const lastNonOlumiTabRef = useRef<OutputsDockTab>(
-    state.activeTab !== 'olumi' ? state.activeTab : DEFAULT_WORKSPACE_SURFACE,
+    state.activeTab !== 'olumi' ? state.activeTab : UNFLAGGED_FALLBACK_SURFACE,
   )
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
@@ -2930,7 +2936,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // effectiveIsOpen is defined once near isFirstUse (above) and reused here.
 
   // ⚠ THESE FALLBACKS ARE NOT FREE NUMBERS — they must equal the `:root`
-  // declarations in `src/index.css` (`--dock-right-expanded: 26rem`,
+  // declarations in `src/index.css` (`--dock-right-expanded: 19.9375rem` =
+  // 319px since the flush panel, 26 Sep 2026; it was 26rem = 416px. Written in
+  // rem because `shell-conformance`'s dock-width-literal rule hunts the px
+  // spelling of `DOCK_RESPONSIVE_MAX_WIDTH` in shell scope, exactly as it did
+  // when this said 26rem;
   // `--dock-right-collapsed: 2.5rem`), which in turn must equal
   // `DOCK_RESPONSIVE_MAX_WIDTH` in `dockWidth.ts`. `--dock-right-expanded`
   // said `24rem` here for as long as the declaration said 26rem: the default
@@ -2944,29 +2954,49 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // is blinded permanently. Agreement is enforced instead by the derived
   // guard in `tests/ci-guards/css-var-resolution.spec.ts` — edit either side
   // and it REDs, naming both.
+  // ⭐⭐ THE CONTRACT'S FLUSH PANEL, NOT A FLOATING CARD (DESIGN-GAP #4,
+  // design audit 26 Sep 2026 §2 item 6). The locked visual contract states
+  // `.ai-panel{position:absolute;right:0;top:51px;bottom:0;width:319px;
+  // border-left:1px solid #DCD7CF}`. Served at `853feeb7` this aside was a
+  // 416×721 card at (852,63): `right: 12`, a 12px gap under the top bar, a
+  // 16px gap above the viewport bottom, a 1px `--border-default` box on all
+  // four sides, the 20px `standalone` radius and a two-layer shadow. Every one
+  // of those is what makes a panel read as a card floating over the canvas.
+  //
+  //  - `right: 0`, `top: var(--topbar-h)`, `bottom: var(--bottombar-h)` —
+  //    edge to edge between the top bar's bottom rule and the viewport bottom
+  //    (`--bottombar-h` is 0px on the canvas route, `ReactFlowGraph.tsx`).
+  //  - ONE rule, on the left, in the contract's colour (`--panel-edge-rule`).
+  //  - No radius and no shadow: a flush panel has no corners to round and
+  //    nothing to lift off.
+  //
+  // `SHELL_RADIUS_PX.standalone` stays in the contract for the other
+  // standalone surfaces; this aside simply stops being one.
+  //
+  // ⚠ `background` + `backdropFilter` ARE KEPT, DELIBERATELY. At 0.95 over the
+  // canvas the panel reads as the contract's `--panel` (#FEFEFE) white, and the
+  // blur is load-bearing in a way that has nothing to do with looks: it makes
+  // this aside the CONTAINING BLOCK for its `position: fixed` descendants
+  // (measured, see the `containerType` note below). Removing it would move the
+  // AskOlumiDrawer, the comparison overlay and two toasts from dock-scoped to
+  // viewport-scoped — a behaviour change that belongs in its own step.
+  //
+  // The canvas side needs no change: `computeFitPadding` and
+  // `measureDockInset` read this element's LIVE rect, so the board gets back
+  // the 12px gap plus (416 − 319) px automatically.
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
     width: effectiveIsOpen
-      ? 'var(--dock-right-expanded, 26rem)'
+      ? 'var(--dock-right-expanded, 19.9375rem)'
       : 'var(--dock-right-collapsed, 2.5rem)',
-    right: 12,
-    // Canvas v3.1 DESIGN-GAP #5 (chrome lane, 26 Sep 2026): the top bar is now
-    // the contract's full-width 51px `.app-top`, so the dock starts below it —
-    // `--topbar-h` is that bar's bottom edge (TopBar.tsx). The 12px gap keeps
-    // this dock's own floating treatment unchanged; making it flush (v3.1
-    // `.ai-panel{top:51px}`) is the Panel lane's (DESIGN-GAP #4).
-    top: 'calc(var(--topbar-h, 0px) + 12px)',
-    bottom: 'calc(var(--bottombar-h) + 1rem)',
+    right: 0,
+    top: 'var(--topbar-h, 0px)',
+    bottom: 'var(--bottombar-h)',
     background: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(8px)',
-    border: '1px solid var(--border-default)',
-    // DS v5 §6.2 `lg` — this aside is a STANDALONE SURFACE, not a card inside a
-    // panel, so it takes 20px. Cards INSIDE it take `panelCard` (12px). The
-    // distinction is the DS's explicit panel override and it is the thing that
-    // stops the dock reading as a stack of floating cards. It was 16px, which
-    // is not a DS token at all.
-    borderRadius: SHELL_RADIUS_PX.standalone,
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
+    borderLeft: '1px solid var(--panel-edge-rule)',
+    borderRadius: 0,
+    boxShadow: 'none',
     zIndex: 900,
     overflow: 'hidden',
     // ⭐ THE MECHANISM THAT MAKES THE ORIGINAL DEFECT IMPOSSIBLE, NOT MERELY
@@ -3104,8 +3134,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
           gone: the shell is `overflow: hidden`, so it already clips this
           child to its own corner radius, exactly once. */}
       <div
-        className="sticky top-0 z-10 border-b border-panel-border"
-        style={{ background: 'rgba(255, 255, 255, 0.95)' }}
+        className="sticky top-0 z-10 border-b"
+        // Contract `.panel-tabs{border-bottom:1px solid #E6E1D8}`.
+        style={{ background: 'rgba(255, 255, 255, 0.95)', borderBottomColor: 'var(--panel-tab-rule)' }}
       >
         {!effectiveIsOpen && <WorkspaceShellCollapsedStrip onToggleOpen={toggleOpen} />}
 
@@ -4267,7 +4298,14 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             {(() => {
               const bar = surfaceFor(effectiveActiveTab).footerBar
               switch (bar) {
+                // ⭐ ONE PRE-RUN RUN CONTROL PER SURFACE (26 Sep 2026, register
+                // row #31). The Reasoning surface's body already offers "Run
+                // the analysis" before the first run; hosting the never-run
+                // "Analyse" bar under it drew a second Run button on the same
+                // screen. After the first run this arm IS the 'reanalyse' arm.
+                case 'reanalyseAfterFirstRun':
                 case 'reanalyse':
+                  if (bar === 'reanalyseAfterFirstRun' && isPreRun) return null
                   return (
                     <ReanalyseBar
                       onReanalyse={handleRunAnalysis}

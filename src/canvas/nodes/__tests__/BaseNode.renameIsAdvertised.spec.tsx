@@ -77,7 +77,7 @@ function hoverName(title: HTMLElement): HTMLElement {
     fireEvent.mouseEnter(title)
     vi.advanceTimersByTime(400)
   })
-  const name = document.querySelector('[data-testid="node-title-tooltip-affordance"]')
+  const name = document.querySelector('[data-testid="node-title-tooltip-name"]')
   expect(name, 'the styled name tooltip did not open').not.toBeNull()
   return name!.closest('[role="tooltip"]') as HTMLElement
 }
@@ -87,14 +87,17 @@ describe('the rename affordance reaches every node kind', () => {
   afterEach(() => { vi.useRealTimers() })
 
   for (const kind of KINDS) {
-    it(`${kind}: the name's tooltip says what a double-click does`, () => {
+    // ⭐ AMENDED 26 Sep 2026 (design audit #13): the hover no longer carries the
+    // instruction. The inspector's title is the rename control, and the
+    // accessible name (below) still says what a double-click does.
+    it(`${kind}: the name's tooltip carries no instruction chrome`, () => {
       const { title } = renderCard(kind)
       // `title=""` is the shared Tooltip's own blocker for inherited native
-    // tooltips — no native tooltip text either way.
-    expect(title.getAttribute('title') ?? '', 'no native title — one tooltip system').toBe('')
+      // tooltips — no native tooltip text either way.
+      expect(title.getAttribute('title') ?? '', 'no native title — one tooltip system').toBe('')
       const tip = hoverName(title)
-      expect(tip.querySelector('[data-testid="node-title-tooltip-affordance"]')!.textContent)
-        .toBe(NODE_RENAME_AFFORDANCE)
+      expect(tip.querySelector('[data-testid="node-title-tooltip-affordance"]')).toBeNull()
+      expect(tip.textContent).not.toContain(NODE_RENAME_AFFORDANCE)
     })
 
     it(`${kind}: the label still rides in the same tooltip, FIRST — the contrast control`, () => {
@@ -131,13 +134,13 @@ describe('the affordance promises the interaction and nothing about the model', 
 
   it('composes the label FIRST, so a clipped name is recoverable at a glance', () => {
     const c = nodeTitleChannels({ label: LABEL, accessibleName: 'risk node: X.' })
-    expect(c.tooltip.name).toBe(LABEL)
-    expect(c.tooltip.affordance).toBe(NODE_RENAME_AFFORDANCE)
+    expect(c.tooltip).toEqual({ name: LABEL })
+    expect(c.accessibleName).toBe(`risk node: X. ${NODE_RENAME_AFFORDANCE}`)
   })
 
-  it('still says the useful thing when a node has no name yet', () => {
+  it('offers no tooltip when a node has no name yet; the accessible name still says it', () => {
     const c = nodeTitleChannels({ label: '   ', accessibleName: 'risk node: X.' })
     expect(c.tooltip.name).toBeNull()
-    expect(c.tooltip.affordance).toBe(NODE_RENAME_AFFORDANCE)
+    expect(c.accessibleName).toContain(NODE_RENAME_AFFORDANCE)
   })
 })

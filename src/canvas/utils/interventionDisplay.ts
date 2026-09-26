@@ -27,6 +27,7 @@
 // UI-SEM-064: shared intervention-change formatter (no-change epsilon,
 // count-unit singularisation, tier→percentage rendering). Display only.
 import { formatPercent } from '../../utils/formatPercent'
+import { compactCarriedReading } from '../../utils/unitClassifier'
 import {
   formatInterventionValue,
   denormaliseInterventionValue,
@@ -157,8 +158,13 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   // beside a factor card that, for the identical value, printed the map.
   const encoded = encodingMapPhrase(chip.encoding_map, chip.value)
   if (encoded !== null) return encoded
-  // CEE-provided display_value wins over any UI-side formatting (verbatim).
-  if (chip.displayValue) return chip.displayValue
+  // CEE-provided display_value wins over any UI-side formatting (verbatim) —
+  // its figure is never re-derived. The one re-spelling is the NOTATION of the
+  // carried unit when the reading is exactly `<figure> <that unit>` ("59 GBP per
+  // month" → "£59 / month", served `cd6a82e4`): the same compact owner the
+  // factor card and the goal read (`compactCarriedReading`), so a row's "to"
+  // never spells the unit one way beside a card spelling it another.
+  if (chip.displayValue) return compactCarriedReading(chip.displayValue, chip.unit) ?? chip.displayValue
   // Denormalise the 0–1 intervention value when a real-world scale exists.
   // Coherence fix (audit §8 P0-4): the option-card chip previously used the
   // crude `value × cap` while the on-canvas annotation used the T3-trusted

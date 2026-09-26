@@ -84,9 +84,9 @@ describe('v3.1 row 36 — a card name has one tooltip, the styled one', () => {
       expect(name?.textContent, 'the styled tooltip carries the full name').toBe(LABEL)
       const tip = name!.closest('[role="tooltip"]') as HTMLElement
       for (const token of TOOLTIP_SURFACE_CLASS.split(/\s+/)) expect(tip.className).toContain(token)
-      // The affordance is still advertised — in the same tooltip, after the
-      // name, and on the accessible name.
-      expect(tip.textContent).toBe(`${LABEL}${NODE_RENAME_AFFORDANCE}`)
+      // Design audit #13 (26 Sep): the tooltip is the name alone, no
+      // instruction; the affordance rides the accessible name.
+      expect(tip.textContent).toBe(LABEL)
       expect(card?.getAttribute('aria-label') ?? '').toContain(NODE_RENAME_AFFORDANCE)
     })
   }

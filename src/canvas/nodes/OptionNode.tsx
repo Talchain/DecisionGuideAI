@@ -155,6 +155,7 @@ import {
   moreCount,
   OPTION_CARD_ROW_LIMIT,
   OPTION_ROW_SOURCE_MARK_SEPARATOR,
+  optionAmountSegmentNoWrap,
   rowFactorIdsFor,
   sharedChangeOrder,
   type OptionChangeRow,
@@ -1906,11 +1907,14 @@ export const OptionNode = memo((props: NodeProps) => {
    * Measured before (served `eec722ab`): labels CSS-clipped ("Bottom-up ado…"),
    * amounts wrapped mid-value ("Very high → Moderate / · brief").
    *
-   * The value and its mark are separate no-wrap segments: when even the amount
-   * alone is wider than the card, the MARK drops below the value — the value
-   * itself is never broken and never cut. Same rows, same order, same marks,
-   * same `+N more` → inspector. No rung term: byte-identical at Normal and
-   * landing (no rung-triggered re-layout).
+   * The value and its mark are separate segments: when even the amount alone
+   * is wider than the card, the MARK drops below the value. A value that fits
+   * one line of the row budget is held whole; a longer one breaks only BEFORE
+   * ITS ARROW (each half unbroken while it fits) — never cut, and never past
+   * the card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP per
+   * month · brief" overflowed, the value was one no-wrap run). Same rows, same order, same marks, same
+   * `+N more` → inspector. No rung term: byte-identical at Normal and landing
+   * (no rung-triggered re-layout).
    */
   const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => (
     <dd
@@ -1940,21 +1944,38 @@ export const OptionNode = memo((props: NodeProps) => {
         </span>
       ) : (
         <span
-          className={resting ? 'whitespace-nowrap' : undefined}
+          className={resting ? (optionAmountSegmentNoWrap(r.change) ? 'whitespace-nowrap' : 'break-words') : undefined}
           data-testid={`option-change-row-value-${props.id}-${r.factorId}`}
         >
+          {/* ⭐ NEVER PAST THE CARD'S EDGE, AT ANY RUNG (served cd6a82e4: "49
+              GBP per month → 59 GBP per month · brief" overflowed the right
+              border). An amount that fits one line of the row budget is held
+              whole (contract .delta-rows .amount nowrap); a longer one may
+              break in ONE place, before the arrow, each half unbroken while it
+              fits (optionAmountSegmentNoWrap). ED 02:31Z D2: a wrapped from → to
+              is accepted; a cut value is not. The text is byte-identical to
+              r.change either way. */}
           {r.before !== undefined && r.after !== undefined ? (
             <>
-              <span
-                className="text-text-light"
-                data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
-              >
-                {r.before}
+              <span className={resting && optionAmountSegmentNoWrap(r.before) ? 'whitespace-nowrap' : undefined}>
+                <span
+                  className="text-text-light"
+                  data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
+                >
+                  {r.before}
+                </span>
               </span>
-              {' → '}
-              {r.after}
+              {' '}
+              <span className={resting && optionAmountSegmentNoWrap(`→ ${r.after}`) ? 'whitespace-nowrap' : undefined}>
+                {'→ '}
+                {r.after}
+              </span>
             </>
-          ) : r.change}
+          ) : (
+            <span className={resting && optionAmountSegmentNoWrap(r.change) ? 'whitespace-nowrap' : undefined}>
+              {r.change}
+            </span>
+          )}
         </span>
       )}
       {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say

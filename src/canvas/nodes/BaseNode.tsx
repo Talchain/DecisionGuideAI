@@ -1745,7 +1745,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
-      {...(nodeType === 'factor' && data?.category === 'external' ? { title: 'Outside your control' } : {})}
+      /* Design audit #13: no native `title` on the card (one tooltip system).
+         The dashed border and the legend say "Outside your control" to a
+         sighted reader; a screen reader hears it as the description. */
+      {...(nodeType === 'factor' && data?.category === 'external' ? { 'aria-description': 'Outside your control' } : {})}
       {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
       {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
       {...{ [NODE_RUNG_PADDING_ATTR]: rungPadding }}
@@ -2442,9 +2445,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               it keys on `layoutVersion`, not on zoom. */}
           {/* ⭐ v3.1 (DESIGN-GAP-v31 row 36): ONE tooltip system. This element is
               `line-clamp-2`, so a hover route back to a clipped name must stay —
-              it is now the styled tooltip, carrying the full name and then the
-              rename affordance, instead of a native `title` ("…\n\nDouble-click
-              to rename it") beside it (`shared/nodeRenameAffordance.ts`).
+              it is now the styled tooltip, carrying the full name, instead of a
+              native `title` ("…\n\nDouble-click to rename it") beside it
+              (`shared/nodeRenameAffordance.ts`). Design audit #13 (26 Sep): the
+              rename hint left the hover; the inspector's title is the rename
+              control, and the accessible name still says it.
               `data-node-tooltip` makes the card preview yield while the name's
               tooltip is up — one overlay at a time, the rule every other
               node-surface tooltip follows. A SELECTED card offers none (v3.1
@@ -2454,17 +2459,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           <Tooltip
             asChild
             delay={NODE_TOOLTIP_DELAY_MS}
-            content={selected ? null : (
-              <>
-                {titleChannels.tooltip.name !== null && (
-                  <span data-testid="node-title-tooltip-name" className="block">
-                    {titleChannels.tooltip.name}
-                  </span>
-                )}
-                <span data-testid="node-title-tooltip-affordance" className="block opacity-80">
-                  {titleChannels.tooltip.affordance}
-                </span>
-              </>
+            content={selected || titleChannels.tooltip.name === null ? null : (
+              <span data-testid="node-title-tooltip-name" className="block">
+                {titleChannels.tooltip.name}
+              </span>
             )}
           >
           <div
