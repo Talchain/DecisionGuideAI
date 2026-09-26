@@ -1,36 +1,23 @@
 /**
- * ⭐⭐ AT THE LEVEL-OF-DETAIL RUNG A CARD MUST READ AS ITS COLOURED SHAPE.
+ * ⭐⭐ v3.1 WS1 #25 (26 Sep 2026): AT FAR ZOOM A CARD IS A WHITE CHIP WITH A
+ * READABLE NAME AND ITS KIND SHAPE — contract v3.1: "Far zoom: readable identity
+ * and a simple attention cue" (`.far-example`: panel ground, a 9px name, the
+ * kind dot on the top edge). This file REVERSES its own earlier rule.
  *
- * `BaseNode.tsx` states the design intent where the body is hidden:
+ * ⛔ THE EARLIER RULE, KEPT FOR PROVENANCE. It pinned the per-kind LIGHT FILL at
+ * the line rung ("a card must read as its coloured shape"), because the card
+ * was a white box with a blank interior at scale 0.27. The served result was
+ * DESIGN-AUDIT #13 / DESIGN-GAP-v31 #25: at 17% the board became kind-light
+ * FILLED BLOCKS whose titles rendered at 4.7px — coloured, but anonymous.
  *
- *   > "at level-of-detail zoom the body hides via visibility (box keeps its
- *   >  dimensions so ELK/edge anchors stay stable) — the node reads as its
- *   >  COLOURED SHAPE, PLUS the one reduced line below."
- *
- * ⛔ THE BOX KEPT ITS DIMENSIONS AND NEVER GOT THE COLOUR. The card painted
- * `var(--bg-panel)` at every rung, so a zoomed-out node rendered as a WHITE box
- * with a hairline border, its interior blank because the body it reserves room
- * for is `visibility: hidden`. Measured on the served build `b7c8c74e`: an
- * option card at scale 0.27 carried its title and one reduced line across the
- * top ~45% and nothing at all below (`/tmp/crop-card.png`). The founder's words
- * were "the graph looks worse than it has for the last few weeks".
- *
- * ⭐ NOTHING IS INVENTED HERE. `nodes/colors.ts` has carried a per-kind light
- * fill next to every per-kind border since it was written — `bg-goal-light`,
- * `bg-option-light`, `bg-factor-light`, `bg-danger-light`, `bg-success-light`,
- * `bg-info-light`, each resolving to a real `--*-light-rgb` token in
- * `tailwind.config.js`. The fill was authored for exactly this and simply was
- * never applied. This change applies it AT THE LINE RUNG ONLY.
- *
- * ⚠ THE EVIDENCE LENS STILL WINS. `evidenceBgStyle` is a data channel; when it
- * is present it keeps the card, because a lens that colours by evidence must not
- * be overpainted by kind. Pinned below.
- *
- * ⛔ WHY THE PAIR, NOT A PRESENCE CHECK. A test that only asserted "the fill
- * class is present at the line rung" would pass if the fill were applied at
- * EVERY rung, which is a different product (kind-tinted cards at reading zoom —
- * not ruled on, and not this change). The rung arm and the PRECONDITION that two
- * kinds resolve to DIFFERENT fills are what bind it (traps 13b, 19).
+ * ⭐ WHAT CARRIES KIND AND NAME NOW, each pinned below as a rung pair:
+ *   · the ground is the panel at EVERY rung (no kind fill);
+ *   · the kind SHAPE on the top edge is counter-scaled (`calc(24px × scale)`,
+ *     #15), so at far zoom it is ~2× the size it was;
+ *   · the far-rung title is the identity chip: `--canvas-far-title-scale`
+ *     (`farTitleScale`, 9px on screen down to 0.167) and clamped, marked
+ *     `data-lod-far-title` so the layout measurer can read it unclamped;
+ *   · at the full rung the title is NOT clamped (WS1 #2).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
@@ -178,29 +165,51 @@ const renderDecisionAt = (rung: 'full' | 'line') => {
 /** The card element: the outermost role=group BaseNode renders. */
 const cardOf = (c: HTMLElement) => c.querySelector('[role="group"]') as HTMLElement
 
-describe('a card at the level-of-detail rung reads as its coloured shape', () => {
+const titleOf = (c: HTMLElement) => c.querySelector('[data-testid="node-title"]') as HTMLElement
+const glyphOf = (c: HTMLElement) => c.querySelector('[data-testid="node-type-glyph"]') as HTMLElement
+
+describe('WS1 #25 — a far-zoom card is a white chip with its name and its kind shape', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  it('PRECONDITION: the two kinds under test resolve to DIFFERENT identity fills', () => {
+  it('PRECONDITION: the kind fills this file used to apply are real, distinct classes', () => {
     expect(nodeColors.factor.bg).not.toBe(nodeColors.decision.bg)
     expect(nodeColors.factor.bg).toMatch(/^bg-/)
-    expect(nodeColors.decision.bg).toMatch(/^bg-/)
   })
 
-  it('carries its own kind identity fill at the LINE rung', () => {
+  it('no kind fill at the LINE rung — the card keeps the panel ground', () => {
     const { container } = renderFactorAt('line', { label: 'Churn' })
-    expect(cardOf(container).className).toContain(nodeColors.factor.bg)
+    const card = cardOf(container)
+    expect(card.className).not.toContain(nodeColors.factor.bg)
+    expect(card.style.backgroundColor).toBe('var(--bg-panel)')
   })
 
-  it('a DIFFERENT kind carries a DIFFERENT fill at the same rung', () => {
+  it('…for the Question too', () => {
     const { container } = renderDecisionAt('line')
-    const cls = cardOf(container).className
-    expect(cls).toContain(nodeColors.decision.bg)
-    expect(cls).not.toContain(nodeColors.factor.bg)
+    expect(cardOf(container).className).not.toContain(nodeColors.decision.bg)
   })
 
-  it('does NOT tint at the FULL rung — this is a level-of-detail affordance, not a repaint', () => {
+  it('the LINE-rung title is the far identity chip: far scale, clamped, marked for the measurer', () => {
+    const { container } = renderFactorAt('line', { label: 'Churn' })
+    const title = titleOf(container)
+    expect(title.getAttribute('data-lod-far-title')).toBe('true')
+    expect(title.className).toContain('--canvas-far-title-scale')
+    expect(title.className).toMatch(/\bline-clamp-2\b/)
+  })
+
+  it('CONTRAST — the FULL-rung title is never clamped (WS1 #2) and not the far chip', () => {
     const { container } = renderFactorAt('full', { label: 'Churn' })
-    expect(cardOf(container).className).not.toContain(nodeColors.factor.bg)
+    const title = titleOf(container)
+    expect(title.getAttribute('data-lod-far-title')).toBeNull()
+    expect(title.className).not.toMatch(/line-clamp/)
+    expect(title.className).not.toContain('--canvas-far-title-scale')
+  })
+
+  it.each(['full', 'line'] as const)('the kind shape is the contract\'s 24px at −12px, counter-scaled (WS1 #15) — %s rung', (rung) => {
+    const { container } = renderFactorAt(rung, { label: 'Churn' })
+    const glyph = glyphOf(container)
+    expect(glyph.style.width).toBe('calc(24px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.height).toBe('calc(24px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.top).toBe('calc(-12px * var(--canvas-label-scale, 1))')
+    expect(glyph.className).not.toMatch(/h-\[22px\]/)
   })
 })

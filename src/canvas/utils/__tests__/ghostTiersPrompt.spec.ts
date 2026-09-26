@@ -24,6 +24,7 @@ import {
   withGhostTiers,
   listForPrompt,
   ghostOptionPrompt,
+  CONSEQUENCE_DOOR_ID,
 } from '../ghostTiers'
 import { DECISION_NODE_LABEL, GOAL_NODE_LABEL } from '../../domain/vocabulary'
 
@@ -70,7 +71,9 @@ const promptFor = (nodes: Node[], tier: string): string => {
   if (definition.id === GHOST_OPTION_NODE_ID) return ghostOptionPrompt(nodes)
 
   const out = withGhostTiers(nodes, CANVAS_TIER_DOORS)
-  const ghost = out.find(g => g.id === definition.id)
+  // v3.1 WS1 #27: where outcomes AND risks share the row, the canvas builds ONE
+  // shared door for both, and that is the prompt either kind's door sends.
+  const ghost = out.find(g => g.id === definition.id) ?? out.find(g => g.id === CONSEQUENCE_DOOR_ID && ['outcome', 'risk'].includes(tier))
   return String((ghost?.data as { prompt?: string })?.prompt ?? '')
 }
 

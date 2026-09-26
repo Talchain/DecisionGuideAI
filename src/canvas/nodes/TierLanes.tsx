@@ -25,7 +25,7 @@
  */
 import { memo, useMemo } from 'react'
 import { ViewportPortal, type Node } from '@xyflow/react'
-import { deriveTierLanes } from '../utils/tierLanes'
+import { deriveTierLanes, LANE_TITLE_GAP } from '../utils/tierLanes'
 
 /**
  * ⭐ THE BANDS ARE LABELS ONLY, IN ONE LEFT COLUMN (Paul, 24 Sep: "Keep the
@@ -50,18 +50,20 @@ import { deriveTierLanes } from '../utils/tierLanes'
  * titles mid-screen above their centred cards; one column keeps them "on the
  * left" as asked.
  *
- * The label is SENTENCE CASE in the shared muted token (`text-text-light`),
- * the product words `TITLE_BY_TIER` carries. From contract v3.1's `.layer-label`
- * it takes only the 10px size and 0.5px tracking: DS v5 §2 forbids styling-driven
- * all-caps and Paul's pt 9 already ruled the design system overrides the
- * contract here (review 5824187641 reversed a CSS-module workaround that hid the
- * all-caps and a raw hex from the compliance guard).
+ * The label is the contract's band WORD (`TITLE_BY_TIER`, v3.1 WS1 #26: the
+ * Canvas lead's brief rules v3.1 wins on the words), written as content, in the
+ * shared muted token (`text-text-light`, 4.65:1 on the canvas — the contract's
+ * `#777870` measures 3.93:1 and fails AA), at the contract's 10px and 0.5px
+ * tracking, both ON SCREEN. No `text-transform` and no raw hex, so nothing is
+ * hidden from `check-ds-compliance`. ⚠ The all-caps words conflict with DS v5
+ * §2 (sentence case) and review 5824187641; see `TITLE_BY_TIER` — an owner
+ * ruling is still required.
  *
  * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
  * counter-scales, so at far zoom it grows several times taller and must grow up
  * into the gap between rows, never down over a card.
  */
-export const LANE_TITLE_GAP = 8
+export { LANE_TITLE_GAP }
 
 export function laneTitleColumnX(lanes: ReadonlyArray<{ x: number }>): number {
   return lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
@@ -99,7 +101,9 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
                 top: anchor.bottomY,
                 transform: 'translateY(-100%)',
                 lineHeight: 1.2,
-                letterSpacing: '0.5px',
+                // v3.1 WS1 #26: 0.5px ON SCREEN, like the 10px beside it — a
+                // fixed 0.5px was 0.25px on screen at the landing zoom.
+                letterSpacing: 'calc(0.5px * var(--canvas-label-scale, 1))',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
               }}

@@ -295,7 +295,11 @@ export const ROW_PROMPT_H = Math.ceil(
     ROW_PROMPT_BORDER_PX * 2,
 )
 
-/** Vertical gap between the two prompts of a shared Outcome + Risk column. */
+/**
+ * Vertical gap between two stacked prompts. ⚠ No row stacks prompts any more
+ * (one prompt per row, ED 5810951997); kept for the one reader that still
+ * spaces a kind outside `ROW_PROMPT_KINDS_BY_TIER` below the row's own door.
+ */
 export const ROW_PROMPT_STACK_GAP = 8
 
 /**
@@ -608,7 +612,16 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  * becoming a second spacing authority that competes with this one.
  */
 export const LAYOUT_NODE_GAP = 32
-export const LAYOUT_LAYER_GAP = 48
+/**
+ * ⭐ v3.1 LANDING COMPOSITION (WS1, 26 Sep 2026): 48 → 32, so the VISIBLE gap
+ * between two rows (this plus the two half-paddings of `LAYOUT_PADDING_Y`) is
+ * 48 flow units — 24px at the 0.5 landing floor, 48px at 100%, inside the
+ * prototype's 35–60px. ED S5 (#63 5808428246) accepted "reduce row gap to 48 if
+ * the served view preserves label/connector separation": the band label needs
+ * `LANE_TITLE_GAP` + one counter-scaled 10px line (8 + 24 units at the bound),
+ * which 48 holds with 16 to spare.
+ */
+export const LAYOUT_LAYER_GAP = 32
 
 export const LAYOUT_PADDING_X = 24
 
@@ -841,16 +854,24 @@ export const ROW_PROMPT_KINDS_BY_TIER: Readonly<Record<number, readonly string[]
 }
 
 /**
- * The prompt kinds a tier's final sub-row carries, given the kinds present in
+ * The prompt kinds a tier's final sub-row speaks for, given the kinds present in
  * the tier — the ONE answer the layout (which reserves the slot) and the render
- * layer (which places the prompts) both read.
+ * layer (which places the prompt) both read.
+ *
+ * ⭐ v3.1 / ED 5810951997 ("row-end prompts appear ONCE PER ROW"): a row ends in
+ * ONE prompt whatever this returns. When the consequence row holds outcomes AND
+ * risks, `withGhostTiers` draws a single shared door that asks about both —
+ * the two stacked doors (2 × `ROW_PROMPT_H` + gap, taller than the cards beside
+ * them) were the measured cause of the 98-unit gap above the Goal.
  */
 export function rowPromptKindsFor(tier: number, kindsPresent: ReadonlySet<string>): string[] {
   return (ROW_PROMPT_KINDS_BY_TIER[tier] ?? []).filter((k) => kindsPresent.has(k))
 }
 
-/** Height of the frontier column that holds `count` stacked prompts. */
+/**
+ * Height of the frontier column a row's prompt kinds need. ONE prompt per row
+ * (see `rowPromptKindsFor`), so any non-empty set is one `ROW_PROMPT_H`.
+ */
 export function rowPromptColumnHeight(count: number): number {
-  if (count <= 0) return 0
-  return count * ROW_PROMPT_H + (count - 1) * ROW_PROMPT_STACK_GAP
+  return count <= 0 ? 0 : ROW_PROMPT_H
 }

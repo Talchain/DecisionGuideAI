@@ -31,6 +31,7 @@
  */
 import type { Node } from '@xyflow/react'
 import { TIER_BY_KIND } from './nodeLayoutConstants'
+import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
 import { isGhostNode } from './fitTargets'
 import { DECISION_NODE_LABEL, MODEL_GROUP_TITLE } from '../domain/vocabulary'
 
@@ -58,16 +59,49 @@ export interface TierLane {
  * render an untitled band, which is the defect the outline's own `GROUP_TITLE`
  * doc was written to prevent.
  */
+/**
+ * ⭐⭐ v3.1 WS1 #26 (26 Sep 2026): THE CONTRACT'S BAND WORDS — `.layer-label`
+ * reads EXPLORATION / ALTERNATIVES / FACTORS / OUTCOMES / RISKS / GOAL
+ * (contract v3.1 §01, the connected-graph reference), and the Canvas lead's
+ * WS1 brief rules that v3.1 wins over the Model outline's sentence-case group
+ * names here. Written as CONTENT, not produced by `text-transform`.
+ *
+ * ⚠ OPEN CONFLICT, STATED RATHER THAN HIDDEN: DS v5 §2 requires sentence case,
+ * and review 5824187641 (DGAI) blocked an earlier all-caps tier label on that
+ * rule, asking for an explicit owner ruling. This table is the ONE place the
+ * case lives; reverting to the outline's words is this table and nothing else.
+ *
+ * The consequence row's words follow what it holds: OUTCOMES, RISKS, or both.
+ */
 const TITLE_BY_TIER: Readonly<Record<number, string>> = {
+  0: 'EXPLORATION',
+  1: 'ALTERNATIVES',
+  2: 'FACTORS',
+  3: 'OUTCOMES / RISKS',
+  5: 'GOAL',
+}
+
+/** The consequence row's title for the kinds it actually holds. */
+const CONSEQUENCE_TITLE_BY_KINDS: Readonly<Record<string, string>> = {
+  outcome: 'OUTCOMES',
+  risk: 'RISKS',
+}
+
+/** Exported for the completeness guard, which must read the real thing. */
+export const TIER_LANE_TITLES = TITLE_BY_TIER
+
+/**
+ * The Model outline's own group names, kept beside the band words so the
+ * difference is visible in one file (the outline still heads its groups with
+ * these; the canvas band takes the contract's).
+ */
+export const OUTLINE_GROUP_TITLE_BY_TIER: Readonly<Record<number, string>> = {
   0: DECISION_NODE_LABEL,
   1: MODEL_GROUP_TITLE.options,
   2: MODEL_GROUP_TITLE.factors,
   3: MODEL_GROUP_TITLE.outcomesRisks,
   5: MODEL_GROUP_TITLE.goal,
 }
-
-/** Exported for the completeness guard, which must read the real thing. */
-export const TIER_LANE_TITLES = TITLE_BY_TIER
 
 function kindOf(n: Node): string | undefined {
   const t = n.type
@@ -122,8 +156,10 @@ export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
 
   const lanes: TierLane[] = []
   for (const [tier, list] of [...members.entries()].sort((a, b) => a[0] - b[0])) {
-    const title = TITLE_BY_TIER[tier]
+    let title = TITLE_BY_TIER[tier]
     if (title === undefined) continue
+    const kinds = new Set(list.map(kindOf).filter((k): k is string => k !== undefined))
+    if (kinds.size === 1) title = CONSEQUENCE_TITLE_BY_KINDS[[...kinds][0]!] ?? title
     let top = Number.POSITIVE_INFINITY
     let bottom = Number.NEGATIVE_INFINITY
     for (const n of list) {
@@ -142,4 +178,49 @@ export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
     })
   }
   return lanes
+}
+
+/**
+ * The gap between a band's title and its first card, in flow units. The title
+ * is bottom-anchored this far above the band so a counter-scaled label grows UP
+ * into the row gap, never down over a card. (Lives here so the glyph keep-out
+ * below and `TierLanes` read one number.)
+ */
+export const LANE_TITLE_GAP = 8
+
+/** Declared label type: `.layer-label{font-size:10px;letter-spacing:.5px}`, line-height 1.2. */
+const LANE_TITLE_PX = 10
+const LANE_TITLE_TRACKING_PX = 0.5
+const LANE_TITLE_LINE_HEIGHT = 1.2
+/**
+ * A capital's advance at 10px, generous (Inter caps average ~0.66em; W/M run
+ * wider). The keep-out only has to CONTAIN the label, so over-estimating costs
+ * a glyph a ring step, and under-estimating is the defect.
+ */
+const LANE_TITLE_CAP_ADVANCE_PX = 7.4
+
+/**
+ * ⭐ v3.1 WS1 #28: the flow-space box the band title of `nodeId`'s row occupies
+ * at the counter-scale BOUND (the landing rung, where it is largest relative to
+ * the cards; at every higher zoom it is smaller, so the box still contains it).
+ * `undefined` when the node is in no titled lane.
+ */
+export function tierLaneTitleBoxFor(
+  nodes: readonly Node[],
+  nodeId: string,
+): { x0: number; y0: number; x1: number; y1: number } | undefined {
+  const target = nodes.find((n) => n.id === nodeId)
+  if (!target) return undefined
+  const kind = kindOf(target)
+  const tier = kind !== undefined ? TIER_BY_KIND[kind] : undefined
+  if (tier === undefined) return undefined
+  const lanes = deriveTierLanes(nodes)
+  const lane = lanes.find((l) => l.tier === tier)
+  if (!lane) return undefined
+  const columnX = lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
+  const s = MAX_LABEL_COUNTER_SCALE
+  const width = lane.title.length * (LANE_TITLE_CAP_ADVANCE_PX + LANE_TITLE_TRACKING_PX) * s
+  const height = LANE_TITLE_PX * LANE_TITLE_LINE_HEIGHT * s
+  const bottom = lane.y - LANE_TITLE_GAP
+  return { x0: columnX, y0: bottom - height, x1: columnX + width, y1: bottom }
 }
