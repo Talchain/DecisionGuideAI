@@ -13,6 +13,7 @@ import { useCanvasStore } from '../store'
 import { validateCeeAnalysisReady } from '../utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { typography } from '../../styles/typography'
+import { TOP_CLEARANCE } from '../utils/topBarClearance'
 
 const DISMISSED_KEY = 'autosave-recovery-dismissed'
 
@@ -168,7 +169,8 @@ export function RecoveryBanner() {
 
   return (
     <div
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-[2000] w-full max-w-2xl px-4"
+      style={{ top: TOP_CLEARANCE }}
+      className="fixed left-1/2 -translate-x-1/2 z-[2000] w-full max-w-2xl px-4"
       data-testid="autosave-recovery-banner"
       role="alert"
       aria-live="assertive"
