@@ -92,6 +92,7 @@ import {
 } from '../canvas/hydrate/applyScenarioAnalysisRead'
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
 import { readServerStatedStrength } from '../canvas/domain/edges'
+import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
 import { logger } from '../lib/logger'
 
 /**
@@ -1138,6 +1139,19 @@ export function applyV5State(
                  * ⚠⚠ `null`, NOT `undefined` — see the top-level clear above.
                  */
                 extractionType: null,
+                /**
+                 * ⛔ AN APPLIED PATCH IS THE RECEIPT (independent review, PR #2046
+                 * round 3). CEE's `after` names a `source` only on a verified panel
+                 * apply or an approved adoption; otherwise it persists
+                 * `USER_EDIT_SOURCE` ('user_override', `set-factor-value.ts:727` @
+                 * bdd43f4a) and sends `after` without it. Leaving the OLD AI/brief
+                 * `source` beside the withdrawn marker above is
+                 * `factorValueSourceMark` rule 4 — "awaiting receipt" — so a chat
+                 * edit Olumi applied read "Your edit — not saved to the model yet".
+                 * Stamp the same literal CEE persisted; ABOVE `...after`, so a
+                 * `source` CEE does send still wins.
+                 */
+                ...(typeof after.source === 'string' ? {} : USER_VALUE_STAMP),
                 ...after,
               },
             } as typeof node.data,
