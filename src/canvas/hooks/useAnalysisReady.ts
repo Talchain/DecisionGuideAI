@@ -144,16 +144,34 @@ export function selectBoundAdmission(state: {
   lastServerGraphHash?: string | null
   pendingEmittedEdits?: number
   importPendingServerRegistration?: boolean
+  bootAdmittedRevision?: string | null
 }): BoundAdmission | undefined {
   const carrier = state.ceeAnalysisReady
-  if (carrier === null || typeof carrier !== 'object') return undefined
+  if (carrier === null || typeof carrier !== 'object') return bootReadAdmission(state)
   const record = carrier as Record<string, unknown>
-  if (typeof record.may_run !== 'boolean') return undefined
+  if (typeof record.may_run !== 'boolean') return bootReadAdmission(state)
   if ((state.pendingEmittedEdits ?? 0) > 0 || state.importPendingServerRegistration === true) return undefined
   const onScreen = state.lastServerGraphHash
   if (typeof onScreen !== 'string' || onScreen.length < REVISION_PREFIX) return undefined
   if (verdictRevision(record) !== onScreen.slice(0, REVISION_PREFIX)) return undefined
   return { mayRun: record.may_run, wording: readRefusalWording(record.analysis_admission) }
+}
+
+/**
+ * ⭐ A RELOAD'S ADMISSION, UNDER THE SAME BINDING (row 3 N1; UI #2103 review 5845273636).
+ * No turn has run after a reload, so there is no `may_run`; the boot read's
+ * `analysis_admission.admitted === true` for the revision on screen stands in for
+ * it until a turn speaks. Only "admitted" is ever carried, so this can open the
+ * gate CEE would open and can never close one.
+ */
+function bootReadAdmission(state: Parameters<typeof selectBoundAdmission>[0]): BoundAdmission | undefined {
+  const revision = state.bootAdmittedRevision
+  if (typeof revision !== 'string' || revision.length < REVISION_PREFIX) return undefined
+  if ((state.pendingEmittedEdits ?? 0) > 0 || state.importPendingServerRegistration === true) return undefined
+  const onScreen = state.lastServerGraphHash
+  if (typeof onScreen !== 'string' || onScreen.length < REVISION_PREFIX) return undefined
+  if (revision.slice(0, REVISION_PREFIX) !== onScreen.slice(0, REVISION_PREFIX)) return undefined
+  return { mayRun: true, wording: NO_WORDING }
 }
 
 export function selectBoundMayRun(state: Parameters<typeof selectBoundAdmission>[0]): boolean | undefined {

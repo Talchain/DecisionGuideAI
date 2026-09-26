@@ -100,6 +100,12 @@ export function applyBootRunCurrency(input: {
   readonly analysisState: AnalysisStateV1 | null
   readonly graphHash: string | null
   readonly canvasProvenEqualToRead: boolean
+  /**
+   * The read's `analysis_admission.admitted` (see `applyBootBlockedVerdict`). Only
+   * `true` is passed on: a CURRENT run over blockers CEE waives does not close the
+   * gate, so it is restored as current (row 3 N1, UI #2103 review 5845273636).
+   */
+  readonly admitted?: boolean | null
   readonly store: BootRunCurrencyStore
 }): BootRunCurrencyOutcome {
   const verdict = input.analysisState
@@ -114,7 +120,7 @@ export function applyBootRunCurrency(input: {
   if (input.store.analysisFreshnessDirty === true) return declined('edited_since_read')
   // The mirror of `applyBootAnalysisVerdict`'s gate guard, through the SAME
   // imported predicate: a restored verdict must never close the run gate.
-  if (readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict))) {
+  if (readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict), input.admitted === true ? true : undefined)) {
     return declined('closes_run_gate')
   }
 
