@@ -489,7 +489,12 @@ describe('OutputsDock DOM', () => {
     // ...and the DEFAULT surface is the one that clears it. Asserted here so
     // the "omit the default" half of the rule has a guard of its own, rather
     // than being inferred from the half above.
+    // 26 Sep 2026: the default is Olumi, so Reasoning is NAMED now…
     fireEvent.click(screen.getByRole('tab', { name: 'Reasoning' }))
+    params = new URLSearchParams(window.location.search)
+    expect(params.get('tab')).toBe('analysisNew')
+    // …and Olumi, the default, clears it.
+    fireEvent.click(screen.getByRole('tab', { name: 'Olumi' }))
     params = new URLSearchParams(window.location.search)
     expect(params.get('tab')).toBeNull()
   })
@@ -1266,8 +1271,9 @@ describe('I.2a: Secondary action button interaction', () => {
     // Journey tab should NOT appear in the tab bar
     expect(screen.queryByRole('tab', { name: 'Journey' })).not.toBeInTheDocument()
 
-    // Should fall back to the declared default — Reasoning.
-    const headerLabel = screen.getByText('Reasoning', {
+    // Should fall back to the declared default — Olumi since 26 Sep 2026
+    // (Reasoning before; `aiPanelV2` is on in this harness, so Olumi is shown).
+    const headerLabel = screen.getByText('Olumi', {
       selector: 'span[aria-live="polite"]',
     })
     expect(headerLabel).toBeInTheDocument()

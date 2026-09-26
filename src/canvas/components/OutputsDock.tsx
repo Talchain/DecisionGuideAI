@@ -45,6 +45,7 @@ import { getScenario } from '../store/scenarios'
 // scroll regions, the footer region or the type/spacing/radius scales here.
 import {
   DEFAULT_WORKSPACE_SURFACE,
+  UNFLAGGED_FALLBACK_SURFACE,
   SHELL_CONTAINER_NAME,
   SHELL_RADIUS_PX,
   presentedSurfaces,
@@ -574,18 +575,23 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // Tab guards: a persisted tab whose flag is off cannot be honoured, so the
   // choice is void and the session falls back to the DEFAULT. Not an override —
   // there is nothing left to override, because the surface the user chose does
-  // not exist under this flag posture. `DEFAULT_WORKSPACE_SURFACE` is always a
-  // safe landing: `analysisNew` is unflagged by ruling (see its row in
-  // `shellContract.ts`), so this fallback can never itself be flagged off.
+  // not exist under this flag posture.
+  //
+  // ⚠ 26 Sep 2026: the default is now Olumi, which IS flagged (`aiPanelV2`), so
+  // "the default is always a safe landing" stopped being true. The landing is
+  // the default when Olumi can be shown, else `UNFLAGGED_FALLBACK_SURFACE`
+  // (Reasoning, unflagged by ruling) — so this fallback can never itself be
+  // flagged off.
   useEffect(() => {
+    const landing = isAiPanelV2Enabled() ? DEFAULT_WORKSPACE_SURFACE : UNFLAGGED_FALLBACK_SURFACE
     if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
+      setState(prev => ({ ...prev, activeTab: landing }))
     }
     if (state.activeTab === 'compare' && !isCompareTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
+      setState(prev => ({ ...prev, activeTab: landing }))
     }
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
-      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
+      setState(prev => ({ ...prev, activeTab: UNFLAGGED_FALLBACK_SURFACE }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
@@ -869,12 +875,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // float-out path can return them to that context (Reasoning / Analysis /
   // Compare / Model / Journey) rather than always landing on one surface.
   //
-  // The `DEFAULT_WORKSPACE_SURFACE` arm is reached only when the session
-  // RESTORED straight into the Olumi tab, so no non-Olumi tab was ever
-  // recorded: there is no choice to honour and this is the default, not an
-  // override of one.
+  // The fallback arm is reached when the session OPENED or RESTORED straight
+  // into the Olumi tab, so no non-Olumi tab was ever recorded. It must never be
+  // Olumi itself — a swap from Olumi to Olumi leaves the floating panel
+  // yielding to the dock and the float-out showing nothing — which is why it is
+  // `UNFLAGGED_FALLBACK_SURFACE` and not the (now Olumi) default.
   const lastNonOlumiTabRef = useRef<OutputsDockTab>(
-    state.activeTab !== 'olumi' ? state.activeTab : DEFAULT_WORKSPACE_SURFACE,
+    state.activeTab !== 'olumi' ? state.activeTab : UNFLAGGED_FALLBACK_SURFACE,
   )
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab

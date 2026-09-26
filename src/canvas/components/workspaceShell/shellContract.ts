@@ -601,6 +601,25 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
 export const DEFAULT_WORKSPACE_SURFACE: OutputTab = 'olumi'
 
 /**
+ * ⚠ THE UNFLAGGED LANDING — NEEDED THE MOMENT THE DEFAULT BECAME OLUMI.
+ *
+ * While the default was `analysisNew` it was ALSO the safe fallback, because
+ * Reasoning is unflagged by ruling. Olumi is not: it exists only under
+ * `aiPanelV2`. Two sites in `OutputsDock` relied on "the default is always
+ * showable and is never Olumi", and both broke silently with the new default
+ * (caught by the reader set, 26 Sep 2026):
+ *   - the one-time flag guard sent a void persisted tab to the default — an
+ *     unpresented tab when `aiPanelV2` is off;
+ *   - the float-out swap target (`lastNonOlumiTabRef`) started as the default,
+ *     so a fresh session's float-out swapped Olumi for Olumi and the floating
+ *     panel yielded to it — the user saw nothing
+ *     (`OutputsDock.conversationSingleton.spec.tsx`).
+ * This names the surface both need: showable under every flag posture and
+ * never Olumi.
+ */
+export const UNFLAGGED_FALLBACK_SURFACE: OutputTab = 'analysisNew'
+
+/**
  * The number of tabs the strip is currently asked to lay out.
  *
  * ⚠ THIS IS A RECORDED LITERAL, NOT A DERIVATION, AND THAT IS DELIBERATE —

@@ -154,6 +154,11 @@ describe('a throw in Analysis (New) is contained to that tab', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    // ⚠ 26 Sep 2026: Reasoning is no longer the default, so clicking it now
+    // WRITES `?tab=analysisNew` (it used to clear the param). Left in place, a
+    // later case's deep-link read fronts Reasoning over its seeded Analysis
+    // tab. Reset the address bar so every case starts from its own seed.
+    try { window.history.replaceState({}, '', '/canvas') } catch { /* jsdom */ }
   })
 
   it('keeps the dock and its tab strip alive when the tab body throws', () => {
