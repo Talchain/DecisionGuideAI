@@ -927,6 +927,10 @@ export function analysisBlockedSentences(
     return [BLOCKED_REASON_COPY.canonicalOneBlocker(labelled[0])]
   }
   if (blockers.length === 2 && labelled.length === 2) {
+    // Two blockers on ONE element name it once. Served 26 Sep (UI c3c2d539, a
+    // canvas "+ Add option"): both blockers were scoped to the new option and the
+    // gate read '"New option" and "New option" are not ready…'.
+    if (labelled[0] === labelled[1]) return [BLOCKED_REASON_COPY.canonicalOneBlocker(labelled[0])]
     return [BLOCKED_REASON_COPY.canonicalTwoBlockers(labelled[0], labelled[1])]
   }
   // A2's rule, inherited: the count published is the VERDICT's own list length,

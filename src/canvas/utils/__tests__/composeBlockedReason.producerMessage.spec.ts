@@ -405,3 +405,31 @@ describe('A4 SEAM — what the composer emits survives the render path unchanged
     expect(reason).toBe(message)
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TWO BLOCKERS ON ONE ELEMENT NAME IT ONCE (served 26 Sep, UI c3c2d539).
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('the label rung names an element once when both blockers are about it', () => {
+  // The served shape: a canvas "+ Add option" leaves one new option with two
+  // structural blockers. The first message says "edge", so the producer list is
+  // withheld and the label rung speaks.
+  const onNewOption = (message: string) =>
+    blocker({ code: 'MISSING_OPTION_VALUE', message, option_id: 'opt_new', option_label: 'New option' })
+
+  it('⭐ two blockers on "New option" → the one-label sentence, not the label twice', () => {
+    const reason = composeAnalysisBlockedReason([
+      onNewOption('An option has no factor connections and cannot be analysed. Add at least one factor edge.'),
+      onNewOption('Choose which factor "New option" changes and by how much.'),
+    ])
+    expect(reason).toBe(BLOCKED_REASON_COPY.canonicalOneBlocker('New option'))
+  })
+
+  it('CONTROL: two blockers on two different options still name both', () => {
+    const reason = composeAnalysisBlockedReason([
+      onNewOption('Add at least one factor edge.'),
+      blocker({ code: 'MISSING_OPTION_VALUE', message: 'Add at least one factor edge.', option_id: 'opt_b', option_label: 'Hold until Q3' }),
+    ])
+    expect(reason).toBe(BLOCKED_REASON_COPY.canonicalTwoBlockers('New option', 'Hold until Q3'))
+  })
+})
