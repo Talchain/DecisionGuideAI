@@ -32,6 +32,15 @@
  */
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 import { formatTargetValue } from '../utils/formatTargetValue'
+// ⚠ A deliberate two-way import: `goalConstraintText` reads this module's
+// operator/value formatters, and this module stands down to its rungs. Both
+// sides only call each other inside function bodies, so evaluation order is
+// safe; the alternative was a second copy of the percent rule, which is the
+// defect being fixed.
+import {
+  goalConstraintReadsInReadersTerms,
+  goalConstraintShortText,
+} from '../../../canvas/utils/goalConstraintText'
 
 /**
  * ASCII → unicode for display. The wire operator is ASCII by contract
@@ -97,6 +106,21 @@ export function selectStatedLimits(
     if (typeof operator !== 'string' || operator.length === 0) return
 
     const id = String(constraint.constraint_id ?? constraint.id ?? index)
+
+    /**
+     * ⛔ "≥ 1.1%" BESIDE "Target: 110%" (design audit §2 #5, served 853feeb7).
+     * The pricing starter's limit arrives as `value: 1.1, unit: '%'` with the
+     * reader's words in `source_quote`; the line below appended "%" to the
+     * ratio. `goalConstraintText.ts` is the ONE authority on a limit whose
+     * scale may have been rewritten: when it holds the reader's own figure
+     * (audit) or words (quote), this surface prints exactly what the goal
+     * card's limit pill prints, and never re-derives a scale from magnitude.
+     */
+    if (goalConstraintReadsInReadersTerms(constraint)) {
+      limits.push({ id, text: goalConstraintShortText(constraint) })
+      return
+    }
+
     const measure = `${renderLimitOperator(operator)} ${formatStatedLimitValue(value, constraint.unit)}`
     // Guard the read: CEE's own producer schema declares `label` optional and
     // it is genuinely absent in practice. A limit with no label shows its
