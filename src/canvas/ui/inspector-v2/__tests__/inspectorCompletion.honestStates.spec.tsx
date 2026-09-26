@@ -306,6 +306,11 @@ describe('string table — the honest-state copy exists and is user language', (
     expect(typeof DECISION_STRINGS.connectionsAreOptions).toBe('string')
   })
 
+  it('the "added after the last analysis" line never invites a Run — the gate is the readiness verdict\'s to state (#70 5843433782)', () => {
+    expect(OPTION_STRINGS.impactNotInLastRun).toBe('This option was added after the last analysis, so it has no results yet.')
+    expect(OPTION_STRINGS.impactNotInLastRun).not.toMatch(/\bre-?run\b|\brun the analysis\b/i)
+  })
+
   it('carries no raw enum or engineering tokens', () => {
     const copy = [
       EMPTY_STATES.noConnectionsFlat,
