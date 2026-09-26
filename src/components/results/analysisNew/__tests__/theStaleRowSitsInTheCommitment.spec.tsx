@@ -13,6 +13,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ComponentProps } from 'react'
 import { cleanup, render, screen, within } from '@testing-library/react'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -32,13 +33,15 @@ import { genuineDecision } from './analysisNewFixtures'
 const C = 'analysis-new-commitment'
 const precedes = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 
-const renderBody = (staleReason: 'changed' | 'unknown' | null) =>
+// Typed FROM the component's own prop, never hand-written: a hand-written
+// `'unknown'` passed vitest (types stripped) and failed the typecheck ratchet.
+const renderBody = (staleReason: ComponentProps<typeof AnalysisNewTabBody>['staleReason']) =>
   render(
     <AnalysisNewTabBody
       resultsSectionData={genuineDecision()}
       isPreRun={false}
       isRunning={false}
-      isStale={staleReason !== null}
+      isStale={staleReason != null}
       staleReason={staleReason}
       responseHash="stale-row"
     />,
