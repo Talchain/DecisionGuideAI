@@ -241,7 +241,11 @@ describe('authority acquisition is not an analytical edit', () => {
     const { wire } = seedCurrentAnalysis()
     const history = useCanvasStore.getState().history
     expect(currentEdge().data?.naturalEffect).toBeUndefined()
-    const natural = { amount: 5, unit: 'customers', per_source_change: 1, source_unit: 'switch', strength_mean: 0.5 }
+    // MG PR1's FINAL key names (#70 5846999581); read by #2107's reader after its key follow-up.
+    const natural = {
+      amount: 5, amount_unit: 'customers', per_source_change: 1, per_source_change_unit: 'switch',
+      strength_mean: 0.5, strength_mean_frame: 'edge_strength',
+    }
     const result = mergeServerGraphOnHydrate(serverGraph({ ...wire, provenance: { magnitude: 'olumi_estimate', natural_effect: natural } }))
     expect(result.accepted).toBe(true)
     expect(currentEdge().data?.naturalEffect).toEqual({
