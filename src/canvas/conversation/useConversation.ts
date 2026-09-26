@@ -2575,6 +2575,12 @@ export interface UseConversationReturn {
     debugInitiatedBy?: 'user' | 'automatic'
     debugSourceSurface?: string
     debugRightPanelComposerLeak?: boolean
+    /**
+     * UI N2 / CC-4: set when the text is OLUMI's (a starter's verbatim brief), so it
+     * travels as a chip with this identity — never as the user's typed words — while
+     * keeping this send's `turnType` (e.g. `explicit_generate`).
+     */
+    chipMeta?: ChipMeta
   }) => Promise<void>
   sendSystemEvent: (event: WireSystemEvent, opts?: {
     debugSource?: string
@@ -6519,6 +6525,7 @@ export function useConversation(): UseConversationReturn {
       debugInitiatedBy?: 'user' | 'automatic'
       debugSourceSurface?: string
       debugRightPanelComposerLeak?: boolean
+      chipMeta?: ChipMeta
     }) => {
       await sendTurn({
         message: text,
@@ -6526,6 +6533,7 @@ export function useConversation(): UseConversationReturn {
         hidden: opts?.hidden,
         turnType: opts?.turnType,
         source: opts?.debugSource,
+        ...(opts?.chipMeta ? { chipMeta: opts.chipMeta } : {}),
         displayText: opts?.debugVisibleText ?? undefined,
         parentChainId: opts?.debugParentChainId,
         initiatedBy: opts?.debugInitiatedBy,

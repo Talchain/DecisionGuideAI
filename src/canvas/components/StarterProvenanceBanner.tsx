@@ -85,6 +85,9 @@ export const CONTEXT_LINE_TEXT = 'Saved example drafted by Olumi · Olumi values
  * is withdrawn for as long as the edit is the operative cause; the line beside
  * it names the edit and its remedy instead (`heldReason`).
  */
+/** CC-4: the chip identity a starter re-draft's brief carries on the wire. */
+export const STARTER_REDRAFT_CHIP_ID = 'starter_redraft'
+
 export function StarterProvenanceBanner() {
   const [dismissed, setDismissed] = useState(false)
   // The detail (the banner's full sentences and its actions) — closed at rest.
@@ -176,10 +179,15 @@ export function StarterProvenanceBanner() {
       // The verbatim brief that produced this example, from the same generated
       // manifest as the graph. It cannot drift into a different brief than the
       // one the user was just looking at.
+      // CC-4 (UI N2): the brief is the EXAMPLE's, Olumi's text, not words the user
+      // typed — so it carries a chip identity and CEE never grounds its figures as
+      // the user's own. Measured on served 42114c6 (#70 5845475727): a chip-sourced
+      // starter brief builds the model exactly as a composer one does.
       await sendMessage(starter.brief, {
         turnType: 'explicit_generate',
         debugSource: 'generate_model',
         debugSourceSurface: 'starter_redraft',
+        chipMeta: { id: STARTER_REDRAFT_CHIP_ID },
       })
 
       // ⚠ WHY THIS TESTS THE CANVAS AND NOT AN ERROR.

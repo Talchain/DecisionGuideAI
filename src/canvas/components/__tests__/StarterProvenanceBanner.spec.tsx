@@ -38,7 +38,8 @@ vi.mock('../../conversation/ConversationContext', () => ({
   useConversationContext: () => ({ sendMessage: sendMessageMock, draft: '', setDraft: setDraftMock }),
 }))
 
-import { StarterProvenanceBanner } from '../StarterProvenanceBanner'
+import { StarterProvenanceBanner, STARTER_REDRAFT_CHIP_ID } from '../StarterProvenanceBanner'
+import { buildV5Payload } from '../../../v5/buildPayload'
 import { useCanvasStore } from '../../store'
 import { STARTERS } from '../../starters/loadStarter'
 
@@ -292,6 +293,36 @@ describe('StarterProvenanceBanner', () => {
       expect(text).toBe(MARKET.brief)
       expect(text.length).toBeGreaterThan(300)
       expect(opts).toMatchObject({ turnType: 'explicit_generate' })
+    })
+
+    it('CC-4 (UI N2): the example brief is Olumi\'s text — it carries a chip identity, keeping explicit_generate', async () => {
+      const user = userEvent.setup()
+      render(<StarterProvenanceBanner />)
+      await user.click(screen.getByTestId('starter-provenance-line'))
+      await user.click(screen.getByTestId('starter-redraft'))
+      await waitFor(() => expect(sendMessageMock).toHaveBeenCalledTimes(1))
+      const [, opts] = sendMessageMock.mock.calls[0]
+      expect(opts).toMatchObject({ turnType: 'explicit_generate', chipMeta: { id: STARTER_REDRAFT_CHIP_ID } })
+      expect(STARTER_REDRAFT_CHIP_ID).toBe('starter_redraft')
+      // ⭐ ON THE WIRE (the real builder): with that chipMeta the turn goes out as `chip`
+      // carrying the id, never as `composer` — the user's typed words.
+      const built = buildV5Payload({
+        scenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4', turnId: 't1', stage: 'frame', turnClass: 'frame', mode: 'user',
+        message: MARKET.brief, source: opts.debugSource, chipMeta: opts.chipMeta,
+      })
+      if (!built.ok) throw new Error('payload did not build')
+      const payload = built.payload as unknown as { source: string; chip?: { id?: string } }
+      expect(payload.source).toBe('chip')
+      expect(payload.chip).toEqual({ id: 'starter_redraft' })
+      // CONTRAST: the same send without chipMeta is a composer turn (today's defect).
+      const bareBuilt = buildV5Payload({
+        scenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4', turnId: 't1', stage: 'frame', turnClass: 'frame', mode: 'user',
+        message: MARKET.brief, source: opts.debugSource,
+      })
+      if (!bareBuilt.ok) throw new Error('payload did not build')
+      const bare = bareBuilt.payload as unknown as { source: string; chip?: unknown }
+      expect(bare.source).toBe('composer')
+      expect(bare.chip).toBeUndefined()
     })
 
     it('clears the canvas first so the composer drafts a model rather than chats', async () => {
