@@ -36,7 +36,7 @@ import { isChipRenderable } from '../chipDispatch'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
 import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
-import { CONSENT_CHIP_PREFIX } from '../messageComposition'
+import { CONSENT_CHIP_PREFIX, RESEARCH_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -139,6 +139,11 @@ export interface RunChipGate {
   reason?: string
 }
 
+/** CEE's public research control, by identity (its id prefix), never by label. */
+function isResearchChip(chip: ActionChip): boolean {
+  return typeof chip.id === 'string' && chip.id.startsWith(RESEARCH_CHIP_PREFIX)
+}
+
 interface SuggestedChipsProps {
   chips: ActionChip[]
   onChipClick: (chip: ActionChip) => Promise<void>
@@ -222,6 +227,8 @@ export function SuggestedChips({
   // Declared in the hook prelude (rules of hooks): the id the gate's sentence
   // carries, so each gated Run chip can name it in `aria-describedby`.
   const runGateReasonId = useId()
+  // One visible disclosure per research chip: `${disclosureIdBase}-${index}`.
+  const disclosureIdBase = useId()
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
@@ -459,7 +466,12 @@ export function SuggestedChips({
           // unmeasured one. The visible text stays `chip.label` exactly.
           const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
           const detailAdds = detailText.length > 0 && detailText !== chip.label
-          const ariaLabel = detailAdds ? `${baseLabel}: ${detailText}` : baseLabel
+          // ⭐ A RESEARCH CONTROL SHOWS WHAT IT SENDS (CEE #2042). Pressing it sends
+          // its query to a public web search, so the query must be readable before
+          // the click, not only on hover: its `detail` is rendered below the row and
+          // describes the chip, instead of extending the accessible name.
+          const disclosed = detailAdds && isResearchChip(chip)
+          const ariaLabel = detailAdds && !disclosed ? `${baseLabel}: ${detailText}` : baseLabel
           // Only Run chips answer to the run gate; every other chip stays live.
           const runGated = runGateClosed && isRunAnalysisAffordance(chip)
           const chipDisabled = disabled || runGated
@@ -471,9 +483,13 @@ export function SuggestedChips({
               onClick={() => handleClick(chip)}
               disabled={chipDisabled}
               aria-label={ariaLabel}
-              title={detailAdds ? detailText : undefined}
+              title={detailAdds && !disclosed ? detailText : undefined}
               aria-disabled={chipDisabled}
-              aria-describedby={runGated && showRunGateReason ? runGateReasonId : undefined}
+              aria-describedby={
+                runGated && showRunGateReason
+                  ? runGateReasonId
+                  : disclosed ? `${disclosureIdBase}-${i}` : undefined
+              }
               data-run-gated={runGated ? 'true' : undefined}
               // PX-B (Paul, 15 Aug: "oversized actions"). The chip grammar —
               // and the down-size to `.chip`'s 12px/6px at 12px — lives in
@@ -507,6 +523,22 @@ export function SuggestedChips({
           )
         })}
       </div>
+
+      {visible.map((chip, i) => {
+        const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
+        if (!isResearchChip(chip) || detailText.length === 0 || detailText === chip.label) return null
+        return (
+          <p
+            key={`disclosure-${chip.id}`}
+            id={`${disclosureIdBase}-${i}`}
+            className={`${typography.panelMeta} text-text-light`}
+            style={{ margin: 0, paddingLeft: 2 }}
+            data-testid={`suggested-chip-disclosure-${chip.id}`}
+          >
+            {detailText}
+          </p>
+        )
+      })}
 
       {/* The gate's own sentence, verbatim, under the row it explains. It is
           the accessible description of every gated Run chip above, and it is
