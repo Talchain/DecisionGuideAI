@@ -1,0 +1,330 @@
+{
+ "_provenance": "SERVED capture, design audit 26 Sep 2026 18:00-18:15Z on UI 853feeb74d80d752d94aa57959b2cb02f36e822b (deploy 6ab807814d9c5e0008b692ea), 1280x800 dock open, headless Chromium DPR 1. landing = card rect height / zoom at the 0.5 landing (label scale 2), from /private/tmp/canvas-design-audit-2/landing-1280x800.json (identical at 1440x900). z100 = card rect height / zoom at ~100% (zoom 1.0368 or 1.24416, label scale 1), from z100-1280x800.json (3 starters measured). factorRowsAtLanding = the served factor sub-rows by card id, top to bottom, each left to right, with their served screen x at landing.",
+ "landing": {
+  "pricing-model": {
+   "dec_pricing": 188.8,
+   "fac_adoption_friction": 191.6,
+   "fac_enterprise_revenue_risk": 261.6,
+   "fac_market_competition": 248.6,
+   "fac_top_account_concentration": 248.6,
+   "fac_usage_exposure": 230.0,
+   "goal_pricing_transition": 190.0,
+   "opt_full_switch": 336.0,
+   "opt_hybrid": 500.2,
+   "opt_new_logos": 500.2,
+   "opt_status_quo": 278.2,
+   "out_bottom_up_growth": 216.6,
+   "out_nrr": 313.2,
+   "risk_enterprise_churn": 251.6,
+   "risk_pricing_complexity": 251.6
+  },
+  "market-entry": {
+   "dec_expansion": 188.8,
+   "fac_arr": 178.6,
+   "fac_competitive_intensity": 248.6,
+   "fac_germany": 191.6,
+   "fac_localisation_cost": 191.6,
+   "fac_market_size": 213.6,
+   "fac_nordics": 191.6,
+   "fac_team_capacity": 213.6,
+   "fac_uk_deepdive": 191.6,
+   "goal_arr_growth": 151.0,
+   "opt_germany": 355.2,
+   "opt_nordics": 355.2,
+   "opt_uk_fs": 313.2,
+   "out_new_market_arr": 216.6,
+   "out_uk_arr_retention": 216.6,
+   "risk_localisation_drag": 216.6,
+   "risk_team_overstretch": 216.6,
+   "risk_uk_distraction": 216.6
+  },
+  "vendor-selection": {
+   "dec_cdp": 188.8,
+   "fac_annual_cost": 191.6,
+   "fac_data_team_capacity": 213.6,
+   "fac_gdpr_compliance": 226.6,
+   "fac_migration_effort": 213.6,
+   "fac_ops_overhead": 226.6,
+   "fac_rudderstack": 226.6,
+   "fac_segment": 226.6,
+   "fac_snowflake_build": 226.6,
+   "goal_cdp": 143.0,
+   "opt_rudderstack": 301.0,
+   "opt_segment": 266.0,
+   "opt_snowflake": 336.0,
+   "opt_status_quo": 278.2,
+   "out_budget_headroom": 251.6,
+   "out_platform_capability": 216.6,
+   "risk_gdpr_breach": 216.6,
+   "risk_migration_delay": 251.6,
+   "risk_team_overload": 216.6
+  },
+  "build-vs-buy": {
+   "dec_billing": 188.8,
+   "fac_billing_complexity": 248.6,
+   "fac_build_indicator": 230.0,
+   "fac_dev_time": 268.6,
+   "fac_eng_capacity": 415.6,
+   "fac_platform_migration": 283.6,
+   "fac_stripe_indicator": 303.6,
+   "fac_vendor_cost": 213.6,
+   "fac_vendor_indicator": 268.6,
+   "goal_billing": 143.0,
+   "opt_build": 308.6,
+   "opt_status_quo": 278.2,
+   "opt_stripe": 336.0,
+   "opt_vendor": 343.6,
+   "out_billing_accuracy": 216.6,
+   "out_delivery_speed": 251.6,
+   "risk_billing_errors": 251.6,
+   "risk_eng_overload": 286.6,
+   "risk_vendor_lock": 251.6
+  },
+  "headcount-allocation": {
+   "dec_hiring": 153.8,
+   "fac_ae_headcount": 261.6,
+   "fac_eng_attrition": 213.6,
+   "fac_eng_headcount": 300.0,
+   "fac_market_demand": 213.6,
+   "fac_quota_attainment": 213.6,
+   "goal_arr": 108.0,
+   "opt_eng": 336.0,
+   "opt_sales": 336.0,
+   "opt_split": 336.0,
+   "opt_status_quo": 243.2,
+   "out_new_arr": 216.6,
+   "out_reliability": 251.6,
+   "risk_churn": 251.6,
+   "risk_eng_attrition": 216.6,
+   "risk_sales_miss": 251.6
+  }
+ },
+ "z100": {
+  "pricing-model": {
+   "dec_pricing": 65.5,
+   "fac_adoption_friction": 92.8,
+   "fac_enterprise_revenue_risk": 110.2,
+   "fac_market_competition": 106.1,
+   "fac_top_account_concentration": 106.1,
+   "fac_usage_exposure": 92.8,
+   "goal_pricing_transition": 65.5,
+   "opt_full_switch": 139.7,
+   "opt_hybrid": 168.8,
+   "opt_new_logos": 195.9,
+   "opt_status_quo": 107.3,
+   "out_bottom_up_growth": 91.6,
+   "out_nrr": 112.8,
+   "risk_enterprise_churn": 91.6,
+   "risk_pricing_complexity": 109.1
+  },
+  "market-entry": {
+   "dec_expansion": 65.5,
+   "fac_arr": 88.7,
+   "fac_competitive_intensity": 106.1,
+   "fac_germany": 92.8,
+   "fac_localisation_cost": 92.8,
+   "fac_market_size": 88.7,
+   "fac_nordics": 92.8,
+   "fac_team_capacity": 88.7,
+   "fac_uk_deepdive": 92.8,
+   "goal_arr_growth": 65.5,
+   "opt_germany": 155.4,
+   "opt_nordics": 155.4,
+   "opt_uk_fs": 124.9,
+   "out_new_market_arr": 91.6,
+   "out_uk_arr_retention": 91.6,
+   "risk_localisation_drag": 91.6,
+   "risk_team_overstretch": 91.6,
+   "risk_uk_distraction": 91.6
+  },
+  "vendor-selection": {
+   "dec_cdp": 65.5,
+   "fac_annual_cost": 92.8,
+   "fac_data_team_capacity": 88.6,
+   "fac_gdpr_compliance": 110.2,
+   "fac_migration_effort": 88.6,
+   "fac_ops_overhead": 110.2,
+   "fac_rudderstack": 92.8,
+   "fac_segment": 92.8,
+   "fac_snowflake_build": 92.8,
+   "goal_cdp": 65.5,
+   "opt_rudderstack": 122.5,
+   "opt_segment": 122.5,
+   "opt_snowflake": 122.5,
+   "opt_status_quo": 124.9,
+   "out_budget_headroom": 91.6,
+   "out_platform_capability": 91.6,
+   "risk_gdpr_breach": 91.6,
+   "risk_migration_delay": 109.1,
+   "risk_team_overload": 91.6
+  }
+ },
+ "factorRowsAtLanding": {
+  "pricing-model": [
+   [
+    {
+     "id": "fac_adoption_friction",
+     "x": 255.5
+    },
+    {
+     "id": "fac_market_competition",
+     "x": 413.5
+    },
+    {
+     "id": "fac_usage_exposure",
+     "x": 571.5
+    }
+   ],
+   [
+    {
+     "id": "fac_enterprise_revenue_risk",
+     "x": 334.5
+    },
+    {
+     "id": "fac_top_account_concentration",
+     "x": 492.5
+    }
+   ]
+  ],
+  "market-entry": [
+   [
+    {
+     "id": "fac_arr",
+     "x": 190.5
+    },
+    {
+     "id": "fac_market_size",
+     "x": 348.5
+    },
+    {
+     "id": "fac_uk_deepdive",
+     "x": 506.5
+    },
+    {
+     "id": "fac_competitive_intensity",
+     "x": 664.5
+    }
+   ],
+   [
+    {
+     "id": "fac_germany",
+     "x": 111.5
+    },
+    {
+     "id": "fac_nordics",
+     "x": 269.5
+    },
+    {
+     "id": "fac_team_capacity",
+     "x": 427.5
+    },
+    {
+     "id": "fac_localisation_cost",
+     "x": 585.5
+    }
+   ]
+  ],
+  "vendor-selection": [
+   [
+    {
+     "id": "fac_annual_cost",
+     "x": 190.5
+    },
+    {
+     "id": "fac_gdpr_compliance",
+     "x": 348.5
+    },
+    {
+     "id": "fac_data_team_capacity",
+     "x": 506.5
+    },
+    {
+     "id": "fac_ops_overhead",
+     "x": 664.5
+    }
+   ],
+   [
+    {
+     "id": "fac_migration_effort",
+     "x": 111.5
+    },
+    {
+     "id": "fac_segment",
+     "x": 269.5
+    },
+    {
+     "id": "fac_snowflake_build",
+     "x": 427.5
+    },
+    {
+     "id": "fac_rudderstack",
+     "x": 585.5
+    }
+   ]
+  ],
+  "build-vs-buy": [
+   [
+    {
+     "id": "fac_platform_migration",
+     "x": 190.5
+    },
+    {
+     "id": "fac_eng_capacity",
+     "x": 348.5
+    },
+    {
+     "id": "fac_billing_complexity",
+     "x": 506.5
+    },
+    {
+     "id": "fac_dev_time",
+     "x": 664.5
+    }
+   ],
+   [
+    {
+     "id": "fac_build_indicator",
+     "x": 111.5
+    },
+    {
+     "id": "fac_stripe_indicator",
+     "x": 269.5
+    },
+    {
+     "id": "fac_vendor_indicator",
+     "x": 427.5
+    },
+    {
+     "id": "fac_vendor_cost",
+     "x": 585.5
+    }
+   ]
+  ],
+  "headcount-allocation": [
+   [
+    {
+     "id": "fac_eng_attrition",
+     "x": 255.5
+    },
+    {
+     "id": "fac_eng_headcount",
+     "x": 413.5
+    },
+    {
+     "id": "fac_market_demand",
+     "x": 571.5
+    }
+   ],
+   [
+    {
+     "id": "fac_ae_headcount",
+     "x": 334.5
+    },
+    {
+     "id": "fac_quota_attainment",
+     "x": 492.5
+    }
+   ]
+  ]
+ }
+}

@@ -157,31 +157,29 @@ const SHAPES = {
 
 /* ── #10 + mixed heights ──────────────────────────────────────────────────── */
 
-describe('WS1 #10 — a wrapped family is laid in brick courses', () => {
-  it('eight factors: the FIRST course is shifted by half a stride, so the block stays at 4 cards + prompt', async () => {
+describe('a wrapped family sits on ONE column grid (design audit 26 Sep #12; was WS1 #10 brick courses)', () => {
+  it('eight factors: both courses start on one left edge, and the block is 4 cards + prompt', async () => {
     const { nodes, edges, heights } = board({ options: 3, factors: 8, outcomes: 1, risks: 1 }, () => 150)
     const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
     const facs = out.nodes.filter((n) => n.id.startsWith('fac_'))
     const ys = [...new Set(facs.map((n) => n.position.y))].sort((a, b) => a - b)
     expect(ys).toHaveLength(2)
     const left = (y: number) => Math.min(...facs.filter((n) => n.position.y === y).map((n) => n.position.x))
-    const stride = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
-    expect(left(ys[0]!) - left(ys[1]!)).toBeCloseTo(stride / 2, 6)
-    // The block: the shifted upper course, or the lower course plus the row-end
-    // prompt slot, whichever reaches further right.
+    expect(left(ys[0]!) - left(ys[1]!)).toBe(0)
+    // The block: the lower course plus the row-end prompt slot.
     const rightOf = (y: number) => Math.max(...facs.filter((n) => n.position.y === y).map((n) => n.position.x + REPEATED_CARD_W + LAYOUT_PADDING_X))
     const block = Math.max(rightOf(ys[0]!), rightOf(ys[1]!) + LAYOUT_NODE_GAP + ROW_PROMPT_W) - left(ys[1]!)
     expect(block).toBeCloseTo(4 * (REPEATED_CARD_W + LAYOUT_PADDING_X) + 3 * LAYOUT_NODE_GAP + LAYOUT_NODE_GAP + ROW_PROMPT_W, 6)
     expect(block).toBeLessThanOrEqual(CANONICAL_LAYOUT_WIDTH)
   })
 
-  it('five factors: the SECOND course is shifted (the narrower of the two brick choices)', async () => {
+  it('five factors: the second course starts on the first course\'s left edge', async () => {
     const { nodes, edges, heights } = board({ options: 2, factors: 5, outcomes: 1, risks: 0 }, () => 150)
     const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
     const facs = out.nodes.filter((n) => n.id.startsWith('fac_'))
     const ys = [...new Set(facs.map((n) => n.position.y))].sort((a, b) => a - b)
     const left = (y: number) => Math.min(...facs.filter((n) => n.position.y === y).map((n) => n.position.x))
-    expect(left(ys[1]!) - left(ys[0]!)).toBeCloseTo((REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP) / 2, 6)
+    expect(left(ys[1]!) - left(ys[0]!)).toBe(0)
   })
 
   it('CONTRAST — a family that does not wrap is not shifted', async () => {

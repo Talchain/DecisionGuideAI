@@ -186,18 +186,19 @@ describe('S4 row wrapping — balanced sub-rows, order preserved', () => {
     expect(rows.flat()).toEqual(Array.from({ length: n }, (_, i) => `fac_${i}`))
   })
 
-  it('sub-rows are laid in BRICK courses, half a stride apart, so no card stands directly under another (v3.1 WS1 #10)', async () => {
-    // Was: "sub-rows share ONE left edge". Stacked columns put every edge that
-    // leaves the upper course, or enters the lower one, through a card that is
-    // not its endpoint (11–21 per starter at landing). Half-stride courses put
-    // each card of one course under a GAP of the other; the family still reads
-    // left to right, then down, under one band label.
+  it('sub-rows sit on ONE column grid: every course starts at the first course\'s left edge (design audit 26 Sep #12)', async () => {
+    // Was, from v3.1 WS1 #10 until the 26 Sep design audit: "sub-rows are laid in
+    // BRICK courses, half a stride apart". Served, the brick read as a staggered
+    // band (pricing's factors at x 255.5 / 413.5 / 571.5 over 334.5 / 492.5);
+    // the audit and the Canvas brief put every course back on one grid. The
+    // edge trade that the brick was bought for is stated in `layout.ts`.
     const { nodes, edges } = factorTier(7)
     const out = await layoutGraph(nodes, edges, {})
     const [first, second] = subRows(out.nodes, 'fac_')
-    const stride = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
-    // 7 → 4 + 3: the SECOND course shifts (the narrower of the two brick choices).
-    expect(byId(out.nodes, second[0]).position.x - byId(out.nodes, first[0]).position.x).toBe(stride / 2)
+    // 7 → 4 + 3: card k of the second course stands on card k's column.
+    second.forEach((id, k) => {
+      expect(byId(out.nodes, id).position.x - byId(out.nodes, first[k]).position.x, `${id} under ${first[k]}`).toBe(0)
+    })
     // …and the stride inside a sub-row is the card plus the card gap, exactly.
     expect(byId(out.nodes, first[1]).position.x - byId(out.nodes, first[0]).position.x).toBe(
       REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP,
