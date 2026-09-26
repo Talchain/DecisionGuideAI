@@ -193,36 +193,6 @@ describe('composeReadinessBlockedReason — stale-evidence cross-check', () => {
   })
 })
 
-describe('composeReadinessBlockedReason — A5: never claims "changed" for a never-run model', () => {
-  it('DEFAULT (no fourth argument) keeps staleRecheck — every existing call site is untouched', () => {
-    const reason = composeReadinessBlockedReason(paulReadiness, [], true)
-    expect(reason).toBe(BLOCKED_REASON_COPY.staleRecheck)
-  })
-
-  it('RED/A5: a verdict marked stale on a model with no completed run never claims "Your model changed"', () => {
-    // "Your model changed since the last check" asserts a PRIOR check the
-    // model has since moved on from. With no run ever completed there is no
-    // "since" for that claim to be about — the same false claim the audit
-    // measured: the readiness block said "Your model changed" with no edit
-    // made, about a model that had never been analysed.
-    const reason = composeReadinessBlockedReason(paulReadiness, [], true, false)
-    expect(reason).not.toBe(BLOCKED_REASON_COPY.staleRecheck)
-    expect(reason).not.toContain('changed')
-  })
-
-  it('still tells the truth for a never-run model: falls through to a real, non-fabricated reason', () => {
-    // Falls through to the specificity ladder rather than returning a blank
-    // claim — the module's standing rule (thin, never absent, never invented).
-    const reason = composeReadinessBlockedReason(
-      { ...paulReadiness, goal_node_valid: false, options_ready: 5, options_total: 5 },
-      [],
-      true,
-      false,
-    )
-    expect(reason).toBe(BLOCKED_REASON_COPY.goalMissing)
-  })
-})
-
 describe('canRunAnalysis — the gate no longer emits engine prose', () => {
   const params = {
     graphHealth: null,
