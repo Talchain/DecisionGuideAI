@@ -223,11 +223,7 @@ describe('WITHHELD: the mounted card ranks nothing by win share', () => {
     const card = latestCard()
     const block = resultBlockOf(RUN_57F)
     expectNoWinShares(card, block.win_probabilities, '57f903c')
-    // Design audit #8 (26 Sep): with the reply on screen and nothing else on the
-    // card, there is no card. The reply carries the account the summary restated.
-    expect(card).toHaveAttribute('data-presentation', 'inline')
-    expect(within(card).queryByTestId('v5-analysis-result-summary')).toBeNull()
-    expect(document.body.textContent).toContain('This run does not establish whether you should raise Pro to £59')
+    expect(within(card).getByTestId('v5-analysis-result-summary')).toHaveTextContent(block.summary)
   })
 
   it('the witnessed 82% / 16% / 2% values (#69 5827478637) on the 57f903c body: no share, seen or heard', async () => {
@@ -254,10 +250,7 @@ describe('WITHHELD: the mounted card ranks nothing by win share', () => {
     const card = latestCard()
     const block = resultBlockOf(e39Turn('C2 run'))
     expectNoWinShares(card, block.win_probabilities, 'e39f6e0 C2')
-    // Design audit #8: the inline anchor, with the reply carrying the account.
-    expect(card).toHaveAttribute('data-presentation', 'inline')
-    expect(within(card).queryByTestId('v5-analysis-result-summary')).toBeNull()
-    expect(document.body.textContent).toContain('The analysis cannot put forward a pricing option')
+    expect(within(card).getByTestId('v5-analysis-result-summary')).toHaveTextContent(block.summary)
   })
 })
 

@@ -96,9 +96,10 @@ export interface V5AnalysisResultBlockProps {
    * turn whose ONLY account of the run is this card still shows it open.
    *
    * When the folded summary would be the card's only body (no win-share row,
-   * no review prose), there is no card at all (design audit #8): the reply
-   * already carries that account, and only the uncertainty line renders,
-   * inline and unframed.
+   * no review prose), there is no card FRAME (design audit #8): no heading and
+   * no border. The same closed "Details" fold and the uncertainty line render
+   * inline, unframed. Still nothing is removed: `assistantTextWordCount > 0`
+   * says only that SOME reply is on screen, never that it carries this account.
    */
   summaryBehindDisclosure?: boolean
 }
@@ -467,8 +468,10 @@ function V5AnalysisResultBlockImpl({
   // was a heading, a closed "▸ Details" and the uncertainty line: a 382×107.5
   // frame that read as empty, once per Run in the transcript. The folded
   // summary restates the reply above it, so there is no card: the uncertainty
-  // line stays, inline, as plain text. The `v5-analysis-result` element stays
-  // as the unframed anchor `scrollAnalysisResultIntoView` lands on after a Run.
+  // line stays, inline, as plain text, and the fold stays one click away: a
+  // one-word reply ("Done.") also sets `summaryBehindDisclosure`, so dropping
+  // the summary would lose the only account of the run. The `v5-analysis-result`
+  // element stays as the unframed anchor `scrollAnalysisResultIntoView` lands on.
   const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse
   if (onlyFoldedSummaryOnCard) {
     return (
@@ -477,7 +480,22 @@ function V5AnalysisResultBlockImpl({
         data-presentation="inline"
         data-has-decision-review={hasReview ? 'true' : 'false'}
         data-decision-review-state={reviewState.kind}
+        className="space-y-1"
       >
+        <details data-testid="v5-analysis-result-summary-details" className="group">
+          <summary
+            data-testid="v5-analysis-result-summary-toggle"
+            className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
+          >
+            <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
+              ▸
+            </span>
+            Details
+          </summary>
+          <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
+            {block.summary}
+          </p>
+        </details>
         {shownUncertaintyCopy && (
           <p
             className={`${typography.panelMeta} text-text-light`}

@@ -11,9 +11,11 @@
  *
  * THE RULE: when the summary is behind the disclosure (the reply is on screen)
  * and nothing else would render on the card (no win-share row, no review prose),
- * there is no card. The uncertainty line stays, inline, as plain text. The
- * `v5-analysis-result` element stays as the unframed anchor the Run-return
- * scroll (`scrollAnalysisResultIntoView`) lands on.
+ * there is no card FRAME: no heading, no border. The closed "Details" fold (the
+ * summary, verbatim) and the uncertainty line render inline. Nothing is removed:
+ * `assistantTextWordCount > 0` holds for a one-word reply too, so the reply is
+ * never assumed to carry the summary's account. The `v5-analysis-result` element
+ * stays as the unframed anchor the Run-return scroll lands on.
  *
  * FIXTURE: the served `analysis_result` block of the c673223 "C2 run" turn,
  * whole (summary, enrichment, win_probabilities, `leading_option_id: null`).
@@ -86,21 +88,30 @@ describe('audit #8: the served withheld Run renders no empty result card', () =>
     expect(REPLY_WORDS).toBeGreaterThan(0)
   })
 
-  it('⭐ with the reply on screen: no heading, no "Details", no frame; the uncertainty line is inline plain text', () => {
+  it('⭐ with the reply on screen: no heading, no frame; the fold and the uncertainty line are inline', () => {
     const { getByTestId, queryByTestId } = mount(servedBlock(), REPLY_WORDS)
     expect(queryByTestId('v5-analysis-result-heading')).toBeNull()
-    expect(queryByTestId('v5-analysis-result-summary-details')).toBeNull()
-    expect(queryByTestId('v5-analysis-result-summary-toggle')).toBeNull()
 
     const line = getByTestId('v5-analysis-result-uncertainty-copy')
     expect(line.textContent).toBe(TENTATIVE)
     expect(line).toBeVisible()
 
-    // The anchor the Run-return scroll lands on survives, unframed, holding only that line.
+    // The anchor the Run-return scroll lands on survives, unframed.
     const anchor = getByTestId('v5-analysis-result')
     expect(anchor.getAttribute('data-presentation')).toBe('inline')
     expect(anchor.className.split(/\s+/)).not.toContain('border')
-    expect(anchor.textContent).toBe(TENTATIVE)
+
+    // Nothing is removed: the served summary is one click away, verbatim, behind a CLOSED fold.
+    const fold = getByTestId('v5-analysis-result-summary-details') as HTMLDetailsElement
+    expect(fold.open).toBe(false)
+    expect(getByTestId('v5-analysis-result-summary-toggle').textContent).toContain('Details')
+    expect(getByTestId('v5-analysis-result-summary').textContent).toBe(String(SERVED.summary))
+  })
+
+  it('⭐ a ONE-WORD reply ("Done.") also folds the summary, so it must stay reachable, never dropped', () => {
+    const { getByTestId, queryByTestId } = mount(servedBlock(), 1)
+    expect(queryByTestId('v5-analysis-result-heading')).toBeNull()
+    expect(getByTestId('v5-analysis-result-summary').textContent).toBe(String(SERVED.summary))
   })
 
   it('CONTROL — the leader-named twin keeps the framed card (the pill row is a body)', () => {
