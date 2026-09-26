@@ -88,7 +88,11 @@ function memoBlocks(source: string): Array<{ name: string; body: string }> {
     // gate-removal control below is the only thing that caught it: it could not
     // turn the manifest red, which is a guard agreeing with itself (CLAUDE.md
     // trap 13b). Keep that control — it is what pins this line.
-    body: source.slice(sp.start, sp.end).replace(/\}\s*,\s*\[[^\]]*\]\s*\)/g, '}'),
+    body: source.slice(sp.start, sp.end)
+      .replace(/\}\s*,\s*\[[^\]]*\]\s*\)/g, '}')
+      // The expression-bodied shape `useMemo(() => expr, [deps],)` has no `}` before
+      // its deps; strip its trailing deps array too, or a dep naming the gate reads as one.
+      .replace(/,\s*\[[^\]]*\]\s*,?\s*\)\s*$/, ')'),
   }))
 }
 
@@ -351,7 +355,8 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     const blocks = memoBlocks(probe)
     const last = blocks.find((b) => b.name === 'last')
     expect(last, 'PRECONDITION: the probe memo is found').toBeDefined()
-    expect(last!.body).toContain('[blockers, id],')
+    expect(last!.body).toContain('blockers?.find')
+    expect(last!.body, 'the deps array is stripped').not.toContain('[blockers, id]')
     expect(last!.body, 'the memo stops at its own close, never reaching the render').not.toContain('option_probabilities')
   })
 
@@ -371,5 +376,26 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     expect(comments.length, 'comment extraction found nothing to assert against').toBeGreaterThan(1_000)
     expect(comments).not.toMatch(/\bboth gate\b/i)
     expect(comments).not.toMatch(/\b(two|three|four) readers? (of [^.]{0,40})?gate\b/i)
+  })
+
+  it('an expression memo whose DEPS name the gate is still ungated (deps are not a gate)', () => {
+    const probe = [
+      'function Card() {',
+      '  const first = useMemo(() => {',
+      '    if (displayMetadata.winComputationFailed) return null',
+      '    return 1',
+      '  }, [displayMetadata.winComputationFailed])',
+      '  const leak = useMemo(',
+      '    () => resultsReport?.option_probabilities?.[id] ?? null,',
+      '    [resultsReport, id, displayMetadata.winComputationFailed],',
+      '  )',
+      '  return <div>{first}</div>',
+      '}',
+    ].join('\n')
+    const ungated = memoBlocks(probe)
+      .filter(b => READS_COMPARATIVE.test(b.body))
+      .filter(b => !CARRIES_GATE.test(b.body))
+      .map(b => b.name)
+    expect(ungated).toEqual(['leak'])
   })
 })
