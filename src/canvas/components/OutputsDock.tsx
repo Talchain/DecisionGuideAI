@@ -132,6 +132,7 @@ import { useAnalysisHoldReason } from '../hooks/useAnalysisHold'
 import { selectOptionsNeedingValues } from '../utils/composeBlockedReason'
 import { WarningBanner } from './WarningBanner'
 import { DegradedStateBanner } from './DegradedStateBanner'
+import { OpenAiPreviewBanner } from './OpenAiPreviewBanner'
 // ROADMAP 2.109: the goal-threshold normalisation helpers and the
 // success-measure/scenario-key lookups left with the retired chip parameter —
 // only the goal-node resolver is still used (the atomic target commit).
@@ -3062,6 +3063,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       onKeyDownCapture={markDockInteraction}
       onWheelCapture={markDockInteraction}
     >
+      {/* ⭐ THE OPENAI PREVIEW BANNER, FIRST CHILD OF THE DOCK ROOT.
+          Here rather than inside a tab because the brief says PERSISTENT: this
+          dock is `flex flex-col`, so the strip sits above the tab bar and the
+          composer and stays put whichever tab is open. It renders nothing at
+          all unless the preview transport is actually redirected — one
+          predicate, `isOpenAiPreviewActive()`, shared with `v5Adapter`. */}
+      <OpenAiPreviewBanner />
       {/* Parity P7a: the Work-through-it-with-Olumi drawer mounts ONCE at the
           dock root (fixed-position overlay) so asks routed from ANY tab —
           graph node sparkles included — surface visibly instead of

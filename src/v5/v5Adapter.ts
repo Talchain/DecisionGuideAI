@@ -48,6 +48,7 @@
  */
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
+import { openAiPreviewEndpoint } from './openAiPreview';
 import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store';
 import {
   ADDITIVE_EXTENSIONS_KEY,
@@ -75,6 +76,23 @@ export class V5EndpointNotConfiguredError extends Error {
 }
 
 function resolveEndpoint(): string {
+  /**
+   * ⭐ THE OPENAI READ-ONLY PREVIEW, FIRST AND ADDITIVE.
+   *
+   * `openAiPreviewEndpoint()` returns `null` unless an internal flag is on AND
+   * an endpoint is configured, so with nothing set this function's behaviour is
+   * byte-identical to what it was — the CEE path stays fully available and one
+   * `localStorage.removeItem` reverses the preview.
+   *
+   * ⚠ IT IS DELIBERATELY NOT AN `import.meta.env` READ. This file's own header
+   * records that Vite CONSTANT-FOLDS this resolver at build time, which is how
+   * a rung got chosen from dashboard state nobody could see. The preview is
+   * decided at TURN DISPATCH, in the browser, where it can be observed and
+   * undone.
+   */
+  const preview = openAiPreviewEndpoint();
+  if (preview !== null) return preview;
+
   // ⚠ Correct for ABSENT, not merely for falsy. `undefined`, `null`, `''` and a
   // whitespace-only value are all "not configured" and take the SAME branch —
   // the defect class this replaces was an exact-match predicate where absent and
