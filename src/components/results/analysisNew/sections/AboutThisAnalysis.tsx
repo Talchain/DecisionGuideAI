@@ -10,11 +10,11 @@
  *
  * ⛔ IT COMPUTES NOTHING. Every value below is a VIEW-MODEL field read as the
  * builder left it (`vm.status`, `vm.checks`, `vm.atAGlance.verdict`,
- * `vm.atAGlance.inputProvenance`, `vm.optionsComparison`, `vm.uncertainty`,
- * `vm.deeper`), plus three values the tab body already holds and hands the
- * view model (`nSamples`, `seedUsed`) or holds beside it (`outcomeFormat`,
- * read off `resultsSectionData.recommendation`). The only arithmetic is
- * COUNTING rows the view model already emitted.
+ * `vm.optionsComparison`, `vm.uncertainty`, `vm.deeper`), plus what the tab
+ * body holds beside it (`outcomeFormat`, read off
+ * `resultsSectionData.recommendation`; the review tool's own queue inputs).
+ * The only arithmetic is COUNTING rows the view model or the review queue
+ * already emitted.
  *
  * ⛔ WHAT IT DELIBERATELY DOES NOT ABSORB, and why:
  *   · `RobustnessCaveat` — the producer's sentence naming a condition under
@@ -44,64 +44,93 @@
  * folding it in here must not delete the one section a reader has before any
  * analysis exists.
  *
+ * ⭐ V2 DESIGN PASS (26 Sep 2026) — THE PROTOTYPE'S `aboutHTML()`, ELEMENT BY
+ * ELEMENT (`Olumi_Reasoning_Prototype_V2.html`, audit B11):
+ *   · FIVE status rows, each with its own ✦ — Freshness (clock), Compared
+ *     (chart), Evidence (link), Review topics (search, "N open"), Robustness
+ *     (info). "Most likely option", "Your inputs and Olumi's" and "Method" are
+ *     gone: the first repeated the commitment block's withheld sentence, the
+ *     second the folded input register, and the third printed "Seed null".
+ *     Simulations and seed remain as Run record rows (the builder's own).
+ *   · Disclosures named "Inspect values and units" / "Sources and limits" /
+ *     "Run record", chevron at the right.
+ *   · Values are a TABLE (Option · P10 · P50 · P90). P50, not the prototype's
+ *     "Mean": the view model carries the median. No share column — the
+ *     prototype has none.
+ *   · Sources and limits are one bullet list. The engine's caveats are bullets
+ *     too (no amber strip), and the gaps the analysis worked around moved here
+ *     from the Run record, so no producer CODE is text anywhere in this region.
+ *   · Run record is one label/value list of the builder's non-statement rows.
+ *   NOT RENDERED, because nothing honest feeds them (never invented here): the
+ *   lineage "Question → Model N → run" (no model revision exists), "Inspect
+ *   beliefs and source notes" (the review tool has no open request), "Export
+ *   review record" (no export exists), a unit caption on the values (units are
+ *   paused pending the producer ruling).
+ *
  * @panel-act-opt-out full-width disclosure toggles; a tier is an inline control and would shrink each row to its text width
  */
 import { useId, useState } from 'react'
 import type { ComponentType, ReactNode } from 'react'
 import {
+  BarChart3,
   ChevronDown,
   ChevronRight,
-  CircleDot,
   Clock,
-  Dices,
-  FileSearch,
-  Scale,
-  Shield,
-  Users,
+  Info,
+  Link as LinkIcon,
+  Search,
 } from 'lucide-react'
 
 import { typography } from '../../../../styles/typography'
-import { useContextIntegrityStore } from '../../../../canvas/stores/contextIntegrityStore'
-import { useWhatIWasGivenWillRender } from '../../contextIntegrity/WhatIWasGivenSection'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
 import { formatThreshold } from '../../RangeVisualization'
+
+/** A normalised model score, as the comparison axis prints it: 3 significant figures, no sign, no unit. */
+export function formatModelScore(value: number): string {
+  return value.toLocaleString(undefined, { maximumSignificantDigits: 3 })
+}
 import type { OutcomeUnitType } from '../../types'
 import { NOT_ANALYSED_BADGE, NOT_COMPUTED_BADGE } from '../../utils/notAnalysedCopy'
-import { figureTallySubtitle } from '../../contextIntegrity/figureTallySubtitle'
+import {
+  humaniseInferenceWarningTitle,
+  selectRestingStripEntries,
+} from '../../utils/humaniseInferenceWarning'
+import { selectRenderableCritiqueEntries } from '../../CritiqueWarningStrip'
 import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import type {
   AnalysisNewViewModel,
   ChecksCode,
   ChecksItem,
   ComparisonOption,
-  GlanceInputProvenance,
+  InspectRow,
 } from '../analysisNewTypes'
 import { FactorValueControl } from '../FactorValueControl'
-import { CritiqueWarningStrip } from '../../CritiqueWarningStrip'
-import { InferenceWarningStrip } from '../../InferenceWarningStrip'
 import { PanelIconButton } from '../PanelIconButton'
 import { ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
+import { useReviewTopicCount } from '../useReviewTopicCount'
+import type { ReviewTopicSource } from '../useReviewTopicCount'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Copy. Furniture and short status values only; every claim-bearing sentence
 // below is read from `ANALYSIS_NEW_COPY` or the view model.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const RANGE_ARM = COPY.optionFigures.rangeLensArms
-
 export const ABOUT_COPY = {
   title: 'About this analysis',
-  ask: 'Ask Olumi about this analysis and its limits',
+  /** The prototype's own name for the header act. */
+  ask: 'Ask Olumi about this analysis and its limitations',
   askDraft: 'What are the limits of this analysis?',
+  /** The prototype's five rows, in its order. */
   rows: {
     freshness: 'Freshness',
     compared: 'Compared',
     evidence: 'Evidence',
+    review: 'Review topics',
     robustness: 'Robustness',
-    leader: 'Most likely option',
-    inputs: "Your inputs and Olumi's",
-    method: 'Method',
   },
+  /** Each row's own ✦ — the prototype's `Discuss <label> with Olumi`. */
+  rowAsk: (label: string): string => `Discuss ${label.toLowerCase()} with Olumi`,
+  rowAskDraft: (label: string): string => `Help me understand the ${label.toLowerCase()} of this analysis.`,
   /**
    * ⚠ "No change detected", NOT "Current". `isStale === false` is
    * `displayedFreshness` being neither `'stale'` nor `'unknown'`
@@ -124,50 +153,26 @@ export const ABOUT_COPY = {
     evidence_all_addressed: (n: number): string =>
       `Assessed, ${n} ${n === 1 ? 'gap' : 'gaps'} found, all addressed`,
   },
+  /** The review tool's queue length — the prototype's "N open". */
+  reviewOpen: (n: number): string => `${n} open`,
   /** Everything that is not the view model's gated word. */
   robustnessNotEstablished: 'Not established',
-  /**
-   * Keyed by the leader CHECK CODE — the one authority for which of the three
-   * states this is. "Not confirmed" (not "withheld", not "not assessed") for
-   * the reason `checks.leader_not_assessed.label` records: it is true both of a
-   * run that assessed nothing and of one that assessed and was withheld.
-   */
-  leader: {
-    leader_present: 'Identified in this model',
-    leader_tied: 'None clearly most likely',
-    leader_not_assessed: 'Not confirmed',
-  },
-  /** One short value per `GlanceInputProvenance` kind — the glance's sentence, shortened, never widened. */
-  inputs: {
-    estimated: "Olumi's estimates",
-    partly_estimated: "Partly Olumi's estimates",
-    mixed: "A mix of yours and Olumi's",
-    user_supplied: 'Your figures',
-    partly_user_supplied: 'Partly your figures',
-    undetermined: 'Source not established',
-  } satisfies Record<GlanceInputProvenance, string>,
-  inputsNotReported: 'Not reported',
-  estimatedCount: (n: number): string => `Olumi estimated ${n} ${n === 1 ? 'value' : 'values'}`,
-  method: (samples: string | null, seed: string | null): string =>
-    samples !== null && seed !== null
-      ? `${samples} simulations, seed ${seed}`
-      : samples !== null
-        ? `${samples} simulations`
-        : `Seed ${seed ?? ''}`,
   details: {
-    values: 'Values and ranges',
-    limitations: 'Limitations',
+    values: 'Inspect values and units',
+    limitations: 'Sources and limits',
     record: 'Run record',
   },
   values: {
-    low: `${RANGE_ARM.cautious} (p10)`,
-    mid: `${RANGE_ARM.middle} (p50)`,
-    high: `${RANGE_ARM.optimistic} (p90)`,
-    /** Neutral by instruction: what the figure IS, with no ranking word. */
-    share: 'Share of simulations where this option came out highest',
+    option: 'Option',
+    /** ⚠ P50, not the prototype's "Mean": `outcomeRange` carries the median. */
+    low: 'P10',
+    mid: 'P50',
+    high: 'P90',
     notReturned: 'Not returned',
     /** `DecisionResultData.isNormalised`: the UI must not present these as the user's units. */
     normalised: 'Relative scores in this model, not in your units.',
+    question: 'How should these ranges be interpreted?',
+    questionAsk: 'Ask about these ranges and their limits',
   },
 } as const
 
@@ -199,10 +204,6 @@ export interface AboutOutcomeFormat {
 
 export interface AboutThisAnalysisProps {
   vm: AnalysisNewViewModel
-  /** The value the body already passes `useAnalysisNewViewModel`. */
-  nSamples?: number
-  /** The value the body already passes `useAnalysisNewViewModel`. */
-  seedUsed?: number | string
   /**
    * ⚠ REQUIRED, NEVER DEFAULTED. `outcomeRange` carries bare numbers; printed
    * without the run's unit they read as the user's own scale, which is the
@@ -213,7 +214,12 @@ export interface AboutThisAnalysisProps {
    */
   outcomeFormat: AboutOutcomeFormat
   /**
-   * The value control on "Model gaps the analysis worked around" rows.
+   * The inputs the body hands `ModelReviewTool`, so "Review topics N open"
+   * counts THAT queue. Absent ⇒ no Review topics row.
+   */
+  reviewTopics?: ReviewTopicSource
+  /**
+   * The value control on a gap the analysis worked around.
    * Default `false`, as on `DeeperAnalysis`: a surface must opt in to a writer.
    */
   offerFactorValueControl?: boolean
@@ -246,7 +252,7 @@ interface StatusRow {
 
 type DetailKey = keyof typeof ABOUT_COPY.details
 
-const checkCode = (vm: AnalysisNewViewModel, id: 'leader' | 'robustness' | 'evidence'): ChecksCode | null =>
+const checkCode = (vm: AnalysisNewViewModel, id: 'robustness' | 'evidence'): ChecksCode | null =>
   vm.checks.items.find((i) => i.id === id)?.code ?? null
 
 function freshnessValue(vm: AnalysisNewViewModel): string {
@@ -270,7 +276,7 @@ function comparedRow(vm: AnalysisNewViewModel): StatusRow | null {
   if (unnamed > 0) detail.push(COPY.disclosure.unnamedOptions(unnamed))
   return {
     key: 'compared',
-    Icon: Scale,
+    Icon: BarChart3,
     value: ABOUT_COPY.compared(named('analysed').length, totalCount),
     detail,
   }
@@ -288,74 +294,45 @@ function evidenceRow(vm: AnalysisNewViewModel): StatusRow | null {
         : code === 'evidence_none_flagged'
           ? ABOUT_COPY.evidence.evidence_none_flagged()
           : ABOUT_COPY.evidence.evidence_not_assessed()
-  return { key: 'evidence', Icon: FileSearch, value, detail: [] }
+  return { key: 'evidence', Icon: LinkIcon, value, detail: [] }
 }
 
-function leaderRow(vm: AnalysisNewViewModel): StatusRow | null {
-  const code = checkCode(vm, 'leader')
-  if (code !== 'leader_present' && code !== 'leader_tied' && code !== 'leader_not_assessed') return null
-  return {
-    key: 'leader',
-    Icon: CircleDot,
-    value: ABOUT_COPY.leader[code],
-    // ⭐ The producer's cause, composed ONCE by the view model and gated there
-    // on this same code. Never re-derived from a reason string here.
-    detail: code === 'leader_not_assessed' && vm.checks.leaderWithholdCause !== null
-      ? [vm.checks.leaderWithholdCause]
-      : [],
-  }
+function reviewRow(count: number | null): StatusRow | null {
+  if (count === null) return null
+  return { key: 'review', Icon: Search, value: ABOUT_COPY.reviewOpen(count), detail: [] }
 }
 
-function inputsRow(
-  vm: AnalysisNewViewModel,
-  briefDetail: string[],
-): StatusRow | null {
-  const kind = vm.atAGlance.inputProvenance
-  if (kind === null && briefDetail.length === 0) return null
-  return {
-    key: 'inputs',
-    Icon: Users,
-    value: kind !== null ? ABOUT_COPY.inputs[kind] : ABOUT_COPY.inputsNotReported,
-    detail: briefDetail,
-  }
-}
-
-function methodRow(nSamples: number | undefined, seedUsed: number | string | undefined): StatusRow | null {
-  const samples =
-    typeof nSamples === 'number' && Number.isFinite(nSamples) ? nSamples.toLocaleString('en-GB') : null
-  const seed = seedUsed !== undefined && String(seedUsed) !== '' ? String(seedUsed) : null
-  if (samples === null && seed === null) return null
-  return { key: 'method', Icon: Dices, value: ABOUT_COPY.method(samples, seed), detail: [] }
-}
+/** One status row as the text its AI act hands on: the label, the value, its lines. */
+const rowContext = (r: StatusRow): string[] => [`${ABOUT_COPY.rows[r.key]}: ${r.value}`, ...r.detail]
 
 /**
- * The context-integrity counts — the SAME store `WhatIWasGivenSection` renders
- * from, behind ITS exported gate (`useWhatIWasGivenWillRender`, which carries
- * the positive scenario-identity match), so this row can never count another
- * decision's brief and the gate has one home.
+ * A bullet in "Sources and limits". `code` is the producer's, kept as a DATA
+ * ATTRIBUTE ONLY — never text, never screen-reader text (the audit's
+ * "EDGE_E_VALUE_NON_FINITE_DROPPED" was an `sr-only` term the DOM still read).
  */
-function useBriefDetail(): string[] {
-  const registerRenders = useWhatIWasGivenWillRender()
-  const manifest = useContextIntegrityStore((s) => s.manifest)
-  if (!registerRenders || manifest === null) return []
-  const out: string[] = []
-  // Counts from the manifest's own tally, through the register's own sentence
-  // builder and its own `derived` condition — never from the capped `items`
-  // array, never re-worded.
-  const tally = manifest.status === 'derived' ? manifest.quantities : null
-  if (tally !== null) out.push(figureTallySubtitle(tally, 'not_counted'))
-  // The rows the register's "What I estimated" list renders — the same
-  // expression it uses, with no conjunct it does not have.
-  const estimated = manifest.inferredFactors.items.length
-  if (estimated > 0) out.push(ABOUT_COPY.estimatedCount(estimated))
-  return out
+interface LimitBullet {
+  key: string
+  text: string
+  /** The producer's remediation, when it sent one — a second, quieter line. */
+  note?: string
+  gapCode?: string
+  /**
+   * The strip's own identity attributes, on the entry the strip selects
+   * (`selectRestingStripEntries`) — so a reader bound to `data-warning-code`
+   * finds the same object it found in the strip, and a held-back sibling does
+   * not carry them.
+   */
+  warningCode?: string
+  warningSeverity?: string
+  critiqueCode?: string
+  nodeId?: string
+  testId: string
 }
 
 export function AboutThisAnalysis({
   vm,
-  nSamples,
-  seedUsed,
   outcomeFormat,
+  reviewTopics,
   offerFactorValueControl = false,
   onAsk,
   folded = null,
@@ -371,7 +348,7 @@ export function AboutThisAnalysis({
   const [detailOpen, setDetailOpen] = useState<ReadonlySet<DetailKey>>(() => new Set())
   const regionId = useId()
   // Hooks before the pre-run return, as hooks must be.
-  const briefDetail = useBriefDetail()
+  const reviewCount = useReviewTopicCount(reviewTopics)
 
   const preRun = vm.status.isPreRun
   if (preRun && !foldedHasContent) return null
@@ -381,57 +358,113 @@ export function AboutThisAnalysis({
     { key: 'freshness', Icon: Clock, value: freshnessValue(vm), detail: [] },
     comparedRow(vm),
     evidenceRow(vm),
+    reviewRow(reviewCount),
     {
       key: 'robustness',
-      Icon: Shield,
+      Icon: Info,
       // ⛔ ONLY the view model's gated word (`VERDICT_WORD` under
       // `mayStateStability`, #1206). No word ⇒ not established, never a guess.
       value: vm.atAGlance.verdict?.label ?? ABOUT_COPY.robustnessNotEstablished,
       detail: [],
-    },
-    leaderRow(vm),
-    inputsRow(vm, briefDetail),
-    methodRow(nSamples, seedUsed),
+    } satisfies StatusRow,
   ].filter((r): r is StatusRow => r !== null)
 
   const analysed = vm.optionsComparison.rows.filter(
     (r): r is Extract<ComparisonOption, { kind: 'analysed' }> => r.kind === 'analysed',
   )
 
-  /**
-   * The not-assessed MEANINGS `WhatWeChecked` renders, read off the copy deck by
-   * code. The leader's producer cause is NOT appended here — it already sits on
-   * the leader row, and saying it twice in one surface is the defect this
-   * utility exists to remove.
+  /*
+   * ⛔ NOT THE LEADER ITEM. Its meaning ("could not confirm which option is
+   * most likely…") is already the commitment block's "What remains uncertain"
+   * bullet at rest; listing it here restored Paul's 20 Sep duplicate (V2
+   * census, B2).
    */
-  // ⛔ NOT THE LEADER ITEM. Its meaning ("could not confirm which option is
-  // most likely…") is already the commitment block's "What remains uncertain"
-  // bullet at rest, and the leader row here says "Not confirmed"; listing it
-  // again restored Paul's 20 Sep duplicate (V2 census, B2).
-  const limitations = vm.checks.items
+  const meanings = vm.checks.items
     .filter((i) => i.state === 'not_assessed' && i.id !== 'leader')
     .flatMap((i): Array<{ id: ChecksItem['id']; text: string }> => {
       const entry = COPY.checks[i.code]
       return 'meaning' in entry ? [{ id: i.id, text: entry.meaning }] : []
     })
 
+  /*
+   * ⭐ ONE LIST OF THE ENGINE'S OWN LIMITS, EACH ONCE. The strip's resting entry
+   * (`selectRestingStripEntries`, humanised as the strip humanises it) and the
+   * builder's statement rows (`selectHumanisedInferenceWarningsOutsideStrip`,
+   * the strip's exact complement) together are every inference warning — so
+   * nothing is "held back" to another section and nothing repeats. Critiques
+   * are the strip's own selection, CEE's copy verbatim.
+   */
+  const statementRows = vm.deeper.groups.flatMap((g) => g.rows.filter((r) => r.statement === true))
+  /**
+   * ⛔ GROUPED, WITH THEIR TITLES (#2069 review). The builder's groups carry
+   * meaning in their titles: "Readiness signals" emits rows labelled
+   * Evidence / Robustness / Framing that are coaching-layer quality signals
+   * ABOUT THE MODEL, "not a readiness verdict". Flattened, an ungated
+   * "Robustness 40%" sat unlabelled one click under About's gated
+   * "Robustness: Stable". Each group keeps its title as a sub-label.
+   */
+  const recordGroups = vm.deeper.groups
+    .map((g) => ({ title: g.title, rows: g.rows.filter((r) => r.statement !== true) }))
+    .filter((g) => g.rows.length > 0)
+  const recordRows: InspectRow[] = recordGroups.flatMap((g) => g.rows)
+  const limits: LimitBullet[] = [
+    ...selectRenderableCritiqueEntries(vm.deeper.critiques).map((c, i) => ({
+      key: `critique:${i}`,
+      text: c.displayText,
+      note: c.suggestion,
+      critiqueCode: c.code,
+      testId: `${testId}-limit-critique`,
+    })),
+    ...selectRestingStripEntries(vm.deeper.caveats).map((w, i) => ({
+      key: `caveat:${i}`,
+      text: humaniseInferenceWarningTitle(w),
+      gapCode: w.code,
+      warningCode: w.code,
+      warningSeverity: w.severity,
+      testId: `${testId}-limit-caveat`,
+    })),
+    ...statementRows.map((r, i) => ({
+      key: `gap:${i}`,
+      text: r.value,
+      gapCode: r.label || undefined,
+      nodeId: r.nodeId,
+      testId: `${testId}-limit-gap`,
+    })),
+  ]
+
   const details: DetailKey[] = preRun ? [] : [
     ...(analysed.length > 0 ? (['values'] as const) : []),
     'limitations',
-    ...(vm.deeper.groups.length > 0 ? (['record'] as const) : []),
+    ...(recordRows.length > 0 ? (['record'] as const) : []),
   ]
 
   const ask = () =>
     onAsk?.({
-      context: rows
-        .flatMap((r) => [`${ABOUT_COPY.rows[r.key]}: ${r.value}`, ...r.detail])
-        .join('\n'),
+      context: rows.flatMap(rowContext).join('\n'),
       draft: ABOUT_COPY.askDraft,
       label: ABOUT_COPY.ask,
     })
 
+  /**
+   * ⛔ A NORMALISED OUTCOME IS A MODEL SCORE: NO `%`, NO `+` (AI Quality,
+   * #70 5841808930). `formatThreshold` (shared with the Analysis tab) reframes
+   * it as "+9%", which reads as "a 9% change, up from now" — a unit and a
+   * direction these origin-form scores do not have. Here it prints as the
+   * comparison axis does: three significant figures, no sign, no symbol.
+   * A real unit still goes through `formatThreshold`.
+   */
   const fmt = (v: number) =>
-    formatThreshold(v, outcomeFormat.unit, outcomeFormat.symbol, outcomeFormat.isNormalised)
+    outcomeFormat.isNormalised === true
+      ? formatModelScore(v)
+      : formatThreshold(v, outcomeFormat.unit, outcomeFormat.symbol, outcomeFormat.isNormalised)
+
+  const toggleDetail = (key: DetailKey) =>
+    setDetailOpen((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   return (
     /* ⭐ V2 FIDELITY GAP 27: A QUIET AUDIT FOOTER, NOT A PEER SECTION. The
@@ -462,7 +495,8 @@ export function AboutThisAnalysis({
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls={open ? regionId : undefined}
-          className={`${typography.panelMeta} text-text-light flex min-w-0 flex-1 min-h-[27px] items-center gap-1.5 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+          /* Prototype `.about .disclose`: 27px tall — the 24px floor plus padding. */
+          className={`${typography.panelMeta} text-text-light flex min-w-0 flex-1 min-h-[24px] py-1.5 items-center gap-1.5 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
           data-testid={`${testId}-toggle`}
         >
           <ChevronRight
@@ -480,29 +514,50 @@ export function AboutThisAnalysis({
       {open ? (
         <div id={regionId} className="pb-3" data-testid={`${testId}-region`}>
           {rows.length > 0 ? (
-          <dl className="m-0 space-y-0.5" data-testid={`${testId}-rows`}>
+          /* Prototype `.audit-status` / `.audit-row`: 4px apart, 29px tall,
+             icon · label · light value · ✦. dl > div > dt + dd. */
+          <dl className="m-0 my-[7px] grid gap-1" data-testid={`${testId}-rows`}>
             {rows.map((r) => (
-              /* dl > div > dt + dd(s): the value in column two, any supporting
-                 lines spanning both columns under it. */
               <div
                 key={r.key}
-                className="grid grid-cols-[minmax(0,1fr)_minmax(0,auto)] items-start gap-x-2 py-0.5"
+                /* ⚠ The LABEL column is `auto` and the value takes the rest and
+                   wraps: a long value ("Assessed, 3 gaps found, all addressed")
+                   must never slide under its label at 280px. */
+                className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 min-h-[29px]"
                 data-testid={`${testId}-row-${r.key}`}
               >
-                <dt className={`${typography.panelBody} text-text-body flex min-w-0 items-start gap-1.5`}>
-                  <r.Icon className={`${icon('row')} mt-[3px] shrink-0 text-text-light`} aria-hidden={true} />
+                <dt className={`${typography.panelBody} text-text-body flex items-center gap-1.5`}>
+                  <span className="inline-flex w-4 shrink-0 items-center justify-center">
+                    <r.Icon className={`${icon('row')} text-text-light`} aria-hidden={true} />
+                  </span>
                   <span className="min-w-0">{ABOUT_COPY.rows[r.key]}</span>
                 </dt>
-                <dd
-                  className={`${typography.panelMeta} text-text-light m-0 mt-[2px] max-w-[11rem] text-right break-words`}
-                  data-testid={`${testId}-row-${r.key}-value`}
-                >
-                  {r.value}
+                <dd className="m-0 flex min-w-0 items-center justify-end gap-1.5">
+                  <span
+                    className={`${typography.panelMeta} text-text-light min-w-0 text-right break-words`}
+                    data-testid={`${testId}-row-${r.key}-value`}
+                  >
+                    {r.value}
+                  </span>
+                  {onAsk ? (
+                    <PanelIconButton
+                      ai
+                      label={ABOUT_COPY.rowAsk(ABOUT_COPY.rows[r.key])}
+                      onClick={() =>
+                        onAsk({
+                          context: rowContext(r).join('\n'),
+                          draft: ABOUT_COPY.rowAskDraft(ABOUT_COPY.rows[r.key]),
+                          label: ABOUT_COPY.rowAsk(ABOUT_COPY.rows[r.key]),
+                        })
+                      }
+                      testId={`${testId}-row-${r.key}-ask`}
+                    />
+                  ) : null}
                 </dd>
                 {r.detail.map((line, i) => (
                   <dd
                     key={i}
-                    className={`${typography.panelMeta} text-text-light m-0 col-span-2 pl-5 break-words`}
+                    className={`${typography.panelMeta} text-text-light m-0 col-span-2 pl-[22px] break-words`}
                     data-testid={`${testId}-row-${r.key}-detail`}
                   >
                     {line}
@@ -513,86 +568,48 @@ export function AboutThisAnalysis({
           </dl>
           ) : null}
 
-          {details.length > 0 ? (
-          <div className="mt-2">
-            {details.map((key) => {
-              const isOpen = detailOpen.has(key)
-              const bodyId = `${regionId}-${key}`
-              return (
-                <div key={key} data-testid={`${testId}-detail-${key}`}>
-                  <h4 className="m-0">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDetailOpen((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(key)) next.delete(key)
-                          else next.add(key)
-                          return next
-                        })
-                      }
-                      aria-expanded={isOpen}
-                      aria-controls={isOpen ? bodyId : undefined}
-                      className={`${typography.panelBody} text-text-body flex w-full min-h-[24px] items-center gap-1.5 py-1 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
-                      data-testid={`${testId}-detail-${key}-toggle`}
-                    >
-                      <span className="min-w-0 flex-1">{ABOUT_COPY.details[key]}</span>
-                      {isOpen ? (
-                        <ChevronDown className={`${icon('row')} shrink-0 text-text-light`} aria-hidden={true} />
-                      ) : (
-                        <ChevronRight className={`${icon('row')} shrink-0 text-text-light`} aria-hidden={true} />
-                      )}
-                    </button>
-                  </h4>
+          {details.map((key) => {
+            const isOpen = detailOpen.has(key)
+            const bodyId = `${regionId}-${key}`
+            return (
+              <div key={key} data-testid={`${testId}-detail-${key}`}>
+                {/* Prototype `.audit-link`: a full-width 30px row (the 24px
+                    floor plus 5px a side), the name left and the chevron right
+                    (down when open). */}
+                <button
+                  type="button"
+                  onClick={() => toggleDetail(key)}
+                  aria-expanded={isOpen}
+                  aria-controls={isOpen ? bodyId : undefined}
+                  className={`${typography.panelBody} text-text-body flex w-full min-h-[24px] py-[5px] items-center justify-between gap-2 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+                  data-testid={`${testId}-detail-${key}-toggle`}
+                >
+                  <span className="min-w-0">{ABOUT_COPY.details[key]}</span>
                   {isOpen ? (
-                    <div id={bodyId} className="pb-2 pl-5" data-testid={`${testId}-detail-${key}-body`}>
-                      {key === 'values' ? (
-                        <ValuesAndRanges options={analysed} fmt={fmt} normalised={outcomeFormat.isNormalised === true} goalOnly={vm.checks.sharesExcludeLimits} testId={testId} />
-                      ) : key === 'limitations' ? (
-                        <>
-                        {/* ⭐ V2: THE ENGINE'S CAVEATS LIVE HERE NOW. They were an
-                            amber box at the top of the tab; the tab now carries one
-                            qualifier under the chart (`commitmentQualifier.ts`) and
-                            the full list is here. Same two components, unchanged,
-                            so the copy is the one the legacy tab also shows. */}
-                        <CritiqueWarningStrip critiques={vm.deeper.critiques} className="mb-2" />
-                        <InferenceWarningStrip
-                          warnings={vm.deeper.caveats}
-                          className="mb-2"
-                          heldBackListedUnder={vm.deeper.groups.length > 0 ? ABOUT_COPY.details.record : null}
-                        />
-                        <ul className="m-0 list-none space-y-1 p-0">
-                          {limitations.map((m) => (
-                            <li
-                              key={m.id}
-                              className={`${typography.panelMeta} text-text-body`}
-                              data-testid={`${testId}-limitation-${m.id}`}
-                            >
-                              {m.text}
-                            </li>
-                          ))}
-                          <li
-                            className={`${typography.panelMeta} text-text-light`}
-                            data-testid={`${testId}-science-limitations`}
-                          >
-                            {SCIENCE_LIMITATIONS_DISCLOSURE}
-                          </li>
-                        </ul>
-                        </>
-                      ) : (
-                        <RunRecord
-                          groups={vm.deeper.groups}
-                          offerFactorValueControl={offerFactorValueControl}
-                          testId={testId}
-                        />
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })}
-          </div>
-          ) : null}
+                    <ChevronDown className={`${icon('row')} shrink-0`} aria-hidden={true} />
+                  ) : (
+                    <ChevronRight className={`${icon('row')} shrink-0`} aria-hidden={true} />
+                  )}
+                </button>
+                {isOpen ? (
+                  <div id={bodyId} className="pb-1" data-testid={`${testId}-detail-${key}-body`}>
+                    {key === 'values' ? (
+                      <ValuesTable options={analysed} fmt={fmt} normalised={outcomeFormat.isNormalised === true} onAsk={onAsk} testId={testId} />
+                    ) : key === 'limitations' ? (
+                      <SourcesAndLimits
+                        limits={limits}
+                        meanings={meanings}
+                        offerFactorValueControl={offerFactorValueControl}
+                        testId={testId}
+                      />
+                    ) : (
+                      <RunRecord groups={recordGroups} testId={testId} />
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
 
           {/* V2 gap 24 — the folded tail, last. `data-testid` so a reader of
               the DOM can tell a folded block from About's own rows. */}
@@ -608,116 +625,188 @@ export function AboutThisAnalysis({
 }
 
 /**
- * Per option, the range this run produced and the share figure — the same
- * `outcomeRange` and `winReadout` the comparison draws from, in the order the
- * view model gave them (a designation authored upstream, never re-sorted here).
+ * Prototype `valuesHTML()`: one table, Option · P10 · P50 · P90, the builder's
+ * own formatter, in the order the view model gave (a designation authored
+ * upstream, never re-sorted here). ⚠ NO UNIT CAPTION: the prototype's
+ * "<outcome> (<unit>)" caption waits on the units ruling; the only caption is
+ * the existing relative-scores sentence on a normalised run.
  */
-function ValuesAndRanges({
+function ValuesTable({
   options,
   fmt,
   normalised,
-  goalOnly,
+  onAsk,
   testId,
 }: {
   options: Array<Extract<ComparisonOption, { kind: 'analysed' }>>
   fmt: (v: number) => string
   normalised: boolean
-  /** `vm.checks.sharesExcludeLimits` — the same flag and constant the comparison uses. */
-  goalOnly: boolean
+  onAsk?: (payload: AboutAskPayload) => void
   testId: string
 }) {
   const cell = (v: number | null | undefined) =>
     typeof v === 'number' && Number.isFinite(v) ? fmt(v) : ABOUT_COPY.values.notReturned
-  /* ⭐ THE SHARES CARRY THEIR SCOPE HERE TOO. V2 moved the share figures into
-     this section and left the comparison's "Goal only" line behind, so on the
-     served withheld run (c3a39ae7) they printed with no word that the limits
-     are not in them. Only when a share figure is actually on screen. */
-  const showsAShare = options.some((o) => o.winReadout != null)
+  const table = options.map((o) => ({
+    id: o.id,
+    label: o.label,
+    cells: [
+      ['low', cell(o.outcomeRange?.p10)],
+      ['mid', cell(o.outcomeRange?.p50)],
+      ['high', cell(o.outcomeRange?.p90)],
+    ] as const,
+  }))
+  /* ⚠ `[font-weight:inherit]`, NOT A WEIGHT: it undoes the user agent's
+     `th { font-weight: bold }` so the header wears the panelMeta token's own
+     (inherited) weight, as the prototype's `.audit-table th{font-weight:400}`
+     does. DS §2.4 bans introducing a raw weight; this introduces none. */
+  const th = `${typography.panelMeta} text-text-light [font-weight:inherit] text-right px-1 py-[7px] first:pl-0 first:text-left last:pr-0`
+  const td = 'text-right px-1 py-[7px] border-t border-panel-border first:pl-0 first:text-left last:pr-0'
   return (
-    <div className="space-y-2">
-      {goalOnly && showsAShare ? (
-        <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${testId}-values-goal-only`}>
-          {COPY.optionFigures.goalOnlyQualifier}
-        </p>
-      ) : null}
-      {normalised ? (
-        <p className={`${typography.panelMeta} text-text-light m-0`} data-testid={`${testId}-values-normalised`}>
-          {ABOUT_COPY.values.normalised}
-        </p>
-      ) : null}
-      {options.map((o) => (
-        <div key={o.id} data-testid={`${testId}-values-${o.id}`}>
-          <p className={`${typography.panelBody} text-text-body m-0 break-words`}>{o.label}</p>
-          <dl className="m-0 mt-0.5 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5">
-            {(
-              [
-                ['low', ABOUT_COPY.values.low, cell(o.outcomeRange?.p10)],
-                ['mid', ABOUT_COPY.values.mid, cell(o.outcomeRange?.p50)],
-                ['high', ABOUT_COPY.values.high, cell(o.outcomeRange?.p90)],
-                ['share', ABOUT_COPY.values.share, o.winReadout ?? ABOUT_COPY.values.notReturned],
-              ] as const
-            ).map(([k, label, value]) => (
-              <div key={k} className="contents">
-                <dt className={`${typography.panelMeta} text-text-light min-w-0 break-words`}>{label}</dt>
-                <dd
-                  className={`${typography.panelMeta} text-text-body m-0 text-right tabular-nums`}
-                  data-testid={`${testId}-values-${o.id}-${k}`}
-                >
-                  {value}
-                </dd>
-              </div>
+    <>
+      <div className="max-w-full overflow-auto">
+        <table className={`${typography.panelMeta} text-text-body my-1.5 w-full border-collapse tabular-nums`}>
+          {normalised ? (
+            <caption
+              className={`${typography.panelMeta} text-text-light py-[3px] text-left`}
+              data-testid={`${testId}-values-normalised`}
+            >
+              {ABOUT_COPY.values.normalised}
+            </caption>
+          ) : null}
+          <thead>
+            <tr>
+              <th scope="col" className={th}>{ABOUT_COPY.values.option}</th>
+              <th scope="col" className={th}>{ABOUT_COPY.values.low}</th>
+              <th scope="col" className={th}>{ABOUT_COPY.values.mid}</th>
+              <th scope="col" className={th}>{ABOUT_COPY.values.high}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {table.map((row) => (
+              <tr key={row.id} data-testid={`${testId}-values-${row.id}`}>
+                <td className={`${td} break-words`}>{row.label}</td>
+                {row.cells.map(([k, v]) => (
+                  <td key={k} className={td} data-testid={`${testId}-values-${row.id}-${k}`}>
+                    {v}
+                  </td>
+                ))}
+              </tr>
             ))}
-          </dl>
+          </tbody>
+        </table>
+      </div>
+      {onAsk ? (
+        <div
+          className={`${typography.panelBody} text-text-body mt-1.5 flex items-center justify-between gap-2`}
+          data-testid={`${testId}-values-question`}
+        >
+          <span className="min-w-0">{ABOUT_COPY.values.question}</span>
+          <PanelIconButton
+            ai
+            label={ABOUT_COPY.values.questionAsk}
+            onClick={() =>
+              onAsk({
+                context: table
+                  .map((r) => `${r.label}: ${r.cells.map(([, v]) => v).join(' / ')}`)
+                  .join('\n'),
+                draft: ABOUT_COPY.values.question,
+                label: ABOUT_COPY.values.questionAsk,
+              })
+            }
+            testId={`${testId}-values-ask`}
+          />
         </div>
-      ))}
-    </div>
+      ) : null}
+    </>
   )
 }
 
 /**
- * `vm.deeper.groups` — everything `DeeperAnalysis` printed, in the builder's
- * order. ⚠ THE STATEMENT-ROW RULE IS `DeeperAnalysis`'s, kept exactly: a row
- * flagged `statement` carries the producer's CODE as its label, which is kept
- * in the DOM (`sr-only` term + `data-gap-code`) and never printed as a heading.
- * Keys are positional because labels repeat when one code is raised about two
- * nodes.
+ * Prototype `sourcesHTML()`: short bullets (`.tiny-list`, a centred-dot marker).
+ * Engine limits first, in producer order, then the unassessed meanings by
+ * check code, then the standing science disclosure.
  */
-function RunRecord({
-  groups,
+function SourcesAndLimits({
+  limits,
+  meanings,
   offerFactorValueControl,
   testId,
 }: {
-  groups: AnalysisNewViewModel['deeper']['groups']
+  limits: LimitBullet[]
+  meanings: Array<{ id: ChecksItem['id']; text: string }>
   offerFactorValueControl: boolean
   testId: string
 }) {
+  const li = "relative pl-[11px] before:absolute before:left-px before:content-['·']"
   return (
-    <div className="space-y-3">
-      {groups.map((group) => (
-        <div key={group.title} data-testid={`${testId}-record-group`}>
-          <h5 className={`${typography.panelMeta} text-text-header m-0`}>{group.title}</h5>
-          <dl className="m-0 mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-            {group.rows.map((r, i) => (
-              <div key={`${i}:${r.label}`} className="contents">
-                {r.statement ? (
-                  <>
-                    <dt className="sr-only">{r.label}</dt>
-                    <dd
-                      className={`${typography.panelMeta} text-text-body m-0 col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 break-words`}
-                      data-gap-code={r.label || undefined}
-                    >
-                      <span className="min-w-0 break-words">{r.value}</span>
-                      {offerFactorValueControl && r.nodeId ? (
-                        <FactorValueControl nodeId={r.nodeId} testIdPrefix={testId} />
-                      ) : null}
-                    </dd>
-                  </>
-                ) : (
-                  <>
-                    <dt className={`${typography.panelMeta} text-text-light break-words`}>{r.label}</dt>
-                    <dd className={`${typography.panelMeta} text-text-body m-0 min-w-0 break-words`}>{r.value}</dd>
-                  </>
-                )}
+    <ul
+      /* `.tiny-list`: 6px margin + each item's 3px, and 6px + 3px + 3px between items. */
+      className={`${typography.panelBody} text-text-body m-0 my-[9px] list-none space-y-3 pl-[15px]`}
+      data-testid={`${testId}-limits`}
+    >
+      {limits.map((b) => (
+        <li
+          key={b.key}
+          className={`${li} break-words`}
+          data-testid={b.testId}
+          data-gap-code={b.gapCode}
+          data-warning-code={b.warningCode}
+          data-warning-severity={b.warningSeverity}
+          data-critique-code={b.critiqueCode}
+        >
+          <span>{b.text}</span>
+          {b.note ? (
+            <span className={`${typography.panelMeta} text-text-light block`}>{b.note}</span>
+          ) : null}
+          {offerFactorValueControl && b.nodeId ? (
+            <span className="block">
+              <FactorValueControl nodeId={b.nodeId} testIdPrefix={testId} />
+            </span>
+          ) : null}
+        </li>
+      ))}
+      {meanings.map((m) => (
+        <li key={m.id} className={li} data-testid={`${testId}-limitation-${m.id}`}>
+          {m.text}
+        </li>
+      ))}
+      <li className={li} data-testid={`${testId}-science-limitations`}>
+        {SCIENCE_LIMITATIONS_DISCLOSURE}
+      </li>
+    </ul>
+  )
+}
+
+/**
+ * Prototype run receipt (`.dl`): label/value rows. The label column is the
+ * prototype's 95px at a 420px panel and 75px at 280px (its `@container
+ * panel (max-width:320px)` step), interpolated between them. Every
+ * NON-statement row the builder put in `vm.deeper.groups`, flattened in its
+ * order; the statement rows (the gaps worked around) are limits, not receipts,
+ * and render in "Sources and limits".
+ */
+function RunRecord({
+  groups,
+  testId,
+}: {
+  groups: ReadonlyArray<{ title: string; rows: InspectRow[] }>
+  testId: string
+}) {
+  return (
+    <div className="m-0 my-1.5 space-y-2" data-testid={`${testId}-record-rows`}>
+      {groups.map((g, gi) => (
+        <div key={`${gi}:${g.title}`} data-testid={`${testId}-record-group`} data-group-title={g.title}>
+          <p className={`${typography.panelMeta} text-text-light m-0 mb-1`} data-testid={`${testId}-record-group-title`}>
+            {g.title}
+          </p>
+          <dl
+            className={`${typography.panelBody} m-0 grid grid-cols-[clamp(75px,calc(14.29%_+_39.57px),95px)_minmax(0,1fr)] gap-x-3 gap-y-1.5`}
+          >
+            {g.rows.map((r, i) => (
+              /* Positional keys: one label can repeat across groups. */
+              <div key={`${i}:${r.label}`} className="contents" data-testid={`${testId}-record-row`}>
+                <dt className="text-text-light min-w-0 break-words">{r.label}</dt>
+                <dd className="m-0 min-w-0 text-text-body break-words">{r.value}</dd>
               </div>
             ))}
           </dl>
