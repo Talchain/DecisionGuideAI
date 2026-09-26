@@ -25,6 +25,12 @@ export const CHALLENGE_ZONE_COPY = {
    */
   notUseful: 'Not useful right now',
   /**
+   * The card with nothing to show (no finding to challenge, no method picked),
+   * under a title that would otherwise stand over nothing but the door. An
+   * instruction, not a claim about the run: the strip is directly above.
+   */
+  pickAMethod: 'Choose a method above to challenge the thinking.',
+  /**
    * The title's ⓘ (V2 prototype `method-info`). It opens the same basis as
    * "Why this question?".
    */
