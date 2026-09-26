@@ -149,7 +149,10 @@ describe('the title and its ⓘ "Why this method here?"', () => {
 
   it('⛔ CONTRAST — a finding with no technique gets its why-line and NO protocol line', () => {
     draw({ intervention: viaVm(UNMAPPED) })
-    fireEvent.click(screen.getByRole('button', { name: 'Why this method here?' }))
+    // A finding that names no technique asks "Why this question?" — there is
+    // no method to explain (#2066 review note).
+    expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Why this question?' }))
     expect(screen.getByTestId(`${TID}-basis-why`)).toBeInTheDocument()
     expect(screen.queryByTestId(`${TID}-basis-protocol`)).toBeNull()
   })
