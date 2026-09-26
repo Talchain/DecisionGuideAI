@@ -11,7 +11,12 @@
  * in the target's own unit, on `edge.provenance`:
  *
  *   provenance.magnitude:      'user_stated' | 'olumi_estimate' | 'olumi_placeholder'
- *   provenance.natural_effect: { amount, unit, per_source_change, source_unit, strength_mean }
+ *   provenance.natural_effect: { amount, amount_unit, per_source_change, per_source_change_unit,
+ *                                strength_mean, strength_mean_frame: 'edge_strength' }
+ *
+ * (Final key names, MG #70 5846999581: CEE's value-warrant guard needs each number's
+ * unit scoped to that number, so `unit` → `amount_unit`, `source_unit` →
+ * `per_source_change_unit`, and `strength_mean_frame` says which β the key is.)
  *
  * The UI SAYS it; it never converts β itself. A second copy of the producer's
  * frame arithmetic here would be parallel logic that drifts.
@@ -61,6 +66,9 @@ export const NaturalEffectSchema = z.object({
 })
 export type NaturalEffect = z.infer<typeof NaturalEffectSchema>
 
+/** The frame `strength_mean` is stated in: the edge's own strength (β). */
+export const STRENGTH_MEAN_FRAME = 'edge_strength'
+
 /** The source unit a yes/no source or a switched-on option carries. */
 export const SWITCH_SOURCE_UNIT = 'switch'
 
@@ -103,11 +111,14 @@ export function readWireNaturalEffect(
         ? MAGNITUDE_AUTHORS[provenance.magnitude]
         : undefined
   if (author === undefined) return undefined
+  // The staleness key is compared with the edge's own strength mean, so it must SAY
+  // it is on that frame. Anything else is not a key this reader can compare.
+  if (ne.strength_mean_frame !== STRENGTH_MEAN_FRAME) return undefined
   const parsed = NaturalEffectSchema.safeParse({
     amount: ne.amount,
-    unit: nonEmpty(ne.unit),
+    unit: nonEmpty(ne.amount_unit),
     perSourceChange: ne.per_source_change,
-    sourceUnit: nonEmpty(ne.source_unit),
+    sourceUnit: nonEmpty(ne.per_source_change_unit),
     strengthMean: ne.strength_mean,
     author,
   })

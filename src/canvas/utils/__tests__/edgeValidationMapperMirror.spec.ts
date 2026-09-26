@@ -398,7 +398,10 @@ const WIRE_EDGE_NATURAL = {
   provenance: {
     source: 'cee_hypothesis',
     magnitude: 'olumi_estimate',
-    natural_effect: { amount: -1, unit: 'points of churn', per_source_change: 1, source_unit: 'switch', strength_mean: -0.01 },
+    natural_effect: {
+      amount: -1, amount_unit: 'points of churn', per_source_change: 1, per_source_change_unit: 'switch',
+      strength_mean: -0.01, strength_mean_frame: 'edge_strength',
+    },
   },
 }
 
