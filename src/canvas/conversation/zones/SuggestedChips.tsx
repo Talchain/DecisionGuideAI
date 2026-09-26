@@ -35,7 +35,8 @@ import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { isChipRenderable } from '../chipDispatch'
 import { analysisHeldOn } from '../../utils/analysisHeldOnInjectedModel'
 import { V5_ENABLED_ACTIONS } from '../chipActionVocabulary'
-import { CHIP_CLASS } from '../../../v5/blocks/chipClass'
+import { CHIP_CLASS, CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
+import { CONSENT_CHIP_PREFIX } from '../messageComposition'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -485,7 +486,18 @@ export function SuggestedChips({
               //
               // Only the animation classes stay local: they are this surface's
               // stagger-in, not part of the shared idiom.
-              className={`suggested-chip chip-stagger-in ${CHIP_CLASS}`}
+              //
+              // ⭐ ONE FILLED CHIP: the consent chip, `agent-approve-proposal:*`,
+              // by identity (its id prefix; a chip can arrive without an id,
+              // hence the string check), never by `intent` — `intent:
+              // 'primary'` also marks Retry and Start-a-new-draft. DS v5 §21.2:
+              // "Accept → bg-primary". Its partner, "Change something first",
+              // stays outlined, so the pair reads as one yes and one way out.
+              className={`suggested-chip chip-stagger-in ${
+                typeof chip.id === 'string' && chip.id.startsWith(CONSENT_CHIP_PREFIX)
+                  ? CHIP_PRIMARY_CLASS
+                  : CHIP_CLASS
+              }`}
               style={{ animationDelay: `${i * 70}ms` }}
               data-testid={`suggested-chip-${chip.id}`}
               data-chip-role={chip.role ?? undefined}
