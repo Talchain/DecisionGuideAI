@@ -68,6 +68,7 @@ import {
   type StructuralRenameNoticeKey,
 } from '../mutations/structuralRename'
 import {
+  readCommittedIncidentEdgeKeys,
   readStructuralAddReceipt,
   revertStructuralAdd,
   STRUCTURAL_ADD_NOTICE,
@@ -3449,8 +3450,12 @@ export function useConversation(): UseConversationReturn {
       // the user "I couldn't confirm" about an add that plainly committed.
       // `settleStructuralAdd` is idempotent, so whichever authority writes first
       // owns the verdict.
-      const settle = (status: 'committed' | 'refused' | 'unconfirmed', committedGraphHash?: unknown) => {
-        useCanvasStore.getState().settleStructuralAdd(intent.id, status, committedGraphHash)
+      const settle = (
+        status: 'committed' | 'refused' | 'unconfirmed',
+        committedGraphHash?: unknown,
+        committedIncidentEdgeKeys?: readonly string[],
+      ) => {
+        useCanvasStore.getState().settleStructuralAdd(intent.id, status, committedGraphHash, committedIncidentEdgeKeys)
       }
 
       if (outcome.kind === 'response') {
@@ -3458,7 +3463,14 @@ export function useConversation(): UseConversationReturn {
         if (receipt === 'proven') {
           // The committing turn's hash rides WITH the verdict: it is the base a
           // link chained to this node ("+ Add option") must be sent on.
-          settle('committed', outcome.response.graph_hash)
+          // So do the committed graph's edges on this node: CEE may have written
+          // the chained link in this same commit (C32, #1937), and the link's
+          // drain reads that answer rather than sending a duplicate.
+          settle(
+            'committed',
+            outcome.response.graph_hash,
+            readCommittedIncidentEdgeKeys(outcome.response, intent.nodeId),
+          )
           return
         }
         if (receipt === 'refuted') {

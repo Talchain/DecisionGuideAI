@@ -47,7 +47,7 @@ import {
   readChainedStructuralAddEdge,
   type StructuralAddEdgeIntent,
 } from '../structuralAddEdge'
-import type { StructuralAddLifecycleRecord } from '../structuralAdd'
+import { readCommittedIncidentEdgeKeys, structuralEdgePairKey, type StructuralAddLifecycleRecord } from '../structuralAdd'
 
 // ---------------------------------------------------------------------------
 // Mocks — seams only; the V5 adapter/parser/router chain stays REAL.
@@ -105,7 +105,17 @@ interface WireRecord {
   event: Record<string, unknown>
 }
 
-function fakeCee(initial: { hash: string; nodes: ServerNode[]; edges: ServerEdge[] }) {
+/**
+ * `linksOptionToSoleDecision` mirrors CEE #1937 (C32) exactly as its diff reads:
+ * a `structural_add` of an OPTION on a graph with EXACTLY ONE decision writes
+ * `decision → option` in the same commit, and a `structural_add_edge` for a
+ * pair that already exists is an idempotent 200 refusal decided BEFORE the
+ * stale gate ("… is already an option for …"), writing nothing.
+ */
+function fakeCee(
+  initial: { hash: string; nodes: ServerNode[]; edges: ServerEdge[] },
+  opts: { linksOptionToSoleDecision?: boolean } = {},
+) {
   const server = {
     hash: initial.hash,
     nodes: initial.nodes.map((n) => ({ ...n })),
@@ -175,6 +185,14 @@ function fakeCee(initial: { hash: string; nodes: ServerNode[]; edges: ServerEdge
     }
     const kind = String(event.kind)
     const base = event.base_graph_hash
+    if (
+      opts.linksOptionToSoleDecision &&
+      kind === 'structural_add_edge' &&
+      server.edges.some((e) => e.from === event.from && e.to === event.to)
+    ) {
+      wire.push({ kind, base, status: 200, event })
+      return ok({ assistant_text: `${String(event.to)} is already an option for ${String(event.from)}, so there was nothing to change.` })
+    }
     if (base !== server.hash) {
       wire.push({ kind, base, status: 409, event })
       return diverged(kind)
@@ -185,6 +203,10 @@ function fakeCee(initial: { hash: string; nodes: ServerNode[]; edges: ServerEdge
         kind: String(event.node_kind),
         label: String(event.label),
       })
+      const decisions = server.nodes.filter((n) => n.kind === 'decision')
+      if (opts.linksOptionToSoleDecision && event.node_kind === 'option' && decisions.length === 1) {
+        server.edges.push({ from: decisions[0]!.id, to: String(event.node_id) })
+      }
     } else {
       const from = String(event.from)
       const to = String(event.to)
@@ -221,12 +243,12 @@ const SERVER_EDGES: ServerEdge[] = [
   { from: 'opt_a', to: 'fac_churn' },
 ]
 
-function seedCanvas(lastServerGraphHash: string) {
+function seedCanvas(lastServerGraphHash: string, nodes: ServerNode[] = SERVER_NODES) {
   useCanvasStore.getState().reset?.()
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
     lastServerGraphHash,
-    nodes: SERVER_NODES.map((n, i) => ({
+    nodes: nodes.map((n, i) => ({
       id: n.id,
       type: n.kind,
       position: { x: 0, y: i * 150 },
@@ -431,6 +453,122 @@ describe('the chain is bound by IDENTITY, never by "whatever the hash is now"', 
     const edge = { ...chainedLink(), baseGraphHash: H0, afterNodeAddIntentId: undefined }
     expect(chainStructuralAddEdgeToNodeAdd(edge, { id: 'sa-9', nodeId: 'someone_else' })).toBe(edge)
     expect(chainStructuralAddEdgeToNodeAdd(edge, nodeAdd)).toMatchObject({ baseGraphHash: null, afterNodeAddIntentId: 'sa-1' })
+  })
+})
+
+describe('C32 with CEE #1937 served — the canvas reads the server\'s answer, it does not mirror its rule', () => {
+  // Canonical State, olumi-programme-docs#70 5841540452: "If that draft_graph
+  // already has an edge <decision> → <new option>, the link is done. Do not
+  // send the follow-up structural_add_edge. If it has no such edge … send the
+  // follow-up with base_graph_hash = the add reply's graph_hash."
+
+  it('⭐ ONE decision: the option\'s own commit holds its link → no follow-up is sent, one commit, no second sentence', async () => {
+    const cee = fakeCee({ hash: H0, nodes: SERVER_NODES, edges: SERVER_EDGES }, { linksOptionToSoleDecision: true })
+    vi.stubGlobal('fetch', cee.fetchImpl)
+    seedCanvas(H0)
+    mountDrains()
+
+    let optionId = ''
+    await act(async () => {
+      optionId = String(
+        useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', 'dec_pricing', 'from-target'),
+      )
+    })
+    await waitFor(() => expect(cee.wire.length).toBeGreaterThanOrEqual(1))
+    await settle()
+
+    // ONE message on the wire — the add. The duplicate link event, whose reply
+    // would have put "… is already an option …" in the conversation, is gone.
+    expect(cee.wire.map((w) => `${w.kind}:${w.status}`)).toEqual(['structural_add:200'])
+    // Outcome read from the server: the option AND its link, in one commit.
+    expect(cee.server.edges).toContainEqual({ from: 'dec_pricing', to: optionId })
+    // The canvas shows exactly what the server holds — the link is not reverted.
+    expect(
+      useCanvasStore.getState().edges.some((e) => e.source === 'dec_pricing' && e.target === optionId),
+    ).toBe(true)
+    // Nothing left queued to leak out on a later turn.
+    expect(useCanvasStore.getState().pendingStructuralAddEdges).toEqual([])
+    const record = useCanvasStore.getState().structuralAddLifecycle.find((r) => r.intent.nodeId === optionId)
+    expect(record?.status).toBe('committed')
+    expect(record?.committedIncidentEdgeKeys).toContain(structuralEdgePairKey('dec_pricing', optionId))
+  })
+
+  it('TWO decisions: CEE writes no link → the follow-up IS sent, on the add\'s own hash, and lands (no 409)', async () => {
+    const DEC_2: ServerNode = { id: 'dec_hiring', kind: 'decision', label: 'Hiring' }
+    const nodes = [...SERVER_NODES, DEC_2]
+    const cee = fakeCee({ hash: H0, nodes, edges: SERVER_EDGES }, { linksOptionToSoleDecision: true })
+    vi.stubGlobal('fetch', cee.fetchImpl)
+    seedCanvas(H0, nodes)
+    mountDrains()
+
+    let optionId = ''
+    await act(async () => {
+      optionId = String(
+        useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', 'dec_pricing', 'from-target'),
+      )
+    })
+    await waitFor(() => expect(cee.wire.length).toBeGreaterThanOrEqual(2))
+    await settle()
+
+    expect(cee.wire.map((w) => `${w.kind}:${w.status}`)).toEqual(['structural_add:200', 'structural_add_edge:200'])
+    expect(cee.wire[1]!.base).toBe(H1)
+    expect(cee.server.edges).toContainEqual({ from: 'dec_pricing', to: optionId })
+    expect(cee.server.edges.some((e) => e.from === 'dec_hiring' && e.to === optionId)).toBe(false)
+  })
+
+  it('readiness reads the committed PAIR, in its direction — never "some edge touches the node"', () => {
+    const link: StructuralAddEdgeIntent = {
+      id: 'sae-1',
+      edgeId: 'e-new',
+      from: 'dec_pricing',
+      to: 'opt_new',
+      magnitude: 1,
+      direction: 'positive',
+      baseGraphHash: null,
+      afterNodeAddIntentId: 'sa-1',
+    }
+    const nodeAdd = { id: 'sa-1', nodeId: 'opt_new', nodeKind: 'option', label: 'New option', baseGraphHash: H0 }
+    const committed = (keys?: string[]) => [
+      {
+        intent: nodeAdd,
+        scenarioId: SCENARIO_ID,
+        status: 'committed' as const,
+        committedGraphHash: H1,
+        ...(keys ? { committedIncidentEdgeKeys: keys } : {}),
+      },
+    ]
+    expect(readChainedStructuralAddEdge(link, [], committed([structuralEdgePairKey('dec_pricing', 'opt_new')])))
+      .toEqual({ kind: 'already_linked' })
+    // The reversed pair, another decision's link, an empty set and an unread
+    // graph each leave the link to be SENT on the committed hash.
+    for (const keys of [
+      [structuralEdgePairKey('opt_new', 'dec_pricing')],
+      [structuralEdgePairKey('dec_hiring', 'opt_new')],
+      [],
+      undefined,
+    ]) {
+      expect(readChainedStructuralAddEdge(link, [], committed(keys))).toEqual({ kind: 'send', baseGraphHash: H1 })
+    }
+  })
+
+  it('the committed-graph reader keeps only edges INCIDENT on the node, and says "unread" for no graph', () => {
+    const response = {
+      draft_graph: {
+        nodes: [],
+        edges: [
+          { from: 'dec_pricing', to: 'opt_new' },
+          { from: 'opt_new', to: 'fac_churn' },
+          { from: 'dec_pricing', to: 'opt_a' },
+          { from: 42, to: 'opt_new' },
+        ],
+      },
+    }
+    expect(readCommittedIncidentEdgeKeys(response, 'opt_new')).toEqual([
+      structuralEdgePairKey('dec_pricing', 'opt_new'),
+      structuralEdgePairKey('opt_new', 'fac_churn'),
+    ])
+    expect(readCommittedIncidentEdgeKeys({ graph_hash: H1 }, 'opt_new')).toBeUndefined()
+    expect(readCommittedIncidentEdgeKeys({ draft_graph: { nodes: [] } }, 'opt_new')).toBeUndefined()
   })
 })
 

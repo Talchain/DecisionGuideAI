@@ -1811,6 +1811,12 @@ interface CanvasState {
      * only — the base for a link chained to this node. Ignored otherwise.
      */
     committedGraphHash?: unknown,
+    /**
+     * The committed graph's edges incident on the node, as pair keys
+     * (`readCommittedIncidentEdgeKeys`) — recorded on a `committed` verdict
+     * only. How a link chained to this node learns CEE already wrote it.
+     */
+    committedIncidentEdgeKeys?: readonly string[],
   ) => void
   /**
    * 0.50.0: take back a node the server did not save.
@@ -7387,7 +7393,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     return record
   },
 
-  settleStructuralAdd: (intentId, status: StructuralAddTerminalStatus, committedGraphHash) => {
+  settleStructuralAdd: (intentId, status: StructuralAddTerminalStatus, committedGraphHash, committedIncidentEdgeKeys) => {
     set((s) => {
       const idx = s.structuralAddLifecycle.findIndex((r) => r.intent.id === intentId)
       if (idx === -1) return {}
@@ -7403,7 +7409,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         status === 'committed' && typeof committedGraphHash === 'string' && committedGraphHash.length > 0
           ? committedGraphHash
           : undefined
-      next[idx] = hash ? { ...existing, status, committedGraphHash: hash } : { ...existing, status }
+      const edgeKeys =
+        status === 'committed' && Array.isArray(committedIncidentEdgeKeys)
+          ? [...committedIncidentEdgeKeys]
+          : undefined
+      next[idx] = {
+        ...existing,
+        status,
+        ...(hash ? { committedGraphHash: hash } : {}),
+        ...(edgeKeys ? { committedIncidentEdgeKeys: edgeKeys } : {}),
+      }
       return { structuralAddLifecycle: next }
     })
   },

@@ -42,7 +42,7 @@
  */
 import type { SystemEventTurnPayload } from '@talchain/schemas/boundary'
 import { isCanonicalEndpointId } from './structuralDelete'
-import type { StructuralAddIntent, StructuralAddLifecycleRecord } from './structuralAdd'
+import { structuralEdgePairKey, type StructuralAddIntent, type StructuralAddLifecycleRecord } from './structuralAdd'
 
 export type StructuralAddEdgeWireEvent = Extract<
   SystemEventTurnPayload['event'],
@@ -386,6 +386,12 @@ export type ChainedStructuralAddEdgeReadiness =
    */
   | { readonly kind: 'send'; readonly baseGraphHash: string | null }
   /**
+   * The node add COMMITTED and its committed graph ALREADY HOLDS this exact
+   * pair — CEE wrote the link in the node's own commit. Nothing to send; the
+   * local link is canonical truth as it stands.
+   */
+  | { readonly kind: 'already_linked' }
+  /**
    * The node add did not commit (refused, unconfirmed) or its record is gone.
    * The link is NOT sent: it would name an endpoint the server may not hold,
    * and the node's own settle has already told the user where the gesture
@@ -409,6 +415,14 @@ export function readChainedStructuralAddEdge(
   if (!record) return { kind: 'stand_down', nodeStatus: 'missing' }
   if (record.status === 'in_flight') return { kind: 'hold' }
   if (record.status === 'committed') {
+    // ⭐ THE SERVER'S ANSWER FIRST. The node's own commit may already hold this
+    // exact pair (CEE #1937 links a new option to a model's sole decision in the
+    // same write). Then the link is DONE: sending it would only draw CEE's
+    // "already an option" reply into the conversation. Read by identity — the
+    // pair, in its direction — never by a copy of CEE's rule.
+    if (record.committedIncidentEdgeKeys?.includes(structuralEdgePairKey(intent.from, intent.to))) {
+      return { kind: 'already_linked' }
+    }
     const hash = record.committedGraphHash
     return { kind: 'send', baseGraphHash: typeof hash === 'string' && hash.length > 0 ? hash : null }
   }

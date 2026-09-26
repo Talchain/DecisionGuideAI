@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:7953
+src/canvas/store.ts:7968
 src/canvas/stores/readinessStore.ts:782
 src/canvas/stores/readinessStore.ts:875
 src/canvas/utils/briefValidation.ts:43
@@ -127,6 +127,10 @@ src/types/constraints.ts:78
 #    committed-hash settle, all above this site. Line text identical
 #    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`); added and gone
 #    were exactly this pair.)
+#    (`store.ts:7953` -> `7968`, a pure +15 line shift from
+#    `canvas/add-option-link-contract` (26 Sep 2026): `settleStructuralAdd`
+#    also records the committed graph's incident edge keys, above this site.
+#    Line text identical; added and gone were exactly this pair.)
 #    (`analysisNewCopy.ts:2463` -> `2471`, a pure +8 line shift from Panel
 #    bundle 2: copy for the blocker repair ask and #1963's tail subtitles,
 #    both above this site. Line text identical; added and gone were

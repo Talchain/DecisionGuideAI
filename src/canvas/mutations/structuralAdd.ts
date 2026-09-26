@@ -570,6 +570,51 @@ export interface StructuralAddLifecycleRecord {
    * See `readChainedStructuralAddEdge`.
    */
   readonly committedGraphHash?: string
+  /**
+   * The edges the COMMITTED graph already holds that touch this node, as
+   * {@link structuralEdgePairKey} keys — read off the same committing
+   * response's `draft_graph`. Written only with a `committed` verdict, and only
+   * when that graph was readable.
+   *
+   * ⭐ IT IS HOW A CHAINED LINK LEARNS IT IS ALREADY DONE. CEE may write the
+   * link itself in the node's own commit (C32: an option added to a model with
+   * exactly one decision is linked to it in the same write, CEE #1937). The
+   * canvas does NOT mirror that rule — it reads the server's answer (Canonical
+   * State, olumi-programme-docs#70 5841540452): if the committed graph already
+   * holds the pair, the follow-up `structural_add_edge` is not sent at all.
+   * See `readChainedStructuralAddEdge`.
+   */
+  readonly committedIncidentEdgeKeys?: readonly string[]
+}
+
+/** The one key a committed edge and a queued link share: the canonical pair. */
+export function structuralEdgePairKey(from: string, to: string): string {
+  return `${from}\u0000${to}`
+}
+
+/**
+ * The committed graph's edges INCIDENT on `nodeId`, as pair keys — or
+ * `undefined` when the response carried no readable `draft_graph` (then the
+ * chain falls back to sending the link, which the server's own duplicate gate
+ * answers idempotently).
+ */
+export function readCommittedIncidentEdgeKeys(
+  response: unknown,
+  nodeId: string,
+): string[] | undefined {
+  const draftGraph = (response as { draft_graph?: unknown } | null | undefined)?.draft_graph
+  if (!draftGraph || typeof draftGraph !== 'object') return undefined
+  const rawEdges = (draftGraph as { edges?: unknown }).edges
+  if (!Array.isArray(rawEdges)) return undefined
+  const keys: string[] = []
+  for (const e of rawEdges) {
+    const from = (e as { from?: unknown } | null)?.from
+    const to = (e as { to?: unknown } | null)?.to
+    if (typeof from !== 'string' || typeof to !== 'string') continue
+    if (from !== nodeId && to !== nodeId) continue
+    keys.push(structuralEdgePairKey(from, to))
+  }
+  return keys
 }
 
 /** Everything except `in_flight` — the states a settle may write. */

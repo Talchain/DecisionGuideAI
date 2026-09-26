@@ -122,6 +122,11 @@ export function useStructuralAddEdgeEvents(sendSystemEvent: StructuralAddEdgeSen
           if (batch.length === 0) return
           for (const intent of batch) {
             const chain = readiness(intent)
+            // ⭐ C32 (Canonical State, #70 5841540452): the node's own commit
+            // already holds this pair — CEE linked the option to the model's
+            // sole decision in that write. The link is DONE. Not sent, no toast:
+            // the canvas already shows exactly what the server holds.
+            if (chain.kind === 'already_linked') continue
             if (chain.kind === 'stand_down' || chain.kind === 'hold') {
               // `hold` is unreachable here (the take above excluded it, and a
               // settled verdict is never rewritten). `stand_down`: the node add
