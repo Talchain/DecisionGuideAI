@@ -2815,10 +2815,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 BELOW the hidden body it is standing in for.
               `title` carries the untruncated string, the same sighted-hover
               treatment the node title gets when its clamp ellipsises it. */}
-          {lodBodyLine !== null && (
+          {(lodBodyLine !== null || lodBody.unconfirmedEstimate) && (
             <div
               data-testid="node-lod-line"
-              title={lodBodyLine}
+              title={lodBodyLine ?? undefined}
               /*
                * ⚠⚠ THE TESTID AND THE VISIBILITY STAY ON THE OUTER ELEMENT, and
                * two specs outside this file are why. `BaseNode.lodBodyLine`
@@ -2837,6 +2837,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               className="absolute left-0 right-0 top-0 flex items-baseline gap-1"
               style={{ visibility: 'visible' }}
             >
+              {lodBodyLine !== null && (
               <span
                 data-testid="node-lod-line-text"
                 // `!leading-tight`: one line whose box fits the blanked body's
@@ -2845,6 +2846,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               >
                 {lodBodyLine}
               </span>
+              )}
               {/* ⭐⭐ THE MARK IS `shrink-0`, AND THAT IS THE WHOLE POINT OF
                   PUTTING IT IN ITS OWN ELEMENT RATHER THAN IN THE STRING.
                   This line is `truncate`d, so a marker appended to the text

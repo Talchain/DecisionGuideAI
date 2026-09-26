@@ -217,6 +217,15 @@ export interface LodMetricLineInputs {
   facts?: LodMetricFacts
 }
 
+/** A bare 0–1 value that is Olumi's unconfirmed estimate: its number is omitted, its mark is not. */
+function factorBareEstimateMarkOnly(data: Record<string, unknown>, label: string): boolean {
+  const observed = data.observedState as Record<string, unknown> | undefined
+  const normalised = isSuppressedUnit(observed?.unit as string | undefined)
+    ? { ...data, observedState: { ...observed, unit: null } }
+    : data
+  return readoutIsBareModelScale(factorDisplayText(normalised, label), data) && factorValueSourceMark(data)?.kind === 'olumi'
+}
+
 /** A factor's stated value, via the shared entry point every factor surface uses. */
 function factorStatedValue(data: Record<string, unknown>, label: string): string | null {
   const observed = data.observedState as Record<string, unknown> | undefined
@@ -259,6 +268,17 @@ export function resolveLodMetricLineDetail({
   displayMetadata,
   facts,
 }: LodMetricLineInputs): { text: string | null; unconfirmedEstimate: boolean } {
+  /**
+   * ⭐ OMIT THE NUMBER, NEVER ITS PROVENANCE — at the reduced rung too (#2085
+   * review F4). A bare 0–1 Olumi estimate loses its figure (v3.1 #20), exactly
+   * as on the full card, but the line keeps the `est.` mark alone — the full
+   * card's F1 rule, one zoom out. It does NOT fall through to the rank or range
+   * arm: the mark speaks about the factor's VALUE, and pairing it with another
+   * arm's string would point it at the wrong number (trap 21).
+   */
+  if (nodeType === 'factor' && data && factorBareEstimateMarkOnly(data, label)) {
+    return { text: null, unconfirmedEstimate: true }
+  }
   const text = resolveText({ nodeType, data, label, displayMetadata, facts })
   if (text === null || nodeType !== 'factor' || !data) return { text, unconfirmedEstimate: false }
 

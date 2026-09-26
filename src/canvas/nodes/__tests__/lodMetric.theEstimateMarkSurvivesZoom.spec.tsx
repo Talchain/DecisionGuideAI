@@ -196,10 +196,11 @@ describe('the est. mark survives the zoom that hides the card body', () => {
     )
   })
 
-  it('v3.1 #20 — the SAME estimate as a bare 0–1 figure says NOTHING at the reduced rung: no number, so no mark', () => {
+  it('v3.1 #20 + #2085 F4 — the SAME estimate as a bare 0–1 figure omits the NUMBER at the reduced rung, never its provenance: the est. mark stays alone', () => {
     renderAtLineRung({ ...INFERRED, display_value: '0.4', observedState: { value: 0.4, source: 'cee_inference', extractionType: 'inferred' } })
     expect(screen.queryByTestId('node-lod-line-text')).toBeNull()
-    expect(screen.queryByTestId('node-lod-estimate-mark')).toBeNull()
+    expect(screen.getByTestId('node-lod-estimate-mark')).toBeInTheDocument()
+    expect(screen.getByTestId('node-lod-line').textContent ?? '').not.toContain('0.4')
   })
 
   it('CONTRAST — a value the reader typed is never marked, so the mark is not simply always on', () => {
