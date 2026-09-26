@@ -535,4 +535,4 @@ export const STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST =
  * human canvas cannot.** The AI can do what the human cannot.
  */
 export const STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE =
-  "Connection drawn — it stays on your canvas only. Olumi can't save a link that has no strength. Ask Olumi to add this connection if you want it in the model."
+  "Connection drawn — it stays on your canvas only. Olumi can't save a link that has no strength. Ask Olumi to add this connection in the chat if you want it in the model."

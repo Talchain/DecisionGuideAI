@@ -650,7 +650,7 @@ export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
 // reason, the unsent state and the remedy (the Ask Olumi route at the top of
 // the inspector) are kept.
 export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
-  'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength.'
+  'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength in the chat.'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
