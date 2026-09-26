@@ -132,3 +132,56 @@ export function applyBootRunCurrency(input: {
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'restored' }
 }
+
+/**
+ * ⭐ A RELOAD OF A BLOCKED MODEL KEEPS CEE'S NAMED REASON.
+ *
+ * THE DEFECT (served-witnessed on UI `c3c2d539` · CEE `6dd42eb`, AI
+ * Conversation witness `bui-reads-c3c2d539-0358`): a model the canvas's
+ * "+ Add option" left blocked showed a disabled Run control with a named
+ * reason, and after a plain reload the same control said only "Olumi needs
+ * something more from this model before the next analysis. Ask in the chat…".
+ * The boot read carried `run_state: complete_stale` and `readiness: blocked`
+ * with two plain-English blockers, but `applyBootAnalysisVerdict` declines any
+ * verdict that closes the Run gate (`closes_run_gate`), because a verdict from a
+ * PREVIOUS session could falsely disable Analyse.
+ *
+ * THIS LEG RESTORES IT ONLY WITH THE PROOF THAT FEAR IS ANSWERED BY, the same
+ * proof the currency leg above uses: the canvas is proven equal to the read
+ * both ways, no edit since the read, and the read names its revision. The read's
+ * readiness is CEE's live verdict on the stored graph (revision-bound since CEE
+ * #1936), so under that proof it describes the model on screen, and a
+ * "blocked" from it is true, not stale.
+ *
+ * Only the kinds `applyBootAnalysisVerdict` already restores
+ * (`isBootRestorableRunState`, i.e. `complete_stale`), and only a verdict that
+ * DOES close the gate: every other verdict is that function's or the currency
+ * leg's, so the three legs never write the same slice for one read.
+ * FAIL-CLOSED: a decline writes nothing and says which rule declined.
+ */
+export type BootBlockedVerdictOutcome =
+  | { readonly outcome: 'restored' }
+  | {
+      readonly outcome: 'declined'
+      readonly reason: 'no_verdict' | 'not_restorable' | 'does_not_close_gate' | 'no_graph_hash' | 'canvas_not_proven_equal' | 'edited_since_read'
+    }
+
+export function applyBootBlockedVerdict(input: {
+  readonly analysisState: AnalysisStateV1 | null
+  readonly graphHash: string | null
+  readonly canvasProvenEqualToRead: boolean
+  readonly isRestorableKind: (kind: string) => boolean
+  readonly store: { readonly analysisFreshnessDirty?: boolean; readonly setAnalysisStateV1?: (verdict: AnalysisStateV1 | null) => void }
+}): BootBlockedVerdictOutcome {
+  const verdict = input.analysisState
+  if (verdict == null) return { outcome: 'declined', reason: 'no_verdict' }
+  if (!input.isRestorableKind(verdict.run_state.kind)) return { outcome: 'declined', reason: 'not_restorable' }
+  if (!readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict))) {
+    return { outcome: 'declined', reason: 'does_not_close_gate' }
+  }
+  if (typeof input.graphHash !== 'string' || input.graphHash.length === 0) return { outcome: 'declined', reason: 'no_graph_hash' }
+  if (!input.canvasProvenEqualToRead) return { outcome: 'declined', reason: 'canvas_not_proven_equal' }
+  if (input.store.analysisFreshnessDirty === true) return { outcome: 'declined', reason: 'edited_since_read' }
+  input.store.setAnalysisStateV1?.(verdict)
+  return { outcome: 'restored' }
+}
