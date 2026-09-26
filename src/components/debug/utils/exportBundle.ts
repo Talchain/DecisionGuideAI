@@ -3080,11 +3080,8 @@ export async function captureDisplayState(
 ): Promise<DisplayState> {
   try {
     const { useCanvasStore } = await import('../../../canvas/store')
-    const { deriveAnalysisDisplayState } = await import(
-      '../../../canvas/utils/deriveAnalysisDisplayState'
-    )
-    const { computeAnalysisTrust } = await import(
-      '../../../canvas/hooks/useAnalysisTrust'
+    const { composeAnalysisState } = await import(
+      '../../../canvas/state/analysisStateSelector'
     )
     const { readAnalysisStateSourceFromStore } = await import(
       '../../../canvas/hooks/useAnalysisStateSource'
@@ -3370,40 +3367,38 @@ export async function captureDisplayState(
     const ceeStatus = (state as { ceeAnalysisReady?: { status?: string } | null })
       .ceeAnalysisReady?.status
     const hasReport = Boolean((results as { report?: unknown } | null | undefined)?.report)
-    // The composed trust answer (semantic 'changed' OR orphaned), mirroring
-    // the runtime hook (useAnalysisDisplayState) — NOT the local
-    // graphEditedSinceLastRun flag, and not a partial re-derivation (an
-    // earlier version omitted the orphan OR and drifted from the hook).
-    //
-    // ⚠ The word "EXACTLY" used to sit in this sentence and had gone stale: a
-    // second input (`importHold`, interim 2.467) was added to the hook and this
-    // mirror did not carry it, so the bundle reported 'changed' where every
-    // live surface said cannot-confirm — the same drift the sentence warns
-    // about, committed under the sentence itself. `importHold` is now a
-    // REQUIRED parameter precisely so the next such addition is a compile
-    // error here rather than a silent divergence.
-    const trust = computeAnalysisTrust({
+    // ⭐ THE SCREEN'S OWN SELECTOR, NOT A MIRROR OF IT. This block used to
+    // recompute the display state from `ceeAnalysisReady.status` plus a locally
+    // recomposed trust answer. The screen reads `useAnalysisState().displayState`
+    // (`useAnalysisDisplayState`), and that selector lets the wire's `run_state`
+    // force `blocked` and stale. So on manual test 1a298d6d (25 Sep) the bundle
+    // could say a thing the screen did not, and the first diagnosis was built
+    // on it. Same inputs, same pure function (`composeAnalysisState`), same
+    // answer — and a future input added to the selector reaches the bundle
+    // without anyone remembering to mirror it.
+    const composed = composeAnalysisState({
+      analysisState:
+        (state as { analysisStateV1?: Parameters<typeof composeAnalysisState>[0]['analysisState'] })
+          .analysisStateV1 ?? null,
       freshness:
-        (state as { analysisFreshness?: Parameters<typeof computeAnalysisTrust>[0]['freshness'] })
+        (state as { analysisFreshness?: Parameters<typeof composeAnalysisState>[0]['freshness'] })
           .analysisFreshness ?? null,
       dirty: Boolean((state as { analysisFreshnessDirty?: boolean }).analysisFreshnessDirty),
       source: readAnalysisStateSourceFromStore().source,
       resultsStatus: (results as { status?: string } | null | undefined)?.status ?? null,
-      // Interim 2.467: the hook passes this, so the bundle must too — the
-      // comment above ("mirroring the runtime hook EXACTLY … an earlier version
-      // omitted the orphan OR and drifted") describes the exact defect that
-      // omitting it would reproduce: the bundle would report 'changed' where
-      // every live surface says cannot-confirm.
+      resultsStartedAt: (results as { startedAt?: number } | null | undefined)?.startedAt,
       importHold: Boolean(
         (state as { importPendingServerRegistration?: boolean }).importPendingServerRegistration,
       ),
-    })
-    const analysisChanged = trust.semantic === 'changed' || trust.orphaned
-    const displayView = deriveAnalysisDisplayState({
-      ceeAnalysisReadyStatus: ceeStatus,
       hasReport,
-      analysisChanged,
+      hasCompletedFirstRun: (state as { hasCompletedFirstRun?: boolean }).hasCompletedFirstRun,
+      hasRenderableResult: selectHasRenderableAnalysisResult(
+        state as { results?: { report?: unknown } },
+      ),
+      ceeAnalysisReadyStatus: ceeStatus,
+      aiPanelV2On: true,
     })
+    const displayView = composed.displayState
 
     return {
       active_panel: activePanel,
