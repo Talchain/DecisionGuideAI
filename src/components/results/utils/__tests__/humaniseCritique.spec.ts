@@ -105,7 +105,8 @@ describe('humaniseCritique', () => {
       expect(result.title).toContain('Customer churn')
       expect(result.title).not.toBe('Part of this analysis was limited')
       expect(result.description.length).toBeGreaterThan(0)
-      expect(result.suggestion).toContain('Customer churn')
+      // No remedy, named or not (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that").
+      expect(result.suggestion).toBe('')
       expect(result.factorId).toBe('fac_churn')
       // Never the raw producer message (V14.3 guard) even though it's mapped.
       expect(result.title).not.toContain('observed_state')
@@ -144,9 +145,12 @@ describe('humaniseCritique', () => {
       expect(result.suggestion).not.toContain('This factor')
       // Nor a fabricated kind — the measured target was a risk.
       expect(result.title.toLowerCase()).not.toContain('factor')
-      // Non-vacuity: the template still produced a sentence and a route out.
+      // Non-vacuity: the template still produced a sentence and a description.
       expect(result.title.length).toBeGreaterThan(0)
-      expect(String(result.suggestion).toLowerCase()).toContain('set a current value or range')
+      expect(result.description.length).toBeGreaterThan(0)
+      // No route out is prescribed (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that").
+      expect(result.suggestion).toBe('')
+      expect(result.description).not.toContain('missing or unscaled')
     })
 
     // 1.52 follow-up — CONSTRAINT_DIRECTION_SUSPECT/ASSUMED are new PLoT

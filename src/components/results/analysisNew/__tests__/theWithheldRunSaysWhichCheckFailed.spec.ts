@@ -91,7 +91,12 @@ describe('a withheld run says which check failed', () => {
     const open = buildCommitmentSynthesis(vmOf(withWarnings(decisionWithLeaderWithheld(), PAUL_1A298D6D_WARNINGS))).open!.text
     expect(open).not.toContain('observed_state')
     expect(open).not.toContain('calculated from the factors')
-    expect(open).not.toContain(disclosure!.suggestion)
+    // Bound to the remedy's own words: since AI Quality #70 5843266323 the
+    // template prescribes none (`suggestion` is ''), and "not contains ''" can
+    // never pass, so the literal phrases are what this row guards.
+    expect(disclosure!.suggestion).toBe('')
+    expect(open).not.toContain('Set a current value')
+    expect(open).not.toContain('Set a value or range')
   })
 
   it('CONTRAST: the same withheld run with no withholding code reads exactly as before', () => {

@@ -77,7 +77,7 @@ describe('an unresolved label is not a name', () => {
     // PRECONDITION, pinned in-test so this cannot pass by the fixture failing to
     // reach the template at all (a guard that agrees with itself).
     expect(got.title.length).toBeGreaterThan(0)
-    expect(got.suggestion).toBeTruthy()
+    expect(got.description.length).toBeGreaterThan(0)
 
     expect(got.title).not.toContain(UNRESOLVED_SENTINEL)
     expect(got.suggestion).not.toContain(UNRESOLVED_SENTINEL)
@@ -90,11 +90,13 @@ describe('an unresolved label is not a name', () => {
     expect(String(got.suggestion).toLowerCase()).not.toContain('factor')
   })
 
-  it('still keeps a concrete next move when the label is unresolved', () => {
+  it('prescribes no move the engine says does nothing — named or not', () => {
+    // ⛔ REVERSED, 26 Sep 2026 (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that"). This row used to require the
+    // "set a current value or range" remedy; on Paul's churn limit that move was
+    // inert, and the entry carries no field that says when it would work.
     const got = humaniseCritique(UNRESOLVABLE_TARGET_UNRELIABLE)
-    // The producer's own remedy is to set a current value or range. Losing the
-    // name must not lose the route out.
-    expect(String(got.suggestion).toLowerCase()).toContain('set a current value or range')
+    expect(got.suggestion).toBe('')
+    expect(got.description.toLowerCase()).not.toContain('missing')
   })
 
   it('POSITIVE CONTROL: a resolvable label still produces the named form, unchanged', () => {
@@ -103,7 +105,7 @@ describe('an unresolved label is not a name', () => {
       new Map([['dac3fdc3', 'Budget Overrun Risk']]),
     )
     expect(got.title).toBe("Budget Overrun Risk's success target can't be evaluated reliably")
-    expect(got.suggestion).toBe('Set a value or range for Budget Overrun Risk')
+    expect(got.suggestion).toBe('')
     // Non-vacuity: the named and anonymous forms must actually DIFFER, or the
     // first three assertions are satisfied by a template that never branched.
     expect(got.title).not.toBe(humaniseCritique(UNRESOLVABLE_TARGET_UNRELIABLE).title)
