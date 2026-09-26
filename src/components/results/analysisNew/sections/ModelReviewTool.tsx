@@ -92,6 +92,13 @@ import { ReviewItemEditor, type ReviewEditorField } from './ReviewItemEditor'
 export type ReviewToolRequest =
   | { kind: 'open'; targetId: string; seq: number }
   | { kind: 'close'; seq: number }
+  /**
+   * Prototype `data-action="reviews"` from About › Sources and limits
+   * ("Inspect beliefs and source notes"): open where the reader left off (or
+   * at the first item) and bring the tool into view. It resets nothing, so an
+   * edit already in progress survives.
+   */
+  | { kind: 'reveal'; seq: number }
 
 /**
  * ⭐ THE PROTOTYPE'S WORDS FOR TWO CONTROLS, LOCAL TO THIS FILE — the review
@@ -278,12 +285,21 @@ export function ModelReviewTool({
    */
   const handledSeq = useRef<number | null>(null)
   const scrollOnOpen = useRef(false)
+  /** Bumped by a `reveal`, so an ALREADY-open tool still scrolls into view. */
+  const [revealTick, setRevealTick] = useState(0)
   useEffect(() => {
     if (request === null || handledSeq.current === request.seq) return
     handledSeq.current = request.seq
     if (request.kind === 'close') {
       setOpen(false)
       resetItemState()
+      return
+    }
+    if (request.kind === 'reveal') {
+      if (queue.length === 0) return
+      setOpen(true)
+      scrollOnOpen.current = true
+      setRevealTick((t) => t + 1)
       return
     }
     const at = queue.findIndex((item) => item.targetId === request.targetId)
@@ -299,7 +315,7 @@ export function ModelReviewTool({
     if (!isOpen || !scrollOnOpen.current) return
     scrollOnOpen.current = false
     itemRef.current?.scrollIntoView?.({ block: 'nearest' })
-  }, [isOpen, current?.key])
+  }, [isOpen, current?.key, revealTick])
 
   // ── Confirm as my estimate: the write authority's own gesture ─────────────
   /**

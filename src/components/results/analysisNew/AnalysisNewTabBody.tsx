@@ -1236,6 +1236,12 @@ export function AnalysisNewTabBody({
    */
   const restingMethodId = useMemo(() => methodOfIntervention(glancePrimary)?.id ?? null, [glancePrimary])
   /**
+   * About › Sources and limits → "Inspect beliefs and source notes" (prototype
+   * `data-action="reviews"`): a counter the strip turns into a `reveal` of the
+   * review tool, through the one request channel the census marks use.
+   */
+  const [revealReviewSeq, setRevealReviewSeq] = useState(0)
+  /**
    * ⛔ A PICK OF THE RESTING METHOD IS THE REST STATE, NOT A PICK (#2066 review
    * B1). Pressing the already-active icon changed nothing on screen but latched
    * `pickedMethodId`; "Not useful right now" then retired the finding and the
@@ -1917,6 +1923,7 @@ export function AnalysisNewTabBody({
         <ModelStrip
           isPreRun={vm.status.isPreRun}
           openAtRest
+          revealReviewSeq={revealReviewSeq}
           insights={nodeInsights}
           /* V2 prototype order (design audit B5/B6/B12): the strip hands the
              tool its success line and a mark's route, so the block reads
@@ -3033,6 +3040,7 @@ export function AnalysisNewTabBody({
           }}
           offerFactorValueControl={true}
           onAsk={openAskOlumi}
+          onInspectBeliefs={() => setRevealReviewSeq((n) => n + 1)}
           foldedHasContent={foldedHasContent}
           folded={
             foldedHasContent ? (

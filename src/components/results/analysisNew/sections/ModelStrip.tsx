@@ -415,6 +415,12 @@ export interface ModelStripProps {
    * node still works — it renders the old way, the success line after it.
    */
   reviewSlot?: ReactNode | ((slot: ReviewSlotProps) => ReactNode)
+  /**
+   * A counter the host bumps to bring the review tool into view, opening it
+   * where the reader left off (prototype `data-action="reviews"`, reached from
+   * About › Sources and limits). `0`/absent asks for nothing.
+   */
+  revealReviewSeq?: number
 }
 
 /** What the strip hands a function-form `reviewSlot`. See `reviewSlot`. */
@@ -433,6 +439,7 @@ export function ModelStrip({
   openAtRest = false,
   insights = NO_INSIGHTS,
   reviewSlot = null,
+  revealReviewSeq = 0,
 }: ModelStripProps) {
   const showToast = useShowToastSafe()
   /**
@@ -545,6 +552,12 @@ export function ModelStrip({
    */
   const [reviewRequest, setReviewRequest] = useState<ReviewToolRequest | null>(null)
   const reviewSeq = useRef(0)
+  /** The host's reveal (see `revealReviewSeq`), through the same request channel. */
+  useEffect(() => {
+    if (revealReviewSeq === 0) return
+    reviewSeq.current += 1
+    setReviewRequest({ kind: 'reveal', seq: reviewSeq.current })
+  }, [revealReviewSeq])
   const [reviewTargets, setReviewTargets] = useState<readonly string[]>([])
   const onQueueTargets = useCallback((ids: readonly string[]) => {
     setReviewTargets((prev) =>
