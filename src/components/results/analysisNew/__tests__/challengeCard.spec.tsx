@@ -95,17 +95,31 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('the grounded intervention', () => {
-  it('headed by rec.title VERBATIM, with the method name as kicker', () => {
+  /**
+   * ⭐ RE-POINTED, V2 prototype (design audit B7, 25 Sep 2026): the prototype
+   * shows ONLY the question under the title — no kicker. The technique the
+   * finding names now rides by IDENTITY on the card (`data-method-id`) and in
+   * the basis's protocol line, and the method strip marks it active. What
+   * these three cases pinned is unchanged: which method, resolved with the
+   * claim id, and never a default one.
+   */
+  it('headed by rec.title VERBATIM; the technique is carried by identity, not a kicker', () => {
     const r = viaVm(FLIP)
     renderCard({ intervention: r })
     expect(screen.getByTestId('analysis-new-challenge-heading').textContent).toBe(r.title)
-    const kicker = screen.getByTestId('analysis-new-challenge-kicker')
-    expect(kicker).toHaveAttribute('data-method-id', 'consider_opposite')
-    expect(kicker.textContent).toBe(METHOD_CATALOGUE.find((m) => m.id === 'consider_opposite')!.title)
-    expect(screen.getByTestId('analysis-new-challenge')).toHaveAttribute('data-recommendation-id', r.id)
+    expect(screen.queryByTestId('analysis-new-challenge-kicker')).toBeNull()
+    const card = screen.getByTestId('analysis-new-challenge')
+    expect(card).toHaveAttribute('data-method-id', 'consider_opposite')
+    expect(card).toHaveAttribute('data-recommendation-id', r.id)
+    // …and named, in the catalogue's own title, inside the basis.
+    fireEvent.click(screen.getByRole('button', { name: ZONE.moreOptions }))
+    fireEvent.click(screen.getByRole('menuitem', { name: ZONE.whyThis }))
+    expect(screen.getByTestId('analysis-new-challenge-basis-protocol').textContent).toBe(
+      `${METHOD_CATALOGUE.find((m) => m.id === 'consider_opposite')!.title}: ${ZONE.reasoningAid}`,
+    )
   })
 
-  it('⭐ the kicker names the SAME method the strip marks as raised (dskClaimId is passed)', () => {
+  it('⭐ the card names the SAME method the strip marks as raised (dskClaimId is passed)', () => {
     const r = viaVm(CALIBRATION)
     const raised = [...methodIdsRaisedBy([r])]
     // PRECONDITION: the strip marks exactly one method for this card …
@@ -114,12 +128,13 @@ describe('the grounded intervention', () => {
     // make today) names NONE — so this pair discriminates the fix.
     expect(methodForRecommendation(r.id, r.signalCode, r.biasCode)).toBeNull()
     renderCard({ intervention: r })
-    expect(screen.getByTestId('analysis-new-challenge-kicker')).toHaveAttribute('data-method-id', raised[0])
+    expect(screen.getByTestId('analysis-new-challenge')).toHaveAttribute('data-method-id', raised[0])
   })
 
-  it('no mapped technique ⇒ no kicker, never a default one (contrast: the heading still renders)', () => {
+  it('no mapped technique ⇒ no method named, never a default one (contrast: the heading still renders)', () => {
     renderCard({ intervention: viaVm(UNMAPPED) })
     expect(screen.queryByTestId('analysis-new-challenge-kicker')).toBeNull()
+    expect(screen.getByTestId('analysis-new-challenge')).not.toHaveAttribute('data-method-id')
     expect(screen.getByTestId('analysis-new-challenge-heading')).toHaveTextContent(UNMAPPED.title)
   })
 
@@ -150,7 +165,8 @@ describe('the grounded intervention', () => {
   it('the AI act runs the existing intervention route with the rec’s id', () => {
     const r = viaVm(FLIP)
     const { onRunIntervention, onRunMethod } = renderCard({ intervention: r })
-    const act = screen.getByRole('button', { name: ZONE.workThrough })
+    // V2: a finding that names a method is "Ask Olumi to guide this method".
+    const act = screen.getByRole('button', { name: ZONE.guideMethod })
     expect(act).toHaveAttribute('data-ai', 'true')
     fireEvent.click(act)
     expect(onRunIntervention).toHaveBeenCalledWith(r.id)
@@ -159,18 +175,34 @@ describe('the grounded intervention', () => {
 })
 
 describe('a method the reader picked', () => {
-  it('wins over the intervention, headed by the catalogue title, and claims no basis', () => {
+  /**
+   * ⭐ RE-POINTED, V2 prototype (design audit B7): the "Method you chose" kicker
+   * is gone (not a prototype string), and a picked method now has the
+   * prototype's ⋯ and basis. What stays pinned is the reason the old case
+   * existed: nothing assessed whether the method APPLIES here, so its basis
+   * says only what the method is — the catalogue's own description and the
+   * "reasoning aid" line — and carries none of a finding's grounding.
+   */
+  it('wins over the intervention, headed by the catalogue title; its basis says what the method is, never that it applies', () => {
+    const m = METHOD_CATALOGUE.find((x) => x.id === 'pre_mortem')!
     const { onRunIntervention, onRunMethod } = renderCard({ intervention: viaVm(FLIP), methodId: 'pre_mortem' })
     const card = screen.getByTestId('analysis-new-challenge')
     expect(card).toHaveAttribute('data-source', 'method')
     expect(card).toHaveAttribute('data-method-id', 'pre_mortem')
-    expect(screen.getByTestId('analysis-new-challenge-heading').textContent).toBe(
-      METHOD_CATALOGUE.find((m) => m.id === 'pre_mortem')!.title,
-    )
-    expect(screen.getByTestId('analysis-new-challenge-kicker').textContent).toBe(ZONE.methodYouChose)
-    // ⛔ No basis, no dismissal: nothing assessed whether it applies.
-    expect(screen.queryByRole('button', { name: ZONE.moreOptions })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: ZONE.workThrough }))
+    expect(screen.getByTestId('analysis-new-challenge-heading').textContent).toBe(m.title)
+    expect(screen.queryByTestId('analysis-new-challenge-kicker')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: ZONE.moreOptions }))
+    fireEvent.click(screen.getByRole('menuitem', { name: ZONE.whyThis }))
+    expect(screen.getByTestId('analysis-new-challenge-basis-why').textContent).toBe(m.description)
+    expect(screen.getByTestId('analysis-new-challenge-basis-protocol').textContent).toBe(`${m.title}: ${ZONE.reasoningAid}`)
+    // ⛔ CONTRAST with the finding: no source line, no grounded chip.
+    expect(screen.queryByTestId('analysis-new-challenge-basis-source')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-challenge-basis-grounded')).toBeNull()
+    // ⛔ And no dismissal of its own: without a host to hand the pick back to,
+    // "Not useful right now" is not offered, and the Strengthen store is never touched.
+    fireEvent.click(screen.getByRole('button', { name: ZONE.moreOptions }))
+    expect(screen.queryByTestId('analysis-new-challenge-not-useful')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: ZONE.guideMethod }))
     expect(onRunMethod).toHaveBeenCalledWith('pre_mortem')
     expect(onRunIntervention).not.toHaveBeenCalled()
   })
