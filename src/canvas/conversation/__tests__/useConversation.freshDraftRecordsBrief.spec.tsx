@@ -278,6 +278,38 @@ describe('the draft turn records the brief for the decision it drafted', () => {
   })
 })
 
+describe('CC-4 (UI N2): a starter brief sent with chipMeta leaves as a CHIP down the SAME streamed draft path', () => {
+  /**
+   * The seam the starter re-draft depends on (Canonical's #2106 review): `sendMessage`
+   * must FORWARD `chipMeta` to `sendTurn`. Drop that spread and the brief silently goes
+   * back to `composer` — the user's typed words — with every banner-level test green.
+   */
+  it('sendMessage forwards chipMeta: the streamed payload is source "chip" + chip {id}, and the draft still lands', async () => {
+    mockOpenStream.mockResolvedValue(completedStream())
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await (result.current.sendMessage(BRIEF, {
+        turnType: 'explicit_generate',
+        chipMeta: { id: 'starter_redraft' },
+      }) as Promise<void>)
+    })
+    // The streamed draft path was taken: `explicit_generate` is kept with the chip.
+    expect(mockOpenStream).toHaveBeenCalledTimes(1)
+    const payload = mockOpenStream.mock.calls[0][0] as { source: string; chip?: { id?: string } }
+    expect(payload.source).toBe('chip')
+    expect(payload.chip).toEqual({ id: 'starter_redraft' })
+    assertDraftLanded()
+  })
+
+  it('CONTRAST: the same send without chipMeta leaves as "composer", with no chip', async () => {
+    await sendBrief(BRIEF)
+    expect(mockOpenStream).toHaveBeenCalledTimes(1)
+    const payload = mockOpenStream.mock.calls[0][0] as { source: string; chip?: unknown }
+    expect(payload.source).toBe('composer')
+    expect(payload.chip).toBeUndefined()
+  })
+})
+
 describe('the record never displaces a record that already stands for the same scenario', () => {
   const S = 'f2b0c1a4-0000-4000-8000-000000000009'
   const MANIFEST = {
