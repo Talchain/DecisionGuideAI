@@ -225,6 +225,29 @@ type RangeLensArm = (typeof RANGE_LENS_ARMS)[number]
 const AXIS_TICK_FRACTIONS = [0, 1 / 3, 2 / 3, 1] as const
 
 /**
+ * ⭐⭐ ONE INSET FOR THE BANDS AND FOR THE TICKS THAT READ THEM.
+ *
+ * Paul (25 Sep 2026): the last tick sat well short of the band end. Two causes:
+ *   · the ticks shared a flex row with the range-info button, so they ended
+ *     `gap-1` + 28px from the edge while the bands end at `mr-5` (20px);
+ *   · `justify-between` spread the labels BY THEIR WIDTHS, so the middle two sat
+ *     wherever the label lengths put them, not at 1/3 and 2/3 of the domain.
+ * Now the track and the tick row take this ONE class, each tick is placed at its
+ * own fraction (the end ticks anchored inward so they never overhang), and the
+ * button is absolutely placed so it takes no width from the scale — the
+ * prototype's own `.axis>.iconbtn{position:absolute;right:-24px}`.
+ * `ml-4` clears the option's square mark and `mr-5` the row chevron (see the
+ * range figure's call site).
+ */
+const RANGE_INSET = 'ml-4 mr-5'
+
+/** An end tick is anchored inward; a middle tick is centred on its value. */
+function tickTransform(fraction: number): string {
+  const x = fraction <= 0 ? '0' : fraction >= 1 ? '-100%' : '-50%'
+  return `translate(${x}, -50%)`
+}
+
+/**
  * ⛔ NO UNIT SYMBOL. See the call site's note: `outcomeRange` carries no unit,
  * so this prints the scale's own number and nothing else — never a `%`, `$`
  * or any other symbol this surface was not given.
@@ -882,7 +905,7 @@ export function OptionsComparison({
                        the row chevron; `ml-4` clears the mark (`w-3` plus
                        `mr-1`, the button's `-ml-1 px-1` cancelling) and
                        `mr-5` clears the chevron (`w-3` plus `gap-2`). */
-                    className="mt-1 ml-4 mr-5"
+                    className={`mt-1 ${RANGE_INSET}`}
                     band={{
                       start: toFraction(o.outcomeRange.p10),
                       end: toFraction(o.outcomeRange.p90),
@@ -1084,29 +1107,41 @@ export function OptionsComparison({
           the shared-origin sentence is its own line below it. Sharing one flex
           row crushed the sentence into a 40px column at the 280px dock. */}
       {showAxis ? (
-        <div className="mt-1 flex items-center gap-1" data-testid={`${testId}-axis`}>
+        <div className="relative mt-1 min-h-[18px]" data-testid={`${testId}-axis`}>
           {axisTicks !== null ? (
             <span
-              className={`${typography.panelMeta} text-text-light flex-1 min-w-0 ml-4 flex items-center justify-between tabular-nums`}
+              className={`${typography.panelMeta} text-text-light relative block h-[18px] ${RANGE_INSET} tabular-nums`}
               data-testid={`${testId}-axis-ticks`}
               aria-hidden="true"
             >
               {axisTicks.map((tick, i) => (
-                <span key={i} data-testid={`${testId}-axis-tick-${i}`}>
+                <span
+                  key={i}
+                  className="absolute top-1/2 whitespace-nowrap"
+                  style={{
+                    left: `${AXIS_TICK_FRACTIONS[i] * 100}%`,
+                    transform: tickTransform(AXIS_TICK_FRACTIONS[i]),
+                  }}
+                  data-fraction={AXIS_TICK_FRACTIONS[i]}
+                  data-testid={`${testId}-axis-tick-${i}`}
+                >
                   {tick}
                 </span>
               ))}
             </span>
-          ) : (
-            <span className="flex-1" aria-hidden="true" />
-          )}
-          <PanelIconButton
-            Icon={Info}
-            label={COPY.optionFigures.rangeLegend(rangeAppetite)}
-            expanded={rangeInfoOpen}
-            onClick={() => setRangeInfoOpen((open) => !open)}
-            testId={`${testId}-range-info`}
-          />
+          ) : null}
+          <span
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 [@media(pointer:coarse)]:translate-x-3"
+            data-testid={`${testId}-range-info-anchor`}
+          >
+            <PanelIconButton
+              Icon={Info}
+              label={COPY.optionFigures.rangeLegend(rangeAppetite)}
+              expanded={rangeInfoOpen}
+              onClick={() => setRangeInfoOpen((open) => !open)}
+              testId={`${testId}-range-info`}
+            />
+          </span>
         </div>
       ) : null}
       {/* THE SENTENCE, ONCE, FOR EVERY OPTION THE MARK APPEARS ON. Same copy

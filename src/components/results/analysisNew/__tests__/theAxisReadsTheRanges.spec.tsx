@@ -130,6 +130,37 @@ describe('the axis row reads the ranges it sits under', () => {
     expect(axis).toContainElement(infoButton)
   })
 
+  // ── Paul, 25 Sep: "the last tick sits short of the band end" ──────────────
+  it('⭐ each tick sits at ITS OWN fraction of the domain — not wherever label widths put it', () => {
+    renderOpen(withRanges(decisionWithLeaderWithheld()))
+    const lefts = [0, 1, 2, 3].map((i) => screen.getByTestId(`${T}-axis-tick-${i}`).style.left)
+    expect(lefts.map((l) => parseFloat(l))).toEqual([0, 100 / 3, 200 / 3, 100].map((v) => expect.closeTo(v, 6)))
+    expect(lefts.every((l) => l.endsWith('%'))).toBe(true)
+    // End ticks anchor inward (never overhang the track); middle ticks centre on their value.
+    const tx = [0, 1, 2, 3].map((i) => screen.getByTestId(`${T}-axis-tick-${i}`).style.transform)
+    expect(tx).toEqual(['translate(0, -50%)', 'translate(-50%, -50%)', 'translate(-50%, -50%)', 'translate(-100%, -50%)'])
+  })
+
+  it('⭐ the tick row and every band track take the SAME inset, so the scale spans exactly what it reads', () => {
+    renderOpen(withRanges(decisionWithLeaderWithheld()))
+    const inset = (el: HTMLElement) => el.className.split(/\s+/).filter((c) => /^m[lr]-/.test(c)).sort()
+    const ticks = inset(screen.getByTestId(`${T}-axis-ticks`))
+    expect(ticks).toEqual(['ml-4', 'mr-5'])
+    for (const id of ['opt_a', 'opt_b']) {
+      expect(inset(within(row(id)).getByTestId(`${T}-outcome-range-${id}`)), `band ${id}`).toEqual(ticks)
+    }
+  })
+
+  it('⭐ the info button takes no width from the scale — it is out of the tick row and absolutely placed', () => {
+    renderOpen(withRanges(decisionWithLeaderWithheld()))
+    const button = screen.getByTestId(`${T}-range-info`)
+    expect(screen.getByTestId(`${T}-axis-ticks`)).not.toContainElement(button)
+    const anchor = screen.getByTestId(`${T}-range-info-anchor`)
+    expect(anchor).toContainElement(button)
+    expect(anchor.className.split(/\s+/)).toContain('absolute')
+    expect(screen.getByTestId(`${T}-axis`).className.split(/\s+/)).toContain('relative')
+  })
+
   it('⛔ still prints no per-option point figure — the range stays UNIT-LESS', () => {
     renderOpen(withRanges(decisionWithLeaderWithheld()))
 
