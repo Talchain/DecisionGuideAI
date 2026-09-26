@@ -194,7 +194,10 @@ describe('OptionNode — the run must not delete the model content', () => {
     // "no source" — never "you", and never Olumi's estimate (Codex #63
     // 5801529767; reviewer blocker, 23 Sep). Contract v3.1 pt 7 (gap U12): a
     // muted `·` now sets the mark apart from the value so it cannot read as a unit.
-    expect(row.textContent).toBe(`${CHIP} · no sourceSource not recorded`)
+    // RE-PINNED (design audit #9, 26 Sep): the value and its mark are joined by
+    // ONE no-break space (U+00A0) so the mark cannot drop to a line of its own.
+    // Was an ordinary breakable space; every other byte is unchanged.
+    expect(row.textContent).toBe(`${CHIP}\u00A0· no sourceSource not recorded`)
     // The title also restates the full row ("<factor>: <from> → <to>."); the
     // reference clause is the claim this file owns.
     expect(row.getAttribute('title')).toContain(REFERENCE_TITLE)
