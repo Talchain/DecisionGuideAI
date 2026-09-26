@@ -128,4 +128,9 @@ src/types/constraints.ts:78
 #    (`analysisNewCopy.ts:2471` -> `2472`, a pure +1 line shift: the read-back's
 #    `decisionRecord.nextActionLabel`, added above this site so the Reasoning
 #    tab does not import the record modal. Line text identical.)
-src/components/results/analysisNew/analysisNewCopy.ts:2472
+#    (`analysisNewCopy.ts:2472` -> `2489`, a pure +17 line shift from
+#    `panel/design-model` (design audit B5): the Reasoning tab's success-row
+#    and goal-form copy appended to `successTarget`, above this site. Line text
+#    identical (`: topFigurePercent === 100`); the scanner's added and gone
+#    were exactly this pair.)
+src/components/results/analysisNew/analysisNewCopy.ts:2489
