@@ -489,7 +489,7 @@ function wireSuppliedEdgeData(mappedData: Record<string, unknown>): Record<strin
  * was not measured here.
  */
 export function overlayEdge(
-  existing: any,
+  canvasEdge: any,
   wireEdge: any,
   opts?: OverlayEdgeOptions,
 ): any {
@@ -497,6 +497,22 @@ export function overlayEdge(
   const mappedData = (mapped.data ?? {}) as Record<string, unknown>
 
   const supplied = wireSuppliedEdgeData(mappedData)
+
+  // ⭐ A SERVER EDGE THAT CARRIES NO SIZE REMOVES THE CANVAS'S (served 26 Sep, #70 5849398628).
+  // The mapper emits `naturalEffect` only when the wire validly carries it, and the
+  // magnitude contract drops it on every user write. So on a server-authoritative edge
+  // (receipt or readback) its ABSENCE is the server's truth: keeping the canvas copy
+  // labelled a link the person had just confirmed "· Olumi's estimate", after the
+  // confirm and after reload. `serverStrength` and `origin` keep the presence rule.
+  // Removing it fails closed — the band word shows instead — and, like acquiring it,
+  // is never an edit.
+  const dropsNaturalEffect =
+    opts?.acquireServerStrengthOnNoop === true &&
+    supplied.naturalEffect === undefined &&
+    canvasEdge.data?.naturalEffect !== undefined
+  const existing = dropsNaturalEffect
+    ? { ...canvasEdge, data: Object.fromEntries(Object.entries(canvasEdge.data).filter(([k]) => k !== 'naturalEffect')) }
+    : canvasEdge
 
   // A provenance stamp must never outlive or precede the value it describes.
   //

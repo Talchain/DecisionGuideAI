@@ -367,7 +367,8 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       renderCard({ id: 'option-b' })
       const meta = onCard('option-baseline-meta-option-b')
       expect(meta?.textContent).toBe('Baseline option')
-      expect(bodyLines(meta!)).toEqual([meta, onCard('option-baseline-reference-option-b')])
+      // …then the share line's slot, reserved (empty) before the run so a run never grows the card.
+      expect(bodyLines(meta!)).toEqual([meta, onCard('option-baseline-reference-option-b'), onCard('option-share-slot-option-b')])
     })
 
     it('post-run the baseline meta STAYS on the card, above the share line', () => {

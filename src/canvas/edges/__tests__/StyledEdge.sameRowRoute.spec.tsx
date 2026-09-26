@@ -321,10 +321,17 @@ describe('CONTRAST — every other pair is untouched', () => {
     expect(groupOf(container).getAttribute('data-same-row-route')).toBeNull()
   })
 
-  it('a cross-row UPWARD pair (no shared band) keeps xyflow\'s own bezier', () => {
+  it('a cross-row UPWARD pair (no shared band) is NOT a same-row route — it rises (StyledEdge.risingRoute.geometry.spec)', () => {
+    // Until 26 Sep this pair kept xyflow's bezier: the S-loop over the target
+    // that the edge-drawing lane measured on served 853feeb7. It now takes the
+    // rising route: from MRR's top border (y 525) into OPTION's bottom, 4
+    // short (y 275 + 4), never leaving the band between them.
     const { container } = renderLink(MRR, OPTION)
-    expect(hitPathOf(container).getAttribute('d')).toBe('M0 0 L100 100')
-    expect(groupOf(container).getAttribute('data-same-row-route')).toBeNull()
+    const d = hitPathOf(container).getAttribute('d') ?? ''
+    expect(d).not.toBe('M0 0 L100 100')
+    expect(groupOf(container).getAttribute('data-same-row-route')).toBe('rise')
+    expect(d).toMatch(/^M[\d.]+,525 /)
+    expect(d).toMatch(/ [\d.]+,279$/)
   })
 
   it('an UNMEASURED same-row pair is not guessed at — xyflow\'s bezier', () => {

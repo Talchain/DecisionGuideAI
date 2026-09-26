@@ -169,6 +169,10 @@ function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
     case 'v5_exercise': return styles.blockBadgeDotInfo
     // R8: held proposal is an info-channel proposal card (matches its border).
     case 'v5_held_proposal': return styles.blockBadgeDotInfo
+    // DS v5 §21.2: GraphPatchBlock = goal, ScenarioBlock (comparison) = option.
+    // Each matches its card's border.
+    case 'v5_graph_patch': return styles.blockBadgeDotGoal
+    case 'v5_comparison': return styles.blockBadgeDotOption
     default: return null
   }
 }

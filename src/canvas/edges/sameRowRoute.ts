@@ -56,7 +56,7 @@ export interface RouteBox {
   height: number
 }
 
-export type SameRowRouteKind = 'side' | 'under'
+export type SameRowRouteKind = 'side' | 'under' | 'rise'
 
 export interface SameRowRoute {
   kind: SameRowRouteKind
@@ -240,6 +240,237 @@ export function resolveSameRowRoute(
 }
 
 /**
+ * ⭐⭐ AN UPWARD LINK RISES FROM ITS SOURCE'S TOP INTO ITS TARGET'S BOTTOM —
+ * NEVER A LOOP (canvas edge-drawing lane, 26 Sep 2026).
+ *
+ * Every card has one out port (bottom centre) and one in handle (top centre).
+ * When the target sits wholly ABOVE its source — a risk that drives a factor,
+ * a factor in a wrapped family's second course driving one in the first — no
+ * shared row band exists, so `resolveSameRowRoute` declines, and xyflow's
+ * bottom → top bezier swung an S-loop: down below the source, back up BEHIND
+ * the source and every card between, and over the target's top into its
+ * handle. Measured on served `853feeb7` with the MRR draft (a real CEE draft
+ * graph, seeded without a turn): the AI-feature-risk → price-sensitivity link
+ * rose 21.5px above the target, curled 12.8px below the source and passed
+ * under "Monthly Pro new subscribers".
+ *
+ * The route instead leaves the source's TOP border a quarter-width off centre
+ * (clear of its in handle and kind mark), and rises into the target's BOTTOM a
+ * quarter-width plus one glyph ring step off centre (clear of its out port, and
+ * of an `under` route's entry into the same card), the arrow stopping
+ * `SAME_ROW_TARGET_STANDOFF` short — the `under` route's own entry grammar.
+ * Between them the contract's near-straight cubic (`bend = max(6, min(30,
+ * Δy/2))`), with vertical leads exactly as long as needed to clear any card
+ * in the way: a card in the TARGET's row band is cleared by starting the
+ * lead-in below it; any other card by running the lead-out above it (the
+ * mirror of `resolveLayeredEdgeLeads`).
+ *
+ * ⭐ THE WHOLE PATH IS CHECKED, leads included. The source port is tried at
+ * its facing quarter, its far quarter, then the middle of each stretch of its
+ * top border no card above covers (a brick course leaves a gap between two
+ * cards: that is where a lead climbs); the target port at its facing then far
+ * quarter. The first pair whose whole path is clear of every card wins,
+ * otherwise the one touching fewest.
+ */
+/** Clearance kept between a rising lead's turn and the card it clears (flow units). */
+export const RISE_LEAD_CLEARANCE = 10
+/** A climbing lead keeps this far from the side of a card it passes (flow units). */
+const RISE_PORT_MARGIN = 6
+const RISE_SAMPLES = 64
+const RISE_MAX_ROUNDS = 8
+
+interface RiseGeometry {
+  sx: number
+  sy: number
+  outY: number
+  tx: number
+  inY: number
+  ty: number
+}
+
+function riseBend(outY: number, inY: number): number {
+  return Math.max(6, Math.min(30, (outY - inY) / 2))
+}
+
+/** Points along the WHOLE rising path: lead-out, cubic, lead-in. */
+function risePoints(g: RiseGeometry): Array<{ x: number; y: number }> {
+  const pts: Array<{ x: number; y: number }> = []
+  const b = riseBend(g.outY, g.inY)
+  for (let i = 1; i <= RISE_SAMPLES; i++) {
+    const t = i / RISE_SAMPLES
+    pts.push({ x: g.sx, y: g.sy + (g.outY - g.sy) * t })
+  }
+  for (let i = 1; i < RISE_SAMPLES; i++) {
+    const t = i / RISE_SAMPLES
+    const u = 1 - t
+    pts.push({
+      x: u * u * u * g.sx + 3 * u * u * t * g.sx + 3 * u * t * t * g.tx + t * t * t * g.tx,
+      y: u * u * u * g.outY + 3 * u * u * t * (g.outY - b) + 3 * u * t * t * (g.inY + b) + t * t * t * g.inY,
+    })
+  }
+  for (let i = 0; i < RISE_SAMPLES; i++) {
+    const t = i / RISE_SAMPLES
+    pts.push({ x: g.tx, y: g.inY + (g.ty - g.inY) * t })
+  }
+  return pts
+}
+
+function insideBox(p: { x: number; y: number }, o: RouteBox): boolean {
+  return p.x > o.x && p.x < o.x + o.width && p.y > o.y && p.y < o.y + o.height
+}
+
+/** The cards the whole path passes under (a graze on the full box counts). */
+function riseHits(g: RiseGeometry, obstacles: readonly RouteBox[]): RouteBox[] {
+  const pts = risePoints(g)
+  return obstacles.filter((o) => pts.some((p) => insideBox(p, o)))
+}
+
+/** The first card the cubic (leads excluded) passes under, in path order. */
+function riseCubicFirstHit(sx: number, outY: number, tx: number, inY: number, span: readonly RouteBox[]): RouteBox | null {
+  const b = riseBend(outY, inY)
+  for (let i = 1; i < RISE_SAMPLES; i++) {
+    const t = i / RISE_SAMPLES
+    const u = 1 - t
+    const p = {
+      x: u * u * u * sx + 3 * u * u * t * sx + 3 * u * t * t * tx + t * t * t * tx,
+      y: u * u * u * outY + 3 * u * u * t * (outY - b) + 3 * u * t * t * (inY + b) + t * t * t * inY,
+    }
+    for (const o of span) if (insideBox(p, o)) return o
+  }
+  return null
+}
+
+function solveRise(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  target: RouteBox,
+  obstacles: readonly RouteBox[],
+): RiseGeometry {
+  const inTargetRow = (o: RouteBox) => o.y < target.y + target.height && o.y + o.height > target.y
+  const lo = Math.min(sx, tx)
+  const hi = Math.max(sx, tx)
+  const span = obstacles.filter((o) => o.x < hi && o.x + o.width > lo)
+  let outY = sy
+  let inY = ty
+  for (let round = 0; round < RISE_MAX_ROUNDS; round++) {
+    const hit = riseCubicFirstHit(sx, outY, tx, inY, span)
+    if (!hit) return { sx, sy, outY, tx, inY, ty }
+    if (inTargetRow(hit)) inY = Math.max(inY, hit.y + hit.height + RISE_LEAD_CLEARANCE)
+    else outY = Math.min(outY, hit.y - RISE_LEAD_CLEARANCE)
+    if (!(outY - inY > 12)) break
+  }
+  // THE GUARANTEE when the minimal search does not converge: run the lead-out
+  // above EVERY non-target-row card the span holds and start the lead-in below
+  // every target-row card. The cubic's control points stay inside
+  // [inY, outY], so its whole curve does too, and every such card lies outside
+  // that band.
+  outY = sy
+  inY = ty
+  for (const o of span) {
+    if (!(o.y < sy && o.y + o.height > ty)) continue
+    if (inTargetRow(o)) inY = Math.max(inY, o.y + o.height + RISE_LEAD_CLEARANCE)
+    else outY = Math.min(outY, o.y - RISE_LEAD_CLEARANCE)
+  }
+  if (!(outY > inY)) return { sx, sy, outY: sy, tx, inY: ty, ty }
+  return { sx, sy, outY, tx, inY, ty }
+}
+
+/**
+ * The rising route for `source → target`, or `null` unless the target lies
+ * wholly above the source (its bottom above the source's top).
+ */
+export function resolveRisingRoute(
+  source: RouteBox,
+  target: RouteBox,
+  others: readonly RouteBox[],
+): SameRowRoute | null {
+  const sTop = source.y
+  const tBottom = target.y + target.height
+  if (!(tBottom < sTop)) return null
+  const sCentre = source.x + source.width / 2
+  const tCentre = target.x + target.width / 2
+  const dir: 1 | -1 = tCentre >= sCentre ? 1 : -1
+  const inset = (w: number) => Math.max(0, Math.min(w / 2 - 12, w / 4))
+  const obstacles = others.filter(
+    (o) => o.id !== source.id && o.id !== target.id && o.y < sTop && o.y + o.height > tBottom,
+  )
+  const sy = r2(sTop)
+  const ty = r2(tBottom + SAME_ROW_TARGET_STANDOFF)
+  const inTargetRow = (o: RouteBox) => o.y < target.y + target.height && o.y + o.height > target.y
+  // Source ports: the facing quarter, the far quarter, then the middle of each
+  // stretch of the source's top border that no card above it covers — the gap
+  // a brick course leaves between two cards is where a lead can climb.
+  const sLo = source.x + 12
+  const sHi = source.x + source.width - 12
+  const facing = sCentre + dir * inset(source.width)
+  const blockers = obstacles
+    .filter((o) => !inTargetRow(o) && o.x < sHi && o.x + o.width > sLo)
+    .map((o) => [o.x - RISE_PORT_MARGIN, o.x + o.width + RISE_PORT_MARGIN] as const)
+    .sort((a, b) => a[0] - b[0])
+  const gaps: number[] = []
+  let cursor = sLo
+  for (const [a, b] of blockers) {
+    if (a > cursor) gaps.push((cursor + Math.min(a, sHi)) / 2)
+    cursor = Math.max(cursor, b)
+    if (cursor >= sHi) break
+  }
+  if (cursor < sHi && blockers.length > 0) gaps.push((cursor + sHi) / 2)
+  gaps.sort((a, b) => Math.abs(a - facing) - Math.abs(b - facing))
+  const sPorts = [facing, sCentre - dir * inset(source.width), ...gaps]
+  // The target port sits ONE GLYPH RING STEP further out than the `under`
+  // route's first entry (a quarter-width in): a rising link and an under-row
+  // link into the same card from the same side never share a lead or a glyph.
+  const tInset = Math.max(0, Math.min(target.width / 2 - 12, target.width / 4 + GLYPH_RING_STEP))
+  const tPorts = [tCentre - dir * tInset, tCentre + dir * tInset]
+  let best: { g: RiseGeometry; hits: number } | null = null
+  // Facing quarters first (the short, direct connector), then the others.
+  search: for (const sPort of sPorts) {
+    for (const tPort of tPorts) {
+      const g = solveRise(r2(sPort), sy, r2(tPort), ty, target, obstacles)
+      const hits = riseHits(g, obstacles).length
+      if (!best || hits < best.hits) best = { g, hits }
+      if (hits === 0) break search
+    }
+  }
+  const { g } = best!
+  const side = g.tx >= g.sx ? 1 : -1
+  const r = (n: number) => r2(n)
+  const outY = r(g.outY)
+  const inY = r(g.inY)
+  const bend = r(riseBend(outY, inY))
+  const path =
+    (outY < g.sy ? `M${g.sx},${g.sy} L${g.sx},${outY} ` : `M${g.sx},${g.sy} `) +
+    `C${g.sx},${r(outY - bend)} ${g.tx},${r(inY + bend)} ${g.tx},${inY}` +
+    (inY > g.ty ? ` L${g.tx},${g.ty}` : '')
+  const glyphSide = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
+  return {
+    kind: 'rise',
+    path,
+    // Beside the rising lead, on the side away from where the curve comes in.
+    glyphX: r2(g.tx + side * glyphSide),
+    glyphY: r2(g.ty + glyphSide),
+    // The cubic's t = 0.5 point — on the drawn line (control points share
+    // their end's x, and the bends cancel).
+    labelAnchor: { x: r2((g.sx + g.tx) / 2), y: r2((outY + inY) / 2) },
+  }
+}
+
+/**
+ * The route a bottom-port → top-handle link takes when its target's top is at
+ * or above its source's bottom: the same-row route, else the rising route,
+ * else `null` (xyflow's own path).
+ */
+export function resolveCardEdgeRoute(
+  source: RouteBox,
+  target: RouteBox,
+  others: readonly RouteBox[],
+): SameRowRoute | null {
+  return resolveSameRowRoute(source, target, others) ?? resolveRisingRoute(source, target, others)
+}
+
+/**
  * A store node's box, or `null` when its size is not measured yet — a route
  * is never drawn from a guessed size.
  */
@@ -329,6 +560,24 @@ function firstHit(
   return null
 }
 
+function spansX(b: RouteBox, x: number): boolean {
+  return x > b.x && x < b.x + b.width
+}
+
+/** A vertical lead at `x` from `y0` to `y1` passes under no card but its ends'. */
+function verticalClear(
+  x: number,
+  y0: number,
+  y1: number,
+  boxes: ReadonlyArray<RouteBox>,
+  sourceId: string,
+  targetId: string,
+): boolean {
+  const lo = Math.min(y0, y1)
+  const hi = Math.max(y0, y1)
+  return !boxes.some((b) => b.id !== sourceId && b.id !== targetId && spansX(b, x) && b.y < hi && b.y + b.height > lo)
+}
+
 export function resolveLayeredEdgeLeads(
   sourceId: string,
   targetId: string,
@@ -345,12 +594,13 @@ export function resolveLayeredEdgeLeads(
   const left = Math.min(sourceX, targetX)
   const right = Math.max(sourceX, targetX)
   // Only cards the diagonal could reach: inside its bounding box, and in the
-  // source's or the target's tier (a card of an intermediate tier is not
-  // cleared by a lead, so it is not the leads' question).
+  // source's tier, the target's tier, or a tier between them. An intermediate
+  // card is cleared only where a lead can run beside it (below); one no lead
+  // can clear is dropped from the search, as before 26 Sep.
   const obstacles = boxes.filter(
     (b) =>
       b.id !== sourceId && b.id !== targetId &&
-      (b.tier === src.tier || b.tier === tgt.tier) &&
+      b.tier >= src.tier && b.tier <= tgt.tier &&
       b.x < right && b.x + b.width > left &&
       b.y < targetY && b.y + b.height > sourceY,
   )
@@ -358,15 +608,37 @@ export function resolveLayeredEdgeLeads(
   let outY = sourceY
   let inY = targetY
   let clear = false
-  for (let round = 0; round < LEAD_MAX_ROUNDS; round++) {
-    const hit = firstHit(sourceX, outY, targetX, inY, obstacles)
+  let active = obstacles
+  // A dropped card does not spend a round (`continue` below): `active` shrinks
+  // each time, so the loop still ends.
+  for (let round = 0; round < LEAD_MAX_ROUNDS; ) {
+    const hit = firstHit(sourceX, outY, targetX, inY, active)
     if (!hit) {
       clear = true
       break
     }
     if (hit.tier === src.tier) outY = Math.max(outY, hit.y + hit.height + LEAD_CLEARANCE)
-    else inY = Math.min(inY, hit.y - LEAD_CLEARANCE)
+    else if (hit.tier === tgt.tier) inY = Math.min(inY, hit.y - LEAD_CLEARANCE)
+    else {
+      // ⭐ AN INTERMEDIATE-TIER CARD (26 Sep 2026 — served MRR: "Pro plan price
+      // → MRR" ran under the risk card between them). A lead clears it only
+      // when the lead itself runs beside it: drop the lead-out below it if the
+      // source's port is clear of its x-range (and the drop crosses no card),
+      // else start the lead-in above it if the target's handle is. Otherwise
+      // no vertical lead can (that needs a detour, not a lead): the card leaves
+      // the search, and the leads answer for the two end tiers exactly as
+      // they did before.
+      const below = hit.y + hit.height + LEAD_CLEARANCE
+      const above = hit.y - LEAD_CLEARANCE
+      if (!spansX(hit, sourceX) && verticalClear(sourceX, outY, below, boxes, sourceId, targetId)) outY = Math.max(outY, below)
+      else if (!spansX(hit, targetX) && verticalClear(targetX, above, inY, boxes, sourceId, targetId)) inY = Math.min(inY, above)
+      else {
+        active = active.filter((b) => b !== hit)
+        continue
+      }
+    }
     if (!(inY - outY > 12)) break
+    round++
   }
   if (!clear) {
     // ⭐ THE GUARANTEE, when the minimal search does not converge: leave below

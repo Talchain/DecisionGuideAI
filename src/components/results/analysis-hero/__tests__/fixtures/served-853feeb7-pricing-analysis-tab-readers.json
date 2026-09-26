@@ -1,0 +1,79 @@
+{
+ "_provenance": {
+  "served_build": "853feeb74d80d752d94aa57959b2cb02f36e822b",
+  "deploy_url": "https://6ab807814d9c5e0008b692ea--olumi.netlify.app",
+  "captured_at": "2026-09-26T18:25Z",
+  "how": "SAME run as served-853feeb7-pricing-drivers-run.json (pricing starter, one Run, no chat turns, ?ai=openai). analysis_admission is POST /proxy/v5/turn response .analysis_ready.analysis_admission VERBATIM; option_interventions is .analysis_ready.options[].interventions VERBATIM; served_dom strings are the Analysis tab's rendered text, keyed by the element's own data-testid, copied from capture.json tabs.Analysis (hits + innerText)."
+ },
+ "analysis_admission": {
+  "structurally_analysable": true,
+  "missing_important_inputs": [],
+  "semantic_quality_sufficient": false,
+  "permitted_analysis_mode": "quantified_provisional",
+  "reasons": [
+   {
+    "field": "structurally_analysable",
+    "code": "READY_TO_COMPARE",
+    "message": "Analysis can run on this model as it stands."
+   },
+   {
+    "field": "semantic_quality_sufficient",
+    "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+    "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures, and which option they favour, can be shown only as provisional, and no result can be called stable or robust until you have set at least one of them."
+   },
+   {
+    "field": "permitted_analysis_mode",
+    "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+    "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures, and which option they favour, can be shown only as provisional, and no result can be called stable or robust until you have set at least one of them."
+   }
+  ],
+  "graph_hash": "40b8912736c452d899cf79f09d0c8c45dd7754c09e6de1227257049660905c12",
+  "semantic_signals": {
+   "confidence_parameters_total": 24,
+   "confidence_parameters_user_stated": 0,
+   "confidence_parameters_machine_authored": 3,
+   "confidence_parameters_unattributed": 21,
+   "material_parameters_total": 13,
+   "material_parameters_user_stated": 0,
+   "intervened_factor_baselines_total": 3,
+   "intervened_factor_baselines_user_stated": 0,
+   "material_parameters_awaiting_user_node_ids": [
+    "fac_adoption_friction",
+    "fac_enterprise_revenue_risk",
+    "fac_usage_exposure"
+   ],
+   "goal_target_stated": true
+  }
+ },
+ "option_interventions": {
+  "opt_full_switch": {
+   "fac_usage_exposure": 1,
+   "fac_adoption_friction": 0.1,
+   "fac_enterprise_revenue_risk": 0.8
+  },
+  "opt_hybrid": {
+   "fac_usage_exposure": 0.5,
+   "fac_adoption_friction": 0.4,
+   "fac_enterprise_revenue_risk": 0.4
+  },
+  "opt_new_logos": {
+   "fac_usage_exposure": 0.3,
+   "fac_adoption_friction": 0.6,
+   "fac_enterprise_revenue_risk": 0.1
+  },
+  "opt_status_quo": {
+   "fac_usage_exposure": 0,
+   "fac_adoption_friction": 0.8,
+   "fac_enterprise_revenue_risk": 0
+  }
+ },
+ "served_dom": {
+  "t1-dominant-nudge-label": "Enterprise Revenue Cannibalization Risk",
+  "t1-dominant-nudge-metric": "has relative influence of 100% within this analysis.",
+  "hero-act-on-it-row-title": "Verify Enterprise Revenue Cannibalization Risk",
+  "hero-act-on-it-row-reason": "If the estimate changes for Enterprise Revenue Cannibalization Risk, the result could change.",
+  "strengthen-rec-strengthen:next-input:fac_enterprise_revenue_risk title": "Give Enterprise Revenue Cannibalization Risk a value of your own",
+  "strengthen-rec-strengthen:next-input:fac_enterprise_revenue_risk signal": "Most influential of 5 factors compared in this model, and the estimate behind it is Olumi's.",
+  "t1-flip-risk-callout button": "Validate Enterprise Revenue Cannibalization Risk"
+ }
+}
