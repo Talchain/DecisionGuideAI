@@ -79,6 +79,17 @@ export interface DisclosureRowProps {
   onAskOlumi?: (finding: AnalysisNewFinding) => void
   /** Stable prefix so two sections cannot mint the same testid. */
   testIdPrefix: string
+  /**
+   * TAIL-3 (design wave 2, panel-lane design audit 2026-09-25): `'body'` is
+   * for a row inside a `bare` `AnalysisNewSection` — one that no longer has
+   * its own section-weight toggle around it, so its headline should not read
+   * at the section-heading weight either. Renders the headline at
+   * `typography.panelBody`/`text-text-body` instead of
+   * `typography.panelHeader`/`text-text-header`. Default `'header'`, the
+   * weight every other caller already gets; every row's disclosure
+   * behaviour, testids and content are unchanged either way.
+   */
+  headlineTone?: 'header' | 'body'
 }
 
 export function DisclosureRow({
@@ -89,6 +100,7 @@ export function DisclosureRow({
   onAskOlumi,
   testIdPrefix,
   defaultOpen = false,
+  headlineTone = 'header',
 }: DisclosureRowProps) {
   const [open, setOpen] = useState(defaultOpen)
   const [inspectOpen, setInspectOpen] = useState(false)
@@ -141,7 +153,11 @@ export function DisclosureRow({
           <span className="w-3.5 shrink-0" aria-hidden="true" />
         )}
         <span className="min-w-0 flex-1">
-          <span className={`${typography.panelHeader} text-text-header block`}>
+          <span
+            className={`${
+              headlineTone === 'body' ? `${typography.panelBody} text-text-body` : `${typography.panelHeader} text-text-header`
+            } block`}
+          >
             {finding.headline}
             {marker ? (
               <span

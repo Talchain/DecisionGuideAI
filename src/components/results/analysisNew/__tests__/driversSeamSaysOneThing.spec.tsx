@@ -125,17 +125,20 @@ const renderBody = (data: ResultsSectionDataReturn) => {
 }
 
 /**
- * ⚠ OPEN IT ONLY IF IT IS CLOSED. `AnalysisNewSection` passes
- * `defaultOpen={findings.length === 1}`, so an unconditional click CLOSES the
- * one-driver fixtures and the assertion then fails on an unmounted body rather
- * than on the property. Measured: the set-relative twin below RED-ed that way
- * before this helper existed, which would have read as a missing caveat.
+ * ⚠ NO LONGER A TOGGLE — KEPT AS A NAME. TAIL-3 (design wave 2, panel-lane
+ * design audit 2026-09-25): "Drivers and dynamics" is now `bare` inside
+ * "What moves the outcome" — no second closed door, content renders
+ * unconditionally once the outer group is open. Every call site below still
+ * calls this, so none of them needed to change; it is a no-op documenting why.
  */
 const openDrivers = () => {
-  const toggle = screen.getByTestId('analysis-new-drivers-toggle')
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.queryByTestId('analysis-new-drivers-toggle')).toBeNull()
 }
+
+/** The count `SectionShell` always carries on the wrapping `<section>`, per
+ * variant `'bare'`'s own rule — read here since there is no visible badge. */
+const driversCount = () =>
+  screen.getByTestId('analysis-new-drivers').getAttribute('data-section-count')
 
 beforeEach(() => {
   useStrengthenStore.setState({ records: {}, priorityOrder: [] } as never)
@@ -161,7 +164,7 @@ describe('the factor ranking is rendered once on the tab', () => {
     ).toBeInTheDocument()
     // The section's own promise about how many sit behind it. `openStrategic-
     // Challenge` carries two non-zero drivers.
-    expect(screen.getByTestId('analysis-new-drivers-count')).toHaveTextContent('2')
+    expect(driversCount()).toBe('2')
 
     /* BOUND BY IDENTITY — the glance's own driver testids, never by the factor
        label (which the drivers section legitimately renders too, so a text
@@ -727,7 +730,7 @@ describe('the drivers section declares what it left out', () => {
     const caveat = screen.getByTestId('analysis-new-drivers-caveat').textContent ?? ''
     // POSITIVE CONTROL: the survivors are still listed, so this is a partial
     // exclusion and not an empty section wearing a disclosure.
-    expect(screen.getByTestId('analysis-new-drivers-count')).toHaveTextContent('2')
+    expect(driversCount()).toBe('2')
     expect(caveat).toContain('1')
     // The producer's own words for WHY, bound to the shared map by identity
     // rather than to a string typed here.

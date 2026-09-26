@@ -150,8 +150,22 @@ export interface SectionShellProps {
    * entirely: just the toggle, holding a leading chevron that rotates open,
    * and the title. Opt-in and used only where a caller has a product ruling
    * to drop those; every other caller is unaffected.
+   *
+   * TAIL-3 (design wave 2, panel-lane design audit 2026-09-25): `'bare'` is
+   * for a section nested INSIDE an already-disclosed one ("Drivers and
+   * dynamics" inside "What moves the outcome"). `headingLevel="label"`
+   * already dropped the heading TAG; it kept the toggle BUTTON, so opening
+   * the outer disclosure still met a second closed door, with its own count
+   * badge and chevron, one click further from the content it gates. `'bare'`
+   * drops the toggle entirely — no button, no chevron, no count badge, no
+   * open/closed state — and renders `children` unconditionally: the outer
+   * disclosure is the only click this content answers to. The heading is
+   * kept `sr-only` so `aria-labelledby` on the wrapping `<section>` still
+   * resolves, and `count` still lands on `data-section-count` (the same
+   * "always carried, whether or not the badge draws" rule the other variants
+   * follow) so a test can read it without a visible badge to query.
    */
-  variant?: 'disclose'
+  variant?: 'disclose' | 'bare'
 }
 
 export function SectionShell({
@@ -184,6 +198,40 @@ export function SectionShell({
     count != null && subtitle != null
       ? new RegExp(`(^|[^0-9])${count}([^0-9]|$)`).test(subtitle)
       : false
+
+  if (variant === 'bare') {
+    /* ⚠ NO `data-section-open`, NO `-toggle`, NO `-region` — the same
+       "fully bare" contract `OptionsComparison`'s own bare render already
+       established for this panel (`collapsedIA.spec.tsx`, "mounts the
+       options section OPEN, with no toggle, count or region — it is bare").
+       There is no closed state and no open/closed distinction to carry an
+       attribute for, so this does not manufacture one. */
+    return (
+      <section
+        data-testid={testId}
+        aria-labelledby={`${testId}-heading`}
+        data-section-count={count != null ? String(count) : undefined}
+      >
+        <span id={`${testId}-heading`} className="sr-only" data-testid={`${testId}-title`}>
+          {title}
+        </span>
+        {/* ⚠ THE TOPIC LINE, KEPT — flagged by review as dropped in the
+            first cut. Every other variant renders `subtitle`; bare has no
+            heading of its own to hang it under (the title above is
+            `sr-only`), so it renders as its own quiet line instead. Not a
+            claim, but a topic sentence a reader lost with no replacement. */}
+        {subtitle ? (
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mb-1`}
+            data-testid={`${testId}-subtitle`}
+          >
+            {subtitle}
+          </p>
+        ) : null}
+        {children}
+      </section>
+    )
+  }
 
   if (variant === 'disclose') {
     return (

@@ -190,14 +190,17 @@ describe('THE PRECONDITION — this fixture really does reach the defective clas
     renderPanel()
 
     const section = screen.getByTestId('analysis-new-drivers')
-    expect(screen.getByTestId('analysis-new-drivers-count')).toHaveTextContent('4')
+    // TAIL-3 (design wave 2): "Drivers and dynamics" is `bare` — no toggle,
+    // no visible badge. The count is still carried on the section's own
+    // `data-section-count`, the same "always carried" rule the other
+    // SectionShell variants follow.
+    expect(section).toHaveAttribute('data-section-count', '4')
 
-    const toggle = screen.getByTestId('analysis-new-drivers-toggle')
-    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-    // `DRIVER_PREVIEW` is 3, so the rank-4 row sits behind the section's own
-    // disclosure. It is on the panel either way — the strip's sentence says
-    // "on this panel", not "in the first three rows" — but reading it here
-    // makes the precondition a thing this test SAW rather than inferred.
+    // `DRIVER_PREVIEW` is 3, so the rank-4 row sits behind the "Show more"
+    // button — the section itself no longer has a door of its own to open
+    // first. It is on the panel either way — the strip's sentence says "on
+    // this panel", not "in the first three rows" — but reading it here makes
+    // the precondition a thing this test SAW rather than inferred.
     fireEvent.click(screen.getByTestId('analysis-new-drivers-show-more'))
 
     /* ⚠ BOUND TO A DRIVER ROW, NOT TO THE TEXT ANYWHERE IN THE SECTION. The

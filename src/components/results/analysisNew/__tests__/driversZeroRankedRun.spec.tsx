@@ -85,12 +85,13 @@ const openDrivers = () => {
   if (door.getAttribute('aria-expanded') !== 'true') fireEvent.click(door)
   expect(screen.getByTestId('analysis-new-signals-disclose'), 'the evidence door must be open before it is read')
     .toHaveAttribute('aria-expanded', 'true')
-  for (const id of ['analysis-new-what-moves-the-outcome', 'analysis-new-drivers']) {
-    const toggle = screen.getByTestId(`${id}-toggle`)
-    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-    expect(screen.getByTestId(`${id}-toggle`), `${id} must be open before it is read`)
-      .toHaveAttribute('aria-expanded', 'true')
-  }
+  const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  expect(toggle, 'analysis-new-what-moves-the-outcome must be open before it is read')
+    .toHaveAttribute('aria-expanded', 'true')
+  // TAIL-3 (design wave 2): "Drivers and dynamics" is now `bare` inside that
+  // outer door — no second toggle to open, its rows are already on screen.
+  expect(screen.queryByTestId('analysis-new-drivers-toggle')).toBeNull()
 }
 
 /** The capture above, reconstructed at the adapter's own input type. */
