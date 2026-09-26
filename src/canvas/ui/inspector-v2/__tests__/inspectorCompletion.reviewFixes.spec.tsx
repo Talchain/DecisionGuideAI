@@ -486,16 +486,19 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
     expect(screen.queryByText('Ask about this')).toBeNull()
   })
 
-  it('still sends the command when that label is clicked', () => {
+  it('still sends the command when that label is clicked — as a chip, never through _sendMessage (UI N2)', () => {
     const send = vi.fn()
+    const dispatch = vi.fn()
     useGuidanceStore.setState({
       guidanceItems: [exerciseItem()],
       _sendMessage: send,
+      _dispatchAction: dispatch,
       _prefillChat: vi.fn(),
     } as never)
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Try it'))
-    expect(send).toHaveBeenCalledWith('/exercise pre_mortem')
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ message: '/exercise pre_mortem', source: 'chip' }))
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('leaves the genuine ask labelled as an ask', () => {

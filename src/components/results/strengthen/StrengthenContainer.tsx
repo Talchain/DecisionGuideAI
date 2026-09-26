@@ -23,7 +23,7 @@
  * - route actions per §8.8, reading callbacks at CLICK time (they start
  *   null and go transiently null across host remounts). Two DISTINCT routes
  *   per the prototype: the PRIMARY action does the thing (ai-dialogue via
- *   _dispatchAction with an EXPLICIT action_type, degrading to _sendMessage
+ *   _dispatchAction with an EXPLICIT action_type, degrading to _sendChip (UI N2: never _sendMessage)
  *   with a DEV warn; canvas focus via the fail-closed focusModelTarget) and
  *   marks the rec in progress on success; "Work through this with Olumi"
  *   opens the Ask-Olumi drawer PREFILLED (never auto-sends, never mutates
@@ -297,7 +297,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   // ── §8.8 routing (callbacks read at CLICK time; degrade, never dead-end) ──
   const dispatchAiDialogue = (record: RecRecord) => {
     const rec = record.snapshot
-    const { _dispatchAction, _sendMessage } = useGuidanceStore.getState()
+    const { _dispatchAction, _sendChip } = useGuidanceStore.getState()
     if (_dispatchAction) {
       _dispatchAction({
         action_type: rec.action.actionType, // explicit — never the keyword heuristic
@@ -306,9 +306,15 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
         message: rec.action.prompt ?? rec.title,
         source: 'strengthen_panel',
       })
-    } else if (_sendMessage) {
-      if (import.meta.env.DEV) console.warn('[Strengthen] dispatchAction unregistered — degrading to sendMessage')
-      _sendMessage(rec.action.prompt ?? rec.title)
+    } else if (_sendChip) {
+      // UI N2: the prompt is Olumi's. Degrade to a CHIP send, never `_sendMessage`,
+      // which would reach CEE as words the user typed.
+      if (import.meta.env.DEV) console.warn('[Strengthen] dispatchAction unregistered — degrading to sendChip')
+      _sendChip(rec.action.label, rec.action.prompt ?? rec.title, {
+        id: `strengthen:${record.id}`,
+        action_type: rec.action.actionType,
+        ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
+      })
     } else {
       if (import.meta.env.DEV) console.warn('[Strengthen] no conversation callbacks registered — action dropped')
       return false

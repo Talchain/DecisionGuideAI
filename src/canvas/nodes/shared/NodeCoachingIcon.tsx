@@ -193,8 +193,15 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
         })
         return
       }
-      if (callbacks._sendMessage) {
-        callbacks._sendMessage(chip.message)
+      // UI N2: this text is Olumi's. A bare `_sendMessage` reaches CEE as a
+      // `composer` turn — words the USER typed — so a figure in it could ground a
+      // level. The degraded send keeps the chip identity instead.
+      if (callbacks._sendChip) {
+        callbacks._sendChip(chip.label, chip.message, {
+          id: chip.id,
+          action_type: chip.actionType as string,
+          parameters: { chip_id: chip.id },
+        })
         return
       }
       showToast('Olumi is unavailable here. Your question has not been sent.', 'warning')

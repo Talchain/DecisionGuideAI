@@ -105,10 +105,12 @@ export function InspectorCoaching({
 
   // COMMAND — not an ask. The button is the confirmation, and a prefilled
   // slash command would sit in the composer as literal text.
-  const runCommand = useCallback((text: string) => {
+  // UI N2: the command text is Olumi's, so it travels as a chip (never through
+  // `_sendMessage`, which reaches CEE as words the user typed).
+  const runCommand = useCallback((text: string, chipId: string) => {
     const state = useGuidanceStore.getState()
-    if (state._sendMessage) {
-      state._sendMessage(text)
+    if (state._dispatchAction) {
+      state._dispatchAction({ parameters: { chip_id: chipId }, label: text, message: text, source: 'chip' })
       revealOlumiSurface()
     }
   }, [])
@@ -124,7 +126,7 @@ export function InspectorCoaching({
         break
       case 'run_exercise':
         // Slash command: a COMMAND, not an ask — see the header note.
-        runCommand(`/exercise ${action.exercise}`)
+        runCommand(`/exercise ${action.exercise}`, `inspector_exercise:${action.exercise}`)
         break
       default:
         // For other action types, fall back to "Ask about this"

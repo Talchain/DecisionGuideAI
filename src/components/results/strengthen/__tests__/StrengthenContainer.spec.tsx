@@ -157,6 +157,46 @@ describe('StrengthenContainer — producer bias signal gates broaden', () => {
   })
 })
 
+describe('StrengthenContainer — UI N2: an ai-dialogue prompt is Olumi\'s text, never the user\'s typed words', () => {
+  const broaden = () => {
+    useCanvasStore.setState({
+      draftCoaching: {
+        summary: null,
+        strengthenItems: [],
+        wideningLog: [],
+        biasSignals: [{ type: 'narrow_framing', detail: 'Three of four options hire.' }],
+      },
+    } as never)
+  }
+
+  it('with no _dispatchAction the degrade is a CHIP send carrying the record\'s identity; _sendMessage is never used', () => {
+    broaden()
+    const sendMessage = vi.fn()
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: null, _sendMessage: sendMessage, _sendChip: sendChip } as never)
+    render(<StrengthenContainer data={makeData({ goalThreshold: 62 })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Generate a different option' }))
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    expect(sendChip.mock.calls[0]).toEqual([
+      'Generate a different option',
+      'Suggest one materially different option that works through a different mechanism.',
+      expect.objectContaining({ id: expect.stringMatching(/^strengthen:/), action_type: 'add_option' }),
+    ])
+  })
+
+  it('CONTRAST: with _dispatchAction registered the primary route is unchanged', () => {
+    broaden()
+    const dispatch = vi.fn()
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: dispatch, _sendChip: sendChip } as never)
+    render(<StrengthenContainer data={makeData({ goalThreshold: 62 })} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Generate a different option' }))
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ action_type: 'add_option', source: 'strengthen_panel' }))
+    expect(sendChip).not.toHaveBeenCalled()
+  })
+})
+
 describe('StrengthenContainer — work-through prefills the Ask-Olumi drawer', () => {
   it('opens the drawer with the why-context and an editable prefilled draft, WITHOUT auto-sending or mutating status', () => {
     const dispatch = vi.fn()
