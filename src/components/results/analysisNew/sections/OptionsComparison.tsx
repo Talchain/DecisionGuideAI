@@ -596,8 +596,9 @@ export function OptionsComparison({
    * see the PR description for the same finding against the per-option point
    * figure this wave does NOT add for the identical reason.
    */
+  const axisIsModelScale = showAxis && rangeScale !== null && outcomeDomainIsModelScale(options.rows)
   const axisTicks: readonly string[] | null =
-    showAxis && rangeScale !== null && !outcomeDomainIsModelScale(options.rows)
+    showAxis && rangeScale !== null && !axisIsModelScale
       ? AXIS_TICK_FRACTIONS.map((f, i) => formatAxisTick(rangeScale.ticks?.[i] ?? rangeScale.lo + f * rangeScale.span))
       : null
 
@@ -1171,6 +1172,14 @@ export function OptionsComparison({
                   {tick}
                 </span>
               ))}
+            </span>
+          ) : axisIsModelScale ? (
+            <span
+              className={`${typography.panelMeta} text-text-light relative flex h-[18px] items-center justify-between ${RANGE_INSET}`}
+              data-testid={`${testId}-axis-ends`}
+            >
+              <span data-testid={`${testId}-axis-end-lower`}>{COPY.optionFigures.axisLower}</span>
+              <span data-testid={`${testId}-axis-end-higher`}>{COPY.optionFigures.axisHigher}</span>
             </span>
           ) : null}
           <span
