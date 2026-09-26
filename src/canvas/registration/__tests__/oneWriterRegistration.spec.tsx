@@ -2358,4 +2358,35 @@ describe('9b · an applied ADD or drawn LINK acknowledges the model past its own
     // so the canvas as it stands is not a model CEE holds.
     expect(currentAcknowledged()).toBe(false)
   })
+
+  it('⛔ (#2070 review 5842051351) a local write on the NEW node while the add is in flight is NOT acknowledged — the registration still carries it', async () => {
+    await mountAcknowledgedAddBoard()
+    holdTurn = true
+    replies.push(addApplied({ ceeLinksFrom: DECISION }))
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    // While the add is on the wire, the store writes to the new node.
+    await act(async () => {
+      const n = useCanvasStore.getState().nodes.find((x) => x.id === optionId)!
+      useCanvasStore.getState().updateNode(optionId, { data: { ...(n.data as Record<string, unknown>), interventions: { [TARGET]: 42 } } } as never)
+      await flush()
+    })
+    await releaseHeldTurn()
+    holdTurn = false
+    await act(async () => { await flush() })
+
+    // ⭐ THE CLAIM: the add's receipt does not acknowledge the canvas carrying
+    // the unsent write, so the side-channel still delivers it. The registration's
+    // OWN receipt then acknowledges, so "acknowledged" alone cannot tell the
+    // two apart: what discriminates is that a registration CARRIED the write.
+    // RED at 664d2ade (1 call, mount only; the write never reached CEE).
+    expect(registerSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
+    const carried = registerSpy.mock.calls.slice(1).some((call) =>
+      registeredGraph(call).nodes.some((n) => n.id === optionId && JSON.stringify(n).includes('42')),
+    )
+    expect(carried).toBe(true)
+  })
 })

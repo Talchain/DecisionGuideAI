@@ -224,7 +224,10 @@ describe('structural_add (C32, 26 Sep): the node, and ONLY the incident links th
   const DEC = node('dec_p', { label: 'Pricing', kind: 'decision' })
   const OPT = node('opt_new', { label: 'New option', kind: 'option' })
   const LINK = edge('e_link', 'dec_p', 'opt_new', { weight: 1, direction: 'positive' })
-  const intent = { id: 'sa-1', nodeId: 'opt_new', nodeKind: 'option', label: 'New option', baseGraphHash: 'aag_0' } as unknown as StructuralAddIntent
+  const intent = {
+    id: 'sa-1', nodeId: 'opt_new', nodeKind: 'option', label: 'New option', baseGraphHash: 'aag_0',
+    minted: { node: OPT, edges: [LINK] },
+  } as unknown as StructuralAddIntent
   const canvas: CanvasGraph = { nodes: [A, B, DEC, OPT], edges: [AB, LINK] }
   const wireBase = [{ id: 'fac_a' }, { id: 'fac_b' }, { id: 'dec_p' }]
 
@@ -251,6 +254,26 @@ describe('structural_add (C32, 26 Sep): the node, and ONLY the incident links th
   it('the REVERSED pair is not this link: it is still named as not committed', () => {
     const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'opt_new', to: 'dec_p' }])
     expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, canvas)?.notYetCommittedEdgeIds).toEqual(['e_link'])
+  })
+
+  it('⛔ FAIL CLOSED (#2070 review): a local write on the NEW node during the add\'s round trip is not this add\'s: null', () => {
+    const edited = node('opt_new', { label: 'New option', kind: 'option', interventions: { fac_a: 42 } })
+    const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'dec_p', to: 'opt_new' }])
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, { nodes: [A, B, DEC, edited], edges: [AB, LINK] })).toBeNull()
+  })
+
+  it('⛔ FAIL CLOSED: a link on the new node the gesture did NOT draw, or a drawn link since changed: null', () => {
+    const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'dec_p', to: 'opt_new' }])
+    const other = edge('e_other', 'opt_new', 'fac_a', { weight: 0.4, direction: 'positive' })
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, { nodes: [A, B, DEC, OPT], edges: [AB, LINK, other] })).toBeNull()
+    const changedLink = edge('e_link', 'dec_p', 'opt_new', { weight: 0.3, direction: 'negative' })
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, { nodes: [A, B, DEC, OPT], edges: [AB, changedLink] })).toBeNull()
+  })
+
+  it('no minted snapshot (an intent captured before this change): null', () => {
+    const bare = { ...intent, minted: undefined } as unknown as StructuralAddIntent
+    const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'dec_p', to: 'opt_new' }])
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: bare }, r, canvas)).toBeNull()
   })
 
   it('refuted (node absent from the commit), unproven (no graph), or the node gone from the canvas: null', () => {

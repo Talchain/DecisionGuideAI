@@ -49,8 +49,11 @@
  * canvas at the gesture, so, as for the three kinds above, the canvas at the
  * receipt already carried the edit's own write.
  *
- *   · `structural_add`: undo the node and every link incident on it. The
- *     links the commit does NOT hold yet (a chained link still on its own way)
+ *   · `structural_add`: undo the node and every link incident on it, ONLY
+ *     while each still projects exactly as the gesture minted it (the intent's
+ *     `minted` snapshot). A local write on the new node or its link during the
+ *     add's round trip makes it null (#2070 review). The drawn links the commit
+ *     does NOT hold yet (a chained link still on its own way)
  *     are named, and the caller acknowledges the canvas WITHOUT them, which is
  *     exactly what CEE holds. The canvas as it stands, with the unsent link,
  *     stays unacknowledged, so the link's own receipt is what closes the
@@ -71,6 +74,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 import { readStructuralAddReceipt, type StructuralAddIntent } from '../mutations/structuralAdd'
+import { isSameAnalyticalModel } from '../store/importRegistrationMarker'
 import { readStructuralDeleteReceipt, type StructuralDeleteIntent } from '../mutations/structuralDelete'
 import { readStructuralRenameReceipt, type StructuralRenameIntent } from '../mutations/structuralRename'
 import { canvasEdgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
@@ -166,18 +170,47 @@ function beforeOwnRename(intent: StructuralRenameIntent, response: unknown, canv
   }
 }
 
+/**
+ * Does `now` still project exactly as the gesture MINTED it? Asked through the
+ * acknowledgement's own identity (`isSameAnalyticalModel`, the registration
+ * projection the digest is taken over), so "unchanged" means unchanged in
+ * every field a registration would carry. A graph the projection refuses is
+ * never the same, so this fails CLOSED.
+ */
+function projectsAsMinted(
+  nowNodes: readonly Node[],
+  nowEdges: readonly Edge[],
+  mintedNodes: readonly Node[],
+  mintedEdges: readonly Edge[],
+): boolean {
+  return isSameAnalyticalModel(nowNodes as never, nowEdges as never, mintedNodes as never, mintedEdges as never)
+}
+
 function beforeOwnAdd(intent: StructuralAddIntent, response: unknown, canvas: CanvasGraph): GraphBeforeOwnWrite | null {
   // (a) The committed graph holds the node, by id.
   if (readStructuralAddReceipt(intent, response) !== 'proven') return null
-  // (b) The canvas still shows it. A node since removed is not this write any more.
-  if (!canvas.nodes.some((n) => n.id === intent.nodeId)) return null
+  // (b) The canvas still shows EXACTLY what this gesture minted. A local write
+  // that landed on the new node while the add was in flight (a value, an
+  // intervention, a source) is not this add's, and undoing the whole node would
+  // acknowledge it with no one having sent it (#2070 review 5842051351). So:
+  // no snapshot, a changed node, or an incident link the gesture did not draw
+  // (or has since changed) means null, and G₀ is the canvas as it is.
+  const minted = intent.minted
+  if (!minted) return null
+  const nodeNow = canvas.nodes.find((n) => n.id === intent.nodeId)
+  if (!nodeNow || !projectsAsMinted([nodeNow], [], [minted.node], [])) return null
+  const incident = canvas.edges.filter((e) => e.source === intent.nodeId || e.target === intent.nodeId)
+  for (const e of incident) {
+    const drawn = minted.edges.find((m) => m.id === e.id)
+    if (!drawn) return null
+    const otherId = e.source === intent.nodeId ? e.target : e.source
+    const other = canvas.nodes.find((n) => n.id === otherId)
+    if (!other || !projectsAsMinted([nodeNow, other], [e], [minted.node, other], [drawn])) return null
+  }
   const committedPairs = new Set(
     (committedEdges(response) ?? []).map((e) => wireEdgePairKey(e)).filter((k): k is string => k !== null),
   )
-  const incident = canvas.edges.filter((e) => e.source === intent.nodeId || e.target === intent.nodeId)
-  // A link on a node minted by this gesture can only be this gesture's (or a
-  // later one's, still queued behind it), so every incident link leaves G₀.
-  // The ones the commit does NOT hold yet are named, so the caller never
+  // The drawn links the commit does NOT hold yet are named, so the caller never
   // acknowledges a link CEE has not written.
   const notYetCommittedEdgeIds = incident
     .filter((e) => {
