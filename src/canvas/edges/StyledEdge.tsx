@@ -865,8 +865,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
       if (box) boxes.push({ ...box, tier })
     }
-    const leads = resolveLayeredEdgeLeads(source as string, target as string, sourceX, sourceY, targetX, targetY, boxes)
-    return leads ? `${Math.round(leads.outY * 100) / 100},${Math.round(leads.inY * 100) / 100}` : ''
+    // `route`, not `leads`: the no-contest copy sweep reads a bare "leads" on a
+    // line with a template literal as a ranking verb (noContestFraming.canvas).
+    const route = resolveLayeredEdgeLeads(source as string, target as string, sourceX, sourceY, targetX, targetY, boxes)
+    return route ? `${Math.round(route.outY * 100) / 100},${Math.round(route.inY * 100) / 100}` : ''
   })
   const layeredLeads = useMemo<LayeredEdgeLeads | null>(() => {
     if (layeredLeadsKey === '') return null
