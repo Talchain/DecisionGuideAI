@@ -179,6 +179,19 @@ describe('1 · "Dominant factor" nudge reads the card\'s ranking', () => {
     expect(screen.queryByTestId('t1-dominant-nudge')).toBeNull()
   })
 
+  it('AI Conversation B1: the producer names the card\'s Driver 1 as dominant, but the list\'s TOP ROW is still the lever — no nudge (its number would be the lever\'s 100%)', () => {
+    // Served rows and elasticities: the card's Driver 1 is Top Account, the structural top row is the lever.
+    seed(blockWith())
+    const served = sectionData()
+    expect(served.drivers.driverLeader).toEqual({ key: TOP, leadIsClear: true })
+    expect(served.drivers.topDrivers[0].factorKey).toBe(LEVER)
+    // PLoT sends `dominant_factor` naming Top Account (it does on runs where its DOMINANT_FACTOR warning fires).
+    const data = { ...served, drivers: { ...served.drivers, dominantFactorId: TOP, dominantFactorLabel: 'Top Account Revenue Concentration' } }
+    renderTriage(data as typeof served)
+    // Without the "top row IS Driver 1" clause this would print Top Account beside the LEVER's structural 100%.
+    expect(screen.queryByTestId('t1-dominant-nudge')).toBeNull()
+  })
+
   it('control: when the structural top IS the card\'s Driver 1, the nudge names exactly that factor', () => {
     // Served rows, influence scores only: Top Account becomes the structural
     // top as well as the sensitivity top. Elasticities are untouched.
