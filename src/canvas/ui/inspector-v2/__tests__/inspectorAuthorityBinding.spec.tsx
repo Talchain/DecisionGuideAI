@@ -417,7 +417,13 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
    */
   panels?: readonly PanelKind[]
 }> = [
-  { selector: '[data-testid="inspector-back-to-results"]', why: 'navigation' },
+  // ⚠ v3.1 (DESIGN-GAP-v31 row 7): "Back to results" left the header. Its
+  // replacement, "Back to the conversation", renders only where a conversation
+  // surface is registered — this file registers none, so it has no entry here
+  // (an entry that matches nothing REDs by design). The technical-detail toggle
+  // moved from the head to the foot of the body, keeping its accessible name,
+  // so the entry below still binds it — and still requires it OUTSIDE the
+  // boundary.
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
   {
     selector: '[data-testid="edge-label-mode-toggle"]',
@@ -438,7 +444,9 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
     panels: ['edge'],
   },
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
-  { selector: '[data-testid="inspector-quick-analysis"]', why: 'navigation' },
+  // v3.1: "Its analysis" (a switch to the generic Analysis tab) is removed —
+  // the contract's inspector buttons are "Explore with Olumi" and "Back to the
+  // conversation" — so its navigation entry is removed with it.
   {
     selector: '[data-testid="inspector-rename-trigger"]',
     why: 'schemas 0.50.0 — the ONE writing control here, and the only one with a receipt-bearing carrier (structural_rename → scenarios.graph + an edit_graph fact)',

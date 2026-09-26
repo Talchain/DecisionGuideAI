@@ -11,6 +11,7 @@ import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
+import { inspectorButton } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
 import { detectBaseline } from '../../../utils/baselineDetection'
 import { formatWinProbability } from '../../../utils/labelUtils'
@@ -82,17 +83,17 @@ export function DecisionAddOption({ decisionId }: { decisionId: string }) {
 
   if (!node) return null
 
+  // v3.1: drawn as the contract's `.button.small`, in the SAME row as the
+  // inspector's conversation buttons (one button style across the inspector).
   return (
-    <div className="flex items-center gap-1.5 pt-1.5">
-      <button
-        type="button"
-        onClick={handleAddOption}
-        data-testid="decision-add-option"
-        className={`${typography.panelMeta} ${controls.actionChip}`}
-      >
-        + Add option
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={handleAddOption}
+      data-testid="decision-add-option"
+      className={inspectorButton}
+    >
+      + Add option
+    </button>
   )
 }
 

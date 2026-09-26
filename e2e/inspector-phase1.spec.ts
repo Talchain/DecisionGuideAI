@@ -228,8 +228,9 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     // Header identifies THIS factor (identity, not "some node is open")
     await expect(dialog.getByRole('button', { name: 'Customer satisfaction' })).toBeVisible()
 
-    // Controllable factors are introduced as user-editable
-    await expect(dialog.getByText('You can change this')).toBeVisible()
+    // v3.1 (DESIGN-GAP-v31 row 7): the kind label reads the KIND, not a claim
+    await expect(dialog.getByTestId('inspector-kind-label')).toHaveText('Factor')
+    await expect(dialog.getByText('You can change this')).toHaveCount(0)
 
     // Core sections of the v2 factor panel
     await expect(dialog.getByText('Context')).toBeVisible()
@@ -411,7 +412,7 @@ test.describe('Inspector Phase 1 (Track B)', () => {
   test('T7 — Inspector uses correct terminology', async ({ page }) => {
     // Factor: plain-language framing, no v1 jargon
     const factor = await openNodeInspector(page, 'factor-1')
-    await expect(factor.getByText('You can change this')).toBeVisible()
+    await expect(factor.getByTestId('inspector-kind-label')).toHaveText('Factor')
     await expect(factor.getByText('Your input')).toBeVisible()
     await expect(factor.getByText('Probabilities')).toHaveCount(0)
     await expect(factor.getByText('Use as Outcome Node')).toHaveCount(0)

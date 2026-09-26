@@ -58,7 +58,9 @@ describe('L-04 · the rename control is a visible affordance', () => {
     render(<EditableLabel value="Team productivity" onSave={vi.fn()} />)
     const trigger = screen.getByTestId('inspector-rename-trigger')
     expect(trigger.getAttribute('aria-label')).toMatch(/rename/i)
-    expect(trigger.getAttribute('title')).toMatch(/rename/i)
+    // v3.1 (DESIGN-GAP-v31 row 36): ONE tooltip system — no native `title`.
+    // The visible pencil is the cue; the accessible name carries "Rename".
+    expect(trigger.getAttribute('title')).toBeNull()
   })
 
   it('renders a visible edit cue alongside the text, not a bare button', () => {

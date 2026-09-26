@@ -33,16 +33,20 @@ export const SECTION_TITLES = {
 export type SectionKey = keyof typeof SECTION_TITLES
 
 // ─── Type/pill labels (spec §3.2) ──────────────────────────────────
-/** Compound key for factor subtypes */
-export function getTypeLabel(nodeType: NodeType, category?: FactorCategory | string): string {
-  if (nodeType === 'factor') {
-    switch (category) {
-      case 'controllable': return 'You can change this'
-      case 'observable':   return 'You measure this'
-      case 'external':     return 'Outside your control'
-      default:             return 'Factor'
-    }
-  }
+/**
+ * The inspector's KIND label.
+ *
+ * ⭐ v3.1 (DESIGN-GAP-v31 row 7): "The factor kind label must read the kind
+ * ('Factor'), not 'You can change this'." The label names WHAT the element is;
+ * the three category phrases were claims about the element ("You can change
+ * this", "You measure this", "Outside your control") sitting where the kind
+ * belongs. Where a category matters, the pane says it in its body (the external
+ * pane's own "Outside your control" pill is unchanged).
+ *
+ * `category` is still accepted so callers need not change, and ignored.
+ */
+export function getTypeLabel(nodeType: NodeType, _category?: FactorCategory | string): string {
+  if (nodeType === 'factor') return 'Factor'
   const labels: Partial<Record<NodeType, string>> = {
     goal:       'Goal',
     decision:   DECISION_NODE_LABEL,

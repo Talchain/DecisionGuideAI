@@ -7,12 +7,10 @@ import { memo, useMemo, useCallback, type ComponentType } from 'react'
 import { useCanvasStore } from '../../store'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
-import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
 import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
-import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 
 // Panel imports — lazy would be premature, these are small
 import { EdgePanel } from './panels/EdgePanel'
@@ -30,6 +28,7 @@ import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { InspectorAgencyNote } from './shared/InspectorAgencyNote'
 import { InspectorAttentionContext, attentionAskContext } from './shared/InspectorAttentionContext'
 import { useNodeAttention } from '../../nodes/shared/useNodeAttention'
+import { revealOlumiSurface } from '../../conversation/revealOlumi'
 import { resolveElementLabel } from '../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
 import { isStructuralEdge } from '../../domain/edgeUtils'
@@ -49,26 +48,10 @@ import type { Edge } from '@xyflow/react'
 const INSPECTOR_EDGE_STRUCTURAL_REASON =
   'This is a structural link, not a causal claim. It carries no strength, and nothing here is sent to the model.'
 
-// Entity colour map — used as fallback for inspector header entity colour
-const TOP_BAR_COLORS: Record<string, string> = {
-  goal:       'var(--goal)',
-  decision:   'var(--info)',
-  option:     'var(--option)',
-  factor:     'var(--factor)',
-  outcome:    'var(--success)',
-  risk:       'var(--danger)',
-  edge:       'var(--factor)',
-}
-
-// Pill border colour classes (30% opacity via hex suffix)
-const PILL_COLORS: Record<string, string> = {
-  goal:       'var(--goal)',
-  decision:   'var(--info)',
-  option:     'var(--option)',
-  factor:     'var(--factor)',
-  outcome:    'var(--success)',
-  risk:       'var(--danger)',
-}
+// ⭐ v3.1 (DESIGN-GAP-v31 row 7): the shell takes NO kind colour any more —
+// the kind label is muted text (the kind colours measured 1.62–2.80:1 as
+// text), and the confidence-coded border is gone. The two colour maps that fed
+// them are deleted with them.
 
 /**
  * Every NODE panel type → its panel. TOTAL by construction: `Record` over the
@@ -149,11 +132,6 @@ function resolvePanelType(
   }
 }
 
-/** Node kinds NodeShapeIndicator has a shape for. */
-const SHAPED_KINDS = new Set<string>([
-  'goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action', 'constraint',
-])
-
 export const InspectorRouter = memo(function InspectorRouter({
   nodeId,
   edgeId,
@@ -194,6 +172,18 @@ export const InspectorRouter = memo(function InspectorRouter({
     [nodeId],
   )
 
+  /**
+   * v3.1 point 11 — "Back to the conversation": FRONT the conversation (the one
+   * oracle for where Olumi is, `revealOlumiSurface`), then close. `onClose`
+   * only hides the inspector (`setShowFullInspector(false)`); the selection
+   * survives, so the element stays as the conversation's context. Above every
+   * early return (rules of hooks — see `handleLabelChange`).
+   */
+  const handleBackToConversation = useCallback(() => {
+    revealOlumiSurface()
+    onClose()
+  }, [onClose])
+
   const handleNavigate = useCallback((id: string) => {
     const store = useCanvasStore.getState()
     // Check if it's a node or edge
@@ -233,17 +223,12 @@ export const InspectorRouter = memo(function InspectorRouter({
     }
     const isStructural = isStructuralEdge(edge as unknown as Edge<EdgeData>, getNodeKindForEdge)
 
-    // Edge confidence from beliefExists — PROVENANCE-GATED.
-    // `getEdgeConfidence` returns the raw field, which is `0.8` on any edge the
-    // user merely drew. Rendering that as a "high · 80%" badge presents a UI
-    // default as a measurement.
-    const epDisplay = resolveEdgeValueDisplay(edge.data as Record<string, unknown> | undefined, 'beliefExists')
-    const ep = !isStructural && epDisplay.show ? epDisplay.value : null
-    const edgeConfidenceLevel = ep !== null ? (ep >= 0.7 ? 'high' as const : ep >= 0.4 ? 'medium' as const : 'low' as const) : undefined
-    const confidencePct = ep !== null ? Math.round(ep * 100) : undefined
-
-    // Top bar inherits source node type colour
-    const sourceKind = (sourceNode?.type || sourceNode?.data?.kind || 'factor') as NodeType
+    // ⭐ v3.1: NO CONFIDENCE BADGE IN THE HEAD. It rendered "✓ 78%" beside the
+    // title — the SAME provenance-gated `beliefExists` figure the body states
+    // under "Does this connection exist?" (`edge-existence-readout`), so the
+    // head said it twice in a second style. v3.1's edge inspector head is the
+    // kind, the title and Close; the stated figure stays readable in the body.
+    // (A14 still holds: a structural link shows no figure anywhere up here.)
 
     /**
      * ⭐ THE PANEL NOW OWNS ITS OWN AUTHORITY, so the notice must say what is
@@ -272,16 +257,8 @@ export const InspectorRouter = memo(function InspectorRouter({
 
     return (
       <InspectorShell
-        topBarColor={TOP_BAR_COLORS[sourceKind] ?? TOP_BAR_COLORS.factor}
         label={edgeLabel}
         typePill={EDGE_TYPE_LABEL}
-        typePillColor={PILL_COLORS[sourceKind]}
-        confidenceBadge={
-          edgeConfidenceLevel ? (
-            <ConfidenceBadge level={edgeConfidenceLevel} value={confidencePct} />
-          ) : undefined
-        }
-        confidenceLevel={edgeConfidenceLevel}
         techMode={techMode}
         onTechToggleChange={setTechMode}
         onClose={onClose}
@@ -292,18 +269,21 @@ export const InspectorRouter = memo(function InspectorRouter({
             elementLabel={edgeLabel}
             panelType="edge"
             labelContext={{ sourceLabel, targetLabel }}
+            onBackToConversation={handleBackToConversation}
           />
         }
+        footerNote={
+          <InspectorAgencyNote>
+            {isStructural
+              ? INSPECTOR_EDGE_STRUCTURAL_REASON
+              : edgeStrengthReaches
+                ? INSPECTOR_EDGE_REASON
+                : edgeAwaitingStatedStrength
+                  ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
+                  : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
+          </InspectorAgencyNote>
+        }
       >
-        <InspectorAgencyNote>
-          {isStructural
-            ? INSPECTOR_EDGE_STRUCTURAL_REASON
-            : edgeStrengthReaches
-              ? INSPECTOR_EDGE_REASON
-              : edgeAwaitingStatedStrength
-                ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
-                : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
-        </InspectorAgencyNote>
         {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
             This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
             `<fieldset disabled>` below. A disabled fieldset natively inerts every
@@ -371,8 +351,6 @@ export const InspectorRouter = memo(function InspectorRouter({
   const rawLabel = String(node.data?.label ?? 'Untitled')
   // Truncate normalised range notation like "(0-1, share of £..." from display
   const label = /\(0[-–]1/.test(rawLabel) ? rawLabel.split(/\(0[-–]1/)[0].trim() : rawLabel
-  const topColor = TOP_BAR_COLORS[nodeType] ?? TOP_BAR_COLORS.factor
-  const pillColor = PILL_COLORS[nodeType]
   const typePill = getTypeLabel(nodeType, category)
 
   // A8 — a "✓ N%" header badge used to render here for goal/outcome/risk
@@ -511,14 +489,9 @@ export const InspectorRouter = memo(function InspectorRouter({
 
   return (
     <InspectorShell
-      topBarColor={topColor}
-      /* A kind with no shape (e.g. `ghost-option`) falls through to the shell's
-         generic icon rather than rendering a shape that means something else. */
-      nodeKind={SHAPED_KINDS.has(nodeType) ? nodeType : undefined}
       nodeId={nodeId}
       label={label}
       typePill={typePill}
-      typePillColor={pillColor}
       techMode={techMode}
       onTechToggleChange={setTechMode}
       onClose={onClose}
@@ -555,6 +528,8 @@ export const InspectorRouter = memo(function InspectorRouter({
             elementLabel={label}
             panelType={panelType}
             askContext={attentionAskContext(attention.reasons)}
+            onBackToConversation={handleBackToConversation}
+            extra={panelType === 'decision' ? <DecisionAddOption decisionId={nodeId} /> : undefined}
           />
           {/* ⭐⭐ THE DECISION'S "+ Add option", OUTSIDE THE FENCE BY THE SAME
               TEST THE RENAME PASSED. Its gesture captures a durable
@@ -564,9 +539,39 @@ export const InspectorRouter = memo(function InspectorRouter({
               stayed green. ONLY this control moves — the decision panel stays in
               the blanket wrap, so none of its other controls is released. See
               `DecisionAddOption`, and the escape guard's `DELIBERATELY_OUTSIDE`
-              entry in `inspectorAuthorityBinding.spec.tsx`. */}
-          {panelType === 'decision' && <DecisionAddOption decisionId={nodeId} />}
+              entry in `inspectorAuthorityBinding.spec.tsx`. v3.1: it is drawn
+              in the SAME button row as the conversation buttons (`extra`). */}
         </>
+      }
+      footerNote={
+        <InspectorAgencyNote>
+          {/* ⚠ A BOOLEAN CANNOT PICK THIS ANY MORE. With one opting-in panel the
+              notice was "self-fenced or not"; with two it is "WHAT saves here",
+              and the two panes answer differently — the option pane saves the
+              name, the factor pane also saves the value. Keyed by panel type so
+              adding a third cannot silently inherit a sentence written about
+              another surface. */}
+          {/* ⚠ `factor-observable` TAKES THE CONTROLLABLE PANE'S SENTENCE BECAUSE
+              IT IS THE SAME FACTS: the name saves (conditionally), the value
+              saves through the same `factor_value_edit` carrier, and other edits
+              are not sent. The constant names no category, so nothing in it is
+              false of an observed factor. It is NOT allowed to fall through to
+              the option string below, which would tell the reader about factor
+              targets this pane does not have. */}
+          {!panelOwnsAuthority
+            ? INSPECTOR_READ_ONLY_REASON
+            : panelType === 'factor-controllable' || panelType === 'factor-observable'
+              ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
+              : panelType === 'factor-external'
+                ? INSPECTOR_FACTOR_EXTERNAL_REASON
+                : panelType === 'goal'
+                  ? INSPECTOR_GOAL_REASON
+                  : panelType === 'risk'
+                    ? INSPECTOR_RISK_REASON
+                    : panelType === 'outcome'
+                      ? INSPECTOR_OUTCOME_REASON
+                      : INSPECTOR_OPTION_READ_ONLY_REASON}
+        </InspectorAgencyNote>
       }
     >
       {/* Full raw label in disclosure only when truncated */}
@@ -575,34 +580,6 @@ export const InspectorRouter = memo(function InspectorRouter({
           <div>System: raw_label: {rawLabel}</div>
         </TechnicalDisclosure>
       )}
-      <InspectorAgencyNote>
-        {/* ⚠ A BOOLEAN CANNOT PICK THIS ANY MORE. With one opting-in panel the
-            notice was "self-fenced or not"; with two it is "WHAT saves here",
-            and the two panes answer differently — the option pane saves the
-            name, the factor pane also saves the value. Keyed by panel type so
-            adding a third cannot silently inherit a sentence written about
-            another surface. */}
-        {/* ⚠ `factor-observable` TAKES THE CONTROLLABLE PANE'S SENTENCE BECAUSE
-            IT IS THE SAME FACTS: the name saves (conditionally), the value
-            saves through the same `factor_value_edit` carrier, and other edits
-            are not sent. The constant names no category, so nothing in it is
-            false of an observed factor. It is NOT allowed to fall through to
-            the option string below, which would tell the reader about factor
-            targets this pane does not have. */}
-        {!panelOwnsAuthority
-          ? INSPECTOR_READ_ONLY_REASON
-          : panelType === 'factor-controllable' || panelType === 'factor-observable'
-            ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
-            : panelType === 'factor-external'
-              ? INSPECTOR_FACTOR_EXTERNAL_REASON
-              : panelType === 'goal'
-                ? INSPECTOR_GOAL_REASON
-                : panelType === 'risk'
-                  ? INSPECTOR_RISK_REASON
-                  : panelType === 'outcome'
-                    ? INSPECTOR_OUTCOME_REASON
-                    : INSPECTOR_OPTION_READ_ONLY_REASON}
-      </InspectorAgencyNote>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto
           node B and keeps the instance — so any state a panel seeds ONCE at

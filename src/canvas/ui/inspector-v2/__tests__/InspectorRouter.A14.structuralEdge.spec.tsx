@@ -68,9 +68,14 @@ describe('a structural link shows no invented confidence or strength claim', () 
 describe('CONTRAST — an ordinary causal edge keeps its badge and strength claim', () => {
   beforeEach(() => setStoreState(CAUSAL_NODES, CAUSAL_EDGES))
 
-  it('still shows a confidence badge', () => {
+  it('still shows its stated existence figure — in the body, since v3.1 moved it out of the head', () => {
+    // v3.1 (DESIGN-GAP-v31 rows 7, 12): the head is the kind, the title and
+    // Close; the header "✓ 80%" badge repeated the body's own readout. The
+    // CONTRAST still discriminates: the causal edge's figure is readable, the
+    // structural link above shows none.
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
-    expect(screen.getByTestId('inspector-confidence-badge').textContent ?? '').toMatch(/80%/)
+    expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
+    expect(screen.getByTestId('edge-existence-readout').textContent ?? '').toMatch(/80%/)
   })
 
   it('does not get the structural-link reason — it is a causal claim', () => {
