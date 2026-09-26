@@ -55,8 +55,11 @@ describe('selectWithheldLeaderDisclosure — why no option was put forward', () 
     // spans are interrupted by the very clause that removes the fabricated kind.
     // This fragment is present in BOTH the named and the anonymous form, so the
     // assertion binds to the template rather than to one of its two branches.
-    expect(got!.title).toContain("can't be evaluated reliably")
-    expect(got!.title).toContain('success target')
+    // Re-pinned 26 Sep 2026: the code names a LIMIT, not a success target
+    // (aLimitIsNotASuccessTarget.spec.ts). Both fragments sit in both forms.
+    expect(got!.title).toContain("can't be checked reliably")
+    expect(got!.title).toContain('limit')
+    expect(got!.title).not.toContain('success target')
     // ⚠ THIS ASSERTION USED TO READ `toContain('Set a value or range for')` — the
     // NAMED form's exact prefix. `REAL_WARNINGS` carries no `affected_nodes` and
     // no resolvable id (measured: the producer sends `{code, message, severity}`),
