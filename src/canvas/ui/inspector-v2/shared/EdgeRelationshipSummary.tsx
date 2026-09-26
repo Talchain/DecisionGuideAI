@@ -32,6 +32,7 @@ import {
 } from '../../../domain/edgeValueProvenance'
 import { resolveExistenceDash } from '../../../utils/graphDisplayCalculations'
 import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
+import { typography } from '../../../../styles/typography'
 import { inspectorDetailRow, inspectorSectionHighlight } from '../inspectorStyle'
 
 /** The contract's words (prototype `edgeInspector()`), one home. */
@@ -81,8 +82,8 @@ export function EdgeRelationshipSummary({ data }: { data: Record<string, unknown
   return (
     <>
       <section data-testid="edge-relationship-summary" className={inspectorSectionHighlight}>
-        <h4 className="text-xs font-semibold text-text-header mb-1">{EDGE_RELATIONSHIP_COPY.heading}</h4>
-        <p className="text-xs leading-[1.45] text-text-body m-0">{EDGE_RELATIONSHIP_COPY.body}</p>
+        <h4 className={`${typography.buttonSmall} !leading-4 text-text-header mb-1`}>{EDGE_RELATIONSHIP_COPY.heading}</h4>
+        <p className={`${typography.panelBody} !leading-[1.45] text-text-body m-0`}>{EDGE_RELATIONSHIP_COPY.body}</p>
       </section>
       <div data-testid="edge-detail-rows">
         {rows.map(([id, label, value]) => (

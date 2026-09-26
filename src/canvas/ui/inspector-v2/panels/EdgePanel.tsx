@@ -968,7 +968,7 @@ export const EdgePanel = memo(function EdgePanel({
           <PanelGroup kind="input" label={GROUP_LABELS.input}>
             {/* Who set these values — first, because its "not set" sentence
                 speaks of "the control below". */}
-            <p data-testid="edge-values-provenance" className="text-xs leading-[1.55] text-text-body mt-0 mb-2">
+            <p data-testid="edge-values-provenance" className={`${typography.panelBody} !leading-[1.55] text-text-body mt-0 mb-2`}>
               {edgeValuesProvenance}
             </p>
             {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL

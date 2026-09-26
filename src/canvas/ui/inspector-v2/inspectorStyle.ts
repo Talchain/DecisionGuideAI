@@ -21,17 +21,39 @@
  *   .button.small{padding:5px 9px;font-size:11px}
  *   .button.primary{border-color:var(--info);background:var(--info);color:white}
  *
- * v3.1 point 9 (no new colours): every value here is the contract's own. The
- * muted token is the design system's `text-text-light` (#6E6B6B, 5.23:1 on the
- * panel — measured; it beats the contract's #666762 band grey on this surface).
+ * v3.1 point 9 (no new colours), and the Design System ratchet
+ * (tools/ci-guards/check-ds-compliance.mjs, `production-hex` and
+ * `panel-typography-scoped`): the contract's hexes are NOT written here. Each is
+ * drawn with the nearest existing DS token of the same role (CIE76 ΔE on the
+ * #FEFEFE panel, measured 26 Sep 2026):
+ *   shell border  #B8D5CF -> info at 30% (tailwind.config's border rule) ΔE 9.3
+ *   head rule     #E5DDD0 -> border-emphasis #DDD4C4                    ΔE 3.6
+ *   row rule      #EEE9E1 -> panel-border (--border-default) #EEE6D8   ΔE 3.4
+ *   note rule     #DBD7D0 -> border-field at 30%                        ΔE 1.8
+ *   highlight     #A3C5D1 -> info at 40%                                ΔE 1.9
+ *   button border #BFC9CA -> border-field at 40% (the control border)   ΔE 6.1
+ *   button hover  #F6FAFB -> info at 5%                                 ΔE 1.1
+ *   icon rest     #777B77 -> --rail-icon (the same contract grey)       ΔE 0
+ *   icon hover    #EAF2F5 -> info at 10% (the estate's --info-soft)     ΔE 0.3
+ * The head rule keeps the stronger of the two warm rules so the head still
+ * reads above the rows. Type comes from `typography` (`panelHeader`,
+ * `panelBody`); a contract line-height that differs from the token's is applied
+ * with `!`, because Tailwind emits arbitrary leading BEFORE the named steps and
+ * the token's own leading would otherwise win. The 12px/600 h4 has no `panel*`
+ * token, and declaring one raises the typography.ts pin in
+ * tests/ci-guards/shell-conformance.spec.ts; until that is decided the h4 uses
+ * `buttonSmall`, the one existing 12px/600 token, with its 16px line restored.
+ * The muted token is the design system's `text-text-light` (#6E6B6B, 5.23:1 on
+ * the panel — measured; it beats the contract's #666762 band grey here).
  */
+import { typography } from '../../../styles/typography'
 
 /** Numbers the shell and its measure read. */
 export const INSPECTOR_WIDTH_PX = 330
 
 export const INSPECTOR_SHELL_STYLE = {
   width: INSPECTOR_WIDTH_PX,
-  border: '1px solid #B8D5CF',
+  border: '1px solid rgb(var(--info-rgb) / 0.3)',
   borderRadius: 12,
   boxShadow: '0 10px 40px #22333024',
   maxHeight: 'calc(100vh - 135px)',
@@ -39,10 +61,10 @@ export const INSPECTOR_SHELL_STYLE = {
 
 /** Rules: the head's, a detail row's, and the note's (`--line`). */
 export const INSPECTOR_RULE = {
-  head: 'border-[#E5DDD0]',
-  row: 'border-[#EEE9E1]',
-  note: 'border-[#DBD7D0]',
-  highlight: 'border-[#A3C5D1]',
+  head: 'border-border-emphasis',
+  row: 'border-panel-border',
+  note: 'border-field/30',
+  highlight: 'border-info/40',
 } as const
 
 const BUTTON_BASE =
@@ -50,7 +72,7 @@ const BUTTON_BASE =
 
 /** `.button.small` — the one secondary button. */
 export const inspectorButton =
-  `${BUTTON_BASE} border-[#BFC9CA] bg-white text-text-body hover:border-info hover:bg-[#F6FAFB]`
+  `${BUTTON_BASE} border-field/40 bg-white text-text-body hover:border-info hover:bg-info/5`
 
 /** `.button.small.primary` — the one primary button. */
 export const inspectorButtonPrimary =
@@ -61,13 +83,13 @@ export const inspectorButtonRow = 'flex flex-wrap gap-1.5'
 
 /** `.detail-row` — label muted on the left, value right-aligned. */
 export const inspectorDetailRow =
-  `flex items-baseline justify-between gap-[15px] py-2 border-b ${INSPECTOR_RULE.row} text-xs leading-[1.45]`
+  `flex items-baseline justify-between gap-[15px] py-2 border-b ${INSPECTOR_RULE.row} ${typography.panelBody} !leading-[1.45]`
 
 /** `.inspector-body h4` */
-export const inspectorHeading = 'text-xs font-semibold text-text-header mt-3 mb-[7px]'
+export const inspectorHeading = `${typography.buttonSmall} !leading-4 text-text-header mt-3 mb-[7px]`
 
 /** `.inspector-body h4` as a group's first line (its section carries the top margin). */
-export const inspectorGroupLabel = 'text-xs font-semibold text-text-header mb-[7px]'
+export const inspectorGroupLabel = `${typography.buttonSmall} !leading-4 text-text-header mb-[7px]`
 
 /** `.section-highlight` */
 export const inspectorSectionHighlight = `border-l-2 ${INSPECTOR_RULE.highlight} pl-2.5 my-3.5`
@@ -78,4 +100,4 @@ export const inspectorNote =
 
 /** `.icon-btn` — the header's close control. */
 export const inspectorIconButton =
-  'grid place-items-center w-[25px] h-[25px] rounded-[5px] shrink-0 text-[#777B77] hover:text-info hover:bg-[#EAF2F5] transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-info'
+  'grid place-items-center w-[25px] h-[25px] rounded-[5px] shrink-0 text-[color:rgb(var(--rail-icon-rgb))] hover:text-info hover:bg-info/10 transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-info'

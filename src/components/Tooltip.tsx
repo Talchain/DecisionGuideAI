@@ -24,9 +24,15 @@ import {
  * arrow, while card names carried a native `title` — two tooltip systems. The
  * surface is exported so every hand-rolled tooltip (the connection hover in
  * `StyledEdge`) wears the SAME classes rather than a copy of them.
+ *
+ * Colours are DS tokens, not the contract's hexes (the `production-hex`
+ * ratchet): the ground #303A3A -> `bg-text-body` (#3F3F3E, the nearest dark
+ * token, CIE76 ΔE 5.4; the pre-v3.1 `text-header` #262626 is ΔE 9.5), the
+ * text #FEFEFE -> `text-text-on-color` (#FFFFFF, ΔE 0.3). White on #3F3F3E is
+ * 10.54:1 (the contract pair is 11.62:1).
  */
 export const TOOLTIP_SURFACE_CLASS =
-  'max-w-[300px] bg-[#303A3A] text-[#FEFEFE] rounded-[7px] px-[11px] py-[9px] text-[12px] leading-[1.45] shadow-[0_5px_14px_#20202024] break-words font-sans'
+  'max-w-[300px] bg-text-body text-text-on-color rounded-[7px] px-[11px] py-[9px] text-[12px] leading-[1.45] shadow-[0_5px_14px_#20202024] break-words font-sans'
 
 interface TooltipProps {
   children: React.ReactNode;

@@ -2,7 +2,8 @@
  * InspectorShell — the one shell every inspector pane renders in.
  *
  * ⭐ CANVAS VISUAL CONTRACT v3.1 (DESIGN-GAP-v31 rows 7, 8). The contract's
- * `.inspector` is 330px, a 1px `#B8D5CF` border, radius 12px; its head holds a
+ * `.inspector` is 330px, a 1px `#B8D5CF` border (drawn as the DS info-at-30%
+ * token, see inspectorStyle.ts), radius 12px; its head holds a
  * 10px MUTED kind label, a 14px/600 title and Close — nothing else.
  *
  *  · THE KIND LABEL IS MUTED, NEVER THE KIND COLOUR. The served label was set
@@ -143,7 +144,7 @@ export const InspectorShell = memo(function InspectorShell({
               maxLength={NODE_LABEL_MAX_LENGTH}
               autoEdit={autoEditLabel}
               onAutoEditConsumed={handleAutoEditConsumed}
-              className="text-sm font-semibold leading-[1.4] text-text-header"
+              className={`${typography.panelHeader} !leading-[1.4] text-text-header`}
             />
             {rationale && (
               <button
