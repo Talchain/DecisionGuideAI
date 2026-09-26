@@ -21,8 +21,8 @@ const vmFor = (reason: string) =>
   } as never)
 
 const CASES = [
-  ['no_option_meets_limit', 'No option meets your limit on this run.'],
-  ['every_option_likely_breaks_limit', 'On these estimates, every option is more likely than not to break your limit.'],
+  ['no_option_meets_limit', 'On this run, no option meets one of your limits.'],
+  ['every_option_likely_breaks_limit', 'On these estimates, every option is more likely than not to break one of your limits.'],
 ] as const
 
 describe.each(CASES)('%s', (token, sentence) => {
@@ -43,6 +43,6 @@ it('tier 2 never says "meets"', () => {
 
 it('CONTRAST: the generic withhold keeps its own sentence and its "Goal only"', () => {
   const vm = vmFor('constraint_verdict_withheld')
-  expect(vm.checks.leaderWithholdCause).not.toMatch(/limit on this run|more likely than not/)
+  expect(vm.checks.leaderWithholdCause).not.toMatch(/one of your limits/)
   expect(vm.checks.sharesExcludeLimits).toBe(true)
 })
