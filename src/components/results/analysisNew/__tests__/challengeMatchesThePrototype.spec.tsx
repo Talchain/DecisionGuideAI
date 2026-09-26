@@ -40,6 +40,7 @@ import { genuineDecision } from './analysisNewFixtures'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 
 const TID = 'analysis-new-challenge'
 const TITLE = 'Challenge the thinking'
@@ -305,3 +306,21 @@ describe('the Respond form', () => {
     expect(screen.getByTestId(`${TID}-respond-cancel`)).toHaveTextContent('Cancel')
   })
 })
+
+describe('nothing to challenge, nothing picked (served 0f7cf453, after an edit)', () => {
+  it('⭐ the card points at the strip instead of leaving the title over nothing', () => {
+    draw({ intervention: null, methodId: null })
+    expect(screen.getByTestId(`${TID}-pick-a-method`)).toHaveTextContent(ZONE.pickAMethod)
+  })
+
+  it('CONTRAST: a finding to show → no prompt', () => {
+    draw({ intervention: viaVm(FLIP) })
+    expect(screen.queryByTestId(`${TID}-pick-a-method`)).toBeNull()
+  })
+
+  it('CONTRAST: no strip to point at (no pick handler) → no prompt', () => {
+    draw({ intervention: null, methodId: null, onSelectMethod: undefined })
+    expect(screen.queryByTestId(`${TID}-pick-a-method`)).toBeNull()
+  })
+})
+
