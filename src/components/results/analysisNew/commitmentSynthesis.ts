@@ -292,9 +292,14 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
   // (a)
   if (vm.checks.leaderWithheld) {
     const cause = vm.checks.leaderWithholdCause
+    // ⭐ AND WHICH CHECK FAILED, WHERE THE PRODUCER TYPED IT (manual test
+    // `1a298d6d`): the withheld sentence alone named no cause the reader could
+    // act on. Appended, never substituted — see `checks.leaderWithholdDetail`.
+    const detail = vm.checks.leaderWithholdDetail ?? null
+    const withDetail = (text: string) => (detail !== null ? `${text} ${detail}` : text)
     return cause !== null
-      ? { text: cause, source: 'leader_withheld_cause' }
-      : { text: COPY.checks.leader_not_assessed.meaning, source: 'leader_withheld' }
+      ? { text: withDetail(cause), source: 'leader_withheld_cause' }
+      : { text: withDetail(COPY.checks.leader_not_assessed.meaning), source: 'leader_withheld' }
   }
 
   // (b) RETIRED: the tipping condition has ONE owner on this tab, the
