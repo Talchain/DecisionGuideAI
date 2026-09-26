@@ -79,21 +79,29 @@ import { DOCK_MIN_WIDTH, DOCK_RESPONSIVE_MAX_WIDTH } from '../dockWidth'
  */
 export const SHELL_GUTTER_PX = 12
 
-/** The shell's 1px border, both sides. Part of the budget, so it is named. */
+/**
+ * The shell's 1px border. Part of the budget, so it is named.
+ *
+ * ⚠ Since the flush panel (26 Sep 2026) the shell draws ONE rule, on its left
+ * edge (contract `.ai-panel{border-left:1px solid #DCD7CF}`); `shellContentBudget`
+ * still subtracts it twice. That is 1px conservative, deliberately left alone:
+ * changing it moves every derived budget by a pixel for no visible gain.
+ */
 export const SHELL_BORDER_PX = 1
 
 /**
  * Content width available to a child at a given dock width.
  *
- * DERIVED — never write a content-width number into a child. At the 416px
- * default this is 390px; at the 280px drag floor it is 254px, and every child
- * surface must stay legible there.
+ * DERIVED — never write a content-width number into a child. At the 319px
+ * default (the contract's flush panel, 26 Sep 2026; it was 416px → 390px) this
+ * is 293px; at the 280px drag floor it is 254px, and every child surface must
+ * stay legible there.
  */
 export function shellContentBudget(dockWidth: number): number {
   return dockWidth - 2 * SHELL_BORDER_PX - 2 * SHELL_GUTTER_PX
 }
 
-/** The budget at the default width (416px) — 390px. */
+/** The budget at the default width (319px) — 293px. */
 export const SHELL_CONTENT_BUDGET_PX = shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)
 
 /** The budget at the drag floor (280px) — 254px. The legibility target. */
@@ -114,6 +122,23 @@ export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
  * controls fit, plus headroom, per the audit's own measurement.
  */
 export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 320
+
+/**
+ * ⭐ THE CONTRACT'S TAB STRIP GEOMETRY (26 Sep 2026). `.panel-tabs{height:45px}`
+ * and, measured by rendering `olumi-canvas-visual-contract.html` at 1280×800,
+ * each tab button is 37.9px tall (`padding:10px 8px`, 11px type, a 2px bottom
+ * rule) and sits centred in the strip. Heights, not padding, because 10px is
+ * off the DS spacing scale this file holds shell scope to; the box the user
+ * sees is the same.
+ *
+ * ⚠ AND THE DEFAULT WIDTH IS NOW BELOW `SHELL_TABSTRIP_COMPACT_BELOW_PX`, so
+ * the strip opens compact: VersionsTrigger and the expert-mode toggle sit in
+ * the overflow menu, which is the contract's row (four tabs and a close
+ * control, nothing else). Version history stays one click away there and in
+ * the top bar.
+ */
+export const SHELL_TABSTRIP_HEIGHT_PX = 45
+export const SHELL_TAB_HEIGHT_PX = 38
 
 /**
  * The CSS custom property the shell publishes its LIVE measured width on.
