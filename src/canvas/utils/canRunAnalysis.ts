@@ -45,6 +45,7 @@ import {
   composeReadinessBlockedReason,
   readinessAuthoredRefusalItems,
   readinessAuthoredImprovementItems,
+  BLOCKED_REASON_COPY,
   type GateBlockedItem,
   type OptionNeedingValues,
 } from './composeBlockedReason'
@@ -52,6 +53,7 @@ import {
 /** Re-exported so the gate's consumers have one import for the listing shape. */
 export type { GateBlockedItem }
 import type { AnalysisHoldReason } from './analysisHeldOnInjectedModel'
+import { describeAnalysisRefusalReason } from '../store/analysisRefusalNotice'
 
 /**
  * The refusal for a model the engine did not draft.
@@ -279,6 +281,11 @@ export interface CanRunAnalysisParams {
    * strict `=== true`.
    */
   mayRun?: boolean
+  /**
+   * The bound admission verdict's reason codes (`useBoundAdmissionReasonCodes`).
+   * Used ONLY to word a refusal that verdict made; never decides anything.
+   */
+  admissionReasonCodes?: readonly string[]
   /** Whether there are critical/blocking actions */
   hasBlockers: boolean
   /** Number of nodes in graph */
@@ -535,6 +542,24 @@ export function actionableBlockers(
   return blockers.filter((blocker) => !ADVISORY_BLOCKER_CODES.has(blocker.code))
 }
 
+/**
+ * The sentences for a refusal the bound admission verdict made: each reason
+ * code CEE's admission carried, through the ONE code vocabulary
+ * (`describeAnalysisRefusalReason`, shared with the post-refusal notice).
+ * Unmapped codes are never printed raw; with none mapped, the honest generic
+ * line (`BLOCKED_REASON_COPY.unspecified`) is used instead.
+ */
+export function admissionRefusalItems(codes: readonly string[]): readonly GateBlockedItem[] {
+  const sentences: string[] = []
+  for (const code of codes) {
+    const sentence = describeAnalysisRefusalReason(code)
+    if (sentence !== null && !sentences.includes(sentence)) sentences.push(sentence)
+  }
+  return sentences.length > 0
+    ? sentences.map((text) => ({ text }))
+    : [{ text: BLOCKED_REASON_COPY.unspecified }]
+}
+
 export function readinessObjectsToRun(
   readiness: GraphReadiness | null | undefined,
   analysisReadiness?: AnalysisReadinessAuthority | null,
@@ -707,9 +732,24 @@ export function readinessObjectsToRun(
     // waiver is about admission, not about actionability.
     return (
       analysisReadiness.status === ANALYSIS_READINESS_BLOCKED ||
+      // ⭐ A bound refusal closes the gate on its own (one revision-bound
+      // authority, #69 5840817605 (B)). `mayRun` reaching here is ONLY a
+      // verdict bound to the revision on screen (`selectBoundMayRun`), so a
+      // stated "no" for THIS graph is never outvoted by a quieter readiness.
+      mayRun === false ||
       (actionableBlockers(analysisReadiness.blockers).length > 0 && mayRun !== true)
     )
   }
+
+  // ⭐ ONE REVISION-BOUND AUTHORITY BEFORE THE SIDE-CAR (#69 5840817605 (B);
+  // manual test 1a298d6d). The removal trigger below asked for a producer
+  // verdict that is "durable across a silent turn". `ceeAnalysisReady` is: it
+  // is retained across conversational turns and nulled on analytical edits,
+  // and `selectBoundMayRun` binds it to the exact revision on screen. So when a
+  // bound verdict exists it decides, and the side-car's separate score is not
+  // consulted; with no bound verdict (`undefined`) the side-car decides exactly
+  // as it did before.
+  if (mayRun !== undefined) return mayRun === false
 
   // ⏳ REMOVAL TRIGGER for the side-car fallback below.
   //
@@ -787,7 +827,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // ⚠ `mayRun` is deliberately NOT defaulted here. `undefined` is the signal
   // "the producer did not say", and a default would erase the very distinction
   // `readinessObjectsToRun` reads it for.
-  const { graphHealth, readiness, analysisReadiness = null, mayRun, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  const { graphHealth, readiness, analysisReadiness = null, mayRun, admissionReasonCodes = [], hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
   // The ITEMISED twin of `blockingReasons`, filled in the same pass so the two
@@ -1062,10 +1102,23 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
           (readinessAuthoredRefusalItems(readiness) ??
           readinessAuthoredImprovementItems(readiness))
         : null
+    // ⭐ A refusal the BOUND admission verdict made is worded from ITS reason
+    // codes, through the one code vocabulary (`describeAnalysisRefusalReason`),
+    // never from the side-car it overrode. Producer-itemised blockers, when
+    // there are any, are more specific and still win.
+    // A producer-stated `blocked` status decided on its own, so it keeps its
+    // own wording ladder (including the side-car's corroboration).
+    const decidedByBoundAdmission =
+      mayRun === false &&
+      (analysisReadiness === null ||
+        (analysisReadiness.status !== ANALYSIS_READINESS_BLOCKED &&
+          (producerBlockers === null || producerBlockers.length === 0)))
     const composedItems: readonly GateBlockedItem[] =
-      producerBlockers !== null
-        ? (corroboration ?? analysisBlockedItems(producerBlockers))
-        : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
+      decidedByBoundAdmission
+        ? admissionRefusalItems(admissionReasonCodes)
+        : producerBlockers !== null
+          ? (corroboration ?? analysisBlockedItems(producerBlockers))
+          : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
     const composed = composedItems.map((item) => item.text).join(' ')
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)

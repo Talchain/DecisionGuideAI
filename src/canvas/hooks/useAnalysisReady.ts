@@ -12,6 +12,7 @@
  * than flat `analysis_status` / `analysis_ready_options` slices.
  */
 
+import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import type { CEEOptionV3, AnalysisAdmissionV1 } from '../../adapters/cee/types'
 
@@ -31,15 +32,85 @@ export function useIsAnalysisReady(): boolean {
 }
 
 /**
- * CEE's own admission verdict for this turn (`analysis_ready.may_run`), or
- * `undefined` when the producer did not send one.
+ * CEE's own admission verdict (`analysis_ready.may_run`) FOR THE REVISION ON
+ * SCREEN (`selectBoundMayRun`), or `undefined` when there is no such verdict:
+ * the producer sent none, or it describes an earlier revision, or the user has
+ * edited since.
  *
  * `undefined` is load-bearing and must not be collapsed to `false`: it means a
  * pre-`may_run` CEE, and the consumer's job is then to fall back to whatever it
  * did before. See {@link admitsRunAffordance}.
  */
 export function useAnalysisMayRun(): boolean | undefined {
-  return useCanvasStore((s) => s.ceeAnalysisReady?.may_run)
+  return useCanvasStore(selectBoundMayRun)
+}
+
+/**
+ * ⭐ CEE's run-admission verdict FOR THE REVISION ON SCREEN, or `undefined`.
+ *
+ * One revision-bound authority (#69 5840817605 (B); manual test 1a298d6d). A
+ * verdict decides the Run gate only while it describes the graph the user is
+ * looking at:
+ *   · its hash — `current_graph_hash`, else the 16-char prefix of
+ *     `analysis_admission.graph_hash` — equals `lastServerGraphHash`, the turn's
+ *     top-level `graph_hash` (served: all three are the same revision); and
+ *   · there has been no local edit since (`analysisFreshnessDirty`).
+ * Anything else is `undefined`: NOT "no", but "no bound verdict", and the
+ * caller falls back exactly as it did before `may_run` existed.
+ *
+ * `reasonCodes` are the admission's own reason codes, carried WITH the verdict
+ * so a refusal is worded by the authority that made it.
+ */
+export interface BoundAdmission {
+  mayRun: boolean
+  reasonCodes: readonly string[]
+}
+
+const REVISION_PREFIX = 16
+
+function verdictRevision(carrier: Record<string, unknown>): string | null {
+  const current = carrier.current_graph_hash
+  if (typeof current === 'string' && current.length >= REVISION_PREFIX) return current.slice(0, REVISION_PREFIX)
+  const admission = carrier.analysis_admission
+  const full =
+    admission !== null && typeof admission === 'object'
+      ? (admission as Record<string, unknown>).graph_hash
+      : undefined
+  return typeof full === 'string' && full.length >= REVISION_PREFIX ? full.slice(0, REVISION_PREFIX) : null
+}
+
+export function selectBoundAdmission(state: {
+  ceeAnalysisReady?: unknown
+  lastServerGraphHash?: string | null
+  analysisFreshnessDirty?: boolean
+}): BoundAdmission | undefined {
+  const carrier = state.ceeAnalysisReady
+  if (carrier === null || typeof carrier !== 'object') return undefined
+  const record = carrier as Record<string, unknown>
+  if (typeof record.may_run !== 'boolean') return undefined
+  if (state.analysisFreshnessDirty === true) return undefined
+  const onScreen = state.lastServerGraphHash
+  if (typeof onScreen !== 'string' || onScreen.length < REVISION_PREFIX) return undefined
+  if (verdictRevision(record) !== onScreen.slice(0, REVISION_PREFIX)) return undefined
+  const admission = record.analysis_admission
+  const reasons =
+    admission !== null && typeof admission === 'object' && Array.isArray((admission as Record<string, unknown>).reasons)
+      ? ((admission as Record<string, unknown>).reasons as unknown[])
+      : []
+  const reasonCodes = reasons
+    .map((r) => (r !== null && typeof r === 'object' ? (r as Record<string, unknown>).code : undefined))
+    .filter((c): c is string => typeof c === 'string' && c.length > 0)
+  return { mayRun: record.may_run, reasonCodes }
+}
+
+export function selectBoundMayRun(state: Parameters<typeof selectBoundAdmission>[0]): boolean | undefined {
+  return selectBoundAdmission(state)?.mayRun
+}
+
+/** The bound verdict's reason codes (empty when there is no bound verdict). */
+export function useBoundAdmissionReasonCodes(): readonly string[] {
+  const codes = useCanvasStore((s) => selectBoundAdmission(s)?.reasonCodes.join('\u0000') ?? '')
+  return useMemo(() => (codes === '' ? [] : codes.split('\u0000')), [codes])
 }
 
 /**
