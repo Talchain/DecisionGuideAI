@@ -580,7 +580,11 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     expect(classifyArbitrarySize('10px')).toBe('fixed')
     // CONTRAST — a far scale with no label-scale fallback, or any other variable, is not read as scaled.
     expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,1))')).toBe('unresolvable')
-    expect(classifyArbitrarySize('calc(14px*var(--canvas-other-scale,1))')).toBe('unresolvable')
+    // `--topbar-h` is a DEFINED property (TopBar's setProperty) that is not a
+    // counter-scale, written with NO fallback — so this fixture cannot itself
+    // trip `css-var-resolution.spec` (an invented name read as undefined; a
+    // `,1` fallback read as drift from the bar's 51px).
+    expect(classifyArbitrarySize('calc(14px*var(--topbar-h))')).toBe('unresolvable')
     expect(classifyArbitrarySize('1.2rem')).toBe('unresolvable')
   })
 
