@@ -85,6 +85,11 @@ describe('the relationship row says the size in the target\'s own units', () => 
     expect(rowValue(data)).toBe("Decrease of about 1 point of churn · Olumi's estimate")
   })
 
+  it('the producer\'s real unit for a percentage level ("percentage points") reads "1 percentage point", never "1%"', () => {
+    const data = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, natural_effect: { ...CHURN_NATURAL, unit: 'percentage points' } } }))
+    expect(rowValue(data)).toBe("Decrease of about 1 percentage point · Olumi's estimate")
+  })
+
   it('CONTRAST (legacy): the SAME edge with no natural effect keeps today\'s band, unchanged', () => {
     const data = ingest(wireEdge({ provenance: { source: 'cee_hypothesis' } }))
     expect(data).not.toHaveProperty('naturalEffect')
@@ -143,7 +148,11 @@ describe('the relationship row says the size in the target\'s own units', () => 
 })
 
 describe('the phrase helpers', () => {
-  it('singular only for exactly one, only the first plain-plural word', () => {
+  it('singular only for exactly one, only the head noun (last word before of/per), only a plain plural', () => {
+    // The producer's own word for a percentage level (MG link-effect.ts targetUnitWords).
+    expect(unitForAmount(1, 'percentage points')).toBe('percentage point')
+    expect(unitForAmount(2, 'percentage points')).toBe('percentage points')
+    expect(unitForAmount(1, 'sales units')).toBe('sales unit')
     expect(unitForAmount(1, 'points of churn')).toBe('point of churn')
     expect(unitForAmount(2, 'points of churn')).toBe('points of churn')
     expect(unitForAmount(1, 'customers')).toBe('customer')

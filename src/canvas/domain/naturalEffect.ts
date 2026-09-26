@@ -115,15 +115,22 @@ export function readWireNaturalEffect(
 }
 
 /**
- * "points of churn" → "point of churn" when the amount is exactly one. Only the
- * FIRST word, only a plain plural (a trailing "s", never "ss"); a symbol or code
- * unit ("£", "GBP") has no word to change.
+ * The unit's HEAD NOUN made singular when the amount is exactly one: the last
+ * word before any "of" / "per", as English noun phrases put it last.
+ * "percentage points" (the producer's word for a percentage level, `link-effect.ts`
+ * `targetUnitWords`) → "percentage point"; "points of churn" → "point of churn";
+ * "customers" → "customer". Only a plain plural (a trailing "s", never "ss"); a
+ * symbol or code unit ("£", "GBP per month") has no word to change.
  */
 export function unitForAmount(amount: number, unit: string): string {
   if (Math.abs(amount) !== 1) return unit
-  const [first, ...rest] = unit.split(' ')
-  if (first === undefined || !/^[a-z]{3,}s$/i.test(first) || /ss$/i.test(first)) return unit
-  return [first.slice(0, -1), ...rest].join(' ')
+  const words = unit.split(' ')
+  const stop = words.findIndex(w => /^(of|per)$/i.test(w))
+  const head = (stop === -1 ? words.length : stop) - 1
+  const noun = words[head]
+  if (head < 0 || noun === undefined || !/^[a-z]{3,}s$/i.test(noun) || /ss$/i.test(noun)) return unit
+  words[head] = noun.slice(0, -1)
+  return words.join(' ')
 }
 
 const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
