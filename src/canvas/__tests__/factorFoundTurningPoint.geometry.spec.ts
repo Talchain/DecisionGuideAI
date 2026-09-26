@@ -18,18 +18,21 @@
  * / `layeredLeadPath`, what `StyledEdge` draws), with the same box, overlap and
  * sampling rules as `v31Ws1LandingComposition.spec.ts`.
  *
- * HEIGHTS: measured in real Chromium on this branch at 9dc3e7af (local dev server,
- * `playwright.geometry.config.ts`, pricing starter, 1280x800, zoom 0.5, label
- * scale 2), by calling the production `measureNodeHeightsAtLabelBound` before
- * and after a completed Run seeded with the served shares, the served rank
- * (`Driver 1 of 5 analysed` on fac_top_account_concentration only) and MG's
- * FOUND row (#2138 review: flip_reason 'found', current 0.4, flip 0.7, display
- * scale). Only ONE card's bound height moved: fac_top_account_concentration
- * 283 → 406. On screen that card went 141.4 → 202.9px: the range line (30.3px)
- * left and the flip plot (91.8px) arrived; title (52.5px) and driver slot
- * (15.1px) were unchanged. The same run read the DOM directly: layoutVersion
- * 1 → 2, 0 overlapping card pairs and 0 edge paths (30 of 30 sampled with
- * getPointAtLength) under a non-endpoint card, before and after.
+ * HEIGHTS: measured in real Chromium on this branch's product code at db876c22
+ * (9dc3e7af + staging 57d28b0e; local dev server, `playwright.geometry.config.ts`,
+ * pricing starter, 1280x800, zoom 0.5, label scale 2), by calling the production
+ * `measureNodeHeightsAtLabelBound` before and after a completed Run seeded with
+ * the served shares, the served rank (`Driver 1 of 5 analysed` on
+ * fac_top_account_concentration only) and MG's FOUND row (#2138 review:
+ * flip_reason 'found', current 0.4, flip 0.7, display scale). Only ONE card's
+ * bound height moved: fac_top_account_concentration 218 → 406. On screen that
+ * card went 109.1 → 202.9px: the flip plot (91.8px) arrived under the driver
+ * slot; title (52.5px) and slot (15.1px) were unchanged. (#2133 omits the
+ * producer's bare model-scale range on the card, so neither phase has a range
+ * line here; at 9dc3e7af the plot replaced a 30.3px one, 283 → 406.) The same
+ * run read the DOM directly: layoutVersion 1 → 2, 0 overlapping card pairs and
+ * 0 edge paths (30 of 30 sampled with getPointAtLength) under a non-endpoint
+ * card, before and after.
  *
  * CLAIM SCOPE: local Chromium with a seeded result, not the deployed build. The
  * served found-case witness is still owed after the merge.
@@ -50,8 +53,8 @@ const PRE_BOUND: Record<string, number> = {
   dec_pricing: 108,
   fac_adoption_friction: 226,
   fac_enterprise_revenue_risk: 296,
-  fac_market_competition: 283,
-  fac_top_account_concentration: 283,
+  fac_market_competition: 218,
+  fac_top_account_concentration: 218,
   fac_usage_exposure: 264,
   goal_pricing_transition: 190,
   opt_full_switch: 343,
@@ -70,19 +73,19 @@ const POST_BOUND: Record<string, number> = { ...PRE_BOUND, [RANK_1]: 406 }
 const PRE_POSITIONS: Record<string, { x: number; y: number }> = {
   dec_pricing: { x: 494, y: 24 },
   fac_adoption_friction: { x: 261, y: 767 },
-  fac_enterprise_revenue_risk: { x: 419, y: 1095 },
+  fac_enterprise_revenue_risk: { x: 419, y: 1076 },
   fac_market_competition: { x: 577, y: 767 },
-  fac_top_account_concentration: { x: 735, y: 1095 },
+  fac_top_account_concentration: { x: 735, y: 1076 },
   fac_usage_exposure: { x: 893, y: 767 },
-  goal_pricing_transition: { x: 494, y: 1802 },
+  goal_pricing_transition: { x: 494, y: 1783 },
   opt_full_switch: { x: 24, y: 196 },
   opt_hybrid: { x: 340, y: 196 },
   opt_new_logos: { x: 656, y: 196 },
   opt_status_quo: { x: 972, y: 196 },
-  out_bottom_up_growth: { x: 340, y: 1455 },
-  out_nrr: { x: 972, y: 1455 },
-  risk_enterprise_churn: { x: 656, y: 1455 },
-  risk_pricing_complexity: { x: 24, y: 1455 },
+  out_bottom_up_growth: { x: 340, y: 1436 },
+  out_nrr: { x: 972, y: 1436 },
+  risk_enterprise_churn: { x: 656, y: 1436 },
+  risk_pricing_complexity: { x: 24, y: 1436 },
 }
 const BELOW_FACTORS = ['goal_pricing_transition', 'out_bottom_up_growth', 'out_nrr', 'risk_enterprise_churn', 'risk_pricing_complexity']
 
@@ -205,7 +208,7 @@ describe('#2138 found case — the pricing board at the Chromium-measured bound 
     expect(edges).toHaveLength(30)
     const moved = Object.keys(PRE_BOUND).filter((id) => POST_BOUND[id] !== PRE_BOUND[id])
     expect(moved).toEqual([RANK_1])
-    expect(POST_BOUND[RANK_1]! - PRE_BOUND[RANK_1]!).toBe(123)
+    expect(POST_BOUND[RANK_1]! - PRE_BOUND[RANK_1]!).toBe(188)
   })
 
   it('pre-run: the production layout reproduces the positions Chromium read, with 0 overlaps and 0 edges under cards', async () => {

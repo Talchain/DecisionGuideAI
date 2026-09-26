@@ -283,7 +283,6 @@ const MG_ADDED = [
   'factor-turning-point', 'factor-turning-point-caption', 'factor-turning-point-run-value',
   'factor-turning-point-track', 'factor-turning-point-current', 'factor-turning-point-flip',
 ]
-const MG_REMOVED = [`factor-prior-range-${RANK_1}`, `factor-range-source-${RANK_1}`]
 const FLIP_PLOT_IDS = MG_ADDED.filter(t => t.startsWith('factor-turning-point'))
 
 /** Every testid on the rendered card, in document order. */
@@ -295,7 +294,7 @@ const faceIds = (root: HTMLElement, id: string) => {
 }
 
 describe('FOUND turning point on the rank-1 factor — the ONE card that may grow, and only by the flip plot', () => {
-  it(`${RANK_1}: pre → post adds exactly MG's probe set and removes only the range line; the flip plot sits at rest right under the reserved slot`, () => {
+  it(`${RANK_1}: pre → post adds exactly MG's probe set and removes nothing; the flip plot sits at rest right under the reserved slot`, () => {
     seed('pre', FOUND_REPORT)
     const pre = allIds(renderCard(RANK_1).container)
     cleanup()
@@ -303,8 +302,12 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     const { container } = renderCard(RANK_1)
     const post = allIds(container)
     expect(post.filter(t => !pre.includes(t))).toEqual(MG_ADDED)
-    // Spec §3 precedence: the plot supersedes the range line (Chromium: 30.3px out, 91.8px in).
-    expect(pre.filter(t => !post.includes(t))).toEqual(MG_REMOVED)
+    // At 9dc3e7af MG's probe also removed the range line (spec §3: the plot
+    // supersedes it). Since #2133 the card omits the producer's bare model-scale
+    // range ('0.2 to 0.6') in BOTH phases, so nothing leaves and the plot is the
+    // whole growth (Chromium: 109.1 → 202.9px, the plot 91.8px).
+    expect(pre).not.toContain(`factor-prior-range-${RANK_1}`)
+    expect(pre.filter(t => !post.includes(t))).toEqual([])
     const c = card('Top Account Revenue Concentration')
     const s = within(c).getByTestId(`factor-driver-slot-${RANK_1}`)
     const plot = within(c).getByTestId('factor-turning-point')
