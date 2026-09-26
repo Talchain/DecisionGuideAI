@@ -458,7 +458,7 @@ function getAiEstimatedValue(node: Node): string | null {
  * Map a normalised 0–1 value to a qualitative level.
  * Used for factors without cap/unit where numeric display is meaningless.
  */
-function toQualitativeLevel(v: number): string {
+export function toQualitativeLevel(v: number): string {
   if (v <= 0.2) return 'very low'
   if (v <= 0.4) return 'low'
   if (v <= 0.6) return 'moderate'
@@ -473,10 +473,17 @@ function formatDetailNumber(n: number): string {
   return String(n)
 }
 
-function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): string {
+export function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): string {
   // Qualitative factors: no meaningful unit AND (no cap, or cap=1 which is just the normalised ceiling)
   // Empty string unit and "scale" are treated the same as absent — CEE sometimes sends unit: "" or "scale"
   const isQualitative = (!os.unit || os.unit === 'scale') && (os.cap == null || os.cap === 1)
+  // A22 (AUDIT-SYNTH 20260925): the producer's own reading of THIS value, when
+  // carried — never re-banded into this function's own qualitative words
+  // underneath it. Scoped to the qualitative fallback only: a real anchored
+  // figure (raw_value + a meaningful unit) still outranks a possibly-stale
+  // display_value, unchanged, matching formatFactorDisplayValue's precedence.
+  const carriedDisplayValue =
+    typeof os.display_value === 'string' && os.display_value.trim() !== '' ? os.display_value : null
 
   if (os.raw_value != null) {
     const unit = os.unit
@@ -493,8 +500,10 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
       // branch below.
       primary = `${formatDetailNumber(rawNum)}%`
     } else if (isQualitative && rawNum >= 0 && rawNum <= 1) {
-      // No unit (or unit="scale"), no meaningful cap, value in 0–1 range — show qualitative level
-      return toQualitativeLevel(rawNum)
+      // No unit (or unit="scale"), no meaningful cap, value in 0–1 range — the
+      // carried reading wins (A22); the qualitative band word is the fallback
+      // for when the producer sent no reading of its own.
+      return carriedDisplayValue ?? toQualitativeLevel(rawNum)
     } else if (unit) {
       primary = `${formatDetailNumber(rawNum)} ${unit}`
     } else {
@@ -515,8 +524,9 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
     const numValue = Number(os.value)
     const unit = os.unit
 
-    // Qualitative (no unit or unit="scale", and no useful cap): show level label
-    if (isQualitative && numValue >= 0 && numValue <= 1) return toQualitativeLevel(numValue)
+    // Qualitative (no unit or unit="scale", and no useful cap): the carried
+    // reading wins (A22); the level label is the fallback.
+    if (isQualitative && numValue >= 0 && numValue <= 1) return carriedDisplayValue ?? toQualitativeLevel(numValue)
 
     // Percentage with fractional value (e.g. 0.04 → "4%")
     if (unit === '%' && numValue >= 0 && numValue <= 1) {
@@ -538,8 +548,9 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
     // Currency value already in raw form (e.g. value=20000, unit='£' → "£20,000")
     if (unit && CURRENCY_SYMBOLS.has(unit)) return `${unit}${formatDetailNumber(numValue)}`
 
-    // 0–1 value with no useful unit/cap context — fall back to qualitative
-    if (numValue >= 0 && numValue <= 1) return toQualitativeLevel(numValue)
+    // 0–1 value with no useful unit/cap context — the carried reading wins
+    // (A22); qualitative is the fallback.
+    if (numValue >= 0 && numValue <= 1) return carriedDisplayValue ?? toQualitativeLevel(numValue)
 
     // Plain number with optional unit suffix
     if (unit) return `${formatDetailNumber(numValue)} ${unit}`

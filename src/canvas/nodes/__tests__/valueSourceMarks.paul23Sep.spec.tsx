@@ -80,7 +80,21 @@ const FACTORS: N[] = [
   // No stamp anywhere: marked "no source" — never Olumi's, never the user's.
   f('fac-nostamp', 'Support load', { observedState: { value: 30, unit: 'tickets', display_value: '30 tickets' } }),
   // The writer withdrew extractionType on a user edit; the receipt has not stamped yet.
-  f('fac-edit-window', 'Engineering capacity', { observedState: { value: 0.8, raw_value: 0.8, display_value: '0.8', source: 'cee_inference' } }),
+  // The user-edit window, as the REAL writer leaves it (`setObservedValue`): the
+  // old Olumi source kept, `display_value` and BOTH `extractionType` spellings
+  // withdrawn — keys PRESENT, set to `undefined`. (This fixture used to OMIT the
+  // key, which is a different shape: see `fac-ai-draft`.)
+  f('fac-edit-window', 'Engineering capacity', {
+    extractionType: undefined,
+    observedState: { value: 0.8, raw_value: 0.8, display_value: undefined, source: 'cee_inference', extractionType: undefined },
+  }),
+  // A fresh AI-drafted value, byte for byte as CEE `9417228` serves it (OpenAI
+  // draft, AI Quality capture B-openai line 1): Olumi's source, NO
+  // `extractionType` key at all. Reviewer 5827605617: it read "no source".
+  f('fac-ai-draft', 'Developer delivery capacity', {
+    provenance: 'ai_inferred',
+    observedState: { unit: 'FTE', value: 0.25, source: 'cee_inference', raw_value: 5 },
+  }),
   // An external factor whose only figure is its prior range (Vendor Licensing Cost shape).
   { id: 'fac-range', type: 'factor', position: { x: 0, y: 0 }, data: {
     type: 'factor', label: 'Vendor licensing cost', category: 'external', extractionType: 'inferred', observedState: {},
@@ -172,6 +186,7 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
         ['fac-brief', 'brief'],
         ['fac-brief-x', 'brief'],
         ['fac-nostamp', 'unknown'], // Codex 5801529767: unknown stays unknown — never Olumi, never you
+        ['fac-ai-draft', 'olumi'], // reviewer 5827605617: the producer's own source names the author
       ])('%s → %s', (id, expected) => {
         setState({ viewMode: view })
         const { container } = renderNode(FactorNode, id)

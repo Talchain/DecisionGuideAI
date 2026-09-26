@@ -35,7 +35,7 @@ import {
   isCountUnit,
   isTierLabel,
 } from './labelUtils'
-import { factorCardVisibleText, formatFactorDisplayParts, formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
+import { encodingMapPhrase, factorCardVisibleText, formatFactorDisplayParts, formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 
 /**
  * Maximum tolerated difference between baseline and target for a "no change"
@@ -57,6 +57,15 @@ export interface InterventionValueInput {
   cap?: number
   observedValue?: number
   observedRawValue?: string | number
+  /**
+   * The factor's own declared encoding (A13, AUDIT-SYNTH 20260925): "0" = "No
+   * AEs added", etc. When it resolves for `value`, it outranks `displayValue`
+   * — the same precedence the factor card gives it (`formatFactorDisplayValue`)
+   * — because a producer-composed magnitude word ("Low"/"High") over a
+   * categorical scale is a category error, and the map is the producer's own
+   * words for the SAME value.
+   */
+  encoding_map?: unknown
 }
 
 export interface InterventionChangeInput {
@@ -140,6 +149,14 @@ export function tierReadingNumber(value: number): number {
  * value is an ordinal position and a "%" would assert a frame nothing set.
  */
 export function formatInterventionTargetText(chip: InterventionValueInput): string {
+  // A13 (AUDIT-SYNTH 20260925) — a declared encoding_map is the producer's own
+  // words for THIS value, and it outranks display_value here exactly as it
+  // does on the factor card. Before this, an intervention chip never carried
+  // `encoding_map` at all, so a factor with e.g. {0: "No AEs added", 1: "Three
+  // AEs added"} showed the option row's own magnitude word ("Low"/"High")
+  // beside a factor card that, for the identical value, printed the map.
+  const encoded = encodingMapPhrase(chip.encoding_map, chip.value)
+  if (encoded !== null) return encoded
   // CEE-provided display_value wins over any UI-side formatting (verbatim).
   if (chip.displayValue) return chip.displayValue
   // Denormalise the 0–1 intervention value when a real-world scale exists.
