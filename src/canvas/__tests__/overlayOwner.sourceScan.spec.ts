@@ -278,7 +278,11 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
     // DECIDED and an absence that was MISSED read identically to a derived
     // guard, so the decision has to be stated here or the guard keeps undoing
     // it. If a mount reappears for one of these, THAT is the regression.
-    const INTENTIONALLY_UNMOUNTED = new Set(['ModelExtentNotice'])
+    // `CanvasFooterSummary` joins it (26 Sep 2026): Paul ruled out the footer
+    // caption and the "Visual key" link; it had stayed off starter boards only
+    // because the saved-example banner starved its cell, and v3.1 moved that
+    // banner out of the band (DESIGN-GAP #3). See its old mount site.
+    const INTENTIONALLY_UNMOUNTED = new Set(['ModelExtentNotice', 'CanvasFooterSummary'])
     const unmounted: string[] = []
     const mountCounts: Record<string, number> = {}
     for (const file of MIGRATED) {
