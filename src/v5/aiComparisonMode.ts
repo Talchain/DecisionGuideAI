@@ -47,6 +47,27 @@ export function aiComparisonHeaders(href?: string): Record<string, string> {
   return mode === null ? {} : { [AI_MODE_HEADER]: mode }
 }
 
+/**
+ * The engine label worth SHOWING in the product panel: only a mode that differs from what this host uses anyway.
+ * Staging defaults to OpenAI, so "AI: OpenAI" on every screen was debug chrome in the Olumi tab (v3.1 design gap
+ * #30; Paul, 26 Sep: "needs to be a premium design"). An explicit ?ai=conventional session still says so, which
+ * is what the label exists for: a tester must never compare two engines under an identical-looking surface.
+ */
+export function aiComparisonBadge(href?: string): string | null {
+  if (typeof window === 'undefined' && href == null) return null
+  const source = href ?? window.location.href
+  let url: URL
+  try {
+    url = new URL(source)
+  } catch {
+    return null
+  }
+  const mode = resolveAiComparisonMode(source)
+  const hostDefault: AiComparisonMode | null = isOlumiStagingHost(url.hostname) ? 'openai' : null
+  if (mode === null || mode === hostDefault) return null
+  return aiComparisonLabel(source)
+}
+
 export function aiComparisonLabel(href?: string): string | null {
   const mode = resolveAiComparisonMode(href)
   if (mode === 'openai') return 'OpenAI'
