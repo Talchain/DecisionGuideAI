@@ -749,7 +749,56 @@ export function resolveDriverSemanticLabels(
       out.set(entry.key, 'biggest')
       return
     }
-    out.set(entry.key, value >= 0.5 ? 'strong' : value >= 0.2 ? 'moderate' : 'minor')
+    out.set(entry.key, influenceTierLabel(value))
   })
   return out
+}
+
+/**
+ * The threshold tier of a row that does not wear the crown (UI-SEM-039: 0.50
+ * strong / 0.20 moderate), on the set-relative 0-1 value the bar prints. ONE
+ * copy of the thresholds: `resolveDriverSemanticLabels` above and
+ * `yieldCrownToDriverLeader` below both read it.
+ */
+export function influenceTierLabel(value: number): Exclude<DriverSemanticLabel, 'biggest'> {
+  const v = Number.isFinite(value) ? value : 0
+  return v >= 0.5 ? 'strong' : v >= 0.2 ? 'moderate' : 'minor'
+}
+
+/**
+ * ⭐ ONE TOP DRIVER. The crown yields to the run's one driver authority.
+ *
+ * ⛔ WITNESSED ON SERVED 7ad369b7 (pricing starter, one Run, 1280 and 1440):
+ * the hero read "Main driver: Top Account Revenue Concentration" — the card's
+ * Driver 1, `drivers.driverLeader` (`rankFactor.sensitivityLeader`, ranked by
+ * |elasticity|) — while "What's driving this" badged Enterprise Revenue
+ * Cannibalization Risk "Top driver". `resolveDriverSemanticLabels` crowns the
+ * panel's own maximum DISPLAY value, which under full producer coverage is
+ * `influence_score`: PLoT's STRUCTURAL weight. On that run the lever every
+ * option sets (`elasticity: 0`, `zero_reason: intervention_override`) sits at
+ * 100% on that basis. Two metrics, two "top" factors, one screen.
+ *
+ * So "Top driver" is a claim the panel may make only where the authority makes
+ * it too: the row the panel would crown keeps the crown only when it IS the
+ * authority's clear Driver 1. Otherwise it reads its threshold tier, off the
+ * same number its bar prints. This only ever WITHHOLDS the crown; it never
+ * moves it onto the authority's factor, because that row can sit below the
+ * panel's top (60% under 100% on the served run), and "Top driver" beside a
+ * lower bar would contradict the panel's own order. The numbers, the rows and
+ * the order are untouched: this is one word on one pill.
+ *
+ *   · `undefined` — the report carries no driver feed: the panel's own crown,
+ *     as before (the convention every #2130 reader follows).
+ *   · `null`, or `leadIsClear: false` — the authority names no clear top, so
+ *     no row may be called the top driver.
+ */
+export function yieldCrownToDriverLeader(
+  factorKey: string,
+  label: DriverSemanticLabel,
+  value: number,
+  driverLeader: { key: string; leadIsClear: boolean } | null | undefined,
+): DriverSemanticLabel {
+  if (label !== 'biggest' || driverLeader === undefined) return label
+  if (driverLeader !== null && driverLeader.leadIsClear && driverLeader.key === factorKey) return label
+  return influenceTierLabel(value)
 }
