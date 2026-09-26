@@ -464,13 +464,23 @@ function resolvePriorRangeBody(
         // The producer's prose: no endpoints are parsed out of it, so no band.
         if (body.length > 0) {
           const pair = parseBareNumericRange(body)
-          return { text: body, ends: null, bareModelScale: pair !== null && priorEndpointsAreNormalised(pair[0], pair[1]) }
+          return {
+            text: body,
+            ends: null,
+            bareModelScale: pair !== null && priorEndpointsAreNormalised(pair[0], pair[1]),
+            producerAuthored: true,
+          }
         }
       }
     }
     const low = formatNormalisedRangeEnd(rangeMin)
     const high = formatNormalisedRangeEnd(rangeMax)
-    return { text: `${low} to ${high}`, ends: [low, high], bareModelScale: priorEndpointsAreNormalised(rangeMin, rangeMax) }
+    return {
+      text: `${low} to ${high}`,
+      ends: [low, high],
+      bareModelScale: priorEndpointsAreNormalised(rangeMin, rangeMax),
+      producerAuthored: false,
+    }
   }
 
   // Real unit with calibration (or percent): the Range line adds calibrated
@@ -502,7 +512,7 @@ function resolvePriorRangeBody(
   // numeric display_value ("20000 to 80000") deliberately does NOT dedupe
   // here: the calibrated Range line still adds the unit information.
   if (valueDisplay != null && valueDisplay.trim() === rendered) return null
-  return { text: rendered, ends: [low, high], bareModelScale: false }
+  return { text: rendered, ends: [low, high], bareModelScale: false, producerAuthored: false }
 }
 
 /**
@@ -521,6 +531,15 @@ interface PriorRangeBody {
    * internal model scale" on the CARD (`resolveFactorPriorRangeOnCard`).
    */
   bareModelScale: boolean
+  /**
+   * The text IS the producer's own `display_value`, rendered verbatim — not
+   * composed here from `prior`. The UI never writes a factor's `display_value`
+   * (its only writes clear it, or restore the producer's string on a rolled-back
+   * edit), and no editor writes it, so a line printed from it is the
+   * producer's wording — never a number typed into an editor. See
+   * `resolveFactorPriorRangeOnCard`.
+   */
+  producerAuthored: boolean
 }
 
 /**
@@ -535,9 +554,14 @@ interface PriorRangeBody {
  * say as a live line has nothing true to say as a replaced one either.
  */
 export function resolveFactorPriorRange(inputs: FactorPriorRangeInputs): string | null {
+  return composeFactorPriorRangeLine(inputs, false)
+}
+
+function composeFactorPriorRangeLine(inputs: FactorPriorRangeInputs, omitProducerModelScale: boolean): string | null {
   const replaced = userValueReplacesPrior(inputs.data)
   const body = resolvePriorRangeBody(inputs, !replaced)
   if (body == null) return null
+  if (omitProducerModelScale && body.producerAuthored && body.bareModelScale) return null
   return replaced ? `${USER_VALUE_REPLACES_RANGE} ${body.text}` : `Range: ${body.text}`
 }
 
@@ -570,7 +594,8 @@ export function resolveFactorPriorRangeEnds(inputs: FactorPriorRangeInputs): rea
  * endpoints (or the producer's own string of exactly those two numbers) — a
  * range with no unit a reader can hold it against.
  *
- * ⛔ BUT THE CARD KEEPS THEM (review F2, #2085). "Omit, never invent" licenses
+ * ⛔ BUT THE CARD KEEPS THEM (review F2, #2085) — EXCEPT THE PRODUCER'S OWN
+ * STRING (26 Sep, design audit #3, see the ⭐ block below). "Omit, never invent" licenses
  * omitting a number only where it is known NOT to be the person's — the rule
  * `readoutIsBareModelScale` applies to values ("nobody may lose sight of a
  * number that could be theirs"). A range's origin is unrecorded: the
@@ -583,11 +608,29 @@ export function resolveFactorPriorRangeEnds(inputs: FactorPriorRangeInputs): rea
  * unrecorded origin honestly. `bareModelScale` stays computed on the body, so
  * a future origin stamp has one place to join it.
  *
+ * ⭐ THE ONE BARE RANGE THAT IS KNOWN NOT TO BE THE PERSON'S IS OMITTED (26 Sep,
+ * design audit #3; served `853feeb7`: 14 starter cards read "Range: 0.3 to 0.8
+ * · no source" — every one the starter's own `display_value`). F2's missing
+ * stamp exists for exactly one arm: when the line prints the producer's
+ * `display_value` verbatim (`producerAuthored`), its wording is the
+ * producer's by construction — no editor writes that field, and the
+ * inspector's range editor writes `prior` only. ⚠ Residual, stated: a range
+ * the person gives in CHAT that the producer then writes back as a bare 0–1
+ * pair would be omitted here too; the owner line (Model tab, inspector) still
+ * shows it. Where that string is a bare
+ * 0–1 pair (`bareModelScale`), the card says nothing rather than show a scale
+ * nobody can read ("omit, never invent"). Everything F2 protects is unchanged:
+ * a range COMPOSED from `prior` (origin unrecorded) keeps its line, as does
+ * any authored string with a real unit ("0% to 13%"). The owner
+ * (`resolveFactorPriorRange`) still states the range for the Model tab and the
+ * inspector. A card with no reduced line keeps its full body at low zoom
+ * (`BaseNode` `lodBodyBlanked`), so no card goes blank.
+ *
  * The card's reduced low-zoom line (`lodMetricLine.ts`) reads THIS function, so
  * a zoomed-out card never says more than the full card.
  */
 export function resolveFactorPriorRangeOnCard(inputs: FactorPriorRangeInputs): string | null {
-  return resolveFactorPriorRange(inputs)
+  return composeFactorPriorRangeLine(inputs, true)
 }
 
 /** The band's two ends for the CARD — the owner's ends (see `resolveFactorPriorRangeOnCard`). */

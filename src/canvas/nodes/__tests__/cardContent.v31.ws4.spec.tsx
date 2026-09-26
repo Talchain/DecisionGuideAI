@@ -241,12 +241,21 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
     expect(visibleText(within(line).getByTestId(`factor-range-source-${ID}`))).toBe('no source')
   })
 
-  it('F2: the producer\'s bare "0.3 to 0.8" range of unrecorded origin is shown too, with `no source`', () => {
+  // ⭐ THE STAMP F2 FOUND MISSING EXISTS FOR ONE ARM (26 Sep, design audit #3).
+  // This fixture's line is the producer's own `display_value` ("0.3 to 0.8"),
+  // printed verbatim — a field no editor writes — so it is known not to be a
+  // number the person typed, and the card omits it (served `853feeb7`: 14
+  // starter cards read "Range: 0.x to 0.y · no source", every one this arm).
+  // The mark sat INSIDE the line it qualified, so it goes with it. The
+  // reviewer's own reproduction above (composed from `prior`) is unchanged.
+  it('audit #3: the producer\'s own bare "0.3 to 0.8" `display_value` is omitted from the card, line and mark', () => {
     seed(RANGE_BARE, { phase: 'pre' })
     renderFactor(RANGE_BARE)
-    const line = within(card()).getByTestId(`factor-prior-range-${ID}`)
-    expect(visibleText(line)).toMatch(/^Range: 0\.3 to 0\.8/)
-    expect(within(line).getByTestId(`factor-range-source-${ID}`)).toBeTruthy()
+    const c = card()
+    expect(visibleText(c)).toContain('Competitive Pressure')
+    expect(within(c).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
+    expect(within(c).queryByTestId(`factor-range-source-${ID}`)).toBeNull()
+    expect(visibleText(c)).not.toMatch(/0\.3 to 0\.8/)
   })
 
   it('contrast — an own-unit range keeps its line', () => {
