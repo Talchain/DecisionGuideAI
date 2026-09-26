@@ -32,7 +32,8 @@
  * line here; at 9dc3e7af the plot replaced a 30.3px one, 283 → 406.) The same
  * run read the DOM directly: layoutVersion 1 → 2, 0 overlapping card pairs and
  * 0 edge paths (30 of 30 sampled with getPointAtLength) under a non-endpoint
- * card, before and after.
+ * card, before and after. Re-read after merging staging 262941eb (50956179):
+ * every bound height and position identical.
  *
  * CLAIM SCOPE: local Chromium with a seeded result, not the deployed build. The
  * served found-case witness is still owed after the merge.
