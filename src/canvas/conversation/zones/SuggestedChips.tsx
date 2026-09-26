@@ -527,7 +527,10 @@ export function SuggestedChips({
           to   { opacity: 1; transform: translateY(0); }
         }
         .chip-stagger-in {
-          animation: chipStaggerIn 250ms cubic-bezier(0.4, 0, 0.2, 1) both;
+          /* BACKWARDS, never both/forwards: a held "to" keyframe (opacity 1)
+             outranks CHIP_CLASS's disabled:opacity-40, and every disabled chip
+             then read as clickable (chipPresentation.disabledAndSent.spec.tsx). */
+          animation: chipStaggerIn 250ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
         }
         .suggested-chip:not(:disabled):active {
           transform: scale(0.97);
