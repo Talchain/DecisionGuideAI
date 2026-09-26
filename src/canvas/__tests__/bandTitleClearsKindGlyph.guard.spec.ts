@@ -84,14 +84,26 @@ function kindShapeBox(n: Node, cardW: number, s: number): Box {
 
 async function laidOut(starter: string) {
   const draft = STARTERS[starter]!
-  const nodes = draft.nodes.map((n) => ({
+  return laidOutBoard(
+    draft.nodes.map((n) => ({ id: n.id, kind: n.kind, label: n.label })),
+    draft.edges.map((e) => ({ from: e.from!, to: e.to! })),
+    HEIGHTS[starter]!,
+  )
+}
+
+async function laidOutBoard(
+  draftNodes: Array<{ id: string; kind: string; label: string }>,
+  draftEdges: Array<{ from: string; to: string }>,
+  heights: Record<string, number>,
+) {
+  const nodes = draftNodes.map((n) => ({
     id: n.id,
     type: n.kind,
     position: { x: 0, y: 0 },
     data: { label: n.label, kind: n.kind },
-    measured: { width: REPEATED_CARD_W, height: HEIGHTS[starter]![n.id] },
+    measured: { width: REPEATED_CARD_W, height: heights[n.id] },
   })) as unknown as Node[]
-  const edges = draft.edges.map((e, i) => ({ id: `e${i}`, source: e.from!, target: e.to! })) as Edge[]
+  const edges = draftEdges.map((e, i) => ({ id: `e${i}`, source: e.from, target: e.to })) as Edge[]
   const out = await layoutGraph(nodes, edges, {})
   // The board as rendered: each card at the width the layout published for its
   // kind (what `BaseNode` draws at, and what `TierLanes` reads), prompts at
@@ -99,7 +111,7 @@ async function laidOut(starter: string) {
   const cardW = (n: Node) => out.layoutCardWidths[n.type as string]!
   const laid = out.nodes.map((n) => ({
     ...n,
-    measured: { width: cardW(n), height: HEIGHTS[starter]![n.id] },
+    measured: { width: cardW(n), height: heights[n.id] },
   })) as Node[]
   const board = withGhostTiers(laid).map((n) =>
     isGhostNode(n.id) ? ({ ...n, measured: { width: ROW_PROMPT_W, height: ROW_PROMPT_H } } as Node) : n,
@@ -112,7 +124,7 @@ async function laidOut(starter: string) {
   })
   const shapes = cards.map((n) => ({ id: n.id, box: kindShapeBox(n, cardW(n), S) }))
   const cardBoxes = [
-    ...cards.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + cardW(n), y1: n.position.y + HEIGHTS[starter]![n.id]! } })),
+    ...cards.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + cardW(n), y1: n.position.y + heights[n.id]! } })),
     ...prompts.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + ROW_PROMPT_W, y1: n.position.y + ROW_PROMPT_H } })),
   ]
   return { cards, titles, shapes, cardBoxes }
@@ -182,22 +194,66 @@ describe('every band title × every kind shape: intersection area 0 (five starte
   })
 })
 
-describe('…and the title that rises clear of a shape lands on nothing else', () => {
-  it.each(Object.keys(STARTERS))('%s: no title intersects a card, a row-end prompt or another title', async (starter) => {
-    const t = await laidOut(starter)
-    const hits: string[] = []
-    for (const { lane, box } of t.titles) {
-      for (const c of t.cardBoxes) {
-        const o = area(box, c.box)
-        if (o.w > 0 && o.h > 0) hits.push(`${lane.title} × ${c.id}`)
-      }
-      for (const other of t.titles) {
-        if (other.lane.tier === lane.tier) continue
-        const o = area(box, other.box)
-        if (o.w > 0 && o.h > 0) hits.push(`${lane.title} × ${other.lane.title}`)
-      }
+/** Every title against every card, row-end prompt and other title. */
+function titleLandingHits(t: Awaited<ReturnType<typeof laidOut>>): string[] {
+  const hits: string[] = []
+  for (const { lane, box } of t.titles) {
+    for (const c of t.cardBoxes) {
+      const o = area(box, c.box)
+      if (o.w > 0 && o.h > 0) hits.push(`${lane.title} × ${c.id}`)
     }
-    expect(hits).toEqual([])
+    for (const other of t.titles) {
+      if (other.lane.tier === lane.tier) continue
+      const o = area(box, other.box)
+      if (o.w > 0 && o.h > 0) hits.push(`${lane.title} × ${other.lane.title}`)
+    }
+  }
+  return hits
+}
+
+/**
+ * The general case the starters do not reach: every band four cards wide, so
+ * every row starts AT the title column and a risen title has a card of the row
+ * above directly over it. (On the starters ALTERNATIVES rises under the centred
+ * Question, and OUTCOMES / RISKS under a brick course that starts to its right,
+ * so they never test the clearance above.)
+ */
+function fullWidthBoard() {
+  const nodes: Array<{ id: string; kind: string; label: string }> = [{ id: 'dec', kind: 'decision', label: 'Question' }]
+  const edges: Array<{ from: string; to: string }> = []
+  const add = (kind: string, n: number) => Array.from({ length: n }, (_, i) => {
+    nodes.push({ id: `${kind}_${i}`, kind, label: `${kind} ${i}` })
+    return `${kind}_${i}`
+  })
+  const opts = add('option', 4)
+  const facs = add('factor', 4)
+  const cons = [...add('outcome', 2), ...add('risk', 2)]
+  nodes.push({ id: 'goal', kind: 'goal', label: 'Goal' })
+  for (const o of opts) edges.push({ from: 'dec', to: o })
+  for (const o of opts) for (const f of facs) edges.push({ from: o, to: f })
+  for (const f of facs) for (const c of cons) edges.push({ from: f, to: c })
+  for (const c of cons) edges.push({ from: c, to: 'goal' })
+  return { nodes, edges, heights: Object.fromEntries(nodes.map((n) => [n.id, 150])) }
+}
+
+describe('…and the title that rises clear of a shape lands on nothing else', () => {
+  it('a board whose every row starts at the title column: titles rise, and clear the row above', async () => {
+    const b = fullWidthBoard()
+    const t = await laidOutBoard(b.nodes, b.edges, b.heights)
+    // Non-vacuity: rows really start at the column, and titles really rose.
+    const column = Math.min(...t.titles.map((x) => x.box.x0))
+    for (const tier of [1, 2, 3]) {
+      const lane = t.titles.find((x) => x.lane.tier === tier)!.lane
+      expect(lane.x, `tier ${tier} does not start at the title column`).toBe(column)
+    }
+    const risen = t.titles.filter(({ lane, box }) => box.y1 < lane.y - LANE_TITLE_GAP)
+    expect(risen.length).toBeGreaterThanOrEqual(2)
+    expect(titleShapeHits(t)).toEqual([])
+    expect(titleLandingHits(t)).toEqual([])
+  })
+
+  it.each(Object.keys(STARTERS))('%s: no title intersects a card, a row-end prompt or another title', async (starter) => {
+    expect(titleLandingHits(await laidOut(starter))).toEqual([])
   })
 
   it.each(Object.keys(STARTERS))('%s: the first band\'s title stays on its cards, inside the 16px the landing leaves under the top bar', async (starter) => {
