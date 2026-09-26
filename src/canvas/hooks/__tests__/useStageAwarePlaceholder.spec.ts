@@ -128,3 +128,35 @@ describe('useStageAwarePlaceholder', () => {
     expect(p).not.toMatch(/latest/i)
   })
 })
+
+describe('⭐ the "changed" line never invites a run the Run gate refuses (DL bf-20260926T050741Z)', () => {
+  const stale = () => {
+    useCanvasStore.setState({ nodes: [node('a')] as never })
+    complete()
+    useCanvasStore.getState().setAnalysisFreshness({ freshness: 'stale', freshness_reason: 'graph_changed' })
+  }
+  const bindMayRun = (mayRun: boolean) =>
+    useCanvasStore.setState({
+      lastServerGraphHash: 'h16h16h16h16h16a',
+      analysisFreshnessDirty: false,
+      ceeAnalysisReady: {
+        status: mayRun ? 'ready' : 'needs_user_mapping',
+        may_run: mayRun,
+        current_graph_hash: 'h16h16h16h16h16a',
+        analysis_admission: { permitted_analysis_mode: mayRun ? 'comparative_leader' : 'none', graph_hash: 'h16h16h16h16h16a0000', reasons: mayRun ? [] : ['OPTION_NO_FACTOR_EDGES'] },
+      } as never,
+    } as never)
+
+  it('⭐ blocked (bound may_run false) → says what to do, not "rerun"', () => {
+    stale()
+    bindMayRun(false)
+    expect(placeholder()).toBe('Model changed. Ask what it needs before a rerun…')
+  })
+
+  it('CONTROL: runnable (bound may_run true) → the rerun invitation stays', () => {
+    stale()
+    bindMayRun(true)
+    expect(placeholder()).toBe('Model changed. Ask or rerun…')
+  })
+})
+
