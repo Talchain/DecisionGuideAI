@@ -287,7 +287,8 @@ describe('⛔ external factors are outside your control, not awaiting your judge
     expect(screen.queryByTestId('overlay-missing-value')).toBeNull()
     expect(within(cardOf(FACTOR_ID)).queryByTestId('needs-input-pill')).toBeNull()
     // The dash — this node's real signal — is untouched by the ruling.
-    expect(screen.getByRole('group')).toHaveAttribute('title', 'Outside your control')
+    // Design audit #13 (26 Sep): carried as the description, not a native title.
+    expect(screen.getByRole('group')).toHaveAttribute('aria-description', 'Outside your control')
   })
 })
 

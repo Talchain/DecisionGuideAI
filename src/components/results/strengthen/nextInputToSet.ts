@@ -51,6 +51,29 @@
  * Conversion Rate), and `nextInputToSet.spec.ts` asserts that agreement against
  * the real captures so a future divergence REDs rather than silently forking.
  *
+ * ## ⛔ AND THE ORDINAL MOVED — this module followed it on 26 Sep 2026
+ *
+ * The paragraph above says this reads "the ordinal the surface ALREADY
+ * publishes … the canvas factor cards rank from". When it was written the card
+ * ranked by the displayed influence. It no longer does: `rankFactor.ts` ranks
+ * by |elasticity| ("Ranked by how strongly the comparison responds to each
+ * factor"), which is exactly "the input the comparison turns on". This module
+ * kept the structural read and so became the second answer it warns against.
+ *
+ * WITNESSED ON SERVED 853feeb7 (pricing starter, one Run): the Strengthen card
+ * read "Give Enterprise Revenue Cannibalization Risk a value of your own · Most
+ * influential of 5 factors compared in this model" while the canvas card named
+ * Top Account Revenue Concentration Driver 1 and the lever's own card read "Not
+ * ranked in this run". Every option SETS that lever, so its value never enters
+ * the comparison; its elasticity and sensitivity are 0. It topped only
+ * `influence_score` (and PLoT's `influence_rank`, the same structural order).
+ *
+ * So the caller now hands in the card's Driver 1 (`driverLeader`,
+ * `rankFactor.sensitivityLeader`) and this names THAT factor, or nothing: a
+ * tie on the card's basis, no leader, or a Driver 1 that is not in CEE's
+ * blocking set all return `null`. `undefined` (no driver feed; legacy callers)
+ * keeps the influence read below, which the capture specs still pin.
+ *
  * ## Fail closed at every step, because the cost is asymmetric
  *
  * A parameter WRONGLY NAMED sends the reader to set a number that cannot lift
@@ -61,6 +84,7 @@
  */
 
 import { determinedRankDepth } from '../driverDisplayModel'
+import type { SensitivityLeader } from '../../../canvas/nodes/shared/rankFactor'
 
 /** One factor, as much of it as this selection needs. */
 export interface NextInputCandidate {
@@ -125,11 +149,16 @@ export interface NextInputToSet {
  *                         the admission on every analytical edit and the reader
  *                         falls back to a RETAINED one, so an unpinned join can
  *                         name a parameter from a graph that has since moved.
+ * @param driverLeader     the canvas card's Driver 1 (`data.drivers.driverLeader`),
+ *                         quoted. When supplied it IS the rank-1 factor; `null`
+ *                         or an unclear lead names nothing. `undefined` keeps
+ *                         the legacy influence read.
  */
 export function selectNextInputToSet(
   factors: readonly NextInputCandidate[],
   awaitingUserIds: readonly string[] | undefined,
   identityIsCurrent: boolean,
+  driverLeader?: SensitivityLeader | null,
 ): NextInputToSet | null {
   if (!identityIsCurrent) return null
   if (awaitingUserIds === undefined || awaitingUserIds.length === 0) return null
@@ -154,13 +183,23 @@ export function selectNextInputToSet(
   // compose a sentence the copy owner would decline.
   if (setSize < 2) return null
 
-  // ⭐ THE ORDINAL IS ONLY AS DEEP AS IT IS DETERMINED. `determinedRankDepth`
-  // returns 0 when the top factor is not clear of its runner-up, and 0 is the
-  // honest answer: where the analysis cannot separate two factors, this
-  // declines to separate them.
-  if (determinedRankDepth(entries, 1) !== 1) return null
-
-  const best = [...entries].sort((a, b) => b.value - a.value)[0]
+  // ⭐ THE CARD'S DRIVER 1, WHEN THE CALLER HAS ONE — the only rank this
+  // module may publish. The card withholds its rank on a tie
+  // (`leadIsClear: false`) and ranks nothing on a feed with no magnitude
+  // (`null`); both are "name nothing" here too. The id join is by identity:
+  // the card's key must BE one of these factors, never a label match.
+  let best: { id: string } | undefined
+  if (driverLeader !== undefined) {
+    if (driverLeader === null || !driverLeader.leadIsClear) return null
+    best = entries.find((e) => e.id === driverLeader.key)
+  } else {
+    // ⭐ THE ORDINAL IS ONLY AS DEEP AS IT IS DETERMINED. `determinedRankDepth`
+    // returns 0 when the top factor is not clear of its runner-up, and 0 is the
+    // honest answer: where the analysis cannot separate two factors, this
+    // declines to separate them.
+    if (determinedRankDepth(entries, 1) !== 1) return null
+    best = [...entries].sort((a, b) => b.value - a.value)[0]
+  }
   if (best === undefined) return null
 
   // ⛔ THE RANK-1 FACTOR MUST ITSELF BE IN THE BLOCKING SET. Falling through to

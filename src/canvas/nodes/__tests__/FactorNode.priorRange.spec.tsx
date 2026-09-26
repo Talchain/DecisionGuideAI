@@ -467,13 +467,14 @@ describe('FactorNode prior range (lane C3)', () => {
     expect(text).not.toContain('binary')
   })
 
-  it('no observedState at all (fixture wire shape): the producer\'s bare 0–1 pair renders once on the card (F2)', () => {
+  it('no observedState at all (fixture wire shape): the producer\'s bare 0–1 pair is OMITTED from the card; the owner still states it (design audit #3)', () => {
     // Mirrors fac_market_receptivity in
     // src/components/debug/__tests__/fixtures/staging-bundles/
     // olumi-debug-50b336a6-20260510.pre-fix.json — top-level display_value,
-    // no observed_state. The body value line requires observedState, so the
-    // Range line is the only honest place to surface the prior. Review F2
-    // (#2085): its origin is unrecorded, so it stays on the card.
+    // no observed_state. Review F2 (#2085) kept it because a range's origin is
+    // unrecorded; THIS line is the producer's own `display_value`, which no
+    // editor writes, so it is known not to be the person's number and the card
+    // omits it (contract v3.1 "no bare internal model scale"; 26 Sep audit #3).
     const { container } = renderFactor({
       label: 'Market Receptivity to Feature',
       type: 'factor',
@@ -481,9 +482,38 @@ describe('FactorNode prior range (lane C3)', () => {
       prior: { range_min: 0.3, range_max: 0.8 },
       display_value: '0.3 to 0.8',
     })
-    expect(countOccurrences(container, '0.3 to 0.8')).toBe(1)
-    // The owner never repeats it (the dedupe), and states it once.
+    expect(countOccurrences(container, '0.3 to 0.8')).toBe(0)
+    expect(container.textContent ?? '').not.toContain('Range:')
+    // Positive control: the card rendered, by its own label.
+    expect(container.textContent ?? '').toContain('Market Receptivity to Feature')
+    // The owner (Model tab, inspector) still states it once.
     expect(ownerRange(null)).toBe('Range: 0.3 to 0.8')
+  })
+
+  it('SERVED 853feeb7 market-entry fac_arr: "Current ARR | Range: 0.27 to 0.8 | no source" loses its Range line (design audit #3)', () => {
+    const { container } = renderFactor({
+      label: 'Current ARR',
+      type: 'factor',
+      category: 'external',
+      prior: { distribution: 'uniform', range_min: 0.265, range_max: 0.795 },
+      extractionType: 'explicit',
+      display_value: '0.27 to 0.8',
+      provenance: 'from_brief',
+    })
+    expect(ownerRange(null)).toBe('Range: 0.27 to 0.8')
+    expect(container.textContent ?? '').toContain('Current ARR')
+    expect(container.textContent ?? '').not.toContain('Range:')
+    expect(countOccurrences(container, '0.27 to 0.8')).toBe(0)
+  })
+
+  it('CONTRAST (F2): the same bare pair COMPOSED from `prior` (no producer string) stays on the card', () => {
+    const { container } = renderFactor({
+      label: 'Market Receptivity to Feature',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.3, range_max: 0.8 },
+    })
+    expect(countOccurrences(container, 'Range: 0.3 to 0.8')).toBe(1)
   })
 
   it('regression pin: qualitative prose factor (non-external) is untouched — no Range line', () => {

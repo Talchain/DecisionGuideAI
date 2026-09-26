@@ -19,7 +19,9 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
   return (
     <div
       data-testid="v5-comparison"
-      className="rounded-md border border-panel-border bg-panel p-4 space-y-2"
+      // DS v5 §21.2: a comparison (ScenarioBlock) is the option colour, as a
+      // complete border (V7 L2).
+      className="rounded-md border border-option/30 bg-panel p-4 space-y-2"
     >
       <h3 className={typography.panelHeader}>Comparison</h3>
       {block.narrative && (

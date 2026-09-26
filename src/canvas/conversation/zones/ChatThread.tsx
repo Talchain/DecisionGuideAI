@@ -14,7 +14,7 @@ import { EmptyState } from './EmptyState'
 import { ChatMessage } from './ChatMessage'
 import type { HeldProposalSettlement } from '../../../v5/blocks/V5HeldProposalBlock'
 import { SessionDivider } from '../primitives/SessionDivider'
-import { ThinkingIndicator } from './ThinkingIndicator'
+import { ThinkingDots } from './ThinkingDots'
 import { SuggestedChips, type RunChipGate } from './SuggestedChips'
 import type { ConversationMessage, ActionChip, GraphPatchBlock } from '../types'
 import type { PatchBlockState, PatchRejectionInfo } from '../useConversation'
@@ -369,9 +369,9 @@ export const ChatThread = memo(function ChatThread({
         return chatMsg
       })}
 
-      {/* ThinkingIndicator: only when EmptyState is NOT handling the loading display */}
+      {/* ThinkingDots (DS v5 §21.3): only when EmptyState is NOT handling the loading display */}
       {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (
-        <ThinkingIndicator label={thinkingLabel(longRunningHint, settlingState)} />
+        <ThinkingDots label={thinkingLabel(longRunningHint, settlingState)} />
       )}
 
       {/* New messages pill */}

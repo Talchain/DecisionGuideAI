@@ -39,6 +39,25 @@ export interface FactorRanks {
   voiRank: number | null
 }
 
+/**
+ * The card's ORDER — moved verbatim out of `rankFactor` (26 Sep 2026) so the
+ * Analysis hero's "Main driver" can read the SAME ordered list rather than a
+ * second one. See the rationale block inside `rankFactor` for why the key is
+ * |elasticity| and not `influence_score`.
+ */
+function orderBySensitivity(rows: DriverFeed['policyRows']) {
+  return rows
+    .map((r) => ({
+      key: r.key,
+      elasticity: r.rawElasticity,
+      // The badge asks "what is the result most sensitive to". Elasticity is
+      // that question's answer; `displayModel.value` answers "how big is this
+      // factor structurally", which is why it used to disagree with the words.
+      value: Number.isFinite(r.rawElasticity) ? Math.abs(r.rawElasticity) : 0,
+    }))
+    .sort(compareByDisplayModel)
+}
+
 export function rankFactor(
   rows: DriverFeed['policyRows'],
   displayModel: DriverFeed['displayModel'],
@@ -98,16 +117,7 @@ export function rankFactor(
    * and carry no badge; that is the two metrics being honestly distinct
    * rather than one silently standing in for the other.
    */
-  const ranked = rows
-    .map((r) => ({
-      key: r.key,
-      elasticity: r.rawElasticity,
-      // The badge asks "what is the result most sensitive to". Elasticity is
-      // that question's answer; `displayModel.value` answers "how big is this
-      // factor structurally", which is why it used to disagree with the words.
-      value: Number.isFinite(r.rawElasticity) ? Math.abs(r.rawElasticity) : 0,
-    }))
-    .sort(compareByDisplayModel)
+  const ranked = orderBySensitivity(rows)
 
   // The denominator for the ranked caption, taken off THIS array so it can
   // never be derived from a different set than the rank beside it. Distinct
@@ -231,4 +241,44 @@ export function rankFactor(
   const voiPos = rankedByVoi.findIndex(f => f.id === nodeId) + 1
   if (voiPos > 0 && voiPos <= 3) voiRank = voiPos
   return { influenceSetSize, rankedSetSize, sensitivityRank, voiRank }
+}
+
+/**
+ * ⭐⭐ THE RUN'S MAIN DRIVER, FROM THE CARD'S OWN RANKED LIST.
+ *
+ * ⛔ WITNESSED ON SERVED 853feeb7 (design audit §2 #7, pricing starter, one
+ * Run): the card on Top Account Revenue Concentration read "Driver 1 of 5
+ * analysed" while the Analysis hero read "Main driver: Enterprise Revenue
+ * Cannibalization Risk" — a factor whose own card read "Not ranked in this
+ * run". The hero took `drivers.topDrivers[0]`, which the Drivers panel orders
+ * by the displayed `influence_score` (PLoT's STRUCTURAL weight). On that
+ * payload the crowned factor is an option-set lever with `elasticity: 0` and
+ * `sensitivity_score: 0`, while PLoT's own `importance_rank`,
+ * `decision_brief.top_drivers[0]` and DOMINANT_FACTOR warning all name Top
+ * Account Revenue Concentration — the card's #1.
+ *
+ * So the hero asks THIS module, over the same feed rows, the same order and
+ * the same rank-1 gate as the card and the leader node (`DecisionNode`).
+ *
+ *   · `leadIsClear: true`  — the card prints "Driver 1 of M" on `key`.
+ *   · `leadIsClear: false` — the top of the card's order is not separable, so
+ *     the card prints no rank; the hero hedges ("Tied for main driver").
+ *   · `null` — no row carries a magnitude on the card's basis, so the card
+ *     ranks nothing and there is no main driver to name.
+ */
+export interface SensitivityLeader {
+  key: string
+  leadIsClear: boolean
+}
+
+export function sensitivityLeader(
+  rows: DriverFeed['policyRows'],
+  displayModel: DriverFeed['displayModel'],
+): SensitivityLeader | null {
+  const first = orderBySensitivity(rows)[0]
+  if (!first || first.value === 0) return null
+  return {
+    key: first.key,
+    leadIsClear: rankFactor(rows, displayModel, first.key).sensitivityRank === 1,
+  }
 }

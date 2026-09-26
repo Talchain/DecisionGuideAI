@@ -4,6 +4,7 @@ import { typo } from '../../styles/typography'
 import { CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useSelectionContext } from '../hooks/useSelectionContext'
+import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
 
 /**
  * SelectionPill — the canvas selection's conversation affordance.
@@ -87,7 +88,12 @@ export const SelectionPill = memo(function SelectionPill() {
     sendChip(`Ask about ${label}`, `Ask about ${label}.`)
   }, [sendChip, label, selectionId])
 
-  if (!selection) return null
+  // Design audit #14: a card click opens the inspector only. While it is open
+  // it names the element and offers "Explore with Olumi", so this row stands
+  // down and returns when the inspector closes.
+  const inspectorOpen = useInspectorPresenceStore((s) => s.open)
+
+  if (!selection || inspectorOpen) return null
 
   const canAsk = Boolean(sendChip)
 

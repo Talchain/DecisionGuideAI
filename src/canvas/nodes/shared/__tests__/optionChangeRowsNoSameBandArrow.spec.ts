@@ -9,10 +9,11 @@
  *
  * The first fix for that invented "Low · slightly higher" — a judgement about
  * the SIZE of the move that no field of the data states. The audit named this
- * an invented comparison word alongside "same as baseline". The honest fix
- * shows the full carried strings instead: they are the data's own numbers,
- * unabbreviated, and the row no longer claims a magnitude it was never told.
- * `fullChange` and `change` are therefore identical in this case.
+ * an invented comparison word alongside "same as baseline". The next fix showed
+ * the full carried strings, which put the model's 0–1 numbers on the card
+ * (design audit #3, 26 Sep: served "Low (0) → Low (0.1)"). The row now states
+ * the DIRECTION and the shared band — "Increases, stays Low" — no size, no
+ * number; the full strings stay in `fullChange` (the hover).
  */
 import { describe, it, expect } from 'vitest'
 import { buildOptionChangeRow } from '../optionChangeRows'
@@ -27,14 +28,14 @@ const row = (from: { value: number; displayValue: string }, to: { value: number;
   })
 
 describe('a change inside one band never prints the same word on both sides of an arrow', () => {
-  it('0.2 → 0.3, both "Low": the full carried strings show, not "Low → Low" and not an invented word', () => {
+  it('0.2 → 0.3, both "Low": direction and band, not "Low → Low", not an invented word, not the model numbers', () => {
     const r = row({ value: 0.2, displayValue: 'Low (0.2)' }, { value: 0.3, displayValue: 'Low (0.3)' })
     expect(r.change).not.toMatch(/^(\S.*) → \1$/)
     expect(r.change).not.toMatch(/slightly/)
-    expect(r.change).toBe('Low (0.2) → Low (0.3)')
+    expect(r.change).toBe('Increases, stays Low')
     expect(r.fullChange, 'the full text keeps both readings').toBe('Low (0.2) → Low (0.3)')
-    expect(r.before).toBe('Low (0.2)')
-    expect(r.after).toBe('Low (0.3)')
+    expect(r.before).toBeUndefined()
+    expect(r.after).toBeUndefined()
     // The target ALONE — what the inspector prints for this row, so the card and
     // the inspector print one string (S2 #1930 DEFECT 5; `target` is required).
     expect(r.target).toBe('Low (0.3)')
@@ -43,7 +44,7 @@ describe('a change inside one band never prints the same word on both sides of a
   it('…and the same in the other direction, with no "slightly lower" either', () => {
     const r = row({ value: 0.3, displayValue: 'Low (0.3)' }, { value: 0.2, displayValue: 'Low (0.2)' })
     expect(r.change).not.toMatch(/slightly/)
-    expect(r.change).toBe('Low (0.3) → Low (0.2)')
+    expect(r.change).toBe('Decreases, stays Low')
   })
 
   it('CONTRAST: a change ACROSS bands keeps the arrow', () => {

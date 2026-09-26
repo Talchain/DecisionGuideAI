@@ -121,7 +121,8 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
     const line = screen.getByTestId('outcome-unquantified')
     expect(shown(line)).toBe('Outcome not quantified')
     expect(announced(line)).toBe('Outcome not quantified')
-    expect(line.getAttribute('title')).toBe('Outcome not quantified')
+    // Design audit #13 (26 Sep): no native title repeating the visible line.
+    expect(line.hasAttribute('title')).toBe(false)
     expect(OUTCOME_UNQUANTIFIED_LINE).toBe('Outcome not quantified')
     expect(screen.queryByTestId('outcome-recorded-value')).toBeNull()
     cleanup()
@@ -178,7 +179,8 @@ describe('OR-02 — the risk state line is a label, not a sentence', () => {
     expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet')
     const line = screen.getByTestId('risk-exposure-unset')
     expect(announced(line)).toBe('Likelihood and impact not set yet')
-    expect(line.getAttribute('title')).toBe('Likelihood and impact not set yet')
+    // Design audit #13 (26 Sep): no native title repeating the visible line.
+    expect(line.hasAttribute('title')).toBe(false)
     expect(shown(line)).toBe('Likelihood and impact not set yet')
     cleanup()
     applyStore({ viewMode: 'expert' })

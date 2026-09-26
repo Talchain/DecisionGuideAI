@@ -53,7 +53,7 @@ import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { heldProposalSourceBlockKey } from '../../canvas/conversation/utils/transcriptStore'
 import { dedupeRenderedText, splitRenderSegments } from '../../canvas/conversation/messageComposition'
-import { CHIP_CLASS } from './chipClass'
+import { CHIP_DISMISS_LINK_CLASS, CHIP_PRIMARY_CLASS } from './chipClass'
 import type {
   V5HeldProposalBlock as V5HeldProposalBlockType,
   V5HeldProposalAction,
@@ -390,7 +390,8 @@ export function V5HeldProposalBlock({
             // operation. Contains the visible label (WCAG 2.5.3).
             aria-label={confirmCopy.accessibleName}
             title={confirmCopy.accessibleName}
-            className={CHIP_CLASS}
+            // DS v5 §21.2: Accept is the filled primary action.
+            className={CHIP_PRIMARY_CLASS}
             data-testid="v5-held-proposal-confirm"
           >
             {confirmCopy.visible}
@@ -404,7 +405,8 @@ export function V5HeldProposalBlock({
             // (`${prefix}: ${label}`), so it holds for the producer's decline
             // label too, not just the UI-owned default.
             aria-label={`Dismiss: ${dismissLabel}`}
-            className={CHIP_CLASS}
+            // DS v5 §21.2: Dismiss is a quiet text link, not a second answer.
+            className={CHIP_DISMISS_LINK_CLASS}
             data-testid="v5-held-proposal-dismiss"
           >
             {dismissLabel}

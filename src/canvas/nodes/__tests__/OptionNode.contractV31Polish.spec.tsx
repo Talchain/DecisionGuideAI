@@ -197,10 +197,16 @@ describe('contract v3.1 — option card polish', () => {
     it('sits on the body’s one 4px rhythm with nothing trailing (OPT-06, RHY-05)', () => {
       winRate = 0.42
       renderCard({ store: { results: COMPLETE } })
-      const t = tokens(byTestId('option-analysis-currency-option-1'))
+      // The 4px top margin sits on the row's reserved slot (the no-growth fix:
+      // the slot exists pre-run too, so the margin is reserved with it).
+      const slot = byTestId('option-share-slot-option-1')
+      expect(slot!.contains(byTestId('option-analysis-currency-option-1'))).toBe(true)
+      const t = tokens(slot)
       expect(t.has('mt-1')).toBe(true)
       expect(t.has('mt-1.5')).toBe(false)
       expect(t.has('mb-1')).toBe(false)
+      const row = tokens(byTestId('option-analysis-currency-option-1'))
+      expect([...row].filter(c => /^m[tb]-/.test(c))).toEqual([])
     })
 
     it('the absence row shares the rhythm (OPT-06, RHY-05)', () => {

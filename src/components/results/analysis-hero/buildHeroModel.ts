@@ -72,6 +72,7 @@ import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPe
 import { driverValueProvenance } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
+import type { SensitivityLeader } from '../../../canvas/nodes/shared/rankFactor'
 import type {
   HeroChartModel,
   HeroLens,
@@ -233,6 +234,15 @@ export function buildHeroModel(
    * row reads `undetermined` and no tag renders, which is the honest default.
    */
   nodeValueSources?: ReadonlyMap<string, string>,
+  /**
+   * ⭐ THE CARD'S MAIN DRIVER (`sensitivityLeader`, `nodes/shared/rankFactor.ts`),
+   * supplied by the store-aware hook from the SAME report the canvas cards rank.
+   * When present, "Main driver" names this factor and carries its tie verdict;
+   * `null` means the card ranks nothing, so the hero names nothing. Absent
+   * (older callers/tests, or a report with no driver rows) keeps the
+   * list-first read below.
+   */
+  driverLeader?: SensitivityLeader | null,
 ): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
@@ -1115,7 +1125,19 @@ export function buildHeroModel(
   // Footer "Main reason": the Drivers section's own top driver label —
   // selection of the existing #1, no re-ranking. Omitted (not replaced with
   // a fallback) when the label would trip the glossary in generated copy.
-  const topDriverLabel = drivers?.topDrivers?.[0]?.factorLabel
+  //
+  // ⛔ ONE DRIVER AUTHORITY (design audit §2 #7, served 853feeb7). `topDrivers`
+  // is ordered by the displayed `influence_score`; the canvas card and the
+  // leader node rank by `rankFactor`. On the served pricing run those named
+  // two different factors on one screen. When the hook supplies the card's
+  // leader, the line names THAT factor, looked up by id in the full driver
+  // list — the list-first read survives only for callers that pass nothing.
+  const leaderItem = driverLeader === undefined
+    ? drivers?.topDrivers?.[0]
+    : driverLeader
+      ? (drivers?.drivers ?? []).find((d) => d.factorKey === driverLeader.key)
+      : undefined
+  const topDriverLabel = leaderItem?.factorLabel
   const cleanDriverLabel = topDriverLabel ? stripEncodingNotation(topDriverLabel) : null
 
   // ⚠ "MAIN DRIVER: X" IS A COMPARATIVE CLAIM AND A TIE CANNOT SUPPORT ONE.
@@ -1152,9 +1174,11 @@ export function buildHeroModel(
     value: d.displayInfluence ?? d.influenceScore ?? d.normalisedInfluence ?? 0,
   }))
   const namedDriverValue = topDriverEntries[0]?.value ?? 0
-  const driverLeadIsClear =
-    hasClearInfluenceLeader(topDriverEntries)
-    && topDriverEntries.every((e) => e.value <= namedDriverValue)
+  const driverLeadIsClear = driverLeader === undefined
+    ? hasClearInfluenceLeader(topDriverEntries)
+      && topDriverEntries.every((e) => e.value <= namedDriverValue)
+    // The card's own rank-1 gate — the verdict and the name come from one list.
+    : driverLeader?.leadIsClear === true
 
   const mainReason =
     cleanDriverLabel && !containsBannedTerm(cleanDriverLabel)
@@ -1175,7 +1199,7 @@ export function buildHeroModel(
   // computation, two surfaces, so the two cannot disagree about the run in
   // front of the reader. `leadIsClear` is required on the link type, so a
   // future construction site cannot omit it and silently crown a tie.
-  const topDriverItem = drivers?.topDrivers?.[0]
+  const topDriverItem = leaderItem
   const mainDriver: HeroMainDriverLink | null =
     mainReason && cleanDriverLabel && topDriverItem?.canFocus
       ? {

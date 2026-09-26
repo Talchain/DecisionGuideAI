@@ -88,7 +88,11 @@ function memoBlocks(source: string): Array<{ name: string; body: string }> {
     // gate-removal control below is the only thing that caught it: it could not
     // turn the manifest red, which is a guard agreeing with itself (CLAUDE.md
     // trap 13b). Keep that control — it is what pins this line.
-    body: source.slice(sp.start, sp.end).replace(/\}\s*,\s*\[[^\]]*\]\s*\)/g, '}'),
+    body: source.slice(sp.start, sp.end)
+      .replace(/\}\s*,\s*\[[^\]]*\]\s*\)/g, '}')
+      // The expression-bodied shape `useMemo(() => expr, [deps],)` has no `}` before
+      // its deps; strip its trailing deps array too, or a dep naming the gate reads as one.
+      .replace(/,\s*\[[^\]]*\]\s*,?\s*\)\s*$/, ')'),
   }))
 }
 
@@ -96,11 +100,27 @@ function memoBlocks(source: string): Array<{ name: string; body: string }> {
  *  to the next memo start, so this can only ever SHORTEN a block — never
  *  lengthen one past where it used to end. */
 function memoEnd(source: string, start: number, nextStart: number): number {
-  const depClose = /\}\s*,\s*\[[^\]]*\]\s*\)/g
-  depClose.lastIndex = start
-  const m = depClose.exec(source)
-  const end = m ? m.index + m[0].length : nextStart
-  return Math.min(end, nextStart)
+  // The balanced close of this memo's own `useMemo(` call. This covers BOTH
+  // shapes: the block body `useMemo(() => { … }, [deps])` and the expression
+  // body `useMemo(() => expr, [deps],)`, trailing comma included. The old
+  // `}, [deps])` pattern missed the expression body that #2113 added
+  // (`missingValueBlocker`). That memo was the file's LAST, so it ran to EOF,
+  // swallowed the whole render, and blinded this guard to an ungated reader
+  // (UI staging red, 26 Sep 2026). A string or comment containing a paren can
+  // only shorten or lengthen the span to the next memo start: the min() below
+  // still caps it there.
+  const open = source.indexOf('useMemo(', start)
+  if (open < 0 || open >= nextStart) return nextStart
+  let depth = 0
+  for (let i = open + 'useMemo'.length; i < nextStart; i++) {
+    const c = source[i]
+    if (c === '(') depth++
+    else if (c === ')') {
+      depth--
+      if (depth === 0) return Math.min(i + 1, nextStart)
+    }
+  }
+  return nextStart
 }
 
 /** The balanced `{...}` enclosing `idx` — a JSX expression container in the
@@ -316,6 +336,30 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     ).toBeLessThan(4_000)
   })
 
+  it('an EXPRESSION-bodied memo with a trailing comma is bounded too (#2113 shape)', () => {
+    // `useMemo(() => expr, [deps],)` has no `}` before its deps. The old
+    // `}, [deps])` pattern let such a memo run to the next memo, or to EOF when
+    // it was last, and blinded the reader scan (UI staging red, 26 Sep 2026).
+    const probe = [
+      'function Card() {',
+      '  const first = useMemo(() => {',
+      '    return 1',
+      '  }, [a])',
+      '  const last = useMemo(',
+      '    () => blockers?.find(b => b.id === id) ?? null,',
+      '    [blockers, id],',
+      '  )',
+      '  return <div>{resultsReport?.option_probabilities}</div>',
+      '}',
+    ].join('\n')
+    const blocks = memoBlocks(probe)
+    const last = blocks.find((b) => b.name === 'last')
+    expect(last, 'PRECONDITION: the probe memo is found').toBeDefined()
+    expect(last!.body).toContain('blockers?.find')
+    expect(last!.body, 'the deps array is stripped').not.toContain('[blockers, id]')
+    expect(last!.body, 'the memo stops at its own close, never reaching the render').not.toContain('option_probabilities')
+  })
+
   it('no comment states a gate COUNT — the count is what went stale', () => {
     // The finding, exactly: this file gated two readers, said in a comment that
     // "both gate on the one flag", and a third was rendering `Held back by:` on the
@@ -332,5 +376,26 @@ describe('OptionNode — the comparative-position reader manifest', () => {
     expect(comments.length, 'comment extraction found nothing to assert against').toBeGreaterThan(1_000)
     expect(comments).not.toMatch(/\bboth gate\b/i)
     expect(comments).not.toMatch(/\b(two|three|four) readers? (of [^.]{0,40})?gate\b/i)
+  })
+
+  it('an expression memo whose DEPS name the gate is still ungated (deps are not a gate)', () => {
+    const probe = [
+      'function Card() {',
+      '  const first = useMemo(() => {',
+      '    if (displayMetadata.winComputationFailed) return null',
+      '    return 1',
+      '  }, [displayMetadata.winComputationFailed])',
+      '  const leak = useMemo(',
+      '    () => resultsReport?.option_probabilities?.[id] ?? null,',
+      '    [resultsReport, id, displayMetadata.winComputationFailed],',
+      '  )',
+      '  return <div>{first}</div>',
+      '}',
+    ].join('\n')
+    const ungated = memoBlocks(probe)
+      .filter(b => READS_COMPARATIVE.test(b.body))
+      .filter(b => !CARRIES_GATE.test(b.body))
+      .map(b => b.name)
+    expect(ungated).toEqual(['leak'])
   })
 })
