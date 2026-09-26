@@ -1662,6 +1662,9 @@ export const ANALYSIS_NEW_COPY = {
    * the run may withhold one.
    */
   optionFigures: {
+    /** Model-scale axis ends: direction only, no numbers (#2133 omits the ticks). */
+    axisLower: 'Lower',
+    axisHigher: 'Higher',
     goalLabel: 'Reaches your target',
     winLabel: 'Highest in this model',
     /**
