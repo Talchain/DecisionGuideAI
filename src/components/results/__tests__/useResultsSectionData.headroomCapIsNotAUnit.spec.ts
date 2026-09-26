@@ -13,12 +13,13 @@
  * Bound by identity: option ids, and the exact producer p50s.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { renderHook, act } from '@testing-library/react'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
+import { useNodeMutations } from '../../../canvas/ui/inspector-v2/useInspectorMutations'
 
 const PAUL_OPTION_COMPARISON = [
   {
@@ -133,6 +134,60 @@ describe('a headroom cap is not a unit', () => {
   it('CONTRAST: an untagged cap that is NOT the headroom rule (a user-set scale) still converts', () => {
     const userScale = { ...GOAL, goal_threshold_cap: 40000 }
     seed(userScale, { ...READY, goal_threshold_cap: 40000 })
+    const r = read()
+    expect(r.isNormalised).toBe(false)
+    expect(r.p50('keep_49_price')).toBeCloseTo(0.12609027656727329 * 40000, 6)
+  })
+
+  // ── #2056 review B1: CEE's RULE ORDER, not only its last rule ──────────────
+  // CEE `resolveGoalThresholdCapWithProvenance` checks '%' first: a percentage
+  // target within 0–100 is ALWAYS `metric_scale`, cap 100. 80 × 1.25 is also
+  // 100, so the bare arithmetic fallback took an 80% target for headroom.
+  const PCT80 = { goal_threshold: 0.8, goal_threshold_raw: 80, goal_threshold_unit: '%', goal_threshold_cap: 100 }
+
+  it('⭐ an UNTAGGED 80% target keeps its units — its cap is the metric\'s own 0–100 scale, which CEE checks before headroom', () => {
+    seed(PCT80, { status: 'ready', options: [], goal_node_id: 'mrr', ...PCT80 })
+    const r = read()
+    expect(r.isNormalised).toBe(false)
+    expect(r.p50('keep_49_price')).toBeCloseTo(0.12609027656727329 * 100, 6)
+  })
+
+  it('⭐ the same 80% target with NO ready payload (a reload) reads the node and still keeps its units', () => {
+    seed(PCT80, null)
+    expect(read().isNormalised).toBe(false)
+  })
+
+  it('CONTRAST: a % target ABOVE 100 never reaches CEE\'s metric-scale rule, so an untagged raw × 1.25 cap is still headroom (the pricing starter\'s 110% → 137.5)', () => {
+    const PCT110 = { goal_threshold: 0.8, goal_threshold_raw: 110, goal_threshold_unit: '%', goal_threshold_cap: 137.5 }
+    seed(PCT110, { status: 'ready', options: [], goal_node_id: 'mrr', ...PCT110 })
+    expect(read().isNormalised).toBe(true)
+  })
+
+  // ── A tag speaks only for the cap it came with ─────────────────────────────
+  it('⭐ a LEFTOVER ready tag (goal switch clears the ready cap, not its tag) does not label the new goal\'s own cap', () => {
+    const userScale = { ...GOAL, goal_threshold_cap: 40000 }
+    seed(userScale, {
+      status: 'ready', options: [], goal_node_id: 'mrr',
+      goal_threshold: undefined, goal_threshold_raw: undefined, goal_threshold_unit: undefined, goal_threshold_cap: undefined,
+      goal_threshold_cap_provenance: 'target_derived_headroom',
+    })
+    const r = read()
+    expect(r.isNormalised).toBe(false)
+    expect(r.p50('keep_49_price')).toBeCloseTo(0.12609027656727329 * 40000, 6)
+  })
+
+  // ── #2056 review N1: a user cap edit clears the tag it replaces ────────────
+  it('⭐ setGoalCap (the inspector\'s Scale cap) clears the headroom tag, so the user\'s own scale converts after the edit and after a reload', () => {
+    seed({ ...GOAL, goal_threshold_cap_provenance: 'target_derived_headroom' }, null)
+    expect(read().isNormalised).toBe(true) // precondition: the tag is live before the edit
+
+    const { result } = renderHook(() => useNodeMutations('mrr'))
+    act(() => result.current.setGoalCap(40000))
+
+    const goal = useCanvasStore.getState().nodes.find((n) => n.id === 'mrr')!
+    expect(goal.data.goal_threshold_cap).toBe(40000)
+    expect(goal.data.goal_threshold_cap_provenance).toBeUndefined()
+    expect(Object.keys(JSON.parse(JSON.stringify(goal.data)))).not.toContain('goal_threshold_cap_provenance')
     const r = read()
     expect(r.isNormalised).toBe(false)
     expect(r.p50('keep_49_price')).toBeCloseTo(0.12609027656727329 * 40000, 6)

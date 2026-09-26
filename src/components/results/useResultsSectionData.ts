@@ -1566,14 +1566,26 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    * ⚠ THE TAG IS OFTEN NOT HERE. The UI's schema pin predates the field, and
    * the draft mapper copies the cap onto the goal node without it (Paul's
    * export: goal `mrr` carries cap 25,000, no provenance). So an absent tag
-   * falls back to the rule's OWN definition, `cap === raw * 1.25`, and anything
-   * else — a user-set cap, a percentage's 100 — keeps converting as before.
+   * falls back to CEE's RULE ORDER, not only its last rule:
+   *   1. a '%' target within 0–100 is ALWAYS its own metric scale (cap 100,
+   *      `metric_scale`) — checked FIRST, because 80% × 1.25 is also 100 and
+   *      an untagged 80% target (retention, CSAT, conversion) would otherwise
+   *      lose its units (#2056 review B1);
+   *   2. only then the headroom rule's own definition, `cap === raw * 1.25`.
+   * Anything else — a user-set cap, an inherited scale — keeps converting.
+   *
+   * A TAG SPEAKS ONLY FOR THE CAP IT CAME WITH. It is read from the source
+   * whose cap is the one in use: a goal switch clears the ready payload's cap
+   * but not its tag (store `setOutcomeNode` path), and that leftover must not
+   * label the new goal's cap.
    */
   const capIsTargetDerivedHeadroom = useMemo(() => {
+    if (goalThresholdCap == null) return false
+    type CapCarrier = { goal_threshold_cap?: unknown; goal_threshold_cap_provenance?: unknown } | null | undefined
     const data = goalNode?.data as (ResultsCanvasNodeData & { goal_threshold_cap_provenance?: unknown }) | undefined
-    const tag =
-      (ceeAnalysisReady as { goal_threshold_cap_provenance?: unknown } | null | undefined)
-        ?.goal_threshold_cap_provenance ?? data?.goal_threshold_cap_provenance
+    const tagOf = (src: CapCarrier) =>
+      src?.goal_threshold_cap === goalThresholdCap ? src.goal_threshold_cap_provenance : undefined
+    const tag = tagOf(ceeAnalysisReady as CapCarrier) ?? tagOf(data)
     if (tag === 'metric_scale' || tag === 'inherited') return false
     if (tag === 'target_derived_headroom') return true
     const raw =
@@ -1582,7 +1594,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         : typeof data?.goal_threshold_raw === 'number'
           ? data.goal_threshold_raw
           : null
-    if (goalThresholdCap == null || raw == null || !(raw > 0)) return false
+    if (raw == null || !(raw > 0)) return false
+    const unit = ceeAnalysisReady?.goal_threshold_unit ?? data?.goal_threshold_unit
+    if (unit === '%' && raw <= 100) return false
     return Math.abs(goalThresholdCap - raw * 1.25) <= 1e-9 * Math.max(1, Math.abs(goalThresholdCap))
   }, [goalNode, ceeAnalysisReady, goalThresholdCap])
 

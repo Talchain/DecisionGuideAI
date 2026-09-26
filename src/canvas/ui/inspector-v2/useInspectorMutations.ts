@@ -92,7 +92,7 @@ export const NODE_SETTER_FIELDS = {
   setFactorType: ['factor_type'],
   setStateSpaceRange: ['state_space'],
   setUncertaintyDrivers: ['uncertainty_drivers'],
-  setGoalCap: ['goal_threshold_cap'],
+  setGoalCap: ['goal_threshold_cap', 'goal_threshold_cap_provenance'],
   setProbability: ['probability'],
   setImpact: ['impact'],
 } as const satisfies Record<string, readonly string[]>
@@ -932,7 +932,13 @@ export function useNodeMutations(nodeId: string) {
   const setGoalCap = useCallback((cap: number) => {
     const node = getNode()
     if (!node) return
-    updateNode(nodeId, { data: { ...node.data, goal_threshold_cap: cap } })
+    // A cap the user sets is the user's own scale. CEE's provenance tag
+    // described the cap this one REPLACES (`target_derived_headroom` = raw ×
+    // 1.25, "a constant of the rule"), so the edit clears it: a leftover tag
+    // kept a user's scale reading as headroom (#2056 review N1). `undefined`,
+    // not an omitted key — `updateNode` MERGES data, so an omitted key would
+    // survive; a JSON round trip then drops it (absent = unattested).
+    updateNode(nodeId, { data: { ...node.data, goal_threshold_cap: cap, goal_threshold_cap_provenance: undefined } })
   }, [nodeId, updateNode, getNode])
 
   // ── risk probability × impact (P1.7) ──

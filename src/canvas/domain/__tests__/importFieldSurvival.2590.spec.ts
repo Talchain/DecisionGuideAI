@@ -103,6 +103,12 @@ const READER_CORPUS: readonly CorpusEntry[] = [
   },
   {
     nodeId: 'goal_turnout',
+    field: 'goal_threshold_cap_provenance',
+    value: 'target_derived_headroom',
+    reader: 'components/results/useResultsSectionData.ts capIsTargetDerivedHeadroom (a headroom cap prints no user-unit figure) · WRITERS canvas/utils/applyDraftResult.ts backfillGoalThresholdOntoGoalNode, canvas/ui/inspector-v2/useInspectorMutations.ts setGoalCap (clears it)',
+  },
+  {
+    nodeId: 'goal_turnout',
     field: 'goal_threshold',
     value: 0.8,
     reader: 'canvas/ui/inspector-v2/editors/GoalAdvancedEditor.tsx:24 · V2 adapter output',
