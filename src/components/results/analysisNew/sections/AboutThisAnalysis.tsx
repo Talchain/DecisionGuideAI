@@ -84,6 +84,11 @@ import {
 import { typography } from '../../../../styles/typography'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
 import { formatThreshold } from '../../RangeVisualization'
+
+/** A normalised model score, as the comparison axis prints it: 3 significant figures, no sign, no unit. */
+export function formatModelScore(value: number): string {
+  return value.toLocaleString(undefined, { maximumSignificantDigits: 3 })
+}
 import type { OutcomeUnitType } from '../../types'
 import { NOT_ANALYSED_BADGE, NOT_COMPUTED_BADGE } from '../../utils/notAnalysedCopy'
 import {
@@ -390,7 +395,18 @@ export function AboutThisAnalysis({
    * are the strip's own selection, CEE's copy verbatim.
    */
   const statementRows = vm.deeper.groups.flatMap((g) => g.rows.filter((r) => r.statement === true))
-  const recordRows: InspectRow[] = vm.deeper.groups.flatMap((g) => g.rows.filter((r) => r.statement !== true))
+  /**
+   * ⛔ GROUPED, WITH THEIR TITLES (#2069 review). The builder's groups carry
+   * meaning in their titles: "Readiness signals" emits rows labelled
+   * Evidence / Robustness / Framing that are coaching-layer quality signals
+   * ABOUT THE MODEL, "not a readiness verdict". Flattened, an ungated
+   * "Robustness 40%" sat unlabelled one click under About's gated
+   * "Robustness: Stable". Each group keeps its title as a sub-label.
+   */
+  const recordGroups = vm.deeper.groups
+    .map((g) => ({ title: g.title, rows: g.rows.filter((r) => r.statement !== true) }))
+    .filter((g) => g.rows.length > 0)
+  const recordRows: InspectRow[] = recordGroups.flatMap((g) => g.rows)
   const limits: LimitBullet[] = [
     ...selectRenderableCritiqueEntries(vm.deeper.critiques).map((c, i) => ({
       key: `critique:${i}`,
@@ -429,8 +445,18 @@ export function AboutThisAnalysis({
       label: ABOUT_COPY.ask,
     })
 
+  /**
+   * ⛔ A NORMALISED OUTCOME IS A MODEL SCORE: NO `%`, NO `+` (AI Quality,
+   * #70 5841808930). `formatThreshold` (shared with the Analysis tab) reframes
+   * it as "+9%", which reads as "a 9% change, up from now" — a unit and a
+   * direction these origin-form scores do not have. Here it prints as the
+   * comparison axis does: three significant figures, no sign, no symbol.
+   * A real unit still goes through `formatThreshold`.
+   */
   const fmt = (v: number) =>
-    formatThreshold(v, outcomeFormat.unit, outcomeFormat.symbol, outcomeFormat.isNormalised)
+    outcomeFormat.isNormalised === true
+      ? formatModelScore(v)
+      : formatThreshold(v, outcomeFormat.unit, outcomeFormat.symbol, outcomeFormat.isNormalised)
 
   const toggleDetail = (key: DetailKey) =>
     setDetailOpen((prev) => {
@@ -577,7 +603,7 @@ export function AboutThisAnalysis({
                         testId={testId}
                       />
                     ) : (
-                      <RunRecord rows={recordRows} testId={testId} />
+                      <RunRecord groups={recordGroups} testId={testId} />
                     )}
                   </div>
                 ) : null}
@@ -759,19 +785,33 @@ function SourcesAndLimits({
  * order; the statement rows (the gaps worked around) are limits, not receipts,
  * and render in "Sources and limits".
  */
-function RunRecord({ rows, testId }: { rows: InspectRow[]; testId: string }) {
+function RunRecord({
+  groups,
+  testId,
+}: {
+  groups: ReadonlyArray<{ title: string; rows: InspectRow[] }>
+  testId: string
+}) {
   return (
-    <dl
-      className={`${typography.panelBody} m-0 my-1.5 grid grid-cols-[clamp(75px,calc(14.29%_+_39.57px),95px)_minmax(0,1fr)] gap-x-3 gap-y-1.5`}
-      data-testid={`${testId}-record-rows`}
-    >
-      {rows.map((r, i) => (
-        /* Positional keys: one label can repeat across groups. */
-        <div key={`${i}:${r.label}`} className="contents" data-testid={`${testId}-record-row`}>
-          <dt className="text-text-light min-w-0 break-words">{r.label}</dt>
-          <dd className="m-0 min-w-0 text-text-body break-words">{r.value}</dd>
+    <div className="m-0 my-1.5 space-y-2" data-testid={`${testId}-record-rows`}>
+      {groups.map((g, gi) => (
+        <div key={`${gi}:${g.title}`} data-testid={`${testId}-record-group`} data-group-title={g.title}>
+          <p className={`${typography.panelMeta} text-text-light m-0 mb-1`} data-testid={`${testId}-record-group-title`}>
+            {g.title}
+          </p>
+          <dl
+            className={`${typography.panelBody} m-0 grid grid-cols-[clamp(75px,calc(14.29%_+_39.57px),95px)_minmax(0,1fr)] gap-x-3 gap-y-1.5`}
+          >
+            {g.rows.map((r, i) => (
+              /* Positional keys: one label can repeat across groups. */
+              <div key={`${i}:${r.label}`} className="contents" data-testid={`${testId}-record-row`}>
+                <dt className="text-text-light min-w-0 break-words">{r.label}</dt>
+                <dd className="m-0 min-w-0 text-text-body break-words">{r.value}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       ))}
-    </dl>
+    </div>
   )
 }

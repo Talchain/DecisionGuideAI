@@ -28,7 +28,7 @@ import type { AnalysisNewViewModelInputs } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { buildReviewQueue } from '../buildReviewQueue'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
-import { ABOUT_COPY, AboutThisAnalysis } from '../sections/AboutThisAnalysis'
+import { formatModelScore, ABOUT_COPY, AboutThisAnalysis } from '../sections/AboutThisAnalysis'
 import type { AboutOutcomeFormat, AboutThisAnalysisProps } from '../sections/AboutThisAnalysis'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
 import { formatThreshold } from '../../RangeVisualization'
@@ -465,7 +465,14 @@ describe('Inspect values and units — a TABLE (Option · P10 · P50 · P90) in 
     const caption = screen.getByTestId(`${TID}-values-normalised`)
     expect(caption.tagName).toBe('CAPTION')
     expect(caption).toHaveTextContent(ABOUT_COPY.values.normalised)
-    expect(cell('opt_a', 'low')).toBe(formatThreshold(1200, undefined, undefined, true))
+    // ⚠ RE-POINTED (AI Quality, #70 5841808930): a normalised outcome is a
+    // model score — the axis's three significant figures, NO `%` and NO `+`.
+    // `formatThreshold(…, true)` printed "+120000%": a unit and a direction the
+    // score does not have.
+    expect(cell('opt_a', 'low')).toBe(formatModelScore(1200))
+    for (const k of ['low', 'mid', 'high']) {
+      expect(cell('opt_a', k) ?? '', `${k}: no unit, no sign on a model score`).not.toMatch(/%|^\+/)
+    }
     unmount()
     renderAbout(vm, { outcomeFormat: GBP })
     open()
@@ -597,20 +604,41 @@ describe('Sources and limits — short bullets: engine caveats, gaps worked arou
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe('Run record — label/value rows, the builder\'s own, in its order', () => {
-  it('one list of every non-statement row the view model built, with no group headings', () => {
+  // ⚠ RE-POINTED (#2069 review): the groups keep their TITLES. Flattened, the
+  // coaching layer's "Robustness 40%" sat unlabelled under About's gated
+  // Robustness verdict. Every non-statement row, in order, under its group.
+  it('every non-statement row the view model built, in order, UNDER ITS GROUP\'S TITLE', () => {
     const vm = build(genuineDecision(), { nSamples: 5000, seedUsed: 7 })
     renderAbout(vm)
     open()
     openDetail('record')
-    const expected = vm.deeper.groups.flatMap((g) => g.rows.filter((r) => !r.statement)).map((r) => [r.label, r.value])
-    expect(expected.length, 'PRECONDITION').toBeGreaterThan(2)
-    const rows = screen.getAllByTestId(`${TID}-record-row`).map((row) => [
-      row.querySelector('dt')!.textContent,
-      row.querySelector('dd')!.textContent,
-    ])
-    expect(rows).toEqual(expected)
+    const expected = vm.deeper.groups
+      .map((g) => ({ title: g.title, rows: g.rows.filter((r) => !r.statement).map((r) => [r.label, r.value]) }))
+      .filter((g) => g.rows.length > 0)
+    expect(expected.flatMap((g) => g.rows).length, 'PRECONDITION').toBeGreaterThan(2)
+    const groups = screen.getAllByTestId(`${TID}-record-group`).map((el) => ({
+      title: within(el).getByTestId(`${TID}-record-group-title`).textContent,
+      rows: within(el).getAllByTestId(`${TID}-record-row`).map((row) => [
+        row.querySelector('dt')!.textContent,
+        row.querySelector('dd')!.textContent,
+      ]),
+    }))
+    expect(groups).toEqual(expected)
     expect(screen.getByTestId(`${TID}-detail-record-body`)).toHaveTextContent('run_about_1')
-    expect(screen.getByTestId(`${TID}-detail-record-body`).querySelectorAll('h5')).toHaveLength(0)
+  })
+
+  it('⛔ (#2069 review) the coaching layer\'s "Robustness" percentage sits under "Readiness signals", never bare', () => {
+    const dims = { evidence: 0.72, robustness: 0.4, clarity: 0.5 }
+    const data = { ...genuineDecision(), recommendation: { ...genuineDecision().recommendation, coachingReadinessDimensions: dims } }
+    const vm = build(data as never)
+    const readiness = vm.deeper.groups.find((g) => g.rows.some((r) => r.label === 'Robustness' && /%/.test(String(r.value))))
+    expect(readiness, 'PRECONDITION: the builder emits the coaching Robustness row').toBeDefined()
+    renderAbout(vm)
+    open()
+    openDetail('record')
+    const row = screen.getAllByTestId(`${TID}-record-row`).find((r) => r.querySelector('dt')!.textContent === 'Robustness')!
+    const group = row.closest(`[data-testid="${TID}-record-group"]`) as HTMLElement
+    expect(within(group).getByTestId(`${TID}-record-group-title`).textContent).toBe(readiness!.title)
   })
 
   it('Simulations and Seed are Run record rows; a null seed is NO row, never "null"', () => {
