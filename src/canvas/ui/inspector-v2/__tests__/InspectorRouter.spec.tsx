@@ -69,7 +69,9 @@ describe('InspectorRouter', () => {
     ])
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={onClose} />)
     expect(screen.getByText('Budget')).toBeTruthy()
-    expect(screen.getByText('You can change this')).toBeTruthy()
+    // v3.1 (DESIGN-GAP-v31 row 7): the kind label reads the KIND.
+    expect(screen.getByTestId('inspector-kind-label').textContent).toBe('Factor')
+    expect(screen.queryByText('You can change this')).toBeNull()
   })
 
   it('renders factor-external panel for external factor', () => {
@@ -78,7 +80,9 @@ describe('InspectorRouter', () => {
     ])
     render(<InspectorRouter nodeId="f2" edgeId={null} onClose={onClose} />)
     expect(screen.getByText('Competition')).toBeTruthy()
-    // "Outside your control" appears in both InspectorShell typePill and the panel Context pill
+    // v3.1: the shell's kind label reads "Factor"; the category is still said
+    // by the panel's own Context pill.
+    expect(screen.getByTestId('inspector-kind-label').textContent).toBe('Factor')
     expect(screen.getAllByText('Outside your control').length).toBeGreaterThanOrEqual(1)
   })
 
@@ -234,11 +238,14 @@ describe('InspectorRouter — confidence badges are provenance-gated', () => {
     }
   }
 
-  it('POSITIVE CONTROL: a characterised edge DOES show its confidence badge', () => {
+  it('POSITIVE CONTROL: a characterised edge DOES show its stated figure (in the body since v3.1)', () => {
+    // v3.1 (DESIGN-GAP-v31 rows 7, 12): the head no longer repeats the body's
+    // existence readout as a "✓ 80%" badge; the figure itself stays readable.
     const g = graph(characterised)
     setStoreState(g.nodes, g.edges)
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={onClose} />)
-    expect(screen.getByTestId('inspector-confidence-badge').textContent ?? '').toMatch(/80%/)
+    expect(screen.queryByTestId('inspector-confidence-badge')).toBeNull()
+    expect(screen.getByTestId('edge-existence-readout').textContent ?? '').toMatch(/80%/)
   })
 
   it('shows NO confidence badge for an edge nobody characterised', () => {

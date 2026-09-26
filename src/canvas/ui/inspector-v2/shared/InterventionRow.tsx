@@ -19,6 +19,15 @@ import {
   classifyInterventionProvenance,
   type ValueProvenanceKind,
 } from '../../../domain/valueProvenance'
+import { INSPECTOR_RULE } from '../inspectorStyle'
+
+/**
+ * ⭐ v3.1 (DESIGN-GAP-v31 row 32): one factor target = one FLAT detail row with
+ * the contract's 1px `#EEE9E1` rule — not a 280×134 bordered card (radius 14px
+ * measured) inside the option's own 306×473 card. The label wraps instead of
+ * truncating: a name is never clipped in the inspector.
+ */
+const INTERVENTION_ROW_CLASS = `py-2 border-b ${INSPECTOR_RULE.row} last:border-b-0`
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -692,7 +701,7 @@ export function InterventionRow({
     return (
       <div
         data-testid={`inspector-intervention-${factorId}`}
-        className="bg-panel border border-panel-border rounded-lg p-2.5 mb-1.5"
+        className={INTERVENTION_ROW_CLASS}
       >
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-1.5">
@@ -700,7 +709,7 @@ export function InterventionRow({
             <button
               type="button"
               onClick={onNavigate}
-              className={`${typography.panelBody} text-text-body hover:text-info transition-colors truncate ${onNavigate ? 'cursor-pointer hover:underline' : ''}`}
+              className={`${typography.panelBody} text-text-body text-left hover:text-info transition-colors break-words min-w-0 ${onNavigate ? 'cursor-pointer hover:underline' : ''}`}
               disabled={!onNavigate}
             >
               {factorLabel}
@@ -806,7 +815,7 @@ export function InterventionRow({
   return (
     <div
       data-testid={`inspector-intervention-${factorId}`}
-      className="bg-panel border border-panel-border rounded-lg p-2.5 mb-1.5"
+      className={INTERVENTION_ROW_CLASS}
     >
       {/* Factor label. ⚠ The change indicator that lived here is GONE — see
           the block above `technicalDiagnostics` for why a percentage cannot be
@@ -817,7 +826,7 @@ export function InterventionRow({
           <button
             type="button"
             onClick={onNavigate}
-            className={`${typography.panelBody} text-text-body hover:text-info transition-colors truncate ${onNavigate ? 'cursor-pointer hover:underline' : ''}`}
+            className={`${typography.panelBody} text-text-body text-left hover:text-info transition-colors break-words min-w-0 ${onNavigate ? 'cursor-pointer hover:underline' : ''}`}
             disabled={!onNavigate}
           >
             {factorLabel}

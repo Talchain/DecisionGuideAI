@@ -68,7 +68,9 @@ describe('RiskPanel authored context and entered estimates', () => {
     setRiskData({ description: { text: 'Malformed' }, body: 42 })
     render(<RiskPanel {...panelProps} />)
     expect(screen.queryByTestId('risk-authored-context')).toBeNull()
-    expect(screen.getByText('What could go wrong and how would it affect the decision?')).toBeDefined()
+    // v3.1 (DESIGN-GAP-v31 row 32): malformed context falls to the stated
+    // absence, not the italic prompt question.
+    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
   })
 
   it('labels the existing likelihood, impact and derived severity as an entered estimate', () => {

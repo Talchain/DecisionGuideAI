@@ -39,7 +39,7 @@ import { UncertaintyBand } from '../shared/UncertaintyBand'
 import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
-import { resolveEdgeValuesCoaching } from '../coachingConfig'
+import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
 import {
   edgeValueBand,
   edgeValueSource,
@@ -55,6 +55,8 @@ import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
+import { EdgeRelationshipSummary } from '../shared/EdgeRelationshipSummary'
+import { INSPECTOR_RULE, inspectorButton, inspectorSectionHighlight } from '../inspectorStyle'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
@@ -269,6 +271,15 @@ export const EdgePanel = memo(function EdgePanel({
   // under, so it is now derived from the edge's actual stamps.
   const edgeValuesCoaching = useMemo(
     () => resolveEdgeValuesCoaching({
+      strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
+      existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+    }),
+    [edge?.data],
+  )
+  // v3.1 row 32: the same two provenance facts, stated flat in the pane (the
+  // generic card that used to carry them is gone — see the resolver's note).
+  const edgeValuesProvenance = useMemo(
+    () => resolveEdgeValuesProvenance({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
     }),
@@ -914,6 +925,10 @@ export const EdgePanel = memo(function EdgePanel({
         </div>
       ) : (
         <>
+          {/* ── v3.1 row 12: what the line says, from the stroke's own
+              resolvers — the detail the one-line hover no longer carries. ── */}
+          <EdgeRelationshipSummary data={edge.data as Record<string, unknown> | undefined} />
+
           {/* ── Context group ─────────────────────────────────── */}
           {isFragile && isResultsMode && (
             <PanelGroup kind="context" label={GROUP_LABELS.context}>
@@ -922,7 +937,7 @@ export const EdgePanel = memo(function EdgePanel({
                     canvas cue): one neutral fragility mark (`Activity`, body ink),
                     the canvas's own sentence (`FRAGILE_CUE_SENTENCE`), no warning
                     triangle, no Danger — Danger is the RISK treatment (point 9). */}
-                <div className="bg-panel border border-panel-border p-2.5 rounded-lg" data-testid="edge-fragility-context">
+                <div className={inspectorSectionHighlight} data-testid="edge-fragility-context">
                   <div className={`${typography.panelBody} text-text-body flex items-center gap-1`}>
                     <Activity size={13} className="text-text-body shrink-0" aria-hidden="true" />
                     {FRAGILE_CUE_SENTENCE}
@@ -951,6 +966,11 @@ export const EdgePanel = memo(function EdgePanel({
 
           {/* ── Your input group ──────────────────────────────── */}
           <PanelGroup kind="input" label={GROUP_LABELS.input}>
+            {/* Who set these values — first, because its "not set" sentence
+                speaks of "the control below". */}
+            <p data-testid="edge-values-provenance" className={`${typography.panelBody} !leading-[1.55] text-text-body mt-0 mb-2`}>
+              {edgeValuesProvenance}
+            </p>
             {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL
                 WITH A WIRE CARRIER (`edge_strength_edit`), so it is the one that
                 may present itself as a shared-model edit. The fieldset is the
@@ -1147,7 +1167,8 @@ export const EdgePanel = memo(function EdgePanel({
                 </p>
               ) : null}
               {currentEstimatedWeight !== null && (
-                <div className="mt-2 rounded-md border border-accent/20 bg-panel px-2 py-1.5">
+                <div className={`mt-2 pt-2 border-t ${INSPECTOR_RULE.row}`}>
+                  {/* v3.1 row 32: a flat row under a hairline rule, not a box. */}
                   <p className={`${typography.panelMeta} text-text-body`}>
                     {/* ⛔⛔ `formatNumber`, NOT `String`. This printed the raw
                         double: the founder read *"Olumi's current estimate is
@@ -1181,7 +1202,7 @@ export const EdgePanel = memo(function EdgePanel({
                     type="button"
                     data-testid="edge-confirm-current-strength"
                     onClick={handleConfirmCurrentStrength}
-                    className={`${typography.panelMeta} mt-1 text-accent underline underline-offset-2`}
+                    className={`${inspectorButton} mt-1.5`}
                   >
                     {ACTION_LABELS.confirmCurrentStrength}
                   </button>

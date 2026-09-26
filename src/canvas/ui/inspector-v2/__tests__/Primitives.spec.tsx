@@ -61,15 +61,15 @@ describe('InlineSectionLabel', () => {
 // ── PrimaryControlCard ───────────────────────────────────────────────
 
 describe('PrimaryControlCard', () => {
-  it('wraps children in a styled container', () => {
+  it('wraps children in a FLAT, addressable container (v3.1: no box in a box)', () => {
+    // v3.1 (DESIGN-GAP-v31 row 32): the served card was a bordered, rounded box
+    // holding further boxes. The wrapper keeps its test id; it draws nothing.
     const { container } = render(
       <PrimaryControlCard><span>slider</span></PrimaryControlCard>,
     )
     const card = container.firstElementChild as HTMLElement
-    expect(card.className).toContain('bg-panel')
-    expect(card.className).toContain('border')
-    expect(card.className).toContain('border-panel-border')
-    expect(card.className).toContain('rounded-lg')
+    expect(card.getAttribute('data-testid')).toBe('primary-control-card')
+    expect(card.className).not.toMatch(/\bborder\b|rounded|bg-panel/)
     expect(card.textContent).toBe('slider')
   })
 
@@ -139,13 +139,36 @@ describe('ExpertAnnotation', () => {
 // ── EmptyDescriptionPrompt ───────────────────────────────────────────
 
 describe('EmptyDescriptionPrompt', () => {
-  it('renders placeholder text in italic', () => {
+  it('v3.1: with no writer to open, states the ABSENCE — never an italic prompt question', () => {
     const { container } = render(
       <EmptyDescriptionPrompt placeholder="What is this factor?" />,
     )
     const el = container.firstElementChild as HTMLElement
-    expect(el.textContent).toBe('What is this factor?')
-    expect(el.className).toContain('italic')
+    expect(el.textContent).toBe('No description recorded.')
+    expect(el.getAttribute('data-testid')).toBe('inspector-description-empty')
+    expect(el.className).not.toContain('italic')
+  })
+
+  it('v3.1: inside a DISABLED fieldset it is not an action, even with onStartEditing', () => {
+    // A `role="button"` div is NOT inerted by `<fieldset disabled>`, so the old
+    // prompt opened an editor that was itself disabled — a control that could
+    // not save, looking editable.
+    const onStart = vi.fn()
+    render(
+      <fieldset disabled>
+        <EmptyDescriptionPrompt placeholder="Describe..." onStartEditing={onStart} />
+      </fieldset>,
+    )
+    expect(screen.queryByRole('button', { name: 'Describe...' })).toBeNull()
+    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
+    fireEvent.click(screen.getByTestId('inspector-description-empty'))
+    expect(onStart).not.toHaveBeenCalled()
+  })
+
+  it('⭐ CONTRAST — an UNFENCED prompt with an editor stays an action, and is not italic', () => {
+    render(<EmptyDescriptionPrompt placeholder="Describe..." onStartEditing={vi.fn()} />)
+    const el = screen.getByRole('button', { name: 'Describe...' })
+    expect(el.className).not.toContain('italic')
   })
 
   it('non-interactive when onStartEditing is absent', () => {

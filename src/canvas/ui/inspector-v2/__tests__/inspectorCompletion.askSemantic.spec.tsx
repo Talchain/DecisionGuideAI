@@ -167,7 +167,13 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
   it('"Ask about this" prefills and does NOT call _sendMessage', () => {
     const prefill = vi.fn()
     const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
+    // v3.1 (DESIGN-GAP-v31 row 32): the card renders only for a GROUNDED item;
+    // a non-discuss action takes the ask arm under the "Ask about this" label.
+    useGuidanceStore.setState({
+      guidanceItems: [makeGuidanceItem({ primary_action: { type: 'navigate', target: 'x' } })],
+      _prefillChat: prefill,
+      _sendMessage: send,
+    } as never)
 
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Ask about this'))
@@ -282,28 +288,31 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     } as never)
   }
 
-  it('renders both ruled quick actions', () => {
+  it('renders the two contract buttons — "Explore with Olumi" and "Back to the conversation"', () => {
+    // v3.1 (DESIGN-GAP-v31 row 7; point 11). "Its analysis" (a switch to the
+    // generic Analysis tab) is retired with the rest of the pre-contract chips.
     useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
     setNodeStore()
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(screen.getByTestId('inspector-quick-ask').textContent).toBe('Explore with Olumi')
+    expect(screen.getByTestId('inspector-back-to-conversation').textContent).toBe('Back to the conversation')
+    expect(screen.queryByTestId('inspector-quick-analysis')).toBeNull()
+  })
+
+  it('the route OUT of the read-only panel is the ONE conversation route — "Change this" is retired', () => {
+    // ⭐ WHAT "Change this" EXISTED FOR still holds: the panel below is
+    // read-only and its notice is TRUE, and a true refusal must not be a dead
+    // end. v3.1 asks for ONE edit route instead of the served pile-up (dashed
+    // title + pencil + "Change this" + "Change"), so the conversational route
+    // is "Explore with Olumi" — the notices' own remedy, "ask Olumi to …".
+    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    setNodeStore()
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
     expect(screen.getByTestId('inspector-quick-ask')).toBeTruthy()
-    expect(screen.getByTestId('inspector-quick-analysis')).toBeTruthy()
   })
 
-  it('offers a route OUT of the read-only panel — "Change this"', () => {
-    // ⭐ WHAT THIS EXISTS FOR. The inspector below is read-only and its notice
-    // is TRUE: most of the model has no durable direct-edit carrier, so a
-    // direct write is overwritten by the next server rehydrate (measured
-    // 31 Aug 2026 — a rename persisted to the autosave, survived 30s, and was
-    // destroyed on reload). But a true refusal is still a DEAD END, and the
-    // same edit made conversationally does persist. This control is the route.
-    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
-    setNodeStore()
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
-    expect(screen.getByTestId('inspector-quick-change')).toBeTruthy()
-  })
-
-  it('the change request PREFILLS and never dispatches, and names the element', () => {
+  it('that route PREFILLS and never dispatches, and names the element', () => {
     const prefill = vi.fn()
     const send = vi.fn()
     const dispatch = vi.fn()
@@ -311,7 +320,7 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     setNodeStore()
     render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
 
-    fireEvent.click(screen.getByTestId('inspector-quick-change'))
+    fireEvent.click(screen.getByTestId('inspector-quick-ask'))
 
     // ⚠ THE LOAD-BEARING HALF. A control that SENDS on click would make the
     // read-only notice beneath it a lie — the panel would be telling the user
@@ -320,23 +329,26 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     expect(dispatch).not.toHaveBeenCalled()
     expect(prefill).toHaveBeenCalled()
 
-    // Bound to the element by its LABEL, not by matching the copy this change
-    // authors — a draft naming the wrong node is the failure that matters.
+    // Bound to the element by its LABEL, not by matching the copy — a draft
+    // naming the wrong node is the failure that matters.
     const drafted = String(prefill.mock.calls[0]?.[0] ?? prefill.mock.calls[0])
     expect(drafted).toContain('Marketing Budget')
   })
 
-  it('is HIDDEN, not inert, when no conversation surface is registered', () => {
-    // The same rule the ask follows. A control that looks live and does nothing
-    // is the dead-button class this button exists to REMOVE, so shipping it as
-    // one would be self-defeating.
+  it('both are HIDDEN, not inert, when no conversation surface is registered', () => {
+    // A control that looks live and does nothing is the dead-button class.
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
     setNodeStore()
-    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
-    expect(screen.queryByTestId('inspector-quick-change')).toBeNull()
-    // Positive control: the probe can see a quick action when one is present,
+    const { unmount } = render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(screen.queryByTestId('inspector-quick-ask')).toBeNull()
+    expect(screen.queryByTestId('inspector-back-to-conversation')).toBeNull()
+    unmount()
+    // Positive control: the SAME probe sees both once a surface is registered,
     // so the absence above is a real absence rather than a blind query.
-    expect(screen.getByTestId('inspector-quick-analysis')).toBeTruthy()
+    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    render(<InspectorRouter nodeId="f1" edgeId={null} onClose={vi.fn()} />)
+    expect(screen.getByTestId('inspector-quick-ask')).toBeTruthy()
+    expect(screen.getByTestId('inspector-back-to-conversation')).toBeTruthy()
   })
 
   it('places them ABOVE the panel body — nothing buried', () => {

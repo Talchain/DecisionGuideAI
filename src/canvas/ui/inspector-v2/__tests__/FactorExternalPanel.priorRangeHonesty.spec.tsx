@@ -620,8 +620,17 @@ describe('FactorExternalPanel — the coaching action is labelled for what it do
     const { useGuidanceStore } = await import('../../../stores/guidanceStore')
     // `_prefillChat` non-null is what makes InspectorCoaching render its action
     // at all; without it `canInteract` is false and there is no button to name.
+    // ⚠ v3.1 (DESIGN-GAP-v31 row 32): the card renders only for a GROUNDED
+    // guidance item now (no generic fallback). A non-discuss item takes the ask
+    // arm, which is labelled with THIS pane's `actionLabel` — the thing pinned.
     useGuidanceStore.setState({
-      guidanceItems: [],
+      guidanceItems: [{
+        item_id: 'gi-ext',
+        source: 'analysis',
+        title: 'Grounded external-factor guidance',
+        primary_action: { type: 'navigate', target: 'x' },
+        target_object: { type: 'node', id: NODE_ID },
+      }],
       _prefillChat: () => {},
       _sendMessage: null,
     } as never)

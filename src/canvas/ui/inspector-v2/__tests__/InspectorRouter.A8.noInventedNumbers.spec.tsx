@@ -62,7 +62,7 @@ describe('the node header badge never renders — it was an invented mean', () =
     },
   )
 
-  it('CONTRAST — the EDGE badge is untouched: a characterised edge still shows its own value', () => {
+  it('CONTRAST — a characterised edge still shows its own value (in the body since v3.1)', () => {
     setStoreState(
       [
         { id: 'f1', type: 'factor', data: { label: 'Price', kind: 'factor' }, position: { x: 0, y: 0 } },
@@ -71,7 +71,9 @@ describe('the node header badge never renders — it was an invented mean', () =
       [{ id: 'e1', source: 'f1', target: 'g1', data: { weight: 0.3, direction: 'positive', beliefExists: 0.8, beliefExistsSource: 'user' } }],
     )
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
-    expect(screen.getByTestId('inspector-confidence-badge').textContent ?? '').toMatch(/80%/)
+    // v3.1: the head badge is gone (it repeated this readout); the carried
+    // figure is still readable where the body states it.
+    expect(screen.getByTestId('edge-existence-readout').textContent ?? '').toMatch(/80%/)
   })
 })
 

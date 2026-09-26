@@ -30,11 +30,14 @@ interface PrimaryControlCardProps {
 }
 
 export function PrimaryControlCard({ children, className = '' }: PrimaryControlCardProps) {
+  // ⭐ v3.1 (DESIGN-GAP-v31 row 32): FLAT. This was a bordered, rounded box
+  // (`bg-panel border rounded-lg px-3 py-2.5`, 14px radius measured) holding
+  // further boxes — an option's three 280×134 target cards inside a 306×473
+  // card. The contract's inspector has no box in a box: detail rows with
+  // hairline rules. The wrapper and its test id stay, so a note that belongs
+  // to THIS control is still addressable inside it (see above).
   return (
-    <div
-      className={`bg-panel border border-panel-border rounded-lg px-3 py-2.5 ${className}`}
-      data-testid="primary-control-card"
-    >
+    <div className={className} data-testid="primary-control-card">
       {children}
     </div>
   )

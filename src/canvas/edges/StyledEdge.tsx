@@ -19,12 +19,10 @@ import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'rea
 import {
   edgeDoubleClickAffordance,
   EDGE_AFFORDANCE_EDITABLE,
-  EDGE_AFFORDANCE_DIRECT_ACTION,
-  EDGE_AFFORDANCE_CHAT_ALTERNATIVE,
 } from './edgeAffordance'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, Position, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, Activity, Flag } from 'lucide-react'
-import { NodeChip } from '../nodes/shared'
+import { TOOLTIP_SURFACE_CLASS } from '../../components/Tooltip'
 import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
 import { CANVAS_GLYPH_SIZE_CLASSES } from '../nodes/shared/canvasGlyphScale'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
@@ -61,7 +59,6 @@ import {
 } from './edgeLabelCollision'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { shouldShowLabel, getEdgeConfidence } from '../domain/edges'
-import { getStrengthLabel } from '../domain/vocabulary'
 import {
   resolveEdgeValueDisplay,
   resolveEdgeSignedStrengthDisplay,
@@ -90,7 +87,6 @@ import {
   fragileEdgeSentence,
   DIRECTION_DISPUTED_SENTENCE,
   directionInUseSentence,
-  linkStrengthCaption,
   edgeArrowSentence,
   EDGE_EXISTENCE_DOUBT_SENTENCE,
 } from './connectorCopy'
@@ -287,6 +283,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // C1: Hover state for edge label visibility
   const [isHovered, setIsHovered] = useState(false)
+  // v3.1 row 12 — the hover tooltip is counter-scaled to screen size.
+  const edgeTooltipZoom = useStore((st) => st.transform?.[2] ?? 1)
   // T1: Hover popover — delayed 300ms to avoid flicker on pass-through mouse movements
   const [showHoverPopover, setShowHoverPopover] = useState(false)
   const hoverPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1100,18 +1098,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       leaveTimerRef.current = null
     }, 100)
   }
-  const handlePopoverEnter = () => {
-    pointerWithinRef.current = true
-    if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
-  }
-  const handlePopoverLeave = () => {
-    pointerWithinRef.current = false
-    leaveTimerRef.current = setTimeout(() => {
-      setShowHoverPopover(false)
-      setIsHovered(false)
-      leaveTimerRef.current = null
-    }, 100)
-  }
+  // v3.1 row 12: the hover surface is a non-interactive tooltip
+  // (`pointer-events: none`), so there is no "pointer moved into the popover"
+  // arm to keep it open — the two handlers that did are gone with it.
 
   // Detect structural (non-causal) edges. Covers decision→option (organisational
   // wiring) and option→factor (intervention edges). Resolution order:
@@ -2883,316 +2872,88 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Edge hover popover: causal edges only — structural edges use a
-          native browser <title> tooltip on the hitbox path. */}
+      {/* ⭐ THE CONNECTION HOVER IS ONE LINE — canvas visual contract v3.1
+          (DESIGN-GAP-v31 row 12; one tooltip style, row 36).
+
+          It WAS a popover: measured on served `eec722ab`, 110×302 on screen
+          (220 world px, NOT counter-scaled at the 0.5 landing zoom), over the
+          cards, carrying "78% confident", "Link strength · Olumi's estimate
+          35%", a second bold "Positive" under the sentence that already said
+          it, and three buttons in two styles. v3.1: the tooltip is the
+          contract's `.tooltip` holding ONE sentence, and the detail lives in
+          the edge inspector — one click away, where the strength control, the
+          existence reading and "Explore with Olumi" are.
+
+          What it still says, and why each clause stays:
+            · the arrow sentence (`edgeArrowSentence`, the old first line — the
+              contract's own words, from the SAME `dirLabel` the stroke reads);
+            · the existence-doubt clause, bound to `existenceDash` — the same
+              field that draws the dash, never a second "doubt" concept;
+            · a DISPUTED sign is never stated as a fact: the arrow stands alone
+              and the dispute is said (the same ruling the popover held);
+            · a fragile connection's sentence — the canvas cue is budgeted and
+              hidden at the far rung, and the hover is where that fact is never
+              lost.
+          What left: every percentage (none of them a v3.1 edge fact), the bold
+          direction row, the strength bar, and the buttons. "Set strength"
+          (the fast route, measured on the founder's session) is the edge
+          inspector's strength control: a click on the connection opens it.
+
+          Non-interactive (`pointer-events: none`, no focusable content), and
+          COUNTER-SCALED so its 12px is 12px on screen at every zoom. Keyed by
+          this edge's id (`data-edge-popover`) as before, so the focus-out rule
+          still recognises its own surface.
+          Structural links keep their native `<title>` on the hit path — out of
+          this row's scope, recorded rather than silently left. */}
       {showHoverPopover && !selected && !isStructuralEdge && (() => {
-        const popoverStyle: React.CSSProperties = {
-          position: 'absolute',
-          transform: `translate(-50%, calc(-100% - 8px)) translate(${labelX}px,${labelY}px)`,
-          pointerEvents: 'none',
-          zIndex: 9999,
-          minWidth: '140px',
-          maxWidth: '220px',
-        }
-        // PROVENANCE-GATED. `weight` (:202) and `beliefExists` (:250) both fall
-        // through to UI defaults, and the old `(beliefExists ?? 0.8)` here was a
-        // SECOND literal copy of the fabricated constant — removing the default
-        // from the schema would not have silenced this line.
-        //
-        // ⚠⚠ THE DIRECTION USED TO BE GATED WITH THE STRENGTH, AND THAT WAS THE
-        // WRONG GATE — the note below is the original, and it diagnosed the
-        // fabrication correctly while fixing it against the wrong predicate.
-        //
-        // ORIGINAL: "The direction is gated with the strength deliberately:
-        // `direction` defaults to 'positive', so 'Positive' is itself a
-        // fabrication on an edge nobody characterised."
-        //
-        // True, and insufficient. "Was the STRENGTH set?" and "was the DIRECTION
-        // stated?" are two questions, and this asked the first while answering
-        // the second. An edge with a user-set strength and a defaulted direction
-        // clears the strength gate — and then the sign of that defaulted
-        // `direction` printed a bold "Positive" and a green bar, on the SAME
-        // edge whose stroke this component draws GREY a thousand lines above,
-        // from `resolveEdgeDirectionDisplay`, for "direction not set yet".
-        // One component, two verdicts, one edge.
-        //
-        // Both now read the one resolver. `statedDirection` (:283) is
-        // `directionDisplay.show ? directionDisplay.direction : null` — the same
-        // ratified owner `computeDirectionStroke` consumes, so the popover and
-        // the stroke cannot disagree again.
-        const strengthDisplay = resolveEdgeSignedStrengthDisplay(
-          edgeData as Record<string, unknown> | undefined,
-        )
-        // The SAME resolution the label consumes (`edgeLikelihood`), not a
-        // second call — so the popover and the label cannot drift apart again.
-        const confidenceDisplay = edgeLikelihood
-        const signedVal = strengthDisplay.show ? strengthDisplay.value : null
-        // ⛔ A7 AUDIT — NO INVENTED PERCENT. The coefficient ×100 read as "20%"
-        // here while the inspector showed the same edge's value as `0.20` — an
-        // invented unit this popover minted and the Adjust-strength chip then
-        // sent to CEE as the user's own words. `strengthPct` still sizes the
-        // bar's WIDTH (a visual proportion, not a unit claim); every reader of
-        // the VALUE gets the signed figure in the data's own units plus the
-        // one canonical band word (`getStrengthLabel`, `domain/vocabulary.ts`).
-        const strengthPct = signedVal !== null ? Math.round(Math.abs(signedVal) * 100) : null
-        const strengthSignedWithBand = signedVal !== null
-          ? `${signedVal > 0 ? '+' : signedVal < 0 ? '−' : ''}${Math.abs(signedVal).toFixed(2)} ${getStrengthLabel(Math.abs(signedVal))}`
-          : null
-        const confidencePct = confidenceDisplay.show
-          ? Math.round(confidenceDisplay.value * 100)
-          : null
         // The WORD comes from the resolver, never from the sign of a number
         // whose direction may have been defaulted.
         const dirLabel = statedDirection === null
           ? null
           : statedDirection === 'positive' ? 'Positive' : 'Negative'
-        /**
-         * ⭐ A DISPUTED SIGN IS NOT A FACT, AND THIS POPOVER USED TO STATE IT AS ONE.
-         *
-         * On a live `sign_flip` the line is orange — the ONE disagreement the
-         * locked grammar lets onto the canvas — while this popover printed a
-         * bold "Positive" and a green bar: the first pass's sign, stated as
-         * settled, on the very connection whose sign Olumi's own review
-         * disputes (purpose audit of the banked draft, DRIFT-RISK). The
-         * direction is still NAMED — it is what the model runs on for now
-         * (`pass1`) — but inside a sentence that says so, and the bar goes to
-         * the no-verdict grey.
-         *
-         * ⚠ It also stops the coaching chips below asserting that sign to the
-         * model: their messages are dispatched to CEE verbatim as the user's
-         * own words (see their LLM-FACING note).
-         */
         const signDisputed = isSignDisputed
-        const dirLabelForClaims = signDisputed ? null : dirLabel
-        // Which half-colour the bar paints IS a direction claim, so it is gated
-        // the same way. Grey is this canvas's stated NO-VERDICT colour for
-        // exactly this case — `directionStroke.ts` calls it
-        // "weight-set-but-no-direction" — and it is the same token the stroke
-        // and the legend row already use, so no new vocabulary is introduced.
-        const strengthBarTone = statedDirection === null || signDisputed
-          ? (isDark ? 'var(--edge-neutral-dark)' : 'var(--edge-neutral)')
-          : null
-        const causalPopoverStyle: React.CSSProperties = {
-          ...popoverStyle,
-          pointerEvents: 'all',
-        }
+        const counterScale = edgeTooltipZoom > 0 ? 1 / edgeTooltipZoom : 1
         return (
           <EdgeLabelRenderer>
             <div
               data-testid="edge-hover-popover"
-              /* A13: the identity handle the focus-out rule asks for. The
-                 popover is portalled out of the edge's group, so `contains()`
-                 cannot reach it and a containment test alone would close it the
-                 moment focus entered it.
-                 ⭐ IT CARRIES THIS EDGE'S ID, not a bare marker. A bare
-                 `[data-edge-popover]` is satisfied by EVERY edge's popover, so
-                 edge A's focus-out rule treated edge B's popover as its own
-                 (trap 19). The value is what makes the exception identifiable.
-                 `data-node-popover` on the node preview is the same idea and
-                 still carries the bare form — out of this lane's fence. */
               data-edge-popover={edgeIdKey}
               ref={popoverElRef}
               role="tooltip"
-              style={causalPopoverStyle}
-              className="bg-panel border border-panel-border rounded-lg shadow-panel px-3 py-2.5 space-y-1.5 nodrag nopan nowheel"
-              onMouseEnter={handlePopoverEnter}
-              onMouseLeave={handlePopoverLeave}
+              style={{
+                position: 'absolute',
+                transformOrigin: '0 0',
+                transform: `translate(${labelX}px,${labelY}px) scale(${counterScale}) translate(-50%, calc(-100% - 8px))`,
+                pointerEvents: 'none',
+                zIndex: 9999,
+                width: 'max-content',
+              }}
+              className={`${TOOLTIP_SURFACE_CLASS} nodrag nopan nowheel`}
             >
-              {/* ⭐ ROW 29 — contract §03's lead sentence, ADDED as the
-                  popover's first line rather than replacing the rich content
-                  below (which carries editing affordances the plain contract
-                  tooltip has none of — "Set strength", "Ask Olumi…"). The
-                  direction word is `dirLabel`, the SAME value the bold
-                  Direction row a few lines down reads (never a second
-                  derivation). The doubt clause is bound to `existenceDash` —
-                  the SAME field `resolveEdgeDash` reads to draw the dashed
-                  stroke — so a doubt is never asserted on this sentence that
-                  the line itself is not also drawing. */}
-              <div
-                data-testid="edge-hover-arrow-sentence"
-                className={`${typography.edgeLabel} text-text-body`}
-              >
+              <span data-testid="edge-hover-arrow-sentence">
                 {edgeArrowSentence(String(srcTitle), String(tgtTitle), dirLabel, { signDisputed })}
                 {existenceDash.kind === 'stated' && existenceDash.dash !== undefined
                   ? ` ${EDGE_EXISTENCE_DOUBT_SENTENCE}`
                   : ''}
-              </div>
-              {/* Direction — only when the producer or the user STATED one, and
-                  never as a bare fact while Olumi's review passes dispute it. */}
-              {signDisputed ? (
-                <div data-testid="edge-hover-direction-disputed" className="space-y-0.5">
-                  <div className={`${typography.edgeLabel} font-bold text-text-body`}>
+              </span>
+              {/* The joining space sits OUTSIDE each span, so a span's own
+                  text is exactly its sentence (the cue's `aria-label` equals
+                  the fragility span byte for byte). */}
+              {signDisputed && (
+                <>
+                  {' '}
+                  <span data-testid="edge-hover-direction-disputed">
                     {DIRECTION_DISPUTED_SENTENCE}
-                  </div>
-                  {dirLabel !== null && (
-                    <div className={`${typography.edgeLabel} text-text-light`}>
-                      {directionInUseSentence(dirLabel)}
-                    </div>
-                  )}
-                </div>
-              ) : dirLabel !== null && (
-                <div className={`${typography.edgeLabel} font-bold text-text-body`}>
-                  {dirLabel}
-                </div>
-              )}
-              {/* Confidence */}
-              {confidencePct !== null && (
-                <div className={`${typography.edgeLabel} text-text-light`}>
-                  {confidencePct}% confident
-                </div>
-              )}
-              {/* ⭐ THE STRENGTH ROW'S NOUN, AND WHETHER ANYONE STOOD BEHIND IT.
-                  The bar and its percentage used to sit here with no noun at
-                  all, so an unconfirmed producer's figure read exactly like one
-                  the person typed — while the outcome card, for the SAME edge
-                  and the SAME predicate (`strengthIsHumanSettled`), said
-                  "Strength not set yet" (manual test MT-15b). The caption now
-                  says it is a strength, and — when nobody has settled it —
-                  whose estimate it is, named from the data
-                  (`linkStrengthCaption`): "Link strength · Olumi's estimate",
-                  the wording the node-card change puts on the card. The chip
-                  keeps its short band word and `est.` marker. */}
-              {signedVal !== null && strengthPct !== null && (
-                <div
-                  data-testid="edge-hover-strength-caption"
-                  className={`${typography.edgeLabel} text-text-light`}
-                >
-                  {linkStrengthCaption(
-                    strengthUnconfirmed,
-                    edgeSignedStrength.show ? edgeSignedStrength.source : null,
-                  )}
-                </div>
-              )}
-              {/* Strength bar */}
-              {signedVal !== null && strengthPct !== null && (
-                <div className="flex items-center gap-1.5">
-                  <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        strengthBarTone !== null
-                          ? ''
-                          : statedDirection === 'positive' ? 'bg-success' : 'bg-danger'
-                      }`}
-                      style={{
-                        width: `${Math.max(4, strengthPct)}%`,
-                        ...(strengthBarTone !== null ? { backgroundColor: strengthBarTone } : {}),
-                      }}
-                    />
-                  </div>
-                  <span
-                    data-testid="edge-hover-strength-value"
-                    className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap`}
-                  >
-                    {strengthSignedWithBand}
+                    {dirLabel !== null ? ` ${directionInUseSentence(dirLabel)}` : ''}
                   </span>
-                </div>
+                </>
               )}
-              {/* Nothing characterised yet — say that, rather than a number.
-                  ⚠ GATED ON `signedVal`, NOT ON `dirLabel`, AND THAT IS A
-                  CONSEQUENCE OF THE FIX ABOVE. They used to be equivalent:
-                  `dirLabel` was derived from `signedVal`, so `dirLabel === null`
-                  implied no strength. Binding the word to `statedDirection`
-                  DECOUPLED them — and an edge with a set strength and no stated
-                  direction would then have rendered the strength bar AND
-                  "Strength and likelihood not set" in the same popover, which is
-                  a NEW contradiction bought with the old one's fix. The empty
-                  state is a claim about the NUMBERS, so it reads the numbers. */}
-              {signedVal === null && confidencePct === null && (
-                <div
-                  className={`${typography.edgeLabel} text-text-light`}
-                  data-testid="edge-hover-popover-unset"
-                >
-                  Strength and likelihood not set
-                </div>
-              )}
-              {/* Fragility, WITH its noun ("NN% flip risk" — the name
-                  `fragileEdgeMatch` gives this figure). Shown on every fragile
-                  connection and at every zoom: the canvas cue is budgeted and
-                  hidden at the far rung, the hover is where the fact is never
-                  lost. */}
-              {/* Paul 23 Sep contract feedback point 4: the SAME sentence and
-                  the SAME neutral mark as the cue — no "Sensitive" label, no
-                  warning triangle, no info hue. Every keyboard user reaches
-                  this line too: focusing the edge opens this popover. */}
               {isFragileEdge && (
-                <div
-                  data-testid="edge-hover-fragility"
-                  className={`${typography.edgeLabel} text-text-body flex items-start gap-1`}
-                >
-                  <Activity size={10} className={`flex-shrink-0 mt-0.5 ${CANVAS_GLYPH_SIZE_CLASSES[10]}`} aria-hidden="true" />
-                  <span>{fragileSentence}</span>
-                </div>
+                <>
+                  {' '}
+                  <span data-testid="edge-hover-fragility">{fragileSentence}</span>
+                </>
               )}
-              {/* Coaching chips */}
-              <div className="flex flex-col gap-1 mt-2 pt-1.5 border-t border-panel-border">
-                {/*
-                  * LLM-FACING. These messages are dispatched to CEE verbatim via
-                  * `useGuidanceStore._dispatchAction`, so a fabricated number here
-                  * is asserted to the model as the user's own statement about
-                  * their model — worse than one on screen, because the model
-                  * cannot see the canvas to catch it.
-                  *
-                  * When nothing was set the chips still appear (the user still
-                  * wants to act) but claim nothing: no direction adjective, no
-                  * percentage.
-                  */}
-                <NodeChip
-                  chipId="edge_evidence_supports"
-                  actionType={null}
-                  label="What evidence supports this?"
-                  message={
-                    dirLabelForClaims !== null
-                      ? `What evidence supports the ${dirLabelForClaims.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`
-                      : `What evidence supports the relationship between ${srcTitle} and ${tgtTitle}?`
-                  }
-                />
-                {/*
-                  * ⭐⭐ THE ROUTE THAT WORKS, OFFERED FIRST.
-                  *
-                  * MEASURED on the founder's session (19 Sep 2026): the strength
-                  * write was assertable on 24 of his 26 edges — it worked the whole
-                  * time — and he spent 34 minutes and 27 actions in chat without
-                  * one direct edit. This popover was open over those edges and its
-                  * only action for the task was the chat chip below. The product
-                  * was offering the slow route and hiding the fast one.
-                  *
-                  * ⛔ GATED ON `strengthIsEditable`, which is
-                  * `edgeStrengthEditIsAssertable` CALLED — the same predicate the
-                  * panel fences on and the accessible name reads — so the three
-                  * cannot drift into offering different things. Where the write is
-                  * refused this is absent and the chat chip below keeps its plain
-                  * name, because there it is not the slow route, it is the only one.
-                  *
-                  * A native <button>, matching `NodeQuickActions`: this canvas's
-                  * answer to "how does an object offer its own editing affordance"
-                  * already exists for nodes and did not for edges.
-                  */}
-                {strengthIsEditable && (
-                  <button
-                    type="button"
-                    data-testid="edge-direct-strength-edit"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      openEdgeStrengthEditor(edgeIdKey)
-                      if (showEdgeHint) dismissEdgeHint()
-                    }}
-                    aria-label={`Set the strength of the relationship between ${srcTitle} and ${tgtTitle}`}
-                    className={`${typography.edgeLabel} w-full text-left px-2 py-1 rounded-md border border-info/40 bg-info/10 text-text-body hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                  >
-                    {EDGE_AFFORDANCE_DIRECT_ACTION}
-                  </button>
-                )}
-                <NodeChip
-                  chipId="edge_adjust_strength"
-                  actionType="adjust_edge_strength"
-                  label={strengthIsEditable ? EDGE_AFFORDANCE_CHAT_ALTERNATIVE : 'Adjust strength'}
-                  message={
-                    strengthSignedWithBand !== null
-                      ? `I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthSignedWithBand}.`
-                      : `I want to set the strength of the relationship between ${srcTitle} and ${tgtTitle}. It has not been set yet.`
-                  }
-                />
-              </div>
             </div>
           </EdgeLabelRenderer>
         )

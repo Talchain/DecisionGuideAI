@@ -24,6 +24,7 @@
  */
 import type { AttentionReason } from '../../../nodes/shared/nodeAttention'
 import { typography } from '../../../../styles/typography'
+import { inspectorSectionHighlight } from '../inspectorStyle'
 
 export const INSPECTOR_ATTENTION_HEADING = 'Worth reviewing'
 
@@ -39,7 +40,9 @@ export function InspectorAttentionContext({ reasons }: { reasons: readonly Atten
     <section
       data-testid="inspector-attention-context"
       aria-label={INSPECTOR_ATTENTION_HEADING}
-      className="mt-2 rounded border border-info/30 bg-panel px-3 py-2"
+      /* v3.1: the contract's `.section-highlight` ("Why look here?"), not a
+         bordered box — one flat vocabulary across the inspector. */
+      className={`${inspectorSectionHighlight} !mt-3 !mb-0`}
     >
       <div className={`flex items-center gap-1.5 ${typography.panelMeta} text-text-body`}>
         <span

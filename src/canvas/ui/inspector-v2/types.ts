@@ -59,23 +59,16 @@ export interface DragHandlers {
 
 // ─── Shell props ───────────────────────────────────────────────────
 export interface InspectorShellProps {
-  /** 3px coloured top bar colour (CSS value) */
-  topBarColor: string
-  /** Node type for shape indicator */
-  nodeKind?: NodeType
   /** Node ID for rationale lookup (optional — edges don't have rationales) */
   nodeId?: string
   /** Editable label */
   label: string
   onLabelChange?: (value: string) => void
-  /** Type pill text (user-facing, from string table) */
+  /**
+   * The KIND, in words (from the string table). v3.1: a 10px muted label —
+   * the shell no longer takes a kind colour, a shape or a confidence badge.
+   */
   typePill: string
-  /** Type pill border colour (CSS class like 'border-goal/30') */
-  typePillColor?: string
-  /** Confidence badge — optional, not all panels show this */
-  confidenceBadge?: ReactNode
-  /** Confidence level for full-border colouring (success/warning/danger at 30%) */
-  confidenceLevel?: 'high' | 'medium' | 'low'
   /** Tech detail toggle */
   techMode: boolean
   onTechToggleChange: (v: boolean) => void
@@ -88,6 +81,11 @@ export interface InspectorShellProps {
    * Supplied by InspectorRouter, which knows the element's identity.
    */
   quickActions?: ReactNode
+  /**
+   * v3.1 `.inspector-note` — the pane's quiet save truth, rendered LAST in the
+   * body (after the technical-detail toggle). Supplied by InspectorRouter.
+   */
+  footerNote?: ReactNode
   children: ReactNode
 }
 
