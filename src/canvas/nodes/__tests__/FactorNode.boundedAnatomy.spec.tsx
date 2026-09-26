@@ -1,4 +1,14 @@
 /**
+ * ⛔⛔ AND SUPERSEDED AGAIN FOR THE DRIVER LINE — DL #70 5849644637 (26 Sep
+ * 2026): "Reserve the driver line on every factor before a Run" (served
+ * 03f60be0: a Run grew the rank-1 factor 124.3 → 185.6px). Every Standard
+ * factor body is now the primary line PLUS its reserved one-line driver slot
+ * (`factor-driver-slot-<id>`), in every phase and at every rung — pre-run it
+ * reads "Working assumption · no analysis yet" or is empty, post-run it holds
+ * `Driver N of M analysed` or is empty. The rows below that pinned "ONE
+ * visible body row" now pin "the primary row, then the slot" (each says so);
+ * `FactorNode.noGrowthAfterRun.spec.tsx` pins the slot itself.
+ *
  * ⛔⛔ PARTLY SUPERSEDED — Paul, 25 Sep 2026, from live screenshots: the canvas
  * must match the PROTOTYPE, and where this ruling (ED 5809278282, "title plus
  * one primary line") conflicts with the prototype's card bodies, THE PROTOTYPE
@@ -211,6 +221,8 @@ const popover = () => screen.getByTestId('factor-node-popover')
 /** The card body's VISIBLE rows: the siblings of the primary line, sr-only excluded. */
 const visibleBodyRows = (primary: Element) =>
   Array.from(primary.parentElement!.children).filter((el) => !el.classList.contains('sr-only'))
+/** DL #70 5849644637: the reserved one-line driver slot every Standard factor carries. */
+const driverSlot = () => screen.getByTestId(`factor-driver-slot-${ID}`)
 
 /** The S3 findings that must not be ON the card in Standard view. */
 const FINDING_IDS = [
@@ -240,7 +252,9 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
     renderFactor(VALUED)
     const row = within(card()).getByTestId('factor-recorded-value')
     expect(visibleText(row)).toBe('8%est.')
-    expect(visibleBodyRows(row)).toEqual([row])
+    // DL #70 5849644637: the primary row, then the reserved driver slot (pre-run line).
+    expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
+    expect(driverSlot().textContent).toBe('Working assumption · no analysis yet')
     const rowTokens = tokens(row)
     expect(rowTokens.has('flex-nowrap'), 'the value row may not wrap its mark onto a second line').toBe(true)
     expect(rowTokens.has('flex-wrap')).toBe(false)
@@ -272,7 +286,11 @@ describe('ED 5809278282 · Factor · missing value — `Needs input` stays ON th
     expect(visibleText(row)).toBe('Needs inputValue not set yet')
     expect(tokens(row).has('flex-wrap')).toBe(true)
     expect(tokens(row).has('flex-nowrap')).toBe(false)
-    expect(visibleBodyRows(row)).toEqual([row])
+    // DL #70 5849644637: the row, then the reserved driver slot — empty here
+    // (no value, so no "Working assumption"; no rank), and hidden from AT.
+    expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
+    expect(driverSlot().textContent).toBe('')
+    expect(driverSlot().getAttribute('aria-hidden')).toBe('true')
     // GAP-9: nothing is hidden any more — no sr-only echo, no title duplicate
     // of text that is now on screen.
     expect(row.querySelector('.sr-only')).toBeNull()
@@ -355,7 +373,9 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], lodRung: 'quiet' })
     renderFactor(VALUED)
     const quiet = body()
-    expect(quiet).toEqual(['factor-recorded-value', 'factor-driver-line', 'factor-turning-point'])
+    // DL #70 5849644637: the driver line sits INSIDE its reserved slot.
+    expect(quiet).toEqual(['factor-recorded-value', `factor-driver-slot-${ID}`, 'factor-turning-point'])
+    expect(within(driverSlot()).getByTestId('factor-driver-line')).toBeTruthy()
     cleanup()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], lodRung: 'full' })
     renderFactor(VALUED)
@@ -408,7 +428,11 @@ describe('ED 5809278282 · Factor · post-run NOT ranked', () => {
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
     const row = within(card()).getByTestId('factor-recorded-value')
-    expect(visibleBodyRows(row)).toEqual([row])
+    // DL #70 5849644637 (MG's #2123 B1): an unranked factor keeps its reserved
+    // driver slot after the Run — empty and aria-hidden, no substitute.
+    expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
+    expect(driverSlot().textContent).toBe('')
+    expect(driverSlot().getAttribute('aria-hidden')).toBe('true')
     expectNoFindingOnTheCard()
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()

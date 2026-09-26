@@ -23,13 +23,12 @@ import { factorDisplayParts, factorDisplayText } from '../../utils/formatFactorD
 import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
-import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
-import { useRunCurrency } from './shared/runCurrency'
+import { useFactorRunCues } from './shared/useFactorRunCues'
 import { useHasCompletedFirstRun } from '../selectors/results'
 import { FACTOR_NO_ANALYSIS_YET } from './shared/metricVocabulary'
 import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
-import { selectFactorTurningPointState, turningPointNumberPrints } from './shared/factorTurningPoint'
+import { turningPointNumberPrints } from './shared/factorTurningPoint'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -473,73 +472,18 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const outboundConnections = useNodeConnections(props.id, 'outbound')
 
-  const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
-
-  /**
-   * ⭐ THE RANKED READING OF THE SAME NUMBER — derived ONCE and consumed by
-   * every driver render on this card. (Historical: it fed the Standard-view
-   * `NodeMetricRow` and the Detailed-view `DataBar`; since the locked design of
-   * 23 Sep 2026 both are ONE `FactorDriverLine`, "Driver N of M analysed".) They show the same figure, so they carry the
-   * same misread, and fixing one would have left `Relative influence … 100%`
-   * reachable one view away — four presentations of one idea, which is the
-   * inconsistency this card's rows were unified to remove.
-   *
-   * `null` whenever the claim is not licensed (see `influenceRankReadout`):
-   * both call sites then render EXACTLY what they render today.
-   *
-   * ## ⭐⭐ AND THE COUNTABLE HALF IS WITHHELD UNLESS THE RESULT IS CONFIRMABLY
-   * ABOUT THIS GRAPH — HERE, NOT AT THE PRODUCER.
-   *
-   * `of 5` is a COUNTABLE claim. Every other readout on this card carries
-   * staleness softly — once the graph moves, `80%` is wrong but unfalsifiable
-   * from the screen. A denominator is not: run over five factors, add three, and
-   * the canvas shows EIGHT factor cards beside a row still claiming `of 5`. The
-   * reader refutes the product by counting, which is a different and much more
-   * expensive kind of wrong.
-   *
-   * ⛔ IT WAS GATED IN `useNodeDisplayMetadata` ON `graphEditedSinceLastRun`,
-   * AND BOTH HALVES OF THAT WERE WRONG.
-   *
-   * THE FLAG: `resultsLoadHistorical` (`store.ts:6026`) and
-   * `resultsHydrateFromSupabase` (`:6097`) reset it to `false` in the SAME
-   * `set()` that writes `results.status: 'complete'`, so restoring a historical
-   * run re-published the denominator against a graph it was never computed on —
-   * exactly the harm the gate was written to prevent. It also over-fires the
-   * other way: `historyHash` (`:2025`) includes `position`, so a node DRAG — which
-   * changes no factor the run saw — dropped the caption. The gate is now
-   * {@link useAnalysisResultsAreCurrent}, whose header carries the measurement
-   * and the reason `analysisFreshnessDirty` is not the remedy either.
-   *
-   * THE PLACE: gating inside the producer made the assignment CONDITIONAL, which
-   * falsified the invariant that makes `influenceSetSize?` safe to leave optional
-   * — "rank present, denominator absent is unreachable from this producer". The
-   * commit that introduced the gate asserted that invariant in a docblock and
-   * DISPROVED it four tests later in the same spec file, where a gated fixture
-   * returns `sensitivityRank: 1` with `influenceSetSize: null`. Reading the gate
-   * HERE restores the implication at the producer — the assignment is once more
-   * unconditional inside the factor branch and runs before the rank gate — so the
-   * optionality is safe for the reason its docblock states, with no mock churn
-   * and no required-field change. The claim and the licence to make it are two
-   * questions, and they now live in two places (CLAUDE.md trap 21).
-   *
-   * ⚠ ONE GATE, ONE LOCAL, NO DIVERGENCE. Both influence renders read this
-   * `influenceRank`, and both `influenceRankExplanation` calls read it too, so
-   * the two views cannot disagree about whether the denominator is licensed.
-   *
-   * ⚠ THE RANK ITSELF IS UNTOUCHED, deliberately and narrowly. `sensitivityRank`
-   * is read by the `#N` badge, the inspector and the edge label; withdrawing it
-   * would change three surfaces this lane never argued for. What is withheld is
-   * only the half a reader can refute by counting.
-   */
-  /**
-   * ⭐ THE PAIR MOVED TO ITS OWN OWNER, unchanged. The reduced line needs the
-   * identical answer and had neither half of it; a second spelling here would
-   * be the mirror that always reads green while it drifts.
-   */
-  const influenceRank = useInfluenceRank(
-    displayMetadata.sensitivityRank,
-    displayMetadata.influenceSetSize,
-  )
+  // ⭐ `influenceRank` — the ranked reading of the influence figure, whose
+  // countable `of M` is withheld unless the result is confirmably about this
+  // graph — is derived and documented in `useFactorRunCues` (moved verbatim).
+  // One derivation for the card AND the inspector (`useFactorRunCues`).
+  const {
+    influenceRank,
+    runCurrency,
+    resultsFromLastRun,
+    driverLine,
+    driverNotRanked,
+    turningPointState,
+  } = useFactorRunCues(props.id, displayMetadata)
 
   /**
    * ⭐ THE FACTOR FACE — NODE-ANATOMY v3.2 (24 Sep; supersedes the locked face
@@ -589,8 +533,6 @@ export const FactorNode = memo((props: NodeProps) => {
   // from ONE composed verdict, `useRunCurrency()`. The local-only
   // `useAnalysisResultsAreCurrent()` let a wire `refused` / `unknown_degraded`
   // (cannot-confirm) still show an UNQUALIFIED cue over locally fresh fields.
-  const runCurrency = useRunCurrency()
-  const resultsFromLastRun = runCurrency === 'changed'
   /**
    * ⭐ DESIGN-GAP ROW 10 (contract v3 §02 draft): "Working assumption · no
    * analysis yet" — said only where NO analysis exists at all, never after a
@@ -604,32 +546,8 @@ export const FactorNode = memo((props: NodeProps) => {
   // "…on a factor that SHOWS a value": a bare-scale estimate the card omits
   // (v3.1 #20) shows none, so it gets no "Working assumption" about it either.
   const noAnalysisYet = !isPostAnalysis && !hasCompletedFirstRun && runCurrency === 'none' && valueDisplay !== null && !bareModelValue
-  const runCuesShown = runCurrency === 'current' || resultsFromLastRun
-  const resultsReport = useCanvasStore(state => state.results.report)
-  // ED #63 5806207128: "Driver N of M analysed" (M = the eligible analysed
-  // factors, `driverRankFor`) on a RANKED factor only. A factor the run did not
-  // rank shows no line, no bar and no substitute; it says "Not ranked in this
-  // run" to AT (`FactorDriverNotRanked`).
-  const driverRank =
-    isPostAnalysis && runCuesShown
-      ? driverRankFor(
-          influenceRank,
-          displayMetadata.sensitivityRank,
-          displayMetadata.influenceSetSize,
-          resultsFromLastRun,
-          displayMetadata.influenceRankedCount,
-        )
-      : null
-  const driverLine =
-    driverRank !== null && influencePct != null && displayMetadata.influenceProvenance != null
-      ? {
-          rank: driverRank,
-          value: influencePct / 100,
-          provenance: displayMetadata.influenceProvenance,
-          importanceBasis: displayMetadata.influenceImportanceBasis,
-        }
-      : null
-  const driverNotRanked = isPostAnalysis && runCuesShown && driverRank === null
+  // ED #63 5806207128: `driverLine` ("Driver N of M analysed") is for a RANKED
+  // factor only; an unranked one says "Not ranked in this run" to AT only.
   // The run's turning-point state for this factor: a PLoT `found` row, or the
   // "none" fallback. Never-run / cannot-confirm stay null (the same
   // `isPostAnalysis && runCuesShown` gate), so no past run is invented. What
@@ -638,10 +556,6 @@ export const FactorNode = memo((props: NodeProps) => {
   //
   // ⛔ Paul 23 Sep point 3(d) ("make 'no turning point available' the normal
   // fallback") is superseded at rest by ED #63 5806207128.
-  const turningPointState = useMemo(
-    () => (isPostAnalysis && runCuesShown ? selectFactorTurningPointState(resultsReport, props.id) : null),
-    [isPostAnalysis, runCuesShown, resultsReport, props.id],
-  )
   const turningPoint = turningPointState?.kind === 'found' ? turningPointState.turningPoint : null
   // The factor's own unit, for the turning point's compatible-units gate — one
   // expression for every slot (at rest, popover, Detailed). `undefined` when
@@ -741,22 +655,8 @@ export const FactorNode = memo((props: NodeProps) => {
     turningPointState !== null &&
     turningPointState.kind === 'found' &&
     turningPointNumberPrints(turningPointState.turningPoint, turningPointFactorUnit)
-  /**
-   * ⭐ CONTRACT v3.1 POINT 3 — "'No turning point in this run' is the normal
-   * fallback for an analysed factor, never a blank" (DESIGN-GAP-v31 #38). At
-   * Normal zoom (Standard), a RANKED factor (its driver line is on the card)
-   * whose run produced no turning point says so under the driver line — not
-   * only in Detailed. Never on an unranked factor (ED 5810951997's checklist:
-   * no generic "no turning point" on unranked factors), never for a factor that
-   * HAS one (a found row stays at rest for the top driver, in the popover for
-   * the rest). ⚠ Supersedes ED 5806207128's "no line at rest" for this case;
-   * the conflict is named in the WS4 report.
-   */
-  const turningPointNoneAtRest =
-    !isDetailed &&
-    driverLine !== null &&
-    turningPointState !== null &&
-    turningPointState.kind === 'none'
+  // ⛔ "No turning point in this run" left the resting card (DL #70 5849644637):
+  // see `FactorTurningPointInspectorLine`. Detailed keeps it inline.
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -1233,7 +1133,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * `null` in Detailed, where these stay inline on the card.
    */
   const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
-  // Row 10: Standard carries the pre-run line in the popover (sr-only on the card).
+  // Row 10: whole here when the card's one-line driver slot cuts it.
   const noAnalysisYetMoved = !isDetailed && noAnalysisYet
   // PROTOTYPE AT REST (Paul 25 Sep): the driver line and the top driver's
   // turning point render on the card; only what is NOT at rest moves here.
@@ -1459,14 +1359,6 @@ export const FactorNode = memo((props: NodeProps) => {
                 {renderValueSourceMark()}
               </span>
             )}
-            {/* Row 10, Standard: the pre-run state in the line's accessible
-                text; visible in the popover (`factor-popover-no-analysis-*`),
-                never as a second body row (ED 5809278282). */}
-            {noAnalysisYetMoved && (
-              <span className={typography.screenReaderOnly} data-testid={`factor-no-analysis-sr-${props.id}`}>
-                {FACTOR_NO_ANALYSIS_YET}
-              </span>
-            )}
           </div>
         )}
         {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).
@@ -1546,17 +1438,36 @@ export const FactorNode = memo((props: NodeProps) => {
             Standard card carries the driver line, then the TOP driver's found
             turning point, then an external factor's range line with its band.
             Detailed renders the same three below / in Layer 2, as before. */}
-        {!isDetailed && driverLine && (
-          <FactorDriverLine
-            nodeId={props.id}
-            rank={driverLine.rank}
-            value={driverLine.value}
-            provenance={driverLine.provenance}
-            importanceBasis={driverLine.importanceBasis}
-            fromLastRun={resultsFromLastRun}
-          />
+        {/* ⭐⭐ ONE RESERVED DRIVER SLOT, EVERY PHASE: a Run never grows the
+            card (DL #70 5849644637). Row-10 line pre-run, ranked driver line
+            post-run, else empty + aria-hidden. `FactorNode.noGrowthAfterRun.spec`. */}
+        {!isDetailed && (
+          <div
+            data-testid={`factor-driver-slot-${props.id}`}
+            className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden`}
+            aria-hidden={driverLine === null && !noAnalysisYet ? true : undefined}
+          >
+            {driverLine ? (
+              <FactorDriverLine
+                nodeId={props.id}
+                rank={driverLine.rank}
+                value={driverLine.value}
+                provenance={driverLine.provenance}
+                importanceBasis={driverLine.importanceBasis}
+                fromLastRun={resultsFromLastRun}
+                inSlot
+              />
+            ) : noAnalysisYet ? (
+              <span
+                data-testid={`factor-driver-slot-no-analysis-${props.id}`}
+                className="block truncate text-text-light"
+              >
+                {FACTOR_NO_ANALYSIS_YET}
+              </span>
+            ) : null}
+          </div>
         )}
-        {(turningPointAtRest || turningPointNoneAtRest) && turningPointState ? (
+        {turningPointAtRest && turningPointState ? (
           <FactorTurningPointSlot
             nodeId={props.id}
             factorLabel={cleanedLabel}
