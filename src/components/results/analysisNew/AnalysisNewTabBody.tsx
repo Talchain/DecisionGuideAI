@@ -2975,8 +2975,7 @@ export function AnalysisNewTabBody({
             control) behind an extra text button. */}
         <AboutThisAnalysis
           vm={vm}
-          nSamples={nSamples}
-          seedUsed={seedUsed}
+          reviewTopics={{ interventions: vm.strengthen.interventions, excludeId: glancePrimary?.id ?? null }}
           outcomeFormat={{
             unit: resultsSectionData.recommendation.outcomeUnit,
             symbol: resultsSectionData.recommendation.outcomeUnitSymbol,

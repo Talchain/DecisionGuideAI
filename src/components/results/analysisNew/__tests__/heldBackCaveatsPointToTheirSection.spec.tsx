@@ -22,6 +22,17 @@
  * toggles, and a section's title is read from its `-title` element (the
  * `SectionShell` convention) or, where a section has none, from the element its
  * `aria-labelledby` names — About's heading holds only its title.
+ *
+ * ⭐⭐ V2 DESIGN PASS (26 Sep 2026): NOTHING IS HELD BACK ON THIS TAB ANY MORE,
+ * SO THERE IS NO POINTER TO BE WRONG. About › "Sources and limits" now lists
+ * every inference warning as one bullet each — the strip's resting entry AND
+ * the entries it would hold back (the builder's statement rows, its exact
+ * complement) — in ONE list, as the prototype's `sourcesHTML()` does. The
+ * property this file guards ("a reader told where the rest are finds them
+ * there") is now held in its strongest form: the rest are not elsewhere at all.
+ * Pinned both ways: no pointer on the tab, both entries in the one section —
+ * and the CONTRAST that the shared strip, mounted alone over the same warnings,
+ * still holds one back and says so (so this fixture can discriminate).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -34,6 +45,9 @@ import { openGroups } from './openNamedGroups'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { manyFragileEdges } from './analysisNewFixtures'
+import { ABOUT_COPY } from '../sections/AboutThisAnalysis'
+import { InferenceWarningStrip } from '../../InferenceWarningStrip'
+import { heldBackStripCount } from '../../utils/humaniseInferenceWarning'
 
 /** Two WARNING-severity entries: the strip shows one and holds the other back. */
 function withTwoStripWarnings() {
@@ -96,7 +110,8 @@ function enclosingSectionTitles(el: Element): string[] {
 function openTheHeldBackRows(): void {
   openGroups()
   // V2 (24 Sep 2026): the strip itself now lives in About › Limitations, so that
-  // detail is opened too; the held-back rows are still in "Run record".
+  // detail is opened too. V2 design pass (26 Sep 2026): every entry is a bullet
+  // there; "Run record" is opened too so a row left behind in it would be seen.
   for (const id of [
     'analysis-new-about-toggle',
     'analysis-new-about-detail-limitations-toggle',
@@ -113,7 +128,10 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('the held-back caveat pointer names the section that lists them', () => {
-  it('PRECONDITION: one entry is held back, and it renders somewhere on the tab', () => {
+  const CODES = ['CONSTRAINT_TARGET_UNRELIABLE', 'GOAL_ANCESTOR_DATA_GAP']
+
+  it('PRECONDITION: the strip would hold one entry back, and every entry renders on the tab', () => {
+    expect(heldBackStripCount(withTwoStripWarnings().confidence.inferenceWarnings)).toBe(1)
     render(
       <AnalysisNewTabBody
         resultsSectionData={withTwoStripWarnings()}
@@ -121,13 +139,11 @@ describe('the held-back caveat pointer names the section that lists them', () =>
       />,
     )
     openTheHeldBackRows()
-    expect(screen.getByTestId('inference-warning-strip-held-back')).toBeInTheDocument()
-    // The held-back entry is the one the strip did NOT show.
-    const rows = document.querySelectorAll('[data-gap-code]')
-    expect(rows.length, 'the held-back entry must be rendered, not silently dropped').toBeGreaterThan(0)
+    const rendered = Array.from(document.querySelectorAll('[data-gap-code]')).map((el) => el.getAttribute('data-gap-code'))
+    expect(rendered, 'each entry rendered once, none silently dropped').toEqual(CODES)
   })
 
-  it('RED-FIRST — the pointer names a section that actually contains the held-back row', () => {
+  it('V2: no entry is held back — no pointer, and every entry sits in About › Sources and limits', () => {
     render(
       <AnalysisNewTabBody
         resultsSectionData={withTwoStripWarnings()}
@@ -135,14 +151,27 @@ describe('the held-back caveat pointer names the section that lists them', () =>
       />,
     )
     openTheHeldBackRows()
-    const pointer = screen.getByTestId('inference-warning-strip-held-back').textContent ?? ''
-    const row = document.querySelector('[data-gap-code]')
-    expect(row).not.toBeNull()
-    const titles = enclosingSectionTitles(row!)
-    expect(titles.length, 'PRECONDITION: the held-back row sits inside a titled section').toBeGreaterThan(0)
     expect(
-      titles.some((t) => pointer.includes(t)),
-      `pointer "${pointer}" must name one of the sections containing the row: ${JSON.stringify(titles)}`,
-    ).toBe(true)
+      screen.queryByTestId('inference-warning-strip-held-back'),
+      'nothing is held back on this tab, so nothing points elsewhere',
+    ).toBeNull()
+    for (const code of CODES) {
+      const row = document.querySelector(`[data-gap-code="${code}"]`)
+      expect(row, code).not.toBeNull()
+      const titles = enclosingSectionTitles(row!)
+      expect(titles, `${code} sits under "Sources and limits" inside About`).toEqual(
+        expect.arrayContaining([ABOUT_COPY.details.limitations, ABOUT_COPY.title]),
+      )
+    }
+  })
+
+  it('CONTRAST: the shared strip, mounted alone over the same warnings, still holds one back and says where', () => {
+    render(
+      <InferenceWarningStrip
+        warnings={withTwoStripWarnings().confidence.inferenceWarnings}
+        heldBackListedUnder="Somewhere"
+      />,
+    )
+    expect(screen.getByTestId('inference-warning-strip-held-back')).toHaveTextContent('Somewhere')
   })
 })

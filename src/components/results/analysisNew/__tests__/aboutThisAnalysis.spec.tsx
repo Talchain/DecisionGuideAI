@@ -25,13 +25,14 @@ vi.mock('../../../../canvas/ToastContext', () => ({
 
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import type { AnalysisNewViewModelInputs } from '../buildAnalysisNewViewModel'
-import { ANALYSIS_NEW_COPY as COPY, leaderWithholdCause } from '../analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { buildReviewQueue } from '../buildReviewQueue'
+import type { Recommendation } from '../../strengthen/strengthenTypes'
 import { ABOUT_COPY, AboutThisAnalysis } from '../sections/AboutThisAnalysis'
 import type { AboutOutcomeFormat, AboutThisAnalysisProps } from '../sections/AboutThisAnalysis'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
 import { formatThreshold } from '../../RangeVisualization'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
-import { figureTallySubtitle } from '../../contextIntegrity/figureTallySubtitle'
 import { useCanvasStore } from '@/canvas/store'
 import { useContextIntegrityStore } from '@/canvas/stores/contextIntegrityStore'
 import {
@@ -163,36 +164,6 @@ describe('Robustness — ONLY the view model\'s gated word, otherwise "Not estab
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-describe('Most likely option — the leader check code, and the producer\'s cause from the view model', () => {
-  it('permitted: identified, with no cause line', () => {
-    renderAbout(build(genuineDecision()))
-    open()
-    expect(valueOf('leader')).toBe(ABOUT_COPY.leader.leader_present)
-    expect(detailOf('leader')).toEqual([])
-  })
-
-  it('withheld with a nameable cause: "Not confirmed" + vm.checks.leaderWithholdCause, verbatim', () => {
-    const vm = build(decisionWithLeaderWithheld(), { producerLeaderWithholdReason: 'separation_unavailable' })
-    const cause = vm.checks.leaderWithholdCause
-    expect(cause, 'precondition').not.toBeNull()
-    expect(cause).toBe(leaderWithholdCause('separation_unavailable'))
-    renderAbout(vm)
-    open()
-    expect(valueOf('leader')).toBe(ABOUT_COPY.leader.leader_not_assessed)
-    expect(detailOf('leader')).toEqual([cause])
-  })
-
-  it('CONTRAST: withheld with no nameable cause says "Not confirmed" and invents none', () => {
-    const vm = build(decisionWithLeaderWithheld())
-    expect(vm.checks.leaderWithholdCause).toBeNull()
-    renderAbout(vm)
-    open()
-    expect(valueOf('leader')).toBe(ABOUT_COPY.leader.leader_not_assessed)
-    expect(detailOf('leader')).toEqual([])
-  })
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
 describe('Evidence — assessed or not, and the count of GAP findings (not every open question)', () => {
   const twoGapsAndAnAssumption = () =>
     makeData({
@@ -266,7 +237,162 @@ describe('Compared — options analysed, and anything omitted, from vm.optionsCo
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-describe('Values and ranges — the view model\'s range and share, formatted by the builder\'s own formatter', () => {
+/* ⭐ V2 PROTOTYPE `aboutHTML()` (design pass, 26 Sep 2026): FIVE rows — Freshness
+   (clock), Compared (chart), Evidence (link), Review topics (search), Robustness
+   (info) — each with its OWN ✦. The icon is bound by lucide's own class
+   (`lucide-<name>`), which is the glyph's identity, not a look-alike. */
+describe('the five status rows, in the prototype\'s order, each with its icon and its own AI act', () => {
+  const REVIEW = { interventions: [] as never[], excludeId: null }
+  const ORDER = ['freshness', 'compared', 'evidence', 'review', 'robustness'] as const
+  const ICON = {
+    freshness: 'lucide-clock',
+    compared: 'lucide-bar-chart3',
+    evidence: 'lucide-link',
+    review: 'lucide-search',
+    robustness: 'lucide-info',
+  } as const
+
+  it('renders exactly the five rows, in order, with the prototype\'s labels and icons', () => {
+    renderAbout(build(genuineDecision()), { onAsk: vi.fn(), reviewTopics: REVIEW })
+    open()
+    const keys = Array.from(screen.getByTestId(`${TID}-rows`).querySelectorAll('[data-testid^="analysis-new-about-row-"]'))
+      .map((el) => el.getAttribute('data-testid')!)
+      .filter((id) => /^analysis-new-about-row-[a-z]+$/.test(id))
+      .map((id) => id.replace(`${TID}-row-`, ''))
+    expect(keys).toEqual([...ORDER])
+    for (const key of ORDER) {
+      const row = screen.getByTestId(`${TID}-row-${key}`)
+      expect(within(row).getByText(ABOUT_COPY.rows[key])).toBeInTheDocument()
+      expect(row.querySelector(`svg.${ICON[key]}`), `${key} carries ${ICON[key]}`).not.toBeNull()
+    }
+    expect(ABOUT_COPY.rows).toEqual({
+      freshness: 'Freshness',
+      compared: 'Compared',
+      evidence: 'Evidence',
+      review: 'Review topics',
+      robustness: 'Robustness',
+    })
+  })
+
+  it('each row carries its own AI act, named for the row; CONTRAST: no handler ⇒ none', () => {
+    const { unmount } = renderAbout(build(genuineDecision()), { onAsk: vi.fn(), reviewTopics: REVIEW })
+    open()
+    for (const key of ORDER) {
+      const ask = screen.getByTestId(`${TID}-row-${key}-ask`)
+      expect(ask).toHaveAttribute('aria-label', ABOUT_COPY.rowAsk(ABOUT_COPY.rows[key]))
+      expect(ask).toHaveAttribute('data-ai', 'true')
+    }
+    expect(ABOUT_COPY.rowAsk('Review topics')).toBe('Discuss review topics with Olumi')
+    unmount()
+    renderAbout(build(genuineDecision()), { reviewTopics: REVIEW })
+    open()
+    expect(screen.queryAllByTestId(/^analysis-new-about-row-[a-z]+-ask$/)).toHaveLength(0)
+  })
+
+  it('a row\'s act hands THAT row as context, and nothing else', () => {
+    const onAsk = vi.fn()
+    renderAbout(build(genuineDecision(), { isStale: true, staleReason: 'changed' }), { onAsk })
+    open()
+    fireEvent.click(screen.getByTestId(`${TID}-row-freshness-ask`))
+    expect(onAsk).toHaveBeenCalledTimes(1)
+    const payload = onAsk.mock.calls[0]![0]
+    expect(payload.label).toBe(ABOUT_COPY.rowAsk(ABOUT_COPY.rows.freshness))
+    expect(payload.draft).toBe(ABOUT_COPY.rowAskDraft(ABOUT_COPY.rows.freshness))
+    expect(payload.context).toBe(`${ABOUT_COPY.rows.freshness}: ${ABOUT_COPY.freshness.changed}`)
+    expect(Object.keys(payload).sort()).toEqual(['context', 'draft', 'label'])
+  })
+
+  /* ⛔ THE ROWS THE PROTOTYPE LACKS ARE GONE. "Most likely option" repeated the
+     commitment block's withheld sentence, "Your inputs and Olumi's" repeated the
+     folded input register, and "Method" printed "Seed null" when the seed came
+     back null (the audit's truth defect). Simulations and seed are still on the
+     surface: the Run record's own rows. */
+  it('no Most likely option / Your inputs / Method row — and never "Seed null"', () => {
+    const vm = build(decisionWithLeaderWithheld(), { producerLeaderWithholdReason: 'separation_unavailable' })
+    // The props the retired Method row read, passed as the body once passed them:
+    // a null seed must reach no row at all.
+    const legacy = { vm, outcomeFormat: NO_UNIT, nSamples: undefined, seedUsed: null } as unknown as AboutThisAnalysisProps
+    render(<AboutThisAnalysis {...legacy} />)
+    open()
+    for (const gone of ['leader', 'inputs', 'method']) {
+      expect(screen.queryByTestId(`${TID}-row-${gone}`), gone).toBeNull()
+    }
+    const about = screen.getByTestId(TID)
+    expect(about.textContent).not.toMatch(/Seed null/)
+    expect(about.textContent).not.toContain('Most likely option')
+    expect(about.textContent).not.toContain("Your inputs and Olumi's")
+    // CONTRAST: the rows that remain do render on this same run.
+    expect(screen.getByTestId(`${TID}-row-freshness`)).toBeInTheDocument()
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Review topics — the length of the review tool\'s own queue', () => {
+  const rec = (id: string): Recommendation =>
+    ({
+      id,
+      helpType: 'challenge',
+      title: `Finding ${id}`,
+      signal: 'A signal.',
+      whyNow: 'Why now.',
+      tryThis: null,
+      sourceLine: 'Source: test.',
+      action: { kind: 'ai-dialogue', label: 'Challenge', prompt: 'p' },
+      targetId: null,
+      priority: 100,
+    }) as Recommendation
+  const RECS = [rec('strengthen:a'), rec('strengthen:b'), rec('strengthen:c')]
+  const queueLength = (excludeId: string | null) =>
+    buildReviewQueue({ interventions: RECS, excludeId, nodes: [], edgeIds: [] }).length
+
+  it('"N open" is buildReviewQueue\'s length over the same inputs', () => {
+    expect(queueLength(null), 'PRECONDITION').toBe(3)
+    renderAbout(build(genuineDecision()), { reviewTopics: { interventions: RECS, excludeId: null } })
+    open()
+    expect(valueOf('review')).toBe(ABOUT_COPY.reviewOpen(3))
+    expect(ABOUT_COPY.reviewOpen(3)).toBe('3 open')
+  })
+
+  it('CONTRAST: the promoted recommendation the tool excludes is not counted either', () => {
+    expect(queueLength('strengthen:b'), 'PRECONDITION').toBe(2)
+    renderAbout(build(genuineDecision()), { reviewTopics: { interventions: RECS, excludeId: 'strengthen:b' } })
+    open()
+    expect(valueOf('review')).toBe(ABOUT_COPY.reviewOpen(2))
+  })
+
+  it('no source ⇒ no row, never a guessed "0 open"', () => {
+    renderAbout(build(genuineDecision()))
+    open()
+    expect(screen.queryByTestId(`${TID}-row-review`)).toBeNull()
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('the three disclosures carry the prototype\'s names', () => {
+  it('"Inspect values and units" / "Sources and limits" / "Run record", in that order, chevron right → down', () => {
+    expect(ABOUT_COPY.details).toEqual({
+      values: 'Inspect values and units',
+      limitations: 'Sources and limits',
+      record: 'Run record',
+    })
+    renderAbout(build(genuineDecision(), { nSamples: 5000 }))
+    open()
+    const toggles = screen.getAllByTestId(/^analysis-new-about-detail-[a-z]+-toggle$/)
+    expect(toggles.map((t) => t.textContent)).toEqual([
+      ABOUT_COPY.details.values,
+      ABOUT_COPY.details.limitations,
+      ABOUT_COPY.details.record,
+    ])
+    const values = screen.getByTestId(`${TID}-detail-values-toggle`)
+    expect(values.querySelector('svg.lucide-chevron-right')).not.toBeNull()
+    openDetail('values')
+    expect(values.querySelector('svg.lucide-chevron-down')).not.toBeNull()
+    expect(values.querySelector('svg.lucide-chevron-right')).toBeNull()
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Inspect values and units — a TABLE (Option · P10 · P50 · P90) in the builder\'s own format', () => {
   const ranged = () => {
     const a = makeOption({
       id: 'opt_a', label: 'Hold price', winProbability: 0.31,
@@ -280,28 +406,29 @@ describe('Values and ranges — the view model\'s range and share, formatted by 
     return { ...data, recommendation: { ...data.recommendation, allOptions: [a, b] } } as ResultsSectionDataReturn
   }
   const GBP: AboutOutcomeFormat = { unit: 'currency', symbol: '£', isNormalised: false }
+  const cell = (id: string, k: string) => screen.getByTestId(`${TID}-values-${id}-${k}`).textContent
 
-  it('each analysed option shows p10 / p50 / p90 in the run\'s unit and its share readout', () => {
+  it('one table: the header row is Option · P10 · P50 · P90; each option one row, formatted by formatThreshold', () => {
     const vm = build(ranged())
     renderAbout(vm, { outcomeFormat: GBP })
     open()
     openDetail('values')
-    const a = vm.optionsComparison.rows.find((r) => r.id === 'opt_a')
-    if (a?.kind !== 'analysed') throw new Error('precondition: opt_a analysed')
-    const cell = (id: string, k: string) => screen.getByTestId(`${TID}-values-${id}-${k}`).textContent
+    const table = within(screen.getByTestId(`${TID}-detail-values-body`)).getByRole('table')
+    const head = within(table).getAllByRole('columnheader').map((th) => th.textContent)
+    expect(head).toEqual([ABOUT_COPY.values.option, ABOUT_COPY.values.low, ABOUT_COPY.values.mid, ABOUT_COPY.values.high])
+    expect(head).toEqual(['Option', 'P10', 'P50', 'P90'])
     expect(cell('opt_a', 'low')).toBe(formatThreshold(1200, 'currency', '£', false))
-    expect(cell('opt_a', 'low')).toContain('£')
     expect(cell('opt_a', 'mid')).toBe(formatThreshold(1450, 'currency', '£', false))
     expect(cell('opt_a', 'high')).toBe(formatThreshold(1900, 'currency', '£', false))
-    expect(cell('opt_a', 'share')).toBe(a.winReadout)
     // An absent p50 is said, never drawn as zero.
     expect(cell('opt_b', 'mid')).toBe(ABOUT_COPY.values.notReturned)
-    // The share row is named neutrally.
-    expect(within(screen.getByTestId(`${TID}-values-opt_a`)).getByText(ABOUT_COPY.values.share)).toBeInTheDocument()
-    expect(screen.queryByTestId(`${TID}-values-normalised`)).toBeNull()
+    expect(within(screen.getByTestId(`${TID}-values-opt_a`)).getByText('Hold price')).toBeInTheDocument()
+    // ⚠ P50, NOT "Mean": the view model carries the median, and a median
+    // labelled a mean would be a false statement about the number.
+    expect(head).not.toContain('Mean')
   })
 
-  it('order is the view model\'s, never re-sorted by share', () => {
+  it('order is the view model\'s, never re-sorted', () => {
     const vm = build(ranged())
     renderAbout(vm, { outcomeFormat: GBP })
     open()
@@ -312,105 +439,88 @@ describe('Values and ranges — the view model\'s range and share, formatted by 
     expect(ids).toEqual(vm.optionsComparison.rows.map((r) => r.id))
   })
 
-  /* ⭐ THE SHARES CARRY THEIR SCOPE HERE TOO. V2 moved the share figures out of
-     "How the options compare" into this section, and the "Goal only" line stayed
-     behind: on the served withheld run (c3a39ae7, scenario 3d00c023) "Share of
-     simulations where this option came out highest" printed with no word that
-     the limits are not in it. Same constant, same flag as the comparison. */
-  it('limits left out of the shares → the Goal only line sits above them; CONTRAST: limits in → no line', () => {
+  /* ⛔ THE PROTOTYPE'S TABLE HAS NO SHARE COLUMN, and the per-option "Share of
+     simulations where this option came out highest · Not returned" line was the
+     audit's ✗. The share and its "Goal only" scope line go together: the scope
+     line existed only to qualify a share on screen. */
+  it('no share line and no Goal-only line — PRECONDITION: the run DID return shares', () => {
     const base = build(ranged())
-    const withheld = { ...base, checks: { ...base.checks, sharesExcludeLimits: true } }
-    const { unmount } = renderAbout(withheld, { outcomeFormat: GBP })
+    const a = base.optionsComparison.rows.find((r) => r.id === 'opt_a')
+    if (a?.kind !== 'analysed') throw new Error('precondition: opt_a analysed')
+    expect(a.winReadout, 'PRECONDITION: a share exists to be (not) shown').not.toBeNull()
+    renderAbout({ ...base, checks: { ...base.checks, sharesExcludeLimits: true } }, { outcomeFormat: GBP })
     open()
     openDetail('values')
-    const line = screen.getByTestId(`${TID}-values-goal-only`)
-    expect(line).toHaveTextContent(COPY.optionFigures.goalOnlyQualifier)
-    const share = screen.getByTestId(`${TID}-values-opt_a-share`)
-    expect(share.textContent, 'PRECONDITION: a share figure is on screen').toMatch(/\d/)
-    expect(line.compareDocumentPosition(share) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    unmount()
-    renderAbout({ ...base, checks: { ...base.checks, sharesExcludeLimits: false } }, { outcomeFormat: GBP })
-    open()
-    openDetail('values')
-    expect(screen.getByTestId(`${TID}-values-opt_a-share`)).toBeInTheDocument()
+    const body = screen.getByTestId(`${TID}-detail-values-body`)
+    expect(body.textContent).not.toContain('Share of simulations')
+    expect(body.textContent).not.toContain(a.winReadout!)
     expect(screen.queryByTestId(`${TID}-values-goal-only`)).toBeNull()
   })
 
-  it('CONTRAST: a normalised run says the values are relative scores, and formats them as such', () => {
+  it('a normalised run captions the table with the relative-scores sentence; CONTRAST: a unit run has no caption', () => {
     const vm = build(ranged())
-    renderAbout(vm, { outcomeFormat: { unit: undefined, symbol: undefined, isNormalised: true } })
+    const { unmount } = renderAbout(vm, { outcomeFormat: { unit: undefined, symbol: undefined, isNormalised: true } })
     open()
     openDetail('values')
-    expect(screen.getByTestId(`${TID}-values-normalised`)).toHaveTextContent(ABOUT_COPY.values.normalised)
-    expect(screen.getByTestId(`${TID}-values-opt_a-low`).textContent).toBe(formatThreshold(1200, undefined, undefined, true))
+    const caption = screen.getByTestId(`${TID}-values-normalised`)
+    expect(caption.tagName).toBe('CAPTION')
+    expect(caption).toHaveTextContent(ABOUT_COPY.values.normalised)
+    expect(cell('opt_a', 'low')).toBe(formatThreshold(1200, undefined, undefined, true))
+    unmount()
+    renderAbout(vm, { outcomeFormat: GBP })
+    open()
+    openDetail('values')
+    expect(screen.queryByTestId(`${TID}-values-normalised`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-detail-values-body`).querySelector('caption')).toBeNull()
+  })
+
+  it('"How should these ranges be interpreted?" with its own AI act, handing the rendered ranges; CONTRAST: no handler ⇒ no question', () => {
+    const onAsk = vi.fn()
+    const vm = build(ranged())
+    const { unmount } = renderAbout(vm, { outcomeFormat: GBP, onAsk })
+    open()
+    openDetail('values')
+    const q = screen.getByTestId(`${TID}-values-question`)
+    expect(q).toHaveTextContent(ABOUT_COPY.values.question)
+    const ask = within(q).getByTestId(`${TID}-values-ask`)
+    expect(ask).toHaveAttribute('aria-label', ABOUT_COPY.values.questionAsk)
+    expect(ask).toHaveAttribute('data-ai', 'true')
+    fireEvent.click(ask)
+    const payload = onAsk.mock.calls[0]![0]
+    expect(payload.label).toBe(ABOUT_COPY.values.questionAsk)
+    expect(payload.draft).toBe(ABOUT_COPY.values.question)
+    expect(payload.context).toContain(`Hold price: ${formatThreshold(1200, 'currency', '£', false)}`)
+    expect(payload.context).toContain(ABOUT_COPY.values.notReturned)
+    unmount()
+    renderAbout(vm, { outcomeFormat: GBP })
+    open()
+    openDetail('values')
+    expect(screen.queryByTestId(`${TID}-values-question`)).toBeNull()
   })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-describe("Your inputs and Olumi's — the VM's provenance kind, and the register's own counts", () => {
-  const seedManifest = (scenarioId: string) =>
-    useContextIntegrityStore.getState().setContextIntegrity({
-      scenarioId,
-      briefText: 'We are raising 1.3 million.',
-      manifest: {
-        status: 'derived',
-        unavailableReason: null,
-        quantities: { total: 3, inModel: 2, proseOnly: 0, absent: 1, truncated: false, items: [] },
-        declaredExclusions: { status: 'none_reported', items: [] },
-        inferredFactors: {
-          status: 'derived',
-          items: [
-            { nodeId: 'f_a', label: 'Churn' },
-            { nodeId: 'f_b', label: 'Price' },
-          ],
-        },
-        notTracked: [],
-      },
-    })
+describe('Sources and limits — short bullets: engine caveats, gaps worked around, unassessed meanings, the science disclosure', () => {
+  const TARGET = 'fac_carrier_cutoff'
+  /** One WARNING (the strip's resting entry) and one INFO (a gap worked around). */
+  const WARNINGS = [
+    {
+      code: 'CONSTRAINT_TARGET_UNRELIABLE',
+      affected_nodes: [],
+      message: "The target for 'out_margin' could not be reliably assessed.",
+      severity: 'warning',
+    },
+    {
+      code: 'ROOT_NODE_DEFAULT_VALUE',
+      field: `nodes[${TARGET}].observed_state.value`,
+      severity: 'info',
+      affected_nodes: [],
+      message: `No observed value provided for root node '${TARGET}'; defaulted to 0.0.`,
+    },
+  ]
+  const withWarnings = () =>
+    makeData({ confidence: { evidenceGapsAssessed: true, inferenceWarnings: WARNINGS } as Partial<ConfidenceSectionData> })
 
-  it('value is the short word for vm.atAGlance.inputProvenance', () => {
-    const vm = build(highUncertainty())
-    const kind = vm.atAGlance.inputProvenance
-    expect(kind, 'precondition: the fixture has a provenance kind').not.toBeNull()
-    renderAbout(vm)
-    open()
-    expect(valueOf('inputs')).toBe(ABOUT_COPY.inputs[kind!])
-  })
-
-  it('the brief counts appear for THIS decision, through the register\'s own sentence', () => {
-    seedManifest('scn_about')
-    renderAbout(build(highUncertainty()))
-    open()
-    expect(detailOf('inputs')).toEqual([
-      figureTallySubtitle({ total: 3, inModel: 2, proseOnly: 0, absent: 1 }, 'not_counted'),
-      ABOUT_COPY.estimatedCount(2),
-    ])
-  })
-
-  it('⛔ CONTRAST: another decision\'s manifest is never counted', () => {
-    seedManifest('scn_someone_else')
-    renderAbout(build(highUncertainty()))
-    open()
-    expect(detailOf('inputs')).toEqual([])
-  })
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
-describe('Method — simulations and seed, the values the body already hands the view model', () => {
-  it('both present', () => {
-    renderAbout(build(genuineDecision()), { nSamples: 10000, seedUsed: 42 })
-    open()
-    expect(valueOf('method')).toBe(ABOUT_COPY.method((10000).toLocaleString('en-GB'), '42'))
-  })
-  it('CONTRAST: neither present ⇒ no row, never "0 simulations"', () => {
-    renderAbout(build(genuineDecision()))
-    open()
-    expect(screen.queryByTestId(`${TID}-row-method`)).toBeNull()
-  })
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
-describe('Limitations — the not-assessed meanings by code, plus the standing science disclosure', () => {
   it('an unassessed check contributes the copy deck\'s own meaning for its code', () => {
     const vm = build(highUncertainty())
     const evidence = vm.checks.items.find((i) => i.id === 'evidence')
@@ -433,66 +543,91 @@ describe('Limitations — the not-assessed meanings by code, plus the standing s
     expect(screen.queryAllByTestId(/^analysis-new-about-limitation-/)).toHaveLength(0)
     expect(screen.getByTestId(`${TID}-science-limitations`)).toBeInTheDocument()
   })
-})
 
-// ═════════════════════════════════════════════════════════════════════════════
-describe('Run record — every vm.deeper group, with DeeperAnalysis\'s statement-row rule kept', () => {
-  const TARGET = 'fac_carrier_cutoff'
-  const WARNINGS = [
-    {
-      code: 'ROOT_NODE_DEFAULT_VALUE',
-      field: `nodes[${TARGET}].observed_state.value`,
-      severity: 'info',
-      affected_nodes: [],
-      message: `No observed value provided for root node '${TARGET}'; defaulted to 0.0.`,
-    },
-  ]
-  const withWarnings = () =>
-    makeData({ confidence: { evidenceGapsAssessed: true, inferenceWarnings: WARNINGS } as Partial<ConfidenceSectionData> })
-
-  it('renders every group the view model built, including the run reference', () => {
-    const vm = build(genuineDecision(), { nSamples: 5000, seedUsed: 7 })
+  it('every engine caveat is ONE bullet in one list — no amber strip, no alert icon, nothing held back', () => {
+    const vm = build(withWarnings())
+    expect(vm.deeper.caveats.length, 'PRECONDITION: a warning-severity caveat').toBe(1)
     renderAbout(vm)
     open()
-    openDetail('record')
-    const titles = screen.getAllByTestId(`${TID}-record-group`).map((g) => g.querySelector('h5')!.textContent)
-    expect(titles).toEqual(vm.deeper.groups.map((g) => g.title))
-    expect(screen.getByTestId(`${TID}-detail-record-body`)).toHaveTextContent('run_about_1')
+    openDetail('limitations')
+    const body = screen.getByTestId(`${TID}-detail-limitations-body`)
+    expect(within(body).queryByTestId('inference-warning-strip')).toBeNull()
+    expect(within(body).queryByTestId('critique-warning-strip')).toBeNull()
+    expect(body.querySelector('svg.lucide-alert-triangle')).toBeNull()
+    const list = within(body).getByTestId(`${TID}-limits`)
+    expect(list.tagName).toBe('UL')
+    const coded = Array.from(list.querySelectorAll(':scope > li[data-gap-code]')).map((li) => li.getAttribute('data-gap-code'))
+    // Both entries, each once, in producer order — the warning AND the one worked around.
+    expect(coded).toEqual(['CONSTRAINT_TARGET_UNRELIABLE', 'ROOT_NODE_DEFAULT_VALUE'])
   })
 
-  it('⛔ a statement row keeps its code in the DOM but never prints it', () => {
+  it('⛔ the producer\'s CODE is never text — not visible, not screen-reader-only — only a data attribute', () => {
     renderAbout(build(withWarnings()))
     open()
+    openDetail('limitations')
     openDetail('record')
-    const body = screen.getByTestId(`${TID}-detail-record-body`)
-    const coded = body.querySelector('[data-gap-code="ROOT_NODE_DEFAULT_VALUE"]')
-    expect(coded, 'the statement row carries its code as data').not.toBeNull()
-    const visibleTerms = Array.from(body.querySelectorAll('dt:not(.sr-only)')).map((d) => d.textContent)
-    expect(visibleTerms).not.toContain('ROOT_NODE_DEFAULT_VALUE')
+    const about = screen.getByTestId(TID)
+    expect(about.querySelector('[data-gap-code="ROOT_NODE_DEFAULT_VALUE"]'), 'the row keeps its handle').not.toBeNull()
+    expect(about.textContent).not.toContain('ROOT_NODE_DEFAULT_VALUE')
+    expect(about.textContent).not.toContain('CONSTRAINT_TARGET_UNRELIABLE')
+    // CONTRAST: the humanised sentence for that same row IS on screen.
+    const li = about.querySelector('[data-gap-code="ROOT_NODE_DEFAULT_VALUE"]')!
+    expect(li.textContent!.trim().length).toBeGreaterThan(10)
   })
 
-  it('the value control is OPT-IN — contrast pair on the same run', () => {
+  it('the value control on a gap worked around is OPT-IN — contrast pair on the same run', () => {
     useCanvasStore.setState({
       nodes: [{ id: TARGET, type: 'factor', data: { label: 'Carrier cut-off', observedState: { cap: 20, unit: 'months' } } }],
     } as never)
     const vm = build(withWarnings())
     const { unmount } = renderAbout(vm)
     open()
-    openDetail('record')
+    openDetail('limitations')
     expect(screen.queryAllByTestId(`${TID}-value-edit`)).toHaveLength(0)
     unmount()
     renderAbout(vm, { offerFactorValueControl: true })
     open()
-    openDetail('record')
+    openDetail('limitations')
     const controls = screen.queryAllByTestId(`${TID}-value-edit`)
     expect(controls.length).toBeGreaterThan(0)
     expect(controls[0]).toHaveAttribute('data-node-id', TARGET)
+    expect(within(screen.getByTestId(`${TID}-detail-limitations-body`)).getAllByTestId(`${TID}-value-edit`)).toHaveLength(controls.length)
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Run record — label/value rows, the builder\'s own, in its order', () => {
+  it('one list of every non-statement row the view model built, with no group headings', () => {
+    const vm = build(genuineDecision(), { nSamples: 5000, seedUsed: 7 })
+    renderAbout(vm)
+    open()
+    openDetail('record')
+    const expected = vm.deeper.groups.flatMap((g) => g.rows.filter((r) => !r.statement)).map((r) => [r.label, r.value])
+    expect(expected.length, 'PRECONDITION').toBeGreaterThan(2)
+    const rows = screen.getAllByTestId(`${TID}-record-row`).map((row) => [
+      row.querySelector('dt')!.textContent,
+      row.querySelector('dd')!.textContent,
+    ])
+    expect(rows).toEqual(expected)
+    expect(screen.getByTestId(`${TID}-detail-record-body`)).toHaveTextContent('run_about_1')
+    expect(screen.getByTestId(`${TID}-detail-record-body`).querySelectorAll('h5')).toHaveLength(0)
+  })
+
+  it('Simulations and Seed are Run record rows; a null seed is NO row, never "null"', () => {
+    const vm = build(genuineDecision(), { nSamples: 5000 })
+    renderAbout(vm)
+    open()
+    openDetail('record')
+    const labels = screen.getAllByTestId(`${TID}-record-row`).map((r) => r.querySelector('dt')!.textContent)
+    expect(labels).toContain('Simulations')
+    expect(labels).not.toContain('Seed')
+    expect(screen.getByTestId(`${TID}-detail-record-body`).textContent).not.toMatch(/null/)
   })
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
 describe("Limitations never repeat the leader sentence the commitment block states (V2 census B2)", () => {
-  it('a withheld-leader run lists no leader limitation; the leader row carries it', () => {
+  it('a withheld-leader run lists no leader limitation', () => {
     const vm = build(decisionWithLeaderWithheld())
     expect(vm.checks.leaderWithheld, 'PRECONDITION').toBe(true)
     renderAbout(vm)
@@ -520,7 +655,7 @@ describe('detail rows open independently', () => {
   })
 })
 
-describe('the AI act — hands the rows as context, invents nothing', () => {
+describe('the section AI act — hands the rows as context, invents nothing', () => {
   it('calls onAsk once with the label, the draft and the rendered row values', () => {
     const onAsk = vi.fn()
     const vm = build(decisionWithLeaderWithheld(), { producerLeaderWithholdReason: 'separation_unavailable' })
@@ -530,10 +665,10 @@ describe('the AI act — hands the rows as context, invents nothing', () => {
     expect(onAsk).toHaveBeenCalledTimes(1)
     const payload = onAsk.mock.calls[0]![0]
     expect(payload.label).toBe(ABOUT_COPY.ask)
+    expect(payload.label).toBe('Ask Olumi about this analysis and its limitations')
     expect(payload.draft).toBe(ABOUT_COPY.askDraft)
     expect(payload.context).toContain(`${ABOUT_COPY.rows.freshness}: ${ABOUT_COPY.freshness.noChangeDetected}`)
-    expect(payload.context).toContain(`${ABOUT_COPY.rows.leader}: ${ABOUT_COPY.leader.leader_not_assessed}`)
-    expect(payload.context).toContain(vm.checks.leaderWithholdCause!)
+    expect(payload.context).toContain(`${ABOUT_COPY.rows.robustness}: `)
     expect(Object.keys(payload).sort()).toEqual(['context', 'draft', 'label'])
   })
 

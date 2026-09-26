@@ -482,14 +482,16 @@ describe('progressive disclosure on the real surface (§24E)', () => {
     // regression that removed the section entirely.
     const about = screen.getByTestId(ABOUT)
     expect(screen.getByTestId(`${ABOUT}-toggle`)).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByTestId(`${ABOUT}-record-group`)).toBeNull()
+    // V2 design pass (26 Sep 2026): the run record is ONE label/value list
+    // (`-record-rows`), not titled groups — the prototype's receipt `.dl`.
+    expect(screen.queryByTestId(`${ABOUT}-record-rows`)).toBeNull()
     fireEvent.click(screen.getByTestId(`${ABOUT}-toggle`))
     // Still behind its own detail row once About is open.
-    expect(screen.queryByTestId(`${ABOUT}-record-group`)).toBeNull()
+    expect(screen.queryByTestId(`${ABOUT}-record-rows`)).toBeNull()
     fireEvent.click(screen.getByTestId(`${ABOUT}-detail-record-toggle`))
-    const groups = screen.getAllByTestId(`${ABOUT}-record-group`)
-    expect(groups.length).toBeGreaterThan(0)
-    expect(about).toContainElement(groups[0])
+    const record = screen.getByTestId(`${ABOUT}-record-rows`)
+    expect(screen.getAllByTestId(`${ABOUT}-record-row`).length).toBeGreaterThan(0)
+    expect(about).toContainElement(record)
   })
 })
 
@@ -983,20 +985,32 @@ describe('the engine warning arrives before the reading it qualifies', () => {
     ).toBeTruthy()
   })
 
-  it('V2: the full caveat is kept, one disclosure away in About › Limitations', () => {
+  /* V2 design pass (26 Sep 2026): About › "Sources and limits" lists the
+     engine's caveats as plain bullets (the prototype's `.tiny-list`), not the
+     amber strip — the caveat is the same object, bound by its code. */
+  it('V2: the full caveat is kept, one disclosure away in About › Sources and limits', () => {
     renderBody(warned())
     const about = screen.getByTestId('analysis-new-about')
     fireEvent.click(within(about).getByTestId('analysis-new-about-toggle'))
     fireEvent.click(within(about).getByTestId('analysis-new-about-detail-limitations-toggle'))
-    expect(within(about).getByTestId('inference-warning-strip')).toBeInTheDocument()
+    const body = within(about).getByTestId('analysis-new-about-detail-limitations-body')
+    const caveat = within(body).getByTestId('analysis-new-about-limit-caveat')
+    expect(caveat).toHaveAttribute('data-warning-code', 'ROOT_NODE_DEFAULT_VALUE')
+    expect(within(about).queryByTestId('inference-warning-strip'), 'a bullet, not the amber box').toBeNull()
   })
 
-  it('renders no strip at all on a run the engine raised nothing about', () => {
+  it('renders no strip and no caveat bullet on a run the engine raised nothing about', () => {
     // The discriminating twin: proves the two above read the warning set and
     // not a container that is always present.
     renderBody(genuineDecision())
     expect(screen.queryByTestId('inference-warning-strip')).toBeNull()
     expect(screen.queryByTestId('critique-warning-strip')).toBeNull()
+    const about = screen.getByTestId('analysis-new-about')
+    const toggle = within(about).getByTestId('analysis-new-about-toggle')
+    if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle)
+    fireEvent.click(within(about).getByTestId('analysis-new-about-detail-limitations-toggle'))
+    expect(within(about).getByTestId('analysis-new-about-detail-limitations-body')).toBeInTheDocument()
+    expect(within(about).queryAllByTestId('analysis-new-about-limit-caveat')).toHaveLength(0)
   })
 })
 

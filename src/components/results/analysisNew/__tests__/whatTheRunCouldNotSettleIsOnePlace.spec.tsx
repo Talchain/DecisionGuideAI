@@ -51,9 +51,10 @@ const precedes = (a: Element, b: Element) =>
  *
  *  · THE CHECKS HALF. `WhatWeChecked` (`analysis-new-checks`) is no longer
  *    mounted. "About this analysis" (`analysis-new-about`, last on the tab,
- *    collapsed) absorbed it: its Evidence / Robustness / Most-likely-option
- *    status rows are the three check chips, and its "Limitations" detail carries
- *    their not-assessed meanings (`AboutThisAnalysis.tsx` header).
+ *    collapsed) absorbed it: its Evidence / Robustness status rows are the
+ *    check chips (the leader chip is the commitment block's, see CHECK_ROWS),
+ *    and its "Sources and limits" detail carries their not-assessed meanings
+ *    (`AboutThisAnalysis.tsx` header).
  *  · THE UNCERTAINTY HALF stays in "How this was worked out", as its last member.
  *  · THE COACHING. "Strengthen the reasoning" (`analysis-new-strengthen`) is no
  *    longer mounted on this tab; the model review tool (`analysis-new-review`),
@@ -64,8 +65,15 @@ const precedes = (a: Element, b: Element) =>
  * pair, with the same derivation.
  */
 const ABOUT = 'analysis-new-about'
-/** The three check chips `WhatWeChecked` drew, as About's status rows. */
-const CHECK_ROWS = ['evidence', 'robustness', 'leader'] as const
+/**
+ * The check chips `WhatWeChecked` drew, as About's status rows.
+ *
+ * ⚠ V2 DESIGN PASS (26 Sep 2026): TWO, NOT THREE. The prototype's About has no
+ * "Most likely option" row; that check is said once, by the commitment block
+ * ("Still open" / the withheld cause), and About repeating it was the audit's
+ * B11 duplicate. Its absence from About is pinned in `aboutThisAnalysis.spec.tsx`.
+ */
+const CHECK_ROWS = ['evidence', 'robustness'] as const
 
 const renderStale = () =>
   render(
