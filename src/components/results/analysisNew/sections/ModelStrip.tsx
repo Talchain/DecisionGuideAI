@@ -660,7 +660,28 @@ export function ModelStrip({
    */
   const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
 
-  const open = override ?? (openAtRest || isPreRun)
+  /* ⭐ `openAtRest` IS THE PROTOTYPE'S STATIC HEADER (design audit B2): the
+     question is an h2 and the census always shows, so there is no fold for a
+     reader to close. Only a bare mount keeps the toggle and its override. */
+  const open = openAtRest ? true : override ?? isPreRun
+  const SubjectTag = openAtRest ? 'h2' : 'span'
+  const headerProps = openAtRest
+    ? {
+        className: 'w-full text-left relative flex items-start gap-2 py-1',
+        'data-testid': `${testId}-header`,
+      }
+    : {
+        type: 'button' as const,
+        onClick: () => setOverride(!open),
+        'aria-expanded': open,
+        // Points at the region ONLY while it exists. A collapsed region is
+        // UNMOUNTED rather than hidden, so a resting reference would dangle.
+        'aria-controls': open ? regionId : undefined,
+        className:
+          'w-full text-left relative flex items-start gap-2 py-1 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info',
+        'data-testid': `${testId}-toggle`,
+      }
+  const HeaderTag = openAtRest ? 'div' : 'button'
 
   /**
    * ⚠ DERIVED, NOT READ OFF THE STATE, AND IT IS THE STRANDING GUARD. The
@@ -1083,20 +1104,13 @@ export function ModelStrip({
       aria-labelledby={subjectId}
       data-strip-open={open ? 'true' : 'false'}
     >
-      {/* ⚠ THE WHOLE BLOCK IS ONE CONTROL, per `DisclosureRow`'s rule: the
-          target is large and the keyboard reaches it once rather than three
-          times. The census sits INSIDE it, so a screen-reader user is told what
-          the model contains without having to expand anything. */}
-      <button
-        type="button"
-        onClick={() => setOverride(!open)}
-        aria-expanded={open}
-        // Points at the region ONLY while it exists. A collapsed region is
-        // UNMOUNTED rather than hidden, so a resting reference would dangle.
-        aria-controls={open ? regionId : undefined}
-        className="w-full text-left relative flex items-start gap-2 py-1 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        data-testid={`${testId}-toggle`}
-      >
+      {/* ⚠ ON A BARE MOUNT THE WHOLE BLOCK IS ONE CONTROL, per
+          `DisclosureRow`'s rule: the target is large and the keyboard reaches
+          it once rather than three times. The census sits INSIDE it, so a
+          screen-reader user is told what the model contains without having to
+          expand anything. The Reasoning tab's `openAtRest` renders it as a
+          plain block instead — see `headerProps`. */}
+      <HeaderTag {...headerProps}>
         <span className="min-w-0 flex-1">
           {/* ── ⭐⭐ THE SUBJECT LINE, AND WHY IT IS TWO ELEMENTS NOW ───────────
               The panel never named the decision it was about. Measured on
@@ -1115,7 +1129,7 @@ export function ModelStrip({
               ⚠ `aria-labelledby` points HERE, so the landmark is announced as
               the decision when there is one and the goal when there is not —
               never as an empty string. */}
-          <span
+          <SubjectTag
             id={subjectId}
             // ⚠⚠ 24 Sep 2026 — NO LONGER CLAMPED. Reasoning-V2 fidelity gap #8
             // (`FIDELITY-WORKFLOW-RESULT-20260924.json`, against
@@ -1129,14 +1143,14 @@ export function ModelStrip({
             // second copy of the subject inside the region would put the same
             // sentence on screen twice, which is exactly what the
             // first-viewport census exists to stop. Only the clamp is gone.
-            className={`${typography.panelHeader} text-text-header block break-words${
+            className={`${typography.panelHeader} text-text-header block m-0 break-words${
               open && subjectSubLabel === null ? ' pr-5' : ''
             }`}
             data-testid={`${testId}-lead`}
             title={leadLabel ?? undefined}
           >
             {leadLabel ?? NO_SUBJECT_LABEL}
-          </span>
+          </SubjectTag>
           {subjectSubLabel === null ? null : (
             <span
               className={`${typography.panelBody} text-text-light block ${open ? 'pr-5' : 'truncate'}`}
@@ -1212,7 +1226,7 @@ export function ModelStrip({
             title opens nothing and needs none. `pr-5` above still reserves
             the strip's right-hand margin so the layout is unchanged by the
             glyph's removal. */}
-      </button>
+      </HeaderTag>
 
       {/* ── THE SUCCESS TARGET ────────────────────────────────────────────────
           ⭐ OUTSIDE THE TOGGLE, AND THAT IS FORCED, NOT STYLISTIC. The header is
@@ -1480,10 +1494,12 @@ export function ModelStrip({
                         title={node.label || undefined}
                       >
                         <NodeMark kind={row.kind} />
+                        {/* Named for what the press does (design audit B3,
+                            prototype `aria-label="Inspect …"`): it opens the
+                            review tool or the detail, and pointing rings the
+                            node — it never moves the canvas. */}
                         <span className="sr-only">
-                          {node.label
-                            ? `Show ${node.label} on the canvas`
-                            : `Show this ${row.kind} on the canvas`}
+                          {node.label ? `Inspect ${node.label}` : `Inspect this ${row.kind}`}
                         </span>
                       </button>
                       )
