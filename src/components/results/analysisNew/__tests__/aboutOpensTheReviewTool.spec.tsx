@@ -84,6 +84,43 @@ describe('About › Sources and limits → "Inspect beliefs and source notes"', 
     expect(scrolled.mock.calls.length, 'an already-open tool is still revealed').toBeGreaterThan(calls)
   })
 
+  it('⭐ keyboard focus moves with it, to the item picker, so the next Tab is in the tool', () => {
+    renderTab()
+    openSources()
+    const act = screen.getByTestId(`${ABOUT}-inspect-beliefs`)
+    act.focus()
+    expect(act, 'PRECONDITION: the reader is on the act').toHaveFocus()
+    fireEvent.click(act)
+    const picker = screen.getByTestId('analysis-new-review-select')
+    expect(picker, 'focus left About for the tool').toHaveFocus()
+    expect(picker.closest('[data-testid="analysis-new-review-item"]')).not.toBeNull()
+  })
+
+  it('pressed again after the reader moved on: focus returns to the picker', () => {
+    renderTab()
+    openSources()
+    const act = screen.getByTestId(`${ABOUT}-inspect-beliefs`)
+    fireEvent.click(act)
+    act.focus()
+    expect(act, 'PRECONDITION: the reader went back to About').toHaveFocus()
+    fireEvent.click(act)
+    expect(screen.getByTestId('analysis-new-review-select')).toHaveFocus()
+  })
+
+  it('CONTRAST: a census mark opens the tool but keeps its own focus (the tool sits just below it)', () => {
+    // A factor carrying a number nobody confirmed: the queue holds an item on it.
+    useCanvasStore.setState({
+      nodes: [...NODES, { id: 'f1', type: 'factor', data: { label: 'Vendor cost', observed_state: { value: 0.7, source: 'cee_inference' } } }],
+    } as never)
+    renderTab()
+    const mark = screen.getAllByTestId('analysis-new-model-strip-mark').find((m) => m.getAttribute('data-node-id') === 'f1')
+    expect(mark, 'PRECONDITION: the census has a mark for f1').toBeDefined()
+    mark!.focus()
+    fireEvent.click(mark!)
+    expect(screen.getByTestId('analysis-new-review-item'), 'PRECONDITION: the mark opened the tool at f1').toHaveAttribute('data-target-id', 'f1')
+    expect(mark).toHaveFocus()
+  })
+
   it('CONTRAST: with nothing on the canvas to review, no act is drawn', () => {
     useCanvasStore.setState({ nodes: [] } as never)
     renderTab()

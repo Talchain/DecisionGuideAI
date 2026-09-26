@@ -285,6 +285,13 @@ export function ModelReviewTool({
    */
   const handledSeq = useRef<number | null>(null)
   const scrollOnOpen = useRef(false)
+  /**
+   * A `reveal` comes from About, far below the tool, so keyboard focus moves
+   * to the item picker with it; otherwise the next Tab resumes in About. A
+   * mark sits just above the tool and keeps its focus.
+   */
+  const focusOnReveal = useRef(false)
+  const selectRef = useRef<HTMLSelectElement | null>(null)
   /** Bumped by a `reveal`, so an ALREADY-open tool still scrolls into view. */
   const [revealTick, setRevealTick] = useState(0)
   useEffect(() => {
@@ -299,6 +306,7 @@ export function ModelReviewTool({
       if (queue.length === 0) return
       setOpen(true)
       scrollOnOpen.current = true
+      focusOnReveal.current = true
       setRevealTick((t) => t + 1)
       return
     }
@@ -315,6 +323,9 @@ export function ModelReviewTool({
     if (!isOpen || !scrollOnOpen.current) return
     scrollOnOpen.current = false
     itemRef.current?.scrollIntoView?.({ block: 'nearest' })
+    if (!focusOnReveal.current) return
+    focusOnReveal.current = false
+    selectRef.current?.focus({ preventScroll: true })
   }, [isOpen, current?.key, revealTick])
 
   // ── Confirm as my estimate: the write authority's own gesture ─────────────
@@ -562,6 +573,7 @@ export function ModelReviewTool({
               `-name` testid). "· reviewed" marks need "Mark reviewed", which
               nothing persists — see the header. */}
           <select
+            ref={selectRef}
             aria-label={CHOOSE_ITEM_LABEL}
             value={index}
             onChange={(e) => goTo(Number(e.target.value))}
