@@ -68,6 +68,7 @@ vi.mock('../../../flags', async (importOriginal) => {
 })
 
 import { useConversation, SEND_DEFERRED } from '../useConversation'
+import { USER_VALUE_STAMP } from '../../domain/valueProvenance'
 
 const SCENARIO = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 const FACTOR_ID = 'fac_delivery_time'
@@ -289,7 +290,13 @@ describe('controls — the revert must not fire when the server DID apply', () =
     await flush()
 
     expect(observedNow().raw_value).toBe(NEW_RAW)
-    expect(observedNow().source).toBe('user')
+    // The applied receipt stamps the literal CEE persisted for a typed value,
+    // `USER_EDIT_SOURCE` = 'user_override' (#2046 round 3, `applyV5State`'s
+    // set_factor_value apply). Before #2046 this read the optimistic write's
+    // own placeholder `'user'` — a value no producer spells — so the assertion
+    // only ever proved "not reverted". It now proves that AND that the node
+    // carries CEE's own authorship literal.
+    expect(observedNow().source).toBe(USER_VALUE_STAMP.source)
   })
 
   it('does not clobber a value the user has already changed again', async () => {

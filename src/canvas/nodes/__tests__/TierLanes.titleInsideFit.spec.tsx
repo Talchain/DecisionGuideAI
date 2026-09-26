@@ -15,7 +15,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { Node } from '@xyflow/react'
 import { TierLanes, LANE_TITLE_GAP, laneTitleColumnX } from '../TierLanes'
-import { deriveTierLanes } from '../../utils/tierLanes'
+import { deriveTierLanes, deriveLaneTitles } from '../../utils/tierLanes'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@xyflow/react')
@@ -50,13 +50,37 @@ describe('band titles: one left column, no panels (NODE-ANATOMY-v32 L1/L2)', () 
     }
   })
 
-  it('every title is bottom-anchored LANE_TITLE_GAP above its band’s first card', () => {
+  it('every title is bottom-anchored LANE_TITLE_GAP above its band’s first card — or above its kind shapes where its run would cross one', () => {
     render(<TierLanes nodes={BOARD} />)
+    const placed = deriveLaneTitles(BOARD)
     for (const lane of deriveTierLanes(BOARD)) {
       const title = screen.getByTestId(`tier-lane-${lane.tier}-title`)
-      expect(title.style.transform).toBe('translateY(-100%)')
       expect(px(title.style.top)).toBe(lane.y - LANE_TITLE_GAP)
+      const rises = placed.find((p) => p.tier === lane.tier)!.clearsKindGlyphs
+      expect(title.style.transform).toBe(
+        rises ? 'translateY(calc(-100% - 12px * var(--canvas-label-scale, 1)))' : 'translateY(-100%)',
+      )
     }
+  })
+
+  /*
+   * Review of #2074, Blocker 1: at the landing bound a card's kind shape stands
+   * 24 units above it, and a title whose run reaches that shape sat under it.
+   * On this board the factor band starts AT the title column (f1 at x 40), so
+   * FACTORS' run crosses f1's shape (centre 40 + 187/2) and rises by the
+   * shape's overhang at the live scale; GOAL, over a card centred far to the
+   * right, stays on its card — as the prototype's GOAL and EXPLORATION do.
+   */
+  it('a title whose run crosses a kind shape rises by the shape’s overhang; one clear of every shape stays on its cards', () => {
+    render(<TierLanes nodes={BOARD} />)
+    const placed = deriveLaneTitles(BOARD)
+    const byTier = (t: number) => placed.find((p) => p.tier === t)!
+    expect(byTier(2).clearsKindGlyphs).toBe(true)
+    expect(screen.getByTestId('tier-lane-2-title').style.transform).toBe(
+      'translateY(calc(-100% - 12px * var(--canvas-label-scale, 1)))',
+    )
+    expect(byTier(5).clearsKindGlyphs).toBe(false)
+    expect(screen.getByTestId('tier-lane-5-title').style.transform).toBe('translateY(-100%)')
   })
 
   it('⛔ no tinted band panel is drawn (the rectangles that stretched past the viewport)', () => {

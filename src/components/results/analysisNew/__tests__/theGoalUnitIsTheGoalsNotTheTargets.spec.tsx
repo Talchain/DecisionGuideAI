@@ -109,9 +109,16 @@ const UNIT_AND_TARGET = [
   { id: 'o1', type: 'option', data: { label: 'A full switch at renewal' } },
 ]
 
+/**
+ * ⚠ 26 Sep (design audit B5): on the Reasoning tab the form opens as the V2
+ * prototype's does — "In words" first when no target is stated — so the number
+ * arm this file drives is one radio away. Choosing it is the reader's own
+ * gesture; nothing below changes what that arm dispatches.
+ */
 const openEditor = () => {
   render(<ModelStrip isPreRun={false} />)
   fireEvent.click(screen.getByTestId(`${TARGET}-edit`))
+  fireEvent.click(screen.getByTestId(`${TARGET}-mode-number`))
 }
 
 beforeEach(() => {

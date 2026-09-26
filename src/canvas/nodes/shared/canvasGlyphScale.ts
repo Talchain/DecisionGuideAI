@@ -55,6 +55,7 @@
 import type { CSSProperties } from 'react'
 import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import { NODE_TITLE_WIDEST_WORD_PX } from '../../utils/nodeLayoutConstants'
+import { CANVAS_TYPE_PX } from '../../../styles/typography'
 
 /**
  * The px sizes the canvas node surfaces actually use. A size that is not here
@@ -293,6 +294,19 @@ export interface CornerMarksTitleBox {
   rightToFramePx: number
   /** From the card's padding-box top to the title box's top (px). */
   topPx: number
+  /**
+   * ⭐ v3.1 WS1 #17 (26 Sep 2026): the width, at the DECLARED title size, of
+   * THIS title's first unbreakable run — the only word that has to share line 1
+   * with the marks. Absent (no text metrics: jsdom, SSR) means "assume the
+   * widest word the product's content holds", i.e. the previous behaviour.
+   *
+   * Why the first word and not the corpus's widest: the yield exists so no word
+   * is cut beside the marks, and only line 1 is beside them. Yielding for
+   * EVERY marked title because SOME title opens with "Cannibalization" put a
+   * blank line above 3 of 5 pricing factor titles at the landing rung (title
+   * 28.5px below the card top instead of 6.3px) — the measured #17 defect.
+   */
+  firstWordPx?: number
 }
 
 /** The first-line spacer's declared size: a right float `width` × `height`. */
@@ -304,6 +318,47 @@ export interface CornerMarksTitleSpacer {
 /** How sharply the yield switches: 0 → 1 across 1/gain of the step's argument. */
 const CORNER_MARKS_YIELD_GAIN = 10000
 
+/**
+ * Headroom on a measured first word, in declared px: canvas `measureText` can
+ * run a pixel short of the laid-out run (web font not yet loaded, sub-pixel
+ * tracking), and a word that misses by one pixel is cut mid-word.
+ */
+const TITLE_WORD_METRIC_SLACK_PX = 3
+
+/** The node title's font, as canvas `ctx.font` spells it (typography.nodeTitle, weight 610). */
+const NODE_TITLE_CANVAS_FONT = `610 ${CANVAS_TYPE_PX.nodeTitle}px Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+
+let titleMeasureCtx: CanvasRenderingContext2D | null | undefined
+
+/**
+ * The declared-size width of a title's FIRST unbreakable run (up to the first
+ * space, or through the first hyphen, where a line may break), or `undefined`
+ * where there are no text metrics (jsdom's `getContext` returns null).
+ */
+export function titleFirstWordPx(title: string | null | undefined): number | undefined {
+  if (typeof title !== 'string' || typeof document === 'undefined') return undefined
+  const first = title.trim().split(/\s+/)[0]?.match(/^[^-]*-?/)?.[0] ?? ''
+  if (first === '') return undefined
+  if (titleMeasureCtx === undefined) {
+    try {
+      titleMeasureCtx = document.createElement('canvas').getContext('2d')
+    } catch {
+      titleMeasureCtx = null
+    }
+  }
+  if (!titleMeasureCtx) return undefined
+  const cached = titleWordWidthCache.get(first)
+  if (cached !== undefined) return cached
+  titleMeasureCtx.font = NODE_TITLE_CANVAS_FONT
+  const w = titleMeasureCtx.measureText(first).width
+  if (!(Number.isFinite(w) && w > 0)) return undefined
+  // Cache only once the web font is in: a fallback-font width is provisional.
+  if (document.fonts?.check?.(NODE_TITLE_CANVAS_FONT) !== false) titleWordWidthCache.set(first, w)
+  return w
+}
+
+const titleWordWidthCache = new Map<string, number>()
+
 export function cornerMarksTitleSpacerCss(count: number, box: CornerMarksTitleBox): CornerMarksTitleSpacer | undefined {
   const run = cornerMarksRunPx(count)
   if (run === 0) return undefined
@@ -311,7 +366,10 @@ export function cornerMarksTitleSpacerCss(count: number, box: CornerMarksTitleBo
   const inset = CANVAS_CORNER_MARK_RIGHT_PX + CANVAS_CORNER_MARK_CLEARANCE_PX
   // Yield iff clearance − rightToFrame > measure − widest × scale, i.e.
   // (run + widest) × scale > measure + rightToFrame − inset. 0 below, 1 above.
-  const yieldStep = `clamp(0, (${run + NODE_TITLE_WIDEST_WORD_PX} * ${scale} - ${box.measurePx + box.rightToFramePx - inset}) * ${CORNER_MARKS_YIELD_GAIN}, 1)`
+  const word = box.firstWordPx !== undefined && Number.isFinite(box.firstWordPx) && box.firstWordPx > 0
+    ? Math.ceil(box.firstWordPx) + TITLE_WORD_METRIC_SLACK_PX
+    : NODE_TITLE_WIDEST_WORD_PX
+  const yieldStep = `clamp(0, (${run + word} * ${scale} - ${box.measurePx + box.rightToFramePx - inset}) * ${CORNER_MARKS_YIELD_GAIN}, 1)`
   // The marks' bottom plus the clearance, below the title box's top.
   const marksBottom = `calc(${CANVAS_CORNER_MARK_TOP_PX + CANVAS_CORNER_MARK_CLEARANCE_PX - box.topPx}px + ${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale})`
   return {

@@ -56,13 +56,21 @@ function setReadiness(status: string | null, mayRun?: boolean) {
         status,
         options: [{ id: 'opt_1', label: 'A', status: 'ready', interventions: {} }],
         ...(mayRun === undefined ? {} : { may_run: mayRun }),
+        // Bound to the revision on screen, as served (the top-level graph_hash
+        // equals analysis_ready.current_graph_hash). An unbound verdict does not
+        // decide — pinned by the UNBOUND case below.
+        current_graph_hash: REVISION,
       }
     : null
   useCanvasStore.setState({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ceeAnalysisReady: payload as any,
+    lastServerGraphHash: REVISION,
+    analysisFreshnessDirty: false,
   })
 }
+
+const REVISION = 'c247337beab725ed'
 
 function renderRunChip() {
   render(<SuggestedChips chips={[makeChip({ action_type: 'run_analysis' })]} onChipClick={vi.fn()} />)
@@ -84,6 +92,12 @@ describe('SuggestedChips — may_run gate', () => {
     // rejects, so a pass here is provably the new term's doing.
     setReadiness('needs_user_input', true)
     expect(renderRunChip()).toBeInTheDocument()
+  })
+
+  it('UNBOUND — a may_run:true for an EARLIER revision does not offer the chip', () => {
+    setReadiness('needs_user_input', true)
+    useCanvasStore.setState({ lastServerGraphHash: '9b30de7c226ec991' })
+    expect(renderRunChip()).toBeNull()
   })
 
   it('OPPOSITE DIRECTION — a model that must NOT run keeps the chip hidden (may_run false)', () => {

@@ -326,6 +326,33 @@ export function renderedLabelPx(declaredPx: number, zoom: number): number {
 }
 
 /**
+ * ⭐ v3.1 WS1 #25 (26 Sep 2026): THE FAR-ZOOM TITLE — "Far zoom: readable
+ * identity and a simple attention cue" (contract v3.1 `.far-example`: a white
+ * chip with a 9px name and a shape dot).
+ *
+ * Below `LABEL_LEGIBLE_ZOOM` the counter-scale is capped, so a title renders at
+ * `14 × MAX_LABEL_COUNTER_SCALE × zoom`: 9.8px at 0.35, 4.7px at 0.167 (the
+ * gap report's six zoom-outs). At the `line` rung — and only there — the title
+ * may grow further, to the contract's far-chip size, so the card keeps a
+ * READABLE name. Bounded above so a deliberate zoom-out to the instance floor
+ * cannot inflate a title past twice the landing bound.
+ *
+ * Only the `line` rung's title reads it (`BaseNode`); every other surface stays
+ * on `labelCounterScale`.
+ */
+export const FAR_TITLE_PX = 9
+export const FAR_TITLE_MAX_SCALE = 2 * MAX_LABEL_COUNTER_SCALE
+
+export function farTitleScale(zoom: number): number {
+  const base = labelCounterScale(zoom)
+  if (typeof zoom !== 'number' || !Number.isFinite(zoom) || zoom <= 0) return base
+  return Math.min(FAR_TITLE_MAX_SCALE, Math.max(base, FAR_TITLE_PX / (CANVAS_TYPE_PX.nodeTitle * zoom)))
+}
+
+/** The CSS custom property that carries `farTitleScale` (set beside `CANVAS_LABEL_SCALE_VAR`). */
+export const CANVAS_FAR_TITLE_SCALE_VAR = '--canvas-far-title-scale'
+
+/**
  * The CSS custom property that carries `labelCounterScale` into the canvas type
  * tokens. Set on the React Flow root by `CanvasLabelScaleSync`; unset (and
  * therefore 1, via each token's `var()` fallback) everywhere else, so panel and
@@ -387,6 +414,19 @@ export const LOD_BLANKED_BODY_ATTR = 'data-lod-hidden'
 
 /** The selector that finds a collapsed card body. Derived, never restated. */
 export const LOD_BLANKED_BODY_SELECTOR = `[${LOD_BLANKED_BODY_ATTR}]`
+
+/**
+ * ⭐ v3.1 WS1 #25: the mark on a title drawn as the FAR-rung identity chip
+ * (clamped, at `CANVAS_FAR_TITLE_SCALE_VAR`). Same writer/reader pair as the
+ * blanked body: `BaseNode` writes it at the `line` rung, and
+ * `measureNodeHeightsAtLabelBound` lifts the clamp and pins the far scale to
+ * the bound while it reads, so a layout that runs while zoomed out still
+ * reserves the title's full height at the landing rung.
+ */
+export const LOD_FAR_TITLE_ATTR = 'data-lod-far-title'
+
+/** The selector that finds a far-rung title. Derived, never restated. */
+export const LOD_FAR_TITLE_SELECTOR = `[${LOD_FAR_TITLE_ATTR}]`
 
 /**
  * ⭐⭐ THE CEILING THE AUTO-FIT MUST NOT CROSS — the other end of the band.

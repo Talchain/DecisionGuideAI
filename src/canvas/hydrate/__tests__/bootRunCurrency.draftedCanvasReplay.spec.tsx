@@ -37,8 +37,16 @@ const C1 = turns.find((t) => t.turn === 'C1 brief')!.json
 const C2 = turns.find((t) => t.turn === 'C2 run')!.json
 const DRAFT = C1.draft_graph as { nodes: unknown[]; edges: unknown[]; goal_constraints?: unknown[] }
 
-type Graph = { nodes: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> }
-const draftGraph = (): Graph => JSON.parse(JSON.stringify({ nodes: DRAFT.nodes, edges: DRAFT.edges }))
+type Graph = {
+  nodes: Array<Record<string, unknown>>
+  edges: Array<Record<string, unknown>>
+  goal_constraints?: Array<Record<string, unknown>>
+  goal_node_id?: string
+}
+// CEE stores the draft's `goal_constraints` on `scenarios.graph` and the read
+// returns them (served: Paul's manual test `1a298d6d`, `analysis_result_read`).
+const draftGraph = (): Graph =>
+  JSON.parse(JSON.stringify({ nodes: DRAFT.nodes, edges: DRAFT.edges, goal_constraints: DRAFT.goal_constraints }))
 
 /** The served Run card: `created_at` = the run's `computed_at`, written on the run's graph. */
 const RUN_STATE = (C2.analysis_state as { run_state: { computed_at: string } }).run_state
@@ -69,7 +77,7 @@ function readBody() {
   }
 }
 
-let warnSpy: { mock: { calls: unknown[][] }; mockRestore: () => void }
+let warnSpy: { mock: { calls: unknown[][] }; mockRestore: () => void; mockClear: () => void }
 
 beforeEach(() => {
   useCanvasStore.setState({
@@ -162,5 +170,151 @@ describe('CONTROLS: an ANALYSIS-AFFECTING difference still declines', () => {
     expect(d.reason).toBe('canvas_not_proven_equal')
     expect(d.unproven).toMatch(/^fwd:edge:.+:strength:differs /)
     expect(runCardCurrency()).not.toBe('current')
+  })
+})
+
+/** Re-draft the canvas from a changed copy of the served draft, and serve that draft back. */
+function redraft(mutate: (d: Graph) => void) {
+  const d = JSON.parse(JSON.stringify(DRAFT)) as Graph
+  mutate(d)
+  applyDraftResult(d as never, { skipHistory: true, skipAutosave: true })
+  useCanvasStore.setState({
+    analysisStateV1: null,
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
+    serverGraphIdentity: null,
+    lastAuthoritativeGraph: null,
+  } as never)
+  readGraph = JSON.parse(JSON.stringify({ nodes: d.nodes, edges: d.edges, goal_constraints: d.goal_constraints }))
+}
+
+const LIMIT_ID = 'agent-lane:monthly_churn_rate:<='
+const readLimit = () => readGraph.goal_constraints!.find((c) => c.constraint_id === LIMIT_ID)!
+
+describe('⭐ THE GOAL HALF of CEE\'s hash: a stated limit and the goal node are part of "the same model"', () => {
+  it('PRECONDITION: the canvas holds the drafted limit, and the read returns it with its keys reordered (JSONB): current', async () => {
+    expect(useCanvasStore.getState().goalConstraints?.map((c) => c.constraint_id)).toEqual([LIMIT_ID])
+    const c = readLimit()
+    readGraph.goal_constraints = [Object.fromEntries(Object.entries(c).reverse())]
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('⭐ the read\'s limit differs from the canvas\'s (4 → 6 per month): declined, and the log names the limit', async () => {
+    readLimit().value = 6
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    const d = declineLog()!
+    expect(d.reason).toBe('canvas_not_proven_equal')
+    expect(d.unproven).toMatch(/^goal:goal_constraints:agent-lane:monthly_churn_rate:<=:differs /)
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
+  it('⭐ the read holds no limit while the canvas holds one: declined', async () => {
+    delete readGraph.goal_constraints
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'canvas_not_proven_equal', unproven: 'goal:goal_constraints:count canvas=1 read=0' })
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
+  it('⭐ a limit id repeated on the read cannot shadow its twin: declined (review 5843168236 N1)', async () => {
+    // The review's measured shape: read [x v6, x v4] against canvas [x v4, x v4] — equal counts, every lookup hits.
+    const c = readLimit()
+    useCanvasStore.setState({ goalConstraints: [c, c] } as never)
+    readGraph.goal_constraints = [{ ...c, value: 6 }, c]
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'canvas_not_proven_equal', unproven: `goal:goal_constraints:${LIMIT_ID}:duplicate_identity_on_read` })
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
+  it('⭐ a limit id repeated on the CANVAS cannot hide a read limit it lacks: declined (review 5843255705 N1b)', async () => {
+    // Canvas [x, x] against read [x, y]: equal counts, and every canvas lookup hits x — without the
+    // canvas-side check the read's y is never compared and the run card reads "current".
+    const c = readLimit()
+    useCanvasStore.setState({ goalConstraints: [c, c] } as never)
+    readGraph.goal_constraints = [c, { ...c, constraint_id: 'agent-lane:monthly_churn_rate:>=' }]
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'canvas_not_proven_equal', unproven: `goal:goal_constraints:${LIMIT_ID}:duplicate_identity_on_canvas` })
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
+  it('ASYMMETRY, decided: a canvas with NO list (`null` is not "no limit") never declines on the read\'s limit', async () => {
+    useCanvasStore.setState({ goalConstraints: null } as never)
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('CONTROL: the read\'s `goal_node_id` names the canvas goal: current', async () => {
+    readGraph.goal_node_id = 'monthly_recurring_revenue'
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('⭐ the read\'s `goal_node_id` names a node the canvas does not hold as its goal: declined', async () => {
+    readGraph.goal_node_id = 'monthly_churn_rate'
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({
+      reason: 'canvas_not_proven_equal',
+      unproven: 'goal:goal_node_id:monthly_churn_rate:not_a_canvas_goal',
+    })
+    expect(runCardCurrency()).not.toBe('current')
+  })
+})
+
+describe('⭐ AN INTERVENTION UNIT counts exactly where CEE hashes it: beside a native `raw_value`', () => {
+  const OPTION = 'raise_to_59_with_release'
+  const FACTOR = 'pro_plan_price'
+  const setIntervention = (g: Graph, patch: Record<string, unknown>) => {
+    const n = g.nodes.find((x) => x.id === OPTION)!
+    const iv = n.interventions as Record<string, Record<string, unknown>>
+    iv[FACTOR] = { ...iv[FACTOR], ...patch }
+  }
+
+  it('CONTROL: canvas and read both hold 59 GBP: current', async () => {
+    redraft((d) => setIntervention(d, { raw_value: 59, unit: 'GBP' }))
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  // ⚠ THE UNCHANGED EXIT, where the proof is the ONLY guard. On the merged exit
+  // the boot merge adopts the read's unit and declines as `edited_since_read`
+  // whatever the proof says (independent review of #2058, 5841555613). Here the
+  // read's identity token matches the one already applied, so nothing is merged:
+  // a reload of the same token, after a session that dropped its analysis beliefs.
+  async function reloadOnTheSameToken(changeRead: () => void) {
+    redraft((d) => setIntervention(d, { raw_value: 59, unit: 'GBP' }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    useCanvasStore.setState({ analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false } as never)
+    warnSpy.mockClear()
+    changeRead()
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+  }
+
+  it('CONTROL, unchanged exit: the same 59 GBP on both sides: current', async () => {
+    await reloadOnTheSameToken(() => {})
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('⭐ unchanged exit: the canvas holds 59 GBP and the read 59 USD: declined BY THE PROOF, naming the intervention', async () => {
+    await reloadOnTheSameToken(() => setIntervention(readGraph, { unit: 'USD' }))
+    const d = declineLog()!
+    expect(d.reason).toBe('canvas_not_proven_equal')
+    expect(d.unproven).toMatch(/^fwd:node:raise_to_59_with_release:interventions:differs .*"unit":"GBP".* read=.*"unit":"USD"/)
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
+  it('CONTROL, unchanged exit: a unit with NO native `raw_value` beside it is metadata, as CEE hashes it: current', async () => {
+    redraft((d) => setIntervention(d, { unit: 'GBP' }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    useCanvasStore.setState({ analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false } as never)
+    warnSpy.mockClear()
+    setIntervention(readGraph, { unit: 'USD' })
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
   })
 })

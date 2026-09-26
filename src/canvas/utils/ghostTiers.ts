@@ -35,7 +35,7 @@ import type { Node } from '@xyflow/react'
 // exclusion. Imported rather than restated: this file used to declare its own
 // copies of the first two, so the filter and the ids it filtered were two
 // independent lists that happened to agree.
-import { GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
+import { CONSEQUENCE_PROMPT_ID, GHOST_ID_PREFIX, GHOST_OPTION_NODE_ID, isGhostNode } from './fitTargets'
 // The producer's own word for "this node has no name". Imported, never
 // re-spelled: the estate already carries eight hand-copied `'Untitled'`
 // literals, and a ninth that drifted would silently re-open B2(a).
@@ -282,6 +282,40 @@ export const GHOST_TIERS: readonly GhostTier[] = [
       `${about(subject)} What further consequences could follow that these do not represent?`,
   },
 ] as const
+
+/**
+ * ⭐ THE CONSEQUENCE ROW'S ONE DOOR (ED 5810951997: row-end prompts appear ONCE
+ * per row). Outcomes and risks share a row (`TIER_BY_KIND`), and each used to
+ * bring its own door, stacked in one band. When both are present the row gets
+ * this single door instead: a question about what follows, good or bad, that
+ * keeps the pre-mortem half ("what could go wrong") in the prompt it sends. A
+ * row holding only one of the two keeps that kind's own door unchanged.
+ */
+export const CONSEQUENCE_DOOR_ID = CONSEQUENCE_PROMPT_ID
+export const CONSEQUENCE_DOOR_LABEL = 'What else could follow?'
+const CONSEQUENCE_KINDS: ReadonlySet<string> = new Set(['outcome', 'risk'])
+const CONSEQUENCE_NOUNS: Readonly<Record<string, readonly [string, string]>> = {
+  outcome: ['outcome', 'outcomes'],
+  risk: ['risk', 'risks'],
+}
+
+function consequenceDoorPrompt(
+  byKind: ReadonlyArray<{ kind: string; siblings: readonly Node[] }>,
+  subject: ModelSubject | null,
+): string {
+  const inventory = byKind
+    .map(({ kind, siblings }) => {
+      const ctx = contextFor(siblings, subject)
+      const [one, many] = CONSEQUENCE_NOUNS[kind] ?? [kind, `${kind}s`]
+      return inventorySentence(ctx.namedSiblings, ctx.siblingCount, one, many)
+    })
+    .join(' ')
+  return (
+    inventory +
+    `${about(subject)} What else could follow from this, good or bad, that these do not already cover?` +
+    ' Consider what could go wrong that a forecast would miss.'
+  )
+}
 
 /**
  * Place one ghost at the end of each tier that already has members.
@@ -637,6 +671,27 @@ export function withGhostTiers(
     const stack = rowPromptKindsFor(row, present)
     // A kind outside the table still gets a door, after the table's own.
     for (const kind of present) if (!stack.includes(kind)) stack.push(kind)
+    // ⭐ ONE PROMPT PER ROW (ED 5810951997; contract v3.1 WS1 #27). A row whose
+    // family is one kind keeps that kind's own door; the consequence row, when
+    // it holds outcomes AND risks, gets ONE door that asks about both — never
+    // two doors stacked in one band.
+    if (stack.length > 1 && stack.every((k) => CONSEQUENCE_KINDS.has(k))) {
+      const byKind = stack.map((k) => ({ kind: k, siblings: siblingsOf(model, k) }))
+      ghosts.push({
+        id: CONSEQUENCE_DOOR_ID,
+        type: 'ghost-tier',
+        position: { x, y: rowY },
+        data: {
+          label: CONSEQUENCE_DOOR_LABEL,
+          prompt: consequenceDoorPrompt(byKind, subject),
+          tier: 'consequence',
+        },
+        selectable: false,
+        draggable: false,
+        connectable: false,
+      } as Node)
+      continue
+    }
     stack.forEach((kind, i) => {
       const tier = tierByKind.get(kind)!
       const siblings = siblingsOf(model, kind)

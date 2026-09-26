@@ -208,10 +208,16 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
     for (const tile of ['bg-panel', 'border-panel-border', 'rounded-md', 'border-[1.5px]']) {
       expect(t, `tile token ${tile} is back`).not.toContain(tile)
     }
-    expect(t).toContain('-top-[11px]')
+    // v3.1 WS1 #15: the contract's 24px at −12px (`.node .shape`), counter-scaled
+    // like the canvas type — it was 22 flow units, 11px on screen at landing.
+    expect(glyph.style.top).toBe('calc(-12px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.width).toBe('calc(24px * var(--canvas-label-scale, 1))')
     const shape = glyph.querySelector('polygon, circle, rect') as SVGElement
     expect(shape.getAttribute('stroke')).toBe('var(--bg-panel)')
-    expect(glyph.querySelector('svg')?.getAttribute('width')).toBe('22')
+    // The svg fills the counter-scaled box (its `width` attribute is the
+    // unscaled fallback; the class sizes it).
+    expect(glyph.querySelector('svg')?.getAttribute('width')).toBe('24')
+    expect(tokens(glyph.querySelector('svg') as Element)).toEqual(expect.arrayContaining(['h-full', 'w-full']))
   })
 
   it('the bottom (source) handle is the 3px port class, not a kind-coloured disc', () => {
@@ -247,11 +253,14 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     expect(root.style.paddingBottom).toBe('9px')
   })
 
-  it('the anchor reserves the rail\'s footprint on the WHOLE card (title included), sized to the rail it mounts', () => {
+  it('the anchor BODY reserves the rail\'s run and height, sized to the rail it mounts; the title keeps the full measure (WS1 #16)', () => {
     // S5 / Codex CHANGES_REQUIRED 5809540479: a last-row-only reserve let the rail
     // (taller than a shallow anchor's last row) reach up and cover the title and
-    // "Top gap" line on vendor-selection. The whole card's right padding now
-    // clears the counter-scaled run `anchorRailReservePx` derives.
+    // "Top gap" line on vendor-selection. S5 answered with a WHOLE-CARD reserve,
+    // which squeezed the title and sent the rail below the card at landing
+    // (#16). The body now carries the contract's row padding
+    // (`.node.wide .target-row{padding-right}`) AND a min-height of the rail's
+    // own box, so the rail's top can never rise above the body into the title.
     const { root } = renderCard('decision', { label: 'Q' }, {
       children: <div data-testid="anchor-row">row</div>,
       railIcons: <span data-testid="run-icon" />,
@@ -259,8 +268,10 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     const body = screen.getByTestId('anchor-body-rail-beside')
     // Challenge + More + Ask/coaching = 3, plus the caller's run icon = 4.
     expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
-    expect(root.style.paddingRight).toBe(`calc(6px + ${anchorRailReservePx(4)}px * var(--canvas-label-scale, 1))`)
-    // …and the body no longer carries the last-row-only reserve class.
+    expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-label-scale, 1) + -6px)`)
+    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-label-scale, 1) + -3px)')
+    // CONTRAST — the card root carries no rail reserve: the title is not squeezed.
+    expect(root.style.paddingRight).not.toMatch(/canvas-label-scale/)
     expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
   })
 
@@ -271,20 +282,20 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
   })
 })
 
-describe('S5: the anchors keep 11 / 9 at every rung; the rail is beside them at Normal only', () => {
+describe('S5: the anchors keep 11 / 9 at every rung; WS1 #16: the rail is inside them wherever it is mounted', () => {
   // Canvas Browser Gate on #1932 (24 Sep): `heightVsZoom` — below the floor the
   // anchors fell back to 12 / 12 and drew taller than anywhere above it;
   // `nodeControlOcclusion` — at the landing rung the counter-scaled beside-rail
   // covered the Question's own title.
   afterEach(() => { useCanvasStore.setState({ lodRung: 'full' } as never) })
 
-  it.each(['decision', 'goal'] as const)('%s at the landing rung (quiet): 11/9, the rail BELOW the card, no beside reserve', (kind) => {
+  it.each(['decision', 'goal'] as const)('%s at the quiet rung: 11/9, the rail INSIDE beside the body (never hanging below the card)', (kind) => {
     useCanvasStore.setState({ lodRung: 'quiet' } as never)
     const { root, container } = renderCard(kind, { label: 'Anchor' }, { children: <div data-testid="anchor-row">row</div> })
     expect(root.style.paddingTop).toBe('11px')
     expect(root.style.paddingBottom).toBe('9px')
-    expect(screen.queryByTestId('anchor-body-rail-beside'), 'the rail is beside the text at the landing rung').toBeNull()
-    expect(container.querySelector('[data-rail-placement]')?.getAttribute('data-rail-placement')).toBe('below')
+    expect(screen.getByTestId('anchor-body-rail-beside')).toBeTruthy()
+    expect(container.querySelector('[data-rail-placement]')?.getAttribute('data-rail-placement')).toBe('inset')
   })
 
   it.each(['decision', 'goal'] as const)('%s below the floor (line): still 11/9 — never taller than at landing', (kind) => {

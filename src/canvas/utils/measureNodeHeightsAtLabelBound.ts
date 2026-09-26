@@ -142,9 +142,11 @@
  * is taken. Absence is safe; a wrong instance is not.
  */
 import {
+  CANVAS_FAR_TITLE_SCALE_VAR,
   CANVAS_LABEL_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_SELECTOR,
   LOD_BLANKED_BODY_SELECTOR,
+  LOD_FAR_TITLE_SELECTOR,
   MAX_LABEL_COUNTER_SCALE,
   MAX_NORMAL_RUNG_LABEL_SCALE,
   NODE_RUNG_PADDING_ATTR,
@@ -239,8 +241,22 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   const previousPadding: Array<string[] | null> = []
   const rungPadding: Array<RungPadding | null> = []
 
+  // ⭐ v3.1 WS1 #25: a far-rung title is clamped at its own far scale; at the
+  // bound it is an ordinary, unclamped title at `MAX_LABEL_COUNTER_SCALE`.
+  const farTitles = root.querySelectorAll(LOD_FAR_TITLE_SELECTOR)
+  const previousFarTitleStyles: Array<[string, string, string]> = []
+  const previousFarScale = root.style.getPropertyValue(CANVAS_FAR_TITLE_SCALE_VAR)
+
   try {
     root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
+    root.style.setProperty(CANVAS_FAR_TITLE_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
+    for (const el of farTitles) {
+      const e = el as HTMLElement
+      previousFarTitleStyles.push([e.style.display, e.style.getPropertyValue('-webkit-line-clamp'), e.style.overflow])
+      e.style.display = 'block'
+      e.style.setProperty('-webkit-line-clamp', 'unset')
+      e.style.overflow = 'visible'
+    }
     for (const el of blanked) {
       const e = el as HTMLElement
       previousBodyHeights.push(e.style.height)
@@ -301,6 +317,16 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
     }
     if (previous === '') root.style.removeProperty(CANVAS_LABEL_SCALE_VAR)
     else root.style.setProperty(CANVAS_LABEL_SCALE_VAR, previous)
+    if (previousFarScale === '') root.style.removeProperty(CANVAS_FAR_TITLE_SCALE_VAR)
+    else root.style.setProperty(CANVAS_FAR_TITLE_SCALE_VAR, previousFarScale)
+    for (let i = 0; i < previousFarTitleStyles.length; i++) {
+      const e = farTitles[i] as HTMLElement
+      const [display, clamp, overflow] = previousFarTitleStyles[i]!
+      e.style.display = display
+      if (clamp === '') e.style.removeProperty('-webkit-line-clamp')
+      else e.style.setProperty('-webkit-line-clamp', clamp)
+      e.style.overflow = overflow
+    }
     // Index-paired with the NodeList above, which is static (`querySelectorAll`),
     // so the pairing cannot be disturbed by anything the read did.
     //

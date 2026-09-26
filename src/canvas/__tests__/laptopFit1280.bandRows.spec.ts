@@ -59,15 +59,15 @@ const STRIDE = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
  * prompts that family carries, in stack order.
  */
 const FIVE_CARD_BANDS: Array<{ starter: string; family: string; order: string[]; prompts: string[] }> = [
-  { starter: 'vendor-selection', family: 'consequence', prompts: ['__ghost-outcome__', '__ghost-risk__'],
+  { starter: 'vendor-selection', family: 'consequence', prompts: ['__ghost-consequence__'],
     order: ['out_budget_headroom', 'risk_gdpr_breach', 'risk_team_overload', 'risk_migration_delay', 'out_platform_capability'] },
-  { starter: 'market-entry', family: 'consequence', prompts: ['__ghost-outcome__', '__ghost-risk__'],
+  { starter: 'market-entry', family: 'consequence', prompts: ['__ghost-consequence__'],
     order: ['out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag', 'risk_uk_distraction', 'risk_team_overstretch'] },
-  { starter: 'build-vs-buy', family: 'consequence', prompts: ['__ghost-outcome__', '__ghost-risk__'],
+  { starter: 'build-vs-buy', family: 'consequence', prompts: ['__ghost-consequence__'],
     order: ['risk_eng_overload', 'out_delivery_speed', 'risk_billing_errors', 'out_billing_accuracy', 'risk_vendor_lock'] },
   { starter: 'headcount-allocation', family: 'factor', prompts: ['__ghost-factor__'],
     order: ['fac_eng_attrition', 'fac_eng_headcount', 'fac_market_demand', 'fac_ae_headcount', 'fac_quota_attainment'] },
-  { starter: 'headcount-allocation', family: 'consequence', prompts: ['__ghost-outcome__', '__ghost-risk__'],
+  { starter: 'headcount-allocation', family: 'consequence', prompts: ['__ghost-consequence__'],
     order: ['out_reliability', 'risk_eng_attrition', 'risk_churn', 'out_new_arr', 'risk_sales_miss'] },
   { starter: 'pricing-model', family: 'factor', prompts: ['__ghost-factor__'],
     order: ['fac_adoption_friction', 'fac_market_competition', 'fac_usage_exposure', 'fac_enterprise_revenue_risk', 'fac_top_account_concentration'] },
@@ -127,17 +127,18 @@ describe('gap 7 — a five-card band wraps inside its own band, in its own order
   })
 
   it.each(FIVE_CARD_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
-    '%s: wraps 3 + 2, reading order unchanged, columns aligned',
+    '%s: wraps 3 + 2, reading order unchanged, the second course laid in brick',
     async (_name, band) => {
       const { at } = await laidOut(band.starter)
       const rows = subRowsOf(band.order, at)
       expect(rows.map((r) => r.length)).toEqual([3, 2])
       // Reading order — left to right, then down — is the one-row order it had.
       expect(rows.flat()).toEqual(band.order)
-      // One block under one family label: the second sub-row starts under the
-      // first and keeps the same stride, so columns line up.
-      expect(at(rows[1][0]).position.x).toBe(at(rows[0][0]).position.x)
-      expect(at(rows[1][1]).position.x).toBe(at(rows[0][1]).position.x)
+      // One block under one family label, same stride in each course; v3.1 WS1
+      // #10: the second course sits HALF A STRIDE right, so each of its cards
+      // stands under a gap of the first course and edges run between cards.
+      expect(at(rows[1][0]).position.x - at(rows[0][0]).position.x).toBe(STRIDE / 2)
+      expect(at(rows[1][1]).position.x - at(rows[1][0]).position.x).toBe(STRIDE)
       expect(at(rows[0][1]).position.x - at(rows[0][0]).position.x).toBe(STRIDE)
     },
   )
@@ -166,8 +167,8 @@ describe('gap 7 — a five-card band wraps inside its own band, in its own order
       const rows = subRowsOf(band.order, at)
       const finalRow = rows[rows.length - 1]
       const last = at(finalRow[finalRow.length - 1])
-      // The prompt (the top of a stacked column) stands one card-gap after the
-      // last card of the final sub-row, on that sub-row's line.
+      // The row's ONE prompt (v3.1 WS1 #27) stands one card-gap after the last
+      // card of the final sub-row, on that sub-row's line.
       expect(at(band.prompts[0]).position).toEqual({ x: last.position.x + STRIDE, y: last.position.y })
       // Exactly one prompt per kind this family carries — never one per sub-row.
       for (const p of band.prompts) expect(withPrompts.filter((n) => n.id === p), p).toHaveLength(1)

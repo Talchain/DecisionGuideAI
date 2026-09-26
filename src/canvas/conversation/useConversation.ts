@@ -5151,6 +5151,16 @@ export function useConversation(): UseConversationReturn {
           // the top level, so we splice it in here rather than widening the
           // store shape upstream.
           const v5StoreSnapshot = useCanvasStore.getState()
+          // ⭐ THE CANVAS BEFORE THIS RESPONSE WROTE ANYTHING — G₀'s basis for
+          // the applied-receipt acknowledgement below. `applyV5State` writes the
+          // canvas FROM THIS RESPONSE before that branch runs: step 4 backfills
+          // the goal node's `goal_threshold_*` from `analysis_ready`. A receipt's
+          // own write is not a stranger, but read after it the canvas "just
+          // before the receipt" was never acknowledged, so the chain never fired
+          // (served 26 Sep 03:10Z, UI 0622d972: an applied `goal_target_edit`,
+          // then a whole-graph register that moved CEE's hash). Everything from
+          // here to that branch is synchronous and this response's own.
+          const canvasBeforeResponse = { nodes: v5StoreSnapshot.nodes, edges: v5StoreSnapshot.edges }
           // ⚠ NOT A USER EDIT — CEE APPLYING ITS OWN graph_patch blocks
           // (`set_factor_value` writes `observedState`, `adjust_edge_strength`
           // writes edge weight/direction: both ANALYTICAL, so the bounded
@@ -5480,6 +5490,18 @@ export function useConversation(): UseConversationReturn {
               // unacknowledged change survives the undo, so it still fails
               // CLOSED. A refused or unconfirmed turn (409 / 500) carries no
               // committed graph and never reaches this branch.
+              //
+              // ⭐ …AND G₀ IS TAKEN BEFORE THIS RESPONSE'S OWN STATE APPLY (served
+              // 26 Sep 03:10Z, UI 0622d972 + CEE e3b0844). An applied
+              // `goal_target_edit` writes nothing optimistically, yet a whole-graph
+              // register followed it and moved CEE's hash (0b039aeb → 21c0fd8d):
+              // `applyV5State`, above, had already backfilled the goal node's
+              // `goal_threshold_raw`/`_cap_provenance` from this same response's
+              // `analysis_ready`, so the canvas read HERE carried the receipt's
+              // own write and was never acknowledged. `canvasBeforeResponse` is
+              // the canvas before this response touched it. Any change that did
+              // NOT come from this response (a local-only edit, another turn's
+              // unanswered write) is on it too, so it still fails CLOSED.
               const beforeReceipt = useCanvasStore.getState()
               const canvasAtReceipt = { nodes: beforeReceipt.nodes, edges: beforeReceipt.edges }
               const canvasBeforeOwnWrite = canvasBeforeOwnAppliedWrite(
@@ -5494,13 +5516,13 @@ export function useConversation(): UseConversationReturn {
                   structuralAddEdge: ownAddEdgePair(systemEvent),
                 },
                 target.response,
-                canvasAtReceipt,
+                canvasBeforeResponse,
               )
               const receiptExtendsAcknowledgement =
                 isGraphServerAcknowledged(
                   beforeReceipt.currentScenarioId,
-                  canvasAtReceipt.nodes as never,
-                  canvasAtReceipt.edges as never,
+                  canvasBeforeResponse.nodes as never,
+                  canvasBeforeResponse.edges as never,
                 ) ||
                 (canvasBeforeOwnWrite !== null &&
                   isGraphServerAcknowledged(
