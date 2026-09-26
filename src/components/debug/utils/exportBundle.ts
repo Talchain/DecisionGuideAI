@@ -1032,6 +1032,12 @@ export interface DisplayState {
     has_renderable_result: boolean
   }
   /**
+   * The Run gate's readiness carriers as the gate read them, and which one
+   * decided (`captureRunGateInputs.ts`). `null` = the stores were unreadable.
+   * Optional so bundles written before it existed still type-check.
+   */
+  run_gate?: import('./captureRunGateInputs').RunGateInputs | null
+  /**
    * Canonical analysis display state from `deriveAnalysisDisplayState`:
    * not_ready / ready_to_analyse / ran_without_result / complete /
    * results_stale. Distinct from `analysis_status_displayed`, which mirrors
@@ -3447,6 +3453,7 @@ export async function captureDisplayState(
           state as { results?: { report?: unknown } },
         ),
       },
+      run_gate: (await import('./captureRunGateInputs')).captureRunGateInputs(),
     }
   } catch {
     return {
@@ -3463,6 +3470,7 @@ export async function captureDisplayState(
       analysis_display_state: null,
       analysis_display_headline: null,
       analysis_gate: { results_status: null, has_report: false, has_renderable_result: false },
+      run_gate: null,
     }
   }
 }
