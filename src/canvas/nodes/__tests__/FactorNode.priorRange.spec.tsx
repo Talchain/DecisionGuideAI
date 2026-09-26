@@ -34,13 +34,15 @@
  *   - internal factor_type descriptors ('binary', …) never display as units.
  *   - the qualitative/prose display path is untouched.
  *
- * ⭐⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #20, 26 Sep 2026) MOVED THE UNITLESS
- * NORMALISED LINE OFF THE CARD. `checks.factor`: "no bare internal model
- * scale" — ruling: omit, never invent. Every pin below that said "the card
- * renders `Range: 0.2 to 0.8` once" now says TWO things, and both are asserted:
- *   · the CARD renders it ZERO times (`resolveFactorPriorRangeOnCard`), with no
- *     substitute line — nothing in the data states that range in the reader's
- *     units;
+ * ⭐⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #20) first moved the unitless normalised
+ * line OFF the card; review F2 (#2085) put it back. A range's origin is
+ * unrecorded — the inspector's 0–1 editor (`setPriorRange`) writes `prior`
+ * with no stamp — so a bare 0–1 range may be the person's, and "omit, never
+ * invent" never licenses hiding a number that could be theirs. Every pin below
+ * that says "the card renders `Range: 0.2 to 0.8` once" says TWO things, and
+ * both are asserted:
+ *   · the CARD renders it ONCE (`resolveFactorPriorRangeOnCard`), with its
+ *     `no source` mark where it is the only figure;
  *   · the OWNER (`resolveFactorPriorRange`, which the Model tab reads to say
  *     "Range: 0.2 to 0.8, not measured") still composes exactly the pinned
  *     line — so each pin keeps its original power over the owner's rules (no
@@ -138,7 +140,7 @@ const renderFactor = (data: Record<string, unknown>) => {
 
 /**
  * The OWNER's line for the data last rendered — what the Model tab states
- * (v3.1 #20: the card omits a bare 0–1 range; the owner still composes it).
+ * (the card states the same line — review F2, #2085).
  * `valueDisplay` is the value string the card renders beside it (the dedupe and
  * the contradiction arm read it); it defaults to the producer's display_value.
  */
@@ -195,7 +197,7 @@ describe('FactorNode prior range (lane C3)', () => {
     expect(text).not.toContain('scale')
   })
 
-  it('placeholder unit + display_value ABSENT: the owner composes the unitless normalised line; the card omits it (v3.1 #20)', () => {
+  it('placeholder unit + display_value ABSENT: the owner composes the unitless normalised line; the card states it once (F2)', () => {
     const { container } = renderFactor({
       label: 'Market Timing Pressure',
       type: 'factor',
@@ -208,14 +210,13 @@ describe('FactorNode prior range (lane C3)', () => {
     // cap-denormalised — and, being bare 0–1, it is the owner's (Model tab)
     // line, not the card's.
     expect(ownerRange()).toBe('Range: 0.2 to 0.8')
-    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(0)
-    expect(text).not.toContain('Range:')
+    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(1)
     expect(text).not.toContain('20 scale')
     expect(text).not.toContain('80 scale')
     expect(text).not.toContain('scale')
   })
 
-  it('placeholder unit + prose display_value: prose kept; owner line unitless (no dedupe); card omits the bare range (v3.1 #20)', () => {
+  it('placeholder unit + prose display_value: prose kept; owner line unitless (no dedupe); the card states it once (F2)', () => {
     const { container } = renderFactor({
       label: 'Market Timing Pressure',
       type: 'factor',
@@ -227,7 +228,7 @@ describe('FactorNode prior range (lane C3)', () => {
     const text = container.textContent ?? ''
     expect(screen.getByText('Volatile launch window')).toBeDefined()
     expect(ownerRange()).toBe('Range: 0.2 to 0.8')
-    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(1)
     expect(text).not.toContain('scale')
   })
 
@@ -322,7 +323,7 @@ describe('FactorNode prior range (lane C3)', () => {
     expect(countOccurrences(container, 'Range: 1% to 80%')).toBe(1)
   })
 
-  it('range_min of exactly 0 still composes the Range line (0 is a real lower bound) — owner; the card omits the bare range (v3.1 #20)', () => {
+  it('range_min of exactly 0 still composes the Range line (0 is a real lower bound) — owner and card (F2)', () => {
     // Review fold (PR #320): `!prior?.range_min` truthiness dropped the whole
     // line for range_min === 0.
     const { container } = renderFactor({
@@ -334,7 +335,7 @@ describe('FactorNode prior range (lane C3)', () => {
     })
     const text = container.textContent ?? ''
     expect(ownerRange()).toBe('Range: 0 to 0.8')
-    expect(countOccurrences(container, 'Range: 0 to 0.8')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0 to 0.8')).toBe(1)
     expect(text).not.toContain('scale')
   })
 
@@ -365,10 +366,10 @@ describe('FactorNode prior range (lane C3)', () => {
     })
     const text = container.textContent ?? ''
     expect(countOccurrences(container, '0.1 to 0.5')).toBe(1)
-    // The owner keeps BOTH (no dedupe on a mismatch); the card, v3.1 #20,
-    // omits the bare normalised Range line and keeps the producer's words.
+    // The owner keeps BOTH (no dedupe on a mismatch), and so does the card
+    // (F2: a bare range of unrecorded origin is never hidden).
     expect(ownerRange()).toBe('Range: 0.2 to 0.8')
-    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(1)
     expect(text).not.toContain('scale')
   })
 
@@ -402,7 +403,7 @@ describe('FactorNode prior range (lane C3)', () => {
     expect(text).not.toContain('Range:')
   })
 
-  it('real unit WITHOUT cap: the owner falls back to the unitless normalised range (no "£0 to £1" garbage); the card omits it (v3.1 #20)', () => {
+  it('real unit WITHOUT cap: the owner falls back to the unitless normalised range (no "£0 to £1" garbage); the card states it once (F2)', () => {
     // Review fold (PR #320): with no cap the normalised 0–1 endpoints were
     // Math.round-ed to "Range: £0 to £1". A currency prefix on a normalised
     // value fakes calibration exactly like a placeholder unit would, so the
@@ -416,7 +417,7 @@ describe('FactorNode prior range (lane C3)', () => {
     })
     const text = container.textContent ?? ''
     expect(ownerRange()).toBe('Range: 0.2 to 0.8')
-    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.2 to 0.8')).toBe(1)
     expect(text).not.toContain('£0')
     expect(text).not.toContain('£1')
   })
@@ -452,7 +453,7 @@ describe('FactorNode prior range (lane C3)', () => {
     expect(countOccurrences(container, 'Range: £20,000 to £80,000')).toBe(1)
   })
 
-  it('suppressed internal descriptor unit (binary): never displayed; owner range unitless; card omits it (v3.1 #20)', () => {
+  it('suppressed internal descriptor unit (binary): never displayed; owner range unitless; the card states it once (F2)', () => {
     const { container } = renderFactor({
       label: 'Regulatory Approval',
       type: 'factor',
@@ -462,18 +463,17 @@ describe('FactorNode prior range (lane C3)', () => {
     })
     const text = container.textContent ?? ''
     expect(ownerRange()).toBe('Range: 0.1 to 0.9')
-    expect(countOccurrences(container, 'Range: 0.1 to 0.9')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.1 to 0.9')).toBe(1)
     expect(text).not.toContain('binary')
   })
 
-  it('no observedState at all (fixture wire shape): the producer\'s bare 0–1 pair is the owner\'s line, never the card\'s (v3.1 #20)', () => {
+  it('no observedState at all (fixture wire shape): the producer\'s bare 0–1 pair renders once on the card (F2)', () => {
     // Mirrors fac_market_receptivity in
     // src/components/debug/__tests__/fixtures/staging-bundles/
     // olumi-debug-50b336a6-20260510.pre-fix.json — top-level display_value,
     // no observed_state. The body value line requires observedState, so the
-    // Range line was the card's only place to surface the prior — and v3.1 #20
-    // rules a bare 0–1 pair off the card: it is stated once, by the owner (the
-    // Model tab), and the card states nothing rather than a model-scale figure.
+    // Range line is the only honest place to surface the prior. Review F2
+    // (#2085): its origin is unrecorded, so it stays on the card.
     const { container } = renderFactor({
       label: 'Market Receptivity to Feature',
       type: 'factor',
@@ -481,7 +481,7 @@ describe('FactorNode prior range (lane C3)', () => {
       prior: { range_min: 0.3, range_max: 0.8 },
       display_value: '0.3 to 0.8',
     })
-    expect(countOccurrences(container, '0.3 to 0.8')).toBe(0)
+    expect(countOccurrences(container, '0.3 to 0.8')).toBe(1)
     // The owner never repeats it (the dedupe), and states it once.
     expect(ownerRange(null)).toBe('Range: 0.3 to 0.8')
   })
@@ -557,9 +557,8 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     expect(countOccurrences(container, '18 month')).toBe(1)
     expect(text).not.toContain('Range: 0.08 to 0.28')
     expect(text).not.toContain('Range:')
-    // v3.1 #20 would omit this bare pair from the card anyway, so the card
-    // alone no longer discriminates: the OWNER must decline it too (the Model
-    // tab reads it), because of the contradiction, not the card filter.
+    // The OWNER declines it too (the Model tab reads it), because of the
+    // contradiction.
     expect(ownerRange('18 month')).toBeNull()
   })
 
@@ -599,7 +598,7 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     expect(countOccurrences(container, 'Range: 8% to 28%')).toBe(1)
   })
 
-  it('OVER-SUPPRESSION PIN 2 of 3 — a UNITLESS/NORMALISED factor still composes its range (owner); the card omits the bare pair (v3.1 #20)', () => {
+  it('OVER-SUPPRESSION PIN 2 of 3 — a UNITLESS/NORMALISED factor still composes its range (owner); the card states it once (F2)', () => {
     // The value and the range are on the SAME normalised scale, so nothing is
     // contradicted and the range is real information. This is the pin that
     // fails first if the suppression is keyed on "a value is displayed"
@@ -616,7 +615,7 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     // card (only an unconfirmed Olumi estimate on the bare scale is omitted).
     expect(text).toContain('0.5')
     expect(ownerRange('0.5')).toBe('Range: 0.08 to 0.28')
-    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
   })
 
   it('OVER-SUPPRESSION PIN 3 of 3 — a factor with a REAL CAP still calibrates', () => {
@@ -631,7 +630,7 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     expect(countOccurrences(container, 'Range: £20,000 to £80,000')).toBe(1)
   })
 
-  it('a QUALITATIVE value line establishes no contradiction: the owner still composes the range; the card omits the bare pair (v3.1 #20)', () => {
+  it('a QUALITATIVE value line establishes no contradiction: the owner still composes the range; the card states it once (F2)', () => {
     // No number in the value line, so no scale disagreement can be POSITIVELY
     // established. Anything the guard cannot judge keeps today's behaviour.
     const { container } = renderFactor({
@@ -645,7 +644,7 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     const text = container.textContent ?? ''
     expect(text).toContain('No dedicated supplier')
     expect(ownerRange()).toBe('Range: 0.08 to 0.28')
-    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
   })
 
   it('a range-shaped value line is not a single value: two numbers establish no contradiction', () => {
@@ -661,7 +660,7 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
       observedState: { value: 0.2, factor_type: 'external' },
     })
     expect(ownerRange()).toBe('Range: 0.08 to 0.28')
-    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
   })
 })
 
@@ -728,15 +727,15 @@ describe('FactorNode prior range: scale, not magnitude — the symmetry pair', (
 
   it('SYMMETRY 3 of 4 — on a normalised prior, a value above the range but ON the 0–1 scale keeps its range line', () => {
     const { container } = renderFactor(normalisedPriorFactor(0.5))
-    // Owner (Model tab) keeps it; the card omits the bare pair (v3.1 #20).
+    // Owner (Model tab) and card both keep it (F2).
     expect(ownerRange('0.5')).toBe('Range: 0.08 to 0.28')
-    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
   })
 
   it('SYMMETRY 4 of 4 — on a normalised prior, a value below the range and ON the 0–1 scale keeps its range line', () => {
     const { container } = renderFactor(normalisedPriorFactor(0.05))
     expect(ownerRange('0.05')).toBe('Range: 0.08 to 0.28')
-    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(0)
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
   })
 
   it('the ONE asymmetry left is the SCALE CEILING, and it is not a range endpoint', () => {
@@ -747,8 +746,7 @@ describe('FactorNode prior range: scale, not magnitude — the symmetry pair', (
     // 0–1, never distance from the data.
     const { container } = renderFactor(normalisedPriorFactor(2))
     expect(container.textContent ?? '').not.toContain('Range: 0.08 to 0.28')
-    // The card omits the bare pair regardless (v3.1 #20), so the ceiling is
-    // pinned on the owner, whose line the Model tab states.
+    // Pinned on the owner too, whose line the Model tab states.
     expect(ownerRange('2')).toBeNull()
   })
 

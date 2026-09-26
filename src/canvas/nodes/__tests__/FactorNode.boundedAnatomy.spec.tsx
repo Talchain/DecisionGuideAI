@@ -443,13 +443,15 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · the external pri
     if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
   })
 
-  it.each(['pre', 'post'] as const)('%s-run CONTRAST — a bare 0–1 range is NOT on the card (v3.1 #20): no line, no mark, nothing substituted', (phase) => {
+  // Review F2 (#2085): a bare 0–1 range's origin is unrecorded (the inspector's
+  // 0–1 editor writes no stamp), so it may be the person's — it stays on the
+  // card, with the `no source` mark stating the gap.
+  it.each(['pre', 'post'] as const)('%s-run — a bare 0–1 range of unrecorded origin IS on the card with its `no source` mark (F2)', (phase) => {
     seed(RANGE_ONLY, { phase })
     renderFactor(RANGE_ONLY)
     const c = card()
-    expect(within(c).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
-    expect(within(c).queryByTestId(`factor-range-source-${ID}`)).toBeNull()
-    expect(visibleText(c)).not.toContain('0.3 to 0.8')
+    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
+    expect(within(c).getByTestId(`factor-range-source-${ID}`)).toBeTruthy()
   })
 
   it('CONTRAST — Detailed keeps the (own-unit) range line on the card', () => {

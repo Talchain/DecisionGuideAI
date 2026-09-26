@@ -234,10 +234,10 @@ export const FactorNode = memo((props: NodeProps) => {
   // `shared/factorPriorRange.ts` now; this card and the reduced line ask the
   // same owner, so they cannot state different ranges for one factor.
   //
-  // ⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #20): the CARD reads the owner's card form,
-  // which omits a range stated only on the model's bare 0–1 scale ("Range: 0.3
-  // to 0.8") — "no bare internal model scale", omit, never invent. The Model
-  // tab keeps the owner's full line (see `resolveFactorPriorRangeOnCard`).
+  // ⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #20): the CARD reads the owner's card form.
+  // A bare 0–1 range ("Range: 0.2 to 0.6") is KEPT there (review F2, #2085):
+  // its origin is unrecorded and may be the person's inspector edit, so it
+  // shows with its `no source` mark (see `resolveFactorPriorRangeOnCard`).
   const priorRangeDisplay = useMemo(
     () => resolveFactorPriorRangeOnCard({
       data: props.data as Record<string, unknown> | undefined,
@@ -1452,6 +1452,22 @@ export const FactorNode = memo((props: NodeProps) => {
                 {FACTOR_NO_ANALYSIS_YET}
               </span>
             )}
+          </div>
+        )}
+        {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).
+            "Omit, never invent" licenses dropping the bare 0–1 figure — never
+            the mark saying whose number it is. The same mark, in the same
+            slot, with no figure beside it and no words added: the reader can
+            still see WHICH factor holds an assumption Olumi made for them,
+            and the mark still opens the inspector, which states the figure. */}
+        {bareModelValue && valueSourceMark !== null && (
+          <div
+            className={`${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
+            data-testid={`factor-value-mark-only-${props.id}`}
+          >
+            <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
+              {renderValueSourceMark()}
+            </span>
           </div>
         )}
         {/* Row 10, Detailed ("adds information"): the pre-run state inline. */}

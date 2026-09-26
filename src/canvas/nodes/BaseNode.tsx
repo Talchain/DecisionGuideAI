@@ -581,8 +581,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
     if (nodeType === 'factor') {
-      // One rank wording on every rung: "Driver N of M ranked in this run"
-      // (contract v3.1 pt 5, M = the ranked count), from the
+      // One rank wording on every rung: "Driver N of M analysed"
+      // (ED 5806207128, M = the analysed count), from the
       // SAME rule the card's driver line reads (`driverRankFor`): a current run,
       // or a known-changed model's last run labelled `Last run · ` (#1891's rule,
       // Paul's Ruling 3). Never-run / cannot-confirm → null.

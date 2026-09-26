@@ -278,11 +278,9 @@ describe('FactorNode — a factor with no estimate says so', () => {
     // PRECONDITION PINNED IN-TEST: this proves the suppression above is the
     // FLAG's doing and not "external factors stopped showing ranges", which
     // would be a silent capability loss on the whole external population.
-    // ⭐ v3.1 #20 (26 Sep): a genuine prior stated only on the bare 0–1 scale is
-    // no longer printed on the card, so the twin carries the factor's real unit
-    // — the range the card CAN state ("30% to 80%") — and the bare twin is
-    // pinned beside it: no range, and still no "No estimate yet" (the flag's
-    // sentence never fills the gap the scale rule leaves).
+    // The twin carries the factor's real unit ("30% to 80%"), and the bare 0–1
+    // twin is pinned beside it: review F2 (#2085) keeps a bare range of
+    // unrecorded origin on the card too, and still no "No estimate yet".
     const { container } = renderFactor({
       category: 'external',
       prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
@@ -296,7 +294,7 @@ describe('FactorNode — a factor with no estimate says so', () => {
       category: 'external',
       prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
     }).container.textContent ?? ''
-    expect(bare).not.toContain('Range:')
+    expect(bare).toContain('Range: 0.3 to 0.8')
     expect(bare).not.toMatch(NO_ESTIMATE_LINE)
   })
 

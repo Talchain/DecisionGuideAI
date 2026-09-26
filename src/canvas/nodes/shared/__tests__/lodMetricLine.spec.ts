@@ -423,7 +423,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
     ).toBe('Range: 30% to 90%')
   })
 
-  it('CONTRAST (v3.1 #20) — the same range on the bare 0–1 scale gives NO reduced line: the full card omits it too', () => {
+  it('the same range on the bare 0–1 scale keeps its reduced line: the full card keeps it too (review F2, #2085)', () => {
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
@@ -431,7 +431,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         label: 'Attrition',
         displayMetadata: NOTHING,
       }),
-    ).toBeNull()
+    ).toBe('Range: 0.3 to 0.9')
   })
 
   it('TWIN — the driver rank still outranks the range, so no post-analysis card changes', () => {

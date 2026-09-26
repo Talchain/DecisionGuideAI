@@ -99,7 +99,7 @@ const FACTORS: N[] = [
   // ⚠ 26 Sep (contract v3.1 #20): with its real unit and cap, so the card CAN
   // state the range in the reader's units ("£25,000 to £75,000"); the served
   // shape — the same range with NO unit — is `fac-range-bare`, whose bare 0–1
-  // pair the card now omits.
+  // pair the card keeps (review F2, #2085: its origin is unrecorded).
   { id: 'fac-range', type: 'factor', position: { x: 0, y: 0 }, data: {
     type: 'factor', label: 'Vendor licensing cost', category: 'external', extractionType: 'inferred', observedState: { unit: '£', cap: 100000 },
     prior: { distribution: 'uniform', range_min: 0.25, range_max: 0.75 },
@@ -242,13 +242,14 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     expect(m?.querySelector('.sr-only')?.textContent).toBe('Source not recorded')
   })
 
-  it('CONTRAST (v3.1 #20) — the same range with no unit is a bare 0–1 pair: no range line and no mark on the card, nothing substituted', () => {
+  it('the same range with no unit (a bare 0–1 pair of unrecorded origin) keeps its line AND its `no source` mark on the card (review F2, #2085)', () => {
     setState()
     const { container } = renderNode(FactorNode, 'fac-range-bare')
     const face = container.querySelector('[role="group"]')!
-    expect(face.querySelector('[data-testid="factor-prior-range-fac-range-bare"]')).toBeNull()
-    expect(face.querySelector('[data-testid="factor-range-source-fac-range-bare"]')).toBeNull()
-    expect(face.textContent ?? '').not.toContain('0.25 to 0.75')
+    const line = face.querySelector('[data-testid="factor-prior-range-fac-range-bare"]')
+    expect(line).not.toBeNull()
+    expect(line!.textContent ?? '').toContain('Range: 0.25 to 0.75')
+    expect(line!.querySelector('[data-testid="factor-range-source-fac-range-bare"]')).not.toBeNull()
   })
 })
 

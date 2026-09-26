@@ -23,6 +23,7 @@ import { COACHING_ICON_GLYPH } from '../shared/NodeCoachingIcon'
 import { RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
 import { ASSUMPTIONS_OPEN_LINE, modelHasOpenAssumptions } from '../DecisionNode'
 import { OPEN_FULL_INSPECTOR_EVENT } from '../../utils/openEdgeStrengthEditor'
+import { ESTIMATE_SUBJECT_TITLE } from '../shared/EstimateMarker'
 import { MessageCircleQuestion } from 'lucide-react'
 
 vi.mock('@xyflow/react', async () => {
@@ -141,6 +142,15 @@ const RANGE_BARE = {
   label: 'Competitive Pressure', type: 'factor', category: 'external', display_value: '0.3 to 0.8',
   prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
 }
+/**
+ * Review F2 (#2085), the reviewer's reproduction: an external factor whose
+ * range a person could have set in the inspector (bounded 0–1, `setPriorRange`
+ * writes no stamp) — no value, no `display_value`.
+ */
+const RANGE_UNRECORDED = {
+  label: 'Competitor price moves', type: 'factor', category: 'external',
+  prior: { distribution: 'uniform', range_min: 0.2, range_max: 0.6 },
+}
 /** A percent prior — own-unit range (contrast). */
 const RANGE_PCT = {
   label: 'Feature adoption', type: 'factor', category: 'external', observedState: { unit: '%' },
@@ -179,12 +189,64 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
     expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toMatch(/^0\.3/)
   })
 
-  it('an external factor whose only figure is a 0–1 range shows no "Range: 0.3 to 0.8" and no band', () => {
+  // ⛔ REVIEW F1 (#2085): the NUMBER is omitted, never its PROVENANCE. The
+  // card must still say WHICH factor holds Olumi's unconfirmed estimate — the
+  // same `est.` button, figure-less, opening the inspector. Bound by test id
+  // AND accessible name, pre-run and post-run.
+  for (const phase of ['pre', 'post'] as const) {
+    it(`F1 (${phase}-run): the bare-scale Olumi estimate keeps its \`est.\` mark on the card, with no figure`, () => {
+      seed(BARE_SCALE, { phase })
+      renderFactor(BARE_SCALE)
+      const c = card()
+      const mark = within(c).getByTestId('estimate-marker')
+      expect(mark.tagName).toBe('BUTTON')
+      expect(within(c).getByRole('button', { name: ESTIMATE_SUBJECT_TITLE.value })).toBe(mark)
+      expect(visibleText(mark)).toBe('est.')
+      expect(within(c).getByTestId(`factor-value-mark-slot-${ID}`).contains(mark)).toBe(true)
+      // the number stays omitted, and nothing is substituted for it
+      expect(visibleText(c)).not.toMatch(/\b0\.5\b/)
+      expect(within(c).queryByTestId('factor-recorded-value')).toBeNull()
+      expect(within(c).queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
+      expect(visibleText(within(c).getByTestId(`factor-value-mark-only-${ID}`))).toBe('est.')
+      const opened = vi.fn()
+      window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
+      fireEvent.click(mark)
+      window.removeEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
+      expect(opened).toHaveBeenCalledTimes(1)
+    })
+
+    it(`F1 contrast (${phase}-run): a person's bare number is never hidden — figure AND "Set by you", no figure-less row`, () => {
+      seed(USER_BARE, { phase })
+      renderFactor(USER_BARE)
+      const c = card()
+      const line = within(c).getByTestId('factor-recorded-value')
+      expect(visibleText(line)).toMatch(/^0\.3/)
+      expect(within(line).getByTestId(`factor-value-source-${ID}`).textContent).toContain('Set by you')
+      expect(within(c).queryByTestId(`factor-value-mark-only-${ID}`)).toBeNull()
+      expect(within(c).queryByTestId('estimate-marker')).toBeNull()
+    })
+  }
+
+  // ⛔ REVIEW F2 (#2085): a bare 0–1 range of UNRECORDED origin stays on the
+  // card with its `no source` mark — the inspector's editor is bounded 0–1 and
+  // `setPriorRange` writes no stamp, so the range may be the person's. The rule
+  // would omit only a range STAMPED as CEE's; no such stamp exists in the data
+  // model (`prior` records no author), so there is no stamped contrast to run.
+  it('F2: a person-settable 0–1 range (prior uniform 0.2–0.6, no value) IS shown, with `no source`', () => {
+    seed(RANGE_UNRECORDED, { phase: 'pre' })
+    renderFactor(RANGE_UNRECORDED)
+    const c = card()
+    const line = within(c).getByTestId(`factor-prior-range-${ID}`)
+    expect(visibleText(line)).toMatch(/^Range: 0\.2 to 0\.6/)
+    expect(visibleText(within(line).getByTestId(`factor-range-source-${ID}`))).toBe('no source')
+  })
+
+  it('F2: the producer\'s bare "0.3 to 0.8" range of unrecorded origin is shown too, with `no source`', () => {
     seed(RANGE_BARE, { phase: 'pre' })
     renderFactor(RANGE_BARE)
-    const c = card()
-    expect(within(c).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
-    expect(visibleText(c)).not.toMatch(/0\.3 to 0\.8/)
+    const line = within(card()).getByTestId(`factor-prior-range-${ID}`)
+    expect(visibleText(line)).toMatch(/^Range: 0\.3 to 0\.8/)
+    expect(within(line).getByTestId(`factor-range-source-${ID}`)).toBeTruthy()
   })
 
   it('contrast — an own-unit range keeps its line', () => {

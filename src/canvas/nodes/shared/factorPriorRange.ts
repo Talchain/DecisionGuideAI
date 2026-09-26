@@ -570,31 +570,27 @@ export function resolveFactorPriorRangeEnds(inputs: FactorPriorRangeInputs): rea
  * endpoints (or the producer's own string of exactly those two numbers) — a
  * range with no unit a reader can hold it against.
  *
- * The CARD omits such a line, and its band, and does not substitute anything:
- * there is no qualitative or own-unit form in the data to show instead. A range
- * the data CAN state in the reader's units — calibrated through a cap, a
- * percent, the producer's own words ("0% to 13%"), or endpoints outside 0–1 —
- * prints exactly as `resolveFactorPriorRange` prints it.
+ * ⛔ BUT THE CARD KEEPS THEM (review F2, #2085). "Omit, never invent" licenses
+ * omitting a number only where it is known NOT to be the person's — the rule
+ * `readoutIsBareModelScale` applies to values ("nobody may lose sight of a
+ * number that could be theirs"). A range's origin is unrecorded: the
+ * inspector's range editor is bounded 0–1 and `setPriorRange` writes `prior`
+ * with no stamp, so EVERY range a person sets there is exactly such a bare
+ * pair. Omitting only a range STAMPED as CEE's would be the rule — and no such
+ * stamp exists in the data model (`prior` carries `distribution`, `range_min`,
+ * `range_max`; nothing records who set them). So no bare range is omitted: the
+ * card states the owner's line, and the card's `no source` mark states the
+ * unrecorded origin honestly. `bareModelScale` stays computed on the body, so
+ * a future origin stamp has one place to join it.
  *
- * ⚠ THE OWNER'S OUTPUT IS UNCHANGED, DELIBERATELY. `resolveFactorPriorRange`
- * still returns the line, because the Model tab (`model-tab-v2/adapters.ts`,
- * A17) reads it to say "Range: 0.3 to 0.8, not measured" instead of a bare
- * "Not set" on a factor that DOES record a range — a detail surface explaining
- * the record, one action away. Card and Model tab therefore never state two
- * different ranges: the card states none, the Model tab states the owner's.
  * The card's reduced low-zoom line (`lodMetricLine.ts`) reads THIS function, so
  * a zoomed-out card never says more than the full card.
  */
 export function resolveFactorPriorRangeOnCard(inputs: FactorPriorRangeInputs): string | null {
-  const replaced = userValueReplacesPrior(inputs.data)
-  const body = resolvePriorRangeBody(inputs, !replaced)
-  if (body == null || body.bareModelScale) return null
-  return replaced ? `${USER_VALUE_REPLACES_RANGE} ${body.text}` : `Range: ${body.text}`
+  return resolveFactorPriorRange(inputs)
 }
 
-/** The band's two ends for the CARD — `null` wherever `resolveFactorPriorRangeOnCard` is. */
+/** The band's two ends for the CARD — the owner's ends (see `resolveFactorPriorRangeOnCard`). */
 export function resolveFactorPriorRangeEndsOnCard(inputs: FactorPriorRangeInputs): readonly [string, string] | null {
-  if (userValueReplacesPrior(inputs.data)) return null
-  const body = resolvePriorRangeBody(inputs, true)
-  return body == null || body.bareModelScale ? null : body.ends
+  return resolveFactorPriorRangeEnds(inputs)
 }

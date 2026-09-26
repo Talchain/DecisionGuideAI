@@ -352,16 +352,15 @@ describe('prototype · an external factor shows its range with a band, on the ca
     if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
   })
 
-  it('unitless normalised prior: NO line and NO band on the card (v3.1 #20 — no bare internal model scale)', () => {
-    // Was: the band ends are the line's own `0.3` and `0.8`. v3.1 `checks.factor`
-    // rules the bare 0–1 pair off the card (omit, never invent); the owner still
-    // composes it for the Model tab (`resolveFactorPriorRange`).
+  it('unitless normalised prior: the band ends are the line’s own `0.3` and `0.8`', () => {
+    // Review F2 (#2085): a bare 0–1 range of unrecorded origin stays on the
+    // card (it may be the person's inspector edit), with its `no source` mark.
     seed(RANGE_ONLY, { phase: 'post' })
     renderFactor(RANGE_ONLY)
     const c = card('Feature adoption')
-    expect(within(c).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
-    expect(within(c).queryByTestId(`factor-range-band-${ID}`)).toBeNull()
-    expect(visibleText(c)).not.toContain('0.3 to 0.8')
+    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
+    expect(within(c).getByTestId(`factor-range-band-low-${ID}`).textContent).toBe('0.3')
+    expect(within(c).getByTestId(`factor-range-band-high-${ID}`).textContent).toBe('0.8')
   })
 
   it('CONTRAST — the producer’s authored range prose keeps its line and gets NO band (prose is never parsed)', () => {

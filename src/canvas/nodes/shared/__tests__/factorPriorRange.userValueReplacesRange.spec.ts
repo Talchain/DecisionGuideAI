@@ -154,9 +154,9 @@ describe('the reduced (LOD) line — reads the same owner, never shows a live ra
   })
 
   it('TWIN — no value: the reduced line is the live range, in the reader\'s unit', () => {
-    // ⭐ v3.1 #20 (26 Sep, WS4): the reduced line reads the CARD's form, which
-    // omits a bare 0–1 pair — so the twin carries its unit, and the bare shape
-    // is pinned silent beside it (the owner above still states LIVE).
+    // The reduced line reads the CARD's form: the own-unit twin, and the bare
+    // shape beside it — review F2 (#2085) keeps a bare range of unrecorded
+    // origin on the card, so the reduced line states the owner's LIVE line.
     const line = resolveLodMetricLine({
       nodeType: 'factor',
       data: external({ unit: '%' }),
@@ -169,6 +169,6 @@ describe('the reduced (LOD) line — reads the same owner, never shows a live ra
       data: external(undefined),
       label: 'Market demand',
       displayMetadata: metadata,
-    })).toBeNull()
+    })).toBe(LIVE)
   })
 })

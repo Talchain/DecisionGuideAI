@@ -14,11 +14,10 @@
  * satisfy it. Every case has its no-user-value twin, which must render
  * byte-for-byte what it rendered before.
  *
- * ⭐ CONTRACT v3.1 #20 (26 Sep 2026): the card omits a range stated only on the
- * bare 0–1 scale — "Your value replaces the range 0.3 to 0.8" included. So the
- * fixture now carries the factor's real unit (`%`), where the card CAN state the
- * range in the reader's unit ("30% to 80%"), and every original rule is pinned
- * there unchanged; the bare-scale form is pinned ABSENT in its own block below.
+ * The fixture carries the factor's real unit (`%`), where the card states the
+ * range in the reader's unit ("30% to 80%"); the bare 0–1 form is pinned in its
+ * own block below. Review F2 (#2085): a bare range of unrecorded origin is
+ * never omitted from the card — it may be the person's inspector edit.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -171,25 +170,23 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
   })
 })
 
-describe('contract v3.1 #20 — the SAME factor with no unit: neither range sentence is on the card', () => {
+describe('review F2 (#2085) — the SAME factor with no unit: both range sentences stay on the card', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockViewMode = 'expert'
     mockResultsStatus = 'idle'
   })
 
-  it('user_override value on the bare scale: the value stays (a person\'s number is never hidden); "replaces the range 0.3 to 0.8" does not print', () => {
-    const { container } = renderFactor({ value: 0.55, source: 'user_override' }, null)
-    const text = container.textContent ?? ''
+  it('user_override value on the bare scale: the value stays (a person\'s number is never hidden) and "Your value replaces the range 0.3 to 0.8" prints', () => {
+    renderFactor({ value: 0.55, source: 'user_override' }, null)
     expect(screen.getByTestId('factor-recorded-value').textContent).toContain('0.55')
-    expect(screen.queryByTestId(`factor-prior-range-${FACTOR_ID}`)).toBeNull()
-    expect(text).not.toContain('0.3 to 0.8')
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe('Your value replaces the range 0.3 to 0.8')
   })
 
-  it('no observed value on the bare scale: no "Range: 0.3 to 0.8" line and nothing substituted', () => {
-    const { container } = renderFactor(undefined, null)
-    expect(screen.queryByTestId(`factor-prior-range-${FACTOR_ID}`)).toBeNull()
-    expect(container.textContent ?? '').not.toContain('0.3 to 0.8')
+  it('no observed value on the bare scale: "Range: 0.3 to 0.8" prints with its `no source` mark', () => {
+    renderFactor(undefined, null)
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent)
+      .toBe(`Range: 0.3 to 0.8 ${VALUE_SOURCE_MARK_TOKEN.unknown}${VALUE_SOURCE_MARK_LABEL.unknown}`)
   })
 })
 
