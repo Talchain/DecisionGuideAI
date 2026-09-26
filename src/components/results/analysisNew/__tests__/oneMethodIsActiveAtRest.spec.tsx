@@ -128,6 +128,13 @@ describe('one method is active at rest — when the run names one', () => {
     expect(screen.getByTestId(`${STRIP}-method-consider_opposite-mark`)).toBeInTheDocument()
   })
 
+  it('the title\'s ⓘ names a METHOD only when the card shows one; CONTRAST: an unmapped finding asks "Why this question?"', () => {
+    drawBody(genuineDecision())
+    expect(screen.getByTestId(CARD), 'PRECONDITION: no method named').not.toHaveAttribute('data-method-id')
+    expect(screen.getByRole('button', { name: 'Why this question?' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
+  })
+
   it('the tab\'s "Challenge the thinking" title carries the ⓘ', () => {
     drawBody(flipDecision())
     expect(screen.getByRole('heading', { name: 'Challenge the thinking' })).toBe(screen.getByTestId('analysis-new-zone-also'))

@@ -326,7 +326,10 @@ export function ChallengeCard({
       {shown ? (
         <PanelIconButton
           Icon={Info}
-          label={ZONE.whyMethodHere}
+          /* Names a METHOD only when the card shows one (#2066 review
+             note): a finding that names no technique has no method to
+             explain, and its basis panel has no protocol line. */
+          label={shown.method ? ZONE.whyMethodHere : ZONE.whyThis}
           onClick={toggleBasis}
           expanded={basisOpen}
           testId={`${testId}-why-method`}
