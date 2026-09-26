@@ -6,8 +6,8 @@
  * Audit B2 measured the live question as the fold toggle for the census: one
  * press on the reader's own question hid the four rows the prototype always
  * shows. B3: each mark's accessible name said "Show X on the canvas", but the
- * press opens the review tool or the detail — the prototype names it
- * "Inspect X", which is what happens.
+ * press opens the review tool or the detail as well as focusing the canvas —
+ * the prototype names it "Inspect X", which covers the whole press.
  *
  * Bound to the mount `AnalysisNewTabBody` ships (`openAtRest`); a bare mount
  * keeps its fold, pinned as the contrast so the static header cannot leak to
@@ -86,7 +86,7 @@ describe('the Reasoning tab’s question is static, as in the prototype', () => 
     renderTab()
     const mark = screen.getAllByTestId(`${T}-mark`).find((m) => m.getAttribute('data-node-id') === 'r1')!
     expect(mark).toHaveAccessibleName('Inspect Churn spike')
-    expect(screen.queryByRole('button', { name: /on the canvas/ }), 'no mark promises a canvas move it does not make').toBeNull()
+    expect(screen.queryByRole('button', { name: /on the canvas/ }), 'the half-name that left out the detail is gone').toBeNull()
   })
 
   it('CONTRAST: a bare mount (no `openAtRest`) keeps its fold', () => {

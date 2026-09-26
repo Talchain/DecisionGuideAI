@@ -94,12 +94,10 @@ const renderPanel = (isPreRun: boolean) =>
  * assumed.
  */
 const openStrip = () => {
-  const toggle = screen.getByTestId('analysis-new-model-strip-toggle')
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(screen.getByTestId('analysis-new-model-strip-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  )
+  // ⭐ Design B2: the Reasoning tab's strip is STATIC — no toggle, and the
+  // region is always mounted. Asserted, not assumed.
+  expect(screen.queryByTestId('analysis-new-model-strip-toggle')).toBeNull()
+  expect(screen.getByTestId('analysis-new-model-strip-region')).toBeInTheDocument()
 }
 
 const hintText = () => screen.queryByTestId('analysis-new-model-strip-hint')?.textContent ?? null
@@ -145,10 +143,7 @@ describe('before a run — the strip offers only what it can deliver', () => {
     renderPanel(true)
     // ⚠ The pre-run half pins its own precondition: open by default is the
     // behaviour these assertions rely on, and it is a real rule, not a given.
-    expect(screen.getByTestId('analysis-new-model-strip-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    )
+    expect(screen.getByTestId('analysis-new-model-strip-region')).toBeInTheDocument()
     // CONTRAST: the strip is drawing marks, so its text is not an empty tree.
     expect(screen.queryAllByTestId('analysis-new-model-strip-mark').length).toBeGreaterThan(0)
     expect(hintText()).toBeNull()

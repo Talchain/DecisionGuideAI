@@ -256,7 +256,10 @@ describe('⭐ the strip carries a worklist, in the product’s own count', () =>
 
   it('V2: a host that asks for openAtRest gets the census open after a run; a bare mount stays closed', () => {
     render(<ModelStrip isPreRun={false} openAtRest />)
-    expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'true')
+    // Design B2: with openAtRest the header is static, so the census is open
+    // and there is no toggle to close it.
+    expect(screen.queryByTestId(`${TID}-toggle`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-region`)).toBeInTheDocument()
     cleanup()
     render(<ModelStrip isPreRun={false} />)
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'false')

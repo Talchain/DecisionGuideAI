@@ -276,7 +276,7 @@ describe('⭐ three routes in, and the canvas route is unchanged', () => {
     renderOpen()
     // CONTRAST: the region is open and the marks are drawn.
     expect(mark('r1')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Migration delay on the canvas' })).toBe(
+    expect(screen.getByRole('button', { name: 'Inspect Migration delay' })).toBe(
       mark('r1'),
     )
     expect(screen.queryByTestId(`${TID}-hint`)).toBeNull()

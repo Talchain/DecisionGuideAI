@@ -87,8 +87,8 @@ const renderPanel = (data: ResultsSectionDataReturn) => {
 
 /** Pick the edge's source node BY ID, never by position. */
 const pickSource = () => {
-  const toggle = screen.getByTestId(`${STRIP}-toggle`)
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  // Design B2: the tab's strip is static and its region always mounted.
+  expect(screen.getByTestId(`${STRIP}-region`)).toBeInTheDocument()
   const mark = screen.getAllByTestId(`${STRIP}-mark`).find((m) => m.getAttribute('data-node-id') === FROM)
   expect(mark, `no mark for ${FROM}; every assertion after this would be vacuous`).toBeTruthy()
   fireEvent.click(mark as HTMLElement)

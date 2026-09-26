@@ -1494,10 +1494,11 @@ export function ModelStrip({
                         title={node.label || undefined}
                       >
                         <NodeMark kind={row.kind} />
-                        {/* Named for what the press does (design audit B3,
-                            prototype `aria-label="Inspect …"`): it opens the
-                            review tool or the detail, and pointing rings the
-                            node — it never moves the canvas. */}
+                        {/* Named for the WHOLE press (design audit B3,
+                            prototype `aria-label="Inspect …"`): `pickMark`
+                            opens the review tool or the detail AND brings the
+                            node into view on the canvas. "Show … on the
+                            canvas" named only the second half. */}
                         <span className="sr-only">
                           {node.label ? `Inspect ${node.label}` : `Inspect this ${row.kind}`}
                         </span>
