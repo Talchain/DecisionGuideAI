@@ -79,7 +79,9 @@ describe('captureDisplayState — canonical analysis display fields', () => {
   it('complete: hasReport && !graphEditedSinceLastRun', async () => {
     mockState = makeState({
       ceeAnalysisReady: { status: 'ready' },
-      results: { status: 'complete', report: { option_comparison: [] } },
+      // A RENDERABLE result: the screen selector (`composeAnalysisState`, which this export now reads)
+      // calls a report with no outcome `ran_without_result`, never `complete`.
+      results: { status: 'complete', report: { option_comparison: [{ option_id: 'opt_a', outcome: { mean: 0.5 } }] } },
       graphEditedSinceLastRun: false,
     })
     const captureDisplayState = await importCapture()
@@ -154,10 +156,24 @@ describe('captureDisplayState — canonical analysis display fields', () => {
     expect(result.analysis_display_headline).toBe('Set up your model')
   })
 
-  it('legacy fields stay populated for backwards compatibility', async () => {
+  it('a report with NO outcome exports as the screen shows it: ran_without_result, never complete', async () => {
     mockState = makeState({
       ceeAnalysisReady: { status: 'ready' },
       results: { status: 'complete', report: { option_comparison: [] } },
+      graphEditedSinceLastRun: false,
+    })
+    const captureDisplayState = await importCapture()
+    const result = await captureDisplayState()
+    expect(result.analysis_display_state).toBe('ran_without_result')
+    expect(result.analysis_display_state).not.toBe('complete')
+  })
+
+  it('legacy fields stay populated for backwards compatibility', async () => {
+    mockState = makeState({
+      ceeAnalysisReady: { status: 'ready' },
+      // A RENDERABLE result: the screen selector (`composeAnalysisState`, which this export now reads)
+      // calls a report with no outcome `ran_without_result`, never `complete`.
+      results: { status: 'complete', report: { option_comparison: [{ option_id: 'opt_a', outcome: { mean: 0.5 } }] } },
     })
     const captureDisplayState = await importCapture()
     const result = await captureDisplayState()
