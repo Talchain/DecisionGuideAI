@@ -1427,6 +1427,7 @@ export function AnalysisNewTabBody({
       onRecord={openDecisionRecord}
       onAsk={openAskOlumi}
       qualifier={buildCommitmentQualifier(vm, { runProvisional: vm.status.runProvisional })}
+      status={renderGlance('status')}
     >
         <OptionsComparison
           options={vm.optionsComparison}
@@ -2659,8 +2660,11 @@ export function AnalysisNewTabBody({
             change exists to remove. Sized and coloured as `panelMeta`, the
             quietest of the panel's three sizes. */}
         {/* V2: no separate zone label here — the commitment block below carries
-            the zone's heading ("Move towards commitment") with its own acts. */}
-        {renderGlance('status')}
+            the zone's heading ("Move towards commitment") with its own acts.
+            ⭐ V2 `.stale` (26 Sep): the glance's STATUS half now renders INSIDE
+            that block, after its synthesis and before the chart (the
+            `status` prop on `answerBlock`'s CommitmentSummary) — still before
+            any figure, as the prototype places it. */}
         {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
             reachable on this tab for the first time. `robustness_caveat` rides
             `results.report.decision_brief`, which the browser already holds; it
@@ -3017,8 +3021,7 @@ export function AnalysisNewTabBody({
             control) behind an extra text button. */}
         <AboutThisAnalysis
           vm={vm}
-          nSamples={nSamples}
-          seedUsed={seedUsed}
+          reviewTopics={{ interventions: vm.strengthen.interventions, excludeId: glancePrimary?.id ?? null }}
           outcomeFormat={{
             unit: resultsSectionData.recommendation.outcomeUnit,
             symbol: resultsSectionData.recommendation.outcomeUnitSymbol,

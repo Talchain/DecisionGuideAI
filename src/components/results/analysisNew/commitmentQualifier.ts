@@ -61,6 +61,13 @@ export const COMMITMENT_QUALIFIER_COPY = {
   automaticFirstPass: 'automatic first pass',
   /** The toggle beside the line that reveals `detail`, one click away. */
   detailToggle: { show: 'Details', hide: 'Hide details' },
+  /**
+   * ⭐ V2 `commitHTML()`: on a stale run the qualifier says the comparison is
+   * OLD before it says anything else ("Old comparison; your edit has not been
+   * tested."). Worded as the MODEL having changed, not "your edit": a stale
+   * `changed` run may have been changed by Olumi, and this line cannot tell.
+   */
+  oldComparison: 'Old comparison · the model has changed since it ran',
 } as const
 
 /** Facts from outside the view model that license a clause. */
@@ -126,6 +133,19 @@ export function buildCommitmentQualifier(
   if (limitations > 0) {
     if (lineClauses.length === 0) lineClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
     else detailClauses.push(COMMITMENT_QUALIFIER_COPY.caveats(limitations))
+  }
+
+  // ⭐ STALE FIRST: a comparison the model has moved past is old before it is
+  // provisional. The provisional line is not dropped — it moves behind
+  // "Details", one click away, like every other fact this line sheds.
+  if (vm.status.isStale && vm.status.staleKind === 'changed') {
+    const provisionalLine =
+      lineClauses.length > 0 ? [COMMITMENT_QUALIFIER_COPY.lead, ...lineClauses].join(' · ') : null
+    const staleDetail = [provisionalLine, ...detailClauses].filter((c): c is string => c !== null)
+    return {
+      text: COMMITMENT_QUALIFIER_COPY.oldComparison,
+      detail: staleDetail.length > 0 ? staleDetail.join(' · ') : null,
+    }
   }
 
   const detail = detailClauses.length > 0 ? detailClauses.join(' · ') : null
