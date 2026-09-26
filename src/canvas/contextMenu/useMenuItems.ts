@@ -8,7 +8,7 @@
 import { useMemo } from 'react'
 import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
-  RotateCcw, Pencil, Plus, Flag, Scissors, CopyPlus,
+  Pencil, Plus, Flag, Scissors, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
   Undo2, Redo2, LayoutGrid, PanelRight, MousePointer2, Hand,
 } from 'lucide-react'
@@ -44,7 +44,8 @@ import {
   duplicateAction,
   setValueBestCase,
   setValueWorstCase,
-  setValueReset,
+  resolveRangeBound,
+  type FactorValueWriter,
   CHALLENGE_KINDS,
   buildChallengeTooltip,
 } from './actions'
@@ -69,16 +70,6 @@ const NODE_TYPE_ITEMS: { type: NodeType; label: string; glyph?: string; icon?: C
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getNodeRange(node: any): { min: number; max: number } | null {
-  const os = node?.data?.observedState
-  if (os?.range_min != null && os?.range_max != null) return { min: os.range_min, max: os.range_max }
-  const prior = node?.data?.prior
-  if (prior?.range_min != null && prior?.range_max != null) return { min: prior.range_min, max: prior.range_max }
-  const ss = node?.data?.state_space
-  if (ss?.range?.min != null && ss?.range?.max != null) return { min: ss.range.min, max: ss.range.max }
-  return null
-}
 
 const DIV: MenuEntry = { type: 'divider' }
 
@@ -132,8 +123,16 @@ const DIV: MenuEntry = { type: 'divider' }
  *     by bare `setState` rather than through a store action
  *     (`contextMenu/actions.ts`), so capturing at the chokepoint would cover
  *     neither branch. It needs both writers fenced, which is its own change.
- *   · `set-value`, `mark-assumption`, `reverse-edge`, `cut`, `undo`, `redo` —
- *     unchanged, carrierless.
+ *   · `mark-assumption`, `reverse-edge`, `cut`, `undo`, `redo` — unchanged,
+ *     carrierless.
+ *   · `set-value` — ⚠ NO LONGER CARRIERLESS (26 Sep 2026), AND STILL IN THE
+ *     SET, which is a stated hold, not an oversight. Its rows now propose
+ *     through the card's writer (`useModelEditAuthority.proposeFactorValue` →
+ *     `factor_value_edit`, `CANONICAL_EDIT_AUTHORITY.modelFactorValue`), and
+ *     nothing writes locally. Showing it on served menus is its own change: it
+ *     would move to a per-carrier set judged by `modelFactorValue`, the way
+ *     `add-node` moved on 13 Sep. Until then it stays withheld, so no reader
+ *     should conclude it still needs a carrier designed.
  */
 /**
  * ⛔⛔ KINDS THE PRODUCT READS WITH `.find()` — A SECOND ONE PERSISTS AND IS
@@ -463,6 +462,13 @@ export interface UseMenuItemsOptions {
   /** Callback to open the Set value custom popover */
   onOpenCustomValue?: (nodeId: string) => void
   /**
+   * ⭐ THE CARD'S WRITER, keyed by the host to this menu's node —
+   * `useModelEditAuthority(nodeId).proposeFactorValue`. Set value proposes
+   * through it and nothing else. Absent (a harness that supplies none), the
+   * value rows are withheld rather than falling back to a local write.
+   */
+  factorValueWriter?: FactorValueWriter
+  /**
    * The mode the canvas is ACTUALLY in — `effectiveMode`, not the raw stored
    * value. The toolbar learned this the hard way (see the A-1 note at its
    * `onSelectClick`): a control that displays one value and toggles off
@@ -479,6 +485,7 @@ export function useMenuItems({
   screenToFlowPosition,
   onClose,
   onOpenCustomValue,
+  factorValueWriter,
   interactionMode,
   onSetInteractionMode,
 }: UseMenuItemsOptions): MenuEntry[] {
@@ -492,7 +499,7 @@ export function useMenuItems({
     }
     if (target.kind === 'node') {
       return applyContextMenuMutationAuthority(
-        buildNodeMenu(target, showToast, wrap, onOpenCustomValue),
+        buildNodeMenu(target, showToast, wrap, onOpenCustomValue, factorValueWriter),
       )
     }
     if (target.kind === 'edge') {
@@ -502,7 +509,7 @@ export function useMenuItems({
       return applyContextMenuMutationAuthority(buildMultiMenu(target, showToast, wrap))
     }
     return []
-  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue])
+  }, [target, showToast, screenToFlowPosition, onClose, onOpenCustomValue, factorValueWriter])
 }
 
 // ---------------------------------------------------------------------------
@@ -670,6 +677,7 @@ function buildNodeMenu(
   showToast: ShowToastFn,
   wrap: (action: () => void | Promise<void>) => () => void,
   onOpenCustomValue?: (nodeId: string) => void,
+  factorValueWriter?: FactorValueWriter,
 ): MenuEntry[] {
   const items: MenuEntry[] = []
   const kind = target.nodeType as string
@@ -762,47 +770,53 @@ function buildNodeMenu(
     })
   }
 
-  // --- Set value submenu (factor, risk, outcome only) ---
-  if (isFull) {
-    const range = getNodeRange(node)
-    const hasRange = range !== null
-    const hasBaseline = node.data?._baseline_snapshot != null
+  // --- Set value submenu (factors only) ---
+  //
+  // ⭐⭐ ONE WRITER — THE CARD'S (26 Sep 2026). Every row below proposes through
+  // `factorValueWriter`, the host's `useModelEditAuthority(nodeId)
+  // .proposeFactorValue` → `factor_value_edit`. Until then these rows wrote the
+  // local store only (`commitValidatedMutation` → `updateNode`), so a value set
+  // here looked set on the card and was not in CEE's model.
+  //
+  // ⚠ FACTORS ONLY, NOT `isFull`. `factor_value_edit` is a FACTOR carrier: the
+  // Model tab offers it on `nodeKind(node) === 'factor'` and nothing else
+  // (`ModelTabV2Panel` `editConnectedIds`). A risk's or an outcome's number
+  // routed through it would claim a carrier nobody has measured for that kind.
+  //
+  // ⛔ "Reset to observed" IS GONE — see `actions.ts` above `setValueCustom`.
+  // Its only restore target was the UI-only `_baseline_snapshot`.
+  if (kind === 'factor') {
+    const best = resolveRangeBound(node, 'best')
+    const worst = resolveRangeBound(node, 'worst')
+    const writerReason = factorValueWriter ? undefined : 'not available here'
 
     const setValueItems: MenuEntry[] = [
       {
         id: 'set-value-best',
         label: 'Best case',
         icon: ArrowUpToLine,
-        tooltip: "Set to the upper bound of this factor's range",
-        enabled: hasRange,
-        disabledReason: hasRange ? undefined : 'Set a range first',
-        action: wrap(() => setValueBestCase(target.nodeId, showToast)),
+        tooltip: best.ok ? "Set to the upper bound of this factor's range" : best.sentence,
+        enabled: best.ok && !writerReason,
+        disabledReason: best.ok ? writerReason : best.reason,
+        action: wrap(() => { setValueBestCase(target.nodeId, factorValueWriter, showToast) }),
       },
       {
         id: 'set-value-worst',
         label: 'Worst case',
         icon: ArrowDownToLine,
-        tooltip: "Set to the lower bound of this factor's range",
-        enabled: hasRange,
-        disabledReason: hasRange ? undefined : 'Set a range first',
-        action: wrap(() => setValueWorstCase(target.nodeId, showToast)),
+        tooltip: worst.ok ? "Set to the lower bound of this factor's range" : worst.sentence,
+        enabled: worst.ok && !writerReason,
+        disabledReason: worst.ok ? writerReason : worst.reason,
+        action: wrap(() => { setValueWorstCase(target.nodeId, factorValueWriter, showToast) }),
       },
       DIV,
-      {
-        id: 'set-value-reset',
-        label: 'Reset to observed',
-        icon: RotateCcw,
-        tooltip: 'Restore the original observed value',
-        enabled: hasBaseline,
-        disabledReason: hasBaseline ? undefined : 'No baseline to restore',
-        action: wrap(() => setValueReset(target.nodeId, showToast)),
-      },
       {
         id: 'set-value-custom',
         label: 'Custom\u2026',
         icon: Pencil,
         tooltip: 'Enter a specific value',
-        enabled: true,
+        enabled: !writerReason,
+        disabledReason: writerReason,
         action: () => { onOpenCustomValue?.(target.nodeId) },
       },
     ]
@@ -1118,4 +1132,4 @@ function buildMultiMenu(
 }
 
 // Re-export for testing
-export { NODE_TYPE_ITEMS, FULL_MENU_KINDS, ORG_KINDS, getNodeRange }
+export { NODE_TYPE_ITEMS, FULL_MENU_KINDS, ORG_KINDS }

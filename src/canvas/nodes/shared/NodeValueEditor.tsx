@@ -85,8 +85,9 @@ import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
 import { admitNumericField } from '../../ui/inspector-v2/shared/numericFieldAdmission'
 import {
-  didValueCommitRevert,
+  valueCommitSettlementWord,
   VALUE_COMMIT_SETTLEMENT_COPY,
+  VALUE_NOT_ENCODABLE_COPY,
   type ValueCommitSettlementWord,
 } from '../../conversation/valueCommitSettlement'
 import type { SystemEventSendSettlement } from '../../conversation/settleSystemEventSend'
@@ -170,12 +171,12 @@ export function NodeValueEditor({
     const committedTo = admission.value
     const onSendSettled = (s: SystemEventSendSettlement) => {
       if (!mountedRef.current || seq !== commitSeqRef.current) return
-      if (s === 'refused') return setSettlement('not_applied')
-      if (s === 'unverified') return setSettlement('unconfirmed')
-      if (s === 'blocked') return setSettlement('local_only')
-      if (s === 'queued') return setSettlement(null)
-      const now = readCommittedValue ? readCommittedValue() : valueRef.current
-      setSettlement(didValueCommitRevert(beforeCommit, committedTo, now) ? 'not_applied' : null)
+      // The mapping is shared with the canvas context menu's Set value, which
+      // proposes through the same writer — one reading of a settlement, not two.
+      setSettlement(valueCommitSettlementWord(
+        s, beforeCommit, committedTo,
+        () => (readCommittedValue ? readCommittedValue() : valueRef.current),
+      ))
     }
     const outcome = onCommit(committedTo, { onSendSettled })
     if (outcome === 'dispatched') {
@@ -188,8 +189,8 @@ export function NodeValueEditor({
     // ⛔ STAY OPEN. See the header: a refusal must not read as a save.
     setRefusal(
       outcome === 'not_encodable'
-        ? 'This value cannot be sent to the model yet.'
-        : 'Saved on this device only — not sent to the model yet.',
+        ? VALUE_NOT_ENCODABLE_COPY
+        : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
     )
   }, [draft, min, max, value, onCommit, readCommittedValue])
 

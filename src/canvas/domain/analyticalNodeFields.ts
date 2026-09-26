@@ -246,7 +246,7 @@ export const NODE_FIELD_REGISTRY: readonly AnalyticalFieldSpec[] = [
   {
     field: '_baseline_snapshot',
     purposes: ['ephemeral'],
-    note: 'Transient session state (labelled as such at store.ts saveScenario / contextMenu/actions.ts): the pre-modification observed value captured by the Set-value best/worst-case actions so "reset to baseline" can restore it. Cleared on scenario save. Never written in isolation — ensureBaselineSnapshot always co-writes observedState (a persisted field) in the same action, so denylisting it changes no save-trigger; it is EPHEMERAL to document intent and stop a future isolated write from falsely dirtying the autosave. Not analysis-affecting (bypasses PLoT). Excluded from computeGraphHash.',
+    note: 'LEGACY transient session state — NO WRITER REMAINS (26 Sep 2026). It held the pre-modification observed value the context menu\'s Set value captured so "Reset to observed" could restore it; that row and its writer (`ensureBaselineSnapshot`) were removed when Set value moved onto the card\'s typed writer (`factor_value_edit`), because the snapshot was not a truthful restore target. The entry STAYS because data saved before then can still carry the key: `saveScenario` persists the graph BEFORE its cleansing write strips it, so imported/restored nodes may arrive with it. Keeping it EPHEMERAL keeps such a key out of the save-trigger and the hash, and the wire strip lists (`buildRegistrationGraph`, the PLoT v2 adapter) keep it off the wire. Not analysis-affecting. Excluded from computeGraphHash.',
   },
 ] as const
 

@@ -1,8 +1,10 @@
 /**
  * Context menu action implementations.
  *
- * All graph mutation actions go through commitValidatedMutation (Hard rule 2).
- * UI-only state (flagged_as_assumption, _baseline_snapshot) bypasses PLoT (Hard rule 3).
+ * All graph mutation actions go through commitValidatedMutation (Hard rule 2) —
+ * except Set value, which proposes through the card's typed factor-value writer
+ * (`FactorValueWriter` → `factor_value_edit`) and writes nothing itself.
+ * UI-only state (flagged_as_assumption) bypasses PLoT (Hard rule 3).
  * Ask AI lands an editable draft via `requestAsk` (askSemantic.ts) — it never sends.
  */
 
@@ -22,6 +24,14 @@ import {
   limitExceededMessage,
 } from '../validation/graphGuardrails'
 import type { PatchOperation } from '../conversation/types'
+import type { ModelEditAuthorityLive, FactorValueProposalOutcome } from '../hooks/useModelEditAuthority'
+import { modelScaleValueIsTheTypedScale, resolveValueInputSeed } from '../conversation/factorValueEdit'
+import {
+  valueCommitSettlementWord,
+  VALUE_COMMIT_SETTLEMENT_COPY,
+  VALUE_NOT_ENCODABLE_COPY,
+  type ValueCommitSettlementWord,
+} from '../conversation/valueCommitSettlement'
 import type { ContextTarget, NodeTarget, EdgeTarget, MultiTarget } from './types'
 import type { NodeType } from '../domain/nodes'
 
@@ -566,140 +576,212 @@ export async function insertFactorBetweenAction(
 }
 
 // ---------------------------------------------------------------------------
-// Set value
+// Set value — through the card's writer, never a second one
 // ---------------------------------------------------------------------------
 
-function getNodeRange(node: any): { min: number; max: number } | null {
-  const os = node.data?.observedState
+/**
+ * ⭐⭐ THE WRITER THE MENU PROPOSES THROUGH IS THE CARD'S OWN.
+ *
+ * Until 26 Sep 2026 these actions wrote `commitValidatedMutation(ops, () =>
+ * store.updateNode(...))` — the LOCAL store only — and stashed a UI-only
+ * `_baseline_snapshot` beside the value. The card's inline editor
+ * (`FactorNode` → `NodeValueEditor`) and the Model tab write the same number
+ * through `useModelEditAuthority(nodeId).proposeFactorValue` →
+ * `factor_value_edit`: provenance, CEE's applied receipt, the optimistic revert
+ * and the edit-delivery hold. So a menu value looked set on the card and was
+ * not in CEE's model. There is now ONE writer: the host (`CanvasContextMenu`)
+ * keys that authority to the menu's node and hands it in here. Nothing in this
+ * section writes the store.
+ *
+ * `nodeId` TRAVELS WITH THE FUNCTION because the hook is node-keyed and these
+ * actions are addressed by id. A writer keyed to a different node fails CLOSED
+ * — the card's own "cannot be sent" refusal — instead of writing the wrong
+ * factor; the same discipline `proposeEdgeStrength` applies to edges.
+ */
+export interface FactorValueWriter {
+  /** The node `useModelEditAuthority` was keyed to. */
+  nodeId: string
+  propose: ModelEditAuthorityLive['proposeFactorValue']
+}
+
+/** How a menu value commit ended. `unchanged` = the number is already there. */
+export type MenuValueCommitOutcome = FactorValueProposalOutcome | 'unchanged'
+
+export function getNodeRange(node: any): { min: number; max: number } | null {
+  const os = node?.data?.observedState
   if (os?.range_min != null && os?.range_max != null) {
     return { min: os.range_min, max: os.range_max }
   }
-  const prior = node.data?.prior
+  const prior = node?.data?.prior
   if (prior?.range_min != null && prior?.range_max != null) {
     return { min: prior.range_min, max: prior.range_max }
   }
-  const ss = node.data?.state_space
+  const ss = node?.data?.state_space
   if (ss?.range?.min != null && ss?.range?.max != null) {
     return { min: ss.range.min, max: ss.range.max }
   }
   return null
 }
 
-function ensureBaselineSnapshot(nodeId: string): void {
-  const store = useCanvasStore.getState()
-  const node = store.nodes.find((n) => n.id === nodeId)
-  if (!node) return
-  // Only capture on first modification (do not overwrite)
-  if (node.data?._baseline_snapshot != null) return
-  const currentValue = node.data?.observedState?.value
-  if (currentValue != null) {
-    store.updateNode(nodeId, { data: { ...node.data, _baseline_snapshot: currentValue } })
+/** The short row reason and the sentence the action says when it refuses. */
+export interface RangeBoundRefusal {
+  ok: false
+  reason: string
+  sentence: string
+}
+export type RangeBoundResolution = { ok: true; value: number } | RangeBoundRefusal
+
+const NO_RANGE: RangeBoundRefusal = {
+  ok: false,
+  reason: 'Set a range first',
+  sentence: 'No range defined — set a range first',
+}
+
+/**
+ * ⚠ THE BOUND IS MODEL SCALE AND THE WRITER READS THE FIELD'S SCALE.
+ * `prior.range_min/max` are normalised (`nodes/shared/factorPriorRange.ts`), and
+ * the pre-26-Sep action wrote them straight into `observedState.value`, which is
+ * model scale. `proposeFactorValue` reads its number as the card's field shows
+ * it (`resolveValueInputSeed`) — on a capped £ factor, £ — so a 0.5 bound
+ * would land as £0.50, the P0 `FactorNode.inlineEditorSeedsTheCommitScale`
+ * records. Converting (`bound × cap`) would be a second scale authority, so the
+ * act is withheld where the two scales differ: omit, never invent.
+ */
+const RANGE_NOT_IN_FIELD_SCALE: RangeBoundRefusal = {
+  ok: false,
+  reason: "range isn't in this factor's units",
+  sentence: "This factor's range isn't stated in its own units, so it can't be applied as a value here — use Custom… to enter one.",
+}
+
+/**
+ * The number Best / Worst case would propose, or why the act is withheld.
+ *
+ * ⭐ ONE DERIVATION, READ BY BOTH the menu row (`enabled` + `disabledReason`)
+ * and the action (value or refusal), so a row can never offer what its action
+ * refuses. The range is resolved exactly as before (`getNodeRange`); what is
+ * new is the scale gate, `modelScaleValueIsTheTypedScale`.
+ */
+export function resolveRangeBound(node: any, which: 'best' | 'worst'): RangeBoundResolution {
+  const range = getNodeRange(node)
+  if (!range) return NO_RANGE
+  if (!modelScaleValueIsTheTypedScale(node?.data)) return RANGE_NOT_IN_FIELD_SCALE
+  return { ok: true, value: which === 'best' ? range.max : range.min }
+}
+
+/** A settlement word's role decides the toast's weight: an alert warns. */
+function toastTypeFor(word: ValueCommitSettlementWord): 'warning' | 'info' {
+  return VALUE_COMMIT_SETTLEMENT_COPY[word].role === 'alert' ? 'warning' : 'info'
+}
+
+/** The number the card's field shows for this node — the writer's scale. */
+function fieldSeed(nodeId: string): number | null {
+  const node = useCanvasStore.getState().nodes.find((n) => n.id === nodeId)
+  return resolveValueInputSeed(node?.data).seed ?? null
+}
+
+/**
+ * Propose `typedValue` through the card's writer and say what the card says.
+ *
+ * Mirrors `NodeValueEditor.commit` outcome for outcome: an unchanged number is
+ * a no-op, not a dispatch; `not_encodable` and `local_only` are refusals said
+ * where the user acted; a dispatch settles on the send itself through the
+ * shared `valueCommitSettlementWord`. The menu has closed by the time a send
+ * settles, so the settlement is said as a toast. `'saving'` is never produced
+ * by a settlement, so there is no "in flight" toast.
+ *
+ * `announceRefusal: false` is for a caller that shows the synchronous refusal
+ * itself (the Custom popover stays open with it, as the card's field does).
+ */
+function proposeFromMenu(
+  nodeId: string,
+  typedValue: number,
+  writer: FactorValueWriter | undefined,
+  showToast: ShowToastFn,
+  announceRefusal: boolean,
+): MenuValueCommitOutcome {
+  const refuse = (outcome: 'not_encodable' | 'local_only'): MenuValueCommitOutcome => {
+    if (announceRefusal) {
+      showToast(
+        outcome === 'not_encodable' ? VALUE_NOT_ENCODABLE_COPY : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
+        outcome === 'not_encodable' ? 'warning' : 'info',
+      )
+    }
+    return outcome
   }
+  if (!writer || writer.nodeId !== nodeId) return refuse('not_encodable')
+
+  const before = fieldSeed(nodeId)
+  if (before !== null && before === typedValue) return 'unchanged'
+
+  const outcome = writer.propose(typedValue, {
+    onSendSettled: (settlement) => {
+      const word = valueCommitSettlementWord(settlement, before, typedValue, () => fieldSeed(nodeId))
+      if (word !== null) showToast(VALUE_COMMIT_SETTLEMENT_COPY[word].message, toastTypeFor(word))
+    },
+  })
+  return outcome === 'dispatched' ? outcome : refuse(outcome)
 }
 
-export async function setValueBestCase(
+function setValueToRangeBound(
   nodeId: string,
+  which: 'best' | 'worst',
+  writer: FactorValueWriter | undefined,
   showToast: ShowToastFn,
-): Promise<void> {
-  const store = useCanvasStore.getState()
-  const node = store.nodes.find((n) => n.id === nodeId)
-  if (!node) return
-  const range = getNodeRange(node)
-  if (!range) { showToast('No range defined — set a range first', 'info'); return }
-
-  ensureBaselineSnapshot(nodeId)
-
-  const ops: PatchOperation[] = [{
-    op: 'update_node',
-    target_id: nodeId,
-    data: { observed_state: { ...node.data?.observedState, value: range.max } },
-  }]
-  await commitValidatedMutation(
-    ops,
-    () => store.updateNode(nodeId, {
-      data: { ...node.data, observedState: { ...node.data?.observedState, value: range.max } },
-    }),
-    showToast,
-  )
+): MenuValueCommitOutcome {
+  const node = useCanvasStore.getState().nodes.find((n) => n.id === nodeId)
+  if (!node) return 'not_encodable'
+  const bound = resolveRangeBound(node, which)
+  if (!bound.ok) {
+    showToast(bound.sentence, 'info')
+    return 'not_encodable'
+  }
+  return proposeFromMenu(nodeId, bound.value, writer, showToast, true)
 }
 
-export async function setValueWorstCase(
+export function setValueBestCase(
   nodeId: string,
+  writer: FactorValueWriter | undefined,
   showToast: ShowToastFn,
-): Promise<void> {
-  const store = useCanvasStore.getState()
-  const node = store.nodes.find((n) => n.id === nodeId)
-  if (!node) return
-  const range = getNodeRange(node)
-  if (!range) { showToast('No range defined — set a range first', 'info'); return }
-
-  ensureBaselineSnapshot(nodeId)
-
-  const ops: PatchOperation[] = [{
-    op: 'update_node',
-    target_id: nodeId,
-    data: { observed_state: { ...node.data?.observedState, value: range.min } },
-  }]
-  await commitValidatedMutation(
-    ops,
-    () => store.updateNode(nodeId, {
-      data: { ...node.data, observedState: { ...node.data?.observedState, value: range.min } },
-    }),
-    showToast,
-  )
+): MenuValueCommitOutcome {
+  return setValueToRangeBound(nodeId, 'best', writer, showToast)
 }
 
-export async function setValueReset(
+export function setValueWorstCase(
   nodeId: string,
+  writer: FactorValueWriter | undefined,
   showToast: ShowToastFn,
-): Promise<void> {
-  const store = useCanvasStore.getState()
-  const node = store.nodes.find((n) => n.id === nodeId)
-  if (!node) return
-  const baseline = node.data?._baseline_snapshot
-  if (baseline == null) { showToast('No baseline snapshot to restore', 'info'); return }
-
-  const ops: PatchOperation[] = [{
-    op: 'update_node',
-    target_id: nodeId,
-    data: { observed_state: { ...node.data?.observedState, value: baseline } },
-  }]
-  await commitValidatedMutation(
-    ops,
-    () => store.updateNode(nodeId, {
-      data: {
-        ...node.data,
-        observedState: { ...node.data?.observedState, value: baseline },
-        _baseline_snapshot: undefined, // Clear after restore
-      },
-    }),
-    showToast,
-  )
+): MenuValueCommitOutcome {
+  return setValueToRangeBound(nodeId, 'worst', writer, showToast)
 }
 
-export async function setValueCustom(
+/**
+ * ⛔ "RESET TO OBSERVED" IS GONE, NOT REROUTED (26 Sep 2026).
+ *
+ * It restored `_baseline_snapshot`: a UI-only copy of the value taken the first
+ * time THIS MENU edited the node in THIS session, cleared on save, blind to any
+ * edit made on the card or the Model tab. Routed through the writer it would
+ * have sent that copy to CEE as the user's own value, stamped "Set by you" — a
+ * number with no truthful claim to be the observed one. No canonical restore
+ * target exists on the node or the wire (`factor_value_edit` carries a value,
+ * not a "revert to brief"), so the rule is omit, never invent. The snapshot's
+ * only writer went with it.
+ */
+
+/**
+ * Custom… — the popover's number, through the same writer.
+ *
+ * `typedValue` is in the scale the popover's field SHOWS, which is seeded by the
+ * same rule as the card (`resolveValueInputSeed`), so it means what the card's
+ * typed number means. The synchronous refusal is the popover's to show (it
+ * stays open, as the card's field does); a later settlement is a toast.
+ */
+export function setValueCustom(
   nodeId: string,
-  value: number,
+  typedValue: number,
+  writer: FactorValueWriter | undefined,
   showToast: ShowToastFn,
-): Promise<void> {
-  const store = useCanvasStore.getState()
-  const node = store.nodes.find((n) => n.id === nodeId)
-  if (!node) return
-
-  ensureBaselineSnapshot(nodeId)
-
-  const ops: PatchOperation[] = [{
-    op: 'update_node',
-    target_id: nodeId,
-    data: { observed_state: { ...node.data?.observedState, value } },
-  }]
-  await commitValidatedMutation(
-    ops,
-    () => store.updateNode(nodeId, {
-      data: { ...node.data, observedState: { ...node.data?.observedState, value } },
-    }),
-    showToast,
-  )
+): MenuValueCommitOutcome {
+  return proposeFromMenu(nodeId, typedValue, writer, showToast, false)
 }
 
 // ---------------------------------------------------------------------------

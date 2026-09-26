@@ -193,6 +193,49 @@ export function acceptsElicitedBelief(nodeData: unknown): boolean {
 }
 
 /**
+ * Is a MODEL-scale number exactly the number a person would type into this
+ * factor's value field — so proposing it as TYPED stores that same number?
+ *
+ * ⚠ A THIRD QUESTION, NAMED APART FROM ITS TWO SIBLINGS (trap 21).
+ * `isMagnitudeScaledFactor` asks whether `value` is a magnitude;
+ * `acceptsElicitedBelief` asks whether an elicited probability may be offered
+ * and SHOWN. This asks whether the field's scale and the model's scale are the
+ * same scale for this factor, which is what a caller holding a model-scale
+ * number (a prior-range bound) needs before it hands that number to
+ * `proposeFactorValue`, whose typed number is read in the FIELD's scale.
+ *
+ * WHY IT EXISTS (26 Sep 2026). The canvas context menu's Best / Worst case take
+ * a bound from `prior.range_min/max` — MODEL scale (`factorPriorRange.ts`) —
+ * and now propose it through the card's writer. On a capped £ factor that
+ * writer reads £, so a 0.5 bound would land as £0.50: the P0 recorded in
+ * `FactorNode.inlineEditorSeedsTheCommitScale.spec.tsx`. Converting the bound
+ * (`bound × cap`) would be a second scale authority in a component — the defect
+ * this module exists to prevent — so a caller that gets `false` OMITS the act.
+ *
+ * TRUE only where no transform separates the two:
+ *   · not magnitude-scaled — else `value` IS a magnitude and a 0–1 prior is not
+ *     its support (`resolveFactorValueAdmission` excludes the same shape);
+ *   · the field shows `value` itself (`resolveValueInputSeed` → not user units); or
+ *   · no positive cap (normalisation is the identity) AND the stored pair is not
+ *     a frame — `raw_value` absent or equal to `value`, the pair CEE persists
+ *     for a capless, unitless factor. A capless pair with `raw ≠ value` carries
+ *     a frame (`recoverScaleFrameFromPair`), and typing a level into its raw
+ *     field would collapse it.
+ *
+ * ⛔ FAILS TOWARD "NO". A shape it cannot place returns `false`, so the act is
+ * withheld rather than guessed. It decides no number and writes nothing.
+ */
+export function modelScaleValueIsTheTypedScale(nodeData: unknown): boolean {
+  if (isMagnitudeScaledFactor(nodeData)) return false
+  if (!resolveValueInputSeed(nodeData).inUserUnits) return true
+  const obs = getObservedState(nodeData)
+  const cap = readNumber(obs.cap)
+  if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return false
+  const rawValue = readNumber(obs.raw_value)
+  return rawValue === undefined || rawValue === readNumber(obs.value)
+}
+
+/**
  * ⭐⭐ WHAT THIS FACTOR'S OWN PRIOR ADMITS — everything an editor needs to judge a
  * typed number, and nothing it needs to RENDER one.
  *
