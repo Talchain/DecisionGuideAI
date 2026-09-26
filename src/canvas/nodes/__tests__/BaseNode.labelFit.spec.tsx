@@ -14,7 +14,7 @@
  * from a literal that will not move when the label scale does.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, fireEvent, act } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
 import { NODE_RENAME_AFFORDANCE, nodeTitleChannels } from '../shared/nodeRenameAffordance'
@@ -131,35 +131,44 @@ describe('BaseNode — the card floor comes from the shared derivation', () => {
 })
 
 describe('BaseNode — a label that cannot be shown in full stays reachable', () => {
-  it('carries the complete label as a title attribute (DS v5 §2.4)', () => {
+  // ⭐ v3.1 (DESIGN-GAP-v31 row 36): the route is the ONE styled tooltip on the
+  // title, no longer a native `title` attribute beside it. The guarantee this
+  // file owns is unchanged — the complete label, first, bound to THIS node.
+  function hoverName(title: HTMLElement): string | null {
+    vi.useFakeTimers()
+    try {
+      act(() => {
+        fireEvent.mouseEnter(title)
+        vi.advanceTimersByTime(400)
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+    return document.querySelector('[data-testid="node-title-tooltip-name"]')?.textContent ?? null
+  }
+
+  it('carries the complete label in the styled name tooltip (DS v5 §2.4)', () => {
     // `line-clamp-3` ellipsises at the clamp, so the rendered text is a PREFIX
     // of the label. DS v5 §2.4 requires anything shown small or truncated to be
     // reachable at a readable size; this is that guarantee for sighted users,
     // and the group's aria-label is its assistive-tech twin.
     const { title } = renderNode(LONG_LABEL)
-    // ⚠ THE ATTRIBUTE NOW CARRIES TWO FACTS (22 Sep 2026) and the guarantee
-    // this file owns is the FIRST of them. `nodeTitleChannels` appended the
-    // rename affordance, because a double-click renames every node kind on the
-    // served build (15/15 witnessed) and no card said so. Asserting equality
-    // with the bare label would now RED on a correct compose; asserting merely
-    // `toContain` would pass on a static string, which the sibling case below
-    // exists to forbid. So this binds to the COMPOSER — the label must be
-    // recoverable, in full, at the start.
-    expect(title.getAttribute('title')).toBe(
-      nodeTitleChannels({ label: LONG_LABEL, accessibleName: '' }).title,
-    )
-    expect(title.getAttribute('title')?.startsWith(LONG_LABEL)).toBe(true)
+    // `title=""` is the shared Tooltip's own blocker for inherited native
+    // tooltips — no native tooltip text either way.
+    expect(title.getAttribute('title') ?? '', 'no native title — one tooltip system').toBe('')
+    // Bound to the COMPOSER, and to the full label (never a prefix).
+    expect(hoverName(title)).toBe(nodeTitleChannels({ label: LONG_LABEL, accessibleName: '' }).tooltip.name)
+    expect(nodeTitleChannels({ label: LONG_LABEL, accessibleName: '' }).tooltip.name).toBe(LONG_LABEL)
   })
 
   it('binds the reachable text to THIS node’s label, not to any label', () => {
-    // Identity, not a value predicate: a `title` carrying some other node's
-    // text, or a static string, would satisfy "has a title attribute".
+    // Identity, not a value predicate: a tooltip carrying some other node's
+    // text, or a static string, would satisfy "has a tooltip".
     const { title } = renderNode(SHORT_LABEL)
-    expect(title.getAttribute('title')).toBe(
-      nodeTitleChannels({ label: SHORT_LABEL, accessibleName: '' }).title,
-    )
+    const name = hoverName(title)
+    expect(name).toBe(SHORT_LABEL)
     // Still discriminating in both directions a static string would defeat.
-    expect(title.getAttribute('title')).not.toContain(LONG_LABEL)
-    expect(title.getAttribute('title')).not.toBe(NODE_RENAME_AFFORDANCE)
+    expect(name).not.toContain(LONG_LABEL)
+    expect(name).not.toBe(NODE_RENAME_AFFORDANCE)
   })
 })

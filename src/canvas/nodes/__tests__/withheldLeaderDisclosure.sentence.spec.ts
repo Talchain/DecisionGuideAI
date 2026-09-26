@@ -80,11 +80,13 @@ describe('EVERY withholding code produces two readable sentences', () => {
     })
   }
 
-  it('⛔ the exact string Paul read is now two sentences', () => {
+  it('⛔ the exact string Paul read: one terminated sentence, and no remedy the engine says does nothing', () => {
+    // (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that")
     const got = selectWithheldLeaderDisclosure(reportFor('CONSTRAINT_TARGET_UNRELIABLE') as never)
+    expect(got!.suggestion).toBe('')
     const rendered = `${got!.title} ${got!.suggestion}`.trim()
-    expect(rendered).toContain("reliably. Set a current value")
-    expect(rendered).not.toContain('reliably Set')
+    expect(rendered).toBe("A success target on your model can't be evaluated reliably.")
+    expect(rendered).not.toContain('Set a')
   })
 })
 

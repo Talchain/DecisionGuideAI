@@ -68,10 +68,11 @@ beforeEach(() => {
 })
 
 describe('OutcomePanel v6.2', () => {
-  it('shows EmptyDescriptionPrompt when description is empty', () => {
+  it('shows the clearly-empty description state when description is empty (v3.1: no italic prompt)', () => {
     setOutcomeStore()
     render(<OutcomePanel {...outcomeProps} />)
-    expect(screen.getByText('What does this outcome represent in your decision?')).toBeTruthy()
+    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
+    expect(screen.queryByText('What does this outcome represent in your decision?')).toBeNull()
   })
 
   it('shows description text when present', () => {
@@ -148,7 +149,9 @@ describe('RiskPanel v6.2', () => {
     useCanvasStore.setState({ nodes: [...store.nodes] })
 
     render(<RiskPanel {...riskProps} />)
-    expect(screen.getByText('What could go wrong and how would it affect the decision?')).toBeTruthy()
+    // v3.1 (DESIGN-GAP-v31 row 32): an absence, not an italic prompt.
+    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent('No description recorded.')
+    expect(screen.queryByText('What could go wrong and how would it affect the decision?')).toBeNull()
   })
 
   it('shows drivers list visible by default', () => {

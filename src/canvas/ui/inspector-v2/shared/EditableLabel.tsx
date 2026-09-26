@@ -6,8 +6,9 @@
  *
  * 1. NO VISIBLE AFFORDANCE. This was a bare `<button>` whose only hint was
  *    `cursor-text`, so nothing on screen said the title could be renamed.
- *    It now carries a persistent pencil cue, a dotted underline, and a real
- *    accessible name ("Rename …").
+ *    It now carries a persistent pencil cue and a real accessible name
+ *    ("Rename …"). (It also carried a dashed underline until contract v3.1,
+ *    which asks for ONE edit cue — see the note at the trigger.)
  *
  * 2. THE DRAG HANDLE SWALLOWED IT. The control lives inside the inspector
  *    header, which is the panel's drag surface. `onPointerDown` is stopped
@@ -140,7 +141,7 @@ export function EditableLabel({
   if (!onSave) {
     // Read-only mode — no rename affordance, because there is no rename.
     return (
-      <span className={`${className} ${wrap ? 'min-w-0 whitespace-normal break-words' : ''}`} title={value}>
+      <span className={`${className} ${wrap ? 'min-w-0 whitespace-normal break-words' : ''}`}>
         {value || placeholder}
       </span>
     )
@@ -151,7 +152,7 @@ export function EditableLabel({
       <button
         type="button"
         data-testid="inspector-rename-trigger"
-        className={`${className} group cursor-text text-left flex items-center gap-1 w-full min-w-0 hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
+        className={`${className} group cursor-text text-left flex items-start gap-1 w-full min-w-0 hover:bg-panel-hover rounded px-0.5 -mx-0.5 transition-colors`}
         // The header above is the drag surface. Without this, pressing the
         // title starts a panel drag instead of an edit.
         onPointerDown={e => e.stopPropagation()}
@@ -159,17 +160,23 @@ export function EditableLabel({
           setIsEditing(true)
           requestAnimationFrame(() => inputRef.current?.focus())
         }}
-        title={`Rename — ${value || placeholder}`}
         aria-label={`Rename ${value || placeholder}`}
       >
-        <span className={`${wrap ? 'min-w-0 whitespace-normal break-words' : 'truncate'} border-b border-dashed border-field group-hover:border-info`}>
+        {/* ⭐ v3.1 (DESIGN-GAP-v31 row 7): ONE edit route. The served title
+            carried a dashed underline AND this pencil, beside a "Change this"
+            chip — three cues for one action. The pencil is the one cue kept
+            (L-04: the affordance stays VISIBLE, not hover-only); the underline
+            and the chip are gone, and the name reads as a title. No native
+            `title` either: the name is never clipped here (it wraps), and the
+            accessible name already says "Rename …". */}
+        <span className={`${wrap ? 'min-w-0 whitespace-normal break-words' : 'truncate'}`}>
           {value || placeholder}
         </span>
         <Pencil
           size={12}
           data-testid="inspector-rename-cue"
           aria-hidden="true"
-          className="shrink-0 text-text-light group-hover:text-info transition-colors"
+          className="shrink-0 mt-[3px] text-text-light group-hover:text-info transition-colors"
         />
       </button>
     )

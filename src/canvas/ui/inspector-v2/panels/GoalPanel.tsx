@@ -523,14 +523,19 @@ export const GoalPanel = memo(function GoalPanel({
         : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
     </p>
   ) : (
-    <p className={`${typography.panelMeta} text-text-light mt-1`}>
-      {GOAL_CONSTRAINT_COPY.runForProbability}
+    /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
+       and an absence is stated, not turned into an instruction. Before any
+       results: "No analysis results yet." With complete results that carry no
+       probability for this target: that run's own absence. */
+    <p className={`${typography.panelMeta} text-text-light mt-1`} data-testid="goal-probability-absent">
+      {isResultsMode ? GOAL_CONSTRAINT_COPY.runForProbability : EMPTY_STATES.noAnalysis}
     </p>
   )
 
   /** True only while the pipeline holds no number — see the note in the editor arm. */
   const targetUnlocksLine = pipelineHoldsNoTargetNumber ? (
-    <p className={`${typography.panelMeta} text-info mt-1.5`}>
+    /* v3.1: a statement, not a link — muted, like every other note here. */
+    <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
       {GOAL_CONSTRAINT_COPY.targetUnlocks}
     </p>
   ) : null

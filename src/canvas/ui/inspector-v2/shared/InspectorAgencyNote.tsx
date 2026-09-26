@@ -1,42 +1,43 @@
 /**
- * InspectorAgencyNote — the ONE human-agency statement plus the pane's own
- * save truth, in one box (Paul 23 Sep contract feedback point 11: "One
- * human-agency statement, not three versions of the same disclaimer").
+ * InspectorAgencyNote — the pane's own save truth, as the contract's quiet
+ * 10px `.inspector-note` at the foot of the inspector body.
+ *
+ * ⭐ CANVAS VISUAL CONTRACT v3.1 POINT 11 (DESIGN-GAP-v31 row 8): "Show one
+ * human-agency statement in the panel, not a version per tab … Repeated
+ * disclaimers are removed; the panel footer keeps the one statement." The
+ * served inspector opened EVERY pane with a 106–137px peach box
+ * (`bg-panel-hover`, radius 4px) holding "You decide. Olumi's model informs
+ * your thinking; it doesn't choose for you." above the save truth — the
+ * repeated disclaimer the point removes. The statement now belongs to the
+ * right panel's footer (Panel lane: "Implications depend on this model and its
+ * assumptions. You own the conclusion."), so this component no longer renders
+ * it. `INSPECTOR_AGENCY_STATEMENT` stays exported from `useInspectorMutations`
+ * (a file another open PR edits) and is simply no longer mounted here.
  *
  * ⚠ THE NOTICE KEEPS ITS IDENTITY. `id="inspector-authority-notice"` is what
  * the Router's `<fieldset disabled>` names in `aria-describedby`, and specs
- * bind the notice by `textContent` equality with the pane's constant. The
- * agency line is therefore a SIBLING inside the box, never text inside the
- * notice — so a disabled control is still described by the save truth alone,
- * and the truth each spec pins is unchanged.
+ * bind the notice by `textContent` equality with the pane's constant. Only its
+ * STYLE and POSITION changed: from the first thing in the body to the last,
+ * from a boxed 11px paragraph to the contract's 10px note with a hairline rule.
+ * The note is still said on every pane, because every pane's truth differs
+ * (what saves here and what does not) — that is a needed note, not a repeated
+ * disclaimer.
  *
- * Contrast (point 12): the save truth uses `text-text-light`, the design
- * system's muted token (#6E6B6B, ≥5:1 on `bg-panel-hover`).
+ * Contrast (point 12): `text-text-light`, the design system's muted token
+ * (#6E6B6B, 5.23:1 on the panel — measured).
  */
 import type { ReactNode } from 'react'
-import { typography } from '../../../../styles/typography'
-import { INSPECTOR_AGENCY_STATEMENT } from '../useInspectorMutations'
+import { inspectorNote } from '../inspectorStyle'
 
 export function InspectorAgencyNote({ children }: { children: ReactNode }) {
   return (
-    <div
-      data-testid="inspector-agency-note"
-      className="rounded border border-panel-border bg-panel-hover px-3 py-2"
+    <p
+      id="inspector-authority-notice"
+      role="note"
+      data-testid="inspector-authority-notice"
+      className={inspectorNote}
     >
-      <p
-        data-testid="inspector-agency-statement"
-        className={`${typography.panelBody} text-text-body m-0`}
-      >
-        {INSPECTOR_AGENCY_STATEMENT}
-      </p>
-      <p
-        id="inspector-authority-notice"
-        role="note"
-        data-testid="inspector-authority-notice"
-        className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-      >
-        {children}
-      </p>
-    </div>
+      {children}
+    </p>
   )
 }

@@ -381,54 +381,52 @@ describe('R7 — a disputed sign is not stated as fact on hover', () => {
     expect(popover.querySelector('.bg-success, .bg-danger')).toBeNull()
   })
 
+  // ⭐ v3.1 (DESIGN-GAP-v31 row 12): the hover is a one-line tooltip, so the
+  // agreed direction is said in the arrow sentence — once — rather than as a
+  // bold "Positive" row over a green bar (both left with the popover).
   it('CONTROL: a contest over an AGREED sign still states its direction plainly', () => {
     const { container } = renderEdge({ ...CEE_EDGE, validation: validation('strength_band_change') })
     const popover = openPopover(container)
-    const bare = Array.from(popover.querySelectorAll('*')).filter(
-      (el) => el.children.length === 0 && (el.textContent ?? '').trim() === 'Positive',
-    )
-    expect(bare).toHaveLength(1)
+    expect(byTestId(container, 'edge-hover-arrow-sentence')!.textContent)
+      .toBe('n1 → n2. Positive direction in this model.')
     expect(popover.textContent).not.toContain('disagree on direction')
-    expect(popover.querySelector('.bg-success')).not.toBeNull()
+    expect(popover.querySelector('.bg-success, .bg-danger')).toBeNull()
   })
 })
 
-// ── R8: an unconfirmed strength reads as an estimate ────────────────────────
+// ── R8: an unconfirmed strength is never stated as settled on hover ─────────
 
-describe("R8 — the hover names an unconfirmed strength as an estimate, and names whose", () => {
-  // ⭐ Design integration (23 Sep 2026): the words are the node-card register's
-  // (`LINK_STRENGTH_COPY`), the ONE source the card rows also read — see
-  // `linkStrengthOneSource.spec.ts`. The card's typographic apostrophe (’) is
-  // the one spelling; a straight-apostrophe literal here would let the negative
-  // arm below pass vacuously.
-  it("a producer's unconfirmed strength reads \"Link strength · Olumi’s estimate\"", () => {
-    const { container } = renderEdge({ ...CEE_EDGE })
-    const popover = openPopover(container)
-    expect(popover.textContent).toContain(`${LINK_STRENGTH_COPY.noun} · ${LINK_STRENGTH_COPY.olumiEstimate}`)
-    expect(popover.textContent).toContain('Link strength · Olumi’s estimate')
-  })
+describe('R8 — the hover states no strength, so it cannot state an estimate as settled', () => {
+  // ⭐ REWRITTEN for v3.1 (DESIGN-GAP-v31 row 12). R8 pinned the popover's
+  // "Link strength · Olumi’s estimate" caption. The one-line tooltip carries no
+  // strength at all — the contract's hover is the arrow sentence — so the
+  // estimate-versus-settled distinction is held where a strength IS shown: the
+  // card rows (`LINK_STRENGTH_COPY`, pinned by `EdgePills.spec.tsx` and
+  // `linkStrengthOneSource.spec.ts`) and the edge inspector's strength control.
+  // What this pins now is the stronger claim: no strength caption, figure or
+  // provenance word reaches the hover for ANY author.
+  for (const [who, data] of [
+    ['a producer (unconfirmed)', CEE_EDGE],
+    ['a template (unconfirmed)', TEMPLATE_EDGE],
+    ['the person (settled)', USER_EDGE],
+  ] as const) {
+    it(`${who}: no "Link strength", no estimate wording, no figure`, () => {
+      const { container } = renderEdge({ ...data })
+      const popover = openPopover(container)
+      expect(popover.getAttribute('role')).toBe('tooltip')
+      expect(popover.textContent).not.toContain(LINK_STRENGTH_COPY.noun)
+      expect(popover.textContent).not.toMatch(/estimate/i)
+      // No figure: the endpoint ids ("n1", "n2") are the only digits allowed.
+      expect((popover.textContent ?? '').replace(/\bn[12]\b/g, '')).not.toMatch(/\d/)
+      // POSITIVE: it does say the connection itself.
+      expect(popover.textContent).toMatch(/^n1 → n2\./)
+    })
+  }
 
-  it("a TEMPLATE's unconfirmed strength is an estimate but is NOT credited to Olumi", () => {
-    const { container } = renderEdge({ ...TEMPLATE_EDGE })
-    const popover = openPopover(container)
-    expect(popover.textContent).toContain('Link strength · template estimate')
-    // Not "Olumi" outright: the chat chip is legitimately "Ask Olumi to adjust it".
-    // Bound to the register's own spelling, so it cannot pass on an apostrophe.
-    expect(popover.textContent).not.toContain(LINK_STRENGTH_COPY.olumiEstimate)
-    expect(popover.textContent).not.toMatch(/Olumi['’]s estimate/)
-  })
-
-  it('a strength the person set reads "Link strength" with no estimate qualifier', () => {
-    const { container } = renderEdge({ ...USER_EDGE })
-    const popover = openPopover(container)
-    expect(popover.textContent).toContain('Link strength')
-    expect(popover.textContent).not.toMatch(/estimate/i)
-  })
-
-  it('CONTROL: an edge with no strength at all keeps its honest "not set" line and no strength caption', () => {
+  it('an edge with no strength at all hovers to the same one sentence — no "not set" block to disagree with', () => {
     const { container } = renderEdge({ weight: 0.5 })
     const popover = openPopover(container)
-    expect(byTestId(container, 'edge-hover-popover-unset')).not.toBeNull()
-    expect(popover.textContent).not.toContain('Link strength')
+    expect(byTestId(container, 'edge-hover-popover-unset')).toBeNull()
+    expect(popover.textContent).toBe('n1 → n2. Direction not stated in this model.')
   })
 })

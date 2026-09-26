@@ -80,11 +80,13 @@ describe('CoachingCard', () => {
     expect(screen.getByText('Do something')).toBeTruthy()
   })
 
-  it('dismisses when X clicked', () => {
-    render(<CoachingCard text="Dismissable" />)
-    expect(screen.getByText('Dismissable')).toBeTruthy()
-    fireEvent.click(screen.getByLabelText('Dismiss suggestion'))
-    expect(screen.queryByText('Dismissable')).toBeNull()
+  it('v3.1: is a flat section, not a dismissable notification (no ×)', () => {
+    // DESIGN-GAP-v31 row 32: the boxed card with a lightbulb and a dismiss × is
+    // now the contract's `.section-highlight`; only GROUNDED guidance reaches it.
+    render(<CoachingCard text="Grounded" />)
+    expect(screen.getByText('Grounded')).toBeTruthy()
+    expect(screen.queryByLabelText('Dismiss suggestion')).toBeNull()
+    expect(screen.getByTestId('inspector-guidance').className).toContain('border-l-2')
   })
 })
 
@@ -95,7 +97,8 @@ describe('StaleGuardBanner', () => {
         <div>Content</div>
       </StaleGuardBanner>,
     )
-    expect(screen.getByText('Run your first simulation to see results')).toBeTruthy()
+    // v3.1 (DESIGN-GAP-v31 row 33): no "simulation" wording; the absence only.
+    expect(screen.getByText('No analysis results yet.')).toBeTruthy()
     expect(screen.queryByText('Content')).toBeNull()
   })
 

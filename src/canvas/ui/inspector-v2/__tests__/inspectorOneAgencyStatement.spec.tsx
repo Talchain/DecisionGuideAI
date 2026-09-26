@@ -1,22 +1,29 @@
 /**
- * Paul 23 Sep contract feedback, point 11 (the canvas part) and point 12.
+ * Paul 23 Sep contract feedback, point 11 (the canvas part) and point 12 —
+ * as AMENDED by canvas visual contract v3.1 point 11.
  *
  *   "One human-agency statement, not three versions of the same disclaimer."
  *   "Attention → inspector/AI should have an obvious route back to the
  *    conversation/context."
  *   "Icons need hover/focus labels and inspector access."
  *
+ * ⭐ v3.1 point 11: "Show one human-agency statement in the panel, not a version
+ * per tab … Repeated disclaimers are removed; the panel footer keeps the one
+ * statement." The statement therefore lives in the RIGHT PANEL's footer (Panel
+ * lane), and an inspector carries NONE (DESIGN-GAP-v31 row 8: the served
+ * inspector opened every pane with a 106–137px box repeating it).
+ *
  * What these pin, per inspector pane (every node panel type and the edge pane):
  *
- *   1. EXACTLY ONE human-agency statement, bound by identity (its test id AND
- *      the constant's exact text), never a value predicate.
- *   2. The save/not-saved truth is said ONCE. The "… still work" boilerplate
- *      that every arm repeated is gone, and no pane states "not sent yet" /
- *      "can't yet be saved" / "read-only for now" more than once.
+ *   1. ZERO human-agency statements in the inspector, bound by identity (its
+ *      test id AND the constant's exact text), never a value predicate.
+ *   2. The save/not-saved truth is said ONCE, as the contract's quiet note. The
+ *      "… still work" boilerplate stays gone, and no pane states "not sent
+ *      yet" / "can't yet be saved" / "read-only for now" more than once.
  *   3. The pane-specific truths the older specs pin are still there — this
- *      file shortens the notice, it does not delete a truth.
+ *      file moved the notice, it did not delete a truth.
  *   4. A node the attention plan flagged shows WHY at the top of its inspector,
- *      directly above "Ask Olumi", and the ask carries that context.
+ *      directly above "Explore with Olumi", and the ask carries that context.
  *   5. The confidence glyph has an accessible name (not colour or glyph alone).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -115,7 +122,7 @@ beforeEach(() => {
   seed()
 })
 
-describe('Paul 23 Sep point 11 — one human-agency statement per inspector pane', () => {
+describe('v3.1 point 11 — the agency statement is the PANEL\'s; an inspector pane carries none', () => {
   it('the agency statement is short, model-relative and names who decides', () => {
     expect(INSPECTOR_AGENCY_STATEMENT).toMatch(/^You decide\b/)
     expect(INSPECTOR_AGENCY_STATEMENT).toMatch(/Olumi/)
@@ -125,21 +132,21 @@ describe('Paul 23 Sep point 11 — one human-agency statement per inspector pane
   })
 
   for (const pane of PANES) {
-    it(`${pane.name}: exactly one agency statement, one save truth, no boilerplate`, () => {
+    it(`${pane.name}: no agency statement, one save truth, no boilerplate`, () => {
       const { container } = render(
         <InspectorRouter nodeId={pane.nodeId} edgeId={pane.edgeId} onClose={vi.fn()} />,
       )
-      const agency = screen.getAllByTestId('inspector-agency-statement')
-      expect(agency).toHaveLength(1)
-      expect(agency[0].textContent).toBe(INSPECTOR_AGENCY_STATEMENT)
+      expect(screen.queryAllByTestId('inspector-agency-statement')).toHaveLength(0)
 
       // The notice is still the SAME element the fieldset describes, and it
-      // still carries this pane's own truth — shortened, not deleted.
+      // still carries this pane's own truth — moved, not deleted.
       const notice = screen.getByTestId('inspector-authority-notice')
       expect(notice.textContent).toBe(pane.truth)
+      expect(notice.id).toBe('inspector-authority-notice')
 
       const text = container.textContent ?? ''
-      expect(count(text, /You decide\b/)).toBe(1)
+      expect(text).not.toContain(INSPECTOR_AGENCY_STATEMENT)
+      expect(count(text, /You decide\b/)).toBe(0)
       expect(text).not.toMatch(/still work/i)
       expect(count(text, /not sent yet|can't yet be saved|read-only for now/)).toBeLessThanOrEqual(1)
     })
@@ -158,7 +165,7 @@ describe('Paul 23 Sep point 11 — one human-agency statement per inspector pane
     } as never)
     const { container } = render(<InspectorRouter nodeId={null} edgeId="e3" onClose={vi.fn()} />)
     expect(screen.getByTestId('inspector-authority-notice').textContent).toBe(INSPECTOR_EDGE_REASON)
-    expect(screen.getAllByTestId('inspector-agency-statement')).toHaveLength(1)
+    expect(screen.queryAllByTestId('inspector-agency-statement')).toHaveLength(0)
     const text = container.textContent ?? ''
     expect(text).not.toMatch(/still work/i)
     expect(count(text, /not sent yet|can't yet be saved|read-only for now/)).toBeLessThanOrEqual(1)
@@ -191,7 +198,7 @@ describe('Paul 23 Sep point 11 — attention → inspector has a route back to t
     label: 'Evidence here would most reduce uncertainty in the comparison. What would you check first?',
   }
 
-  it('a flagged node shows why at the top, above Ask Olumi and above the notice', () => {
+  it('a flagged node shows why at the top, above Explore with Olumi and above the notice', () => {
     attentionByNode.set('fc', [REASON])
     useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
     render(<InspectorRouter nodeId="fc" edgeId={null} onClose={vi.fn()} />)
@@ -207,7 +214,7 @@ describe('Paul 23 Sep point 11 — attention → inspector has a route back to t
     expect(ask.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('Ask Olumi opens the conversation with this element and its attention reason as context', () => {
+  it('Explore with Olumi opens the conversation with this element and its attention reason as context', () => {
     attentionByNode.set('fc', [REASON])
     const send = vi.fn()
     useGuidanceStore.setState({ _sendMessage: send } as never)

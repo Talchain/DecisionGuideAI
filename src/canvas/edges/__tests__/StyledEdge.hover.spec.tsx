@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, fireEvent, act } from '@testing-library/react'
+import { render, fireEvent, act, cleanup } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { Position } from '@xyflow/react'
@@ -192,222 +192,69 @@ describe('StyledEdge — hover popover timer cleanup (component-level)', () => {
   })
 })
 
+
 // ---------------------------------------------------------------------------
-// F2 — the hover popover spoke UI defaults, and sent one to CEE
+// F2 / A7 — the hover spoke UI defaults and invented percentages, and a chip in
+// it sent one to CEE. ⭐ REWRITTEN for canvas visual contract v3.1 (DESIGN-GAP-
+// v31 row 12): the hover is now a ONE-LINE TOOLTIP — the arrow sentence and
+// only the exception clauses — and the strength, the existence reading and
+// every action live in the edge inspector, one click away.
+//
+// What each old pin protected, and where it is held now:
+//  · "an UNSTATED direction is never called Positive" — still here: the
+//    tooltip's direction clause reads `statedDirection`, the same resolver the
+//    stroke reads, so an unstated direction says "Direction not stated".
+//  · "a STATED direction is still said" — still here (both signs).
+//  · "no defaulted strength or confidence is spoken" / A7 "no ×100 percent" —
+//    now STRONGER: the tooltip carries no strength figure and no percentage of
+//    any kind. The signed-plus-band figure is the edge inspector's, pinned by
+//    `ui/inspector-v2/__tests__/statedStrengthIsTheOneShown.spec.tsx` and
+//    `EdgePanel.v62.spec.tsx`.
+//  · "no fabricated strength crosses the wire" — now structural: the tooltip
+//    holds no control, so a hover cannot dispatch anything at all (bound with
+//    a dispatcher REGISTERED, so the absence is not a missing surface).
 // ---------------------------------------------------------------------------
-//
-// Bindings: `weight = edgeData?.weight ?? 0.5` (:202) and the popover's own
-// `(beliefExists ?? 0.8)` (:977) — a SECOND literal copy of the fabricated
-// constant, independent of DEFAULT_EDGE_DATA. Hovering a freshly drawn edge
-// rendered "Positive / 80% confident / 30%".
-//
-// The severe part is the chip. `NodeChip` passes `message` to
-// `useGuidanceStore._dispatchAction`, which is the real turn dispatcher — so
-// "Current strength is 30%." crossed the service boundary and was presented to
-// CEE as the user's own assertion about their model. A fabricated number on
-// screen misleads a person who can see the canvas; a fabricated number in the
-// prompt misleads the model, which cannot.
-describe('StyledEdge hover popover — provenance honesty', () => {
+describe('StyledEdge hover tooltip — provenance honesty (v3.1 one line)', () => {
   const drawnEdge = {
     ...defaultEdgeProps,
     // USER_EDGE_DEFAULTS shape: values present, no *Source stamp.
     data: { weight: 0.3, direction: 'positive' as const, beliefExists: 0.8 },
   }
-
   const characterisedEdge = {
-    ...defaultEdgeProps,
-    data: {
-      weight: 0.3,
-      direction: 'positive' as const,
-      beliefExists: 0.8,
-      weightSource: 'user' as const,
-      beliefExistsSource: 'user' as const,
-    },
-  }
-
-  async function hoverAndGetPopover(props: Record<string, unknown>) {
-    const { container } = render(<StyledEdge {...(props as any)} />)
-    const hitPath = container.querySelector('path[stroke="transparent"]')!
-    act(() => {
-      fireEvent.mouseEnter(hitPath)
-      vi.advanceTimersByTime(400)
-    })
-    return container
-  }
-
-  beforeEach(() => {
-    vi.useFakeTimers()
-    useGuidanceStore.setState({ _dispatchAction: null, _sendMessage: null } as never)
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  // ── DIRECTION IS ITS OWN QUESTION ──────────────────────────────────────
-  //
-  // The popover used to derive its bold direction word, and the half-colour of
-  // its strength bar, from the SIGN of the resolved strength:
-  //
-  //     const dirLabel = signedVal !== null ? (signedVal >= 0 ? 'Positive' : ...)
-  //
-  // gated on WEIGHT provenance. But "was the strength set?" and "was the
-  // direction stated?" are two questions. `characterisedEdge` above answers the
-  // first and not the second — `weightSource: 'user'`, no `directionSource` —
-  // so it cleared the gate and the sign of a DEFAULTED `direction: 'positive'`
-  // printed a bold "Positive" and a green bar. On the same edge whose stroke
-  // this component draws GREY, from `resolveEdgeDirectionDisplay`, for
-  // "direction not set yet". One component, two verdicts, one edge.
-  //
-  // Both now read `statedDirection`, the ratified owner `computeDirectionStroke`
-  // already consumes.
-  const statedPositiveEdge = {
     ...defaultEdgeProps,
     data: {
       weight: 0.3, direction: 'positive' as const, beliefExists: 0.8,
       weightSource: 'user' as const, beliefExistsSource: 'user' as const,
-      directionSource: 'user' as const,
     },
+  }
+  const statedPositiveEdge = {
+    ...defaultEdgeProps,
+    data: { ...characterisedEdge.data, directionSource: 'user' as const },
   }
   const statedNegativeEdge = {
     ...defaultEdgeProps,
-    data: {
-      weight: 0.3, direction: 'negative' as const, beliefExists: 0.8,
-      weightSource: 'user' as const, beliefExistsSource: 'user' as const,
-      directionSource: 'user' as const,
-    },
+    data: { ...characterisedEdge.data, direction: 'negative' as const, directionSource: 'user' as const },
   }
-
-  it('does NOT call an unstated direction "Positive", even when the strength IS set', async () => {
-    const container = await hoverAndGetPopover(characterisedEdge)
-    const popover = container.querySelector('[data-testid="edge-hover-popover"]')
-    // Precondition: the popover really rendered, and really has the strength —
-    // otherwise this absence is vacuous (the numbers control above shares it).
-    expect(popover).not.toBeNull()
-    expect(popover!.textContent ?? '').toMatch(/\+0\.30 Moderate/)
-
-    expect(popover!.textContent ?? '').not.toMatch(/Positive/)
-    expect(popover!.textContent ?? '').not.toMatch(/Negative/)
-  })
-
-  it('does NOT paint the strength bar green when no direction was stated', async () => {
-    const container = await hoverAndGetPopover(characterisedEdge)
-    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
-    // Which half-colour the bar paints IS a direction claim.
-    expect(popover.querySelector('.bg-success')).toBeNull()
-    expect(popover.querySelector('.bg-danger')).toBeNull()
-  })
-
-  // ⭐ THE OPPOSITE DIRECTION. Refusing to speak an unstated direction must not
-  // silence a STATED one — that would trade a lie for a gap.
-  it('DOES say "Positive" and paint green when the direction was stated', async () => {
-    const container = await hoverAndGetPopover(statedPositiveEdge)
-    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
-    expect(popover.textContent ?? '').toMatch(/Positive/)
-    expect(popover.querySelector('.bg-success')).not.toBeNull()
-  })
-
-  it('DOES say "Negative" and paint danger when a negative direction was stated', async () => {
-    const container = await hoverAndGetPopover(statedNegativeEdge)
-    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
-    expect(popover.textContent ?? '').toMatch(/Negative/)
-    expect(popover.querySelector('.bg-danger')).not.toBeNull()
-    expect(popover.querySelector('.bg-success')).toBeNull()
-  })
-
-  // ⚠ THE CONTRADICTION THE FIX COULD HAVE BOUGHT. `dirLabel` and `signedVal`
-  // used to be equivalent, so the empty state could be gated on either. Binding
-  // the word to `statedDirection` decoupled them — and an edge with a SET
-  // strength and no stated direction would then render the strength bar AND
-  // "Strength and likelihood not set" together. A fix that trades one lie for
-  // another is not a fix, so this is a first-class case.
-  it('does not claim "not set" while it is showing a strength', async () => {
-    const container = await hoverAndGetPopover(characterisedEdge)
-    const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
-    // Precondition: it really is showing a strength, or the absence is vacuous.
-    expect(popover.textContent ?? '').toMatch(/\+0\.30 Moderate/)
-    expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).toBeNull()
-  })
-
-  it('POSITIVE CONTROL: a wholly uncharacterised edge DOES say nothing is set', async () => {
-    const container = await hoverAndGetPopover(drawnEdge)
-    expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).not.toBeNull()
-  })
-
-  it('POSITIVE CONTROL: a characterised edge DOES show its numbers', async () => {
-    // Without this, every assertion below would pass on a popover that
-    // rendered nothing at all.
-    const container = await hoverAndGetPopover(characterisedEdge)
-    const popover = container.querySelector('[data-testid="edge-hover-popover"]')
-    expect(popover).not.toBeNull()
-    expect(popover!.textContent ?? '').toMatch(/80% confident/)
-    expect(popover!.textContent ?? '').toMatch(/\+0\.30 Moderate/)
-  })
-
-  it('does NOT speak the defaulted confidence or strength for a drawn edge', async () => {
-    const container = await hoverAndGetPopover(drawnEdge)
-    const popover = container.querySelector('[data-testid="edge-hover-popover"]')
-    expect(popover).not.toBeNull()
-    const text = popover!.textContent ?? ''
-    expect(text).not.toMatch(/80% confident/)
-    expect(text).not.toMatch(/\d+%/)
-  })
-
-  it('does NOT assert a fabricated strength in the message it sends to CEE', async () => {
-    const dispatched: Array<{ message: string }> = []
-    useGuidanceStore.setState({
-      _dispatchAction: (opts: { message: string }) => { dispatched.push(opts) },
-    } as never)
-
-    const container = await hoverAndGetPopover(drawnEdge)
-    const chip = Array.from(container.querySelectorAll('button')).find((b) =>
-      (b.textContent ?? '').includes('Adjust strength'),
-    )
-    expect(chip, 'the Adjust strength chip must still be offered').toBeTruthy()
-    act(() => { fireEvent.click(chip!) })
-
-    expect(dispatched).toHaveLength(1)
-    // The whole point: no number nobody set may cross the wire.
-    expect(dispatched[0].message).not.toMatch(/\d+%/)
-    expect(dispatched[0].message).not.toMatch(/Current strength is/)
-  })
-
-  it('POSITIVE CONTROL: a characterised edge DOES send its real strength', async () => {
-    const dispatched: Array<{ message: string }> = []
-    useGuidanceStore.setState({
-      _dispatchAction: (opts: { message: string }) => { dispatched.push(opts) },
-    } as never)
-
-    const container = await hoverAndGetPopover(characterisedEdge)
-    const chip = Array.from(container.querySelectorAll('button')).find((b) =>
-      (b.textContent ?? '').includes('Adjust strength'),
-    )
-    act(() => { fireEvent.click(chip!) })
-    expect(dispatched[0].message).toMatch(/Current strength is \+0\.30 Moderate\./)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// A7 — invented strength %. The coefficient ×100 read "20%" on hover while
-// the inspector showed the SAME edge's value as `0.20`, and the Adjust-
-// strength chip sent that invented "20%" to CEE as the user's own words.
-// ---------------------------------------------------------------------------
-describe('StyledEdge hover popover — A7 no invented percent', () => {
   const twentyPercentEdge = {
     ...defaultEdgeProps,
-    data: {
-      weight: 0.2, direction: 'positive' as const, beliefExists: 0.8,
-      weightSource: 'user' as const, beliefExistsSource: 'user' as const,
-    },
+    data: { ...characterisedEdge.data, weight: 0.2 },
   }
 
-  async function hoverAndGetPopover(props: Record<string, unknown>) {
+  const withoutEndpoints = (t: string | null) => (t ?? '').replace(/\bn[12]\b/g, '')
+
+  function hoverAndGetTooltip(props: Record<string, unknown>) {
     const { container } = render(<StyledEdge {...(props as any)} />)
     const hitPath = container.querySelector('path[stroke="transparent"]')!
     act(() => {
       fireEvent.mouseEnter(hitPath)
       vi.advanceTimersByTime(400)
     })
-    return container
+    const tooltip = container.querySelector('[data-testid="edge-hover-popover"]') as HTMLElement | null
+    // PRECONDITION for every case: the tooltip really rendered, as a tooltip —
+    // else each absence below would be vacuous.
+    expect(tooltip).not.toBeNull()
+    expect(tooltip!.getAttribute('role')).toBe('tooltip')
+    return { container, tooltip: tooltip! }
   }
 
   beforeEach(() => {
@@ -418,27 +265,58 @@ describe('StyledEdge hover popover — A7 no invented percent', () => {
     vi.useRealTimers()
   })
 
-  it('shows the signed coefficient with the band word, never a ×100 percent, on a 0.2 edge (bound by testid)', async () => {
-    const container = await hoverAndGetPopover(twentyPercentEdge)
-    const value = container.querySelector('[data-testid="edge-hover-strength-value"]')
-    expect(value).not.toBeNull()
-    expect(value!.textContent).toBe('+0.20 Moderate')
+  it('does NOT call an unstated direction "Positive", even when the strength IS set', () => {
+    const { tooltip } = hoverAndGetTooltip(characterisedEdge)
+    expect(tooltip.textContent).toBe('n1 → n2. Direction not stated in this model.')
+    expect(tooltip.textContent).not.toMatch(/Positive|Negative/)
   })
 
-  it('sends the same signed-plus-band figure to CEE, never an invented "20%"', async () => {
+  it('DOES say "Positive" when the direction was stated', () => {
+    const { tooltip } = hoverAndGetTooltip(statedPositiveEdge)
+    expect(tooltip.textContent).toBe('n1 → n2. Positive direction in this model.')
+  })
+
+  it('DOES say "Negative" when a negative direction was stated', () => {
+    const { tooltip } = hoverAndGetTooltip(statedNegativeEdge)
+    expect(tooltip.textContent).toBe('n1 → n2. Negative direction in this model.')
+  })
+
+  it('paints no strength bar in either direction colour (the bar left with the popover)', () => {
+    for (const edge of [characterisedEdge, statedPositiveEdge, statedNegativeEdge]) {
+      const { tooltip } = hoverAndGetTooltip(edge)
+      expect(tooltip.querySelector('.bg-success, .bg-danger')).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('speaks no strength, no confidence and no percentage — characterised OR drawn', () => {
+    for (const edge of [characterisedEdge, drawnEdge]) {
+      const { tooltip, container } = hoverAndGetTooltip(edge)
+      // No figure: the endpoint ids ("n1", "n2") are the only digits allowed.
+      expect(withoutEndpoints(tooltip.textContent)).not.toMatch(/\d/)
+      expect(tooltip.textContent ?? '').not.toMatch(/confident|Moderate|strength/i)
+      expect(container.querySelector('[data-testid="edge-hover-strength-value"]')).toBeNull()
+      expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('A7 — a 0.2 edge hovers to no "20%" and no "0.20" (the figure is the inspector\'s)', () => {
+    const { tooltip } = hoverAndGetTooltip(twentyPercentEdge)
+    expect(tooltip.textContent ?? '').not.toMatch(/20%|0\.20/)
+  })
+
+  it('holds no control, so a hover can send nothing to CEE — with a dispatcher REGISTERED', () => {
     const dispatched: Array<{ message: string }> = []
     useGuidanceStore.setState({
       _dispatchAction: (opts: { message: string }) => { dispatched.push(opts) },
     } as never)
-
-    const container = await hoverAndGetPopover(twentyPercentEdge)
-    const chip = Array.from(container.querySelectorAll('button')).find((b) =>
-      (b.textContent ?? '').includes('Adjust strength'),
-    )
-    act(() => { fireEvent.click(chip!) })
-
-    expect(dispatched).toHaveLength(1)
-    expect(dispatched[0].message).toMatch(/Current strength is \+0\.20 Moderate\./)
-    expect(dispatched[0].message).not.toMatch(/20%/)
+    for (const edge of [drawnEdge, characterisedEdge]) {
+      const { tooltip } = hoverAndGetTooltip(edge)
+      expect(tooltip.querySelectorAll('button, a, input, [tabindex]')).toHaveLength(0)
+      expect(tooltip.style.pointerEvents).toBe('none')
+      cleanup()
+    }
+    expect(dispatched).toHaveLength(0)
   })
 })

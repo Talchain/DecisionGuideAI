@@ -65,7 +65,19 @@ export const FactorNode = memo((props: NodeProps) => {
   const counterfactualQuestion = composeCounterfactualQuestion(cleanedLabel)
   const cleanedData = cleanedLabel ? { ...props.data, label: cleanedLabel } : props.data
 
-  const hoveredOptionId = useCanvasStore(state => state.hoveredOptionId)
+  /**
+   * ⭐ v3.1 (DESIGN-GAP-v31 row 6): the option whose targets this card marks is
+   * the option the user ISOLATED with the option lens — never a mere HOVER.
+   * A plain hover over an option card drew a blue ring and a "→ Moderate (0.4)"
+   * tab on every target factor (three at once, measured on served `eec722ab`);
+   * the prototype has no hover highlight at all — its path focus is SELECTION,
+   * which dims the rest. The lens is an explicit analysis mode the user turns
+   * on, so the marks stay there. (`hoveredOptionId` is still written by option
+   * cards and the lens; this card no longer reads the hover half of it.)
+   */
+  const markedOptionId = useCanvasStore(state =>
+    state.lens?.active === 'option' ? state.lens.selectedOptionId ?? null : null,
+  )
   const nodes = useCanvasStore(state => state.nodes)
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
@@ -168,9 +180,9 @@ export const FactorNode = memo((props: NodeProps) => {
   const isHighPriority = priorityRank != null && priorityRank <= 3
 
   const interventionDisplayValue = useMemo(() => {
-    if (!hoveredOptionId) return null
-    const option = nodes.find(n => n.id === hoveredOptionId)
-    const ceeOption = ceeAnalysisReady?.options?.find(o => o.id === hoveredOptionId)
+    if (!markedOptionId) return null
+    const option = nodes.find(n => n.id === markedOptionId)
+    const ceeOption = ceeAnalysisReady?.options?.find(o => o.id === markedOptionId)
     /*
      * ⭐ THE SHARED READER, AND WITHOUT IT THIS LINE CONTRADICTED THE OPTION
      * CARD. `ceeAnalysisReady` carries the numbers flat and the authored
@@ -180,7 +192,7 @@ export const FactorNode = memo((props: NodeProps) => {
      */
     const interventions = resolveOptionInterventionsForDisplay(option, ceeOption)
     return factorOptionSetting(interventions?.[props.id], observedState)
-  }, [hoveredOptionId, nodes, ceeAnalysisReady, props.id, observedState])
+  }, [markedOptionId, nodes, ceeAnalysisReady, props.id, observedState])
   const isAffectedByHover = interventionDisplayValue !== null
 
   const [showAllOptionValues, setShowAllOptionValues] = useState(false)
@@ -1277,12 +1289,14 @@ export const FactorNode = memo((props: NodeProps) => {
       {isDetailed && constraintTooltip && <ConstraintBadge tooltip={constraintTooltip} />}
       {isAffectedByHover && (
         <div
+          data-testid="factor-hover-ring"
           className="absolute -inset-1 rounded-md border-2 border-info pointer-events-none -z-10"
           style={{ boxShadow: '0 0 12px var(--info)' }}
         />
       )}
       {/* Keep the transient option setting outside the measured card body:
-          hovering an option must not resize factors and relayout the model.
+          isolating an option (the option lens — v3.1: never a plain hover)
+          must not resize factors and relayout the model.
           The annotation remains readable without covering card controls. */}
       {isAffectedByHover && (
         <div
@@ -1335,7 +1349,8 @@ export const FactorNode = memo((props: NodeProps) => {
           )
         })()}
       >
-        {/* Intervention highlight when option hovered. Audit §8 P0-4: this
+        {/* Intervention highlight when an option is isolated (the option lens;
+            v3.1 row 6 — no longer on a plain hover). Audit §8 P0-4: this
             annotation routes through the SINGLE intervention formatter so it
             can never contradict the option card's pills/popover for the same
             input. Formattable values render "→ 60%" / "→ £70,000"; factors

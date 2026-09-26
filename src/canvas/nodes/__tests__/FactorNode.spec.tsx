@@ -1507,13 +1507,17 @@ describe('FactorNode — evidence gap badge', () => {
 // number and {value} object) in so the narrowing branch cannot silently revert.
 // ---------------------------------------------------------------------------
 
-describe('FactorNode — intervention hover', () => {
+describe('FactorNode — intervention mark (option lens; v3.1 row 6)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   const mountWithHoveredOption = (interventionEntry: unknown, factorData: Record<string, unknown>) => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: 'option-1',
+        // ⭐ v3.1 (DESIGN-GAP-v31 row 6): a plain option HOVER no longer marks
+        // its targets; the explicit option LENS does. The formatting pinned
+        // here is unchanged — it now renders under the lens.
+        lens: { active: 'option', selectedOptionId: 'option-1' },
         nodes: [
           { id: 'option-1', type: 'option', data: { interventions: { 'factor-1': interventionEntry } } },
         ],
@@ -1774,6 +1778,10 @@ describe('FactorNode — intervention hover', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: 'option-1',
+        // ⭐ v3.1 (DESIGN-GAP-v31 row 6): a plain option HOVER no longer marks
+        // its targets; the explicit option LENS does. The formatting pinned
+        // here is unchanged — it now renders under the lens.
+        lens: { active: 'option', selectedOptionId: 'option-1' },
         nodes: [
           // interventions map does not contain 'factor-1'
           { id: 'option-1', type: 'option', data: { interventions: { 'factor-other': 0.7 } } },

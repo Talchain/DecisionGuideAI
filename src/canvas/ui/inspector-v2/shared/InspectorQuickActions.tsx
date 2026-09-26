@@ -1,30 +1,45 @@
 /**
- * InspectorQuickActions — R5, Paul's own formulation (16 Aug 2026).
+ * InspectorQuickActions — the inspector's two conversation routes.
  *
- * "Full functionality stays in the inspector and may be DUPLICATED there
- *  (quick actions at the top of the inspector). Efficiency principle: minimise
- *  clicks to power functionality; nothing buried."
+ * R5, Paul's own formulation (16 Aug 2026): "Full functionality stays in the
+ * inspector and may be DUPLICATED there (quick actions at the top of the
+ * inspector). Efficiency principle: minimise clicks to power functionality;
+ * nothing buried." — so these stay at the TOP of the body.
  *
- * Two actions, both one click from any selected element:
- *   · ask Olumi about THIS element
- *   · open the analysis for THIS element
+ * ⭐ CANVAS VISUAL CONTRACT v3.1 (DESIGN-GAP-v31 row 7; point 11): the buttons
+ * are "Explore with Olumi" and "Back to the conversation", drawn as the
+ * contract's `.button.small.primary` / `.button.small`. What left:
  *
- * The ask runs the ONE ask semantic (`askSemantic.ts`): it never dispatches, it
- * lands an editable draft the user sends. It is HIDDEN — not disabled, not
- * silently inert — when no conversation surface is registered, because a
- * control that looks live and does nothing is the dead-button class this
- * estate keeps shipping.
+ *  · "Ask Olumi" is RENAMED, not removed — same `requestAsk` semantic, same
+ *    test id (`inspector-quick-ask`): it never dispatches, it lands an editable
+ *    draft about THIS element that the user sends.
+ *  · "Change this" is REMOVED. It was a second edit route beside the title's
+ *    rename, the value editors and the conversation — the served header showed
+ *    a dashed title, a pencil, "Change this" and "Change" at once (the pile-up
+ *    the contract replaces with ONE edit route). Asking Olumi to change the
+ *    element is exactly what "Explore with Olumi" drafts; the read-only
+ *    notice's own remedy ("ask Olumi to change structure") still names it.
+ *  · "Its analysis" is REMOVED. It switched the dock to the generic Analysis
+ *    tab — not this element's analysis — and the Analysis tab is one click away
+ *    in the dock's own strip.
+ *  · "Back to results" (formerly in the header) becomes "Back to the
+ *    conversation": it FRONTS the conversation (`revealOlumiSurface`, the one
+ *    oracle for "which surface is Olumi on") and closes the inspector. Closing
+ *    does not clear the selection, so the element stays as the conversation's
+ *    context (the dock's "Selected" row) — v3.1: "keeping the element as
+ *    context".
+ *
+ * Both are HIDDEN — not disabled, not silently inert — when no conversation
+ * surface is registered, because a control that looks live and does nothing is
+ * the dead-button class this estate keeps shipping.
  */
 
-import { useCallback, useMemo } from 'react'
-import { MessageCircleQuestion, BarChart3, PenLine } from 'lucide-react'
+import { useCallback, useMemo, type ReactNode } from 'react'
 
-import { typography } from '../../../../styles/typography'
-import { controls } from '../../../../styles/controls'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import { useUIStore, type OutputTab } from '../../../../stores/uiStore'
 import { requestAsk } from '../askSemantic'
-import { resolveAskTemplate, resolveChangeTemplate } from '../inspectorStrings'
+import { resolveAskTemplate } from '../inspectorStrings'
+import { inspectorButton, inspectorButtonPrimary, inspectorButtonRow } from '../inspectorStyle'
 
 interface InspectorQuickActionsProps {
   /** Node or edge id — the ask's model target. */
@@ -35,8 +50,6 @@ interface InspectorQuickActionsProps {
   panelType: string
   /** Extra label context for edge templates. */
   labelContext?: { sourceLabel?: string; targetLabel?: string }
-  /** Which results surface this element's analysis lives on. */
-  analysisTab?: OutputTab
   /**
    * Paul 23 Sep contract feedback point 11 — the context line an ask carries
    * (e.g. why the element is "Worth reviewing"). Shown by the Ask-Olumi drawer;
@@ -44,6 +57,10 @@ interface InspectorQuickActionsProps {
    * Empty means no context, never an invented one.
    */
   askContext?: string
+  /** "Back to the conversation" — fronts the conversation and closes. */
+  onBackToConversation?: () => void
+  /** A pane-specific action drawn in the same row (e.g. "+ Add option"). */
+  extra?: ReactNode
 }
 
 export function InspectorQuickActions({
@@ -51,8 +68,9 @@ export function InspectorQuickActions({
   elementLabel,
   panelType,
   labelContext,
-  analysisTab = 'results',
   askContext = '',
+  onBackToConversation,
+  extra,
 }: InspectorQuickActionsProps) {
   const canAsk = useGuidanceStore(
     (s) => s._prefillChat !== null || s._sendMessage !== null || s._dispatchAction !== null,
@@ -66,7 +84,7 @@ export function InspectorQuickActions({
     return templated ?? `Tell me about ${elementLabel} in this model.`
   }, [panelType, elementLabel, labelContext])
 
-  const handleAsk = useCallback(() => {
+  const handleExplore = useCallback(() => {
     requestAsk({
       text: question,
       label: `Ask about ${elementLabel}`,
@@ -75,92 +93,32 @@ export function InspectorQuickActions({
     })
   }, [question, elementLabel, elementId, askContext])
 
-  /**
-   * ⭐ "Change this" — the route out of a read-only panel.
-   *
-   * Most of the model has no durable direct-edit carrier (only
-   * `factor_value_edit`, `prior_range_edit`, `edge_adjudication` and
-   * `structural_delete` persist), which is why the panel below is read-only and
-   * why its notice is TRUE. But a true refusal is still a dead end, and the SAME
-   * edit made conversationally DOES persist — measured, contrast-controlled.
-   *
-   * So this hands the user to the writer that can actually save. It rides the
-   * identical `ASK_SEMANTIC` path as "Ask Olumi": it never dispatches, it lands
-   * an editable draft the user sends. The draft is deliberately an UNFINISHED
-   * sentence ("Change the value of X to ") — the user completes it, and a
-   * half-formed intent is the correct output of this control, not a defect.
-   *
-   * ⚠ IT PROMISES NOTHING. This is a request; CEE decides. Do not let the copy
-   * drift into implying the change is already made — that would be the
-   * looks-like-a-guarantee defect this estate keeps shipping, and the read-only
-   * notice beneath would then contradict it.
-   */
-  const changeRequest = useMemo(
-    () => resolveChangeTemplate(panelType, { label: elementLabel, ...labelContext }),
-    [panelType, elementLabel, labelContext],
-  )
-
-  const handleChange = useCallback(() => {
-    if (!changeRequest) return
-    requestAsk({
-      text: changeRequest,
-      label: `Change ${elementLabel}`,
-      context: '',
-      targetId: elementId,
-    })
-  }, [changeRequest, elementLabel, elementId])
-
-  const handleAnalysis = useCallback(() => {
-    useUIStore.getState().setActiveOutputTab(analysisTab)
-  }, [analysisTab])
+  if (!canAsk && !extra) return null
 
   return (
-    <div
-      data-testid="inspector-quick-actions"
-      className="flex items-center gap-1.5 pt-2 pb-0.5"
-    >
+    <div data-testid="inspector-quick-actions" className={`${inspectorButtonRow} pt-3`}>
       {canAsk && (
         <button
           type="button"
           data-testid="inspector-quick-ask"
-          onClick={handleAsk}
-          title={`Ask Olumi about ${elementLabel}`}
-          aria-label={`Ask Olumi about ${elementLabel}`}
-          className={`${typography.panelMeta} ${controls.actionChip}`}
+          onClick={handleExplore}
+          aria-label={`Explore with Olumi: ${elementLabel}`}
+          className={inspectorButtonPrimary}
         >
-          <MessageCircleQuestion size={12} aria-hidden="true" />
-          Ask Olumi
+          Explore with Olumi
         </button>
       )}
-      {/* HIDDEN, not disabled, when there is no conversation surface or no
-          template for this element type — the same rule the ask follows. A
-          control that looks live and does nothing is the dead-button class
-          this estate keeps shipping, and it is exactly what this button
-          exists to remove. */}
-      {canAsk && changeRequest !== null && (
+      {canAsk && onBackToConversation && (
         <button
           type="button"
-          data-testid="inspector-quick-change"
-          onClick={handleChange}
-          title={`Ask Olumi to change ${elementLabel}`}
-          aria-label={`Ask Olumi to change ${elementLabel}`}
-          className={`${typography.panelMeta} ${controls.actionChip}`}
+          data-testid="inspector-back-to-conversation"
+          onClick={onBackToConversation}
+          className={inspectorButton}
         >
-          <PenLine size={12} aria-hidden="true" />
-          Change this
+          Back to the conversation
         </button>
       )}
-      <button
-        type="button"
-        data-testid="inspector-quick-analysis"
-        onClick={handleAnalysis}
-        title={`Open the analysis for ${elementLabel}`}
-        aria-label={`Open the analysis for ${elementLabel}`}
-        className={`${typography.panelMeta} ${controls.actionChip}`}
-      >
-        <BarChart3 size={12} aria-hidden="true" />
-        Its analysis
-      </button>
+      {extra}
     </div>
   )
 }

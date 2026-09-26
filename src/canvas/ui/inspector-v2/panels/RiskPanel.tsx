@@ -30,6 +30,7 @@ import { DriversList, type DriverItem } from '../shared/DriversList'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
+import { inspectorDetailRow } from '../inspectorStyle'
 import { useNodeMutations, RENAME_AUTHORITY_CLAUSE } from '../useInspectorMutations'
 import { useEditConfirmation } from '../useEditConfirmation'
 import {
@@ -49,6 +50,8 @@ const IMPACT_OPTIONS: { value: RiskImpact; label: string }[] = [
   { value: 'high', label: 'High' },
   { value: 'critical', label: 'Critical' },
 ]
+/** The same labels, keyed — `impact` is schema-parsed, so every value has one. */
+const IMPACT_LABEL = Object.fromEntries(IMPACT_OPTIONS.map(o => [o.value, o.label])) as Record<RiskImpact, string>
 
 /**
  * A10 — likelihood and impact write through `setProbability`/`setImpact`,
@@ -67,6 +70,16 @@ const IMPACT_OPTIONS: { value: RiskImpact; label: string }[] = [
  */
 export const INSPECTOR_RISK_REASON =
   `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood, impact and other edits here are not yet saved to the shared model — ask Olumi to record them instead.`
+
+/**
+ * ⭐ v3.1 (DESIGN-GAP-v31 row 33): the absence copy for a risk with nothing
+ * recorded. The contract: "Likelihood and impact are not recorded … does not
+ * imply low risk". An unset risk must never read as a LOW one — and must never
+ * sit under controls that cannot save ("Not set. Click to enter." over a
+ * fenced trigger, Low/Medium/High/Critical pills that did nothing).
+ */
+export const INSPECTOR_RISK_ABSENCE =
+  'Likelihood and impact are not recorded. That does not imply low risk.'
 
 export const RiskPanel = memo(function RiskPanel({
   nodeId,
@@ -140,7 +153,51 @@ export const RiskPanel = memo(function RiskPanel({
         }
       </PanelGroup>
 
-      {/* ── Your input: likelihood × impact (P1.7) ─────────────── */}
+      {/* ── Likelihood × impact ─────────────────────────────────
+          ⭐⭐ v3.1 (DESIGN-GAP-v31 row 33) — A CONTROL THAT CANNOT SAVE MUST
+          LOOK AND BEHAVE READ-ONLY. `setProbability`/`setImpact` commit through
+          a bare `updateNode` with no wire carrier, so the Router mounts this
+          pane `readOnly` and the writers were fenced — but a fenced trigger
+          reading "Not set. Click to enter." beside four impact pills still
+          LOOKED editable, and "Severity combines the likelihood and impact
+          entered above" was said over nothing entered. So, when `readOnly`:
+          the recorded values as detail rows, the absence stated when there are
+          none, and NO writer mounted at all (a stronger fence than a disabled
+          one). The editable arm below is unchanged and returns the day a
+          carrier lands and the Router stops passing `readOnly`. */}
+      {readOnly ? (
+        <PanelGroup kind="input" label={GROUP_LABELS.riskAssessment}>
+          {probability == null && impact == null ? (
+            <p data-testid="risk-absence" className={`${typography.panelBody} text-text-body m-0`}>
+              {INSPECTOR_RISK_ABSENCE}
+            </p>
+          ) : (
+            <div>
+              <div data-testid="risk-likelihood-row" className={inspectorDetailRow}>
+                <span className="text-text-light">{INLINE_LABELS.riskLikelihood}</span>
+                <span className="text-right text-text-body">{probabilityPct != null ? `${probabilityPct}%` : 'Not recorded'}</span>
+              </div>
+              <div data-testid="risk-impact-row" className={inspectorDetailRow}>
+                <span className="text-text-light">{INLINE_LABELS.riskImpact}</span>
+                <span className="text-right text-text-body">
+                  {impact != null ? IMPACT_LABEL[impact] : 'Not recorded'}
+                </span>
+              </div>
+              {severity && (
+                <div className={inspectorDetailRow}>
+                  <span className="text-text-light">{INLINE_LABELS.riskSeverity}</span>
+                  <span
+                    data-testid="risk-severity-badge"
+                    className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.panelMeta}`}
+                  >
+                    {severity.charAt(0).toUpperCase() + severity.slice(1)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </PanelGroup>
+      ) : (
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <fieldset disabled={readOnly} className="contents" data-writer-fence="probability-impact">
         <PrimaryControlCard>
@@ -192,7 +249,7 @@ export const RiskPanel = memo(function RiskPanel({
               })}
             </div>
             {impact == null && (
-              <p className={`${typography.panelMeta} text-text-light italic mt-1`}>{INLINE_LABELS.riskImpactNotSet}</p>
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>{INLINE_LABELS.riskImpactNotSet}</p>
             )}
           </div>
 
@@ -221,8 +278,12 @@ export const RiskPanel = memo(function RiskPanel({
         </PrimaryControlCard>
         </fieldset>
 
-        <p className={`${typography.panelMeta} text-text-light mt-2`}>Severity combines the likelihood and impact entered above.</p>
+        {/* Only once something is entered — never said over nothing. */}
+        {(probability != null || impact != null) && (
+          <p className={`${typography.panelMeta} text-text-light mt-2`}>Severity combines the likelihood and impact entered above.</p>
+        )}
       </PanelGroup>
+      )}
 
       {/* ── What drives this group ────────────────────────────── */}
       <PanelGroup kind="connections" label={INLINE_LABELS.drivers}>

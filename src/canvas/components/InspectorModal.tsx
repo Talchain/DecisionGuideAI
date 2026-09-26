@@ -27,6 +27,57 @@ interface Position {
   y: number
 }
 
+/**
+ * ⭐ WHERE THE INSPECTOR OPENS — canvas visual contract v3.1 ("no overlap").
+ *
+ * Measured on the served dev build (pricing, 1280x800, dock open at x=853): a
+ * Risk click opened the inspector at x=611..941, 88px over the right panel —
+ * the placement kept clear of the WINDOW edge only, and the dock is the right
+ * edge the canvas actually has. `rightLimit` is that edge (the dock's left, or
+ * the window's width when there is no dock).
+ *
+ * Rule, unchanged except for that limit: right of the anchor with a gap; flip
+ * to the left when the right side is blocked; clamp inside
+ * [padding, rightLimit - padding - width]; clamp vertically in the window.
+ */
+export function placeInspector({
+  anchor,
+  panel,
+  viewport,
+  rightLimit,
+  topLimit = 0,
+  padding = 16,
+  gap = 24,
+}: {
+  anchor: Position
+  panel: { width: number; height: number }
+  viewport: { width: number; height: number }
+  rightLimit: number
+  /** The app bar's bottom edge (`--topbar-h`); the panel never starts above it. */
+  topLimit?: number
+  padding?: number
+  gap?: number
+}): Position {
+  const right = Math.min(rightLimit, viewport.width) - padding
+  let x = anchor.x + gap
+  let y = anchor.y - panel.height / 2
+  // Blocked on the right (by the dock or the window) — flip to the left side.
+  if (x + panel.width > right) x = anchor.x - panel.width - gap
+  // Never over the right edge, never off the left.
+  if (x + panel.width > right) x = right - panel.width
+  if (x < padding) x = padding
+  if (y + panel.height > viewport.height - padding) y = viewport.height - panel.height - padding
+  if (y < topLimit + padding) y = topLimit + padding
+  return { x, y }
+}
+
+/** The right panel's left edge, or the window's width when it is not showing. */
+function canvasRightLimit(): number {
+  const dock = document.querySelector('[data-testid="outputs-dock"]')
+  const r = dock?.getBoundingClientRect()
+  return r && r.width > 0 && r.left > 0 ? Math.min(r.left, window.innerWidth) : window.innerWidth
+}
+
 export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalProps) => {
   const panelRef = useRef<HTMLDivElement>(null)
   const { x: viewportX, y: viewportY, zoom } = useViewport()
@@ -56,43 +107,22 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
       if (!panelRef.current) return
 
       const rect = panelRef.current.getBoundingClientRect()
-      const padding = 16
-      const gap = 24
-
-      // Convert canvas coordinates to screen coordinates
-      const screenAnchor = canvasToScreen(anchorPosition)
-
-      // Start to the right of the anchor
-      let x = screenAnchor.x + gap
-      let y = screenAnchor.y - rect.height / 2
-
-      // Prevent overflow right - flip to left side
-      if (x + rect.width > window.innerWidth - padding) {
-        x = screenAnchor.x - rect.width - gap
-      }
-
-      // Prevent overflow left
-      if (x < padding) {
-        x = padding
-      }
-
-      // Prevent overflow bottom
-      if (y + rect.height > window.innerHeight - padding) {
-        y = window.innerHeight - rect.height - padding
-      }
-
-      // Prevent overflow top — and clear the app bar. Canvas v3.1 DESIGN-GAP #5
-      // made the top bar the contract's full-width 51px `.app-top`, so a y
-      // clamped to `padding` alone put this panel's header over the bar at
-      // every x (the floating pill only spanned x 12..450). `--topbar-h` is the
-      // bar's bottom edge, written by `TopBar.tsx`; 0 when no bar is mounted.
+      // Convert canvas coordinates to screen coordinates, then place clear of
+      // the right panel (v3.1 "no overlap" — see `placeInspector`) AND below the
+      // app bar. Canvas v3.1 DESIGN-GAP #5 made the top bar the contract's
+      // full-width 51px `.app-top`, so a y clamped to `padding` alone put this
+      // panel's header over the bar at every x (the floating pill only spanned
+      // x 12..450). `--topbar-h` is the bar's bottom edge, written by
+      // `TopBar.tsx`; 0 when no bar is mounted.
       const topBarBottom =
         parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
-      if (y < topBarBottom + padding) {
-        y = topBarBottom + padding
-      }
-
-      setPosition({ x, y })
+      setPosition(placeInspector({
+        anchor: canvasToScreen(anchorPosition),
+        panel: { width: rect.width, height: rect.height },
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        rightLimit: canvasRightLimit(),
+        topLimit: topBarBottom,
+      }))
     })
   }, [anchorPosition, canvasToScreen, position])
 

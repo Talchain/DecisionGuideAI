@@ -417,7 +417,13 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
    */
   panels?: readonly PanelKind[]
 }> = [
-  { selector: '[data-testid="inspector-back-to-results"]', why: 'navigation' },
+  // ⚠ v3.1 (DESIGN-GAP-v31 row 7): "Back to results" left the header. Its
+  // replacement, "Back to the conversation", renders only where a conversation
+  // surface is registered — this file registers none, so it has no entry here
+  // (an entry that matches nothing REDs by design). The technical-detail toggle
+  // moved from the head to the foot of the body, keeping its accessible name,
+  // so the entry below still binds it — and still requires it OUTSIDE the
+  // boundary.
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
   {
     selector: '[data-testid="edge-label-mode-toggle"]',
@@ -432,13 +438,15 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
     why: 'the link STRENGTH — the one editing control on an edge with a receipt-bearing carrier (`edge_strength_edit`, consumed by CEE since schemas 0.42.0 and routed through `adjust_edge_strength`). Same class as the node panel\'s rename below: it is outside because it CAN be saved, not because it is exempt. The block fences ITSELF on any edge whose strength the server has not stated, via `edgeStrengthEditIsAssertable` — that fence is marked `data-authority="no-strength-basis"` so it cannot be confused with the carrier boundary.',
     panels: ['edge'],
   },
-  {
-    selector: '[aria-label="Dismiss suggestion"]',
-    why: 'coaching dismissal — writes no model value. Until the panel was unfenced this button sat inside the boundary and was inert while the edge notice said coaching still worked. (That sentence was dropped as boilerplate on Paul 23 Sep contract feedback point 11; the control stays operable, which this entry keeps pinned.)',
-    panels: ['edge'],
-  },
+  // ⚠ v3.1 (DESIGN-GAP-v31 row 32): the coaching card's "Dismiss suggestion"
+  // entry is removed with the × itself. The generic fallback card no longer
+  // renders (this file seeds no grounded guidance item), and a grounded item is
+  // drawn as a flat `.section-highlight` with no dismiss. Its action's
+  // reachability is pinned in `InspectorRouter.A10.coachingReachable.spec.tsx`.
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
-  { selector: '[data-testid="inspector-quick-analysis"]', why: 'navigation' },
+  // v3.1: "Its analysis" (a switch to the generic Analysis tab) is removed —
+  // the contract's inspector buttons are "Explore with Olumi" and "Back to the
+  // conversation" — so its navigation entry is removed with it.
   {
     selector: '[data-testid="inspector-rename-trigger"]',
     why: 'schemas 0.50.0 — the ONE writing control here, and the only one with a receipt-bearing carrier (structural_rename → scenarios.graph + an edit_graph fact)',

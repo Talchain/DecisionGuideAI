@@ -47,7 +47,7 @@ import { useCanvasStore } from '../../../store'
 // ⭐ DERIVED, never re-typed: the prompt asserted below is the one the panel
 // renders, so a reworded placeholder moves this with it instead of quietly
 // un-binding the assertion.
-import { DESCRIPTION_PLACEHOLDERS } from '../inspectorStrings'
+import { DESCRIPTION_PLACEHOLDERS, INSPECTOR_DESCRIPTION_EMPTY } from '../inspectorStrings'
 
 // importOriginal-spread, NOT a hand-listed factory: `vi.mock` REPLACES the
 // module, so a bare `{ useViewport }` factory silently removes every other
@@ -461,7 +461,10 @@ describe('the permitted controls are exercised, not merely enabled', () => {
     // passed on a dead button — `EmptyDescriptionPrompt` with a no-op
     // `onStartEditing` still rendered `role="button"` and a tab stop, so the
     // pane offered an action that answers nothing and this test said fine.
-    expect(screen.getByText(DESCRIPTION_PLACEHOLDERS.option)).toBeInTheDocument()
+    // v3.1 (DESIGN-GAP-v31 row 32): the read-only empty state is stated as an
+    // ABSENCE, not an italic prompt question that reads as content.
+    expect(screen.getByTestId('inspector-description-empty')).toHaveTextContent(INSPECTOR_DESCRIPTION_EMPTY)
+    expect(screen.queryByText(DESCRIPTION_PLACEHOLDERS.option)).toBeNull()
     expect(screen.queryByRole('button', { name: DESCRIPTION_PLACEHOLDERS.option }), 'the empty prompt is still a tab stop').toBeNull()
   })
 })

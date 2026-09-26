@@ -20,6 +20,19 @@
  * in the composer as literal text instead of executing.
  *
  * Replaces the separate CoachingCard + InspectorGuidanceSection pattern.
+ *
+ * ⭐⭐ v3.1 (DESIGN-GAP-v31 row 32): NO GENERIC FALLBACK ANY MORE. The static
+ * `fallbackText` ("Consider options that pull different levers to increase
+ * differentiation.", "… may benefit from an industry benchmark. Even a rough
+ * anchor would improve confidence.") rendered as a lightbulb card in EVERY
+ * inspector whether or not anything grounded it — the generic coaching card
+ * the contract drops. Only a GROUNDED item — an orchestrator guidance item that
+ * targets or relates to THIS element — renders now. The element's own
+ * question is one click away as "Explore with Olumi", and its card on the
+ * canvas carries its prepared question on the coaching icon (v3.1 point 6).
+ *
+ * `fallbackText` stays in the props so the eight panes that pass it need not
+ * change (one of them sits in another open PR); it is not rendered.
  */
 
 import { useMemo, useCallback } from 'react'
@@ -34,7 +47,7 @@ interface InspectorCoachingProps {
   elementId: string
   /** Panel type for question template resolution */
   panelType: string
-  /** Static coaching text (fallback when no guidance items) */
+  /** Retired by v3.1 (no generic fallback card). Accepted, not rendered. */
   fallbackText: string
   /** Label context for "Ask about this" question templates */
   labelContext: { label?: string; sourceLabel?: string; targetLabel?: string }
@@ -45,7 +58,6 @@ interface InspectorCoachingProps {
 export function InspectorCoaching({
   elementId,
   panelType,
-  fallbackText,
   labelContext,
   actionLabel = 'Ask about this',
 }: InspectorCoachingProps) {
@@ -101,12 +113,6 @@ export function InspectorCoaching({
     }
   }, [])
 
-  // Handle "Ask about this" — prefill the contextual question for the user
-  const handleAsk = useCallback(() => {
-    if (!questionText) return
-    ask(questionText)
-  }, [questionText, ask])
-
   // Handle guidance item action
   const handleGuidanceAction = useCallback(() => {
     if (!topGuidanceItem) return
@@ -126,10 +132,14 @@ export function InspectorCoaching({
     }
   }, [topGuidanceItem, questionText, ask, runCommand])
 
+  // v3.1: grounded only — no guidance item for this element, no card.
+  if (!topGuidanceItem) return null
+
   // Determine text and action
-  const text = topGuidanceItem?.title
+  const text = topGuidanceItem.title
     ? `${topGuidanceItem.title}${topGuidanceItem.detail ? ` ${topGuidanceItem.detail}` : ''}`
-    : fallbackText
+    : null
+  if (!text) return null
 
   // ⚠ A `run_exercise` item kept the ASK label ("Ask about this") while
   // AUTO-SENDING a slash command — a control labelled as one semantic doing
@@ -137,15 +147,10 @@ export function InspectorCoaching({
   // does, using the estate's EXISTING word for this action class
   // (`GuidanceStrip.tsx` / `InspectorGuidanceSection.tsx` both say 'Try it')
   // rather than minting a third vocabulary for the same enum.
-  const guidanceActionLabel = topGuidanceItem
-    ? guidanceActionLabelFor(topGuidanceItem.primary_action.type, actionLabel)
-    : actionLabel
+  const guidanceActionLabel = guidanceActionLabelFor(topGuidanceItem.primary_action.type, actionLabel)
 
   const action = canInteract
-    ? {
-        label: guidanceActionLabel,
-        onClick: topGuidanceItem ? handleGuidanceAction : handleAsk,
-      }
+    ? { label: guidanceActionLabel, onClick: handleGuidanceAction }
     : undefined
 
   return <CoachingCard text={text} action={action} />

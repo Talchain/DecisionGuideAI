@@ -54,9 +54,23 @@
  *
  * ## ⚠ AND IT COMPOSES WITH THE LABEL RATHER THAN REPLACING IT
  *
- * `node-title` is `line-clamp-2`, so `title={label}` is the reader's only way
- * to recover a clipped name. Overwriting it to add an affordance would trade a
- * real capability for a hint. Both ride, label first.
+ * `node-title` is `line-clamp-2`, so a hover route to the full name is the
+ * reader's way to recover a clipped name. Overwriting it with an affordance
+ * would trade a real capability for a hint.
+ *
+ * ## ⭐ v3.1: ONE TOOLTIP SYSTEM (DESIGN-GAP-v31 row 36)
+ *
+ * The name used to ride a NATIVE `title` — "<name>\n\nDouble-click to rename
+ * it", on 15/15 cards of the served pricing board — beside the product's styled
+ * tooltips: two tooltip systems on one card. The contract has one
+ * (`.tooltip`, `components/Tooltip.tsx`). So the channels are now:
+ *   · `tooltip` — the SAME two facts, for the ONE styled tooltip on the title:
+ *     the full name first (the clipped-name route is kept; the title is
+ *     `line-clamp-2`), then the affordance, so the rename stays discoverable
+ *     to a sighted mouse user — only the chrome changed;
+ *   · `accessibleName` — the card's name plus the affordance, unchanged, so a
+ *     screen reader still hears what a double-click does.
+ * The rule below still holds: it names the interaction, never an outcome.
  */
 
 /** The interaction, in the estate's existing double-click vocabulary. */
@@ -79,11 +93,15 @@ export function nodeTitleChannels({
   label: string
   /** What the card's accessible name already says, before the affordance. */
   accessibleName: string
-}): { title: string; accessibleName: string } {
+}): {
+  tooltip: { name: string | null; affordance: typeof NODE_RENAME_AFFORDANCE }
+  accessibleName: string
+} {
   const name = label.trim()
   return {
-    // Label first: a clipped name is the reason this attribute exists.
-    title: name.length > 0 ? `${name}\n\n${NODE_RENAME_AFFORDANCE}` : NODE_RENAME_AFFORDANCE,
+    // Name first, so a clipped name is recoverable at a glance. A blank name
+    // has nothing to recover, and the tooltip still says the useful thing.
+    tooltip: { name: name.length > 0 ? name : null, affordance: NODE_RENAME_AFFORDANCE },
     accessibleName: `${accessibleName} ${NODE_RENAME_AFFORDANCE}`.trim(),
   }
 }

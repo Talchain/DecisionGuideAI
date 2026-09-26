@@ -397,10 +397,10 @@ describe('D3 · an inbound option → decision edge is not invisible', () => {
     })
   }
 
-  it('lists inbound options in the Input group', () => {
+  it('lists inbound options in the Alternatives group (v3.1: not "Your input")', () => {
     setInboundStore()
     const { container } = render(<DecisionPanel {...decisionProps} />)
-    const input = container.querySelector('[data-panel-group="input"]')
+    const input = container.querySelector('[data-panel-group="alternatives"]')
     expect(input?.textContent).toContain('Option A')
     expect(input?.textContent).toContain('Option B')
   })
@@ -499,8 +499,12 @@ describe('4 · a run_exercise action is labelled for what it does', () => {
   })
 
   it('leaves the genuine ask labelled as an ask', () => {
-    // Discriminating twin: only the command class is relabelled.
-    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    // Discriminating twin: only the command class is relabelled. v3.1: the card
+    // renders only for a GROUNDED item, so the twin is a non-command item.
+    useGuidanceStore.setState({
+      guidanceItems: [{ ...exerciseItem(), primary_action: { type: 'navigate', target: 'x' } } as GuidanceItem],
+      _prefillChat: vi.fn(),
+    } as never)
     render(<InspectorCoaching {...coachingProps} />)
     expect(screen.getByText('Ask about this')).toBeTruthy()
     expect(screen.queryByText('Try it')).toBeNull()

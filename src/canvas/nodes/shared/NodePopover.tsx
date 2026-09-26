@@ -62,10 +62,21 @@
  * `e2e/geometry/nodeKeyboardBleed.measure.ts` can find what sits beyond that
  * boundary rather than returning a clean zero for a class they cannot see.
  * Tracks anchor position via rAF to stay aligned during pan/zoom.
+ *
+ * ── ⭐ v3.1: A CLICK LEAVES ONE SURFACE (DESIGN-GAP-v31 row 6) ────────────────
+ *
+ * "Clicking a card opens only the inspector." Measured on served `eec722ab`: a
+ * factor click left the inspector AND this popover open (the pointer was still
+ * over the card), beside the dock's "Selected" row — three surfaces for one
+ * element. So a popover never renders while ITS OWN node is selected — the
+ * state a click leaves, whose detail surface is the inspector. Bound by the
+ * owner id this file already derives from the anchor (see `ownerId`), so a
+ * DIFFERENT selected node never suppresses it. One file, every node kind.
  */
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNodeKeyboardScope, NODE_KEYBOARD_SCOPE_ATTR } from '../nodeKeyboardScope'
+import { useCanvasStore } from '../../store'
 
 interface NodePopoverProps {
   visible: boolean
@@ -113,6 +124,9 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
   // ⚠ BEFORE EVERY EARLY RETURN. This component returns null on three separate
   // paths; a hook called after any of them would break the rules of hooks.
   const scope = useNodeKeyboardScope<HTMLDivElement>()
+  // v3.1 row 6 — the owner's selection (see the header). An EMPTY owner id is
+  // "no identity" and never matches, the same fail-closed rule as below.
+  const ownerSelected = useCanvasStore(s => ownerId !== '' && (s.selection?.nodeIds?.has(ownerId) ?? false))
 
   // Track anchor position continuously while visible (handles pan/zoom)
   useEffect(() => {
@@ -157,7 +171,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
     </div>
   )
 
-  if (!visible) return null
+  if (!visible || ownerSelected) return null
 
   /*
    * Fallback: if no anchorRef, render inline (backward compat).
