@@ -19,6 +19,7 @@ import {
   METHOD_STRIP_ICON_IDS,
   METHOD_STRIP_RUN_SOURCE,
   methodStripLabel,
+  methodsInMenuOrder,
   type MethodStripProps,
 } from '../sections/MethodStrip'
 import {
@@ -140,24 +141,32 @@ describe('the strip', () => {
     expect(iconIds()).toHaveLength(5)
   })
 
-  it('⛔ CONTRAST — a narrow dock shows four icons and moves the pre-mortem into the overflow', () => {
+  /**
+   * ⭐ RE-POINTED, V2 prototype (design audit B1, 25 Sep 2026): the ⋯ is "one
+   * complete menu" — it lists EVERY method, the strip's icons included
+   * (`methodMenu()` iterates the whole method table). What these cases pinned
+   * is unchanged: no catalogue method can fall between the strip and the menu,
+   * none is listed twice, and a narrow dock drops the pre-mortem icon.
+   */
+  it('⛔ CONTRAST — a narrow dock shows four icons; the pre-mortem stays reachable in the menu', () => {
     draw({}, NARROW)
     expect(screen.getByTestId(TID)).toHaveAttribute('data-compact', 'true')
     expect(iconIds()).toEqual(['different_option', 'reframe_problem', 'consider_opposite', 'outside_view'])
     openMenu()
-    expect(menuMethodIds()).toEqual(['pre_mortem', 'explore_tradeoffs', 'review_bias'])
+    expect(menuMethodIds()).toContain('pre_mortem')
   })
 
   it.each([
     ['wide', WIDE],
     ['narrow', NARROW],
-  ])('⭐ at a %s dock every catalogue method is reachable exactly once', (_l, dock) => {
+  ])('⭐ at a %s dock the menu lists every catalogue method exactly once, and the icons are a subset of it', (_l, dock) => {
     draw({}, dock)
     const strip = iconIds()
     openMenu()
-    const overflow = menuMethodIds()
-    expect([...strip, ...overflow].sort()).toEqual(METHOD_CATALOGUE.map((m) => m.id).sort())
-    expect(new Set([...strip, ...overflow]).size).toBe(strip.length + overflow.length)
+    const menu = menuMethodIds()
+    expect([...menu].sort()).toEqual(METHOD_CATALOGUE.map((m) => m.id).sort())
+    expect(new Set(menu).size).toBe(menu.length)
+    for (const id of strip) expect(menu).toContain(id)
   })
 
   it('names each icon by the catalogue title and description (tooltip = accessible name)', () => {
@@ -289,18 +298,21 @@ describe('raised by this run', () => {
 })
 
 describe('the overflow menu', () => {
-  it('lists the remaining methods, a separator, then the global actions (no rerun without canRerun)', () => {
+  it('lists every method, a separator, then the global actions (no rerun without canRerun)', () => {
     draw({}, WIDE)
     const menu = openMenu()
     expect(more()).toHaveAttribute('aria-expanded', 'true')
-    expect(menuMethodIds()).toEqual(['explore_tradeoffs', 'review_bias'])
+    // V2: the whole catalogue, in the prototype's order (re-pointed from "the remaining methods").
+    expect(menuMethodIds()).toEqual(methodsInMenuOrder().map((m) => m.id))
     expect(within(menu).getByRole('separator')).toBeInTheDocument()
     expect(menuActionIds()).toEqual(['edit_brief', 'review_inputs'])
-    // Order in the DOM: methods, then separator, then actions.
+    // Order in the DOM: the "Reasoning methods" label, the methods, then the
+    // separator, then the "Model and workflow" label and the actions.
     const kids = Array.from(menu.children).map((el) =>
       el.getAttribute('role') === 'separator' ? 'sep' : (el.getAttribute('data-testid') ?? ''),
     )
-    expect(kids.indexOf('sep')).toBe(2)
+    expect(kids.indexOf('sep')).toBe(1 + METHOD_CATALOGUE.length)
+    expect(kids.indexOf(`${TID}-menu-label-actions`)).toBe(2 + METHOD_CATALOGUE.length)
   })
 
   it('⛔ CONTRAST — canRerun adds the rerun item, last', () => {
