@@ -295,7 +295,11 @@ export const ROW_PROMPT_H = Math.ceil(
     ROW_PROMPT_BORDER_PX * 2,
 )
 
-/** Vertical gap between the two prompts of a shared Outcome + Risk column. */
+/**
+ * Vertical gap between two stacked prompts. ⚠ No row stacks prompts any more
+ * (one prompt per row, ED 5810951997); kept for the one reader that still
+ * spaces a kind outside `ROW_PROMPT_KINDS_BY_TIER` below the row's own door.
+ */
 export const ROW_PROMPT_STACK_GAP = 8
 
 /**
@@ -608,6 +612,46 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  * becoming a second spacing authority that competes with this one.
  */
 export const LAYOUT_NODE_GAP = 32
+/**
+ * ⭐ THE KIND SHAPE ON A CARD'S TOP BORDER, in unscaled px (contract v3.1
+ * FRAME-03, `.node .shape{width:24px;height:24px;top:-12px}`). `BaseNode` draws
+ * it `KIND_GLYPH_PX × --canvas-label-scale` square, centred on the card's top
+ * border, so it stands `KIND_GLYPH_PX / 2 × scale` above the card: 24 flow
+ * units at the landing bound. It lives here, not in `BaseNode`, because two
+ * other things are sized against it: the band title keeps clear of it
+ * (`tierLanes.ts`) and the row gap below budgets for it.
+ */
+export const KIND_GLYPH_PX = 24
+
+/**
+ * ⭐⭐ THE ROW GAP HOLDS THE KIND SHAPE AND THE BAND TITLE, BOTH AT THE BOUND
+ * (26 Sep 2026, review of #2074, Blocker 1).
+ *
+ * The visible gap between two rows is this plus `LAYOUT_PADDING_Y`: 64 flow
+ * units, 32px at the 0.5 landing floor. At the counter-scale bound (×2) that
+ * gap must hold, from the bottom up:
+ *
+ *   the kind shape's overhang above its card   KIND_GLYPH_PX / 2 × 2   = 24
+ *   the title's clearance above that shape     LANE_TITLE_GAP          =  8
+ *   the band title's one line                  10px × 1.2 × 2          = 24
+ *   the title's clearance below the row above  LANE_TITLE_GAP          =  8
+ *                                                                        ──
+ *                                                                        64
+ *
+ * WS1 #11 had set this to 32 (48 visible) on ED S5 (#63 5808428246), which
+ * accepted "reduce row gap to 48 if the served view preserves label/connector
+ * separation". Its arithmetic counted the title (8 + 24) and not the kind
+ * shape, which WS1 #15 had just made 24 units tall above the card: served at
+ * 1280×800, ALTERNATIVES and OUTCOMES / RISKS sat under the leftmost card's
+ * shape on four of the five starters (24.0×7.5px each). The separation the
+ * acceptance was conditional on did not hold, so the gap is back at 48. What
+ * #11 keeps: this is still the ONE row gap — a persisted `layerSpacing` cannot
+ * change it (`layout.ts`). At 100% the visible gap is 64px, against the
+ * prototype's 35–60px, where the title and shape are not counter-scaled.
+ *
+ * `bandTitleClearsKindGlyph.guard.spec.ts` asserts the budget above and pairs
+ * every band title with every kind shape on the five starters at the bound.
+ */
 export const LAYOUT_LAYER_GAP = 48
 
 export const LAYOUT_PADDING_X = 24
@@ -841,16 +885,24 @@ export const ROW_PROMPT_KINDS_BY_TIER: Readonly<Record<number, readonly string[]
 }
 
 /**
- * The prompt kinds a tier's final sub-row carries, given the kinds present in
+ * The prompt kinds a tier's final sub-row speaks for, given the kinds present in
  * the tier — the ONE answer the layout (which reserves the slot) and the render
- * layer (which places the prompts) both read.
+ * layer (which places the prompt) both read.
+ *
+ * ⭐ v3.1 / ED 5810951997 ("row-end prompts appear ONCE PER ROW"): a row ends in
+ * ONE prompt whatever this returns. When the consequence row holds outcomes AND
+ * risks, `withGhostTiers` draws a single shared door that asks about both —
+ * the two stacked doors (2 × `ROW_PROMPT_H` + gap, taller than the cards beside
+ * them) were the measured cause of the 98-unit gap above the Goal.
  */
 export function rowPromptKindsFor(tier: number, kindsPresent: ReadonlySet<string>): string[] {
   return (ROW_PROMPT_KINDS_BY_TIER[tier] ?? []).filter((k) => kindsPresent.has(k))
 }
 
-/** Height of the frontier column that holds `count` stacked prompts. */
+/**
+ * Height of the frontier column a row's prompt kinds need. ONE prompt per row
+ * (see `rowPromptKindsFor`), so any non-empty set is one `ROW_PROMPT_H`.
+ */
 export function rowPromptColumnHeight(count: number): number {
-  if (count <= 0) return 0
-  return count * ROW_PROMPT_H + (count - 1) * ROW_PROMPT_STACK_GAP
+  return count <= 0 ? 0 : ROW_PROMPT_H
 }

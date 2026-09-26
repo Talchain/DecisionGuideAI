@@ -69,8 +69,13 @@ export function excludeNonModelNodes<T extends { id: string }>(nodes: readonly T
  * Spelled from the one prefix, never restated.
  */
 export const ROW_END_PROMPT_IDS: ReadonlySet<string> = new Set(
-  ['option', 'factor', 'outcome', 'risk'].map((kind) => `${GHOST_ID_PREFIX}${kind}__`),
+  // v3.1 WS1 #27: + the consequence row's ONE shared door (outcomes AND risks,
+  // one prompt per row — `ghostTiers` `CONSEQUENCE_DOOR_ID`, spelled from here).
+  ['option', 'factor', 'outcome', 'risk', 'consequence'].map((kind) => `${GHOST_ID_PREFIX}${kind}__`),
 )
+
+/** The consequence row's shared door (v3.1 WS1 #27). */
+export const CONSEQUENCE_PROMPT_ID = `${GHOST_ID_PREFIX}consequence__`
 
 /** Is this id a row-end reasoning prompt (and so part of the landing frame)? */
 export function isRowEndPromptId(id: string): boolean {

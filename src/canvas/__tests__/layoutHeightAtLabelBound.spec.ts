@@ -23,7 +23,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { layoutGraph } from '../utils/layout'
-import { LAYOUT_PADDING_Y, LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP } from '../utils/nodeLayoutConstants'
+import { LAYOUT_PADDING_Y, LAYOUT_LAYER_GAP } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
 /**
@@ -35,7 +35,9 @@ import type { Node, Edge } from '@xyflow/react'
  * it RED-ed with a bare `expected 88 to be 46` that says nothing about why.
  * Derived from the same two constants `layout.ts` uses, so it cannot drift.
  */
-const EFFECTIVE_LAYER_SPACING = Math.max(LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP * 1.5)
+// v3.1 WS1 #11 (26 Sep 2026): the row gap is ONE constant; `layout.ts` no
+// longer takes the larger of it and `spacing × 1.5` (or a persisted setting).
+const EFFECTIVE_LAYER_SPACING = LAYOUT_LAYER_GAP
 
 /** A node carrying the height it renders at ONE PARTICULAR zoom. */
 function nodeAt(id: string, type: string, measuredHeight: number): Node {

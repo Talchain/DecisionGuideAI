@@ -561,7 +561,6 @@ export async function layoutGraph(
     // than a seam. Both the value and the floor move together so the constant
     // and the rendered gap cannot disagree the way they did before.
     spacing = LAYOUT_NODE_GAP,
-    layerSpacing,
     preserveLocked = true,
     heightAtLabelBound,
   } = options
@@ -582,7 +581,15 @@ export async function layoutGraph(
    * remains a last-resort separation rather than a second spacing authority.
    */
   const effectiveNodeSpacing = Math.max(LAYOUT_NODE_GAP, spacing)
-  const effectiveLayerSpacing = Math.max(LAYOUT_LAYER_GAP, layerSpacing ?? spacing * 1.5)
+  /**
+   * ⭐ v3.1 LANDING COMPOSITION (WS1, 26 Sep 2026): THE ROW GAP IS ONE CONSTANT.
+   * The persisted `layerSpacing` (48 comfortable / 30 compact) could only ever
+   * RAISE this — the density toggle that wrote it is gone (A19) — so a stale
+   * per-browser setting was the one thing still able to change the canonical
+   * row stride (R1: the shared model's shape has no per-user input). The
+   * option is accepted and ignored; `LAYOUT_LAYER_GAP` is the gap.
+   */
+  const effectiveLayerSpacing = LAYOUT_LAYER_GAP
 
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
 
@@ -1035,22 +1042,63 @@ function placeTierRowsOnSpine(
     if (placed.length === 0) continue
     const subRows = [...groupByYRow(placed, positionMap).values()]
     const slot = promptSlotByTier.get(tier) ?? 0
+    const rowOffsets = brickRowOffsets(subRows, rowWidth, widthOf, gap, slot)
     let blockW = 0
     subRows.forEach((row, i) => {
-      const w = rowWidth(row) + (i === subRows.length - 1 ? slot : 0)
+      const w = rowOffsets[i]! + rowWidth(row) + (i === subRows.length - 1 ? slot : 0)
       if (w > blockW) blockW = w
     })
     const left = graphSpineX - blockW / 2
-    for (const row of subRows) {
-      let x = left
+    subRows.forEach((row, i) => {
+      let x = left + rowOffsets[i]!
       for (const id of row) {
         const p = positionMap.get(id)
         if (!p) continue
         positionMap.set(id, { x, y: p.y })
         x += widthOf(id) + gap
       }
-    }
+    })
   }
+}
+
+/**
+ * ⭐⭐ v3.1 WS1 #10 (26 Sep 2026): A WRAPPED FAMILY IS LAID IN BRICK COURSES.
+ *
+ * With every sub-row starting at the block's left edge, the cards of one course
+ * stood directly under the cards of the course above, so every edge leaving the
+ * upper course — or entering the lower one from the row above — ran through a
+ * card that was not its endpoint. Measured at the landing zoom before this
+ * change: 11 (pricing), 21 (market-entry), 20 (vendor-selection), 20
+ * (build-vs-buy) and 16 (headcount) edges passed under a non-endpoint card,
+ * against 1 of 17 on the v3.1 prototype, whose families never wrap.
+ *
+ * Alternate courses are shifted by HALF A STRIDE, so each card of one course
+ * sits under a GAP of the course next to it and the near-vertical leads of the
+ * edges (`StyledEdge`: at most 30 units of vertical lead-in and lead-out) pass
+ * between cards. Which courses shift is chosen to keep the family's block
+ * narrowest (the final course carries the row-end prompt): e.g. 4+4 shifts the
+ * FIRST course (block 1424, not 1582), 3+2 the second (950, not 1074) — so no
+ * family is wider than its unshifted block's budget (`CANONICAL_LAYOUT_WIDTH`).
+ *
+ * Reading order is unchanged (left to right, then down) and the family still
+ * sits under ONE band label at the board's left column. A tier that does not
+ * wrap gets `[0]` — no change.
+ */
+function brickRowOffsets(
+  subRows: readonly (readonly string[])[],
+  rowWidth: (row: readonly string[]) => number,
+  widthOf: (id: string) => number,
+  gap: number,
+  promptSlot: number,
+): number[] {
+  if (subRows.length <= 1) return subRows.map(() => 0)
+  const first = subRows[0]![0]
+  const half = first === undefined ? 0 : (widthOf(first) + gap) / 2
+  const blockOf = (offsets: number[]): number =>
+    subRows.reduce((w, row, i) => Math.max(w, offsets[i]! + rowWidth(row) + (i === subRows.length - 1 ? promptSlot : 0)), 0)
+  const oddShifted = subRows.map((_, i) => (i % 2 === 1 ? half : 0))
+  const evenShifted = subRows.map((_, i) => (i % 2 === 0 ? half : 0))
+  return blockOf(evenShifted) < blockOf(oddShifted) ? evenShifted : oddShifted
 }
 
 function applyGlobalTranslation(

@@ -33,7 +33,6 @@ import {
   REPEATED_CARD_TARGET_W,
   REPEATED_CARD_W,
   ROW_PROMPT_H,
-  ROW_PROMPT_STACK_GAP,
   ROW_PROMPT_W,
 } from '../utils/nodeLayoutConstants'
 import vendorSelection from '../starters/data/vendor-selection.draft.json'
@@ -187,11 +186,18 @@ describe('S4 row wrapping — balanced sub-rows, order preserved', () => {
     expect(rows.flat()).toEqual(Array.from({ length: n }, (_, i) => `fac_${i}`))
   })
 
-  it('sub-rows share ONE left edge, so a wrapped family reads as one paragraph under one label', async () => {
+  it('sub-rows are laid in BRICK courses, half a stride apart, so no card stands directly under another (v3.1 WS1 #10)', async () => {
+    // Was: "sub-rows share ONE left edge". Stacked columns put every edge that
+    // leaves the upper course, or enters the lower one, through a card that is
+    // not its endpoint (11–21 per starter at landing). Half-stride courses put
+    // each card of one course under a GAP of the other; the family still reads
+    // left to right, then down, under one band label.
     const { nodes, edges } = factorTier(7)
     const out = await layoutGraph(nodes, edges, {})
     const [first, second] = subRows(out.nodes, 'fac_')
-    expect(byId(out.nodes, first[0]).position.x).toBe(byId(out.nodes, second[0]).position.x)
+    const stride = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
+    // 7 → 4 + 3: the SECOND course shifts (the narrower of the two brick choices).
+    expect(byId(out.nodes, second[0]).position.x - byId(out.nodes, first[0]).position.x).toBe(stride / 2)
     // …and the stride inside a sub-row is the card plus the card gap, exactly.
     expect(byId(out.nodes, first[1]).position.x - byId(out.nodes, first[0]).position.x).toBe(
       REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP,
@@ -236,7 +242,7 @@ describe('S4 row-end prompts — placed in the slot the layout reserved', () => 
     expect(Math.abs(cardsOnlyCentre - decBoxCentre)).toBeGreaterThan(50)
   })
 
-  it('⭐ Outcome + Risk share ONE frontier column: outcome above risk, same x, stacked by the prompt height', async () => {
+  it('⭐ Outcome + Risk share ONE door at the row end — never two stacked (v3.1 WS1 #27, ED 5810951997 "once per row")', async () => {
     const nodes = [node('dec', 'decision'), node('opt', 'option'), node('fac', 'factor'), node('out_1', 'outcome'), node('risk_1', 'risk'), node('risk_2', 'risk'), node('goal', 'goal')]
     const edges = [
       { id: '1', source: 'dec', target: 'opt' }, { id: '2', source: 'opt', target: 'fac' },
@@ -245,18 +251,18 @@ describe('S4 row-end prompts — placed in the slot the layout reserved', () => 
     ] as Edge[]
     const out = await layoutGraph(nodes, edges, {})
     const prompts = withGhostTiers(out.nodes)
-    const outcome = byId(prompts, '__ghost-outcome__')
-    const risk = byId(prompts, '__ghost-risk__')
-    expect(risk.position.x).toBe(outcome.position.x)
-    expect(risk.position.y - outcome.position.y).toBe(ROW_PROMPT_H + ROW_PROMPT_STACK_GAP)
+    const ids = prompts.filter((n) => isGhostNode(n.id)).map((n) => n.id)
+    expect(ids).not.toContain('__ghost-outcome__')
+    expect(ids).not.toContain('__ghost-risk__')
+    const door = byId(prompts, '__ghost-consequence__')
     // …standing at the end of the consequence row, after whichever card ends it.
     const row = out.nodes.filter((n) => ['out_1', 'risk_1', 'risk_2'].includes(n.id))
     const rowRight = Math.max(...row.map((n) => n.position.x + REPEATED_CARD_W))
-    expect(outcome.position.x).toBe(rowRight + LAYOUT_PADDING_X + LAYOUT_NODE_GAP)
-    expect(outcome.position.y).toBe(row[0].position.y)
+    expect(door.position.x).toBe(rowRight + LAYOUT_PADDING_X + LAYOUT_NODE_GAP)
+    expect(door.position.y).toBe(row[0].position.y)
   })
 
-  it('⭐ the layout reserves the stacked column\'s HEIGHT: short consequence cards cannot pull the Goal up under the column', async () => {
+  it('⭐ the layout reserves the door\'s HEIGHT: short consequence cards cannot pull the Goal up under it', async () => {
     const shortH = 60
     const nodes = [node('dec', 'decision'), node('opt', 'option'), node('fac', 'factor'), node('out_1', 'outcome', shortH), node('risk_1', 'risk', shortH), node('goal', 'goal')]
     const edges = [
@@ -265,8 +271,9 @@ describe('S4 row-end prompts — placed in the slot the layout reserved', () => 
       { id: '5', source: 'out_1', target: 'goal' },
     ] as Edge[]
     const out = await layoutGraph(nodes, edges, {})
-    const risk = byId(withGhostTiers(out.nodes), '__ghost-risk__')
-    const columnBottom = risk.position.y + ROW_PROMPT_H
+    const door = byId(withGhostTiers(out.nodes), '__ghost-consequence__')
+    // ONE prompt's height — the stacked pair (2 × ROW_PROMPT_H + gap) is gone.
+    const columnBottom = door.position.y + ROW_PROMPT_H
     const goal = byId(out.nodes, 'goal')
     expect(goal.position.y).toBe(columnBottom + LAYOUT_PADDING_Y + LAYOUT_LAYER_GAP)
   })

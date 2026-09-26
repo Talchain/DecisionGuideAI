@@ -697,13 +697,67 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * layout" test, `s4NoSameRowOverlap`, the restated consequence-BAND guard
    * above and `laptopFit1280.bandRows.spec.ts` (every band row ≤ 1520 at
    * 1280, reading order unchanged, bound by card id).
+   *
+   * ── v3.1 WS1 LANDING COMPOSITION (26 Sep 2026), a FOURTH re-record, for the
+   * reviewer (NOT LOW) ──
+   * Three causes, all in the WS1 brief (DESIGN-GAP-v31 #10, #11, #27):
+   *   · `LAYOUT_LAYER_GAP` 48 → 32 and the row gap made ONE constant (the
+   *     visible row gap 64 → 48; #11 / ED S5 "reduce row gap to 48");
+   *   · a wrapped family is laid in BRICK courses, half a stride apart (#10:
+   *     edges under non-endpoint cards 11–21 per starter → 0 at landing);
+   *   · the consequence row carries ONE shared prompt (#27), so its prompt
+   *     floor is one `ROW_PROMPT_H`, not two stacked.
+   * Node counts are unchanged, and nothing moves for any other reason. Measured
+   * with this file's own `positionSignature` before recording:
+   *
+   *     vendor-selection      4e269bb622203282 → 710ee6762b566a64
+   *     market-entry          c5ebdfcd10bd0c6a → 11475b7631457834
+   *     build-vs-buy          8f6201d39f2b7f91 → 365e8ab91247283e
+   *     headcount-allocation  90ce19d7bf969579 → 3d73e3f6680ca522
+   *     pricing-model         678045251956b85e → 070e4585642d75c3
+   *
+   * Before recording, every R1 "one canonical layout" test in this file stayed
+   * GREEN, and so did the properties a digest cannot see: `s4NoSameRowOverlap`,
+   * `laptopFit1280.bandRows` (every band row ≤ 1520 at 1280, reading order
+   * unchanged, by card id), `laptopFit.arithmetic`, and
+   * `v31Ws1LandingComposition.spec.ts` — no overlap and no edge under a
+   * non-endpoint card on mixed-height boards (4.2× spread, four orders, three
+   * shapes), sampled over every card's and every edge's whole extent, with a
+   * contrast arm showing the probe bites on the plain diagonal.
+   *
+   * ── #2074 REVIEW, BLOCKER 1 (26 Sep 2026), a FIFTH re-record, for the
+   * reviewer (NOT LOW) ──
+   * One cause only: `LAYOUT_LAYER_GAP` 32 → 48 (visible row gap 48 → 64). At
+   * the counter-scale bound the gap must hold the kind shape's 24-unit overhang
+   * (WS1 #15), the band title's 24-unit line and 8 units of clearance on each
+   * side; at 48 visible ALTERNATIVES and OUTCOMES / RISKS sat under the leftmost
+   * card's shape on four starters (served, 24.0×7.5px). Brick courses (#10)
+   * and the one consequence door (#27) are unchanged. Rows move down; nothing
+   * moves sideways; node counts are unchanged. PROVEN BEFORE RECORDING: the
+   * reviewed head `2c04f0fc` with only that constant set to 48 produces these
+   * five digests byte for byte. Measured with this file's own
+   * `positionSignature`:
+   *
+   *     vendor-selection      710ee6762b566a64 → 35309bbdffbab00a
+   *     market-entry          11475b7631457834 → a1c1ce0ab1287e38
+   *     build-vs-buy          365e8ab91247283e → 62f759e915293e1d
+   *     headcount-allocation  3d73e3f6680ca522 → 4be1370b74437e13
+   *     pricing-model         070e4585642d75c3 → 1c3290a94885e808
+   *
+   * Before recording, the layout / tier-lane / BaseNode reader set was GREEN
+   * except these five rows: every R1 "one canonical layout" test,
+   * `s4NoSameRowOverlap`, `s4RowGeometry`, `laptopFit1280.bandRows`,
+   * `laptopFit.arithmetic` (no fit verdict changed: every captured-height board
+   * was already clamped at 1280×800, and the OpenAI-shaped board still fits at
+   * 1440×900, 0.561 → 0.531), `v31Ws1LandingComposition`, and the new
+   * `bandTitleClearsKindGlyph.guard`.
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '4e269bb622203282', nodes: 19 },
-    'market-entry': { digest: 'c5ebdfcd10bd0c6a', nodes: 18 },
-    'build-vs-buy': { digest: '8f6201d39f2b7f91', nodes: 19 },
-    'headcount-allocation': { digest: '90ce19d7bf969579', nodes: 16 },
-    'pricing-model': { digest: '678045251956b85e', nodes: 15 },
+    'vendor-selection': { digest: '35309bbdffbab00a', nodes: 19 },
+    'market-entry': { digest: 'a1c1ce0ab1287e38', nodes: 18 },
+    'build-vs-buy': { digest: '62f759e915293e1d', nodes: 19 },
+    'headcount-allocation': { digest: '4be1370b74437e13', nodes: 16 },
+    'pricing-model': { digest: '1c3290a94885e808', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

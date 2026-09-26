@@ -1,14 +1,17 @@
 /**
- * ⛔ THE ANCHOR RAIL SITS BESIDE ONLY AT OR ABOVE THE OLD NORMAL FLOOR.
+ * ⭐ v3.1 WS1 #16 (26 Sep 2026): THE ANCHOR'S RAIL IS INSIDE THE CARD AT EVERY
+ * ZOOM IT IS MOUNTED AT — the landing zoom included.
  *
- * Landing (zoom 0.5) now counts as Normal, where every card's rail is inset.
- * But an anchor's (Question, Goal) rail sits BESIDE its text, and at label scale 2
- * it covered the Question's own "Top gap" line (review 5822709101, Canvas
- * Browser Gate `nodeControlOcclusion` @vendor-selection 1440×900, `dec_cdp`;
- * base ✓). Below `ICON_LEGIBLE_ZOOM` an anchor keeps its old landing rule —
- * the hover row drawn below the card — while repeated cards stay inset.
- * jsdom has no layout, so this pins the placement decision; the browser gate
- * is the geometry witness.
+ * It used to be drawn BELOW the Question and the Goal below `ICON_LEGIBLE_ZOOM`,
+ * because a counter-scaled beside-rail reserved on the whole card covered the
+ * Question's own "Top gap" line (review 5822709101, Canvas Browser Gate
+ * `nodeControlOcclusion` @vendor-selection 1440×900, `dec_cdp`). Drawn below,
+ * the coaching icon hung 24.5px under the card's bottom edge on all five
+ * starters at landing (DESIGN-GAP-v31 #16). The rail is now inset beside the
+ * BODY, whose `padding-right` and `min-height` keep it clear of the title and
+ * the rows (`BaseNode` `anchorBodyRailStyle`). jsdom has no layout, so this pins
+ * the placement decision and the body reserve; `nodeControlOcclusion` and the
+ * WS1 landing probe are the geometry witnesses.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -85,9 +88,21 @@ const placementAt = (z: number, node: React.ReactElement, id: string): string | 
 const decision = () => <DecisionNode {...({ ...baseProps, type: 'decision', id: 'dec-1', data: { label: 'How should we price the Pro plan?', type: 'decision' } } as any)} />
 const factor = () => <FactorNode {...baseProps} id="fac-1" data={{ label: 'Hiring spend', type: 'factor' }} />
 
-describe('anchor rail beside the text only at or above the old Normal floor', () => {
-  it('the Question at the LANDING zoom (0.5, Normal rung) draws its rail BELOW the card', () => {
-    expect(placementAt(0.5, decision(), 'dec-1')).toBe('below')
+describe('WS1 #16 — the anchor rail is inside the card at the landing zoom too', () => {
+  it('the Question at the LANDING zoom (0.5, Normal rung) draws its rail INSIDE the card', () => {
+    expect(placementAt(0.5, decision(), 'dec-1')).toBe('inset')
+  })
+
+  it('…beside its BODY, which reserves the rail\'s run and height (not the whole card)', () => {
+    setRung('full')
+    setAnchorRailFitsBeside(anchorRailFitsBesideAtZoom(0.5))
+    render(<ReactFlowProvider>{decision()}</ReactFlowProvider>)
+    const body = screen.getByTestId('anchor-body-rail-beside')
+    expect(body.style.paddingRight).toMatch(/var\(--canvas-label-scale, 1\)/)
+    expect(body.style.minHeight).toMatch(/var\(--canvas-label-scale, 1\)/)
+    const card = body.closest('[role="group"]') as HTMLElement
+    expect(card.style.paddingRight).not.toMatch(/canvas-label-scale/)
+    cleanup()
   })
 
   it('CONTRAST — the Question at ordinary Normal zoom keeps its rail inset beside the text', () => {
@@ -99,7 +114,7 @@ describe('anchor rail beside the text only at or above the old Normal floor', ()
     expect(placementAt(0.5, factor(), 'fac-1')).toBe('inset')
   })
 
-  it('the floor is ICON_LEGIBLE_ZOOM, inclusive', () => {
+  it('(the LodSync floor is unchanged and still read by OptionNode) ICON_LEGIBLE_ZOOM, inclusive', () => {
     expect(anchorRailFitsBesideAtZoom(ICON_LEGIBLE_ZOOM)).toBe(true)
     expect(anchorRailFitsBesideAtZoom(ICON_LEGIBLE_ZOOM - 0.001)).toBe(false)
     expect(anchorRailFitsBesideAtZoom(0.5)).toBe(false)

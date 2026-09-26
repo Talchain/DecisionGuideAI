@@ -1,11 +1,19 @@
 /**
- * DESIGN-GAP-AUDIT row 4 — the tier labels take contract v3.1 `.layer-label`'s
- * SIZE (10px) and TRACKING (0.5px) only. Sentence case and the shared muted
- * token (`text-text-light`) stay: DS v5 §2 forbids styling-driven all-caps, and
- * Paul's pt 9 ruled the design system overrides the contract here. Review
- * 5824187641 reversed an earlier CSS-module workaround that applied the all-caps
- * and a raw hex where `check-ds-compliance` could not see them. This file pins
- * that no such styling returns, by any route.
+ * DESIGN-GAP-AUDIT row 4 / DESIGN-GAP-v31 #26 — the tier labels take contract
+ * v3.1 `.layer-label`: 10px, 0.5px tracking (both ON SCREEN, counter-scaled),
+ * and — WS1, 26 Sep 2026, on the Canvas lead's brief that v3.1 wins — the
+ * contract's band WORDS (EXPLORATION / ALTERNATIVES / FACTORS / OUTCOMES /
+ * RISKS / GOAL), written as content.
+ *
+ * What is still pinned from the earlier rule, because review 5824187641 was
+ * about HOW the all-caps arrived as much as whether: no `uppercase` class, no
+ * `text-transform`, no module class and no raw hex — the words are content
+ * `check-ds-compliance` can see, and the colour is the shared muted token
+ * (`#6E6B6B`, 4.65:1 on the canvas; the contract's `#777870` is 3.93:1).
+ *
+ * ⚠ OPEN: DS v5 §2 asks for sentence case, and that review asked for an owner
+ * ruling before all-caps tier labels ship. `tierLanes.ts` `TITLE_BY_TIER` is
+ * the one place to revert.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -64,21 +72,19 @@ describe('contract v3.1 .layer-label style — product words, contract chrome', 
     }
   })
 
-  it('0.5px letter-spacing is unchanged (contract-correct already)', () => {
+  it('0.5px letter-spacing ON SCREEN — counter-scaled with the type (WS1 #26)', () => {
     render(<TierLanes nodes={BOARD} />)
     for (const lane of deriveTierLanes(BOARD)) {
-      expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).style.letterSpacing).toBe('0.5px')
+      expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).style.letterSpacing).toBe('calc(0.5px * var(--canvas-label-scale, 1))')
     }
   })
 
-  it('CONTRAST — the DOM text is the PRODUCT words, sentence case', () => {
+  it('the DOM text is the contract\'s band word, as content (no transform produces it)', () => {
     render(<TierLanes nodes={BOARD} />)
     const lanes = deriveTierLanes(BOARD)
     expect(lanes.length).toBeGreaterThan(3)
-    for (const lane of lanes) {
-      const text = screen.getByTestId(`tier-lane-${lane.tier}-title`).textContent
-      expect(text).toBe(lane.title)
-      expect(text).not.toBe((text ?? '').toUpperCase())
-    }
+    const texts = lanes.map((lane) => screen.getByTestId(`tier-lane-${lane.tier}-title`).textContent)
+    expect(texts).toEqual(['EXPLORATION', 'ALTERNATIVES', 'FACTORS', 'OUTCOMES', 'GOAL'])
+    for (const lane of lanes) expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).textContent).toBe(lane.title)
   })
 })
