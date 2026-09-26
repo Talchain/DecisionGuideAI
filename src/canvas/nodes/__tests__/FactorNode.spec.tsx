@@ -847,7 +847,7 @@ describe('FactorNode', () => {
   // Lane C4 (influence-scale disclosure): the "I: NN%" pill shares the panel's
   // display number; when the shared model resolved it on the fallback
   // (set-relative) basis, FactorNode must pass that provenance through so the
-  // pill discloses "top driver always shows 100%" instead of reading as an
+  // pill discloses "strongest factor always shows 100%" instead of reading as an
   // absolute causal share.
   it('discloses the relative influence scale on the Standard driver line (C4)', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>

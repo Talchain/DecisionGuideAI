@@ -47,7 +47,7 @@ export const INFLUENCE_EXPLANATION_GENERIC =
 
 /** Header tooltip / pill title — set-relative fallback basis. */
 export const INFLUENCE_EXPLANATION_RELATIVE =
-  'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
+  'Influence: how much this factor affects the outcome, relative to the strongest. The strongest factor always shows 100%.'
 
 /**
  * Header tooltip / pill title.
@@ -106,7 +106,7 @@ export const INFLUENCE_EXPLANATION_RELATIVE =
  * because canvas goes through the accessor rather than the constant.
  */
 export const INFLUENCE_EXPLANATION_ABSOLUTE =
-  "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The top driver always shows 100%."
+  "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The strongest factor always shows 100%."
 
 /**
  * ⚠⚠ THE TWO ARMS STAY DISTINCT, AND THAT IS #1221'S GUARD DOING ITS JOB.
@@ -231,7 +231,7 @@ export const INFLUENCE_RANKING_EXPLAINER_RELATIVE =
  * both bases and pins its ABSENCE in both degenerate states.
  */
 export const INFLUENCE_SCALE_CAPTION =
-  'Influence is relative to the strongest factor. The top driver always shows 100%.'
+  'Influence is relative to the strongest factor. The strongest factor always shows 100%.'
 
 /**
  * Basis-aware explanation for tooltips / native titles. Fail-closed: an
@@ -284,7 +284,7 @@ export function influencePillAriaLabel(
    * `influenceIsNeverCalledAbsolute.spec.ts` — which is the guard. This
    * comment is not, which is exactly how the universal survived here.
    *
-   * The `normalised_elasticity` arm has disclosed "The top driver always shows
+   * The `normalised_elasticity` arm has disclosed "The strongest factor always shows
    * 100%" the whole time, which is equally true of this one.
    *
    * The two arms therefore say the same thing to a reader. The distinction is
@@ -294,7 +294,7 @@ export function influencePillAriaLabel(
    */
   const base =
     provenance === 'normalised_elasticity' || provenance === 'influence_score'
-      ? `Relative influence ${pct}%, scaled against the strongest factor. The top driver always shows 100%`
+      ? `Relative influence ${pct}%, scaled against the strongest factor. The strongest factor always shows 100%`
       : 'Influence basis unavailable'
   // The disclosure must reach a screen-reader user too: `title` is
   // pointer-only, so a note that lived there alone would be a disclosure a
@@ -500,11 +500,11 @@ export function influenceBarAriaLabel(
   importanceBasis?: string | null,
 ): string {
   /* Same ruling as the pill: both provenances are set-relative normalisations,
-     so both get the disclosure that the top driver always shows 100% — which
+     so both get the disclosure that the strongest factor always shows 100% — which
      was previously given to only one of the two it is true of. */
   const base =
     provenance === 'normalised_elasticity' || provenance === 'influence_score'
-      ? 'Influence, relative to the strongest factor. The top driver always shows 100%'
+      ? 'Influence, relative to the strongest factor. The strongest factor always shows 100%'
       : 'Influence'
   const note = influenceStructuralBasisNote(provenance, importanceBasis)
   return note === null ? base : `${base}. ${note}`

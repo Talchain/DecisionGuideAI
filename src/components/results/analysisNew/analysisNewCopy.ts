@@ -2413,7 +2413,7 @@ export const ANALYSIS_NEW_COPY = {
      * ⭐ THE SENTENCE IS NOT NEW AND IS NOT MINE. It is the estate's ratified
      * wording, already SHIPPING on the Analysis tab as
      * `influenceScaleCopy.INFLUENCE_SCALE_CAPTION` ("Influence is relative to
-     * the strongest factor. The top driver always shows 100%."). This tab was
+     * the strongest factor. The strongest factor always shows 100%."). This tab was
      * rendering the weaker sibling, which denies the wrong reading without
      * disclosing that the 100% is guaranteed.
      *
@@ -2439,7 +2439,7 @@ export const ANALYSIS_NEW_COPY = {
     /**
      * ⭐⭐ THE SECOND CLAUSE IS CONDITIONAL, BECAUSE IT WAS FALSE ON A REAL RUN.
      *
-     * "The top driver always shows 100%" is a claim about the FIGURE each row
+     * "The strongest factor always shows 100%" is a claim about the FIGURE each row
      * renders (`pct(displayInfluence)` — the producer's value, never rescaled
      * here). The BAR is a different quantity: `magnitude / strongest` over the
      * rows that SURVIVED filtering, so the leader's bar is full width whatever
@@ -2487,7 +2487,7 @@ export const ANALYSIS_NEW_COPY = {
       topFigurePercent === null
         ? null
         : topFigurePercent === 100
-          ? 'The top driver always shows 100%.'
+          ? 'The strongest factor always shows 100%.'
           : 'The top bar is full width because it is the strongest factor shown, not because it reached 100%.',
     /**
      * ⛔⛔ THIS SENTENCE REACHES NO SCREEN, DELIBERATELY, AND THE SUITE PINS

@@ -166,6 +166,17 @@ describe('"Top driver" appears on exactly the factor the hero names, or on no ro
     expect(within(screen.getByTestId('drivers-list')).queryByText(CROWN)).toBeNull()
   })
 
+  it('served run: no sentence in the panel calls the 100% row "the top driver" either (the scale caption names the strongest factor)', () => {
+    seed(blockWith())
+    renderDrivers(sectionData().drivers)
+    // The served caption read "The top driver always shows 100%." under a panel whose
+    // 100% row is the lever, not the hero's main driver: the crown in words.
+    const text = document.body.textContent ?? ''
+    expect(text).not.toMatch(/top driver always shows 100/i)
+    // POSITIVE CONTROL: the 100% guarantee itself is still stated.
+    expect(text).toMatch(/The strongest factor always shows 100%/)
+  })
+
   it('nothing removed: the same rows, the same order, the same percentages, the same other pills', () => {
     seed(blockWith())
     renderDrivers(sectionData().drivers)
