@@ -51,6 +51,31 @@ function mountOptions(options: ReturnType<typeof option>[]) {
   )}</ReactFlowProvider>)
 }
 
+describe('a level-less option says WHY it was not analysed, from CEE\'s typed blocker (served BF5, 5e984a1d)', () => {
+  // Served: "Keep £49 and add a paid AI add-on" read only "Not analysed"; the reason lived in a hover
+  // title and screen-reader text. CEE's analysis_ready.blockers[] names it: option_id + blocker_type
+  // 'missing_value' (+ factor_label). The card now says the short reason visibly, from that typed entry only.
+  const addon = option('addon')
+  const complete = { status: 'complete', report: { option_probabilities: { other: { status: 'computed', win_probability: 1 } } } }
+  const blocker = { factor_id: 'f-rev', factor_label: 'Paid AI add-on revenue', option_id: 'addon', reason: 'needs a numeric level', blocker_type: 'missing_value' }
+
+  it('RED: with the typed missing_value blocker, the row says "needs a value" visibly', () => {
+    useCanvasStore.setState({ nodes: [addon, option('other')], results: complete, ceeAnalysisReady: { options: [], blockers: [blocker] } } as never)
+    mountOptions([addon])
+    expect(screen.getByTestId('option-not-analysed-addon')).toBeTruthy()
+    expect(screen.getByTestId('option-not-analysed-reason-addon').textContent).toContain('needs a value')
+  })
+
+  it('CONTRAST: a blocker for ANOTHER option, or of another type, adds nothing', () => {
+    useCanvasStore.setState({ nodes: [addon, option('other')], results: complete, ceeAnalysisReady: { options: [], blockers: [
+      { ...blocker, option_id: 'other' }, { ...blocker, blocker_type: 'constraint_dropped' },
+    ] } } as never)
+    mountOptions([addon])
+    expect(screen.getByTestId('option-not-analysed-addon')).toBeTruthy()
+    expect(screen.queryByTestId('option-not-analysed-reason-addon')).toBeNull()
+  })
+})
+
 describe('option delivery states through the real store and display selector', () => {
   it('distinguishes an absent result, a failed result and measured zero in the same graph', () => {
     const options = ['missing', 'failed', 'zero'].map(id => option(id))

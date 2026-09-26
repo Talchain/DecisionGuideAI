@@ -1848,6 +1848,16 @@ export const OptionNode = memo((props: NodeProps) => {
    * both phases and the run adds its line below them (prototype, Paul 25 Sep).
    */
   const notAnalysedRenders = displayMetadata.isResultsMode && leftOutOfRunReason !== null
+  /**
+   * CEE's TYPED reason this option was left out: its `analysis_ready.blockers[]`
+   * entry naming THIS option with `blocker_type: 'missing_value'`. Read, never
+   * derived: no entry means no visible reason is added (the badge and its
+   * hover/SR sentence stay as they were).
+   */
+  const missingValueBlocker = useMemo(
+    () => ceeAnalysisReady?.blockers?.find(b => b.option_id === props.id && b.blocker_type === 'missing_value') ?? null,
+    [ceeAnalysisReady, props.id],
+  )
   const notComputedRenders = displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true
   const resultUnavailableRenders =
     displayMetadata.isResultsMode && displayMetadata.winRate === null &&
@@ -2718,6 +2728,15 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {NOT_ANALYSED_BADGE}
             </span>
+            {missingValueBlocker && (
+              <span
+                className={`${typography.edgeLabel} text-text-light min-w-0`}
+                aria-hidden="true"
+                data-testid={`option-not-analysed-reason-${props.id}`}
+              >
+                · {OPTION_RESULT_COPY.notAnalysedNeedsValue}
+              </span>
+            )}
             <span className={typography.screenReaderOnly}>
               {notAnalysedReasonCopy(leftOutOfRunReason)}
             </span>
