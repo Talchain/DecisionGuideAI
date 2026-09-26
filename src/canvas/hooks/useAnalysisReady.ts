@@ -54,7 +54,18 @@ export function useAnalysisMayRun(): boolean | undefined {
  *   · its hash — `current_graph_hash`, else the 16-char prefix of
  *     `analysis_admission.graph_hash` — equals `lastServerGraphHash`, the turn's
  *     top-level `graph_hash` (served: all three are the same revision); and
- *   · there has been no local edit since (`analysisFreshnessDirty`).
+ *   · the server has seen every edit on screen: no emitted edit is still
+ *     queued (`pendingEmittedEdits`) and the canvas is not an unregistered
+ *     import (`importPendingServerRegistration`).
+ *
+ * ⚠ NOT `analysisFreshnessDirty`. That overlay answers a different question —
+ * "are the RESULTS stale since the last run?" — and every approved Agent write
+ * sets it by design. Keying the binding on it (#2053) dropped the verdict after
+ * ANY write, so CEE's `may_run: true` could never waive MISSING_OPTION_VALUE:
+ * served 26 Sep (DL browser bf-20260926T054503Z, UI 445c1923 · CEE 4c3b512)
+ * the Agent said "run it again" beside a disabled Rerun, on a revision CEE
+ * admitted. Those two fields are the store's own "the server has not seen
+ * this" conditions (the same ones that keep the overlay from clearing).
  * Anything else is `undefined`: NOT "no", but "no bound verdict", and the
  * caller falls back exactly as it did before `may_run` existed.
  *
@@ -131,13 +142,14 @@ function verdictRevision(carrier: Record<string, unknown>): string | null {
 export function selectBoundAdmission(state: {
   ceeAnalysisReady?: unknown
   lastServerGraphHash?: string | null
-  analysisFreshnessDirty?: boolean
+  pendingEmittedEdits?: number
+  importPendingServerRegistration?: boolean
 }): BoundAdmission | undefined {
   const carrier = state.ceeAnalysisReady
   if (carrier === null || typeof carrier !== 'object') return undefined
   const record = carrier as Record<string, unknown>
   if (typeof record.may_run !== 'boolean') return undefined
-  if (state.analysisFreshnessDirty === true) return undefined
+  if ((state.pendingEmittedEdits ?? 0) > 0 || state.importPendingServerRegistration === true) return undefined
   const onScreen = state.lastServerGraphHash
   if (typeof onScreen !== 'string' || onScreen.length < REVISION_PREFIX) return undefined
   if (verdictRevision(record) !== onScreen.slice(0, REVISION_PREFIX)) return undefined

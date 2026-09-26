@@ -28,6 +28,7 @@ import { selectBoundAdmission, selectBoundMayRun } from '../../hooks/useAnalysis
 import type { GraphReadiness } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
 import SERVED from './fixtures/openai-85ce874-added-option-refusal.turn.json'
+import servedAddOn from './fixtures/served-addon-needs-user-input.4c3b512.turn.json'
 
 const HASH = '449b882e043ae3e3'
 const FULL_HASH = '449b882e043ae3e371b65f1f386fb8a6122538e3b16cb70269059d62854578c8'
@@ -118,8 +119,14 @@ describe('selectBoundMayRun — a verdict counts only for the revision it was co
     expect(selectBoundMayRun(store({ lastServerGraphHash: OTHER_HASH }))).toBeUndefined()
   })
 
-  it('UNBOUND: a local edit since the verdict', () => {
-    expect(selectBoundMayRun(store({ analysisFreshnessDirty: true }))).toBeUndefined()
+  it('UNBOUND: an edit the server has not seen yet (a queued emitted edit, or an unregistered import)', () => {
+    expect(selectBoundMayRun(store({ pendingEmittedEdits: 1 }))).toBeUndefined()
+    expect(selectBoundMayRun(store({ importPendingServerRegistration: true }))).toBeUndefined()
+  })
+
+  it('⭐ BOUND: the results-stale overlay alone does not unbind (every approved Agent write sets it)', () => {
+    expect(selectBoundMayRun(store({ analysisFreshnessDirty: true }))).toBe(true)
+    expect(selectBoundMayRun(store({ analysisFreshnessDirty: true, ceeAnalysisReady: carrier({ may_run: false }) }))).toBe(false)
   })
 
   it('UNBOUND: no revision to bind to, no verdict, or no may_run', () => {
@@ -238,5 +245,43 @@ describe('canRunAnalysis — a bound refusal is worded from the most specific so
 
   it('a bound admission opens the gate over the objecting side-car', () => {
     expect(gate({ mayRun: true }).allowed).toBe(true)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SERVED: DL browser bf-20260926T054503Z (UI 445c1923 · CEE 4c3b512), the turn
+// after the add-on option was approved. CEE admits the run (`may_run: true`)
+// with MISSING_OPTION_VALUE ×3 — waived by exclusion — and the Agent said "run
+// it again"; the UI's Rerun was DISABLED because the write had set the
+// results-stale overlay and the binding dropped the verdict.
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('⭐ served: after an approved add-on write, CEE\'s may_run:true opens the Run gate', () => {
+  const turn = (servedAddOn as { turn: { graph_hash: string; analysis_ready: unknown; analysis_state: AnalysisStateV1 } }).turn
+  const afterWrite = (over: Record<string, unknown> = {}) =>
+    ({
+      ceeAnalysisReady: turn.analysis_ready,
+      lastServerGraphHash: turn.graph_hash,
+      analysisFreshnessDirty: true, // set by the approved write, by design
+      pendingEmittedEdits: 0,
+      importPendingServerRegistration: false,
+      ...over,
+    }) as never
+
+  it('PRECONDITION: the served turn admits the run over three MISSING_OPTION_VALUE blockers', () => {
+    expect((turn.analysis_ready as { may_run: boolean }).may_run).toBe(true)
+    expect(turn.analysis_state.readiness.status).toBe('needs_user_input')
+    expect(turn.analysis_state.readiness.blockers.map((b) => b.code)).toEqual(['MISSING_OPTION_VALUE', 'MISSING_OPTION_VALUE', 'MISSING_OPTION_VALUE'])
+  })
+
+  it('⭐ the gate does not object: the bound may_run waives the blockers', () => {
+    const authority = selectAnalysisReadinessAuthority(turn.analysis_state)
+    expect(selectBoundMayRun(afterWrite())).toBe(true)
+    expect(readinessObjectsToRun(null, authority, selectBoundMayRun(afterWrite()))).toBe(false)
+  })
+
+  it('CONTROL: while an emitted edit is still queued, the verdict is unbound and the blockers close the gate', () => {
+    const authority = selectAnalysisReadinessAuthority(turn.analysis_state)
+    expect(readinessObjectsToRun(null, authority, selectBoundMayRun(afterWrite({ pendingEmittedEdits: 1 })))).toBe(true)
   })
 })

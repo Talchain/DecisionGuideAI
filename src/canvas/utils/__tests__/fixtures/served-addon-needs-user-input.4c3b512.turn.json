@@ -1,0 +1,379 @@
+{
+ "_provenance": "DL browser bf-20260926T054503Z turn 3 (after the add-on approve), UI 445c1923 \u00b7 CEE 4c3b512, OpenAI-only; verbatim fields graph_hash/analysis_ready/analysis_state",
+ "turn": {
+  "graph_hash": "06bdf585412154de",
+  "analysis_ready": {
+   "options": [
+    {
+     "option_id": "status_quo",
+     "label": "Status Quo",
+     "status": "ready",
+     "interventions": {},
+     "is_baseline": true,
+     "status_reason": "Baseline: every factor holds at its observed value, so no effect values are needed"
+    },
+    {
+     "option_id": "49_ai_release",
+     "label": "\u00a349 AI Release",
+     "status": "ready",
+     "interventions": {
+      "pro_plan_price": 0.245
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "pro_plan_price": {
+       "display_value": "49 GBP/month",
+       "normalised_value": 0.245,
+       "raw_value": 49,
+       "unit": "GBP/month"
+      }
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "59_ai_release",
+     "label": "\u00a359 AI Release",
+     "status": "ready",
+     "interventions": {
+      "pro_plan_price": 0.295
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "pro_plan_price": {
+       "display_value": "59 GBP/month",
+       "normalised_value": 0.295,
+       "raw_value": 59,
+       "unit": "GBP/month"
+      }
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "54_ai_release",
+     "label": "\u00a354 AI Release",
+     "status": "ready",
+     "interventions": {
+      "pro_plan_price": 0.27
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "pro_plan_price": {
+       "display_value": "54 GBP/month",
+       "normalised_value": 0.27,
+       "raw_value": 54,
+       "unit": "GBP/month"
+      }
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "613f08df",
+     "label": "Test \u00a354 versus \u00a359 by customer cohort before rollout",
+     "status": "ready",
+     "interventions": {
+      "pro_plan_price": 0.27
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "pro_plan_price": {
+       "display_value": "54 GBP/month",
+       "normalised_value": 0.27,
+       "raw_value": 54,
+       "unit": "GBP/month"
+      }
+     },
+     "raw_interventions": {
+      "pro_plan_price": 54
+     },
+     "status_reason": "1 intervention(s) ready for analysis"
+    },
+    {
+     "option_id": "5fd199b2",
+     "label": "Keep \u00a349 and add a paid AI add-on",
+     "status": "ready",
+     "interventions": {
+      "pro_plan_price": 0.245,
+      "ai_feature_adoption": 0.3
+     },
+     "is_baseline": false,
+     "intervention_details": {
+      "pro_plan_price": {
+       "display_value": "49 GBP/month",
+       "normalised_value": 0.245,
+       "raw_value": 49,
+       "unit": "GBP/month"
+      },
+      "ai_feature_adoption": {
+       "display_value": "30 % of eligible Pro customers",
+       "normalised_value": 0.3,
+       "raw_value": 30,
+       "unit": "% of eligible Pro customers"
+      }
+     },
+     "raw_interventions": {
+      "pro_plan_price": 49,
+      "ai_feature_adoption": 30
+     },
+     "status_reason": "2 intervention(s) ready for analysis"
+    }
+   ],
+   "goal_node_id": "mrr",
+   "status": "needs_user_input",
+   "blockers": [
+    {
+     "option_id": "49_ai_release",
+     "option_label": "\u00a349 AI Release",
+     "factor_id": "ai_feature_adoption",
+     "factor_label": "AI feature adoption",
+     "blocker_type": "missing_value",
+     "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a349 AI Release\" set it to?",
+     "suggested_action": "add_value"
+    },
+    {
+     "option_id": "59_ai_release",
+     "option_label": "\u00a359 AI Release",
+     "factor_id": "ai_feature_adoption",
+     "factor_label": "AI feature adoption",
+     "blocker_type": "missing_value",
+     "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a359 AI Release\" set it to?",
+     "suggested_action": "add_value"
+    },
+    {
+     "option_id": "54_ai_release",
+     "option_label": "\u00a354 AI Release",
+     "factor_id": "ai_feature_adoption",
+     "factor_label": "AI feature adoption",
+     "blocker_type": "missing_value",
+     "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a354 AI Release\" set it to?",
+     "suggested_action": "add_value"
+    }
+   ],
+   "goal_threshold": 0.8,
+   "goal_threshold_raw": 20000,
+   "goal_threshold_unit": "GBP/month",
+   "goal_threshold_cap": 25000,
+   "goal_threshold_cap_provenance": "target_derived_headroom",
+   "bias_findings": [],
+   "readiness_issues": [
+    {
+     "issue_id": "semantic_1",
+     "repairability": "human_input_required",
+     "option_id": "49_ai_release",
+     "option_label": "\u00a349 AI Release",
+     "factor_id": "ai_feature_adoption",
+     "factor_label": "AI feature adoption",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a349 AI Release\" set it to?",
+     "provenance": "ai_drafted",
+     "obligation": "offered"
+    },
+    {
+     "issue_id": "semantic_2",
+     "repairability": "human_input_required",
+     "option_id": "59_ai_release",
+     "option_label": "\u00a359 AI Release",
+     "factor_id": "ai_feature_adoption",
+     "factor_label": "AI feature adoption",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a359 AI Release\" set it to?",
+     "provenance": "ai_drafted",
+     "obligation": "offered"
+    },
+    {
+     "issue_id": "semantic_3",
+     "repairability": "human_input_required",
+     "option_id": "54_ai_release",
+     "option_label": "\u00a354 AI Release",
+     "factor_id": "ai_feature_adoption",
+     "factor_label": "AI feature adoption",
+     "code": "MISSING_OPTION_VALUE",
+     "category": "option_values",
+     "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a354 AI Release\" set it to?",
+     "provenance": "ai_drafted",
+     "obligation": "offered"
+    }
+   ],
+   "repair_proposal": {
+    "proposal_version": "readiness_repair_v1",
+    "complete": true,
+    "issue_ids": [
+     "semantic_1",
+     "semantic_2",
+     "semantic_3"
+    ],
+    "changes": [],
+    "unresolved_inputs": [
+     {
+      "issue_id": "semantic_1",
+      "kind": "option_effect_value",
+      "prompt": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a349 AI Release\" set it to?",
+      "option_id": "49_ai_release",
+      "factor_id": "ai_feature_adoption",
+      "obligation": "offered",
+      "provenance": "ai_drafted"
+     },
+     {
+      "issue_id": "semantic_2",
+      "kind": "option_effect_value",
+      "prompt": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a359 AI Release\" set it to?",
+      "option_id": "59_ai_release",
+      "factor_id": "ai_feature_adoption",
+      "obligation": "offered",
+      "provenance": "ai_drafted"
+     },
+     {
+      "issue_id": "semantic_3",
+      "kind": "option_effect_value",
+      "prompt": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a354 AI Release\" set it to?",
+      "option_id": "54_ai_release",
+      "factor_id": "ai_feature_adoption",
+      "obligation": "offered",
+      "provenance": "ai_drafted"
+     }
+    ]
+   },
+   "may_run": true,
+   "analysis_admission": {
+    "structurally_analysable": true,
+    "missing_important_inputs": [
+     {
+      "issue_id": "semantic_1",
+      "code": "MISSING_OPTION_VALUE",
+      "option_id": "49_ai_release",
+      "option_label": "\u00a349 AI Release",
+      "factor_id": "ai_feature_adoption",
+      "factor_label": "AI feature adoption",
+      "why_it_matters": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a349 AI Release\" set it to?",
+      "obligation": "offered",
+      "waived_by_exclusion": false
+     },
+     {
+      "issue_id": "semantic_2",
+      "code": "MISSING_OPTION_VALUE",
+      "option_id": "59_ai_release",
+      "option_label": "\u00a359 AI Release",
+      "factor_id": "ai_feature_adoption",
+      "factor_label": "AI feature adoption",
+      "why_it_matters": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a359 AI Release\" set it to?",
+      "obligation": "offered",
+      "waived_by_exclusion": false
+     },
+     {
+      "issue_id": "semantic_3",
+      "code": "MISSING_OPTION_VALUE",
+      "option_id": "54_ai_release",
+      "option_label": "\u00a354 AI Release",
+      "factor_id": "ai_feature_adoption",
+      "factor_label": "AI feature adoption",
+      "why_it_matters": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a354 AI Release\" set it to?",
+      "obligation": "offered",
+      "waived_by_exclusion": false
+     }
+    ],
+    "semantic_quality_sufficient": true,
+    "permitted_analysis_mode": "comparative_leader",
+    "reasons": [
+     {
+      "field": "structurally_analysable",
+      "code": "RUN_WILL_EXCLUDE_OPTIONS",
+      "message": "Analysis can run, leaving out one option you have not set values for."
+     },
+     {
+      "field": "missing_important_inputs",
+      "code": "MODEL_HAS_BLOCKERS",
+      "message": "Olumi filled in the gaps here itself; you can review them, and nothing is required of you."
+     },
+     {
+      "field": "semantic_quality_sufficient",
+      "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+      "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+     },
+     {
+      "field": "permitted_analysis_mode",
+      "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+      "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+     }
+    ],
+    "graph_hash": "06bdf585412154de773e8469b08c701cae63d856f6f05e45d545db666d0364ee",
+    "semantic_signals": {
+     "confidence_parameters_total": 17,
+     "confidence_parameters_user_stated": 1,
+     "confidence_parameters_machine_authored": 13,
+     "confidence_parameters_unattributed": 3,
+     "material_parameters_total": 17,
+     "material_parameters_user_stated": 1,
+     "intervened_factor_baselines_total": 2,
+     "intervened_factor_baselines_user_stated": 1,
+     "material_parameters_awaiting_user_node_ids": [
+      "mrr",
+      "ai_feature_adoption",
+      "new_pro_conversion_rate",
+      "monthly_churn_rate",
+      "pro_subscriber_base",
+      "price_sensitivity_churn",
+      "weak_ai_feature_uptake"
+     ],
+     "goal_target_stated": true
+    }
+   },
+   "freshness": "stale",
+   "freshness_reason": "agent_readback_run_state_stale",
+   "current_graph_hash": "06bdf585412154de"
+  },
+  "analysis_state": {
+   "run_state": {
+    "kind": "complete_stale",
+    "computed_at": "2026-09-26T05:45:52.650Z",
+    "cause": "graph_changed"
+   },
+   "readiness": {
+    "status": "needs_user_input",
+    "blockers": [
+     {
+      "repairability": "human_input_required",
+      "option_id": "49_ai_release",
+      "option_label": "\u00a349 AI Release",
+      "factor_id": "ai_feature_adoption",
+      "factor_label": "AI feature adoption",
+      "code": "MISSING_OPTION_VALUE",
+      "category": "option_values",
+      "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a349 AI Release\" set it to?"
+     },
+     {
+      "repairability": "human_input_required",
+      "option_id": "59_ai_release",
+      "option_label": "\u00a359 AI Release",
+      "factor_id": "ai_feature_adoption",
+      "factor_label": "AI feature adoption",
+      "code": "MISSING_OPTION_VALUE",
+      "category": "option_values",
+      "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a359 AI Release\" set it to?"
+     },
+     {
+      "repairability": "human_input_required",
+      "option_id": "54_ai_release",
+      "option_label": "\u00a354 AI Release",
+      "factor_id": "ai_feature_adoption",
+      "factor_label": "AI feature adoption",
+      "code": "MISSING_OPTION_VALUE",
+      "category": "option_values",
+      "message": "Factor \"AI feature adoption\" is currently 0 % of eligible Pro customers. What should option \"\u00a354 AI Release\" set it to?"
+     }
+    ]
+   },
+   "leader_claim": {
+    "permitted": false,
+    "withheld_reason": "constraint_verdict_withheld"
+   },
+   "robustness": {},
+   "usable_for_prose": true,
+   "usable_for_chips": false,
+   "usable_for_followup": true,
+   "requires_rerun": true,
+   "blocked_unusable": false,
+   "contradictions": []
+  }
+ }
+}

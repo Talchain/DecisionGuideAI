@@ -54,10 +54,16 @@ describe('captureRunGateInputs — the bundle names the carrier that closed the 
     expect(g.cee_analysis_ready?.may_run).toBe(false)
   })
 
-  it('CONTRAST: a local edit since the verdict unbinds it as well', () => {
-    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+  it('CONTRAST: an edit the server has not seen (a queued emitted edit) unbinds it as well', () => {
+    useCanvasStore.setState({ pendingEmittedEdits: 1 } as never)
     const g = captureRunGateInputs()!
     expect(g.bound_admission).toBeNull()
+  })
+
+  it('the results-stale overlay alone (set by every approved write) keeps it bound, and the bundle still reports the overlay', () => {
+    useCanvasStore.setState({ analysisFreshnessDirty: true, pendingEmittedEdits: 0 } as never)
+    const g = captureRunGateInputs()!
+    expect(g.bound_admission).not.toBeNull()
     expect(g.analysis_freshness_dirty).toBe(true)
   })
 
