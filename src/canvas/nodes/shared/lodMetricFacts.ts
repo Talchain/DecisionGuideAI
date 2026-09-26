@@ -37,7 +37,7 @@
  * visibility (trap 3), and it is visibility that the user complained about.
  */
 import { resolveOptionInterventionCount } from './optionInterventionCount'
-import { detectBaseline } from '../../utils/baselineDetection'
+import { resolveOptionIsBaseline } from '../../utils/baselineDetection'
 import type { LodMetricFacts } from './lodMetricLine'
 
 export interface LodMetricFactsInputs {
@@ -45,7 +45,7 @@ export interface LodMetricFactsInputs {
   nodeId: string
   /** The node's own `data` — the option-intervention fallback reads it. */
   data: Record<string, unknown> | undefined
-  ceeOptions: { id: string; interventions?: Record<string, unknown> }[] | null | undefined
+  ceeOptions: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }[] | null | undefined
 }
 
 /**
@@ -75,9 +75,6 @@ export function resolveLodMetricFacts({
     // "No changes to factors". `OptionNode` checks this flag FIRST and never
     // reaches its count for a baseline; so does the reduced line.
     // `detectBaseline` is that component's own detector, not a second rule.
-    optionIsBaseline:
-      typeof data?.is_baseline === 'boolean'
-        ? (data.is_baseline as boolean)
-        : detectBaseline(String(data?.label ?? '')).isBaseline,
+    optionIsBaseline: resolveOptionIsBaseline(data, ceeOptions?.find(o => o.id === nodeId)),
   }
 }

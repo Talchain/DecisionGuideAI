@@ -961,6 +961,14 @@ export const OPTION_RESULT_COPY = {
    * the user may never have set, so it states only what the share IS.
    */
   goalOnlyNote: 'This share compares the options on the goal alone.',
+  /**
+   * The short, VISIBLE reason beside `Not analysed` when CEE's typed blocker says
+   * this option lacks a value (`analysis_ready.blockers[]`: `option_id` +
+   * `blocker_type: 'missing_value'`). "value" is the canvas's own word (the factor
+   * card reads "Value not set yet"). Served BF5 on `5e984a1d`: the reason was
+   * hover- and screen-reader-only.
+   */
+  notAnalysedNeedsValue: 'needs a value',
   changedNote: 'The model has changed since this run.',
   /**
    * Visual contract v3 §02, the stale option state — verbatim (design-gap row

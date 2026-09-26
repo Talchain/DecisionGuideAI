@@ -23,7 +23,7 @@ import {
   formatInterventionChange,
   formatInterventionTargetText,
 } from '../utils/interventionDisplay'
-import { detectBaseline } from '../utils/baselineDetection'
+import { resolveOptionIsBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
@@ -414,10 +414,8 @@ function computeAllDifferentiators(
     // Explicit flag wins; regex fallback only fires when flag is null/undefined.
     // Explicit `false` must suppress the regex (prevents "Baseline" labels on
     // non-baseline options from being treated as baseline).
-    const explicit = (optNode.data as any)?.is_baseline as boolean | null | undefined
-    const isBaseline = explicit ?? detectBaseline((optNode.data?.label as string) ?? '').isBaseline
-    if (isBaseline) continue
     const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
+    if (resolveOptionIsBaseline(optNode.data as any, ceeOpt)) continue
     const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
     if (!interventions || typeof interventions !== 'object') continue
     const map = new Map<string, InterventionEntry>()
@@ -896,12 +894,9 @@ export const OptionNode = memo((props: NodeProps) => {
   )
 
   const isBaselineOption = useMemo(() => {
-    // Explicit flag wins; regex only fires when flag absent (null/undefined).
-    const explicit = (props.data as any)?.is_baseline as boolean | null | undefined
-    if (typeof explicit === 'boolean') return explicit
-    const label = (props.data?.label as string | undefined) ?? ''
-    return detectBaseline(label).isBaseline
-  }, [props.data])
+    // Node flag, then CEE's typed options entry, then the label heuristic.
+    return resolveOptionIsBaseline(props.data as any, ceeAnalysisReady?.options?.find(o => o.id === props.id))
+  }, [props.data, props.id, ceeAnalysisReady])
 
   // A before-reference must identify an actual option. A factor's observed
   // value may be a proposal, and a label containing "status quo" is not a
@@ -1080,9 +1075,8 @@ export const OptionNode = memo((props: NodeProps) => {
     const out: Array<OptionSetLike & { unsetSources: ReadonlyMap<string, string | null> }> = []
     for (const n of nodes) {
       if (n.type !== 'option' && n.data?.type !== 'option') continue
-      const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
-      const isBaseline = typeof explicit === 'boolean' ? explicit : detectBaseline((n.data?.label as string) ?? '').isBaseline
       const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === n.id)
+      const isBaseline = resolveOptionIsBaseline(n.data as any, ceeOpt)
       // ⭐ The card's target resolution — CEE map joined with its details, and
       // a bare producer number never erasing the node's own receipt-stamped
       // `source` — now lives in `resolveOptionTargets`, moved verbatim, so the
@@ -1388,8 +1382,7 @@ export const OptionNode = memo((props: NodeProps) => {
     }
     const hasDuplicate = optionNodes.some(n => {
       if (n.id === props.id || isLeader(n.id)) return false
-      const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
-      const siblingIsBaseline = explicit ?? detectBaseline((n.data?.label as string) ?? '').isBaseline
+      const siblingIsBaseline = resolveOptionIsBaseline(n.data as any, ceeAnalysisReady?.options?.find(o => o.id === n.id))
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason
@@ -1855,6 +1848,16 @@ export const OptionNode = memo((props: NodeProps) => {
    * both phases and the run adds its line below them (prototype, Paul 25 Sep).
    */
   const notAnalysedRenders = displayMetadata.isResultsMode && leftOutOfRunReason !== null
+  /**
+   * CEE's TYPED reason this option was left out: its `analysis_ready.blockers[]`
+   * entry naming THIS option with `blocker_type: 'missing_value'`. Read, never
+   * derived: no entry means no visible reason is added (the badge and its
+   * hover/SR sentence stay as they were).
+   */
+  const missingValueBlocker = useMemo(
+    () => ceeAnalysisReady?.blockers?.find(b => b.option_id === props.id && b.blocker_type === 'missing_value') ?? null,
+    [ceeAnalysisReady, props.id],
+  )
   const notComputedRenders = displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true
   const resultUnavailableRenders =
     displayMetadata.isResultsMode && displayMetadata.winRate === null &&
@@ -2725,6 +2728,15 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {NOT_ANALYSED_BADGE}
             </span>
+            {missingValueBlocker && (
+              <span
+                className={`${typography.edgeLabel} text-text-light min-w-0`}
+                aria-hidden="true"
+                data-testid={`option-not-analysed-reason-${props.id}`}
+              >
+                · {OPTION_RESULT_COPY.notAnalysedNeedsValue}
+              </span>
+            )}
             <span className={typography.screenReaderOnly}>
               {notAnalysedReasonCopy(leftOutOfRunReason)}
             </span>
