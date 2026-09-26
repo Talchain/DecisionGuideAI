@@ -67,7 +67,7 @@ import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { clearHighlight } from '../../../../canvas/utils/highlightHelpers'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import { ModelStrip } from '../sections/ModelStrip'
-import { MARK_CAP } from '../buildModelStrip'
+import { MARK_CAP, buildModelStrip } from '../buildModelStrip'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 
 const TID = 'analysis-new-model-strip'
@@ -256,7 +256,10 @@ describe('⭐ the strip carries a worklist, in the product’s own count', () =>
 
   it('V2: a host that asks for openAtRest gets the census open after a run; a bare mount stays closed', () => {
     render(<ModelStrip isPreRun={false} openAtRest />)
-    expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'true')
+    // Design B2: with openAtRest the header is static, so the census is open
+    // and there is no toggle to close it.
+    expect(screen.queryByTestId(`${TID}-toggle`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-region`)).toBeInTheDocument()
     cleanup()
     render(<ModelStrip isPreRun={false} />)
     expect(screen.getByTestId(`${TID}-toggle`)).toHaveAttribute('aria-expanded', 'false')
@@ -280,45 +283,61 @@ describe('⭐ the detail can be acted on — the measured gap', () => {
    * the model. It is the case that fails if the detail goes back to being
    * three lines of restatement.
    */
-  it('a named mark’s detail contains at least one control', () => {
+  // ⚠ 26 Sep (design audit B12): a mark opens its detail on ACTIVATION, as the
+  // prototype's does; pointing at it only rings the node. Every case in this
+  // block therefore picks by click.
+  it('a picked mark’s detail contains at least one control', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('f1'))
+    fireEvent.click(mark('f1'))
     const detail = screen.getByTestId(`${TID}-detail`)
     expect(detail.querySelectorAll('button,a,[role="button"]').length).toBeGreaterThan(0)
   })
 
   it('the canvas action is bound to THIS node, and follows the reader’s pick', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('f1'))
+    fireEvent.click(mark('f1'))
+    // The mark's own activation focuses the canvas too; count only the button.
+    vi.mocked(focusModelTarget).mockClear()
     fireEvent.click(screen.getByTestId(`${TID}-detail-focus`))
     expect(focusModelTarget).toHaveBeenCalledTimes(1)
     expect(focusModelTarget).toHaveBeenCalledWith('f1')
 
     // ⭐ The discrimination: a button wired to a fixed id, or to the first
     // node, satisfies the half above and fails this.
-    fireEvent.mouseEnter(mark('r1'))
+    fireEvent.click(mark('r1'))
+    vi.mocked(focusModelTarget).mockClear()
     fireEvent.click(screen.getByTestId(`${TID}-detail-focus`))
     expect(focusModelTarget).toHaveBeenLastCalledWith('r1')
   })
 
-  it('the action is named in text, not in a title attribute', () => {
+  // ⚠ 26 Sep (design audit B12): the prototype's act is ICON-ONLY — the text
+  // pill truncated to "Show on canv…" at 280px. Its name is now its
+  // accessible name (also its tooltip), never only a `title`.
+  it('the action is named — by its accessible name, not a title attribute', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('f1'))
+    fireEvent.click(mark('f1'))
     const action = screen.getByTestId(`${TID}-detail-focus`)
-    expect(action).toHaveTextContent(COPY.modelStrip.showOnCanvas)
-    expect(action).not.toHaveAttribute('title')
+    expect(action).toHaveAccessibleName(COPY.modelStrip.showOnCanvas)
+    expect(action.getAttribute('title') ?? '').toBe('')
   })
 
-  it('a node carrying an unconfirmed number says so, in the Model tab’s own words', () => {
+  /**
+   * ⚠ 26 Sep (design audit B12): THE AMBER CHIP IS GONE FROM THE DETAIL. The
+   * prototype's detail has none, and the state is not lost: a factor whose
+   * number nobody has confirmed is a review-queue item (`buildReviewQueue`'s
+   * verify list), so on the tab its mark opens the review tool at that item,
+   * which says so ("Estimate not yet confirmed", "Confirm as my estimate").
+   */
+  it('a node carrying an unconfirmed number shows NO chip in the detail — the review tool owns that state', () => {
+    // CONTRAST: f1 really is in the unconfirmed state, so the absence is the detail's.
+    const f1 = buildModelStrip(CANVAS)
+      .rows.find((r) => r.kind === 'factor')
+      ?.nodes.find((n) => n.id === 'f1')
+    expect(f1?.needsCheck).toBe(true)
     renderOpen()
-    fireEvent.mouseEnter(mark('f1'))
-    // ⚠ The string is IMPORTED from the surface that owns the same predicate,
-    // never respelled here — two spellings of one state is the mirror
-    // (trap 12), and it would put this chip and the Model tab's row marker in
-    // disagreement about one factor.
-    expect(screen.getByTestId(`${TID}-detail-verify`)).toHaveTextContent(
-      UNCONFIRMED_ESTIMATE_LABEL,
-    )
+    fireEvent.click(mark('f1'))
+    expect(screen.queryByTestId(`${TID}-detail-verify`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-detail`)).not.toHaveTextContent(UNCONFIRMED_ESTIMATE_LABEL)
   })
 
   /**
@@ -327,7 +346,7 @@ describe('⭐ the detail can be acted on — the measured gap', () => {
    */
   it('and a factor the user already confirmed carries NO such chip', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('f3'))
+    fireEvent.click(mark('f3'))
     const detail = screen.getByTestId(`${TID}-detail`)
     expect(detail).toHaveAttribute('data-node-id', 'f3')
     expect(within(detail).queryByTestId(`${TID}-detail-verify`)).toBeNull()
@@ -337,13 +356,13 @@ describe('⭐ the detail can be acted on — the measured gap', () => {
     // The value guard is half the predicate: an enabled claim over a factor the
     // write authority would decline is the dead-affordance defect one level up.
     renderOpen()
-    fireEvent.mouseEnter(mark('f4'))
+    fireEvent.click(mark('f4'))
     expect(screen.queryByTestId(`${TID}-detail-verify`)).toBeNull()
   })
 
   it('a detail left open on a node the reader filters away closes itself', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('o1'))
+    fireEvent.click(mark('o1'))
     expect(screen.getByTestId(`${TID}-detail`)).toHaveAttribute('data-node-id', 'o1')
 
     fireEvent.click(rowFilter('factor'))

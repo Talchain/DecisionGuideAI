@@ -25,10 +25,10 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
-import { useAnchorRailFloorStore, selectAnchorRailFitsBeside } from './shared/anchorRailFloor'
-import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
+  KIND_GLYPH_PX,
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
   NODE_HEADER_GAP_PX,
@@ -83,9 +83,11 @@ import {
   anchorRailButtonsKey,
   anchorRailReservePx,
   CANVAS_QUICK_ACTION_INSET_PX,
+  CANVAS_QUICK_ACTION_BOX_PX,
   CANVAS_CARD_FRAME_PX,
   cornerMarksHeaderReserveCss,
   cornerMarksTitleSpacerCss,
+  titleFirstWordPx,
 } from './shared/canvasGlyphScale'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -272,13 +274,64 @@ interface BaseNodeProps extends NodeProps {
  * visibility per-element, and a hidden child can still be a scroll target.
  */
 /**
- * ⭐ THE CONNECTOR GLYPH FILLS ITS 22px BOX (contract v3.1 FRAME-03). It used to
- * be an 18px shape (`NODE_TYPE_GLYPH_PX`) inside a 22px white tile; the tile is
- * gone, so the shape takes the tile's box and the outline separates it from the
- * border instead. Local because nothing else sizes against it — it is painted
- * out of flow and reserves no layout width.
+ * ⭐ THE CONNECTOR GLYPH FILLS ITS BOX (contract v3.1 FRAME-03,
+ * `.node .shape{width:24px;height:24px;top:-12px}`), counter-scaled since v3.1
+ * WS1 #15. It used to be an 18px shape inside a 22px white tile; the tile is
+ * gone, so the shape takes the whole box and the outline separates it from the
+ * border instead. It is painted out of flow and reserves no layout width, but
+ * it is SHARED (`KIND_GLYPH_PX`): the band titles keep clear of it and the row
+ * gap budgets for its overhang (review of #2074, Blocker 1).
  */
-const CONNECTOR_GLYPH_PX = 22
+const CONNECTOR_GLYPH_PX = KIND_GLYPH_PX
+
+/**
+ * ⭐ v3.1 WS1 #15: the target handle's TOP is the kind shape's top
+ * (−`CONNECTOR_GLYPH_PX`/2 × scale), so an inbound edge — which xyflow ends at
+ * a top handle's top edge — ends ON the shape ("bezier from bottom port to top
+ * shape"), and its arrowhead is never painted under the counter-scaled glyph.
+ * xyflow centres a top handle on the border (`translate(-50%, -50%)`), hence
+ * the half-handle added back. The 12px box and its hit area are unchanged.
+ */
+const TARGET_HANDLE_PX = 12
+const TARGET_HANDLE_STYLE: CSSProperties = {
+  width: TARGET_HANDLE_PX,
+  height: TARGET_HANDLE_PX,
+  border: 0,
+  background: 'transparent',
+  top: `calc(${TARGET_HANDLE_PX / 2}px - ${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-label-scale, 1))`,
+}
+
+/**
+ * ⭐ v3.1 WS1 #25: the FAR-rung title — the same declared 14px and tracking as
+ * `typography.nodeTitle`, scaled by `--canvas-far-title-scale`
+ * (`farTitleScale`: the contract's 9px far chip, held as the camera pulls back)
+ * instead of the capped label scale. `line` rung only.
+ */
+const FAR_TITLE_TYPE =
+  'text-[length:calc(14px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))] tracking-[calc(-0.08px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))] font-sans leading-tight'
+
+/** The anchor's bottom padding (contract `.node.wide{padding:11px 13px 9px}`). */
+const ANCHOR_PAD_BOTTOM_PX = 9
+
+/**
+ * ⭐ v3.1 WS1 #16: the anchor BODY carries its rail's footprint — contract
+ * `.node.wide .target-row,.node.wide .row-meta{padding-right:58px}` beside
+ * `.node.wide .rail{right:6px;bottom:6px}`.
+ *   · `paddingRight` — the rail's reachable run (`anchorRailReservePx`, the
+ *     hover state included, so nothing reflows on hover), counter-scaled like
+ *     the rail, measured from the card's 12px side padding.
+ *   · `minHeight` — the body is never shorter than the rail, so the rail's top
+ *     never rises above the body into the title (the S5 occlusion). The title
+ *     keeps the card's full measure.
+ */
+function anchorBodyRailStyle(buttons: number): CSSProperties {
+  const scale = 'var(--canvas-label-scale, 1)'
+  const reserve = anchorRailReservePx(anchorRailButtonsKey(buttons))
+  return {
+    paddingRight: `calc(${reserve}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - 12}px)`,
+    minHeight: `calc(${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - ANCHOR_PAD_BOTTOM_PX}px)`,
+  }
+}
 
 // ⭐ S5 (24 Sep): a MAX-height, not a height. The box is "at most the one line
 // the card still shows" — a body already shorter than that line keeps its own
@@ -386,7 +439,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    */
   const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
   const atNormalZoom = useCanvasStore(selectRestingGlyphsShown)
-  const anchorRailFitsBeside = useAnchorRailFloorStore(selectAnchorRailFitsBeside)
   /**
    * ⭐⭐⭐ THE LENS, NOT THE CAMERA, DECIDES DETAIL AT `quiet`.
    *
@@ -1115,8 +1167,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // the panel open. Height safety: at `full` the band returns at ≤ 22px ×
   // 1.51 + 6px while the content shrinks from scale 2 to ≤ 1.51 — captured per
   // node on all five starters, no card is taller at Normal zoom than at the
-  // landing rung. The anchors (Question, Goal) keep their rail BESIDE the last
-  // row at Normal zoom only; below it they follow the same rule (see
+  // landing rung. The anchors (Question, Goal) keep their rail INSIDE, beside
+  // their body, at every rung it is mounted at (v3.1 WS1 #16, see
   // `anchorRailBeside`).
   // → applied in `cardPaddingAt` (`bandReservedAtRung`), for the live rung AND
   //   declared for both rungs on the root for the layout measurer.
@@ -1243,8 +1295,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * Pinned by `BaseNode.lodShapeReadsAsItsKind.spec.tsx` as a RUNG PAIR: a
    * presence-only test would pass if this tinted at every rung.
    */
-  const lodKindFillClass =
-    lodBodyHidden && !isCausalLens && !isEvidenceLens && !evidenceBgStyle ? colors.bg : ''
+  /* ⭐⭐ v3.1 WS1 #25 (26 Sep 2026): NO KIND FILL AT FAR ZOOM. The contract's
+     far rung is "readable identity and a simple attention cue" — a WHITE card
+     with its name and the kind SHAPE (`.far-example`: panel ground, a kind dot
+     on the top edge). The kind-light fill turned the zoomed-out board into
+     coloured blocks (audit #13). Kind identity at that rung now comes from the
+     counter-scaled shape (#15), which is ~2× the size it was there. The
+     variable stays so every reader of "is the card filled?" keeps one answer. */
+  const lodKindFillClass = ''
 
   // ⭐ `colors.frame`, NOT `colors.border` (contract v3.1 FRAME-08 / OR-03 /
   // T10): the frame is the kind hue at 76% toward the warm neutral, from two
@@ -1293,9 +1351,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // own title and "Top gap" line. Below Normal the anchors take the repeated
   // cards' rule instead: the hover row is drawn BELOW the card and the text keeps
   // the full width.
-  const anchorRailBeside = isAnchorCard && showQuickActions && atNormalZoom && anchorRailFitsBeside
-  /** Normal-rung quick-action layout: every card at Normal, except an anchor below the old floor. */
-  const quickActionsInset = atNormalZoom && (!isAnchorCard || anchorRailFitsBeside)
+  /**
+   * ⭐⭐ v3.1 WS1 #16 (26 Sep 2026): THE ANCHOR'S RAIL IS INSIDE THE CARD AT
+   * EVERY RUNG IT IS MOUNTED AT — the landing rung included. At 0.5 it used to
+   * be drawn BELOW the card (S5), and the coaching icon hung 24.5px under the
+   * Question's and the Goal's bottom edge on all five starters.
+   *
+   * The S5 problem that sent it below — a counter-scaled rail, taller than the
+   * shallow last row, reaching up over the title — is solved where the contract
+   * solves it (`.node.wide .rail{right:6px;bottom:6px}` beside rows that carry
+   * `padding-right`): the reserve sits on the BODY, not the whole card, and the
+   * body is never shorter than the rail (`anchorBodyRailStyle`). The rail's top
+   * can therefore never rise above the body's top, and the title keeps the
+   * card's full measure at every scale.
+   */
+  const anchorRailBeside = isAnchorCard && showQuickActions
+  /** Quick actions inside the card: every card at Normal, and an anchor wherever its rail is mounted. */
+  const quickActionsInset = anchorRailBeside || atNormalZoom
   /**
    * The card's padding AT A RUNG — `normal` is the Normal (`full`) rung, where the
    * rail is beside an anchor and the band is reserved under every other card.
@@ -1308,25 +1380,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     const px = (n: number) => `${n + padAdj}px`
     const side = px(12)
     const actionsAtRung = normal ? !isCausalLens && !isEvidenceLens : showQuickActions
-    const railBesideAtRung = isAnchorCard && actionsAtRung && normal
-    const bandReservedAtRung = actionsAtRung && normal
-    if (railBesideAtRung) {
-      // ⭐ S5 (24 Sep; Codex CHANGES_REQUIRED 5809540479): the rail's footprint is
-      // reserved on the WHOLE anchor, title included — not only the body's last
-      // row. On a shallow anchor the rail (20px × scale + its inset) is taller
-      // than that last row and reached up into the title: on vendor-selection
-      // the Question's Ask/Challenge/More covered "Customer Data Platform
-      // Selection" and its "Top gap" line. Same counter-scaled run the reserve
-      // classes derive (`anchorRailReservePx`), so the text clears the rail at
-      // every scale the Normal rung reaches.
-      const reserve = anchorRailReservePx(anchorRailButtonsKey(anchorRailButtons))
-      return {
-        paddingTop: '11px',
-        paddingRight: `calc(${CANVAS_QUICK_ACTION_INSET_PX}px + ${reserve}px * var(--canvas-label-scale, 1))`,
-        paddingBottom: '9px',
-        paddingLeft: side,
-      }
-    }
+    // ⭐ WS1 #16: an anchor never reserves the band or a whole-card right strip —
+    // its rail's footprint is on the BODY (`anchorBodyRailStyle`), identical at
+    // both rungs, so the layout measurer reads one box for it.
+    const bandReservedAtRung = actionsAtRung && normal && !isAnchorCard
     if (bandReservedAtRung) {
       const band = padAdj === 0
         ? NODE_QUICK_ACTION_BAND_CSS
@@ -1384,10 +1441,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const cornerHeaderReserve = titleSharesItsLine
     ? cornerMarksHeaderReserveCss(cornerMarkCount, String(liveCardPadding.paddingRight))
     : undefined
+  // v3.1 WS1 #17: the yield is decided by THIS title's first word, not the
+  // corpus's widest (see `CornerMarksTitleBox.firstWordPx`).
+  // Not a hook: this runs after the lens early return. Cached per word inside.
+  const firstTitleWordPx = cornerMarkCount > 0 ? titleFirstWordPx(titleOverride ?? label) : undefined
   const cornerTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
     measurePx: titleMinMeasurePx,
     rightToFramePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - titleMinMeasurePx,
     topPx: cardPaddingTopPx,
+    firstWordPx: firstTitleWordPx,
   })
   // The causal lens draws the title as one full-width block, so its box is the
   // card's whole text measure and reaches the card's right padding. That
@@ -1398,6 +1460,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     measurePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - causalPaddingRightPx,
     rightToFramePx: causalPaddingRightPx,
     topPx: cardPaddingTopPx,
+    firstWordPx: firstTitleWordPx,
   })
   const hasCornerSlot = cornerSlot !== undefined && cornerSlot !== null && cornerSlot !== false
 
@@ -1933,12 +1996,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       <Handle
         type="target"
         position={Position.Top}
-        style={{
-          width: 12,
-          height: 12,
-          border: 0,
-          background: 'transparent',
-        }}
+        style={TARGET_HANDLE_STYLE}
         aria-label="Input connection"
       />
       
@@ -2230,17 +2288,27 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           non-colour channel between ▲ and ▼ was the smallest mark on the card.
           The panel-coloured outline and halo now separate the shape from the
           border line it sits on; the shape itself fills the box.
-          ⚠ 22px CENTRED ON THE BORDER, NOT THE CONTRACT'S 24px AT −12px: served
-          edges end at the handle top (~−6px), so a 24px glyph would cover ~6px
-          of every inbound arrowhead. The 24px move belongs with the edge
-          endpoint change (edge dimension), not here. */}
+          ⚠ It was 22px centred on the border because edges ended at the old
+          handle top (~−6px) and a 24px glyph would have covered their
+          arrowheads; WS1 #15 moves the handle with the glyph (below). */}
+      {/* ⭐ v3.1 WS1 #15 (26 Sep 2026): THE CONTRACT'S 24px AT −12px, COUNTER-SCALED
+          like the canvas type (`.node .shape{width:24px;height:24px;top:-12px}`).
+          At the 0.5 landing it was 22 flow units — 11px on screen, half the size
+          of the kind identity at 100%. The target handle now sits at the shape's
+          top (`TARGET_HANDLE_STYLE`), so inbound edges end ON the shape, as the
+          contract draws them, instead of disappearing under a larger glyph. */}
       <span
         aria-hidden="true"
         data-testid="node-type-glyph"
-        className="pointer-events-none absolute -top-[11px] left-1/2 z-10 flex h-[22px] w-[22px] -translate-x-1/2 items-center justify-center"
-        style={{ filter: 'drop-shadow(0 0 1px var(--bg-panel))' }}
+        className="pointer-events-none absolute left-1/2 z-10 flex -translate-x-1/2 items-center justify-center"
+        style={{
+          top: `calc(-${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-label-scale, 1))`,
+          width: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
+          height: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
+          filter: 'drop-shadow(0 0 1px var(--bg-panel))',
+        }}
       >
-        <NodeShapeIndicator nodeKind={nodeType} size={CONNECTOR_GLYPH_PX} stroke="var(--bg-panel)" strokeWidth={0.6} />
+        <NodeShapeIndicator nodeKind={nodeType} size={CONNECTOR_GLYPH_PX} className="h-full w-full" stroke="var(--bg-panel)" strokeWidth={0.6} />
       </span>
 
       {/* Node header — shape + title on same row (spec Section 3.2) */}
@@ -2400,9 +2468,19 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           <div
             data-testid="node-title"
             data-node-tooltip
+            {...(lodBodyHidden ? { [LOD_FAR_TITLE_ATTR]: 'true' } : {})}
             className={
-              lodBoostTitle
-                ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
+              /* ⭐ v3.1 WS1 #2 (26 Sep 2026): NO CLAMP AT A READING RUNG. The
+                 contract's `.node h3` wraps (`overflow-wrap:break-word`) and never
+                 clips; `line-clamp-2` ellipsised 2–12 titles per starter at the
+                 landing zoom ("Competitive Pressure for…"). The layout reads the
+                 unclamped height at the bound, so a longer title costs its row
+                 height, never a word. Only the FAR rung (`line`, the identity
+                 chip, #25) clamps, at its own readable size (`FAR_TITLE_TYPE`). */
+              lodBodyHidden
+                ? `${FAR_TITLE_TYPE} break-words ${lodBoostTitle || isAnchorCard ? 'font-semibold text-text-header line-clamp-1' : 'text-text-body line-clamp-2'}`
+                : lodBoostTitle
+                ? `${typography.nodeTitle} font-semibold text-text-header break-words`
                 /* ⭐ THE ANCHORS TAKE THEIR EMPHASIS AT EVERY ZOOM, NOT ONLY BELOW
                    THE FLOOR (contract v3.1 ANC-04: `.node h3{font-weight:610}`,
                    the wide card's title one step above the others). The note
@@ -2412,8 +2490,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                    were set exactly like a factor's. Same size token (DS v5 §2.3
                    forbids a fourth canvas size), so hierarchy is weight + ink. */
                 : isAnchorCard
-                  ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
-                  : `${typography.nodeTitle} text-text-body break-words line-clamp-2`
+                  ? `${typography.nodeTitle} font-semibold text-text-header break-words`
+                  : `${typography.nodeTitle} text-text-body break-words`
             }
             /* ⭐ CONTRACT `.node h3{font-weight:610}` — EVERY card's title, set
                inline so it cannot lose a cascade race with the size token's
@@ -2580,7 +2658,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       {/* Causal lens: show label only (header hidden) */}
       {isCausalLens && (
-        <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-2`}>
+        <div className={`${typography.nodeTitle} text-text-body break-words`}>
           {causalTitleSpacer !== undefined && (
             <span
               aria-hidden="true"
@@ -2717,7 +2795,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           className="relative text-left"
           data-testid={anchorRailBeside ? 'anchor-body-rail-beside' : undefined}
           data-anchor-rail-buttons={anchorRailBeside ? anchorRailButtonsKey(anchorRailButtons) : undefined}
-          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : undefined}
+          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : anchorRailBeside ? anchorBodyRailStyle(anchorRailButtons) : undefined}
           {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
         >
           {children as ReactNode}
@@ -2803,11 +2881,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 <span
                   data-testid="node-lod-estimate-mark"
                   title={ESTIMATE_SUBJECT_TITLE.value}
-                  /* ⭐ Text ≥ 4.5:1 ON ITS ACTUAL GROUND (contract v3.1 T15). At
-                     the line rung the card takes its kind fill, where
-                     `text-light` measures 3.05–4.26:1; `text-body` clears
-                     6.09–8.51:1 on every light fill. Unfilled, unchanged. */
-                  className={`${typography.nodeLabel} !leading-tight ${lodKindFillClass ? 'text-text-body' : 'text-text-light'} italic shrink-0`}
+                  /* ⭐ BODY INK, THE SAME INK AS THE FIGURE IT QUALIFIES
+                     (contract v3.1 T15: text ≥ 4.5:1 on its actual ground). It
+                     was body ink only ON the line rung's kind fill, where
+                     `text-light` measured 3.05–4.26:1, and muted elsewhere; WS1
+                     #25 made the far card white, which silently turned the mark
+                     muted beside a body-ink number — the disclosure fainter
+                     than the figure, the defect this line exists to close.
+                     On the white card body ink is 10.4:1, muted 5.2:1. */
+                  className={`${typography.nodeLabel} !leading-tight text-text-body italic shrink-0`}
                 >
                   {UNCONFIRMED_ESTIMATE_TOKEN}
                 </span>

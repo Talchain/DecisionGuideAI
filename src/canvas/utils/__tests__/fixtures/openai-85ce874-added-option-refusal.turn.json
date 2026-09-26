@@ -1,0 +1,207 @@
+{
+ "_source": "Served OpenAI agent-route turn, UI f2fcaa0f / CEE 85ce874, 26 Sep 2026 ~00:34Z. AI Conversation witness aiconv-w3add-f2fcaa0f-0034 (R&C kit, OpenAI-only), turn 5 of 5: the user approved an agent-added option (\"Raise Pro to £64 with the next feature release\"). Verbatim: top-level graph_hash, analysis_ready, analysis_state.readiness.",
+ "graph_hash": "775f5885ce59cd08",
+ "analysis_ready": {
+  "options": [
+   {
+    "option_id": "keep_pro_at_49",
+    "label": "Keep Pro at £49",
+    "status": "ready",
+    "interventions": {},
+    "is_baseline": true,
+    "status_reason": "Baseline: every factor holds at its observed value, so no effect values are needed"
+   },
+   {
+    "option_id": "raise_pro_to_59",
+    "label": "Raise Pro to £59",
+    "status": "ready",
+    "interventions": {
+     "pro_plan_price": 0.295
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "pro_plan_price": {
+      "display_value": "59 £ per month",
+      "normalised_value": 0.295,
+      "raw_value": 59,
+      "unit": "£ per month"
+     }
+    },
+    "status_reason": "1 intervention(s) ready for analysis"
+   },
+   {
+    "option_id": "raise_pro_to_54",
+    "label": "Raise Pro to £54",
+    "status": "ready",
+    "interventions": {
+     "pro_plan_price": 0.27
+    },
+    "is_baseline": false,
+    "intervention_details": {
+     "pro_plan_price": {
+      "display_value": "54 £ per month",
+      "normalised_value": 0.27,
+      "raw_value": 54,
+      "unit": "£ per month"
+     }
+    },
+    "status_reason": "1 intervention(s) ready for analysis"
+   },
+   {
+    "option_id": "af0a2656",
+    "label": "Raise Pro to £64 with the next feature release",
+    "status": "needs_encoding",
+    "interventions": {},
+    "is_baseline": false,
+    "status_reason": "Connected to 1 factor(s); awaiting effect value(s)",
+    "user_questions": [
+     "Which factor(s) does \"Raise Pro to £64 with the next feature release\" change, and what value should each be set to?"
+    ]
+   }
+  ],
+  "goal_node_id": "monthly_recurring_revenue_increase",
+  "status": "blocked",
+  "blockers": [
+   {
+    "option_id": "af0a2656",
+    "option_label": "Raise Pro to £64 with the next feature release",
+    "factor_id": "pro_plan_price",
+    "factor_label": "Pro plan price",
+    "blocker_type": "missing_value",
+    "message": "Factor \"Pro plan price\" is currently 49 £ per month. What should option \"Raise Pro to £64 with the next feature release\" set it to?",
+    "suggested_action": "add_value"
+   }
+  ],
+  "goal_threshold": 0.8,
+  "goal_threshold_raw": 20000,
+  "goal_threshold_unit": "£ per month",
+  "goal_threshold_cap": 25000,
+  "goal_threshold_cap_provenance": "target_derived_headroom",
+  "bias_findings": [],
+  "blocked_reason": "OPTION_NOT_LINKED_TO_DECISION",
+  "readiness_issues": [
+   {
+    "issue_id": "structural_1",
+    "code": "OPTION_NOT_LINKED_TO_DECISION",
+    "category": "graph_structure",
+    "message": "An option is not connected from the decision. Link the decision to it.",
+    "repairability": "human_input_required",
+    "provenance": "unattributed",
+    "obligation": "required"
+   },
+   {
+    "issue_id": "semantic_2",
+    "repairability": "human_input_required",
+    "option_id": "af0a2656",
+    "option_label": "Raise Pro to £64 with the next feature release",
+    "factor_id": "pro_plan_price",
+    "factor_label": "Pro plan price",
+    "code": "MISSING_OPTION_VALUE",
+    "category": "option_values",
+    "message": "Factor \"Pro plan price\" is currently 49 £ per month. What should option \"Raise Pro to £64 with the next feature release\" set it to?",
+    "provenance": "unattributed",
+    "obligation": "offered"
+   }
+  ],
+  "repair_proposal": {
+   "proposal_version": "readiness_repair_v1",
+   "complete": true,
+   "issue_ids": [
+    "structural_1",
+    "semantic_2"
+   ],
+   "changes": [],
+   "unresolved_inputs": [
+    {
+     "issue_id": "structural_1",
+     "kind": "model_structure",
+     "prompt": "An option is not connected from the decision. Link the decision to it.",
+     "obligation": "required",
+     "provenance": "unattributed"
+    },
+    {
+     "issue_id": "semantic_2",
+     "kind": "option_effect_value",
+     "prompt": "Factor \"Pro plan price\" is currently 49 £ per month. What should option \"Raise Pro to £64 with the next feature release\" set it to?",
+     "option_id": "af0a2656",
+     "factor_id": "pro_plan_price",
+     "obligation": "offered",
+     "provenance": "unattributed"
+    }
+   ]
+  },
+  "may_run": false,
+  "analysis_admission": {
+   "structurally_analysable": false,
+   "missing_important_inputs": [
+    {
+     "issue_id": "structural_1",
+     "code": "OPTION_NOT_LINKED_TO_DECISION",
+     "why_it_matters": "An option is not connected from the decision. Link the decision to it.",
+     "obligation": "required",
+     "waived_by_exclusion": false
+    },
+    {
+     "issue_id": "semantic_2",
+     "code": "MISSING_OPTION_VALUE",
+     "option_id": "af0a2656",
+     "option_label": "Raise Pro to £64 with the next feature release",
+     "factor_id": "pro_plan_price",
+     "factor_label": "Pro plan price",
+     "why_it_matters": "Factor \"Pro plan price\" is currently 49 £ per month. What should option \"Raise Pro to £64 with the next feature release\" set it to?",
+     "obligation": "offered",
+     "waived_by_exclusion": false
+    }
+   ],
+   "semantic_quality_sufficient": true,
+   "permitted_analysis_mode": "none",
+   "reasons": [
+    {
+     "field": "structurally_analysable",
+     "code": "MODEL_HAS_BLOCKERS",
+     "message": "Review all 2 readiness issues together before analysis."
+    },
+    {
+     "field": "missing_important_inputs",
+     "code": "MODEL_HAS_BLOCKERS",
+     "message": "One input is still needed from you."
+    },
+    {
+     "field": "semantic_quality_sufficient",
+     "code": "CONFIDENCE_PARAMETERS_PARTLY_USER_STATED",
+     "message": "At least one of the estimates this comparison rests on is yours, so a leading option can be named."
+    },
+    {
+     "field": "permitted_analysis_mode",
+     "code": "MODEL_HAS_BLOCKERS",
+     "message": "This model cannot be analysed yet."
+    }
+   ],
+   "graph_hash": "775f5885ce59cd08e538046f591de2385d5ece71da537384f3b1037d337946d6",
+   "semantic_signals": {
+    "confidence_parameters_total": 12,
+    "confidence_parameters_user_stated": 1,
+    "confidence_parameters_machine_authored": 9,
+    "confidence_parameters_unattributed": 2,
+    "material_parameters_total": 10,
+    "material_parameters_user_stated": 1,
+    "intervened_factor_baselines_total": 1,
+    "intervened_factor_baselines_user_stated": 1,
+    "material_parameters_awaiting_user_node_ids": [
+     "monthly_recurring_revenue_increase",
+     "pro_subscriber_count",
+     "monthly_churn",
+     "price_sensitivity"
+    ],
+    "goal_target_stated": true
+   }
+  },
+  "freshness": "stale",
+  "freshness_reason": "agent_readback_run_state_stale",
+  "current_graph_hash": "775f5885ce59cd08"
+ },
+ "analysis_state_readiness": {
+  "status": "unknown",
+  "blockers": []
+ }
+}

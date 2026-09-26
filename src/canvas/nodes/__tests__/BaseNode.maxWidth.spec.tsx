@@ -105,9 +105,9 @@ describe('BaseNode — maxWidth (H1)', () => {
     expect(nodeEl.style.maxWidth).toBe('238px')
   })
 
-  it('title element clamps long labels to 3 lines with ellipsis (line-clamp-3)', () => {
+  it('title element never clamps at a reading rung — the whole label wraps (v3.1 WS1 #2)', () => {
     // A 60+ char label that, at typography.nodeTitle size and normal node
-    // widths, would naturally wrap onto 4+ lines without a clamp.
+    // widths, wraps onto 4+ lines.
     const longLabel =
       'Feature Launch Marketing Budget Allocation and Campaign Strategy Optimisation'
     const { container } = render(
@@ -119,24 +119,16 @@ describe('BaseNode — maxWidth (H1)', () => {
         maxWidth={240}
       />
     )
-    // The clamp must be applied to the title <div> itself (the one carrying
-    // `break-words`), not the outer node wrapper. Select by the break-words
-    // class to uniquely identify the title element in BaseNode's render tree.
+    // Select by the break-words class to uniquely identify the title element.
     const titleEl = container.querySelector('.break-words') as HTMLElement | null
     expect(titleEl, 'title element with break-words should exist').toBeTruthy()
     expect(titleEl?.textContent).toBe(longLabel)
-    // ⭐ TWO LINES SINCE 1 Sep 2026. Three-line titles were the biggest source
-    // of visual noise on a full board — card heights varied by up to 50%, so
-    // nothing lined up and the eye had no baseline to scan along. The glyph
-    // moving off the title row gave the text back 20px of measure, which is
-    // what made two lines sufficient rather than merely shorter.
-    expect(titleEl?.className).toContain('line-clamp-2')
-    // ⚠ AND NOT THREE. Asserted explicitly because `toContain('line-clamp-2')`
-    // would also pass on a class list that carried BOTH — Tailwind emits them
-    // as separate utilities and the later one wins, so a stray `line-clamp-3`
-    // would silently restore the old geometry with this file still green.
-    expect(titleEl?.className).not.toContain('line-clamp-3')
-    // Existing break-words behaviour must remain alongside the new clamp.
+    // ⭐ v3.1 WS1 #2 (26 Sep 2026): the contract's `.node h3` wraps and never
+    // clips. From 1 Sep this element carried `line-clamp-2`, and at the landing
+    // zoom it ellipsised 2–12 titles per starter ("Competitive Pressure for…").
+    // The layout reads the UNCLAMPED height at the bound, so a long title costs
+    // its row height, never a word. No clamp of ANY depth may come back.
+    expect(titleEl?.className ?? '').not.toMatch(/line-clamp/)
     expect(titleEl?.className).toContain('break-words')
   })
 })

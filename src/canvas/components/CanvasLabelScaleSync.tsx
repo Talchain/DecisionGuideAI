@@ -27,7 +27,9 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '@xyflow/react'
 import {
   labelCounterScale,
+  farTitleScale,
   CANVAS_LABEL_SCALE_VAR,
+  CANVAS_FAR_TITLE_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_TESTID,
 } from '../utils/zoomLegibility'
 
@@ -50,6 +52,8 @@ export function CanvasLabelScaleSync() {
   // own legibility floor. Ceiling preserves the floor while retaining the same
   // two-decimal write cadence.
   const scale = useStore((s) => Math.ceil(labelCounterScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
+  // v3.1 WS1 #25: the far-zoom title's own scale, read by the `line` rung only.
+  const farScale = useStore((s) => Math.ceil(farTitleScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
   const markerRef = useRef<HTMLSpanElement | null>(null)
 
   useEffect(() => {
@@ -62,6 +66,15 @@ export function CanvasLabelScaleSync() {
       root.style.removeProperty(CANVAS_LABEL_SCALE_VAR)
     }
   }, [scale])
+
+  useEffect(() => {
+    const root = markerRef.current?.closest('.react-flow') as HTMLElement | null
+    if (!root) return
+    root.style.setProperty(CANVAS_FAR_TITLE_SCALE_VAR, String(farScale))
+    return () => {
+      root.style.removeProperty(CANVAS_FAR_TITLE_SCALE_VAR)
+    }
+  }, [farScale])
 
   // ⚠ The testid is DERIVED, not a literal: it is the contract by which anything
   // else that must find THIS instance's root does so (see

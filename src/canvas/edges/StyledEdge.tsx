@@ -35,7 +35,9 @@ import {
   type RankedCausalEdge,
 } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
-import { resolveSameRowRoute, routeBoxOf, type RouteBox, type SameRowRoute } from './sameRowRoute'
+import { resolveSameRowRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
+import { TIER_BY_KIND } from '../utils/nodeLayoutConstants'
+import { isGhostNode } from '../utils/fitTargets'
 import {
   readContestedState,
   resolveEdgeStroke,
@@ -93,6 +95,7 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
 import { resolvePolarityGlyphOffset, GLYPH_ANCHOR_RADIUS, type GlyphSibling } from '../utils/edgeGlyphPlacement'
+import { tierLaneTitleBoxFor } from '../utils/tierLanes'
 
 /**
  * StyledEdge with semantic visual properties
@@ -843,6 +846,34 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [sameRowRouteKey],
   )
 
+  /**
+   * v3.1 WS1 #10 — the layered edge's vertical leads (see `resolveLayeredEdgeLeads`):
+   * out past the lowest card of its source's row, in from above its target's
+   * row. A subscription for the same reason as the same-row route above.
+   */
+  const layeredLeadsKey = useStore((st) => {
+    if (pathType === 'straight' || pathType === 'smoothstep') return ''
+    if (sourcePosition !== Position.Bottom || targetPosition !== Position.Top || !(targetY > sourceY)) return ''
+    const storeNodes = Array.isArray(st.nodes) ? st.nodes : []
+    const boxes: Array<RouteBox & { tier: number }> = []
+    for (const n of storeNodes) {
+      if (n.hidden || lensHiddenNodeIds.has(n.id) || isGhostNode(n.id)) continue
+      const tier = typeof n.type === 'string' ? TIER_BY_KIND[n.type] : undefined
+      if (tier === undefined) continue
+      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
+      if (box) boxes.push({ ...box, tier })
+    }
+    // `route`, not `leads`: the no-contest copy sweep reads a bare "leads" on a
+    // line with a template literal as a ranking verb (noContestFraming.canvas).
+    const route = resolveLayeredEdgeLeads(source as string, target as string, sourceX, sourceY, targetX, targetY, boxes)
+    return route ? `${Math.round(route.outY * 100) / 100},${Math.round(route.inY * 100) / 100}` : ''
+  })
+  const layeredLeads = useMemo<LayeredEdgeLeads | null>(() => {
+    if (layeredLeadsKey === '') return null
+    const [outY, inY] = layeredLeadsKey.split(',').map(Number)
+    return { outY, inY }
+  }, [layeredLeadsKey])
+
   // Compute edge path based on pathType
   const [edgePath, labelX, labelY] = useMemo(() => {
     if (sameRowRoute) {
@@ -895,6 +926,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
          * routed above (`sameRowRoute.ts`).
          */
         if (sourcePosition === Position.Bottom && targetPosition === Position.Top && targetY > sourceY) {
+          if (layeredLeads) {
+            const [path, lx, ly] = layeredLeadPath(sourceX, sourceY, targetX, targetY, layeredLeads)
+            return [path, lx, ly, Math.abs(targetX - sourceX) / 2, Math.abs(targetY - sourceY) / 2] as [string, number, number, number, number]
+          }
           const bend = Math.max(6, Math.min(30, (targetY - sourceY) / 2))
           return [
             `M${sourceX},${sourceY} C${sourceX},${sourceY + bend} ${targetX},${targetY - bend} ${targetX},${targetY}`,
@@ -915,7 +950,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         })
       }
     }
-  }, [sameRowRoute, pathType, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, visualProps.curvature])
+  }, [sameRowRoute, layeredLeads, pathType, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, visualProps.curvature])
   
   // Improved accessible name using node titles
   const sourceNode = getNode(source)
@@ -1798,7 +1833,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (!siblings.some((sib) => sib.id === selfId)) {
       siblings.push({ id: selfId, sourceCentre: targetCentre ? centreOf(selfSource) : null })
     }
-    const { dx, dy } = resolvePolarityGlyphOffset(selfId, targetCentre ?? { x: 0, y: 0 }, siblings)
+    // v3.1 WS1 #28: keep the glyph off the target row's band title.
+    const titleBox = tierLaneTitleBoxFor(storeNodes, selfTarget)
+    const keepOut = titleBox
+      ? { x0: titleBox.x0 - targetX, y0: titleBox.y0 - targetY, x1: titleBox.x1 - targetX, y1: titleBox.y1 - targetY }
+      : undefined
+    const { dx, dy } = resolvePolarityGlyphOffset(selfId, targetCentre ?? { x: 0, y: 0 }, siblings, keepOut)
     return `${Math.round(dx * 100) / 100},${Math.round(dy * 100) / 100}`
   })
 

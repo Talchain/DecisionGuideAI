@@ -123,11 +123,10 @@ const renderPanel = () => {
   return result
 }
 
-/** Post-run the strip mounts CLOSED and its marks are unmounted with it. */
+/** Design B2: the tab's strip is static — no toggle, its region always mounted. */
 const openStrip = () => {
-  const toggle = screen.getByTestId(`${STRIP}-toggle`)
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.queryByTestId(`${STRIP}-toggle`)).toBeNull()
+  expect(screen.getByTestId(`${STRIP}-region`)).toBeInTheDocument()
 }
 
 /**
@@ -163,19 +162,27 @@ describe('THE PRECONDITION — this fixture really does reach the defective clas
    * produced no drivers), the second proves the CAP is what drops the rank-4
    * node rather than an empty index.
    */
+  /*
+   * ⚠ 26 Sep (design audit B12): read off the VIEW MODEL now. It was read off
+   * the detail's "What matters most" chip, which the V2 prototype's detail
+   * does not carry and which is gone; the cap is a fact about the glance, and
+   * the glance's own list is where it is decided.
+   */
   it('the glance named the rank-1 driver and the cap dropped the rank-4 one', () => {
+    const vm = buildAnalysisNewViewModel({
+      data: fourDrivers(),
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    })
+    const named = vm.atAGlance.drivers.map((d) => d.targetId)
+    expect(named, 'the glance names rank 1 — the cap below would prove nothing otherwise').toContain(RANK_1)
+    expect(named).not.toContain(RANK_4)
+
+    // And the detail for the rank-4 node carries no finding of its own.
     renderPanel()
-
-    pickNode(RANK_1)
-    expect(
-      screen.getByTestId(`${STRIP}-detail-driver`),
-      'the glance chip is missing on rank 1 — the cap below would prove nothing',
-    ).toHaveTextContent(COPY.glance.whatMattersMost)
-
     pickNode(RANK_4)
-    expect(screen.queryByTestId(`${STRIP}-detail-driver`)).toBeNull()
-    // And nothing else the OLD index could see reaches it either, so a mention
-    // is the only thing that can lift the denial in the next case.
     expect(screen.queryAllByTestId(`${STRIP}-detail-finding`)).toHaveLength(0)
   })
 
@@ -237,8 +244,18 @@ describe('THE PRECONDITION — this fixture really does reach the defective clas
   })
 })
 
+/**
+ * ⚠⚠ RE-PINNED 26 Sep 2026 (design audit B12). The reachable failure was a
+ * DENIAL ("Nothing else on this panel refers to this node.") on a node the
+ * Drivers section named. The V2 prototype's detail carries neither that line
+ * nor the "Also in …" pointers that answered it, so the defect is now closed
+ * at the root: the detail makes no claim about the rest of the panel at all.
+ * Both nodes are still driven through the real tab, and the precondition
+ * above still proves the rank-4 node is one the section names and the glance
+ * does not.
+ */
 describe('⛔ THE REACHABLE FAILURE — the strip may not deny the Drivers section', () => {
-  it('the rank-4 driver is pointed at, not denied', () => {
+  it('the rank-4 driver is not denied — and the detail draws no pointer in its place', () => {
     renderPanel()
     pickNode(RANK_4)
 
@@ -246,33 +263,8 @@ describe('⛔ THE REACHABLE FAILURE — the strip may not deny the Drivers secti
     // `vm.drivers.findings`: the panel is talking, so the strip may not say it
     // is silent.
     expect(denial()).toBeNull()
-
-    // BOUND BY IDENTITY to the driver finding's own id (`driver:${factorKey}`),
-    // never to the label — the Drivers section renders that label too, so a
-    // text predicate would pass on the wrong element entirely.
-    expect(mentionsOn()).toEqual([
-      expect.objectContaining({ id: `driver:${RANK_4}`, section: 'drivers' }),
-    ])
-    /*
-     * ⛔⛔ THE POINTER NAMES THE SECTION AND STOPS THERE, AND THIS ASSERTION
-     * USED TO BLESS THE OPPOSITE.
-     *
-     * It read `toBe(COPY.modelStrip.mention(COPY.sections.drivers,
-     * RANK_4_LABEL))` — the same call on the same inputs the component makes,
-     * so both sides moved together and it could not fail for ANY
-     * implementation of `mention()` (CLAUDE.md trap 13b, a guard agreeing with
-     * itself). What it was quietly certifying was the line
-     *
-     *     Also in Drivers and dynamics: Regulatory reporting load
-     *
-     * rendered directly beneath a `detail-title` carrying "Regulatory
-     * reporting load" — the pointer handing back the name the reader is
-     * looking at. The heading still comes from `COPY.sections`; the frame
-     * around it is now spelled out, and the payload's ABSENCE is asserted by
-     * name rather than inherited from a helper.
-     */
-    expect(mentionsOn()[0].text).toBe(`Also in ${COPY.sections.drivers}`)
-    expect(mentionsOn()[0].text).not.toContain(RANK_4_LABEL)
+    expect(mentionsOn()).toEqual([])
+    expect(screen.getByTestId(`${STRIP}-detail`)).not.toHaveTextContent(COPY.modelStrip.noInsight)
   })
 
   /**
@@ -282,11 +274,17 @@ describe('⛔ THE REACHABLE FAILURE — the strip may not deny the Drivers secti
    * the one being fixed: the reader could no longer tell "nothing said about
    * this" from "the control is broken".
    */
-  it('a node NO section names is still told so, in the same run', () => {
+  /*
+   * ⚠ RE-PINNED (B12): the twin no longer expects the denial. What keeps it
+   * from being "the control is broken" is the detail itself — the node's name,
+   * its × and its three acts are on screen.
+   */
+  it('a node NO section names gets the same detail — no denial, and its acts', () => {
     renderPanel()
     pickNode(SILENT)
 
     expect(mentionsOn()).toEqual([])
-    expect(denial()).toBe(COPY.modelStrip.noInsight)
+    expect(denial()).toBeNull()
+    expect(screen.getByTestId(`${STRIP}-detail-ask`)).toBeInTheDocument()
   })
 })

@@ -206,10 +206,53 @@ function placeAlong(dir: { x: number; y: number }, radius: number): GlyphOffset 
  * Returns `{ dx: 0, dy: 0 }`-free output: the offset always has a positive
  * magnitude, so the glyph never lands on the handle anchor itself.
  */
+/**
+ * ⭐ v3.1 WS1 #28 (26 Sep 2026): a region the glyph must not be painted over —
+ * the target row's band label ("OUTCOMES / RISKS" was overdrawn by a `+` at
+ * the landing zoom on every starter that has a leftmost consequence target). In
+ * the same frame as the returned offset: graph units relative to the target
+ * handle anchor.
+ */
+export interface GlyphKeepOut {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+
+/** How many ring slots the keep-out may push a glyph out by before giving up. */
+const KEEP_OUT_MAX_SLOTS = 8
+
+function glyphHits(o: GlyphOffset, k: GlyphKeepOut): boolean {
+  const half = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
+  return o.dx + half > k.x0 && o.dx - half < k.x1 && o.dy + half > k.y0 && o.dy - half < k.y1
+}
+
+/**
+ * The `ring`-th radius along `dir` whose glyph clears `keepOut`. Distinct rings
+ * map to distinct FREE slots (the mapping is monotone and shared by every
+ * sibling on the same direction), so the distinctness proof below still holds:
+ * equal directions still get unequal radii. With no keep-out, or none clear
+ * within `KEEP_OUT_MAX_SLOTS`, this is exactly the old `ring`-th radius.
+ */
+function placeClear(dir: { x: number; y: number }, ring: number, keepOut?: GlyphKeepOut): GlyphOffset {
+  const plain = placeAlong(dir, GLYPH_ANCHOR_RADIUS + ring * GLYPH_RING_STEP)
+  if (!keepOut) return plain
+  let free = -1
+  for (let slot = 0; slot < ring + KEEP_OUT_MAX_SLOTS; slot++) {
+    const o = placeAlong(dir, GLYPH_ANCHOR_RADIUS + slot * GLYPH_RING_STEP)
+    if (glyphHits(o, keepOut)) continue
+    free++
+    if (free === ring) return o
+  }
+  return plain
+}
+
 export function resolvePolarityGlyphOffset(
   edgeId: string,
   targetCentre: { x: number; y: number },
   siblings: GlyphSibling[],
+  keepOut?: GlyphKeepOut,
 ): GlyphOffset {
   const ordered = [...siblings].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   const self = ordered.findIndex((s) => s.id === edgeId)
@@ -231,8 +274,7 @@ export function resolvePolarityGlyphOffset(
   const anyMissing = dirs.some((d) => d === null)
   if (anyMissing) {
     const dir = dirs[self] ?? fallbackDirection(self)
-    const radius = GLYPH_ANCHOR_RADIUS + self * GLYPH_RING_STEP
-    return placeAlong(dir, radius)
+    return placeClear(dir, self, keepOut)
   }
 
   const mine = dirs[self]!
@@ -244,6 +286,5 @@ export function resolvePolarityGlyphOffset(
     const other = dirs[i]!
     if (mine.x * other.x + mine.y * other.y >= TIE_COS) ring++
   }
-  const radius = GLYPH_ANCHOR_RADIUS + ring * GLYPH_RING_STEP
-  return placeAlong(mine, radius)
+  return placeClear(mine, ring, keepOut)
 }

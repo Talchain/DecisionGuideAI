@@ -44,6 +44,7 @@ import {
   GHOST_OPTION_NODE_ID,
   withGhostTiers,
   isGhostNode,
+  CONSEQUENCE_DOOR_LABEL,
 } from '../ghostTiers'
 
 /**
@@ -78,9 +79,9 @@ function model(): Node[] {
 }
 
 /** `data.label` of every door the composer actually produced, keyed by tier. */
-function mountedDoorLabels(): Record<string, string> {
+function mountedDoorLabels(nodes: Node[] = model()): Record<string, string> {
   const out: Record<string, string> = {}
-  for (const n of withGhostTiers(model())) {
+  for (const n of withGhostTiers(nodes)) {
     if (!isGhostNode(n.id)) continue
     const d = n.data as { tier?: string; label?: string }
     if (typeof d.tier === 'string' && typeof d.label === 'string') out[d.tier] = d.label
@@ -105,16 +106,28 @@ function rejectAsDoorLabel(s: string): string | null {
 }
 
 describe('every frontier door asks a question, on the mount path', () => {
-  it('places a door on all four tiers, so the assertions below have subjects', () => {
-    expect(Object.keys(mountedDoorLabels()).sort()).toEqual(['factor', 'option', 'outcome', 'risk'])
+  it('places ONE door per row — the consequence row shares one (v3.1 WS1 #27) — so the assertions below have subjects', () => {
+    expect(Object.keys(mountedDoorLabels()).sort()).toEqual(['consequence', 'factor', 'option'])
   })
+
+  /** A row holding only ONE consequence kind keeps that kind's own door. */
+  const onlyKind = (kind: string): Node[] =>
+    model().filter((n) => !(['outcome', 'risk'].includes(n.type as string) && n.type !== kind))
 
   it.each(Object.entries(DOOR_QUESTION))(
     'the %s door reads exactly "%s" on the node the canvas mounts',
     (tier, question) => {
-      expect(mountedDoorLabels()[tier]).toBe(question)
+      const nodes = tier === 'outcome' || tier === 'risk' ? onlyKind(tier) : model()
+      expect(mountedDoorLabels(nodes)[tier]).toBe(question)
     },
   )
+
+  it('the shared consequence door asks its own question, by the same copy rules', () => {
+    const label = mountedDoorLabels().consequence
+    expect(label).toBe(CONSEQUENCE_DOOR_LABEL)
+    expect(rejectAsDoorLabel(label)).toBeNull()
+    expect(Object.values(DOOR_QUESTION)).not.toContain(label)
+  })
 
   it.each(Object.entries(DOOR_QUESTION))(
     'the %s tier definition carries that same sentence',

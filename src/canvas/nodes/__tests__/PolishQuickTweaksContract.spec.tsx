@@ -216,7 +216,9 @@ describe('TierLanes — row labels are 10px (contract v3.1 `.layer-label`) at 0.
     expect(title.className).toContain('text-[length:calc(10px*var(--canvas-label-scale,1))]')
     expect(title.className).not.toContain('text-[length:calc(11px*var(--canvas-label-scale,1))]')
     expect(title.className).not.toContain('text-[length:calc(12px*var(--canvas-label-scale,1))]')
-    expect((title as HTMLElement).style.letterSpacing).toBe('0.5px')
+    // v3.1 WS1 #26: 0.5px ON SCREEN — counter-scaled with the 10px beside it
+    // (a fixed 0.5px rendered 0.25px at the landing zoom).
+    expect((title as HTMLElement).style.letterSpacing).toBe('calc(0.5px * var(--canvas-label-scale, 1))')
     expect((title as HTMLElement).style.letterSpacing).not.toBe('0.01em')
   })
 })

@@ -323,6 +323,24 @@ describe('the REVERSE direction: CEE holds a value the canvas lacks (pre-review 
     expect(verdictWrites).not.toContainEqual(CURRENT)
   })
 
+  it('⭐ POSITIVE — the currency proof reads CEE\'s edge default: a read that SPELLS `directed` over a canvas that omits it still restores (#2043 A1, pinned by #2058 review 5843315163)', async () => {
+    seedCanvasFromServedRead()
+    // The canvas never mints the default (#2043 A1): every edge's type is absent.
+    const canvasEdges = useCanvasStore.getState().edges.map((e) => {
+      const data = { ...((e.data ?? {}) as Record<string, unknown>) }
+      delete data.edge_type
+      return { ...e, data }
+    })
+    useCanvasStore.setState({ edges: canvasEdges, ...CACHED_IDENTITY } as never)
+    // CEE's contract default spelled out on the read (`EdgeV3Schema.edge_type.default('directed')`).
+    const g = servedGraph()
+    expect(g.edges.length, 'precondition: the served read has edges').toBeGreaterThan(0)
+    g.edges = g.edges.map((e) => (e.edge_type === undefined ? { ...e, edge_type: 'directed' } : e))
+    respond(body({ graph: g }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+    expect(useCanvasStore.getState().analysisFreshness?.currentGraphHash).toBe(READ_HASH)
+  })
+
   it('merged exit: the read adds an observed_state the canvas lacks, so nothing is restored', async () => {
     const g = readGraphOfCanvas()
     g.nodes = g.nodes.map((n) => (n.id === 'factor-1' ? { ...n, observed_state: { value: 0.4 } } : n))

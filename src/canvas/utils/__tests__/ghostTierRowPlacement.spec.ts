@@ -26,7 +26,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
-import { withGhostTiers, GHOST_ID_PREFIX } from '../ghostTiers'
+import { withGhostTiers, GHOST_ID_PREFIX, CONSEQUENCE_DOOR_ID } from '../ghostTiers'
 
 const W = 168
 const node = (id: string, type: string, x: number, y: number): Node =>
@@ -51,13 +51,14 @@ const boxesOverlap = (a: Node, b: Node, wa = W, wb = W): boolean => {
 }
 
 describe('ghost tier doors — placed by ROW, never by kind', () => {
-  it('the risk door clears an OUTCOME that sits to the right of every risk', () => {
+  it('the consequence row\'s door clears an OUTCOME that sits to the right of every risk', () => {
     const out = withGhostTiers(consequenceRow())
-    const ghost = out.find(n => n.id.startsWith(GHOST_ID_PREFIX) && n.id.includes('risk'))
+    // v3.1 WS1 #27: the row's ONE door (outcomes and risks share it).
+    const ghost = out.find(n => n.id === CONSEQUENCE_DOOR_ID)
 
     // Non-vacuity: the door must actually exist, or every assertion below holds
     // by having nothing to test (CLAUDE.md trap 13).
-    expect(ghost, 'no risk door was produced — this guard asserts nothing').toBeDefined()
+    expect(ghost, 'no consequence door was produced — this guard asserts nothing').toBeDefined()
 
     // The precondition that CREATES the defect, pinned in-test: an outcome must
     // genuinely sit to the right of the rightmost risk. Without this the test
@@ -87,15 +88,9 @@ describe('ghost tier doors — placed by ROW, never by kind', () => {
     expect(collisions, collisions.join(' | ')).toEqual([])
   })
 
-  it('two doors on ONE row do not stack on each other', () => {
-    // The fix's own failure mode: anchoring both consequence doors to the same
-    // rightmost card would trade a collision with a card for a collision with a
-    // door. Asserted separately so it cannot be satisfied by the test above
-    // passing for a different reason.
+  it('ONE door on the shared row — never two stacked in one band (v3.1 WS1 #27, ED 5810951997)', () => {
     const out = withGhostTiers(consequenceRow())
     const onRow = out.filter(n => n.id.startsWith(GHOST_ID_PREFIX) && Math.round(n.position.y) === 600)
-    if (onRow.length < 2) return // only one door reaches this row in this fixture
-    const xs = onRow.map(n => n.position.x).sort((a, b) => a - b)
-    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(W)
+    expect(onRow.map(n => n.id)).toEqual([CONSEQUENCE_DOOR_ID])
   })
 })

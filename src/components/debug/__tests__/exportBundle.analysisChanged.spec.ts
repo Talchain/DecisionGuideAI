@@ -96,7 +96,9 @@ describe('captureDisplayState — composed-trust analysisChanged (orphan OR)', (
       edges: [],
       ceeAnalysisReady: { status: 'ready' },
       graphEditedSinceLastRun: false,
-      results: { status: 'complete', report: { option_comparison: [] }, hash: 'h1' },
+      // A RENDERABLE result: the screen selector (`composeAnalysisState`, which this export now reads)
+      // calls a report with no outcome `ran_without_result`, never `complete`.
+      results: { status: 'complete', report: { option_comparison: [{ option_id: 'opt_a', outcome: { mean: 0.5 } }] }, hash: 'h1' },
       currentScenarioId: 'scn_1',
       v5AnalysisFact: {
         scenarioId: 'scn_1',

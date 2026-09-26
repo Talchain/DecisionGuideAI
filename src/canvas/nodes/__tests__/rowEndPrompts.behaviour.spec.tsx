@@ -139,19 +139,22 @@ describe('they are not graph nodes', () => {
     n('out', 'outcome', 0, 600), n('risk', 'risk', 316, 600), n('goal', 'goal', 0, 800),
   ]
 
-  it('⭐ one prompt per family, none per card; the input model is not mutated', () => {
+  it('⭐ one prompt per ROW, none per card; the input model is not mutated', () => {
     const before = JSON.stringify(MODEL)
     const out = withGhostTiers(MODEL)
     expect(JSON.stringify(MODEL)).toBe(before)
+    // v3.1 WS1 #27 (ED 5810951997, "once per row"): outcomes and risks share a
+    // row, so they share ONE door — never two stacked in one band.
     expect(out.filter((x) => isGhostNode(x.id)).map((x) => x.id).sort()).toEqual(
-      ['__ghost-factor__', '__ghost-option__', '__ghost-outcome__', '__ghost-risk__'],
+      ['__ghost-consequence__', '__ghost-factor__', '__ghost-option__'],
     )
   })
 
   it('⭐ excluded from every count, INCLUDED in the landing frame', () => {
     const out = withGhostTiers(MODEL)
     expect(excludeNonModelNodes(out).map((x) => x.id)).toEqual(MODEL.map((x) => x.id))
-    expect(fitFrameNodes(out)).toHaveLength(MODEL.length + 4)
+    // Every door on the board is in the frame — the shared consequence door too.
+    expect(fitFrameNodes(out)).toHaveLength(MODEL.length + 3)
     // CONTRAST: a ghost that is not a row-end prompt stays out of the frame too.
     const stray = { id: '__ghost-something-else__' }
     expect(fitFrameNodes([stray])).toEqual([])
