@@ -127,17 +127,17 @@ describe('gap 7 — a five-card band wraps inside its own band, in its own order
   })
 
   it.each(FIVE_CARD_BANDS.map((b) => [`${b.starter} ${b.family}`, b] as const))(
-    '%s: wraps 3 + 2, reading order unchanged, the second course laid in brick',
+    '%s: wraps 3 + 2, reading order unchanged, the second course on the first course\'s columns',
     async (_name, band) => {
       const { at } = await laidOut(band.starter)
       const rows = subRowsOf(band.order, at)
       expect(rows.map((r) => r.length)).toEqual([3, 2])
       // Reading order — left to right, then down — is the one-row order it had.
       expect(rows.flat()).toEqual(band.order)
-      // One block under one family label, same stride in each course; v3.1 WS1
-      // #10: the second course sits HALF A STRIDE right, so each of its cards
-      // stands under a gap of the first course and edges run between cards.
-      expect(at(rows[1][0]).position.x - at(rows[0][0]).position.x).toBe(STRIDE / 2)
+      // One block under one family label, same stride in each course, and ONE
+      // column grid (design audit 26 Sep #12, replacing WS1 #10's half-stride
+      // brick): the second course starts on the first course's left edge.
+      expect(at(rows[1][0]).position.x - at(rows[0][0]).position.x).toBe(0)
       expect(at(rows[1][1]).position.x - at(rows[1][0]).position.x).toBe(STRIDE)
       expect(at(rows[0][1]).position.x - at(rows[0][0]).position.x).toBe(STRIDE)
     },

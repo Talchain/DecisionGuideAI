@@ -1042,15 +1042,16 @@ function placeTierRowsOnSpine(
     if (placed.length === 0) continue
     const subRows = [...groupByYRow(placed, positionMap).values()]
     const slot = promptSlotByTier.get(tier) ?? 0
-    const rowOffsets = brickRowOffsets(subRows, rowWidth, widthOf, gap, slot)
     let blockW = 0
     subRows.forEach((row, i) => {
-      const w = rowOffsets[i]! + rowWidth(row) + (i === subRows.length - 1 ? slot : 0)
+      const w = rowWidth(row) + (i === subRows.length - 1 ? slot : 0)
       if (w > blockW) blockW = w
     })
     const left = graphSpineX - blockW / 2
-    subRows.forEach((row, i) => {
-      let x = left + rowOffsets[i]!
+    // ONE COLUMN GRID: every sub-row starts at the block's left edge, so card k
+    // of every course shares card k's column (see the note below).
+    subRows.forEach((row) => {
+      let x = left
       for (const id of row) {
         const p = positionMap.get(id)
         if (!p) continue
@@ -1062,45 +1063,27 @@ function placeTierRowsOnSpine(
 }
 
 /**
- * ⭐⭐ v3.1 WS1 #10 (26 Sep 2026): A WRAPPED FAMILY IS LAID IN BRICK COURSES.
+ * ⭐⭐ ONE COLUMN GRID FOR A WRAPPED FAMILY (design audit 26 Sep 2026 #12, served
+ * 853feeb7). A family above `MAX_CARDS_PER_ROW` wraps into courses that share
+ * the FIRST course's columns: card k of every course has card k's x, and the
+ * row-end prompt stands on the next column of the final course.
  *
- * With every sub-row starting at the block's left edge, the cards of one course
- * stood directly under the cards of the course above, so every edge leaving the
- * upper course — or entering the lower one from the row above — ran through a
- * card that was not its endpoint. Measured at the landing zoom before this
- * change: 11 (pricing), 21 (market-entry), 20 (vendor-selection), 20
- * (build-vs-buy) and 16 (headcount) edges passed under a non-endpoint card,
- * against 1 of 17 on the v3.1 prototype, whose families never wrap.
+ * ⛔ THIS REPLACES v3.1 WS1 #10's BRICK COURSES (the second course shifted by
+ * half a stride). Served, the brick read as a staggered, unfinished band —
+ * pricing's factors at x 255.5 / 413.5 / 571.5 over 334.5 / 492.5 — against a
+ * prototype whose families sit on one line.
  *
- * Alternate courses are shifted by HALF A STRIDE, so each card of one course
- * sits under a GAP of the course next to it and the near-vertical leads of the
- * edges (`StyledEdge`: at most 30 units of vertical lead-in and lead-out) pass
- * between cards. Which courses shift is chosen to keep the family's block
- * narrowest (the final course carries the row-end prompt): e.g. 4+4 shifts the
- * FIRST course (block 1424, not 1582), 3+2 the second (950, not 1074) — so no
- * family is wider than its unshifted block's budget (`CANONICAL_LAYOUT_WIDTH`).
- *
- * Reading order is unchanged (left to right, then down) and the family still
- * sits under ONE band label at the board's left column. A tier that does not
- * wrap gets `[0]` — no change.
+ * ⚠ THE TRADE, STATED RATHER THAN HIDDEN: WS1 introduced the brick so that a
+ * vertical edge lead (`edges/sameRowRoute.ts` `resolveLayeredEdgeLeads`) runs
+ * down the GAP between two cards of the other course. On one column grid the
+ * card of the other course stands directly in that lead's path, so an edge that
+ * leaves the upper course (or enters the lower one) passes under it. Measured
+ * with the served landing heights, production `layoutGraph` and the production
+ * leads: 8 / 19 / 17 / 19 / 15 edges under a non-endpoint card (pricing, market,
+ * vendor, build, headcount) against 0 with the brick. So this grid must NOT land
+ * on its own: it needs the edge routing to take the column gutter first
+ * (`v31Ws1LandingComposition.spec.ts`, mixed-height arms, is the guard).
  */
-function brickRowOffsets(
-  subRows: readonly (readonly string[])[],
-  rowWidth: (row: readonly string[]) => number,
-  widthOf: (id: string) => number,
-  gap: number,
-  promptSlot: number,
-): number[] {
-  if (subRows.length <= 1) return subRows.map(() => 0)
-  const first = subRows[0]![0]
-  const half = first === undefined ? 0 : (widthOf(first) + gap) / 2
-  const blockOf = (offsets: number[]): number =>
-    subRows.reduce((w, row, i) => Math.max(w, offsets[i]! + rowWidth(row) + (i === subRows.length - 1 ? promptSlot : 0)), 0)
-  const oddShifted = subRows.map((_, i) => (i % 2 === 1 ? half : 0))
-  const evenShifted = subRows.map((_, i) => (i % 2 === 0 ? half : 0))
-  return blockOf(evenShifted) < blockOf(oddShifted) ? evenShifted : oddShifted
-}
-
 function applyGlobalTranslation(
   positionMap: Map<string, { x: number; y: number }>,
 ): void {
