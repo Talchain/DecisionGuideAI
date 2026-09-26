@@ -277,6 +277,23 @@ describe('Paul 23 Sep point 6 — a click PRE-FILLS a question with the element 
     expect(revealOlumiSurface).toHaveBeenCalled()
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ action_type: 'what_would_flip' }))
   })
+
+  it('UI N2 — with no _dispatchAction the typed question degrades to a CHIP send, never to _sendMessage (the user\'s typed words)', () => {
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: null, _sendChip: sendChip } as never)
+    setState({ phase: 'post', lodRung: 'full' })
+    vi.mocked(useAnalysisTrust).mockReturnValue({ semantic: 'current' } as never)
+    vi.mocked(useAnalysisResultsAreCurrent).mockReturnValue(true)
+    renderCard('decision-1')
+    fireEvent.click(icon('decision-1')!)
+    expect(send).not.toHaveBeenCalled()
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    const [, message, meta] = sendChip.mock.calls[0]
+    expect(typeof message).toBe('string')
+    expect(meta).toEqual(expect.objectContaining({ action_type: 'what_would_flip' }))
+    expect(typeof meta.id).toBe('string')
+    expect(meta.parameters).toEqual({ chip_id: meta.id })
+  })
 })
 
 describe('Paul 23 Sep point 12 — the icon is discreet at rest and visibly labelled on focus', () => {

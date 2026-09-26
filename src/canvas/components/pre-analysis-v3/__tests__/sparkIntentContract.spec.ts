@@ -49,16 +49,20 @@ import {
   isSendableToken,
 } from '../../../../v5/buildPayload'
 import type { ActionChip } from '../../../conversation/types'
+import { useGuidanceStore } from '../../../stores/guidanceStore'
 
 // ---------------------------------------------------------------------------
 // Hook collaborators — replaced wholesale so the spec exercises the hook's
 // real logic without mounting the conversation stack.
 // ---------------------------------------------------------------------------
-const { sendChipSpy } = vi.hoisted(() => ({
+const { sendChipSpy, provider } = vi.hoisted(() => ({
   sendChipSpy: vi.fn(() => Promise.resolve()),
+  // UI N2: `provider.on = false` models a host WITHOUT the conversation provider,
+  // so the hook falls to its guidance-store bridges. Reset to true before each test.
+  provider: { on: true },
 }))
 vi.mock('../../../conversation/ConversationContext', () => ({
-  useOptionalConversationContext: () => ({ sendChip: sendChipSpy }),
+  useOptionalConversationContext: () => (provider.on ? { sendChip: sendChipSpy } : null),
 }))
 vi.mock('../../../ToastContext', () => ({
   useShowToast: () => vi.fn(),
@@ -92,6 +96,7 @@ function isSendable(actionType: string): boolean {
 
 beforeEach(() => {
   sendChipSpy.mockClear()
+  provider.on = true
 })
 
 describe('spark registry — every spark ships explicit intent metadata', () => {
@@ -429,5 +434,34 @@ describe('free-typed text is NEVER stamped with product intent', () => {
 
   it('buildChipMeta yields nothing when neither intent field is present', () => {
     expect(buildChipMeta({})).toBeUndefined()
+  })
+})
+
+describe('UI N2 — with no provider, a spark never travels as the user\'s typed words', () => {
+  const spark = ALL_SPARKS[0]!
+
+  it('the _sendChip bridge carries the spark\'s identity, and _sendMessage is never a route', () => {
+    provider.on = false
+    const sendMessage = vi.fn()
+    const sendChip = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: null, _sendChip: sendChip, _sendMessage: sendMessage, _prefillChat: null } as never)
+    const { result } = renderHook(() => useConversationActions())
+    result.current.sendPrompt(spark)
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(sendChip).toHaveBeenCalledTimes(1)
+    const meta = (sendChip.mock.calls[0] as unknown[])[2] as { id?: string; parameters?: Record<string, unknown> }
+    expect(meta.id).toBe(`pre-analysis-v3:${spark.id}`)
+    expect(meta.parameters).toEqual({ spark_id: spark.id })
+  })
+
+  it('with only _sendMessage and _prefillChat, the prompt is PREFILLED (the user sends it), never sent as typed', () => {
+    provider.on = false
+    const sendMessage = vi.fn()
+    const prefill = vi.fn()
+    useGuidanceStore.setState({ _dispatchAction: null, _sendChip: null, _sendMessage: sendMessage, _prefillChat: prefill } as never)
+    const { result } = renderHook(() => useConversationActions())
+    result.current.sendPrompt(spark)
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(prefill).toHaveBeenCalledTimes(1)
   })
 })

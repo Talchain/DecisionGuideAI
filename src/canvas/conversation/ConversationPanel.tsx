@@ -171,11 +171,15 @@ export const ConversationPanel = memo(function ConversationPanel({
   // after `runGateResult`).
 
   // ── Artefact action handler ─────────────────────────────────────────
+  // UI N2: the follow-up / artefact-action text is OLUMI's copy. Through
+  // `sendMessage` it reached CEE as a `composer` turn — words the user typed —
+  // so a figure in it could ground a level. As a chip it carries its identity,
+  // and (agent lane) no consent to write or run, like every other suggestion.
   const handleArtefactMessage = useCallback(
     (text: string) => {
-      void sendMessage(text, { debugSource: 'artefact_action' })
+      void dispatchAction({ id: 'ai_panel_artefact_action', label: text, message: text, source: 'chip' })
     },
-    [sendMessage],
+    [dispatchAction],
   )
 
   // ── Proposal confirm handler ──────────────────────────────────────

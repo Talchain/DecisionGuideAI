@@ -198,13 +198,14 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
     expect(prefill).toHaveBeenCalledWith('Tell me more about this')
   })
 
-  it('still routes a slash-command exercise as a direct command', () => {
+  it('still routes a slash-command exercise as a direct command — as a CHIP, never as the user\'s typed words (UI N2)', () => {
     // Discriminating twin: proves the change is scoped to ASKS. A prefilled
     // '/exercise …' would sit in the composer as literal text, so its button
     // remains the confirmation. If this ever goes green-by-accident the
     // distinction has been flattened.
     const prefill = vi.fn()
     const send = vi.fn()
+    const dispatch = vi.fn()
     useGuidanceStore.setState({
       guidanceItems: [
         makeGuidanceItem({
@@ -216,6 +217,7 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
       ],
       _prefillChat: prefill,
       _sendMessage: send,
+      _dispatchAction: dispatch,
     } as never)
 
     render(<InspectorCoaching {...coachingProps} />)
@@ -224,7 +226,17 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
     expect(screen.queryByText('Ask about this')).toBeNull()
     fireEvent.click(screen.getByText('Try it'))
 
-    expect(send).toHaveBeenCalledWith('/exercise pre_mortem')
+    // UI N2: the command is OLUMI's text. It goes out as a chip carrying its
+    // identity; `_sendMessage` (a `composer` turn — the user's typed words) is
+    // registered here and must NOT be the route.
+    expect(dispatch).toHaveBeenCalledTimes(1)
+    expect(dispatch.mock.calls[0][0]).toEqual({
+      parameters: { chip_id: 'inspector_exercise:pre_mortem' },
+      label: '/exercise pre_mortem',
+      message: '/exercise pre_mortem',
+      source: 'chip',
+    })
+    expect(send).not.toHaveBeenCalled()
     expect(prefill).not.toHaveBeenCalled()
   })
 

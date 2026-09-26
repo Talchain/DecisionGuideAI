@@ -87,15 +87,18 @@ export function useConversationActions(): ConversationActions {
       // Legacy bridges — intent metadata cannot travel these; the message
       // still lands rather than dead-ending the click.
       if (callbacks._sendChip) {
-        callbacks._sendChip(label, prompt)
+        callbacks._sendChip(label, prompt, {
+          id: `pre-analysis-v3:${id}`,
+          parameters: { spark_id: id },
+          ...(action_type ? { action_type } : {}),
+          ...(intent ? { intent } : {}),
+        })
         revealOlumiSurface()
         return true
       }
-      if (callbacks._sendMessage) {
-        callbacks._sendMessage(prompt)
-        revealOlumiSurface()
-        return true
-      }
+      // UI N2: no `_sendMessage` bridge. The spark's prompt is Olumi's, and that
+      // bridge sends it as a `composer` turn — words the user typed. Prefill
+      // below leaves the send, and the words, to the user.
       if (callbacks._prefillChat) {
         callbacks._prefillChat(prompt)
         revealOlumiSurface()
