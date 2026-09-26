@@ -55,7 +55,7 @@ const seedPreRun = () => {
   } as never)
 }
 
-const seedPostRun = (goalOnly = true) => {
+const seedPostRun = (goalOnly = true, unscored: readonly string[] = []) => {
   useCanvasStore.setState({
     nodes, edges: [], ceeAnalysisReady: null, viewMode: 'standard',
     analysisStateV1: null,
@@ -64,7 +64,7 @@ const seedPostRun = (goalOnly = true) => {
     v5AnalysisFact: { scenarioId: 'pricing-scenario', analysisHash: 'run-1', hasRunAnalysisFact: true },
     hasCompletedFirstRun: true,
     results: { status: 'complete', hash: 'run-1', report: {
-      option_probabilities: Object.fromEntries(SERVED_OPTIONS.map(o => [o.id, { status: 'computed', win_probability: o.win }])),
+      option_probabilities: Object.fromEntries(SERVED_OPTIONS.filter(o => !unscored.includes(o.id)).map(o => [o.id, { status: 'computed', win_probability: o.win }])),
       robustness: { near_tie: { is_tie: false, top_option_id: 'opt_new_logos' } },
       ...(goalOnly ? { producer_leader_permission: GOAL_ONLY_STAMP } : {}),
     } },
@@ -143,6 +143,22 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     // Whatever gives way on a narrow card stays whole in the row's name (the
     // existing tooltip reads the same string).
     expect(row.getAttribute('aria-label')!.startsWith('Current model · 34% of runs · Goal only.')).toBe(true)
+  })
+
+  it('MG B1 (#2123 review): an option the Run does NOT score keeps its reserved slot after the Run — no shrink, no re-lay', () => {
+    // BF5's level-less option, or one added after the Run: absent from `option_probabilities`, so `winReadout` is null.
+    seedPreRun()
+    renderCard('opt_hybrid')
+    const preClass = slot('opt_hybrid')!.getAttribute('class')
+    cleanup()
+    seedPostRun(true, ['opt_hybrid'])
+    renderCard('opt_hybrid')
+    const post = slot('opt_hybrid')
+    expect(post, 'post-run: the unscored option keeps the SAME reserved slot').not.toBeNull()
+    expect(post!.getAttribute('class')).toBe(preClass)
+    expect(post!.getAttribute('aria-hidden')).toBe('true')
+    expect(post!.textContent).toBe('')
+    expect(screen.queryByTestId('option-analysis-currency-opt_hybrid')).toBeNull()
   })
 
   it('CONTRAST — no Goal-only stamp: the same slot and the same one-line row, without the qualifier', () => {

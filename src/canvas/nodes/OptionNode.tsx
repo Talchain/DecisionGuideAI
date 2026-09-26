@@ -2485,7 +2485,9 @@ export const OptionNode = memo((props: NodeProps) => {
                 qualifier that must stay on the card, so it does not give way
                 ahead of `Goal only`.
             Pinned in `__tests__/OptionNode.noGrowthAfterRun.spec.tsx`. */}
-        {(winReadout !== null || !displayMetadata.isResultsMode) && (
+        {/* Rendered in EVERY phase (MG, #2123 review B1): an option the Run does not score keeps this slot too,
+            empty and aria-hidden, or it would shrink after the Run and re-lay the board. */}
+        {(
         <div
           data-testid={`option-share-slot-${props.id}`}
           className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden`}
