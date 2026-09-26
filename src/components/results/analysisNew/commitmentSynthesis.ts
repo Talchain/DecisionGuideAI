@@ -80,6 +80,20 @@ export const COMMITMENT_COPY = {
     /** The editable draft the ask opens with. The user's question, not a claim. */
     draft: 'What remains open before I commit to a view on this decision?',
   },
+  /**
+   * ⭐ V2 prototype `commitHTML()`: the TITLE's ✦ is "help summarise your
+   * reasoning"; "what remains" (`ask`, above) is the COMMIT ROW's, beside
+   * compare. The user's request, not a claim about the run.
+   */
+  summarise: {
+    label: 'Ask Olumi to help summarise your reasoning',
+    draft: 'Help me summarise my reasoning on this decision so far.',
+  },
+  /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
+  openAsk: {
+    label: 'Ask Olumi about unresolved uncertainty',
+    draft: 'What is still unresolved here, and how could I examine it?',
+  },
   compare: {
     /** Only ever rendered with a route. There is no disabled state to name. */
     label: 'Compare with the last run',

@@ -121,7 +121,7 @@ function RecordYourView({
 }) {
   if (record === null) {
     return (
-      <div className="mt-3" data-testid={testId}>
+      <div data-testid={testId}>
         {/* ⭐ V2 FIDELITY (gap 21): a DISCLOSURE-SHAPED control. The route is
             UNCHANGED: this still opens the existing decision-record modal
             (`onRecord`); no inline form is added, because `DecisionRecord`
@@ -179,7 +179,7 @@ function RecordYourView({
 
   const recordedOn = formatRecordedOn(record.savedAt)
   return (
-    <div className="mt-3" data-testid={testId}>
+    <div data-testid={testId}>
       <div className="flex flex-wrap items-center gap-1.5">
         <p
           className={`${typography.panelBody} text-text-header m-0 min-w-0 flex-1`}
@@ -276,26 +276,21 @@ export function CommitmentSummary({
         >
           {COMMITMENT_COPY.heading}
         </h3>
+        {/* ⭐ V2 `commitHTML()`: the title's ✦ helps SUMMARISE; "what
+            remains" and compare moved to the commit row below, beside the
+            record door, where the prototype puts them. */}
         <PanelIconButton
           ai
-          label={COMMITMENT_COPY.ask.label}
+          label={COMMITMENT_COPY.summarise.label}
           onClick={() =>
             onAsk({
-              label: COMMITMENT_COPY.ask.label,
-              draft: COMMITMENT_COPY.ask.draft,
+              label: COMMITMENT_COPY.summarise.label,
+              draft: COMMITMENT_COPY.summarise.draft,
               context: commitmentAskContext(synthesis),
             })
           }
-          testId={`${testId}-ask`}
+          testId={`${testId}-summarise`}
         />
-        {onCompare ? (
-          <PanelIconButton
-            Icon={GitCompare}
-            label={COMMITMENT_COPY.compare.label}
-            onClick={onCompare}
-            testId={`${testId}-compare`}
-          />
-        ) : null}
       </div>
 
       {bullets.length > 0 ? (
@@ -321,6 +316,21 @@ export function CommitmentSummary({
               >
                 <b className="text-text-header">{b.label}: </b>
                 <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
+                {b.key === 'open' ? (
+                  <PanelIconButton
+                    ai
+                    inline
+                    label={COMMITMENT_COPY.openAsk.label}
+                    onClick={() =>
+                      onAsk({
+                        label: COMMITMENT_COPY.openAsk.label,
+                        draft: COMMITMENT_COPY.openAsk.draft,
+                        context: commitmentAskContext(synthesis),
+                      })
+                    }
+                    testId={`${testId}-open-ask`}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
@@ -381,9 +391,41 @@ export function CommitmentSummary({
         </>
       ) : null}
 
-      {showRecord ? (
-        <RecordYourView canCapture={canCapture} record={record} onRecord={onRecord} testId={`${testId}-record`} />
-      ) : null}
+      {/* ⭐ V2 `.commitrow`: the record door on the left, compare and "what
+          remains" ✦ on the right. The acts stay when there is no record to
+          offer (a re-run in flight), so the ask never disappears with it. */}
+      <div
+        className={`mt-3 flex ${record === null ? 'items-center' : 'items-start'} justify-between gap-2`}
+        data-testid={`${testId}-commit-row`}
+      >
+        <div className="min-w-0 flex-1">
+          {showRecord ? (
+            <RecordYourView canCapture={canCapture} record={record} onRecord={onRecord} testId={`${testId}-record`} />
+          ) : null}
+        </div>
+        <span className="flex shrink-0 items-center gap-px" data-testid={`${testId}-commit-acts`}>
+          {onCompare ? (
+            <PanelIconButton
+              Icon={GitCompare}
+              label={COMMITMENT_COPY.compare.label}
+              onClick={onCompare}
+              testId={`${testId}-compare`}
+            />
+          ) : null}
+          <PanelIconButton
+            ai
+            label={COMMITMENT_COPY.ask.label}
+            onClick={() =>
+              onAsk({
+                label: COMMITMENT_COPY.ask.label,
+                draft: COMMITMENT_COPY.ask.draft,
+                context: commitmentAskContext(synthesis),
+              })
+            }
+            testId={`${testId}-ask`}
+          />
+        </span>
+      </div>
     </section>
   )
 }
