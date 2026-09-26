@@ -69,6 +69,7 @@ import { useAnalysisRunState } from '../../components/results/analysisState/useA
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { resolveModelDisplayName, UNNAMED_MODEL_FALLBACK } from '../domain/modelDisplayName'
+import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
@@ -1238,6 +1239,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     const label = (goal?.data as { label?: unknown } | undefined)?.label
     return typeof label === 'string' && label.trim().length > 0 ? label : null
   })
+  // Canvas v3.1 DESIGN-GAP #5: a saved example is named by its own manifest
+  // title — the same rung the top bar reads (`CanvasMVP`), so the two surfaces
+  // give one answer. Primitive selector, same reason as above.
+  const overviewExampleTitle = useCanvasStore((s) => {
+    const starterId = resolveStarterId(s.nodes ?? [])
+    return starterId ? (getStarter(starterId)?.title ?? null) : null
+  })
   /**
    * ⛔⛔ THIS CARD SAID "Untitled draft" FOR A MODEL THE REST OF THE PRODUCT
    * NAMES, and the estate already owned the answer it was missing.
@@ -1273,9 +1281,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (!isDecisionOverviewEnabled()) return null
     const stored = overviewScenarioId ? getScenario(overviewScenarioId)?.name : null
     if (typeof stored === 'string' && stored.trim().length > 0) return stored
-    const derived = resolveModelDisplayName(null, overviewGoalLabel)
+    const derived = resolveModelDisplayName(null, overviewGoalLabel, overviewExampleTitle)
     return derived === UNNAMED_MODEL_FALLBACK ? null : derived
-  }, [overviewScenarioId, overviewGoalLabel])
+  }, [overviewScenarioId, overviewGoalLabel, overviewExampleTitle])
 
   // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
   // Each factor's contribution to the outcome swing is proportional to its normalised influence.
