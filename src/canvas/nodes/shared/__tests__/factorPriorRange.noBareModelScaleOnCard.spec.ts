@@ -91,7 +91,7 @@ function factorData(starter: string): Map<string, Record<string, unknown>> {
 
 describe('design audit #3 — the starter cards stop printing the model’s 0–1 range', () => {
   for (const [starter, cards] of Object.entries(SERVED)) {
-    it(`${starter}: every served "Range: 0.x to 0.y" card line is omitted; the owner still states it`, () => {
+    it(`${starter}: every served "Range: 0.x to 0.y" card line reads in tier words; the owner still states the figures`, () => {
       const facs = factorData(starter)
       for (const [id, servedLine] of Object.entries(cards)) {
         const data = facs.get(id)
@@ -100,7 +100,10 @@ describe('design audit #3 — the starter cards stop printing the model’s 0–
         // inspector) states exactly the line the audit measured on the card.
         expect(resolveFactorPriorRange(inputsFor(data!)), `${starter}/${id} owner`).toBe(servedLine)
         // THE FIX: the card says nothing — no invented unit, no substitute words.
-        expect(resolveFactorPriorRangeOnCard(inputsFor(data!)), `${starter}/${id} card`).toBeNull()
+        // Design bundle 1: the card states the range in tier words — never blank, never a bare 0–1 figure.
+        const card = resolveFactorPriorRangeOnCard(inputsFor(data!))
+        expect(card, `${starter}/${id} card`).toMatch(/^Range: (Very low|Low|Medium|High|Very high)( to (Very low|Low|Medium|High|Very high))?$/)
+        expect(card ?? '', `${starter}/${id} card`).not.toMatch(/\d/)
         expect(resolveFactorPriorRangeEndsOnCard(inputsFor(data!)), `${starter}/${id} band`).toBeNull()
       }
     })

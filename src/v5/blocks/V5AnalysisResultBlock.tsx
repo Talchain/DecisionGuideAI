@@ -607,8 +607,9 @@ function V5AnalysisResultBlockImpl({
                 data-leader={isLeader ? 'true' : 'false'}
               >
                 <span className="font-medium">{optionKey}</span>
-                <span className="text-text-light">·</span>
-                <span>{formatProbability(prob)}</span>
+                {/* Design bundle 1 (re-audit #8): the separator and the figure are one
+                    unbreakable unit, so a long option name never strands "·" or splits "23 / %". */}
+                <span className="whitespace-nowrap"><span className="text-text-light">·</span> {formatProbability(prob)}</span>
               </span>
             )
           })}

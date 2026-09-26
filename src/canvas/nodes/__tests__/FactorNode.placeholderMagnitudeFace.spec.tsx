@@ -134,7 +134,7 @@ const founderFactor = (value: number, displayValue: string | null) => ({
 describe('FactorNode face: a placeholder unit never reaches the card as if measured', () => {
   beforeEach(() => { vi.clearAllMocks(); viewMode = 'standard' })
 
-  it('DISCRIMINATOR: the bare-scale figure is gone from both arms, the producer arm keeps only its `est.` mark (F1), and the passthrough is still alive', () => {
+  it('DISCRIMINATOR: the bare-scale figure is gone from both arms, the producer arm reads its tier word + `est.` mark (F1, bundle 1), and the passthrough is still alive', () => {
     // Arm 1 — no display_value. Pattern 1 skips placeholder units, Pattern 2
     // calls them meaningless. Nothing renders.
     const withoutDv = faceText(renderFactor(founderFactor(0.3, null)).container)
@@ -147,7 +147,8 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
     // false unit AND the model-scale figure are gone — and review F1 (#2085)
     // keeps its provenance: the face is the title plus the figure-less `est.`.
     const withDv = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
-    expect(withDv).toBe(`${withoutDv}est.`)
+    // Design bundle 1: the producer arm states the figure in tier words (0.3 → Low) beside its mark.
+    expect(withDv).toBe(`${withoutDv}Lowest.`)
     expect(withDv).not.toContain('0.3')
     expect(withDv).not.toContain('scale')
 
