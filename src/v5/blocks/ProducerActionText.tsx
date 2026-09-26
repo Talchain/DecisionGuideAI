@@ -17,6 +17,7 @@
  * existing selector keeps binding to the same element.
  */
 import type { ReactElement } from 'react'
+import { ArrowRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
 export interface ProducerActionTextProps {
@@ -33,8 +34,11 @@ export function ProducerActionText({ label, intent, testId }: ProducerActionText
       data-testid={testId}
       data-action-kind="text"
       {...(intent ? { 'data-action-intent': intent } : {})}
-      className={`${typography.panelMeta} text-text-light`}
+      // Reads as the card's suggested next step (an arrow and body-colour text, chat polish
+      // bundle 27 Sep), still plain text: no border, pill, link colour or focus stop.
+      className={`${typography.panelBody} flex items-start gap-1.5 text-text-body`}
     >
+      <ArrowRight size={12} aria-hidden="true" className="mt-[3px] shrink-0 text-text-light" />
       {label}
     </p>
   )

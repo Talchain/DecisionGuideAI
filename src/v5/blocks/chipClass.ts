@@ -42,14 +42,17 @@
 import { typography } from '../../styles/typography'
 
 export const CHIP_CLASS = [
-  'inline-flex items-center gap-1.5',
+  // `text-left`: a label that wraps reads as a sentence, not a centred poem.
+  'inline-flex items-center gap-1.5 text-left',
   // ⭐ `border-field` (3.70:1), not `border-panel-border` (1.24:1). Measured on
   // served `e6551858`: 29 of 178 interactive controls on one screen rendered a
   // 1.24:1 outline, under WCAG 1.4.11's 3.00:1 floor for a non-text indicator,
   // and `selection-ask-chip` was one of them. Changed HERE because this file is
   // already the single authority for a chip's look — the alternative was the
   // same edit at every call site, which is how the authority stops being one.
-  'bg-panel border border-field rounded-full',
+  // `rounded-[22px]` is the pill at the 44px floor, so a one-line chip is unchanged; a wrapped
+  // label becomes a rounded card whose first and last words stay clear of the curve.
+  'bg-panel border border-field rounded-[22px]',
   'px-3 py-1.5 min-h-[44px]',
   'hover:bg-panel-hover active:bg-panel-border/30',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
@@ -73,8 +76,8 @@ export const CHIP_CLASS = [
  * focus ring, disabled state — so the pair still lines up as one row.
  */
 export const CHIP_PRIMARY_CLASS = [
-  'inline-flex items-center gap-1.5',
-  'bg-primary border border-primary rounded-full',
+  'inline-flex items-center gap-1.5 text-left',
+  'bg-primary border border-primary rounded-[22px]',
   'px-3 py-1.5 min-h-[44px]',
   'hover:bg-primary/90 active:bg-primary/80',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',

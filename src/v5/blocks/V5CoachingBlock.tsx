@@ -543,11 +543,14 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
           {currency === 'cannot_confirm' && (
             <p data-testid={`${testIdPrefix}-currency-detail`}>{CURRENCY_UNKNOWN_DETAIL}</p>
           )}
-          {kindSentence && (
-            <p data-testid={`${testIdPrefix}-kind-detail`}>{kindSentence}</p>
-          )}
-          {sourceSentence && (
-            <p data-testid={`${testIdPrefix}-source-detail`}>{sourceSentence}</p>
+          {/* Kind and source are two short facts about the same card: one line, not two
+              stacked paragraphs of 11px grey (chat polish bundle, 27 Sep). */}
+          {(kindSentence || sourceSentence) && (
+            <p>
+              {kindSentence && <span data-testid={`${testIdPrefix}-kind-detail`}>{kindSentence}</span>}
+              {kindSentence && sourceSentence && <span aria-hidden="true"> · </span>}
+              {sourceSentence && <span data-testid={`${testIdPrefix}-source-detail`}>{sourceSentence}</span>}
+            </p>
           )}
         </div>
       </details>
