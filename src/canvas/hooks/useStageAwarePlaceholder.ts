@@ -4,6 +4,34 @@
 // every other voice that reads the same state. Its header carries the RED that
 // put it there.
 import { useConversationStage } from './useConversationStage'
+import { useCanvasStore } from '../store'
+import { useReadinessStore } from '../stores/readinessStore'
+import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
+import { selectBoundMayRun } from './useAnalysisReady'
+import { readinessObjectsToRun } from '../utils/canRunAnalysis'
+
+/** The composer's "rerun" invitation. Said only when the Run gate would accept a run. */
+export const PLACEHOLDER_CHANGED_RUNNABLE = 'Model changed. Ask or rerun…'
+/**
+ * The same moment on a model the Run gate refuses. Served 26 Sep (DL browser
+ * `bf-20260926T050741Z`, UI 226cf1e2): after a canvas "+ Add option" the model is
+ * blocked (`may_run: false`), Run is disabled, and the composer still said
+ * "Ask or rerun…" — an invitation the product would refuse.
+ */
+export const PLACEHOLDER_CHANGED_BLOCKED = 'Model changed. Ask what it needs before a rerun…'
+
+/**
+ * Does the Run gate object right now? The SAME predicate and the SAME three
+ * carriers every mounted Run gate reads (`readinessObjectsToRun`: the turn's
+ * analysis_state readiness → the revision-bound `may_run` → the legacy side-car),
+ * so the composer can never invite a run the Run control refuses.
+ */
+function useRunGateObjects(): boolean {
+  const mayRun = useCanvasStore(selectBoundMayRun)
+  const analysisState = useCanvasStore((s) => s.analysisStateV1 ?? null)
+  const legacy = useReadinessStore((s) => s.readiness ?? null)
+  return readinessObjectsToRun(legacy, selectAnalysisReadinessAuthority(analysisState), mayRun)
+}
 
 /**
  * Returns the placeholder text the persistent input strip / floating composer
@@ -18,6 +46,8 @@ import { useConversationStage } from './useConversationStage'
  *
  * Priority (highest first):
  *   1. Model changed since the run    → "Model changed. Ask or rerun..."
+ *      — or, when the Run gate objects, "Model changed. Ask what it needs
+ *        before a rerun…" (never invite a run the gate refuses)
  *      (CEE 'stale' OR a local edit that downgraded a retained 'fresh')
  *      — SUPPRESSED while a higher staleness voice is on screen, see below.
  *   2. Confirmed current analysis     → "Ask about the latest analysis..."
@@ -43,9 +73,10 @@ import { useConversationStage } from './useConversationStage'
  */
 export function useStageAwarePlaceholder(): string {
   const stage = useConversationStage()
+  const gateObjects = useRunGateObjects()
 
   if (stage === 'changed') {
-    return 'Model changed. Ask or rerun…'
+    return gateObjects ? PLACEHOLDER_CHANGED_BLOCKED : PLACEHOLDER_CHANGED_RUNNABLE
   }
   if (stage === 'current') {
     return 'Ask about the latest analysis…'
