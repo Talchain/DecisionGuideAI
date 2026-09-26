@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 
 import { buildRegistrationGraph } from '../buildRegistrationGraph'
+import { mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { isStructuralEdge } from '../../domain/edgeUtils'
 
 import IMPORTED_CANVAS from './fixtures/walk-import-modified.canvas.json'
@@ -377,5 +378,43 @@ describe('A1 — structural links are not defaulted to causal edge_type', () => 
     }
     const graph = okGraph(buildRegistrationGraph([optionNode, factorNode], [causalEdge]))
     expect(graph.edges[0].edge_type).toBe('directed')
+  })
+})
+
+describe('R2 — an edge\'s `origin` survives a whole-graph register (C46)', () => {
+  // CEE's `EdgeV3.origin` ("ai, user, repair, enrichment, default") is how C46
+  // tells a repair-authored option link from a lever (`admit-model.ts`
+  // `REPAIR_AUTHORED_ORIGIN`). The register used to rebuild every edge from a
+  // fixed field list without it, so after any UI whole-graph register a
+  // repair-authored link read as a lever and C46 over-withheld the leader
+  // (Canonical 5844398395 (b), MG 5844623779).
+  const optionNode: Node = {
+    id: 'opt_a', type: 'option', position: { x: 0, y: 0 },
+    data: { kind: 'option', type: 'option', label: 'Raise price' },
+  }
+  const factorNode: Node = {
+    id: 'fac_b', type: 'factor', position: { x: 0, y: 0 },
+    data: { kind: 'factor', type: 'factor', label: 'Churn' },
+  }
+  const nodes = [optionNode, factorNode]
+
+  it('carries a server-stated origin onto the wire edge unchanged', () => {
+    const edge: Edge = { id: 'e1', source: 'opt_a', target: 'fac_b', data: { weight: 1, origin: 'repair' } }
+    const graph = okGraph(buildRegistrationGraph(nodes, [edge]))
+    expect(graph.edges[0].origin).toBe('repair')
+  })
+
+  it('never mints an origin the canvas edge does not hold', () => {
+    const edge: Edge = { id: 'e1', source: 'opt_a', target: 'fac_b', data: { weight: 1 } }
+    const graph = okGraph(buildRegistrationGraph(nodes, [edge]))
+    expect('origin' in graph.edges[0]).toBe(false)
+  })
+
+  it('ROUND TRIP: a repair-authored wire edge → hydrate → register keeps origin', () => {
+    const wire = { id: 'e1', from: 'opt_a', to: 'fac_b', strength: { mean: 1 }, origin: 'repair' }
+    const hydrated = mapDraftEdgeToCanvas(wire, 0) as Edge
+    const graph = okGraph(buildRegistrationGraph(nodes, [hydrated]))
+    expect(graph.edges).toHaveLength(1)
+    expect(graph.edges[0].origin).toBe('repair')
   })
 })

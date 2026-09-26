@@ -262,6 +262,9 @@ const WIRE_EDGE_FULL = {
   // this test's first run, which is the arm earning its place.
   provenance_display: 'ai_inferred',
   validation: WIRE_VALIDATION,
+  // C46 reads this to tell a repair-authored option link from a lever. Both
+  // hops must carry it, or an edit_graph receipt drops what the draft kept.
+  origin: 'repair',
 }
 
 describe('edge data — the two hand-mirrored mappers build the SAME bag', () => {
@@ -280,6 +283,7 @@ describe('edge data — the two hand-mirrored mappers build the SAME bag', () =>
     const keys = new Set([...Object.keys(drafted.data), ...Object.keys(patched.data)])
     expect(keys.size).toBeGreaterThan(10)
     expect(keys.has('validation')).toBe(true)
+    expect(keys.has('origin')).toBe(true)
 
     const known = new Set(KNOWN_HOP_DIVERGENCES.map(([k]) => k))
     const differing = [...keys]

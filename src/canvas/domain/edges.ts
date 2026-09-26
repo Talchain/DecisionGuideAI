@@ -222,6 +222,13 @@ export const EdgeDataSchema = z.object({
   /** V3 provenance source classification (string, not enum — CEE may add new values) */
   provenance_source: z.string().optional(),
   /**
+   * CEE's edge creation source (`EdgeV3.origin`: ai, user, repair, enrichment,
+   * default). Carried verbatim, never minted: C46 reads `'repair'` to tell a
+   * repair-authored option link from a lever, so a register that dropped it made
+   * that link count as a lever. Not rendered; outside CEE's analysis hash.
+   */
+  origin: z.string().optional(),
+  /**
    * CEE display provenance label. Distinct from `provenance` above (short rationale tag).
    * Drives "From brief" / "AI estimate" / "User set" pills. UI never invents this value.
    */

@@ -249,6 +249,11 @@ export function buildRegistrationGraph(
       // then rendered every structural link (option→factor, decision→option)
       // as a strong causal one. An absent field must stay absent.
       ...(typeof data.edge_type === 'string' ? { edge_type: data.edge_type } : {}),
+      // C46 reads `origin: 'repair'` to exclude a repair-authored option link
+      // from the levers. Dropping it here made every whole-graph register turn
+      // that link into a lever (Canonical 5844398395 (b)). Carried as the
+      // canvas holds it, and — like `edge_type` — never minted.
+      ...(typeof data.origin === 'string' ? { origin: data.origin } : {}),
     } satisfies Record<string, unknown>
   })
 
