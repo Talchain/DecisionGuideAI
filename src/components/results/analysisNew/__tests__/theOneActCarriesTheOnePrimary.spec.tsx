@@ -9,9 +9,10 @@
  * primary — the unset success row reads "What would success look like?" with
  * a quiet pencil.
  *
- * ⭐ THE PAIR IS STILL THE POINT. UNSET → the question, an icon-only pencil
- * named "Set a target", no fill. SET → "Change", no fill, and the question
- * gone. And the "no fill anywhere in the strip" probe is shown to see a filled
+ * ⭐ THE PAIR IS STILL THE POINT. UNSET → the question, an icon-only pencil,
+ * no fill. SET → the same icon-only pencil, no fill, and the question gone.
+ * (26 Sep, design audit B5: the pencil is named as the prototype names it,
+ * and the SET row's "Change" text is gone.) And the "no fill anywhere in the strip" probe is shown to see a filled
  * control before its zero is trusted.
  *
  * ⚠ BOUND BY TESTID AND ACCESSIBLE NAME, NOT BY VISIBLE TEXT (trap 19). The
@@ -114,12 +115,14 @@ describe('the success row is a question with a quiet pencil, and nothing in the 
     expect(filledIn(container)).toHaveLength(1)
   })
 
-  it('UNSET — the row asks the question, and the pencil is icon-only, named "Set a target"', () => {
+  // ⚠ 26 Sep (design audit B5): the pencil carries the prototype's name —
+  // words OR an optional target — rather than "Set a target".
+  it('UNSET — the row asks the question, and the pencil is icon-only, named as the prototype names it', () => {
     seed(false)
     render(<ModelStrip isPreRun={false} />)
     expect(screen.getByTestId(`${TARGET}-none`).textContent).toBe(SUCCESS_QUESTION)
     const edit = screen.getByTestId(`${TARGET}-edit`)
-    expect(screen.getByRole('button', { name: COPY.successTarget.set })).toBe(edit)
+    expect(screen.getByRole('button', { name: COPY.successTarget.describeSuccess })).toBe(edit)
     expect((edit.textContent ?? '').trim(), 'icon-only: no visible label').toBe('')
     expect(edit.querySelector('svg'), 'the pencil').not.toBeNull()
     for (const c of FILL) {
@@ -135,11 +138,14 @@ describe('the success row is a question with a quiet pencil, and nothing in the 
     expect(filledIn(screen.getByTestId(STRIP))).toEqual([])
   })
 
-  it('SET — "Change" is not filled either, and the question is gone', () => {
+  // ⚠ 26 Sep (design audit B5): the SET pencil is icon-only too — the
+  // prototype's row has no "Change" text — and still not filled.
+  it('SET — the pencil is icon-only and not filled either, and the question is gone', () => {
     seed(true)
     render(<ModelStrip isPreRun={false} />)
     const edit = screen.getByTestId(`${TARGET}-edit`)
-    expect(edit).toHaveTextContent(COPY.successTarget.change)
+    expect((edit.textContent ?? '').trim(), 'no "Change" text').toBe('')
+    expect(edit).toHaveAccessibleName(COPY.successTarget.describeSuccess)
     for (const c of FILL) expect(edit.className.split(' ')).not.toContain(c)
     expect(screen.queryByTestId(`${TARGET}-none`)).toBeNull()
     expect(filledIn(screen.getByTestId(STRIP))).toEqual([])

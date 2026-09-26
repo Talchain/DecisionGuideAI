@@ -73,8 +73,8 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
-import { Pencil, Target } from 'lucide-react'
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { ArrowUp, Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -219,6 +219,17 @@ export interface SuccessTargetLineProps {
    * needs SOME separation from whatever precedes it — hence `mt-1`, not 0.
    */
   divider?: boolean
+  /**
+   * ⭐ WHICH SURFACE'S ROW THIS IS. `inspector` (the default) is the Inspector's
+   * goal control — `GoalPanel.tsx` — and is unchanged. `reasoning` is the V2
+   * prototype's `successrow` + `goal-form` (`goalHTML()`, design audit B5):
+   * "Success: …" or the question, icon-only ✎ then ✦, and the form UNDER the
+   * row with a question label, a labelled number field and a help line.
+   *
+   * ⛔ ONLY THE PRESENTATION DIFFERS. Both variants call the same `commit`,
+   * `sendWordsToOlumi` and `deferTarget`, so the write path cannot fork.
+   */
+  variant?: 'inspector' | 'reasoning'
 }
 
 /** V2 prototype's success row, verbatim, for a goal with no target. */
@@ -230,6 +241,7 @@ export function SuccessTargetLine({
   onSendSettled,
   testId,
   divider = true,
+  variant = 'inspector',
 }: SuccessTargetLineProps) {
   /**
    * ⭐⭐ THE GOAL NODE IS THE SOURCE, NOT THE STORE — AND THAT IS A WITNESS-DRIVEN
@@ -315,6 +327,9 @@ export function SuccessTargetLine({
    */
   const showToast = useShowToastSafe()
   const wordsInputId = useId()
+  const formLabelId = useId()
+  const numberInputId = useId()
+  const unitInputId = useId()
   /**
    * Only the LATEST commit attempt may report a send settlement. The editor
    * closes on dispatch and can reopen while an earlier send is still pending, so
@@ -589,6 +604,74 @@ export function SuccessTargetLine({
       e.preventDefault()
       closeEditor()
     }
+  }
+
+  /**
+   * ONE OPEN, FOR BOTH VARIANTS — the draft, the direction, the words field and
+   * the scenario are seeded here and nowhere else.
+   *
+   * ⚠ `startMode` IS THE ONLY THING A VARIANT CHOOSES. The Inspector opens on
+   * the number (this file's identity); the Reasoning tab opens as the V2
+   * prototype does — "In words" first (`goalMode:'words'`, P:504) — unless a
+   * target is already stated, in which case it opens on that number, seeded,
+   * because the reader is editing a figure they can see.
+   */
+  const openEditor = (startMode: 'number' | 'words') => {
+    setEditing(true)
+    setMode(startMode)
+    setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
+    /**
+     * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.
+     * Resetting it after a successful commit would have left it
+     * sticky on the two paths that do not reach that line: Escape,
+     * and the local write with no dispatcher. A ceiling stated once
+     * would then be pre-selected on the next edit of a different
+     * goal. Seeding both here is ONE place a fresh edit starts from,
+     * so the paths cannot disagree (CLAUDE.md trap 12: one
+     * derivation, not two that agree today).
+     */
+    setDirection(DEFAULT_TARGET_DIRECTION)
+    setWordsDraft('')
+    // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
+    setEditScenarioId(authority.captureScenarioId())
+  }
+
+  if (variant === 'reasoning') {
+    return (
+      <ReasoningSuccessRow
+        testId={testId}
+        shownText={shownText}
+        unexpressible={unexpressible}
+        editing={editing}
+        onToggleEditor={() => (editing ? closeEditor() : openEditor(shownText !== null ? 'number' : 'words'))}
+        onAsk={openHelpDefineSuccess}
+        form={
+          editing ? (
+            <ReasoningSuccessForm
+              testId={testId}
+              ids={{ formLabelId, wordsInputId, numberInputId, unitInputId }}
+              mode={mode}
+              onMode={setMode}
+              wordsDraft={wordsDraft}
+              onWordsDraft={setWordsDraft}
+              onWordsKeyDown={onWordsKeyDown}
+              onSendWords={sendWordsToOlumi}
+              draft={draft}
+              onDraft={setDraft}
+              direction={direction}
+              onDirection={setDirection}
+              declaredUnit={declaredUnit}
+              unitDraft={unitDraft}
+              onUnitDraft={setUnitDraft}
+              onEditorKeyDown={onEditorKeyDown}
+              canDispatch={canDispatch}
+              onCommit={commit}
+              onDefer={deferTarget}
+            />
+          ) : null
+        }
+      />
+    )
   }
 
   return (
@@ -874,25 +957,7 @@ export function SuccessTargetLine({
             />
             <button
               type="button"
-              onClick={() => {
-                setEditing(true)
-                setMode('number')
-                setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
-                /**
-                 * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.
-                 * Resetting it after a successful commit would have left it
-                 * sticky on the two paths that do not reach that line: Escape,
-                 * and the local write with no dispatcher. A ceiling stated once
-                 * would then be pre-selected on the next edit of a different
-                 * goal. Seeding both here is ONE place a fresh edit starts from,
-                 * so the paths cannot disagree (CLAUDE.md trap 12: one
-                 * derivation, not two that agree today).
-                 */
-                setDirection(DEFAULT_TARGET_DIRECTION)
-                setWordsDraft('')
-                // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
-                setEditScenarioId(authority.captureScenarioId())
-              }}
+              onClick={() => openEditor('number')}
               /**
                * ⭐⭐ THE ONE ACT CARRIES THE ONE PRIMARY — and until now nothing on
                * this panel did. Census of every control on the DEPLOYED build
@@ -938,6 +1003,282 @@ export function SuccessTargetLine({
           </span>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * ⭐ THE V2 PROTOTYPE'S `successrow` (`goalHTML()`, design audit B5): the target
+ * glyph, ONE line of text, then ✎ and ✦ icon-only — ✎ FIRST, as the prototype
+ * orders them (`btn('edit','goal',…)` before `ai('ask-goal',…)`).
+ *
+ * ⚠ NO "Target" LABEL, NO PROVENANCE WORD, NO "Change" TEXT. The prototype row
+ * reads "Success: …" and nothing else; whose target it is stays on the
+ * Inspector's row, which keeps `VALUE_PROVENANCE_LABEL`.
+ *
+ * ⚠⚠ THE FIGURE ITSELF IS UNTOUCHED. `shownText` is the same
+ * `formatGoalTarget` output the Inspector prints; the prototype's
+ * "+15% productivity" formatting (units and currency) is deferred behind the
+ * pending producer scale ruling, so only the lead-in changes here.
+ */
+function ReasoningSuccessRow({
+  testId,
+  shownText,
+  unexpressible,
+  editing,
+  onToggleEditor,
+  onAsk,
+  form,
+}: {
+  testId: string
+  shownText: string | null
+  unexpressible: boolean
+  editing: boolean
+  onToggleEditor: () => void
+  onAsk: () => void
+  form: ReactNode
+}) {
+  return (
+    <div data-testid={testId} data-variant="reasoning" className="mt-[3px]">
+      <div className="flex items-center gap-1.5 min-h-[26px]" data-testid={`${testId}-row`}>
+        <Target className={`${icon('row')} shrink-0 text-text-light`} aria-hidden="true" />
+        {shownText !== null ? (
+          <span
+            className={`${typography.panelBody} text-text-body flex-1 min-w-0 break-words`}
+            data-testid={`${testId}-text`}
+          >
+            {COPY.successTarget.successLead}{' '}
+            <span data-testid={`${testId}-value`}>{shownText}</span>
+          </span>
+        ) : (
+          <span
+            className={`${typography.panelBody} text-text-body flex-1 min-w-0 break-words`}
+            data-testid={`${testId}-none`}
+          >
+            {/* The two absences stay two sentences — see the Inspector row. */}
+            {unexpressible ? COPY.successTarget.unexpressible : SUCCESS_QUESTION}
+          </span>
+        )}
+        <span className="flex items-center shrink-0">
+          <PanelIconButton
+            Icon={Pencil}
+            label={COPY.successTarget.describeSuccess}
+            expanded={editing}
+            onClick={onToggleEditor}
+            testId={`${testId}-edit`}
+          />
+          <PanelIconButton ai label={ASK_DEFINE_SUCCESS_LABEL} onClick={onAsk} testId={`${testId}-ask`} />
+        </span>
+      </div>
+      {form}
+    </div>
+  )
+}
+
+/** The prototype's `.form` field chrome: 12px, the field border, 7px radius. */
+const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-[9px] py-[7px] text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+
+/**
+ * ⭐ THE V2 PROTOTYPE'S `goal-form`, UNDER THE ROW. Every control here is
+ * wired to the SAME handler the Inspector's editor uses — the prop names are
+ * the handlers, not new behaviour.
+ *
+ * ⚠⚠ THE SEND CONTROL SAYS WHAT HAPPENS, WHICH IS NOT ALWAYS THE PROTOTYPE'S
+ * WORD:
+ *   · a number with a dispatcher mounted IS sent (`proposeGoalTarget` →
+ *     `add_constraint`, toast "Sent to Olumi…"), so it reads "Send to Olumi";
+ *   · a number with no dispatcher is written on this screen only, so it reads
+ *     "Save" — "Send to Olumi" over a write Olumi never sees would be the
+ *     "Target set on your model" lie this file's header records;
+ *   · words open the Olumi drawer with an EDITABLE draft and send nothing, so
+ *     they keep today's "Discuss with Olumi" (PRODUCT DECISION, reported).
+ *
+ * ⚠ THE DIRECTION SELECT STAYS, THOUGH THE PROTOTYPE HAS NONE. Removing it
+ * would record every target as a floor (`at_least`), a write-semantics change
+ * this layout pass may not make (PRODUCT DECISION, reported).
+ */
+function ReasoningSuccessForm({
+  testId,
+  ids,
+  mode,
+  onMode,
+  wordsDraft,
+  onWordsDraft,
+  onWordsKeyDown,
+  onSendWords,
+  draft,
+  onDraft,
+  direction,
+  onDirection,
+  declaredUnit,
+  unitDraft,
+  onUnitDraft,
+  onEditorKeyDown,
+  canDispatch,
+  onCommit,
+  onDefer,
+}: {
+  testId: string
+  ids: { formLabelId: string; wordsInputId: string; numberInputId: string; unitInputId: string }
+  mode: 'number' | 'words'
+  onMode: (m: 'number' | 'words') => void
+  wordsDraft: string
+  onWordsDraft: (v: string) => void
+  onWordsKeyDown: (e: KeyboardEvent) => void
+  onSendWords: () => void
+  draft: string
+  onDraft: (v: string) => void
+  direction: ConstraintType
+  onDirection: (d: ConstraintType) => void
+  declaredUnit: string
+  unitDraft: string
+  onUnitDraft: (v: string) => void
+  onEditorKeyDown: (e: KeyboardEvent) => void
+  canDispatch: boolean
+  onCommit: () => void
+  onDefer: () => void
+}) {
+  const hasDeclaredUnit = declaredUnit.trim() !== ''
+  const sendLabel =
+    mode === 'words' ? SEND_WORDS_LABEL : canDispatch ? COPY.successTarget.sendToOlumi : COPY.modelStrip.saveValue
+  const sendDisabled = mode === 'words' && wordsDraft.trim() === ''
+  return (
+    <div className="grid gap-2 pt-[9px] pb-[5px]" data-testid={`${testId}-editor`}>
+      <span
+        id={ids.formLabelId}
+        className={`${typography.panelHeader} text-text-header`}
+        data-testid={`${testId}-form-label`}
+      >
+        {MODE_GROUP_LABEL}
+      </span>
+      <span role="radiogroup" aria-labelledby={ids.formLabelId} className="flex flex-wrap items-center gap-3">
+        <label className={`${typography.panelBody} flex items-center gap-[5px] text-text-body`}>
+          <input
+            type="radio"
+            name={`${testId}-goal-mode`}
+            checked={mode === 'words'}
+            onChange={() => onMode('words')}
+            data-testid={`${testId}-mode-words`}
+          />
+          {WORDS_MODE_LABEL}
+        </label>
+        <label className={`${typography.panelBody} flex items-center gap-[5px] text-text-body`}>
+          <input
+            type="radio"
+            name={`${testId}-goal-mode`}
+            checked={mode === 'number'}
+            onChange={() => onMode('number')}
+            data-testid={`${testId}-mode-number`}
+          />
+          {NUMBER_MODE_LABEL}
+        </label>
+      </span>
+
+      {mode === 'words' ? (
+        <label htmlFor={ids.wordsInputId} className={`${typography.panelBody} grid gap-[5px] text-text-body`}>
+          {WORDS_INPUT_LABEL}
+          <textarea
+            id={ids.wordsInputId}
+            value={wordsDraft}
+            autoFocus
+            onChange={(e) => onWordsDraft(e.target.value)}
+            onKeyDown={onWordsKeyDown}
+            placeholder={WORDS_PLACEHOLDER}
+            rows={3}
+            className={`${FIELD_CLASS} min-h-[64px] resize-y`}
+            data-testid={`${testId}-words-input`}
+          />
+        </label>
+      ) : (
+        <>
+          <div
+            className={
+              hasDeclaredUnit
+                ? 'grid gap-[5px]'
+                : 'grid grid-cols-[minmax(0,1fr)_minmax(68px,.65fr)] gap-2'
+            }
+          >
+            <div className="grid gap-[5px] min-w-0">
+              <label htmlFor={ids.numberInputId} className={`${typography.panelBody} text-text-body`}>
+                {/* The goal's OWN unit, verbatim, beside the measure — the
+                    prototype's "Productivity improvement (%)". */}
+                {hasDeclaredUnit
+                  ? `${COPY.successTarget.numberLabel} (${declaredUnit})`
+                  : COPY.successTarget.numberLabel}
+              </label>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <select
+                  value={direction}
+                  onChange={(e) => onDirection(e.target.value as ConstraintType)}
+                  onKeyDown={onEditorKeyDown}
+                  aria-label={COPY.successTarget.directionLabel}
+                  className={`${FIELD_CLASS} w-auto shrink-0`}
+                  data-testid={`${testId}-direction`}
+                >
+                  <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
+                  <option value="at_most">{COPY.successTarget.directionAtMost}</option>
+                </select>
+                <input
+                  id={ids.numberInputId}
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => onDraft(e.target.value)}
+                  onKeyDown={onEditorKeyDown}
+                  className={FIELD_CLASS}
+                  data-testid={`${testId}-input`}
+                />
+              </span>
+            </div>
+            {hasDeclaredUnit ? null : (
+              <div className="grid gap-[5px] min-w-0 content-start">
+                <label htmlFor={ids.unitInputId} className={`${typography.panelBody} text-text-body`}>
+                  {COPY.successTarget.unitLabel}
+                </label>
+                <input
+                  id={ids.unitInputId}
+                  type="text"
+                  value={unitDraft}
+                  onChange={(e) => onUnitDraft(e.target.value)}
+                  onKeyDown={onEditorKeyDown}
+                  placeholder={COPY.successTarget.unitPlaceholder}
+                  className={FIELD_CLASS}
+                  data-testid={`${testId}-unit`}
+                />
+              </div>
+            )}
+          </div>
+          <span className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-help`}>
+            {canDispatch ? COPY.successTarget.helpDispatch : COPY.successTarget.helpLocalOnly}
+          </span>
+        </>
+      )}
+
+      <div className="flex items-center justify-between gap-2 mt-0.5">
+        <button
+          type="button"
+          onClick={onDefer}
+          className={`${typography.panelBody} inline-flex items-center py-1 min-h-[28px] text-info hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          data-testid={`${testId}-defer`}
+        >
+          {NOT_SURE_YET_LABEL}
+        </button>
+        <span className={`${typography.panelMeta} ml-auto flex items-center gap-[7px] text-text-light`}>
+          <span aria-hidden="true">{sendLabel}</span>
+          <button
+            type="button"
+            onClick={mode === 'words' ? onSendWords : onCommit}
+            disabled={sendDisabled}
+            aria-label={sendLabel}
+            title={sendLabel}
+            className="inline-flex shrink-0 items-center justify-center w-[29px] h-[29px] rounded-full bg-info text-text-on-color hover:bg-info-hover disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+            data-testid={mode === 'words' ? `${testId}-words-send` : `${testId}-save`}
+          >
+            <ArrowUp className={icon('section')} aria-hidden="true" />
+          </button>
+        </span>
+      </div>
     </div>
   )
 }

@@ -148,10 +148,21 @@
  *     copy here is the two-authorities defect (CLAUDE.md traps 12 and 21), and
  *     that file is not this lane's to change. The METHOD chip stays, because
  *     it dispatches through `openAskOlumi` with no branching of its own.
+ *
+ * ⭐⭐ 26 SEP 2026 — THE DETAIL IS NOW THE V2 PROTOTYPE'S `inline-detail`
+ * (design audit B12), and three things above are superseded by it:
+ *   · it opens on ACTIVATION only (hover and focus ring the node);
+ *   · a mark about a node the review queue holds opens the REVIEW TOOL at that
+ *     item instead (prototype `gotoReview`) — see `pickMark`;
+ *   · it sits after the success line and the review tool, with a ×, and
+ *     carries the name, the engine's own finding as its bullet, a factor's
+ *     value line and editor, and ✎ ⌖ ✦ icon-only. The kind line, the driver
+ *     flag, the "Estimate not yet confirmed" chip, the "Also in …" pointers and
+ *     the absence line are gone — the prototype carries none of them.
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Crosshair, Lightbulb, Pencil } from 'lucide-react'
+import { Crosshair, Lightbulb, Pencil, X } from 'lucide-react'
 /**
  * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
  * AND A GUARD IS WHY.
@@ -174,10 +185,8 @@ import { Crosshair, Lightbulb, Pencil } from 'lucide-react'
  * happened to agree. That is luck. The spec is what turns it into a mechanism.
  */
 
-import { OlumiAiIcon } from '../OlumiAiIcon'
 import { useCanvasStore } from '../../../../canvas/store'
 import { resolveNodeTypeLiteral } from '../../../../canvas/domain/nodes'
-import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
 import {
   classifyValueProvenance,
   VALUE_PROVENANCE_LABEL,
@@ -185,6 +194,8 @@ import {
 import { useFactorValueCommit } from '../useFactorValueCommit'
 import { resolveValueInputSeed } from '../../../../canvas/conversation/factorValueEdit'
 import { SuccessTargetLine } from './SuccessTargetLine'
+import type { ReviewToolRequest } from './ModelReviewTool'
+import { PanelIconButton } from '../PanelIconButton'
 import { NodeMark, type MarkKind } from '../nodeMarks'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -292,6 +303,8 @@ function stripDecisionPrefix(label: string): string {
  */
 const PROPOSE_CHANGE_LABEL = 'Propose a change to this element'
 const ASK_ABOUT_ITEM_LABEL = 'Ask Olumi about this item'
+/** Prototype P:539's own name for the detail's ×, verbatim. */
+const CLOSE_DETAIL_LABEL = 'Close item details'
 /** Prototype P:616's `edit-entity` draft, verbatim, `item.name` substituted. */
 const proposeChangeDraft = (label: string): string =>
   `I want to change ${label}. Help me describe the change and propose it before applying anything.`
@@ -392,8 +405,26 @@ export interface ModelStripProps {
    * V2 prototype: the review worklist ("N to review") renders between the
    * census rows and the success row. The body owns the tool (it sees the view
    * model); the strip only places it.
+   *
+   * ⭐ A FUNCTION FORM, FOR THE PROTOTYPE'S ORDER (design audit B5/B6/B12):
+   * census → "N to review" → success line → review tool → detail. The success
+   * line belongs BETWEEN the tool's row and its open item, so the strip hands
+   * the tool its success line (`successSlot`) rather than appending it; and a
+   * mark about a node the queue holds opens the TOOL at that item (prototype
+   * `gotoReview`), which needs `request` in and `onQueueTargets` out. A plain
+   * node still works — it renders the old way, the success line after it.
    */
-  reviewSlot?: ReactNode
+  reviewSlot?: ReactNode | ((slot: ReviewSlotProps) => ReactNode)
+}
+
+/** What the strip hands a function-form `reviewSlot`. See `reviewSlot`. */
+export interface ReviewSlotProps {
+  /** The success line, to render between the tool's row and its open item. */
+  successSlot: ReactNode
+  /** Open the tool at a node's item, or close it — a mark's route. */
+  request: ReviewToolRequest | null
+  /** The node ids the queue holds an item about, reported by the tool. */
+  onQueueTargets: (ids: readonly string[]) => void
 }
 
 export function ModelStrip({
@@ -504,6 +535,22 @@ export function ModelStrip({
    * effect to keep in sync.
    */
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null)
+  /**
+   * ⭐ WHERE A MARK GOES, AND IT IS THE PROTOTYPE'S RULE, NOT A NEW ONE
+   * (`entity`, P:614): a node the review queue holds an item about opens the
+   * review tool AT that item; any other node opens its detail and closes the
+   * tool. The queue is the tool's, so the tool reports which node ids it holds
+   * (`onQueueTargets`) and the strip asks it to open or close (`request`).
+   * `seq` makes a repeated request for the same node a new one.
+   */
+  const [reviewRequest, setReviewRequest] = useState<ReviewToolRequest | null>(null)
+  const reviewSeq = useRef(0)
+  const [reviewTargets, setReviewTargets] = useState<readonly string[]>([])
+  const onQueueTargets = useCallback((ids: readonly string[]) => {
+    setReviewTargets((prev) =>
+      prev.length === ids.length && prev.every((id, i) => id === ids[i]) ? prev : ids,
+    )
+  }, [])
   /**
    * The two narrowings, and they are MUTUALLY EXCLUSIVE by construction.
    *
@@ -778,6 +825,46 @@ export function ModelStrip({
     writeRing(narrowedIds(kindFilter, activeMode))
   }
 
+  /**
+   * A mark is ACTIVATED: the canvas route it always had, then the prototype's
+   * `entity` route — the review tool at this node's item, or this node's
+   * detail (and the tool closed). See `reviewRequest`.
+   */
+  const pickMark = (nodeId: string) => {
+    focusOrSay(nodeId)
+    reviewSeq.current += 1
+    if (reviewTargets.includes(nodeId)) {
+      setActiveNodeId(null)
+      setReviewRequest({ kind: 'open', targetId: nodeId, seq: reviewSeq.current })
+    } else {
+      setActiveNodeId(nodeId)
+      setReviewRequest({ kind: 'close', seq: reviewSeq.current })
+    }
+  }
+
+  /**
+   * A mark is POINTED AT or FOCUSED: it rings its node on the canvas and opens
+   * nothing. ⚠ It used to open the detail too; the detail now sits below the
+   * success line and the review tool, as the prototype places it, and a
+   * pointer sweeping the census would reflow everything beneath it. The
+   * prototype opens its detail on activation only.
+   */
+  const pointAtMark = (nodeId: string) => {
+    markOwnsRing.current = nodeId
+    highlightNode(nodeId)
+  }
+
+  /** The review slot, in whichever form the host passed it. */
+  const renderReviewSlot = (successSlot: ReactNode): ReactNode =>
+    typeof reviewSlot === 'function' ? (
+      reviewSlot({ successSlot, request: reviewRequest, onQueueTargets })
+    ) : (
+      <>
+        {reviewSlot}
+        {successSlot}
+      </>
+    )
+
   const pickKind = (kind: MarkKind) => {
     const next = kindFilter === kind ? null : kind
     setKindFilter(next)
@@ -856,7 +943,7 @@ export function ModelStrip({
   // — so the move is behaviour-preserving and the render below is unchanged.
   // The review tool still renders on an empty strip: its acts (edit the brief,
   // ask about the framing) do not depend on the census.
-  if (!stripHasContent(strip)) return reviewSlot ? <>{reviewSlot}</> : null
+  if (!stripHasContent(strip)) return reviewSlot ? <>{renderReviewSlot(null)}</> : null
 
   /**
    * Resolved against the VISIBLE rows — see `activeNodeId`.
@@ -934,13 +1021,56 @@ export function ModelStrip({
     if (outcome !== 'not_encodable') setEditingFor(null)
   }
   const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
-  const activeHasNothing =
-    activeInsight.driverLabel === null &&
-    activeInsight.findings.length === 0 &&
-    // ⚠ AND NOTHING ELSE ON THE PANEL NAMES IT. Without this conjunct the
-    // sentence below claims the whole panel is silent while the panel is
-    // visibly talking about the node — witnessed on deployed `d82e81f0`.
-    activeInsight.mentions.length === 0
+
+  /** The success line, handed to the review slot — see `reviewSlot`. */
+  const successLine = (
+    <SuccessTargetLine
+      goalNodeId={strip.goalNodeId}
+      divider={false}
+      variant="reasoning"
+      /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
+         This read TWO, on the premise that no server carrier for a goal
+         threshold exists, and told every reader "It will be used the next time
+         you analyse" over a store-only write that reverted on reload. The
+         typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
+         the control can now dispatch and must report which of the three
+         things happened - exactly as the factor editor twenty lines above
+         already does. Collapsing any two of these is the estate's signature
+         defect, an affordance reporting an outcome it never observed. */
+      /* ⚠⚠ FOUR OUTCOMES NOW, AND THE FOURTH IS THE ONLY ONE A READER CAN
+         ACT ON. `no_unit` used to fall through to `notEncodable` — "That
+         target could not be applied, so nothing changed." — which is true and
+         useless: it names one of three causes' shared shape and no move.
+         Collapsing any two of these is the estate's signature defect, an
+         affordance reporting an outcome it never observed; collapsing a
+         CAUSE is the same defect wearing a different coat. */
+      onCommitOutcome={(outcome) =>
+        showToast(
+          outcome === 'dispatched'
+            ? COPY.successTarget.dispatched
+            : outcome === 'local_only'
+              ? COPY.successTarget.changedLocally
+              : outcome === 'no_unit'
+                ? COPY.successTarget.noUnit
+                : outcome === 'not_a_number'
+                  ? COPY.successTarget.notANumber
+                  : COPY.successTarget.notEncodable,
+        )
+      }
+      /* ⭐⭐ THE SETTLEMENT, AND WITHOUT IT A REFUSAL HERE WAS SILENT. With the
+         typed `goal_target_edit` carrier armed (`GOAL_TARGET_EDIT_ENABLED`), a
+         refused send is a SYSTEM EVENT, and a refused system event renders NO
+         transcript bubble — so unlike the `add_constraint` turn it replaced,
+         no reply ever arrived to say the target was not recorded. The one
+         shared derivation (`goalTargetSettlementNotice`) names what happened;
+         `sent` is `null` because CEE's own receipt reply does render. */
+      onSendSettled={(settlement, detail) => {
+        const notice = goalTargetSettlementNotice(settlement, detail)
+        if (notice !== null) showToast(notice, settlement === 'refused' ? 'error' : 'warning')
+      }}
+      testId={`${testId}-target`}
+    />
+  )
 
   return (
     /* ⚠ A LABELLED LANDMARK, NAMED BY ITS OWN SUBJECT. A `section` is a
@@ -1311,12 +1441,10 @@ export function ModelStrip({
                         type="button"
                         /* Activation keeps doing what it always did — this is
                            the affordance the disclosure was moved to preserve —
-                           and additionally pins the detail, which is the only
-                           route a touch device has to it. */
-                        onClick={() => {
-                          setActiveNodeId(node.id)
-                          focusOrSay(node.id)
-                        }}
+                           and opens what the prototype's `entity` action opens:
+                           the review tool at this node's item, or its detail.
+                           See `pickMark`. */
+                        onClick={() => pickMark(node.id)}
                         /* ⭐ AND THE GRAPH ANSWERS. `highlightNode` is the
                            results-panel → canvas channel the compare tab
                            already uses this way, and `BaseNode` renders it as a
@@ -1331,21 +1459,12 @@ export function ModelStrip({
                            has moved on would also sit on a shared channel that
                            the applied-edit pulse and the AI's own directives
                            write to. */
-                        onMouseEnter={() => {
-                          markOwnsRing.current = node.id
-                          setActiveNodeId(node.id)
-                          highlightNode(node.id)
-                        }}
+                        onMouseEnter={() => pointAtMark(node.id)}
                         onMouseLeave={restoreRing}
-                        /* Keyboard parity. Tabbing across the row reads each
-                           node's detail in turn and rings each node in turn,
-                           without committing a canvas move the reader did not
-                           ask for. */
-                        onFocus={() => {
-                          markOwnsRing.current = node.id
-                          setActiveNodeId(node.id)
-                          highlightNode(node.id)
-                        }}
+                        /* Keyboard parity. Tabbing across the row rings each
+                           node in turn, without committing a canvas move the
+                           reader did not ask for; Enter opens, as a click does. */
+                        onFocus={() => pointAtMark(node.id)}
                         onBlur={restoreRing}
                         aria-expanded={isActive}
                         /* Points at the detail ONLY while this mark owns it —
@@ -1397,159 +1516,144 @@ export function ModelStrip({
           ))}
         </ul>
 
-        {/* ── WHAT THIS RUN SAYS ABOUT THE PICKED NODE ────────────────────
-            One slot, replaced rather than accumulated: a stack of open details
-            in a 280px column is the density this panel was cut down from.
+        </div>
+      ) : null}
+      {/* V2 prototype order (design audit B5/B6/B12): the rows, then "N to
+          review", then the success line, then the review tool, then the
+          picked mark's detail. The success line is handed to the review slot
+          so it can sit between the tool's row and its open item. */}
+      {renderReviewSlot(successLine)}
+      {/* ── THE PICKED MARK'S DETAIL — the V2 prototype's `inline-detail`
+          (`selectedHTML()`, design audit B12): a divider, the name as an h4
+          with a ×, the engine's own finding as the bullet, then ✎ ⌖ ✦
+          icon-only. It sits AFTER the success line and the review tool, as the
+          prototype places it, and only while the census is open.
 
-            ⚠ EVERY SENTENCE BELOW IS THE ENGINE'S OR THE CATALOGUE'S. The only
-            strings this component contributes are the affordance line, the
-            absence line and the cap disclosure — furniture and honesty, never a
-            statement about the model. */}
-        {/* V2 prototype: no standing hint line under the rows — a mark's own
-            tooltip and focus ring say what picking it does. */}
-        {active === null ? null : (
-          <div
-            id={detailId}
-            /* `min-w-0` on the flex children and wrapping on every producer
-               string: at the 280px floor a long factor name or an engine
-               sentence with no spaces must wrap inside this box rather than
-               widen the panel. */
-            className="mt-1 rounded bg-panel-hover p-2 space-y-1 min-w-0"
-            data-testid={`${testId}-detail`}
-            data-node-id={active.id}
-          >
-            <p
-              className={`${typography.panelBody} text-text-header m-0 flex items-start gap-1 min-w-0`}
+          ⛔ GONE, BECAUSE THE PROTOTYPE HAS NONE OF THEM: the tinted card, the
+          kind line ("Option", "Factor · What matters most"), the "Estimate not
+          yet confirmed" chip (the review tool carries that state for every
+          factor that has it), the "Also in …" pointers and the "Nothing else
+          on this panel refers to this node." line, and the three TEXT pills
+          that truncated to "Show on canv…" at 280px.
+
+          ⚠ KEPT: a factor's value line and its value editor — the standing
+          rule is that the value editor is never removed. */}
+      {open && active !== null ? (
+        <div
+          id={detailId}
+          /* `min-w-0` on the flex children and wrapping on every producer
+             string: at the 280px floor a long factor name or an engine
+             sentence with no spaces must wrap inside this box rather than
+             widen the panel. */
+          className="relative mt-[7px] border-t border-panel-border pt-2.5 pb-1.5 min-w-0"
+          data-testid={`${testId}-detail`}
+          data-node-id={active.id}
+        >
+          <div className="flex items-center justify-between gap-1.5 min-w-0">
+            <h4
+              className={`${typography.panelHeader} text-text-header m-0 min-w-0 break-words`}
               data-testid={`${testId}-detail-title`}
             >
-              <NodeMark kind={active.kind} className={`${icon('inline')} mt-0.5`} />
               {/* No label recorded is not an error and not a blank: the kind
                   noun is the only true name available, and it is the same
                   substitution the mark's own accessible name makes. */}
-              <span className="min-w-0 break-words">
-                {active.label || COPY.modelStrip.kindNoun[active.kind]}
-              </span>
-            </p>
+              {active.label || COPY.modelStrip.kindNoun[active.kind]}
+            </h4>
+            <PanelIconButton
+              Icon={X}
+              label={CLOSE_DETAIL_LABEL}
+              onClick={() => setActiveNodeId(null)}
+              testId={`${testId}-detail-close`}
+            />
+          </div>
 
-            <div className="flex flex-wrap items-center gap-1">
-              <span
-                className={`${typography.panelMeta} text-text-light`}
-                data-testid={`${testId}-detail-kind`}
+            {/* ⭐ THE PROTOTYPE'S ONE BULLET (`tiny-list`), FILLED ONLY BY THE
+                ENGINE. The prototype's reflective question is fixture copy;
+                this surface has no producer field that is a question about a
+                node, so the bullet is the engine's own finding for it — and a
+                node with none gets NO bullet (PRODUCER GAP), never a sentence
+                this component wrote. */}
+            {activeInsight.findings.length > 0 ? (
+            <ul className="list-none p-0 pl-[15px] my-1.5 space-y-[3px]" data-testid={`${testId}-detail-findings`}>
+            {activeInsight.findings.map((finding) => {
+              // Hoisted so the narrowing survives into the handler below; a
+              // property check does not narrow inside a closure.
+              const method = finding.method
+              return (
+              <li
+                key={finding.recommendationId}
+                className="relative pl-[11px] min-w-0 space-y-1 before:content-['·'] before:absolute before:left-[1px]"
+                data-testid={`${testId}-detail-finding`}
+                data-recommendation-id={finding.recommendationId}
               >
-                {COPY.modelStrip.kindNoun[active.kind]}
-              </span>
-              {/* ⚠ PRESENCE ONLY, AND THE ASYMMETRY IS DELIBERATE. The glance's
-                  driver list is capped, so membership licenses "the glance named
-                  this among what matters most" and non-membership licenses
-                  nothing — which is why no chip renders for its absence. The
-                  magnitude is deliberately not repeated here: a bar or a
-                  percentage is only readable beside the basis caption the glance
-                  carries, and duplicating that caption into every node's detail
-                  would restate a claim this panel already makes once. */}
-              {activeInsight.driverLabel !== null ? (
-                <span
-                  /* ⚠ NEUTRAL — IT SHARES A CHIP ROW WITH FOUR PRESSABLE PILLS.
-                     This is a `<span>` stating a fact; the pills below it are
-                     `<button>`s carrying `hover:bg-info/20`. All five were
-                     `rounded-full bg-info/10 text-info` at `panelMeta`, so at
-                     rest they were indistinguishable and hover — the only
-                     difference — does not exist on touch. Shape still says
-                     "chip"; colour now says "not a control". */
-                  className={`${typography.panelMeta} inline-flex items-center rounded-full bg-panel-hover px-2 py-0.5 text-text-light`}
-                  data-testid={`${testId}-detail-driver`}
+                <p
+                  className={`${typography.panelBody} text-text-header m-0 break-words`}
+                  data-testid={`${testId}-detail-finding-title`}
                 >
-                  {COPY.glance.whatMattersMost}
-                </span>
-              ) : null}
-              {/* ⭐ THE ONE FACT ON THIS DETAIL THE MARK CANNOT ALREADY SHOW.
-                  The sentence is `domain/vocabulary`'s, shared with the Model
-                  tab's own row marker rather than respelled here — two
-                  spellings of one state is the mirror this estate pays for
-                  (CLAUDE.md trap 12), and it would put the two surfaces in
-                  disagreement about one factor.
+                  {finding.title}
+                </p>
+                {/* The lead-in is the Strengthen panel's own, imported rather
+                    than respelled, and the emphasis is carried semantically —
+                    the panel scale defines its own weights and a raw utility
+                    here would be a design-system violation as well as a second
+                    spelling of one label.
 
-                  ⚠ IT LIVES IN `domain/` AND NOT IN `model-tab-v2/`, WHERE IT
-                  WAS AUTHORED, BECAUSE THAT DIRECTORY IS SEALED. Its boundary
-                  guard permits exactly one outside reference — its named mount
-                  host — since a second reference is a second mount path. The
-                  first draft of this component imported straight through that
-                  door and the guard caught it, which is what it is for. */}
-              {active.needsCheck ? (
-                <span
-                  // ⚠⚠ 24 Sep 2026 — fidelity gap #14: `bg-warning/10` was a
-                  // tinted fill; BUILDER-RULES bans it. An outlined pill (the
-                  // prototype's `.source-pill` shape) replaces it — the ink
-                  // still carries the severity signal.
-                  className={`${typography.panelMeta} inline-flex items-center rounded-full border border-panel-border px-2 py-0.5 text-warning-ink`}
-                  data-testid={`${testId}-detail-verify`}
-                >
-                  {UNCONFIRMED_ESTIMATE_LABEL}
-                </span>
-              ) : null}
-            </div>
+                    ⚠ AND THE WHOLE LINE GOES when the finding names no
+                    instruction. This detail is the DENSEST place the phrase
+                    appears — one node can carry several findings — so a
+                    placeholder here stacks. Same rule as the panel: see
+                    `Recommendation.tryThis`. */}
+                {finding.tryThis !== null ? (
+                  <p className={`${typography.panelBody} text-text-body m-0 break-words`}>
+                    <strong>{STRENGTHEN_COPY.tryThisLead}</strong> {finding.tryThis}
+                  </p>
+                ) : null}
+                {/* ⭐ THE TECHNIQUE, ON THE NODE THAT WARRANTED IT — the same
+                    control `StrengthenTheReasoning` renders, reached from the
+                    model rather than from a list. `null` for most findings by
+                    design (`recommendationMethod.ts`): no placeholder, no
+                    default technique. Identity rides the dispatch so CEE learns
+                    which technique was invoked. */}
+                {method ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAskOlumi({
+                        context: finding.context,
+                        draft: method.prompt,
+                        label: method.title,
+                        parameters: { method_id: method.id },
+                        source: 'chip',
+                        targetId: active.id,
+                      })
+                    }
+                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
+                    data-testid={`${testId}-detail-method`}
+                    data-method-id={method.id}
+                    title={method.description}
+                  >
+                    <Lightbulb className={`${icon('inline')}`} aria-hidden={true} />
+                    {method.title}
+                    {/* A browser renders `title` on pointer hover only, so the
+                        science content would otherwise be withheld from anyone
+                        navigating by keyboard. */}
+                    <span className="sr-only">{method.description}</span>
+                  </button>
+                ) : null}
+              </li>
+              )
+            })}
+            </ul>
+            ) : null}
 
-            {/* ⭐ THE DETAIL'S OWN ACTION. Activating the mark routes to the
-                canvas and always has; this is the same route offered where the
-                reader is actually looking, and it is the ONLY one a touch
-                reader has twice — their first tap is what opened the detail,
-                so without this there is no way to ask again without closing
-                it. Named in text, not in a `title`: a tooltip is unreachable
-                on touch and suppressed by many browsers. */}
-            <button
-              type="button"
-              onClick={() => focusOrSay(active.id)}
-              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
-              data-testid={`${testId}-detail-focus`}
-              data-node-id={active.id}
-            >
-              <Crosshair className={`${icon('inline')}`} aria-hidden={true} />
-              {COPY.modelStrip.showOnCanvas}
-            </button>
-
-            {/* ⭐⭐ E10: EVERY KIND, NOT ONLY FACTORS — see the module header.
-                Both buttons open the shared ask composer; neither writes the
-                model. `Change this value` below (factors only) is a SEPARATE
-                act — a direct numeric write — so a factor legitimately carries
-                both, exactly as the prototype's review-edit and edit-entity
-                are two different affordances on two different screens. */}
-            <button
-              type="button"
-              onClick={() => {
-                const label = active.label || COPY.modelStrip.kindNoun[active.kind]
-                openAskOlumi({
-                  context: label,
-                  draft: proposeChangeDraft(label),
-                  label: PROPOSE_CHANGE_LABEL,
-                  targetId: active.id,
-                  source: 'chip',
-                })
-              }}
-              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
-              data-testid={`${testId}-detail-propose`}
-              data-node-id={active.id}
-            >
-              <Pencil className={`${icon('inline')}`} aria-hidden={true} />
-              {PROPOSE_CHANGE_LABEL}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const label = active.label || COPY.modelStrip.kindNoun[active.kind]
-                openAskOlumi({
-                  context: label,
-                  draft: askAboutItemDraft(label),
-                  label: ASK_ABOUT_ITEM_LABEL,
-                  targetId: active.id,
-                  source: 'chip',
-                })
-              }}
-              className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
-              data-testid={`${testId}-detail-ask`}
-              data-node-id={active.id}
-            >
-              <OlumiAiIcon className={`${icon('inline')}`} aria-hidden={true} />
-              {ASK_ABOUT_ITEM_LABEL}
-            </button>
+            {activeInsight.withheldFindings > 0 ? (
+              <p
+                className={`${typography.panelMeta} text-text-light m-0`}
+                data-testid={`${testId}-detail-more`}
+              >
+                {COPY.modelStrip.moreFindings(activeInsight.withheldFindings)}
+              </p>
+            ) : null}
 
             {/* ⭐⭐ THE DATA BEHIND THIS FACTOR, AND WHOSE IT IS.
                 The detail could name a factor and say nothing about the number
@@ -1671,223 +1775,53 @@ export function ModelStrip({
               </div>
             ) : null}
 
-            {activeInsight.findings.map((finding) => {
-              // Hoisted so the narrowing survives into the handler below; a
-              // property check does not narrow inside a closure.
-              const method = finding.method
-              return (
-              <div
-                key={finding.recommendationId}
-                className="space-y-1 min-w-0"
-                data-testid={`${testId}-detail-finding`}
-                data-recommendation-id={finding.recommendationId}
-              >
-                <p
-                  className={`${typography.panelBody} text-text-header m-0 break-words`}
-                  data-testid={`${testId}-detail-finding-title`}
-                >
-                  {finding.title}
-                </p>
-                {/* The lead-in is the Strengthen panel's own, imported rather
-                    than respelled, and the emphasis is carried semantically —
-                    the panel scale defines its own weights and a raw utility
-                    here would be a design-system violation as well as a second
-                    spelling of one label.
-
-                    ⚠ AND THE WHOLE LINE GOES when the finding names no
-                    instruction. This detail is the DENSEST place the phrase
-                    appears — one node can carry several findings — so a
-                    placeholder here stacks. Same rule as the panel: see
-                    `Recommendation.tryThis`. */}
-                {finding.tryThis !== null ? (
-                  <p className={`${typography.panelBody} text-text-body m-0 break-words`}>
-                    <strong>{STRENGTHEN_COPY.tryThisLead}</strong> {finding.tryThis}
-                  </p>
-                ) : null}
-                {/* ⭐ THE TECHNIQUE, ON THE NODE THAT WARRANTED IT — the same
-                    control `StrengthenTheReasoning` renders, reached from the
-                    model rather than from a list. `null` for most findings by
-                    design (`recommendationMethod.ts`): no placeholder, no
-                    default technique. Identity rides the dispatch so CEE learns
-                    which technique was invoked. */}
-                {method ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openAskOlumi({
-                        context: finding.context,
-                        draft: method.prompt,
-                        label: method.title,
-                        parameters: { method_id: method.id },
-                        source: 'chip',
-                        targetId: active.id,
-                      })
-                    }
-                    className={`${typography.panelBody} inline-flex items-center gap-1 ${action('secondary')}`}
-                    data-testid={`${testId}-detail-method`}
-                    data-method-id={method.id}
-                    title={method.description}
-                  >
-                    <Lightbulb className={`${icon('inline')}`} aria-hidden={true} />
-                    {method.title}
-                    {/* A browser renders `title` on pointer hover only, so the
-                        science content would otherwise be withheld from anyone
-                        navigating by keyboard. */}
-                    <span className="sr-only">{method.description}</span>
-                  </button>
-                ) : null}
-              </div>
-              )
-            })}
-
-            {activeInsight.withheldFindings > 0 ? (
-              <p
-                className={`${typography.panelMeta} text-text-light m-0`}
-                data-testid={`${testId}-detail-more`}
-              >
-                {COPY.modelStrip.moreFindings(activeInsight.withheldFindings)}
-              </p>
-            ) : null}
-
-            {/* ⚠ THE ABSENCE IS THE RESULT, AND IT IS RENDERED. Silence here
-                would be indistinguishable from a broken control, and a
-                reassurance would be a claim nothing measured. */}
-            {/* ⭐ POINTERS, NOT A SECOND RENDERING. Each line names a section
-                that is already on screen saying its own thing, so the reader
-                can get there — and so the empty state below can only appear
-                when the panel really is silent about this node. */}
-            {activeInsight.mentions.length > 0 ? (
-              <ul
-                className="list-none p-0 m-0 space-y-0.5"
-                data-testid={`${testId}-detail-mentions`}
-              >
-                {activeInsight.mentions.map(m => (
-                  <li
-                    key={m.id}
-                    className={`${typography.panelMeta} text-text-light m-0`}
-                    data-testid={`${testId}-detail-mention`}
-                    data-mention-id={m.id}
-                    data-mention-section={m.section}
-                  >
-                    {/* ⚠ THE SECTION'S OWN HEADING, INDEXED — never a second
-                        spelling of it. The pointer must name the heading the
-                        reader will scroll to, and `m.section` is the view
-                        model's own key, so a section with no title cannot
-                        compile.
-
-                        ⚠ THE WHOLE LINE IS COMPOSED IN THE COPY MODULE, because
-                        a finding may legitimately carry an EMPTY headline (a
-                        long uncertainty or sensitivity row keeps its sentence
-                        in `implication` so it does not say itself twice) and
-                        the line must then read as a section name rather than a
-                        label with nothing after its colon. */}
-                    {/* ⛔ A POINTER MAY NOT RESTATE THE MARK'S OWN NAME,
-                        AND THE DRIVERS SECTION IS THE ONE PLACE IT WOULD.
-                        `driverFinding` sets a Drivers row's `headline` to
-                        `d.factorLabel` — the NODE'S OWN LABEL, by
-                        construction, never a sentence. So the composed line
-                        read "Also in Drivers and dynamics: Supplier lead time"
-                        directly beneath a `detail-title` carrying "Supplier
-                        lead time", and on any node the glance ALSO named, a
-                        `detail-driver` chip sat between the two. One name,
-                        three renderings, on the commonest node on the panel.
-
-                        ⚠⚠ THIS IS THE DEFECT PAUL MEASURED ON DEPLOYED
-                        `19fe87`, RECORDED IN THIS FILE'S OWN HEADER: on the
-                        richest case available, "Two of those three lines
-                        restate what the mark already carries: the name is the
-                        mark's own label". This line would have made it a
-                        fourth. It also contradicted this seam's own stated
-                        rule, written in four places, that a mention is a
-                        POINTER and never a second rendering.
-
-                        ⭐ THE SECTION NAME ALONE IS A TRUE AND COMPLETE
-                        POINTER, and it is the shape `mention()` ALREADY
-                        renders for an empty headline — reused, not invented.
-                        The reader already has the node's name directly above;
-                        what they lack is WHERE to go, and that is the section.
-
-                        ⛔ SCOPED TO `drivers` DELIBERATELY, AND THE PREMISE
-                        IS PINNED RATHER THAN ASSUMED. The other three
-                        finding-bearing sections carry producer SENTENCES about
-                        the node, which the title cannot restate, so dropping
-                        their payload would delete real information.
-                        `theStripReachesEveryFindingSection.spec.tsx` asserts
-                        that a Drivers headline IS the node's own label at the
-                        real view model, so this suppression REDs if
-                        `driverFinding` ever starts composing a sentence
-                        (CLAUDE.md trap 13b — a guard whose discrimination
-                        depends on something nothing pins). */}
-                    {COPY.modelStrip.mention(
-                      COPY.sections[m.section],
-                      m.section === 'drivers' ? '' : m.headline,
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            {activeHasNothing ? (
-              <p
-                className={`${typography.panelMeta} text-text-light m-0`}
-                data-testid={`${testId}-detail-empty`}
-              >
-                {isPreRun ? COPY.modelStrip.noInsightPreRun : COPY.modelStrip.noInsight}
-              </p>
-            ) : null}
-          </div>
-        )}
+            {/* ⭐⭐ E10: EVERY KIND, NOT ONLY FACTORS — the prototype's ✎ ⌖ ✦, in its
+                order, ICON-ONLY. Both asks open the shared composer; neither
+                writes the model. The value editor above is a SEPARATE act — a
+                direct numeric write — so a factor legitimately carries both. */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-[5px]" data-node-id={active.id}>
+              <PanelIconButton
+                Icon={Pencil}
+                label={PROPOSE_CHANGE_LABEL}
+                onClick={() => {
+                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                  openAskOlumi({
+                    context: label,
+                    draft: proposeChangeDraft(label),
+                    label: PROPOSE_CHANGE_LABEL,
+                    targetId: active.id,
+                    source: 'chip',
+                  })
+                }}
+                testId={`${testId}-detail-propose`}
+              />
+              {/* The detail's own canvas route: activating the mark already
+                  focused the canvas, and on touch that tap is what opened this,
+                  so this is the only way to ask again without closing it. */}
+              <PanelIconButton
+                Icon={Crosshair}
+                label={COPY.modelStrip.showOnCanvas}
+                onClick={() => focusOrSay(active.id)}
+                testId={`${testId}-detail-focus`}
+              />
+              <PanelIconButton
+                ai
+                label={ASK_ABOUT_ITEM_LABEL}
+                onClick={() => {
+                  const label = active.label || COPY.modelStrip.kindNoun[active.kind]
+                  openAskOlumi({
+                    context: label,
+                    draft: askAboutItemDraft(label),
+                    label: ASK_ABOUT_ITEM_LABEL,
+                    targetId: active.id,
+                    source: 'chip',
+                  })
+                }}
+                testId={`${testId}-detail-ask`}
+              />
+            </div>
         </div>
       ) : null}
-      {/* V2 prototype order: the rows, then "N to review", then "What would
-          success look like?" — the worklist and the success row sit BELOW the
-          census, not above it. */}
-      {reviewSlot}
-      <SuccessTargetLine
-        goalNodeId={strip.goalNodeId}
-        divider={false}
-        /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
-           This read TWO, on the premise that no server carrier for a goal
-           threshold exists, and told every reader "It will be used the next time
-           you analyse" over a store-only write that reverted on reload. The
-           typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
-           the control can now dispatch and must report which of the three
-           things happened - exactly as the factor editor twenty lines above
-           already does. Collapsing any two of these is the estate's signature
-           defect, an affordance reporting an outcome it never observed. */
-        /* ⚠⚠ FOUR OUTCOMES NOW, AND THE FOURTH IS THE ONLY ONE A READER CAN
-           ACT ON. `no_unit` used to fall through to `notEncodable` — "That
-           target could not be applied, so nothing changed." — which is true and
-           useless: it names one of three causes' shared shape and no move.
-           Collapsing any two of these is the estate's signature defect, an
-           affordance reporting an outcome it never observed; collapsing a
-           CAUSE is the same defect wearing a different coat. */
-        onCommitOutcome={(outcome) =>
-          showToast(
-            outcome === 'dispatched'
-              ? COPY.successTarget.dispatched
-              : outcome === 'local_only'
-                ? COPY.successTarget.changedLocally
-                : outcome === 'no_unit'
-                  ? COPY.successTarget.noUnit
-                  : outcome === 'not_a_number'
-                    ? COPY.successTarget.notANumber
-                    : COPY.successTarget.notEncodable,
-          )
-        }
-        /* ⭐⭐ THE SETTLEMENT, AND WITHOUT IT A REFUSAL HERE WAS SILENT. With the
-           typed `goal_target_edit` carrier armed (`GOAL_TARGET_EDIT_ENABLED`), a
-           refused send is a SYSTEM EVENT, and a refused system event renders NO
-           transcript bubble — so unlike the `add_constraint` turn it replaced,
-           no reply ever arrived to say the target was not recorded. The one
-           shared derivation (`goalTargetSettlementNotice`) names what happened;
-           `sent` is `null` because CEE's own receipt reply does render. */
-        onSendSettled={(settlement, detail) => {
-          const notice = goalTargetSettlementNotice(settlement, detail)
-          if (notice !== null) showToast(notice, settlement === 'refused' ? 'error' : 'warning')
-        }}
-        testId={`${testId}-target`}
-      />
     </section>
   )
 }
