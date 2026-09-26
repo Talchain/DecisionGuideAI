@@ -152,8 +152,14 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
     'The only difference between this analysis and the previous one is a change to the model.',
   C0_identical:
     'Nothing about the model, or the way it was worked out, differed between this analysis and the previous one.',
+  // ⛔ THE SEED AND NOTHING ELSE. CEE returns C2 on `!seed_equal` before it
+  // reads the build or the sample count (`build-run-delta.ts:374`), and a
+  // factor-value edit moves the seed, so this is the sentence an ordinary
+  // edit → Re-run reads. It said "not worked out on a comparable basis" — a
+  // claim about the method, served on a pair with the same build and the same
+  // sample count (26 Sep, churn 7% → 12%).
   C2_unpaired:
-    'This analysis and the previous one were not worked out on a comparable basis.',
+    'This analysis and the previous one drew different random samples.',
   C3_engine_drift:
     'The way this analysis was worked out changed between the two.',
   C4_budget_drift:

@@ -136,7 +136,7 @@ describe('⛔ each comparability sentence belongs to ITS case', () => {
   const MARKER: Record<(typeof ALL_CASES)[number], RegExp> = {
     C0_identical: /nothing about the model/i,
     C1_attributable: /only difference .* is a change to the model/i,
-    C2_unpaired: /not worked out on a comparable basis/i,
+    C2_unpaired: /drew different random samples/i,
     C3_engine_drift: /the way this analysis was worked out changed/i,
     C4_budget_drift: /different levels of precision/i,
   }
@@ -154,6 +154,32 @@ describe('⛔ each comparability sentence belongs to ITS case', () => {
       return t
     })
     expect(new Set(seen).size).toBe(ALL_CASES.length)
+  })
+})
+
+describe('⛔ C2 says only what an unequal seed entitles', () => {
+  /**
+   * CEE returns `C2_unpaired` on `!seed_equal` BEFORE it reads anything else
+   * (`build-run-delta.ts:374`), and a factor-value edit moves the seed, so this
+   * is the case the ordinary edit → Re-run lands in. Served on UI c976c029 +
+   * CEE 44ec820 (26 Sep 22:39Z, churn 7% → 12%): `{seed≠, hash≠, builds equal,
+   * n equal}`. The old sentence said the two were "not worked out on a
+   * comparable basis" — a claim about the METHOD, which on that pair was the
+   * same build at the same sample count. The case measures the seed and nothing
+   * else, so the sentence may speak of the samples and nothing else.
+   */
+  const SERVED_PAIR = { seed_equal: false, hash_equal: false, builds_equal: 'equal', n_equal: true } as const
+
+  it('names the different samples', () => {
+    render(<WhatsChanged view={view({ attribution_case: 'C2_unpaired', pair_provenance: SERVED_PAIR })} />)
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-comparability`).textContent)
+      .toMatch(/drew different random samples/i)
+  })
+
+  it('and does not call the method into question', () => {
+    render(<WhatsChanged view={view({ attribution_case: 'C2_unpaired', pair_provenance: SERVED_PAIR })} />)
+    expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-comparability`).textContent)
+      .not.toMatch(/comparable|worked out|precision|way this analysis/i)
   })
 })
 
