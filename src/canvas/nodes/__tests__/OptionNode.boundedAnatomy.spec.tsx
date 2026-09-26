@@ -222,11 +222,14 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(onCard('option-primary-change-option-1')).toBeNull()
     })
 
-    // ⭐ CONTRACT v3.1 #9 (26 Sep, WS4): the label is the factor's FULL name and
-    // is never cut — it WRAPS in its own share of the row (was a CSS-truncating
-    // cell, measured clipping 9/9 labels on pricing at 100%). The amount holds
-    // one line (`.delta-rows .amount{white-space:nowrap}`).
-    it('the label comes FIRST, is the FULL name and is never cut (it wraps); the value and its trailing mark are never cut', () => {
+    // ⭐ CONTRACT v3.1 #9 (26 Sep, WS4): the label is the factor's FULL name — it
+    // used to WRAP in its own share of the row (was a CSS-truncating cell,
+    // measured clipping 9/9 labels on pricing at 100%). The amount holds one
+    // line (`.delta-rows .amount{white-space:nowrap}`).
+    // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung
+    // (`line-clamp-1`, a vertical clamp at a word break); its DOM text is still
+    // the whole name, and it is still never a horizontal cut (`truncate`).
+    it('the label comes FIRST, is the FULL name on ONE clamped line, never a horizontal cut; the value and its trailing mark are never cut', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       const dt = dd.previousElementSibling as HTMLElement
@@ -241,6 +244,7 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(lt.has('truncate')).toBe(false)
       expect(lt.has('break-words')).toBe(true)
       expect(lt.has('min-w-0')).toBe(true)
+      expect(lt.has('line-clamp-1')).toBe(true)
       expect(dt.getAttribute('data-truncates')).toBeNull()
       // ⛔ The value and the mark are NEVER inside a truncating element.
       for (const protectedEl of [dt, dd, mark]) {
@@ -254,13 +258,14 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       }
     })
 
-    it('the whole sentence is recoverable on the row (its title); the label is whole on the card, so it needs no title', () => {
+    it('the whole sentence is recoverable on the row (its title); the label\'s whole name is its DOM text, with no native title of its own', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       expect(dd.getAttribute('title')).toBe(
         'Pro plan monthly price: £49 → £79. From Status quo (the baseline option). Target: set by you.',
       )
-      // v3.1 #9: never cut, so nothing to recover (and no second native tooltip, #36).
+      // v3.1 #9 + audit #9: the name is whole in the DOM (clamped to one line
+      // by CSS, never cut in JS); no second native tooltip (#36, #2126).
       const dt = dd.previousElementSibling as HTMLElement
       expect(dt.textContent).toBe('Pro plan monthly price')
       expect(dt.getAttribute('title')).toBeNull()

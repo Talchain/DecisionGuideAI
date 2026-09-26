@@ -341,13 +341,22 @@ describe('contract v3.1 — option card polish', () => {
       expect(tokens(dt).has('flex-[1_1_8em]')).toBe(true)
       // Held whole while it fits one line of the row budget at the largest
       // counter-scale; "0 engineers → 3 engineers" (21) does not, so it may break
-      // BEFORE THE ARROW only — each half one unbroken run — and never runs past
-      // the card's edge (served cd6a82e4, "49 GBP per month → 59 GBP per month"
-      // overflowed as one no-wrap run).
+      // BEFORE THE ARROW — and never runs past the card's edge (served cd6a82e4,
+      // "49 GBP per month → 59 GBP per month" overflowed as one no-wrap run).
+      // RE-PINNED (design audit #9, 26 Sep): the source mark is now GLUED to the
+      // value's last run (one U+00A0), so that run is held whole only while it
+      // fits WITH the mark. "→ 3 engineers · <mark>" (≥20) does not, so it may
+      // wrap at its own spaces rather than push the mark past the card's edge;
+      // the "from" half is still one unbroken run. Was: both halves no-wrap, the
+      // mark free to drop to a line of its own.
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
       const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
-      expect(halves).toEqual(['0 engineers', '→ 3 engineers'])
+      expect(halves).toEqual(['0 engineers'])
+      expect(value.textContent).toBe('0 engineers → 3 engineers')
+      const mark = inRows('option-change-row-mark-option-1-f-head')!
+      expect(mark.previousSibling?.textContent).toBe('\u00A0')
+      expect(mark.previousSibling?.previousSibling).toBe(value)
     })
 
     it('label and amount are both the 11px label size at tight leading', () => {
@@ -361,7 +370,8 @@ describe('contract v3.1 — option card polish', () => {
       }
       expect(dd.className).not.toContain(typography.nodeLabel)
       // v3.1 #9: the amount never exceeds the card (`max-w-full`); the LABEL is
-      // the part that wraps (`min-w-0` + `break-words`).
+      // the part that yields (`min-w-0` + `break-words`), held to ONE line by
+      // `line-clamp-1` since design audit #9 (26 Sep).
       expect(tokens(dd).has('max-w-full')).toBe(true)
       expect(tokens(dt).has('min-w-0')).toBe(true)
       expect(tokens(dt).has('break-words')).toBe(true)
