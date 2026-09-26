@@ -4267,7 +4267,14 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             {(() => {
               const bar = surfaceFor(effectiveActiveTab).footerBar
               switch (bar) {
+                // ⭐ ONE PRE-RUN RUN CONTROL PER SURFACE (26 Sep 2026, register
+                // row #31). The Reasoning surface's body already offers "Run
+                // the analysis" before the first run; hosting the never-run
+                // "Analyse" bar under it drew a second Run button on the same
+                // screen. After the first run this arm IS the 'reanalyse' arm.
+                case 'reanalyseAfterFirstRun':
                 case 'reanalyse':
+                  if (bar === 'reanalyseAfterFirstRun' && isPreRun) return null
                   return (
                     <ReanalyseBar
                       onReanalyse={handleRunAnalysis}
