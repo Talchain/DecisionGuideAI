@@ -1,17 +1,62 @@
-import { useCallback, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { BookmarkCheck, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useShowToastSafe } from '../ToastContext'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { useAnalysisHoldReason } from '../hooks/useAnalysisHold'
 import { isUserEditHold } from '../utils/analysisHeldOnInjectedModel'
-import { typography } from '../../styles/typography'
-import { useOverlayCell } from './CanvasOverlayBand'
+import { useDockInset } from './CanvasOverlayBand'
+import styles from './StarterProvenanceBanner.module.css'
+
+/**
+ * contract v3.1 `.context-banner{right:17px;top:13px}` — measured from the
+ * canvas area, whose top is the app bar's bottom and whose right edge is the
+ * dock's left edge.
+ *
+ * ⚠ THE TOP IS NOT 13px, AND THAT IS MEASURED RATHER THAN TASTE. This product's
+ * canvas runs UNDER the bar and its fit leaves a 16px band between the bar's
+ * bottom (51) and the fitted board (`computeFitPadding`'s GAP), so every
+ * starter's Question card lands with its top edge at y=67. At 13px the line
+ * (y 64–80) sat across that card's top edge; at 2px with a 13px line box it
+ * spans y 53–66 and stays inside the band at landing on all five starters at
+ * both acceptance sizes. (The banner this replaces was once `fixed; top: 72px`
+ * and covered the decision node's title for the same reason — the fitted top
+ * row begins exactly at the fit inset.)
+ */
+export const CONTEXT_LINE_RIGHT_PX = 17
+export const CONTEXT_LINE_TOP_PX = 2
+
+/**
+ * The line's words: v3.1's "Olumi-drafted starting model · Olumi values marked
+ * est.", restated with the fact this disclosure exists for — it is a SAVED
+ * example, drafted by Olumi (not a model drafted from the user's click just
+ * now). The draft DATE and "It wasn't generated just now" are in the detail,
+ * one click away, verbatim. "Olumi values marked est." is true by construction:
+ * every value the card surfaces classify as Olumi's carries the `est.` mark
+ * (`valueSourceMark`, both views).
+ */
+export const CONTEXT_LINE_TEXT = 'Saved example drafted by Olumi · Olumi values marked est.'
 
 /**
  * StarterProvenanceBanner — the "this is a saved example" disclosure.
+ *
+ * ⭐ CONTRACT v3.1 SHAPE (DESIGN-GAP #3, 26 Sep 2026): A QUIET LINE, NOT A
+ * BANNER. v3.1 draws this as one 10px context note at the canvas's top-right —
+ * "Olumi-drafted starting model · Olumi values marked est." The served build
+ * drew a 644x76 bottom-centre banner with a filled primary "Re-draft this live"
+ * pill, and it overlapped 3–6 outcome/risk cards on EVERY starter at 1280x800
+ * (measured at base `6256a41f`, up to 38,304px² per board), because the landing
+ * fit does not fit and the board runs under the bottom band. So:
+ *   · at rest, one line: "Saved example drafted by Olumi · Olumi values
+ *     marked est." — the contract's words, restated with the fact the banner
+ *     existed to state (a SAVED example, drafted by Olumi). It is the
+ *     contract's size: 10px, about 290px wide;
+ *   · one click on the line opens the detail — the banner's full sentences,
+ *     byte-identical (WHEN Olumi drafted it; "It wasn't generated just now"),
+ *     the analysis consequence, "Re-draft this live" and the dismiss. Nothing
+ *     the banner said or did is gone; it is one click away.
+ * It no longer claims a cell of the canvas overlay band.
  *
  * NON-NEGOTIABLE HONESTY REQUIREMENT (P1-2). A starter graph is a saved
  * example, not a live computation. Without this banner the canvas is
@@ -42,6 +87,8 @@ import { useOverlayCell } from './CanvasOverlayBand'
  */
 export function StarterProvenanceBanner() {
   const [dismissed, setDismissed] = useState(false)
+  // The detail (the banner's full sentences and its actions) — closed at rest.
+  const [detailOpen, setDetailOpen] = useState(false)
   // `draft`/`setDraft` are the SHARED composer buffer — `AIInputBar` reads it
   // from this same context precisely so the text survives a surface switch
   // (`AIInputBar.tsx:110`, `:140`), and `FirstUseComposer` reads it too
@@ -192,81 +239,91 @@ export function StarterProvenanceBanner() {
 
   const starter = starterId ? getStarter(starterId) : null
   const wants = Boolean(starter) && !dismissed
-  // ⚠ THIS BANNER COVERED THE DECISION NODE'S TITLE BY CONSTRUCTION, and no
-  // amount of reserving space at the top could have fixed it: it was
-  // `fixed; top: 72px`, and the product fit's top inset is 73px
-  // (`topBarFitInset.spec.ts`), so the fitted model's top row began at exactly
-  // this banner's top edge. The only fix is to stop being there.
-  const { granted, target } = useOverlayCell('bottom-centre', 'starter-provenance-banner', wants)
+  const dockInset = useDockInset()
+  const detailId = useId()
+  const rootRef = useRef<HTMLDivElement | null>(null)
 
-  if (!wants || !starter || !granted) return null
+  // The detail closes the way every canvas disclosure does: Escape, or a press
+  // outside it. Registered only while open.
+  useEffect(() => {
+    if (!detailOpen) return
+    const onPointer = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setDetailOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailOpen(false)
+    }
+    document.addEventListener('mousedown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [detailOpen])
 
-  // ⭐ REFLOWED TO ONE BAND-HEIGHT ROW — icon, two lines, inline action,
-  // dismiss. The copy is BYTE-IDENTICAL to the stacked version it replaces and
-  // is pinned that way by `StarterProvenanceBanner.spec.tsx`: this is a change
-  // of shape, never of what the product says about a saved example.
-  const body = (
+  if (!wants || !starter) return null
+
+  return (
     <div
+      ref={rootRef}
       data-testid="starter-provenance-banner"
       role="status"
-      // ⚠ `py-1`, NOT `py-2`, AND THE 8px IS MEASURED RATHER THAN TASTE. At
-      // `py-2` this banner renders 71px against a 64px band, and the cells are
-      // `align-items: flex-end`, so the surplus grows UPWARD out of the reserved
-      // strip and back over the canvas — reintroducing the very defect the band
-      // exists to remove, at a new address. Measured 71px in 10/10 readings of
-      // `overlayNodeOverlap.measure.ts` once the harness was fixed to mount this
-      // component at all.
-      //
-      // Shrinking the OCCUPANT rather than growing the BAND is deliberate: the
-      // band's height is charged to every user as bottom fit inset (+63px
-      // today), and it is charged whether or not this banner is on screen,
-      // whereas this padding is paid only by the banner.
-      //
-      // contract v3.1 CHR-6 / CHR-14: the cell's one floating-chrome recipe
-      // gains the full neutral border every other occupant carries, and the
-      // headline drops from `bodySmall` (14px) to the notice family's one body
-      // size — `caption` with a `font-medium` head, the `AnalysisStateCue`
-      // pattern. The type shrink more than pays for the 2px of border, so the
-      // banner is never taller than the 63px measured above; `py-1` holds.
-      className="pointer-events-auto flex items-center gap-3 rounded-lg border border-panel-border bg-panel px-4 py-1 shadow-2"
-      style={{ maxWidth: 'min(720px, 100%)' }}
+      className={styles.root}
+      style={{
+        top: `calc(var(--topbar-h, 0px) + ${CONTEXT_LINE_TOP_PX}px)`,
+        right: dockInset + CONTEXT_LINE_RIGHT_PX,
+      }}
     >
-      <BookmarkCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-info" />
-      <div className="min-w-0 flex-1">
-        <p className={`${typography.caption} font-medium leading-snug text-text-header`}>
-          Saved example — Olumi drafted this model on {starter.provenance.capturedAt}. It wasn’t generated just now.
-        </p>
-        {/* Says ONLY what the gate actually does. An earlier draft of this copy
-            read "…drafted or saved into your own decision", which was a promise
-            the product does not keep: the starter stamp rides a save, so
-            saving does NOT re-enable analysis. Re-drafting is the one route
-            that does, because the resulting graph comes from a CEE turn. */}
-        <p className={`${typography.caption} leading-snug text-text-light`}>
-          Edit anything on the canvas.{heldNotice === null ? '' : ` ${heldNotice}`}
-        </p>
-      </div>
-      {offerRedraft && (
-        <button
-          type="button"
-          data-testid="starter-redraft"
-          onClick={handleRedraft}
-          className={`${typography.label} shrink-0 whitespace-nowrap rounded-pill bg-primary px-3 py-1.5 text-text-on-color transition-colors duration-fast hover:bg-primary-hover`}
-        >
-          Re-draft this live
-        </button>
-      )}
       <button
         type="button"
-        aria-label="Dismiss saved-example notice"
-        data-testid="starter-provenance-dismiss"
-        onClick={() => setDismissed(true)}
-        // contract v3.1 CHR-9: every notice's dismiss carries a visible focus ring.
-        className="shrink-0 rounded-md p-1 text-text-light transition-colors duration-fast hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        data-testid="starter-provenance-line"
+        className={styles.line}
+        aria-expanded={detailOpen}
+        aria-controls={detailOpen ? detailId : undefined}
+        onClick={() => setDetailOpen((o) => !o)}
       >
-        <X aria-hidden="true" className="h-4 w-4" />
+        <Sparkles aria-hidden="true" className={styles.icon} strokeWidth={1.8} />
+        <span>{CONTEXT_LINE_TEXT}</span>
       </button>
+
+      {detailOpen && (
+        <div id={detailId} data-testid="starter-provenance-detail" className={styles.detail}>
+          {/* The banner's copy, BYTE-IDENTICAL — pinned by
+              `StarterProvenanceBanner.spec.tsx`. Only its place changed. */}
+          <p className={styles.detailHead}>
+            Saved example — Olumi drafted this model on {starter.provenance.capturedAt}. It wasn’t generated just now.
+          </p>
+          {/* Says ONLY what the gate actually does. An earlier draft of this copy
+              read "…drafted or saved into your own decision", which was a promise
+              the product does not keep: the starter stamp rides a save, so
+              saving does NOT re-enable analysis. Re-drafting is the one route
+              that does, because the resulting graph comes from a CEE turn. */}
+          <p className={styles.detailBody}>
+            Edit anything on the canvas.{heldNotice === null ? '' : ` ${heldNotice}`}
+          </p>
+          <div className={styles.actions}>
+            {offerRedraft && (
+              <button
+                type="button"
+                data-testid="starter-redraft"
+                onClick={handleRedraft}
+                className={styles.button}
+              >
+                Re-draft this live
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Dismiss saved-example notice"
+              data-testid="starter-provenance-dismiss"
+              onClick={() => setDismissed(true)}
+              className={styles.textButton}
+            >
+              Hide this note
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
-
-  return target ? createPortal(body, target) : body
 }

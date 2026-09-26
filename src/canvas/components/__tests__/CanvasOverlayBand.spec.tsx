@@ -103,10 +103,16 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
    * fact**, which also lifts `model-extent-notice` above the starter banner —
    * the same rule applied consistently rather than to one pair.
    */
+  /**
+   * ⭐ `starter-provenance-banner` LEFT THIS CELL (contract v3.1 DESIGN-GAP #3,
+   * 26 Sep 2026): the saved-example disclosure is now v3.1's quiet top-right
+   * context line, not a bottom-centre banner — at base `6256a41f` the banner
+   * overlapped 3–6 cards on every starter at 1280x800. The remaining order is
+   * unchanged.
+   */
   const EXPECTED_BOTTOM_CENTRE = [
     'model-extent-notice',
     'canvas-lod-notice',
-    'starter-provenance-banner',
     'first-model-notice',
     'assistant-focus-chip',
     'focus-mode-chip',
@@ -375,12 +381,15 @@ describe('a live view transformation is explained before a standing fact is rest
   const cell = OVERLAY_PRIORITY['bottom-centre']
   const at = (id: string) => cell.indexOf(id)
 
-  it('⭐ the level-of-detail notice outranks the starter provenance banner', () => {
-    // Precondition pinned in-test: both are registered for THIS cell, so the
-    // comparison is about order and not about one of them having moved away.
+  /**
+   * ⭐ THE WITNESSED SUPPRESSION IS NOW IMPOSSIBLE BY CONSTRUCTION, not merely
+   * out-ranked: the starter disclosure no longer claims this cell at all
+   * (contract v3.1 DESIGN-GAP #3 — it is the quiet top-right context line), so
+   * nothing about a saved example can hold the explanation off the canvas.
+   */
+  it('⭐ the starter provenance disclosure no longer competes for this cell at all', () => {
     expect(at('canvas-lod-notice'), 'lod notice left bottom-centre').toBeGreaterThanOrEqual(0)
-    expect(at('starter-provenance-banner'), 'starter banner left bottom-centre').toBeGreaterThanOrEqual(0)
-    expect(at('canvas-lod-notice')).toBeLessThan(at('starter-provenance-banner'))
+    expect(at('starter-provenance-banner'), 'the starter disclosure is back in the band').toBe(-1)
   })
 
   /**
@@ -391,7 +400,7 @@ describe('a live view transformation is explained before a standing fact is rest
    * states. The test caught my own misclassification before the reorder shipped.
    */
   it('⭐ and outranks the other STANDING-FACT notices in the cell', () => {
-    for (const standing of ['starter-provenance-banner', 'first-model-notice'] as const) {
+    for (const standing of ['first-model-notice'] as const) {
       expect(at(standing), `${standing} left bottom-centre`).toBeGreaterThanOrEqual(0)
       expect(at('canvas-lod-notice'), `${standing} now outranks the explanation`).toBeLessThan(at(standing))
     }
@@ -407,8 +416,8 @@ describe('a live view transformation is explained before a standing fact is rest
    * deleting everything else would pass the rows above — and the cell is
    * supposed to arbitrate, not be emptied.
    */
-  it('⛔ CONTRAST: the cell still arbitrates between all six occupants', () => {
-    expect(cell).toHaveLength(6)
-    expect(new Set(cell).size, 'a duplicate id would make the order ambiguous').toBe(6)
+  it('⛔ CONTRAST: the cell still arbitrates between all five occupants', () => {
+    expect(cell).toHaveLength(5)
+    expect(new Set(cell).size, 'a duplicate id would make the order ambiguous').toBe(5)
   })
 })

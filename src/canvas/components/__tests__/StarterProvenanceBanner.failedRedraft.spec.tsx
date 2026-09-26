@@ -98,6 +98,8 @@ describe('a failed starter re-draft restores the example (ROADMAP 2.102)', () =>
     const user = userEvent.setup()
     render(<StarterProvenanceBanner />)
 
+    // v3.1 (DESIGN-GAP #3): the re-draft lives in the context line's detail, one click away.
+    await user.click(screen.getByTestId('starter-provenance-line'))
     await user.click(screen.getByTestId('starter-redraft'))
 
     await waitFor(() => expect(sendMessageMock).toHaveBeenCalledTimes(1))
@@ -111,6 +113,8 @@ describe('a failed starter re-draft restores the example (ROADMAP 2.102)', () =>
     const user = userEvent.setup()
     render(<StarterProvenanceBanner />)
 
+    // v3.1 (DESIGN-GAP #3): the re-draft lives in the context line's detail, one click away.
+    await user.click(screen.getByTestId('starter-provenance-line'))
     await user.click(screen.getByTestId('starter-redraft'))
 
     await waitFor(() => expect(useCanvasStore.getState().nodes).toHaveLength(3))
@@ -126,6 +130,8 @@ describe('a failed starter re-draft restores the example (ROADMAP 2.102)', () =>
     const user = userEvent.setup()
     render(<StarterProvenanceBanner />)
 
+    // v3.1 (DESIGN-GAP #3): the re-draft lives in the context line's detail, one click away.
+    await user.click(screen.getByTestId('starter-provenance-line'))
     await user.click(screen.getByTestId('starter-redraft'))
 
     await waitFor(() => expect(showToast).toHaveBeenCalledTimes(1))
@@ -147,6 +153,8 @@ describe('a failed starter re-draft restores the example (ROADMAP 2.102)', () =>
     const user = userEvent.setup()
     render(<StarterProvenanceBanner />)
 
+    // v3.1 (DESIGN-GAP #3): the re-draft lives in the context line's detail, one click away.
+    await user.click(screen.getByTestId('starter-provenance-line'))
     await user.click(screen.getByTestId('starter-redraft'))
 
     await waitFor(() => expect(sendMessageMock).toHaveBeenCalledTimes(1))
@@ -170,6 +178,8 @@ describe('a failed starter re-draft restores the example (ROADMAP 2.102)', () =>
     const user = userEvent.setup()
     render(<StarterProvenanceBanner />)
 
+    // v3.1 (DESIGN-GAP #3): the re-draft lives in the context line's detail, one click away.
+    await user.click(screen.getByTestId('starter-provenance-line'))
     await user.click(screen.getByTestId('starter-redraft'))
 
     await waitFor(() => expect(sendMessageMock).toHaveBeenCalledTimes(1))

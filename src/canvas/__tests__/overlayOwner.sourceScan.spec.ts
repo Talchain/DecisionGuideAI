@@ -40,7 +40,9 @@ const MIGRATED = [
   'FirstModelNotice.tsx',
   'AssistantFocusChip.tsx',
   'FocusModeChip.tsx',
-  'StarterProvenanceBanner.tsx',
+  // `StarterProvenanceBanner.tsx` LEFT THE BAND (contract v3.1 DESIGN-GAP #3,
+  // 26 Sep 2026) — it is the quiet top-right context line now, and makes no
+  // `useOverlayCell` call. Pinned below as a departure, not merely dropped.
   'LensInfoPanel.tsx',
   // Paul 23 Sep contract feedback point 14 — the bottom-right cell's claimant.
   'AnalysisStateCue.tsx',
@@ -197,6 +199,22 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
     expect(ENABLES_POINTER_EVENTS.test('<div className="pointer-events-auto flex" />')).toBe(true)
     expect(ENABLES_POINTER_EVENTS.test("<div style={{ pointerEvents: 'auto' }} />")).toBe(true)
     expect(ENABLES_POINTER_EVENTS.test('<div style={{ pointerEvents: "auto" }} />')).toBe(true)
+  })
+
+  it('v3.1 DESIGN-GAP #3: the starter disclosure left the band — no cell claim, no bottom position, no band z', () => {
+    // The departure is pinned rather than merely unlisted, so the banner cannot
+    // drift back into a bottom cell (where it overlapped 3–6 cards on every
+    // starter) without this going red. Positive control: the file is real code.
+    const code = stripComments(readComponent('StarterProvenanceBanner.tsx'))
+    expect(code.length).toBeGreaterThan(200)
+    expect(code).toContain('starter-provenance-line')
+    expect(code).not.toContain('useOverlayCell')
+    for (const { pattern, was } of BANNED_POSITIONS) {
+      expect(pattern.test(code), `StarterProvenanceBanner.tsx regrew ${pattern} (was: ${was})`).toBe(false)
+    }
+    // Anchored top-right by its declared constants, not a hand-written class.
+    expect(code).toMatch(/top:\s*`calc\(var\(--topbar-h, 0px\) \+ \$\{CONTEXT_LINE_TOP_PX\}px\)`/)
+    expect(code).toMatch(/right:\s*dockInset \+ CONTEXT_LINE_RIGHT_PX/)
   })
 
   it('every id in OVERLAY_PRIORITY has a claimant in the code — no dead rules', () => {
