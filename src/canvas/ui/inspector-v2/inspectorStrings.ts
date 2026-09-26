@@ -886,7 +886,17 @@ export const OPTION_STRINGS = {
    * the same sentence. Derived per node from whether this option appears in the
    * run's own comparison, not from global results mode.
    */
-  impactNotInLastRun: 'This option was added after the last analysis, so it has no results yet. Re-run the analysis to include it.',
+  /**
+   * ⚠ STATES THE FACT, NEVER THE REMEDY (26 Sep 2026, Delivery Lead #70
+   * 5843433782, browser run bf-20260926T050741Z). This line used to end "Re-run
+   * the analysis to include it." — shown whatever the Run gate said, so on a
+   * model "+ Add option" had just left BLOCKED (`may_run: false`, the option
+   * changes no factor) it invited a Run the product would refuse. Whether a run
+   * is possible is the readiness verdict's to say, and the Run control and the
+   * panel's own "doesn't change any factors yet" line already say it; this
+   * panel decides nothing about the gate.
+   */
+  impactNotInLastRun: 'This option was added after the last analysis, so it has no results yet.',
   /**
    * L-40 — the honest replacement for the contradiction. The option HAS factor
    * links (the Connections list below is rendering them from the same edges);
