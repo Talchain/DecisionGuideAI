@@ -24,6 +24,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import served from './fixtures/served-blocked-read-after-canvas-add.6dd42eb.json'
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
+import { applyBootBlockedVerdict, BOOT_BLOCKED_VERDICT_DECLINE_REASONS, type BootBlockedVerdictDeclineReason } from '../applyBootRunCurrency'
+import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { applyDraftResult } from '../../utils/applyDraftResult'
 import { selectAnalysisReadinessAuthority } from '../../state/analysisStateSelector'
 import { canRunAnalysis } from '../../utils/canRunAnalysis'
@@ -128,3 +130,88 @@ describe('⭐ a reload of a BLOCKED model keeps CEE\'s named reason (served read
     expect(useCanvasStore.getState().analysisStateV1?.readiness.status ?? null).not.toBe('blocked')
   })
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Review 5843445372 (Canvas): each fail-closed guard is pinned BY NAME, on the
+// path where it is the only guard that can decline.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const SERVED_VERDICT = BODY.analysis_state as unknown as AnalysisStateV1
+const NOT_BLOCKED: AnalysisStateV1 = {
+  ...SERVED_VERDICT,
+  readiness: { ...(SERVED_VERDICT.readiness as object), status: 'ready', blockers: [] },
+} as AnalysisStateV1
+
+describe('applyBootBlockedVerdict — each decline reason is reachable, and names itself', () => {
+  function run(over: Partial<Parameters<typeof applyBootBlockedVerdict>[0]> = {}, dirty = false) {
+    const writes: unknown[] = []
+    const outcome = applyBootBlockedVerdict({
+      analysisState: SERVED_VERDICT,
+      graphHash: 'a4f11d0997be23ee',
+      canvasProvenEqualToRead: true,
+      isRestorableKind: (kind) => kind === 'complete_stale',
+      store: { analysisFreshnessDirty: dirty, setAnalysisStateV1: (v) => writes.push(v) },
+      ...over,
+    })
+    return { outcome, writes }
+  }
+
+  const cases: Array<[BootBlockedVerdictDeclineReason, () => ReturnType<typeof run>]> = [
+    ['no_verdict', () => run({ analysisState: null })],
+    ['not_restorable', () => run({ isRestorableKind: () => false })],
+    ['does_not_close_gate', () => run({ analysisState: NOT_BLOCKED })],
+    ['no_graph_hash', () => run({ graphHash: null })],
+    ['canvas_not_proven_equal', () => run({ canvasProvenEqualToRead: false })],
+    ['edited_since_read', () => run({}, true)],
+  ]
+
+  it.each(cases)('%s: declined, and the verdict is never written', (reason, arrange) => {
+    const { outcome, writes } = arrange()
+    expect(outcome).toEqual({ outcome: 'declined', reason })
+    expect(writes).toEqual([])
+  })
+
+  it('the cases cover every declared reason', () => {
+    expect(cases.map(([r]) => r).sort()).toEqual([...BOOT_BLOCKED_VERDICT_DECLINE_REASONS].sort())
+  })
+
+  it('the positive: the served blocked verdict is restored, written once', () => {
+    const { outcome, writes } = run()
+    expect(outcome).toEqual({ outcome: 'restored' })
+    expect(writes).toEqual([SERVED_VERDICT])
+  })
+})
+
+describe('the proof is the ONLY guard on the unchanged exit (review B1)', () => {
+  it('⭐ same identity token (no merge, not dirty), the read carries a value the canvas lacks: not restored, and the proof names itself', async () => {
+    useCanvasStore.setState({
+      serverGraphIdentity: { value: (served as { body: { graph_identity_hash: { value: string } } }).body.graph_identity_hash.value, projectionVersion: 'identity.v1' },
+    } as never)
+    const factor = (body.graph.nodes as Array<Record<string, unknown>>).find((n) => n.kind === 'factor' && n.observed_state && typeof n.observed_state === 'object')!
+    factor.observed_state = { ...(factor.observed_state as object), value: 987654 }
+    const debugSpy = vi.spyOn(logger, 'debug')
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+    const logged = debugSpy.mock.calls.find(([event]) => event === 'server_graph_hydration.boot_blocked_verdict')
+    expect(logged?.[1]).toMatchObject({ exit: 'unchanged', outcome: 'declined', detail: 'canvas_not_proven_equal' })
+    debugSpy.mockRestore()
+  })
+})
+
+describe('a stale verdict that does NOT close the gate is written once, by its own leg (review B2)', () => {
+  it('stale + ready: exactly one write of that verdict', async () => {
+    ;(body.analysis_state as unknown as { readiness: unknown }).readiness = NOT_BLOCKED.readiness
+    const original = useCanvasStore.getState().setAnalysisStateV1
+    const writes: unknown[] = []
+    useCanvasStore.setState({ setAnalysisStateV1: (v: AnalysisStateV1 | null) => { writes.push(v); original(v) } } as never)
+    try {
+      await hydrateCanvasFromServer(SCENARIO_ID)
+    } finally {
+      useCanvasStore.setState({ setAnalysisStateV1: original } as never)
+    }
+    const ofThisRead = writes.filter((w) => w !== null && (w as AnalysisStateV1).run_state?.kind === 'complete_stale')
+    expect(ofThisRead).toHaveLength(1)
+  })
+})
+

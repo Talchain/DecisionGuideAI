@@ -159,12 +159,19 @@ export function applyBootRunCurrency(input: {
  * leg's, so the three legs never write the same slice for one read.
  * FAIL-CLOSED: a decline writes nothing and says which rule declined.
  */
+export const BOOT_BLOCKED_VERDICT_DECLINE_REASONS = [
+  'no_verdict',
+  'not_restorable',
+  'does_not_close_gate',
+  'no_graph_hash',
+  'canvas_not_proven_equal',
+  'edited_since_read',
+] as const
+export type BootBlockedVerdictDeclineReason = (typeof BOOT_BLOCKED_VERDICT_DECLINE_REASONS)[number]
+
 export type BootBlockedVerdictOutcome =
   | { readonly outcome: 'restored' }
-  | {
-      readonly outcome: 'declined'
-      readonly reason: 'no_verdict' | 'not_restorable' | 'does_not_close_gate' | 'no_graph_hash' | 'canvas_not_proven_equal' | 'edited_since_read'
-    }
+  | { readonly outcome: 'declined'; readonly reason: BootBlockedVerdictDeclineReason }
 
 export function applyBootBlockedVerdict(input: {
   readonly analysisState: AnalysisStateV1 | null
