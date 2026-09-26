@@ -1179,7 +1179,7 @@
 .blockBadgeDotInfo { composes: blockBadgeDot; background: var(--info, #277A9D); }
 .blockBadgeDotGoal { composes: blockBadgeDot; background: var(--goal, #F5C433); }
 .blockBadgeDotSuccess { composes: blockBadgeDot; background: var(--success, #67C89E); }
-.blockBadgeDotOption { composes: blockBadgeDot; background: var(--option, #9C98E8); }
+.blockBadgeDotOption { composes: blockBadgeDot; background: var(--option, #AAA7E4); }
 
 .blockWithBadge {
   position: relative;
