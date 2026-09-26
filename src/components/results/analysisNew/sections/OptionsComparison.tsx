@@ -160,6 +160,7 @@
  */
 
 import { Fragment, useCallback, useId, useState } from 'react'
+import { outcomeValuesAreModelScale } from '../../outcomeValuesAreModelScale'
 import { ChevronRight, Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
 import { NodeMark } from '../nodeMarks'
 import { typography } from '../../../../styles/typography'
@@ -276,13 +277,15 @@ function tickTransform(fraction: number): string {
  * and no unit or word is put in their place. A domain outside it (the served
  * 25 Sep "190K … 890K") keeps its ticks unchanged.
  *
- * ⚠ A MAGNITUDE TEST, NAMED AS SUCH: `outcomeRange` carries no unit and no
- * scale flag, so this cannot tell a model-scale domain that strays past ±1 from
- * a real one. It removes only numbers that cannot be a reading on a real frame
- * the producer sent.
+ * ⚠ A MAGNITUDE TEST, NAMED AS SUCH, AND ONE AUTHORITY: the domain is model
+ * scale when `outcomeValuesAreModelScale` says so, the same predicate (and
+ * threshold) the results hook's denormalisation pre-scan uses, so a run the hook
+ * treats as model scale never keeps bare ticks here (R&C #2133 B1: a propagated
+ * p10 -1.3 … p90 0.4 domain).
  */
 function outcomeDomainIsModelScale(scale: { lo: number; hi: number }): boolean {
-  return Math.abs(scale.lo) <= 1 && Math.abs(scale.hi) <= 1
+  // The SAME predicate the results hook's denormalisation pre-scan reads (R&C #2133 B1): one run, one answer.
+  return outcomeValuesAreModelScale([scale.lo, scale.hi])
 }
 
 function formatAxisTick(value: number): string {

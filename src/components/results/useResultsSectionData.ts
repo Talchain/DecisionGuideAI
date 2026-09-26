@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo } from 'react'
+import { outcomeValuesAreModelScale } from './outcomeValuesAreModelScale'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
 import { licensesComparativeLeaderClaim, resolveEffectiveAdmission } from '../../canvas/hooks/useAnalysisReady'
@@ -2139,8 +2140,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ob.p10 ?? ob2.p10,
         ob.p90 ?? ob2.p90,
       ]
-      const maxAbs = Math.max(...vals.map((v) => (typeof v === 'number' && isFinite(v) ? Math.abs(v) : 0)))
-      if (maxAbs > 2) { anyAlreadyDenormalized = true; break }
+      // ONE authority with the Reasoning axis (R&C #2133 B1): `outcomeValuesAreModelScale`.
+      if (!outcomeValuesAreModelScale(vals)) { anyAlreadyDenormalized = true; break }
     }
     const isNormalisedResult = !capValid && !anyAlreadyDenormalized
     const unsortedOptions: OptionResult[] = optionNodes.map((node) => {

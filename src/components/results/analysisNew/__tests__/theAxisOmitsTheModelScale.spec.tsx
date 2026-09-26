@@ -75,6 +75,26 @@ describe('the served "-0.487 / -0.315 / -0.143 / 0.029" axis', () => {
     for (const tick of SERVED_TICKS) expect(text, `served tick ${tick}`).not.toContain(tick)
   })
 
+  it('R&C B1: a model-scale domain that strays past ±1 (p10 -1.3 … p90 0.4) prints no ticks either — ONE authority with the results hook', () => {
+    renderOpen(withOutcomes({
+      opt_a: { mean: -0.9, p10: -1.3, p50: -0.9, p90: -0.2 },
+      opt_b: { mean: 0.1, p10: -0.4, p50: 0.1, p90: 0.4 },
+    }))
+    expect(screen.getByTestId(`${T}-axis`)).toBeTruthy()
+    expect(screen.queryAllByTestId(/^analysis-new-options-axis-tick-\d$/).map((e) => e.textContent?.trim()).filter(Boolean)).toEqual([])
+    expect(document.body.textContent ?? '').not.toContain('-1.3')
+  })
+
+  it('CONTRAST (R&C B1): the served 25 Sep real domain 190K … 890K keeps its ticks', () => {
+    renderOpen(withOutcomes({
+      opt_a: { mean: 400000, p10: 190000, p50: 400000, p90: 600000 },
+      opt_b: { mean: 650000, p10: 420000, p50: 650000, p90: 890000 },
+    }))
+    const labels = screen.getAllByTestId(/^analysis-new-options-axis-tick-\d$/).map((e) => e.textContent)
+    expect(labels).toHaveLength(4)
+    expect(labels[0]).toBe('190K')
+  })
+
   it('CONTRAST — a domain on a real magnitude keeps its four ticks unchanged', () => {
     renderOpen(withOutcomes({
       opt_a: { mean: 40, p10: 10, p50: 40, p90: 70 },
