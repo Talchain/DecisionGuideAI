@@ -13,6 +13,8 @@ export const ASSUMPTIONS_DOOR_COPY = {
   kickerStale: 'Last run · driver order',
   /** Tooltip + accessible name of a driver row's ✦. */
   askDriver: 'Ask Olumi why this driver matters',
+  /** The editable draft that ✦ opens with: the user's question, not a claim. */
+  askDriverDraft: (label: string): string => `Why does ${label} matter so much in this model?`,
   /** Tooltip on a driver's name, which opens its review. The name itself is the accessible name. */
   reviewDriver: 'Review this in the model',
   /** Tooltip + accessible name of the gap's ✦. */
