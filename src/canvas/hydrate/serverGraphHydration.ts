@@ -23,8 +23,8 @@ import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
-import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding } from './applyScenarioAnalysisRead'
-import { applyBootRunCurrency } from './applyBootRunCurrency'
+import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, isBootRestorableRunState } from './applyScenarioAnalysisRead'
+import { applyBootRunCurrency, applyBootBlockedVerdict } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -396,6 +396,25 @@ async function readAndMergeServerGraph(
       logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored' })
       return
     }
+    // A blocked model keeps CEE's named reason across a reload, under the SAME
+    // proof (see `applyBootBlockedVerdict`). Runs only when currency declined, so
+    // the two legs never both write `analysisStateV1` for one read.
+    const blockedOutcome = applyBootBlockedVerdict({
+      analysisState: result.analysisState,
+      graphHash: result.graphHash,
+      canvasProvenEqualToRead: notProvenEqual === null,
+      isRestorableKind: isBootRestorableRunState,
+      store: {
+        analysisFreshnessDirty: useCanvasStore.getState().analysisFreshnessDirty,
+        setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1,
+      },
+    })
+    logger.debug('server_graph_hydration.boot_blocked_verdict', {
+      scenarioId,
+      exit,
+      outcome: blockedOutcome.outcome,
+      detail: blockedOutcome.outcome === 'declined' ? blockedOutcome.reason : null,
+    })
     // ⚠ WARN, NOT DEBUG: a declined restore is what the user sees as "Olumi
     // can't confirm this still matches your latest analysis" after a plain
     // reload, and PROD logs at `warn`. At debug the served decline was
