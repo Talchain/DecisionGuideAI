@@ -249,7 +249,14 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
 
   try {
     root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
-    root.style.setProperty(CANVAS_FAR_TITLE_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
+    // The LITERAL name, not `CANVAS_FAR_TITLE_SCALE_VAR`: this call is the only
+    // place the property is ever DEFINED (outside it the title falls back to
+    // `--canvas-label-scale` by design), and `scripts/css-var-census.mjs` reads
+    // runtime definitions from `setProperty('--literal', …)` only. With the
+    // constant, `css-var-resolution.spec` reported BaseNode's reference as
+    // resolving to nothing. `measureNodeHeightsAtLabelBound.farScaleLiteral` pins
+    // the literal to the constant.
+    root.style.setProperty('--canvas-far-title-scale', String(MAX_LABEL_COUNTER_SCALE))
     for (const el of farTitles) {
       const e = el as HTMLElement
       previousFarTitleStyles.push([e.style.display, e.style.getPropertyValue('-webkit-line-clamp'), e.style.overflow])

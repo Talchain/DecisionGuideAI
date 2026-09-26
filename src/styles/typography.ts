@@ -257,6 +257,13 @@ export const typography = {
   nodeValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug tabular-nums',
   nodeLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-snug',
   edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
+  // ⭐ v3.1 `.prov` — every card SOURCE MARK (`est.`, `brief`, a person's glyph,
+  // "no source"): 10px, weight 400, line-height 1. The weight is part of the
+  // token on purpose: a mark sits INSIDE a `nodeValue` line (weight 500) and
+  // must never inherit it, or `est.` reads as part of the figure (served
+  // `eec722ab`). Declared here, the typography authority, so the one component
+  // that renders marks (`EstimateMarker.tsx`) carries no raw weight of its own.
+  nodeMark: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-normal font-sans not-italic leading-none',
 
   // Results Panel — strict 3-size system (Brief 5.5 §2.1 lock)
   // Only these three tokens should be used inside src/components/results/

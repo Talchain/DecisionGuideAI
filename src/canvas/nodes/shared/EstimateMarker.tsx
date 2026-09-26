@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { typography } from '../../../styles/typography'
 import Tooltip from '../../../components/Tooltip'
 import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -242,8 +243,7 @@ export function unconfirmedStrengthDisclosure(
  * `canvasTextCounterScale.census.spec.ts`), and the weight is set here so it can
  * never be inherited again.
  */
-export const SOURCE_MARK_TYPE_CLASSES =
-  'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans font-normal not-italic leading-none text-text-light'
+export const SOURCE_MARK_TYPE_CLASSES = `${typography.nodeMark} text-text-light`
 
 /** v3.1 `.prov svg{width:11px;height:11px}`, counter-scaled with the type. */
 export const SOURCE_MARK_GLYPH_CLASSES =
