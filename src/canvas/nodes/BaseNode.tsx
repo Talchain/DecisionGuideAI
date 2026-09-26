@@ -2377,11 +2377,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               to rename it") beside it (`shared/nodeRenameAffordance.ts`).
               `data-node-tooltip` makes the card preview yield while the name's
               tooltip is up — one overlay at a time, the rule every other
-              node-surface tooltip follows. */}
+              node-surface tooltip follows. A SELECTED card offers none (v3.1
+              row 6, "a click opens only the inspector"): the hover delay could
+              elapse after the click and stand the tooltip beside the
+              inspector, whose title is the full, unclipped name. */}
           <Tooltip
             asChild
             delay={NODE_TOOLTIP_DELAY_MS}
-            content={
+            content={selected ? null : (
               <>
                 {titleChannels.tooltip.name !== null && (
                   <span data-testid="node-title-tooltip-name" className="block">
@@ -2392,7 +2395,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                   {titleChannels.tooltip.affordance}
                 </span>
               </>
-            }
+            )}
           >
           <div
             data-testid="node-title"

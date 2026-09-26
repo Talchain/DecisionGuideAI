@@ -58,9 +58,9 @@ const baseProps = {
 const KINDS = ['decision', 'goal', 'option', 'factor', 'outcome', 'risk'] as const
 const LABEL = 'Transition to usage-based pricing'
 
-function renderCard(nodeType: (typeof KINDS)[number]) {
+function renderCard(nodeType: (typeof KINDS)[number], selected = false) {
   const { container } = render(
-    <BaseNode {...baseProps} type={nodeType} data={{ label: LABEL }} nodeType={nodeType} icon={Target} />,
+    <BaseNode {...baseProps} selected={selected} type={nodeType} data={{ label: LABEL }} nodeType={nodeType} icon={Target} />,
   )
   const title = container.querySelector('[data-testid="node-title"]') as HTMLElement | null
   expect(title, 'node-title must exist — bound by testid, never by class').toBeTruthy()
@@ -88,6 +88,28 @@ describe('v3.1 row 36 — a card name has one tooltip, the styled one', () => {
       // name, and on the accessible name.
       expect(tip.textContent).toBe(`${LABEL}${NODE_RENAME_AFFORDANCE}`)
       expect(card?.getAttribute('aria-label') ?? '').toContain(NODE_RENAME_AFFORDANCE)
+    })
+  }
+})
+
+// ⭐ v3.1 row 6 — "a click opens only the inspector". Measured on the served
+// dev build after the name tooltip landed: a click on a Question / Risk /
+// Outcome name left the inspector AND the name's tooltip up (the hover delay
+// elapsed after the click). A SELECTED card's name therefore carries no
+// tooltip: the inspector's title is the full, unclipped name.
+describe('v3.1 row 6 — a selected card\'s name opens no tooltip beside the inspector', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  for (const kind of ['decision', 'risk', 'outcome'] as const) {
+    it(`${kind}: selected → hovering the name opens no tooltip`, () => {
+      const { title } = renderCard(kind, true)
+      act(() => {
+        fireEvent.mouseEnter(title)
+        vi.advanceTimersByTime(400)
+      })
+      expect(document.querySelector('[data-testid="node-title-tooltip-name"]')).toBeNull()
+      expect(document.querySelector('[data-testid="node-title-tooltip-affordance"]')).toBeNull()
     })
   }
 })
