@@ -32,8 +32,19 @@ describe('gap TYPE-3: tiered acts in this pass\'s files are panelBody (12px), ne
     const offenders = src.match(/typography\.panelMeta\}[^`]*\$\{action\(/g) ?? []
     expect(offenders, `these act pairs are still 11px: ${JSON.stringify(offenders)}`).toEqual([])
     // Six sites were fixed (design-audit-20260925's own count for this file).
+    // ⚠ 26 Sep (design audit B12): three of the six — the mark detail's "Show
+    // on canvas", "Propose a change…" and "Ask Olumi…" pills — became the V2
+    // prototype's ICON-ONLY acts, which carry no text at any size. The floor
+    // follows the three tiered acts that remain, and the three icon acts are
+    // pinned below as icon buttons, so the lower floor cannot hide one of them
+    // regressing to an 11px text act.
     const fixed = src.match(/typography\.panelBody\}[^`]*\$\{action\('secondary'\)\}/g) ?? []
-    expect(fixed.length).toBeGreaterThanOrEqual(6)
+    expect(fixed.length).toBeGreaterThanOrEqual(3)
+    for (const id of ['detail-propose', 'detail-focus', 'detail-ask']) {
+      expect(src, `${id} is no longer an icon-only act`).toMatch(
+        new RegExp('<PanelIconButton[^<]{0,800}?testId=\\{`\\$\\{testId\\}-' + id + '`\\}'),
+      )
+    }
   })
 
   it('⭐⭐ SuccessTargetLine.tsx: no `${typography.panelMeta} ... action(` pairing survives', () => {

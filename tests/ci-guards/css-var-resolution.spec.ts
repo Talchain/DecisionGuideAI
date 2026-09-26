@@ -386,7 +386,6 @@ const KNOWN_FALLBACK_DRIFT = [
   '--bottombar-h|0px',
   '--factor-light|rgba(176,168,153,0.3)',
   '--info-hover|#2B7FA2',
-  '--leftsidebar-w|52px',
   '--option|#7BAD55',
   '--semantic-danger|#ef4444',
   '--semantic-info|#3b82f6',

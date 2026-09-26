@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo } from 'react'
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react'
 import { typography } from '../styles/typography'
+import { TOAST_TOP_CLEARANCE } from './utils/topBarClearance'
 
 interface Toast {
   id: string
@@ -151,7 +152,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed top-6 right-6 z-[9000] space-y-2" role="region" aria-label="Notifications">
+    <div style={{ top: TOAST_TOP_CLEARANCE }} className="fixed right-6 z-[9000] space-y-2" role="region" aria-label="Notifications">
       {toasts.map(toast => {
         const Icon = TOAST_ICONS[toast.type]
         return (

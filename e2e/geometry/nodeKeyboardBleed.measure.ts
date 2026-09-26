@@ -894,7 +894,12 @@ async function reseed(page: Page, starter: StarterId): Promise<void> {
  * is unchanged and still gates whatever the landing zoom shows.
  */
 async function showNormalZoom(page: Page): Promise<void> {
-  const reset = page.locator('button[aria-label^="Zoom level"]').first()
+  // v3.1 DESIGN-GAP #14 (26 Sep 2026): the reset-to-100% control is no longer a
+  // standing read-out on the toolbar — it is the "Zoom to 100%" item in the
+  // viewport tools' overflow menu, so the menu is opened first.
+  const more = page.getByTestId('viewport-more')
+  if (await more.count()) await more.click()
+  const reset = page.getByTestId('viewport-zoom-reset')
   // DIAGNOSTIC (24 Sep, #1926): print what the Normal-zoom census will see, so a
   // missing render path names its cause (no reset control / rung not full / the
   // icon's other gate) instead of only its absence. Log-only; asserts nothing.
@@ -902,8 +907,8 @@ async function showNormalZoom(page: Page): Promise<void> {
     const d = await page.evaluate(() => {
       const w = window as unknown as { useCanvasStore?: { getState: () => { lodRung?: string } } }
       return {
-        zoomLabel: document.querySelector('button[aria-label^="Zoom level"]')?.getAttribute('aria-label') ?? null,
-        resetButtons: document.querySelectorAll('button[aria-label^="Zoom level"]').length,
+        zoomLabel: document.querySelector('[data-testid="viewport-zoom-reset"]')?.getAttribute('aria-label') ?? null,
+        resetButtons: document.querySelectorAll('[data-testid="viewport-zoom-reset"]').length,
         lodRung: w.useCanvasStore?.getState?.().lodRung ?? null,
         coachingIcons: document.querySelectorAll('[data-testid^="node-coaching-icon-"]').length,
         restingRails: document.querySelectorAll('[data-testid^="node-card-rail-resting-"]').length,

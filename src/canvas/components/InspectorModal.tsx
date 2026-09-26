@@ -81,9 +81,15 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
         y = window.innerHeight - rect.height - padding
       }
 
-      // Prevent overflow top
-      if (y < padding) {
-        y = padding
+      // Prevent overflow top — and clear the app bar. Canvas v3.1 DESIGN-GAP #5
+      // made the top bar the contract's full-width 51px `.app-top`, so a y
+      // clamped to `padding` alone put this panel's header over the bar at
+      // every x (the floating pill only spanned x 12..450). `--topbar-h` is the
+      // bar's bottom edge, written by `TopBar.tsx`; 0 when no bar is mounted.
+      const topBarBottom =
+        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
+      if (y < topBarBottom + padding) {
+        y = topBarBottom + padding
       }
 
       setPosition({ x, y })

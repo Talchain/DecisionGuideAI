@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Eye,
   Hand,
   Layers,
   Plus,
   Undo2,
-  Redo2,
   MousePointer2,
 } from 'lucide-react'
 import Tooltip from '../Tooltip'
@@ -13,7 +11,6 @@ import styles from './CanvasFloatingToolbar.module.css'
 import { LensDropdown } from '../../canvas/components/LensDropdown'
 import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
 import { showCanvasUndoUnavailableNotice } from '../../canvas/useKeyboardShortcuts'
-import { useCanvasStore } from '../../canvas/store'
 import { useComparisonStore } from '../../canvas/stores/comparisonStore'
 import { isGraphLensEnabled } from '../../flags'
 
@@ -27,9 +24,18 @@ interface LeftSidebarProps {
   onSelectClick?: () => void
   // Canvas control actions
   onUndoClick?: () => void
+  /**
+   * @deprecated contract v3.1 (DESIGN-GAP #13) draws no Redo button in the
+   * canvas tools. Redo stays reachable from the keyboard — ⌘⇧Z / ⌘Y are
+   * answered by `useKeyboardShortcuts` (and, while the canvas has no undo, by
+   * the SAME `canvasUndoUnavailableNotice` this button showed). The prop is
+   * still accepted only because its call site is outside the chrome lane's
+   * files; it is not read.
+   */
   onRedoClick?: () => void
   // Disabled states
   canUndo?: boolean
+  /** @deprecated see `onRedoClick`. Not read. */
   canRedo?: boolean
   /**
    * ⚠ TWO DIFFERENT QUESTIONS, NAMED APART ON PURPOSE — collapsing them is
@@ -41,6 +47,7 @@ interface LeftSidebarProps {
    * and only the second may make the button reachable.
    */
   undoUnavailable?: boolean
+  /** @deprecated see `onRedoClick`. Not read. */
   redoUnavailable?: boolean
   /**
    * ⭐⭐ THE ONLY VISIBLE DOOR TO AUTHORING YOUR OWN MODEL.
@@ -66,11 +73,8 @@ export function LeftSidebar({
   onSelectClick,
   // Canvas controls
   onUndoClick,
-  onRedoClick,
   canUndo = true,
-  canRedo = true,
   undoUnavailable = false,
-  redoUnavailable = false,
   onAddToModelClick,
 }: LeftSidebarProps) {
   const [lensOpen, setLensOpen] = useState(false)
@@ -93,9 +97,9 @@ export function LeftSidebar({
     )
   }, [onAddToModelClick])
 
-  // Standard/Detailed view toggle
-  const viewMode = useCanvasStore(s => s.viewMode)
-  const setViewMode = useCanvasStore(s => s.setViewMode)
+  // The Standard/Detailed view toggle moved to the viewport tools' overflow
+  // menu (`CanvasViewportControls`): contract v3.1's canvas tools are +,
+  // pointer, hand, undo and layers, and draw no view-mode eye (DESIGN-GAP #13).
 
   const lensEnabled = isGraphLensEnabled()
 
@@ -131,8 +135,6 @@ export function LeftSidebar({
     window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
     return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
   }, [])
-
-  const isDetailed = viewMode === 'expert'
 
   return (
     <nav
@@ -183,21 +185,41 @@ export function LeftSidebar({
         </div>
       )}
 
-      {/* Manipulation group: Select, Undo, Redo */}
+      {/* Manipulation group: pointer, hand, undo — contract v3.1's tool run
+          (+, pointer, hand, undo, layers; DESIGN-GAP #13).
+
+          ⭐ POINTER AND HAND ARE TWO TOOLS NOW, NOT ONE TOGGLE. The contract
+          draws both, with the current one active; the served build drew one
+          button whose icon and name flipped. Each button only ever moves the
+          mode TO itself: the call site hands this component a single toggle
+          (`onSelectClick`, which flips `effectiveMode` — see A-1 at the call
+          site), so the inactive tool calls it and the active tool is a no-op.
+          A click on the active tool therefore never flips you OUT of the mode
+          it names. */}
       <div className={styles.group}>
-        <Tooltip content={interactionMode === 'select' ? 'Hand mode (H)' : 'Select mode (V)'}>
+        <Tooltip content="Select (V)">
           <button
             type="button"
             className={interactionMode === 'select' ? styles.iconButtonActive : styles.iconButton}
-            aria-label={interactionMode === 'select' ? 'Switch to Hand mode' : 'Switch to Select mode'}
+            aria-label="Select mode"
             aria-pressed={interactionMode === 'select'}
-            onClick={onSelectClick}
+            data-testid="canvas-tool-select"
+            onClick={interactionMode === 'select' ? undefined : onSelectClick}
           >
-            {interactionMode === 'select' ? (
-              <MousePointer2 className={styles.icon} aria-hidden="true" />
-            ) : (
-              <Hand className={styles.icon} aria-hidden="true" />
-            )}
+            <MousePointer2 className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
+
+        <Tooltip content="Hand (H)">
+          <button
+            type="button"
+            className={interactionMode === 'hand' ? styles.iconButtonActive : styles.iconButton}
+            aria-label="Hand mode"
+            aria-pressed={interactionMode === 'hand'}
+            data-testid="canvas-tool-hand"
+            onClick={interactionMode === 'hand' ? undefined : onSelectClick}
+          >
+            <Hand className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
 
@@ -263,33 +285,12 @@ export function LeftSidebar({
           </button>
         </Tooltip>
 
-        {/* Same reasoning as the Undo tooltip above — including the notice.
-            ⚠ THIS IS NOT NEW COPY, IT IS THE SAME SENTENCE, and that is a
-            derived result rather than a convenience: `isUndoRedoGesture`
-            returns true for ⌘Y and ⌘⇧Z as well as ⌘Z, so the keyboard already
-            answers BOTH halves of this gesture with
-            `canvasUndoUnavailableNotice()`. There is no separate redo notice
-            because the product has never needed one — the sentence names the
-            capability that is absent and points at Version history, and both
-            buttons are absent for exactly the same reason. Inventing a redo
-            variant would be writing copy to fill a symmetry nothing asked
-            for. */}
-        <Tooltip content="Redo">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Redo"
-            onClick={redoUnavailable ? showCanvasUndoUnavailableNotice : onRedoClick}
-            aria-disabled={redoUnavailable ? true : undefined}
-            disabled={redoUnavailable ? false : !canRedo}
-          >
-            <Redo2 className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-      </div>
+        {/* ⭐ NO REDO BUTTON (contract v3.1, DESIGN-GAP #13). Redo is reached
+            from the keyboard: `isUndoRedoGesture` returns true for ⌘Y and ⌘⇧Z
+            as well as ⌘Z, so `useKeyboardShortcuts` answers it — today with the
+            SAME `canvasUndoUnavailableNotice()` sentence the button showed, and
+            with a real redo the day `canvasSemanticMutations` is connected. */}
 
-      {/* View group: Lens, Standard/Detailed */}
-      <div className={styles.group}>
         {lensEnabled && (
           <Tooltip content="View (L)">
             <button
@@ -304,18 +305,6 @@ export function LeftSidebar({
             </button>
           </Tooltip>
         )}
-
-        <Tooltip content={isDetailed ? 'Detailed view' : 'Standard view'}>
-          <button
-            type="button"
-            className={isDetailed ? styles.iconButtonActive : styles.iconButton}
-            aria-label={isDetailed ? 'Detailed view' : 'Standard view'}
-            aria-pressed={isDetailed}
-            onClick={() => setViewMode(isDetailed ? 'standard' : 'expert')}
-          >
-            <Eye className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
       </div>
 
       {/* Lens dropdown — portaled, anchored to View button */}

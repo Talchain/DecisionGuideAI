@@ -9,11 +9,11 @@
  * Served before this change: radius 16 on the shared surface, and the viewport
  * controls anchored 12px off the bottom.
  *
- * ⚠ BUTTON SIZE IS DELIBERATELY NOT MOVED. The contract's `.canvas-tools
- * button` is 29×31 with no border; ours is a 32px circle whose `--border-field`
- * outline is the WCAG 1.4.11 fix recorded in the stylesheet. That is a separate
- * decision from rows 32/25 and is pinned below as a CONTRAST, so this change
- * cannot drag it along.
+ * ⭐ BUTTON SIZE MOVED LATER, IN ITS OWN ROW (v3.1 DESIGN-GAP #13, 26 Sep 2026).
+ * This file first pinned the 32px bordered circles as a CONTRAST so rows 32/25
+ * could not drag them along. #13 then took the contract's `.canvas-tools
+ * button` (29×31, radius 6, no border) deliberately; the stylesheet records why
+ * dropping the `--border-field` outline is not a WCAG 1.4.11 regression.
  *
  * jsdom does not apply CSS modules, so — as in the sibling
  * `CanvasFloatingToolbar.iconColour.v31.spec.ts` — this reads the stylesheet's
@@ -28,7 +28,6 @@ import { OVERLAY_BAND_LEFT_PAD } from '../../../canvas/components/CanvasOverlayB
 const ROOT = join(__dirname, '..', '..', '..', '..')
 const CSS = readFileSync(join(__dirname, '..', 'CanvasFloatingToolbar.module.css'), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '')
-const INDEX_CSS = readFileSync(join(ROOT, 'src/index.css'), 'utf8')
 const DEBUG_PANEL_SRC = readFileSync(join(ROOT, 'src/components/DebugPanel.tsx'), 'utf8')
 
 /** Declarations of the rule whose selector list is EXACTLY `selector`. */
@@ -51,10 +50,12 @@ const px = (v: string | undefined): number => {
 
 describe('canvas toolbar chrome geometry (contract v3.1 rows 32 / 25)', () => {
   it('POSITIVE CONTROL: the reader finds rules known to exist, with their values', () => {
-    expect(rule('.surface').left).toBe('12px')
+    expect(rule('.surface').left).toBe('13px')
     expect(rule('.surface').position).toBe('fixed')
-    expect(rule('.iconButton').width).toBe('32px')
-    expect(rule('.sidebar').top).toBe('calc(var(--topbar-h) + 1rem)')
+    expect(rule('.iconButton').width).toBe('29px')
+    // contract `.canvas-tools{top:21px}` measured from the canvas area, whose
+    // top is the app bar's bottom.
+    expect(rule('.sidebar').top).toBe('calc(var(--topbar-h) + 21px)')
   })
 
   it('⭐ row 32: the shared toolbar surface takes the contract radius, 12px', () => {
@@ -70,24 +71,41 @@ describe('canvas toolbar chrome geometry (contract v3.1 rows 32 / 25)', () => {
     expect(rule('.viewportControls').bottom).toBe('40px')
   })
 
-  it('CONTRAST: buttons stay 32px circles and the left edge stays 12px — only radius and offset moved', () => {
+  /**
+   * ⭐ DESIGN-GAP #13 (26 Sep 2026) MOVED THE BUTTONS THEMSELVES, which this file
+   * used to pin as a contrast ("buttons stay 32px circles"). v3.1
+   * `.canvas-tools{left:13px;padding:5px;gap:2px}` and `.canvas-tools button{
+   * width:29px;height:31px;border:0;border-radius:6px}` — both toolbars, since
+   * `.zoom-tools` is a `.canvas-tools`.
+   */
+  it('⭐ #13: flat 29x31 radius-6 buttons with no border, in a 5px-padded, 2px-gap panel at left 13', () => {
     for (const sel of ['.iconButton', '.iconButtonActive']) {
-      expect(rule(sel).width, sel).toBe('32px')
-      expect(rule(sel).height, sel).toBe('32px')
-      expect(rule(sel)['border-radius'], sel).toBe('999px')
+      expect(rule(sel).width, sel).toBe('29px')
+      expect(rule(sel).height, sel).toBe('31px')
+      expect(rule(sel)['border-radius'], sel).toBe('6px')
+      expect(rule(sel).border, sel).toBe('0')
     }
-    expect(rule('.surface').left).toBe('12px')
+    expect(rule('.surface').left).toBe('13px')
+    expect(rule('.surface').padding).toBe('5px')
+    expect(rule('.surface').gap).toBe('2px')
     // The upper toolbar keeps its TOP anchor; only the lower one has a bottom.
     expect(rule('.sidebar').bottom).toBeUndefined()
   })
 
-  it('does not collide with the footer: the footer’s cell starts right of the toolbar, whatever its height', () => {
-    // #1999's footer draws in the overlay band's bottom-left cell, whose left
-    // padding is OVERLAY_BAND_LEFT_PAD. The toolbar's right edge is its `left`
-    // plus `--leftsidebar-w`. Moving the toolbar VERTICALLY cannot reach a cell
-    // that starts to its right.
-    const toolbarRight = px(rule('.surface').left) + Number(/--leftsidebar-w:\s*(\d+)px/.exec(INDEX_CSS)?.[1])
-    expect(toolbarRight).toBe(60) // positive control on the two reads
+  it('#13: the contract’s panel material — opaque panel, the chrome line, the 7px shadow', () => {
+    expect(rule('.surface').background).toBe('var(--bg-panel)')
+    expect(rule('.surface').border).toBe('1px solid #DDD8D0')
+    expect(rule('.surface')['box-shadow']).toBe('0 2px 7px rgba(51, 51, 51, 0.067)')
+  })
+
+  it('does not collide with the band: its bottom-left cell starts right of the toolbar, whatever its height', () => {
+    // The overlay band's bottom-left cell (the lens info panel) starts at
+    // OVERLAY_BAND_LEFT_PAD. The toolbar's right edge is its `left` plus the
+    // content-sized panel: 29px buttons + 2 x 5px padding + 2 x 1px border.
+    // Moving the toolbar VERTICALLY cannot reach a cell that starts to its right.
+    const panelWidth = px(rule('.iconButton').width) + 2 * px(rule('.surface').padding) + 2
+    const toolbarRight = px(rule('.surface').left) + panelWidth
+    expect(toolbarRight).toBe(54) // positive control on the reads: 13 + 41
     expect(OVERLAY_BAND_LEFT_PAD).toBeGreaterThan(toolbarRight)
   })
 

@@ -89,6 +89,15 @@ function declaredMinPx(track: string): number {
   return m ? Number(m[1]) : 0
 }
 
+/**
+ * The wide bottom-centre occupant the N3 defect needs. It was the saved-example
+ * banner's id; contract v3.1 DESIGN-GAP #3 (26 Sep 2026) moved that disclosure
+ * out of the band to the top-right context line, so the stand-in now uses the
+ * next REAL centre claimant. The mechanism under test — an `auto` centre track
+ * starving the cue's column — belongs to the band, not to either occupant.
+ */
+const CENTRE_STAND_IN = 'first-model-notice'
+
 /** A stand-in claimant under a REAL id (the band arbitrates by id, not by component). */
 function Claimant({ cell, id, wants = true }: { cell: OverlayCell; id: string; wants?: boolean }) {
   const { granted, target } = useOverlayCell(cell, id, wants)
@@ -114,7 +123,7 @@ describe('N3 — the stale cue keeps a column beside the saved-example banner', 
     const { container } = render(
       <CanvasOverlayBandProvider>
         <CanvasOverlayBand />
-        <Claimant cell="bottom-centre" id="starter-provenance-banner" />
+        <Claimant cell="bottom-centre" id={CENTRE_STAND_IN} />
         <AnalysisStateCue />
       </CanvasOverlayBandProvider>,
     )
@@ -122,7 +131,7 @@ describe('N3 — the stale cue keeps a column beside the saved-example banner', 
     const cue = screen.getByTestId(ANALYSIS_STATE_CUE_TESTID)
     expect(cue.closest('[data-overlay-cell]')?.getAttribute('data-overlay-cell')).toBe('bottom-right')
     expect(
-      screen.getByTestId('starter-provenance-banner').closest('[data-overlay-cell]')?.getAttribute('data-overlay-cell'),
+      screen.getByTestId(CENTRE_STAND_IN).closest('[data-overlay-cell]')?.getAttribute('data-overlay-cell'),
     ).toBe('bottom-centre')
 
     const template = bandOf(container).style.gridTemplateColumns
@@ -143,7 +152,7 @@ describe('N3 — the stale cue keeps a column beside the saved-example banner', 
     const { container } = render(
       <CanvasOverlayBandProvider>
         <CanvasOverlayBand />
-        <Claimant cell="bottom-centre" id="starter-provenance-banner" />
+        <Claimant cell="bottom-centre" id={CENTRE_STAND_IN} />
         <AnalysisStateCue />
       </CanvasOverlayBandProvider>,
     )
@@ -160,7 +169,7 @@ describe('N3 — the stale cue keeps a column beside the saved-example banner', 
     const { container } = render(
       <CanvasOverlayBandProvider>
         <CanvasOverlayBand />
-        <Claimant cell="bottom-centre" id="starter-provenance-banner" />
+        <Claimant cell="bottom-centre" id={CENTRE_STAND_IN} />
         <AnalysisStateCue />
       </CanvasOverlayBandProvider>,
     )
@@ -173,7 +182,7 @@ describe('N3 — the stale cue keeps a column beside the saved-example banner', 
     const { container } = render(
       <CanvasOverlayBandProvider>
         <CanvasOverlayBand />
-        <Claimant cell="bottom-centre" id="starter-provenance-banner" />
+        <Claimant cell="bottom-centre" id={CENTRE_STAND_IN} />
       </CanvasOverlayBandProvider>,
     )
     const band = bandOf(container)
@@ -187,7 +196,7 @@ describe('N3 — the stale cue keeps a column beside the saved-example banner', 
       return (
         <CanvasOverlayBandProvider>
           <CanvasOverlayBand />
-          <Claimant cell="bottom-centre" id="starter-provenance-banner" />
+          <Claimant cell="bottom-centre" id={CENTRE_STAND_IN} />
           <Claimant cell="bottom-right" id={ANALYSIS_STATE_CUE_TESTID} wants={cueWants} />
           <button type="button" data-testid="withdraw-cue" onClick={() => setCueWants(false)}>
             withdraw

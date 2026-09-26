@@ -347,7 +347,20 @@ export function ChallengeCard({
       inner
     )
 
-  if (!shown) return withTitle(notice)
+  // ⭐ NOTHING TO CHALLENGE, NOTHING PICKED: the title would stand over nothing
+  // but the door (served 0f7cf453, after an edit left only the success measure,
+  // which the strip already offers). The prototype always shows a question; the
+  // honest equivalent is to point at the strip that supplies one. A dismissed
+  // notice, when there is one, still takes the slot.
+  if (!shown)
+    return withTitle(
+      notice ??
+        (title && onSelectMethod ? (
+          <p className={`${typography.panelBody} text-text-light m-0 mt-1`} data-testid={`${testId}-pick-a-method`}>
+            {ZONE.pickAMethod}
+          </p>
+        ) : null),
+    )
 
   const run = () => (shown.kind === 'method' ? onRunMethod(shown.method.id) : onRunIntervention(shown.rec.id))
   const shownMethod = shown.method

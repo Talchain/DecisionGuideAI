@@ -17,7 +17,16 @@ function getInitial(profile: { display_name?: string | null; email?: string | nu
   return name.charAt(0).toUpperCase() || '?'
 }
 
-export function UserAvatarMenu() {
+interface UserAvatarMenuProps {
+  /**
+   * `compact` is contract v3.1 `.app-top .avatar{width:26px;height:26px;
+   * font-size:11px}` — the canvas top bar (DESIGN-GAP #5). `default` keeps the
+   * 32px avatar the scenario list and profile headers were designed around.
+   */
+  size?: 'default' | 'compact'
+}
+
+export function UserAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -70,12 +79,12 @@ export function UserAvatarMenu() {
             window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'avatar' } }))
           }
         }}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-text-on-color transition-transform duration-fast hover:scale-105"
+        className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full bg-primary text-text-on-color transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
         aria-label="Account menu"
         aria-expanded={open}
         aria-haspopup="true"
       >
-        <span className={typography.button}>{initial}</span>
+        <span className={size === 'compact' ? 'text-[11px] font-medium font-sans leading-none' : typography.button}>{initial}</span>
       </button>
 
       {open && (

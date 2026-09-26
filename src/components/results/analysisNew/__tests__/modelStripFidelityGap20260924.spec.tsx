@@ -121,14 +121,26 @@ describe('fidelity gaps #3 / #8 — the subject line no longer clamps', () => {
 describe('fidelity gap #14 — the model-strip pills carry no tinted fill', () => {
   // V2 (Paul, 25 Sep 2026): the two worklist toggles left the strip, so their
   // no-fill cases went with them. The detail chip below is the pill that stays.
-  it('⭐ the node-detail "not yet confirmed" chip carries no tinted fill', () => {
+  /*
+   * ⚠ RE-PINNED 26 Sep 2026 (design audit B12): the chip itself is gone — the
+   * V2 prototype's detail has none, and an unconfirmed factor is a review-queue
+   * item whose tool says so. What this case keeps pinning is the rule it was
+   * written for: nothing on the node detail carries a tinted fill, including
+   * the detail itself (it was a `bg-panel-hover` card; it is now a divider).
+   */
+  it('⭐ the node detail carries no tinted fill — no chip, and no tinted card', () => {
     setNodes([needsCheckFactor('f1', 'Supplier lead time')])
     render(<ModelStrip isPreRun={false} />)
     fireEvent.click(screen.getByTestId(`${TID}-toggle`))
     fireEvent.click(screen.getByTestId(`${TID}-mark`))
 
-    const chip = screen.getByTestId(`${TID}-detail-verify`)
-    expect(chip.className).not.toMatch(/bg-warning/)
-    expect(chip.className, 'severity ink is unchanged').toContain('text-warning-ink')
+    const detail = screen.getByTestId(`${TID}-detail`)
+    // CONTRAST: this is the node that USED to carry the chip.
+    expect(detail).toHaveAttribute('data-node-id', 'f1')
+    expect(screen.queryByTestId(`${TID}-detail-verify`)).toBeNull()
+    const filled = [detail, ...Array.from(detail.querySelectorAll('*'))].filter((el) =>
+      (el.getAttribute('class') ?? '').split(/\s+/).some((c) => /^bg-(warning|panel-hover|info\/)/.test(c)),
+    )
+    expect(filled).toEqual([])
   })
 })

@@ -752,6 +752,35 @@ describe('OutputsDock analyse convergence', () => {
       expect(heading!.textContent).toBe('Untitled draft')
       localStorage.removeItem('feature.decisionOverview')
     })
+
+    /**
+     * Canvas v3.1 DESIGN-GAP #5 (26 Sep 2026): the top bar now names a saved
+     * example by its own manifest title rather than its goal
+     * (`CanvasMVP.starterModelName.spec.tsx`). This card reads the same ladder,
+     * so it must give the same answer — or the header and the dock disagree
+     * about one model's name, the exact defect this card's comment records.
+     */
+    it('a saved example is named by its own title here too — the same answer as the top bar', () => {
+      localStorage.setItem('feature.decisionOverview', '1')
+      localStorage.removeItem('olumi-canvas-scenarios')
+      const baseResults = useCanvasStore.getState().results
+      const stamp = { starterId: 'vendor-selection', starterTitle: 'Customer Data Platform Selection' }
+      useCanvasStore.setState({
+        hasCompletedFirstRun: true,
+        results: { ...baseResults, status: 'complete', report: fakeReport },
+        currentScenarioId: 'guest-scenario-with-no-stored-record',
+        nodes: [
+          { id: 'goal_cdp', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Replace CDP Within Budget', ...stamp } },
+        ],
+      } as any)
+      renderOutputsDock()
+      const heading = screen.getByTestId('decision-overview').querySelector('h2')
+      expect(heading).not.toBeNull()
+      // The manifest's own title for this starter, not the goal label beside it.
+      expect(heading!.textContent).toBe('Customer Data Platform Selection')
+      expect(heading!.textContent).not.toBe('Replace CDP Within Budget')
+      localStorage.removeItem('feature.decisionOverview')
+    })
   })
 
   describe('Wave F-B: one freshness owner — duplicate stale surfaces retired', () => {

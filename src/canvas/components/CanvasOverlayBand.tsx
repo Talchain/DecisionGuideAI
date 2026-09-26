@@ -39,12 +39,15 @@
  * occupies it. The occupants change; the reservation does not. That is what
  * makes it admissible under criteria 1-4, and what keeps the camera still.
  *
- * ⚠ WHY THE BOTTOM AND NOT THE TOP. The top band is not free: the floating
- * TopBar pill occupies x 12..526 at every width (`topBarFitInset.spec.ts`), and
- * with the dock expanded at 1280 the free run beside it is 286px — narrower
- * than any current notice. `computeFitPadding` recorded the bottom edge as the
- * one place "nothing is anchored to" (that comment is rewritten by this change,
- * because this band is now anchored there).
+ * ⚠ WHY THE BOTTOM AND NOT THE TOP. When the band was built the top was not
+ * free: the floating TopBar pill occupied x 12..526 at every width
+ * (`topBarFitInset.spec.ts`), and with the dock expanded at 1280 the free run
+ * beside it was 286px — narrower than any current notice. (Since v3.1
+ * DESIGN-GAP #5 the bar is a full-width 51px rule and the fit's top inset is
+ * the 16px band under it, which holds only the one-line starter context note —
+ * still no room for a notice.) `computeFitPadding` recorded the bottom edge as
+ * the one place "nothing is anchored to" (that comment is rewritten by this
+ * change, because this band is now anchored there).
  *
  * ⚠ THE RIGHT GUTTER IS NOT DECORATION — IT IS HALF THE REPORTED DEFECT. The
  * minimised Olumi pill is `position: fixed`, z-300, and — contrary to the
@@ -183,7 +186,19 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
      */
     'model-extent-notice',
     'canvas-lod-notice',
-    'starter-provenance-banner',
+    /**
+     * ⭐ `starter-provenance-banner` LEFT THIS CELL (Canvas v3.1 DESIGN-GAP #3,
+     * 26 Sep 2026). The contract places the saved-example disclosure as a quiet
+     * one-line context note at the canvas's TOP-RIGHT (`.context-banner`,
+     * 10px), not as a bottom-centre banner. Measured at base `6256a41f`: the
+     * 644x76 banner here overlapped 3–6 outcome/risk cards on every starter at
+     * 1280x800 (up to 38,304px² per board) because the landing fit does not
+     * fit and the board runs under the band. The notes above that describe the
+     * banner's rank record why the order was chosen while it was here; with it
+     * gone, `first-model-notice` is next — and it still declines on a starter
+     * graph by its own condition (`resolveStarterId(nodes) === null`), so a
+     * starter does not gain a second standing notice.
+     */
     'first-model-notice',
     'assistant-focus-chip',
     'focus-mode-chip',
@@ -216,18 +231,21 @@ export const OVERLAY_BAND_HEIGHT = 64
 /** Gap between the band and the canvas's bottom edge. */
 export const OVERLAY_BAND_BOTTOM = 12
 /**
- * Left padding clears the viewport-controls toolbar, which is `fixed; left: 12;
- * bottom: 40; z-index: 1100` (`CanvasFloatingToolbar.module.css`; 320px tall per DebugPanel)
+ * Left padding clears the viewport-controls toolbar, which is `fixed; left: 13;
+ * bottom: 40; z-index: 1100` (`CanvasFloatingToolbar.module.css`)
  * — an overlap that was in no register row before this lane.
  *
- * contract v3.1 CHR-12: 76, not 64. 64 started the bottom-left cell 4px from
- * the toolbar's right edge (left 12 + `--leftsidebar-w` 48 = 60). 76 is that
- * edge plus `computeFitPadding`'s 16px chrome GAP — the same inset the fitted
- * card column starts at — so notices and cards share one left edge. Not a fit
+ * contract v3.1 CHR-12: the toolbar's right edge plus `computeFitPadding`'s 16px
+ * chrome GAP — the same inset the fitted card column starts at (the fit measures
+ * the canvas tools' rect) — so notices and cards share one left edge. Not a fit
  * contributor horizontally (only the band's top is read), so the camera does
  * not move.
+ *
+ * 70 since v3.1 DESIGN-GAP #13 (26 Sep 2026): the toolbars are the contract's
+ * `.canvas-tools` — left 13, 29px buttons + 2x5px padding + 2x1px border = 41
+ * wide — so the right edge is 54 (was 12 + `--leftsidebar-w` 48 = 60 → 76).
  */
-export const OVERLAY_BAND_LEFT_PAD = 76
+export const OVERLAY_BAND_LEFT_PAD = 70
 /**
  * Right padding beyond the dock: the minimised Olumi pill's corner. Derived
  * from that component's own geometry (`PILL_W` 84 + `DEFAULT_MARGIN` 16 either
@@ -236,7 +254,7 @@ export const OVERLAY_BAND_LEFT_PAD = 76
  * drift apart silently.
  */
 export const OVERLAY_BAND_PILL_GUTTER = 116
-/** One z for the whole band — at or above the highest claimant it absorbs (the starter banner's 250). */
+/** One z for the whole band — at or above the highest claimant it absorbed (the starter banner's 250, a claimant until v3.1 moved it to the top-right context line). */
 export const OVERLAY_BAND_Z = 250
 
 /**
@@ -370,6 +388,17 @@ export function useOverlayCell(cell: OverlayCell, id: string, wants = true): Ove
  * the height is a constant.
  */
 function useBandRightPad(): number {
+  return useDockInset() + OVERLAY_BAND_PILL_GUTTER
+}
+
+/**
+ * The OutputsDock's live right inset (0 when there is no dock), re-measured on
+ * window resize AND when the dock itself changes width (expand/collapse is not
+ * a window resize). Exported so canvas chrome anchored to the canvas's right
+ * edge — the v3.1 starter context line (`StarterProvenanceBanner`) — reads the
+ * same authority as the band rather than a second measurement of it.
+ */
+export function useDockInset(): number {
   const [dockInset, setDockInset] = useState(0)
 
   useEffect(() => {
@@ -389,7 +418,7 @@ function useBandRightPad(): number {
     }
   }, [])
 
-  return dockInset + OVERLAY_BAND_PILL_GUTTER
+  return dockInset
 }
 
 /**
