@@ -177,7 +177,18 @@ const EDGE_SOURCE_KEYS: ReadonlySet<string> = new Set(EDGE_PROVENANCED_FIELDS.ma
 const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   ...EDGE_SOURCE_KEYS,
   'serverStrength',
+  'origin',
 ])
+
+/**
+ * The metadata keys an otherwise-no-op overlay ACQUIRES from the server
+ * (`acquireServerStrengthOnNoop`). `origin` (R2, C46) joins the strength tuple
+ * for the same reason: it records what the server holds, it is not a value the
+ * person sees, and a canvas saved before it was carried holds none. Acquiring it
+ * must never read as an edit — without this, the first reload after the change
+ * pulsed every edge, pushed an undo entry and greyed a fresh run.
+ */
+const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin'] as const
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,
@@ -513,10 +524,14 @@ export function overlayEdge(
     // not restate who supplied an unchanged value. Preserve every existing
     // field/stamp and acquire only the tuple — which the mapper emits only
     // when `readServerStatedStrength` validated it, so no tuple is invented.
-    if (opts?.acquireServerStrengthOnNoop
-      && supplied.serverStrength !== undefined
-      && !sameValue(existing.data?.serverStrength, supplied.serverStrength)) {
-      return { ...existing, data: { ...(existing.data ?? {}), serverStrength: supplied.serverStrength } }
+    if (opts?.acquireServerStrengthOnNoop) {
+      const acquired: Record<string, unknown> = {}
+      for (const k of EDGE_ACQUIRED_METADATA_KEYS) {
+        if (supplied[k] !== undefined && !sameValue(existing.data?.[k], supplied[k])) acquired[k] = supplied[k]
+      }
+      if (Object.keys(acquired).length > 0) {
+        return { ...existing, data: { ...(existing.data ?? {}), ...acquired } }
+      }
     }
     return existing
   }
@@ -527,15 +542,16 @@ export function overlayEdge(
 }
 
 /**
- * True when `after` differs from `before` ONLY in `data.serverStrength` — the
- * overlay's tuple acquisition, which is metadata and never a counted update.
+ * True when `after` differs from `before` ONLY in acquired metadata
+ * (`EDGE_ACQUIRED_METADATA_KEYS`: the strength tuple, `origin`) — the overlay's
+ * acquisition, which is never a counted update.
  * Anything else (a value, a stamp riding with a value) is a real change.
  */
 function isServerStrengthAcquisitionOnly(before: any, after: any): boolean {
   if (before === after) return false
   const withoutTuple = (edge: any): Record<string, unknown> => {
     const data = { ...(edge.data ?? {}) } as Record<string, unknown>
-    delete data.serverStrength
+    for (const k of EDGE_ACQUIRED_METADATA_KEYS) delete data[k]
     return { ...edge, data }
   }
   return sameValue(withoutTuple(before), withoutTuple(after))

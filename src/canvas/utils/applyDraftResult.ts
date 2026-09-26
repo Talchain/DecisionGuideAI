@@ -118,6 +118,8 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
   // V3 edge metadata — explicitly extract known fields (no blind spread)
   const edgeType = typeof e.edge_type === 'string' ? e.edge_type : undefined
   const provenanceSource = typeof e.provenance_source === 'string' ? e.provenance_source : undefined
+  // HOP 1 OF 3 (twins: `buildEdge` in applyPatch.ts; `DraftChat` spreads it).
+  const origin = typeof e.origin === 'string' ? e.origin : undefined
   const existsProbability =
     typeof e.exists_probability === 'number'
       ? Math.max(0, Math.min(1, e.exists_probability))
@@ -158,6 +160,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(strengthStd !== undefined ? { strengthStd } : {}),
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
+      ...(origin !== undefined ? { origin } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
       ...(validation !== undefined ? { validation } : {}),
       // What the SERVER stated — the ONLY thing `edge_strength_edit.expected`

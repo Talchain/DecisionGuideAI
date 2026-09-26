@@ -215,6 +215,24 @@ describe('authority acquisition is not an analytical edit', () => {
     expect.soft(useCanvasStore.getState().highlightedNodes.size).toBe(0)
   })
 
+  it('acquires a server-stated edge origin silently: no pulse, no undo entry, analysis stays fresh', () => {
+    // R2 (C46): a canvas saved before `origin` was carried holds none; the read
+    // does. Acquiring it is a record of what the server holds, exactly like the
+    // strength tuple above: never a changed value the user must be shown.
+    const { wire } = seedCurrentAnalysis()
+    const history = useCanvasStore.getState().history
+    expect(currentEdge().data?.origin).toBeUndefined()
+    const result = mergeServerGraphOnHydrate(serverGraph({ ...wire, origin: 'repair' }))
+    expect(result.accepted).toBe(true)
+    expect(currentEdge().data?.origin).toBe('repair')
+    expect.soft(useCanvasStore.getState().history).toBe(history)
+    expect.soft(useCanvasStore.getState()).toMatchObject({
+      graphEditedSinceLastRun: false, analysisStateReady: true, analysisFreshnessDirty: false,
+    })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS)
+    expect.soft(useCanvasStore.getState().highlightedEdges.size).toBe(0)
+  })
+
   it('still invalidates, snapshots and pulses a genuine edge-value overwrite', () => {
     const { wire } = seedCurrentAnalysis()
     const result = mergeServerGraphOnHydrate(serverGraph({ ...wire, strength_mean: 0.7 }))

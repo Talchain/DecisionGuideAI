@@ -142,6 +142,8 @@ function buildEdge(op: PatchOperation) {
   // V3 edge metadata — explicitly extract known fields (no blind spread)
   const edgeType = typeof d.edge_type === 'string' ? d.edge_type : undefined
   const provenanceSource = typeof d.provenance_source === 'string' ? d.provenance_source : undefined
+  // HOP 2 OF 3 — the twin of `mapDraftEdgeToCanvas`'s `origin` (C46).
+  const origin = typeof d.origin === 'string' ? d.origin : undefined
   const existsProbability =
     typeof d.exists_probability === 'number'
       ? Math.max(0, Math.min(1, d.exists_probability as number))
@@ -179,6 +181,7 @@ function buildEdge(op: PatchOperation) {
       ...(strengthStd !== undefined ? { strengthStd } : {}),
       ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
+      ...(origin !== undefined ? { origin } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
       ...(validation !== undefined ? { validation } : {}),
       // What the SERVER stated — HOP 2 OF 3. One shared reader with hop 1
