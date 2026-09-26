@@ -795,7 +795,7 @@ function omitKeys(value: unknown, keys: ReadonlySet<string>): unknown {
  */
 function withoutNonAnalysisIntervention(value: unknown): unknown {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
-  const hasNative = (value as { raw_value?: unknown }).raw_value !== undefined
+  const hasNative = false
   const excluded = hasNative
     ? new Set([...NOT_ANALYSIS_AFFECTING.intervention].filter((k) => k !== 'unit'))
     : NOT_ANALYSIS_AFFECTING.intervention
