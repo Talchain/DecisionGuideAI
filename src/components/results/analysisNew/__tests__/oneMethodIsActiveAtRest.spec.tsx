@@ -90,6 +90,27 @@ describe('one method is active at rest — when the run names one', () => {
     expect(pressed()).toEqual(['consider_opposite'])
   })
 
+  it('⛔ (#2066 review B1) pressing the RESTING icon latches nothing: "Not useful right now" still sets the finding aside', () => {
+    drawBody(flipDecision())
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-consider_opposite`))
+    expect(screen.getByTestId(CARD), 'no visible change on the press').toHaveAttribute('data-source', 'intervention')
+    fireEvent.click(screen.getByTestId(`${CARD}-more`))
+    fireEvent.click(screen.getByTestId(`${CARD}-not-useful`))
+    // CONTROL (the same dismissal without the press) clears the card and the strip;
+    // the press must not change that.
+    expect(pressed(), 'the dismissed method is not re-presented').toEqual([])
+    expect(screen.queryByTestId(CARD)?.getAttribute('data-method-id') ?? null).not.toBe('consider_opposite')
+  })
+
+  it('⛔ (#2066 review B2) a method the READER picked wears the ring, not the run\'s "raised" dot', () => {
+    drawBody(flipDecision())
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-reframe_problem`))
+    expect(pressed()).toEqual(['reframe_problem'])
+    expect(screen.queryByTestId(`${STRIP}-method-reframe_problem-mark`), 'no provenance dot on a pick').toBeNull()
+    // CONTRAST: the method the run DID raise keeps its dot.
+    expect(screen.getByTestId(`${STRIP}-method-consider_opposite-mark`)).toBeInTheDocument()
+  })
+
   it('the tab\'s "Challenge the thinking" title carries the ⓘ', () => {
     drawBody(flipDecision())
     expect(screen.getByRole('heading', { name: 'Challenge the thinking' })).toBe(screen.getByTestId('analysis-new-zone-also'))

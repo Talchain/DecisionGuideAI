@@ -1235,6 +1235,18 @@ export function AnalysisNewTabBody({
    * something this tab can honestly choose.
    */
   const restingMethodId = useMemo(() => methodOfIntervention(glancePrimary)?.id ?? null, [glancePrimary])
+  /**
+   * ⛔ A PICK OF THE RESTING METHOD IS THE REST STATE, NOT A PICK (#2066 review
+   * B1). Pressing the already-active icon changed nothing on screen but latched
+   * `pickedMethodId`; "Not useful right now" then retired the finding and the
+   * latched pick re-presented the same method as a catalogue card, so the
+   * set-aside appeared not to work. Stored as `null`, it cannot outlive the
+   * finding it was equal to. Both pick routes (strip and card menu) use this.
+   */
+  const selectMethod = useCallback(
+    (id: string) => setPickedMethodId(id === restingMethodId ? null : id),
+    [restingMethodId],
+  )
 
   /**
    * ⭐⭐ THE GLANCE ANSWERED NOTHING, SO THE FIGURES COME UP TO FILL THE GAP.
@@ -1632,7 +1644,7 @@ export function AnalysisNewTabBody({
             the run's own top finding names (`restingMethodId`), never a default. */}
         <MethodStrip
           activeMethodId={pickedMethodId ?? restingMethodId}
-          onSelectMethod={setPickedMethodId}
+          onSelectMethod={selectMethod}
           raisedMethodIds={raisedMethodIds}
           canRerun={canRunAnalysis === true && !vm.status.isPreRun}
         />
@@ -2109,7 +2121,7 @@ export function AnalysisNewTabBody({
           titleTestId="analysis-new-zone-also"
           intervention={glancePrimary}
           methodId={pickedMethodId}
-          onSelectMethod={setPickedMethodId}
+          onSelectMethod={selectMethod}
           onSetAsideMethod={() => setPickedMethodId(null)}
           onRunIntervention={runIntervention}
           onRunMethod={(id) => {

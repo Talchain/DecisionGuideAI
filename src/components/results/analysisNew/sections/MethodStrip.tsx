@@ -327,7 +327,11 @@ export function MethodStrip({
             label={methodStripLabel(method, raised.has(id))}
             onClick={() => onSelectMethod(id)}
             pressed={activeMethodId === id}
-            marked={activeMethodId === id || raised.has(id)}
+            /* ⛔ THE DOT MEANS "RAISED BY THIS RUN" AND NOTHING ELSE (#2066
+               review B2): the menu's dot and every accessible name say so, so
+               a reader's own pick must not wear it — the ring alone carries
+               "active". */
+            marked={raised.has(id)}
             compact={compact}
             testId={`${testId}-method-${id}`}
           />

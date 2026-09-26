@@ -154,11 +154,15 @@ describe('B1 — the ⋯ is the prototype\'s ONE complete menu', () => {
 })
 
 describe('B1 — the strip itself', () => {
-  it('⭐ the ACTIVE method carries the ring AND the dot, even when the run did not raise it', () => {
+  // ⚠ RE-POINTED (#2066 review B2): this case used to require the dot on an
+  // active, UNRAISED method. The dot means "Raised by this run" everywhere
+  // else (the menu, every accessible name), so a reader's own pick wearing it
+  // is a provenance claim the run never made. The ring alone carries "active".
+  it('⭐ the ACTIVE method carries the ring, and NOT the "raised" dot when the run did not raise it', () => {
     draw({ activeMethodId: 'reframe_problem' })
     const active = screen.getByTestId(`${TID}-method-reframe_problem`)
     expect(active).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByTestId(`${TID}-method-reframe_problem-mark`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`${TID}-method-reframe_problem-mark`)).toBeNull()
     // CONTRAST: an inactive, unraised sibling has neither.
     expect(screen.getByTestId(`${TID}-method-outside_view`)).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByTestId(`${TID}-method-outside_view-mark`)).toBeNull()
