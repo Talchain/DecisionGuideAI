@@ -111,7 +111,10 @@ export const COMMITMENT_COPY = {
   sinceLastRun: {
     noneMoved: 'Since the last run, no option moved beyond ordinary run-to-run variation.',
     oneMoved: (label: string, from: string, to: string) => `Since the last run, ${label} moved from ${from} to ${to}.`,
-    someMoved: (n: number) => `Since the last run, ${n} options moved beyond ordinary run-to-run variation.`,
+    someMoved: (n: number) =>
+      n === 1
+        ? 'Since the last run, one option moved beyond ordinary run-to-run variation.'
+        : `Since the last run, ${n} options moved beyond ordinary run-to-run variation.`,
   },
   /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
   openAsk: {
