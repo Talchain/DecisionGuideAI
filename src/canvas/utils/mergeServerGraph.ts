@@ -533,8 +533,13 @@ export function mergeServerGraphOnHydrate(
     // Acquiring server readback is a store change, not a changed model value.
     // Mask ONLY that record; every other change retains the existing edit
     // classification. The overlay preserves user stamps on tuple-only reads.
-    // `origin` is acquired metadata too (R2, C46): never a changed value.
-    const comparableReadback = { ...next.data, serverStrength: e.data?.serverStrength, origin: e.data?.origin }
+    // `origin` (R2, C46) and `naturalEffect` (#2107) are acquired metadata too: never a changed value.
+    const comparableReadback = {
+      ...next.data,
+      serverStrength: e.data?.serverStrength,
+      origin: e.data?.origin,
+      naturalEffect: e.data?.naturalEffect,
+    }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)
     }
