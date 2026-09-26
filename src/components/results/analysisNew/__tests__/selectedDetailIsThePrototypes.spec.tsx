@@ -182,6 +182,10 @@ describe('the detail is the prototype’s inline-detail', () => {
     expect(screen.getByTestId(`${TID}-detail`)).toBeInTheDocument()
     expect(screen.queryByTestId(`${TID}-detail-finding`)).toBeNull()
     expect(screen.getByTestId(`${TID}-detail`).querySelector('li')).toBeNull()
+    // …and no denial stands in for it either: the absence line is gone.
+    expect(screen.queryByTestId(`${TID}-detail-empty`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-detail`)).not.toHaveTextContent(COPY.modelStrip.noInsight)
+    expect(screen.getByTestId(`${TID}-detail`)).not.toHaveTextContent(COPY.modelStrip.noInsightPreRun)
   })
 
   it('⛔ none of the strings the prototype lacks, even where the data for them exists', () => {
