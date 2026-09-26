@@ -62,8 +62,7 @@
  *     from the Run record, so no producer CODE is text anywhere in this region.
  *   · Run record is one label/value list of the builder's non-statement rows.
  *   NOT RENDERED, because nothing honest feeds them (never invented here): the
- *   lineage "Question → Model N → run" (no model revision exists), "Inspect
- *   beliefs and source notes" (the review tool has no open request), "Export
+ *   lineage "Question → Model N → run" (no model revision exists), "Export
  *   review record" (no export exists), a unit caption on the values (units are
  *   paused pending the producer ruling).
  *
@@ -105,7 +104,7 @@ import type {
 } from '../analysisNewTypes'
 import { FactorValueControl } from '../FactorValueControl'
 import { PanelIconButton } from '../PanelIconButton'
-import { ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
+import { action, ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
 import { useReviewTopicCount } from '../useReviewTopicCount'
 import type { ReviewTopicSource } from '../useReviewTopicCount'
 
@@ -154,6 +153,8 @@ export const ABOUT_COPY = {
   },
   /** The review tool's queue length — the prototype's "N open". */
   reviewOpen: (n: number): string => `${n} open`,
+  /** Prototype `sourcesHTML()`'s closing act, verbatim. */
+  inspectBeliefs: 'Inspect beliefs and source notes',
   /** Everything that is not the view model's gated word. */
   robustnessNotEstablished: 'Not established',
   details: {
@@ -224,6 +225,12 @@ export interface AboutThisAnalysisProps {
   offerFactorValueControl?: boolean
   /** Absent ⇒ no AI act is drawn. Never a control that does nothing. */
   onAsk?: (payload: AboutAskPayload) => void
+  /**
+   * Opens the review tool where the reader left off (prototype
+   * `data-action="reviews"`). Drawn only when the review queue has something
+   * open — never a control that does nothing.
+   */
+  onInspectBeliefs?: () => void
   /**
    * V2 gap 24: the blocks the deleted "If you want to go further" tail held,
    * mounted by the body as they were. Rendered last in the open region.
@@ -334,6 +341,7 @@ export function AboutThisAnalysis({
   reviewTopics,
   offerFactorValueControl = false,
   onAsk,
+  onInspectBeliefs,
   folded = null,
   foldedHasContent = false,
   testId = 'analysis-new-about',
@@ -599,6 +607,7 @@ export function AboutThisAnalysis({
                         limits={limits}
                         meanings={meanings}
                         offerFactorValueControl={offerFactorValueControl}
+                        onInspectBeliefs={reviewCount !== null && reviewCount > 0 ? onInspectBeliefs : undefined}
                         testId={testId}
                       />
                     ) : (
@@ -729,15 +738,18 @@ function SourcesAndLimits({
   limits,
   meanings,
   offerFactorValueControl,
+  onInspectBeliefs,
   testId,
 }: {
   limits: LimitBullet[]
   meanings: Array<{ id: ChecksItem['id']; text: string }>
   offerFactorValueControl: boolean
+  onInspectBeliefs?: () => void
   testId: string
 }) {
   const li = "relative pl-[11px] before:absolute before:left-px before:content-['·']"
   return (
+    <>
     <ul
       /* `.tiny-list`: 6px margin + each item's 3px, and 6px + 3px + 3px between items. */
       className={`${typography.panelBody} text-text-body m-0 my-[9px] list-none space-y-3 pl-[15px]`}
@@ -773,6 +785,20 @@ function SourcesAndLimits({
         {SCIENCE_LIMITATIONS_DISCLOSURE}
       </li>
     </ul>
+    {/* ⭐ Prototype `sourcesHTML()`'s closing act: "🔍 Inspect beliefs and
+        source notes" opens the review tool (`data-action="reviews"`). */}
+    {onInspectBeliefs ? (
+      <button
+        type="button"
+        onClick={onInspectBeliefs}
+        className={`${typography.panelBody} ${action('text')}`}
+        data-testid={`${testId}-inspect-beliefs`}
+      >
+        <Search className={`${icon('row')} shrink-0`} aria-hidden={true} />
+        {ABOUT_COPY.inspectBeliefs}
+      </button>
+    ) : null}
+    </>
   )
 }
 
