@@ -30,7 +30,7 @@
  * model extends further than it does.
  */
 import type { Node } from '@xyflow/react'
-import { TIER_BY_KIND } from './nodeLayoutConstants'
+import { KIND_GLYPH_PX, TIER_BY_KIND } from './nodeLayoutConstants'
 import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
 import { isGhostNode } from './fitTargets'
 import { DECISION_NODE_LABEL, MODEL_GROUP_TITLE } from '../domain/vocabulary'
@@ -181,10 +181,13 @@ export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
 }
 
 /**
- * The gap between a band's title and its first card, in flow units. The title
- * is bottom-anchored this far above the band so a counter-scaled label grows UP
- * into the row gap, never down over a card. (Lives here so the glyph keep-out
- * below and `TierLanes` read one number.)
+ * The clearance, in flow units, between a band's title and what stands directly
+ * below it: its band's card tops, or — when the title rises clear of them — the
+ * tops of those cards' kind shapes. The title is bottom-anchored so a
+ * counter-scaled label grows UP into the row gap, never down over a card. The
+ * row gap budgets the same clearance again above the title
+ * (`LAYOUT_LAYER_GAP`). (Lives here so `TierLanes`, the glyph keep-outs below
+ * and the guard read one number.)
  */
 export const LANE_TITLE_GAP = 8
 
@@ -192,12 +195,116 @@ export const LANE_TITLE_GAP = 8
 const LANE_TITLE_PX = 10
 const LANE_TITLE_TRACKING_PX = 0.5
 const LANE_TITLE_LINE_HEIGHT = 1.2
+/** The title's one line box, unscaled (10px × 1.2). */
+export const LANE_TITLE_LINE_PX = LANE_TITLE_PX * LANE_TITLE_LINE_HEIGHT
 /**
  * A capital's advance at 10px, generous (Inter caps average ~0.66em; W/M run
  * wider). The keep-out only has to CONTAIN the label, so over-estimating costs
  * a glyph a ring step, and under-estimating is the defect.
  */
 const LANE_TITLE_CAP_ADVANCE_PX = 7.4
+
+export interface FlowBox {
+  readonly x0: number
+  readonly y0: number
+  readonly x1: number
+  readonly y1: number
+}
+
+/** Positive-area intersection: boxes that only touch do not collide. */
+function overlaps(a: FlowBox, b: FlowBox): boolean {
+  return Math.min(a.x1, b.x1) > Math.max(a.x0, b.x0) && Math.min(a.y1, b.y1) > Math.max(a.y0, b.y0)
+}
+
+/**
+ * The flow-space box of a card's kind shape at label scale `scale` — the box
+ * `BaseNode` draws (`KIND_GLYPH_PX × scale` square, centred on the card's top
+ * border, horizontally centred on the card).
+ */
+export function kindGlyphBoxOf(n: Node, scale: number): FlowBox {
+  const size = KIND_GLYPH_PX * scale
+  const cx = (n.position?.x ?? 0) + boxOf(n).w / 2
+  const top = (n.position?.y ?? 0) - size / 2
+  return { x0: cx - size / 2, y0: top, x1: cx + size / 2, y1: top + size }
+}
+
+export interface LaneTitlePlacement {
+  readonly tier: number
+  readonly title: string
+  /** The one left column every title shares: the board's leftmost card edge. */
+  readonly x: number
+  /** Its band's top — the first course's card tops. */
+  readonly laneY: number
+  /**
+   * The title stands clear ABOVE its band's kind shapes rather than just above
+   * its cards, because at the bound its run would otherwise cross one.
+   */
+  readonly clearsKindGlyphs: boolean
+  /** The box the title occupies at the counter-scale bound. */
+  readonly boxAtBound: FlowBox
+}
+
+/**
+ * ⭐⭐ WHERE EACH BAND TITLE STANDS — the one answer `TierLanes` renders and the
+ * polarity-glyph keep-out (`tierLaneTitleBoxFor`) reads.
+ *
+ * ## The kind shape keep-out (26 Sep 2026, review of #2074, Blocker 1)
+ *
+ * WS1 #15 counter-scaled each card's kind shape to the contract's 24px, so at
+ * the landing bound it stands 24 units above its card, and WS1 #26's band words
+ * run 158–198 units there. A title bottom-anchored `LANE_TITLE_GAP` above its
+ * cards sat in that strip, and on four of the five starters the leftmost
+ * card's shape covered it: ALTERNATIVES under the first option's square,
+ * OUTCOMES / RISKS under the first risk's triangle (served, 1280×800: 24.0×7.5px
+ * each, none at the base).
+ *
+ * The v3.1 prototype never puts a `.layer-label` under a `.node .shape`. Over
+ * the bands that start at the label column (ALTERNATIVES, FACTORS, OUTCOMES /
+ * RISKS) the label's line box ends 2.5–5.5px above the shape tops, and its top
+ * clears the row above by 3–8px; EXPLORATION and GOAL sit level with their
+ * centred anchors' shapes, which stand far to the right of the run. At the
+ * bound the run is twice as long against cards that are not, so the columns
+ * cannot keep them apart here — only height can. A title whose run would cross
+ * a kind shape therefore rises by the shape's overhang and keeps
+ * `LANE_TITLE_GAP` (4px on screen at landing) above it; one whose run is clear
+ * stays on its cards, as the prototype's EXPLORATION and GOAL do.
+ *
+ * ⚠ DECIDED AT THE BOUND, APPLIED AT EVERY ZOOM. Below the bound the run and
+ * the shape both shrink and move apart, so a run clear at the bound is clear
+ * everywhere; deciding once keeps a title from hopping as the camera moves.
+ * ⚠ The first band's title is the one that must NOT rise without cause: the
+ * landing top-anchors the board under the top bar with 16px to spare, which
+ * holds the title on its cards, not 24 units higher.
+ */
+export function deriveLaneTitles(nodes: readonly Node[]): LaneTitlePlacement[] {
+  const lanes = deriveTierLanes(nodes)
+  if (lanes.length === 0) return []
+  const columnX = lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
+  const s = MAX_LABEL_COUNTER_SCALE
+  const height = LANE_TITLE_LINE_PX * s
+  const glyphs = nodes
+    .filter((n) => !isGhostNode(n.id))
+    .filter((n) => {
+      const kind = kindOf(n)
+      return kind !== undefined && TIER_BY_KIND[kind] !== undefined
+    })
+    .map((n) => kindGlyphBoxOf(n, s))
+  const overhang = (KIND_GLYPH_PX / 2) * s
+  return lanes.map((lane) => {
+    const width = lane.title.length * (LANE_TITLE_CAP_ADVANCE_PX + LANE_TITLE_TRACKING_PX) * s
+    const boxWithBottom = (bottom: number): FlowBox => ({ x0: columnX, y0: bottom - height, x1: columnX + width, y1: bottom })
+    const onCards = boxWithBottom(lane.y - LANE_TITLE_GAP)
+    const clearsKindGlyphs = glyphs.some((g) => overlaps(onCards, g))
+    return {
+      tier: lane.tier,
+      title: lane.title,
+      x: columnX,
+      laneY: lane.y,
+      clearsKindGlyphs,
+      boxAtBound: clearsKindGlyphs ? boxWithBottom(lane.y - overhang - LANE_TITLE_GAP) : onCards,
+    }
+  })
+}
 
 /**
  * ⭐ v3.1 WS1 #28: the flow-space box the band title of `nodeId`'s row occupies
@@ -208,19 +315,11 @@ const LANE_TITLE_CAP_ADVANCE_PX = 7.4
 export function tierLaneTitleBoxFor(
   nodes: readonly Node[],
   nodeId: string,
-): { x0: number; y0: number; x1: number; y1: number } | undefined {
+): FlowBox | undefined {
   const target = nodes.find((n) => n.id === nodeId)
   if (!target) return undefined
   const kind = kindOf(target)
   const tier = kind !== undefined ? TIER_BY_KIND[kind] : undefined
   if (tier === undefined) return undefined
-  const lanes = deriveTierLanes(nodes)
-  const lane = lanes.find((l) => l.tier === tier)
-  if (!lane) return undefined
-  const columnX = lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
-  const s = MAX_LABEL_COUNTER_SCALE
-  const width = lane.title.length * (LANE_TITLE_CAP_ADVANCE_PX + LANE_TITLE_TRACKING_PX) * s
-  const height = LANE_TITLE_PX * LANE_TITLE_LINE_HEIGHT * s
-  const bottom = lane.y - LANE_TITLE_GAP
-  return { x0: columnX, y0: bottom - height, x1: columnX + width, y1: bottom }
+  return deriveLaneTitles(nodes).find((t) => t.tier === tier)?.boxAtBound
 }

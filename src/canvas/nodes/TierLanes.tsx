@@ -25,7 +25,8 @@
  */
 import { memo, useMemo } from 'react'
 import { ViewportPortal, type Node } from '@xyflow/react'
-import { deriveTierLanes, LANE_TITLE_GAP } from '../utils/tierLanes'
+import { deriveLaneTitles, LANE_TITLE_GAP } from '../utils/tierLanes'
+import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
 
 /**
  * ⭐ THE BANDS ARE LABELS ONLY, IN ONE LEFT COLUMN (Paul, 24 Sep: "Keep the
@@ -62,6 +63,12 @@ import { deriveTierLanes, LANE_TITLE_GAP } from '../utils/tierLanes'
  * Bottom-anchored `LANE_TITLE_GAP` above each band's first card: the label
  * counter-scales, so at far zoom it grows several times taller and must grow up
  * into the gap between rows, never down over a card.
+ *
+ * ⭐ AND NEVER UNDER A KIND SHAPE (review of #2074, Blocker 1). Where the
+ * title's run would cross one of its band's counter-scaled kind shapes, it
+ * rises by the shape's overhang (`KIND_GLYPH_PX / 2 × --canvas-label-scale`, the
+ * same expression `BaseNode` places the shape with) and keeps `LANE_TITLE_GAP`
+ * above the shape instead. `deriveLaneTitles` decides which titles rise.
  */
 export { LANE_TITLE_GAP }
 
@@ -76,8 +83,15 @@ export function laneTitleFlowAnchor(
   return { x: columnX, bottomY: lane.y - LANE_TITLE_GAP }
 }
 
+/** The title's lift: none, or the kind shape's overhang at the live label scale. */
+export function laneTitleTransform(clearsKindGlyphs: boolean): string {
+  return clearsKindGlyphs
+    ? `translateY(calc(-100% - ${KIND_GLYPH_PX / 2}px * var(--canvas-label-scale, 1)))`
+    : 'translateY(-100%)'
+}
+
 export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly Node[] }) {
-  const lanes = useMemo(() => deriveTierLanes(nodes), [nodes])
+  const lanes = useMemo(() => deriveLaneTitles(nodes), [nodes])
   if (lanes.length === 0) return null
   const columnX = laneTitleColumnX(lanes)
 
@@ -85,7 +99,7 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
     <ViewportPortal>
       <div aria-hidden="true" style={{ pointerEvents: 'none' }} data-testid="tier-lanes">
         {lanes.map((lane) => {
-          const anchor = laneTitleFlowAnchor(lane, columnX)
+          const anchor = laneTitleFlowAnchor({ x: lane.x, y: lane.laneY }, columnX)
           return (
             <span
               key={lane.tier}
@@ -99,7 +113,7 @@ export const TierLanes = memo(function TierLanes({ nodes }: { nodes: readonly No
               style={{
                 left: anchor.x,
                 top: anchor.bottomY,
-                transform: 'translateY(-100%)',
+                transform: laneTitleTransform(lane.clearsKindGlyphs),
                 lineHeight: 1.2,
                 // v3.1 WS1 #26: 0.5px ON SCREEN, like the 10px beside it — a
                 // fixed 0.5px was 0.25px on screen at the landing zoom.

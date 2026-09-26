@@ -613,15 +613,46 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  */
 export const LAYOUT_NODE_GAP = 32
 /**
- * ⭐ v3.1 LANDING COMPOSITION (WS1, 26 Sep 2026): 48 → 32, so the VISIBLE gap
- * between two rows (this plus the two half-paddings of `LAYOUT_PADDING_Y`) is
- * 48 flow units — 24px at the 0.5 landing floor, 48px at 100%, inside the
- * prototype's 35–60px. ED S5 (#63 5808428246) accepted "reduce row gap to 48 if
- * the served view preserves label/connector separation": the band label needs
- * `LANE_TITLE_GAP` + one counter-scaled 10px line (8 + 24 units at the bound),
- * which 48 holds with 16 to spare.
+ * ⭐ THE KIND SHAPE ON A CARD'S TOP BORDER, in unscaled px (contract v3.1
+ * FRAME-03, `.node .shape{width:24px;height:24px;top:-12px}`). `BaseNode` draws
+ * it `KIND_GLYPH_PX × --canvas-label-scale` square, centred on the card's top
+ * border, so it stands `KIND_GLYPH_PX / 2 × scale` above the card: 24 flow
+ * units at the landing bound. It lives here, not in `BaseNode`, because two
+ * other things are sized against it: the band title keeps clear of it
+ * (`tierLanes.ts`) and the row gap below budgets for it.
  */
-export const LAYOUT_LAYER_GAP = 32
+export const KIND_GLYPH_PX = 24
+
+/**
+ * ⭐⭐ THE ROW GAP HOLDS THE KIND SHAPE AND THE BAND TITLE, BOTH AT THE BOUND
+ * (26 Sep 2026, review of #2074, Blocker 1).
+ *
+ * The visible gap between two rows is this plus `LAYOUT_PADDING_Y`: 64 flow
+ * units, 32px at the 0.5 landing floor. At the counter-scale bound (×2) that
+ * gap must hold, from the bottom up:
+ *
+ *   the kind shape's overhang above its card   KIND_GLYPH_PX / 2 × 2   = 24
+ *   the title's clearance above that shape     LANE_TITLE_GAP          =  8
+ *   the band title's one line                  10px × 1.2 × 2          = 24
+ *   the title's clearance below the row above  LANE_TITLE_GAP          =  8
+ *                                                                        ──
+ *                                                                        64
+ *
+ * WS1 #11 had set this to 32 (48 visible) on ED S5 (#63 5808428246), which
+ * accepted "reduce row gap to 48 if the served view preserves label/connector
+ * separation". Its arithmetic counted the title (8 + 24) and not the kind
+ * shape, which WS1 #15 had just made 24 units tall above the card: served at
+ * 1280×800, ALTERNATIVES and OUTCOMES / RISKS sat under the leftmost card's
+ * shape on four of the five starters (24.0×7.5px each). The separation the
+ * acceptance was conditional on did not hold, so the gap is back at 48. What
+ * #11 keeps: this is still the ONE row gap — a persisted `layerSpacing` cannot
+ * change it (`layout.ts`). At 100% the visible gap is 64px, against the
+ * prototype's 35–60px, where the title and shape are not counter-scaled.
+ *
+ * `bandTitleClearsKindGlyph.guard.spec.ts` asserts the budget above and pairs
+ * every band title with every kind shape on the five starters at the bound.
+ */
+export const LAYOUT_LAYER_GAP = 48
 
 export const LAYOUT_PADDING_X = 24
 

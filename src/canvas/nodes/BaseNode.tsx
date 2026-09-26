@@ -28,6 +28,7 @@ import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
 import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
+  KIND_GLYPH_PX,
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
   NODE_HEADER_GAP_PX,
@@ -277,10 +278,11 @@ interface BaseNodeProps extends NodeProps {
  * `.node .shape{width:24px;height:24px;top:-12px}`), counter-scaled since v3.1
  * WS1 #15. It used to be an 18px shape inside a 22px white tile; the tile is
  * gone, so the shape takes the whole box and the outline separates it from the
- * border instead. Local because nothing else sizes against it — it is painted
- * out of flow and reserves no layout width.
+ * border instead. It is painted out of flow and reserves no layout width, but
+ * it is SHARED (`KIND_GLYPH_PX`): the band titles keep clear of it and the row
+ * gap budgets for its overhang (review of #2074, Blocker 1).
  */
-const CONNECTOR_GLYPH_PX = 24
+const CONNECTOR_GLYPH_PX = KIND_GLYPH_PX
 
 /**
  * ⭐ v3.1 WS1 #15: the target handle's TOP is the kind shape's top
