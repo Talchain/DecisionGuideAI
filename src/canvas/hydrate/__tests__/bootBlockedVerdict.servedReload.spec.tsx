@@ -22,6 +22,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import served from './fixtures/served-blocked-read-after-canvas-add.6dd42eb.json'
+import servedAddOnTurn from '../../utils/__tests__/fixtures/served-addon-needs-user-input.4c3b512.turn.json'
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
 import { applyBootBlockedVerdict, BOOT_BLOCKED_VERDICT_DECLINE_REASONS, type BootBlockedVerdictDeclineReason } from '../applyBootRunCurrency'
@@ -212,6 +213,65 @@ describe('a stale verdict that does NOT close the gate is written once, by its o
     }
     const ofThisRead = writes.filter((w) => w !== null && (w as AnalysisStateV1).run_state?.kind === 'complete_stale')
     expect(ofThisRead).toHaveLength(1)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RELOAD LEG OF DL BLOCKER 5843653448 (Canvas #70 5843698855): CEE ADMITS the
+// run (`analysis_admission.admitted: true`) while the readiness still lists
+// MISSING_OPTION_VALUE ×3 — waived by exclusion. That verdict does not close the
+// gate, so this leg must not restore it as if it did.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ADMITTED_STATE = (servedAddOnTurn as { turn: { analysis_state: AnalysisStateV1 } }).turn.analysis_state
+
+describe('⭐ a reload of a state CEE admits does not grey Run (the admitted waiver)', () => {
+  it('PRECONDITION: DL turn 3 is a stale run over needs_user_input with MISSING_OPTION_VALUE ×3', () => {
+    expect(ADMITTED_STATE.run_state.kind).toBe('complete_stale')
+    expect(ADMITTED_STATE.readiness.status).toBe('needs_user_input')
+    expect(ADMITTED_STATE.readiness.blockers.map((b) => b.code)).toEqual(['MISSING_OPTION_VALUE', 'MISSING_OPTION_VALUE', 'MISSING_OPTION_VALUE'])
+  })
+
+  const run = (admitted: boolean | null) => {
+    const writes: unknown[] = []
+    const outcome = applyBootBlockedVerdict({
+      analysisState: ADMITTED_STATE,
+      graphHash: '06bdf585412154de',
+      canvasProvenEqualToRead: true,
+      isRestorableKind: (kind) => kind === 'complete_stale',
+      admitted,
+      store: { analysisFreshnessDirty: false, setAnalysisStateV1: (v) => writes.push(v) },
+    })
+    return { outcome, writes }
+  }
+
+  it('⭐ admitted: true → declined as does_not_close_gate; nothing written', () => {
+    expect(run(true)).toEqual({ outcome: { outcome: 'declined', reason: 'does_not_close_gate' }, writes: [] })
+  })
+
+  it('CONTROL: the read did not answer (null) → the verdict closes the gate as before, and is restored', () => {
+    expect(run(null).outcome).toEqual({ outcome: 'restored' })
+  })
+
+  it('⭐ through the real read adapter and call site: a read carrying admitted:true restores nothing', async () => {
+    ;(body as unknown as Record<string, unknown>).analysis_state = ADMITTED_STATE
+    ;(body as unknown as Record<string, unknown>).analysis_admission = { admitted: true }
+    const debugSpy = vi.spyOn(logger, 'debug')
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    const logged = debugSpy.mock.calls.find(([event]) => event === 'server_graph_hydration.boot_blocked_verdict')
+    expect(logged?.[1]).toMatchObject({ outcome: 'declined', detail: 'does_not_close_gate' })
+    expect(useCanvasStore.getState().analysisStateV1?.readiness.status ?? null).not.toBe('needs_user_input')
+    debugSpy.mockRestore()
+  })
+
+  it('CONTROL (same path): the same read WITHOUT an admission restores it, as today', async () => {
+    ;(body as unknown as Record<string, unknown>).analysis_state = ADMITTED_STATE
+    delete (body as unknown as Record<string, unknown>).analysis_admission
+    const debugSpy = vi.spyOn(logger, 'debug')
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    const logged = debugSpy.mock.calls.find(([event]) => event === 'server_graph_hydration.boot_blocked_verdict')
+    expect(logged?.[1]).toMatchObject({ outcome: 'restored' })
+    debugSpy.mockRestore()
   })
 })
 

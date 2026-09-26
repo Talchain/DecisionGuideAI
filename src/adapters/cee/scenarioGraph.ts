@@ -177,6 +177,14 @@ export type ScenarioGraphResult =
        * declaration here would be a mirror of the block contract.
        */
       analysisResult: unknown
+      /**
+       * CEE's run admission for this revision (`analysis_admission.admitted`), or
+       * `null` when the read did not answer. The boot restore of a gate-closing
+       * verdict needs it: CEE may admit a run whose readiness still lists
+       * MISSING_OPTION_VALUE (waived by exclusion), and the gate reads that
+       * readiness as closing Run unless it is told the run is admitted.
+       */
+      admitted: boolean | null
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -348,8 +356,16 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // being the one block type this leg may carry, so a future CEE key cannot
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
+    admitted: readAdmitted(b.analysis_admission),
     requestId,
   }
+}
+
+/** `analysis_admission.admitted` when it is a boolean; anything else is "did not answer". */
+function readAdmitted(raw: unknown): boolean | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const admitted = (raw as { admitted?: unknown }).admitted
+  return typeof admitted === 'boolean' ? admitted : null
 }
 
 /**

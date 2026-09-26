@@ -178,12 +178,20 @@ export function applyBootBlockedVerdict(input: {
   readonly graphHash: string | null
   readonly canvasProvenEqualToRead: boolean
   readonly isRestorableKind: (kind: string) => boolean
+  /**
+   * The read's `analysis_admission.admitted` (`null`: did not answer). `true`
+   * WAIVES what the readiness lists by exclusion, exactly as the turn's bound
+   * `may_run` does in-session, so such a verdict does not close the gate and is
+   * not this leg's. Served 26 Sep (DL bf-20260926T054503Z turn 3; Canvas
+   * #70 5843698855): without it a reload greyed Run on a revision CEE admitted.
+   */
+  readonly admitted?: boolean | null
   readonly store: { readonly analysisFreshnessDirty?: boolean; readonly setAnalysisStateV1?: (verdict: AnalysisStateV1 | null) => void }
 }): BootBlockedVerdictOutcome {
   const verdict = input.analysisState
   if (verdict == null) return { outcome: 'declined', reason: 'no_verdict' }
   if (!input.isRestorableKind(verdict.run_state.kind)) return { outcome: 'declined', reason: 'not_restorable' }
-  if (!readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict))) {
+  if (!readinessObjectsToRun(null, selectAnalysisReadinessAuthority(verdict), input.admitted ?? undefined)) {
     return { outcome: 'declined', reason: 'does_not_close_gate' }
   }
   if (typeof input.graphHash !== 'string' || input.graphHash.length === 0) return { outcome: 'declined', reason: 'no_graph_hash' }
