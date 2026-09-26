@@ -468,8 +468,12 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
 
   /** The 1280x800 laptop every figure in this file is taken at. */
   const PANE = { width: 1280, height: 800 }
-  /** `OutputsDock` is positioned `right: 12`; the collapsed rail `left: 12`, 48 wide. */
-  const DOCK_RIGHT_OFFSET = 12
+  /**
+   * `OutputsDock` is FLUSH to the right edge since 26 Sep 2026 (the design
+   * contract's `.ai-panel{right:0}`; it was a card at `right: 12`). The
+   * collapsed rail is `left: 12`, 48 wide.
+   */
+  const DOCK_RIGHT_OFFSET = 0
   const RAIL = { left: 12, width: 48, height: 191 }
   /**
    * `headcount-allocation`'s MEASURED bounding box in flow units — one of the
@@ -503,6 +507,11 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
    * 1776 wide — 2.7% UNDER that cliff. An ordinary typed brief clears it by 17%.
    * So off-pane is NOT a widened-dock-only state, and the arms below must not be
    * read as saying it is.
+   *
+   * ⚠ UPDATED 26 Sep 2026 (the contract's flush 319px panel): `insets.right` is
+   * now 335, so `frameW = 869`, the margin is `510.5 - width / 4` and the cliff
+   * moves to 2042 units. The starters now sit 13% under it; this brief still
+   * clears it, by 4.8%.
    */
   const FOUNDER_BOUNDS = { x: 24, y: 24, width: 2140, height: 1326 }
 
@@ -545,21 +554,26 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
     // would define the geometry AND the expectation. 76 / 444 were read off a
     // real page load at 1280x800 with the dock expanded
     // (`useFitViewOnLayoutVersion.clampedTopAnchor.spec.tsx`).
-    expect(responsiveDockWidth(PANE.width)).toBe(416)
+    // ⚠ RE-PINNED 26 Sep 2026 (flush 319px panel): 416 → 319 and 444 → 335.
+    // The new dock rect was measured on the local build at 1280x800 —
+    // (961, 51, 319×749), flush right — not yet on deployed staging.
+    expect(responsiveDockWidth(PANE.width)).toBe(319)
     const insets = insetsForDockWidth(responsiveDockWidth(PANE.width))
     expect(insets.left).toBe(76)
-    expect(insets.right).toBe(444)
+    expect(insets.right).toBe(335)
   })
 
-  it('⭐ at the dock SHIPPED default, a STARTER-WIDTH model keeps a 12px pane margin', () => {
+  it('⭐ at the dock SHIPPED default, a STARTER-WIDTH model keeps a 66.5px pane margin', () => {
     // The residual the change buys, stated in the PR body and until now pinned
     // nowhere. Under the reverted `Math.max(0, …)` this was 76.
-    // ⚠ TRUE OF THIS WIDTH ONLY. 12px is what 1776 units buys; the margin is
-    // `456 - width / 4`, so it is gone by 1824. The next arm prices that.
-    expect(modelLeftEdge(insetsForDockWidth(responsiveDockWidth(PANE.width)))).toBe(12)
+    // ⚠ TRUE OF THIS WIDTH ONLY. 66.5px is what 1776 units buys; the margin is
+    // `510.5 - width / 4`, so it is gone by 2042. The next arm prices that.
+    // RE-PINNED 26 Sep 2026 (flush 319px panel): it was 12px at the 416 card,
+    // `456 - width / 4`, gone by 1824.
+    expect(modelLeftEdge(insetsForDockWidth(responsiveDockWidth(PANE.width)))).toBe(66.5)
   })
 
-  it('⛔ but a MEASURED ordinary model goes 79px OFF-PANE at that SAME shipped default', () => {
+  it('⛔ but a MEASURED ordinary model goes 24.5px OFF-PANE at that SAME shipped default', () => {
     // The finding this block previously could not see, because it priced the
     // residual at one width. This is not a hypothetical wider model: it is the
     // founder brief measured on deployed `113375a1`, and it clears the 1824-unit
@@ -574,20 +588,24 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
     // assertion below would be about a code path that never ran.
     const frameW = PANE.width - insets.left - insets.right
     expect(FOUNDER_BOUNDS.width * v!.zoom).toBeGreaterThan(frameW)
-    expect(v!.x + FOUNDER_BOUNDS.x * v!.zoom).toBe(-79)
+    // RE-PINNED 26 Sep 2026 (flush 319px panel): −79 at the 416 card. The
+    // wider frame shrinks the residual; it does not remove it.
+    expect(v!.x + FOUNDER_BOUNDS.x * v!.zoom).toBe(-24.5)
   })
 
   // ⚠ THIS ARM IS ABOUT THE STARTER WIDTH, AND IT IS NOT THE ONLY WAY OFF-PANE
   // IS REACHED. The arm above shows a measured ordinary model going off-pane at
   // the SHIPPED default. Widening the dock is a second, independent route to the
   // same state, not the only one.
-  it('⚠ KNOWN, PRICED AND UNFIXED: at STARTER width, the dock MAXIMUM of 480 also goes 20px OFF-PANE', () => {
+  it('⚠ KNOWN, PRICED AND UNFIXED: at STARTER width, the dock MAXIMUM of 480 also goes 14px OFF-PANE', () => {
     const maxDock = dockWidthBounds(PANE.width).max
     expect(maxDock).toBe(480)
     // EXACTLY -20, not `toBeLessThan(0)`. A range assertion would let this
     // deteriorate silently, which is the failure mode being guarded. A user who
     // has widened the dock keeps that width, so this state persists.
-    expect(modelLeftEdge(insetsForDockWidth(maxDock))).toBe(-20)
+    // RE-PINNED 26 Sep 2026: −20 while the dock sat 12px off the right edge;
+    // −14 flush (the same 480 width, 12px further right, half of it per side).
+    expect(modelLeftEdge(insetsForDockWidth(maxDock))).toBe(-14)
   })
 
   it('and the trade there is still net-positive — MORE of the model is visible than before', () => {
@@ -608,6 +626,7 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
       Math.max(0, Math.min(left + scaledW, dockLeft) - Math.max(left, 0))
 
     expect(visible(after)).toBeGreaterThan(visible(before))
-    expect([visible(before), visible(after)]).toEqual([712, 788])
+    // RE-PINNED 26 Sep 2026 (flush): [712, 788] while the dock sat at `right: 12`.
+    expect([visible(before), visible(after)]).toEqual([724, 800])
   })
 })

@@ -111,9 +111,28 @@ describe('gap ACTION-2: panelSurfaces declares the text-button tier', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────
-// gap ACTION-1 — the selected dock tab: a border, not a tint-plus-underline.
+// gap ACTION-1 — the selected dock tab. SUPERSEDED 26 Sep 2026 (see below).
 // ─────────────────────────────────────────────────────────────────────────
-describe('gap ACTION-1: the selected tab is a border, never a fill or an underline', () => {
+/**
+ * ⚠⚠ THIS PIN WAS REVERSED, AND BOTH AUTHORITIES ARE NAMED SO THE NEXT READER
+ * CAN SEE WHY.
+ *
+ *  - 25 Sep 2026 (#2036, bundle b1): pinned to `Olumi_Reasoning_Prototype_V2.html`
+ *    — `.tab[aria-selected="true"]{box-shadow:inset 0 0 0 1px rgb(var(--info-rgb)/.32)}`,
+ *    a BORDER, "never a fill or an underline".
+ *  - 25 Sep 2026, the LOCKED canvas visual contract
+ *    (`olumi-canvas-visual-contract.html`), which owns the right panel's shell:
+ *    `.panel-tabs button{font-size:11px;border-bottom:2px solid transparent}`,
+ *    `.panel-tabs button.active{border-color:var(--info);color:var(--info);
+ *    background:#F3F8FA}` — an UNDERLINE and a TINT.
+ *
+ * The design audit of 26 Sep (register row #4, served `853feeb7`) measured the
+ * outline as the open defect against the contract, and Paul asked on 26 Sep for
+ * the latest design prototype to be completed. The panel SHELL follows the
+ * canvas contract; the Reasoning prototype still governs the Reasoning tab's
+ * own body. Asserted by class token, as before.
+ */
+describe('gap ACTION-1 (superseded 26 Sep): the selected tab is the contract underline + tint, not an outline', () => {
   const surfaces: WorkspaceSurfaceDescriptor[] = [
     { id: 'results', label: 'Analysis', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'none' },
     { id: 'diagnostics', label: 'Model', scroll: 'shell', padding: 'shell', presentedAsTab: true, hiddenReason: '', footerBar: 'reanalyse' },
@@ -135,27 +154,30 @@ describe('gap ACTION-1: the selected tab is a border, never a fill or an underli
       />,
     )
 
-  it('⭐⭐ the ACTIVE tab carries a border, and no fill, no underline', () => {
+  it('⭐⭐ the ACTIVE tab carries the 2px info underline and the contract tint, and no outline', () => {
     draw('results')
     const tab = screen.getByTestId('outputs-dock-tab-results')
-    expect(tab.className).toMatch(/\bborder-info\/80\b/)
-    expect(tab.className).not.toMatch(/border-b-2/)
-    expect(tab.getAttribute('style'), 'no color-mix inline tint').toBeNull()
+    expect(tab.className).toMatch(/(^|\s)border-b-2(\s|$)/)
+    expect(tab.className).toMatch(/(^|\s)border-info(\s|$)/)
+    expect(tab.className).toContain('bg-[var(--panel-tab-active-bg)]')
+    expect(tab.className).not.toMatch(/border-info\/80/)
   })
 
-  it('⭐ the IDLE tab carries no border-b underline scaffold either', () => {
+  it('⭐ the IDLE tab carries the transparent underline scaffold and no tint', () => {
     draw('results')
     const idle = screen.getByTestId('outputs-dock-tab-diagnostics')
-    expect(idle.className).not.toMatch(/border-b-2/)
+    expect(idle.className).toMatch(/(^|\s)border-b-2(\s|$)/)
     expect(idle.className).toMatch(/border-transparent/)
+    expect(idle.className).not.toContain('bg-[var(--panel-tab-active-bg)]')
   })
 
-  it('CONTRAST: switching the active tab moves the border, not a fill', () => {
+  it('CONTRAST: switching the active tab moves the underline and the tint', () => {
     draw('diagnostics')
     const active = screen.getByTestId('outputs-dock-tab-diagnostics')
     const idle = screen.getByTestId('outputs-dock-tab-results')
-    expect(active.className).toMatch(/border-info\/80/)
-    expect(idle.className).not.toMatch(/border-info\/80/)
+    expect(active.className).toContain('bg-[var(--panel-tab-active-bg)]')
+    expect(idle.className).not.toContain('bg-[var(--panel-tab-active-bg)]')
+    expect(idle.className).toMatch(/border-transparent/)
   })
 })
 
