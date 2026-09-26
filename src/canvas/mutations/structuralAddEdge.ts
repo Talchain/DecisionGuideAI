@@ -42,6 +42,7 @@
  */
 import type { SystemEventTurnPayload } from '@talchain/schemas/boundary'
 import { isCanonicalEndpointId } from './structuralDelete'
+import { structuralEdgePairKey, type StructuralAddIntent, type StructuralAddLifecycleRecord } from './structuralAdd'
 
 export type StructuralAddEdgeWireEvent = Extract<
   SystemEventTurnPayload['event'],
@@ -170,6 +171,14 @@ export interface StructuralAddEdgeIntent {
   readonly direction: WireEdgeDirection
   /** `null` means "no turn has stamped one yet" — a DEFERRAL, never a drop. */
   readonly baseGraphHash: string | null
+  /**
+   * The `StructuralAddIntent.id` of the node add this link DEPENDS ON — set
+   * only when one gesture minted the endpoint node and this link together
+   * (`store.addNodeWithEdge`). While it is set, `baseGraphHash` is `null`: the
+   * only true base is the hash that node's own write returns, which does not
+   * exist yet. See {@link chainStructuralAddEdgeToNodeAdd}.
+   */
+  readonly afterNodeAddIntentId?: string
 }
 
 export type ResolvedStructuralAddEdgeIntent = StructuralAddEdgeIntent & {
@@ -327,6 +336,97 @@ export function resolveStructuralAddEdgeBase(
   }
   if (typeof currentBaseGraphHash !== 'string' || currentBaseGraphHash.length === 0) return null
   return { ...intent, baseGraphHash: currentBaseGraphHash }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * CHAINING — a link whose endpoint was minted by the SAME gesture
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⭐⭐ BIND A LINK TO THE NODE ADD IT DEPENDS ON.
+ *
+ * THE SERVED DEFECT (UI `eec722ab`, CEE staging, 25 Sep 2026 23:12Z): Decision
+ * "+ Add option" sent `structural_add` on base `a8e8…` → 200, `graph_hash`
+ * `4892…`; then `structural_add_edge` for the decision link ALSO on `a8e8…` →
+ * 409 `BASE_HASH_DIVERGED`, `expected_base_graph_hash: 4892…`. CEE kept an
+ * option linked to nothing (OPTION_NOT_LINKED_TO_DECISION — unrunnable).
+ *
+ * `store.addNodeWithEdge` captures both halves in ONE `set()` against ONE
+ * `lastServerGraphHash`, and an add ALWAYS moves CEE's hash, so the link's
+ * captured base is stale BY CONSTRUCTION. Serialising the two sends does not
+ * help on its own: the link's payload is built with the base it carries.
+ *
+ * So the link carries NO base of its own — `null`, "not yet" — plus the id of
+ * the node add, and {@link readChainedStructuralAddEdge} stamps the hash that
+ * node's write RETURNED. This is a chain, not a refresh: it asserts exactly the
+ * graph the user produced (theirs plus the node), and a turn that moved the
+ * graph in between still refuses it, as it should.
+ *
+ * BOUND BY IDENTITY: chained only when the link's endpoint IS the node this add
+ * minted. Any other pairing is returned unchanged.
+ */
+export function chainStructuralAddEdgeToNodeAdd(
+  edge: StructuralAddEdgeIntent,
+  nodeAdd: Pick<StructuralAddIntent, 'id' | 'nodeId'>,
+): StructuralAddEdgeIntent {
+  if (edge.from !== nodeAdd.nodeId && edge.to !== nodeAdd.nodeId) return edge
+  return { ...edge, baseGraphHash: null, afterNodeAddIntentId: nodeAdd.id }
+}
+
+/** Where a queued link stands relative to the node add it depends on. */
+export type ChainedStructuralAddEdgeReadiness =
+  /** No dependency — the ordinary drain rules apply. */
+  | { readonly kind: 'independent' }
+  /** The node add has not settled yet. Leave the link in the queue. */
+  | { readonly kind: 'hold' }
+  /**
+   * The node add COMMITTED. `baseGraphHash` is the hash its write returned, or
+   * `null` when that response carried none — then the freshest known hash is
+   * the only base left, exactly as for any deferred intent.
+   */
+  | { readonly kind: 'send'; readonly baseGraphHash: string | null }
+  /**
+   * The node add COMMITTED and its committed graph ALREADY HOLDS this exact
+   * pair — CEE wrote the link in the node's own commit. Nothing to send; the
+   * local link is canonical truth as it stands.
+   */
+  | { readonly kind: 'already_linked' }
+  /**
+   * The node add did not commit (refused, unconfirmed) or its record is gone.
+   * The link is NOT sent: it would name an endpoint the server may not hold,
+   * and the node's own settle has already told the user where the gesture
+   * stands.
+   */
+  | { readonly kind: 'stand_down'; readonly nodeStatus: 'refused' | 'unconfirmed' | 'missing' }
+
+/**
+ * Read whether a queued link may go on the wire yet. Pure — the drain supplies
+ * the store's add queue and add lifecycle.
+ */
+export function readChainedStructuralAddEdge(
+  intent: StructuralAddEdgeIntent,
+  pendingAdds: ReadonlyArray<Pick<StructuralAddIntent, 'id'>>,
+  addLifecycle: ReadonlyArray<StructuralAddLifecycleRecord>,
+): ChainedStructuralAddEdgeReadiness {
+  const dependsOn = intent.afterNodeAddIntentId
+  if (typeof dependsOn !== 'string' || dependsOn.length === 0) return { kind: 'independent' }
+  if (pendingAdds.some((a) => a.id === dependsOn)) return { kind: 'hold' }
+  const record = addLifecycle.find((r) => r.intent.id === dependsOn)
+  if (!record) return { kind: 'stand_down', nodeStatus: 'missing' }
+  if (record.status === 'in_flight') return { kind: 'hold' }
+  if (record.status === 'committed') {
+    // ⭐ THE SERVER'S ANSWER FIRST. The node's own commit may already hold this
+    // exact pair (CEE #1937 links a new option to a model's sole decision in the
+    // same write). Then the link is DONE: sending it would only draw CEE's
+    // "already an option" reply into the conversation. Read by identity — the
+    // pair, in its direction — never by a copy of CEE's rule.
+    if (record.committedIncidentEdgeKeys?.includes(structuralEdgePairKey(intent.from, intent.to))) {
+      return { kind: 'already_linked' }
+    }
+    const hash = record.committedGraphHash
+    return { kind: 'send', baseGraphHash: typeof hash === 'string' && hash.length > 0 ? hash : null }
+  }
+  return { kind: 'stand_down', nodeStatus: record.status }
 }
 
 /**

@@ -1,0 +1,566 @@
+{
+  "_source": "R&C served browser witness bw-89716c13-8a2f291-pricing-fix2 (~/.claude/olumi-coaching-20260924/witness-kit/browser/…/turns.jsonl, turn 2 of 3, captured 2026-09-25T15:50:43.688Z), UI 89716c13 · CEE 06325c6, OpenAI agent lane (exit agent_lane_v1, 0 foreign provider rows). The explicit Run's analysis_result block only, verbatim. The card rendered \"This result appears to hold, though there's meaningful uncertainty in the estimate.\" under the reply \"No pricing option can be put forward from this run…\" (screenshot 03-run.png). Turn analysis_state.leader_claim: {\"permitted\": false, \"withheld_reason\": \"constraint_verdict_withheld\", \"separation\": \"separated\"}",
+  "block": {
+    "type": "analysis_result",
+    "summary": "Ran analysis on your current scenario. 'Keep Pro at £49' was analysed as no change — the factors it compares against were held at the values your model records today. One limit on your model could not be checked: “Monthly churn”. We could not line it up with anything this analysis measures, so it was not part of the comparison. The part of your model it points at is worked out from other parts, and Olumi cannot yet test a limit on a quantity like that, so it cannot be checked in this model yet; this one stays on the model unchecked. I supplied 3 of the values behind this, because your brief did not state them. They are mine rather than yours. Changing any of them changes what this model implies.",
+    "leading_option_id": null,
+    "win_probabilities": {
+      "Keep Pro at £49": 0.17603333333333168,
+      "Raise Pro to £54": 0.019733333333333457,
+      "Raise Pro to £59": 0.8042333333333258
+    },
+    "enrichment": {
+      "option_comparison": [
+        {
+          "id": "keep_pro_at_49",
+          "label": "Keep Pro at £49",
+          "status": "computed",
+          "outcome": {
+            "p10": -0.10390678729849069,
+            "p50": 0.05246493013042838,
+            "p90": 0.17423056928462793,
+            "std": 0.11127512511184162,
+            "mean": 0.04310263236142568,
+            "n_samples": 10000,
+            "validity_ratio": 1,
+            "n_valid_samples": 10000,
+            "percentiles_source": "samples"
+          },
+          "downside": {
+            "p05": -0.15665264347648372,
+            "cvar_10": -0.17282153596727415,
+            "expected_regret": 0.014889880443635536
+          },
+          "option_id": "keep_pro_at_49",
+          "option_label": "Keep Pro at £49",
+          "win_probability": 0.17603333333333168
+        },
+        {
+          "id": "raise_pro_to_59",
+          "label": "Raise Pro to £59",
+          "status": "computed",
+          "outcome": {
+            "p10": -0.10480018134159198,
+            "p50": 0.06727170254357526,
+            "p90": 0.19736151263751983,
+            "std": 0.12005300681468326,
+            "mean": 0.05664313796322775,
+            "n_samples": 10000,
+            "validity_ratio": 1,
+            "n_valid_samples": 10000,
+            "percentiles_source": "samples"
+          },
+          "downside": {
+            "p05": -0.15891235694397401,
+            "cvar_10": -0.17607720637385005,
+            "expected_regret": 0.0013493748418334684
+          },
+          "option_id": "raise_pro_to_59",
+          "option_label": "Raise Pro to £59",
+          "win_probability": 0.8042333333333258
+        },
+        {
+          "id": "raise_pro_to_54",
+          "label": "Raise Pro to £54",
+          "status": "computed",
+          "outcome": {
+            "p10": -0.10457006580220002,
+            "p50": 0.059641500571576744,
+            "p90": 0.18567716081323782,
+            "std": 0.11556820873459231,
+            "mean": 0.04987288516232673,
+            "n_samples": 10000,
+            "validity_ratio": 1,
+            "n_valid_samples": 10000,
+            "percentiles_source": "samples"
+          },
+          "downside": {
+            "p05": -0.15712359657869135,
+            "cvar_10": -0.17424580645222254,
+            "expected_regret": 0.008119627642734495
+          },
+          "option_id": "raise_pro_to_54",
+          "option_label": "Raise Pro to £54",
+          "win_probability": 0.019733333333333457
+        }
+      ],
+      "factor_sensitivity": [
+        {
+          "source": "graph",
+          "direction": "positive",
+          "factor_id": "active_pro_subscribers",
+          "confidence": 0.5919,
+          "elasticity": 1,
+          "evpi_method": "heuristic",
+          "driver_label": "biggest",
+          "factor_label": "Active Pro subscribers",
+          "value_source": "cee_inference",
+          "evidence_hint": false,
+          "influence_rank": 1,
+          "rank_flip_rate": 0.1,
+          "importance_rank": 1,
+          "influence_score": 1,
+          "importance_basis": "graph_structural",
+          "confidence_source": "plot_unified_from_isl_bootstrap",
+          "sensitivity_score": 0.5,
+          "flip_risk_category": "correlated",
+          "value_of_information": 0,
+          "attribution_stability": "low",
+          "confidence_components": {
+            "sampling_stability": 0.25,
+            "structural_certainty": 0.8
+          },
+          "confidence_provenance": {
+            "input_quality": "standard",
+            "is_provisional": true,
+            "formula_version": "plot_unified_v3",
+            "calibration_status": "provisional_pending_pilot_calibration",
+            "computation_source": "plot_unified_from_isl_bootstrap"
+          },
+          "value_extraction_type": "inferred",
+          "evpi_percentage_points": 0,
+          "range_derivation_source": "inferred_value"
+        },
+        {
+          "source": "graph",
+          "direction": "negative",
+          "factor_id": "monthly_churn",
+          "confidence": 0.5916,
+          "elasticity": 1,
+          "evpi_method": "heuristic",
+          "driver_label": "strong",
+          "factor_label": "Monthly churn",
+          "value_source": "cee_inference",
+          "evidence_hint": false,
+          "influence_rank": 2,
+          "rank_flip_rate": 0.15,
+          "importance_rank": 2,
+          "influence_score": 1,
+          "importance_basis": "graph_structural",
+          "confidence_source": "plot_unified_from_isl_bootstrap",
+          "sensitivity_score": -0.5,
+          "flip_risk_category": "correlated",
+          "value_of_information": 0,
+          "attribution_stability": "low",
+          "confidence_components": {
+            "sampling_stability": 0.25,
+            "structural_certainty": 0.8
+          },
+          "confidence_provenance": {
+            "input_quality": "standard",
+            "is_provisional": true,
+            "formula_version": "plot_unified_v3",
+            "calibration_status": "provisional_pending_pilot_calibration",
+            "computation_source": "plot_unified_from_isl_bootstrap"
+          },
+          "value_extraction_type": "inferred",
+          "evpi_percentage_points": 0,
+          "range_derivation_source": "inferred_value"
+        },
+        {
+          "source": "graph",
+          "direction": "negative",
+          "factor_id": "price_sensitivity",
+          "confidence": 0.4215,
+          "elasticity": 0.5,
+          "evpi_method": "heuristic",
+          "driver_label": "strong",
+          "factor_label": "Price sensitivity",
+          "value_source": "cee_inference",
+          "evidence_hint": false,
+          "influence_rank": 4,
+          "rank_flip_rate": 0.45,
+          "importance_rank": 3,
+          "influence_score": 0.5,
+          "importance_basis": "graph_structural",
+          "confidence_source": "plot_unified_from_isl_bootstrap",
+          "sensitivity_score": -0.25,
+          "flip_risk_category": "correlated",
+          "value_of_information": 0,
+          "attribution_stability": "low",
+          "confidence_components": {
+            "sampling_stability": 0.25,
+            "structural_certainty": 0.5
+          },
+          "confidence_provenance": {
+            "input_quality": "standard",
+            "is_provisional": true,
+            "formula_version": "plot_unified_v3",
+            "calibration_status": "provisional_pending_pilot_calibration",
+            "computation_source": "plot_unified_from_isl_bootstrap"
+          },
+          "value_extraction_type": "inferred",
+          "evpi_percentage_points": 0,
+          "range_derivation_source": "inferred_value"
+        },
+        {
+          "source": "graph",
+          "direction": "positive",
+          "factor_id": "pro_plan_price",
+          "confidence": 0.3,
+          "elasticity": 0,
+          "zero_reason": "intervention_override",
+          "driver_label": "strong",
+          "factor_label": "Pro plan price",
+          "value_source": "brief_extraction",
+          "influence_rank": 3,
+          "rank_flip_rate": 0.4,
+          "importance_rank": 4,
+          "influence_score": 0.5,
+          "importance_basis": "graph_structural",
+          "confidence_source": "plot_unified_from_isl_bootstrap",
+          "sensitivity_score": 0,
+          "flip_risk_category": "isolated",
+          "value_of_information": 0,
+          "attribution_stability": "negligible",
+          "confidence_components": {
+            "sampling_stability": 0,
+            "structural_certainty": 0.5
+          },
+          "confidence_provenance": {
+            "input_quality": "standard",
+            "is_provisional": true,
+            "formula_version": "plot_unified_v3",
+            "calibration_status": "provisional_pending_pilot_calibration",
+            "computation_source": "plot_unified_from_isl_bootstrap"
+          },
+          "range_derivation_source": "explicit_cap"
+        }
+      ],
+      "robustness": {
+        "level": "high",
+        "near_tie": {
+          "gap": 0.6281999999999941,
+          "is_tie": false,
+          "threshold": 0.1
+        },
+        "is_robust": true,
+        "confidence": 0.8042333333333258,
+        "robust_edges": [],
+        "fragile_edges": [
+          {
+            "to_id": "monthly_recurring_revenue_increase",
+            "edge_id": "pro_plan_price->monthly_recurring_revenue_increase",
+            "from_id": "pro_plan_price",
+            "visible": true,
+            "severity": "error",
+            "to_label": "Monthly recurring revenue…",
+            "from_label": "Pro plan price",
+            "switch_probability": 0.6756,
+            "alternative_winner_id": "keep_pro_at_49",
+            "alternative_winner_label": "Keep Pro at £49",
+            "marginal_switch_probability": 0.18
+          },
+          {
+            "to_id": "monthly_recurring_revenue_increase",
+            "edge_id": "churn_threshold_breach->monthly_recurring_revenue_increase",
+            "from_id": "churn_threshold_breach",
+            "visible": true,
+            "severity": "warning",
+            "to_label": "Monthly recurring revenue…",
+            "from_label": "Churn threshold breach",
+            "switch_probability": 0.204,
+            "alternative_winner_id": "keep_pro_at_49",
+            "alternative_winner_label": "Keep Pro at £49",
+            "marginal_switch_probability": 0
+          },
+          {
+            "to_id": "active_pro_subscribers",
+            "edge_id": "monthly_churn->active_pro_subscribers",
+            "from_id": "monthly_churn",
+            "visible": true,
+            "severity": "warning",
+            "to_label": "Active Pro subscribers",
+            "from_label": "Monthly churn",
+            "switch_probability": 0.1852,
+            "alternative_winner_id": "keep_pro_at_49",
+            "alternative_winner_label": "Keep Pro at £49",
+            "marginal_switch_probability": 0
+          },
+          {
+            "to_id": "monthly_churn",
+            "edge_id": "price_sensitivity->monthly_churn",
+            "from_id": "price_sensitivity",
+            "visible": true,
+            "severity": "warning",
+            "to_label": "Monthly churn",
+            "from_label": "Price sensitivity",
+            "switch_probability": 0.1732,
+            "alternative_winner_id": "keep_pro_at_49",
+            "alternative_winner_label": "Keep Pro at £49",
+            "marginal_switch_probability": 0
+          },
+          {
+            "to_id": "monthly_recurring_revenue_increase",
+            "edge_id": "active_pro_subscribers->monthly_recurring_revenue_increase",
+            "from_id": "active_pro_subscribers",
+            "visible": false,
+            "severity": "warning",
+            "to_label": "Monthly recurring revenue…",
+            "from_label": "Active Pro subscribers",
+            "switch_probability": 0.1452,
+            "alternative_winner_id": "keep_pro_at_49",
+            "alternative_winner_label": "Keep Pro at £49",
+            "marginal_switch_probability": 0
+          },
+          {
+            "to_id": "churn_threshold_breach",
+            "edge_id": "monthly_churn->churn_threshold_breach",
+            "from_id": "monthly_churn",
+            "visible": false,
+            "severity": "warning",
+            "to_label": "Churn threshold breach",
+            "from_label": "Monthly churn",
+            "switch_probability": 0.1324,
+            "alternative_winner_id": "keep_pro_at_49",
+            "alternative_winner_label": "Keep Pro at £49",
+            "marginal_switch_probability": 0
+          },
+          {
+            "to_id": "monthly_churn",
+            "edge_id": "pro_plan_price->monthly_churn",
+            "from_id": "pro_plan_price",
+            "visible": false,
+            "severity": "warning",
+            "to_label": "Monthly churn",
+            "from_label": "Pro plan price",
+            "switch_probability": 0.0884,
+            "alternative_winner_id": "keep_pro_at_49",
+            "alternative_winner_label": "Keep Pro at £49",
+            "marginal_switch_probability": 0
+          }
+        ],
+        "display_verdict": "robust",
+        "confidence_basis": "recommendation_stability_uncalibrated",
+        "display_verdict_reason": "this run held up under the changes we tested",
+        "recommended_option_compliance": "not_assessed",
+        "recommended_option_compliance_reason": "we could not check every limit you set on this run"
+      },
+      "option_comparison_status": "computed",
+      "edge_e_values": [
+        {
+          "to_id": "monthly_recurring_revenue_increase",
+          "e_value": 1,
+          "edge_id": "pro_plan_price::monthly_recurring_revenue_increase",
+          "from_id": "pro_plan_price",
+          "to_label": "Monthly recurring revenue…",
+          "flip_mean": 0.159999,
+          "stability": {
+            "n_seeds": 10,
+            "band_max": 0.332014,
+            "band_min": -1e-06,
+            "band_width": 0.33201499999999995,
+            "band_median": 0.179864,
+            "n_seeds_flipped": 10,
+            "seed_flip_means": [
+              -1e-06,
+              0.143943,
+              -1e-06,
+              0.141062,
+              0.183794,
+              0.175933,
+              0.290795,
+              0.332014,
+              0.18387,
+              0.223009
+            ]
+          },
+          "from_label": "Pro plan price",
+          "current_mean": 0.5,
+          "flip_direction": "decrease"
+        }
+      ],
+      "inference_warnings": [
+        {
+          "code": "CONSTRAINT_TARGET_UNRELIABLE",
+          "message": "The target on \"Monthly churn\" can't be scored against this model: \"Monthly churn\" is calculated from the factors feeding into it, so the analysis produces a modelled change for it, not a reading on the same scale as your target. Comparing the two would report a near-zero chance for every option no matter how good the options are, so goal-fit probabilities were withheld for this run rather than shown. Setting a current value for \"Monthly churn\" would not change that — it is calculated from its inputs, so it has no measured starting point of its own to anchor to. Your limit is recorded and was left unscored rather than scored against the wrong number.",
+          "severity": "warning"
+        },
+        {
+          "code": "EDGE_E_VALUE_NON_FINITE_DROPPED",
+          "message": "6 edge E-value entries were omitted from edge_e_values: 6 carried no finite E-value from the analysis engine (an unflippable edge, whose current and flip means coincide, has no evidence ratio). edge_e_values is shorter because those entries could not be represented, not because they were computed empty. All other analyses are unaffected.",
+          "severity": "info"
+        },
+        {
+          "code": "CONSTRAINT_FRAME_UNSPECIFIED",
+          "field": "goal_constraints[0].value_frame",
+          "message": "constraint value=0.04 was supplied without goal_constraints[0].value_frame, so the frame it is expressed in is unknown. A level threshold compared against the target's change-from-origin samples yields a structurally impossible probability, so constraint_analysis is omitted rather than guessed. Stamp 'level' or 'delta'.",
+          "severity": "warning"
+        },
+        {
+          "code": "GOAL_DIRECTION_UNATTESTED",
+          "field": "goal_direction",
+          "message": "No objective sense was stated for the goal node, so options were ranked by largest goal value. That is an assumption, not the team's stated aim: if the goal is a quantity to reduce, or the aim is to land near a target rather than as high as possible, this ranking answers a different question. Send goal_direction to rank against the stated objective.",
+          "severity": "warning"
+        },
+        {
+          "code": "GOAL_THRESHOLD_NOT_CONVERTIBLE",
+          "field": "nodes[monthly_recurring_revenue_increase].observed_state.baseline",
+          "message": "A 'level' frame requires goal node 'monthly_recurring_revenue_increase' to carry observed_state.baseline to convert the level into the samples' frame, but it carries no observed_state at all.",
+          "severity": "warning"
+        },
+        {
+          "code": "EVPI_UNAVAILABLE",
+          "field": "p_win_sensitivity",
+          "message": "Win-probability sensitivity (p_win_sensitivity) was skipped: its metric is P(joint_goal) and at least one goal constraint could not be resolved into its target's sample frame. Base analysis is unaffected.",
+          "severity": "warning",
+          "elapsed_ms": 1210.4
+        }
+      ],
+      "confidence_tier": "needs_work",
+      "flip_thresholds": [
+        {
+          "unit": "£/month",
+          "factor_id": "pro_plan_price",
+          "flip_value": null,
+          "flip_reason": "structurally_invariant",
+          "probes_used": 0,
+          "value_scale": "display",
+          "factor_label": "Pro plan price",
+          "current_value": 49,
+          "current_display": "49 £/month",
+          "iterations_used": 0,
+          "no_flip_in_range": true,
+          "alternative_winner_id": null,
+          "alternative_winner_label": null
+        },
+        {
+          "unit": "score out of 100",
+          "factor_id": "price_sensitivity",
+          "flip_value": null,
+          "flip_reason": "structurally_invariant",
+          "probes_used": 0,
+          "factor_label": "Price sensitivity",
+          "current_value": 0.5,
+          "iterations_used": 0,
+          "no_flip_in_range": true,
+          "alternative_winner_id": null,
+          "alternative_winner_label": null
+        }
+      ],
+      "decision_brief": {
+        "options": [
+          {
+            "label": "Keep Pro at £49",
+            "option_id": "keep_pro_at_49",
+            "win_probability": 0.17603333333333168
+          },
+          {
+            "label": "Raise Pro to £54",
+            "option_id": "raise_pro_to_54",
+            "win_probability": 0.019733333333333457
+          },
+          {
+            "label": "Raise Pro to £59",
+            "option_id": "raise_pro_to_59",
+            "win_probability": 0.8042333333333258
+          }
+        ],
+        "version": "1",
+        "brief_id": "ad714b7c-24a4-4100-8430-a8edfcf19666",
+        "warnings": [
+          {
+            "code": "M2_UNAVAILABLE",
+            "message": "Decision review was unavailable; brief uses deterministic coaching fallback",
+            "severity": "warning"
+          }
+        ],
+        "created_at": "2026-09-25T15:50:33.885Z",
+        "robustness": "robust",
+        "top_drivers": [
+          {
+            "direction": "positive",
+            "sensitivity": 1,
+            "factor_label": "Active Pro subscribers"
+          },
+          {
+            "direction": "negative",
+            "sensitivity": 1,
+            "factor_label": "Monthly churn"
+          },
+          {
+            "direction": "negative",
+            "sensitivity": 0.5,
+            "factor_label": "Price sensitivity"
+          }
+        ],
+        "warning_codes": [
+          "CONSTRAINT_FRAME_UNSPECIFIED",
+          "CONSTRAINT_TARGET_UNRELIABLE",
+          "EVPI_UNAVAILABLE",
+          "GOAL_DIRECTION_UNATTESTED",
+          "GOAL_THRESHOLD_NOT_CONVERTIBLE"
+        ],
+        "key_assumptions": [
+          "Monthly churn",
+          "Active Pro subscribers",
+          "Price sensitivity"
+        ],
+        "analysis_summary": {
+          "robustness_band": "robust"
+        },
+        "what_would_change": [
+          "Churn threshold breach → Monthly recurring revenue…",
+          "Monthly churn → Active Pro subscribers",
+          "Price sensitivity → Monthly churn",
+          "Active Pro subscribers → Monthly recurring revenue…",
+          "Monthly churn → Churn threshold breach"
+        ],
+        "defaulted_assumptions": []
+      },
+      "factor_evppi": [
+        {
+          "evppi": 0,
+          "units": "outcome",
+          "method": "regression_evppi_v1",
+          "status": "below_resolution",
+          "evppi_raw": 0,
+          "factor_id": "active_pro_subscribers",
+          "n_samples": 10000,
+          "clamped_low": false,
+          "noise_floor": 0,
+          "clamped_high": false,
+          "regression_degree": 4,
+          "correlation_active": false,
+          "baseline_max_expected_utility": 0.056643,
+          "conditional_max_expected_utility": 0.056643
+        },
+        {
+          "evppi": 0,
+          "units": "outcome",
+          "method": "regression_evppi_v1",
+          "status": "below_resolution",
+          "evppi_raw": 0,
+          "factor_id": "monthly_churn",
+          "n_samples": 10000,
+          "clamped_low": false,
+          "noise_floor": 0,
+          "clamped_high": false,
+          "regression_degree": 4,
+          "correlation_active": false,
+          "baseline_max_expected_utility": 0.056643,
+          "conditional_max_expected_utility": 0.056643
+        },
+        {
+          "evppi": 0,
+          "units": "outcome",
+          "method": "regression_evppi_v1",
+          "status": "below_resolution",
+          "evppi_raw": 0,
+          "factor_id": "price_sensitivity",
+          "n_samples": 10000,
+          "clamped_low": false,
+          "noise_floor": 0,
+          "clamped_high": false,
+          "regression_degree": 4,
+          "correlation_active": false,
+          "baseline_max_expected_utility": 0.056643,
+          "conditional_max_expected_utility": 0.056643
+        }
+      ],
+      "decision_evpi": 0.0013493748418334684,
+      "conditional_winners": []
+    },
+    "computed_against_hash": "c247337beab725ed"
+  }
+}

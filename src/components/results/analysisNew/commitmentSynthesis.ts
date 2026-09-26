@@ -59,6 +59,8 @@ export const COMMITMENT_COPY = {
      */
     open: 'Still open',
     before: 'Before acting',
+    /** V2 `synthesisHTML()`: bullet 1's label on a stale run — it describes the LAST run. */
+    lastRun: 'Last run',
   },
   /**
    * ⭐⭐ WAVE 2: bullet 1 on a withheld run — see `FoundedSource.withheld_count`.
@@ -79,6 +81,20 @@ export const COMMITMENT_COPY = {
     label: 'Ask Olumi what remains before committing',
     /** The editable draft the ask opens with. The user's question, not a claim. */
     draft: 'What remains open before I commit to a view on this decision?',
+  },
+  /**
+   * ⭐ V2 prototype `commitHTML()`: the TITLE's ✦ is "help summarise your
+   * reasoning"; "what remains" (`ask`, above) is the COMMIT ROW's, beside
+   * compare. The user's request, not a claim about the run.
+   */
+  summarise: {
+    label: 'Ask Olumi to help summarise your reasoning',
+    draft: 'Help me summarise my reasoning on this decision so far.',
+  },
+  /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
+  openAsk: {
+    label: 'Ask Olumi about unresolved uncertainty',
+    draft: 'What is still unresolved here, and how could I examine it?',
   },
   compare: {
     /** Only ever rendered with a route. There is no disabled state to name. */
@@ -385,7 +401,10 @@ export function commitmentBullets(
   const out: Array<{ key: CommitmentBulletKey; label: string; text: string; source: string }> = []
   for (const key of ['founded', 'open', 'before'] as const) {
     const b = s[key]
-    if (b) out.push({ key, label: COMMITMENT_COPY.labels[key], text: b.text, source: b.source })
+    if (b) {
+      const label = key === 'founded' && s.describesLastRun ? COMMITMENT_COPY.labels.lastRun : COMMITMENT_COPY.labels[key]
+      out.push({ key, label, text: b.text, source: b.source })
+    }
   }
   return out
 }

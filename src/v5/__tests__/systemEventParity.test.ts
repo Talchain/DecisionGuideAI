@@ -363,7 +363,7 @@ const UI_COVERAGE: Record<
         'Our enterprise renewals are annual, so a price move cannot reach churn inside the quarter this run assumes.',
     },
   },
-  // PREPARED, NOT ARMED (`canvas/conversation/goalTargetEdit.ts`'s header).
+  // ARMED (`GOAL_TARGET_EDIT_ENABLED = true`, `canvas/conversation/goalTargetEdit.ts`).
   //
   // ⚠ `ui_deferred`, NOT `system_event` — AND UNLIKE EVERY OTHER `ui_deferred`
   // ENTRY THIS IS NOT A PRODUCT DECISION, IT IS A TYPE-SYSTEM ONE. The
@@ -372,15 +372,16 @@ const UI_COVERAGE: Record<
   // `SystemEventKind` enum — so `eventKind: 'goal_target_edit'` would not
   // compile: the contract has no such member to offer yet. `adaptGoalTargetEdit`
   // (`buildPayload.ts`) is real and exercised by
-  // `buildPayload.goalTargetEdit.spec.ts`; this entry only states that no
-  // DISPATCH PATH reaches it today — true, because
-  // `useModelEditAuthority.proposeGoalTarget` checks `GOAL_TARGET_EDIT_ENABLED`
-  // (currently `false`) before it ever builds one.
+  // `buildPayload.goalTargetEdit.spec.ts`, and the dispatch path that reaches
+  // it (`useModelEditAuthority.proposeGoalTarget`, flag now `true`) is pinned
+  // end to end in `GoalPanel.goalTargetEditLive.wire.spec.tsx`. `ui_deferred`
+  // here is ONLY the type-system fact above, not a product deferral.
   goal_target_edit: {
     kind: 'ui_deferred',
     reason:
-      'CEE has not shipped a reader (schemas 0.55.0 pinned, member absent). ' +
-      'GOAL_TARGET_EDIT_ENABLED gates the one producer; flip it only after CEE deploys.',
+      'ARMED (GOAL_TARGET_EDIT_ENABLED = true) against CEE #1859\'s reader (schemas 0.59.0), ' +
+      'but the UI still vendors 0.55.0, whose SystemEventKind has no such member — so this ' +
+      'entry cannot be typed `system_event` until the UI re-vendors >=0.59.0.',
   },
 }
 

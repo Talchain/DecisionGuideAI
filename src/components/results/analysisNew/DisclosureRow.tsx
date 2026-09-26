@@ -19,7 +19,11 @@
 
 import { useId, useState } from 'react'
 import { PanelFigure } from './PanelFigure'
-import { ChevronDown, ChevronRight, Crosshair, Pencil, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Pencil } from 'lucide-react'
+// ⭐ ONE AI GLYPH FOR AN ASK (Design System v5 §9.8; V2 prototype's single `ai`
+// icon). `Sparkles` is the AI-ESTIMATE provenance glyph, so an ask drawn with it
+// said "Olumi estimated this" — and put two AI icons on one panel.
+import { OlumiAiIcon } from './OlumiAiIcon'
 import { IconBtn } from '../../../canvas/components/pre-analysis/primitives/IconBtn'
 import { typography } from '../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
@@ -313,7 +317,7 @@ export function DisclosureRow({
                 difference, which is where a difference of INTENT belongs. */}
             {finding.intervention && finding.intervention.label.trim() !== '' && onRunIntervention ? (
               <IconBtn
-                icon={Sparkles}
+                icon={OlumiAiIcon}
                 tooltip={finding.intervention.label}
                 ariaLabel={finding.intervention.label}
                 variant="primary"
@@ -328,7 +332,7 @@ export function DisclosureRow({
                  a control that cannot say what it acts on. The title is what
                  seeds the drawer, so an empty one would open it blank. */
               <IconBtn
-                icon={Sparkles}
+                icon={OlumiAiIcon}
                 tooltip={COPY.disclosure.askOlumi}
                 ariaLabel={COPY.disclosure.askOlumi}
                 onClick={() => onAskOlumi(finding)}

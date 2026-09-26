@@ -28,6 +28,7 @@ import { CanvasOverlayBand, CanvasOverlayBandProvider } from './components/Canva
 import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
+import { usePreloadLayoutEngine } from './hooks/usePreloadLayoutEngine'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { useRestoredLayoutWidth } from './hooks/useRestoredLayoutWidth'
 import { nodeTypes } from './nodes/registry'
@@ -90,7 +91,7 @@ import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
 import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
-import { fitBoundsFor } from './utils/zoomLegibility'
+import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -915,6 +916,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   useMeasureThenLayout()
   useFitViewOnLayoutVersion()
   useRestoredLayoutWidth()
+  // The engine those hooks lazy-load is fetched NOW, while this page's build is
+  // still the one served: a deploy retires the old chunks (#70 5841781894).
+  usePreloadLayoutEngine()
 
   // Brief 36 Fix: Use ref for fitView so the `handleFitView` callback
   // below has a stable reference even when ReactFlow updates.
@@ -2785,6 +2789,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
             fitView
+            // ⭐ THE MOUNT FIT IS A PRODUCT FIT, AND IS BOUNDED LIKE ONE (26 Sep
+            // 2026, #70 5841781894). Unbounded, it framed the pre-layout arrangement
+            // of every first draft at 253% (one card filling the canvas) for about
+            // 1–2 s, and for good when the layout never ran. Served probes on
+            // c95694de and c7234091 all show 2.53 at first paint, and on 19 Sep the
+            // same unbounded fit parked a fresh brief at 328%. `fitBoundsFor`
+            // documents this path as the one product fit it did not reach.
+            fitViewOptions={CANVAS_MOUNT_FIT_OPTIONS}
             minZoom={0.1}
             maxZoom={4}
             proOptions={{ hideAttribution: true }} /* contract v3.1 DESIGN-GAP #29: no "React Flow" link on the canvas (MIT; the option MiniCanvas already uses) */

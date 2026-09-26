@@ -387,6 +387,59 @@ describe('the header acts', () => {
   })
 })
 
+describe('V2 commitHTML(): which ✦ lives where', () => {
+  it('⭐ the TITLE ✦ asks Olumi to help summarise the reasoning, carrying what is on screen', () => {
+    const onAsk = vi.fn()
+    renderZone({ onAsk })
+    const header = screen.getByTestId(TID).firstElementChild as HTMLElement
+    const ask = within(header).getByTestId(`${TID}-summarise`)
+    expect(ask).toHaveAttribute('data-ai', 'true')
+    expect(ask).toHaveAttribute('aria-label', COMMITMENT_COPY.summarise.label)
+    fireEvent.click(ask)
+    expect(onAsk).toHaveBeenCalledWith({
+      label: COMMITMENT_COPY.summarise.label,
+      draft: COMMITMENT_COPY.summarise.draft,
+      context: commitmentAskContext(FULL),
+    })
+    expect(within(header).queryByTestId(`${TID}-ask`), '"what remains" is not a title act').toBeNull()
+    expect(within(header).queryByTestId(`${TID}-compare`), 'compare is not a title act').toBeNull()
+  })
+
+  it('⭐ "what remains" ✦ and compare sit on the COMMIT ROW, to the right of the record door', () => {
+    renderZone({ onCompare: vi.fn() })
+    const row = screen.getByTestId(`${TID}-commit-row`)
+    const door = within(row).getByTestId(`${TID}-record-open`)
+    const acts = within(row).getByTestId(`${TID}-commit-acts`)
+    expect(within(acts).getByTestId(`${TID}-compare`)).toBeEnabled()
+    expect(within(acts).getByTestId(`${TID}-ask`)).toHaveAttribute('aria-label', COMMITMENT_COPY.ask.label)
+    expect(door.compareDocumentPosition(acts) & Node.DOCUMENT_POSITION_FOLLOWING, 'acts read after the door').toBeTruthy()
+  })
+
+  it('⭐ an inline ✦ follows "Still open" and asks about the unresolved uncertainty', () => {
+    const onAsk = vi.fn()
+    renderZone({ onAsk })
+    const open = screen.getByTestId(`${TID}-open`)
+    const ask = within(open).getByTestId(`${TID}-open-ask`)
+    expect(ask).toHaveAttribute('data-ai', 'true')
+    expect(ask).toHaveAttribute('aria-label', COMMITMENT_COPY.openAsk.label)
+    fireEvent.click(ask)
+    expect(onAsk).toHaveBeenCalledWith({
+      label: COMMITMENT_COPY.openAsk.label,
+      draft: COMMITMENT_COPY.openAsk.draft,
+      context: commitmentAskContext(FULL),
+    })
+    // Only the open bullet carries it.
+    expect(within(screen.getByTestId(`${TID}-founded`)).queryByRole('button')).toBeNull()
+    expect(within(screen.getByTestId(`${TID}-before`)).queryByRole('button')).toBeNull()
+  })
+
+  it('CONTRAST: with no record to offer (a re-run in flight), the commit row keeps its ask', () => {
+    renderZone({ canCapture: false, record: null })
+    expect(screen.queryByTestId(`${TID}-record-open`)).toBeNull()
+    expect(within(screen.getByTestId(`${TID}-commit-row`)).getByTestId(`${TID}-ask`)).toBeInTheDocument()
+  })
+})
+
 describe('the chart slot', () => {
   it('renders the children between the bullets and the record row', () => {
     renderZone({ record: RECORD, children: <div data-testid="the-chart">chart</div> })

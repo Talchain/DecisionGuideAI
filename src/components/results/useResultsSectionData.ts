@@ -1513,7 +1513,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Currency variants - detect symbol and normalize
     if (['$', '£', '€', 'usd', 'gbp', 'eur', 'dollar', 'pound', 'euro'].some(c => unitLower.includes(c))) {
-      const symbol = String(rawUnit).match(/[$£€]/)?.[0] ?? '$'
+      // ⛔ NO `$` DEFAULT. "GBP MRR" matched `gbp` above and then printed `$`
+      // (Paul's manual test `1a298d6d`, a £ decision). The code names the
+      // currency, so the code decides the symbol.
+      const symbol =
+        String(rawUnit).match(/[$£€]/)?.[0] ??
+        (unitLower.includes('gbp') || unitLower.includes('pound')
+          ? '£'
+          : unitLower.includes('eur')
+            ? '€'
+            : '$')
       return { outcomeUnit: 'currency' as const, outcomeUnitSymbol: symbol }
     }
 
@@ -1535,6 +1544,61 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     if (typeof data?.scale_max === 'number') return data.scale_max
     return null
   }, [goalNode, ceeAnalysisReady])
+
+  /**
+   * ⛔⛔ IS THE CAP A UNIT AUTHORITY, OR THE HEADROOM RULE'S OWN CONSTANT?
+   *
+   * CEE mints `goal_threshold_cap` three ways and says which
+   * (`olumi-assistants-service` `src/utils/goal-threshold-cap.ts`):
+   * `metric_scale` (a percentage's own 0-100) and `inherited` (a cap an
+   * earlier registration set) come from OUTSIDE the target; the rule of last
+   * resort, `target_derived_headroom`, is `raw * 1.25`, taken FROM the target.
+   * Its own docblock: the normalised value "is a constant of the rule, not a
+   * measurement", and "absence means unattested".
+   *
+   * Multiplying a normalised option outcome by that denominator manufactures
+   * a figure in the user's currency that no model produced. Paul's manual test
+   * `1a298d6d`: p50 0.13605 × 25,000 printed "Mid-point $3,401" on a £ MRR
+   * decision whose engine output is unitless and additive (#69 5837623066).
+   * `displayableGoalTarget.ts` records the class: 18 of 18 caps in 989 bundles
+   * were exactly `raw * 1.25`.
+   *
+   * ⚠ THE TAG IS OFTEN NOT HERE. The UI's schema pin predates the field, and
+   * the draft mapper copies the cap onto the goal node without it (Paul's
+   * export: goal `mrr` carries cap 25,000, no provenance). So an absent tag
+   * falls back to CEE's RULE ORDER, not only its last rule:
+   *   1. a '%' target within 0–100 is ALWAYS its own metric scale (cap 100,
+   *      `metric_scale`) — checked FIRST, because 80% × 1.25 is also 100 and
+   *      an untagged 80% target (retention, CSAT, conversion) would otherwise
+   *      lose its units (#2056 review B1);
+   *   2. only then the headroom rule's own definition, `cap === raw * 1.25`.
+   * Anything else — a user-set cap, an inherited scale — keeps converting.
+   *
+   * A TAG SPEAKS ONLY FOR THE CAP IT CAME WITH. It is read from the source
+   * whose cap is the one in use: a goal switch clears the ready payload's cap
+   * but not its tag (store `setOutcomeNode` path), and that leftover must not
+   * label the new goal's cap.
+   */
+  const capIsTargetDerivedHeadroom = useMemo(() => {
+    if (goalThresholdCap == null) return false
+    type CapCarrier = { goal_threshold_cap?: unknown; goal_threshold_cap_provenance?: unknown } | null | undefined
+    const data = goalNode?.data as (ResultsCanvasNodeData & { goal_threshold_cap_provenance?: unknown }) | undefined
+    const tagOf = (src: CapCarrier) =>
+      src?.goal_threshold_cap === goalThresholdCap ? src.goal_threshold_cap_provenance : undefined
+    const tag = tagOf(ceeAnalysisReady as CapCarrier) ?? tagOf(data)
+    if (tag === 'metric_scale' || tag === 'inherited') return false
+    if (tag === 'target_derived_headroom') return true
+    const raw =
+      typeof ceeAnalysisReady?.goal_threshold_raw === 'number'
+        ? ceeAnalysisReady.goal_threshold_raw
+        : typeof data?.goal_threshold_raw === 'number'
+          ? data.goal_threshold_raw
+          : null
+    if (raw == null || !(raw > 0)) return false
+    const unit = ceeAnalysisReady?.goal_threshold_unit ?? data?.goal_threshold_unit
+    if (unit === '%' && raw <= 100) return false
+    return Math.abs(goalThresholdCap - raw * 1.25) <= 1e-9 * Math.max(1, Math.abs(goalThresholdCap))
+  }, [goalNode, ceeAnalysisReady, goalThresholdCap])
 
   // P1-2: Effective goal threshold — canvas store > ceeAnalysisReady > goal node fallback
   const effectiveGoalThreshold = useMemo(() => {
@@ -2063,7 +2127,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // NO-RANK: an option with no analysis has no values to vote with. Left in,
     // it voted with the SHARED bands — i.e. another option's numbers counted
     // twice in a scan whose whole job is to read this option's magnitudes.
-    const capValid = goalThresholdCap != null && goalThresholdCap > 0
+    const capValid = goalThresholdCap != null && goalThresholdCap > 0 && !capIsTargetDerivedHeadroom
     let anyAlreadyDenormalized = false
     for (const node of optionNodes) {
       if (runAnalysedAny && !isAnalysedOption(optionProbs, node.id)) continue
@@ -2858,7 +2922,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, capIsTargetDerivedHeadroom, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
