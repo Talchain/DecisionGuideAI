@@ -189,15 +189,26 @@ describe('contract v3.1 U10 — no strength label rests on a connection in the d
     expect(byTestId(container, 'edge-influence-label-text'), 'a strength row rides on the cue').toBeNull()
   })
 
-  it('the strength stays one hover away in the default view', () => {
+  // ⭐ v3.1 row 12 MOVES THE STRENGTH FROM ONE HOVER AWAY TO ONE CLICK AWAY.
+  // U10 withdrew the resting label on the ground that the strength stayed on
+  // hover. The hover is now the contract's one-line tooltip ("detail in the
+  // edge inspector"), so the strength is the edge inspector's — a click on the
+  // connection opens it, and its strength control is pinned in
+  // `ui/inspector-v2/__tests__/statedStrengthIsTheOneShown.spec.tsx`. What this
+  // case pins now: the hover still opens, and it does not half-keep a strength.
+  it('the hover opens the one-line tooltip and carries no strength (the inspector does)', () => {
     mockEdges = boardOf(1, CEE_EDGE)
     const { container } = renderEdge({ ...CEE_EDGE })
     const hit = container.querySelector('path[stroke="transparent"]')
     expect(hit, 'no hit path — the hover cannot be driven').not.toBeNull()
     act(() => { fireEvent.mouseEnter(hit!) })
     act(() => { vi.advanceTimersByTime(350) })
-    expect(byTestId(container, 'edge-hover-popover'), 'the hover popover did not open').not.toBeNull()
-    expect(byTestId(container, 'edge-hover-strength-caption'), 'the hover lost the strength').not.toBeNull()
+    const tooltip = byTestId(container, 'edge-hover-popover')
+    expect(tooltip, 'the hover tooltip did not open').not.toBeNull()
+    expect(tooltip!.getAttribute('role')).toBe('tooltip')
+    expect(byTestId(container, 'edge-hover-strength-caption')).toBeNull()
+    // No figure: the endpoint ids are the only digits allowed.
+    expect((tooltip!.textContent ?? '').replace(/\bn[12]\b/g, '')).not.toMatch(/\d/)
   })
 
   it('CONTROL: Detailed view still pins the same connection\'s strength row', () => {

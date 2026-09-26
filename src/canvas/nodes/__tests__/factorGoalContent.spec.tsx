@@ -46,7 +46,13 @@ function seed(nodes: Node[], extra: Record<string, unknown> = {}) {
   })
 }
 async function hover(title: string) {
-  fireEvent.mouseEnter(screen.getByText(title))
+  // ⭐ v3.1 (DESIGN-GAP-v31 row 36): the NAME now carries its own styled
+  // tooltip (`data-node-tooltip`), and the card preview yields to it — one
+  // overlay at a time. So the preview is driven from the card body (its
+  // `role="group"`), the surface it belongs to, not from the name.
+  const card = screen.getByText(title).closest('[role="group"]') as HTMLElement | null
+  expect(card, 'the card group must exist').not.toBeNull()
+  fireEvent.mouseEnter(card!)
   await waitFor(() => expect(screen.getByTestId('content-preview')).toBeDefined())
   return within(screen.getByTestId('content-preview'))
 }

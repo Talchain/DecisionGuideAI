@@ -103,22 +103,12 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     expect(before.canonicalPositions).not.toBeNull()
     await page.mouse.move(start.x, start.y)
     if (ids.length > 1) {
-      const annotations = page.getByTestId('factor-hover-intervention')
-      await expect(annotations).toHaveCount(6)
-      await expect(annotations.first()).toBeVisible()
-      const disclosures = await annotations.evaluateAll(elements => elements.map(element => {
-        const rect = element.getBoundingClientRect()
-        const card = element.closest('.react-flow__node')!.getBoundingClientRect()
-        const style = getComputedStyle(element)
-        return {
-          outsideCard: rect.bottom <= card.top,
-          hasText: (element.textContent?.trim().length ?? 0) > 1,
-          position: style.position, pointerEvents: style.pointerEvents,
-        }
-      }))
-      for (const disclosure of disclosures) expect(disclosure).toEqual({
-        outsideCard: true, hasText: true, position: 'absolute', pointerEvents: 'none',
-      })
+      // ⭐ v3.1 (DESIGN-GAP-v31 row 6): an option HOVER no longer marks its
+      // target factors ("→ value" tabs and rings follow the explicit option
+      // lens only). So the hover here paints no annotation at all — which is
+      // the strongest form of what this case guarded (a hover annotation must
+      // never resize a factor during the grab; the layout check below stands).
+      await expect(page.getByTestId('factor-hover-intervention')).toHaveCount(0)
     }
     // Observe hover BEFORE mousedown. The old in-flow annotation resized
     // factors and committed a measured layout during this interval.

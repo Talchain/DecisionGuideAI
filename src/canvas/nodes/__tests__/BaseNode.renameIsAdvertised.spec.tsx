@@ -13,8 +13,8 @@
  * and `inspector-v2/__tests__/inspectorRenameReachability.spec.tsx` holds the
  * panel half.
  */
-import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, fireEvent, act } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
 import { NODE_RENAME_AFFORDANCE, nodeTitleChannels } from '../shared/nodeRenameAffordance'
@@ -67,18 +67,43 @@ function renderCard(nodeType: (typeof KINDS)[number]) {
   return { title: title as HTMLElement, card }
 }
 
+/**
+ * ⭐ v3.1 (DESIGN-GAP-v31 row 36): the name and the affordance moved from a
+ * NATIVE `title` to the ONE styled tooltip on the title — same two facts, same
+ * order, one tooltip system. Bound to the tooltip's own parts by test id.
+ */
+function hoverName(title: HTMLElement): HTMLElement {
+  act(() => {
+    fireEvent.mouseEnter(title)
+    vi.advanceTimersByTime(400)
+  })
+  const name = document.querySelector('[data-testid="node-title-tooltip-affordance"]')
+  expect(name, 'the styled name tooltip did not open').not.toBeNull()
+  return name!.closest('[role="tooltip"]') as HTMLElement
+}
+
 describe('the rename affordance reaches every node kind', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
   for (const kind of KINDS) {
-    it(`${kind}: the title says what a double-click does`, () => {
+    it(`${kind}: the name's tooltip says what a double-click does`, () => {
       const { title } = renderCard(kind)
-      expect(title.getAttribute('title') ?? '').toContain(NODE_RENAME_AFFORDANCE)
+      // `title=""` is the shared Tooltip's own blocker for inherited native
+    // tooltips — no native tooltip text either way.
+    expect(title.getAttribute('title') ?? '', 'no native title — one tooltip system').toBe('')
+      const tip = hoverName(title)
+      expect(tip.querySelector('[data-testid="node-title-tooltip-affordance"]')!.textContent)
+        .toBe(NODE_RENAME_AFFORDANCE)
     })
 
-    it(`${kind}: the label still rides in the same attribute — the contrast control`, () => {
-      // `node-title` is `line-clamp-2`; `title` is the only way back to a
-      // clipped name. Replacing it with a hint would trade a capability for a
-      // tooltip, so this REDs on a replace and passes on a compose.
-      expect(renderCard(kind).title.getAttribute('title') ?? '').toContain(LABEL)
+    it(`${kind}: the label still rides in the same tooltip, FIRST — the contrast control`, () => {
+      // `node-title` is `line-clamp-2`; the tooltip is the hover route back to
+      // a clipped name. Replacing the name with a hint would trade a capability
+      // for a tooltip, so this REDs on a replace and passes on a compose.
+      const tip = hoverName(renderCard(kind).title)
+      expect(tip.querySelector('[data-testid="node-title-tooltip-name"]')!.textContent).toBe(LABEL)
+      expect((tip.textContent ?? '').indexOf(LABEL)).toBe(0)
     })
 
     it(`${kind}: the accessible name carries it too`, () => {
@@ -89,12 +114,16 @@ describe('the rename affordance reaches every node kind', () => {
 })
 
 describe('the affordance promises the interaction and nothing about the model', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
   it('never claims the change is saved, shared or persisted', () => {
     // ⛔ `canvasNodeRenameWithServerHash` is conditional on a CEE-stamped
     // graph hash the card cannot see, and #1025 reverted a rename CTA once
     // already. A future edit adding a durability claim REDs here.
     const { title, card } = renderCard('risk')
-    const hay = `${title.getAttribute('title') ?? ''} ${card?.getAttribute('aria-label') ?? ''}`
+    const tip = hoverName(title)
+    const hay = `${tip.textContent ?? ''} ${card?.getAttribute('aria-label') ?? ''}`
     for (const forbidden of [/saved/i, /persist/i, /shared model/i, /will be kept/i]) {
       expect(hay, `the affordance must not claim durability: ${forbidden}`).not.toMatch(forbidden)
     }
@@ -102,12 +131,13 @@ describe('the affordance promises the interaction and nothing about the model', 
 
   it('composes the label FIRST, so a clipped name is recoverable at a glance', () => {
     const c = nodeTitleChannels({ label: LABEL, accessibleName: 'risk node: X.' })
-    expect(c.title.indexOf(LABEL)).toBe(0)
-    expect(c.title).toContain(NODE_RENAME_AFFORDANCE)
+    expect(c.tooltip.name).toBe(LABEL)
+    expect(c.tooltip.affordance).toBe(NODE_RENAME_AFFORDANCE)
   })
 
   it('still says the useful thing when a node has no name yet', () => {
     const c = nodeTitleChannels({ label: '   ', accessibleName: 'risk node: X.' })
-    expect(c.title).toBe(NODE_RENAME_AFFORDANCE)
+    expect(c.tooltip.name).toBeNull()
+    expect(c.tooltip.affordance).toBe(NODE_RENAME_AFFORDANCE)
   })
 })

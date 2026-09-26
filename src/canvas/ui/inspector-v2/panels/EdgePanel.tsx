@@ -55,6 +55,7 @@ import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
+import { EdgeRelationshipSummary } from '../shared/EdgeRelationshipSummary'
 import { INSPECTOR_RULE, inspectorButton, inspectorSectionHighlight } from '../inspectorStyle'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable, edgeDirectionEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
@@ -924,6 +925,10 @@ export const EdgePanel = memo(function EdgePanel({
         </div>
       ) : (
         <>
+          {/* ── v3.1 row 12: what the line says, from the stroke's own
+              resolvers — the detail the one-line hover no longer carries. ── */}
+          <EdgeRelationshipSummary data={edge.data as Record<string, unknown> | undefined} />
+
           {/* ── Context group ─────────────────────────────────── */}
           {isFragile && isResultsMode && (
             <PanelGroup kind="context" label={GROUP_LABELS.context}>

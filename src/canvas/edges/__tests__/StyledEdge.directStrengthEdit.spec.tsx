@@ -153,65 +153,49 @@ function hoverToPopover(props: Record<string, unknown>) {
   return r
 }
 
-describe('a hovered edge offers the direct edit where the write can land', () => {
+// ⭐ REWRITTEN for canvas visual contract v3.1 (DESIGN-GAP-v31 row 12): the
+// hover is a one-line tooltip and "the edge inspector carries the detail".
+// A single click on a connection opens that inspector (`ReactFlowGraph`
+// `handleEdgeClick` → `setShowFullInspector(true)`), whose strength control is
+// the direct write — the route this spec exists to keep ahead of the chat one.
+//
+// What survives from the founder's measurement, pinned here: the hover must
+// never again offer the SLOW route alone. It now offers no route at all — no
+// chat chip on any edge, and no control that could promise a write the edge
+// cannot take. The direct control's own gate (`edgeStrengthEditIsAssertable`)
+// is pinned in the panel, where the control now lives.
+//
+// ⚠ RECORDED, NOT HIDDEN: the hover no longer ADVERTISES "Set strength" to a
+// sighted user. The click is the route; whether the tooltip should also name
+// it is an Experience Design call (reported with this change).
+describe('v3.1 — the hover offers no route; the click opens the direct control', () => {
   beforeEach(() => { vi.useFakeTimers(); openEdgeStrengthEditor.mockClear() })
   afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 
-  it('⭐ PRECONDITION: the popover opens at all — otherwise every claim is vacuous', () => {
-    const { queryByTestId } = hoverToPopover(ASSERTABLE)
-    expect(
-      queryByTestId('edge-hover-popover'),
-      'the popover never opened; this spec measured nothing',
-    ).not.toBeNull()
+  it('⭐ PRECONDITION: the tooltip opens at all — otherwise every claim is vacuous', () => {
+    for (const edge of [ASSERTABLE, NOT_ASSERTABLE]) {
+      const { queryByTestId, unmount } = hoverToPopover(edge)
+      expect(
+        queryByTestId('edge-hover-popover'),
+        'the tooltip never opened; this spec measured nothing',
+      ).not.toBeNull()
+      unmount()
+    }
   })
 
-  it('⛔ THE DIRECT CONTROL IS THERE, and it is a native button so Tab and Enter reach it', () => {
-    const { getByTestId } = hoverToPopover(ASSERTABLE)
-    const direct = getByTestId('edge-direct-strength-edit')
-    expect(direct.tagName).toBe('BUTTON')
-    expect(direct.getAttribute('aria-label')).toBeTruthy()
+  it('⛔ the slow chat route is offered on NO edge — the 34-minute failure cannot recur from the hover', () => {
+    for (const edge of [ASSERTABLE, NOT_ASSERTABLE]) {
+      const { getByTestId, unmount } = hoverToPopover(edge)
+      const tooltip = getByTestId('edge-hover-popover')
+      expect(tooltip.textContent ?? '').not.toMatch(/adjust|Ask Olumi/i)
+      expect(within(tooltip).queryAllByRole('button')).toHaveLength(0)
+      unmount()
+    }
   })
 
-  it('⭐⭐ CLICKING IT OPENS THE EDITOR — through the same owner the double-click uses', () => {
-    const { getByTestId } = hoverToPopover(ASSERTABLE)
-    fireEvent.click(getByTestId('edge-direct-strength-edit'))
-    expect(
-      openEdgeStrengthEditor,
-      'the control rendered but opened nothing — an affordance that does not act is worse than none',
-    ).toHaveBeenCalledWith('e1')
-  })
-
-  it('⛔ IT IS ABSENT where the write cannot land — no promise the product cannot keep', () => {
-    const { queryByTestId } = hoverToPopover(NOT_ASSERTABLE)
-    expect(queryByTestId('edge-hover-popover')).not.toBeNull()
-    expect(
-      queryByTestId('edge-direct-strength-edit'),
-      'the direct control was offered on an edge whose strength edit is refused',
-    ).toBeNull()
-  })
-
-  it('⭐ and the chat route survives there — it is the only route that edge has', () => {
-    const { getByTestId } = hoverToPopover(NOT_ASSERTABLE)
-    const popover = getByTestId('edge-hover-popover')
-    expect(within(popover).getByText(/adjust strength/i)).toBeTruthy()
-  })
-
-  it('⛔ the two routes are never named the same thing side by side', () => {
-    // ⚠ THIS ASSERTS THE PROPERTY, NOT A STRING. Its first version searched for
-    // a literal "Adjust strength" twice, and a mutant renaming the chat chip
-    // walked straight through it — the two labels differed, so the count was 1
-    // and the guard passed while proving nothing about collision in general.
-    // A guard watching one spelling of a class is the hand-maintained mirror
-    // (CLAUDE.md trap 12); this one compares whatever the two controls say.
-    const { getByTestId } = hoverToPopover(ASSERTABLE)
-    const popover = getByTestId('edge-hover-popover')
-    const direct = getByTestId('edge-direct-strength-edit').textContent?.trim() ?? ''
-    expect(direct, 'the direct control has no visible label at all').not.toBe('')
-    const everyLabel = Array.from(popover.querySelectorAll('button'))
-      .map(b => b.textContent?.trim() ?? '')
-    expect(
-      everyLabel.filter(l => l === direct).length,
-      `two controls a pixel apart both read "${direct}" — the user cannot tell the fast route from the slow one`,
-    ).toBe(1)
+  it('⛔ no promise the product cannot keep: the unassertable edge\'s hover names no write at all', () => {
+    const { getByTestId, queryByTestId } = hoverToPopover(NOT_ASSERTABLE)
+    expect(queryByTestId('edge-direct-strength-edit')).toBeNull()
+    expect(getByTestId('edge-hover-popover').textContent ?? '').not.toMatch(/set (its )?strength/i)
   })
 })

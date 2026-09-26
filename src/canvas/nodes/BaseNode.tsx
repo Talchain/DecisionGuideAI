@@ -241,7 +241,7 @@ interface BaseNodeProps extends NodeProps {
   resultsFromLastRun?: boolean
   /**
    * ⭐ DISPLAY-ONLY TITLE TEXT (contract v3.1 ANC-11). Replaces ONLY the visible
-   * words of the title — the card's `title` attribute and accessible name keep
+   * words of the title — the card's name tooltip and accessible name keep
    * the real label through `titleChannels`, so nothing a screen reader or a
    * rename reads is changed. Exists for a card whose real label is a TYPE
    * DEFAULT that would read as the user's own words: an unnamed Question renders
@@ -2370,12 +2370,33 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               The direction that lane's argument rests on is unchanged and the
               margin is larger. The layout itself does not re-run in this band —
               it keys on `layoutVersion`, not on zoom. */}
+          {/* ⭐ v3.1 (DESIGN-GAP-v31 row 36): ONE tooltip system. This element is
+              `line-clamp-2`, so a hover route back to a clipped name must stay —
+              it is now the styled tooltip, carrying the full name and then the
+              rename affordance, instead of a native `title` ("…\n\nDouble-click
+              to rename it") beside it (`shared/nodeRenameAffordance.ts`).
+              `data-node-tooltip` makes the card preview yield while the name's
+              tooltip is up — one overlay at a time, the rule every other
+              node-surface tooltip follows. */}
+          <Tooltip
+            asChild
+            delay={NODE_TOOLTIP_DELAY_MS}
+            content={
+              <>
+                {titleChannels.tooltip.name !== null && (
+                  <span data-testid="node-title-tooltip-name" className="block">
+                    {titleChannels.tooltip.name}
+                  </span>
+                )}
+                <span data-testid="node-title-tooltip-affordance" className="block opacity-80">
+                  {titleChannels.tooltip.affordance}
+                </span>
+              </>
+            }
+          >
           <div
             data-testid="node-title"
-            /* ⚠ COMPOSED, NOT REPLACED: this element is `line-clamp-2`, so the
-               attribute is also the reader's only route back to a clipped
-               name. Label first, affordance after. */
-            title={titleChannels.title}
+            data-node-tooltip
             className={
               lodBoostTitle
                 ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
@@ -2413,6 +2434,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             )}
             {titleOverride ?? label}
           </div>
+          </Tooltip>
         </div>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}

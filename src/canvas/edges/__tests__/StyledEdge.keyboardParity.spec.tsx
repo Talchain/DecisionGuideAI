@@ -386,117 +386,32 @@ describe('StyledEdge — the edge popover can be opened without a mouse', () => 
   })
 
   /**
-   * ⭐⭐ THE CROSS-PORTAL CASE, and the reason `contains()` alone is wrong.
-   * `EdgeLabelRenderer` portals the popover OUT of the edge's `<g>`
-   * (`dist/esm/index.mjs:3630`), so the popover is not a DOM descendant of the
-   * element losing focus. A close rule written as `rfEdge.contains(next)` would
-   * shut the popover the instant a keyboard user tabbed into the very content
-   * it was opened to show — including the two coaching chips, which are the
-   * only actionable controls on this surface.
+   * ⭐ v3.1 (DESIGN-GAP-v31 row 12) RETIRES THE CROSS-PORTAL CASES, and says why
+   * here rather than deleting them silently.
    *
-   * Bound by the popover's own identity attribute, never by "some element
-   * somewhere" (trap 19).
+   * Two cases stood here: "stays open when focus moves INTO the portalled
+   * popover" and "closes when focus leaves the portalled POPOVER" (the exit
+   * defect an independent review returned CHANGES_REQUIRED for at `c1f3649e`).
+   * Both existed because the popover carried focusable chips a keyboard user
+   * could tab into. The hover is now the contract's one-line tooltip: it holds
+   * NO focusable content, so focus can never be inside it and neither path
+   * exists. What replaces them is the property that makes them moot — pinned,
+   * with the keyboard-opened tooltip as the precondition, so this cannot pass on
+   * a tooltip that never opened. Focus leaving the edge still closes it (the
+   * case above); another edge's tooltip is still not this one's (below).
    */
-  it('stays open when focus moves INTO the portalled popover', () => {
+  it('the keyboard-opened tooltip holds nothing focusable — focus can never be inside it', () => {
     stubFocusVisible(true)
     const { rfEdge } = renderEdgeInReactFlowWrapper()
     focusEdge(rfEdge)
     const open = popover()
-    expect(open, 'PRECONDITION: open before focus moves into it').not.toBeNull()
-
-    const chip = open!.querySelector('button')
-    expect(chip, 'PRECONDITION: the popover really does carry a focusable chip').not.toBeNull()
+    expect(open, 'PRECONDITION: keyboard focus opened it').not.toBeNull()
+    expect(open!.getAttribute('role')).toBe('tooltip')
     expect(
-      rfEdge.contains(chip!),
-      'PRECONDITION: the chip must be OUTSIDE the edge group, or this case proves nothing',
-    ).toBe(false)
-
-    act(() => {
-      fireEvent.focusOut(rfEdge, { relatedTarget: chip })
-    })
-
-    expect(popover(), 'tabbing into the popover must not destroy it').not.toBeNull()
-  })
-
-  /**
-   * ⭐⭐⭐ THE EXIT STEP — the move the case above stops one short of, and the
-   * finding an independent review returned CHANGES_REQUIRED for at
-   * `c1f3649e`. Reproduced at that head before this test was written.
-   *
-   * `focusout` was bound to `.react-flow__edge` ONLY. The popover is portalled
-   * to a sibling subtree, so when focus is inside the popover and the user tabs
-   * onward, `focusout` is emitted from the PORTAL — it never reaches the edge
-   * group, and the edge's listener is never called. Nothing closed the popover
-   * or the highlight, so stale edge context stayed on screen as the user moved
-   * on. The entry case above cannot see this: it ends at entry.
-   *
-   * ⚠ WHY REAL `.focus()` CALLS AND NOT `fireEvent.focusOut` HERE. The cases
-   * above dispatch focusout synthetically at a chosen element, which is exactly
-   * what hid this defect — a synthetic dispatch AT THE EDGE tests the edge's
-   * listener whether or not the real event would have gone there. Driving real
-   * focus makes the DOM choose the emitting element, so the routing itself is
-   * under test rather than assumed.
-   *
-   * ⚠ STEP 2 IS ALSO THE `relatedTarget` CONTROL. If this jsdom did not supply
-   * `relatedTarget` on a real focus move, the guard would see `null`, the
-   * popover would close on entry, and step 2 would fail — so step 2 passing is
-   * what makes step 3's result meaningful rather than an artefact.
-   *
-   * ⚠ jsdom proves NOTHING about visibility or about the tab order a user
-   * experiences (see the header). Every assertion here is about presence in the
-   * DOM and about which element owns focus.
-   */
-  it('closes when focus leaves the portalled POPOVER for something unrelated', () => {
-    stubFocusVisible(true)
-    const { rfEdge } = renderEdgeInReactFlowWrapper()
-
-    const elsewhere = document.createElement('button')
-    elsewhere.setAttribute(HARNESS_ATTR, '')
-    document.body.appendChild(elsewhere)
-
-    // ── STEP 1 · POSITIVE CONTROL: departure straight from the edge ──────────
-    // This already worked at `c1f3649e`. It has to pass BEFORE the fix, or the
-    // fixture is wrong rather than the product.
-    focusEdge(rfEdge)
-    expect(popover(), 'PRECONDITION: keyboard focus opened it').not.toBeNull()
-    act(() => {
-      elsewhere.focus()
-    })
-    expect(
-      popover(),
-      'CONTROL 1: focus leaving the EDGE for something unrelated already closes it',
-    ).toBeNull()
-
-    // ── STEP 2 · REQUIRED CONTROL: entering our own popover keeps it open ────
-    focusEdge(rfEdge)
-    const open = popover()
-    expect(open, 'PRECONDITION: re-focusing the edge re-opens it').not.toBeNull()
-    const chip = open!.querySelector('button')
-    expect(chip, 'PRECONDITION: the popover really does carry a focusable chip').not.toBeNull()
-    expect(
-      rfEdge.contains(chip!),
-      'PRECONDITION: the chip is OUTSIDE the edge group — the portal is what makes this non-trivial',
-    ).toBe(false)
-    act(() => {
-      chip!.focus()
-    })
-    expect(
-      document.activeElement,
-      'PRECONDITION: focus must really be inside the popover now',
-    ).toBe(chip)
-    expect(
-      popover(),
-      'CONTROL 2: tabbing INTO our own popover must not destroy it',
-    ).not.toBeNull()
-
-    // ── STEP 3 · THE DEFECT: departure FROM the popover ──────────────────────
-    act(() => {
-      elsewhere.focus()
-    })
-    expect(
-      popover(),
-      'THE DEFECT: focus left the popover for something unrelated — the popover and its edge context must go with it',
-    ).toBeNull()
+      open!.querySelectorAll('button, a[href], input, select, textarea, [tabindex]'),
+      'a focusable control inside the tooltip would re-open the cross-portal focus problem',
+    ).toHaveLength(0)
+    expect((open as HTMLElement).style.pointerEvents).toBe('none')
   })
 
   /**
