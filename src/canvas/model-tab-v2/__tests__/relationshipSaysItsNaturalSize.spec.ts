@@ -96,7 +96,7 @@ describe('the relationship row says the size in the target\'s own units', () => 
   it('STALE: once the β moves (a user edit), the old amount never speaks — the band for the NEW β does', () => {
     const data = ingest(wireEdge({ provenance: OLUMI_ESTIMATE }))
     expect(rowValue(data)).toBe("Decrease of about 1 point of churn · Olumi's estimate")
-    const edited = { ...data, weight: 0.3, weightSource: 'user' }
+    const edited: Record<string, unknown> = { ...data, weight: 0.3, weightSource: 'user' }
     // The natural effect is still on the edge: only its key disagrees.
     expect(edited.naturalEffect).toBeDefined()
     expect(rowValue(edited)).toBe(getDirectionalStrengthLabel(-0.3, resolveEdgeDirectionDisplay(edited)))
