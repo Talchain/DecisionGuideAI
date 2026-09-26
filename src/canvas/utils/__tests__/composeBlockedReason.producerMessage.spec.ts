@@ -425,6 +425,15 @@ describe('the label rung names an element once when both blockers are about it',
     expect(reason).toBe(BLOCKED_REASON_COPY.canonicalOneBlocker('New option'))
   })
 
+  it('⭐ two DIFFERENT options that share the name "New option" are two elements: the count, never one (review 5843609151)', () => {
+    const reason = composeAnalysisBlockedReason([
+      blocker({ code: 'MISSING_OPTION_VALUE', message: 'Add at least one factor edge.', option_id: 'opt_new_1', option_label: 'New option' }),
+      blocker({ code: 'MISSING_OPTION_VALUE', message: 'Add at least one factor edge.', option_id: 'opt_new_2', option_label: 'New option' }),
+    ])
+    expect(reason).not.toBe(BLOCKED_REASON_COPY.canonicalOneBlocker('New option'))
+    expect(reason).toBe(BLOCKED_REASON_COPY.canonicalManyBlockers(2))
+  })
+
   it('CONTROL: two blockers on two different options still name both', () => {
     const reason = composeAnalysisBlockedReason([
       onNewOption('Add at least one factor edge.'),

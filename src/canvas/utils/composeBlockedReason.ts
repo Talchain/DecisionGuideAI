@@ -928,9 +928,17 @@ export function analysisBlockedSentences(
   }
   if (blockers.length === 2 && labelled.length === 2) {
     // Two blockers on ONE element name it once. Served 26 Sep (UI c3c2d539, a
-    // canvas "+ Add option"): both blockers were scoped to the new option and the
-    // gate read '"New option" and "New option" are not ready…'.
-    if (labelled[0] === labelled[1]) return [BLOCKED_REASON_COPY.canonicalOneBlocker(labelled[0])]
+    // canvas "+ Add option"): both blockers carried `option_id: '1'` and the gate
+    // read '"New option" and "New option" are not ready…'. Keyed on the element's
+    // ID, never its label (review 5843609151): two DIFFERENT options that share a
+    // name are two elements, and saying one would understate the work (A2). Those
+    // fall to the count, which stays true and does not print the name twice.
+    const scopeId = (b: AnalysisBlocker) => b.option_id ?? b.factor_id ?? null
+    const first = scopeId(blockers[0])
+    if (first !== null && first === scopeId(blockers[1])) {
+      return [BLOCKED_REASON_COPY.canonicalOneBlocker(labelled[0])]
+    }
+    if (labelled[0] === labelled[1]) return [BLOCKED_REASON_COPY.canonicalManyBlockers(2)]
     return [BLOCKED_REASON_COPY.canonicalTwoBlockers(labelled[0], labelled[1])]
   }
   // A2's rule, inherited: the count published is the VERDICT's own list length,
