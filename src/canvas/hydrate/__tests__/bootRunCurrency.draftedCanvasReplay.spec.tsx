@@ -77,7 +77,7 @@ function readBody() {
   }
 }
 
-let warnSpy: { mock: { calls: unknown[][] }; mockRestore: () => void }
+let warnSpy: { mock: { calls: unknown[][] }; mockRestore: () => void; mockClear: () => void }
 
 beforeEach(() => {
   useCanvasStore.setState({
@@ -258,11 +258,42 @@ describe('⭐ AN INTERVENTION UNIT counts exactly where CEE hashes it: beside a 
     expect(runCardCurrency()).toBe('current')
   })
 
-  it('⭐ the canvas holds 59 GBP and the read 59 USD: declined', async () => {
+  // ⚠ THE UNCHANGED EXIT, where the proof is the ONLY guard. On the merged exit
+  // the boot merge adopts the read's unit and declines as `edited_since_read`
+  // whatever the proof says (independent review of #2058, 5841555613). Here the
+  // read's identity token matches the one already applied, so nothing is merged:
+  // a reload of the same token, after a session that dropped its analysis beliefs.
+  async function reloadOnTheSameToken(changeRead: () => void) {
     redraft((d) => setIntervention(d, { raw_value: 59, unit: 'GBP' }))
-    setIntervention(readGraph, { unit: 'USD' })
-    await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(declineLog()?.reason).toMatch(/^(edited_since_read|canvas_not_proven_equal)$/)
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    useCanvasStore.setState({ analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false } as never)
+    warnSpy.mockClear()
+    changeRead()
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+  }
+
+  it('CONTROL, unchanged exit: the same 59 GBP on both sides: current', async () => {
+    await reloadOnTheSameToken(() => {})
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
+  })
+
+  it('⭐ unchanged exit: the canvas holds 59 GBP and the read 59 USD: declined BY THE PROOF, naming the intervention', async () => {
+    await reloadOnTheSameToken(() => setIntervention(readGraph, { unit: 'USD' }))
+    const d = declineLog()!
+    expect(d.reason).toBe('canvas_not_proven_equal')
+    expect(d.unproven).toMatch(/^fwd:node:raise_to_59_with_release:interventions:differs .*"unit":"GBP".* read=.*"unit":"USD"/)
     expect(runCardCurrency()).not.toBe('current')
+  })
+
+  it('CONTROL, unchanged exit: a unit with NO native `raw_value` beside it is metadata, as CEE hashes it: current', async () => {
+    redraft((d) => setIntervention(d, { unit: 'GBP' }))
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('merged')
+    useCanvasStore.setState({ analysisStateV1: null, analysisFreshness: null, analysisFreshnessDirty: false } as never)
+    warnSpy.mockClear()
+    setIntervention(readGraph, { unit: 'USD' })
+    await expect(hydrateCanvasFromServer(SCENARIO_ID)).resolves.toBe('unchanged')
+    expect(declineLog(), 'no decline').toBeUndefined()
+    expect(runCardCurrency()).toBe('current')
   })
 })
