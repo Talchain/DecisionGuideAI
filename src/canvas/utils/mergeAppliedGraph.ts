@@ -178,6 +178,7 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   ...EDGE_SOURCE_KEYS,
   'serverStrength',
   'origin',
+  'naturalEffect',
 ])
 
 /**
@@ -187,8 +188,13 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
  * person sees, and a canvas saved before it was carried holds none. Acquiring it
  * must never read as an edit — without this, the first reload after the change
  * pulsed every edge, pushed an undo entry and greyed a fresh run.
+ *
+ * `naturalEffect` (the magnitude contract's size in the target's units, #2107)
+ * joins for the same reason: it is the server's record of the β the edge already
+ * carries, and a canvas saved before it was carried holds none. A genuine β change
+ * still counts through the strength itself.
  */
-const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin'] as const
+const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect'] as const
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,

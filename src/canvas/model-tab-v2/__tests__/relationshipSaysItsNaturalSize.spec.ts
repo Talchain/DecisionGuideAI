@@ -45,7 +45,11 @@ const NODES = [
 ] as unknown as Node[]
 
 /** Paul's edge: AI cuts churn by 1 point, at 4% churn → β −0.01. */
-const CHURN_NATURAL = { amount: -1, unit: 'points of churn', per_source_change: 1, source_unit: 'switch', strength_mean: -0.01 }
+/** MG PR1's FINAL served shape for T3 AI → churn (#70 5846842858 + key names 5846999581). */
+const CHURN_NATURAL = {
+  amount: -1, amount_unit: 'percentage points', per_source_change: 1, per_source_change_unit: 'switch',
+  strength_mean: -0.01, strength_mean_frame: 'edge_strength',
+}
 
 function wireEdge(over: {
   mean?: number
@@ -78,16 +82,33 @@ function rowValue(edgeData: Record<string, unknown>): string | null {
 const ingest = (wire: Record<string, unknown>) => mapDraftEdgeToCanvas(wire, 0).data as Record<string, unknown>
 
 describe('the relationship row says the size in the target\'s own units', () => {
-  it('⭐ RED: AI → churn, β −0.01 with a natural effect of −1 point → "Decrease of about 1 point of churn", never "Negligible effect"', () => {
+  it('⭐ RED: AI → churn, β −0.01 with a natural effect of −1 point → "Decrease of about 1 percentage point", never "Negligible effect"', () => {
     const data = ingest(wireEdge({ provenance: OLUMI_ESTIMATE }))
     // Present control: the band on its own DOES call this edge negligible — the defect.
     expect(getDirectionalStrengthLabel(-0.01, resolveEdgeDirectionDisplay(data))).toBe('Negligible effect')
-    expect(rowValue(data)).toBe("Decrease of about 1 point of churn · Olumi's estimate")
+    expect(rowValue(data)).toBe("Decrease of about 1 percentage point · Olumi's estimate")
   })
 
   it('the producer\'s real unit for a percentage level ("percentage points") reads "1 percentage point", never "1%"', () => {
-    const data = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, natural_effect: { ...CHURN_NATURAL, unit: 'percentage points' } } }))
+    const data = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, natural_effect: { ...CHURN_NATURAL, amount_unit: 'percentage points' } } }))
     expect(rowValue(data)).toBe("Decrease of about 1 percentage point · Olumi's estimate")
+  })
+
+  it('KEY NAMES (MG 5846999581): the pre-rename keys (unit / source_unit) are NOT read, so they fail closed to the band', () => {
+    const { amount_unit: u, per_source_change_unit: su, ...rest } = CHURN_NATURAL
+    const oldKeys = { ...rest, unit: u, source_unit: su }
+    const data = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, natural_effect: oldKeys } }))
+    expect(data).not.toHaveProperty('naturalEffect')
+    expect(rowValue(data)).toBe('Negligible effect')
+  })
+
+  it('the staleness key must SAY it is on the edge-strength frame: a missing or other frame fails closed', () => {
+    const { strength_mean_frame: _f, ...noFrame } = CHURN_NATURAL
+    for (const natural_effect of [noFrame, { ...CHURN_NATURAL, strength_mean_frame: 'target_level' }]) {
+      const data = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, natural_effect } }))
+      expect(data).not.toHaveProperty('naturalEffect')
+      expect(rowValue(data)).toBe('Negligible effect')
+    }
   })
 
   it('CONTRAST (legacy): the SAME edge with no natural effect keeps today\'s band, unchanged', () => {
@@ -100,12 +121,12 @@ describe('the relationship row says the size in the target\'s own units', () => 
 
   it('STALE: once the β moves (a user edit), the old amount never speaks — the band for the NEW β does', () => {
     const data = ingest(wireEdge({ provenance: OLUMI_ESTIMATE }))
-    expect(rowValue(data)).toBe("Decrease of about 1 point of churn · Olumi's estimate")
+    expect(rowValue(data)).toBe("Decrease of about 1 percentage point · Olumi's estimate")
     const edited: Record<string, unknown> = { ...data, weight: 0.3, weightSource: 'user' }
     // The natural effect is still on the edge: only its key disagrees.
     expect(edited.naturalEffect).toBeDefined()
     expect(rowValue(edited)).toBe(getDirectionalStrengthLabel(-0.3, resolveEdgeDirectionDisplay(edited)))
-    expect(rowValue(edited)).not.toMatch(/point of churn/)
+    expect(rowValue(edited)).not.toMatch(/percentage point/)
   })
 
   it('a natural effect with no staleness key is not said (fail closed → the band)', () => {
@@ -123,11 +144,11 @@ describe('the relationship row says the size in the target\'s own units', () => 
 
   it('whose figure: a placeholder says so; the user\'s own (user_specified) carries no Olumi label', () => {
     const placeholder = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, magnitude: 'olumi_placeholder' } }))
-    expect(rowValue(placeholder)).toBe('Decrease of about 1 point of churn · a placeholder, not an estimate')
+    expect(rowValue(placeholder)).toBe('Decrease of about 1 percentage point · a placeholder, not an estimate')
     const users = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, source: 'user_specified' } }))
-    expect(rowValue(users)).toBe('Decrease of about 1 point of churn')
+    expect(rowValue(users)).toBe('Decrease of about 1 percentage point')
     const stated = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, magnitude: 'user_stated' } }))
-    expect(rowValue(stated)).toBe('Decrease of about 1 point of churn')
+    expect(rowValue(stated)).toBe('Decrease of about 1 percentage point')
     // An unknown magnitude label is not a size we can attribute → the band.
     const unknown = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, magnitude: 'guess' } }))
     expect(rowValue(unknown)).toBe('Negligible effect')
@@ -140,7 +161,10 @@ describe('the relationship row says the size in the target\'s own units', () => 
       provenance: {
         source: 'cee_hypothesis',
         magnitude: 'olumi_estimate',
-        natural_effect: { amount: 5, unit: 'customers', per_source_change: 1, source_unit: '£', strength_mean: 0.2 },
+        natural_effect: {
+          amount: 5, amount_unit: 'customers', per_source_change: 1, per_source_change_unit: '£',
+          strength_mean: 0.2, strength_mean_frame: 'edge_strength',
+        },
       },
     }))
     expect(rowValue(perPound)).toBe("Increase of about 5 customers per £1 · Olumi's estimate")

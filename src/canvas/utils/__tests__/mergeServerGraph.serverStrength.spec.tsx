@@ -233,6 +233,32 @@ describe('authority acquisition is not an analytical edit', () => {
     expect.soft(useCanvasStore.getState().highlightedEdges.size).toBe(0)
   })
 
+  it('acquires a server-stated natural effect silently (#2107): no pulse, no undo entry, analysis stays fresh', () => {
+    // The magnitude contract's size in the target's units (`provenance.natural_effect`)
+    // is the server's record of the β the edge already carries. A canvas saved before
+    // #2107 holds none; the first reload after MG PR1 serves acquires it. Like `origin`
+    // and the strength tuple, that is never a changed value the user must be shown.
+    const { wire } = seedCurrentAnalysis()
+    const history = useCanvasStore.getState().history
+    expect(currentEdge().data?.naturalEffect).toBeUndefined()
+    // MG PR1's FINAL key names (#70 5846999581); read by #2107's reader after its key follow-up.
+    const natural = {
+      amount: 5, amount_unit: 'customers', per_source_change: 1, per_source_change_unit: 'switch',
+      strength_mean: 0.5, strength_mean_frame: 'edge_strength',
+    }
+    const result = mergeServerGraphOnHydrate(serverGraph({ ...wire, provenance: { magnitude: 'olumi_estimate', natural_effect: natural } }))
+    expect(result.accepted).toBe(true)
+    expect(currentEdge().data?.naturalEffect).toEqual({
+      amount: 5, unit: 'customers', perSourceChange: 1, sourceUnit: 'switch', strengthMean: 0.5, author: 'olumi_estimate',
+    })
+    expect.soft(useCanvasStore.getState().history).toBe(history)
+    expect.soft(useCanvasStore.getState()).toMatchObject({
+      graphEditedSinceLastRun: false, analysisStateReady: true, analysisFreshnessDirty: false,
+    })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS)
+    expect.soft(useCanvasStore.getState().highlightedEdges.size).toBe(0)
+  })
+
   it('still invalidates, snapshots and pulses a genuine edge-value overwrite', () => {
     const { wire } = seedCurrentAnalysis()
     const result = mergeServerGraphOnHydrate(serverGraph({ ...wire, strength_mean: 0.7 }))
