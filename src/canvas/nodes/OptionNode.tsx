@@ -2554,24 +2554,30 @@ export const OptionNode = memo((props: NodeProps) => {
                 `Current model`; `Last run` only when the model is KNOWN to have
                 changed (ED 02:31Z Q2); `Model result` when currency cannot be
                 confirmed — it claims neither. */}
-            {/* Caption + bar give way TOGETHER, as one clipped unit, so a
-                squeezed pair leaves no sliver and costs one gap, not two. The
-                bar yields before the caption; the default `Current model`
-                yields before `· Goal only`, a `Last run` / `Model result`
-                qualifier only alongside it. */}
+            {/* Caption + bar give way TOGETHER, as one clipped unit.
+                · Default `Current model`: the unit yields FIRST and strictly
+                  (a shrink weight that leaves `· Goal only` no sub-pixel share),
+                  and its parts are whole-or-nothing — a part that does not fit
+                  wraps onto the unit's clipped second line (the zero-width
+                  spacer keeps line 1 open), so a squeezed caption leaves no
+                  sliver of a glyph. The bar goes before the caption.
+                · `Last run` / `Model result` is a qualifier that stays on the
+                  card: the unit yields only alongside `· Goal only`, and the
+                  caption truncates rather than disappearing. */}
             <span
-              className={`flex min-w-0 items-center gap-1.5 overflow-hidden ${runCurrency === 'current' ? 'shrink-[100]' : 'shrink'}`}
+              className={`flex h-full min-w-0 items-center gap-x-1.5 overflow-hidden ${runCurrency === 'current' ? 'shrink-[1000000] flex-wrap content-start' : 'shrink'}`}
               aria-hidden="true"
             >
+            <span className="h-full w-0 -mr-1.5" />
             <span
               data-testid={`option-win-anchor-${props.id}`}
-              className={`${typography.edgeLabel} text-text-light min-w-0 truncate shrink`}
+              className={`${typography.edgeLabel} text-text-light ${runCurrency === 'current' ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate shrink'}`}
               aria-hidden="true"
             >
               {resultCaption}
             </span>
             <div
-              className="h-1 w-[54px] min-w-0 shrink-[100000] bg-panel-border rounded-full overflow-hidden"
+              className={`h-1 w-[54px] bg-panel-border rounded-full overflow-hidden ${runCurrency === 'current' ? 'shrink-0' : 'min-w-0 shrink-[100000]'}`}
               aria-hidden="true"
             >
               <div
