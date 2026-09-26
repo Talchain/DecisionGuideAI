@@ -1144,7 +1144,15 @@ export function CanvasLegendPopover({ variant = 'icon' }: CanvasLegendPopoverPro
         setMaxHeightPx(null)
         return
       }
-      setMaxHeightPx(Math.max(0, bottom - VIEWPORT_GUTTER_PX))
+      // Clear the app bar too. Canvas v3.1 DESIGN-GAP #5 made the top bar the
+      // contract's full-width 51px `.app-top` (z 3000, above this toolbar's
+      // stacking context), so a cap measured from the WINDOW top put this
+      // panel's heading under the bar at every x — measured at 1280x800: panel
+      // top 12, bar bottom 51. `--topbar-h` is the bar's bottom edge
+      // (`TopBar.tsx`); 0 when no bar is mounted, which is the old cap.
+      const topBarBottom =
+        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
+      setMaxHeightPx(Math.max(0, bottom - topBarBottom - VIEWPORT_GUTTER_PX))
     }
     measure()
     window.addEventListener('resize', measure)

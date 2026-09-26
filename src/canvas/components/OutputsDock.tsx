@@ -2947,7 +2947,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       ? 'var(--dock-right-expanded, 26rem)'
       : 'var(--dock-right-collapsed, 2.5rem)',
     right: 12,
-    top: 12,
+    // Canvas v3.1 DESIGN-GAP #5 (chrome lane, 26 Sep 2026): the top bar is now
+    // the contract's full-width 51px `.app-top`, so the dock starts below it —
+    // `--topbar-h` is that bar's bottom edge (TopBar.tsx). The 12px gap keeps
+    // this dock's own floating treatment unchanged; making it flush (v3.1
+    // `.ai-panel{top:51px}`) is the Panel lane's (DESIGN-GAP #4).
+    top: 'calc(var(--topbar-h, 0px) + 12px)',
     bottom: 'calc(var(--bottombar-h) + 1rem)',
     background: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(8px)',

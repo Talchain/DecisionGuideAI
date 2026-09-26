@@ -114,6 +114,17 @@ const HEIGHTS = [800, 700, 600, 500, 420]
 const VIEWPORT_GUTTER_PX = 12
 
 /**
+ * The app bar the panel must also clear (contract v3.1 `.app-top{height:51px}`,
+ * DESIGN-GAP #5, 26 Sep 2026). Since the bar became full-width, a panel capped
+ * from the WINDOW top put its heading under the bar at every x — measured at
+ * 1280x800: top 12, bar bottom 51 — which is exactly the "clip its heading
+ * under a future header" case the notes below anticipated. So the cap is now
+ * measured from the bar's bottom, and the gutter sits below it. Restated, not
+ * imported, for the same witness reason as the gutter.
+ */
+const TOP_BAR_H = 51
+
+/**
  * A row that renders in EVERY phase — the mount precondition names it.
  *
  * ⚠ WAS `'Weak effect'` UNTIL 18 Sep 2026, when the thickness key was rebuilt
@@ -303,10 +314,12 @@ test.describe('LEGEND fits its viewport', () => {
       if (g.scrollScrollHeight > g.scrollClientHeight) {
         expect(
           g.panelTop,
-          `[${at}] the panel overflows but sits ${g.panelTop.toFixed(0)}px from the top, not the ${VIEWPORT_GUTTER_PX}px gutter — ` +
+          `[${at}] the panel overflows but sits ${g.panelTop.toFixed(0)}px from the top, not the ${VIEWPORT_GUTTER_PX}px gutter below the ${TOP_BAR_H}px bar — ` +
             'the measured cap is not the constraint in force (a CSS-only fallback reads ~69)',
-        ).toBeLessThanOrEqual(VIEWPORT_GUTTER_PX + 1)
+        ).toBeLessThanOrEqual(TOP_BAR_H + VIEWPORT_GUTTER_PX + 1)
       }
+      // …and never UNDER the bar, where the heading would be hidden.
+      expect(g.panelTop, `[${at}] the panel starts under the ${TOP_BAR_H}px app bar`).toBeGreaterThanOrEqual(TOP_BAR_H)
 
       // ⭐ IT ACTUALLY SCROLLS — asserted on the numbers, not on a class name.
       // Where the content does not fit, the scroll container must report real
@@ -399,8 +412,9 @@ test.describe('LEGEND fits its viewport', () => {
       if (capped) {
         expect(
           g.panelTop,
-          `[resize ${WIDTH}x${height}] the cap did not follow the resize — top=${g.panelTop.toFixed(0)}, expected the ${VIEWPORT_GUTTER_PX}px gutter`,
-        ).toBeLessThanOrEqual(VIEWPORT_GUTTER_PX + 1)
+          `[resize ${WIDTH}x${height}] the cap did not follow the resize — top=${g.panelTop.toFixed(0)}, expected the ${VIEWPORT_GUTTER_PX}px gutter below the ${TOP_BAR_H}px bar`,
+        ).toBeLessThanOrEqual(TOP_BAR_H + VIEWPORT_GUTTER_PX + 1)
+        expect(g.panelTop, `[resize ${WIDTH}x${height}] the panel starts under the app bar`).toBeGreaterThanOrEqual(TOP_BAR_H)
       }
     }
 
