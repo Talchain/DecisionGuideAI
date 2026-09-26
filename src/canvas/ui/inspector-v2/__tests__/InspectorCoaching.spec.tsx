@@ -4,14 +4,14 @@
  * Verifies:
  * - Orchestrator GuidanceItems render through CoachingCard visual
  * - Guidance filtered to selected element only
- * - Static coaching is fallback when no guidance exists
+ * - v3.1 (DESIGN-GAP-v31 row 32): NO static fallback — with no grounded
+ *   guidance item for the element, nothing renders (the generic lightbulb
+ *   card is retired)
  * - "Ask about this" PREFILLS an editable draft and waits (never auto-sends)
  * - Button hidden when _prefillChat and _sendMessage are both null
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
@@ -67,10 +67,11 @@ beforeEach(() => {
 })
 
 describe('InspectorCoaching', () => {
-  it('renders static coaching text when no guidance items exist', () => {
+  it('v3.1: renders NOTHING when no guidance item targets the element — no generic fallback card', () => {
     useGuidanceStore.setState({ _prefillChat: vi.fn() })
-    render(<InspectorCoaching {...defaultProps} />)
-    expect(screen.getByText('Static coaching fallback text')).toBeTruthy()
+    const { container } = render(<InspectorCoaching {...defaultProps} />)
+    expect(screen.queryByText('Static coaching fallback text')).toBeNull()
+    expect(container.innerHTML).toBe('')
   })
 
   it('renders orchestrator guidance text when a matching item exists', () => {
@@ -91,10 +92,10 @@ describe('InspectorCoaching', () => {
       ],
       _prefillChat: vi.fn(),
     })
-    render(<InspectorCoaching {...defaultProps} />)
-    // Should show fallback, not the guidance for node-99
-    expect(screen.getByText('Static coaching fallback text')).toBeTruthy()
+    const { container } = render(<InspectorCoaching {...defaultProps} />)
+    // Not the guidance for node-99 — and, since v3.1, no fallback either.
     expect(screen.queryByText('Wrong node guidance')).toBeNull()
+    expect(container.innerHTML).toBe('')
   })
 
   it('shows highest-priority guidance item when multiple match', () => {
@@ -126,10 +127,15 @@ describe('InspectorCoaching', () => {
    * ruled against, and the old expectation is recorded above rather than
    * deleted so the reversal is legible.
    */
+  // v3.1: the card renders only for a GROUNDED item. An item whose action is
+  // not `discuss`/`run_exercise` takes the default arm — the element's own
+  // question, under the caller's ask label — which is what these pins cover.
+  const ASK_ARM_ITEM = makeGuidanceItem({ primary_action: { type: 'navigate', target: 'x' } })
+
   it('"Ask about this" PREFILLS the question and does NOT auto-send', () => {
     const prefill = vi.fn()
     const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send })
+    useGuidanceStore.setState({ guidanceItems: [ASK_ARM_ITEM], _prefillChat: prefill, _sendMessage: send })
     render(<InspectorCoaching {...defaultProps} />)
 
     const button = screen.getByText('Ask about this')
@@ -142,7 +148,7 @@ describe('InspectorCoaching', () => {
 
   it('still lands the draft when only _prefillChat is registered', () => {
     const prefill = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: null })
+    useGuidanceStore.setState({ guidanceItems: [ASK_ARM_ITEM], _prefillChat: prefill, _sendMessage: null })
     render(<InspectorCoaching {...defaultProps} />)
 
     const button = screen.getByText('Ask about this')
@@ -153,73 +159,30 @@ describe('InspectorCoaching', () => {
   })
 
   it('hides action button when both _prefillChat and _sendMessage are null', () => {
-    useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null })
+    useGuidanceStore.setState({ guidanceItems: [ASK_ARM_ITEM], _prefillChat: null, _sendMessage: null })
     render(<InspectorCoaching {...defaultProps} />)
 
     expect(screen.queryByText('Ask about this')).toBeNull()
-    // But the coaching text itself should still render
-    expect(screen.getByText('Static coaching fallback text')).toBeTruthy()
+    // But the grounded guidance text itself should still render
+    expect(screen.getByText(/Orchestrator guidance title/)).toBeTruthy()
   })
 
-  it('renders guidance item action through CoachingCard visual (full thin border)', () => {
+  it('renders a grounded item FLAT — the contract\'s section-highlight, no box, no lightbulb (v3.1)', () => {
+    // v3.1 (DESIGN-GAP-v31 row 32): the card was a boxed notification (an
+    // inline 1px info border at 30%, `rounded-lg shadow-1`, a lightbulb and a
+    // dismiss ×). It is now `.section-highlight`: a 2px #A3C5D1 left rule.
     useGuidanceStore.setState({
       guidanceItems: [makeGuidanceItem()],
       _prefillChat: vi.fn(),
     })
     const { container } = render(<InspectorCoaching {...defaultProps} />)
-    // CoachingCard uses inline style with info border.
-    //
-    // This used to assert the raw triple `rgba(82, 163, 200, 0.3)` — the PRE-D1
-    // blue. That literal was invisible to every hex-based DS sweep, so when
-    // `--info` became #277A9D the card silently kept rendering the old colour
-    // and THIS TEST WENT ON PASSING, pinning the drift in place. So assert the
-    // property D1 actually wants (the border DERIVES from the token) instead of
-    // any one value: a future retint of `--info` then cannot break this test,
-    // and — the point — cannot pass while the card drifts away from the token.
-    const card = container.firstElementChild as HTMLElement
-    expect(card.style.border).toBe(
-      '1px solid color-mix(in srgb, var(--info) 30%, transparent)',
-    )
-    // A hardcoded channel triple here is exactly the regression this file once
-    // enshrined; fail loudly if one comes back.
-    expect(card.style.border).not.toMatch(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+/)
-    // And the token it points at must really be declared — `var(--typo)` renders
-    // NO border at all, which the assertions above cannot distinguish. Read the
-    // source of truth rather than trusting the name (trap 12: derive, don't mirror).
-    //
-    // Assert the RESOLVED VALUE, not the file's current spelling. This used to
-    // regex for `--info: #RRGGBB`, which broke the moment the channel split
-    // (#379) restated the token as `--info-rgb: 39 122 157; --info:
-    // rgb(var(--info-rgb))`, a change that left the colour bit-for-bit
-    // identical. Pinning the prose format made a correct refactor look like a
-    // regression, so follow the `var()` chain instead: any spelling that bottoms
-    // out in a real colour passes, and only a token that is missing or dangling
-    // fails. That is the property this assertion was always about.
-    const brandCss = readFileSync(
-      join(__dirname, '../../../../styles/brand.css'),
-      'utf-8',
-    )
-    // Comments in brand.css illustrate the token shape; they are not declarations.
-    const declared = new Map<string, string>()
-    for (const m of Array.from(
-      brandCss.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g),
-    )) {
-      declared.set(m[1], m[2].trim())
-    }
-
-    const resolve = (value: string, depth = 0): string =>
-      depth > 10
-        ? value
-        : value.replace(/var\(\s*(--[\w-]+)\s*\)/g, (whole, name: string) => {
-            const next = declared.get(name)
-            return next === undefined ? whole : resolve(next, depth + 1)
-          })
-
-    expect(declared.has('--info'), '--info is not declared in brand.css').toBe(true)
-    expect(
-      resolve(declared.get('--info')!),
-      '--info must resolve to a real colour, not a dangling var()',
-    ).toMatch(/^(#[0-9A-Fa-f]{3,8}|rgba?\([\d\s,./%]+\))$/)
+    const card = screen.getByTestId('inspector-guidance')
+    expect(card.className).toContain('border-l-2')
+    expect(card.className).toContain('border-[#A3C5D1]')
+    expect(card.className).not.toMatch(/rounded|shadow/)
+    expect(card.style.border).toBe('')
+    expect(container.querySelector('svg.lucide-lightbulb')).toBeNull()
+    expect(screen.queryByLabelText('Dismiss suggestion')).toBeNull()
   })
 
   // ── related_elements matching ──────────────────────────────────────
@@ -288,7 +251,7 @@ describe('InspectorCoaching', () => {
     expect(screen.queryByText(/Related same priority/)).toBeNull()
   })
 
-  it('falls back to static coaching when related_elements has no id match', () => {
+  it('renders nothing (no static fallback, v3.1) when related_elements has no id match', () => {
     useGuidanceStore.setState({
       guidanceItems: [
         makeGuidanceItem({
@@ -300,9 +263,9 @@ describe('InspectorCoaching', () => {
       ],
       _prefillChat: vi.fn(),
     })
-    render(<InspectorCoaching {...defaultProps} />)
-    expect(screen.getByText('Static coaching fallback text')).toBeTruthy()
+    const { container } = render(<InspectorCoaching {...defaultProps} />)
     expect(screen.queryByText('Unrelated guidance')).toBeNull()
+    expect(container.innerHTML).toBe('')
   })
 })
 

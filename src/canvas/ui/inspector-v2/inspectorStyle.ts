@@ -66,6 +66,9 @@ export const inspectorDetailRow =
 /** `.inspector-body h4` */
 export const inspectorHeading = 'text-xs font-semibold text-text-header mt-3 mb-[7px]'
 
+/** `.inspector-body h4` as a group's first line (its section carries the top margin). */
+export const inspectorGroupLabel = 'text-xs font-semibold text-text-header mb-[7px]'
+
 /** `.section-highlight` */
 export const inspectorSectionHighlight = `border-l-2 ${INSPECTOR_RULE.highlight} pl-2.5 my-3.5`
 

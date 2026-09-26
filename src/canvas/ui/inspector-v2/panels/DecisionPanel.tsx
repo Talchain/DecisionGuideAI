@@ -11,7 +11,7 @@ import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
-import { inspectorButton } from '../inspectorStyle'
+import { inspectorButton, inspectorDetailRow, INSPECTOR_RULE } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
 import { detectBaseline } from '../../../utils/baselineDetection'
 import { formatWinProbability } from '../../../utils/labelUtils'
@@ -221,17 +221,23 @@ export const DecisionPanel = memo(function DecisionPanel({
           />
         )}
 
-        {briefData && (
-          <div className="mt-2 bg-panel border border-panel-border rounded-lg p-2.5 flex gap-4 flex-wrap">
-            {briefData.who && <div><div className={`${typography.panelMeta} text-text-light`}>Who decides</div><div className={typography.panelBody}>{briefData.who}</div></div>}
-            {briefData.timeframe && <div><div className={`${typography.panelMeta} text-text-light`}>Timeframe</div><div className={typography.panelBody}>{briefData.timeframe}</div></div>}
-            {briefData.constraint && <div><div className={`${typography.panelMeta} text-text-light`}>Key constraint</div><div className={typography.panelBody}>{briefData.constraint}</div></div>}
+        {/* v3.1: the brief's framing as detail rows, not a box. */}
+        {briefData && (briefData.who || briefData.timeframe || briefData.constraint) && (
+          <div className="mt-2">
+            {briefData.who && <div className={inspectorDetailRow}><span className="text-text-light">Who decides</span><span className="text-right text-text-body">{briefData.who}</span></div>}
+            {briefData.timeframe && <div className={inspectorDetailRow}><span className="text-text-light">Timeframe</span><span className="text-right text-text-body">{briefData.timeframe}</span></div>}
+            {briefData.constraint && <div className={inspectorDetailRow}><span className="text-text-light">Key constraint</span><span className="text-right text-text-body">{briefData.constraint}</span></div>}
           </div>
         )}
       </PanelGroup>
 
-      {/* ── Input group (options list) ────────────────────────── */}
-      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+      {/* ── Alternatives (options list) ───────────────────────── */}
+      {/* ⭐ v3.1 (DESIGN-GAP-v31 row 32): "the Question inspector must not list
+          all options under 'Your input'". The options are not the user's
+          input to the question; they are its ALTERNATIVES, and that is what the
+          group now says. The rows stay navigable (each opens its option) and
+          are flat detail rows — the bordered card around them is gone. */}
+      <PanelGroup kind="alternatives" label={GROUP_LABELS.alternatives}>
         {/* ⚠ RENDERED ONLY WHEN THERE ARE OPTIONS TO LIST. The card used to end
             with the "+ Add option" row, which kept it non-empty on a decision
             with no options; that control now lives in the Router's
@@ -239,15 +245,15 @@ export const DecisionPanel = memo(function DecisionPanel({
             reach it. An empty bordered card would be a box with nothing in it. */}
         {connectedOptions.length > 0 && (
         <PrimaryControlCard>
-          {/* Flattened option rows inside the card — dividers between rows, no inner borders */}
-          {connectedOptions.map((opt, i) => (
+          {/* Flat option rows — the contract's hairline rule between rows. */}
+          {connectedOptions.map((opt) => (
             <div
               key={opt.nodeId}
               role="button"
               tabIndex={0}
               onClick={() => onNavigate(opt.nodeId)}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(opt.nodeId) } }}
-              className={`py-2 -mx-3 px-3 cursor-pointer hover:bg-panel-hover transition-colors ${i > 0 ? 'border-t border-panel-border' : ''}`}
+              className={`py-2 cursor-pointer hover:bg-panel-hover transition-colors border-b ${INSPECTOR_RULE.row} last:border-b-0`}
             >
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-1.5">

@@ -179,7 +179,9 @@ describe('L-40 · DecisionPanel does not claim "no connections" while its option
   it('lists both options (fixture precondition — pinned in-test)', () => {
     setDecisionStore()
     const { container } = render(<DecisionPanel {...decisionProps} />)
-    const input = container.querySelector('[data-panel-group="input"]')
+    // v3.1 (DESIGN-GAP-v31 row 32): a decision's options are its ALTERNATIVES,
+    // no longer listed under "Your input".
+    const input = container.querySelector('[data-panel-group="alternatives"]')
     expect(input?.textContent).toContain('Option A')
     expect(input?.textContent).toContain('Option B')
   })

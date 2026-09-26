@@ -8,7 +8,7 @@
  */
 
 import type { ReactNode } from 'react'
-import { typography } from '../../../../styles/typography'
+import { inspectorGroupLabel } from '../inspectorStyle'
 
 export type PanelGroupKind =
   | 'context'
@@ -18,6 +18,8 @@ export type PanelGroupKind =
   | 'impact'
   | 'comparison'
   | 'whatThisChanges'
+  /** v3.1: the Question inspector's options (not "Your input"). */
+  | 'alternatives'
 
 interface PanelGroupProps {
   kind: PanelGroupKind
@@ -26,11 +28,16 @@ interface PanelGroupProps {
   children: ReactNode
 }
 
+/**
+ * ⭐ v3.1 (DESIGN-GAP-v31 row 32): the group label is the contract's
+ * `.inspector-body h4` — 12px, semibold, body ink — so every pane's sections
+ * read as one document rather than 11px grey captions over boxes.
+ */
 export function PanelGroup({ kind, label, children }: PanelGroupProps) {
   return (
-    <section data-panel-group={kind} className="mt-3.5 first:mt-2">
+    <section data-panel-group={kind} className="mt-3 first:mt-2">
       {label && (
-        <div className={`${typography.panelMeta} text-text-light mb-1.5`}>
+        <div className={inspectorGroupLabel}>
           {label}
         </div>
       )}

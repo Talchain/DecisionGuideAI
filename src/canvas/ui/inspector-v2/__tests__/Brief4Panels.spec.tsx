@@ -176,7 +176,9 @@ describe('DecisionPanel — win probability display (Brief 4 Task 2)', () => {
     // Phase 1 — pre-analysis: no percentage text
     setDecisionStore()
     const { container: preContainer, unmount } = render(<DecisionPanel {...decisionProps} />)
-    const inputGroupPre = preContainer.querySelector('[data-panel-group="input"]')
+    // v3.1 (DESIGN-GAP-v31 row 32): the options are the decision's ALTERNATIVES.
+    const inputGroupPre = preContainer.querySelector('[data-panel-group="alternatives"]')
+    expect(inputGroupPre, 'PRECONDITION: the alternatives group rendered').not.toBeNull()
     expect(inputGroupPre?.textContent ?? '').not.toMatch(/\d+%/)
     unmount()
 
@@ -193,7 +195,7 @@ describe('DecisionPanel — win probability display (Brief 4 Task 2)', () => {
       },
     })
     const { container: postContainer } = render(<DecisionPanel {...decisionProps} />)
-    const inputGroupPost = postContainer.querySelector('[data-panel-group="input"]')
+    const inputGroupPost = postContainer.querySelector('[data-panel-group="alternatives"]')
     expect(inputGroupPost?.textContent).toMatch(/75%/)
     expect(inputGroupPost?.textContent).not.toMatch(/75\.4%/)
   })

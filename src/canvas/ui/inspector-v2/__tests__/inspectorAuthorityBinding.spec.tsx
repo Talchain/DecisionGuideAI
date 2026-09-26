@@ -438,11 +438,11 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
     why: 'the link STRENGTH — the one editing control on an edge with a receipt-bearing carrier (`edge_strength_edit`, consumed by CEE since schemas 0.42.0 and routed through `adjust_edge_strength`). Same class as the node panel\'s rename below: it is outside because it CAN be saved, not because it is exempt. The block fences ITSELF on any edge whose strength the server has not stated, via `edgeStrengthEditIsAssertable` — that fence is marked `data-authority="no-strength-basis"` so it cannot be confused with the carrier boundary.',
     panels: ['edge'],
   },
-  {
-    selector: '[aria-label="Dismiss suggestion"]',
-    why: 'coaching dismissal — writes no model value. Until the panel was unfenced this button sat inside the boundary and was inert while the edge notice said coaching still worked. (That sentence was dropped as boilerplate on Paul 23 Sep contract feedback point 11; the control stays operable, which this entry keeps pinned.)',
-    panels: ['edge'],
-  },
+  // ⚠ v3.1 (DESIGN-GAP-v31 row 32): the coaching card's "Dismiss suggestion"
+  // entry is removed with the × itself. The generic fallback card no longer
+  // renders (this file seeds no grounded guidance item), and a grounded item is
+  // drawn as a flat `.section-highlight` with no dismiss. Its action's
+  // reachability is pinned in `InspectorRouter.A10.coachingReachable.spec.tsx`.
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
   // v3.1: "Its analysis" (a switch to the generic Analysis tab) is removed —
   // the contract's inspector buttons are "Explore with Olumi" and "Back to the

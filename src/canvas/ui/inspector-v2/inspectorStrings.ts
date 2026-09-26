@@ -242,7 +242,10 @@ export { getStrengthLabel } from '../../domain/vocabulary'
 
 // ─── Empty states (DS v4 §16) ──────────────────────────────────────
 export const EMPTY_STATES = {
-  noAnalysis:       'Run your first simulation to see results',
+  // v3.1 (DESIGN-GAP-v31 row 33): the contract has no "simulation" wording.
+  // Shown wherever results are not `complete`, so it states the absence only
+  // (true pre-run AND while a re-run is in flight) — never an instruction.
+  noAnalysis:       'No analysis results yet.',
   noInterventions:  'This option doesn\'t change any factors yet',
   noThreshold:      'Adding a specific target unlocks probability calculations',
   noEvidence:       'No calibration or external data. Providing evidence would improve trust in this connection.',
@@ -262,6 +265,10 @@ export const EMPTY_STATES = {
 export const GROUP_LABELS = {
   context:         'Context',
   input:           'Your input',
+  /** v3.1: the Question inspector's options — they are not the user's input. */
+  alternatives:    'Alternatives',
+  /** v3.1: a risk's recorded likelihood × impact, stated as rows. */
+  riskAssessment:  'Likelihood and impact',
   connections:     'Connections',
   whatDrivesThis:  'What drives this',
   evidence:        'Evidence',
@@ -699,6 +706,13 @@ export const ACTION_LABELS = {
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────
+/**
+ * v3.1 (DESIGN-GAP-v31 row 32): an absent description is stated as ABSENT —
+ * never an italic prompt question that reads as content ("What is this factor
+ * and why does it matter?"). Shown wherever the prompt cannot open a writer.
+ */
+export const INSPECTOR_DESCRIPTION_EMPTY = 'No description recorded.'
+
 export const DESCRIPTION_PLACEHOLDERS = {
   decision: "What's the decision you're facing and why does it matter now?",
   option:   'What would choosing this option actually mean in practice?',
@@ -927,7 +941,10 @@ export const GOAL_CONSTRAINT_COPY = {
   errorInvalidNumber:  'Enter a valid number',
   jointProbability:    'Chance of hitting every target',
   addConstraintButton: '+ Add constraint',
-  runForProbability:   'Run the simulation to see the probability of reaching this target.',
+  // v3.1 (DESIGN-GAP-v31 row 33): no "simulation" wording. This is the
+  // COMPLETE-results arm only — `GoalPanel` shows `EMPTY_STATES.noAnalysis`
+  // before any results exist, so neither sentence claims something false.
+  runForProbability:   'No probability of reaching this target is available from this run.',
   targetUnlocks:       'Adding a specific target unlocks probability calculations.',
   // Canonical State Copy (see DESIGN_SYSTEM.md): honest status for GUEST
   // sessions. A guest's canvas graph lives only in the browser — the client

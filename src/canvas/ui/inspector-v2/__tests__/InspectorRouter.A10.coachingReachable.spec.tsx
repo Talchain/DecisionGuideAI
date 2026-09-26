@@ -17,17 +17,32 @@
  * (`data-writer-fence="advanced-editor"`, the factor pane's pattern), pinned by
  * the last block below.
  *
+ * ⭐ v3.1 (DESIGN-GAP-v31 rows 32, 33): the risk pane, as mounted, no longer
+ * mounts its likelihood/impact writers at all (read-only rows instead — a
+ * control that cannot save must not look editable), and the coaching card
+ * renders only for a GROUNDED guidance item. The pins below say so.
+ *
  * THE DISCRIMINATING PAIR, for Risk: "every writer disabled" alone passes if
  * the panel disables everything (the defect this replaces); "every
  * non-writer enabled" alone passes if it disables nothing (the authority it
  * must never take). Only both together describe the boundary.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
+import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
+
+/** A grounded guidance item targeting `id` (v3.1: only grounded items render). */
+const GUIDANCE = (id: string): GuidanceItem => ({
+  item_id: `gi-${id}`,
+  source: 'analysis',
+  title: 'Evidence here would most reduce uncertainty.',
+  primary_action: { type: 'discuss', prompt: `Discuss ${id}` },
+  target_object: { type: 'node', id },
+} as GuidanceItem)
 
 vi.mock('@xyflow/react', () => ({
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
@@ -66,6 +81,7 @@ const OUTCOME_FIXTURE = [
 beforeEach(() => {
   vi.clearAllMocks()
   cleanup()
+  useGuidanceStore.setState({ guidanceItems: [] } as never)
 })
 afterEach(cleanup)
 
@@ -77,37 +93,42 @@ describe('the risk panel — writers stay fenced, everything else does not', () 
     expect(document.querySelector('fieldset[data-authority="disabled"]')).toBeNull()
   })
 
-  it('keeps the likelihood trigger fenced — it writes, with no durable carrier', () => {
+  // ⭐ v3.1 (DESIGN-GAP-v31 row 33) — A STRONGER FENCE THAN `disabled`. The
+  // pane used to mount the likelihood trigger and the four impact buttons
+  // inside a disabled `probability-impact` fieldset: inert, but still LOOKING
+  // editable ("Not set. Click to enter.", four pills). As mounted by the Router
+  // (`readOnly`), it now mounts NO writer at all and states the values as rows.
+  it('mounts no likelihood writer at all — it has no durable carrier', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
-    const trigger = screen.getByTestId('risk-probability-display')
-    expect(trigger, 'likelihood is live with no carrier').toBeDisabled()
+    expect(screen.queryByTestId('risk-probability-display'), 'likelihood writer is mounted').toBeNull()
+    expect(screen.queryByTestId('risk-probability-input')).toBeNull()
   })
 
-  it('keeps every impact button fenced', () => {
+  it('mounts no impact button at all', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
     for (const level of ['low', 'medium', 'high', 'critical']) {
-      expect(
-        screen.getByTestId(`risk-impact-${level}`),
-        `impact "${level}" is live with no carrier`,
-      ).toBeDisabled()
+      expect(screen.queryByTestId(`risk-impact-${level}`), `impact "${level}" writer is mounted`).toBeNull()
     }
   })
 
-  it('the fence names itself, so the reason is visible rather than assumed', () => {
+  it('says why, so the reason is visible rather than assumed', () => {
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
-    const fence = document.querySelector('fieldset[data-writer-fence="probability-impact"]')
-    expect(fence, 'PRECONDITION: the pane must self-fence its writers').not.toBeNull()
-    expect(fence).toBeDisabled()
+    // No writer, so no writer fence to name…
+    expect(document.querySelector('fieldset[data-writer-fence="probability-impact"]')).toBeNull()
+    // …and the pane's own truth still says what does not save.
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
       'not yet saved to the shared model',
     )
   })
 
-  it('leaves the coaching card reachable — Dismiss is not disabled', () => {
+  it('leaves a grounded coaching item reachable — its action is not disabled', () => {
+    // v3.1: the generic fallback card is retired; a GROUNDED guidance item is
+    // what renders, and the blanket must never reach its action.
+    useGuidanceStore.setState({ guidanceItems: [GUIDANCE('r1')], _prefillChat: vi.fn() } as never)
     render(<InspectorRouter nodeId="r1" edgeId={null} onClose={vi.fn()} />)
     expect(
-      screen.getByRole('button', { name: 'Dismiss suggestion' }),
-      'coaching dismissal writes nothing; the blanket should never have reached it',
+      within(screen.getByTestId('inspector-guidance')).getByRole('button', { name: 'Discuss' }),
+      'coaching writes nothing; the blanket should never have reached it',
     ).not.toBeDisabled()
   })
 
@@ -130,10 +151,11 @@ describe('the outcome panel — a read-first pane, fenced only where it writes',
     expect(document.querySelectorAll('fieldset[data-writer-fence]')).toHaveLength(0)
   })
 
-  it('leaves the coaching card reachable — Dismiss is not disabled', () => {
+  it('leaves a grounded coaching item reachable — its action is not disabled', () => {
+    useGuidanceStore.setState({ guidanceItems: [GUIDANCE('out1')], _prefillChat: vi.fn() } as never)
     render(<InspectorRouter nodeId="out1" edgeId={null} onClose={vi.fn()} />)
     expect(
-      screen.getByRole('button', { name: 'Dismiss suggestion' }),
+      within(screen.getByTestId('inspector-guidance')).getByRole('button', { name: 'Discuss' }),
     ).not.toBeDisabled()
   })
 })

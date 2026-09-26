@@ -167,7 +167,13 @@ describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
   it('"Ask about this" prefills and does NOT call _sendMessage', () => {
     const prefill = vi.fn()
     const send = vi.fn()
-    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
+    // v3.1 (DESIGN-GAP-v31 row 32): the card renders only for a GROUNDED item;
+    // a non-discuss action takes the ask arm under the "Ask about this" label.
+    useGuidanceStore.setState({
+      guidanceItems: [makeGuidanceItem({ primary_action: { type: 'navigate', target: 'x' } })],
+      _prefillChat: prefill,
+      _sendMessage: send,
+    } as never)
 
     render(<InspectorCoaching {...coachingProps} />)
     fireEvent.click(screen.getByText('Ask about this'))

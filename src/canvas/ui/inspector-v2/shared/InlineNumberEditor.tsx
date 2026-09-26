@@ -176,7 +176,7 @@ export function InlineNumberEditor({
         <span className="min-w-0 flex-1 truncate">
           {readout != null
             ? readout
-            : <span className={`${typography.panelMeta} text-text-light italic`}>{placeholder}</span>
+            : <span className={`${typography.panelMeta} text-text-light`}>{placeholder}</span> /* v3.1 row 32: no italic placeholder */
           }
         </span>
         {/* The same pencil idiom `EditableLabel`'s rename trigger uses. One cue
