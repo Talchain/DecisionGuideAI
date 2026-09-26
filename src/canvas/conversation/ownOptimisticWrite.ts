@@ -36,6 +36,29 @@
  * delivery settles (#1855 preserved). A refused or unconfirmed (409 / 500) turn
  * carries no committed graph, so it can never reach (a).
  *
+ * ## The structural ADD and the drawn LINK (26 Sep 2026, C32 served witness)
+ *
+ * The same gap, found for the two gestures the list above missed. Served UI
+ * 5a8a27a9 against CEE 3829c96 ("+ Add option", #1937 linking the option to the
+ * model's sole decision in the add's own commit): the reply's `graph_hash` was
+ * a9a91f7c, and a whole-graph `graph/register` followed the receipt. It re-wrote
+ * CEE's committed link with `edge_type:'directed'` and `provenance: null`, which
+ * moved the stored hash to e6a0a760 (Canonical State, olumi-programme-docs#70
+ * 5841806589). That left the canvas's next edit on a stale base, and it wiped the
+ * user's `user_specified` link authorship. The add and the link both write the
+ * canvas at the gesture, so, as for the three kinds above, the canvas at the
+ * receipt already carried the edit's own write.
+ *
+ *   · `structural_add`: undo the node and every link incident on it. The
+ *     links the commit does NOT hold yet (a chained link still on its own way)
+ *     are named, and the caller acknowledges the canvas WITHOUT them, which is
+ *     exactly what CEE holds. The canvas as it stands, with the unsent link,
+ *     stays unacknowledged, so the link's own receipt is what closes the
+ *     chain: fail CLOSED.
+ *   · `structural_add_edge`: undo the one link, found by its endpoint pair, when
+ *     the committed graph holds that pair and the canvas shows exactly one link
+ *     for it.
+ *
  * ## Why the turn's own opts, not a registry
  *
  * The receipt handler already holds the one thing that ties a receipt to its
@@ -47,6 +70,7 @@
  */
 import type { Edge, Node } from '@xyflow/react'
 
+import { readStructuralAddReceipt, type StructuralAddIntent } from '../mutations/structuralAdd'
 import { readStructuralDeleteReceipt, type StructuralDeleteIntent } from '../mutations/structuralDelete'
 import { readStructuralRenameReceipt, type StructuralRenameIntent } from '../mutations/structuralRename'
 import { canvasEdgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
@@ -71,11 +95,26 @@ export interface OwnOptimisticWrite {
   readonly structuralDelete?: StructuralDeleteIntent
   readonly structuralRename?: StructuralRenameIntent
   readonly optimisticEdgeEdit?: OptimisticEdgeEdit
+  /** The node THIS `structural_add` turn wrote at the gesture. */
+  readonly structuralAdd?: StructuralAddIntent
+  /** The link THIS `structural_add_edge` turn wrote at the gesture, by the endpoint pair it sent. */
+  readonly structuralAddEdge?: { readonly from: string; readonly to: string }
 }
 
 export interface CanvasGraph {
   readonly nodes: readonly Node[]
   readonly edges: readonly Edge[]
+}
+
+/**
+ * G₀, plus the ids of any of THIS turn's own links the commit does not carry
+ * yet. For an add, that is a link chained to the new node that is still on its
+ * way as its own `structural_add_edge`. The caller acknowledges the reconciled
+ * canvas WITHOUT those links, which is exactly what CEE holds, and never the
+ * canvas as it stands. The link's own receipt closes the chain later.
+ */
+export interface GraphBeforeOwnWrite extends CanvasGraph {
+  readonly notYetCommittedEdgeIds?: readonly string[]
 }
 
 type WireEdge = { from?: unknown; to?: unknown; source?: unknown; target?: unknown; strength?: { mean?: unknown } }
@@ -125,6 +164,47 @@ function beforeOwnRename(intent: StructuralRenameIntent, response: unknown, canv
     }),
     edges: canvas.edges,
   }
+}
+
+function beforeOwnAdd(intent: StructuralAddIntent, response: unknown, canvas: CanvasGraph): GraphBeforeOwnWrite | null {
+  // (a) The committed graph holds the node, by id.
+  if (readStructuralAddReceipt(intent, response) !== 'proven') return null
+  // (b) The canvas still shows it. A node since removed is not this write any more.
+  if (!canvas.nodes.some((n) => n.id === intent.nodeId)) return null
+  const committedPairs = new Set(
+    (committedEdges(response) ?? []).map((e) => wireEdgePairKey(e)).filter((k): k is string => k !== null),
+  )
+  const incident = canvas.edges.filter((e) => e.source === intent.nodeId || e.target === intent.nodeId)
+  // A link on a node minted by this gesture can only be this gesture's (or a
+  // later one's, still queued behind it), so every incident link leaves G₀.
+  // The ones the commit does NOT hold yet are named, so the caller never
+  // acknowledges a link CEE has not written.
+  const notYetCommittedEdgeIds = incident
+    .filter((e) => {
+      const key = canvasEdgePairKey(e)
+      return key === null || !committedPairs.has(key)
+    })
+    .map((e) => e.id)
+  return {
+    nodes: canvas.nodes.filter((n) => n.id !== intent.nodeId),
+    edges: canvas.edges.filter((e) => e.source !== intent.nodeId && e.target !== intent.nodeId),
+    ...(notYetCommittedEdgeIds.length > 0 ? { notYetCommittedEdgeIds } : {}),
+  }
+}
+
+function beforeOwnAddEdge(
+  write: { readonly from: string; readonly to: string },
+  response: unknown,
+  canvas: CanvasGraph,
+): CanvasGraph | null {
+  const pair = canvasEdgePairKey({ source: write.from, target: write.to })
+  const wire = committedEdges(response)
+  if (pair === null || wire === null) return null
+  // (a) The committed graph holds this exact pair, in its direction.
+  if (!wire.some((e) => wireEdgePairKey(e) === pair)) return null
+  // (b) The canvas shows exactly one link for it.
+  if (canvas.edges.filter((e) => canvasEdgePairKey(e) === pair).length !== 1) return null
+  return { nodes: canvas.nodes, edges: canvas.edges.filter((e) => canvasEdgePairKey(e) !== pair) }
 }
 
 /**
@@ -192,7 +272,7 @@ export function canvasBeforeOwnAppliedWrite(
   own: OwnOptimisticWrite,
   response: unknown,
   canvas: CanvasGraph,
-): CanvasGraph | null {
+): GraphBeforeOwnWrite | null {
   if (eventType === 'structural_delete' && own.structuralDelete) {
     return beforeOwnDelete(own.structuralDelete, response, canvas)
   }
@@ -201,6 +281,12 @@ export function canvasBeforeOwnAppliedWrite(
   }
   if (eventType === 'edge_strength_edit' && own.optimisticEdgeEdit) {
     return beforeOwnEdgeEdit(own.optimisticEdgeEdit, response, canvas)
+  }
+  if (eventType === 'structural_add' && own.structuralAdd) {
+    return beforeOwnAdd(own.structuralAdd, response, canvas)
+  }
+  if (eventType === 'structural_add_edge' && own.structuralAddEdge) {
+    return beforeOwnAddEdge(own.structuralAddEdge, response, canvas)
   }
   return null
 }

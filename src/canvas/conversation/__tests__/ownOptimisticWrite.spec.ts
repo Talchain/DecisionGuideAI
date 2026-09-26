@@ -14,6 +14,7 @@ import type { Edge, Node } from '@xyflow/react'
 import { canvasBeforeOwnAppliedWrite, receiptProvesOwnEdgeEdit, type CanvasGraph } from '../ownOptimisticWrite'
 import type { StructuralDeleteIntent } from '../../mutations/structuralDelete'
 import type { StructuralRenameIntent } from '../../mutations/structuralRename'
+import type { StructuralAddIntent } from '../../mutations/structuralAdd'
 
 const node = (id: string, data: Record<string, unknown>): Node =>
   ({ id, type: 'factor', position: { x: 0, y: 0 }, data }) as unknown as Node
@@ -218,3 +219,66 @@ describe('edge_strength_edit carrying a direction flip', () => {
     expect(canvasBeforeOwnAppliedWrite('edge_strength_edit', own, landed, movedBack)).toBeNull()
   })
 })
+
+describe('structural_add (C32, 26 Sep): the node, and ONLY the incident links the commit also holds', () => {
+  const DEC = node('dec_p', { label: 'Pricing', kind: 'decision' })
+  const OPT = node('opt_new', { label: 'New option', kind: 'option' })
+  const LINK = edge('e_link', 'dec_p', 'opt_new', { weight: 1, direction: 'positive' })
+  const intent = { id: 'sa-1', nodeId: 'opt_new', nodeKind: 'option', label: 'New option', baseGraphHash: 'aag_0' } as unknown as StructuralAddIntent
+  const canvas: CanvasGraph = { nodes: [A, B, DEC, OPT], edges: [AB, LINK] }
+  const wireBase = [{ id: 'fac_a' }, { id: 'fac_b' }, { id: 'dec_p' }]
+
+  it('the commit holds the node AND its link (CEE #1937): G₀ is the canvas without both', () => {
+    const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'fac_a', to: 'fac_b' }, { from: 'dec_p', to: 'opt_new' }])
+    const g0 = canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, canvas)
+    expect(g0?.nodes.map((n) => n.id).sort()).toEqual(['dec_p', 'fac_a', 'fac_b'])
+    expect(g0?.edges.map((e) => e.id)).toEqual(['e_ab'])
+  })
+
+  it('the commit holds the node AND its link: nothing is named as not-yet-committed', () => {
+    const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'dec_p', to: 'opt_new' }])
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, canvas)?.notYetCommittedEdgeIds).toBeUndefined()
+  })
+
+  it('FAIL CLOSED: the commit holds the node but NOT the link, so the link is NAMED (never acknowledged with it)', () => {
+    const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'fac_a', to: 'fac_b' }])
+    const g0 = canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, canvas)
+    expect(g0?.nodes.map((n) => n.id)).not.toContain('opt_new')
+    expect(g0?.edges.map((e) => e.id)).toEqual(['e_ab'])
+    expect(g0?.notYetCommittedEdgeIds).toEqual(['e_link'])
+  })
+
+  it('the REVERSED pair is not this link: it is still named as not committed', () => {
+    const r = committed([...wireBase, { id: 'opt_new' }], [{ from: 'opt_new', to: 'dec_p' }])
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, r, canvas)?.notYetCommittedEdgeIds).toEqual(['e_link'])
+  })
+
+  it('refuted (node absent from the commit), unproven (no graph), or the node gone from the canvas: null', () => {
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, committed(wireBase), canvas)).toBeNull()
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, { assistant_text: 'x' }, canvas)).toBeNull()
+    const gone: CanvasGraph = { nodes: [A, B, DEC], edges: [AB] }
+    expect(canvasBeforeOwnAppliedWrite('structural_add', { structuralAdd: intent }, committed([...wireBase, { id: 'opt_new' }]), gone)).toBeNull()
+  })
+})
+
+describe('structural_add_edge: the one drawn link, by its endpoint pair', () => {
+  const BA = edge('e_ba', 'fac_b', 'fac_a', { weight: 0.5, direction: 'positive' })
+  const canvas: CanvasGraph = { nodes: [A, B], edges: [AB, BA] }
+  const own = { structuralAddEdge: { from: 'fac_b', to: 'fac_a' } }
+
+  it('the commit holds the pair: G₀ is the canvas without exactly that link', () => {
+    const r = committed([{ id: 'fac_a' }, { id: 'fac_b' }], [{ from: 'fac_a', to: 'fac_b' }, { from: 'fac_b', to: 'fac_a' }])
+    expect(canvasBeforeOwnAppliedWrite('structural_add_edge', own, r, canvas)?.edges.map((e) => e.id)).toEqual(['e_ab'])
+  })
+
+  it('the commit lacks the pair, or carries no graph: null', () => {
+    expect(canvasBeforeOwnAppliedWrite('structural_add_edge', own, committed([{ id: 'fac_a' }, { id: 'fac_b' }], [{ from: 'fac_a', to: 'fac_b' }]), canvas)).toBeNull()
+    expect(canvasBeforeOwnAppliedWrite('structural_add_edge', own, { assistant_text: 'already connected' }, canvas)).toBeNull()
+  })
+
+  it('CONTROL: another kind\'s opts never undo a link', () => {
+    const r = committed([{ id: 'fac_a' }, { id: 'fac_b' }], [{ from: 'fac_b', to: 'fac_a' }])
+    expect(canvasBeforeOwnAppliedWrite('structural_rename', own, r, canvas)).toBeNull()
+  })
+})
+
