@@ -58,15 +58,27 @@ export function deriveModelNameFromGoal(goal: unknown): string | null {
 /**
  * The name to display for a model, in precedence order:
  *   1. the stored title — a name someone chose always wins;
- *   2. the goal, derived — truthful about what the model is about;
- *   3. the generic fallback — truthful about being unnamed.
+ *   2. a saved example's OWN title — the starter manifest's `title`, which is
+ *      the name the starter card already shows for it (Canvas v3.1 DESIGN-GAP
+ *      #5, 26 Sep 2026: every starter's top bar read its GOAL sentence as the
+ *      model's name, because this ladder never consulted the name it had);
+ *   3. the goal, derived — truthful about what the model is about;
+ *   4. the generic fallback — truthful about being unnamed.
+ *
+ * `exampleTitle` is optional so a caller that has no example to name is
+ * unchanged; it is never invented here — callers pass the manifest's own string
+ * or nothing.
  */
 export function resolveModelDisplayName(
   storedTitle: unknown,
   goal: unknown,
+  exampleTitle?: unknown,
 ): string {
   if (typeof storedTitle === 'string' && storedTitle.trim().length > 0) {
     return storedTitle.trim()
+  }
+  if (typeof exampleTitle === 'string' && exampleTitle.trim().length > 0) {
+    return exampleTitle.trim()
   }
   return deriveModelNameFromGoal(goal) ?? UNNAMED_MODEL_FALLBACK
 }

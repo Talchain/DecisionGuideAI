@@ -389,13 +389,14 @@ describe('bullet 3 — before committing', () => {
     expect(synth(genuineDecision(), { recommendations: [] }).before).toBeNull()
   })
 
-  it('stale → the existing re-run words, `status.reanalyseToBeSure`, instead of the item', () => {
+  it('stale → the bullet says what a re-run is for (`COMMITMENT_COPY.rerunBefore`), not the act\'s own label', () => {
     const s = synth(genuineDecision(), {
       recommendations: [rec({ id: 'r1' })],
       isStale: true,
       staleReason: 'changed',
     })
-    expect(s.before).toEqual({ text: COPY.status.reanalyseToBeSure, source: 'rerun' })
+    expect(s.before).toEqual({ text: COMMITMENT_COPY.rerunBefore, source: 'rerun' })
+    expect(s.before?.text).not.toBe(COPY.status.reanalyseToBeSure)
   })
 
   it('⛔ stale but a re-run would NOT help (`checks.rerunWouldNotHelp`) → no re-run advice', () => {
@@ -431,7 +432,7 @@ describe('stale: the bullets say they describe the last run', () => {
     const lines = commitmentAskContext(s).split('\n')
     expect(lines[0]).toBe(COPY.status.stale)
     expect(lines).toContain(`${COMMITMENT_COPY.labels.open}: ${COPY.checks.leader_not_assessed.meaning}`)
-    expect(lines).toContain(`${COMMITMENT_COPY.labels.before}: ${COPY.status.reanalyseToBeSure}`)
+    expect(lines).toContain(`${COMMITMENT_COPY.labels.before}: ${COMMITMENT_COPY.rerunBefore}`)
     // CONTRAST: fresh, no marker.
     const fresh = synth(decisionWithLeaderWithheld(), { recommendations: [rec({ id: 'r1' })] })
     expect(commitmentAskContext(fresh).split('\n')[0]).not.toBe(COPY.status.stale)

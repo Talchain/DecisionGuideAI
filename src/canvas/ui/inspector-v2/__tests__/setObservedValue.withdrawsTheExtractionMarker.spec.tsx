@@ -83,7 +83,7 @@ describe('setObservedValue withdraws the producer’s extraction marker', () => 
 
   it('⭐ clears extractionType — RED at pristine, where the spread preserved it', () => {
     // PRECONDITION pinned in-test (trap 13b): the node really does carry the
-    // producer's marker first, so a later `undefined` is the setter's doing and
+    // producer's marker first, so a later clear is the setter's doing and
     // not the fixture's.
     expect(observed().extractionType).toBe('inferred')
 
@@ -92,7 +92,12 @@ describe('setObservedValue withdraws the producer’s extraction marker', () => 
       result.current.setObservedValue(0.8, 0.8)
     })
 
-    expect(observed().extractionType).toBeUndefined()
+    // `null`, not `undefined` (independent review, PR #2046 Blocking 2):
+    // `undefined` does not survive a JSON round trip (autosave, boot
+    // restore), which read a withdrawn-but-serialised marker as though it had
+    // never been written at all. See
+    // `valueSourceMark.withdrawalSurvivesSerialisation.spec.ts`.
+    expect(observed().extractionType).toBeNull()
   })
 
   it('and the rest of the setter’s contract is unchanged', () => {
@@ -119,7 +124,7 @@ describe('setObservedValue withdraws the producer’s extraction marker', () => 
       result.current.setObservedValue(0.8, 0.8, { source: 'user_override' })
     })
     expect(observed().source).toBe('user_override')
-    expect(observed().extractionType).toBeUndefined()
+    expect(observed().extractionType).toBeNull()
   })
 
   /**
@@ -167,7 +172,7 @@ describe('setObservedValue withdraws the producer’s extraction marker', () => 
       false,
     )
     // PRECONDITION pinned in-test (trap 13b): the marker really is at the top
-    // level and really is absent from observedState, so a later `undefined` is
+    // level and really is absent from observedState, so a later clear is
     // the setter's doing and not the fixture's shape.
     expect(nodeData().extractionType).toBe('inferred')
     expect((nodeData().observedState as Record<string, unknown>).extractionType).toBeUndefined()
@@ -177,7 +182,8 @@ describe('setObservedValue withdraws the producer’s extraction marker', () => 
       result.current.setObservedValue(0.8, 0.8)
     })
 
-    expect(nodeData().extractionType).toBeUndefined()
+    // `null`, not `undefined` — see the earlier test's comment.
+    expect(nodeData().extractionType).toBeNull()
   })
 
   it('CONTRAST — the top-level clear does not disturb a neighbouring data field', () => {
@@ -207,7 +213,7 @@ describe('setObservedValue withdraws the producer’s extraction marker', () => 
     act(() => {
       result.current.setObservedValue(0.8, 0.8)
     })
-    expect(nodeData().extractionType).toBeUndefined()
+    expect(nodeData().extractionType).toBeNull()
     expect(nodeData().category).toBe('external')
   })
 })

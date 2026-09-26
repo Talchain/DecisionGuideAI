@@ -103,10 +103,16 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
    * fact**, which also lifts `model-extent-notice` above the starter banner —
    * the same rule applied consistently rather than to one pair.
    */
+  /**
+   * ⭐ `starter-provenance-banner` LEFT THIS CELL (contract v3.1 DESIGN-GAP #3,
+   * 26 Sep 2026): the saved-example disclosure is now v3.1's quiet top-right
+   * context line, not a bottom-centre banner — at base `6256a41f` the banner
+   * overlapped 3–6 cards on every starter at 1280x800. The remaining order is
+   * unchanged.
+   */
   const EXPECTED_BOTTOM_CENTRE = [
     'model-extent-notice',
     'canvas-lod-notice',
-    'starter-provenance-banner',
     'first-model-notice',
     'assistant-focus-chip',
     'focus-mode-chip',
@@ -236,20 +242,23 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
 
   /**
    * contract v3.1 CHR-12 — the band's left inset is the fitted card column's:
-   * the viewport toolbar's right edge (its `left` + `--leftsidebar-w`, read from
-   * the stylesheets rather than restated) plus `computeFitPadding`'s 16px GAP.
-   * It was 64, which started the bottom-left cell 4px from the toolbar.
+   * the viewport toolbar's right edge (its `left` + its content-sized width, read
+   * from the stylesheet rather than restated) plus `computeFitPadding`'s 16px
+   * GAP. It was 64, which started the bottom-left cell 4px from the toolbar.
    */
   it('⭐ CHR-12: the band starts one chrome GAP clear of the viewport toolbar — the card column’s own inset', () => {
     const root = join(__dirname, '..', '..', '..', '..')
     const toolbarCss = readFileSync(join(root, 'src/components/layout/CanvasFloatingToolbar.module.css'), 'utf8')
-    const indexCss = readFileSync(join(root, 'src/index.css'), 'utf8')
     const fitSrc = readFileSync(join(root, 'src/canvas/utils/computeFitPadding.ts'), 'utf8')
-    const toolbarLeft = Number(/\.surface\s*\{[^}]*?\bleft:\s*(\d+)px/.exec(toolbarCss)?.[1])
-    const sidebarW = Number(/--leftsidebar-w:\s*(\d+)px/.exec(indexCss)?.[1])
+    // v3.1 DESIGN-GAP #13: the toolbar is content-sized — its width is the
+    // 29px button plus 5px padding each side plus a 1px border each side.
+    const noComments = toolbarCss.replace(/\/\*[\s\S]*?\*\//g, '')
+    const toolbarLeft = Number(/\.surface\s*\{[^}]*?\bleft:\s*(\d+)px/.exec(noComments)?.[1])
+    const toolbarPad = Number(/\.surface\s*\{[^}]*?\bpadding:\s*(\d+)px/.exec(noComments)?.[1])
+    const buttonW = Number(/\.iconButton\s*\{[^}]*?\bwidth:\s*(\d+)px/.exec(noComments)?.[1])
     const gap = Number(/const GAP = (\d+)/.exec(fitSrc)?.[1])
-    expect([toolbarLeft, sidebarW, gap]).toEqual([12, 48, 16])   // positive control on the reads
-    expect(OVERLAY_BAND_LEFT_PAD).toBe(toolbarLeft + sidebarW + gap)
+    expect([toolbarLeft, toolbarPad, buttonW, gap]).toEqual([13, 5, 29, 16])   // positive control on the reads
+    expect(OVERLAY_BAND_LEFT_PAD).toBe(toolbarLeft + buttonW + 2 * toolbarPad + 2 + gap)
 
     const { container } = render(
       <CanvasOverlayBandProvider>
@@ -257,7 +266,7 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
       </CanvasOverlayBandProvider>,
     )
     const band = container.querySelector(OVERLAY_BAND_SELECTOR) as HTMLElement
-    expect(band.style.paddingLeft).toBe('76px')
+    expect(band.style.paddingLeft).toBe('70px')
   })
 
   it('an occupant LANDS INSIDE its declared cell — the portal path, asserted', () => {
@@ -375,12 +384,15 @@ describe('a live view transformation is explained before a standing fact is rest
   const cell = OVERLAY_PRIORITY['bottom-centre']
   const at = (id: string) => cell.indexOf(id)
 
-  it('⭐ the level-of-detail notice outranks the starter provenance banner', () => {
-    // Precondition pinned in-test: both are registered for THIS cell, so the
-    // comparison is about order and not about one of them having moved away.
+  /**
+   * ⭐ THE WITNESSED SUPPRESSION IS NOW IMPOSSIBLE BY CONSTRUCTION, not merely
+   * out-ranked: the starter disclosure no longer claims this cell at all
+   * (contract v3.1 DESIGN-GAP #3 — it is the quiet top-right context line), so
+   * nothing about a saved example can hold the explanation off the canvas.
+   */
+  it('⭐ the starter provenance disclosure no longer competes for this cell at all', () => {
     expect(at('canvas-lod-notice'), 'lod notice left bottom-centre').toBeGreaterThanOrEqual(0)
-    expect(at('starter-provenance-banner'), 'starter banner left bottom-centre').toBeGreaterThanOrEqual(0)
-    expect(at('canvas-lod-notice')).toBeLessThan(at('starter-provenance-banner'))
+    expect(at('starter-provenance-banner'), 'the starter disclosure is back in the band').toBe(-1)
   })
 
   /**
@@ -391,7 +403,7 @@ describe('a live view transformation is explained before a standing fact is rest
    * states. The test caught my own misclassification before the reorder shipped.
    */
   it('⭐ and outranks the other STANDING-FACT notices in the cell', () => {
-    for (const standing of ['starter-provenance-banner', 'first-model-notice'] as const) {
+    for (const standing of ['first-model-notice'] as const) {
       expect(at(standing), `${standing} left bottom-centre`).toBeGreaterThanOrEqual(0)
       expect(at('canvas-lod-notice'), `${standing} now outranks the explanation`).toBeLessThan(at(standing))
     }
@@ -407,8 +419,8 @@ describe('a live view transformation is explained before a standing fact is rest
    * deleting everything else would pass the rows above — and the cell is
    * supposed to arbitrate, not be emptied.
    */
-  it('⛔ CONTRAST: the cell still arbitrates between all six occupants', () => {
-    expect(cell).toHaveLength(6)
-    expect(new Set(cell).size, 'a duplicate id would make the order ambiguous').toBe(6)
+  it('⛔ CONTRAST: the cell still arbitrates between all five occupants', () => {
+    expect(cell).toHaveLength(5)
+    expect(new Set(cell).size, 'a duplicate id would make the order ambiguous').toBe(5)
   })
 })

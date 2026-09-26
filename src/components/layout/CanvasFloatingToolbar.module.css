@@ -3,12 +3,15 @@
  * left-edge floating toolbars: the LeftSidebar ("Canvas tools", upper) and
  * CanvasViewportControls ("Viewport controls", lower).
  *
- * ⚠ THE UPPER TOOLBAR IS THE REFERENCE. Every value in `.surface`,
- * `.iconButton`, `.iconButtonActive`, `.group` and `.icon` is the LeftSidebar's
- * own, moved here unchanged — this file was `LeftSidebar.module.css` and the
- * rename is the whole of what happened to the upper toolbar. The lower toolbar
- * had drifted to a different width (36px vs 48px), radius (pill vs 16px),
- * padding, button size (28px vs 32px), gap, divider width and hover grammar.
+ * ⭐ CONTRACT v3.1 IS THE REFERENCE NOW (DESIGN-GAP #13/#14, 26 Sep 2026).
+ * `.surface`, `.iconButton` and `.iconButtonActive` carry v3.1's
+ * `.canvas-tools` values — one 12px-radius panel, padding 5, gap 2, flat
+ * 29x31 radius-6 buttons with no border. They were the LeftSidebar's own
+ * (32px bordered circles in a 48px translucent panel), which is what this file
+ * was created from: `LeftSidebar.module.css` renamed, after the lower toolbar
+ * had drifted to a different width, radius, padding, button size, gap, divider
+ * and hover grammar. The TOP BAR's buttons (`TopBar.module.css` `.iconButton`)
+ * take the same box, so the chrome has one button style.
  *
  * It is shared rather than copied ON PURPOSE: two hand-maintained copies of one
  * visual standard is precisely how the two drifted apart in the first place. A
@@ -21,15 +24,19 @@
 
 .surface {
   position: fixed;
-  left: 12px;
-  width: var(--leftsidebar-w, 52px);
-  padding: 10px 8px;
+  /* contract v3.1 `.canvas-tools{left:13px}` (DESIGN-GAP #13). Was 12. */
+  left: 13px;
+  /* contract `.canvas-tools{padding:5px}` around 29px buttons: 41px wide with
+     the 1px border. Sized by its content rather than a declared width, so the
+     panel is exactly as wide as the contract's. */
+  padding: 5px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   z-index: 1100;
-  gap: 6px;
+  /* contract `.canvas-tools{gap:2px}`. */
+  gap: 2px;
   /* ⚠ THE SIDEBAR USED TO BE `none` HERE, AND THAT LEAKED CLICKS. A click on
      its padding — the 8px either side of a button, and the gaps between them —
      passed straight through the visible white panel to the canvas beneath, so a
@@ -40,19 +47,22 @@
   pointer-events: auto;
   /* Floating panel style - fit content height */
   height: fit-content;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-default);
-  /* contract v3.1 `.canvas-tools{border-radius:12px}` — both toolbars (the
-     contract's `.zoom-tools` is a `.canvas-tools` too). Was 16px. */
+  /* contract v3.1 `.canvas-tools{border:1px solid #DDD8CE;border-radius:12px;
+     background:#FEFEFE;box-shadow:0 2px 7px #3331}` — the contract's material,
+     value for value. Was translucent white + blur, the `--border-default`
+     (#EEE6D8) edge and a two-layer 20px shadow. The border is the chrome line
+     the top bar's rule uses (#DDD8D0), so the chrome is one border family. */
+  background: var(--bg-panel);
+  border: 1px solid #DDD8D0;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 7px rgba(51, 51, 51, 0.067);
 }
 
 .sidebar {
   composes: surface;
-  /* Position below topbar with some spacing */
-  top: calc(var(--topbar-h) + 1rem);
+  /* contract `.canvas-tools{top:21px}`, measured from the canvas area, whose
+     top is the app bar's bottom (`--topbar-h`, 51px). */
+  top: calc(var(--topbar-h) + 21px);
 }
 
 .viewportControls {
@@ -63,39 +73,35 @@
   bottom: 40px;
 }
 
+/* A group is a run of tools. contract v3.1 draws the tools as ONE run with
+   no separator rule (its `.tool-sep` is defined and never rendered), so the
+   groups no longer draw the divider they used to. */
 .group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  width: 100%;
+  gap: 2px;
   align-items: center;
-  padding: 4px 0;
 }
 
-/* Add divider line between groups */
-.group:not(:last-child)::after {
-  content: '';
-  display: block;
-  width: 24px;
-  height: 1px;
-  background: var(--border-default);
-  margin-top: 6px;
-}
-
+/**
+ * THE canvas tool button — contract v3.1 `.canvas-tools button{display:grid;
+ * place-items:center;width:29px;height:31px;border:0;border-radius:6px;
+ * color:#646761}` (DESIGN-GAP #13). Was a 32px bordered circle.
+ *
+ * ⚠ THE BORDER IS GONE AND THAT IS NOT A 1.4.11 REGRESSION. The circle's
+ * `--border-field` outline (3.70:1) was added because a 1.24:1 outline failed
+ * WCAG 1.4.11 as the thing that identified the control. A borderless button
+ * is identified by its GLYPH instead — `--text-light` is 5.23:1 on the panel,
+ * clear of 1.4.11's 3:1 — which is exactly how the contract draws it. There is
+ * no outline left to fail.
+ */
 .iconButton {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  /* ⭐ `--border-field` (3.70:1), not `--border-default` (1.24:1). Measured on
-     the served build: these twelve toolbar controls — Add to model, Undo, Redo,
-     Graph lens and their siblings — rendered a 1.24:1 outline against white,
-     against WCAG 1.4.11's 3.00:1 floor for a non-text indicator. The container
-     border at the top of this file and the divider below it are SURFACES, not
-     controls, and keep the quieter token deliberately: the floor applies to
-     "visual information required to identify a user interface component", and
-     a panel edge is not one. */
-  border: 1px solid var(--border-field);
-  background: white;
+  width: 29px;
+  height: 31px;
+  padding: 0;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
   /* ⭐ MUTED AT REST (contract v3.1 CHR-7: `.canvas-tools button{color:#646761}`;
      DS v5 icons: "Icon-only button | text-text-light → text-text-body"). With
      no colour set, every icon inherited the body's `text-text-header` (#262626,
@@ -107,44 +113,44 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  transition: background 120ms ease, color 120ms ease;
   pointer-events: auto;
 }
 
+/* contract `.canvas-tools button:hover` — background info-soft —
+   `--info-soft` is #EAF2F5, Info at 10% over white. */
 .iconButton:hover {
-  background: var(--bg-panel-hover);
-  border-color: var(--info);
-  box-shadow: 0 0 0 1px var(--info-light);
+  background: rgb(var(--info-rgb) / 0.1);
   color: var(--text-body);
 }
 
-/* Active state for mode toggle buttons */
+/* Active state for mode toggle buttons —
+   contract `.canvas-tools button.active` — Info glyph on info-soft. */
 .iconButtonActive {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid var(--info);
-  background: var(--info-light);
+  width: 29px;
+  height: 31px;
+  padding: 0;
+  border-radius: 6px;
+  border: 0;
+  background: rgb(var(--info-rgb) / 0.1);
   color: var(--info);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  transition: background 120ms ease, color 120ms ease;
   pointer-events: auto;
-  box-shadow: 0 0 0 1px var(--info-light);
 }
 
 .iconButtonActive:hover {
-  background: var(--info-light);
-  border-color: var(--info);
+  background: rgb(var(--info-rgb) / 0.1);
 }
 
 /**
- * Disabled — undo and redo spend most of a fresh canvas here, so this opacity
- * sets how the WHOLE upper toolbar reads, not just one button. At 0.35 it read
- * as a faded panel next to the lower one rather than as two live controls among
- * four; 0.5 still says "not available" without dimming the toolbar it sits in.
+ * Disabled — undo spends most of a fresh canvas here, so this opacity sets
+ * how the WHOLE upper toolbar reads, not just one button. At 0.35 it read as a
+ * faded panel next to the lower one rather than as live controls among others;
+ * 0.5 still says "not available" without dimming the toolbar it sits in.
  */
 .iconButton:disabled {
   opacity: 0.5;
@@ -175,10 +181,7 @@
 
 /* Hover must not suggest an action either — hold the resting surface. */
 .iconButton[aria-disabled='true']:hover {
-  background: white;
-  border-color: var(--border-default);
-  transform: none;
-  box-shadow: none;
+  background: transparent;
   color: var(--text-light);
 }
 
@@ -189,30 +192,67 @@
 }
 
 /**
- * The zoom read-out — the toolbar's one text control, and the only element that
- * displays state rather than performing an action. It takes the shared circle
- * anyway, because it IS a control: clicking it resets to 100%, and a bare
- * number was the one thing here that did not look clickable.
- *
- * ⚠ THE UNIT IS DELIBERATELY NOT ON THE FACE. Measured in Inter at the shipped
- * size, "400%" — the widest value the canvas can reach at maxZoom 4 — is 33.8px
- * against the circle's 30px of usable width, and still 31.2px at 11px. A
- * legible circle and the "%" are mutually exclusive at this column width;
- * widening the column would break alignment with the sidebar. "400" is 22.7px.
- * The unit is carried by the tooltip and the accessible name instead, so it is
- * available on hover and to assistive technology, just not painted twice.
- *
- * Tabular figures so the number holds still as it changes.
- *
- * contract v3.1 CHR-7: body colour at weight 500, so the one text control reads
- * as a VALUE beside the muted glyphs rather than inheriting their rest colour.
+ * The viewport tools' overflow menu (DESIGN-GAP #14) — the controls v3.1 does
+ * not draw on the canvas (reset to 100%, auto-arrange, Detailed view, the
+ * canvas key) stay reachable here. Opens to the RIGHT of the lower toolbar, on
+ * the same material as the toolbar it belongs to, one elevation step up.
  */
-.readout {
-  composes: iconButton;
+.menu {
+  position: absolute;
+  left: calc(100% + 8px);
+  bottom: 0;
+  min-width: 232px;
+  padding: 5px;
+  background: var(--bg-panel);
+  border: 1px solid #DDD8D0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(51, 51, 51, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  z-index: 1200;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   font-size: 12px;
-  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
   color: var(--text-body);
-  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: rgb(var(--info-rgb) / 0.1);
+}
+
+.menuItem:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: -2px;
+}
+
+.menuItem svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--text-light);
+}
+
+/* The item's current state or key, right-aligned and muted (e.g. "50%", "⇧A"). */
+.menuItemMeta {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 11px;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
 }
 
 .icon {

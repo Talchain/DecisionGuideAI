@@ -103,9 +103,13 @@ function transformEdge(edge: Edge): GraphEdge {
     graphEdge.strength_std = data.strength_std as number
   }
 
-  // Preserve edge_type (e.g. 'directed', 'bidirected'); default to 'directed' when absent
+  // Preserve edge_type (e.g. 'directed', 'bidirected') verbatim; never default
+  // it — an invented 'directed' makes structural links (option→factor,
+  // decision→option) read back as causal (A1). Keep an absent field absent.
   const rawEdgeType = data?.edge_type
-  graphEdge.edge_type = typeof rawEdgeType === 'string' ? rawEdgeType : 'directed'
+  if (typeof rawEdgeType === 'string') {
+    graphEdge.edge_type = rawEdgeType
+  }
 
   return graphEdge
 }

@@ -243,7 +243,11 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     // cross-surface run/ask registration alive), so instead of asserting it
     // is unmounted we assert it is present-but-hidden.
     expect(useFloatingPanelState.getState().isMinimised).toBe(true)
-    expect(document.querySelector('[data-testid="floating-olumi-panel-pill"]')).toBeTruthy()
+    // contract v3.1 DESIGN-GAP #29 (26 Sep 2026): the restore pill is not drawn
+    // over the canvas while the dock is OPEN — its own Olumi tab is the way
+    // back (`FloatingOlumiPanel.pillHiddenWhileDockOpen.spec.tsx`). This dock
+    // is open (nothing persisted → the dock's default), so no pill.
+    expect(document.querySelector('[data-testid="floating-olumi-panel-pill"]')).toBeNull()
     const hiddenPanel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement | null
     expect(hiddenPanel).toBeTruthy()
     expect(hiddenPanel?.style.display).toBe('none')
@@ -269,6 +273,11 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
       const left = 800 - 600 - 12 // 188
       return { left, top: 60, right: 788, bottom: 888, width: 600, height: 828, x: left, y: 60, toJSON: () => ({}) } as DOMRect
     }
+    // v3.1 DESIGN-GAP #29 hides the pill over an EXPANDED dock, so the dock is
+    // marked as the collapsed rail here to keep the pill — and this test's
+    // geometry — on screen. The placement under test reads only the dock's
+    // RECT (`measureDockInset`), so the composition changes nothing it checks.
+    dock.el.setAttribute('data-panel-composition', 'collapsed')
     // First-open: position is null in store.
     useFloatingPanelState.setState({
       isOpen: true,
@@ -457,6 +466,7 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
   it('reclamps the minimised pill when the dock expands (no drift under dock)', () => {
     // Start with rail-width dock + pill at x=1300 on a 1440px viewport.
     const dock = mountStubDock({ width: 40, right: 12 })
+    dock.el.setAttribute('data-panel-composition', 'collapsed')
     useFloatingPanelState.setState({
       isOpen: true,
       source: 'user',
@@ -475,12 +485,24 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     // dock dispatches it on tab activation; we trigger directly here).
     act(() => {
       dock.setWidth(388)
+      dock.el.setAttribute('data-panel-composition', 'expanded')
       window.dispatchEvent(new Event('outputs-dock-opened'))
     })
 
+    // contract v3.1 DESIGN-GAP #29 (26 Sep 2026): an EXPANDED dock carries its
+    // own Olumi tab, so the pill leaves the canvas rather than re-docking beside
+    // the dock — it can no longer drift under it because it is not drawn.
+    expect(document.querySelector('[data-testid="floating-olumi-panel-pill"]')).toBeNull()
+
+    // And back: the dock collapses to the rail, the pill returns in the corner.
+    act(() => {
+      dock.setWidth(40)
+      dock.el.setAttribute('data-panel-composition', 'collapsed')
+      window.dispatchEvent(new Event('outputs-dock-opened'))
+    })
     const pillAfter = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
-    // Pill width 84 + margin 16; dock at left=1040 → max pill x = 1040 - 84 - 16 = 940.
-    expect(parseFloat(pillAfter.style.left)).toBeLessThanOrEqual(940)
+    expect(pillAfter).toBeTruthy()
+    expect(parseFloat(pillAfter.style.left) + 84).toBeLessThanOrEqual(1388)
     dock.unmount()
   })
 

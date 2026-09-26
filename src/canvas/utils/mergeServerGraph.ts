@@ -511,7 +511,20 @@ export function mergeServerGraphOnHydrate(
 
     // `userReviewedStrength` is UI-only and never on the wire, so the overlay
     // can never clear it — it would outlive the weight it describes.
-    const nextData = clearEdgeUserReviewOnValueChange(e.data, overlaid.data)
+    const reviewCleared = clearEdgeUserReviewOnValueChange(e.data, overlaid.data)
+
+    // ⚠ A1: a wire edge with no `edge_type` is schema-implicit 'directed' by
+    // CEE's own contract (`EdgeV3Schema` `.default('directed')`), but writing
+    // that literal spelling onto canvas data turns an absent field into an
+    // EXPLICIT one — exactly what StyledEdge treats as an override of its
+    // node-kind structural inference, drawing a structural link (option→
+    // factor, decision→option) as a strong causal one. A readback must never
+    // MINT the field the canvas never had. Any OTHER explicit spelling
+    // ('structural', 'bidirected', …) is a real fact and is kept.
+    const mintedDirected = e.data?.edge_type === undefined && reviewCleared?.edge_type === 'directed'
+    const nextData = mintedDirected
+      ? Object.fromEntries(Object.entries(reviewCleared).filter(([k]) => k !== 'edge_type'))
+      : reviewCleared
     const next = nextData === overlaid.data ? overlaid : { ...overlaid, data: nextData }
 
     if (deepEqual(next.data, e.data)) return e
@@ -521,12 +534,6 @@ export function mergeServerGraphOnHydrate(
     // Mask ONLY that record; every other change retains the existing edit
     // classification. The overlay preserves user stamps on tuple-only reads.
     const comparableReadback = { ...next.data, serverStrength: e.data?.serverStrength }
-    // Registration already sends absent edge_type as directed. Learning that
-    // explicit spelling on reload is not a new causal relationship. Any other
-    // type/value/direction change still follows the existing invalidation path.
-    if (e.data?.edge_type === undefined && comparableReadback.edge_type === 'directed') {
-      delete comparableReadback.edge_type
-    }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)
     }

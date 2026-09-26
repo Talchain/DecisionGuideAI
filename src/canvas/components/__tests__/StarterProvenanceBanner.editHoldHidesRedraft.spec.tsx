@@ -19,7 +19,7 @@
  *     store write (a proven delete moves module state only).
  */
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
@@ -53,6 +53,15 @@ function seedCanonicalRunPath() {
 }
 
 const redraftButton = () => screen.queryByTestId('starter-redraft')
+/**
+ * contract v3.1 (DESIGN-GAP #3): the hold line and the re-draft live in the
+ * context line's detail, one click away. Opened after every render and ASSERTED
+ * open, so a `toBeNull()` on the button below can never pass on a closed detail.
+ */
+function openDetail() {
+  fireEvent.click(screen.getByTestId('starter-provenance-line'))
+  expect(screen.getByTestId('starter-provenance-detail')).toBeInTheDocument()
+}
 const holdLine = () => screen.getByText(/Edit anything on the canvas\./)
 
 beforeEach(() => {
@@ -72,6 +81,7 @@ describe('an edit hold: no "Re-draft this live"', () => {
   it.each(HOLD_CAUSES)('%s: the disclosure stays, the re-draft button does not', (cause) => {
     arrangeHoldCause(cause)
     render(<StarterProvenanceBanner />)
+    openDetail()
     expect(screen.getByTestId('starter-provenance-banner')).toBeInTheDocument()
     // The line beside it names the edit, not the example (the shared sentence).
     expect(holdLine().textContent).not.toContain(ANALYSIS_HELD_NOTICE.starter)
@@ -82,6 +92,7 @@ describe('an edit hold: no "Re-draft this live"', () => {
 describe('CONTROLS — the button stays wherever no user edit is the cause', () => {
   it('a plain saved-example hold (no edit anywhere): "Re-draft this live" is offered', () => {
     render(<StarterProvenanceBanner />)
+    openDetail()
     expect(holdLine()).toHaveTextContent(ANALYSIS_HELD_NOTICE.starter)
     expect(redraftButton()).toBeInTheDocument()
     expect(redraftButton()).toHaveTextContent('Re-draft this live')
@@ -90,6 +101,7 @@ describe('CONTROLS — the button stays wherever no user edit is the cause', () 
   it('an acknowledged model with no hold: "Re-draft this live" is offered', () => {
     acknowledgeCurrentGraph()
     render(<StarterProvenanceBanner />)
+    openDetail()
     expect(holdLine().textContent).toBe('Edit anything on the canvas.')
     expect(redraftButton()).toBeInTheDocument()
   })
@@ -101,6 +113,7 @@ describe('REACTIVITY — the button follows the hold cause without a store write
     applyDeleteToStore(intent)
     settleStructuralDeleteAttempt(intent, SCENARIO, 'unconfirmed')
     render(<StarterProvenanceBanner />)
+    openDetail()
     expect(redraftButton()).toBeNull()
 
     act(() => settleStructuralDeleteAttempt(intent, SCENARIO, 'proven'))

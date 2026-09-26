@@ -218,8 +218,12 @@
  *   --radius-sm            → --radius-pill (999px, better for inline indicator)
  */
 .chipActionIndicator {
-  align-self: flex-end;
-  display: inline-flex;
+  /* ChatMessage wraps every message in a BLOCK div, where align-self does
+     nothing and an inline box cannot be pushed: a block box of its own width,
+     pushed right, is what puts a chip-sent message on the user's side. */
+  display: flex;
+  width: fit-content;
+  margin-left: auto;
   align-items: center;
   background: var(--bg-panel-hover, #FEF9F3);
   color: var(--text-light, #6E6B6B);

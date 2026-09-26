@@ -99,6 +99,7 @@ import { goalConstraintText, goalConstraintTextUsesQuote } from '../../utils/goa
 import { GoalConstraintProvenance } from '../../ui/inspector-v2/shared/GoalConstraintProvenance'
 import { DataBar } from '../../ui/shared/DataBar'
 import { typography } from '../../../styles/typography'
+import { useCanvasStore } from '../../store'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 
 /**
@@ -200,9 +201,35 @@ export function GoalConstraintsSection({
   constraints,
   nodes,
 }: GoalConstraintsSectionProps) {
+  /**
+   * ⚠ A6 — THE CALLER'S `constraints` PROP IS TYPICALLY THE PRE-ANALYSIS SLICE
+   * (`ModelTabBody.tsx` passes `store.goalConstraints`), and that slice is
+   * cleared by `invalidateAnalysisReady`/`READINESS_CLEAR_FIELDS` on EVERY
+   * edit that invalidates readiness — including a bare factor-value edit with
+   * no network call. A completed run's own report carries the SAME data and
+   * survives exactly that edit (`results.report.goal_constraints`); neither
+   * `invalidateAnalysisReady` nor any local-edit handler touches `results`.
+   * `useNodeConstraints` (the per-node badge hook) already falls back to this
+   * report field for the identical reason — this section did not.
+   *
+   * Read only as a FALLBACK, and only when the prop is empty: a caller that
+   * supplies real constraints is never second-guessed, and a model that
+   * carries none anywhere renders exactly as it did before this fallback
+   * existed ("If the model carries none, keep today's behaviour").
+   */
+  const reportConstraints = useCanvasStore(
+    s => (s.results?.report as { goal_constraints?: unknown } | null | undefined)?.goal_constraints,
+  )
+  const effectiveConstraints: readonly DisplayGoalConstraint[] | null | undefined =
+    Array.isArray(constraints) && constraints.length > 0
+      ? constraints
+      : Array.isArray(reportConstraints) && reportConstraints.length > 0
+        ? (reportConstraints as readonly DisplayGoalConstraint[])
+        : constraints
+
   // Absence is absence. A model with no recorded limit renders exactly as it
   // did before this component existed.
-  if (!Array.isArray(constraints) || constraints.length === 0) return null
+  if (!Array.isArray(effectiveConstraints) || effectiveConstraints.length === 0) return null
 
   return (
     <section
@@ -231,7 +258,7 @@ export function GoalConstraintsSection({
 
       {/* V2 gap 35 — a plain list, not a stack of cards. */}
       <ul className="space-y-1.5 list-none p-0 m-0">
-        {constraints.map((constraint, index) => {
+        {effectiveConstraints.map((constraint, index) => {
           const identity = constraintIdentity(constraint, index)
           const constraintText = goalConstraintText(constraint, nodes)
           const probability = finiteProbability(constraint.probability)

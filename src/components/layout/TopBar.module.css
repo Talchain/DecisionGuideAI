@@ -1,68 +1,62 @@
-/* Floating pill TopBar - positioned top-left like Miro */
+/**
+ * ⭐ CONTRACT v3.1 `.app-top` — A FULL-WIDTH BAR, NOT A FLOATING PILL
+ * (DESIGN-GAP #5, 26 Sep 2026).
+ *
+ * `.app-top{height:51px;border-bottom:1px solid #DDD8D0;display:flex;
+ * align-items:center;padding:0 18px;gap:20px;background:rgba(254,254,254,.94)}`
+ * — logo, model title ⌄, then right-aligned scope/status and a 26px avatar.
+ * Served before: a 438.6x45 pill at (12,12), radius 16, a two-layer shadow, a
+ * bordered 216x31 title pill and a 32px avatar. The pill's material (translucent
+ * white, 16px corners, blur) was chosen to match the floating toolbars; the
+ * toolbars now take the contract's material too (`CanvasFloatingToolbar`), and
+ * the bar is the contract's flat rule rather than a floating surface.
+ *
+ * `--topbar-h` (set in `TopBar.tsx`) is this bar's bottom edge, 51px: the
+ * canvas tools, the dock and the starter context line anchor below it, and
+ * `computeFitPadding` measures the rect itself rather than trusting the var.
+ */
 .topBar {
   position: fixed;
-  top: 12px;
-  left: 12px;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 3000;
 
   display: flex;
   align-items: center;
-  height: 45px;
-  padding: 0 8px 0 12px;
-  gap: 2px;
+  height: 51px;
+  padding: 0 18px;
+  gap: 20px;
 
-  /**
-   * The canvas toolbars' surface, value for value — see
-   * `CanvasFloatingToolbar.module.css`. All three of these float over the same
-   * canvas, and the header was the only one made of different material: 12px
-   * corners against 16px, opaque against translucent, and a flatter shadow that
-   * sat it lower than the panels beside it.
-   *
-   * ⚠ THE BLUR IS TAKEN KNOWINGLY AND IS NOT VISIBLE TODAY. Rendered against
-   * the real canvas, 95%-white over a near-white background and white node
-   * cards is imperceptible — the visible half of this change is the radius and
-   * the shadow. It is here so the header states the SAME surface as the
-   * toolbars rather than a fourth near-copy of it, and so it stays right if the
-   * canvas background ever stops being near-white. Do not "tidy" it away as a
-   * no-op: that is the drift this file has already been through once.
-   */
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border-default, #EEE6D8);
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  background: rgba(254, 254, 254, 0.94);
+  border-bottom: 1px solid #DDD8D0;
 }
 
 .topBarLeft {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 20px;
+  min-width: 0;
 }
 
+/* contract `.brand svg{width:25px;height:25px}` beside a 17px wordmark: the
+   product's own logo (mark + wordmark in one asset) at the mark's 25px height. */
 .logo {
   display: block;
-  height: 22px;
+  height: 25px;
   width: auto;
 }
 
 .logoLink {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .logoLink:focus-visible {
   outline: 2px solid var(--info);
   outline-offset: 2px;
   border-radius: 4px;
-}
-
-/* Vertical divider between logo and title */
-.divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border-default, #EEE6D8);
-  margin: 0 4px;
 }
 
 .dirtyIndicator {
@@ -74,47 +68,46 @@
   flex-shrink: 0;
 }
 
-/* Center section - metadata chips in compact pill format */
+/* Right section: `.scope{margin-left:auto}` — pushed to the bar's right edge. */
 .topBarRight {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-left: 4px;
+  margin-left: auto;
   flex-shrink: 0;
 }
 
 /**
- * THE header button. Share and menu below are the same control and now say so
- * rather than repeating it — three byte-identical copies of one button is how
- * the two canvas toolbars drifted apart, and this file had the same shape.
- *
- * Deliberately NOT the canvas toolbars' bordered circle: 6px rounded squares
- * are right for a dense 45px horizontal bar, where circles would read heavy.
- * What IS shared with them is the part a user feels — the 32px box, the 16px
- * icon, and the focus/disabled grammar below.
+ * THE chrome button — the SAME recipe as the canvas tools
+ * (`CanvasFloatingToolbar.module.css` `.iconButton`, contract v3.1
+ * `.canvas-tools button{width:29px;height:31px;border:0;border-radius:6px;
+ * color:#646761}` / `:hover{background:<info-soft>}`). One button style
+ * across the chrome: a user feels one box, one radius, one hover. Share,
+ * version history and the menu are this control and say so rather than
+ * repeating it.
  */
 .iconButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 29px;
+  height: 31px;
   padding: 0;
   font-size: 12px;
-  font-weight: 500;
-  border: none;
+  font-weight: 400;
+  border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-body, #3F3F3E);
+  /* The muted chrome token (CHR-7): chrome must not outweigh the model. */
+  color: var(--text-light);
   cursor: pointer;
-  /* Was `all 150ms`, which animates layout properties too. Enumerated, at the
-     canvas toolbars' 120ms. */
   transition: background 120ms ease, color 120ms ease;
 }
 
+/* `--info-soft` in the contract is #EAF2F5 — Info at 10% over white. */
 .iconButton:hover:not(:disabled) {
-  background: var(--bg-panel-hover, #FEF9F3);
-  color: var(--text-header, #262626);
+  background: rgb(var(--info-rgb) / 0.1);
+  color: var(--text-body);
 }
 
 /**
@@ -151,24 +144,36 @@
  *
  * ⚠ MUST STAY BELOW `.iconButton`: the two selectors have equal specificity,
  * so the `width` override below wins on SOURCE ORDER alone. Moving this block
- * above `.iconButton` silently restores the 32px square and clips the label.
+ * above `.iconButton` silently restores the 29px square and clips the label.
  */
 .labelledButton {
   width: auto;
   gap: 6px;
-  padding: 0 10px;
+  padding: 0 8px;
+  color: var(--text-body);
   /* The label is a name, not prose — it must never wrap the header row. */
   white-space: nowrap;
   text-decoration: none;
 }
 
-/* Save status indicator (lightweight text, not a button) */
+/* contract `.app-top .avatar` sits 20px after the scope text; the controls
+   between them are 4px apart, so the avatar keeps its own clearance. */
+.avatarSlot {
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+}
+
+/* Save status — the bar's `.scope` slot: `font-size:11px`, the muted token.
+   A state the user should know about (unsaved, failed) keeps its semantic ink. */
 .saveStatus {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  margin-right: 12px;
+  font-size: 11px;
   font-weight: 400;
+  color: var(--text-light);
   white-space: nowrap;
   transition: opacity 200ms ease;
 }

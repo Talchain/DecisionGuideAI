@@ -127,7 +127,10 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
       } else if (holdTurn) {
         await new Promise<void>((res) => { releaseTurn = res })
       }
-      const reply = replies.shift() ?? { ok: true, response: { assistant_text: 'ok', blocks: [] } }
+      const queued = replies.shift() ?? { ok: true, response: { assistant_text: 'ok', blocks: [] } }
+      // A reply may be built FROM the request: an add's committed graph must
+      // carry the node id the gesture minted, which the test cannot know first.
+      const reply = typeof queued === 'function' ? (queued as (p: Record<string, unknown>) => unknown)(payload) : queued
       if (reply && typeof reply === 'object' && '__throws' in reply) {
         throw (reply as { __throws: Error }).__throws
       }
@@ -155,6 +158,8 @@ import { useConversation } from '../../conversation/useConversation'
 import { editDeliveryHold } from '../editDeliveryHold'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
 import { useStructuralDeleteEvents } from '../../conversation/useStructuralDeleteEvents'
+import { useStructuralAddEvents } from '../../conversation/useStructuralAddEvents'
+import { useStructuralAddEdgeEvents } from '../../conversation/useStructuralAddEdgeEvents'
 import {
   __resetUnconfirmedDeletesForTest,
   settleStructuralDeleteAttempt,
@@ -2147,5 +2152,241 @@ describe('13 · the delete hold\'s one exit — ask Olumi — releases it (Panel
     expect(heldCause()).toBe('unresolved_structural_edit')
     expect(holdSentence()).toBe(DELETE_HOLD_ASKS_OLUMI)
     expect(registeredWithoutConcentration()).toEqual([])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9b. THE STRUCTURAL ADD AND THE DRAWN LINK — the same own-write rule.
+//
+// SERVED (UI 5a8a27a9 + CEE 3829c96, 26 Sep 01:00Z, C32 witness): "+ Add
+// option" on a one-decision model. CEE #1937 linked the option in the add's own
+// commit (reply `graph_hash` a9a91f7c), and then a whole-graph `graph/register`
+// re-wrote the link with `edge_type:'directed'` and `provenance: null`. The
+// stored hash moved to e6a0a760, so the canvas's next edit was on a stale base
+// and the user's link read as Olumi's (Canonical State, #70 5841806589).
+// `canvasBeforeOwnAppliedWrite` had no arm for either kind.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DECISION = 'dec_pricing'
+/** An option already on the board, linked to nothing yet — the drawn link's target. */
+const OPT_KEEP = 'opt_keep_price'
+const ADD_BOARD_NODES: Node[] = [
+  ...STRUCTURAL_NODES,
+  {
+    id: DECISION,
+    type: 'decision',
+    position: { x: 0, y: -300 },
+    data: { label: 'Pricing Model Transition', kind: 'decision', starterId: 'pricing-model' },
+  } as unknown as Node,
+  {
+    id: OPT_KEEP,
+    type: 'option',
+    position: { x: 200, y: -300 },
+    data: { label: 'Keep price', kind: 'option', starterId: 'pricing-model' },
+  } as unknown as Node,
+]
+
+/** CEE's committed graph for the add board, plus whatever this turn wrote. */
+function committedAddBoard(extra: { nodes?: Array<Record<string, unknown>>; edges?: Array<Record<string, unknown>> }) {
+  const base = committedGraph()
+  return {
+    nodes: [
+      ...base.nodes,
+      { id: DECISION, kind: 'decision', label: 'Pricing Model Transition' },
+      { id: OPT_KEEP, kind: 'option', label: 'Keep price' },
+      ...(extra.nodes ?? []),
+    ],
+    edges: [...base.edges, ...(extra.edges ?? [])],
+  }
+}
+
+async function mountAcknowledgedAddBoard() {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: ADD_BOARD_NODES as never,
+    edges: STRUCTURAL_EDGES as never,
+    importPendingServerRegistration: true,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: 'aag_before_add',
+    lastAuthoritativeGraph: null,
+    pendingStructuralDeletes: [],
+    pendingStructuralRenames: [],
+    structuralRenameLifecycle: [],
+    pendingStructuralAdds: [],
+    structuralAddLifecycle: [],
+    pendingStructuralAddEdges: [],
+    _externalMutationActive: 0,
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const hook = renderHook(() => {
+    useImportRegistration()
+    const conversation = useConversation()
+    useStructuralAddEvents(conversation.sendSystemEvent as never)
+    useStructuralAddEdgeEvents(conversation.sendSystemEvent as never)
+    return conversation
+  })
+  await act(async () => { await flush() })
+  // PRECONDITION: registered ONCE, and that acknowledgement released the hold.
+  expect(registerSpy).toHaveBeenCalledTimes(1)
+  expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  return hook
+}
+
+/** The add's reply, built from the request so it carries the minted node id. */
+function addApplied(opts: { ceeLinksFrom?: string }) {
+  return (payload: Record<string, unknown>) => {
+    const ev = (payload as { event?: Record<string, unknown> }).event ?? {}
+    const id = String(ev.node_id)
+    return {
+      ok: true,
+      response: {
+        assistant_text: `Added '${String(ev.label)}' to your model. That's saved.`,
+        blocks: [],
+        graph_hash: 'aag_after_add',
+        draft_graph: committedAddBoard({
+          nodes: [{ id, kind: String(ev.node_kind), label: String(ev.label) }],
+          edges: opts.ceeLinksFrom
+            ? [{ from: opts.ceeLinksFrom, to: id, strength: { mean: 1, std: 0.01 }, exists_probability: 1, provenance: { source: 'user_specified' } }]
+            : [],
+        }),
+      },
+    }
+  }
+}
+
+describe('9b · an applied ADD or drawn LINK acknowledges the model past its own write — no register rewrite', { timeout: 30_000 }, () => {
+  it('⭐ "+ Add option", CEE links it to the sole decision in the SAME commit: no follow-up, NO registration, the model acknowledged', async () => {
+    await mountAcknowledgedAddBoard()
+    replies.push(addApplied({ ceeLinksFrom: DECISION }))
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS, by identity: ONE add for this node, committed with its link.
+    expect(sentKinds()).toEqual(['structural_add'])
+    expect((dispatched[0] as { event?: { node_id?: string } }).event?.node_id).toBe(optionId)
+    expect(useCanvasStore.getState().structuralAddLifecycle.find((r) => r.intent.nodeId === optionId)?.status).toBe('committed')
+    expect(useCanvasStore.getState().edges.some((e) => e.source === DECISION && e.target === optionId)).toBe(true)
+
+    // ⭐ THE CLAIM. RED at 823c2bd4: a whole-graph registration re-writes CEE's link.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  })
+
+  it('⭐ a drawn LINK (structural_add_edge) applied with the committed pair: NO registration, the model acknowledged', async () => {
+    await mountAcknowledgedAddBoard()
+    replies.push({
+      ok: true,
+      response: {
+        assistant_text: 'Connected them. That change is saved.',
+        blocks: [],
+        graph_hash: 'aag_after_link',
+        draft_graph: committedAddBoard({
+          edges: [{ from: DECISION, to: OPT_KEEP, strength: { mean: 1, std: 0.01 }, provenance: { source: 'user_specified' } }],
+        }),
+      },
+    })
+    await act(async () => {
+      useCanvasStore.getState().addEdge({ source: DECISION, target: OPT_KEEP, data: { weight: 1, direction: 'positive' } } as never)
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    expect(sentKinds()).toEqual(['structural_add_edge'])
+    expect((dispatched[0] as { event?: { from?: string; to?: string } }).event).toMatchObject({ from: DECISION, to: OPT_KEEP })
+
+    // ⭐ THE CLAIM. RED at 823c2bd4.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+  })
+
+  it('⭐ CEE does NOT link (no sole-decision rule applies): the add\'s receipt alone acknowledges nothing, the CHAINED link\'s applied receipt does — NO registration', async () => {
+    await mountAcknowledgedAddBoard()
+    let linkedId = ''
+    replies.push(addApplied({}))
+    replies.push((payload: Record<string, unknown>) => {
+      const ev = (payload as { event?: Record<string, unknown> }).event ?? {}
+      linkedId = String(ev.to)
+      return {
+        ok: true,
+        response: {
+          assistant_text: 'Connected. That change is saved.',
+          blocks: [],
+          graph_hash: 'aag_after_link',
+          draft_graph: committedAddBoard({
+            nodes: [{ id: linkedId, kind: 'option', label: 'New option' }],
+            edges: [{ from: String(ev.from), to: linkedId, strength: { mean: 1, std: 0.01 }, provenance: { source: 'user_specified' } }],
+          }),
+        },
+      }
+    })
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    expect(sentKinds()).toEqual(['structural_add', 'structural_add_edge'])
+    expect(linkedId).toBe(optionId)
+    // ⭐ THE CLAIM: the chain closes on the link's own receipt. RED at 823c2bd4.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+  })
+
+  it('CONTROL (fail closed): the chained link\'s turn FAILS (untyped 500) — the canvas, which shows a link CEE never wrote, is NOT acknowledged', async () => {
+    await mountAcknowledgedAddBoard()
+    replies.push(addApplied({}))
+    replies.push(UNTYPED_500)
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    expect(sentKinds()).toEqual(['structural_add', 'structural_add_edge'])
+    // PRECONDITION: the canvas still draws the link the server never took.
+    expect(useCanvasStore.getState().edges.some((e) => e.source === DECISION && e.target === optionId)).toBe(true)
+    // ⭐ THE CLAIM: the add's receipt acknowledged only what CEE holds (no link),
+    // so the canvas as it stands is not a model CEE holds.
+    expect(currentAcknowledged()).toBe(false)
+  })
+
+  it('⛔ (#2070 review 5842051351) a local write on the NEW node while the add is in flight is NOT acknowledged — the registration still carries it', async () => {
+    await mountAcknowledgedAddBoard()
+    holdTurn = true
+    replies.push(addApplied({ ceeLinksFrom: DECISION }))
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    // While the add is on the wire, the store writes to the new node.
+    await act(async () => {
+      const n = useCanvasStore.getState().nodes.find((x) => x.id === optionId)!
+      useCanvasStore.getState().updateNode(optionId, { data: { ...(n.data as Record<string, unknown>), interventions: { [TARGET]: 42 } } } as never)
+      await flush()
+    })
+    await releaseHeldTurn()
+    holdTurn = false
+    await act(async () => { await flush() })
+
+    // ⭐ THE CLAIM: the add's receipt does not acknowledge the canvas carrying
+    // the unsent write, so the side-channel still delivers it. The registration's
+    // OWN receipt then acknowledges, so "acknowledged" alone cannot tell the
+    // two apart: what discriminates is that a registration CARRIED the write.
+    // RED at 664d2ade (1 call, mount only; the write never reached CEE).
+    expect(registerSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
+    const carried = registerSpy.mock.calls.slice(1).some((call) =>
+      registeredGraph(call).nodes.some((n) => n.id === optionId && JSON.stringify(n).includes('42')),
+    )
+    expect(carried).toBe(true)
   })
 })

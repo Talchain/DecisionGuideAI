@@ -35,7 +35,7 @@ function rule(selector: string): Record<string, string> {
 describe('canvas toolbar icon colour (contract v3.1 CHR-7)', () => {
   it('POSITIVE CONTROL: the reader finds a rule known to exist, with its values', () => {
     expect(rule('.iconButtonActive').color).toBe('var(--info)')
-    expect(rule('.iconButton').width).toBe('32px')
+    expect(rule('.iconButton').width).toBe('29px')
   })
 
   it('⭐ muted at rest: every icon button is text-light, not the inherited header ink', () => {
@@ -50,10 +50,17 @@ describe('canvas toolbar icon colour (contract v3.1 CHR-7)', () => {
     expect(rule(".iconButton[aria-disabled='true']:hover").color).toBe('var(--text-light)')
   })
 
-  it('⭐ the zoom read-out reads as a value: body colour, weight 500', () => {
-    const r = rule('.readout')
-    expect(r.color).toBe('var(--text-body)')
-    expect(r['font-weight']).toBe('500')
+  /**
+   * v3.1 DESIGN-GAP #14 (26 Sep 2026): the standing zoom read-out left the
+   * toolbar — v3.1 draws −, + and fit only — and its value is shown in the
+   * overflow menu's "Zoom to 100%" item instead, as that item's muted meta
+   * (`.menuItemMeta`), beside a body-coloured label.
+   */
+  it('⭐ the zoom level reads as the menu item’s meta: muted, tabular; the label is body ink', () => {
+    expect(rule('.readout')).toEqual({})
+    expect(rule('.menuItemMeta').color).toBe('var(--text-light)')
+    expect(rule('.menuItemMeta')['font-variant-numeric']).toBe('tabular-nums')
+    expect(rule('.menuItem').color).toBe('var(--text-body)')
   })
 
   it('⛔ CONTRAST: info stays reserved for the active state — no resting or hover rule uses it for the glyph', () => {

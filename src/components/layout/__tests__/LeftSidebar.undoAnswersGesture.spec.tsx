@@ -134,12 +134,15 @@ describe('LeftSidebar — the undo gesture is answered, not greyed out', () => {
       expect(toasts).toEqual([expectedNotice()])
     })
 
-    it('clicking Redo surfaces the SAME sanctioned notice — no invented redo copy', () => {
+    /**
+     * v3.1 DESIGN-GAP #13 (26 Sep 2026) removed the Redo BUTTON; the gesture is
+     * the keyboard's now (⌘⇧Z / ⌘Y), which `useKeyboardShortcuts` answers with
+     * this same `canvasUndoUnavailableNotice()` sentence (`isUndoRedoGesture`
+     * is true for Y and Z). So there is no second button left to disagree.
+     */
+    it('there is no Redo button — the redo gesture is the keyboard’s', () => {
       render(<LeftSidebar canRedo={false} redoUnavailable />)
-
-      fireEvent.click(screen.getByRole('button', { name: /^redo$/i }))
-
-      expect(toasts).toEqual([expectedNotice()])
+      expect(screen.queryByRole('button', { name: /^redo$/i })).toBeNull()
     })
 
     /**
@@ -151,7 +154,7 @@ describe('LeftSidebar — the undo gesture is answered, not greyed out', () => {
     it('an unrelated control in the same sidebar does NOT surface it', () => {
       render(<LeftSidebar canUndo={false} undoUnavailable />)
 
-      fireEvent.click(screen.getByRole('button', { name: /switch to (hand|select) mode/i }))
+      fireEvent.click(screen.getByRole('button', { name: 'Hand mode' }))
 
       expect(toasts).toEqual([])
     })
@@ -212,9 +215,7 @@ describe('LeftSidebar — the undo gesture is answered, not greyed out', () => {
       render(<LeftSidebar canUndo={false} canRedo={false} />)
 
       const undo = screen.getByRole('button', { name: /^undo$/i })
-      const redo = screen.getByRole('button', { name: /^redo$/i })
       expect(undo).toBeDisabled()
-      expect(redo).toBeDisabled()
       expect(undo).not.toHaveAttribute('aria-disabled', 'true')
 
       fireEvent.click(undo)

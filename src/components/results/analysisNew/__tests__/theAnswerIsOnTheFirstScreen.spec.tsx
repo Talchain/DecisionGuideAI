@@ -139,18 +139,20 @@ describe('the provisional answer is on the first screen', () => {
     expect(vmOf(warned()).deeper.caveats.length).toBeGreaterThan(0)
   })
 
-  it('no amber caveat box sits above the model; the caveat is listed under About › Limitations', () => {
+  it('no amber caveat box sits above the model; the caveat is listed under About › Sources and limits', () => {
     renderBody(warned())
     // At rest: no caveat box anywhere on the tab.
     expect(screen.queryByTestId('inference-warning-strip')).toBeNull()
     expect(screen.queryByTestId('critique-warning-strip')).toBeNull()
 
-    // The caveat is not lost: it is one disclosure away, in About's limitations.
+    // The caveat is not lost: it is one disclosure away, in About's limits —
+    // a plain bullet since the V2 design pass (26 Sep 2026), bound by its code.
     const about = screen.getByTestId('analysis-new-about')
     fireEvent.click(within(about).getByTestId('analysis-new-about-toggle'))
     fireEvent.click(within(about).getByTestId('analysis-new-about-detail-limitations-toggle'))
-    const strip = screen.getByTestId('inference-warning-strip')
-    expect(within(about).getByTestId('analysis-new-about-detail-limitations-body')).toContainElement(strip)
+    const caveat = document.querySelector('[data-warning-code="ROOT_NODE_DEFAULT_VALUE"]')
+    expect(caveat, 'the caveat renders').not.toBeNull()
+    expect(within(about).getByTestId('analysis-new-about-detail-limitations-body')).toContainElement(caveat as HTMLElement)
   })
 
   it('the qualifier sits under the chart and before "Record your view", on a withheld run', () => {

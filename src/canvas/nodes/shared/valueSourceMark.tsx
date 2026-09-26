@@ -108,7 +108,9 @@ export interface FactorValueSourceMark {
  *      (`FactorNode.anEditedValueIsNotAnEstimate.spec.tsx`).
  *   2. The existing `est.` gate — unchanged, one owner, three readers.
  *   3. A brief stamp (`source` classifies `brief`, or `extractionType:
- *      'explicit'`, which CEE writes beside `brief_extraction`).
+ *      'explicit'`, which CEE writes beside `brief_extraction`) — UNLESS the
+ *      marker is withdrawn: only an edit does that, so it is rule 4's pending
+ *      edit, never the brief's number (`valueSourceMark.editOverBriefValue.spec.ts`).
  *   4. ⚠ `source` still says Olumi but the writer has WITHDRAWN `extractionType`
  *      — the signature `setObservedValue` leaves when a person types over an
  *      estimate, before the receipt stamps `user_override`. Marked `unknown`
@@ -116,6 +118,17 @@ export interface FactorValueSourceMark {
  *      would be a guess, but an unmarked number would break point 1 (Codex
  *      #1919 5802926467). Transient by construction (the receipt resolves it
  *      to `you`).
+ *      ⭐ WITHDRAWN IS A PRESENT KEY, NOT AN ABSENT ONE. Both writers
+ *      (`setObservedValue`, `applyV5State`'s set-factor-value path) write
+ *      `extractionType: undefined`, so the key is there. A value the producer
+ *      drafted without the marker has NO key: served on CEE `9417228` (the
+ *      OpenAI draft, `source: 'cee_inference'`, node `provenance:
+ *      'ai_inferred'`), where rule 4 used to mark four first-pass values
+ *      "no source" while the assistant called them Olumi assumptions (reviewer
+ *      5827605617). That value's own `source` names its author, so it is
+ *      Olumi's estimate, as the Model tab already reads it
+ *      (`usePreAnalysisData.ts`: "CEE may omit extractionType while still
+ *      setting source to an AI value").
  *   5. Anything else — no stamp, or a literal nobody classifies — is marked
  *      `unknown` ("no source" / "Source not recorded"). Still never unmarked
  *      (Paul 23 Sep contract feedback point 1: never "unmarked = Olumi"), but
@@ -124,19 +137,55 @@ export interface FactorValueSourceMark {
  *      from an absence.
  */
 export function factorValueSourceMark(data: unknown): FactorValueSourceMark | null {
+  return resolveFactorValueSource(data).mark
+}
+
+/**
+ * ⭐ IS THIS VALUE A PERSON'S EDIT STILL WAITING FOR ITS RECEIPT? — exactly
+ * rule 4 above, read off the store's own record, and nothing else.
+ *
+ * The inspector's context pill reads THIS (independent review, PR #2046,
+ * 5840944379), not a memory of its own last commit. A panel-held outcome — in
+ * component state or a module-level map keyed by node id — did not survive a
+ * reload (the pill credited Olumi with the user's unsent number while this
+ * mark said "no source"), was never cleared when ANOTHER seam earned the
+ * receipt, and leaked onto a same-id factor in a different scenario. The
+ * record already carries the signature, and it survives serialisation (the
+ * writers withdraw with `null`, see `extractionMarkerWithdrawn`), so pill and
+ * card now answer from one owner: the same rule chain, in the same order.
+ */
+export function factorValueAwaitsReceipt(data: unknown): boolean {
+  return resolveFactorValueSource(data).awaitingReceipt
+}
+
+function resolveFactorValueSource(data: unknown): {
+  mark: FactorValueSourceMark
+  awaitingReceipt: boolean
+} {
   const d = data as Record<string, unknown> | undefined
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   const source = typeof obs?.source === 'string' ? obs.source : null
   const stamped = classifyValueProvenance(source)
 
   if (stamped && (stamped.userOwned || stamped.kind === 'panel')) {
-    return { kind: markForKind(stamped.kind), label: labelForKind(stamped.kind) }
+    return { mark: { kind: markForKind(stamped.kind), label: labelForKind(stamped.kind) }, awaitingReceipt: false }
   }
   if (factorValueIsUnconfirmedEstimate(data)) {
-    return { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }
+    return { mark: { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }, awaitingReceipt: false }
+  }
+  if (stamped?.kind === 'brief' && extractionMarkerWithdrawn(obs)) {
+    // Rule 4 over a BRIEF value — only an edit withdraws the marker, so this is
+    // a person's number awaiting its receipt, not the brief's. Before this
+    // check, rule 3 credited the typed number to the brief on card and pill.
+    return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: true }
   }
   if (stamped?.kind === 'brief' || obs?.extractionType === 'explicit' || d?.extractionType === 'explicit') {
-    return { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }
+    return { mark: { kind: 'brief', label: VALUE_SOURCE_MARK_LABEL.brief }, awaitingReceipt: false }
+  }
+  if (stamped?.kind === 'ai' && !extractionMarkerWithdrawn(obs)) {
+    // Rule 4a — the producer drafted this value and never wrote a marker: its
+    // own `source` names the author.
+    return { mark: { kind: 'olumi', label: VALUE_SOURCE_MARK_LABEL.olumi }, awaitingReceipt: false }
   }
   if (stamped?.kind === 'ai') {
     // Rule 4 — the writer withdrew the estimate claim (a dispatched edit keeps
@@ -144,9 +193,35 @@ export function factorValueSourceMark(data: unknown): FactorValueSourceMark | nu
     // the receipt). Neither author is established yet, so the visible number
     // says so: `no source` — never `you` before acknowledgement, never the old
     // value's `est.` (Codex #1919 5802926467: every shown value has a source word).
-    return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
+    // The ONE rule that answers `factorValueAwaitsReceipt`.
+    return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: true }
   }
-  return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
+  return { mark: { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }, awaitingReceipt: false }
+}
+
+/**
+ * True when a writer WITHDREW the extraction marker (the key is present and
+ * holds no value), as opposed to a producer that never wrote one (the key is
+ * absent). See rule 4 above. Both writers clear BOTH spellings, so the
+ * `observedState` one (the one rule 4 reads `source` from) is sufficient.
+ *
+ * ⚠⚠ BOTH `undefined` AND `null` COUNT (independent review, PR #2046
+ * Blocking 2). The writers used to clear with `extractionType: undefined`,
+ * which `JSON.stringify` DROPS — so the withdrawal did not survive the
+ * autosave round trip or a boot restore with no server readback, and this
+ * function read the key as ABSENT (never written) rather than WITHDRAWN
+ * (pending), sending a user's own unconfirmed edit to rule 4a's "Olumi
+ * estimate" instead of rule 4's "no source". The writers now clear with
+ * `null`, which survives serialisation; `undefined` stays accepted here too,
+ * for the in-session write before any round trip and for any caller this
+ * function does not control.
+ */
+function extractionMarkerWithdrawn(obs: Record<string, unknown> | undefined): boolean {
+  return (
+    obs !== undefined &&
+    'extractionType' in obs &&
+    (obs.extractionType === undefined || obs.extractionType === null)
+  )
 }
 
 /**

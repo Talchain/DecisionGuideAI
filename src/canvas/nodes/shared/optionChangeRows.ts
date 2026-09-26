@@ -353,6 +353,11 @@ export function buildOptionChangeRow({
     cap: factor.cap,
     observedValue: factor.observedValue,
     observedRawValue: factor.observedRawValue,
+    // A13: the factor's OWN declared encoding, read straight off its node data
+    // (the same field `factorCardReading` reads for the "from" above) so
+    // `formatTarget` below resolves BOTH ends through it, not just whichever
+    // side happens to go through the current-value branch.
+    encoding_map: (factor.factorData as Record<string, unknown> | null | undefined)?.encoding_map,
   }
   // At rest a tier reading sheds its parenthesised internal-scale number
   // ("Very high (0.9)" → "Very high"), exactly as a factor's resting value does
@@ -449,20 +454,23 @@ export function buildOptionChangeRow({
       sameAsReference: direction === 'No change',
     }
   }
-  // ⛔ NEVER "Low → Low". At rest both sides shed their internal-scale number
+  // ⛔⛔ NEVER "Low → Low", AND NEVER AN INVENTED COMPARISON WORD EITHER (A13,
+  // AUDIT-SYNTH 20260925). At rest both sides shed their internal-scale number
   // (R6), so a real change INSIDE one band — "Low (0.2)" → "Low (0.3)" — would
   // print the same word around an arrow: a row claiming a change and showing
-  // none (S5, seen on `pricing-model`). Keep the band word and say which way
-  // it moved; `fullChange` keeps both readings for the tooltip and the
-  // accessible text.
+  // none (S5, seen on `pricing-model`). The first fix for that invented
+  // "Low · slightly higher" — a judgement about the size of the move that no
+  // field of the data states. The row shows the full carried strings instead:
+  // they are the data's own numbers, unabbreviated, and the direction is
+  // legible from which one prints first.
   if (fromText && fromText === targetText && fromFull !== targetFull) {
-    const referenceValue = reference === 'baseline_option' ? baselineOptionTarget?.value : factor.observedValue
-    const direction = typeof referenceValue === 'number' && target.value < referenceValue ? 'slightly lower' : 'slightly higher'
     return {
       factorId,
       label,
       fullLabel,
-      change: `${targetText} · ${direction}`,
+      change: `${fromFull} → ${targetFull}`,
+      before: fromFull,
+      after: targetFull,
       fullChange: `${fromFull} → ${targetFull}`,
       target: targetFull,
       reference,
@@ -475,9 +483,11 @@ export function buildOptionChangeRow({
     factorId,
     label,
     fullLabel,
-    change: fromText ? `${fromText} → ${targetText}` : sameAsReference ? `${targetText} · same as baseline` : `→ ${targetText}`,
+    // A13: "same as baseline" was an invented comparison word — `sameAsReference`
+    // still carries the signal as data; the row states only what it can carry.
+    change: fromText ? `${fromText} → ${targetText}` : `→ ${targetText}`,
     ...(fromText ? { before: fromText, after: targetText } : {}),
-    fullChange: fromFull ? `${fromFull} → ${targetFull}` : sameAsReference ? `${targetFull} · same as baseline` : `→ ${targetFull}`,
+    fullChange: fromFull ? `${fromFull} → ${targetFull}` : `→ ${targetFull}`,
     target: targetFull,
     reference,
     estimated,
