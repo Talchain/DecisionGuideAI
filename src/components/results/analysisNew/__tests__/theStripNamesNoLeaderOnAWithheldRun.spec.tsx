@@ -103,13 +103,27 @@ const sensitivityMentions = () =>
     .filter((el) => el.getAttribute('data-mention-section') === 'sensitivity')
 
 describe('the strip honours the leader licence the section honours', () => {
-  it('CONTRAST: on a licensed run the strip points at the row in "What would change your mind"', () => {
+  /*
+   * ⚠⚠ RE-PINNED 26 Sep 2026 (design audit B12). The mark detail no longer
+   * carries "Also in …" pointers at all — the V2 prototype's detail has none —
+   * so the licensed twin can no longer be a pointer that appears. It is now
+   * the contrast that the SECTION carries the edge on a licensed run while
+   * the detail repeats none of it: the rule this file exists for (the strip
+   * never says what a section was withheld for saying) now holds on every run,
+   * because the strip says nothing about sections.
+   */
+  it('CONTRAST: on a licensed run the section names the edge, and the detail repeats none of it', () => {
     renderPanel(withLeaderLicensed(withWitnessedEdge(genuineDecision())))
-    pickSource()
-    const mentions = sensitivityMentions()
-    expect(mentions.length, 'PRECONDITION: the licensed twin carries the mention').toBe(1)
-    expect(mentions[0].textContent ?? '').toContain('Enterprise price → MRR')
-    expect(screen.getByTestId('analysis-new-sensitivity'), 'and the section it points at is on screen').toBeInTheDocument()
+    const detail = pickSource()
+    const section = screen.getByTestId('analysis-new-sensitivity')
+    // The section mounts closed; its rows are read with it open.
+    const toggle = screen.getByTestId('analysis-new-sensitivity-toggle')
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    expect(section.textContent ?? '', 'PRECONDITION: the licensed section carries the edge').toContain(
+      'Enterprise price → MRR',
+    )
+    expect(sensitivityMentions()).toHaveLength(0)
+    expect(detail.textContent ?? '').not.toContain('Enterprise price → MRR')
   })
 
   it('⛔ on a withheld run the strip names no option that could lead, and points at no absent section', () => {

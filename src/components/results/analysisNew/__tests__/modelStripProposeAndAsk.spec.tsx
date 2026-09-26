@@ -57,10 +57,12 @@ const setCanvas = (next: ReadonlyArray<ReturnType<typeof node>>) => {
 const mark = (nodeId: string) =>
   screen.getAllByTestId(`${TID}-mark`).find((el) => el.getAttribute('data-node-id') === nodeId)!
 
+// ⚠ 26 Sep (design audit B12): a mark opens its detail on ACTIVATION, as the
+// prototype's does; pointing at it only rings the node.
 const openDetailFor = (nodeId: string) => {
   render(<ModelStrip isPreRun={false} />)
   fireEvent.click(screen.getByTestId(`${TID}-toggle`))
-  fireEvent.mouseEnter(mark(nodeId))
+  fireEvent.click(mark(nodeId))
 }
 
 beforeEach(() => {
@@ -98,14 +100,20 @@ describe('E10: "Propose a change" and "Ask about this item" render for EVERY kin
     expect(screen.getByTestId(`${TID}-detail-value-edit`)).toBeInTheDocument()
   })
 
-  it('neither act is named only in a title attribute', () => {
+  /**
+   * ⚠ 26 Sep (design audit B12): the prototype's acts are ICON-ONLY, so the
+   * name moved from visible text to the accessible name — which
+   * `PanelIconButton` also shows as its tooltip. Still never a bare `title`:
+   * the name is announced, and a title carries nothing.
+   */
+  it('neither act is named only in a title attribute — each carries an accessible name', () => {
     openDetailFor('r1')
     const propose = screen.getByTestId(`${TID}-detail-propose`)
     const ask = screen.getByTestId(`${TID}-detail-ask`)
-    expect(propose).not.toHaveAttribute('title')
-    expect(ask).not.toHaveAttribute('title')
-    expect(propose.textContent).toMatch(/propose a change/i)
-    expect(ask.textContent).toMatch(/ask olumi/i)
+    expect(propose.getAttribute('title') ?? '').toBe('')
+    expect(ask.getAttribute('title') ?? '').toBe('')
+    expect(propose).toHaveAccessibleName(/propose a change/i)
+    expect(ask).toHaveAccessibleName(/ask olumi/i)
   })
 })
 
