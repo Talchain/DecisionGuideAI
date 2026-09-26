@@ -2464,12 +2464,37 @@ export const OptionNode = memo((props: NodeProps) => {
             The copy is never re-typed here: it comes from
             `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
             which is the ratified wording and the one owner of it. */}
+        {/* ⭐⭐ THE SHARE LINE HAS ONE RESERVED SLOT, PRE-RUN AND POST-RUN — A RUN
+            NEVER GROWS THE CARD (ED #63 5809278282: "Option = … current-model
+            share post-run", "no rung-triggered re-layout"; ED 5810951997: no
+            card grows). MEASURED on served 853feeb7 (pricing, 1280x800, design
+            audit 26 Sep #4): each option grew +49.4px on screen after the Run,
+            because this row did not exist pre-run and then wrapped to THREE
+            lines ("Current model ▬" / "34% of runs" / "· Goal only"). The
+            layout reserves the height it measured before the run, so the taller
+            cards pushed 7 edges under non-endpoint cards and 2 more cards off
+            screen.
+              · The slot is ONE `edgeLabel` line (`h-[1lh]`) with identical
+                classes in both phases, so the layout reserves the post-run
+                height before the run. Empty and aria-hidden before a run.
+              · The row never wraps. What does not fit gives way in a fixed
+                order, whole-text in the existing tooltip and the row's name:
+                the bar first, then the default `Current model` caption, then
+                `· Goal only` (ellipsis). The share itself never shrinks.
+                A non-default caption (`Last run`, `Model result`) is a
+                qualifier that must stay on the card, so it does not give way
+                ahead of `Goal only`.
+            Pinned in `__tests__/OptionNode.noGrowthAfterRun.spec.tsx`. */}
+        {(winReadout !== null || !displayMetadata.isResultsMode) && (
+        <div
+          data-testid={`option-share-slot-${props.id}`}
+          className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden`}
+          aria-hidden={winReadout === null ? true : undefined}
+        >
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
-            // With `Goal only` the line may wrap rather than overflow a narrow
-            // card; without it the row is exactly what it was.
-            className={`mt-1 flex items-center gap-1.5 cursor-help${shareIsGoalOnly ? ' flex-wrap gap-y-0.5' : ''}`}
+            className="flex h-full min-w-0 flex-nowrap items-center gap-1.5 whitespace-nowrap cursor-help"
             role="img"
             aria-label={winReadoutDescription}
             tabIndex={0}
@@ -2529,15 +2554,24 @@ export const OptionNode = memo((props: NodeProps) => {
                 `Current model`; `Last run` only when the model is KNOWN to have
                 changed (ED 02:31Z Q2); `Model result` when currency cannot be
                 confirmed — it claims neither. */}
+            {/* Caption + bar give way TOGETHER, as one clipped unit, so a
+                squeezed pair leaves no sliver and costs one gap, not two. The
+                bar yields before the caption; the default `Current model`
+                yields before `· Goal only`, a `Last run` / `Model result`
+                qualifier only alongside it. */}
+            <span
+              className={`flex min-w-0 items-center gap-1.5 overflow-hidden ${runCurrency === 'current' ? 'shrink-[100]' : 'shrink'}`}
+              aria-hidden="true"
+            >
             <span
               data-testid={`option-win-anchor-${props.id}`}
-              className={`${typography.edgeLabel} text-text-light shrink-0`}
+              className={`${typography.edgeLabel} text-text-light min-w-0 truncate shrink`}
               aria-hidden="true"
             >
               {resultCaption}
             </span>
             <div
-              className="h-1 w-[54px] min-w-0 shrink bg-panel-border rounded-full overflow-hidden"
+              className="h-1 w-[54px] min-w-0 shrink-[100000] bg-panel-border rounded-full overflow-hidden"
               aria-hidden="true"
             >
               <div
@@ -2545,6 +2579,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 style={{ width: winReadout.rate > 0 ? `max(4px, ${Math.round(winReadout.rate * 100)}%)` : '0%' }}
               />
             </div>
+            </span>
             <span
               data-testid={`option-win-readout-${props.id}`}
               className={`${typography.edgeLabel} text-text-body shrink-0 tabular-nums`}
@@ -2564,8 +2599,9 @@ export const OptionNode = memo((props: NodeProps) => {
                 row's name and tooltip (`winReadoutDescription`), which this
                 row's hover AND keyboard focus open. */}
             {shareIsGoalOnly && (
-              // The separator and the words never wrap apart.
-              <span className={`${typography.edgeLabel} text-text-light shrink-0 whitespace-nowrap`} aria-hidden="true">
+              // The separator and the words never wrap apart; on a narrow card
+              // the qualifier ends in an ellipsis (whole in the tooltip + name).
+              <span className={`${typography.edgeLabel} text-text-light min-w-0 truncate whitespace-nowrap`} aria-hidden="true">
                 {'· '}
                 <span
                   data-testid={`option-share-goal-only-${props.id}`}
@@ -2577,6 +2613,8 @@ export const OptionNode = memo((props: NodeProps) => {
             )}
           </div>
           </Tooltip>
+        )}
+        </div>
         )}
         {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
         {isDetailed && staleStateLine}

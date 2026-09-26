@@ -38,6 +38,8 @@ import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbs
 import { selectWithheldLeaderDisclosure } from './withheldLeaderDisclosure'
 import { STRUCTURAL_UNSET } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
+import Tooltip from '../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { NodePopover } from './shared'
 import type { ResolvedCoaching } from './coaching/resolveNodeCoaching'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
@@ -1085,7 +1087,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     <span
       data-testid="decision-evidence-priority"
       data-factor-id={evidencePriority.factorId}
-      className={`${typography.edgeLabel} min-w-0 break-words text-text-light`}
+      className={`${typography.edgeLabel} ml-[calc(4px*var(--canvas-label-scale,1))] text-text-light`}
     >
       {`${EVIDENCE_PRIORITY_LABEL}: ${evidencePriority.label}`}
     </span>
@@ -1093,10 +1095,47 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     // Contract v3.1 "Before analysis" row (#39): the visible second clause.
     <span
       data-testid="decision-assumptions-open"
-      className={`${typography.edgeLabel} min-w-0 break-words text-text-light`}
+      className={`${typography.edgeLabel} ml-[calc(4px*var(--canvas-label-scale,1))] text-text-light`}
     >
       {ASSUMPTIONS_OPEN_LINE}
     </span>
+  ) : null
+
+  /**
+   * ⭐⭐ THE ROW IS ONE LINE, AND THE " · " BINDS TO THE CLAUSE IT INTRODUCES
+   * (design audit 26 Sep #11, served 853feeb7). The row was a free-wrapping
+   * flex run, so in 5/5 starters line 1 ended "4 alternatives ·" with the
+   * clause wrapped under it, and after a run "Evidence priority: Top Account
+   * Revenue Concentration" took three more lines: the card grew 94.4 → 109.5px
+   * on screen when the Run completed (ED 5810951997: no card grows).
+   * Target (prototype `.row-meta`): "3 alternatives · Evidence priority:
+   * conversion" on ONE 11px line. So, for the two clause branches only:
+   *   · the separator and the clause are ONE non-breaking unit
+   *     (`decision-row-meta-clause`), never split across lines;
+   *   · the row does not wrap; the count never shrinks, and the unit ends in an
+   *     ellipsis when it does not fit, whole in the shared tooltip (and in the
+   *     DOM text, so assistive technology reads it all).
+   * The resting line + CTA branch (unnamed / no options) keeps its wrapping row.
+   * Pinned in `__tests__/DecisionNode.noGrowthAfterRun.spec.tsx`.
+   */
+  const rowMetaClauseText =
+    focusSignal === null || isUnnamed || (!isPostAnalysisBranch && !isPreAnalysisBranch)
+      ? null
+      : evidencePriority !== null
+        ? `${EVIDENCE_PRIORITY_LABEL}: ${evidencePriority.label}`
+        : assumptionsOpen
+          ? ASSUMPTIONS_OPEN_LINE
+          : null
+  const rowMetaClause = rowMetaClauseText !== null ? (
+    <Tooltip asChild content={rowMetaClauseText} delay={NODE_TOOLTIP_DELAY_MS}>
+      <span
+        data-testid="decision-row-meta-clause"
+        className={`${typography.edgeLabel} min-w-0 truncate text-text-light`}
+      >
+        {optionCountLineText !== null && rowMetaSeparator}
+        {focusSignal}
+      </span>
+    </Tooltip>
   ) : null
 
   // The card's ONE coaching question (rail): before a run, "Explore more
@@ -1196,7 +1235,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               screen), and 4px x the bound scale 2 is the 8px it replaces, so
               the row is never wider at the height the layout reserves. */}
         <div
-          className="mt-[3px] flex min-w-0 flex-wrap items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] gap-y-0.5"
+          className={`mt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] ${rowMetaClause !== null ? 'flex-nowrap overflow-hidden' : 'flex-wrap gap-y-0.5'}`}
           data-testid="decision-node-resting-state"
         >
           {optionCountLineText !== null && (
@@ -1204,8 +1243,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               {optionCountLineText}
             </span>
           )}
-          {optionCountLineText !== null && focusSignal !== null && rowMetaSeparator}
-          {focusSignal}
+          {rowMetaClause ?? (
+            <>
+              {optionCountLineText !== null && focusSignal !== null && rowMetaSeparator}
+              {focusSignal}
+            </>
+          )}
         </div>
         {/* The row's reasoning sentence, off the row (see `focusDetail`): a whole
             line in the Detailed body after a run, where no popover mounts;
