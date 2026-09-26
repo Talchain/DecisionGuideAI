@@ -238,6 +238,14 @@ const AXIS_TICK_FRACTIONS = [0, 1 / 3, 2 / 3, 1] as const
  * prototype's own `.axis>.iconbtn{position:absolute;right:-24px}`.
  * `ml-4` clears the option's square mark and `mr-5` the row chevron (see the
  * range figure's call site).
+ *
+ * ⛔⛔ ON A WRAPPER, NEVER ON THE FIGURE ITSELF. PanelFigure's track is
+ * `block w-full`: a margin on it SHIFTS a full-width box instead of shrinking
+ * it. Measured on served `411158ad` (1440, 280px dock): every band track was
+ * 246px wide at left 1181, so it ran 16px past the row (right 1427 vs 1411)
+ * and `mr-5` never applied — the ticks, correctly inset, then ended 36px short
+ * of the bands. The inset lives on a plain block around the figure, where a
+ * margin does shrink the box (`noFigureTakesAHorizontalMargin` guards it).
  */
 const RANGE_INSET = 'ml-4 mr-5'
 
@@ -897,15 +905,14 @@ export function OptionsComparison({
                       ? o.outcomeRange.p90
                       : o.outcomeRange.p50
                 return (
+                  /* ⭐ V2 FIDELITY (25 Sep 2026, gap SPACE-3): INSET FROM THE
+                     NAME AND THE CHEVRON COLUMN. `ml-4` clears the mark (`w-3`
+                     plus `mr-1`, the button's `-ml-1 px-1` cancelling) and
+                     `mr-5` clears the chevron (`w-3` plus `gap-2`) — on this
+                     wrapper, not the figure (see RANGE_INSET). */
+                  <div className={`mt-1 ${RANGE_INSET}`} data-testid={`${testId}-range-inset-${o.id}`}>
                   <PanelFigure
                     variant="range"
-                    /* ⭐ V2 FIDELITY (25 Sep 2026, gap SPACE-3): INSET FROM THE
-                       NAME AND THE CHEVRON COLUMN. The track used to run edge
-                       to edge under the option's own square mark and under
-                       the row chevron; `ml-4` clears the mark (`w-3` plus
-                       `mr-1`, the button's `-ml-1 px-1` cancelling) and
-                       `mr-5` clears the chevron (`w-3` plus `gap-2`). */
-                    className={`mt-1 ${RANGE_INSET}`}
                     band={{
                       start: toFraction(o.outcomeRange.p10),
                       end: toFraction(o.outcomeRange.p90),
@@ -916,6 +923,7 @@ export function OptionsComparison({
                     markerData={{ 'data-lens-arm': rangeAppetite, 'data-mark-at': String(markAt) }}
                     testId={`${testId}-outcome-range-${o.id}`}
                   />
+                  </div>
                 )
               })()
             ) : null}
@@ -949,15 +957,13 @@ export function OptionsComparison({
                     {o.goalReadout}
                   </span>
                 </div>
-                <PanelFigure
-                  variant="goal"
-                  /* ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-6): the same inset as
-                     the range figure above, so switching lens does not move
-                     where the bar starts and ends against the name column. */
-                  className="mt-1 ml-4 mr-5"
-                  fraction={o.goalFraction}
-                  testId={`${testId}-goal-bar`}
-                />
+                {/* ⭐ V2 FIDELITY (25 Sep 2026, gap CHART-6): the same inset as
+                    the range figure above, so switching lens does not move
+                    where the bar starts and ends against the name column — on
+                    a wrapper, for the same reason (RANGE_INSET). */}
+                <div className={`mt-1 ${RANGE_INSET}`} data-testid={`${testId}-goal-inset-${o.id}`}>
+                  <PanelFigure variant="goal" fraction={o.goalFraction} testId={`${testId}-goal-bar`} />
+                </div>
                 {/* Display-honesty (ROADMAP 1.6b / PLoT #204): the caveat
                     renders ADJACENT to the number it qualifies, never
                     separately. The shared constant, never a re-wording of it. */}
