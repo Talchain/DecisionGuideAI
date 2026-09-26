@@ -69,7 +69,8 @@ describe('every CONSTRAINT_* template names a limit, never a success target', ()
 
   it.each(templateKeys('CONSTRAINT_'))('%s says nothing about a "success target"', (code) => {
     const got = humaniseCritique({ code, message: '' })
-    expect(`${got.title} ${got.description} ${got.suggestion ?? ''}`.toLowerCase()).not.toContain('success target')
+    // Hyphen-safe (Canvas #2114 N1): "success-target factors" evaded a plain substring.
+    expect(`${got.title} ${got.description} ${got.suggestion ?? ''}`).not.toMatch(/success[\s-]?target/i)
   })
 
   it('the served siblings now say limit', () => {

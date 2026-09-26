@@ -318,7 +318,10 @@ describe('MOUNT PATH — the declarations this experiment depends on', () => {
   })
 
   it('asks the shell for the reanalyse footer, so no second run authority exists', () => {
-    expect(WORKSPACE_SURFACES.analysisNew.footerBar).toBe('reanalyse')
+    // 26 Sep 2026: the same `ReanalyseBar`, same handler, hosted only AFTER the
+    // first run — pre-run the body's "Run the analysis" is the one control
+    // (register row #31). Still no second run authority.
+    expect(WORKSPACE_SURFACES.analysisNew.footerBar).toBe('reanalyseAfterFirstRun')
     // CONTRAST CONTROL: the three footer arms are genuinely different.
     expect(WORKSPACE_SURFACES.results.footerBar).toBe('none')
     expect(WORKSPACE_SURFACES.olumi.footerBar).toBe('readiness')
@@ -399,7 +402,7 @@ describe('A · THE EXISTING ANALYSIS TAB IS UNCHANGED', () => {
  * inverse of each — live in `OutputsDock.defaultTab.spec.tsx`. This section
  * keeps only the claim it was always making: which surface the dock opens on.
  */
-describe('B · THE NEW TAB IS MOUNTED, AND IS NOW THE DEFAULT (ruling reversed 9 Sep 2026)', () => {
+describe('B · THE NEW TAB IS MOUNTED (the default from 9 Sep 2026 until 26 Sep 2026, now Olumi)', () => {
   it('appears in the strip under its exact label', () => {
     renderDock()
     const tab = screen.getByTestId(NEW_TAB)
@@ -407,14 +410,17 @@ describe('B · THE NEW TAB IS MOUNTED, AND IS NOW THE DEFAULT (ruling reversed 9
     expect(tab).toHaveTextContent('Reasoning')
   })
 
-  it('Reasoning, not Analysis, is what the dock opens on', () => {
+  // ⚠ REVERSED AGAIN, 26 Sep 2026: the 25 Sep design prototype (the locked
+  // canvas contract, which Paul on 26 Sep asked us to complete) opens on Olumi,
+  // so the default moved off Reasoning (`DEFAULT_WORKSPACE_SURFACE`). The case
+  // keeps its claim — which surface the dock opens on — and names the new one.
+  it('Olumi, not Reasoning or Analysis, is what the dock opens on (26 Sep 2026; Reasoning from 9 Sep)', () => {
     renderDock()
-    expect(screen.getByTestId(BODY)).toBeInTheDocument()
-    // Bound by identity on BOTH tabs, so a strip that lost its selection
-    // entirely — or fronted both — cannot satisfy this.
-    expect(screen.getByTestId(NEW_TAB)).toHaveAttribute('aria-selected', 'true')
+    // Bound by identity on all THREE tabs, so a strip that lost its selection
+    // entirely — or fronted two — cannot satisfy this.
+    expect(screen.getByTestId('outputs-dock-tab-olumi')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId(NEW_TAB)).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByTestId(OLD_TAB)).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByTestId('analysis-new-tab-body')).toBeInTheDocument()
     // ⚠ AND THE GLOBAL DELIBERATELY DISAGREES ON A FRESH MOUNT. The dock's
     // default is its own; `useUIStore.activeOutputTab` keeps its initial
     // 'results' because it is a global with consumers outside this dock, and

@@ -35,7 +35,12 @@ import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
 import { usePanelWidth } from './usePanelWidth'
-import { SHELL_TABSTRIP_COMPACT_BELOW_PX, type WorkspaceSurfaceDescriptor } from './shellContract'
+import {
+  SHELL_TAB_HEIGHT_PX,
+  SHELL_TABSTRIP_COMPACT_BELOW_PX,
+  SHELL_TABSTRIP_HEIGHT_PX,
+  type WorkspaceSurfaceDescriptor,
+} from './shellContract'
 
 /**
  * The shared class for the row's icon controls. Named once because the row's
@@ -324,7 +329,12 @@ export function WorkspaceShellTabStrip({
     // elements have a role that can hold a name, so neither claim is inert.
     // `noRolelessContainerClaimsTheStripName` pins exactly this distinction —
     // it explicitly exempts `NAV` and fails only on a role-less claimant.
-    <div className="flex items-center gap-2 px-2 py-2">
+    // Contract `.panel-tabs{height:45px}` — see `SHELL_TABSTRIP_HEIGHT_PX`.
+    <div
+      className="flex items-center gap-2 px-2"
+      style={{ height: SHELL_TABSTRIP_HEIGHT_PX }}
+      data-testid="outputs-dock-tabstrip"
+    >
       <span className="sr-only" aria-live="polite">
         {surfaces.find(s => s.id === activeTab)?.label ?? ''}
       </span>
@@ -414,30 +424,38 @@ export function WorkspaceShellTabStrip({
               // PROPORTIONALLY only when the content genuinely does not fit.
               title={surface.label}
               data-testid={`outputs-dock-tab-${surface.id}`}
-              // ⚠ `px-1`, and it must stay ON THE DESIGN-SYSTEM SPACING SCALE
-              // (4·8·12·16·20·24·32·40·48·56·64px). The first attempt used
-              // `px-1.5` — 6px — and `tests/ci-guards/shell-conformance.spec.ts`
-              // correctly REDs it: the shell module is zero-tolerance for
-              // off-scale spacing. 4px is on the scale AND buys more slack than
-              // 6px did, so there was never a trade to make here.
+              // ⚠ `px-2` (8px, the contract's `padding:10px 8px` horizontal),
+              // and it must stay ON THE DESIGN-SYSTEM SPACING SCALE
+              // (4·8·12·16·20·24·32·40·48·56·64px) — `shell-conformance`
+              // REDs off-scale spacing here. The contract's 10px vertical
+              // padding is off-scale, so the tab's HEIGHT is set instead
+              // (`SHELL_TAB_HEIGHT_PX`), which draws the same box.
               //
-              // ⚠⚠ NO FILL, NO UNDERLINE (design-audit-20260925, gap ACTION-1).
-              // The selected tab used a `color-mix(…, 15%, …)` inline tint plus
-              // a `border-b-2` underline — encoding selection twice, and the
-              // tint measured 3.92:1 on the label, under SC 1.4.11's 3:1 floor
-              // for the label ink at that weight. A single `border` at `/80`
-              // clears 3.35:1 on both panel grounds (the same alpha
-              // `PANEL_INSET_ACTION` derives in `panelSurfaces.ts`) and a
-              // border, not a ring, so the existing focus ring still reads as
-              // its own separate rectangle rather than doubling one already
-              // there. `rounded-sm` is `SHELL_RADIUS_PX.input` (8px) — the
-              // shell's own "inputs, small buttons" step, not the loose
-              // Tailwind default.
-              className={`flex-auto min-w-0 px-1 py-1 rounded-sm border ${isCompact ? typography.panelMeta : typography.panelBody} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              // ⚠⚠ SUPERSEDED: "NO FILL, NO UNDERLINE" (design-audit-20260925,
+              // gap ACTION-1, #2036). That rule replaced a `color-mix(…, 15%, …)`
+              // tint plus a `border-b-2` underline with a `border-info/80`
+              // outline at `rounded-sm`, after the 15% tint measured 3.92:1 on
+              // the label. The locked canvas contract asks for the underline
+              // and a MUCH lighter tint (#F3F8FA), and that combination clears
+              // AA for the 11px label: info #277A9D on #F3F8FA is 4.50:1
+              // (sRGB relative luminance 0.168 vs 0.931), 4.82:1 on white.
+              // Selection is still encoded once per channel: colour + one rule.
+              // ⭐ THE CONTRACT'S TAB, NOT AN OUTLINED PILL (DESIGN-GAP #4,
+              // design audit 26 Sep 2026: served tabs were 12px/400 with the
+              // active one a 1px `border-info/80` outline at radius 8, no
+              // underline, no tint). Contract `.panel-tabs button{font-size:
+              // 11px;border-bottom:2px solid transparent}` and
+              // `.panel-tabs button.active{border-color:var(--info);
+              // color:var(--info);background:#F3F8FA}`: square, natural width
+              // (`flex-initial`, left-aligned as in the contract, still
+              // shrinking with `min-w-0` so the label truncates rather than
+              // spills), one 2px underline, one tint.
+              className={`flex-initial min-w-0 px-2 rounded-none border-0 border-b-2 ${typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
-                  ? 'text-info border-info/80'
+                  ? 'text-info border-info bg-[var(--panel-tab-active-bg)]'
                   : 'text-text-body border-transparent hover:text-info'
               }`}
+              style={{ height: SHELL_TAB_HEIGHT_PX }}
             >
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${

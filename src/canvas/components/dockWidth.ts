@@ -74,6 +74,29 @@ export const DOCK_MIN_WIDTH = 280
  * Ceiling for the RESPONSIVE default. Every viewport wide enough to reach it
  * gets it.
  *
+ * ⭐⭐⭐ 319, THE DESIGN CONTRACT'S FLUSH PANEL (26 Sep 2026). The locked visual
+ * contract (`olumi-canvas-visual-contract.html`) states the right panel as
+ * `.ai-panel{position:absolute;right:0;top:51px;bottom:0;width:319px;
+ * border-left:1px solid #DCD7CF}` — flush, not a floating card — and Paul asked
+ * on 26 Sep for the 25 Sep design prototype to be completed. The served dock
+ * (design audit 26 Sep, `853feeb7`) was a 416×721 floating card at (852,63).
+ * This is the PANEL lane's change, reviewed by Panel — the ruling below said
+ * the width was the panel workstream's to decide, and the design contract is
+ * that decision.
+ *
+ * ⚠ THE 17 Aug COST WAS MEASURED BEFORE MOVING IT, NOT ASSUMED. The served
+ * build at `e63c89a0` was loaded at a persisted 319px width (1280×800, pricing
+ * starter) and every visible leaf in all four pre-run tabs was swept for
+ * clipping and for crossing the dock's right edge: 0 and 0 in each tab, against
+ * the same sweep at 416px (13 sr-only `Inspect …` spans report clientWidth 1 at
+ * BOTH widths — the probe's own positive control, not a regression). The one
+ * designed reflow it causes is the Reasoning method strip's compact mode
+ * (`METHOD_STRIP_COMPACT_BELOW_PX`, content < 300): four icons plus the
+ * overflow instead of five. Post-run tab content was not swept (no run is sent
+ * from a measurement); that is stated in the PR as a limit.
+ *
+ * The history below is kept verbatim: it is the record of why 416 stood.
+ *
  * ⛔⛔ 416, AND THE CANVAS LANE MAY NOT CHANGE IT. FOUNDER RULING, 14 Sep 2026:
  * *"That's for the panel Workstream to decide, not you. Your job is to make the
  * graph look as optimal as it can with the space available."*
@@ -96,7 +119,7 @@ export const DOCK_MIN_WIDTH = 280
  * fallback, because the custom property has to have a value before this module
  * runs. `dockCssFallbackAgrees.spec.ts` REDs if the two disagree.
  */
-export const DOCK_RESPONSIVE_MAX_WIDTH = 416
+export const DOCK_RESPONSIVE_MAX_WIDTH = 319
 
 /**
  * The reference viewport the ceiling is sized against — the laptop every

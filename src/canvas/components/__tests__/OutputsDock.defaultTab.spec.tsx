@@ -8,6 +8,17 @@
  * the surface ruled OUT of scope. A fresh, UNCHOSEN session must land on
  * **Reasoning** (`analysisNew`).
  *
+ * ── SUPERSEDED ON ITS FIRST HALF (26 Sep 2026) ──────────────────────────────
+ *
+ * The 25 Sep design prototype (the locked canvas visual contract, whose panel
+ * opens on `<button class="active">Olumi</button>`), which Paul on 26 Sep asked
+ * us to complete, opens on **Olumi**. The newer, explicit instruction wins:
+ * `DEFAULT_WORKSPACE_SURFACE` is `olumi`. Measured on served `853feeb7` (design
+ * audit, register row #31): the dock opened on Reasoning. Every case below that
+ * asserted `analysisNew` AS THE DEFAULT now asserts `olumi`; the cases that
+ * SEED `analysisNew` as a restored choice are unchanged, because the ruling's
+ * second half — Default ≠ override — is unchanged.
+ *
  * ⚠ AND ITS SECOND HALF, WHICH IS THE HALF A NAIVE FIX BREAKS: *preserve user
  * intent*. Default ≠ override. A restored tab, an explicit click, a `?tab=`
  * deep link and a deliberate programmatic activation all outrank the default.
@@ -142,7 +153,7 @@ function startRun() {
   act(() => { useCanvasStore.getState().resultsStart({ seed: 42 }) })
 }
 
-describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling, 9 Sep 2026)', () => {
+describe('the dock opens on Olumi when nobody has chosen (9 Sep 2026 ruling, default superseded 26 Sep 2026)', () => {
   beforeEach(() => {
     ensureMatchMedia()
     vi.clearAllMocks()
@@ -170,7 +181,7 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
    * is the DEFAULT and not a restore. Without that assertion this case would
    * pass just as happily against a leaked `activeTab` from a previous test.
    */
-  it('a fresh session with nothing persisted fronts Reasoning, not Analysis', () => {
+  it('a fresh session with nothing persisted fronts Olumi, not Analysis or Reasoning', () => {
     expect(
       sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY),
       'something was persisted — this case would be measuring a restore, not the default',
@@ -178,11 +189,14 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
 
     renderDock()
 
-    expect(frontedTab()).toBe('analysisNew')
-    // Bound as an ABSENCE on the exact tab Paul measured, so the case REDs if
-    // the strip ever fronts both or reverts.
+    expect(frontedTab()).toBe('olumi')
+    expect(DEFAULT_WORKSPACE_SURFACE).toBe('olumi')
+    // Bound as an ABSENCE on the exact tabs measured (Analysis by Paul on
+    // 9 Sep, Reasoning by the 26 Sep audit), so the case REDs if the strip ever
+    // fronts two or reverts to either.
     expect(screen.getByTestId('outputs-dock-tab-results')).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByTestId('outputs-dock-tab-analysisNew')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('outputs-dock-tab-analysisNew')).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByTestId('outputs-dock-tab-olumi')).toHaveAttribute('aria-selected', 'true')
   })
 
   /**
@@ -213,7 +227,7 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
    */
   it('an explicit click onto Analysis is honoured and not undone', () => {
     renderDock()
-    expect(frontedTab()).toBe('analysisNew')
+    expect(frontedTab()).toBe('olumi')
     act(() => { screen.getByTestId('outputs-dock-tab-results').click() })
     expect(frontedTab()).toBe('results')
   })
@@ -242,7 +256,7 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
    */
   it('honours a forced activation of a live tab, and falls back to the default only for a dead one', () => {
     renderDock()
-    expect(frontedTab()).toBe('analysisNew')
+    expect(frontedTab()).toBe('olumi')
 
     // Honoured: 'results' is presented, so it is NOT remapped to the default.
     act(() => { useUIStore.getState().forceActivateOutputTab('results') })
@@ -254,7 +268,7 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
     // Fallback: 'journey' is hidden by contract and flagged off in this harness,
     // so there is nothing to honour and the session takes the default.
     act(() => { useUIStore.getState().forceActivateOutputTab('journey') })
-    expect(frontedTab()).toBe('analysisNew')
+    expect(frontedTab()).toBe('olumi')
   })
 
   /**
@@ -270,9 +284,9 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
    * (`wasInactive` is false from 'complete'), so measuring a re-run here would
    * pass with the switch fully intact.
    */
-  it('starting the first run does not move a fresh user off Reasoning', () => {
+  it('starting the first run does not move a fresh user off the default (Olumi)', () => {
     renderDock()
-    expect(frontedTab()).toBe('analysisNew')
+    expect(frontedTab()).toBe('olumi')
     expect(useCanvasStore.getState().results.status).toBe('idle')
 
     startRun()
@@ -280,7 +294,7 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
     expect(
       frontedTab(),
       'the run start navigated. It may reveal the dock; it may not choose a tab.',
-    ).toBe('analysisNew')
+    ).toBe('olumi')
   })
 
   /**
@@ -345,7 +359,7 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
    */
   it('an external show-results signal still fronts Analysis', () => {
     renderDock()
-    expect(frontedTab()).toBe('analysisNew')
+    expect(frontedTab()).toBe('olumi')
 
     act(() => { useCanvasStore.getState().setShowResultsPanel(true) })
 
@@ -364,7 +378,12 @@ describe('the dock opens on Reasoning when nobody has chosen (default-tab ruling
     act(() => { screen.getByTestId('outputs-dock-tab-results').click() })
     expect(new URLSearchParams(window.location.search).get('tab')).toBe('results')
 
+    // Reasoning is no longer the default (26 Sep 2026), so it is NAMED now…
     act(() => { screen.getByTestId('outputs-dock-tab-analysisNew').click() })
+    expect(new URLSearchParams(window.location.search).get('tab')).toBe('analysisNew')
+
+    // …and the default, Olumi, is the one the address bar omits.
+    act(() => { screen.getByTestId('outputs-dock-tab-olumi').click() })
     expect(new URLSearchParams(window.location.search).get('tab')).toBeNull()
   })
 })
