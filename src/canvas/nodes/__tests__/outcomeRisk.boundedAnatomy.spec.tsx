@@ -197,7 +197,7 @@ describe('the primary line is ONE visual line; a value leads and is never the th
     ['risk', 'entered (impact only)', { impact: 'high' }, 'risk-exposure-line', 'High impact', 'Entered estimate · High impact'],
   ] as const
 
-  it.each(TEXT_STATES)('%s %s: visible form, full sentence on title AND in sr-only', (kind, _s, data, testId, short, full) => {
+  it.each(TEXT_STATES)('%s %s: visible form, full sentence in sr-only, no native title', (kind, _s, data, testId, short, full) => {
     draw(kind, data)
     const line = screen.getByTestId(testId)
     if (testId === 'outcome-unquantified' || testId === 'risk-exposure-unset') {
@@ -219,7 +219,10 @@ describe('the primary line is ONE visual line; a value leads and is never the th
     const announced = line.querySelector('.sr-only')
     expect(visible?.textContent).toBe(short)
     expect(announced?.textContent).toBe(full)
-    expect(line.getAttribute('title')).toBe(full)
+    // Design audit #13 (26 Sep): no native `title`. The line wraps and is
+    // never cut (v3.1), provenance rides the line (" · entered"), and the full
+    // sentence stays sr-only and in the popover (MOVE, DON'T DELETE, below).
+    expect(line.hasAttribute('title')).toBe(false)
     // The short form IS the tail of the sentence it stands in for — the state
     // (or the figures) — so the words that moved off are the leading label.
     expect(full.toLowerCase().endsWith(short.toLowerCase())).toBe(true)

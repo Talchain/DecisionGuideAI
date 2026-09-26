@@ -215,7 +215,6 @@ export function NodeValueEditor({
           data-testid={testId}
           className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
           aria-label={`${ariaLabel} — click to edit`}
-          title="Click to edit"
           {...guard}
           onClick={(e) => { e.stopPropagation(); open() }}
         >

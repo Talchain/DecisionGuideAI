@@ -531,7 +531,6 @@ export const RiskNode = memo((props: NodeProps) => {
       className={`${typography.edgeLabel} text-text-light break-words`}
       data-testid={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'}
       data-card-primary-line="risk"
-      title={exposureFull}
     >
       <span aria-hidden="true">{exposureReadout || RISK_EXPOSURE_UNSET_LINE}</span>
       {exposureReadout && (
