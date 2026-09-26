@@ -24,7 +24,7 @@ import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 import type { AnalysisNewViewModel } from '../analysisNewTypes'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelFigure } from '../PanelFigure'
-import { action, ACTION_FOCUS } from '../panelSurfaces'
+import { action } from '../panelSurfaces'
 import { ASSUMPTIONS_DOOR_COPY as DOOR } from '../assumptionsDoorCopy'
 import { buildReasoningSignals, type FlipThresholdRow } from '../reasoningSignals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
@@ -249,14 +249,19 @@ export function ReasoningSignals({
                          is `truncate`d in a 1fr column, and this tooltip is a
                          mouse reader's only way to read a long one. */
                       title={`${row.label} · ${DOOR.reviewDriver}`}
-                      /* A persistent DOTTED underline is the touch affordance
-                         (RULE B, WCAG SC 1.4.1: colour alone on hover is
-                         nothing on touch); dotted keeps three names from
-                         reading as three links. */
-                      className={`${typography.panelBody} text-text-body min-w-0 truncate text-left rounded-sm underline decoration-dotted decoration-border-emphasis underline-offset-[3px] hover:text-info hover:decoration-info ${ACTION_FOCUS}`}
+                      /* ⭐ A NAMED TIER (`noActIsSpelledByHand`): `disclose`
+                         is body ink with an info hover, and brings the 24px
+                         floor a hand-spelled class never had. The persistent
+                         DOTTED underline sits on the label as the touch
+                         affordance (RULE B, WCAG SC 1.4.1: colour alone on
+                         hover is nothing on touch); dotted keeps three names
+                         from reading as three links. */
+                      className={`${typography.panelBody} ${action('disclose')} group min-w-0`}
                       data-testid={`${testId}-driver-name`}
                     >
-                      {row.label}
+                      <span className="min-w-0 truncate underline decoration-dotted decoration-border-emphasis underline-offset-[3px] group-hover:decoration-info">
+                        {row.label}
+                      </span>
                     </button>
                   ) : (
                     <span
@@ -304,19 +309,21 @@ export function ReasoningSignals({
           data-finding-id={gap.findingId}
           data-gap-kind={gap.kind}
         >
-          <div className="flex items-center justify-between gap-2">
-            <span className={`${typography.panelBody} text-text-body min-w-0`} data-testid={`${testId}-gap-headline`}>
-              {gap.headline}
-            </span>
+          {/* The ✦ sits INSIDE the headline's line, as `.ai-inline` does after
+              "Still open" in the commitment — a sentence with its ask, not a
+              flex row of acts (`oneActRowLayout`). */}
+          <p className={`${typography.panelBody} text-text-body m-0`}>
+            <span data-testid={`${testId}-gap-headline`}>{gap.headline}</span>
             {gap.ask && onAsk ? (
               <PanelIconButton
                 ai
+                inline
                 label={DOOR.askGap}
                 onClick={() => onAsk(gap.ask as AskOlumiPayload)}
                 testId={`${testId}-gap-ask`}
               />
             ) : null}
-          </div>
+          </p>
           {gap.detail ? (
             <span className={`${typography.panelMeta} text-text-light block`} data-testid={`${testId}-gap-detail`}>
               {gap.detail}
