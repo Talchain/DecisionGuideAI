@@ -213,9 +213,11 @@ describe('the form — the prototype goal-form, under the row rather than in pla
     fireEvent.click(screen.getByLabelText('A target'))
     fireEvent.change(screen.getByTestId(`${T}-input`), { target: { value: '125' } })
     fireEvent.click(screen.getByTestId(`${T}-save`))
-    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least', {
-      onSendSettled: undefined,
-    })
+    // The four values the write carries are this spec's claim. The fifth
+    // argument is the send-settlement hook, which the strip's own mount owns
+    // (on staging since #2064 it is a function); it is not this change's.
+    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least', expect.anything())
+    expect(proposeGoalTarget).toHaveBeenCalledTimes(1)
     expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
     expect(showToast).toHaveBeenCalledWith(COPY.successTarget.dispatched)
   })
