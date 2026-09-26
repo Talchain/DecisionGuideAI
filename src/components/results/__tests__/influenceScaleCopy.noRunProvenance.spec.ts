@@ -217,7 +217,7 @@ describe('influence copy — no string attributes the figure to the analysis run
   })
 
   it('the relative arm is untouched — its claim was about SCALING, never provenance', () => {
-    expect(influenceExplanation('normalised_elasticity')).toContain('The top driver always shows 100%')
+    expect(influenceExplanation('normalised_elasticity')).toContain('The strongest factor always shows 100%')
     expect(influenceBasisNoun('normalised_elasticity')).toBe('Relative influence')
   })
 })

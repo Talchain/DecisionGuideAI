@@ -30,7 +30,7 @@ import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpe
 import { EMPTY_STATES } from './emptyStates'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel } from './utils/cleanFactorLabel'
-import { INFLUENCE_TIE_EPSILON, type DriverDisplayProvenance } from './driverDisplayModel'
+import { INFLUENCE_TIE_EPSILON, yieldCrownToDriverLeader, type DriverDisplayProvenance } from './driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
@@ -353,6 +353,7 @@ function DriverRow({
   onSendMessage,
   expertMode,
   isTopDriver,
+  driverLeader,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
@@ -367,6 +368,9 @@ function DriverRow({
   expertMode?: boolean
   /** Brief 5.4 Phase 3 (Path A): technique hint chip only shown on top-ranked driver */
   isTopDriver?: boolean
+  /** The run's one driver authority (`DriversSectionData.driverLeader`): the
+   *  "Top driver" pill yields to it (`yieldCrownToDriverLeader`). */
+  driverLeader?: DriversSectionData['driverLeader']
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -650,10 +654,19 @@ function DriverRow({
           moderate: 'Moderate influence',
           minor: 'Lower influence',
         }
-        const pillText = INFLUENCE_PILL[driver.semanticLabel] ?? 'Lower influence'
+        // ⭐ ONE TOP DRIVER (served 7ad369b7): "Top driver" only on the row the
+        // run's driver authority also ranks first; any other crowned row reads
+        // its tier off the same number its bar prints (`sensitivityValue`).
+        const pillLabel = yieldCrownToDriverLeader(
+          driver.factorKey,
+          driver.semanticLabel,
+          sensitivityValue ?? 0,
+          driverLeader,
+        )
+        const pillText = INFLUENCE_PILL[pillLabel] ?? 'Lower influence'
         // Subtle emphasis for the strongest influence — colour conveys
         // prominence, NOT confidence/quality (outlined, text-text-body per DS).
-        const emphasised = driver.semanticLabel === 'biggest' || driver.semanticLabel === 'strong'
+        const emphasised = pillLabel === 'biggest' || pillLabel === 'strong'
         return (
           <div className="flex items-center gap-1.5 px-3 pb-1 flex-wrap">
             <span
@@ -1252,6 +1265,7 @@ export function DriversSection({
               onSendMessage={onSendMessage}
               expertMode={expertMode}
               isTopDriver={index === 0}
+              driverLeader={data.driverLeader}
             />
           )
         })}

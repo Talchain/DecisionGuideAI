@@ -873,7 +873,7 @@ function buildDrivers(
    * when that row carries no figure at all.
    *
    * ⛔ WHY THIS EXISTS, AND WHY IT IS NOT `fraction`. The caveat above the
-   * chart promises "The top driver always shows 100%". That is a claim about
+   * chart promises "The strongest factor always shows 100%". That is a claim about
    * the FIGURE in `driverFinding.implication`, which is `pct(displayInfluence)`
    * — the PRODUCER's value, deliberately never rescaled here. The BAR is a
    * different quantity: `magnitude / strongest` over the rows that SURVIVED
