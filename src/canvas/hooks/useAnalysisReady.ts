@@ -58,12 +58,61 @@ export function useAnalysisMayRun(): boolean | undefined {
  * Anything else is `undefined`: NOT "no", but "no bound verdict", and the
  * caller falls back exactly as it did before `may_run` existed.
  *
- * `reasonCodes` are the admission's own reason codes, carried WITH the verdict
- * so a refusal is worded by the authority that made it.
+ * `wording` is the admission's OWN refusal text, carried WITH the verdict so a
+ * refusal is worded by the authority that made it (see {@link AdmissionRefusalWording}).
  */
 export interface BoundAdmission {
   mayRun: boolean
+  wording: AdmissionRefusalWording
+}
+
+/**
+ * What CEE's admission itself says about a refusal, most specific first. Served
+ * (OpenAI route, CEE `85ce874`, an agent-added option; `boundAdmissionGate.spec.ts`):
+ * `missing_important_inputs` carried "An option is not connected from the
+ * decision. Link the decision to it." while the reason CODES were only
+ * `MODEL_HAS_BLOCKERS`, which no code vocabulary can turn into a named cause
+ * (independent review of #2053, 5841669035 B1).
+ */
+export interface AdmissionRefusalWording {
+  /** `missing_important_inputs[].why_it_matters` for every input CEE REQUIRES (not `offered`), in CEE's order. */
+  requiredInputs: readonly string[]
+  /** The `structurally_analysable` reason's `message` (CEE's `blockedNextStep`) when that reason refuses. */
+  structural: string | null
+  /** Every reason code, for the shared code vocabulary as a last resort. */
   reasonCodes: readonly string[]
+}
+
+const NO_WORDING: AdmissionRefusalWording = { requiredInputs: [], structural: null, reasonCodes: [] }
+/** The two `structurally_analysable` codes that admit a run; any other code there is a refusal. */
+const ADMITTING_STRUCTURAL_CODES: ReadonlySet<string> = new Set(['READY_TO_COMPARE', 'RUN_WILL_EXCLUDE_OPTIONS'])
+
+function nonEmptyString(v: unknown): string | null {
+  return typeof v === 'string' && v.trim().length > 0 ? v.trim() : null
+}
+
+function readRefusalWording(admission: unknown): AdmissionRefusalWording {
+  if (admission === null || typeof admission !== 'object') return NO_WORDING
+  const a = admission as Record<string, unknown>
+  const reasons = (Array.isArray(a.reasons) ? a.reasons : []).filter(
+    (r): r is Record<string, unknown> => r !== null && typeof r === 'object',
+  )
+  const reasonCodes = reasons.map((r) => nonEmptyString(r.code)).filter((c): c is string => c !== null)
+  const structuralReason = reasons.find((r) => r.field === 'structurally_analysable')
+  const structuralCode = nonEmptyString(structuralReason?.code)
+  const structural =
+    structuralCode !== null && !ADMITTING_STRUCTURAL_CODES.has(structuralCode)
+      ? nonEmptyString(structuralReason?.message)
+      : null
+  const requiredInputs: string[] = []
+  for (const m of Array.isArray(a.missing_important_inputs) ? a.missing_important_inputs : []) {
+    if (m === null || typeof m !== 'object') continue
+    const item = m as Record<string, unknown>
+    if (item.obligation === 'offered') continue
+    const sentence = nonEmptyString(item.why_it_matters)
+    if (sentence !== null && !requiredInputs.includes(sentence)) requiredInputs.push(sentence)
+  }
+  return { requiredInputs, structural, reasonCodes }
 }
 
 const REVISION_PREFIX = 16
@@ -92,25 +141,22 @@ export function selectBoundAdmission(state: {
   const onScreen = state.lastServerGraphHash
   if (typeof onScreen !== 'string' || onScreen.length < REVISION_PREFIX) return undefined
   if (verdictRevision(record) !== onScreen.slice(0, REVISION_PREFIX)) return undefined
-  const admission = record.analysis_admission
-  const reasons =
-    admission !== null && typeof admission === 'object' && Array.isArray((admission as Record<string, unknown>).reasons)
-      ? ((admission as Record<string, unknown>).reasons as unknown[])
-      : []
-  const reasonCodes = reasons
-    .map((r) => (r !== null && typeof r === 'object' ? (r as Record<string, unknown>).code : undefined))
-    .filter((c): c is string => typeof c === 'string' && c.length > 0)
-  return { mayRun: record.may_run, reasonCodes }
+  return { mayRun: record.may_run, wording: readRefusalWording(record.analysis_admission) }
 }
 
 export function selectBoundMayRun(state: Parameters<typeof selectBoundAdmission>[0]): boolean | undefined {
   return selectBoundAdmission(state)?.mayRun
 }
 
-/** The bound verdict's reason codes (empty when there is no bound verdict). */
-export function useBoundAdmissionReasonCodes(): readonly string[] {
-  const codes = useCanvasStore((s) => selectBoundAdmission(s)?.reasonCodes.join('\u0000') ?? '')
-  return useMemo(() => (codes === '' ? [] : codes.split('\u0000')), [codes])
+/** The bound verdict's own refusal wording (`undefined` when there is no bound verdict). */
+export function useBoundAdmissionWording(): AdmissionRefusalWording | undefined {
+  // Serialised for the store subscription, so an equal wording on a new object
+  // does not re-render its readers; parsed once per change.
+  const key = useCanvasStore((s) => {
+    const bound = selectBoundAdmission(s)
+    return bound === undefined ? '' : JSON.stringify(bound.wording)
+  })
+  return useMemo(() => (key === '' ? undefined : (JSON.parse(key) as AdmissionRefusalWording)), [key])
 }
 
 /**

@@ -188,7 +188,7 @@ import {
   selectAnalysisReadinessAuthority,
   useAnalysisReadinessAuthority,
 } from '../state/analysisStateSelector'
-import { selectBoundMayRun, useAnalysisMayRun, useBoundAdmissionReasonCodes } from '../hooks/useAnalysisReady'
+import { selectBoundMayRun, useAnalysisMayRun, useBoundAdmissionWording } from '../hooks/useAnalysisReady'
 // ROADMAP 2.635 (I-4) — read at DISPATCH time, not via a render-scope selector:
 // the whole point of the licence barrier is to see the store as it is when the
 // run actually goes out, not as it was when the gate was computed.
@@ -1415,7 +1415,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // CEE's admission verdict for this turn — the same fact the chat chip gates
   // on, so the two affordances cannot tell different stories about one payload.
   const analysisMayRun = useAnalysisMayRun()
-  const admissionReasonCodes = useBoundAdmissionReasonCodes()
+  const admissionWording = useBoundAdmissionWording()
 
   // C1 review: the orphan-banner footer suppression is GONE. It rested on a
   // premise that is false at this ref — it claimed the footer would carry
@@ -1495,7 +1495,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // never `allowed`, and quietly widening its remit would falsify its own
     // comment. Same selector the chip gate uses, so one fact, one owner.
     mayRun: analysisMayRun,
-    admissionReasonCodes,
+    admissionWording,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,

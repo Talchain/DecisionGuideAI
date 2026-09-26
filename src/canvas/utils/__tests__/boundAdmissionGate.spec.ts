@@ -26,6 +26,8 @@ import { canRunAnalysis, readinessObjectsToRun, type CanRunAnalysisParams } from
 import { selectAnalysisReadinessAuthority } from '../../state/analysisStateSelector'
 import { selectBoundAdmission, selectBoundMayRun } from '../../hooks/useAnalysisReady'
 import type { GraphReadiness } from '../../hooks/useGraphReadiness'
+import { BLOCKED_REASON_COPY } from '../composeBlockedReason'
+import SERVED from './fixtures/openai-85ce874-added-option-refusal.turn.json'
 
 const HASH = '449b882e043ae3e3'
 const FULL_HASH = '449b882e043ae3e371b65f1f386fb8a6122538e3b16cb70269059d62854578c8'
@@ -143,7 +145,18 @@ describe('selectBoundMayRun — a verdict counts only for the revision it was co
     })
     expect(selectBoundAdmission(store({ ceeAnalysisReady: refused }))).toEqual({
       mayRun: false,
-      reasonCodes: ['OPTION_NOT_LINKED_TO_DECISION'],
+      wording: { requiredInputs: [], structural: 'An option is not connected to the decision.', reasonCodes: ['OPTION_NOT_LINKED_TO_DECISION'] },
+    })
+  })
+
+  it('⭐ SERVED: the refusal carries CEE\'s own words, bound to the served revision', () => {
+    const bound = selectBoundAdmission(store({ ceeAnalysisReady: SERVED.analysis_ready, lastServerGraphHash: SERVED.graph_hash }))
+    expect(bound?.mayRun).toBe(false)
+    expect(bound?.wording).toEqual({
+      // the one input CEE REQUIRES; the `offered` value question is not a requirement
+      requiredInputs: ['An option is not connected from the decision. Link the decision to it.'],
+      structural: 'Review all 2 readiness issues together before analysis.',
+      reasonCodes: ['MODEL_HAS_BLOCKERS', 'MODEL_HAS_BLOCKERS', 'CONFIDENCE_PARAMETERS_PARTLY_USER_STATED', 'MODEL_HAS_BLOCKERS'],
     })
   })
 })
@@ -170,18 +183,57 @@ describe('readinessObjectsToRun — the bound verdict decides; the side-car is o
   })
 })
 
-describe('canRunAnalysis — a bound refusal names its reason in the one vocabulary', () => {
-  it('⭐ OPTION_NOT_LINKED_TO_DECISION is named, not a generic line and not the side-car', () => {
-    const result = gate({ readiness: null, mayRun: false, admissionReasonCodes: ['OPTION_NOT_LINKED_TO_DECISION'] })
+describe('canRunAnalysis — a bound refusal is worded from the most specific source that exists', () => {
+  const servedWording = () =>
+    selectBoundAdmission(store({ ceeAnalysisReady: SERVED.analysis_ready, lastServerGraphHash: SERVED.graph_hash }))!.wording
+  // The served turn's own readiness authority: `unknown`, no blockers, so the BOUND verdict decides.
+  const servedAuthority = () => selectAnalysisReadinessAuthority(wireState(SERVED.analysis_state_readiness as never))
+
+  it('PRECONDITION: on the served turn the bound verdict is what refuses (the turn\'s readiness names nothing)', () => {
+    expect(SERVED.analysis_state_readiness).toEqual({ status: 'unknown', blockers: [] })
+    expect(readinessObjectsToRun(null, servedAuthority(), false)).toBe(true)
+    expect(readinessObjectsToRun(null, servedAuthority(), undefined)).toBe(false)
+  })
+
+  it('⭐ SERVED: the refusal names the cause CEE requires, not the generic line', () => {
+    const result = gate({ readiness: null, analysisReadiness: servedAuthority(), mayRun: false, admissionWording: servedWording() })
     expect(result.allowed).toBe(false)
+    expect(result.blockedListing?.sentences.map((x) => x.text)).toEqual([
+      'An option is not connected from the decision. Link the decision to it.',
+    ])
+  })
+
+  it('⭐ REVIEW PROBE (5841669035): served codes WITHOUT messages and a side-car naming its cause keep the side-car\'s cause', () => {
+    const named = { ...SIDE_CAR_OBJECTS, blocker_reason: 'Option "Cohort pricing" is not connected to the decision.' }
+    const result = gate({
+      readiness: named,
+      analysisReadiness: null,
+      mayRun: false,
+      admissionWording: { requiredInputs: [], structural: null, reasonCodes: ['MODEL_HAS_BLOCKERS', 'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED', 'NO_COMPARISON_SUBSTRATE'] },
+    })
+    expect(result.reason).toContain('Option "Cohort pricing" is not connected to the decision.')
+    expect(result.reason).not.toContain(BLOCKED_REASON_COPY.unspecified)
+  })
+
+  it('with no required input and no side-car cause, CEE\'s structural sentence is used', () => {
+    const result = gate({
+      readiness: null,
+      mayRun: false,
+      admissionWording: { requiredInputs: [], structural: 'Review all 2 readiness issues together before analysis.', reasonCodes: ['MODEL_HAS_BLOCKERS'] },
+    })
+    expect(result.blockedListing?.sentences.map((x) => x.text)).toEqual(['Review all 2 readiness issues together before analysis.'])
+  })
+
+  it('codes alone: a mapped code is named through the one vocabulary', () => {
+    const result = gate({ readiness: null, mayRun: false, admissionWording: { requiredInputs: [], structural: null, reasonCodes: ['OPTION_NOT_LINKED_TO_DECISION'] } })
     expect(result.reason).toContain('An option is not linked to the decision.')
   })
 
   it('an unmapped code falls back to the honest generic line, never the raw code', () => {
-    const result = gate({ readiness: null, mayRun: false, admissionReasonCodes: ['SOME_FUTURE_CODE'] })
+    const result = gate({ readiness: null, mayRun: false, admissionWording: { requiredInputs: [], structural: null, reasonCodes: ['SOME_FUTURE_CODE'] } })
     expect(result.allowed).toBe(false)
     expect(result.reason).not.toContain('SOME_FUTURE_CODE')
-    expect((result.reason ?? '').length).toBeGreaterThan(0)
+    expect(result.blockedListing?.sentences.map((x) => x.text)).toEqual([BLOCKED_REASON_COPY.unspecified])
   })
 
   it('a bound admission opens the gate over the objecting side-car', () => {
