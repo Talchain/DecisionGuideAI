@@ -75,6 +75,23 @@ describe('the served "-0.487 / -0.315 / -0.143 / 0.029" axis', () => {
     for (const tick of SERVED_TICKS) expect(text, `served tick ${tick}`).not.toContain(tick)
   })
 
+  it('the model-scale axis still says which way is which: "Lower" … "Higher", no numbers', () => {
+    renderOpen(withOutcomes(SERVED_DOMAIN))
+    const ends = screen.getByTestId(`${T}-axis-ends`)
+    expect(within(ends).getByTestId(`${T}-axis-end-lower`).textContent).toBe('Lower')
+    expect(within(ends).getByTestId(`${T}-axis-end-higher`).textContent).toBe('Higher')
+    expect(ends.textContent).not.toMatch(/\d/)
+  })
+
+  it('CONTRAST: a unit-bearing domain keeps its ticks and adds no end words', () => {
+    renderOpen(withOutcomes({
+      opt_a: { mean: 400000, p10: 190000, p50: 400000, p90: 600000 },
+      opt_b: { mean: 700000, p10: 500000, p50: 700000, p90: 890000 },
+    }))
+    expect(screen.getByTestId(`${T}-axis-ticks`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`${T}-axis-ends`)).toBeNull()
+  })
+
   it('R&C B1: a model-scale domain that strays past ±1 (p10 -1.3 … p90 0.4) prints no ticks either — ONE authority with the results hook', () => {
     renderOpen(withOutcomes({
       opt_a: { mean: -0.9, p10: -1.3, p50: -0.9, p90: -0.2 },
