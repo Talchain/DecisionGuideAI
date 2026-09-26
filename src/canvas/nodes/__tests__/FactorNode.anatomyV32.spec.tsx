@@ -280,10 +280,12 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
       expect(screen.queryByTestId(id), id).toBeNull()
     }
     // Design-gap row 10 (contract v3 §02 draft, "Working assumption · no
-    // analysis yet"): v3.2's "nothing more" holds for the card FACE — no second
-    // visible row (ED 5809278282). The pre-run line lives in the popover (and
-    // the value line's accessible text), pinned by FactorNode.noAnalysisYet.spec.
-    expect(visibleText(face())).not.toContain('Working assumption')
+    // analysis yet"). ⛔ SUPERSEDED on the face by DL #70 5849644637 (26 Sep):
+    // the line is VISIBLE in the factor's reserved driver slot — the row the
+    // Run's `Driver N of M analysed` takes later, so a Run never grows the card
+    // (`FactorNode.noGrowthAfterRun.spec.tsx`). The popover keeps the whole
+    // sentence for when the one-line slot ends in an ellipsis.
+    expect(within(face()).getByTestId(`factor-driver-slot-${ID}`).textContent).toBe('Working assumption · no analysis yet')
     expect(within(popover()).getByTestId(`factor-popover-no-analysis-${ID}`).textContent).toBe('Working assumption · no analysis yet')
     expectNothingItMustNeverSay()
   })
@@ -382,6 +384,15 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the ANALYSED c
 })
 
 /*
+ * ⛔⛔ SUPERSEDED AT REST BY DL #70 5849644637 (26 Sep 2026, 20:32Z): "Move 'No
+ * turning point in this run' off the card, into the inspector", "because the
+ * prototype does both" (served 03f60be0: the line was the second row a Run
+ * added to the rank-1 factor, 124.3 → 185.6px). The rows below now pin its
+ * ABSENCE from the resting face, with the driver line as the present control;
+ * the inspector carries the same line from the same gate
+ * (`inspector-v2/__tests__/FactorPanels.turningPointInInspector.spec.tsx`).
+ * Detailed keeps it inline (the CONTRAST row). The history this block pinned:
+ *
  * ⭐ CONTRACT v3.1 POINT 3 (DESIGN-GAP-v31 #38, 26 Sep 2026) REVERSES THIS
  * BLOCK'S RESTING ABSENCE. It pinned ED #63 5806207128 ("No `No turning point
  * available/in this run` line at rest; absence = no mini-visual"). v3.1: "'No
@@ -396,7 +407,7 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — 
   it.each([
     ['an attested no-flip row', [ATTESTED_NO_FLIP_ROW], 'No turning point in this run'],
     ['no row at all', [], 'No turning point available'],
-  ] as const)('with %s: the driver line, then the quiet fallback on the face — "%s"', (_name, flipRows, words) => {
+  ] as const)('with %s: the driver line on the face, and NO "%s" fallback on the card (DL #70 5849644637)', (_name, flipRows, words) => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [...flipRows] })
     renderFactor(VALUED)
@@ -405,13 +416,10 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — 
     // face (prototype, Paul 25 Sep).
     const driver = onFaceNotInPopover('factor-driver-line')
     expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
-    const none = within(face()).getByTestId('factor-turning-point-none')
-    expect(visibleText(none)).toBe(words)
-    expect(before(driver, none)).toBe(true)
-    // Quiet, never an error style (v3.1 point 3).
-    expect(none.className).toContain('text-text-light')
+    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(document.body.textContent).not.toContain(words)
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
-    expectNothingItMustNeverSay({ turningPointFallback: true })
+    expectNothingItMustNeverSay()
   })
 
   it('CONTRAST — Detailed still states the attested search, so the resting absence is the gate, not a dead fixture', () => {
@@ -512,17 +520,16 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     expectNothingItMustNeverSay()
   })
 
-  it('a RANKED factor on a stale run with an attested no-flip says "Last run · No turning point in that run" (v3.1 #38)', () => {
+  it('a RANKED factor on a stale run with an attested no-flip: "Last run · Driver 1 of 6 analysed" on the face, and no turning-point fallback on the card (DL #70 5849644637; the inspector says "Last run · No turning point in that run")', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [ATTESTED_NO_FLIP_ROW] })
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
     expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    // A stale finding keeps `Last run ·` (ED 5809278282), and "that run", never "this run".
-    expect(visibleText(within(face()).getByTestId('factor-turning-point-none'))).toBe('Last run · No turning point in that run')
+    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(document.body.textContent).not.toContain('in this run')
-    expectNothingItMustNeverSay({ turningPointFallback: true })
+    expectNothingItMustNeverSay()
   })
 
   it('an UNRANKED factor on a stale run gains no filler line either', () => {

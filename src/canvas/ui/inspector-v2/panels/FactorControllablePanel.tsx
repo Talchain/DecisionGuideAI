@@ -37,6 +37,7 @@ import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
+import { FactorTurningPointInspectorLine } from '../shared/FactorTurningPointInspectorLine'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
@@ -795,6 +796,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             </div>
           </StaleGuardBanner>
         )}
+        {/* DL #70 5849644637: the turning-point line the card no longer carries. */}
+        {nodeId && <FactorTurningPointInspectorLine nodeId={nodeId} />}
 
       </PanelGroup>
 

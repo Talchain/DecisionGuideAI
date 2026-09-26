@@ -383,15 +383,14 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setMeta({ 'fac-price': DRIVER_META, 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
-    // ⭐ Contract v3.1 point 3 (DESIGN-GAP-v31 #38) RESTORES the resting
-    // fallback that ED #63 5806207128 had removed ("no line at rest") — the
-    // common brief rules v3.1 wins. No row was produced for this factor, so it
-    // is the UNATTESTED form: "No turning point available", never "in this run".
+    // ⛔ The resting "no turning point" fallback (contract v3.1 point 3) moved
+    // OFF the card into the inspector — DL #70 5849644637, 26 Sep ("because the
+    // prototype does both"; pinned in `FactorNode.noGrowthAfterRun.spec.tsx`
+    // and `inspector-v2/__tests__/FactorPanels.turningPointInInspector.spec.tsx`).
     // Positive control: the ranked card mounted with its driver line.
     expect(popoverFinding('Monthly price', 'factor-driver-line')).toBeTruthy()
-    const none = popoverFinding('Monthly price', 'factor-turning-point-none')
-    expect(none.textContent).toContain('No turning point available')
-    expect(document.body.textContent).not.toContain('No turning point in this run')
+    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(document.body.textContent).not.toContain('No turning point')
     cleanup()
     renderCard(FactorNode as never, 'fac-conv')
     expect(popoverFinding('Trial conversion', 'factor-turning-point')).toBeTruthy()

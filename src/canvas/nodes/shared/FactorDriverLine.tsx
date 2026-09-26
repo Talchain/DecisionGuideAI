@@ -102,6 +102,17 @@ export interface FactorDriverLineProps {
    */
   fromLastRun?: boolean
   testId?: string
+  /**
+   * ⭐ THE CARD'S RESERVED ONE-LINE SLOT (DL #70 5849644637; `FactorNode`'s
+   * `factor-driver-slot-*`). The slot owns the top margin and the height; the
+   * line fills it and NEVER WRAPS: the bar gives way first (it shrinks to
+   * nothing before the caption shrinks at all), then the caption ends in an
+   * ellipsis. Nothing is lost — the whole caption is the start of the button's
+   * accessible name and of its tooltip. The focus ring is inset so the slot's
+   * `overflow-hidden` cannot clip it. Omitted → the free-flowing line
+   * (Detailed's Layer 2), unchanged.
+   */
+  inSlot?: boolean
 }
 
 /** ED 5806207128 — the caption, without the caller's `Last run · ` prefix. */
@@ -168,6 +179,7 @@ export function FactorDriverLine({
   importanceBasis,
   fromLastRun = false,
   testId = 'factor-driver-line',
+  inSlot = false,
 }: FactorDriverLineProps) {
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
   const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
@@ -187,7 +199,9 @@ export function FactorDriverLine({
         // zoom the counter-scaled caption wraps, and a flex-wrap row then put the
         // bar on a line of its own; inline, it follows the last word, so the card
         // is one line shorter (NODE-ANATOMY v3.2 L4: shorter cards, not smaller type).
-        className="group nodrag nopan mt-1 block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
+        className={inSlot
+          ? 'group nodrag nopan flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-info rounded'
+          : 'group nodrag nopan mt-1 block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded'}
         onClick={(e) => {
           e.stopPropagation()
           openNodeInspector(nodeId)
@@ -199,7 +213,7 @@ export function FactorDriverLine({
           data-testid={`${testId}-caption`}
           // Regular weight (contract `.driver`; audit T10): the rank is a finding
           // about the factor, secondary to its value line above.
-          className={`${typography.edgeLabel} text-text-body underline-offset-[3px] group-hover:underline`}
+          className={`${typography.edgeLabel} text-text-body underline-offset-[3px] group-hover:underline${inSlot ? ' min-w-0 truncate' : ''}`}
         >
           {caption}
         </span>
@@ -209,7 +223,7 @@ export function FactorDriverLine({
           // The fixture's 30 × 3px, COUNTER-SCALED like the caption beside it
           // (`--canvas-label-scale`), so at the 0.65 landing zoom the bar keeps
           // its proportion to the words instead of shrinking to ~20 × 2px.
-          className="ml-1.5 inline-block align-middle h-[calc(3px*var(--canvas-label-scale,1))] w-[calc(30px*var(--canvas-label-scale,1))] overflow-hidden rounded-full bg-panel-border"
+          className={`ml-1.5 inline-block align-middle h-[calc(3px*var(--canvas-label-scale,1))] w-[calc(30px*var(--canvas-label-scale,1))] overflow-hidden rounded-full bg-panel-border${inSlot ? ' min-w-0 [flex-shrink:1000]' : ''}`}
         >
           <span
             data-testid={`${testId}-bar-fill`}

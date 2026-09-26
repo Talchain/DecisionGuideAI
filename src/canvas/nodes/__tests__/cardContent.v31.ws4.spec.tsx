@@ -313,20 +313,29 @@ describe('#38 — the turning point says its direction in words; "No turning poi
     expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Above 9.5%, the current model comparison changes.')
   })
 
-  it('a RANKED factor whose run ATTESTED no turning point says "No turning point in this run" at Normal zoom (not only Detailed)', () => {
+  // ⛔ SUPERSEDED AT NORMAL ZOOM — DL #70 5849644637 (26 Sep 2026): "Move 'No
+  // turning point in this run' off the card, into the inspector", "because the
+  // prototype does both". The two rows below pinned the fallback ON the card;
+  // they now pin its absence there (the driver line is the present control).
+  // The same fallback, with the same attested / "available" distinction, is in
+  // the inspector (`inspector-v2/__tests__/FactorPanels.turningPointInInspector.spec.tsx`)
+  // and in Detailed; the copy split itself is `FactorTurningPointTrack.spec.tsx` (d).
+  it('a RANKED factor whose run ATTESTED no turning point: no fallback on the card at Normal zoom (moved to the inspector)', () => {
     displayMetadata = SECOND()
     seed(VALUED, { phase: 'post', flipRows: [{ node_id: ID, label: 'Trial conversion', flip_reason: 'no_effect_within_bounds' }] })
     renderFactor(VALUED)
-    const none = within(card()).getByTestId('factor-turning-point-none')
-    expect(visibleText(none)).toBe('No turning point in this run')
+    expect(within(card()).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(within(card()).queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(card().textContent).not.toContain('No turning point')
   })
 
-  it('⛔ contrast — a run that established NOTHING never says "in this run": the quiet fallback is "No turning point available"', () => {
+  it('a RANKED factor whose run established NOTHING: no "No turning point available" on the card either', () => {
     displayMetadata = SECOND()
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
-    const none = within(card()).getByTestId('factor-turning-point-none')
-    expect(visibleText(none)).toBe('No turning point available')
+    expect(within(card()).getByTestId('factor-driver-line')).toBeTruthy()
+    expect(within(card()).queryByTestId('factor-turning-point-none')).toBeNull()
+    expect(card().textContent).not.toContain('No turning point')
   })
 
   it('contrast — an UNRANKED factor shows no turning-point fallback', () => {
