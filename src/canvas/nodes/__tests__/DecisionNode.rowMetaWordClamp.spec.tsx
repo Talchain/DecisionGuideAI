@@ -74,7 +74,7 @@ const optionEdges = optionNodes.map(o => ({ id: `e-${o.id}`, source: DECISION_ID
 
 /** Paul's served model: CEE withheld the leader on CONSTRAINT_TARGET_UNRELIABLE
  *  with no resolvable node, so the card shows the ANONYMOUS title. */
-const WITHHELD_TITLE = "A success target on your model can't be evaluated reliably."
+const WITHHELD_TITLE = "A limit on your model can't be checked reliably."
 /** No remedy since 26 Sep (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that"). The card says the title alone. */
 const OLD_REMEDY = 'Set a current value'
 

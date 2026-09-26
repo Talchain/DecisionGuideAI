@@ -104,7 +104,7 @@ describe('an unresolved label is not a name', () => {
       { ...UNRESOLVABLE_TARGET_UNRELIABLE, affectedNodes: ['dac3fdc3'] },
       new Map([['dac3fdc3', 'Budget Overrun Risk']]),
     )
-    expect(got.title).toBe("Budget Overrun Risk's success target can't be evaluated reliably")
+    expect(got.title).toBe("The limit on Budget Overrun Risk can't be checked reliably")
     expect(got.suggestion).toBe('')
     // Non-vacuity: the named and anonymous forms must actually DIFFER, or the
     // first three assertions are satisfied by a template that never branched.
