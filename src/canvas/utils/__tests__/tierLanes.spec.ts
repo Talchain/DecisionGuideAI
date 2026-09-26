@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
-import { deriveTierLanes, TIER_LANE_TITLES } from '../tierLanes'
+import { deriveTierLanes, TIER_LANE_TITLES, OUTLINE_GROUP_TITLE_BY_TIER } from '../tierLanes'
 import { TIER_BY_KIND } from '../nodeLayoutConstants'
 import { MODEL_GROUP_TITLE } from '../../domain/vocabulary'
 
@@ -73,11 +73,15 @@ describe('the board’s grammar, drawn', () => {
     expect(deriveTierLanes([])).toEqual([])
   })
 
-  it('the titles are the Model outline’s own words, not a second spelling', () => {
+  it('the titles are the contract v3.1 band words (WS1 #26), and the outline keeps its own names beside them', () => {
     const lanes = deriveTierLanes(BOARD)
-    expect(lanes.find(l => l.tier === 1)!.title).toBe(MODEL_GROUP_TITLE.options)
-    expect(lanes.find(l => l.tier === 3)!.title).toBe(MODEL_GROUP_TITLE.outcomesRisks)
-    expect(lanes.find(l => l.tier === 5)!.title).toBe(MODEL_GROUP_TITLE.goal)
+    expect(lanes.find(l => l.tier === 1)!.title).toBe('ALTERNATIVES')
+    expect(lanes.find(l => l.tier === 3)!.title).toBe('OUTCOMES / RISKS')
+    expect(lanes.find(l => l.tier === 5)!.title).toBe('GOAL')
+    // The Model outline's names are kept, visibly different, in one table.
+    expect(OUTLINE_GROUP_TITLE_BY_TIER[1]).toBe(MODEL_GROUP_TITLE.options)
+    expect(OUTLINE_GROUP_TITLE_BY_TIER[3]).toBe(MODEL_GROUP_TITLE.outcomesRisks)
+    expect(OUTLINE_GROUP_TITLE_BY_TIER[5]).toBe(MODEL_GROUP_TITLE.goal)
   })
 
   /**

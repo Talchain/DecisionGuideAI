@@ -431,6 +431,24 @@ const CANVAS = path.join(ROOT, 'src/canvas')
  */
 const ARBITRARY_TEXT_SIZE = /text-\[(?!color:)(?:length:)?([^\]]+)\]/g
 
+/**
+ * A captured arbitrary size, classified. Counter-scaled means `calc(<px> *` one
+ * of the canvas's counter-scale variables:
+ *   · `var(--canvas-label-scale` — every canvas type token;
+ *   · `var(--canvas-far-title-scale, var(--canvas-label-scale` — v3.1 WS1 #25's
+ *     far-rung title (`BaseNode` `FAR_TITLE_TYPE`, set by
+ *     `CanvasLabelScaleSync` from `farTitleScale`, which IS `labelCounterScale`
+ *     at and above the landing floor and holds the contract's 9px chip below
+ *     it). Accepted only WITH its label-scale fallback, so an unset far scale
+ *     still counter-scales.
+ * Anything else is unresolvable to this census and is an error, never a pass.
+ */
+function classifyArbitrarySize(value: string): 'counterscaled' | 'fixed' | 'unresolvable' {
+  if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-(?:far-title-scale,\s*var\(--canvas-)?label-scale/.test(value)) return 'counterscaled'
+  if (/^\d+(?:\.\d+)?px$/.test(value)) return 'fixed'
+  return 'unresolvable'
+}
+
 function census() {
   const tokens = readTypographyTokens()
   const { dirs, entries, errors: scopeErrors } = deriveScope()
@@ -492,9 +510,10 @@ function census() {
         // Tailwind's `color:` type hint makes `text-[…]` a COLOUR, not a size
         // (the rail's resting inks, `nodeCardRailStyles`, gap 34): nothing to census.
         if (value.startsWith('color:')) continue
-        if (/^calc\(\s*\d+(?:\.\d+)?px\s*\*\s*var\(--canvas-label-scale/.test(value)) {
+        const kind = classifyArbitrarySize(value)
+        if (kind === 'counterscaled') {
           push(`counterscaled-${value.match(/(\d+)px/)?.[1]}`, 'arbitrary', true)
-        } else if (/^\d+(?:\.\d+)?px$/.test(value)) {
+        } else if (kind === 'fixed') {
           push(`text-[${value}]`, 'arbitrary', false)
         } else {
           errors.push(`${rel}:${line} unresolvable arbitrary text size: text-[${value}]`)
@@ -553,6 +572,16 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
       .toEqual(['calc(14px*var(--canvas-label-scale,1))', '10px'])
     // CONTRAST — without the hint the value is still captured (and errors as unresolvable).
     expect(read("'text-[rgb(var(--rail-icon-rgb))]'")).toEqual(['rgb(var(--rail-icon-rgb))'])
+  })
+
+  it('CLASSIFIER CONTRACT: the label scale and the far-title scale WITH its label-scale fallback are counter-scales; nothing else is', () => {
+    expect(classifyArbitrarySize('calc(14px*var(--canvas-label-scale,1))')).toBe('counterscaled')
+    expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,var(--canvas-label-scale,1)))')).toBe('counterscaled')
+    expect(classifyArbitrarySize('10px')).toBe('fixed')
+    // CONTRAST — a far scale with no label-scale fallback, or any other variable, is not read as scaled.
+    expect(classifyArbitrarySize('calc(14px*var(--canvas-far-title-scale,1))')).toBe('unresolvable')
+    expect(classifyArbitrarySize('calc(14px*var(--canvas-other-scale,1))')).toBe('unresolvable')
+    expect(classifyArbitrarySize('1.2rem')).toBe('unresolvable')
   })
 
   it('CONTRAST CONTROL: the census can tell counter-scaled from fixed', () => {

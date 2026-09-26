@@ -38,13 +38,13 @@ describe('doors on a model with no options', () => {
     expect(ghostIdsOf(out)).toEqual(['__ghost-factor__'])
   })
 
-  it('offers a door on every tier that has members', () => {
+  it('offers a door on every ROW that has members (risks and outcomes share one — v3.1 WS1 #27)', () => {
     const out = withGhostTiers(
       [node('f1', 'factor'), node('r1', 'risk'), node('o1', 'outcome')],
       tierGhosts,
     )
     expect(ghostIdsOf(out).sort()).toEqual(
-      ['__ghost-factor__', '__ghost-outcome__', '__ghost-risk__'],
+      ['__ghost-consequence__', '__ghost-factor__'],
     )
   })
 

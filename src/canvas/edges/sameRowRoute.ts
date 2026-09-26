@@ -257,3 +257,151 @@ export function routeBoxOf(n: {
   if (!pos || typeof width !== 'number' || typeof height !== 'number') return null
   return { id: n.id, x: pos.x, y: pos.y, width, height }
 }
+
+/**
+ * ⭐⭐ v3.1 WS1 #10 (26 Sep 2026): A LAYERED EDGE NEVER RUNS UNDER A CARD THAT
+ * IS NOT ITS ENDPOINT — it leaves its row, and enters its target's row, by a
+ * vertical lead exactly as deep as needed.
+ *
+ * The near-straight diagonal (`StyledEdge`, contract E9) started at its source
+ * card's own bottom and ended at its target's own top. Two things put it under
+ * cards that were not its endpoints — measured at the landing zoom, 11–21 edges
+ * per starter against 1 of 17 on the prototype:
+ *   · cards in one row are top-aligned with varying heights (v3.1 pt 13), so a
+ *     short card's edge turned while still beside its taller neighbours;
+ *   · a wrapped family (above four cards) has two courses, and an edge to or
+ *     from the far course crossed the near one.
+ * So: sample the diagonal; if it passes under a card of the SOURCE's tier, the
+ * lead-out drops below that card; if under a card of the TARGET's tier, the
+ * lead-in starts above it; repeat. The leads stay as short as the geometry
+ * allows, so edges still fan out across the row gap rather than collapsing
+ * into one horizontal run. With the layout's brick courses (`layout.ts`
+ * `brickRowOffsets`) a vertical lead runs down the gap between two cards.
+ *
+ * `null` — the plain path — when nothing is in the way, for anything that is
+ * not a downward edge between two different tiers, or when the endpoints are
+ * unknown. Offsets are measured from the endpoints xyflow supplies, so the
+ * handle geometry (the target handle on the kind shape) is carried through.
+ */
+export interface LayeredEdgeLeads {
+  /** The y the vertical lead-out ends at (≥ the source point). */
+  outY: number
+  /** The y the vertical lead-in starts at (≤ the target point). */
+  inY: number
+}
+
+/** Clearance kept between a lead's turn and the card it clears, in flow units. */
+const LEAD_CLEARANCE = 10
+/** A graze counts: the test is on the card's full box (probes that grade the
+ *  result use a 3-unit inset, so this is strictly the stricter of the two). */
+const LEAD_HIT_INSET = 0
+const LEAD_SAMPLES = 64
+const LEAD_MAX_ROUNDS = 8
+
+function contractBend(outY: number, inY: number): number {
+  return Math.max(6, Math.min(30, (inY - outY) / 2))
+}
+
+function cubicPoint(sx: number, outY: number, tx: number, inY: number, t: number): { x: number; y: number } {
+  const b = contractBend(outY, inY)
+  const u = 1 - t
+  const x = u * u * u * sx + 3 * u * u * t * sx + 3 * u * t * t * tx + t * t * t * tx
+  const y = u * u * u * outY + 3 * u * u * t * (outY + b) + 3 * u * t * t * (inY - b) + t * t * t * inY
+  return { x, y }
+}
+
+function firstHit(
+  sx: number,
+  outY: number,
+  tx: number,
+  inY: number,
+  obstacles: ReadonlyArray<RouteBox & { tier: number }>,
+): (RouteBox & { tier: number }) | null {
+  for (let i = 1; i < LEAD_SAMPLES; i++) {
+    const p = cubicPoint(sx, outY, tx, inY, i / LEAD_SAMPLES)
+    for (const b of obstacles) {
+      if (
+        p.x > b.x + LEAD_HIT_INSET && p.x < b.x + b.width - LEAD_HIT_INSET &&
+        p.y > b.y + LEAD_HIT_INSET && p.y < b.y + b.height - LEAD_HIT_INSET
+      ) return b
+    }
+  }
+  return null
+}
+
+export function resolveLayeredEdgeLeads(
+  sourceId: string,
+  targetId: string,
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  boxes: ReadonlyArray<RouteBox & { tier: number }>,
+): LayeredEdgeLeads | null {
+  if (!(targetY > sourceY)) return null
+  const src = boxes.find((b) => b.id === sourceId)
+  const tgt = boxes.find((b) => b.id === targetId)
+  if (!src || !tgt || src.tier >= tgt.tier) return null
+  const left = Math.min(sourceX, targetX)
+  const right = Math.max(sourceX, targetX)
+  // Only cards the diagonal could reach: inside its bounding box, and in the
+  // source's or the target's tier (a card of an intermediate tier is not
+  // cleared by a lead, so it is not the leads' question).
+  const obstacles = boxes.filter(
+    (b) =>
+      b.id !== sourceId && b.id !== targetId &&
+      (b.tier === src.tier || b.tier === tgt.tier) &&
+      b.x < right && b.x + b.width > left &&
+      b.y < targetY && b.y + b.height > sourceY,
+  )
+  if (obstacles.length === 0) return null
+  let outY = sourceY
+  let inY = targetY
+  let clear = false
+  for (let round = 0; round < LEAD_MAX_ROUNDS; round++) {
+    const hit = firstHit(sourceX, outY, targetX, inY, obstacles)
+    if (!hit) {
+      clear = true
+      break
+    }
+    if (hit.tier === src.tier) outY = Math.max(outY, hit.y + hit.height + LEAD_CLEARANCE)
+    else inY = Math.min(inY, hit.y - LEAD_CLEARANCE)
+    if (!(inY - outY > 12)) break
+  }
+  if (!clear) {
+    // ⭐ THE GUARANTEE, when the minimal search does not converge: leave below
+    // EVERY source-tier card the diagonal spans, enter above EVERY target-tier
+    // card it spans. The cubic's x runs monotonically from source to target, so
+    // no card of either tier inside that span can be reached.
+    outY = sourceY
+    inY = targetY
+    for (const b of obstacles) {
+      if (b.tier === src.tier && b.y + b.height > sourceY) outY = Math.max(outY, b.y + b.height + LEAD_CLEARANCE)
+      if (b.tier === tgt.tier && b.y < targetY) inY = Math.min(inY, b.y - LEAD_CLEARANCE)
+    }
+    if (!(inY > outY)) return null
+  }
+  if (outY === sourceY && inY === targetY) return null
+  return { outY, inY }
+}
+
+/**
+ * The layered path with its leads: vertical, the contract's near-straight
+ * cubic (`bend = max(6, min(30, Δy/2))`) across the gap, vertical. The label
+ * anchor is the cubic's t = 0.5 point, which is on the drawn line.
+ */
+export function layeredLeadPath(
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  leads: LayeredEdgeLeads,
+): [string, number, number] {
+  const { outY, inY } = leads
+  const bend = contractBend(outY, inY)
+  const path =
+    `M${sourceX},${sourceY} L${sourceX},${outY} ` +
+    `C${sourceX},${outY + bend} ${targetX},${inY - bend} ${targetX},${inY} ` +
+    `L${targetX},${targetY}`
+  return [path, (sourceX + targetX) / 2, (outY + inY) / 2]
+}
