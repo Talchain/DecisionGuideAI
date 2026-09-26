@@ -10,6 +10,7 @@
 import type { GuidanceCategory } from '../../../canvas/stores/guidanceStore'
 import type { FactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
 import type { FlipThresholdLike } from '../utils/selectFlipRisk'
+import type { SensitivityLeader } from '../../../canvas/nodes/shared/rankFactor'
 
 /** §8.2 adaptive help types — internal only, never shown as stages. */
 export type HelpType = 'clarify' | 'broaden' | 'challenge' | 'evaluate' | 'commit'
@@ -408,6 +409,19 @@ export interface StrengthenInputs {
   flipThresholds: readonly FlipThresholdLike[] | null
   fragileEdges: StrengthenFragileEdge[]
   factors: StrengthenFactor[]
+  /**
+   * ⭐ THE CARD'S DRIVER 1 — `data.drivers.driverLeader`, quoted, never
+   * re-derived. `selectNextInputToSet` names this factor or nothing; it no
+   * longer ranks `factors[].influence` (the STRUCTURAL order), which on served
+   * 853feeb7 named an option-set lever with zero sensitivity as "Most
+   * influential of 5 factors". `undefined` (no driver feed / legacy callers)
+   * keeps the influence read.
+   *
+   * ⚠ MIRRORED in `StrengthenContainer` and
+   * `analysisNew/buildStrengthenInputsForAnalysisNew.ts`; deep-equalled by
+   * `strengthenInputsMirror.drift.spec.tsx`.
+   */
+  driverLeader?: SensitivityLeader | null
   robustness: { status: string | null; level: string | null }
   /** Producer-owned bias finding types (e.g. 'narrow_framing') — §8.7's
    * broaden trigger fires ONLY from these, never from local option counting. */

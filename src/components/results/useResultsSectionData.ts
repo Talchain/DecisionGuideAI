@@ -16,6 +16,7 @@ import { useEffect, useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
 import { licensesComparativeLeaderClaim, resolveEffectiveAdmission } from '../../canvas/hooks/useAnalysisReady'
+import { sensitivityLeader } from '../../canvas/nodes/shared/rankFactor'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
@@ -3260,6 +3261,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Top 3 drivers (excluding zero-impact factors)
     const topDrivers = nonZeroImpactDrivers.slice(0, 3)
 
+    // ⭐ ONE DRIVER AUTHORITY (26 Sep 2026, served 853feeb7): the card's own
+    // Driver 1, off the SAME feed the canvas cards rank from. `topDrivers` above
+    // is the structural order and is NOT this — see `DriversSectionData.driverLeader`.
+    const driverLeader = feed.policyRows.length > 0
+      ? sensitivityLeader(feed.policyRows, feed.displayModel)
+      : undefined
+
     // Fix 1: Only set islError when we have NO driver items to show
     // If we have data, prefer showing it even if drivers_status indicates error
     const islErrorMessage = driverItems.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
@@ -3279,6 +3287,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       islError: islErrorMessage,
       // Task 2: Track hidden zero-impact factors
       hiddenZeroImpactCount: zeroImpactCount > 0 ? zeroImpactCount : undefined,
+      driverLeader,
       // B2: Detect dominant factor
       // Priority: PLoT top-level dominant_factor > m1Coaching > local heuristic
       ...(() => {
@@ -3308,7 +3317,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         }
         // DEPRECATION FALLBACK: Remove after 2026-05-12 — local heuristic (UI-SEM-040).
         const legacy = detectDominantFactorLegacy(nonZeroImpactDrivers as any)
-        return legacy ? { dominantFactorId: legacy.dominantFactorId, dominantFactorLabel: legacy.dominantFactorLabel } : {}
+        // ⛔ ONE DRIVER AUTHORITY (26 Sep 2026, served 853feeb7). The heuristic
+        // reads the STRUCTURAL order above, so on its own it can crown a factor
+        // the canvas card does not rank at all (an option-set lever with
+        // elasticity 0). With the producer silent (no `dominant_factor`, no
+        // `driver_order`), the UI may call a factor dominant only when it is
+        // also the card's clear Driver 1. `undefined` = no driver feed: unchanged.
+        const legacyAgreesWithCard =
+          driverLeader === undefined
+          || (driverLeader !== null && driverLeader.leadIsClear && driverLeader.key === legacy?.dominantFactorId)
+        return legacy && legacyAgreesWithCard
+          ? { dominantFactorId: legacy.dominantFactorId, dominantFactorLabel: legacy.dominantFactorLabel }
+          : {}
       })(),
     }
   }, [report, nodes, edges, goalNodeId, outcomeNodeIds])

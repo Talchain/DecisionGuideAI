@@ -21,6 +21,7 @@ import type { MappedDecisionQualityPrompt } from './utils/decisionQualityPrompts
 import type { M2BiasFinding } from './mapM2BiasFindings'
 import type { NotAnalysedReason } from './utils/notAnalysedOptions'
 import type { AnalysisAdmissionV1 } from '../../adapters/cee/types'
+import type { SensitivityLeader } from '../../canvas/nodes/shared/rankFactor'
 
 // Re-export M1 coaching type for component use
 export type { M1CoachingReadiness }
@@ -890,6 +891,25 @@ export interface DriversSectionData {
   dominantFactorId?: string
   /** M1 Coaching: dominant factor label (looked up from drivers) */
   dominantFactorLabel?: string
+  /**
+   * ⭐ THE RUN'S MAIN DRIVER — the canvas card's Driver 1, by id
+   * (`rankFactor.sensitivityLeader` over `selectDriverPolicyFeed(report)`, the
+   * feed the cards, the leader node and this panel all read). The ONE driver
+   * authority for every Analysis-tab reader that names a "main", "dominant" or
+   * "most influential" factor (26 Sep 2026, served 853feeb7).
+   *
+   *   · `{ key, leadIsClear: true }`  — the card prints "Driver 1 of M" on `key`.
+   *   · `{ key, leadIsClear: false }` — the top is not separable; the card ranks
+   *     nobody, so no reader may crown `key`.
+   *   · `null`      — no row carries a magnitude on the card's basis: nothing
+   *     to name.
+   *   · `undefined` — the report carries no driver feed at all.
+   *
+   * ⚠ NOT the same order as `topDrivers`, which is the displayed
+   * `influence_score` (STRUCTURAL weight). On the served pricing run the two
+   * named different factors.
+   */
+  driverLeader?: SensitivityLeader | null
 }
 
 // =============================================================================
