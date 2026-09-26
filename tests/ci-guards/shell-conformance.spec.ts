@@ -592,7 +592,11 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // a NEW token declaration in this same file, adding exactly 2 back by the
     // same "a token's own declaration is the one legitimate raw size" rule
     // as `panelTabular`/`reasoningLead`/`nodeValue` above. 40 - 2 + 2 = 40.
-    'src/styles/typography.ts': 40,
+    // 26 Sep 2026: 40 -> 41. `nodeMark` (v3.1 `.prov`, the card SOURCE MARK) is a
+    // NEW token declared here with its own weight, so `EstimateMarker.tsx` — the
+    // one component that renders marks — carries none (it had gained 1 raw
+    // occurrence in #2085; back to 0, so it is not in this map). Same rule.
+    'src/styles/typography.ts': 41,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 2,
@@ -691,7 +695,9 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // The pair is the whole mechanism: raising the map entry alone would turn
     // the ratchet green and THIS assertion red, so neither end can be hollowed
     // out quietly. `files` stays 28 — no new file entered the map.
-    expect(total).toBe(99)
+    // 26 Sep 2026: 99 -> 100, paired with the `typography.ts` 40 -> 41 above
+    // (the `nodeMark` token). `files` stays 28.
+    expect(total).toBe(100)
   })
 })
 

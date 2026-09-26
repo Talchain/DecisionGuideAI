@@ -80,6 +80,7 @@ import { ModelStrip } from '../sections/ModelStrip'
 import { SuccessTargetLine } from '../sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
+import { VALUE_SOURCE_MARK_LABEL } from '../../../../canvas/nodes/shared/valueSourceMark'
 
 const TID = 'analysis-new-model-strip'
 const T = `${TID}-target`
@@ -99,6 +100,8 @@ const seed = (goalData: Record<string, unknown>) => {
 }
 const UNSET_WITH_UNIT = { goal_threshold_unit: '%' }
 const SET = { goal_threshold_raw: 110, goal_threshold_unit: '%' }
+/** A target the user stated through the control: the one case the goal mark attests as theirs. */
+const USER_SET = { threshold_source: 'user', success_threshold: 110, goal_threshold_unit: '%' }
 
 const PROTOTYPE_EDIT_NAME = 'Describe success in words or set an optional target'
 const PROTOTYPE_ASK_NAME = 'Ask Olumi to help define success'
@@ -302,12 +305,20 @@ describe('the form — the prototype goal-form, under the row rather than in pla
 
 describe('⛔ CONTRAST — the Inspector’s goal control is a different surface and is unchanged', () => {
   it('its default mount still reads "Target · value · provenance · ✦ ✎ Change"', () => {
-    seed(SET)
+    // #2085 (DESIGN-GAP-v31 #22): the provenance is the goal card's ONE mark (`goalTargetSourceMark`),
+    // so "From brief" is no longer a goal-target label at all. A user-stated target reads "Set by you".
+    seed(USER_SET)
     render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={vi.fn()} testId="inspector" />)
     const row = screen.getByTestId('inspector')
     expect(row.textContent).toContain(COPY.successTarget.label)
-    expect(screen.getByTestId('inspector-source').textContent).toBe(VALUE_PROVENANCE_LABEL.brief)
+    expect(screen.getByTestId('inspector-source').textContent).toBe(VALUE_SOURCE_MARK_LABEL.you)
     expect(screen.getByTestId('inspector-edit')).toHaveTextContent(COPY.successTarget.change)
     expect(before(screen.getByTestId('inspector-ask'), screen.getByTestId('inspector-edit'))).toBe(true)
+  })
+
+  it('CONTRAST: a bare threshold no one attests reads "Source not recorded", never "From brief"', () => {
+    seed(SET)
+    render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={vi.fn()} testId="inspector" />)
+    expect(screen.getByTestId('inspector-source').textContent).toBe(VALUE_SOURCE_MARK_LABEL.unknown)
   })
 })
