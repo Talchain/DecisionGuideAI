@@ -109,7 +109,7 @@
 
 import { NodeKind } from '@talchain/schemas/boundary'
 import type { SystemEventTurnPayload } from '@talchain/schemas/boundary'
-import type { Node } from '@xyflow/react'
+import type { Edge, Node } from '@xyflow/react'
 
 import { isWireUsableLabel } from './structuralRename'
 
@@ -157,6 +157,17 @@ export interface StructuralAddIntent {
   readonly nodeKind: string
   /** The label the user typed. */
   readonly label: string
+  /**
+   * What THIS gesture minted, exactly as the canvas held it at capture: the
+   * node, and any link the same gesture drew to it (the store's
+   * `addNodeWithEdge`, e.g. "+ Add option"). An applied receipt's
+   * acknowledgement undoes ONLY these, and only while they still project
+   * exactly as minted (`ownOptimisticWrite.ts` `beforeOwnAdd`). A local write
+   * that lands on the new node or its link while the add is in flight is not
+   * this add's, so it must never be acknowledged with it (#2070 review
+   * 5842051351).
+   */
+  readonly minted?: { readonly node: Node; readonly edges: readonly Edge[] }
   /**
    * The CEE-stamped `aag_v1` hash of the graph the user was looking at, or
    * `null` when NO turn had stamped one yet — the restored-graph case.
@@ -291,6 +302,7 @@ export function captureStructuralAdd(
       nodeKind,
       label,
       baseGraphHash,
+      minted: { node, edges: [] },
     },
   }
 }

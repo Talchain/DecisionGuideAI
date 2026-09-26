@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:7968
+src/canvas/store.ts:7984
 src/canvas/stores/readinessStore.ts:782
 src/canvas/stores/readinessStore.ts:875
 src/canvas/utils/briefValidation.ts:43
@@ -131,6 +131,10 @@ src/types/constraints.ts:78
 #    `canvas/add-option-link-contract` (26 Sep 2026): `settleStructuralAdd`
 #    also records the committed graph's incident edge keys, above this site.
 #    Line text identical; added and gone were exactly this pair.)
+#    (`store.ts:7968` -> `7984`, a pure +16 line shift from
+#    `canvas/ack-own-add-receipt` (26 Sep 2026, #2070 review): `addNodeWithEdge`
+#    records the link it drew in the add intent's `minted` snapshot, above this
+#    site. Line text identical; added and gone were exactly this pair.)
 #    (`analysisNewCopy.ts:2463` -> `2471`, a pure +8 line shift from Panel
 #    bundle 2: copy for the blocker repair ask and #1963's tail subtitles,
 #    both above this site. Line text identical; added and gone were

@@ -1380,6 +1380,21 @@ export function attachAnalysisReadyToInlineDraftGraph(
   }
 }
 
+/**
+ * The endpoint pair a `structural_add_edge` turn SENT, which is the only thing
+ * that names its own write (the drain passes no intent in opts). `undefined` for
+ * any other kind, or a payload without two string endpoints.
+ */
+function ownAddEdgePair(
+  systemEvent: SystemEvent | undefined,
+): { from: string; to: string } | undefined {
+  if (systemEvent?.type !== 'structural_add_edge') return undefined
+  const pl = systemEvent.payload as Record<string, unknown> | undefined
+  const from = pl?.from
+  const to = pl?.to
+  return typeof from === 'string' && typeof to === 'string' ? { from, to } : undefined
+}
+
 function asOptionalString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
@@ -5473,6 +5488,10 @@ export function useConversation(): UseConversationReturn {
                   structuralDelete: opts.structuralDelete,
                   structuralRename: opts.structuralRename,
                   optimisticEdgeEdit: opts.optimisticEdgeEdit,
+                  structuralAdd: opts.structuralAdd,
+                  // A drawn link's own write is named by the pair it SENT —
+                  // the payload is this turn's, so it cannot be another's.
+                  structuralAddEdge: ownAddEdgePair(systemEvent),
                 },
                 target.response,
                 canvasAtReceipt,
@@ -5503,10 +5522,17 @@ export function useConversation(): UseConversationReturn {
               const merged = reconcileAppliedGraph(inlineGraph as any, { analysisHashUnmoved })
               if (receiptExtendsAcknowledgement) {
                 const afterReceipt = useCanvasStore.getState()
+                // An own link the commit does not carry yet (an add's chained
+                // link, still on its own way) is not acknowledged with it: mark
+                // exactly what CEE holds, and let that link's receipt close the
+                // chain. The canvas as it stands stays unacknowledged meanwhile.
+                const notYetCommitted = new Set(canvasBeforeOwnWrite?.notYetCommittedEdgeIds ?? [])
                 markGraphServerAcknowledged(
                   afterReceipt.currentScenarioId,
                   afterReceipt.nodes as never,
-                  afterReceipt.edges as never,
+                  (notYetCommitted.size > 0
+                    ? afterReceipt.edges.filter((e) => !notYetCommitted.has(e.id))
+                    : afterReceipt.edges) as never,
                 )
               }
               // ⭐ ANY applied receipt can prove an unconfirmed delete (Panel's
