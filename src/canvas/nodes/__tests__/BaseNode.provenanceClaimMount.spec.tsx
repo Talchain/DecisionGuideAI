@@ -170,9 +170,13 @@ describe('⛔ THE TWIN, UPDATED 24 Sep 2026 (GAP-16) — a valued card states th
    * `BaseNode.gap16NoDuplicateHeaderProvenance.spec.tsx`, which is the file to
    * read for the full picture.
    */
-  // ⛔ review 5822866079: `cee_inference` WITHOUT extractionType reads `unknown` on the
-  // value line, so the header is the only mark with a kind and it stays.
-  it('FACTOR whose value line cannot classify the source — the header KEEPS its value mark', () => {
+  // ⛔⛔ UPDATED (A4c, AUDIT-SYNTH 20260925, rule 4a): review 5822866079 held
+  // while `cee_inference` with no `extractionType` key read `unknown` on the
+  // value line — the header was the only mark with a kind, so it stayed. Rule
+  // 4a fixed exactly that: the value line now reads it as Olumi's own draft
+  // (the value carries a `kind`), so GAP-16's de-duplication applies like any
+  // other classifiable value and the header mark is suppressed.
+  it('FACTOR whose value line NOW classifies the source (A4c) — the header mark is suppressed', () => {
     renderNode(FactorNode, 'factor', 'fac_valued', {
       label: 'Hiring rate',
       type: 'factor',
@@ -180,8 +184,7 @@ describe('⛔ THE TWIN, UPDATED 24 Sep 2026 (GAP-16) — a valued card states th
       provenance: 'ai_inferred',
       observedState: { value: 0.7, source: 'cee_inference' },
     })
-    expect(mark(), 'the only kind-bearing mark must survive').not.toBeNull()
-    expect(mark()!.getAttribute('data-provenance-claim')).toBe('value')
+    expect(mark(), 'the value line carries the claim now, so the header must not duplicate it').toBeNull()
   })
 
   it('and a human-owned valued factor: same de-duplication, other kind', () => {

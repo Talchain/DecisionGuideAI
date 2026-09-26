@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../store'
+import { TOP_CLEARANCE } from '../utils/topBarClearance'
 
 export function ReconnectBanner() {
   const reconnecting = useCanvasStore(s => s.reconnecting)
@@ -20,7 +21,7 @@ export function ReconnectBanner() {
   if (!reconnecting) return null
   
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 text-text-on-color px-4 py-2 rounded shadow-panel z-50 bg-info-500" role="alert" aria-live="assertive" data-testid="banner-reconnect-mode">
+    <div style={{ top: TOP_CLEARANCE }} className="fixed left-1/2 -translate-x-1/2 text-text-on-color px-4 py-2 rounded shadow-panel z-50 bg-info-500" role="alert" aria-live="assertive" data-testid="banner-reconnect-mode">
       Reconnect {reconnecting.end}: click a node or press Esc to cancel
     </div>
   )

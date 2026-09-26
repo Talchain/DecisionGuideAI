@@ -195,20 +195,20 @@ describe('⭐ the two provenance marks do not touch', () => {
   })
 
   /**
-   * ⛔ UPDATED 24 Sep 2026 (GAP-16). `ONE_MARK_DATA` agrees (`ai_inferred` +
-   * `cee_inference`, both kind `ai`), which produced a single VALUE-claim
-   * mark before GAP-16. That mark is now suppressed too (the value line
-   * carries it instead), so the agreeing card renders NO header mark at all
-   * — the discriminating property this test protects is now "disagreement
-   * still gets its one structural mark; agreement gets none", not "two
-   * marks vs one".
+   * ⛔⛔ UPDATED (A4c, AUDIT-SYNTH 20260925, rule 4a). `ONE_MARK_DATA` agrees
+   * (`ai_inferred` + `cee_inference`, both kind `ai`), which produced a single
+   * VALUE-claim mark before GAP-16. GAP-16 suppressed that mark (the value
+   * line carries it instead) EXCEPT where the value line could not classify
+   * the source at all (review 5822866079: `cee_inference` with no
+   * `extractionType` key read `unknown`, so the header's mark was the only
+   * kind-bearing one and stayed). Rule 4a closed that exception: the value
+   * line now reads it as Olumi's own draft, so this fixture is no longer
+   * special — it renders NO header mark, like every other agreeing,
+   * classifiable card.
    */
-  // ⛔ review 5822866079: ONE_MARK_DATA's `cee_inference` has no extractionType, so the
-  // value line reads `unknown` and the header keeps its single value mark.
-  it('⛔ CONTRAST — an AGREEING card whose value line reads unknown keeps ONE header mark; the group still mounts unconditionally', () => {
+  it('⛔ CONTRAST — an AGREEING card whose value line NOW classifies (A4c) renders NO header mark; the group still mounts unconditionally', () => {
     renderFactor('fac_one', ONE_MARK_DATA)
-    expect(marks()).toHaveLength(1)
-    expect(marks()[0].getAttribute('data-provenance-claim')).toBe('value')
+    expect(marks()).toHaveLength(0)
     // The group is unconditional, so the gap class stays available for
     // whatever DOES mount inside it (structural-only today).
     expect(group().className).toBe(CANVAS_HEADER_GLYPH_GROUP_CLASSES)

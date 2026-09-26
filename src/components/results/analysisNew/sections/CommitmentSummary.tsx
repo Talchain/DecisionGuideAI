@@ -85,6 +85,14 @@ export interface CommitmentSummaryProps {
    * so a greyed icon was the only comparison a reader met after a re-run.
    */
   onCompare?: () => void
+  /**
+   * ⭐ V2 `commitHTML()` `.stale`: the run's status row (model changed, could
+   * not confirm, did not run, partial, and the one act that answers them) sits
+   * INSIDE this block, after the synthesis and before the chart. The tab
+   * passes the glance's status half; it renders nothing when there is nothing
+   * to say, and the wrapper collapses (`empty:hidden`).
+   */
+  status?: ReactNode
   /** The options comparison, placed between the bullets and the record row. */
   children?: ReactNode
   /**
@@ -121,7 +129,7 @@ function RecordYourView({
 }) {
   if (record === null) {
     return (
-      <div className="mt-3" data-testid={testId}>
+      <div data-testid={testId}>
         {/* ⭐ V2 FIDELITY (gap 21): a DISCLOSURE-SHAPED control. The route is
             UNCHANGED: this still opens the existing decision-record modal
             (`onRecord`); no inline form is added, because `DecisionRecord`
@@ -179,7 +187,7 @@ function RecordYourView({
 
   const recordedOn = formatRecordedOn(record.savedAt)
   return (
-    <div className="mt-3" data-testid={testId}>
+    <div data-testid={testId}>
       <div className="flex flex-wrap items-center gap-1.5">
         <p
           className={`${typography.panelBody} text-text-header m-0 min-w-0 flex-1`}
@@ -250,6 +258,7 @@ export function CommitmentSummary({
   onCompare,
   children,
   qualifier = null,
+  status = null,
   testId = 'analysis-new-commitment',
 }: CommitmentSummaryProps) {
   const [qualifierDetailOpen, setQualifierDetailOpen] = useState(false)
@@ -276,35 +285,31 @@ export function CommitmentSummary({
         >
           {COMMITMENT_COPY.heading}
         </h3>
+        {/* ⭐ V2 `commitHTML()`: the title's ✦ helps SUMMARISE; "what
+            remains" and compare moved to the commit row below, beside the
+            record door, where the prototype puts them. */}
         <PanelIconButton
           ai
-          label={COMMITMENT_COPY.ask.label}
+          label={COMMITMENT_COPY.summarise.label}
           onClick={() =>
             onAsk({
-              label: COMMITMENT_COPY.ask.label,
-              draft: COMMITMENT_COPY.ask.draft,
+              label: COMMITMENT_COPY.summarise.label,
+              draft: COMMITMENT_COPY.summarise.draft,
               context: commitmentAskContext(synthesis),
             })
           }
-          testId={`${testId}-ask`}
+          testId={`${testId}-summarise`}
         />
-        {onCompare ? (
-          <PanelIconButton
-            Icon={GitCompare}
-            label={COMMITMENT_COPY.compare.label}
-            onClick={onCompare}
-            testId={`${testId}-compare`}
-          />
-        ) : null}
       </div>
 
       {bullets.length > 0 ? (
         <div className="mt-1.5" data-testid={`${testId}-synthesis`}>
-          {/* ⛔ NO STALE MARKER HERE. The glance's freshness ribbon is always
-              mounted above this block on a stale post-run tab and says which
-              staleness it is; a second marker stated freshness twice, and its
-              "From an earlier run" asserted a changed model on runs we only
-              cannot confirm (V2 census, B3). */}
+          {/* ⛔ NO SECOND STALE MARKER HERE. The glance's status row (the
+              `status` slot, just below) says which staleness it is; a marker
+              here stated freshness twice, and its "From an earlier run"
+              asserted a changed model on runs we only cannot confirm (V2
+              census, B3). Bullet 1's LABEL reads "Last run" on a stale tab —
+              a label, not a claim about which staleness. */}
           {/* ⭐ V2 FIDELITY (gap 18): `list-disc pl-3.5` replaces `list-none p-0`
               — the prototype's `.commit-synthesis` sets no `list-style: none`,
               so its three lines keep the browser's own disc markers at a 14px
@@ -321,9 +326,30 @@ export function CommitmentSummary({
               >
                 <b className="text-text-header">{b.label}: </b>
                 <span data-testid={`${testId}-${b.key}-text`}>{b.text}</span>
+                {b.key === 'open' ? (
+                  <PanelIconButton
+                    ai
+                    inline
+                    label={COMMITMENT_COPY.openAsk.label}
+                    onClick={() =>
+                      onAsk({
+                        label: COMMITMENT_COPY.openAsk.label,
+                        draft: COMMITMENT_COPY.openAsk.draft,
+                        context: commitmentAskContext(synthesis),
+                      })
+                    }
+                    testId={`${testId}-open-ask`}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {status ? (
+        <div className="mt-2 empty:hidden" data-testid={`${testId}-status`}>
+          {status}
         </div>
       ) : null}
 
@@ -381,9 +407,41 @@ export function CommitmentSummary({
         </>
       ) : null}
 
-      {showRecord ? (
-        <RecordYourView canCapture={canCapture} record={record} onRecord={onRecord} testId={`${testId}-record`} />
-      ) : null}
+      {/* ⭐ V2 `.commitrow`: the record door on the left, compare and "what
+          remains" ✦ on the right. The acts stay when there is no record to
+          offer (a re-run in flight), so the ask never disappears with it. */}
+      <div
+        className={`mt-3 flex ${record === null ? 'items-center' : 'items-start'} justify-between gap-2`}
+        data-testid={`${testId}-commit-row`}
+      >
+        <div className="min-w-0 flex-1">
+          {showRecord ? (
+            <RecordYourView canCapture={canCapture} record={record} onRecord={onRecord} testId={`${testId}-record`} />
+          ) : null}
+        </div>
+        <span className="flex shrink-0 items-center gap-px" data-testid={`${testId}-commit-acts`}>
+          {onCompare ? (
+            <PanelIconButton
+              Icon={GitCompare}
+              label={COMMITMENT_COPY.compare.label}
+              onClick={onCompare}
+              testId={`${testId}-compare`}
+            />
+          ) : null}
+          <PanelIconButton
+            ai
+            label={COMMITMENT_COPY.ask.label}
+            onClick={() =>
+              onAsk({
+                label: COMMITMENT_COPY.ask.label,
+                draft: COMMITMENT_COPY.ask.draft,
+                context: commitmentAskContext(synthesis),
+              })
+            }
+            testId={`${testId}-ask`}
+          />
+        </span>
+      </div>
     </section>
   )
 }

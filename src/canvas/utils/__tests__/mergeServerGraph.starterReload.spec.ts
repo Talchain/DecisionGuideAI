@@ -124,11 +124,18 @@ describe('captured saved-starter no-edit reload', () => {
     expectCurrent(before)
   })
 
-  it('isolates acquisition of explicit directed edge type from every option overlay', () => {
+  it('RED/A1: never mints edge_type onto canvas data on a readback — an absent field stays absent through every option overlay', () => {
+    // Real captured production behaviour before the A1 fix: registration
+    // minted 'directed' onto every edge with no client-side edge_type, CEE
+    // echoed it back, and every one of these 39 edges came back explicit
+    // 'directed' although the canvas never set it. StyledEdge treats any
+    // explicit type as an override of its structural (node-kind) inference,
+    // so this silently turned structural links into causal ones. The merge
+    // must keep the field absent, not just avoid marking the model stale.
     const before = seed()
     mergeServerGraphOnHydrate({ nodes: [], edges: structuredClone(captured.serverGraph.edges) })
     expectCurrent(before)
-    expect(useCanvasStore.getState().edges.every(e => e.data?.edge_type === 'directed')).toBe(true)
+    expect(useCanvasStore.getState().edges.every(e => e.data?.edge_type === undefined)).toBe(true)
   })
 
   it('also retains currentness when the option maps are read in the opposite insertion order', () => {

@@ -217,6 +217,16 @@ describe('⭐ THE GOAL HALF of CEE\'s hash: a stated limit and the goal node are
     expect(runCardCurrency()).not.toBe('current')
   })
 
+  it('⭐ a limit id repeated on the read cannot shadow its twin: declined (review 5843168236 N1)', async () => {
+    // The review's measured shape: read [x v6, x v4] against canvas [x v4, x v4] — equal counts, every lookup hits.
+    const c = readLimit()
+    useCanvasStore.setState({ goalConstraints: [c, c] } as never)
+    readGraph.goal_constraints = [{ ...c, value: 6 }, c]
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'canvas_not_proven_equal', unproven: `goal:goal_constraints:${LIMIT_ID}:duplicate_identity_on_read` })
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
   it('ASYMMETRY, decided: a canvas with NO list (`null` is not "no limit") never declines on the read\'s limit', async () => {
     useCanvasStore.setState({ goalConstraints: null } as never)
     await hydrateCanvasFromServer(SCENARIO_ID)

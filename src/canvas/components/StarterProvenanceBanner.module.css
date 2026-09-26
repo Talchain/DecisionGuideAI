@@ -1,0 +1,132 @@
+/**
+ * The saved-example disclosure as contract v3.1 draws it: a quiet one-line
+ * context note at the canvas's top-right, not a banner.
+ *
+ * contract v3.1 `.context-banner{position:absolute;right:17px;top:13px;
+ * font-size:10px;color:<muted>;display:flex;gap:6px;align-items:center}` (the
+ * contract's muted token is #666762; the product's is `--text-light`)
+ * `.context-banner svg{width:13px;height:13px}`. The anchor (top/right) is
+ * computed in the component, because the canvas's right edge is the dock's
+ * left edge and moves with it.
+ */
+
+.root {
+  position: fixed;
+  /* Under the dock (z 900) and the top bar (z 3000); level with the canvas
+     overlay band it used to occupy a cell of. */
+  z-index: 250;
+  pointer-events: auto;
+}
+
+/* The line. A button, because it opens the detail — the contract asks that
+   information set at 10–11px also be reachable at 12–14px (v3.1 point 12). */
+.line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 10px;
+  /* 13px line box — the 13px icon's height — so the line fits the 16px band
+     between the bar and the fitted board (see CONTEXT_LINE_TOP_PX). */
+  line-height: 1.3;
+  font-weight: 400;
+  color: var(--text-light);
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.line:hover {
+  color: var(--info);
+}
+
+.line:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 3px;
+}
+
+.icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+/* The detail, one click away: the full provenance sentence at 12px, the
+   analysis consequence, and the actions that used to sit on the banner. */
+.detail {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 300px;
+  padding: 12px;
+  background: var(--bg-panel);
+  border: 1px solid #DDD8D0;
+  border-radius: 8px;
+  box-shadow: 0 2px 7px rgba(51, 51, 51, 0.067);
+  text-align: left;
+  white-space: normal;
+}
+
+.detailHead {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--text-header);
+}
+
+.detailBody {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-light);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* contract v3.1 `.button.small` — the one secondary button recipe. The live
+   re-draft is a consequential action, but not the primary thing to do on a
+   saved example, so it is no longer a filled primary pill. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid #BFC9CA;
+  border-radius: 8px;
+  background: white;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--info);
+  background: #F6FAFB;
+}
+
+.button:focus-visible,
+.textButton:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 3px;
+}
+
+/* contract v3.1 `.text-button`. */
+.textButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  color: var(--info);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

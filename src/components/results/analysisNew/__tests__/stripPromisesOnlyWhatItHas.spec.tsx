@@ -94,12 +94,10 @@ const renderPanel = (isPreRun: boolean) =>
  * assumed.
  */
 const openStrip = () => {
-  const toggle = screen.getByTestId('analysis-new-model-strip-toggle')
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(screen.getByTestId('analysis-new-model-strip-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  )
+  // ⭐ Design B2: the Reasoning tab's strip is STATIC — no toggle, and the
+  // region is always mounted. Asserted, not assumed.
+  expect(screen.queryByTestId('analysis-new-model-strip-toggle')).toBeNull()
+  expect(screen.getByTestId('analysis-new-model-strip-region')).toBeInTheDocument()
 }
 
 const hintText = () => screen.queryByTestId('analysis-new-model-strip-hint')?.textContent ?? null
@@ -145,10 +143,7 @@ describe('before a run — the strip offers only what it can deliver', () => {
     renderPanel(true)
     // ⚠ The pre-run half pins its own precondition: open by default is the
     // behaviour these assertions rely on, and it is a real rule, not a given.
-    expect(screen.getByTestId('analysis-new-model-strip-toggle')).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    )
+    expect(screen.getByTestId('analysis-new-model-strip-region')).toBeInTheDocument()
     // CONTRAST: the strip is drawing marks, so its text is not an empty tree.
     expect(screen.queryAllByTestId('analysis-new-model-strip-mark').length).toBeGreaterThan(0)
     expect(hintText()).toBeNull()
@@ -157,9 +152,23 @@ describe('before a run — the strip offers only what it can deliver', () => {
     expect(stripText().toLowerCase()).not.toContain('this analysis says')
   })
 
-  it('picking a mark names the missing RUN, not a gap in the model', () => {
+  /*
+   * ⚠⚠ RE-PINNED 26 Sep 2026 (design audit B12). The detail's absence line —
+   * pre-run "No analysis has run yet…", post-run "Nothing else on this panel
+   * refers to this node." — is gone: the V2 prototype's detail carries
+   * neither. The property this case guarded (before a run, picking a mark must
+   * not claim the analysis said something, nor a gap in the model) now holds
+   * by construction, and it is asserted over the WHOLE detail rather than one
+   * line of it.
+   */
+  it('picking a mark before a run claims neither an analysis nor a gap in the model', () => {
     renderPanel(true)
-    expect(pickFirstMarkAndReadAbsence()).toBe(COPY.modelStrip.noInsightPreRun)
+    expect(pickFirstMarkAndReadAbsence()).toBeNull()
+    const detail = screen.getByTestId('analysis-new-model-strip-detail')
+    expect(detail.textContent ?? '').not.toContain(COPY.modelStrip.noInsight)
+    expect((detail.textContent ?? '').toLowerCase()).not.toContain('this analysis says')
+    // CONTRAST: the detail is on screen and can be acted on.
+    expect(screen.getByTestId('analysis-new-model-strip-detail-ask')).toBeInTheDocument()
   })
 
   /** ⚠ THE CONTROL STAYS USEFUL — this is a narrowing, not a removal. */

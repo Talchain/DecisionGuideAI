@@ -151,8 +151,15 @@ describe('SPACE-3 — the plot is inset from the option name and the chevron col
   it('the outcome-range figure carries the shared 16px/20px inset', () => {
     renderBody(withRanges(decisionWithLeaderWithheld()))
     const track = within(row('opt_a')).getByTestId(`${T}-outcome-range-opt_a`)
-    expect(track.classList.contains('ml-4'), 'clears the name column').toBe(true)
-    expect(track.classList.contains('mr-5'), 'clears the chevron column').toBe(true)
+    // ⚠ RE-POINTED (26 Sep): the inset used to sit ON the track, which is
+    // `block w-full`, so it shifted a full-width box 16px past the row and
+    // `mr-5` never applied (served 411158ad). The inset now lives on the
+    // track's wrapper, where a margin shrinks the box; the track carries none.
+    const inset = track.parentElement as HTMLElement
+    expect(inset).toBe(within(row('opt_a')).getByTestId(`${T}-range-inset-opt_a`))
+    expect(inset.classList.contains('ml-4'), 'clears the name column').toBe(true)
+    expect(inset.classList.contains('mr-5'), 'clears the chevron column').toBe(true)
+    expect(track.classList.contains('ml-4') || track.classList.contains('mr-5'), 'no margin on the w-full track').toBe(false)
   })
 })
 

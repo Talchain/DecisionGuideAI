@@ -147,6 +147,11 @@ export function ReanalyseBar({
 }: ReanalyseBarProps) {
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
+  // `?? true`: the same defensive default `composeAnalysisState` already
+  // applies to this exact field (`analysisStateSelector.ts`), so a mount that
+  // has not threaded the real store value reads as "a run happened" rather
+  // than silently reinstating a never-run bar everywhere.
+  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun) ?? true
 
   // AFFORDANCE ≠ ASSERTION (interim 2.467). This bar is BOTH the "Model
   // changed" claim and the Model tab's ONLY re-analyse control — and conflating
@@ -161,7 +166,6 @@ export function ReanalyseBar({
   // So: render for a held cannot-confirm too, with copy that states uncertainty
   // instead of asserting a change. You can be honestly unsure AND still offer
   // the button.
-  const heldUnsure = importHold && semantic === 'cannot_confirm'
   /**
    * ⭐ NEVER RUN — THE AFFORDANCE STAYS, THE CLAIM GOES. This bar is this
    * surface's ONLY run control (`shellContract.ts` gives both `diagnostics` and
@@ -171,8 +175,20 @@ export function ReanalyseBar({
    * other side. The header's own rule decides it: "You can be honestly unsure
    * AND still offer the button." A model with no completed run is the strongest
    * case of that — we are not unsure, we simply have nothing to be stale.
+   *
+   * ⚠ A5: READ `hasCompletedFirstRun` DIRECTLY FROM THE STORE, NEVER
+   * `semantic === 'never_run'`. `classifyFreshnessForDisplay`
+   * (`analysisFreshness.ts`) returns `'cannot_confirm'` for an import hold
+   * BEFORE it ever reaches its own never-run branch, so under a hold `semantic`
+   * cannot be `'never_run'` even when no run has ever completed — a freshly
+   * registered, never-analysed model then reported "Can't confirm this
+   * analysis matches the current model", asserting an analysis that never
+   * existed. `hasCompletedFirstRun` does not pass through that fork, so it is
+   * the one signal that lets the never-run state win over the
+   * import-registration hold, as it must.
    */
-  const neverRun = semantic === 'never_run'
+  const neverRun = !hasCompletedFirstRun
+  const heldUnsure = !neverRun && importHold && semantic === 'cannot_confirm'
   if (semantic !== 'changed' && !heldUnsure && !neverRun) return null
 
   // The gate's verdict, and the gate's own sentence. Both arrive from the shell;

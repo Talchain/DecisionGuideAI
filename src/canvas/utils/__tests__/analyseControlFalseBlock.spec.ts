@@ -417,12 +417,16 @@ describe('A4-6 — contrast control: the untouched paths still behave as they di
     )
   })
 
-  it('the side-car branch is untouched when no producer verdict exists', () => {
-    // `mayRun` must not reach the side-car fallback: that branch answers a
-    // different question, from a different authority, and CEE's admission
-    // verdict says nothing about it.
-    expect(readinessObjectsToRun(SIDE_CAR_OBJECTS, null, true)).toBe(true)
-    expect(readinessObjectsToRun(SIDE_CAR_OBJECTS, undefined, true)).toBe(true)
+  it('the side-car decides only when no revision-bound admission verdict exists', () => {
+    // ⚠ INVERTED ON PURPOSE (one revision-bound authority, #69 5840817605 (B);
+    // boundAdmissionGate.spec.ts). This used to pin that `mayRun` never reaches
+    // the side-car branch. `mayRun` is now ONLY a verdict bound to the revision
+    // on screen (`selectBoundMayRun`), and a bound verdict is the authority the
+    // side-car was standing in for: it decides. With no bound verdict
+    // (`undefined`) the side-car still decides, exactly as before.
+    expect(readinessObjectsToRun(SIDE_CAR_OBJECTS, null, undefined)).toBe(true)
+    expect(readinessObjectsToRun(SIDE_CAR_OBJECTS, undefined, undefined)).toBe(true)
+    expect(readinessObjectsToRun(SIDE_CAR_OBJECTS, null, true)).toBe(false)
   })
 })
 

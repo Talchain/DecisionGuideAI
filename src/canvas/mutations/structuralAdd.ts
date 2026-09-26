@@ -109,7 +109,7 @@
 
 import { NodeKind } from '@talchain/schemas/boundary'
 import type { SystemEventTurnPayload } from '@talchain/schemas/boundary'
-import type { Node } from '@xyflow/react'
+import type { Edge, Node } from '@xyflow/react'
 
 import { isWireUsableLabel } from './structuralRename'
 
@@ -157,6 +157,17 @@ export interface StructuralAddIntent {
   readonly nodeKind: string
   /** The label the user typed. */
   readonly label: string
+  /**
+   * What THIS gesture minted, exactly as the canvas held it at capture: the
+   * node, and any link the same gesture drew to it (the store's
+   * `addNodeWithEdge`, e.g. "+ Add option"). An applied receipt's
+   * acknowledgement undoes ONLY these, and only while they still project
+   * exactly as minted (`ownOptimisticWrite.ts` `beforeOwnAdd`). A local write
+   * that lands on the new node or its link while the add is in flight is not
+   * this add's, so it must never be acknowledged with it (#2070 review
+   * 5842051351).
+   */
+  readonly minted?: { readonly node: Node; readonly edges: readonly Edge[] }
   /**
    * The CEE-stamped `aag_v1` hash of the graph the user was looking at, or
    * `null` when NO turn had stamped one yet — the restored-graph case.
@@ -291,6 +302,7 @@ export function captureStructuralAdd(
       nodeKind,
       label,
       baseGraphHash,
+      minted: { node, edges: [] },
     },
   }
 }
@@ -557,6 +569,64 @@ export interface StructuralAddLifecycleRecord {
   /** The scenario this attempt was made against, captured at DISPATCH. */
   readonly scenarioId: string | null
   readonly status: StructuralAddLifecycleStatus
+  /**
+   * The `graph_hash` CEE returned on the turn that COMMITTED this add — the
+   * persisted graph that now contains the node. Written only with a
+   * `committed` verdict, and only when the response carried one.
+   *
+   * ⭐ IT IS THE BASE FOR A WRITE THAT DEPENDS ON THIS NODE. "+ Add option"
+   * captures the option and its decision link in one `set()`; the link's
+   * endpoint does not exist on the server until this add lands, and the add
+   * moves the hash, so the link must assert THIS hash — read here by identity,
+   * never from `lastServerGraphHash`, which another turn may already have moved.
+   * See `readChainedStructuralAddEdge`.
+   */
+  readonly committedGraphHash?: string
+  /**
+   * The edges the COMMITTED graph already holds that touch this node, as
+   * {@link structuralEdgePairKey} keys — read off the same committing
+   * response's `draft_graph`. Written only with a `committed` verdict, and only
+   * when that graph was readable.
+   *
+   * ⭐ IT IS HOW A CHAINED LINK LEARNS IT IS ALREADY DONE. CEE may write the
+   * link itself in the node's own commit (C32: an option added to a model with
+   * exactly one decision is linked to it in the same write, CEE #1937). The
+   * canvas does NOT mirror that rule — it reads the server's answer (Canonical
+   * State, olumi-programme-docs#70 5841540452): if the committed graph already
+   * holds the pair, the follow-up `structural_add_edge` is not sent at all.
+   * See `readChainedStructuralAddEdge`.
+   */
+  readonly committedIncidentEdgeKeys?: readonly string[]
+}
+
+/** The one key a committed edge and a queued link share: the canonical pair. */
+export function structuralEdgePairKey(from: string, to: string): string {
+  return `${from}\u0000${to}`
+}
+
+/**
+ * The committed graph's edges INCIDENT on `nodeId`, as pair keys — or
+ * `undefined` when the response carried no readable `draft_graph` (then the
+ * chain falls back to sending the link, which the server's own duplicate gate
+ * answers idempotently).
+ */
+export function readCommittedIncidentEdgeKeys(
+  response: unknown,
+  nodeId: string,
+): string[] | undefined {
+  const draftGraph = (response as { draft_graph?: unknown } | null | undefined)?.draft_graph
+  if (!draftGraph || typeof draftGraph !== 'object') return undefined
+  const rawEdges = (draftGraph as { edges?: unknown }).edges
+  if (!Array.isArray(rawEdges)) return undefined
+  const keys: string[] = []
+  for (const e of rawEdges) {
+    const from = (e as { from?: unknown } | null)?.from
+    const to = (e as { to?: unknown } | null)?.to
+    if (typeof from !== 'string' || typeof to !== 'string') continue
+    if (from !== nodeId && to !== nodeId) continue
+    keys.push(structuralEdgePairKey(from, to))
+  }
+  return keys
 }
 
 /** Everything except `in_flight` — the states a settle may write. */

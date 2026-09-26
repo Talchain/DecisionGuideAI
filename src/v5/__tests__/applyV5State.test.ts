@@ -187,7 +187,12 @@ describe('applyV5State — graph_patch:set_factor_value', () => {
       store,
     )
     const written = updateNode.mock.calls.at(-1)![1].data as Record<string, unknown>
-    expect(written.extractionType).toBeUndefined()
+    // `null`, not `undefined` (independent review, PR #2046 Blocking 2):
+    // `undefined` does not survive a JSON round trip (autosave, boot
+    // restore), which read a withdrawn-but-serialised marker as though it had
+    // never been written at all. See
+    // `valueSourceMark.withdrawalSurvivesSerialisation.spec.ts`.
+    expect(written.extractionType).toBeNull()
     // CONTRAST — this withdraws ONE stale sentence, it does not wipe the node.
     // Without this the assertion above would pass on a fix that dropped
     // everything the spread carries.
@@ -288,7 +293,8 @@ describe('applyV5State — graph_patch:set_factor_value', () => {
     )
     const written = updateNode.mock.calls.at(-1)![1].data as Record<string, unknown>
     const obs = written.observedState as Record<string, unknown>
-    expect(obs.extractionType).toBeUndefined()
+    // `null`, not `undefined` — see the earlier test's comment.
+    expect(obs.extractionType).toBeNull()
     // CONTRAST — one stale sentence is withdrawn, the node is not wiped. Without
     // these, the assertion above would pass on a fix that dropped the whole
     // observedState.

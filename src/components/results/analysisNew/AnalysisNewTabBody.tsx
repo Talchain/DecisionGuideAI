@@ -42,7 +42,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
@@ -94,7 +94,7 @@ import { SectionShell } from './sections/SectionShell'
 import { MethodStrip } from './sections/MethodStrip'
 import { CommitmentSummary } from './sections/CommitmentSummary'
 import { buildCommitmentSynthesis } from './commitmentSynthesis'
-import { ChallengeCard } from './sections/ChallengeCard'
+import { ChallengeCard, methodOfIntervention } from './sections/ChallengeCard'
 import { ReasoningSignals } from './sections/ReasoningSignals'
 import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
 import { ModelReviewTool } from './sections/ModelReviewTool'
@@ -1227,6 +1227,43 @@ export function AnalysisNewTabBody({
   )
 
   /**
+   * ⭐ V2 "ONE METHOD IS ACTIVE" — AT REST, THE ONE THE RUN'S TOP FINDING NAMES.
+   * The same four-argument resolution the Challenge card and the strip's
+   * "raised" dot use (`methodOfIntervention`), so the strip's active icon and
+   * the card's question are always the same method. A finding that names no
+   * technique leaves nothing active: the prototype's authored default is not
+   * something this tab can honestly choose.
+   */
+  const restingMethodId = useMemo(() => methodOfIntervention(glancePrimary)?.id ?? null, [glancePrimary])
+  /**
+   * ⛔ A PICK OF THE RESTING METHOD IS THE REST STATE, NOT A PICK (#2066 review
+   * B1). Pressing the already-active icon changed nothing on screen but latched
+   * `pickedMethodId`; "Not useful right now" then retired the finding and the
+   * latched pick re-presented the same method as a catalogue card, so the
+   * set-aside appeared not to work. Stored as `null`, it cannot outlive the
+   * finding it was equal to. Both pick routes (strip and card menu) use this.
+   */
+  const selectMethod = useCallback(
+    (id: string) => setPickedMethodId(id === restingMethodId ? null : id),
+    [restingMethodId],
+  )
+  /**
+   * ⛔⛔ AND THE INVARIANT IS HELD IN STATE, NOT ONLY AT THE CLICK (#2066
+   * re-review). A pick can come to EQUAL the resting method without anyone
+   * pressing it: pick X while the top finding names nothing, then a re-run's
+   * top finding names X (this body is not re-keyed per run), or the finding
+   * ahead of it is retired. The card then shows the finding; "Not useful right
+   * now" retires it, the resting method moves on, and a pick latched in state
+   * resurfaced as X's catalogue card. So whenever the two coincide the pick is
+   * cleared — whichever route got it there — and `effectivePick` reads the
+   * same rule on this render so no frame shows the latched pick.
+   */
+  useEffect(() => {
+    if (pickedMethodId !== null && pickedMethodId === restingMethodId) setPickedMethodId(null)
+  }, [pickedMethodId, restingMethodId])
+  const effectivePick = pickedMethodId !== null && pickedMethodId === restingMethodId ? null : pickedMethodId
+
+  /**
    * ⭐⭐ THE GLANCE ANSWERED NOTHING, SO THE FIGURES COME UP TO FILL THE GAP.
    *
    * ⚠ THIS DOES NOT OVERTURN THE ORDERING RULING, AND THE DISTINCTION IS THE
@@ -1390,6 +1427,7 @@ export function AnalysisNewTabBody({
       onRecord={openDecisionRecord}
       onAsk={openAskOlumi}
       qualifier={buildCommitmentQualifier(vm, { runProvisional: vm.status.runProvisional })}
+      status={renderGlance('status')}
     >
         <OptionsComparison
           options={vm.optionsComparison}
@@ -1613,12 +1651,16 @@ export function AnalysisNewTabBody({
         {/* ⭐ V2 — ONE METHOD STRIP, FIRST (Paul + ChatGPT brief, 23 Sep 2026).
             It replaces BOTH the "Methods you can run" chip shelf and this tab's
             Actions dropdown, which rendered the same seven methods twice. Five
-            icons + one overflow; the overflow keeps the rest of the catalogue
-            and the global actions (edit brief, review inputs, re-run). Choosing a
-            method shows it in the Challenge card; choosing it again clears it. */}
+            icons + one overflow; the overflow lists every method (V2's "one
+            complete menu") and the global actions (edit brief, review inputs,
+            re-run). Choosing a
+            method shows it in the Challenge card, and it STAYS chosen (V2
+            prototype: one method is always active; the card's "Not useful right
+            now" is what sets a pick aside). At rest the active method is the one
+            the run's own top finding names (`restingMethodId`), never a default. */}
         <MethodStrip
-          activeMethodId={pickedMethodId}
-          onSelectMethod={(id) => setPickedMethodId((cur) => (cur === id ? null : id))}
+          activeMethodId={effectivePick ?? restingMethodId}
+          onSelectMethod={selectMethod}
           raisedMethodIds={raisedMethodIds}
           canRerun={canRunAnalysis === true && !vm.status.isPreRun}
         />
@@ -1876,8 +1918,12 @@ export function AnalysisNewTabBody({
           isPreRun={vm.status.isPreRun}
           openAtRest
           insights={nodeInsights}
-          reviewSlot={
+          /* V2 prototype order (design audit B5/B6/B12): the strip hands the
+             tool its success line and a mark's route, so the block reads
+             census → "N to review" → success line → review tool → detail. */
+          reviewSlot={(slot) => (
             <ModelReviewTool
+              {...slot}
               interventions={vm.strengthen.interventions}
               excludeId={glancePrimary?.id ?? null}
               onAsk={openAskOlumi}
@@ -1892,7 +1938,7 @@ export function AnalysisNewTabBody({
               }}
               analysisHash={responseHash ?? null}
             />
-          }
+          )}
         />
         {/* ⭐ V2 — ONE REVIEW AFFORDANCE FOR THE WHOLE MODEL. The strip's
             "to verify" badge counted factors only; the engine's findings about
@@ -2060,12 +2106,9 @@ export function AnalysisNewTabBody({
             measured rule-to-cap). The group now overrides the ambient margin
             with !mt-0 and states its own pt-1, so the total is 11 (rule) + 4
             (group) ≈ the prototype's figure; the title no longer carries pt-3. */}
-        <h3
-          className={`${typography.panelHeader} text-text-header m-0`}
-          data-testid="analysis-new-zone-also"
-        >
-          Challenge the thinking
-        </h3>
+        {/* ⭐ V2 (design audit B7): the h3 now renders INSIDE `ChallengeCard`
+            (`title` below), beside the ⓘ "Why this method here?" that opens the
+            card's basis — same h3, same classes, same testid. */}
         {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
             instruction to shorten the answer zone so both "what matters most"
             and "how the options compare" fit at 1440.
@@ -2094,8 +2137,12 @@ export function AnalysisNewTabBody({
             state (the same rule #1881 applies to the panel's own leader words).
             So the thresholds are passed only when the claim is permitted. */}
         <ChallengeCard
+          title="Challenge the thinking"
+          titleTestId="analysis-new-zone-also"
           intervention={glancePrimary}
-          methodId={pickedMethodId}
+          methodId={effectivePick}
+          onSelectMethod={selectMethod}
+          onSetAsideMethod={() => setPickedMethodId(null)}
           onRunIntervention={runIntervention}
           onRunMethod={(id) => {
             const method = METHOD_CATALOGUE.find((m) => m.id === id)
@@ -2617,8 +2664,11 @@ export function AnalysisNewTabBody({
             change exists to remove. Sized and coloured as `panelMeta`, the
             quietest of the panel's three sizes. */}
         {/* V2: no separate zone label here — the commitment block below carries
-            the zone's heading ("Move towards commitment") with its own acts. */}
-        {renderGlance('status')}
+            the zone's heading ("Move towards commitment") with its own acts.
+            ⭐ V2 `.stale` (26 Sep): the glance's STATUS half now renders INSIDE
+            that block, after its synthesis and before the chart (the
+            `status` prop on `answerBlock`'s CommitmentSummary) — still before
+            any figure, as the prototype places it. */}
         {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
             reachable on this tab for the first time. `robustness_caveat` rides
             `results.report.decision_brief`, which the browser already holds; it
@@ -2975,8 +3025,7 @@ export function AnalysisNewTabBody({
             control) behind an extra text button. */}
         <AboutThisAnalysis
           vm={vm}
-          nSamples={nSamples}
-          seedUsed={seedUsed}
+          reviewTopics={{ interventions: vm.strengthen.interventions, excludeId: glancePrimary?.id ?? null }}
           outcomeFormat={{
             unit: resultsSectionData.recommendation.outcomeUnit,
             symbol: resultsSectionData.recommendation.outcomeUnitSymbol,

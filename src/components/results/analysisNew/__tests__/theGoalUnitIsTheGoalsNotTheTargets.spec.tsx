@@ -109,9 +109,16 @@ const UNIT_AND_TARGET = [
   { id: 'o1', type: 'option', data: { label: 'A full switch at renewal' } },
 ]
 
+/**
+ * ⚠ 26 Sep (design audit B5): on the Reasoning tab the form opens as the V2
+ * prototype's does — "In words" first when no target is stated — so the number
+ * arm this file drives is one radio away. Choosing it is the reader's own
+ * gesture; nothing below changes what that arm dispatches.
+ */
 const openEditor = () => {
   render(<ModelStrip isPreRun={false} />)
   fireEvent.click(screen.getByTestId(`${TARGET}-edit`))
+  fireEvent.click(screen.getByTestId(`${TARGET}-mode-number`))
 }
 
 beforeEach(() => {
@@ -136,10 +143,10 @@ describe('the unit is read from the goal, not from a target that does not exist'
     openEditor()
     fireEvent.change(screen.getByTestId(`${TARGET}-input`), { target: { value: '125' } })
     fireEvent.click(screen.getByTestId(`${TARGET}-save`))
-    // A fifth argument (`{ onSendSettled }`) now always rides along — see
-    // `successTargetDispatches.spec.tsx`'s note on the same change.
+    // A fifth argument (`{ onSendSettled }`) rides along, and since the flip
+    // `ModelStrip` supplies it — see `successTargetDispatches.spec.tsx`.
     expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least', {
-      onSendSettled: undefined,
+      onSendSettled: expect.any(Function),
     })
     expect(showToast).not.toHaveBeenCalledWith(COPY.successTarget.noUnit)
   })
@@ -168,7 +175,7 @@ describe('where the goal declares no unit, the control collects one', () => {
     fireEvent.change(screen.getByTestId(`${TARGET}-input`), { target: { value: '125' } })
     fireEvent.click(screen.getByTestId(`${TARGET}-save`))
     expect(proposeGoalTarget).toHaveBeenCalledWith('125', '£', 'scenario-7', 'at_least', {
-      onSendSettled: undefined,
+      onSendSettled: expect.any(Function),
     })
   })
 

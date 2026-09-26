@@ -44,6 +44,9 @@
  * 13. The delete hold's ONE exit — "ask Olumi to remove it" — releases it
  *     through the chat, whichever way CEE's committed graph answers (Panel
  *     #1917 F1), with a no-receipt control.
+ * 9c. An APPLIED goal target: the receipt's OWN `analysis_ready` backfill is
+ *     part of the receipt, not a stranger — no whole-graph register follows,
+ *     with a fail-closed local-change control.
  *
  * Assertions bind by IDENTITY — the exact register call and the exact factor's
  * `observed_state` in its payload — never by a count alone.
@@ -127,7 +130,10 @@ vi.mock('../../../v5/v5Adapter', async (importOriginal) => {
       } else if (holdTurn) {
         await new Promise<void>((res) => { releaseTurn = res })
       }
-      const reply = replies.shift() ?? { ok: true, response: { assistant_text: 'ok', blocks: [] } }
+      const queued = replies.shift() ?? { ok: true, response: { assistant_text: 'ok', blocks: [] } }
+      // A reply may be built FROM the request: an add's committed graph must
+      // carry the node id the gesture minted, which the test cannot know first.
+      const reply = typeof queued === 'function' ? (queued as (p: Record<string, unknown>) => unknown)(payload) : queued
       if (reply && typeof reply === 'object' && '__throws' in reply) {
         throw (reply as { __throws: Error }).__throws
       }
@@ -155,6 +161,8 @@ import { useConversation } from '../../conversation/useConversation'
 import { editDeliveryHold } from '../editDeliveryHold'
 import { useStructuralRenameEvents } from '../../conversation/useStructuralRenameEvents'
 import { useStructuralDeleteEvents } from '../../conversation/useStructuralDeleteEvents'
+import { useStructuralAddEvents } from '../../conversation/useStructuralAddEvents'
+import { useStructuralAddEdgeEvents } from '../../conversation/useStructuralAddEdgeEvents'
 import {
   __resetUnconfirmedDeletesForTest,
   settleStructuralDeleteAttempt,
@@ -163,6 +171,7 @@ import {
 import { __resetBootGraphReadForTest } from '../../hydrate/bootGraphRead'
 import { recordSettledBootRead } from './__helpers__/settledBootRead'
 import { STRUCTURAL_DELETE_NOTICE } from '../../mutations/structuralDelete'
+import { buildGoalTargetEditEvent } from '../../conversation/goalTargetEdit'
 
 // ── Fixtures — the witnessed board's shape (pricing starter, guest) ─────────
 const SCENARIO = '9fc5c6bf-0d04-4dd4-89db-bb6470a98fc5'
@@ -2147,5 +2156,492 @@ describe('13 · the delete hold\'s one exit — ask Olumi — releases it (Panel
     expect(heldCause()).toBe('unresolved_structural_edit')
     expect(holdSentence()).toBe(DELETE_HOLD_ASKS_OLUMI)
     expect(registeredWithoutConcentration()).toEqual([])
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9b. THE STRUCTURAL ADD AND THE DRAWN LINK — the same own-write rule.
+//
+// SERVED (UI 5a8a27a9 + CEE 3829c96, 26 Sep 01:00Z, C32 witness): "+ Add
+// option" on a one-decision model. CEE #1937 linked the option in the add's own
+// commit (reply `graph_hash` a9a91f7c), and then a whole-graph `graph/register`
+// re-wrote the link with `edge_type:'directed'` and `provenance: null`. The
+// stored hash moved to e6a0a760, so the canvas's next edit was on a stale base
+// and the user's link read as Olumi's (Canonical State, #70 5841806589).
+// `canvasBeforeOwnAppliedWrite` had no arm for either kind.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const DECISION = 'dec_pricing'
+/** An option already on the board, linked to nothing yet — the drawn link's target. */
+const OPT_KEEP = 'opt_keep_price'
+const ADD_BOARD_NODES: Node[] = [
+  ...STRUCTURAL_NODES,
+  {
+    id: DECISION,
+    type: 'decision',
+    position: { x: 0, y: -300 },
+    data: { label: 'Pricing Model Transition', kind: 'decision', starterId: 'pricing-model' },
+  } as unknown as Node,
+  {
+    id: OPT_KEEP,
+    type: 'option',
+    position: { x: 200, y: -300 },
+    data: { label: 'Keep price', kind: 'option', starterId: 'pricing-model' },
+  } as unknown as Node,
+]
+
+/** CEE's committed graph for the add board, plus whatever this turn wrote. */
+function committedAddBoard(extra: { nodes?: Array<Record<string, unknown>>; edges?: Array<Record<string, unknown>> }) {
+  const base = committedGraph()
+  return {
+    nodes: [
+      ...base.nodes,
+      { id: DECISION, kind: 'decision', label: 'Pricing Model Transition' },
+      { id: OPT_KEEP, kind: 'option', label: 'Keep price' },
+      ...(extra.nodes ?? []),
+    ],
+    edges: [...base.edges, ...(extra.edges ?? [])],
+  }
+}
+
+async function mountAcknowledgedAddBoard() {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: ADD_BOARD_NODES as never,
+    edges: STRUCTURAL_EDGES as never,
+    importPendingServerRegistration: true,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: 'aag_before_add',
+    lastAuthoritativeGraph: null,
+    pendingStructuralDeletes: [],
+    pendingStructuralRenames: [],
+    structuralRenameLifecycle: [],
+    pendingStructuralAdds: [],
+    structuralAddLifecycle: [],
+    pendingStructuralAddEdges: [],
+    _externalMutationActive: 0,
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const hook = renderHook(() => {
+    useImportRegistration()
+    const conversation = useConversation()
+    useStructuralAddEvents(conversation.sendSystemEvent as never)
+    useStructuralAddEdgeEvents(conversation.sendSystemEvent as never)
+    return conversation
+  })
+  await act(async () => { await flush() })
+  // PRECONDITION: registered ONCE, and that acknowledgement released the hold.
+  expect(registerSpy).toHaveBeenCalledTimes(1)
+  expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  return hook
+}
+
+/** The add's reply, built from the request so it carries the minted node id. */
+function addApplied(opts: { ceeLinksFrom?: string }) {
+  return (payload: Record<string, unknown>) => {
+    const ev = (payload as { event?: Record<string, unknown> }).event ?? {}
+    const id = String(ev.node_id)
+    return {
+      ok: true,
+      response: {
+        assistant_text: `Added '${String(ev.label)}' to your model. That's saved.`,
+        blocks: [],
+        graph_hash: 'aag_after_add',
+        draft_graph: committedAddBoard({
+          nodes: [{ id, kind: String(ev.node_kind), label: String(ev.label) }],
+          edges: opts.ceeLinksFrom
+            ? [{ from: opts.ceeLinksFrom, to: id, strength: { mean: 1, std: 0.01 }, exists_probability: 1, provenance: { source: 'user_specified' } }]
+            : [],
+        }),
+      },
+    }
+  }
+}
+
+describe('9b · an applied ADD or drawn LINK acknowledges the model past its own write — no register rewrite', { timeout: 30_000 }, () => {
+  it('⭐ "+ Add option", CEE links it to the sole decision in the SAME commit: no follow-up, NO registration, the model acknowledged', async () => {
+    await mountAcknowledgedAddBoard()
+    replies.push(addApplied({ ceeLinksFrom: DECISION }))
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS, by identity: ONE add for this node, committed with its link.
+    expect(sentKinds()).toEqual(['structural_add'])
+    expect((dispatched[0] as { event?: { node_id?: string } }).event?.node_id).toBe(optionId)
+    expect(useCanvasStore.getState().structuralAddLifecycle.find((r) => r.intent.nodeId === optionId)?.status).toBe('committed')
+    expect(useCanvasStore.getState().edges.some((e) => e.source === DECISION && e.target === optionId)).toBe(true)
+
+    // ⭐ THE CLAIM. RED at 823c2bd4: a whole-graph registration re-writes CEE's link.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  })
+
+  it('⭐ a drawn LINK (structural_add_edge) applied with the committed pair: NO registration, the model acknowledged', async () => {
+    await mountAcknowledgedAddBoard()
+    replies.push({
+      ok: true,
+      response: {
+        assistant_text: 'Connected them. That change is saved.',
+        blocks: [],
+        graph_hash: 'aag_after_link',
+        draft_graph: committedAddBoard({
+          edges: [{ from: DECISION, to: OPT_KEEP, strength: { mean: 1, std: 0.01 }, provenance: { source: 'user_specified' } }],
+        }),
+      },
+    })
+    await act(async () => {
+      useCanvasStore.getState().addEdge({ source: DECISION, target: OPT_KEEP, data: { weight: 1, direction: 'positive' } } as never)
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    expect(sentKinds()).toEqual(['structural_add_edge'])
+    expect((dispatched[0] as { event?: { from?: string; to?: string } }).event).toMatchObject({ from: DECISION, to: OPT_KEEP })
+
+    // ⭐ THE CLAIM. RED at 823c2bd4.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+  })
+
+  it('⭐ CEE does NOT link (no sole-decision rule applies): the add\'s receipt alone acknowledges nothing, the CHAINED link\'s applied receipt does — NO registration', async () => {
+    await mountAcknowledgedAddBoard()
+    let linkedId = ''
+    replies.push(addApplied({}))
+    replies.push((payload: Record<string, unknown>) => {
+      const ev = (payload as { event?: Record<string, unknown> }).event ?? {}
+      linkedId = String(ev.to)
+      return {
+        ok: true,
+        response: {
+          assistant_text: 'Connected. That change is saved.',
+          blocks: [],
+          graph_hash: 'aag_after_link',
+          draft_graph: committedAddBoard({
+            nodes: [{ id: linkedId, kind: 'option', label: 'New option' }],
+            edges: [{ from: String(ev.from), to: linkedId, strength: { mean: 1, std: 0.01 }, provenance: { source: 'user_specified' } }],
+          }),
+        },
+      }
+    })
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    expect(sentKinds()).toEqual(['structural_add', 'structural_add_edge'])
+    expect(linkedId).toBe(optionId)
+    // ⭐ THE CLAIM: the chain closes on the link's own receipt. RED at 823c2bd4.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+  })
+
+  it('CONTROL (fail closed): the chained link\'s turn FAILS (untyped 500) — the canvas, which shows a link CEE never wrote, is NOT acknowledged', async () => {
+    await mountAcknowledgedAddBoard()
+    replies.push(addApplied({}))
+    replies.push(UNTYPED_500)
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    expect(sentKinds()).toEqual(['structural_add', 'structural_add_edge'])
+    // PRECONDITION: the canvas still draws the link the server never took.
+    expect(useCanvasStore.getState().edges.some((e) => e.source === DECISION && e.target === optionId)).toBe(true)
+    // ⭐ THE CLAIM: the add's receipt acknowledged only what CEE holds (no link),
+    // so the canvas as it stands is not a model CEE holds.
+    expect(currentAcknowledged()).toBe(false)
+  })
+
+  it('⛔ (#2070 review 5842051351) a local write on the NEW node while the add is in flight is NOT acknowledged — the registration still carries it', async () => {
+    await mountAcknowledgedAddBoard()
+    holdTurn = true
+    replies.push(addApplied({ ceeLinksFrom: DECISION }))
+    let optionId = ''
+    await act(async () => {
+      optionId = String(useCanvasStore.getState().addNodeWithEdge({ x: 10, y: 10 }, 'option', DECISION, 'from-target'))
+      await flush()
+    })
+    // While the add is on the wire, the store writes to the new node.
+    await act(async () => {
+      const n = useCanvasStore.getState().nodes.find((x) => x.id === optionId)!
+      useCanvasStore.getState().updateNode(optionId, { data: { ...(n.data as Record<string, unknown>), interventions: { [TARGET]: 42 } } } as never)
+      await flush()
+    })
+    await releaseHeldTurn()
+    holdTurn = false
+    await act(async () => { await flush() })
+
+    // ⭐ THE CLAIM: the add's receipt does not acknowledge the canvas carrying
+    // the unsent write, so the side-channel still delivers it. The registration's
+    // OWN receipt then acknowledges, so "acknowledged" alone cannot tell the
+    // two apart: what discriminates is that a registration CARRIED the write.
+    // RED at 664d2ade (1 call, mount only; the write never reached CEE).
+    expect(registerSpy.mock.calls.length).toBeGreaterThanOrEqual(2)
+    const carried = registerSpy.mock.calls.slice(1).some((call) =>
+      registeredGraph(call).nodes.some((n) => n.id === optionId && JSON.stringify(n).includes('42')),
+    )
+    expect(carried).toBe(true)
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 9c. AN APPLIED GOAL TARGET — the receipt's own `analysis_ready` is not a
+//     stranger.
+//
+// SERVED (UI 0622d972 + CEE e3b0844, 26 Sep 03:10Z, guest, pricing example):
+// after a Run had left the canvas acknowledged, the goal panel sent
+// `goal_target_edit` (at_least 121 %). CEE answered 200 with the whole
+// committed `draft_graph`, `graph_hash` 0b039aeb1a22dab0, an applied
+// `add_constraint` graph_patch and an `analysis_ready` whose goal fields moved
+// (raw 110 → 121, cap provenance → 'inherited'). 2 s later the canvas POSTed a
+// whole-graph `graph/register` and CEE's stored hash moved to 21c0fd8d5c96b5a2.
+//
+// The goal target writes NOTHING optimistically (`proposeGoalTarget`: no local
+// echo). What moved the canvas before the receipt branch took G₀ was the SAME
+// response: `applyV5State` step 4 backfills the goal node's
+// `goal_threshold_raw`/`_unit`/`_cap`/`_cap_provenance` from `analysis_ready`,
+// and it runs before the reconcile. So the canvas "just before the receipt"
+// already carried the receipt's own write, was never acknowledged, and the
+// chain did not fire. G₀ is the canvas before THIS response touched it.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const GOAL = 'goal_pricing_transition'
+const GOAL_LABEL = 'Achieve NRR Above 110% While Enabling Bottom-Up Adoption'
+const GOAL_CONSTRAINT_ID = 'gc-15d1c571-307d-4a24-93e6-8f06491124ca'
+
+/** The goal node as the canvas holds it after the Run: the starter's own target. */
+function starterGoal(): Node {
+  return {
+    id: GOAL,
+    type: 'goal',
+    position: { x: 0, y: -200 },
+    data: {
+      label: GOAL_LABEL,
+      kind: 'goal',
+      starterId: 'pricing-model',
+      provenance: 'ai_inferred',
+      goal_threshold: 0.8,
+      goal_threshold_raw: 110,
+      goal_threshold_unit: '%',
+      goal_threshold_cap: 137.5,
+      goal_threshold_cap_provenance: 'target_derived_headroom',
+      goal_threshold_frame: 'level',
+    },
+  } as unknown as Node
+}
+
+const GOAL_BOARD_NODES: Node[] = [...STARTER_NODES, starterOption(), starterGoal()]
+const GOAL_BOARD_EDGES: Edge[] = [
+  ...STARTER_EDGES,
+  { id: `e_${TARGET}_${GOAL}`, source: TARGET, target: GOAL, data: { weight: 0.5, direction: 'negative' } } as unknown as Edge,
+]
+
+async function mountAcknowledgedGoalBoard() {
+  useCanvasStore.setState({
+    currentScenarioId: SCENARIO,
+    nodes: GOAL_BOARD_NODES as never,
+    edges: GOAL_BOARD_EDGES as never,
+    importPendingServerRegistration: true,
+    results: { status: 'idle' } as never,
+    analysisFreshnessDirty: false,
+    pendingEmittedEdits: 0,
+    lastServerGraphHash: '40b8912736c452d8',
+    goalConstraints: null,
+    selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+  } as never)
+  const hook = renderHook(() => {
+    useImportRegistration()
+    return useConversation()
+  })
+  await act(async () => { await flush() })
+  // PRECONDITIONS: registered ONCE, and that acknowledgement released the hold.
+  expect(registerSpy).toHaveBeenCalledTimes(1)
+  expect(currentAcknowledged()).toBe(true)
+  expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  recordSettledBootRead(SCENARIO, GOAL_BOARD_NODES, GOAL_BOARD_EDGES) // see mountAcknowledgedStarter
+  return hook
+}
+
+/** The event the goal panel sends — built by the one production builder. */
+function goalTargetEvent(): WireSystemEvent {
+  const built = buildGoalTargetEditEvent({
+    goalNodeId: GOAL,
+    constraintType: 'at_least',
+    rawValue: 121,
+    unit: '%',
+    baseGraphHash: '40b8912736c452d8',
+  })
+  if (!built.ok) throw new Error('fixture: the goal target must build')
+  return built.event
+}
+
+/** CEE's served 200 for that event, in its served shape (turns.jsonl, response 2). */
+const GOAL_TARGET_APPLIED = {
+  ok: true,
+  response: {
+    assistant_text: `Set the target for ${GOAL_LABEL} to at least 121%.`,
+    blocks: [
+      {
+        type: 'graph_patch',
+        status: 'applied',
+        operation: 'add_constraint',
+        // CEE's fact names the CONSTRAINT here, not the goal node.
+        target_id: GOAL_CONSTRAINT_ID,
+        before: null,
+        after: {
+          constraint_id: GOAL_CONSTRAINT_ID,
+          node_id: GOAL,
+          operator: '>=',
+          value: 121,
+          label: GOAL_LABEL,
+          unit: '%',
+          provenance: 'explicit',
+          value_frame: 'level',
+        },
+      },
+    ],
+    graph_hash: '0b039aeb1a22dab0',
+    draft_graph: {
+      nodes: [
+        ...committedGraph().nodes.filter((n) => n.id !== CONCENTRATION),
+        {
+          id: OPTION,
+          kind: 'option',
+          label: 'Hybrid Platform Fee Plus Usage',
+          is_baseline: false,
+          interventions: { [TARGET]: { value: 0.4, source: 'brief_extraction' } },
+        },
+        {
+          id: GOAL,
+          kind: 'goal',
+          label: GOAL_LABEL,
+          goal_threshold: 0.88,
+          goal_threshold_raw: 121,
+          goal_threshold_unit: '%',
+          goal_threshold_cap: 137.5,
+          goal_threshold_cap_provenance: 'inherited',
+          goal_threshold_frame: 'level',
+          threshold_source: 'user',
+          success_threshold: 121,
+          provenance: 'ai_inferred',
+        },
+      ],
+      edges: [
+        { from: TARGET, to: BYSTANDER, strength: { mean: -0.6 } },
+        { from: TARGET, to: GOAL, strength: { mean: -0.5 } },
+      ],
+      goal_constraints: [
+        {
+          constraint_id: GOAL_CONSTRAINT_ID,
+          node_id: GOAL,
+          operator: '>=',
+          value: 121,
+          label: GOAL_LABEL,
+          unit: '%',
+          provenance: 'explicit',
+          value_frame: 'level',
+        },
+      ],
+    },
+    analysis_ready: {
+      goal_node_id: GOAL,
+      status: 'ready',
+      options: [
+        { option_id: OPTION, label: 'Hybrid Platform Fee Plus Usage', status: 'ready', is_baseline: false, interventions: { [TARGET]: 0.4 } },
+      ],
+      goal_threshold: 0.88,
+      goal_threshold_raw: 121,
+      goal_threshold_unit: '%',
+      goal_threshold_cap: 137.5,
+      goal_threshold_cap_provenance: 'inherited',
+      freshness: 'stale',
+      freshness_reason: 'graph_hash_diverged',
+    },
+  },
+}
+
+/** A local-only analytical write on a key CEE's committed graph does not carry. */
+const LOCAL_ONLY_UNIT = 'seats (local)'
+
+function goalData(): Record<string, unknown> {
+  return nodeData(GOAL)
+}
+
+describe('9c · an applied GOAL TARGET acknowledges the model — its own analysis_ready is not a stranger', { timeout: 30_000 }, () => {
+  it('⭐ an APPLIED goal_target_edit (committed graph + add_constraint + analysis_ready) sends NO registration, and the model is acknowledged', async () => {
+    const hook = await mountAcknowledgedGoalBoard()
+    replies.push(GOAL_TARGET_APPLIED)
+    await act(async () => {
+      await hook.result.current.sendSystemEvent(goalTargetEvent(), { deferIfBusy: false }).catch(() => undefined)
+      await flush()
+    })
+    await act(async () => { await flush() })
+
+    // PRECONDITIONS, by identity: ONE goal_target_edit for this goal, and the
+    // committed target is on the goal node and in the constraint slice.
+    expect(sentKinds()).toEqual(['goal_target_edit'])
+    expect((dispatched[0] as { event?: Record<string, unknown> }).event).toMatchObject({
+      kind: 'goal_target_edit',
+      goal_node_id: GOAL,
+      raw_value: 121,
+      unit: '%',
+    })
+    expect(goalData()).toMatchObject({
+      goal_threshold_raw: 121,
+      goal_threshold_cap_provenance: 'inherited',
+      threshold_source: 'user',
+      success_threshold: 121,
+    })
+    expect(useCanvasStore.getState().goalConstraints?.map((c) => c.constraint_id)).toContain(GOAL_CONSTRAINT_ID)
+
+    // ⭐ THE CLAIM. RED at 0622d972: a whole-graph registration re-writes CEE's commit.
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+    expect(currentAcknowledged()).toBe(true)
+    expect(analysisHeldOn(useCanvasStore.getState() as never)).toBeNull()
+  })
+
+  it('CONTROL (fail closed): a local-only change made just BEFORE the goal edit is not vouched for — the register is still offered, carrying it', async () => {
+    const hook = await mountAcknowledgedGoalBoard()
+    holdTurn = true
+    let send: Promise<unknown> = Promise.resolve()
+    await act(async () => {
+      // An analytical change nobody sent, then the goal edit, in one turn: the
+      // edit's on-the-wire mark holds the registration, so the change is still
+      // unacknowledged when the receipt lands. It is written on a key the
+      // committed graph does not carry, so the reconcile keeps it on screen.
+      const bystander = nodeData(BYSTANDER)
+      useCanvasStore.getState().updateNode(BYSTANDER, { data: { ...bystander, unit: LOCAL_ONLY_UNIT } } as never)
+      send = hook.result.current.sendSystemEvent(goalTargetEvent(), { deferIfBusy: false }).catch(() => undefined)
+      await flush()
+    })
+    expect(registerSpy).toHaveBeenCalledTimes(1)
+
+    replies.push(GOAL_TARGET_APPLIED)
+    await settleTurn(send)
+    await act(async () => { await flush() })
+
+    // PRECONDITION: the receipt landed.
+    expect(sentKinds()).toEqual(['goal_target_edit'])
+    expect(goalData()).toMatchObject({ goal_threshold_raw: 121 })
+    expect(nodeData(BYSTANDER).unit).toBe(LOCAL_ONLY_UNIT)
+    // ⭐ THE CLAIM: the receipt does not vouch for a canvas carrying a change
+    // CEE never saw, so a registration offers the model — and it CARRIES that
+    // change, by identity (the bystander's local unit).
+    expect(registerSpy.mock.calls.length).toBeGreaterThan(1)
+    const carried = registerSpy.mock.calls.slice(1).some((call) =>
+      registeredGraph(call).nodes.find((n) => n.id === BYSTANDER)?.unit === LOCAL_ONLY_UNIT,
+    )
+    expect(carried).toBe(true)
   })
 })

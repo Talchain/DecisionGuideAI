@@ -106,7 +106,8 @@ describe('Focus Now is not mounted on the Reasoning tab (V2 prototype, 25 Sep)',
    * ⭐ THE SUCCESS NUDGE MOVED, IT DID NOT DISAPPEAR. `hasGoalTarget: false` on
    * a real model with a goal: before V2 this earned the define-success row;
    * now the strip's own success row asks the question, with the pencil named
-   * "Set a target".
+   * as the V2 prototype names it (design audit B5, 26 Sep): "Describe success
+   * in words or set an optional target".
    */
   it('a real model with no target: no define-success row — the strip asks "What would success look like?"', () => {
     const base = genuineDecision()
@@ -119,6 +120,8 @@ describe('Focus Now is not mounted on the Reasoning tab (V2 prototype, 25 Sep)',
     expect(screen.queryByTestId('focus-now-panel')).toBeNull()
     const row = screen.getByTestId('analysis-new-model-strip-target')
     expect(row).toHaveTextContent('What would success look like?')
-    expect(within(row).getByRole('button', { name: 'Set a target' })).toBeInTheDocument()
+    expect(
+      within(row).getByRole('button', { name: 'Describe success in words or set an optional target' }),
+    ).toBeInTheDocument()
   })
 })

@@ -92,6 +92,7 @@ import {
 } from '../canvas/hydrate/applyScenarioAnalysisRead'
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
 import { readServerStatedStrength } from '../canvas/domain/edges'
+import { USER_VALUE_STAMP } from '../canvas/domain/valueProvenance'
 import { logger } from '../lib/logger'
 
 /**
@@ -1089,8 +1090,19 @@ export function applyV5State(
                * false and leaves the field for the server to re-author. And
                * `after` is merged BELOW this line, so if CEE sends its own
                * `extractionType` for the new value, the server still wins.
+               *
+               * ⚠⚠ `null`, NOT `undefined` (independent review, PR #2046
+               * Blocking 2). `JSON.stringify` drops a key whose value is
+               * `undefined`, so this withdrawal did not survive the autosave
+               * round trip or a boot restore with no server readback — a
+               * withdrawn (pending) edit came back indistinguishable from a
+               * producer draft that never wrote a marker, and
+               * `valueSourceMark.tsx`'s rule 4a then read it as Olumi's
+               * estimate. `null` is a present key that survives serialisation
+               * and is still overridden by anything spread after it, so
+               * "cleared, not re-authored" is unchanged.
                */
-              extractionType: undefined,
+              extractionType: null,
               observedState: {
                 ...((node.data as { observedState?: Record<string, unknown> }).observedState ?? {}),
                 /**
@@ -1123,8 +1135,23 @@ export function applyV5State(
                  * The sibling writer `useInspectorMutations.ts:706`/`:739` already
                  * clears BOTH, and its own comment warns of exactly this defect
                  * being "reopened by its neighbour". This is that neighbour.
+                 *
+                 * ⚠⚠ `null`, NOT `undefined` — see the top-level clear above.
                  */
-                extractionType: undefined,
+                extractionType: null,
+                /**
+                 * ⛔ AN APPLIED PATCH IS THE RECEIPT (independent review, PR #2046
+                 * round 3). CEE's `after` names a `source` only on a verified panel
+                 * apply or an approved adoption; otherwise it persists
+                 * `USER_EDIT_SOURCE` ('user_override', `set-factor-value.ts:727` @
+                 * bdd43f4a) and sends `after` without it. Leaving the OLD AI/brief
+                 * `source` beside the withdrawn marker above is
+                 * `factorValueSourceMark` rule 4 — "awaiting receipt" — so a chat
+                 * edit Olumi applied read "Your edit — not saved to the model yet".
+                 * Stamp the same literal CEE persisted; ABOVE `...after`, so a
+                 * `source` CEE does send still wins.
+                 */
+                ...(typeof after.source === 'string' ? {} : USER_VALUE_STAMP),
                 ...after,
               },
             } as typeof node.data,

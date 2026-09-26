@@ -529,6 +529,35 @@ describe('§4 a read acknowledges only values the wire carries (review B3)', () 
     expect(r.acked).toBe(false)
   })
 
+  // #2043 review 5841802705 blocker 1: the acknowledgement compares edge_type
+  // under the contract's default on BOTH sides, as the currency proof does.
+  // A canvas saved before A1 carries an explicit 'directed' (the readback wrote
+  // it); a read that omits edge_type IS 'directed' by `EdgeV3Schema`.
+  const SERVER_WITHOUT_EDGE_TYPE = {
+    ...SERVER_AS_REGISTERED,
+    edges: SERVER_AS_REGISTERED.edges.map(({ edge_type: _omitted, ...rest }) => rest),
+  }
+  function matchingEdgesTyped(edgeType: string): Edge[] {
+    return MATCHING_EDGES.map((e) => ({ ...e, data: { ...(e.data as object), edge_type: edgeType } }) as Edge)
+  }
+
+  it('A1 contract default: a canvas edge spelling "directed" is vouched for by a read that omits edge_type — acknowledged', async () => {
+    setCanvas(MATCHING_NODES, matchingEdgesTyped('directed'))
+    const r = await hydrate(SERVER_WITHOUT_EDGE_TYPE)
+    expect(r.outcome).toBe('merged')
+    expect((useCanvasStore.getState().edges[0].data as Record<string, unknown>).edge_type, 'precondition: the canvas keeps its spelling').toBe('directed')
+    expect(r.acked).toBe(true)
+    expect(r.held).toBeNull()
+  })
+
+  it('A1 contract default is not a wildcard: a canvas edge marked "bidirected" is NOT vouched for by a read that omits edge_type', async () => {
+    setCanvas(MATCHING_NODES, matchingEdgesTyped('bidirected'))
+    const r = await hydrate(SERVER_WITHOUT_EDGE_TYPE)
+    expect(r.outcome).toBe('merged')
+    expect((useCanvasStore.getState().edges[0].data as Record<string, unknown>).edge_type, 'precondition: the canvas keeps its spelling').toBe('bidirected')
+    expect(r.acked).toBe(false)
+  })
+
   it('an option\'s interventionKeys is vouched for by the index of the wire\'s own interventions map — acknowledged', async () => {
     // `interventionKeys` is the index `mapDraftNodeToCanvas` derives; the wire
     // carries the map it indexes, never the index itself.

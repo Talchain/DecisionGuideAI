@@ -119,6 +119,21 @@ export interface WorkspaceShellTabStripProps {
   resultsStale: boolean
   /** Model provenance: number of factors awaiting verification. */
   factorsToVerify: number
+  /**
+   * A5: whether any analysis run has EVER completed for this model. Optional,
+   * defaulting to `true` — the same defensive default
+   * `classifyFreshnessForDisplay`'s own `hasCompletedFirstRun` parameter
+   * uses — so every existing mount keeps today's behaviour exactly until it
+   * threads the real store value.
+   *
+   * Both freshness icons assert something about "this analysis": stale says
+   * it changed, cannot-confirm says its currency is unknown. Neither is true
+   * of a model with no analysis to have a currency — the audit's measured
+   * glyph, "Cannot confirm whether this analysis is current.", was shown for
+   * a never-run model. `false` suppresses BOTH icons rather than picking a
+   * third, invented claim.
+   */
+  hasCompletedFirstRun?: boolean
 }
 
 /**
@@ -268,6 +283,7 @@ export function WorkspaceShellTabStrip({
   showResultsFreshnessIcon,
   resultsStale,
   factorsToVerify,
+  hasCompletedFirstRun = true,
 }: WorkspaceShellTabStripProps) {
   // gap NARROW-1: below this width four tabs plus VersionsTrigger, the
   // expert-mode toggle and the collapse control do not fit one row, so the
@@ -431,7 +447,7 @@ export function WorkspaceShellTabStrip({
                 {/* Only the LABEL truncates. The affordances after it are
                     protected content and carry `shrink-0`. */}
                 <span className="truncate">{surface.label}</span>
-                {surface.id === 'results' && showResultsFreshnessIcon && (
+                {surface.id === 'results' && showResultsFreshnessIcon && hasCompletedFirstRun && (
                   resultsStale ? (
                     <AlertTriangle
                       className="w-3 h-3 text-warning shrink-0"

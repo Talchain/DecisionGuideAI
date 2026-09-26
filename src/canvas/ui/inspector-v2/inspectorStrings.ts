@@ -199,7 +199,7 @@ export function getExtractionLabel(
   source?: string,
   attributedTo?: ParticipantNameResolution,
 ): string {
-  if (!source) return 'Estimated by Olumi'
+  if (!source) return 'Source not recorded'
   const attributed = attributedLabelFor(source, attributedTo)
   if (attributed) return attributed
   switch (source) {

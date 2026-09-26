@@ -57,6 +57,9 @@ interface TopBarProps {
   shareScenarioId?: string | null
 }
 
+/** contract v3.1 `.app-top{height:51px}` — the bar's height, and its bottom edge. */
+export const TOP_BAR_HEIGHT_PX = 51
+
 export const TopBar = ({
   scenarioTitle,
   onTitleChange,
@@ -106,13 +109,14 @@ export const TopBar = ({
     prevSaveStatusRef.current = saveStatus
   }, [saveStatus])
 
-  // Floating pill TopBar - set topbar-h to pill bottom (12px top + 45px height = 57px)
-  // This ensures LeftSidebar and other elements position correctly below the pill
+  // contract v3.1 `.app-top{height:51px}` — a full-width bar at the top edge,
+  // so `--topbar-h` is its bottom: 51px (the floating pill's was 12 + 45 = 57).
+  // The canvas tools, the dock and the starter context line anchor below it.
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     const previous = root.style.getPropertyValue('--topbar-h')
-    root.style.setProperty('--topbar-h', '57px')
+    root.style.setProperty('--topbar-h', `${TOP_BAR_HEIGHT_PX}px`)
     return () => {
       root.style.setProperty('--topbar-h', previous || '0px')
     }
@@ -231,8 +235,8 @@ export const TopBar = ({
           />
         </a>
 
-        {/* Divider between logo and the model name */}
-        <div className={styles.divider} aria-hidden="true" />
+        {/* contract v3.1 `.app-top`: logo and model title are spaced by the
+            bar's 20px gap — no divider rule between them. */}
 
         {/* ⭐ THE SINGLE MODEL-NAME CONTROL (Paul, 14 Aug 2026).
             This bar used to render a plain title here AND the switcher below
@@ -411,8 +415,10 @@ export const TopBar = ({
           menuRef={menuRef}
         />
 
-        {/* User avatar + account dropdown */}
-        <UserAvatarMenu />
+        {/* User avatar + account dropdown — contract `.app-top .avatar`, 26px. */}
+        <div className={styles.avatarSlot}>
+          <UserAvatarMenu size="compact" />
+        </div>
       </div>
     </div>
   )

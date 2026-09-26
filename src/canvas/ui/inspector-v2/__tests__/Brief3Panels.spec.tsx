@@ -243,11 +243,11 @@ describe('FactorExternalPanel v6.2', () => {
 
   it('renders both category pill and extraction label in context group', () => {
     setExternalStore()
-    // No observedState source → getExtractionLabel(undefined) → 'Estimated by Olumi'
+    // No observedState source → getExtractionLabel(undefined) → 'Source not recorded' (A4a)
     const { container } = render(<FactorExternalPanel {...externalProps} />)
     const contextGroup = container.querySelector('[data-panel-group="context"]')
     expect(contextGroup?.textContent).toContain('Outside your control')
-    expect(contextGroup?.textContent).toContain('Estimated by Olumi')
+    expect(contextGroup?.textContent).toContain('Source not recorded')
   })
 
   it('renders ImportanceBar in context group when post-analysis influence data present', () => {
@@ -415,7 +415,7 @@ describe('Provenance pill semantics', () => {
     const contextGroup = container.querySelector('[data-panel-group="context"]')
     // Both category pill and extraction label should be present
     expect(contextGroup?.textContent).toContain('Outside your control')
-    expect(contextGroup?.textContent).toContain('Estimated by Olumi')
+    expect(contextGroup?.textContent).toContain('Source not recorded')
   })
 
   it('FactorObservablePanel context group shows extraction label when source present', () => {

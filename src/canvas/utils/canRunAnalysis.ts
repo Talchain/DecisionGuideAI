@@ -40,11 +40,13 @@ import { draftValuesAreUnsettled, type DraftStreamPhase } from '../stores/draftS
 import type { AnalysisBlocker } from '@talchain/schemas/boundary'
 
 import type { GraphReadiness } from '../hooks/useGraphReadiness'
+import type { AdmissionRefusalWording } from '../hooks/useAnalysisReady'
 import {
   analysisBlockedItems,
   composeReadinessBlockedReason,
   readinessAuthoredRefusalItems,
   readinessAuthoredImprovementItems,
+  BLOCKED_REASON_COPY,
   type GateBlockedItem,
   type OptionNeedingValues,
 } from './composeBlockedReason'
@@ -52,6 +54,7 @@ import {
 /** Re-exported so the gate's consumers have one import for the listing shape. */
 export type { GateBlockedItem }
 import type { AnalysisHoldReason } from './analysisHeldOnInjectedModel'
+import { describeAnalysisRefusalReason } from '../store/analysisRefusalNotice'
 
 /**
  * The refusal for a model the engine did not draft.
@@ -279,6 +282,11 @@ export interface CanRunAnalysisParams {
    * strict `=== true`.
    */
   mayRun?: boolean
+  /**
+   * The bound admission verdict's own refusal wording (`useBoundAdmissionWording`).
+   * Used ONLY to word a refusal that verdict made; never decides anything.
+   */
+  admissionWording?: AdmissionRefusalWording
   /** Whether there are critical/blocking actions */
   hasBlockers: boolean
   /** Number of nodes in graph */
@@ -535,6 +543,50 @@ export function actionableBlockers(
   return blockers.filter((blocker) => !ADVISORY_BLOCKER_CODES.has(blocker.code))
 }
 
+/**
+ * The sentences for a refusal the bound admission verdict made, from the MOST
+ * SPECIFIC source that exists (independent review of #2053, 5841669035 B1):
+ *
+ *   1. the inputs CEE's admission REQUIRES, in its own words — the named cause
+ *      (served: "An option is not connected from the decision. Link the
+ *      decision to it.");
+ *   2. the side-car's own named refusal, when it has one (`sideCarItems`, the
+ *      wording this gate used before a bound verdict existed; #1140/#1148);
+ *   3. the admission's structural `message` (CEE's `blockedNextStep`);
+ *   4. its reason codes through the ONE code vocabulary
+ *      (`describeAnalysisRefusalReason`, shared with the post-refusal notice);
+ *   5. the honest generic line.
+ *
+ * The side-car ranks below CEE's itemised inputs because those are bound to the
+ * revision on screen and the side-car is not; it ranks above the structural
+ * sentence because that one is a summary ("Review all 2 readiness issues…").
+ * Unmapped codes are never printed raw.
+ */
+export function admissionRefusalItems(
+  wording: AdmissionRefusalWording | undefined,
+  sideCarItems: readonly GateBlockedItem[] = [],
+): readonly GateBlockedItem[] {
+  if (wording !== undefined && wording.requiredInputs.length > 0) {
+    return wording.requiredInputs.map((text) => ({ text }))
+  }
+  if (sideCarItems.some((item) => !GENERIC_GATE_SENTENCES.has(item.text))) return sideCarItems
+  if (wording?.structural) return [{ text: wording.structural }]
+  const sentences: string[] = []
+  for (const code of wording?.reasonCodes ?? []) {
+    const sentence = describeAnalysisRefusalReason(code)
+    if (sentence !== null && !sentences.includes(sentence)) sentences.push(sentence)
+  }
+  return sentences.length > 0
+    ? sentences.map((text) => ({ text }))
+    : [{ text: BLOCKED_REASON_COPY.unspecified }]
+}
+
+/** Sentences that name no cause: the side-car saying one of these has nothing specific to add. */
+const GENERIC_GATE_SENTENCES: ReadonlySet<string> = new Set([
+  BLOCKED_REASON_COPY.unspecified,
+  BLOCKED_REASON_COPY.staleRecheck,
+])
+
 export function readinessObjectsToRun(
   readiness: GraphReadiness | null | undefined,
   analysisReadiness?: AnalysisReadinessAuthority | null,
@@ -707,9 +759,24 @@ export function readinessObjectsToRun(
     // waiver is about admission, not about actionability.
     return (
       analysisReadiness.status === ANALYSIS_READINESS_BLOCKED ||
+      // ⭐ A bound refusal closes the gate on its own (one revision-bound
+      // authority, #69 5840817605 (B)). `mayRun` reaching here is ONLY a
+      // verdict bound to the revision on screen (`selectBoundMayRun`), so a
+      // stated "no" for THIS graph is never outvoted by a quieter readiness.
+      mayRun === false ||
       (actionableBlockers(analysisReadiness.blockers).length > 0 && mayRun !== true)
     )
   }
+
+  // ⭐ ONE REVISION-BOUND AUTHORITY BEFORE THE SIDE-CAR (#69 5840817605 (B);
+  // manual test 1a298d6d). The removal trigger below asked for a producer
+  // verdict that is "durable across a silent turn". `ceeAnalysisReady` is: it
+  // is retained across conversational turns and nulled on analytical edits,
+  // and `selectBoundMayRun` binds it to the exact revision on screen. So when a
+  // bound verdict exists it decides, and the side-car's separate score is not
+  // consulted; with no bound verdict (`undefined`) the side-car decides exactly
+  // as it did before.
+  if (mayRun !== undefined) return mayRun === false
 
   // ⏳ REMOVAL TRIGGER for the side-car fallback below.
   //
@@ -787,7 +854,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // ⚠ `mayRun` is deliberately NOT defaulted here. `undefined` is the signal
   // "the producer did not say", and a default would erase the very distinction
   // `readinessObjectsToRun` reads it for.
-  const { graphHealth, readiness, analysisReadiness = null, mayRun, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  const { graphHealth, readiness, analysisReadiness = null, mayRun, admissionWording, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
 
   const blockingReasons: string[] = []
   // The ITEMISED twin of `blockingReasons`, filled in the same pass so the two
@@ -1062,10 +1129,23 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
           (readinessAuthoredRefusalItems(readiness) ??
           readinessAuthoredImprovementItems(readiness))
         : null
-    const composedItems: readonly GateBlockedItem[] =
+    const ladderItems: readonly GateBlockedItem[] =
       producerBlockers !== null
         ? (corroboration ?? analysisBlockedItems(producerBlockers))
         : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
+    // ⭐ A refusal the BOUND admission verdict made is worded by that verdict's
+    // own text first, then the side-car's named cause, most specific first
+    // (`admissionRefusalItems`). Producer-itemised blockers, when there are any,
+    // are more specific and still win, and a producer-stated `blocked` status
+    // decided on its own, so both keep their own wording ladder.
+    const decidedByBoundAdmission =
+      mayRun === false &&
+      (analysisReadiness === null ||
+        (analysisReadiness.status !== ANALYSIS_READINESS_BLOCKED &&
+          (producerBlockers === null || producerBlockers.length === 0)))
+    const composedItems: readonly GateBlockedItem[] = decidedByBoundAdmission
+      ? admissionRefusalItems(admissionWording, ladderItems)
+      : ladderItems
     const composed = composedItems.map((item) => item.text).join(' ')
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)

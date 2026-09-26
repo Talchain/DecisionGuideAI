@@ -18,7 +18,8 @@
  * "I disagree" / "Not relevant" controls are rendered once, in the Strengthen
  * row. See `theFocusCardReferencesRatherThanReprints.spec.tsx`.
  */
-import { Sparkles, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import { OlumiAiIcon } from '../OlumiAiIcon'
 import { typography } from '../../../../styles/typography'
 import { methodForRecommendation } from '../recommendationMethod'
 import { PANEL_INSET_ACTION, action, icon } from '../panelSurfaces'
@@ -75,7 +76,7 @@ export function PrimaryIntervention({
           data-testid={`${testId}-primary-intervention`}
           data-recommendation-id={primaryIntervention.id}
         >
-          <Sparkles className={`${icon('row')} mt-0.5 shrink-0 text-info`} aria-hidden="true" />
+          <OlumiAiIcon className={`${icon('row')} mt-0.5 shrink-0 text-info`} aria-hidden="true" />
           <span className="min-w-0 flex-1">
             {/* ⭐ GATED ON PROVENANCE, NOT ON SIMILARITY. A text comparison
                 between the header and the action would fire on whatever

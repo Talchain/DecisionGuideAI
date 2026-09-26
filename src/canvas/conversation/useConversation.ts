@@ -68,6 +68,7 @@ import {
   type StructuralRenameNoticeKey,
 } from '../mutations/structuralRename'
 import {
+  readCommittedIncidentEdgeKeys,
   readStructuralAddReceipt,
   revertStructuralAdd,
   STRUCTURAL_ADD_NOTICE,
@@ -1377,6 +1378,21 @@ export function attachAnalysisReadyToInlineDraftGraph(
     ...graphWithCoaching,
     analysis_ready: normalised,
   }
+}
+
+/**
+ * The endpoint pair a `structural_add_edge` turn SENT, which is the only thing
+ * that names its own write (the drain passes no intent in opts). `undefined` for
+ * any other kind, or a payload without two string endpoints.
+ */
+function ownAddEdgePair(
+  systemEvent: SystemEvent | undefined,
+): { from: string; to: string } | undefined {
+  if (systemEvent?.type !== 'structural_add_edge') return undefined
+  const pl = systemEvent.payload as Record<string, unknown> | undefined
+  const from = pl?.from
+  const to = pl?.to
+  return typeof from === 'string' && typeof to === 'string' ? { from, to } : undefined
 }
 
 function asOptionalString(value: unknown): string | undefined {
@@ -3449,14 +3465,27 @@ export function useConversation(): UseConversationReturn {
       // the user "I couldn't confirm" about an add that plainly committed.
       // `settleStructuralAdd` is idempotent, so whichever authority writes first
       // owns the verdict.
-      const settle = (status: 'committed' | 'refused' | 'unconfirmed') => {
-        useCanvasStore.getState().settleStructuralAdd(intent.id, status)
+      const settle = (
+        status: 'committed' | 'refused' | 'unconfirmed',
+        committedGraphHash?: unknown,
+        committedIncidentEdgeKeys?: readonly string[],
+      ) => {
+        useCanvasStore.getState().settleStructuralAdd(intent.id, status, committedGraphHash, committedIncidentEdgeKeys)
       }
 
       if (outcome.kind === 'response') {
         const receipt = readStructuralAddReceipt(intent, outcome.response)
         if (receipt === 'proven') {
-          settle('committed')
+          // The committing turn's hash rides WITH the verdict: it is the base a
+          // link chained to this node ("+ Add option") must be sent on.
+          // So do the committed graph's edges on this node: CEE may have written
+          // the chained link in this same commit (C32, #1937), and the link's
+          // drain reads that answer rather than sending a duplicate.
+          settle(
+            'committed',
+            outcome.response.graph_hash,
+            readCommittedIncidentEdgeKeys(outcome.response, intent.nodeId),
+          )
           return
         }
         if (receipt === 'refuted') {
@@ -5122,6 +5151,16 @@ export function useConversation(): UseConversationReturn {
           // the top level, so we splice it in here rather than widening the
           // store shape upstream.
           const v5StoreSnapshot = useCanvasStore.getState()
+          // ⭐ THE CANVAS BEFORE THIS RESPONSE WROTE ANYTHING — G₀'s basis for
+          // the applied-receipt acknowledgement below. `applyV5State` writes the
+          // canvas FROM THIS RESPONSE before that branch runs: step 4 backfills
+          // the goal node's `goal_threshold_*` from `analysis_ready`. A receipt's
+          // own write is not a stranger, but read after it the canvas "just
+          // before the receipt" was never acknowledged, so the chain never fired
+          // (served 26 Sep 03:10Z, UI 0622d972: an applied `goal_target_edit`,
+          // then a whole-graph register that moved CEE's hash). Everything from
+          // here to that branch is synchronous and this response's own.
+          const canvasBeforeResponse = { nodes: v5StoreSnapshot.nodes, edges: v5StoreSnapshot.edges }
           // ⚠ NOT A USER EDIT — CEE APPLYING ITS OWN graph_patch blocks
           // (`set_factor_value` writes `observedState`, `adjust_edge_strength`
           // writes edge weight/direction: both ANALYTICAL, so the bounded
@@ -5451,6 +5490,18 @@ export function useConversation(): UseConversationReturn {
               // unacknowledged change survives the undo, so it still fails
               // CLOSED. A refused or unconfirmed turn (409 / 500) carries no
               // committed graph and never reaches this branch.
+              //
+              // ⭐ …AND G₀ IS TAKEN BEFORE THIS RESPONSE'S OWN STATE APPLY (served
+              // 26 Sep 03:10Z, UI 0622d972 + CEE e3b0844). An applied
+              // `goal_target_edit` writes nothing optimistically, yet a whole-graph
+              // register followed it and moved CEE's hash (0b039aeb → 21c0fd8d):
+              // `applyV5State`, above, had already backfilled the goal node's
+              // `goal_threshold_raw`/`_cap_provenance` from this same response's
+              // `analysis_ready`, so the canvas read HERE carried the receipt's
+              // own write and was never acknowledged. `canvasBeforeResponse` is
+              // the canvas before this response touched it. Any change that did
+              // NOT come from this response (a local-only edit, another turn's
+              // unanswered write) is on it too, so it still fails CLOSED.
               const beforeReceipt = useCanvasStore.getState()
               const canvasAtReceipt = { nodes: beforeReceipt.nodes, edges: beforeReceipt.edges }
               const canvasBeforeOwnWrite = canvasBeforeOwnAppliedWrite(
@@ -5459,15 +5510,19 @@ export function useConversation(): UseConversationReturn {
                   structuralDelete: opts.structuralDelete,
                   structuralRename: opts.structuralRename,
                   optimisticEdgeEdit: opts.optimisticEdgeEdit,
+                  structuralAdd: opts.structuralAdd,
+                  // A drawn link's own write is named by the pair it SENT —
+                  // the payload is this turn's, so it cannot be another's.
+                  structuralAddEdge: ownAddEdgePair(systemEvent),
                 },
                 target.response,
-                canvasAtReceipt,
+                canvasBeforeResponse,
               )
               const receiptExtendsAcknowledgement =
                 isGraphServerAcknowledged(
                   beforeReceipt.currentScenarioId,
-                  canvasAtReceipt.nodes as never,
-                  canvasAtReceipt.edges as never,
+                  canvasBeforeResponse.nodes as never,
+                  canvasBeforeResponse.edges as never,
                 ) ||
                 (canvasBeforeOwnWrite !== null &&
                   isGraphServerAcknowledged(
@@ -5489,10 +5544,17 @@ export function useConversation(): UseConversationReturn {
               const merged = reconcileAppliedGraph(inlineGraph as any, { analysisHashUnmoved })
               if (receiptExtendsAcknowledgement) {
                 const afterReceipt = useCanvasStore.getState()
+                // An own link the commit does not carry yet (an add's chained
+                // link, still on its own way) is not acknowledged with it: mark
+                // exactly what CEE holds, and let that link's receipt close the
+                // chain. The canvas as it stands stays unacknowledged meanwhile.
+                const notYetCommitted = new Set(canvasBeforeOwnWrite?.notYetCommittedEdgeIds ?? [])
                 markGraphServerAcknowledged(
                   afterReceipt.currentScenarioId,
                   afterReceipt.nodes as never,
-                  afterReceipt.edges as never,
+                  (notYetCommitted.size > 0
+                    ? afterReceipt.edges.filter((e) => !notYetCommitted.has(e.id))
+                    : afterReceipt.edges) as never,
                 )
               }
               // ⭐ ANY applied receipt can prove an unconfirmed delete (Panel's

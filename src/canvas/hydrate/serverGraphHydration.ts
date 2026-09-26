@@ -621,9 +621,11 @@ function acknowledgeCanvasThatMatchesTheRead(scenarioId: string, wireGraph: unkn
  * this read carries, with no edit between the user and CEE. The acknowledgement
  * above and the boot run-currency restore both ask this, so it has ONE body.
  * An unregistered import is never proven equal: the server has seen none of it.
+ * Edge types are compared under the contract default on BOTH sides, exactly as
+ * the currency proof compares them (`withContractEdgeDefaults`).
  */
 function canvasProvenEqualToRead(scenarioId: string, wireGraph: unknown): boolean {
-  return whyCanvasNotProvenEqualToRead(scenarioId, wireGraph) === null
+  return whyCanvasNotProvenEqualToRead(scenarioId, withContractEdgeDefaults(wireGraph), withContractEdgeDefaults) === null
 }
 
 /**
@@ -646,13 +648,20 @@ function whyCanvasNotProvenEqualToRead(
 }
 
 /**
- * The read's graph with the published contract's defaults applied, and nothing
- * else. `EdgeV3Schema` declares `edge_type: EdgeType.optional().default('directed')`,
- * so a wire edge that omits `edge_type` IS a directed edge by contract, and the
- * canvas projection always emits it (`buildRegistrationGraph`). Without this,
- * the served pricing read (`fixtures/pricing-provisional-poll.json`) fails the
- * equality proof on all 15 edges for that one key, so the restore could never
- * fire on a real graph. The default is read FROM the schema, never re-spelled.
+ * A graph with the published contract's defaults applied, and nothing else.
+ * `EdgeV3Schema` declares `edge_type: EdgeType.optional().default('directed')`,
+ * so an edge that omits `edge_type` IS a directed edge by contract. The default
+ * is read FROM the schema, never re-spelled.
+ *
+ * ⚠ APPLIED TO BOTH SIDES OF EVERY EQUALITY PROOF, AND ONLY THERE. The served
+ * pricing read (`fixtures/pricing-provisional-poll.json`) omits `edge_type` on
+ * all 15 edges, and since A1 (#2043) the canvas projection omits it too
+ * (`buildRegistrationGraph` no longer mints 'directed', and the reload merge
+ * strips a readback-minted one). Defaulting one side only made the reverse
+ * check decline every reload of an analysed model on this one key
+ * (`rev:edge:…:edge_type:canvas_lacks read="directed"`; review 5841802705
+ * blocker 1). This function never touches the canvas, the registration wire
+ * or the digest: an absent field stays absent everywhere a user can see it.
  */
 function withContractEdgeDefaults(wireGraph: unknown): unknown {
   if (wireGraph === null || typeof wireGraph !== 'object') return wireGraph
@@ -675,12 +684,17 @@ function withContractEdgeDefaults(wireGraph: unknown): unknown {
  * `applyBootRunCurrency.ts`.
  */
 function whyCanvasNotProvenEqualToReadBothWays(scenarioId: string, wireGraph: unknown): string | null {
-  const read = withoutNonAnalysisFields(withContractEdgeDefaults(wireGraph))
+  const read = currencyComparable(wireGraph)
   return (
-    whyCanvasNotProvenEqualToRead(scenarioId, read, withoutNonAnalysisFields) ??
-    firstReadValueTheCanvasLacks(read, withoutNonAnalysisFields) ??
+    whyCanvasNotProvenEqualToRead(scenarioId, read, currencyComparable) ??
+    firstReadValueTheCanvasLacks(read, currencyComparable) ??
     firstGoalValueNotProvenEqual(read)
   )
+}
+
+/** The currency proof's view of EITHER graph: contract defaults, then the analysis-affecting projection. */
+function currencyComparable(graph: unknown): unknown {
+  return withoutNonAnalysisFields(withContractEdgeDefaults(graph))
 }
 
 /**
@@ -725,11 +739,16 @@ function firstGoalValueNotProvenEqual(wireGraph: unknown): string | null {
   for (const r of read) {
     const id = constraintIdentity(r)
     if (id === null) return 'goal:goal_constraints:read_constraint_has_no_identity'
+    // A repeated id would let one entry shadow another (review 5843168236 N1).
+    if (readById.has(id)) return `goal:goal_constraints:${id}:duplicate_identity_on_read`
     readById.set(id, r)
   }
+  const canvasIds = new Set<string>()
   for (const c of canvas) {
     const id = constraintIdentity(c)
     if (id === null) return 'goal:goal_constraints:canvas_constraint_has_no_identity'
+    if (canvasIds.has(id)) return `goal:goal_constraints:${id}:duplicate_identity_on_canvas`
+    canvasIds.add(id)
     if (!readById.has(id)) return `goal:goal_constraints:${id}:absent_on_read`
     if (!sameValue(c, readById.get(id))) {
       return `goal:goal_constraints:${id}:differs canvas=${excerpt(c)} read=${excerpt(readById.get(id))}`

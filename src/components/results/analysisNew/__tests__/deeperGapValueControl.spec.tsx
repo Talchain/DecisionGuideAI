@@ -395,6 +395,11 @@ describe('the mount path', () => {
    * control's handles with its own testid. Re-pointed to that surface; the
    * claim — the control is a DESCENDANT of the section the body mounts, bound to
    * the row's own node id — is unchanged.
+   *
+   * ⭐ V2 DESIGN PASS (26 Sep 2026): the gaps the analysis worked around are
+   * LIMITS, not receipts, so they moved from "Run record" to "Sources and
+   * limits" (the prototype's run record is label/value rows only). The control
+   * moved with its row; the claim is unchanged.
    */
   it('is reachable from the reasoning tab body', () => {
     const ABOUT = 'analysis-new-about'
@@ -417,8 +422,9 @@ describe('the mount path', () => {
     // has already opened it — click only when closed, or the click closes it.
     const aboutToggle = screen.getByTestId(`${ABOUT}-toggle`)
     if (aboutToggle.getAttribute('aria-expanded') === 'false') fireEvent.click(aboutToggle)
-    fireEvent.click(screen.getByTestId(`${ABOUT}-detail-record-toggle`))
+    fireEvent.click(screen.getByTestId(`${ABOUT}-detail-limitations-toggle`))
     const trigger = controlFor(`${ABOUT}-value-edit`, TARGET_NODE_ID)
+    expect(screen.getByTestId(`${ABOUT}-detail-limitations-body`)).toContainElement(trigger as HTMLElement)
     expect(trigger).toBeInTheDocument()
     expect(section).toContainElement(trigger as HTMLElement)
     // …and the goal-ancestor row still offers none on the mounted surface.

@@ -162,7 +162,7 @@ describe('⭐ the detail names a practical move, or says nothing at all', () => 
    * take the real coaching with it.
    */
   const findingIn = (nodeId: string) => {
-    fireEvent.mouseEnter(mark(nodeId))
+    fireEvent.click(mark(nodeId))
     const detail = screen.getByTestId(`${TID}-detail`)
     return within(detail).getAllByTestId(`${TID}-detail-finding`)[0]
   }
@@ -195,16 +195,16 @@ describe('⭐ the detail names a practical move, or says nothing at all', () => 
 })
 
 describe('⭐ the detail is bound to the mark’s OWN node', () => {
-  it('naming a mark shows THAT node, its kind, and the engine’s finding for it', () => {
+  // ⚠ 26 Sep (design audit B12): the prototype's detail has no kind line —
+  // the mark's own shape and row already say the kind — so it is pinned ABSENT.
+  it('picking a mark shows THAT node and the engine’s finding for it, with no kind line', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('o1'))
+    fireEvent.click(mark('o1'))
 
     const detail = screen.getByTestId(`${TID}-detail`)
     expect(detail).toHaveAttribute('data-node-id', 'o1')
     expect(within(detail).getByTestId(`${TID}-detail-title`)).toHaveTextContent('Adopt Segment')
-    expect(within(detail).getByTestId(`${TID}-detail-kind`)).toHaveTextContent(
-      COPY.modelStrip.kindNoun.option,
-    )
+    expect(within(detail).queryByTestId(`${TID}-detail-kind`)).toBeNull()
 
     // The finding is identified by the ENGINE's id, never by its prose.
     const findings = within(detail).getAllByTestId(`${TID}-detail-finding`)
@@ -220,10 +220,10 @@ describe('⭐ the detail is bound to the mark’s OWN node', () => {
    * ⭐ THE DISCRIMINATING TWIN. A component that rendered every finding against
    * every mark satisfies the case above perfectly and fails here.
    */
-  it('and NOT another node’s finding — naming a second mark replaces the first', () => {
+  it('and NOT another node’s finding — picking a second mark replaces the first', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('o1'))
-    fireEvent.mouseEnter(mark('f7'))
+    fireEvent.click(mark('o1'))
+    fireEvent.click(mark('f7'))
 
     const detail = screen.getByTestId(`${TID}-detail`)
     expect(detail).toHaveAttribute('data-node-id', 'f7')
@@ -236,27 +236,32 @@ describe('⭐ the detail is bound to the mark’s OWN node', () => {
     expect(screen.getAllByTestId(`${TID}-detail`)).toHaveLength(1)
   })
 
-  it('a node the run named nowhere states the absence rather than showing nothing', () => {
+  /**
+   * ⚠ 26 Sep (design audit B12): THE DENIAL LINE IS GONE, and silence is not
+   * what replaced it. The prototype's detail has no "Nothing else on this panel
+   * refers to this node." — a node the run named nowhere still gets a detail
+   * that is plainly working: its name, its × and its three acts. What it does
+   * NOT get is a bullet this surface wrote (PRODUCER GAP).
+   */
+  it('a node the run named nowhere gets no bullet and no denial — but still its acts', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('r1'))
+    fireEvent.click(mark('r1'))
 
     const detail = screen.getByTestId(`${TID}-detail`)
     expect(detail).toHaveAttribute('data-node-id', 'r1')
-    expect(within(detail).getByTestId(`${TID}-detail-empty`)).toHaveTextContent(
-      COPY.modelStrip.noInsight,
-    )
+    expect(within(detail).queryByTestId(`${TID}-detail-empty`)).toBeNull()
+    expect(detail).not.toHaveTextContent(COPY.modelStrip.noInsight)
     expect(within(detail).queryAllByTestId(`${TID}-detail-finding`)).toHaveLength(0)
     expect(within(detail).queryByTestId(`${TID}-detail-driver`)).toBeNull()
+    // CONTRAST: the detail is not an empty box.
+    expect(within(detail).getByTestId(`${TID}-detail-ask`)).toBeInTheDocument()
   })
 
-  /**
-   * The opposite-direction twin of the case above: the absence line must NOT
-   * appear on a node the run did name, or it would be a sentence that is simply
-   * always true.
-   */
-  it('and the absence line is absent when there IS something to say', () => {
+  /** The twin: a node the run DID name shows the engine's finding, and still no denial. */
+  it('and a node the run named shows its finding, with no denial line either', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('o1'))
+    fireEvent.click(mark('o1'))
+    expect(screen.getAllByTestId(`${TID}-detail-finding`).length).toBeGreaterThan(0)
     expect(screen.queryByTestId(`${TID}-detail-empty`)).toBeNull()
   })
 })
@@ -271,16 +276,26 @@ describe('⭐ three routes in, and the canvas route is unchanged', () => {
     renderOpen()
     // CONTRAST: the region is open and the marks are drawn.
     expect(mark('r1')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Migration delay on the canvas' })).toBe(
+    expect(screen.getByRole('button', { name: 'Inspect Migration delay' })).toBe(
       mark('r1'),
     )
     expect(screen.queryByTestId(`${TID}-hint`)).toBeNull()
     expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
   })
 
-  it('KEYBOARD FOCUS opens the detail — hover is a mouse affordance and nothing else', () => {
+  /**
+   * ⚠ 26 Sep (design audit B12): FOCUS AND HOVER RING, ACTIVATION OPENS. The
+   * detail now sits below the success line and the review tool, as the
+   * prototype places it, and the prototype opens it on activation only — a
+   * pointer or a Tab sweeping the census must not reflow everything beneath it.
+   * The keyboard reaches it the way a click does: Enter on the mark.
+   */
+  it('KEYBOARD FOCUS rings the node but opens nothing; activation opens it', () => {
     renderOpen()
     fireEvent.focus(mark('f7'))
+    expect(highlightNode).toHaveBeenCalledWith('f7')
+    expect(screen.queryByTestId(`${TID}-detail`)).toBeNull()
+    fireEvent.click(mark('f7'))
     expect(screen.getByTestId(`${TID}-detail`)).toHaveAttribute('data-node-id', 'f7')
   })
 
@@ -334,7 +349,7 @@ describe('⭐ the graph answers — pointing at a mark rings THAT node', () => {
 describe('⭐ the disclosure is announced, not merely drawn', () => {
   it('exactly the picked mark reports itself expanded, and points at the detail', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('f7'))
+    fireEvent.click(mark('f7'))
 
     const detailId = screen.getByTestId(`${TID}-detail`).getAttribute('id')!
     expect(detailId.length).toBeGreaterThan(0)
@@ -355,18 +370,25 @@ describe('⭐ the disclosure is announced, not merely drawn', () => {
   })
 })
 
-describe('⭐ the driver flag: presence only', () => {
-  it('a node the glance named carries the flag, in the glance’s own words', () => {
+/**
+ * ⚠ 26 Sep (design audit B12): the prototype's detail carries no driver flag
+ * ("Factor · What matters most"). The glance still says what matters most; the
+ * detail no longer repeats it — pinned ABSENT even where the index holds it.
+ */
+describe('⭐ the driver flag is not repeated in the detail', () => {
+  it('a node the glance named carries NO flag in the detail — though the index still holds it', () => {
+    // CONTRAST: the data for the flag exists, so the absence is the component's.
+    expect(insights().get('f7')?.driverLabel).toBe('Vendor licensing cost')
     renderOpen()
-    fireEvent.mouseEnter(mark('f7'))
-    expect(screen.getByTestId(`${TID}-detail-driver`)).toHaveTextContent(
-      COPY.glance.whatMattersMost,
-    )
+    fireEvent.click(mark('f7'))
+    expect(screen.getByTestId(`${TID}-detail`)).toHaveAttribute('data-node-id', 'f7')
+    expect(screen.queryByTestId(`${TID}-detail-driver`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-detail`)).not.toHaveTextContent(COPY.glance.whatMattersMost)
   })
 
   it('a node it did not name carries NO flag — and no negative claim in its place', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('f8'))
+    fireEvent.click(mark('f8'))
     const detail = screen.getByTestId(`${TID}-detail`)
     expect(detail).toHaveAttribute('data-node-id', 'f8')
     expect(within(detail).queryByTestId(`${TID}-detail-driver`)).toBeNull()
@@ -376,20 +398,20 @@ describe('⭐ the driver flag: presence only', () => {
 describe('⭐ the technique rides the finding that warrants it', () => {
   it('renders only where the mapping supplies one, bound by method id', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('o1'))
+    fireEvent.click(mark('o1'))
     expect(screen.getByTestId(`${TID}-detail-method`)).toHaveAttribute(
       'data-method-id',
       'pre_mortem',
     )
 
     // The unmapped finding names no technique — absence is not a placeholder.
-    fireEvent.mouseEnter(mark('f7'))
+    fireEvent.click(mark('f7'))
     expect(screen.queryByTestId(`${TID}-detail-method`)).toBeNull()
   })
 
   it('the chip is a control: it opens the method with THIS node as the target', () => {
     renderOpen()
-    fireEvent.mouseEnter(mark('o1'))
+    fireEvent.click(mark('o1'))
     fireEvent.click(screen.getByTestId(`${TID}-detail-method`))
 
     expect(openAskOlumi).toHaveBeenCalledTimes(1)
@@ -409,7 +431,7 @@ describe('⭐ the per-node cap discloses itself', () => {
       rec({ id: `strengthen:phase3:b${i}`, targetId: 'o1', title: `Finding ${i}` }),
     )
     renderOpen(buildNodeInsights({ interventions: many, drivers: [] }))
-    fireEvent.mouseEnter(mark('o1'))
+    fireEvent.click(mark('o1'))
 
     const detail = screen.getByTestId(`${TID}-detail`)
     expect(within(detail).getAllByTestId(`${TID}-detail-finding`)).toHaveLength(
@@ -422,12 +444,16 @@ describe('⭐ the per-node cap discloses itself', () => {
 })
 
 describe('⭐ the strip still works with nothing wired to it', () => {
-  it('an unwired mount still navigates, and every detail reports the absence honestly', () => {
+  // ⚠ 26 Sep (design audit B12): no denial line any more — the detail offers
+  // its acts and writes no bullet of its own.
+  it('an unwired mount still navigates, and its detail offers its acts with no bullet of its own', () => {
     render(<ModelStrip isPreRun={false} />)
     openStrip()
     fireEvent.click(mark('o1'))
     expect(focusModelTarget).toHaveBeenCalledWith('o1')
-    expect(screen.getByTestId(`${TID}-detail-empty`)).toHaveTextContent(COPY.modelStrip.noInsight)
+    expect(screen.queryByTestId(`${TID}-detail-empty`)).toBeNull()
+    expect(screen.queryAllByTestId(`${TID}-detail-finding`)).toHaveLength(0)
+    expect(screen.getByTestId(`${TID}-detail-ask`)).toBeInTheDocument()
   })
 })
 

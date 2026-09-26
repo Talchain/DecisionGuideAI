@@ -360,9 +360,20 @@ function V5AnalysisResultBlockImpl({
   // looked fairly confident). The calibration reads robustness and one option's
   // interval and never asks whether a comparative claim is licensed, so the
   // CONFIDENT tier is gated on the same conjunction as the leader treatment.
-  // The hedged tiers state doubt and name no winner, so they still render.
+  //
+  // ⭐ …AND MAY NOT SAY "THIS RESULT APPEARS TO HOLD" EITHER. The earlier gate
+  // let every non-CONFIDENT tier through on the premise that the hedged tiers
+  // "state doubt and name no winner". That is true of TENTATIVE only: MODERATE
+  // opens by asserting that the result holds. Served on the OpenAI pricing Run
+  // (R&C bw-89716c13-8a2f291, UI 89716c13 · CEE 06325c6): the reply said "No
+  // pricing option can be put forward from this run", and this card, directly
+  // under it, said "This result appears to hold…". So on a run that may not
+  // name a leader (withheld, near tie, or a model not licensed to compare) only
+  // TENTATIVE, a pure statement of doubt, still renders.
   const shownUncertaintyCopy =
-    uncertaintyCopy?.tier === 'confident' && !leaderClaimLicensed ? null : uncertaintyCopy
+    uncertaintyCopy !== null && uncertaintyCopy.tier !== 'tentative' && !leaderClaimLicensed
+      ? null
+      : uncertaintyCopy
 
   // ⭐⭐ UI-SEM-097 — A WITHHELD LEADER IS NOT RANKED BY WIN SHARE EITHER.
   //

@@ -57,10 +57,20 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Node } from '@xyflow/react'
 
+/**
+ * ⭐ SINCE THE FLIP (`GOAL_TARGET_EDIT_ENABLED` is `true`) THE CHAIN ENDS IN
+ * `sendSystemEvent` with a typed `goal_target_edit`, not `dispatchAction` with
+ * `add_constraint` + a sentence. The direction PAIR below is unchanged in
+ * substance: it is still asserted on the PAYLOAD, now the typed field
+ * `constraint_type`. The prose half of the old pair has no counterpart on this
+ * carrier — the 0.59.0 contract DECLARES `raw_value` an absolute level, so
+ * there is no sentence left to disagree with the structure.
+ */
 const dispatchAction = vi.fn().mockResolvedValue(undefined)
+const sendSystemEvent = vi.fn().mockResolvedValue('sent')
 vi.mock('../../../../canvas/conversation/ConversationContext', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useOptionalConversationContext: () => ({ dispatchAction, sendSystemEvent: vi.fn() }),
+  useOptionalConversationContext: () => ({ dispatchAction, sendSystemEvent }),
 }))
 
 import { useCanvasStore } from '../../../../canvas/store'
@@ -91,6 +101,7 @@ beforeEach(() => {
     nodes: [structuredClone(goal)],
     edges: [],
     currentScenarioId: 'scenario-a',
+    lastServerGraphHash: '9f2c1b0ae4d37c5a',
   })
 })
 afterEach(() => {
@@ -135,13 +146,13 @@ async function statTarget(amount: string, directionWord?: 'at least' | 'at most'
   await user.click(screen.getByTestId(`${TID}-save`))
 }
 
-/** The one dispatched action, or a hard failure naming what arrived instead. */
-function onlyDispatch() {
-  expect(dispatchAction).toHaveBeenCalledTimes(1)
-  return dispatchAction.mock.calls[0][0] as {
-    action_type: string
-    message: string
-    parameters: { target_id: string; constraint_type: string; value: number; unit: string }
+/** The one sent typed event, or a hard failure naming what arrived instead. */
+function onlySend() {
+  expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+  expect(dispatchAction).not.toHaveBeenCalled()
+  return sendSystemEvent.mock.calls[0][0] as {
+    type: string
+    payload: { goal_node_id: string; constraint_type: string; raw_value: number; unit: string; base_graph_hash: string }
   }
 }
 
@@ -154,23 +165,14 @@ describe('the reader states which way a goal target is read, and the wire agrees
     draw()
     await statTarget('9', 'at most')
 
-    const sent = onlyDispatch()
-    expect(sent.action_type).toBe('add_constraint')
+    const sent = onlySend()
+    expect(sent.type).toBe('goal_target_edit')
     // ⚠ BOUND BY IDENTITY — the goal's own id, never a value another node
     // could satisfy (CLAUDE.md trap 19).
-    expect(sent.parameters.target_id).toBe('goal-delivery')
-    expect(sent.parameters.constraint_type).toBe('at_most')
-    expect(sent.parameters.value).toBe(9)
-    expect(sent.parameters.unit).toBe('months')
-    /**
-     * ⚠⚠ THE PROSE AND THE STRUCTURE ARE TWO EXPRESSIONS OF ONE FACT, and a
-     * mismatch between them is the defect one level down: CEE reads the
-     * sentence, the graph reads the parameter. Pinned in the same case, as
-     * literals, so a change to either alone REDs.
-     */
-    expect(sent.message).toBe(
-      'This goal must be at most 9 months. This is an absolute level, not a change from the current level.',
-    )
+    expect(sent.payload.goal_node_id).toBe('goal-delivery')
+    expect(sent.payload.constraint_type).toBe('at_most')
+    expect(sent.payload.raw_value).toBe(9)
+    expect(sent.payload.unit).toBe('months')
   })
 
   /**
@@ -183,15 +185,12 @@ describe('the reader states which way a goal target is read, and the wire agrees
     draw()
     await statTarget('9')
 
-    const sent = onlyDispatch()
-    expect(sent.action_type).toBe('add_constraint')
-    expect(sent.parameters.target_id).toBe('goal-delivery')
-    expect(sent.parameters.constraint_type).toBe('at_least')
-    expect(sent.parameters.value).toBe(9)
-    expect(sent.parameters.unit).toBe('months')
-    expect(sent.message).toBe(
-      'This goal must be at least 9 months. This is an absolute level, not a change from the current level.',
-    )
+    const sent = onlySend()
+    expect(sent.type).toBe('goal_target_edit')
+    expect(sent.payload.goal_node_id).toBe('goal-delivery')
+    expect(sent.payload.constraint_type).toBe('at_least')
+    expect(sent.payload.raw_value).toBe(9)
+    expect(sent.payload.unit).toBe('months')
   })
 
   /**
@@ -214,11 +213,8 @@ describe('the reader states which way a goal target is read, and the wire agrees
     await user.type(input, '9')
     await user.click(screen.getByTestId(`${TID}-save`))
 
-    const sent = onlyDispatch()
-    expect(sent.parameters.constraint_type).toBe('at_least')
-    expect(sent.message).toBe(
-      'This goal must be at least 9 months. This is an absolute level, not a change from the current level.',
-    )
+    const sent = onlySend()
+    expect(sent.payload.constraint_type).toBe('at_least')
   })
 
   /**
@@ -279,6 +275,7 @@ describe('the reader states which way a goal target is read, and the wire agrees
     await user.click(screen.getByTestId(`${TID}-edit`))
 
     expect(screen.getByTestId(`${TID}-direction`)).toHaveValue('at_least')
+    expect(sendSystemEvent).not.toHaveBeenCalled()
     expect(dispatchAction).not.toHaveBeenCalled()
   })
 
@@ -290,6 +287,7 @@ describe('the reader states which way a goal target is read, and the wire agrees
   it('refuses an unparseable draft in either direction, and sends nothing', async () => {
     draw()
     await statTarget('abc', 'at most')
+    expect(sendSystemEvent).not.toHaveBeenCalled()
     expect(dispatchAction).not.toHaveBeenCalled()
   })
 })

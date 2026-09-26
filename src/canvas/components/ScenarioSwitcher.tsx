@@ -383,10 +383,13 @@ export function ScenarioSwitcher({
             click), clicking the chevron opens the scenario menu. Nested
             buttons are invalid HTML, so the shell is a div. */}
         <div
-          className={`flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 ${typography.label} text-gray-700 bg-white border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors`}
+          /* contract v3.1 `.app-project{display:flex;align-items:center;gap:8px;
+             font-size:13px}` (DESIGN-GAP #5): the model title sits in the bar
+             unboxed — no bordered pill, 13px regular ink, a muted ⌄. */
+          className="flex items-center gap-2 text-[13px] leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
           data-testid="scenario-switcher-pill"
         >
-          <Folder className="w-4 h-4 shrink-0 text-gray-500" aria-hidden="true" />
+          <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />
 
           {isRenaming ? (
             <input
@@ -404,7 +407,7 @@ export function ScenarioSwitcher({
                 }
               }}
               maxLength={MAX_NAME_LENGTH}
-              className="w-[150px] bg-transparent border-b border-info outline-none px-0.5"
+              className="w-[240px] bg-transparent border-b border-info outline-none px-0.5"
               aria-label="Model name"
               data-testid="scenario-name-input"
               autoFocus
@@ -412,7 +415,7 @@ export function ScenarioSwitcher({
           ) : (
             <button
               onClick={startRename}
-              className="max-w-[150px] truncate cursor-text text-left rounded px-0.5 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
+              className="max-w-[360px] truncate cursor-text text-left rounded px-0.5 hover:bg-info/10 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
               type="button"
               title="Rename model"
               aria-label={`Rename model, currently ${resolvedName}`}
@@ -430,14 +433,14 @@ export function ScenarioSwitcher({
 
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="shrink-0 p-0.5 rounded hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
+            className="shrink-0 p-0.5 rounded hover:bg-info/10 focus:outline-none focus:ring-2 focus:ring-info transition-colors"
             type="button"
             aria-expanded={isOpen}
             aria-haspopup="true"
             aria-label="Open model menu"
             data-testid="scenario-switcher-trigger"
           >
-            <ChevronDown className="w-4 h-4 text-gray-400" aria-hidden="true" />
+            <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
           </button>
         </div>
 

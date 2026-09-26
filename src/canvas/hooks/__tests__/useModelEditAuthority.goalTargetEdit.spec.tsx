@@ -1,7 +1,10 @@
 /**
- * `proposeGoalTarget` with `GOAL_TARGET_EDIT_ENABLED` at its PRODUCTION
- * default (`false` — `goalTargetEdit.ts`'s header: CEE has not shipped a
- * reader for `goal_target_edit` yet). This is the CONTRAST half of the pair;
+ * `proposeGoalTarget` with `GOAL_TARGET_EDIT_ENABLED` forced `false` — the
+ * `add_constraint` FALLBACK. ⚠ No longer the production default: the flag is
+ * ARMED (`true`) on `canvas/goal-target-edit-live` (see `goalTargetEdit.ts`),
+ * so this file now mocks it `false` to keep the fallback branch — still in
+ * `useModelEditAuthority` — honest for as long as it exists. This is the
+ * CONTRAST half of the pair;
  * `useModelEditAuthority.goalTargetEditEnabled.spec.tsx` is the flag-ON half.
  * Split into two files rather than one `describe` block per flag value,
  * because `vi.mock` is hoisted per FILE regardless of which `describe` it is
@@ -22,6 +25,10 @@ const dispatchAction = vi.fn((..._args: unknown[]) => Promise.resolve())
 vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   return { ...actual, useOptionalConversationContext: () => ({ sendSystemEvent, dispatchAction }) }
+})
+vi.mock('../../conversation/goalTargetEdit', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, GOAL_TARGET_EDIT_ENABLED: false }
 })
 
 import { useModelEditAuthority } from '../useModelEditAuthority'
@@ -56,7 +63,7 @@ beforeEach(() => {
   seed()
 })
 
-describe('flag OFF (production default) — byte-identical to today', () => {
+describe('flag OFF (the add_constraint fallback) — byte-identical to the pre-flip path', () => {
   it('takes the add_constraint path: dispatchAction fires, sendSystemEvent never does', () => {
     const outcome = authorityFor().current.proposeGoalTarget('12', 'months', SCENARIO, 'at_least')
     expect(outcome).toBe('dispatched')

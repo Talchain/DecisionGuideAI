@@ -127,6 +127,15 @@ async function openOlumiTab(page: Page) {
  */
 async function openFloating(page: Page, route: 'pill' | 'chevron'): Promise<void> {
   if (route === 'pill') {
+    // v3.1 DESIGN-GAP #29 (26 Sep 2026): the restore pill is not drawn over the
+    // canvas while the dock is EXPANDED (its own Olumi tab is the way back), so
+    // the pill route starts from the collapsed rail — the state in which the
+    // pill is the way back.
+    const collapse = page.getByRole('button', { name: 'Collapse outputs dock' })
+    if (await collapse.count()) {
+      await collapse.first().click()
+      await waitForVisualQuiescence(page)
+    }
     const pill = page.locator('[data-testid="floating-olumi-panel-pill"]')
     await expect(pill, 'no minimised floating pill to restore from').toBeVisible({ timeout: 10_000 })
     await pill.first().click()
