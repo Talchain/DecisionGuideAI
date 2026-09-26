@@ -8,6 +8,7 @@
 
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../../domain/edges'
+import { readWireNaturalEffect } from '../../domain/naturalEffect'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
@@ -162,6 +163,7 @@ function buildEdge(op: PatchOperation) {
   // are still extracted twice.
   const validation = readValidationMetadata(d.validation)
   const serverStrength = readServerStatedStrength(d as Record<string, unknown>)
+  const naturalEffect = readWireNaturalEffect(d as Record<string, unknown>)
   const strengthAuthor = readWireEdgeStrengthAuthor(d as Record<string, unknown>)
 
   return {
@@ -185,6 +187,8 @@ function buildEdge(op: PatchOperation) {
       // (`mapDraftEdgeToCanvas`) and hop 3 (`DraftChat`), so this cannot become
       // the mirror defect the note below records for `strengthStd`.
       ...(serverStrength !== undefined ? { serverStrength } : {}),
+      // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
+      ...(naturalEffect !== undefined ? { naturalEffect } : {}),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a

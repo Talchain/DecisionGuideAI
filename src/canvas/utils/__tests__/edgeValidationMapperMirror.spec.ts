@@ -379,6 +379,54 @@ describe('edge data — the two hand-mirrored mappers build the SAME bag', () =>
 // drops it (a divergence invisible to every single-hop test).
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * THE NATURAL EFFECT (magnitude contract, MG #70 5845713522) — ONE reader
+ * (`readWireNaturalEffect`) at both hops. A DEDICATED fixture, not an edit to
+ * `WIRE_EDGE_FULL` (see the authorship note above): the whole-bag comparison's
+ * corpus had no natural effect in it, so it would agree for the wrong reason.
+ */
+const WIRE_EDGE_NATURAL = {
+  from: 'factor-1',
+  to: 'goal-1',
+  strength: { mean: -0.01, std: 0.005 },
+  exists_probability: 0.9,
+  effect_direction: 'negative',
+  provenance: {
+    source: 'cee_hypothesis',
+    magnitude: 'olumi_estimate',
+    natural_effect: { amount: -1, unit: 'points of churn', per_source_change: 1, source_unit: 'switch', strength_mean: -0.01 },
+  },
+}
+
+describe('edge data — both hops carry the SAME natural effect', () => {
+  beforeEach(() => {
+    seedPatchStore()
+  })
+
+  it('a full draft and a patch receipt of the same wire edge agree on naturalEffect, and on the whole bag', () => {
+    const drafted = mapDraftEdgeToCanvas({ ...WIRE_EDGE_NATURAL }, 0)
+    applyAutoApplyPatch(addEdgePatch({ ...WIRE_EDGE_NATURAL }) as any)
+    const patched = storeEdges[0]
+    const expected = {
+      amount: -1, unit: 'points of churn', perSourceChange: 1, sourceUnit: 'switch', strengthMean: -0.01, author: 'olumi_estimate',
+    }
+    expect(drafted.data.naturalEffect).toEqual(expected)
+    expect(patched.data.naturalEffect).toEqual(expected)
+    const keys = new Set([...Object.keys(drafted.data), ...Object.keys(patched.data)])
+    expect(keys.size).toBeGreaterThan(10)
+    const differing = [...keys].filter((k) => JSON.stringify(drafted.data[k]) !== JSON.stringify(patched.data[k]))
+    expect(differing).toEqual([])
+  })
+
+  it('both hops agree on ABSENCE (no natural effect on the wire → no key)', () => {
+    const { provenance: _p, ...bare } = WIRE_EDGE_NATURAL
+    const drafted = mapDraftEdgeToCanvas({ ...bare }, 0)
+    applyAutoApplyPatch(addEdgePatch({ ...bare }) as any)
+    expect('naturalEffect' in drafted.data).toBe(false)
+    expect('naturalEffect' in storeEdges[0].data).toBe(false)
+  })
+})
+
 describe("edge data — the two mappers agree on effect_direction: 'unknown' (shared drop)", () => {
   const WIRE_EDGE_UNKNOWN_DIR = { ...WIRE_EDGE_FULL, effect_direction: 'unknown' }
 

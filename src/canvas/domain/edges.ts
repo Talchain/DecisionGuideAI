@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import type { ValidationMetadata } from './validation'
 import { EdgeValueSourceEnum } from './edgeValueProvenance'
+import { NaturalEffectSchema } from './naturalEffect'
 
 /**
  * Edge style options for visualisation
@@ -258,6 +259,18 @@ export const EdgeDataSchema = z.object({
   serverStrength: z
     .object({ mean: z.number().min(-1).max(1), effect_direction: EffectDirectionEnum })
     .optional(),
+
+  /**
+   * The edge's size in the TARGET's own units, as the producer admitted it (the
+   * magnitude contract's `provenance.natural_effect`, MG #70 5845713522), read
+   * by the ONE reader `readWireNaturalEffect` at every ingestion hop.
+   *
+   * ⚠ ABSENT ⇒ WE DO NOT KNOW; the band speaks. Never defaulted.
+   * ⚠ IT GOES STALE WHEN THE β MOVES, and nothing here clears it. Its own
+   * `strengthMean` is the key: `naturalEffectPhrase` says it only while the
+   * edge's current mean equals that β (see `./naturalEffect`).
+   */
+  naturalEffect: NaturalEffectSchema.optional(),
 
   // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
   // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
