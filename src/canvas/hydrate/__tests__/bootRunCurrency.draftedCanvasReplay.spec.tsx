@@ -227,6 +227,17 @@ describe('⭐ THE GOAL HALF of CEE\'s hash: a stated limit and the goal node are
     expect(runCardCurrency()).not.toBe('current')
   })
 
+  it('⭐ a limit id repeated on the CANVAS cannot hide a read limit it lacks: declined (review 5843255705 N1b)', async () => {
+    // Canvas [x, x] against read [x, y]: equal counts, and every canvas lookup hits x — without the
+    // canvas-side check the read's y is never compared and the run card reads "current".
+    const c = readLimit()
+    useCanvasStore.setState({ goalConstraints: [c, c] } as never)
+    readGraph.goal_constraints = [c, { ...c, constraint_id: 'agent-lane:monthly_churn_rate:>=' }]
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(declineLog()).toMatchObject({ reason: 'canvas_not_proven_equal', unproven: `goal:goal_constraints:${LIMIT_ID}:duplicate_identity_on_canvas` })
+    expect(runCardCurrency()).not.toBe('current')
+  })
+
   it('ASYMMETRY, decided: a canvas with NO list (`null` is not "no limit") never declines on the read\'s limit', async () => {
     useCanvasStore.setState({ goalConstraints: null } as never)
     await hydrateCanvasFromServer(SCENARIO_ID)
