@@ -521,8 +521,18 @@ function V5AnalysisResultBlockImpl({
       data-presentation="card"
       data-has-decision-review={hasReview ? 'true' : 'false'}
       data-decision-review-state={reviewState.kind}
-      className="rounded-md border border-panel-border bg-panel p-4 space-y-3"
+      className="relative rounded-md border border-success/30 bg-panel p-4 space-y-3"
     >
+      {/*
+        DS v5 §21.2: a FactBlock is the success colour, a complete border and an 8px dot top-left. Painted HERE,
+        not by the parent's badge-dot resolver, because only this block knows it renders the framed card: the
+        inline form above (#2118) carries neither, so no dot sits orphaned beside its "▸ Details".
+      */}
+      <span
+        aria-hidden="true"
+        data-testid="block-badge-dot"
+        className="absolute top-2 left-2 h-2 w-2 rounded-full bg-success"
+      />
       <h3
         className={typography.panelHeader}
         data-testid="v5-analysis-result-heading"

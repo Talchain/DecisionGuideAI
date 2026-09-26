@@ -78,6 +78,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { OptionsComparison } from '../sections/OptionsComparison'
+import { niceDomain } from '../comparisonLens'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { OptionResult } from '../../types'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -411,8 +412,12 @@ describe("'value' — the run licenses a magnitude, so the figure is a figure", 
     const mark = (optionId: string) =>
       within(row(optionId)).getByTestId(`${TESTID}-outcome-range-${optionId}-marker`)
 
-    expect(band('opt_segment').style.left).toBe('0%')
-    expect(band('opt_rudderstack').style.left).toBe('25%')
+    // Positions are fractions of the axis's ROUND domain (niceDomain: 0..100 → 0..120, ticks 0·40·80·120),
+    // derived here rather than hard-coded, so the row-identity binding is what is tested.
+    const d = niceDomain(0, 100)
+    const pct = (v: number) => ((v - d.lo) / d.span) * 100
+    expect(parseFloat(band('opt_segment').style.left)).toBeCloseTo(pct(0), 6)
+    expect(parseFloat(band('opt_rudderstack').style.left)).toBeCloseTo(pct(25), 6)
     expect(mark('opt_segment').getAttribute('data-mark-at')).toBe('30')
     expect(mark('opt_rudderstack').getAttribute('data-mark-at')).toBe('60')
     // And the two are genuinely different, so the assertions above discriminate.

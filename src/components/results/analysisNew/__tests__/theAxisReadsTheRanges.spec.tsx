@@ -80,6 +80,8 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
+// Re-pinned 26 Sep 2026: the axis domain is rounded (niceDomain; theAxisTicksAreRound.spec.ts). The
+// ragged thirds of the raw range ('36.7', '423K') were the defect the prototype comparison found.
 describe('the axis row reads the ranges it sits under', () => {
   it('PRECONDITION — the withheld fixture with ranges really does draw the outcome lens', () => {
     const vm = vmFor(withRanges(decisionWithLeaderWithheld()))
@@ -96,7 +98,7 @@ describe('the axis row reads the ranges it sits under', () => {
     // Domain is [10, 90] (opt_a p10=10 .. opt_b p90=90): four evenly-spaced
     // ticks land on 10, 36.67, 63.33, 90 — the SCALE's own values, not the
     // prototype's fixed 0/10/20/30 (this run's data is not a percentage).
-    expect(labels).toEqual(['10', '36.7', '63.3', '90'])
+    expect(labels).toEqual(['0', '30', '60', '90'])
     // ⛔ NO FABRICATED UNIT — the whole point of using the scale's own values.
     for (const l of labels) {
       expect(l, 'no % or other unit symbol may be invented').not.toMatch(/[%$£€]/)
@@ -118,7 +120,7 @@ describe('the axis row reads the ranges it sits under', () => {
       },
     })
     const labels = screen.getAllByTestId(/^analysis-new-options-axis-tick-\d$/).map((e) => e.textContent)
-    expect(labels).toEqual(['190K', '423K', '657K', '890K'])
+    expect(labels).toEqual(['0', '300K', '600K', '900K'])
   })
 
   it('the ticks and the info button share the SAME axis element (FIRST-1 stays merged)', () => {

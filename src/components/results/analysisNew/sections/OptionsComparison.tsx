@@ -561,7 +561,7 @@ export function OptionsComparison({
    */
   const axisTicks: readonly string[] | null =
     showAxis && rangeScale !== null
-      ? AXIS_TICK_FRACTIONS.map((f) => formatAxisTick(rangeScale.lo + f * rangeScale.span))
+      ? AXIS_TICK_FRACTIONS.map((f, i) => formatAxisTick(rangeScale.ticks?.[i] ?? rangeScale.lo + f * rangeScale.span))
       : null
 
   /**
