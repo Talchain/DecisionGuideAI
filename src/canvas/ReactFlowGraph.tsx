@@ -2787,6 +2787,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             fitView
             minZoom={0.1}
             maxZoom={4}
+            proOptions={{ hideAttribution: true }} /* contract v3.1 DESIGN-GAP #29: no "React Flow" link on the canvas (MIT; the option MiniCanvas already uses) */
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN. Fed `memoizedNodes`, the same
