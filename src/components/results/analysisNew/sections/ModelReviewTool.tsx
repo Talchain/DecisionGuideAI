@@ -13,6 +13,19 @@
  * so. There is no "Mark reviewed": nothing would persist it, and a tick that
  * forgets itself on reload is a claim the product does not keep.
  *
+ * ⭐ LAID OUT AS THE V2 PROTOTYPE'S `review-shell` (`reviewHTML()`, design audit
+ * B6): a divider; "Review the thinking" as a quiet 12px label with ‹ n/N › ×;
+ * a numbered item select; a kind icon and "kind · source"; the belief bullet;
+ * the why line with its ⓘ; ✎ ⌖ ✦ ⋯; "Add evidence or context". Only fields
+ * the queue already holds are rendered — a finding carries no belief field,
+ * so it gets no bullet (PRODUCER GAP), and "Mark reviewed" stays absent.
+ *
+ * ⚠ THE ⋯ MENU STAYS, THOUGH THE PROTOTYPE HAS NONE. Its three acts — Focus on
+ * canvas, I disagree, Not relevant (a persisted lifecycle write, with undo) —
+ * are replaced in the prototype by "Mark reviewed", which cannot be built
+ * (above). Removing ⋯ now would delete the only dismissal route and put
+ * nothing in its place (PRODUCT DECISION, reported).
+ *
  * ⚠ "Edit this belief" AND "Add evidence or context" CAPTURE, THEN ASK. They
  * open one inline form (`ReviewItemEditor`) whose submit goes to Olumi through
  * `onAsk`. There is no model-level evidence store and no writer for a
@@ -25,15 +38,16 @@
  * `proposeFactorConfirmation`; "Not relevant" is the strengthen lifecycle
  * store's `dismiss`, the same one the Strengthen cards write.
  */
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Circle,
   Crosshair,
+  Frame,
   Info,
-  Link2,
-  ListTree,
+  Link,
   MoreHorizontal,
   Pencil,
   Search,
@@ -51,7 +65,6 @@ import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 import { NOTICE_MS } from '../../strengthen/StrengthenPanel'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
-import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 import { stripNodeValueSignature } from '../buildModelStrip'
 import {
   buildReviewQueue,
@@ -71,6 +84,39 @@ import { ACTION_FOCUS, action, icon } from '../panelSurfaces'
 import { BRIEF_EDIT_COPY, BriefEditForm } from './BriefEditForm'
 import { ReviewItemEditor, type ReviewEditorField } from './ReviewItemEditor'
 
+/**
+ * A census mark's route into this tool (prototype `gotoReview` / `entity`,
+ * P:614): open AT the item about a node, or close. `seq` makes a repeated
+ * request for the same node a new one. See `ModelStrip`'s `reviewSlot`.
+ */
+export type ReviewToolRequest =
+  | { kind: 'open'; targetId: string; seq: number }
+  | { kind: 'close'; seq: number }
+
+/**
+ * ⭐ THE PROTOTYPE'S WORDS FOR TWO CONTROLS, LOCAL TO THIS FILE — the review
+ * tool's shared copy (`REVIEW_TOOL_COPY`) is also read by the Challenge card,
+ * and neither name belongs there.
+ */
+const CHOOSE_ITEM_LABEL = 'Choose a review item'
+/** Prototype `focus-review`: it goes to the Model view, and says so. */
+const INSPECT_IN_MODEL_VIEW_LABEL = 'Inspect this item in the Model view'
+/** Prototype `btn('x','reviews','Close review tool')`, verbatim. */
+const CLOSE_REVIEW_TOOL_LABEL = 'Close review tool'
+
+/**
+ * The prototype's kind icon (`reviewHTML()`: `relationship` → link,
+ * `framing` → frame, anything else → circle), keyed on the kind the queue
+ * READ — never a guess made here.
+ */
+const KIND_ICON = {
+  frame: Frame,
+  link: Link,
+  circle: Circle,
+} as const
+const kindIconFor = (kind: string): keyof typeof KIND_ICON =>
+  kind === 'relationship' ? 'link' : kind === 'framing' ? 'frame' : 'circle'
+
 export interface ModelReviewToolProps {
   /** `vm.strengthen.interventions`, in engine order. */
   interventions: readonly Recommendation[]
@@ -87,6 +133,15 @@ export interface ModelReviewToolProps {
   onFocus?: (targetId: string) => boolean
   /** The run the findings came from, stamped on a dismissal record. */
   analysisHash?: string | null
+  /**
+   * Rendered between the "N to review" row and the open item — the V2
+   * prototype's order puts the success line there (design audit B5).
+   */
+  successSlot?: ReactNode
+  /** Open at a node's item, or close — a census mark's route. */
+  request?: ReviewToolRequest | null
+  /** Told which node ids the queue holds an item about, whenever that changes. */
+  onQueueTargets?: (ids: readonly string[]) => void
   testId?: string
 }
 
@@ -97,6 +152,9 @@ export function ModelReviewTool({
   onInspect,
   onFocus = focusModelTarget,
   analysisHash = null,
+  successSlot = null,
+  request = null,
+  onQueueTargets,
   testId = 'analysis-new-review',
 }: ModelReviewToolProps) {
   const showToast = useShowToastSafe()
@@ -199,6 +257,50 @@ export function ModelReviewTool({
     resetItemState()
   }
 
+  // ── A census mark's route in (prototype `gotoReview`, design audit B12) ──
+  /**
+   * The node ids this queue holds an item about, in queue order and once
+   * each. The strip routes a mark HERE only for these; every other mark opens
+   * its own detail.
+   */
+  const queueTargets = useMemo(
+    () => Array.from(new Set(queue.map((item) => item.targetId).filter((id): id is string => !!id))),
+    [queue],
+  )
+  useEffect(() => {
+    onQueueTargets?.(queueTargets)
+  }, [queueTargets, onQueueTargets])
+
+  /**
+   * ⚠ HANDLED ONCE PER `seq`. The queue re-derives on every canvas signature
+   * change; without the guard an old request would re-open the tool at its
+   * item after the reader had closed it.
+   */
+  const handledSeq = useRef<number | null>(null)
+  const scrollOnOpen = useRef(false)
+  useEffect(() => {
+    if (request === null || handledSeq.current === request.seq) return
+    handledSeq.current = request.seq
+    if (request.kind === 'close') {
+      setOpen(false)
+      resetItemState()
+      return
+    }
+    const at = queue.findIndex((item) => item.targetId === request.targetId)
+    if (at < 0) return
+    setCurrentKey(queue[at].key)
+    lastIndex.current = at
+    setOpen(true)
+    resetItemState()
+    scrollOnOpen.current = true
+  }, [request, queue])
+  /** The prototype scrolls the tool into view when a mark opens it (`go('review-tool')`). */
+  useEffect(() => {
+    if (!isOpen || !scrollOnOpen.current) return
+    scrollOnOpen.current = false
+    itemRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [isOpen, current?.key])
+
   // ── Confirm as my estimate: the write authority's own gesture ─────────────
   /**
    * Keyed to the item on screen, and only when the strip's predicate says there
@@ -292,10 +394,15 @@ export function ModelReviewTool({
 
   const provenance = reviewValueProvenance(current?.factor ?? null)
   const valueText = reviewValueText(current?.factor ?? null)
+  /**
+   * Whose value the bullet states, ONLY when the item is named for something
+   * else (a finding about a factor). An item named for the factor itself needs
+   * no lead-in — the prototype's cost item reads "£80,000 per year" alone.
+   */
   const valueLead =
     current?.factor && current.factor.label && current.factor.label !== current.name
       ? current.factor.label
-      : ANALYSIS_NEW_COPY.modelStrip.valueLabel
+      : null
   /**
    * Menu items and the entry toggle are written out rather than tiered: every
    * tier is either underlined or a pill, and neither is a menu row. Height comes
@@ -311,7 +418,7 @@ export function ModelReviewTool({
        rendering mistake. `!mt-1` overrides whatever `space-y-*` rhythm the
        parent applies (the same override PANEL_RULE's `!mt-[11px]` uses, for
        the same reason: `space-y`'s selector out-specifies a plain `mt-*`). */
-    <div data-testid={testId} className="!mt-1 py-1">
+    <div data-testid={testId} className="!mt-1 pt-1">
       <div className="flex items-center justify-between gap-1">
         {total > 0 ? (
           <Tooltip asChild content={COPY.entryTip}>
@@ -379,18 +486,28 @@ export function ModelReviewTool({
         />
       ) : null}
 
+      {/* V2 prototype order: "N to review", then the success line, then the
+          open review shell (design audit B5). */}
+      {successSlot}
+
       {isOpen && current ? (
         <div
           id={regionId}
           ref={itemRef}
-          className="pt-1"
+          /* The prototype's `.review-shell`: a hairline across the column,
+             10px above the header and 3px below the last act. */
+          className="relative mt-2 border-t border-panel-border pt-[9px] pb-[3px]"
           data-testid={`${testId}-item`}
           data-review-key={current.key}
           data-target-id={current.targetId ?? undefined}
         >
-          <div className="flex items-center justify-between gap-1">
-            <span className={`${typography.panelHeader} text-text-header`}>{COPY.heading}</span>
-            <span className="flex items-center">
+          <div className="flex items-center justify-between gap-[7px]">
+            {/* `.review-nav .header-text`: 12px, regular, light — a label for
+                the shell, not a section title. */}
+            <span className={`${typography.panelBody} text-text-light`} data-testid={`${testId}-heading`}>
+              {COPY.heading}
+            </span>
+            <span className="flex items-center gap-1">
               <PanelIconButton
                 Icon={ChevronLeft}
                 label={COPY.previous}
@@ -413,7 +530,7 @@ export function ModelReviewTool({
               />
               <PanelIconButton
                 Icon={X}
-                label={COPY.close}
+                label={CLOSE_REVIEW_TOOL_LABEL}
                 onClick={() => {
                   setOpen(false)
                   resetItemState()
@@ -423,10 +540,45 @@ export function ModelReviewTool({
             </span>
           </div>
 
-          <p className={`${typography.panelBody} text-text-header`} data-testid={`${testId}-name`}>
-            {current.name}
-          </p>
-          <p className={`${typography.panelMeta} text-text-light`}>
+          {/* ⭐ THE ITEM SELECT — the prototype's `review-filter`: every item,
+              numbered, the one on screen selected. It carries the item's NAME,
+              so no separate name line is drawn (the selected option keeps the
+              `-name` testid). "· reviewed" marks need "Mark reviewed", which
+              nothing persists — see the header. */}
+          <select
+            aria-label={CHOOSE_ITEM_LABEL}
+            value={index}
+            onChange={(e) => goTo(Number(e.target.value))}
+            className={`${typography.panelBody} my-[5px] w-full min-h-[31px] rounded-md border border-field bg-panel p-[5px] text-text-body ${ACTION_FOCUS}`}
+            data-testid={`${testId}-select`}
+          >
+            {queue.map((item, i) => (
+              <option
+                key={item.key}
+                value={i}
+                data-testid={i === index ? `${testId}-name` : undefined}
+              >
+                {`${i + 1}. ${item.name}`}
+              </option>
+            ))}
+          </select>
+          {/* The prototype's `review-context`: kind icon, "kind · source". */}
+          <p
+            className={`${typography.panelMeta} my-1 flex items-center gap-1.5 text-text-light`}
+            data-testid={`${testId}-context`}
+          >
+            {(() => {
+              const which = kindIconFor(current.kind)
+              const KindIcon = KIND_ICON[which]
+              return (
+                <KindIcon
+                  className={`${icon('inline')} shrink-0`}
+                  aria-hidden={true}
+                  data-testid={`${testId}-kind-icon`}
+                  data-kind-icon={which}
+                />
+              )
+            })()}
             <span
               data-testid={`${testId}-kind`}
               data-kind={current.kind}
@@ -436,21 +588,28 @@ export function ModelReviewTool({
             </span>
             {provenance ? (
               <>
-                {' · '}
+                <span aria-hidden={true}>·</span>
                 <span data-testid={`${testId}-provenance`}>{provenance}</span>
               </>
             ) : null}
           </p>
 
+          {/* ⭐ THE BELIEF BULLET (`review-belief`), ONLY FROM A FIELD THE ITEM
+              CARRIES: an item about a factor states that factor's value, which
+              is what the prototype's own cost item shows. A finding carries no
+              belief field, so it gets no bullet (PRODUCER GAP). The value
+              editor stays beside it — the standing rule. */}
           {current.factor ? (
-            <div className="flex flex-wrap items-center gap-1" data-testid={`${testId}-value`}>
+            <div className="my-[5px] flex flex-col items-start gap-1" data-testid={`${testId}-value`}>
               {valueText !== null ? (
-                <span className={`${typography.panelBody} text-text-body`}>
-                  <span className="text-text-light">{valueLead}: </span>
-                  <span className="tabular-nums" data-testid={`${testId}-value-text`}>
-                    {valueText}
-                  </span>
-                </span>
+                <ul className={`${typography.panelBody} m-0 list-disc pl-[15px] text-text-body`}>
+                  <li data-testid={`${testId}-belief`}>
+                    {valueLead !== null ? <span className="text-text-light">{valueLead}: </span> : null}
+                    <span className="tabular-nums" data-testid={`${testId}-value-text`}>
+                      {valueText}
+                    </span>
+                  </li>
+                </ul>
               ) : null}
               <FactorValueControl
                 key={current.factor.nodeId}
@@ -461,10 +620,11 @@ export function ModelReviewTool({
             </div>
           ) : null}
 
+          {/* The prototype's `review-mini`: the why line, 11px light, with its ⓘ. */}
           {current.reason ? (
-            <div className="flex items-start gap-1">
+            <div className="flex items-center justify-between gap-1.5">
               <p
-                className={`${typography.panelBody} min-w-0 flex-1 text-text-body`}
+                className={`${typography.panelMeta} m-0 min-w-0 flex-1 text-text-light`}
                 data-testid={`${testId}-reason`}
               >
                 {current.reason}
@@ -486,7 +646,7 @@ export function ModelReviewTool({
             </p>
           ) : null}
 
-          <div className="relative flex flex-wrap items-center gap-1 pt-0.5">
+          <div className="relative mt-[5px] flex flex-wrap items-center gap-1.5">
             <span className="flex items-center" data-testid={`${testId}-acts`}>
               {current.recommendation ? (
                 <PanelIconButton
@@ -499,8 +659,8 @@ export function ModelReviewTool({
               ) : null}
               {current.targetId && onInspect ? (
                 <PanelIconButton
-                  Icon={ListTree}
-                  label={COPY.inspect}
+                  Icon={Crosshair}
+                  label={INSPECT_IN_MODEL_VIEW_LABEL}
                   onClick={() => onInspect(current.targetId as string)}
                   testId={`${testId}-inspect`}
                 />
@@ -524,7 +684,8 @@ export function ModelReviewTool({
             </span>
 
             {current.factor?.needsCheck ? (
-              <span className="inline-flex items-center">
+              /* Where the prototype puts "Mark reviewed": the right end. */
+              <span className="ml-auto inline-flex items-center">
                 <button
                   type="button"
                   onClick={confirm}
@@ -619,13 +780,15 @@ export function ModelReviewTool({
               testIdPrefix={testId}
             />
           ) : (
+            /* The prototype's `.textbutton`: 12px info, no underline, padded
+               4px top and bottom — the padding is its rest-state shape. */
             <button
               type="button"
               onClick={() => openEditor('evidence')}
-              className={`${action('inline')} ${typography.panelMeta} gap-1`}
+              className={`${typography.panelBody} mt-[7px] inline-flex items-center gap-[5px] py-1 min-h-[28px] text-info hover:text-info-hover ${ACTION_FOCUS}`}
               data-testid={`${testId}-add-context`}
             >
-              <Link2 className={icon('inline')} aria-hidden={true} />
+              <Link className={icon('row')} aria-hidden={true} />
               {COPY.addContext}
             </button>
           )}

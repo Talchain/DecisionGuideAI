@@ -1606,6 +1606,23 @@ export const ANALYSIS_NEW_COPY = {
      * this, so the sentence cannot drift from the control.
      */
     noUnit: `A target needs a unit. Type one in the box beside the number, such as ${GOAL_UNIT_EXAMPLES}.`,
+    /**
+     * ⭐ THE REASONING TAB'S ROW AND FORM, IN THE V2 PROTOTYPE'S WORDS
+     * (`goalHTML()`). The Inspector's goal control keeps `label` / `change`
+     * above; these are read only by `SuccessTargetLine variant="reasoning"`.
+     *
+     * ⚠ `helpDispatch` AND `helpLocalOnly` ARE THE PROTOTYPE'S HELP LINE, NOT
+     * ITS SENTENCE. The prototype's "+15% has a prepared example…" describes
+     * its fixture. What is true here is what the commit does, and each arm says
+     * only what `dispatched` / `changedLocally` already say after the fact.
+     */
+    describeSuccess: 'Describe success in words or set an optional target',
+    successLead: 'Success:',
+    numberLabel: 'Your target',
+    unitLabel: 'Unit',
+    sendToOlumi: 'Send to Olumi',
+    helpDispatch: 'Olumi updates the shared model when it answers.',
+    helpLocalOnly: 'This changes this screen only. Olumi is not told.',
   },
   /**
    * ⭐ TWO UI-AUTHORED STRINGS, AND BOTH ARE HERE — a heading, and the label that
