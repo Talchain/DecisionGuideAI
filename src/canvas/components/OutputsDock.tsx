@@ -69,6 +69,7 @@ import { useAnalysisRunState } from '../../components/results/analysisState/useA
 import { DecisionOverviewCard } from '../../components/results/decision-overview/DecisionOverviewCard'
 import { isDecisionOverviewEnabled } from '../../flags'
 import { resolveModelDisplayName, UNNAMED_MODEL_FALLBACK } from '../domain/modelDisplayName'
+import { getStarter, resolveStarterId } from '../starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { deriveResultsTabFreshness } from './resultsTabFreshness'
 import { typography, typo } from '../../styles/typography'
@@ -1238,6 +1239,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     const label = (goal?.data as { label?: unknown } | undefined)?.label
     return typeof label === 'string' && label.trim().length > 0 ? label : null
   })
+  // Canvas v3.1 DESIGN-GAP #5: a saved example is named by its own manifest
+  // title — the same rung the top bar reads (`CanvasMVP`), so the two surfaces
+  // give one answer. Primitive selector, same reason as above.
+  const overviewExampleTitle = useCanvasStore((s) => {
+    const starterId = resolveStarterId(s.nodes ?? [])
+    return starterId ? (getStarter(starterId)?.title ?? null) : null
+  })
   /**
    * ⛔⛔ THIS CARD SAID "Untitled draft" FOR A MODEL THE REST OF THE PRODUCT
    * NAMES, and the estate already owned the answer it was missing.
@@ -1273,9 +1281,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (!isDecisionOverviewEnabled()) return null
     const stored = overviewScenarioId ? getScenario(overviewScenarioId)?.name : null
     if (typeof stored === 'string' && stored.trim().length > 0) return stored
-    const derived = resolveModelDisplayName(null, overviewGoalLabel)
+    const derived = resolveModelDisplayName(null, overviewGoalLabel, overviewExampleTitle)
     return derived === UNNAMED_MODEL_FALLBACK ? null : derived
-  }, [overviewScenarioId, overviewGoalLabel])
+  }, [overviewScenarioId, overviewGoalLabel, overviewExampleTitle])
 
   // Tornado chart: Derive per-factor outcome bounds from driver influence and recommended option range.
   // Each factor's contribution to the outcome swing is proportional to its normalised influence.
@@ -2939,7 +2947,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       ? 'var(--dock-right-expanded, 26rem)'
       : 'var(--dock-right-collapsed, 2.5rem)',
     right: 12,
-    top: 12,
+    // Canvas v3.1 DESIGN-GAP #5 (chrome lane, 26 Sep 2026): the top bar is now
+    // the contract's full-width 51px `.app-top`, so the dock starts below it —
+    // `--topbar-h` is that bar's bottom edge (TopBar.tsx). The 12px gap keeps
+    // this dock's own floating treatment unchanged; making it flush (v3.1
+    // `.ai-panel{top:51px}`) is the Panel lane's (DESIGN-GAP #4).
+    top: 'calc(var(--topbar-h, 0px) + 12px)',
     bottom: 'calc(var(--bottombar-h) + 1rem)',
     background: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(8px)',
@@ -3110,6 +3123,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             showResultsFreshnessIcon={showResultsTabFreshnessIcon}
             resultsStale={resultsTabReallyStale}
             factorsToVerify={factorsToVerify}
+            // A5: the store's own `hasCompletedFirstRun`, read above — the
+            // field `ReanalyseBar` reads. The strip defaults it to `true`, so
+            // omitting it here left a never-run model showing a freshness glyph
+            // (`OutputsDock.neverRunTabGlyph.spec.tsx`).
+            hasCompletedFirstRun={hasCompletedFirstRun}
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an

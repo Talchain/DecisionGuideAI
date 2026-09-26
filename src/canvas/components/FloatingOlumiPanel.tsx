@@ -572,6 +572,27 @@ export function measureDockInset(): number {
 }
 
 /**
+ * The OutputsDock's RENDERED composition — `true` expanded, `false` the
+ * collapsed rail, `null` when no dock (or no composition attribute) is on the
+ * page. Read from the element the dock renders (`data-panel-composition`), so
+ * it is current in the same frame as the dock's width.
+ */
+export function readRenderedDockExpanded(): boolean | null {
+  if (typeof document === 'undefined') return null
+  const dock = document.querySelector('aside[aria-label="Outputs dock"]')
+  const composition = dock?.getAttribute('data-panel-composition')
+  if (composition === 'expanded') return true
+  if (composition === 'collapsed') return false
+  return null
+}
+
+/** Whether an OutputsDock element is on the page at all. */
+function measureDockPresent(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.querySelector('aside[aria-label="Outputs dock"]') !== null
+}
+
+/**
  * Top inset the panel must clear so it keeps a small gap below the app's
  * TopBar. Reads the `--topbar-h` CSS variable (set by TopBar; `0px` when no
  * fixed top bar). Returns the bar height + a margin, or DEFAULT_MARGIN when
@@ -1203,7 +1224,22 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock }: F
   // display:none removes the hidden panel from paint, focus order and the
   // accessibility tree, so the pill remains the only perceivable surface.
   let pillEl: ReactNode = null
-  if (isMinimised) {
+  // ⭐ NO PILL WHILE THE DOCK IS OPEN (contract v3.1 DESIGN-GAP #29, 26 Sep
+  // 2026). Measured at base `6256a41f`: with the dock expanded the pill sat at
+  // (752,756) over the canvas on every starter — chrome v3.1 does not draw.
+  // An open dock carries its own Olumi tab, so the conversation is one click
+  // away there. The dock's own rendered composition is read first — it is
+  // committed in the same frame as the dock's width, which is what the corner
+  // observer above reacts to, so a collapse brings the pill back on that
+  // re-render rather than waiting for the persisted record to be written.
+  // A dock element without that attribute falls back to `dockEffectiveOpen`,
+  // the same read the yield gate uses (false on an empty canvas, where the dock
+  // is the rail). NO dock element at all means nothing can host the
+  // conversation, so the pill is the way back and it shows.
+  const renderedDock = readRenderedDockExpanded()
+  const dockHostsBody =
+    renderedDock ?? (measureDockPresent() ? dockEffectiveOpen : false)
+  if (isMinimised && !dockHostsBody) {
     // R3: the pill docks to the bottom-right corner, derived from the live
     // viewport and dock inset. It is not draggable, so there is no user
     // position to honour — and deriving it means no stored panel anchor, and

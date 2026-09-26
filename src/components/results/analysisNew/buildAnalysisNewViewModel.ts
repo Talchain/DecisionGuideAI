@@ -87,6 +87,7 @@ import { hasAnyGoalValue, selectGoalLeader } from '../utils/selectGoalLeader'
 import { getExpectedValue } from '../utils/getExpectedValue'
 import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
+import { MODEL_SCORE_COPY } from './modelScore'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
@@ -841,9 +842,18 @@ function buildDrivers(
   // rule, and it is load-bearing here too: scaling to a sum would render each
   // bar as a SHARE OF THE OUTCOME, a claim neither basis licenses.
   const strongest = Math.max(...live.map(magnitude), 0)
+  // ⭐ A TIE IN MAGNITUDE IS BROKEN BY THE PRODUCER'S OWN RANK, never by
+  // arrival order. Paul's manual test `1a298d6d`: "Monthly new Pro
+  // subscribers" (influence_rank 3) and "Monthly churn" (4) both carried 0.5,
+  // the stable sort kept arrival order, and the rows printed "#1, #4, #3" —
+  // one list telling two orders. The rank each row PRINTS is still the
+  // producer's (`theRankIsTheProducersNotThePositions.spec.ts`); this only
+  // stops the position from contradicting it.
+  const producerRank = (d: (typeof live)[number]) =>
+    d.influenceRank ?? d.rank ?? Number.POSITIVE_INFINITY
   const influenceRows: DriverInfluenceRow[] = live
     .slice()
-    .sort((a, b) => magnitude(b) - magnitude(a))
+    .sort((a, b) => magnitude(b) - magnitude(a) || producerRank(a) - producerRank(b))
     .map((d) => ({
       id: d.factorKey,
       label: d.factorLabel,
@@ -3048,12 +3058,14 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
   // arbitrary. Same gate, same reason, as the goal selector's.
   if (!outcomeRow || tiedAtMax) return { kind: 'none' }
 
-  const outcomeReadout = formatThreshold(
-    best,
-    rec.outcomeUnit,
-    rec.outcomeUnitSymbol,
-    rec.isNormalised,
-  )
+  // ⛔ A normalised outcome is a model score, never "+13%" (modelScore.ts,
+  // AI Quality #70 5841808930). The same formatter decides the tie below, so
+  // "renders as the same string" stays about what the reader actually sees.
+  const readout = (v: number): string =>
+    rec.isNormalised === true
+      ? MODEL_SCORE_COPY.readout(v)
+      : formatThreshold(v, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
+  const outcomeReadout = readout(best)
 
   /**
    * ⚠ UI-SEM-070, AND IT IS ABOUT WHAT THE READER SEES, NOT WHAT WE COMPUTED.
@@ -3062,8 +3074,7 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * rendered readouts is the signal — never a ratio, so a genuine lead that
    * happens to be small still reads as a lead.
    */
-  const readoutOf = (o: OptionResult): string =>
-    formatThreshold(centres.get(o.id) as number, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
+  const readoutOf = (o: OptionResult): string => readout(centres.get(o.id) as number)
   if (options.filter((o) => readoutOf(o) === outcomeReadout).length !== 1) {
     return { kind: 'none' }
   }

@@ -92,7 +92,7 @@ export const NODE_SETTER_FIELDS = {
   setFactorType: ['factor_type'],
   setStateSpaceRange: ['state_space'],
   setUncertaintyDrivers: ['uncertainty_drivers'],
-  setGoalCap: ['goal_threshold_cap'],
+  setGoalCap: ['goal_threshold_cap', 'goal_threshold_cap_provenance'],
   setProbability: ['probability'],
   setImpact: ['impact'],
 } as const satisfies Record<string, readonly string[]>
@@ -759,7 +759,19 @@ export function useNodeMutations(nodeId: string) {
         // complete on its own and the two are safe in EITHER merge order.
         //
         // ⚠ Cleared, not re-authored — same ruling as `display_value`.
-        extractionType: undefined,
+        //
+        // ⚠⚠ `null`, NOT `undefined` (independent review, PR #2046 Blocking 2).
+        // `JSON.stringify` DROPS a key whose value is `undefined`, so the
+        // withdrawal this comment describes did not survive the autosave round
+        // trip (`scenarios.ts` `saveAutosave`) or a boot restore with no server
+        // readback: after `JSON.parse(JSON.stringify(...))` the key is gone
+        // entirely, which `valueSourceMark.tsx`'s `extractionMarkerWithdrawn`
+        // cannot tell apart from a producer draft that never wrote one — so a
+        // withdrawn (pending, unconfirmed) edit read back as "Olumi's estimate"
+        // after a reload. `null` is a present key that survives serialisation
+        // and is still overridden by anything spread after it, so "cleared, not
+        // re-authored" is unchanged.
+        extractionType: null,
         observedState: {
           ...existing,
           value,
@@ -792,7 +804,9 @@ export function useNodeMutations(nodeId: string) {
           // act as asserting a new one — and a refusal restores it anyway, because
           // `revertOptimisticFactorEdit` puts back the whole captured
           // `observedState`, including the absence of keys that were absent.
-          extractionType: undefined,
+          //
+          // ⚠⚠ `null`, NOT `undefined` — see the top-level clear above for why.
+          extractionType: null,
         },
       },
     })
@@ -932,7 +946,13 @@ export function useNodeMutations(nodeId: string) {
   const setGoalCap = useCallback((cap: number) => {
     const node = getNode()
     if (!node) return
-    updateNode(nodeId, { data: { ...node.data, goal_threshold_cap: cap } })
+    // A cap the user sets is the user's own scale. CEE's provenance tag
+    // described the cap this one REPLACES (`target_derived_headroom` = raw ×
+    // 1.25, "a constant of the rule"), so the edit clears it: a leftover tag
+    // kept a user's scale reading as headroom (#2056 review N1). `undefined`,
+    // not an omitted key — `updateNode` MERGES data, so an omitted key would
+    // survive; a JSON round trip then drops it (absent = unattested).
+    updateNode(nodeId, { data: { ...node.data, goal_threshold_cap: cap, goal_threshold_cap_provenance: undefined } })
   }, [nodeId, updateNode, getNode])
 
   // ── risk probability × impact (P1.7) ──

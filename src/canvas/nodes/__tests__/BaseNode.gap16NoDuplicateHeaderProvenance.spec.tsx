@@ -124,10 +124,16 @@ describe('GAP-16 — the header never repeats the value line\'s own source mark'
     expect(own.getAttribute('data-value-source')).toBe('you')
   })
 
-  // ⛔ Review 5822866079: the value line's classifier is NOT the header's. When
-  // it reads `unknown`, the header's mark was the only one with a kind, and a
-  // number must never be left unmarked (Paul, 23 Sep point 1).
-  it('⭐ OPPOSITE CONTROL — a stamped `ai` source WITHOUT extractionType: the value line reads unknown, so the header KEEPS its "AI estimate" value mark', () => {
+  // ⛔⛔ UPDATED (A4c, AUDIT-SYNTH 20260925, rule 4a). Review 5822866079 held
+  // while the value line's classifier read `cee_inference` with no
+  // `extractionType` key as `unknown` — the header's mark was the only one
+  // with a kind, so a number must never be left unmarked (Paul, 23 Sep point
+  // 1) meant the header kept it. Rule 4a fixed the value line's own reading
+  // instead of leaving the header to compensate: a NEVER-WRITTEN extraction
+  // marker (the key absent) is the producer's own draft, exactly like the
+  // `extractionType: 'inferred'` case just above. The value line now
+  // classifies it, so GAP-16 suppresses the header mark the normal way.
+  it('a stamped `ai` source with NO extractionType key at all reads the same as one stamped `inferred` (A4c rule 4a) — header suppressed', () => {
     renderFactor('fac_ai_unclassified', {
       label: 'Hiring rate',
       type: 'factor',
@@ -136,10 +142,10 @@ describe('GAP-16 — the header never repeats the value line\'s own source mark'
       observedState: { value: 0.08, unit: '%', display_value: '8%', source: 'cee_inference' },
     })
     expect(screen.getByTestId('factor-recorded-value')).toBeTruthy()
-    const header = headerValueMarks()
-    expect(header, 'the only mark with a kind must survive').toHaveLength(1)
-    expect(header[0].getAttribute('data-provenance-kind')).toBe('ai')
-    expect(header[0].getAttribute('aria-label') ?? '').not.toBe('')
+    expect(headerValueMarks(), 'the value line now classifies it, so the header must not duplicate it').toHaveLength(0)
+    // The fact is told once, on the value line, via the same 'olumi' render
+    // path as the explicitly-stamped `inferred` case above.
+    expect(screen.getByTestId('estimate-marker')).toBeTruthy()
   })
 
   it('⭐ OPPOSITE CONTROL — no source at all: header keeps its mark and the value line still says "no source"', () => {

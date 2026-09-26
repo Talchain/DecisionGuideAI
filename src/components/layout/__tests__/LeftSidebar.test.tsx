@@ -7,82 +7,78 @@ vi.mock('../../../flags', () => ({
   isGraphLensEnabled: () => false,
 }))
 
-// Mock canvas store for viewMode
-const mockSetViewMode = vi.fn()
 vi.mock('../../../canvas/store', () => ({
   useCanvasStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
       viewMode: 'standard',
-      setViewMode: mockSetViewMode,
       comparisonMode: { active: false },
     }),
 }))
 
+/**
+ * contract v3.1 `.canvas-tools` (DESIGN-GAP #13, 26 Sep 2026): the tools are
+ * +, pointer, hand, undo, layers. The served build drew a pointer↔hand TOGGLE,
+ * a Redo button and a Standard/Detailed eye. Redo is now the keyboard's
+ * (⌘⇧Z / ⌘Y, `useKeyboardShortcuts`); the view toggle moved to the viewport
+ * tools' overflow menu (`CanvasViewportControls`).
+ */
 describe('LeftSidebar', () => {
-  it('renders navigation with core tool buttons', () => {
+  it('renders the contract tool run: select, hand, undo — and no redo or view eye', () => {
     render(<LeftSidebar />)
 
     expect(screen.getByRole('navigation', { name: /canvas tools/i })).toBeInTheDocument()
-    // Default mode is 'select', so button shows "Switch to Hand mode"
-    expect(screen.getByRole('button', { name: /switch to hand mode/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /redo/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /standard view/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Select mode' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hand mode' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+    // Positively enumerated, so a control added back under another name fails.
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Select mode',
+      'Hand mode',
+      'Undo',
+    ])
+    expect(screen.queryByRole('button', { name: /redo/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /standard view|detailed view/i })).toBeNull()
   })
 
-  it('invokes onSelectClick when mode toggle button is clicked', () => {
-    const onSelectClick = vi.fn()
-    render(<LeftSidebar onSelectClick={onSelectClick} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /switch to hand mode/i }))
-    expect(onSelectClick).toHaveBeenCalledTimes(1)
-  })
-
-  it('invokes undo/redo callbacks when buttons are clicked', () => {
+  it('invokes undo when the Undo button is clicked', () => {
     const onUndoClick = vi.fn()
-    const onRedoClick = vi.fn()
-
-    render(
-      <LeftSidebar
-        onUndoClick={onUndoClick}
-        onRedoClick={onRedoClick}
-      />,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: /undo/i }))
-    fireEvent.click(screen.getByRole('button', { name: /redo/i }))
-
+    render(<LeftSidebar onUndoClick={onUndoClick} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
     expect(onUndoClick).toHaveBeenCalledTimes(1)
-    expect(onRedoClick).toHaveBeenCalledTimes(1)
   })
 
-  it('disables undo/redo when canUndo/canRedo are false', () => {
-    render(<LeftSidebar canUndo={false} canRedo={false} />)
-
-    expect(screen.getByRole('button', { name: /undo/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /redo/i })).toBeDisabled()
+  it('disables undo when canUndo is false', () => {
+    render(<LeftSidebar canUndo={false} />)
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
   })
 
-  describe('Mode toggle — icon and aria state', () => {
-    it('shows pointer icon and aria-pressed=true in select mode', () => {
+  describe('pointer and hand — two tools, the current one active', () => {
+    it('select mode: pointer is pressed, hand is not', () => {
       render(<LeftSidebar interactionMode="select" />)
-
-      const btn = screen.getByRole('button', { name: /switch to hand mode/i })
-      expect(btn).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Select mode' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Hand mode' })).toHaveAttribute('aria-pressed', 'false')
     })
 
-    it('shows hand icon and aria-pressed=false in hand mode', () => {
+    it('hand mode: hand is pressed, pointer is not', () => {
       render(<LeftSidebar interactionMode="hand" />)
-
-      const btn = screen.getByRole('button', { name: /switch to select mode/i })
-      expect(btn).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: 'Hand mode' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Select mode' })).toHaveAttribute('aria-pressed', 'false')
     })
-  })
 
-  it('toggles view mode when Standard/Detailed button is clicked', () => {
-    render(<LeftSidebar />)
+    it('the INACTIVE tool switches the mode; the active one never flips you out of it', () => {
+      // The call site hands a single toggle (`onSelectClick` flips the mode).
+      const onSelectClick = vi.fn()
+      const { rerender } = render(<LeftSidebar interactionMode="select" onSelectClick={onSelectClick} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Select mode' }))
+      expect(onSelectClick, 'clicking the ACTIVE pointer must not toggle to hand').not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Hand mode' }))
+      expect(onSelectClick).toHaveBeenCalledTimes(1)
 
-    fireEvent.click(screen.getByRole('button', { name: /standard view/i }))
-    expect(mockSetViewMode).toHaveBeenCalledWith('expert')
+      rerender(<LeftSidebar interactionMode="hand" onSelectClick={onSelectClick} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Hand mode' }))
+      expect(onSelectClick, 'clicking the ACTIVE hand must not toggle to select').toHaveBeenCalledTimes(1)
+      fireEvent.click(screen.getByRole('button', { name: 'Select mode' }))
+      expect(onSelectClick).toHaveBeenCalledTimes(2)
+    })
   })
 })

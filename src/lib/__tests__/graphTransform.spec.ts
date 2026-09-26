@@ -134,13 +134,19 @@ describe('graphTransform', () => {
       expect(result.edges[0].belief).toBe(0.5)
     })
 
-    it('defaults edge_type to "directed" when absent', () => {
+    it('RED/A1: never defaults edge_type — keeps it absent when the source has none', () => {
+      // Minting 'directed' here made CEE echo it back and the readback merge
+      // write it onto the canvas edge, so StyledEdge's "explicit type wins
+      // over node-kind inference" rule drew structural links (e.g.
+      // option→factor) as strong causal ones. An absent field must stay
+      // absent all the way to the wire.
       const edges: Edge[] = [
         { id: 'e1', source: 'node_1', target: 'node_2', data: { confidence: 0.8 } },
       ]
 
       const result = prepareGraphSnapshot(mockNodes, edges)
-      expect(result.edges[0].edge_type).toBe('directed')
+      expect(result.edges[0].edge_type).toBeUndefined()
+      expect('edge_type' in result.edges[0]).toBe(false)
     })
 
     it('preserves edge_type when present in data', () => {
@@ -152,13 +158,14 @@ describe('graphTransform', () => {
       expect(result.edges[0].edge_type).toBe('bidirected')
     })
 
-    it('defaults edge_type to "directed" for non-string values', () => {
+    it('RED/A1: never defaults edge_type for a non-string value — keeps it absent', () => {
       const edges: Edge[] = [
         { id: 'e1', source: 'node_1', target: 'node_2', data: { confidence: 0.8, edge_type: 42 } },
       ]
 
       const result = prepareGraphSnapshot(mockNodes, edges)
-      expect(result.edges[0].edge_type).toBe('directed')
+      expect(result.edges[0].edge_type).toBeUndefined()
+      expect('edge_type' in result.edges[0]).toBe(false)
     })
 
     it('truncates body to 200 chars', () => {

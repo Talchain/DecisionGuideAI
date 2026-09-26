@@ -151,6 +151,7 @@ import {
 import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 import { goalTargetBoundPhrase } from '../conversation/manualGoalTarget'
+import { goalTargetSettlementNotice } from '../conversation/goalTargetEdit'
 import { formatValueWithUnit } from '../components/model-tab/utils'
 import type { ConstraintType } from '../../v5/chipParameters'
 import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
@@ -504,6 +505,12 @@ export function ModelTabV2Panel({
    * attempt must not itself re-render, and nothing reads it except the fence.
    */
   const interventionAttemptRef = useRef(0)
+  /**
+   * The goal-target twin of `interventionAttemptRef`: minted per confirmed goal
+   * target, so a late settlement for an earlier target cannot relabel a newer
+   * one. See `confirmEdit`.
+   */
+  const goalTargetAttemptRef = useRef(0)
   const [interventionEdit, setInterventionEdit] = useState<
     {
       optionId: string
@@ -1053,7 +1060,43 @@ export function ModelTabV2Panel({
          * the bound this surface has always recorded, never a guess at the
          * other one.
          */
-        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null, edit.direction ?? 'at_least') === 'dispatched') setEdit(null)
+        /*
+         * ⭐⭐ THE SETTLEMENT IS LISTENED TO, AND ON THIS CARRIER IT HAS TO BE.
+         * With `goal_target_edit` armed (`GOAL_TARGET_EDIT_ENABLED`) the target
+         * travels as a SYSTEM EVENT, and a refused system event renders no
+         * transcript bubble — the `add_constraint` turn it replaced always
+         * answered in the conversation. Closing the row on `dispatched` and
+         * ignoring the settlement made a 409/422 invisible here.
+         *
+         * So a send that did not land re-opens the SAME proposal (the reader's
+         * value, unit and bound, exactly as confirmed) with the shared sentence
+         * (`goalTargetSettlementNotice`). FENCED: only the newest goal attempt
+         * may speak, and never over a different row the reader has since opened.
+         * `sent` says nothing — CEE's receipt reply renders in the conversation.
+         */
+        const confirmed = edit
+        const confirmedUnit = edit.unit
+        const attempt = ++goalTargetAttemptRef.current
+        const outcome = authority.proposeGoalTarget(
+          confirmed.draft,
+          confirmedUnit,
+          confirmed.scenarioId ?? null,
+          confirmed.direction ?? 'at_least',
+          {
+            onSendSettled: (settlement, detail) => {
+              const notice = goalTargetSettlementNotice(settlement, detail)
+              if (notice === null || goalTargetAttemptRef.current !== attempt) return
+              setEdit(prev =>
+                prev === null
+                  ? { ...confirmed, phase: 'proposed', notice }
+                  : prev.rowId === confirmed.rowId
+                    ? { ...prev, notice } // re-opened already: keep their new draft
+                    : prev,
+              )
+            },
+          },
+        )
+        if (outcome === 'dispatched') setEdit(null)
         else setEdit({ ...edit, notice: 'Target not sent. Reopen the target in the current model; your proposed value is shown here.' })
         return
       }

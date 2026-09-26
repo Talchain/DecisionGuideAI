@@ -769,6 +769,7 @@ export function backfillGoalThresholdOntoGoalNode(
     goal_threshold_raw?: number | null
     goal_threshold_unit?: string | null
     goal_threshold_cap?: number | null
+    goal_threshold_cap_provenance?: string | null
   } | null
 ): void {
   if (!analysisReady?.goal_node_id) return
@@ -785,6 +786,16 @@ export function backfillGoalThresholdOntoGoalNode(
   const raw = analysisReady.goal_threshold_raw ?? null
   const unit = analysisReady.goal_threshold_unit ?? null
   const cap = analysisReady.goal_threshold_cap ?? null
+  // ⭐ THE CAP'S PROVENANCE TRAVELS WITH THE CAP. CEE mints it with the cap and
+  // clears it with the cap ("a provenance surviving the denominator it was
+  // minted for is a claim about a number that is no longer there" —
+  // `normalisation.ts`), and `useResultsSectionData` reads it to refuse to
+  // manufacture user-unit figures from a `target_derived_headroom` cap. Absent
+  // on the payload means UNATTESTED, so it is written as absent, never defaulted.
+  const capProvenance =
+    typeof analysisReady.goal_threshold_cap_provenance === 'string'
+      ? analysisReady.goal_threshold_cap_provenance
+      : undefined
 
   const currentNodes = useCanvasStore.getState().nodes as any[]
   const goalNode = currentNodes.find((n: any) => n.id === analysisReady.goal_node_id)
@@ -795,7 +806,7 @@ export function backfillGoalThresholdOntoGoalNode(
   if (
     (!hasRaw || d?.goal_threshold_raw === raw) &&
     (!hasUnit || d?.goal_threshold_unit === unit) &&
-    (!hasCap || d?.goal_threshold_cap === cap)
+    (!hasCap || (d?.goal_threshold_cap === cap && d?.goal_threshold_cap_provenance === capProvenance))
   ) return
 
   const updatedNodes = currentNodes.map((n: any) => {
@@ -806,7 +817,7 @@ export function backfillGoalThresholdOntoGoalNode(
         ...n.data,
         ...(hasRaw ? { goal_threshold_raw: raw } : {}),
         ...(hasUnit ? { goal_threshold_unit: unit } : {}),
-        ...(hasCap ? { goal_threshold_cap: cap } : {}),
+        ...(hasCap ? { goal_threshold_cap: cap, goal_threshold_cap_provenance: capProvenance } : {}),
       },
     }
   })

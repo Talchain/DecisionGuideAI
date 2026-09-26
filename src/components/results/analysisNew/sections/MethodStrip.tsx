@@ -6,10 +6,10 @@
  * `METHOD_CATALOGUE` rendered TWICE: once as the "Methods you can run" chip
  * shelf (`MethodsYouCanRun`, ZONE: FOCUS) and again inside the tab's "Actions"
  * dropdown (`ActionsMenu`, at the foot of the acts). This strip is both: five
- * icon-only methods in a row, then one overflow menu holding the remaining
- * methods and the global actions (`GLOBAL_ACTIONS`). No heading, no paragraph —
- * each method's name and one-line description ride on its tooltip, which is
- * also its accessible name.
+ * icon-only methods in a row, then one overflow menu holding EVERY method (the
+ * V2 prototype's "one complete menu") and the global actions
+ * (`GLOBAL_ACTIONS`). No heading, no paragraph — each method's name and
+ * one-line description ride on its tooltip, which is also its accessible name.
  *
  * ⚠ `ActionsMenu` IS NOT TOUCHED. The Analysis tab's `DecisionOverviewCard`
  * still mounts it; this strip replaces it on the Reasoning tab only.
@@ -21,13 +21,35 @@
  * `ActionsMenu.runGlobal` calls, with the catalogue's own payloads.
  */
 /**
- * @panel-act-opt-out the overflow's rows are full-width WAI-ARIA menuitems inside a popover, not tiered acts; every icon on the strip itself is a PanelIconButton
+ * @panel-act-opt-out the strip's circles are the V2 prototype's 36px method buttons and the overflow's rows are full-width WAI-ARIA menuitems, neither a tiered act
  *
- * The menu rows carry `min-h-[24px]` and `w-full` themselves (WCAG 2.2 AA
- * §2.5.8, both dimensions); `everyActIsReachableByTouch` reads this marker.
+ * The strip buttons carry `min-h-[24px] min-w-[24px]` and the menu rows
+ * `min-h-[24px]` plus `w-full` themselves (WCAG 2.2 AA §2.5.8, both
+ * dimensions); `everyActIsReachableByTouch` reads this marker.
+ *
+ * ⭐ V2 PROTOTYPE (design audit B1, 25 Sep 2026). The strip's circles are 36px
+ * (35px in a narrow panel), not `PanelIconButton`'s 28px, so they are drawn
+ * here with the same Tooltip, focus ring and pressed ring that component uses.
+ * The ACTIVE method carries the ring AND the dot (`.iconbtn.active:after`); a
+ * method the run raised keeps its dot. The ⋯ is ONE COMPLETE MENU (the
+ * prototype's "one toolbar and one complete menu"): a "Reasoning methods"
+ * label over every catalogue method, a separator, then "Model and workflow"
+ * over the global actions — every row an icon and a name, no subtitle.
  */
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
-import { ArrowUpDown, ClipboardList, Frame, GitFork, Globe, MoreHorizontal } from 'lucide-react'
+import {
+  ArrowDownUp,
+  Circle,
+  ClipboardList,
+  Frame,
+  GitFork,
+  Globe,
+  HelpCircle,
+  MoreHorizontal,
+  Pencil,
+  RefreshCw,
+  Scale,
+} from 'lucide-react'
 
 import { executeCanonicalRun } from '../../../../canvas/analysis/canonicalRunRegistry'
 import { usePanelWidth } from '../../../../canvas/components/workspaceShell/usePanelWidth'
@@ -42,12 +64,12 @@ import {
   type MethodEntry,
 } from '../../decision-overview/actionsCatalogue'
 import { useSelfToast } from '../../decision-overview/useSelfToast'
+import Tooltip from '../../../Tooltip'
 import { openBriefEdit } from '../briefEditStore'
-import { PanelActRow } from '../PanelActRow'
-import { PanelIconButton } from '../PanelIconButton'
-import { ACTION_FOCUS } from '../panelSurfaces'
+import { ACTION_FOCUS, icon } from '../panelSurfaces'
 
-type Glyph = ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+export type MethodGlyph = ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
+type Glyph = MethodGlyph
 
 /**
  * The five methods shown as icons, in the prototype's order. Every other
@@ -62,6 +84,25 @@ export const METHOD_STRIP_ICON_IDS = [
   'pre_mortem',
 ] as const
 
+/**
+ * The V2 prototype's menu order (its `methods` table): the strip's five, then
+ * the bias check, then trade-offs. DERIVED for everything else — a catalogue
+ * method not named here is appended in catalogue order, so a method added to
+ * the catalogue can never be missing from the menu. Display order only: it
+ * ranks nothing.
+ */
+export const METHOD_MENU_ORDER: readonly string[] = [...METHOD_STRIP_ICON_IDS, 'review_bias', 'explore_tradeoffs']
+
+export function methodsInMenuOrder(): MethodEntry[] {
+  const rank = (id: string) => {
+    const i = METHOD_MENU_ORDER.indexOf(id)
+    return i === -1 ? METHOD_MENU_ORDER.length : i
+  }
+  return METHOD_CATALOGUE.map((m, i) => ({ m, i }))
+    .sort((a, b) => rank(a.m.id) - rank(b.m.id) || a.i - b.i)
+    .map(({ m }) => m)
+}
+
 /** Moved into the overflow on a narrow dock. */
 export const METHOD_STRIP_COMPACT_DROPS = 'pre_mortem'
 
@@ -72,20 +113,39 @@ export const METHOD_STRIP_COMPACT_DROPS = 'pre_mortem'
  */
 export const METHOD_STRIP_COMPACT_BELOW_PX = 300
 
-/** Lucide glyphs matching the prototype's method icons. */
-const METHOD_ICON: Record<(typeof METHOD_STRIP_ICON_IDS)[number], Glyph> = {
+/**
+ * Lucide glyphs matching the V2 prototype's `paths` for every catalogue method
+ * (`methods[id].icon`). Keyed by catalogue id; a method missing here falls back
+ * to `HelpCircle` rather than rendering an icon-less row.
+ * ⚠ `consider_opposite` is `ArrowDownUp` — the prototype's `opposite` path is
+ * down-arrow-left / up-arrow-right, which is lucide `arrow-down-up`.
+ */
+export const METHOD_ICON: Readonly<Record<string, Glyph>> = {
   different_option: GitFork,
   reframe_problem: Frame,
-  consider_opposite: ArrowUpDown,
+  consider_opposite: ArrowDownUp,
   outside_view: Globe,
   pre_mortem: ClipboardList,
+  review_bias: HelpCircle,
+  explore_tradeoffs: Scale,
+}
+
+export const methodIcon = (methodId: string): Glyph => METHOD_ICON[methodId] ?? HelpCircle
+
+/** The prototype's `menuHTML` icons for the global actions (edit / circle / refresh). */
+const ACTION_ICON: Readonly<Record<string, Glyph>> = {
+  edit_brief: Pencil,
+  review_inputs: Circle,
+  rerun_analysis: RefreshCw,
 }
 
 /** Copy owned by this strip. Sentence case, en-GB, no em dashes. */
 export const METHOD_STRIP_COPY = {
   group: 'Reasoning methods and actions',
-  more: 'More methods and actions',
-  menu: 'More methods and actions',
+  more: 'All methods and actions',
+  menu: 'All methods and actions',
+  methodsLabel: 'Reasoning methods',
+  actionsLabel: 'Model and workflow',
   raised: 'Raised by this run',
 } as const
 
@@ -93,6 +153,23 @@ export const METHOD_STRIP_COPY = {
 export function methodStripLabel(method: MethodEntry, raised: boolean): string {
   const base = `${method.title}. ${method.description}`
   return raised ? `${base} ${METHOD_STRIP_COPY.raised}.` : base
+}
+
+/**
+ * ⭐ THE V2 PROTOTYPE'S POPOVER (`.popover` / `#popover` / `.menuitem`), shared
+ * by this strip's ⋯ and the Challenge card's "Question options" so the two
+ * menus cannot drift apart: 252px wide, 7px padding, the emphasis border, a
+ * 12px radius; rows are an icon and a name, 12px, 8px padding, 34px tall, the
+ * current method in info; the separator runs to the popover's edges.
+ */
+export const METHOD_MENU_POPOVER_CLASS =
+  'absolute right-0 top-full z-20 mt-1.5 w-[252px] max-w-[calc(100vw-20px)] rounded-md border border-border-emphasis bg-panel p-[7px] shadow-2'
+export const METHOD_MENU_SEPARATOR_CLASS = '-mx-[7px] my-[5px] border-b border-panel-border'
+export const METHOD_MENU_GLYPH_CLASS = `${icon('row')} shrink-0 text-text-light`
+export function methodMenuRowClass(current: boolean): string {
+  return `flex w-full min-h-[34px] min-w-[24px] items-center gap-[9px] rounded-sm px-2 py-[7px] text-left ${typography.panelBody} hover:bg-panel-hover focus-visible:bg-panel-hover ${
+    current ? 'text-info' : 'text-text-body'
+  } ${ACTION_FOCUS}`
 }
 
 /** Telemetry label for runs started from this strip (`CanonicalRunOptions.source`). */
@@ -131,16 +208,20 @@ export function MethodStrip({
     .map((id) => ({ id, method: byId(id) }))
     .filter((x): x is { id: (typeof METHOD_STRIP_ICON_IDS)[number]; method: MethodEntry } => x.method !== undefined)
   const shownIds = new Set<string>(iconMethods.map((x) => x.id))
-  const overflowMethods = METHOD_CATALOGUE.filter((m) => !shownIds.has(m.id))
+  /* ⭐ V2: the menu lists EVERY method, the strip's five included ("one
+     toolbar and one complete menu"). The overflow's "raised" mark still asks
+     only about the methods the strip does NOT show, because those are the
+     ones a reader cannot see marked. */
+  const menuMethods = methodsInMenuOrder()
   const globalActions = GLOBAL_ACTIONS.filter((a) => a.id !== 'rerun_analysis' || canRerun)
-  const raisedInOverflow = overflowMethods.filter((m) => raised.has(m.id))
+  const raisedInOverflow = METHOD_CATALOGUE.filter((m) => !shownIds.has(m.id) && raised.has(m.id))
 
   const [open, setOpen] = useState(false)
   const overflowRef = useRef<HTMLDivElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const { showToast, toastElement } = useSelfToast()
 
-  /* `PanelIconButton` forwards no ref, so the trigger is found inside its own
+  /* `StripButton` forwards no ref, so the trigger is found inside its own
      wrapper: the only `aria-haspopup="menu"` button there. */
   const close = useCallback((restoreFocus: boolean) => {
     setOpen(false)
@@ -221,10 +302,9 @@ export function MethodStrip({
     })
   }
 
-  const itemClass = (current: boolean) =>
-    `block w-full min-h-[24px] rounded-md px-2 py-1.5 text-left hover:bg-panel-hover focus-visible:bg-panel-hover ${
-      current ? 'bg-panel-hover' : ''
-    } ${ACTION_FOCUS}`
+  const itemClass = methodMenuRowClass
+  const glyphClass = METHOD_MENU_GLYPH_CLASS
+  const labelClass = `${typography.panelMeta} block px-2 py-[5px] text-text-light`
 
   const moreLabel =
     raisedInOverflow.length > 0
@@ -238,26 +318,33 @@ export function MethodStrip({
       data-testid={testId}
       data-compact={compact ? 'true' : 'false'}
     >
-      <PanelActRow>
+      {/* V2 prototype `.methodstrip`: 6px between circles, 4px in a narrow panel. */}
+      <div className={`flex items-center ${compact ? 'gap-1' : 'gap-1.5'} min-h-[38px]`}>
         {iconMethods.map(({ id, method }) => (
-          <PanelIconButton
+          <StripButton
             key={id}
-            Icon={METHOD_ICON[id]}
+            Icon={methodIcon(id)}
             label={methodStripLabel(method, raised.has(id))}
             onClick={() => onSelectMethod(id)}
             pressed={activeMethodId === id}
+            /* ⛔ THE DOT MEANS "RAISED BY THIS RUN" AND NOTHING ELSE (#2066
+               review B2): the menu's dot and every accessible name say so, so
+               a reader's own pick must not wear it — the ring alone carries
+               "active". */
             marked={raised.has(id)}
+            compact={compact}
             testId={`${testId}-method-${id}`}
           />
         ))}
         <div ref={overflowRef} className="relative ml-auto">
-          <PanelIconButton
+          <StripButton
             Icon={MoreHorizontal}
             label={moreLabel}
             onClick={() => (open ? close(true) : setOpen(true))}
             hasPopup="menu"
             expanded={open}
             marked={raisedInOverflow.length > 0}
+            compact={compact}
             testId={`${testId}-more`}
           />
           {open ? (
@@ -266,51 +353,127 @@ export function MethodStrip({
               role="menu"
               aria-label={METHOD_STRIP_COPY.menu}
               data-testid={`${testId}-menu`}
-              className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-panel-border bg-panel p-1.5 shadow-2"
+              className={METHOD_MENU_POPOVER_CLASS}
             >
-              {overflowMethods.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="menuitem"
-                  aria-current={activeMethodId === m.id ? 'true' : undefined}
-                  onClick={() => selectFromMenu(m.id)}
-                  className={itemClass(activeMethodId === m.id)}
-                  data-testid={`${testId}-menu-method-${m.id}`}
-                >
-                  <span className={`${typography.panelBody} block text-text-header`}>{m.title}</span>
-                  <span className={`${typography.panelMeta} block text-text-light`}>{m.description}</span>
-                  {raised.has(m.id) ? (
-                    <span
-                      className={`${typography.panelMeta} block text-text-light`}
-                      data-testid={`${testId}-menu-method-${m.id}-raised`}
-                    >
-                      {METHOD_STRIP_COPY.raised}
+              <span className={labelClass} data-testid={`${testId}-menu-label-methods`}>
+                {METHOD_STRIP_COPY.methodsLabel}
+              </span>
+              {menuMethods.map((m) => {
+                const Glyph = methodIcon(m.id)
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="menuitem"
+                    aria-current={activeMethodId === m.id ? 'true' : undefined}
+                    onClick={() => selectFromMenu(m.id)}
+                    className={itemClass(activeMethodId === m.id)}
+                    data-testid={`${testId}-menu-method-${m.id}`}
+                  >
+                    <span className="relative inline-flex shrink-0">
+                      <Glyph className={glyphClass} aria-hidden={true} />
+                      {raised.has(m.id) ? (
+                        <span
+                          className="absolute -right-0.5 -top-0.5 size-[5px] rounded-full bg-info"
+                          aria-hidden={true}
+                          data-testid={`${testId}-menu-method-${m.id}-dot`}
+                        />
+                      ) : null}
                     </span>
-                  ) : null}
-                </button>
-              ))}
-              {overflowMethods.length > 0 && globalActions.length > 0 ? (
-                <div role="separator" className="my-1 border-b border-panel-border" data-testid={`${testId}-menu-separator`} />
+                    {m.title}
+                    {raised.has(m.id) ? (
+                      <span className="sr-only" data-testid={`${testId}-menu-method-${m.id}-raised`}>
+                        {`. ${METHOD_STRIP_COPY.raised}`}
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })}
+              {globalActions.length > 0 ? (
+                <>
+                  <div
+                    role="separator"
+                    className={METHOD_MENU_SEPARATOR_CLASS}
+                    data-testid={`${testId}-menu-separator`}
+                  />
+                  <span className={labelClass} data-testid={`${testId}-menu-label-actions`}>
+                    {METHOD_STRIP_COPY.actionsLabel}
+                  </span>
+                </>
               ) : null}
-              {globalActions.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => runGlobal(a)}
-                  className={itemClass(false)}
-                  data-testid={`${testId}-menu-action-${a.id}`}
-                >
-                  <span className={`${typography.panelBody} block text-text-header`}>{a.title}</span>
-                  <span className={`${typography.panelMeta} block text-text-light`}>{a.description}</span>
-                </button>
-              ))}
+              {globalActions.map((a) => {
+                const Glyph = ACTION_ICON[a.id] ?? Circle
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runGlobal(a)}
+                    className={itemClass(false)}
+                    data-testid={`${testId}-menu-action-${a.id}`}
+                  >
+                    <Glyph className={glyphClass} aria-hidden={true} />
+                    {a.title}
+                  </button>
+                )
+              })}
             </div>
           ) : null}
         </div>
-      </PanelActRow>
+      </div>
       {toastElement}
     </div>
+  )
+}
+
+interface StripButtonProps {
+  Icon: Glyph
+  /** The tooltip AND the accessible name. */
+  label: string
+  onClick: () => void
+  pressed?: boolean
+  expanded?: boolean
+  hasPopup?: 'menu'
+  /** The prototype's dot: the active method, or a method this run raised. */
+  marked?: boolean
+  compact: boolean
+  testId: string
+}
+
+/**
+ * One V2 method circle (`.methodstrip .iconbtn`): 36px (35px narrow, 40px on a
+ * coarse pointer), no border at rest, a quiet fill and ring on hover, an info
+ * ring and colour when pressed, and a 5px info dot top-right with a 2px panel
+ * halo when marked.
+ */
+function StripButton({ Icon, label, onClick, pressed, expanded, hasPopup, marked = false, compact, testId }: StripButtonProps) {
+  return (
+    <Tooltip asChild content={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        aria-expanded={expanded}
+        aria-haspopup={hasPopup}
+        onClick={onClick}
+        data-testid={testId}
+        className={`relative inline-flex shrink-0 items-center justify-center min-w-[24px] min-h-[24px] rounded-full ${
+          compact ? 'size-[35px]' : 'size-9'
+        } [@media(pointer:coarse)]:size-10 ${
+          pressed
+            ? 'text-info ring-1 ring-inset ring-info'
+            : 'text-text-light hover:bg-panel-hover hover:ring-1 hover:ring-inset hover:ring-panel-border'
+        } ${ACTION_FOCUS}`}
+      >
+        <Icon className={icon('section')} aria-hidden={true} />
+        {marked ? (
+          <span
+            className="absolute right-px top-0.5 size-[5px] rounded-full bg-info ring-2 ring-panel"
+            aria-hidden={true}
+            data-testid={`${testId}-mark`}
+          />
+        ) : null}
+      </button>
+    </Tooltip>
   )
 }

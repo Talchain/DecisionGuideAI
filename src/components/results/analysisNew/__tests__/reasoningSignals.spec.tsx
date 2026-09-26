@@ -15,6 +15,7 @@ import { buildReasoningSignals, SIGNAL_DRIVER_COUNT } from '../reasoningSignals'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
+import { ASSUMPTIONS_DOOR_COPY as DOOR } from '../assumptionsDoorCopy'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { VoiRanking } from '../../voi/voiRanking'
 import { evidenceGapWithNullConfidence, genuineDecision, highUncertainty, makeData, makeDriver } from './analysisNewFixtures'
@@ -128,24 +129,51 @@ describe('drivers: the top three, the producer’s rank, a bar and no percentage
 })
 
 describe('row actions: only on a row that names a model element', () => {
-  it('a focusable driver focuses, inspects and asks about ITS node', () => {
+  it('⭐ V2: a focusable driver\'s NAME opens its review, and its ✦ asks about ITS node — one act per purpose', () => {
     const onFocus = vi.fn()
     const onInspect = vi.fn()
     const onAsk = vi.fn()
     render(<ReasoningSignals vm={vmOf(fourDrivers())} flipThresholds={null} onFocus={onFocus} onInspect={onInspect} onAsk={onAsk} />)
     const alpha = driverRows()[0]
-    fireEvent.click(within(alpha).getByRole('button', { name: COPY.disclosure.focusTarget }))
-    fireEvent.click(within(alpha).getByRole('button', { name: ZONE.inspectInModel }))
-    fireEvent.click(within(alpha).getByRole('button', { name: ZONE.askAboutThis }))
-    expect(onFocus).toHaveBeenCalledWith('f_a')
+    fireEvent.click(within(alpha).getByRole('button', { name: 'Alpha' }))
     expect(onInspect).toHaveBeenCalledWith('f_a')
+    fireEvent.click(within(alpha).getByRole('button', { name: DOOR.askDriver }))
     expect(onAsk).toHaveBeenCalledTimes(1)
     const payload = onAsk.mock.calls[0][0]
-    expect(payload).toMatchObject({ targetId: 'f_a', draft: 'Alpha', label: COPY.disclosure.askOlumi })
+    // The draft asks what the ✦ promises (#2068 review note 2).
+    expect(payload).toMatchObject({ targetId: 'f_a', draft: DOOR.askDriverDraft('Alpha'), label: COPY.disclosure.askOlumi })
+    expect(payload.draft).toBe('Why does Alpha matter so much in this model?')
+    // The full name is the tooltip's first words (the name is truncated).
+    expect(within(alpha).getByRole('button', { name: 'Alpha' }).getAttribute('title')).toBe(`Alpha · ${DOOR.reviewDriver}`)
     // The ask must not carry back the percentage the row refuses to print.
     expect(payload.context).toBe(COPY.coverage.setRelativeInfluence)
     // The ask is the AI act and wears the AI icon.
-    expect(within(alpha).getByRole('button', { name: ZONE.askAboutThis })).toHaveAttribute('data-ai', 'true')
+    expect(within(alpha).getByRole('button', { name: DOOR.askDriver })).toHaveAttribute('data-ai', 'true')
+    // No crosshair or search on the row any more.
+    expect(within(alpha).queryByRole('button', { name: COPY.disclosure.focusTarget })).toBeNull()
+    expect(within(alpha).queryByRole('button', { name: ZONE.inspectInModel })).toBeNull()
+    expect(onFocus).not.toHaveBeenCalled()
+  })
+
+  it('⭐ V2 row grid: rank · name · a 55px bar · ✦, in that order', () => {
+    render(<ReasoningSignals vm={vmOf(fourDrivers())} flipThresholds={null} onInspect={vi.fn()} onAsk={vi.fn()} />)
+    const alpha = driverRows()[0]
+    expect(alpha.className.split(/\s+/)).toContain('grid-cols-[20px_minmax(0,1fr)_55px_28px]')
+    const cells = [...alpha.children] as HTMLElement[]
+    expect(cells.map((c) => c.dataset.testid)).toEqual([
+      'analysis-new-signals-driver-rank',
+      'analysis-new-signals-driver-name',
+      'analysis-new-signals-driver-bar-slot',
+      'analysis-new-signals-driver-ask',
+    ])
+    expect(cells[2].className.split(/\s+/)).toContain('w-[55px]')
+  })
+
+  it('with no review handler the name falls back to focus', () => {
+    const onFocus = vi.fn()
+    render(<ReasoningSignals vm={vmOf(fourDrivers())} flipThresholds={null} onFocus={onFocus} />)
+    fireEvent.click(within(driverRows()[0]).getByRole('button', { name: 'Alpha' }))
+    expect(onFocus).toHaveBeenCalledWith('f_a')
   })
 
   it('⛔ a driver the canvas cannot focus shows NO actions (contrast: its neighbours do)', () => {
@@ -153,8 +181,17 @@ describe('row actions: only on a row that names a model element', () => {
     const [alpha, bravo, charlie] = driverRows()
     expect(charlie).toHaveAttribute('data-factor-id', 'f_c')
     expect(within(charlie).queryAllByRole('button')).toHaveLength(0)
-    expect(within(alpha).getAllByRole('button')).toHaveLength(3)
-    expect(within(bravo).getAllByRole('button')).toHaveLength(3)
+    expect(within(alpha).getAllByRole('button')).toHaveLength(2)
+    expect(within(bravo).getAllByRole('button')).toHaveLength(2)
+  })
+
+  it('⭐ V2 kicker: "Driver order in this model" (a stale run says it is the last run\'s order)', () => {
+    render(<ReasoningSignals vm={vmOf(fourDrivers())} flipThresholds={null} />)
+    expect(screen.getByTestId('analysis-new-signals-drivers-kicker')).toHaveTextContent(DOOR.kicker)
+    cleanup()
+    const stale = buildAnalysisNewViewModel({ data: fourDrivers(), recommendations: [], isPreRun: false, isRunning: false, isStale: true })
+    render(<ReasoningSignals vm={stale} flipThresholds={null} />)
+    expect(screen.getByTestId('analysis-new-signals-drivers-kicker')).toHaveTextContent(DOOR.kickerStale)
   })
 })
 
@@ -242,8 +279,22 @@ describe('one assumption or evidence gap, by the builder’s own order', () => {
     const finding = vm.uncertainty.findings.find((f) => f.id === 'gap:f_churn')!
     expect(screen.getByTestId('analysis-new-signals-gap-headline').textContent).toBe(finding.headline)
     expect(screen.getByTestId('analysis-new-signals-gap-detail').textContent).toBe(finding.implication)
-    fireEvent.click(within(gap).getByRole('button', { name: ZONE.inspectInModel }))
+    // ⭐ V2: ONE text act, "Examine that assumption", opens its review.
+    fireEvent.click(within(gap).getByRole('button', { name: DOOR.examine }))
     expect(onInspect).toHaveBeenCalledWith('f_churn')
+    expect(within(gap).queryByRole('button', { name: ZONE.inspectInModel })).toBeNull()
+    expect(within(gap).queryByRole('button', { name: COPY.disclosure.focusTarget })).toBeNull()
+  })
+
+  it('⭐ V2: the gap\'s ✦ sits on the headline\'s own line and asks how to investigate it', () => {
+    const onAsk = vi.fn()
+    render(<ReasoningSignals vm={vmOf(evidenceGapWithNullConfidence())} flipThresholds={null} onInspect={vi.fn()} onAsk={onAsk} />)
+    const headline = screen.getByTestId('analysis-new-signals-gap-headline')
+    const ask = screen.getByTestId('analysis-new-signals-gap-ask')
+    expect(ask.parentElement).toBe(headline.parentElement)
+    expect(ask).toHaveAttribute('aria-label', DOOR.askGap)
+    fireEvent.click(ask)
+    expect(onAsk).toHaveBeenCalledTimes(1)
   })
 
   it('⭐ the value-of-information lead comes first when the run ranked one — the builder’s order, not ours', () => {

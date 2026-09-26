@@ -45,6 +45,7 @@ export function placeInspector({
   panel,
   viewport,
   rightLimit,
+  topLimit = 0,
   padding = 16,
   gap = 24,
 }: {
@@ -52,6 +53,8 @@ export function placeInspector({
   panel: { width: number; height: number }
   viewport: { width: number; height: number }
   rightLimit: number
+  /** The app bar's bottom edge (`--topbar-h`); the panel never starts above it. */
+  topLimit?: number
   padding?: number
   gap?: number
 }): Position {
@@ -64,7 +67,7 @@ export function placeInspector({
   if (x + panel.width > right) x = right - panel.width
   if (x < padding) x = padding
   if (y + panel.height > viewport.height - padding) y = viewport.height - panel.height - padding
-  if (y < padding) y = padding
+  if (y < topLimit + padding) y = topLimit + padding
   return { x, y }
 }
 
@@ -105,12 +108,20 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
 
       const rect = panelRef.current.getBoundingClientRect()
       // Convert canvas coordinates to screen coordinates, then place clear of
-      // the right panel (v3.1 "no overlap" — see `placeInspector`).
+      // the right panel (v3.1 "no overlap" — see `placeInspector`) AND below the
+      // app bar. Canvas v3.1 DESIGN-GAP #5 made the top bar the contract's
+      // full-width 51px `.app-top`, so a y clamped to `padding` alone put this
+      // panel's header over the bar at every x (the floating pill only spanned
+      // x 12..450). `--topbar-h` is the bar's bottom edge, written by
+      // `TopBar.tsx`; 0 when no bar is mounted.
+      const topBarBottom =
+        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
       setPosition(placeInspector({
         anchor: canvasToScreen(anchorPosition),
         panel: { width: rect.width, height: rect.height },
         viewport: { width: window.innerWidth, height: window.innerHeight },
         rightLimit: canvasRightLimit(),
+        topLimit: topBarBottom,
       }))
     })
   }, [anchorPosition, canvasToScreen, position])

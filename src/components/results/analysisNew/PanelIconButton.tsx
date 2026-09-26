@@ -36,6 +36,13 @@ export interface PanelIconButtonProps {
   hasPopup?: 'menu'
   /** A small dot on the glyph, e.g. "this run raised this method". */
   marked?: boolean
+  /**
+   * Sits INSIDE a line of text (the prototype's `.ai-inline`, after "Still
+   * open"): a 24px rounded square on the text's middle whose negative block
+   * margin keeps the line box at the text's own height, so the sentence does
+   * not grow a taller line around it. Still the 24px floor, and 44px on touch.
+   */
+  inline?: boolean
   testId?: string
 }
 
@@ -49,6 +56,7 @@ export function PanelIconButton({
   expanded,
   hasPopup,
   marked = false,
+  inline = false,
   testId,
 }: PanelIconButtonProps) {
   const Glyph = ai ? OlumiAiIcon : Icon
@@ -68,7 +76,11 @@ export function PanelIconButton({
            when pressed. The old hover/pressed fill was bg-panel-hover, which
            measures 1.038:1 against bg-panel: a selected state nobody could see.
            No fill now, so pressed is a visible ring and colour, not a tint. */
-        className={`relative inline-flex shrink-0 items-center justify-center w-7 h-7 min-w-[24px] min-h-[24px] rounded-full [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 ${
+        className={`relative inline-flex shrink-0 items-center justify-center ${
+          inline
+            ? 'w-6 h-6 -my-1 ml-0.5 align-middle rounded [@media(pointer:coarse)]:-my-3'
+            : 'w-7 h-7 rounded-full'
+        } min-w-[24px] min-h-[24px] [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 ${
           pressed ? 'text-info ring-1 ring-inset ring-info' : ai ? 'text-info' : 'text-text-light'
         } hover:ring-1 hover:ring-inset hover:ring-border-emphasis disabled:opacity-40 disabled:cursor-default disabled:hover:ring-0 ${ACTION_FOCUS}`}
       >

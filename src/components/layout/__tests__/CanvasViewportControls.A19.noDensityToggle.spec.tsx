@@ -14,7 +14,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { CanvasViewportControls } from '../CanvasViewportControls'
@@ -47,22 +47,30 @@ describe('CanvasViewportControls — no density toggle', () => {
     expect(screen.queryByLabelText(/layout density/i)).toBeNull()
   })
 
-  it('CONTRAST — the genuinely working Auto-arrange button is untouched', () => {
+  it('CONTRAST — the genuinely working Auto-arrange control is untouched (now in the overflow menu)', () => {
     const { onAutoArrange } = renderControls()
-    const button = screen.getByRole('button', { name: 'Auto-arrange' })
-    expect(button).toBeInTheDocument()
-    button.click()
+    fireEvent.click(screen.getByRole('button', { name: 'More view options' }))
+    const item = screen.getByRole('menuitem', { name: 'Auto-arrange' })
+    expect(item).toBeInTheDocument()
+    item.click()
     expect(onAutoArrange).toHaveBeenCalledTimes(1)
   })
 
-  it('the Layout group has exactly two controls now: fit to view and auto-arrange', () => {
+  it('every control is enumerated — none of them a density toggle', () => {
     renderControls()
-    expect(screen.getByRole('button', { name: 'Fit to view' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Auto-arrange' })).toBeInTheDocument()
-    // Every button this toolbar renders, positively enumerated, so a control
-    // added back under a different name or test id still fails this count:
-    // zoom readout, zoom out, zoom in, fit to view, auto-arrange, legend
-    // trigger — six, none of them a density toggle.
-    expect(screen.getAllByRole('button')).toHaveLength(6)
+    // At rest, v3.1's three tools plus the one overflow (DESIGN-GAP #14):
+    // zoom out, zoom in, fit to view, more view options.
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Zoom out',
+      'Zoom in',
+      'Fit to view',
+      'More view options',
+    ])
+    // And the menu's items, positively enumerated, so a control added back
+    // under a different name or test id still fails this list.
+    fireEvent.click(screen.getByRole('button', { name: 'More view options' }))
+    expect(
+      Array.from(document.querySelectorAll('[role^="menuitem"]')).map((i) => i.getAttribute('data-testid')),
+    ).toEqual(['viewport-zoom-reset', 'viewport-auto-arrange', 'viewport-detailed-view', 'viewport-legend'])
   })
 })

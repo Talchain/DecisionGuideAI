@@ -301,9 +301,17 @@ describe.each(JOURNEYS)('the served OpenAI run turn (%s), through the shipped ch
     expect(body.kind ?? 'message').toBe('message')
     expect(body.message).toBe(C2_CARD.action_prompt)
     // Never the typed Run or approval: CEE withholds authority on any other chip.
-    const chip = (body.chip ?? {}) as { id?: string; action_type?: string }
+    // ⭐ The chip object MUST be present. It is the ONLY thing that makes CEE
+    // withhold `run_analysis` / `authorise_change` on this turn
+    // (`withheldToolsOf`, CEE agent-v1-turn.ts: no chip ⇒ nothing withheld).
+    // A `body.chip ?? {}` read passed with the chip gone, which is exactly the
+    // regression that would let a card's prompt start a Run. Bound by identity:
+    // the card-click send's own id (`ConversationPanel` sendChipByLabelMessage).
+    expect(body.chip, 'the card click must carry its chip, or CEE withholds nothing').toEqual(expect.any(Object))
+    const chip = body.chip as { id?: unknown; action_type?: unknown }
+    expect(String(chip.id)).toMatch(/^evidence-apply-\d+$/)
     expect(chip.action_type).toBeUndefined()
-    expect(String(chip.id ?? '')).not.toMatch(/^agent-(run-analysis|approve-proposal)/)
+    expect(String(chip.id)).not.toMatch(/^agent-(run-analysis|approve-proposal)/)
     expectConclusionFirst('C4 click')
     // Acknowledged on the chip itself (settled, no longer clickable) — and
     // nothing more leaves the UI on a second click.

@@ -44,4 +44,14 @@ describe('v3.1 — the inspector is placed clear of the right panel', () => {
     const high = placeInspector({ anchor: { x: 200, y: 10 }, panel: PANEL, viewport: WINDOW, rightLimit: 853 })
     expect(high.y).toBeGreaterThanOrEqual(16)
   })
+  it('⭐ the panel never starts above the app bar (merge of WS2 #5 with this placement)', () => {
+    // An anchor near the top: centring would put y = 40 - 300 < 0.
+    const p = placeInspector({ anchor: { x: 300, y: 40 }, panel: PANEL, viewport: WINDOW, rightLimit: 853, topLimit: 51 })
+    expect(p.y).toBe(51 + 16)
+  })
+
+  it('CONTRAST — with no app bar the same anchor clamps to the window padding', () => {
+    const p = placeInspector({ anchor: { x: 300, y: 40 }, panel: PANEL, viewport: WINDOW, rightLimit: 853 })
+    expect(p.y).toBe(16)
+  })
 })

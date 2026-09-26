@@ -25,10 +25,10 @@ import { CanvasLabelScaleSync } from './components/CanvasLabelScaleSync'
 import { CanvasLodNotice } from './components/CanvasLodNotice'
 import { AnalysisStateCue } from './components/AnalysisStateCue'
 import { CanvasOverlayBand, CanvasOverlayBandProvider } from './components/CanvasOverlayBand'
-import { CanvasFooterSummary } from './components/CanvasFooterSummary'
 import { cameraDuration } from './utils/cameraMotion'
 import { useFocusCamera } from './hooks/useFocusCamera'
 import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
+import { usePreloadLayoutEngine } from './hooks/usePreloadLayoutEngine'
 import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { useRestoredLayoutWidth } from './hooks/useRestoredLayoutWidth'
 import { nodeTypes } from './nodes/registry'
@@ -91,7 +91,7 @@ import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
 import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
-import { fitBoundsFor } from './utils/zoomLegibility'
+import { fitBoundsFor, CANVAS_MOUNT_FIT_OPTIONS } from './utils/zoomLegibility'
 import { OPEN_FULL_INSPECTOR_EVENT } from './utils/openEdgeStrengthEditor'
 import { usePathHighlight } from './hooks/usePathHighlight'
 import { useLensFilter } from './hooks/useLensFilter'
@@ -916,6 +916,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   useMeasureThenLayout()
   useFitViewOnLayoutVersion()
   useRestoredLayoutWidth()
+  // The engine those hooks lazy-load is fetched NOW, while this page's build is
+  // still the one served: a deploy retires the old chunks (#70 5841781894).
+  usePreloadLayoutEngine()
 
   // Brief 36 Fix: Use ref for fitView so the `handleFitView` callback
   // below has a stable reference even when ReactFlow updates.
@@ -2786,8 +2789,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}
             fitView
+            // ⭐ THE MOUNT FIT IS A PRODUCT FIT, AND IS BOUNDED LIKE ONE (26 Sep
+            // 2026, #70 5841781894). Unbounded, it framed the pre-layout arrangement
+            // of every first draft at 253% (one card filling the canvas) for about
+            // 1–2 s, and for good when the layout never ran. Served probes on
+            // c95694de and c7234091 all show 2.53 at first paint, and on 19 Sep the
+            // same unbounded fit parked a fresh brief at 328%. `fitBoundsFor`
+            // documents this path as the one product fit it did not reach.
+            fitViewOptions={CANVAS_MOUNT_FIT_OPTIONS}
             minZoom={0.1}
             maxZoom={4}
+            proOptions={{ hideAttribution: true }} /* contract v3.1 DESIGN-GAP #29: no "React Flow" link on the canvas (MIT; the option MiniCanvas already uses) */
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
             {/* ⭐⭐ THE BOARD'S GRAMMAR, DRAWN. Fed `memoizedNodes`, the same
@@ -2940,11 +2952,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* Paul 23 Sep contract feedback point 14 — the canvas-level line that
           explains the cards' `Last run ·` labels. Bottom-right cell. */}
       <AnalysisStateCue />
-      {/* DESIGN-GAP-AUDIT row 6, 24 Sep 2026 — contract v3.1 `.canvas-foot`:
-          node/edge counts plus "Visual key". Bottom-left cell. NOT
-          `ModelExtentNotice` (see that component's own header for the
-          distinction) — no camera action, and never zooms the model. */}
-      <CanvasFooterSummary />
+      {/* ⛔ `CanvasFooterSummary` IS DELIBERATELY NOT MOUNTED — PAUL'S RULING:
+          no footer caption ("Model-relative findings · N nodes · M
+          connections") and no "Visual key" link. It had only been OFF the
+          starter boards by accident: the saved-example banner's `auto` centre
+          track starved the band's bottom-left cell below the footer's 160px
+          withdrawal width. Canvas v3.1 DESIGN-GAP #3 moved that banner out of
+          the band, which would have put the footer back over the bottom row of
+          cards at 1280x800 and 1440x900. The canvas key stays reachable from
+          the viewport tools' overflow menu ("How to read this").
+          `overlayOwner.sourceScan.spec.ts` pins this absence as decided. */}
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />

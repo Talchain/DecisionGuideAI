@@ -656,6 +656,12 @@ export function composeReadinessBlockedReason(
   // claim-free, but "Olumi is not able to run this yet" still asserts the
   // verdict's `can_run_analysis: false` as a present-tense fact about the model
   // on screen, and that is exactly the assertion staleness invalidates.
+  //
+  // ⚠ NOT gated on `hasCompletedFirstRun` (tried in #2043 as A5, withdrawn).
+  // "The last check" is the READINESS check, which a never-run model has too.
+  // Gating it let a never-run model fall through to the rungs below and quote
+  // the stale verdict's option names — measured through the real dock:
+  // `OutputsDock.staleVerdictCopy.spec.tsx` 3 of 4 RED.
   if (verdictIsStale) return BLOCKED_REASON_COPY.staleRecheck
 
   const trustNames = verifyAgainstVerdict(readiness, optionsNeedingValues)

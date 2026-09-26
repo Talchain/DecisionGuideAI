@@ -130,6 +130,66 @@ describe('the axis row reads the ranges it sits under', () => {
     expect(axis).toContainElement(infoButton)
   })
 
+  // ── Paul, 25 Sep: "the last tick sits short of the band end" ──────────────
+  it('⭐ each tick sits at ITS OWN fraction of the domain — not wherever label widths put it', () => {
+    renderOpen(withRanges(decisionWithLeaderWithheld()))
+    const lefts = [0, 1, 2, 3].map((i) => screen.getByTestId(`${T}-axis-tick-${i}`).style.left)
+    expect(lefts.map((l) => parseFloat(l))).toEqual([0, 100 / 3, 200 / 3, 100].map((v) => expect.closeTo(v, 6)))
+    expect(lefts.every((l) => l.endsWith('%'))).toBe(true)
+    // End ticks anchor inward (never overhang the track); middle ticks centre on their value.
+    const tx = [0, 1, 2, 3].map((i) => screen.getByTestId(`${T}-axis-tick-${i}`).style.transform)
+    expect(tx).toEqual(['translate(0, -50%)', 'translate(-50%, -50%)', 'translate(-50%, -50%)', 'translate(-100%, -50%)'])
+  })
+
+  it('⭐ the tick row and every band track take the SAME inset, so the scale spans exactly what it reads', () => {
+    renderOpen(withRanges(decisionWithLeaderWithheld()))
+    const inset = (el: HTMLElement) => el.className.split(/\s+/).filter((c) => /^m[lrx]-/.test(c)).sort()
+    const ticks = inset(screen.getByTestId(`${T}-axis-ticks`))
+    expect(ticks).toEqual(['ml-4', 'mr-5'])
+    for (const id of ['opt_a', 'opt_b']) {
+      const track = within(row(id)).getByTestId(`${T}-outcome-range-${id}`)
+      // ⛔ The track is `block w-full`: a margin ON it shifts a full-width box
+      // (served 411158ad: 16px past the row, `mr-5` never applied). So the
+      // track carries none, and its wrapper carries the inset.
+      expect(inset(track), `band ${id} track carries no margin`).toEqual([])
+      expect(track.parentElement, `band ${id} wrapper`).toBe(within(row(id)).getByTestId(`${T}-range-inset-${id}`))
+      expect(inset(track.parentElement as HTMLElement), `band ${id} wrapper inset`).toEqual(ticks)
+    }
+  })
+
+  it('⛔ no PanelFigure in the Reasoning tab takes a horizontal margin (its track is block w-full)', async () => {
+    const { readFileSync, readdirSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const root = join(__dirname, '..')
+    const files = [
+      ...readdirSync(root).filter((f) => f.endsWith('.tsx')).map((f) => join(root, f)),
+      ...readdirSync(join(root, 'sections')).filter((f) => f.endsWith('.tsx')).map((f) => join(root, 'sections', f)),
+    ]
+    const offenders: string[] = []
+    let figures = 0
+    for (const f of files) {
+      const src = readFileSync(f, 'utf8')
+      for (const m of src.matchAll(/<PanelFigure\b([\s\S]*?)\/>/g)) {
+        figures += 1
+        const cls = /className=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(m[1])
+        const text = cls ? (cls[1] ?? cls[2] ?? '') : ''
+        if (/(^|\s)-?m[lrx]-|\$\{RANGE_INSET\}/.test(text)) offenders.push(`${f.split('/').pop()}: ${text}`)
+      }
+    }
+    expect(figures, 'positive control: the scan sees the figures').toBeGreaterThanOrEqual(3)
+    expect(offenders).toEqual([])
+  })
+
+  it('⭐ the info button takes no width from the scale — it is out of the tick row and absolutely placed', () => {
+    renderOpen(withRanges(decisionWithLeaderWithheld()))
+    const button = screen.getByTestId(`${T}-range-info`)
+    expect(screen.getByTestId(`${T}-axis-ticks`)).not.toContainElement(button)
+    const anchor = screen.getByTestId(`${T}-range-info-anchor`)
+    expect(anchor).toContainElement(button)
+    expect(anchor.className.split(/\s+/)).toContain('absolute')
+    expect(screen.getByTestId(`${T}-axis`).className.split(/\s+/)).toContain('relative')
+  })
+
   it('⛔ still prints no per-option point figure — the range stays UNIT-LESS', () => {
     renderOpen(withRanges(decisionWithLeaderWithheld()))
 

@@ -1,7 +1,7 @@
 /**
- * ⭐⭐ THE GOAL TARGET'S SEND SETTLEMENT REACHES THE READER, ONCE CEE SHIPS A
- * READER FOR `goal_target_edit` (`GOAL_TARGET_EDIT_ENABLED`, forced `true`
- * here — production default is `false`; see `goalTargetEdit.ts`'s header).
+ * ⭐⭐ THE GOAL TARGET'S SEND SETTLEMENT REACHES THE READER, now that the typed
+ * `goal_target_edit` carrier is ARMED (`GOAL_TARGET_EDIT_ENABLED` is `true` in
+ * production — read UNMOCKED here, so flipping it back REDs this file).
  *
  * `GoalPanel.targetReachesTheModel.spec.tsx` already pins the flag-OFF world:
  * a dispatch always shows the same static "Sent to Olumi. Its reply says
@@ -36,14 +36,14 @@ vi.mock('../../../../contexts/AuthContext', async importOriginal => {
   const actual = await importOriginal<typeof import('../../../../contexts/AuthContext')>()
   return { ...actual, useAuth: vi.fn(() => ({ authenticated: true, user: { id: 'u-1', email: 'a@b.io' } })) }
 })
-vi.mock('../../../conversation/goalTargetEdit', async importOriginal => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  return { ...actual, GOAL_TARGET_EDIT_ENABLED: true }
-})
 
 import { InspectorRouter } from '../InspectorRouter'
 import { useCanvasStore } from '../../../store'
 import { SystemEventSendError } from '../../../conversation/useConversation'
+import {
+  GOAL_TARGET_NOT_RECORDED_CONFLICT,
+  GOAL_TARGET_NOT_RECORDED_DECLINED,
+} from '../../../conversation/goalTargetEdit'
 
 const GOAL_ID = 'goal_mrr'
 const SCENARIO_ID = 'scenario-a'
@@ -133,6 +133,49 @@ describe('the sentence is the one the settlement earned', () => {
     expect(
       screen.queryByText('Sent to Olumi. Its reply says whether the target was recorded.'),
     ).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE TWO PROVEN NO-WRITES ARE NAMED APART, AND NEITHER POINTS AT A REPLY.
+   * A refused SYSTEM EVENT renders no transcript bubble, so "Olumi's reply says
+   * why" — the one collapsed sentence this pane used to show — pointed the
+   * reader at nothing. The stale base (409) names the remedy that refreshes it;
+   * CEE's outright decline (422 `system_event_refused_no_write`) names none,
+   * because repeating it cannot succeed. Literals, both, and both asserted
+   * against the other so a re-collapse REDs.
+   */
+  it('a stale-base 409 (BASE_HASH_DIVERGED) says the model changed and names the remedy', async () => {
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', { conflictCategory: 'BASE_HASH_DIVERGED', reason: 'graph_write_conflict' }),
+    )
+    openGoal()
+    await stateTarget('30000')
+    await waitFor(() =>
+      expect(screen.getByTestId('goal-panel-target-outcome').textContent).toBe(
+        'Not recorded — the model changed while this was sending, so nothing was written. Ask Olumi anything, then set the target again.',
+      ),
+    )
+    expect(GOAL_TARGET_NOT_RECORDED_CONFLICT).toBe(screen.getByTestId('goal-panel-target-outcome').textContent)
+    expect(screen.getByTestId('goal-panel-target-outcome').textContent).not.toMatch(/reply says why/i)
+  })
+
+  it('a 422 `system_event_refused_no_write` says the target was REFUSED — no stale-base remedy', async () => {
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', {
+        code: 'INGRESS_CONTRACT_VIOLATION',
+        reason: 'system_event_refused_no_write',
+      }),
+    )
+    openGoal()
+    await stateTarget('30000')
+    await waitFor(() =>
+      expect(screen.getByTestId('goal-panel-target-outcome').textContent).toBe(
+        'Not recorded — this target was refused, so the model is unchanged.',
+      ),
+    )
+    expect(GOAL_TARGET_NOT_RECORDED_DECLINED).toBe(screen.getByTestId('goal-panel-target-outcome').textContent)
+    // The machine token is never shown, and no remedy that cannot succeed is offered.
+    expect(screen.getByTestId('goal-panel-target-outcome').textContent).not.toMatch(/system_event_refused_no_write|set the target again/)
   })
 
   it('an UNVERIFIED transport failure says "may not have recorded" — never a confident claim either way', async () => {

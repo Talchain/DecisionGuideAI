@@ -37,7 +37,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -105,9 +105,15 @@ function renderRunChip() {
 }
 const runChip = () => screen.getByRole('button', { name: 'Run analysis' })
 
-/** The banner line that carries the hold claim (the button beside it is separate). */
+/**
+ * The banner line that carries the hold claim (the button beside it is separate).
+ * contract v3.1 (DESIGN-GAP #3): the disclosure rests as one quiet line and this
+ * sentence is in its detail, one click away — opened here, and asserted open.
+ */
 function bannerHoldLine(): HTMLElement {
   render(<StarterProvenanceBanner />)
+  fireEvent.click(screen.getByTestId('starter-provenance-line'))
+  expect(screen.getByTestId('starter-provenance-detail')).toBeInTheDocument()
   return screen.getByText(/Edit anything on the canvas\./)
 }
 
