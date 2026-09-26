@@ -336,6 +336,49 @@ describe('applyV5State — graph_patch:set_factor_value', () => {
     expect((written.observedState as Record<string, unknown>).extractionType).toBe('explicit')
   })
 
+  /**
+   * ⛔ ROW 3b (first bad #2046; Canonical triage #70 5844355970): a receipt for a
+   * factor edit that no longer stands is DEFERRED — the node keeps its newer value
+   * and its own source. The pair is the point: the same receipt APPLIES while the
+   * edit stands, and a receipt for ANOTHER node is never gated by this edit.
+   */
+  it('ROW 3b — a set_factor_value receipt for an edit that no longer stands is deferred, not applied', () => {
+    const receipt = baseResponse({
+      blocks: [
+        {
+          type: 'graph_patch',
+          status: 'applied',
+          operation: 'set_factor_value',
+          target_id: 'node-1',
+          before: { value: 3 },
+          after: { value: 5 },
+        },
+      ],
+    })
+    const asked: string[] = []
+    const moved = makeStore([targetNode])
+    const result = applyV5State(receipt, moved.store, {
+      factorEditReceiptStands: (nodeId) => {
+        asked.push(nodeId)
+        return false
+      },
+    })
+    expect(asked).toEqual(['node-1'])
+    expect(moved.updateNode).not.toHaveBeenCalled()
+    expect(result.deferred.map((d) => [d.reason, d.detail])).toEqual([['set_factor_value_receipt_value_moved_on', 'node-1']])
+    expect(result.applied).not.toContain('graph_patch:set_factor_value:node-1')
+
+    // CONTRAST: the same receipt while the edit stands, and with no predicate, applies as before.
+    for (const opts of [{ factorEditReceiptStands: () => true }, undefined]) {
+      const standing = makeStore([targetNode])
+      const ok = applyV5State(receipt, standing.store, opts)
+      expect(standing.updateNode).toHaveBeenCalledTimes(1)
+      expect(ok.applied).toContain('graph_patch:set_factor_value:node-1')
+      const written = standing.updateNode.mock.calls.at(-1)![1].data as Record<string, unknown>
+      expect((written.observedState as Record<string, unknown>).value).toBe(5)
+    }
+  })
+
   it('defers when target node is missing in canvas', () => {
     const { store, updateNode } = makeStore([])
     const response = baseResponse({
