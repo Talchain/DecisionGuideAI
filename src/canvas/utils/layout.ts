@@ -47,6 +47,24 @@
  */
 // P1 Polish: Dynamic ELK import for code-splitting (Task F)
 import type { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
+
+type ElkModule = typeof import('elkjs/lib/elk.bundled.js')
+let elkModule: Promise<ElkModule> | null = null
+/**
+ * ELK, fetched once and kept. A FAILED fetch is not kept, so the next call
+ * tries again rather than replaying the rejection. `usePreloadLayoutEngine`
+ * calls this at canvas mount so the engine is in memory before a deploy can
+ * retire its chunk (#70 5841781894).
+ */
+export function loadLayoutEngine(): Promise<ElkModule> {
+  if (!elkModule) {
+    elkModule = import('elkjs/lib/elk.bundled.js').catch((err: unknown) => {
+      elkModule = null
+      throw err
+    })
+  }
+  return elkModule
+}
 import { Node, Edge } from '@xyflow/react'
 import { NODE_REGISTRY } from '../domain/nodes'
 import {
@@ -641,7 +659,7 @@ export async function layoutGraph(
     return { width, height }
   }
 
-  const ELK = (await import('elkjs/lib/elk.bundled.js')).default
+  const ELK = (await loadLayoutEngine()).default
   const elk = new ELK()
 
   const elkGraph: ElkNode = {

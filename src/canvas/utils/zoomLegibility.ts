@@ -208,6 +208,7 @@ export function fitBoundsFor(
   }
 }
 
+
 /** True when node labels are rendered at this zoom. */
 export function labelsRenderedAtZoom(zoom: number): boolean {
   return zoom >= LABEL_LEGIBLE_ZOOM
@@ -917,3 +918,17 @@ export function selectLensDetailActive(state: {
 export function cardControlsVisibleAt(rung: LodRung): boolean {
   return rung === 'full'
 }
+
+/**
+ * The canvas element's OWN mount `fitView` (`ReactFlowGraph.tsx`), bounded as
+ * the product fit it is (26 Sep 2026, #70 5841781894). It used to pass no
+ * options, so the instance's `maxZoom={4}` was its only ceiling. Every first
+ * draft's pre-layout arrangement was then framed at 253% (served probes,
+ * c95694de and c7234091), and a layout that never ran left it there. That is
+ * the third path the LOD note below names. The degenerate-box default applies
+ * because a mount fit is taken before any layout has run.
+ */
+// ⚠ LAST IN THE MODULE, deliberately: `fitBoundsFor` reads `AUTO_FIT_MAX_ZOOM`
+// and `MAX_LABEL_COUNTER_SCALE`, which are declared above, so evaluating this
+// any earlier is a temporal-dead-zone error in every importer.
+export const CANVAS_MOUNT_FIT_OPTIONS = fitBoundsFor('product')

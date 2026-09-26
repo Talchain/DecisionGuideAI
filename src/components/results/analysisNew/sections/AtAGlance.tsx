@@ -35,7 +35,7 @@
 
 import { useState } from 'react'
 import { PanelFigure } from '../PanelFigure'
-import { AlertTriangle, CheckCircle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight, Clock } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
@@ -723,11 +723,24 @@ export function AtAGlance({
              to FOUR lines of two words. `flex-wrap` plus the floor below drops
              the control to its own line exactly when the sentence can no
              longer afford to share one, and keeps it inline at 420px. */
-          className={`flex flex-wrap items-start gap-1.5 ${inset('warning')}`}
+          /* ⭐ V2 `.stale` (26 Sep): mounted as the STATUS half, inside "Move
+             towards commitment", this is the prototype's plain row — warning
+             ink, a clock when the only news is freshness, the act on the right
+             — not an amber box. `'all'` keeps the boxed ribbon. */
+          className={
+            part === 'status'
+              ? 'flex flex-wrap items-center justify-between gap-1.5'
+              : `flex flex-wrap items-start gap-1.5 ${inset('warning')}`
+          }
           role="status"
           data-testid={`${testId}-ribbon`}
+          data-ribbon-shape={part === 'status' ? 'row' : 'box'}
         >
-          <AlertTriangle className={`${icon('inline')} mt-[3px] shrink-0 text-warning-ink`} aria-hidden="true" />
+          {part === 'status' && ribbon.every((r) => r.testId === 'analysis-new-status-stale' || r.testId === 'analysis-new-status-freshness-unknown') ? (
+            <Clock className={`${icon('inline')} shrink-0 text-warning-ink`} aria-hidden="true" data-icon="clock" />
+          ) : (
+            <AlertTriangle className={`${icon('inline')} ${part === 'status' ? '' : 'mt-[3px] '}shrink-0 text-warning-ink`} aria-hidden="true" />
+          )}
           {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
               had to go: `min-w-0` says "I will shrink to nothing", which is
               precisely the permission that let this sentence be squeezed to

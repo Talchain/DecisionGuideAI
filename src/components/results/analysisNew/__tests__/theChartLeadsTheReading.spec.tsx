@@ -13,10 +13,11 @@
  * runs challenge → commit (synthesis → stale row → chart → qualifier →
  * record), with the stale row inside the commitment block ABOVE the chart.
  *
- * So the glance is mounted in two halves. Its STATUS ribbon (model changed,
+ * So the glance is mounted in two halves. Its STATUS row (model changed,
  * could not confirm, did not run, partial, and the one act that answers them)
- * stays above "Move towards commitment": after an edit the reader meets
- * "The model has changed…" before any figure. Its READING (the withheld
+ * sits INSIDE "Move towards commitment", after its synthesis and before the
+ * chart (V2 `.stale`, 26 Sep; it sat above the block before): after an edit
+ * the reader still meets "The model has changed…" before any figure. Its READING (the withheld
  * reason and its act, the reading, the scope, the condition) follows the
  * commitment block. Design ask: #63 5825359499.
  */
@@ -91,7 +92,11 @@ describe('the chart leads the glance reading', () => {
     const stale = screen.getByTestId('analysis-new-status-stale')
     expect(status).toContainElement(stale)
     expect(screen.getByTestId('analysis-new-zone-answer-group')).toContainElement(status)
-    expect(precedes(stale, screen.getByTestId('analysis-new-commitment')), 'the stale state before the commitment').toBe(true)
+    // ⚠ RE-POINTED (26 Sep, V2 `.stale`): the prototype's stale row sits INSIDE
+    // "Move towards commitment", after its synthesis and before the chart —
+    // still before any figure. Bullet 1 reads "Last run" above it.
+    expect(screen.getByTestId('analysis-new-commitment'), 'the stale state is inside the commitment block').toContainElement(stale)
+    expect(precedes(screen.getByTestId('analysis-new-commitment-synthesis'), stale), 'after the synthesis').toBe(true)
     expect(precedes(stale, screen.getByTestId('analysis-new-options')), 'and before the chart').toBe(true)
     // One statement of the fact: the reading half carries no second ribbon.
     expect(screen.getAllByTestId('analysis-new-status-stale')).toHaveLength(1)

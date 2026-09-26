@@ -85,6 +85,14 @@ export interface CommitmentSummaryProps {
    * so a greyed icon was the only comparison a reader met after a re-run.
    */
   onCompare?: () => void
+  /**
+   * ⭐ V2 `commitHTML()` `.stale`: the run's status row (model changed, could
+   * not confirm, did not run, partial, and the one act that answers them) sits
+   * INSIDE this block, after the synthesis and before the chart. The tab
+   * passes the glance's status half; it renders nothing when there is nothing
+   * to say, and the wrapper collapses (`empty:hidden`).
+   */
+  status?: ReactNode
   /** The options comparison, placed between the bullets and the record row. */
   children?: ReactNode
   /**
@@ -250,6 +258,7 @@ export function CommitmentSummary({
   onCompare,
   children,
   qualifier = null,
+  status = null,
   testId = 'analysis-new-commitment',
 }: CommitmentSummaryProps) {
   const [qualifierDetailOpen, setQualifierDetailOpen] = useState(false)
@@ -295,11 +304,12 @@ export function CommitmentSummary({
 
       {bullets.length > 0 ? (
         <div className="mt-1.5" data-testid={`${testId}-synthesis`}>
-          {/* ⛔ NO STALE MARKER HERE. The glance's freshness ribbon is always
-              mounted above this block on a stale post-run tab and says which
-              staleness it is; a second marker stated freshness twice, and its
-              "From an earlier run" asserted a changed model on runs we only
-              cannot confirm (V2 census, B3). */}
+          {/* ⛔ NO SECOND STALE MARKER HERE. The glance's status row (the
+              `status` slot, just below) says which staleness it is; a marker
+              here stated freshness twice, and its "From an earlier run"
+              asserted a changed model on runs we only cannot confirm (V2
+              census, B3). Bullet 1's LABEL reads "Last run" on a stale tab —
+              a label, not a claim about which staleness. */}
           {/* ⭐ V2 FIDELITY (gap 18): `list-disc pl-3.5` replaces `list-none p-0`
               — the prototype's `.commit-synthesis` sets no `list-style: none`,
               so its three lines keep the browser's own disc markers at a 14px
@@ -334,6 +344,12 @@ export function CommitmentSummary({
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {status ? (
+        <div className="mt-2 empty:hidden" data-testid={`${testId}-status`}>
+          {status}
         </div>
       ) : null}
 
