@@ -329,12 +329,17 @@ describe('the implication block reaches a screen', () => {
     expect(ribbons[0].textContent).toBe(COPY.status.stale)
     const body = screen.getByTestId('analysis-new-tab-body').textContent ?? ''
     expect(body.split(COPY.status.stale).length - 1, 'the ribbon sentence is on screen once').toBe(1)
-    expect(precedes(ribbons[0], screen.getByTestId(FOUNDED)), 'the qualifier comes before the claim').toBe(true)
+    // ⚠ RE-POINTED (26 Sep, V2 `.stale`): the status row now sits INSIDE the
+    // block, after the synthesis and before the chart, and bullet 1's label
+    // reads "Last run" — so the claim is framed as the last run's before the
+    // reader reaches it, and the status still precedes every figure.
     const commitment = screen.getByTestId(COMMIT)
     expect(commitment, 'PRECONDITION: the block holds the claim').toContainElement(screen.getByTestId(FOUNDED))
+    expect(screen.getByTestId(`${COMMIT}-status`), 'the status row is the block\'s own slot').toContainElement(ribbons[0])
+    expect(screen.getByTestId(FOUNDED).textContent ?? '', 'bullet 1 is the LAST run').toMatch(/^Last run:/)
+    expect(precedes(ribbons[0], screen.getByTestId('analysis-new-options')), 'the status comes before the chart').toBe(true)
     expect(screen.queryByTestId(`${COMMIT}-stale`), 'the retired marker stays retired').toBeNull()
     expect(commitment.textContent ?? '', 'the block adds no freshness marker of its own').not.toContain(COPY.markers.stale)
-    expect(commitment.textContent ?? '').not.toContain(COPY.status.stale)
 
     cleanup()
     renderTab(divergingRun(), false)

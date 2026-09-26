@@ -385,7 +385,10 @@ describe('the next action lives with the other actions', () => {
     // the probe must be able to name a zone for a mount we KNOW is in one
     // V2 (fidelity gap 1): the glance element is built once in `renderGlance`
     // and mounted twice, so the control is its status MOUNT, not its JSX tag.
-    expect(zoneOfMount("{renderGlance('status')}"), 'control: the glance is in the answer zone').toBe('answer')
+    // ⚠ RE-POINTED (26 Sep, V2 `.stale`): the STATUS half is now a prop on
+    // the commitment block (`status={renderGlance('status')}`), not a zone
+    // mount, so the control is the READING mount, which still is one.
+    expect(zoneOfMount("{renderGlance('reading')}"), 'control: the glance is in the answer zone').toBe('answer')
   })
 
   it('⭐ the primary intervention is mounted in ALSO, not in the ANSWER zone', () => {

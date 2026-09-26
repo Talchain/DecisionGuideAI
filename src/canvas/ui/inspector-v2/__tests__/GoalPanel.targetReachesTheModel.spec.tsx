@@ -23,9 +23,11 @@
  *
  * ── WHAT THIS FILE ASKS, THROUGH THE REAL ROUTER ─────────────────────────────
  *   1. the target control is operable (userEvent refuses a disabled target);
- *   2. a stated target DISPATCHES `add_constraint` — target id bound by the
- *      goal's identity, value, unit, and the direction the reader chose BY ITS
- *      WORD ON SCREEN, as a direction PAIR (trap 22b: one door is not a guard);
+ *   2. a stated target SENDS the typed `goal_target_edit` (armed since the
+ *      flip — `GOAL_TARGET_EDIT_ENABLED`; it was `add_constraint` before) —
+ *      goal id bound by the goal's identity, value, unit, base hash, and the
+ *      direction the reader chose BY ITS WORD ON SCREEN, as a direction PAIR
+ *      (trap 22b: one door is not a guard);
  *   3. no local echo — the node's target fields are untouched by the dispatch;
  *   4. the store-only editor cannot be operated;
  *   5. CONTRAST: description, add-constraint and the advanced editor stay
@@ -59,6 +61,7 @@ import { useCanvasStore } from '../../../store'
 const GOAL_ID = 'goal_mrr'
 const RISK_ID = 'risk_churn'
 const SCENARIO_ID = 'scenario-a'
+const BASE_HASH = 'f3d31f75957c5cb5'
 
 function goalNode(): Node {
   return {
@@ -80,6 +83,7 @@ function goalNode(): Node {
 function seed() {
   useCanvasStore.setState({
     currentScenarioId: SCENARIO_ID,
+    lastServerGraphHash: BASE_HASH,
     nodes: [
       goalNode(),
       // ⚠ `risk` joined `AUTHORITY_OWNING_PANELS` (A10, 25 Sep 2026) — its two
@@ -125,19 +129,17 @@ async function stateTarget(amount: string, directionWord?: 'at least' | 'at most
   await user.click(screen.getByTestId('goal-panel-target-save'))
 }
 
-function onlyDispatch() {
-  expect(dispatchAction, 'no add_constraint was dispatched — the target never left the panel').toHaveBeenCalledTimes(1)
-  return dispatchAction.mock.calls[0][0] as {
-    action_type: string
-    parameters: Record<string, unknown>
-    message: string
-  }
+function onlySend() {
+  expect(sendSystemEvent, 'no goal_target_edit was sent — the target never left the panel').toHaveBeenCalledTimes(1)
+  expect(dispatchAction, 'the retired add_constraint path fired beside the typed carrier').not.toHaveBeenCalled()
+  return sendSystemEvent.mock.calls[0][0] as { type: string; payload: Record<string, unknown> }
 }
 
 beforeEach(() => {
   dispatchAction.mockReset()
   dispatchAction.mockResolvedValue(undefined)
   sendSystemEvent.mockReset()
+  sendSystemEvent.mockResolvedValue('sent')
   seed()
 })
 afterEach(cleanup)
@@ -158,32 +160,35 @@ describe('the goal target control is operable through the mounted Router', () =>
   })
 })
 
-describe('a stated target DISPATCHES add_constraint through proposeGoalTarget', () => {
+describe('a stated target SENDS goal_target_edit through proposeGoalTarget', () => {
   it('"at most" — the reader\'s ceiling is what the wire carries', async () => {
     openGoal()
     await stateTarget('30000', 'at most')
-    const action = onlyDispatch()
-    expect(action.action_type).toBe('add_constraint')
-    expect(action.parameters.target_id).toBe(GOAL_ID)
-    expect(action.parameters.constraint_type).toBe('at_most')
-    expect(action.parameters.value).toBe(30000)
-    expect(action.parameters.unit).toBe('£')
-    expect(action.message).toBe('This goal must be at most £30000. This is an absolute level, not a change from the current level.')
+    expect(onlySend()).toEqual({
+      type: 'goal_target_edit',
+      payload: {
+        goal_node_id: GOAL_ID,
+        constraint_type: 'at_most',
+        raw_value: 30000,
+        unit: '£',
+        base_graph_hash: 'f3d31f75957c5cb5',
+      },
+    })
   })
 
   it('TWIN — the untouched default is "at least", and says so on the wire', async () => {
     openGoal()
     await stateTarget('30000')
-    const action = onlyDispatch()
-    expect(action.parameters.target_id).toBe(GOAL_ID)
-    expect(action.parameters.constraint_type).toBe('at_least')
-    expect(action.message).toBe('This goal must be at least £30000. This is an absolute level, not a change from the current level.')
+    const sent = onlySend()
+    expect(sent.payload.goal_node_id).toBe(GOAL_ID)
+    expect(sent.payload.constraint_type).toBe('at_least')
+    expect(sent.payload.raw_value).toBe(30000)
   })
 
   it('writes NOTHING locally — the applied response owns the store write', async () => {
     openGoal()
     await stateTarget('30000', 'at most')
-    expect(dispatchAction).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
     const data = useCanvasStore.getState().nodes.find(n => n.id === GOAL_ID)!.data as Record<string, unknown>
     expect(data.success_threshold).toBeUndefined()
     expect(data.goal_threshold_raw).toBeUndefined()
@@ -209,6 +214,7 @@ describe('a stated target DISPATCHES add_constraint through proposeGoalTarget', 
   it('NEGATIVE CONTROL — an unreadable draft dispatches nothing', async () => {
     openGoal()
     await stateTarget('thirty thousand')
+    expect(sendSystemEvent).not.toHaveBeenCalled()
     expect(dispatchAction).not.toHaveBeenCalled()
   })
 })

@@ -137,16 +137,56 @@ describe('the target the reader typed is actually sent', () => {
      * question (`successTargetDirection.spec.tsx`); this is the default's.
      */
     /**
-     * ⭐ A FIFTH ARGUMENT JOINED HERE — `{ onSendSettled }` — additive for the
-     * `goal_target_edit` typed-carrier lane (`GOAL_TARGET_EDIT_ENABLED`,
-     * currently `false`). `SuccessTargetLine` now always forwards its own
-     * `onSendSettled` prop through; this harness never supplies one, so it
-     * arrives as `undefined` — inert on the `add_constraint` path this test
-     * exercises, and asserted so a later change cannot silently widen it.
+     * ⭐ A FIFTH ARGUMENT — `{ onSendSettled }` — and since the flip
+     * (`GOAL_TARGET_EDIT_ENABLED` is `true`) `ModelStrip` SUPPLIES it: a refused
+     * `goal_target_edit` is a system event, which renders no transcript bubble,
+     * so this strip is the only place that refusal can be said. The case below
+     * drives it.
      */
     expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least', {
-      onSendSettled: undefined,
+      onSendSettled: expect.any(Function),
     })
+  })
+
+  /**
+   * ⭐⭐ A REFUSED TARGET IS SAID — IT USED TO BE SILENT ON THIS STRIP. Before the
+   * flip `add_constraint` was a message turn whose refusal arrived as Olumi's
+   * reply; on the typed carrier a 409/422 renders no reply, and this strip
+   * passed no `onSendSettled`, so a refused target left only the "Sent to
+   * Olumi" toast standing. Each settlement is driven through the callback the
+   * strip really handed the authority; the sentences are literals.
+   */
+  it('says each settlement that did not simply land, and says nothing more on `sent`', () => {
+    typeTarget('125')
+    const opts = proposeGoalTarget.mock.calls[0][4] as {
+      onSendSettled: (s: string, d: Record<string, unknown>) => void
+    }
+    showToast.mockReset()
+
+    opts.onSendSettled('sent', {})
+    expect(showToast).not.toHaveBeenCalled()
+
+    opts.onSendSettled('refused', { refusal: 'conflict', reason: 'graph_write_conflict' })
+    expect(showToast).toHaveBeenLastCalledWith(
+      'Not recorded — the model changed while this was sending, so nothing was written. Ask Olumi anything, then set the target again.',
+      'error',
+    )
+    opts.onSendSettled('refused', { refusal: 'declined', reason: 'system_event_refused_no_write' })
+    expect(showToast).toHaveBeenLastCalledWith(
+      'Not recorded — this target was refused, so the model is unchanged.',
+      'error',
+    )
+    opts.onSendSettled('unverified', {})
+    expect(showToast).toHaveBeenLastCalledWith(
+      'Olumi may not have recorded this — its reply did not arrive. Check before setting it again.',
+      'warning',
+    )
+    opts.onSendSettled('blocked', {})
+    expect(showToast).toHaveBeenLastCalledWith(
+      'Not sent — another edit is in progress. Try again in a moment.',
+      'warning',
+    )
+    expect(showToast).toHaveBeenCalledTimes(4)
   })
 
   /**
@@ -366,7 +406,7 @@ describe('an unreadable amount says what to type, not just that it failed', () =
   it('CONTROL: a digit amount still dispatches', () => {
     typeTarget('1300000')
     expect(proposeGoalTarget).toHaveBeenCalledWith('1300000', '%', 'scenario-7', 'at_least', {
-      onSendSettled: undefined,
+      onSendSettled: expect.any(Function),
     })
   })
 
