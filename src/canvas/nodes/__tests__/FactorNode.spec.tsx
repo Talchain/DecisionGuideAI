@@ -403,7 +403,7 @@ describe('FactorNode', () => {
     const line = screen.getByTestId('factor-driver-line-detail')
     // Contract v3.1 pt 5: the caption is the rank; the quantity's noun moved to
     // the disclosure ("Bar: structural influence, 80% …").
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
     expect(line).toHaveAccessibleName(/structural influence, 80% of the strongest factor/)
     expect(line.textContent).not.toContain('80%')
     expect(screen.getByText('Confidence')).toBeDefined()
@@ -571,7 +571,7 @@ describe('FactorNode', () => {
     // The rank is stated by the driver line instead — on the face again
     // (prototype, Paul 25 Sep; the inline cue is retired).
     // ED #63 5806207128: "Driver N of M analysed", M = the eligible analysed factors.
-    expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 3 ranked in this run')
     expect(screen.queryByTestId('factor-driver-cue-factor-1')).toBeNull()
     // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
     // members that remain in it are static flex children.
@@ -929,13 +929,13 @@ describe('FactorNode', () => {
     const line = popoverDriverLine()
     fireEvent.mouseEnter(line)
     const RANKED_DISCLOSURE =
-      'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
+      'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
       'Bar: outcome sensitivity, 100% of the strongest factor. ' +
       'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
       'How much the outcome shifts when this factor changes. How sure are you of its value?'
     expect(await screen.findByRole('tooltip')).toHaveTextContent(RANKED_DISCLOSURE)
     // The visible line is a RANKING, which is the claim a reader can push back on.
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
     // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is the
     // assertion that would RED if the face reverted to printing the figure.
     expect(line.textContent).not.toContain('100%')
@@ -1090,7 +1090,7 @@ describe('FactorNode', () => {
       // no figure (ED 11:52Z point 3). On the face again (prototype, Paul 25
       // Sep), so it precedes the popover's confidence row in document order.
       const line = popoverDriverLine()
-      expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
       expect(line.textContent).not.toContain('80%')
       expect(line).toHaveAccessibleName(/80% of the strongest factor/)
       expect(screen.queryByTestId('factor-influence-row')).toBeNull()
@@ -1118,7 +1118,7 @@ describe('FactorNode', () => {
          its accessible name beside "of the strongest factor". Confidence keeps
          its labelled bar (label + value separate). */
       const line = screen.getByTestId('factor-driver-line-detail')
-      expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
       expect(line).toHaveAccessibleName(/80% of the strongest factor/)
       expect(screen.getByText('Confidence')).toBeDefined()
       expect(screen.getByText('45%')).toBeDefined()
@@ -1187,7 +1187,7 @@ describe('FactorNode', () => {
       renderDetailedWithProvenance('normalised_elasticity', 1)
       const line = screen.getByTestId('factor-driver-line-detail')
       const DISCLOSURE =
-        'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
+        'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
         'Bar: outcome sensitivity, 100% of the strongest factor. ' +
         'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
         'How much the outcome shifts when this factor changes. How sure are you of its value?'
@@ -1207,13 +1207,13 @@ describe('FactorNode', () => {
       // not. Here: "structural influence" + its own gloss, vs the fallback's
       // "outcome sensitivity" above.
       const DISCLOSURE =
-        'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
+        'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
         'Bar: structural influence, 60% of the strongest factor. ' +
         'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
         'How strongly this factor connects to the goal in your model. How sure are you of its value?'
       // Contract v3.1 pt 5: the caption is the rank; the quantity is named in
       // the disclosure, where the two arms still differ.
-      expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
       expect(line).toHaveAccessibleName(DISCLOSURE)
       expect(line.getAttribute('aria-label')).not.toContain('outcome sensitivity')
       expect(fillOf(line)).toBe('max(4px, 60%)')

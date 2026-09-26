@@ -92,8 +92,8 @@ describe('what qualifies — existing producer signals only', () => {
     expect(plan.reasonsByNode.has('single')).toBe(false)
     // CONTROL: a licensed rank in the same run still qualifies, in the card's words.
     expect(plan.reasonsByNode.get('ok')?.map(r => r.kind)).toEqual(['top_driver'])
-    // ED #63 5806207128: the card's words, M = the analysed set (4), not the ranked count (3).
-    expect(plan.reasonsByNode.get('ok')?.[0].label).toMatch(/^Driver 2 of 4 analysed: /)
+    // v3.1 pt 5 (#37): the card's words, M = the ranked count (3), not the analysed set (4).
+    expect(plan.reasonsByNode.get('ok')?.[0].label).toMatch(/^Driver 2 of 3 ranked in this run: /)
   })
 
   it('⛔ UNGROUNDED behavioural findings never mark: no resolvable target, or an unknown code', () => {
@@ -138,10 +138,11 @@ describe('how it reads — a question, model-scoped, one rank wording', () => {
       run: run({ ranks: new Map([['d1', { sensitivityRank: 1, voiRank: null, influenceSetSize: 4, rankedSetSize: 3 }]]) }),
     }))
     const label = plan.reasonsByNode.get('d1')![0].label
-    // ED #63 5806207128: "Driver N of M analysed", M = influenceSetSize (the
-    // analysed set), never rankedSetSize (the publication guard).
-    expect(label).toContain('Driver 1 of 4 analysed')
-    expect(label).not.toContain('of 3')
+    // Contract v3.1 pt 5 (#37): "Driver N of M ranked in this run", M =
+    // rankedSetSize (3), never the analysed set (4) — reversing ED #63
+    // 5806207128, named in `DRIVER_LINE_COPY.rank`.
+    expect(label).toContain('Driver 1 of 3 ranked in this run')
+    expect(label).not.toContain('of 4')
     expect(label).not.toContain('#')
     expect(label.trim().endsWith('?')).toBe(true)
   })

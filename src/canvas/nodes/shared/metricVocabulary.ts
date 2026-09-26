@@ -582,7 +582,7 @@ export const sensitivityRankBadgeLabel = (rank: number, fromLastRun = false): st
 export const SENSITIVITY_RANK_LEGEND_NOUN = 'Driver N of M'
 // ⭐ LOCKED DESIGN (23 Sep 2026; ED 02:31Z D1a): the corner "Key driver N" badge
 // is RETIRED and the rank is stated once, on the factor card's driver line —
-// "Driver N of M analysed" (`DRIVER_LINE_COPY.rank`, ED #63 5806207128). The legend heading
+// "Driver N of M ranked in this run" (`DRIVER_LINE_COPY.rank`, contract v3.1 pt 5). The legend heading
 // moves with it, so the key names the marking a reader actually meets.
 
 /**
@@ -856,16 +856,19 @@ export const MAX_GLOSS_LENGTH = 110
  * The relative/not-absolute half of the spec sentence is kept word for word.
  */
 export const DRIVER_LINE_COPY = {
-  // ⭐ ED #63 5806207128 ("Factor anatomy", 24 Sep; supersedes contract v3.1
-  // pt 5's "Driver N of M ranked in this run", M = the ranked count): "If rank
-  // is published: use e.g. `Driver 1 of 6 analysed` + a neutral thin relative
-  // bar. Denominator = eligible analysed factors, not 'number of ranks we
-  // happen to render'." That is the served wording AND the served M from
-  // before the v3.1 change: M is the factors in the last analysis's driver feed
-  // (`rankFactor`'s `influenceSetSize`), not the cards on the board — "in this
-  // model" invited counting cards. Stale form: `Last run · Driver 1 of 6
-  // analysed` — the caller owns the `LAST_RUN_PREFIX`; the words do not change.
-  rank: (rank: number, analysedCount: number): string => `Driver ${rank} of ${analysedCount} analysed`,
+  // ⭐⭐ CONTRACT v3.1 POINT 5 (DESIGN-GAP-v31 #37, Canvas WS4, 26 Sep):
+  // "Driver N of M ranked in this run"; stale "Last run · Driver N of M ranked"
+  // (the caller owns `LAST_RUN_PREFIX`; the stale form drops "in this run",
+  // which would be false of a known-changed model). M is the RANKED count
+  // (`rankFactor`'s `rankedSetSize`, via `driverRankFor`) — the words and the
+  // number move together, because "of 6 ranked" when the run ranked 3 is false.
+  // ⚠ RULING CONFLICT, NAMED: this reverses ED #63 5806207128 (24 Sep), which
+  // had retired exactly this form for `Driver 1 of 6 analysed` ("Denominator =
+  // eligible analysed factors, not 'number of ranks we happen to render'"). The
+  // lane brief applies v3.1 over the code's documented rulings; the change is
+  // one commit the lane owner can drop whole.
+  rank: (rank: number, rankedCount: number, fromLastRun = false): string =>
+    fromLastRun ? `Driver ${rank} of ${rankedCount} ranked` : `Driver ${rank} of ${rankedCount} ranked in this run`,
   // Contract v3.1 pt 5: "A factor the run did not rank shows no rank, and its
   // detail says 'Not ranked in this run'". The stale form mirrors the rank's
   // (the caller prefixes `LAST_RUN_PREFIX`).

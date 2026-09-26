@@ -144,7 +144,7 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
     renderFactor()
     expect(semantic()).toBe('current')
     const caption = cue('factor-driver-line-caption').textContent ?? ''
-    expect(caption).toBe('Driver 1 of 5 analysed')
+    expect(caption).toBe('Driver 1 of 3 ranked in this run')
     expect(caption).not.toMatch(/Last run/)
     expect(cue('factor-turning-point')).toBeInTheDocument()
     expect(cue('factor-turning-point').textContent ?? '').not.toMatch(/Last run/)

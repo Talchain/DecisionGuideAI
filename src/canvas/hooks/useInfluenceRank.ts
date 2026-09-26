@@ -62,13 +62,14 @@ export function useInfluenceRank(
  * `useInfluenceRank` itself is UNCHANGED: its `null` still means "not
  * confirmably current", which is what its other readers ask.
  *
- * ⭐ ED #63 5806207128 (24 Sep): the returned `setSize` is the PRINTED `M` —
- * the ELIGIBLE ANALYSED factors (`influenceSetSize`, the same licence set
- * `influenceRankReadout` checks), "not 'number of ranks we happen to render'".
- * That restores the served M and retires contract v3.1 pt 5's ranked-count
- * denominator. The ranked count (`influenceRankedCount`) stays as the
- * fail-closed PUBLICATION guard only: a rank outside it, or an absent count,
- * states no rank.
+ * ⭐ CONTRACT v3.1 POINT 5 (DESIGN-GAP-v31 #37, 26 Sep): the returned
+ * `setSize` is the PRINTED `M` of "Driver N of M ranked in this run" — the
+ * RANKED count (`influenceRankedCount`, `rankFactor`'s `rankedSetSize`). It is
+ * also the fail-closed PUBLICATION guard: a rank outside it, or an absent
+ * count, states no rank. The analysed set (`influenceSetSize`) still licenses
+ * the rank (`influenceRankReadout`) and is no longer printed.
+ * ⚠ This reverses ED #63 5806207128 (24 Sep: M = the analysed count), named in
+ * `DRIVER_LINE_COPY.rank`.
  */
 export function driverRankFor(
   currentReadout: InfluenceRankReadout | null,
@@ -86,6 +87,6 @@ export function driverRankFor(
     typeof rankedCount === 'number' &&
     Number.isInteger(rankedCount) &&
     sensitivityRank <= rankedCount
-    ? { rank: sensitivityRank, setSize: influenceSetSize }
+    ? { rank: sensitivityRank, setSize: rankedCount }
     : null
 }
