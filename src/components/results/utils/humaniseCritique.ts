@@ -914,7 +914,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // still a route: it tells the reader what to do with what they are seeing.
   CONSTRAINT_SAMPLES_UNNOISED: () => ({
     title:
-      'Some success-target factors didn\'t get the extra real-world variation applied to your goal, so their probabilities reflect model variation only. Read them as more confident than they are.',
+      'Some factors carrying a limit didn\'t get the extra real-world variation applied to your goal, so their probabilities reflect model variation only. Read them as more confident than they are.',
     description:
       'Auto-scaled noise was applied to the goal samples but not to these constraint samples, so the two are not on the same footing.',
   }),
