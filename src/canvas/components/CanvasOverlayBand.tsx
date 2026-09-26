@@ -231,18 +231,21 @@ export const OVERLAY_BAND_HEIGHT = 64
 /** Gap between the band and the canvas's bottom edge. */
 export const OVERLAY_BAND_BOTTOM = 12
 /**
- * Left padding clears the viewport-controls toolbar, which is `fixed; left: 12;
- * bottom: 40; z-index: 1100` (`CanvasFloatingToolbar.module.css`; 320px tall per DebugPanel)
+ * Left padding clears the viewport-controls toolbar, which is `fixed; left: 13;
+ * bottom: 40; z-index: 1100` (`CanvasFloatingToolbar.module.css`)
  * — an overlap that was in no register row before this lane.
  *
- * contract v3.1 CHR-12: 76, not 64. 64 started the bottom-left cell 4px from
- * the toolbar's right edge (left 12 + `--leftsidebar-w` 48 = 60). 76 is that
- * edge plus `computeFitPadding`'s 16px chrome GAP — the same inset the fitted
- * card column starts at — so notices and cards share one left edge. Not a fit
+ * contract v3.1 CHR-12: the toolbar's right edge plus `computeFitPadding`'s 16px
+ * chrome GAP — the same inset the fitted card column starts at (the fit measures
+ * the canvas tools' rect) — so notices and cards share one left edge. Not a fit
  * contributor horizontally (only the band's top is read), so the camera does
  * not move.
+ *
+ * 70 since v3.1 DESIGN-GAP #13 (26 Sep 2026): the toolbars are the contract's
+ * `.canvas-tools` — left 13, 29px buttons + 2x5px padding + 2x1px border = 41
+ * wide — so the right edge is 54 (was 12 + `--leftsidebar-w` 48 = 60 → 76).
  */
-export const OVERLAY_BAND_LEFT_PAD = 76
+export const OVERLAY_BAND_LEFT_PAD = 70
 /**
  * Right padding beyond the dock: the minimised Olumi pill's corner. Derived
  * from that component's own geometry (`PILL_W` 84 + `DEFAULT_MARGIN` 16 either

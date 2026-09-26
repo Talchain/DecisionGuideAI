@@ -242,20 +242,23 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
 
   /**
    * contract v3.1 CHR-12 — the band's left inset is the fitted card column's:
-   * the viewport toolbar's right edge (its `left` + `--leftsidebar-w`, read from
-   * the stylesheets rather than restated) plus `computeFitPadding`'s 16px GAP.
-   * It was 64, which started the bottom-left cell 4px from the toolbar.
+   * the viewport toolbar's right edge (its `left` + its content-sized width, read
+   * from the stylesheet rather than restated) plus `computeFitPadding`'s 16px
+   * GAP. It was 64, which started the bottom-left cell 4px from the toolbar.
    */
   it('⭐ CHR-12: the band starts one chrome GAP clear of the viewport toolbar — the card column’s own inset', () => {
     const root = join(__dirname, '..', '..', '..', '..')
     const toolbarCss = readFileSync(join(root, 'src/components/layout/CanvasFloatingToolbar.module.css'), 'utf8')
-    const indexCss = readFileSync(join(root, 'src/index.css'), 'utf8')
     const fitSrc = readFileSync(join(root, 'src/canvas/utils/computeFitPadding.ts'), 'utf8')
-    const toolbarLeft = Number(/\.surface\s*\{[^}]*?\bleft:\s*(\d+)px/.exec(toolbarCss)?.[1])
-    const sidebarW = Number(/--leftsidebar-w:\s*(\d+)px/.exec(indexCss)?.[1])
+    // v3.1 DESIGN-GAP #13: the toolbar is content-sized — its width is the
+    // 29px button plus 5px padding each side plus a 1px border each side.
+    const noComments = toolbarCss.replace(/\/\*[\s\S]*?\*\//g, '')
+    const toolbarLeft = Number(/\.surface\s*\{[^}]*?\bleft:\s*(\d+)px/.exec(noComments)?.[1])
+    const toolbarPad = Number(/\.surface\s*\{[^}]*?\bpadding:\s*(\d+)px/.exec(noComments)?.[1])
+    const buttonW = Number(/\.iconButton\s*\{[^}]*?\bwidth:\s*(\d+)px/.exec(noComments)?.[1])
     const gap = Number(/const GAP = (\d+)/.exec(fitSrc)?.[1])
-    expect([toolbarLeft, sidebarW, gap]).toEqual([12, 48, 16])   // positive control on the reads
-    expect(OVERLAY_BAND_LEFT_PAD).toBe(toolbarLeft + sidebarW + gap)
+    expect([toolbarLeft, toolbarPad, buttonW, gap]).toEqual([13, 5, 29, 16])   // positive control on the reads
+    expect(OVERLAY_BAND_LEFT_PAD).toBe(toolbarLeft + buttonW + 2 * toolbarPad + 2 + gap)
 
     const { container } = render(
       <CanvasOverlayBandProvider>
@@ -263,7 +266,7 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
       </CanvasOverlayBandProvider>,
     )
     const band = container.querySelector(OVERLAY_BAND_SELECTOR) as HTMLElement
-    expect(band.style.paddingLeft).toBe('76px')
+    expect(band.style.paddingLeft).toBe('70px')
   })
 
   it('an occupant LANDS INSIDE its declared cell — the portal path, asserted', () => {

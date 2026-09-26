@@ -78,13 +78,16 @@ describe('LeftSidebar undo/redo tooltips make no shortcut promise', () => {
     expect(text).not.toMatch(/⌘|ctrl|cmd/i)
   })
 
-  it('the Redo tooltip does not name ⌘⇧Z', async () => {
+  /**
+   * v3.1 DESIGN-GAP #13 (26 Sep 2026): the canvas tools draw no Redo button,
+   * so there is no Redo tooltip left to make the promise. Pinned as an absence
+   * with the Undo button as its contrast, so a Redo button that came back
+   * would have to face the assertion above again.
+   */
+  it('there is no Redo button to carry a shortcut promise (v3.1 #13)', () => {
     render(<LeftSidebar canUndo={false} canRedo={false} />)
-
-    const text = await tooltipTextFor(/^redo$/i)
-
-    expect(text).not.toContain('⌘⇧Z')
-    expect(text).not.toMatch(/⌘|ctrl|cmd/i)
+    expect(screen.getByRole('button', { name: /^undo$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^redo$/i })).toBeNull()
   })
 
   /**
@@ -105,7 +108,7 @@ describe('LeftSidebar undo/redo tooltips make no shortcut promise', () => {
   it('PRECONDITION: the authority still withholds — present, and not operable', () => {
     render(<LeftSidebar canUndo={false} canRedo={false} undoUnavailable redoUnavailable />)
 
-    for (const name of [/^undo$/i, /^redo$/i]) {
+    for (const name of [/^undo$/i]) {
       const button = screen.getByRole('button', { name })
       // Reachable, so the tooltip and the explanation can both be got at...
       expect(button).not.toBeDisabled()

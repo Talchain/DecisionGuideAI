@@ -1040,14 +1040,38 @@ const VIEWPORT_GUTTER_PX = 12
  * unaffected by this addition.
  */
 export interface CanvasLegendPopoverProps {
-  variant?: 'icon' | 'text-link'
+  /**
+   * `'controlled'` (contract v3.1 DESIGN-GAP #14, 26 Sep 2026): NO trigger of
+   * its own — the viewport toolbar's overflow menu opens it ("How to read
+   * this"), because v3.1 draws only −, + and fit on the canvas. The dialog,
+   * its content, its measured cap and its Escape/outside-press dismissal are
+   * this one instance's, unchanged; only who holds `open` differs.
+   */
+  variant?: 'icon' | 'text-link' | 'controlled'
+  /** `'controlled'` only: whether the key is open. */
+  open?: boolean
+  /** `'controlled'` only: called with `false` on Escape or an outside press. */
+  onOpenChange?: (open: boolean) => void
 }
 
-export function CanvasLegendPopover({ variant = 'icon' }: CanvasLegendPopoverProps = {}) {
+export function CanvasLegendPopover({ variant = 'icon', open: openProp, onOpenChange }: CanvasLegendPopoverProps = {}) {
   // Local open-state — this is now the only canvas legend (the edge-thickness
   // scale is folded in below), so there's no second legend to coordinate with.
-  // Display-only; not persisted.
-  const [open, setOpen] = useState(false)
+  // Display-only; not persisted. The `controlled` variant reads its caller's.
+  const [openLocal, setOpenLocal] = useState(false)
+  const controlled = variant === 'controlled'
+  const open = controlled ? Boolean(openProp) : openLocal
+  const setOpen = useCallback(
+    (next: boolean | ((o: boolean) => boolean)) => {
+      if (controlled) {
+        const value = typeof next === 'function' ? next(Boolean(openProp)) : next
+        onOpenChange?.(value)
+      } else {
+        setOpenLocal(next)
+      }
+    },
+    [controlled, openProp, onOpenChange],
+  )
   const wrapRef = useRef<HTMLDivElement>(null)
   /**
    * The measured cap, in px. `null` means "not measured" — NOT "unbounded":
@@ -1159,11 +1183,11 @@ export function CanvasLegendPopover({ variant = 'icon' }: CanvasLegendPopoverPro
     return () => window.removeEventListener('resize', measure)
   }, [open])
 
-  const close = useCallback(() => setOpen(false), [])
+  const close = useCallback(() => setOpen(false), [setOpen])
   // Functional updater stays immune to focus-before-click staleness: a real mouse
   // click fires focus (mousedown) before click, so the toggle must read the live
   // value. No onFocus — keyboard users open via Enter/Space → click.
-  const toggle = useCallback(() => setOpen(o => !o), [])
+  const toggle = useCallback(() => setOpen(o => !o), [setOpen])
 
   useEffect(() => {
     if (!open) return
@@ -1182,8 +1206,8 @@ export function CanvasLegendPopover({ variant = 'icon' }: CanvasLegendPopoverPro
   }, [open, close])
 
   return (
-    <div ref={wrapRef} className="relative">
-      {variant === 'text-link' ? (
+    <div ref={wrapRef} className={controlled ? 'relative w-full' : 'relative'}>
+      {controlled ? null : variant === 'text-link' ? (
         <button
           type="button"
           onClick={toggle}

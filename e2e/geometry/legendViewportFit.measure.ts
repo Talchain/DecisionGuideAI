@@ -218,7 +218,10 @@ async function readPanel(page: Page): Promise<PanelGeometry> {
 }
 
 async function openLegend(page: Page): Promise<void> {
-  await page.getByTestId('btn-canvas-legend').click()
+  // v3.1 DESIGN-GAP #14 (26 Sep 2026): the key opens from the viewport tools'
+  // overflow menu ("How to read this"), not from a standing "?" button.
+  await page.getByTestId('viewport-more').click()
+  await page.getByTestId('viewport-legend').click()
   await expect(page.getByTestId('canvas-legend-popover')).toBeVisible({ timeout: 10_000 })
 }
 

@@ -365,7 +365,9 @@ test.describe('an explicit user fit reaches the model, an automatic one stays le
     await waitForVisualQuiescence(page)
     await waitForExtentsSettled(page, GHOST_ID_PREFIX)
 
-    await page.getByRole('button', { name: 'Auto-arrange' }).click()
+    // v3.1 DESIGN-GAP #14: Auto-arrange lives in the viewport tools' overflow menu.
+    await page.getByTestId('viewport-more').click()
+    await page.getByRole('menuitem', { name: 'Auto-arrange' }).click()
     await waitForCameraSettled(page)
     await waitForExtentsSettled(page, GHOST_ID_PREFIX)
     await page.waitForTimeout(1000)
