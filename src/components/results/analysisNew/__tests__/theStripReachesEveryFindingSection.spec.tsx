@@ -123,11 +123,10 @@ const renderPanel = () => {
   return result
 }
 
-/** Post-run the strip mounts CLOSED and its marks are unmounted with it. */
+/** Design B2: the tab's strip is static — no toggle, its region always mounted. */
 const openStrip = () => {
-  const toggle = screen.getByTestId(`${STRIP}-toggle`)
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.queryByTestId(`${STRIP}-toggle`)).toBeNull()
+  expect(screen.getByTestId(`${STRIP}-region`)).toBeInTheDocument()
 }
 
 /**
