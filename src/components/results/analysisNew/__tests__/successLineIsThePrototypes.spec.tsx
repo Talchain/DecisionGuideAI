@@ -80,6 +80,7 @@ import { ModelStrip } from '../sections/ModelStrip'
 import { SuccessTargetLine } from '../sections/SuccessTargetLine'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
+import { VALUE_SOURCE_MARK_LABEL, goalTargetSourceMark } from '../../../../canvas/nodes/shared/valueSourceMark'
 
 const TID = 'analysis-new-model-strip'
 const T = `${TID}-target`
@@ -306,8 +307,18 @@ describe('⛔ CONTRAST — the Inspector’s goal control is a different surface
     render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={vi.fn()} testId="inspector" />)
     const row = screen.getByTestId('inspector')
     expect(row.textContent).toContain(COPY.successTarget.label)
-    expect(screen.getByTestId('inspector-source').textContent).toBe(VALUE_PROVENANCE_LABEL.brief)
+    // ⚠ #2085 (DESIGN-GAP-v31 #22): the word is the goal card's ONE mark,
+    // `goalTargetSourceMark`. A bare `goal_threshold_raw` no longer reads
+    // "From brief" — nothing on the node says a brief stated it.
+    expect(screen.getByTestId('inspector-source').textContent).toBe(goalTargetSourceMark(SET).label)
+    expect(screen.getByTestId('inspector-source').textContent).toBe(VALUE_SOURCE_MARK_LABEL.unknown)
     expect(screen.getByTestId('inspector-edit')).toHaveTextContent(COPY.successTarget.change)
     expect(before(screen.getByTestId('inspector-ask'), screen.getByTestId('inspector-edit'))).toBe(true)
+  })
+
+  it('CONTRAST: a target the user set reads "Set by you" there, from the same mark', () => {
+    seed({ ...SET, threshold_source: 'user', success_threshold: 110 })
+    render(<SuccessTargetLine goalNodeId="g1" onCommitOutcome={vi.fn()} testId="inspector" />)
+    expect(screen.getByTestId('inspector-source').textContent).toBe(VALUE_SOURCE_MARK_LABEL.you)
   })
 })
