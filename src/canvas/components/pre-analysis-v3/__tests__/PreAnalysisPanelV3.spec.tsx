@@ -276,9 +276,16 @@ describe('goal and success authority', () => {
       'Define what success means here',
     )
     fireEvent.click(screen.getByRole('button', { name: 'Act on best next step' }))
+    // Re-pinned 26 Sep 2026 to #2105's contract: Olumi-authored prompt text
+    // travels as a CHIP, carrying the spark's identity (never the user's words).
     expect(sendChip).toHaveBeenCalledWith(
       'Define success with Olumi',
       'Help me define a measurable success target for this goal.',
+      expect.objectContaining({
+        id: 'pre-analysis-v3:define_success',
+        intent: 'define_success',
+        parameters: { spark_id: 'define_success' },
+      }),
     )
     expect(useCanvasStore.getState().goalThreshold).toBeNull()
   })
@@ -581,9 +588,15 @@ describe('spark dispatch', () => {
     useGuidanceStore.setState({ _sendChip: sendChip })
     renderPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Pressure-test the frame with Olumi' }))
+    // Re-pinned 26 Sep 2026 to #2105's contract (chip identity travels).
     expect(sendChip).toHaveBeenCalledWith(
       'Pressure-test the frame',
       'Is this the right question to be asking, and does it fit my wider goals?',
+      expect.objectContaining({
+        id: 'pre-analysis-v3:pressure_test_frame',
+        intent: 'challenge_frame',
+        parameters: { spark_id: 'pressure_test_frame' },
+      }),
     )
   })
 
@@ -1134,9 +1147,16 @@ describe('Success-target nudge (V3)', () => {
     fireEvent.click(screen.getByTestId('goal-target-nudge-cta'))
     expect(document.getElementById(SUCCESS_INPUT_ID)).not.toHaveFocus()
     expect(document.getElementById(SUCCESS_INPUT_ID)).toHaveAttribute('aria-readonly', 'true')
+    // Re-pinned 26 Sep 2026 to #2105's contract: Olumi-authored prompt text
+    // travels as a CHIP, carrying the spark's identity (never the user's words).
     expect(sendChip).toHaveBeenCalledWith(
       'Define success with Olumi',
       'Help me define a measurable success target for this goal.',
+      expect.objectContaining({
+        id: 'pre-analysis-v3:define_success',
+        intent: 'define_success',
+        parameters: { spark_id: 'define_success' },
+      }),
     )
   })
 })
