@@ -841,9 +841,18 @@ function buildDrivers(
   // rule, and it is load-bearing here too: scaling to a sum would render each
   // bar as a SHARE OF THE OUTCOME, a claim neither basis licenses.
   const strongest = Math.max(...live.map(magnitude), 0)
+  // ⭐ A TIE IN MAGNITUDE IS BROKEN BY THE PRODUCER'S OWN RANK, never by
+  // arrival order. Paul's manual test `1a298d6d`: "Monthly new Pro
+  // subscribers" (influence_rank 3) and "Monthly churn" (4) both carried 0.5,
+  // the stable sort kept arrival order, and the rows printed "#1, #4, #3" —
+  // one list telling two orders. The rank each row PRINTS is still the
+  // producer's (`theRankIsTheProducersNotThePositions.spec.ts`); this only
+  // stops the position from contradicting it.
+  const producerRank = (d: (typeof live)[number]) =>
+    d.influenceRank ?? d.rank ?? Number.POSITIVE_INFINITY
   const influenceRows: DriverInfluenceRow[] = live
     .slice()
-    .sort((a, b) => magnitude(b) - magnitude(a))
+    .sort((a, b) => magnitude(b) - magnitude(a) || producerRank(a) - producerRank(b))
     .map((d) => ({
       id: d.factorKey,
       label: d.factorLabel,
