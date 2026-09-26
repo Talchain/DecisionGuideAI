@@ -31,7 +31,9 @@ describe('humaniseCritique', () => {
         labels,
       )
       expect(result.title).toContain('Revenue')
-      expect(result.title).toContain("can't be fully evaluated")
+      // Re-pinned 26 Sep 2026: a CONSTRAINT_* code names a LIMIT (aLimitIsNotASuccessTarget.spec.ts).
+      expect(result.title).toContain("can't be fully checked")
+      expect(result.title).toContain('limit')
       expect(result.factorId).toBe('fac_rev')
     })
 
