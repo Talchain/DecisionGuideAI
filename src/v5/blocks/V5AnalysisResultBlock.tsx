@@ -94,6 +94,11 @@ export interface V5AnalysisResultBlockProps {
    * instead of on the face: the brief's "detail behind disclosure". Nothing is
    * removed or reworded; one click shows it verbatim. Defaults to FALSE, so a
    * turn whose ONLY account of the run is this card still shows it open.
+   *
+   * When the folded summary would be the card's only body (no win-share row,
+   * no review prose), there is no card at all (design audit #8): the reply
+   * already carries that account, and only the uncertainty line renders,
+   * inline and unframed.
    */
   summaryBehindDisclosure?: boolean
 }
@@ -456,9 +461,46 @@ function V5AnalysisResultBlockImpl({
       })
     : [...winEntries].sort(([keyA], [keyB]) => canvasRank(keyA) - canvasRank(keyB))
 
+  // ⭐ NO EMPTY CARD (design audit #8, served on UI 853feeb7, pricing, one Run).
+  // With the reply on screen the summary folds behind "Details"; when nothing
+  // else would render (no win-share row, no review prose) the card's whole face
+  // was a heading, a closed "▸ Details" and the uncertainty line: a 382×107.5
+  // frame that read as empty, once per Run in the transcript. The folded
+  // summary restates the reply above it, so there is no card: the uncertainty
+  // line stays, inline, as plain text. The `v5-analysis-result` element stays
+  // as the unframed anchor `scrollAnalysisResultIntoView` lands on after a Run.
+  const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse
+  if (onlyFoldedSummaryOnCard) {
+    return (
+      <div
+        data-testid="v5-analysis-result"
+        data-presentation="inline"
+        data-has-decision-review={hasReview ? 'true' : 'false'}
+        data-decision-review-state={reviewState.kind}
+      >
+        {shownUncertaintyCopy && (
+          <p
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid="v5-analysis-result-uncertainty-copy"
+          >
+            {shownUncertaintyCopy.text}
+          </p>
+        )}
+        {reviewState.kind === 'malformed' && (
+          <div
+            className="hidden"
+            data-testid="v5-analysis-result-enrichment-invalid"
+            aria-hidden="true"
+          />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       data-testid="v5-analysis-result"
+      data-presentation="card"
       data-has-decision-review={hasReview ? 'true' : 'false'}
       data-decision-review-state={reviewState.kind}
       className="rounded-md border border-panel-border bg-panel p-4 space-y-3"

@@ -12,6 +12,12 @@
  * is removed or reworded; one click shows it verbatim. A turn with NO reply
  * text keeps the summary open, because then it is the only account of the run.
  *
+ * ⚠ AMENDED 26 Sep 2026 (design audit #8): the fold applies when the card has
+ * another body (a win-share row or review prose). When the folded summary would
+ * be the card's ONLY body, there is no card: the reply above already carries
+ * that account, and a heading over a lone "▸ Details" read as an empty frame.
+ * `InlineBlocks.noEmptyResultCard.spec.tsx` pins that rule on the served block.
+ *
  * CLAIM TYPE: jsdom DOM. The block is the served bytes, verbatim. No model calls.
  */
 import { describe, it, expect, vi } from 'vitest'
@@ -43,10 +49,13 @@ const C2_RUN = (servedJourneyC673223 as { turns: Array<{ turn: string; json: Wir
   (t) => t.turn === 'C2 run',
 )!.json
 const served = C2_RUN.blocks!.find((b) => b.type === 'analysis_result')!
+// The served win shares with a leader named, so the card has a body besides the
+// summary (the pill row). Without one, audit #8's no-empty-card rule applies.
 const BLOCK: V5AnalysisResultBlockType = {
   type: 'v5_analysis_result',
   summary: String(served.summary),
-  leading_option_id: null,
+  leading_option_id: 'Raise to £59 with release',
+  win_probabilities: served.win_probabilities as Record<string, number>,
 }
 const REPLY_WORDS = String(C2_RUN.assistant_text).trim().split(/\s+/).length
 
@@ -61,6 +70,7 @@ describe('the served Run turn: analysis summary placement (c673223 "C2 run")', (
     expect(BLOCK.summary.split(/\s+/).length).toBeGreaterThan(100)
     expect(BLOCK.summary).toContain('could not be checked')
     expect(REPLY_WORDS).toBeGreaterThan(0)
+    expect(Object.keys(BLOCK.win_probabilities ?? {})).toContain('Raise to £59 with release')
   })
 
   it('⭐ with the reply on screen: the summary is folded behind a closed "Details", verbatim inside', () => {
