@@ -369,6 +369,10 @@ export function ModelReviewTool({
   // ── The overflow menu ─────────────────────────────────────────────────────
   const moreRef = useRef<HTMLSpanElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  // Close hands focus back to the entry toggle that opened the tool. Without
+  // it the focused X unmounts and keyboard focus falls to <body> (Panel
+  // whole-tab witness, served 046f67ab, 26 Sep 2026: D3).
+  const toggleRef = useRef<HTMLButtonElement | null>(null)
   const closeMenu = (restoreFocus: boolean) => {
     setMoreOpen(false)
     if (restoreFocus) moreRef.current?.querySelector<HTMLButtonElement>('button')?.focus()
@@ -450,6 +454,7 @@ export function ModelReviewTool({
         {total > 0 ? (
           <Tooltip asChild content={COPY.entryTip}>
             <button
+              ref={toggleRef}
               type="button"
               onClick={() => {
                 setOpen((v) => !v)
@@ -561,6 +566,7 @@ export function ModelReviewTool({
                 onClick={() => {
                   setOpen(false)
                   resetItemState()
+                  toggleRef.current?.focus()
                 }}
                 testId={`${testId}-close`}
               />

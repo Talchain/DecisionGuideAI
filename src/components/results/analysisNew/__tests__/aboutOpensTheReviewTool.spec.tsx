@@ -130,3 +130,24 @@ describe('About › Sources and limits → "Inspect beliefs and source notes"', 
     expect(screen.queryByTestId(`${ABOUT}-inspect-beliefs`)).toBeNull()
   })
 })
+
+describe('closing the review tool hands keyboard focus back (whole-tab witness D3, served 046f67ab)', () => {
+  afterEach(cleanup)
+
+  it('⭐ Close returns focus to the "N to review" toggle, never to <body>', () => {
+    useCanvasStore.setState({
+      nodes: [...NODES, { id: 'f1', type: 'factor', data: { label: 'Vendor cost', observed_state: { value: 0.7, source: 'cee_inference' } } }],
+    } as never)
+    renderTab()
+    const toggle = screen.getByTestId('analysis-new-review-toggle')
+    fireEvent.click(toggle)
+    const close = screen.getByTestId('analysis-new-review-close')
+    close.focus()
+    expect(close, 'PRECONDITION: the reader is on Close').toHaveFocus()
+    fireEvent.click(close)
+    expect(screen.queryByTestId('analysis-new-review-item'), 'PRECONDITION: the tool closed').toBeNull()
+    expect(toggle).toHaveFocus()
+    expect(document.body).not.toHaveFocus()
+  })
+})
+
