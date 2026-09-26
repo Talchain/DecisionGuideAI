@@ -383,7 +383,7 @@ export function WorkspaceShellTabStrip({
           rendered tab widths are 47/62/99/70 against the shipped 48/62/98/70 —
           the strip looks the same and simply stops clipping. */}
       <div
-        className={`flex flex-1 min-w-0 gap-1 ${isCompact ? 'flex-nowrap' : 'flex-wrap'}`}
+        className={`flex flex-1 min-w-0 ${isCompact ? 'gap-0 flex-nowrap' : 'gap-1 flex-wrap'}`}
         role="tablist"
         aria-label={DOCK_TABLIST_LABEL}
         data-testid="outputs-dock-tablist"
@@ -450,7 +450,9 @@ export function WorkspaceShellTabStrip({
               // (`flex-initial`, left-aligned as in the contract, still
               // shrinking with `min-w-0` so the label truncates rather than
               // spills), one 2px underline, one tint.
-              className={`flex-initial min-w-0 px-2 rounded-none border-0 border-b-2 ${typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+              // Compact (≤320px dock): 4px padding, no gap, so four full labels
+              // plus the stale mark or Model badge fit in the 199px tablist.
+              className={`flex-initial min-w-0 ${isCompact ? 'px-1' : 'px-2'} rounded-none border-0 border-b-2 ${typography.panelMeta} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                 isActive
                   ? 'text-info border-info bg-[var(--panel-tab-active-bg)]'
                   : 'text-text-body border-transparent hover:text-info'
