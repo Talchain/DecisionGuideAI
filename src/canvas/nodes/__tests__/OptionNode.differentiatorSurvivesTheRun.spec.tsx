@@ -407,7 +407,10 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
     // the row (never left bare, never "you") — as "no source", not as Olumi's
     // estimate (Codex #63 5801529767; reviewer blocker, 23 Sep). Contract v3.1
     // pt 7 (gap U12): a muted `·` sets the mark apart from the value.
-    expect(row!.textContent).toBe('0 engineers → 3 engineers · no sourceSource not recorded')
+    // RE-PINNED (design audit #9, 26 Sep): the value and its mark are joined by
+    // ONE no-break space (U+00A0), so the mark cannot drop to a line of its own.
+    // Was an ordinary breakable space; every other byte is unchanged.
+    expect(row!.textContent).toBe('0 engineers → 3 engineers\u00A0· no sourceSource not recorded')
     expect(row!.querySelector('[data-testid="option-change-row-source-option-1-f-head"]')?.getAttribute('data-value-source')).toBe('unknown')
   })
 })

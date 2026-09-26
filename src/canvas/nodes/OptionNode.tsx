@@ -176,7 +176,7 @@ import { OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVo
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
-import { ValueSourceMark } from './shared/valueSourceMark'
+import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 
 /**
@@ -193,6 +193,13 @@ import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
 const OPTION_ROW_ESTIMATE_TITLE = `${OPTION_ROW_ESTIMATE_NOTE} Open the details to set or confirm it.`
+
+/**
+ * The join between a change row's value and its source mark: ONE no-break
+ * space (U+00A0), never a breakable ' ', so the mark cannot drop to a line of
+ * its own (design audit #9). Its width is the space the old join took.
+ */
+const MARK_GLUE = '\u00A0'
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -1892,8 +1899,9 @@ export const OptionNode = memo((props: NodeProps) => {
    * landing stack, JS-compacted wrapping labels). STANDARD view is the
    * contract v3.1 resting rows (DESIGN-GAP-v31 #9; Paul 25 Sep, supersedes ED
    * 5809278282's popover placement): each row is the factor's FULL name
-   * (muted, never cut — it wraps inside its own column) and the amount
-   * `from → to · mark` (`.delta-rows .amount{white-space:nowrap}`).
+   * (muted; ONE line, clamped with an ellipsis — design audit #9, 26 Sep; it
+   * used to wrap inside its own column) and the amount `from → to · mark`
+   * (`.delta-rows .amount{white-space:nowrap}`).
    *
    * ⭐ ONE ROW = ONE WRAPPING FLEX LINE, NOT A SHARED GRID, AND THAT IS WHAT
    * KEEPS THE AMOUNT ON ONE LINE AT EVERY ZOOM. The contract's
@@ -1907,8 +1915,14 @@ export const OptionNode = memo((props: NodeProps) => {
    * Measured before (served `eec722ab`): labels CSS-clipped ("Bottom-up ado…"),
    * amounts wrapped mid-value ("Very high → Moderate / · brief").
    *
-   * The value and its mark are separate segments: when even the amount alone
-   * is wider than the card, the MARK drops below the value. A value that fits
+   * ⭐ THE MARK RIDES THE VALUE'S LAST LINE — NEVER A LINE OF ITS OWN (design
+   * audit #9, 26 Sep; served `853feeb7` pricing `opt_hybrid`: every row read
+   * label / value / "· brief", the mark ~15px BELOW its value, 250.1px of card
+   * against 139.1 for the baseline). The value and the mark cluster are joined
+   * by ONE no-break space (`MARK_GLUE`), so the only places the amount can break
+   * are inside the value — and a no-wrap run that ends the value is held whole
+   * only while it fits WITH the mark (`amountRunNoWrap`), so gluing can never
+   * push the amount past the card's edge. A value that fits
    * one line of the row budget is held whole; a longer one breaks only BEFORE
    * ITS ARROW (each half unbroken while it fits) — never cut, and never past
    * the card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP per
@@ -1916,7 +1930,16 @@ export const OptionNode = memo((props: NodeProps) => {
    * `+N more` → inspector. No rung term: byte-identical at Normal and landing
    * (no rung-triggered re-layout).
    */
-  const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => (
+  const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => {
+    // The mark is glued to the value's last run, so that run is held whole only
+    // while it fits one line of the row budget WITH the mark (#2119's rule,
+    // `optionAmountSegmentNoWrap`, applied to run + " · mark"). A `Needs input`
+    // amount carries no mark, so its run is measured alone.
+    const markSuffix = r.needsInput
+      ? ''
+      : ` ${OPTION_ROW_SOURCE_MARK_SEPARATOR} ${VALUE_SOURCE_MARK_TOKEN[r.targetSource.kind]}`
+    const amountRunNoWrap = (run: string) => optionAmountSegmentNoWrap(`${run}${markSuffix}`)
+    return (
     <dd
       className={resting
         ? `${typography.edgeLabel} !leading-tight m-0 ml-auto max-w-full text-right text-text-body`
@@ -1944,7 +1967,7 @@ export const OptionNode = memo((props: NodeProps) => {
         </span>
       ) : (
         <span
-          className={resting ? (optionAmountSegmentNoWrap(r.change) ? 'whitespace-nowrap' : 'break-words') : undefined}
+          className={resting ? (amountRunNoWrap(r.change) ? 'whitespace-nowrap' : 'break-words') : undefined}
           data-testid={`option-change-row-value-${props.id}-${r.factorId}`}
         >
           {/* ⭐ NEVER PAST THE CARD'S EDGE, AT ANY RUNG (served cd6a82e4: "49
@@ -1966,13 +1989,13 @@ export const OptionNode = memo((props: NodeProps) => {
                 </span>
               </span>
               {' '}
-              <span className={resting && optionAmountSegmentNoWrap(`→ ${r.after}`) ? 'whitespace-nowrap' : undefined}>
+              <span className={resting && amountRunNoWrap(`→ ${r.after}`) ? 'whitespace-nowrap' : undefined}>
                 {'→ '}
                 {r.after}
               </span>
             </>
           ) : (
-            <span className={resting && optionAmountSegmentNoWrap(r.change) ? 'whitespace-nowrap' : undefined}>
+            <span className={resting && amountRunNoWrap(r.change) ? 'whitespace-nowrap' : undefined}>
               {r.change}
             </span>
           )}
@@ -1987,8 +2010,10 @@ export const OptionNode = memo((props: NodeProps) => {
           unit): a muted separator sets the mark apart from the value,
           the cluster never wraps apart, and every mark — `est.`
           included — is the contract's `.prov` mark: focusable, named,
-          and it opens this option's source detail (the inspector). */}
-      {!r.needsInput && (<>{' '}
+          and it opens this option's source detail (the inspector).
+          Audit #9: joined to the value by MARK_GLUE (U+00A0), never a
+          breakable space, so the mark stays on the value's line. */}
+      {!r.needsInput && (<>{MARK_GLUE}
       <span
         className="whitespace-nowrap"
         data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
@@ -2007,7 +2032,8 @@ export const OptionNode = memo((props: NodeProps) => {
         />
       </span></>)}
     </dd>
-  )
+    )
+  }
 
   const renderChangeRows = (layout: 'grid' | 'stacked', restingLabels = false) => {
     const stacked = layout === 'stacked'
@@ -2021,9 +2047,17 @@ export const OptionNode = memo((props: NodeProps) => {
               className="flex flex-wrap items-baseline gap-x-2"
               data-testid={`option-change-row-line-${props.id}-${r.factorId}`}
             >
-              {/* Contract v3.1 `.delta-rows .label`: muted, the FULL name,
-                  never cut — it wraps inside its own share of the line. */}
-              <dt className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_8em] break-words text-text-light`}>
+              {/* Contract v3.1 `.delta-rows .label`: muted, the FULL name in
+                  the DOM. Design audit #9 (26 Sep): ONE line at every rung —
+                  a wrapped label cost the card a line per row at the landing
+                  2× scale, and the layout reserves that height for the whole
+                  board. `line-clamp-1` ends line 1 with an ellipsis at a word
+                  break; the text is never cut in JS, so a screen reader reads
+                  the whole name, the option's popover lists it in full and a
+                  mark's accessible name carries it (ED 5809278282: the label
+                  half may ellipsize, never a value, unit or mark). No native
+                  `title` (#2126). */}
+              <dt className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_8em] break-words line-clamp-1 text-text-light`}>
                 {r.fullLabel}
               </dt>
               {renderChangeAmount(r, 'right', true)}

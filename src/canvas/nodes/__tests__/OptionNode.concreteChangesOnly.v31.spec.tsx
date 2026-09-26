@@ -196,24 +196,42 @@ describe('v3.1 #9 — an option card lists CONCRETE changes only', () => {
 })
 
 describe('v3.1 #9 — full label, amount on one line', () => {
-  it('the label cell holds the FULL factor name and is not a truncating cell', () => {
+  // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung —
+  // `line-clamp-1`, an ellipsis at a word break — and its DOM text is still the
+  // FULL name (never cut in JS). Still never a horizontal cut (`truncate`,
+  // `text-ellipsis`) and never more than one line (`line-clamp-2`).
+  it('the label cell holds the FULL factor name on ONE clamped line, never a horizontal cut (audit #9)', () => {
     renderCard()
     const dd = screen.getByTestId('option-change-row-opt-germany-f-team')
     const dt = dd.previousElementSibling as HTMLElement
     expect(dt.tagName).toBe('DT')
     expect(dt.textContent).toBe('Team capacity drawn into the launch')
-    for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-1', 'line-clamp-2']) {
+    for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-2']) {
       expect(tokens(dt).has(cut), `the label cell is cut by ${cut}`).toBe(false)
     }
+    expect(tokens(dt).has('line-clamp-1')).toBe(true)
+    expect(tokens(dt).has('min-w-0')).toBe(true)
+    expect(dt.hasAttribute('title')).toBe(false)
   })
 
-  it('the `from → to` value and its source mark are each a no-wrap segment', () => {
+  // RE-PINNED (design audit #9, 26 Sep): the mark is GLUED to the value by one
+  // no-break space, so the value is held whole only while value + mark fits one
+  // line of the row budget. "Low → Very high · brief" (23) does not, so the value
+  // may break before its arrow; the "from" half stays one unbroken run, and the
+  // last run "→ Very high · brief" (19) is over the budget too, so it may wrap at
+  // its own spaces rather than push the mark past the card's edge (#2119's rule
+  // applied to run + mark). The mark rides the value's last line. Was: the value
+  // one no-wrap run, the mark free to drop to a line of its own.
+  it('the "from" half and the glued source mark are no-wrap segments; the mark never leaves the value (audit #9)', () => {
     renderCard()
     const value = screen.getByTestId('option-change-row-value-opt-germany-f-germany')
     expect(value.textContent).toBe('Low → Very high')
-    expect(tokens(value).has('whitespace-nowrap')).toBe(true)
+    expect(tokens(value).has('whitespace-nowrap')).toBe(false)
+    expect([...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)).toEqual(['Low'])
     const mark = screen.getByTestId('option-change-row-mark-opt-germany-f-germany')
     expect(tokens(mark).has('whitespace-nowrap')).toBe(true)
+    expect(mark.previousSibling?.textContent).toBe('\u00A0')
+    expect(mark.previousSibling?.previousSibling).toBe(value)
   })
 
   it('the differentiator line is the contract\'s 10.5px muted line', () => {
