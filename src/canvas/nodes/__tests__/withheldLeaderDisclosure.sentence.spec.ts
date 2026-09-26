@@ -85,7 +85,7 @@ describe('EVERY withholding code produces two readable sentences', () => {
     const got = selectWithheldLeaderDisclosure(reportFor('CONSTRAINT_TARGET_UNRELIABLE') as never)
     expect(got!.suggestion).toBe('')
     const rendered = `${got!.title} ${got!.suggestion}`.trim()
-    expect(rendered).toBe("A success target on your model can't be evaluated reliably.")
+    expect(rendered).toBe("A limit on your model can't be checked reliably.")
     expect(rendered).not.toContain('Set a')
   })
 })

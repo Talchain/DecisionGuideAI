@@ -87,8 +87,11 @@ describe('InferenceWarningStrip', () => {
     // clause that removes the fabricated "This factor". These two fragments are
     // present in BOTH branches, so the assertion binds to the template rather
     // than to one of its arms.
-    expect(entry).toHaveTextContent('success target')
-    expect(entry).toHaveTextContent("can't be evaluated reliably")
+    // Re-pinned 26 Sep 2026: the code names a LIMIT, not a success target
+    // (aLimitIsNotASuccessTarget.spec.ts). Both fragments sit in both forms.
+    expect(entry).toHaveTextContent('limit')
+    expect(entry).toHaveTextContent("can't be checked reliably")
+    expect(entry).not.toHaveTextContent('success target')
     // And the sentinel must never reach this strip — the defect that occasioned
     // the change was this exact copy rendering it.
     expect(entry).not.toHaveTextContent('This factor')

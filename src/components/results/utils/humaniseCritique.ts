@@ -238,11 +238,18 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // either. The description likewise stops asserting "missing or unscaled".
   // Every consumer already renders the title alone when `suggestion` is empty
   // (`endSentence('')` is `''`; the strips guard on `c.suggestion &&`).
+  //
+  // ⛔ IT IS A LIMIT, NOT A SUCCESS TARGET (Panel whole-tab witness, 26 Sep 2026,
+  // UI 046f67ab). PLoT raises this code for a goal CONSTRAINT — the user's limit
+  // ("keep monthly churn under 10%"); the goal's own target has its own codes.
+  // Calling it "a success target" made the Reasoning tab say the £20k MRR goal
+  // could not be checked while the chat and the Challenge card, on the same
+  // turn, said "cannot check your limit". The user's word for it is "limit".
   CONSTRAINT_TARGET_UNRELIABLE: (label, genuine) => ({
     title: genuine
-      ? `${label}'s success target can't be evaluated reliably`
-      : "A success target on your model can't be evaluated reliably",
-    description: 'This target could not be checked against this model, so the probability of reaching it was withheld for this run rather than shown as a meaningless number.',
+      ? `The limit on ${label} can't be checked reliably`
+      : "A limit on your model can't be checked reliably",
+    description: 'This limit could not be checked against this model, so the probability of meeting it was withheld for this run rather than shown as a meaningless number.',
     suggestion: '',
   }),
   // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
