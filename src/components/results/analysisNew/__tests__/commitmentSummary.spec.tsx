@@ -246,7 +246,7 @@ describe('stale: the bullets say they describe the last run', () => {
     renderZone({ synthesis: buildCommitmentSynthesis(vm) })
     expect(screen.queryByTestId(`${TID}-stale`)).toBeNull()
     expect(screen.queryByText(COPY.markers.stale)).toBeNull()
-    expect(screen.getByTestId(`${TID}-before-text`).textContent).toBe(COPY.status.reanalyseToBeSure)
+    expect(screen.getByTestId(`${TID}-before-text`).textContent).toBe(COMMITMENT_COPY.rerunBefore)
   })
 
   it('CONTRAST: a fresh run carries no marker and names the review item', () => {
