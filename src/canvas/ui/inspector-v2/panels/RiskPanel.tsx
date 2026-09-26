@@ -69,7 +69,7 @@ const IMPACT_LABEL = Object.fromEntries(IMPACT_OPTIONS.map(o => [o.value, o.labe
  * as the whole of what is unsaved.
  */
 export const INSPECTOR_RISK_REASON =
-  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood, impact and other edits here are not yet saved to the shared model — ask Olumi to record them instead.`
+  `Renaming ${RENAME_AUTHORITY_CLAUSE}. Likelihood, impact and other edits here are not yet saved to the shared model — ask Olumi to record them in the chat instead.`
 
 /**
  * ⭐ v3.1 (DESIGN-GAP-v31 row 33): the absence copy for a risk with nothing
