@@ -402,6 +402,7 @@ async function readAndMergeServerGraph(
     const blockedOutcome = applyBootBlockedVerdict({
       analysisState: result.analysisState,
       graphHash: result.graphHash,
+      admitted: result.admitted,
       canvasProvenEqualToRead: notProvenEqual === null,
       isRestorableKind: isBootRestorableRunState,
       store: {
