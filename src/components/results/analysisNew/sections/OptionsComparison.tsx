@@ -282,10 +282,19 @@ function tickTransform(fraction: number): string {
  * threshold) the results hook's denormalisation pre-scan uses, so a run the hook
  * treats as model scale never keeps bare ticks here (R&C #2133 B1: a propagated
  * p10 -1.3 … p90 0.4 domain).
+ *
+ * ⚠ ON THE DATA, NEVER THE ROUND DOMAIN: `outcomeRangeScale` widens the domain
+ * to round steps (#2134), so a model-scale run at p10 -1.95 … p90 1.9 draws a
+ * -2 … 4 axis. Asking the predicate about that widened domain would print bare
+ * "-2 · 0 · 2 · 4" ticks on a run the results hook treats as model scale. So
+ * the predicate reads each analysed option's p10/p90, as the hook's pre-scan
+ * does (the hook also reads the mean) (R&C #2133 merge).
  */
-function outcomeDomainIsModelScale(scale: { lo: number; hi: number }): boolean {
+function outcomeDomainIsModelScale(rows: OptionsComparisonSection['rows']): boolean {
   // The SAME predicate the results hook's denormalisation pre-scan reads (R&C #2133 B1): one run, one answer.
-  return outcomeValuesAreModelScale([scale.lo, scale.hi])
+  return outcomeValuesAreModelScale(
+    rows.flatMap((r) => (r.kind === 'analysed' && r.outcomeRange != null ? [r.outcomeRange.p10, r.outcomeRange.p90] : [])),
+  )
 }
 
 function formatAxisTick(value: number): string {
@@ -588,7 +597,7 @@ export function OptionsComparison({
    * figure this wave does NOT add for the identical reason.
    */
   const axisTicks: readonly string[] | null =
-    showAxis && rangeScale !== null && !outcomeDomainIsModelScale(rangeScale)
+    showAxis && rangeScale !== null && !outcomeDomainIsModelScale(options.rows)
       ? AXIS_TICK_FRACTIONS.map((f, i) => formatAxisTick(rangeScale.ticks?.[i] ?? rangeScale.lo + f * rangeScale.span))
       : null
 
