@@ -18,8 +18,8 @@
  * / `layeredLeadPath`, what `StyledEdge` draws), with the same box, overlap and
  * sampling rules as `v31Ws1LandingComposition.spec.ts`.
  *
- * HEIGHTS: measured in real Chromium on this branch's product code at db876c22
- * (9dc3e7af + staging 57d28b0e; local dev server, `playwright.geometry.config.ts`,
+ * HEIGHTS: measured in real Chromium on this branch's product code at d54545f6
+ * (9dc3e7af + staging c976c029; local dev server, `playwright.geometry.config.ts`,
  * pricing starter, 1280x800, zoom 0.5, label scale 2), by calling the production
  * `measureNodeHeightsAtLabelBound` before and after a completed Run seeded with
  * the served shares, the served rank (`Driver 1 of 5 analysed` on
@@ -32,8 +32,8 @@
  * line here; at 9dc3e7af the plot replaced a 30.3px one, 283 → 406.) The same
  * run read the DOM directly: layoutVersion 1 → 2, 0 overlapping card pairs and
  * 0 edge paths (30 of 30 sampled with getPointAtLength) under a non-endpoint
- * card, before and after. Re-read after merging staging 262941eb (50956179):
- * every bound height and position identical.
+ * card, before and after. (Option heights here are post-#2140 one-line change
+ * rows; the relation under test does not depend on them.)
  *
  * CLAIM SCOPE: local Chromium with a seeded result, not the deployed build. The
  * served found-case witness is still owed after the merge.
@@ -58,9 +58,9 @@ const PRE_BOUND: Record<string, number> = {
   fac_top_account_concentration: 218,
   fac_usage_exposure: 264,
   goal_pricing_transition: 190,
-  opt_full_switch: 343,
-  opt_hybrid: 507,
-  opt_new_logos: 507,
+  opt_full_switch: 315,
+  opt_hybrid: 425,
+  opt_new_logos: 425,
   opt_status_quo: 313,
   out_bottom_up_growth: 186,
   out_nrr: 283,
@@ -70,23 +70,23 @@ const PRE_BOUND: Record<string, number> = {
 /** …and after the FOUND Run: the same reads, with the one card that moved. */
 const POST_BOUND: Record<string, number> = { ...PRE_BOUND, [RANK_1]: 406 }
 
-/** Store positions the same Chromium run read, before the Run and after the re-lay. */
+/** Store positions the same Chromium run read before the Run (after it, it read the bands below the factors +110). */
 const PRE_POSITIONS: Record<string, { x: number; y: number }> = {
   dec_pricing: { x: 494, y: 24 },
-  fac_adoption_friction: { x: 261, y: 767 },
-  fac_enterprise_revenue_risk: { x: 419, y: 1076 },
-  fac_market_competition: { x: 577, y: 767 },
-  fac_top_account_concentration: { x: 735, y: 1076 },
-  fac_usage_exposure: { x: 893, y: 767 },
-  goal_pricing_transition: { x: 494, y: 1783 },
+  fac_adoption_friction: { x: 261, y: 685 },
+  fac_enterprise_revenue_risk: { x: 419, y: 994 },
+  fac_market_competition: { x: 577, y: 685 },
+  fac_top_account_concentration: { x: 735, y: 994 },
+  fac_usage_exposure: { x: 893, y: 685 },
+  goal_pricing_transition: { x: 494, y: 1701 },
   opt_full_switch: { x: 24, y: 196 },
   opt_hybrid: { x: 340, y: 196 },
   opt_new_logos: { x: 656, y: 196 },
   opt_status_quo: { x: 972, y: 196 },
-  out_bottom_up_growth: { x: 340, y: 1436 },
-  out_nrr: { x: 972, y: 1436 },
-  risk_enterprise_churn: { x: 656, y: 1436 },
-  risk_pricing_complexity: { x: 24, y: 1436 },
+  out_bottom_up_growth: { x: 340, y: 1354 },
+  out_nrr: { x: 972, y: 1354 },
+  risk_enterprise_churn: { x: 656, y: 1354 },
+  risk_pricing_complexity: { x: 24, y: 1354 },
 }
 const BELOW_FACTORS = ['goal_pricing_transition', 'out_bottom_up_growth', 'out_nrr', 'risk_enterprise_churn', 'risk_pricing_complexity']
 
