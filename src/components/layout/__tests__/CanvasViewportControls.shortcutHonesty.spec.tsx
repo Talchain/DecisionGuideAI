@@ -69,11 +69,14 @@ describe('CanvasViewportControls — advertises only shortcuts that exist', () =
   })
 
   it('(b) CONTRAST — the shortcut that IS implemented is still advertised', async () => {
+    // v3.1 DESIGN-GAP #14: Auto-arrange lives in the toolbar's overflow menu
+    // now, and the item carries its key on its face and in `aria-keyshortcuts`.
     const user = userEvent.setup()
     renderControls()
 
-    const autoArrange = screen.getByRole('button', { name: 'Auto-arrange' })
-    await user.hover(autoArrange)
-    expect(await screen.findByText(/⇧A/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'More view options' }))
+    const autoArrange = screen.getByRole('menuitem', { name: 'Auto-arrange' })
+    expect(autoArrange).toHaveTextContent('⇧A')
+    expect(autoArrange).toHaveAttribute('aria-keyshortcuts', 'Shift+A')
   })
 })

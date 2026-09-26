@@ -21,7 +21,9 @@
  * DISAPPEARS when the state stops holding.
  */
 
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
@@ -41,6 +43,18 @@ import { useCanvasStore } from '../../store'
 import { STARTERS } from '../../starters/loadStarter'
 
 const MARKET = STARTERS.find((s) => s.id === 'market-entry')!
+
+/**
+ * contract v3.1 (DESIGN-GAP #3, 26 Sep 2026): the disclosure rests as one quiet
+ * line and its full sentences and actions are ONE CLICK away. Every assertion
+ * below about that detail opens it first, so none of them can pass vacuously on
+ * a closed detail (the at-rest shape is pinned in
+ * `StarterProvenanceBanner.v31ContextLine.spec.tsx`).
+ */
+function openDetail() {
+  fireEvent.click(screen.getByTestId('starter-provenance-line'))
+  return screen.getByTestId('starter-provenance-detail')
+}
 
 function setNodes(data: Record<string, unknown> | null, count = 3) {
   useCanvasStore.setState({
@@ -93,16 +107,19 @@ describe('StarterProvenanceBanner', () => {
     it('states this is a saved example and that it was NOT generated just now', () => {
       render(<StarterProvenanceBanner />)
       const banner = screen.getByTestId('starter-provenance-banner')
-      expect(banner).toHaveTextContent(/saved example/i)
-      expect(banner).toHaveTextContent(/wasn’t generated just now/i)
+      // At rest, the line already says it is a saved example, drafted by Olumi.
+      expect(banner).toHaveTextContent(/saved example drafted by Olumi/i)
+      const detail = openDetail()
+      expect(detail).toHaveTextContent(/saved example/i)
+      expect(detail).toHaveTextContent(/wasn’t generated just now/i)
       // Names WHEN it was drafted, from the generated manifest — never a
       // hardcoded date that could drift from the capture.
-      expect(banner).toHaveTextContent(MARKET.provenance.capturedAt)
+      expect(detail).toHaveTextContent(MARKET.provenance.capturedAt)
     })
 
     it('explains why analysis is held, so a disabled Run does not read as broken', () => {
       render(<StarterProvenanceBanner />)
-      expect(screen.getByTestId('starter-provenance-banner')).toHaveTextContent(/analysis is held/i)
+      expect(openDetail()).toHaveTextContent(/analysis is held/i)
     })
 
     it('STOPS claiming analysis is held once the run gate no longer holds it', () => {
@@ -113,7 +130,7 @@ describe('StarterProvenanceBanner', () => {
       // made — while the provenance disclosure, which is still true, stays.
       try { localStorage.setItem('feature.v5CanonicalAnalysis', '0') } catch { /* ignore */ }
       render(<StarterProvenanceBanner />)
-      const banner = screen.getByTestId('starter-provenance-banner')
+      const banner = openDetail()
       expect(banner).not.toHaveTextContent(/analysis is held/i)
       // CONTROL: the banner is still mounted and still discloses provenance, so
       // the absence above is the CLAIM being dropped, not the component.
@@ -164,7 +181,7 @@ describe('StarterProvenanceBanner', () => {
       // Copy that overstates the product is the defect class this repo hunts,
       // so it is pinned rather than left to review.
       render(<StarterProvenanceBanner />)
-      const banner = screen.getByTestId('starter-provenance-banner')
+      const banner = openDetail()
       expect(banner.textContent ?? '').not.toMatch(/saved into your own decision/i)
       // The one route that DOES work is named.
       expect(banner).toHaveTextContent(/re-draft it live/i)
@@ -186,34 +203,56 @@ describe('StarterProvenanceBanner', () => {
     it('can be dismissed', async () => {
       const user = userEvent.setup()
       render(<StarterProvenanceBanner />)
+      await user.click(screen.getByTestId('starter-provenance-line'))
       await user.click(screen.getByTestId('starter-provenance-dismiss'))
       expect(screen.queryByTestId('starter-provenance-banner')).not.toBeInTheDocument()
     })
   })
 
-  describe('contract v3.1 — one notice recipe in the overlay cell', () => {
-    it('⭐ CHR-6: the full neutral border every other occupant carries, on bg-panel with the warm shadow-2', () => {
-      render(<StarterProvenanceBanner />)
-      const cls = screen.getByTestId('starter-provenance-banner').className.split(/\s+/)
-      for (const c of ['bg-panel', 'border', 'border-panel-border', 'shadow-2', 'rounded-lg', 'py-1']) expect(cls).toContain(c)
+  /**
+   * contract v3.1 DESIGN-GAP #3 (26 Sep 2026) REPLACED the overlay-cell notice
+   * recipe these three tests used to pin (CHR-6 border/shadow, CHR-14 caption
+   * head, CHR-9 dismiss ring). The disclosure is now v3.1's `.context-banner`:
+   * a 10px muted line, with the detail at 12px. jsdom applies no CSS modules
+   * (`css: false`), so — as `CanvasFloatingToolbar.chromeGeometry.v31.spec.ts`
+   * does — the stylesheet's own rules are read by exact selector.
+   */
+  describe('contract v3.1 — the quiet context line and its detail', () => {
+    const CSS = readFileSync(join(__dirname, '..', 'StarterProvenanceBanner.module.css'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+    const rule = (selector: string): Record<string, string> => {
+      const esc = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const m = new RegExp(`(?:^|\\})\\s*${esc}\\s*\\{([^}]*)\\}`).exec(CSS)
+      const out: Record<string, string> = {}
+      for (const decl of (m?.[1] ?? '').split(';')) {
+        const i = decl.indexOf(':')
+        if (i > 0) out[decl.slice(0, i).trim()] = decl.slice(i + 1).trim()
+      }
+      return out
+    }
+
+    it('POSITIVE CONTROL: the reader finds the rules the component uses', () => {
+      expect(rule('.root').position).toBe('fixed')
+      expect(Object.keys(rule('.detail')).length).toBeGreaterThan(3)
     })
 
-    it('⭐ CHR-14: the headline is the notice family’s one body size — caption with a medium head, never bodySmall', () => {
-      render(<StarterProvenanceBanner />)
-      const headline = [...screen.getByTestId('starter-provenance-banner').querySelectorAll('p')]
-        .find(p => /saved example/i.test(p.textContent ?? ''))!
-      const cls = headline.className.split(/\s+/)
-      expect(cls).toContain('text-xs')        // typography.caption, 12px
-      expect(cls).toContain('font-medium')
-      expect(cls).toContain('text-text-header')
-      expect(cls).not.toContain('text-sm')    // typography.bodySmall, 14px
+    it('⭐ `.context-banner`: the resting line is 10px, weight 400, in the muted token — no border, no fill', () => {
+      const line = rule('.line')
+      expect(line['font-size']).toBe('10px')
+      expect(line['font-weight']).toBe('400')
+      expect(line.color).toBe('var(--text-light)')
+      expect(line.border).toBe('0')
+      expect(line.background).toBe('transparent')
+      expect(rule('.icon').width).toBe('13px')
     })
 
-    it('CHR-9: its dismiss carries a visible focus ring, like every notice’s', () => {
-      render(<StarterProvenanceBanner />)
-      const cls = screen.getByTestId('starter-provenance-dismiss').className.split(/\s+/)
-      expect(cls).toContain('focus-visible:ring-2')
-      expect(cls).toContain('focus-visible:ring-info')
+    it('the detail restates it at 12px (v3.1 point 12: 10–11px information is also reachable at 12–14px)', () => {
+      expect(rule('.detailHead')['font-size']).toBe('12px')
+      expect(rule('.detailBody')['font-size']).toBe('12px')
+    })
+
+    it('the dismiss and the re-draft each carry a visible focus ring', () => {
+      expect(rule('.button:focus-visible,\n.textButton:focus-visible').outline).toBe('2px solid var(--info)')
     })
   })
 
@@ -221,6 +260,7 @@ describe('StarterProvenanceBanner', () => {
     it('names the trade-off before doing anything destructive', async () => {
       const user = userEvent.setup()
       render(<StarterProvenanceBanner />)
+      await user.click(screen.getByTestId('starter-provenance-line'))
       await user.click(screen.getByTestId('starter-redraft'))
       expect(confirmSpy).toHaveBeenCalledTimes(1)
       const prompt = String(confirmSpy.mock.calls[0][0])
@@ -233,6 +273,7 @@ describe('StarterProvenanceBanner', () => {
       confirmSpy.mockReturnValue(false)
       const user = userEvent.setup()
       render(<StarterProvenanceBanner />)
+      await user.click(screen.getByTestId('starter-provenance-line'))
       await user.click(screen.getByTestId('starter-redraft'))
       expect(resetSpy).not.toHaveBeenCalled()
       expect(sendMessageMock).not.toHaveBeenCalled()
@@ -241,6 +282,7 @@ describe('StarterProvenanceBanner', () => {
     it('sends the VERBATIM original brief — not a shortened or rewritten one', async () => {
       const user = userEvent.setup()
       render(<StarterProvenanceBanner />)
+      await user.click(screen.getByTestId('starter-provenance-line'))
       await user.click(screen.getByTestId('starter-redraft'))
       await waitFor(() => expect(sendMessageMock).toHaveBeenCalledTimes(1))
       const [text, opts] = sendMessageMock.mock.calls[0]
@@ -255,6 +297,7 @@ describe('StarterProvenanceBanner', () => {
     it('clears the canvas first so the composer drafts a model rather than chats', async () => {
       const user = userEvent.setup()
       render(<StarterProvenanceBanner />)
+      await user.click(screen.getByTestId('starter-provenance-line'))
       await user.click(screen.getByTestId('starter-redraft'))
       expect(resetSpy).toHaveBeenCalledTimes(1)
     })

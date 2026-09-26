@@ -28,6 +28,7 @@ import { useProvisionalAnalysisDelivery } from '../canvas/hooks/useProvisionalAn
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
 import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
+import { getStarter, resolveStarterId } from '../canvas/starters/loadStarter'
 import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
 
 const TEMPLATE_GRAPH_MUTATIONS_CONNECTED = hasServerGraphAuthority(
@@ -208,15 +209,23 @@ export default function CanvasMVP() {
     return typeof label === 'string' && label.trim().length > 0 ? label : null
   })
 
+  // A saved example's own name — the manifest title the starter card shows —
+  // read through the one "is this a starter" predicate. A primitive selector.
+  const exampleTitle = useCanvasStore(state => {
+    const starterId = resolveStarterId(state.nodes ?? [])
+    return starterId ? (getStarter(starterId)?.title ?? null) : null
+  })
+
   const scenarioTitle = (() => {
     if (currentScenarioId) {
       const scenario = getScenario(currentScenarioId)
       if (scenario?.name) return scenario.name
     }
-    // A model with no stored title is named after the goal it is about — see
-    // `canvas/domain/modelDisplayName`. Display only; nothing is written here.
+    // A model with no stored title is named after the example it is (when it is
+    // one), else the goal it is about — see `canvas/domain/modelDisplayName`.
+    // Display only; nothing is written here.
     const framingGoal = (framing as Record<string, unknown> | null)?.goal
-    return resolveModelDisplayName(framing?.title, framingGoal ?? goalNodeLabel)
+    return resolveModelDisplayName(framing?.title, framingGoal ?? goalNodeLabel, exampleTitle)
   })()
 
   const lastSaved = lastSavedAt ? new Date(lastSavedAt) : null

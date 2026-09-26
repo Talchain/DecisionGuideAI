@@ -1,5 +1,6 @@
 import { useLayoutProgressStore } from '../layoutProgressStore'
 import { typography } from '../../styles/typography'
+import { TOP_CLEARANCE } from '../utils/topBarClearance'
 
 export function LayoutProgressBanner() {
   const { status, message, canRetry, retry, cancel, actionLabel } = useLayoutProgressStore()
@@ -10,7 +11,7 @@ export function LayoutProgressBanner() {
   const text = message || (isError ? 'Layout failed. Please try again.' : 'Loading layout engine and applying layout...')
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[3000]">
+    <div style={{ top: TOP_CLEARANCE }} className="fixed left-1/2 -translate-x-1/2 z-[3000]">
       <div
         className="inline-flex items-center gap-3 rounded-lg bg-gray-900 text-white px-4 py-2 shadow-panel"
         role="status"
