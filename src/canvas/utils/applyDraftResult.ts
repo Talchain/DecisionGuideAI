@@ -14,6 +14,7 @@
 import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
+import { readWireNaturalEffect } from '../domain/naturalEffect'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { readCeeQualityDimensions } from './ceeQualityDimensions'
 import { saveAutosave } from '../store/scenarios'
@@ -141,6 +142,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
   // DEFAULT_EDGE_DATA it depends on, in domain/edges.ts. Read it there.
   const validation = readValidationMetadata(e.validation)
   const serverStrength = readServerStatedStrength(e as Record<string, unknown>)
+  const naturalEffect = readWireNaturalEffect(e as Record<string, unknown>)
   const strengthAuthor = readWireEdgeStrengthAuthor(e as Record<string, unknown>)
 
   return {
@@ -165,6 +167,8 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       // the twins. All three call the ONE reader, so the lockstep is structural
       // rather than pinned, exactly as it is for `validation` above.
       ...(serverStrength !== undefined ? { serverStrength } : {}),
+      // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
+      ...(naturalEffect !== undefined ? { naturalEffect } : {}),
       // Set-vs-defaulted markers. Derived from the resolved values themselves,
       // never from "we are in the CEE mapper so it must be CEE": when the wire
       // carried no belief at all, `beliefExists` is `undefined` here and the

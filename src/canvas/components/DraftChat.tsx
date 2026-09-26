@@ -13,6 +13,7 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
+import { readWireNaturalEffect } from '../domain/naturalEffect'
 import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
@@ -674,6 +675,7 @@ export function DraftChat() {
       }
 
       const serverStrength = readServerStatedStrength(e as Record<string, unknown>)
+      const naturalEffect = readWireNaturalEffect(e as Record<string, unknown>)
       const strengthAuthor = readWireEdgeStrengthAuthor(e as Record<string, unknown>)
 
       return {
@@ -720,6 +722,8 @@ export function DraftChat() {
           // producer's silence into a fabricated `'positive'`. Neither can
           // answer what the server holds.
           ...(serverStrength !== undefined ? { serverStrength } : {}),
+          // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
+          ...(naturalEffect !== undefined ? { naturalEffect } : {}),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),

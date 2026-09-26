@@ -140,6 +140,7 @@ import { getCausalEdges } from '../domain/edgeUtils'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
+import { NaturalEffectSchema, naturalEffectPhrase } from '../domain/naturalEffect'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
 // THE ONE value+unit composer this tab already owns. Imported, never
 // re-expressed — see the goal branch below for why a fourth copy of "which
@@ -485,7 +486,15 @@ function edgeValue(data: unknown): string | null {
   const bag = (data ?? undefined) as Record<string, unknown> | undefined
   const seed = resolveEdgeStrengthEditSeed(bag)
   if (seed === null) return null
-  return getDirectionalStrengthLabel(seed.seed, resolveEdgeDirectionDisplay(bag))
+  const direction = resolveEdgeDirectionDisplay(bag)
+  // ⭐ THE SIZE IN THE TARGET'S OWN UNITS FIRST, when the producer admitted one
+  // for THIS β (magnitude contract, MG #70 5845713522). The |β| band called
+  // "AI cuts churn by 1 point at 4%" (β −0.01) "Negligible effect". A legacy
+  // edge, a moved β, or an unstated direction → null → the band, unchanged.
+  // Re-parsed here: persisted edge data is not proof of shape.
+  const natural = NaturalEffectSchema.safeParse(bag?.naturalEffect)
+  return naturalEffectPhrase(natural.success ? natural.data : null, seed.seed, direction)
+    ?? getDirectionalStrengthLabel(seed.seed, direction)
 }
 
 /**
