@@ -61,7 +61,7 @@ describe('captureRunGateInputs — the bundle names the carrier that closed the 
   })
 
   it('the results-stale overlay alone (set by every approved write) keeps it bound, and the bundle still reports the overlay', () => {
-    useCanvasStore.setState({ analysisFreshnessDirty: true } as never)
+    useCanvasStore.setState({ analysisFreshnessDirty: true, pendingEmittedEdits: 0 } as never)
     const g = captureRunGateInputs()!
     expect(g.bound_admission).not.toBeNull()
     expect(g.analysis_freshness_dirty).toBe(true)
