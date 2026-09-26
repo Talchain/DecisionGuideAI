@@ -108,12 +108,12 @@ const nodes = SERVED_FACTORS.map(f => ({ id: f.id, type: 'factor', position: { x
 
 // Served post-run: only the top factor is ranked ("Driver 1 of 5 analysed").
 const SERVED_ORDER = [RANK_1, 'fac_enterprise_revenue_risk', 'fac_usage_exposure', 'fac_adoption_friction', 'fac_market_competition']
-const meta = (id: string, ran: boolean) => {
+const meta = (id: string, ran: boolean, rankedCount = 1) => {
   const rank = SERVED_ORDER.indexOf(id) + 1
   return {
     sensitivityRank: ran ? rank : null, influence: ran ? [1, 0.7, 0.5, 0.3, 0.1][rank - 1] : null,
     influenceProvenance: 'influence_score', influenceImportanceBasis: null,
-    influenceSetSize: ran ? 5 : null, influenceRankedCount: ran ? 1 : null,
+    influenceSetSize: ran ? 5 : null, influenceRankedCount: ran ? rankedCount : null,
     confidence: null, confidenceIsDefaulted: false, confidenceIsProvisional: false,
     inSensitivityAnalysis: ran, achievementProbability: null,
     achievementProbabilityIsModelledBasis: false, stabilityPercentage: null, winRate: null,
@@ -133,9 +133,9 @@ const SERVED_REPORT = {
   flip_thresholds: [{ node_id: RANK_1, label: 'Top Account Revenue Concentration', flip_reason: 'no_effect_within_bounds' }],
 }
 
-const seed = (phase: 'pre' | 'post') => {
+const seed = (phase: 'pre' | 'post', report: Record<string, unknown> = SERVED_REPORT, rankedCount = 1) => {
   const ran = phase === 'post'
-  metaById = Object.fromEntries(SERVED_FACTORS.map(f => [f.id, meta(f.id, ran)]))
+  metaById = Object.fromEntries(SERVED_FACTORS.map(f => [f.id, meta(f.id, ran, rankedCount)]))
   useCanvasStore.setState({
     nodes, edges: [], ceeAnalysisReady: null, viewMode: 'standard', lodRung: 'full', goalConstraints: [],
     analysisStateV1: null, importPendingServerRegistration: false, currentScenarioId: 'pricing-scenario',
@@ -143,7 +143,7 @@ const seed = (phase: 'pre' | 'post') => {
     analysisFreshnessDirty: false,
     v5AnalysisFact: ran ? { scenarioId: 'pricing-scenario', analysisHash: 'run-1', hasRunAnalysisFact: true } : null,
     hasCompletedFirstRun: ran,
-    results: ran ? { status: 'complete', hash: 'run-1', report: SERVED_REPORT } : { status: 'idle', report: null },
+    results: ran ? { status: 'complete', hash: 'run-1', report } : { status: 'idle', report: null },
   } as never)
 }
 
@@ -257,5 +257,114 @@ describe('(b) "No turning point in this run" is NOT on the card', () => {
     expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
     expect(c.textContent).not.toContain('No turning point')
+  })
+})
+
+/*
+ * ⭐⭐ THE FOUND CASE — DL #70 5850012381, amending 5849644637 after MG's #2138
+ * review (B1): "A FOUND turning point stays on the card as the prototype's flip
+ * plot. No card grows after a Run, EXCEPT the rank-1 factor, and only by the
+ * flip plot when a turning point is found. 'None found' stays off the card."
+ *
+ * FIXTURE: MG's probe (`ui2138-handoff/MGPROBE2138.found-turning-point.spec.tsx`)
+ * — this file's served board with the served no-flip row swapped for a FOUND row
+ * on the rank-1 factor. `MG_ADDED` is that probe's result at 9dc3e7af, verbatim.
+ * The board half (0 overlaps, 0 new edges under cards at the post-run height) is
+ * `canvas/__tests__/factorFoundTurningPoint.geometry.spec.ts`.
+ */
+const FOUND_ROW = {
+  node_id: RANK_1, label: 'Top Account Revenue Concentration', flip_reason: 'found',
+  current_value: 0.4, flip_value: 0.7, value_scale: 'display', alternative_winner_label: 'Full Switch to Usage-Based at Renewal',
+}
+const FOUND_REPORT = { ...SERVED_REPORT, flip_thresholds: [FOUND_ROW] }
+const MG_ADDED = [
+  `node-card-rail-resting-${RANK_1}`, `attention-marker-${RANK_1}`, 'attention-marker-ring', 'node-title-corner-spacer',
+  'factor-driver-line', 'factor-driver-line-caption', 'factor-driver-line-bar', 'factor-driver-line-bar-fill',
+  'factor-turning-point', 'factor-turning-point-caption', 'factor-turning-point-run-value',
+  'factor-turning-point-track', 'factor-turning-point-current', 'factor-turning-point-flip',
+]
+const MG_REMOVED = [`factor-prior-range-${RANK_1}`, `factor-range-source-${RANK_1}`]
+const FLIP_PLOT_IDS = MG_ADDED.filter(t => t.startsWith('factor-turning-point'))
+
+/** Every testid on the rendered card, in document order. */
+const allIds = (root: HTMLElement) => [...root.querySelectorAll('[data-testid]')].map(e => e.getAttribute('data-testid')!)
+/** …outside the reserved slot: the slot's CONTENT is the slot's business (one fixed line). */
+const faceIds = (root: HTMLElement, id: string) => {
+  const s = root.querySelector(`[data-testid="factor-driver-slot-${id}"]`)!
+  return [...root.querySelectorAll('[data-testid]')].filter(e => e === s || !s.contains(e)).map(e => e.getAttribute('data-testid')!)
+}
+
+describe('FOUND turning point on the rank-1 factor — the ONE card that may grow, and only by the flip plot', () => {
+  it(`${RANK_1}: pre → post adds exactly MG's probe set and removes only the range line; the flip plot sits at rest right under the reserved slot`, () => {
+    seed('pre', FOUND_REPORT)
+    const pre = allIds(renderCard(RANK_1).container)
+    cleanup()
+    seed('post', FOUND_REPORT)
+    const { container } = renderCard(RANK_1)
+    const post = allIds(container)
+    expect(post.filter(t => !pre.includes(t))).toEqual(MG_ADDED)
+    // Spec §3 precedence: the plot supersedes the range line (Chromium: 30.3px out, 91.8px in).
+    expect(pre.filter(t => !post.includes(t))).toEqual(MG_REMOVED)
+    const c = card('Top Account Revenue Concentration')
+    const s = within(c).getByTestId(`factor-driver-slot-${RANK_1}`)
+    const plot = within(c).getByTestId('factor-turning-point')
+    // On the card FACE, the sibling right after the slot — not in a popover.
+    expect(s.nextElementSibling).toBe(plot)
+    expect(within(plot).getByTestId('factor-turning-point-caption').textContent).toBe(
+      'Above 0.7, the current model comparison shifts towards Full Switch to Usage-Based at Renewal.',
+    )
+    expect(within(s).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 5 analysed')
+    // "None found" is not the arm here, and never on the card.
+    expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
+  })
+
+  it.each(SERVED_FACTORS.filter(f => f.id !== RANK_1).map(f => [f.id, f.data.label] as const))(
+    '%s: the rank-1 finding leaves this card\'s shape unchanged pre → post — same testids outside the slot, in order, plus only the sr-only "Not ranked" line',
+    (id, label) => {
+      seed('pre', FOUND_REPORT)
+      const pre = faceIds(renderCard(id).container, id)
+      const preClass = slot(id)!.getAttribute('class')
+      cleanup()
+      seed('post', FOUND_REPORT)
+      const { container } = renderCard(id)
+      expect(within(card(label)).getByTestId(`factor-driver-slot-${id}`)).toBe(slot(id))
+      const post = faceIds(container, id)
+      expect(tokens(screen.getByTestId('factor-driver-not-ranked'))).toContain('sr-only')
+      expect(post.filter(t => t !== 'factor-driver-not-ranked')).toEqual(pre)
+      expect(slot(id)!.getAttribute('class')).toBe(preClass)
+      expect(allIds(container).filter(t => FLIP_PLOT_IDS.includes(t))).toEqual([])
+    },
+  )
+
+  it('the rank-1 GATE: a FOUND row on the rank-2 factor stays off its card face (popover/inspector); rank 1 keeps its plot (present control)', () => {
+    // MG's row shape, on two factors, with the Run ranking two ("Driver 2 of 5 analysed").
+    const RANK_2 = 'fac_enterprise_revenue_risk'
+    const twoFound = {
+      ...SERVED_REPORT,
+      flip_thresholds: [
+        FOUND_ROW,
+        { node_id: RANK_2, label: 'Enterprise Revenue Cannibalization Risk', flip_reason: 'found', current_value: 0, flip_value: 0.5, value_scale: 'display', alternative_winner_label: 'Hybrid Platform Fee Plus Usage' },
+      ],
+    }
+    seed('post', twoFound, 2)
+    renderCard(RANK_1)
+    expect(within(card('Top Account Revenue Concentration')).getByTestId('factor-turning-point')).toBeInTheDocument()
+    cleanup()
+
+    seed('pre', twoFound, 2)
+    const pre = faceIds(renderCard(RANK_2).container, RANK_2)
+    cleanup()
+    seed('post', twoFound, 2)
+    const { container } = renderCard(RANK_2)
+    const c = card('Enterprise Revenue Cannibalization Risk')
+    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 5 analysed')
+    expect(allIds(container).filter(t => FLIP_PLOT_IDS.includes(t))).toEqual([])
+    // What DOES arrive is the run's attention mark (`nodeAttention`: a found row
+    // qualifies) — a corner mark, not the plot. Chromium, this title, found row on
+    // this factor: 147.9 → 147.9px ("Enterprise" shares line 1 with the mark).
+    const post = faceIds(container, RANK_2)
+    const attentionMark = [`node-card-rail-resting-${RANK_2}`, `attention-marker-${RANK_2}`, 'attention-marker-ring', 'node-title-corner-spacer']
+    expect(post.filter(t => !pre.includes(t))).toEqual(attentionMark)
+    expect(post.filter(t => !attentionMark.includes(t))).toEqual(pre)
   })
 })
