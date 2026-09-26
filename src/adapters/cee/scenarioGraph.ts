@@ -177,6 +177,16 @@ export type ScenarioGraphResult =
        * declaration here would be a mirror of the block contract.
        */
       analysisResult: unknown
+      /**
+       * CEE's run admission for this revision (`analysis_admission.admitted`), or
+       * `null` / absent when the read did not answer. The boot restore of a
+       * gate-closing verdict needs it: CEE may admit a run whose readiness still
+       * lists MISSING_OPTION_VALUE (waived by exclusion), and the gate reads that
+       * readiness as closing Run unless it is told the run is admitted.
+       * BOUND: carried only when the admission's own `graph_hash` (64-hex, the
+       * stored bytes it judged) starts with this read's `graph_hash`.
+       */
+      admitted?: boolean | null
       requestId: string | null
     }
   /** 200, `graph_present:false` — the scenario exists and has no graph yet. Normal. */
@@ -348,8 +358,24 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // being the one block type this leg may carry, so a future CEE key cannot
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
+    admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     requestId,
   }
+}
+
+/**
+ * `analysis_admission.admitted` when it is a boolean AND the admission names the
+ * revision this read carries; anything else is "did not answer". CEE computes both
+ * from the same stored graph in one request (measured 26 Sep: `06bdf585412154de…`
+ * on both), so a mismatch means the two do not describe one model.
+ */
+function readAdmitted(raw: unknown, readGraphHash: unknown): boolean | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const { admitted, graph_hash: admissionHash } = raw as { admitted?: unknown; graph_hash?: unknown }
+  if (typeof admitted !== 'boolean') return null
+  if (typeof readGraphHash !== 'string' || readGraphHash.length === 0) return null
+  if (typeof admissionHash !== 'string' || !admissionHash.startsWith(readGraphHash)) return null
+  return admitted
 }
 
 /**

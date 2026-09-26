@@ -107,7 +107,9 @@ describe('⭐ a reload of a BLOCKED model keeps CEE\'s named reason (served read
     // Bound by identity to the served pre-reload title. CEE's own first sentence ("…Add at least one
     // factor edge.") is withheld by the jargon guard (`isSafeCeeText`: "edge"), so the gate names the
     // two blocked options — the same sentence the live session showed.
-    expect(sentences).toEqual(['"New option" and "New option" are not ready for analysis yet. Ask in the chat what they need.'])
+    // Re-pinned (row 6a; Canonical #70 5844072332): #2097's "name it once" (`composeBlockedReason.ts`) names
+    // two options with one label once, so the served pre-reload title now reads in the singular.
+    expect(sentences).toEqual(['"New option" is not ready for analysis yet. Ask in the chat what it needs.'])
     expect(sentences).not.toContain(BLOCKED_REASON_COPY.unspecified)
   })
 
