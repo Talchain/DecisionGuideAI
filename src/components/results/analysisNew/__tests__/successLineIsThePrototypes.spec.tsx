@@ -166,7 +166,13 @@ describe('the form — the prototype goal-form, under the row rather than in pla
     expect(screen.getByTestId(`${T}-none`).textContent).toBe('What would success look like?')
     const form = screen.getByTestId(`${T}-editor`)
     expect(before(screen.getByTestId(`${T}-row`), form), 'the form sits under the row').toBe(true)
-    expect(screen.getByTestId(`${T}-form-label`).textContent).toBe('How would you recognise success?')
+    const formLabel = screen.getByTestId(`${T}-form-label`)
+    expect(formLabel.textContent).toBe('How would you recognise success?')
+    // The prototype's `.form label.header-text` resolves to 12px at 600: the
+    // body size, emphasised — not the 14px section header.
+    expect(formLabel.className.split(' ')).toContain('text-xs')
+    expect(formLabel.className.split(' ')).not.toContain('text-sm')
+    expect(formLabel.querySelector('strong')?.textContent).toBe('How would you recognise success?')
     expect(screen.getByRole('radiogroup')).toHaveAccessibleName('How would you recognise success?')
     expect(screen.getByLabelText('In words')).toBeChecked()
     expect(screen.getByLabelText('A target')).not.toBeChecked()
