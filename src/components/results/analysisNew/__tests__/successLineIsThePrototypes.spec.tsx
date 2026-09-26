@@ -268,6 +268,36 @@ describe('the form — the prototype goal-form, under the row rather than in pla
     fireEvent.keyDown(screen.getByTestId(`${T}-words-input`), { key: 'Escape' })
     expect(screen.queryByTestId(`${T}-editor`)).toBeNull()
   })
+
+  /**
+   * ⭐ #2075 review note: the radios, "Not sure yet" and the send button had no
+   * Escape — the "place to stand where Escape does nothing" this file's own
+   * keyboard contract warns about. Every control in the form is a place to
+   * stand, in both modes, and leaving by Escape writes nothing.
+   */
+  it('Escape closes the form from EVERY control a reader can stand on, and writes nothing', () => {
+    seed(UNSET_WITH_UNIT)
+    render(<ModelStrip isPreRun={false} />)
+    const standOn: Array<[mode: 'words' | 'number', testId: string]> = [
+      ['words', `${T}-mode-words`],
+      ['words', `${T}-mode-number`],
+      ['words', `${T}-defer`],
+      ['words', `${T}-words-send`],
+      ['number', `${T}-mode-words`],
+      ['number', `${T}-defer`],
+      ['number', `${T}-save`],
+    ]
+    for (const [mode, id] of standOn) {
+      fireEvent.click(screen.getByTestId(`${T}-edit`))
+      if (mode === 'number') fireEvent.click(screen.getByTestId(`${T}-mode-number`))
+      const place = screen.getByTestId(id)
+      fireEvent.keyDown(place, { key: 'Escape' })
+      expect(screen.queryByTestId(`${T}-editor`), `Escape on ${id} (${mode} mode) closes the form`).toBeNull()
+    }
+    expect(setGoalThresholdAndUpdateNode).not.toHaveBeenCalled()
+    expect(proposeGoalTarget).not.toHaveBeenCalled()
+    expect(showToast, 'Escape is not "Not sure yet": no notice').not.toHaveBeenCalled()
+  })
 })
 
 describe('⛔ CONTRAST — the Inspector’s goal control is a different surface and is unchanged', () => {

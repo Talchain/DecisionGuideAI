@@ -667,6 +667,7 @@ export function SuccessTargetLine({
               canDispatch={canDispatch}
               onCommit={commit}
               onDefer={deferTarget}
+              onClose={closeEditor}
             />
           ) : null
         }
@@ -1117,6 +1118,7 @@ function ReasoningSuccessForm({
   canDispatch,
   onCommit,
   onDefer,
+  onClose,
 }: {
   testId: string
   ids: { formLabelId: string; wordsInputId: string; numberInputId: string; unitInputId: string }
@@ -1137,13 +1139,28 @@ function ReasoningSuccessForm({
   canDispatch: boolean
   onCommit: () => void
   onDefer: () => void
+  /** The editor's one close (`closeEditor`): writes nothing, says nothing. */
+  onClose: () => void
 }) {
   const hasDeclaredUnit = declaredUnit.trim() !== ''
   const sendLabel =
     mode === 'words' ? SEND_WORDS_LABEL : canDispatch ? COPY.successTarget.sendToOlumi : COPY.modelStrip.saveValue
   const sendDisabled = mode === 'words' && wordsDraft.trim() === ''
   return (
-    <div className="grid gap-2 pt-[9px] pb-[5px]" data-testid={`${testId}-editor`}>
+    <div
+      className="grid gap-2 pt-[9px] pb-[5px]"
+      data-testid={`${testId}-editor`}
+      /* ⭐ ESCAPE FROM ANYWHERE IN THE FORM (#2075 review note). The fields
+         handle their own Escape and `preventDefault` it; this catches the
+         radios, "Not sure yet" and the send button, which had none — the
+         "place to stand where Escape does nothing" `onEditorKeyDown` warns
+         about. */
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || e.defaultPrevented) return
+        e.preventDefault()
+        onClose()
+      }}
+    >
       {/* The prototype's `label.header-text` inside `.form` resolves to 12px
           at 600 (`.form label` sets the size). The panel scale has no 12px
           bold token and raw weights are banned, so the emphasis is carried
