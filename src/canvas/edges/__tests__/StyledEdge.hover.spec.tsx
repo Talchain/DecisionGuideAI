@@ -283,7 +283,7 @@ describe('StyledEdge hover popover — provenance honesty', () => {
     // Precondition: the popover really rendered, and really has the strength —
     // otherwise this absence is vacuous (the numbers control above shares it).
     expect(popover).not.toBeNull()
-    expect(popover!.textContent ?? '').toMatch(/30%/)
+    expect(popover!.textContent ?? '').toMatch(/\+0\.30 Moderate/)
 
     expect(popover!.textContent ?? '').not.toMatch(/Positive/)
     expect(popover!.textContent ?? '').not.toMatch(/Negative/)
@@ -324,7 +324,7 @@ describe('StyledEdge hover popover — provenance honesty', () => {
     const container = await hoverAndGetPopover(characterisedEdge)
     const popover = container.querySelector('[data-testid="edge-hover-popover"]')!
     // Precondition: it really is showing a strength, or the absence is vacuous.
-    expect(popover.textContent ?? '').toMatch(/30%/)
+    expect(popover.textContent ?? '').toMatch(/\+0\.30 Moderate/)
     expect(container.querySelector('[data-testid="edge-hover-popover-unset"]')).toBeNull()
   })
 
@@ -340,7 +340,7 @@ describe('StyledEdge hover popover — provenance honesty', () => {
     const popover = container.querySelector('[data-testid="edge-hover-popover"]')
     expect(popover).not.toBeNull()
     expect(popover!.textContent ?? '').toMatch(/80% confident/)
-    expect(popover!.textContent ?? '').toMatch(/30%/)
+    expect(popover!.textContent ?? '').toMatch(/\+0\.30 Moderate/)
   })
 
   it('does NOT speak the defaulted confidence or strength for a drawn edge', async () => {
@@ -382,6 +382,63 @@ describe('StyledEdge hover popover — provenance honesty', () => {
       (b.textContent ?? '').includes('Adjust strength'),
     )
     act(() => { fireEvent.click(chip!) })
-    expect(dispatched[0].message).toMatch(/Current strength is 30%\./)
+    expect(dispatched[0].message).toMatch(/Current strength is \+0\.30 Moderate\./)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A7 — invented strength %. The coefficient ×100 read "20%" on hover while
+// the inspector showed the SAME edge's value as `0.20`, and the Adjust-
+// strength chip sent that invented "20%" to CEE as the user's own words.
+// ---------------------------------------------------------------------------
+describe('StyledEdge hover popover — A7 no invented percent', () => {
+  const twentyPercentEdge = {
+    ...defaultEdgeProps,
+    data: {
+      weight: 0.2, direction: 'positive' as const, beliefExists: 0.8,
+      weightSource: 'user' as const, beliefExistsSource: 'user' as const,
+    },
+  }
+
+  async function hoverAndGetPopover(props: Record<string, unknown>) {
+    const { container } = render(<StyledEdge {...(props as any)} />)
+    const hitPath = container.querySelector('path[stroke="transparent"]')!
+    act(() => {
+      fireEvent.mouseEnter(hitPath)
+      vi.advanceTimersByTime(400)
+    })
+    return container
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    useGuidanceStore.setState({ _dispatchAction: null, _sendMessage: null } as never)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows the signed coefficient with the band word, never a ×100 percent, on a 0.2 edge (bound by testid)', async () => {
+    const container = await hoverAndGetPopover(twentyPercentEdge)
+    const value = container.querySelector('[data-testid="edge-hover-strength-value"]')
+    expect(value).not.toBeNull()
+    expect(value!.textContent).toBe('+0.20 Moderate')
+  })
+
+  it('sends the same signed-plus-band figure to CEE, never an invented "20%"', async () => {
+    const dispatched: Array<{ message: string }> = []
+    useGuidanceStore.setState({
+      _dispatchAction: (opts: { message: string }) => { dispatched.push(opts) },
+    } as never)
+
+    const container = await hoverAndGetPopover(twentyPercentEdge)
+    const chip = Array.from(container.querySelectorAll('button')).find((b) =>
+      (b.textContent ?? '').includes('Adjust strength'),
+    )
+    act(() => { fireEvent.click(chip!) })
+
+    expect(dispatched).toHaveLength(1)
+    expect(dispatched[0].message).toMatch(/Current strength is \+0\.20 Moderate\./)
+    expect(dispatched[0].message).not.toMatch(/20%/)
   })
 })

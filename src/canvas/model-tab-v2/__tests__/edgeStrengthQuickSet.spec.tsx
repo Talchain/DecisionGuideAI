@@ -88,9 +88,12 @@ const handlers = () => ({
 describe('edge strength — the quick-set bands', () => {
   it('PRECONDITION: the midpoints come from strengthBands, not from this spec', () => {
     // If this ever drifts, the assertions below are testing a private copy.
+    // A15: moderate/strong are now READ from the canonical table
+    // (domain/vocabulary.ts CANVAS_STRENGTH_BANDS), so this pill and the
+    // inspector's own quick-set write the same number for the same word.
     expect(STRENGTH_BAND_MIDPOINTS.weak).toBe(0.15)
-    expect(STRENGTH_BAND_MIDPOINTS.moderate).toBe(0.4)
-    expect(STRENGTH_BAND_MIDPOINTS.strong).toBe(0.7)
+    expect(STRENGTH_BAND_MIDPOINTS.moderate).toBe(0.3)
+    expect(STRENGTH_BAND_MIDPOINTS.strong).toBe(0.55)
   })
 
   /*
@@ -108,11 +111,12 @@ describe('edge strength — the quick-set bands', () => {
 
     fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
 
-    expect(field.value).toBe('0.7')
+    expect(field.value).toBe('0.55')
     expect(document.activeElement).toBe(field)
     // The failing assertion at the previous head: selection collapsed to 3..3.
+    // A15: the strong midpoint is now 0.55 (canonical), 4 characters.
     expect(field.selectionStart).toBe(0)
-    expect(field.selectionEnd).toBe(3)
+    expect(field.selectionEnd).toBe(4)
   })
 
   it('⛔ STATEFUL: …and Enter then proposes the NEW value, with nothing proposed before it', () => {
@@ -126,18 +130,18 @@ describe('edge strength — the quick-set bands', () => {
     expect(propose).toHaveBeenCalledWith('e-0')
     expect(
       (screen.getByTestId('model-row-v2-e-0-value-input') as HTMLInputElement).value,
-    ).toBe('0.7')
+    ).toBe('0.55')
   })
 
   it('⛔ STATEFUL: pressing the band the draft is ALREADY in still selects it', () => {
-    render(<StatefulHost initial="0.7" onProposeEdit={vi.fn()} />)
+    render(<StatefulHost initial="0.55" onProposeEdit={vi.fn()} />)
     const field = screen.getByTestId('model-row-v2-e-0-value-input') as HTMLInputElement
     fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
     // No state change, so no re-render and no effect — this arm is served
     // synchronously, and it is why the armed flag alone is not sufficient.
-    expect(field.value).toBe('0.7')
+    expect(field.value).toBe('0.55')
     expect(field.selectionStart).toBe(0)
-    expect(field.selectionEnd).toBe(3)
+    expect(field.selectionEnd).toBe(4)
   })
 
   /*
@@ -170,7 +174,7 @@ describe('edge strength — the quick-set bands', () => {
     const h = handlers()
     render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
     fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
-    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.7')
+    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.55')
   })
 
   /*
@@ -211,7 +215,7 @@ describe('edge strength — the quick-set bands', () => {
     const pill = screen.getByTestId('model-row-v2-e-0-value-band-strong')
     pill.focus()
     fireEvent.click(pill)
-    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.7')
+    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.55')
 
     // Sent to whatever actually holds focus — which is the assertion. If the
     // pill kept it, this reaches the pill and proposes nothing.
@@ -248,7 +252,7 @@ describe('edge strength — the quick-set bands', () => {
     const h = handlers()
     render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('-0.2')} editConnected {...h} />)
     fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-moderate'))
-    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '-0.4')
+    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '-0.3')
   })
 
   it('marks the band the CURRENT DRAFT falls in, and only that one', () => {

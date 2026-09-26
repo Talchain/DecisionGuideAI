@@ -174,6 +174,9 @@ import { classifyValueProvenance, factorIsConfirmable } from '../domain/valuePro
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
 import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
+// ⭐⭐ THE ONE DISPLAY READER OF A FACTOR'S PRIOR RANGE — the owner the card and
+// the reduced low-zoom line already share. See `recordedRangeText` below.
+import { resolveFactorPriorRange, userValueReplacesPrior } from '../nodes/shared/factorPriorRange'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -595,44 +598,79 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     if (kind === 'factor') {
       const value = factorValue(data)
       const obs = observedStateOf(data)
+      // ⭐ THE EDITOR'S GUARD — see `ModelRow.valueAdmission`. Resolved
+      // unconditionally (a row with both a value and a range keeps it).
+      //
+      // ⛔ NEVER THE DISPLAY TEXT. This resolver answers "does the prior ADMIT
+      // this number?" on the MODEL scale (normalised 0–1) and deliberately does
+      // not ask `isUnquantifiedPrior`. Printing its numbers put "Range 0–1" on
+      // an ignorance prior and "Range 0.2–0.8" on a £ factor whose card reads
+      // "£20,000 to £80,000" (review 2039). `recordedRangeText` reads the
+      // display owner instead.
+      const admission = resolveFactorValueAdmission(data)
+      // ⛔⛔ `factorDisplayText`, NOT `readFactorDisplayValue`, AND THE
+      // DIFFERENCE IS A LIVE DEFECT. This comment used to say it had joined
+      // "the SHARED reader" that `FactorNode`, the inspector panels and the
+      // debug bundle use — but it named the wrong one. `readFactorDisplayValue`
+      // only decides WHICH `display_value` field to read (top level before
+      // `observedState`); it returns the producer's string verbatim and
+      // applies no unit policy at all. `factorDisplayText` is the entry point
+      // those three surfaces actually share, and it is the one that runs the
+      // value through `formatFactorDisplayValue`.
+      //
+      // MEASURED on the deployed build `13371bc4`, guest, saved example
+      // *Customer Data Platform Selection*: a whole-page text scan found the
+      // placeholder unit rendered exactly once —
+      // `model-row-v2-fac_ops_overhead-value-estimate` reading **"0.5 scale"**
+      // — with canvas cards at **zero**. So the estate's own policy
+      // (*"`0.3 scale` renders `0.3`, minus a unit word that asserts a scale
+      // nobody defined"*) was applied everywhere EXCEPT this field, because
+      // this field alone bypassed the formatter.
+      //
+      // ⚠ `0.5` is a NORMALISED model number. Printing it beside a pseudo-unit
+      // invites the reader to argue with a figure that has no real-world scale,
+      // on the tab whose whole job is to be a true representation.
+      const estimateText = value === null ? factorDisplayText(data, label) : null
+      // ⭐⭐ A17 — THE LINE THE CARD PRINTS, FROM THE CARD'S OWN OWNER.
+      // `resolveFactorPriorRange` takes every suppression the card's "Range:"
+      // line takes (ignorance prior, non-external factor, non-finite ends),
+      // converts through the cap for a real unit, and prefers CEE's authored
+      // range string where it sent one — or returns `null`, and then the row
+      // says nothing. Called exactly as the reduced low-zoom line calls it
+      // (`lodMetricLine.ts`): `valueDisplay: null`, because this is only read
+      // when the row states no value, so there is nothing for it to dedupe.
+      //
+      // ⚠ A user value that REPLACES the range is excluded before the call:
+      // the owner then restates the range as replaced, and "not measured"
+      // beside a user's own value would be false.
+      const recordedRangeLine =
+        value === null && estimateText === null && !userValueReplacesPrior(data)
+          ? resolveFactorPriorRange({
+              data: data as Record<string, unknown> | undefined,
+              nodeCategory: (data as { category?: unknown } | undefined)?.category as string | undefined,
+              observedState: obs as { unit?: string | null; cap?: number | null } | undefined,
+              valueDisplay: null,
+            })
+          : null
       rows.push({
         id: node.id,
         kind,
         group: KIND_GROUP[kind],
         label,
         primaryValue: value,
+        /* ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`. */
+        ...(estimateText === null ? {} : { estimateText }),
         /*
-         * ⭐ ONLY WHEN NOBODY SUPPLIED A VALUE — see `ModelRow.estimateText`.
+         * ⭐⭐ A17 AUDIT — THE RECORDED RANGE, ON A ROW WITH NO VALUE AND NO
+         * `estimateText`. See `ModelRow.recordedRangeText`.
          *
-         * ⛔⛔ `factorDisplayText`, NOT `readFactorDisplayValue`, AND THE
-         * DIFFERENCE IS A LIVE DEFECT. This comment used to say it had joined
-         * "the SHARED reader" that `FactorNode`, the inspector panels and the
-         * debug bundle use — but it named the wrong one. `readFactorDisplayValue`
-         * only decides WHICH `display_value` field to read (top level before
-         * `observedState`); it returns the producer's string verbatim and
-         * applies no unit policy at all. `factorDisplayText` is the entry point
-         * those three surfaces actually share, and it is the one that runs the
-         * value through `formatFactorDisplayValue`.
-         *
-         * MEASURED on the deployed build `13371bc4`, guest, saved example
-         * *Customer Data Platform Selection*: a whole-page text scan found the
-         * placeholder unit rendered exactly once —
-         * `model-row-v2-fac_ops_overhead-value-estimate` reading **"0.5 scale"**
-         * — with canvas cards at **zero**. So the estate's own policy
-         * (*"`0.3 scale` renders `0.3`, minus a unit word that asserts a scale
-         * nobody defined"*) was applied everywhere EXCEPT this field, because
-         * this field alone bypassed the formatter.
-         *
-         * ⚠ `0.5` is a NORMALISED model number. Printing it beside a pseudo-unit
-         * invites the reader to argue with a figure that has no real-world scale,
-         * on the tab whose whole job is to be a true representation.
+         * ⚠ GATED ON `value === null` AND `estimateText === null` above, so a
+         * measured value never picks up "not measured" and CEE's own words, on
+         * the rows that carry them, are never displaced by this fallback.
          */
-        ...(value === null
-          ? (() => {
-              const text = factorDisplayText(data, label)
-              return text === null ? {} : { estimateText: text }
-            })()
-          : {}),
+        ...(recordedRangeLine === null
+          ? {}
+          : { recordedRangeText: `${recordedRangeLine}, not measured` }),
         /*
          * ⭐⭐ THE ROW CARRIES WHETHER THE NODE RECORDS A RANGE — see
          * `ModelRow.declaresNoRange`. Read off the NODE's own `prior`, which is
@@ -663,10 +701,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
          * PRESENT to `in` and `Object.keys`, and this contract's absences are
          * load-bearing.
          */
-        ...(() => {
-          const admission = resolveFactorValueAdmission(data)
-          return admission === null ? {} : { valueAdmission: admission }
-        })(),
+        ...(admission === null ? {} : { valueAdmission: admission }),
         editable: true,
       })
       continue

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { parseHealth, type Health } from '../../lib/health'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { parseHealth, fetchHealth, type Health } from '../../lib/health'
 
 describe('health.parse', () => {
   it('parses minimal health shape', () => {
@@ -18,5 +18,39 @@ describe('health.parse', () => {
 
     const empty = parseHealth(undefined as any)
     expect(empty).toEqual({ status: 'degraded', p95_ms: 0 })
+  })
+})
+
+/**
+ * A16 AUDIT — a failed FETCH is not the same fact as the engine reporting its
+ * own degraded status, and `fetchHealth`'s catch used to collapse both into
+ * 'degraded'. These test the real function (not a mock of it), because the
+ * DegradedBanner specs mock `fetchHealth` entirely and so never exercise this
+ * catch branch.
+ */
+describe('health.fetchHealth — a failed fetch is honest about being unreachable', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('resolves "unreachable", never "degraded", when fetch() itself throws (network error)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')))
+    const out = await fetchHealth('/health')
+    expect(out).toEqual({ status: 'unreachable', p95_ms: 0 })
+  })
+
+  it('resolves "unreachable", never "degraded", when the endpoint answers non-2xx', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) }))
+    const out = await fetchHealth('/health')
+    expect(out).toEqual({ status: 'unreachable', p95_ms: 0 })
+  })
+
+  it('POSITIVE CONTROL: a real 2xx response with a degraded body still reads as degraded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'degraded', p95_ms: 900 }) }),
+    )
+    const out = await fetchHealth('/health')
+    expect(out).toEqual({ status: 'degraded', p95_ms: 900 })
   })
 })

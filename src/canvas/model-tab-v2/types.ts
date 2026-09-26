@@ -321,6 +321,36 @@ export interface ModelRow {
    */
   declaresNoRange?: boolean
   /**
+   * ⭐⭐ A17 AUDIT — THE RECORDED RANGE, WHEN NOBODY HAS SUPPLIED A
+   * VALUE AND CEE HAS SENT NO `display_value` OF ITS OWN.
+   *
+   * Witnessed: a factor with `prior.range_min` / `prior.range_max` recorded —
+   * the same range PLoT samples when it runs — showed a bare "Not set" with no
+   * hint at all, because `estimateText` only carries CEE's own computed
+   * words and this range is not one of them.
+   *
+   * ⚠ THE SIBLING OF `estimateText`, NOT A REPLACEMENT. Populated ONLY when
+   * `primaryValue === null` AND `estimateText` is absent — CEE's own words, when
+   * it sent any, still win; this is what the row falls back to when it sent
+   * none but the node's own `prior` still declares a range. The two are
+   * mutually exclusive on any one row, kept as separate fields (rather than
+   * folded into `estimateText`) because `estimateText` is rendered "Olumi:
+   * …" and a recorded range is not Olumi's estimate — it is the node's own
+   * declared support.
+   *
+   * ⭐⭐ ONE DISPLAY AUTHORITY (review 2039). The text is exactly the line
+   * `resolveFactorPriorRange` returns — the owner the factor card's "Range:"
+   * line and the reduced low-zoom line already read — followed by
+   * ", not measured". So a £ factor with a cap reads "Range: £20,000 to
+   * £80,000", never its normalised "0.2". ⛔ NOT `valueAdmission`'s
+   * `priorMin`/`priorMax`: those are MODEL-scale numbers for the editor's
+   * guard, and that resolver does not suppress an ignorance prior. Never
+   * invents a bound: absent whenever the owner returns `null` (no range,
+   * `prior_is_unquantified`, a non-external factor) and when a user value
+   * replaces the range.
+   */
+  recordedRangeText?: string
+  /**
    * The factor records no unit (`observed_state.unit` absent or blank). A unit
    * typed into its editor has nowhere to go: the commit sends the number alone
    * (`proposeFactorValue(parseFloat(draft))`), so "8%" would be stored as 8.

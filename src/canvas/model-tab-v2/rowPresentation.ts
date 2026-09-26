@@ -43,7 +43,7 @@ import type {
   ModelGroupId,
   RepairQueue,
 } from './types'
-import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL, MODEL_GROUP_TITLE, decisionLabelIsUnwritten } from '../domain/vocabulary'
+import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL, MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE, decisionLabelIsUnwritten } from '../domain/vocabulary'
 import { AlertTriangle, CircleDashed, HelpCircle, Split, Target } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -129,7 +129,12 @@ export const REPAIR_QUEUE: Record<RepairQueue['id'], RepairQueue> = {
  * replaced the one affordance that lived there.
  */
 export const GROUP_TITLE: Record<ModelGroupId, string> = {
-  goal: MODEL_GROUP_TITLE.goal,
+  // A21 AUDIT — this group holds BOTH the decision (Question) and the goal
+  // (`adapters.ts`'s `KIND_GROUP`, total over `ModelElementKind`, files both
+  // under `'goal'`). `MODEL_GROUP_TITLE.goal` names the goal alone and reads
+  // false beside a count that includes the Question — the heading says what
+  // the group actually holds instead.
+  goal: MODEL_TAB_GOAL_GROUP_TITLE,
   options: MODEL_GROUP_TITLE.options,
   factors: MODEL_GROUP_TITLE.factors,
   'outcomes-risks': MODEL_GROUP_TITLE.outcomesRisks,

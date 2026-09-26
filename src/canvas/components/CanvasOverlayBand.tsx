@@ -192,8 +192,16 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
    * Paul 23 Sep contract feedback point 14 — the one canvas-level sentence that
    * explains the cards' `Last run ·` labels (`AnalysisStateCue`). The cell had
    * no claimant, so it takes nothing from the notices in bottom-centre.
+   *
+   * A16 AUDIT, 25 Sep 2026 — `degraded-banner` (`DegradedBanner.tsx`) joins
+   * ahead of it. It used to position itself (`fixed top-16 left-1/2
+   * -translate-x-1/2 z-[1050]`), drawing directly over the Question card — the
+   * anchor of the whole model. An engine the UI cannot reach, or one reporting
+   * its own failure, outranks a note that the model changed since the last
+   * run: the reader needs to know the run itself may be unreliable before they
+   * read anything the run produced.
    */
-  'bottom-right': ['analysis-state-cue'],
+  'bottom-right': ['degraded-banner', 'analysis-state-cue'],
 }
 
 /** The band, spelled ONCE, for `computeFitPadding` and for the geometry harness. */

@@ -7,31 +7,58 @@
 
 import type { EstimateBasis, ContestedReason } from '../../domain/validation'
 import type { EdgeDirectionDisplay } from '../../domain/edgeValueProvenance'
+import { CANVAS_STRENGTH_BANDS } from '../../domain/vocabulary'
 
 // ── Strength bands ────────────────────────────────────────────────────────────
 
 export type StrengthBand = 'strong' | 'moderate' | 'weak' | 'negligible'
 
 /**
+ * ⭐⭐ A15 AUDIT — TWO TABLES DISAGREEING ON THE SAME WORD.
+ *
+ * `moderate` and `strong` are shared vocabulary between this file and the ONE
+ * canonical table, `domain/vocabulary.ts`'s `CANVAS_STRENGTH_BANDS` (also read
+ * by the inspector's `StrengthBandButtons`). Before this fix the two tables
+ * used the SAME NAMES for DIFFERENT ranges and midpoints — witnessed:
+ * `-0.5` read "Strong" in the inspector (canonical `strong` starts at 0.4) and
+ * "Moderate" here (this file's old `strong` started at 0.6); the "Moderate"
+ * quick-set pill wrote 0.30 in the inspector and 0.40 here. Both numbers below
+ * are READ from the canonical table, never re-typed, so the two cannot drift
+ * apart again.
+ *
+ * ⚠ `weak` AND `negligible` HAVE NO CANONICAL COUNTERPART. The canonical table
+ * has four bands (`slight`, `moderate`, `strong`, `veryStrong`) that partition
+ * [0, ∞) with NO "not worth naming" band; this file's `weak`/`negligible` split
+ * is a Model-tab-only refinement of the canonical `slight` band's [0, 0.2)
+ * range, so their boundary (0.05) is unchanged — there is nothing canonical to
+ * read it from.
+ */
+const CANONICAL_MODERATE = CANVAS_STRENGTH_BANDS.find(b => b.id === 'moderate')!
+const CANONICAL_STRONG = CANVAS_STRENGTH_BANDS.find(b => b.id === 'strong')!
+
+/**
  * Classify |mean| into a strength band.
- * Thresholds: Strong ≥ 0.6, Moderate ≥ 0.25, Weak ≥ 0.05, else Negligible.
+ * Thresholds: Strong ≥ {@link CANONICAL_STRONG}.min, Moderate ≥
+ * {@link CANONICAL_MODERATE}.min, Weak ≥ 0.05, else Negligible.
  */
 export function getStrengthBand(mean: number): StrengthBand {
   const abs = Math.abs(mean)
-  if (abs >= 0.6) return 'strong'
-  if (abs >= 0.25) return 'moderate'
+  if (abs >= CANONICAL_STRONG.min) return 'strong'
+  if (abs >= CANONICAL_MODERATE.min) return 'moderate'
   if (abs >= 0.05) return 'weak'
   return 'negligible'
 }
 
 /**
  * Band midpoints used by the contested-edge quick-set pills.
- * Each value sits in the middle of its band's |mean| range.
+ * `moderate` and `strong` are the canonical midpoints, verbatim — see the
+ * note above. `weak` keeps its Model-tab-only value; the canonical table
+ * has no band that range refines.
  */
 export const STRENGTH_BAND_MIDPOINTS: Record<Exclude<StrengthBand, 'negligible'>, number> = {
   weak: 0.15,
-  moderate: 0.40,
-  strong: 0.70,
+  moderate: CANONICAL_MODERATE.midpoint,
+  strong: CANONICAL_STRONG.midpoint,
 }
 
 /**

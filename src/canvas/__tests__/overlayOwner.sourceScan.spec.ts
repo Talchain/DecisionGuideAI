@@ -47,6 +47,9 @@ const MIGRATED = [
   // DESIGN-GAP-AUDIT row 6, 24 Sep 2026 — the bottom-left cell's second
   // claimant, joining `LensInfoPanel.tsx`.
   'CanvasFooterSummary.tsx',
+  // A16 AUDIT, 25 Sep 2026 — the bottom-right cell's second claimant, ranked
+  // ahead of `AnalysisStateCue.tsx`.
+  'DegradedBanner.tsx',
 ] as const
 
 function readComponent(file: string): string {

@@ -4429,66 +4429,21 @@ export function useConversation(): UseConversationReturn {
         }, 5_000)
       }, LONG_RUNNING_THRESHOLD_MS)
 
+      // A18 AUDIT — THE WAIT-EXPIRY TIMER USED TO BE ARMED HERE, BEFORE THE
+      // ENDPOINT LOOKUP AND THE FETCH ITSELF. `WAIT_EXPIRY_UNKNOWN_COPY`
+      // asserts "Your message did reach the server" — true only once a
+      // request has actually gone out. Arming the countdown this early meant
+      // a slow (or throwing) `getSessionIdentity()` / header build — work
+      // that happens entirely BEFORE any network call — could let the timer
+      // fire, or leave it armed for a throw the `catch` below already
+      // reports correctly as NOT sent (`"Your message didn't reach the
+      // server…"`). The timer is armed immediately before the fetch dispatch
+      // instead (see below, right before `runStreamedDraftTurn` /
+      // `callV5Turn`) — see that comment for the actual `setTimeout` call. A
+      // throw anywhere before that point now reaches the `catch` block's
+      // honest not-sent path having never armed a competing "did reach it"
+      // countdown at all.
       const dynamicTimeout = getTimeoutMs(resolvedTurnType, triggerSurface, derivedStage)
-      timeoutTimerRef.current = setTimeout(() => {
-        controller.abort()
-        clearTimeout(longRunningTimerRef.current)
-        clearInterval(elapsedIntervalRef.current)
-        setIsThinking(false)
-        useDraftStore.getState().setIsGenerating(false)
-        setLongRunningHint(null)
-        // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
-        // already put a graph on the canvas must NOT be told "your message has
-        // not gone through". It did go through: the server produced and
-        // validated a graph, and the turn keeps running after this client
-        // stops listening (2.719 correction: whether it COMMITS is not
-        // knowable here — the fence's first-write exemption makes the
-        // commit the common case, and a refused/failed commit is surfaced
-        // by the server's draft-loss notice on the next reply). The
-        // generic timeout copy, the `deliveryState: 'failed'` marker and the
-        // timeout send-failure would all be false here, and would contradict
-        // the honest notice the abort path is about to add. Derived from the
-        // store, so it cannot disagree with the phase machine.
-        const streamedPreviewStanding = streamedPreviewStandingFor(
-          useDraftStore.getState(),
-          turnClientId,
-          scenarioIdAtDispatch,
-        )
-        if (mode === 'user' && !hidden && !streamedPreviewStanding) {
-          // ROADMAP 2.665 — TRANSCRIPT HONESTY, CORRECTED.
-          //
-          // This branch used to mark the bubble `failed` and say "We stopped
-          // waiting, so your message has not gone through." Both were false.
-          // We stopped waiting; the SERVER did not. CEE runs the turn to
-          // completion and commits it — live-witnessed 2026-08-07, client
-          // gave up at 60.0s while the same turn returned 200 at 123.1s with
-          // its rows written. What actually happened here is UNKNOWN to this
-          // client, and it stays unknown: no status route exists to poll and
-          // `v5_conversation_turns` has zero readers in this codebase, so
-          // there is nothing to reconcile against on this render or any
-          // later one. See `deliveryUnknown.ts` for the full derivation.
-          //
-          // No retry chip: a retry DUPLICATES. CEE keys its commit on its own
-          // per-HTTP-request id, not on `payload.turn_id`, and this client
-          // sends no request-id header for it to reuse.
-          if (userBubbleIdForTurn) {
-            updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed' })
-          }
-          if (inputForRestore) {
-            // `retryable: false` — the copy-agrees-with-affordance rule. No
-            // retry is offered, so none is advertised. The text is still
-            // carried for restore-into-composer.
-            setLastSendFailure({ kind: 'timeout', retryable: false, inputText: inputForRestore })
-          }
-          addMessage({
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: WAIT_EXPIRY_UNKNOWN_COPY,
-            synthetic: true,
-            timestamp: new Date(),
-          })
-        }
-      }, dynamicTimeout)
 
       bindRequestToInteraction(turnClientId, {
         chainId: interactionChainId,
@@ -4627,6 +4582,74 @@ export function useConversation(): UseConversationReturn {
           isSystemEvent,
           nodeCountAtDispatch: canvasSnap.nodes.length,
         })
+
+        // A18 AUDIT — ARMED HERE, NOT AT DISPATCH START. Everything above
+        // this line (session identity, correlation headers, eligibility) is
+        // pre-flight work that happens before any request leaves the
+        // browser; a throw anywhere in it is caught below and honestly
+        // reported as NOT sent. From this line on, the very next `await` is
+        // the fetch itself (`runStreamedDraftTurn` / `callV5Turn`), so only
+        // NOW is "the message did reach the server" a claim this timer is
+        // entitled to make if it fires.
+        timeoutTimerRef.current = setTimeout(() => {
+          controller.abort()
+          clearTimeout(longRunningTimerRef.current)
+          clearInterval(elapsedIntervalRef.current)
+          setIsThinking(false)
+          useDraftStore.getState().setIsGenerating(false)
+          setLongRunningHint(null)
+          // ROADMAP 2.122 round 2 (review F1, adjacent) — a streamed draft that
+          // already put a graph on the canvas must NOT be told "your message has
+          // not gone through". It did go through: the server produced and
+          // validated a graph, and the turn keeps running after this client
+          // stops listening (2.719 correction: whether it COMMITS is not
+          // knowable here — the fence's first-write exemption makes the
+          // commit the common case, and a refused/failed commit is surfaced
+          // by the server's draft-loss notice on the next reply). The
+          // generic timeout copy, the `deliveryState: 'failed'` marker and the
+          // timeout send-failure would all be false here, and would contradict
+          // the honest notice the abort path is about to add. Derived from the
+          // store, so it cannot disagree with the phase machine.
+          const streamedPreviewStanding = streamedPreviewStandingFor(
+            useDraftStore.getState(),
+            turnClientId,
+            scenarioIdAtDispatch,
+          )
+          if (mode === 'user' && !hidden && !streamedPreviewStanding) {
+            // ROADMAP 2.665 — TRANSCRIPT HONESTY, CORRECTED.
+            //
+            // This branch used to mark the bubble `failed` and say "We stopped
+            // waiting, so your message has not gone through." Both were false.
+            // We stopped waiting; the SERVER did not. CEE runs the turn to
+            // completion and commits it — live-witnessed 2026-08-07, client
+            // gave up at 60.0s while the same turn returned 200 at 123.1s with
+            // its rows written. What actually happened here is UNKNOWN to this
+            // client, and it stays unknown: no status route exists to poll and
+            // `v5_conversation_turns` has zero readers in this codebase, so
+            // there is nothing to reconcile against on this render or any
+            // later one. See `deliveryUnknown.ts` for the full derivation.
+            //
+            // No retry chip: a retry DUPLICATES. CEE keys its commit on its own
+            // per-HTTP-request id, not on `payload.turn_id`, and this client
+            // sends no request-id header for it to reuse.
+            if (userBubbleIdForTurn) {
+              updateMessage(userBubbleIdForTurn, { deliveryState: 'unconfirmed' })
+            }
+            if (inputForRestore) {
+              // `retryable: false` — the copy-agrees-with-affordance rule. No
+              // retry is offered, so none is advertised. The text is still
+              // carried for restore-into-composer.
+              setLastSendFailure({ kind: 'timeout', retryable: false, inputText: inputForRestore })
+            }
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: WAIT_EXPIRY_UNKNOWN_COPY,
+              synthetic: true,
+              timestamp: new Date(),
+            })
+          }
+        }, dynamicTimeout)
 
         let v5Result: V5CallResult
         let missingGraphAfterFallback = false
