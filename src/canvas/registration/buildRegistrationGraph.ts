@@ -75,6 +75,39 @@ const CANVAS_ONLY_NODE_KEYS = new Set([
   '_baseline_snapshot',
 ])
 
+/**
+ * ⭐ A WITHDRAWN EXTRACTION MARKER IS "NO CLAIM", AND IS NOT SENT (26 Sep 2026).
+ *
+ * An edit withdraws the extraction marker by writing `extractionType: null`, at
+ * node level and inside `observedState`, until the receipt stamps the user's
+ * source. It is `null` rather than `undefined` so the withdrawal survives a
+ * JSON round trip (#2046, A4b). `undefined` was skipped here by the `value ===
+ * undefined` rule; `null` was not.
+ * - So every value edit's register carried `extractionType: null`. CEE's
+ *   `GraphV3` declares it optional but NOT nullable, so every later canvas
+ *   edit on that scenario failed its re-parse with a 500
+ *   (`persisted_graph_invalid`, served CEE 319dde1; Canonical, #70 5842163197).
+ * - The acknowledgement digest (taken over this projection) also began
+ *   counting the null. The value edit's applied receipt then no longer
+ *   matched the model it was sent against, and a whole-graph register followed
+ *   every value edit (`oneWriterRegistration.spec`, bisected to #2046).
+ *
+ * A withdrawn marker is the ABSENCE of a claim, which is exactly what CEE's
+ * schema spells by omitting the key. So it is omitted, at both levels, and a
+ * real marker ('explicit', 'inferred', …) passes through unchanged.
+ */
+function isWithdrawnMarker(key: string, value: unknown): boolean {
+  return key === 'extractionType' && value === null
+}
+
+function observedStateForWire(value: unknown): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
+  const obs = value as Record<string, unknown>
+  if (!('extractionType' in obs) || obs.extractionType !== null) return value
+  const { extractionType: _withdrawn, ...rest } = obs
+  return rest
+}
+
 export interface RegistrationGraph {
   readonly nodes: ReadonlyArray<Record<string, unknown>>
   readonly edges: ReadonlyArray<Record<string, unknown>>
@@ -148,9 +181,10 @@ export function buildRegistrationGraph(
     }
     for (const [key, value] of Object.entries(data)) {
       if (CANVAS_ONLY_NODE_KEYS.has(key) || value === undefined) continue
+      if (isWithdrawnMarker(key, value)) continue
       // CEE spells the observed-value bundle `observed_state`.
       if (key === 'observedState') {
-        out.observed_state = value
+        out.observed_state = observedStateForWire(value)
         continue
       }
       out[key] = value
