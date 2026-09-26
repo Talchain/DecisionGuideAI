@@ -381,9 +381,15 @@ async function readAndMergeServerGraph(
     // BOTH directions: the canvas carries every value the read carries (the
     // acknowledgement's proof) AND the read carries nothing the canvas lacks.
     const notProvenEqual = whyCanvasNotProvenEqualToReadBothWays(scenarioId, result.graph)
+    // The read's admission stands in for `may_run` until a turn speaks — only an
+    // admission, only for this revision, only when the canvas IS that revision.
+    st.setBootAdmittedRevision?.(
+      result.admitted === true && notProvenEqual === null ? result.graphHash : null,
+    )
     const currencyOutcome = applyBootRunCurrency({
       analysisState: result.analysisState,
       graphHash: result.graphHash,
+      admitted: result.admitted,
       canvasProvenEqualToRead: notProvenEqual === null,
       store: {
         analysisFreshnessDirty: st.analysisFreshnessDirty,

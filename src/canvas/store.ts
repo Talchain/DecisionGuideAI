@@ -734,6 +734,16 @@ interface CanvasState {
    */
   retainedAnalysisAdmission: AnalysisAdmissionV1 | null
   /**
+   * THE REVISION A BOOT READ SAID CEE ADMITS, or `null`. Set only from a reload
+   * whose read carried `analysis_admission.admitted === true` for its own
+   * revision, with the canvas proven equal to that read (`serverGraphHydration`).
+   * `selectBoundAdmission` falls back to it ONLY while no turn has supplied a
+   * `may_run`, and under the same binding as a turn's verdict (this revision is
+   * the one on screen, no queued edit, no unregistered import). It can only ever
+   * say "admitted": a reload never greys Run on its own account.
+   */
+  bootAdmittedRevision: string | null
+  /**
    * THE PRODUCER'S LAST COACHING, RETAINED ACROSS INVALIDATION — THE SAME
    * MECHANISM AS `retainedAnalysisAdmission` ABOVE, ONE FIELD ALONG.
    *
@@ -1764,6 +1774,8 @@ interface CanvasState {
   ) => void
   /** 0.48.0: record CEE's `aag_v1` `graph_hash` for the next delete's stale gate. */
   setLastServerGraphHash: (hash: string | null) => void
+  /** See `bootAdmittedRevision`. `null` clears it. */
+  setBootAdmittedRevision: (revision: string | null) => void
   /**
    * 0.48.0: hand the drainer every queued delete gesture and empty the queue in
    * ONE atomic read — a peek-then-clear would re-send a gesture if a second
@@ -2312,6 +2324,8 @@ const DECISION_CONTEXT_CLEAR = {
   // must not govern edits made to this one — the same hazard as the stale
   // goalThreshold two lines above.
   retainedAnalysisAdmission: null,
+  // A boot read's admission is scoped to ONE decision's revision, for the same reason.
+  bootAdmittedRevision: null,
   // The retained coaching is scoped to ONE decision for the same reason: it is
   // prose CEE authored about THIS brief and THIS framing, so carrying it into the
   // next decision would re-word that decision's signals with the previous one's
@@ -3297,6 +3311,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // No producer has spoken at cold start, so absence genuinely means "no
   // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
   retainedAnalysisAdmission: null,
+  // No boot read has answered at cold start.
+  bootAdmittedRevision: null,
   // Freshness verdict — null until CEE emits analysis_ready (UI shows nothing).
   analysisFreshness: null,
   // Local dirty overlay — false at cold start (no edits to invalidate a verdict).
@@ -7340,6 +7356,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setServerGraphIdentity: (identity) => {
     set({ serverGraphIdentity: identity })
+  },
+
+  setBootAdmittedRevision: (revision) => {
+    const next = typeof revision === 'string' && revision.length > 0 ? revision : null
+    if (get().bootAdmittedRevision === next) return
+    set({ bootAdmittedRevision: next })
   },
 
   setLastServerGraphHash: (hash) => {
