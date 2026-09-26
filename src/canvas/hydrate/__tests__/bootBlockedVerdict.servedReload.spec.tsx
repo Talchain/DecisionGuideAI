@@ -3,7 +3,9 @@
  *
  * WITNESSED on UI `c3c2d539` · CEE `6dd42eb` (AI Conversation witness
  * `bui-reads-c3c2d539-0358`): brief → approve → the canvas's "+ Add option" →
- * reload. Before the reload the Run control was disabled with a named reason.
+ * reload. Before the reload the Run control was disabled with a named reason:
+ * `"New option" and "New option" are not ready for analysis yet. Ask in the chat
+ * what they need.` (witness 02b, the control's title).
  * After it, the SAME disabled control said only "Olumi needs something more
  * from this model before the next analysis. Ask in the chat…".
  *
@@ -96,11 +98,14 @@ describe('⭐ a reload of a BLOCKED model keeps CEE\'s named reason (served read
     expect(gateSentences()).toEqual([])
   })
 
-  it('⭐ after the read, the Run gate names CEE\'s blockers, not "ask in the chat"', async () => {
+  it('⭐ after the read, the Run gate says EXACTLY what it said before the reload (served 02b), not the generic line', async () => {
     await hydrateCanvasFromServer(SCENARIO_ID)
     expect(useCanvasStore.getState().analysisStateV1?.readiness.status).toBe('blocked')
     const sentences = gateSentences()
-    expect(sentences.join(' ')).toContain('An option has no factor connections')
+    // Bound by identity to the served pre-reload title. CEE's own first sentence ("…Add at least one
+    // factor edge.") is withheld by the jargon guard (`isSafeCeeText`: "edge"), so the gate names the
+    // two blocked options — the same sentence the live session showed.
+    expect(sentences).toEqual(['"New option" and "New option" are not ready for analysis yet. Ask in the chat what they need.'])
     expect(sentences).not.toContain(BLOCKED_REASON_COPY.unspecified)
   })
 
