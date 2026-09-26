@@ -818,6 +818,20 @@ function firstReadValueTheCanvasLacks(wireGraph: unknown, normalise?: GraphNorma
     if (edge === undefined) return `rev:edge:${String(key)}:absent_on_canvas`
     for (const [k, value] of Object.entries(w as Record<string, unknown>)) {
       if (k === 'from' || k === 'to' || NOT_CARRIED_EDGE_KEYS.has(k) || value === undefined) continue
+      // ⚠ A1 FOLLOW-UP: `edge_type` is the ONE key this proof treats as
+      // vouched-for by ABSENCE, not by a carried value. The canvas projection
+      // (`buildRegistrationGraph`) now NEVER mints `edge_type` — an edge the
+      // canvas never explicitly typed carries no such key at all, by design
+      // (an invented `'directed'` there is what let a structural link render
+      // as causal — see `buildRegistrationGraph.ts`). This read has already
+      // been through `withContractEdgeDefaults`, so its `'directed'` here is
+      // CEE's OWN schema default for an omitted field, not a fact the canvas
+      // failed to carry. Treating an absent canvas key as equal to exactly
+      // this one contract-defaulted value keeps the currency proof honest
+      // about what the canvas holds, without ever writing `'directed'` back
+      // onto canvas data — comparison-only, the wire and the store are both
+      // untouched.
+      if (k === 'edge_type' && value === 'directed' && !('edge_type' in edge)) continue
       if (!(k in edge)) return `rev:edge:${String(key)}:${k}:canvas_lacks read=${excerpt(value)}`
       if (!sameValue(edge[k], value)) {
         return `rev:edge:${String(key)}:${k}:differs canvas=${excerpt(edge[k])} read=${excerpt(value)}`

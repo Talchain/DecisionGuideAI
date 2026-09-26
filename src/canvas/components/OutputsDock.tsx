@@ -1509,6 +1509,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     draftStreamPhase,
     optionsNeedingValues,
     readinessStale,
+    // A5 follow-up (independent review, PR #2043): without this, the gate's
+    // composed blocked-reason copy could still claim "Your model changed
+    // since the last check" for a model that has never been analysed.
+    hasCompletedFirstRun,
   })
   // ROADMAP 2.635 (I-4) — the identity of the verdict this gate result was
   // computed against, captured at the same moment so the two cannot drift.
@@ -3110,6 +3114,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             showResultsFreshnessIcon={showResultsTabFreshnessIcon}
             resultsStale={resultsTabReallyStale}
             factorsToVerify={factorsToVerify}
+            // A5 follow-up (independent review, PR #2043): without this, a
+            // never-run model still showed the audit's measured tab-strip
+            // glyph ("Cannot confirm whether this analysis is current").
+            hasCompletedFirstRun={hasCompletedFirstRun}
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an

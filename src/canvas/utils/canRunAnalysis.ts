@@ -368,6 +368,17 @@ export interface CanRunAnalysisParams {
    * refetch lands.
    */
   readinessStale?: boolean
+  /**
+   * A5 follow-up (independent review, PR #2043): whether any analysis run has
+   * EVER completed for this model. Optional, defaulting to `true` — the same
+   * defensive default `composeReadinessBlockedReason` and
+   * `classifyFreshnessForDisplay` themselves use — so a caller that has not
+   * threaded the real store value keeps today's behaviour exactly. Passed
+   * straight through to `composeReadinessBlockedReason`'s `staleRecheck` gate:
+   * "Your model changed since the last check" asserts a PRIOR check, which a
+   * never-run model has none of.
+   */
+  hasCompletedFirstRun?: boolean
 }
 
 /**
@@ -787,7 +798,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
   // ⚠ `mayRun` is deliberately NOT defaulted here. `undefined` is the signal
   // "the producer did not say", and a default would erase the very distinction
   // `readinessObjectsToRun` reads it for.
-  const { graphHealth, readiness, analysisReadiness = null, mayRun, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false } = params
+  const { graphHealth, readiness, analysisReadiness = null, mayRun, hasBlockers, nodeCount, isRunning = false, analysisHeldOn = null, draftStreamPhase = 'idle', optionsNeedingValues, readinessStale = false, hasCompletedFirstRun = true } = params
 
   const blockingReasons: string[] = []
   // The ITEMISED twin of `blockingReasons`, filled in the same pass so the two
@@ -1065,7 +1076,7 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
     const composedItems: readonly GateBlockedItem[] =
       producerBlockers !== null
         ? (corroboration ?? analysisBlockedItems(producerBlockers))
-        : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale) }]
+        : [{ text: composeReadinessBlockedReason(readiness, optionsNeedingValues, readinessStale, hasCompletedFirstRun) }]
     const composed = composedItems.map((item) => item.text).join(' ')
     if (!blockingReasons.includes(composed)) {
       blockingReasons.push(composed)

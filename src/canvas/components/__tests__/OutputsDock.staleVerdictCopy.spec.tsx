@@ -229,7 +229,41 @@ describe('OutputsDock → the blocked footer, when the verdict is stale (I-3)', 
     expect(footer).toHaveTextContent(SPECIFIC_SENTENCE)
   }, 40_000)
 
-  it('a stale verdict does not name the option it graded', async () => {
+  /**
+   * ⚠⚠ THE THREE TESTS BELOW WERE REWRITTEN (A5 follow-up, independent review
+   * of PR #2043, blocker 2) — THIS FIXTURE'S OWN PREMISE CHANGED UNDERNEATH
+   * THEM, NOT A REGRESSION IN WHAT THEY MEASURE.
+   *
+   * `seedPreRunCanvas()` sets `hasCompletedFirstRun: false` — this surface
+   * (`pre-analysis-v3-footer`) mounts ONLY on that state (`OutputsDock`'s
+   * `isPreRun = !hasCompletedFirstRun`; the post-run branch renders a
+   * different footer entirely). So every test in this file is, and always
+   * was, about a NEVER-RUN model.
+   *
+   * Once blocker 2 wired the store's `hasCompletedFirstRun` into
+   * `composeReadinessBlockedReason` (previously a dead parameter — see
+   * `OutputsDock.hasCompletedFirstRunWiring.spec.tsx`), that function's own
+   * documented rule took effect for the first time on this surface:
+   * `BLOCKED_REASON_COPY.staleRecheck` — "Your model changed since the last
+   * check" — is withheld for a model with `hasCompletedFirstRun: false`,
+   * because there is no prior ANALYSIS for "since" to describe. That is the
+   * A5 fix itself, not a side-effect of it: the three tests below were
+   * pinning the exact defect A5 was opened to remove — a never-run model
+   * told its (nonexistent) analysis had changed — one surface this repo's
+   * A5 file list had not named. Corrected here rather than left green on the
+   * bug, the same call made for `mergeServerGraph.starterReload.spec.ts`
+   * under A1.
+   *
+   * The withheld sentence falls to the next rung instead: the option-specific
+   * copy, which is still an honest claim for a model that has never been
+   * analysed (nothing here asserts the READINESS check itself is current —
+   * only that a never-run model is not told an analysis it never had has
+   * changed). The `hasCompletedFirstRun: true` half of I-3 — a model that HAS
+   * run, whose STALE readiness re-opens the claim — is covered on the surface
+   * that actually mounts for that state, `ReanalyseBar`, by
+   * `OutputsDock.hasCompletedFirstRunWiring.spec.tsx`.
+   */
+  it('a stale verdict on a NEVER-RUN model still names the option — there is no prior analysis for "since" to describe', async () => {
     seedPreRunCanvas()
     seedCeeAnalysisReady(['opt_extend'])
     seedVerdict({ stale: true })
@@ -241,13 +275,11 @@ describe('OutputsDock → the blocked footer, when the verdict is stale (I-3)', 
     )
 
     const footer = await screen.findByTestId('pre-analysis-v3-footer', {}, { timeout: 20_000 })
-    // The user may have just described this very option. Naming it again, from
-    // a verdict that was never re-asked, is the false reason PC1 forbids.
-    expect(footer).not.toHaveTextContent('Partner with a consultancy')
-    expect(footer).not.toHaveTextContent(SPECIFIC_SENTENCE)
+    expect(footer).toHaveTextContent(SPECIFIC_SENTENCE)
+    expect(footer).not.toHaveTextContent(BLOCKED_REASON_COPY.staleRecheck)
   }, 40_000)
 
-  it('a stale verdict says the model changed and the check is being redone', async () => {
+  it('RED/A5: a stale verdict on a never-run model does not claim the model changed', async () => {
     seedPreRunCanvas()
     seedCeeAnalysisReady(['opt_extend'])
     seedVerdict({ stale: true })
@@ -259,10 +291,10 @@ describe('OutputsDock → the blocked footer, when the verdict is stale (I-3)', 
     )
 
     const footer = await screen.findByTestId('pre-analysis-v3-footer', {}, { timeout: 20_000 })
-    expect(footer).toHaveTextContent(BLOCKED_REASON_COPY.staleRecheck)
+    expect(footer).not.toHaveTextContent(BLOCKED_REASON_COPY.staleRecheck)
   }, 40_000)
 
-  it('the Run button carries the same stale sentence — one state, one story', async () => {
+  it('the Run button carries the same (non-stale) sentence — one state, one story', async () => {
     seedPreRunCanvas()
     seedCeeAnalysisReady(['opt_extend'])
     seedVerdict({ stale: true })
@@ -274,9 +306,10 @@ describe('OutputsDock → the blocked footer, when the verdict is stale (I-3)', 
     )
 
     const analyse = await screen.findByTestId('pre-analysis-v3-analyse', {}, { timeout: 20_000 })
-    // Still disabled: staleness does not open the gate (that would be inventing
-    // a verdict in the permissive direction). Only the CLAIM changes.
+    // Still disabled: staleness never opened the gate (that would be inventing
+    // a verdict in the permissive direction) — only the CLAIM changes, and for
+    // a never-run model the claim is the option-specific one, not staleness.
     expect(analyse).toBeDisabled()
-    expect(analyse).toHaveAttribute('title', BLOCKED_REASON_COPY.staleRecheck)
+    expect(analyse).toHaveAttribute('title', SPECIFIC_SENTENCE)
   }, 40_000)
 })
