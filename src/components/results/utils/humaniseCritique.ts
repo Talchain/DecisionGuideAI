@@ -227,14 +227,23 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // The `genuine` branch is the pattern `GOAL_ANCESTOR_DATA_GAP` and
   // `ROOT_NODE_DEFAULT_VALUE` already use; this adopts it rather than minting
   // a second mechanism.
+  //
+  // ⛔ NO REMEDY, IN EITHER BRANCH (AI Quality, #70 5843266323, 26 Sep 2026).
+  // "Set a current value or range…" was prescribed for a cause the wire does
+  // not carry. On Paul's churn limit the factor ALREADY had a current value and
+  // parents, every turn still carried this code, and PLoT's own message said a
+  // current value "would not change that — it is calculated from its inputs".
+  // The entry is `{code, message, severity}` and nothing else, so the UI cannot
+  // tell a missing value from an uncheckable target and must not prescribe
+  // either. The description likewise stops asserting "missing or unscaled".
+  // Every consumer already renders the title alone when `suggestion` is empty
+  // (`endSentence('')` is `''`; the strips guard on `c.suggestion &&`).
   CONSTRAINT_TARGET_UNRELIABLE: (label, genuine) => ({
     title: genuine
       ? `${label}'s success target can't be evaluated reliably`
       : "A success target on your model can't be evaluated reliably",
-    description: 'The value needed to assess this target is missing or unscaled, so the probability of reaching it was withheld for this run rather than shown as a meaningless number.',
-    suggestion: genuine
-      ? `Set a value or range for ${label}`
-      : 'Set a current value or range on the part of your model this target applies to',
+    description: 'This target could not be checked against this model, so the probability of reaching it was withheld for this run rather than shown as a meaningless number.',
+    suggestion: '',
   }),
   // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
   // direction detection) distinct from CONSTRAINT_TARGET_UNRELIABLE: there

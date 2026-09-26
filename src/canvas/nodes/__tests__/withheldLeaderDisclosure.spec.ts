@@ -65,7 +65,8 @@ describe('selectWithheldLeaderDisclosure — why no option was put forward', () 
     // a string the fixture could never produce once the anonymous form existed.
     // It now binds to what the test is actually for: a concrete route out
     // survives when the label does not. See `anUnresolvedLabelIsNotAName.spec.ts`.
-    expect(got!.suggestion.toLowerCase()).toContain('set a current value or range')
+    // ⛔ REVERSED, 26 Sep 2026 (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that"): no remedy is prescribed.
+    expect(got!.suggestion).toBe('')
     // And the sentinel never reaches this surface — the defect that occasioned
     // the change was this exact selector rendering it on the Question card.
     expect(`${got!.title} ${got!.suggestion}`).not.toContain('This factor')

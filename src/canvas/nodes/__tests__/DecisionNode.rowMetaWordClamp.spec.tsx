@@ -75,7 +75,8 @@ const optionEdges = optionNodes.map(o => ({ id: `e-${o.id}`, source: DECISION_ID
 /** Paul's served model: CEE withheld the leader on CONSTRAINT_TARGET_UNRELIABLE
  *  with no resolvable node, so the card shows the ANONYMOUS title. */
 const WITHHELD_TITLE = "A success target on your model can't be evaluated reliably."
-const WITHHELD_SUGGESTION = 'Set a current value or range on the part of your model this target applies to.'
+/** No remedy since 26 Sep (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that"). The card says the title alone. */
+const OLD_REMEDY = 'Set a current value'
 
 const setStore = (overrides: Record<string, unknown> = {}) => {
   hoisted.state = {
@@ -145,8 +146,9 @@ describe('Question card reasoning sentence — off the row, never cut (prototype
     const signal = popover().querySelector('[data-testid="decision-leader-withheld"]')
     expect(signal, 'the disclosure in the popover').not.toBeNull()
     expect(signal!.getAttribute('data-withheld-code')).toBe('CONSTRAINT_TARGET_UNRELIABLE')
-    expectWhole(signal!, `${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
-    expect(screen.getByTestId('decision-focus-signal-sr').textContent).toBe(`${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
+    expectWhole(signal!, WITHHELD_TITLE)
+    expect(screen.getByTestId('decision-focus-signal-sr').textContent).toBe(WITHHELD_TITLE)
+    expect(screen.getByTestId('decision-focus-signal-sr').textContent, 'the inert remedy is gone').not.toContain(OLD_REMEDY)
   })
 
   it('before a run: the top gap is off the row and whole in the popover', () => {

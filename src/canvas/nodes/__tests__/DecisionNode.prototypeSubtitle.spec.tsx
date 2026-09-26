@@ -92,7 +92,8 @@ const rankedReport = (first: string, second: string, third: string, extra: Recor
 
 const WITHHELD_WARNING = { code: 'CONSTRAINT_TARGET_UNRELIABLE', severity: 'warning', message: 'x' }
 const WITHHELD_TITLE = "A success target on your model can't be evaluated reliably."
-const WITHHELD_SUGGESTION = 'Set a current value or range on the part of your model this target applies to.'
+/** No remedy since 26 Sep (AI Quality, #70 5843266323: the wire cannot tell a missing value from an uncheckable target, and on Paul's churn limit PLoT said a value "would not change that"). The card says the title alone. */
+const OLD_REMEDY = 'Set a current value'
 
 const setStore = (overrides: Record<string, unknown> = {}) => {
   hoisted.state = {
@@ -259,7 +260,8 @@ describe('(c) the long sentence is off the resting card, whole where it moved', 
     expect(restingCardText()).not.toContain(WITHHELD_TITLE)
     const disclosure = within(popover()).getByTestId('decision-leader-withheld')
     expect(disclosure.getAttribute('data-withheld-code')).toBe('CONSTRAINT_TARGET_UNRELIABLE')
-    expect(disclosure.textContent).toBe(`${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
+    expect(disclosure.textContent).toBe(WITHHELD_TITLE)
+    expect(disclosure.textContent, 'the inert remedy is gone').not.toContain(OLD_REMEDY)
   })
 
   it('after a run, Detailed: no popover, so the disclosure is a whole line in the body — still not in the row', () => {
@@ -268,7 +270,7 @@ describe('(c) the long sentence is off the resting card, whole where it moved', 
     expect(screen.queryByTestId('decision-node-popover')).toBeNull()
     expect(within(row()).queryByTestId('decision-leader-withheld')).toBeNull()
     const disclosure = screen.getByTestId('decision-leader-withheld')
-    expect(disclosure.textContent).toBe(`${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
+    expect(disclosure.textContent).toBe(WITHHELD_TITLE)
     expect((disclosure.getAttribute('class') ?? '').split(/\s+/)).not.toContain('line-clamp-1')
   })
 
@@ -278,7 +280,7 @@ describe('(c) the long sentence is off the resting card, whole where it moved', 
     const sr = screen.getByTestId('decision-focus-signal-sr')
     expect(sr.closest('[data-testid="decision-node-popover"]')).toBeNull()
     expect((sr.getAttribute('class') ?? '').split(/\s+/)).toContain('sr-only')
-    expect(sr.textContent).toBe(`${WITHHELD_TITLE} ${WITHHELD_SUGGESTION}`)
+    expect(sr.textContent).toBe(WITHHELD_TITLE)
   })
 
   it('CONTRAST — the evidence priority and the withheld disclosure coexist: one on the row, one in the popover', () => {
