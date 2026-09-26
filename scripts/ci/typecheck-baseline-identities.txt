@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2081
+# count=2061
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -403,11 +403,7 @@
 1	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts	TS2322	Type 'VitestUtils' is not assignable to type 'Awaitable<HookCleanupCallback>'.
 1	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts	TS2339	Property 'getState' does not exist on type 'Mock<[selector: any], any>'.
 1	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts	TS2339	Property 'setState' does not exist on type 'Mock<[selector: any], any>'.
-1	src/canvas/contextMenu/actions.ts	TS2339	Property 'value' does not exist on type '{}'.
-8	src/canvas/contextMenu/actions.ts	TS2698	Spread types may only be created from object types.
 1	src/canvas/contextMenu/actions.ts	TS6133	'flowPos' is declared but its value is never read.
-1	src/canvas/contextMenu/actions.ts	TS6196	'EdgeTarget' is declared but never used.
-1	src/canvas/contextMenu/actions.ts	TS6196	'MultiTarget' is declared but never used.
 1	src/canvas/conversation/ActionStrip.tsx	TS6133	'GraphPatchBlock' is declared but its value is never read.
 1	src/canvas/conversation/ConversationPanel.tsx	TS2345	Argument of type '(opts: DispatchActionOpts) => Promise<void>' is not assignable to parameter of type '(opts: { action_type?: string | undefined; parameters?: Record<string, unknown> | undefined; label: string; message: string; hidden?: boolean | undefined; source: string; }) => void'.
 1	src/canvas/conversation/ConversationPanel.tsx	TS6133	'logger' is declared but its value is never read.
@@ -455,7 +451,6 @@
 1	src/canvas/edges/StyledEdge.tsx	TS2344	Type 'EdgeData' does not satisfy the constraint 'Edge<Record<string, unknown>, string | undefined>'.
 15	src/canvas/edges/StyledEdge.tsx	TS2345	Argument of type 'unknown' is not assignable to parameter of type 'string'.
 1	src/canvas/edges/StyledEdge.tsx	TS2345	Argument of type '{}' is not assignable to parameter of type 'boolean'.
-1	src/canvas/edges/StyledEdge.tsx	TS2352	Conversion of type 'ReportV1' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'labelVisibility' is declared but its value is never read.
 4	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'waitFor' is declared but its value is never read.
@@ -522,13 +517,9 @@
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'boolean'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'string'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2344	Type '{ type: "decision"; label: string; body?: string | undefined; provenance?: "ai_inferred" | "from_brief" | "user_set" | undefined; description?: string | undefined; kind?: "factor" | "option" | ... 6 more ... | undefined; prior?: ... | number 1 more ... | undefined; utility?: number | undefined; }' does not satisfy the constraint 'Node<Record<string, unknown>, string | undefined>'.
-1	src/canvas/nodes/DecisionNode.tsx	TS6133	'handleChip' is declared but its value is never read.
-1	src/canvas/nodes/FactorNode.tsx	TS6192	All imports in import declaration are unused.
 1	src/canvas/nodes/GoalNode.tsx	TS2322	Type 'CEEGoalConstraint[] | null' is not assignable to type '(CEEGoalConstraint & { probability?: number | undefined; })[] | null'.
-1	src/canvas/nodes/NodeShapeIndicator.tsx	TS6133	'half' is declared but its value is never read.
 1	src/canvas/nodes/__tests__/BaseNode.cornerStack.spec.tsx	TS2698	Spread types may only be created from object types.
 1	src/canvas/nodes/__tests__/BaseNode.maxWidth.spec.tsx	TS2739	Type '{ data: { label: string; }; nodeType: "decision"; icon: LucideIcon; maxWidth: number; id: string; selected: boolean; dragging: boolean; zIndex: number; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; type: string; xPos: number; yPos: number; }' is missing the following properties from type 'BaseNodeProps': deletable, selectable, draggable
-1	src/canvas/nodes/__tests__/BaseNode.maxWidth.spec.tsx	TS2739	Type '{ nodeType: "factor"; icon: LucideIcon; id: string; selected: boolean; dragging: boolean; zIndex: number; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; type: string; data: { ...; }; xPos: number; yPos: number; }' is missing the following properties from type 'BaseNodeProps': deletable, selectable, draggable
 2	src/canvas/nodes/__tests__/BaseNode.maxWidth.spec.tsx	TS2739	Type '{ nodeType: "factor"; icon: LucideIcon; maxWidth: number; id: string; selected: boolean; dragging: boolean; zIndex: number; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; type: string; data: { ...; }; xPos: number; yPos: number; }' is missing the following properties from type 'BaseNodeProps': deletable, selectable, draggable
 1	src/canvas/nodes/__tests__/BaseNode.maxWidth.spec.tsx	TS2739	Type '{ nodeType: "option"; icon: LucideIcon; maxWidth: number; id: string; selected: boolean; dragging: boolean; zIndex: number; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; type: string; data: { ...; }; xPos: number; yPos: number; }' is missing the following properties from type 'BaseNodeProps': deletable, selectable, draggable
 1	src/canvas/nodes/__tests__/BaseNode.projection.spec.tsx	TS2322	Type 'VitestUtils' is not assignable to type 'Awaitable<HookCleanupCallback>'.
@@ -543,7 +534,6 @@
 3	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: true; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: number; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: true; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
-1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: number; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: false; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2739	Type '{ data: Record<string, unknown>; id: string; type: string; position: { x: number; y: number; }; selected: boolean; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; dragging: boolean; zIndex: number; }' is missing the following properties from type 'Required<Pick<Node<Record<string, unknown>, string | undefined>, "deletable" | "draggable" | "dragging" | "selectable" | "selected" | "type" | "zIndex">>': deletable, selectable, draggable
 2	src/canvas/nodes/__tests__/GoalNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: false; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 4	src/canvas/nodes/__tests__/GoalNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: number; achievementProbabilityIsModelledBasis: false; stabilityPercentage: null; ... 4 more ...; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
@@ -586,7 +576,7 @@
 2	src/canvas/provenance/ProvenanceHub.tsx	TS2339	Property 'text' does not exist on type 'Citation'.
 3	src/canvas/share/__tests__/decisionSummary.spec.ts	TS2322	Type 'number | undefined' is not assignable to type 'number'.
 3	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type 'number' is not assignable to type 'CEEInterventionV3'.
-1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type '{ data: { weight: number; style?: "dashed" | "dotted" | "solid" | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; curvature?: number | undefined; ... 29 more ...; userReviewedStrength?: boolean | undefined; }; ... 27 more ...; domAttributes?: Omit<...>...' is not assignable to type 'Edge<EdgeData>[]'.
+1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS2322	Type '{ data: { weight: number; style?: "dashed" | "dotted" | "solid" | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; curvature?: number | undefined; ... 31 more ...; userReviewedStrength?: boolean | undefined; }; ... 27 more ...; domAttributes?: Omit<...>...' is not assignable to type 'Edge<EdgeData>[]'.
 1	src/canvas/store/__tests__/analysisReady.invalidation.spec.ts	TS6133	'newEdge' is declared but its value is never read.
 1	src/canvas/store/__tests__/documents.spec.ts	TS6133	'ValidationError' is declared but its value is never read.
 2	src/canvas/store/__tests__/resultsSettle.spec.ts	TS2322	Type 'undefined' is not assignable to type 'number'.
@@ -640,7 +630,6 @@
 4	src/canvas/ui/__tests__/NodeInspector.inspector-fixes.spec.tsx	TS2322	Type '{ weight: number; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/__tests__/NodeInspector.inspector-fixes.spec.tsx	TS2740	Type '{}' is missing the following properties from type 'ReportV1': schema, meta, model_card, results, and 2 more.
 5	src/canvas/ui/__tests__/NodeInspector.inspector-fixes.spec.tsx	TS2741	Property 'progress' is missing in type '{ status: "idle"; report: null; }' but required in type 'ResultsState'.
-1	src/canvas/ui/inspector-v2/InspectorRouter.tsx	TS1355	A 'const' assertions can only be applied to references to enum members, or string, number, boolean, array, or object literals.
 1	src/canvas/ui/inspector-v2/__tests__/Brief3Panels.spec.tsx	TS6133	'container' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/__tests__/EdgePanelCausalClaims.spec.tsx	TS6133	'vi' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/__tests__/SharedComponents.spec.tsx	TS6133	'container' is declared but its value is never read.
@@ -665,11 +654,11 @@
 1	src/canvas/ui/inspector-v2/panels/OptionPanel.tsx	TS6133	'onClose' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx	TS6133	'onClose' is declared but its value is never read.
 1	src/canvas/ui/inspector-v2/types.ts	TS6196	'FactorCategory' is declared but never used.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 28 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; directionSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 28 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 29 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 28 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
-1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ weightSource: "user"; direction?: "negative" | "positive" | undefined; directionSource?: "cee" | "template" | "user" | undefined; weight: number; style?: "dashed" | "dotted" | "solid" | undefined; ... 28 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ beliefExists: number; beliefExistsSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 30 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ direction: "negative" | "positive"; directionSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 30 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ label: string | undefined; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 31 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ strengthStd: number; strengthStdSource: "user"; style?: "dashed" | "dotted" | "solid" | undefined; weight?: number | undefined; kind?: "decision-probability" | "deterministic" | "influence-weight" | "risk-likelihood" | undefined; ... 30 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
+1	src/canvas/ui/inspector-v2/useInspectorMutations.ts	TS2322	Type '{ weightSource: "user"; direction?: "negative" | "positive" | undefined; directionSource?: "cee" | "template" | "user" | undefined; weight: number; style?: "dashed" | "dotted" | "solid" | undefined; ... 30 more ...; userReviewedStrength?: boolean; }' is not assignable to type 'EdgeData'.
 1	src/canvas/ui/inspector/SignedStrengthSlider.stories.tsx	TS2307	Cannot find module '@storybook/react' or its corresponding type declarations.
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'displayColor' is declared but its value is never read.
 1	src/canvas/ui/inspector/SignedStrengthSlider.tsx	TS6133	'effectCoaching' is declared but its value is never read.
@@ -819,8 +808,6 @@
 1	src/components/debug/__tests__/exportBundle.v1_5.spec.ts	TS2322	Type 'null' is not assignable to type 'LlmMetadataData | undefined'.
 1	src/components/debug/__tests__/exportBundle.v1_5.spec.ts	TS2322	Type 'null' is not assignable to type 'LlmRawData | undefined'.
 1	src/components/debug/__tests__/exportBundle.v1_5.spec.ts	TS2322	Type 'null' is not assignable to type 'NodeExtractionData | undefined'.
-1	src/components/debug/__tests__/exportBundle.v1_5.spec.ts	TS2322	Type '{ active_panel: string; active_tab: string; active_section: null; canvas_node_count: number; canvas_edge_count: number; canvas_node_types: { factor: number; option: number; goal: number; }; rendered_options: { ...; }[]; ... 4 more ...; analysis_display_headline: string; }' is not assignable to type 'DisplayState'.
-1	src/components/debug/__tests__/exportBundle.v1_5.spec.ts	TS2322	Type '{ active_panel: string; active_tab: string; active_section: string; canvas_node_count: number; canvas_edge_count: number; canvas_node_types: { factor: number; option: number; goal: number; }; ... 5 more ...; analysis_display_headline: string; }' is not assignable to type 'DisplayState'.
 1	src/components/debug/__tests__/exportBundle.v1_5.spec.ts	TS2739	Type '{ plot_has_downstream_calls: false; downstream_calls_path_found: null; downstream_calls_paths_checked: never[]; isl_data_source: "none"; cee_trace_present: false; cee_degraded: false; ... 10 more ...; mca_computed: false; }' is missing the following properties from type 'DiagnosticChecks': isl_edge_e_values_present, plot_edge_e_values_exposed, ui_edge_e_values_available, factor_confidence_differentiated, factor_confidence_unique_values
 1	src/components/debug/__tests__/exportBundle.v2_0.spec.ts	TS2322	Type 'null' is not assignable to type 'LlmMetadataData | undefined'.
 3	src/components/debug/__tests__/exportBundle.v2_0.spec.ts	TS2322	Type 'null' is not assignable to type 'LlmRawData | undefined'.
