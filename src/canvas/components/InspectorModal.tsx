@@ -12,6 +12,7 @@ import { NodeInspector } from '../ui/NodeInspector'
 import { EdgeInspector } from '../ui/EdgeInspector'
 import { InspectorRouter } from '../ui/inspector-v2'
 import { ICON_STANDALONE } from '../conversation/panelIcons'
+import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
 
 /** Feature flag: when true, uses the new per-type inspector panels */
 const USE_INSPECTOR_V2 = true
@@ -84,6 +85,16 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
 
   // Get anchor position from selection
   const anchorPosition = useCanvasStore(s => s.selection.anchorPosition)
+
+  // Design audit #14: the dock's "Selected" row stands down while this is open
+  // (`SelectionPill`). Reported on mount, withdrawn on unmount.
+  const hasTarget = Boolean(nodeId || edgeId)
+  useEffect(() => {
+    if (!hasTarget) return
+    const { setOpen } = useInspectorPresenceStore.getState()
+    setOpen(true)
+    return () => setOpen(false)
+  }, [hasTarget])
 
   // Dragging state
   const [isDragging, setIsDragging] = useState(false)

@@ -5,7 +5,7 @@
  * the separate Impact / Investigation value sections.
  */
 
-import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { memo, useState, useMemo, useCallback, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link, MessageSquare } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { useCanvasStore } from '../../../store'
@@ -324,6 +324,22 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   // have seen a result — so the loop "elicit → Use this → analysis goes stale"
   // is only reachable at all from here.
   const [inWords, setInWords] = useState(false)
+  // ⭐ Design audit #14 (served `853feeb7`): a factor click opened the inspector
+  // AND "Say what you think in plain words". The inspector opens beside the
+  // clicked node, so under the RESTING pointer; the browser's synthetic hover
+  // after layout fired the toggle's tooltip with no movement at all. The
+  // tooltip is therefore offered only once the user has moved the pointer
+  // (a mousemove at a NEW position; the synthetic one repeats the resting
+  // position) or used the keyboard on the value row.
+  const [valueRowEngaged, setValueRowEngaged] = useState(false)
+  const valueRowPointerRef = useRef<{ x: number; y: number } | null>(null)
+  const onValueRowMouseMove = useCallback((e: ReactMouseEvent) => {
+    if (valueRowEngaged) return
+    const last = valueRowPointerRef.current
+    if (last && (last.x !== e.clientX || last.y !== e.clientY)) setValueRowEngaged(true)
+    else valueRowPointerRef.current = { x: e.clientX, y: e.clientY }
+  }, [valueRowEngaged])
+  const onValueRowKeyDown = useCallback(() => setValueRowEngaged(true), [])
   const [phrase, setPhrase] = useState('')
   const elicitation = useBeliefElicitation({
     nodeId: nodeId ?? '',
@@ -809,7 +825,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               {canonicalDisplayText}
             </div>
           )}
-          <div className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}>
+          <div
+            data-testid="factor-value-row"
+            className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}
+            onMouseMove={onValueRowMouseMove}
+            onKeyDownCapture={onValueRowKeyDown}
+          >
             {unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') && (
               <span className={`${typography.panelHeader} text-xl`}>{unit}</span>
             )}
@@ -835,7 +856,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               a chance \u2014 a disabled control with no explanation is a mystery.
             */}
             {canDescribeInWords && (
-              <Tooltip content="Say what you think in plain words" delay={300}>
+              <Tooltip content={valueRowEngaged ? 'Say what you think in plain words' : null} delay={300}>
                 <button
                   type="button"
                   aria-label={describeInWordsToggleLabel(String(node.data?.label ?? ''))}
