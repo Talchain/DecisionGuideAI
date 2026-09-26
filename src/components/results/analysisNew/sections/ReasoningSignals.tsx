@@ -245,7 +245,10 @@ export function ReasoningSignals({
                     <button
                       type="button"
                       onClick={() => review(targetId)}
-                      title={DOOR.reviewDriver}
+                      /* The FULL name first (#2068 review note 1): the name
+                         is `truncate`d in a 1fr column, and this tooltip is a
+                         mouse reader's only way to read a long one. */
+                      title={`${row.label} · ${DOOR.reviewDriver}`}
                       /* A persistent DOTTED underline is the touch affordance
                          (RULE B, WCAG SC 1.4.1: colour alone on hover is
                          nothing on touch); dotted keeps three names from
@@ -271,7 +274,11 @@ export function ReasoningSignals({
                     <PanelIconButton
                       ai
                       label={DOOR.askDriver}
-                      onClick={() => onAsk(row.ask as AskOlumiPayload)}
+                      /* The draft asks what the ✦ promises (#2068 review
+                         note 2): "why this driver matters", not the bare
+                         factor name. Still the user's editable question;
+                         the payload's context and target are unchanged. */
+                      onClick={() => onAsk({ ...(row.ask as AskOlumiPayload), draft: DOOR.askDriverDraft(row.label) })}
                       testId={`${testId}-driver-ask`}
                     />
                   ) : (

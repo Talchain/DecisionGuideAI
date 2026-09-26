@@ -140,7 +140,11 @@ describe('row actions: only on a row that names a model element', () => {
     fireEvent.click(within(alpha).getByRole('button', { name: DOOR.askDriver }))
     expect(onAsk).toHaveBeenCalledTimes(1)
     const payload = onAsk.mock.calls[0][0]
-    expect(payload).toMatchObject({ targetId: 'f_a', draft: 'Alpha', label: COPY.disclosure.askOlumi })
+    // The draft asks what the ✦ promises (#2068 review note 2).
+    expect(payload).toMatchObject({ targetId: 'f_a', draft: DOOR.askDriverDraft('Alpha'), label: COPY.disclosure.askOlumi })
+    expect(payload.draft).toBe('Why does Alpha matter so much in this model?')
+    // The full name is the tooltip's first words (the name is truncated).
+    expect(within(alpha).getByRole('button', { name: 'Alpha' }).getAttribute('title')).toBe(`Alpha · ${DOOR.reviewDriver}`)
     // The ask must not carry back the percentage the row refuses to print.
     expect(payload.context).toBe(COPY.coverage.setRelativeInfluence)
     // The ask is the AI act and wears the AI icon.
