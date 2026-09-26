@@ -144,13 +144,24 @@ export function resolveEdgeValuesCoaching(sources: {
   strength: EdgeValueSource | null
   existence: EdgeValueSource | null
 }): string {
+  return `${resolveEdgeValuesProvenance(sources)} ${COACHING.edgeWeight}`
+}
+
+/**
+ * ⭐ v3.1 (DESIGN-GAP-v31 row 32): the two PROVENANCE sentences on their own —
+ * who set this connection's strength and its likelihood of existing. They used
+ * to reach the reader only inside the generic lightbulb card (as the first two
+ * sentences of `resolveEdgeValuesCoaching`); v3.1 drops that card, and these are
+ * element-grounded FACTS, not coaching, so the edge pane states them flat. The
+ * generic third sentence (`COACHING.edgeWeight`) is the part that left.
+ */
+export function resolveEdgeValuesProvenance(sources: {
+  strength: EdgeValueSource | null
+  existence: EdgeValueSource | null
+}): string {
   const strengthKey: EdgeProvenanceKey = sources.strength ?? 'not_set'
   const existenceKey: EdgeProvenanceKey = sources.existence ?? 'not_set'
-  return [
-    STRENGTH_PROVENANCE_COPY[strengthKey],
-    EXISTENCE_PROVENANCE_COPY[existenceKey],
-    COACHING.edgeWeight,
-  ].join(' ')
+  return `${STRENGTH_PROVENANCE_COPY[strengthKey]} ${EXISTENCE_PROVENANCE_COPY[existenceKey]}`
 }
 
 /** Context values for template substitution */

@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { OutcomePanel } from '../panels/OutcomePanel'
+import { EMPTY_STATES } from '../inspectorStrings'
 import { useCanvasStore } from '../../../store'
 import { CURRENT_MODEL_NOUN, OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
 
@@ -123,8 +124,11 @@ describe('OutcomePanel — option comparison section', () => {
     const { container } = render(
       <OutcomePanel nodeId="out1" techMode={false} onClose={() => {}} onNavigate={() => {}} />
     )
-    // StaleGuardBanner shows "Run your first simulation" in pre-analysis mode,
-    // wrapping the pre-analysis content
-    expect(container.textContent).toContain('Run your first simulation')
+    // StaleGuardBanner states the pre-analysis absence, wrapping the
+    // pre-analysis content. v3.1 (DESIGN-GAP-v31 row 33): the contract has no
+    // "simulation" wording, so the copy is the plain absence — bound to the
+    // one constant rather than a literal.
+    expect(container.textContent).toContain(EMPTY_STATES.noAnalysis)
+    expect(container.textContent).not.toMatch(/simulation/i)
   })
 })

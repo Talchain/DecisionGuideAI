@@ -57,7 +57,7 @@ const GENERIC_COACHING = Object.entries(COACHING)
   .map(([, v]) => v as string)
 expect(GOAL_CONSTRAINT_COPY.targetUnlocks.startsWith(COACHING.goalNoTarget)).toBe(true)
 
-function seed(nodes = NODES) {
+function seed(nodes: ReadonlyArray<Record<string, unknown>> = NODES) {
   useCanvasStore.setState({
     nodes: nodes as never[],
     edges: EDGES as never[],
