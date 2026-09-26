@@ -687,13 +687,81 @@ function whyCanvasNotProvenEqualToReadBothWays(scenarioId: string, wireGraph: un
   const read = currencyComparable(wireGraph)
   return (
     whyCanvasNotProvenEqualToRead(scenarioId, read, currencyComparable) ??
-    firstReadValueTheCanvasLacks(read, currencyComparable)
+    firstReadValueTheCanvasLacks(read, currencyComparable) ??
+    firstGoalValueNotProvenEqual(read)
   )
 }
 
 /** The currency proof's view of EITHER graph: contract defaults, then the analysis-affecting projection. */
 function currencyComparable(graph: unknown): unknown {
   return withoutNonAnalysisFields(withContractEdgeDefaults(graph))
+}
+
+/**
+ * ⭐ THE GOAL HALF OF CEE's PROJECTION, which the node and edge clauses never read.
+ *
+ * `computeAnalysisAffectingGraphHash` (`graph-hash.ts`, CEE staging `85ce874c`)
+ * hashes the graph's top-level `goal_node_id` and `goal_constraints` beside its
+ * nodes and edges. Both clauses above iterate `nodes` and `edges` only, so a read
+ * whose stated limit differed from the canvas's still proved "equal", and the
+ * reload restored a current Run card over a limit the user is not looking at.
+ * SERVED SHAPE: Paul's manual test `1a298d6d` read back `graph.goal_constraints`
+ * (one `monthly_churn <= 10` limit, keys reordered by JSONB) and no `goal_node_id`.
+ *
+ * ⚠ ASYMMETRIC ON PURPOSE. `store.goalConstraints` is `null` whenever the canvas
+ * holds no list: every draft without a limit stores `null`, never `[]`
+ * (`applyDraftResult`), and edits and readiness clears null it too. So `null`
+ * cannot say "no limit", and a `null` canvas never declines. A NON-null list is
+ * a statement, and it must equal the read's, where an absent read list is `[]`
+ * exactly as CEE hashes it. Constraints are matched by `constraint_id ?? id`,
+ * compared whole (CEE excludes no constraint field), and not by position: the
+ * order of a list of limits changes no result.
+ */
+function firstGoalValueNotProvenEqual(wireGraph: unknown): string | null {
+  if (wireGraph === null || typeof wireGraph !== 'object') return 'goal:read_not_a_graph'
+  const g = wireGraph as { goal_node_id?: unknown; goal_constraints?: unknown }
+  const st = useCanvasStore.getState()
+  if (typeof g.goal_node_id === 'string') {
+    const projected = buildRegistrationGraph(st.nodes as never, st.edges as never)
+    if (!projected.ok) return 'goal:canvas_projection_failed'
+    const goal = projected.graph.nodes.find((n) => String(n.id) === g.goal_node_id)
+    if (goal === undefined || goal.kind !== 'goal') {
+      return `goal:goal_node_id:${g.goal_node_id}:not_a_canvas_goal`
+    }
+  }
+  const canvas = st.goalConstraints
+  if (canvas == null) return null
+  const read: unknown[] = Array.isArray(g.goal_constraints) ? g.goal_constraints : []
+  if (read.length !== canvas.length) {
+    return `goal:goal_constraints:count canvas=${canvas.length} read=${read.length}`
+  }
+  const readById = new Map<string, unknown>()
+  for (const r of read) {
+    const id = constraintIdentity(r)
+    if (id === null) return 'goal:goal_constraints:read_constraint_has_no_identity'
+    // A repeated id would let one entry shadow another (review 5843168236 N1).
+    if (readById.has(id)) return `goal:goal_constraints:${id}:duplicate_identity_on_read`
+    readById.set(id, r)
+  }
+  const canvasIds = new Set<string>()
+  for (const c of canvas) {
+    const id = constraintIdentity(c)
+    if (id === null) return 'goal:goal_constraints:canvas_constraint_has_no_identity'
+    if (canvasIds.has(id)) return `goal:goal_constraints:${id}:duplicate_identity_on_canvas`
+    canvasIds.add(id)
+    if (!readById.has(id)) return `goal:goal_constraints:${id}:absent_on_read`
+    if (!sameValue(c, readById.get(id))) {
+      return `goal:goal_constraints:${id}:differs canvas=${excerpt(c)} read=${excerpt(readById.get(id))}`
+    }
+  }
+  return null
+}
+
+function constraintIdentity(value: unknown): string | null {
+  if (value === null || typeof value !== 'object') return null
+  const c = value as { constraint_id?: unknown; id?: unknown }
+  const id = c.constraint_id ?? c.id
+  return typeof id === 'string' && id !== '' ? id : null
 }
 
 /** Applied to BOTH graphs of a comparison, so the two are compared like for like. */
@@ -737,9 +805,20 @@ function omitKeys(value: unknown, keys: ReadonlySet<string>): unknown {
   return out
 }
 
+/**
+ * ⚠ `unit` IS EXCLUDED ONLY WHERE CEE EXCLUDES IT. `projectIntervention`
+ * (`graph-hash.ts:246-249`, CEE staging `85ce874c`) hashes `unit` whenever a
+ * native `raw_value` sits beside it: 95,000 GBP and 95,000 USD are different
+ * amounts to a limit check. Beside an encoded `value` alone it is metadata and
+ * hashes to nothing, so only then may the proof ignore it.
+ */
 function withoutNonAnalysisIntervention(value: unknown): unknown {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return value
-  const stripped = omitKeys(value, NOT_ANALYSIS_AFFECTING.intervention) as Record<string, unknown>
+  const hasNative = (value as { raw_value?: unknown }).raw_value !== undefined
+  const excluded = hasNative
+    ? new Set([...NOT_ANALYSIS_AFFECTING.intervention].filter((k) => k !== 'unit'))
+    : NOT_ANALYSIS_AFFECTING.intervention
+  const stripped = omitKeys(value, excluded) as Record<string, unknown>
   if ('target_match' in stripped) {
     stripped.target_match = omitKeys(stripped.target_match, NOT_ANALYSIS_AFFECTING.targetMatch)
   }
