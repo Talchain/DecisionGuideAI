@@ -1175,7 +1175,7 @@ export function OptionsComparison({
             </span>
           ) : axisIsModelScale ? (
             <span
-              className={`${typography.panelMeta} text-text-light relative flex h-[18px] items-center justify-between ${RANGE_INSET}`}
+              className={`${typography.panelMeta} text-text-light relative flex h-[18px] items-center justify-between ${RANGE_INSET} pr-1`}
               data-testid={`${testId}-axis-ends`}
             >
               <span data-testid={`${testId}-axis-end-lower`}>{COPY.optionFigures.axisLower}</span>
