@@ -1545,7 +1545,7 @@ export function ModelStrip({
              string: at the 280px floor a long factor name or an engine
              sentence with no spaces must wrap inside this box rather than
              widen the panel. */
-          className="relative mt-[7px] border-t border-panel-border pt-2.5 pb-1.5 min-w-0"
+          className="relative mt-[7px] border-t border-panel-border pt-[9px] pb-1.5 min-w-0"
           data-testid={`${testId}-detail`}
           data-node-id={active.id}
         >

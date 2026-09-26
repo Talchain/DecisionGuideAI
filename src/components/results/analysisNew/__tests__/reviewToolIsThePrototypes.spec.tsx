@@ -126,6 +126,8 @@ describe('the shell and its header', () => {
     expect(heading.className.split(' ')).toContain('text-text-light')
     // CONTRAST: not the 14px/600 section header it was.
     expect(heading.className.split(' ')).not.toContain('font-semibold')
+    // The prototype's own name for the ×.
+    expect(screen.getByTestId(`${TID}-close`)).toHaveAccessibleName('Close review tool')
   })
 })
 

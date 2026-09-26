@@ -1076,7 +1076,7 @@ function ReasoningSuccessRow({
 }
 
 /** The prototype's `.form` field chrome: 12px, the field border, 7px radius. */
-const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-[9px] py-[7px] text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-[9px] py-[7px] text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 /**
  * ⭐ THE V2 PROTOTYPE'S `goal-form`, UNDER THE ROW. Every control here is
@@ -1144,12 +1144,16 @@ function ReasoningSuccessForm({
   const sendDisabled = mode === 'words' && wordsDraft.trim() === ''
   return (
     <div className="grid gap-2 pt-[9px] pb-[5px]" data-testid={`${testId}-editor`}>
+      {/* The prototype's `label.header-text` inside `.form` resolves to 12px
+          at 600 (`.form label` sets the size). The panel scale has no 12px
+          bold token and raw weights are banned, so the emphasis is carried
+          semantically — `<strong>` — as this panel's other bold leads are. */}
       <span
         id={ids.formLabelId}
-        className={`${typography.panelHeader} text-text-header`}
+        className={`${typography.panelBody} text-text-header`}
         data-testid={`${testId}-form-label`}
       >
-        {MODE_GROUP_LABEL}
+        <strong>{MODE_GROUP_LABEL}</strong>
       </span>
       <span role="radiogroup" aria-labelledby={ids.formLabelId} className="flex flex-wrap items-center gap-3">
         <label className={`${typography.panelBody} flex items-center gap-[5px] text-text-body`}>
@@ -1158,6 +1162,7 @@ function ReasoningSuccessForm({
             name={`${testId}-goal-mode`}
             checked={mode === 'words'}
             onChange={() => onMode('words')}
+            className="ml-[5px] mr-[3px]"
             data-testid={`${testId}-mode-words`}
           />
           {WORDS_MODE_LABEL}
@@ -1168,6 +1173,7 @@ function ReasoningSuccessForm({
             name={`${testId}-goal-mode`}
             checked={mode === 'number'}
             onChange={() => onMode('number')}
+            className="ml-[5px] mr-[3px]"
             data-testid={`${testId}-mode-number`}
           />
           {NUMBER_MODE_LABEL}
@@ -1180,11 +1186,10 @@ function ReasoningSuccessForm({
           <textarea
             id={ids.wordsInputId}
             value={wordsDraft}
-            autoFocus
             onChange={(e) => onWordsDraft(e.target.value)}
             onKeyDown={onWordsKeyDown}
             placeholder={WORDS_PLACEHOLDER}
-            rows={3}
+            rows={2}
             className={`${FIELD_CLASS} min-h-[64px] resize-y`}
             data-testid={`${testId}-words-input`}
           />

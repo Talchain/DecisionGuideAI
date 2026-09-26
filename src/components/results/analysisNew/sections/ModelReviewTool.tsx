@@ -101,6 +101,8 @@ export type ReviewToolRequest =
 const CHOOSE_ITEM_LABEL = 'Choose a review item'
 /** Prototype `focus-review`: it goes to the Model view, and says so. */
 const INSPECT_IN_MODEL_VIEW_LABEL = 'Inspect this item in the Model view'
+/** Prototype `btn('x','reviews','Close review tool')`, verbatim. */
+const CLOSE_REVIEW_TOOL_LABEL = 'Close review tool'
 
 /**
  * The prototype's kind icon (`reviewHTML()`: `relationship` → link,
@@ -416,7 +418,7 @@ export function ModelReviewTool({
        rendering mistake. `!mt-1` overrides whatever `space-y-*` rhythm the
        parent applies (the same override PANEL_RULE's `!mt-[11px]` uses, for
        the same reason: `space-y`'s selector out-specifies a plain `mt-*`). */
-    <div data-testid={testId} className="!mt-1 py-1">
+    <div data-testid={testId} className="!mt-1 pt-1">
       <div className="flex items-center justify-between gap-1">
         {total > 0 ? (
           <Tooltip asChild content={COPY.entryTip}>
@@ -494,7 +496,7 @@ export function ModelReviewTool({
           ref={itemRef}
           /* The prototype's `.review-shell`: a hairline across the column,
              10px above the header and 3px below the last act. */
-          className="relative mt-2 border-t border-panel-border pt-2.5 pb-[3px]"
+          className="relative mt-2 border-t border-panel-border pt-[9px] pb-[3px]"
           data-testid={`${testId}-item`}
           data-review-key={current.key}
           data-target-id={current.targetId ?? undefined}
@@ -528,7 +530,7 @@ export function ModelReviewTool({
               />
               <PanelIconButton
                 Icon={X}
-                label={COPY.close}
+                label={CLOSE_REVIEW_TOOL_LABEL}
                 onClick={() => {
                   setOpen(false)
                   resetItemState()
