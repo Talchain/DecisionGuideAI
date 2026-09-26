@@ -238,7 +238,7 @@ describe('(a) the inspector row reads like the card, never the internal 0–1 va
     const text = row(dialog, F_PRICE).textContent ?? ''
     expect(text).not.toContain('0.295')
     expect(text).not.toMatch(/model value/i)
-    expect(readout(dialog, F_PRICE)).toContain('£59/month')
+    expect(readout(dialog, F_PRICE)).toContain('£59 / month')
   })
 
   it('a CEE-authored reading is still rendered verbatim (the wire’s "£60k")', () => {

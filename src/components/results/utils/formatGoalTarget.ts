@@ -70,7 +70,7 @@
  * question "is this value on a normalised scale?". Joining it would make a
  * 0.8 count render as "very high".
  */
-import { classifyUnit, unitIsDisplayable } from '../../../utils/unitClassifier'
+import { classifyUnit, compactUnitParts, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
 
 /**
@@ -128,5 +128,15 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
    * printed exactly as before (no rounding is introduced).
    */
   if (canonical.startsWith('%')) return `${value.toLocaleString()}${canonical}`
+  /**
+   * ⭐ A COMPOUND UNIT READS COMPACT — "£20,000 / month", not "20,000 GBP per
+   * month" (served `cd6a82e4`, Paul's pricing brief; contract reference board:
+   * "£20,000 / month · 12 months"). The one compact-unit owner decides
+   * (`compactUnitParts`, utils/unitClassifier) — the factor card and the option
+   * rows read it too — and the figure is the same `toLocaleString()` as below.
+   * Anything it does not recognise prints exactly as before.
+   */
+  const compact = compactUnitParts(value.toLocaleString(), canonical)
+  if (compact !== null) return joinCompactUnitParts(compact)
   return `${value.toLocaleString()} ${canonical}`
 }
