@@ -38,7 +38,7 @@ src/canvas/components/ModelQualityScore.tsx:264
 #                                        outcome" at winProb > 0.6
 src/adapters/cee/client.ts:735
 src/adapters/plot/v2/responseMapper.ts:1576
-src/canvas/contextMenu/actions.ts:1010
+src/canvas/contextMenu/actions.ts:1092
 src/canvas/hooks/useModelHealth.ts:148
 src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
@@ -142,6 +142,12 @@ src/types/constraints.ts:78
 #    (`analysisNewCopy.ts:2471` -> `2472`, a pure +1 line shift: the read-back's
 #    `decisionRecord.nextActionLabel`, added above this site so the Reasoning
 #    tab does not import the record modal. Line text identical.)
+#    (`contextMenu/actions.ts:1010` -> `1092`, a pure +82 line shift from
+#    `canvas/context-menu-typed-value` (26 Sep 2026): Set value now proposes
+#    through the card's writer (`FactorValueWriter`, the range-bound scale gate,
+#    the settlement toasts) and Reset was removed, all above this site. Line
+#    text identical (`if (attempts < MAX_ATTEMPTS) {`); added and gone were
+#    exactly this pair.)
 #    (`analysisNewCopy.ts:2472` -> `2489`, a pure +17 line shift from
 #    `panel/design-model` (design audit B5): the Reasoning tab's success-row
 #    and goal-form copy appended to `successTarget`, above this site. Line text

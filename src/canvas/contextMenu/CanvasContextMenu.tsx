@@ -5,7 +5,7 @@
  * submenu mechanics, keyboard navigation, and tooltips.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -15,7 +15,8 @@ import { Submenu } from './Submenu'
 import { MenuTooltip, useTooltipDelay } from './MenuTooltip'
 import { isDivider, isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from './types'
 import { SetValuePopover } from './SetValuePopover'
-import { setValueCustom } from './actions'
+import { setValueCustom, type FactorValueWriter } from './actions'
+import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 
 interface CanvasContextMenuProps {
   target: ContextTarget
@@ -46,6 +47,25 @@ export function CanvasContextMenu({
 
   const { activeTooltip, showTooltip, hideTooltip } = useTooltipDelay(300)
 
+  /**
+   * ⭐⭐ THE CARD'S WRITER, KEYED TO THIS MENU'S NODE — the one path a value set
+   * here may take. `FactorNode` commits its inline editor through
+   * `useModelEditAuthority(props.id).proposeFactorValue`; this is the same hook,
+   * keyed the same way, so Set value ▸ Best / Worst / Custom and the card are
+   * one writer (`factor_value_edit`: provenance, CEE's receipt, the revert, the
+   * edit-delivery hold), not two. A hook cannot be called from the action
+   * functions, so the host owns it — the Model tab's pattern for the same hook.
+   *
+   * ⚠ RESIDUAL, STATED: with no conversation panel mounted the writer's outcome
+   * is `'local_only'`, exactly as it is for the card; the action says so.
+   */
+  const authorityNodeId = target.kind === 'node' ? target.nodeId : null
+  const { proposeFactorValue } = useModelEditAuthority(authorityNodeId)
+  const factorValueWriter = useMemo<FactorValueWriter | undefined>(
+    () => (authorityNodeId ? { nodeId: authorityNodeId, propose: proposeFactorValue } : undefined),
+    [authorityNodeId, proposeFactorValue],
+  )
+
   const handleOpenCustomValue = useCallback((nodeId: string) => {
     setCustomValueNodeId(nodeId)
   }, [])
@@ -56,6 +76,7 @@ export function CanvasContextMenu({
     screenToFlowPosition,
     onClose,
     onOpenCustomValue: handleOpenCustomValue,
+    factorValueWriter,
     interactionMode,
     onSetInteractionMode,
   })
@@ -198,9 +219,7 @@ export function CanvasContextMenu({
       <SetValuePopover
         nodeId={customValueNodeId}
         anchorPos={target.screenPos}
-        onConfirm={(nodeId, value) => {
-          void setValueCustom(nodeId, value, showToast)
-        }}
+        onConfirm={(nodeId, value) => setValueCustom(nodeId, value, factorValueWriter, showToast)}
         onClose={() => { setCustomValueNodeId(null); onClose() }}
       />,
       document.body,

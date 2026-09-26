@@ -21,6 +21,7 @@
  * the full reasoning and the one thing this predicate genuinely cannot tell
  * apart (a slow-but-successful commit from a lost one).
  */
+import type { SystemEventSendSettlement } from './settleSystemEventSend'
 
 /** Every settlement word a value-commit editor may show after a dispatch. */
 export type ValueCommitSettlementWord = 'saving' | 'not_applied' | 'unconfirmed' | 'local_only'
@@ -90,4 +91,45 @@ export const VALUE_COMMIT_SETTLEMENT_COPY: Record<
     message: 'Saved on this device only — not sent to the model yet.',
     role: 'status',
   },
+}
+
+/**
+ * The sentence for a commit the writer REFUSED to encode — nothing was written
+ * anywhere (`proposeFactorValue` → `'not_encodable'`).
+ *
+ * ⭐ ONE OWNER FOR TWO SURFACES (26 Sep 2026). It lived as an inline literal in
+ * `NodeValueEditor`; the canvas context menu's Set value now proposes through
+ * the same writer and must say the same sentence for the same outcome, so the
+ * literal moved here rather than being copied beside it (trap 12).
+ */
+export const VALUE_NOT_ENCODABLE_COPY = 'This value cannot be sent to the model yet.'
+
+/**
+ * Which word a dispatched value commit settles on — or `null` for "say nothing".
+ *
+ * ⭐ EXTRACTED FROM `NodeValueEditor.commit`'s `onSendSettled`, VERBATIM, so the
+ * card and the canvas context menu cannot disagree about what a settlement
+ * means (26 Sep 2026). The mapping and its reasons are that component's header:
+ *
+ *   refused → `not_applied` · unverified → `unconfirmed` · blocked → `local_only`
+ *   queued → nothing (the flush queue owns it) · sent → `not_applied` only when
+ *   the live value visibly REVERTED (`didValueCommitRevert`), else nothing.
+ *
+ * `readNow` is a THUNK, read only on `'sent'`, because the caller's live value
+ * must be read at settlement time, not when the commit was made.
+ *
+ * All three numbers share ONE scale — the scale of the field the number was
+ * typed into (`resolveValueInputSeed`), exactly as `didValueCommitRevert` requires.
+ */
+export function valueCommitSettlementWord(
+  settlement: SystemEventSendSettlement,
+  beforeCommit: number | null | undefined,
+  committedTo: number | null | undefined,
+  readNow: () => number | null | undefined,
+): ValueCommitSettlementWord | null {
+  if (settlement === 'refused') return 'not_applied'
+  if (settlement === 'unverified') return 'unconfirmed'
+  if (settlement === 'blocked') return 'local_only'
+  if (settlement === 'queued') return null
+  return didValueCommitRevert(beforeCommit, committedTo, readNow()) ? 'not_applied' : null
 }
