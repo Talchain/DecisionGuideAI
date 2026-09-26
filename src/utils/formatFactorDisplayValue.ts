@@ -17,6 +17,7 @@
  */
 
 import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
+import { compactUnitParts } from './unitClassifier'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
@@ -312,7 +313,8 @@ export interface FactorDisplayParts {
   unit: string | null
   /**
    * `true` only for a RATE SUFFIX written onto the figure with no space
-   * (`£39,000` + `/year`). See `currencyRateParts`.
+   * (`£39,000` + `/year`). No producer sets it now: the compact-unit owner
+   * (`compactUnitParts`) spaces every rate (`£39,000 / year`). Kept for the reader.
    */
   attached?: true
   /**
@@ -343,38 +345,36 @@ export function factorCardVisibleText(readout: string | null, parts: FactorDispl
 }
 
 /**
- * ⭐ A CURRENCY RATE, SPELT THE WAY IT IS READ (Paul, 25 Sep: the card must
- * match the prototype, where a price reads `£49` and not `49 GBP`).
+ * ⭐ A COMPOUND UNIT, SPELT THE WAY IT IS READ (Paul, 25 Sep: the card must
+ * match the prototype, where a price reads `£49` and not `49 GBP`; contract
+ * reference board: "£49 per subscriber / month", "8% trials convert").
  *
- * The producer writes a salary as `unit: "GBP/year"`. `classifyUnit` does not
- * know that compound (it is not an ISO code), so Pattern 1 prints it as a unit
- * WORD: `39,000 GBP/year`. This re-spells THAT string — the same amount, the
- * same currency, the same rate — as `£39,000/year`.
+ * The producer writes a rate as `unit: "GBP per month"` / `"GBP/year"` /
+ * `"percent per month"`, a score as `"index out of 100"`. `classifyUnit` does
+ * not know those compounds, so Pattern 1 prints them as a unit WORD: `49 GBP per
+ * month`. This re-spells THAT string — the same figure, the same unit — through
+ * the one compact-unit owner, `compactUnitParts` (`utils/unitClassifier`):
+ * `£49` + `/ month`, `7%` + `/ month`, `50` + `/ 100`.
  *
- * ⛔ FORMATTING OF THE CARRIED UNIT, NEVER A SUBSTITUTION, and deliberately narrow:
+ * ⛔ FORMATTING OF THE CARRIED UNIT, NEVER A SUBSTITUTION:
  *   · only when the formatter's string is EXACTLY `<amount> <unit>` — composed
  *     here from the raw number and this unit, never a producer `display_value`;
- *   · only the three codes whose glyph is unambiguous in this product and that
- *     the patch receipt already maps (`v5GraphPatchDescription` CURRENCY_PREFIXES);
- *     any other code keeps its unit untouched;
- *   · only a single-word rate (`/year`, `/month`); anything else is untouched;
- *   · only a non-negative amount (`£-500` is not how a negative is written, and
- *     choosing a sign convention is not this function's call).
+ *   · the figure's digits are `formatNumber(raw_value)`, exactly as printed;
+ *   · anything `compactUnitParts` declines (`CHF/year`, `hours/week`, a
+ *     negative currency amount) keeps its unit untouched.
  * `formatFactorDisplayValue` and all of its callers are unchanged: this lives in
  * the split only, and carries `restates` so the card can bind it to the one
  * string (`FactorValueFigure`).
+ *
+ * (Was `currencyRateParts`, GBP/USD/EUR + a single-word slash rate only, which
+ * printed `£39,000/year` and left the served `49 GBP per month` untouched — so
+ * two boards read `49 GBP per month` and `49 £/month` for one concept.)
  */
-const CURRENCY_RATE_GLYPH: Readonly<Record<string, string>> = { GBP: '£', USD: '$', EUR: '€' }
-const CURRENCY_RATE_UNIT = /^([A-Za-z]{3})\s*\/\s*([A-Za-z]+)$/
-
-function currencyRateParts(amount: string, rawValue: number, unit: string, text: string): FactorDisplayParts | null {
-  if (rawValue < 0) return null
+function compoundUnitParts(amount: string, unit: string, text: string): FactorDisplayParts | null {
   if (text !== `${amount} ${unit}`) return null
-  const m = CURRENCY_RATE_UNIT.exec(unit)
-  if (!m) return null
-  const glyph = CURRENCY_RATE_GLYPH[m[1].toUpperCase()]
-  if (glyph === undefined) return null
-  return { figure: `${glyph}${amount}`, unit: `/${m[2]}`, attached: true, restates: text }
+  const parts = compactUnitParts(amount, unit)
+  if (parts === null) return null
+  return { figure: parts.figure, unit: parts.unit, restates: text }
 }
 
 /**
@@ -414,8 +414,8 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
     const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
     parts = { figure: `${Math.round(scaled)}%`, unit: null }
   } else if (kind === 'other') {
-    const rate = currencyRateParts(amount, raw_value, canonical || unit, text)
-    if (rate !== null) return rate
+    const compound = compoundUnitParts(amount, canonical || unit, text)
+    if (compound !== null) return compound
     parts = { figure: amount, unit: canonical || unit }
   } else return null
   return joinFactorDisplayParts(parts) === text ? parts : null

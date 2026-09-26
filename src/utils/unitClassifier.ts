@@ -167,6 +167,132 @@ export function applyUnitPlacement(figure: string, unit: string | null | undefin
 }
 
 /**
+ * ISO code → glyph, for the three codes whose glyph is unambiguous in this
+ * product. Moved here unchanged from `formatFactorDisplayValue`'s
+ * `CURRENCY_RATE_GLYPH` so the compact reading below and the factor card read
+ * ONE map (the patch receipt's `CURRENCY_PREFIXES` maps the same three). Any
+ * other code (`CHF`, `SEK`, …) keeps its code: a glyph this product has never
+ * shown for it would be a guess.
+ */
+export const ISO_CURRENCY_GLYPHS: Readonly<Record<string, string>> = { GBP: '£', USD: '$', EUR: '€' }
+
+/** A figure and the unit words printed after it (`null`: the unit is written into the figure). */
+export interface CompactUnitParts {
+  figure: string
+  unit: string | null
+}
+
+/** `<head> per <period>` or `<head>/<period>` — a single-word period. */
+const COMPOUND_RATE_UNIT = /^(.+?)(\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
+/** `<head> out of <N>` — the head may be empty or a placeholder word. */
+const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
+
+/**
+ * ⭐⭐ THE COMPACT READING OF A VALUE WHOSE UNIT IS A COMPOUND — THE ONE OWNER
+ * (canvas card values, DESIGN-GAP-v31 #9/#22, contract reference board:
+ * "£49 per subscriber / month", "£20,000 / month").
+ *
+ * Measured on served `cd6a82e4` (26 Sep, Paul's pricing brief): the producer
+ * carries `unit: "GBP per month"`, `"percent per month"`, `"index out of 100"`,
+ * `"subscribers per month"` (and, on another board, `"£/month"`,
+ * `"score out of 100"`). `classifyUnit` knows none of these compounds, so every
+ * formatter printed them as a trailing WORD — "49 GBP per month", "7 percent per
+ * month", "50 index out of 100" — and one option row ran "49 GBP per month → 59
+ * GBP per month · brief" off the card's right edge.
+ *
+ * Takes an ALREADY-FORMATTED figure (like `applyUnitPlacement`) and returns it
+ * placed against the compound unit, or `null` when the unit is not a compound
+ * this recognises — the caller then prints exactly what it printed before:
+ *   · `<currency> per|/ <period>` → `£49` + `/ month` (the glyph from
+ *     `classifyUnit` or `ISO_CURRENCY_GLYPHS`; an ISO code with no glyph keeps
+ *     its code, placed as `applyUnitPlacement` places it — `CHF 49`);
+ *   · `percent per|/ <period>` → `7%` + `/ month`;
+ *   · `<word> per <period>` → `20` + `subscribers / month`;
+ *   · `[index|score] out of <N>` → `50` + `/ 100` (the placeholder word names no
+ *     real-world scale — the estate's rule, `placeholderMagnitudeNumber`; the
+ *     "out of 100" frame is kept).
+ *
+ * ⛔ IT NEVER CHANGES THE FIGURE'S DIGITS, NEVER SCALES, NEVER INVENTS A UNIT
+ * AND NEVER DROPS A REAL ONE. `7 percent per month` reads `7% / month`, not
+ * `700%`: the ×100 of the plain percent class is a declared semantic transform
+ * (UI-SEM-093) and is NOT extended to compounds. Every word of the unit that
+ * names a quantity survives; only its notation changes.
+ *
+ * ⚠ DELIBERATELY NARROW, and each narrowing is pinned:
+ *   · a word head already written with a slash (`hours/week`) is left as it is —
+ *     it is already compact, and re-spacing it changes no meaning;
+ *   · a head that is itself compound (`GBP per subscriber per month`) is left;
+ *   · a negative currency figure is left (`£-500` is not how a negative is
+ *     written, and choosing a sign convention is not this function's call);
+ *   · a placeholder head on a rate (`index per month`) is left.
+ */
+export function compactUnitParts(figure: string, unit: string | null | undefined): CompactUnitParts | null {
+  if (unit == null) return null
+  const trimmed = unit.trim()
+  if (!trimmed) return null
+
+  const outOf = OUT_OF_UNIT.exec(trimmed)
+  if (outOf) {
+    const headKind = classifyUnit(outOf[1]).kind
+    if (headKind !== 'none' && headKind !== 'placeholder') return null
+    return { figure, unit: `/ ${outOf[2]}` }
+  }
+
+  const rate = COMPOUND_RATE_UNIT.exec(trimmed)
+  if (!rate) return null
+  const head = rate[1].trim()
+  const slashed = rate[2].includes('/')
+  const period = rate[3]
+  if (/\/|\bper\b/i.test(head)) return null
+  const { kind, canonical } = classifyUnit(head)
+  const negative = figure.trim().startsWith('-')
+  if (kind === 'symbol') {
+    if (negative) return null
+    return { figure: `${canonical}${figure}`, unit: `/ ${period}` }
+  }
+  if (kind === 'iso') {
+    if (negative) return null
+    const glyph = ISO_CURRENCY_GLYPHS[canonical.toUpperCase()]
+    if (glyph === undefined) return null
+    return { figure: `${glyph}${figure}`, unit: `/ ${period}` }
+  }
+  if (kind === 'percent') return { figure: applyUnitPlacement(figure, head), unit: `/ ${period}` }
+  if (kind === 'other' && !slashed) return { figure, unit: `${canonical} / ${period}` }
+  return null
+}
+
+/** The visible text of `compactUnitParts` — figure and unit words joined by one space. */
+export function joinCompactUnitParts(parts: CompactUnitParts): string {
+  return parts.unit === null ? parts.figure : `${parts.figure} ${parts.unit}`
+}
+
+/** A reading that is exactly `<number> <unit>` — the producer's figure, then the carried unit. */
+const NUMBER_THEN_UNIT = /^([-+]?\d[\d,]*(?:\.\d+)?)\s+(.+)$/
+
+/**
+ * ⭐ A PRODUCER READING, RE-SPELT ONLY WHEN IT IS THE CARRIED UNIT — or `null`.
+ *
+ * CEE authors `intervention_details[].display_value` as `"59 GBP per month"`:
+ * its own figure, one space, and the factor's own `unit`, byte for byte (served
+ * `cd6a82e4`, `{display_value:"59 GBP per month", raw_value:59, unit:"GBP per
+ * month"}`). That string is the carried unit written after the carried figure,
+ * so it takes the same compact notation as every UI-composed reading — the
+ * figure's digits are the producer's own (`"59"`), never re-derived.
+ *
+ * ⛔ Anything else is the producer's prose and is left verbatim: a reading
+ * whose trailing text is NOT exactly the carried unit (`"£18k"`, `"Low (0.1)"`,
+ * `"59 GBP/month"` against a `"GBP per month"` unit), or a unit
+ * `compactUnitParts` does not recognise.
+ */
+export function compactCarriedReading(reading: string, unit: string | null | undefined): string | null {
+  if (unit == null || !unit.trim()) return null
+  const m = NUMBER_THEN_UNIT.exec(reading.trim())
+  if (m === null || m[2] !== unit.trim()) return null
+  const parts = compactUnitParts(m[1], unit)
+  return parts === null ? null : joinCompactUnitParts(parts)
+}
+
+/**
  * Unit classification used by every value formatter.
  *
  * Returns:

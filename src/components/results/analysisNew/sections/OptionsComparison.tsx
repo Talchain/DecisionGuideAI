@@ -160,6 +160,7 @@
  */
 
 import { Fragment, useCallback, useId, useState } from 'react'
+import { outcomeValuesAreModelScale } from '../../outcomeValuesAreModelScale'
 import { ChevronRight, Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
 import { NodeMark } from '../nodeMarks'
 import { typography } from '../../../../styles/typography'
@@ -260,6 +261,42 @@ function tickTransform(fraction: number): string {
  * so this prints the scale's own number and nothing else — never a `%`, `$`
  * or any other symbol this surface was not given.
  */
+/**
+ * ⭐⭐ THE MODEL'S OWN 0–1 SCALE IS NOT A SCALE A READER CAN HOLD (26 Sep, design
+ * audit #3; contract v3.1 "no bare internal model scale", ruling "omit, never
+ * invent"). Served `853feeb7`, pricing starter after one Run: the Reasoning
+ * tab's axis under the "Goal only" qualifier printed **-0.487 / -0.315 /
+ * -0.143 / 0.029** — four ticks 0.172 apart across the shared p10..p90 domain
+ * (`results.option_comparison[].outcome`, mapped at
+ * `buildAnalysisNewViewModel.ts` `outcomeRange`). The goal on that run is "NRR
+ * above 110%", which the same payload places at `goal_threshold: 0.8` on the
+ * model's 0–1 scale (`goal_threshold_raw: 110`, cap 137.5): the ticks are the
+ * goal node's internal model value, and a negative NRR is not a reading anyone
+ * can use. So where the whole domain sits inside the model's ±1 band the tick
+ * labels are OMITTED — the bands, the (i) legend and every other line stay —
+ * and no unit or word is put in their place. A domain outside it (the served
+ * 25 Sep "190K … 890K") keeps its ticks unchanged.
+ *
+ * ⚠ A MAGNITUDE TEST, NAMED AS SUCH, AND ONE AUTHORITY: the domain is model
+ * scale when `outcomeValuesAreModelScale` says so, the same predicate (and
+ * threshold) the results hook's denormalisation pre-scan uses, so a run the hook
+ * treats as model scale never keeps bare ticks here (R&C #2133 B1: a propagated
+ * p10 -1.3 … p90 0.4 domain).
+ *
+ * ⚠ ON THE DATA, NEVER THE ROUND DOMAIN: `outcomeRangeScale` widens the domain
+ * to round steps (#2134), so a model-scale run at p10 -1.95 … p90 1.9 draws a
+ * -2 … 4 axis. Asking the predicate about that widened domain would print bare
+ * "-2 · 0 · 2 · 4" ticks on a run the results hook treats as model scale. So
+ * the predicate reads each analysed option's p10/p90, as the hook's pre-scan
+ * does (the hook also reads the mean) (R&C #2133 merge).
+ */
+function outcomeDomainIsModelScale(rows: OptionsComparisonSection['rows']): boolean {
+  // The SAME predicate the results hook's denormalisation pre-scan reads (R&C #2133 B1): one run, one answer.
+  return outcomeValuesAreModelScale(
+    rows.flatMap((r) => (r.kind === 'analysed' && r.outcomeRange != null ? [r.outcomeRange.p10, r.outcomeRange.p90] : [])),
+  )
+}
+
 function formatAxisTick(value: number): string {
   // Three significant figures, compact for large magnitudes (190K, not
   // "423,333.33" — the served 25 Sep check). Still no unit symbol.
@@ -560,7 +597,7 @@ export function OptionsComparison({
    * figure this wave does NOT add for the identical reason.
    */
   const axisTicks: readonly string[] | null =
-    showAxis && rangeScale !== null
+    showAxis && rangeScale !== null && !outcomeDomainIsModelScale(options.rows)
       ? AXIS_TICK_FRACTIONS.map((f, i) => formatAxisTick(rangeScale.ticks?.[i] ?? rangeScale.lo + f * rangeScale.span))
       : null
 

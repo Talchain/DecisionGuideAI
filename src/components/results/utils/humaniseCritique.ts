@@ -88,8 +88,8 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     suggestion: `Add your current estimate for ${label}`,
   }),
   CONSTRAINT_MISSING_VALUE: (label) => ({
-    title: `${label} target can't be fully evaluated`,
-    description: 'This factor is missing data needed to assess your success target accurately.',
+    title: `The limit on ${label} can't be fully checked`,
+    description: 'This factor is missing data needed to check your limit on it accurately.',
     suggestion: `Set a value for ${label}`,
   }),
   LOW_EVIDENCE: () => ({
@@ -666,17 +666,17 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // goal ones.
   CONSTRAINT_NOT_CONVERTIBLE: () => ({
     title:
-      'One of your success targets couldn\'t be compared with where its factor stands today, so its goal-fit was withheld rather than guessed. State that factor\'s current level.',
+      'One of your limits couldn\'t be compared with where its factor stands today, so its check was withheld rather than guessed. State that factor\'s current level.',
     description:
-      'The target could not be resolved into its factor\'s measurement frame, for example when no current level is recorded for it.',
+      'The limit could not be resolved into its factor\'s measurement frame, for example when no current level is recorded for it.',
     suggestion: 'State the current level for that factor',
   }),
   CONSTRAINT_FRAME_UNSPECIFIED: () => ({
     title:
-      'One of your success targets could mean a level to reach or a change from today, so its goal-fit was withheld rather than guessed. Restate it as a level or a change.',
+      'One of your limits could mean a level or a change from today, so its check was withheld rather than guessed. Restate it as a level or a change.',
     description:
-      'The constraint does not say whether its value is a level or a change, and the producer refuses to guess between them.',
-    suggestion: 'Restate that target as a level to reach or a change from today',
+      'The limit does not say whether its value is a level or a change, and the producer refuses to guess between them.',
+    suggestion: 'Restate that limit as a level or a change from today',
   }),
 
   // Producer: root ancestors with no observed value and no ParameterUncertainty
@@ -905,7 +905,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   }),
   CONSTRAINT_NODE_DEFAULT_BASE: () => ({
     title:
-      'A factor carrying a success target has no current value or uncertainty recorded, so zero was assumed as its starting point. Add its current value.',
+      'A factor carrying a limit has no current value or uncertainty recorded, so zero was assumed as its starting point. Add its current value.',
     description:
       'With no parameter uncertainty the base is taken as a zero offset and the parents\' contribution propagates on top of it.',
     suggestion: 'Add the current value for that factor',
