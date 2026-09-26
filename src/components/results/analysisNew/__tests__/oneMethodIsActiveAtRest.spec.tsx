@@ -102,6 +102,23 @@ describe('one method is active at rest — when the run names one', () => {
     expect(screen.queryByTestId(CARD)?.getAttribute('data-method-id') ?? null).not.toBe('consider_opposite')
   })
 
+  it('⛔ (#2066 re-review) a pick made on an EARLIER run, which the new run\'s finding then names, does not survive "Not useful right now"', () => {
+    // Its own response hash, so no retirement from another case can leak in.
+    const draw = (data: ResultsSectionDataReturn) => (
+      <AnalysisNewTabBody resultsSectionData={data} isPreRun={false} isRunning={false} isStale={false} responseHash="b1-rerun" />
+    )
+    const { rerender } = render(draw(genuineDecision()))
+    expect(pressed(), 'PRECONDITION run 1: nothing active').toEqual([])
+    fireEvent.click(screen.getByTestId(`${STRIP}-method-consider_opposite`))
+    expect(pressed(), 'run 1: the reader picked it').toEqual(['consider_opposite'])
+    rerender(draw(flipDecision()))
+    expect(screen.getByTestId(CARD), 'run 2: the finding names the pick, so it shows the finding').toHaveAttribute('data-source', 'intervention')
+    fireEvent.click(screen.getByTestId(`${CARD}-more`))
+    fireEvent.click(screen.getByTestId(`${CARD}-not-useful`))
+    expect(pressed(), 'the dismissed method is not re-presented').toEqual([])
+    expect(screen.queryByTestId(CARD)?.getAttribute('data-method-id') ?? null).not.toBe('consider_opposite')
+  })
+
   it('⛔ (#2066 review B2) a method the READER picked wears the ring, not the run\'s "raised" dot', () => {
     drawBody(flipDecision())
     fireEvent.click(screen.getByTestId(`${STRIP}-method-reframe_problem`))

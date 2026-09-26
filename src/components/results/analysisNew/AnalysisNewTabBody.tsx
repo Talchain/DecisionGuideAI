@@ -42,7 +42,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
@@ -1247,6 +1247,21 @@ export function AnalysisNewTabBody({
     (id: string) => setPickedMethodId(id === restingMethodId ? null : id),
     [restingMethodId],
   )
+  /**
+   * ⛔⛔ AND THE INVARIANT IS HELD IN STATE, NOT ONLY AT THE CLICK (#2066
+   * re-review). A pick can come to EQUAL the resting method without anyone
+   * pressing it: pick X while the top finding names nothing, then a re-run's
+   * top finding names X (this body is not re-keyed per run), or the finding
+   * ahead of it is retired. The card then shows the finding; "Not useful right
+   * now" retires it, the resting method moves on, and a pick latched in state
+   * resurfaced as X's catalogue card. So whenever the two coincide the pick is
+   * cleared — whichever route got it there — and `effectivePick` reads the
+   * same rule on this render so no frame shows the latched pick.
+   */
+  useEffect(() => {
+    if (pickedMethodId !== null && pickedMethodId === restingMethodId) setPickedMethodId(null)
+  }, [pickedMethodId, restingMethodId])
+  const effectivePick = pickedMethodId !== null && pickedMethodId === restingMethodId ? null : pickedMethodId
 
   /**
    * ⭐⭐ THE GLANCE ANSWERED NOTHING, SO THE FIGURES COME UP TO FILL THE GAP.
@@ -1643,7 +1658,7 @@ export function AnalysisNewTabBody({
             now" is what sets a pick aside). At rest the active method is the one
             the run's own top finding names (`restingMethodId`), never a default. */}
         <MethodStrip
-          activeMethodId={pickedMethodId ?? restingMethodId}
+          activeMethodId={effectivePick ?? restingMethodId}
           onSelectMethod={selectMethod}
           raisedMethodIds={raisedMethodIds}
           canRerun={canRunAnalysis === true && !vm.status.isPreRun}
@@ -2120,7 +2135,7 @@ export function AnalysisNewTabBody({
           title="Challenge the thinking"
           titleTestId="analysis-new-zone-also"
           intervention={glancePrimary}
-          methodId={pickedMethodId}
+          methodId={effectivePick}
           onSelectMethod={selectMethod}
           onSetAsideMethod={() => setPickedMethodId(null)}
           onRunIntervention={runIntervention}
