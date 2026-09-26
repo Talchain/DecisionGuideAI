@@ -5196,6 +5196,12 @@ export function useConversation(): UseConversationReturn {
             {
               turnClientId,
               currentClientTurnId: activeV5TurnIdRef.current,
+              // Row 3b: a receipt for THIS turn's own factor edit applies only while
+              // that edit still stands — the predicate the confirm above already reads.
+              factorEditReceiptStands: (nodeId: string) =>
+                !opts.optimisticFactorEdit ||
+                opts.optimisticFactorEdit.nodeId !== nodeId ||
+                optimisticFactorEditStillStands(opts.optimisticFactorEdit),
             },
             )
           } finally {

@@ -779,6 +779,21 @@ export interface ApplyV5StateOptions {
   turnClientId?: string | null
   /** The store's active turn id at apply time. When mismatched, drop writes. */
   currentClientTurnId?: string | null
+  /**
+   * ⛔ A LATE RECEIPT MUST NOT BRING AN OLDER NUMBER BACK (row 3b; first bad #2046,
+   * Canonical triage #70 5844355970).
+   *
+   * The caller's predicate over the ONE factor-value edit this turn carries: false
+   * when the user's own optimistic edit on `nodeId` no longer stands, because the
+   * value moved on while the turn was in flight (an undo, a scenario load, a server
+   * patch). A `set_factor_value` receipt for that node is then DEFERRED: its `after`
+   * describes a number the node no longer holds, and applying it overwrote the newer
+   * value with the older one — since #2046 also stamped "edited by you".
+   * `confirmOptimisticFactorEdit` already withholds the reviewed stamp on the SAME
+   * predicate (`optimisticFactorEditStillStands`); this is the applier honouring it.
+   * Absent → today's behaviour.
+   */
+  factorEditReceiptStands?: (nodeId: string) => boolean
 }
 
 /**
@@ -1036,6 +1051,10 @@ export function applyV5State(
           const node = store.nodes.find((n) => n.id === target)
           if (!node) {
             deferred.push({ reason: 'set_factor_value_target_not_found', block, detail: target })
+            break
+          }
+          if (options?.factorEditReceiptStands && !options.factorEditReceiptStands(target)) {
+            deferred.push({ reason: 'set_factor_value_receipt_value_moved_on', block, detail: target })
             break
           }
           // One-level merge: `data` and `observedState` objects spread;
