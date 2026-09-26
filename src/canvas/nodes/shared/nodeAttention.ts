@@ -189,8 +189,8 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
         push(reasons, id, {
           kind: 'top_driver',
           order: 3,
-          // Contract v3.1 pt 5 (#37): the printed M is the RANKED count, as on the card.
-          label: `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.rankedSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
+          // ED #63 5806207128: the printed M is the ANALYSED count, as on the card.
+          label: `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.influenceSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
         })
       }
     }

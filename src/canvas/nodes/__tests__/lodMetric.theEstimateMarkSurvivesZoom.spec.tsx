@@ -231,9 +231,9 @@ describe('the mark names the factor’s own value and no other number', () => {
       } as never,
       facts: { driverRank: { rank: 1, setSize: 4 } },
     })
-    // Contract v3.1 pt 5 wording ("Driver N of M ranked in this run", #37).
+    // ED #63 5806207128 wording ("Driver N of M analysed").
     expect(detail.text, 'the influence arm produced no line — fixture is vacuous').toBe(
-      'Driver 1 of 4 ranked in this run',
+      'Driver 1 of 4 analysed',
     )
     expect(detail.unconfirmedEstimate).toBe(false)
   })

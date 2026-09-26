@@ -17,15 +17,6 @@
  * ranks we happen to render'" — the served wording and M from before pt 5.
  * The unranked half of pt 5 (no line, "Not ranked in this run" to AT) stands.
  *
- * ⭐⭐ RE-APPLIED 26 Sep (DESIGN-GAP-v31 #37, Canvas WS4): the lane brief rules
- * that v3.1 wins over the code's documented rulings, so the ranked caption is
- * pt 5's verbatim form again — "Driver N of M ranked in this run", stale
- * "Last run · Driver N of M ranked" — with M the RANKED count. ⚠ This reverses
- * ED 5806207128; the conflict is named in `DRIVER_LINE_COPY.rank` and the WS4
- * report, and the change is one droppable commit. The discriminating pair is
- * the same pair, read the other way: the analysed set (6) and the ranked count
- * (3) differ, so a caption that prints the ANALYSED set goes red.
- *
  * ⚠ IDENTITY, NOT A VALUE PREDICATE. Every assertion binds a test id AND an
  * exact string. The ranked cases run a discriminating pair: the analysed set
  * (`influenceSetSize` 6) and the ranked count (`influenceRankedCount` 3) differ,
@@ -217,50 +208,50 @@ describe('contract v3.1 pt 5 — an UNRANKED factor shows no rank, no line and n
   })
 })
 
-describe('contract v3.1 pt 5 (#37) — a RANKED factor reads "Driver N of M ranked in this run", M = the ranked count', () => {
-  it('current run: M is the ranked count (3), never the analysed set (6)', () => {
+describe('ED 5806207128 — a RANKED factor reads "Driver N of M analysed", M = the eligible analysed factors', () => {
+  it('current run: M is the analysed set (6), never the ranked count (3)', () => {
     displayMetadata = metadata(2, 6, 3, 0.57)
     seedCompletedRun()
     renderFactor()
     expect(semantic()).toBe('current')
     const caption = popoverLine('factor-driver-line-caption').textContent
-    expect(caption).toBe('Driver 2 of 3 ranked in this run')
-    expect(caption).not.toContain('of 6')
+    expect(caption).toBe('Driver 2 of 6 analysed')
+    expect(caption).not.toContain('of 3')
     // The line keeps its bar, and says nothing about being unranked.
     expect(popoverLine('factor-driver-line-bar')).toBeTruthy()
     expect(screen.queryByTestId('factor-driver-not-ranked')).toBeNull()
     // Hover/description define the denominator.
     expect(popoverLine().getAttribute('aria-description')).toContain(
-      '“of 3” counts the factors the run ranked.',
+      '“of 6” counts the factors in the last analysis.',
     )
   })
 
-  it('DISCRIMINATING — a different ranked count prints a different M (2), whatever the analysed set', () => {
+  it('DISCRIMINATING — a different analysed set prints a different M (4), whatever the ranked count', () => {
     displayMetadata = metadata(1, 4, 2, 1)
     seedCompletedRun()
     renderFactor()
-    expect(popoverLine('factor-driver-line-caption').textContent).toBe('Driver 1 of 2 ranked in this run')
+    expect(popoverLine('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
   })
 
-  it('stale run: "Last run · Driver N of M ranked" ("in this run" goes), and the name still opens with it', () => {
+  it('stale run: "Last run · Driver N of M analysed", and the name still opens with it', () => {
     displayMetadata = metadata(2, 6, 3, 0.57)
     seedCompletedRun()
     renderFactor()
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(popoverLine('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 3 ranked')
+    expect(popoverLine('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 6 analysed')
     const line = popoverLine()
-    expect(line.getAttribute('aria-label')).toMatch(/^Last run · Driver 2 of 3 ranked\. /)
-    expect(line.getAttribute('aria-description')).toContain('“of 3” counts the factors the run ranked.')
+    expect(line.getAttribute('aria-label')).toMatch(/^Last run · Driver 2 of 6 analysed\. /)
+    expect(line.getAttribute('aria-description')).toContain('“of 6” counts the factors in the last analysis.')
   })
 
   it('reduced line: the same caption and the same stale form', () => {
     displayMetadata = metadata(2, 6, 3, 0.57)
     seedCompletedRun({ lodRung: 'line' })
     renderFactor()
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 2 of 3 ranked in this run')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 2 of 6 analysed')
     editTheModel()
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 2 of 3 ranked')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 2 of 6 analysed')
   })
 
   it('the ranked count still GUARDS publication: a rank beyond it states no rank (fail closed)', () => {

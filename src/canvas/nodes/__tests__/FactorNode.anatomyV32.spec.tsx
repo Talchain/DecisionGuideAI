@@ -16,7 +16,7 @@
  *   Line 2   `<value> <mark>`, plain text, no chip. Missing:
  *            `Needs input · Value not set yet` IN THE BODY, not a border pill.
  *            Pre-run with a value: nothing more.
- *   Findings ONLY if the run RANKED it: `Driver N of M ranked in this run` (v3.1 pt 5, #37) + a thin
+ *   Findings ONLY if the run RANKED it: `Driver N of M analysed` + a thin
  *            neutral bar, where M is the ELIGIBLE ANALYSED factors (the run's
  *            driver feed, `influenceSetSize`) — not the count of ranks the
  *            card happens to render (ED #63 5806207128, "Factor anatomy").
@@ -27,7 +27,7 @@
  *            a limit line (the boundary lives on the Goal).
  *   Stale    `Last run ·` ONLY on a derived result actually shown (a driver
  *            rank, a found turning point); never on filler.
- *            (`Last run · Driver 1 of 3 ranked`, v3.1 pt 5 — was ED 5806207128's `… of 6 analysed`.)
+ *            (`Last run · Driver 1 of 6 analysed`, ED 5806207128.)
  *   All      no pills on the border; no chips around values at rest.
  *
  * ⚠ IDENTITY, NOT A VALUE PREDICATE. Every assertion binds a test id carrying
@@ -322,7 +322,7 @@ describe('NODE-ANATOMY v3.2 · Factor · missing value — "Needs input" in the 
 })
 
 describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found', () => {
-  it('value on the face; "Driver 1 of 3 ranked in this run" + bar, then the turning point — in that order, ON the face (prototype, Paul 25 Sep)', () => {
+  it('value on the face; "Driver 1 of 6 analysed" + bar, then the turning point — in that order, ON the face (prototype, Paul 25 Sep)', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
@@ -330,7 +330,7 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     const value = within(face()).getByTestId('factor-recorded-value')
     const driver = onFaceNotInPopover('factor-driver-line')
     const tp = onFaceNotInPopover('factor-turning-point')
-    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
     expect(within(face()).getByTestId('factor-driver-line-bar')).toBeTruthy()
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was "Model comparison changes" + a floated 6.5%,
@@ -358,33 +358,26 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
   })
 })
 
-/*
- * ⭐⭐ RE-POINTED 26 Sep (contract v3.1 pt 5, DESIGN-GAP-v31 #37, Canvas WS4):
- * M is the RANKED count again — "Driver N of M ranked in this run" — reversing
- * ED 5806207128's analysed count (named in `DRIVER_LINE_COPY.rank`; one
- * droppable commit). The same discriminating pair, read the other way: SIX
- * analysed, THREE ranked, so a caption printing the analysed set goes red.
- */
-describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the RANKED count (contract v3.1 pt 5, #37)', () => {
-  it('the caption AND its description print the ranked count (3), never the analysed set (6)', () => {
+describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the ANALYSED count (ED 5806207128)', () => {
+  it('the caption AND its description print the analysed count (6), never the ranked count (3)', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
     const caption = within(face()).getByTestId('factor-driver-line-caption').textContent ?? ''
-    expect(caption).toBe('Driver 1 of 3 ranked in this run')
-    expect(caption).not.toContain('of 6')
-    expect(caption).not.toContain('analysed')
+    expect(caption).toBe('Driver 1 of 6 analysed')
+    expect(caption).not.toContain('of 3')
+    expect(caption).not.toContain('ranked')
     const note = onFaceNotInPopover('factor-driver-line').getAttribute('aria-description') ?? ''
-    expect(note).toContain('“of 3” counts the factors the run ranked')
-    expect(note).not.toContain('of 6')
+    expect(note).toContain('“of 6” counts the factors in the last analysis')
+    expect(note).not.toContain('of 3')
   })
 
-  it('CONTRAST — the same rank against a different ranked count prints that count: M follows the data, not a constant', () => {
-    displayMetadata = metadata(2, 6, 4, 0.7)
+  it('CONTRAST — a set of four analysed prints 4: the M follows the analysed count, not a constant', () => {
+    displayMetadata = metadata(2, 4, 3, 0.7)
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
-    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 4 ranked in this run')
+    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 4 analysed')
   })
 })
 
@@ -411,7 +404,7 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — 
     // Positive control: the run's finding for this factor IS disclosed — on the
     // face (prototype, Paul 25 Sep).
     const driver = onFaceNotInPopover('factor-driver-line')
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
     const none = within(face()).getByTestId('factor-turning-point-none')
     expect(visibleText(none)).toBe(words)
     expect(before(driver, none)).toBe(true)
@@ -506,7 +499,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     // disclosure keeps `Last run ·`" — now the face's findings (prototype, 25 Sep).
     onFaceNotInPopover('factor-driver-line')
     onFaceNotInPopover('factor-turning-point')
-    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
     // v3.1 point 3 (#38): the stale caption is the Last-run direction sentence.
     expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(face()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
@@ -525,7 +518,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
     // A stale finding keeps `Last run ·` (ED 5809278282), and "that run", never "this run".
     expect(visibleText(within(face()).getByTestId('factor-turning-point-none'))).toBe('Last run · No turning point in that run')
     expect(document.body.textContent).not.toContain('in this run')

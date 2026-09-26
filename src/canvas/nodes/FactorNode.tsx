@@ -537,14 +537,14 @@ export const FactorNode = memo((props: NodeProps) => {
    *   2  `<value> <mark>` as plain text (no chip), OR "Needs input · Value not
    *      set yet" in the body (no border pill). Pre-run with a value: nothing more.
    *   3+ ONLY for a factor the run RANKED: "Driver N of M analysed" + a thin
-   *      neutral bar, M = the RANKED factors (contract v3.1 pt 5, #37 —
-   *      reversing ED #63 5806207128's analysed count). Then a FOUND turning
+   *      neutral bar, M = the eligible ANALYSED factors (ED #63 5806207128:
+   *      "not 'number of ranks we happen to render'"). Then a FOUND turning
    *      point, on any factor (it is the run's finding for THIS factor).
    *   NEVER "Structural influence"; any "No turning point …" line at rest (ED
    *      5806207128: "Absence of a turning point = no mini-visual"); a limit
    *      line (the Goal's); a badge on the border (Standard).
    *   STALE `Last run ·` only on the rank and a found turning point (ED #63
-   *      5805528520 §6): `Last run · Driver 1 of 3 ranked` (v3.1 pt 5, #37).
+   *      5805528520 §6): `Last run · Driver 1 of 6 analysed`.
    * Pinned state by state in `__tests__/FactorNode.anatomyV32.spec.tsx`.
    *
    * ⭐ THE LOCKED FACTOR FACE (spec §3 Normal; ED 02:31Z D1a; ED 11:52Z point 3):
@@ -682,7 +682,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * So, in the STANDARD view only (Detailed keeps its inline detail):
    *   · card body = the value line (value + mark) OR the `Needs input` row —
    *     one row, whose mark can never wrap or be cut (`factor-value-mark-slot`);
-   *   · the S3 findings — `Driver N of M ranked in this run` (v3.1 pt 5, #37) + bar, a FOUND turning point,
+   *   · the S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
    *     the external prior-range line — MOVE, verbatim and with their
    *     `Last run ·` labels, into this factor's `NodePopover` (`standardFindings`
    *     below), which now mounts for them whatever the factor's priority; the
@@ -711,7 +711,7 @@ export const FactorNode = memo((props: NodeProps) => {
    * re-layout, ED 5808428246). They leave the popover (never both at once);
    * the inline `FactorDriverCue` is retired, since the line it stood in for is
    * now on the card. A non-top factor's found turning point stays in the
-   * popover. The wording of each line is unchanged (`Driver N of M ranked in this run` (v3.1 pt 5, #37),
+   * popover. The wording of each line is unchanged (`Driver N of M analysed`,
    * ED 5806207128). Pinned in `__tests__/FactorNode.prototypeBodyAtRest.spec.tsx`.
    */
   //
@@ -1213,7 +1213,7 @@ export const FactorNode = memo((props: NodeProps) => {
    *     "don't say it twice" rule targets (that rule is about DIFFERENT
    *     provenance facts competing for one glyph, not the same sentence
    *     appearing on the card and in its own popover);
-   *   · `Driver N of M ranked in this run` (v3.1 pt 5, #37) + its neutral bar, `Last run · ` when stale;
+   *   · `Driver N of M analysed` + its neutral bar, `Last run · ` when stale;
    *   · a FOUND turning point (Standard never shows the "none" fallback —
    *     ED 5806207128), `Last run · ` when stale;
    *   · the external prior-range line, with its `no source` mark when it is

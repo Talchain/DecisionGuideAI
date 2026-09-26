@@ -6,7 +6,7 @@
  * "Driver N of M ranked in this run"): "If rank is published: use e.g. `Driver
  * 1 of 6 analysed` + a neutral thin relative bar. Denominator = eligible
  * analysed factors, not 'number of ranks we happen to render'." Stale form:
- * `Last run · Driver 1 of 6 ranked`. That restores the served wording and
+ * `Last run · Driver 1 of 6 analysed`. That restores the served wording and
  * the served definition of M (the factors in the last analysis) from before
  * the v3.1 change. The line stays RANKED-ONLY (`rank` is non-null by type);
  * the unranked factor's statement is `FactorDriverNotRanked`. The hover and
@@ -96,8 +96,8 @@ describe('point 9 — the driver bar is neutral, so it never competes with the I
 describe('ED 5806207128 — "Driver N of M analysed" defines its M (the analysed factors); an unranked factor shows no rank', () => {
   it('the caption is ED’s exact wording, M from rank.setSize', () => {
     renderLine({ rank: 2, setSize: 5 })
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 5 ranked in this run')
-    expect(driverLineCaption({ rank: 2, setSize: 5 })).toBe('Driver 2 of 5 ranked in this run')
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 5 analysed')
+    expect(driverLineCaption({ rank: 2, setSize: 5 })).toBe('Driver 2 of 5 analysed')
   })
 
   it('a ranked line’s accessible description defines the denominator as the analysed factors', () => {
@@ -105,7 +105,7 @@ describe('ED 5806207128 — "Driver N of M analysed" defines its M (the analysed
     const el = line()
     expect(el).toHaveAccessibleDescription(driverLineDenominatorNote({ rank: 2, setSize: 5 }))
     const note = el.getAttribute('aria-description') ?? ''
-    expect(note).toContain('“of 5” counts the factors the run ranked')
+    expect(note).toContain('“of 5” counts the factors in the last analysis')
     expect(note).toContain(`at most ${MAX_BADGED_RANK}`)
     expect(note).toContain('only where their order is clear')
     expect(note).toContain('has not been left out')
@@ -124,10 +124,10 @@ describe('ED 5806207128 — "Driver N of M analysed" defines its M (the analysed
     renderLine({ rank: 2, setSize: 5 }, { fromLastRun: true })
     const el = line()
     const caption = screen.getByTestId('factor-driver-line-caption').textContent!
-    expect(caption).toBe('Last run · Driver 2 of 5 ranked')
+    expect(caption).toBe('Last run · Driver 2 of 5 analysed')
     // Label in Name (WCAG 2.5.3): the visible string opens the spoken one.
     expect(el.getAttribute('aria-label')!.startsWith(`${caption}. `)).toBe(true)
-    expect(el.getAttribute('aria-description')).toContain('“of 5” counts the factors the run ranked')
+    expect(el.getAttribute('aria-description')).toContain('“of 5” counts the factors in the last analysis')
   })
 
   it('an unranked factor’s statement: "Not ranked in this run", stale "Last run · Not ranked", out of flow', () => {

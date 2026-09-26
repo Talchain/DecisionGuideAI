@@ -2,7 +2,7 @@
  * ⭐ THE FACTOR'S TINY RELATIVE DRIVER VISUAL (locked spec §3 "Tiny driver visual
  * — restore"; ED 02:31Z D1a; ED 11:52Z point 3).
  *
- *   `Driver 1 of 3 ranked in this run  ▬▬`   a published rank (contract v3.1 pt 5)
+ *   `Driver 1 of 6 analysed  ▬▬`   a published rank (ED #63 5806207128)
  *   (nothing on the card)           unranked — "If the producer withholds a
  *                                   rank, render no substitute" (ED 5806207128);
  *                                   `FactorDriverNotRanked` says "Not ranked in
@@ -43,12 +43,11 @@
  *
  * ── WHAT THE `of M` MEANS ───────────────────────────────────────────────────
  *
- * ⭐⭐ CONTRACT v3.1 POINT 5 (DESIGN-GAP-v31 #37, Canvas WS4, 26 Sep): "Driver
- * N of M ranked in this run", M = the RANKED count (`driverRankFor`'s
- * `setSize`). ⚠ This reverses ED #63 5806207128 (24 Sep), which had restored
- * the v3 definition ("Denominator = eligible analysed factors, not 'number of
- * ranks we happen to render'") — named in `DRIVER_LINE_COPY.rank`; one
- * droppable commit. The history below is kept as the record.
+ * ⭐ ED #63 5806207128 (24 Sep) RESTORES THE v3 DEFINITION BELOW and retires
+ * contract v3.1 pt 5's "Driver N of M ranked in this run" (M = the ranked
+ * count): "Denominator = eligible analysed factors, not 'number of ranks we
+ * happen to render'." `M` is `influenceSetSize` again (via `driverRankFor`);
+ * the ranked count survives only as `driverRankFor`'s publication guard.
  *
  * "If it says `1 of 3`, users must understand what the 3 means … never imply a
  * missing rank is accidentally omitted." `M` is `rank.setSize`, the distinct
@@ -105,9 +104,9 @@ export interface FactorDriverLineProps {
   testId?: string
 }
 
-/** Contract v3.1 pt 5 — the caption, without the caller's `Last run · ` prefix. */
-export function driverLineCaption(rank: FactorDriverLineProps['rank'], fromLastRun = false): string {
-  return DRIVER_LINE_COPY.rank(rank.rank, rank.setSize, fromLastRun)
+/** ED 5806207128 — the caption, without the caller's `Last run · ` prefix. */
+export function driverLineCaption(rank: FactorDriverLineProps['rank']): string {
+  return DRIVER_LINE_COPY.rank(rank.rank, rank.setSize)
 }
 
 export function driverLineExplanation({
@@ -115,13 +114,12 @@ export function driverLineExplanation({
   value,
   provenance,
   importanceBasis,
-  fromLastRun = false,
-}: Pick<FactorDriverLineProps, 'rank' | 'value' | 'provenance' | 'importanceBasis' | 'fromLastRun'>): string {
+}: Pick<FactorDriverLineProps, 'rank' | 'value' | 'provenance' | 'importanceBasis'>): string {
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
   const quantity = influenceQuantity(provenance)
   const noun = quantity?.noun ?? influenceBasisNoun(provenance)
   const parts: string[] = []
-  parts.push(`${driverLineCaption(rank, fromLastRun)}. ${DRIVER_LINE_COPY.rankBasis}`)
+  parts.push(`${driverLineCaption(rank)}. ${DRIVER_LINE_COPY.rankBasis}`)
   parts.push(`Bar: ${noun.toLowerCase()}, ${pct}% of the strongest factor. ${DRIVER_LINE_COPY.relativeDisclosure}`)
   if (quantity) parts.push(quantity.gloss)
   const note = influenceStructuralBasisNote(provenance, importanceBasis)
@@ -131,14 +129,14 @@ export function driverLineExplanation({
 }
 
 /**
- * Paul 23 Sep contract feedback point 5 — what `of M` counts, and why a factor
- * may carry no rank. Contract v3.1 pt 5 (#37): `M` is the caption's own
- * `rank.setSize`, the factors the run RANKED; the cap is the owner's
- * `MAX_BADGED_RANK`. No other number is stated. "the run" is true of a current
- * run and of a known-changed model's last one, so the note has one form.
+ * Paul 23 Sep contract feedback point 5, restored by ED #63 5806207128 — what
+ * `of M` counts (the factors in the last analysis), and why a factor may carry
+ * no rank. `M` is the caption's own `rank.setSize`; the cap is the owner's
+ * `MAX_BADGED_RANK`. No other number is stated. "the last analysis" is true on
+ * a current run and on a known-changed one, so the note has one form.
  */
 export function driverLineDenominatorNote(rank: FactorDriverLineProps['rank']): string {
-  return `“of ${rank.setSize}” counts the factors the run ranked. Olumi names a driver rank for at most ${MAX_BADGED_RANK} factors, and only where their order is clear, so a factor without a rank has not been left out.`
+  return `“of ${rank.setSize}” counts the factors in the last analysis. Olumi names a driver rank for at most ${MAX_BADGED_RANK} of them, and only where their order is clear, so a factor without a rank has not been left out.`
 }
 
 /**
@@ -173,8 +171,8 @@ export function FactorDriverLine({
 }: FactorDriverLineProps) {
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
   const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
-  const caption = `${lastRun}${driverLineCaption(rank, fromLastRun)}`
-  const explanation = `${lastRun}${driverLineExplanation({ rank, value, provenance, importanceBasis, fromLastRun })}`
+  const caption = `${lastRun}${driverLineCaption(rank)}`
+  const explanation = `${lastRun}${driverLineExplanation({ rank, value, provenance, importanceBasis })}`
   const denominatorNote = driverLineDenominatorNote(rank)
   return (
     <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={`${explanation} ${denominatorNote}`}>

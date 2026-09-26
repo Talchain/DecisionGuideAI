@@ -68,7 +68,7 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
         displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
         facts: DRIVER_2_OF_5,
       }),
-    ).toBe('Driver 2 of 5 ranked in this run') // ED #63 5806207128
+    ).toBe('Driver 2 of 5 analysed') // ED #63 5806207128
   })
 
   it('ED 5806207128 stale form — "Last run · Driver N of M analysed"', () => {
@@ -80,7 +80,7 @@ describe('the deployed defect: a factor with no stated value said nothing', () =
         displayMetadata: meta({ influence: 0.62, influenceProvenance: 'influence_score' as never }),
         facts: { ...DRIVER_2_OF_5, influenceFromLastRun: true },
       }),
-    ).toBe('Last run · Driver 2 of 5 ranked')
+    ).toBe('Last run · Driver 2 of 5 analysed')
   })
 
   it('⛔ the bare "Influence N%" fallback is GONE — influence with no current rank says nothing analysis-derived', () => {
@@ -445,7 +445,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
         facts: { driverRank: { rank: 1, setSize: 4 } },
       }),
-    ).toBe('Driver 1 of 4 ranked in this run') // ED #63 5806207128
+    ).toBe('Driver 1 of 4 analysed') // ED #63 5806207128
   })
 
   it('TWIN — influence with NO current rank falls through to the prior range, never to a bare percentage', () => {

@@ -202,12 +202,11 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
 
   it('a CURRENT run: the reduced line states the card’s driver caption', () => {
     mount('current')
-    // Contract v3.1 pt 5 (#37): M is the RANKED count (3), never the analysed
-    // set (5) — reversing ED #63 5806207128 (one droppable commit).
+    // ED #63 5806207128: M is the analysed set (5), never the ranked count (3).
     expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
-      driverLineCaption({ rank: 1, setSize: 3 }),
+      driverLineCaption({ rank: 1, setSize: 5 }),
     )
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Driver 1 of 5 analysed')
   })
 
   /*
@@ -219,11 +218,11 @@ describe('mounted — the current-run licence reaches the reduced line (locked C
    */
   it('CHANGED — the SAME card labels the rank as the last run’s, never as current', () => {
     mount('changed')
-    // v3.1 pt 5 stale form: "Last run · Driver N of M ranked".
+    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
     expect(screen.getByTestId('node-lod-line-text').textContent).toBe(
-      `Last run · ${driverLineCaption({ rank: 1, setSize: 3 }, true)}`,
+      `Last run · ${driverLineCaption({ rank: 1, setSize: 5 })}`,
     )
-    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toBe('Last run · Driver 1 of 5 analysed')
   })
 
   it('CONTRAST — the SAME card on a cannot-confirm run states no rank and no percentage', () => {
