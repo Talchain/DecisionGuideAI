@@ -204,7 +204,8 @@ describe('contract §02: the resting value is a figure, and its unit is a separa
     const { container } = renderFactor(CUSTOMERS)
     const button = byId(container, `node-value-editor-${ID}`)!
     expect(button.getAttribute('aria-label')).toBe('Value for Customers — click to edit')
-    expect(button.getAttribute('title')).toBe('Click to edit')
+    // Design audit #13 (26 Sep): no native "Click to edit" tooltip.
+    expect(button.hasAttribute('title')).toBe(false)
     for (const id of [`factor-value-figure-${ID}`, `factor-value-unit-${ID}`]) {
       expect(byId(container, id)!.closest('[aria-hidden="true"]'), id).toBeNull()
     }

@@ -38,7 +38,8 @@ describe('editing a value on the card', () => {
     expect(rest.tagName).toBe('BUTTON')
     expect(rest.textContent).toContain('£60,000')
     expect(rest.getAttribute('aria-label')).toMatch(/click to edit/i)
-    expect(rest.getAttribute('title')).toBe('Click to edit')
+    // Design audit #13 (26 Sep): no native "Click to edit" tooltip; the accessible name says it.
+    expect(rest.hasAttribute('title')).toBe(false)
   })
 
   /**

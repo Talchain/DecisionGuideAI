@@ -64,12 +64,17 @@
  * it", on 15/15 cards of the served pricing board — beside the product's styled
  * tooltips: two tooltip systems on one card. The contract has one
  * (`.tooltip`, `components/Tooltip.tsx`). So the channels are now:
- *   · `tooltip` — the SAME two facts, for the ONE styled tooltip on the title:
- *     the full name first (the clipped-name route is kept; the title is
- *     `line-clamp-2`), then the affordance, so the rename stays discoverable
- *     to a sighted mouse user — only the chrome changed;
+ *   · `tooltip` — the full name only, for the ONE styled tooltip on the title
+ *     (the route back to a name the far rung clips);
  *   · `accessibleName` — the card's name plus the affordance, unchanged, so a
  *     screen reader still hears what a double-click does.
+ *
+ * ⭐ Design audit #13 (served `853feeb7`, 26 Sep 2026): the hover used to add
+ * the affordance under the name ("Hybrid Platform Fee Plus Usage / Double-click
+ * to rename it", 201.9×52.8), an instruction on a card. The inspector's title
+ * is already the rename control (`inspector-v2/shared/EditableLabel.tsx`, and
+ * a canvas double-click lands in it through `renameIntent.ts`), so the hover
+ * hint is dropped rather than moved.
  * The rule below still holds: it names the interaction, never an outcome.
  */
 
@@ -94,14 +99,14 @@ export function nodeTitleChannels({
   /** What the card's accessible name already says, before the affordance. */
   accessibleName: string
 }): {
-  tooltip: { name: string | null; affordance: typeof NODE_RENAME_AFFORDANCE }
+  tooltip: { name: string | null }
   accessibleName: string
 } {
   const name = label.trim()
   return {
-    // Name first, so a clipped name is recoverable at a glance. A blank name
-    // has nothing to recover, and the tooltip still says the useful thing.
-    tooltip: { name: name.length > 0 ? name : null, affordance: NODE_RENAME_AFFORDANCE },
+    // A clipped name is recoverable at a glance. A blank name has nothing to
+    // recover, so there is no tooltip.
+    tooltip: { name: name.length > 0 ? name : null },
     accessibleName: `${accessibleName} ${NODE_RENAME_AFFORDANCE}`.trim(),
   }
 }
