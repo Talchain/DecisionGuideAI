@@ -94,7 +94,7 @@ import { SectionShell } from './sections/SectionShell'
 import { MethodStrip } from './sections/MethodStrip'
 import { CommitmentSummary } from './sections/CommitmentSummary'
 import { buildCommitmentSynthesis } from './commitmentSynthesis'
-import { ChallengeCard } from './sections/ChallengeCard'
+import { ChallengeCard, methodOfIntervention } from './sections/ChallengeCard'
 import { ReasoningSignals } from './sections/ReasoningSignals'
 import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
 import { ModelReviewTool } from './sections/ModelReviewTool'
@@ -1227,6 +1227,16 @@ export function AnalysisNewTabBody({
   )
 
   /**
+   * ⭐ V2 "ONE METHOD IS ACTIVE" — AT REST, THE ONE THE RUN'S TOP FINDING NAMES.
+   * The same four-argument resolution the Challenge card and the strip's
+   * "raised" dot use (`methodOfIntervention`), so the strip's active icon and
+   * the card's question are always the same method. A finding that names no
+   * technique leaves nothing active: the prototype's authored default is not
+   * something this tab can honestly choose.
+   */
+  const restingMethodId = useMemo(() => methodOfIntervention(glancePrimary)?.id ?? null, [glancePrimary])
+
+  /**
    * ⭐⭐ THE GLANCE ANSWERED NOTHING, SO THE FIGURES COME UP TO FILL THE GAP.
    *
    * ⚠ THIS DOES NOT OVERTURN THE ORDERING RULING, AND THE DISTINCTION IS THE
@@ -1613,12 +1623,16 @@ export function AnalysisNewTabBody({
         {/* ⭐ V2 — ONE METHOD STRIP, FIRST (Paul + ChatGPT brief, 23 Sep 2026).
             It replaces BOTH the "Methods you can run" chip shelf and this tab's
             Actions dropdown, which rendered the same seven methods twice. Five
-            icons + one overflow; the overflow keeps the rest of the catalogue
-            and the global actions (edit brief, review inputs, re-run). Choosing a
-            method shows it in the Challenge card; choosing it again clears it. */}
+            icons + one overflow; the overflow lists every method (V2's "one
+            complete menu") and the global actions (edit brief, review inputs,
+            re-run). Choosing a
+            method shows it in the Challenge card, and it STAYS chosen (V2
+            prototype: one method is always active; the card's "Not useful right
+            now" is what sets a pick aside). At rest the active method is the one
+            the run's own top finding names (`restingMethodId`), never a default. */}
         <MethodStrip
-          activeMethodId={pickedMethodId}
-          onSelectMethod={(id) => setPickedMethodId((cur) => (cur === id ? null : id))}
+          activeMethodId={pickedMethodId ?? restingMethodId}
+          onSelectMethod={setPickedMethodId}
           raisedMethodIds={raisedMethodIds}
           canRerun={canRunAnalysis === true && !vm.status.isPreRun}
         />
@@ -2060,12 +2074,9 @@ export function AnalysisNewTabBody({
             measured rule-to-cap). The group now overrides the ambient margin
             with !mt-0 and states its own pt-1, so the total is 11 (rule) + 4
             (group) ≈ the prototype's figure; the title no longer carries pt-3. */}
-        <h3
-          className={`${typography.panelHeader} text-text-header m-0`}
-          data-testid="analysis-new-zone-also"
-        >
-          Challenge the thinking
-        </h3>
+        {/* ⭐ V2 (design audit B7): the h3 now renders INSIDE `ChallengeCard`
+            (`title` below), beside the ⓘ "Why this method here?" that opens the
+            card's basis — same h3, same classes, same testid. */}
         {/* ⭐⭐⭐ WHAT TO THINK ABOUT NEXT — MOVED HERE 18 Sep 2026, on Paul's
             instruction to shorten the answer zone so both "what matters most"
             and "how the options compare" fit at 1440.
@@ -2094,8 +2105,12 @@ export function AnalysisNewTabBody({
             state (the same rule #1881 applies to the panel's own leader words).
             So the thresholds are passed only when the claim is permitted. */}
         <ChallengeCard
+          title="Challenge the thinking"
+          titleTestId="analysis-new-zone-also"
           intervention={glancePrimary}
           methodId={pickedMethodId}
+          onSelectMethod={setPickedMethodId}
+          onSetAsideMethod={() => setPickedMethodId(null)}
           onRunIntervention={runIntervention}
           onRunMethod={(id) => {
             const method = METHOD_CATALOGUE.find((m) => m.id === id)
