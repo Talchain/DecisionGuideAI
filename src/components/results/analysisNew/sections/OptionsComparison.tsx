@@ -260,6 +260,31 @@ function tickTransform(fraction: number): string {
  * so this prints the scale's own number and nothing else — never a `%`, `$`
  * or any other symbol this surface was not given.
  */
+/**
+ * ⭐⭐ THE MODEL'S OWN 0–1 SCALE IS NOT A SCALE A READER CAN HOLD (26 Sep, design
+ * audit #3; contract v3.1 "no bare internal model scale", ruling "omit, never
+ * invent"). Served `853feeb7`, pricing starter after one Run: the Reasoning
+ * tab's axis under the "Goal only" qualifier printed **-0.487 / -0.315 /
+ * -0.143 / 0.029** — four ticks 0.172 apart across the shared p10..p90 domain
+ * (`results.option_comparison[].outcome`, mapped at
+ * `buildAnalysisNewViewModel.ts` `outcomeRange`). The goal on that run is "NRR
+ * above 110%", which the same payload places at `goal_threshold: 0.8` on the
+ * model's 0–1 scale (`goal_threshold_raw: 110`, cap 137.5): the ticks are the
+ * goal node's internal model value, and a negative NRR is not a reading anyone
+ * can use. So where the whole domain sits inside the model's ±1 band the tick
+ * labels are OMITTED — the bands, the (i) legend and every other line stay —
+ * and no unit or word is put in their place. A domain outside it (the served
+ * 25 Sep "190K … 890K") keeps its ticks unchanged.
+ *
+ * ⚠ A MAGNITUDE TEST, NAMED AS SUCH: `outcomeRange` carries no unit and no
+ * scale flag, so this cannot tell a model-scale domain that strays past ±1 from
+ * a real one. It removes only numbers that cannot be a reading on a real frame
+ * the producer sent.
+ */
+function outcomeDomainIsModelScale(scale: { lo: number; hi: number }): boolean {
+  return Math.abs(scale.lo) <= 1 && Math.abs(scale.hi) <= 1
+}
+
 function formatAxisTick(value: number): string {
   // Three significant figures, compact for large magnitudes (190K, not
   // "423,333.33" — the served 25 Sep check). Still no unit symbol.
@@ -560,7 +585,7 @@ export function OptionsComparison({
    * figure this wave does NOT add for the identical reason.
    */
   const axisTicks: readonly string[] | null =
-    showAxis && rangeScale !== null
+    showAxis && rangeScale !== null && !outcomeDomainIsModelScale(rangeScale)
       ? AXIS_TICK_FRACTIONS.map((f) => formatAxisTick(rangeScale.lo + f * rangeScale.span))
       : null
 

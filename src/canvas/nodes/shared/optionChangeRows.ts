@@ -460,17 +460,29 @@ export function buildOptionChangeRow({
   // print the same word around an arrow: a row claiming a change and showing
   // none (S5, seen on `pricing-model`). The first fix for that invented
   // "Low · slightly higher" — a judgement about the size of the move that no
-  // field of the data states. The row shows the full carried strings instead:
-  // they are the data's own numbers, unabbreviated, and the direction is
-  // legible from which one prints first.
+  // field of the data states.
+  //
+  // ⭐ AND NOT THE MODEL'S 0–1 NUMBERS EITHER (26 Sep, design audit #3; served
+  // `853feeb7` pricing `opt_new_logos`: "Low (0) → Low (0.1) · brief"). The A13
+  // fix printed the full carried strings, which put the internal scale back on
+  // the card — contract v3.1 `checks.factor`, "no bare internal model scale";
+  // ruling "omit, never invent". The row now states only what the data states:
+  // the DIRECTION of the move (the two model values, the same rule and words as
+  // the unframed-target arm above) and the band both readings share. No size
+  // is claimed and no number is shown. The full carried strings stay the row's
+  // hover text (`fullChange`), as on every other row (R6).
   if (fromText && fromText === targetText && fromFull !== targetFull) {
+    // The value the "from" was read off — the same pairing `reference` names.
+    const referenceValue = reference === 'baseline_option' ? baselineOptionTarget?.value : factor.observedValue
+    const direction =
+      typeof referenceValue === 'number' && !isInterventionNoChange(referenceValue, target.value)
+        ? target.value > referenceValue ? 'Increases' : 'Decreases'
+        : 'Changes'
     return {
       factorId,
       label,
       fullLabel,
-      change: `${fromFull} → ${targetFull}`,
-      before: fromFull,
-      after: targetFull,
+      change: `${direction}, stays ${targetText}`,
       fullChange: `${fromFull} → ${targetFull}`,
       target: targetFull,
       reference,
