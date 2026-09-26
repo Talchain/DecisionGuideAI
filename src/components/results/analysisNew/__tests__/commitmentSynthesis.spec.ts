@@ -431,11 +431,24 @@ describe('stale: the bullets say they describe the last run', () => {
     })
     const lines = commitmentAskContext(s).split('\n')
     expect(lines[0]).toBe(COPY.status.stale)
-    expect(lines).toContain(`${COMMITMENT_COPY.labels.open}: ${COPY.checks.leader_not_assessed.meaning}`)
+    expect(lines).toContain(`${COMMITMENT_COPY.labels.open}: ${COMMITMENT_COPY.changeNotAnalysed}`)
     expect(lines).toContain(`${COMMITMENT_COPY.labels.before}: ${COMMITMENT_COPY.rerunBefore}`)
     // CONTRAST: fresh, no marker.
     const fresh = synth(decisionWithLeaderWithheld(), { recommendations: [rec({ id: 'r1' })] })
     expect(commitmentAskContext(fresh).split('\n')[0]).not.toBe(COPY.status.stale)
+  })
+
+  it('⭐ the model changed → "Still open" is the unanalysed change, not the last run\'s withholding reason (V2 edited)', () => {
+    const s = synth(decisionWithLeaderWithheld(), { recommendations: [rec({ id: 'r1' })], isStale: true, staleReason: 'changed' })
+    expect(s.open).toEqual({ text: COMMITMENT_COPY.changeNotAnalysed, source: 'change_not_analysed' })
+    // Bullets 2 and 3 agree: what is open is the change, and a re-run is what answers it.
+    expect(s.before?.source).toBe('rerun')
+    // CONTRAST: fresh, the withheld run still names its reason.
+    const fresh = synth(decisionWithLeaderWithheld(), { recommendations: [rec({ id: 'r1' })] })
+    expect(fresh.open?.source).toMatch(/^leader_withheld/)
+    // CONTRAST: unconfirmed staleness is not "a change", so the reason stays.
+    const unconfirmed = synth(decisionWithLeaderWithheld(), { recommendations: [rec({ id: 'r1' })], isStale: true, staleReason: 'unconfirmed' })
+    expect(unconfirmed.open?.source).toMatch(/^leader_withheld/)
   })
 
   it('⛔ an UNCONFIRMED stale run is never described as a changed model', () => {
