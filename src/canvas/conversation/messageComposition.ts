@@ -317,6 +317,14 @@ export interface ComposeMessageOptions {
  */
 export const CONSENT_CHIP_PREFIX = 'agent-approve-proposal:'
 
+/**
+ * CEE's public research control — `agent-public-research:<query hash>` (CEE #2042,
+ * `src/orchestrator-v5/agent-lane/runtime/public-research.ts`, `RESEARCH_CHIP_PREFIX`).
+ * Pressing it sends its query to a public web search, so its `detail` (the exact
+ * query) is shown as visible text, not only as a tooltip.
+ */
+export const RESEARCH_CHIP_PREFIX = 'agent-public-research:'
+
 /** Whether a turn's own chips ask the user to consent to a proposal. */
 export function offersPendingConsent(chips: readonly { id?: unknown }[] | undefined): boolean {
   return (chips ?? []).some((c) => typeof c.id === 'string' && c.id.startsWith(CONSENT_CHIP_PREFIX))
