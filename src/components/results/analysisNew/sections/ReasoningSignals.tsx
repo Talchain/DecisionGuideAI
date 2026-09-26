@@ -17,14 +17,15 @@
  * its control; a row without an id shows no controls at all.
  */
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, Crosshair, Info, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Crosshair, Info, Link2, Search } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 import type { AnalysisNewViewModel } from '../analysisNewTypes'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelFigure } from '../PanelFigure'
-import { action } from '../panelSurfaces'
+import { action, ACTION_FOCUS } from '../panelSurfaces'
+import { ASSUMPTIONS_DOOR_COPY as DOOR } from '../assumptionsDoorCopy'
 import { buildReasoningSignals, type FlipThresholdRow } from '../reasoningSignals'
 import type { AskOlumiPayload } from '../../coaching/askOlumiStore'
 
@@ -196,7 +197,9 @@ export function ReasoningSignals({
       {drivers.length > 0 ? (
         <div data-testid={`${testId}-drivers`}>
           <div className="flex items-center justify-between">
-            <span className={`${typography.panelMeta} text-text-light`}>{ZONE.driversKicker}</span>
+            <span className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-drivers-kicker`}>
+              {vm.status.isStale ? DOOR.kickerStale : DOOR.kicker}
+            </span>
             {/* The scale denial travels with the bars. The tooltip carries it
                 for a pointer; the press shows it inline for touch, where a
                 tooltip cannot be opened. Gated on the view model's own flag. */}
@@ -215,74 +218,114 @@ export function ReasoningSignals({
               {COPY.coverage.setRelativeInfluence}
             </p>
           ) : null}
-          <ul className="list-none m-0 p-0">
-            {drivers.map((row) => (
-              <li
-                key={row.id}
-                className="flex items-center gap-1.5 py-1.5 border-b border-panel-border"
-                data-testid={`${testId}-driver`}
-                data-factor-id={row.id}
-              >
-                <span
-                  className={`${typography.panelMeta} text-text-light w-6 shrink-0 tabular-nums`}
-                  data-testid={`${testId}-driver-rank`}
+          {/* ⭐ V2 `insightsHTML()` `.signal-item`: rank · the NAME AS THE
+              BUTTON (it opens the driver's review, the prototype's
+              `review-id`) · a 55px bar · ✦. One act per purpose instead of a
+              crosshair, a search and a ✦ on every row. A driver the canvas
+              cannot resolve (no `targetId`) keeps its name as plain text and
+              shows no act at all. */}
+          <ul className="list-none m-0 my-[7px] p-0 grid gap-1.5" data-testid={`${testId}-driver-list`}>
+            {drivers.map((row) => {
+              const review = row.targetId ? (onInspect ?? onFocus) : undefined
+              const targetId = row.targetId
+              return (
+                <li
+                  key={row.id}
+                  className="grid grid-cols-[20px_minmax(0,1fr)_55px_28px] items-center gap-1.5"
+                  data-testid={`${testId}-driver`}
+                  data-factor-id={row.id}
                 >
-                  {row.rank ? `#${row.rank}` : null}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={`${typography.panelBody} text-text-body block truncate`} title={row.label}>
-                    {row.label}
+                  <span
+                    className={`${typography.panelMeta} text-text-light tabular-nums`}
+                    data-testid={`${testId}-driver-rank`}
+                  >
+                    {row.rank ? `#${row.rank}` : null}
                   </span>
-                  <PanelFigure
-                    variant="influence"
-                    fraction={row.fraction}
-                    className="mt-1"
-                    testId={`${testId}-driver-bar`}
-                  />
-                </span>
-                <RowActions
-                  focusId={row.targetId}
-                  inspectId={row.targetId}
-                  ask={row.ask}
-                  onFocus={onFocus}
-                  onInspect={onInspect}
-                  onAsk={onAsk}
-                  testId={`${testId}-driver`}
-                />
-              </li>
-            ))}
+                  {review && targetId ? (
+                    <button
+                      type="button"
+                      onClick={() => review(targetId)}
+                      title={DOOR.reviewDriver}
+                      /* A persistent DOTTED underline is the touch affordance
+                         (RULE B, WCAG SC 1.4.1: colour alone on hover is
+                         nothing on touch); dotted keeps three names from
+                         reading as three links. */
+                      className={`${typography.panelBody} text-text-body min-w-0 truncate text-left rounded-sm underline decoration-dotted decoration-border-emphasis underline-offset-[3px] hover:text-info hover:decoration-info ${ACTION_FOCUS}`}
+                      data-testid={`${testId}-driver-name`}
+                    >
+                      {row.label}
+                    </button>
+                  ) : (
+                    <span
+                      className={`${typography.panelBody} text-text-body min-w-0 truncate`}
+                      title={row.label}
+                      data-testid={`${testId}-driver-name`}
+                    >
+                      {row.label}
+                    </span>
+                  )}
+                  <span className="block w-[55px]" data-testid={`${testId}-driver-bar-slot`}>
+                    <PanelFigure variant="influence" fraction={row.fraction} testId={`${testId}-driver-bar`} />
+                  </span>
+                  {row.targetId && row.ask && onAsk ? (
+                    <PanelIconButton
+                      ai
+                      label={DOOR.askDriver}
+                      onClick={() => onAsk(row.ask as AskOlumiPayload)}
+                      testId={`${testId}-driver-ask`}
+                    />
+                  ) : (
+                    <span aria-hidden="true" />
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       ) : null}
 
       {tippingRow}
 
+      {/* ⭐ V2 `.inline-question` + "🔗 Examine that assumption": the gap
+          is the finding's own headline with its ✦ on the same line, then ONE
+          text act that opens the assumption's review. The headline and detail
+          stay the view model's, verbatim — this file words nothing. */}
       {gap ? (
         <div
-          className="flex items-start gap-1.5 py-1.5 border-b border-panel-border"
+          className="mt-1.5"
           data-testid={`${testId}-gap`}
           data-finding-id={gap.findingId}
           data-gap-kind={gap.kind}
         >
-          <span className="min-w-0 flex-1">
-            <span className={`${typography.panelBody} text-text-body block`} data-testid={`${testId}-gap-headline`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className={`${typography.panelBody} text-text-body min-w-0`} data-testid={`${testId}-gap-headline`}>
               {gap.headline}
             </span>
-            {gap.detail ? (
-              <span className={`${typography.panelMeta} text-text-light block`} data-testid={`${testId}-gap-detail`}>
-                {gap.detail}
-              </span>
+            {gap.ask && onAsk ? (
+              <PanelIconButton
+                ai
+                label={DOOR.askGap}
+                onClick={() => onAsk(gap.ask as AskOlumiPayload)}
+                testId={`${testId}-gap-ask`}
+              />
             ) : null}
-          </span>
-          <RowActions
-            focusId={gap.focusTargetId}
-            inspectId={gap.inspectTargetId}
-            ask={gap.ask}
-            onFocus={onFocus}
-            onInspect={onInspect}
-            onAsk={onAsk}
-            testId={`${testId}-gap`}
-          />
+          </div>
+          {gap.detail ? (
+            <span className={`${typography.panelMeta} text-text-light block`} data-testid={`${testId}-gap-detail`}>
+              {gap.detail}
+            </span>
+          ) : null}
+          {gap.inspectTargetId && onInspect ? (
+            <button
+              type="button"
+              onClick={() => onInspect(gap.inspectTargetId as string)}
+              className={`${typography.panelMeta} ${action('inline')} gap-[5px] mt-0.5`}
+              data-testid={`${testId}-gap-examine`}
+            >
+              <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden={true} />
+              {DOOR.examine}
+            </button>
+          ) : null}
         </div>
       ) : null}
       {evidenceSlot ? <div className="mt-2">{evidenceSlot}</div> : null}
