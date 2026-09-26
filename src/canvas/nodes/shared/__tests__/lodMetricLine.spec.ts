@@ -411,6 +411,19 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
   })
 
   it('a factor with a prior range reads it when it has no stated value and no influence', () => {
+    // ⭐ v3.1 #20 (26 Sep): an OWN-UNIT range — a bare 0–1 pair is no longer on
+    // the card, so the reduced line never says it either (contrast below).
+    expect(
+      resolveLodMetricLine({
+        nodeType: 'factor',
+        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 }, observedState: { unit: '%' } },
+        label: 'Attrition',
+        displayMetadata: NOTHING,
+      }),
+    ).toBe('Range: 30% to 90%')
+  })
+
+  it('the same range on the bare 0–1 scale keeps its reduced line: the full card keeps it too (review F2, #2085)', () => {
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
@@ -441,11 +454,11 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
     expect(
       resolveLodMetricLine({
         nodeType: 'factor',
-        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 } },
+        data: { label: 'Attrition', category: 'external', prior: { range_min: 0.3, range_max: 0.9 }, observedState: { unit: '%' } },
         label: 'Attrition',
         displayMetadata: meta({ influence: 0.67, influenceProvenance: 'influence_score' as never }),
       }),
-    ).toBe('Range: 0.3 to 0.9')
+    ).toBe('Range: 30% to 90%') // own-unit range (v3.1 #20)
   })
 
   it('CONTRAST CONTROL — a CONTROLLABLE factor with the same prior says nothing, so the arm is the external gate and not a default', () => {

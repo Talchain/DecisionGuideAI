@@ -15,9 +15,10 @@
  * slice `LodSync` writes.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 import { NodeCoachingMarker } from '../NodeCoachingMarker'
+import { NodeStructuralMarker } from '../NodeStructuralMarker'
 import { EvidenceGapBadge } from '../../EvidenceGapBadge'
 import { selectRestingGlyphsShown } from '../restingGlyphRung'
 import { useCanvasStore } from '../../../store'
@@ -102,11 +103,18 @@ describe('v3.1 pt 6 — the producer coaching marker is a Normal-zoom glyph', ()
 })
 
 describe('v3.1 pt 6 — the structural half of the slot follows the same gate', () => {
-  it('CONTRAST: at full, the stranded risk carries the structural marker', () => {
+  // ⭐ CONTRACT v3.1 #18 (26 Sep, WS4): the structural glyph is off the card
+  // at EVERY rung — the slot never carries it. The contrast is now the
+  // detection itself, rendered directly (what the inspector can carry), so the
+  // hidden-rung absences below are not a dead fixture.
+  it('CONTRAST: at full, the stranded risk\'s structural finding is DETECTED — and the card slot still carries no glyph (#18)', () => {
     seedStrandedRisk()
     setRung('full')
-    render(<NodeCoachingMarker nodeId="r1" />)
+    render(<NodeStructuralMarker nodeId="r1" />)
     expect(screen.getByTestId('node-structural-marker-r1')).toHaveAttribute('data-structural-kind', 'no_downside')
+    cleanup()
+    render(<NodeCoachingMarker nodeId="r1" />)
+    expect(screen.queryByTestId('node-structural-marker-r1')).toBeNull()
   })
 
   it.each(HIDDEN_RUNGS)('⭐ RED-before: at %s the stranded risk carries NO structural marker', (rung) => {

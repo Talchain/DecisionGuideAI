@@ -12,7 +12,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput, meaningfulUncertaintyDrivers } from '../utils/observedStateHelpers'
 import { NodeValueEditor } from './shared/NodeValueEditor'
-import { FactorValueFigure } from './shared/FactorValueFigure'
+import { FactorValueFigure, readoutIsBareModelScale } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
@@ -38,7 +38,7 @@ import { ConnRow, ConnRowsOverflow, Sep, NodePopover, ScienceIcon, EdgePills, Es
 import { StatusPill } from './shared/StatusPill'
 import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { openNodeInspector } from './shared/openNodeInspector'
-import { resolveFactorPriorRange, resolveFactorPriorRangeEnds } from './shared/factorPriorRange'
+import { resolveFactorPriorRangeEndsOnCard, resolveFactorPriorRangeOnCard } from './shared/factorPriorRange'
 import { FactorRangeBand } from './shared/FactorRangeBand'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
@@ -245,8 +245,13 @@ export const FactorNode = memo((props: NodeProps) => {
   // ignorance-prior arm and the two dedupes all live in
   // `shared/factorPriorRange.ts` now; this card and the reduced line ask the
   // same owner, so they cannot state different ranges for one factor.
+  //
+  // ⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #20): the CARD reads the owner's card form.
+  // A bare 0–1 range ("Range: 0.2 to 0.6") is KEPT there (review F2, #2085):
+  // its origin is unrecorded and may be the person's inspector edit, so it
+  // shows with its `no source` mark (see `resolveFactorPriorRangeOnCard`).
   const priorRangeDisplay = useMemo(
-    () => resolveFactorPriorRange({
+    () => resolveFactorPriorRangeOnCard({
       data: props.data as Record<string, unknown> | undefined,
       nodeCategory,
       observedState,
@@ -257,7 +262,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // The band's two ends — the SAME strings the range line prints, from the same
   // owner, or null (replaced by a user value, authored prose, or no line).
   const priorRangeEnds = useMemo(
-    () => resolveFactorPriorRangeEnds({
+    () => resolveFactorPriorRangeEndsOnCard({
       data: props.data as Record<string, unknown> | undefined,
       nodeCategory,
       observedState,
@@ -285,6 +290,18 @@ export const FactorNode = memo((props: NodeProps) => {
   // matches twice is not a binding (trap 19) - the guard was right to refuse.
   const recordedValueReadout =
     isInferred && !isDetailed ? collapseEstimateDisplay(valueDisplay) : valueDisplay
+  /**
+   * ⭐ NO BARE INTERNAL MODEL NUMBER ON THE CARD — contract v3.1
+   * `checks.factor` (DESIGN-GAP-v31 #20). A value that reads only as a number on
+   * the model's 0–1 scale ("0.5", the producer's `0.5 scale` with its
+   * placeholder word dropped) leaves the card's value line OMITTED — nothing is
+   * substituted for it (`readoutIsBareModelScale`). Only OLUMI'S UNCONFIRMED
+   * ESTIMATE is omitted: a person's own number, a pending keystroke and a number
+   * of unrecorded origin always show. It is not "no value": the needs-input row
+   * still keys on `valueDisplay === null`, so it never claims a gap here, and
+   * the inspector and Model tab still state the figure.
+   */
+  const bareModelValue = readoutIsBareModelScale(valueDisplay, valueDisplayData)
 
   // ⭐ WHOSE NUMBER THIS IS, ON THE FACE — Paul 23 Sep contract feedback point 1:
   // "Mark Olumi estimates explicitly … User-set/evidence-backed values get their
@@ -295,10 +312,13 @@ export const FactorNode = memo((props: NodeProps) => {
   // rest-only; only the MARK now also shows in Detailed, where the full
   // "Moderate (0.5)" string otherwise read as unattributed).
   const valueSourceMark = factorValueSourceMark(props.data)
+  // v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is focusable and opens this
+  // factor's source detail — the inspector.
+  const openSourceDetail = () => { openNodeInspector(props.id) }
   const renderValueSourceMark = () =>
     valueSourceMark === null ? null
-      : valueSourceMark.kind === 'olumi' ? <EstimateMarker />
-        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} />
+      : valueSourceMark.kind === 'olumi' ? <EstimateMarker onOpenSource={openSourceDetail} />
+        : <ValueSourceMark mark={valueSourceMark} testId={`factor-value-source-${props.id}`} subject={cleanedLabel} onOpenSource={openSourceDetail} />
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -581,7 +601,9 @@ export const FactorNode = memo((props: NodeProps) => {
    * that SHOWS a value (the contract's branch); a missing value states its gap.
    */
   const hasCompletedFirstRun = useHasCompletedFirstRun()
-  const noAnalysisYet = !isPostAnalysis && !hasCompletedFirstRun && runCurrency === 'none' && valueDisplay !== null
+  // "…on a factor that SHOWS a value": a bare-scale estimate the card omits
+  // (v3.1 #20) shows none, so it gets no "Working assumption" about it either.
+  const noAnalysisYet = !isPostAnalysis && !hasCompletedFirstRun && runCurrency === 'none' && valueDisplay !== null && !bareModelValue
   const runCuesShown = runCurrency === 'current' || resultsFromLastRun
   const resultsReport = useCanvasStore(state => state.results.report)
   // ED #63 5806207128: "Driver N of M analysed" (M = the eligible analysed
@@ -719,6 +741,22 @@ export const FactorNode = memo((props: NodeProps) => {
     turningPointState !== null &&
     turningPointState.kind === 'found' &&
     turningPointNumberPrints(turningPointState.turningPoint, turningPointFactorUnit)
+  /**
+   * ⭐ CONTRACT v3.1 POINT 3 — "'No turning point in this run' is the normal
+   * fallback for an analysed factor, never a blank" (DESIGN-GAP-v31 #38). At
+   * Normal zoom (Standard), a RANKED factor (its driver line is on the card)
+   * whose run produced no turning point says so under the driver line — not
+   * only in Detailed. Never on an unranked factor (ED 5810951997's checklist:
+   * no generic "no turning point" on unranked factors), never for a factor that
+   * HAS one (a found row stays at rest for the top driver, in the popover for
+   * the rest). ⚠ Supersedes ED 5806207128's "no line at rest" for this case;
+   * the conflict is named in the WS4 report.
+   */
+  const turningPointNoneAtRest =
+    !isDetailed &&
+    driverLine !== null &&
+    turningPointState !== null &&
+    turningPointState.kind === 'none'
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
   // Null whenever the ruled policy says the figure is not display-safe, which
   // is why every confidence surface on this node (the Detailed bar and the
@@ -1159,8 +1197,8 @@ export const FactorNode = memo((props: NodeProps) => {
           cannot support). It says so instead: "no source" / "Source not
           recorded". When a value line exists it carries the mark, and a
           user value restates this line as replaced — so never twice. */}
-      {valueDisplay === null && (
-        <> <ValueSourceMark mark={PRIOR_RANGE_SOURCE_MARK} testId={`factor-range-source-${props.id}`} /></>
+      {(valueDisplay === null || bareModelValue) && (
+        <> <ValueSourceMark mark={PRIOR_RANGE_SOURCE_MARK} testId={`factor-range-source-${props.id}`} onOpenSource={() => openNodeInspector(props.id)} /></>
       )}
     </div>
     {/* Prototype (Paul 25 Sep): the working range with a band — a SIBLING of the
@@ -1342,7 +1380,7 @@ export const FactorNode = memo((props: NodeProps) => {
             beside it. (The inline driver cue that ended this line is retired: the
             driver line is on the card again — prototype, Paul 25 Sep.) Detailed
             keeps the wrapping row it had. */}
-        {valueDisplay !== null && (
+        {valueDisplay !== null && !bareModelValue && (
           <div
             className={isDetailed
               ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
@@ -1431,6 +1469,22 @@ export const FactorNode = memo((props: NodeProps) => {
             )}
           </div>
         )}
+        {/* ⭐ #20's number is omitted; its PROVENANCE is not (review F1, #2085).
+            "Omit, never invent" licenses dropping the bare 0–1 figure — never
+            the mark saying whose number it is. The same mark, in the same
+            slot, with no figure beside it and no words added: the reader can
+            still see WHICH factor holds an assumption Olumi made for them,
+            and the mark still opens the inspector, which states the figure. */}
+        {bareModelValue && valueSourceMark !== null && (
+          <div
+            className={`${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
+            data-testid={`factor-value-mark-only-${props.id}`}
+          >
+            <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
+              {renderValueSourceMark()}
+            </span>
+          </div>
+        )}
         {/* Row 10, Detailed ("adds information"): the pre-run state inline. */}
         {isDetailed && noAnalysisYet && (
           <p
@@ -1502,7 +1556,7 @@ export const FactorNode = memo((props: NodeProps) => {
             fromLastRun={resultsFromLastRun}
           />
         )}
-        {turningPointAtRest && turningPointState ? (
+        {(turningPointAtRest || turningPointNoneAtRest) && turningPointState ? (
           <FactorTurningPointSlot
             nodeId={props.id}
             factorLabel={cleanedLabel}

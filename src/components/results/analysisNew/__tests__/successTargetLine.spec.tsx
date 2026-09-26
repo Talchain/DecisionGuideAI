@@ -72,12 +72,16 @@ const draw = (onCommitOutcome = vi.fn(), goalNodeId: string | null = 'g1') => {
 }
 
 describe('it shows the target the user already stated', () => {
-  it('renders a raw threshold with its provenance', () => {
+  it('renders a raw threshold with its provenance — and a threshold with no carried source says so', () => {
     state.goalThreshold = 110
     state.goalThresholdRepresentation = 'raw'
     draw()
     expect(screen.getByTestId(`${TID}-value`)).toHaveTextContent('110')
-    expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent(VALUE_PROVENANCE_LABEL.brief)
+    // DESIGN-GAP-v31 #22 (26 Sep, WS4): provenance comes only from a carried
+    // `threshold_source`. Nothing here carries one, so the line says "Source not
+    // recorded" — never "From brief", which the node did not record.
+    expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent('Source not recorded')
+    expect(screen.getByTestId(`${TID}-source`)).not.toHaveTextContent(VALUE_PROVENANCE_LABEL.brief)
   })
 
   /**
@@ -194,11 +198,17 @@ describe('the GOAL NODE is the source, and it is in the user\'s units', () => {
     expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent(VALUE_PROVENANCE_LABEL.human)
   })
 
-  it('credits the BRIEF for a CEE-derived one', () => {
+  // ⛔ WAS "credits the BRIEF for a CEE-derived one". DESIGN-GAP-v31 #22 (26 Sep,
+  // WS4): `goal_threshold_raw` with no `threshold_source` records no origin, so
+  // crediting the brief was an assertion the data never made. One authority
+  // (`resolveGoalTarget` → `goalTargetSourceMark`) answers for the card, this
+  // strip and the goal inspector alike.
+  it('a CEE-derived one with no carried source is "Source not recorded", never credited to the brief', () => {
     state.nodes = [{ id: 'g1', type: 'goal', data: { goal_threshold_raw: 110 } }]
     draw()
-    expect(screen.getByTestId(`${TID}-source`)).toHaveAttribute('data-source', 'brief')
-    expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent(VALUE_PROVENANCE_LABEL.brief)
+    expect(screen.getByTestId(`${TID}-source`)).toHaveAttribute('data-source', 'unrecorded')
+    expect(screen.getByTestId(`${TID}-source`)).toHaveTextContent('Source not recorded')
+    expect(screen.getByTestId(`${TID}-source`)).not.toHaveTextContent(VALUE_PROVENANCE_LABEL.brief)
   })
 
   /** A user-set value wins over CEE's backfill — `computeSuccessState`'s order. */

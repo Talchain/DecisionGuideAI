@@ -155,7 +155,7 @@ describe('contract §02: the resting value is a figure, and its unit is a separa
     expect(byId(container, `node-value-editor-${ID}`)!.textContent).toBe('£49')
   })
 
-  it('⛔ CONTRAST: a producer display_value renders as ONE unchanged string — no figure, no unit, no <strong>', () => {
+  it('⛔ CONTRAST: a producer display_value renders as ONE unchanged string — no figure/unit split; ONE whole <strong> (v3.1 #35)', () => {
     const data = {
       label: 'Demand', kind: 'factor', category: 'controllable',
       display_value: '1,200 enterprise customers',
@@ -166,7 +166,13 @@ describe('contract §02: the resting value is a figure, and its unit is a separa
     expect(button, 'precondition: the editor renders the producer string').not.toBeNull()
     expect(byId(container, `factor-value-figure-${ID}`)).toBeNull()
     expect(byId(container, `factor-value-unit-${ID}`)).toBeNull()
-    expect(button!.querySelector('strong')).toBeNull()
+    // Contract v3.1 #35: EVERY value carries the `.own-value strong` weight
+    // (610) — the producer's string too — but as ONE element holding the
+    // unchanged string, never split into a figure and a unit.
+    const strongs = button!.querySelectorAll('strong')
+    expect(strongs).toHaveLength(1)
+    expect(strongs[0].getAttribute('data-testid')).toBe(`factor-value-whole-${ID}`)
+    expect(strongs[0].textContent).toBe('1,200 enterprise customers')
     expect(button!.textContent).toBe('1,200 enterprise customers')
   })
 

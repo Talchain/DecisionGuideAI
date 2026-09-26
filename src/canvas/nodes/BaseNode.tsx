@@ -633,8 +633,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
     if (nodeType === 'factor') {
-      // One rank wording on every rung: "Driver N of M ranked in this run"
-      // (contract v3.1 pt 5, M = the ranked count), from the
+      // One rank wording on every rung: "Driver N of M analysed"
+      // (ED 5806207128, M = the analysed count), from the
       // SAME rule the card's driver line reads (`driverRankFor`): a current run,
       // or a known-changed model's last run labelled `Last run · ` (#1891's rule,
       // Paul's Ruling 3). Never-run / cannot-confirm → null.
@@ -1773,8 +1773,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
              by its semibold title, never by depth. `rounded-sm` is DS v5 §6.2
              `sm` = 8px, the contract's `border-radius:8px` (FRAME-01 / OR-04);
              `rounded-lg` rendered 14px through the index.css override.
-             Selection lifts one step (`shadow-2`) with its ring (FRAME-09). */
-          selected && !isHighlighted ? 'shadow-2' : 'shadow-1'
+             Selection lifts one step (`shadow-2`) with its ring (FRAME-09).
+             ⭐ The resting value is the contract's own (`--shadow-card-rest`,
+             DESIGN-GAP-v31 #43); it was DS v5 `shadow-1`. */
+          selected && !isHighlighted ? 'shadow-2' : 'shadow-card-rest'
         }
         ${borderColourClass}
         ${lodKindFillClass}
@@ -2838,10 +2840,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                 BELOW the hidden body it is standing in for.
               `title` carries the untruncated string, the same sighted-hover
               treatment the node title gets when its clamp ellipsises it. */}
-          {lodBodyLine !== null && (
+          {(lodBodyLine !== null || lodBody.unconfirmedEstimate) && (
             <div
               data-testid="node-lod-line"
-              title={lodBodyLine}
+              title={lodBodyLine ?? undefined}
               /*
                * ⚠⚠ THE TESTID AND THE VISIBILITY STAY ON THE OUTER ELEMENT, and
                * two specs outside this file are why. `BaseNode.lodBodyLine`
@@ -2860,6 +2862,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               className="absolute left-0 right-0 top-0 flex items-baseline gap-1"
               style={{ visibility: 'visible' }}
             >
+              {lodBodyLine !== null && (
               <span
                 data-testid="node-lod-line-text"
                 // `!leading-tight`: one line whose box fits the blanked body's
@@ -2868,6 +2871,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               >
                 {lodBodyLine}
               </span>
+              )}
               {/* ⭐⭐ THE MARK IS `shrink-0`, AND THAT IS THE WHOLE POINT OF
                   PUTTING IT IN ITS OWN ELEMENT RATHER THAN IN THE STRING.
                   This line is `truncate`d, so a marker appended to the text

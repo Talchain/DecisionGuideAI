@@ -1978,10 +1978,12 @@ describe('OptionNode — QA Brief C-series', () => {
       // Bounded anatomy (ED #63 5809278282): the differentiator lives in the
       // option's popover — opened, so every assertion (absences too) reads it.
       await openOptionPreview(container, 'option-1')
-      // Positive control: the popover OPENED (`openOptionPreview` asserts it) and
-      // option-1's own change row is on the CARD (Paul 25 Sep: rows at rest), so
+      // Positive control: the popover OPENED (`openOptionPreview` asserts it), so
       // the absence below is an absence, not an unopened popover.
-      expect(within(optionCardRows('option-1')).getByTestId('option-change-row-option-1-factor-1')).toBeTruthy()
+      // ⭐ Contract v3.1 #9 (26 Sep, WS4): option-1's target EQUALS the observed
+      // 7 engineers, so it is not a concrete change and spends no resting row —
+      // the card states no row for factor-1 at all (was: the row was on the card).
+      expect(container.querySelector('[data-testid="option-change-row-option-1-factor-1"]')).toBeNull()
       expect(screen.queryByText(/key difference/i)).toBeNull()
     })
 

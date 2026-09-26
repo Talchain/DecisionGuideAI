@@ -428,6 +428,10 @@
   --shadow-2: 0 4px 12px rgba(38, 38, 38, 0.10);
   --shadow-3: 0 8px 24px rgba(38, 38, 38, 0.14);
   --shadow-panel: var(--shadow-2);
+  /* Contract v3.1 `.node{box-shadow:0 2px 4px #25252005}` — the RESTING canvas
+     card, and nothing else (DESIGN-GAP-v31 #43). Its own token: `--shadow-1`
+     is DS v5's elevation 1 on ~49 other surfaces and does not move. */
+  --shadow-card-rest: 0 2px 4px #25252005;
 
   /* ============================================
      BORDER RADIUS

@@ -106,6 +106,12 @@ const RANGE_ONLY = {
   label: 'Trial conversion', type: 'factor', category: 'external',
   prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
 }
+/** External, range only, stated in the reader's unit (percent) — v3.1 #20 keeps it on the card. */
+const RANGE_ONLY_PCT = {
+  label: 'Trial conversion', type: 'factor', category: 'external',
+  prior: { distribution: 'uniform', range_min: 0.25, range_max: 0.45 },
+  observedState: { unit: '%' },
+}
 
 const metadata = (rank: number | null, setSize: number | null, rankedCount: number | null, influence: number) => ({
   sensitivityRank: rank,
@@ -313,10 +319,11 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     const tp = onCardNotInPopover('factor-turning-point')
     expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
-    // Prototype caption + number at rest; the direction sentence follows in the name.
-    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
-    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
-    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
+    // v3.1 point 3 (DESIGN-GAP-v31 #38): the resting caption IS the direction
+    // sentence (was "Model comparison changes" + a floated 6.5%).
+    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    expect(within(tp).queryByTestId('factor-turning-point-caption-value')).toBeNull()
+    expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. ')).toBe(true)
     expect(before(row, driver)).toBe(true)
     expect(before(driver, tp)).toBe(true)
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
@@ -331,9 +338,9 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     onCardNotInPopover('factor-driver-line')
     onCardNotInPopover('factor-turning-point')
     expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
+    expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(card()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
-      'Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ',
+      'Last run · Below 6.5%, the model comparison changes. ',
     )).toBe(true)
     expect(within(card()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8%est.')
@@ -422,19 +429,34 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · the external pri
    */
   // ⛔ REVERSED (review 5822866079): "no source" stays visible. Paul, 23 Sep point 1 — a
   // number (or range) is never unmarked; the header does not carry a range.
-  it.each(['pre', 'post'] as const)('%s-run: on the card with its `no source` mark; not in the popover', (phase) => {
-    seed(RANGE_ONLY, { phase })
-    renderFactor(RANGE_ONLY)
+  // ⭐ CONTRACT v3.1 #20 (26 Sep): a range stated only on the bare 0–1 scale
+  // ("Range: 0.3 to 0.8") is omitted from the card — so this pin now runs on a
+  // range the card CAN state in the reader's unit, and the bare one is pinned
+  // absent (line AND mark) beside it.
+  it.each(['pre', 'post'] as const)('%s-run: an own-unit range is on the card with its `no source` mark; not in the popover', (phase) => {
+    seed(RANGE_ONLY_PCT, { phase })
+    renderFactor(RANGE_ONLY_PCT)
     const c = card()
-    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
+    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 25% to 45% no source')
     expect(within(c).getByTestId(`factor-range-source-${ID}`).getAttribute('data-value-source')).toBe('unknown')
     const pop = screen.queryByTestId('factor-node-popover')
     if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
   })
 
-  it('CONTRAST — Detailed keeps the range line on the card', () => {
-    seed(RANGE_ONLY, { phase: 'pre', viewMode: 'expert' })
+  // Review F2 (#2085): a bare 0–1 range's origin is unrecorded (the inspector's
+  // 0–1 editor writes no stamp), so it may be the person's — it stays on the
+  // card, with the `no source` mark stating the gap.
+  it.each(['pre', 'post'] as const)('%s-run — a bare 0–1 range of unrecorded origin IS on the card with its `no source` mark (F2)', (phase) => {
+    seed(RANGE_ONLY, { phase })
     renderFactor(RANGE_ONLY)
+    const c = card()
+    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
+    expect(within(c).getByTestId(`factor-range-source-${ID}`)).toBeTruthy()
+  })
+
+  it('CONTRAST — Detailed keeps the (own-unit) range line on the card', () => {
+    seed(RANGE_ONLY_PCT, { phase: 'pre', viewMode: 'expert' })
+    renderFactor(RANGE_ONLY_PCT)
     expect(within(card()).getByTestId(`factor-prior-range-${ID}`)).toBeTruthy()
   })
 })

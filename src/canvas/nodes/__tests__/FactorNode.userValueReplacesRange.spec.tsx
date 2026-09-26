@@ -13,6 +13,11 @@
  * text — so a sibling line that happened to contain the same numbers cannot
  * satisfy it. Every case has its no-user-value twin, which must render
  * byte-for-byte what it rendered before.
+ *
+ * The fixture carries the factor's real unit (`%`), where the card states the
+ * range in the reader's unit ("30% to 80%"); the bare 0–1 form is pinned in its
+ * own block below. Review F2 (#2085): a bare range of unrecorded origin is
+ * never omitted from the card — it may be the person's inspector edit.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -88,8 +93,8 @@ vi.mock('../../../flags', async (importOriginal) => {
 })
 
 const FACTOR_ID = 'fac_market_demand'
-const REPLACED = 'Your value replaces the range 0.3 to 0.8'
-const LIVE = 'Range: 0.3 to 0.8'
+const REPLACED = 'Your value replaces the range 30% to 80%'
+const LIVE = 'Range: 30% to 80%'
 const RANGE_WITH_NO_SOURCE = `${LIVE} ${VALUE_SOURCE_MARK_TOKEN.unknown}${VALUE_SOURCE_MARK_LABEL.unknown}`
 
 const baseProps = {
@@ -107,7 +112,8 @@ const baseProps = {
   draggable: true,
 }
 
-const renderFactor = (observedState: Record<string, unknown> | undefined) =>
+/** The factor's unit (v3.1 #20: an own-unit range stays on the card). `null` → the bare 0–1 form. */
+const renderFactor = (observedState: Record<string, unknown> | undefined, unit: string | null = '%') =>
   render(
     <ReactFlowProvider>
       <FactorNode
@@ -117,7 +123,9 @@ const renderFactor = (observedState: Record<string, unknown> | undefined) =>
           type: 'factor',
           category: 'external',
           prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
-          ...(observedState === undefined ? {} : { observedState }),
+          ...(observedState === undefined
+            ? unit === null ? {} : { observedState: { unit } }
+            : { observedState: unit === null ? observedState : { unit, ...observedState } }),
         }}
       />
     </ReactFlowProvider>
@@ -131,7 +139,7 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
   })
 
   it('user_override value: the card shows the value and says the range is replaced, never "Range:"', () => {
-    const { container } = renderFactor({ value: 0.55, source: 'user_override' })
+    const { container } = renderFactor({ value: 0.55, raw_value: 55, source: 'user_override' })
     const text = container.textContent ?? ''
     // Behaviour first, so a RED names the defect rather than a missing hook.
     expect(text).toContain(REPLACED)
@@ -140,7 +148,7 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
     // …then identity: the line is THIS factor's range line, with exactly this text.
     expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe(REPLACED)
     // The user's value is still the value the card states.
-    expect(screen.getByTestId('factor-recorded-value').textContent).toContain('0.55')
+    expect(screen.getByTestId('factor-recorded-value').textContent).toContain('55%')
   })
 
   it('TWIN — no observed value: the card renders the live range exactly as before', () => {
@@ -155,10 +163,30 @@ describe('FactorNode — a user-stated value replaces the drafted range on the c
   })
 
   it('TWIN — a model-authored value (cee_inference) is not the user\'s: unchanged', () => {
-    const { container } = renderFactor({ value: 0.55, source: 'cee_inference', extractionType: 'inferred' })
+    const { container } = renderFactor({ value: 0.55, raw_value: 55, source: 'cee_inference', extractionType: 'inferred' })
     const text = container.textContent ?? ''
     expect(text).toContain(LIVE)
     expect(text).not.toContain('replaces')
+  })
+})
+
+describe('review F2 (#2085) — the SAME factor with no unit: both range sentences stay on the card', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockViewMode = 'expert'
+    mockResultsStatus = 'idle'
+  })
+
+  it('user_override value on the bare scale: the value stays (a person\'s number is never hidden) and "Your value replaces the range 0.3 to 0.8" prints', () => {
+    renderFactor({ value: 0.55, source: 'user_override' }, null)
+    expect(screen.getByTestId('factor-recorded-value').textContent).toContain('0.55')
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent).toBe('Your value replaces the range 0.3 to 0.8')
+  })
+
+  it('no observed value on the bare scale: "Range: 0.3 to 0.8" prints with its `no source` mark', () => {
+    renderFactor(undefined, null)
+    expect(screen.getByTestId(`factor-prior-range-${FACTOR_ID}`).textContent)
+      .toBe(`Range: 0.3 to 0.8 ${VALUE_SOURCE_MARK_TOKEN.unknown}${VALUE_SOURCE_MARK_LABEL.unknown}`)
   })
 })
 
@@ -199,15 +227,19 @@ describe('design integration — the Standard view after a run (range line on th
   })
 
   it('user_override value: the Standard popover says the range is replaced, never "Range:"', () => {
-    const { container } = renderFactor({ value: 0.55, source: 'user_override' })
+    const { container } = renderFactor({ value: 0.55, raw_value: 55, source: 'user_override' })
     expect(popoverRangeLine().textContent).toBe(REPLACED)
     expect(container.textContent ?? '').not.toContain('Range:')
   })
 
   it('TWIN — a model-authored value keeps the live range in the Standard popover', () => {
-    renderFactor({ value: 0.55, source: 'cee_inference', extractionType: 'inferred' })
-    // Point 1 (Paul 23 Sep): the range is marked, never left bare — and as
-    // "no source", because the range's author is not recorded on the node.
-    expect(popoverRangeLine().textContent).toBe(RANGE_WITH_NO_SOURCE)
+    renderFactor({ value: 0.55, raw_value: 55, source: 'cee_inference', extractionType: 'inferred' })
+    // Point 1 (Paul 23 Sep) marks a range that is the card's ONLY figure. With
+    // the unit fixture (v3.1 #20) the model-authored value itself prints
+    // ("55%", carrying its own `est.`), so the range is not the only figure and
+    // carries no second mark — the RANGE_WITH_NO_SOURCE form is pinned by the
+    // no-value twin above.
+    expect(popoverRangeLine().textContent).toBe(LIVE)
+    expect(screen.getByTestId('estimate-marker')).toBeTruthy()
   })
 })

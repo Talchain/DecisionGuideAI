@@ -15,8 +15,9 @@
  *     `threshold_source === 'user'`, falling back to CEE's `goal_threshold_raw`.
  *     THIS MODULE KNOWS NOTHING OF `success_threshold`, so a surface using it
  *     shows CEE's figure back to someone who has just typed their own.
- *   · it returns `source: 'user' | 'brief'`, and those "are different claims
- *     about authorship".
+ *   · it returns `source: 'user' | 'unrecorded'` (was `'brief'` for any CEE
+ *     raw until DESIGN-GAP-v31 #22 — an origin no carried field states), and
+ *     those "are different claims about authorship".
  *   · it rejects a blank string, which `goal_threshold_raw` can be.
  *
  * ⛔ DO NOT ADD A CONSUMER. `inspector-v2/panels/GoalPanel.tsx` was moved off it

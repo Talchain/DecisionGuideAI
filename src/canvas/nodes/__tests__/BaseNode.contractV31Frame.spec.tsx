@@ -101,10 +101,14 @@ describe('contract v3.1 — one 1px frame, one radius, one resting elevation (FR
     expect(t).not.toContain('border-[0.5px]')
   })
 
-  it.each(KINDS)('%s: resting elevation is `shadow-1` — the goal no longer floats at `shadow-3`', (kind) => {
+  it.each(KINDS)('%s: resting elevation is the contract\'s own `.node` shadow — the goal no longer floats at `shadow-3`', (kind) => {
+    // DESIGN-GAP-v31 #43: `.node{box-shadow:0 2px 4px #25252005}`, its own
+    // token (`--shadow-card-rest`, brand.css) — DS v5 `shadow-1` stays on the
+    // ~49 other surfaces that wear it.
     const { root } = renderCard(kind)
     const t = tokens(root)
-    expect(t).toContain('shadow-1')
+    expect(t).toContain('shadow-card-rest')
+    expect(t).not.toContain('shadow-1')
     expect(t).not.toContain('shadow-3')
   })
 

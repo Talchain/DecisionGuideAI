@@ -178,7 +178,17 @@ describe('(d) "no turning point" is the normal, quiet fallback', () => {
 })
 
 /**
- * ⭐ AT REST — THE PROTOTYPE'S ONE-LINE CAPTION (Paul 25 Sep 2026: the canvas
+ * ⭐⭐ SUPERSEDED BY CONTRACT v3.1 POINT 3 (DESIGN-GAP-v31 #38, 26 Sep 2026).
+ * v3.1's own fixture (`olumi-canvas-visual-contract-v31.html` `flipPlot`)
+ * captions the RESTING track with the direction sentence itself — "Below 6.5%,
+ * the current model comparison changes." — and the common brief rules that
+ * v3.1 wins over the code's documented rulings. The block below records the
+ * earlier ruling it replaces; the tests now pin v3.1: the sentence is the
+ * visible caption at rest and in the full form alike, the number prints ONCE
+ * (in the sentence, never again on the track at rest), the name opens with the
+ * sentence and the tooltip is the domain note.
+ *
+ * (Earlier: AT REST — THE PROTOTYPE'S ONE-LINE CAPTION (Paul 25 Sep 2026: the canvas
  * matches the prototype; verifier FIX_NEEDED 1 on c5adac48: the 49-character
  * direction sentence on the resting card broke the brief's ~4-body-line limit).
  *
@@ -193,20 +203,20 @@ describe('(d) "no turning point" is the normal, quiet fallback', () => {
  * the track), and never without its number: a row whose number may not print
  * keeps the full sentence (the caller does not put it at rest at all).
  */
-describe('at rest — the prototype caption plus the number, direction in the name and the tooltip', () => {
+describe('at rest — v3.1: the direction sentence IS the caption; the number prints once', () => {
   const rest = (props: Partial<Parameters<typeof FactorTurningPointTrack>[0]> = {}) =>
     render(
       <FactorTurningPointTrack nodeId="f1" factorLabel="Trial conversion" turningPoint={FALLS} atRest {...props} />,
     )
 
-  it('fresh: `Model comparison changes` + `6.5%` on one caption row; the name opens with them, then the direction sentence', () => {
+  it('fresh: the caption is "Below 6.5%, the current model comparison changes."; the name opens with it', () => {
     rest()
     const tp = screen.getByTestId('factor-turning-point')
-    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Model comparison changes')
-    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
-    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
-    // The direction sentence is not visible text at rest.
-    expect(visible(tp)).not.toContain('Below')
+    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison changes.')
+    // The retired floated number beside a short caption is gone.
+    expect(within(tp).queryByTestId('factor-turning-point-caption-value')).toBeNull()
+    expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. ')).toBe(true)
+    expect(visible(tp)).not.toContain('Model comparison changes')
     // The track and the run's own value stay; the number is printed ONCE.
     expect(within(tp).getByTestId('factor-turning-point-track')).toBeTruthy()
     expect(within(tp).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in this run')
@@ -214,26 +224,27 @@ describe('at rest — the prototype caption plus the number, direction in the na
     expect(visible(tp)!.split('6.5%').length - 1).toBe(1)
   })
 
-  it('stale: `Last run · comparison changes` (the prototype’s stale caption); the name opens with it, then the Last-run sentence', () => {
+  it('stale: the caption is the Last-run sentence; the name opens with it', () => {
     rest({ fromLastRun: true })
     const tp = screen.getByTestId('factor-turning-point')
-    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Last run · comparison changes')
-    expect(tp.getAttribute('aria-label')!.startsWith('Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ')).toBe(true)
+    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Last run · Below 6.5%, the model comparison changes.')
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes. ')).toBe(true)
     expect(within(tp).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
   })
 
   it('the option scope the producer names is kept in the name (Paul 23 Sep point 3(b))', () => {
     rest({ turningPoint: { ...FALLS, alternativeLabel: 'Two Developers' } })
     const tp = screen.getByTestId('factor-turning-point')
-    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Model comparison changes')
+    // v3.1 point 3: "name them on the card or one click away" — on the card.
+    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison shifts towards Two Developers.')
     expect(tp.getAttribute('aria-label')).toContain('Below 6.5%, the current model comparison shifts towards Two Developers.')
   })
 
-  it('the tooltip opens with the direction sentence at rest — CONTRAST: the full form’s tooltip is the domain note alone', async () => {
+  it('the tooltip is the domain note at rest — the sentence is already visible — and the same in the full form', async () => {
     rest()
     fireEvent.mouseEnter(screen.getByTestId('factor-turning-point'))
     const tip = await screen.findByRole('tooltip')
-    expect(tip.textContent!.startsWith('Below 6.5%, the current model comparison changes. The track marks')).toBe(true)
+    expect(tip.textContent!.startsWith('The track marks')).toBe(true)
     cleanup()
     render(<FactorTurningPointTrack nodeId="f1" factorLabel="Trial conversion" turningPoint={FALLS} />)
     fireEvent.mouseEnter(screen.getByTestId('factor-turning-point'))
@@ -265,6 +276,8 @@ describe('at rest — the prototype caption plus the number, direction in the na
     render(
       <FactorTurningPointSlot nodeId="f1" factorLabel="Trial conversion" state={{ kind: 'found', turningPoint: FALLS }} atRest />,
     )
-    expect(visible(screen.getByTestId('factor-turning-point-caption'))).toBe('Model comparison changes')
+    expect(visible(screen.getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison changes.')
+    // …and `atRest` still takes the number off the track (printed once).
+    expect(screen.queryByTestId('factor-turning-point-value')).toBeNull()
   })
 })

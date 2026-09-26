@@ -232,6 +232,11 @@ export default {
         1: 'var(--shadow-1)',
         2: 'var(--shadow-2)',
         3: 'var(--shadow-3)',
+        // Contract v3.1 resting canvas card (DESIGN-GAP-v31 #43). A named
+        // utility, not `shadow-[var(--…)]`: Tailwind reads a bare var() there
+        // as a shadow COLOUR, and the card rendered with no shadow at all
+        // (measured `box-shadow: none`, 26 Sep).
+        'card-rest': 'var(--shadow-card-rest)',
       },
 
       // ============================================

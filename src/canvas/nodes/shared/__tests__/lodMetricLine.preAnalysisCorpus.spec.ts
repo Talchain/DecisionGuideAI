@@ -38,6 +38,7 @@ import { applyDraftResult } from '../../../utils/applyDraftResult'
 import { useCanvasStore } from '../../../store'
 import { resolveLodMetricLine } from '../lodMetricLine'
 import { resolveLodMetricFacts } from '../lodMetricFacts'
+import { resolveFactorPriorRange } from '../factorPriorRange'
 import type { NodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 
 /**
@@ -70,6 +71,8 @@ interface Card {
   type: string
   label: string
   line: string | null
+  /** The prior-range OWNER's line (what the Model tab states) — v3.1 #20 contrast. */
+  ownerRange: string | null
 }
 
 let cards: Card[] = []
@@ -100,6 +103,14 @@ beforeAll(() => {
         displayMetadata: PRE_ANALYSIS_METADATA,
         facts,
       }),
+      ownerRange: nodeType === 'factor'
+        ? resolveFactorPriorRange({
+          data,
+          nodeCategory: data?.category as string | undefined,
+          observedState: (data?.observedState ?? data?.observed_state) as { unit?: string | null; cap?: number | null } | undefined,
+          valueDisplay: null,
+        })
+        : null,
     }
   })
 })
@@ -142,8 +153,18 @@ describe('the corpus is the model that was measured', () => {
  */
 const OWNED_HERE = ['factor', 'option']
 
+/**
+ * ⭐⭐ CONTRACT v3.1 #20 first narrowed this acceptance for the three external
+ * factors whose only figure is a bare 0–1 prior; review F2 (#2085) restored it.
+ * A range's origin is unrecorded (the inspector's 0–1 editor writes `prior`
+ * with no stamp), so the full card keeps such a range with its `no source`
+ * mark — and the reduced line, which reads the same owner, says it too. The
+ * prior-range owner's line is still asserted as a contrast.
+ */
+const BARE_RANGE_ONLY = ['Current Sales Quota Attainment', 'Engineering Attrition Rate', 'Market Demand for Product']
+
 describe('THE ACCEPTANCE: no factor or option card is left with nothing to say', () => {
-  it('every factor and option card in the real starter resolves a reduced line', () => {
+  it('every factor and option card in the real starter resolves a reduced line (incl. the three whose only figure is a bare 0–1 range — F2)', () => {
     const mine = cards.filter((c) => OWNED_HERE.includes(c.type))
     // ⛔ POSITIVE CONTROL FIRST (trap 13). An "none are silent" assertion over
     // an EMPTY list passes while proving nothing — and this list is built by a
@@ -152,15 +173,23 @@ describe('THE ACCEPTANCE: no factor or option card is left with nothing to say',
     expect(mine).toHaveLength(9)
     const silent = mine.filter((c) => c.line === null)
     expect(silent.map((c) => `${c.type}:${c.label}`)).toEqual([])
+    // Bound by IDENTITY: the three bare-range factors are among the spoken.
+    expect(mine.filter((c) => BARE_RANGE_ONLY.includes(c.label)).map((c) => c.type)).toEqual(['factor', 'factor', 'factor'])
   })
 
   it('names what each card says, so a change to any line is a decision and not a drift', () => {
     const spoken = Object.fromEntries(cards.map((c) => [c.label, c.line]))
-    // ⭐ THE FACTOR CARDS THE FOUNDER NAMED, each now saying the number its own
-    // card was already showing one zoom step up.
+    // ⭐ THE FACTOR CARDS THE FOUNDER NAMED, each saying the number its own
+    // card shows one zoom step up (review F2, #2085: a bare range of
+    // unrecorded origin stays on the card).
     expect(spoken['Engineering Attrition Rate']).toBe('Range: 0.3 to 0.9')
     expect(spoken['Market Demand for Product']).toBe('Range: 0.3 to 0.8')
     expect(spoken['Current Sales Quota Attainment']).toBe('Range: 0.25 to 0.75')
+    // …and the owner states the same line (the Model tab's).
+    const owner = Object.fromEntries(cards.map((c) => [c.label, c.ownerRange]))
+    expect(owner['Engineering Attrition Rate']).toBe('Range: 0.3 to 0.9')
+    expect(owner['Market Demand for Product']).toBe('Range: 0.3 to 0.8')
+    expect(owner['Current Sales Quota Attainment']).toBe('Range: 0.25 to 0.75')
   })
 
   it('⛔ AND THE FOUR OWNER-DECLARED TYPES RESOLVE TO NOTHING HERE — the split is real in the real model, not only in fixtures', () => {
@@ -192,8 +221,8 @@ describe('THE ACCEPTANCE: no factor or option card is left with nothing to say',
 })
 
 describe('CONTRAST CONTROL — the lines are the cards’ own data, not a default string', () => {
-  it('the three range-bearing factors state THREE DIFFERENT ranges', () => {
-    const ranges = cards.filter((c) => c.line?.startsWith('Range:')).map((c) => c.line)
+  it('the three range-bearing factors state THREE DIFFERENT ranges — through the owner (the Model tab), the same lines the card states', () => {
+    const ranges = cards.filter((c) => c.ownerRange?.startsWith('Range:')).map((c) => c.ownerRange)
     // A blind resolver returning one constant would satisfy "no card is
     // silent" perfectly. Distinct values are what prove it is reading data.
     expect(new Set(ranges).size).toBe(ranges.length)

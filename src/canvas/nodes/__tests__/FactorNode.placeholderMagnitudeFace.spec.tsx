@@ -28,6 +28,24 @@
  * something, the two arms stop differing and this spec REDs rather than
  * quietly agreeing with itself — the decay that cost a merged PR its control
  * today.
+ *
+ * ⭐⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #20, 26 Sep 2026) REPLACES THE FACE THIS
+ * FILE PINNED. The earlier ruling here kept the figure — `0.3 est.` — and only
+ * stripped the false unit. v3.1 `checks.factor` says "own-unit value … no bare
+ * internal model scale", and the gap row names this exact face ("Localisation
+ * and Compliance Cost 0.5 est.") with the ruling "omit, never invent". So an
+ * Olumi estimate stated ONLY on the bare 0–1 scale now leaves the card's
+ * figure, nothing substituted (`readoutIsBareModelScale`) — and, review F1
+ * (#2085), KEEPS its figure-less `est.` mark: omit the number, never its
+ * provenance.
+ * What is kept, and pinned here as contrasts in the same runs:
+ *   · the passthrough is still live — producer prose and a declared encoding
+ *     still speak on the face;
+ *   · an Olumi estimate in the reader's OWN unit keeps its figure and `est.`;
+ *   · the model still admits its open assumptions on the Decision card
+ *     ("Assumptions open for review", v3.1 #39) and in the inspector.
+ * The earlier "an assumption must be visible to be challenged" pin holds: the
+ * figure-less `est.` still marks WHICH card carries the assumption (F1).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
@@ -116,7 +134,7 @@ const founderFactor = (value: number, displayValue: string | null) => ({
 describe('FactorNode face: a placeholder unit never reaches the card as if measured', () => {
   beforeEach(() => { vi.clearAllMocks(); viewMode = 'standard' })
 
-  it('DISCRIMINATOR: the three paths now AGREE, and the passthrough is still alive', () => {
+  it('DISCRIMINATOR: the bare-scale figure is gone from both arms, the producer arm keeps only its `est.` mark (F1), and the passthrough is still alive', () => {
     // Arm 1 — no display_value. Pattern 1 skips placeholder units, Pattern 2
     // calls them meaningless. Nothing renders.
     const withoutDv = faceText(renderFactor(founderFactor(0.3, null)).container)
@@ -125,11 +143,12 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
     expect(withoutDv).not.toContain('scale')
 
     // Arm 2 — identical state PLUS the producer's string. This is the path that
-    // used to leak. The false unit is gone and the figure — with its `est.`
-    // marker — stays, so the reader can still see an assumption was made.
+    // used to leak. v3.1 #20: the figure is a bare 0–1 Olumi estimate, so the
+    // false unit AND the model-scale figure are gone — and review F1 (#2085)
+    // keeps its provenance: the face is the title plus the figure-less `est.`.
     const withDv = faceText(renderFactor(founderFactor(0.3, '0.3 scale')).container)
-    expect(withDv).not.toBe(withoutDv)
-    expect(withDv).toContain('0.3')
+    expect(withDv).toBe(`${withoutDv}est.`)
+    expect(withDv).not.toContain('0.3')
     expect(withDv).not.toContain('scale')
 
     // ⭐ PRECONDITION PINNED. A third arm on the SAME passthrough must behave
@@ -145,33 +164,45 @@ describe('FactorNode face: a placeholder unit never reaches the card as if measu
   })
 
   it.each([0, 0.2, 0.3, 0.5, 0.55, 0.75, 0.8, 0.85])(
-    'a card at value %s keeps its figure and loses the placeholder unit', (value) => {
-      const text = faceText(renderFactor(founderFactor(value, `${value} scale`)).container)
+    'a card at value %s states no bare model-scale figure and no placeholder unit (v3.1 #20)', (value) => {
+      const { container } = renderFactor(founderFactor(value, `${value} scale`))
+      const text = faceText(container)
       expect(text).toContain('Team Capability')
       expect(text).not.toContain('scale')
-      expect(text).toContain(String(value))
+      // Bound by identity: the value line itself is absent, not merely reworded.
+      expect(container.querySelector('[data-testid="factor-recorded-value"]')).toBeNull()
     })
 
-  it('⭐⭐ THE `est.` MARKER SURVIVES — an assumption must be visible to be challenged', () => {
-    // THE REGRESSION THIS PINS. `FactorNode.tsx:928` gates the value and the
-    // marker on ONE condition. Blanking the value took the marker with it, so a
-    // third of the founder's cards silently stopped admitting they were
-    // inferred. Bound by identity, not by reading the text.
-    const { container } = renderFactor(founderFactor(0.3, '0.3 scale'))
-    const marker = container.querySelector('[data-testid="estimate-marker"]')
-    expect(marker, 'the est. marker vanished with the value — the guess is now invisible').toBeTruthy()
+  it('⭐⭐ THE `est.` MARKER SURVIVES WHEREVER A FIGURE DOES — an own-unit estimate keeps both', () => {
+    // THE REGRESSION THIS PINNED. `FactorNode.tsx` gates the value and the
+    // marker on ONE condition, so blanking the value took the marker with it.
+    // v3.1 #20 omits a BARE-scale estimate's figure — and review F1 (#2085)
+    // keeps its mark: omit the number, never its provenance. Bound by
+    // identity, not by reading the text.
+    const own = renderFactor({
+      label: 'Team Capability', type: 'factor',
+      observedState: { value: 0.3, raw_value: 30, unit: '%', extractionType: 'inferred' },
+    }).container
+    const marker = own.querySelector('[data-testid="estimate-marker"]')
+    expect(marker, 'the est. marker vanished from an own-unit estimate — the guess is now invisible').toBeTruthy()
     expect(marker!.textContent).toBe('est.')
+    // Same run: the bare-scale estimate loses its figure, never its mark (F1).
+    const bare = renderFactor(founderFactor(0.3, '0.3 scale')).container
+    expect(bare.querySelector('[data-testid="estimate-marker"]')!.textContent).toBe('est.')
+    expect(bare.querySelector('[data-testid="factor-recorded-value"]')).toBeNull()
   })
 
   it("THE FOUNDER'S EXACT FACE: \"0.3 scale est.\" no longer reads as a measurement", () => {
-    // The card he is looking at. The unreadable figure is withheld; nothing is
-    // reworded into a magnitude the producer never declared.
+    // The card he is looking at. The unreadable figure is withheld (v3.1 #20);
+    // nothing is reworded into a magnitude the producer never declared.
     const { container } = renderFactor(founderFactor(0.3, '0.3 scale'))
     const text = faceText(container)
     expect(text).toContain('Team Capability')
     expect(text).not.toContain('0.3 scale')
     expect(text).not.toContain('scale')
-    expect(text).toContain('0.3')
+    expect(text).not.toContain('0.3')
+    // Review F1 (#2085): the figure is withheld, its provenance is not.
+    expect(container.querySelector('[data-testid="estimate-marker"]')!.textContent).toBe('est.')
   })
 
   it('the expert view is equally free of the placeholder', () => {

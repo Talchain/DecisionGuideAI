@@ -78,7 +78,7 @@ import { ArrowUp, Pencil, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
-import { VALUE_PROVENANCE_LABEL } from '../../../../canvas/domain/valueProvenance'
+import { goalTargetSourceMark } from '../../../../canvas/nodes/shared/valueSourceMark'
 import {
   resolveGoalTarget,
   declaredGoalUnit,
@@ -917,19 +917,21 @@ export function SuccessTargetLine({
               learned once. A target we hold is the user's own: it came from
               their brief or from this control. */}
           {/* ⚠ PROVENANCE FROM THE RESOLVER, NOT ASSUMED. A target the reader
-              typed and one CEE lifted from their brief are different claims
-              about authorship — this panel's whole provenance vocabulary exists
-              to keep them apart, and hardcoding "From brief" over a value the
-              user set themselves is exactly the mislabel it guards against. */}
+              typed and one CEE backfilled are different claims about
+              authorship. ⛔ AND "From brief" WAS ITSELF ASSUMED (DESIGN-GAP-v31
+              #22, A2): every non-user target read "From brief", over figures
+              no brief states (market-entry's 11 £M ARR; its brief says £8M).
+              The words now come from the ONE mark the goal card prints
+              (`goalTargetSourceMark`, over `resolveGoalTarget`): "Set by you"
+              only where `threshold_source === 'user'` attests it, else "Source
+              not recorded" — so card, strip and inspector give one answer. */}
           {shownText !== null ? (
             <span
               className={`${typography.panelMeta} text-text-light`}
               data-testid={`${testId}-source`}
               data-source={fromNode?.source ?? 'store'}
             >
-              {fromNode?.source === 'user'
-                ? VALUE_PROVENANCE_LABEL.human
-                : VALUE_PROVENANCE_LABEL.brief}
+              {goalTargetSourceMark(goalData as GoalTargetSource | null).label}
             </span>
           ) : null}
           {/* ⭐ E2: THE ICONS CLUSTER TOGETHER AND PUSH RIGHT AS ONE GROUP — the

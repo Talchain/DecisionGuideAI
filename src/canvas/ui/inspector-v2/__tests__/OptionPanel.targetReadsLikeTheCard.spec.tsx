@@ -278,23 +278,27 @@ describe('(a) the SAME display source as the card — CEE’s analysis_ready, jo
     // words in a SIBLING `intervention_details` map (`factorOptionSetting.ts`).
     // The card joins them; the inspector read the node alone, which holds the
     // bare number — so it printed "0.5 model value" under a card saying "£60k".
+    // ⚠ 26 Sep (contract v3.1 #9, WS4): the target MOVES the cost (0.75 = £90k
+    // against the observed £60k). At 0.5 it equalled the factor's own value, and
+    // a target equal to its reference is not a concrete change, so the card no
+    // longer spends a row on it — the parity this test pins needs a real row.
     const option = seed(
-      { [F_COST]: 0.5 },
+      { [F_COST]: 0.75 },
       {
         options: [{
           id: OPTION_ID,
-          interventions: { [F_COST]: 0.5 },
-          intervention_details: { [F_COST]: { display_value: '£60k' } },
+          interventions: { [F_COST]: 0.75 },
+          intervention_details: { [F_COST]: { display_value: '£90k' } },
         }],
       },
     )
     const card = await cardRows(renderCard(option.data))
     const dialog = openInspector()
 
-    expect(cardTarget(card, F_COST)).toBe('£60k')
+    expect(cardTarget(card, F_COST)).toBe('£90k')
     const text = row(dialog, F_COST).textContent ?? ''
     expect(text).not.toMatch(/model value/i)
-    expect(text).toContain('£60k')
+    expect(text).toContain('£90k')
   })
 
   it('⭐ a bare producer number does not erase the user’s own stamp — on either surface', async () => {

@@ -24,6 +24,14 @@
  * uses (`optionInterventionCount.ts`), so a card never states two totals (#1901
  * finding 3). Every set target yields a row — a target with no reference still
  * reads `→ £59` — so no row can silently drop out of the count.
+ *
+ * ── CONCRETE CHANGES FIRST (contract v3.1, DESIGN-GAP-v31 #9) ─────────────────
+ *
+ * The resting card lists only rows that CHANGE something (`isConcreteChangeRow`):
+ * a target equal to the baseline's, or to the factor's current value, is a
+ * target but not a change, and it is reached through `+N more` (the inspector),
+ * never shown as a resting row. The shared order is unchanged; the card skips
+ * the non-changes in it.
  */
 import {
   formatInterventionChange,
@@ -497,4 +505,47 @@ export function fitRowsToBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
 /** `+N more`, from the ONE total — never below zero. */
 export function moreCount(totalInterventionCount: number, rowsShown: number): number {
   return Math.max(0, totalInterventionCount - rowsShown)
+}
+
+/**
+ * ⭐ CONCRETE CHANGES ONLY — contract v3.1 `checks.option` ("Concrete changes,
+ * differentiator and an editable target route"), DESIGN-GAP-v31 row #9.
+ *
+ * Measured on served `eec722ab` (25 Sep): market-entry's Germany option listed
+ * "Localisation and compliance cost · 0.5 · same as baseline" and "Nordics
+ * market entry · Low · same as baseline" as two of its three resting rows, and
+ * every row of every vendor-selection option read "same as baseline" — a card
+ * whose rows were all non-changes, posing as what the option changes.
+ *
+ * A row is NOT a concrete change when the data itself says the option leaves
+ * the factor where its reference already has it:
+ *   · `sameAsReference` — the target equals the declared baseline option's own
+ *     target (the builder's `isInterventionNoChange` + the same display string),
+ *     or an unframed target the builder already read as "No change";
+ *   · no baseline pair was formed, no "from" printed, and the factor's CURRENT
+ *     value equals the target (`isInterventionNoChange`, the builder's own
+ *     tolerance) — the arm where the builder declined to pair for exactly this
+ *     reason.
+ * Everything else is kept: a `from → to`, a direction word, a target with no
+ * reference to compare ("→ £59" states a target nobody can call unchanged), and
+ * a `Needs input` gap.
+ *
+ * ⚠ THE COUNT IS NOT RE-DERIVED. Unchanged targets are still TARGETS — the
+ * inspector lists them — so `+N more` keeps counting from the one total
+ * (`moreCount`): rows shown + more = targets set. The card simply spends its
+ * resting rows on the changes first.
+ */
+export function isConcreteChangeRow(
+  row: OptionChangeRow,
+  target: Pick<OptionTargetLike, 'value'> | null | undefined,
+  factor: Pick<FactorContext, 'observedValue'>,
+): boolean {
+  if (row.needsInput) return true
+  if (row.sameAsReference) return false
+  if (row.before !== undefined || row.reference === 'baseline_option') return true
+  return !(
+    target != null &&
+    typeof factor.observedValue === 'number' &&
+    isInterventionNoChange(factor.observedValue, target.value)
+  )
 }

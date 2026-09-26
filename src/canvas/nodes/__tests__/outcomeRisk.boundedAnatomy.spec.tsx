@@ -180,19 +180,32 @@ describe('ED 5809278282 — ONE body line in Standard view, at every rung, in bo
   })
 })
 
+/*
+ * ⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #34, and its outcome sibling, 26 Sep 2026):
+ * the UNSET/UNQUANTIFIED states now SHOW the whole state label — "Likelihood
+ * and impact not set yet", "Outcome not quantified" (`.small-state`) — and wrap
+ * rather than cut (a cut would eat the state word). Their rows below carry the
+ * full sentence as the visible form, and the class assertion for them is the
+ * wrapping one; the entered-figure rows are unchanged.
+ */
 describe('the primary line is ONE visual line; a value leads and is never the thing cut', () => {
   const TEXT_STATES = [
-    ['outcome', 'unquantified', {}, 'outcome-unquantified', 'Not quantified', OUTCOME_UNQUANTIFIED_LINE],
-    ['risk', 'unset', {}, 'risk-exposure-unset', METRIC_UNSET.standalone, RISK_EXPOSURE_UNSET_LINE],
+    ['outcome', 'unquantified', {}, 'outcome-unquantified', OUTCOME_UNQUANTIFIED_LINE, OUTCOME_UNQUANTIFIED_LINE],
+    ['risk', 'unset', {}, 'risk-exposure-unset', RISK_EXPOSURE_UNSET_LINE, RISK_EXPOSURE_UNSET_LINE],
     ['risk', 'entered (both halves)', { probability: 0.9, impact: 'high' }, 'risk-exposure-line', '90% likely · High impact', 'Entered estimate · 90% likely · High impact'],
     ['risk', 'entered (likelihood only)', { probability: 0.4 }, 'risk-exposure-line', '40% likely', 'Entered estimate · 40% likely'],
     ['risk', 'entered (impact only)', { impact: 'high' }, 'risk-exposure-line', 'High impact', 'Entered estimate · High impact'],
   ] as const
 
-  it.each(TEXT_STATES)('%s %s: short form visible, full sentence on title AND in sr-only', (kind, _s, data, testId, short, full) => {
+  it.each(TEXT_STATES)('%s %s: visible form, full sentence on title AND in sr-only', (kind, _s, data, testId, short, full) => {
     draw(kind, data)
     const line = screen.getByTestId(testId)
-    if (testId === 'risk-exposure-line') {
+    if (testId === 'outcome-unquantified' || testId === 'risk-exposure-unset') {
+      // v3.1 `.small-state`: the whole state label, wrapping, never cut.
+      expect(Array.from(line.classList)).toContain('break-words')
+      expect(Array.from(line.classList)).not.toContain('text-ellipsis')
+      expect(Array.from(line.classList)).not.toContain('whitespace-nowrap')
+    } else if (testId === 'risk-exposure-line') {
       // ⚠ The entered pair keeps its provenance ON the card (ED 5809278282:
       // never tooltip-only) — `· entered` after the figures — and may wrap
       // rather than cut a figure or its qualifier.

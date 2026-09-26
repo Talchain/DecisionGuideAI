@@ -107,13 +107,16 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('NODE-ANATOMY v3.2 · Goal · target + the user-stated limit on ONE row (ED choice 2)', () => {
-  it('the row reads "Target: £20,000" then the limit pill "Monthly churn ≤ 7%", in that order', () => {
+  // Contract v3.1 `.pill.mini` (DESIGN-GAP-v31 #23): the pill SHOWS the short
+  // form, the operator set against the figure as the contract spells it
+  // ("Churn <4%"); the accessible name and tooltip keep the full sentence.
+  it('the row reads "Target: £20,000" then the limit pill "Monthly churn ≤7%", in that order', () => {
     mockStore()
     renderGoal(WITH_TARGET)
     const target = screen.getByTestId('goal-target-route')
     const p = pill('c_churn')
     expect(p, 'the limit pill renders on the resting face').not.toBeNull()
-    expect(p!.textContent).toBe('Monthly churn ≤ 7%')
+    expect(p!.textContent).toBe('Monthly churn ≤7%')
     // The SAME row as the target, after it.
     expect(row().contains(target)).toBe(true)
     expect(row().contains(p!)).toBe(true)
@@ -150,15 +153,16 @@ describe('NODE-ANATOMY v3.2 · Goal · target + the user-stated limit on ONE row
     mockStore({ goalConstraints: [CHURN_LIMIT, NRR_LIMIT] })
     renderGoal(WITH_TARGET)
     expect(allPills()).toHaveLength(2)
-    expect(pill('c_churn')!.textContent).toBe('Monthly churn ≤ 7%')
-    expect(pill('c_nrr')!.textContent).toBe('Net revenue retention ≥ 110%')
+    expect(pill('c_churn')!.textContent).toBe('Monthly churn ≤7%')
+    expect(pill('c_nrr')!.textContent).toBe('Net revenue retention ≥110%')
   })
 
   it('an inferred limit is not dressed as the reader’s own: its origin rides the pill and its name', () => {
     mockStore({ goalConstraints: [{ ...CHURN_LIMIT, provenance: 'inferred' }] })
     renderGoal(WITH_TARGET)
     const p = pill('c_churn')!
-    expect(p.textContent).toBe('Monthly churn ≤ 7% · Inferred limit')
+    // ⛔ The short form drops words, never provenance.
+    expect(p.textContent).toBe('Monthly churn ≤7% · Inferred limit')
     expect(p.getAttribute('aria-label')).toBe('Limit: Monthly churn ≤ 7% · Inferred limit')
   })
 
@@ -168,7 +172,7 @@ describe('NODE-ANATOMY v3.2 · Goal · target + the user-stated limit on ONE row
     })
     renderGoal(WITH_TARGET)
     const p = pill('c_churn')!
-    expect(p.textContent).toBe('Monthly churn ≤ 7%')
+    expect(p.textContent).toBe('Monthly churn ≤7%')
     expect(p.getAttribute('aria-label')).not.toContain('62')
   })
 

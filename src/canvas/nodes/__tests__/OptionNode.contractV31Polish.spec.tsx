@@ -320,14 +320,26 @@ describe('contract v3.1 — option card polish', () => {
 
   // ── OPT-04 / OPT-05 / RHY-04 / T08 (b, c): the row grammar ──────────────
   describe('change row grammar (OPT-04, OPT-05, RHY-04, T08 b+c)', () => {
-    it('label takes what the amount does not need; the amount is capped at the old 3fr share', () => {
+    // ⭐ CONTRACT v3.1 #9 (26 Sep, WS4) — `.delta-rows{grid-template-columns:
+    // minmax(0,1fr) auto}` with `.amount{white-space:nowrap}`. Held as ONE
+    // WRAPPING LINE PER ROW rather than a shared grid, because at the landing
+    // counter-scale an `auto` amount track is wider than the card: the label
+    // takes what the amount does not need (`flex-[1_1_8em]`), and when the two
+    // cannot share a line the amount takes the next line whole.
+    it('label takes what the amount does not need; the amount is one unbroken line (v3.1 #9)', () => {
       renderCard()
       const dl = inRows('option-change-rows-option-1')!.querySelector('dl')
       const t = tokens(dl)
-      expect(t.has('grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))]')).toBe(true)
-      expect(t.has('grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')).toBe(false)
+      expect(t.has('flex')).toBe(true)
+      expect(t.has('flex-col')).toBe(true)
       expect(t.has('gap-y-1')).toBe(true)
-      expect(t.has('gap-x-2')).toBe(true)
+      expect(t.has('grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')).toBe(false)
+      const line = tokens(inRows('option-change-row-line-option-1-f-head'))
+      expect(line.has('flex-wrap')).toBe(true)
+      expect(line.has('gap-x-2')).toBe(true)
+      const dt = inRows('option-change-row-option-1-f-head')!.previousElementSibling!
+      expect(tokens(dt).has('flex-[1_1_8em]')).toBe(true)
+      expect(tokens(inRows('option-change-row-value-option-1-f-head')).has('whitespace-nowrap')).toBe(true)
     })
 
     it('label and amount are both the 11px label size at tight leading', () => {
@@ -340,8 +352,11 @@ describe('contract v3.1 — option card polish', () => {
         expect(tokens(cell).has('!leading-tight')).toBe(true)
       }
       expect(dd.className).not.toContain(typography.nodeLabel)
-      // `min-w-0` keeps a long word wrapping inside the capped column.
-      expect(tokens(dd).has('min-w-0')).toBe(true)
+      // v3.1 #9: the amount never exceeds the card (`max-w-full`); the LABEL is
+      // the part that wraps (`min-w-0` + `break-words`).
+      expect(tokens(dd).has('max-w-full')).toBe(true)
+      expect(tokens(dt).has('min-w-0')).toBe(true)
+      expect(tokens(dt).has('break-words')).toBe(true)
     })
 
     it('the rows block keeps its 4px top rhythm under the title', () => {

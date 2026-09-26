@@ -212,10 +212,12 @@ const onFaceNotInPopover = (id: string) => {
 }
 
 /** The v3.2 "Never on the card" list, plus the border badges, in one place. */
-const expectNothingItMustNeverSay = () => {
+const expectNothingItMustNeverSay = ({ turningPointFallback = false }: { turningPointFallback?: boolean } = {}) => {
   const text = document.body.textContent ?? ''
   expect(text).not.toContain('Structural influence')
-  expect(text).not.toContain('No turning point')
+  // v3.1 point 3 (DESIGN-GAP-v31 #38): a RANKED factor's quiet fallback is
+  // allowed where the caller has just asserted it by identity.
+  if (!turningPointFallback) expect(text).not.toContain('No turning point')
   expect(text).not.toContain('Limit')
   expect(screen.queryByTestId('factor-constraint-lines')).toBeNull()
   expect(screen.queryByTestId('constraint-badge')).toBeNull()
@@ -330,11 +332,12 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     const tp = onFaceNotInPopover('factor-turning-point')
     expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
     expect(within(face()).getByTestId('factor-driver-line-bar')).toBeTruthy()
-    // At rest: the prototype's one-line caption + number; the direction
-    // sentence follows it in the accessible name (verifier FIX_NEEDED 1, 25 Sep).
-    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
-    expect(within(face()).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
-    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
+    // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
+    // direction sentence (was "Model comparison changes" + a floated 6.5%,
+    // verifier FIX_NEEDED 1, 25 Sep — superseded by v3.1's own `flipPlot`).
+    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    expect(within(face()).queryByTestId('factor-turning-point-caption-value')).toBeNull()
+    expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. ')).toBe(true)
     // The retired inline cue: the line it stood in for is on the face.
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     expect(before(value, driver)).toBe(true)
@@ -378,21 +381,37 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the ANALYSED c
   })
 })
 
-describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — no mini-visual at rest', () => {
+/*
+ * ⭐ CONTRACT v3.1 POINT 3 (DESIGN-GAP-v31 #38, 26 Sep 2026) REVERSES THIS
+ * BLOCK'S RESTING ABSENCE. It pinned ED #63 5806207128 ("No `No turning point
+ * available/in this run` line at rest; absence = no mini-visual"). v3.1: "'No
+ * turning point in this run' is the normal fallback for an analysed factor,
+ * never a blank" — and the common brief rules v3.1 wins (conflict named in the
+ * WS4 report). So a RANKED factor now carries the quiet fallback at Normal zoom,
+ * under its driver line, and it still distinguishes what the run established:
+ * attested → "No turning point in this run"; nothing established → "No turning
+ * point available" (never promoted). The unranked sweeps below are unchanged.
+ */
+describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — the quiet fallback at rest (v3.1 #38)', () => {
   it.each([
-    ['an attested no-flip row', [ATTESTED_NO_FLIP_ROW]],
-    ['no row at all', []],
-  ] as const)('with %s: the driver line is the last finding; no "No turning point" line', (_name, flipRows) => {
+    ['an attested no-flip row', [ATTESTED_NO_FLIP_ROW], 'No turning point in this run'],
+    ['no row at all', [], 'No turning point available'],
+  ] as const)('with %s: the driver line, then the quiet fallback on the face — "%s"', (_name, flipRows, words) => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [...flipRows] })
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
     // Positive control: the run's finding for this factor IS disclosed — on the
     // face (prototype, Paul 25 Sep).
-    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
-    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
+    const driver = onFaceNotInPopover('factor-driver-line')
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    const none = within(face()).getByTestId('factor-turning-point-none')
+    expect(visibleText(none)).toBe(words)
+    expect(before(driver, none)).toBe(true)
+    // Quiet, never an error style (v3.1 point 3).
+    expect(none.className).toContain('text-text-light')
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
-    expectNothingItMustNeverSay()
+    expectNothingItMustNeverSay({ turningPointFallback: true })
   })
 
   it('CONTRAST — Detailed still states the attested search, so the resting absence is the gate, not a dead fixture', () => {
@@ -481,9 +500,10 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     onFaceNotInPopover('factor-driver-line')
     onFaceNotInPopover('factor-turning-point')
     expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
+    // v3.1 point 3 (#38): the stale caption is the Last-run direction sentence.
+    expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(face()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
-      'Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ',
+      'Last run · Below 6.5%, the model comparison changes. ',
     )).toBe(true)
     // The run's value stays distinct from the current value line.
     expect(within(face()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
@@ -492,16 +512,17 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     expectNothingItMustNeverSay()
   })
 
-  it('a RANKED factor on a stale run with no turning point gains no "Last run · No turning point" line', () => {
+  it('a RANKED factor on a stale run with an attested no-flip says "Last run · No turning point in that run" (v3.1 #38)', () => {
     displayMetadata = RANKED()
     seed(VALUED, { phase: 'post', flipRows: [ATTESTED_NO_FLIP_ROW] })
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
     expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
-    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
-    expect(document.body.textContent).not.toContain('in that run')
-    expectNothingItMustNeverSay()
+    // A stale finding keeps `Last run ·` (ED 5809278282), and "that run", never "this run".
+    expect(visibleText(within(face()).getByTestId('factor-turning-point-none'))).toBe('Last run · No turning point in that run')
+    expect(document.body.textContent).not.toContain('in this run')
+    expectNothingItMustNeverSay({ turningPointFallback: true })
   })
 
   it('an UNRANKED factor on a stale run gains no filler line either', () => {

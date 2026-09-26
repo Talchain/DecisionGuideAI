@@ -266,3 +266,55 @@ export function goalConstraintText(
   const value = formatLimitMagnitude(constraint.value, constraint.unit)
   return `${prefix}${renderLimitOperator(constraint.operator)} ${value}${origin}`
 }
+
+/**
+ * ⭐ THE RESTING PILL'S SHORT FORM — contract v3.1 `.pill.mini` ("Churn <4%":
+ * 10px, a few words; DESIGN-GAP-v31 #23).
+ *
+ * Measured before (served `eec722ab`): the pricing goal's pill was 331–346px,
+ * "net revenue retention floor · “net revenue retention above 110%”", clipped
+ * with an ellipsis at 100%. The card's pill now says the LIMIT and nothing
+ * else; `goalConstraintText` (above, unchanged) stays the full sentence for the
+ * pill's accessible name and tooltip, so nothing is lost.
+ *
+ * The SAME branches as `goalConstraintText`, in the same order — this adds no
+ * rule of its own, it only drops what the full form appends:
+ *   · the reader's own figure (`provenance_unit_normalised.original_value`),
+ *     then the structured `value`/`unit`: `<label> <op><value>` — the operator
+ *     set against the figure as the contract spells it ("<4%", "≥110%");
+ *   · a percent limit with no audited figure: the reader's own quoted words
+ *     ALONE — the quote names its subject, and the reconstructed ratio would be
+ *     100× out (the reason the full form quotes);
+ *   · no value or operator: "<label> · limit not captured", never a direction;
+ *   · a label that already states the limit (A11): the label alone.
+ * The subject is always the carried label (or the constrained element's own),
+ * never an abbreviation made up here.
+ *
+ * ⛔ THE ORIGIN SUFFIX IS KEPT (" · Inferred limit", " · Proxy limit"): a short
+ * form may drop words, never provenance — an inferred limit must not be
+ * dressed as the reader's own (pinned in
+ * `GoalNode.limitPillsOnTheTargetRow.spec.tsx`). It is the one thing the short
+ * form carries beyond the limit itself.
+ */
+export function goalConstraintShortText(
+  constraint: CEEGoalConstraint,
+  nodes: readonly { id: string; data?: unknown }[] = [],
+): string {
+  const target = constraint.node_id ? nodes.find(n => n.id === constraint.node_id) : undefined
+  const label = (typeof constraint.label === 'string' ? constraint.label.trim() : '') || (target ? resolveElementLabel(target.data) : 'Constraint')
+  // The SAME origin rule as `goalConstraintText` — never dropped.
+  const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
+    : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
+  const audit = constraint.provenance_unit_normalised
+  if (audit && typeof audit.original_value === 'number' && Number.isFinite(audit.original_value) && constraint.operator) {
+    return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value, audit.original_unit)}${origin}`
+  }
+  if (goalConstraintTextUsesQuote(constraint)) {
+    return `“${(constraint.source_quote as string).trim()}”${origin}`
+  }
+  if (typeof constraint.value !== 'number' || !Number.isFinite(constraint.value) || !constraint.operator) {
+    return `${label} · limit not captured${origin}`
+  }
+  if (labelAlreadyStatesLimit(label)) return `${label}${origin}`
+  return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(constraint.value, constraint.unit)}${origin}`
+}

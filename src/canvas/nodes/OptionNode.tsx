@@ -151,7 +151,9 @@ import { resolveOptionInterventionCount } from './shared/optionInterventionCount
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import {
   fitRowsToBudget,
+  isConcreteChangeRow,
   moreCount,
+  OPTION_CARD_ROW_LIMIT,
   OPTION_ROW_SOURCE_MARK_SEPARATOR,
   rowFactorIdsFor,
   sharedChangeOrder,
@@ -161,6 +163,7 @@ import {
 import {
   buildOptionNeedsInputTargetRow,
   buildOptionTargetRow,
+  optionFactorContext,
   resolveBaselineOptionReference,
   resolveOptionTargets,
   resolveUnsetOptionTargets,
@@ -173,7 +176,6 @@ import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { ValueSourceMark } from './shared/valueSourceMark'
-import { TRUNCATING_LABEL_CLASS } from '../ui/truncation'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 
 /**
@@ -1068,10 +1070,11 @@ export const OptionNode = memo((props: NodeProps) => {
    */
   /**
    * ⭐ THE LOCKED OPTION FACE — "what this option changes" (spec §4; ED 11:52Z
-   * point 4; ED 02:31Z D2). At most TWO change rows, chosen in ONE order for the
-   * whole option row so options compare like with like (`optionChangeRows.ts`),
-   * then `+N more` from the one total. Olumi-chosen targets stay marked `est.`.
-   * Nothing here grows on selection.
+   * point 4; ED 02:31Z D2). At most `OPTION_CARD_ROW_LIMIT` CONCRETE change
+   * rows (contract v3.1 #9: a target equal to its reference is not a change),
+   * chosen in ONE order for the whole option row so options compare like with
+   * like (`optionChangeRows.ts`), then `+N more` from the one total. Olumi-chosen
+   * targets stay marked `est.`. Nothing here grows on selection.
    */
   const optionSet = useMemo<Array<OptionSetLike & { unsetSources: ReadonlyMap<string, string | null> }>>(() => {
     const out: Array<OptionSetLike & { unsetSources: ReadonlyMap<string, string | null> }> = []
@@ -1104,13 +1107,19 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!me || (me.targets.size === 0 && me.unsetSources.size === 0)) return []
     const modelOrder = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor').map(n => n.id)
     const order = sharedChangeOrder(optionSet, modelOrder)
-    return fitRowsToBudget(rowFactorIdsFor(me, order).map(fid => {
+    // Contract v3.1 #9: CONCRETE changes only. Every named factor in the shared
+    // order, the non-changes skipped (`isConcreteChangeRow`), then the card's
+    // row limit — so a target equal to the baseline's never spends a resting
+    // row while a real change waits behind `+N more`.
+    const concrete = rowFactorIdsFor(me, order, Number.POSITIVE_INFINITY).flatMap(fid => {
       const factorNode = nodes.find(n => n.id === fid) as TargetNodeLike | undefined
       const target = me.targets.get(fid)
-      return target
+      const row = target
         ? buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: baselineOptionReference })
         : buildOptionNeedsInputTargetRow({ factorId: fid, factorNode, source: me.unsetSources.get(fid) ?? null })
-    }))
+      return isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid)) ? [row] : []
+    })
+    return fitRowsToBudget(concrete.slice(0, OPTION_CARD_ROW_LIMIT))
   }, [isBaselineOption, optionSet, props.id, nodes, baselineOptionReference])
   const changeRowsMore = moreCount(totalInterventionCount, changeRows.length)
   // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.
@@ -1877,34 +1886,132 @@ export const OptionNode = memo((props: NodeProps) => {
    * ⭐ THE CHANGE ROWS — ONE BLOCK, RENDERED IN EXACTLY ONE PLACE, ON THE CARD, so
    * its test ids stay unique. DETAILED view keeps its inline detail (the S5
    * landing stack, JS-compacted wrapping labels). STANDARD view is the
-   * prototype's resting grid (Paul 25 Sep, supersedes ED 5809278282's popover
-   * placement): `restingLabels` gives each row the factor's FULL name in ONE
-   * CSS-truncating cell with its own `title` (`data-truncates="label"`, the
-   * clipping scan's recoverable exemption), while `from → to` and its mark are
-   * never in a truncating element — they wrap if they must, never cut. Same
-   * rows, same order, same marks, same `+N more` → inspector.
+   * contract v3.1 resting rows (DESIGN-GAP-v31 #9; Paul 25 Sep, supersedes ED
+   * 5809278282's popover placement): each row is the factor's FULL name
+   * (muted, never cut — it wraps inside its own column) and the amount
+   * `from → to · mark` (`.delta-rows .amount{white-space:nowrap}`).
    *
-   * No rung term: the Standard rows are the grid at every zoom, so the body is
-   * byte-identical at Normal and landing (no rung-triggered re-layout).
+   * ⭐ ONE ROW = ONE WRAPPING FLEX LINE, NOT A SHARED GRID, AND THAT IS WHAT
+   * KEEPS THE AMOUNT ON ONE LINE AT EVERY ZOOM. The contract's
+   * `minmax(0,1fr) auto` grid holds only while the amount fits beside a label:
+   * at the landing counter-scale (`--canvas-label-scale` 2) "Very high →
+   * Moderate · brief" is wider than the whole card, and an `auto` track would
+   * then push the amount out of the card. Here the label asks for `8em` (em of
+   * its own counter-scaled type, so the rule is zoom-invariant) and grows into
+   * whatever the amount leaves; when the two do not fit side by side the amount
+   * takes the next line whole, right-aligned, and the label gets the full width.
+   * Measured before (served `eec722ab`): labels CSS-clipped ("Bottom-up ado…"),
+   * amounts wrapped mid-value ("Very high → Moderate / · brief").
+   *
+   * The value and its mark are separate no-wrap segments: when even the amount
+   * alone is wider than the card, the MARK drops below the value — the value
+   * itself is never broken and never cut. Same rows, same order, same marks,
+   * same `+N more` → inspector. No rung term: byte-identical at Normal and
+   * landing (no rung-triggered re-layout).
    */
+  const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => (
+    <dd
+      className={resting
+        ? `${typography.edgeLabel} !leading-tight m-0 ml-auto max-w-full text-right text-text-body`
+        : `${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${align === 'left' ? 'text-left' : 'text-right'} text-text-body`}
+      data-testid={`option-change-row-${props.id}-${r.factorId}`}
+      title={changeRowSentence(r)}
+    >
+      {/* Contract v3.1 OPT-03: `<span class="before">…</span> → target`
+          — the value it starts FROM is muted; the arrow and the
+          target stay ink (the contract keeps both outside
+          `.before`), so the eye lands on what the option sets.
+          Only a `from → to` row splits. A target-only row ("→ 80%")
+          and a direction-only row render `r.change` whole. The dd's
+          value text is byte-identical to `r.change` either way. */}
+      {r.needsInput ? (
+        /* Row 22 (contract v3 §02): the amount cell of a target the
+           option names with no value is the state word — no mark,
+           because there is no target to attribute. */
+        <span
+          className={STATE_WORD_CLASSES}
+          style={STATE_WORD_STYLE}
+          data-testid={`option-change-row-needs-input-${props.id}-${r.factorId}`}
+        >
+          {r.change}
+        </span>
+      ) : (
+        <span
+          className={resting ? 'whitespace-nowrap' : undefined}
+          data-testid={`option-change-row-value-${props.id}-${r.factorId}`}
+        >
+          {r.before !== undefined && r.after !== undefined ? (
+            <>
+              <span
+                className="text-text-light"
+                data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
+              >
+                {r.before}
+              </span>
+              {' → '}
+              {r.after}
+            </>
+          ) : r.change}
+        </span>
+      )}
+      {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
+          whether 7% came from you / Olumi / brief. Olumi keeps the
+          served `est.` (and its test id); every OTHER source carries
+          its own mark instead of silence, so an unmarked target is
+          never left to be read as Olumi's.
+          Contract v3.1 pt 7 + pt 1 (gap U12, "→ 1 brief" read as a
+          unit): a muted separator sets the mark apart from the value,
+          the cluster never wraps apart, and every mark — `est.`
+          included — is the contract's `.prov` mark: focusable, named,
+          and it opens this option's source detail (the inspector). */}
+      {!r.needsInput && (<>{' '}
+      <span
+        className="whitespace-nowrap"
+        data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
+      >
+        <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>
+          {OPTION_ROW_SOURCE_MARK_SEPARATOR}{' '}
+        </span>
+        <ValueSourceMark
+          mark={r.targetSource}
+          testId={r.estimated
+            ? `option-change-row-estimate-${props.id}-${r.factorId}`
+            : `option-change-row-source-${props.id}-${r.factorId}`}
+          title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
+          subject={`${r.fullLabel} target`}
+          onOpenSource={() => openNodeInspector(props.id)}
+        />
+      </span></>)}
+    </dd>
+  )
+
   const renderChangeRows = (layout: 'grid' | 'stacked', restingLabels = false) => {
     const stacked = layout === 'stacked'
     return (
-    <div className="mt-1" data-testid={`option-change-rows-${props.id}`} data-row-layout={stacked ? 'stacked' : 'grid'}>
+    <div className="mt-1" data-testid={`option-change-rows-${props.id}`} data-row-layout={restingLabels ? 'rows' : stacked ? 'stacked' : 'grid'}>
+      {restingLabels ? (
+        <dl className="m-0 flex flex-col gap-y-1">
+          {changeRows.map((r) => (
+            <div
+              key={r.factorId}
+              className="flex flex-wrap items-baseline gap-x-2"
+              data-testid={`option-change-row-line-${props.id}-${r.factorId}`}
+            >
+              {/* Contract v3.1 `.delta-rows .label`: muted, the FULL name,
+                  never cut — it wraps inside its own share of the line. */}
+              <dt className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_8em] break-words text-text-light`}>
+                {r.fullLabel}
+              </dt>
+              {renderChangeAmount(r, 'right', true)}
+            </div>
+          ))}
+        </dl>
+      ) : (
       <dl className={stacked
         ? 'm-0 flex flex-col'
         : 'm-0 grid grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))] items-baseline gap-x-2 gap-y-1'}>
         {changeRows.map((r, i) => (
           <Fragment key={r.factorId}>
-            {restingLabels ? (
-              <dt
-                className={`${typography.edgeLabel} !leading-tight ${TRUNCATING_LABEL_CLASS} text-text-light`}
-                title={r.fullLabel}
-                data-truncates="label"
-              >
-                {r.fullLabel}
-              </dt>
-            ) : (
             <dt
               className={`${typography.edgeLabel} !leading-tight min-w-0 break-words text-text-light${stacked && i > 0 ? ' mt-1' : ''}`}
               title={r.fullLabel !== r.label ? r.fullLabel : undefined}
@@ -1912,73 +2019,11 @@ export const OptionNode = memo((props: NodeProps) => {
               <span aria-hidden={r.fullLabel !== r.label ? true : undefined}>{r.label}</span>
               {r.fullLabel !== r.label && <span className={typography.screenReaderOnly}>{r.fullLabel}</span>}
             </dt>
-            )}
-            <dd
-              className={`${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${stacked ? 'text-left' : 'text-right'} text-text-body`}
-              data-testid={`option-change-row-${props.id}-${r.factorId}`}
-              title={changeRowSentence(r)}
-            >
-              {/* Contract v3.1 OPT-03: `<span class="before">…</span> → target`
-                  — the value it starts FROM is muted; the arrow and the
-                  target stay ink (the contract keeps both outside
-                  `.before`), so the eye lands on what the option sets.
-                  Only a `from → to` row splits. A target-only row ("→ 80%"),
-                  a direction-only row and a same-as-baseline row render
-                  `r.change` whole, exactly as before. The dd's text is
-                  byte-identical to `r.change` either way. */}
-              {r.needsInput ? (
-                /* Row 22 (contract v3 §02): the amount cell of a target the
-                   option names with no value is the state word — no mark,
-                   because there is no target to attribute. */
-                <span
-                  className={STATE_WORD_CLASSES}
-                  style={STATE_WORD_STYLE}
-                  data-testid={`option-change-row-needs-input-${props.id}-${r.factorId}`}
-                >
-                  {r.change}
-                </span>
-              ) : r.before !== undefined && r.after !== undefined ? (
-                <>
-                  <span
-                    className="text-text-light"
-                    data-testid={`option-change-row-before-${props.id}-${r.factorId}`}
-                  >
-                    {r.before}
-                  </span>
-                  {' → '}
-                  {r.after}
-                </>
-              ) : r.change}
-              {/* ⭐ Paul 23 Sep contract feedback point 7: `8% → 7%` must say
-                  whether 7% came from you / Olumi / brief. Olumi keeps the
-                  served `est.` (and its test id); every OTHER source carries
-                  its own one-word mark instead of silence, so an unmarked
-                  target is never left to be read as Olumi's.
-                  Contract v3.1 pt 7 + pt 1 (gap U12, "→ 1 brief" read as a
-                  unit): a muted separator sets the mark apart from the value,
-                  the cluster never wraps apart, and every mark — `est.`
-                  included — is the factor card's muted italic mark with an
-                  accessible name. */}
-              {!r.needsInput && (<>{' '}
-              <span
-                className="whitespace-nowrap"
-                data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
-              >
-                <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>
-                  {OPTION_ROW_SOURCE_MARK_SEPARATOR}{' '}
-                </span>
-                <ValueSourceMark
-                  mark={r.targetSource}
-                  testId={r.estimated
-                    ? `option-change-row-estimate-${props.id}-${r.factorId}`
-                    : `option-change-row-source-${props.id}-${r.factorId}`}
-                  title={r.estimated ? OPTION_ROW_ESTIMATE_TITLE : undefined}
-                />
-              </span></>)}
-            </dd>
+            {renderChangeAmount(r, stacked ? 'left' : 'right', false)}
           </Fragment>
         ))}
       </dl>
+      )}
       {changeRowsMore > 0 && (
         <button
           type="button"
@@ -2022,7 +2067,9 @@ export const OptionNode = memo((props: NodeProps) => {
   })()
   const ownDifferentiatorLine = ownDifferentiator ? (
     <p
-      className={`${typography.edgeLabel} !leading-tight mt-1 m-0 line-clamp-2 text-text-light`}
+      // Contract v3.1 `.node .differentiator{font-size:10.5px;line-height:1.3;
+      // color:var(--muted)}` — counter-scaled like every canvas token.
+      className={`text-[length:calc(10.5px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 line-clamp-2 text-text-light`}
       data-testid={`option-card-differentiator-${props.id}`}
       title={ownDifferentiator}
     >
@@ -2144,9 +2191,16 @@ export const OptionNode = memo((props: NodeProps) => {
         resultCaption={resultCaption}
         railIcons={
           /* ⭐ spec §4: "Standard view must indicate that real editable targets
-             can be changed." A persistent pencil where a durable carrier exists
+             can be changed." A pencil where a durable carrier exists
              (`OPTION_TARGETS_ROUTE_IS_LIVE`), routed to the existing option
-             editor in the inspector — never Expert-only. */
+             editor in the inspector — never Expert-only.
+             ⭐ REVEALED, NOT PERSISTENT — contract v3.1 `.icon-btn.revealed
+             {opacity:0}` / `.node:hover .icon-btn.revealed,
+             .node:focus-within .icon-btn.revealed{opacity:1}` (DESIGN-GAP-v31
+             #19): at rest the rail shows the coaching icon only; the pencil
+             appears on hover, on keyboard focus inside the card and on touch
+             (`NODE_RAIL_REVEAL_CLASSES`). Measured before: opacity 1 at rest
+             on every non-baseline option, two rail icons where v3.1 has one. */
           !isBaselineOption && OPTION_TARGETS_ROUTE_IS_LIVE ? (
             <NodeRailIcon
               testId={`option-edit-targets-${props.id}`}
@@ -2155,6 +2209,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 : 'No factor targets yet. Open the inspector to set what this option changes.'}
               icon={Pencil}
               tone="muted"
+              reveal
               onActivate={() => openNodeInspector(props.id)}
             />
           ) : undefined

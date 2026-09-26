@@ -39,14 +39,24 @@ export interface ResolvedGoalTarget {
   /** The producer's unit string, when it sent one. */
   unit: string | undefined
   /**
-   * Who put it there. `user` licenses "Set by you"; `brief` is CEE's own
-   * backfill from what the user wrote.
+   * Who put it there, AS A CARRIED FIELD SAYS — and nothing else.
    *
-   * ⚠ THESE ARE NOT INTERCHANGEABLE ON SCREEN. A target the reader typed and a
-   * target we lifted from their brief are different claims about authorship,
-   * and this estate's whole provenance vocabulary exists to keep them apart.
+   *   · `user` — `threshold_source === 'user'` attests `success_threshold`
+   *     (the only value CEE writes: `add-constraint.ts:1350`, schema
+   *     `cee-v3.ts:258`, staging `85ce874c`). Licenses "Set by you".
+   *   · `unrecorded` — CEE's `goal_threshold_raw` with no carried source.
+   *     Rendered "Source not recorded" on every surface.
+   *
+   * ⛔⛔ THIS WAS `'user' | 'brief'`, AND `brief` WAS A UI-ASSERTED ORIGIN
+   * (DESIGN-GAP-v31 #22, A2). ANY `goal_threshold_raw` was stamped `brief`, so
+   * the Reasoning strip and the goal inspector read "From brief" over
+   * market-entry's 11 £M ARR — a figure its brief never states (it says £8M) —
+   * while the goal card, reading the same node, said "no source". Nothing on
+   * the node records whether CEE lifted the raw from the brief or inferred it,
+   * and the node's `provenance` is about the NODE, not the number (trap 21). A
+   * brief origin returns here the day a carried field states it.
    */
-  source: 'user' | 'brief'
+  source: 'user' | 'unrecorded'
 }
 
 /**
@@ -78,7 +88,7 @@ export function resolveGoalTarget(
       ? (data.goal_threshold_raw as string | number)
       : null
   if (ceeRaw != null && String(ceeRaw).trim() !== '') {
-    return { raw: ceeRaw, unit, source: 'brief' }
+    return { raw: ceeRaw, unit, source: 'unrecorded' }
   }
 
   return null

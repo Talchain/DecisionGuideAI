@@ -67,7 +67,7 @@ import { openModelValueEditor } from './shared/openModelValueEditor'
 import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
-import { goalConstraintText } from '../utils/goalConstraintText'
+import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -289,11 +289,14 @@ export function goalLimitPills(
 ): Array<{ key: string; text: string; name: string }> {
   if (!constraints?.length) return []
   return constraints.map((c, i) => {
-    const text = goalConstraintText(c, nodes)
+    // v3.1 `.pill.mini` (DESIGN-GAP-v31 #23): the pill SHOWS the short form
+    // ("Churn <4%", origin suffix kept); its accessible name and tooltip keep
+    // the full sentence, so the short form loses nothing.
+    const full = goalConstraintText(c, nodes)
     return {
       key: c.constraint_id ?? c.id ?? String(i),
-      text,
-      name: `${c.provenance === 'explicit' ? 'Limit you set' : 'Limit'}: ${text}`,
+      text: goalConstraintShortText(c, nodes),
+      name: `${c.provenance === 'explicit' ? 'Limit you set' : 'Limit'}: ${full}`,
     }
   })
 }
@@ -1101,14 +1104,15 @@ export const GoalNode = memo((props: NodeProps) => {
             </div>
           )}
           {targetSourceMark !== null && (
-            <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} />
+            <ValueSourceMark mark={targetSourceMark} testId={`goal-target-source-${props.id}`} subject="Target" onOpenSource={() => { openNodeInspector(props.id) }} />
           )}
           {/* ⭐ The user-stated limits beside the target (NODE-ANATOMY v3.2;
               ED choice 2: "Target: £20k/month   Churn < 7%"). Contract v3.1
               `.pill.mini` — the SAME neutral hairline Layer 2's constraint
               badge wears (PILL-12: 1px `border-field/40`, radius 999, 1px 7px),
-              never the state word and never Info. Compact at rest: a long
-              limit truncates inside the card and its full sentence is the
+              never the state word and never Info. Compact at rest: the pill
+              shows the SHORT form (`goalConstraintShortText`, DESIGN-GAP-v31
+              #23 — "Churn <4%") and is never cut; its full sentence is the
               pill's name, on hover AND keyboard focus (`Tooltip` opens on
               both) — the same focusable-readout pattern as the option share
               row (`role="img"` + `aria-label`, one accessible name). */}
@@ -1120,7 +1124,11 @@ export const GoalNode = memo((props: NodeProps) => {
                 aria-label={l.name}
                 data-node-tooltip="true"
                 data-testid={`goal-limit-pill-${props.id}-${l.key}`}
-                className={`${typography.edgeLabel} nodrag nopan inline-block max-w-full truncate align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                /* v3.1 `.pill.mini{font-size:10px;padding:1px 7px}` (#23),
+                   counter-scaled. NEVER CLIPPED: the short form fits one line
+                   on the wide card; a longer carried label wraps inside the
+                   pill rather than being cut (was `truncate`). */
+                className={`text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-snug nodrag nopan inline-block max-w-full break-words align-baseline px-[7px] py-px bg-panel border border-field/40 rounded-full text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {l.text}
               </span>

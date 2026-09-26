@@ -201,11 +201,12 @@ describe('a thin risk card says the MODEL is thin', () => {
     // Bound by identity to the exported constant, never a substring predicate:
     // a `toContain('not set')` would also pass against the bridge-strength row
     // two lines up, which says the same three words about a DIFFERENT fact.
-    // ED 5809278282: on the card, the sentence is announced in full and the
-    // register's short form is what is shown; the element is the unset line.
+    // Contract v3.1 (DESIGN-GAP-v31 #34): on the card the sentence is announced
+    // in full AND shown in full (was ED 5809278282's short form); the element
+    // is the unset line.
     expect(announcedLine()).toBe(RISK_EXPOSURE_UNSET_LINE)
     expect(unsetLine()?.contains(screen.getByTestId('risk-primary-line-full'))).toBe(true)
-    expect(shownOn(unsetLine())).toBe(METRIC_UNSET.standalone)
+    expect(shownOn(unsetLine())).toBe(RISK_EXPOSURE_UNSET_LINE)
   })
 
   // ── 2. The contrast case — without this, test 1 is satisfied by a constant ─

@@ -191,8 +191,10 @@ describe('Paul 23 Sep point 6 — ONE discreet coaching icon on EVERY card at No
     // At REST: it lives in the resting group, not the hover-only quick actions.
     expect(el.closest(`[data-testid="node-card-rail-resting-${id}"]`)).toBeTruthy()
     expect(el.closest(`[data-testid="node-quick-actions-${id}"]`)).toBeNull()
-    // ONE glyph — MessageCircle (Panel R3), never a second glyph for the same act.
-    expect(el.querySelector('svg.lucide-message-circle')).toBeTruthy()
+    // ONE glyph on every card — v3.1 `coaching`, the bubble with "?" (DESIGN-GAP
+    // #42; was MessageCircle under Panel R3 — conflict named in askOlumiOneGlyph).
+    expect(el.querySelector('svg.lucide-message-circle-question')).toBeTruthy()
+    expect(el.querySelectorAll('svg')).toHaveLength(1)
     // Point 12 — an accessible name, never an unnamed icon.
     expect((el.getAttribute('aria-label') ?? '').trim().length).toBeGreaterThan(0)
   })
