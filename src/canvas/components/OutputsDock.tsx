@@ -3110,6 +3110,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             showResultsFreshnessIcon={showResultsTabFreshnessIcon}
             resultsStale={resultsTabReallyStale}
             factorsToVerify={factorsToVerify}
+            // A5: the store's own `hasCompletedFirstRun`, read above — the
+            // field `ReanalyseBar` reads. The strip defaults it to `true`, so
+            // omitting it here left a never-run model showing a freshness glyph
+            // (`OutputsDock.neverRunTabGlyph.spec.tsx`).
+            hasCompletedFirstRun={hasCompletedFirstRun}
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an

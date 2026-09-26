@@ -91,6 +91,14 @@ export const COMMITMENT_COPY = {
     label: 'Ask Olumi to help summarise your reasoning',
     draft: 'Help me summarise my reasoning on this decision so far.',
   },
+  /**
+   * ⭐ V2 `synthesisHTML()` (stale): bullet 3's own sentence. It used to reuse
+   * the stale row's ACT label ("Re-run to be sure"), and since #2071 that act
+   * sits directly below the bullets — the same three words twice, one as
+   * advice and one as a button. The act keeps its words; the bullet says what
+   * the re-run is for.
+   */
+  rerunBefore: 'Re-run before relying on this comparison.',
   /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
   openAsk: {
     label: 'Ask Olumi about unresolved uncertainty',
@@ -146,7 +154,7 @@ export type OpenSource =
 
 /** Where bullet 3 came from. */
 export type BeforeSource =
-  /** `COPY.status.reanalyseToBeSure` on a stale run a re-run could change. */
+  /** `COMMITMENT_COPY.rerunBefore` on a stale run a re-run could change. */
   | 'rerun'
   /** `vm.strengthen.interventions[0].title`, verbatim. */
   | 'intervention'
@@ -341,8 +349,8 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
 /**
  * BULLET 3 — "Before committing".
  *
- * On a stale run that a re-run could change: the panel's existing re-run words
- * (`status.reanalyseToBeSure`). Otherwise the top open review item's title,
+ * On a stale run that a re-run could change: `COMMITMENT_COPY.rerunBefore` —
+ * not the act's own label, which sits just below it. Otherwise the top open review item's title,
  * verbatim (`strengthen.interventions[0].title`). Nothing else.
  *
  * ⚠ `rerunWouldNotHelp` IS HONOURED. Where the view model knows a re-run
@@ -355,7 +363,7 @@ function beforeBullet(
   excluded: ReadonlySet<string>,
 ): CommitmentBullet<BeforeSource> | null {
   if (vm.status.isStale && !vm.checks.rerunWouldNotHelp) {
-    return { text: COPY.status.reanalyseToBeSure, source: 'rerun' }
+    return { text: COMMITMENT_COPY.rerunBefore, source: 'rerun' }
   }
   // ⛔ NOT THE CARD'S OWN ITEM. The Challenge card already shows the promoted
   // intervention's title at rest; repeating it here put the same sentence on

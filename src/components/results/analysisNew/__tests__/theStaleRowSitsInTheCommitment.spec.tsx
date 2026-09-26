@@ -65,6 +65,24 @@ describe('the stale row sits in "Move towards commitment" (V2 .stale)', () => {
     expect(screen.getAllByTestId('analysis-new-status-stale'), 'said once').toHaveLength(1)
   })
 
+  it('⭐ the act\'s words are said ONCE: "Before acting" says what a re-run is for; the row carries the act', () => {
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={genuineDecision()}
+        isPreRun={false}
+        isRunning={false}
+        isStale={true}
+        staleReason="changed"
+        onReanalyse={() => {}}
+        canRunAnalysis={true}
+        responseHash="stale-row-once"
+      />,
+    )
+    const block = screen.getByTestId(C)
+    expect(block.textContent?.split(COPY.status.reanalyseToBeSure).length ?? 0, '"Re-run to be sure" once in the block').toBe(2)
+    expect(screen.getByTestId('analysis-new-glance-ribbon-reanalyse')).toHaveTextContent(COPY.status.reanalyseToBeSure)
+  })
+
   it('⭐ bullet 1 reads "Last run" when the synthesis describes the last run; "What we have" otherwise', () => {
     const synthesis = (describesLastRun: boolean): CommitmentSynthesis => ({
       describesLastRun,
