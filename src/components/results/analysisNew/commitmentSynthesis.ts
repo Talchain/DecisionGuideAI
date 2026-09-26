@@ -59,6 +59,8 @@ export const COMMITMENT_COPY = {
      */
     open: 'Still open',
     before: 'Before acting',
+    /** V2 `synthesisHTML()`: bullet 1's label on a stale run — it describes the LAST run. */
+    lastRun: 'Last run',
   },
   /**
    * ⭐⭐ WAVE 2: bullet 1 on a withheld run — see `FoundedSource.withheld_count`.
@@ -399,7 +401,10 @@ export function commitmentBullets(
   const out: Array<{ key: CommitmentBulletKey; label: string; text: string; source: string }> = []
   for (const key of ['founded', 'open', 'before'] as const) {
     const b = s[key]
-    if (b) out.push({ key, label: COMMITMENT_COPY.labels[key], text: b.text, source: b.source })
+    if (b) {
+      const label = key === 'founded' && s.describesLastRun ? COMMITMENT_COPY.labels.lastRun : COMMITMENT_COPY.labels[key]
+      out.push({ key, label, text: b.text, source: b.source })
+    }
   }
   return out
 }
