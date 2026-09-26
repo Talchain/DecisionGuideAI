@@ -1,4 +1,6 @@
+import { User } from 'lucide-react'
 import { typography } from '../../../styles/typography'
+import { SOURCE_MARK_GLYPH_CLASSES, SourceMark } from './EstimateMarker'
 import {
   classifyInterventionProvenance,
   classifyValueProvenance,
@@ -7,7 +9,7 @@ import {
   type ValueProvenanceKind,
 } from '../../domain/valueProvenance'
 import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
-import { isStatedTargetValue, type GoalTargetSource } from '../../domain/goalTarget'
+import { isStatedTargetValue, resolveGoalTarget, type GoalTargetSource } from '../../domain/goalTarget'
 
 /**
  * ⭐ WHERE A NUMBER ON A CARD CAME FROM — marked on the face, never implied.
@@ -193,43 +195,64 @@ export const PRIOR_RANGE_SOURCE_MARK: FactorValueSourceMark = Object.freeze({
  * `unknown` — "no source" / "Source not recorded": never unmarked, never
  * relabelled as the user's or the brief's, and never an asserted Olumi origin
  * (Codex #63 5801529767). When the producer stamps the threshold's origin,
- * classify it here.
+ * classify it in `resolveGoalTarget` — this mark reads it from there.
  */
 export function goalTargetSourceMark(data: GoalTargetSource | null | undefined): FactorValueSourceMark {
-  if (data?.threshold_source === 'user' && isStatedTargetValue(data.success_threshold)) {
+  // ⭐ ONE AUTHORITY (DESIGN-GAP-v31 #22): the source is `resolveGoalTarget`'s,
+  // the resolver the Reasoning strip and the goal inspector read, so the card
+  // and those surfaces cannot give two answers for one node. `isStatedTargetValue`
+  // keeps this mark on exactly the figure the card prints (`statedGoalTargetRaw`
+  // refuses a NaN/Infinity user threshold and prints the raw instead).
+  const target = resolveGoalTarget(data)
+  if (target?.source === 'user' && isStatedTargetValue(target.raw)) {
     return { kind: 'you', label: VALUE_SOURCE_MARK_LABEL.you }
   }
   return { kind: 'unknown', label: VALUE_SOURCE_MARK_LABEL.unknown }
 }
 
 /**
- * The visible mark. Not focusable (like `EstimateMarker`): the same fact is
- * reachable by keyboard through the node's details. The token is hidden from
- * assistive technology and the full label is given instead, so a screen reader
- * hears "Set by you", not "you".
+ * ⭐ THE VISIBLE MARK — contract v3.1 `.prov` (point 1; DESIGN-GAP-v31 #21).
+ *
+ *   · Olumi → `est.`, the brief → `brief`, a panel → `panel`, unknown →
+ *     `no source`: words, so the mark survives screenshots and greyscale.
+ *   · a PERSON → the person glyph (v3.1 `prov('user')` renders `icon('user')`,
+ *     no word): "you" was a word where the contract draws a glyph.
+ *   · evidence → the evidence glyph, WHEN a producer stamps it. No value
+ *     vocabulary carries an evidence literal today (see the header of this
+ *     file), so `ValueSourceMarkKind` has no `evidence` member and none is
+ *     invented here.
+ *
+ * The token is hidden from assistive technology and the full label is given
+ * instead, so a screen reader hears "Set by you", not "you". Where the card
+ * hands the mark its route (`onOpenSource`), the mark is a focusable button
+ * labelled on hover AND focus that opens the source detail (`SourceMark`);
+ * otherwise it is the static mark it always was.
  */
 export function ValueSourceMark({
   mark,
   testId,
   title,
+  subject,
+  onOpenSource,
 }: {
   mark: FactorValueSourceMark
   testId?: string
-  /** Hover text; defaults to the mark's label. */
+  /** Hover/focus text; defaults to the mark's label. */
   title?: string
+  /** What the value is ("Monthly price target") — prefixed to the hover label, as v3.1 `prov()` does. */
+  subject?: string
+  /** The card's route to its source detail (v3.1 pt 1). Absent → a static mark. */
+  onOpenSource?: () => void
 }) {
+  const tip = title ?? (subject ? `${subject}: ${mark.label}` : mark.label)
   return (
-    <span
-      // Upright, regular weight (contract v3.1 `.prov`; NODE-ANATOMY v3.2): an
-      // italic 11px mark at landing zoom rendered thin and off the value's
-      // baseline. One visual for every mark kind.
-      className={`${typography.edgeLabel} text-text-light`}
-      title={title ?? mark.label}
-      data-testid={testId}
-      data-value-source={mark.kind}
-    >
-      <span aria-hidden="true">{VALUE_SOURCE_MARK_TOKEN[mark.kind]}</span>
+    <SourceMark testId={testId} tip={tip} onOpen={onOpenSource} dataValueSource={mark.kind}>
+      {mark.kind === 'you' ? (
+        <User aria-hidden="true" strokeWidth={1.8} className={SOURCE_MARK_GLYPH_CLASSES} data-source-glyph="person" />
+      ) : (
+        <span aria-hidden="true">{VALUE_SOURCE_MARK_TOKEN[mark.kind]}</span>
+      )}
       <span className={typography.screenReaderOnly}>{mark.label}</span>
-    </span>
+    </SourceMark>
   )
 }

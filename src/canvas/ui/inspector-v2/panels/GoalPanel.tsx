@@ -309,8 +309,10 @@ export const GoalPanel = memo(function GoalPanel({
    *     `threshold_source === 'user'`, falling back to CEE's `goal_threshold_raw`.
    *     My version knew nothing of `success_threshold`, so it would have shown
    *     CEE's figure back to someone who had just typed their own.
-   *   · it returns `source: 'user' | 'brief'` — "a target the reader typed and a
-   *     target we lifted from their brief are different claims about authorship".
+   *   · it returns whose the target is — `source: 'user' | 'unrecorded'` since
+   *     DESIGN-GAP-v31 #22 (it said `'brief'` for any CEE raw, an origin no
+   *     carried field states); "a target the reader typed" and one CEE
+   *     backfilled "are different claims about authorship".
    *   · it rejects a blank string, which `goal_threshold_raw` can be.
    *
    * ⭐ AND THE FORMATTING CHAIN IS THE CARD'S, VERBATIM (`GoalNode.tsx:578-583`),

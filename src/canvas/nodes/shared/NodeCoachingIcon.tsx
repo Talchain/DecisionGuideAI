@@ -63,7 +63,7 @@
  * is revealed first so the turn never lands where the user is not looking.
  */
 import { memo, useCallback } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircleQuestion } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -83,7 +83,18 @@ export const NODE_COACHING_ICON_TESTID_PREFIX = 'node-coaching-icon-'
  * the canvas key (`CanvasLegendPopover`, contract v3.1 §03 "Explore with
  * Olumi"), so the key imports this mark rather than redrawing one.
  */
-export const COACHING_ICON_GLYPH = { Icon: MessageCircle, inkClass: NODE_RAIL_REST_TONE_CLASS } as const
+/**
+ * ⭐ CONTRACT v3.1 `ICONS.coaching` — a speech bubble WITH A QUESTION MARK
+ * (DESIGN-GAP-v31 #42), lucide's `MessageCircleQuestion`, the library's drawing
+ * of the contract's own path. It was the plain `MessageCircle`.
+ *
+ * ⚠ RULING CONFLICT, NAMED: #63 5796486697 / 5796609717 (Panel R3) settled "one
+ * glyph for 'ask / hand this to Olumi'", shared with the quick-action "Ask
+ * Olumi" and the panel. v3.1 (Paul, 23 Sep) draws the COACHING door as a
+ * question, distinct from a generic ask; the common brief says v3.1 wins. The
+ * quick action and the panel keep their own glyph (not this file's).
+ */
+export const COACHING_ICON_GLYPH = { Icon: MessageCircleQuestion, inkClass: NODE_RAIL_REST_TONE_CLASS } as const
 
 /** A typed chip keeps its typed route; `run_analysis` is a run, not a question. */
 export function coachingChipIsTyped(chip: CoachingChip): boolean {
@@ -228,10 +239,9 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
         data-coaching-typed={coachingChipIsTyped(chip) ? 'true' : undefined}
         data-node-tooltip="true"
       >
-        {/* ⭐ `MessageCircle` EXACTLY — Panel's R3 (#63 5796486697, settled for the
-            canvas by 5796609717): "ask / hand this to Olumi" is one meaning, so
-            one glyph, shared with the quick-action "Ask Olumi" and the panel.
-            `MessageCircleQuestion` would be a second glyph for the same act. */}
+        {/* ⭐ v3.1 `coaching`: the bubble with "?" (`COACHING_ICON_GLYPH`, #42).
+            Was `MessageCircle` under Panel's R3 (#63 5796486697 / 5796609717,
+            "one glyph for an ask") — the conflict is named at the constant. */}
         <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
       </button>
     </Tooltip>

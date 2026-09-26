@@ -32,10 +32,17 @@
  *
  * The producer filter below is unchanged and still decides everything: where a
  * live `guidance_item` names this node, the producer's marker renders and nothing
- * else does. Where it does NOT — most nodes, most runs — the `!top` branch renders
- * `NodeStructuralMarker`, the client-derived channel: `computeStructuralAbsence`
- * read from the nodes and edges in the browser, with no producer stamp behind it
- * and none claimed.
+ * else does. Where it does NOT — most nodes, most runs — the `!top` branch USED
+ * TO render `NodeStructuralMarker`, the client-derived channel:
+ * `computeStructuralAbsence` read from the nodes and edges in the browser, with
+ * no producer stamp behind it and none claimed.
+ *
+ * ⛔ RETIRED FROM THE CARD — contract v3.1 (DESIGN-GAP-v31 #18): the resting
+ * corner is the attention mark only; the structural glyph is not in the
+ * contract. The `!top` branch now renders nothing. The finding still reaches
+ * the reader through its pre-analysis panel row, and the component is kept for
+ * the inspector. The ranking argument below is kept as the record of why the
+ * producer always outranked it.
  *
  * That ranking is NOT new. `hooks/__tests__/oneVoicePerNode.spec.ts` and
  * `hooks/useScienceIcons.ts:60-84` already ruled it for the other local channel:
@@ -82,8 +89,9 @@
  * collapse must_fix onto the uncategorised glyph that ruling reserves, so it is
  * not taken. `data-guidance-category` still names the top item's category.
  *
- * ⭐ NORMAL ZOOM ONLY — contract v3.1 pt 6 (gap U6). The whole slot, producer
- * AND structural, renders at the `full` rung and at no other, on the same gate
+ * ⭐ NORMAL ZOOM ONLY — contract v3.1 pt 6 (gap U6). The whole slot (the
+ * producer's marker; the structural one is retired, #18) renders at the `full`
+ * rung and at no other, on the same gate
  * as the rail's coaching icon (`selectRestingGlyphsShown`). At `quiet`/`line`
  * the producer's item stays reachable through selection and the inspector
  * (`InspectorGuidanceSection`), and the structural finding through its panel row.
@@ -101,7 +109,6 @@ import Tooltip from '../../../components/Tooltip'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
-import { NodeStructuralMarker, useNodeHasStructuralMarker } from './NodeStructuralMarker'
 import { useCanvasStore } from '../../store'
 import { selectRestingGlyphsShown } from './restingGlyphRung'
 
@@ -111,12 +118,13 @@ interface NodeCoachingMarkerProps {
 }
 
 /**
- * ⭐ WHETHER THIS SLOT DRAWS A MARK — the three gates `NodeCoachingMarker` renders
+ * ⭐ WHETHER THIS SLOT DRAWS A MARK — the two gates `NodeCoachingMarker` renders
  * through, read as one boolean so `BaseNode` can keep the title clear of the
  * mark ONLY while the mark is there (gap 11): the rung (`full` only), then the
  * producer (a live item naming this node — the same `target_object.id` test as
- * the filter below), then the structural fallback (`useNodeHasStructuralMarker`,
- * the gate `NodeStructuralMarker` itself renders from). Boolean selectors, so the
+ * the filter below). The structural fallback that used to be a third gate is
+ * retired from the card (contract v3.1, DESIGN-GAP-v31 #18), so a structural
+ * finding no longer reserves the title spacer either. Boolean selectors, so the
  * card re-renders when the answer flips and not on every store change.
  * `BaseNode.marksInsideCardRail.spec.tsx` pins mark-present ⇔ reserve-present.
  */
@@ -125,8 +133,7 @@ export function useNodeCoachingMarkerShown(nodeId: string): boolean {
   const producerNamesThisNode = useGuidanceStore((s) =>
     (s.guidanceItems ?? []).some((i) => i.target_object?.id === nodeId),
   )
-  const structural = useNodeHasStructuralMarker(nodeId)
-  return shownAtThisRung && (producerNamesThisNode || structural)
+  return shownAtThisRung && producerNamesThisNode
 }
 
 export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
@@ -175,7 +182,13 @@ export function NodeCoachingMarker({ nodeId }: NodeCoachingMarkerProps) {
   // producer wins per node by construction — the `oneVoicePerNode` ruling applied
   // once here rather than restated at every call site.
   if (!shownAtThisRung) return null
-  if (!top) return <NodeStructuralMarker nodeId={nodeId} />
+  // ⛔ NO STRUCTURAL FALLBACK ON THE CARD — contract v3.1 (DESIGN-GAP-v31 #18):
+  // the top-right corner is the attention mark only (`.node .attention`), and
+  // the resting "branch" glyph (`NodeStructuralMarker`, GitMerge on 3 of 5
+  // pricing factors, measured on served `eec722ab`) was not in the contract.
+  // The finding keeps its panel row (`usePreAnalysisModel`), where its action
+  // lives; `NodeStructuralMarker` stays exported for the inspector.
+  if (!top) return null
 
   // SHAPE from the shared source of truth (the same one the inspector card
   // uses), so the marker's glyph matches the card it opens. Its tint is NOT

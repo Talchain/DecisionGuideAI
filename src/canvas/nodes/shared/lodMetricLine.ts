@@ -137,7 +137,8 @@ import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
 import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
 import type { RiskImpact } from '../../domain/nodes'
 import type { NodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
-import { resolveFactorPriorRange } from './factorPriorRange'
+import { resolveFactorPriorRangeOnCard } from './factorPriorRange'
+import { readoutIsBareModelScale } from './FactorValueFigure'
 import { factorValueSourceMark } from './valueSourceMark'
 import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './metricVocabulary'
 
@@ -230,6 +231,10 @@ function factorStatedValue(data: Record<string, unknown>, label: string): string
   // all-numeric parenthetical is the raw default showing through. Display only —
   // it can shorten the string and can never change the value it states.
   const text = collapseEstimateDisplay(factorDisplayText(normalised, label))
+  // Contract v3.1 #20: the reduced line never says more than the full card —
+  // a bare 0–1 model number is omitted there (`readoutIsBareModelScale`), so it
+  // is omitted here too, and the line falls through to the rank or range arm.
+  if (readoutIsBareModelScale(factorDisplayText(normalised, label), data)) return null
   return text && text.trim().length > 0 ? text : null
 }
 
@@ -349,7 +354,7 @@ function resolveText({
       // `valueDisplay: null` is correct and not a shortcut: this arm is only
       // reached when `factorStatedValue` returned null, so there is no value
       // line for the range to duplicate, and the owner's dedupe is a no-op.
-      return resolveFactorPriorRange({
+      return resolveFactorPriorRangeOnCard({
         data,
         nodeCategory: data.category as string | undefined,
         observedState: data.observedState as { unit?: string | null; cap?: number | null } | undefined,

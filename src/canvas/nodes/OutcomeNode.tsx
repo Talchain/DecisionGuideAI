@@ -15,6 +15,7 @@ import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+import { openNodeInspector } from './shared/openNodeInspector'
 
 /**
  * ⭐ THE OUTCOME'S OWN STATE — contract v3.1 point 8 (OR-02, RHY-09): "Use that
@@ -34,7 +35,12 @@ export const OUTCOME_UNQUANTIFIED_SHORT = 'Not quantified'
 export const OUTCOME_UNQUANTIFIED_LINE = `Outcome ${OUTCOME_UNQUANTIFIED_SHORT.toLowerCase()}`
 
 /*
- * ⭐ `OUTCOME_UNQUANTIFIED_SHORT` IS THE STANDARD CARD'S RESTING FORM, and the
+ * ⛔ SUPERSEDED ON THE STANDARD CARD by contract v3.1 (`.small-state`
+ * "Outcome not quantified", visible; DESIGN-GAP-v31 #34 for its risk sibling):
+ * the card now shows the whole sentence, wrapping where the landing
+ * counter-scale needs it. What follows is the record of the short form.
+ *
+ * ⭐ `OUTCOME_UNQUANTIFIED_SHORT` WAS THE STANDARD CARD'S RESTING FORM, and the
  * sentence above is DERIVED from it (one spelling of the state, never two).
  *
  * Experience Design #63 5809278282 (24 Sep 2026): *"Landing / quiet: repeated
@@ -392,7 +398,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           >
             <span className="shrink-0" data-testid="outcome-recorded-readout">{recordedValue}</span>
             {recordedValueMark && (
-              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} />
+              <ValueSourceMark mark={recordedValueMark} testId={`outcome-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} />
             )}
           </div>
         ) : showUnquantified ? (
@@ -402,12 +408,15 @@ export const OutcomeNode = memo((props: NodeProps) => {
             </div>
           ) : (
             <div
-              className={`${typography.edgeLabel} text-text-light whitespace-nowrap overflow-hidden text-ellipsis`}
+              // Contract v3.1 `.small-state` "Outcome not quantified", VISIBLE —
+              // the risk card's sibling line (DESIGN-GAP-v31 #34) keeps one
+              // element and one class list with it; wraps, never cut.
+              className={`${typography.edgeLabel} text-text-light break-words`}
               data-testid="outcome-unquantified"
               data-card-primary-line="outcome"
               title={OUTCOME_UNQUANTIFIED_LINE}
             >
-              <span aria-hidden="true">{OUTCOME_UNQUANTIFIED_SHORT}</span>
+              <span aria-hidden="true">{OUTCOME_UNQUANTIFIED_LINE}</span>
               <span className={typography.screenReaderOnly}>{OUTCOME_UNQUANTIFIED_LINE}</span>
             </div>
           )

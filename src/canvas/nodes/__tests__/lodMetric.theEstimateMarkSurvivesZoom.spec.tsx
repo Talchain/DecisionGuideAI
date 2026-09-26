@@ -112,12 +112,18 @@ const baseProps = {
  *
  * A factor whose value Olumi filled in — the marked case.
  */
+/*
+ * ⚠ 26 Sep (contract v3.1 #20, WS4): the figure is `40%` — in the reader's
+ * unit. A bare `0.4` Olumi estimate is now omitted from the card (no figure, so
+ * no mark on nothing), which would make every mark assertion below vacuous; the
+ * bare shape is pinned SILENT in its own test at the end of this block.
+ */
 const INFERRED = {
   label: 'Conversion Rate',
   kind: 'factor',
   category: 'controllable',
-  display_value: '0.4',
-  observedState: { value: 0.4, source: 'cee_inference', extractionType: 'inferred' },
+  display_value: '40%',
+  observedState: { value: 0.4, raw_value: 40, unit: '%', source: 'cee_inference', extractionType: 'inferred' },
 }
 
 /** The same factor after a human typed the number — the contrast. */
@@ -125,8 +131,8 @@ const USER_STATED = {
   label: 'Conversion Rate',
   kind: 'factor',
   category: 'controllable',
-  display_value: '0.4',
-  observedState: { value: 0.4, source: 'user_override' },
+  display_value: '40%',
+  observedState: { value: 0.4, raw_value: 40, unit: '%', source: 'user_override' },
 }
 
 const renderAtLineRung = (nodeData: Record<string, unknown>) => {
@@ -146,15 +152,21 @@ describe('the est. mark survives the zoom that hides the card body', () => {
 
   it('⭐ marks an inferred value at the reduced rung — RED at pristine, where only the number showed', () => {
     renderAtLineRung(INFERRED)
-    expect(screen.getByTestId('node-lod-line-text').textContent).toContain('0.4')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toContain('40%')
     expect(screen.getByTestId('node-lod-estimate-mark').textContent?.trim()).toBe(
       UNCONFIRMED_ESTIMATE_TOKEN,
     )
   })
 
+  it('v3.1 #20 — the SAME estimate as a bare 0–1 figure says NOTHING at the reduced rung: no number, so no mark', () => {
+    renderAtLineRung({ ...INFERRED, display_value: '0.4', observedState: { value: 0.4, source: 'cee_inference', extractionType: 'inferred' } })
+    expect(screen.queryByTestId('node-lod-line-text')).toBeNull()
+    expect(screen.queryByTestId('node-lod-estimate-mark')).toBeNull()
+  })
+
   it('CONTRAST — a value the reader typed is never marked, so the mark is not simply always on', () => {
     renderAtLineRung(USER_STATED)
-    expect(screen.getByTestId('node-lod-line-text').textContent).toContain('0.4')
+    expect(screen.getByTestId('node-lod-line-text').textContent).toContain('40%')
     expect(screen.queryByTestId('node-lod-estimate-mark')).toBeNull()
   })
 
@@ -245,7 +257,7 @@ describe('the mark names the factor’s own value and no other number', () => {
       facts: { driverRank: { rank: 1, setSize: 4 } },
     })
     expect(detail.unconfirmedEstimate).toBe(true)
-    expect(detail.text).toContain('0.4')
+    expect(detail.text).toContain('40%')
     expect(detail.text).not.toContain('62%')
     expect(detail.text).not.toContain('Driver')
   })

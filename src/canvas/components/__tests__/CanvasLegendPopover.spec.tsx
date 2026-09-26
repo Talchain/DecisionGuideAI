@@ -835,7 +835,9 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     },
     // ⭐ THE ONE THE DEFECT WAS IN. Three sites → one; this is what would have
     // REDded had it gone to zero, and what will RED if the last one goes.
-    { noun: 'est.', files: ['FactorNode.tsx'], pattern: /<EstimateMarker\s*\/>/ },
+    // v3.1 #21 (26 Sep, WS4): the mark now takes its route to the source detail
+    // (`onOpenSource`), so the element carries props — still one self-closing tag.
+    { noun: 'est.', files: ['FactorNode.tsx'], pattern: /<EstimateMarker\b[^>]*\/>/ },
   ]
 
   function nodeSource(file: string): string {
@@ -853,7 +855,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     // Contrast control — a pattern that IS present matches, and one that is
     // deliberately absent does NOT. Without the negative half, a scanner that
     // matched everything would score a perfect run.
-    expect(nodeSource('FactorNode.tsx')).toMatch(/<EstimateMarker\s*\/>/)
+    expect(nodeSource('FactorNode.tsx')).toMatch(/<EstimateMarker\b[^>]*\/>/)
     expect(nodeSource('FactorNode.tsx')).not.toMatch(/<ThisMarkingDoesNotExist\s*\/>/)
     // …and the manifest itself cannot go short: every classified noun is in it.
     expect([...NOUN_PRODUCERS].map(p => p.noun).sort()).toEqual([...CLASSIFIED_METRIC_NOUNS].sort())

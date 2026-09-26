@@ -153,13 +153,22 @@ describe('the reduced (LOD) line — reads the same owner, never shows a live ra
     expect(line).not.toContain('replaces')
   })
 
-  it('TWIN — no value: the reduced line is today\'s live range', () => {
+  it('TWIN — no value: the reduced line is the live range, in the reader\'s unit', () => {
+    // ⭐ v3.1 #20 (26 Sep, WS4): the reduced line reads the CARD's form, which
+    // omits a bare 0–1 pair — so the twin carries its unit, and the bare shape
+    // is pinned silent beside it (the owner above still states LIVE).
     const line = resolveLodMetricLine({
+      nodeType: 'factor',
+      data: external({ unit: '%' }),
+      label: 'Market demand',
+      displayMetadata: metadata,
+    })
+    expect(line).toBe('Range: 30% to 80%')
+    expect(resolveLodMetricLine({
       nodeType: 'factor',
       data: external(undefined),
       label: 'Market demand',
       displayMetadata: metadata,
-    })
-    expect(line).toBe(LIVE)
+    })).toBeNull()
   })
 })

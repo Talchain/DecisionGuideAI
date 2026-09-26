@@ -24,7 +24,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 import { NodeStructuralMarker } from '../NodeStructuralMarker'
 import { NodeCoachingMarker } from '../NodeCoachingMarker'
@@ -263,13 +263,25 @@ describe('NodeStructuralMarker — the findings that honestly name no node', () 
 // Precedence: the producer outranks the local observation, per node
 // ---------------------------------------------------------------------------
 
+/*
+ * ⭐ CONTRACT v3.1 #18 (DESIGN-GAP-v31, 26 Sep, WS4): the structural "branch"
+ * glyph is OFF THE CARD — the coaching slot (`NodeCoachingMarker`) no longer
+ * falls back to it. The detection itself is untouched (every block above still
+ * renders `NodeStructuralMarker` directly, for the inspector to carry), so the
+ * slot tests below pin: producer silent → the slot is EMPTY, while the same
+ * node's structural finding is still detected (the contrast that proves the
+ * absence is the #18 removal, not a dead fixture).
+ */
 describe('one voice per node: the producer outranks the structural observation', () => {
-  it('the structural marker speaks through the slot while the producer is silent', () => {
+  it('v3.1 #18: while the producer is silent the slot carries NO structural glyph — the finding is still detected', () => {
     const { nodes, edges } = strandedRisk()
     seed(nodes, edges)
     render(<NodeCoachingMarker nodeId="r1" />)
-    expect(screen.getByTestId('node-structural-marker-r1')).toBeInTheDocument()
+    expect(screen.queryByTestId('node-structural-marker-r1')).not.toBeInTheDocument()
     expect(screen.queryByTestId('node-coaching-marker-r1')).not.toBeInTheDocument()
+    cleanup()
+    render(<NodeStructuralMarker nodeId="r1" />)
+    expect(screen.getByTestId('node-structural-marker-r1')).toBeInTheDocument()
   })
 
   it('⭐ it falls silent once the producer names THIS node, and the producer marker takes the slot', () => {
@@ -288,12 +300,13 @@ describe('one voice per node: the producer outranks the structural observation',
    * "the producer spoke about THIS card". Same shape as `oneVoicePerNode`'s own
    * contrast, which is the ruling this inherits.
    */
-  it('⛔ CONTRAST: a producer item naming a DIFFERENT node does NOT silence it', () => {
+  it('⛔ CONTRAST: a producer item naming a DIFFERENT node puts no producer marker on THIS card — and (v3.1 #18) no structural glyph either', () => {
     const { nodes, edges } = strandedRisk()
     seed(nodes, edges)
     useGuidanceStore.getState().setGuidanceItems(producerItemNaming('o1'))
     render(<NodeCoachingMarker nodeId="r1" />)
-    expect(screen.getByTestId('node-structural-marker-r1')).toBeInTheDocument()
+    expect(screen.queryByTestId('node-coaching-marker-r1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('node-structural-marker-r1')).not.toBeInTheDocument()
   })
 })
 

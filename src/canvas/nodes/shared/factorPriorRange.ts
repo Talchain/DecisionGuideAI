@@ -462,12 +462,15 @@ function resolvePriorRangeBody(
         // cannot stack into "Range: Range: …".
         const body = authored.trim().replace(/^Range:\s*/i, '')
         // The producer's prose: no endpoints are parsed out of it, so no band.
-        if (body.length > 0) return { text: body, ends: null }
+        if (body.length > 0) {
+          const pair = parseBareNumericRange(body)
+          return { text: body, ends: null, bareModelScale: pair !== null && priorEndpointsAreNormalised(pair[0], pair[1]) }
+        }
       }
     }
     const low = formatNormalisedRangeEnd(rangeMin)
     const high = formatNormalisedRangeEnd(rangeMax)
-    return { text: `${low} to ${high}`, ends: [low, high] }
+    return { text: `${low} to ${high}`, ends: [low, high], bareModelScale: priorEndpointsAreNormalised(rangeMin, rangeMax) }
   }
 
   // Real unit with calibration (or percent): the Range line adds calibrated
@@ -499,7 +502,7 @@ function resolvePriorRangeBody(
   // numeric display_value ("20000 to 80000") deliberately does NOT dedupe
   // here: the calibrated Range line still adds the unit information.
   if (valueDisplay != null && valueDisplay.trim() === rendered) return null
-  return { text: rendered, ends: [low, high] }
+  return { text: rendered, ends: [low, high], bareModelScale: false }
 }
 
 /**
@@ -510,6 +513,14 @@ function resolvePriorRangeBody(
 interface PriorRangeBody {
   text: string
   ends: readonly [string, string] | null
+  /**
+   * The text states the range ONLY on the model's internal 0–1 scale: bare
+   * numbers, both inside 0–1, with no real-world unit behind them — composed
+   * here from a normalised prior, or the producer's own string when it is
+   * exactly such a pair ("0.3 to 0.8"). Contract v3.1 `checks.factor`: "no bare
+   * internal model scale" on the CARD (`resolveFactorPriorRangeOnCard`).
+   */
+  bareModelScale: boolean
 }
 
 /**
@@ -546,4 +557,44 @@ export function resolveFactorPriorRange(inputs: FactorPriorRangeInputs): string 
 export function resolveFactorPriorRangeEnds(inputs: FactorPriorRangeInputs): readonly [string, string] | null {
   if (userValueReplacesPrior(inputs.data)) return null
   return resolvePriorRangeBody(inputs, true)?.ends ?? null
+}
+
+/**
+ * ⭐⭐ THE CARD'S RANGE LINE — contract v3.1 `checks.factor`: "Own-unit value …
+ * no bare internal model scale" (DESIGN-GAP-v31 #20; ruling: omit, never
+ * invent).
+ *
+ * Measured before (served `eec722ab`): market-entry "Current ARR · Range: 0.27
+ * to 0.8 · no source", "Target Market Size · Range: 0.3 to 1"; pricing "Range:
+ * 0.3 to 0.8" and "Range: 0.2 to 0.6". Those are the prior's normalised 0–1
+ * endpoints (or the producer's own string of exactly those two numbers) — a
+ * range with no unit a reader can hold it against.
+ *
+ * The CARD omits such a line, and its band, and does not substitute anything:
+ * there is no qualitative or own-unit form in the data to show instead. A range
+ * the data CAN state in the reader's units — calibrated through a cap, a
+ * percent, the producer's own words ("0% to 13%"), or endpoints outside 0–1 —
+ * prints exactly as `resolveFactorPriorRange` prints it.
+ *
+ * ⚠ THE OWNER'S OUTPUT IS UNCHANGED, DELIBERATELY. `resolveFactorPriorRange`
+ * still returns the line, because the Model tab (`model-tab-v2/adapters.ts`,
+ * A17) reads it to say "Range: 0.3 to 0.8, not measured" instead of a bare
+ * "Not set" on a factor that DOES record a range — a detail surface explaining
+ * the record, one action away. Card and Model tab therefore never state two
+ * different ranges: the card states none, the Model tab states the owner's.
+ * The card's reduced low-zoom line (`lodMetricLine.ts`) reads THIS function, so
+ * a zoomed-out card never says more than the full card.
+ */
+export function resolveFactorPriorRangeOnCard(inputs: FactorPriorRangeInputs): string | null {
+  const replaced = userValueReplacesPrior(inputs.data)
+  const body = resolvePriorRangeBody(inputs, !replaced)
+  if (body == null || body.bareModelScale) return null
+  return replaced ? `${USER_VALUE_REPLACES_RANGE} ${body.text}` : `Range: ${body.text}`
+}
+
+/** The band's two ends for the CARD — `null` wherever `resolveFactorPriorRangeOnCard` is. */
+export function resolveFactorPriorRangeEndsOnCard(inputs: FactorPriorRangeInputs): readonly [string, string] | null {
+  if (userValueReplacesPrior(inputs.data)) return null
+  const body = resolvePriorRangeBody(inputs, true)
+  return body == null || body.bareModelScale ? null : body.ends
 }

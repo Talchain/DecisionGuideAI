@@ -52,6 +52,7 @@ import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { rankFactor } from './shared/rankFactor'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
 import type { ResultsReport } from '../../components/results/types'
+import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 
 /**
  * EVERY static string the resting state can render or send.
@@ -239,6 +240,29 @@ export function selectEvidencePriorityFactorId(
     if (rankFactor(feed.policyRows, feed.displayModel, node.id).sensitivityRank === 1) return node.id
   }
   return null
+}
+
+/**
+ * ⭐ THE PRE-RUN SECOND SEGMENT — contract v3.1 fixture, "Before analysis":
+ * "3 alternatives · Assumptions open for review" (DESIGN-GAP-v31 #39).
+ *
+ * Stated only when the DATA supports it: at least one factor on this canvas
+ * holds a value Olumi estimated and nobody has confirmed — the exact gate that
+ * prints `est.` on that factor's card (`factorValueIsUnconfirmedEstimate`, one
+ * owner). With no such value there is nothing open to review, and the row says
+ * the count alone. After a run the segment is "Evidence priority: …" (or
+ * nothing), never this.
+ */
+export const ASSUMPTIONS_OPEN_LINE = 'Assumptions open for review'
+
+/** True when some factor on the canvas carries an unconfirmed Olumi estimate. */
+export function modelHasOpenAssumptions(
+  nodes: ReadonlyArray<{ type?: string; data?: unknown }>,
+): boolean {
+  return nodes.some(n =>
+    (n.type === 'factor' || (n.data as { type?: unknown } | undefined)?.type === 'factor') &&
+    factorValueIsUnconfirmedEstimate(n.data),
+  )
 }
 
 /** Same separator the inspector's guidance line already renders. */
@@ -752,6 +776,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * not current; the top is a tie; the ranked factor is not on this canvas (the
    * report's own label is not used); or the factor has no label.
    */
+  // v3.1 #39: the pre-run clause, only where a factor carries an unconfirmed
+  // Olumi estimate (`modelHasOpenAssumptions`).
+  const assumptionsOpen = useMemo(
+    () => isPreAnalysisBranch && modelHasOpenAssumptions(nodes),
+    [isPreAnalysisBranch, nodes],
+  )
   const evidencePriorityFactorId = useMemo(
     () => (isPostAnalysisBranch ? selectEvidencePriorityFactorId(report, nodes) : null),
     [isPostAnalysisBranch, report, nodes],
@@ -1058,6 +1088,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       className={`${typography.edgeLabel} min-w-0 break-words text-text-light`}
     >
       {`${EVIDENCE_PRIORITY_LABEL}: ${evidencePriority.label}`}
+    </span>
+  ) : assumptionsOpen ? (
+    // Contract v3.1 "Before analysis" row (#39): the visible second clause.
+    <span
+      data-testid="decision-assumptions-open"
+      className={`${typography.edgeLabel} min-w-0 break-words text-text-light`}
+    >
+      {ASSUMPTIONS_OPEN_LINE}
     </span>
   ) : null
 

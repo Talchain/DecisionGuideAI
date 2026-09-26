@@ -222,7 +222,11 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(onCard('option-primary-change-option-1')).toBeNull()
     })
 
-    it('the label comes FIRST and is the only truncating part; the value and its trailing mark are never cut', () => {
+    // ⭐ CONTRACT v3.1 #9 (26 Sep, WS4): the label is the factor's FULL name and
+    // is never cut — it WRAPS in its own share of the row (was a CSS-truncating
+    // cell, measured clipping 9/9 labels on pricing at 100%). The amount holds
+    // one line (`.delta-rows .amount{white-space:nowrap}`).
+    it('the label comes FIRST, is the FULL name and is never cut (it wraps); the value and its trailing mark are never cut', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       const dt = dd.previousElementSibling as HTMLElement
@@ -231,14 +235,15 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(mark.getAttribute('data-value-source')).toBe('you')
       expect(dt.compareDocumentPosition(dd) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(dd.contains(mark)).toBe(true)
-      // The label carries the factor's FULL name; CSS is what shortens it.
+      // The label carries the factor's FULL name, and nothing shortens it.
       expect(dt.textContent).toBe('Pro plan monthly price')
       const lt = tokens(dt)
-      expect(lt.has('truncate')).toBe(true)
+      expect(lt.has('truncate')).toBe(false)
+      expect(lt.has('break-words')).toBe(true)
       expect(lt.has('min-w-0')).toBe(true)
-      expect(dt.getAttribute('data-truncates')).toBe('label')
+      expect(dt.getAttribute('data-truncates')).toBeNull()
       // ⛔ The value and the mark are NEVER inside a truncating element.
-      for (const protectedEl of [dd, mark]) {
+      for (const protectedEl of [dt, dd, mark]) {
         let el: HTMLElement | null = protectedEl
         while (el && el !== document.body) {
           const t = tokens(el)
@@ -249,13 +254,16 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       }
     })
 
-    it('the whole sentence is recoverable on the row (its title) and the label on its cell (its title)', () => {
+    it('the whole sentence is recoverable on the row (its title); the label is whole on the card, so it needs no title', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       expect(dd.getAttribute('title')).toBe(
         'Pro plan monthly price: £49 → £79. From Status quo (the baseline option). Target: set by you.',
       )
-      expect((dd.previousElementSibling as HTMLElement).getAttribute('title')).toBe('Pro plan monthly price')
+      // v3.1 #9: never cut, so nothing to recover (and no second native tooltip, #36).
+      const dt = dd.previousElementSibling as HTMLElement
+      expect(dt.textContent).toBe('Pro plan monthly price')
+      expect(dt.getAttribute('title')).toBeNull()
     })
 
     it('the rows render ONCE — on the card, never repeated in the popover — and no computed differentiator on the card', () => {
@@ -286,12 +294,18 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(onCard('option-change-row-estimate-option-3-f-adopt')!.getAttribute('data-value-source')).toBe('olumi')
     })
 
-    it('a value that cannot fit WRAPS, never clips (values are never cut)', () => {
+    it('a value is held on ONE line and never clipped — when it cannot sit beside the label it takes the next line whole (v3.1 #9)', () => {
       renderCard()
-      const t = tokens(onCard('option-change-row-option-1-f-price'))
-      expect(t.has('break-words')).toBe(true)
+      const dd = onCard('option-change-row-option-1-f-price')!
+      const t = tokens(dd)
       expect(t.has('overflow-hidden')).toBe(false)
-      expect(t.has('whitespace-nowrap')).toBe(false)
+      expect(t.has('truncate')).toBe(false)
+      expect(t.has('max-w-full')).toBe(true)
+      // `.delta-rows .amount{white-space:nowrap}` — on the value, and on the mark cluster.
+      expect(tokens(onCard('option-change-row-value-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
+      expect(tokens(onCard('option-change-row-mark-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
+      // The row line wraps as a whole: the amount drops below, never the value apart.
+      expect(tokens(onCard('option-change-row-line-option-1-f-price')).has('flex-wrap')).toBe(true)
     })
   })
 

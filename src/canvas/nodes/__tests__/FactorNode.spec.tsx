@@ -1352,7 +1352,10 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(container.querySelector('[data-testid="estimate-marker"]')).toBeNull()
     const mark = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')
     expect(mark).not.toBeNull()
-    expect(mark!.textContent).toBe('youSet by you')
+    // Contract v3.1 `prov('user')` (DESIGN-GAP-v31 #21): the person GLYPH, not
+    // the word "you"; the name stays "Set by you".
+    expect(mark!.querySelector('[data-source-glyph="person"]')).not.toBeNull()
+    expect(mark!.textContent).toBe('Set by you')
   })
 
   // A17: Contextual value text + science icon are separate elements

@@ -133,7 +133,10 @@ describe('a value the user typed is not labelled an Olumi estimate', () => {
     // Without this the test below could pass on a card that never renders the
     // marker at all, for any reason (trap 13: an absence assertion needs a
     // demonstrated presence).
-    const { container } = renderFactor(CEE_ESTIMATE)
+    // ⚠ With a UNIT: a unitless 0–1 Olumi estimate is now omitted from the card
+    // altogether (contract v3.1 #20, `readoutIsBareModelScale`), so the control
+    // carries a real unit to keep its value line — and its marker — on the card.
+    const { container } = renderFactor({ ...CEE_ESTIMATE, raw_value: 62, unit: 'engineers' })
     expect(marker(container)).toBeTruthy()
     expect(marker(container)!.textContent).toBe('est.')
   })

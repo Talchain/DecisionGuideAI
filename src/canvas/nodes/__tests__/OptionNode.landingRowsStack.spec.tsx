@@ -215,17 +215,25 @@ describe('S5: in DETAILED view the inline change rows stack below Normal zoom, g
  * line (its full text in its title) and the value wraps if it must, so the body
  * is identical at every rung — no rung-triggered re-layout. The Detailed stack
  * above is unchanged.
+ *
+ * ⭐ CONTRACT v3.1 #9 (26 Sep, WS4): the Standard rows are now `rows` — one
+ * wrapping line per change, the FULL label (never cut) and an amount that holds
+ * one line — instead of the shared grid with a truncating label cell. Still the
+ * SAME layout at every rung (the claim this block exists for), still once, still
+ * never in the popover.
  */
-describe('resting anatomy: in STANDARD view the rows are ON THE CARD, the contract grid at EVERY rung', () => {
+describe('resting anatomy: in STANDARD view the rows are ON THE CARD, the same v3.1 rows at EVERY rung', () => {
   beforeEach(() => { winRate = null })
 
   for (const lodRung of ['quiet', 'line', 'full'] as const) {
-    it(`${lodRung} rung: the card rows are the grid, rendered once, and never in the popover`, () => {
+    it(`${lodRung} rung: the card rows are the v3.1 rows, rendered once, and never in the popover`, () => {
       renderCard({ store: { lodRung } })
       expect(inPopover(rowsEl()), 'the rows render on the card').toBe(false)
       expect(document.querySelectorAll('[data-testid="option-change-rows-option-1"]').length).toBe(1)
-      expect(rowsEl().getAttribute('data-row-layout')).toBe('grid')
-      expect(listEl().className).toContain('grid-cols-[minmax(0,1fr)_fit-content(calc((100%_-_8px)*0.6))]')
+      expect(rowsEl().getAttribute('data-row-layout')).toBe('rows')
+      // One wrapping line per row — no rung term in the classes.
+      expect(listEl().className).toBe('m-0 flex flex-col gap-y-1')
+      expect(listEl().className).not.toContain('grid-cols')
     })
   }
 

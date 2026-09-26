@@ -115,11 +115,11 @@ beforeEach(() => {
 })
 
 describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
-  // ED 5809278282: Standard shows the short form, the fixture sentence rides sr-only + title; Detailed keeps it verbatim.
+  // Contract v3.1 `.small-state` (26 Sep, WS4; was ED 5809278282's short form): Standard SHOWS the fixture sentence too.
   it('an outcome with no number says so, in the fixture’s exact words', () => {
     renderOutcome()
     const line = screen.getByTestId('outcome-unquantified')
-    expect(shown(line)).toBe('Not quantified')
+    expect(shown(line)).toBe('Outcome not quantified')
     expect(announced(line)).toBe('Outcome not quantified')
     expect(line.getAttribute('title')).toBe('Outcome not quantified')
     expect(OUTCOME_UNQUANTIFIED_LINE).toBe('Outcome not quantified')
@@ -134,7 +134,7 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
     applyStore({ results: { status: 'complete', report: null } })
     renderOutcome()
     const line = screen.getByTestId('outcome-unquantified')
-    expect(shown(line)).toBe('Not quantified')
+    expect(shown(line)).toBe('Outcome not quantified')
     expect(announced(line)).toBe(OUTCOME_UNQUANTIFIED_LINE)
   })
 
@@ -172,14 +172,14 @@ describe('OR-02 / RHY-09 — the outcome card states its own state', () => {
 })
 
 describe('OR-02 — the risk state line is a label, not a sentence', () => {
-  // ED 5809278282: byte for byte in Standard's sr-only + title and on the Detailed card; Standard shows the register's short form.
+  // Byte for byte in Standard's visible text, sr-only + title and on the Detailed card — contract v3.1 (DESIGN-GAP-v31 #34) shows the whole label.
   it('has no trailing full stop, and renders byte for byte', () => {
     renderRisk()
     expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet')
     const line = screen.getByTestId('risk-exposure-unset')
     expect(announced(line)).toBe('Likelihood and impact not set yet')
     expect(line.getAttribute('title')).toBe('Likelihood and impact not set yet')
-    expect(shown(line)).toBe('Not set yet')
+    expect(shown(line)).toBe('Likelihood and impact not set yet')
     cleanup()
     applyStore({ viewMode: 'expert' })
     renderRisk()

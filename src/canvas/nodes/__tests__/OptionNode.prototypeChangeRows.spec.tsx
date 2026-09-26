@@ -48,7 +48,7 @@
  * order. No pixels: whether the rows FIT is the browser geometry gates' job.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { OptionNode } from '../OptionNode'
@@ -240,16 +240,18 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       if (pop) expect(within(pop).queryByTestId('option-change-rows-option-1')).toBeNull()
     })
 
-    it('each label is the FULL factor name in a CSS-truncating cell that carries its own title', () => {
+    it('each label is the FULL factor name, never cut — it wraps (contract v3.1 #9; was a CSS-truncating cell)', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-adopt')!
       const dt = dd.previousElementSibling as HTMLElement
       expect(dt.tagName).toBe('DT')
       expect(dt.textContent).toBe('Feature adoption across active accounts')
-      expect(dt.getAttribute('title')).toBe('Feature adoption across active accounts')
-      expect(dt.getAttribute('data-truncates')).toBe('label')
+      // Whole on the card, so no title to recover it from (and no native tooltip, #36).
+      expect(dt.getAttribute('title')).toBeNull()
+      expect(dt.getAttribute('data-truncates')).toBeNull()
       const t = tokens(dt)
-      expect(t.has('truncate')).toBe(true)
+      expect(t.has('truncate')).toBe(false)
+      expect(t.has('break-words')).toBe(true)
       expect(t.has('min-w-0')).toBe(true)
     })
 
@@ -382,13 +384,19 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       expect(dd.textContent).not.toContain('other')
     })
 
-    it('a target EQUAL to the current value, formatted differently, is not a change: no "from"', () => {
+    it('a target EQUAL to the current value, formatted differently, is not a change: no row at all (v3.1 #9)', () => {
       // The factor card reads "59 GBP/month"; CEE's target is £59 at the SAME
-      // model value (0.295). "59 GBP/month → £59" would claim a change that is not one.
-      const { dd, before } = priceRow({ observedState: { cap: 200, unit: 'GBP/month', value: 0.295, raw_value: 59 } })
-      expect(before).toBeNull()
-      expect(dd.textContent!.startsWith('→ £59')).toBe(true)
-      expect(dd.textContent).not.toContain('59 GBP/month')
+      // model value (0.295). "59 GBP/month → £59" would claim a change that is
+      // not one. It used to render "→ £59" with no "from"; contract v3.1 #9
+      // ("concrete changes only") now keeps it off the resting card entirely.
+      renderCard({ store: { nodes: withPriceFactor({ observedState: { cap: 200, unit: 'GBP/month', value: 0.295, raw_value: 59 } }) } })
+      expect(onCard(PRICE_ROW)).toBeNull()
+      expect(onCard(PRICE_BEFORE)).toBeNull()
+      expect(onCard('option-change-rows-option-1')?.textContent ?? '').not.toContain('59 GBP/month')
+      // CONTRAST, same shape one pound apart: a real change keeps its row and its "from".
+      cleanup()
+      const { before } = priceRow({ observedState: { cap: 200, unit: 'GBP/month', value: 0.29, raw_value: 58 } })
+      expect(before?.textContent).toBe('£58/month')
     })
   })
 

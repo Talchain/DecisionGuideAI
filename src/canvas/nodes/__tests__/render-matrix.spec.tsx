@@ -1683,7 +1683,7 @@ describe('N1 — per-type selection ring', () => {
     // no longer blanks in that case (a card's content is never removed without
     // something put in its place), so the old fixture stopped exercising the
     // branch this test names. A value keeps the discriminating half real.
-    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity', observedState: { raw_value: 0.62, unit: null } }} /></ReactFlowProvider>)
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity', observedState: { raw_value: 62, unit: '%' } }} /></ReactFlowProvider>)
     const title = screen.getAllByTestId('node-title')[0]
     expect(title).not.toHaveStyle({ visibility: 'hidden' })
     // The discriminating half: the body IS still hidden, so this test cannot

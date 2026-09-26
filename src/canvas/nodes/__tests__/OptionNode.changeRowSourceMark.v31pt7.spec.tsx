@@ -221,7 +221,11 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     expect(est!.getAttribute('data-value-source')).toBe('olumi')
     expect(est!.querySelector('[aria-hidden="true"]')!.textContent).toBe('est.')
     expect(est!.querySelector('.sr-only')!.textContent).toBe(VALUE_SOURCE_MARK_LABEL.olumi)
-    expect(est!.getAttribute('title')).toBe(
+    // Contract v3.1 point 1 (DESIGN-GAP-v31 #21): the mark is a focusable
+    // button whose NAME is its hover/focus label (v3.1 `prov()` aria-label) —
+    // the node Tooltip replaces the native `title`.
+    expect(est!.tagName).toBe('BUTTON')
+    expect(est!.getAttribute('aria-label')).toBe(
       'Olumi chose this target; it is not yet confirmed. Open the details to set or confirm it.',
     )
   })
@@ -246,7 +250,9 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
   it('CONTRAST — a user-set target still renders its "you" mark (no est.), inside the same cluster', () => {
     const { container } = renderOption('opt-price')
     const dd = row(container, 'opt-price', 'fac-price')
-    expect(visibleText(dd)).toBe('£49 → £59 · you')
+    // Contract v3.1 `prov('user')` (#21): the person GLYPH, not the word "you".
+    expect(visibleText(dd)).toBe('£49 → £59 ·')
+    expect(dd.querySelector('[data-source-glyph="person"]')).not.toBeNull()
     expect(dd.querySelector('[data-testid="option-change-row-estimate-opt-price-fac-price"]')).toBeNull()
     const mark = dd.querySelector('[data-testid="option-change-row-mark-opt-price-fac-price"] [data-testid="option-change-row-source-opt-price-fac-price"]')
     expect(mark?.getAttribute('data-value-source')).toBe('you')

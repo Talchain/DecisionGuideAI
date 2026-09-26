@@ -51,7 +51,7 @@ import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
 import type { FactorTurningPoint } from './nodeAttention'
 import { turningPointNumberPrints, type FactorTurningPointState } from './factorTurningPoint'
-import { TURNING_POINT_TRACK_COPY } from './turningPointCopy'
+import { TURNING_POINT_TRACK_COPY, turningPointSide } from './turningPointCopy'
 
 const NEAR_PCT = 20
 const FAR_PCT = 80
@@ -84,14 +84,18 @@ export function FactorTurningPointTrack({
    */
   atRest?: boolean
 }) {
-  const falls = turningPoint.flipValue < turningPoint.currentValue
+  // v3.1 point 3: the direction in words, from the producer's two values only;
+  // `at` (neutral) when they cannot establish one. The track still draws a
+  // lower flip value first.
+  const side = turningPointSide(turningPoint.flipValue, turningPoint.currentValue)
+  const falls = side === 'below'
   const numeric = turningPointNumberPrints(turningPoint, factorUnit)
   const flipText = numeric ? formatFlipValue(turningPoint.flipValue, turningPoint.unit) : null
   const runText = numeric
     ? TURNING_POINT_TRACK_COPY.runValue(formatFlipValue(turningPoint.currentValue, turningPoint.unit), fromLastRun)
     : null
   const sentence = TURNING_POINT_TRACK_COPY.sentence({
-    side: falls ? 'below' : 'above',
+    side,
     value: flipText,
     alternative: turningPoint.alternativeLabel ?? null,
     fromLastRun,
@@ -102,12 +106,13 @@ export function FactorTurningPointTrack({
       : turningPoint.displayScale
         ? TURNING_POINT_TRACK_COPY.unitMismatch
         : TURNING_POINT_TRACK_COPY.internalScale
-  // The prototype's one-line caption, only where its number prints.
+  // At rest, only where its number prints: the v3.1 caption IS the direction
+  // sentence ("Below 6.5%, the current model comparison changes."), whose
+  // number the track then does not print a second time.
   const compact = atRest && flipText !== null && runText !== null
-  const restCaption = TURNING_POINT_TRACK_COPY.restCaption(fromLastRun)
-  // Label in Name (WCAG 2.5.3): the visible words open the spoken name; the
-  // direction sentence (point 3(a)) and the domain follow, moved not deleted.
-  const name = compact ? `${restCaption} ${flipText}. ${sentence} ${detail}` : `${sentence} ${detail}`
+  // Label in Name (WCAG 2.5.3): the visible sentence opens the spoken name; the
+  // domain follows.
+  const name = `${sentence} ${detail}`
   // Low → high, left → right: a flip below the run's value is drawn first.
   const flipAtPct = falls ? NEAR_PCT : FAR_PCT
   const currentAtPct = falls ? FAR_PCT : NEAR_PCT
@@ -125,7 +130,7 @@ export function FactorTurningPointTrack({
   )
 
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={compact ? `${sentence} ${detail}` : detail}>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={detail}>
       <button
         type="button"
         data-testid="factor-turning-point"
@@ -142,40 +147,15 @@ export function FactorTurningPointTrack({
         {/* The finding is the card's strongest analysis line (contract
             `.plot-caption b{font-weight:500}`, hover underline), heavier than
             the regular-weight rank above it — the served card had it reversed. */}
-        {compact ? (
-          // Contract `.plot-caption`: the words left, the number right, one row.
-          // The number FLOATS right (first in source, so it holds the right of
-          // the FIRST line and the words flow round it) rather than taking a
-          // flex column: at the landing zoom the counter-scaled words wrap, and
-          // a flex column narrowed EVERY wrapped line (3 lines, measured in
-          // Chromium at label scale 2); floated, only the first line gives way
-          // (2 lines). One line at Normal, as in the prototype. `flow-root`
-          // contains the float, and carries the caption's own type so its line
-          // box is the caption's (an inherited larger strut made the row 9px
-          // taller at Normal, measured). The accessible name is the button's
-          // aria-label, so source order does not change what is spoken.
-          <span className={`${typography.edgeLabel} flow-root w-full`}>
-            <span
-              data-testid="factor-turning-point-caption-value"
-              className={`${typography.edgeLabel} float-right ml-2 text-text-body tabular-nums`}
-            >
-              {flipText}
-            </span>
-            <span
-              data-testid="factor-turning-point-caption"
-              className={`${typography.edgeLabel} font-medium text-text-body underline-offset-[3px] group-hover:underline`}
-            >
-              {restCaption}
-            </span>
-          </span>
-        ) : (
-          <span
-            data-testid="factor-turning-point-caption"
-            className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
-          >
-            {sentence}
-          </span>
-        )}
+        {/* Contract v3.1 `.plot-caption b` (point 3): the direction sentence,
+            the card's strongest analysis line, at rest and in Detailed alike —
+            one sentence, no floated number beside it. */}
+        <span
+          data-testid="factor-turning-point-caption"
+          className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
+        >
+          {sentence}
+        </span>
         {flipText !== null && runText !== null && (
           // The track spans the card between its two labels (contract
           // `.mini-plot svg{width:100%}`), not a fixed 54px squeezed between

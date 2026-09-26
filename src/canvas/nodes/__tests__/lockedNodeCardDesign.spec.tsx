@@ -304,10 +304,11 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
     expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
-    // At rest: the prototype's caption + number (verifier FIX_NEEDED 1, 25 Sep).
+    // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
+    // direction sentence (was the prototype's caption + number, 25 Sep).
     const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
-    expect(within(freshTp).getByTestId('factor-turning-point-caption').textContent).toBe('Model comparison changes')
-    expect(within(freshTp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
+    expect(within(freshTp).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    expect(within(freshTp).queryByTestId('factor-turning-point-caption-value')).toBeNull()
     cleanup()
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
@@ -317,9 +318,8 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
     expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
-    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · comparison changes')
-    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
-    expect(tp.getAttribute('aria-label')!.startsWith('Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes.')).toBe(true)
+    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
   })
 
   it('⛔ CANNOT-CONFIRM and NEVER-RUN HIDE the driver line and the turning point — no past analysis is invented', () => {
@@ -359,8 +359,10 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setMeta({ 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-conv')
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
-    // At rest the number is in the caption row (printed once), not on the track.
-    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
+    // At rest the number is in the caption sentence (printed once), not on the
+    // track (v3.1 #38).
+    expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison changes.')
+    expect(within(tp).queryByTestId('factor-turning-point-value')).toBeNull()
     expect(tp.getAttribute('aria-label')).toContain('Below 6.5%, the current model comparison changes.')
   })
 
@@ -381,13 +383,15 @@ describe('Factor — the one mini-visual: turning point, else a genuine range, e
     setMeta({ 'fac-price': DRIVER_META, 'fac-conv': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
-    // ⛔ Paul 23 Sep point 3(d)'s resting fallback is SUPERSEDED by ED #63
-    // 5806207128: "No `No turning point available/in this run` line at rest.
-    // Absence of a turning point = no mini-visual." Positive control: the
-    // ranked card mounted with its driver line.
+    // ⭐ Contract v3.1 point 3 (DESIGN-GAP-v31 #38) RESTORES the resting
+    // fallback that ED #63 5806207128 had removed ("no line at rest") — the
+    // common brief rules v3.1 wins. No row was produced for this factor, so it
+    // is the UNATTESTED form: "No turning point available", never "in this run".
+    // Positive control: the ranked card mounted with its driver line.
     expect(popoverFinding('Monthly price', 'factor-driver-line')).toBeTruthy()
-    expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
-    expect(document.body.textContent).not.toContain('No turning point')
+    const none = popoverFinding('Monthly price', 'factor-turning-point-none')
+    expect(none.textContent).toContain('No turning point available')
+    expect(document.body.textContent).not.toContain('No turning point in this run')
     cleanup()
     renderCard(FactorNode as never, 'fac-conv')
     expect(popoverFinding('Trial conversion', 'factor-turning-point')).toBeTruthy()
@@ -625,11 +629,11 @@ describe('Outcome/Risk — coaching behind the one icon; link strength off the c
     setState({ phase: 'pre' })
     renderCard(RiskNode as never, 'risk-1')
     const card = face('Churn spike')
-    // Contract v3.1 (OR-02): the risk state line carries no full stop. ED
-    // 5809278282: the line shows the short form and announces the sentence.
+    // Contract v3.1 (OR-02): the risk state line carries no full stop, and
+    // (DESIGN-GAP-v31 #34) shows AND announces the whole sentence.
     const unset = within(card).getByTestId('risk-exposure-unset')
     expect(unset.querySelector('.sr-only')?.textContent).toBe('Likelihood and impact not set yet')
-    expect(unset.querySelector('[aria-hidden="true"]')?.textContent).toBe('Not set yet')
+    expect(unset.querySelector('[aria-hidden="true"]')?.textContent).toBe('Likelihood and impact not set yet')
     expect(within(card).queryByTestId('risk-strength-row')).toBeNull()
     expect(card.textContent).not.toMatch(/Link strength|50%/)
   })

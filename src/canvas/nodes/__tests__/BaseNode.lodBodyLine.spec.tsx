@@ -196,16 +196,21 @@ const CORPUS: ReadonlyArray<{
      * ⭐ THE DISCRIMINATING CASE. `unit` here holds an INTERNAL CEE factor_type
      * descriptor, which the shared guard (`isSuppressedUnit`) exists to stop
      * reaching a user — the documented "factor_type leak". Drop the guard from
-     * BaseNode and this factor's reduced line reads "0.5 other" while the body
-     * two pixels beneath it reads "0.5": one datum, one card, two answers.
+     * BaseNode and this factor's reduced line reads "3 other" while the body
+     * two pixels beneath it reads "3": one datum, one card, two answers.
+     *
+     * ⚠ The figure was 0.5 until contract v3.1 #20 ("no bare internal model
+     * scale"): a unitless 0–1 figure is now omitted from the card AND its
+     * reduced line (`readoutIsBareModelScale`), so the case moved to a figure
+     * outside 0–1, where the leak it discriminates can still show.
      */
     name: 'an internal factor_type descriptor leaking into unit',
     data: {
       label: 'Team quality',
       type: 'factor',
-      observedState: { raw_value: 0.5, value: 0.5, unit: 'other' },
+      observedState: { raw_value: 3, value: 0.3, unit: 'other' },
     },
-    expected: '0.5',
+    expected: '3',
   },
   {
     /**

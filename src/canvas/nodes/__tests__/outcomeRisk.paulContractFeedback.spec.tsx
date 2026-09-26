@@ -179,9 +179,10 @@ describe('contract v3.1 pt 8 — the Outcome card carries no option-reach count 
   it("the removed count is not replaced by a count-shaped line; the outcome's own state is (contract v3.1 OR-02)", () => {
     const { container } = renderOutcome('outcome-two', 'Margin')
     expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
-    // ED 5809278282: short form shown, the fixture sentence announced (and on title/popover).
+    // v3.1 `.small-state` (26 Sep, WS4): the fixture sentence SHOWN and announced
+    // (was ED 5809278282's short form "Not quantified").
     const line = screen.getByTestId('outcome-unquantified')
-    expect(shown(line)).toBe('Not quantified')
+    expect(shown(line)).toBe('Outcome not quantified')
     expect(announced(line)).toBe('Outcome not quantified')
     expect(container.textContent).not.toMatch(/alternatives connect|No option moves/i)
   })
@@ -199,7 +200,7 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
     applyStore({ results: { status, report: null } })
     const { container } = renderOutcome('outcome-all', 'Revenue', { description: 'Recurring revenue next year' })
     // CONTRAST, same render: the outcome's own state line (ED 5809278282 moved the context to the popover).
-    expect(shown(screen.getByTestId('outcome-unquantified'))).toBe('Not quantified')
+    expect(shown(screen.getByTestId('outcome-unquantified'))).toBe('Outcome not quantified')
     expect(screen.queryByTestId('outcome-strength-row')).toBeNull()
     expect(container.textContent).not.toMatch(STRENGTH_ON_CARD)
     expect(container.textContent).not.toMatch(/\d+%/)
@@ -215,11 +216,12 @@ describe('contract v3.1 — Outcome/Risk records are distinct from the strength 
 
   it('a risk with a person-set link keeps its OWN unset statement and loses the strength row', () => {
     const { container } = renderRisk()
-    // CONTRAST: the risk's own state, still on the face — ED 5809278282: the
-    // short form shown, the exact sentence announced (and on title/popover).
+    // CONTRAST: the risk's own state, still on the face — contract v3.1
+    // (DESIGN-GAP-v31 #34): the exact sentence SHOWN and announced (was ED
+    // 5809278282's short form "Not set yet").
     const line = screen.getByTestId('risk-exposure-unset')
     expect(announced(line)).toBe(RISK_EXPOSURE_UNSET_LINE)
-    expect(shown(line)).toBe('Not set yet')
+    expect(shown(line)).toBe(RISK_EXPOSURE_UNSET_LINE)
     // Contract v3.1 (OR-02): the fixture's state line has no full stop.
     expect(RISK_EXPOSURE_UNSET_LINE).toBe('Likelihood and impact not set yet')
     expect(screen.queryByTestId('risk-strength-row')).toBeNull()

@@ -1,6 +1,18 @@
 /**
  * NodeStructuralMarker — the CLIENT-DERIVED half of the node coaching slot.
  *
+ * ⛔ NOT MOUNTED ON THE CARD ANY MORE — contract v3.1 (DESIGN-GAP-v31 #18). The
+ * contract's resting top-right corner is the Info attention mark only
+ * (`.node .attention`); measured on served `eec722ab`, this GitMerge glyph sat
+ * at rest on 3 of 5 pricing factors ("Observed from the shape of your model:
+ * every option acts directly on this part."), a cue the contract does not have.
+ * `NodeCoachingMarker` no longer falls back to it, so it no longer reserves the
+ * title spacer either (that reservation was the blank line above those titles
+ * at landing, gap #17). The finding still reaches the reader through its
+ * pre-analysis panel row, where its action lives. The component and its gate
+ * are KEPT, unmounted, for the inspector to adopt (Canvas WS3) — everything
+ * below describes it as it behaves wherever it is mounted.
+ *
  * `computeStructuralAbsence` diagnoses a reasoning gap from the nodes and edges
  * sitting in the browser, entirely client-side, with no producer call of any
  * kind. Until now its finding reached the reader only as a row in a panel that

@@ -267,11 +267,15 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect((title.parentElement as HTMLElement).style.minWidth).toBe('236px')
   })
 
-  it('the coaching SLOT\'s structural fallback counts as a mark too (no guidance item, a structural finding names this risk)', () => {
+  it('contract v3.1 #18: a structural finding puts NO mark in the corner and reserves NO title spacer', () => {
+    // ⚠ INVERTED BY DESIGN-GAP-v31 #18. This case used to pin the structural
+    // fallback AS a corner mark (with its title spacer). v3.1's resting corner
+    // is the attention mark only, so the SAME graph — a structural finding that
+    // names this risk, no guidance item — now leaves the stack empty and the
+    // title its full width: the blank line above such titles at landing (#17)
+    // went with the glyph.
     const node = (id: string, kind: string, data: Record<string, unknown> = {}) =>
       ({ id, type: kind, position: { x: 0, y: 0 }, data: { kind, label: id, ...data } })
-    // The graph the structural-marker suite uses: two options, one reaching an
-    // external factor and one a controllable one, and a risk nothing reaches.
     useCanvasStore.setState({
       nodes: [node('o1', 'option'), node('o2', 'option'), node('f1', 'factor', { category: 'external' }), node('f2', 'factor', { category: 'controllable' }), node('r1', 'risk')],
       edges: [{ id: 'e1', source: 'o1', target: 'f1', data: {} }, { id: 'e2', source: 'o2', target: 'f2', data: {} }],
@@ -280,23 +284,14 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
       id: 'r1', type: 'risk', position: { x: 0, y: 0 }, selected: false, isConnectable: true,
       positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0, data: { type: 'risk', label: 'r1' },
     }
-    const view = render(
+    render(
       <ReactFlowProvider>
         <BaseNode {...(props as unknown as ComponentProps<typeof BaseNode>)} nodeType="risk" icon={Circle} />
       </ReactFlowProvider>,
     )
-    const root = view.container.querySelector('[role="group"]') as HTMLElement
-    const stack = screen.getByTestId('node-corner-stack-r1')
-    expect(Array.from(stack.children).map((c) => c.getAttribute('data-testid'))).toEqual(['node-structural-marker-r1'])
-    const title = screen.getByTestId('node-title')
-    const spacer = within(title).getByTestId('node-title-corner-spacer')
-    const wrapperMin = parseFloat((title.parentElement as HTMLElement).style.minWidth)
-    for (const s of [1, 1.7]) {
-      expect(parseFloat(root.style.paddingLeft) + wrapperMin - px(spacer.style.width, s, { pct: wrapperMin }), `scale ${s}`).toBeCloseTo(
-        markLeftAt(parseFloat(root.style.width), 1, s) - CONTRACT_MARK_CLEARANCE_PX,
-        6,
-      )
-    }
+    expect(screen.queryByTestId('node-structural-marker-r1')).toBeNull()
+    expect(screen.getByTestId('node-corner-stack-r1').children).toHaveLength(0)
+    expect(within(screen.getByTestId('node-title')).queryByTestId('node-title-corner-spacer')).toBeNull()
   })
 
   it('the reserve follows the MARK, not the data: at the quiet rung the coaching marker leaves, and so does its reserve', () => {

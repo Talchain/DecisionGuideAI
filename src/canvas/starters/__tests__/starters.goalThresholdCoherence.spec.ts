@@ -165,7 +165,10 @@ describe('pricing-model — the bytes the canvas registers with CEE', () => {
     expect(wireGoal!.goal_threshold_frame).toBe('level')
 
     // What the goal card renders is read from raw + unit, and must not move.
+    // ⭐ DESIGN-GAP-v31 #22 (26 Sep, WS4): the starter carries no
+    // `threshold_source`, so its origin is 'unrecorded' ("Source not recorded"),
+    // never asserted as the brief — the figure itself is unchanged.
     const storeGoal = nodes.find((n) => n.id === 'goal_pricing_transition')!
-    expect(resolveGoalTarget(storeGoal.data as never)).toEqual({ raw: 110, unit: '%', source: 'brief' })
+    expect(resolveGoalTarget(storeGoal.data as never)).toEqual({ raw: 110, unit: '%', source: 'unrecorded' })
   })
 })

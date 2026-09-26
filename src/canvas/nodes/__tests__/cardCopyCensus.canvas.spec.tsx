@@ -244,6 +244,16 @@ const EDGES = [
  * option raising something all three cards read `Increases`. `option-1`'s
  * `factor-1` was 0.95 (above its 0.8); at 0.65 it lowers it, so no direction
  * word is on every sibling either.
+ *
+ * ⚠ RE-CUT 26 Sep 2026 (contract v3.1 #9, WS4): the change row's value is now
+ * its own element (`option-change-row-value-*`, so it can hold one line apart
+ * from its mark), which makes it a LEAF this collector reads — before, it was
+ * mixed content beside the mark and never collected. Reading it exposed that
+ * the fixture's direction words were NOT disjoint: `option-3`'s `factor-6`
+ * target 0.17 lowered its 0.66, so all three cards carried `Decreases`. At
+ * 0.87 it raises it: option-1 reads only `Decreases`, option-3 only
+ * `Increases`, and no direction word is on every sibling — the data is
+ * disjoint again, as this block always claimed.
  */
 const CEE = {
   options: [
@@ -253,7 +263,7 @@ const CEE = {
     // Sep; it was two). The fourth is `factor-7`, a factor no other option sets
     // (disjointness holds), last in the model order — so it is the one behind
     // `+1 more` and adds no visible run.
-    { id: 'option-3', interventions: { 'factor-3': 0.93, 'factor-5': 0.72, 'factor-6': 0.17, 'factor-7': 0.4 } },
+    { id: 'option-3', interventions: { 'factor-3': 0.93, 'factor-5': 0.72, 'factor-6': 0.87, 'factor-7': 0.4 } },
   ],
 }
 
@@ -639,7 +649,11 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // line); the whole sentence `Outcome not quantified` is on the `title`, in
     // sr-only text and in the popover — none of which this census counts. Still
     // STATE, still invariant by design; Detailed buckets keep the full sentence.
-    'Not quantified',
+    // ⭐ RE-ADJUDICATED 26 Sep 2026 — contract v3.1 `.small-state` (WS4, the
+    // outcome sibling of DESIGN-GAP-v31 #34): the Standard card SHOWS the whole
+    // `Outcome not quantified`, wrapping where the landing counter-scale needs
+    // it. Same STATE, same position; only the words shown grew back.
+    'Outcome not quantified',
   ],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
@@ -652,7 +666,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // WAS `Link strength` (CAPTION) — retired by contract v3.1 (gap U1). The
     // falsification question is still asked after a run (the `!isPostAnalysis`
     // gate stays gone), by the rail icon.
-    'Not quantified', // STATE — see `outcome · pre · standard` (ED 5809278282 short form)
+    'Outcome not quantified', // STATE — see `outcome · pre · standard` (v3.1 `.small-state`, 26 Sep)
   ],
   'outcome · post · expert': [
     'Depends on:', // HEADING
@@ -726,7 +740,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // STATE — see `outcome · pre · standard`. The outcome declares no reduced
     // line, so its body is not blanked at this rung and the state line is
     // collected here, exactly as `factor · post · lod-line` collects its caption.
-    'Not quantified', // ED 5809278282 short form — see `outcome · pre · standard`
+    'Outcome not quantified', // v3.1 `.small-state` — see `outcome · pre · standard`
   ],
 }
 
@@ -864,8 +878,8 @@ const ADJUDICATED_POSITIONS: Position[] = [
   { what: 'risk · the coaching chips', by: 'census', present: (_c, r) => r.includes('What reduces this?') },
   { what: 'outcome · the coaching chip', by: 'census', present: (_c, r) => r.includes('Explore consequences') },
   // Contract v3.1 OR-02 / RHY-09: the outcome's own-state line, bound by testid.
-  // ED 5809278282: shows `Not quantified`, announces `Outcome not quantified`.
-  { what: 'outcome · the own-state line `Not quantified`', by: 'census', present: (c) => c.querySelector('[data-testid="outcome-unquantified"]') != null },
+  // v3.1 `.small-state` (26 Sep): shows AND announces `Outcome not quantified`.
+  { what: 'outcome · the own-state line `Outcome not quantified`', by: 'census', present: (c) => c.querySelector('[data-testid="outcome-unquantified"]') != null },
   // Locked Canvas design (23 Sep 2026): the face question is the rail's
   // coaching icon on every kind (spec §2; ED 02:31Z D4). No visible text, so the
   // census's verdict on it is that it adds no run — which is only a measurement

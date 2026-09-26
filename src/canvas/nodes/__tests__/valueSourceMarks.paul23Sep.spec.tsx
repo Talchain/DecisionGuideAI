@@ -82,8 +82,16 @@ const FACTORS: N[] = [
   // The writer withdrew extractionType on a user edit; the receipt has not stamped yet.
   f('fac-edit-window', 'Engineering capacity', { observedState: { value: 0.8, raw_value: 0.8, display_value: '0.8', source: 'cee_inference' } }),
   // An external factor whose only figure is its prior range (Vendor Licensing Cost shape).
+  // ⚠ 26 Sep (contract v3.1 #20): with its real unit and cap, so the card CAN
+  // state the range in the reader's units ("£25,000 to £75,000"); the served
+  // shape — the same range with NO unit — is `fac-range-bare`, whose bare 0–1
+  // pair the card now omits.
   { id: 'fac-range', type: 'factor', position: { x: 0, y: 0 }, data: {
-    type: 'factor', label: 'Vendor licensing cost', category: 'external', extractionType: 'inferred', observedState: {},
+    type: 'factor', label: 'Vendor licensing cost', category: 'external', extractionType: 'inferred', observedState: { unit: '£', cap: 100000 },
+    prior: { distribution: 'uniform', range_min: 0.25, range_max: 0.75 },
+  } },
+  { id: 'fac-range-bare', type: 'factor', position: { x: 0, y: 0 }, data: {
+    type: 'factor', label: 'Vendor licensing cost (no unit)', category: 'external', extractionType: 'inferred', observedState: {},
     prior: { distribution: 'uniform', range_min: 0.25, range_max: 0.75 },
   } },
 ]
@@ -186,13 +194,17 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     expect(factorValueMark(container)).toBe('unknown')
   })
 
-  it('the mark is a word with an accessible name, not colour alone', () => {
+  it('the mark is a visible token with an accessible name, not colour alone', () => {
     setState()
     const { container } = renderNode(FactorNode, 'fac-confirmed')
     const m = container.querySelector('[data-testid="factor-recorded-value"] [data-value-source="you"]')!
-    expect(m.querySelector('[aria-hidden="true"]')!.textContent).toBe('you')
+    // Contract v3.1 `prov('user')` (DESIGN-GAP-v31 #21): a person's value is the
+    // PERSON GLYPH (was the word "you") — still a shape, never colour alone.
+    expect(m.querySelector('[aria-hidden="true"][data-source-glyph="person"]')).not.toBeNull()
     expect(m.querySelector('.sr-only')!.textContent).toBe('Confirmed by you')
-    expect(m.getAttribute('title')).toBe('Confirmed by you')
+    // A focusable button whose name is its hover/focus label (v3.1 point 1).
+    expect(m.tagName).toBe('BUTTON')
+    expect(m.getAttribute('aria-label')).toContain('Confirmed by you')
   })
 
   it('a range that is the factor’s only figure is marked "no source" — never est., never "filled in for you" (the range’s author is not recorded)', () => {
@@ -213,6 +225,15 @@ describe('Paul 23 Sep point 1 — every factor value names its source on the fac
     const m = range!.querySelector('[data-testid="factor-range-source-fac-range"]')
     expect(m?.getAttribute('data-value-source')).toBe('unknown')
     expect(m?.querySelector('.sr-only')?.textContent).toBe('Source not recorded')
+  })
+
+  it('CONTRAST (v3.1 #20) — the same range with no unit is a bare 0–1 pair: no range line and no mark on the card, nothing substituted', () => {
+    setState()
+    const { container } = renderNode(FactorNode, 'fac-range-bare')
+    const face = container.querySelector('[role="group"]')!
+    expect(face.querySelector('[data-testid="factor-prior-range-fac-range-bare"]')).toBeNull()
+    expect(face.querySelector('[data-testid="factor-range-source-fac-range-bare"]')).toBeNull()
+    expect(face.textContent ?? '').not.toContain('0.25 to 0.75')
   })
 })
 

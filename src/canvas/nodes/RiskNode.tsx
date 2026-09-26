@@ -18,6 +18,7 @@ import { resolveNodeCoaching } from './coaching/resolveNodeCoaching'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { nodeRecordedValue } from '../domain/nodeRecordedValue'
 import { factorValueSourceMark, ValueSourceMark } from './shared/valueSourceMark'
+import { openNodeInspector } from './shared/openNodeInspector'
 
 /**
  * ⭐⭐⭐ A THIN CARD MUST SAY THAT THE MODEL IS THIN, NOT LOOK LIKE A THIN TOOL.
@@ -151,6 +152,12 @@ export const RISK_EXPOSURE_UNSET_LINE = `Likelihood and impact ${METRIC_UNSET.in
  * rides `sr-only`, `title` and the popover.
  */
 export const RISK_EXPOSURE_UNSET_SHORT = METRIC_UNSET.standalone
+/*
+ * ⛔ NO LONGER THE STANDARD CARD'S RESTING FORM — contract v3.1 (DESIGN-GAP-v31
+ * #34) shows the whole `RISK_EXPOSURE_UNSET_LINE` on the card, wrapping where it
+ * must. Kept, and exported, as the register's short form for any surface that
+ * genuinely has one line of ~19 characters; the Standard card is no longer one.
+ */
 
 /**
  * The qualifier the entered likelihood/impact pair carries in full — the 9 Sep
@@ -491,7 +498,7 @@ export const RiskNode = memo((props: NodeProps) => {
     >
       <span className="shrink-0" data-testid="risk-recorded-readout">{recordedValue}</span>
       {recordedValueMark && (
-        <ValueSourceMark mark={recordedValueMark} testId={`risk-value-source-${props.id}`} />
+        <ValueSourceMark mark={recordedValueMark} testId={`risk-value-source-${props.id}`} onOpenSource={() => { openNodeInspector(props.id) }} />
       )}
       {!isDetailed && (
         <span className={typography.screenReaderOnly} data-testid="risk-primary-line-full">{exposureFull}</span>
@@ -509,14 +516,24 @@ export const RiskNode = memo((props: NodeProps) => {
    * its qualifier — it is rare on real boards (the starters' risks are unset),
    * and a cut value would be the worse defect. The unset state stays one line.
    */
+  /*
+   * ⭐ CONTRACT v3.1 (DESIGN-GAP-v31 #34; audit #32): the unset state is the
+   * fixture's whole state label, VISIBLE — "Likelihood and impact not set yet"
+   * (`.small-state`) — not the bare "Not set yet", which left a reader to guess
+   * WHAT is not set (measured on served `eec722ab`: every starter risk read
+   * "Not set yet"; the full sentence was sr-only, `title` and popover only). It
+   * wraps rather than being cut: at the landing counter-scale it can take a
+   * second line, and a cut would eat the state word, the one cut this line may
+   * never make (`RISK_EXPOSURE_UNSET_SHORT`'s own reasoning).
+   */
   const riskExposureLine = !isDetailed && !recordedValue ? (
     <div
-      className={`${typography.edgeLabel} text-text-light ${exposureReadout ? 'break-words' : 'whitespace-nowrap overflow-hidden text-ellipsis'}`}
+      className={`${typography.edgeLabel} text-text-light break-words`}
       data-testid={exposureReadout ? 'risk-exposure-line' : 'risk-exposure-unset'}
       data-card-primary-line="risk"
       title={exposureFull}
     >
-      <span aria-hidden="true">{exposureReadout || RISK_EXPOSURE_UNSET_SHORT}</span>
+      <span aria-hidden="true">{exposureReadout || RISK_EXPOSURE_UNSET_LINE}</span>
       {exposureReadout && (
         <span aria-hidden="true" className="italic" data-testid="risk-exposure-provenance"> · entered</span>
       )}

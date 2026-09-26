@@ -119,7 +119,9 @@ const FACTOR_DATA = {
   label: 'Cash Runway',
   type: 'factor',
   category: 'external',
-  observedState: { raw_value: 0.62, unit: null },
+  // A figure in the reader's own unit (was a unitless 0.62, which contract
+  // v3.1 #20 now omits from the card and its reduced line as a bare model number).
+  observedState: { raw_value: 62, unit: '%' },
 }
 
 const OPTION_DATA = { label: 'Expand to EU', type: 'option' }

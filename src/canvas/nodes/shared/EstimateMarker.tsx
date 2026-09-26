@@ -1,6 +1,8 @@
-import { typography } from '../../../styles/typography'
+import type { ReactNode } from 'react'
+import Tooltip from '../../../components/Tooltip'
 import { UNCONFIRMED_ESTIMATE_LABEL, UNCONFIRMED_ESTIMATE_TOKEN } from '../../domain/vocabulary'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 /**
  * EstimateMarker — R6 (Paul, 16 Aug 2026): "placeholder wall collapses to one
@@ -12,10 +14,12 @@ import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
  * This is the one marker they collapse into. Display only: it changes nothing
  * about the value, its provenance, or what the analysis does with it.
  *
- * Deliberately not a button and not focusable — it is a status marker, and the
- * detail behind it is reachable through the node's quick actions and the
- * inspector, which ARE keyboard-reachable. Adding a second tab stop per node
- * would cost more than it gives.
+ * ⛔ SUPERSEDED ON CARDS BY CONTRACT v3.1 POINT 1 (DESIGN-GAP-v31 #21): this
+ * paragraph said "deliberately not a button and not focusable … adding a second
+ * tab stop per node would cost more than it gives". v3.1 ruled the other way —
+ * each mark is focusable, named, labelled on hover/focus and opens the source
+ * detail — so a card that passes `onOpenSource` gets a button (`SourceMark`
+ * below). The edge label's `est.` passes none and stays a static mark.
  *
  * ⭐⭐ ONE GLYPH, TWO DIFFERENT OBJECTS — AND THEY ARE NAMED APART, NOT MERGED
  * (Paul, 31 Aug 2026: "est. is on almost every node and explains nothing").
@@ -224,25 +228,111 @@ export function unconfirmedStrengthDisclosure(
   return `Nobody has set ${STRENGTH_OBJECT}; ${assumer} ${assumedPct}%. ${OPEN_DETAILS_SET_OR_CONFIRM}`
 }
 
+/**
+ * ⭐ CONTRACT v3.1 `.prov` — THE ONE LOOK OF EVERY SOURCE MARK (DESIGN-GAP-v31
+ * #21, v3.1 amendment point 1).
+ *
+ *   `.prov{font-size:10px;font-weight:400;color:var(--muted);padding:0 1px;
+ *    line-height:1}` · `.prov svg{width:11px;height:11px}` ·
+ *   `.prov:hover{color:var(--info);text-decoration:underline}`
+ *
+ * Measured before (served `eec722ab`): 11px, and weight 500 on a factor value —
+ * inherited from the value line's `font-medium`, so `est.` read as part of the
+ * figure. The size is counter-scaled like every canvas token (census:
+ * `canvasTextCounterScale.census.spec.ts`), and the weight is set here so it can
+ * never be inherited again.
+ */
+export const SOURCE_MARK_TYPE_CLASSES =
+  'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans font-normal not-italic leading-none text-text-light'
+
+/** v3.1 `.prov svg{width:11px;height:11px}`, counter-scaled with the type. */
+export const SOURCE_MARK_GLYPH_CLASSES =
+  'inline-block h-[calc(11px*var(--canvas-label-scale,1))] w-[calc(11px*var(--canvas-label-scale,1))] self-center'
+
+/**
+ * ⭐⭐ A MARK THAT OPENS ITS SOURCE — v3.1 point 1: "Each mark has an accessible
+ * name and a hover/focus label, and opens the source detail."
+ *
+ * The header above this file once said the opposite ("deliberately not a
+ * button and not focusable … a second tab stop per node would cost more than it
+ * gives"). v3.1 point 1 (Paul, 23 Sep) and point 12 ("every icon has an
+ * accessible name, a hover and focus label, and a route to the inspector")
+ * RULED on that trade, so where a card hands the mark its route (`onOpen`), the
+ * mark is a real button: keyboard-reachable, named by its own words (the
+ * sr-only label the caller renders inside it), labelled on hover AND focus by
+ * the one node `Tooltip`, and a click opens the element's source detail — the
+ * inspector — without selecting through the card or starting a drag.
+ *
+ * Without `onOpen` it stays the static mark it always was (the edge label's
+ * `est.` has no node inspector to open).
+ */
+export function SourceMark({
+  testId,
+  tip,
+  onOpen,
+  dataValueSource,
+  children,
+}: {
+  testId?: string
+  /** The hover/focus label — the mark's full meaning. */
+  tip: string
+  /** The route to the source detail. Absent → a static, non-focusable mark. */
+  onOpen?: () => void
+  dataValueSource?: string
+  children: ReactNode
+}) {
+  const classes = `${SOURCE_MARK_TYPE_CLASSES} inline-flex items-baseline gap-0.5 px-px align-baseline`
+  if (!onOpen) {
+    return (
+      <span className={classes} title={tip} data-testid={testId} data-value-source={dataValueSource}>
+        {children}
+      </span>
+    )
+  }
+  return (
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tip}>
+      <button
+        type="button"
+        data-testid={testId}
+        data-value-source={dataValueSource}
+        data-source-mark="true"
+        data-node-tooltip="true"
+        // v3.1 `prov()`: the button's name IS the full label ("Monthly price:
+        // Set by you — …"). The visible token stays the glyph or word.
+        aria-label={tip}
+        className={`nodrag nopan ${classes} rounded-sm border-0 bg-transparent underline-offset-2 hover:text-info hover:underline focus:outline-none focus-visible:text-info focus-visible:underline focus-visible:ring-2 focus-visible:ring-info`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpen()
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </button>
+    </Tooltip>
+  )
+}
+
 export function EstimateMarker({
   subject = 'value',
   title,
+  onOpenSource,
 }: {
   /** Which unconfirmed thing this marker speaks for. Defaults to the card's own value. */
   subject?: EstimateSubject
   /** Escape hatch for a caller with a genuinely different object. Prefer `subject`. */
   title?: string
+  /** The card's route to its source detail (v3.1 pt 1). Absent → a static mark. */
+  onOpenSource?: () => void
 }) {
+  const tip = title ?? ESTIMATE_SUBJECT_TITLE[subject]
   return (
-    <span
-      // Upright, regular weight (contract v3.1 `.prov`; NODE-ANATOMY v3.2): an
-      // italic 11px mark at landing zoom rendered thin and off the value's
-      // baseline. One visual for every mark kind.
-      className={`${typography.edgeLabel} text-text-light`}
-      title={title ?? ESTIMATE_SUBJECT_TITLE[subject]}
-      data-testid="estimate-marker"
-    >
+    <SourceMark testId="estimate-marker" tip={tip} onOpen={onOpenSource}>
+      {/* Upright, regular weight (contract v3.1 `.prov`): one visual for every
+          mark kind. As a button its accessible name is the full `tip`
+          (`aria-label`, as v3.1 `prov()` does); as a static mark, its title. */}
       {UNCONFIRMED_ESTIMATE_TOKEN}
-    </span>
+    </SourceMark>
   )
 }

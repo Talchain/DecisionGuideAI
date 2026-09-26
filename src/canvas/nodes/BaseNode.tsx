@@ -1710,8 +1710,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
              by its semibold title, never by depth. `rounded-sm` is DS v5 §6.2
              `sm` = 8px, the contract's `border-radius:8px` (FRAME-01 / OR-04);
              `rounded-lg` rendered 14px through the index.css override.
-             Selection lifts one step (`shadow-2`) with its ring (FRAME-09). */
-          selected && !isHighlighted ? 'shadow-2' : 'shadow-1'
+             Selection lifts one step (`shadow-2`) with its ring (FRAME-09).
+             ⭐ The resting value is the contract's own (`--shadow-card-rest`,
+             DESIGN-GAP-v31 #43); it was DS v5 `shadow-1`. */
+          selected && !isHighlighted ? 'shadow-2' : 'shadow-card-rest'
         }
         ${borderColourClass}
         ${lodKindFillClass}

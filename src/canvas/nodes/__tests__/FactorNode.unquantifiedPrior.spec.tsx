@@ -47,7 +47,7 @@
  * asserted here with badges mocked OFF, which is the stricter posture.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { PRIOR_IS_UNQUANTIFIED_FIELD } from '../../domain/nodes'
@@ -278,13 +278,26 @@ describe('FactorNode — a factor with no estimate says so', () => {
     // PRECONDITION PINNED IN-TEST: this proves the suppression above is the
     // FLAG's doing and not "external factors stopped showing ranges", which
     // would be a silent capability loss on the whole external population.
+    // ⭐ v3.1 #20 (26 Sep): a genuine prior stated only on the bare 0–1 scale is
+    // no longer printed on the card, so the twin carries the factor's real unit
+    // — the range the card CAN state ("30% to 80%") — and the bare twin is
+    // pinned beside it: no range, and still no "No estimate yet" (the flag's
+    // sentence never fills the gap the scale rule leaves).
     const { container } = renderFactor({
       category: 'external',
       prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
+      observedState: { unit: '%' },
     })
     const text = container.textContent ?? ''
-    expect(text).toContain('Range:')
+    expect(text).toContain('Range: 30% to 80%')
     expect(text).not.toMatch(NO_ESTIMATE_LINE)
+    cleanup()
+    const bare = renderFactor({
+      category: 'external',
+      prior: { distribution: 'uniform', range_min: 0.3, range_max: 0.8 },
+    }).container.textContent ?? ''
+    expect(bare).not.toContain('Range:')
+    expect(bare).not.toMatch(NO_ESTIMATE_LINE)
   })
 
   // ─────────────────────────────────────────────────────────────────────────

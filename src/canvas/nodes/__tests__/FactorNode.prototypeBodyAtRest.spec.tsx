@@ -231,9 +231,9 @@ describe('prototype · the TOP driver carries its turning-point track at rest', 
     const driver = within(c).getByTestId('factor-driver-line')
     const tp = within(c).getByTestId('factor-turning-point')
     expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 analysed')
-    // The prototype's ONE caption line (`flipPlot`): words, then the number.
-    expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Model comparison changes')
-    expect(within(tp).getByTestId('factor-turning-point-caption-value').textContent).toBe('6.5%')
+    // v3.1's `flipPlot` caption (DESIGN-GAP-v31 #38): the direction sentence.
+    expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison changes.')
+    expect(within(tp).queryByTestId('factor-turning-point-caption-value')).toBeNull()
     expect(within(tp).getByTestId('factor-turning-point-track')).toBeTruthy()
     expect(before(within(c).getByTestId('factor-recorded-value'), driver)).toBe(true)
     expect(before(driver, tp)).toBe(true)
@@ -242,30 +242,33 @@ describe('prototype · the TOP driver carries its turning-point track at rest', 
   })
 
   /**
-   * ⭐ VERIFIER FIX_NEEDED 1 (c5adac48): the 49-character direction sentence at
-   * rest made the top-driver card 5 body lines at Normal and ~7 at the landing
-   * zoom. At rest the card carries the prototype's caption + number; the
-   * direction sentence (Paul 23 Sep point 3(a)) follows it in the accessible name.
+   * ⭐ CONTRACT v3.1 POINT 3 (DESIGN-GAP-v31 #38) REVERSES VERIFIER FIX_NEEDED 1
+   * (c5adac48), which moved the 49-character direction sentence off the resting
+   * card because it made the top-driver card 5 body lines at Normal and ~7 at
+   * the landing zoom. v3.1's own `flipPlot` captions the resting track with the
+   * sentence, and the common brief rules v3.1 wins — the height cost is named
+   * in the WS4 report (WS1 owns fit). The number still prints ONCE: in the
+   * sentence, never again on the track.
    */
-  it('at rest the direction sentence is NOT card text — it follows the visible caption in the accessible name; the number prints once', () => {
+  it('at rest the direction sentence IS card text (v3.1 #38); the name opens with it; the number prints once', () => {
     displayMetadata = TOP()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
     const c = card()
     const tp = within(c).getByTestId('factor-turning-point')
-    expect(visibleText(c)).not.toContain('the current model comparison changes')
-    expect(tp.getAttribute('aria-label')!.startsWith('Model comparison changes 6.5%. Below 6.5%, the current model comparison changes. ')).toBe(true)
+    expect(visibleText(c)).toContain('Below 6.5%, the current model comparison changes.')
+    expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. ')).toBe(true)
     expect(visibleText(c).split('6.5%').length - 1).toBe(1)
   })
 
-  it('stale: the caption is the prototype’s `Last run · comparison changes`', () => {
+  it('stale: the caption is the Last-run direction sentence', () => {
     displayMetadata = TOP()
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW] })
     renderFactor(VALUED)
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
     const tp = within(card()).getByTestId('factor-turning-point')
-    expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Last run · comparison changes')
-    expect(tp.getAttribute('aria-label')!.startsWith('Last run · comparison changes 6.5%. Last run · Below 6.5%, the model comparison changes. ')).toBe(true)
+    expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Last run · Below 6.5%, the model comparison changes.')
+    expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes. ')).toBe(true)
   })
 
   /**
@@ -349,13 +352,16 @@ describe('prototype · an external factor shows its range with a band, on the ca
     if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
   })
 
-  it('unitless normalised prior: the band ends are the line’s own `0.3` and `0.8`', () => {
+  it('unitless normalised prior: NO line and NO band on the card (v3.1 #20 — no bare internal model scale)', () => {
+    // Was: the band ends are the line's own `0.3` and `0.8`. v3.1 `checks.factor`
+    // rules the bare 0–1 pair off the card (omit, never invent); the owner still
+    // composes it for the Model tab (`resolveFactorPriorRange`).
     seed(RANGE_ONLY, { phase: 'post' })
     renderFactor(RANGE_ONLY)
     const c = card('Feature adoption')
-    expect(visibleText(within(c).getByTestId(`factor-prior-range-${ID}`))).toBe('Range: 0.3 to 0.8 no source')
-    expect(within(c).getByTestId(`factor-range-band-low-${ID}`).textContent).toBe('0.3')
-    expect(within(c).getByTestId(`factor-range-band-high-${ID}`).textContent).toBe('0.8')
+    expect(within(c).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
+    expect(within(c).queryByTestId(`factor-range-band-${ID}`)).toBeNull()
+    expect(visibleText(c)).not.toContain('0.3 to 0.8')
   })
 
   it('CONTRAST — the producer’s authored range prose keeps its line and gets NO band (prose is never parsed)', () => {
