@@ -35,7 +35,7 @@
  *
  * The estate already owns the honest sentence, and it already SHIPS it on the
  * Analysis tab: `influenceScaleCopy.INFLUENCE_SCALE_CAPTION` — "Influence is
- * relative to the strongest factor. The top driver always shows 100%." The
+ * relative to the strongest factor. The strongest factor always shows 100%." The
  * Reasoning tab rendered the weaker sibling, which denies the wrong reading
  * ("not a share of the outcome") without disclosing that the 100% is
  * guaranteed. This spec pins that it no longer does.
@@ -80,7 +80,7 @@
  * beside a number contradicting it.
  *
  * ⛔ AND THE DEFECT REACHED A USER. Witnessed by Paul on the deployed Reasoning
- * tab: a FULL-WIDTH TOP BAR, LABELLED 67%, under "The top driver always shows
+ * tab: a FULL-WIDTH TOP BAR, LABELLED 67%, under "The strongest factor always shows
  * 100%" — with the cause already disclosed one clause earlier ("2 factors are
  * not ranked here: controlled by your options"). Reproduced at the builder with
  * one suppressed row at 1.0 and survivors at 0.67 / 0.33.
@@ -152,7 +152,7 @@ import { highUncertainty, makeData, makeDriver, openStrategicChallenge } from '.
  * here, which is the entire point of the file.
  */
 const SCALE_IS_RELATIVE = 'Influence is relative to the strongest factor in this run, not a share of the outcome.'
-const HUNDRED_IS_GUARANTEED = 'The top driver always shows 100%.'
+const HUNDRED_IS_GUARANTEED = 'The strongest factor always shows 100%.'
 /**
  * The clause that replaces it when the figure is not 100. Typed here for the
  * same reason as its twin: a `toContain(COPY...)` assertion moves with the

@@ -454,7 +454,7 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
  * 32 words and 49px, sitting above a chart with two bars —
  *
  *   "Influence is relative to the strongest factor in this run, not a share of
- *    the outcome. The top driver always shows 100%. 1 factor is not ranked
+ *    the outcome. The strongest factor always shows 100%. 1 factor is not ranked
  *    here: controlled by your options."
  *
  * Every clause is true and every one was fought for. ⛔ READ AS A BLOCK, NONE

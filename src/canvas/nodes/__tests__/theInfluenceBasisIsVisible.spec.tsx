@@ -110,8 +110,8 @@ describe('the canvas legend explains the basis, because nothing else survives a 
     expect(influenceRow()!.gloss.toLowerCase()).toContain('relative to the strongest')
   })
 
-  it('states that the top driver always shows 100%', () => {
-    expect(influenceRow()!.gloss.toLowerCase()).toContain('top driver always shows 100%')
+  it('states that the strongest factor always shows 100%', () => {
+    expect(influenceRow()!.gloss.toLowerCase()).toContain('strongest factor always shows 100%')
   })
 
   it('⛔ no longer makes the bare absolute claim on its own', () => {
