@@ -132,7 +132,14 @@
 
 .messageBubbleUser {
   composes: messageBubble;
+  /* DS v5 §21.1: the user's message sits on the right. `align-self` alone
+     never did: ChatMessage wraps every message in a BLOCK div, where it has
+     no effect, so the bubble sat on the left (the same cause #2059 fixed for
+     `.chipActionIndicator`). A box of its own width, pushed right, is what
+     moves it; `align-self` stays for any flex parent. */
   align-self: flex-end;
+  width: fit-content;
+  margin-left: auto;
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
@@ -1172,6 +1179,7 @@
 .blockBadgeDotInfo { composes: blockBadgeDot; background: var(--info, #277A9D); }
 .blockBadgeDotGoal { composes: blockBadgeDot; background: var(--goal, #F5C433); }
 .blockBadgeDotSuccess { composes: blockBadgeDot; background: var(--success, #67C89E); }
+.blockBadgeDotOption { composes: blockBadgeDot; background: var(--option, #AAA7E4); }
 
 .blockWithBadge {
   position: relative;

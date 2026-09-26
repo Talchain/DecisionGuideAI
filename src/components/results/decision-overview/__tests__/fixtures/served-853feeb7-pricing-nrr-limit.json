@@ -1,0 +1,32 @@
+{
+  "_provenance": {
+    "served_build": "853feeb74d80d752d94aa57959b2cb02f36e822b",
+    "deploy_url": "https://6ab807814d9c5e0008b692ea--olumi.netlify.app",
+    "captured_at": "2026-09-26T18:25Z",
+    "how": "pricing-model saved-example starter, one Run (no chat turns), ?ai=openai",
+    "constraint_source": "served chunk assets/pricing-model.draft-BwLKeQSb.js (goal_constraints[0], byte-for-byte below); the run's POST /proxy/v5/turn draft_graph carried NO goal_constraints, so this row is what the store held after the Run",
+    "goal_source": "POST /proxy/v5/turn response analysis_ready (goal_threshold_raw / goal_threshold_unit)"
+  },
+  "goal_constraint": {
+    "constraint_id": "constraint_out_nrr_min",
+    "node_id": "out_nrr",
+    "operator": ">=",
+    "value": 1.1,
+    "label": "net revenue retention floor",
+    "unit": "%",
+    "source_quote": "net revenue retention above 110%",
+    "confidence": 0.85,
+    "provenance": "explicit"
+  },
+  "analysis_ready_goal": {
+    "goal_node_id": "goal_pricing_transition",
+    "goal_threshold": 0.8,
+    "goal_threshold_raw": 110,
+    "goal_threshold_unit": "%"
+  },
+  "served_dom": {
+    "brief-bar-stated-limits": "net revenue retention floor ≥ 1.1%",
+    "goal_pricing_transition card": "Achieve NRR Above 110% While Enabling Bottom-Up Adoption Target: 110% no source Source not recorded “net revenue retention above 110%”",
+    "reasoning tab": "Success: 110%"
+  }
+}

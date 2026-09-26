@@ -102,7 +102,9 @@ export function V5GraphPatchBlock({
     // assert friendly text via the per-row testids below.
     <div
       data-testid="v5-change-receipt"
-      className="rounded-md border border-panel-border bg-panel p-4 space-y-2"
+      // DS v5 §21.2: a GraphPatchBlock is the goal colour. A complete border
+      // at the /30 opacity every typed card uses (V7 L2: no one-sided accent).
+      className="rounded-md border border-goal/30 bg-panel p-4 space-y-2"
     >
       <div className="flex items-center gap-2">
         <span

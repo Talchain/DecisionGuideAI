@@ -35,7 +35,7 @@ import {
   type RankedCausalEdge,
 } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
-import { resolveSameRowRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
+import { resolveCardEdgeRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
 import { TIER_BY_KIND } from '../utils/nodeLayoutConstants'
 import { isGhostNode } from '../utils/fitTargets'
 import {
@@ -820,6 +820,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * store is read only then. A SUBSCRIPTION (like the glyph's below), not an
    * imperative `getNode`, so a card moving into or out of the gap re-routes
    * the link. Returned as a string: `useStore` compares by reference.
+   *
+   * ⭐⭐ The same subscription routes an UPWARD link (target wholly above the
+   * source) from the source's top into the target's bottom — `resolveRisingRoute`
+   * (26 Sep 2026) — where xyflow's bezier drew an S-loop over the target.
    */
   const sameRowRouteKey = useStore((st) => {
     if (pathType === 'straight' || pathType === 'smoothstep') return ''
@@ -838,7 +842,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       else others.push(box)
     }
     if (!src || !tgt) return ''
-    const route = resolveSameRowRoute(src, tgt, others)
+    const route = resolveCardEdgeRoute(src, tgt, others)
     return route ? JSON.stringify(route) : ''
   })
   const sameRowRoute = useMemo<SameRowRoute | null>(
@@ -921,9 +925,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
          * placement pass (which clears boxes around the handle midpoint) and
          * the leader line are unaffected. The end tangent is still vertical, so
          * the arrowhead (`orient="auto"`) still points straight into the card.
-         * Every other orientation (an upward edge between rows, and every
-         * non-default path type) keeps xyflow's own path; a SAME-ROW pair was
-         * routed above (`sameRowRoute.ts`).
+         * Every other orientation (every non-default path type, an
+         * unmeasured pair) keeps xyflow's own path; a SAME-ROW pair and an
+         * UPWARD pair were routed above (`sameRowRoute.ts`).
          */
         if (sourcePosition === Position.Bottom && targetPosition === Position.Top && targetY > sourceY) {
           if (layeredLeads) {
@@ -1598,10 +1602,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       if (!src || !tgt) return undefined
       // Another edge: BaseNode and the ghost nodes declare one source handle
       // (Bottom) and one target handle (Top), so its render guard reduces to
-      // the handle-height test — which the resolver's row-band overlap
-      // already implies (target top above source bottom).
+      // the handle-height test — which both resolvers already imply (a shared
+      // row band, or a target wholly above: target top above source bottom).
       const others = routeBoxes.filter((b) => b.id !== e.source && b.id !== e.target)
-      return resolveSameRowRoute(src, tgt, others)?.labelAnchor ?? undefined
+      return resolveCardEdgeRoute(src, tgt, others)?.labelAnchor ?? undefined
     }
     const placementEdges: PlacementEdge[] = []
     for (const e of getEdges()) {
