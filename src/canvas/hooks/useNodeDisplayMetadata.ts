@@ -127,13 +127,21 @@ export interface NodeDisplayMetadata {
   influenceSetSize?: number | null
   /**
    * How many factors the run's rank rule ranked (`rankFactor`'s
-   * `rankedSetSize`) — the PUBLICATION guard `driverRankFor` reads: a rank
-   * beyond it, or an absent count, states no rank (fail closed). NOT the
-   * printed `M`: since ED #63 5806207128 the line prints `influenceSetSize`,
-   * the eligible analysed factors. Optional for the same mock-ratchet reason as
+   * `rankedSetSize`) — the printed `M` of "Driver N of M ranked in this run"
+   * (NODE-ANATOMY v3.2; contract v3.1 pt 5) AND the PUBLICATION guard
+   * `driverRankFor` reads: a rank beyond it, or an absent count, states no rank
+   * (fail closed). Optional for the same mock-ratchet reason as
    * `influenceSetSize`; assigned beside it, unconditionally in the factor branch.
    */
   influenceRankedCount?: number | null
+  /**
+   * The driver bar's figure (`rankFactor`'s `relativeSensitivity`): this
+   * factor's rank key over rank 1's, 0..1, so rank 1 draws 100% and the bars
+   * fall with the rank (side-by-side DIFF item 4, 27 Sep 2026). Non-null
+   * exactly when `sensitivityRank` is. Optional for the mock-ratchet reason
+   * above: an absent value renders no driver line (fail closed).
+   */
+  driverRelativeSensitivity?: number | null
   /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
@@ -330,6 +338,7 @@ export function useNodeDisplayMetadata(
         influenceImportanceBasis: null,
         influenceSetSize: null,
         influenceRankedCount: null,
+        driverRelativeSensitivity: null,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
@@ -356,6 +365,7 @@ export function useNodeDisplayMetadata(
     let influenceImportanceBasis: string | null = null
     let influenceSetSize: number | null = null
     let influenceRankedCount: number | null = null
+    let driverRelativeSensitivity: number | null = null
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -386,6 +396,7 @@ export function useNodeDisplayMetadata(
       const ranks = rankFactor(rows, displayModel, nodeId)
       influenceSetSize = ranks.influenceSetSize
       influenceRankedCount = ranks.rankedSetSize
+      driverRelativeSensitivity = ranks.relativeSensitivity
       sensitivityRank = ranks.sensitivityRank
       voiRank = ranks.voiRank
 
@@ -661,6 +672,7 @@ export function useNodeDisplayMetadata(
       influenceImportanceBasis,
       influenceSetSize,
       influenceRankedCount,
+      driverRelativeSensitivity,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,

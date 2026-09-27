@@ -278,9 +278,10 @@ const OUTCOME_IDS = ['outcome-1', 'outcome-2', 'outcome-3']
 // and the line read the quantity noun `Influence`, which v3.1 retires.
 const RANKED = { influenceSetSize: 3, influenceRankedCount: 3 }
 const META: Record<string, Record<string, unknown>> = {
-  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true, ...RANKED },
-  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true, ...RANKED },
-  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true, ...RANKED },
+  // `driverRelativeSensitivity`: the bar's figure, present exactly when a rank is (`rankFactor`).
+  'factor-1': { sensitivityRank: 1, influence: 0.82, influenceProvenance: 'model', confidence: 0.71, inSensitivityAnalysis: true, ...RANKED, driverRelativeSensitivity: 1 },
+  'factor-2': { sensitivityRank: 2, influence: 0.41, influenceProvenance: 'model', confidence: 0.33, inSensitivityAnalysis: true, ...RANKED, driverRelativeSensitivity: 0.5 },
+  'factor-3': { sensitivityRank: 3, influence: 0.24, influenceProvenance: 'model', confidence: 0.58, inSensitivityAnalysis: true, ...RANKED, driverRelativeSensitivity: 0.29 },
   'option-1': { winRate: 0.47 },
   'option-2': { winRate: 0.31 },
   'option-3': { winRate: 0.15 },
@@ -597,7 +598,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   // ⭐ ADJUDICATED 24 Sep 2026 — contract v3.1 pt 5 retires the unranked
   // driver line, so the quantity-noun caption `Influence` is gone. The ranked
-  // line reads `Driver N of M analysed` (ED #63 5806207128), which VARIES per card, so it
+  // line reads `Driver N of M ranked in this run` (NODE-ANATOMY v3.2), which VARIES per card, so it
   // is no invariant run; its position is pinned by REACH (`factor · the driver
   // line`).
   'factor · post · standard': [],
@@ -734,7 +735,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · post · lod-line': [],
   'factor · pre · lod-line': [],
   // ⭐ ADJUDICATED 24 Sep 2026 (contract v3.1 pt 5): the factors are ranked
-  // now, so each has a reduced line — `Driver N of M analysed`, which
+  // now, so each has a reduced line — `Driver N of M ranked in this run`, which
   // varies per card — and no invariant run is left at this rung.
   'factor · post · lod-line': [],
   'risk · pre · lod-line': [],
@@ -856,7 +857,7 @@ const ADJUDICATED_POSITIONS: Position[] = [
   // ⭐ RE-POINTED AGAIN — prototype, Paul 25 Sep 2026: where ED 5809278282
   // conflicts with the prototype's card bodies, the prototype wins. The driver
   // line is back ON the resting face (and the wordless cue is retired). It stays
-  // a HAND call: `Driver N of M analysed` varies per card, so it is no invariant
+  // a HAND call: `Driver N of M ranked in this run` varies per card, so it is no invariant
   // run (see 'factor · post · standard'). `present` now binds the exact testid
   // ON the face and refuses a match inside the popover.
   {

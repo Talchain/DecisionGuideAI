@@ -364,8 +364,9 @@ function resolveText({
         // cannot-confirm (`driverRank` is absent there).
         const driver = facts?.driverRank
         const lastRun = facts?.influenceFromLastRun === true ? LAST_RUN_PREFIX : ''
-        // ED 5806207128 stale form: "Last run · Driver N of M analysed".
-        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize)}`
+        // NODE-ANATOMY v3.2 / contract v3.1 pt 5 stale form: "Last run · Driver N
+        // of M ranked" (M = the ranked count, the SAME words the card prints).
+        if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize, facts?.influenceFromLastRun === true)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules

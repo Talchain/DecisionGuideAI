@@ -62,13 +62,17 @@ export function useInfluenceRank(
  * `useInfluenceRank` itself is UNCHANGED: its `null` still means "not
  * confirmably current", which is what its other readers ask.
  *
- * ⭐ ED #63 5806207128 (24 Sep): the returned `setSize` is the PRINTED `M` —
- * the ELIGIBLE ANALYSED factors (`influenceSetSize`, the same licence set
- * `influenceRankReadout` checks), "not 'number of ranks we happen to render'".
- * That restores the served M and retires contract v3.1 pt 5's ranked-count
- * denominator. The ranked count (`influenceRankedCount`) stays as the
- * fail-closed PUBLICATION guard only: a rank outside it, or an absent count,
- * states no rank.
+ * ⭐ The returned `setSize` is the PRINTED `M` — the RANKED count
+ * (`influenceRankedCount`, `rankFactor`'s `rankedSetSize`): NODE-ANATOMY v3.2
+ * and contract v3.1 pt 5, "M is the number of factors the run ranked. Show
+ * every one of the M ranks on its card". The same count is the fail-closed
+ * PUBLICATION guard (a rank outside it, or an absent count, states no rank), so
+ * the printed M and the ranks shown cannot disagree. `influenceSetSize` (every
+ * factor in the feed) stays the LICENCE set `influenceRankReadout` checks and
+ * is no longer printed: as ED #63 5806207128's `Driver 1 of 5 analysed` it
+ * counted three factors the canvas never ranks (side-by-side DIFF item 3,
+ * 27 Sep 2026). This changes the DENOMINATOR only; which factors are ranked is
+ * unchanged.
  */
 export function driverRankFor(
   currentReadout: InfluenceRankReadout | null,
@@ -86,6 +90,6 @@ export function driverRankFor(
     typeof rankedCount === 'number' &&
     Number.isInteger(rankedCount) &&
     sensitivityRank <= rankedCount
-    ? { rank: sensitivityRank, setSize: influenceSetSize }
+    ? { rank: sensitivityRank, setSize: rankedCount }
     : null
 }

@@ -68,7 +68,7 @@ const UNVALUED = { label: 'Hiring speed', type: 'factor', category: 'external' }
 const RANKED = {
   sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity',
   // Contract v3.1 pt 5: the printed M is the ranked count (3), not the set (5).
-  influenceImportanceBasis: null, influenceSetSize: 5, influenceRankedCount: 3, confidence: null,
+  influenceImportanceBasis: null, influenceSetSize: 5, influenceRankedCount: 3, driverRelativeSensitivity: 1, confidence: null,
   confidenceIsDefaulted: false, confidenceIsProvisional: false, inSensitivityAnalysis: true,
   achievementProbability: null, achievementProbabilityIsModelledBasis: false,
   stabilityPercentage: null, winRate: null, isResultsMode: true, predictedOutcome: null,
@@ -144,7 +144,7 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
     renderFactor()
     expect(semantic()).toBe('current')
     const caption = cue('factor-driver-line-caption').textContent ?? ''
-    expect(caption).toBe('Driver 1 of 5 analysed')
+    expect(caption).toBe('Driver 1 of 3 ranked in this run')
     expect(caption).not.toMatch(/Last run/)
     expect(cue('factor-turning-point')).toBeInTheDocument()
     expect(cue('factor-turning-point').textContent ?? '').not.toMatch(/Last run/)
