@@ -134,6 +134,35 @@ export function constraintWithEditedValue(
 }
 
 /**
+ * ⭐ AN AUDITED LIMIT IS EDITED IN THE READER'S OWN UNITS (Canvas ask A, #70 5851087722; Canonical owns it).
+ *
+ * The pricing starter's "net revenue retention above 110%" is stored as the ratio `1.1` with its audit
+ * `{original_value: 110, original_unit: '%'}`. The inspector showed the raw `1.1` beside "Target 110%", and typing
+ * "110" wrote a ratio of 110 into the model. The input now shows the audited figure, and a new figure is written back
+ * through the PRODUCER'S OWN ratio (`value / original_value`, read from the audit pair — no unit convention of ours),
+ * with the audit restated for the new figure: it describes the value that is now stored, so it stays true.
+ * `null` when the limit carries no usable audit (the caller edits the raw value, as before).
+ */
+export function auditedFigureOf(constraint: CEEGoalConstraint): { readonly value: number; readonly unit: string } | null {
+  const audit = constraint.provenance_unit_normalised
+  if (!audit || !hasAuditedFigure(constraint) || audit.original_value === 0 || typeof constraint.value !== 'number'
+    || !Number.isFinite(constraint.value)) return null
+  return { value: audit.original_value as number, unit: typeof audit.original_unit === 'string' ? audit.original_unit : '' }
+}
+
+export function constraintWithEditedAuditedFigure(constraint: CEEGoalConstraint, figure: number): CEEGoalConstraint | null {
+  const shown = auditedFigureOf(constraint)
+  if (shown === null || !Number.isFinite(figure)) return null
+  const scale = (constraint.value as number) / shown.value
+  const { source_quote: _quote, ...rest } = constraint as CEEGoalConstraint & { source_quote?: unknown }
+  return {
+    ...rest,
+    value: Number((figure * scale).toPrecision(12)),
+    provenance_unit_normalised: { ...constraint.provenance_unit_normalised!, original_value: figure },
+  } as CEEGoalConstraint
+}
+
+/**
  * ⭐ RUNG 1 — the producer handed us the reader's own figure (the contract's
  * `provenance_unit_normalised` audit trail). ONE predicate, read by both
  * formatters below and by `goalConstraintReadsInReadersTerms`, so the three cannot

@@ -81,7 +81,9 @@ function editValueViaUI(next: string) {
   const input = screen.getByTestId('goal-constraint-c_churn_ceiling-value-input') as HTMLInputElement
   // ⚠ And assert it is the right box before driving it: the constraint's own
   // current value, not the threshold's.
-  expect(input.value, 'bound to the wrong number input').toBe('0.04')
+  // Canvas ask A (#70 5851087722): an audited limit is shown in the READER's units — the audited 4, never the stored
+  // ratio 0.04 the input used to show (typing "5" there wrote 5 into a 0.04-scaled limit: 125× the stored scale).
+  expect(input.value, 'bound to the wrong number input, or showing the stored ratio').toBe('4')
   expect(container.querySelectorAll('input[type="number"]').length, 'the two-input premise no longer holds').toBeGreaterThan(1)
   fireEvent.blur(input, { target: { value: next } })
   return useCanvasStore.getState().goalConstraints as Array<Record<string, unknown>> | null
@@ -94,7 +96,8 @@ describe('editing a constraint value invalidates the provenance that described t
     const written = editValueViaUI('5')
     expect(written, 'the panel wrote nothing').not.toBeNull()
     const edited = (written as Array<Record<string, unknown>>)[0]
-    expect(edited.value).toBe(5)
+    // The user's 5 (percent) is written in the STORED convention through the producer's own ratio: 5 × (0.04 / 4).
+    expect(edited.value).toBe(0.05)
 
     const text = goalConstraintText(edited as never, nodes as never, { omitLabel: true })
     expect(text).toContain('5')
@@ -103,10 +106,12 @@ describe('editing a constraint value invalidates the provenance that described t
     expect(text).not.toContain(QUOTE)
   })
 
-  it('both stale statements are dropped by the WRITE, not by the formatter', () => {
+  it('the WRITE restates the audit for the new figure and drops the stale quote (never the formatter)', () => {
     const edited = (editValueViaUI('5') as Array<Record<string, unknown>>)[0]
-    expect(edited.provenance_unit_normalised).toBeUndefined()
+    // The audit now describes the stored 0.05 — the user's own 5% — so it is true, and the card reads "≤ 5%".
+    expect(edited.provenance_unit_normalised).toEqual({ rule: 'percent_to_fraction', original_value: 5, original_unit: '%' })
     expect(edited.source_quote).toBeUndefined()
+    expect(goalConstraintText(edited as never, nodes as never, { omitLabel: true })).toContain('5%')
   })
 
   /**

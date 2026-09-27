@@ -162,10 +162,14 @@ describe('bullet 1 — what seems well-founded (vm.modelImplication)', () => {
     })
   })
 
-  it('CONTRAST: `none` → no bullet (genuineDecision carries no expected outcome)', () => {
+  // RE-POINTED (27 Sep, V2 parity; served c2840e1a showed only "Before acting"
+  // at rest): `none` states the option count, never a reading.
+  it('CONTRAST: `none` → the option count, never a reading (genuineDecision carries no expected outcome)', () => {
     const vm = vmOf(genuineDecision())
     expect(vm.modelImplication.kind).toBe('none')
-    expect(buildCommitmentSynthesis(vm).founded).toBeNull()
+    const founded = buildCommitmentSynthesis(vm).founded
+    expect(founded?.text).toMatch(/^\d+ options? compared\.$/)
+    expect(founded?.text).not.toMatch(/most likely|leads|best/i)
   })
 
   /**
