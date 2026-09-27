@@ -1102,6 +1102,17 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   ) : null
 
   /**
+   * ⭐⭐ AT MOST TWO LINES, NEVER A BARE "…" (27 Sep 2026, served e8ba18e6): at
+   * the landing rung the rail beside this row is drawn at the GLYPH scale (2x,
+   * 180px of a 460 card), so the one-line row read "4 alternatives ·
+   * Assumptions ope…" before a Run and "Evidence priority: …" after it — the
+   * factor it names was never visible. The row now wraps as inline text and is
+   * clamped at two lines; two lines at the text bound (2 x 11 x 1.36 x 1.375 =
+   * 41px) sit inside the body's rail floor (25 x 2 - 3 = 47px), so the height
+   * the layout reserves does not move. The separator still binds to its clause
+   * (no space between them), so a line never ends on "·".
+   *
+   * (Superseded one-line rule, kept for provenance:)
    * ⭐⭐ THE ROW IS ONE LINE, AND THE " · " BINDS TO THE CLAUSE IT INTRODUCES
    * (design audit 26 Sep #11, served 853feeb7). The row was a free-wrapping
    * flex run, so in 5/5 starters line 1 ended "4 alternatives ·" with the
@@ -1130,7 +1141,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     <Tooltip asChild content={rowMetaClauseText} delay={NODE_TOOLTIP_DELAY_MS}>
       <span
         data-testid="decision-row-meta-clause"
-        className={`${typography.edgeLabel} min-w-0 truncate text-text-light`}
+        className={`${typography.edgeLabel} text-text-light`}
       >
         {optionCountLineText !== null && rowMetaSeparator}
         {focusSignal}
@@ -1235,7 +1246,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               screen), and 4px x the bound scale 2 is the 8px it replaces, so
               the row is never wider at the height the layout reserves. */}
         <div
-          className={`mt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] ${rowMetaClause !== null ? 'flex-nowrap overflow-hidden' : 'flex-wrap gap-y-0.5'}`}
+          className={
+            rowMetaClause !== null
+              ? `mt-[3px] min-w-0 line-clamp-2 break-words ${typography.edgeLabel} text-text-light`
+              : 'mt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] flex-wrap gap-y-0.5'
+          }
           data-testid="decision-node-resting-state"
         >
           {optionCountLineText !== null && (
@@ -1243,6 +1258,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               {optionCountLineText}
             </span>
           )}
+          {/* Inline flow: the one break opportunity between the count and its
+              clause. The clause's own " · " + margin carries no space, so the
+              separator never ends a line. */}
+          {rowMetaClause !== null && optionCountLineText !== null && ' '}
           {rowMetaClause ?? (
             <>
               {optionCountLineText !== null && focusSignal !== null && rowMetaSeparator}

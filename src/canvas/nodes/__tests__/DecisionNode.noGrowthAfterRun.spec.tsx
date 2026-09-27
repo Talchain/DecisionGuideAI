@@ -132,15 +132,17 @@ afterEach(() => {
 describe('served pricing Question card — one meta line; the separator binds to its clause', () => {
   it('pre-run: "4 alternatives · Assumptions open for review" — the "·" is inside ONE non-breaking unit with the clause', () => {
     renderDecision()
-    expect(row().textContent).toBe('4 alternatives·Assumptions open for review')
+    // One break opportunity (the space after the count); none between "·" and its clause.
+    expect(row().textContent).toBe('4 alternatives ·Assumptions open for review')
     expect(childIds(row())).toEqual(['decision-node-option-count', 'decision-row-meta-clause'])
     const unit = screen.getByTestId('decision-row-meta-clause')
     expect(childIds(unit)).toEqual(['decision-row-meta-separator', 'decision-assumptions-open'])
-    expect(tokens(unit)).toContain('truncate')
-    expect(tokens(unit)).toContain('min-w-0')
-    expect(tokens(row())).toContain('flex-nowrap')
-    expect(tokens(row())).not.toContain('flex-wrap')
-    expect(tokens(screen.getByTestId('decision-node-option-count'))).toContain('shrink-0')
+    // ⭐ RE-PINNED 27 Sep 2026 (served e8ba18e6: "Assumptions ope…" / "Evidence
+    // priority: …"): inline text clamped at TWO lines, never a one-line truncate.
+    expect(tokens(unit)).not.toContain('truncate')
+    expect(tokens(row())).toContain('line-clamp-2')
+    expect(tokens(row())).not.toContain('flex-nowrap')
+    expect(tokens(row())).not.toContain('flex')
   })
 
   it('post-run: "4 alternatives · Evidence priority: Top Account Revenue Concentration" — same row structure as pre-run, clause whole in the DOM', () => {
@@ -153,7 +155,8 @@ describe('served pricing Question card — one meta line; the separator binds to
     const ep = screen.getByTestId('decision-evidence-priority')
     expect(ep.getAttribute('data-factor-id')).toBe('fac_top_account_concentration')
     expect(ep.textContent).toBe('Evidence priority: Top Account Revenue Concentration')
-    expect(tokens(unit)).toContain('truncate')
+    expect(tokens(unit)).not.toContain('truncate')
+    expect(tokens(row())).toContain('line-clamp-2')
     expect(tokens(row())).not.toContain('flex-wrap')
   })
 
