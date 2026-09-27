@@ -21,6 +21,7 @@ import {
   LOD_BLANKED_BODY_SELECTOR,
   MAX_LABEL_COUNTER_SCALE,
   MAX_NORMAL_RUNG_LABEL_SCALE,
+  NODE_BODY_BOUND_STYLE_ATTR,
   NODE_RUNG_PADDING_ATTR,
 } from '../utils/zoomLegibility'
 
@@ -385,5 +386,86 @@ describe('measureNodeHeightsAtLabelBound', () => {
     // landing floor, where `labelCounterScale` is already capped — so the two
     // constants are provably equal, not merely close.
     expect(MAX_NORMAL_RUNG_LABEL_SCALE).toBe(MAX_LABEL_COUNTER_SCALE)
+  })
+
+  // ── THE ANCHOR BODY'S RAIL BOX (27 Sep 2026) ───────────────────────────────
+  //
+  // The Question's and Goal's body carries its rail's box (`anchorBodyRailStyle`:
+  // `padding-right` + `min-height`) only where the rail is mounted beside it. At
+  // the `line` rung the rail is unmounted, so a measurer run zoomed out read the
+  // body WITHOUT that box: Chromium, build-vs-buy 1280×800, `dec_billing`
+  // reserved 73 at 0.4 against 97 at landing — and drew 75 there, past its own
+  // reservation (Canvas Browser Gate `heightVsZoom`). `BaseNode` now DECLARES the
+  // box on the body (`NODE_BODY_BOUND_STYLE_ATTR`); the measurer applies it while
+  // it reads. jsdom has no layout, so these pin the protocol, as above.
+
+  const RAIL_BOX = { paddingRight: 'calc(88px * var(--canvas-glyph-scale, 1) + 2px)', minHeight: 'calc(24px * var(--canvas-glyph-scale, 1) + 1px)' }
+
+  function declareBodyBox(root: HTMLElement, id: string, box: Record<string, string> = RAIL_BOX): HTMLElement {
+    const node = root.querySelector(`.react-flow__node[data-id="${id}"]`) as HTMLElement
+    const body = document.createElement('div')
+    body.setAttribute(NODE_BODY_BOUND_STYLE_ATTR, JSON.stringify(box))
+    node.appendChild(body)
+    return body
+  }
+
+  it('⭐ APPLIES a body\'s declared rail box while it reads — the box the rail-less far rung does not draw', () => {
+    const root = mountCanvas(['a'], {}, [])
+    const body = declareBodyBox(root, 'a')
+    body.setAttribute(LOD_BLANKED_BODY_ATTR, 'true')
+    body.style.maxHeight = 'calc(15px * var(--canvas-label-scale, 1))'
+    const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
+    const seen: string[] = []
+    Object.defineProperty(node, 'offsetHeight', {
+      get() {
+        seen.push(`${body.style.paddingRight}|${body.style.minHeight}|${body.style.maxHeight}`)
+        return body.style.minHeight === RAIL_BOX.minHeight ? 97 : 73
+      },
+    })
+
+    const out = measureNodeHeightsAtLabelBound()
+
+    expect(seen, 'the body was read without its rail box — the reservation is the far chip\'s, not the landing card\'s').toEqual([
+      `${RAIL_BOX.paddingRight}|${RAIL_BOX.minHeight}|none`,
+    ])
+    expect(out.get('a')).toBe(97)
+  })
+
+  it('restores the body\'s own inline box afterwards — absent to absent, a set value to itself', () => {
+    const root = mountCanvas(['a', 'b'], { a: 97, b: 97 }, [])
+    const absent = declareBodyBox(root, 'a')
+    const set = declareBodyBox(root, 'b')
+    set.style.paddingRight = '7px'
+    set.style.minHeight = '9px'
+
+    measureNodeHeightsAtLabelBound()
+
+    expect(absent.getAttribute('style') ?? '').not.toMatch(/padding-right|min-height/)
+    expect(set.style.paddingRight).toBe('7px')
+    expect(set.style.minHeight).toBe('9px')
+  })
+
+  it('CONTRAST — an undeclared body keeps its own box throughout (only the declaration is applied)', () => {
+    const root = mountCanvas(['a'], {}, [])
+    const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
+    const body = document.createElement('div')
+    body.style.minHeight = '5px'
+    node.appendChild(body)
+    const seen: string[] = []
+    Object.defineProperty(node, 'offsetHeight', { get() { seen.push(body.style.minHeight); return 60 } })
+
+    measureNodeHeightsAtLabelBound()
+
+    expect(seen).toEqual(['5px'])
+  })
+
+  it('a malformed declaration is ignored, never half-applied', () => {
+    const root = mountCanvas(['a'], { a: 60 }, [])
+    const node = root.querySelector('.react-flow__node[data-id="a"]') as HTMLElement
+    const body = document.createElement('div')
+    body.setAttribute(NODE_BODY_BOUND_STYLE_ATTR, '{not json')
+    node.appendChild(body)
+    expect(measureNodeHeightsAtLabelBound().get('a')).toBe(60)
+    expect(body.getAttribute('style') ?? '').toBe('')
   })
 })

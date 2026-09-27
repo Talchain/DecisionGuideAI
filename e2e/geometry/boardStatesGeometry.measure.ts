@@ -36,6 +36,12 @@
  *         factors wrap 3+3 and put both cards in row 2 (measured: no upward
  *         link at any state). 17d1cd3a is the export the parked fix names.
  *       `mrr-90b8f080` — 6 factors, 6 options: the "of 6" caption and defect 3.
+ *     ⚠ 27 Sep 2026, #2202 (`MAX_CARDS_PER_ROW` 4 → 5): 17d1cd3a's five factors
+ *       now fit ONE row, so it has no wrapped band and CANNOT show defect 1 any
+ *       more; 90b8f080 (6 options, 6 factors: 3+3 each) is Paul's board that
+ *       still wraps, so it is the GATED MRR board and 17d1cd3a is measure-only.
+ *       Which board must exercise (d) is DERIVED from the layout's own count,
+ *       never from the board's name — see (d)'s control below.
  * All at 1280x800, the product's own landing fit.
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -123,8 +129,12 @@
  *  (c) a max-z block planted over the first menu item at POST-RUN; the reader
  *      must report that item occluded.
  *  (d) a VIRTUAL edge from a lower card to a higher one in the same band, in
- *      every state that has a multi-row band; the reader must flag it. Paul's
- *      two boards are REQUIRED to have one.
+ *      every state that has a multi-row band; the reader must flag it. A board
+ *      with a band of more than `MAX_CARDS_PER_ROW` cards (its draft or its
+ *      render) is REQUIRED to have one — the layout must have wrapped it — and
+ *      at least one GATED board must be such a board, so the control cannot
+ *      leave the gate silently when the row count moves again (#2202 took it
+ *      off both gated boards at once).
  *  (e) the camera dragged a quarter-pane (middle button) before LANDING's Fit;
  *      the centring reader must call it OFF-CENTRE.
  *
@@ -147,7 +157,7 @@ import {
   type StarterId,
 } from '../visual/harness'
 import { repoRoot } from '../visual/repoRoot'
-import { TIER_BY_KIND } from '../../src/canvas/utils/nodeLayoutConstants'
+import { MAX_CARDS_PER_ROW, TIER_BY_KIND } from '../../src/canvas/utils/nodeLayoutConstants'
 import { LABEL_LEGIBLE_ZOOM } from '../../src/canvas/utils/zoomLegibility'
 import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 
@@ -556,6 +566,19 @@ interface UpwardLink { source: string; target: string; band: number; upModelPx: 
 function bandOf(kind: string): number {
   return TIER_BY_KIND[kind] ?? 2
 }
+
+/**
+ * The most cards any one band holds. Above `MAX_CARDS_PER_ROW` the layout wraps
+ * that band into sub-rows (`balancedRowSizes`) — the only shape (d) can go wrong
+ * in, and the only shape its planted pair can be drawn from.
+ */
+function densestBand(kinds: readonly string[]): number {
+  const perBand = new Map<number, number>()
+  for (const k of kinds) if (k) perBand.set(bandOf(k), (perBand.get(bandOf(k)) ?? 0) + 1)
+  return Math.max(0, ...perBand.values())
+}
+
+const draftKinds = (draft: Json): string[] => ((draft.nodes as Json[] | undefined) ?? []).map((n) => String(n.kind ?? ''))
 
 function upwardSameBand(reading: BoardReading, edges = reading.edges): UpwardLink[] {
   const byId = new Map(reading.cards.map((c) => [c.id, c]))
@@ -1048,8 +1071,12 @@ async function measureState(page: Page, board: string, state: StateName, o: Stat
  */
 const interactionsOn = (board: string) => board.startsWith('mrr-')
 
+const BOARDS = boards()
+/** The gated boards whose draft wraps a band — (d)'s control runs in the gate only on these. */
+const GATED_WRAPPING = BOARDS.filter((b) => b.gated && densestBand(draftKinds(b.draft)) > MAX_CARDS_PER_ROW).map((b) => b.name)
+
 test.describe('board states geometry', () => {
-  for (const board of boards()) {
+  for (const board of BOARDS) {
     test(`BOARD STATES @${board.name} 1280x800`, board.gated ? { tag: GATE_TAG } : {}, async ({ page }) => {
       const t0 = Date.now()
       const time: Record<string, number> = {}
@@ -1178,9 +1205,19 @@ test.describe('board states geometry', () => {
       expect(bControl.selfB2, 'b2 missed a planted self-clipping span').toBe(true)
       expect(bControl.mechanismB2, 'b2 missed the planted driver mechanism (block slot > shrink-to-fit button > truncate caption)').toBe(true)
       expect(bControl.ellipsisFlagged, 'the clip reader flagged a planted ELLIPSIS — it would stay red on the fix').toBe(false)
-      if (board.name.startsWith('mrr-')) {
-        // Paul's factor band wraps into two rows in both states, so (d) must be probeable here.
-        expect(P.result.dControl.probeable, `${board.name} has no multi-row band — the fixture no longer exercises (d)`).toBe(true)
+      // (d) must be probeable wherever a band holds more cards than one row
+      // takes — by the draft OR the render — because the layout wrapped it.
+      // Derived from the layout's own count, not the board's name (#2202 moved
+      // the count 4 → 5 and a name-keyed premise went false on 17d1cd3a).
+      const densest = Math.max(
+        densestBand(draftKinds(board.draft)),
+        densestBand(P.reading.cards.filter((c) => c.kind && !c.id.startsWith(GHOST_ID_PREFIX)).map((c) => c.kind)),
+      )
+      if (densest > MAX_CARDS_PER_ROW) {
+        expect(P.result.dControl.probeable, `${board.name} has a band of ${densest} cards (> ${MAX_CARDS_PER_ROW} a row) but no multi-row band — (d) cannot plant its pair`).toBe(true)
+      }
+      if (board.gated) {
+        expect(GATED_WRAPPING, `no gated board wraps a band past MAX_CARDS_PER_ROW (${MAX_CARDS_PER_ROW}) — the gate no longer exercises (d)`).not.toEqual([])
       }
       for (const r of results) {
         if (r.dControl.probeable) expect(r.dControl.detected, `${board.name} ${r.state}: (d) missed a planted upward same-band pair`).toBe(true)
