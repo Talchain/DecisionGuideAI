@@ -252,6 +252,17 @@ interface NormalisedFactor {
   evpi_percentage_points?: number
   evpi_method?: string
   evpi_status?: string
+  /**
+   * R7 / X4: the RUN's own value provenance for this factor
+   * (`EnrichmentFactorSensitivityEntrySchema.value_source` / `value_defaulted` /
+   * `value_extraction_type`). It says what the run CONSUMED, which the live canvas
+   * cannot: a value edited after the run changes the node, not the run. Verbatim,
+   * absent stays absent. `useResultsSectionData` already reads all three
+   * ("Track S"); this mapper used to drop them, so they never arrived on V5.
+   */
+  value_source?: string
+  value_defaulted?: boolean
+  value_extraction_type?: string
 }
 
 /**
@@ -312,6 +323,9 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
   const evpiPercentagePoints = safeFiniteNumber(entry.evpi_percentage_points)
   const evpiMethod = safeString(entry.evpi_method)
   const evpiStatus = safeString(entry.evpi_status)
+  const valueSource = safeString(entry.value_source)
+  const valueDefaulted = typeof entry.value_defaulted === 'boolean' ? entry.value_defaulted : undefined
+  const valueExtractionType = safeString(entry.value_extraction_type)
 
   return {
     factor_id: factorId,
@@ -325,6 +339,9 @@ function normaliseFactorEntry(entry: unknown): NormalisedFactor | null {
     ...(evpiPercentagePoints !== undefined ? { evpi_percentage_points: evpiPercentagePoints } : {}),
     ...(evpiMethod !== undefined ? { evpi_method: evpiMethod } : {}),
     ...(evpiStatus !== undefined ? { evpi_status: evpiStatus } : {}),
+    ...(valueSource !== undefined ? { value_source: valueSource } : {}),
+    ...(valueDefaulted !== undefined ? { value_defaulted: valueDefaulted } : {}),
+    ...(valueExtractionType !== undefined ? { value_extraction_type: valueExtractionType } : {}),
   }
 }
 
@@ -1582,6 +1599,10 @@ export function mapV5AnalysisToReport(
       ...(f.evpi_percentage_points !== undefined ? { evpi_percentage_points: f.evpi_percentage_points } : {}),
       ...(f.evpi_method !== undefined ? { evpi_method: f.evpi_method } : {}),
       ...(f.evpi_status !== undefined ? { evpi_status: f.evpi_status } : {}),
+      // R7 / X4: the run's own value provenance (see `NormalisedFactor`).
+      ...(f.value_source !== undefined ? { value_source: f.value_source } : {}),
+      ...(f.value_defaulted !== undefined ? { value_defaulted: f.value_defaulted } : {}),
+      ...(f.value_extraction_type !== undefined ? { value_extraction_type: f.value_extraction_type } : {}),
     }))
   }
   if (robustness) widened.robustness = robustness
