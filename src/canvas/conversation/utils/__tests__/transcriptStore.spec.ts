@@ -44,6 +44,12 @@ describe('transcriptStore', () => {
     __resetTranscriptTombstonesForTests()
   })
 
+  it('keeps the producer\'s open-question list across a reload (CEE #2054 `_agent.open_questions`)', () => {
+    const list = ['Which did you mean?', 'What is current MRR? It was not stated.']
+    saveTranscript(SID, [msg({ id: 'a1', role: 'assistant', content: 'Built.', openQuestionList: list })])
+    expect(loadTranscript(SID)!.messages[0].openQuestionList).toEqual(list)
+  })
+
   it('round-trips the real turns verbatim, not a summary of them', () => {
     const brief =
       'We run a 12-person specialty coffee roastery in Bristol. I have around 80k I could invest.'

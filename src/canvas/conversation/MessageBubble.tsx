@@ -36,6 +36,7 @@ import { FALLBACK_TEXT } from './validateResponse'
 import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
 import { turnOfferedConsent } from './utils/transcriptStore'
 import { OPEN_QUESTIONS_LABEL, splitServerOpenQuestions } from './serverOpenQuestions'
+import { PANEL_LIST_BULLET } from './panelLists'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -497,7 +498,18 @@ export const MessageBubble = memo(function MessageBubble({
           </button>
           {openQuestionsShown && (
             <div className={styles.reasoningPanel} data-testid="message-open-questions">
-              <p className={styles.reasoningPanelBody}>{openQuestions.questions}</p>
+              {/* The producer's whole list when it sent one (CEE #2054), every item verbatim; otherwise the
+                  questions the reply itself carried, as before. */}
+              {message.openQuestionList && message.openQuestionList.length > 0 ? (
+                <ul
+                  className={`${styles.reasoningPanelBody} ${PANEL_LIST_BULLET}`}
+                  data-testid="message-open-questions-list"
+                >
+                  {message.openQuestionList.map((q, i) => <li key={i}>{q}</li>)}
+                </ul>
+              ) : (
+                <p className={styles.reasoningPanelBody}>{openQuestions.questions}</p>
+              )}
             </div>
           )}
         </>

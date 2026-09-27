@@ -236,6 +236,28 @@ describe('useConversation — reasoning sidecar extraction (ROADMAP 1.42)', () =
     expect(msg!.reasoning).toBeUndefined()
   })
 
+  // CEE #2054: the whole open-question list rides `_agent.open_questions` in the same sidecar; the message keeps it.
+  it('reads _agent.open_questions from the additive sidecar into message.openQuestionList, verbatim and in order', async () => {
+    const list = ['Which did you mean?', 'What is current MRR? It was not stated.']
+    mockCallV5Turn.mockResolvedValue({
+      kind: 'response' as const,
+      response: {
+        response_version: 2,
+        assistant_text: 'Built.',
+        blocks: [],
+        suggested_actions: [],
+        insights: [],
+        stage_indicator: 'frame',
+        [ADDITIVE_EXTENSIONS_KEY]: { _agent: { open_questions: list, mode: 'agent' } },
+      },
+    })
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('question')
+    })
+    expect(lastAssistantMessage(result.current.messages)!.openQuestionList).toEqual(list)
+  })
+
   it('leaves message.reasoning undefined when the sidecar carries other additive keys but not _reasoning', async () => {
     mockCallV5Turn.mockResolvedValue({
       kind: 'response' as const,
