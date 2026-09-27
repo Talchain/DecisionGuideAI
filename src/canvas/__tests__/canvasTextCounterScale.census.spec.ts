@@ -113,7 +113,9 @@ const EDGE_REGISTRY = path.join(ROOT, 'src/canvas/ReactFlowGraph.tsx')
  * file portals), not by preference; the assertion below re-derives that the
  * exclusion is still earned. Paths are relative to `src/canvas`.
  */
-const PORTALLED = ['nodes/shared/NodePopover.tsx']
+// Empty since 27 Sep 2026: the card popover (`nodes/shared/NodePopover.tsx`), the one
+// portalled node surface, is retired and renders nothing, so it is censused like any file.
+const PORTALLED: string[] = []
 
 /**
  * Sizes inside the transform that are NOT yet counter-scaled, pinned EXACTLY.
@@ -632,14 +634,6 @@ describe('canvas text — counter-scale census (DS v5 §2.3/§2.4)', () => {
     // EXACT, both directions: RED if a raw size is added, RED if one of these
     // is fixed and this pin is not updated with it.
     expect(fixed).toEqual([...KNOWN_FIXED].sort())
-  })
-
-  it('the portal exclusion is still EARNED, not assumed', () => {
-    for (const rel of PORTALLED) {
-      const src = readFileSync(path.join(CANVAS, rel), 'utf8')
-      expect(src, `${rel} no longer portals — it is inside the transform and must be censused`)
-        .toMatch(/createPortal\(/)
-    }
   })
 
   it('the doors into <Viewport> that no registry declares are DECLARED, and inside the censused scope', () => {

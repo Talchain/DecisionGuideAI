@@ -244,58 +244,6 @@ describe('a thin risk card says the MODEL is thin', () => {
     expect(announcedLine()).toBe('Entered estimate · High impact')
   })
 
-  // ── 4. The next-step half moves in step with the diagnosis ────────────────
-  //
-  // Locked Canvas design (23 Sep 2026): ED 11:52Z point 5 — no coaching chips on
-  // the card face; the ONE rail coaching icon asks the card's first question
-  // ("What would we see first?"). ED 02:31Z D4 — "How likely is this?" is MOVED,
-  // NOT DELETED: it now LEADS the popover and Detailed, under the same thin-card
-  // predicate. So "in step with the sentence" is asserted at its new homes, and
-  // its absence on the face is asserted in the same render.
-  it('⭐ THE COACHING HALF: the sizing question appears exactly where the sentence does', async () => {
-    const { container } = draw('risk-gdpr', UNSIZED)
-    // Face: not a chip any more…
-    expect(sizingChip()).toBeNull()
-    // …and the leading indicator (ADDED, NOT SWAPPED) survives as the ONE icon —
-    // the only control on the face carrying that name, so no face chip remains.
-    const faceAsks = screen.getAllByRole('button', { name: 'What would we see first?' })
-    expect(faceAsks).toHaveLength(1)
-    expect(faceAsks[0]).toBe(coachingIcon('risk-gdpr'))
-
-    // Popover (the real one, opened by hover): the sizing question is there and LEADS.
-    hoverCard(container)
-    const inPopover = await screen.findByRole('button', { name: 'How likely is this?' })
-    expect(precedes(inPopover, screen.getByRole('button', { name: 'What reduces this?' }))).toBe(true)
-    cleanup()
-
-    // Detailed: the same, inline.
-    draw('risk-gdpr', UNSIZED, { viewMode: 'expert' })
-    const inDetailed = sizingChip()
-    expect(inDetailed).toBeTruthy()
-    expect(precedes(inDetailed!, screen.getByRole('button', { name: 'What reduces this?' }))).toBe(true)
-  })
-
-  it('⛔ AND IT IS ABSENT ON A SIZED RISK, so the chip is a response and not wallpaper', async () => {
-    // Locked Canvas design (23 Sep 2026): re-pointed to the question's new homes
-    // (popover + Detailed, ED 02:31Z D4); each absence carries a positive control
-    // in the same render proving that surface's chips DID render.
-    const { container } = draw('risk-migration', SIZED)
-    expect(sizingChip()).toBeNull()
-    // The leading indicator still stands on a sized risk — as the ONE icon, the
-    // only control on the face carrying that name.
-    expect(indicatorChip()).toBe(coachingIcon('risk-migration'))
-    expect(indicatorChip()).toBeTruthy()
-
-    hoverCard(container)
-    expect(await screen.findByRole('button', { name: 'What reduces this?' })).toBeTruthy()
-    expect(sizingChip()).toBeNull()
-    cleanup()
-
-    draw('risk-migration', SIZED, { viewMode: 'expert' })
-    expect(screen.getByRole('button', { name: 'What reduces this?' })).toBeTruthy()
-    expect(sizingChip()).toBeNull()
-  })
-
   // ── 5. It makes no claim about importance ─────────────────────────────────
   it('⛔ IT STATES A FACT ABOUT THE MODEL, NEVER A VERDICT ON THE RISK', () => {
     // "No likelihood recorded" is ours to say. "This risk is minor" is a claim

@@ -333,9 +333,9 @@ describe('canvas node surface — the UA button centring is overridden', () => {
   // rationale — a guard agreeing with its own documentation.
   const css = rawCss.replace(/\/\*[\s\S]*?\*\//g, '')
 
-  it('declares text-align: left for buttons under BOTH node roots', () => {
+  it('declares text-align: left for buttons under the node root (the card popover root is retired, 27 Sep)', () => {
     expect(css).toMatch(/\.react-flow__node\s+button/)
-    expect(css).toMatch(/\[data-node-popover\]\s+button/)
+    expect(css).not.toMatch(/\[data-node-popover\]/)
     expect(css).toMatch(/text-align:\s*left/)
     // The declaration is the only one in the file: nothing else is asserted
     // about this stylesheet, so a second rule arriving is a review event.
@@ -352,44 +352,4 @@ describe('canvas node surface — the UA button centring is overridden', () => {
     expect(registry).toMatch(/import\s+['"]\.\/nodeTextAlign\.css['"]/)
   })
 
-  it('is keyed on the attribute NodePopover emits — asserted at EACH of its two sites', () => {
-    // The portalled half. With an `anchorRef`, `NodePopover` createPortals to
-    // document.body, so that branch's content is NOT a descendant of
-    // `.react-flow__node`; `NodeChip` — the shared chip every node type uses —
-    // renders both inline and inside the popover. Renaming the attribute on
-    // either side must go red rather than go quiet.
-    //
-    // The component emits the attribute at TWO sites (the portalled branch and
-    // the no-anchorRef inline fallback), and they are NOT interchangeable:
-    // selector 1 (`.react-flow__node button`) already covers the inline one,
-    // so `[data-node-popover]` is the ONLY selector reaching the portalled
-    // one. A single whole-file match cannot tell the sites apart — deleting
-    // the attribute from the portalled branch alone left this test green while
-    // every text-bearing button in the portalled popover re-centred. So each
-    // site is now asserted separately, bound to the structural feature that
-    // identifies it rather than to a count.
-    //
-    // ⚠ THE ATTRIBUTE NAME IS DERIVED FROM THE CSS, NOT WRITTEN TWICE, and the
-    // match is BOUNDED. The first version of this test hardcoded the name and
-    // used a bare substring match; a mutant renaming the emitted attribute to
-    // `data-node-popover-renamed` left it GREEN, because the old name is a
-    // PREFIX of the new one. A guard that a rename can satisfy by extension is
-    // a guard agreeing with itself. The lookahead is what makes it bite.
-    const attr = css.match(/\[([a-z-]+)\]\s+button/)?.[1]
-    expect(attr).toBe('data-node-popover')
-    const popover = blankComments(readFileSync(join(NODES_DIR, 'shared/NodePopover.tsx'), 'utf8'))
-
-    // Split at the CALL, not the import: the import is `{ createPortal }` with
-    // no paren, so `createPortal(` names the call alone. Asserting it occurs
-    // exactly once pins the split's own precondition — with two calls, or
-    // none, the halves below would not be the branches this test names.
-    const CALL = 'createPortal('
-    expect(popover.split(CALL)).toHaveLength(2)
-    const inlineHalf = popover.slice(0, popover.indexOf(CALL))
-    const portalledHalf = popover.slice(popover.indexOf(CALL))
-
-    const emitted = new RegExp(`${attr}(?![a-zA-Z0-9_-])`)
-    expect(inlineHalf).toMatch(emitted) // the no-anchorRef inline fallback
-    expect(portalledHalf).toMatch(emitted) // the branch that escapes the node
-  })
 })

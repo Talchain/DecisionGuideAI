@@ -117,27 +117,6 @@ describe('OutcomeNode', () => {
     expect(screen.getByLabelText(/^Outcome:/i)).toBeDefined()
   })
 
-  // ED #63 5809278282 (bounded anatomy): in Standard the preview moved off the
-  // card body to the node popover; the chevron still recovers the full text.
-  it('previews the authored consequence in the popover and keeps the full description expandable', async () => {
-    const description = 'Customer support demand may grow before the extra revenue covers new staffing. '.repeat(5).trim()
-    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
-    const body = 'Keep the wider strategic context and unresolved disagreements visible.'
-    const { container } = renderOutcome({ description, body })
-    expect(screen.queryByTestId('outcome-context-preview')).toBeNull()
-    fireEvent.mouseEnter(container.firstElementChild as Element)
-    const preview = await screen.findByTestId('outcome-popover-context')
-    expect(preview).toHaveTextContent(description)
-    expect(preview.closest('[data-node-popover]')).not.toBeNull()
-    fireEvent.mouseLeave(container.firstElementChild as Element)
-    expect(container.querySelector('.node-description')).toBeNull()
-    screen.getByRole('button', { name: 'Expand description' }).focus()
-    await userEvent.keyboard('{Enter}')
-    expect(container.querySelector('.node-description')).toHaveTextContent(description)
-    expect(container.querySelector('.node-description')).toHaveTextContent(body)
-    expect(screen.getByLabelText(/^Outcome:/i)).toHaveAttribute('aria-expanded', 'true')
-  })
-
   it.each([undefined, '   '])('uses the authored body when description is %s', async (description) => {
     const body = '  Preserve the source wording.\nAlso retain the second paragraph.  '
     const { container } = renderOutcome({ description, body })

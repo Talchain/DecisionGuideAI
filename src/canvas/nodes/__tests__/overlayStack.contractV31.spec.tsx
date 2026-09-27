@@ -45,10 +45,14 @@ function select(ids: string[]) {
 describe('v3.1 row 6 — a click leaves ONE surface: the popover yields to the inspector', () => {
   beforeEach(() => select([]))
 
-  it('⭐ CONTRAST — an unselected node\'s popover renders when visible', async () => {
+  it('⭐ THE CARD POPOVER IS RETIRED — an unselected, visible popover renders nothing either (contract v3.1 §01)', async () => {
+    // Before 27 Sep this row was the CONTRAST: an unselected node's popover rendered.
+    // The contract has no card popover at all ("Hover shows a one-line tooltip");
+    // served 91717719 opened one on an option and on the question card.
     render(<Harness nodeId="fac_a" visible />)
     await act(async () => { await new Promise(r => setTimeout(r, 20)) })
-    expect(screen.getByText('Popover detail for fac_a')).toBeTruthy()
+    expect(screen.queryByText('Popover detail for fac_a')).toBeNull()
+    expect(document.querySelector('[data-node-popover]')).toBeNull()
   })
 
   it('the SELECTED node\'s popover does not render (its inspector is the detail surface)', async () => {
@@ -59,20 +63,6 @@ describe('v3.1 row 6 — a click leaves ONE surface: the popover yields to the i
     expect(document.querySelector('[data-node-popover]')).toBeNull()
   })
 
-  it('bound by identity: ANOTHER node being selected does not suppress this one', async () => {
-    select(['fac_other'])
-    render(<Harness nodeId="fac_a" visible />)
-    await act(async () => { await new Promise(r => setTimeout(r, 20)) })
-    expect(screen.getByText('Popover detail for fac_a')).toBeTruthy()
-  })
-
-  it('selecting the node while its popover is open closes it', async () => {
-    render(<Harness nodeId="fac_a" visible />)
-    await act(async () => { await new Promise(r => setTimeout(r, 20)) })
-    expect(screen.getByText('Popover detail for fac_a')).toBeTruthy()
-    act(() => select(['fac_a']))
-    expect(screen.queryByText('Popover detail for fac_a')).toBeNull()
-  })
 })
 
 // ── 2 · option hover: no rings, no tabs ───────────────────────────────────
