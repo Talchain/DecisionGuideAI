@@ -843,6 +843,13 @@ export function buildHeroModel(
           : leaderBand === 'none'
             ? HERO_COPY.headline.noClearLeader
             : HERO_COPY.headline.noLeader
+  } else if (sharedVerdict?.separation === 'tied') {
+    // ⭐ R7 (DL #70 5859773247): the producer's TIE call names no option, so it
+    // needs no headline row. Since a UI sort no longer names a leader, a tie
+    // turn (CEE withholds `leading_option_id`) has no `headlineRow`, and the
+    // band arm above cannot reach 'none'. This keeps the denial the producer
+    // earned rather than degrading it to "Here is how your options compare."
+    headline = HERO_COPY.headline.noClearLeader
   } else if (
     outcomeAvailable &&
     outcomeLeaderRow &&
