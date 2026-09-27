@@ -18,7 +18,7 @@ import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
-import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { cleanFactorLabel, isSuppressedUnit, qualitativeTierLabel, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayParts, factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
@@ -1372,6 +1372,12 @@ export const FactorNode = memo((props: NodeProps) => {
             className={`${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
             data-testid={`factor-value-mark-only-${props.id}`}
           >
+            {/* Design bundle 1 (re-audit #3): the figure in the estate's tier
+                words (`qualitativeTierLabel`), never a bare 0–1 number and never
+                an orphan mark. */}
+            <span className="min-w-0" data-testid={`factor-value-tier-${props.id}`}>
+              {qualitativeTierLabel(Number(valueDisplay))}
+            </span>
             <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
               {renderValueSourceMark()}
             </span>

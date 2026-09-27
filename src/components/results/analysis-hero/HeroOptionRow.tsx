@@ -399,10 +399,13 @@ export function HeroOptionRow({
           }}
         />
         {/* Centre dot: full-width positioner translated by track percent. */}
+          {/* Design bundle 1 (re-audit): a zero-width anchor at `left: dotPos%`, not a
+              full-width box translated by dotPos% — the translated box ran past the
+              track and gave the Analysis tab a horizontal scroll (425 vs 318px). */}
           <span
-            className="absolute inset-0 transition-transform motion-reduce:transition-none"
+            className="absolute inset-y-0 w-0 transition-[left] motion-reduce:transition-none"
             style={{
-              transform: `translateX(${dotPos ?? 0}%)`,
+              left: `${dotPos ?? 0}%`,
               opacity: dotPos != null ? 1 : 0,
             }}
           >

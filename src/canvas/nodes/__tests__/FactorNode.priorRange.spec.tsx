@@ -467,7 +467,7 @@ describe('FactorNode prior range (lane C3)', () => {
     expect(text).not.toContain('binary')
   })
 
-  it('no observedState at all (fixture wire shape): the producer\'s bare 0–1 pair is OMITTED from the card; the owner still states it (design audit #3)', () => {
+  it('no observedState at all (fixture wire shape): the producer\'s bare 0–1 pair reads in tier words on the card; the owner still states it (design audit #3, bundle 1)', () => {
     // Mirrors fac_market_receptivity in
     // src/components/debug/__tests__/fixtures/staging-bundles/
     // olumi-debug-50b336a6-20260510.pre-fix.json — top-level display_value,
@@ -483,14 +483,15 @@ describe('FactorNode prior range (lane C3)', () => {
       display_value: '0.3 to 0.8',
     })
     expect(countOccurrences(container, '0.3 to 0.8')).toBe(0)
-    expect(container.textContent ?? '').not.toContain('Range:')
+    // Design bundle 1: the same two ends in tier words, never blank.
+    expect(container.textContent ?? '').toContain('Range: Low to High')
     // Positive control: the card rendered, by its own label.
     expect(container.textContent ?? '').toContain('Market Receptivity to Feature')
     // The owner (Model tab, inspector) still states it once.
     expect(ownerRange(null)).toBe('Range: 0.3 to 0.8')
   })
 
-  it('SERVED 853feeb7 market-entry fac_arr: "Current ARR | Range: 0.27 to 0.8 | no source" loses its Range line (design audit #3)', () => {
+  it('SERVED 853feeb7 market-entry fac_arr: "Current ARR | Range: 0.27 to 0.8 | no source" reads "Range: Low to High" (design audit #3, bundle 1)', () => {
     const { container } = renderFactor({
       label: 'Current ARR',
       type: 'factor',
@@ -502,7 +503,8 @@ describe('FactorNode prior range (lane C3)', () => {
     })
     expect(ownerRange(null)).toBe('Range: 0.27 to 0.8')
     expect(container.textContent ?? '').toContain('Current ARR')
-    expect(container.textContent ?? '').not.toContain('Range:')
+    // Design bundle 1: the line reads in tier words, never blank and never 0–1.
+    expect(container.textContent ?? '').toContain('Range: Low to High')
     expect(countOccurrences(container, '0.27 to 0.8')).toBe(0)
   })
 

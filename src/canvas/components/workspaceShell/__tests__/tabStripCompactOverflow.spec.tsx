@@ -50,6 +50,9 @@ describe('at 280px the four tabs keep their full labels with the stale mark (ser
   // truncation. Compact tabs take 4px side padding and no gap: 44px back.
   it('compact: 4px tab padding, no gap between tabs', () => {
     draw(280)
+    // Served 280 + stale mark was still 8px short: the strip gives back 12px too.
+    expect(screen.getByTestId('outputs-dock-tabstrip').className).toMatch(/\bpx-1\b/)
+    expect(screen.getByTestId('outputs-dock-tabstrip').className).toMatch(/\bgap-1\b/)
     expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bgap-0\b/)
     for (const t of screen.getAllByRole('tab')) {
       expect(t.className).toMatch(/\bpx-1\b/)

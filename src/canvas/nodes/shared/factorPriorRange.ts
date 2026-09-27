@@ -35,7 +35,7 @@
 import { isUnquantifiedPrior, priorEndpointsAreNormalised } from '../../domain/nodes'
 import { classifyValueProvenance } from '../../domain/valueProvenance'
 import { getObservedState } from '../../utils/observedStateHelpers'
-import { classifyUnit, formatRawValueWithUnit, isSuppressedUnit } from '../../utils/labelUtils'
+import { classifyUnit, formatRawValueWithUnit, isSuppressedUnit, qualitativeTierLabel } from '../../utils/labelUtils'
 
 /**
  * ⭐⭐ A VALUE THE USER STATED REPLACES THE RANGE — so the range is not live.
@@ -561,7 +561,16 @@ function composeFactorPriorRangeLine(inputs: FactorPriorRangeInputs, omitProduce
   const replaced = userValueReplacesPrior(inputs.data)
   const body = resolvePriorRangeBody(inputs, !replaced)
   if (body == null) return null
-  if (omitProducerModelScale && body.producerAuthored && body.bareModelScale) return null
+  if (omitProducerModelScale && body.producerAuthored && body.bareModelScale) {
+    // Design bundle 1 (re-audit #3): omitting the bare pair left 14 factor cards
+    // with no value at all. The card states the same two ends in the estate's
+    // own tier words (`qualitativeTierLabel`, the option chips' mapping), so it
+    // is never blank and never shows a bare 0–1 figure.
+    const pair = parseBareNumericRange(body.text)
+    if (pair === null) return null
+    const [lo, hi] = [qualitativeTierLabel(Math.min(pair[0], pair[1])), qualitativeTierLabel(Math.max(pair[0], pair[1]))]
+    return `Range: ${lo === hi ? lo : `${lo} to ${hi}`}`
+  }
   return replaced ? `${USER_VALUE_REPLACES_RANGE} ${body.text}` : `Range: ${body.text}`
 }
 
