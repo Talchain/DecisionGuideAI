@@ -113,9 +113,9 @@ const OPTIONS = [
   'develop new features and increase our Pro plan price from £49 to £59 per month in the next release',
   'invest in additional advertising',
 ]
-const drafting = (reading: { goal: string | null; options: string[] }, scenarioId = 'scn-1') => {
+const drafting = (reading: { goal: string | null; options: string[]; limits?: string[] }, scenarioId = 'scn-1') => {
   useDraftStore.getState().setDraftStreamPhase('drafting', 't1', scenarioId)
-  useDraftStore.getState().markDraftStreamBriefRead('t1', reading)
+  useDraftStore.getState().markDraftStreamBriefRead('t1', { limits: [], ...reading })
 }
 
 describe('FirstUseComposer — the brief reading during the first-brief wait (C6-2)', () => {
@@ -137,6 +137,18 @@ describe('FirstUseComposer — the brief reading during the first-brief wait (C6
     render(<FirstUseComposer />, { wrapper: Wrapper })
     expect(screen.queryByTestId('brief-reading-goal')).toBeNull()
     expect(screen.getByTestId('brief-reading-options').textContent).toContain('You\u2019re considering')
+  })
+
+  it('v2: the limits the user set are shown as quotes under "You set"; none held → no limits line', () => {
+    thinkingMockState.isThinking = true
+    drafting({ goal: GOAL, options: OPTIONS, limits: ['£20k budget', 'monthly churn under 4%'] })
+    const { unmount } = render(<FirstUseComposer />, { wrapper: Wrapper })
+    expect(screen.getByTestId('brief-reading-limits').textContent).toContain('You set')
+    expect(screen.getAllByTestId('brief-reading-limit').map((li) => li.textContent)).toEqual(['\u201C£20k budget\u201D', '\u201Cmonthly churn under 4%\u201D'])
+    unmount()
+    drafting({ goal: GOAL, options: OPTIONS })
+    render(<FirstUseComposer />, { wrapper: Wrapper })
+    expect(screen.queryByTestId('brief-reading-limits')).toBeNull()
   })
 
   it("another scenario's reading is never shown here", () => {
