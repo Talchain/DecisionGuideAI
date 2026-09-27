@@ -780,13 +780,25 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    *     build-vs-buy          d9353d548ccaeea6 → aa06488b968b42d6
    *     headcount-allocation  c445ee9b576edf32 → 75ed1101623070fa
    *     pricing-model         6d542cdbbb736623 → 6ee466bf5d8ea909
+   *
+   * ── SIBLING GAP 32 → 24 (27 Sep 2026), an EIGHTH re-record ──
+   * The default dock went 319 → 360 (#2199): the 1280 frame at the floor is 1656
+   * units, and five cards plus the prompt need 1680 at a gap of 32 (1640 at 24).
+   * Only x moves; tiers and row membership are unchanged. From this file's own
+   * `positionSignature`.
+   *
+   *     vendor-selection      ec5d646dad40b1b3 → 4b358d2350bda693
+   *     market-entry          b1dc2568eef26ba3 → b2f06788d36b98f7
+   *     build-vs-buy          aa06488b968b42d6 → 2a2c6211d90efe5f
+   *     headcount-allocation  75ed1101623070fa → 6658988de0325df8
+   *     pricing-model         6ee466bf5d8ea909 → c025b71cf3258ee6
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: 'ec5d646dad40b1b3', nodes: 19 },
-    'market-entry': { digest: 'b1dc2568eef26ba3', nodes: 18 },
-    'build-vs-buy': { digest: 'aa06488b968b42d6', nodes: 19 },
-    'headcount-allocation': { digest: '75ed1101623070fa', nodes: 16 },
-    'pricing-model': { digest: '6ee466bf5d8ea909', nodes: 15 },
+    'vendor-selection': { digest: '4b358d2350bda693', nodes: 19 },
+    'market-entry': { digest: 'b2f06788d36b98f7', nodes: 18 },
+    'build-vs-buy': { digest: '2a2c6211d90efe5f', nodes: 19 },
+    'headcount-allocation': { digest: '6658988de0325df8', nodes: 16 },
+    'pricing-model': { digest: 'c025b71cf3258ee6', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

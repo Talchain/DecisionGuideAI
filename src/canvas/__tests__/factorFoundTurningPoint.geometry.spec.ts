@@ -77,23 +77,24 @@ const POST_BOUND: Record<string, number> = { ...PRE_BOUND, [RANK_1]: 406 }
  * (was 48), so these are the layout's own output at the new constants, not the Chromium read. The
  * Chromium read, for the record (cap four, repeated card 260): dec 494, fac 261/419/577/735/893,
  * goal 494, opt 24/340/656/972, out 340/972, risk 656/24; y 24/196/685+994/1354/1701.
+ * 27 Sep 2026, sibling gap 32 → 24 (dock 360, #2199): only x moved; every y is unchanged.
  */
 const PRE_POSITIONS: Record<string, { x: number; y: number }> = {
-  dec_pricing: { x: 492, y: 24 },
+  dec_pricing: { x: 472, y: 24 },
   fac_adoption_friction: { x: 24, y: 669 },
-  fac_enterprise_revenue_risk: { x: 936, y: 669 },
-  fac_market_competition: { x: 328, y: 669 },
-  fac_top_account_concentration: { x: 1240, y: 669 },
-  fac_usage_exposure: { x: 632, y: 669 },
-  goal_pricing_transition: { x: 492, y: 1360 },
-  opt_full_switch: { x: 176, y: 188 },
-  opt_hybrid: { x: 480, y: 188 },
-  opt_new_logos: { x: 784, y: 188 },
-  opt_status_quo: { x: 1088, y: 188 },
-  out_bottom_up_growth: { x: 480, y: 1021 },
-  out_nrr: { x: 1088, y: 1021 },
-  risk_enterprise_churn: { x: 784, y: 1021 },
-  risk_pricing_complexity: { x: 176, y: 1021 },
+  fac_enterprise_revenue_risk: { x: 912, y: 669 },
+  fac_market_competition: { x: 320, y: 669 },
+  fac_top_account_concentration: { x: 1208, y: 669 },
+  fac_usage_exposure: { x: 616, y: 669 },
+  goal_pricing_transition: { x: 472, y: 1360 },
+  opt_full_switch: { x: 172, y: 188 },
+  opt_hybrid: { x: 468, y: 188 },
+  opt_new_logos: { x: 764, y: 188 },
+  opt_status_quo: { x: 1060, y: 188 },
+  out_bottom_up_growth: { x: 468, y: 1021 },
+  out_nrr: { x: 1060, y: 1021 },
+  risk_enterprise_churn: { x: 764, y: 1021 },
+  risk_pricing_complexity: { x: 172, y: 1021 },
 }
 const BELOW_FACTORS = ['goal_pricing_transition', 'out_bottom_up_growth', 'out_nrr', 'risk_enterprise_churn', 'risk_pricing_complexity']
 
