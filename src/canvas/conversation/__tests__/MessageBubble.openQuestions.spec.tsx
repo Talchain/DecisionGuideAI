@@ -25,8 +25,12 @@ import { MessageBubble } from '../MessageBubble'
 import type { ConversationMessage } from '../types'
 import {
   SERVER_OPEN_QUESTIONS_MARKER,
+  extractOpenQuestionListSidecar,
+  readOpenQuestionList,
   splitServerOpenQuestions,
 } from '../serverOpenQuestions'
+import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
+import served2054 from './fixtures/openai-route-open-questions-2054.served.json'
 import served from './fixtures/openai-route-construction-reply.served.json'
 
 const noop = async () => {}
@@ -217,3 +221,58 @@ describe('MessageBubble — fails open to today\'s render (controls)', () => {
     expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
 })
+
+/**
+ * ⭐ THE WHOLE LIST (CEE #2054 `_agent.open_questions`). Served: the reply names 2 and ends "Ask me for the other
+ * 11."; asking gave a 4-bullet synthesis, not the other 11 (run oq-rest-c3d7873e-f99d0a5). The typed list rides the
+ * same turn, so the disclosure shows every item, verbatim, in the producer's order.
+ */
+describe('open questions: the producer\'s whole list when it sends one', () => {
+  const LIST = served2054.open_questions
+
+  it('the served turn carries 13 items and a reply that names only 2 of them', () => {
+    expect(LIST).toHaveLength(13)
+    expect(served2054.assistant_text).toMatch(/Ask me for the other 11\.$/)
+  })
+
+  it('DL 5851835121: collapsed by default, and the toggle carries the count', () => {
+    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
+    const toggle = screen.getByTestId('message-show-open-questions')
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(toggle.textContent).toContain('13 questions this model does not answer yet')
+    expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
+  })
+
+  it('RED (served): opening the panel shows all 13, verbatim and in order, and no "Ask me for the other"', () => {
+    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
+    expect(items).toEqual(LIST)
+    expect(screen.getByTestId('message-open-questions').textContent).not.toMatch(/Ask me for the other/)
+  })
+
+  it('CONTRAST: a turn without the list keeps the questions its reply carried, as before', () => {
+    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text })} onChipClick={noop} />)
+    expect(screen.getByTestId('message-show-open-questions').textContent).toContain('Questions this model does not answer yet')
+    expect(screen.getByTestId('message-show-open-questions').textContent).not.toMatch(/\d+ questions?/)
+    fireEvent.click(screen.getByTestId('message-show-open-questions'))
+    expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
+    expect(screen.getByTestId('message-open-questions').textContent).toMatch(/Ask me for the other 11\./)
+  })
+
+  it('reads the list from the parser sidecar; drops what is not a non-empty string; never invents one', () => {
+    const withSidecar = (agent: unknown) => {
+      const r = {} as Record<string | symbol, unknown>
+      Object.defineProperty(r, ADDITIVE_EXTENSIONS_KEY, { value: { _agent: agent }, enumerable: false })
+      return r
+    }
+    expect(extractOpenQuestionListSidecar(withSidecar({ open_questions: LIST }))).toEqual(LIST)
+    expect(extractOpenQuestionListSidecar(withSidecar({ open_questions: ['A?', '', 3, null, 'B?'] }))).toEqual(['A?', 'B?'])
+    expect(extractOpenQuestionListSidecar(withSidecar({ open_questions: [] }))).toBeUndefined()
+    expect(extractOpenQuestionListSidecar(withSidecar({}))).toBeUndefined()
+    expect(extractOpenQuestionListSidecar(withSidecar(null))).toBeUndefined()
+    expect(extractOpenQuestionListSidecar({})).toBeUndefined()
+    expect(readOpenQuestionList('not a list')).toBeUndefined()
+  })
+})
+

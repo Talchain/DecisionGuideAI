@@ -98,6 +98,12 @@ export interface ConversationMessage {
    */
   groundedSelection?: GroundedSelection
   /**
+   * CEE #2054's `_agent.open_questions`: the WHOLE list the build parked, verbatim, in the producer's order
+   * (`extractOpenQuestionListSidecar`). The reply's prose names at most two; the disclosure shows every item.
+   * Kept in the transcript (it is the producer's text, carries no action) and re-read on restore.
+   */
+  openQuestionList?: readonly string[]
+  /**
    * What Olumi had to leave out of the model it drafted on THIS turn —
    * `model_building_notices`, a DECLARED optional field on the V5 body (schemas
    * 0.48.0), parsed + fail-closed by `extractModelBuildingNoticesSidecar`

@@ -43,6 +43,7 @@ import type { ConversationMessage } from '../types'
 import { heldProposalMountKey } from '../selectors'
 import { offersPendingConsent } from '../messageComposition'
 import { parseAnswerShape, type AnswerShape } from '../answerShape'
+import { readOpenQuestionList } from '../serverOpenQuestions'
 
 // ── G1: which CARD ACTION created a user message ─────────────────────────────
 //
@@ -197,6 +198,7 @@ interface StoredMessage {
    * turn uses; a malformed or older save simply renders the full text.
    */
   answerShape?: AnswerShape
+  openQuestionList?: string[]
   sessionDivider?: string
   synthetic?: boolean
 }
@@ -301,6 +303,7 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (m.deliveryState === 'unconfirmed') out.deliveryState = 'unconfirmed'
   if (turnOfferedConsent(m)) out.consentOffered = true
   if (m.answerShape) out.answerShape = m.answerShape
+  if (m.openQuestionList) out.openQuestionList = [...m.openQuestionList]
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   return out
@@ -328,12 +331,18 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...(s.deliveryState === 'unconfirmed' ? { deliveryState: 'unconfirmed' as const } : {}),
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
     ...restoredAnswerShape(s.answerShape),
+    ...restoredOpenQuestionList(s.openQuestionList),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
   }
 }
 
 /** A stored answer shape, re-read through the live turn's own validator. */
+function restoredOpenQuestionList(raw: unknown): { openQuestionList?: string[] } {
+  const list = readOpenQuestionList(raw)
+  return list ? { openQuestionList: list } : {}
+}
+
 function restoredAnswerShape(raw: unknown): { answerShape?: AnswerShape } {
   const shape = parseAnswerShape(raw)
   return shape ? { answerShape: shape } : {}

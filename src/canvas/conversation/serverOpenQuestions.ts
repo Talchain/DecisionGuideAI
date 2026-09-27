@@ -27,6 +27,8 @@
  * lasting fix is a structured `open_questions` field on the wire (Runtime).
  */
 
+import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
+
 /** The producer's marker, byte for byte (write-outcome.ts `openQuestionsLine`). */
 export const SERVER_OPEN_QUESTIONS_MARKER = 'Questions this model does not answer yet:'
 
@@ -71,4 +73,35 @@ export function splitServerOpenQuestions(text: string): ServerOpenQuestionsSplit
   const after = end === -1 ? '' : tail.slice(end + 1).trim()
   if (lead.length === 0 || questions.length === 0) return null
   return { lead, questions, after, atRest: after ? `${lead} ${after}` : lead }
+}
+
+/**
+ * ⭐ THE WHOLE LIST, WHEN THE PRODUCER SENDS IT (CEE #2054, `_agent.open_questions`). The reply names at most two and
+ * ends "Ask me for the other N."; served, asking gave a 4-bullet synthesis, not the other N (run
+ * oq-rest-c3d7873e-f99d0a5, 27 Sep). The typed list is on the same turn, so the disclosure shows it: every item,
+ * verbatim, in the producer's order. Anything that is not a non-empty string is dropped, never repaired.
+ */
+export const OPEN_QUESTION_LIST_MAX = 40
+
+export function readOpenQuestionList(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const items = raw.filter((q): q is string => typeof q === 'string' && q.trim().length > 0).slice(0, OPEN_QUESTION_LIST_MAX)
+  return items.length > 0 ? items : undefined
+}
+
+/** `_agent.open_questions` from the parser's additive sidecar (an undeclared top-level key at the pinned schema). */
+export function extractOpenQuestionListSidecar(response: unknown): string[] | undefined {
+  const additive = (response as OlumiResponseWithExtensions | null | undefined)?.[ADDITIVE_EXTENSIONS_KEY]
+  const agent = (additive as Record<string, unknown> | undefined)?.['_agent']
+  if (agent === null || typeof agent !== 'object' || Array.isArray(agent)) return undefined
+  return readOpenQuestionList((agent as Record<string, unknown>).open_questions)
+}
+
+/**
+ * The toggle's label once the whole list is known (DL #70 5851835121): the count first, collapsed by default, so the
+ * first message stays short and the list is one press away. No list → the producer's own heading, unchanged.
+ */
+export function openQuestionsToggleLabel(listLength: number | undefined): string {
+  if (!listLength || listLength < 1) return OPEN_QUESTIONS_LABEL
+  return `${listLength} ${listLength === 1 ? 'question' : 'questions'} this model does not answer yet`
 }
