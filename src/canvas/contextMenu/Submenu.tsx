@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { isDivider, isMenuItem, type MenuEntry, type MenuItemDef } from './types'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 interface SubmenuProps {
   items: MenuEntry[]
@@ -72,7 +73,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-[952] min-w-[180px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
+      className={`fixed ${CANVAS_LAYER_CLASS.submenu} min-w-[180px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2`}
       style={{ left: position.left, top: position.top }}
       onKeyDown={handleKeyDown}
     >

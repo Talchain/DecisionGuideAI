@@ -13,6 +13,7 @@ import { EdgeInspector } from '../ui/EdgeInspector'
 import { InspectorRouter } from '../ui/inspector-v2'
 import { ICON_STANDALONE } from '../conversation/panelIcons'
 import { useInspectorPresenceStore } from '../stores/inspectorPresenceStore'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 /** Feature flag: when true, uses the new per-type inspector panels */
 const USE_INSPECTOR_V2 = true
@@ -208,7 +209,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
     return (
       <div
         ref={panelRef}
-        className="fixed z-[5000]"
+        className={`fixed ${CANVAS_LAYER_CLASS.inspector}`}
         style={{
           left: position?.x ?? screenAnchor.x + 24,
           top: position?.y ?? screenAnchor.y,
@@ -233,7 +234,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
   return (
     <div
       ref={panelRef}
-      className="fixed z-[5000] bg-white rounded-lg shadow-3 max-w-md w-full max-h-[80vh] overflow-hidden border border-panel-border"
+      className={`fixed ${CANVAS_LAYER_CLASS.inspector} bg-white rounded-lg shadow-3 max-w-md w-full max-h-[80vh] overflow-hidden border border-panel-border`}
       style={{
         left: position?.x ?? screenAnchor.x + 24,
         top: position?.y ?? screenAnchor.y,

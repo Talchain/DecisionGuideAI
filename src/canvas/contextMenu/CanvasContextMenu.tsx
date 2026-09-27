@@ -17,6 +17,7 @@ import { isDivider, isMenuItem, type ContextTarget, type MenuItemDef, type MenuE
 import { SetValuePopover } from './SetValuePopover'
 import { setValueCustom, type FactorValueWriter } from './actions'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 interface CanvasContextMenuProps {
   target: ContextTarget
@@ -244,7 +245,7 @@ export function CanvasContextMenu({
         role="presentation"
         // A9 — above OutputsDock's `zIndex: 900` aside, so the backdrop
         // actually catches a click made through where the dock paints.
-        className="fixed inset-0 z-[950]"
+        className={`fixed inset-0 ${CANVAS_LAYER_CLASS.contextMenuBackdrop}`}
         onMouseDown={onClose}
         onContextMenu={(e) => { e.preventDefault(); onClose() }}
       />
@@ -252,7 +253,7 @@ export function CanvasContextMenu({
         ref={menuRef}
         role="menu"
         aria-label="Canvas context menu"
-        className="fixed z-[951] min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
+        className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2`}
         style={{ left: position.x, top: position.y }}
       >
         {items.map((entry, i) => {

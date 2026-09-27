@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { typography } from '../../styles/typography'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 interface MenuTooltipProps {
   id?: string
@@ -47,7 +48,7 @@ export function MenuTooltip({ id, text, anchorRect, visible }: MenuTooltipProps)
       ref={tooltipRef}
       id={id}
       role="tooltip"
-      className={`fixed z-[101] max-w-[240px] rounded-lg bg-surface px-2.5 py-1.5 shadow-1 ${typography.panelMeta} text-text-light pointer-events-none`}
+      className={`fixed ${CANVAS_LAYER_CLASS.menuTooltip} max-w-[240px] rounded-lg bg-surface px-2.5 py-1.5 shadow-1 ${typography.panelMeta} text-text-light pointer-events-none`}
       style={{ left: position.left, top: position.top }}
     >
       {text}

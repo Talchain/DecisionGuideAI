@@ -11,6 +11,7 @@
 import { useState, useEffect, useRef, useCallback, type KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 export interface EdgeEditPopoverProps {
   edge: {
@@ -111,7 +112,7 @@ export function EdgeEditPopover({ edge, position, onUpdate, onClose }: EdgeEditP
   return (
     <div
       ref={popoverRef}
-      className="fixed bg-white border border-gray-300 rounded-lg shadow-panel p-4 z-[3000]"
+      className={`fixed bg-white border border-gray-300 rounded-lg shadow-panel p-4 ${CANVAS_LAYER_CLASS.edgeEditPopover}`}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,

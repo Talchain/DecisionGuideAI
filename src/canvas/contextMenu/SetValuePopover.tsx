@@ -25,6 +25,7 @@ import { useCanvasStore } from '../store'
 import { modelScaleValueIsTheTypedScale, resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { VALUE_COMMIT_SETTLEMENT_COPY, VALUE_NOT_ENCODABLE_COPY } from '../conversation/valueCommitSettlement'
 import { getNodeRange, type MenuValueCommitOutcome } from './actions'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 interface SetValuePopoverProps {
   nodeId: string
@@ -98,7 +99,7 @@ export function SetValuePopover({ nodeId, anchorPos, onConfirm, onClose }: SetVa
   return (
     <div
       ref={popoverRef}
-      className="fixed z-[101] w-[240px] rounded-md border border-panel-border bg-panel p-3 shadow-2"
+      className={`fixed ${CANVAS_LAYER_CLASS.setValuePopover} w-[240px] rounded-md border border-panel-border bg-panel p-3 shadow-2`}
       style={{ left: x, top: y }}
     >
       <p className={`${typography.panelMeta} mb-2 text-text-light`}>
