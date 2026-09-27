@@ -61,6 +61,12 @@ export type DriverValueProvenance = 'estimated' | 'not_estimated' | 'undetermine
 export interface DriverProvenanceKey {
   factorKey: string
   matchedNodeId?: string
+  /**
+   * The RUN's own `factor_sensitivity[].value_source` for this factor, when the
+   * producer sent one (`DriverItem.valueSource`). R7 / X4: it is the authority for
+   * what this run consumed, and it wins over the live node.
+   */
+  valueSource?: string
 }
 
 /**
@@ -122,7 +128,14 @@ export function driverValueProvenance(
   nodeValueSources?: ReadonlyMap<string, string>,
 ): DriverValueProvenance {
   const key = driver.matchedNodeId ?? driver.factorKey
-  const classified = classifyValueProvenance(nodeValueSources?.get(key))
+  // ⭐ R7 / X4: THE RUN'S OWN SOURCE FIRST. The live node answers "whose value is
+  // on the canvas NOW"; a driver row describes a RUN, and a value edited after
+  // that run changes the node without changing what the run consumed. The node
+  // is read only when the run carried no `value_source` (older producers, saved
+  // reports), the path every surface used before the V5 mapper carried it.
+  const runSource =
+    typeof driver.valueSource === 'string' && driver.valueSource.trim() !== '' ? driver.valueSource : undefined
+  const classified = classifyValueProvenance(runSource ?? nodeValueSources?.get(key))
   if (classified === null) return 'undetermined'
   if (classified.userOwned) return 'not_estimated'
   if (classified.kind === 'brief') return 'undetermined'
