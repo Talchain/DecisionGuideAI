@@ -79,6 +79,7 @@ import {
   LAYOUT_NODE_GAP,
   LAYOUT_LAYER_GAP,
   MAX_CARDS_PER_ROW,
+  NODE_LAYOUT_MIN_W,
   REPEATED_CARD_W,
   ROW_PROMPT_W,
   rowPromptKindsFor,
@@ -345,9 +346,10 @@ export function solveLayoutCardWidths(
  * ⭐ THE RULE IS THE ONE THE FRESH PATH ALREADY USES, POINTED AT THE RIGHT BOARD.
  * `tierBoxWidth` lets a tier spend only its share of the widest row the board
  * ALREADY has. Here the board that already exists is the SAVED one, so the bound
- * is measured from the saved positions: per tier, the smallest centre-to-centre
- * distance between adjacent cards sharing a row, minus the gap the layout
- * guarantees. Reusing the rule rather than inventing a second one is deliberate —
+ * is measured from the saved positions: per tier, the dominant (median)
+ * centre-to-centre distance between adjacent cards sharing a row, minus the gap
+ * the layout guarantees — never less than the card floor (see the loop below
+ * for why it is not the smallest pair, F1). Reusing the rule rather than inventing a second one is deliberate —
  * two rules for one question is how the two authorities in this hook disagreed.
  *
  * ⚠ A TIER WITH NO TWO CARDS IN ONE ROW IS NOT BOUNDED, AND THAT IS THE POINT,
@@ -484,18 +486,52 @@ export function solveRestoredCardWidths(
     if (group === undefined) byTier.set(tier, [n])
     else group.push(n)
   }
+  /**
+   * ⛔⛔ THE TIER'S STRIDE IS THE ONE ITS LAYOUT USED — THE DOMINANT ADJACENT
+   * STRIDE — NOT THE CLOSEST PAIR ON THE BOARD (canvas audit edit-structure/F1,
+   * 27 Sep 2026, reproduced on the served build).
+   *
+   * This read the MINIMUM over every same-row pair. One card the user moved
+   * 90 units towards its neighbour (`build-vs-buy`, stride 296 -> 206) then
+   * capped EVERY factor at 182, drawn at the 191 floor; the narrower cards
+   * wrapped taller and two cards the user never touched overlapped the row
+   * below. Narrowing is not the free, safe direction the notes on `shareARow`
+   * assume: a narrower card is a TALLER card, and a taller card crosses the
+   * next row.
+   *
+   * ⭐ Each card contributes the stride to its nearest same-row neighbour on the
+   * right, and the tier takes the MEDIAN of those (the upper middle on an even
+   * count). A layout places a row on one stride, so a board it wrote — however
+   * old, however narrow — still reads as that stride and is still bounded by it.
+   * A minority of hand-moved pairs cannot set it, in either direction; their
+   * overlap is the user's own, local and visible. An even split (a three-card
+   * row with one card moved) resolves to the WIDER stride for the reason above:
+   * the narrow reading shrinks the whole kind, the wide one touches one pair.
+   *
+   * ⚠ A TIER WITH ONE SAME-ROW PAIR CANNOT TELL A HAND MOVE FROM A NARROW LAYOUT
+   * — the pair is all the evidence there is, so it still bounds. Stated, not
+   * solved: a two-card row whose cards are pushed together narrows both.
+   */
   for (const [tier, group] of byTier) {
+    const adjacent: number[] = []
     for (let i = 0; i < group.length; i++) {
-      for (let j = i + 1; j < group.length; j++) {
-        if (!shareARow(group[i], group[j])) continue
-        const stride = Math.abs((group[i].position?.x ?? 0) - (group[j].position?.x ?? 0))
-        // A zero stride is two cards at the same x — already degenerate, and not
+      const xi = group[i].position?.x ?? 0
+      let nearest = Number.POSITIVE_INFINITY
+      for (let j = 0; j < group.length; j++) {
+        if (j === i) continue
+        const dx = (group[j].position?.x ?? 0) - xi
+        // Right-hand neighbours only, so each adjacent pair is counted once. A
+        // zero stride is two cards at the same x — already degenerate, and not
         // evidence about how much width the row can afford.
-        if (stride <= 0) continue
-        const seen = strideByTier.get(tier)
-        if (seen === undefined || stride < seen) strideByTier.set(tier, stride)
+        if (dx <= 0 || dx >= nearest) continue
+        if (!shareARow(group[i], group[j])) continue
+        nearest = dx
       }
+      if (nearest !== Number.POSITIVE_INFINITY) adjacent.push(nearest)
     }
+    if (adjacent.length === 0) continue
+    adjacent.sort((a, b) => a - b)
+    strideByTier.set(tier, adjacent[Math.floor(adjacent.length / 2)])
   }
   if (strideByTier.size === 0) return fresh
   const bounded: Record<string, number> = {}
@@ -515,8 +551,17 @@ export function solveRestoredCardWidths(
     // cards closer together than the gap). Fall through to the fresh answer and
     // leave that board to the single-width limb, rather than returning a zero
     // that every consumer would have to special-case.
+    //
+    // ⛔ AND A POSITIVE CAP BELOW `NODE_LAYOUT_MIN_W` IS NOT A WIDTH EITHER — it is
+    // narrower than `BaseNode`'s own CSS `minWidth`, so no card can ever draw it
+    // (F1 published 182 and 124; both drew at 191). The answer is the narrowest
+    // width a card CAN draw, never the fresh one: on a board laid out at a narrow
+    // stride the floor is the least overlap available without moving anything,
+    // and the fresh width would widen every pair. What changes is only that the
+    // published record now says what is on screen — `BaseNode` bounds the title's
+    // measure by it, and a record 9 units narrower than the card mis-measured it.
     const cap = stride - gap
-    bounded[kind] = cap > 0 ? Math.min(fresh[kind], cap) : fresh[kind]
+    bounded[kind] = cap > 0 ? Math.min(fresh[kind], Math.max(cap, NODE_LAYOUT_MIN_W)) : fresh[kind]
   }
   return bounded
 }

@@ -12,6 +12,10 @@ import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../lib/persistenceSession'
 import { deleteSelectionAction, type ShowToastFn } from './contextMenu/actions'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
+import { armNodeKeyboardScopeForOneDispatch } from './nodes/nodeKeyboardScope'
+
+/** The keys React Flow's node handler moves a node on — and the nudge's keys. */
+const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'])
 
 export type InteractionMode = 'select' | 'hand'
 
@@ -472,6 +476,29 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         event.key === 'Escape' && escapeBelongsToAnOpenSurface(event.target as Element | null) ? event : null
     }
 
+    /**
+     * ⛔ ONE ARROW PRESS, ONE MOVE (edit-structure F1/F4 skeptics, 27 Sep 2026).
+     *
+     * React Flow moves a focused, selected node on the arrow keys itself (5
+     * units, ×4 with Shift), and clicking a card focuses it — so the nudge below
+     * ALSO ran, and one Shift+ArrowRight moved a card 30 (served build). The
+     * canvas's nudge is the one handler: it is the one that moves an unfocused
+     * selection too, so distance no longer depends on where focus is, and it
+     * coalesces a burst into one undo frame.
+     *
+     * React Flow's node handler is withheld through React Flow's OWN opt-out,
+     * `.nokey` on the node wrapper for this one dispatch — never
+     * `stopPropagation`, which would also stop every window/document listener
+     * (see `nodeKeyboardScope`'s header). Arrow keys only: Enter, Space and
+     * Escape at the node still select and deselect it.
+     */
+    const handleArrowCapture = (event: KeyboardEvent) => {
+      if (!ARROW_KEYS.has(event.key)) return
+      const target = event.target as Element | null
+      if (!target || typeof target.matches !== 'function') return
+      if (target.matches('.react-flow__node')) armNodeKeyboardScopeForOneDispatch(target)
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const cmdOrCtrl = isMac ? event.metaKey : event.ctrlKey
@@ -630,7 +657,12 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         return
       }
 
-      // Nudge with arrow keys
+      // Nudge with arrow keys.
+      //
+      // ⛔ Never a press another handler already consumed — React Flow's own move
+      // on a focused multi-selection box, which `.nokey` cannot withhold, or the
+      // lens's option cycling. Moving it again is the double move.
+      if (ARROW_KEYS.has(event.key) && event.defaultPrevented) return
       const nudgeAmount = event.shiftKey ? 10 : 1
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
@@ -689,6 +721,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
     }
 
     window.addEventListener('keydown', handleEscapeCapture, true)
+    window.addEventListener('keydown', handleArrowCapture, true)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('blur', handleBlur)
@@ -697,6 +730,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
     }
     return () => {
       window.removeEventListener('keydown', handleEscapeCapture, true)
+      window.removeEventListener('keydown', handleArrowCapture, true)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleBlur)
