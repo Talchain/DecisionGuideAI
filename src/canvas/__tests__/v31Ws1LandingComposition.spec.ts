@@ -381,17 +381,27 @@ describe('WS1 #27 — one row-end prompt per band', () => {
 /* ── #28 ──────────────────────────────────────────────────────────────────── */
 
 describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
+  // ⭐ RE-PINNED 27 Sep 2026 (glyph row, DIFF item 4): the resolved offset is
+  // now in GLYPH units and is multiplied by `--canvas-glyph-scale` on paint, so
+  // it is compared with the title's box AT THE BOUND (`boxAtBound`, the frame
+  // the keep-out is handed in) — offset × MAX_GLYPH_COUNTER_SCALE, and the glyph
+  // box at the same bound. Comparing the scale-1 offset with a bound-frame box
+  // mixed two frames. (`GLYPH_PAINTED_BOX_FLOW` is already the box AT the bound.)
   const half = GLYPH_PAINTED_BOX_FLOW / 2
-  const clear = (o: { dx: number; dy: number }, k: { x0: number; y0: number; x1: number; y1: number }) =>
-    o.dx + half <= k.x0 || o.dx - half >= k.x1 || o.dy + half <= k.y0 || o.dy - half >= k.y1
+  const atBound = (o: { dx: number; dy: number }) => ({ dx: o.dx * MAX_GLYPH_COUNTER_SCALE, dy: o.dy * MAX_GLYPH_COUNTER_SCALE })
+  const clear = (u: { dx: number; dy: number }, k: { x0: number; y0: number; x1: number; y1: number }) => {
+    const o = atBound(u)
+    return o.dx + half <= k.x0 || o.dx - half >= k.x1 || o.dy + half <= k.y0 || o.dy - half >= k.y1
+  }
 
   it('a glyph whose natural spot is on the title moves off it', () => {
     const target = { x: 0, y: 60 }
     const siblings = [{ id: 'e1', sourceCentre: { x: 0, y: -400 } }]
-    const free = resolvePolarityGlyphOffset('e1', target, siblings)
+    const freeUnits = resolvePolarityGlyphOffset('e1', target, siblings)
+    const free = atBound(freeUnits)
     // A title box covering the natural spot.
     const keepOut = { x0: free.dx - 40, y0: free.dy - 15, x1: free.dx + 40, y1: free.dy + 15 }
-    expect(clear(free, keepOut)).toBe(false) // CONTRAST: without the keep-out it IS on the title
+    expect(clear(freeUnits, keepOut)).toBe(false) // CONTRAST: without the keep-out it IS on the title
     const moved = resolvePolarityGlyphOffset('e1', target, siblings, keepOut)
     expect(clear(moved, keepOut)).toBe(true)
   })
@@ -402,7 +412,7 @@ describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
       { id: 'a', sourceCentre: { x: 0, y: -400 } },
       { id: 'b', sourceCentre: { x: 0, y: -400 } },
     ]
-    const base = resolvePolarityGlyphOffset('a', target, siblings)
+    const base = atBound(resolvePolarityGlyphOffset('a', target, siblings))
     const keepOut = { x0: base.dx - 40, y0: base.dy - 15, x1: base.dx + 40, y1: base.dy + 15 }
     const a = resolvePolarityGlyphOffset('a', target, siblings, keepOut)
     const b = resolvePolarityGlyphOffset('b', target, siblings, keepOut)

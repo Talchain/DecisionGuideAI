@@ -40,20 +40,19 @@ import {
   resolveEdgeDirectionMarker,
   isNonDirectionalEdgeType,
   NON_DIRECTIONAL_EDGE_TYPES,
-  EDGE_ARROWHEAD_BASE_PX,
-  EDGE_ARROWHEAD_FLOW_WIDTH,
-  EDGE_ARROWHEAD_FLOW_LENGTH,
-  EDGE_ARROWHEAD_VIEWBOX,
-  EDGE_ARROWHEAD_POLYGON_POINTS,
-  renderedArrowheadWidthPx,
-  renderedArrowheadLengthPx,
+  EDGE_ARROWHEAD_STROKE_MULTIPLE,
+  edgeArrowheadSize,
+  edgeArrowheadViewBox,
+  edgeArrowheadPolygonPoints,
+  renderedArrowheadPx,
   edgeArrowheadMarkerId,
 } from '../edgePresentation'
-import { LABEL_LEGIBLE_ZOOM, MAX_GLYPH_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM } from '../../utils/zoomLegibility'
+import { EDGE_STROKE_WIDTH_BANDS } from '../../utils/graphDisplayCalculations'
 import {
-  GLYPH_ANCHOR_RADIUS,
-  GLYPH_PAINTED_BOX_FLOW,
-  GLYPH_BOX_GAP_FLOW,
+  GLYPH_ROW_RISE,
+  GLYPH_ROW_PITCH,
+  GLYPH_ROW_CENTRE_CLEARANCE,
 } from '../../utils/edgeGlyphPlacement'
 
 describe('EDGE_DIRECTION_MARKER_RULES — the order is the contract', () => {
@@ -137,169 +136,86 @@ describe('resolveEdgeDirectionMarker', () => {
 })
 
 /**
- * ── THE ZOOM CLAIM, MADE AS ARITHMETIC ────────────────────────────────────
+ * ── THE SIZE, MADE AS ARITHMETIC ──────────────────────────────────────────
  *
- * A marker's geometry is USER-SPACE and is multiplied by the viewport transform
- * before it reaches a pixel. `vector-effect: non-scaling-stroke` — the mechanism
- * the edge STROKE uses — does not reach it: that governs stroke rendering, and
- * an arrowhead is a filled polygon.
+ * ⭐ contract v3.1 (side-by-side DIFF item 13, 27 Sep 2026): the contract's
+ * marker is `markerWidth="4"` in the default `strokeWidth` units — the head is
+ * FOUR TIMES THE LINE, 8px on a 2px line and 16px on a 4px one. It replaces a
+ * fixed 12 × 12 user-space triangle that was the same on every line (so a
+ * 1.5px line carried a 12px head).
  *
- * ⚠⚠ THE NUMBER THIS BLOCK USED TO CARRY WAS WRONG, AND THE ASSERTION BELOW WAS
- * LOOSE ENOUGH TO ACCOMMODATE IT. It said a naive 6-unit marker "renders at 3px
- * at the 0.50 auto-fit floor". The deleted `<defs>` markers carried NO
- * `markerUnits` attribute, so the SVG default `strokeWidth` applied and the
- * marker viewport was `6 × stroke-width 2` = 12 user units → **6px**, not 3px.
- * The old assertion was `toBeGreaterThan(6 * 0.50)` = `> 3`, which is satisfied
- * by 8 whether the dead marker was 3px or 6px — a wrong figure surviving because
- * nothing pinned it. Corrected and pinned to exact px, 7 Sep 2026.
+ * ⭐ AND IT IS COUNTER-SCALED, BECAUSE THE LINE IS. The stroke is
+ * `non-scaling-stroke`, so its width is a SCREEN width at every zoom. A head in
+ * plain graph units would shrink against its own line as the camera pulls back
+ * (2:1 at the 0.50 landing floor). The head reads `--canvas-glyph-scale`, the
+ * scale `zoomLegibility.ts` gives glyphs and "the edge arrowhead", so it keeps
+ * `rendered === declared` — and the contract's 4:1 — from the landing floor to
+ * 1:1. This replaces "size for the bound", which could only be right at ONE
+ * zoom (6px at 0.50, 12px at 1:1 on every line).
  *
- * THE ANSWER IS THE ONE THIS CODEBASE ALREADY CHOSE FOR NODE GEOMETRY, and it is
- * chosen here for the same stated reason (`zoomLegibility.ts`, on
- * `MAX_LABEL_COUNTER_SCALE`): *"the settle zoom IS the worst case, and the worst
- * case is a CONSTANT rather than a number that has to be tracked at runtime"*.
- * Size for the bound. The marker is a compile-time constant, so no edge
- * subscribes to zoom — which matters, because `CanvasLabelScaleSync` exists
- * precisely to avoid "re-render every node and every edge on every wheel event".
- *
- * ⚠ HONEST LIMIT, and it is the same one `StyledEdge.zoomLegibleThickness.spec`
- * declares: jsdom has no layout and no viewport transform, so nothing here
- * observes a rendered pixel. What is checkable is the arithmetic that decides
- * the size, and that it is derived from the single zoom source rather than
- * hand-tuned. The pixel half is NOT established by this suite, and no other
- * instrument in this estate establishes it either.
+ * ⚠ HONEST LIMIT: arithmetic over the declared numbers. jsdom has no paint. The
+ * CSS mechanism the counter-scale rides on was witnessed once, in Chromium, on a
+ * static page (see `StyledEdge.directionMark.spec.tsx`); the product's own head
+ * has not been measured on a served build by this change.
  */
-describe('arrowhead size — sized for the bound, not tracked at runtime', () => {
-  it('derives its ACROSS-path size from the single zoom authority, not a second constant', () => {
-    // The arrowhead is a GLYPH: it reads the uncapped glyph bound (27 Sep 2026).
-    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBe(EDGE_ARROWHEAD_BASE_PX * MAX_GLYPH_COUNTER_SCALE)
+describe('arrowhead size — the contract\'s markerWidth 4, counter-scaled like a glyph', () => {
+  it('is 4 × the stroke width: 8 / 12 / 16 on the contract\'s 2 / 3 / 4', () => {
+    expect(EDGE_ARROWHEAD_STROKE_MULTIPLE).toBe(4)
+    expect([2, 3, 4].map(edgeArrowheadSize)).toEqual([8, 12, 16])
   })
 
-  it('renders its full declared width at the zoom the product parks a fresh model at', () => {
-    expect(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM)).toBeCloseTo(EDGE_ARROWHEAD_BASE_PX, 10)
+  it('renders at its declared size from the landing floor to 1:1 — the contract\'s 4:1 against a non-scaling line', () => {
+    for (const zoom of [LABEL_LEGIBLE_ZOOM, 0.65, 0.8, 1]) {
+      for (const width of [2, 3, 4]) {
+        const px = renderedArrowheadPx(width, zoom)
+        expect(px, `width ${width} at zoom ${zoom}`).toBeCloseTo(4 * width, 10)
+        // The line is a screen width, so the ratio is the head over the width itself.
+        expect(px / width).toBeCloseTo(4, 10)
+      }
+    }
   })
 
-  /**
-   * ⭐ THE COMPARISON THE PR'S CASE RESTS ON, PINNED TO EXACT PIXELS RATHER THAN
-   * MERELY EXCEEDED.
-   *
-   * The deleted `<defs>` markers were `markerWidth="6" markerHeight="6"` with NO
-   * `markerUnits`, so the SVG default `strokeWidth` applied against the 2px
-   * causal stroke: a 12 × 12 user-unit viewport, i.e. 6px × 6px at the 0.50
-   * park. Not 3px. The dead figures are spelled out here rather than baked into
-   * one number so the derivation is auditable, and every quantity is asserted to
-   * an exact value so a future drift REDs instead of squeaking past a `>`.
-   *
-   * ⚠ AND THE HONEST READING OF THE RESULT: 6px × 8px against 6px × 6px is the
-   * SAME LENGTH and a third more width. This is not the justification for the
-   * mark — the deleted markers were referenced by nothing, so the real baseline
-   * is no arrow at all. It is simply the true comparison.
-   */
-  /**
-   * contract v3.1 (E7, 24 Sep 2026): 8px wide → 6px wide. The contract's marker
-   * is `viewBox="0 0 6 6"`, `M0 0 6 3 0 6Z` — base EQUAL to length, a ~53°
-   * apex — where the 16 × 12 head was a broad ~67° stub. The LENGTH (the
-   * glyph-derived quantity) is unchanged at 6px.
-   */
-  it('is exactly 6px long and 6px wide at the park — 1:1, the contract marker proportion', () => {
-    const DEAD_DEFS_MARKER_UNITS = 6
-    const CAUSAL_STROKE_WIDTH = 2 // markerUnits defaulted to `strokeWidth`
-    const deadDefsFlowSize = DEAD_DEFS_MARKER_UNITS * CAUSAL_STROKE_WIDTH
-    expect(deadDefsFlowSize).toBe(12)
-    expect(deadDefsFlowSize * LABEL_LEGIBLE_ZOOM).toBe(6)
-
-    expect(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM)).toBe(6)
-    expect(renderedArrowheadLengthPx(LABEL_LEGIBLE_ZOOM)).toBe(6)
+  it('grows past 1:1 and shrinks below the landing floor, like every counter-scaled glyph', () => {
+    expect(renderedArrowheadPx(3, 2)).toBe(24)
+    expect(renderedArrowheadPx(3, LABEL_LEGIBLE_ZOOM / 2)).toBe(6)
   })
 
-  /**
-   * STATED, NOT HIDDEN: past 1:1 the mark grows with the canvas, exactly as node
-   * geometry does and unlike the stroke width, which is `non-scaling-stroke` and
-   * therefore 2px at every zoom. That is the cost of sizing for the bound, and
-   * `zoomLegibility.ts` already rules that magnification past 1:1 "is then the
-   * user's own deliberate choice".
-   */
-  it('grows with deliberate magnification past 1:1, like node geometry', () => {
-    expect(renderedArrowheadWidthPx(1)).toBeGreaterThan(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM))
-    expect(renderedArrowheadLengthPx(1)).toBeGreaterThan(renderedArrowheadLengthPx(LABEL_LEGIBLE_ZOOM))
+  it('declares a square viewBox with the tip at the origin, so nothing is letterboxed and the scale pivots on the tip', () => {
+    expect(edgeArrowheadViewBox(12)).toBe('-12 -6 12 12')
+    expect(edgeArrowheadPolygonPoints(12)).toBe('-12 -6, 0 0, -12 6')
   })
 })
 
 /**
- * ⛔⛔ THE CLEARANCE THE FIRST VERSION OF THIS MARK DID NOT HAVE.
+ * ── CLEARANCE AGAINST THE POLARITY-GLYPH ROW ──────────────────────────────
  *
- * The arrowhead and the `+`/`−` polarity glyph both live at the TARGET end, on
- * very nearly the same axis: the arrowhead occupies `0 → length` graph units
- * back from the target anchor along the path's end tangent, and the glyph's
- * centre sits at `GLYPH_ANCHOR_RADIUS` back from the same anchor along the
- * target→source centre direction. On a straight edge running to its source they
- * coincide.
+ * The glyphs of every edge into a target now stand in one row 19 above the
+ * arrival point, starting 17.5 to either side of it (`edgeGlyphPlacement.ts`).
+ * Every head ends AT the arrival point and is at most `2 × width` across either
+ * side of it, so the flanking slots clear it across the path whatever its
+ * length. Both terms are counter-scaled by the same var, so the relation holds
+ * at every zoom rather than at one.
  *
- * At the shipped length of 16 units those two footprints met at exactly 16 units
- * — clearance 0.0px at the park. And that is a trust defect rather than clutter:
- * `directionStroke.ts:23-32` measures the polarity pair at ΔE2000 11.7 under
- * deuteranopia, so the GLYPH, not the hue, is what carries direction-of-effect
- * for a red-green dichromat. Crowding it trades one channel for another at the
- * expense of the readers with the least redundancy to spare.
- *
- * These cases compute both footprints from the primitive constants and pin the
- * gap in BOTH units. They are the reason `EDGE_ARROWHEAD_FLOW_LENGTH` is derived
- * from the glyph rather than chosen, and restoring the square 16-unit mark REDs
- * every one of them.
- *
- * ⚠ ARITHMETIC, NOT AN OBSERVATION. Every quantity here is a constant this
- * codebase declares; none is a measured pixel. `GLYPH_PAINTED_BOX_FLOW` is the
- * codebase's own committed figure for the glyph's box and is used as found.
+ * ⚠ ONE STATED LIMIT: the middle glyph of an ODD row sits at +8 (the contract's
+ * own slot; the contract drops it to −12, which is worse). Its 12px box ends
+ * 13 above the arrival, so it clears the slight and moderate heads (8 and 12
+ * long) but its box corner meets a strong (16) or very strong (20) head. The
+ * glyph keeps its canvas halo there. Arithmetic only — not measured on paint.
  */
-describe('arrowhead clearance — the polarity glyph is the nearest neighbour, not the node card', () => {
-  const glyphNearEdgeFlow = GLYPH_ANCHOR_RADIUS - GLYPH_PAINTED_BOX_FLOW / 2
-  const arrowTailFlow = EDGE_ARROWHEAD_FLOW_LENGTH
+describe('arrowhead clearance — the glyph row sits beside the heads', () => {
+  const GLYPH_BOX_HALF = 6 // the contract's measured 12px text box, halved
 
-  it('positions the two footprints where the constants say, in graph units', () => {
-    expect(glyphNearEdgeFlow).toBe(16)
-    expect(arrowTailFlow).toBe(12)
+  it('a flanking glyph clears the widest head the width channel can draw, across the path', () => {
+    const widestHalf = (EDGE_ARROWHEAD_STROKE_MULTIPLE * Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS))) / 2
+    const nearestFlank = GLYPH_ROW_PITCH / 2 + GLYPH_ROW_CENTRE_CLEARANCE
+    expect(nearestFlank).toBe(17.5)
+    expect(nearestFlank - GLYPH_BOX_HALF - widestHalf).toBeGreaterThan(0)
   })
 
-  it('leaves a POSITIVE clearance, pinned at 4 graph units / 2.0px at the 0.50 park', () => {
-    const clearanceFlow = glyphNearEdgeFlow - arrowTailFlow
-    expect(clearanceFlow).toBe(4)
-    expect(clearanceFlow).toBe(GLYPH_BOX_GAP_FLOW)
-    expect(clearanceFlow * LABEL_LEGIBLE_ZOOM).toBe(2)
-  })
-
-  /**
-   * The regression this exists for, named: the mark as first written was square,
-   * so its length was the WIDTH constant and its tail landed exactly on the
-   * glyph's near edge. Length and width must stay separate quantities.
-   */
-  /**
-   * ⚠ RE-STATED — contract v3.1 (E7, 24 Sep 2026). This case used to read
-   * "a square mark reopens the collision" and asserted `length !== width` and
-   * `width > glyphNear − gap`. Those were PROXIES: the collision was never the
-   * square, it was the LENGTH being taken from the 16-unit width. At the
-   * contract's 1:1 proportion the mark is square again — 12 × 12 — with its
-   * length still derived from the glyph, so the proxies would RED on a mark
-   * with exactly the clearance the case exists for. The property itself is what
-   * is pinned now: length is the glyph-derived quantity, and never exceeds it.
-   */
-  it('keeps LENGTH derived from the glyph whatever the width — the property the square-mark proxy stood for', () => {
-    expect(EDGE_ARROWHEAD_FLOW_LENGTH).toBe(glyphNearEdgeFlow - GLYPH_BOX_GAP_FLOW)
-    expect(EDGE_ARROWHEAD_FLOW_LENGTH).toBeLessThanOrEqual(glyphNearEdgeFlow - GLYPH_BOX_GAP_FLOW)
-    // contract v3.1 (E7): the base now equals the length — the contract's 1:1.
-    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBe(EDGE_ARROWHEAD_FLOW_LENGTH)
-  })
-
-  /**
-   * ⚠ THE `preserveAspectRatio` TRAP. It defaults to `xMidYMid meet`, so a
-   * viewBox whose aspect ratio differs from `markerWidth`/`markerHeight` is
-   * LETTERBOXED rather than stretched — the mark would render smaller than every
-   * number above says, silently and in a browser only. Deriving the viewBox from
-   * the same two constants makes the mismatch unrepresentable; this pins that.
-   */
-  it('declares a viewBox at 1:1 with the marker box, so nothing is letterboxed', () => {
-    expect(EDGE_ARROWHEAD_VIEWBOX)
-      .toBe(`0 0 ${EDGE_ARROWHEAD_FLOW_LENGTH} ${EDGE_ARROWHEAD_FLOW_WIDTH}`)
-    expect(EDGE_ARROWHEAD_POLYGON_POINTS)
-      .toBe(`0 0, ${EDGE_ARROWHEAD_FLOW_LENGTH} ${EDGE_ARROWHEAD_FLOW_WIDTH / 2}, 0 ${EDGE_ARROWHEAD_FLOW_WIDTH}`)
+  it('the odd row\'s middle glyph stands clear above the slight and moderate heads (the stated limit is strong and up)', () => {
+    for (const width of [2, 3]) {
+      expect(GLYPH_ROW_RISE - GLYPH_BOX_HALF, `width ${width}`).toBeGreaterThanOrEqual(edgeArrowheadSize(width))
+    }
   })
 })
 

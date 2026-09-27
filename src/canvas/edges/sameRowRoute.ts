@@ -45,7 +45,17 @@
  * neither the leads nor the glyphs coincide.
  */
 import { GLYPH_BOX_GAP_FLOW, GLYPH_PAINTED_BOX_FLOW, GLYPH_RING_STEP } from '../utils/edgeGlyphPlacement'
-import { EDGE_ARROWHEAD_FLOW_LENGTH } from './edgePresentation'
+
+/**
+ * How far back from the arrow tip the `side` route's glyph stands, in graph
+ * units: the length of the fixed 12-unit arrowhead this route was written
+ * against. ⚠ Since 27 Sep 2026 the head scales with its line and the glyph
+ * counter-scale (`edgeArrowheadSize`, contract DIFF item 13) and this setback
+ * does not follow it, so on a strong line near the landing zoom the head can
+ * reach under this glyph. Value unchanged; the same-row routes are outside the
+ * top-arrival glyph row (DIFF item 4).
+ */
+const SIDE_ROUTE_GLYPH_SETBACK = 12
 
 /** A card's box in graph units. */
 export interface RouteBox {
@@ -190,7 +200,7 @@ export function resolveSameRowRoute(
       kind: 'side',
       path: `M${sFace},${y} L${endX},${y}`,
       // In the gutter, just behind the arrowhead, clear above the line.
-      glyphX: r2(endX - dir * EDGE_ARROWHEAD_FLOW_LENGTH),
+      glyphX: r2(endX - dir * SIDE_ROUTE_GLYPH_SETBACK),
       glyphY: r2(y - (GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW)),
       labelAnchor: null,
     }

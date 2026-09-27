@@ -44,10 +44,10 @@ import {
   resolveEdgeDash,
   resolveEdgeDirectionMarker,
   edgeArrowheadMarkerId,
-  EDGE_ARROWHEAD_FLOW_LENGTH,
-  EDGE_ARROWHEAD_FLOW_WIDTH,
-  EDGE_ARROWHEAD_VIEWBOX,
-  EDGE_ARROWHEAD_POLYGON_POINTS,
+  edgeArrowheadSize,
+  edgeArrowheadViewBox,
+  edgeArrowheadPolygonPoints,
+  EDGE_ARROWHEAD_COUNTER_SCALE_STYLE,
   type EdgePresentationState,
 } from './edgePresentation'
 import {
@@ -94,7 +94,7 @@ import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
-import { resolvePolarityGlyphOffset, GLYPH_ANCHOR_RADIUS, type GlyphSibling } from '../utils/edgeGlyphPlacement'
+import { resolvePolarityGlyphOffset, polarityGlyphTransform, GLYPH_ROW_RISE, type GlyphSibling } from '../utils/edgeGlyphPlacement'
 import { tierLaneTitleBoxFor } from '../utils/tierLanes'
 
 /**
@@ -163,10 +163,10 @@ const edgeGlow = (px: number, pct: number): string =>
  * ⭐ THE POLARITY GLYPH'S HALO (contract v3.1, E2/T09 — Paul 23 Sep point 12:
  * "Sign glyphs drawn in body text with a halo").
  *
- * The glyph sits `GLYPH_ANCHOR_RADIUS` back along the target→source axis, so on
- * a near-vertical edge it is drawn ON the 1.5-4px coloured line — and a `−`
- * crossing a vertical line reads as `+`, which inverts the one channel a
- * red-green dichromat relies on (`directionStroke.ts:23-32`). The contract
+ * The glyph row stands just above the arrival point, beside the converging
+ * lines (`edgeGlyphPlacement.ts`); where a line or an arrowhead still passes
+ * behind a glyph, a `−` crossing a vertical line reads as `+`, which inverts
+ * the one channel a red-green dichromat relies on (`directionStroke.ts:23-32`). The contract
  * draws `.polarity{paint-order:stroke;stroke:var(--canvas);stroke-width:3px}`,
  * a 1.5px canvas-coloured knockout. This glyph is HTML, not SVG text, so the
  * portable equivalent is a stacked canvas-coloured `text-shadow` — the canvas
@@ -1767,9 +1767,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * ⚠ THIS SUBSCRIBES TO THE STORE RATHER THAN READING `getNode` IMPERATIVELY,
    * AND THAT IS LOAD-BEARING, NOT TIDINESS. The resolution is only stable if
    * every sibling instance computes it from the SAME node snapshot. A sibling's
-   * SOURCE node moving changes MY direction, but does not move MY endpoints and
-   * so would not re-render me: two instances on two snapshots can each conclude
-   * they are ring 0, and the stack comes back. The subscription is what keeps
+   * SOURCE node moving changes MY slot in the row (the row is ordered by source
+   * position), but does not move MY endpoints and so would not re-render me: two
+   * instances on two snapshots can each conclude they hold the same slot, and
+   * the stack comes back. The subscription is what keeps
    * one snapshot under all of them.
    *
    * Returned as a STRING, not an object — `useStore` compares by reference, and
@@ -1819,7 +1820,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // draft returned a single constant offset here, which is the ORIGINAL
     // DEFECT wearing a fallback's clothes — every edge into the node would
     // share it again. Instead the whole group is handed null directions, which
-    // is the resolver's degraded branch: index-by-id radii, still pairwise
+    // is the resolver's degraded branch: id-ordered row slots, still pairwise
     // distinct. A fallback for an unreachable state is still a state.
     const targetCentre = centreOf(selfTarget)
     const siblings: GlyphSibling[] = []
@@ -1856,7 +1857,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // back door. Kept non-zero anyway rather than left to imply the handle
       // anchor itself. If a future edit adds an early '' return on a path that
       // DOES render, that edit has to come back and change this.
-      return { dx: 0, dy: -GLYPH_ANCHOR_RADIUS }
+      return { dx: 0, dy: -GLYPH_ROW_RISE }
     }
     const [dx, dy] = glyphOffsetKey.split(',').map(Number)
     return { dx, dy }
@@ -1917,6 +1918,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [isStructuralEdge, data],
   )
   const arrowheadId = useMemo(() => edgeArrowheadMarkerId(edgeIdKey), [edgeIdKey])
+  const arrowheadSize = edgeArrowheadSize(edgeStrokeWidth)
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -2062,30 +2064,34 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           than 2 — would get a double-sized arrowhead, leaking the interaction
           channel into the direction channel.
 
-          `refX` sits at the tip of the viewBox, so the point lands ON the path's
-          end rather than overshooting into the node card. ⚠ THE NODE CARD IS NOT
-          THE NEAREST NEIGHBOUR AT THIS END — the `+`/`−` polarity glyph is, 26
-          graph units back on very nearly the same axis, and the first version of
-          this mark abutted it at exactly 0.0px of clearance. That is why the
-          mark's LENGTH is derived from the glyph rather than chosen; the
-          derivation, the measurement and its honest limits are at
-          `EDGE_ARROWHEAD_FLOW_LENGTH` in `edges/edgePresentation.ts`. Length and
-          width are two different quantities here and the viewBox is derived from
-          both, because a viewBox with a different aspect ratio would be
-          LETTERBOXED by the default `preserveAspectRatio` rather than
-          stretched. */}
+          ⭐ contract v3.1 (DIFF item 13, 27 Sep 2026): the head is 4× the
+          line's STRENGTH width (`edgeArrowheadSize`) — the contract's
+          `markerWidth="4"` in stroke-width units — read from `edgeStrokeWidth`,
+          the resting width, so hover and selection (which widen the line) never
+          grow the head. The tip is the viewBox origin and `refX/refY` point at
+          it, so the point lands ON the path's end; the polygon is counter-scaled
+          about that tip by `--canvas-glyph-scale`, because the line is
+          `non-scaling-stroke` and the head must keep its 4:1 against it at every
+          zoom. `overflow="visible"` lets the scaled head paint past the marker
+          box. Derivation and witness: `edgeArrowheadSize` in
+          `edges/edgePresentation.ts`. */}
       {directionMarker.show && (
         <marker
           id={arrowheadId}
-          viewBox={EDGE_ARROWHEAD_VIEWBOX}
-          markerWidth={EDGE_ARROWHEAD_FLOW_LENGTH}
-          markerHeight={EDGE_ARROWHEAD_FLOW_WIDTH}
-          refX={EDGE_ARROWHEAD_FLOW_LENGTH}
-          refY={EDGE_ARROWHEAD_FLOW_WIDTH / 2}
+          viewBox={edgeArrowheadViewBox(arrowheadSize)}
+          markerWidth={arrowheadSize}
+          markerHeight={arrowheadSize}
+          refX={0}
+          refY={0}
           orient="auto"
           markerUnits="userSpaceOnUse"
+          overflow="visible"
         >
-          <polygon points={EDGE_ARROWHEAD_POLYGON_POINTS} fill={edgeStroke.value} />
+          <polygon
+            points={edgeArrowheadPolygonPoints(arrowheadSize)}
+            fill={edgeStroke.value}
+            style={EDGE_ARROWHEAD_COUNTER_SCALE_STYLE}
+          />
         </marker>
       )}
       <BaseEdge
@@ -2371,7 +2377,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // where that route's arrow is (`sameRowRoute.ts`).
               transform: sameRowRoute
                 ? `translate(-50%, -50%) translate(${sameRowRoute.glyphX}px,${sameRowRoute.glyphY}px)`
-                : `translate(-50%, -50%) translate(${targetX + glyphOffset.dx}px,${targetY + glyphOffset.dy}px)`,
+                : polarityGlyphTransform(targetX, targetY, glyphOffset),
               pointerEvents: 'none',
               // contract v3.1 (E2/T09): the glyph knocks the line out behind it.
               textShadow: POLARITY_GLYPH_HALO,

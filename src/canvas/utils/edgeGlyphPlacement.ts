@@ -1,77 +1,55 @@
 /**
- * POLARITY-GLYPH PLACEMENT — one glyph, one place, per edge.
+ * POLARITY-GLYPH PLACEMENT — one row above the arrival, one slot per edge.
  *
- * ⭐⭐ WHY THIS MODULE EXISTS: THE GLYPH WAS KEYED ON A VALUE THAT IS NOT
- * PER-EDGE, SO IT COLLAPSED.
+ * ⭐⭐ WHAT THE CONTRACT DRAWS (side-by-side DIFF item 4, 27 Sep 2026). Every
+ * edge into a card ends at the card's kind-glyph apex, and each causal edge's
+ * `+` / `−` stands in ONE ROW above that point
+ * (`olumi-canvas-visual-contract-v31.html`, `renderEdges`:
+ * `off = (seen − (count + 1) / 2) · 19`, `gx = bx + off ± 8`). Measured in
+ * Chromium on the contract itself — each `.polarity` box centre against its own
+ * path end: two arrivals at −17.5 / +17.5, three at −27 / +8 / +27, all 19 above
+ * the arrival (the odd group's middle glyph drops to 12 there; see below).
  *
- * `StyledEdge` painted the +/− glyph at `translate(targetX - 18, targetY - 18)`.
- * `targetX/targetY` arrive from React Flow as
- * `getHandlePosition(targetNode, targetHandle, targetPosition)`
- * (`@xyflow/system@0.0.76` `dist/esm/index.mjs:1420-1438`) — a pure function of
- * the TARGET NODE and its HANDLE, taking **no edge input whatsoever**. Every
- * edge terminating at the same node therefore receives byte-identical
- * `targetX/targetY`, and a placement that is a pure function of those two
- * numbers gives every such edge byte-identical placement.
+ * The rule this replaces placed each glyph along its OWN edge's approach — a
+ * polar offset `dir · radius + perp · 8` from the target — which scattered a
+ * target's glyphs 7–47 units above it and 69 wide, onto card corners and onto
+ * other edges' strokes in a converging bundle (DIFF item 4, all five starters).
  *
- * Measured on the geometry harness at `a1fd39cc` (all five starters, real
- * Chromium): 14 glyphs at 5 distinct sites on `vendor-selection`, 18 at 6 on
- * `market-entry`, and **21 of 21 stacks resolved to exactly ONE target node** —
- * the discriminating prediction of this mechanism. A stack spanning two targets
- * would have refuted it; none did.
+ * ⭐ THE ROW, in GLYPH UNITS (screen px at glyph-scale 1, i.e. contract px):
+ *   - every glyph `GLYPH_ROW_RISE` above the arrival point;
+ *   - slot k of n at `(k − (n − 1) / 2) · GLYPH_ROW_PITCH`, pushed
+ *     `GLYPH_ROW_CENTRE_CLEARANCE` further out from the arrival column (the
+ *     middle slot of an odd row goes to +8, as the contract's does);
+ *   - slots ordered by where each edge's SOURCE sits, left to right, so a glyph
+ *     stands on the side its own line arrives from. That is how a reader tells
+ *     which edge a sign belongs to once every line has converged on one point.
  *
- * ⛔ AND THE HARM IS A TRUST DEFECT, NOT CLUTTER. `directionStroke.ts:23-32`
- * carries the measurement: the stroke palette separates WORSE than green/red
- * for a dichromat (ΔE2000 11.7 vs 28.3 under deuteranopia), so "the +/− glyph,
- * not the colour, is what carries polarity for a red-green dichromat here."
- * Where two glyphs stack, the visible mark is whichever painted last — and on
- * EVERY ONE of the five starters at least two stacks contained BOTH a `+` and a
- * `−`. The canvas asserted a direction that could be the opposite of the
- * model's, on the one channel that exists for readers who cannot use the hue.
+ * ⚠ ONE DEPARTURE FROM THE CONTRACT, ON PURPOSE. The contract drops the odd
+ * group's middle glyph to 12 above the arrival. At +8 across and 12 up it sits
+ * inside the arrowhead of any line 3px or wider (the head is 4× the line,
+ * `edgeArrowheadSize`), so here it stays in the row at 19. Even at 19 its box
+ * corner meets a strong or very strong head; its halo keeps it legible there.
  *
- * ⭐ THE GUARANTEE THIS FUNCTION MAKES, and it is a guarantee rather than a
- * tendency: **for any two distinct edges sharing a target, the returned offsets
- * differ.** Proof, and it is why the placement is polar rather than cartesian:
+ * ⭐ COUNTER-SCALED ON PAINT. `StyledEdge` multiplies the offset — never the
+ * anchor — by `--canvas-glyph-scale` (`polarityGlyphTransform`), the scale the
+ * arrowheads, kind glyphs and hit targets carry. The row is therefore the
+ * contract's 19 px up and 19 px apart ON SCREEN at every zoom from the landing
+ * floor to 1:1, beside heads that are the contract's size at the same zooms.
  *
- *   A returned offset is `R(dir) · (radius, GLYPH_LATERAL_OFFSET)`: the fixed
- *   vector (radius, L) rotated so its first axis lies along `dir`, i.e.
- *   `dir * radius + perp(dir) * L` with `perp(dir) = (−dir.y, dir.x)`,
- *   `|dir| = 1`, `radius > 0`. (contract v3.1, E14: the lateral term moves the
- *   glyph BESIDE the line instead of ON it; with L = 0 this is the original
- *   `dir * radius` and the proof below reduces to the original one.)
- *   If `R_i · (r_i, L) === R_j · (r_j, L)` then, taking magnitudes,
- *   `r_i² + L² === r_j² + L²`, so `r_i === r_j`; the two vectors being rotated
- *   are then identical and non-zero, so the rotations are equal and
- *   `dir_i === dir_j`.
- *   So two offsets coincide ONLY when both direction and radius coincide.
- *   - Directions differ  → offsets differ, whatever the radii. Done.
- *   - Directions are EXACTLY equal → for `i < j` in id order, every earlier
- *     sibling within the tie angle of `i` is also within it of `j` (same
- *     direction), and `i` itself is within it of `j`. So `ring_j >= ring_i + 1`,
- *     the radii differ, and the offsets differ.
- *   Neither branch can produce a stack. ∎
+ * ⭐ THE GUARANTEE, and why it is one: slot x is STRICTLY increasing in k (each
+ * step adds a pitch; crossing the arrival column adds the clearance twice more),
+ * every glyph shares one height, and each sibling takes its own k in ONE total
+ * order (source x, then id) that every instance computes from the same store
+ * snapshot. So two distinct edges into one target never share an offset — the
+ * P0 this module exists for (21 of 21 stacks on the harness at `a1fd39cc`, with
+ * `+` and `−` painted on one point). A keep-out shifts the whole row by whole
+ * slots, which keeps the order, the height and the empty arrival column.
  *
- * ⚠ BE PRECISE ABOUT WHAT `TIE_ANGLE_DEG` DOES, because it is easy to read this
- * proof as resting on it and it does not. The guarantee above turns on EXACT
- * direction equality; the tie angle is a LEGIBILITY rule, separating glyphs
- * whose approach directions are merely close enough that their painted boxes
- * would touch. Widening or narrowing it changes how tidy the result looks and
- * can never reintroduce a stack.
- *
- * ⚠ ONE BASIS FOR EVERY EDGE, INCLUDING SELF. Each `StyledEdge` instance runs
- * this for itself, so the resolution is only stable if every instance computes
- * the SAME picture. That is why directions come from NODE CENTRES for all
- * siblings — including the edge asking — rather than the asking edge using its
- * own (more accurate) bezier midpoint and its siblings a coarser proxy. Two
- * bases means two instances can each believe they are ring 0, which is CLAUDE.md
- * trap 21 (one name, two questions) reached through a geometry approximation.
- *
- * ⚠ AND THE DEGRADED CASE IS SAFE BY CONSTRUCTION. If any sibling's direction
- * is unresolvable (a node not yet measured, a source and target at the same
- * point), EVERY instance sees the same gap in the same shared store data and
- * every instance degrades the same way: ring index becomes the edge's position
- * in the id-sorted sibling list, which is unique per edge, so radii are pairwise
- * distinct and the guarantee holds without leaning on direction at all.
+ * ⚠ THE DEGRADED CASE IS SAFE BY CONSTRUCTION. If ANY sibling's source is
+ * unresolvable, every instance sees the same gap in the same store and orders
+ * the whole group by id alone — still one total order, still distinct slots.
  */
+import { MAX_GLYPH_COUNTER_SCALE } from './zoomLegibility'
 
 /** A sibling edge into the same target. `sourceCentre` is null when unresolvable. */
 export interface GlyphSibling {
@@ -80,138 +58,46 @@ export interface GlyphSibling {
   sourceCentre: { x: number; y: number } | null
 }
 
+/** An offset from the target handle anchor, in GLYPH units (scaled on paint). */
 export interface GlyphOffset {
   dx: number
   dy: number
 }
 
-/**
- * Distance from the target handle anchor to the glyph, in graph units.
- * The superseded placement sat at (-18, -18) — a diagonal ~25 units long — so
- * this keeps the glyph's distance from the node it terminates at essentially
- * unchanged, and spends the change entirely on DIRECTION.
- */
-export const GLYPH_ANCHOR_RADIUS = 26
+/** How far above the arrival point the row stands — the contract's measured box centre. */
+export const GLYPH_ROW_RISE = 19
+
+/** The distance between neighbouring slots — the contract's `· 19`. */
+export const GLYPH_ROW_PITCH = 19
+
+/** How far every slot is pushed out of the arrival column — the contract's `± 8`. */
+export const GLYPH_ROW_CENTRE_CLEARANCE = 8
 
 /**
- * ⭐ contract v3.1 (E14, 24 Sep 2026): how far the glyph sits to the SIDE of the
- * line, in graph units, perpendicular to its approach direction.
+ * The glyph's painted box, in graph units AT THE COUNTER-SCALE BOUND (the 0.50
+ * landing floor). Read by `sameRowRoute.ts` and by the keep-out test below.
  *
- * `GLYPH_ANCHOR_RADIUS` alone puts the glyph ON the target→source axis, so on
- * the ordinary near-straight edge it is drawn across the coloured line; the
- * canvas-coloured halo (`POLARITY_GLYPH_HALO`) knocks the line out behind it
- * but still interrupts it. The contract draws the sign 8 units to the side of
- * the line end (`gx = bx + off ± 8`). One fixed rotation of (radius, 8) per
- * edge, so the distinctness proof above still holds, and the glyph only moves
- * FURTHER from the arrowhead, whose length is derived against the on-axis
- * position (`EDGE_ARROWHEAD_FLOW_LENGTH`) — clearance can only grow.
- */
-export const GLYPH_LATERAL_OFFSET = 8
-
-/**
- * The glyph's own painted box, in graph units, at the 0.50 auto-fit zoom the
- * product parks a fresh model at.
- *
- * ⚠ THIS FIGURE WAS PROSE UNTIL 7 SEP 2026 and is a constant now because a
- * SECOND mark at the target end has to be positioned against it: the direction
- * arrowhead (`EDGE_ARROWHEAD_FLOW_LENGTH`, `edges/edgePresentation.ts`), which
- * grows BACK from the target anchor along the same axis this glyph sits on. A
- * number two readers copy is the hand-maintained mirror this estate keeps
- * paying for (CLAUDE.md trap 12); named here, the arrowhead derives against it.
- *
- * ⚠ SCOPE, STATED PLAINLY. `~20 units` is the figure `GLYPH_RING_STEP` was
- * ALREADY chosen against, and it is NOT re-derived here — re-deriving it would
- * move a shipped, separately-measured placement rule. Where it comes from:
- * `typography.edgeLabel` is `calc(10px * var(--canvas-label-scale,1))`, so with
- * the counter-scale at its bound (`MAX_LABEL_COUNTER_SCALE` = 2) the glyph's
- * declared font-size is 20 graph units at the park. A `leading-tight` LINE BOX
- * is taller than that (~25 units); the INK of a `+`/`−` is smaller than either.
- * None of the three is measured — jsdom has no text metrics and this estate has
- * no paint witness for the canvas. Read every number here as arithmetic.
+ * ⚠ Arithmetic, not a measurement: `typography.edgeLabel` is 11px × the text
+ * counter-scale, and at the bound that line box is under 20 units; the ink of a
+ * `+`/`−` is smaller still. Kept as found — it is the conservative figure.
  */
 export const GLYPH_PAINTED_BOX_FLOW = 20
 
 /**
- * The gap this canvas leaves between two marks at the target end so they read
- * as separate rather than as one blob. 4 graph units is 2px at the 0.50 park —
- * one causal stroke width, the thinnest mark this canvas draws, and therefore
- * the smallest gap that can still read as a gap at the zoom the product parks
- * a fresh model at.
+ * The gap this canvas leaves between two marks so they read as separate — 4
+ * graph units is 2px at the 0.50 park, one causal stroke width.
  */
 export const GLYPH_BOX_GAP_FLOW = 4
 
-/**
- * Extra radius per ring, for siblings whose approach directions are too close
- * to separate on angle alone. Clears the glyph's own painted box, plus the gap.
- *
- * ⚠ VALUE UNCHANGED AT 24. This is the same number that stood here as a literal
- * until 7 Sep 2026, now spelled as the sum its own docblock already described.
- */
+/** One glyph box plus the gap. Read by `sameRowRoute.ts`. */
 export const GLYPH_RING_STEP = GLYPH_PAINTED_BOX_FLOW + GLYPH_BOX_GAP_FLOW
 
 /**
- * Two approach directions closer than this are treated as coincident and are
- * separated by radius instead. At `GLYPH_ANCHOR_RADIUS` the chord subtended by
- * 45° is 2*26*sin(22.5°) ≈ 19.9 units — about one glyph box — so below this
- * angle the boxes would touch even though the points differ.
- */
-export const GLYPH_TIE_ANGLE_DEG = 45
-
-const TIE_COS = Math.cos((GLYPH_TIE_ANGLE_DEG * Math.PI) / 180)
-
-/**
- * Deterministic fallback direction for ring `k`, used only where no geometric
- * direction exists at all. The golden angle keeps successive rings far apart
- * instead of doubling back on each other.
- */
-function fallbackDirection(k: number): { x: number; y: number } {
-  const a = k * 2.39996323 - Math.PI / 2
-  return { x: Math.cos(a), y: Math.sin(a) }
-}
-
-function unitFrom(
-  targetCentre: { x: number; y: number },
-  sourceCentre: { x: number; y: number } | null,
-): { x: number; y: number } | null {
-  if (!sourceCentre) return null
-  const dx = sourceCentre.x - targetCentre.x
-  const dy = sourceCentre.y - targetCentre.y
-  const len = Math.hypot(dx, dy)
-  // A source and target at the same point give no direction. Not an error —
-  // just a case the ring rule has to carry instead of the angle rule.
-  if (!Number.isFinite(len) || len < 1e-6) return null
-  return { x: dx / len, y: dy / len }
-}
-
-/**
- * The ONE placement rule every branch below uses: `radius` back along `dir`,
- * plus `GLYPH_LATERAL_OFFSET` to the side — `R(dir) · (radius, L)`. One
- * function, so no branch can place on-axis while another places beside it.
- */
-function placeAlong(dir: { x: number; y: number }, radius: number): GlyphOffset {
-  return {
-    dx: dir.x * radius - dir.y * GLYPH_LATERAL_OFFSET,
-    dy: dir.y * radius + dir.x * GLYPH_LATERAL_OFFSET,
-  }
-}
-
-/**
- * Where this edge's polarity glyph sits, as an offset from the TARGET HANDLE
- * ANCHOR (`targetX`/`targetY`).
- *
- * `siblings` is every edge sharing this target, INCLUDING the one asking. Order
- * is irrelevant — the function sorts by id — so a caller may pass the store's
- * edge list filtered by `target` without further work.
- *
- * Returns `{ dx: 0, dy: 0 }`-free output: the offset always has a positive
- * magnitude, so the glyph never lands on the handle anchor itself.
- */
-/**
  * ⭐ v3.1 WS1 #28 (26 Sep 2026): a region the glyph must not be painted over —
- * the target row's band label ("OUTCOMES / RISKS" was overdrawn by a `+` at
- * the landing zoom on every starter that has a leftmost consequence target). In
- * the same frame as the returned offset: graph units relative to the target
- * handle anchor.
+ * the target row's band title ("OUTCOMES / RISKS" was overdrawn by a `+` at the
+ * landing zoom). In GRAPH units at the counter-scale bound, relative to the
+ * target handle anchor — the frame `tierLaneTitleBoxFor` returns
+ * (`boxAtBound`), where the title is largest against the cards.
  */
 export interface GlyphKeepOut {
   x0: number
@@ -220,71 +106,92 @@ export interface GlyphKeepOut {
   y1: number
 }
 
-/** How many ring slots the keep-out may push a glyph out by before giving up. */
-const KEEP_OUT_MAX_SLOTS = 8
-
-function glyphHits(o: GlyphOffset, k: GlyphKeepOut): boolean {
-  const half = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
-  return o.dx + half > k.x0 && o.dx - half < k.x1 && o.dy + half > k.y0 && o.dy - half < k.y1
-}
+/** How many whole slots the keep-out may shift the row by before giving up. */
+const KEEP_OUT_MAX_SHIFT = 8
 
 /**
- * The `ring`-th radius along `dir` whose glyph clears `keepOut`. Distinct rings
- * map to distinct FREE slots (the mapping is monotone and shared by every
- * sibling on the same direction), so the distinctness proof below still holds:
- * equal directions still get unequal radii. With no keep-out, or none clear
- * within `KEEP_OUT_MAX_SLOTS`, this is exactly the old `ring`-th radius.
+ * The x of slot `j` in a row of `n`, in glyph units. Defined for every integer
+ * `j` (a keep-out shift reads slots past either end); strictly increasing in j.
  */
-function placeClear(dir: { x: number; y: number }, ring: number, keepOut?: GlyphKeepOut): GlyphOffset {
-  const plain = placeAlong(dir, GLYPH_ANCHOR_RADIUS + ring * GLYPH_RING_STEP)
-  if (!keepOut) return plain
-  let free = -1
-  for (let slot = 0; slot < ring + KEEP_OUT_MAX_SLOTS; slot++) {
-    const o = placeAlong(dir, GLYPH_ANCHOR_RADIUS + slot * GLYPH_RING_STEP)
-    if (glyphHits(o, keepOut)) continue
-    free++
-    if (free === ring) return o
-  }
-  return plain
+export function glyphRowSlotX(j: number, n: number): number {
+  const off = (j - (n - 1) / 2) * GLYPH_ROW_PITCH
+  return off + (off >= 0 ? GLYPH_ROW_CENTRE_CLEARANCE : -GLYPH_ROW_CENTRE_CLEARANCE)
 }
 
+/** Does a glyph at (x, y) glyph units, painted at the bound, touch `k`? */
+function hitsAtBound(x: number, y: number, k: GlyphKeepOut): boolean {
+  const half = GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW
+  const cx = x * MAX_GLYPH_COUNTER_SCALE
+  const cy = y * MAX_GLYPH_COUNTER_SCALE
+  return cx + half > k.x0 && cx - half < k.x1 && cy + half > k.y0 && cy - half < k.y1
+}
+
+/** The smallest rightward whole-slot shift that clears `keepOut` for the whole row. */
+function rowShift(n: number, keepOut: GlyphKeepOut): number {
+  for (let s = 0; s <= KEEP_OUT_MAX_SHIFT; s++) {
+    let clear = true
+    for (let k = 0; k < n && clear; k++) {
+      if (hitsAtBound(glyphRowSlotX(k + s, n), -GLYPH_ROW_RISE, keepOut)) clear = false
+    }
+    if (clear) return s
+  }
+  return 0
+}
+
+const resolvable = (s: GlyphSibling): boolean =>
+  s.sourceCentre !== null && Number.isFinite(s.sourceCentre.x)
+
+/**
+ * Where this edge's polarity glyph sits, as an offset from the TARGET HANDLE
+ * ANCHOR (`targetX`/`targetY`), in glyph units — `StyledEdge` scales it on paint
+ * (`polarityGlyphTransform`).
+ *
+ * `siblings` is every edge sharing this target, INCLUDING the one asking (and,
+ * as in the contract's own count, edges whose glyph is not drawn, so a slot does
+ * not move when a neighbour's glyph appears). Order is irrelevant: the function
+ * sorts. `targetCentre` is the basis the approach side is read against.
+ */
 export function resolvePolarityGlyphOffset(
   edgeId: string,
   targetCentre: { x: number; y: number },
   siblings: GlyphSibling[],
   keepOut?: GlyphKeepOut,
 ): GlyphOffset {
-  const ordered = [...siblings].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-  const self = ordered.findIndex((s) => s.id === edgeId)
-  // An edge absent from its own sibling list is a caller bug, not a geometry
-  // case. Fall back to the lone-edge placement rather than throwing inside a
-  // render: a missing glyph is worse than a crudely placed one, and a thrown
-  // error here would take the whole canvas down.
-  if (self === -1) {
-    return placeAlong(fallbackDirection(0), GLYPH_ANCHOR_RADIUS)
+  const byGeometry = siblings.every(resolvable)
+  const ordered = [...siblings].sort((a, b) => {
+    if (byGeometry) {
+      const ax = a.sourceCentre!.x - targetCentre.x
+      const bx = b.sourceCentre!.x - targetCentre.x
+      if (ax !== bx) return ax - bx
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+  let k = ordered.findIndex((s) => s.id === edgeId)
+  let n = ordered.length
+  // An edge absent from its own sibling list is a caller bug (`StyledEdge`
+  // inserts itself). Give it a slot past the listed ones rather than throw
+  // inside a render: a crudely placed glyph beats a canvas taken down.
+  if (k === -1) {
+    k = n
+    n += 1
   }
+  const shift = keepOut ? rowShift(n, keepOut) : 0
+  return { dx: glyphRowSlotX(k + shift, n), dy: -GLYPH_ROW_RISE }
+}
 
-  const dirs = ordered.map((s) => unitFrom(targetCentre, s.sourceCentre))
-
-  // ⭐ THE DEGRADED BRANCH. If ANY sibling's direction is unresolvable the whole
-  // group falls back to index-by-id, because a group where some members are
-  // separated by angle and others by index is a group where two bases decide
-  // one question. Every instance reads the same store, so every instance takes
-  // this branch together.
-  const anyMissing = dirs.some((d) => d === null)
-  if (anyMissing) {
-    const dir = dirs[self] ?? fallbackDirection(self)
-    return placeClear(dir, self, keepOut)
-  }
-
-  const mine = dirs[self]!
-  // Ring index: how many EARLIER siblings approach from within the tie angle.
-  // Counting only earlier siblings is what makes the assignment a total order —
-  // every member of a coincident run gets a distinct ring, in id order.
-  let ring = 0
-  for (let i = 0; i < self; i++) {
-    const other = dirs[i]!
-    if (mine.x * other.x + mine.y * other.y >= TIE_COS) ring++
-  }
-  return placeClear(mine, ring, keepOut)
+/**
+ * The glyph's CSS transform: centred on the target handle anchor plus the
+ * offset × `--canvas-glyph-scale`. The ANCHOR is a graph position and is never
+ * scaled; only the offset is, so the row keeps its screen size at every zoom.
+ */
+export function polarityGlyphTransform(targetX: number, targetY: number, offset: GlyphOffset): string {
+  // The var name is written literally (it is `CANVAS_GLYPH_SCALE_VAR`): the
+  // css-var census guard (`tests/ci-guards/css-var-resolution.spec.ts`)
+  // resolves literal names and counts every interpolated one as a new site.
+  const scale = 'var(--canvas-glyph-scale, 1)'
+  return (
+    `translate(-50%, -50%) translate(` +
+    `calc(${targetX}px + ${offset.dx}px * ${scale}), ` +
+    `calc(${targetY}px + ${offset.dy}px * ${scale}))`
+  )
 }
