@@ -1543,6 +1543,12 @@ export interface ResultsVM {
 export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   /** Widened option_probabilities with V2 pass-through fields */
   option_probabilities?: Record<string, ResultsOptionProbability>
+  /**
+   * CEE's typed leader (`analysis_result.leading_option_id`), carried by the V5
+   * mapper when non-null. `null`/absent is the withheld-turn contract: NO option
+   * leads. The ONLY source of which option leads (R7, DL #70 5859773247).
+   */
+  leading_option_id?: string | null
   // V2 pass-through fields from responseMapper
   factor_sensitivity?: V2FactorSensitivity[]
   robustness?: {

@@ -141,44 +141,12 @@ export function determineWinnerSelection(
     return { recommendedId: backendRecommendedId, determinedBy: 'unknown' }
   }
 
-  const optionsWithWinProbability = options.filter(
-    opt => typeof opt.winProbability === 'number'
-  )
-  const hasCompleteWinProbabilityCoverage =
-    optionsWithWinProbability.length > 0 &&
-    optionsWithWinProbability.length === options.length
-
-  if (hasCompleteWinProbabilityCoverage) {
-    const winnerByProb = [...optionsWithWinProbability]
-      .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]
-    return {
-      recommendedId: winnerByProb?.id ?? null,
-      determinedBy: 'win_probability',
-    }
-  }
-
-  // Task 2.4: Deterministic tie-breaker when no backend recommendation
-  // Priority: p50 (higher wins) > mean (higher wins) > option_id (alphabetical)
-  const winnerByExpected = [...options]
-    .sort((a, b) => {
-      // 1. p50 (higher wins)
-      const aP50 = a.outcome?.p50 ?? a.p50 ?? -Infinity
-      const bP50 = b.outcome?.p50 ?? b.p50 ?? -Infinity
-      if (aP50 !== bP50) return bP50 - aP50
-
-      // 2. mean/expected (higher wins)
-      const aMean = a.expected ?? a.outcome?.mean ?? a.goalProbability ?? -Infinity
-      const bMean = b.expected ?? b.outcome?.mean ?? b.goalProbability ?? -Infinity
-      if (aMean !== bMean) return bMean - aMean
-
-      // 3. option_id (alphabetical)
-      return a.id.localeCompare(b.id)
-    })[0]
-
-  return {
-    recommendedId: winnerByExpected?.id ?? null,
-    determinedBy: 'expected_outcome',
-  }
+  // ⛔ R7 / X4 — A UI SORT NEVER NAMES A LEADER (DL ruling, #70 5859773247).
+  // No typed leader id → no leader. This used to fall through to an argmax on
+  // win probability, then p50, then mean, then the option id, and so named a
+  // leader on exactly the turns where CEE withholds one (`leading_option_id:
+  // null` is the withheld-turn contract, `mapV5AnalysisToReport.ts`).
+  return { recommendedId: null, determinedBy: 'unknown' }
 }
 
 // =============================================================================
@@ -2090,14 +2058,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const optionProbs = report.option_probabilities || {}
     const optionNodes = nodes.filter((n) => (n.data as ResultsCanvasNodeData)?.kind === 'option')
 
-    // Determine recommended option ID - prefer backend-provided, fall back to deterministic tie-breaker
-    // Task 2.4: Primary is robustness.recommended_option_id
+    // ⛔ R7 / X4 — WHICH option leads is CEE's typed `leading_option_id` and
+    // nothing else (DL ruling, #70 5859773247). `robustness.recommended_option_id`
+    // is PLoT's pick and survives a CEE withhold; the `recommendation.*` and
+    // `selected_option_id` reads are untyped. None of them may name a leader.
     const backendRecommendedId =
-      report?.robustness?.recommended_option_id ??
-      report?.recommendation?.option_id ??
-      report?.recommendation?.selected_option ??
-      report?.selected_option_id ??
-      null
+      typeof report?.leading_option_id === 'string' && report.leading_option_id !== ''
+        ? report.leading_option_id
+        : null
 
     // Build option results with percentile extraction
     const sharedBands = report.run?.bands
