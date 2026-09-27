@@ -1929,6 +1929,7 @@ export function AnalysisNewTabBody({
           openAtRest
           revealReviewSeq={revealReviewSeq}
           insights={nodeInsights}
+          limitVerdicts={vm.limitVerdicts}
           /* V2 prototype order (design audit B5/B6/B12): the strip hands the
              tool its success line and a mark's route, so the block reads
              census → "N to review" → success line → review tool → detail. */

@@ -57,6 +57,7 @@ import {
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 import { driverValueProvenance } from '../driverValueProvenance'
 import type { RunDeltaView } from './runDeltaView'
+import type { LimitVerdictView } from './limitVerdictView'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
@@ -263,6 +264,8 @@ export interface AnalysisNewViewModelInputs {
   /** Already resolved by the hook; this builder never derives it. */
   whatsChanged?: RunDeltaView | null
   runDeltaAbsenceReason?: string | null
+  /** B5 — already joined and identity-gated by the hook; this builder never derives it. */
+  limitVerdicts?: LimitVerdictView | null
   /**
    * Producer DSK attestation keyed by recommendation id, joined by the hook.
    * Sparse: an absent key means the producer attested nothing. Never defaulted.
@@ -3944,6 +3947,7 @@ export function buildAnalysisNewViewModel(
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
     whatsChanged: inputs.whatsChanged ?? null,
     runDeltaAbsenceReason: inputs.runDeltaAbsenceReason ?? null,
+    limitVerdicts: inputs.limitVerdicts ?? null,
     strengthen: {
       // The FULL ordered list. The preview length is applied at the mount so
       // the section can disclose, and reach, its own tail.

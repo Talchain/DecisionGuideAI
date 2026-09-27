@@ -20,6 +20,7 @@
  */
 
 import type { RunDeltaView } from './runDeltaView'
+import type { LimitVerdictView } from './limitVerdictView'
 import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../types'
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -972,6 +973,11 @@ export interface AnalysisNewViewModel {
   whatsChanged: RunDeltaView | null
   /** CEE's `analysis_ready.run_delta_absence_reason` for this turn, verbatim; null when none was sent. */
   runDeltaAbsenceReason: string | null
+  /**
+   * B5 — what this run could say about each stated limit, or `null` when CEE sent no
+   * per-limit verdict for the analysis on screen. `null` is "not attested", never "scored".
+   */
+  limitVerdicts: LimitVerdictView | null
 
   status: AnalysisNewStatus
   /**

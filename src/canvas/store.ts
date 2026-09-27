@@ -194,6 +194,7 @@ import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferen
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { StoredRunDelta } from './state/storedRunDelta'
+import type { StoredLimitVerdicts } from './state/storedLimitVerdicts'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 import {
   isSelfLoop,
@@ -690,6 +691,8 @@ interface CanvasState {
    * `runDeltaDescribesDisplayedAnalysis` is the one predicate that decides.
    */
   runDelta: StoredRunDelta | null
+  /** B5 per-limit + joint verdicts, bound to the analysis they arrived beside (`storedLimitVerdicts.ts`). */
+  limitVerdicts: StoredLimitVerdicts | null
   /**
    * THE PRODUCER'S LAST ADMISSION, RETAINED ACROSS INVALIDATION AS UNCONFIRMED.
    *
@@ -1719,6 +1722,7 @@ interface CanvasState {
    * this one.
    */
   setRunDelta: (stored: StoredRunDelta | null) => void
+  setLimitVerdicts: (stored: StoredLimitVerdicts | null) => void
   /**
    * Write the V5 analysis-fact slice. Pass null to clear (e.g. on scenario
    * switch). Do NOT clear on every conversational turn — per
@@ -2319,6 +2323,7 @@ const DECISION_CONTEXT_CLEAR = {
   // because this failure is silent and a reader would see a real, producer-
   // computed comparison sitting under a model it was never about.
   runDelta: null,
+  limitVerdicts: null,
   // The retained admission is scoped to ONE decision. A full-context replacement
   // brings a different graph, so the previous decision's licence (or refusal)
   // must not govern edits made to this one — the same hazard as the stale
@@ -3308,6 +3313,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   ceeAnalysisReady: null,
   // No run has completed, so there is no run-over-run consequence to describe.
   runDelta: null,
+  limitVerdicts: null,
   // No producer has spoken at cold start, so absence genuinely means "no
   // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
   retainedAnalysisAdmission: null,
@@ -7020,6 +7026,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setRunDelta: (stored: StoredRunDelta | null) => {
     set({ runDelta: stored })
+  },
+
+  setLimitVerdicts: (stored: StoredLimitVerdicts | null) => {
+    set({ limitVerdicts: stored })
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
