@@ -30,6 +30,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
 import { solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
+import { NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
 
 /**
  * Codex's fixture shape. ⚠ S4 (24 Sep 2026) MOVED THE SAVED WIDTH 336 → 140.
@@ -81,7 +82,14 @@ describe('a restored board keeps its own stride', () => {
     for (const kind of ['option', 'factor']) {
       expect(worstGap(nodes, kind, bounded[kind]), `${kind} cards overlap their own saved row`).toBeGreaterThanOrEqual(0)
     }
-    expect(bounded.option).toBeLessThanOrEqual(SAVED_UNIFORM_W)
+    // ⚠ RE-PINNED 27 Sep 2026 (edit-structure/F1). This read `<= SAVED_UNIFORM_W`
+    // (140), a width `BaseNode` can never draw: its CSS `minWidth` is
+    // NODE_LAYOUT_MIN_W, so the card drew at the floor while the record said 140
+    // — the undrawable-record defect F1 names. The bound is now the narrowest
+    // DRAWABLE width; the protective half is the worst-gap assertion above, which
+    // still REDs with the unbounded solver (196 - 248 = -52).
+    expect(bounded.option).toBeLessThanOrEqual(Math.max(SAVED_UNIFORM_W, NODE_LAYOUT_MIN_W))
+    expect(bounded.option).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
   })
 
   it('⭐ A TIER WITH NO SAME-ROW NEIGHBOUR IS NOT BOUNDED — it cannot overlap one', () => {

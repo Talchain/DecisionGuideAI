@@ -46,6 +46,12 @@ export interface TierLane {
   readonly y: number
   readonly width: number
   readonly height: number
+  /**
+   * The top of the lane's FIRST ROW — the row its title labels. Equal to `y`
+   * except when a card has been moved out of the lane's rows; see
+   * {@link titleRowTop} (edit-structure/F4).
+   */
+  readonly titleY: number
 }
 
 /**
@@ -121,6 +127,46 @@ function boxOf(n: Node): { w: number; h: number } {
 }
 
 /**
+ * ⛔ WHERE A LANE'S TITLE ROW STARTS — THE FIRST ROW ITS CARDS FORM, NOT ITS
+ * HIGHEST CARD (canvas audit edit-structure/F4, served build, 27 Sep 2026).
+ *
+ * The title stood above the lane's MINIMUM card top. Drag one factor up into the
+ * Alternatives row of `pricing-model` and FACTORS jumped from y 397 to y 255,
+ * inside the Alternatives row (203–372), and a reload kept it there — one card
+ * relabelling another tier's row. Contract v3.1's band grammar is one title per
+ * row, above that row.
+ *
+ * ⭐ A row is a run of the lane's cards whose vertical extents overlap (the same
+ * evidence `shareARow` reads in `layout.ts`). The title labels the first row
+ * holding at least TWO of them, so one card moved out of its row cannot carry
+ * the title with it. A lane with no such row — the Question, the Goal, a lone
+ * card — IS its card, and the title follows it.
+ *
+ * ⚠ Stated, not solved: a two-card lane with one card dragged out has two rows
+ * of one, and nothing distinguishes them; its title follows the higher card, as
+ * before.
+ */
+function titleRowTop(list: readonly Node[]): number {
+  const boxes = list
+    .map((n) => {
+      const top = n.position?.y ?? 0
+      return { top, bottom: top + boxOf(n).h }
+    })
+    .sort((a, b) => a.top - b.top)
+  const rows: Array<{ top: number; bottom: number; count: number }> = []
+  for (const b of boxes) {
+    const last = rows[rows.length - 1]
+    if (last !== undefined && b.top < last.bottom) {
+      last.bottom = Math.max(last.bottom, b.bottom)
+      last.count++
+    } else {
+      rows.push({ top: b.top, bottom: b.bottom, count: 1 })
+    }
+  }
+  return (rows.find((r) => r.count >= 2) ?? rows[0]).top
+}
+
+/**
  * One lane per OCCUPIED tier, spanning the board's full width so the bands read
  * as rows of one argument rather than as five separate boxes.
  *
@@ -175,6 +221,7 @@ export function deriveTierLanes(nodes: readonly Node[]): TierLane[] {
       y: top,
       width: boardRight - boardLeft,
       height: bottom - top,
+      titleY: titleRowTop(list),
     })
   }
   return lanes
@@ -295,15 +342,16 @@ export function deriveLaneTitles(nodes: readonly Node[]): LaneTitlePlacement[] {
   return lanes.map((lane) => {
     const width = lane.title.length * (LANE_TITLE_CAP_ADVANCE_PX + LANE_TITLE_TRACKING_PX) * s
     const boxWithBottom = (bottom: number): FlowBox => ({ x0: columnX, y0: bottom - height, x1: columnX + width, y1: bottom })
-    const onCards = boxWithBottom(lane.y - LANE_TITLE_GAP)
+    // The title labels the lane's first ROW, not its highest card (F4).
+    const onCards = boxWithBottom(lane.titleY - LANE_TITLE_GAP)
     const clearsKindGlyphs = glyphs.some((g) => overlaps(onCards, g))
     return {
       tier: lane.tier,
       title: lane.title,
       x: columnX,
-      laneY: lane.y,
+      laneY: lane.titleY,
       clearsKindGlyphs,
-      boxAtBound: clearsKindGlyphs ? boxWithBottom(lane.y - overhang - LANE_TITLE_GAP) : onCards,
+      boxAtBound: clearsKindGlyphs ? boxWithBottom(lane.titleY - overhang - LANE_TITLE_GAP) : onCards,
     }
   })
 }
