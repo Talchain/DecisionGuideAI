@@ -1784,6 +1784,8 @@ export const ANALYSIS_NEW_COPY = {
      */
     valueLabel: 'Value',
     noValue: 'No value set',
+    /** A value IS set but has no form this panel can show (no usable unit). Never "No value set". */
+    valueNotShown: "A value is set but can't be shown here",
     /**
      * The edit affordance. Named for the ACT, not the field: "Edit" alone reads
      * as a mode, and the reader is being offered one specific change.
