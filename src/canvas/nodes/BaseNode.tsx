@@ -25,7 +25,7 @@ import { useNodeConstraints } from './shared/useNodeConstraints'
 import { Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
-import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
+import { selectLodBodyHidden, selectLensDetailActive, LOD_BLANKED_BODY_ATTR, LOD_FAR_TITLE_ATTR, NODE_BODY_BOUND_STYLE_ATTR, NODE_RUNG_PADDING_ATTR } from '../utils/zoomLegibility'
 import { useLayoutStore } from '../layoutStore'
 import {
   KIND_GLYPH_PX,
@@ -1367,6 +1367,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * card's full measure at every scale.
    */
   const anchorRailBeside = isAnchorCard && showQuickActions
+  /**
+   * The anchor body's box beside its rail — drawn wherever the rail is beside it,
+   * and DECLARED on the body at every rung (`NODE_BODY_BOUND_STYLE_ATTR`) so the
+   * layout measurer can re-apply it where the rail is unmounted (the `line`
+   * rung). Without it a layout run zoomed out reserved the Question 73 at 0.4
+   * while it drew 75, and 97 at landing (Canvas Browser Gate `heightVsZoom`).
+   */
+  const anchorBodyBox = isAnchorCard ? anchorBodyRailStyle(anchorRailButtons) : undefined
   /** Quick actions inside the card: every card at Normal, and an anchor wherever its rail is mounted. */
   const quickActionsInset = anchorRailBeside || atNormalZoom
   /**
@@ -2819,8 +2827,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           className="relative text-left"
           data-testid={anchorRailBeside ? 'anchor-body-rail-beside' : undefined}
           data-anchor-rail-buttons={anchorRailBeside ? anchorRailButtonsKey(anchorRailButtons) : undefined}
-          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : anchorRailBeside ? anchorBodyRailStyle(anchorRailButtons) : undefined}
+          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : anchorRailBeside ? anchorBodyBox : undefined}
           {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
+          {...(anchorBodyBox ? { [NODE_BODY_BOUND_STYLE_ATTR]: JSON.stringify(anchorBodyBox) } : {})}
         >
           {children as ReactNode}
           {/* ⭐ THE READER'S OWN LIMIT, ON THE CARD, IN BOTH PHASES.

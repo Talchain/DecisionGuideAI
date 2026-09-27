@@ -151,6 +151,8 @@ import {
   MAX_GLYPH_COUNTER_SCALE,
   MAX_LABEL_COUNTER_SCALE,
   MAX_NORMAL_RUNG_LABEL_SCALE,
+  NODE_BODY_BOUND_STYLE_ATTR,
+  NODE_BODY_BOUND_STYLE_SELECTOR,
   NODE_RUNG_PADDING_ATTR,
 } from './zoomLegibility'
 
@@ -171,6 +173,20 @@ function parseRungPadding(raw: string | null): RungPadding | null {
   try {
     const v = JSON.parse(raw) as Partial<RungPadding>
     return v && typeof v.landing === 'object' && typeof v.normal === 'object' ? (v as RungPadding) : null
+  } catch {
+    return null
+  }
+}
+
+/** The anchor body's rail box, as `BaseNode` declares it (`NODE_BODY_BOUND_STYLE_ATTR`). */
+const BODY_BOX_SIDES = ['paddingRight', 'minHeight'] as const
+type BodyBox = Partial<Record<(typeof BODY_BOX_SIDES)[number], string>>
+
+function parseBodyBox(raw: string | null): BodyBox | null {
+  if (!raw) return null
+  try {
+    const v = JSON.parse(raw) as unknown
+    return v !== null && typeof v === 'object' ? (v as BodyBox) : null
   } catch {
     return null
   }
@@ -250,6 +266,22 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   const previousFarTitleStyles: Array<[string, string, string]> = []
   const previousFarScale = root.style.getPropertyValue(CANVAS_FAR_TITLE_SCALE_VAR)
 
+  /**
+   * ⭐ THE ANCHOR BODY'S RAIL BOX, RE-APPLIED (27 Sep 2026). The Question's and
+   * Goal's body carries its rail's `padding-right` + `min-height` wherever the
+   * rail is beside it — the landing and Normal rungs — and the rail is
+   * React-gated, so at the `line` rung the body draws without that box and this
+   * read (released body, bound scale) found only its content. MEASURED, Chromium,
+   * build-vs-buy 1280×800, `dec_billing`: 97 at landing, 73 here at 0.4 — and
+   * the card DREW 75 at 0.4 (its one-line far title at `farTitleScale` 1.61, a
+   * 28px line, over the 24px line at the pinned 1.36), past its own
+   * reservation. `BaseNode` declares the box on the body; it is applied here
+   * like the blanked-body release, and restored the same way.
+   */
+  const boxedBodies = root.querySelectorAll(NODE_BODY_BOUND_STYLE_SELECTOR)
+  const boxedBodyEls: HTMLElement[] = []
+  const previousBodyBoxes: string[][] = []
+
   try {
     root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
     // Glyphs and targets at THEIR bound (2 at the landing floor, and at the Normal
@@ -276,6 +308,17 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
       previousBodyMaxHeights.push(e.style.maxHeight)
       e.style.height = 'auto'
       e.style.maxHeight = 'none'
+    }
+    for (const el of boxedBodies) {
+      const e = el as HTMLElement
+      const box = parseBodyBox(e.getAttribute(NODE_BODY_BOUND_STYLE_ATTR))
+      if (box === null) continue
+      boxedBodyEls.push(e)
+      previousBodyBoxes.push(BODY_BOX_SIDES.map(side => e.style[side]))
+      for (const side of BODY_BOX_SIDES) {
+        const value = box[side]
+        if (typeof value === 'string') e.style[side] = value
+      }
     }
     // ⭐ EACH RUNG AT ITS OWN BOUND (24 Sep, bounded anatomy). A card that
     // declares its padding per rung (`NODE_RUNG_PADDING_ATTR`, written by
@@ -320,6 +363,11 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
       })
     }
   } finally {
+    // The declared body boxes, bounded by what was RECORDED (as below).
+    for (let i = 0; i < previousBodyBoxes.length; i++) {
+      const e = boxedBodyEls[i]!
+      BODY_BOX_SIDES.forEach((side, j) => { e.style[side] = previousBodyBoxes[i]![j]! })
+    }
     // Padding first, index-paired like the body restore below and bounded by
     // what was RECORDED: a card never touched is never "restored".
     for (let i = 0; i < previousPadding.length; i++) {
