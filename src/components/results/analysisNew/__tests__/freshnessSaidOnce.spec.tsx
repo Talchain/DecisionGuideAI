@@ -111,7 +111,8 @@ const FIXTURES = [
  * relationship to the current model — derived from the copy module, plus the
  * retired restatements as literals.
  */
-const liveFreshnessVocabulary = [COPY.status.stale, COPY.status.freshnessUnknown]
+// V2 `.stale` row (28 Sep 2026): inside the commitment block the changed-model sentence is `staleRow`.
+const liveFreshnessVocabulary = [COPY.status.stale, COPY.status.staleRow, COPY.status.freshnessUnknown]
 const retiredFreshnessVocabulary = ['As last analysed', COPY.markers.stale]
 const FRESHNESS_VOCABULARY = [...liveFreshnessVocabulary, ...retiredFreshnessVocabulary]
 
@@ -277,7 +278,7 @@ describe('THE TWO CONDITIONS STAY NAMED APART', () => {
     })
     const unconfirmedText = freshnessStatements(unconfirmed.container).map((h) => h.text)
 
-    expect(changedText).toEqual([COPY.status.stale])
+    expect(changedText).toEqual([COPY.status.staleRow])
     expect(unconfirmedText).toEqual([COPY.status.freshnessUnknown])
     expect(changedText).not.toEqual(unconfirmedText)
   })

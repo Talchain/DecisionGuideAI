@@ -297,7 +297,13 @@ describe('pre-run says what the panel IS, without asserting a run', () => {
     renderBody(openStrategicChallenge(), { isPreRun: true })
     const block = screen.getByTestId('analysis-new-status-pre-run')
     expect(block).toHaveTextContent('No analysis has run yet for this model.')
-    expect(block).toHaveTextContent('this panel reads it back around the reasoning')
+    // V2 "Draft" (28 Sep 2026, Panel): the orientation is now the prototype's own —
+    // "Move towards commitment" with what the draft sets out and the next move, and
+    // this block (sentence + act) inside it. The paragraph it replaces is gone.
+    const zone = screen.getByTestId('analysis-new-commitment-pre-run')
+    expect(zone).toHaveTextContent('Move towards commitment')
+    expect(zone).toContainElement(block)
+    expect(block).not.toHaveTextContent('this panel reads it back around the reasoning')
   })
 
   it('still never claims a run happened', () => {

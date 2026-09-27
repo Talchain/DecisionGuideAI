@@ -43,6 +43,7 @@ import {
   COMMITMENT_COPY,
   commitmentAskContext,
   commitmentBullets,
+  type CommitmentBulletKey,
   type CommitmentSynthesis,
 } from '../commitmentSynthesis'
 import { PanelIconButton } from '../PanelIconButton'
@@ -451,6 +452,63 @@ export function CommitmentSummary({
           />
         </span>
       </div>
+    </section>
+  )
+}
+
+/**
+ * ⭐ V2 prototype "Draft" state (28 Sep 2026, Panel): "Move towards commitment"
+ * before any run. The same heading, rule and bullet grammar as the post-run zone,
+ * with the run act inside it where the prototype puts its "Run example analysis".
+ *
+ * A separate component, not a mode of `CommitmentSummary`: that zone's chart slot,
+ * qualifier and record door all read a run, and it still renders nothing pre-run.
+ * `status` is the tab's pre-run status block (the sentence, any refusal, the act),
+ * unchanged, so every rule on that block keeps its one owner.
+ */
+export function PreRunCommitment({
+  bullets,
+  status,
+  onAsk,
+  testId = 'analysis-new-commitment-pre-run',
+}: {
+  bullets: ReadonlyArray<{ key: CommitmentBulletKey; label: string; text: string; source: string }>
+  status: ReactNode
+  onAsk: (ask: CommitmentAsk) => void
+  testId?: string
+}) {
+  const context = bullets.map((b) => `${b.label}: ${b.text}`).join('\n')
+  return (
+    <section className={`${PANEL_RULE} pb-3`} data-testid={testId} aria-labelledby={`${testId}-title`}>
+      <div className="flex items-center gap-1">
+        <h3 id={`${testId}-title`} className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}>
+          {COMMITMENT_COPY.heading}
+        </h3>
+        <PanelIconButton
+          ai
+          label={COMMITMENT_COPY.summarise.label}
+          onClick={() =>
+            onAsk({ label: COMMITMENT_COPY.summarise.label, draft: COMMITMENT_COPY.summarise.draft, context })
+          }
+          testId={`${testId}-summarise`}
+        />
+      </div>
+      {bullets.length > 0 ? (
+        <ul className="list-disc pl-4 m-0 mt-2 space-y-1" data-testid={`${testId}-synthesis`}>
+          {bullets.map((b) => (
+            <li
+              key={b.key}
+              className={`${typography.panelBody} text-text-body m-0`}
+              data-testid={`${testId}-${b.key}`}
+              data-source={b.source}
+            >
+              <b className="text-text-header">{b.label}: </b>
+              {b.text}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="mt-2">{status}</div>
     </section>
   )
 }

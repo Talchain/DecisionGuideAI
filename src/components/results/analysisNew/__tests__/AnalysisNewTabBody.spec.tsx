@@ -431,9 +431,8 @@ describe('staleness contextualises without dominating (§20)', () => {
     // of `isStale` alone, which is how a cannot-confirm run came to assert that
     // the user had changed their model.
     renderBody(genuineDecision(), { isStale: true, staleReason: 'changed' })
-    expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
-      'The model has changed since this analysis ran.',
-    )
+    // V2 `.stale` row (28 Sep 2026): the prototype's words for the same claim.
+    expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent('Last run · model changed')
     // One line, not a banner stack: the read is still on screen.
     expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
@@ -845,9 +844,8 @@ describe('pre-run never carries a staleness claim', () => {
     // Without this, the fix could pass by suppressing the line unconditionally
     // — closing a contradiction by deleting a true disclosure.
     renderBody(genuineDecision(), { isPreRun: false, isStale: true, staleReason: 'changed' })
-    expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent(
-      'The model has changed since this analysis ran.',
-    )
+    // V2 `.stale` row (28 Sep 2026): the prototype's words for the same claim.
+    expect(screen.getByTestId('analysis-new-status-stale')).toHaveTextContent('Last run · model changed')
   })
 
   /**

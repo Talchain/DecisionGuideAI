@@ -55,7 +55,7 @@ describe('the stale row sits in "Move towards commitment" (V2 .stale)', () => {
     renderBody('changed')
     const block = screen.getByTestId(C)
     const stale = screen.getByTestId('analysis-new-status-stale')
-    expect(stale).toHaveTextContent(COPY.status.stale)
+    expect(stale).toHaveTextContent(COPY.status.staleRow)
     expect(within(block).getByTestId(`${C}-status`)).toContainElement(stale)
     expect(precedes(screen.getByTestId(`${C}-synthesis`), stale), 'after the synthesis').toBe(true)
     expect(precedes(stale, screen.getByTestId('analysis-new-options')), 'before the chart').toBe(true)
@@ -79,8 +79,12 @@ describe('the stale row sits in "Move towards commitment" (V2 .stale)', () => {
       />,
     )
     const block = screen.getByTestId(C)
-    expect(block.textContent?.split(COPY.status.reanalyseToBeSure).length ?? 0, '"Re-run to be sure" once in the block').toBe(2)
-    expect(screen.getByTestId('analysis-new-glance-ribbon-reanalyse')).toHaveTextContent(COPY.status.reanalyseToBeSure)
+    // V2 `.stale` row (28 Sep 2026): the act reads "Re-run" and is named "Re-run to be sure";
+    // "Before acting" says what it is for, so no sentence repeats the act's words.
+    expect(block.textContent ?? '').not.toContain(COPY.status.reanalyseToBeSure)
+    const act = screen.getByTestId('analysis-new-glance-ribbon-reanalyse')
+    expect(act).toHaveTextContent(COPY.status.reanalyseRow)
+    expect(act).toHaveAccessibleName(COPY.status.reanalyseToBeSure)
   })
 
   it('⭐ bullet 1 reads "Last run" when the synthesis describes the last run; "What we have" otherwise', () => {

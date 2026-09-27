@@ -64,9 +64,10 @@ describe('the staleness ribbon carries the act that settles it', () => {
   it('offers it beside "the model changed" too — one act settles both', () => {
     draw({ isStale: true, staleReason: 'changed', onReanalyse: vi.fn() })
     expect(screen.getByTestId('analysis-new-status-stale')).toBeInTheDocument()
-    expect(screen.getByTestId('analysis-new-glance-ribbon-reanalyse')).toHaveTextContent(
-      COPY.status.reanalyseToBeSure,
-    )
+    // V2 `.stale` row (28 Sep 2026): visible "Re-run"; the name keeps the outcome words.
+    const act = screen.getByTestId('analysis-new-glance-ribbon-reanalyse')
+    expect(act).toHaveTextContent(COPY.status.reanalyseRow)
+    expect(act).toHaveAccessibleName(COPY.status.reanalyseToBeSure)
   })
 
   /**
