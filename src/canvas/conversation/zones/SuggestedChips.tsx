@@ -20,6 +20,7 @@
 
 import { useState, useEffect, useId } from 'react'
 import { typography } from '../../../styles/typography'
+import styles from '../Conversation.module.css'
 import { isV5Eligible } from '../../../v5/eligibility'
 import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
@@ -446,6 +447,25 @@ export function SuggestedChips({
 
   return (
     <div className="flex flex-col self-start gap-1 mb-4">
+      {/* What the chip would do, READ BEFORE the buttons (Paul, 27 Sep: "premium, intuitive"): a quiet panel above the
+          row, in the reply's own disclosed-panel style, instead of loose grey lines under "Change something first". */}
+      {visible.map((chip, i) => {
+        const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
+        if (!disclosesDetail(chip) || detailText.length === 0 || detailText === chip.label) return null
+        return (
+          <div key={`disclosure-${chip.id}`} className={styles.reasoningPanel} style={{ marginTop: 16, marginBottom: -8 }}>
+            <p
+              id={`${disclosureIdBase}-${i}`}
+              // `whitespace-pre-line`: the producer's own line breaks show as sent (a multi-part consent is one change per
+              // line, CEE #2094). Presentation only: nothing is split or parsed here (thin UI, #70 5855577789).
+              className={`${styles.reasoningPanelBody} whitespace-pre-line`}
+              data-testid={`suggested-chip-disclosure-${chip.id}`}
+            >
+              {detailText}
+            </p>
+          </div>
+        )
+      })}
       <div
         className="flex flex-wrap gap-2 mt-4"
         data-testid="suggested-chips"
@@ -539,23 +559,6 @@ export function SuggestedChips({
         })}
       </div>
 
-      {visible.map((chip, i) => {
-        const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
-        if (!disclosesDetail(chip) || detailText.length === 0 || detailText === chip.label) return null
-        return (
-          <p
-            key={`disclosure-${chip.id}`}
-            id={`${disclosureIdBase}-${i}`}
-            // `whitespace-pre-line`: the producer's own line breaks show as sent (a multi-part consent is one change per
-            // line, CEE #2094). Presentation only: nothing is split or parsed here (thin UI, #70 5855577789).
-            className={`${typography.panelMeta} text-text-light whitespace-pre-line`}
-            style={{ margin: 0, paddingLeft: 2 }}
-            data-testid={`suggested-chip-disclosure-${chip.id}`}
-          >
-            {detailText}
-          </p>
-        )
-      })}
 
       {/* The gate's own sentence, verbatim, under the row it explains. It is
           the accessible description of every gated Run chip above, and it is
