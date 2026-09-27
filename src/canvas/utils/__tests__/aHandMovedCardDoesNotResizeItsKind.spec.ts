@@ -141,28 +141,35 @@ describe('a hand-moved card does not resize its kind (edit-structure/F1)', () =>
   })
 
   it('⭐ CONTRAST — a board laid out uniformly at a narrower stride still bounds (the old-board protection)', () => {
-    // Every factor on a uniform 230 stride — as a layout at a 206 card would
+    // Every factor on a uniform 260 stride — as a layout at a 236 card would
     // leave them. All pairs agree, so the bound must bite.
+    // RE-SITED (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): the stride was 230, a
+    // 206 card. The drawable floor is now NODE_LAYOUT_MIN_W = 221.12, so a 206 cap
+    // takes the floor path (pinned by the case above) and this contrast stopped
+    // testing a DRAWABLE cap below the fresh width. At 260 the cap (236) sits
+    // between the floor and the fresh 248 again.
     const narrow: Record<string, number> = {
-      fac_platform_migration: 320, fac_eng_capacity: 550, fac_billing_complexity: 780, fac_dev_time: 1010,
-      fac_build_indicator: 172, fac_stripe_indicator: 402, fac_vendor_indicator: 632, fac_vendor_cost: 862,
+      fac_platform_migration: 320, fac_eng_capacity: 580, fac_billing_complexity: 840, fac_dev_time: 1100,
+      fac_build_indicator: 172, fac_stripe_indicator: 432, fac_vendor_indicator: 692, fac_vendor_cost: 952,
     }
     const nodes = board({ x: narrow })
     const fresh = solveLayoutCardWidths(nodes, OPTS)
-    expect(fresh.factor, 'the fixture no longer provokes a widening').toBeGreaterThan(230 - 24)
+    expect(fresh.factor, 'the fixture no longer provokes a widening').toBeGreaterThan(260 - 24)
+    expect(260 - 24, 'the cap is no longer a drawable width — this would test the floor path').toBeGreaterThan(NODE_LAYOUT_MIN_W)
     const w = solveRestoredCardWidths(nodes, OPTS)
-    expect(w.factor).toBe(230 - 24)
+    expect(w.factor).toBe(260 - 24)
     expect(worstRowGap(nodes, 'factor', w.factor)).toBeGreaterThanOrEqual(0)
   })
 
   it('⭐ CONTRAST — the same narrow board with ONE card moved away still bounds the rest', () => {
     // The row's last card pulled 100 units clear of its neighbour. A rule that
     // took the WIDEST stride would lift the bound here and overlap the others.
+    // Re-sited with the case above (230 → 260 stride, the 1.64 cap).
     const narrow: Record<string, number> = {
-      fac_platform_migration: 320, fac_eng_capacity: 550, fac_billing_complexity: 780, fac_dev_time: 1010,
-      fac_build_indicator: 172, fac_stripe_indicator: 402, fac_vendor_indicator: 632, fac_vendor_cost: 962,
+      fac_platform_migration: 320, fac_eng_capacity: 580, fac_billing_complexity: 840, fac_dev_time: 1100,
+      fac_build_indicator: 172, fac_stripe_indicator: 432, fac_vendor_indicator: 692, fac_vendor_cost: 1052,
     }
     const w = solveRestoredCardWidths(board({ x: narrow }), OPTS)
-    expect(w.factor, 'one card moved away lifted the bound for the untouched pairs').toBe(230 - 24)
+    expect(w.factor, 'one card moved away lifted the bound for the untouched pairs').toBe(260 - 24)
   })
 })

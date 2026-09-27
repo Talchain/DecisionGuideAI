@@ -674,8 +674,26 @@ export function kindGlyphOverhangAt(s: number): number {
  *
  * `bandTitleClearsKindGlyph.guard.spec.ts` asserts the budget above and pairs
  * every band title with every kind shape on the five starters at the bound.
+ *
+ * ⭐ 40 → 48 (27 Sep 2026, canvas/landing-text-cap — Canvas owner: "do NOT make
+ * boards taller unless it is unavoidable"). #2202 set 40 (56 visible) when the
+ * text bound was 1.36. Since 27 Sep the shape scales with the TEXT
+ * (`kindGlyphOverhangAt`), and the landing cap put the bound at 1.64:
+ *
+ *   the kind shape's overhang above its card   24 × 1.64 − 12          = 27.36
+ *   the title's clearance above that shape     LANE_TITLE_GAP          =  8
+ *   the band title's one line                  10px × 1.2 × 1.64       = 19.68
+ *   the title's clearance below the row above  LANE_TITLE_GAP          =  8
+ *                                                                        ─────
+ *                                                                        63.04
+ *
+ * 7.04 short at 56 visible. The title's line box was already one line at 1.2
+ * (`LANE_TITLE_LINE_PX`, and `TierLanes` renders `lineHeight: 1.2`), so nothing
+ * there was loose to tighten — even 1.0 would recover only 3.94. So the gap
+ * rises by exactly the shortfall, rounded up to a whole unit: 40 + 8 = 48 (64
+ * visible), the smallest whole gap that holds the budget; the guard pins that.
  */
-export const LAYOUT_LAYER_GAP = 40
+export const LAYOUT_LAYER_GAP = 48
 
 export const LAYOUT_PADDING_X = 24
 

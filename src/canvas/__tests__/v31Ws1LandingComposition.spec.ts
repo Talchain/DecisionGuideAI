@@ -4,8 +4,9 @@
  * The pure-function half of WS1's rows in `DESIGN-GAP-v31.md`, bound by node
  * identity and by the real `layoutGraph` / `withGhostTiers` / placement code:
  *   #10 edges never run under a non-endpoint card (brick courses + vertical leads)
- *   #11 the row gap is one constant, whatever a browser persisted (56 visible
- *       since 27 Sep; 64 from the review of #2074 until then)
+ *   #11 the row gap is one constant, whatever a browser persisted (64 visible
+ *       again since the 27 Sep landing text cap; 56 under the laptop-width ruling
+ *       before it; 64 from the review of #2074 until then)
  *   #17 the corner-mark spacer yields line 1 only when THIS title's first word needs it
  *   #25 far-zoom title scale
  *   #26 band words
@@ -329,10 +330,12 @@ describe('WS1 #10 — resolveLayeredEdgeLeads', () => {
  * bound the kind shape's 24-unit overhang and the band title's 24-unit line
  * need 64 with their clearances, so the constant went back to 48 (64 visible).
  * 27 Sep 2026: Paul's laptop-width ruling — the constant is 40 (56 visible).
+ * 27 Sep 2026, landing text cap 1.36 → 1.64: the budget is 63.04, so the constant
+ * rose by the rounded-up shortfall, 40 → 48 (64 visible) — Canvas owner.
  * The budget itself is asserted by `bandTitleClearsKindGlyph.guard.spec.ts`;
  * this arm keeps #11's point — ONE gap, whatever a browser persisted.
  */
-describe('WS1 #11 — the row gap is one constant: 56 visible units, whatever layerSpacing a browser persisted', () => {
+describe('WS1 #11 — the row gap is one constant: 64 visible units, whatever layerSpacing a browser persisted', () => {
   for (const layerSpacing of [undefined, 30, 48, 64, 90]) {
     it(`layerSpacing ${String(layerSpacing)} → the gap between two rows is ${LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y}`, async () => {
       const nodes = [node('dec', 'decision', 100), node('opt', 'option', 100)]
@@ -343,7 +346,7 @@ describe('WS1 #11 — the row gap is one constant: 56 visible units, whatever la
       const dec = out.nodes.find((n) => n.id === 'dec')!
       const opt = out.nodes.find((n) => n.id === 'opt')!
       expect(opt.position.y - (dec.position.y + 100)).toBe(LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y)
-      expect(LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y).toBe(56)
+      expect(LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y).toBe(64)
     })
   }
 })

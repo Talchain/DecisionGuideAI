@@ -258,12 +258,14 @@ describe('OptionNode — one factor, one name', () => {
   it('the popover differentiator is WHOLE at, one over and two past the card\'s row budget', () => {
     // Lengths re-picked 27 Sep 2026: the row budget is 25 at the landing text
     // ceiling (was 17), so the three fixtures are 25, 26 and 27 characters.
-    const AT_BUDGET = 'Vendor contract exit cost'
+    // Re-picked again (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): the budget is 21,
+    // so the fixtures are 21, 22 and 23 characters.
+    const AT_BUDGET = 'Vendor contract costs'
     // S5 (24 Sep): a label ONE over the budget is returned whole — cut to the
     // budget plus "…" it is no shorter, and only breaks a word ("Developer
     // headcoun…"). See labelUtils.noUselessCut.spec.
-    const ONE_OVER = 'Customer churn risk (APAC)'
-    const TWO_PAST = 'Customer churn risks (APAC)'
+    const ONE_OVER = 'Customer churn in APAC'
+    const TWO_PAST = 'Customer churns in APAC'
     // Preconditions pinned in-test: the fixture lengths mean what the name says.
     expect(AT_BUDGET.length).toBe(NODE_ROW_LABEL_MAX_CHARS)
     expect(ONE_OVER.length).toBe(NODE_ROW_LABEL_MAX_CHARS + 1)
@@ -296,7 +298,7 @@ describe('OptionNode — one factor, one name', () => {
     // At the budget: whole, nothing to recover.
     const at = renderWithTopFactor(AT_BUDGET)
     const whole = line()
-    expect(whole.textContent).toBe('Vendor contract exit cost is the key difference')
+    expect(whole.textContent).toBe('Vendor contract costs is the key difference')
     expect(whole.textContent).not.toContain('…')
     expect(whole.getAttribute('title')).toBeNull()
     at.unmount()
@@ -304,14 +306,14 @@ describe('OptionNode — one factor, one name', () => {
     // One over it: whole — a cut would save nothing.
     const over = renderWithTopFactor(ONE_OVER)
     const wholeOver = line()
-    expect(wholeOver.textContent).toBe('Customer churn risk (APAC) is the key difference')
+    expect(wholeOver.textContent).toBe('Customer churn in APAC is the key difference')
     expect(wholeOver.getAttribute('title')).toBeNull()
     over.unmount()
 
     // Two past it: the card cut this at the word; the popover does not.
     renderWithTopFactor(TWO_PAST)
     const notCut = line()
-    expect(notCut.textContent).toBe('Customer churn risks (APAC) is the key difference')
+    expect(notCut.textContent).toBe('Customer churns in APAC is the key difference')
     expect(notCut.textContent).not.toContain('…')
     expect(notCut.getAttribute('title')).toBeNull()
   })

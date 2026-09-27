@@ -281,12 +281,15 @@ describe('⭐ the pair still fits the header row inline at the width cards rende
     expect(NODE_HEADER_RESERVE_PX).toBe(0)
   })
 
-  it('the thresholds are 224.88px for one mark and 256.88px for two', () => {
+  it('the thresholds are 255.12px for one mark and 287.12px for two', () => {
     // RE-PINNED 27 Sep 2026 (landing text ceiling): the title measure is sized at
     // the TEXT bound, 108 × 1.36 + 20 = 166.88 (was 236), so each threshold falls
     // by 69.12; the marks themselves are unchanged (glyph bound, 2).
-    expect(inlineHeaderNeedsCardWidthPx(1)).toBeCloseTo(224.88, 10)
-    expect(inlineHeaderNeedsCardWidthPx(2)).toBeCloseTo(256.88, 10)
+    // RE-PINNED AGAIN (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 108 × 1.64 + 20 =
+    // 197.12, so each threshold rises by 30.24 — 224.88 → 255.12 and 256.88 → 287.12.
+    // A 248 repeated card no longer affords ONE mark inline at the bound.
+    expect(inlineHeaderNeedsCardWidthPx(1)).toBeCloseTo(255.12, 10)
+    expect(inlineHeaderNeedsCardWidthPx(2)).toBeCloseTo(287.12, 10)
     // ⭐ THE MECHANISM ITSELF: the second mark costs exactly one counter-scaled
     // glyph plus one gap. If a future change makes the gap free, or makes the
     // glyph unscaled, this stops being true and the band above is wrong.

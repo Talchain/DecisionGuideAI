@@ -169,12 +169,24 @@ export function sentenceCaseFactorLabel(label: string): string {
 /**
  * Truncate at word boundary, ellipsising the tail. Used for label compaction
  * so we never cut a word in half.
+ *
+ * `wholeWords` (option change rows only, 27 Sep 2026 — Canvas owner, landing
+ * text cap): cut at the last whole word that fits whenever at least one does,
+ * and keep the mid-word cut only when not even the first word fits. Without it
+ * the 0.6 fallback below stays exactly as `DecisionNode.triageTruncation.spec`
+ * pins it; at the 21-character row budget that fallback cut "Time to live
+ * (quarters)" to "Time to live (quarter…".
  */
-function truncateLabelAtWord(text: string, maxLength: number): string {
+function truncateLabelAtWord(text: string, maxLength: number, wholeWords = false): string {
   // The ellipsis costs a character, so a label ONE over the budget cut to
   // `maxLength` + "…" is no shorter than the label itself — it would only break
   // a word ("Developer headcoun…", S5 24 Sep). Return it whole.
   if (text.length <= maxLength + 1) return text
+  if (wholeWords) {
+    // A space AT `maxLength` still leaves every word before it whole.
+    const boundary = text.lastIndexOf(' ', maxLength)
+    if (boundary > 0) return text.substring(0, boundary).trimEnd() + '…'
+  }
   const truncated = text.substring(0, maxLength)
   const lastSpace = truncated.lastIndexOf(' ')
   return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '…'
@@ -196,15 +208,21 @@ function truncateLabelAtWord(text: string, maxLength: number): string {
  * @param label - Raw factor label (already cleaned of scale metadata)
  * @param maxLength - Cap for the FALLBACK truncate path only (default 15);
  *                    lookup-table hits are returned verbatim regardless.
+ * @param options.wholeWords - Never cut mid-word while a whole word fits (see
+ *                    `truncateLabelAtWord`). Option change rows only.
  */
-export function compactFactorLabel(label: string, maxLength = 15): string {
+export function compactFactorLabel(
+  label: string,
+  maxLength = 15,
+  options: { wholeWords?: boolean } = {},
+): string {
   if (!label) return label
   const trimmed = label.trim()
   for (const [pattern, replacement] of COMPACT_LABEL_LOOKUP) {
     if (pattern.test(trimmed)) return replacement
   }
   const stripped = trimmed.replace(COMPACT_LABEL_SUFFIXES, '').trim()
-  return truncateLabelAtWord(stripped, maxLength)
+  return truncateLabelAtWord(stripped, maxLength, options.wholeWords === true)
 }
 
 /**

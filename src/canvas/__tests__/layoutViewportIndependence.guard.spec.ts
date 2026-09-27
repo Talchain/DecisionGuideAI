@@ -792,13 +792,26 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    *     build-vs-buy          aa06488b968b42d6 → 2a2c6211d90efe5f
    *     headcount-allocation  75ed1101623070fa → 6658988de0325df8
    *     pricing-model         6ee466bf5d8ea909 → c025b71cf3258ee6
+   *
+   * ── ROW GAP 40 → 48 (27 Sep 2026, canvas/landing-text-cap), a NINTH re-record ──
+   * The landing text cap (1.36 → 1.64) grew the band-title budget to 63.04 against
+   * 56 visible; the Canvas owner ruled the gap up by exactly the shortfall, rounded
+   * up (`LAYOUT_LAYER_GAP` 40 → 48). Only y moves: a position dump of this file's
+   * own `buildGraph` layout at 40 and at 48 (hashed to the old and new digests
+   * below) moved 0 x on all five starters. From this file's own `positionSignature`.
+   *
+   *     vendor-selection      4b358d2350bda693 → e75cdc7250d8a971
+   *     market-entry          b2f06788d36b98f7 → 2aa4a1d41f80be6b
+   *     build-vs-buy          2a2c6211d90efe5f → 40d8a30bf4e3d86e
+   *     headcount-allocation  6658988de0325df8 → c3da8d8cf745b35b
+   *     pricing-model         c025b71cf3258ee6 → ed1e6305b0352d51
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '4b358d2350bda693', nodes: 19 },
-    'market-entry': { digest: 'b2f06788d36b98f7', nodes: 18 },
-    'build-vs-buy': { digest: '2a2c6211d90efe5f', nodes: 19 },
-    'headcount-allocation': { digest: '6658988de0325df8', nodes: 16 },
-    'pricing-model': { digest: 'c025b71cf3258ee6', nodes: 15 },
+    'vendor-selection': { digest: 'e75cdc7250d8a971', nodes: 19 },
+    'market-entry': { digest: '2aa4a1d41f80be6b', nodes: 18 },
+    'build-vs-buy': { digest: '40d8a30bf4e3d86e', nodes: 19 },
+    'headcount-allocation': { digest: 'c3da8d8cf745b35b', nodes: 16 },
+    'pricing-model': { digest: 'ed1e6305b0352d51', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

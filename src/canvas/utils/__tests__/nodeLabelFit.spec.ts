@@ -267,7 +267,10 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // Defended: a title at the landing now renders 9.52px, so the widest word
     // needs 146.88 units, not 216 — and the repeated card stays at the ED
     // target (248), so no card on a default layout gets narrower than 248.
-    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(190.88, 10)
+    // ⚠ 190.88 → 221.12 (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 108 × 1.64 + 20 + 24.
+    // Defended: landing body text was 7.48px at 1.36 — unreadable on a laptop. The
+    // floor stays under the 248 repeated card, so no default card gets narrower.
+    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(221.12, 10)
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
 
     // …and only the TEXT measure carries the scale. The icon, its gap and the
