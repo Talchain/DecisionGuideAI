@@ -168,3 +168,24 @@ describe('ED 5806207128 — "Driver N of M analysed" defines its M (the analysed
     expect(line().textContent).not.toContain('left out')
   })
 })
+
+describe('the in-slot line truncates inside its slot, never clips mid-glyph (Paul, MRR model, 27 Sep 2026)', () => {
+  it('the in-slot button spans its slot (w-full), so the caption — not the card border — ends the line', () => {
+    renderLine({ rank: 1, setSize: 6 }, { inSlot: true, fromLastRun: true })
+    const button = line().closest('button') ?? line()
+    const tokens = (button.getAttribute('class') ?? '').split(/\s+/)
+    // Served e8ba18e6: without `w-full` a <button> shrinks to fit its content,
+    // the caption never truncates, and the slot cut it — "…Driver 1 of 6 analysec".
+    expect(tokens).toContain('w-full')
+    expect(tokens).toContain('min-w-0')
+    const caption = screen.getByTestId('factor-driver-line-caption')
+    expect(caption.getAttribute('class')).toMatch(/\btruncate\b/)
+    expect(caption.textContent).toBe('Last run · Driver 1 of 6 analysed')
+  })
+
+  it('CONTRAST: the free-flowing line (Detailed, not in a slot) is not forced to the slot width', () => {
+    renderLine({ rank: 1, setSize: 6 })
+    const button = line().closest('button') ?? line()
+    expect((button.getAttribute('class') ?? '').split(/\s+/)).not.toContain('w-full')
+  })
+})
