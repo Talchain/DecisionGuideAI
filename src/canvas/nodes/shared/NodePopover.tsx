@@ -77,6 +77,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useNodeKeyboardScope, NODE_KEYBOARD_SCOPE_ATTR } from '../nodeKeyboardScope'
 import { useCanvasStore } from '../../store'
+import { CANVAS_LAYER_CLASS } from '../../layers'
 
 interface NodePopoverProps {
   visible: boolean
@@ -189,7 +190,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
     return (
       <div
         data-node-popover=""
-        className="absolute left-0 z-[9999] bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel"
+        className={`absolute left-0 ${CANVAS_LAYER_CLASS.hoverPreview} bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel`}
         style={{ top: '100%', marginTop: 4, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '10px 12px' }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
@@ -204,7 +205,7 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
   return createPortal(
     <div
       data-node-popover={ownerId}
-      className="fixed z-[9999] bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel"
+      className={`fixed ${CANVAS_LAYER_CLASS.hoverPreview} bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel`}
       style={{ top: pos.top, left: pos.left, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '10px 12px' }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

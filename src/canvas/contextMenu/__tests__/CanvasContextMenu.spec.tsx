@@ -5,6 +5,7 @@ import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget } from '../types'
 import type { Node, Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { EdgeData } from '../../domain/edges'
+import { CANVAS_LAYER_CLASS } from '../../layers'
 
 const storeSpies = vi.hoisted(() => ({
   undo: vi.fn(),
@@ -240,8 +241,9 @@ describe('CanvasContextMenu — shared-model authority', () => {
     fireEvent.click(askAi)
 
     // A9 — the submenu's z-index moved from 101 to 952 (above OutputsDock's
-    // 900), so it no longer sits under the dock for a card near it.
-    const submenu = screen.getAllByRole('menu').find(menu => menu.classList.contains('z-[952]'))
+    // 900); slice D-3 (27 Sep 2026) moved it into the ONE stacking order
+    // (`layers.ts`), above the floating inspector.
+    const submenu = screen.getAllByRole('menu').find(menu => menu.classList.contains(CANVAS_LAYER_CLASS.submenu))
     expect(submenu).toBeDefined()
     expect(submenu).toHaveTextContent("What's missing from this model?")
     expect(submenu!.className).toContain('border-panel-border')
