@@ -170,7 +170,7 @@ const OWNED_HERE = ['factor', 'option']
 const BARE_RANGE_ONLY = ['Current Sales Quota Attainment', 'Engineering Attrition Rate', 'Market Demand for Product']
 
 describe('THE ACCEPTANCE: no factor or option card is left with nothing to say', () => {
-  it('every factor and option card resolves a reduced line EXCEPT the three whose only figure is the producer’s bare 0–1 range (audit #3)', () => {
+  it('every factor and option card resolves a reduced line, including the three whose only figure is the producer’s bare 0–1 range (bundle 1: tier words)', () => {
     const mine = cards.filter((c) => OWNED_HERE.includes(c.type))
     // ⛔ POSITIVE CONTROL FIRST (trap 13). An "none are silent" assertion over
     // an EMPTY list passes while proving nothing — and this list is built by a
@@ -178,8 +178,8 @@ describe('THE ACCEPTANCE: no factor or option card is left with nothing to say',
     // come back empty if anything upstream changes.
     expect(mine).toHaveLength(9)
     const silent = mine.filter((c) => c.line === null)
-    // Bound by IDENTITY: exactly the three producer bare-range factors, nothing else.
-    expect(silent.map((c) => `${c.type}:${c.label}`).sort()).toEqual(BARE_RANGE_ONLY.map((l) => `factor:${l}`).sort())
+    // Design bundle 1: the three producer bare-range factors now read their range in tier words, so NO card is silent.
+    expect(silent.map((c) => `${c.type}:${c.label}`)).toEqual([])
     expect(mine.filter((c) => BARE_RANGE_ONLY.includes(c.label)).map((c) => c.type)).toEqual(['factor', 'factor', 'factor'])
   })
 
@@ -188,9 +188,10 @@ describe('THE ACCEPTANCE: no factor or option card is left with nothing to say',
     // ⭐ THE FACTOR CARDS THE FOUNDER NAMED: their only figure is the
     // producer's bare 0–1 range, which the full card omits (design audit #3),
     // so the reduced line — never more than the card — says nothing either.
-    expect(spoken['Engineering Attrition Rate']).toBeNull()
-    expect(spoken['Market Demand for Product']).toBeNull()
-    expect(spoken['Current Sales Quota Attainment']).toBeNull()
+    // Design bundle 1: tier words from the same two ends (0.3→Low, 0.9→Very high, 0.8→High, 0.25→Low, 0.75→High).
+    expect(spoken['Engineering Attrition Rate']).toBe('Range: Low to Very high')
+    expect(spoken['Market Demand for Product']).toBe('Range: Low to High')
+    expect(spoken['Current Sales Quota Attainment']).toBe('Range: Low to High')
     // …and the owner states the same line (the Model tab's).
     const owner = Object.fromEntries(cards.map((c) => [c.label, c.ownerRange]))
     expect(owner['Engineering Attrition Rate']).toBe('Range: 0.3 to 0.9')

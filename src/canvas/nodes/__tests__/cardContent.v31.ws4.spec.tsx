@@ -194,7 +194,7 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
   // same `est.` button, figure-less, opening the inspector. Bound by test id
   // AND accessible name, pre-run and post-run.
   for (const phase of ['pre', 'post'] as const) {
-    it(`F1 (${phase}-run): the bare-scale Olumi estimate keeps its \`est.\` mark on the card, with no figure`, () => {
+    it(`F1 (${phase}-run): the bare-scale Olumi estimate reads in tier words with its \`est.\` mark, never a bare figure`, () => {
       seed(BARE_SCALE, { phase })
       renderFactor(BARE_SCALE)
       const c = card()
@@ -207,7 +207,8 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
       expect(visibleText(c)).not.toMatch(/\b0\.5\b/)
       expect(within(c).queryByTestId('factor-recorded-value')).toBeNull()
       expect(within(c).queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
-      expect(visibleText(within(c).getByTestId(`factor-value-mark-only-${ID}`))).toBe('est.')
+      // Design bundle 1: the figure in tier words (0.5 → Medium) beside its mark — never an orphan mark.
+      expect(visibleText(within(c).getByTestId(`factor-value-mark-only-${ID}`))).toMatch(/^Medium\s*est\.$/)
       const opened = vi.fn()
       window.addEventListener(OPEN_FULL_INSPECTOR_EVENT, opened)
       fireEvent.click(mark)
@@ -248,13 +249,14 @@ describe('#20 — no bare internal model scale on the card (omit, never invent)'
   // starter cards read "Range: 0.x to 0.y · no source", every one this arm).
   // The mark sat INSIDE the line it qualified, so it goes with it. The
   // reviewer's own reproduction above (composed from `prior`) is unchanged.
-  it('audit #3: the producer\'s own bare "0.3 to 0.8" `display_value` is omitted from the card, line and mark', () => {
+  it('audit #3: the producer\'s own bare "0.3 to 0.8" `display_value` reads "Range: Low to High" on the card (bundle 1)', () => {
     seed(RANGE_BARE, { phase: 'pre' })
     renderFactor(RANGE_BARE)
     const c = card()
     expect(visibleText(c)).toContain('Competitive Pressure')
-    expect(within(c).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
-    expect(within(c).queryByTestId(`factor-range-source-${ID}`)).toBeNull()
+    // Design bundle 1: the same ends in tier words, with the range's own source mark.
+    expect(within(c).getByTestId(`factor-prior-range-${ID}`).textContent).toMatch(/^Range: Low to High/)
+    expect(within(c).getByTestId(`factor-range-source-${ID}`)).toBeTruthy()
     expect(visibleText(c)).not.toMatch(/0\.3 to 0\.8/)
   })
 

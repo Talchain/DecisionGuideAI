@@ -306,8 +306,11 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     // supersedes it). Since #2133 the card omits the producer's bare model-scale
     // range ('0.2 to 0.6') in BOTH phases, so nothing leaves and the plot is the
     // whole growth (Chromium: 109.1 → 202.9px, the plot 91.8px).
-    expect(pre).not.toContain(`factor-prior-range-${RANK_1}`)
-    expect(pre.filter(t => !post.includes(t))).toEqual([])
+    // Design bundle 1: the card again states the producer's range before the Run, in tier
+    // words ("Range: Low to Medium"), so — as at 9dc3e7af and spec §3 — the found plot
+    // SUPERSEDES that line: exactly the range line and its source mark leave, nothing else.
+    expect(pre).toContain(`factor-prior-range-${RANK_1}`)
+    expect(pre.filter(t => !post.includes(t))).toEqual([`factor-prior-range-${RANK_1}`, `factor-range-source-${RANK_1}`])
     const c = card('Top Account Revenue Concentration')
     const s = within(c).getByTestId(`factor-driver-slot-${RANK_1}`)
     const plot = within(c).getByTestId('factor-turning-point')
