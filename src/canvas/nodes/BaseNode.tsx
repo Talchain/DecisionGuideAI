@@ -1437,8 +1437,22 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const liveCardPadding = cardPadding()
   const cardPaddingLeftPx = parseFloat(String(liveCardPadding.paddingLeft))
   const cardPaddingTopPx = parseFloat(String(liveCardPadding.paddingTop))
+  // ⚠ BY CARD, NOT BY SCALE (27 Sep 2026). Before the landing text ceiling
+  // (#2137) a repeated card's minimum measure WAS its whole text measure, so
+  // this compare only ever split the anchors from the repeated cards. At 1.36
+  // the minimum measure fell below a 248 card's text measure and every factor
+  // card took the all-lines reserve: served e8ba18e6, the Run's corner mark
+  // re-wrapped "Enterprise Revenue Cannibalization Risk" 2 → 4 lines (+46 world
+  // px) and moved the rows below. Repeated cards keep the first-line spacer,
+  // measured against their whole text measure, as they did before.
   const titleSharesItsLine =
-    renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX > titleMinMeasurePx
+    isAnchorCard && renderedCardW - NODE_CARD_PADDING_X - NODE_HEADER_RESERVE_PX > titleMinMeasurePx
+  const titleBoxMeasurePx = titleSharesItsLine
+    ? titleMinMeasurePx
+    : Math.max(
+        0,
+        renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - parseFloat(String(liveCardPadding.paddingRight)),
+      )
   const cornerHeaderReserve = titleSharesItsLine
     ? cornerMarksHeaderReserveCss(cornerMarkCount, String(liveCardPadding.paddingRight))
     : undefined
@@ -1447,8 +1461,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Not a hook: this runs after the lens early return. Cached per word inside.
   const firstTitleWordPx = cornerMarkCount > 0 ? titleFirstWordPx(titleOverride ?? label) : undefined
   const cornerTitleSpacer = cornerMarksTitleSpacerCss(cornerMarkCount, {
-    measurePx: titleMinMeasurePx,
-    rightToFramePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - titleMinMeasurePx,
+    measurePx: titleBoxMeasurePx,
+    rightToFramePx: renderedCardW - 2 * CANVAS_CARD_FRAME_PX - cardPaddingLeftPx - titleBoxMeasurePx,
     topPx: cardPaddingTopPx,
     firstWordPx: firstTitleWordPx,
   })

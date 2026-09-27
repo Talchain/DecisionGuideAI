@@ -260,14 +260,21 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
       expect(line1Right, `glyph scale ${g}`).toBeCloseTo(markLeftAt(cardW, 1, g) - CONTRACT_MARK_CLEARANCE_PX, 6)
     }
     // At the bound the widest word (at the TEXT bound) and the mark (at the GLYPH
-    // bound) now SHARE line 1 — at a shared 2x the title had to yield it.
+    // bound) SHARE line 1 — at a shared 2x the title had to yield it. The
+    // FIRST-LINE spacer is what keeps line 1 clear there.
     const boxAtBound = titleBoxWidthAt(root, wrapperMin, MAX_GLYPH_COUNTER_SCALE)
-    expect(px(spacer.style.width, scalesAt(MAX_GLYPH_COUNTER_SCALE), { pct: boxAtBound })).toBe(0)
-    expect(boxAtBound).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
-    // The title shares its line, so the header row carries the corner reserve
-    // (it was unpadded on the old 260 card, which sat at the layout floor).
-    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe(
-      cornerMarksHeaderReserveCss(1, root.style.paddingRight),
+    const spacerAtBound = px(spacer.style.width, scalesAt(MAX_GLYPH_COUNTER_SCALE), { pct: boxAtBound })
+    expect(spacerAtBound).toBeGreaterThan(0)
+    expect(boxAtBound - spacerAtBound).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
+    // ⭐ RE-PINNED 27 Sep 2026 (served e8ba18e6): NO all-lines reserve on a
+    // repeated card. With it, the mark a Run adds narrowed EVERY title line, and
+    // "Enterprise Revenue Cannibalization Risk" re-wrapped 2 → 4 lines after the
+    // Run (+46 world px, the rows below moved). Lines 2+ keep the card's full
+    // measure, so a mark costs at most line 1.
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    expect(boxAtBound).toBeCloseTo(
+      cardW - 2 * CONTRACT_FRAME_PX - padL - parseFloat(root.style.paddingRight),
+      6,
     )
   })
 
