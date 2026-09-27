@@ -64,6 +64,9 @@ function openModal() {
 }
 
 function fillValid() {
+  // Nothing is preselected: choose the first analysed option, as a user must.
+  const select = screen.queryByTestId('decision-record-option') as HTMLSelectElement | null
+  if (select && select.value === '') fireEvent.change(select, { target: { value: 'opt_a' } })
   fireEvent.change(screen.getByTestId('decision-record-confidence'), {
     target: { value: '70' },
   })
@@ -201,11 +204,23 @@ describe('DecisionRecordModal — chrome and a11y', () => {
 })
 
 describe('DecisionRecordModal — analysed option set (read-only)', () => {
+  it('⭐ opens with NO option chosen, and Save names the missing choice', () => {
+    render(<DecisionRecordModal />)
+    openModal()
+    const select = screen.getByTestId('decision-record-option') as HTMLSelectElement
+    expect(select.value).toBe('')
+    expect(select.options[0]).toHaveTextContent(DECISION_RECORD_COPY.chosenOptionPlaceholder)
+    fillValid()
+    // fillValid chooses one when none is chosen; undo it to see the refusal.
+    fireEvent.change(select, { target: { value: '' } })
+    expect(screen.getByTestId('decision-record-save')).toBeDisabled()
+  })
+
   it('lists the analysed options with stable numbers, sorted by number', () => {
     render(<DecisionRecordModal />)
     openModal()
     const select = screen.getByTestId('decision-record-option') as HTMLSelectElement
-    const labels = Array.from(select.options).map((o) => o.textContent)
+    const labels = Array.from(select.options).filter((o) => o.value !== '').map((o) => o.textContent)
     expect(labels).toEqual([
       '1. Bring on technical co-founder',
       '2. Hire senior technical lead',
@@ -217,7 +232,7 @@ describe('DecisionRecordModal — analysed option set (read-only)', () => {
     render(<DecisionRecordModal />)
     openModal()
     const select = screen.getByTestId('decision-record-option') as HTMLSelectElement
-    const labels = Array.from(select.options).map((o) => o.textContent)
+    const labels = Array.from(select.options).filter((o) => o.value !== '').map((o) => o.textContent)
     expect(labels).toEqual([
       'Hire senior technical lead',
       'Bring on technical co-founder',
