@@ -158,6 +158,35 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(qualifier()).toBeNull()
   })
 
+  it('⭐ C46 (served on Paul\'s pricing brief): nonlinear_identity_sign_unproven → the share keeps its number AND reads "Provisional", never bare (AI Conversation 5851148800)', () => {
+    seed(envelope({ permitted: false, withheld_reason: 'nonlinear_identity_sign_unproven', separation: 'separated' }),
+      { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'nonlinear_identity_sign_unproven' })
+    renderCard()
+    expect(readout().textContent).toBe('81% of runs')
+    expect(screen.getByTestId('option-share-provisional-candidate').textContent).toBe('Provisional')
+    expect(qualifier()).toBeNull()
+    expect(label()).toContain('Provisional. The analysis could not put an option forward on this run, so these shares are not a verdict.')
+  })
+
+  it('separation_unavailable is also a withheld claim → "Provisional", not "Goal only"', () => {
+    seed(envelope({ permitted: false, withheld_reason: 'separation_unavailable' }),
+      { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'separation_unavailable' })
+    renderCard()
+    expect(screen.getByTestId('option-share-provisional-candidate')).toBeTruthy()
+    expect(qualifier()).toBeNull()
+  })
+
+  it('CONTRAST — the goal-only case keeps "Goal only" and never ALSO says "Provisional"; a permitted leader says neither', () => {
+    seed(null, WITHHELD_FOR_LIMITS)
+    renderCard()
+    expect(qualifier()).toBeTruthy()
+    expect(screen.queryByTestId('option-share-provisional-candidate')).toBeNull()
+    cleanup()
+    seed(envelope({ permitted: true, separation: 'separated' }))
+    renderCard()
+    expect(screen.queryByTestId('option-share-provisional-candidate')).toBeNull()
+  })
+
   it('CONTRAST — no wire state at all: no qualifier (nothing is inferred)', () => {
     seed(null)
     renderCard()

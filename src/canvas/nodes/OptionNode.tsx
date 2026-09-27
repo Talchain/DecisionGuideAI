@@ -1827,6 +1827,19 @@ export const OptionNode = memo((props: NodeProps) => {
     const permission = s.results.report?.producer_leader_permission
     return permission?.permitted === false && permission.producer_cause === 'constraint_verdict_withheld'
   })
+  /**
+   * ⭐ ANY OTHER WITHHELD LEADER CLAIM → `Provisional` (AI Conversation 5851148800).
+   * The same persisted stamp, the same exact-token discipline: `permitted === false`
+   * with a producer cause that is not the goal-only one. The cause string (a
+   * primitive) is selected, so the React-185 guard stays satisfied.
+   */
+  const shareProvisionalCause = useCanvasStore(s => {
+    const permission = s.results.report?.producer_leader_permission
+    if (permission?.permitted !== false) return null
+    const cause = typeof permission.producer_cause === 'string' ? permission.producer_cause : ''
+    return cause === 'constraint_verdict_withheld' ? null : cause
+  })
+  const shareIsProvisional = !shareIsGoalOnly && shareProvisionalCause !== null
   /*
    * ED #63 5806207128 / 5806266691 choice 3: the short `Goal only` is VISIBLE on
    * the share line; its full meaning comes straight after the visible string
@@ -1838,9 +1851,15 @@ export const OptionNode = memo((props: NodeProps) => {
     ? [
         shareIsGoalOnly
           ? `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)} · ${OPTION_RESULT_COPY.goalOnly}. ${OPTION_RESULT_COPY.goalOnlyNote}`
-          : `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)}.`,
+          : shareIsProvisional
+            ? `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)} · ${OPTION_RESULT_COPY.provisional}. ${OPTION_RESULT_COPY.provisionalNote}`
+            : `${resultCaption} · ${OPTION_RESULT_COPY.share(winReadout.formatted)}.`,
         OPTION_RESULT_COPY.sentence(winReadout.formatted),
-        shareIsGoalOnly ? leaderWithholdCause('constraint_verdict_withheld') : null,
+        shareIsGoalOnly
+          ? leaderWithholdCause('constraint_verdict_withheld')
+          : shareIsProvisional
+            ? leaderWithholdCause(shareProvisionalCause)
+            : null,
         runCurrency === 'changed'
           ? `${OPTION_RESULT_COPY.changedNote} ${OPTION_RESULT_COPY.noNewComparisonNote}`
           : runCurrency === 'current'
@@ -2671,6 +2690,17 @@ export const OptionNode = memo((props: NodeProps) => {
                   className={`${typography.edgeLabel} text-text-light`}
                 >
                   {OPTION_RESULT_COPY.goalOnly}
+                </span>
+              </span>
+            )}
+            {shareIsProvisional && (
+              <span className={`${typography.edgeLabel} text-text-light min-w-0 truncate whitespace-nowrap`} aria-hidden="true">
+                {'· '}
+                <span
+                  data-testid={`option-share-provisional-${props.id}`}
+                  className={`${typography.edgeLabel} text-text-light`}
+                >
+                  {OPTION_RESULT_COPY.provisional}
                 </span>
               </span>
             )}
