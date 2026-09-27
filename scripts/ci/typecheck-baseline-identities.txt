@@ -879,7 +879,7 @@
 1	src/components/debug/utils/exportBundle.ts	TS2322	Type 'EnrichedFullGraph' is not assignable to type '{ _meta?: { node_type_field: string; enriched: true; } | undefined; factors: Record<string, unknown>[]; edges: Record<string, unknown>[]; options: Record<string, unknown>[]; }'.
 1	src/components/debug/utils/exportBundle.ts	TS2322	Type 'null | number' is not assignable to type 'number | undefined'.
 1	src/components/debug/utils/exportBundle.ts	TS2322	Type 'unknown' is not assignable to type 'AnalysisReadyShape'.
-1	src/components/debug/utils/exportBundle.ts	TS2322	Type '{ id: string; source: string; target: string; label: string | undefined; strength: number | undefined; strength_mean: number | undefined; strength_std: unknown; belief_exists: number | undefined; ... 8 more ...; belief_exists_source: string | undefined; }[]' is not assignable to type 'EnrichedGraphEdge[]'.
+1	src/components/debug/utils/exportBundle.ts	TS2322	Type '{ provenance_display?: string | undefined; origin?: string | undefined; id: string; source: string; target: string; label: string | undefined; strength: number | undefined; strength_mean: number | undefined; ... 10 more ...; belief_exists_source: string | undefined; }[]' is not assignable to type 'EnrichedGraphEdge[]'.
 1	src/components/debug/utils/exportBundle.ts	TS2339	Property 'ceeAnalysisReady' does not exist on type 'RunMetaState'.
 1	src/components/debug/utils/exportBundle.ts	TS2339	Property 'rawV2Response' does not exist on type 'ResultsState'.
 1	src/components/debug/utils/exportBundle.ts	TS2352	Conversion of type 'CanvasState' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
