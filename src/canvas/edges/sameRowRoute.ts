@@ -319,23 +319,31 @@ function insideBox(p: { x: number; y: number }, o: RouteBox): boolean {
   return p.x > o.x && p.x < o.x + o.width && p.y > o.y && p.y < o.y + o.height
 }
 
-/** The cards the whole path passes under (a graze on the full box counts). */
+/**
+ * The cards the whole path passes under (a graze on the full box counts).
+ * ⭐ Tests the CHORD between consecutive samples, not the samples alone — the
+ * same corner-cut gap `firstHit` closed (27 Sep 2026).
+ */
 function riseHits(g: RiseGeometry, obstacles: readonly RouteBox[]): RouteBox[] {
   const pts = risePoints(g)
-  return obstacles.filter((o) => pts.some((p) => insideBox(p, o)))
+  return obstacles.filter((o) =>
+    pts.some((p, i) => insideBox(p, o) || (i > 0 && segmentHitsBox(pts[i - 1]!.x, pts[i - 1]!.y, p.x, p.y, o))),
+  )
 }
 
-/** The first card the cubic (leads excluded) passes under, in path order. */
+/** The first card the cubic (leads excluded) passes under, in path order; chords, as `firstHit`. */
 function riseCubicFirstHit(sx: number, outY: number, tx: number, inY: number, span: readonly RouteBox[]): RouteBox | null {
   const b = riseBend(outY, inY)
-  for (let i = 1; i < RISE_SAMPLES; i++) {
+  let prev = { x: sx, y: outY }
+  for (let i = 1; i <= RISE_SAMPLES; i++) {
     const t = i / RISE_SAMPLES
     const u = 1 - t
     const p = {
       x: u * u * u * sx + 3 * u * u * t * sx + 3 * u * t * t * tx + t * t * t * tx,
       y: u * u * u * outY + 3 * u * u * t * (outY - b) + 3 * u * t * t * (inY + b) + t * t * t * inY,
     }
-    for (const o of span) if (insideBox(p, o)) return o
+    for (const o of span) if (segmentHitsBox(prev.x, prev.y, p.x, p.y, o)) return o
+    prev = p
   }
   return null
 }
