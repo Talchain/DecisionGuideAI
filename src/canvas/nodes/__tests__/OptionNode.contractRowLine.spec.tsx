@@ -179,7 +179,7 @@ describe('DIFF item 1 — the mark follows the value with no separator (contract
       const { dd, mark, source } = hybridRow(container, r.factorId)
       expect(changeRowValueText(dd)).toBe(r.value)
       // The whole visible amount: the value, the U+00A0 glue, the mark's word.
-      expect(visibleText(dd)).toBe(`${r.value} brief`)
+      expect(visibleText(dd)).toBe(`${r.value}\u00a0brief`)
       // The mark cluster holds the source mark and nothing else — no separator span.
       expect(visibleText(mark)).toBe('brief')
       expect([...mark.children]).toEqual([source])
