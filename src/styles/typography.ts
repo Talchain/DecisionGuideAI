@@ -281,6 +281,7 @@ export const typography = {
   panelHeader: 'text-sm font-semibold font-sans leading-snug',    // 14px — section titles, winner name, key emphasis
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
+  chatMeta: 'text-xs font-sans leading-snug',                     // 12px — the AI panel's meta (Paul 27 Sep: three sizes — 24 hero, 14 prose/headings, 12 the rest)
 
   /**
    * 12px + tabular figures — the panel's NUMERIC body.

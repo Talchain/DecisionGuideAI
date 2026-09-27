@@ -453,7 +453,7 @@ export function SuggestedChips({
         const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
         if (!disclosesDetail(chip) || detailText.length === 0 || detailText === chip.label) return null
         return (
-          <div key={`disclosure-${chip.id}`} className={styles.reasoningPanel} style={{ marginTop: 16, marginBottom: -8 }}>
+          <div key={`disclosure-${chip.id}`} className={styles.reasoningPanel} style={{ marginTop: 12, marginBottom: -4 }}>
             <p
               id={`${disclosureIdBase}-${i}`}
               // `whitespace-pre-line`: the producer's own line breaks show as sent (a multi-part consent is one change per
@@ -467,7 +467,7 @@ export function SuggestedChips({
         )
       })}
       <div
-        className="flex flex-wrap gap-2 mt-4"
+        className="flex flex-wrap gap-1.5 mt-3"
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
@@ -567,7 +567,7 @@ export function SuggestedChips({
       {showRunGateReason && (
         <p
           id={runGateReasonId}
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           style={{ margin: 0, paddingLeft: 2 }}
           data-testid="suggested-chips-run-gate-reason"
         >

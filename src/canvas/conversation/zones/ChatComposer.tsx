@@ -258,7 +258,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         {/* 3b. BIL summary line (flag-gated, soft guidance only) */}
         {bilSummaryLine && (
           <p
-            className={`text-text-light ${typography.panelMeta}`}
+            className={`text-text-light ${typography.chatMeta}`}
             style={{ margin: 0, padding: '0 2px' }}
             role="status"
             aria-live="polite"
@@ -271,7 +271,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
         {/* 3c. Causal framing coaching tip (weak framing + sufficient text) */}
         {bilResult?.causal_framing_score === 'weak' && debouncedValue.length > 50 && (
           <p
-            className={`text-text-light ${typography.panelMeta}`}
+            className={`text-text-light ${typography.chatMeta}`}
             style={{ margin: 0, padding: '0 2px', fontStyle: 'italic' }}
             data-testid="bil-causal-tip"
           >
@@ -473,7 +473,7 @@ function InlineGenerateButton({ state, onClick }: { state: GenerateState; onClic
       onClick={onClick}
       data-active={isActive || undefined}
       data-loading={isLoading || undefined}
-      className={`inline-gen-btn flex-shrink-0 ${typography.panelMeta} font-semibold`}
+      className={`inline-gen-btn flex-shrink-0 ${typography.chatMeta} font-semibold`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

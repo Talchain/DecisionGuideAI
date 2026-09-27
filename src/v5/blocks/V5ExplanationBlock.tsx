@@ -63,7 +63,7 @@ export function V5ExplanationBlock({ block }: V5ExplanationBlockProps): ReactEle
               className={[
                 'inline-flex items-center rounded-full px-2.5 py-0.5',
                 'bg-transparent border border-option/30 text-text-body',
-                typography.panelMeta,
+                typography.chatMeta,
               ].join(' ')}
             >
               {label}

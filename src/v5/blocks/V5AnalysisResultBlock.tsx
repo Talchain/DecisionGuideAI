@@ -170,7 +170,7 @@ function FactorList({
   if (factors.length === 0) return null
   return (
     <div data-testid={sectionTestId}>
-      <p className={`${typography.panelMeta} text-text-light font-medium`}>{title}</p>
+      <p className={`${typography.chatMeta} text-text-light font-medium`}>{title}</p>
       <ul className={PANEL_LIST_BULLET}>
         {factors.map((f, i) => (
           <li
@@ -485,7 +485,7 @@ function V5AnalysisResultBlockImpl({
         <details data-testid="v5-analysis-result-summary-details" className="group">
           <summary
             data-testid="v5-analysis-result-summary-toggle"
-            className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
+            className={`${typography.chatMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
           >
             <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
               ▸
@@ -498,7 +498,7 @@ function V5AnalysisResultBlockImpl({
         </details>
         {shownUncertaintyCopy && (
           <p
-            className={`${typography.panelMeta} text-text-light`}
+            className={`${typography.chatMeta} text-text-light`}
             data-testid="v5-analysis-result-uncertainty-copy"
           >
             {shownUncertaintyCopy.text}
@@ -543,7 +543,7 @@ function V5AnalysisResultBlockImpl({
         <details data-testid="v5-analysis-result-summary-details" className="group">
           <summary
             data-testid="v5-analysis-result-summary-toggle"
-            className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
+            className={`${typography.chatMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
           >
             <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
               ▸
@@ -562,7 +562,7 @@ function V5AnalysisResultBlockImpl({
 
       {shownUncertaintyCopy && (
         <p
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid="v5-analysis-result-uncertainty-copy"
         >
           {shownUncertaintyCopy.text}
@@ -602,7 +602,7 @@ function V5AnalysisResultBlockImpl({
                   'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5',
                   'bg-transparent text-text-body',
                   isLeader ? 'border border-option/50' : 'border border-option/30',
-                  typography.panelMeta,
+                  typography.chatMeta,
                 ].join(' ')}
                 data-leader={isLeader ? 'true' : 'false'}
               >

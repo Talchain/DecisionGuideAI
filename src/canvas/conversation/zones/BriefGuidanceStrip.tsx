@@ -56,7 +56,7 @@ export function BriefGuidanceStrip({ elements, onElementClick }: BriefGuidanceSt
             transition-all duration-200
             focus-visible:ring-2 focus-visible:ring-info focus-visible:outline-none
             hover:bg-panel-hover
-            ${typography.panelMeta} font-medium
+            ${typography.chatMeta} font-medium
           `}
           style={{
             gap: 4,

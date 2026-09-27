@@ -365,7 +365,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
             className={[
               'inline-flex items-center rounded-full px-2 py-0.5 border',
               CATEGORY_BADGE_CLASS[block.category],
-              typography.panelMeta,
+              typography.chatMeta,
             ].join(' ')}
           >
             {STRENGTHEN_COPY.severityLabel[block.category]}
@@ -394,7 +394,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
       */}
       {block.signal && (
         <p
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid={`${testIdPrefix}-signal`}
         >
           <span className="font-medium">Why this came up: </span>
@@ -409,7 +409,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
       {freshnessNotice && (
         <p
           id={freshnessNoticeId}
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid={`${testIdPrefix}-freshness`}
         >
           {freshnessNotice}
@@ -443,7 +443,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
           data-dsk-claim-id={claim.claim_id}
           data-dsk-evidence-strength={claim.evidence_strength}
           {...(claim.protocol_id ? { 'data-dsk-protocol-id': claim.protocol_id } : {})}
-          className={`${typography.panelMeta} flex items-center gap-x-1.5 text-text-light`}
+          className={`${typography.chatMeta} flex items-center gap-x-1.5 text-text-light`}
         >
           <BookOpenCheck size={12} className="flex-none text-info" aria-hidden="true" />
           <span>
@@ -469,7 +469,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
               className={[
                 'inline-flex items-center rounded-full px-2.5 py-0.5',
                 'bg-transparent border border-panel-border text-text-body',
-                typography.panelMeta,
+                typography.chatMeta,
               ].join(' ')}
             />
           ))}
@@ -495,7 +495,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
               className={[
                 'inline-flex items-center rounded-full px-2.5 py-0.5',
                 'bg-transparent border border-info/30 text-text-body',
-                typography.panelMeta,
+                typography.chatMeta,
               ].join(' ')}
             >
               {block.action_label}
@@ -517,14 +517,14 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
       <details data-testid={`${testIdPrefix}-details`} className="group">
         <summary
           data-testid={`${testIdPrefix}-details-toggle`}
-          className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
+          className={`${typography.chatMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
         >
           <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
             ▸
           </span>
           Why this, and how sure
         </summary>
-        <div className={`${typography.panelMeta} mt-1.5 space-y-1 text-text-light`}>
+        <div className={`${typography.chatMeta} mt-1.5 space-y-1 text-text-light`}>
           <p data-testid={`${testIdPrefix}-grounding-detail`}>
             {claim
               ? `This instantiates a cited decision-science claim: “${claim.claim_title}”, which the bundle rates ${claim.evidence_strength} evidence.`

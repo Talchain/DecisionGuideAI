@@ -147,7 +147,7 @@ export function ComposerTools({
       >
         {/* Guide section */}
         <div
-          className={`px-3 pt-2 pb-1 ${typography.panelMeta} text-text-light`}
+          className={`px-3 pt-2 pb-1 ${typography.chatMeta} text-text-light`}
           style={{ letterSpacing: 0.2 }}
         >
           Guide
@@ -162,7 +162,7 @@ export function ComposerTools({
             ${typography.bodySmall} text-text-body
             hover:bg-panel-hover focus-visible:bg-panel-hover
             focus-visible:outline-none transition-colors duration-100
-            min-h-[44px]
+            min-h-[32px]
           `}
           data-testid="composer-tools-guide-scaffold"
         >
@@ -179,7 +179,7 @@ export function ComposerTools({
             ${typography.bodySmall} text-text-body
             hover:bg-panel-hover focus-visible:bg-panel-hover
             focus-visible:outline-none transition-colors duration-100
-            min-h-[44px]
+            min-h-[32px]
           `}
           data-testid="composer-tools-guide-help"
         >
@@ -189,7 +189,7 @@ export function ComposerTools({
 
         {showHelp && (
           <div
-            className={`mx-3 my-1 p-3 rounded-md border border-info/20 bg-panel ${typography.panelMeta} text-text-body`}
+            className={`mx-3 my-1 p-3 rounded-md border border-info/20 bg-panel ${typography.chatMeta} text-text-body`}
             data-testid="composer-tools-guide-help-card"
           >
             {HELP_TEXT}
@@ -205,7 +205,7 @@ export function ComposerTools({
             ${typography.bodySmall} text-text-body
             hover:bg-panel-hover focus-visible:bg-panel-hover
             focus-visible:outline-none transition-colors duration-100
-            min-h-[44px]
+            min-h-[32px]
           `}
           data-testid="composer-tools-guide-example"
         >
@@ -220,7 +220,7 @@ export function ComposerTools({
         <div
           className={`flex items-center justify-between px-3 pt-2 pb-1`}
         >
-          <span className={`${typography.panelMeta} text-text-light`} style={{ letterSpacing: 0.2 }}>
+          <span className={`${typography.chatMeta} text-text-light`} style={{ letterSpacing: 0.2 }}>
             Thinking mode
           </span>
         </div>
@@ -243,7 +243,7 @@ export function ComposerTools({
                 hover:bg-panel-hover focus-visible:bg-panel-hover
                 focus-visible:outline-none transition-colors duration-100
                 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent
-                min-h-[44px]
+                min-h-[32px]
               `}
               data-testid={`composer-tools-mode-${mode.id}`}
             >
@@ -258,7 +258,7 @@ export function ComposerTools({
                   <span className="font-medium" style={{ color: 'var(--text-header, #262626)' }}>{mode.label}</span>
                   {!mode.enabled && (
                     <span
-                      className={`${typography.panelMeta} text-text-light`}
+                      className={`${typography.chatMeta} text-text-light`}
                       style={{
                         padding: '1px 8px',
                         border: '1px solid var(--border-default, #EEE6D8)',
@@ -269,7 +269,7 @@ export function ComposerTools({
                     </span>
                   )}
                 </div>
-                <div className={`${typography.panelMeta} text-text-light`} style={{ marginTop: 2 }}>
+                <div className={`${typography.chatMeta} text-text-light`} style={{ marginTop: 2 }}>
                   {mode.description}
                 </div>
               </div>

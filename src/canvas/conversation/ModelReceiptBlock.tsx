@@ -84,7 +84,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
       )}
 
       {/* 3 — Static neutral next-step nudge (DGAI chrome; passes the copy gate) */}
-      <p className={`${typography.panelMeta} text-text-light`}>
+      <p className={`${typography.chatMeta} text-text-light`}>
         Review or strengthen this before running analysis.
       </p>
 
@@ -93,7 +93,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
         <button
           type="button"
           onClick={() => setDetailsExpanded(!detailsExpanded)}
-          className={`${typography.panelMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
+          className={`${typography.chatMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
           aria-expanded={detailsExpanded}
           aria-controls={detailsExpanded ? 'receipt-details' : undefined}
         >
@@ -107,7 +107,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
         {detailsExpanded && (
           <p
             id="receipt-details"
-            className={`${typography.panelMeta} text-text-light mt-1 pl-4`}
+            className={`${typography.chatMeta} text-text-light mt-1 pl-4`}
           >
             {detailLine}
           </p>
@@ -120,7 +120,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
           <button
             type="button"
             onClick={() => setAdjustmentsExpanded(!adjustmentsExpanded)}
-            className={`${typography.panelMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
+            className={`${typography.chatMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
             aria-expanded={adjustmentsExpanded}
             aria-controls={adjustmentsExpanded ? 'receipt-adjustments' : undefined}
           >
@@ -139,7 +139,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
               role="list"
             >
               {data.adjustments.map((a, i) => (
-                <li key={i} className={`${typography.panelMeta} text-text-light`}>
+                <li key={i} className={`${typography.chatMeta} text-text-light`}>
                   <span className="font-medium text-text-body">{a.action}</span> {a.label}
                   {a.before != null && a.after != null && (
                     <span> ({a.before} → {a.after})</span>

@@ -373,7 +373,7 @@ export function V5HeldProposalBlock({
           what the user did, so nothing is lost and nothing is asserted twice. */}
       {settled === null && (
         <p
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid="v5-held-proposal-reason"
         >
           {heldProposalReasonText(block.reason_code)}
@@ -414,7 +414,7 @@ export function V5HeldProposalBlock({
         </div>
       ) : (
         <p
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid="v5-held-proposal-settled"
           role="status"
         >

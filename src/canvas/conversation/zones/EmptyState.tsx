@@ -85,7 +85,7 @@ export function EmptyState({ animate = false, statusLabel, streamingText }: Empt
         </h2>
       ) : statusLabel && !streamingText ? (
         <span
-          className={`text-text-light text-center ${typography.panelMeta}`}
+          className={`text-text-light text-center ${typography.chatMeta}`}
           data-testid="empty-state-status"
         >
           {statusLabel}

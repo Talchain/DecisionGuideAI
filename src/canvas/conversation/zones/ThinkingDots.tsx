@@ -38,7 +38,7 @@ export function ThinkingDots({ label }: ThinkingDotsProps) {
         ))}
       </span>
       {label && (
-        <span className={`text-text-light ${typography.panelMeta}`} data-testid="thinking-label">
+        <span className={`text-text-light ${typography.chatMeta}`} data-testid="thinking-label">
           {label}
         </span>
       )}

@@ -383,7 +383,7 @@ export const ChatThread = memo(function ChatThread({
             sticky bottom-2 self-center z-10
             inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
             bg-transparent border border-info/30 text-text-body
-            ${typography.panelMeta} font-medium
+            ${typography.chatMeta} font-medium
             cursor-pointer
           `}
           style={{ boxShadow: 'var(--shadow-2, 0 4px 12px rgba(0,0,0,0.08))' }}

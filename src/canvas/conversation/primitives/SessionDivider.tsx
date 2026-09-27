@@ -20,7 +20,7 @@ export const SessionDivider = memo(function SessionDivider({ text }: SessionDivi
       data-testid="session-divider"
     >
       <div className="flex-1 border-t border-panel-border" />
-      <span className={`${typography.panelMeta} text-text-light whitespace-nowrap`}>
+      <span className={`${typography.chatMeta} text-text-light whitespace-nowrap`}>
         {text}
       </span>
       <div className="flex-1 border-t border-panel-border" />

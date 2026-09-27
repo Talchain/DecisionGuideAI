@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../../../styles/typography', async importOriginal => ({
   ...(await importOriginal<typeof import('../../../styles/typography')>()),
-  typography: { panelMeta: 'panelMeta' },
+  typography: { chatMeta: 'chatMeta' },
 }))
 
 import { render, screen } from '@testing-library/react'
@@ -39,7 +39,7 @@ describe('StalenessPill', () => {
     expect(cls).toContain('bg-transparent')
     expect(cls).toContain('text-text-body')
     expect(cls).toContain('rounded-pill')
-    expect(cls).toContain('panelMeta')
+    expect(cls).toContain('chatMeta')
     // Brief: padding 4×12px → py-1 px-3
     expect(cls).toContain('px-3')
     expect(cls).toContain('py-1')

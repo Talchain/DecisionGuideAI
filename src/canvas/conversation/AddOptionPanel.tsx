@@ -200,7 +200,7 @@ export function AddOptionPanel({
                     >
                       <span className="block truncate">{factor.label}</span>
                       {factor.currentRaw != null && (
-                        <span className={`${typography.panelMeta} text-text-light`}>
+                        <span className={`${typography.chatMeta} text-text-light`}>
                           now {formatValueWithUnit(factor.currentRaw, factor.unit)}
                         </span>
                       )}
@@ -217,7 +217,7 @@ export function AddOptionPanel({
                         invalid ? 'border-danger' : ''
                       }`}
                     />
-                    <span className={`${typography.panelMeta} text-text-light w-16 flex-none`}>
+                    <span className={`${typography.chatMeta} text-text-light w-16 flex-none`}>
                       {factor.unit ?? (factor.cap ? '' : '0–1')}
                     </span>
                   </li>

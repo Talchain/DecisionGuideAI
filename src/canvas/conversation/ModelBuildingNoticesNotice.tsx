@@ -86,7 +86,7 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
         aria-expanded={expanded}
         aria-controls={expanded ? 'model-building-notices-detail' : undefined}
         data-testid="model-building-notices-toggle"
-        className={`${typography.panelMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
+        className={`${typography.chatMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
       >
         {modelBuildingNoticesSummary(notices)}
         {expanded
@@ -112,7 +112,7 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
             if (rows.length === 0) return null
             return (
               <div key={outcome} data-notice-outcome={outcome}>
-                <p className={`${typography.panelMeta} text-text-body`}>
+                <p className={`${typography.chatMeta} text-text-body`}>
                   {OUTCOME_HEADINGS[outcome]}
                 </p>
                 <ul className={PANEL_LIST_STACK} role="list">
@@ -122,7 +122,7 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
                       // Provenance for tests/debug — binds a row to its producer
                       // kind BY IDENTITY. Never rendered as text.
                       data-notice-kind={row.kind}
-                      className={`${typography.panelMeta} text-text-light`}
+                      className={`${typography.chatMeta} text-text-light`}
                     >
                       {/* ⚠ THE COUNT IS A TRAILING QUANTITY, NOT A LEADING
                           NUMERAL. A leading count reads "1 Overlapping
@@ -149,7 +149,7 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
           })}
           <p
             data-testid="model-building-notices-pointer"
-            className={`${typography.panelMeta} text-text-light`}
+            className={`${typography.chatMeta} text-text-light`}
           >
             {MODEL_BUILDING_NOTICES_POINTER}
           </p>

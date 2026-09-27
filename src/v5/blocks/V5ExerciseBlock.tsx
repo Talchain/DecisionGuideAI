@@ -96,7 +96,7 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
           data-testid="v5-exercise-dsk-provenance"
           data-dsk-protocol-id={block.dsk_provenance.protocol_id}
           data-dsk-evidence-strength={block.dsk_provenance.evidence_strength}
-          className={`${typography.panelMeta} flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-text-muted`}
+          className={`${typography.chatMeta} flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-text-muted`}
         >
           <BookOpenCheck size={12} className="flex-none text-info" aria-hidden="true" />
           <span>Decision-science protocol:</span>
@@ -147,7 +147,7 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
       </div>
       {freshnessNotice && (
         <p
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid="v5-exercise-freshness"
         >
           {freshnessNotice}
@@ -170,7 +170,7 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
               className={[
                 'inline-flex items-center rounded-full px-2.5 py-0.5',
                 'bg-transparent border border-panel-border text-text-body',
-                typography.panelMeta,
+                typography.chatMeta,
               ].join(' ')}
             />
           ))}
