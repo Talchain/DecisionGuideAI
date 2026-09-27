@@ -546,7 +546,9 @@ export function SuggestedChips({
           <p
             key={`disclosure-${chip.id}`}
             id={`${disclosureIdBase}-${i}`}
-            className={`${typography.panelMeta} text-text-light`}
+            // `whitespace-pre-line`: the producer's own line breaks show as sent (a multi-part consent is one change per
+            // line, CEE #2094). Presentation only: nothing is split or parsed here (thin UI, #70 5855577789).
+            className={`${typography.panelMeta} text-text-light whitespace-pre-line`}
             style={{ margin: 0, paddingLeft: 2 }}
             data-testid={`suggested-chip-disclosure-${chip.id}`}
           >

@@ -67,6 +67,16 @@ describe('SuggestedChips — the consent chip shows what the click writes', () =
     expect(screen.getAllByTestId(/^suggested-chip-disclosure-/)).toHaveLength(1)
   })
 
+  it('RED: one change per line (CEE #2094): the producer\'s line breaks are kept verbatim and shown as lines', () => {
+    // The producer's per-line detail: the items of the same subject, capitalised, joined by "\n".
+    const LINES = FULL.replace(/, (?=add |link )/g, '\n').replace(/ and (?=link )/g, '\n').split('\n').map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join('\n')
+    expect(LINES.split('\n').length, 'positive control: several lines').toBeGreaterThan(3)
+    renderChips([{ ...consentChip, detail: LINES }, changeFirst])
+    const disclosure = screen.getByTestId(`suggested-chip-disclosure-${CONSENT_ID}`)
+    expect(disclosure.textContent).toBe(LINES)
+    expect(disclosure.className.split(/\s+/)).toContain('whitespace-pre-line')
+  })
+
   it('a consent chip with no detail (today\'s wire) shows no empty disclosure', () => {
     renderChips([{ ...consentChip, detail: undefined }])
     expect(screen.queryByTestId(`suggested-chip-disclosure-${CONSENT_ID}`)).toBeNull()
