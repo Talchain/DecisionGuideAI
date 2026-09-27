@@ -68,14 +68,20 @@
  *     arm. The withheld rank is still asserted absent, now with the whole line.
  *
  * ## ⛔ CONTRACT v3.1 pt 5 SUPERSEDED ONE OF THOSE CLAIMS (24 Sep 2026), AND
- * ## ED #63 5806207128 RESTORED ITS CAPTION THE SAME DAY
+ * ## NODE-ANATOMY v3.2 IS WHAT THE CAPTION FOLLOWS (re-pinned 27 Sep 2026)
  *
- *   · the caption is "Driver N of M analysed" and `M` is the ELIGIBLE ANALYSED
- *     set (`influenceSetSize`), not the ranked count (`influenceRankedCount`,
- *     now the publication guard only) — ED: "Denominator = eligible analysed
- *     factors, not 'number of ranks we happen to render'". Every fixture below
- *     supplies both, and they differ (5 vs 3), so a caption that printed the
- *     ranked count goes red;
+ *   · the caption is "Driver N of M ranked in this run" (stale "Last run ·
+ *     Driver N of M ranked") and `M` is the RANKED count
+ *     (`influenceRankedCount`, also the publication guard), not the analysed
+ *     set (`influenceSetSize`). Every fixture below supplies both, and they
+ *     differ (5 vs 3), so a caption that printed the analysed set goes red.
+ *     These pins had encoded ED #63 5806207128's "Driver N of M analysed",
+ *     which on Paul's MRR run printed "Driver 1 of 5 analysed" beside three
+ *     silent cards (side-by-side DIFF item 3);
+ *   · the bar is the rank's own quantity against rank 1 ("relative
+ *     sensitivity, N% of the top-ranked driver"), not the displayed influence
+ *     "of the strongest factor" (DIFF item 4). The fixtures' `influence` value
+ *     doubles as that figure;
  *   · no denominator / no rank / a set of one → NO line and NO bar on either
  *     view ("A factor the run did not rank shows no rank"); the card says
  *     "Not ranked in this run" to AT only. The quantity-noun arm is retired.
@@ -178,8 +184,9 @@ const setMetadata = (
   rank: number | null,
   setSize: number | null,
   influence: number,
-  // The ranked count — the publication guard (ED 5806207128), distinct from the
-  // analysed set so a caption that printed it would go red.
+  // The ranked count — the printed M AND the publication guard (NODE-ANATOMY
+  // v3.2), distinct from the analysed set so a caption that printed the set
+  // would go red.
   rankedCount: number | null = 3,
 ) => {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue({
@@ -189,6 +196,9 @@ const setMetadata = (
     influenceImportanceBasis: null,
     influenceSetSize: setSize,
     influenceRankedCount: rankedCount,
+    // The bar's figure (`rankFactor.relativeSensitivity`) exists exactly when a
+    // rank does; these fixtures' `influence` doubles as it (rank 1 → 1).
+    driverRelativeSensitivity: rank === null ? null : influence,
     confidence: null,
     confidenceIsDefaulted: false,
     confidenceIsProvisional: false,
@@ -217,10 +227,10 @@ const renderFactor = () =>
  * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
  */
 const RANKED_NAME_LEADER =
-  'Driver 1 of 5 analysed. Ranked by how strongly the comparison responds to each factor in this model. ' +
-  'Bar: outcome sensitivity, 100% of the strongest factor. ' +
-  'Relative to the strongest factor in this model, not an absolute causal percentage. ' +
-  'How much the outcome shifts when this factor changes. How sure are you of its value?'
+  'Driver 1 of 3 ranked in this run. Ranked by how strongly the comparison responds to each factor in this model. ' +
+  'Bar: relative sensitivity, 100% of the top-ranked driver. ' +
+  'Relative to the top-ranked driver in this model, not a causal contribution percentage. ' +
+  'How sure are you of its value?'
 
 /** Contract v3.1 pt 5: the unranked factor's one statement (AT only). */
 const NOT_RANKED = 'Not ranked in this run'
@@ -255,7 +265,7 @@ describe('Standard view — the driver line states the ranking', () => {
        transparent here), so the Detailed driver line is also in the document.
        A `getByText` would be ambiguous (CLAUDE.md trap 19). */
     const line = popoverLine()
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
     /* ⛔ THE DELETE-MUTANT ASSERTION. Remove the rank from this call site and
        the line disappears (contract v3.1 pt 5), which the line above REJECTS.
        And the retired `% influence` row is gone from the face. */
@@ -284,7 +294,7 @@ describe('Standard view — the driver line states the ranking', () => {
     // The NO-HIDING half of the claim. Taking the figure off the face of the
     // card is the change; taking it away from a reader who wants it would be
     // hiding a finding, which this estate forbids.
-    expect(popoverLine()).toHaveAccessibleName(/100% of the strongest factor/)
+    expect(popoverLine()).toHaveAccessibleName(/100% of the top-ranked driver/)
   })
 
   it('rank 2 takes its own number — the leader is not the only case that renders', () => {
@@ -292,9 +302,9 @@ describe('Standard view — the driver line states the ranking', () => {
     setMetadata(2, 5, 0.62)
     renderFactor()
     const line = popoverLine()
-    expect(captionOf(line)).toBe('Driver 2 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 2 of 3 ranked in this run')
     expect(line.textContent).not.toContain('62%')
-    expect(line).toHaveAccessibleName(/62% of the strongest factor/)
+    expect(line).toHaveAccessibleName(/62% of the top-ranked driver/)
   })
 })
 
@@ -310,7 +320,7 @@ describe('Detailed view — the Detailed driver line states the same ranking', (
     setMetadata(1, 5, 1)
     renderFactor()
     const line = detailLine()
-    expect(captionOf(line)).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
     expect(line.textContent).not.toContain('100%')
     expect(line.textContent).not.toContain('Relative influence')
     expect(line).toHaveAccessibleName(RANKED_NAME_LEADER)
@@ -377,7 +387,7 @@ describe('no denominator — contract v3.1 pt 5: no rank, no line, no bar, on ei
     setMetadata(null, 5, 1)
     renderFactor()
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()
-    expect(document.body.textContent).not.toContain('of 5')
+    expect(document.body.textContent).not.toContain('of 3')
     expect(notRanked().textContent).toBe(NOT_RANKED)
   })
 
@@ -452,7 +462,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     // ranked-but-uncountable variant.
     expect(screen.queryByTestId('factor-driver-line')).toBeNull()
     expect(screen.queryByTestId('factor-driver-line-detail')).toBeNull()
-    expect(document.body.textContent).not.toContain('of 5')
+    expect(document.body.textContent).not.toContain('of 3')
     expect(document.body.textContent).not.toContain('Driver 1')
   })
 
@@ -470,8 +480,8 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     renderFactor()
 
     expect(screen.getByTestId('node-title')).toBeTruthy()
-    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
-    expect(captionOf(popoverLine())).toBe('Last run · Driver 1 of 5 analysed')
+    // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked".
+    expect(captionOf(popoverLine())).toBe('Last run · Driver 1 of 3 ranked')
     // Never the unlabelled current-run caption.
     expect(captionOf(popoverLine())!.startsWith('Driver')).toBe(false)
   })
@@ -484,7 +494,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    expect(captionOf(popoverLine())).toBe('Driver 1 of 5 analysed')
+    expect(captionOf(popoverLine())).toBe('Driver 1 of 3 ranked in this run')
   })
 
   it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {
@@ -503,7 +513,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     // Ruling 3, ROADMAP 2.651: "labelled, not withheld"; visual contract v3).
     // The two views still cannot disagree: both carry the same label.
     const line = detailLine()
-    expect(captionOf(line)).toBe('Last run · Driver 1 of 5 analysed')
+    expect(captionOf(line)).toBe('Last run · Driver 1 of 3 ranked')
     expect(line.getAttribute('aria-label')!.startsWith(captionOf(line)!)).toBe(true)
     expect(line.textContent).not.toContain('100%')
   })

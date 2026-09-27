@@ -2876,6 +2876,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
                 the sizes before a 0.50 auto-fit halves them. Main canvas only:
                 the Compare-tab minis are deliberately simplified views. */}
             <CanvasLabelScaleSync />
+            {/* Paul 23 Sep contract feedback point 14 — the canvas FOOT line
+                that explains the cards' `Last run ·` labels. Mounted INSIDE the
+                flow on purpose (canvas-8ffc sbs-post DIFF item 8): here it sits
+                in the stacking context xyflow gives `.react-flow`, below the
+                renderer, so every card and edge paints over it. It still takes
+                the band's bottom-left slot; see `AnalysisStateCue.tsx`. */}
+            <AnalysisStateCue />
           </ReactFlow>
         )}
       </div>
@@ -2954,9 +2961,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           `ModelExtentNotice` already did from this same position. */}
       <CanvasOverlayBand />
       <CanvasLodNotice />
-      {/* Paul 23 Sep contract feedback point 14 — the canvas-level line that
-          explains the cards' `Last run ·` labels. Bottom-right cell. */}
-      <AnalysisStateCue />
+      {/* `AnalysisStateCue` is mounted inside the main `<ReactFlow>` above,
+          not here: from here it could only paint OVER the graph. */}
       {/* ⛔ `CanvasFooterSummary` IS DELIBERATELY NOT MOUNTED — PAUL'S RULING:
           no footer caption ("Model-relative findings · N nodes · M
           connections") and no "Visual key" link. It had only been OFF the

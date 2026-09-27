@@ -227,7 +227,7 @@ interface BaseNodeProps extends NodeProps {
    * owner's `useModelChangedSinceRun()`, passed in already answered.
    *
    * Read by the one run-derived factor figure this component draws: the
-   * driver arm of the reduced line ("Driver N of M analysed"), which keeps
+   * driver arm of the reduced line ("Driver N of M ranked in this run"), which keeps
    * its rank and opens with `LAST_RUN_PREFIX` (Paul's Ruling 3, ROADMAP 2.651:
    * "out-of-date results are labelled, not withheld"). The `Key driver N`
    * badge #1891 also labelled is retired by the locked design (ED 02:31Z D1a);
@@ -634,8 +634,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const lodFacts = useMemo(() => {
     if (!bodyReduced) return undefined
     if (nodeType === 'factor') {
-      // One rank wording on every rung: "Driver N of M analysed"
-      // (ED 5806207128, M = the analysed count), from the
+      // One rank wording on every rung: "Driver N of M ranked in this run"
+      // (M = the ranked count; NODE-ANATOMY v3.2), from the
       // SAME rule the card's driver line reads (`driverRankFor`): a current run,
       // or a known-changed model's last run labelled `Last run · ` (#1891's rule,
       // Paul's Ruling 3). Never-run / cannot-confirm → null.
@@ -2258,7 +2258,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         {/* ⭐ THE KEY-DRIVER BADGE IS RETIRED (ED 02:31Z, D1a: "RETIRE the
             Key-driver badge once the body driver line is present"). One rank is
             stated once, in one vocabulary — the factor card's driver line
-            ("Driver N of M analysed") and its reduced line — and never in
+            ("Driver N of M ranked in this run") and its reduced line — and never in
             a corner badge a stale run could keep alive (the badge was not
             freshness-gated; the driver line is).
 

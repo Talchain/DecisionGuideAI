@@ -94,13 +94,17 @@ describe('served pricing run — ONE main driver across the card and the Analysi
     )
   })
 
-  it('the card authority on the served run: "Driver 1 of 5 analysed" on Top Account, no rank on the lever', () => {
+  it('the card authority on the served run: Driver 1 on Top Account, no rank on the lever', () => {
     const feed = selectDriverPolicyFeed(servedReport())
     const top = rankFactor(feed.policyRows, feed.displayModel, TOP)
     expect(top.sensitivityRank).toBe(1)
-    expect(DRIVER_LINE_COPY.rank(top.sensitivityRank!, top.influenceSetSize)).toBe(
-      served.served_dom['fac_top_account_concentration factor-driver-line-caption'],
-    )
+    // Served 853feeb7 read "Driver 1 of 5 analysed" (ED 5806207128's analysed
+    // M). Since NODE-ANATOMY v3.2's ranked-count M (re-pinned 27 Sep 2026,
+    // side-by-side DIFF item 3) the same card prints the factors the run RANKED:
+    // only Top Account is ranked on this run, so "Driver 1 of 1 ranked in this run".
+    expect(served.served_dom['fac_top_account_concentration factor-driver-line-caption']).toMatch(/^Driver 1 of /)
+    expect(top.rankedSetSize).toBe(1)
+    expect(DRIVER_LINE_COPY.rank(top.sensitivityRank!, top.rankedSetSize)).toBe('Driver 1 of 1 ranked in this run')
     expect(rankFactor(feed.policyRows, feed.displayModel, LEVER).sensitivityRank).toBeNull()
   })
 

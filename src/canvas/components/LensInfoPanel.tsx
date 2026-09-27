@@ -5,12 +5,39 @@
  * Positioned in the bottom-left corner of the canvas (above minimap).
  *
  * Design system: bg-panel, border-panel-border, Inter font, no emoji.
+ *
+ * ⭐ WHILE IT HOLDS THE SLOT, IT CARRIES THE STALE FACT (27 Sep 2026). The
+ * whole-graph stale sentence (`AnalysisStateCue`, "Model changed · previous
+ * findings shown as Last run") is the canvas foot, bottom-LEFT — the same slot
+ * this panel holds, and this panel OUTRANKS it there (one slot, one occupant).
+ * So the moment a lens opens, the foot line yields — and the Robustness view
+ * then shows run figures (switch probabilities, sensitive assumptions, the
+ * "focus on" edge, all from `results.report`). Without the lines below, a
+ * changed-since-run model would show last-run figures with NO stale label: the
+ * truth regression N3 (`OVERLAY_BAND_RIGHT_CELL_MIN`) exists to forbid — the
+ * whole-graph stale cue must never be hidden by another occupant.
+ *
+ * On exactly the cue's own predicate (`useModelChangedSinceRun`, the one the
+ * cards ask before `Last run ·`), the panel therefore
+ *   · opens with the cue's sentence, verbatim — the occupant that takes the
+ *     slot takes the fact with it, so the sentence is still said exactly once
+ *     on the canvas (the foot line is not rendered while this panel holds the
+ *     slot), in every lens mode, because the cards' labels it explains are
+ *     still on screen in every mode; and
+ *   · labels its own run-derived section `Last run · Robustness`, the cards'
+ *     prefix, so "previous findings shown as Last run" is true of this panel's
+ *     figures too. The causal and evidence views read the model, not the run,
+ *     and take no label.
+ * `AnalysisStateCue.band.spec.tsx` pins both, with the band arbitrating.
  */
 
 import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useOverlayCell } from './CanvasOverlayBand'
+import { ANALYSIS_STATE_CUE_COPY } from './AnalysisStateCue'
+import { useModelChangedSinceRun } from '../hooks/useModelChangedSinceRun'
+import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
 import { lensFragileRowAlternative } from '../../components/results/utils/fragileEdgeCopy'
@@ -160,7 +187,7 @@ function EvidencePanel() {
 }
 
 /** Robustness lens panel: shows stability, ranked fragile edges, actionable coaching */
-function RobustnessPanel() {
+function RobustnessPanel({ lastRun }: { lastRun: boolean }) {
   const report = useCanvasStore(s => s.results.report)
   const fragileEdgeIds = useCanvasStore(s => s.lens._fragileEdgeIds)
   const nodes = useCanvasStore(s => s.nodes)
@@ -242,8 +269,11 @@ function RobustnessPanel() {
 
   return (
     <div data-testid="lens-info-robustness">
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
-        Robustness
+      <div data-testid="lens-info-robustness-heading" style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+        {/* Every figure below is from the run in `results.report`. Once the
+            model has changed since that run they are LAST-RUN figures, and
+            they say so in the cards' own words (see the header). */}
+        {lastRun ? `${LAST_RUN_PREFIX}Robustness` : 'Robustness'}
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-light, #6E6B6B)', lineHeight: 1.5 }}>
         {/* ⛔ The "Recommendation stability: {N}%." sentence was here (2.1273).
@@ -285,11 +315,16 @@ function RobustnessPanel() {
   )
 }
 
+/** The stale sentence's element inside the panel (see the header). */
+export const LENS_INFO_STALE_TESTID = 'lens-info-stale'
+
 /** Main panel — renders per active lens mode */
 export function LensInfoPanel() {
   const lensMode = useCanvasStore(s => isGraphLensEnabled() ? s.lens.active : 'full') as LensMode
 
   const wants = lensMode === 'causal' || lensMode === 'evidence' || lensMode === 'robustness'
+  // The stale cue's own predicate — never a restated rule (see the header).
+  const modelChangedSinceRun = useModelChangedSinceRun()
   // ⚠ THIS PANEL'S OLD `bottom: 48; left: 12` SAT ON TOP OF THE VIEWPORT-CONTROLS
   // TOOLBAR (`fixed; left: 12; bottom: 12; z-index: 1100`, ~150px tall) — a
   // collision that was in no register row. The band's left padding clears the
@@ -309,9 +344,21 @@ export function LensInfoPanel() {
       }}
       data-testid="lens-info-panel"
     >
+      {/* The whole-graph stale sentence, carried while this panel displaces
+          the foot line that normally says it. Same words, same live region. */}
+      {modelChangedSinceRun && (
+        <div
+          data-testid={LENS_INFO_STALE_TESTID}
+          role="status"
+          aria-live="polite"
+          style={{ fontSize: 11, color: 'var(--text-light, #6E6B6B)', lineHeight: 1.4, marginBottom: 6 }}
+        >
+          {ANALYSIS_STATE_CUE_COPY}
+        </div>
+      )}
       {lensMode === 'causal' && <CausalPanel />}
       {lensMode === 'evidence' && <EvidencePanel />}
-      {lensMode === 'robustness' && <RobustnessPanel />}
+      {lensMode === 'robustness' && <RobustnessPanel lastRun={modelChangedSinceRun} />}
     </div>
   )
 

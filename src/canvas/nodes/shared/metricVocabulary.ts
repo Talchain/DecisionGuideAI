@@ -582,7 +582,7 @@ export const sensitivityRankBadgeLabel = (rank: number, fromLastRun = false): st
 export const SENSITIVITY_RANK_LEGEND_NOUN = 'Driver N of M'
 // ⭐ LOCKED DESIGN (23 Sep 2026; ED 02:31Z D1a): the corner "Key driver N" badge
 // is RETIRED and the rank is stated once, on the factor card's driver line —
-// "Driver N of M analysed" (`DRIVER_LINE_COPY.rank`, ED #63 5806207128). The legend heading
+// "Driver N of M ranked in this run" (`DRIVER_LINE_COPY.rank`, NODE-ANATOMY v3.2). The legend heading
 // moves with it, so the key names the marking a reader actually meets.
 
 /**
@@ -849,29 +849,57 @@ export const MAX_GLOSS_LENGTH = 110
  * ED 11:52Z: "model-relative driver treatment, e.g. `Driver 1 of 4 in this
  * model` … no pseudo-precise `% influence` on the face."
  *
- * ⚠ The disclosure is basis-aware rather than the spec's verbatim sentence
- * ("Relative model sensitivity in this analysis…"): on the `influence_score`
- * basis the figure is STRUCTURAL and computed before the run, and
- * `influenceScaleCopy.ts` (#1221) forbids attributing it to "this analysis".
- * The relative/not-absolute half of the spec sentence is kept word for word.
+ * ⚠ The bar is relative SENSITIVITY — the quantity the rank is ordered by
+ * (`rankFactor`'s |elasticity| key), over rank 1's — never the displayed
+ * `influence_score`. That structural figure (computed before the run, which
+ * `influenceScaleCopy.ts` #1221 forbids attributing to "this analysis") stays
+ * in the inspector. On Paul's MRR runs the old bar drew Driver 1 at 81% "of the
+ * strongest factor", the strongest being a factor the card calls unranked
+ * (side-by-side DIFF item 4, 27 Sep 2026).
  */
 export const DRIVER_LINE_COPY = {
-  // ⭐ ED #63 5806207128 ("Factor anatomy", 24 Sep; supersedes contract v3.1
-  // pt 5's "Driver N of M ranked in this run", M = the ranked count): "If rank
-  // is published: use e.g. `Driver 1 of 6 analysed` + a neutral thin relative
-  // bar. Denominator = eligible analysed factors, not 'number of ranks we
-  // happen to render'." That is the served wording AND the served M from
-  // before the v3.1 change: M is the factors in the last analysis's driver feed
-  // (`rankFactor`'s `influenceSetSize`), not the cards on the board — "in this
-  // model" invited counting cards. Stale form: `Last run · Driver 1 of 6
-  // analysed` — the caller owns the `LAST_RUN_PREFIX`; the words do not change.
-  rank: (rank: number, analysedCount: number): string => `Driver ${rank} of ${analysedCount} analysed`,
+  // ⭐ NODE-ANATOMY v3.2 factor row + contract v3.1 pt 5 (ACCEPTED by Paul):
+  // "`Driver N of M ranked in this run`, where M is the number of factors the
+  // run ranked. Show every one of the M ranks on its card … Stale form: `Last
+  // run · Driver N of M ranked`." M is `rankFactor`'s `rankedSetSize` — the
+  // factors the canvas actually names a rank for — so a reader can check it by
+  // counting the cards that show one.
+  //
+  // ⛔ REPLACES ED #63 5806207128's `Driver N of M analysed` (M = every factor
+  // in the driver feed). Measured on Paul's MRR runs (side-by-side DIFF item 3,
+  // 27 Sep 2026): `Driver 1 of 5 analysed`, `Driver 2 of 5 analysed`, then three
+  // silent cards — the unshown 3–5 read as accidentally omitted, which is the
+  // one thing Paul pt 5 forbids. And the stale `Last run · Driver 1 of 6
+  // analysed` truncated at landing (item 11); the contract's stale form drops
+  // "in this run" precisely so it fits. The caller owns the `LAST_RUN_PREFIX`.
+  rank: (rank: number, rankedCount: number, fromLastRun = false): string =>
+    fromLastRun
+      ? `Driver ${rank} of ${rankedCount} ranked`
+      : `Driver ${rank} of ${rankedCount} ranked in this run`,
+  /**
+   * The contract's `driver()` definition of M, the hover and the accessible
+   * description. The second sentence keeps Paul pt 5's "never imply a missing
+   * rank is accidentally omitted" for the factors OUTSIDE the M: Olumi names at
+   * most `maxRanked` ranks, and only where their order is clear.
+   */
+  denominator: (rankedCount: number, maxRanked: number, fromLastRun = false): string =>
+    `${fromLastRun ? 'The last' : 'This'} run ranked ${rankedCount} ${rankedCount === 1 ? 'factor' : 'factors'} by relative sensitivity; each shows its own rank. ` +
+    `Olumi ranks at most ${maxRanked} factors, and only where their order is clear, so a factor without a rank has not been left out.`,
   // Contract v3.1 pt 5: "A factor the run did not rank shows no rank, and its
   // detail says 'Not ranked in this run'". The stale form mirrors the rank's
   // (the caller prefixes `LAST_RUN_PREFIX`).
   notRanked: (fromLastRun = false): string => (fromLastRun ? 'Not ranked' : 'Not ranked in this run'),
+  /**
+   * What the bar measures (side-by-side DIFF item 4): the SAME quantity the
+   * rank is ordered by, relative to rank 1 — contract `driver()` "Relative
+   * sensitivity in this model, not a causal contribution percentage"; its
+   * detail "Bar length is relative to the strongest ranked factor in the same
+   * model".
+   */
+  barNoun: 'relative sensitivity',
+  barRelativeTo: 'of the top-ranked driver',
   relativeDisclosure:
-    'Relative to the strongest factor in this model, not an absolute causal percentage.',
+    'Relative to the top-ranked driver in this model, not a causal contribution percentage.',
   rankBasis:
     'Ranked by how strongly the comparison responds to each factor in this model.',
   question: 'How sure are you of its value?',
@@ -926,11 +954,27 @@ export const LINK_STRENGTH_COPY = {
  * `cannot_confirm` → `Model result`, which asserts neither currency nor a
  * later model.
  */
+/** The share's unit. Its own constant so the card can let it give way on its own. */
+const OPTION_SHARE_UNIT = 'of runs'
+
 export const OPTION_RESULT_COPY = {
   current: CURRENT_MODEL_NOUN,
   lastRun: 'Last run',
   unconfirmed: 'Model result',
-  share: (formatted: string): string => `${formatted} of runs`,
+  /**
+   * ⭐ THE ANCHOR'S NARROW FORM (side-by-side DIFF 27 Sep, item 1). At the
+   * landing counter-scale the share line holds about 14.8em (≈28 characters),
+   * and `Current model 100% · Provisional` needs about 16.2em. Before this, the
+   * caption was what gave way, which left a bare `68% of runs · Goal only` on a
+   * run where no option reaches the goal. `Model` keeps the result model-relative (ED 11:52Z:
+   * "any result shown at rest must be explicitly model-relative") and claims no
+   * currency, so it is true for `Current model` and for `Model result`.
+   * `Last run` has no narrow form: it is already short, and it is the one label
+   * the stale state must keep.
+   */
+  compact: 'Model',
+  shareUnit: OPTION_SHARE_UNIT,
+  share: (formatted: string): string => `${formatted} ${OPTION_SHARE_UNIT}`,
   sentence: (formatted: string): string =>
     `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
     'A finding about the model as it stands, not a recommendation.',
