@@ -87,7 +87,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
-import { LABEL_LEGIBLE_ZOOM, LANDING_TITLE_FLOOR_PX, renderedGlyphPx, renderedLabelPx } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, LANDING_BODY_FLOOR_PX, renderedGlyphPx, renderedLabelPx } from '../utils/zoomLegibility'
 import { GHOST_OPTION_NODE_ID } from '../utils/fitTargets'
 import { STACKED_SPREAD_PX, getGraphIdentityKey } from '../utils/graphNeedsInitialLayout'
 
@@ -513,13 +513,15 @@ describe('useFitViewOnLayoutVersion — the restore trigger', () => {
     // (the uncapped glyph scale saturates exactly there)…
     expect(renderedGlyphPx(10, floor)).toBeCloseTo(10, 10)
     expect(renderedGlyphPx(13, floor)).toBeCloseTo(13, 10)
-    // …and a title renders at or above the landing title floor (the text ceiling,
-    // 27 Sep 2026, trades declared size for board height in this band).
-    expect(renderedLabelPx(14, floor)).toBeGreaterThanOrEqual(LANDING_TITLE_FLOOR_PX)
+    // …and 11px body text renders at or above the landing body floor (the text
+    // ceiling, 27 Sep 2026, trades declared size for board height in this band;
+    // the floor moved from a 9.5px title to a 9px body with the 1.36 → 1.64 cap,
+    // owner decision, #70 5859837231).
+    expect(renderedLabelPx(11, floor)).toBeGreaterThanOrEqual(LANDING_BODY_FLOOR_PX)
     // POSITIVE CONTROL — the measured restore park is judged short by the same
     // arithmetic, so "meets the floor" is a verdict something can fail.
     expect(renderedGlyphPx(10, MEASURED_RESTORE_PARK_ZOOM)).toBeLessThan(10)
-    expect(renderedLabelPx(14, MEASURED_RESTORE_PARK_ZOOM)).toBeLessThan(LANDING_TITLE_FLOOR_PX)
+    expect(renderedLabelPx(11, MEASURED_RESTORE_PARK_ZOOM)).toBeLessThan(LANDING_BODY_FLOOR_PX)
   })
 
   it('a restore fit still pending is ABANDONED when a layout takes over', () => {

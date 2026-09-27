@@ -539,7 +539,9 @@ describe('ELK Layout', () => {
     // 190.88 (the widest title word at the TEXT bound), BELOW the ED repeated-card
     // target of 248, so a four-per-row sub-row's fair share (≥ 248) is what binds
     // and the floor no longer does. The floor still bounds the width from below.
-    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(190.88, 10)
+    // 190.88 → 221.12 (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 108 × 1.64 + 20 + 24,
+    // still below the 248 target, so the same reasoning holds.
+    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(221.12, 10)
     expect(layoutNodeWidth).toBe(REPEATED_CARD_W)
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
     // All positions must be finite and non-overlapping (using NODE_LAYOUT_MIN_W for overlap check)
