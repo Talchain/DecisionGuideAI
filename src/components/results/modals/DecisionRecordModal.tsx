@@ -82,8 +82,8 @@ import {
 } from './decisionRecordStore'
 
 export const DECISION_RECORD_COPY = {
-  title: 'Record the decision',
-  subtitle: 'Capture the choice and what would justify revisiting it.',
+  title: 'Record your view',
+  subtitle: 'Capture your choice and what would make you revisit it.',
   // Before save, identity licenses an attempt, not a claim of remote success.
   //
   // ⚠ Superseded text: ~~The rationale, assumption and revisit trigger stay on
@@ -121,14 +121,16 @@ export const DECISION_RECORD_COPY = {
   emptyState:
     'Run an analysis first. There are no analysed options to record a decision against yet.',
   chosenOptionLabel: 'Chosen option',
+  /** Nothing is chosen for the reader: the form opens with no option selected. */
+  chosenOptionPlaceholder: 'Select an option',
   confidenceLabel: 'Confidence, 0–100',
   confidencePlaceholder: 'e.g. 70',
   expectationLabel: 'What do you expect to happen?',
-  expectationPlaceholder: 'e.g. runway holds above 9 months through Q1',
+  expectationPlaceholder: 'e.g. what you expect to see, and by when',
   expectationHelp:
     'This is the claim we check back against — keep it something you could later call right or wrong.',
   revisitLabel: 'Revisit trigger or date',
-  revisitPlaceholder: 'e.g. runway falls below 9 months, or 2026-12-01',
+  revisitPlaceholder: 'e.g. 2026-12-01, or an event that would change your mind',
   revisitHelp:
     'If the account save succeeds, its review date is your recognised date or, when the text is not a recognised date, 90 days from now. Your text stays here.',
   localRevisitHelp:
@@ -156,7 +158,7 @@ export const DECISION_RECORD_COPY = {
     rationale: 'a rationale',
     assumption: 'an assumption to watch',
   },
-  save: 'Record the decision',
+  save: 'Record your view',
   saving: 'Saving…',
   confidenceError: 'Add a confidence between 0 and 100.',
   expectationError: 'Add what you expect to happen.',
@@ -282,8 +284,9 @@ export function DecisionRecordModal() {
   const saveFiredRef = useRef(false)
 
   // Hydrate on open: an existing record for this scenario prefills the form
-  // (its option only if still analysed); otherwise default to the first
-  // analysed option.
+  // (its option only if still analysed); otherwise NO option is chosen. A
+  // preselected first option reads as Olumi's pick on a run that put none
+  // forward (Paul's test, 27 Sep).
   useEffect(() => {
     if (!isOpen) return
     saveFiredRef.current = false
@@ -294,7 +297,7 @@ export function DecisionRecordModal() {
       // A not-ready record has no option, confidence or expectation to
       // prefill; the option picker starts where a fresh one would.
       setPosition('not_ready')
-      setChosenOptionId(options[0]?.id ?? '')
+      setChosenOptionId('')
       setConfidence('')
       setExpectation('')
       setRevisit(saved.revisitTrigger)
@@ -304,7 +307,7 @@ export function DecisionRecordModal() {
     } else if (saved) {
       setPosition('option')
       setChosenOptionId(
-        options.some((o) => o.id === saved.optionId) ? saved.optionId : options[0]?.id ?? '',
+        options.some((o) => o.id === saved.optionId) ? saved.optionId : '',
       )
       setConfidence(String(saved.confidence))
       // `?? ''` because records persisted before the expectation field
@@ -316,7 +319,7 @@ export function DecisionRecordModal() {
       setNextAction(saved.nextAction ?? '')
     } else {
       setPosition('option')
-      setChosenOptionId(options[0]?.id ?? '')
+      setChosenOptionId('')
       setConfidence('')
       setExpectation('')
       setRevisit('')
@@ -574,6 +577,9 @@ export function DecisionRecordModal() {
               disabled={!hasOptions}
               className={FIELD_INPUT_CLASS}
             >
+              <option value="" disabled>
+                {DECISION_RECORD_COPY.chosenOptionPlaceholder}
+              </option>
               {options.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.number != null ? `${o.number}. ${o.label}` : o.label}

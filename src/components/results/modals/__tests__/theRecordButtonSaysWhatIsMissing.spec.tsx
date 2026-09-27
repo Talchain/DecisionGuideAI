@@ -84,7 +84,8 @@ describe('the Record button says what is still missing', () => {
   it('"Choose an option" names its own required fields', () => {
     open()
     expect(missingLine()).toHaveTextContent(
-      'Still needed to record: a confidence from 0 to 100, what you expect to happen, a revisit trigger or date, a rationale and an assumption to watch.',
+      // Nothing is preselected (Paul, 27 Sep), so the choice itself is named first.
+      'Still needed to record: a chosen option, a confidence from 0 to 100, what you expect to happen, a revisit trigger or date, a rationale and an assumption to watch.',
     )
   })
 

@@ -29,4 +29,4 @@
  * back.
  */
 export const SCIENCE_LIMITATIONS_DISCLOSURE =
-  'This analysis uses a simplified structural causal model. Some uncertainty sources (intercepts, node-level noise) are not yet captured.'
+  'This analysis uses a simplified cause-and-effect model. Some sources of uncertainty (starting levels, and random variation in each factor) are not yet included, so the real spread may be wider than shown.'

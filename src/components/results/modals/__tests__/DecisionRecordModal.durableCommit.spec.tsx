@@ -73,6 +73,9 @@ function seedAnalysedOptions() {
 }
 
 function fillValid() {
+  // Nothing is preselected (Paul, 27 Sep): choose one, as a user must.
+  const select = screen.queryByTestId('decision-record-option') as HTMLSelectElement | null
+  if (select && select.value === '') fireEvent.change(select, { target: { value: 'opt_a' } })
   fireEvent.change(screen.getByTestId('decision-record-confidence'), {
     target: { value: '70' },
   })

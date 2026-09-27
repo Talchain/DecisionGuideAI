@@ -760,7 +760,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // replaced.
   GOAL_DIRECTION_UNATTESTED: () => ({
     title:
-      'Your options were ordered by which one produces the largest value at your goal. Nothing in this run said what the goal is for, so that ordering is this version\'s default rather than your aim. If the goal is a quantity to bring down, or one to land on a particular level, it answers a different question.',
+      'Your options were ordered by which one produces the largest value at your goal, because the model does not say which way your goal should go. If you want it lower, or held at a particular level, that ordering answers a different question.',
     description:
       'Every other number in this analysis stands. What is missing is the objective sense: on this run, the option that scored highest was simply the one that produced the largest number at your goal on the most draws, and nothing confirmed that is the question you are asking.',
     // No suggestion — see the block above. There is no writer for this.
@@ -798,7 +798,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
    */
   EDGE_E_VALUE_NON_FINITE_DROPPED: () => ({
     title:
-      'Some relationships have no evidence ratio, because reversing them would land on the same answer. Your results stand.',
+      'Some links have no figure for how much it would take to overturn them, because reversing them would give the same answer. Your results stand.',
     description:
       'Where a relationship\'s current and reversed strength come out the same, there is no ratio to weigh, so those entries are absent from the evidence list rather than empty. Every other part of this analysis stands.',
   }),

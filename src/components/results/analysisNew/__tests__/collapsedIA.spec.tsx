@@ -97,7 +97,9 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     const present = SECTIONS.filter((id) => screen.queryByTestId(id))
     // POSITIVE CONTROL: a run rendering no sections would satisfy the loop
     // below vacuously — this is the census's own lesson (trap 13).
-    expect(present.length, 'no sections rendered — this case would be vacuous').toBeGreaterThan(2)
+    // 27 Sep: Key insights renders only with an insight (Paul's test), and this
+    // fixture has none, so two sections is the floor.
+    expect(present.length, 'no sections rendered — this case would be vacuous').toBeGreaterThanOrEqual(2)
 
     for (const id of present) {
       expect(screen.getByTestId(id)).toHaveAttribute('data-section-open', 'false')
@@ -194,17 +196,15 @@ describe('the surface below the glance is a list of collapsed rows', () => {
     expect(screen.getAllByTestId('analysis-new-sensitivity-row')).toHaveLength(3)
   })
 
-  it('renders NO count rather than a zero when a section is empty', () => {
-    // A row reading "0" invites a click on nothing. The section still opens to
-    // its honest empty sentence, which is a claim about the run.
+  it('renders NO row at all, rather than a zero, when Key insights is empty (Paul, 27 Sep)', () => {
+    // A row reading "0" invites a click on nothing, and an empty section read
+    // as clutter in Paul's test: an insight-less run shows no Key insights row.
     renderBody(genuineDecision())
-    // ⚠ BEFORE THE NULL ASSERTION, NOT AFTER. With the group closed the count
-    // is null because the section is UNMOUNTED, which would satisfy the line
-    // below for a reason that has nothing to do with the rule it states.
     openGroups()
+    // POSITIVE CONTROL: the folded tail did open (About is there).
+    expect(screen.getByTestId('analysis-new-about')).toBeInTheDocument()
     expect(screen.queryByTestId('analysis-new-key-insights-count')).toBeNull()
-    fireEvent.click(screen.getByTestId('analysis-new-key-insights-toggle'))
-    expect(screen.getByTestId('analysis-new-key-insights-empty')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-key-insights')).toBeNull()
   })
 })
 

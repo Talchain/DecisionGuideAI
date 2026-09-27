@@ -101,17 +101,15 @@ describe('a group heading claims something is under it', () => {
    * now reads the SAME EXPRESSION the section is handed, so the two cannot
    * disagree about what counts as content.
    */
-  it('keeps the coaching group when the only content is an honest empty message', () => {
-    // `genuineDecision()` grounds no insight well enough to lead with, so the
-    // section's honest empty message is the group's ONLY coaching content.
+  it('an insight-less run folds NO Key insights section into About (Paul, 27 Sep)', () => {
+    // `genuineDecision()` grounds no insight well enough to lead with. The
+    // empty "No insight is grounded…" section read as clutter in Paul's test
+    // and is not in the V2 prototype, so About holds no Key insights row.
     renderBody(genuineDecision())
-    // V2 gap 24: re-pointed from the deleted coaching group to About, which now
-    // holds the Key insights section and its honest empty message.
     fireEvent.click(screen.getByTestId('analysis-new-about-toggle'))
     expect(
       within(screen.getByTestId('analysis-new-about')).queryByTestId('analysis-new-key-insights'),
-      'a completed run that found no insights still owes the reader that sentence',
-    ).not.toBeNull()
+    ).toBeNull()
     // ⚠ NOT asserting the sentence's own testid here. `AnalysisNewSection` is
     // itself collapsed until opened, so that assertion would be testing the
     // SECTION's disclosure rather than the GROUP's gate — a different property,
