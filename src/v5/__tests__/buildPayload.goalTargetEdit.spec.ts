@@ -1,9 +1,7 @@
 /**
  * `goal_target_edit` on the wire — the UI's outbound adapter (`adaptGoalTargetEdit`
- * in `buildPayload.ts`). PREPARED, NOT ARMED: see `goalTargetEdit.ts`'s header
- * and `buildPayload.ts`'s `GoalTargetEditWireEvent` comment for why this
- * member is HAND-TYPED rather than derived from the vendored contract (it is
- * not in the pinned `@talchain/schemas` yet).
+ * in `buildPayload.ts`). The wire type is derived from the vendored contract
+ * (schemas 0.59.0); see `goalTargetEdit.ts`'s header for the history.
  *
  * ⭐ EVERY PREDICATE HERE SHIPS ITS OPPOSITE-DIRECTION TWIN, same discipline
  * `buildPayload.structuralRename.spec.ts` uses: a guard too wide silently
@@ -39,7 +37,7 @@ const WELL_FORMED = {
   base_graph_hash: HASH,
 }
 
-describe('buildV5Payload — goal_target_edit (prepared, not yet in the vendored contract)', () => {
+describe('buildV5Payload — goal_target_edit (schemas 0.59.0)', () => {
   it('builds the typed event from a well-formed target', () => {
     const r = build(WELL_FORMED)
     expect(r.ok).toBe(true)
@@ -56,28 +54,15 @@ describe('buildV5Payload — goal_target_edit (prepared, not yet in the vendored
     })
   })
 
-  /**
-   * ⚠⚠ INVERTED FROM `buildPayload.structuralRename.spec.ts`'s SIBLING TEST,
-   * AND DELIBERATELY SO. That file parses its built event against the REAL
-   * contract and asserts SUCCESS, because the member is vendored. This one
-   * cannot make that claim honestly — `@talchain/schemas` (pinned 0.55.0) has
-   * no `goal_target_edit` member, so the real `SystemEventSchema` does not
-   * recognise this `kind` at all and refuses to parse it.
-   *
-   * This is a TRIPWIRE, not a shrug: the day `@talchain/schemas` vendors the
-   * member, `safeParse` starts succeeding and THIS assertion REDs — which is
-   * the prompt to delete the hand-typed `GoalTargetEditWireEvent` in
-   * `buildPayload.ts`, replace it with the real `Extract<...>`, and flip this
-   * test to match `structuralRename`'s (assert success, then delete this note).
-   */
-  it('does NOT yet parse against the real contract — no member to match, on purpose', () => {
+  // Flipped on the 0.55.0 → 0.59.0 re-vendor: this used to assert the parse
+  // FAILED (a tripwire, because 0.55.0 had no such member). It now matches
+  // `buildPayload.structuralRename.spec.ts`'s sibling test.
+  it('the built event PARSES against the real contract, not against my reading of it', () => {
     const r = build(WELL_FORMED)
     expect(r.ok).toBe(true)
     if (!r.ok || r.payload.kind !== 'system_event') return
     const parsed = SystemEventSchema.safeParse(r.payload.event)
-    expect(parsed.success, 'schemas has vendored goal_target_edit — see this test\'s own comment').toBe(
-      false,
-    )
+    expect(parsed.success, JSON.stringify(parsed)).toBe(true)
   })
 
   // ── base_graph_hash: the stale gate is non-optional ──────────────────────
