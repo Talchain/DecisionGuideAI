@@ -206,6 +206,7 @@ import {
   outcomeRangeScale,
   type ComparisonLens,
 } from '../comparisonLens'
+import { goalBandIsInUserUnits } from '../goalBandUnits'
 
 /**
  * ⭐ THE ARMS, IN READING ORDER, DECLARED ONCE.
@@ -596,7 +597,11 @@ export function OptionsComparison({
    * see the PR description for the same finding against the per-option point
    * figure this wave does NOT add for the identical reason.
    */
-  const axisIsModelScale = showAxis && rangeScale !== null && outcomeDomainIsModelScale(options.rows)
+  // ⭐ OR THE BAND IS NOT IN THE USER'S UNITS AT ALL (`goalBandIsInUserUnits`):
+  // Paul's MRR model drew a £15k median beside a stated £75k, so plain ticks
+  // read as MRR (27 Sep). Lower … Higher says where, never how much.
+  const axisIsModelScale =
+    showAxis && rangeScale !== null && (outcomeDomainIsModelScale(options.rows) || !goalBandIsInUserUnits())
   const axisTicks: readonly string[] | null =
     showAxis && rangeScale !== null && !axisIsModelScale
       ? AXIS_TICK_FRACTIONS.map((f, i) => formatAxisTick(rangeScale.ticks?.[i] ?? rangeScale.lo + f * rangeScale.span))
