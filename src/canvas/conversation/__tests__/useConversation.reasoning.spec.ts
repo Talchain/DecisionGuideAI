@@ -258,6 +258,30 @@ describe('useConversation — reasoning sidecar extraction (ROADMAP 1.42)', () =
     expect(lastAssistantMessage(result.current.messages)!.openQuestionList).toEqual(list)
   })
 
+  // Slice C5 (Panel's N1 on #2185): the LIVE turn path, wire → message. `_agent.provisional_view` reaches the message.
+  it('reads _agent.provisional_view from the additive sidecar into message.provisionalView (the live turn, not a restore)', async () => {
+    const pv = { view: 'Hold at £49 for now.', reasoning: 'Churn is near the limit.', confirm_step: 'Give the real churn figure.', heading: 'Provisional view — the analysis can’t confirm this yet.' }
+    mockCallV5Turn.mockResolvedValue({
+      kind: 'response' as const,
+      response: {
+        response_version: 2,
+        assistant_text: 'No option can be put forward yet.',
+        blocks: [],
+        suggested_actions: [],
+        insights: [],
+        stage_indicator: 'frame',
+        [ADDITIVE_EXTENSIONS_KEY]: { _agent: { provisional_view: pv, mode: 'agent' } },
+      },
+    })
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('What should we do?')
+    })
+    expect(lastAssistantMessage(result.current.messages)!.provisionalView).toEqual({
+      view: pv.view, reasoning: pv.reasoning, confirmStep: pv.confirm_step, heading: pv.heading,
+    })
+  })
+
   it('leaves message.reasoning undefined when the sidecar carries other additive keys but not _reasoning', async () => {
     mockCallV5Turn.mockResolvedValue({
       kind: 'response' as const,
