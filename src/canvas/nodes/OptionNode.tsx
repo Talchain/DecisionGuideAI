@@ -6,7 +6,7 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
-import { useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
+import { useOptionAbsentFromRunShown, useOptionLeftOutOfRun } from '../hooks/useOptionLeftOutOfRun'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { selectRestingGlyphsShown } from './shared/restingGlyphRung'
@@ -140,6 +140,7 @@ import {
 import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
 import {
   NOT_ANALYSED_BADGE,
+  NOT_ANALYSED_IN_LAST_ANALYSIS,
   NOT_COMPUTED_BADGE,
   notAnalysedReasonCopy,
   notComputedReasonCopy,
@@ -171,9 +172,9 @@ import {
   type TargetNodeLike,
 } from './shared/optionTargetDisplay'
 import { NodeRailIcon } from './shared/NodeRailIcons'
-import { OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVocabulary'
+import { LAST_RUN_PREFIX, OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
-import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
+import { useRunCurrency, optionResultCaption, optionResultCompactCaption } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
@@ -188,6 +189,15 @@ import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
  * nothing checks). The rows themselves are `renderChangeRows` below; the height
  * they add is reserved by measurement (`measureNodeHeightsAtLabelBound`).
  */
+
+/**
+ * The share caption's two forms, switched by the share slot's own width in em
+ * (the slot is an inline-size container; see the slot's header). At 17.5em and
+ * wider the full caption shows; narrower, its compact form. Whole class strings,
+ * so Tailwind's scanner sees them.
+ */
+const SHARE_CAPTION_WIDE_ONLY = 'hidden [@container(min-width:17.5em)]:block'
+const SHARE_CAPTION_NARROW_ONLY = '[@container(min-width:17.5em)]:hidden'
 
 /** The existing `est.` mark hover on a change row — one spelling for the row and the card line. */
 const OPTION_ROW_ESTIMATE_NOTE = 'Olumi chose this target; it is not yet confirmed.'
@@ -644,8 +654,12 @@ export const OptionNode = memo((props: NodeProps) => {
      Distinct from `winComputationFailed` (it ran and could not compute) and
      from the `excluded-from-analysis-pill` (CEE predicting the NEXT run will
      hold it out). Read through the shared predicates, never re-derived here —
-     see `useOptionLeftOutOfRun` for the domain guard that makes it safe. */
+     see `useOptionLeftOutOfRun` for the domain guard that makes it safe.
+     TWO answers, deliberately: the ABSENCE decides the state the card shows
+     (`Not analysed`, current or stale); the LICENSED reason decides only which
+     sentence may explain it (DIFF 27 Sep item 5). */
   const leftOutOfRunReason = useOptionLeftOutOfRun(props.id)
+  const absentFromRunReason = useOptionAbsentFromRunShown(props.id)
   const scienceIcons = useScienceIcons(props.id, 'option')
 
   const nodes = useCanvasStore(state => state.nodes)
@@ -1846,6 +1860,12 @@ export const OptionNode = memo((props: NodeProps) => {
     return cause === 'constraint_verdict_withheld' || cause === 'analysis_out_of_date' ? null : cause
   })
   const shareIsProvisional = !shareIsGoalOnly && shareProvisionalCause !== null
+  /**
+   * The caption's narrow form, only when a qualifier shares the line: without
+   * one, `Current model 100% of runs` fits at the landing counter-scale, so the
+   * full caption is the only one rendered.
+   */
+  const compactCaption = shareIsGoalOnly || shareIsProvisional ? optionResultCompactCaption(runCurrency) : null
   /*
    * ED #63 5806207128 / 5806266691 choice 3: the short `Goal only` is VISIBLE on
    * the share line; its full meaning comes straight after the visible string
@@ -1880,7 +1900,7 @@ export const OptionNode = memo((props: NodeProps) => {
    * render site). The change rows no longer read it: they stay on the card in
    * both phases and the run adds its line below them (prototype, Paul 25 Sep).
    */
-  const notAnalysedRenders = displayMetadata.isResultsMode && leftOutOfRunReason !== null
+  const notAnalysedRenders = displayMetadata.isResultsMode && absentFromRunReason !== null
   /**
    * CEE's TYPED reason this option was left out: its `analysis_ready.blockers[]`
    * entry naming THIS option with `blocker_type: 'missing_value'`. Read, never
@@ -1891,11 +1911,24 @@ export const OptionNode = memo((props: NodeProps) => {
     () => ceeAnalysisReady?.blockers?.find(b => b.option_id === props.id && b.blocker_type === 'missing_value') ?? null,
     [ceeAnalysisReady, props.id],
   )
+  /**
+   * What the not-analysed line says in its hover and to a screen reader. The
+   * licensed reason when there is one; on a result we cannot vouch for, the
+   * sentence that is true whether the run left the option out or it was added
+   * after (`NOT_ANALYSED_IN_LAST_ANALYSIS`: "has", never "returned"). CEE's
+   * typed blocker then names the factor that needs a value.
+   */
+  const notAnalysedSentence = absentFromRunReason === null ? '' : [
+    leftOutOfRunReason !== null ? notAnalysedReasonCopy(leftOutOfRunReason) : NOT_ANALYSED_IN_LAST_ANALYSIS,
+    missingValueBlocker?.factor_label?.trim()
+      ? `${missingValueBlocker.factor_label.trim()} ${OPTION_RESULT_COPY.notAnalysedNeedsValue}.`
+      : null,
+  ].filter(Boolean).join(' ')
   const notComputedRenders = displayMetadata.isResultsMode && displayMetadata.winComputationFailed === true
   const resultUnavailableRenders =
     displayMetadata.isResultsMode && displayMetadata.winRate === null &&
     displayMetadata.winComputationFailed !== true &&
-    leftOutOfRunReason === null &&
+    absentFromRunReason === null &&
     !supportShareRunWideAbsent
 
   /**
@@ -2590,26 +2623,48 @@ export const OptionNode = memo((props: NodeProps) => {
               · The slot is ONE `edgeLabel` line (`h-[1lh]`) with identical
                 classes in both phases, so the layout reserves the post-run
                 height before the run. Empty and aria-hidden before a run.
-              · The row never wraps. What does not fit gives way in a fixed
-                order, whole-text in the existing tooltip and the row's name:
-                the bar first, then the default `Current model` caption, then
-                `· Goal only` (ellipsis). The share itself never shrinks.
-                A non-default caption (`Last run`, `Model result`) is a
-                qualifier that must stay on the card, so it does not give way
-                ahead of `Goal only`.
-            Pinned in `__tests__/OptionNode.noGrowthAfterRun.spec.tsx`. */}
+              · It holds the run's ONE line for this option: the share, or, for
+                an option the run left out, `Not analysed` (DIFF 27 Sep item 5).
+                That state used to be a second row under this slot, so the run
+                grew the card by a line; on a stale run it became a three-line
+                sentence (+20.6px measured on Paul's mrr-90b8f080).
+              · The share row never wraps, and what gives way is fixed (DIFF
+                27 Sep item 1). The old order gave way with the bar, then
+                `Current model`. On Paul's mrr-90b8f080 at landing that left a
+                bare `68% of runs · Goal only` on all five cards, on a run where
+                no option reaches the goal, and the bar never painted at 100%
+                either. Now:
+                  – NEVER gives way: the model-relative caption, the figure, and
+                    `· Goal only` / `· Provisional` (no ellipsis).
+                  – `of runs` gives way first, as a whole word. It stays in the
+                    row's name and tooltip.
+                  – With a qualifier on the line, `Current model` and
+                    `Model result` narrow to `Model` when the slot is under
+                    17.5em. The query reads the slot's own width in ITS em, the
+                    counter-scaled label size, so it flips when the counter-scale
+                    squeezes the line (zoom ≈ 0.87 and below). Budget: the
+                    line holds ≈ 20.2em at 100% and ≈ 14.8em at the 1.36 cap;
+                    `Current model 100% · Provisional` is ≈ 16.2em and
+                    `Last run 100% · Provisional` ≈ 13.2em. Widths are from the
+                    27 Sep capture at 11px in the system-ui fallback (Inter was
+                    blocked there, so it is not measured), and `Provisional` is
+                    estimated from its letters.
+                  – The bar is not in the text flow. It sits under the line in
+                    a 3px strip the row keeps inside the slot, at a fixed 54px,
+                    so it always paints and is the same width on every card.
+            Pinned in `__tests__/OptionNode.noGrowthAfterRun.spec.tsx` and
+            `__tests__/OptionNode.shareLineOnPaulsRun.spec.tsx`. */}
         {/* Rendered in EVERY phase (MG, #2123 review B1): an option the Run does not score keeps this slot too,
-            empty and aria-hidden, or it would shrink after the Run and re-lay the board. */}
-        {(
+            or it would shrink after the Run and re-lay the board. */}
         <div
           data-testid={`option-share-slot-${props.id}`}
-          className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden`}
-          aria-hidden={winReadout === null ? true : undefined}
+          className={`${typography.edgeLabel} mt-1 h-[1lh] min-w-0 overflow-hidden [container-type:inline-size]`}
+          aria-hidden={winReadout === null && !notAnalysedRenders ? true : undefined}
         >
         {winReadout !== null && (
           <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
-            className="flex h-full min-w-0 flex-nowrap items-center gap-1.5 whitespace-nowrap cursor-help"
+            className="relative flex h-full min-w-0 flex-nowrap items-center pb-[3px] whitespace-nowrap cursor-help"
             role="img"
             aria-label={winReadoutDescription}
             tabIndex={0}
@@ -2648,8 +2703,9 @@ export const OptionNode = memo((props: NodeProps) => {
                 long bar dominated the card and one kind of element wore two
                 colours on one board. It is now the factor run bar's own anatomy
                 (`FactorDriverLine`: `w-[54px]` track, `bg-text-light` fill on
-                `bg-panel-border`) — short, fixed, neutral, secondary. `shrink`
-                + `min-w-0` let it give way on the narrowest card. */}
+                `bg-panel-border`) — short, fixed, neutral, secondary. It no
+                longer gives way at all: it sits under the text (DIFF 27 Sep
+                item 1, header above), so its 54px is the same on every card. */}
             {/* ⭐ THE ANCHOR, VISIBLE — restored 31 Aug 2026.
                 The density change put `phrase()` behind a `title` and left the
                 number bare. At that time the row was not focusable, so its
@@ -2669,44 +2725,48 @@ export const OptionNode = memo((props: NodeProps) => {
                 `Current model`; `Last run` only when the model is KNOWN to have
                 changed (ED 02:31Z Q2); `Model result` when currency cannot be
                 confirmed — it claims neither. */}
-            {/* Caption + bar give way TOGETHER, as one clipped unit.
-                · Default `Current model`: the unit yields FIRST and strictly
-                  (a shrink weight that leaves `· Goal only` no sub-pixel share),
-                  and its parts are whole-or-nothing — a part that does not fit
-                  wraps onto the unit's clipped second line (the zero-width
-                  spacer keeps line 1 open), so a squeezed caption leaves no
-                  sliver of a glyph. The bar goes before the caption.
-                · `Last run` / `Model result` is a qualifier that stays on the
-                  card: the unit yields only alongside `· Goal only`, and the
-                  caption truncates rather than disappearing. */}
-            <span
-              className={`flex h-full min-w-0 items-center gap-x-1.5 overflow-hidden ${runCurrency === 'current' ? 'shrink-[1000000] flex-wrap content-start' : 'shrink'}`}
-              aria-hidden="true"
-            >
-            <span className="h-full w-0 -mr-1.5" />
             <span
               data-testid={`option-win-anchor-${props.id}`}
-              className={`${typography.edgeLabel} text-text-light ${runCurrency === 'current' ? 'shrink-0 whitespace-nowrap' : 'min-w-0 truncate shrink'}`}
+              className={`${typography.edgeLabel} text-text-light shrink-0 ${compactCaption !== null ? SHARE_CAPTION_WIDE_ONLY : ''}`}
               aria-hidden="true"
             >
               {resultCaption}
             </span>
-            <div
-              className={`h-1 w-[54px] bg-panel-border rounded-full overflow-hidden ${runCurrency === 'current' ? 'shrink-0' : 'min-w-0 shrink-[100000]'}`}
-              aria-hidden="true"
-            >
-              <div
-                className="h-full bg-text-light rounded-full transition-all duration-300"
-                style={{ width: winReadout.rate > 0 ? `max(4px, ${Math.round(winReadout.rate * 100)}%)` : '0%' }}
-              />
-            </div>
-            </span>
+            {compactCaption !== null && (
+              <span
+                data-testid={`option-win-anchor-compact-${props.id}`}
+                className={`${typography.edgeLabel} text-text-light shrink-0 ${SHARE_CAPTION_NARROW_ONLY}`}
+                aria-hidden="true"
+              >
+                {compactCaption}
+              </span>
+            )}
+            {/* The readout keeps its one element and its "N% of runs" text, but
+                draws no box (`contents`), so the figure and the unit are items of
+                the row: the figure never shrinks, and the unit is a whole-or-
+                nothing box that gives way first. A unit that does not fit wraps
+                onto the box's clipped second line; the zero-width spacer keeps
+                line 1 open, so no sliver of a glyph is left. */}
             <span
               data-testid={`option-win-readout-${props.id}`}
-              className={`${typography.edgeLabel} text-text-body shrink-0 tabular-nums`}
+              className={`${typography.edgeLabel} text-text-body contents`}
               aria-hidden="true"
             >
-              {OPTION_RESULT_COPY.share(winReadout.formatted)}
+              <span
+                data-testid={`option-win-figure-${props.id}`}
+                className={`${typography.edgeLabel} text-text-body ml-1.5 shrink-0 tabular-nums`}
+              >
+                {winReadout.formatted}
+              </span>
+              <span className="flex h-[1lh] min-w-0 shrink-[1000000] flex-wrap content-start overflow-hidden">
+                <span className="h-full w-0" />
+                <span
+                  data-testid={`option-win-unit-${props.id}`}
+                  className={`${typography.edgeLabel} text-text-body whitespace-nowrap pl-[0.3em]`}
+                >
+                  {` ${OPTION_RESULT_COPY.shareUnit}`}
+                </span>
+              </span>
             </span>
             {/* ⭐ `Goal only` ON THE SHARE LINE (ED #63 5806207128 / 5806266691
                 choice 3; NODE-ANATOMY v3.2 Option: "a short `Goal only`
@@ -2720,9 +2780,8 @@ export const OptionNode = memo((props: NodeProps) => {
                 row's name and tooltip (`winReadoutDescription`), which this
                 row's hover AND keyboard focus open. */}
             {shareIsGoalOnly && (
-              // The separator and the words never wrap apart; on a narrow card
-              // the qualifier ends in an ellipsis (whole in the tooltip + name).
-              <span className={`${typography.edgeLabel} text-text-light min-w-0 truncate whitespace-nowrap`} aria-hidden="true">
+              // The separator and the words are one item that never gives way.
+              <span className={`${typography.edgeLabel} text-text-light ml-1.5 shrink-0`} aria-hidden="true">
                 {'· '}
                 <span
                   data-testid={`option-share-goal-only-${props.id}`}
@@ -2733,7 +2792,7 @@ export const OptionNode = memo((props: NodeProps) => {
               </span>
             )}
             {shareIsProvisional && (
-              <span className={`${typography.edgeLabel} text-text-light min-w-0 truncate whitespace-nowrap`} aria-hidden="true">
+              <span className={`${typography.edgeLabel} text-text-light ml-1.5 shrink-0`} aria-hidden="true">
                 {'· '}
                 <span
                   data-testid={`option-share-provisional-${props.id}`}
@@ -2743,11 +2802,67 @@ export const OptionNode = memo((props: NodeProps) => {
                 </span>
               </span>
             )}
+            {/* The bar, under the line (header above): out of the text flow, in
+                the 3px strip the row's `pb-[3px]` keeps. The text is centred in
+                the space above the strip, which lifts it 1.5px; nothing under
+                the bar's 54px has a descender, whatever the caption. */}
+            <div
+              className="absolute bottom-0 left-0 h-[3px] w-[54px] bg-panel-border rounded-full overflow-hidden"
+              aria-hidden="true"
+            >
+              <div
+                className="h-full bg-text-light rounded-full transition-all duration-300"
+                style={{ width: winReadout.rate > 0 ? `max(4px, ${Math.round(winReadout.rate * 100)}%)` : '0%' }}
+              />
+            </div>
           </div>
           </Tooltip>
         )}
-        </div>
+        {/* ⭐ THE OPTION THE RUN LEFT OUT — its one line, in this slot. The long
+            reasoning for this state (the fourth absence, why it is read and not
+            derived, why it is not the `excluded-from-analysis-pill`) sits at the
+            not-computed row below, where it was written. What changed on
+            27 Sep (DIFF item 5):
+              · The STATE follows the absence (`useOptionAbsentFromRunShown`),
+                current or not, as `NotAnalysedOptionCard` has always done. Only
+                the engine-blaming SENTENCE needs a result we can vouch for.
+                Before, a stale run lost the state too and fell back to "On the
+                data so far, the model gave no share of runs for this option",
+                which reads as a computed zero.
+              · `Last run ·` labels it when the model is KNOWN to have changed,
+                the one state that licenses it. `cannot_confirm` gets no label.
+              · One line that never wraps: `Last run · Not analysed` never gives
+                way; `· needs a value` does, as a whole word. The factor it
+                names is in the hover and the screen-reader sentence. */}
+        {notAnalysedRenders && (
+          <div
+            className="flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap"
+            title={notAnalysedSentence}
+            data-testid={`option-not-analysed-${props.id}`}
+          >
+            <span className={`${typography.edgeLabel} text-text-light shrink-0`} aria-hidden="true">
+              {runCurrency === 'changed' && (
+                <span data-testid={`option-not-analysed-last-run-${props.id}`}>{LAST_RUN_PREFIX}</span>
+              )}
+              {NOT_ANALYSED_BADGE}
+            </span>
+            {missingValueBlocker && (
+              <span className="flex h-[1lh] min-w-0 shrink-[1000000] flex-wrap content-start overflow-hidden" aria-hidden="true">
+                <span className="h-full w-0" />
+                <span
+                  className={`${typography.edgeLabel} text-text-light whitespace-nowrap pl-[0.3em]`}
+                  data-testid={`option-not-analysed-reason-${props.id}`}
+                >
+                  · {OPTION_RESULT_COPY.notAnalysedNeedsValue}
+                </span>
+              </span>
+            )}
+            <span className={typography.screenReaderOnly}>
+              {notAnalysedSentence}
+            </span>
+          </div>
         )}
+        </div>
         {/* Row 22: Detailed carries the stale state inline (Standard: popover). */}
         {isDetailed && staleStateLine}
 
@@ -2804,7 +2919,8 @@ export const OptionNode = memo((props: NodeProps) => {
             (this row is not focusable) and absent on TOUCH — the same reason
             the win anchor was restored as visible text on 31 Aug. */}
         {/* ⭐⭐ THE OPTION THE RUN LEFT OUT — THE FOURTH ABSENCE, AND THE ONE
-            THIS CARD DID NOT DRAW.
+            THIS CARD DID NOT DRAW. (Its line now renders INSIDE the share slot
+            above — DIFF 27 Sep item 5 — and this reasoning stays here.)
 
             ## What was on screen before, and why it was not enough
 
@@ -2857,8 +2973,8 @@ export const OptionNode = memo((props: NodeProps) => {
             the argument `notAnalysedCopy.ts` makes in its own header. The row
             discloses; the panel acts. Same division the not-computed row keeps.
 
-            ## ⭐⭐ AND THE ROW SAYS NOTHING AT ALL WHEN THE RESULT CANNOT BE
-            VOUCHED FOR
+            ## ⭐⭐ WHEN THE RESULT CANNOT BE VOUCHED FOR, THE SENTENCE IS
+            WITHHELD AND THE STATE IS NOT (corrected 27 Sep 2026, DIFF item 5)
 
             `results.status` survives a graph edit and survives a reload, so an
             option added once a run has finished — or simply looked at after a
@@ -2866,13 +2982,18 @@ export const OptionNode = memo((props: NodeProps) => {
             derived reason `not_returned`, whose sentence says the analysis
             RETURNED nothing for it. It returned nothing because it was never
             asked. `useOptionLeftOutOfRun` therefore WITHHOLDS that arm unless
-            `useAnalysisResultsAreCurrent` can vouch for the result on screen,
-            and it withholds by returning `null` rather than by substituting a
-            fourth sentence: the currency signal's `false` pools "the graph
-            changed" with "cannot confirm", so no sentence naming a change is
-            licensed by it. The card then falls back to the pooled-but-true line
-            below. `no_interventions` is ungated — it reports the graph as it is
-            now. See the hook's docblock for the measurement.
+            `useAnalysisResultsAreCurrent` can vouch for the result on screen:
+            the currency signal's `false` pools "the graph changed" with "cannot
+            confirm", so no sentence naming a change is licensed by it.
+            This used to say the card then fell back to the "pooled-but-true"
+            line below. Measured on Paul's mrr-90b8f080 after an edit, that line
+            read "On the data so far, the model gave no share of runs for this
+            option": a computed-looking zero for an option no run scored. The
+            ABSENCE is true either way, so the state now follows
+            `useOptionAbsentFromRunShown`, and only the sentence changes, to
+            `NOT_ANALYSED_IN_LAST_ANALYSIS` ("has", never "returned"). That is
+            the results panel's rule too (`NotAnalysedOptionCard`).
+            `no_interventions` is ungated — it reports the graph as it is now.
 
             ⭐ THE PILL IS DELIBERATELY THE SAME ONE. `NOT_ANALYSED_BADGE` is
             the GENUS — "this card carries no rank and no probability" — and it
@@ -2886,33 +3007,6 @@ export const OptionNode = memo((props: NodeProps) => {
             The sentence is given to assistive technology directly rather than
             only through `title`, because a `title` is unreachable by KEYBOARD
             (this row is not focusable) and absent on TOUCH. */}
-        {notAnalysedRenders && leftOutOfRunReason !== null && (
-          <div
-            className="mt-1 flex items-center gap-1.5"
-            title={notAnalysedReasonCopy(leftOutOfRunReason)}
-            data-testid={`option-not-analysed-${props.id}`}
-          >
-            <span
-              className={`${typography.edgeLabel} text-text-light shrink-0`}
-              aria-hidden="true"
-            >
-              {NOT_ANALYSED_BADGE}
-            </span>
-            {missingValueBlocker && (
-              <span
-                className={`${typography.edgeLabel} text-text-light min-w-0`}
-                aria-hidden="true"
-                data-testid={`option-not-analysed-reason-${props.id}`}
-              >
-                · {OPTION_RESULT_COPY.notAnalysedNeedsValue}
-              </span>
-            )}
-            <span className={typography.screenReaderOnly}>
-              {notAnalysedReasonCopy(leftOutOfRunReason)}
-            </span>
-          </div>
-        )}
-
         {notComputedRenders && (
           <div
             className="mt-1 flex items-center gap-1.5"
@@ -2967,8 +3061,10 @@ export const OptionNode = memo((props: NodeProps) => {
             run produced is a fact about this run and not a property of the
             option.
 
-            ⭐⭐ AND IT NOW YIELDS TO `leftOutOfRunReason` TOO — a THIRD conjunct,
-            stated here rather than left to be inferred from the gate.
+            ⭐⭐ AND IT NOW YIELDS TO `absentFromRunReason` TOO — a THIRD conjunct,
+            stated here rather than left to be inferred from the gate. (It read
+            the LICENSED reason until 27 Sep, so on a stale run this line came
+            back for an option the run never had: DIFF item 5.)
 
             This line's own subject is an option the run HAD and could not
             resolve a share for. An option the run never had is a different
@@ -2976,10 +3072,10 @@ export const OptionNode = memo((props: NodeProps) => {
             this line was the only thing said about it: one sentence pooling
             two absences, which is the defect the four-absence ruling exists to
             prevent. So the yield is not silence and it is not a move either —
-            the sibling row above states the MORE SPECIFIC true sentence in the
-            same position on the same card, and names the ground it rests on.
+            the not-analysed line in the share slot states the MORE SPECIFIC
+            true sentence on the same card, and names the ground it rests on.
 
-            ⚠ Deleting the row above turns this into the pooled sentence again,
+            ⚠ Deleting that line turns this into the pooled sentence again,
             not into a rendering gap — which is why this conjunct must be read
             WITH it and never tidied away on its own. */}
         {resultUnavailableRenders && (

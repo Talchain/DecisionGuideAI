@@ -75,7 +75,7 @@ vi.mock('../../store', () => ({
   },
 }))
 
-import { useOptionLeftOutOfRun } from '../useOptionLeftOutOfRun'
+import { useOptionAbsentFromRunShown, useOptionLeftOutOfRun } from '../useOptionLeftOutOfRun'
 
 /** The three seedings the store and the importers actually produce. */
 const typeOnly = (id: string): MockNode => ({ id, type: 'option', data: { label: id } })
@@ -387,5 +387,52 @@ describe('useOptionLeftOutOfRun — F2: a result we cannot vouch for says nothin
     })
     expect(ask('one')).toBeNull()
     expect(ask('two')).toBeNull()
+  })
+})
+
+describe('useOptionAbsentFromRunShown — the ABSENCE, which the card shows whatever the currency (DIFF 27 Sep item 5)', () => {
+  /**
+   * `useOptionLeftOutOfRun` withholds the engine-blaming REASON on a result we
+   * cannot vouch for. The ABSENCE under it is still true — the result on screen
+   * has no entry for the option — and the card shows `Not analysed` from it, as
+   * the results panel always has. Each arm below is asserted against BOTH hooks,
+   * so the pair is shown to differ only in the licence.
+   */
+  const absent = (id: string) => renderHook(() => useOptionAbsentFromRunShown(id)).result.current
+  const addedAfter = (freshness: Partial<MockCanvasState>) => ({
+    nodes: [bothSpellings('scored'), withValues(bothSpellings('added-later'), 'a-factor'), factorNode('a-factor')],
+    edges: [{ id: 'e1', source: 'added-later', target: 'a-factor' }],
+    results: { status: 'complete', report: { option_probabilities: { scored: {} } } },
+    ...freshness,
+  })
+
+  it('a local edit (stale): the absence is still answered; only the licensed reason is withheld', () => {
+    seed(addedAfter({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: true }))
+    expect(absent('added-later')).toBe('not_returned')
+    expect(ask('added-later')).toBeNull()
+  })
+
+  it('a restored run (cannot confirm): the same split', () => {
+    seed(addedAfter({ analysisFreshness: { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' }, analysisFreshnessDirty: false }))
+    expect(absent('added-later')).toBe('not_returned')
+    expect(ask('added-later')).toBeNull()
+  })
+
+  it('CONTRAST — a current result: both hooks agree', () => {
+    seed(addedAfter({ analysisFreshness: { freshness: 'fresh' }, analysisFreshnessDirty: false }))
+    expect(absent('added-later')).toBe('not_returned')
+    expect(ask('added-later')).toBe('not_returned')
+  })
+
+  it('keeps every gate that is not about currency: an analysed option, and the domain guard', () => {
+    seed(addedAfter({ analysisFreshnessDirty: true }))
+    expect(absent('scored')).toBeNull()
+    seed({
+      nodes: [bothSpellings('one'), bothSpellings('two')],
+      edges: [{ id: 'e1', source: 'one', target: 'a-factor' }],
+      results: { status: 'complete', report: { option_probabilities: {} } },
+      analysisFreshnessDirty: true,
+    })
+    expect(absent('one')).toBeNull()
   })
 })

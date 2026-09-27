@@ -226,7 +226,10 @@ describe('contract v3.1 — option card polish', () => {
       })
       const row = byTestId('option-result-unavailable-option-1') ?? byTestId('option-not-analysed-option-1')
       expect(row, 'precondition: an absence row renders').not.toBeNull()
-      const t = tokens(row)
+      // ⚠ RE-POINTED 27 Sep (side-by-side DIFF item 5): the not-analysed line now
+      // fills the share line's reserved slot, so the 4px rhythm is the slot's.
+      const box = row!.closest('[data-testid="option-share-slot-option-1"]') ?? row
+      const t = tokens(box)
       expect(t.has('mt-1')).toBe(true)
       expect(t.has('mt-1.5')).toBe(false)
       expect(t.has('mb-1')).toBe(false)

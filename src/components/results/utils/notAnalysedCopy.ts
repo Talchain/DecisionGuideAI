@@ -93,6 +93,18 @@ export function notAnalysedReasonCopy(reason: NotAnalysedReason): string {
  */
 
 /**
+ * ⭐ THE KEPT FIRST HALF, AS ITS OWN SENTENCE (canvas card, side-by-side DIFF
+ * 27 Sep, item 5). When the result on screen cannot be vouched for, the canvas
+ * withholds the `not_returned` sentence but keeps the `Not analysed` state, as
+ * `NotAnalysedOptionCard` already does. The card still needs a hover and a
+ * screen-reader sentence, and this is the one the note above says was right:
+ * "HAS no result", never "RETURNED". It asserts no change, so it is true
+ * whether the option was left out of the run or added after it.
+ */
+export const NOT_ANALYSED_IN_LAST_ANALYSIS =
+  'The last analysis has no result for this option, so it has no rank and no probability.'
+
+/**
  * The label on the resolve affordance, or `null` when there is nothing for the
  * user to do. `null` is meaningful and must not be defaulted to a generic
  * "Fix it" — see the module header.
