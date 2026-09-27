@@ -2,10 +2,10 @@
  * ⭐ CONSENT SHOWS WHAT THE CLICK WRITES (build train slice C2 + D-4, #70 5855068711; Paul's test 27 Sep, B3).
  *
  * Paul approved "Add option '£59 for new Pro customers; grandfather existi..." — CEE clamps the chip LABEL, and the
- * product's full sentence (the whole option name, and the factor the click also adds) travels in the chip's
- * `detail` (schemas 0.55 `suggested_actions[].detail`). The apply-chip rule put `detail` in the tooltip and the
+ * product's full sentence (the whole option name, the factor the click also adds, and every link) travels in the
+ * chip's `detail` (schemas 0.55 `suggested_actions[].detail`; the Agent lane carries it from CEE #2091). The apply-chip rule put `detail` in the tooltip and the
  * accessible name only, so what the click writes was readable only on hover. The consent chip now shows its
- * `detail` as visible text under the row, exactly as the research control does (CEE #2042): the click IS the
+ * `detail` as visible text under the row, exactly as the research control does (UI #2139): the click IS the
  * decision, so its content is readable before it.
  *
  * Bound by chip IDENTITY (the `agent-approve-proposal:` id prefix), never by label text or `detail` shape.
@@ -16,14 +16,18 @@ import { render, screen } from '@testing-library/react'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import type { ActionChip } from '../types'
 
-const CONSENT_ID = 'agent-approve-proposal:prop_146aa89d'
-// Paul's served label, clamped by the producer (export 90b8f080, user_actions[14].detail.label).
+// The Agent's held add-option id SHAPE (CEE approval-chips.ts: `agent-approve-proposal:gmh_<12 hex>`); the export keeps no chip id.
+const CONSENT_ID = 'agent-approve-proposal:gmh_0123456789ab'
+// Paul's SERVED chip (export 90b8f080): the label is user_actions[14].detail.label; the message is user_actions[15]
+// verbatim (511 chars). The producer's `detail` is that message's subject, capitalised (CEE buildGmHeldPublicCopy:
+// message = `Yes, ${subject}.`, detail = Subject), so FULL is derived from Paul's served bytes, not written here.
 const CLAMPED = "Add option '£59 for new Pro customers; grandfather existi..."
-const FULL =
-  "Adds the option “£59 for new Pro customers; grandfather existing customers”, linked to Decision: MRR. It also adds the factor “Existing customers grandfathered”."
+const SERVED_MESSAGE =
+  "Yes, add option '£59 for new Pro customers; grandfather existing customers', add factor 'Existing customers grandfathered', link 'Decision: MRR' to '£59 for new Pro customers; grandfather existing customers', link 'Existing customers grandfathered' to 'Monthly churn', link 'Existing customers grandfathered' to 'MRR', link '£59 for new Pro customers; grandfather existing customers' to 'Pro plan price' and link '£59 for new Pro customers; grandfather existing customers' to 'Existing customers grandfathered'."
+const FULL = SERVED_MESSAGE.charAt(5).toUpperCase() + SERVED_MESSAGE.slice(6, -1)
 
-const consentChip: ActionChip = { id: CONSENT_ID, label: CLAMPED, intent: 'primary', message: 'Yes, add it.', detail: FULL }
-const changeFirst: ActionChip = { id: 'agent-change-first:prop_146aa89d', label: 'Change something first', intent: 'secondary', message: 'Change something first' }
+const consentChip: ActionChip = { id: CONSENT_ID, label: CLAMPED, intent: 'primary', message: SERVED_MESSAGE, detail: FULL }
+const changeFirst: ActionChip = { id: 'agent-change-first:gmh_0123456789ab', label: 'Change something first', intent: 'secondary', message: 'Change something first' }
 const applyChip: ActionChip = {
   id: 'rrp_7576c3fbaf58',
   label: 'Apply 3 safe model fixes',
