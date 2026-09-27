@@ -240,8 +240,9 @@ describe('CanvasContextMenu — shared-model authority', () => {
     fireEvent.click(askAi)
 
     // A9 — the submenu's z-index moved from 101 to 952 (above OutputsDock's
-    // 900), so it no longer sits under the dock for a card near it.
-    const submenu = screen.getAllByRole('menu').find(menu => menu.classList.contains('z-[952]'))
+    // 900), so it no longer sits under the dock for a card near it; then to
+    // 5012, above the floating node inspector's 5000 (27 Sep 2026).
+    const submenu = screen.getAllByRole('menu').find(menu => menu.classList.contains('z-[5012]'))
     expect(submenu).toBeDefined()
     expect(submenu).toHaveTextContent("What's missing from this model?")
     expect(submenu!.className).toContain('border-panel-border')

@@ -244,7 +244,10 @@ export function CanvasContextMenu({
         role="presentation"
         // A9 — above OutputsDock's `zIndex: 900` aside, so the backdrop
         // actually catches a click made through where the dock paints.
-        className="fixed inset-0 z-[950]"
+        // ⭐ AND above the floating node inspector (`InspectorModal`, z-5000):
+        // a selected card's "…" opened this menu UNDER its own inspector
+        // (Paul's MRR screenshots, 27 Sep 2026: "Open det…", "Add conn…").
+        className="fixed inset-0 z-[5010]"
         onMouseDown={onClose}
         onContextMenu={(e) => { e.preventDefault(); onClose() }}
       />
@@ -252,7 +255,7 @@ export function CanvasContextMenu({
         ref={menuRef}
         role="menu"
         aria-label="Canvas context menu"
-        className="fixed z-[951] min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
+        className="fixed z-[5011] min-w-[220px] max-w-[320px] rounded-md border border-panel-border bg-panel py-2 shadow-2"
         style={{ left: position.x, top: position.y }}
       >
         {items.map((entry, i) => {

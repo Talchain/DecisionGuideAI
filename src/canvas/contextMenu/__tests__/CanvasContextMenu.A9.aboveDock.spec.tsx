@@ -15,6 +15,8 @@
  *      stacking context") rather than left nested whatever ReactFlow-adjacent
  *      ancestor a future refactor puts it under.
  */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CanvasContextMenu } from '../CanvasContextMenu'
@@ -68,6 +70,19 @@ function zIndexOf(el: Element): number {
 /** The dock's own literal, so a drift in the real value REDs this file rather than going unnoticed. */
 const DOCK_Z_INDEX = 900
 
+/**
+ * The floating node inspector's layer (`InspectorModal.tsx`), read from its
+ * SOURCE so a change there REDs this file instead of silently burying the menu
+ * again (Paul's MRR screenshots, 27 Sep 2026: a selected card's "…" menu drew
+ * under its own inspector).
+ */
+const INSPECTOR_Z_INDEX = (() => {
+  const src = readFileSync(resolve(__dirname, '../../components/InspectorModal.tsx'), 'utf8')
+  const all = Array.from(src.matchAll(/\bz-\[(\d+)\]/g)).map(m => Number(m[1]))
+  if (all.length === 0) throw new Error('PRECONDITION: no z-[N] layer found in InspectorModal.tsx')
+  return Math.max(...all)
+})()
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
@@ -90,6 +105,18 @@ describe('the context menu paints above the dock', () => {
     )
     const menu = screen.getByRole('menu', { name: 'Canvas context menu' })
     expect(zIndexOf(menu)).toBeGreaterThan(DOCK_Z_INDEX)
+  })
+
+  it('the menu AND its backdrop paint above the floating node inspector (a selected card\'s "…")', () => {
+    expect(INSPECTOR_Z_INDEX).toBeGreaterThanOrEqual(5000)
+    render(
+      <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
+    )
+    const menu = screen.getByRole('menu', { name: 'Canvas context menu' })
+    const backdrop = document.querySelector('[role="presentation"].fixed.inset-0')!
+    expect(zIndexOf(menu)).toBeGreaterThan(INSPECTOR_Z_INDEX)
+    expect(zIndexOf(backdrop)).toBeGreaterThan(INSPECTOR_Z_INDEX)
+    expect(zIndexOf(menu)).toBeGreaterThan(zIndexOf(backdrop))
   })
 
   it('the backdrop that dismisses the menu is also above the dock', () => {
