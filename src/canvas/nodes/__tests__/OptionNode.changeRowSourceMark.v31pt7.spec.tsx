@@ -12,8 +12,11 @@
  * from, using pt 1's marks — "£49 → £59 brief", "8% → 7% est." — and every mark
  * has an accessible name (pt 1). So:
  *
- *   · the mark sits in its own cluster, set apart from the value by a muted,
- *     decorative separator, so "1 brief" cannot be read as a quantity;
+ *   · the mark sits in its own cluster, set apart from the value by its own
+ *     type — the contract's `.prov`: 10px, muted, a focusable named button —
+ *     so "1 brief" is not read as a quantity. ⭐ RE-PINNED 27 Sep 2026
+ *     (side-by-side DIFF item 1): the muted `·` separator this file first
+ *     pinned is RETIRED — the contract row reads `£49 → £59 brief`, with none;
  *   · every mark, `est.` included, carries an accessible name;
  *   · a placeholder unit word is dropped and the producer's figure kept — the
  *     factor card's existing rule (`placeholderMagnitudeNumber`). Real units,
@@ -27,7 +30,8 @@
  * rows into the popover and kept a one-line face; Paul (25 Sep) ruled the card
  * must match the PROTOTYPE, whose resting face IS the rows. So the rows are read
  * ON THE CARD (`optionCardRows`, which refuses a block inside a popover), and the
- * grammar — value, muted separator, then the mark — is pinned on the row.
+ * grammar — value, no-break glue, then the mark (no separator since 27 Sep) — is
+ * pinned on the row.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -66,6 +70,7 @@ import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
 import { OptionNode } from '../OptionNode'
 import { VALUE_SOURCE_MARK_LABEL } from '../shared/valueSourceMark'
+import { typography } from '../../../styles/typography'
 import { buildOptionChangeRow } from '../shared/optionChangeRows'
 import { optionCardRows } from './__helpers__/optionPreview'
 
@@ -182,7 +187,7 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’s unit', () => {
-  it('screenshot A: "→ 1 brief" now reads "→ 1 · brief", the mark in its own cluster with the name "From your brief"', () => {
+  it('screenshot A: "→ 1 brief" — the mark in its own cluster, in its own 10px muted type, with the name "From your brief"', () => {
     const { container } = renderOption('opt-hire')
     const dd = row(container, 'opt-hire', 'fac-lead')
     // ⛔ NO "FROM" HERE, AND THAT IS THE FAITHFUL READING. fac-lead carries only
@@ -192,32 +197,36 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     // "from" (Paul 25 Sep: "from" only "when the data carries it"; verifier
     // FIX_NEEDED on e0490565, which had re-pinned this as
     // 'No tech lead headcount in place → 1 · brief').
-    expect(visibleText(dd)).toBe('→ 1 · brief')
+    // RE-PINNED 27 Sep (DIFF item 1): no `·` — the contract's `£49 → £59 brief`.
+    expect(visibleText(dd)).toBe('→ 1 brief')
     expect(visibleText(dd)).not.toContain('in place')
-    expect(visibleText(dd)).not.toMatch(/\d\s+brief/)
+    expect(visibleText(dd)).not.toContain('·')
 
     const cluster = dd.querySelector('[data-testid="option-change-row-mark-opt-hire-fac-lead"]')
     expect(cluster).not.toBeNull()
-    // The separator is first, decorative, and outside the mark.
-    const sep = cluster!.firstElementChild!
-    expect(sep.getAttribute('aria-hidden')).toBe('true')
-    expect(sep.textContent?.trim()).toBe('·')
+    // The cluster holds the mark and nothing else — no separator.
     const mark = cluster!.querySelector('[data-testid="option-change-row-source-opt-hire-fac-lead"]')
     expect(mark).not.toBeNull()
-    expect(sep.contains(mark)).toBe(false)
+    expect([...cluster!.children]).toEqual([mark])
+    // What sets "brief" apart from "1": the mark's own `.prov` type (10px, muted),
+    // never the value's 11px ink.
+    expect(mark!.className).toContain(typography.nodeMark)
+    expect(mark!.className).toContain('text-text-light')
+    expect(mark!.className).not.toContain(typography.edgeLabel)
     expect(mark!.getAttribute('data-value-source')).toBe('brief')
     expect(mark!.querySelector('[aria-hidden="true"]')!.textContent).toBe('brief')
     expect(mark!.querySelector('.sr-only')!.textContent).toBe('From your brief')
   })
 
-  it('an Olumi target keeps its served `est.` test id and token, and now has an accessible name and the same separator', () => {
+  it('an Olumi target keeps its served `est.` test id and token, and has an accessible name; nothing but the mark in its cluster', () => {
     const { container } = renderOption('opt-tools')
     const cluster = row(container, 'opt-tools', 'fac-thru')
       .querySelector('[data-testid="option-change-row-mark-opt-tools-fac-thru"]')
     expect(cluster).not.toBeNull()
-    expect(cluster!.firstElementChild!.getAttribute('aria-hidden')).toBe('true')
     const est = cluster!.querySelector('[data-testid="option-change-row-estimate-opt-tools-fac-thru"]')
     expect(est).not.toBeNull()
+    // RE-PINNED 27 Sep (DIFF item 1): was a decorative `·` first; the mark stands alone.
+    expect([...cluster!.children]).toEqual([est])
     expect(est!.getAttribute('data-value-source')).toBe('olumi')
     expect(est!.querySelector('[aria-hidden="true"]')!.textContent).toBe('est.')
     expect(est!.querySelector('.sr-only')!.textContent).toBe(VALUE_SOURCE_MARK_LABEL.olumi)
@@ -230,20 +239,19 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     )
   })
 
-  it('the resting FACE is the row itself: "… → 1 · brief", the mark set apart, the source in the row\'s own title', () => {
+  it('the resting FACE is the row itself: "… → 1 brief", the mark set apart by its type, the source in the row\'s own title', () => {
     // The one-line face (`option-primary-change-*`) is retired (Paul 25 Sep): the
     // card's resting surface IS the rows, so the grammar is pinned on the row.
     const { container } = renderOption('opt-hire')
     expect(container.querySelector('[data-testid="option-primary-change-opt-hire"]')).toBeNull()
     const dd = row(container, 'opt-hire', 'fac-lead')
-    expect(visibleText(dd).endsWith('→ 1 · brief')).toBe(true)
-    expect(visibleText(dd)).not.toMatch(/\d\s+brief/)
+    // RE-PINNED 27 Sep (DIFF item 1): no `·` before the mark.
+    expect(visibleText(dd).endsWith('→ 1 brief')).toBe(true)
     const mark = dd.querySelector('[data-testid="option-change-row-source-opt-hire-fac-lead"]')
     expect(mark?.getAttribute('data-value-source')).toBe('brief')
-    // The separator is decorative and outside the mark.
-    const sep = mark!.previousElementSibling!
-    expect(sep.textContent?.trim()).toBe('·')
-    expect(sep.contains(mark)).toBe(false)
+    // Nothing sits between the glue and the mark, and the mark is in its own type.
+    expect(mark!.previousElementSibling).toBeNull()
+    expect(mark!.className).toContain(typography.nodeMark)
     expect(dd.getAttribute('title')).toContain('Target: from your brief.')
   })
 
@@ -251,7 +259,8 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
     const { container } = renderOption('opt-price')
     const dd = row(container, 'opt-price', 'fac-price')
     // Contract v3.1 `prov('user')` (#21): the person GLYPH, not the word "you".
-    expect(visibleText(dd)).toBe('£49 → £59 ·')
+    // RE-PINNED 27 Sep (DIFF item 1): no trailing `·` — the glyph has no text.
+    expect(visibleText(dd)).toBe('£49 → £59')
     expect(dd.querySelector('[data-source-glyph="person"]')).not.toBeNull()
     expect(dd.querySelector('[data-testid="option-change-row-estimate-opt-price-fac-price"]')).toBeNull()
     const mark = dd.querySelector('[data-testid="option-change-row-mark-opt-price-fac-price"] [data-testid="option-change-row-source-opt-price-fac-price"]')
@@ -261,10 +270,10 @@ describe('v3.1 pt 7 (U12a) — the source mark can never be read as the value’
 })
 
 describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number', () => {
-  it('screenshot B: "0.3 scale → 0.85 scale est." now reads "0.3 → 0.85 · est.", and the hover text says no "scale" either', () => {
+  it('screenshot B: "0.3 scale → 0.85 scale est." now reads "0.3 → 0.85 est.", and the hover text says no "scale" either', () => {
     const { container } = renderOption('opt-tools')
     const dd = row(container, 'opt-tools', 'fac-thru')
-    expect(visibleText(dd)).toBe('0.3 → 0.85 · est.')
+    expect(visibleText(dd)).toBe('0.3 → 0.85 est.') // no `·` since 27 Sep (DIFF item 1)
     expect(dd.textContent ?? '').not.toMatch(/scale/i)
     expect(dd.getAttribute('title') ?? '').not.toMatch(/scale/i)
     // The producer's own figures survive — nothing rounded, rescaled or banded.
@@ -273,12 +282,12 @@ describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number',
 
   it('CONTRAST — a real unit keeps its word ("42 days → 56 days")', () => {
     const { container } = renderOption('opt-tools')
-    expect(visibleText(row(container, 'opt-tools', 'fac-days'))).toBe('42 days → 56 days · brief')
+    expect(visibleText(row(container, 'opt-tools', 'fac-days'))).toBe('42 days → 56 days brief')
   })
 
   it('CONTRAST — `ratio` is not a placeholder and keeps its word', () => {
     const { container } = renderOption('opt-price')
-    expect(visibleText(row(container, 'opt-price', 'fac-ratio'))).toBe('0.4 ratio → 0.6 ratio · est.')
+    expect(visibleText(row(container, 'opt-price', 'fac-ratio'))).toBe('0.4 ratio → 0.6 ratio est.')
   })
 
   it('the row builder drops the placeholder word from BOTH the resting and the full change', () => {

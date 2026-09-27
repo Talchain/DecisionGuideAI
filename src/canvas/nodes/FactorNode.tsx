@@ -607,7 +607,8 @@ export const FactorNode = memo((props: NodeProps) => {
    *
    * So, in the STANDARD view only (Detailed keeps its inline detail):
    *   · card body = the value line (value + mark) OR the `Needs input` row —
-   *     one row, whose mark can never wrap or be cut (`factor-value-mark-slot`);
+   *     one row, whose mark can never be cut (`factor-value-mark-slot`; since
+   *     side-by-side DIFF item 3 it wraps WITH the value, never apart from it);
    *   · the S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
    *     the external prior-range line — MOVE, verbatim and with their
    *     `Last run ·` labels, into this factor's `NodePopover` (`standardFindings`
@@ -1272,19 +1273,29 @@ export const FactorNode = memo((props: NodeProps) => {
             margin — title → value is the header's 4px on every family (audit
             F6; RiskNode's value row is `m-0`).
             ⭐ ED 5809278282 (bounded anatomy): in STANDARD this is the card's
-            ONE primary line. The row does not wrap (`flex-nowrap`): the mark
-            sits in a `shrink-0 whitespace-nowrap` slot, so it can never drop
-            to a second line or be cut, and nothing on the line is ellipsised —
-            values are never cut. Only a value longer than the whole line would
-            wrap, and then inside its own `min-w-0` span, with the mark still
-            beside it. (The inline driver cue that ended this line is retired: the
-            driver line is on the card again — prototype, Paul 25 Sep.) Detailed
-            keeps the wrapping row it had. */}
+            ONE primary line, and nothing on it is ellipsised — values are
+            never cut. (The inline driver cue that ended this line is retired:
+            the driver line is on the card again — prototype, Paul 25 Sep.)
+            ⭐ THE VALUE AND ITS MARK WRAP TOGETHER (side-by-side DIFF item 3,
+            27 Sep; contract `.own-value`: the mark right after the value,
+            `flex-wrap:wrap`). This row was `flex-nowrap` with the mark in a
+            `shrink-0` slot, so a long value ("Moderate engineering allocation
+            (2 of 4 engineers)") wrapped inside its own narrowed column while
+            `est.` hung at the card's right edge, 54px from the text at 100%.
+            Now the row is plain INLINE FLOW: the value, one breakable space
+            (the gap), then the mark in a `whitespace-nowrap` slot — so the
+            mark follows the value's last word, and when that line is full it
+            wraps onto the next line under the value, never to the far edge.
+            Inline rather than the contract's flex items because a wrapping
+            flex item takes the full width and always pushes the mark to a
+            line of its own; the editable value is an atomic box (a button),
+            so there a wrapped value still puts the mark under it. Detailed
+            keeps the wrapping flex row it had. */}
         {valueDisplay !== null && !bareModelValue && (
           <div
             className={isDetailed
               ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
-              : `${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
+              : `${typography.nodeValue} text-text-body max-w-full min-w-0 break-words`}
             data-testid="factor-recorded-value"
           >
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the
@@ -1354,8 +1365,12 @@ export const FactorNode = memo((props: NodeProps) => {
                 <FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />
               </span>
             )}
+            {/* The gap: one breakable space (inline flow in Standard; a flex
+                row drops whitespace between its items, so Detailed keeps its
+                6px `gap-x-1.5`). */}
+            {valueSourceMark !== null && ' '}
             {valueSourceMark !== null && (
-              <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
+              <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap">
                 {renderValueSourceMark()}
               </span>
             )}
@@ -1369,16 +1384,18 @@ export const FactorNode = memo((props: NodeProps) => {
             and the mark still opens the inspector, which states the figure. */}
         {bareModelValue && valueSourceMark !== null && (
           <div
-            className={`${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
+            className={`${typography.nodeValue} text-text-body max-w-full min-w-0 break-words`}
             data-testid={`factor-value-mark-only-${props.id}`}
           >
             {/* Design bundle 1 (re-audit #3): the figure in the estate's tier
                 words (`qualitativeTierLabel`), never a bare 0–1 number and never
-                an orphan mark. */}
-            <span className="min-w-0" data-testid={`factor-value-tier-${props.id}`}>
+                an orphan mark. The same inline value line as above (DIFF item
+                3): the tier word, one breakable space, the mark. */}
+            <span data-testid={`factor-value-tier-${props.id}`}>
               {qualitativeTierLabel(Number(valueDisplay))}
             </span>
-            <span data-testid={`factor-value-mark-slot-${props.id}`} className="shrink-0 whitespace-nowrap">
+            {' '}
+            <span data-testid={`factor-value-mark-slot-${props.id}`} className="whitespace-nowrap">
               {renderValueSourceMark()}
             </span>
           </div>

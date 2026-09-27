@@ -54,6 +54,11 @@ const BASELINE_SETS_VALUES = {
   id: 'option-b', type: 'option',
   data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
 }
+/** A baseline whose target MOVES a factor off its current value (0 → 2): a concrete change. */
+const BASELINE_CHANGES_A_VALUE = {
+  id: 'option-b', type: 'option',
+  data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 2, display_value: '2 engineers' } } },
+}
 const BASELINE_SETS_NOTHING = {
   id: 'option-b', type: 'option',
   data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: {} },
@@ -329,7 +334,7 @@ describe('contract v3.1 — option card polish', () => {
     // minmax(0,1fr) auto}` with `.amount{white-space:nowrap}`. Held as ONE
     // WRAPPING LINE PER ROW rather than a shared grid, because at the landing
     // counter-scale an `auto` amount track is wider than the card: the label
-    // takes what the amount does not need (`flex-[1_1_8em]`), and when the two
+    // takes what the amount does not need (`flex-[1_1_6em]` since 27 Sep; was 8em), and when the two
     // cannot share a line the amount takes the next line whole.
     it('label takes what the amount does not need; the amount is one unbroken line (v3.1 #9)', () => {
       renderCard()
@@ -343,7 +348,10 @@ describe('contract v3.1 — option card polish', () => {
       expect(line.has('flex-wrap')).toBe(true)
       expect(line.has('gap-x-2')).toBe(true)
       const dt = inRows('option-change-row-option-1-f-head')!.previousElementSibling!
-      expect(tokens(dt).has('flex-[1_1_8em]')).toBe(true)
+      // RE-PINNED 27 Sep (side-by-side DIFF item 1): the label's floor is 6em
+      // (was 8em) — at 8em a 143px amount ("Very high → Moderate brief") could
+      // not share a 234px row at 100% and stacked; 6em is still ~11 characters.
+      expect(tokens(dt).has('flex-[1_1_6em]')).toBe(true)
       // Held whole while it fits one line of the row budget at the largest
       // counter-scale; "0 engineers → 3 engineers" (21) does not, so it may break
       // BEFORE THE ARROW — and never runs past the card's edge (served cd6a82e4,
@@ -378,11 +386,14 @@ describe('contract v3.1 — option card polish', () => {
         expect(tokens(cell).has('!leading-tight')).toBe(true)
       }
       // v3.1 #9: the amount never exceeds the card (`max-w-full`); the LABEL is
-      // the part that yields (`min-w-0` + `break-words`), held to ONE line by
-      // `line-clamp-1` since design audit #9 (26 Sep).
+      // the part that yields (`min-w-0`), held to ONE line — RE-PINNED 27 Sep
+      // (side-by-side DIFF item 1): by a character ellipsis (`truncate`, marked
+      // `data-truncates="label"`), no longer a word-break `line-clamp-1` that
+      // left one word (`break-words` went with it).
       expect(tokens(dd).has('max-w-full')).toBe(true)
       expect(tokens(dt).has('min-w-0')).toBe(true)
-      expect(tokens(dt).has('break-words')).toBe(true)
+      expect(tokens(dt).has('truncate')).toBe(true)
+      expect(dt.getAttribute('data-truncates')).toBe('label')
     })
 
     it('the rows block keeps its 4px top rhythm under the title', () => {
@@ -432,14 +443,30 @@ describe('contract v3.1 — option card polish', () => {
       expect(byTestId('option-baseline-meta-option-b')!.textContent).toBe('Baseline · no changes')
     })
 
-    it('a baseline that DOES set values never claims "no changes"', () => {
+    // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 10; NODE-ANATOMY v3.2
+    // "Baseline · no changes"): the meta keys on CONCRETE changes, not on the
+    // target total. This case used `BASELINE_SETS_VALUES`, whose one target sets
+    // Developer headcount to 0 — the factor's current value, so no change by the
+    // card's own filter; it is now the pair's second case. The claim this test
+    // owns — a baseline that CHANGES something never says "no changes" — now uses
+    // a target that moves the factor (0 → 2).
+    it('a baseline that DOES change a value never claims "no changes"', () => {
       renderCard({
         id: 'option-b',
-        data: { label: 'Status quo', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
+        data: { label: 'Status quo', is_baseline: true, interventions: { 'f-head': { value: 2, display_value: '2 engineers' } } },
+        store: { nodes: [FACTOR_HEAD, FACTOR_COST, FACTOR_RISK, OPTION_1, OPTION_2, BASELINE_CHANGES_A_VALUE] },
       })
       const meta = byTestId('option-baseline-meta-option-b')!
       expect(meta.textContent).toBe('Baseline option')
       expect(meta.textContent).not.toContain('no changes')
+    })
+
+    it('a baseline whose targets equal the factors\' current values reads "Baseline · no changes"', () => {
+      renderCard({
+        id: 'option-b',
+        data: { label: 'Status quo', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
+      })
+      expect(byTestId('option-baseline-meta-option-b')!.textContent).toBe('Baseline · no changes')
     })
   })
 })

@@ -196,22 +196,27 @@ describe('v3.1 #9 — an option card lists CONCRETE changes only', () => {
 })
 
 describe('v3.1 #9 — full label, amount on one line', () => {
-  // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung —
-  // `line-clamp-1`, an ellipsis at a word break — and its DOM text is still the
-  // FULL name (never cut in JS). Still never a horizontal cut (`truncate`,
-  // `text-ellipsis`) and never more than one line (`line-clamp-2`).
-  it('the label cell holds the FULL factor name on ONE clamped line, never a horizontal cut (audit #9)', () => {
+  // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung and
+  // its DOM text is still the FULL name (never cut in JS).
+  // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 1): the one line is a CHARACTER
+  // ellipsis (`truncate`) after the amount's natural width — `line-clamp-1` broke
+  // at a word and left one word — marked `data-truncates="label"`, with the full
+  // name on the row line's `title` (the e2e clipping gate's exemption). Never
+  // more than one line (`line-clamp-2`), and no title on the name cell itself.
+  it('the label cell holds the FULL factor name on ONE ellipsised line, recoverable from the row (audit #9, DIFF item 1)', () => {
     renderCard()
     const dd = screen.getByTestId('option-change-row-opt-germany-f-team')
     const dt = dd.previousElementSibling as HTMLElement
     expect(dt.tagName).toBe('DT')
     expect(dt.textContent).toBe('Team capacity drawn into the launch')
-    for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-2']) {
-      expect(tokens(dt).has(cut), `the label cell is cut by ${cut}`).toBe(false)
+    for (const cut of ['line-clamp-1', 'line-clamp-2']) {
+      expect(tokens(dt).has(cut), `the label cell is clamped by ${cut}`).toBe(false)
     }
-    expect(tokens(dt).has('line-clamp-1')).toBe(true)
+    expect(tokens(dt).has('truncate')).toBe(true)
+    expect(dt.getAttribute('data-truncates')).toBe('label')
     expect(tokens(dt).has('min-w-0')).toBe(true)
     expect(dt.hasAttribute('title')).toBe(false)
+    expect(dt.closest('[title]')?.getAttribute('title')).toBe('Team capacity drawn into the launch')
   })
 
   // RE-PINNED (design audit #9, 26 Sep): the mark is GLUED to the value by one

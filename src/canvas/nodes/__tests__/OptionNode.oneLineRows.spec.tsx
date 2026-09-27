@@ -23,10 +23,12 @@
  *   · gluing never pushes an unbreakable run past the card: any no-wrap run that
  *     ends the value is short enough to carry the mark as well
  *     (`optionAmountSegmentNoWrap`, #2119's rule, applied to run + mark);
- *   · the label is ONE line (`line-clamp-1` + `min-w-0`), and the FULL label is
- *     still recoverable: it is the label's whole DOM text (screen readers read
- *     it all), it is in the option's popover, and a brief mark's accessible name
- *     carries it. No native `title` is added (#2126 is removing them).
+ *   · the label is ONE line (`line-clamp-1` + `min-w-0`; since side-by-side
+ *     DIFF item 1, 27 Sep, a character ellipsis, `truncate`), and the FULL label
+ *     is still recoverable: it is the label's whole DOM text (screen readers
+ *     read it all), it is in the option's popover, and a brief mark's accessible
+ *     name carries it. No native `title` on the label cell itself (#2126); the
+ *     row line carries the name (`OptionNode.contractRowLine.spec.tsx`).
  *
  * FIXTURE: the shipped pricing starter itself (`pricing-model.draft.json`, the
  * board the audit measured), mapped the way a draft lands on the canvas.
@@ -73,7 +75,7 @@ import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
 import { OptionNode } from '../OptionNode'
-import { OPTION_ROW_SOURCE_MARK_SEPARATOR, optionAmountSegmentNoWrap } from '../shared/optionChangeRows'
+import { optionAmountSegmentNoWrap } from '../shared/optionChangeRows'
 import { VALUE_SOURCE_MARK_TOKEN, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../shared/valueSourceMark'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
 import { changeRowValueText } from './__helpers__/optionChangeRowText'
@@ -212,7 +214,9 @@ describe('audit #9 — the source mark sits on the value line', () => {
     it(`${r.factorId}: gluing the mark never makes an unbreakable run wider than the row budget`, () => {
       const { value, source } = rowParts(container_(), r.factorId)
       const kind = source.getAttribute('data-value-source') as ValueSourceMarkKind
-      const suffix = ` ${OPTION_ROW_SOURCE_MARK_SEPARATOR} ${VALUE_SOURCE_MARK_TOKEN[kind]}`
+      // RE-PINNED 27 Sep (side-by-side DIFF item 1): no `·` separator any more
+      // (the contract row reads `£49 → £59 brief`) — the glue, then the token.
+      const suffix = ` ${VALUE_SOURCE_MARK_TOKEN[kind]}`
       const valueText = (value.textContent ?? '').replace(/\s+/g, ' ').trim()
       // Every no-wrap run whose text ENDS the value now carries the mark too, so
       // it must fit one line of the row budget WITH the mark (#2119's rule).

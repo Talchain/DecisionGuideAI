@@ -1588,8 +1588,14 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // The resting label does not infer a no-change claim from the baseline flag.
-    expect(screen.getByText('Baseline option')).toBeDefined()
+    // The resting label does not infer a no-change claim from the baseline FLAG —
+    // it reads the DATA. RE-PINNED 27 Sep (side-by-side DIFF item 10, NODE-ANATOMY
+    // v3.2): this baseline's only target (0.49) equals the factor's current value
+    // (0.49), which the card's concrete-change filter counts as no change, so it
+    // reads "Baseline · no changes" (was "Baseline option", keyed on the target
+    // total). A baseline with a real change keeps "Baseline option"
+    // (`OptionNode.contractV31Polish` OPT-12, `OptionNode.contractRowLine`).
+    expect(screen.getByText('Baseline · no changes')).toBeDefined()
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })

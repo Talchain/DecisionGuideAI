@@ -47,7 +47,8 @@
  *
  * What this file pins (Standard view):
  *   · ONE visible body row at every rung and phase — the value line
- *     (`factor-recorded-value`: value + mark, never cut, mark `shrink-0`) or the
+ *     (`factor-recorded-value`: value + mark, never cut; since 27 Sep the mark
+ *     wraps with the value, DIFF item 3) or the
  *     `Needs input` row (the ruled word, visible; "Value not set yet" moved to
  *     the popover and kept as the row's sr-only description and `title`).
  *   · The S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
@@ -246,24 +247,33 @@ afterEach(() => {
   } as never)
 })
 
-describe('ED 5809278282 · Factor · the value line is the ONE body line, and it cannot wrap its mark', () => {
-  it.each(['full', 'quiet'] as const)('pre-run at %s: one visible body row — value + mark, no-wrap row, mark shrink-0', (lodRung) => {
+// ⭐ RE-PINNED 27 Sep 2026 (side-by-side DIFF item 3, contract `.own-value`): the
+// value line is still the ONE body line, but it is no longer a `flex-nowrap` row
+// with a `shrink-0` mark — that row wrapped a long value inside its own narrowed
+// column and stranded `est.` at the card's right edge (build-vs-buy, 54px from the
+// text at 100%). It is inline flow now: the value, one breakable space, the mark,
+// so the mark follows the value and wraps WITH it. Still never cut, and the mark
+// itself never splits. Pinned in full by `FactorNode.valueAndMarkWrapTogether.spec.tsx`.
+describe('ED 5809278282 · Factor · the value line is the ONE body line, and its mark wraps with the value', () => {
+  it.each(['full', 'quiet'] as const)('pre-run at %s: one visible body row — value, space, mark; the mark never splits', (lodRung) => {
     seed(VALUED, { phase: 'pre', lodRung })
     renderFactor(VALUED)
     const row = within(card()).getByTestId('factor-recorded-value')
-    expect(visibleText(row)).toBe('8%est.')
+    expect(visibleText(row)).toBe('8% est.')
     // DL #70 5849644637: the primary row, then the reserved driver slot (pre-run line).
     expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
     expect(driverSlot().textContent).toBe('Working assumption · no analysis yet')
     const rowTokens = tokens(row)
-    expect(rowTokens.has('flex-nowrap'), 'the value row may not wrap its mark onto a second line').toBe(true)
-    expect(rowTokens.has('flex-wrap')).toBe(false)
-    // The value is never cut (no ellipsis on the line) and the mark never shrinks.
+    for (const layout of ['flex', 'flex-nowrap', 'flex-wrap']) {
+      expect(rowTokens.has(layout), `the value row is a ${layout} row, not inline flow`).toBe(false)
+    }
+    // The value is never cut (no ellipsis on the line) and the mark never splits.
     expect(rowTokens.has('text-ellipsis')).toBe(false)
+    expect(rowTokens.has('truncate')).toBe(false)
     const markSlot = screen.getByTestId(`factor-value-mark-slot-${ID}`)
     expect(row.contains(markSlot)).toBe(true)
     expect(markSlot.contains(screen.getByTestId('estimate-marker'))).toBe(true)
-    expect(tokens(markSlot).has('shrink-0')).toBe(true)
+    expect(markSlot.previousSibling?.textContent, 'one breakable space before the mark').toBe(' ')
     expect(tokens(markSlot).has('whitespace-nowrap')).toBe(true)
   })
 })
@@ -332,7 +342,8 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
     const row = within(card()).getByTestId('factor-recorded-value')
-    expect(visibleText(row)).toBe('8%est.')
+    // RE-PINNED 27 Sep (DIFF item 3): one breakable space between the value and its mark.
+    expect(visibleText(row)).toBe('8% est.')
     const driver = onCardNotInPopover('factor-driver-line')
     const tp = onCardNotInPopover('factor-turning-point')
     expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
@@ -361,7 +372,8 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
       'Last run · Below 6.5%, the model comparison changes. ',
     )).toBe(true)
     expect(within(card()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
-    expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8%est.')
+    // RE-PINNED 27 Sep (DIFF item 3): one breakable space between the value and its mark.
+    expect(visibleText(within(card()).getByTestId('factor-recorded-value'))).toBe('8% est.')
   })
 
   it('HEIGHT SAFETY — the body is the same at `quiet` and `full`: no rung-triggered re-layout', () => {

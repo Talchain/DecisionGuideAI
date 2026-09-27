@@ -240,22 +240,26 @@ describe('the option card is the prototype: one row per change, at rest (Paul 25
       if (pop) expect(within(pop).queryByTestId('option-change-rows-option-1')).toBeNull()
     })
 
-    // RE-PINNED (design audit #9, 26 Sep): ONE clamped line (`line-clamp-1`) at
-    // every rung; the DOM text is still the whole name, never a horizontal cut.
-    it('each label is the FULL factor name on ONE clamped line, never a horizontal cut (contract v3.1 #9, audit #9)', () => {
+    // RE-PINNED (design audit #9, 26 Sep): ONE line at every rung; the DOM text
+    // is still the whole name.
+    // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 1): the one line is a CHARACTER
+    // ellipsis (`truncate`) after the amount has taken its natural width — the
+    // word-break `line-clamp-1` left one word ("Bottom-up…") with room for more.
+    // It is the e2e clipping gate's one exemption: `data-truncates="label"` and
+    // the full name on the row line's `title`; still no title on the cell (#36).
+    it('each label is the FULL factor name on ONE ellipsised line, recoverable from the row (contract v3.1 #9, audit #9, DIFF item 1)', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-adopt')!
       const dt = dd.previousElementSibling as HTMLElement
       expect(dt.tagName).toBe('DT')
       expect(dt.textContent).toBe('Feature adoption across active accounts')
-      // Whole on the card, so no title to recover it from (and no native tooltip, #36).
       expect(dt.getAttribute('title')).toBeNull()
-      expect(dt.getAttribute('data-truncates')).toBeNull()
+      expect(dt.getAttribute('data-truncates')).toBe('label')
+      expect(dt.closest('[title]')?.getAttribute('title')).toBe('Feature adoption across active accounts')
       const t = tokens(dt)
-      expect(t.has('truncate')).toBe(false)
-      expect(t.has('break-words')).toBe(true)
+      expect(t.has('truncate')).toBe(true)
       expect(t.has('min-w-0')).toBe(true)
-      expect(t.has('line-clamp-1')).toBe(true)
+      expect(t.has('line-clamp-1')).toBe(false)
     })
 
     it('`from → to` is never inside a truncating element, and the source mark TRAILS the value', () => {

@@ -399,6 +399,9 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     observedState: { value: 0.39, raw_value: 39000, cap: 100000, unit, extractionType: 'inferred', source: 'cee_inference' },
   })
 
+  // RE-PINNED 27 Sep (side-by-side DIFF item 3): the three value lines below end
+  // `<unit> est.` — one breakable space between the value and its mark, so the
+  // mark wraps with the value (was glued text, `yearest.`, in a no-wrap flex row).
   it('GBP/year → figure `£39,000`, muted unit `/ year` (the compact-unit owner spaces every rate)', () => {
     const data = money('GBP/year')
     seed(data, { phase: 'pre' })
@@ -406,7 +409,7 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('£39,000')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('/ year')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / yearest.')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('£39,000 / year est.')
   })
 
   it('CONTRAST — a non-currency rate (`hours/week`) is untouched: `40 hours/week`', () => {
@@ -416,13 +419,13 @@ describe('prototype · a currency rate reads `£39,000/year` on the card', () =>
     const c = card('Annual PA salary')
     expect(within(c).getByTestId(`factor-value-figure-${ID}`).textContent).toBe('40')
     expect(within(c).getByTestId(`factor-value-unit-${ID}`).textContent).toBe('hours/week')
-    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/weekest.')
+    expect(visibleText(within(c).getByTestId('factor-recorded-value'))).toBe('40 hours/week est.')
   })
 
   it('CONTRAST — a currency code with no glyph mapping (`CHF/year`) is untouched', () => {
     const data = money('CHF/year')
     seed(data, { phase: 'pre' })
     renderFactor(data)
-    expect(visibleText(within(card('Annual PA salary')).getByTestId('factor-recorded-value'))).toBe('39,000 CHF/yearest.')
+    expect(visibleText(within(card('Annual PA salary')).getByTestId('factor-recorded-value'))).toBe('39,000 CHF/year est.')
   })
 })

@@ -228,8 +228,15 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
     // line (`.delta-rows .amount{white-space:nowrap}`).
     // RE-PINNED (design audit #9, 26 Sep): the label is ONE line at every rung
     // (`line-clamp-1`, a vertical clamp at a word break); its DOM text is still
-    // the whole name, and it is still never a horizontal cut (`truncate`).
-    it('the label comes FIRST, is the FULL name on ONE clamped line, never a horizontal cut; the value and its trailing mark are never cut', () => {
+    // the whole name.
+    // ⭐ RE-PINNED 27 Sep (side-by-side DIFF item 1): the word-break clamp cut
+    // "Bottom-up adoption friction" to `Bottom-up…` with room for more, so the
+    // label is now a CHARACTER ellipsis (`truncate`) after the amount has taken
+    // its natural width — the one exemption `nodeTextClipping.visual.spec.ts`
+    // allows: `data-truncates="label"` and a titled ancestor in the node (the
+    // row line) carrying the full name. The value and the mark are still never
+    // inside a truncating element.
+    it('the label comes FIRST, is the FULL name on ONE ellipsised line, recoverable from the row; the value and its trailing mark are never cut', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       const dt = dd.previousElementSibling as HTMLElement
@@ -241,13 +248,14 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // The label carries the factor's FULL name, and nothing shortens it.
       expect(dt.textContent).toBe('Pro plan monthly price')
       const lt = tokens(dt)
-      expect(lt.has('truncate')).toBe(false)
-      expect(lt.has('break-words')).toBe(true)
+      expect(lt.has('truncate')).toBe(true)
       expect(lt.has('min-w-0')).toBe(true)
-      expect(lt.has('line-clamp-1')).toBe(true)
-      expect(dt.getAttribute('data-truncates')).toBeNull()
-      // ⛔ The value and the mark are NEVER inside a truncating element.
-      for (const protectedEl of [dt, dd, mark]) {
+      expect(lt.has('line-clamp-1')).toBe(false)
+      expect(dt.getAttribute('data-truncates')).toBe('label')
+      expect(dt.closest('[title]')?.getAttribute('title')).toBe('Pro plan monthly price')
+      // ⛔ The value and the mark are NEVER inside a truncating element, and the
+      // label is cut only by its own cell (no truncating ancestor).
+      for (const protectedEl of [dt.parentElement as HTMLElement, dd, mark]) {
         let el: HTMLElement | null = protectedEl
         while (el && el !== document.body) {
           const t = tokens(el)
