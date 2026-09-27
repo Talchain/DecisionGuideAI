@@ -54,13 +54,9 @@ const UI_WIRE_EVENT_TYPES = [
   // catch — it is ONE-DIRECTIONAL and proves only that listed members are real.
   'option_intervention_edit',
   'structural_add_edge',
-  // schemas — NOT YET VENDORED (0.55.0 pinned, checked verbatim, absent).
-  // PREPARED, NOT ARMED: `goalTargetEdit.ts`'s header. Listed here because
-  // this array is the UI's own `WIRE_SYSTEM_EVENT_TYPES` mirror and
-  // `goal_target_edit` IS one of that type's members now — but its
-  // `UI_COVERAGE` entry below is `ui_deferred`, not `system_event`, because
-  // `eventKind` there is typed against the CONTRACT's `V5_EVENT_KINDS`
-  // (`SystemEventKind.options`), which does not have this member to offer.
+  // schemas 0.59.0 — ARMED (`goalTargetEdit.ts`). It sat in `UI_COVERAGE` as
+  // `ui_deferred` while the UI vendored 0.55.0, whose `SystemEventKind` had no
+  // such member; the 0.59.0 re-vendor made it a typed `system_event` entry.
   'goal_target_edit',
   // schemas 0.55.0 — the user's STATED REASON for disagreeing with a finding,
   // carried verbatim. It is listed here because this PR WIRES THE EMITTER: a
@@ -363,25 +359,21 @@ const UI_COVERAGE: Record<
         'Our enterprise renewals are annual, so a price move cannot reach churn inside the quarter this run assumes.',
     },
   },
-  // ARMED (`GOAL_TARGET_EDIT_ENABLED = true`, `canvas/conversation/goalTargetEdit.ts`).
-  //
-  // ⚠ `ui_deferred`, NOT `system_event` — AND UNLIKE EVERY OTHER `ui_deferred`
-  // ENTRY THIS IS NOT A PRODUCT DECISION, IT IS A TYPE-SYSTEM ONE. The
-  // `system_event` branch's `eventKind` field is typed
-  // `(typeof V5_EVENT_KINDS)[number]` — DERIVED from the vendored
-  // `SystemEventKind` enum — so `eventKind: 'goal_target_edit'` would not
-  // compile: the contract has no such member to offer yet. `adaptGoalTargetEdit`
-  // (`buildPayload.ts`) is real and exercised by
-  // `buildPayload.goalTargetEdit.spec.ts`, and the dispatch path that reaches
-  // it (`useModelEditAuthority.proposeGoalTarget`, flag now `true`) is pinned
-  // end to end in `GoalPanel.goalTargetEditLive.wire.spec.tsx`. `ui_deferred`
-  // here is ONLY the type-system fact above, not a product deferral.
+  // schemas 0.59.0. ARMED (`GOAL_TARGET_EDIT_ENABLED = true`,
+  // `canvas/conversation/goalTargetEdit.ts`); the dispatch path
+  // (`useModelEditAuthority.proposeGoalTarget`) is pinned end to end in
+  // `GoalPanel.goalTargetEditLive.wire.spec.tsx`. It was `ui_deferred` until the
+  // UI re-vendored ≥0.59.0 — a type-system fact, never a product deferral.
   goal_target_edit: {
-    kind: 'ui_deferred',
-    reason:
-      'ARMED (GOAL_TARGET_EDIT_ENABLED = true) against CEE #1859\'s reader (schemas 0.59.0), ' +
-      'but the UI still vendors 0.55.0, whose SystemEventKind has no such member — so this ' +
-      'entry cannot be typed `system_event` until the UI re-vendors >=0.59.0.',
+    kind: 'system_event',
+    eventKind: 'goal_target_edit',
+    payload: {
+      goal_node_id: 'goal_reduce_churn',
+      constraint_type: 'at_most',
+      raw_value: 5,
+      unit: '%',
+      base_graph_hash: 'f3d31f75957c5cb5',
+    },
   },
 }
 
@@ -518,7 +510,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 14 of 18 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 15 of 19 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -582,10 +574,15 @@ describe('UI ↔ V5 system event parity', () => {
     // base of 12. Taking either side of this conflict wholesale would have
     // silently dropped the other lane's emission from the count while the suite
     // stayed green. The merged value is DERIVED: 12 + 2 = 14.
+    //
+    // 2026-09-27: the 0.55.0 → 0.59.0 re-vendor grows the union to 19 with
+    // `goal_target_edit`, and the emitter count to 15, because that member was
+    // already armed and emitted (it was `ui_deferred` only because 0.55.0 could
+    // not type it). 14 + 1 = 15.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(14)
-    expect(V5_EVENT_KINDS).toHaveLength(18)
+    expect(uiEmittedCount).toBe(15)
+    expect(V5_EVENT_KINDS).toHaveLength(19)
   })
 })

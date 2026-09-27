@@ -45,7 +45,10 @@
  */
 import { describe, it, expect } from 'vitest'
 import { OlumiResponseSchema } from '@talchain/schemas/boundary'
-import { maximalModelVersionMutationReceiptCommittedMutation } from '@talchain/schemas/fixtures'
+import {
+  maximalAnalysisParticipationWithheld,
+  maximalModelVersionMutationReceiptCommittedMutation,
+} from '@talchain/schemas/fixtures'
 
 import { parseV5Response, ADDITIVE_EXTENSIONS_KEY } from '../responseParser'
 
@@ -164,6 +167,10 @@ const SCHEMA_VALID_SAMPLES: Readonly<Record<string, unknown>> = {
   // `success: true`. The `.strict()` union means a wrong shape would not merely
   // fail this key, it would fail the WHOLE parse.
   model_version_receipt: maximalModelVersionMutationReceiptCommittedMutation,
+  // schemas 0.56.0 — the participation guard's withheld counts joined
+  // `OlumiResponseSchema`; this guard caught it on the 0.55.0 → 0.59.0 re-vendor.
+  // The producer's own fixture again, for the reason given above.
+  analysis_participation_withheld: maximalAnalysisParticipationWithheld,
 }
 
 const DECLARED_KEYS: readonly string[] = Object.keys(OlumiResponseSchema.shape)

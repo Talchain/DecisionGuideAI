@@ -19,6 +19,7 @@ vi.mock('../../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeBy
 import { useCanvasStore } from '../../store'
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { openOutlineGroups } from './openOutlineGroups'
+import { OrchestratorTurnPayloadSchema } from '@talchain/schemas/boundary'
 import { buildV5Payload } from '../../../v5/buildPayload'
 import { callV5Turn } from '../../../v5/v5Adapter'
 import { manualGoalTargetMessage } from '../../conversation/manualGoalTarget'
@@ -174,11 +175,8 @@ describe('manual goal target uses the existing canonical typed action', () => {
       scenarioId: '22222222-2222-4222-8222-222222222222', stage: 'analyse', turnClass: 'frame',
       mode: 'system', systemEvent: event })
     if (!built.ok) throw new Error('typed target did not build')
-    // ⚠ NOT `OrchestratorTurnPayloadSchema.parse`: the UI still vendors 0.55.0,
-    // whose union has no `goal_target_edit` member, so the vendored schema would
-    // refuse a body CEE #1859's 0.59.0 accepts. That acceptance was checked
-    // against CEE's own vendored tgz (Task A of the flip); here the body is
-    // pinned as a LITERAL, which is what actually crosses the wire.
+    // The body is pinned as a LITERAL (what actually crosses the wire) AND,
+    // since the UI vendors 0.59.0, parsed against the real contract below.
     const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ response_version: 1, assistant_text: 'ok', blocks: [] }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }))
     await callV5Turn(built.payload, { fetchImpl })
@@ -197,6 +195,7 @@ describe('manual goal target uses the existing canonical typed action', () => {
         base_graph_hash: '5c0e7a19d2b84f36',
       },
     })
+    expect(OrchestratorTurnPayloadSchema.safeParse(body).success).toBe(true)
     // No text routing: a system event has no message, source or chip at all.
     expect('message' in body).toBe(false)
     expect('chip' in body).toBe(false)

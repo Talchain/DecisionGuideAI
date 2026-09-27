@@ -4,9 +4,9 @@
  * ⭐ ARMED (`GOAL_TARGET_EDIT_ENABLED = true`) on branch
  * `canvas/goal-target-edit-live`, stacked on #1977. The history below is kept
  * as written when the module was PREPARED; the flag's own docblock states the
- * deploy sequencing the flip depends on. The UI still vendors
- * `@talchain/schemas` 0.55.0, so the wire type stays hand-typed
- * (`GoalTargetEditWireEvent`, `buildPayload.ts`) until the UI re-vendors ≥0.59.0.
+ * deploy sequencing the flip depends on. The UI now vendors
+ * `@talchain/schemas` 0.59.0, so the wire type is derived from the contract
+ * (`GoalTargetEditWireEvent`, `buildPayload.ts`), no longer hand-typed.
  *
  * ── WHAT THIS CLOSES ─────────────────────────────────────────────────────────
  * Today `useModelEditAuthority.proposeGoalTarget` records a target through the
