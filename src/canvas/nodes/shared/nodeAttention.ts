@@ -29,6 +29,12 @@
  * A model KNOWN to have changed keeps the last run's reasons in a SEPARATE plan,
  * labelled (`useNodeAttention`'s `fromLastRun`; design-gap row 23).
  *
+ * ⛔ NO SHOWN COMPARISON HIDES THE FLIP REASONS (post-run DIFF item 7): the
+ * caller passes `turningPoints` and `fragileEdgeSources` only while the canvas
+ * shows the option comparison they cite (`useNodeAttention`, reading the option
+ * cards' own `useSupportShareRunWideAbsent`), in the current plan and the last
+ * run's alike.
+ *
  * ── HOW IT STAYS SELECTIVE, AND SAYS SO ─────────────────────────────────────
  *
  * At most `ATTENTION_BUDGET` elements are marked. The order that fills the
