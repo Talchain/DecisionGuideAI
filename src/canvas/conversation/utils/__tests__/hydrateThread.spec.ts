@@ -364,10 +364,12 @@ describe('hydrateMessagesFromThread', () => {
 })
 
 describe('formatSessionBoundary', () => {
-  it('formats date as "Session resumed - D Mon, HH:MM"', () => {
+  it('formats date as "Session resumed · D Mon, HH:MM"', () => {
     const date = new Date('2026-03-07T14:22:00Z')
     const result = formatSessionBoundary(date)
-    // Time zone dependent — just check structure
-    expect(result).toMatch(/^Session resumed - \d+ \w+, \d{2}:\d{2}$/)
+    // Time zone dependent — just check structure. The chat's separator is " · " (served 27 Sep: a bare " - " read
+    // as a stray hyphen on every reload, beside "Model changed · previous findings shown as Last run").
+    expect(result).toMatch(/^Session resumed · \d+ \w+, \d{2}:\d{2}$/)
+    expect(result).not.toContain(' - ')
   })
 })
