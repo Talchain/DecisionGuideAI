@@ -1457,7 +1457,7 @@ export function ModelStrip({
                 const hidden = drawMarks ? nodes.length - shown.length : 0
                 return (
                   <span
-                    className="flex flex-wrap items-center gap-1"
+                    className="flex flex-wrap items-center gap-0"
                     data-testid={`${testId}-marks`}
                   >
                     {shown.map((node) => {
@@ -1498,7 +1498,10 @@ export function ModelStrip({
                            the detail is unmounted otherwise, so a resting
                            reference on every mark would dangle on all but one. */
                         aria-controls={isActive ? detailId : undefined}
-                        className={`rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                        // 27 Sep 2026 (Panel, V2 `.mark{min-width:26px;height:24px}`, `.marks{gap:0}`):
+                        // each mark is a 26×24 target, so the glyphs sit the prototype's distance
+                        // apart and every mark meets the 24px target size (WCAG 2.5.8).
+                        className={`inline-flex items-center justify-center min-w-[26px] h-6 rounded hover:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
                           isActive ? 'ring-2 ring-info' : ''
                         }`}
                         data-testid={`${testId}-mark`}
@@ -1579,7 +1582,7 @@ export function ModelStrip({
           data-testid={`${testId}-detail`}
           data-node-id={active.id}
         >
-          <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-1 min-w-0">
             <h4
               className={`${typography.panelHeader} text-text-header m-0 min-w-0 break-words`}
               data-testid={`${testId}-detail-title`}
@@ -1809,7 +1812,7 @@ export function ModelStrip({
                 order, ICON-ONLY. Both asks open the shared composer; neither
                 writes the model. The value editor above is a SEPARATE act — a
                 direct numeric write — so a factor legitimately carries both. */}
-            <div className="flex flex-wrap items-center gap-2 mt-1" data-node-id={active.id}>
+            <div className="flex flex-wrap items-center gap-1 mt-1" data-node-id={active.id}>
               <PanelIconButton
                 Icon={Pencil}
                 label={PROPOSE_CHANGE_LABEL}

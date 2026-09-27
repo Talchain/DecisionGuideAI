@@ -492,7 +492,7 @@ export function AboutThisAnalysis({
       aria-labelledby={`${testId}-heading`}
       data-about-open={open ? 'true' : 'false'}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         {/* ⚠ V2 gap 27: NOT A HEADING. The prototype's About toggle is a bare
             `.disclose` button, not a section title — and this panel reserves
             h1–h3 for section titles on `panelHeader`
@@ -542,7 +542,7 @@ export function AboutThisAnalysis({
                   </span>
                   <span className="min-w-0">{ABOUT_COPY.rows[r.key]}</span>
                 </dt>
-                <dd className="m-0 flex min-w-0 items-center justify-end gap-2">
+                <dd className="m-0 flex min-w-0 items-center justify-end gap-1">
                   <span
                     className={`${typography.panelMeta} text-text-light min-w-0 text-right break-words`}
                     data-testid={`${testId}-row-${r.key}-value`}
