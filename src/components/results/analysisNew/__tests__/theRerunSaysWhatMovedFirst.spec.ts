@@ -54,6 +54,12 @@ describe('after a re-run, "What we have" says what moved', () => {
     expect(founded(SERVED, {}, genuineDecision())).toMatch(/Since the last run, no option moved/)
   })
 
+  it('one certified movement on an option this run does not name reads "one option", never "1 options" (Canvas review of #2145, B1)', () => {
+    const text = founded([row('gone', 0.5, 0.2, 'signal'), row('a', 0.3, 0.31, 'within_noise')])
+    expect(text).toMatch(/Since the last run, one option moved beyond ordinary run-to-run variation\.$/)
+    expect(text).not.toMatch(/\b1 options\b/)
+  })
+
   it('CONTRAST: an unqualified row licenses no sentence', () => {
     expect(founded([row('a', 0.81, 0.62, 'not_noise_qualified'), row('b', 0.15, 0.14, 'within_noise')])).not.toMatch(/Since the last run/)
   })

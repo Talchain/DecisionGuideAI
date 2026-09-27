@@ -962,6 +962,15 @@ export const OPTION_RESULT_COPY = {
    */
   goalOnlyNote: 'This share compares the options on the goal alone.',
   /**
+   * ⭐ ANY OTHER WITHHELD LEADER CLAIM (AI Conversation 5851148800, served on Paul's
+   * pricing brief: `withheld_reason: 'nonlinear_identity_sign_unproven'` while the
+   * cards read "82% of runs" bare). The chat said no option can be put forward;
+   * the cards must not read as a verdict. Keyed on `permitted === false` with any
+   * producer cause other than `constraint_verdict_withheld` (which keeps `goalOnly`).
+   */
+  provisional: 'Provisional',
+  provisionalNote: 'The analysis could not put an option forward on this run, so these shares are not a verdict.',
+  /**
    * The short, VISIBLE reason beside `Not analysed` when CEE's typed blocker says
    * this option lacks a value (`analysis_ready.blockers[]`: `option_id` +
    * `blocker_type: 'missing_value'`). "value" is the canvas's own word (the factor
