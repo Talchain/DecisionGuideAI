@@ -5,6 +5,9 @@
  * ⚠ IT SENDS NOTHING. Submitting hands the typed words to the SAME Ask Olumi drawer every
  * ✦ act on this panel opens (`openAskOlumi`), as an editable draft; the user sends from
  * there. So this adds no new action, no new route and no new turn shape.
+ *
+ * @panel-act-opt-out a text field is not an `action()` tier (it has no act styling to share);
+ * it carries the 24px geometry itself, and its send act is `PanelIconButton` (its own tier).
  */
 import { useState } from 'react'
 import { ArrowUp } from 'lucide-react'
@@ -43,7 +46,7 @@ export function ReasoningAskBox({ testId = 'analysis-new-ask-box' }: { testId?: 
         onChange={(e) => setText(e.target.value)}
         placeholder={REASONING_ASK_COPY.placeholder}
         aria-label={REASONING_ASK_COPY.label}
-        className={`${typography.panelBody} ${ACTION_FOCUS} min-w-0 flex-1 border-0 bg-transparent p-0 text-text-body placeholder:text-text-light focus:outline-none`}
+        className={`${typography.panelBody} ${ACTION_FOCUS} min-h-[24px] min-w-[24px] flex-1 border-0 bg-transparent p-0 text-text-body placeholder:text-text-light focus:outline-none`}
         data-testid={`${testId}-input`}
       />
       <PanelIconButton
