@@ -4,7 +4,7 @@
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
-import { goalConstraintText, constraintWithEditedValue } from '../../../utils/goalConstraintText'
+import { goalConstraintText, constraintWithEditedValue, auditedFigureOf, constraintWithEditedAuditedFigure } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -909,10 +909,13 @@ export const GoalPanel = memo(function GoalPanel({
                                Trap 19, caught only by a discriminating
                                assertion. */
                             data-testid={`goal-constraint-${c.constraint_id ?? c.id ?? i}-value-input`}
-                            defaultValue={c.value}
+                            /* Canvas ask A: an audited limit is shown and edited in the reader's own units
+                               (`auditedFigureOf`), never as the stored ratio. */
+                            defaultValue={auditedFigureOf(c)?.value ?? c.value}
                             onBlur={e => {
                               const parsed = parseFloat(e.target.value)
-                              if (Number.isNaN(parsed) || parsed === c.value) return
+                              const audited = auditedFigureOf(c)
+                              if (Number.isNaN(parsed) || parsed === (audited?.value ?? c.value)) return
                               const base = preAnalysisConstraints ?? []
                               // Identity is `constraint_id ?? id` — panel-minted
                               // constraints carry only constraint_id, so keying
@@ -931,13 +934,17 @@ export const GoalPanel = memo(function GoalPanel({
                                   // post-merge review of #1592 and reproduced at
                                   // the formatter. The writer is the only place
                                   // that knows the value changed.
-                                  ? constraintWithEditedValue(pc, parsed)
+                                  ? (audited !== null ? constraintWithEditedAuditedFigure(pc, parsed) : null)
+                                    ?? constraintWithEditedValue(pc, parsed)
                                   : pc
                               )
                               setGoalConstraints(updated)
                             }}
                             className={`${typography.panelMeta} w-20 border border-panel-border rounded px-1.5 py-0.5 bg-panel text-text-body`}
                           />
+                          {auditedFigureOf(c)?.unit ? (
+                            <span className={`${typography.panelMeta} text-text-light shrink-0`}>{auditedFigureOf(c)!.unit}</span>
+                          ) : null}
                         </div>
                         </fieldset>
                       )}

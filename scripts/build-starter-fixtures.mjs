@@ -460,6 +460,52 @@ function stampCapturedSources(id, fixture) {
   }
 }
 
+/**
+ * Transformation 6 — a captured goal limit whose unit contradicts its value.
+ *
+ * The pricing capture states the NRR floor as `value 1.1, unit '%'` from the
+ * brief's "above 110%": 1.1 is the ratio, so '%' says 1.1%. The Goal inspector
+ * then showed the ratio in a percent box, and typing 110 wrote 11,000% into the
+ * model. The repair restates it the way CEE normaliseConstraintUnits emits a
+ * percent limit: unit 'fraction' plus the `provenance_unit_normalised` audit
+ * carrying the user's own figure. The VALUE never moves (compute unchanged).
+ * `from` must match exactly and occur `expectedHits` times, or the build fails.
+ */
+const CAPTURE_CONSTRAINT_UNIT_REPAIRS = [
+  {
+    starter: 'pricing-model',
+    constraintId: 'constraint_out_nrr_min',
+    from: { value: 1.1, unit: '%' },
+    to: { unit: 'fraction', provenance_unit_normalised: { rule: 'percent_to_fraction', original_value: 110, original_unit: '%' } },
+    expectedHits: 1,
+    reason:
+      "brief says 'above 110%'; 1.1 is the ratio, so unit '%' read as 1.1%. Restated as CEE normaliseConstraintUnits emits it: unit 'fraction' + audit {110, '%'}; value unchanged.",
+  },
+]
+
+function repairConstraintUnit(id, fixture) {
+  for (const r of CAPTURE_CONSTRAINT_UNIT_REPAIRS.filter((x) => x.starter === id)) {
+    const audit = r.to.provenance_unit_normalised
+    if (Math.abs(r.from.value * 100 - audit.original_value) > 1e-9) fail(`${id}: constraint repair audit ${audit.original_value} is not value × 100`)
+    let hits = 0
+    const list = Array.isArray(fixture.goal_constraints) ? fixture.goal_constraints : []
+    fixture.goal_constraints = list.map((c) => {
+      if (!c || c.constraint_id !== r.constraintId) return c
+      if (c.value !== r.from.value || c.unit !== r.from.unit || c.provenance_unit_normalised !== undefined) {
+        fail(`${id}: constraint repair "${r.constraintId}" expected value ${r.from.value} unit '${r.from.unit}' with no audit`)
+      }
+      hits += 1
+      const out = {}
+      for (const [k, v] of Object.entries(c)) {
+        out[k] = k === 'unit' ? r.to.unit : v
+        if (k === 'unit') out.provenance_unit_normalised = { ...audit }
+      }
+      return out
+    })
+    if (hits !== r.expectedHits) fail(`${id}: constraint repair "${r.constraintId}" hit ${hits}, expected ${r.expectedHits}`)
+  }
+}
+
 const STARTERS = [
   {
     id: 'vendor-selection',
@@ -653,6 +699,10 @@ function build() {
     // `analysis_ready` is already the deep clone taken for transformation 2.
     stampCapturedSources(s.id, fixture)
 
+    // --- Transformation 6: a captured goal limit whose unit contradicts its value ---
+    // Maps into a NEW goal_constraints array, so the parsed capture is untouched.
+    repairConstraintUnit(s.id, fixture)
+
     const { title, summary } = deriveCardCopy(s.id, capture.nodes)
 
     fixtures.set(s.id, JSON.stringify(fixture, null, 2) + '\n')
@@ -720,6 +770,13 @@ function build() {
         sourceStamps: CAPTURE_SOURCE_STAMPS.filter((r) => r.starter === s.id).map((r) => ({
           stamp: r.stamp,
           occurrences: r.expectedHits,
+          reason: r.reason,
+        })),
+        // Transformation 6, disclosed the same way.
+        constraintUnitRepairs: CAPTURE_CONSTRAINT_UNIT_REPAIRS.filter((r) => r.starter === s.id).map((r) => ({
+          constraintId: r.constraintId,
+          from: r.from,
+          to: r.to,
           reason: r.reason,
         })),
         note: s.note,
