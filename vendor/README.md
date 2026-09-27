@@ -7,7 +7,37 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.55.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.59.0.tgz` ← **THE CURRENT PIN** (27 Sep 2026, A8)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.**
+The byte-identical file CEE vendors (`olumi-assistants-service` `vendor/`), which
+CEE's own README records as downloaded from GitHub Packages at
+`https://npm.pkg.github.com/download/@talchain/schemas/0.59.0/4c22e40f411109c3311827ef72e35ba500cd2e07`
+— the tarball `npm publish` produced from `olumi-schemas` `main`
+**`195b64c4c09088b3d3716b4856f3ff08fa5c25e8`** (the schemas #67 merge; the
+registry's `gitHead` binds that commit). **589,267 bytes.** Re-verified here,
+all exact:
+
+```
+npm shasum (sha1)  4c22e40f411109c3311827ef72e35ba500cd2e07   (the registry download id)
+integrity (sha512) sha512-XDGXpAY4ROpjqMOdOK7wE58nyPSe/CZcaMUQqvCiKjECEA+i6QLR1aABgprvDKOfGNQ1AfqDBzl3T/6IoV8jvg==
+                   (== CEE's pnpm-lock.yaml, == what `pnpm install` wrote here)
+sha256             5851e23ef7e597d849cfc4ebcbe5df9be89691ad4d4b5c2ccf7d01d93e6d7bf8   (== CEE's .sha256)
+```
+
+**WHY THE PIN MOVED.** The DL's schema-skew row A8 (#70 5856233213): CEE pins
+0.59.0 and this UI pinned 0.55.0. A consumer on an older pin silently drops
+fields it does not know (CLAUDE.md hazard 1). 0.57.0 was never released.
+
+**What 0.56–0.59 add, and what reads them here (derived, not assumed):**
+- 0.56.0 `analysis_participation_withheld` (response + run result): no UI reader.
+- 0.58.0 `AnalysisEnrichmentSchema.run_provenance` + keep-list: the UI already
+  reads `enrichment.run_provenance` through untyped casts; unchanged.
+- 0.59.0 `SystemEventSchema#goal_target_edit`: `v5/buildPayload.ts` hand-typed
+  the event because 0.55.0 had no member. The typed member now exists; adopting
+  it is a separate change (the emitter is prepared, not armed).
+
+### `talchain-schemas-0.55.0.tgz` (historical — no longer vendored as of 0.59.0)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.**
 Downloaded from GitHub Packages at
