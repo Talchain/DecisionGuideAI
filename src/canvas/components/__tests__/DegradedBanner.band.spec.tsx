@@ -79,10 +79,13 @@ describe('DegradedBanner — a band occupant', () => {
     expect(centre.closest('[data-overlay-cell]')?.getAttribute('data-overlay-cell')).toBe('bottom-centre')
   })
 
-  it('outranks analysis-state-cue for the SAME cell — an unreachable engine is the more urgent fact', () => {
-    expect(OVERLAY_PRIORITY['bottom-right'].indexOf('degraded-banner')).toBeLessThan(
-      OVERLAY_PRIORITY['bottom-right'].indexOf('analysis-state-cue'),
-    )
+  // ⚠ WAS "outranks analysis-state-cue for the SAME cell". The stale cue left
+  // this cell on 27 Sep 2026 (canvas-8ffc sbs-post DIFF item 8): it is the
+  // canvas foot line now, bottom-left and painted beneath the graph, so the two
+  // no longer contend. What that pin protected — nothing outranks an engine the
+  // UI cannot reach in this cell — is kept.
+  it('leads its cell — an unreachable engine is the most urgent fact the bottom-right can carry', () => {
+    expect(OVERLAY_PRIORITY['bottom-right'][0]).toBe('degraded-banner')
   })
 
   it('never renders the position classes the band exists to abolish', async () => {

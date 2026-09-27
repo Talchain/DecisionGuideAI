@@ -9,6 +9,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { FreshnessDisplaySemantic } from '../../store/analysisFreshness'
 
 const trust: { semantic: FreshnessDisplaySemantic | undefined } = { semantic: 'changed' }
@@ -95,25 +97,32 @@ describe('AnalysisStateCue — Paul 23 Sep point 14', () => {
     expect(ANALYSIS_STATE_CUE_COPY).not.toMatch(/\b(edits?|since|should|re-?run|recommend|best|warning|stale|out of date)\b/i)
   })
 
-  it('accessible and neutral: decorative icon hidden, readable text token, clickable surface', () => {
+  /**
+   * ⚠ THE TWO PINS THESE REPLACE ENCODED THE DEFECT (canvas-8ffc sbs-post DIFF
+   * item 8, 27 Sep 2026). "clickable surface" (`pointer-events-auto`) and the
+   * CHR-6 floating-chrome recipe (`bg-panel border shadow-2 rounded-lg`) pinned
+   * the white pill that `elementFromPoint` found over the Goal glyph and the
+   * fragile-edge cue on Paul's 90b8 board. Contract v3.1 draws this sentence as
+   * the canvas foot: 10px muted text, no surface, no icon (`#canvasFoot`).
+   */
+  it('a muted foot LINE, not a floating pill: no surface, no icon, never a hit target', () => {
     render(<AnalysisStateCue />)
     const cue = screen.getByTestId(ANALYSIS_STATE_CUE_TESTID)
-    const svg = cue.querySelector('svg')
-    expect(svg, 'the clock icon renders').not.toBeNull()
-    expect(svg).toHaveAttribute('aria-hidden', 'true')
-    const sentence = cue.querySelector('p')
-    expect(sentence?.className).toContain('text-text-body')
-    expect(sentence?.className).not.toContain('text-text-light')
+    const cls = cue.className.split(/\s+/)
+    for (const pill of ['bg-panel', 'border', 'border-panel-border', 'shadow-2', 'shadow-sm', 'rounded-lg', 'pointer-events-auto']) {
+      expect(cls, `the cue still carries the pill's \`${pill}\``).not.toContain(pill)
+    }
+    expect(cue.querySelector('svg'), 'the contract foot line carries no icon').toBeNull()
     // Neutral: no danger / warning / info channel on the cue.
     expect(cue.outerHTML).not.toMatch(/\b(text|bg|border)-(danger|warning|error|info)\b/)
-    // The band and its cells set pointer-events: none; the cue re-enables it.
-    expect(cue.className).toContain('pointer-events-auto')
   })
 
-  it('⭐ contract v3.1 CHR-6: the overlay band’s floating-chrome recipe — warm DS shadow-2, not Tailwind’s cool shadow-sm', () => {
-    render(<AnalysisStateCue />)
-    const cls = screen.getByTestId(ANALYSIS_STATE_CUE_TESTID).className.split(/\s+/)
-    for (const c of ['bg-panel', 'border', 'border-panel-border', 'shadow-2', 'rounded-lg']) expect(cls).toContain(c)
-    expect(cls).not.toContain('shadow-sm')
+  it('its stylesheet draws the contract foot type — 10px, the muted token (4.65:1 on the canvas ground), no surface', () => {
+    const css = readFileSync(resolve(__dirname, '../AnalysisStateCue.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const cueRule = /\.cue\s*\{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(cueRule, 'POSITIVE CONTROL: the .cue rule is readable').not.toBe('')
+    expect(cueRule).toMatch(/font-size\s*:\s*10px/)
+    expect(cueRule).toMatch(/color\s*:\s*var\(--text-light\)/)
+    expect(css).not.toMatch(/background|border|box-shadow/)
   })
 })
