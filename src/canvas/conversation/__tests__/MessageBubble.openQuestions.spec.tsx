@@ -31,6 +31,7 @@ import {
 } from '../serverOpenQuestions'
 import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
 import served2054 from './fixtures/openai-route-open-questions-2054.served.json'
+import servedShaped from './fixtures/openai-route-open-questions-answer-shape.served.json'
 import served from './fixtures/openai-route-construction-reply.served.json'
 
 const noop = async () => {}
@@ -273,6 +274,47 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
     expect(extractOpenQuestionListSidecar(withSidecar(null))).toBeUndefined()
     expect(extractOpenQuestionListSidecar({})).toBeUndefined()
     expect(readOpenQuestionList('not a list')).toBeUndefined()
+  })
+})
+
+/**
+ * ⭐ STRUCTURED REPLIES (served CEE 3c4d9cc, 27 Sep, run oq-list-49af8bb3-3c4d9cc): the first build reply now carries
+ * `_answer_shape`, and the producer's open-questions marker sits inside its `detail`. The toggle was never mounted
+ * for a structured reply, so #2158's list did not reach Paul's brief. The detail is now split the same way.
+ */
+describe('open questions on a structured (answer-shape) reply', () => {
+  const LIST = servedShaped.open_questions
+  const shaped = () => makeMsg({ content: servedShaped.assistant_text, answerShape: servedShaped.answer_shape as never, openQuestionList: LIST })
+
+  it('PREMISE: the served detail carries the marker and the wire carries the list', () => {
+    expect(servedShaped.answer_shape.detail).toContain(SERVER_OPEN_QUESTIONS_MARKER)
+    expect(LIST.length).toBeGreaterThan(2)
+  })
+
+  it('RED (served): the counted toggle mounts under the structured answer, collapsed, and opens to every item verbatim', () => {
+    render(<MessageBubble message={shaped()} onChipClick={noop} />)
+    expect(screen.getByTestId('message-answer-structured')).toBeTruthy()
+    const toggle = screen.getByTestId('message-show-open-questions')
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(toggle.textContent).toContain(`${LIST.length} questions this model does not answer yet`)
+    fireEvent.click(toggle)
+    const items = [...screen.getByTestId('message-open-questions-list').querySelectorAll('li')].map((li) => li.textContent)
+    expect(items).toEqual(LIST)
+  })
+
+  it('the questions leave "Show more": the detail keeps its arithmetic and loses the marker', () => {
+    render(<MessageBubble message={shaped()} onChipClick={noop} />)
+    fireEvent.click(screen.getByTestId('answer-show-more'))
+    const detail = screen.getByTestId('answer-detail').textContent ?? ''
+    expect(detail).toContain('This is arithmetic on these figures')
+    expect(detail).not.toContain(SERVER_OPEN_QUESTIONS_MARKER)
+    expect(detail).not.toMatch(/Ask me for the other/)
+  })
+
+  it('CONTRAST: a structured reply whose detail has no marker keeps its detail and gets no toggle', () => {
+    const plain = { ...servedShaped.answer_shape, detail: 'Only arithmetic here.' }
+    render(<MessageBubble message={makeMsg({ content: 'x', answerShape: plain as never })} onChipClick={noop} />)
+    expect(screen.queryByTestId('message-show-open-questions')).toBeNull()
   })
 })
 

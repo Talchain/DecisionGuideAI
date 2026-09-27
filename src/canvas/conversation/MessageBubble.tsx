@@ -233,13 +233,22 @@ export const MessageBubble = memo(function MessageBubble({
    * owns the body. `null` → the reply renders exactly as before.
    */
   const openQuestions = useMemo(
-    () => (isUser || isStreaming || message.stoppedByUser || message.answerShape
+    () => (isUser || isStreaming || message.stoppedByUser
       ? null
-      : splitServerOpenQuestions(dedupedBody.text)),
+      // Structured replies carry the producer's marker inside `detail` (served CEE 3c4d9cc, 27 Sep): split THAT,
+      // so the questions leave "Show more" and sit behind the same counted toggle as a free-text reply's.
+      : message.answerShape
+        ? splitServerOpenQuestions(message.answerShape.detail ?? '')
+        : splitServerOpenQuestions(dedupedBody.text)),
     [isUser, isStreaming, message.stoppedByUser, message.answerShape, dedupedBody.text],
   )
   const [openQuestionsShown, setOpenQuestionsShown] = useState(false)
-  const displayContent = openQuestions ? openQuestions.atRest : dedupedBody.text
+  const displayContent = openQuestions && !message.answerShape ? openQuestions.atRest : dedupedBody.text
+  /** The structured answer with its questions moved to the toggle; unchanged when there are none. */
+  const answerForBody = useMemo(
+    () => (message.answerShape && openQuestions ? { ...message.answerShape, detail: openQuestions.atRest } : message.answerShape),
+    [message.answerShape, openQuestions],
+  )
   /**
    * What the turn has ALREADY PUT ON SCREEN above its blocks — tier 0 plus the
    * body, whichever body this turn actually renders.
@@ -424,7 +433,7 @@ export const MessageBubble = memo(function MessageBubble({
           data-testid="message-answer-structured"
         >
           <AnswerBody
-            answer={message.answerShape}
+            answer={answerForBody ?? message.answerShape}
             compact={compact}
             alreadyRendered={consentSurfaceText}
           />
