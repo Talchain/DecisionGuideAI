@@ -151,6 +151,17 @@ export const AnswerBody = memo(function AnswerBody({
       )}
       {detail && (
         <>
+          {/* Expanded, the answer reads straight on from its bullets and "Show less" closes it from the end (Paul's
+              test, 27 Sep: an options list split around the toggle). The detail slot is always child 0, so the button
+              keeps its place in the tree and a keyboard user keeps focus on it. */}
+          {expanded ? (
+            <div
+              className={`${bodyType} ${styles.answerDetail}`}
+              data-testid="answer-detail"
+              // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
+              dangerouslySetInnerHTML={{ __html: detailHtml }}
+            />
+          ) : null}
           <button
             type="button"
             className={styles.inlineDisclosureToggle}
@@ -169,14 +180,6 @@ export const AnswerBody = memo(function AnswerBody({
               </>
             )}
           </button>
-          {expanded && (
-            <div
-              className={`${bodyType} ${styles.answerDetail}`}
-              data-testid="answer-detail"
-              // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
-              dangerouslySetInnerHTML={{ __html: detailHtml }}
-            />
-          )}
         </>
       )}
     </div>
