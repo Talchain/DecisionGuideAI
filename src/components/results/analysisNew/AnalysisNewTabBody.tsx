@@ -92,6 +92,7 @@ import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
 import { MethodStrip } from './sections/MethodStrip'
+import { ReasoningAskBox } from './sections/ReasoningAskBox'
 import { CommitmentSummary } from './sections/CommitmentSummary'
 import { buildCommitmentSynthesis } from './commitmentSynthesis'
 import { ChallengeCard, methodOfIntervention } from './sections/ChallengeCard'
@@ -3189,6 +3190,9 @@ export function AnalysisNewTabBody({
             ) : null
           }
         />
+        {/* ⭐ V2 prototype: the panel ends with "Ask about your thinking…" (27 Sep 2026).
+            It opens the same Ask Olumi drawer as every ✦ act, as a draft; it sends nothing. */}
+        {vm.status.isPreRun ? null : <ReasoningAskBox />}
       </div>
     </div>
   )
