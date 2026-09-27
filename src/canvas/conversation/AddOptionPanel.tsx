@@ -18,6 +18,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent
 
 import { typography } from '../../styles/typography'
 import { formatValueWithUnit } from '../utils/formatValueWithUnit'
+import { CANVAS_LAYER_CLASS } from '../layers'
 import { MAX_ADD_OPTION_INTERVENTIONS } from '../../v5/chipParameters'
 import { ADD_OPTION_REFUSAL_COPY } from './addOptionRequest'
 import type { AddOptionChange, AddOptionFactorTarget } from './addOptionRequest'
@@ -140,7 +141,7 @@ export function AddOptionPanel({
 
   return (
     <div
-      className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className={`fixed inset-0 ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-center justify-center bg-black/50 backdrop-blur-sm`}
       onClick={handleBackdrop}
       role="dialog"
       aria-modal="true"

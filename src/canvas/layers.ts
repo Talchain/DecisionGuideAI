@@ -20,11 +20,16 @@
  *                           inspector included: the menu is the newest,
  *                           shortest-lived surface.
  *   · menuTooltip / setValuePopover (5013) — belong to the menu, so above it.
- *   · modalBackdrop (6000) / modalToast (6001) — Panel's modals (record, define
- *                           success, how computed), portalled to <body>: a modal
- *                           sits above the whole menu stack and the inspector.
- *                           Inside the dock's 900 context no value could lift
- *                           it over the inspector (Panel #70 5855312737).
+ *   · modalBackdrop (6000) — a dialog (`aria-modal`), e.g. the chat's Add option
+ *                           panel: its backdrop covers the whole page, so it
+ *                           sits above every canvas overlay, the inspector and
+ *                           the menu included. (It was 5000, tied with the
+ *                           inspector, so DOM order decided.)
+ *   · modalToast (6001)   — Panel's modals (record, define success, how
+ *                           computed) portal to <body> on modalBackdrop, and
+ *                           their "saved" toast sits just above it (Panel #70
+ *                           5855312737). Inside the dock's 900 context no value
+ *                           could lift a modal over the inspector.
  *   · hoverPreview (9999) — the node hover preview; the menu's backdrop takes
  *                           the pointer while a menu is open, so the two never
  *                           compete.

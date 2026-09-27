@@ -28,6 +28,14 @@ describe('canvas stacking order', () => {
     expect(L.setValuePopover).toBeGreaterThan(L.contextMenuBackdrop)
   })
 
+  it('a modal dialog sits above every canvas overlay (the inspector and the whole menu family), below the hover preview', () => {
+    const L = CANVAS_LAYER
+    for (const k of ['overlayBand', 'edgeEditPopover', 'inspector', 'contextMenuBackdrop', 'contextMenu', 'submenu', 'menuTooltip', 'setValuePopover'] as const) {
+      expect(L.modalBackdrop, k).toBeGreaterThan(L[k])
+    }
+    expect(L.hoverPreview).toBeGreaterThan(L.modalBackdrop)
+  })
+
   it('the dock mirror equals the dock\'s own literal (OutputsDock is Panel-owned; read, not edited)', () => {
     const src = readFileSync(resolve(__dirname, '../components/OutputsDock.tsx'), 'utf8')
     expect(src).toMatch(new RegExp(`zIndex:\\s*${CANVAS_LAYER.dock}\\b`))
@@ -37,6 +45,8 @@ describe('canvas stacking order', () => {
     const files = [
       'contextMenu/CanvasContextMenu.tsx', 'contextMenu/Submenu.tsx', 'contextMenu/MenuTooltip.tsx', 'contextMenu/SetValuePopover.tsx',
       'components/InspectorModal.tsx', 'nodes/shared/NodePopover.tsx', 'edges/EdgeEditPopover.tsx',
+      // The chat's Add option dialog (AI Conversation, D-3 chat half).
+      'conversation/AddOptionPanel.tsx',
       // Panel's half (#70 5855312737 / 5855321285): the modal shell and the shared tooltip.
       '../components/results/modals/ModalShell.tsx', '../components/Tooltip.tsx',
     ]
