@@ -17,11 +17,16 @@
  * And only on a factor that SHOWS a value (the contract's own branch): a factor
  * that needs input already states its gap.
  *
- * WHERE (ED #63 5809278282, bounded anatomy): the Standard card body is ONE
- * visible row (`FactorNode.boundedAnatomy.spec.tsx` pins it; the landing layout
- * reserves each card's height at that bound). So in Standard the line is in the
- * factor's popover and in the value line's accessible text — never a second
- * visible row. Detailed ("adds information") shows it inline on the card.
+ * WHERE — ⛔ SUPERSEDED IN STANDARD by DL #70 5849644637 (26 Sep 2026): "Reserve
+ * the driver line on every factor before a Run, reading 'Working assumption ·
+ * no analysis yet'" (the prototype's `row-meta`, in the place the Run's driver
+ * line takes). So in Standard the line is VISIBLE, in the factor's reserved
+ * driver slot (`factor-driver-slot-*`, one line — a Run then fills the SAME
+ * slot, so it never grows the card; `FactorNode.noGrowthAfterRun.spec.tsx`),
+ * and the popover keeps the whole sentence. It is no longer repeated in the
+ * value line's accessible text (it would be said twice). (Was: ED #63
+ * 5809278282's bounded anatomy — popover + sr-only, never a second row.)
+ * Detailed ("adds information") shows it inline on the card, unchanged.
  *
  * Bound by identity: test ids and exact text; every absence has a present
  * control from the same render (the card title).
@@ -131,8 +136,6 @@ const card = () => {
   expect(title.textContent).toContain('Trial conversion')
   return title.closest('[role="group"]') as HTMLElement
 }
-const visibleBodyRows = (primary: Element) =>
-  Array.from(primary.parentElement!.children).filter((el) => !el.classList.contains('sr-only'))
 const allText = () => document.body.textContent ?? ''
 
 afterEach(() => {
@@ -145,16 +148,19 @@ afterEach(() => {
 })
 
 describe('row 10 — a factor before any analysis reads "Working assumption · no analysis yet"', () => {
-  it('pre-run, Standard: the line is in the popover and the value line\'s accessible text — NOT a second visible row', () => {
+  it('pre-run, Standard: the line is VISIBLE in the reserved driver slot, after the value line, and whole in the popover (DL #70 5849644637)', () => {
     seed(VALUED, 'pre')
     renderFactor(VALUED)
     expect(semantic()).toBe('none')
     const popoverLine = within(screen.getByTestId('factor-node-popover')).getByTestId(`factor-popover-no-analysis-${ID}`)
     expect(popoverLine.textContent).toBe(LINE)
+    const slot = within(card()).getByTestId(`factor-driver-slot-${ID}`)
+    expect(within(slot).getByTestId(`factor-driver-slot-no-analysis-${ID}`).textContent).toBe(LINE)
+    expect(slot.getAttribute('aria-hidden')).toBeNull()
     const valueLine = within(card()).getByTestId('factor-recorded-value')
-    expect(within(valueLine).getByTestId(`factor-no-analysis-sr-${ID}`).textContent).toBe(LINE)
-    // Bounded anatomy: still exactly ONE visible body row on the card.
-    expect(visibleBodyRows(valueLine)).toHaveLength(1)
+    expect(Boolean(valueLine.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    // Said once on the card: no longer repeated in the value line's accessible text.
+    expect(valueLine.textContent).not.toContain('no analysis yet')
     expect(within(card()).queryByTestId(`factor-no-analysis-${ID}`)).toBeNull()
   })
 

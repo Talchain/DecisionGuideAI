@@ -27,6 +27,7 @@ import { ImportanceBar } from '../shared/ImportanceBar'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
+import { FactorTurningPointInspectorLine } from '../shared/FactorTurningPointInspectorLine'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
@@ -407,6 +408,8 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             )}
           </div>
         </StaleGuardBanner>
+        {/* DL #70 5849644637: the turning-point line the card no longer carries. */}
+        {nodeId && <FactorTurningPointInspectorLine nodeId={nodeId} />}
 
         {/* ⚠ SEPARATED, NOT GROUPED — AND THE ASYMMETRY WITH THE OTHER TWO PANELS
             IS THE POINT. In `FactorControllablePanel` and `FactorObservablePanel`
