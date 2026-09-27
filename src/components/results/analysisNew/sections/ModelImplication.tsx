@@ -141,10 +141,10 @@ export function ModelImplication({
         It is also better as markup: the marker is a qualifier on the SECTION,
         not part of its name, and `aria-labelledby` points at this heading.
       */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <h3
           id={`${testId}-title`}
-          className={`${typography.panelHeader} text-text flex items-center gap-1.5 m-0 min-w-0 flex-1`}
+          className={`${typography.panelHeader} text-text flex items-center gap-2 m-0 min-w-0 flex-1`}
         >
           <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-light" />
           <span className="min-w-0">{COPY.sections.implications}</span>
@@ -170,7 +170,7 @@ export function ModelImplication({
           The outcome claim below stands on its own and is untouched. */}
       {needsTarget && targetAskedElsewhere ? null : (
         <p
-          className={`${typography.panelBody} text-text-light mt-1.5 mb-0`}
+          className={`${typography.panelBody} text-text-light mt-2 mb-0`}
           data-testid={`${testId}-lead`}
         >
           {diverged

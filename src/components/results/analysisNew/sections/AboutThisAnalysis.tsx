@@ -492,7 +492,7 @@ export function AboutThisAnalysis({
       aria-labelledby={`${testId}-heading`}
       data-about-open={open ? 'true' : 'false'}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {/* ⚠ V2 gap 27: NOT A HEADING. The prototype's About toggle is a bare
             `.disclose` button, not a section title — and this panel reserves
             h1–h3 for section titles on `panelHeader`
@@ -506,7 +506,7 @@ export function AboutThisAnalysis({
           aria-expanded={open}
           aria-controls={open ? regionId : undefined}
           /* Prototype `.about .disclose`: 27px tall — the 24px floor plus padding. */
-          className={`${typography.panelMeta} text-text-light flex min-w-0 flex-1 min-h-[24px] py-1.5 items-center gap-1.5 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+          className={`${typography.panelMeta} text-text-light flex min-w-0 flex-1 min-h-[24px] py-2 items-center gap-2 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
           data-testid={`${testId}-toggle`}
         >
           <ChevronRight
@@ -526,7 +526,7 @@ export function AboutThisAnalysis({
           {rows.length > 0 ? (
           /* Prototype `.audit-status` / `.audit-row`: 4px apart, 29px tall,
              icon · label · light value · ✦. dl > div > dt + dd. */
-          <dl className="m-0 my-[7px] grid gap-1" data-testid={`${testId}-rows`}>
+          <dl className="m-0 my-2 grid gap-1" data-testid={`${testId}-rows`}>
             {rows.map((r) => (
               <div
                 key={r.key}
@@ -536,13 +536,13 @@ export function AboutThisAnalysis({
                 className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 min-h-[29px]"
                 data-testid={`${testId}-row-${r.key}`}
               >
-                <dt className={`${typography.panelBody} text-text-body flex items-center gap-1.5`}>
+                <dt className={`${typography.panelBody} text-text-body flex items-center gap-2`}>
                   <span className="inline-flex w-4 shrink-0 items-center justify-center">
                     <r.Icon className={`${icon('row')} text-text-light`} aria-hidden={true} />
                   </span>
                   <span className="min-w-0">{ABOUT_COPY.rows[r.key]}</span>
                 </dt>
-                <dd className="m-0 flex min-w-0 items-center justify-end gap-1.5">
+                <dd className="m-0 flex min-w-0 items-center justify-end gap-2">
                   <span
                     className={`${typography.panelMeta} text-text-light min-w-0 text-right break-words`}
                     data-testid={`${testId}-row-${r.key}-value`}
@@ -567,7 +567,7 @@ export function AboutThisAnalysis({
                 {r.detail.map((line, i) => (
                   <dd
                     key={i}
-                    className={`${typography.panelMeta} text-text-light m-0 col-span-2 pl-[22px] break-words`}
+                    className={`${typography.panelMeta} text-text-light m-0 col-span-2 pl-6 break-words`}
                     data-testid={`${testId}-row-${r.key}-detail`}
                   >
                     {line}
@@ -591,7 +591,7 @@ export function AboutThisAnalysis({
                   onClick={() => toggleDetail(key)}
                   aria-expanded={isOpen}
                   aria-controls={isOpen ? bodyId : undefined}
-                  className={`${typography.panelBody} text-text-body flex w-full min-h-[24px] py-[5px] items-center justify-between gap-2 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+                  className={`${typography.panelBody} text-text-body flex w-full min-h-[24px] py-1 items-center justify-between gap-2 text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
                   data-testid={`${testId}-detail-${key}-toggle`}
                 >
                   <span className="min-w-0">{ABOUT_COPY.details[key]}</span>
@@ -670,22 +670,22 @@ function ValuesTable({
      `th { font-weight: bold }` so the header wears the panelMeta token's own
      (inherited) weight, as the prototype's `.audit-table th{font-weight:400}`
      does. DS §2.4 bans introducing a raw weight; this introduces none. */
-  const th = `${typography.panelMeta} text-text-light [font-weight:inherit] text-right px-1 py-[7px] first:pl-0 first:text-left last:pr-0`
-  const td = 'text-right px-1 py-[7px] border-t border-panel-border first:pl-0 first:text-left last:pr-0'
+  const th = `${typography.panelMeta} text-text-light [font-weight:inherit] text-right px-1 py-2 first:pl-0 first:text-left last:pr-0`
+  const td = 'text-right px-1 py-2 border-t border-panel-border first:pl-0 first:text-left last:pr-0'
   return (
     <>
       <div className="max-w-full overflow-auto">
-        <table className={`${typography.panelMeta} text-text-body my-1.5 w-full border-collapse tabular-nums`}>
+        <table className={`${typography.panelMeta} text-text-body my-2 w-full border-collapse tabular-nums`}>
           {normalised ? (
             <caption
-              className={`${typography.panelMeta} text-text-light py-[3px] text-left`}
+              className={`${typography.panelMeta} text-text-light py-1 text-left`}
               data-testid={`${testId}-values-normalised`}
             >
               {ABOUT_COPY.values.normalised}
             </caption>
           ) : !goalBandIsInUserUnits() ? (
             <caption
-              className={`${typography.panelMeta} text-text-light py-[3px] text-left`}
+              className={`${typography.panelMeta} text-text-light py-1 text-left`}
               data-testid={`${testId}-values-not-your-units`}
             >
               {ABOUT_COPY.values.notYourUnits}
@@ -715,7 +715,7 @@ function ValuesTable({
       </div>
       {onAsk ? (
         <div
-          className={`${typography.panelBody} text-text-body mt-1.5 flex items-center justify-between gap-2`}
+          className={`${typography.panelBody} text-text-body mt-2 flex items-center justify-between gap-2`}
           data-testid={`${testId}-values-question`}
         >
           <span className="min-w-0">{ABOUT_COPY.values.question}</span>
@@ -757,12 +757,12 @@ function SourcesAndLimits({
   onInspectBeliefs?: () => void
   testId: string
 }) {
-  const li = "relative pl-[11px] before:absolute before:left-px before:content-['·']"
+  const li = "relative pl-3 before:absolute before:left-px before:content-['·']"
   return (
     <>
     <ul
       /* `.tiny-list`: 6px margin + each item's 3px, and 6px + 3px + 3px between items. */
-      className={`${typography.panelBody} text-text-body m-0 my-[9px] list-none space-y-3 pl-[15px]`}
+      className={`${typography.panelBody} text-text-body m-0 my-2 list-none space-y-3 pl-4`}
       data-testid={`${testId}-limits`}
     >
       {limits.map((b) => (
@@ -828,7 +828,7 @@ function RunRecord({
   testId: string
 }) {
   return (
-    <div className="m-0 my-1.5 space-y-2" data-testid={`${testId}-record-rows`}>
+    <div className="m-0 my-2 space-y-2" data-testid={`${testId}-record-rows`}>
       {groups.map((g, gi) => (
         <div key={`${gi}:${g.title}`} data-testid={`${testId}-record-group`} data-group-title={g.title}>
           <p className={`${typography.panelMeta} text-text-light m-0 mb-1`} data-testid={`${testId}-record-group-title`}>

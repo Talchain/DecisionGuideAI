@@ -171,6 +171,10 @@ function MenuRow({
   )
 }
 
+/** A body longer than this is clamped to two lines at rest (≈60 chars a line at 11px in a 360px panel). */
+export const CHALLENGE_BODY_CLAMP_CHARS = 120
+export const CHALLENGE_BODY_COPY = { more: 'More', less: 'Less' } as const
+
 export function ChallengeCard({
   intervention,
   methodId,
@@ -195,6 +199,7 @@ export function ChallengeCard({
   // over a different item when the pick changes underneath it.
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [basisFor, setBasisFor] = useState<string | null>(null)
+  const [bodyOpenFor, setBodyOpenFor] = useState<string | null>(null)
   const [undoable, setUndoable] = useState<{ id: string; title: string; scenarioId: string | null } | null>(null)
   // Respond (E11): the reader's own note. ⚠ THE TEXT IS BOUND TO THE ITEM IT
   // WAS WRITTEN FOR, not merely the open state: keyed text alone survived a
@@ -319,7 +324,7 @@ export function ChallengeCard({
      The ⓘ is the h3's SIBLING, not its child, so the heading's accessible name
      stays exactly the title. 28px tall whether or not the ⓘ renders. */
   const titleRow = title ? (
-    <div className="flex min-h-7 items-center justify-between gap-2.5">
+    <div className="flex min-h-7 items-center justify-between gap-3">
       <h3 className={`${typography.panelHeader} text-text-header m-0`} data-testid={titleTestId}>
         {title}
       </h3>
@@ -389,7 +394,7 @@ export function ChallengeCard({
     setBasisFor(null)
     onSetAsideMethod?.()
   }
-  const bullet = `${typography.panelBody} relative pl-[11px] text-text-body before:absolute before:left-px before:content-['·']`
+  const bullet = `${typography.panelBody} relative pl-3 text-text-body before:absolute before:left-px before:content-['·']`
 
   return withTitle(
     <div
@@ -405,7 +410,7 @@ export function ChallengeCard({
           icon-led info text-button on the left, the AI and "…" icons on the
           right. Still `.title` verbatim (ruling §3). No kicker above it: the
           method is carried by the strip's active marker and by the basis. */}
-      <p className={`${ITEM_TEXT} text-text-header m-0 mt-[7px] mb-1 min-w-0 flex gap-1.5`}>
+      <p className={`${ITEM_TEXT} text-text-header m-0 mt-2 mb-1 min-w-0 flex gap-2`}>
         <span className="text-text-light" aria-hidden={true}>·</span>
         <span className="min-w-0" data-testid={`${testId}-heading`}>{shown.heading}</span>
       </p>
@@ -416,12 +421,34 @@ export function ChallengeCard({
           body carried. So the body sits under the question at rest, and leaves
           the "Why this?" basis (never said twice). A method's question stands
           on its own, as the prototype's does, and keeps its basis behind the ⓘ. */}
+      {/* ⭐ QUIETER AT REST (27 Sep 2026, Panel's call under Paul's brief): the body keeps
+          naming the figure and the limit, but a long one is clamped to two lines with
+          "More", so the card reads like the prototype's one short question. */}
       {atRestWhy ? (
-        <p className={`${typography.panelMeta} text-text-light m-0 mb-1 pl-[11px]`} data-testid={`${testId}-body`}>
-          {atRestWhy}
-        </p>
+        <>
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mb-1 pl-3 ${
+              atRestWhy.length > CHALLENGE_BODY_CLAMP_CHARS && bodyOpenFor !== shown.key ? 'line-clamp-2' : ''
+            }`}
+            data-testid={`${testId}-body`}
+            data-clamped={atRestWhy.length > CHALLENGE_BODY_CLAMP_CHARS && bodyOpenFor !== shown.key ? 'true' : 'false'}
+          >
+            {atRestWhy}
+          </p>
+          {atRestWhy.length > CHALLENGE_BODY_CLAMP_CHARS ? (
+            <button
+              type="button"
+              onClick={() => setBodyOpenFor(bodyOpenFor === shown.key ? null : shown.key)}
+              aria-expanded={bodyOpenFor === shown.key}
+              className={`${typography.panelMeta} ${action('text')} ml-3 mb-1`}
+              data-testid={`${testId}-body-more`}
+            >
+              {bodyOpenFor === shown.key ? CHALLENGE_BODY_COPY.less : CHALLENGE_BODY_COPY.more}
+            </button>
+          ) : null}
+        </>
       ) : null}
-      <div className="flex items-center justify-between gap-2.5 mt-[3px] min-h-[27px]">
+      <div className="flex items-center justify-between gap-3 mt-1 min-h-[27px]">
         <button
           ref={respondRef}
           type="button"
@@ -433,7 +460,7 @@ export function ChallengeCard({
           <Pencil className={`${icon('row')} shrink-0`} aria-hidden={true} />
           {ZONE.respond}
         </button>
-        <div className="flex shrink-0 items-center gap-[3px]">
+        <div className="flex shrink-0 items-center gap-1">
           <PanelIconButton
             ai
             label={aiLabel}
@@ -513,7 +540,7 @@ export function ChallengeCard({
           data-testid={basisId}
           {...(shown.kind === 'intervention' && shown.rec.dskClaimId ? { 'data-dsk-claim-id': shown.rec.dskClaimId } : {})}
         >
-          <ul className="m-0 my-1.5 grid list-none gap-1.5 pl-[15px]">
+          <ul className="m-0 my-2 grid list-none gap-2 pl-4">
             {basisWhy ? (
               <li className={bullet} data-testid={`${basisId}-why`}>
                 {basisWhy}
@@ -542,14 +569,14 @@ export function ChallengeCard({
       ) : null}
       {respondOpen ? (
         <form
-          className="grid gap-2 pt-[9px] pb-[5px]"
+          className="grid gap-2 pt-2 pb-1"
           data-testid={`${testId}-respond-form`}
           onSubmit={(e) => {
             e.preventDefault()
             sendRespond()
           }}
         >
-          <div className="grid gap-[5px]">
+          <div className="grid gap-1">
             <label className={`${typography.panelBody} text-text-body`} htmlFor={`${testId}-respond-note`}>
               {exercise}
             </label>
@@ -567,7 +594,7 @@ export function ChallengeCard({
               }}
               placeholder={ZONE.respondPlaceholder}
               rows={2}
-              className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-sm border border-field bg-panel px-[9px] py-[7px] text-text-body ${ACTION_FOCUS}`}
+              className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-sm border border-field bg-panel px-2 py-2 text-text-body ${ACTION_FOCUS}`}
               data-testid={`${testId}-respond-note`}
             />
           </div>
@@ -582,7 +609,7 @@ export function ChallengeCard({
             </button>
             {/* V2 `sendButton()`: the words, then the round ➤. The words are
                 the button's own name, so they are hidden from the tree once. */}
-            <span className={`${typography.panelMeta} ml-auto flex items-center gap-[7px] text-text-light`}>
+            <span className={`${typography.panelMeta} ml-auto flex items-center gap-2 text-text-light`}>
               <span aria-hidden={true}>{ZONE.respondSend}</span>
               <button
                 type="submit"

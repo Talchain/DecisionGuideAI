@@ -2109,7 +2109,7 @@ export function AnalysisNewTabBody({
             11px caption over a bold item. That inverted hierarchy read the
             zone's name as a footnote to its own finding. */}
         {/* ⭐⭐ SPACE-1 / FIRST-2 (panel-lane design audit 2026-09-25): the rule's
-            own pt-[11px] (panelSurfaces.ts PANEL_RULE), the ambient space-y-4
+            own pt-3 (panelSurfaces.ts PANEL_RULE), the ambient space-y-4
             margin this group used to inherit (16px), and this title's own
             pt-3 (12px) stacked to a 44px band above "Challenge the thinking" —
             against the prototype's 18px (.section{margin-top:11px;padding-top:11px}

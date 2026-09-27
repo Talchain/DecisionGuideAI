@@ -51,8 +51,9 @@ describe('PANEL_RULE — the one shared full-width divider token', () => {
   })
 
   it('spaces the rule EVENLY: the same step above the line as below it', () => {
-    const above = PANEL_RULE.match(/!mt-\[(\d+)px\]/)
-    const below = PANEL_RULE.match(/\bpt-\[(\d+)px\]/)
+    // 27 Sep 2026: on the 4px grid (`!mt-3 pt-3`, 12px), no longer the prototype's 11px.
+    const above = PANEL_RULE.match(/!mt-(\d+)\b/)
+    const below = PANEL_RULE.match(/\bpt-(\d+)\b/)
     expect(above, 'no explicit above-rule spacing — an ambient space-y would differ per zone').not.toBeNull()
     expect(below, 'no explicit below-rule spacing').not.toBeNull()
     expect(above![1]).toBe(below![1])
@@ -64,7 +65,7 @@ describe('PANEL_RULE — the one shared full-width divider token', () => {
     // SOME zone's space-y — so without `!` the gap above the rule would
     // drift with whichever zone it was dropped into, rather than staying
     // even with the gap below it.
-    expect(PANEL_RULE).toMatch(/!mt-\[/)
+    expect(PANEL_RULE).toMatch(/!mt-\d/)
   })
 })
 

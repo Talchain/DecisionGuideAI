@@ -161,7 +161,7 @@
 
 import { Fragment, useCallback, useId, useState } from 'react'
 import { outcomeValuesAreModelScale } from '../../outcomeValuesAreModelScale'
-import { ChevronRight, Crosshair, Info, Scale, Search, Sparkles } from 'lucide-react'
+import { ChevronRight, Crosshair, Info, Lock, Scale, Search, Sparkles } from 'lucide-react'
 import { NodeMark } from '../nodeMarks'
 import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
@@ -179,7 +179,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 // renders the identical string for the identical fact about the leading option;
 // two spellings of one claim on one screen is how a reader learns to distrust
 // both, and a local literal here could drift from it silently.
-import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
+import { OPTION_ORIGIN_ALL_COPY, OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import type { OptionOrigin } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
@@ -563,7 +563,9 @@ export function OptionsComparison({
    * runs whose target WAS set (served `11ed8874`). The Success row owns
    * target-setting; this section shows only what it can draw.
    */
-  const offerLensControl = lensAvailability.outcome && lensAvailability.goal
+  // ⭐ 27 Sep 2026 (Paul): offered whenever a lens has something to draw. An arm with
+  // nothing to draw is shown LOCKED, with its reason (`LENS_COPY.locked`), as in V2.
+  const offerLensControl = lensAvailability.outcome || lensAvailability.goal
   const rowActionsEnabled =
     onInspectOption !== undefined || onFocusOption !== undefined || onAskAboutOption !== undefined
   /**
@@ -643,6 +645,14 @@ export function OptionsComparison({
     if (origins.length < 2) return null
     return origins.every((x) => x === origins[0]) ? origins[0] : null
   })()
+  /**
+   * ⭐ QUIETER WHEN IT IS TRUE OF EVERY OPTION (27 Sep 2026, Panel's call under Paul's
+   * brief). Four identical ✨ marks on four rows say nothing a single sentence does not,
+   * so when every option shares the origin the marks go and the legend says it once.
+   * With a mix, the marks stay: they are then the only way to tell which is which.
+   */
+  const originIsEveryOption =
+    sharedOrigin !== null && options.rows.length > 0 && options.rows.every((o) => o.origin === sharedOrigin)
 
   /**
    * ⭐ V2 FIDELITY (gap 17): THE BODY, SEPARATED FROM ITS SHELL. `bare` (below)
@@ -734,23 +744,29 @@ export function OptionsComparison({
           {/* ⭐ V2 FIDELITY (gap 19): PILL, NOT A SQUARED BOX. `rounded-md`
               read as ~12px on a ~30px-tall box, close to a pill already; the
               arms inside it were the squared part (`rounded` ≈ 4px against the
-              prototype's 99px). `p-[3px] gap-[3px]` matches the prototype's
+              prototype's 99px). `p-1 gap-1` matches the prototype's
               own `.lens{padding:3px;gap:3px}`. */}
           <div
             role="radiogroup"
             aria-labelledby={`${lensGroupId}-label`}
-            className="flex w-full items-center rounded-full border border-panel-border p-[3px] gap-[3px]"
+            className="flex w-full items-center rounded-full border border-panel-border p-1 gap-1"
             data-testid={`${testId}-lens`}
           >
             {COMPARISON_LENSES.map((arm, i) => {
               const selected = lens === arm
+              const locked = !lensAvailability[arm]
               const control = (
                 <button
                   type="button"
                   role="radio"
                   aria-checked={selected}
+                  aria-disabled={locked || undefined}
+                  aria-describedby={locked ? `${lensGroupId}-locked-${arm}` : undefined}
+                  title={locked ? LENS_COPY.locked[arm] : undefined}
                   tabIndex={selected ? 0 : -1}
-                  onClick={() => setChosenLens(arm)}
+                  onClick={() => {
+                    if (!locked) setChosenLens(arm)
+                  }}
                   onKeyDown={(e) => {
                     const step =
                       e.key === 'ArrowRight' || e.key === 'ArrowDown'
@@ -782,12 +798,19 @@ export function OptionsComparison({
                      `action('quiet')` — that tier is UNDERLINED text-light
                      furniture, the opposite of a segmented control's arm. */
                   className={`${typography.panelBody} ${ACTION_FOCUS} flex-1 inline-flex items-center justify-center min-h-[28px] gap-1 rounded-full px-2 no-underline ${
-                    selected ? LENS_ARM_SELECTED : LENS_ARM_IDLE
+                    selected ? LENS_ARM_SELECTED : locked ? 'text-text-light cursor-default' : LENS_ARM_IDLE
                   }`}
                   data-lens={arm}
+                  data-locked={locked ? 'true' : undefined}
                   data-testid={`${testId}-lens-${arm}`}
                 >
+                  {locked ? <Lock className={icon('inline')} aria-hidden="true" /> : null}
                   {LENS_COPY.arms[arm]}
+                  {locked ? (
+                    <span id={`${lensGroupId}-locked-${arm}`} className="sr-only">
+                      {LENS_COPY.locked[arm]}
+                    </span>
+                  ) : null}
                 </button>
               )
               return <Fragment key={arm}>{control}</Fragment>
@@ -869,7 +892,7 @@ export function OptionsComparison({
                     so it adds nothing to the button's `aria-label`. */}
                 <NodeMark kind="option" className={`${icon('inline')} mr-1 inline-block align-[-1px]`} />
                 <span data-testid={`${testId}-label`}>{o.label}</span>
-                {sharedOrigin !== null && o.origin === sharedOrigin ? (
+                {sharedOrigin !== null && o.origin === sharedOrigin && !originIsEveryOption ? (
                   /* ⚠ `role="img"` WITH THE FULL SENTENCE AS ITS NAME. A bare
                      glyph has no accessible name at all, and this one carries a
                      provenance claim. */
@@ -1210,7 +1233,7 @@ export function OptionsComparison({
           data-option-origin={sharedOrigin}
         >
           <Sparkles className={`${icon('inline')} shrink-0 mt-px`} aria-hidden="true" />
-          {OPTION_ORIGIN_COPY[sharedOrigin]}
+          {originIsEveryOption ? OPTION_ORIGIN_ALL_COPY[sharedOrigin] : OPTION_ORIGIN_COPY[sharedOrigin]}
         </p>
       ) : null}
       {showAxis && rangeInfoOpen ? (
@@ -1237,7 +1260,7 @@ export function OptionsComparison({
             <div
               role="radiogroup"
               aria-labelledby={`${rangeLensId}-label`}
-              className="flex items-center rounded-full border border-panel-border p-[3px] gap-[3px]"
+              className="flex items-center rounded-full border border-panel-border p-1 gap-1"
               data-testid={`${testId}-range-lens`}
             >
               {RANGE_LENS_ARMS.map((arm, i) => {

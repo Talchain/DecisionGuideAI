@@ -149,6 +149,16 @@ export const COMPARISON_LENS_COPY = {
     outcome: 'Modelled outcome',
     goal: 'Goal fit',
   } satisfies Record<ComparisonLens, string>,
+  /**
+   * Why an arm is locked (27 Sep 2026, Paul: bring the locked Goal fit back, as in the V2
+   * prototype). True in every case `goalFitAvailable` is false: no option came back with
+   * a chance of reaching the target, whether no target was set or the run did not compute it.
+   * ⛔ It does not claim which of the two, which the old locked arm got wrong (#63 5806258826).
+   */
+  locked: {
+    outcome: 'This run did not return a range for these options.',
+    goal: "Goal fit shows each option's chance of reaching your target. This run did not return one.",
+  } satisfies Record<ComparisonLens, string>,
   rowActions: (label: string): string => `Show actions for ${label}`,
   inspectInModel: (label: string): string => `Inspect ${label} in Model`,
   focusOnCanvas: (label: string): string => `Focus ${label} on the canvas`,

@@ -112,6 +112,11 @@ export const OPTION_ORIGIN_COPY: Record<OptionOrigin, string> = {
   ai_suggested: 'Olumi suggested this option, you did not name it',
 }
 
+/** The same fact when it is true of EVERY option in the list: said once, no per-row marks (27 Sep 2026). */
+export const OPTION_ORIGIN_ALL_COPY: Record<OptionOrigin, string> = {
+  ai_suggested: 'Olumi suggested all of these options; you did not name them',
+}
+
 /**
  * Whose option is this? `null` means SAY NOTHING, and it is the common answer.
  *

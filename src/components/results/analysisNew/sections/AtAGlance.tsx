@@ -729,8 +729,8 @@ export function AtAGlance({
              — not an amber box. `'all'` keeps the boxed ribbon. */
           className={
             part === 'status'
-              ? 'flex flex-wrap items-center justify-between gap-1.5'
-              : `flex flex-wrap items-start gap-1.5 ${inset('warning')}`
+              ? 'flex flex-wrap items-center justify-between gap-2'
+              : `flex flex-wrap items-start gap-2 ${inset('warning')}`
           }
           role="status"
           data-testid={`${testId}-ribbon`}
@@ -739,7 +739,7 @@ export function AtAGlance({
           {part === 'status' && ribbon.every((r) => r.testId === 'analysis-new-status-stale' || r.testId === 'analysis-new-status-freshness-unknown') ? (
             <Clock className={`${icon('inline')} shrink-0 text-warning-ink`} aria-hidden="true" data-icon="clock" />
           ) : (
-            <AlertTriangle className={`${icon('inline')} ${part === 'status' ? '' : 'mt-[3px] '}shrink-0 text-warning-ink`} aria-hidden="true" />
+            <AlertTriangle className={`${icon('inline')} ${part === 'status' ? '' : 'mt-1 '}shrink-0 text-warning-ink`} aria-hidden="true" />
           )}
           {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
               had to go: `min-w-0` says "I will shrink to nothing", which is
@@ -1082,7 +1082,7 @@ export function AtAGlance({
               /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the ribbon's
                  review-estimates control above — `hover:text-info-hover`
                  replaces the failing `hover:opacity-80`. */
-              className={`${typography.panelMeta} mt-1.5 ${action('inline')} underline-offset-2 hover:text-info-hover`}
+              className={`${typography.panelMeta} mt-2 ${action('inline')} underline-offset-2 hover:text-info-hover`}
               data-testid={`${testId}-withheld-review-estimates`}
             >
               {COPY.glance.reviewEstimates}
@@ -1215,7 +1215,7 @@ export function AtAGlance({
                 <PanelFigure
                   variant="share"
                   tone={glance.verdict.tone === 'stable' ? 'stable' : 'caution'}
-                  className="mt-1.5"
+                  className="mt-2"
                   fraction={glance.winFraction}
                   testId={`${testId}-win-bar`}
                 />
@@ -1285,14 +1285,14 @@ export function AtAGlance({
             ).map((o) => (
               <li
                 key={o.id}
-                className={`${typography.panelMeta} text-text-light flex items-start gap-1.5`}
+                className={`${typography.panelMeta} text-text-light flex items-start gap-2`}
                 data-testid={`${testId}-excluded-option`}
                 data-option-id={o.id}
                 /* ⛔ `null` IS NO TOOLTIP, not an empty one: the view model
                    withheld a ground it could not license (see `reasonCopy`). */
                 title={o.reasonCopy ?? undefined}
               >
-                <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="text-text-body">{o.label}</span>
                   {/* ⭐ A FULL STOP, NOT A DASH. Paul, 10 Sep 2026: no em dashes in
@@ -1333,10 +1333,10 @@ export function AtAGlance({
               const unnameable = s.total - s.analysed - partialScope.excluded.length
               return unnameable > 0 ? (
                 <li
-                  className={`${typography.panelMeta} text-text-light flex items-start gap-1.5`}
+                  className={`${typography.panelMeta} text-text-light flex items-start gap-2`}
                   data-testid={`${testId}-excluded-unnamed`}
                 >
-                  <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
+                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     {COPY.disclosure.unnamedExcluded(unnameable)}
                   </span>
@@ -1400,7 +1400,7 @@ export function AtAGlance({
           const Row = (
             <>
               <AlertTriangle
-                className={`${icon('row')} mt-[3px] shrink-0 text-warning-ink`}
+                className={`${icon('row')} mt-1 shrink-0 text-warning-ink`}
                 aria-hidden="true"
               />
               <span className="min-w-0 flex-1">
@@ -1421,14 +1421,14 @@ export function AtAGlance({
                 <button
                   type="button"
                   onClick={() => onFocusTarget!(glance.condition!.targetId!)}
-                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-2 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-condition-focus`}
                 >
                   {Row}
                 </button>
               ) : (
                 <p
-                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 m-0`}
+                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-2 m-0`}
                 >
                   {Row}
                 </p>

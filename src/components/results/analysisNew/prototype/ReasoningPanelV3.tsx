@@ -108,7 +108,7 @@ export interface ReasoningPanelV3Props {
 function Kicker({ children, testId }: { children: string; testId: string }) {
   return (
     <p
-      className={`${typography.panelMeta} text-text-light mt-4 mb-1.5 first:mt-0`}
+      className={`${typography.panelMeta} text-text-light mt-4 mb-2 first:mt-0`}
       data-testid={testId}
     >
       {children}

@@ -1268,10 +1268,10 @@ export function StrengthenTheReasoning({
                 </p>
 
                 {rec.category || grounding || method ? (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     {rec.category ? (
                       <span
-                        className={`${typography.panelMeta} inline-flex items-center rounded-pill border bg-transparent px-1.5 ${SEVERITY_BADGE_CLASS[rec.category]}`}
+                        className={`${typography.panelMeta} inline-flex items-center rounded-pill border bg-transparent px-2 ${SEVERITY_BADGE_CLASS[rec.category]}`}
                         data-testid={`${testId}-severity`}
                         data-category={rec.category}
                       >
@@ -1539,7 +1539,7 @@ export function StrengthenTheReasoning({
                     together, which is the whole point. */}
                 {disputingId === rec.id ? (
                   <div
-                    className="mt-1.5"
+                    className="mt-2"
                     id={`${testId}-disagree-form-${rec.id}`}
                     data-testid={`${testId}-disagree-form`}
                   >
@@ -1605,7 +1605,7 @@ export function StrengthenTheReasoning({
                   </div>
                 ) : standingDispute ? (
                   <p
-                    className={`${typography.panelBody} mt-1.5 mb-0 rounded border border-attention/40 bg-panel-hover px-2 py-1 text-text-body`}
+                    className={`${typography.panelBody} mt-2 mb-0 rounded border border-attention/40 bg-panel-hover px-2 py-1 text-text-body`}
                     data-testid={`${testId}-disagreement`}
                     data-recommendation-id={rec.id}
                   >
@@ -1662,7 +1662,7 @@ export function StrengthenTheReasoning({
 
                 {rec.sourceLine ? (
                   <p
-                    className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}
+                    className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
                     data-testid={`${testId}-source`}
                   >
                     {rec.sourceLine}
@@ -1719,7 +1719,7 @@ export function StrengthenTheReasoning({
 
           {historyOpen ? (
             <ul
-              className="mt-1.5 space-y-1.5 list-none p-0 m-0"
+              className="mt-2 space-y-2 list-none p-0 m-0"
               data-testid={`${testId}-history`}
             >
               {retired.map((record) => {

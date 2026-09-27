@@ -691,8 +691,8 @@ export function SuccessTargetLine({
     <div
       className={
         divider
-          ? 'flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2'
-          : 'flex items-baseline gap-1.5 mt-1'
+          ? 'flex items-baseline gap-2 border-t border-panel-border pt-2 mt-2'
+          : 'flex items-baseline gap-2 mt-1'
       }
       data-testid={testId}
     >
@@ -707,7 +707,7 @@ export function SuccessTargetLine({
 
       {editing ? (
         <span
-          className="flex flex-col gap-1.5 min-w-0 flex-1"
+          className="flex flex-col gap-2 min-w-0 flex-1"
           data-testid={`${testId}-editor`}
         >
           {/* ⭐ E2/E3: WHICH WAY THIS EDIT IS CAPTURED — the prototype's own
@@ -747,7 +747,7 @@ export function SuccessTargetLine({
           </span>
 
           {mode === 'number' ? (
-            <span className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span className="flex items-center gap-2 min-w-0 flex-1">
               {/*
                 ⭐⭐ THE DIRECTION, IN WORDS, BEFORE THE NUMBER — so the row reads
                 as the sentence it sends: "Target · at least · 12". It sits
@@ -783,7 +783,7 @@ export function SuccessTargetLine({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={onEditorKeyDown}
                 aria-label={COPY.successTarget.inputLabel}
-                className={`${typography.panelMeta} min-w-0 flex-1 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} min-w-0 flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-input`}
               />
               {/* ⭐⭐ THE UNIT, WHERE THE GOAL DECLARES NONE. `proposeGoalTarget`
@@ -810,7 +810,7 @@ export function SuccessTargetLine({
                   onKeyDown={onEditorKeyDown}
                   aria-label={COPY.successTarget.unitInputLabel}
                   placeholder={COPY.successTarget.unitPlaceholder}
-                  className={`${typography.panelMeta} w-24 shrink-0 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} w-24 shrink-0 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-unit`}
                 />
               ) : null}
@@ -830,7 +830,7 @@ export function SuccessTargetLine({
                 onKeyDown={onWordsKeyDown}
                 placeholder={WORDS_PLACEHOLDER}
                 rows={2}
-                className={`${typography.panelMeta} min-w-0 rounded-sm border border-field bg-surface px-1.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} min-w-0 rounded-sm border border-field bg-surface px-2 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-words-input`}
               />
             </span>
@@ -1042,8 +1042,8 @@ function ReasoningSuccessRow({
   form: ReactNode
 }) {
   return (
-    <div data-testid={testId} data-variant="reasoning" className="mt-[3px]">
-      <div className="flex items-center gap-1.5 min-h-[26px]" data-testid={`${testId}-row`}>
+    <div data-testid={testId} data-variant="reasoning" className="mt-1">
+      <div className="flex items-center gap-2 min-h-[26px]" data-testid={`${testId}-row`}>
         <Target className={`${icon('row')} shrink-0 text-text-light`} aria-hidden="true" />
         {shownText !== null ? (
           <span
@@ -1079,7 +1079,7 @@ function ReasoningSuccessRow({
 }
 
 /** The prototype's `.form` field chrome: 12px, the field border, 7px radius. */
-const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-[9px] py-[7px] text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const FIELD_CLASS = `${typography.panelBody} w-full min-w-0 rounded-[7px] border border-field bg-panel px-2 py-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 /**
  * ⭐ THE V2 PROTOTYPE'S `goal-form`, UNDER THE ROW. Every control here is
@@ -1150,7 +1150,7 @@ function ReasoningSuccessForm({
   const sendDisabled = mode === 'words' && wordsDraft.trim() === ''
   return (
     <div
-      className="grid gap-2 pt-[9px] pb-[5px]"
+      className="grid gap-2 pt-2 pb-1"
       data-testid={`${testId}-editor`}
       /* ⭐ ESCAPE FROM ANYWHERE IN THE FORM (#2075 review note). The fields
          handle their own Escape and `preventDefault` it; this catches the
@@ -1175,24 +1175,24 @@ function ReasoningSuccessForm({
         <strong>{MODE_GROUP_LABEL}</strong>
       </span>
       <span role="radiogroup" aria-labelledby={ids.formLabelId} className="flex flex-wrap items-center gap-3">
-        <label className={`${typography.panelBody} flex items-center gap-[5px] text-text-body`}>
+        <label className={`${typography.panelBody} flex items-center gap-1 text-text-body`}>
           <input
             type="radio"
             name={`${testId}-goal-mode`}
             checked={mode === 'words'}
             onChange={() => onMode('words')}
-            className="ml-[5px] mr-[3px]"
+            className="ml-1 mr-1"
             data-testid={`${testId}-mode-words`}
           />
           {WORDS_MODE_LABEL}
         </label>
-        <label className={`${typography.panelBody} flex items-center gap-[5px] text-text-body`}>
+        <label className={`${typography.panelBody} flex items-center gap-1 text-text-body`}>
           <input
             type="radio"
             name={`${testId}-goal-mode`}
             checked={mode === 'number'}
             onChange={() => onMode('number')}
-            className="ml-[5px] mr-[3px]"
+            className="ml-1 mr-1"
             data-testid={`${testId}-mode-number`}
           />
           {NUMBER_MODE_LABEL}
@@ -1200,7 +1200,7 @@ function ReasoningSuccessForm({
       </span>
 
       {mode === 'words' ? (
-        <label htmlFor={ids.wordsInputId} className={`${typography.panelBody} grid gap-[5px] text-text-body`}>
+        <label htmlFor={ids.wordsInputId} className={`${typography.panelBody} grid gap-1 text-text-body`}>
           {WORDS_INPUT_LABEL}
           <textarea
             id={ids.wordsInputId}
@@ -1218,11 +1218,11 @@ function ReasoningSuccessForm({
           <div
             className={
               hasDeclaredUnit
-                ? 'grid gap-[5px]'
+                ? 'grid gap-1'
                 : 'grid grid-cols-[minmax(0,1fr)_minmax(68px,.65fr)] gap-2'
             }
           >
-            <div className="grid gap-[5px] min-w-0">
+            <div className="grid gap-1 min-w-0">
               <label htmlFor={ids.numberInputId} className={`${typography.panelBody} text-text-body`}>
                 {/* The goal's OWN unit, verbatim, beside the measure — the
                     prototype's "Productivity improvement (%)". */}
@@ -1230,7 +1230,7 @@ function ReasoningSuccessForm({
                   ? `${COPY.successTarget.numberLabel} (${declaredUnit})`
                   : COPY.successTarget.numberLabel}
               </label>
-              <span className="flex items-center gap-1.5 min-w-0">
+              <span className="flex items-center gap-2 min-w-0">
                 <select
                   value={direction}
                   onChange={(e) => onDirection(e.target.value as ConstraintType)}
@@ -1256,7 +1256,7 @@ function ReasoningSuccessForm({
               </span>
             </div>
             {hasDeclaredUnit ? null : (
-              <div className="grid gap-[5px] min-w-0 content-start">
+              <div className="grid gap-1 min-w-0 content-start">
                 <label htmlFor={ids.unitInputId} className={`${typography.panelBody} text-text-body`}>
                   {COPY.successTarget.unitLabel}
                 </label>
@@ -1288,7 +1288,7 @@ function ReasoningSuccessForm({
         >
           {NOT_SURE_YET_LABEL}
         </button>
-        <span className={`${typography.panelMeta} ml-auto flex items-center gap-[7px] text-text-light`}>
+        <span className={`${typography.panelMeta} ml-auto flex items-center gap-2 text-text-light`}>
           <span aria-hidden="true">{sendLabel}</span>
           <button
             type="button"

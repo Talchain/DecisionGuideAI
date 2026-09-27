@@ -186,12 +186,19 @@ describe('the two lenses', () => {
    * set: a control that can never be pressed, stating a cause it cannot know.
    * With one lens there is nothing to choose, so no control is offered.
    */
-  it('⭐ no goal figures: no lens control at all — the outcome view shows, nothing locked', () => {
+  // ⭐ 27 Sep 2026 (Paul: bring the locked Goal fit back, as in V2). The lock now states a
+  // reason that is true in every case (`LENS_COPY.locked.goal`), not the old invented cause.
+  it('⭐ no goal figures: Goal fit is shown LOCKED with a true reason, and a click changes nothing', () => {
     renderRun(dataFor({ goals: false }))
-    expect(screen.queryByTestId(`${T}-lens-control`), 'one lens: nothing to choose').toBeNull()
-    expect(screen.queryByTestId(`${T}-lens-goal`)).toBeNull()
-    expect(document.querySelector('[data-locked="true"]')).toBeNull()
-    expect(document.querySelector('[aria-disabled="true"]')).toBeNull()
+    expect(screen.getByTestId(`${T}-lens-control`)).toBeInTheDocument()
+    const goal = screen.getByTestId(`${T}-lens-goal`)
+    expect(goal).toHaveAttribute('data-locked', 'true')
+    expect(goal).toHaveAttribute('aria-disabled', 'true')
+    expect(goal).toHaveAccessibleDescription(LENS_COPY.locked.goal)
+    expect(goal.querySelector('.lucide-lock')).not.toBeNull()
+    fireEvent.click(goal)
+    expect(goal).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByTestId(`${T}-lens-outcome`)).toHaveAttribute('aria-checked', 'true')
     // The outcome figures are what shows.
     expect(bandsDrawn()).toEqual(IDS)
     expect(screen.queryAllByTestId(`${T}-goal`)).toHaveLength(0)
@@ -221,9 +228,10 @@ describe('the two lenses', () => {
     expect(lensArm('goal')).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('goal figures but no ranges: no control (one lens, nothing to choose), goal figures shown', () => {
+  it('goal figures but no ranges: Modelled outcome is the locked arm, goal figures shown', () => {
     renderRun(dataFor({ ranges: false }))
-    expect(screen.queryByTestId(`${T}-lens`)).toBeNull()
+    expect(screen.getByTestId(`${T}-lens-outcome`)).toHaveAttribute('data-locked', 'true')
+    expect(screen.getByTestId(`${T}-lens-goal`)).toHaveAttribute('aria-checked', 'true')
     expect(goalReadouts()).toEqual(['82%', '12%', '44%'])
   })
 
@@ -248,8 +256,9 @@ describe('the two lenses', () => {
     expect(lensArm('goal'), 'PRECONDITION: the reader is on Goal fit').toHaveAttribute('aria-checked', 'true')
     const vm2 = vmFor(dataFor({ goals: false }))
     rerender(<OptionsComparison options={vm2.optionsComparison} defaultOpen />)
-    // One lens left: the control goes, and the outcome view is what shows.
-    expect(screen.queryByTestId(`${T}-lens-control`)).toBeNull()
+    // One lens left: Goal fit locks, and the outcome view is what shows.
+    expect(lensArm('goal')).toHaveAttribute('data-locked', 'true')
+    expect(lensArm('outcome')).toHaveAttribute('aria-checked', 'true')
     expect(bandsDrawn()).toEqual(IDS)
   })
 })

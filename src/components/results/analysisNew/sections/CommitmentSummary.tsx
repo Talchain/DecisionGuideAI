@@ -174,7 +174,7 @@ function RecordYourView({
         <button
           type="button"
           onClick={onRecord}
-          className={`${typography.panelBody} ${action('inline')} gap-1.5 text-left underline hover:text-info-hover`}
+          className={`${typography.panelBody} ${action('inline')} gap-2 text-left underline hover:text-info-hover`}
           data-testid={`${testId}-open`}
         >
           <NotebookPen className={`${icon('row')} text-text-light shrink-0`} aria-hidden={true} />
@@ -188,7 +188,7 @@ function RecordYourView({
   const recordedOn = formatRecordedOn(record.savedAt)
   return (
     <div data-testid={testId}>
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
         <p
           className={`${typography.panelBody} text-text-header m-0 min-w-0 flex-1`}
           data-testid={`${testId}-title`}
@@ -278,7 +278,7 @@ export function CommitmentSummary({
       data-testid={testId}
       aria-labelledby={`${testId}-title`}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <h3
           id={`${testId}-title`}
           className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}
@@ -303,7 +303,7 @@ export function CommitmentSummary({
       </div>
 
       {bullets.length > 0 ? (
-        <div className="mt-1.5" data-testid={`${testId}-synthesis`}>
+        <div className="mt-2" data-testid={`${testId}-synthesis`}>
           {/* ⛔ NO SECOND STALE MARKER HERE. The glance's status row (the
               `status` slot, just below) says which staleness it is; a marker
               here stated freshness twice, and its "From an earlier run"
@@ -316,7 +316,7 @@ export function CommitmentSummary({
               indent. a `<b>` label matches its `b{font-weight:
               600}`, against the plain body weight the label shared with its
               sentence before. */}
-          <ul className="list-disc pl-3.5 m-0 space-y-1">
+          <ul className="list-disc pl-4 m-0 space-y-1">
             {bullets.map((b) => (
               <li
                 key={b.key}
@@ -373,7 +373,7 @@ export function CommitmentSummary({
       {hasSlot && qualifier ? (
         <>
           <p
-            className={`${typography.panelMeta} text-text-body m-0 mt-1.5 flex items-center gap-1`}
+            className={`${typography.panelMeta} text-text-body m-0 mt-2 flex items-center gap-1`}
             data-testid={`${testId}-qualifier`}
           >
             <Info className="h-3 w-3 shrink-0 text-text-light" aria-hidden={true} />

@@ -163,11 +163,11 @@ export function methodStripLabel(method: MethodEntry, raised: boolean): string {
  * current method in info; the separator runs to the popover's edges.
  */
 export const METHOD_MENU_POPOVER_CLASS =
-  'absolute right-0 top-full z-20 mt-1.5 w-[252px] max-w-[calc(100vw-20px)] rounded-md border border-border-emphasis bg-panel p-[7px] shadow-2'
-export const METHOD_MENU_SEPARATOR_CLASS = '-mx-[7px] my-[5px] border-b border-panel-border'
+  'absolute right-0 top-full z-20 mt-2 w-[252px] max-w-[calc(100vw-20px)] rounded-md border border-border-emphasis bg-panel p-2 shadow-2'
+export const METHOD_MENU_SEPARATOR_CLASS = '-mx-2 my-1 border-b border-panel-border'
 export const METHOD_MENU_GLYPH_CLASS = `${icon('row')} shrink-0 text-text-light`
 export function methodMenuRowClass(current: boolean): string {
-  return `flex w-full min-h-[34px] min-w-[24px] items-center gap-[9px] rounded-sm px-2 py-[7px] text-left ${typography.panelBody} hover:bg-panel-hover focus-visible:bg-panel-hover ${
+  return `flex w-full min-h-[34px] min-w-[24px] items-center gap-2 rounded-sm px-2 py-2 text-left ${typography.panelBody} hover:bg-panel-hover focus-visible:bg-panel-hover ${
     current ? 'text-info' : 'text-text-body'
   } ${ACTION_FOCUS}`
 }
@@ -304,7 +304,7 @@ export function MethodStrip({
 
   const itemClass = methodMenuRowClass
   const glyphClass = METHOD_MENU_GLYPH_CLASS
-  const labelClass = `${typography.panelMeta} block px-2 py-[5px] text-text-light`
+  const labelClass = `${typography.panelMeta} block px-2 py-1 text-text-light`
 
   const moreLabel =
     raisedInOverflow.length > 0
@@ -323,7 +323,7 @@ export function MethodStrip({
       className="-mb-2"
     >
       {/* V2 prototype `.methodstrip`: 6px between circles, 4px in a narrow panel. */}
-      <div className={`flex items-center ${compact ? 'gap-1' : 'gap-1.5'} min-h-[38px]`}>
+      <div className={`flex items-center ${compact ? 'gap-1' : 'gap-2'} min-h-[38px]`}>
         {iconMethods.map(({ id, method }) => (
           <StripButton
             key={id}

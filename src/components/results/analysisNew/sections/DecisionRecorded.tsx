@@ -207,7 +207,7 @@ function Field({
   const text = value?.trim()
   if (!text) return null
   return (
-    <div className="mt-1.5" data-testid={testId}>
+    <div className="mt-2" data-testid={testId}>
       <p className={`${typography.panelMeta} text-text-light m-0`}>{label}</p>
       <p className={`${typography.panelBody} text-text-body m-0`}>{text}</p>
     </div>
@@ -369,7 +369,7 @@ export function DecisionRecorded({
               <button
                 type="button"
                 onClick={onRecord}
-                className={`${typography.panelMeta} mt-1.5 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} mt-2 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testId}-open`}
               >
                 {COPY.decisionRecord.open}
@@ -473,7 +473,7 @@ export function DecisionRecorded({
                 <button
                   type="button"
                   onClick={onRecord}
-                  className={`${typography.panelMeta} mt-1.5 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} mt-2 ${action('neutral')} focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-update`}
                 >
                   {COPY.decisionRecord.update}

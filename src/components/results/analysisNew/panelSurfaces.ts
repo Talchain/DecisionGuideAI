@@ -62,7 +62,7 @@
  * Tone survives only as the rule's colour, so a caveat is still told apart
  * without a tint; the words and icon carry the meaning.
  */
-export const PANEL_SURFACE = 'border-b py-2.5'
+export const PANEL_SURFACE = 'border-b py-3'
 
 /**
  * A box nested INSIDE a section box. Same rule, one level down.
@@ -70,7 +70,7 @@ export const PANEL_SURFACE = 'border-b py-2.5'
 /*
  * V2: NO NESTED CARDS. An inset is spacing only: no border, no radius, no fill.
  */
-export const PANEL_INSET = 'py-1.5'
+export const PANEL_INSET = 'py-2'
 
 /**
  * The tones a container may carry, and the complete list of them.
@@ -145,7 +145,7 @@ export type SurfaceTone = keyof typeof SURFACE_TONE
  * colour; this rule never does — it is `border-panel-border` at every call
  * site, full stop, which is what "never a tint" means.
  */
-export const PANEL_RULE = '-mx-4 px-4 !mt-[11px] border-t border-panel-border pt-[11px]'
+export const PANEL_RULE = '-mx-4 px-4 !mt-3 border-t border-panel-border pt-3'
 
 /**
  * A PRESSABLE box at inset level — the glance's promoted action, and today its
@@ -201,7 +201,7 @@ export const PANEL_RULE = '-mx-4 px-4 !mt-[11px] border-t border-panel-border pt
  * something; it is not a licence to outline the next card too.
  */
 export const PANEL_INSET_ACTION =
-  'rounded border border-info/80 px-2 py-1.5 bg-info/[0.06] hover:bg-info/10'
+  'rounded border border-info/80 px-2 py-2 bg-info/[0.06] hover:bg-info/10'
 
 /** `surface('success')` → the complete className for a top-level box. */
 export function surface(tone: SurfaceTone): string {
@@ -410,7 +410,7 @@ export const ACTION_TIER = {
    * without recommending, e.g. recording a decision. Carries a border rather
    * than a fill so it reads as available, not urged.
    */
-  neutral: 'inline-flex items-center min-h-[24px] min-w-[24px] px-2.5 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
+  neutral: 'inline-flex items-center min-h-[24px] min-w-[24px] px-3 py-1 rounded-full border border-panel-border hover:bg-panel-hover',
   /**
    * AN INFO TEXT-BUTTON, LED BY AN ICON — the prototype's `.textbutton`
    * shape (design-audit-20260925, gap ACTION-2): a control that is neither
@@ -429,7 +429,7 @@ export const ACTION_TIER = {
    * a link. TOKEN ONLY this pass — no consumer in this bundle's owned files;
    * the call site (`ReasoningSignals.tsx`) belongs to a different bundle.
    */
-  disclose: 'inline-flex items-center gap-1.5 min-h-[24px] min-w-[24px] py-1 rounded text-left text-text-body hover:text-info',
+  disclose: 'inline-flex items-center gap-2 min-h-[24px] min-w-[24px] py-1 rounded text-left text-text-body hover:text-info',
 } as const
 
 /**
