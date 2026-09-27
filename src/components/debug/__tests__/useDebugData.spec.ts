@@ -556,8 +556,9 @@ describe('useDebugData', () => {
             { id: '5', data: { kind: 'factor' } },
             { id: '6', data: { kind: 'factor' } },
             { id: '7', data: { kind: 'factor' } },
-            // D-6 (i21, 27 Sep): risk was not counted.
-            { id: '8', data: { kind: 'risk' } },
+            // D-6 (i21, 27 Sep): risk was not counted. (Cast: the neighbours'
+            // literals are baseline type errors; this one must not add another.)
+            { id: '8', data: { kind: 'risk' } } as never,
           ],
           edges: [
             { id: 'e1', source: '1', target: '2' },
