@@ -2243,14 +2243,25 @@ export function AnalysisNewTabBody({
                 repeat the identical h3/panelHeader grammar one level down — the
                 "Top drivers rows sit directly above a 'What moves the outcome'
                 header with a nested 'Drivers and dynamics' header" gap.
-                `headingLevel="label"` drops the nested heading tag entirely (not
-                just its weight — see `SectionShell`'s doc for why a visual-only
-                demotion would not have closed this); content, count, rows and
-                every testid are unchanged. */}
+                `headingLevel="label"` dropped the nested heading TAG (not just
+                its weight) but kept the nested toggle BUTTON, count badge and
+                chevron — so opening "What moves the outcome" still met a
+                second closed door.
+                ⭐⭐ TAIL-3 (panel-lane design audit 2026-09-25, wave 2): `bare`
+                drops that second door entirely. The prototype's
+                `insightsHTML()` shows drivers exactly once, behind ONE
+                `.disclose` — the outer one (now itself relocated inside the
+                challenge's "Assumptions and evidence" door, per the 25 Sep
+                one-bundle pass — the nesting problem this fixes is unchanged
+                by that move). Content, rows and every testid are unchanged;
+                only the redundant inner toggle is gone. Rows render at
+                `headlineTone="body"` (see `AnalysisNewSection`/
+                `DisclosureRow`) so the flat list reads as compact rows, not a
+                section of its own. */}
             <AnalysisNewSection
               title={COPY.sections.drivers}
               subtitle={COPY.sectionSubtitles.drivers}
-              headingLevel="label"
+              bare
               findings={vm.drivers.findings}
               preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
               // ⚠ The caveat is a function of the PRODUCER's provenance token, not
@@ -2332,7 +2343,12 @@ export function AnalysisNewTabBody({
                 inconsistency would be the defect, not the fix. */}
             {vm.uncertainty.decisionVoi !== 'not_computed' ? (
               <section
-                className="border-t border-panel-border pt-3"
+                /* TAIL-3 (wave 2): the top rule read as a boundary between two
+                   sections when "Drivers and dynamics" was itself a bordered
+                   accordion. Now that it is `bare` (a flat continuation of the
+                   same disclosure), a rule here would draw a section edge that
+                   does not exist — `mt-3` keeps the same spacing with no line. */
+                className="mt-3"
                 data-testid="analysis-new-decision-voi-section"
                 aria-labelledby="analysis-new-decision-voi-heading"
               >
@@ -2744,12 +2760,50 @@ export function AnalysisNewTabBody({
             entitlement; splitting them is what put a withheld claim on screen
             before. Moving the fragment moves both. */}
         {answerBlock}
+        {/* ⭐⭐ S1 (design wave 2, panel-lane design audit 2026-09-25): THE ACT
+            STAYS REACHABLE FROM THE FIRST SCREEN EVEN THOUGH ITS SENTENCE DOES
+            NOT. The refusal that licenses "Review or set an estimate" now sits
+            behind the closed `AtAGlance` disclosure two lines below — see
+            `renderGlance('reading')`'s own note — but the act it offers must
+            not go behind that same click, or a reader with an estimate to set
+            would have to open a block ABOUT the reason before finding the
+            fix. This is a quiet, one-line duplicate of that same act (never a
+            second act — one handler, `reviewEstimates`, same gate
+            `vm.atAGlance.designationWithheldRemedy === 'estimate'` `AtAGlance`
+            itself uses), so the two copies cannot answer differently.
+
+            ⚠ SUPERSEDE THIS ONCE `CommitmentSummary` GROWS ITS OWN "Before
+            acting: Review or set an estimate" BULLET — that is the more
+            direct route (inside "Move towards commitment" itself) and this
+            line exists only because that bullet is not merged yet
+            (`commitmentSynthesis.ts`'s `beforeBullet` today only ever returns
+            a re-run prompt or the top Strengthen intervention). Do not add
+            both: a reader who sees the same act twice on one screen has
+            gained nothing by it being reachable, once, from the first one. */}
+        {reviewEstimates && vm.atAGlance.designationWithheldRemedy === 'estimate' ? (
+          <button
+            type="button"
+            onClick={reviewEstimates}
+            className={`${typography.panelMeta} ${action('inline')} underline-offset-2 hover:opacity-80`}
+            data-testid="analysis-new-review-estimates-under-commitment"
+          >
+            {COPY.glance.reviewEstimates}
+          </button>
+        ) : null}
         {/* ⭐ V2: THE READING FOLLOWS THE ANSWER. The prototype has no reading above
             the chart; its stale row sits in the commitment block, above it. The
             glance's status ribbon therefore stays above "Move towards
             commitment" and its reading (the withheld reason and its act, the
             reading, the scope, the condition) moves here, so the chart and its
-            qualifier reach the first screen (fidelity gap 1; #63 5825359499). */}
+            qualifier reach the first screen (fidelity gap 1; #63 5825359499).
+
+            ⭐⭐ S1 (wave 2): AND ITS OWN WITHHELD-REASON BLOCK NO LONGER SITS ON
+            THE DEFAULT SCROLL. `AtAGlance` gates that one block behind a
+            closed-at-rest disclosure now — see its own doc comment on the
+            block for why, and `theWithheldConclusionIsOneClickAway.spec.tsx`
+            for the pin. Everything else `showReading` renders (the win-share
+            reading, the scope note, the condition) is unchanged and stays on
+            the first screen. */}
         {renderGlance('reading')}
 
         {/* ── HOW FAR THIS HOLDS ────────────────────────────────────────────
@@ -2856,7 +2910,7 @@ export function AnalysisNewTabBody({
         </div>
         )}
 
-        {/* ── FOCUS NOW, AFTER THE ANSWER (Reasoning V2, 24 Sep 2026) ─────────
+        {/* ── FOCUS NOW, AFTER THE ANSWER (Reasoning V2, 24 Sep 2026) ─────
             ⚠ REVERSES Paul's 18 Sep "make it first-screen". The methods that
             instruction was about now live in the MethodStrip at the top; what is
             left here is `FocusNowContainer`'s run-specific nudges ("Strengthen
@@ -2867,7 +2921,6 @@ export function AnalysisNewTabBody({
             run-specific nudges stay on the Analysis tab (FocusNowContainer's
             home); the success nudge is the model strip's own "What would
             success look like?" row. */}
-
         {/* ── STRENGTHEN THE REASONING ──────────────────────────────────────
             ⭐⭐ DIRECTLY UNDER THE GLANCE — MOVED HERE FROM SEVENTH OF TEN.
             The standing explanation for this tab's incoherence was that "the

@@ -16,7 +16,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
-import { genuineDecision } from './analysisNewFixtures'
+import { genuineDecision, openStrategicChallenge } from './analysisNewFixtures'
 import { buildModelStrip } from '../buildModelStrip'
 import { applicableStaticFocusIds } from '../focusNowApplicability'
 
@@ -109,5 +109,81 @@ describe('TAIL-1 — "What moves the outcome" is a quiet SectionShell disclose d
     const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
     expect(toggle.className).toMatch(/text-xs/)
     expect(toggle.className).not.toMatch(/font-semibold/)
+  })
+})
+describe('TAIL-3 — "Drivers and dynamics" is not a second closed door inside "What moves the outcome"', () => {
+  /** Two live drivers, so the OLD nested SectionShell would default CLOSED
+   * (`sectionOpensItself` only auto-opens on exactly one finding) — the exact
+   * state that hid a second toggle behind the first. */
+  const renderTwoDrivers = () =>
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={openStrategicChallenge()}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="h-tail-3"
+      />,
+    )
+
+  /**
+   * ⚠ TWO DOORS DEEP, NOW. The 25 Sep one-bundle pass relocated "What moves
+   * the outcome" from its own answer-zone SectionShell into the challenge's
+   * "Assumptions and evidence" door (`ReasoningSignals`'s `evidenceSlot`,
+   * gated on ITS OWN `open` state) — so `analysis-new-what-moves-the-outcome
+   * -toggle` is not even mounted until `analysis-new-signals-disclose` opens
+   * first. TAIL-3 itself (the nested drivers toggle) is unaffected by that
+   * move; only the path to reach it grew by one door.
+   */
+  const openWhatMovesTheOutcome = () => {
+    const evidenceDoor = screen.getByTestId('analysis-new-signals-disclose')
+    if (evidenceDoor.getAttribute('aria-expanded') !== 'true') fireEvent.click(evidenceDoor)
+    const toggle = screen.getByTestId('analysis-new-what-moves-the-outcome-toggle')
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  }
+
+  it('has no nested drivers toggle — the outer disclosure is the only door', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    expect(screen.getByTestId('analysis-new-drivers')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-new-drivers-toggle')).toBeNull()
+  })
+
+  it('the count the badge used to show is still carried, on the section itself', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    expect(screen.getByTestId('analysis-new-drivers')).toHaveAttribute('data-section-count', '2')
+    expect(screen.queryByTestId('analysis-new-drivers-count')).toBeNull()
+  })
+
+  it('every driver row is on screen the moment the outer door opens — no second click', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    // Both fixture drivers survive ranking (neither is zero-reasoned out), so
+    // both rows must be visible with no further interaction.
+    expect(screen.getAllByTestId('analysis-new-drivers-row')).toHaveLength(2)
+  })
+
+  it('row headlines read at the quiet body weight, not the section-header weight', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    const rowToggle = screen.getAllByTestId('analysis-new-drivers-row-toggle')[0]
+    const headline = rowToggle.querySelector('span > span')
+    expect(headline?.className).toMatch(/text-xs/)
+    expect(headline?.className).not.toMatch(/font-semibold/)
+  })
+
+  /**
+   * ⚠ FLAGGED BY REVIEW (session cse_018ayLaY2kMyRD4mdEunrkWF, verdict on
+   * ca519213): `bare` dropped `COPY.sectionSubtitles.drivers` outright — no
+   * heading to hang it under, so `SectionShell`'s bare branch never rendered
+   * `subtitle` at all. Not a claim, but a topic line a reader lost with no
+   * replacement. Restored as its own quiet line above the chart.
+   */
+  it('keeps the topic subtitle, even with no heading to hang it under', () => {
+    renderTwoDrivers()
+    openWhatMovesTheOutcome()
+    expect(screen.getByTestId('analysis-new-drivers-subtitle')).toBeInTheDocument()
   })
 })

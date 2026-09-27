@@ -108,6 +108,10 @@ const glanceOf = (data: ResultsSectionDataReturn) =>
     isStale: false,
   }).atAGlance
 
+/**
+ * ⚠ DOES NOT OPEN THE DOOR — `openWithheld()` below does that explicitly,
+ * asserting it was closed first. This helper only renders.
+ */
 const renderGlance = (data: ResultsSectionDataReturn) =>
   render(
     <AtAGlance

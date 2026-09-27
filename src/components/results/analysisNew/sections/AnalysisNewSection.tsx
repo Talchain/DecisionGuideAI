@@ -113,6 +113,18 @@ export interface AnalysisNewSectionProps {
    */
   headingLevel?: 'h3' | 'label'
   /**
+   * TAIL-3 (design wave 2, panel-lane design audit 2026-09-25): forwarded to
+   * `SectionShell` as `variant="bare"` — for a section nested inside another
+   * `SectionShell` that is ALREADY a disclosure ("Drivers and dynamics"
+   * inside "What moves the outcome"). Drops the nested toggle entirely
+   * (no button, no count badge, no chevron) rather than only demoting its
+   * heading tag, so opening the outer disclosure does not meet a second
+   * closed door. Rows also render at the quieter `headlineTone="body"` (see
+   * `DisclosureRow`), so the flat list reads as compact rows rather than a
+   * section of its own. Default `false` — every other caller is unaffected.
+   */
+  bare?: boolean
+  /**
    * A section mounted ABOVE the answer keeps its one finding behind the row
    * (the count badge advertises it) instead of opening itself, so the answer
    * stays on the first screen. The header-only arm is untouched: with no
@@ -178,6 +190,7 @@ export function AnalysisNewSection({
   header,
   testId,
   headingLevel,
+  bare = false,
   opensForOneFinding = true,
 }: AnalysisNewSectionProps) {
   const [expanded, setExpanded] = useState(false)
@@ -230,6 +243,7 @@ export function AnalysisNewSection({
       subtitle={subtitle}
       testId={testId}
       headingLevel={headingLevel}
+      variant={bare ? 'bare' : undefined}
     >
       {caveat ? (
         <p className={`${typography.panelMeta} text-text-light pb-1`} data-testid={`${testId}-caveat`}>
@@ -261,6 +275,7 @@ export function AnalysisNewSection({
                 onRunIntervention={onRunIntervention}
                 onAskOlumi={onAskOlumi}
                 testIdPrefix={testId}
+                headlineTone={bare ? 'body' : undefined}
                 /* ⭐ ONE FINDING, ONE DOOR. The section above opens itself on
                    a single finding, for a reason it states: one row cannot
                    spend the height budget. The row then stayed SHUT, so

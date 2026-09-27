@@ -230,6 +230,12 @@ const renderBody = (data: ResultsSectionDataReturn) => {
  * recorded; the helper is re-derived here rather than imported because that
  * file is not a module this one should depend on.
  */
+/**
+ * ⚠ NO LONGER A TOGGLE — KEPT AS A NAME. TAIL-3 (design wave 2, panel-lane
+ * design audit 2026-09-25): "Drivers and dynamics" is now `bare` inside
+ * "What moves the outcome" — `renderBody`'s own `openGroupsIfPresent()` call
+ * already put its rows on screen; there is no second door to open.
+ */
 const openDrivers = () => {
   // V2 prototype (25 Sep): the drivers' group renders only inside the
   // challenge's "Assumptions and evidence" door. The caveat and the 100% move
@@ -237,12 +243,9 @@ const openDrivers = () => {
   const door = screen.getByTestId('analysis-new-signals-disclose')
   if (door.getAttribute('aria-expanded') !== 'true') fireEvent.click(door)
   openGroupsIfPresent()
-  const toggle = screen.getByTestId(`${SECTION}-toggle`)
-  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
-  expect(toggle, 'PRECONDITION: the drivers section must be open').toHaveAttribute(
-    'aria-expanded',
-    'true',
-  )
+  // TAIL-3 (design wave 2): "Drivers and dynamics" is `bare` — no toggle of
+  // its own to open once the evidence door above is open.
+  expect(screen.queryByTestId(`${SECTION}-toggle`)).toBeNull()
 }
 
 /**
@@ -282,7 +285,7 @@ const caveatParts = (data: ResultsSectionDataReturn): CaveatParts => {
     scale: screen.queryByTestId('analysis-new-driver-chart-scale-note'),
     topRow: screen.queryByTestId('analysis-new-driver-chart-top-row-note'),
     section: screen.queryByTestId(`${SECTION}-caveat`),
-    region: screen.getByTestId(`${SECTION}-region`),
+    region: screen.getByTestId(SECTION),
   }
 }
 
@@ -401,7 +404,7 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
     /* ⚠ PIN THE PRECONDITION IN-TEST (trap 13b): assert the payload really
        does render the contradicting number, so a green result is the code's
        doing and not the fixture quietly failing to reproduce the state. */
-    const region = screen.getByTestId(`${SECTION}-region`).textContent ?? ''
+    const region = screen.getByTestId(SECTION).textContent ?? ''
     expect(region, 'PRECONDITION: the top row must render 67%').toContain('Relative influence 67%')
     expect(region, 'PRECONDITION: the exclusion must be disclosed').toContain('not ranked here')
     expect(screen.getAllByTestId('analysis-new-driver-chart-bar')[0]!).toHaveAttribute(
@@ -468,7 +471,7 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
     expect(regText).not.toContain(HUNDRED_IS_GUARANTEED)
     expect(regText).not.toContain(BAR_IS_STRONGEST_SHOWN)
     expect(
-      screen.getByTestId(`${SECTION}-region`).textContent ?? '',
+      screen.getByTestId(SECTION).textContent ?? '',
       'PRECONDITION: this basis renders a rank claim, not a percentage',
     ).toContain('Among the strongest influences in this run')
   })
@@ -494,7 +497,7 @@ describe('the guaranteed 100% is disclosed where the 100% is shown', () => {
   it('the caveat sits in the SAME region as the rows, never behind a second click', () => {
     renderBody(openStrategicChallenge())
     openDrivers()
-    const region = screen.getByTestId(`${SECTION}-region`)
+    const region = screen.getByTestId(SECTION)
     const rows = screen.getAllByTestId(`${SECTION}-row`)
     /* ⭐ EVERY CLAUSE THAT RENDERS, NOT JUST THE ONE THAT USED TO. The move
        created three homes, and the "same depth as the number" rule applies to
