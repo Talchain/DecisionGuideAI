@@ -85,6 +85,12 @@ vi.mock('../../../v5/eligibility', async (importOriginal) => {
   return { ...actual, isV5Eligible: () => ({ eligible: true }) }
 })
 
+// The stream-close read-back waits ~5 s before reading; resolve at once here (the predicate stays real).
+vi.mock('../streamCloseReadback', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../streamCloseReadback')>()
+  return { ...actual, waitBeforeStreamCloseReadback: async () => {} }
+})
+
 vi.mock('../../../lib/supabase', () => ({
   getUserId: async () => null,
   getSessionIdentity: async () => ({ userId: null, accessToken: null }),
@@ -193,6 +199,18 @@ function controllableStream() {
         closed = true
         try {
           ctrl.error(new Error('socket hung up'))
+        } catch {
+          /* already closed */
+        }
+      }
+      await settle()
+    },
+    /** The server ENDS the stream with no COMPLETE frame (Panel 5851425976: CEE redeployed mid-draft). */
+    async close() {
+      if (!closed) {
+        closed = true
+        try {
+          ctrl.close()
         } catch {
           /* already closed */
         }
@@ -843,5 +861,60 @@ describe('stream truncated before GRAPH_READY, and the buffered fallback dies on
     expect(result.current.messages.map((m) => m.content)).not.toContain(
       DRAFT_DELIVERY_RECOVERED_NOTICE,
     )
+  })
+})
+
+/**
+ * ⭐ STREAM CLOSED WITHOUT A FINAL TURN → READ THE SAVED MODEL FIRST (Panel #70 5851425976, DL 5851437372).
+ *
+ * Served: CEE redeployed mid-draft; the stream ended after DRAFTING heartbeats only, and the UI sat on
+ * "Still drafting…" for 5+ min while the fallback re-sent the whole brief. A reload recovered the committed model
+ * at once. Now the reload's read runs ONCE, ~5 s after the close, BEFORE any re-send.
+ */
+describe('stream closes without a final turn: the saved model is read before any re-send', () => {
+  async function driveClosedAfterDrafting(end: 'close' | 'fail') {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'network error: Failed to fetch' })
+    const hook = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = hook.result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING)
+    await stream[end]()
+    await act(async () => {
+      await sent
+    })
+    return hook.result
+  }
+
+  it('RED (served): the stream CLOSES after DRAFTING, the server holds the model → it lands with NO re-send', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveClosedAfterDrafting('close')
+
+    expect(mockCallV5Turn, 'no buffered re-send of the whole brief').toHaveBeenCalledTimes(0)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    expect(result.current.messages.map((m) => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(useDraftStore.getState().draftStreamPhase, 'never left on "Still drafting…"').toBe('idle')
+  })
+
+  it('CONTRAST: a DROPPED socket (transport) keeps today\'s path — the buffered fallback runs first, then its recovery read', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const result = await driveClosedAfterDrafting('fail')
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+    expect(result.current.messages.map((m) => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+  })
+
+  it('CONTRAST: nothing saved yet → today\'s fallback still re-sends once, and nothing is claimed', async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'absent', requestId: 'req-absent-close' })
+    const result = await driveClosedAfterDrafting('close')
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().nodes).toEqual([])
+    expect(result.current.messages.map((m) => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
   })
 })
