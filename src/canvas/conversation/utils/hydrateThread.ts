@@ -311,14 +311,10 @@ export function hydrateMessagesFromThread(
 
 /**
  * Format a session boundary timestamp.
- * Returns "Session resumed - 7 Mar, 14:22" format.
+ * Returns "Session resumed · 7 Mar, 14:22" — the chat's own separator (" · "), never a bare hyphen.
  */
 export function formatSessionBoundary(date: Date): string {
-  const day = date.getDate()
-  const month = date.toLocaleString('en-GB', { month: 'short' })
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `Session resumed - ${day} ${month}, ${hours}:${minutes}`
+  return `Session resumed · ${formatSessionTime(date)}`
 }
 
 function formatSessionTime(date: Date): string {
