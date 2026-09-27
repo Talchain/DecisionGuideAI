@@ -278,9 +278,11 @@ describe('record your view — the existing decision record', () => {
   it('the door reads as a blue link — text-info, alongside its icon and chevron', () => {
     renderZone({})
     const door = screen.getByTestId(`${TID}-record-open`)
-    const label = within(door).getByText(COMMITMENT_COPY.record.open)
-    expect(label.className).toMatch(/\btext-info\b/)
-    expect(label.className).not.toMatch(/\btext-text-body\b/)
+    // 27 Sep 2026: the blue now sits on the act itself (`action('text')`, like "Respond"),
+    // not on an underlined inner span — the label inherits it.
+    expect(within(door).getByText(COMMITMENT_COPY.record.open)).toBeInTheDocument()
+    expect(door.className).toMatch(/\btext-info\b/)
+    expect(door.className).not.toMatch(/\bunderline\b/)
   })
 
   it('no record + no capture → no door (the modal would open disabled)', () => {

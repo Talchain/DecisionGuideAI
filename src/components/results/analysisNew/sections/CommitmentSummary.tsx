@@ -46,7 +46,7 @@ import {
   type CommitmentSynthesis,
 } from '../commitmentSynthesis'
 import { PanelIconButton } from '../PanelIconButton'
-import { action, icon, PANEL_RULE } from '../panelSurfaces'
+import { action, icon, PANEL_RULE, ACTION_FOCUS } from '../panelSurfaces'
 import {
   formatConfidence,
   formatRecordedOn,
@@ -174,11 +174,13 @@ function RecordYourView({
         <button
           type="button"
           onClick={onRecord}
-          className={`${typography.panelBody} ${action('inline')} gap-2 text-left underline hover:text-info-hover`}
+          // 27 Sep 2026 (Panel, V2): the same icon-led info text act as "Respond" — no underline.
+          // `action('text')` carries `py-1`, the rest-state shape signal RULE B accepts.
+          className={`${typography.panelBody} ${action('text')} gap-2 text-left`}
           data-testid={`${testId}-open`}
         >
           <NotebookPen className={`${icon('row')} text-text-light shrink-0`} aria-hidden={true} />
-          <span className="text-info underline">{COMMITMENT_COPY.record.open}</span>
+          <span>{COMMITMENT_COPY.record.open}</span>
           <ChevronRight className={`${icon('row')} text-text-light shrink-0`} aria-hidden={true} />
         </button>
       </div>
@@ -376,24 +378,29 @@ export function CommitmentSummary({
             className={`${typography.panelMeta} text-text-body m-0 mt-2 flex items-center gap-1`}
             data-testid={`${testId}-qualifier`}
           >
-            <Info className="h-3 w-3 shrink-0 text-text-light" aria-hidden={true} />
-            <span>{qualifier.text}</span>
-            {/* ⭐ WAVE 3: facts moved off the one-line qualifier stay reachable
-                in one click, never deleted — see commitmentQualifier.ts. */}
+            {/* ⭐ 27 Sep 2026 (Panel, V2): the ⓘ IS the details toggle, as in the prototype's
+                Provisional line — no separate "Details" text act. Its name and state are
+                unchanged for assistive tech (aria-label + aria-expanded). */}
             {qualifier.detail ? (
               <button
                 type="button"
                 onClick={() => setQualifierDetailOpen((open) => !open)}
                 aria-expanded={qualifierDetailOpen}
                 aria-controls={`${testId}-qualifier-detail`}
-                className={`${typography.panelMeta} ${action('inline')}`}
+                aria-label={
+                  qualifierDetailOpen
+                    ? COMMITMENT_QUALIFIER_COPY.detailToggle.hide
+                    : COMMITMENT_QUALIFIER_COPY.detailToggle.show
+                }
+                className={`${ACTION_FOCUS} inline-flex items-center justify-center min-h-[24px] min-w-[24px] -m-1 rounded text-text-light hover:text-text-body`}
                 data-testid={`${testId}-qualifier-toggle`}
               >
-                {qualifierDetailOpen
-                  ? COMMITMENT_QUALIFIER_COPY.detailToggle.hide
-                  : COMMITMENT_QUALIFIER_COPY.detailToggle.show}
+                <Info className="h-3 w-3 shrink-0" aria-hidden={true} />
               </button>
-            ) : null}
+            ) : (
+              <Info className="h-3 w-3 shrink-0 text-text-light" aria-hidden={true} />
+            )}
+            <span>{qualifier.text}</span>
           </p>
           {qualifier.detail && qualifierDetailOpen ? (
             <p
