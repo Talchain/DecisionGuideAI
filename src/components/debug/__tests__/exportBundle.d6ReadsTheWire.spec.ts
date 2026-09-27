@@ -89,10 +89,11 @@ vi.mock('../../../lib/payload-trace-store', () => ({
   getPayloadInspectionStatus: () => inspectionState,
 }))
 
-import { buildDebugBundle, buildDebugBundleAsync } from '../utils/exportBundle'
+import { buildDebugBundleAsync } from '../utils/exportBundle'
 
 function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
-  return {
+  // Cast: the copied preamble predates several DebugData members.
+  return ({
     overall: {
       status: 'success',
       total_duration_ms: 1200,
@@ -181,17 +182,31 @@ function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
     cee_operations: null,
     diagnostic_trace: null,
     ...overrides,
-  }
+  }) as unknown as DebugData
 }
 
 import wire from './fixtures/paul-exports-20260927/d6-wire.json'
 import { countNodesByKind, extractDiagnosticChecks } from '../hooks/useDebugData'
 import { runScientificValidation } from '../../../lib/scientificValidation'
 
-type Wire = typeof wire.e1
+/** The fixture's shape, loose enough for both exports. */
+interface Wire {
+  export_id: string
+  cee_request: { kind: string; turn_id: string; scenario_id: string } & Record<string, unknown>
+  cee_response: {
+    blocks: unknown[]
+    draft_graph: { nodes: Array<{ id: string; kind: string }> }
+  } & Record<string, unknown>
+  isl_response_keys: string[]
+  rendered_option_count: number
+  rendered_factor_count: number
+  orchestrator_turn_count: number
+}
+const E1 = wire.e1 as Wire
+const E2 = wire.e2 as Wire
 const EXPORTS: Array<[string, Wire]> = [
-  ['E1 17d1cd3a', wire.e1],
-  ['E2 90b8f080', wire.e2],
+  ['E1 17d1cd3a', E1],
+  ['E2 90b8f080', E2],
 ]
 
 const enrichmentOf = (w: Wire) =>
@@ -229,7 +244,11 @@ function arrangeServedTurn(w: Wire, overrides: Partial<DebugData> = {}): DebugDa
       isl_request: null,
       isl_response: null,
     },
-    services: { cee: { status: 200, duration_ms: 20891, success: true }, plot: null, isl: null },
+    services: {
+      cee: { name: 'CEE', endpoint: '/proxy/v5/turn', status: 200, duration_ms: 20891, success: true },
+      plot: null,
+      isl: null,
+    } as DebugData['services'],
     cee_capture_provenance: 'analysis_producing_v5_turn',
     cee_capture_selected_trace_id: `trace-${w.export_id}`,
     analysis_evidence_trace_source: 'selected_cee_turn',
@@ -267,7 +286,7 @@ describe('D-6 — the export counts, names and hashes the analysis CEE sent', ()
   )
 
   it('i219 E2: 6 options rendered beside 5 analysed is an issue on the coherence record, not "complete"', async () => {
-    const w = wire.e2
+    const w = E2
     const bundle = await buildDebugBundleAsync(arrangeServedTurn(w), {
       displayState: displayStateWith(w.rendered_option_count, w.rendered_factor_count),
     })
@@ -278,7 +297,7 @@ describe('D-6 — the export counts, names and hashes the analysis CEE sent', ()
   })
 
   it('i219 control E1: 3 rendered beside 3 analysed raises no count issue', async () => {
-    const w = wire.e1
+    const w = E1
     const bundle = await buildDebugBundleAsync(arrangeServedTurn(w), {
       displayState: displayStateWith(w.rendered_option_count, w.rendered_factor_count),
     })
@@ -310,7 +329,7 @@ describe('D-6 — the export counts, names and hashes the analysis CEE sent', ()
   )
 
   it('i14: with no render capture the export never states ui_render_success', async () => {
-    const bundle = await buildDebugBundleAsync(arrangeServedTurn(wire.e1))
+    const bundle = await buildDebugBundleAsync(arrangeServedTurn(E1))
     expect(bundle.render_summary.available).toBe(false)
     expect(bundle.pipeline.v5_pipeline_status).not.toBe('ui_render_success')
     expect(bundle.pipeline.v5_pipeline_status).toBe('response_delivered_render_not_captured')
@@ -319,7 +338,7 @@ describe('D-6 — the export counts, names and hashes the analysis CEE sent', ()
 
   it('i14: an unwritten validation gate is not "warn" beside a 0/0/0 validation summary', async () => {
     const bundle = await buildDebugBundleAsync(
-      arrangeServedTurn(wire.e1, { gates: [{ name: 'validation', status: 'warn' }] as never }),
+      arrangeServedTurn(E1, { gates: [{ name: 'validation', status: 'warn' }] as never }),
     )
     expect(bundle.validation.summary).toMatchObject({ errors: 0, warnings: 0, info: 0 })
     const gate = bundle.gates.find((g) => g.name === 'validation')!
@@ -328,13 +347,13 @@ describe('D-6 — the export counts, names and hashes the analysis CEE sent', ()
 
   it('i14 control: a written validation gate, or a summary with warnings, keeps its warn', async () => {
     const written = await buildDebugBundleAsync(
-      arrangeServedTurn(wire.e1, {
+      arrangeServedTurn(E1, {
         gates: [{ name: 'validation', status: 'warn', message: 'ISL critique' }] as never,
       }),
     )
     expect(written.gates.find((g) => g.name === 'validation')!.status).toBe('warn')
     const warned = await buildDebugBundleAsync(
-      arrangeServedTurn(wire.e1, {
+      arrangeServedTurn(E1, {
         gates: [{ name: 'validation', status: 'warn' }] as never,
         validation: { summary: { errors: 0, warnings: 2, info: 0 }, issues: [] },
       }),
@@ -376,7 +395,7 @@ describe('D-6 — science checks and buckets read the enrichment CEE relayed', (
   )
 
   it('i13 control: a top-level PLoT capture with no ISL fields does not borrow the lifted answer', () => {
-    const w = wire.e2
+    const w = E2
     const e = enrichmentOf(w)
     const checks = extractDiagnosticChecks(
       { option_comparison: e.option_comparison, edge_e_values: e.edge_e_values },
@@ -394,8 +413,8 @@ describe('D-6 — science checks and buckets read the enrichment CEE relayed', (
   })
 
   it.each([
-    ['E1 17d1cd3a', wire.e1, { found: 0, no_effect: 2, unresolved: 0, unavailable: 0 }],
-    ['E2 90b8f080', wire.e2, { found: 1, no_effect: 1, unresolved: 0, unavailable: 0 }],
+    ['E1 17d1cd3a', E1, { found: 0, no_effect: 2, unresolved: 0, unavailable: 0 }],
+    ['E2 90b8f080', E2, { found: 1, no_effect: 1, unresolved: 0, unavailable: 0 }],
   ] as const)(
     'i14 %s: flip buckets count structurally_invariant / no_effect_within_bounds as no_effect',
     (_name, w, expected) => {
@@ -448,7 +467,7 @@ describe('D-6 — science checks and buckets read the enrichment CEE relayed', (
   it('i109 control: a top-level PLoT capture keeps its payloads.plot_response paths', () => {
     const sv = runScientificValidation({
       plotRequest: null,
-      plotResponse: enrichmentOf(wire.e2),
+      plotResponse: enrichmentOf(E2),
       ceeRequest: null,
       ceeResponse: null,
       islRequest: null,
@@ -473,8 +492,8 @@ describe('D-6 — node kinds', () => {
   })
 
   it('i21: E2\'s own served graph — 15 nodes, one of them a risk', () => {
-    const counts = countNodesByKind(wire.e2.cee_response.draft_graph.nodes.map((n) => ({ data: { kind: n.kind } })))
-    expect(counts.total).toBe(wire.e2.cee_response.draft_graph.nodes.length)
+    const counts = countNodesByKind(E2.cee_response.draft_graph.nodes.map((n) => ({ data: { kind: n.kind } })))
+    expect(counts.total).toBe(E2.cee_response.draft_graph.nodes.length)
     expect(counts.risk).toBe(1)
     expect(counts.decision + counts.goal + counts.option + counts.factor + counts.risk + counts.outcome).toBe(counts.total)
   })

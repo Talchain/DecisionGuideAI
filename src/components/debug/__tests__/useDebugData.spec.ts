@@ -556,6 +556,8 @@ describe('useDebugData', () => {
             { id: '5', data: { kind: 'factor' } },
             { id: '6', data: { kind: 'factor' } },
             { id: '7', data: { kind: 'factor' } },
+            // D-6 (i21, 27 Sep): risk was not counted.
+            { id: '8', data: { kind: 'risk' } },
           ],
           edges: [
             { id: 'e1', source: '1', target: '2' },
@@ -572,6 +574,9 @@ describe('useDebugData', () => {
         option_count: 2,
         goal_count: 1,
         factor_count: 3,
+        outcome_count: 0,
+        risk_count: 1,
+        node_count: 8,
         edge_count: 2,
       })
     })
@@ -1078,6 +1083,9 @@ describe('useDebugData', () => {
         option: 2,
         goal: 1,
         factor: 1,
+        // D-6 (i21, 27 Sep): outcome and risk are carried too.
+        outcome: 0,
+        risk: 0,
       })
     })
 
