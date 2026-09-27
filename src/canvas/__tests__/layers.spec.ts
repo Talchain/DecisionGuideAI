@@ -44,7 +44,7 @@ describe('canvas stacking order', () => {
   it('RATCHET: the migrated overlay files carry no literal z-index of their own', () => {
     const files = [
       'contextMenu/CanvasContextMenu.tsx', 'contextMenu/Submenu.tsx', 'contextMenu/MenuTooltip.tsx', 'contextMenu/SetValuePopover.tsx',
-      'components/InspectorModal.tsx', 'nodes/shared/NodePopover.tsx', 'edges/EdgeEditPopover.tsx',
+      'components/InspectorModal.tsx', 'components/ConfirmDialog.tsx', 'nodes/shared/NodePopover.tsx', 'edges/EdgeEditPopover.tsx',
       // The chat's Add option dialog (AI Conversation, D-3 chat half).
       'conversation/AddOptionPanel.tsx',
     ]
