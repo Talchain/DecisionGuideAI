@@ -121,7 +121,7 @@ describe('responseBelongsToDispatchingScenario — equivalence to the five origi
 
 // ---------------------------------------------------------------------------
 
-describe('the six sites all go through the ONE predicate — derived, not mirrored', () => {
+describe('the seven sites all go through the ONE predicate — derived, not mirrored', () => {
   const SOURCE = blankComments(
     readFileSync(join(process.cwd(), 'src/canvas/conversation/useConversation.ts'), 'utf8'),
   )
@@ -135,13 +135,15 @@ describe('the six sites all go through the ONE predicate — derived, not mirror
    *
    * Its honest limit, stated: this is a STRUCTURAL check on source text. It
    * proves no raw re-derivation survives and that the predicate is called at
-   * the five original sites plus canonical-recovery ownership. It does NOT
+   * the five original sites plus canonical-recovery ownership plus the
+   * stream-close read-back's `canApply` (#2156: a draft stream that closed with no
+   * final turn reads the saved model back only while the SAME scenario is live). It does NOT
    * prove each call passes the live store value — that is
    * what the equivalence table plus the real-drive specs are for.
    */
-  it('calls the predicate at the five original sites plus canonical recovery', () => {
+  it('calls the predicate at the five original sites plus canonical recovery plus the stream-close read-back', () => {
     const calls = SOURCE.match(/responseBelongsToDispatchingScenario\s*\(/g) ?? []
-    expect(calls).toHaveLength(6)
+    expect(calls).toHaveLength(7)
   })
 
   function rawComparisonCount(source: string): number {
