@@ -5,7 +5,7 @@
  * factor body is now the primary line PLUS its reserved one-line driver slot
  * (`factor-driver-slot-<id>`), in every phase and at every rung — pre-run it
  * reads "Working assumption · no analysis yet" or is empty, post-run it holds
- * `Driver N of M analysed` or is empty. The rows below that pinned "ONE
+ * `Driver N of M ranked in this run` or is empty. The rows below that pinned "ONE
  * visible body row" now pin "the primary row, then the slot" (each says so);
  * `FactorNode.noGrowthAfterRun.spec.tsx` pins the slot itself.
  *
@@ -51,7 +51,7 @@
  *     wraps with the value, DIFF item 3) or the
  *     `Needs input` row (the ruled word, visible; "Value not set yet" moved to
  *     the popover and kept as the row's sr-only description and `title`).
- *   · The S3 findings — `Driver N of M analysed` + bar, a FOUND turning point,
+ *   · The S3 findings — `Driver N of M ranked in this run` + bar, a FOUND turning point,
  *     the external prior-range line — are NOT in the card; they ARE in the
  *     factor's `NodePopover`, with `Last run ·` when stale, and the popover
  *     mounts for them whatever the factor's priority.
@@ -131,6 +131,8 @@ const metadata = (rank: number | null, setSize: number | null, rankedCount: numb
   influenceImportanceBasis: null,
   influenceSetSize: setSize,
   influenceRankedCount: rankedCount,
+  // The bar's figure exists exactly when a rank does (`rankFactor`); rank 1 → 1.
+  driverRelativeSensitivity: rank === null ? null : influence,
   confidence: null,
   confidenceIsDefaulted: false,
   confidenceIsProvisional: false,
@@ -346,7 +348,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(visibleText(row)).toBe('8% est.')
     const driver = onCardNotInPopover('factor-driver-line')
     const tp = onCardNotInPopover('factor-turning-point')
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
     // v3.1 point 3 (DESIGN-GAP-v31 #38): the resting caption IS the direction
     // sentence (was "Model comparison changes" + a floated 6.5%).
@@ -366,7 +368,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(semantic()).toBe('changed')
     onCardNotInPopover('factor-driver-line')
     onCardNotInPopover('factor-turning-point')
-    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 6 analysed')
+    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
     expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(card()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
       'Last run · Below 6.5%, the model comparison changes. ',
@@ -419,7 +421,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     const c = card()
     expect(within(c).queryByTestId('factor-recorded-value')).toBeNull()
     expect(within(c).queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
-    expect(within(onCardNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(onCardNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
   })
 
   it('CONTRAST — Detailed keeps the driver line and the turning point inline, and needs no cue', () => {
@@ -427,7 +429,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     seed(VALUED, { phase: 'post', flipRows: [FOUND_ROW], viewMode: 'expert' })
     renderFactor(VALUED)
     const c = card()
-    expect(within(c).getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 6 analysed')
+    expect(within(c).getByTestId('factor-driver-line-detail-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     expect(within(c).getByTestId('factor-turning-point')).toBeTruthy()
     expect(screen.queryByTestId(`factor-driver-cue-${ID}`)).toBeNull()
     expect(screen.queryByTestId('factor-node-popover')).toBeNull()

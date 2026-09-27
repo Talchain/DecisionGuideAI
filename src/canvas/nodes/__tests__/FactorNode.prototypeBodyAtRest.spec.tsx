@@ -87,6 +87,8 @@ const metadata = (rank: number | null, setSize: number | null, rankedCount: numb
   influenceImportanceBasis: null,
   influenceSetSize: setSize,
   influenceRankedCount: rankedCount,
+  // The bar's figure exists exactly when a rank does (`rankFactor`); rank 1 → 1.
+  driverRelativeSensitivity: rank === null ? null : influence,
   confidence: null,
   confidenceIsDefaulted: false,
   confidenceIsProvisional: false,
@@ -180,14 +182,14 @@ afterEach(() => {
 })
 
 describe('prototype · the driver line is ON the resting card after a run', () => {
-  it('ranked: value line → `Driver N of M analysed` + bar, on the card and not in the popover', () => {
+  it('ranked: value line → `Driver N of M ranked in this run` + bar, on the card and not in the popover', () => {
     displayMetadata = SECOND()
     seed(VALUED, { phase: 'post' })
     renderFactor(VALUED)
     const c = card()
     const value = within(c).getByTestId('factor-recorded-value')
     const driver = within(c).getByTestId('factor-driver-line')
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 3 analysed')
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 3 ranked in this run')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(before(value, driver)).toBe(true)
     // Never both: the popover (if it mounts) does not repeat it.
@@ -202,7 +204,7 @@ describe('prototype · the driver line is ON the resting card after a run', () =
     seed(VALUED, { phase: 'post' })
     renderFactor(VALUED)
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
-    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 3 analysed')
+    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 2 of 3 ranked')
   })
 
   it('CONTRAST — before a run there is no driver line anywhere (the value line is present)', () => {
@@ -230,7 +232,7 @@ describe('prototype · the TOP driver carries its turning-point track at rest', 
     const c = card()
     const driver = within(c).getByTestId('factor-driver-line')
     const tp = within(c).getByTestId('factor-turning-point')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 analysed')
+    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     // v3.1's `flipPlot` caption (DESIGN-GAP-v31 #38): the direction sentence.
     expect(visibleText(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison changes.')
     expect(within(tp).queryByTestId('factor-turning-point-caption-value')).toBeNull()

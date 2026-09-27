@@ -242,23 +242,26 @@ afterEach(() => cleanup())
 // FACTOR
 // ═════════════════════════════════════════════════════════════════════════════
 
-// ED #63 5806207128: the printed M is the ANALYSED set (4), never the ranked count (3).
-const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, influenceRankedCount: 3, inSensitivityAnalysis: true, isResultsMode: true }
+// NODE-ANATOMY v3.2 (re-pinned 27 Sep 2026, side-by-side DIFF item 3): the printed M
+// is the RANKED count (3), never the analysed set (4) — ED 5806207128's analysed M
+// counted factors no card ranks. `driverRelativeSensitivity` is the bar (rank 1 → 1).
+const DRIVER_META = { sensitivityRank: 1, influence: 1, influenceProvenance: 'normalised_elasticity', influenceSetSize: 4, influenceRankedCount: 3, driverRelativeSensitivity: 1, inSensitivityAnalysis: true, isResultsMode: true }
 
 describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z D1a; ED 11:52Z point 3)', () => {
-  it('a current, ranked factor reads "Driver 1 of 4 analysed" (ED 5806207128) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
+  it('a current, ranked factor reads "Driver 1 of 3 ranked in this run" (NODE-ANATOMY v3.2) with a bar — no "%", no "#"; the % lives in its disclosure', () => {
     setState({ phase: 'post' })
     setCurrency('current')
     setMeta({ 'fac-price': DRIVER_META })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     const line = popoverFinding('Monthly price', 'factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
-    expect(line.getAttribute('aria-label')).toContain('100% of the strongest factor')
-    expect(line.getAttribute('aria-label')).toContain('not an absolute causal percentage')
+    // DIFF item 4: the bar is relative sensitivity against the top-ranked driver.
+    expect(line.getAttribute('aria-label')).toContain('100% of the top-ranked driver')
+    expect(line.getAttribute('aria-label')).toContain('not a causal contribution percentage')
   })
 
   // ⛔ SUPERSEDED BY CONTRACT v3.1 pt 5 (was: "carries the quantity’s own
@@ -267,7 +270,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
   it('an unranked factor shows no rank, no line and no bar; it says "Not ranked in this run" to AT', () => {
     setState({ phase: 'post' })
     setCurrency('current')
-    setMeta({ 'fac-price': { ...DRIVER_META, sensitivityRank: null, influence: 0.4 } })
+    setMeta({ 'fac-price': { ...DRIVER_META, sensitivityRank: null, influence: 0.4, driverRelativeSensitivity: null } })
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     // Document-wide (ED 5809278282): neither the face nor the popover.
@@ -303,7 +306,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 4 analysed')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was the prototype's caption + number, 25 Sep).
     const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
@@ -313,10 +316,10 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
     const line = popoverFinding('Trial conversion', 'factor-driver-line')
-    // ED 5806207128 stale form: "Last run · Driver N of M analysed".
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 4 analysed')
+    // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked".
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
-    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 4 analysed')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked')).toBe(true)
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
     expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)
@@ -857,9 +860,9 @@ describe('copy guard — the locked design’s ban list holds on every rendered 
     expect(lockedCardCopyViolations('You are anchored on the first number')).toHaveLength(1)
     expect(lockedCardCopyViolations('You have anchoring bias')).toHaveLength(1)
     // …and passes the locked wording.
-    // ED #63 5806207128 wording (current, stale), and the unranked AT line.
-    expect(lockedCardCopyViolations('Driver 1 of 6 analysed')).toEqual([])
-    expect(lockedCardCopyViolations('Last run · Driver 1 of 6 analysed')).toEqual([])
+    // NODE-ANATOMY v3.2 wording (current, stale), and the unranked AT line.
+    expect(lockedCardCopyViolations('Driver 1 of 3 ranked in this run')).toEqual([])
+    expect(lockedCardCopyViolations('Last run · Driver 1 of 3 ranked')).toEqual([])
     expect(lockedCardCopyViolations('Not ranked in this run')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs · Goal only')).toEqual([])
     expect(lockedCardCopyViolations('Current model · 55% of runs')).toEqual([])
