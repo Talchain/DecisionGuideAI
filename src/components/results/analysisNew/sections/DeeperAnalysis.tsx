@@ -102,7 +102,7 @@ export function DeeperAnalysis({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls={open ? `${testId}-region` : undefined}
-            className={`${typography.panelBody} text-text-light flex items-start gap-1.5 min-h-[24px] min-w-[24px] rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            className={`${typography.panelBody} text-text-light flex items-start gap-2 min-h-[24px] min-w-[24px] rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-toggle`}
           >
             {open ? (

@@ -197,7 +197,7 @@ export function DriverInfluenceChart({
       {/* The axis legend. It names both sides ONCE, so no row has to repeat a
           direction word — the side IS the word. */}
       <div
-        className={`${typography.panelMeta} text-text-light flex items-center justify-between mb-1.5 px-0.5`}
+        className={`${typography.panelMeta} text-text-light flex items-center justify-between mb-2 px-0.5`}
         data-testid={`${testId}-axis`}
       >
         <span className="flex items-center gap-1">
@@ -264,7 +264,7 @@ export function DriverInfluenceChart({
           the bars at all. */}
       {scaleNote !== null && scaleNote !== undefined && scaleNote !== '' ? (
         <p
-          className={`${typography.panelMeta} text-text-light mb-1.5 px-0.5`}
+          className={`${typography.panelMeta} text-text-light mb-2 px-0.5`}
           data-testid={`${testId}-scale-note`}
         >
           {scaleNote}
@@ -491,7 +491,7 @@ export function DriverInfluenceChart({
               ) : null}
 
               {isEditing ? (
-                <div className="pl-1 pt-1 flex items-center gap-1.5" data-testid={`${testId}-editor`}>
+                <div className="pl-1 pt-1 flex items-center gap-2" data-testid={`${testId}-editor`}>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -511,7 +511,7 @@ export function DriverInfluenceChart({
                       }
                     }}
                     aria-label={COPY.modelStrip.valueInputLabel(row.label)}
-                    className={`${typography.panelBody} min-w-0 flex-1 rounded-sm border border-field bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                    className={`${typography.panelBody} min-w-0 flex-1 rounded-sm border border-field bg-surface px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-input`}
                   />
                   <button

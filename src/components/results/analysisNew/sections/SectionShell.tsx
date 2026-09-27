@@ -199,7 +199,7 @@ export function SectionShell({
           onClick={toggle}
           aria-expanded={open}
           aria-controls={open ? regionId : undefined}
-          className={`${typography.panelBody} text-text-body flex items-center gap-1.5 min-h-[28px] text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
+          className={`${typography.panelBody} text-text-body flex items-center gap-2 min-h-[28px] text-left rounded hover:opacity-80 ${ACTION_FOCUS}`}
           data-testid={`${testId}-toggle`}
         >
           <ChevronRight
@@ -304,7 +304,7 @@ export function SectionShell({
             onClick={toggle}
             aria-expanded={open}
             aria-controls={open ? regionId : undefined}
-            className={`w-full flex items-center gap-2.5 min-h-[24px] py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            className={`w-full flex items-center gap-3 min-h-[24px] py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-toggle`}
           >
             {Icon ? (
@@ -355,7 +355,7 @@ export function SectionShell({
         // UNMOUNTED rather than CSS-hidden (the rule `DisclosureRow` already
         // follows), so a resting `aria-controls` would reference nothing.
         aria-controls={open ? regionId : undefined}
-        className={`w-full flex items-center gap-2.5 min-h-[24px] py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        className={`w-full flex items-center gap-3 min-h-[24px] py-3 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         data-testid={`${testId}-toggle`}
       >
         {Icon ? (

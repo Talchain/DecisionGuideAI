@@ -101,7 +101,7 @@ export function DisclosureRow({
 
   return (
     <div
-      className="border-b border-panel-border last:border-b-0 py-2.5"
+      className="border-b border-panel-border last:border-b-0 py-3"
       data-testid={`${testIdPrefix}-row`}
       data-finding-id={finding.id}
     >
@@ -174,7 +174,7 @@ export function DisclosureRow({
               drawn two ways on one panel is two scales the reader must learn;
               the section differs by its LABEL, never by its ruler. */}
           {finding.flipReadout !== undefined && finding.flipFraction !== undefined ? (
-            <span className="block mt-1.5">
+            <span className="block mt-2">
               {/* ⭐⭐ THE NUMBER ALONE, BECAUSE THE CAPTION IS THE SECTION'S.
                   Witnessed on the deployed build `92b5e60e`: three rows, three
                   bars, and "How often this changed the answer" printed THREE
@@ -386,7 +386,7 @@ export function DisclosureRow({
               {inspectOpen ? (
                 <dl
                   id={inspectId}
-                  className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1"
+                  className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1"
                   data-testid={`${testIdPrefix}-inspect`}
                 >
                   {finding.inspect.map((r) => (

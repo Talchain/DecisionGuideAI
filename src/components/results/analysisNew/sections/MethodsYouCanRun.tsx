@@ -87,7 +87,7 @@ export function MethodsYouCanRun({
   const grouped = thisRun.length > 0 && others.length > 0
 
   const chips = (entries: typeof METHOD_CATALOGUE, listTestId: string): JSX.Element => (
-    <ul className="m-0 mt-1.5 flex list-none flex-wrap gap-1 p-0" data-testid={listTestId}>
+    <ul className="m-0 mt-2 flex list-none flex-wrap gap-1 p-0" data-testid={listTestId}>
       {entries.map((m) => (
         <li key={m.id}>
           <button

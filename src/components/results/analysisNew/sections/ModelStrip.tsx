@@ -1575,11 +1575,11 @@ export function ModelStrip({
              string: at the 280px floor a long factor name or an engine
              sentence with no spaces must wrap inside this box rather than
              widen the panel. */
-          className="relative mt-[7px] border-t border-panel-border pt-[9px] pb-1.5 min-w-0"
+          className="relative mt-2 border-t border-panel-border pt-2 pb-2 min-w-0"
           data-testid={`${testId}-detail`}
           data-node-id={active.id}
         >
-          <div className="flex items-center justify-between gap-1.5 min-w-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
             <h4
               className={`${typography.panelHeader} text-text-header m-0 min-w-0 break-words`}
               data-testid={`${testId}-detail-title`}
@@ -1604,7 +1604,7 @@ export function ModelStrip({
                 node with none gets NO bullet (PRODUCER GAP), never a sentence
                 this component wrote. */}
             {activeInsight.findings.length > 0 ? (
-            <ul className="list-none p-0 pl-[15px] my-1.5 space-y-[3px]" data-testid={`${testId}-detail-findings`}>
+            <ul className="list-none p-0 pl-4 my-2 space-y-1" data-testid={`${testId}-detail-findings`}>
             {activeInsight.findings.map((finding) => {
               // Hoisted so the narrowing survives into the handler below; a
               // property check does not narrow inside a closure.
@@ -1612,7 +1612,7 @@ export function ModelStrip({
               return (
               <li
                 key={finding.recommendationId}
-                className="relative pl-[11px] min-w-0 space-y-1 before:content-['·'] before:absolute before:left-[1px]"
+                className="relative pl-3 min-w-0 space-y-1 before:content-['·'] before:absolute before:left-[1px]"
                 data-testid={`${testId}-detail-finding`}
                 data-recommendation-id={finding.recommendationId}
               >
@@ -1809,7 +1809,7 @@ export function ModelStrip({
                 order, ICON-ONLY. Both asks open the shared composer; neither
                 writes the model. The value editor above is a SEPARATE act — a
                 direct numeric write — so a factor legitimately carries both. */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-[5px]" data-node-id={active.id}>
+            <div className="flex flex-wrap items-center gap-2 mt-1" data-node-id={active.id}>
               <PanelIconButton
                 Icon={Pencil}
                 label={PROPOSE_CHANGE_LABEL}

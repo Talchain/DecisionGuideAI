@@ -60,7 +60,8 @@ describe('G1 — the analysis-state clamp cannot return', () => {
     // the sweep above would be satisfied by the clamp it exists to forbid.
     expect(DOCK_RESPONSIVE_MAX_WIDTH).not.toBe(DOCK_MIN_WIDTH)
     // ⚠ RE-PINNED 26 Sep 2026 (flush 319px panel, design contract `.ai-panel`): was 416.
-    expect(DOCK_RESPONSIVE_MAX_WIDTH).toBe(319)
+    // RE-PINNED to 360 (27 Sep 2026, Paul + Panel: between the contract's 319 and the V2 card's 420).
+    expect(DOCK_RESPONSIVE_MAX_WIDTH).toBe(360)
     expect(DOCK_MIN_WIDTH).toBe(280)
   })
 
@@ -111,10 +112,10 @@ describe('G1 — the analysis-state clamp cannot return', () => {
   })
 
   it('the ratio still lands 1280 exactly ON the ceiling — the derivation, not a coincidence', () => {
-    // 319 / 1280 = 0.24921875 exactly (it was 416 / 1280 = 0.325 until the
+    // 319 / 1280 = 0.28125 exactly (it was 416 / 1280 = 0.325 until the
     // flush panel, 26 Sep 2026). If the ratio moves, the 1280 default silently
     // stops being the ceiling and the sweep above starts asserting a different rule.
-    expect(DOCK_VIEWPORT_RATIO).toBe(0.24921875)
+    expect(DOCK_VIEWPORT_RATIO).toBe(0.28125)
     expect(Math.round(1280 * DOCK_VIEWPORT_RATIO)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
   })
 })

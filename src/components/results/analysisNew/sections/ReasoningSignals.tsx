@@ -135,7 +135,7 @@ export function ReasoningSignals({
    */
   const tippingRow = tipping ? (
     <div
-      className="flex items-start gap-1.5 py-1.5 border-b border-panel-border"
+      className="flex items-start gap-2 py-2 border-b border-panel-border"
       data-testid={`${testId}-tipping`}
       data-target-id={tipping.targetId ?? undefined}
     >
@@ -224,14 +224,14 @@ export function ReasoningSignals({
               crosshair, a search and a ✦ on every row. A driver the canvas
               cannot resolve (no `targetId`) keeps its name as plain text and
               shows no act at all. */}
-          <ul className="list-none m-0 my-[7px] p-0 grid gap-1.5" data-testid={`${testId}-driver-list`}>
+          <ul className="list-none m-0 my-2 p-0 grid gap-2" data-testid={`${testId}-driver-list`}>
             {drivers.map((row) => {
               const review = row.targetId ? (onInspect ?? onFocus) : undefined
               const targetId = row.targetId
               return (
                 <li
                   key={row.id}
-                  className="grid grid-cols-[20px_minmax(0,1fr)_55px_28px] items-center gap-1.5"
+                  className="grid grid-cols-[20px_minmax(0,1fr)_55px_28px] items-center gap-2"
                   data-testid={`${testId}-driver`}
                   data-factor-id={row.id}
                 >
@@ -311,7 +311,7 @@ export function ReasoningSignals({
           stay the view model's, verbatim — this file words nothing. */}
       {gap ? (
         <div
-          className="mt-1.5"
+          className="mt-2"
           data-testid={`${testId}-gap`}
           data-finding-id={gap.findingId}
           data-gap-kind={gap.kind}
@@ -340,7 +340,7 @@ export function ReasoningSignals({
             <button
               type="button"
               onClick={() => onInspect(gap.inspectTargetId as string)}
-              className={`${typography.panelMeta} ${action('inline')} gap-[5px] mt-0.5`}
+              className={`${typography.panelMeta} ${action('inline')} gap-1 mt-0.5`}
               data-testid={`${testId}-gap-examine`}
             >
               <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden={true} />

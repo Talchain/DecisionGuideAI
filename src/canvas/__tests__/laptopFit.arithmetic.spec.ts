@@ -230,11 +230,12 @@ describe('S4 laptop fit — the chrome the fit subtracts (verify and keep)', () 
   // landing-camera arm below: the frame widens by 109px and the fit still
   // parks at the 0.5 floor (measured: landing zoom 0.5 on all five starters at
   // both sizes, before and after).
-  it('the insets are 76 / 335 / 73 / 92 at 1280x800 with the dock open', () => {
-    expect(chromeAt(VIEWPORTS[0]).insets).toEqual({ left: 76, right: 335, top: 73, bottom: 92 })
+  // ⚠ RE-PINNED 27 Sep 2026 — default 360 (Paul + Panel): right inset 360 + 16 = 376.
+  it('the insets are 76 / 376 / 73 / 92 at 1280x800 with the dock open', () => {
+    expect(chromeAt(VIEWPORTS[0]).insets).toEqual({ left: 76, right: 376, top: 73, bottom: 92 })
   })
-  it('…and the same at 1440x900 (the dock is 319 at both widths)', () => {
-    expect(chromeAt(VIEWPORTS[1]).insets).toEqual({ left: 76, right: 335, top: 73, bottom: 92 })
+  it('…and the same at 1440x900 (the dock is 360 at both widths)', () => {
+    expect(chromeAt(VIEWPORTS[1]).insets).toEqual({ left: 76, right: 376, top: 73, bottom: 92 })
   })
 })
 
@@ -269,7 +270,8 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
     const { frameFlowAtFloor } = landing({ x: 0, y: 0, width: 1, height: 1 }, VIEWPORTS[0])
     // RE-PINNED 26 Sep 2026 (flush 319px panel): the frame at the floor is
     // (1280 − 76 − 335) / 0.5 = 1738 units; it was 1520 with the 416 card.
-    expect(frameFlowAtFloor.w).toBe(1738)
+    // 27 Sep 2026 (default 360): (1280 − 76 − 376) / 0.5 = 1656.
+    expect(frameFlowAtFloor.w).toBe(1656)
     // RE-PINNED 27 Sep 2026 (landing text ceiling 1.36): the repeated card is the
     // ED target, 248 (it was 260 = NODE_LAYOUT_MIN_W at a text bound of 2), so the
     // widest row is 4 × (248 + 24 + 32) + the prompt = 1376 (was 1424).
@@ -279,7 +281,9 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
     // spare (it spilled by 2 at 260). The row cap of four is held by
     // MAX_CARDS_PER_ROW alone at 1280, not by the frame.
     const oneMoreCard = WIDEST_ROW_WITH_PROMPT + (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP)
-    expect(oneMoreCard - frameFlowAtFloor.w).toBe(-58)
+    // RE-PINNED 27 Sep 2026 (default 360): one more card would now spill by 24 units; the
+    // row cap of four (MAX_CARDS_PER_ROW) was already what held it, so nothing moves.
+    expect(oneMoreCard - frameFlowAtFloor.w).toBe(24)
   })
 })
 

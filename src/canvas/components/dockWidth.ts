@@ -74,6 +74,12 @@ export const DOCK_MIN_WIDTH = 280
  * Ceiling for the RESPONSIVE default. Every viewport wide enough to reach it
  * gets it.
  *
+ * ⭐⭐⭐⭐ 360, PAUL + PANEL (27 Sep 2026 ~15:20Z). Paul: 319 "feels too small" and the V2
+ * prototype's 420 card "too big"; somewhere in between. Panel's call as owner: 360, the V2
+ * prototype's own middle width, keeping the contract's FLUSH edge (no floating card). At 319 the
+ * text measure is ~287px and option names wrap; 360 gives ~328px and costs the canvas 41px. The
+ * user can still drag 280..min(480, 40%). The 319 record below is kept.
+ *
  * ⭐⭐⭐ 319, THE DESIGN CONTRACT'S FLUSH PANEL (26 Sep 2026). The locked visual
  * contract (`olumi-canvas-visual-contract.html`) states the right panel as
  * `.ai-panel{position:absolute;right:0;top:51px;bottom:0;width:319px;
@@ -119,7 +125,7 @@ export const DOCK_MIN_WIDTH = 280
  * fallback, because the custom property has to have a value before this module
  * runs. `dockCssFallbackAgrees.spec.ts` REDs if the two disagree.
  */
-export const DOCK_RESPONSIVE_MAX_WIDTH = 319
+export const DOCK_RESPONSIVE_MAX_WIDTH = 360
 
 /**
  * The reference viewport the ceiling is sized against — the laptop every

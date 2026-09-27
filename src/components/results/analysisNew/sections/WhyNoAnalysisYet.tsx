@@ -127,7 +127,7 @@ export function WhyNoAnalysisYet({
       className="mt-2 rounded border border-panel-border bg-panel-hover p-2 space-y-1"
       data-testid={testId}
     >
-      <p className={`${typography.panelMeta} text-text-body flex items-center gap-1.5 m-0`}>
+      <p className={`${typography.panelMeta} text-text-body flex items-center gap-2 m-0`}>
         <AlertCircle className={`${icon('inline')} shrink-0 text-warning-ink`} aria-hidden="true" />
         {COPY.whyNoAnalysis.heading}
       </p>

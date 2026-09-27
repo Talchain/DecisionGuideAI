@@ -86,7 +86,7 @@ export function BiasGrounding({
             ) : null}
 
             {item.steps.length > 0 ? (
-              <div className="mt-1.5">
+              <div className="mt-2">
                 <p
                   className={`${typography.panelMeta} text-text-header m-0`}
                   data-testid={`${testId}-trythis-${item.id}`}

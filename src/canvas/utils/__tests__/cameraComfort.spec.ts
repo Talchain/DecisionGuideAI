@@ -557,10 +557,12 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
     // ⚠ RE-PINNED 26 Sep 2026 (flush 319px panel): 416 → 319 and 444 → 335.
     // The new dock rect was measured on the local build at 1280x800 —
     // (961, 51, 319×749), flush right — not yet on deployed staging.
-    expect(responsiveDockWidth(PANE.width)).toBe(319)
+    // RE-PINNED to 360 (27 Sep 2026, Paul + Panel: between the contract's 319 and the V2 card's 420).
+    expect(responsiveDockWidth(PANE.width)).toBe(360)
     const insets = insetsForDockWidth(responsiveDockWidth(PANE.width))
     expect(insets.left).toBe(76)
-    expect(insets.right).toBe(335)
+    // RE-PINNED 27 Sep 2026 (default 360): 360 + 16.
+    expect(insets.right).toBe(376)
   })
 
   it('⭐ at the dock SHIPPED default, a STARTER-WIDTH model keeps a 66.5px pane margin', () => {
@@ -570,7 +572,8 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
     // `510.5 - width / 4`, so it is gone by 2042. The next arm prices that.
     // RE-PINNED 26 Sep 2026 (flush 319px panel): it was 12px at the 416 card,
     // `456 - width / 4`, gone by 1824.
-    expect(modelLeftEdge(insetsForDockWidth(responsiveDockWidth(PANE.width)))).toBe(66.5)
+    // RE-PINNED 27 Sep 2026 (default 360): 46px margin (66.5 at 319).
+    expect(modelLeftEdge(insetsForDockWidth(responsiveDockWidth(PANE.width)))).toBe(46)
   })
 
   it('⛔ but a MEASURED ordinary model goes 24.5px OFF-PANE at that SAME shipped default', () => {
@@ -590,7 +593,9 @@ describe('topAnchoredViewportWhenClamped — the left-edge residual, priced and 
     expect(FOUNDER_BOUNDS.width * v!.zoom).toBeGreaterThan(frameW)
     // RE-PINNED 26 Sep 2026 (flush 319px panel): −79 at the 416 card. The
     // wider frame shrinks the residual; it does not remove it.
-    expect(v!.x + FOUNDER_BOUNDS.x * v!.zoom).toBe(-24.5)
+    // RE-PINNED 27 Sep 2026 (default 360): −45 (−24.5 at 319). Flagged to Canvas: the
+    // wider panel costs this model 20.5px more at the top-anchored clamp.
+    expect(v!.x + FOUNDER_BOUNDS.x * v!.zoom).toBe(-45)
   })
 
   // ⚠ THIS ARM IS ABOUT THE STARTER WIDTH, AND IT IS NOT THE ONLY WAY OFF-PANE

@@ -439,7 +439,7 @@ export function ModelReviewTool({
    * tier is either underlined or a pill, and neither is a menu row. Height comes
    * from `py-1.5`/`py-1` over 12px relaxed type (about 28px), width from `w-full`.
    */
-  const menuItemClass = `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`
+  const menuItemClass = `flex w-full items-center gap-2 rounded px-2 py-2 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`
 
   return (
     /* ⭐ NO RULE OF ITS OWN (design-audit-20260925, gaps SPACE-2 / FIRST-2 /
@@ -447,7 +447,7 @@ export function ModelReviewTool({
        full-bleed section rule that already separates the model block from
        "Challenge the thinking" — two hairlines that close read as a
        rendering mistake. `!mt-1` overrides whatever `space-y-*` rhythm the
-       parent applies (the same override PANEL_RULE's `!mt-[11px]` uses, for
+       parent applies (the same override PANEL_RULE's `!mt-3` uses, for
        the same reason: `space-y`'s selector out-specifies a plain `mt-*`). */
     <div data-testid={testId} className="!mt-1 pt-1">
       <div className="flex items-center justify-between gap-1">
@@ -528,12 +528,12 @@ export function ModelReviewTool({
           ref={itemRef}
           /* The prototype's `.review-shell`: a hairline across the column,
              10px above the header and 3px below the last act. */
-          className="relative mt-2 border-t border-panel-border pt-[9px] pb-[3px]"
+          className="relative mt-2 border-t border-panel-border pt-2 pb-1"
           data-testid={`${testId}-item`}
           data-review-key={current.key}
           data-target-id={current.targetId ?? undefined}
         >
-          <div className="flex items-center justify-between gap-[7px]">
+          <div className="flex items-center justify-between gap-2">
             {/* `.review-nav .header-text`: 12px, regular, light — a label for
                 the shell, not a section title. */}
             <span className={`${typography.panelBody} text-text-light`} data-testid={`${testId}-heading`}>
@@ -583,7 +583,7 @@ export function ModelReviewTool({
             aria-label={CHOOSE_ITEM_LABEL}
             value={index}
             onChange={(e) => goTo(Number(e.target.value))}
-            className={`${typography.panelBody} my-[5px] w-full min-h-[31px] rounded-md border border-field bg-panel p-[5px] text-text-body ${ACTION_FOCUS}`}
+            className={`${typography.panelBody} my-1 w-full min-h-[31px] rounded-md border border-field bg-panel p-1 text-text-body ${ACTION_FOCUS}`}
             data-testid={`${testId}-select`}
           >
             {queue.map((item, i) => (
@@ -598,7 +598,7 @@ export function ModelReviewTool({
           </select>
           {/* The prototype's `review-context`: kind icon, "kind · source". */}
           <p
-            className={`${typography.panelMeta} my-1 flex items-center gap-1.5 text-text-light`}
+            className={`${typography.panelMeta} my-1 flex items-center gap-2 text-text-light`}
             data-testid={`${testId}-context`}
           >
             {(() => {
@@ -634,9 +634,9 @@ export function ModelReviewTool({
               belief field, so it gets no bullet (PRODUCER GAP). The value
               editor stays beside it — the standing rule. */}
           {current.factor ? (
-            <div className="my-[5px] flex flex-col items-start gap-1" data-testid={`${testId}-value`}>
+            <div className="my-1 flex flex-col items-start gap-1" data-testid={`${testId}-value`}>
               {valueText !== null ? (
-                <ul className={`${typography.panelBody} m-0 list-disc pl-[15px] text-text-body`}>
+                <ul className={`${typography.panelBody} m-0 list-disc pl-4 text-text-body`}>
                   <li data-testid={`${testId}-belief`}>
                     {valueLead !== null ? <span className="text-text-light">{valueLead}: </span> : null}
                     <span className="tabular-nums" data-testid={`${testId}-value-text`}>
@@ -656,7 +656,7 @@ export function ModelReviewTool({
 
           {/* The prototype's `review-mini`: the why line, 11px light, with its ⓘ. */}
           {current.reason ? (
-            <div className="flex items-center justify-between gap-1.5">
+            <div className="flex items-center justify-between gap-2">
               <p
                 className={`${typography.panelMeta} m-0 min-w-0 flex-1 text-text-light`}
                 data-testid={`${testId}-reason`}
@@ -680,7 +680,7 @@ export function ModelReviewTool({
             </p>
           ) : null}
 
-          <div className="relative mt-[5px] flex flex-wrap items-center gap-1.5">
+          <div className="relative mt-1 flex flex-wrap items-center gap-2">
             <span className="flex items-center" data-testid={`${testId}-acts`}>
               {current.recommendation ? (
                 <PanelIconButton
@@ -819,7 +819,7 @@ export function ModelReviewTool({
             <button
               type="button"
               onClick={() => openEditor('evidence')}
-              className={`${typography.panelBody} mt-[7px] inline-flex items-center gap-[5px] py-1 min-h-[28px] text-info hover:text-info-hover ${ACTION_FOCUS}`}
+              className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 py-1 min-h-[28px] text-info hover:text-info-hover ${ACTION_FOCUS}`}
               data-testid={`${testId}-add-context`}
             >
               <Link className={icon('row')} aria-hidden={true} />

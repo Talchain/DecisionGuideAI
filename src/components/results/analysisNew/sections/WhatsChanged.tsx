@@ -128,7 +128,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
       </h3>
 
       <p
-        className={`${typography.panelBody} text-text mt-1.5 mb-0`}
+        className={`${typography.panelBody} text-text mt-2 mb-0`}
         data-testid={`${WHATS_CHANGED_TESTID}-comparability`}
       >
         {view.comparability}
@@ -159,7 +159,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
             {shared}
           </p>
         ) : null}
-        <ul className="list-none p-0 mt-2 mb-0 space-y-1.5" data-testid={`${WHATS_CHANGED_TESTID}-movements`}>
+        <ul className="list-none p-0 mt-2 mb-0 space-y-2" data-testid={`${WHATS_CHANGED_TESTID}-movements`}>
           {view.movements.map((m) => (
             <MovementLine key={m.optionId} m={m} sharedQualifier={shared !== null} />
           ))}
@@ -184,7 +184,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
       */}
       {view.movements.length > 0 ? (
         <p
-          className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}
+          className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}
         >
           Only options that appear in both analyses are listed here.

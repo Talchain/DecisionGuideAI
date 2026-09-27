@@ -122,7 +122,9 @@ describe('PRECONDITIONS — the subjects of these rules exist', () => {
     // rest the strip is COMPACT — four icons, the pre-mortem in the ⋯ menu.
     // Nothing is lost (the menu lists every method); a non-compact default
     // would need a 326px dock. It was ≥300 (390) at the old 416 default.
-    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBeLessThan(300)
+    // ⚠ RE-PINNED 27 Sep 2026 (default 360): the default budget is 334, so at rest the
+    // strip shows all FIVE icons again, as the V2 prototype does at 360.
+    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBeGreaterThanOrEqual(300)
   })
 })
 
@@ -141,11 +143,11 @@ describe('the strip', () => {
     expect(more()).toHaveAttribute('aria-label', METHOD_STRIP_COPY.more)
   })
 
-  it('outside the shell it behaves as the default dock: four icons since the 319px default (26 Sep 2026)', () => {
-    // RE-PINNED with the default width (was five at 416); see the precondition.
+  it('outside the shell it behaves as the default dock: five icons at the 360px default (27 Sep 2026)', () => {
+    // RE-PINNED with the default width (four at 319, five at 416 and now at 360); see the precondition.
     draw()
-    expect(screen.getByTestId(TID)).toHaveAttribute('data-compact', 'true')
-    expect(iconIds()).toEqual(['different_option', 'reframe_problem', 'consider_opposite', 'outside_view'])
+    expect(screen.getByTestId(TID)).toHaveAttribute('data-compact', 'false')
+    expect(iconIds()).toEqual(['different_option', 'reframe_problem', 'consider_opposite', 'outside_view', 'pre_mortem'])
   })
 
   /**
