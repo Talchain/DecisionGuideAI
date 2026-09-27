@@ -960,7 +960,8 @@ describe('the shell contract itself holds together', () => {
 
   it('the content budget is derived from the width authority, not restated', () => {
     // 293 at the contract's flush 319px panel (26 Sep 2026); it was 390 at 416.
-    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBe(293)
+    // 334 at the 360px default (27 Sep 2026, Paul + Panel).
+    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBe(334)
     expect(shellContentBudget(DOCK_MIN_WIDTH)).toBe(254)
   })
 

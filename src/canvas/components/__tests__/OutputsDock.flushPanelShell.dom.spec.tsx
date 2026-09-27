@@ -46,7 +46,8 @@ vi.mock('../../../flags', async (importOriginal) => {
 })
 
 /** The contract's panel width, read from the contract, not from the module under test. */
-const CONTRACT_PANEL_WIDTH_PX = 319
+// 27 Sep 2026: 360, Paul + Panel (flush as the contract says; wider than its 319).
+const CONTRACT_PANEL_WIDTH_PX = 360
 const DOCK_WIDTH_VAR = '--dock-right-expanded'
 
 function ensureMatchMedia() {
@@ -110,7 +111,7 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     document.documentElement.style.removeProperty(DOCK_WIDTH_VAR)
   })
 
-  it('opens at the contract width, 319px, at the 1280 acceptance frame and at 1440', () => {
+  it('opens at the panel width, 360px, at the 1280 acceptance frame and at 1440', () => {
     expect(DOCK_RESPONSIVE_MAX_WIDTH).toBe(CONTRACT_PANEL_WIDTH_PX)
     expect(resolveDockWidth(1280, null)).toBe(CONTRACT_PANEL_WIDTH_PX)
     expect(resolveDockWidth(1440, null)).toBe(CONTRACT_PANEL_WIDTH_PX)

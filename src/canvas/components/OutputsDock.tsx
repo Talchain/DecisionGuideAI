@@ -2987,7 +2987,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const asideStyle: React.CSSProperties = {
     position: 'fixed',
     width: effectiveIsOpen
-      ? 'var(--dock-right-expanded, 19.9375rem)'
+      ? 'var(--dock-right-expanded, 22.5rem)'
       : 'var(--dock-right-collapsed, 2.5rem)',
     right: 0,
     top: 'var(--topbar-h, 0px)',

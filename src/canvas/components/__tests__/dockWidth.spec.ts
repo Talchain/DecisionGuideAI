@@ -68,7 +68,7 @@ describe('responsiveDockWidth — the width when the user has NEVER dragged', ()
     // now 319/1280, so the proportional band is ~1124–1280 and 1024 floors to
     // 280. 1200 is where the formula is observable: round(1200 × 319/1280) = 299.
     expect(responsiveDockWidth(1200)).toBe(SAFE_MIN(Math.round(1200 * DOCK_VIEWPORT_RATIO)))
-    expect(responsiveDockWidth(1200)).toBe(299)
+    expect(responsiveDockWidth(1200)).toBe(338)
     // …and the band is real, not a formula nobody reaches: 1200 sits strictly
     // between the floor and the ceiling, so a mutant collapsing the taper to
     // either bound is visible here.
@@ -113,7 +113,7 @@ describe('resolveDockWidth — explicit user width wins, re-clamped to bounds', 
   it('falls back to the responsive default when there is no stored width', () => {
     expect(resolveDockWidth(1280, null)).toBe(responsiveDockWidth(1280))
     // ⚠ RE-PINNED 26 Sep 2026 (flush 319px panel, design contract `.ai-panel`): was 416.
-    expect(resolveDockWidth(1280, null)).toBe(319)
+    expect(resolveDockWidth(1280, null)).toBe(360)
   })
 
   it('honours an explicit width that is inside the bounds', () => {
@@ -188,8 +188,8 @@ describe('parseStoredDockWidth — localStorage string to number | null', () => 
     // visible here as a width of 280 rather than the responsive default.
     expect(resolveDockWidth(900, parseStoredDockWidth('480'))).toBe(360)
     // ⚠ RE-PINNED 26 Sep 2026 (flush 319px panel, design contract `.ai-panel`): was 416.
-    expect(resolveDockWidth(1280, parseStoredDockWidth(null))).toBe(319)
-    expect(resolveDockWidth(1280, parseStoredDockWidth('garbage'))).toBe(319)
+    expect(resolveDockWidth(1280, parseStoredDockWidth(null))).toBe(360)
+    expect(resolveDockWidth(1280, parseStoredDockWidth('garbage'))).toBe(360)
   })
 })
 
@@ -207,7 +207,7 @@ describe('the restored 416px default — containment pins (17 Aug 2026)', () => 
     // The founder-facing viewport, bound by name so a ratio change reds HERE
     // rather than drifting silently through a proportional formula.
     // ⚠ RE-PINNED 26 Sep 2026 (flush 319px panel, design contract `.ai-panel`): was 416.
-    expect(responsiveDockWidth(1280)).toBe(319)
+    expect(responsiveDockWidth(1280)).toBe(360)
     expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
   })
 
