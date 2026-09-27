@@ -131,15 +131,26 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     const goalOnly = screen.getByTestId('option-share-goal-only-opt_full_switch')
     expect(goalOnly.textContent).toBe('Goal only')
     // The qualifier unit ("· Goal only") is a direct child of the SAME row as
-    // the share, after it, and it can only end in an ellipsis — never wrap.
+    // the share, after it, and never wraps.
+    // ⚠ RE-PINNED 27 Sep (side-by-side DIFF item 1): this asserted the unit
+    // carried `truncate`, i.e. that it COULD end in an ellipsis. That is the
+    // defect measured on Paul's mrr-90b8f080: `Goa…` at landing and `Goal o…`
+    // at 100% on a stale run. `Goal only` is the qualifier that stops the share
+    // reading as a goal probability, so it now never gives way.
     const unit = goalOnly.parentElement!
     expect(unit.parentElement).toBe(row)
     expect(readout.parentElement).toBe(row)
     expect(unit.textContent).toBe('· Goal only')
-    expect(tokens(unit)).toContain('truncate')
+    expect(tokens(unit)).not.toContain('truncate')
+    expect(tokens(unit)).toContain('shrink-0')
     expect(Boolean(readout.compareDocumentPosition(unit) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
     // The share itself never gives way.
-    expect(tokens(readout)).toContain('shrink-0')
+    // ⚠ RE-PINNED 27 Sep: the readout is now a box-less wrapper (`contents`)
+    // around the figure and its unit, so the figure is the element that must
+    // not shrink. The unit `of runs` is the one part allowed to give way.
+    expect(tokens(readout)).toContain('contents')
+    expect(tokens(screen.getByTestId('option-win-figure-opt_full_switch'))).toContain('shrink-0')
+    expect(screen.getByTestId('option-win-figure-opt_full_switch').textContent).toBe('34%')
     // Whatever gives way on a narrow card stays whole in the row's name (the
     // existing tooltip reads the same string).
     expect(row.getAttribute('aria-label')!.startsWith('Current model · 34% of runs · Goal only.')).toBe(true)
@@ -156,9 +167,15 @@ describe('served pricing options — the share line is ONE line in a slot reserv
     const post = slot('opt_hybrid')
     expect(post, 'post-run: the unscored option keeps the SAME reserved slot').not.toBeNull()
     expect(post!.getAttribute('class')).toBe(preClass)
-    expect(post!.getAttribute('aria-hidden')).toBe('true')
-    expect(post!.textContent).toBe('')
     expect(screen.queryByTestId('option-analysis-currency-opt_hybrid')).toBeNull()
+    // ⚠ RE-PINNED 27 Sep (side-by-side DIFF item 5): this asserted the slot
+    // stayed EMPTY and aria-hidden. It was empty because the option's
+    // `Not analysed` line was a second row BELOW it, so the Run still grew this
+    // card by a line. The line now fills the reserved slot instead.
+    const line = screen.getByTestId('option-not-analysed-opt_hybrid')
+    expect(post!.contains(line)).toBe(true)
+    expect(post!.getAttribute('aria-hidden')).toBeNull()
+    expect(line.textContent!.startsWith('Not analysed')).toBe(true)
   })
 
   it('CONTRAST — no Goal-only stamp: the same slot and the same one-line row, without the qualifier', () => {

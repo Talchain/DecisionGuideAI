@@ -926,11 +926,27 @@ export const LINK_STRENGTH_COPY = {
  * `cannot_confirm` → `Model result`, which asserts neither currency nor a
  * later model.
  */
+/** The share's unit. Its own constant so the card can let it give way on its own. */
+const OPTION_SHARE_UNIT = 'of runs'
+
 export const OPTION_RESULT_COPY = {
   current: CURRENT_MODEL_NOUN,
   lastRun: 'Last run',
   unconfirmed: 'Model result',
-  share: (formatted: string): string => `${formatted} of runs`,
+  /**
+   * ⭐ THE ANCHOR'S NARROW FORM (side-by-side DIFF 27 Sep, item 1). At the
+   * landing counter-scale the share line holds about 14.8em (≈28 characters),
+   * and `Current model 100% · Provisional` needs about 16.2em. Before this, the
+   * caption was what gave way, which left a bare `68% of runs · Goal only` on a
+   * run where no option reaches the goal. `Model` keeps the result model-relative (ED 11:52Z:
+   * "any result shown at rest must be explicitly model-relative") and claims no
+   * currency, so it is true for `Current model` and for `Model result`.
+   * `Last run` has no narrow form: it is already short, and it is the one label
+   * the stale state must keep.
+   */
+  compact: 'Model',
+  shareUnit: OPTION_SHARE_UNIT,
+  share: (formatted: string): string => `${formatted} ${OPTION_SHARE_UNIT}`,
   sentence: (formatted: string): string =>
     `In ${formatted} of the simulated runs, the model favoured this option over the others. ` +
     'A finding about the model as it stands, not a recommendation.',

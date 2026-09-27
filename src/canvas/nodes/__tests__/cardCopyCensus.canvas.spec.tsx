@@ -570,6 +570,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     // below them. Same MARK and SEPARATOR as `option · pre · standard`.
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
+    'of runs', // UNIT — 27 Sep (post-run side-by-side item 1): the share's unit is its own leaf so it can give way as a whole word at landing; the figure it counts (`N%`) is the adjacent leaf and never gives way.
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
@@ -582,6 +583,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'no source', // MARK — Paul 23 Sep point 7 + Codex #63 5801529767: an UNSOURCED target says so; it is never relabelled as Olumi's (est.) or yours. These fixtures' targets carry no source literal.
     //          option target is marked (this fixture's interventions carry no `source`).
     // (27 Sep, side-by-side DIFF item 1: the `·` MARK SEPARATOR is retired — the contract row reads `£49 → £59 brief`; the mark's own 10px muted type sets it apart.)
+    'of runs', // UNIT — 27 Sep (post-run side-by-side item 1): the share's unit is its own leaf so it can give way as a whole word at landing; the figure it counts (`N%`) is the adjacent leaf and never gives way.
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [
