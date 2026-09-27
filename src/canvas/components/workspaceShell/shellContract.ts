@@ -117,11 +117,15 @@ export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
  * into a single overflow menu, so both stay keyboard-reachable rather than
  * being silently omitted from the strip.
  *
- * 320, not a dock-width literal — R1 flags only 280/416/480 as named widths;
+ * ⭐ 420 SINCE 27 Sep 2026 (Panel). Served `70a03a22` at the new 360px default: the
+ * non-compact strip WRAPPED ("Model" at y76 vs y34), so 320 was not enough headroom.
+ * The non-compact strip last fitted at the 416 default; below 420 it goes compact.
+ *
+ * (was) 320, not a dock-width literal — R1 flags only 280/416/480 as named widths;
  * this is the narrowest width at which four 12px tabs plus three 28px
  * controls fit, plus headroom, per the audit's own measurement.
  */
-export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 320
+export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 420
 
 /**
  * ⭐ THE CONTRACT'S TAB STRIP GEOMETRY (26 Sep 2026). `.panel-tabs{height:45px}`

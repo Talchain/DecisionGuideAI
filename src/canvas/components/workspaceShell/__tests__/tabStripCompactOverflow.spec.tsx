@@ -8,6 +8,7 @@
  * into a single overflow menu, so both stay reachable rather than being
  * silently dropped from the strip.
  */
+import { DOCK_RESPONSIVE_MAX_WIDTH } from '../../dockWidth'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -135,13 +136,18 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
     expect(trigger.getAttribute('aria-controls')).toBe(screen.getByTestId('dock-overflow-menu').id)
   })
 
-  it('⭐ CONTRAST: at the default 416px width, both controls render inline and no overflow trigger exists', () => {
-    draw(416)
+  // RE-PINNED 27 Sep 2026: the inline controls start at the 420 threshold (they wrapped at 360).
+  it('⭐ CONTRAST: at a wide 440px dock, both controls render inline and no overflow trigger exists', () => {
+    draw(440)
     expect(screen.getByTestId('dock-versions-trigger')).toBeInTheDocument()
     expect(screen.getByLabelText('Enable expert mode')).toBeInTheDocument()
     expect(screen.queryByTestId('dock-overflow-trigger')).toBeNull()
     const tablist = screen.getByTestId('outputs-dock-tablist')
     expect(tablist.className).toMatch(/\bflex-wrap\b/)
+  })
+
+  it('⭐ the DEFAULT dock (360px since 27 Sep 2026) is compact: served 70a03a22 wrapped "Model" to a second row at 360 non-compact', () => {
+    expect(DOCK_RESPONSIVE_MAX_WIDTH).toBeLessThan(SHELL_TABSTRIP_COMPACT_BELOW_PX)
   })
 
   it('⭐ the compact threshold is exactly SHELL_TABSTRIP_COMPACT_BELOW_PX, not a dock-width literal', () => {
