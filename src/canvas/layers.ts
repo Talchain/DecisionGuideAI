@@ -20,6 +20,11 @@
  *                           inspector included: the menu is the newest,
  *                           shortest-lived surface.
  *   · menuTooltip / setValuePopover (5013) — belong to the menu, so above it.
+ *   · modalBackdrop (6000) — a dialog (`aria-modal`), e.g. the chat's Add option
+ *                           panel: its backdrop covers the whole page, so it
+ *                           sits above every canvas overlay, the inspector and
+ *                           the menu included. (It was 5000, tied with the
+ *                           inspector, so DOM order decided.)
  *   · hoverPreview (9999) — the node hover preview; the menu's backdrop takes
  *                           the pointer while a menu is open, so the two never
  *                           compete.
@@ -39,6 +44,7 @@ export const CANVAS_LAYER = {
   submenu: 5012,
   menuTooltip: 5013,
   setValuePopover: 5013,
+  modalBackdrop: 6000,
   hoverPreview: 9999,
 } as const
 
@@ -53,5 +59,6 @@ export const CANVAS_LAYER_CLASS: Readonly<Record<Exclude<CanvasLayer, 'dock'>, s
   submenu: 'z-[5012]',
   menuTooltip: 'z-[5013]',
   setValuePopover: 'z-[5013]',
+  modalBackdrop: 'z-[6000]',
   hoverPreview: 'z-[9999]',
 })
