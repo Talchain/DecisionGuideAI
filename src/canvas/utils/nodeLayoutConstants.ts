@@ -656,7 +656,7 @@ export const KIND_GLYPH_PX = 24
  * `bandTitleClearsKindGlyph.guard.spec.ts` asserts the budget above and pairs
  * every band title with every kind shape on the five starters at the bound.
  */
-export const LAYOUT_LAYER_GAP = 48
+export const LAYOUT_LAYER_GAP = 40
 
 export const LAYOUT_PADDING_X = 24
 
