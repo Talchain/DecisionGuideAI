@@ -144,6 +144,21 @@ function isResearchChip(chip: ActionChip): boolean {
   return typeof chip.id === 'string' && chip.id.startsWith(RESEARCH_CHIP_PREFIX)
 }
 
+/** CEE's consent chip, by identity (its id prefix; a chip can arrive without an id), never by `intent` or label. */
+function isConsentChip(chip: ActionChip): boolean {
+  return typeof chip.id === 'string' && chip.id.startsWith(CONSENT_CHIP_PREFIX)
+}
+
+/**
+ * ⭐ A CHIP WHOSE CLICK IS THE DECISION SHOWS ITS `detail` BEFORE THE CLICK: the research control (what leaves
+ * Olumi, CEE #2042) and the consent chip (what the click writes: the whole option name and every factor it also
+ * adds; build train C2 + D-4, Paul's test 27 Sep, where the label read "…grandfather existi..."). Every other chip
+ * keeps the apply-chip rule (accessible name + `title`).
+ */
+function disclosesDetail(chip: ActionChip): boolean {
+  return isResearchChip(chip) || isConsentChip(chip)
+}
+
 interface SuggestedChipsProps {
   chips: ActionChip[]
   onChipClick: (chip: ActionChip) => Promise<void>
@@ -470,7 +485,7 @@ export function SuggestedChips({
           // its query to a public web search, so the query must be readable before
           // the click, not only on hover: its `detail` is rendered below the row and
           // describes the chip, instead of extending the accessible name.
-          const disclosed = detailAdds && isResearchChip(chip)
+          const disclosed = detailAdds && disclosesDetail(chip)
           const ariaLabel = detailAdds && !disclosed ? `${baseLabel}: ${detailText}` : baseLabel
           // Only Run chips answer to the run gate; every other chip stays live.
           const runGated = runGateClosed && isRunAnalysisAffordance(chip)
@@ -510,7 +525,7 @@ export function SuggestedChips({
               // "Accept → bg-primary". Its partner, "Change something first",
               // stays outlined, so the pair reads as one yes and one way out.
               className={`suggested-chip chip-stagger-in ${
-                typeof chip.id === 'string' && chip.id.startsWith(CONSENT_CHIP_PREFIX)
+                isConsentChip(chip)
                   ? CHIP_PRIMARY_CLASS
                   : CHIP_CLASS
               }`}
@@ -526,7 +541,7 @@ export function SuggestedChips({
 
       {visible.map((chip, i) => {
         const detailText = typeof chip.detail === 'string' ? chip.detail.trim() : ''
-        if (!isResearchChip(chip) || detailText.length === 0 || detailText === chip.label) return null
+        if (!disclosesDetail(chip) || detailText.length === 0 || detailText === chip.label) return null
         return (
           <p
             key={`disclosure-${chip.id}`}
