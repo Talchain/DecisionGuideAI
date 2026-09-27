@@ -43,7 +43,8 @@ export function readProvisionalView(raw: unknown): ProvisionalView | undefined {
   const view = text(r.view)
   if (view === undefined) return undefined
   const reasoning = text(r.reasoning)
-  const confirmStep = text(r.confirm_step) ?? text(r.confirmStep)
+  // The wire's one spelling (Panel's N3 on #2185): a producer that drifts shows as a missing step, not a quiet alias.
+  const confirmStep = text(r.confirm_step)
   const heading = text(r.heading)
   return {
     view,

@@ -176,6 +176,17 @@ describe('C5: the provisional view is on the face of the reply, labelled, said o
     expect(flat(screen.getByTestId('chat-thread').textContent)).toContain(VIEW)
   })
 
+  it('never mid-stream (Panel\'s N2 on #2185): a streaming reply carrying the view shows no block until it settles', async () => {
+    const msg = await messageFrom(withProvisional(servedRun(), { shaped: false }))
+    renderThread({ ...msg, isStreaming: true } as ConversationMessage)
+    expect(screen.queryByTestId('message-provisional-view')).toBeNull()
+  })
+
+  it('the reader takes the wire\'s one spelling (`confirm_step`), never an alias (Panel\'s N3)', () => {
+    const wire = (pv: unknown) => ({ assistant_text: 'x', __additive__: { _agent: { provisional_view: pv } } })
+    expect(extractProvisionalViewSidecar(wire({ view: 'v', confirmStep: 's' }))).toEqual({ view: 'v' })
+  })
+
   it('the reader: a sidecar with no `view` is dropped, never repaired', () => {
     const wire = (pv: unknown) => ({ assistant_text: 'x', __additive__: { _agent: { provisional_view: pv } } })
     expect(extractProvisionalViewSidecar(wire({ reasoning: 'r', confirm_step: 's' }))).toBeUndefined()
