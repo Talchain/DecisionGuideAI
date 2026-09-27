@@ -79,8 +79,20 @@ describe('FocusModeChip', () => {
     render(<FocusModeChip />)
 
     expect(screen.getByText('Market Demand')).toBeInTheDocument()
-    expect(screen.getByText(/Showing paths from/)).toBeInTheDocument()
-    expect(screen.getByText(/to goal/)).toBeInTheDocument()
+    expect(screen.getByTestId('focus-mode-chip').textContent).toContain('Showing paths from Market Demand to the goal')
+  })
+
+  it('the goal itself reads "into", never "from <goal> to goal" (Paul, MRR model, 27 Sep 2026)', () => {
+    useCanvasStore.setState({
+      nodes: [{ id: 'mrr', type: 'goal' as const, position: { x: 0, y: 0 }, data: { label: 'MRR' } }] as never,
+      selection: { nodeIds: new Set(['mrr']), edgeIds: new Set(), anchorPosition: null },
+      highlightedEdges: new Set(['e1']),
+    })
+    render(<FocusModeChip />)
+    const text = screen.getByTestId('focus-mode-chip').textContent ?? ''
+    expect(text).toContain('Showing paths into MRR')
+    expect(text).not.toMatch(/to (the )?goal/)
+    expect(text).not.toMatch(/paths from/)
   })
 
   it('truncates long node titles', () => {
