@@ -22,6 +22,10 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
+// This file pins the IN-USER-UNITS path (£ cells, tick figures), which returns
+// when an anchored goal band exists. Today's default (the switch off) is pinned
+// by `theGoalBandIsNotYourMrr.spec.tsx` (Paul's test, 27 Sep).
+vi.mock('../goalBandUnits', () => ({ goalBandIsInUserUnits: () => true }))
 
 import { OptionsComparison } from '../sections/OptionsComparison'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
