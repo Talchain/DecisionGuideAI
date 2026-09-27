@@ -37,6 +37,7 @@ import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
 import { edgePairKey, wireEdgePairKey } from '../utils/graphIdentity'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { EdgeV3Schema } from '@talchain/schemas'
+import { CANONICAL_GRAPH_HASH_NESTED_PROJECTION } from '@talchain/schemas/boundary'
 
 export type HydrationOutcome =
   /** The server's graph was read and merged onto the canvas. */
@@ -821,7 +822,6 @@ const NOT_ANALYSIS_AFFECTING = {
   observedState: new Set(['unit', 'source', 'raw_value', 'extractionType']),
   intervention: new Set(['unit', 'source', 'reasoning', 'value_confidence', 'display_value']),
   targetMatch: new Set(['match_type', 'confidence']),
-  edge: new Set(['provenance', 'provenance_display', 'origin', 'validation', 'defaulted']),
 } as const
 
 function omitKeys(value: unknown, keys: ReadonlySet<string>): unknown {
@@ -870,10 +870,36 @@ function withoutNonAnalysisFields(graph: unknown): unknown {
         return node
       })
     : g.nodes
-  const edges = Array.isArray(g.edges)
-    ? g.edges.map((e) => omitKeys(e, NOT_ANALYSIS_AFFECTING.edge))
-    : g.edges
+  const edges = Array.isArray(g.edges) ? g.edges.map(analysisAffectingEdge) : g.edges
   return { ...(graph as Record<string, unknown>), nodes, edges }
+}
+
+/**
+ * ⭐ AN EDGE IS COMPARED ONLY ON THE PUBLISHED ANALYSIS-AFFECTING VOCABULARY (W4, X4; #70 5858906092).
+ *
+ * CEE's `graph_hash` — the space `complete_current` is asserted in — hashes an edge through a WHITELIST
+ * (`graph-hash.ts projectEdge`), published as `CANONICAL_GRAPH_HASH_NESTED_PROJECTION.edge`. This proof used to strip
+ * a hand-kept DENYLIST instead, so every metadata key CEE added declined every reload: CEE #2096's `exists_defaulted`
+ * (set by a link-strength write on a defaulted edge) made the served reload say "can't confirm" (AIC n=2). The same
+ * vocabulary, imported and never re-spelled, now bounds both sides; a hashed field still declines.
+ * Nodes keep their denylist: the published node vocabulary lacks `nonlinear_identity`, which CEE does hash.
+ */
+const ANALYSIS_EDGE = CANONICAL_GRAPH_HASH_NESTED_PROJECTION.edge
+function analysisAffectingEdge(edge: unknown): unknown {
+  if (edge === null || typeof edge !== 'object' || Array.isArray(edge)) return edge
+  const e = edge as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const k of ANALYSIS_EDGE.fields) if (e[k] !== undefined) out[k] = e[k]
+  const strength = e.strength
+  if (strength !== null && typeof strength === 'object' && !Array.isArray(strength)) {
+    const s = strength as Record<string, unknown>
+    const kept: Record<string, unknown> = {}
+    for (const k of ANALYSIS_EDGE.strength_fields) if (s[k] !== undefined) kept[k] = s[k]
+    out.strength = kept
+  } else if (strength !== undefined) {
+    out.strength = strength
+  }
+  return out
 }
 
 /**
