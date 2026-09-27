@@ -197,6 +197,14 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(qualifier()).toBeNull()
   })
 
+  it('AIC #2154 B1: an OUT-OF-DATE run (analysis_out_of_date) is not told it "could not put an option forward" — no "Provisional"', () => {
+    seed(envelope({ permitted: false, withheld_reason: 'analysis_out_of_date' }),
+      { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: 'analysis_out_of_date' })
+    renderCard()
+    expect(screen.queryByTestId('option-share-provisional-candidate')).toBeNull()
+    expect(label()).not.toContain('could not put an option forward')
+  })
+
   it('CONTRAST — the goal-only case keeps "Goal only" and never ALSO says "Provisional"; a permitted leader says neither', () => {
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()

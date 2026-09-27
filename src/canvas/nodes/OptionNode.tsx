@@ -1837,7 +1837,9 @@ export const OptionNode = memo((props: NodeProps) => {
     const permission = s.results.report?.producer_leader_permission
     if (permission?.permitted !== false) return null
     const cause = typeof permission.producer_cause === 'string' ? permission.producer_cause : ''
-    return cause === 'constraint_verdict_withheld' ? null : cause
+    // An out-of-date run (CEE #2047 stamps `analysis_out_of_date`) may have named a leader
+    // before the edit: "Last run" already says what is true, so no "Provisional" (AIC #2154 B1).
+    return cause === 'constraint_verdict_withheld' || cause === 'analysis_out_of_date' ? null : cause
   })
   const shareIsProvisional = !shareIsGoalOnly && shareProvisionalCause !== null
   /*
