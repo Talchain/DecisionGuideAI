@@ -1,0 +1,263 @@
+{
+ "_source": "CEE 0303ef5 served explicit Run, pricing brief (AI Quality served-leak/0303ef5/pricing-1/explicit-run.response.json): draft_graph.edges and analysis_result.enrichment.robustness.fragile_edges, verbatim",
+ "draft_edges": [
+  {
+   "to": "keep_49_price",
+   "from": "decision_mrr",
+   "strength": {
+    "std": 0.01,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "to": "59_with_next_release",
+   "from": "decision_mrr",
+   "strength": {
+    "std": 0.01,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "to": "54_with_next_release",
+   "from": "decision_mrr",
+   "strength": {
+    "std": 0.01,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "to": "pro_plan_price",
+   "from": "59_with_next_release",
+   "strength": {
+    "std": 0.01,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "brief_extraction"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "to": "pro_plan_price",
+   "from": "54_with_next_release",
+   "strength": {
+    "std": 0.01,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "to": "pro_plan_price",
+   "from": "keep_49_price",
+   "origin": "repair",
+   "strength": {
+    "std": 0.01,
+    "mean": 1
+   },
+   "provenance": {
+    "source": "cee_hypothesis",
+    "reasoning": "Connectivity repair wired this option to a factor another option targets; no effect value is implied"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 1
+  },
+  {
+   "to": "mrr",
+   "from": "pro_plan_price",
+   "strength": {
+    "std": 0.125,
+    "mean": 0.5
+   },
+   "defaulted": true,
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 0.8
+  },
+  {
+   "to": "price_sensitivity",
+   "from": "pro_plan_price",
+   "strength": {
+    "std": 0.125,
+    "mean": 0.5
+   },
+   "defaulted": true,
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 0.8
+  },
+  {
+   "to": "monthly_churn",
+   "from": "price_sensitivity",
+   "strength": {
+    "std": 0.125,
+    "mean": 0.5
+   },
+   "defaulted": true,
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 0.8
+  },
+  {
+   "to": "new_pro_subscriptions",
+   "from": "price_sensitivity",
+   "strength": {
+    "std": 0.125,
+    "mean": -0.5
+   },
+   "defaulted": true,
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "negative",
+   "exists_probability": 0.8
+  },
+  {
+   "to": "pro_subscriber_base",
+   "from": "monthly_churn",
+   "strength": {
+    "std": 0.125,
+    "mean": -0.5
+   },
+   "defaulted": true,
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "negative",
+   "exists_probability": 0.8
+  },
+  {
+   "to": "pro_subscriber_base",
+   "from": "new_pro_subscriptions",
+   "strength": {
+    "std": 0.125,
+    "mean": 0.5
+   },
+   "defaulted": true,
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 0.8
+  },
+  {
+   "to": "mrr",
+   "from": "pro_subscriber_base",
+   "strength": {
+    "std": 0.125,
+    "mean": 0.5
+   },
+   "defaulted": true,
+   "provenance": {
+    "source": "cee_hypothesis"
+   },
+   "effect_direction": "positive",
+   "exists_probability": 0.8
+  }
+ ],
+ "fragile_edges": [
+  {
+   "to_id": "mrr",
+   "edge_id": "pro_plan_price->mrr",
+   "from_id": "pro_plan_price",
+   "visible": true,
+   "severity": "error",
+   "to_label": "MRR",
+   "from_label": "Pro plan price",
+   "switch_probability": 0.5504,
+   "alternative_winner_id": "keep_49_price",
+   "alternative_winner_label": "Keep \u00a349 Price",
+   "marginal_switch_probability": 0.23
+  },
+  {
+   "to_id": "pro_subscriber_base",
+   "edge_id": "monthly_churn->pro_subscriber_base",
+   "from_id": "monthly_churn",
+   "visible": false,
+   "severity": "warning",
+   "to_label": "Pro subscriber base",
+   "from_label": "Monthly churn",
+   "switch_probability": 0.1492,
+   "alternative_winner_id": "keep_49_price",
+   "alternative_winner_label": "Keep \u00a349 Price",
+   "marginal_switch_probability": 0
+  },
+  {
+   "to_id": "new_pro_subscriptions",
+   "edge_id": "price_sensitivity->new_pro_subscriptions",
+   "from_id": "price_sensitivity",
+   "visible": false,
+   "severity": "warning",
+   "to_label": "New Pro subscriptions",
+   "from_label": "Price sensitivity",
+   "switch_probability": 0.1452,
+   "alternative_winner_id": "keep_49_price",
+   "alternative_winner_label": "Keep \u00a349 Price",
+   "marginal_switch_probability": 0
+  },
+  {
+   "to_id": "pro_subscriber_base",
+   "edge_id": "new_pro_subscriptions->pro_subscriber_base",
+   "from_id": "new_pro_subscriptions",
+   "visible": false,
+   "severity": "warning",
+   "to_label": "Pro subscriber base",
+   "from_label": "New Pro subscriptions",
+   "switch_probability": 0.1228,
+   "alternative_winner_id": "keep_49_price",
+   "alternative_winner_label": "Keep \u00a349 Price",
+   "marginal_switch_probability": 0
+  },
+  {
+   "to_id": "monthly_churn",
+   "edge_id": "price_sensitivity->monthly_churn",
+   "from_id": "price_sensitivity",
+   "visible": false,
+   "severity": "warning",
+   "to_label": "Monthly churn",
+   "from_label": "Price sensitivity",
+   "switch_probability": 0.1184,
+   "alternative_winner_id": "keep_49_price",
+   "alternative_winner_label": "Keep \u00a349 Price",
+   "marginal_switch_probability": 0
+  },
+  {
+   "to_id": "mrr",
+   "edge_id": "pro_subscriber_base->mrr",
+   "from_id": "pro_subscriber_base",
+   "visible": false,
+   "severity": "warning",
+   "to_label": "MRR",
+   "from_label": "Pro subscriber base",
+   "switch_probability": 0.08,
+   "alternative_winner_id": "keep_49_price",
+   "alternative_winner_label": "Keep \u00a349 Price",
+   "marginal_switch_probability": 0
+  }
+ ]
+}
