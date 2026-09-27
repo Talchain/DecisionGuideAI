@@ -59,9 +59,9 @@ import {
   LOD_BODY_RESTORED_ZOOM,
   fitBoundsFor,
   glyphCounterScale,
+  LOD_CLIFF_CALIBRATION_BODY_PX,
 } from '../utils/zoomLegibility'
 import { isLodZoom } from '../components/LodSync'
-import { CANVAS_TYPE_PX } from '../../styles/typography'
 
 describe('the ladder is ordered, and the order is the whole design', () => {
   /**
@@ -227,8 +227,10 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
     // cliff is derived at the DECLARED-size scale (`glyphCounterScale`, uncapped):
     // where body text, held at its declared size, would reach the floor. Still a
     // derivation, never a picked ratio.
+    // 27 Sep 2026: read at the CALIBRATION body (12), not the live nodeLabel (11),
+    // so the cliff stays one toolbar step below the landing (see zoomLegibility.ts).
     const renderedBodyPxAtCliff =
-      CANVAS_TYPE_PX.nodeLabel * glyphCounterScale(LOD_BODY_HIDDEN_ZOOM) * LOD_BODY_HIDDEN_ZOOM
+      LOD_CLIFF_CALIBRATION_BODY_PX * glyphCounterScale(LOD_BODY_HIDDEN_ZOOM) * LOD_BODY_HIDDEN_ZOOM
     expect(
       renderedBodyPxAtCliff,
       'the body cliff is no longer the point where body text hits CANVAS_TEXT_FLOOR_PX — it has become a picked number again',

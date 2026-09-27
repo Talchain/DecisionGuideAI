@@ -815,7 +815,15 @@ export type LodRung = 'full' | 'quiet' | 'line'
  */
 // Read at the DECLARED-size bound — `MAX_GLYPH_COUNTER_SCALE`, which the text
 // ceiling does not move (27 Sep 2026) — so it is 10 / (12 × 2), the same double.
-export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeLabel * MAX_GLYPH_COUNTER_SCALE)
+//
+// ⛔ 27 Sep 2026 (#2202 moved body text 12 → 11 for "three type sizes"): the cliff
+// is read at the 12px body it was CALIBRATED at, not the live `nodeLabel`. At 11 it
+// would be 0.4545 and one toolbar zoom-out press from the landing (0.5 → 0.4545…)
+// would blank every body — the exact crossing the note above warns about. The
+// cliff's job is "one toolbar step below the landing"; body text at the cliff now
+// renders 6.2px (was 6.8), still inside the stated cost.
+export const LOD_CLIFF_CALIBRATION_BODY_PX = 12
+export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (LOD_CLIFF_CALIBRATION_BODY_PX * MAX_GLYPH_COUNTER_SCALE)
 
 /**
  * How far past the cliff a zoom must climb before the body comes BACK.
