@@ -169,11 +169,17 @@ describe.each([
     fireEvent.click(screen.getByTestId('analysis-new-challenge-more'))
     expect(screen.getByTestId('analysis-new-challenge-not-useful')).toBeInTheDocument()
 
-    // The finding's paragraph is REACHABLE on the same card — "Why this?".
-    fireEvent.click(screen.getByTestId('analysis-new-challenge-why'))
-    const why = (screen.getByTestId('analysis-new-challenge-basis-why').textContent ?? '')
+    // ⚠ RE-POINTED, slice D-4 (27 Sep 2026; R&C #70 5854950955, Paul's test):
+    // the paragraph now sits on the card AT REST, because a producer title is
+    // written to be read with its body ("Check the figure your limit was
+    // checked against" named neither). What this ruling protected, ONE home and
+    // never printed twice, is kept: the queue excludes the finding (above), the
+    // paragraph is printed exactly once (here), and "Why this?" does not repeat it.
+    const why = (screen.getByTestId('analysis-new-challenge-body').textContent ?? '')
       .replace(/\s+/g, ' ')
       .trim()
+    fireEvent.click(screen.getByTestId('analysis-new-challenge-why'))
+    expect(screen.queryByTestId('analysis-new-challenge-basis-why'), 'the paragraph is printed twice on one card').toBeNull()
 
     // PRECONDITION, pinned on THIS payload: the detector does fire on the
     // paragraph. Without it a green result below could come from a paragraph
@@ -183,8 +189,9 @@ describe.each([
       'the detector did not fire on the finding’s own text — it is not discriminating here',
     ).not.toEqual([])
 
-    // THE RULING, HALF ONE — at rest the card does not reprint the paragraph.
-    expect(reprintedChunks(atRest, why)).toEqual([])
+    // THE RULING, HALF ONE (re-pointed): the paragraph is at rest ONCE, never twice.
+    const atRestText = atRest.join(' ')
+    expect(atRestText.split(why).length - 1, 'the paragraph at rest, exactly once').toBe(1)
     // THE RULING, HALF TWO — and it does name it: a non-empty heading (above)
     // that is neither the paragraph nor a reprint of any part of it.
     expect(heading).not.toBe(why)

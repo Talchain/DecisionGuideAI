@@ -124,7 +124,7 @@ export function ReasoningSignals({
       </div>
     )
   }
-  const { drivers, tipping, gap } = signals
+  const { drivers, notRankedNote, tipping, gap } = signals
   /**
    * ⭐ THE TIPPING CONDITION STAYS AT REST, open or closed. It is the one line
    * that says what would change the answer, and a closed row labelled
@@ -293,6 +293,13 @@ export function ReasoningSignals({
               )
             })}
           </ul>
+          {/* The listed ranks are the producer's, so they can start at #2. The
+              Drivers section's own sentence says which rows are not ranked. */}
+          {notRankedNote ? (
+            <p className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-drivers-not-ranked`}>
+              {notRankedNote}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

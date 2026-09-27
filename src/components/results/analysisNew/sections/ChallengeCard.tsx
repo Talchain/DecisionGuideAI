@@ -369,6 +369,16 @@ export function ChallengeCard({
   // The exercise: the producer's own `tryThis` when it sent one; otherwise the
   // neutral label. Never a composed one (see `ZONE.respondLabel`).
   const exercise = shown.kind === 'intervention' && shown.rec.tryThis ? shown.rec.tryThis : ZONE.respondLabel
+  // D-4: an intervention's why is shown at rest (below), so the basis does not repeat it.
+  const atRestWhy = shown.kind === 'intervention' && whyText ? whyText : null
+  const basisWhy = atRestWhy ? null : whyText
+  // D-4: with no method attached, the producer's own act ("Give the real
+  // figure") names the AI act; a method keeps "guide this method".
+  const aiLabel = shownMethod
+    ? ZONE.guideMethod
+    : shown.kind === 'intervention' && shown.rec.action.label?.trim()
+      ? shown.rec.action.label
+      : ZONE.workThrough
   const canSetAside = shown.kind === 'intervention' || onSetAsideMethod !== undefined
   const setAside = () => {
     if (shown.kind === 'intervention') {
@@ -399,6 +409,18 @@ export function ChallengeCard({
         <span className="text-text-light" aria-hidden={true}>·</span>
         <span className="min-w-0" data-testid={`${testId}-heading`}>{shown.heading}</span>
       </p>
+      {/* ⭐ SLICE D-4, THE BLOCK WHOLE (R&C #70 5854950955, Paul's test 27 Sep).
+          A producer item's title is written to be read WITH its body: on Paul's
+          MRR model the title alone read "Check the figure your limit was checked
+          against" and named neither the limit nor the figure, which only the
+          body carried. So the body sits under the question at rest, and leaves
+          the "Why this?" basis (never said twice). A method's question stands
+          on its own, as the prototype's does, and keeps its basis behind the ⓘ. */}
+      {atRestWhy ? (
+        <p className={`${typography.panelMeta} text-text-light m-0 mb-1 pl-[11px]`} data-testid={`${testId}-body`}>
+          {atRestWhy}
+        </p>
+      ) : null}
       <div className="flex items-center justify-between gap-2.5 mt-[3px] min-h-[27px]">
         <button
           ref={respondRef}
@@ -414,7 +436,7 @@ export function ChallengeCard({
         <div className="flex shrink-0 items-center gap-[3px]">
           <PanelIconButton
             ai
-            label={shownMethod ? ZONE.guideMethod : ZONE.workThrough}
+            label={aiLabel}
             onClick={run}
             testId={`${testId}-work-through`}
           />
@@ -492,9 +514,9 @@ export function ChallengeCard({
           {...(shown.kind === 'intervention' && shown.rec.dskClaimId ? { 'data-dsk-claim-id': shown.rec.dskClaimId } : {})}
         >
           <ul className="m-0 my-1.5 grid list-none gap-1.5 pl-[15px]">
-            {whyText ? (
+            {basisWhy ? (
               <li className={bullet} data-testid={`${basisId}-why`}>
-                {whyText}
+                {basisWhy}
               </li>
             ) : null}
             {shownMethod ? (

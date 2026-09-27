@@ -3757,6 +3757,12 @@ function buildChecks(
       leaderCode === 'leader_not_assessed' &&
       typeof producerWithholdReason === 'string' &&
       producerWithholdReason.trim() === 'constraint_verdict_withheld',
+    /* CEE's first-pass token, exact match, and only where this surface's own
+       leader code says the leader was withheld (the stale-reason rule above). */
+    firstPassWithheld:
+      leaderCode === 'leader_not_assessed' &&
+      typeof producerWithholdReason === 'string' &&
+      producerWithholdReason.trim() === 'unrequested_analysis_withheld',
     /**
      * ⭐⭐⭐ A DIFFERENT QUESTION AGAIN: WOULD RUNNING IT AGAIN CHANGE THIS?
      *
@@ -4068,7 +4074,7 @@ export function buildAnalysisNewViewModel(
         // distinction matters downstream — the glance ribbon uses this to
         // decide whether a re-run could help, and pre-run there is no result
         // for it to be about.
-        { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, rerunWouldNotHelp: false }
+        { items: [], leaderWithholdCause: null, leaderWithheld: false, leaderWithholdDetail: null, sharesExcludeLimits: false, firstPassWithheld: false, rerunWouldNotHelp: false }
       : buildChecks(data, inputs.producerLeaderWithholdReason, inputs.staleReason),
   }
 }
