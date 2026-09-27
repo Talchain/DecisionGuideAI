@@ -60,7 +60,7 @@ export function noiseQualifier(v: NoiseVerdict): string | null {
 }
 
 /** What a person is told about ONE option's movement. */
-function MovementLine({ m }: { m: RunDeltaMovement }): JSX.Element {
+function MovementLine({ m, sharedQualifier }: { m: RunDeltaMovement; sharedQualifier: boolean }): JSX.Element {
   const name = m.label ?? 'An option this run does not name'
   // ⛔ `not_noise_qualified` IS DIRECTION ONLY. The contract: "reported as
   // direction only, never dressed as signal" — so the two numbers are withheld
@@ -70,7 +70,7 @@ function MovementLine({ m }: { m: RunDeltaMovement }): JSX.Element {
     ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
     : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} than last time`
 
-  const qualifier = noiseQualifier(m.noiseVerdict)
+  const qualifier = sharedQualifier ? null : noiseQualifier(m.noiseVerdict)
 
   return (
     <li
@@ -94,6 +94,10 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
   // withholds the block for several reasons that all reach the client as one
   // silence, so there is no honest sentence to print here.
   if (!view) return null
+  // Two or more rows with one producer verdict: its qualifier is said once.
+  const verdicts = new Set(view.movements.map((m) => m.noiseVerdict))
+  const shared =
+    view.movements.length >= 2 && verdicts.size === 1 ? noiseQualifier(view.movements[0].noiseVerdict) : null
 
   return (
     <section
@@ -149,11 +153,18 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
           No option could be matched across these two analyses, so there is nothing to compare here.
         </p>
       ) : (
+        <>
+        {shared ? (
+          <p className={`${typography.panelMeta} text-text-light mt-2 mb-0`} data-testid={`${WHATS_CHANGED_TESTID}-shared-qualifier`}>
+            {shared}
+          </p>
+        ) : null}
         <ul className="list-none p-0 mt-2 mb-0 space-y-1.5" data-testid={`${WHATS_CHANGED_TESTID}-movements`}>
           {view.movements.map((m) => (
-            <MovementLine key={m.optionId} m={m} />
+            <MovementLine key={m.optionId} m={m} sharedQualifier={shared !== null} />
           ))}
         </ul>
+        </>
       )}
 
       {/*
