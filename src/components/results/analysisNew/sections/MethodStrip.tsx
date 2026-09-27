@@ -312,11 +312,15 @@ export function MethodStrip({
       : METHOD_STRIP_COPY.more
 
   return (
+    // `-mb-2`: the tab body's `space-y-4` puts 16px (+4px row padding) between
+    // the strip and the title; the V2 prototype shows ~10px (measured on served
+    // `91717719`, 27 Sep). This takes 8px back without touching the other gaps.
     <div
       role="group"
       aria-label={METHOD_STRIP_COPY.group}
       data-testid={testId}
       data-compact={compact ? 'true' : 'false'}
+      className="-mb-2"
     >
       {/* V2 prototype `.methodstrip`: 6px between circles, 4px in a narrow panel. */}
       <div className={`flex items-center ${compact ? 'gap-1' : 'gap-1.5'} min-h-[38px]`}>

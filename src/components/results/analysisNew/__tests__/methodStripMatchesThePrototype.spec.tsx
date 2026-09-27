@@ -184,4 +184,9 @@ describe('B1 — the strip itself', () => {
     expect(screen.getByTestId(`${TID}-method-different_option`).className).toMatch(/\bsize-\[35px\]/)
     expect(screen.getByTestId(`${TID}-method-different_option`).className).not.toMatch(/\bsize-9\b/)
   })
+
+  it('the title sits the prototype\'s ~10px below the strip, not 20px (served 91717719): the strip takes 8px back', () => {
+    draw()
+    expect(screen.getByTestId(TID).className).toMatch(/(^|\s)-mb-2(\s|$)/)
+  })
 })
