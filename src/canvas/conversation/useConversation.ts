@@ -789,6 +789,11 @@ async function runStreamedDraftTurn(args: {
     onCoachingReady: () => {
       useDraftStore.getState().markDraftStreamCoachingLanded(turnClientId)
     },
+    // C6-2: the user's own goal and options, read from the brief while the model is still being built. Identity- and
+    // phase-guarded in the store; shown only on the first-use wait, and superseded the moment the model arrives.
+    onBriefRead: (reading) => {
+      useDraftStore.getState().markDraftStreamBriefRead(turnClientId, reading)
+    },
     onGraphReady: (graph) => {
       // Scenario guard, same rule the buffered ingest applies: a response whose
       // scenario is no longer the open one must not write to the canvas.

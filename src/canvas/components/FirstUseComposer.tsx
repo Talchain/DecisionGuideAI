@@ -16,6 +16,8 @@ import { focusFloating, registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
 import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 import { StarterDecisions } from './StarterDecisions'
+import { BriefReadingCard } from './BriefReadingCard'
+import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
@@ -121,6 +123,12 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   // indicator unmounts as soon as the first graph appears (nodeCount > 0
   // → hero unmounts entirely).
   const isGenerating = isThinking && nodeCount === 0
+  // C6-2: the user's own goal and options, read from the brief while this scenario's draft is still `drafting`.
+  // The store clears it on every phase change, and the hero unmounts once the model draws (nodeCount > 0).
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const briefReading = useDraftStore((s) =>
+    draftStreamPhaseFor(s, currentScenarioId) === 'drafting' ? s.draftStreamBriefReading : null,
+  )
 
   // Trust item #3 (paired defect): when the send fails while the hero is
   // the active surface, the failure must be visible HERE — not only in the
@@ -623,6 +631,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
           </div>
         ) : null}
       </div>
+      {isGenerating && briefReading !== null ? <BriefReadingCard reading={briefReading} /> : null}
       {/* Trust item #3: send-failure notice at the point of failure. Plain
           visible content — deliberately NOT a live region (the
           conversation's role="log" owner announces; adding aria-live here
