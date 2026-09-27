@@ -35,7 +35,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
 import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
 import { turnOfferedConsent } from './utils/transcriptStore'
-import { OPEN_QUESTIONS_LABEL, splitServerOpenQuestions } from './serverOpenQuestions'
+import { openQuestionsToggleLabel, splitServerOpenQuestions } from './serverOpenQuestions'
 import { PANEL_LIST_BULLET } from './panelLists'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
@@ -494,7 +494,7 @@ export const MessageBubble = memo(function MessageBubble({
             data-testid="message-show-open-questions"
             aria-expanded={openQuestionsShown}
           >
-            {openQuestionsShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {OPEN_QUESTIONS_LABEL}
+            {openQuestionsShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} {openQuestionsToggleLabel(message.openQuestionList?.length)}
           </button>
           {openQuestionsShown && (
             <div className={styles.reasoningPanel} data-testid="message-open-questions">

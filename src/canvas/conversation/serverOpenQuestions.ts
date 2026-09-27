@@ -96,3 +96,12 @@ export function extractOpenQuestionListSidecar(response: unknown): string[] | un
   if (agent === null || typeof agent !== 'object' || Array.isArray(agent)) return undefined
   return readOpenQuestionList((agent as Record<string, unknown>).open_questions)
 }
+
+/**
+ * The toggle's label once the whole list is known (DL #70 5851835121): the count first, collapsed by default, so the
+ * first message stays short and the list is one press away. No list → the producer's own heading, unchanged.
+ */
+export function openQuestionsToggleLabel(listLength: number | undefined): string {
+  if (!listLength || listLength < 1) return OPEN_QUESTIONS_LABEL
+  return `${listLength} ${listLength === 1 ? 'question' : 'questions'} this model does not answer yet`
+}

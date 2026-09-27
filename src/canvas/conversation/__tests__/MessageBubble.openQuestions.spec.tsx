@@ -235,6 +235,14 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
     expect(served2054.assistant_text).toMatch(/Ask me for the other 11\.$/)
   })
 
+  it('DL 5851835121: collapsed by default, and the toggle carries the count', () => {
+    render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
+    const toggle = screen.getByTestId('message-show-open-questions')
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(toggle.textContent).toContain('13 questions this model does not answer yet')
+    expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
+  })
+
   it('RED (served): opening the panel shows all 13, verbatim and in order, and no "Ask me for the other"', () => {
     render(<MessageBubble message={makeMsg({ content: served2054.assistant_text, openQuestionList: LIST })} onChipClick={noop} />)
     fireEvent.click(screen.getByTestId('message-show-open-questions'))
@@ -245,6 +253,8 @@ describe('open questions: the producer\'s whole list when it sends one', () => {
 
   it('CONTRAST: a turn without the list keeps the questions its reply carried, as before', () => {
     render(<MessageBubble message={makeMsg({ content: served2054.assistant_text })} onChipClick={noop} />)
+    expect(screen.getByTestId('message-show-open-questions').textContent).toContain('Questions this model does not answer yet')
+    expect(screen.getByTestId('message-show-open-questions').textContent).not.toMatch(/\d+ questions?/)
     fireEvent.click(screen.getByTestId('message-show-open-questions'))
     expect(screen.queryByTestId('message-open-questions-list')).toBeNull()
     expect(screen.getByTestId('message-open-questions').textContent).toMatch(/Ask me for the other 11\./)
