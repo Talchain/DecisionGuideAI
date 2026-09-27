@@ -135,7 +135,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { BOARD_STATES_BOARDS, GATE_TAG } from './canvasGateSet'
+import { BOARD_STATES_BOARDS, BOARD_STATES_MEASURE_ONLY_BOARDS, GATE_TAG } from './canvasGateSet'
 import {
   openCanvas,
   preparePage,
@@ -187,6 +187,8 @@ const MRR: MrrFixture = readMrr('90b8f080')
 
 interface Board {
   name: string
+  /** Carries `GATE_TAG` (in `BOARD_STATES_BOARDS`), or measure-only. */
+  gated: boolean
   draft: Json
   envelope: Json
 }
@@ -298,16 +300,20 @@ function starterRun(id: StarterId, draft: Json): Json {
   return envelopeOf(block, analysisReady, hash)
 }
 
-/** The board set is the GATE's (`BOARD_STATES_BOARDS`), so tests and registry cannot drift. */
+/**
+ * The board set is the GATE's (`BOARD_STATES_BOARDS`, tagged) plus the
+ * measure-only boards (untagged), so tests and registry cannot drift.
+ */
 function boards(): Board[] {
-  return BOARD_STATES_BOARDS.map((name): Board => {
+  const gated = new Set<string>(BOARD_STATES_BOARDS)
+  return [...BOARD_STATES_BOARDS, ...BOARD_STATES_MEASURE_ONLY_BOARDS].map((name): Board => {
     if (name.startsWith('mrr-')) {
       const f = readMrr(name.slice('mrr-'.length))
-      return { name, draft: f.draft as unknown as Json, envelope: envelopeOf(f.analysis_block, f.analysis_ready, f.graph_hash, f.analysis_state) }
+      return { name, gated: gated.has(name), draft: f.draft as unknown as Json, envelope: envelopeOf(f.analysis_block, f.analysis_ready, f.graph_hash, f.analysis_state) }
     }
     const id = name as StarterId
     const draft = readStarterDraft(id) as Json // throws on a name that is not a starter
-    return { name, draft, envelope: starterRun(id, draft) }
+    return { name, gated: gated.has(name), draft, envelope: starterRun(id, draft) }
   })
 }
 
@@ -1044,7 +1050,7 @@ const interactionsOn = (board: string) => board.startsWith('mrr-')
 
 test.describe('board states geometry', () => {
   for (const board of boards()) {
-    test(`BOARD STATES @${board.name} 1280x800`, { tag: GATE_TAG }, async ({ page }) => {
+    test(`BOARD STATES @${board.name} 1280x800`, board.gated ? { tag: GATE_TAG } : {}, async ({ page }) => {
       const t0 = Date.now()
       const time: Record<string, number> = {}
       const lap = (k: string) => { time[k] = Date.now() - t0 - Object.values(time).reduce((a, b) => a + b, 0) }

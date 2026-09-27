@@ -111,12 +111,25 @@ export interface GatedTest {
  * `fixtures/mrr-<id>.fixture.json` (Paul's model — see each file's `_source`).
  */
 export const BOARD_STATES_BOARDS = [
+  // Paul's 5-factor MRR board: the one board that reproduces all three asserted defects.
+  'mrr-17d1cd3a',
+  // The cheapest starter (~11-14s darwin): a second, independent board for (b).
   'pricing-model',
+] as const
+
+/**
+ * The same arm on five more boards, MEASURED, NOT GATED (no `GATE_TAG`; run with
+ * `--grep "board states geometry"`). Trimmed on the budget: all seven cost
+ * ~110-150s darwin, ~2x the ~119s ubuntu headroom. None of the five adds an
+ * asserted defect the two gated boards miss — (d) reproduces only on
+ * `mrr-17d1cd3a`, and (b)'s long-caption reading fires on every board. See
+ * `DELIBERATE_EXCLUSIONS`.
+ */
+export const BOARD_STATES_MEASURE_ONLY_BOARDS = [
   'market-entry',
   'vendor-selection',
   'build-vs-buy',
   'headcount-allocation',
-  'mrr-17d1cd3a',
   'mrr-90b8f080',
 ] as const
 
@@ -524,17 +537,17 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'links at zero; (a) run growth and (e) Fit centring/floor are REPORTED (`BSGJSON`), not ' +
       'asserted. Every probe carries a positive control in the same run. ' +
       '⚠ RED AT ITS OWN BASE `02422c39`, BY DESIGN: (c) on both MRR boards, (d) on `mrr-17d1cd3a`, ' +
-      'and (b) on every board\'s STALE long-caption reading — the three defects the parked ' +
-      '`canvas/factor-band-causal-order`, `canvas/driver-line-no-clip` and `canvas/graph-small-fixes` ' +
-      'exist to fix; with those three merged onto this arm (`--no-commit`, then aborted) all seven arms ' +
-      'went GREEN, every control firing. Admission rule (1) below ("GREEN at the base, twice") is therefore NOT met by ' +
-      'this arm alone — it lands WITH or AFTER those three, never before. ' +
-      '⚠ COST, darwin, measured on this lane UNDER LOAD (load average 30-40, a shared machine — ' +
-      'CONTENDED, so an upper reading, not the job\'s figure): ~11-14s per starter arm, ~26-39s per ' +
-      'MRR arm (only those two drive the UI for (c) and (e), in all four states), 170s wall for all ' +
-      'seven through this config including the dev-server boot. At this file\'s 1.9x that is ' +
-      'OVER the ~119s headroom the budget block records; trim `BOARD_STATES_BOARDS` (one list drives ' +
-      'the tests AND these entries) if the job\'s own timings say so.',
+      'and (b) on every board\'s STALE long-caption reading. Re-measured on staging `507d8ef8` (27 Sep): ' +
+      '(c) reads 0 there — fixed by #2174 (`layers.ts`), which a served witness confirms ' +
+      'independently — while (b) and (d) stay RED until #2171 (`canvas/driver-line-no-clip`) and #2168 ' +
+      '(`canvas/factor-band-causal-order`) land; with both merged on `507d8ef8` the two gated boards went ' +
+      'GREEN, every control firing. Admission rule (1) below ("GREEN at the base, twice") is therefore met ' +
+      'only AFTER those two — this arm lands after them, never before. ' +
+      '⚠ COST, darwin, UNDER LOAD (load average 30-60, a shared machine — an upper reading): the two ' +
+      'gated boards took 68s and 77s wall through this config INCLUDING the dev-server boot; ~26-39s is ' +
+      'the MRR arm, ~11-14s the starter. The other five boards are measure-only ' +
+      '(`BOARD_STATES_MEASURE_ONLY_BOARDS`, see `DELIBERATE_EXCLUSIONS`): all seven were ~2x the ~119s ' +
+      'ubuntu headroom.',
   })) as GatedTest[]),
 ]
 
@@ -566,6 +579,16 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       + 'reaches zero — it needs no new evidence beyond its own green, and it already carries a '
       + 'vacuity control (rows and atoms non-zero) and an injected positive control (a deliberately '
       + 'overlapped pair the detector must find, at the right magnitude).',
+  },
+  {
+    what: 'boardStatesGeometry.measure.ts — five of its seven boards (`BOARD_STATES_MEASURE_ONLY_BOARDS`)',
+    why:
+      'THE BUDGET. The arm costs ~11-14s darwin per starter and ~26-39s per MRR board (contended), ' +
+      'so all seven are ~2x the ~119s ubuntu headroom recorded below. The two gated boards keep ' +
+      'every asserted defect: (d) the upward same-band link reproduces ONLY on `mrr-17d1cd3a` ' +
+      '(`mrr-90b8f080` wraps its six factors 3+3 and shows none), (c) needs an MRR board, and (b)\'s ' +
+      'long-caption reading fires on every board. The five still run on demand; `mrr-90b8f080` is ' +
+      'the board whose Fit cannot reach the 0.5 floor ((e), reported only).',
   },
   {
     what: "nodeKeyboardBleed.measure.ts — 'census: focusable controls inside .react-flow__node, all five starters'",
