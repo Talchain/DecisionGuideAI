@@ -5,6 +5,7 @@
  * messages, blocks, chips, turn requests/responses, and system events.
  */
 
+import type { ProvisionalView } from './provisionalView'
 import type { StageType } from '@talchain/schemas/boundary'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEInterventionV3 } from '../../adapters/cee/types'
 import type { AnswerShape } from './answerShape'
@@ -103,6 +104,12 @@ export interface ConversationMessage {
    * Kept in the transcript (it is the producer's text, carries no action) and re-read on restore.
    */
   openQuestionList?: readonly string[]
+  /**
+   * Slice C5 (Paul's ruling 5855324470): Olumi's PROVISIONAL view when the analysis cannot put an option forward —
+   * `_agent.provisional_view`, typed, never a block or a leader field (`extractProvisionalViewSidecar`). Rendered as
+   * its own labelled block on the face of the reply. Kept in the transcript (producer text, no action).
+   */
+  provisionalView?: ProvisionalView
   /**
    * What Olumi had to leave out of the model it drafted on THIS turn —
    * `model_building_notices`, a DECLARED optional field on the V5 body (schemas

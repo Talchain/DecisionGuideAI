@@ -39,6 +39,7 @@ import { buildSuggestedActionChips } from '../../../v5/blocks/suggestedActionChi
 import { composePhase3BridgedBlocks } from '../useConversation'
 import { extractAnswerShapeSidecar } from '../answerShape'
 import { extractOpenQuestionListSidecar, SERVER_OPEN_QUESTIONS_MARKER } from '../serverOpenQuestions'
+import { extractProvisionalViewSidecar } from '../provisionalView'
 import { ChatThread } from '../zones/ChatThread'
 import type { ConversationMessage } from '../types'
 
@@ -59,6 +60,11 @@ const IN_CHAT = new Set([
   '_agent.open_questions[]',
   'suggested_actions[].label',
   'suggested_actions[].detail',
+  // Slice C5: Olumi's provisional view, typed (`_agent.provisional_view`); the why is one press away.
+  '_agent.provisional_view.heading',
+  '_agent.provisional_view.view',
+  '_agent.provisional_view.reasoning',
+  '_agent.provisional_view.confirm_step',
 ])
 
 /** Producer prose that is deliberately NOT the chat's to show, and why. */
@@ -104,6 +110,7 @@ async function messageFrom(body: Wire): Promise<ConversationMessage> {
   const actionChips = buildSuggestedActionChips(response.blocks, response.suggested_actions)
   const answerShape = extractAnswerShapeSidecar(response)
   const openQuestionList = extractOpenQuestionListSidecar(response)
+  const provisionalView = extractProvisionalViewSidecar(response)
   return {
     id: 'a1',
     role: 'assistant',
@@ -112,6 +119,7 @@ async function messageFrom(body: Wire): Promise<ConversationMessage> {
     ...(actionChips.length > 0 ? { actionChips } : {}),
     ...(answerShape ? { answerShape } : {}),
     ...(openQuestionList ? { openQuestionList } : {}),
+    ...(provisionalView ? { provisionalView } : {}),
     timestamp: new Date('2026-09-27T10:14:47Z'),
   } as ConversationMessage
 }
@@ -183,6 +191,7 @@ describe('D-4: the chat shows every piece of producer prose on a served turn, or
       proseLeaves(body.suggested_actions, 'suggested_actions', leaves)
       proseLeaves(body._answer_shape, '_answer_shape', leaves)
       proseLeaves((body._agent as Wire | undefined)?.open_questions, '_agent.open_questions', leaves)
+      proseLeaves((body._agent as Wire | undefined)?.provisional_view, '_agent.provisional_view', leaves)
       for (const { path } of leaves) {
         if (!IN_CHAT.has(path) && !ELSEWHERE.some((e) => path.startsWith(e.prefix))) unclassified.add(path)
       }
@@ -197,6 +206,7 @@ describe('D-4: the chat shows every piece of producer prose on a served turn, or
     proseLeaves(body.suggested_actions, 'suggested_actions', leaves)
     proseLeaves(body._answer_shape, '_answer_shape', leaves)
     proseLeaves((body._agent as Wire | undefined)?.open_questions, '_agent.open_questions', leaves)
+    proseLeaves((body._agent as Wire | undefined)?.provisional_view, '_agent.provisional_view', leaves)
     const owed = leaves.filter(
       (l) =>
         IN_CHAT.has(l.path) &&
