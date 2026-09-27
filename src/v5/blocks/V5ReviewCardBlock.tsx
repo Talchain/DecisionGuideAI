@@ -84,7 +84,7 @@ export function V5ReviewCardBlock({ block, suppressHeader = false }: V5ReviewCar
       </p>
       {freshnessNotice && (
         <p
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid="v5-review-card-freshness"
         >
           {freshnessNotice}
@@ -107,7 +107,7 @@ export function V5ReviewCardBlock({ block, suppressHeader = false }: V5ReviewCar
               className={[
                 'inline-flex items-center rounded-full px-2.5 py-0.5',
                 'bg-transparent border border-panel-border text-text-body',
-                typography.panelMeta,
+                typography.chatMeta,
               ].join(' ')}
             />
           ))}

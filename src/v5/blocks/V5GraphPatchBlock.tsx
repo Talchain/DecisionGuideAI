@@ -112,7 +112,7 @@ export function V5GraphPatchBlock({
             'inline-flex items-center rounded-full px-2.5 py-0.5',
             'bg-transparent text-text-body',
             isApplied ? 'border border-success/30' : 'border border-text-light/30',
-            typography.panelMeta,
+            typography.chatMeta,
           ].join(' ')}
           data-testid="v5-change-status"
         >
@@ -135,7 +135,7 @@ export function V5GraphPatchBlock({
       )}
       {receipt.changeSummary && (
         <p
-          className={`${typography.panelMeta} text-text-body`}
+          className={`${typography.chatMeta} text-text-body`}
           data-testid="v5-change-summary"
         >
           {receipt.changeSummary}
@@ -143,7 +143,7 @@ export function V5GraphPatchBlock({
       )}
       {showStaleHint && (
         <p
-          className={`${typography.panelMeta} text-text-light`}
+          className={`${typography.chatMeta} text-text-light`}
           data-testid="v5-change-freshness-hint"
         >
           Latest analysis is now out of date.

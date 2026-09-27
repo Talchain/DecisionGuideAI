@@ -114,7 +114,7 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
                 ${typography.bodySmall} text-text-body
                 hover:bg-panel-hover focus-visible:bg-panel-hover
                 focus-visible:outline-none transition-colors duration-100
-                min-h-[44px]
+                min-h-[32px]
               `}
               data-testid={`guide-item-${item.id}`}
             >
@@ -126,7 +126,7 @@ export function GuideDropdown({ isOpen, onClose, onInsertText, anchorRef }: Guid
 
         {showHelp && (
           <div
-            className={`mx-3 mb-2 mt-1 p-3 rounded-md border border-info/20 bg-panel ${typography.panelMeta} text-text-body relative`}
+            className={`mx-3 mb-2 mt-1 p-3 rounded-md border border-info/20 bg-panel ${typography.chatMeta} text-text-body relative`}
             data-testid="guide-help-card"
           >
             <button

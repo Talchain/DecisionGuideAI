@@ -1152,28 +1152,28 @@ const FactBlockRenderer = memo(function FactBlockRenderer({
       {factType === 'simple' && (
         <>
           <span className={styles.factValue}>{block.value}</span>
-          <span className={`${typography.panelMeta} ${styles.factLabel}`}>{block.label}</span>
+          <span className={`${typography.chatMeta} ${styles.factLabel}`}>{block.label}</span>
           {block.source && <span className={styles.factSource}>{block.source}</span>}
         </>
       )}
 
       {(factType === 'option_comparison' || factType === 'sensitivity') && (
         <>
-          <span className={`${typography.panelMeta} ${styles.factLabel}`}>{block.label}</span>
+          <span className={`${typography.chatMeta} ${styles.factLabel}`}>{block.label}</span>
           <BarTemplateRows facts={block.facts ?? []} />
         </>
       )}
 
       {factType === 'robustness' && (
         <>
-          <span className={`${typography.panelMeta} ${styles.factLabel}`}>{block.label}</span>
+          <span className={`${typography.chatMeta} ${styles.factLabel}`}>{block.label}</span>
           <RobustnessIndicator value={block.value} />
         </>
       )}
 
       {factType === 'constraint' && (
         <>
-          <span className={`${typography.panelMeta} ${styles.factLabel}`}>{block.label}</span>
+          <span className={`${typography.chatMeta} ${styles.factLabel}`}>{block.label}</span>
           <ConstraintRow value={block.value} />
         </>
       )}
@@ -1182,7 +1182,7 @@ const FactBlockRenderer = memo(function FactBlockRenderer({
       {factType !== 'simple' && factType !== 'option_comparison' && factType !== 'sensitivity' && factType !== 'robustness' && factType !== 'constraint' && (
         <>
           <span className={styles.factValue}>{block.value}</span>
-          <span className={`${typography.panelMeta} ${styles.factLabel}`}>{block.label}</span>
+          <span className={`${typography.chatMeta} ${styles.factLabel}`}>{block.label}</span>
         </>
       )}
 
@@ -1247,7 +1247,7 @@ function RobustnessIndicator({ value }: { value: string }) {
           />
         ))}
       </div>
-      <span className={`${typography.panelMeta} ${styles.factLabel}`}>{label}</span>
+      <span className={`${typography.chatMeta} ${styles.factLabel}`}>{label}</span>
     </div>
   )
 }
@@ -1447,14 +1447,14 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
             </a>
           )}
           {f.confidence != null && (
-            <span className={`${typography.panelMeta} ${styles.evidenceConfidence}`}>
+            <span className={`${typography.chatMeta} ${styles.evidenceConfidence}`}>
               {Math.round(f.confidence * 100)}% confidence
             </span>
           )}
         </div>
       ))}
       {block.query && (
-        <div className={`${typography.panelMeta} ${styles.evidenceQuery}`}>
+        <div className={`${typography.chatMeta} ${styles.evidenceQuery}`}>
           Query: {block.query}
         </div>
       )}
@@ -1497,7 +1497,7 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span className={typography.panelHeader}>{opt.label}</span>
             {opt.probability != null && (
-              <span className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+              <span className={typography.chatMeta} style={{ color: 'var(--text-light)' }}>
                 {Math.round(opt.probability * 100)}% probability
                 {opt.rank != null && ` · Rank ${opt.rank}`}
               </span>
@@ -1513,7 +1513,7 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
               </div>
             )}
             {opt.key_differentiators && opt.key_differentiators.length > 0 && (
-              <div className={typography.panelMeta} style={{ color: 'var(--text-light)', fontStyle: 'italic' }}>
+              <div className={typography.chatMeta} style={{ color: 'var(--text-light)', fontStyle: 'italic' }}>
                 {opt.key_differentiators.join('; ')}
               </div>
             )}
@@ -1537,19 +1537,19 @@ function PremortemBlockRenderer({ block }: { block: PremortemBlockType }) {
         <div key={`${rp.description}-${i}`} className={styles.failureMode}>
           <span className={typography.panelBody}>{rp.description}</span>
           {rp.path && rp.path.length > 0 && (
-            <span className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+            <span className={typography.chatMeta} style={{ color: 'var(--text-light)' }}>
               {rp.path.join(' → ')}
             </span>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             {rp.influence != null && (
-              <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>Influence: {Math.round(rp.influence * 100)}%</span>
+              <span className={`${typography.chatMeta} ${styles.outlinedPill}`}>Influence: {Math.round(rp.influence * 100)}%</span>
             )}
             {rp.likelihood && (
-              <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{rp.likelihood}</span>
+              <span className={`${typography.chatMeta} ${styles.outlinedPill}`}>{rp.likelihood}</span>
             )}
             {rp.mitigation && (
-              <span className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+              <span className={typography.chatMeta} style={{ color: 'var(--text-light)' }}>
                 Mitigation: {rp.mitigation}
               </span>
             )}
@@ -1574,7 +1574,7 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
       {block.flip_conditions.map((fc, i) => (
         <div key={`${fc.assumption}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
           <span className={`${typography.panelBody} font-semibold`}>{fc.assumption}</span>
-          <div className={typography.panelMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
+          <div className={typography.chatMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
             {fc.current_value && `Currently ${fc.current_value} · `}{fc.direction} past {fc.flip_threshold}
             {fc.alternative_winner && ` → ${fc.alternative_winner}`}
           </div>
@@ -1595,7 +1595,7 @@ function ExerciseBlockRenderer({ block }: { block: ExerciseBlockType }) {
     <div className={styles.exerciseBlock} data-testid="block-exercise">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span className={typography.panelHeader}>{block.title}</span>
-        <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{block.exercise_type}</span>
+        <span className={`${typography.chatMeta} ${styles.outlinedPill}`}>{block.exercise_type}</span>
       </div>
       <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.instructions}</p>
       {secureSrcDoc && (

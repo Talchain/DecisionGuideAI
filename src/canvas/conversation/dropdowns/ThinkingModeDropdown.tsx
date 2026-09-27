@@ -111,7 +111,7 @@ export function ThinkingModeDropdown({
         <span className={typography.panelHeader} style={{ color: 'var(--text-header, #262626)' }}>Thinking mode</span>
         {/* F3 snap: 10px badge → panelMeta 11px */}
         <span
-          className={typography.panelMeta}
+          className={typography.chatMeta}
           style={{
             color: 'var(--text-light, #6E6B6B)',
             padding: '2px 8px',
@@ -165,14 +165,14 @@ export function ThinkingModeDropdown({
             </div>
             <div>
               <div className={`${typography.panelBody} font-semibold`} style={{ color: 'var(--text-header, #262626)' }}>{mode.label}</div>
-              <div className={typography.panelMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 1 }}>{mode.description}</div>
+              <div className={typography.chatMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 1 }}>{mode.description}</div>
             </div>
           </button>
         )
       })}
 
       {/* Footer */}
-      <p className={typography.panelMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 8 }}>
+      <p className={typography.chatMeta} style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 8 }}>
         Select the depth of reasoning for your analysis. Available in an upcoming release.
       </p>
 

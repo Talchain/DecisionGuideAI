@@ -37,7 +37,7 @@ export function BriefReadinessPill({ readiness, expanded, onToggle }: BriefReadi
         hover:bg-panel-hover transition-all duration-200
         focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-info
         focus-visible:outline-none
-        ${typography.panelMeta} font-medium
+        ${typography.chatMeta} font-medium
       `}
       style={{
         gap: 5,

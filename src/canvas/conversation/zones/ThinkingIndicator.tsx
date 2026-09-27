@@ -84,7 +84,7 @@ export function ThinkingIndicator({ label }: ThinkingIndicatorProps) {
       {/* Status label */}
       {label && (
         <span
-          className={`text-text-light ${typography.panelMeta}`}
+          className={`text-text-light ${typography.chatMeta}`}
           data-testid="thinking-label"
         >
           {label}

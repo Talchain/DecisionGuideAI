@@ -30,12 +30,12 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
       <table className="w-full text-left">
         <thead>
           <tr>
-            <th className={`${typography.panelMeta} text-text-light font-normal pb-1`}>Option</th>
+            <th className={`${typography.chatMeta} text-text-light font-normal pb-1`}>Option</th>
             {/* ⛔ A VISIBLE COLUMN HEADER, and the second survivor both sweeps
                 missed. By reference: this table captions the same quantity the
                 option card does, so it takes the same word from the same
                 register. */}
-            <th className={`${typography.panelMeta} text-text-light font-normal pb-1`}>{METRIC_NOUN.support}</th>
+            <th className={`${typography.chatMeta} text-text-light font-normal pb-1`}>{METRIC_NOUN.support}</th>
           </tr>
         </thead>
         <tbody>

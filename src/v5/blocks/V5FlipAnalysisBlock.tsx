@@ -55,7 +55,7 @@ export function V5FlipAnalysisBlock({ block }: V5FlipAnalysisBlockProps): ReactE
       <h3 className={typography.panelHeader}>Flip analysis</h3>
       <p className={typography.panelBody}>{block.narrative}</p>
       {block.flip_scenarios.length > 0 && (
-        <ul className={`${typography.panelMeta} ${PANEL_LIST_STACK}`} role="list">
+        <ul className={`${typography.chatMeta} ${PANEL_LIST_STACK}`} role="list">
           {scenarios.map(({ scenario: s, label }, i) => (
             <li
               // The id remains the React key and the test id — a machine
@@ -74,7 +74,7 @@ export function V5FlipAnalysisBlock({ block }: V5FlipAnalysisBlockProps): ReactE
                   className={[
                     'inline-flex items-center rounded-full px-2.5 py-0.5',
                     'bg-transparent border border-warning/30 text-text-body',
-                    typography.panelMeta,
+                    typography.chatMeta,
                   ].join(' ')}
                 >
                   Fragile

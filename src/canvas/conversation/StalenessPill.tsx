@@ -71,7 +71,7 @@ export function StalenessPill({ freshness }: StalenessPillProps) {
       aria-live="polite"
       data-testid="staleness-pill"
       data-freshness={freshness}
-      className={`${typography.panelMeta} inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-transparent border ${borderClass} text-text-body`}
+      className={`${typography.chatMeta} inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-transparent border ${borderClass} text-text-body`}
     >
       <Icon aria-hidden="true" className="w-3.5 h-3.5" />
       <span>{COPY[freshness]}</span>

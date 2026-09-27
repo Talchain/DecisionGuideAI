@@ -43,7 +43,7 @@ import { typography } from '../../styles/typography'
 
 export const CHIP_CLASS = [
   // `text-left`: a label that wraps reads as a sentence, not a centred poem.
-  'inline-flex items-center gap-1.5 text-left',
+  'inline-flex items-center gap-1 text-left',
   // ⭐ `border-field` (3.70:1), not `border-panel-border` (1.24:1). Measured on
   // served `e6551858`: 29 of 178 interactive controls on one screen rendered a
   // 1.24:1 outline, under WCAG 1.4.11's 3.00:1 floor for a non-text indicator,
@@ -52,8 +52,8 @@ export const CHIP_CLASS = [
   // same edit at every call site, which is how the authority stops being one.
   // `rounded-[22px]` is the pill at the 44px floor, so a one-line chip is unchanged; a wrapped
   // label becomes a rounded card whose first and last words stay clear of the curve.
-  'bg-panel border border-field rounded-[22px]',
-  'px-3 py-1.5 min-h-[44px]',
+  'bg-panel border border-field rounded-[14px]',
+  'px-2.5 py-1 min-h-[28px]',
   'hover:bg-panel-hover active:bg-panel-border/30',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
   'text-text-body cursor-pointer font-sans',
@@ -76,9 +76,9 @@ export const CHIP_CLASS = [
  * focus ring, disabled state — so the pair still lines up as one row.
  */
 export const CHIP_PRIMARY_CLASS = [
-  'inline-flex items-center gap-1.5 text-left',
-  'bg-primary border border-primary rounded-[22px]',
-  'px-3 py-1.5 min-h-[44px]',
+  'inline-flex items-center gap-1 text-left',
+  'bg-primary border border-primary rounded-[14px]',
+  'px-2.5 py-1 min-h-[28px]',
   'hover:bg-primary/90 active:bg-primary/80',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
   'text-text-on-color cursor-pointer font-sans',
@@ -93,7 +93,7 @@ export const CHIP_PRIMARY_CLASS = [
  * 44px hit floor and the focus ring stay.
  */
 export const CHIP_DISMISS_LINK_CLASS = [
-  'inline-flex items-center px-1 min-h-[44px]',
+  'inline-flex items-center px-1 min-h-[28px]',
   'bg-transparent rounded-sm',
   'text-text-light underline underline-offset-2 hover:text-text-body',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',

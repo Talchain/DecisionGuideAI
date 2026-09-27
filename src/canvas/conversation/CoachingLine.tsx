@@ -446,7 +446,7 @@ export function CoachingLine({ block, children, disambiguator = null }: Coaching
           <span className={typography.panelBody}>{title}</span>
           {disambiguator && (
             <span
-              className={`${typography.panelMeta} text-text-light ml-2`}
+              className={`${typography.chatMeta} text-text-light ml-2`}
               data-testid={`coaching-line-ref-${blockId}`}
             >
               {disambiguator}

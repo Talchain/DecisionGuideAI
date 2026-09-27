@@ -148,7 +148,7 @@ function OperationRationale({ rationale }: { rationale: string }) {
       </button>
       {expanded && (
         <div className="mt-2 pl-3 border-l-2 border-panel-border">
-          <p className={`${typography.panelMeta} text-text-light`}>{rationale}</p>
+          <p className={`${typography.chatMeta} text-text-light`}>{rationale}</p>
         </div>
       )}
     </div>
@@ -399,13 +399,13 @@ export function GraphPatchBlockRenderer({
                   dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
                 />
                 {item.elementLabel && (
-                  <span className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
+                  <span className={`${typography.chatMeta} ${styles.graphPatchProposalLabel}`}>
                     {item.elementLabel}
                   </span>
                 )}
               </div>
               {item.changeLabel && (
-                <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>
+                <span className={`${typography.chatMeta} ${styles.graphPatchProposalBadge}`}>
                   {item.changeLabel}
                 </span>
               )}
@@ -442,13 +442,13 @@ export function GraphPatchBlockRenderer({
                       dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
                     />
                     {item.elementLabel && (
-                      <span className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
+                      <span className={`${typography.chatMeta} ${styles.graphPatchProposalLabel}`}>
                         {item.elementLabel}
                       </span>
                     )}
                   </div>
                   {item.changeLabel && (
-                    <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>
+                    <span className={`${typography.chatMeta} ${styles.graphPatchProposalBadge}`}>
                       {item.changeLabel}
                     </span>
                   )}
@@ -649,7 +649,7 @@ export function GraphPatchBlockRenderer({
           the legacy patch card renders unchanged. */}
       {isAiPanelV2Enabled() && Array.isArray(relatedElements) && relatedElements.length > 0 && (
         <div
-          className={`flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-panel-border ${typography.panelMeta} text-text-light`}
+          className={`flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-panel-border ${typography.chatMeta} text-text-light`}
           data-testid="patch-related-elements"
         >
           <span aria-hidden="true">Related:</span>
@@ -728,7 +728,7 @@ export function ProposalBlockRenderer({
 
   return (
     <div className={styles.proposalBlock} data-testid="block-proposal">
-      <span className={`${typography.panelMeta} ${styles.graphPatchProposalEyebrow}`}>
+      <span className={`${typography.chatMeta} ${styles.graphPatchProposalEyebrow}`}>
         {cardHeader}
       </span>
       <p className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>{block.description}</p>
@@ -757,18 +757,18 @@ export function ProposalBlockRenderer({
                       rendering verbatim — in the pill face AND in the pill's
                       aria-label, i.e. read aloud to a screen-reader user. */}
                   {operationLabel && (
-                    <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{operationLabel}</span>
+                    <span className={`${typography.chatMeta} ${styles.outlinedPill}`}>{operationLabel}</span>
                   )}
                   {resolved && targetLabel && (
                     <TargetRefPill
                       id={resolved.id}
                       kind={resolved.kind}
                       label={targetLabel}
-                      className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}
+                      className={`${typography.chatMeta} ${styles.graphPatchProposalBadge}`}
                     />
                   )}
                   {!resolved && targetLabel && (
-                    <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{targetLabel}</span>
+                    <span className={`${typography.chatMeta} ${styles.graphPatchProposalBadge}`}>{targetLabel}</span>
                   )}
                 </div>
               </div>
@@ -777,7 +777,7 @@ export function ProposalBlockRenderer({
         </div>
       )}
       {block.consequences && block.consequences.length > 0 && (
-        <div className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
+        <div className={`${typography.chatMeta} ${styles.graphPatchProposalLabel}`}>
           {block.consequences.map((c) => <div key={c}>· {c}</div>)}
         </div>
       )}

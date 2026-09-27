@@ -100,8 +100,9 @@ describe('chip grammar — ONE authority across every render site (derived, no m
 })
 
 describe('chip grammar — the PX-B ruling itself (hand-written; derivation cannot see this)', () => {
-  it('uses the .chip padding grammar (12px/6px), not the oversized one', () => {
-    expect(CHIP_CLASS).toContain('px-3 py-1.5')
+  it('uses the compact padding grammar (10px/4px; Paul 27 Sep: "smaller, elegant"), not the oversized one', () => {
+    expect(CHIP_CLASS).toContain('px-2.5 py-1')
+    expect(CHIP_CLASS).not.toContain('px-3 py-1.5')
     // The negative twin. Without it, a revert to the oversized grammar passes
     // every derived assertion in this file.
     expect(CHIP_CLASS).not.toContain('px-4 py-2')
@@ -112,11 +113,11 @@ describe('chip grammar — the PX-B ruling itself (hand-written; derivation cann
     expect(CHIP_CLASS).not.toContain(typography.bodySmall)
   })
 
-  it('KEEPS the 44px pointer-target floor through the down-size', () => {
-    // The ruling shrank visual weight, not hit area. These are two different
-    // questions and a future tidy-up must not answer the second one by
-    // accident: padding went down, the touch target did not.
-    expect(CHIP_CLASS).toContain('min-h-[44px]')
+  it('keeps a 28px pointer-target floor (above WCAG 2.5.8\'s 24px) through the down-size', () => {
+    // Paul, 27 Sep: "all of the buttons need to be simplified and made smaller". The floor moved from 44px to 28px
+    // on purpose; it must not fall below the 24px AA minimum by accident.
+    expect(CHIP_CLASS).toContain('min-h-[28px]')
+    expect(CHIP_CLASS).not.toContain('min-h-[44px]')
   })
 
   it('keeps the focus and disabled affordances the cards depend on', () => {

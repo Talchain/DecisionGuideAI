@@ -287,7 +287,7 @@ export const MessageBubble = memo(function MessageBubble({
   const sendUnconfirmed = isUser && message.deliveryState === 'unconfirmed'
   const sendUnconfirmedMarker = sendUnconfirmed ? (
     <div
-      className={`${styles.sendFailedRow} ${typography.panelMeta}`}
+      className={`${styles.sendFailedRow} ${typography.chatMeta}`}
       data-testid="send-unconfirmed-indicator"
     >
       <AlertCircle size={12} aria-hidden="true" />
@@ -296,7 +296,7 @@ export const MessageBubble = memo(function MessageBubble({
   ) : null
   const sendFailedMarker = sendFailed ? (
     <div
-      className={`${styles.sendFailedRow} ${typography.panelMeta}`}
+      className={`${styles.sendFailedRow} ${typography.chatMeta}`}
       data-testid="send-failed-indicator"
     >
       <AlertCircle size={12} aria-hidden="true" />
@@ -304,7 +304,7 @@ export const MessageBubble = memo(function MessageBubble({
       {onRetryFailedSend && (
         <button
           type="button"
-          className={`${styles.sendFailedRetryButton} ${typography.panelMeta}`}
+          className={`${styles.sendFailedRetryButton} ${typography.chatMeta}`}
           onClick={onRetryFailedSend}
           data-testid="send-failed-retry"
           aria-label="Retry sending this message"
@@ -481,7 +481,7 @@ export const MessageBubble = memo(function MessageBubble({
         * Set by useConversation.cancelTurn(); never cleared by late chunks. */}
       {message.stoppedByUser && (
         <div
-          className={typography.panelMeta}
+          className={typography.chatMeta}
           style={{ color: 'var(--text-light, #6E6B6B)', marginTop: 4 }}
           data-testid="response-stopped-indicator"
         >
