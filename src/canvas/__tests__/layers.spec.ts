@@ -21,9 +21,9 @@ describe('canvas stacking order', () => {
     }
   })
 
-  it('the order: dock < band < edge popover < inspector < menu backdrop < menu < submenu < menu tooltip < hover preview', () => {
+  it('the order: dock < band < edge popover < inspector < menu backdrop < menu < submenu < menu tooltip < modal backdrop < modal toast < hover preview < tooltip', () => {
     const L = CANVAS_LAYER
-    const chain = [L.dock, L.overlayBand, L.edgeEditPopover, L.inspector, L.contextMenuBackdrop, L.contextMenu, L.submenu, L.menuTooltip, L.hoverPreview]
+    const chain = [L.dock, L.overlayBand, L.edgeEditPopover, L.inspector, L.contextMenuBackdrop, L.contextMenu, L.submenu, L.menuTooltip, L.modalBackdrop, L.modalToast, L.hoverPreview, L.tooltip]
     for (let i = 1; i < chain.length; i++) expect(chain[i]).toBeGreaterThan(chain[i - 1]!)
     expect(L.setValuePopover).toBeGreaterThan(L.contextMenuBackdrop)
   })
@@ -37,6 +37,8 @@ describe('canvas stacking order', () => {
     const files = [
       'contextMenu/CanvasContextMenu.tsx', 'contextMenu/Submenu.tsx', 'contextMenu/MenuTooltip.tsx', 'contextMenu/SetValuePopover.tsx',
       'components/InspectorModal.tsx', 'nodes/shared/NodePopover.tsx', 'edges/EdgeEditPopover.tsx',
+      // Panel's half (#70 5855312737 / 5855321285): the modal shell and the shared tooltip.
+      '../components/results/modals/ModalShell.tsx', '../components/Tooltip.tsx',
     ]
     for (const f of files) {
       const code = readFileSync(resolve(__dirname, '..', f), 'utf8')

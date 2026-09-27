@@ -14,6 +14,7 @@ import {
   useMergeRefs,
   safePolygon,
 } from '@floating-ui/react';
+import { CANVAS_LAYER_CLASS } from '../canvas/layers';
 
 /**
  * ⭐ THE ONE TOOLTIP STYLE — canvas visual contract v3.1 (DESIGN-GAP-v31 row 36):
@@ -120,7 +121,7 @@ export default function Tooltip({ children, content, className = '', delay, asCh
             ref={refs.setFloating}
             // v3.1: the contract's `.tooltip` has no arrow; it sits 8px off
             // its target, which `offset(8)` above already does.
-            className={`z-[9999] ${TOOLTIP_SURFACE_CLASS} ${className}`}
+            className={`${CANVAS_LAYER_CLASS.tooltip} ${TOOLTIP_SURFACE_CLASS} ${className}`}
             style={{
               position: strategy,
               top: y ?? 0,

@@ -20,9 +20,16 @@
  *                           inspector included: the menu is the newest,
  *                           shortest-lived surface.
  *   · menuTooltip / setValuePopover (5013) — belong to the menu, so above it.
+ *   · modalBackdrop (6000) / modalToast (6001) — Panel's modals (record, define
+ *                           success, how computed), portalled to <body>: a modal
+ *                           sits above the whole menu stack and the inspector.
+ *                           Inside the dock's 900 context no value could lift
+ *                           it over the inspector (Panel #70 5855312737).
  *   · hoverPreview (9999) — the node hover preview; the menu's backdrop takes
  *                           the pointer while a menu is open, so the two never
  *                           compete.
+ *   · tooltip (10000)     — the shared `Tooltip`, above everything it labels
+ *                           (it tied with the hover preview at 9999).
  *
  * ⚠ LITERAL CLASS STRINGS, NOT TEMPLATES: Tailwind emits CSS only for class
  * text it can see (`tailwind.config.js` content covers `src/**\/*.ts`).
@@ -39,7 +46,10 @@ export const CANVAS_LAYER = {
   submenu: 5012,
   menuTooltip: 5013,
   setValuePopover: 5013,
+  modalBackdrop: 6000,
+  modalToast: 6001,
   hoverPreview: 9999,
+  tooltip: 10000,
 } as const
 
 export type CanvasLayer = keyof typeof CANVAS_LAYER
@@ -53,5 +63,8 @@ export const CANVAS_LAYER_CLASS: Readonly<Record<Exclude<CanvasLayer, 'dock'>, s
   submenu: 'z-[5012]',
   menuTooltip: 'z-[5013]',
   setValuePopover: 'z-[5013]',
+  modalBackdrop: 'z-[6000]',
+  modalToast: 'z-[6001]',
   hoverPreview: 'z-[9999]',
+  tooltip: 'z-[10000]',
 })

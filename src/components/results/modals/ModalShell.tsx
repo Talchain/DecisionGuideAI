@@ -28,6 +28,8 @@ import {
   type ReactNode,
 } from 'react'
 import { X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
 
 import { typography } from '../../../styles/typography'
 import { ICON_STANDALONE } from '../../../canvas/conversation/panelIcons'
@@ -109,15 +111,19 @@ export function useModalToast(testId: string): {
     [],
   )
 
-  const toastElement = toast ? (
-    <div
-      role="status"
-      data-testid={testId}
-      className={`pointer-events-none fixed bottom-[18px] left-1/2 z-[40] max-w-[min(90vw,430px)] -translate-x-1/2 rounded-full bg-text-header px-[13px] py-2 ${typography.panelBody} text-text-on-color opacity-95`}
-    >
-      {toast}
-    </div>
-  ) : null
+  // Portalled, as the dialog is: inside the dock's 900 context it would sit under the inspector.
+  const toastElement = toast
+    ? createPortal(
+        <div
+          role="status"
+          data-testid={testId}
+          className={`pointer-events-none fixed bottom-[18px] left-1/2 ${CANVAS_LAYER_CLASS.modalToast} max-w-[min(90vw,430px)] -translate-x-1/2 rounded-full bg-text-header px-[13px] py-2 ${typography.panelBody} text-text-on-color opacity-95`}
+        >
+          {toast}
+        </div>,
+        document.body,
+      )
+    : null
 
   return { showToast, toastElement }
 }
@@ -189,10 +195,14 @@ export function ModalShell({
 
   if (!isOpen) return null
 
-  return (
+  // ⭐ SLICE D-3 (#70 5855312737 / 5855321285): PORTALLED TO <body>, on the one
+  // stacking order. Rendered in place, the modal lived inside the dock's
+  // stacking context (CANVAS_LAYER.dock), where no z-index could lift its
+  // backdrop over the canvas inspector.
+  return createPortal(
     <div
       data-testid={`${testId}-overlay`}
-      className="fixed inset-0 z-[30] flex items-center justify-center bg-[rgba(38,38,38,0.28)] p-[18px]"
+      className={`fixed inset-0 ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-center justify-center bg-[rgba(38,38,38,0.28)] p-[18px]`}
       onMouseDown={(e) => {
         // Backdrop click closes; clicks inside the card never do.
         if (e.target === e.currentTarget) onClose()
@@ -226,6 +236,7 @@ export function ModalShell({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
