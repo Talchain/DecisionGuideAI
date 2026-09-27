@@ -107,6 +107,8 @@ export const COMMITMENT_COPY = {
    * comparison, served 1a8afc11, 26 Sep 2026).
    */
   changeNotAnalysed: 'The effect of the latest change has not been analysed yet.',
+  /** V2 `synthesisHTML()` bullet 2 at rest ("…lacks assessed evidence"): the evidence check's own state. */
+  evidenceNotAssessed: 'The evidence behind the inputs has not been assessed.',
   /** V2 `synthesisHTML()` (re-run): the consequence leads. Producer noise verdicts only. */
   sinceLastRun: {
     noneMoved: 'Since the last run, no option moved beyond ordinary run-to-run variation.',
@@ -172,6 +174,8 @@ export type OpenSource =
   | 'robustness'
   /** (d) the first `gap:` finding's `headline` in `vm.uncertainty.findings`. */
   | 'evidence_gap'
+  /** (e) `COMMITMENT_COPY.evidenceNotAssessed`. */
+  | 'evidence_not_assessed'
 
 /** Where bullet 3 came from. */
 export type BeforeSource =
@@ -325,7 +329,8 @@ function readingBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSo
         ? { text: COPY.implications.divergedLead, source: 'implication_diverged_lead' }
         : { text: mi.outcome.sentence, source: 'implication_outcome_claim' }
     case 'none':
-      return null
+      // V2 always states what we have: the option count, never a reading.
+      return withheldFoundedBullet(vm)
   }
 }
 
@@ -388,6 +393,11 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
   if (evidence?.code === 'evidence_gaps') {
     const gap = vm.uncertainty.findings.find((f) => f.id.startsWith(EVIDENCE_GAP_ID_PREFIX))
     if (gap && gap.headline.trim() !== '') return { text: gap.headline, source: 'evidence_gap' }
+  }
+
+  // (e) V2 bullet 2 at rest: evidence the run did not assess is still open.
+  if (evidence?.code === 'evidence_not_assessed') {
+    return { text: COMMITMENT_COPY.evidenceNotAssessed, source: 'evidence_not_assessed' }
   }
 
   return null
