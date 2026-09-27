@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { XCircle } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 interface ConfirmDialogProps {
   title: string
@@ -65,7 +66,7 @@ export function ConfirmDialog({
    */
   return createPortal(
     <div
-      className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className={`fixed inset-0 ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-center justify-center bg-black/50 backdrop-blur-sm`}
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
