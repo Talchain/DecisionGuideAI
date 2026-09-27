@@ -30,7 +30,7 @@
  *     (`quiet`), so a Normal card can never be the taller one.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode, OUTCOME_UNQUANTIFIED_LINE } from '../OutcomeNode'
 import { RiskNode, RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'
@@ -266,55 +266,11 @@ describe('the primary line is ONE visual line; a value leads and is never the th
   })
 })
 
-describe('MOVE, DON’T DELETE — the real popover carries what left the body, in BOTH phases', () => {
-  const hoverCard = (container: HTMLElement) => fireEvent.mouseEnter(container.firstElementChild as Element)
-  const inPopover = (el: Element) => el.closest('[data-node-popover]') != null
-
-  it.each(['idle', 'complete'] as const)('outcome, unquantified, %s: the full state sentence and the authored context', async (phase) => {
-    applyStore({ results: { status: phase, report: null } })
-    const { container } = draw('outcome', { description: CONTEXT })
-    hoverCard(container)
-    const state = await screen.findByTestId('outcome-popover-state')
-    expect(state.textContent).toBe(OUTCOME_UNQUANTIFIED_LINE)
-    expect(inPopover(state)).toBe(true)
-    const context = screen.getByTestId('outcome-popover-context')
-    expect(context.textContent).toBe(CONTEXT)
-    expect(inPopover(context)).toBe(true)
-    expect(cardFace('outcome').contains(context)).toBe(false)
-    // POSITIVE CONTROL: the popover's existing phase content still renders beside it.
-    if (phase === 'idle') expect(screen.getByText(/Driven by 1 factor\./)).toBeTruthy()
-    else expect(screen.getByText('Depends on:')).toBeTruthy()
-  })
-
-  it('outcome, recorded: no state sentence is restated (nothing left the face) — the context still moves', async () => {
-    const { container } = draw('outcome', { description: CONTEXT, observedState: TWELVE_MONTHS_FROM_BRIEF })
-    hoverCard(container)
-    expect(await screen.findByTestId('outcome-popover-context')).toBeTruthy()
-    expect(screen.queryByTestId('outcome-popover-state')).toBeNull()
-  })
-
-  it.each([
-    ['unset', 'idle', {}, RISK_EXPOSURE_UNSET_LINE],
-    ['unset', 'complete', {}, RISK_EXPOSURE_UNSET_LINE],
-    ['entered', 'idle', { probability: 0.9, impact: 'high' }, 'Entered estimate · 90% likely · High impact'],
-    ['entered', 'complete', { probability: 0.9, impact: 'high' }, 'Entered estimate · 90% likely · High impact'],
-    ['recorded, exposure unset', 'idle', { observedState: TWELVE_MONTHS_FROM_BRIEF }, RISK_EXPOSURE_UNSET_LINE],
-    ['recorded, exposure unset', 'complete', { observedState: TWELVE_MONTHS_FROM_BRIEF }, RISK_EXPOSURE_UNSET_LINE],
-  ] as const)('risk, %s, %s: the full exposure sentence and the authored context', async (_s, phase, data, full) => {
-    applyStore({ results: { status: phase, report: null } })
-    const { container } = draw('risk', { description: CONTEXT, ...data })
-    hoverCard(container)
-    const state = await screen.findByTestId('risk-popover-state')
-    expect(state.textContent).toBe(full)
-    expect(inPopover(state)).toBe(true)
-    const context = screen.getByTestId('risk-popover-context')
-    expect(context.textContent).toBe(CONTEXT)
-    expect(inPopover(context)).toBe(true)
-    expect(cardFace('risk').contains(context)).toBe(false)
-    if (phase === 'idle') expect(screen.getByText(/Driven by 1 factor\./)).toBeTruthy()
-    else expect(screen.getByText('Depends on:')).toBeTruthy()
-  })
-})
+// ⚠ The "MOVE, DON'T DELETE" block that stood here pinned the Standard-view detail
+// (the full state sentence and the authored context) in the card POPOVER. The card
+// popover is retired (27 Sep 2026, contract v3.1 §01: hover shows a one-line
+// tooltip); that detail is the inspector's (`OutcomePanel` / `RiskPanel` render the
+// description) and the card's accessible name keeps the full sentence.
 
 describe('Detailed view keeps its inline detail (contrast — the fit is a Standard-view fit)', () => {
   beforeEach(() => { applyStore({ viewMode: 'expert' }) })

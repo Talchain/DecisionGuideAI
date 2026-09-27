@@ -62,7 +62,6 @@
  * remembering to import it. Same reasoning as the keyboard scope in that file.
  */
 
-.react-flow__node button,
-[data-node-popover] button {
+.react-flow__node button {
   text-align: left;
 }

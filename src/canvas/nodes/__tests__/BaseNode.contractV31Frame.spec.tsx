@@ -210,14 +210,36 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
     }
     // v3.1 WS1 #15: the contract's 24px at −12px (`.node .shape`), counter-scaled
     // like the canvas type — it was 22 flow units, 11px on screen at landing.
-    expect(glyph.style.top).toBe('calc(-12px * var(--canvas-glyph-scale, 1))')
-    expect(glyph.style.width).toBe('calc(24px * var(--canvas-glyph-scale, 1))')
+    expect(glyph.style.top).toBe('calc(12px - 24px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.width).toBe('calc(24px * var(--canvas-label-scale, 1))')
     const shape = glyph.querySelector('polygon, circle, rect') as SVGElement
     expect(shape.getAttribute('stroke')).toBe('var(--bg-panel)')
     // The svg fills the counter-scaled box (its `width` attribute is the
     // unscaled fallback; the class sizes it).
     expect(glyph.querySelector('svg')?.getAttribute('width')).toBe('24')
     expect(tokens(glyph.querySelector('svg') as Element)).toEqual(expect.arrayContaining(['h-full', 'w-full']))
+  })
+
+  /**
+   * ⭐ GRAPH CONTRACT PASS (27 Sep): the shape's lower edge stays 12px inside the
+   * border at EVERY scale — the contract's own proportion (`top:-12px` on a 12px
+   * top padding), so it never reaches the title. Served 91717719 scaled it by the
+   * TARGET scale (2 at the landing floor): a 48-unit shape 24 units into a 12-unit
+   * padding, over the first line of every title on all five starters.
+   */
+  it('⭐ the kind shape never reaches the title: its lower edge is 12px inside the border at every label scale', () => {
+    const { container } = renderCard('outcome')
+    const glyph = screen.getByTestId('node-type-glyph')
+    const at = (css: string, ls: number) =>
+      Function(`return ${css.replace(/var\(--canvas-label-scale, 1\)/g, String(ls)).replace(/calc\(|px|\)/g, (m) => (m === 'calc(' ? '(' : m === ')' ? ')' : ''))}`)() as number
+    for (const ls of [1, 1.2, 1.36]) {
+      expect(at(glyph.style.top, ls) + at(glyph.style.height, ls), `label scale ${ls}`).toBeCloseTo(12, 6)
+      expect(at(glyph.style.top, ls), `label scale ${ls}: the shape still stands on the border`).toBeLessThan(0)
+    }
+    // The inbound edge still ends ON the shape: the 12px target handle is centred on the shape's top.
+    const handle = container.querySelector('[aria-label="Input connection"]') as HTMLElement | null
+    expect(handle, 'POSITIVE CONTROL: the target handle was found').not.toBeNull()
+    for (const ls of [1, 1.36]) expect(at(handle!.style.top, ls) - 6).toBeCloseTo(at(glyph.style.top, ls), 6)
   })
 
   it('the bottom (source) handle is the 3px port class, not a kind-coloured disc', () => {

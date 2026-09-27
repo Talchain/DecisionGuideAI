@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { LINK_STRENGTH_COPY } from '../shared/metricVocabulary'
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
@@ -99,27 +99,6 @@ describe('RiskNode', () => {
   it('renders shape indicator (type line removed in v1.1)', () => {
     renderRisk()
     expect(screen.getByLabelText(/^Risk:/i)).toBeDefined()
-  })
-
-  // ED #63 5809278282 (bounded anatomy): in Standard the preview moved off the
-  // card body to the node popover; the chevron still recovers the full text.
-  it('keeps authored context in the popover and recovers the full description with the keyboard', async () => {
-    const description = 'A departure could interrupt account handovers and delay renewal conversations. '.repeat(5).trim()
-    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
-    const body = 'Keep the wider strategic context and unresolved disagreements visible.'
-    const { container } = renderRisk({ description, body })
-    expect(screen.queryByTestId('risk-context-preview')).toBeNull()
-    fireEvent.mouseEnter(container.firstElementChild as Element)
-    const preview = await screen.findByTestId('risk-popover-context')
-    expect(preview).toHaveTextContent(description)
-    expect(preview.closest('[data-node-popover]')).not.toBeNull()
-    fireEvent.mouseLeave(container.firstElementChild as Element)
-    expect(container.querySelector('.node-description')).toBeNull()
-    screen.getByRole('button', { name: 'Expand description' }).focus()
-    await userEvent.keyboard('{Enter}')
-    expect(container.querySelector('.node-description')).toHaveTextContent(description)
-    expect(container.querySelector('.node-description')).toHaveTextContent(body)
-    expect(screen.getByLabelText(/^Risk:/i)).toHaveAttribute('aria-expanded', 'true')
   })
 
   it.each([undefined, '   '])('uses the authored body when description is %s', async (description) => {

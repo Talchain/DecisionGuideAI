@@ -1,83 +1,22 @@
 /**
- * NodePopover — portal-rendered card below a canvas node.
- * Contains Layer 2 content (bars, ConnRows, bias notes).
- * Renders via createPortal to escape ReactFlow's stacking context,
- * ensuring popovers always appear above adjacent nodes.
+ * NodePopover — ⭐⭐ RETIRED. Canvas visual contract v3.1 §01: "Clicking a card
+ * opens only the inspector. Hover shows a one-line tooltip." Detail lives in the
+ * inspector (DESIGN-GAP-v31 row 6; node anatomy v3.2: "Nothing is shown just to
+ * say that nothing exists"; "No link text inside a card").
  *
- * ⚠ AND THAT PORTAL IS A KEYBOARD-SCOPE BOUNDARY — which is why this file
- * carries a scope of its own. React propagates events through the React TREE,
- * so a keydown in here still reaches React Flow's node handler
- * (`@xyflow/react@12.10.2` `dist/esm/index.mjs:2240`, whose only guard is
- * `isInputDOMNode`); `isInputDOMNode` walks the DOM TREE
- * (`@xyflow/system@0.0.76` `esm:846-854`: `target.closest('.nokey')` from
- * `composedPath()[0]`), so it can never reach `nodes/nodeKeyboardScope.tsx`'s
- * scope, which lives inside `.react-flow__node`. A portalled element is not a
- * descendant of that.
+ * MEASURED on served 91717719 (27 Sep 2026, 1280×800): resting the pointer on a
+ * card for 300ms opened a 240–260px panel over the neighbouring cards on all
+ * five starters. On a yes/no factor it also CONTRADICTED the card it belonged
+ * to: the card read "Not adopted" while the panel's option list read "Low (0)"
+ * and "Very high (1)" — a tier word invented over a binary value, with the raw
+ * 0–1 number beside it.
  *
- * MEASURED, before the fix: Enter at "Add mitigation" inside a portalled
- * popover selected the anchor node (`["fac_ae_headcount"]`) and swung the dock
- * to the Inspector, with the contrast key `q` and a plain click both reading
- * `[]` — i.e. keyboard-only, which is the bleed's signature — while
- * `node.contains(button)` was false.
- *
- * ── THE FIX: THE SAME SCOPE, ARMED HERE ─────────────────────────────────────
- *
- * `useNodeKeyboardScope` (`nodes/nodeKeyboardScope.tsx`) is the ONE mechanism,
- * imported rather than restated. It adds `.nokey` in the CAPTURE phase of a key
- * dispatch and removes it on a timer task, so:
- *
- *   · React Flow's KEYBOARD consumer sees it — our capture handler sits on an
- *     ancestor of the control in the React tree, so it runs before the node's
- *     bubble-phase `onKeyDown` in the same synchronous dispatch;
- *   · React Flow's POINTER consumer (`Pane.onPointerDownCapture`,
- *     `esm/index.mjs:1455-1456`, which REFUSES to start a marquee over a
- *     `.nokey` target) can never see it, because no `.nokey` element exists at
- *     rest. That matters more here than it does for the node scope: this
- *     popover is portalled in the DOM but is still a REACT descendant of the
- *     pane, so a permanent `.nokey` on it would be visible to that consumer
- *     through React's own tree propagation.
- *
- * ⛔ NOT `stopPropagation`. `src/` registers ~30 document/window keydown
- * listeners, overwhelmingly Escape-closes-this — one of them is
- * `shared/ScienceIcon.tsx:56`, an in-node control's own Escape-to-close.
- * Stopping the event would break the exact intent. `.nokey` stops nothing.
- *
- * ── WHY THE SCOPE IS AN INNER WRAPPER AND NOT THE CARD ITSELF ───────────────
- *
- * The card divs below carry a `className` prop. React rewrites `className`
- * whenever it renders one, so a class this component adds imperatively would be
- * racing React's own DOM write — and this component re-renders on an rAF loop
- * that tracks the anchor. The scope is therefore a separate element with NO
- * `className` prop, exactly as in `nodeKeyboardScope.tsx`, and `display:
- * contents` so it generates no box: the card's padding, scrolling and width are
- * untouched, while `closest()` — which walks the DOM tree, not the box tree —
- * still finds it.
- *
- * It wraps `children` in BOTH branches. The inline fallback is already a DOM
- * descendant of its node and so already covered by the node scope; wrapping it
- * too means the coverage is a property of this component rather than of which
- * branch a caller happens to hit.
- *
- * `data-node-popover` exists so the census and the driven portalled arm in
- * `e2e/geometry/nodeKeyboardBleed.measure.ts` can find what sits beyond that
- * boundary rather than returning a clean zero for a class they cannot see.
- * Tracks anchor position via rAF to stay aligned during pan/zoom.
- *
- * ── ⭐ v3.1: A CLICK LEAVES ONE SURFACE (DESIGN-GAP-v31 row 6) ────────────────
- *
- * "Clicking a card opens only the inspector." Measured on served `eec722ab`: a
- * factor click left the inspector AND this popover open (the pointer was still
- * over the card), beside the dock's "Selected" row — three surfaces for one
- * element. So a popover never renders while ITS OWN node is selected — the
- * state a click leaves, whose detail surface is the inspector. Bound by the
- * owner id this file already derives from the anchor (see `ownerId`), so a
- * DIFFERENT selected node never suppresses it. One file, every node kind.
+ * The component stays as a no-op so its six call sites need no churn; the
+ * per-card hover state they compute is now inert. The portal and its keyboard
+ * scope (the `nodeKeyboardScope` bleed fix) are in git history before this
+ * change, should a hover surface ever return.
  */
-import { useEffect, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import { useNodeKeyboardScope, NODE_KEYBOARD_SCOPE_ATTR } from '../nodeKeyboardScope'
-import { useCanvasStore } from '../../store'
-import { CANVAS_LAYER_CLASS } from '../../layers'
+import type { ReactNode, RefObject } from 'react'
 
 interface NodePopoverProps {
   visible: boolean
@@ -86,132 +25,9 @@ interface NodePopoverProps {
   onMouseEnter: () => void
   onMouseLeave: () => void
   /** Ref to the anchor element (node wrapper) for positioning */
-  anchorRef?: React.RefObject<HTMLElement | null>
+  anchorRef?: RefObject<HTMLElement | null>
 }
 
-/** No box, no layout effect — see the header. */
-const SCOPE_STYLE = { display: 'contents' } as const
-
-export function NodePopover({ visible, width, children, onMouseEnter, onMouseLeave, anchorRef }: NodePopoverProps) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  /**
-   * ⭐⭐ WHICH NODE THIS POPOVER BELONGS TO — and why the attribute cannot stay
-   * valueless.
-   *
-   * `data-node-popover` used to be written as `data-node-popover=""`. A bare
-   * attribute is a PREDICATE ANOTHER OBJECT SATISFIES (CLAUDE.md trap 19):
-   * EVERY node's popover carries it, so `usePopoverHover`'s focus guard read
-   * the popover of a DIFFERENT node as "inside mine" and held its own popover
-   * open while focus was demonstrably elsewhere. Two node popovers being open
-   * at once is not hypothetical — it is what the keyboard path made reachable,
-   * because keyboard focus on one node and a pointer hovering another are
-   * independent states that nothing coordinates.
-   *
-   * This is the same defect, and the same remedy, as `StyledEdge.tsx`'s
-   * `data-edge-popover={edgeIdKey}`: the exception is granted BY IDENTITY.
-   *
-   * ⚠ THE ID IS DERIVED FROM THE ANCHOR, NOT PASSED IN, AND THAT IS WHAT KEEPS
-   * IT HONEST. All eleven call sites already pass `anchorRef={nodeElRef}` — the
-   * very element `usePopoverHover` holds — so both sides of the comparison read
-   * the SAME DOM, and there is no prop for a caller to forget or to pass
-   * inconsistently. React Flow stamps `data-id` on `.react-flow__node`
-   * (`@xyflow/react@12.10.2` `dist/esm/index.mjs`: `"data-id": id`), which is
-   * the id the hook reads on its own side.
-   *
-   * An EMPTY id means "no identity", never "matches another empty id" — the
-   * hook fails closed on it. See `usePopoverHover`'s `ownsFocus`.
-   */
-  const [ownerId, setOwnerId] = useState('')
-  // ⚠ BEFORE EVERY EARLY RETURN. This component returns null on three separate
-  // paths; a hook called after any of them would break the rules of hooks.
-  const scope = useNodeKeyboardScope<HTMLDivElement>()
-  // v3.1 row 6 — the owner's selection (see the header). An EMPTY owner id is
-  // "no identity" and never matches, the same fail-closed rule as below.
-  const ownerSelected = useCanvasStore(s => ownerId !== '' && (s.selection?.nodeIds?.has(ownerId) ?? false))
-
-  // Track anchor position continuously while visible (handles pan/zoom)
-  useEffect(() => {
-    if (!visible || !anchorRef?.current) {
-      setPos(null)
-      return
-    }
-
-    const id = anchorRef.current.closest('.react-flow__node')?.getAttribute('data-id') ?? ''
-    setOwnerId(prev => (prev === id ? prev : id))
-
-    let rafId: number
-    const track = () => {
-      if (!anchorRef.current) return
-      const rect = anchorRef.current.getBoundingClientRect()
-      setPos(prev => {
-        if (prev && Math.abs(prev.top - (rect.bottom + 4)) < 0.5 && Math.abs(prev.left - rect.left) < 0.5) {
-          return prev // avoid re-render if position unchanged
-        }
-        return { top: rect.bottom + 4, left: rect.left }
-      })
-      rafId = requestAnimationFrame(track)
-    }
-    track()
-
-    return () => cancelAnimationFrame(rafId)
-  }, [visible, anchorRef])
-
-  /*
-   * ⚠ NO `className` PROP ON THIS ELEMENT, DELIBERATELY — see the header. React
-   * only writes `className` when it renders one, so leaving it off means React
-   * never clobbers the class the scope handler adds.
-   */
-  const scoped = (
-    <div
-      ref={scope.ref}
-      style={SCOPE_STYLE}
-      onKeyDownCapture={scope.onKeyDownCapture}
-      {...{ [NODE_KEYBOARD_SCOPE_ATTR]: '' }}
-    >
-      {children}
-    </div>
-  )
-
-  if (!visible || ownerSelected) return null
-
-  /*
-   * Fallback: if no anchorRef, render inline (backward compat).
-   *
-   * ⚠ ITS ATTRIBUTE STAYS VALUELESS, DELIBERATELY. With no anchor there is no
-   * node to derive an id from — and none is needed: this branch renders INSIDE
-   * the node, so `usePopoverHover`'s guard already owns it through
-   * `rfNode.contains()` before the attribute is ever consulted. The empty value
-   * is then the fail-closed answer for every OTHER node's guard, which is the
-   * correct one. Measured at this tip: all eleven product call sites pass
-   * `anchorRef`, so this branch has zero product call sites — only a spec
-   * exercises it.
-   */
-  if (!anchorRef) {
-    return (
-      <div
-        data-node-popover=""
-        className={`absolute left-0 ${CANVAS_LAYER_CLASS.hoverPreview} bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel`}
-        style={{ top: '100%', marginTop: 4, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '10px 12px' }}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-      >
-        {scoped}
-      </div>
-    )
-  }
-
-  if (!pos) return null
-
-  return createPortal(
-    <div
-      data-node-popover={ownerId}
-      className={`fixed ${CANVAS_LAYER_CLASS.hoverPreview} bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel`}
-      style={{ top: pos.top, left: pos.left, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '10px 12px' }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      {scoped}
-    </div>,
-    document.body
-  )
+export function NodePopover(_props: NodePopoverProps): null {
+  return null
 }

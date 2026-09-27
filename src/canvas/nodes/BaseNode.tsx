@@ -298,7 +298,7 @@ const TARGET_HANDLE_STYLE: CSSProperties = {
   height: TARGET_HANDLE_PX,
   border: 0,
   background: 'transparent',
-  top: `calc(${TARGET_HANDLE_PX / 2}px - ${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-glyph-scale, 1))`,
+  top: `calc(${TARGET_HANDLE_PX / 2}px + ${CONNECTOR_GLYPH_PX / 2}px - ${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
 }
 
 /**
@@ -2316,15 +2316,24 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           At the 0.5 landing it was 22 flow units — 11px on screen, half the size
           of the kind identity at 100%. The target handle now sits at the shape's
           top (`TARGET_HANDLE_STYLE`), so inbound edges end ON the shape, as the
-          contract draws them, instead of disappearing under a larger glyph. */}
+          contract draws them, instead of disappearing under a larger glyph.
+          ⭐ 27 Sep (graph contract pass): it scales with the TEXT
+          (`--canvas-label-scale`), not the target scale, and its lower edge
+          stays 12px inside the border at every zoom — the contract's own
+          proportion (`top:-12px` on a 12px top padding). At the 0.5 landing
+          the target scale (2) drew a 48-unit shape 24 units into a 12-unit
+          padding, so every card's kind shape sat on its title's first line
+          (served 91717719, all five starters). The overhang above the card
+          (24 × label − 12 ≤ 20.6) stays inside the 12 × glyph band budget at
+          the landing floor. It is `pointer-events-none`: no target shrinks. */}
       <span
         aria-hidden="true"
         data-testid="node-type-glyph"
         className="pointer-events-none absolute left-1/2 z-10 flex -translate-x-1/2 items-center justify-center"
         style={{
-          top: `calc(-${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-glyph-scale, 1))`,
-          width: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-glyph-scale, 1))`,
-          height: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-glyph-scale, 1))`,
+          top: `calc(${CONNECTOR_GLYPH_PX / 2}px - ${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
+          width: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
+          height: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
           filter: 'drop-shadow(0 0 1px var(--bg-panel))',
         }}
       >

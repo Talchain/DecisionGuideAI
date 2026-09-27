@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { useCanvasStore } from '../../store'
@@ -180,18 +180,4 @@ describe('option delivery states through the real store and display selector', (
     expect(screen.queryByText(/No changes from current state/)).toBeNull()
   })
 
-  it('offers the inspector when a draft has more values than the preview can show', async () => {
-    const interventions = { f1: 0.1, f2: 0.2, f3: 0.3, f4: 0.4, f5: 0.5 }
-    const draft = option('draft', { interventions })
-    useCanvasStore.setState({
-      nodes: [draft, ...Object.keys(interventions).map(factor)],
-      ceeAnalysisReady: { options: [{ id: draft.id, interventions }] },
-      viewMode: 'standard',
-    } as never)
-    const { container } = mountOptions([draft])
-    fireEvent.mouseEnter(container.firstElementChild!)
-    const more = await screen.findByRole('button', { name: '+1 more in inspector' })
-    fireEvent.click(more)
-    expect(useCanvasStore.getState().selection.nodeIds).toEqual(new Set([draft.id]))
-  })
 })
