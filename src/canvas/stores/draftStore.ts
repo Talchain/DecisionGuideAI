@@ -106,6 +106,12 @@ export interface DraftState {
    */
   draftStreamCoachingLanded: boolean
   /**
+   * ⭐ C6-2: the user's own goal and options, read out of the first brief by CEE's `BRIEF_READ` frame a few seconds
+   * into the wait. Held ONLY while the owning turn is still `drafting`: every phase change clears it, so the model
+   * (GRAPH_READY → `settling`) or the end of the turn supersedes it, and it never outlives the turn. Never persisted.
+   */
+  draftStreamBriefReading: { goal: string | null; options: string[] } | null
+  /**
    * The scenario for which a GRAPH_READY frame CARRYING A GRAPH arrived on the
    * draft stream during this session — or null if no such frame ever arrived.
    *
@@ -189,6 +195,8 @@ export interface DraftActions {
    * preempted turn) must not move a newer turn's narration.
    */
   markDraftStreamCoachingLanded: (turnId: string) => void
+  /** Record the owning turn's brief reading. Ignored unless `turnId` owns the phase AND the phase is `drafting`. */
+  markDraftStreamBriefRead: (turnId: string, reading: { goal: string | null; options: string[] }) => void
   /** Record that this client's fence dropped a response carrying a graph, for the decision on screen. */
   markDraftStreamGraphDiscardedByFence: (scenarioId: string | null) => void
   /**
@@ -228,6 +236,7 @@ const initialDraftState: DraftState = {
   draftStreamTurnId: null,
   draftStreamScenarioId: null,
   draftStreamCoachingLanded: false,
+  draftStreamBriefReading: null,
   draftStreamGraphDeliveredScenarioId: null,
   draftStreamGraphDiscardedByFenceScenarioId: null,
 }
@@ -300,7 +309,17 @@ export const useDraftStore = create<DraftState & DraftActions>((set) => ({
       // a stale flag onto the next draft's narration (trap 12).
       draftStreamCoachingLanded:
         phase === 'idle' || phase === 'drafting' ? false : state.draftStreamCoachingLanded,
+      // C6-2: the reading lives only inside ONE turn's drafting phase; any move supersedes it.
+      draftStreamBriefReading: null,
     }))
+  },
+
+  markDraftStreamBriefRead: (turnId, reading) => {
+    set((state) =>
+      state.draftStreamTurnId === turnId && state.draftStreamPhase === 'drafting'
+        ? { draftStreamBriefReading: reading }
+        : {},
+    )
   },
 
   markDraftStreamCoachingLanded: (turnId) => {

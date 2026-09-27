@@ -13,6 +13,7 @@
  *   | stage           | seq | status      | payload                              |
  *   |-----------------|-----|-------------|--------------------------------------|
  *   | DRAFTING        |  0  | in_progress | —                                    |
+ *   | BRIEF_READ      |  —  | in_progress | goal, options[], elapsed_ms (C6-2)   |
  *   | PROGRESS        |  1  | in_progress | labels[], phase, elapsed_ms          |
  *   | GRAPH_READY     |  2  | in_progress | graph{nodes,edges}, schema_version   |
  *   | COACHING_READY  |  3  | in_progress | coaching_status                      |
@@ -62,9 +63,16 @@
  */
 import { parseSSELines } from '../lib/sse/parseSSELines'
 
-/** The five stage classes the route emits. Order is the wire's `seq` order. */
+/**
+ * The stage classes the route emits. Order is the wire's `seq` order.
+ *
+ * ⭐ C6-2 `BRIEF_READ` (AIQ ruling #70 5858767026): on a first brief, CEE copies the user's own GOAL and OPTIONS
+ * out of the brief, each an exact substring of it, a few seconds into the ~60 s wait. Listed here BEFORE CEE emits it:
+ * an unknown stage is a malformed frame, which abandons the stream and re-sends the turn buffered.
+ */
 export const STAGE_NAMES = [
   'DRAFTING',
+  'BRIEF_READ',
   'PROGRESS',
   'GRAPH_READY',
   'COACHING_READY',
@@ -99,6 +107,10 @@ export interface StageFrame {
   phase?: string
   /** COACHING_READY only. Enum, not prose. */
   coaching_status?: string
+  /** BRIEF_READ only: the user's own words for the goal, or null when the brief states none. */
+  goal?: string | null
+  /** BRIEF_READ only: the options exactly as the user wrote them. Unvalidated here; the consumer keeps strings only. */
+  options?: unknown[]
   /** COMPLETE only. `payload` is the buffered turn body VERBATIM. */
   status_code?: number
   payload?: unknown
@@ -188,6 +200,8 @@ export function parseStageFrame(raw: string): StageFrame | null {
   if (Array.isArray(obj.labels)) frame.labels = obj.labels
   if (typeof obj.phase === 'string') frame.phase = obj.phase
   if (typeof obj.coaching_status === 'string') frame.coaching_status = obj.coaching_status
+  if (typeof obj.goal === 'string' || obj.goal === null) frame.goal = obj.goal
+  if (Array.isArray(obj.options)) frame.options = obj.options
   if (typeof obj.status_code === 'number') frame.status_code = obj.status_code
   if ('payload' in obj) frame.payload = obj.payload
 
