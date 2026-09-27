@@ -486,6 +486,20 @@ export function readAnalysisResultContentHash(p: SelectorTracedPayload): string 
   return v5AnalysisBlockContentHash(block as unknown as Parameters<typeof v5AnalysisBlockContentHash>[0])
 }
 
+/**
+ * `enrichment.run_provenance.initiated_by` on the turn's first
+ * `analysis_result` block — CEE's typed statement that it started a run on
+ * this turn (e.g. `auto_post_construction`). Null when absent.
+ */
+export function readRunProvenanceInitiatedBy(p: SelectorTracedPayload): string | null {
+  const enrichment = readFirstAnalysisResultBlock(p)?.enrichment
+  if (!enrichment || typeof enrichment !== 'object' || Array.isArray(enrichment)) return null
+  const rp = (enrichment as Record<string, unknown>).run_provenance
+  if (!rp || typeof rp !== 'object' || Array.isArray(rp)) return null
+  const by = (rp as Record<string, unknown>).initiated_by
+  return typeof by === 'string' && by.length > 0 ? by : null
+}
+
 /** True when the turn's response carried an `analysis_result` block at all. */
 export function carriesAnalysisResult(p: SelectorTracedPayload): boolean {
   return readFirstAnalysisResultBlock(p) !== null

@@ -101,6 +101,7 @@ import {
   locateDisplayedAnalysisTurn,
   matchDisplayedAnalysis,
   readAnalysisResultContentHash,
+  readRunProvenanceInitiatedBy,
   readScenarioId,
   readTurnOrActionType,
   type DisplayedAnalysisMatch,
@@ -212,15 +213,21 @@ export interface RecentConversationTurn {
   /** Turn/action-type discriminator (see `readTurnOrActionType`). */
   turn_kind: string | null
   /**
-   * True when `turn_kind` is one of `ANALYSIS_PRODUCING_ACTION_TYPES`.
+   * True when `turn_kind` is one of `ANALYSIS_PRODUCING_ACTION_TYPES`, OR
+   * when CEE's typed run identity says CEE started a run on this turn: the
+   * turn's analysis block carries `enrichment.run_provenance.initiated_by`
+   * and no older captured turn carries the same analysis. D-6 (i217,
+   * 27 Sep): CEE leaves `turn_kind` null on a `build_model_from_brief` turn
+   * whose automatic post-construction run produced the result, so that
+   * turn read `false`. `is_analysis_producing_source` says which rule fired.
    *
-   * ⚠ REQUEST-SIDE ONLY: the request ASKED for analysis. It says nothing
-   * about whether one was produced — a typed Run that CEE refused reads
-   * `true`, and a free-text turn that ran analysis reads `false` (Paul's
-   * 24 Sep exports). Read `carried_analysis_result` / `is_displayed_analysis`
-   * for what the response actually delivered.
+   * ⚠ Otherwise still REQUEST-SIDE: a typed Run that CEE refused reads
+   * `true`, and a free-text turn that ran analysis without run provenance
+   * reads `false` (Paul's 24 Sep exports). Read `carried_analysis_result` /
+   * `is_displayed_analysis` for what the response actually delivered.
    */
   is_analysis_producing: boolean
+  is_analysis_producing_source?: 'request_turn_kind' | 'cee_run_provenance' | null
   /** RESPONSE-SIDE: the response carried an `analysis_result` block. */
   carried_analysis_result: boolean
   /**
@@ -338,8 +345,17 @@ export interface RecentConversationTurnsResult {
   turns: RecentConversationTurn[]
   /** Total V5 CEE candidate turns available before the cap was applied. */
   total_available: number
-  /** True when `total_available > turns.length` — the cap engaged. */
+  /**
+   * True when `total_available > turns.length` — this selector's cap
+   * engaged, or the trace store had already evicted V5 turns.
+   */
   truncated: boolean
+  /**
+   * V5 turn entries the trace store's own cap evicted before this capture
+   * (D-6, i107, 27 Sep). Already included in `total_available`. Optional:
+   * results built before it omit it.
+   */
+  evicted_before_capture?: number
   /** Count actually captured (`== turns.length`; kept explicit so bundle
    *  readers don't have to re-derive it). */
   captured_count: number
@@ -638,12 +654,17 @@ export function selectRecentConversationTurns(
      * `is_displayed_analysis`; omitted/null → every turn reads false.
      */
     displayedResultsHash?: string | null
+    /** Entries the trace store evicted (`usePayloadTraceStore.evicted`). */
+    evictedPayloads?: ReadonlyArray<{ service?: string; endpoint?: string }>
   } = {},
 ): RecentConversationTurnsResult {
   const cap = options.cap ?? RECENT_CONVERSATION_TURNS_CAP
   const v5Turns = payloads.filter(
     (p) => isCeeService(p) && isV5TurnEndpoint(p),
   )
+  const evictedV5Turns = (options.evictedPayloads ?? []).filter(
+    (p) => isCeeService(p) && isV5TurnEndpoint(p),
+  ).length
   const displayedTrace = locateDisplayedAnalysisTurn(
     payloads,
     options.displayedResultsHash ?? null,
@@ -655,7 +676,9 @@ export function selectRecentConversationTurns(
   // omission reason below cannot disagree with the turns beside it.
   const captureUserText = shouldCaptureUserAuthoredText()
 
-  const turns: RecentConversationTurn[] = v5Turns.slice(0, cap).map((p) => {
+  const captured = v5Turns.slice(0, cap)
+  const v5TurnHashes = v5Turns.map((p) => readAnalysisResultContentHash(p))
+  const turns: RecentConversationTurn[] = captured.map((p, i) => {
     const turnKind = readTurnOrActionType(p)
     const assistantText = readAssistantText(p)
     const promptIdentity = readPromptIdentity(p)
@@ -665,7 +688,14 @@ export function selectRecentConversationTurns(
     const status = typeof p.status === 'number' ? p.status : null
     const failureSource = typeof p.source === 'string' ? p.source : null
     const errorName = typeof p.errorName === 'string' ? p.errorName : null
-    const analysisResultHash = readAnalysisResultContentHash(p)
+    const analysisResultHash = v5TurnHashes[i]
+    const requestAsked = turnKind !== null && ANALYSIS_PRODUCING_ACTION_TYPES.has(turnKind)
+    // Most-recent first, so OLDER turns sit after index i. The oldest
+    // captured carrier of a run-provenanced analysis is the one CEE ran it on.
+    const ceeRanIt =
+      analysisResultHash !== null &&
+      readRunProvenanceInitiatedBy(p) !== null &&
+      !v5TurnHashes.slice(i + 1).includes(analysisResultHash)
     const { outcome, reason } = deriveOutcome({
       transportKind,
       completed,
@@ -681,8 +711,12 @@ export function selectRecentConversationTurns(
       completed_at: p.completedAt ?? null,
       timestamp: typeof p.timestamp === 'number' ? p.timestamp : null,
       turn_kind: turnKind,
-      is_analysis_producing:
-        turnKind !== null && ANALYSIS_PRODUCING_ACTION_TYPES.has(turnKind),
+      is_analysis_producing: requestAsked || ceeRanIt,
+      is_analysis_producing_source: requestAsked
+        ? 'request_turn_kind'
+        : ceeRanIt
+          ? 'cee_run_provenance'
+          : null,
       carried_analysis_result: analysisResultHash !== null,
       analysis_result_hash: analysisResultHash,
       is_displayed_analysis: displayedTrace !== undefined && p === displayedTrace,
@@ -721,8 +755,9 @@ export function selectRecentConversationTurns(
 
   return {
     turns,
-    total_available: v5Turns.length,
-    truncated: v5Turns.length > turns.length,
+    total_available: v5Turns.length + evictedV5Turns,
+    truncated: v5Turns.length + evictedV5Turns > turns.length,
+    evicted_before_capture: evictedV5Turns,
     captured_count: turns.length,
     llm_authored_count: turns.filter((t) => t.has_assistant_text).length,
     user_authored_count: userAuthoredCount,

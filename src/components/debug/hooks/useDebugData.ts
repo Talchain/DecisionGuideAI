@@ -252,6 +252,11 @@ export interface PipelineData {
     option_count: number
     goal_count: number
     factor_count: number
+    /** D-6 (27 Sep). Optional: records built before it omit it. */
+    outcome_count?: number
+    risk_count?: number
+    /** Every node, whatever its kind. */
+    node_count?: number
     edge_count: number
   }
 }
@@ -340,7 +345,11 @@ export interface DiagnosticChecks {
    * consumer would depend on.
    */
   e_values_present: boolean
-  /** ISL downstream response carries edge e-values (at `robustness.edge_e_values` or top-level `edge_e_values`). */
+  /**
+   * ISL downstream response carries edge e-values (at `robustness.edge_e_values`
+   * or top-level `edge_e_values`) — or, on the V5 lifted path only, the CEE
+   * enrichment relays them (D-6, 27 Sep).
+   */
   isl_edge_e_values_present: boolean
   /** PLoT public response exposes edge e-values (at `robustness.edge_e_values` or top-level). */
   plot_edge_e_values_exposed: boolean
@@ -350,7 +359,11 @@ export interface DiagnosticChecks {
    * reads (`plot.robustness.edge_e_values`).
    */
   ui_edge_e_values_available: boolean
-  /** factor_evpi array is non-empty */
+  /**
+   * ISL `factor_evpi` is non-empty, or — on the V5 lifted path only — the
+   * CEE enrichment carries a non-empty `factor_evppi` or a finite
+   * `decision_evpi` (D-6, 27 Sep).
+   */
   evpi_present: boolean
   /**
    * Edge-level confidence differentiation: more than one unique value across
@@ -1694,19 +1707,25 @@ function extractPipelineStages(pipeline: unknown): PipelineStageData[] {
 /**
  * Count nodes by kind
  */
-function countNodesByKind(nodes: Array<{ data?: { kind?: string } }>): {
+export function countNodesByKind(nodes: Array<{ data?: { kind?: string } }>): {
   decision: number
   option: number
   goal: number
   factor: number
   outcome: number
+  risk: number
+  /** Every node, whatever its kind — so a kind outside the list above still counts. */
+  total: number
 } {
-  const counts = { decision: 0, option: 0, goal: 0, factor: 0, outcome: 0 }
+  // D-6 (i21, 27 Sep): risk was not counted, so the diagnostics reported
+  // 10 nodes for an 11-node model.
+  const counts = { decision: 0, option: 0, goal: 0, factor: 0, outcome: 0, risk: 0, total: 0 }
 
   for (const node of nodes) {
-    const kind = node.data?.kind as keyof typeof counts | undefined
-    if (kind && kind in counts) {
-      counts[kind]++
+    counts.total++
+    const kind = node.data?.kind
+    if (kind && kind !== 'total' && kind in counts) {
+      counts[kind as Exclude<keyof typeof counts, 'total'>]++
     }
   }
 
@@ -2053,7 +2072,7 @@ export function extractDiagnosticChecks(
   const downstreamIslTopLevelEvs = Array.isArray(downstreamIslResponse?.edge_e_values)
     ? downstreamIslResponse!.edge_e_values as unknown[]
     : []
-  const islHasEdgeEValues =
+  const islHasEdgeEValuesInIslCapture =
     islEdgeEValuesRobustness.length > 0 ||
     islEdgeEValuesTopLevel.length > 0 ||
     downstreamIslRobustnessEvs.length > 0 ||
@@ -2084,6 +2103,21 @@ export function extractDiagnosticChecks(
     : []
   const plotEdgeEValuesTopLevel = Array.isArray(plotEffective?.edge_e_values) ? plotEffective.edge_e_values as unknown[] : []
   const plotPublicHasEdgeEValues = plotEdgeEValuesRobustness.length > 0 || plotEdgeEValuesTopLevel.length > 0
+
+  // D-6 (i13, 27 Sep): on the V5 path the browser holds only CEE's 3-key
+  // copy of the ISL response, so the ISL-layer checks read false while the
+  // lifted enrichment carried ISL's own `edge_e_values`, `factor_evppi` and
+  // `decision_evpi`. Those arrays are ISL outputs relayed verbatim, so they
+  // answer the ISL-layer question too — but ONLY on the lifted path, where
+  // no top-level PLoT capture exists to hold them instead.
+  const liftedHasEdgeEValues = plotFromLift && plotPublicHasEdgeEValues
+  const islHasEdgeEValues = islHasEdgeEValuesInIslCapture || liftedHasEdgeEValues
+  const liftedFactorEvppi =
+    plotFromLift && Array.isArray(plotEffective?.factor_evppi)
+      ? (plotEffective!.factor_evppi as unknown[])
+      : []
+  const liftedDecisionEvpi =
+    plotFromLift && typeof plotEffective?.decision_evpi === 'number' && Number.isFinite(plotEffective.decision_evpi)
 
   // UI / enrichment layer. Two consumption paths, mirrored per-source:
   //   - raw top-level plot_response (legacy/direct): `extractPlotEnrichment`
@@ -2241,7 +2275,7 @@ export function extractDiagnosticChecks(
     isl_edge_e_values_present: islHasEdgeEValues,
     plot_edge_e_values_exposed: plotPublicHasEdgeEValues,
     ui_edge_e_values_available: uiEdgeEValuesAvailable,
-    evpi_present: islFactorEvpi.length > 0,
+    evpi_present: islFactorEvpi.length > 0 || liftedFactorEvppi.length > 0 || liftedDecisionEvpi,
     confidence_differentiated: uniqueConfidence.size > 1,
     confidence_unique_values: [...uniqueConfidence].sort((a, b) => a - b),
     factor_confidence_differentiated: factorConfidenceDifferentiated,
@@ -3903,6 +3937,7 @@ export function useDebugData(): DebugData {
 
   // Payload trace store data
   const tracedPayloads = usePayloadTraceStore((s) => s.payloads)
+  const evictedPayloads = usePayloadTraceStore((s) => s.evicted)
 
   // Gate store data
   const gatesMap = useGateStore((s) => s.gates)
@@ -3936,6 +3971,7 @@ export function useDebugData(): DebugData {
     // `analysisProducing.selected` above, unchanged.
     const recentConversationTurns = selectRecentConversationTurns(tracedPayloads, {
       displayedResultsHash: resultsHash,
+      evictedPayloads,
     })
     // Fallback path: when the analysis-producing V5 selector returns
     // undefined, fall through to `findBestPayload` so V1 / non-analysis
@@ -4485,13 +4521,16 @@ export function useDebugData(): DebugData {
           // Fallback: derive "validated" stage from canvas node counts when
           // the CEE pipeline trace doesn't include node_extraction data.
           ?? (Object.values(nodeCounts).some(v => v > 0)
-            ? { validated: { decision: nodeCounts.decision, option: nodeCounts.option, goal: nodeCounts.goal, factor: nodeCounts.factor } }
+            ? { validated: { decision: nodeCounts.decision, option: nodeCounts.option, goal: nodeCounts.goal, factor: nodeCounts.factor, outcome: nodeCounts.outcome, risk: nodeCounts.risk } }
             : undefined),
         connectivity: {
           decision_count: nodeCounts.decision,
           option_count: nodeCounts.option,
           goal_count: nodeCounts.goal,
           factor_count: nodeCounts.factor,
+          outcome_count: nodeCounts.outcome,
+          risk_count: nodeCounts.risk,
+          node_count: nodeCounts.total,
           edge_count: edges.length,
         },
       },
@@ -4612,7 +4651,7 @@ export function useDebugData(): DebugData {
         analysisEvidenceTraceId: analysisEvidenceTraceId,
       }),
     }
-  }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap, currentScenarioId, resultsHash])
+  }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, evictedPayloads, gatesMap, currentScenarioId, resultsHash])
 }
 
 export default useDebugData

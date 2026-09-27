@@ -161,6 +161,15 @@ export interface ValidatorInputs {
    */
   plotResponseSource?: 'top_level' | 'cee_embedded' | 'unavailable'
   /**
+   * Where the resolved `plotResponse` sits in the bundle when it was lifted
+   * from CEE (`evidence_resolution.plot_response.path`, e.g.
+   * `payloads.cee_response.blocks[0].enrichment`). Validators write
+   * `payloads.plot_response.*` source paths; the orchestrator re-roots them
+   * here so a reviewer following a path reaches the data that was read
+   * (D-6, 27 Sep). Omitted or null: paths are left as written.
+   */
+  plotResponsePath?: string | null
+  /**
    * Reviewer R-2 Blocker 2 gate: when the resolver's
    * `plotResponseSource` is `'cee_embedded'`, the classifier must
    * ALSO verify that `bundle.payloads.cee_response` was the

@@ -45,7 +45,13 @@ export type DebugCaptureStatus =
 export interface V5CeeCapture {
   request_id: string | null
   scenario_id: string | null
+  /** The CEE turn id the request body carried (`cee_request.turn_id`). */
   turn_id: string | null
+  /**
+   * The displayed analysis's content hash (`v5:<hash>`), which `turn_id`
+   * wrongly held until 27 Sep (D-6). Optional: builders predating it omit it.
+   */
+  results_hash?: string | null
   endpoint: string | null
   status: number | null
   duration_ms: number | null

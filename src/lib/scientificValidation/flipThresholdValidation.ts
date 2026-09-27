@@ -8,6 +8,10 @@
  */
 
 import { assertHonestyRules, type ValidatorInputs, type ValidatorResult } from './types'
+import {
+  FLIP_REASON_FOUND,
+  isAttestedNoFlipReason,
+} from '../../components/results/utils/flipReasonVocabulary'
 
 interface FlipBuckets {
   found: number
@@ -23,11 +27,18 @@ function bucketFlipThresholds(entries: unknown): FlipBuckets {
     if (!e || typeof e !== 'object' || Array.isArray(e)) continue
     const flip_value = (e as Record<string, unknown>).flip_value
     const flip_reason = (e as Record<string, unknown>).flip_reason
-    if (typeof flip_value === 'number' && Number.isFinite(flip_value)) {
+    // D-6 (i14, 27 Sep): PLoT's attested no-flip tokens are
+    // `no_effect_within_bounds` and `structurally_invariant`
+    // (flipReasonVocabulary); this bucketed only a legacy `no_effect`, so
+    // every attested no-flip landed in `unavailable`. `no_bracket` is a
+    // legacy PROBE FAILURE, never an attested no-flip, so it now counts as
+    // unresolved.
+    const reason = typeof flip_reason === 'string' ? flip_reason : null
+    if ((typeof flip_value === 'number' && Number.isFinite(flip_value)) || reason === FLIP_REASON_FOUND) {
       out.found++
-    } else if (flip_reason === 'no_effect' || flip_reason === 'no_bracket') {
+    } else if (reason === 'no_effect' || isAttestedNoFlipReason(reason)) {
       out.no_effect++
-    } else if (flip_reason === 'unresolved' || flip_reason === 'not_resolved') {
+    } else if (reason === 'unresolved' || reason === 'not_resolved' || reason === 'no_bracket') {
       out.unresolved++
     } else {
       out.unavailable++

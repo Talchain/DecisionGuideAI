@@ -201,8 +201,78 @@ interface DiagnosticInfo {
   user_agent: string
 }
 
+/**
+ * No producer captures what the UI rendered (`render_summary`, derived
+ * 2026-09-05). While this is false the export may not say a render
+ * succeeded. Whoever builds a render capture flips it.
+ */
+const RENDER_CAPTURE_EXISTS = false as boolean
+
+/** What the export states in place of `ui_render_success` while no render is captured. */
+const RENDER_NOT_CAPTURED_STATUS = 'response_delivered_render_not_captured' as const
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+/**
+ * `computed_against_hash` from the first `analysis_result` block of a V5
+ * response body; null when there is no such block or it carries no hash.
+ */
+function readAnalysisBlockComputedAgainstHash(body: unknown): string | null {
+  const blocks = asRecord(body)?.blocks
+  if (!Array.isArray(blocks)) return null
+  for (const b of blocks) {
+    const rec = asRecord(b)
+    if (rec?.type !== 'analysis_result') continue
+    const h = rec.computed_against_hash
+    return typeof h === 'string' && h.length > 0 ? h : null
+  }
+  return null
+}
+
+/**
+ * Add an issue for each rendered count that differs from the analysed count
+ * (D-6, 27 Sep). Only compared when both sides were read: an analysed count
+ * of 0 means no analysis body was resolved, and a null rendered count means
+ * no display state was captured. A `complete` verdict becomes `partial`;
+ * any other verdict is kept.
+ */
+function withRenderedCountIssues(
+  coherence: V5CanonicalTurnDiagnostics['coherence'],
+  counts: {
+    optionCount: number
+    factorSensitivityCount: number
+    renderedOptionCount: number | null
+    renderedFactorCount: number | null
+  },
+): V5CanonicalTurnDiagnostics['coherence'] {
+  const issues = [...coherence.issues]
+  if (
+    counts.optionCount > 0 &&
+    counts.renderedOptionCount !== null &&
+    counts.renderedOptionCount !== counts.optionCount
+  ) {
+    issues.push('rendered_option_count_differs_from_analysed')
+  }
+  if (
+    counts.factorSensitivityCount > 0 &&
+    counts.renderedFactorCount !== null &&
+    counts.renderedFactorCount !== counts.factorSensitivityCount
+  ) {
+    issues.push('rendered_factor_count_differs_from_analysed')
+  }
+  if (issues.length === coherence.issues.length) return coherence
+  return {
+    state: coherence.state === 'complete' ? 'partial' : coherence.state,
+    issues,
+  }
+}
+
+/** The `turn_id` a V5 request body carried; null when it carried none. */
+function readRequestTurnId(body: unknown): string | null {
+  const id = asRecord(body)?.turn_id
+  return typeof id === 'string' && id.length > 0 ? id : null
 }
 
 /**
@@ -1262,7 +1332,7 @@ interface DebugBundle {
      * verdict. Six states cover the complete failure surface; see
      * `derivePipelineStatus`.
      */
-    v5_pipeline_status: PipelineStatus
+    v5_pipeline_status: PipelineStatus | typeof RENDER_NOT_CAPTURED_STATUS
     /**
      * Structured source field describing how the verdict was reached.
      * Replaces the original single-string source per third-round
@@ -1283,6 +1353,13 @@ interface DebugBundle {
       envelope_analysis_ready_status: string | null
       envelope_freshness: string | null
       envelope_freshness_reason: string | null
+      /**
+       * D-6 (27 Sep): true only when a render capture witnessed the UI
+       * rendering the turn. None exists (`render_summary`), so the export
+       * never states `ui_render_success`; it states
+       * `response_delivered_render_not_captured` instead.
+       */
+      render_witnessed?: boolean
       missing_inputs: ReadonlyArray<
         | 'cee_service_record'
         | 'cee_response_payload'
@@ -3516,6 +3593,28 @@ function buildGatesPostPipeline(data: DebugData): DebugBundle['gates'] {
     }
   }
 
+  // D-6 (i14, 27 Sep): the `validation` gate's one writer is the legacy ISL
+  // client (`adapters/isl/client.ts:160`), so on the V5 path it sits at its
+  // store default 'warn' with no message while the export's own validation
+  // summary counts 0 errors, 0 warnings and 0 info. Relabel that exact
+  // case; a gate that was written (it carries a message) or a summary with
+  // anything in it is left alone. Export label only; the store is untouched.
+  const summary = data.validation?.summary
+  const summaryAllZero =
+    summary !== undefined &&
+    summary.errors === 0 && summary.warnings === 0 && summary.info === 0
+  if (summaryAllZero) {
+    for (const gate of gates) {
+      if (gate.name === 'validation' && gate.status === 'warn' && !gate.message) {
+        gate.status = 'legacy_check_unreliable'
+        // provisional_doctrine_v0: reviewer-facing wording, not ratified copy.
+        gate.message =
+          'Legacy ISL validate gate has no writer on the V5-canonical path '
+          + '(default warn retained in store); validation.summary is 0/0/0.'
+      }
+    }
+  }
+
   return gates
 }
 
@@ -3841,10 +3940,15 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       // single string per the "every missing field has a clear reason"
       // brief requirement.
       const v5 = deriveBundlePipelineStatusV2({ data, envelopeAnalysisReady })
+      // D-6 (i14, 27 Sep): `ui_render_success` claims the UI rendered the
+      // turn, and nothing in the client captures a render (see
+      // `render_summary`). The derivation's happy path is re-stated as what
+      // was actually observed: the response arrived and was accepted.
+      const renderUnwitnessed = v5.status === 'ui_render_success' && !RENDER_CAPTURE_EXISTS
       return {
         status: data.pipeline.status,
-        v5_pipeline_status: v5.status,
-        v5_pipeline_status_source: v5.source,
+        v5_pipeline_status: renderUnwitnessed ? RENDER_NOT_CAPTURED_STATUS : v5.status,
+        v5_pipeline_status_source: { ...v5.source, render_witnessed: RENDER_CAPTURE_EXISTS },
         total_duration_ms: data.pipeline.total_duration_ms ?? null,
         llm_metadata: wirePipelineLlmMetadata(data.pipeline.llm_metadata, diagnosticTrace),
         llm_raw: data.pipeline.llm_raw ?? null,
@@ -3947,7 +4051,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     response_summary: responseSummary,
     repair_and_filter_summary: repairAndFilterSummary,
     render_summary: {
-      available: false,
+      available: RENDER_CAPTURE_EXISTS,
       source: null,
       // DELIBERATELY NOT BUILT, and saying so is the point. `available:
       // false` alone cannot be told apart from a capture that was
@@ -4699,7 +4803,12 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
             // to the session-level request_id (the legacy behaviour).
             request_id: latestV5TraceTyped?.capture?.requestId ?? latestV5TraceTyped?.id ?? data.overall.request_id,
             scenario_id: storeState.currentScenarioId,
-            turn_id: fact?.analysisHash ?? null,
+            // D-6 (i86/i215, 27 Sep): the CEE turn id the request carried.
+            // This held `fact.analysisHash` (a `v5:<content hash>`), so a
+            // field named turn_id could never be joined to a CEE log. The
+            // hash keeps its own field below.
+            turn_id: readRequestTurnId(latestV5TraceTyped?.request?.body),
+            results_hash: fact?.analysisHash ?? null,
             // Real endpoint from the trace entry > service-metadata
             // endpoint > null. Required for log correlation.
             endpoint:
@@ -5141,13 +5250,39 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       bundle.analysis_evidence_source = 'none'
     }
 
-    // graph_hash_at_generation: read-through. The v5AnalysisFact slice
-    // may not carry this field on every code path; emit null when
-    // absent rather than fabricating from elsewhere.
-    const graphHash =
+    const useRecoveredCeeBody =
+      (data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' || data.analysis_evidence_trace_source === 'scenario_graph_read') &&
+      data.analysis_evidence_cee_response_body !== null &&
+      data.analysis_evidence_cee_response_body !== undefined
+    const ceeBodyForResolver = useRecoveredCeeBody
+      ? data.analysis_evidence_cee_response_body
+      : bundle.payloads.cee_response
+    const ceeResponseBasePath = useRecoveredCeeBody
+      ? 'analysis_evidence_trace.response_body'
+      : 'payloads.cee_response'
+    const resolvedEvidence = resolveScientificEvidence(
+      {
+        plot_request: bundle.payloads.plot_request,
+        plot_response: bundle.payloads.plot_response,
+        isl_request: bundle.payloads.isl_request,
+        isl_response: bundle.payloads.isl_response,
+      },
+      ceeBodyForResolver,
+      ceeResponseBasePath,
+    )
+
+    // graph_hash_at_generation: the fact slice's own field first, then the
+    // hash CEE typed onto the analysis block it answered with
+    // (`analysis_result.computed_against_hash`). D-6 (i85/i218, 27 Sep): the
+    // slice never carries the field on the V5 path, so this read null on
+    // every export while the block beside it named the hash. Still null
+    // when neither carries one — never fabricated.
+    const factGraphHash =
       fact && typeof (fact as Record<string, unknown>).graphHashAtGeneration === 'string'
         ? ((fact as Record<string, unknown>).graphHashAtGeneration as string)
         : null
+    const blockGraphHash = readAnalysisBlockComputedAgainstHash(ceeBodyForResolver)
+    const graphHash = factGraphHash ?? blockGraphHash
 
     // Flag diagnostic — guard against environments without
     // localStorage (e.g. SSR / jsdom edge cases).
@@ -5159,9 +5294,14 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       }
     })()
 
-    const optionCount = extractOptionCountFromPlotResponse(bundle.payloads.plot_response)
+    // D-6 (i22/i87/i126/i187/i219, 27 Sep): count the RESOLVED analysis
+    // body — the top-level PLoT capture when present, else the CEE V5
+    // `analysis_result.enrichment` the resolver lifted. Reading
+    // `payloads.plot_response` alone gave 0 on every V5 export, because the
+    // browser never calls PLoT on that path.
+    const optionCount = extractOptionCountFromPlotResponse(resolvedEvidence.bodies.plot_response)
     const factorSensitivityCount = extractFactorSensitivityCountFromPlotResponse(
-      bundle.payloads.plot_response,
+      resolvedEvidence.bodies.plot_response,
     )
 
     // Rendered counts from bundle.display_state when present. Counts
@@ -5197,7 +5337,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       scenarioIdReconciliation: reconciliation,
     })
 
-    bundle.v5_canonical_turn_diagnostics = attachAnalysisFactDetails(
+    const attached = attachAnalysisFactDetails(
       base,
       fact
         ? {
@@ -5206,6 +5346,27 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
           }
         : null,
     )
+    bundle.v5_canonical_turn_diagnostics = {
+      ...attached,
+      analysis_fact: {
+        ...attached.analysis_fact,
+        graph_hash_source:
+          factGraphHash !== null
+            ? 'analysis_fact'
+            : blockGraphHash !== null
+              ? 'analysis_result_block'
+              : null,
+      },
+      // D-6 (i219, 27 Sep): the coherence verdict used to read 'complete'
+      // with 6 options rendered beside 5 analysed. A rendered count that
+      // differs from the analysed count is now an issue on the record.
+      coherence: withRenderedCountIssues(attached.coherence, {
+        optionCount,
+        factorSensitivityCount,
+        renderedOptionCount,
+        renderedFactorCount,
+      }),
+    }
 
     // --- Scientific validation (P1) ---
     // Always runs (even when capture_pipeline_status is missing) — the
@@ -5234,26 +5395,8 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // reassigned — the conversational truth stays intact. Top-level
     // `payloads.plot_response` / `isl_response` are likewise never
     // touched here.
-    const useRecoveredCeeBody =
-      (data.analysis_evidence_trace_source === 'recovered_earlier_cee_turn' || data.analysis_evidence_trace_source === 'scenario_graph_read') &&
-      data.analysis_evidence_cee_response_body !== null &&
-      data.analysis_evidence_cee_response_body !== undefined
-    const ceeBodyForResolver = useRecoveredCeeBody
-      ? data.analysis_evidence_cee_response_body
-      : bundle.payloads.cee_response
-    const ceeResponseBasePath = useRecoveredCeeBody
-      ? 'analysis_evidence_trace.response_body'
-      : 'payloads.cee_response'
-    const resolvedEvidence = resolveScientificEvidence(
-      {
-        plot_request: bundle.payloads.plot_request,
-        plot_response: bundle.payloads.plot_response,
-        isl_request: bundle.payloads.isl_request,
-        isl_response: bundle.payloads.isl_response,
-      },
-      ceeBodyForResolver,
-      ceeResponseBasePath,
-    )
+    // (`resolvedEvidence` is computed above, before the result counters,
+    // which read the same resolved body — D-6, 27 Sep.)
     // `bundle.evidence_resolution` exposes METADATA ONLY (no bodies).
     // Bodies live in `bundle.payloads.*` (raw browser capture) AND
     // are routed into validators below. Reviewers can trace each
@@ -5358,6 +5501,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // stale CEE response). Only when BOTH are true does
       // `classifySource` emit `'live_v5_cee_embedded'`.
       plotResponseSource: resolvedEvidence.resolution.plot_response.source,
+      plotResponsePath: resolvedEvidence.resolution.plot_response.path,
       ceeCaptureIsSelectedV5Turn: ceeIsSelectedV5,
       // Evidence-trace split — surfaces orchestrator-level
       // limitations in `scientific_validation.evidence_limitations`
