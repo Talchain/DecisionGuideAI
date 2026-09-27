@@ -36,7 +36,7 @@ import { FALLBACK_TEXT } from './validateResponse'
 import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
 import { turnOfferedConsent } from './utils/transcriptStore'
 import { openQuestionsToggleLabel, splitServerOpenQuestions } from './serverOpenQuestions'
-import { PROVISIONAL_VIEW_LABEL, provisionalHeading } from './provisionalView'
+import { PROVISIONAL_VIEW_LABEL, provisionalBecauseLine, provisionalHeading } from './provisionalView'
 import { PANEL_LIST_BULLET } from './panelLists'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
@@ -521,7 +521,7 @@ export const MessageBubble = memo(function MessageBubble({
               <strong>To confirm it:</strong> {provisional.confirmStep}
             </p>
           )}
-          {provisional.reasoning && (
+          {(provisional.reasoning || provisional.because) && (
             <>
               <button
                 type="button"
@@ -532,7 +532,12 @@ export const MessageBubble = memo(function MessageBubble({
               >
                 {provisionalWhyShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Why Olumi thinks this
               </button>
-              {provisionalWhyShown && (
+              {provisionalWhyShown && provisionalBecauseLine(provisional) && (
+                <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-because">
+                  {provisionalBecauseLine(provisional)}
+                </p>
+              )}
+              {provisionalWhyShown && provisional.reasoning && (
                 <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-why">
                   {provisional.reasoning}
                 </p>

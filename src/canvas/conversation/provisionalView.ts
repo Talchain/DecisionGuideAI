@@ -29,6 +29,8 @@ export interface ProvisionalView {
   readonly confirmStep?: string
   /** The producer's label sentence, verbatim ("Provisional view — the analysis can't confirm this yet because …"). */
   readonly heading?: string
+  /** The gate's typed reason the analysis cannot confirm it ("because …"). Opens the why, one press away. */
+  readonly because?: string
 }
 
 /** The fixed label, shown alone when the producer sends no heading sentence. */
@@ -46,11 +48,13 @@ export function readProvisionalView(raw: unknown): ProvisionalView | undefined {
   // The wire's one spelling (Panel's N3 on #2185): a producer that drifts shows as a missing step, not a quiet alias.
   const confirmStep = text(r.confirm_step)
   const heading = text(r.heading)
+  const because = text(r.because)
   return {
     view,
     ...(reasoning ? { reasoning } : {}),
     ...(confirmStep ? { confirmStep } : {}),
     ...(heading ? { heading } : {}),
+    ...(because ? { because } : {}),
   }
 }
 
@@ -65,4 +69,15 @@ export function extractProvisionalViewSidecar(response: unknown): ProvisionalVie
 /** The block's first line: the producer's sentence verbatim, or the fixed label alone. */
 export function provisionalHeading(pv: ProvisionalView): string {
   return pv.heading ?? PROVISIONAL_VIEW_LABEL
+}
+
+/**
+ * The typed reason as a line of its own: the producer's words, with only the sentence's case and closing stop set
+ * (presentation, not composition: nothing is added, reworded or removed). `undefined` when the wire carries none.
+ */
+export function provisionalBecauseLine(pv: ProvisionalView): string | undefined {
+  const b = pv.because
+  if (b === undefined) return undefined
+  const cased = b.charAt(0).toUpperCase() + b.slice(1)
+  return /[.!?]$/.test(cased) ? cased : `${cased}.`
 }

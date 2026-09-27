@@ -152,6 +152,38 @@ describe('C5: the provisional view is on the face of the reply, labelled, said o
     expect(flat(screen.getByTestId('message-provisional-view-why').textContent)).toBe(REASONING)
   })
 
+  // Served on CEE 770a477 (provisional-2101-59c24739-770a477-1621), byte for byte: the gate's typed reason.
+  const SERVED_BECAUSE = 'because Olumi reads your goal as depending on quantities that multiply together, and this model adds their effects up rather than multiplying them'
+  const withBecause = (b: Wire, reasoning = true): Wire => {
+    const pv = (b._agent as { provisional_view: Wire }).provisional_view
+    pv.because = SERVED_BECAUSE
+    if (!reasoning) delete pv.reasoning
+    return b
+  }
+
+  it('RED (AIC 27 Sep): the typed reason the analysis cannot confirm it opens the why, one press away, as a sentence', async () => {
+    renderThread(await messageFrom(withBecause(withProvisional(servedRun(), { shaped: true }))))
+    expect(screen.queryByTestId('message-provisional-view-because'), 'never at rest').toBeNull()
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    const line = screen.getByTestId('message-provisional-view-because')
+    expect(flat(line.textContent)).toBe('Because Olumi reads your goal as depending on quantities that multiply together, and this model adds their effects up rather than multiplying them.')
+    const why = screen.getByTestId('message-provisional-view-why')
+    expect(Boolean(line.compareDocumentPosition(why) & Node.DOCUMENT_POSITION_FOLLOWING), 'the reason first, then the reasoning').toBe(true)
+  })
+
+  it('RED: a reason with no reasoning still gets its one-press why', async () => {
+    renderThread(await messageFrom(withBecause(withProvisional(servedRun(), { shaped: true }), false)))
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    expect(screen.getByTestId('message-provisional-view-because')).toBeTruthy()
+    expect(screen.queryByTestId('message-provisional-view-why')).toBeNull()
+  })
+
+  it('CONTROL: no `because` on the wire → no reason line (the UI writes none of its own)', async () => {
+    renderThread(await messageFrom(withProvisional(servedRun(), { shaped: true })))
+    fireEvent.click(screen.getByTestId('message-provisional-view-why-toggle'))
+    expect(screen.queryByTestId('message-provisional-view-because')).toBeNull()
+  })
+
   it('RED: a FREE-TEXT reply (no shape) carries the same block; with the producer keeping the view out of its prose, it is said once', async () => {
     renderThread(await messageFrom(withProvisional(servedRun(), { shaped: false })))
     expect(screen.queryByTestId('message-answer-structured')).toBeNull()

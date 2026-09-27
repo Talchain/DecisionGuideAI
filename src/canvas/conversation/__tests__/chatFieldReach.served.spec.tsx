@@ -65,6 +65,7 @@ const IN_CHAT = new Set([
   '_agent.provisional_view.view',
   '_agent.provisional_view.reasoning',
   '_agent.provisional_view.confirm_step',
+  '_agent.provisional_view.because',
 ])
 
 /** Producer prose that is deliberately NOT the chat's to show, and why. */
