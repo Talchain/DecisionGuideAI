@@ -129,8 +129,26 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
    * standing fact about the whole model, so `lens-info-panel` OUTRANKS it —
    * the same "a control/live-transformation outranks a standing disclosure"
    * rule `bottom-centre`'s ordering already states and justifies above.
+   *
+   * ⭐ `analysis-state-cue` JOINED HERE FROM `bottom-right` (27 Sep 2026,
+   * canvas-8ffc sbs-post DIFF item 8). Contract v3.1 says the stale sentence
+   * in the canvas FOOT, bottom-left (`#canvasFoot`); in the bottom-right cell it
+   * was a white pill that, on Paul's 90b8 board, sat over the Goal glyph and
+   * the only fragile-edge cue. It is the one claimant that is NOT drawn into
+   * its cell: it takes the slot (arbitration, left edge, width) and paints
+   * BENEATH the graph — see `AnalysisStateCue.tsx` for why no band slot can be
+   * card-free on a board that overflows at the legibility floor. The lens panel
+   * outranks it (a live, user-opened disclosure), and it outranks the footer
+   * caption Paul ruled off the canvas.
+   *
+   * ⛔ OUTRANKED IS NOT SILENCED. While the lens panel holds this slot it
+   * CARRIES the cue's sentence (and labels its run figures `Last run ·`), on
+   * the cue's own predicate — so the stale fact is never hidden by the occupant
+   * that displaced it (N3's rule; see `LensInfoPanel.tsx`'s header). Adding a
+   * claimant that outranks the cue here without doing the same would re-open
+   * that truth regression; `AnalysisStateCue.band.spec.tsx` pins it.
    */
-  'bottom-left': ['lens-info-panel', 'canvas-footer-summary'],
+  'bottom-left': ['lens-info-panel', 'analysis-state-cue', 'canvas-footer-summary'],
   'bottom-centre': [
     /**
      * ⭐⭐ THE LIVE TRANSFORMATION OUTRANKS THE STANDING FACT — and this order
@@ -204,19 +222,16 @@ export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
     'focus-mode-chip',
   ],
   /**
-   * Paul 23 Sep contract feedback point 14 — the one canvas-level sentence that
-   * explains the cards' `Last run ·` labels (`AnalysisStateCue`). The cell had
-   * no claimant, so it takes nothing from the notices in bottom-centre.
+   * A16 AUDIT, 25 Sep 2026 — `degraded-banner` (`DegradedBanner.tsx`). It used
+   * to position itself (`fixed top-16 left-1/2 -translate-x-1/2 z-[1050]`),
+   * drawing directly over the Question card — the anchor of the whole model.
    *
-   * A16 AUDIT, 25 Sep 2026 — `degraded-banner` (`DegradedBanner.tsx`) joins
-   * ahead of it. It used to position itself (`fixed top-16 left-1/2
-   * -translate-x-1/2 z-[1050]`), drawing directly over the Question card — the
-   * anchor of the whole model. An engine the UI cannot reach, or one reporting
-   * its own failure, outranks a note that the model changed since the last
-   * run: the reader needs to know the run itself may be unreliable before they
-   * read anything the run produced.
+   * It shared this cell with `analysis-state-cue` (Paul 23 Sep point 14) and
+   * outranked it: the reader needs to know the run itself may be unreliable
+   * before they read anything the run produced. The cue moved to the canvas
+   * foot on 27 Sep 2026 (see `bottom-left`), so the two no longer contend.
    */
-  'bottom-right': ['degraded-banner', 'analysis-state-cue'],
+  'bottom-right': ['degraded-banner'],
 }
 
 /** The band, spelled ONCE, for `computeFitPadding` and for the geometry harness. */
@@ -258,7 +273,12 @@ export const OVERLAY_BAND_PILL_GUTTER = 116
 export const OVERLAY_BAND_Z = 250
 
 /**
- * N3 — THE FLOOR UNDER THE BOTTOM-RIGHT COLUMN WHILE IT IS OCCUPIED.
+ * N3 — THE FLOOR UNDER A SIDE COLUMN WHILE IT IS OCCUPIED.
+ *
+ * ⚠ THE NAME IS HISTORICAL. Since 27 Sep 2026 the stale cue holds the
+ * bottom-LEFT cell (canvas foot, DIFF item 8), and this floor protects that
+ * column while the cue holds it; the right column keeps it for any occupant
+ * (`degraded-banner`), unchanged. The name is kept so the diff moves no reader.
  *
  * ⭐ WITNESSED ON THE SERVED BUILD, 24 Sep: at 1440x900 with the chat dock open
  * and the "Saved example" banner showing, `AnalysisStateCue` ("Model changed ·
@@ -276,22 +296,46 @@ export const OVERLAY_BAND_Z = 250
  * cells exactly 0px. A dismissible provenance disclosure was silently deleting
  * a TRUTH signal; the whole-graph stale cue must never be hidden by it.
  *
- * So while the bottom-right cell has an occupant, its track carries a floor
- * equal to the width at which the cue's guard stops hiding it, and the `auto`
- * centre is sized from what remains — the banner wraps instead. The floor is
- * `min(…, 100%)` so it can never exceed the band and force horizontal overflow;
- * on a canvas genuinely narrower than the floor the cue's own guard still
- * withdraws it, which is the tiny-canvas protection that guard exists for.
+ * So while the cue holds its cell, that track carries a floor equal to the
+ * width at which the cue stops withdrawing (`ANALYSIS_STATE_CUE_MIN_WIDTH_PX`),
+ * and the `auto` centre is sized from what remains — the centre occupant wraps
+ * instead. The floor is `min(…, 100%)` (`50%` each when both sides are floored)
+ * so it can never exceed the band and force horizontal overflow; on a canvas
+ * genuinely narrower than the floor the cue still withdraws, which is the
+ * tiny-canvas protection its width guard exists for.
  *
- * `CanvasOverlayBand.cueColumnReserve.spec.tsx` reads the guard's threshold out
- * of the stylesheet's bytes and REDs if this floor ever falls below it.
+ * `CanvasOverlayBand.cueColumnReserve.spec.tsx` REDs if this floor ever falls
+ * below the cue's withdrawal width.
  */
 export const OVERLAY_BAND_RIGHT_CELL_MIN = 200
 
-/** The band's columns with the bottom-right cell empty — unchanged since the band shipped. */
+/** The band's columns with no floored side cell — unchanged since the band shipped. */
 const BAND_COLUMNS = '1fr auto 1fr'
-/** …and while the bottom-right cell is occupied (N3). */
-const BAND_COLUMNS_RIGHT_RESERVED = `1fr auto minmax(min(${OVERLAY_BAND_RIGHT_CELL_MIN}px, 100%), 1fr)`
+
+/**
+ * A floored side track (N3). `cap` is `100%` for one floor — so it can never
+ * exceed the band — and `50%` when BOTH sides are floored, so two floors can
+ * never sum past it either.
+ */
+function flooredTrack(cap: '100%' | '50%'): string {
+  return `minmax(min(${OVERLAY_BAND_RIGHT_CELL_MIN}px, ${cap}), 1fr)`
+}
+
+/**
+ * The band's columns. The LEFT side is floored while the stale cue holds the
+ * bottom-left cell (27 Sep 2026: the cue moved there, and N3 moved with it —
+ * the cue's width IS that cell's width). The RIGHT side keeps the floor it has
+ * given any occupant since N3, byte-identical, so `degraded-banner`'s layout
+ * does not move. Neither floored → exactly the band's original columns.
+ */
+function bandColumns(leftFloor: boolean, rightFloor: boolean): string {
+  if (!leftFloor && !rightFloor) return BAND_COLUMNS
+  const cap = leftFloor && rightFloor ? '50%' : '100%'
+  return `${leftFloor ? flooredTrack(cap) : '1fr'} auto ${rightFloor ? flooredTrack(cap) : '1fr'}`
+}
+
+/** The claimant whose column carries the left floor — the stale cue, by identity. */
+const LEFT_FLOOR_OCCUPANT = 'analysis-state-cue'
 
 /**
  * ⚠⚠ THE ACTIONS AND THE STATE ARE TWO CONTEXTS, AND COMBINING THEM IS AN
@@ -495,9 +539,14 @@ export function CanvasOverlayBand() {
   const rightPad = useBandRightPad()
   // Read from the SAME claims state that grants the occupant its cell, so the
   // floor and the occupant appear and disappear in one render — there is no
-  // frame in which the cue is portalled into an unreserved column.
+  // frame in which an occupant is drawn in an unreserved column.
   const rightCellOccupied =
     state !== null && resolveWinner('bottom-right', state.claims['bottom-right']) !== null
+  // Only the stale cue earns the left floor: the lens panel holding the cell
+  // leaves the band exactly as it has always been.
+  const leftCellHeldByCue =
+    state !== null && resolveWinner('bottom-left', state.claims['bottom-left']) === LEFT_FLOOR_OCCUPANT
+  const anySideFloored = rightCellOccupied || leftCellHeldByCue
 
   const setTarget = actions?.setTarget
 
@@ -548,10 +597,11 @@ export function CanvasOverlayBand() {
           // `1fr auto 1fr` keeps the centre occupant centred in the content box
           // AND guarantees the three cells cannot overlap each other — the
           // non-overlap is structural rather than a thing the tests hope for.
-          // While the bottom-right cell is occupied its track gets a floor, so
-          // the `auto` centre can no longer starve it to 0px (N3; see
-          // `OVERLAY_BAND_RIGHT_CELL_MIN`).
-          gridTemplateColumns: rightCellOccupied ? BAND_COLUMNS_RIGHT_RESERVED : BAND_COLUMNS,
+          // While the bottom-right cell is occupied, or the stale cue holds the
+          // bottom-left one, that side's track gets a floor, so the `auto`
+          // centre can no longer starve it to 0px (N3; see
+          // `OVERLAY_BAND_RIGHT_CELL_MIN` and `bandColumns`).
+          gridTemplateColumns: bandColumns(leftCellHeldByCue, rightCellOccupied),
           alignItems: 'end',
           // ⚠ ONLY WHILE THE FLOOR IS TAKEN, because only then can this change
           // make a centre occupant taller than the band: at 1280 with the dock
@@ -561,7 +611,7 @@ export function CanvasOverlayBand() {
           // past the canvas's bottom edge, where it is clipped. `end` puts it
           // above the band instead, where it stays readable. With the cell
           // empty the band is left byte-identical to before.
-          ...(rightCellOccupied ? { alignContent: 'end' } : {}),
+          ...(anySideFloored ? { alignContent: 'end' } : {}),
           columnGap: 8,
         }}
       >
