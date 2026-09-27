@@ -76,6 +76,7 @@ import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { useModelChangedSinceRunLight } from '../hooks/useModelChangedSinceRun'
+import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { LAST_RUN_PREFIX } from '../nodes/shared/metricVocabulary'
 import { isGraphLensEnabled } from '../../flags'
 import { lensFragileEdgeLabel } from '../../components/results/utils/fragileEdgeCopy'
@@ -421,13 +422,27 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return lensFragileEdgeLabel(entry.alternative_winner_label ?? entry.alternativeWinnerLabel)
   }, [isLensFragile, report, id, source, target, fragileMatchCtx])
 
+  /**
+   * ⭐ THE CUE CITES THE COMPARISON, SO IT NEEDS A SHOWN ONE (post-run DIFF
+   * item 7; contract v3.1: the fragile cue appears only alongside a shown
+   * comparison). Its sentence says "the current model comparison could
+   * change", and on a run whose comparison was withheld (Paul's `mrr-17d1cd3a`:
+   * no win probabilities, `unrequested_analysis_withheld`) no option card shows
+   * a share — yet the cue painted "64% flip risk" beside them. The gate is the
+   * option cards' OWN run-wide answer (`useSupportShareRunWideAbsent`), never a
+   * second spelling of "is there a comparison". Membership (`isFragileEdge`)
+   * and placement (`fragileLabelIds`) both read it, so no slot is reserved for
+   * a cue that cannot paint.
+   */
+  const comparisonShown = !useSupportShareRunWideAbsent()
+
   // Check if this edge is fragile (switch_probability > 0.3)
   // Uses shared utility for consistent matching across StyledEdge, useMenuItems, useLensFilter
   const isFragileEdge = useMemo(() => {
-    if (!isResultsMode || !report?.robustness) return false
+    if (!isResultsMode || !comparisonShown || !report?.robustness) return false
     const fragileEdges = report.robustness.fragile_edges || []
     return isEdgeFragileFn(id, source, target, fragileEdges, fragileMatchCtx)
-  }, [isResultsMode, report, id, source, target, fragileMatchCtx])
+  }, [isResultsMode, comparisonShown, report, id, source, target, fragileMatchCtx])
 
   // T7: Switch probability for fragile edge badge tooltip + hover popover
   const fragileEdgeSwitchProb = useMemo(() => {
@@ -501,7 +516,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * Detailed/Model, the single top fragile edge in the default view.
    */
   const fragileLabelIds = useMemo((): Set<string> => {
-    if (!isResultsMode) return new Set()
+    // The same comparison gate as `isFragileEdge`: no shown comparison, no cue,
+    // so no fragility row reserves a placement slot anywhere on the graph.
+    if (!isResultsMode || !comparisonShown) return new Set()
     const fragileEdges = fragileEdgesOf(report)
     if (fragileEdges.length === 0) return new Set()
     const out = new Set<string>()
@@ -546,7 +563,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       if (match) out.add(e.id)
     }
     return out
-  }, [isResultsMode, report, viewMode, getEdges, getNode])
+  }, [isResultsMode, comparisonShown, report, viewMode, getEdges, getNode])
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined

@@ -48,10 +48,21 @@ import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatu
  *
  * Returns a primitive, so the zustand selector is reference-stable and this
  * adds no re-render beyond an actual change of the answer.
+ *
+ * ⭐ IT IS ALSO THE CANVAS'S ANSWER TO "IS A MODEL COMPARISON SHOWN AT ALL?"
+ * (post-run DIFF item 7, 27 Sep). `true` means no option card shows a share, so
+ * the canvas shows no comparison; anything that CITES the comparison — the
+ * fragile-edge cue (`StyledEdge`) and the flip reasons of the attention plan
+ * (`useNodeAttention`) — reads THIS answer rather than a second spelling of it,
+ * so they appear only where the option cards show the comparison they refer to.
+ *
+ * `results` and `nodes` are optional-chained so a store double without them
+ * reads as "not absent" (today's behaviour) instead of throwing; the real store
+ * always carries both.
  */
 export function useSupportShareRunWideAbsent(): boolean {
   return useCanvasStore((state) => {
-    if (state.results.status !== 'complete') return false
+    if (state.results?.status !== 'complete') return false
     const report = state.results.report
     if (!report) return false
     const optionProbabilities =
@@ -59,7 +70,7 @@ export function useSupportShareRunWideAbsent(): boolean {
 
     let optionNodes = 0
     let resolvedShares = 0
-    for (const node of state.nodes) {
+    for (const node of state.nodes ?? []) {
       if (node.type !== 'option') continue
       optionNodes += 1
       const entry = optionProbabilities[node.id]
