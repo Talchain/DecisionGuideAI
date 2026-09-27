@@ -418,10 +418,10 @@ describe('WS1 #17 — the title yields line 1 to the corner mark only when ITS f
     expect(spacerWidthPx(s.width, AT_BOUND, box.measurePx)).toBeLessThan(box.measurePx / 2)
   })
   // ⚠ RE-SPECIFIED 27 Sep 2026 (landing text ceiling): at the bound the title word
-  // is 1.39x and the mark 2x, so on this box a first word yields line 1 only past
-  // (234 + 12 − 8 − 25 × 2) / 1.39 ≈ 135px. "Cannibalization" (105.3px), which
+  // is 1.36x and the mark 2x, so on this box a first word yields line 1 only past
+  // (234 + 12 − 8 − 25 × 2) / 1.36 ≈ 138px. "Cannibalization" (105.3px), which
   // yielded at a shared 2x, now SHARES line 1; the contrast is a wider word.
-  it('"Cannibalization" (105px) now SHARES line 1 at the bound — its 1.39x width fits beside the 2x mark', () => {
+  it('"Cannibalization" (105px) now SHARES line 1 at the bound — its 1.36x width fits beside the 2x mark', () => {
     const s = cornerMarksTitleSpacerCss(1, { ...box, firstWordPx: 105.3 })!
     expect(spacerWidthPx(s.width, AT_BOUND, box.measurePx)).toBeLessThan(box.measurePx / 2)
   })
@@ -451,10 +451,10 @@ describe('WS1 #25 — the far-zoom title holds the contract\'s 9px chip size', (
   })
   it('CONTRAST — at and above the landing floor it is the ordinary label scale', () => {
     for (const z of [0.5, 0.75, 1, 2]) expect(farTitleScale(z)).toBe(labelCounterScale(z))
-    // 27 Sep 2026: under the 1.39 text ceiling the far chip lifts the title from
-    // 9 / (14 × 1.39) ≈ 0.4625 down — so at 0.35 (the `line` rung) it is above
+    // 27 Sep 2026: under the 1.36 text ceiling the far chip lifts the title from
+    // 9 / (14 × 1.36) ≈ 0.473 down — so at 0.35 (the `line` rung) it is above
     // the ordinary scale, holding the contract's 9px where the capped title
-    // would draw 6.8px. (At the old 2x cap the two met down to 0.32.)
+    // would draw 6.66px. (At the old 2x cap the two met down to 0.32.)
     expect(farTitleScale(0.35)).toBeGreaterThan(labelCounterScale(0.35))
     expect(CANVAS_TYPE_PX.nodeTitle * farTitleScale(0.35) * 0.35).toBeCloseTo(FAR_TITLE_PX, 6)
   })

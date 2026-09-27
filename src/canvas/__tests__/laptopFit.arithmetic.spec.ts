@@ -270,7 +270,7 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
     // RE-PINNED 26 Sep 2026 (flush 319px panel): the frame at the floor is
     // (1280 − 76 − 335) / 0.5 = 1738 units; it was 1520 with the 416 card.
     expect(frameFlowAtFloor.w).toBe(1738)
-    // RE-PINNED 27 Sep 2026 (landing text ceiling 1.39): the repeated card is the
+    // RE-PINNED 27 Sep 2026 (landing text ceiling 1.36): the repeated card is the
     // ED target, 248 (it was 260 = NODE_LAYOUT_MIN_W at a text bound of 2), so the
     // widest row is 4 × (248 + 24 + 32) + the prompt = 1376 (was 1424).
     expect(WIDEST_ROW_WITH_PROMPT).toBe(1376)

@@ -13,8 +13,8 @@
  *
  * THE MECHANISM: `labelCounterScale` held rendered === declared down to the landing floor, so
  * its ceiling was `1 / LABEL_LEGIBLE_ZOOM` = 2, and that ceiling is also the height the layout
- * reserves. This spec pins the lowered TEXT ceiling (1.39, chosen by measurement, never under the
- * brief's 9.5px landing title floor), that text render and text layout still read ONE bound, and
+ * reserves. This spec pins the lowered TEXT ceiling (1.36, derived from the brief's 9.5px landing title
+ * floor), that text render and text layout still read ONE bound, and
  * that GLYPHS and TARGETS keep the old uncapped bound (WCAG 2.5.8's 24px at the landing).
  *
  * ⚠ jsdom has no text metrics: the on-screen sizes below are the module's own arithmetic
@@ -60,10 +60,13 @@ const LANDING_TITLE_FLOOR = 9.5
 /** `CanvasLabelScaleSync` writes the scale on a two-decimal grid, rounded UP. */
 const onSyncGrid = (s: number) => Math.ceil(s * 100) / 100
 
-describe('the TEXT ceiling is 1.39 — measured, on the sync grid, never under the 9.5px landing title floor', () => {
-  it('the ceiling is 1.39, not the old 1 / LABEL_LEGIBLE_ZOOM = 2 (nor the first cut\'s 1.58)', () => {
-    expect(MAX_LABEL_COUNTER_SCALE).toBe(1.39)
-    expect(LABEL_COUNTER_SCALE_CAP).toBe(1.39)
+describe('the TEXT ceiling is 1.36 — ceil(9.5 / (14 × 0.5), 0.01), the brief\'s landing title floor, on the sync grid', () => {
+  it('the ceiling is 1.36, not the old 1 / LABEL_LEGIBLE_ZOOM = 2 (nor the first cut\'s 1.58)', () => {
+    expect(MAX_LABEL_COUNTER_SCALE).toBe(1.36)
+    expect(LABEL_COUNTER_SCALE_CAP).toBe(1.36)
+    expect(LABEL_COUNTER_SCALE_CAP).toBe(
+      onSyncGrid(LANDING_TITLE_FLOOR / (CANVAS_TYPE_PX.nodeTitle * LABEL_LEGIBLE_ZOOM)),
+    )
   })
 
   it('it sits ON the sync grid, so the live scale at the landing is exactly the reserved one', () => {
@@ -72,18 +75,18 @@ describe('the TEXT ceiling is 1.39 — measured, on the sync grid, never under t
     expect(onSyncGrid(labelCounterScale(LABEL_LEGIBLE_ZOOM))).toBe(MAX_LABEL_COUNTER_SCALE)
   })
 
-  it('a landing title renders 9.73px — at or above the 9.5px floor, and the floor is the brief\'s', () => {
+  it('a landing title renders 9.52px — at or above the 9.5px floor, and the floor is the brief\'s', () => {
     expect(LANDING_TITLE_FLOOR_PX).toBe(LANDING_TITLE_FLOOR)
     const px = renderedLabelPx(CANVAS_TYPE_PX.nodeTitle, LABEL_LEGIBLE_ZOOM)
     expect(px).toBeGreaterThanOrEqual(LANDING_TITLE_FLOOR)
-    expect(px).toBeCloseTo(9.73, 10)
-    // CONTRAST: the floor discriminates — it admits 1.36 (9.52px) but not 1.35 (9.45px).
-    // 1.39 is the measured choice above it (Goal 4/5 at 1280×800 for 1.36–1.39, 3/5 at 1.40).
-    expect(renderedLabelPx(CANVAS_TYPE_PX.nodeTitle, LABEL_LEGIBLE_ZOOM) * (1.35 / 1.39)).toBeLessThan(LANDING_TITLE_FLOOR)
+    expect(px).toBeCloseTo(9.52, 10)
+    // CONTRAST: one grid step lower (1.35) would draw 9.45px — under the floor. The
+    // ceiling is the floor's own derivation, not a picked number.
+    expect(CANVAS_TYPE_PX.nodeTitle * 1.35 * LABEL_LEGIBLE_ZOOM).toBeLessThan(LANDING_TITLE_FLOOR)
   })
 
-  it('from 1 / ceiling (≈0.72) up to 1:1 text still renders at its DECLARED size — only the landing band changes', () => {
-    for (const z of [0.72, 0.8, 0.9, 1]) {
+  it('from 1 / ceiling (≈0.735) up to 1:1 text still renders at its DECLARED size — only the landing band changes', () => {
+    for (const z of [0.74, 0.8, 0.9, 1]) {
       expect(renderedLabelPx(CANVAS_TYPE_PX.nodeTitle, z)).toBeCloseTo(CANVAS_TYPE_PX.nodeTitle, 10)
     }
   })
@@ -124,7 +127,7 @@ describe('TEXT render and TEXT layout read ONE bound', () => {
   })
 
   it('the title measure is sized at the same ceiling', () => {
-    expect(NODE_TITLE_MIN_MEASURE_PX).toBe(NODE_TITLE_WIDEST_WORD_PX * 1.39 + NODE_TITLE_RECLAIMED_PX)
+    expect(NODE_TITLE_MIN_MEASURE_PX).toBe(NODE_TITLE_WIDEST_WORD_PX * 1.36 + NODE_TITLE_RECLAIMED_PX)
   })
 })
 
@@ -132,7 +135,7 @@ describe('layout heights are read at BOTH bounds', () => {
   beforeEach(() => { document.body.innerHTML = '' })
   afterEach(() => { document.body.innerHTML = '' })
 
-  it('measureNodeHeightsAtLabelBound reads every card with --canvas-label-scale = "1.39" and --canvas-glyph-scale = "2", then restores both', () => {
+  it('measureNodeHeightsAtLabelBound reads every card with --canvas-label-scale = "1.36" and --canvas-glyph-scale = "2", then restores both', () => {
     const root = document.createElement('div')
     root.className = 'react-flow'
     root.style.setProperty(CANVAS_GLYPH_SCALE_VAR, '1.23')
@@ -157,7 +160,7 @@ describe('layout heights are read at BOTH bounds', () => {
 
     const out = measureNodeHeightsAtLabelBound()
 
-    expect(seen).toEqual(['1.39|2', '1.39|2'])
+    expect(seen).toEqual(['1.36|2', '1.36|2'])
     expect(out.get('opt_hybrid')).toBe(500.2)
     expect(out.get('goal_pricing_transition')).toBe(190)
     // Restored exactly: the label scale was unset, the glyph scale was 1.23.

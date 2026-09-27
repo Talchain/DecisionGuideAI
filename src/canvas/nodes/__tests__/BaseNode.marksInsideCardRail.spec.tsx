@@ -181,7 +181,7 @@ const markLeftAt = (cardW: number, marks: number, scale: number) => {
 
 /**
  * The title box's width at glyph scale `g` (27 Sep 2026). The repeated card is now
- * the ED 248, WIDER than the layout floor (194.12), so its title shares its line
+ * the ED 248, WIDER than the layout floor (190.88), so its title shares its line
  * and the header row carries the corner reserve (`cornerMarksHeaderReserveCss`):
  * the flex-1 title fills what the reserve leaves, never less than its minimum
  * measure. With no reserve (or a card at the floor) this is the minimum measure,
@@ -287,8 +287,8 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     const spacer = within(title).getByTestId('node-title-corner-spacer')
     // At 100% (and at every scale where the widest word still fits beside the
     // run — the block below pins where that stops).
-    // 1.4 → 1.2 (27 Sep 2026): with the title word at the 1.39 text ceiling and
-    // two marks at glyph 1.4, line 1 is within 0.3px of the widest word — the
+    // 1.4 → 1.2 (27 Sep 2026): with the title word at the 1.36 text ceiling and
+    // two marks at glyph 1.4, line 1 is within a few px of the widest word — the
     // yield boundary, pinned by the block below — so the "beside" probe sits
     // clearly inside the beside regime.
     for (const g of [1, 1.2]) {
@@ -402,7 +402,7 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
  */
 describe('GAP 11 — line 1 holds the widest word or yields to the marks (never a mid-word break)', () => {
   // The GLYPH scale across the band (1.00 … 2.00, the bound); the TEXT scale is
-  // `scalesAt(g).text` — it follows g up to the 1.39 ceiling (27 Sep 2026).
+  // `scalesAt(g).text` — it follows g up to the 1.36 ceiling (27 Sep 2026).
   const SCALES = Array.from({ length: 101 }, (_, i) => 1 + i / 100)
   const EPS = 1e-6
   const lineHeightAt = (t: number) => CANVAS_TYPE_PX.nodeTitle * CONTRACT_TITLE_LEADING * t
@@ -458,7 +458,7 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
     expect(min).toBe(NODE_TITLE_MIN_MEASURE_PX)
     const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
     const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 1, 'outcome 248')
-    // ⚠ 27 Sep 2026: at the text ceiling the widest word (150.12) fits beside ONE
+    // ⚠ 27 Sep 2026: at the text ceiling the widest word (146.88) fits beside ONE
     // mark at the glyph bound on a 248 card, so only the beside regime is reached
     // here; the YIELD half is exercised by the two-mark case below, not vacuous.
     expect(r).toEqual({ yieldedSomewhere: false, besideSomewhere: true })

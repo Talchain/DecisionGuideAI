@@ -747,8 +747,8 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * ── LANDING TEXT CEILING (27 Sep 2026, #2137), a SIXTH re-record, for the
    * reviewer (NOT LOW) ──
    * One cause only: the repeated card is 248 wide, not 260. The text counter-scale
-   * is capped at 1.39 at the landing, so `NODE_LAYOUT_MIN_W` (the widest title
-   * word at the TEXT bound) falls 260 → 194.12 and no longer raises the ED
+   * is capped at 1.36 at the landing, so `NODE_LAYOUT_MIN_W` (the widest title
+   * word at the TEXT bound) falls 260 → 190.88 and no longer raises the ED
    * repeated-card target (`REPEATED_CARD_W` = max(248, floor) = 248). PROVEN
    * BEFORE RECORDING by an attribution mutant: this head with ONLY
    * `REPEATED_CARD_TARGET_W` set to 260 reproduces the five recorded digests

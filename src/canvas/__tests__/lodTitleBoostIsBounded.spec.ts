@@ -347,9 +347,9 @@ describe('LOD title boost is bounded BY THE RESERVED HEIGHT, not merely small', 
     // reserve is `declared × MAX_LABEL_COUNTER_SCALE`, so it tracks. The pin
     // stays a literal on purpose — deriving it from the same expression the
     // assertion uses would be the guard agreeing with itself (trap 13b).
-    // ⚠ 28 → 19.46 (27 Sep 2026): the landing text ceiling, 14 × 1.39.
+    // ⚠ 28 → 19.04 (27 Sep 2026): the landing text ceiling, 14 × 1.36.
     const reservedPx = declaredNodeTitlePx() * MAX_LABEL_COUNTER_SCALE
-    expect(reservedPx).toBeCloseTo(19.46, 10)
+    expect(reservedPx).toBeCloseTo(19.04, 10)
 
     // FIXED mechanism — the original control, unchanged.
     expect(priceBoostSize('text-lg foo')).toEqual({ px: 18, mechanism: 'fixed', spelling: 'text-lg' })
@@ -358,10 +358,10 @@ describe('LOD title boost is bounded BY THE RESERVED HEIGHT, not merely small', 
 
     // COUNTER-SCALED mechanism — the arm added 2 Sep 2026. An oversized
     // counter-scaled boost must be rejected exactly as an oversized fixed one
-    // is: 18px at the 1.39 cap is 25.02px, over the 19.46 reserve (27 Sep 2026;
+    // is: 18px at the 1.36 cap is 24.48px, over the 19.04 reserve (27 Sep 2026;
     // it was 36 over 28 at the old 2x cap).
-    expect(priceBoostSize('text-[length:calc(12px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(16.68, 10)
-    expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(25.02, 10)
+    expect(priceBoostSize('text-[length:calc(12px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(16.32, 10)
+    expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBeCloseTo(24.48, 10)
     expect(priceBoostSize('text-[length:calc(18px*var(--canvas-label-scale,1))]')!.px).toBeGreaterThan(reservedPx)
 
     // An unpriceable class is a RED, never a pass.

@@ -154,7 +154,7 @@ describe('the door is the row slot the layout reserved, and its height is derive
     const OLD_H = 64
     const contentBox = OLD_H - BORDER_PX * 2
     // At the THEN bound, 2 — the counter-scale when the browser measured it. Since
-    // 27 Sep 2026 the text bound is the 1.39 landing ceiling; the history is not.
+    // 27 Sep 2026 the text bound is the 1.36 landing ceiling; the history is not.
     const THEN_BOUND = 2
     const neededThen = 16 + 4 + 2 * 11 * 1.25 * THEN_BOUND
     expect(neededThen).toBeGreaterThan(contentBox)

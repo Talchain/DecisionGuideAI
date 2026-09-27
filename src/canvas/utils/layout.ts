@@ -212,7 +212,7 @@ function tierCardWidth(tier: number, widestSubRow: number, promptKinds: readonly
     LAYOUT_PADDING_X
   // ⚠ THE FLOOR IS THE REPEATED-CARD WIDTH, not `NODE_LAYOUT_MIN_W` (27 Sep 2026).
   // They were the same number (260) until the landing text ceiling put the
-  // legibility floor (194.12) under the ED repeated-card target (248); a floor
+  // legibility floor (190.88) under the ED repeated-card target (248); a floor
   // below the repeated width let a wide gap bind the share on a repeated tier —
   // breaking S4's one reachable width and letting `solveLayoutNodeWidth` and this
   // disagree (`layoutNodeWidthDerivation.spec.ts`). `REPEATED_CARD_W` is

@@ -66,7 +66,7 @@ const STARTERS: Record<string, Draft> = {
 const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> }).heights
 
 /**
- * The landing bounds: the band TITLE is text (`MAX_LABEL_COUNTER_SCALE`, 1.39 since
+ * The landing bounds: the band TITLE is text (`MAX_LABEL_COUNTER_SCALE`, 1.36 since
  * 27 Sep 2026); the kind SHAPE is a glyph (`MAX_GLYPH_COUNTER_SCALE`, 2).
  */
 const S = MAX_LABEL_COUNTER_SCALE
@@ -161,9 +161,9 @@ describe('the row gap holds a kind shape and a band title, both at the bound', (
     const visible = LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y
     const needed = (KIND_GLYPH_PX / 2) * G + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
     expect(G).toBe(2)
-    expect(S).toBe(1.39)
-    // 24 + 8 + 12 × 1.39 + 8 = 56.68 (was 64 at a shared scale of 2): the title line shrank.
-    expect(needed).toBeCloseTo(56.68, 10)
+    expect(S).toBe(1.36)
+    // 24 + 8 + 12 × 1.36 + 8 = 56.32 (was 64 at a shared scale of 2): the title line shrank.
+    expect(needed).toBeCloseTo(56.32, 10)
     expect(visible).toBeGreaterThanOrEqual(needed)
   })
 })

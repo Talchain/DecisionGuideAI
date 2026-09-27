@@ -704,10 +704,10 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       // ⭐ RE-DECIDED BY THE LANDING TEXT CEILING (2026-09-27). The row is a
       // GLYPH row, so it did NOT move (174 / 184 at the glyph bound). What moved
       // is the card: the layout floor is now the widest title word at the TEXT
-      // bound (194.12), and the narrowest card any layout draws is the ED
+      // bound (190.88), and the narrowest card any layout draws is the ED
       // repeated width, 248 (`tierCardWidth` floors at `REPEATED_CARD_W`).
       //   184 / 248 = 74.2%   (was 184 / 260 = 70.8%)
-      // and the row still clears even the bare legibility floor, 184 < 194.12.
+      // and the row still clears even the bare legibility floor, 184 < 190.88.
       expect(visual, 'the row visual width moved').toBe(174)
       expect(occupied, 'the row footprint moved').toBe(184)
       expect(REPEATED_CARD_W, 'the narrowest card moved').toBe(248)

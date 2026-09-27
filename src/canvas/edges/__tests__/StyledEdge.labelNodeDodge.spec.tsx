@@ -366,9 +366,9 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // exceeds — the original defect — or over-clears and labels dodge for no
       // reason. Changing the geometry REDs here, where the coupling is explained.
       expect(style.maxWidth).toBe('calc(176px * var(--canvas-label-scale, 1))')
-      // 176 → 123 (27 Sep 2026): the resolver clears the box at the landing TEXT
-      // ceiling, ceil(88 × 1.39) = 123 (246 wide ≥ the 176 × 1.39 = 244.6 chip).
-      expect(LABEL_HALF_WIDTH).toBe(123)
+      // 176 → 120 (27 Sep 2026): the resolver clears the box at the landing TEXT
+      // ceiling, ceil(88 × 1.36) = 120 (240 wide ≥ the 176 × 1.36 = 239.36 chip).
+      expect(LABEL_HALF_WIDTH).toBe(120)
       // The row is a flex line that may not wrap — this is what holds the
       // ±LABEL_HALF_HEIGHT (single-line) half of the assumption now that
       // white-space no longer sits here — and anything past the cap is
@@ -432,8 +432,8 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // INDEPENDENT literal so the derivation cannot silently drift.
       // ⚠ AND 17 UNTIL 14 Sep 2026, when edgeLabel moved 10px → 11px and the
       // derived height followed it to 18. Still an INDEPENDENT literal.
-      // ⚠ AND 18 UNTIL 27 Sep 2026, when the landing text ceiling (1.39) took
-      // the worst-case box to ceil((11 × 1.25 × 1.39 + 8) / 2) = 14.
+      // ⚠ AND 18 UNTIL 27 Sep 2026, when the landing text ceiling (1.36) took
+      // the worst-case box to ceil((11 × 1.25 × 1.36 + 8) / 2) = 14.
       expect(LABEL_HALF_HEIGHT).toBe(14)
     })
   })

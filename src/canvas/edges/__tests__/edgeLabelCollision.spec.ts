@@ -47,7 +47,7 @@ describe('resolveLabelCollisionOffsets — E3 label collision avoidance', () => 
     // …at one STEP of travel each, never two. Written as literals, not as
     // `STEP`, so the constant and its pin cannot agree with each other.
     // 38 → 30 and 36 → 28 (27 Sep 2026): the label box is read at the landing
-    // TEXT ceiling, 11 × 1.25 × 1.39 + 8 = 27.1 tall (half 14), not × 2 (half 18).
+    // TEXT ceiling, 11 × 1.25 × 1.36 + 8 = 26.7 tall (half 14), not × 2 (half 18).
     expect(dys).toEqual([-30, 0, 30])
   })
 

@@ -256,8 +256,8 @@ describe('⭐ the two provenance marks do not touch', () => {
  * default layout cannot reach is the wrong trade. It is ALSO pinned to 0 by
  * `utils/__tests__/nodeLabelFit.spec.ts`, so the change is not silent either.
  *
- * ⚠ 27 Sep 2026 (landing text ceiling 1.39): the title measure is now 170.12, the
- * band is `[228.12, 260.12)`, and the DEFAULT repeated card (248) sits INSIDE it —
+ * ⚠ 27 Sep 2026 (landing text ceiling 1.36): the title measure is now 166.88, the
+ * band is `[224.88, 256.88)`, and the DEFAULT repeated card (248) sits INSIDE it —
  * so on a default layout a PAIR of provenance marks now takes the designed
  * fallback (the group drops below the title) while a single mark stays inline.
  *
@@ -281,12 +281,12 @@ describe('⭐ the pair still fits the header row inline at the width cards rende
     expect(NODE_HEADER_RESERVE_PX).toBe(0)
   })
 
-  it('the thresholds are 228.12px for one mark and 260.12px for two', () => {
+  it('the thresholds are 224.88px for one mark and 256.88px for two', () => {
     // RE-PINNED 27 Sep 2026 (landing text ceiling): the title measure is sized at
-    // the TEXT bound, 108 × 1.39 + 20 = 170.12 (was 236), so each threshold falls
-    // by 65.88; the marks themselves are unchanged (glyph bound, 2).
-    expect(inlineHeaderNeedsCardWidthPx(1)).toBeCloseTo(228.12, 10)
-    expect(inlineHeaderNeedsCardWidthPx(2)).toBeCloseTo(260.12, 10)
+    // the TEXT bound, 108 × 1.36 + 20 = 166.88 (was 236), so each threshold falls
+    // by 69.12; the marks themselves are unchanged (glyph bound, 2).
+    expect(inlineHeaderNeedsCardWidthPx(1)).toBeCloseTo(224.88, 10)
+    expect(inlineHeaderNeedsCardWidthPx(2)).toBeCloseTo(256.88, 10)
     // ⭐ THE MECHANISM ITSELF: the second mark costs exactly one counter-scaled
     // glyph plus one gap. If a future change makes the gap free, or makes the
     // glyph unscaled, this stops being true and the band above is wrong.

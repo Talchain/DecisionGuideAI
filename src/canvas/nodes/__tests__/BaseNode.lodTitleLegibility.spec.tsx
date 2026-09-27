@@ -196,8 +196,8 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
     // no counter-scale, so its rendered size is `18 * zoom` flat.
     // ⚠ FLIPPED BY THE LANDING TEXT CEILING (27 Sep 2026). At the old 2x cap the
     // counter-scaled 12px drew 24z and the fixed 18px was smaller everywhere. At
-    // the 1.39 ceiling it draws 16.68z, so the OLD fixed spelling would now be the
-    // LARGER one, by exactly 18 / 16.68, at every zoom in the band. The boost
+    // the 1.36 ceiling it draws 16.32z, so the OLD fixed spelling would now be the
+    // LARGER one, by exactly 18 / 16.32 (10.3%), at every zoom in the band. The boost
     // stays on the one text authority by design (every label shrank with the
     // ceiling); recorded here, both directions pinned, so the trade is visible.
     const worse = BAND.filter((z) => TEXT_LG_PX * z < renderedLabelPx(12, z))
@@ -226,8 +226,8 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
     // typed: `24z / 18z`. Pinned so a change to either size is visible here.
     const z = 0.2595
     expect(Number((TEXT_LG_PX * z).toFixed(2))).toBe(4.67)
-    // 6.23 → 4.33 (27 Sep 2026): 12 × 1.39 × z under the landing text ceiling.
-    expect(Number(renderedLabelPx(12, z).toFixed(2))).toBe(4.33)
+    // 6.23 → 4.24 (27 Sep 2026): 12 × 1.36 × z under the landing text ceiling.
+    expect(Number(renderedLabelPx(12, z).toFixed(2))).toBe(4.24)
   })
 
   /**

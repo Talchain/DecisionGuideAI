@@ -48,7 +48,7 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
     const inset = MEASURED_CARD - MEASURED_BLOCK
     // ⭐ 27 Sep 2026 (landing text ceiling): the measurement was taken at 24px
     // rendered type — 12px × the then-bound of 2. The type now reaches the row at
-    // 12 × 1.39, so each character is narrower by 1.39 / 2 and the SAME card
+    // 12 × 1.36, so each character is narrower by 1.36 / 2 and the SAME card
     // holds more of them: 18 → 25 on the 248 card. The type moved, so the budget
     // moved — this file's whole point, in the other direction.
     const MEASURED_SCALE = 2

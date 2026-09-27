@@ -27,7 +27,7 @@ import {
 
 /**
  * ⭐ 27 Sep 2026 (canvas/landing-text-scale): TEXT carries a ceiling,
- * `LABEL_COUNTER_SCALE_CAP` (1.39), so in the band [LABEL_LEGIBLE_ZOOM, 1 / CAP)
+ * `LABEL_COUNTER_SCALE_CAP` (1.36), so in the band [LABEL_LEGIBLE_ZOOM, 1 / CAP)
  * it renders below its declared size — the brief's trade of type size for a
  * board that fits. GLYPHS and TARGETS keep the old, uncapped rule
  * (`glyphCounterScale`). The arms below that used to say "rendered === declared
@@ -144,7 +144,7 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // LANDING_TITLE_FLOOR_PX (9.5px), below DS v5 §2.4's 10px: STATED, and
     // pinned per token so a further drop is a decision, not a drift.
     expect(renderedLabelPx(DECLARED.nodeTitle, LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(LANDING_TITLE_FLOOR_PX)
-    const LANDING_PX = { nodeTitle: 9.73, nodeValue: 9.73, nodeLabel: 8.34, edgeLabel: 7.645 } as const
+    const LANDING_PX = { nodeTitle: 9.52, nodeValue: 9.52, nodeLabel: 8.16, edgeLabel: 7.48 } as const
     for (const [name, declared] of Object.entries(DECLARED)) {
       expect(renderedLabelPx(declared, LABEL_LEGIBLE_ZOOM), name).toBeCloseTo(LANDING_PX[name as keyof typeof LANDING_PX], 10)
     }
@@ -228,10 +228,10 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // Below LABEL_LEGIBLE_ZOOM the LOD view has hidden most labels; the few that
     // are kept (goal / decision / the leading option) shrink linearly from the
     // capped scale instead of vanishing.
-    // 14 × LABEL_COUNTER_SCALE_CAP (1.39) × zoom since 27 Sep 2026 (was × 2:
+    // 14 × LABEL_COUNTER_SCALE_CAP (1.36) × zoom since 27 Sep 2026 (was × 2:
     // 12.6 and 11.2).
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(8.757, 6)
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(7.784, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(8.568, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(7.616, 6)
 
     /*
      * ⭐⭐ THE 12 Sep 2026 RAMP REPAYS THE TRADE THE 1 Sep CHANGE ACCEPTED —
@@ -265,10 +265,10 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
      * declared size again, so the next person has to come here and re-argue it.
      */
     // ⚠ 27 Sep 2026: with the text ceiling the title crosses the 10px floor at
-    // 10 / (14 × 1.39) ≈ 0.514 — ABOVE the landing floor. The landing promise is
+    // 10 / (14 × 1.36) ≈ 0.525 — ABOVE the landing floor. The landing promise is
     // now LANDING_TITLE_FLOOR_PX (9.5px), and it still holds AT the landing floor.
     const floorCrossingZoom = DS_CANVAS_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)
-    expect(floorCrossingZoom).toBeCloseTo(0.51387, 4)
+    expect(floorCrossingZoom).toBeCloseTo(0.52521, 4)
     expect(LANDING_TITLE_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)).toBeLessThanOrEqual(LABEL_LEGIBLE_ZOOM)
   })
 })
