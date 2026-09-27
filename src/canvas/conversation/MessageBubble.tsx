@@ -36,6 +36,7 @@ import { FALLBACK_TEXT } from './validateResponse'
 import { collectConsentSurfaceText, dedupeRenderedText } from './messageComposition'
 import { turnOfferedConsent } from './utils/transcriptStore'
 import { openQuestionsToggleLabel, splitServerOpenQuestions } from './serverOpenQuestions'
+import { PROVISIONAL_VIEW_LABEL, provisionalHeading } from './provisionalView'
 import { PANEL_LIST_BULLET } from './panelLists'
 import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
@@ -200,6 +201,13 @@ export const MessageBubble = memo(function MessageBubble({
   // them. The pre-existing three are REPORTED, not fixed here: hoisting them is
   // a separate, mechanical change and this lane's scope rule forbids
   // "while we're here" work.
+  /**
+   * Slice C5: Olumi's provisional view, typed (`_agent.provisional_view`), rendered verbatim as its own labelled
+   * block on the face of a settled assistant reply, whatever shape the reply took. Thin UI: the producer's prose
+   * is never parsed or edited here (provisionalView.ts).
+   */
+  const provisional = !isUser && !isStreaming && !message.stoppedByUser ? message.provisionalView : undefined
+  const [provisionalWhyShown, setProvisionalWhyShown] = useState(false)
   const rawDisplayContent = (isUser || isStreaming || message.stoppedByUser)
     ? message.content
     : extractFromRawJson(message.content)
@@ -491,6 +499,47 @@ export const MessageBubble = memo(function MessageBubble({
         >
           {expanded ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show more</>}
         </button>
+      )}
+      {/* Slice C5: Olumi's PROVISIONAL view — its reading when the analysis cannot put an option forward, in the
+        * reasoning panel's quieter register so it never reads as the analysis's result. The view and the one step
+        * that would confirm it are always shown; the why is one press away. Plain text nodes only. */}
+      {provisional && (
+        <div
+          className={styles.reasoningPanel}
+          data-testid="message-provisional-view"
+          role="note"
+          aria-label={PROVISIONAL_VIEW_LABEL}
+        >
+          <p className={styles.reasoningPanelHeading} data-testid="message-provisional-view-heading">
+            {provisionalHeading(provisional)}
+          </p>
+          <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-text">
+            {provisional.view}
+          </p>
+          {provisional.confirmStep && (
+            <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-step">
+              <strong>To confirm it:</strong> {provisional.confirmStep}
+            </p>
+          )}
+          {provisional.reasoning && (
+            <>
+              <button
+                type="button"
+                className={styles.inlineDisclosureToggle}
+                onClick={() => setProvisionalWhyShown((v) => !v)}
+                data-testid="message-provisional-view-why-toggle"
+                aria-expanded={provisionalWhyShown}
+              >
+                {provisionalWhyShown ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Why Olumi thinks this
+              </button>
+              {provisionalWhyShown && (
+                <p className={styles.reasoningPanelBody} data-testid="message-provisional-view-why">
+                  {provisional.reasoning}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       )}
       {/* The build's open questions, on demand and verbatim. Plain text via a
         * text node, like the reasoning panel below. */}

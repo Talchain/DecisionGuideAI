@@ -44,6 +44,7 @@ import { heldProposalMountKey } from '../selectors'
 import { offersPendingConsent } from '../messageComposition'
 import { parseAnswerShape, type AnswerShape } from '../answerShape'
 import { readOpenQuestionList } from '../serverOpenQuestions'
+import { readProvisionalView, type ProvisionalView as ProvisionalViewT } from '../provisionalView'
 
 // ── G1: which CARD ACTION created a user message ─────────────────────────────
 //
@@ -199,6 +200,8 @@ interface StoredMessage {
    */
   answerShape?: AnswerShape
   openQuestionList?: string[]
+  /** `{view, reasoning?, confirm_step?, heading?}` as the wire spells it; re-read on restore. */
+  provisionalView?: Record<string, string>
   sessionDivider?: string
   synthetic?: boolean
 }
@@ -304,6 +307,15 @@ function toStored(m: SourceKeyedMessage): StoredMessage {
   if (turnOfferedConsent(m)) out.consentOffered = true
   if (m.answerShape) out.answerShape = m.answerShape
   if (m.openQuestionList) out.openQuestionList = [...m.openQuestionList]
+  if (m.provisionalView) {
+    const pv = m.provisionalView
+    out.provisionalView = {
+      view: pv.view,
+      ...(pv.reasoning ? { reasoning: pv.reasoning } : {}),
+      ...(pv.confirmStep ? { confirm_step: pv.confirmStep } : {}),
+      ...(pv.heading ? { heading: pv.heading } : {}),
+    }
+  }
   if (m.sessionDivider) out.sessionDivider = m.sessionDivider
   if (m.synthetic) out.synthetic = true
   return out
@@ -332,9 +344,16 @@ function fromStored(s: StoredMessage): SourceKeyedMessage {
     ...(s.consentOffered === true ? { consentOffered: true as const } : {}),
     ...restoredAnswerShape(s.answerShape),
     ...restoredOpenQuestionList(s.openQuestionList),
+    ...restoredProvisionalView(s.provisionalView),
     ...(s.sessionDivider ? { sessionDivider: s.sessionDivider } : {}),
     ...(s.synthetic ? { synthetic: true } : {}),
   }
+}
+
+/** A stored provisional view, re-read through the live turn's own reader. */
+function restoredProvisionalView(raw: unknown): { provisionalView?: ProvisionalViewT } {
+  const pv = readProvisionalView(raw)
+  return pv ? { provisionalView: pv } : {}
 }
 
 /** A stored answer shape, re-read through the live turn's own validator. */

@@ -103,6 +103,7 @@ import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatc
 import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractOpenQuestionListSidecar } from './serverOpenQuestions'
+import { extractProvisionalViewSidecar } from './provisionalView'
 import { extractAnswerShapeSidecar } from './answerShape'
 import { extractGroundedSelectionSidecar } from './groundedSelection'
 import { extractModelBuildingNoticesSidecar } from './modelBuildingNotices'
@@ -5849,6 +5850,7 @@ export function useConversation(): UseConversationReturn {
           // the precise defect the wire spec's guards pin.
           const groundedSelection = extractGroundedSelectionSidecar(target.response)
           const openQuestionList = extractOpenQuestionListSidecar(target.response)
+          const provisionalView = extractProvisionalViewSidecar(target.response)
           // What Olumi had to leave out of the model it drafted on this turn.
           // Unlike the three sidecars above, `model_building_notices` is a
           // DECLARED field on `OlumiResponseSchema` (0.48.0), so it rides the
@@ -5881,6 +5883,7 @@ export function useConversation(): UseConversationReturn {
             ...(answerShape ? { answerShape } : {}),
             ...(groundedSelection ? { groundedSelection } : {}),
             ...(openQuestionList ? { openQuestionList } : {}),
+            ...(provisionalView ? { provisionalView } : {}),
             ...(modelBuildingNotices ? { modelBuildingNotices } : {}),
             timestamp: new Date(),
           })
