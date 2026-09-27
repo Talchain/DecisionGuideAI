@@ -958,7 +958,12 @@
       "operator": ">=",
       "value": 1.1,
       "label": "net revenue retention floor",
-      "unit": "%",
+      "unit": "fraction",
+      "provenance_unit_normalised": {
+        "rule": "percent_to_fraction",
+        "original_value": 110,
+        "original_unit": "%"
+      },
       "source_quote": "net revenue retention above 110%",
       "confidence": 0.85,
       "provenance": "explicit"
