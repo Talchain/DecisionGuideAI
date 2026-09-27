@@ -1049,6 +1049,24 @@ export const FACTOR_NO_ANALYSIS_YET = 'Working assumption · no analysis yet'
 export const FACTOR_NO_ANALYSIS_YET_SHORT = 'Working assumption'
 
 /**
+ * The scale beside the card's OPEN value field when the number typed there is
+ * the number the model stores (canvas audit edit-values F3). The same `0–1`
+ * spelling `AddOptionPanel` puts beside a unitless factor's field.
+ */
+export const FACTOR_VALUE_MODEL_SCALE_HINT = '0–1'
+
+/**
+ * A factor every option sets for itself (canvas audit edit-values F9): its own
+ * value is the baseline they all replace. Said while the value is being edited
+ * and in the control's name and hover — never added to the card at rest.
+ * Mirrors CEE's own reply to such an edit.
+ */
+export const FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION =
+  "Every option sets its own value for this factor, so changing it here won't change the comparison."
+/** Its shortest form, the one visible under the open field (NODE-ANATOMY v3.2 principle 2). */
+export const FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION_SHORT = 'Each option sets its own value'
+
+/**
  * The one attention cue (spec §2 "Attention cue — add"; ED 11:52Z point 7).
  * It reads as "worth thinking about", never as a warning or an error.
  */

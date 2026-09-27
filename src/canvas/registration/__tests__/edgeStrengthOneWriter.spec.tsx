@@ -442,7 +442,11 @@ describe('one writer — a link-strength edit never reaches CEE behind its own t
     replies.push(APPLIED(USER_MEAN), APPLIED(STRONGER))
     await pressStrong(hook)
     // A second pick while the first is on the wire: the dispatcher queues it,
-    // and the carrier is told 'queued' — the ONLY settlement it will ever hear.
+    // and the carrier is told 'queued' at once. (This used to be "the ONLY
+    // settlement it will ever hear" — which was the defect, canvas audit
+    // edit-values F1: a queued edit's refusal had no listener, so the panel kept
+    // the earlier send's "Sent" over a value the model refused. The queue now
+    // hands the carrier its dispatch's own outcome at flush.)
     const second: SystemEventSendSettlement[] = []
     await act(async () => {
       hook.result.current.setStrength(STRONGER, { preserveDirection: true, onSendSettled: (s) => second.push(s) })
@@ -459,7 +463,8 @@ describe('one writer — a link-strength edit never reaches CEE behind its own t
     expect(dispatched.map((p) => (p.event as { magnitude?: number }).magnitude)).toEqual([USER_MEAN, STRONGER])
     expect(edgeData().weight).toBe(STRONGER)
     expect((edgeData().serverStrength as { mean?: number } | undefined)?.mean).toBe(STRONGER)
-    expect(second).toEqual(['queued'])
+    // Re-pinned from ['queued'] (see above): the deferred receipt is now heard.
+    expect(second).toEqual(['queued', 'sent'])
     // ⭐ Only the deferred turn's own receipt can end its pending state; if it
     //    did not, signal 5 would hold registration for the life of the page.
     expect(editDeliveryHold(useCanvasStore.getState() as never)).toBeNull()

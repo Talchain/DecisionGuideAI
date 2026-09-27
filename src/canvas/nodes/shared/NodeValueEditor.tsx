@@ -83,7 +83,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
-import { admitNumericField } from '../../ui/inspector-v2/shared/numericFieldAdmission'
+import { admitNumericField, NUMERIC_FIELD_REFUSAL } from '../../ui/inspector-v2/shared/numericFieldAdmission'
 import {
   valueCommitSettlementWord,
   VALUE_COMMIT_SETTLEMENT_COPY,
@@ -120,12 +120,42 @@ export interface NodeValueEditorProps {
   readCommittedValue?: () => number | null
   min?: number
   max?: number
+  /**
+   * ⭐ THE SENTENCE AN OUT-OF-BOUNDS ENTRY SHOWS (canvas audit edit-values F3).
+   * `admitNumericField`'s own refusal is a bare `Max: 1`, which tells a person
+   * nothing about WHY 5 is not a value; a caller that knows what the bound means
+   * passes the estate's sentence for it. A non-number keeps the admission's own
+   * reason.
+   */
+  outOfRangeCopy?: string
+  /**
+   * The scale the number in the field is on, shown beside the OPEN field only
+   * (e.g. `0–1`). At rest the card keeps its tier word or unit — contract v3.1
+   * rules out a bare model-scale figure on a factor card — but once the field is
+   * open it shows the raw number, and a `0.8` with no scale beside it is the
+   * reason a person typed `5` (F3).
+   */
+  scaleHint?: string
+  /**
+   * One sentence about what an edit here DOES (canvas audit edit-values F9 — a
+   * baseline every option replaces). Carried in full by the resting control's
+   * accessible name and hover title and by the open field's description.
+   * Nothing is added to the card at rest (NODE-ANATOMY v3.2, Factor line 2).
+   */
+  editNote?: string
+  /**
+   * The SHORTEST form of `editNote`, the one shown under the open field —
+   * NODE-ANATOMY v3.2 principle 2: the short form on the card, "with the full
+   * sentence in the hover and aria". Measured on the served card at fit
+   * (1440×900, 150 px wide) the full sentence took four lines under the field.
+   */
+  editNoteShort?: string
   ariaLabel: string
   testId: string
 }
 
 export function NodeValueEditor({
-  value, readout, onCommit, readCommittedValue, min, max, ariaLabel, testId,
+  value, readout, onCommit, readCommittedValue, min, max, outOfRangeCopy, scaleHint, editNote, editNoteShort, ariaLabel, testId,
 }: NodeValueEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -163,7 +193,16 @@ export function NodeValueEditor({
   const commit = useCallback(() => {
     if (draft.trim().length === 0) { setIsEditing(false); return }
     const admission = admitNumericField(draft, { min, max })
-    if (!admission.ok) { setRefusal(admission.reason); return }
+    if (!admission.ok) {
+      // A number outside the bounds gets the caller's sentence; a non-number
+      // keeps the admission's own reason — it is not a range question.
+      setRefusal(
+        outOfRangeCopy && admission.reason !== NUMERIC_FIELD_REFUSAL.NOT_FINITE
+          ? outOfRangeCopy
+          : admission.reason,
+      )
+      return
+    }
     // A commit that changes nothing is a no-op, not a dispatch.
     if (value != null && admission.value === value) { setIsEditing(false); return }
     const seq = ++commitSeqRef.current
@@ -192,7 +231,7 @@ export function NodeValueEditor({
         ? VALUE_NOT_ENCODABLE_COPY
         : VALUE_COMMIT_SETTLEMENT_COPY.local_only.message,
     )
-  }, [draft, min, max, value, onCommit, readCommittedValue])
+  }, [draft, min, max, outOfRangeCopy, value, onCommit, readCommittedValue])
 
   // `nodrag nopan` and the pointer stop are not optional: without them React
   // Flow treats a drag inside the field as a node drag and the caret never
@@ -214,7 +253,8 @@ export function NodeValueEditor({
           type="button"
           data-testid={testId}
           className={`nodrag nopan ${typography.nodeValue} group inline-flex items-baseline ${controls.editableRestingCanvas}`}
-          aria-label={`${ariaLabel} — click to edit`}
+          aria-label={`${ariaLabel} — click to edit${editNote ? `. ${editNote}` : ''}`}
+          title={editNote}
           {...guard}
           onClick={(e) => { e.stopPropagation(); open() }}
         >
@@ -241,27 +281,61 @@ export function NodeValueEditor({
 
   return (
     <span className="nodrag nopan inline-flex flex-col items-start gap-0.5" {...guard}>
-      <input
-        ref={inputRef}
-        type="number"
-        inputMode="decimal"
-        step="any"
-        min={min}
-        max={max}
-        value={draft}
-        data-testid={`${testId}-input`}
-        aria-label={ariaLabel}
-        aria-invalid={refusal != null}
-        onChange={(e) => { setDraft(e.target.value); if (refusal) setRefusal(null) }}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') { e.preventDefault(); commit() }
-          if (e.key === 'Escape') { setIsEditing(false); setRefusal(null) }
-        }}
-        className={`${typography.nodeValue} w-24 ${
-          refusal ? controls.editableFieldCanvas.replace('border-field', 'border-danger') : controls.editableFieldCanvas
-        }`}
-      />
+      <span className="inline-flex items-baseline gap-1">
+        <input
+          ref={inputRef}
+          type="number"
+          inputMode="decimal"
+          step="any"
+          min={min}
+          max={max}
+          value={draft}
+          data-testid={`${testId}-input`}
+          aria-label={ariaLabel}
+          aria-describedby={[
+            scaleHint ? `${testId}-scale` : null,
+            editNote ? `${testId}-note` : null,
+          ].filter(Boolean).join(' ') || undefined}
+          aria-invalid={refusal != null}
+          onChange={(e) => { setDraft(e.target.value); if (refusal) setRefusal(null) }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') { setIsEditing(false); setRefusal(null) }
+          }}
+          className={`${typography.nodeValue} w-24 ${
+            refusal ? controls.editableFieldCanvas.replace('border-field', 'border-danger') : controls.editableFieldCanvas
+          }`}
+        />
+        {/* F3: the scale of the number in the field, beside it — same row, so
+            opening the field still moves nothing below it. */}
+        {scaleHint && (
+          <span
+            id={`${testId}-scale`}
+            data-testid={`${testId}-scale`}
+            className={`${typography.edgeLabel} text-text-light whitespace-nowrap`}
+          >
+            {scaleHint}
+          </span>
+        )}
+      </span>
+      {/* F9: what an edit here does, while the person is making it — short on
+          the card, the full sentence in the hover and for assistive tech. */}
+      {editNote && (
+        <span
+          id={`${testId}-note`}
+          data-testid={`${testId}-note`}
+          title={editNote}
+          className={`${typography.edgeLabel} text-text-light`}
+        >
+          {editNoteShort ? (
+            <>
+              <span aria-hidden="true">{editNoteShort}</span>
+              <span className="sr-only">{editNote}</span>
+            </>
+          ) : editNote}
+        </span>
+      )}
       {refusal && (
         /* ⚠ `text-text-body`, NOT `text-danger` — and the guard that caught this
            is right. `nodeSystem.semanticColourOnText.spec.ts` (rule 5) measured
