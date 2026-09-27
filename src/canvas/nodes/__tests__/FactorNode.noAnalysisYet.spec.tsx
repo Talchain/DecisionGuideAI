@@ -156,6 +156,11 @@ describe('row 10 — a factor before any analysis reads "Working assumption · n
     expect(popoverLine.textContent).toBe(LINE)
     const slot = within(card()).getByTestId(`factor-driver-slot-${ID}`)
     expect(within(slot).getByTestId(`factor-driver-slot-no-analysis-${ID}`).textContent).toBe(LINE)
+    // Design bundle 3 (served caa64d0f: "Working assumption · no anal…"): the VISIBLE slot text is the
+    // short state; the rest is sr-only, so the text content above (and the popover) stay whole.
+    const slotLine = within(slot).getByTestId(`factor-driver-slot-no-analysis-${ID}`)
+    const visible = [...slotLine.childNodes].filter((n) => !(n instanceof HTMLElement && n.classList.contains('sr-only'))).map((n) => n.textContent).join('')
+    expect(visible).toBe('Working assumption')
     expect(slot.getAttribute('aria-hidden')).toBeNull()
     const valueLine = within(card()).getByTestId('factor-recorded-value')
     expect(Boolean(valueLine.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
