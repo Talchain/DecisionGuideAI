@@ -27,7 +27,7 @@ import {
   getInputGroupLabel,
   DESCRIPTION_PLACEHOLDERS,
   EMPTY_STATES,
-  getExtractionLabel,
+  factorValueSourceLabel,
   getProvenanceLabel,
   INLINE_LABELS,
 } from '../inspectorStrings'
@@ -703,7 +703,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
             {isValueEditPending
               ? 'Your edit — not saved to the model yet'
-              : getExtractionLabel(source, attributedTo)}
+              : factorValueSourceLabel(node?.data, attributedTo)}
           </span>
         </div>
 

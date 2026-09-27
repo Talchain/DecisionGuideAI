@@ -18,7 +18,7 @@ import {
   getInputGroupLabel,
   INLINE_LABELS,
   DESCRIPTION_PLACEHOLDERS,
-  getExtractionLabel,
+  factorValueSourceLabel,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -315,7 +315,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             Outside your control
           </span>
           <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-            {getExtractionLabel(source, attributedTo)}
+            {factorValueSourceLabel(node?.data, attributedTo)}
           </span>
         </div>
 
