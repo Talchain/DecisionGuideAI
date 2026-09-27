@@ -25,7 +25,7 @@ import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { useFactorRunCues } from './shared/useFactorRunCues'
 import { useHasCompletedFirstRun } from '../selectors/results'
-import { FACTOR_NO_ANALYSIS_YET } from './shared/metricVocabulary'
+import { FACTOR_NO_ANALYSIS_YET, FACTOR_NO_ANALYSIS_YET_SHORT } from './shared/metricVocabulary'
 import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { turningPointNumberPrints } from './shared/factorTurningPoint'
@@ -1468,7 +1468,11 @@ export const FactorNode = memo((props: NodeProps) => {
                 data-testid={`factor-driver-slot-no-analysis-${props.id}`}
                 className="block truncate text-text-light"
               >
-                {FACTOR_NO_ANALYSIS_YET}
+                {/* Design bundle 3: at landing the full line truncated to "Working assumption · no
+                    anal…" (served caa64d0f). The visible slot says the state; the rest stays in the
+                    popover and, here, for assistive technology — the text content is unchanged. */}
+                {FACTOR_NO_ANALYSIS_YET_SHORT}
+                <span className="sr-only">{FACTOR_NO_ANALYSIS_YET.slice(FACTOR_NO_ANALYSIS_YET_SHORT.length)}</span>
               </span>
             ) : null}
           </div>

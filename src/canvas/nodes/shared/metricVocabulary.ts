@@ -1001,6 +1001,8 @@ export const OPTION_BASELINE_REFERENCE = 'Reference for the other alternatives.'
  * row 10) — its value is a working assumption no run has used yet.
  */
 export const FACTOR_NO_ANALYSIS_YET = 'Working assumption · no analysis yet'
+/** The visible slot form (design bundle 3): the full line truncated at landing. It must stay a prefix of FACTOR_NO_ANALYSIS_YET. */
+export const FACTOR_NO_ANALYSIS_YET_SHORT = 'Working assumption'
 
 /**
  * The one attention cue (spec §2 "Attention cue — add"; ED 11:52Z point 7).
