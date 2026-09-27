@@ -5,6 +5,7 @@
 
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { classifyValueProvenance, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL, type ValueSourceMarkKind } from '../../nodes/shared/valueSourceMark'
 import type { ParticipantNameResolution } from '../../../collab/participantNames'
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
 import { fragileEdgeSentence } from '../../edges/connectorCopy'
@@ -192,10 +193,48 @@ export function getProvenanceLabel(
     case 'cee_inference':    return 'Estimated by Olumi'
     case 'inferred':         return 'Estimated by Olumi'
     case 'cee_repair':       return 'Generated from your brief (adjusted during validation)'
-    case 'ai-suggested':     return 'Generated from your brief'
+    // Olumi suggested it; the brief did not say it (thin-UI ruling, #70 5855577789 rule 1).
+    case 'ai-suggested':     return 'Suggested by Olumi'
     case 'default':          return 'No evidence yet'
     default:                 return source.startsWith('evidence:') ? `Based on ${source.slice(9)}` : `Source: ${source}`
   }
+}
+
+/**
+ * ⭐ THE INSPECTOR'S SOURCE WORDS FOR A FACTOR'S VALUE ARE THE CARD'S ANSWER
+ * (build train slice D-1a; thin-UI ruling #70 5855577789 rule 1).
+ *
+ * Before this the inspector classified the same value a SECOND way:
+ * `getExtractionLabel(source)` sent every literal it did not know to
+ * "Estimated by Olumi", while the card's `factorValueSourceMark` (rule chain
+ * in `valueSourceMark.tsx`) marked that value "no source" — Codex #63
+ * 5801529767: unknown stays unknown. So one number carried two provenance
+ * claims, one of them invented. It also missed the card's `extractionType:
+ * 'explicit'` rule, so a value the card credits to the brief read as Olumi's.
+ *
+ * Now there is one classifier. A named participant keeps its richer words
+ * (`attributedLabelFor`, the same user-owned arm the card marks `you`/`panel`);
+ * everything else is the card's mark kind in the inspector's words. The typed
+ * producer field this still stands in for is G1 (a typed `value_provenance`,
+ * `canvas-graph-review-20260927/thin-ui/GRAPH-THIN-UI-INVENTORY.md`).
+ */
+export function factorValueSourceLabel(
+  data: unknown,
+  attributedTo?: ParticipantNameResolution,
+): string {
+  const d = data as Record<string, unknown> | undefined
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  const source = typeof obs?.source === 'string' ? obs.source : undefined
+  const attributed = source ? attributedLabelFor(source, attributedTo) : null
+  if (attributed) return attributed
+  const words: Readonly<Record<ValueSourceMarkKind, string>> = {
+    olumi: 'Estimated by Olumi',
+    brief: 'From your brief',
+    you: VALUE_SOURCE_MARK_LABEL.you,
+    panel: VALUE_SOURCE_MARK_LABEL.panel,
+    unknown: VALUE_SOURCE_MARK_LABEL.unknown,
+  }
+  return words[factorValueSourceMark(data)?.kind ?? 'unknown']
 }
 
 /** Extraction type user-facing labels */

@@ -20,7 +20,7 @@ import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   getProvenanceLabel,
-  getExtractionLabel,
+  factorValueSourceLabel,
   GROUP_LABELS,
   getInputGroupLabel,
   INLINE_LABELS,
@@ -302,7 +302,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           </span>
           {source && (
             <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-              {getExtractionLabel(source, attributedTo)}
+              {factorValueSourceLabel(node?.data, attributedTo)}
             </span>
           )}
         </div>
