@@ -47,7 +47,7 @@ describe('C6-2 BRIEF_READ on the wire', () => {
     const out = await run([DRAFTING, BRIEF_READ, GRAPH_READY, COMPLETE], { onBriefRead })
     expect(out.kind, 'an unknown stage would abandon the stream and re-send the turn').toBe('complete')
     expect(onBriefRead).toHaveBeenCalledTimes(1)
-    expect(onBriefRead).toHaveBeenCalledWith({ goal: GOAL, options: OPTIONS })
+    expect(onBriefRead).toHaveBeenCalledWith({ goal: GOAL, options: OPTIONS, limits: [] })
   })
 
   it('parseStageFrame keeps the goal (a string, or null when the brief states none) and the options', () => {
@@ -60,6 +60,7 @@ describe('C6-2 BRIEF_READ on the wire', () => {
     expect(briefReadingOf({ goal: null, options: ['invest in additional advertising', 3, '  ', null] })).toEqual({
       goal: null,
       options: ['invest in additional advertising'],
+      limits: [],
     })
     expect(briefReadingOf({ goal: '   ', options: [] })).toBeNull()
     expect(briefReadingOf({})).toBeNull()
@@ -73,6 +74,14 @@ describe('C6-2 BRIEF_READ on the wire', () => {
     expect(onBriefRead).not.toHaveBeenCalled()
   })
 
+  it('v2: the limits the user set ride the same frame, strings only', async () => {
+    const onBriefRead = vi.fn()
+    const v2 = { ...BRIEF_READ, limits: ['£20k budget', 'monthly churn under 4%', 9, ''] }
+    await run([DRAFTING, v2, GRAPH_READY, COMPLETE], { onBriefRead })
+    expect(onBriefRead).toHaveBeenCalledWith({ goal: GOAL, options: OPTIONS, limits: ['£20k budget', 'monthly churn under 4%'] })
+    expect(briefReadingOf({ limits: ['£20k budget'] }), 'limits alone are a reading').toEqual({ goal: null, options: [], limits: ['£20k budget'] })
+  })
+
   it('a throwing handler never costs the turn', async () => {
     const out = await run([DRAFTING, BRIEF_READ, GRAPH_READY, COMPLETE], {
       onBriefRead: () => {
@@ -84,7 +93,7 @@ describe('C6-2 BRIEF_READ on the wire', () => {
 })
 
 describe("draftStore: the reading lives only inside its own turn's drafting phase", () => {
-  const READING = { goal: GOAL, options: OPTIONS }
+  const READING = { goal: GOAL, options: OPTIONS, limits: [] as string[] }
   beforeEach(() => useDraftStore.getState().resetDraft())
 
   it('the owning turn records it while drafting; another turn cannot', () => {

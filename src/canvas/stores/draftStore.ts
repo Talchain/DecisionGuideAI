@@ -110,7 +110,7 @@ export interface DraftState {
    * into the wait. Held ONLY while the owning turn is still `drafting`: every phase change clears it, so the model
    * (GRAPH_READY → `settling`) or the end of the turn supersedes it, and it never outlives the turn. Never persisted.
    */
-  draftStreamBriefReading: { goal: string | null; options: string[] } | null
+  draftStreamBriefReading: { goal: string | null; options: string[]; limits: string[] } | null
   /**
    * The scenario for which a GRAPH_READY frame CARRYING A GRAPH arrived on the
    * draft stream during this session — or null if no such frame ever arrived.
@@ -196,7 +196,7 @@ export interface DraftActions {
    */
   markDraftStreamCoachingLanded: (turnId: string) => void
   /** Record the owning turn's brief reading. Ignored unless `turnId` owns the phase AND the phase is `drafting`. */
-  markDraftStreamBriefRead: (turnId: string, reading: { goal: string | null; options: string[] }) => void
+  markDraftStreamBriefRead: (turnId: string, reading: { goal: string | null; options: string[]; limits: string[] }) => void
   /** Record that this client's fence dropped a response carrying a graph, for the decision on screen. */
   markDraftStreamGraphDiscardedByFence: (scenarioId: string | null) => void
   /**

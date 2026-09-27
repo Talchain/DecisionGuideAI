@@ -4,20 +4,22 @@
  * A first brief waits ~60 s for its model on the first-use screen, with nothing but a thinking indicator. CEE's
  * `BRIEF_READ` frame copies the goal and the options out of the brief; each is an exact substring of what the user
  * typed (CEE drops any span that is not). This card shows them back AS QUOTES, under the neutral headings AI Quality
- * ruled (#70 5858767026): no leader, no ranking, no limits, nothing Olumi inferred, and never the word "model".
+ * ruled (#70 5858767026): no leader, no ranking, nothing Olumi inferred, and never the word "model". v2 (5859288025)
+ * adds the limits the user set: CEE shows a limit only when its own words carry a comparator and it is not an option.
  * It lives only while the turn is drafting (`draftStore.draftStreamBriefReading`); the model supersedes it.
  */
 import { memo } from 'react'
 
 export interface BriefReadingCardProps {
-  reading: { goal: string | null; options: string[] }
+  reading: { goal: string | null; options: string[]; limits?: string[] }
 }
 
 const quoted = (span: string) => `“${span}”`
 
 export const BriefReadingCard = memo(function BriefReadingCard({ reading }: BriefReadingCardProps) {
   const { goal, options } = reading
-  if (goal === null && options.length === 0) return null
+  const limits = reading.limits ?? []
+  if (goal === null && options.length === 0 && limits.length === 0) return null
   return (
     <section
       data-testid="brief-reading"
@@ -29,6 +31,18 @@ export const BriefReadingCard = memo(function BriefReadingCard({ reading }: Brie
         <div data-testid="brief-reading-goal" className="flex flex-col gap-0.5">
           <span className="text-xs text-text-light">You said you want to</span>
           <span className="text-sm text-text-body">{quoted(goal)}</span>
+        </div>
+      ) : null}
+      {limits.length > 0 ? (
+        <div data-testid="brief-reading-limits" className="flex flex-col gap-0.5">
+          <span className="text-xs text-text-light">You set</span>
+          <ul className="m-0 pl-4 list-disc flex flex-col gap-0.5">
+            {limits.map((l) => (
+              <li key={l} data-testid="brief-reading-limit" className="text-sm text-text-body">
+                {quoted(l)}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
       {options.length > 0 ? (

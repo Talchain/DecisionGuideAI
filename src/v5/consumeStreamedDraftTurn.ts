@@ -74,16 +74,21 @@ export interface StreamedDraftHandlers {
 export interface BriefReading {
   goal: string | null
   options: string[]
+  /** v2 (AIQ GO #70 5859288025): limits the user set, only those whose own words carry a comparator. Absent = none. */
+  limits: string[]
 }
 
 /** The frame's strings only: a non-string or blank entry is dropped, never coerced. Null when nothing is left. */
-export function briefReadingOf(frame: { goal?: unknown; options?: unknown }): BriefReading | null {
+export function briefReadingOf(frame: { goal?: unknown; options?: unknown; limits?: unknown }): BriefReading | null {
   const clean = (v: unknown): string | null => (typeof v === 'string' && v.trim().length > 0 ? v.trim() : null)
   const goal = clean(frame.goal)
   const options = Array.isArray(frame.options)
     ? frame.options.map(clean).filter((o): o is string => o !== null)
     : []
-  return goal === null && options.length === 0 ? null : { goal, options }
+  const limits = Array.isArray(frame.limits)
+    ? frame.limits.map(clean).filter((l): l is string => l !== null)
+    : []
+  return goal === null && options.length === 0 && limits.length === 0 ? null : { goal, options, limits }
 }
 
 export interface IdentityDrift {

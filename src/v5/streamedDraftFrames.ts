@@ -13,7 +13,7 @@
  *   | stage           | seq | status      | payload                              |
  *   |-----------------|-----|-------------|--------------------------------------|
  *   | DRAFTING        |  0  | in_progress | —                                    |
- *   | BRIEF_READ      |  —  | in_progress | goal, options[], elapsed_ms (C6-2)   |
+ *   | BRIEF_READ      |  —  | in_progress | goal, options[], limits[] (C6-2)     |
  *   | PROGRESS        |  1  | in_progress | labels[], phase, elapsed_ms          |
  *   | GRAPH_READY     |  2  | in_progress | graph{nodes,edges}, schema_version   |
  *   | COACHING_READY  |  3  | in_progress | coaching_status                      |
@@ -111,6 +111,8 @@ export interface StageFrame {
   goal?: string | null
   /** BRIEF_READ only: the options exactly as the user wrote them. Unvalidated here; the consumer keeps strings only. */
   options?: unknown[]
+  /** BRIEF_READ v2 only: limits the user set, each carrying its own comparator (CEE-gated). Strings kept by the consumer. */
+  limits?: unknown[]
   /** COMPLETE only. `payload` is the buffered turn body VERBATIM. */
   status_code?: number
   payload?: unknown
@@ -202,6 +204,7 @@ export function parseStageFrame(raw: string): StageFrame | null {
   if (typeof obj.coaching_status === 'string') frame.coaching_status = obj.coaching_status
   if (typeof obj.goal === 'string' || obj.goal === null) frame.goal = obj.goal
   if (Array.isArray(obj.options)) frame.options = obj.options
+  if (Array.isArray(obj.limits)) frame.limits = obj.limits
   if (typeof obj.status_code === 'number') frame.status_code = obj.status_code
   if ('payload' in obj) frame.payload = obj.payload
 
