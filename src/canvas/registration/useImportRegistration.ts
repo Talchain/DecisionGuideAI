@@ -327,6 +327,19 @@ export function useImportRegistration(): void {
       return
     }
 
+    // ⭐ THE CANVAS'S LIMITS TRAVEL WITH ITS GRAPH (#70 5851812259). The
+    // projection is `{nodes, edges}` only, so a saved example's stated limit
+    // (pricing: NRR >= 110%) lived on the canvas and never in CEE: the Run could
+    // not name it, and every reload's proof read `goal_constraints` canvas=1
+    // read=0 and declined the Run as unconfirmed. Taken from the SAME snapshot
+    // as the nodes and edges. An empty or null list adds nothing: CEE reads an
+    // absent list as [] (`serverGraphHydration` `firstGoalValueNotProvenEqual`).
+    const goalConstraints = snapshotState.goalConstraints
+    const graph =
+      Array.isArray(goalConstraints) && goalConstraints.length > 0
+        ? { ...projected.graph, goal_constraints: goalConstraints }
+        : projected.graph
+
     const controller = new AbortController()
     let cancelled = false
     const initialBriefText = resolveStarterRegistrationBrief(nodes)
@@ -350,7 +363,7 @@ export function useImportRegistration(): void {
         logger.info('import_registration.deferred_for_edit_delivery', { scenarioId, hold: 'late' })
         return
       }
-      const result = await registerScenarioGraph(scenarioId, projected.graph, {
+      const result = await registerScenarioGraph(scenarioId, graph, {
         userId: identity.userId,
         accessToken: identity.accessToken,
         signal: controller.signal,
