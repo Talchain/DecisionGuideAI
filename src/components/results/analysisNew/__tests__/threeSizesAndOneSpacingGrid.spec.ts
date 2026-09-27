@@ -33,7 +33,7 @@ function codeLines(file: string): Array<[number, string]> {
 
 const FILES = sourceFiles(ROOT)
 const RAW_SIZE = /(?<![\w-])text-(xs|sm|base|lg|xl|2xl|3xl|\[\d+(\.\d+)?px\])(?![\w-])/
-const OFF_GRID = /(?<![\w-])!?-?(m|p|gap|space-y|space-x)[tbyxlr]?-(\[(3|5|6|7|9|10|11|13|14|15|17|18|19|21|22|23)px\]|[1-9]\.5)(?![\w.\]-])/
+const OFF_GRID = /(?<![\w-])!?-?(m|p|gap|space-y|space-x)(?:[tbyxlr]|-[xy])?-(\[(3|5|6|7|9|10|11|13|14|15|17|18|19|21|22|23)px\]|[1-9]\.5)(?![\w.\]-])/
 const PX: Record<string, number> = { 'text-xs': 12, 'text-sm': 14, 'text-[11px]': 11 }
 
 describe('the Reasoning tab: three font sizes, one spacing grid', () => {
@@ -73,6 +73,7 @@ describe('the Reasoning tab: three font sizes, one spacing grid', () => {
     expect(RAW_SIZE.test('className="text-text-light"')).toBe(false)
     expect(OFF_GRID.test('className="mt-[7px]"')).toBe(true)
     expect(OFF_GRID.test('className="gap-1.5"')).toBe(true)
+    expect(OFF_GRID.test('className="gap-x-2.5"')).toBe(true)
     expect(OFF_GRID.test('className="!mt-[11px] pt-3"')).toBe(true)
     expect(OFF_GRID.test('className="mt-[2px] gap-2 -mx-4 mt-0.5"')).toBe(false)
   })

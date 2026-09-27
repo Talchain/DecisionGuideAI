@@ -533,7 +533,7 @@ export function AboutThisAnalysis({
                 /* ⚠ The LABEL column is `auto` and the value takes the rest and
                    wraps: a long value ("Assessed, 3 gaps found, all addressed")
                    must never slide under its label at 280px. */
-                className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 min-h-[29px]"
+                className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 min-h-[29px]"
                 data-testid={`${testId}-row-${r.key}`}
               >
                 <dt className={`${typography.panelBody} text-text-body flex items-center gap-2`}>
@@ -835,7 +835,7 @@ function RunRecord({
             {g.title}
           </p>
           <dl
-            className={`${typography.panelBody} m-0 grid grid-cols-[clamp(75px,calc(14.29%_+_39.57px),95px)_minmax(0,1fr)] gap-x-3 gap-y-1.5`}
+            className={`${typography.panelBody} m-0 grid grid-cols-[clamp(75px,calc(14.29%_+_39.57px),95px)_minmax(0,1fr)] gap-x-3 gap-y-2`}
           >
             {g.rows.map((r, i) => (
               /* Positional keys: one label can repeat across groups. */

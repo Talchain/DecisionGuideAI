@@ -1186,7 +1186,7 @@ export function ModelStrip({
               for. */}
           {open ? null : (
             <span
-              className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 pr-5"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 pr-5"
               data-testid={`${testId}-tallies`}
             >
               {/* All four kinds, zeros included — the same census rule as the
