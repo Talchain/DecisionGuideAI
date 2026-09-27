@@ -154,7 +154,6 @@ import {
   isConcreteChangeRow,
   moreCount,
   OPTION_CARD_ROW_LIMIT,
-  OPTION_ROW_SOURCE_MARK_SEPARATOR,
   optionAmountSegmentNoWrap,
   rowFactorIdsFor,
   sharedChangeOrder,
@@ -1103,8 +1102,10 @@ export const OptionNode = memo((props: NodeProps) => {
     return out
   }, [nodes, ceeAnalysisReady])
 
-  const changeRows = useMemo(() => {
-    if (isBaselineOption) return []
+  // Every CONCRETE change this option makes, in the shared order — computed for
+  // the baseline too, whose card states no rows but must say whether it makes
+  // any change at all (`baselineMeta`, side-by-side DIFF item 10).
+  const concreteChangeRows = useMemo(() => {
     const me = optionSet.find(o => o.id === props.id)
     if (!me || (me.targets.size === 0 && me.unsetSources.size === 0)) return []
     const modelOrder = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor').map(n => n.id)
@@ -1113,7 +1114,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // order, the non-changes skipped (`isConcreteChangeRow`), then the card's
     // row limit — so a target equal to the baseline's never spends a resting
     // row while a real change waits behind `+N more`.
-    const concrete = rowFactorIdsFor(me, order, Number.POSITIVE_INFINITY).flatMap(fid => {
+    return rowFactorIdsFor(me, order, Number.POSITIVE_INFINITY).flatMap(fid => {
       const factorNode = nodes.find(n => n.id === fid) as TargetNodeLike | undefined
       const target = me.targets.get(fid)
       const row = target
@@ -1121,8 +1122,11 @@ export const OptionNode = memo((props: NodeProps) => {
         : buildOptionNeedsInputTargetRow({ factorId: fid, factorNode, source: me.unsetSources.get(fid) ?? null })
       return isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid)) ? [row] : []
     })
-    return fitRowsToBudget(concrete.slice(0, OPTION_CARD_ROW_LIMIT))
-  }, [isBaselineOption, optionSet, props.id, nodes, baselineOptionReference])
+  }, [optionSet, props.id, nodes, baselineOptionReference])
+  const changeRows = useMemo(
+    () => (isBaselineOption ? [] : fitRowsToBudget(concreteChangeRows.slice(0, OPTION_CARD_ROW_LIMIT))),
+    [isBaselineOption, concreteChangeRows],
+  )
   const changeRowsMore = moreCount(totalInterventionCount, changeRows.length)
   // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.
   // The same rung predicate the resting glyphs read, so one zoom boundary
@@ -1920,8 +1924,9 @@ export const OptionNode = memo((props: NodeProps) => {
    * landing stack, JS-compacted wrapping labels). STANDARD view is the
    * contract v3.1 resting rows (DESIGN-GAP-v31 #9; Paul 25 Sep, supersedes ED
    * 5809278282's popover placement): each row is the factor's FULL name
-   * (muted; ONE line, clamped with an ellipsis — design audit #9, 26 Sep; it
-   * used to wrap inside its own column) and the amount `from → to · mark`
+   * (muted; ONE line, ellipsised by character — design audit #9, 26 Sep, and
+   * side-by-side DIFF item 1, 27 Sep; it used to wrap inside its own column)
+   * and the amount `from → to mark`, no separator
    * (`.delta-rows .amount{white-space:nowrap}`).
    *
    * ⭐ ONE ROW = ONE WRAPPING FLEX LINE, NOT A SHARED GRID, AND THAT IS WHAT
@@ -1929,10 +1934,13 @@ export const OptionNode = memo((props: NodeProps) => {
    * `minmax(0,1fr) auto` grid holds only while the amount fits beside a label:
    * at the landing counter-scale (`--canvas-label-scale` 2) "Very high →
    * Moderate · brief" is wider than the whole card, and an `auto` track would
-   * then push the amount out of the card. Here the label asks for `8em` (em of
-   * its own counter-scaled type, so the rule is zoom-invariant) and grows into
-   * whatever the amount leaves; when the two do not fit side by side the amount
-   * takes the next line whole, right-aligned, and the label gets the full width.
+   * then push the amount out of the card. Here the amount takes its natural
+   * width and the label asks for at least `6em` (em of its own counter-scaled
+   * type, so the rule is zoom-invariant; the amount's cap is the rest) and grows
+   * into whatever the amount leaves; when the two do not fit side by side the
+   * amount takes the next line, LEFT-aligned under the label (side-by-side DIFF
+   * item 1: it was right-aligned, and wrapped into ragged right-aligned lines),
+   * and the label gets the full width.
    * Measured before (served `eec722ab`): labels CSS-clipped ("Bottom-up ado…"),
    * amounts wrapped mid-value ("Very high → Moderate / · brief").
    *
@@ -1954,16 +1962,22 @@ export const OptionNode = memo((props: NodeProps) => {
   const renderChangeAmount = (r: OptionChangeRow, align: 'left' | 'right', resting: boolean) => {
     // The mark is glued to the value's last run, so that run is held whole only
     // while it fits one line of the row budget WITH the mark (#2119's rule,
-    // `optionAmountSegmentNoWrap`, applied to run + " · mark"). A `Needs input`
+    // `optionAmountSegmentNoWrap`, applied to run + " mark"). A `Needs input`
     // amount carries no mark, so its run is measured alone.
+    // The glue (one U+00A0, counted as a space) and the mark's token — no
+    // separator since the contract side-by-side (DIFF item 1, 27 Sep).
     const markSuffix = r.needsInput
       ? ''
-      : ` ${OPTION_ROW_SOURCE_MARK_SEPARATOR} ${VALUE_SOURCE_MARK_TOKEN[r.targetSource.kind]}`
+      : ` ${VALUE_SOURCE_MARK_TOKEN[r.targetSource.kind]}`
     const amountRunNoWrap = (run: string) => optionAmountSegmentNoWrap(`${run}${markSuffix}`)
     return (
     <dd
       className={resting
-        ? `${typography.edgeLabel} !leading-tight m-0 ml-auto max-w-full text-right text-text-body`
+        // Side-by-side DIFF item 1 (27 Sep): natural width, never pushed right.
+        // Beside the label it ends the line anyway (the label grows into every
+        // pixel it leaves); stacked under the label it starts at the label's
+        // left edge and wraps left-aligned — no ragged right-aligned lines.
+        ? `${typography.edgeLabel} !leading-tight m-0 max-w-full text-left text-text-body`
         : `${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${align === 'left' ? 'text-left' : 'text-right'} text-text-body`}
       data-testid={`option-change-row-${props.id}-${r.factorId}`}
       title={changeRowSentence(r)}
@@ -2027,11 +2041,13 @@ export const OptionNode = memo((props: NodeProps) => {
           served `est.` (and its test id); every OTHER source carries
           its own mark instead of silence, so an unmarked target is
           never left to be read as Olumi's.
-          Contract v3.1 pt 7 + pt 1 (gap U12, "→ 1 brief" read as a
-          unit): a muted separator sets the mark apart from the value,
-          the cluster never wraps apart, and every mark — `est.`
-          included — is the contract's `.prov` mark: focusable, named,
-          and it opens this option's source detail (the inspector).
+          Contract v3.1 pt 1: every mark — `est.` included — is the
+          contract's `.prov` mark: 10px, muted, focusable, named, and it
+          opens this option's source detail (the inspector). That type
+          change is what sets it apart from the value ("→ 1 brief" is not
+          read as a unit — gap U12), so there is NO separator: the
+          contract row reads `£49 → £59 brief` (side-by-side DIFF item 1,
+          27 Sep; the `·` of pt 7 is retired).
           Audit #9: joined to the value by MARK_GLUE (U+00A0), never a
           breakable space, so the mark stays on the value's line. */}
       {!r.needsInput && (<>{MARK_GLUE}
@@ -2039,9 +2055,6 @@ export const OptionNode = memo((props: NodeProps) => {
         className="whitespace-nowrap"
         data-testid={`option-change-row-mark-${props.id}-${r.factorId}`}
       >
-        <span aria-hidden="true" className={`${typography.edgeLabel} text-text-light`}>
-          {OPTION_ROW_SOURCE_MARK_SEPARATOR}{' '}
-        </span>
         <ValueSourceMark
           mark={r.targetSource}
           testId={r.estimated
@@ -2067,18 +2080,34 @@ export const OptionNode = memo((props: NodeProps) => {
               key={r.factorId}
               className="flex flex-wrap items-baseline gap-x-2"
               data-testid={`option-change-row-line-${props.id}-${r.factorId}`}
+              // The label's recovery route: the row's full factor name, on the
+              // row (the amount keeps its own fuller sentence on the `dd`).
+              title={r.fullLabel}
             >
               {/* Contract v3.1 `.delta-rows .label`: muted, the FULL name in
                   the DOM. Design audit #9 (26 Sep): ONE line at every rung —
                   a wrapped label cost the card a line per row at the landing
-                  2× scale, and the layout reserves that height for the whole
-                  board. `line-clamp-1` ends line 1 with an ellipsis at a word
-                  break; the text is never cut in JS, so a screen reader reads
-                  the whole name, the option's popover lists it in full and a
-                  mark's accessible name carries it (ED 5809278282: the label
-                  half may ellipsize, never a value, unit or mark). No native
-                  `title` (#2126). */}
-              <dt className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_8em] break-words line-clamp-1 text-text-light`}>
+                  scale, and the layout reserves that height for the whole
+                  board.
+                  ⭐ Side-by-side DIFF item 1 (27 Sep): `line-clamp-1` ended
+                  line 1 at a WORD break, so "Bottom-up adoption friction"
+                  read `Bottom-up…` with room for most of the next word. The
+                  amount now takes its natural width; the label keeps at least
+                  6em of the line (about 11 characters at 100%, 9 at landing
+                  — the amount's cap is the rest) and takes every pixel the
+                  amount leaves, ellipsising by CHARACTER (`truncate`). When
+                  the two cannot share a line the amount drops under the
+                  label, left-aligned. The text is never cut in JS: a screen
+                  reader reads the whole name, the row's `title` above and the
+                  mark's accessible name carry it (ED 5809278282: the label
+                  half may ellipsize, never a value, unit or mark), and
+                  `data-truncates="label"` + that titled row is the exemption
+                  `e2e/visual/nodeTextClipping.visual.spec.ts` requires of a
+                  CSS ellipsis. */}
+              <dt
+                className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_6em] truncate text-text-light`}
+                data-truncates="label"
+              >
                 {r.fullLabel}
               </dt>
               {renderChangeAmount(r, 'right', true)}
@@ -2186,13 +2215,21 @@ export const OptionNode = memo((props: NodeProps) => {
    * The baseline's meta line (contract v3.1 OPT-12). On the card in both phases
    * and both views (prototype, Paul 25 Sep): a run adds its line BELOW it, never
    * in place of it — the option's own facts first (OPT-09).
+   *
+   * ⭐ NODE-ANATOMY v3.2 Option: "Baseline: `Baseline · no changes`". Keyed on
+   * the CONCRETE-change count (side-by-side DIFF item 10, 27 Sep), not the
+   * intervention total: every starter's status quo names targets, and a target
+   * equal to the factor's current value is not a change by the card's own filter
+   * (`isConcreteChangeRow`), so the total said `Baseline option` on all five. A
+   * baseline that does change something (market-entry's sets UK deepdive
+   * Low → Very high), or names a factor with no value yet, keeps `Baseline option`.
    */
   const baselineMeta = (
     <div
       className={`${typography.edgeLabel} mt-1 text-text-light`}
       data-testid={`option-baseline-meta-${props.id}`}
     >
-      {totalInterventionCount === 0 ? 'Baseline · no changes' : 'Baseline option'}
+      {concreteChangeRows.length === 0 ? 'Baseline · no changes' : 'Baseline option'}
     </div>
   )
   const baselineMetaOnCard = isBaselineOption

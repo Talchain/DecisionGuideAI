@@ -243,7 +243,9 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     renderFactor(VALUED)
     mounted()
     const row = screen.getByTestId('factor-recorded-value')
-    expect(visibleText(row)).toBe('8%est.')
+    // RE-PINNED 27 Sep (side-by-side DIFF item 3): one breakable space is now the gap
+    // between the value and its mark (inline flow, so the mark wraps WITH the value).
+    expect(visibleText(row)).toBe('8% est.')
     // Principle 4 "no chips around values at rest": the editor rests as text.
     const editor = screen.getByTestId(`node-value-editor-${ID}`)
     const rest = tokens(editor)
@@ -257,10 +259,13 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     // Title → value is the header's 4px, as on every family.
     const rowTokens = tokens(row)
     expect(rowTokens.has('mt-1')).toBe(false)
-    // ED 5809278282 (bounded anatomy): the primary line no longer wraps — the
-    // mark is held on it (`factor-value-mark-slot`), and nothing is cut.
-    expect(rowTokens.has('flex-nowrap')).toBe(true)
-    expect(rowTokens.has('flex-wrap')).toBe(false)
+    // RE-PINNED 27 Sep (side-by-side DIFF item 3; was ED 5809278282's
+    // `flex-nowrap` row, which stranded `est.` at the card's right edge beside a
+    // wrapped value): the line is inline flow — value, space, mark — so the mark
+    // follows the value and wraps with it. Nothing is cut.
+    for (const layout of ['flex', 'flex-nowrap', 'flex-wrap']) expect(rowTokens.has(layout), layout).toBe(false)
+    expect(rowTokens.has('break-words')).toBe(true)
+    expect(rowTokens.has('truncate')).toBe(false)
   })
 
   it('the mark is upright (not italic)', () => {
@@ -521,7 +526,8 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     // The run's value stays distinct from the current value line.
     expect(within(face()).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
     // The value is the factor's own state, not a finding: never prefixed.
-    expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8%est.')
+    // RE-PINNED 27 Sep (DIFF item 3): the value and its mark are separated by one breakable space.
+    expect(visibleText(screen.getByTestId('factor-recorded-value'))).toBe('8% est.')
     expectNothingItMustNeverSay()
   })
 

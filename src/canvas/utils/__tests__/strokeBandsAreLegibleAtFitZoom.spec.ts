@@ -92,12 +92,26 @@ describe('the width channel survives the zoom the product renders at', () => {
   })
 
   /**
-   * contract v3.1 (E3): the width key tops out at 4 — "Width = modelled
-   * strength", drawn 2 / 3 / 4 in the contract's `lineKey`. The fifth rung (5)
-   * drew connections heavier than the contract at every zoom, because a
-   * non-scaling line does not shrink with the cards at the 0.65 landing zoom.
+   * ⭐ contract v3.1 — THE CONTRACT DRAWS CAUSAL STRENGTH AT 2 / 3 / 4 px
+   * (`edgeData` widths and the `lineKey` width row; side-by-side DIFF item 13,
+   * 27 Sep 2026). The starters span three bands — slight, moderate and strong
+   * (the 24 starter magnitudes recorded in `graphDisplayCalculations.ts` run
+   * 0.18–0.65) — and they rendered
+   * 1.5 / 2 / 3, a full rung lighter than the contract everywhere a user looks.
+   *
+   * ⚠ SUPERSEDES E3 (24 Sep 2026, an audit delta, not a Paul ruling), which
+   * pinned the thickest rung at 4 by moving every band down one. That traded
+   * the three widths people actually see for a fourth (`veryStrong`, |mean| ≥ 0.7)
+   * no starter reaches. `veryStrong` keeps its own rung one step beyond the
+   * contract key, because collapsing it onto `strong` would erase the one
+   * ordering the width key teaches.
    */
-  it('contract v3.1: the thickest measured rung is the contract key\'s top width, 4', () => {
-    expect(Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS))).toBe(4)
+  it('contract v3.1: slight / moderate / strong draw the contract key\'s 2 / 3 / 4', () => {
+    expect([EDGE_STROKE_WIDTH_BANDS.slight, EDGE_STROKE_WIDTH_BANDS.moderate, EDGE_STROKE_WIDTH_BANDS.strong])
+      .toEqual([2, 3, 4])
+  })
+
+  it('very strong keeps a rung of its own, one step beyond the contract key', () => {
+    expect(EDGE_STROKE_WIDTH_BANDS.veryStrong).toBe(5)
   })
 })

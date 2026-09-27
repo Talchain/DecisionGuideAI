@@ -67,13 +67,6 @@ import { interventionTargetSourceMark, type FactorValueSourceMark } from './valu
 export const OPTION_CARD_ROW_LIMIT = 3
 
 /**
- * The muted separator between a row's value and its source mark (contract v3.1
- * pt 7, gap U12: "→ 1 brief" read the mark as the value's unit). Decorative —
- * the mark carries its own accessible name.
- */
-export const OPTION_ROW_SOURCE_MARK_SEPARATOR = '·'
-
-/**
  * ⭐ ED 02:31Z (D2): "If a particular value makes the resting card materially
  * taller, reduce visible rows at that LOD before truncating the value." A row
  * whose `from → to` runs past two lines' worth of the row budget

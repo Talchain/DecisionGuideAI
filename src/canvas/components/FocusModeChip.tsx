@@ -46,6 +46,14 @@ export const FocusModeChip = memo(function FocusModeChip({ className = '' }: Foc
     return node?.data?.label ?? node?.id ?? 'Node'
   })
 
+  // The goal is the END of every highlighted path, so "from <goal> to goal"
+  // is circular (Paul's MRR screenshot, 27 Sep 2026): the goal reads "into".
+  const selectedIsGoal = useCanvasStore((s) => {
+    if (s.selection.nodeIds.size !== 1) return false
+    const id = s.selection.nodeIds.values().next().value
+    return s.nodes.find((n) => n.id === id)?.type === 'goal'
+  })
+
   // Determine if chip should be visible
   const isVisible = useMemo(() => {
     return selectionSize === 1 && highlightedEdgesSize > 0 && selectedId !== null
@@ -79,11 +87,11 @@ export const FocusModeChip = memo(function FocusModeChip({ className = '' }: Foc
       data-testid="focus-mode-chip"
     >
       <span className="text-sm text-ink-900">
-        Showing paths from{' '}
+        {selectedIsGoal ? 'Showing paths into' : 'Showing paths from'}{' '}
         <strong className="font-medium" title={nodeTitle ?? undefined}>
           {displayTitle}
-        </strong>{' '}
-        to goal
+        </strong>
+        {selectedIsGoal ? null : <>{' '}to the goal</>}
       </span>
       <button
         type="button"

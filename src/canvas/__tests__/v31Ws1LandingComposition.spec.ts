@@ -152,10 +152,23 @@ const PROFILES: Record<string, (kind: string, i: number) => number> = {
   tallMiddle: (k, i) => (k === 'decision' || k === 'goal' ? 140 : i === 1 || i === 2 ? 420 : 100),
   alternating: (k, i) => (k === 'decision' || k === 'goal' ? 110 : i % 2 === 0 ? 100 : 380),
 }
-const SHAPES = {
+/** A board's counts, and optionally the sibling gap the layout is asked for (`layoutGraph`'s `spacing`). */
+type Shape = { options: number; factors: number; outcomes: number; risks: number; spacing?: number }
+const SHAPES: Record<string, Shape> = {
   'six factors (3+3), six consequences (3+3)': { options: 4, factors: 6, outcomes: 3, risks: 3 },
   'eight factors (4+4)': { options: 4, factors: 8, outcomes: 2, risks: 3 },
   'three options, seven factors (4+3)': { options: 3, factors: 7, outcomes: 2, risks: 2 },
+  // 27 Sep 2026: five per row — a factor band that wraps 5+4 / 5+5 over a
+  // consequence band that wraps 3+3 / 4+3. A factor → consequence link that
+  // skips the first consequence course must not pass under a first-course card.
+  'nine factors (5+4), six consequences (3+3)': { options: 4, factors: 9, outcomes: 3, risks: 3 },
+  'ten factors (5+5), seven consequences (4+3)': { options: 4, factors: 10, outcomes: 3, risks: 4 },
+  // …and the same two at a sibling gap of 32 (the constant before 27 Sep's
+  // 32 → 24; `layoutGraph` still takes it as `spacing`). On tall-middle,
+  // fac_5 → risk_1's diagonal cut out_0's lower-left corner BETWEEN two of the
+  // router's 64 point samples, so the router called it clear and drew no lead.
+  'nine factors (5+4), six consequences (3+3), sibling gap 32': { options: 4, factors: 9, outcomes: 3, risks: 3, spacing: 32 },
+  'ten factors (5+5), seven consequences (4+3), sibling gap 32': { options: 4, factors: 10, outcomes: 3, risks: 4, spacing: 32 },
 }
 
 /* ── #10 + mixed heights ──────────────────────────────────────────────────── */
@@ -200,7 +213,7 @@ describe('WS1 mixed-height / tall-card check — every card and every edge sampl
     for (const [profile, h] of Object.entries(PROFILES)) {
       it(`${shapeName}, ${profile}: no two cards overlap, and no edge runs under a card that is not its endpoint`, async () => {
         const { nodes, edges, heights } = board(counts, h)
-        const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
+        const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights, spacing: counts.spacing })
         const boxes = boxesOf(out.nodes, out.layoutCardWidths, heights)
         // Cards: full-rectangle intersection, not a midpoint sample.
         for (let i = 0; i < boxes.length; i++) {
@@ -261,6 +274,41 @@ describe('WS1 #10 — resolveLayeredEdgeLeads', () => {
     expect(leads).not.toBeNull()
     expect(leads!.inY).toBeLessThanOrEqual(200)
     expect(leads!.outY).toBe(100)
+  })
+
+  /*
+   * 27 Sep 2026 — the nine-factor board at sibling gap 32, tall-middle, as laid
+   * out (fac_5 → risk_1 past out_0). The plain diagonal cuts out_0's lower-left
+   * corner — (407.1, 1407.5) at t = 0.35 — but the router's 64 point samples
+   * straddle it: (403.8, 1403.3) at t = 22/64 is left of the card and
+   * (412.0, 1413.9) at t = 23/64 is below it. The curve is inside the card only
+   * for t in [0.3441, 0.3566], at most 3.7 units deep — between those two
+   * samples — so the router saw nothing in the way and drew no lead.
+   */
+  const CORNER_CUT = {
+    boxes: [
+      B('fac_5', 176, 1156, 248, 100, 2), B('fac_6', 480, 1156, 248, 100, 2),
+      B('out_0', 404, 1312, 248, 100, 3), B('out_1', 708, 1312, 248, 420, 3),
+      B('risk_0', 252, 1772, 248, 100, 3), B('risk_1', 556, 1772, 248, 420, 3),
+    ],
+    sx: 300, sy: 1256, tx: 680, ty: 1772,
+  }
+
+  it('CONTRAST — the corner cut is real: the plain diagonal runs under out_0 (the probe sees it)', () => {
+    const { boxes, sx, sy, tx, ty } = CORNER_CUT
+    const src = boxes.find((b) => b.id === 'fac_5')!
+    const tgt = boxes.find((b) => b.id === 'risk_1')!
+    expect(cardsUnder(plainPath(sx, sy, tx, ty), src, tgt, boxes)).toEqual(['out_0'])
+  })
+
+  it('a diagonal that cuts a card\'s corner between two samples still gets its lead-in, and the drawn path is clear', () => {
+    const { boxes, sx, sy, tx, ty } = CORNER_CUT
+    const src = boxes.find((b) => b.id === 'fac_5')!
+    const tgt = boxes.find((b) => b.id === 'risk_1')!
+    const leads = resolveLayeredEdgeLeads('fac_5', 'risk_1', sx, sy, tx, ty, boxes)
+    expect(leads).not.toBeNull()
+    expect(leads!.inY).toBeLessThanOrEqual(1312 - 10)
+    expect(cardsUnder(layeredLeadPath(sx, sy, tx, ty, leads!)[0], src, tgt, boxes)).toEqual([])
   })
 
   it('CONTRAST — nothing in the way: no leads, the plain diagonal', () => {
@@ -333,17 +381,27 @@ describe('WS1 #27 — one row-end prompt per band', () => {
 /* ── #28 ──────────────────────────────────────────────────────────────────── */
 
 describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
+  // ⭐ RE-PINNED 27 Sep 2026 (glyph row, DIFF item 4): the resolved offset is
+  // now in GLYPH units and is multiplied by `--canvas-glyph-scale` on paint, so
+  // it is compared with the title's box AT THE BOUND (`boxAtBound`, the frame
+  // the keep-out is handed in) — offset × MAX_GLYPH_COUNTER_SCALE, and the glyph
+  // box at the same bound. Comparing the scale-1 offset with a bound-frame box
+  // mixed two frames. (`GLYPH_PAINTED_BOX_FLOW` is already the box AT the bound.)
   const half = GLYPH_PAINTED_BOX_FLOW / 2
-  const clear = (o: { dx: number; dy: number }, k: { x0: number; y0: number; x1: number; y1: number }) =>
-    o.dx + half <= k.x0 || o.dx - half >= k.x1 || o.dy + half <= k.y0 || o.dy - half >= k.y1
+  const atBound = (o: { dx: number; dy: number }) => ({ dx: o.dx * MAX_GLYPH_COUNTER_SCALE, dy: o.dy * MAX_GLYPH_COUNTER_SCALE })
+  const clear = (u: { dx: number; dy: number }, k: { x0: number; y0: number; x1: number; y1: number }) => {
+    const o = atBound(u)
+    return o.dx + half <= k.x0 || o.dx - half >= k.x1 || o.dy + half <= k.y0 || o.dy - half >= k.y1
+  }
 
   it('a glyph whose natural spot is on the title moves off it', () => {
     const target = { x: 0, y: 60 }
     const siblings = [{ id: 'e1', sourceCentre: { x: 0, y: -400 } }]
-    const free = resolvePolarityGlyphOffset('e1', target, siblings)
+    const freeUnits = resolvePolarityGlyphOffset('e1', target, siblings)
+    const free = atBound(freeUnits)
     // A title box covering the natural spot.
     const keepOut = { x0: free.dx - 40, y0: free.dy - 15, x1: free.dx + 40, y1: free.dy + 15 }
-    expect(clear(free, keepOut)).toBe(false) // CONTRAST: without the keep-out it IS on the title
+    expect(clear(freeUnits, keepOut)).toBe(false) // CONTRAST: without the keep-out it IS on the title
     const moved = resolvePolarityGlyphOffset('e1', target, siblings, keepOut)
     expect(clear(moved, keepOut)).toBe(true)
   })
@@ -354,7 +412,7 @@ describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
       { id: 'a', sourceCentre: { x: 0, y: -400 } },
       { id: 'b', sourceCentre: { x: 0, y: -400 } },
     ]
-    const base = resolvePolarityGlyphOffset('a', target, siblings)
+    const base = atBound(resolvePolarityGlyphOffset('a', target, siblings))
     const keepOut = { x0: base.dx - 40, y0: base.dy - 15, x1: base.dx + 40, y1: base.dy + 15 }
     const a = resolvePolarityGlyphOffset('a', target, siblings, keepOut)
     const b = resolvePolarityGlyphOffset('b', target, siblings, keepOut)

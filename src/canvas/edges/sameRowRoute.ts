@@ -45,7 +45,17 @@
  * neither the leads nor the glyphs coincide.
  */
 import { GLYPH_BOX_GAP_FLOW, GLYPH_PAINTED_BOX_FLOW, GLYPH_RING_STEP } from '../utils/edgeGlyphPlacement'
-import { EDGE_ARROWHEAD_FLOW_LENGTH } from './edgePresentation'
+
+/**
+ * How far back from the arrow tip the `side` route's glyph stands, in graph
+ * units: the length of the fixed 12-unit arrowhead this route was written
+ * against. ⚠ Since 27 Sep 2026 the head scales with its line and the glyph
+ * counter-scale (`edgeArrowheadSize`, contract DIFF item 13) and this setback
+ * does not follow it, so on a strong line near the landing zoom the head can
+ * reach under this glyph. Value unchanged; the same-row routes are outside the
+ * top-arrival glyph row (DIFF item 4).
+ */
+const SIDE_ROUTE_GLYPH_SETBACK = 12
 
 /** A card's box in graph units. */
 export interface RouteBox {
@@ -190,7 +200,7 @@ export function resolveSameRowRoute(
       kind: 'side',
       path: `M${sFace},${y} L${endX},${y}`,
       // In the gutter, just behind the arrowhead, clear above the line.
-      glyphX: r2(endX - dir * EDGE_ARROWHEAD_FLOW_LENGTH),
+      glyphX: r2(endX - dir * SIDE_ROUTE_GLYPH_SETBACK),
       glyphY: r2(y - (GLYPH_PAINTED_BOX_FLOW / 2 + GLYPH_BOX_GAP_FLOW)),
       labelAnchor: null,
     }
@@ -319,23 +329,31 @@ function insideBox(p: { x: number; y: number }, o: RouteBox): boolean {
   return p.x > o.x && p.x < o.x + o.width && p.y > o.y && p.y < o.y + o.height
 }
 
-/** The cards the whole path passes under (a graze on the full box counts). */
+/**
+ * The cards the whole path passes under (a graze on the full box counts).
+ * ⭐ Tests the CHORD between consecutive samples, not the samples alone — the
+ * same corner-cut gap `firstHit` closed (27 Sep 2026).
+ */
 function riseHits(g: RiseGeometry, obstacles: readonly RouteBox[]): RouteBox[] {
   const pts = risePoints(g)
-  return obstacles.filter((o) => pts.some((p) => insideBox(p, o)))
+  return obstacles.filter((o) =>
+    pts.some((p, i) => insideBox(p, o) || (i > 0 && segmentHitsBox(pts[i - 1]!.x, pts[i - 1]!.y, p.x, p.y, o))),
+  )
 }
 
-/** The first card the cubic (leads excluded) passes under, in path order. */
+/** The first card the cubic (leads excluded) passes under, in path order; chords, as `firstHit`. */
 function riseCubicFirstHit(sx: number, outY: number, tx: number, inY: number, span: readonly RouteBox[]): RouteBox | null {
   const b = riseBend(outY, inY)
-  for (let i = 1; i < RISE_SAMPLES; i++) {
+  let prev = { x: sx, y: outY }
+  for (let i = 1; i <= RISE_SAMPLES; i++) {
     const t = i / RISE_SAMPLES
     const u = 1 - t
     const p = {
       x: u * u * u * sx + 3 * u * u * t * sx + 3 * u * t * t * tx + t * t * t * tx,
       y: u * u * u * outY + 3 * u * u * t * (outY - b) + 3 * u * t * t * (inY + b) + t * t * t * inY,
     }
-    for (const o of span) if (insideBox(p, o)) return o
+    for (const o of span) if (segmentHitsBox(prev.x, prev.y, p.x, p.y, o)) return o
+    prev = p
   }
   return null
 }
@@ -524,7 +542,8 @@ export interface LayeredEdgeLeads {
 /** Clearance kept between a lead's turn and the card it clears, in flow units. */
 const LEAD_CLEARANCE = 10
 /** A graze counts: the test is on the card's full box (probes that grade the
- *  result use a 3-unit inset, so this is strictly the stricter of the two). */
+ *  result use a 3-unit inset). It is the stricter of the two only because the
+ *  CHORDS between samples are tested, not the samples alone — see `firstHit`. */
 const LEAD_HIT_INSET = 0
 const LEAD_SAMPLES = 64
 const LEAD_MAX_ROUNDS = 8
@@ -541,6 +560,43 @@ function cubicPoint(sx: number, outY: number, tx: number, inY: number, t: number
   return { x, y }
 }
 
+/**
+ * Whether the segment `a → b` passes through the OPEN box `o` (shrunk by
+ * `LEAD_HIT_INSET`): a Liang–Barsky clip, so a segment that only touches the
+ * border does not count and one that cuts a corner does.
+ */
+function segmentHitsBox(ax: number, ay: number, bx: number, by: number, o: RouteBox): boolean {
+  let lo = 0
+  let hi = 1
+  const clip = (p: number, d: number, min: number, max: number): boolean => {
+    if (d === 0) return p > min && p < max
+    let t0 = (min - p) / d
+    let t1 = (max - p) / d
+    if (t0 > t1) [t0, t1] = [t1, t0]
+    if (t0 > lo) lo = t0
+    if (t1 < hi) hi = t1
+    return lo < hi
+  }
+  return (
+    clip(ax, bx - ax, o.x + LEAD_HIT_INSET, o.x + o.width - LEAD_HIT_INSET) &&
+    clip(ay, by - ay, o.y + LEAD_HIT_INSET, o.y + o.height - LEAD_HIT_INSET)
+  )
+}
+
+/**
+ * The first card the cubic (leads excluded) passes under, in path order.
+ *
+ * ⭐ THE CHORDS, NOT THE SAMPLES (27 Sep 2026). Testing only the 64 sample
+ * POINTS let a diagonal that cuts a card's corner between two samples read as
+ * clear: nine factors (5+4) over six consequences (3+3) at sibling gap 32,
+ * tall-middle heights — fac_5 → risk_1 was inside out_0 only for t in
+ * [0.3441, 0.3566], 3.7 units deep, between the samples at 22/64 and 23/64,
+ * so it got no lead and was drawn under out_0. Each chord between consecutive
+ * samples is tested instead. A chord strays from the cubic by at most
+ * h²/8 · max|B''| (h = 1/64), which for this cubic is under (span + 90) / 5461:
+ * about 0.1 unit on that edge, and under the probes' 3-unit inset for any span
+ * below ~16,000 units — so whatever they can see on the cubic, this sees.
+ */
 function firstHit(
   sx: number,
   outY: number,
@@ -548,14 +604,11 @@ function firstHit(
   inY: number,
   obstacles: ReadonlyArray<RouteBox & { tier: number }>,
 ): (RouteBox & { tier: number }) | null {
-  for (let i = 1; i < LEAD_SAMPLES; i++) {
+  let prev = cubicPoint(sx, outY, tx, inY, 0)
+  for (let i = 1; i <= LEAD_SAMPLES; i++) {
     const p = cubicPoint(sx, outY, tx, inY, i / LEAD_SAMPLES)
-    for (const b of obstacles) {
-      if (
-        p.x > b.x + LEAD_HIT_INSET && p.x < b.x + b.width - LEAD_HIT_INSET &&
-        p.y > b.y + LEAD_HIT_INSET && p.y < b.y + b.height - LEAD_HIT_INSET
-      ) return b
-    }
+    for (const b of obstacles) if (segmentHitsBox(prev.x, prev.y, p.x, p.y, b)) return b
+    prev = p
   }
   return null
 }

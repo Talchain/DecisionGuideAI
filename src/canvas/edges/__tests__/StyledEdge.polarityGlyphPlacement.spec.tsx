@@ -35,7 +35,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
-import { GLYPH_LATERAL_OFFSET } from '../../utils/edgeGlyphPlacement'
+import { GLYPH_ROW_RISE } from '../../utils/edgeGlyphPlacement'
 
 interface MockNode {
   id: string
@@ -182,6 +182,40 @@ beforeEach(() => {
   mockEdges = []
 })
 
+/** Sources ABOVE the target at the given horizontal offsets from it. */
+function buildRow(sources: Array<{ id: string; dx: number }>): void {
+  mockNodes = [{ id: TARGET, type: 'factor', position: { x: 800, y: 360 }, measured: { width: 200, height: 80 } }]
+  mockEdges = []
+  for (const s of sources) {
+    mockNodes.push({
+      id: `src-${s.id}`,
+      type: 'factor',
+      position: { x: 900 + s.dx - 100, y: 0 },
+      measured: { width: 200, height: 80 },
+    })
+    mockEdges.push({
+      id: s.id,
+      source: `src-${s.id}`,
+      target: TARGET,
+      data: { strength_mean: 0.6, effect_direction: 'positive', exists_probability: 0.8 },
+    })
+  }
+}
+
+/**
+ * The glyph's anchor and its counter-scaled offset, read back from the
+ * transform. The offset is multiplied by `--canvas-glyph-scale` so the row is
+ * the contract's size on screen at every zoom; the anchor is not.
+ */
+const GLYPH_TRANSFORM =
+  /translate\(calc\((-?[\d.]+)px \+ (-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\)\), calc\((-?[\d.]+)px \+ (-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\)\)\)\s*$/
+function parseGlyph(transform: string): { x: number; y: number; dx: number; dy: number } {
+  const m = transform.match(GLYPH_TRANSFORM)
+  expect(m, `glyph transform is not a counter-scaled offset from the target anchor: ${transform}`).not.toBeNull()
+  return { x: Number(m![1]), dx: Number(m![2]), y: Number(m![3]), dy: Number(m![4]) }
+}
+
+
 describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
   it.each([2, 3, 4, 6])(
     'THE DEFECT — %i edges converging on one node paint at %i DISTINCT transforms',
@@ -222,46 +256,35 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
 
   /**
    * ⭐ THE ATTRIBUTION HALF OF THE REMEDY, WHICH DISTINCTNESS ALONE DOES NOT
-   * COVER — and a surviving mutant is what exposed the gap.
+   * COVER. Distinct-but-arbitrary is not the fix — a reader has to be able to
+   * tell which edge a `+` belongs to.
    *
-   * Replacing every sibling's resolved source centre with `null` (so placement
-   * falls back to a golden-angle fan that has nothing to do with the graph)
-   * SURVIVED the suite as first written: the fallback is still pairwise
-   * distinct, so every distinctness assertion held. Distinct-but-arbitrary is
-   * not the fix — the glyph has to sit on the edge it describes, or the reader
-   * cannot tell which edge a `+` belongs to. A survivor is a claim either way
-   * (CLAUDE.md 13c), so it is settled here with a discriminating fixture.
+   * ⭐ contract v3.1 (27 Sep 2026, side-by-side DIFF item 4): the glyphs of every
+   * edge into one target stand in ONE row 19 above the arrival point, 19 apart,
+   * centred on it — measured on the contract in Chromium: −17.5 / +17.5 for two
+   * arrivals, −27 / +8 / +27 for three. A glyph belongs to the edge on its SIDE:
+   * the row is ordered by where each edge's source sits, left to right. The
+   * superseded rule scattered them along each edge's own approach (a polar
+   * offset), which put them on card corners and on other edges' strokes.
    */
-  it('the glyph sits along its OWN edge — the offset points at that edge\'s source', () => {
-    buildFan(4, ['positive', 'negative'])
+  it('ONE ROW: every glyph into a target is 19 above the arrival, in approach order, at the contract slots', () => {
+    // Four sources above the target, deliberately listed with ids OUT of their
+    // left-to-right order, so id order and approach order disagree.
+    buildRow([
+      { id: 'e-a', dx: 260 },
+      { id: 'e-b', dx: -420 },
+      { id: 'e-c', dx: 40 },
+      { id: 'e-d', dx: -150 },
+    ])
     const glyphs = renderFan()
-    // `buildFan` puts the target centre exactly at the target handle anchor, so
-    // the offset is the transform minus TARGET_XY with no further correction.
-    for (let i = 0; i < glyphs.length; i++) {
-      const m = glyphs[i].transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)\s*$/)!
-      const dx = Number(m[1]) - TARGET_XY.targetX
-      const dy = Number(m[2]) - TARGET_XY.targetY
-      const len = Math.hypot(dx, dy)
-      expect(len, `${glyphs[i].id} has a zero-length offset`).toBeGreaterThan(0)
-      // contract v3.1 (E14): the offset is (radius, L) ROTATED onto the edge's
-      // approach direction — the glyph sits beside its line, not on it. Undo
-      // that fixed rotation to recover the direction the offset was built on:
-      // [dx, dy] = [[r, −L], [L, r]] · dir, so dir = [[r, L], [−L, r]] · o / (r² + L²).
-      const L = GLYPH_LATERAL_OFFSET
-      const r = Math.sqrt(Math.max(0, len * len - L * L))
-      const ux = (r * dx + L * dy) / (r * r + L * L)
-      const uy = (-L * dx + r * dy) / (r * r + L * L)
-      const a = (Math.PI * (i + 1)) / 5 + Math.PI / 2
-      // Bound to THIS edge's own source by construction, not to "some source":
-      // a value predicate another edge could satisfy is trap 19.
-      //
-      // Precision 3 (5e-4), not more: the offset crosses the store selector as
-      // a string rounded to 2dp, so the recoverable direction is only good to
-      // about 0.005/26 ≈ 2e-4. Still far tighter than any wrong answer — the
-      // mutant this kills is off by tens of degrees, not by a rounding step.
-      expect(ux, `${glyphs[i].id} x-direction`).toBeCloseTo(Math.cos(a), 3)
-      expect(uy, `${glyphs[i].id} y-direction`).toBeCloseTo(Math.sin(a), 3)
-    }
+    expect(glyphs.length, 'fewer than four glyphs — the row cannot be observed').toBe(4)
+    const at = Object.fromEntries(glyphs.map((g) => [g.id, parseGlyph(g.transform)]))
+    // Bound by IDENTITY: each edge id to the slot its own source's side earns.
+    expect(at['e-b']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: -36.5, dy: -19 })
+    expect(at['e-d']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: -17.5, dy: -19 })
+    expect(at['e-c']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: 17.5, dy: -19 })
+    expect(at['e-a']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: 36.5, dy: -19 })
+    expect(GLYPH_ROW_RISE).toBe(19)
   })
 
   /**
@@ -301,9 +324,10 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
     // Distinctness bought by flinging glyphs across the canvas would be no fix.
     buildFan(4, ['positive'])
     for (const g of renderFan()) {
-      const m = g.transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)\s*$/)
-      expect(m, `unparseable transform ${g.transform}`).not.toBeNull()
-      const d = Math.hypot(Number(m![1]) - TARGET_XY.targetX, Number(m![2]) - TARGET_XY.targetY)
+      const p = parseGlyph(g.transform)
+      expect(p.x).toBe(TARGET_XY.targetX)
+      expect(p.y).toBe(TARGET_XY.targetY)
+      const d = Math.hypot(p.dx, p.dy)
       expect(d, `${g.id} sits ${Math.round(d)} units from its target anchor`).toBeLessThanOrEqual(120)
       expect(d).toBeGreaterThan(0)
     }

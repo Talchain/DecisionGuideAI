@@ -315,18 +315,26 @@ export function resolveExistenceDash(display: EdgeValueDisplay): ExistenceDash {
  * visual contract draws them — and the contract's width key tops out at 4
  * (`olumi-canvas-visual-contract-v31.html`, `lineKey` width row 2/3/4).
  *
- * So the ladder including the unset floor is now `1 / 1.5 / 2 / 3 / 4` SCREEN
- * px: ordering and meaning unchanged, top rung on the contract's, and the two
- * thin rungs half a CSS px apart — one device pixel on a 2x display, the same
- * separation this ladder has always been held to.
- * `strokeBandsAreLegibleAtFitZoom.spec.ts` pins that PROPERTY with the terms
- * imported, and now measures it as the SCREEN width the stroke actually is.
+ * So the ladder including the unset floor was `1 / 1.5 / 2 / 3 / 4` SCREEN px.
+ *
+ * ⭐⭐ WIDTHS — contract v3.1, side-by-side DIFF item 13 (27 Sep 2026):
+ * `2 / 3 / 4 / 5`. SUPERSEDES E3 above (an audit delta, not a Paul ruling).
+ * E3 put the TOP rung on the contract's 4 by moving every band down one — but
+ * the starters span slight / moderate / strong only (the 24 starter magnitudes
+ * above run 0.18–0.65; `veryStrong` starts at 0.7), so every connection a user
+ * actually saw drew 1.5 / 2 / 3 against the contract's 2 / 3 / 4. The three
+ * bands people see now draw the contract key's three widths exactly;
+ * `veryStrong` keeps a rung of its own one step beyond it, because folding it
+ * onto `strong` would erase the ordering the width key teaches. The ladder with
+ * the unset floor is `1 / 2 / 3 / 4 / 5` SCREEN px — every rung a whole CSS px
+ * apart. `strokeBandsAreLegibleAtFitZoom.spec.ts` pins the separation PROPERTY
+ * and the contract widths.
  */
 export const EDGE_STROKE_WIDTH_BANDS = {
-  slight: 1.5,
-  moderate: 2,
-  strong: 3,
-  veryStrong: 4,
+  slight: 2,
+  moderate: 3,
+  strong: 4,
+  veryStrong: 5,
 } as const satisfies Record<CanvasStrengthBandId, number>
 
 /**
@@ -443,6 +451,11 @@ export function weightMagnitudeToStrokeWidth(signedMean: number): number {
  * ⭐ contract v3.1 (E3, 24 Sep 2026) MOVED IT BACK: the top rung is 4 again, so
  * the derived floor is 3 and the indistinguishable band is `std < 0.0625`. The
  * derivation did the work — nothing below was re-typed.
+ *
+ * ⭐ AND DIFF item 13 (27 Sep 2026) MOVED IT FORWARD AGAIN: the starter bands
+ * draw the contract's 2 / 3 / 4 and `veryStrong` is 5, so the derived floor is
+ * 3.5 and the cut `std < 0.0729` once more — the five-rung consequence below
+ * applies as written.
  *
  * ⛔⛔ AND THE FIVE-RUNG STROKE LADDER MOVED THIS FLOOR — a consequence on a
  * channel the strength-vocabulary work does not otherwise touch, established at
