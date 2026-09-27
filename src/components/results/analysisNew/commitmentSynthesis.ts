@@ -107,6 +107,12 @@ export const COMMITMENT_COPY = {
    * comparison, served 1a8afc11, 26 Sep 2026).
    */
   changeNotAnalysed: 'The effect of the latest change has not been analysed yet.',
+  /** V2 `synthesisHTML()` (re-run): the consequence leads. Producer noise verdicts only. */
+  sinceLastRun: {
+    noneMoved: 'Since the last run, no option moved beyond ordinary run-to-run variation.',
+    oneMoved: (label: string, from: string, to: string) => `Since the last run, ${label} moved from ${from} to ${to}.`,
+    someMoved: (n: number) => `Since the last run, ${n} options moved beyond ordinary run-to-run variation.`,
+  },
   /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
   openAsk: {
     label: 'Ask Olumi about unresolved uncertainty',
@@ -146,6 +152,8 @@ export type FoundedSource =
    * never a reading of which option leads.
    */
   | 'withheld_count'
+  /** `COMMITMENT_COPY.sinceLastRun`, alone (no other first bullet). */
+  | 'since_last_run'
 
 /** Where bullet 2 came from, in priority order. */
 export type OpenSource =
@@ -203,6 +211,7 @@ export type CommitmentSynthesisInput = Pick<
   | 'strengthen'
   /** ⭐ WAVE 2: `withheldFoundedBullet`'s count — see its own note. */
   | 'optionsComparison'
+  | 'whatsChanged'
 >
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -276,7 +285,28 @@ function withheldFoundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<F
  * NOT forbid is the one fact this bullet can state with no reading at all —
  * how many options this comparison holds. See `withheldFoundedBullet`.
  */
+const pct = (v: number): string => `${Math.round(v * 100)}%`
+
+/** What moved since the last run, from the producer's own noise verdicts; null when they license nothing. */
+function sinceLastRun(vm: CommitmentSynthesisInput): string | null {
+  const view = vm.whatsChanged
+  if (vm.status.isStale || !view || view.movementsUnavailable || view.movements.length === 0) return null
+  const signal = view.movements.filter((m) => m.noiseVerdict === 'signal' && m.mayShowMagnitude)
+  if (signal.length === 1 && signal[0].label) {
+    return COMMITMENT_COPY.sinceLastRun.oneMoved(signal[0].label, pct(signal[0].prior), pct(signal[0].current))
+  }
+  if (signal.length > 0) return COMMITMENT_COPY.sinceLastRun.someMoved(signal.length)
+  return view.movements.every((m) => m.noiseVerdict === 'within_noise') ? COMMITMENT_COPY.sinceLastRun.noneMoved : null
+}
+
 function foundedBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
+  const base = readingBullet(vm)
+  const since = sinceLastRun(vm)
+  if (!since) return base
+  return base ? { ...base, text: `${base.text} ${since}` } : { text: since, source: 'since_last_run' }
+}
+
+function readingBullet(vm: CommitmentSynthesisInput): CommitmentBullet<FoundedSource> | null {
   if (vm.checks.leaderWithheld) return withheldFoundedBullet(vm)
   const mi = vm.modelImplication
   switch (mi.kind) {

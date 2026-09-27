@@ -153,4 +153,4 @@ src/types/constraints.ts:78
 #    and goal-form copy appended to `successTarget`, above this site. Line text
 #    identical (`: topFigurePercent === 100`); the scanner's added and gone
 #    were exactly this pair.)
-src/components/results/analysisNew/analysisNewCopy.ts:2489
+src/components/results/analysisNew/analysisNewCopy.ts:2495

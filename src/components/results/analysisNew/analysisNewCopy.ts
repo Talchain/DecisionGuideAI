@@ -224,6 +224,9 @@ export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
  * one run's prose instead of from the producer's semantics.
  */
 const LEADER_WITHHOLD_CAUSE: Readonly<Record<string, string>> = {
+  // CEE per-option limit verdicts (DL 5850643426 tier 1, 5850672588 tier 2).
+  no_option_meets_limit: 'On this run, no option meets one of your limits.',
+  every_option_likely_breaks_limit: 'On these estimates, every option is more likely than not to break one of your limits.',
   constraint_verdict_withheld:
     "Olumi's checks on this run do not support putting one option forward.",
   /**
@@ -1659,6 +1662,9 @@ export const ANALYSIS_NEW_COPY = {
    * the run may withhold one.
    */
   optionFigures: {
+    /** Model-scale axis ends: direction only, no numbers (#2133 omits the ticks). */
+    axisLower: 'Lower',
+    axisHigher: 'Higher',
     goalLabel: 'Reaches your target',
     winLabel: 'Highest in this model',
     /**

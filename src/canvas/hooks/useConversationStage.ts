@@ -118,7 +118,9 @@ export function useEmptyConversationInvitation(): string {
     case 'analysed':
       return 'Your analysis is on the Analysis tab. Ask Olumi about any part of it, or say what you would like to change.'
     case 'modelled':
-      return 'Your model is on the canvas. Ask Olumi about any part of it, or say what you would like to change.'
+      // Canvas ask B / R&C (b) / DL 5851099677: no run yet, so the ONE next move is the first analysis.
+      // No location (the floating host has no readiness bar), no figure, no coaching of our own.
+      return 'Your model is on the canvas. Run a first pass to see how the options compare, then ask Olumi about any part of it.'
     case 'empty':
       return FIRST_USE_PLACEHOLDER
   }

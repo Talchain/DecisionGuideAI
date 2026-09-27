@@ -774,7 +774,9 @@
   text-transform: none;
 }
 .reasoningPanelBody {
-  font-size: var(--conv-type-size-prominent); /* F3 snap: 13px → 14px */
+  /* Secondary, disclosed content reads at panelBody, never above the reply it expands
+     (Chat polish bundle, 27 Sep: 14px here sat above 12px compact prose). */
+  font-size: var(--conv-type-size-body);
   line-height: var(--conv-type-line-normal);
   color: var(--text-body, #4A4642);
   white-space: pre-wrap;
@@ -1171,8 +1173,11 @@
   border-radius: 50%;
   flex-shrink: 0;
   position: absolute;
-  top: 8px;
-  left: 8px;
+  /* Inside the card's 24px left gutter, level with the title row (was 8px/8px: it sat
+     on the card's rounded corner and read as a stray mark). */
+  top: 22px;
+  left: 9px;
+  z-index: 1;
 }
 
 .blockBadgeDotDanger { composes: blockBadgeDot; background: var(--danger, #EA7B4B); }
