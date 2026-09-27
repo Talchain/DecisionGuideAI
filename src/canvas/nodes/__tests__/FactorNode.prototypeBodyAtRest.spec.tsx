@@ -352,6 +352,17 @@ describe('prototype · an external factor shows its range with a band, on the ca
     if (pop) expect(within(pop).queryByTestId(`factor-prior-range-${ID}`)).toBeNull()
   })
 
+  it('⭐ before a run the range sits directly under the title: the EMPTY driver slot goes below it, and still reserves its line', () => {
+    seed(RANGE_PCT, { phase: 'pre' })
+    renderFactor(RANGE_PCT)
+    const c = card('Feature adoption')
+    const line = within(c).getByTestId(`factor-prior-range-${ID}`)
+    const slot = within(c).getByTestId(`factor-driver-slot-${ID}`)
+    expect(slot.textContent).toBe('')
+    expect(slot.className).toContain('h-[1lh]')
+    expect(before(line, slot), 'a blank line between the title and the range (contract side-by-side, 27 Sep)').toBe(true)
+  })
+
   it('unitless normalised prior: the band ends are the line’s own `0.3` and `0.8`', () => {
     // Review F2 (#2085): a bare 0–1 range of unrecorded origin stays on the
     // card (it may be the person's inspector edit), with its `no source` mark.
