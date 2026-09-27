@@ -584,6 +584,16 @@ export const LOD_FAR_TITLE_SELECTOR = `[${LOD_FAR_TITLE_ATTR}]`
  */
 export const AUTO_FIT_MAX_ZOOM = 1
 
+/**
+ * The canvas's zoom RANGE: every `<ReactFlow minZoom maxZoom>` prop in
+ * `ReactFlowGraph.tsx` reads these, and so does a USER fit (`fitIntoFreePane`),
+ * which clamps where xyflow's own fit would. They were eight literal copies on
+ * those props until 27 Sep 2026; `fitIntoFreePane.spec.ts` pins that no prop
+ * states a literal again.
+ */
+export const FLOW_MIN_ZOOM = 0.1
+export const FLOW_MAX_ZOOM = 4
+
 /* ── the semantic-zoom LADDER ──────────────────────────────────────────────── */
 
 /**

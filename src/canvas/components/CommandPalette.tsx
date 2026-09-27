@@ -7,13 +7,12 @@ import { executeCanonicalRun } from '../analysis/canonicalRunRegistry'
 import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
-import { computeFitPadding } from '../utils/computeFitPadding'
+import { fitIntoFreePane } from '../utils/fitIntoFreePane'
 import { userFitNodes } from '../utils/fitTargets'
 import { claimCameraForUser } from '../utils/userCameraClaim'
 import { currentModelKey } from '../utils/currentModelKey'
 import { fitBoundsFor } from '../utils/zoomLegibility'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { cameraDuration } from '../utils/cameraMotion'
 import { typography } from '../../styles/typography'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority, CANVAS_STRUCTURAL_EDIT_NOTICE } from '../mutations/mutationAuthority'
 
@@ -49,7 +48,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const { fitView, getNodes } = useReactFlow()
+  const { getNodes, getNodesBounds, setViewport } = useReactFlow()
   const { formatErrors, focusError } = useValidationFeedback()
   const prefersReducedMotion = usePrefersReducedMotion() // F1: reduced-motion guard for Zoom to Fit
 
@@ -181,11 +180,12 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       // for is not something the automatic re-fit may undo (#1051).
       claimCameraForUser(currentModelKey())
       const nodes = getNodes ? userFitNodes(getNodes()) : []
-      fitView({
-        ...(nodes.length > 0 ? { nodes } : {}),
-        padding: computeFitPadding(),
+      // Centred in the free pane, as the toolbar's fit is (`fitIntoFreePane`).
+      fitIntoFreePane({ getNodes, getNodesBounds, setViewport }, {
+        nodes,
         ...fitBoundsFor('user'),
-        duration: cameraDuration(300, prefersReducedMotion),
+        durationMs: 300,
+        reducedMotion: prefersReducedMotion,
       })
     } },
     { id: 'save-snapshot', label: 'Save Snapshot', shortcut: '⌘S', execute: () => saveSnapshot() },
