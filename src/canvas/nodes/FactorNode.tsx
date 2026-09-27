@@ -20,6 +20,7 @@ import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, qualitativeTierLabel, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayParts, factorDisplayText } from '../../utils/formatFactorDisplayValue'
+import { CARD_UNIT_NOTATION } from '../../utils/unitClassifier'
 import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
@@ -224,7 +225,9 @@ export const FactorNode = memo((props: NodeProps) => {
   const valueDisplay = useMemo(() => factorDisplayText(valueDisplayData), [valueDisplayData])
   // Contract §02: the SAME value split into figure + unit word, from the same
   // read — or null, and the card keeps the one string (see FactorValueFigure).
-  const valueParts = useMemo(() => factorDisplayParts(valueDisplayData), [valueDisplayData])
+  // In the CARD notation (27 Sep, served e8ba18e6): "GBP MRR added per month"
+  // reads "£1,000 MRR added / month", by the rule "GBP per month" → "£49 / month".
+  const valueParts = useMemo(() => factorDisplayParts(valueDisplayData, undefined, CARD_UNIT_NOTATION), [valueDisplayData])
 
   // Prior range for external factors (only the range values, no "Variable"
   // prefix). Lane C3: prior.range_min/max are NORMALISED 0–1 values. Only a
@@ -1272,19 +1275,23 @@ export const FactorNode = memo((props: NodeProps) => {
             margin — title → value is the header's 4px on every family (audit
             F6; RiskNode's value row is `m-0`).
             ⭐ ED 5809278282 (bounded anatomy): in STANDARD this is the card's
-            ONE primary line. The row does not wrap (`flex-nowrap`): the mark
-            sits in a `shrink-0 whitespace-nowrap` slot, so it can never drop
-            to a second line or be cut, and nothing on the line is ellipsised —
-            values are never cut. Only a value longer than the whole line would
-            wrap, and then inside its own `min-w-0` span, with the mark still
-            beside it. (The inline driver cue that ended this line is retired: the
-            driver line is on the card again — prototype, Paul 25 Sep.) Detailed
-            keeps the wrapping row it had. */}
+            ONE primary line. The mark sits in a `shrink-0 whitespace-nowrap`
+            slot, so it is never cut, and nothing on the line is ellipsised —
+            values are never cut. (The inline driver cue that ended this line is
+            retired: the driver line is on the card again — prototype, Paul 25
+            Sep.) Detailed keeps the wrapping row it had.
+            ⭐ THE MARK FOLLOWS THE WHOLE UNIT (Canvas 27 Sep, served e8ba18e6:
+            "1,000 GBP MRR added / est." then "month" — with `flex-nowrap` the
+            value broke INSIDE its unit and the mark sat beside the first half).
+            The figure + unit are one no-wrap run (`FactorValueFigure`) and the
+            row may wrap (`flex-wrap`), so on a narrow line the break falls
+            BEFORE the mark, never inside the unit. This supersedes ED
+            5809278282's "the mark never drops to a second line". */}
         {valueDisplay !== null && !bareModelValue && (
           <div
             className={isDetailed
               ? `${typography.nodeValue} text-text-body flex max-w-full flex-wrap items-baseline gap-x-1.5`
-              : `${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-nowrap items-baseline gap-x-1.5`}
+              : `${typography.nodeValue} text-text-body flex max-w-full min-w-0 flex-wrap items-baseline gap-x-1.5`}
             data-testid="factor-recorded-value"
           >
             {/* ⭐⭐ EDITABLE ON THE GRAPH — and ONLY where an edit reaches the

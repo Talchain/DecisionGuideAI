@@ -132,6 +132,7 @@
  * pair discriminates on the datum itself.
  */
 import { factorCardVisibleText, factorDisplayParts, factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { CARD_UNIT_NOTATION } from '../../../utils/unitClassifier'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { isSuppressedUnit, formatWinProbability } from '../../utils/labelUtils'
 import { calculateRiskSeverity } from '../../utils/graphDisplayCalculations'
@@ -243,7 +244,7 @@ function factorStatedValue(data: Record<string, unknown>, label: string): string
   // the body reads "7% / month" through `factorCardVisibleText`, and this line
   // read "7 percent per month", CSS-cut to "7 percent per …" one rung down.
   const readout = factorDisplayText(normalised, label)
-  const text = collapseEstimateDisplay(factorCardVisibleText(readout, factorDisplayParts(normalised, label)))
+  const text = collapseEstimateDisplay(factorCardVisibleText(readout, factorDisplayParts(normalised, label, CARD_UNIT_NOTATION)))
   // Contract v3.1 #20: the reduced line never says more than the full card —
   // a bare 0–1 model number is omitted there (`readoutIsBareModelScale`), so it
   // is omitted here too, and the line falls through to the rank or range arm.

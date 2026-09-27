@@ -17,7 +17,7 @@
  */
 
 import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
-import { compactUnitParts } from './unitClassifier'
+import { compactUnitParts, type CompactUnitOptions } from './unitClassifier'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
@@ -370,9 +370,9 @@ export function factorCardVisibleText(readout: string | null, parts: FactorDispl
  * printed `£39,000/year` and left the served `49 GBP per month` untouched — so
  * two boards read `49 GBP per month` and `49 £/month` for one concept.)
  */
-function compoundUnitParts(amount: string, unit: string, text: string): FactorDisplayParts | null {
+function compoundUnitParts(amount: string, unit: string, text: string, options?: CompactUnitOptions): FactorDisplayParts | null {
   if (text !== `${amount} ${unit}`) return null
-  const parts = compactUnitParts(amount, unit)
+  const parts = compactUnitParts(amount, unit, options)
   if (parts === null) return null
   return { figure: parts.figure, unit: parts.unit, restates: text }
 }
@@ -397,7 +397,14 @@ function compoundUnitParts(amount: string, unit: string, text: string): FactorDi
  * ever changes, the split stops firing and the card falls back to the one
  * string — it can never show different text from every other surface.
  */
-export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDisplayParts | null {
+export function formatFactorDisplayParts(
+  input: FactorDisplayInput,
+  /**
+   * The graph card's notation (`CARD_UNIT_NOTATION`, utils/unitClassifier) —
+   * passed by card callers only. Absent, the split is byte-identical to before.
+   */
+  options?: CompactUnitOptions,
+): FactorDisplayParts | null {
   const text = formatFactorDisplayValue(input)
   if (text === null) return null
   const { raw_value, unit } = input
@@ -414,7 +421,7 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
     const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
     parts = { figure: `${Math.round(scaled)}%`, unit: null }
   } else if (kind === 'other') {
-    const compound = compoundUnitParts(amount, canonical || unit, text)
+    const compound = compoundUnitParts(amount, canonical || unit, text, options)
     if (compound !== null) return compound
     parts = { figure: amount, unit: canonical || unit }
   } else return null
@@ -428,9 +435,10 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
 export function factorDisplayParts(
   data: Record<string, unknown> | null | undefined,
   fallbackLabel?: string,
+  options?: CompactUnitOptions,
 ): FactorDisplayParts | null {
   const input = factorDisplayInputFromData(data, fallbackLabel)
-  return input === null ? null : formatFactorDisplayParts(input)
+  return input === null ? null : formatFactorDisplayParts(input, options)
 }
 
 /**

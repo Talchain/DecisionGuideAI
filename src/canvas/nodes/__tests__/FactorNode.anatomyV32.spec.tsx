@@ -257,10 +257,16 @@ describe('NODE-ANATOMY v3.2 · Factor · pre-run with a value — title, value, 
     // Title → value is the header's 4px, as on every family.
     const rowTokens = tokens(row)
     expect(rowTokens.has('mt-1')).toBe(false)
-    // ED 5809278282 (bounded anatomy): the primary line no longer wraps — the
-    // mark is held on it (`factor-value-mark-slot`), and nothing is cut.
-    expect(rowTokens.has('flex-nowrap')).toBe(true)
-    expect(rowTokens.has('flex-wrap')).toBe(false)
+    // ⭐ MOVED 27 Sep 2026 (Canvas; served e8ba18e6, `cardUnitsReadAsOneFormat.spec.tsx`).
+    // This pinned `flex-nowrap` (ED 5809278282: the mark never drops a line). With
+    // a no-wrap row it was the VALUE that broke — inside its unit, the mark beside
+    // the first half ("1,000 GBP MRR added / est." then "month"). Now the figure +
+    // unit are one no-wrap run and the row may wrap only BEFORE the mark; still
+    // nothing is cut.
+    expect(rowTokens.has('flex-wrap')).toBe(true)
+    expect(rowTokens.has('flex-nowrap')).toBe(false)
+    // VALUED's reading is the producer's `display_value` ("8%"), so it is the WHOLE readout that is held.
+    expect(tokens(screen.getByTestId(`factor-value-whole-${ID}`)).has('whitespace-nowrap')).toBe(true)
   })
 
   it('the mark is upright (not italic)', () => {

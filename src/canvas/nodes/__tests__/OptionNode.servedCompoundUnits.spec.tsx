@@ -133,23 +133,28 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     board = { unit: 'GBP per month', spell: (n) => `${n} GBP per month` }
   })
 
-  it('Raise to £59: "£49 / month → £59 / month" — the "from" is the factor card\'s own reading', () => {
+  // ⭐ MOVED 27 Sep 2026 (Canvas; served e8ba18e6, `cardUnitsReadAsOneFormat.spec.tsx`):
+  // these pinned "£49 / month → £59 / month". The product owner's reading states a
+  // unit both halves share ONCE, after the target — "£49 → £59 / month" — and the
+  // "from" is still the factor card's own reading (its figure; the shared unit
+  // follows the target).
+  it('Raise to £59: "£49 → £59 / month" — the "from" is the factor card\'s own reading, the shared unit said once', () => {
     const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
     const v = value(container, 'raise_pro_price_to_59')
     expect(v, 'PRECONDITION: the pro_plan_price row renders on the card').not.toBeNull()
-    expect(v!.textContent).toBe('£49 / month → £59 / month')
-    expect(container.querySelector(`[data-testid="option-change-row-before-raise_pro_price_to_59-${FID}"]`)!.textContent).toBe('£49 / month')
+    expect(v!.textContent).toBe('£49 → £59 / month')
+    expect(container.querySelector(`[data-testid="option-change-row-before-raise_pro_price_to_59-${FID}"]`)!.textContent).toBe('£49')
   })
 
-  it('Set at £54: "£49 / month → £54 / month" — the same grammar on the sibling card', () => {
+  it('Set at £54: "£49 → £54 / month" — the same grammar on the sibling card', () => {
     const { container } = renderOption('set_pro_price_at_54', 'Set Pro price at £54')
-    expect(value(container, 'set_pro_price_at_54')!.textContent).toBe('£49 / month → £54 / month')
+    expect(value(container, 'set_pro_price_at_54')!.textContent).toBe('£49 → £54 / month')
   })
 
   it('the second board\'s "£/month" reads the SAME string — one grammar for one concept', () => {
     board = { unit: '£/month', spell: (n) => `${n} £/month` }
     const { container } = renderOption('raise_pro_price_to_59', 'Raise Pro price to £59')
-    expect(value(container, 'raise_pro_price_to_59')!.textContent).toBe('£49 / month → £59 / month')
+    expect(value(container, 'raise_pro_price_to_59')!.textContent).toBe('£49 → £59 / month')
   })
 
   it.each([
@@ -163,7 +168,8 @@ describe('served cd6a82e4 — an option row reads its amount compactly, inside t
     const v = value(container, 'raise_pro_price_to_59') as HTMLElement
     const dd = amount(container, 'raise_pro_price_to_59') as HTMLElement
     expect(dd, 'PRECONDITION: the amount cell renders').not.toBeNull()
-    expect(v.textContent).toBe(unit === 'GBP per month' ? '£49 / month → £59 / month' : '49 CHF per month → 59 CHF per month')
+    // MOVED 27 Sep 2026: the shared unit is said once (see above) — for CHF too.
+    expect(v.textContent).toBe(unit === 'GBP per month' ? '£49 → £59 / month' : '49 → 59 CHF per month')
     const runs = [...dd.querySelectorAll<HTMLElement>('.whitespace-nowrap')]
     // CONTRAST: the instrument sees the no-wrap runs that DO exist (value halves + the mark).
     expect(runs.length).toBeGreaterThan(0)

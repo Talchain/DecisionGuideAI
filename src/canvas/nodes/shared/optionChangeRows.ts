@@ -55,6 +55,7 @@ import {
   placeholderMagnitudeNumber,
   readFactorDisplayValue,
 } from '../../../utils/formatFactorDisplayValue'
+import type { CompactUnitOptions } from '../../../utils/unitClassifier'
 import { collapseEstimateDisplay } from './collapseEstimateDisplay'
 import { interventionTargetSourceMark, type FactorValueSourceMark } from './valueSourceMark'
 
@@ -108,10 +109,12 @@ export interface OptionTargetLike {
  */
 export function factorCardReading(
   data: Record<string, unknown> | null | undefined,
+  /** The card's notation (`CARD_UNIT_NOTATION`) — what the factor CARD passes. */
+  notation?: CompactUnitOptions,
 ): string | null {
   if (!data || typeof data !== 'object') return null
   const input = factorCardInput(data)
-  return factorCardVisibleText(factorDisplayText(input), factorDisplayParts(input))
+  return factorCardVisibleText(factorDisplayText(input), factorDisplayParts(input, undefined, notation))
 }
 
 /** The node data exactly as the factor card formats it: label cleaned, a suppressed unit dropped. */
@@ -152,12 +155,14 @@ function factorCardInput(data: Record<string, unknown>): Record<string, unknown>
  */
 export function carriedFactorCardReading(
   data: Record<string, unknown> | null | undefined,
+  /** The card's notation (`CARD_UNIT_NOTATION`) — what the factor CARD passes. */
+  notation?: CompactUnitOptions,
 ): string | null {
   if (!data || typeof data !== 'object') return null
   const input = factorCardInput(data)
   const reading = factorDisplayText(input)
   if (reading === null) return null
-  const shown = factorCardVisibleText(reading, factorDisplayParts(input))
+  const shown = factorCardVisibleText(reading, factorDisplayParts(input, undefined, notation))
   const obs = input.observedState as Record<string, unknown> | undefined
   const unit = typeof obs?.unit === 'string' && obs.unit !== '' ? obs.unit : null
   const raw = obs?.raw_value
@@ -333,11 +338,20 @@ export function buildOptionChangeRow({
   target,
   factor,
   baselineOptionTarget,
+  notation,
 }: {
   factorId: string
   target: OptionTargetLike
   factor: FactorContext
   baselineOptionTarget: OptionTargetLike | null
+  /**
+   * The graph card's notation (`CARD_UNIT_NOTATION`, utils/unitClassifier) —
+   * passed by the OPTION CARD only. It reads both halves through the one compact
+   * owner in the card notation and says a unit both halves share once
+   * (`shareUnitOnce`). Absent (the inspector's OptionPanel), every field of the
+   * row is byte-identical to before.
+   */
+  notation?: CompactUnitOptions
 }): OptionChangeRow {
   const fullLabel = sentenceCaseFactorLabel(cleanFactorLabel(factor.label || factorId)) || factorId
   const label = compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS)
@@ -370,7 +384,7 @@ export function buildOptionChangeRow({
   // Nothing to recover, so the full text drops it too. Real units are untouched.
   const unitless = (text: string) => placeholderMagnitudeNumber(text) ?? text
   const formatTarget = (t: OptionTargetLike): string =>
-    formatInterventionTargetText({ ...context, value: t.value, displayValue: t.displayValue ?? undefined })
+    formatInterventionTargetText({ ...context, value: t.value, displayValue: t.displayValue ?? undefined }, notation)
   const targetFull = unitless(formatTarget(target))
   const targetText = rest(targetFull)
   let fromFull = ''
@@ -383,7 +397,7 @@ export function buildOptionChangeRow({
   let reference: OptionChangeRow['reference'] = 'none'
   let fromText = ''
   let sameAsReference = false
-  const currentReading = carriedFactorCardReading(factor.factorData)
+  const currentReading = carriedFactorCardReading(factor.factorData, notation)
   if (baselineOptionTarget && Boolean(baselineOptionTarget.displayValue) === Boolean(target.displayValue)) {
     reference = 'baseline_option'
     sameAsReference =
@@ -491,14 +505,17 @@ export function buildOptionChangeRow({
       sameAsReference: false,
     }
   }
+  // The card says a unit both halves share ONCE, after the target
+  // ("£49 → £54 / month"); `before → after` stays byte-identical to `change`.
+  const before = (fromText && notation?.card === true ? shareUnitOnce(fromText, targetText) : null) ?? fromText
   return {
     factorId,
     label,
     fullLabel,
     // A13: "same as baseline" was an invented comparison word — `sameAsReference`
     // still carries the signal as data; the row states only what it can carry.
-    change: fromText ? `${fromText} → ${targetText}` : `→ ${targetText}`,
-    ...(fromText ? { before: fromText, after: targetText } : {}),
+    change: fromText ? `${before} → ${targetText}` : `→ ${targetText}`,
+    ...(fromText ? { before, after: targetText } : {}),
     fullChange: fromFull ? `${fromFull} → ${targetFull}` : `→ ${targetFull}`,
     target: targetFull,
     reference,
@@ -506,6 +523,31 @@ export function buildOptionChangeRow({
     targetSource,
     sameAsReference,
   }
+}
+
+/** `<figure> <unit words>` — ONE whitespace-free token holding a digit, then the rest. */
+const FIGURE_THEN_UNIT = /^(\S*\d\S*) (\S.*)$/
+
+/**
+ * ⭐ A UNIT BOTH HALVES SHARE IS SAID ONCE, AT THE END — the card only (Canvas,
+ * 27 Sep 2026; served `e8ba18e6`: "£49 / month → £54/month"; product owner:
+ * "£49 → £54 / month"). Returns the "from" FIGURE when both halves are
+ * `<figure> <the same unit words>`, else `null` (the row keeps both halves whole).
+ *
+ * Bound by identity, not by a guess about the unit: the two halves must carry the
+ * SAME unit words byte for byte, and each head must be a single figure token
+ * ("£49", "1,500", "0.4") — so a tier word ("Low (0.2)"), an encoding-map phrase
+ * ("No AEs added") or a code-first figure ("CHF 49") never loses words, and
+ * "1 engineer → 3 engineers" (different words) stays whole. "42 days → 56 days"
+ * reads "42 → 56 days"; "49 CHF per month → 59 CHF per month" reads "49 → 59 CHF
+ * per month". The "to" keeps its unit, so the unit is still printed — once. The
+ * row's hover text (`fullChange`) keeps both halves whole.
+ */
+export function shareUnitOnce(fromText: string, targetText: string): string | null {
+  const from = FIGURE_THEN_UNIT.exec(fromText)
+  const to = FIGURE_THEN_UNIT.exec(targetText)
+  if (from === null || to === null || from[2] !== to[2]) return null
+  return from[1]
 }
 
 /** The rows that fit the resting budget: two, or one when a value is long (D2). */

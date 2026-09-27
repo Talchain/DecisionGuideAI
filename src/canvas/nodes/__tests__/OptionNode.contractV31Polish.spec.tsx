@@ -301,7 +301,9 @@ describe('contract v3.1 — option card polish', () => {
       expect(dd, 'precondition: the from → to row renders on the card').not.toBeNull()
       const before = inRows('option-change-row-before-option-1-f-head')
       expect(before).not.toBeNull()
-      expect(before!.textContent).toBe('0 engineers')
+      // MOVED 27 Sep 2026 (Canvas; `cardUnitsReadAsOneFormat.spec.tsx`): a unit both
+      // halves share is said once, after the target — the muted "from" is the figure.
+      expect(before!.textContent).toBe('0')
       expect(tokens(before).has('text-text-light')).toBe(true)
       expect(tokens(dd).has('text-text-body')).toBe(true)
       // The target is NOT inside the muted span — it inherits the dd's ink.
@@ -310,8 +312,9 @@ describe('contract v3.1 — option card polish', () => {
 
     it('the split is presentation only: the value text is byte-identical', () => {
       renderCard()
-      expect(changeRowValueText(inRows('option-change-row-option-1-f-head')!)).toBe('0 engineers → 3 engineers')
-      expect(screen.getByText(changeRow('0 engineers → 3 engineers'))).toBeInTheDocument()
+      // MOVED 27 Sep 2026: the shared unit once ("0 engineers → 3 engineers" before).
+      expect(changeRowValueText(inRows('option-change-row-option-1-f-head')!)).toBe('0 → 3 engineers')
+      expect(screen.getByText(changeRow('0 → 3 engineers'))).toBeInTheDocument()
     })
 
     it('a target-only row is not split — it renders its change whole', () => {
@@ -359,11 +362,15 @@ describe('contract v3.1 — option card polish', () => {
       // characters (was 17), so "→ 3 engineers · <mark>" now fits and BOTH halves
       // are unbroken runs; the whole run with its mark still does not, so the row
       // may still break before the arrow.
+      // RE-PINNED 27 Sep 2026 (Canvas, `cardUnitsReadAsOneFormat.spec.tsx`): the
+      // unit both halves share is said once, after the target — "0 → 3 engineers"
+      // (was "0 engineers → 3 engineers"). With " · no source" (27) it still does
+      // not fit whole, so the same two halves are the runs.
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
       const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
-      expect(halves).toEqual(['0 engineers', '→ 3 engineers'])
-      expect(value.textContent).toBe('0 engineers → 3 engineers')
+      expect(halves).toEqual(['0', '→ 3 engineers'])
+      expect(value.textContent).toBe('0 → 3 engineers')
       const mark = inRows('option-change-row-mark-option-1-f-head')!
       expect(mark.previousSibling?.textContent).toBe('\u00A0')
       expect(mark.previousSibling?.previousSibling).toBe(value)

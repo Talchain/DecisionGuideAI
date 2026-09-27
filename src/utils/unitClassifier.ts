@@ -182,6 +182,36 @@ export interface CompactUnitParts {
   unit: string | null
 }
 
+/**
+ * ⭐⭐ THE GRAPH CARD'S NOTATION — AN OPT-IN, AND DELIBERATELY SO (Canvas, 27 Sep
+ * 2026; served `e8ba18e6`, a fresh pricing-brief model).
+ *
+ * The cards read "£49 / month" for `GBP per month` but "Target: 100,000 GBP MRR"
+ * and "1,000 GBP MRR added / month" for `GBP MRR` / `GBP MRR added per month`,
+ * and an option row read "£49 / month → £54/month" — two notations for one
+ * concept on one board. `card: true` closes that ON THE CARDS by extending the
+ * currency arm below one word further, never by a second rule:
+ *   · a unit that OPENS with a glyph-bearing ISO code (`ISO_CURRENCY_GLYPHS`)
+ *     takes the glyph as its prefix and keeps the rest as its suffix —
+ *     `£100,000` + `MRR`, `£1,000` + `MRR added / month` ("per X" → "/ X", as the
+ *     currency rate arm already does);
+ *   · `compactCarriedReading` also accepts a producer reading ALREADY written in
+ *     this notation (`£54/month`), and re-spaces it to the one notation.
+ *
+ * ⚠ WHY OPT-IN: the right panel and the Analysis tab read these same helpers
+ * (`formatGoalTarget` → GoalPanel / SuccessTargetLine; `buildOptionTargetRow` →
+ * OptionPanel) and the product owner ruled them OUT of this change (27 Sep).
+ * Without the option every caller's output is byte-identical to before;
+ * converging them later is passing this one option.
+ */
+export interface CompactUnitOptions {
+  /** Read the unit in the graph card's notation (see above). */
+  card?: boolean
+}
+
+/** The graph cards' notation — the one value card callers pass. */
+export const CARD_UNIT_NOTATION: Readonly<CompactUnitOptions> = Object.freeze({ card: true })
+
 /** `<head> per <period>` or `<head>/<period>` — a single-word period. */
 const COMPOUND_RATE_UNIT = /^(.+?)(\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
 /** `<head> out of <N>` — the head may be empty or a placeholder word. */
@@ -226,7 +256,11 @@ const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
  *     written, and choosing a sign convention is not this function's call);
  *   · a placeholder head on a rate (`index per month`) is left.
  */
-export function compactUnitParts(figure: string, unit: string | null | undefined): CompactUnitParts | null {
+export function compactUnitParts(
+  figure: string,
+  unit: string | null | undefined,
+  options?: CompactUnitOptions,
+): CompactUnitParts | null {
   if (unit == null) return null
   const trimmed = unit.trim()
   if (!trimmed) return null
@@ -238,14 +272,20 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
     return { figure, unit: `/ ${outOf[2]}` }
   }
 
+  const negative = figure.trim().startsWith('-')
   const rate = COMPOUND_RATE_UNIT.exec(trimmed)
-  if (!rate) return null
+  if (!rate) {
+    // CARD NOTATION ONLY: a plain unit that opens with a currency code — "GBP MRR".
+    if (options?.card !== true) return null
+    const lead = leadingCurrencyCode(trimmed)
+    if (lead === null || negative) return null
+    return { figure: `${lead.glyph}${figure}`, unit: lead.rest }
+  }
   const head = rate[1].trim()
   const slashed = rate[2].includes('/')
   const period = rate[3]
   if (/\/|\bper\b/i.test(head)) return null
   const { kind, canonical } = classifyUnit(head)
-  const negative = figure.trim().startsWith('-')
   if (kind === 'symbol') {
     if (negative) return null
     return { figure: `${canonical}${figure}`, unit: `/ ${period}` }
@@ -257,8 +297,40 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
     return { figure: `${glyph}${figure}`, unit: `/ ${period}` }
   }
   if (kind === 'percent') return { figure: applyUnitPlacement(figure, head), unit: `/ ${period}` }
+  if (kind === 'other' && options?.card === true) {
+    // CARD NOTATION ONLY: a rate whose head opens with a currency code —
+    // "GBP MRR added per month" → `£1,000` + `MRR added / month`. The currency
+    // arm above, one word further along.
+    const lead = leadingCurrencyCode(head)
+    if (lead !== null) {
+      if (negative) return null
+      return { figure: `${lead.glyph}${figure}`, unit: `${lead.rest} / ${period}` }
+    }
+  }
   if (kind === 'other' && !slashed) return { figure, unit: `${canonical} / ${period}` }
   return null
+}
+
+/** `<code> <words>` — a unit that OPENS with a (three-letter) currency code. */
+const LEADING_CURRENCY_CODE = /^([A-Za-z]{3})\s+(\S.*)$/
+
+/**
+ * A unit that opens with an ISO code this product has a glyph for, followed by
+ * a plain unit WORD — `GBP MRR`, `GBP MRR added` — split into the glyph and the
+ * words; else `null`. The glyph is `ISO_CURRENCY_GLYPHS` (the one map), so a
+ * code with no glyph (`CHF MRR`) keeps its code. Declined, each on purpose: a
+ * rest that is itself compound (`/`, `per`), and a rest that is not a real unit
+ * word (a placeholder `scale`, a percent) — those keep today's reading.
+ */
+function leadingCurrencyCode(unit: string): { glyph: string; rest: string } | null {
+  const m = LEADING_CURRENCY_CODE.exec(unit.trim())
+  if (m === null) return null
+  const glyph = ISO_CURRENCY_GLYPHS[m[1].toUpperCase()]
+  if (glyph === undefined) return null
+  const rest = m[2].trim()
+  if (/\/|\bper\b/i.test(rest)) return null
+  if (classifyUnit(rest).kind !== 'other') return null
+  return { glyph, rest }
 }
 
 /** The visible text of `compactUnitParts` — figure and unit words joined by one space. */
@@ -284,12 +356,38 @@ const NUMBER_THEN_UNIT = /^([-+]?\d[\d,]*(?:\.\d+)?)\s+(.+)$/
  * `"59 GBP/month"` against a `"GBP per month"` unit), or a unit
  * `compactUnitParts` does not recognise.
  */
-export function compactCarriedReading(reading: string, unit: string | null | undefined): string | null {
+export function compactCarriedReading(
+  reading: string,
+  unit: string | null | undefined,
+  options?: CompactUnitOptions,
+): string | null {
   if (unit == null || !unit.trim()) return null
-  const m = NUMBER_THEN_UNIT.exec(reading.trim())
-  if (m === null || m[2] !== unit.trim()) return null
-  const parts = compactUnitParts(m[1], unit)
-  return parts === null ? null : joinCompactUnitParts(parts)
+  const text = reading.trim()
+  const m = NUMBER_THEN_UNIT.exec(text)
+  if (m !== null && m[2] === unit.trim()) {
+    const parts = compactUnitParts(m[1], unit, options)
+    return parts === null ? null : joinCompactUnitParts(parts)
+  }
+  if (options?.card !== true) return null
+  // CARD NOTATION ONLY: the reading is ALREADY the carried unit in the compact
+  // notation, spaced differently (`£54/month` for `GBP per month`). Its own first
+  // figure, placed by the same owner, must re-read as the same words once rate
+  // spacing is ignored; then only the spacing changes. Anything else — `£18k`,
+  // `59 GBP/month`, prose — stays verbatim.
+  const figure = FIRST_FIGURE.exec(text)
+  if (figure === null) return null
+  const parts = compactUnitParts(figure[0], unit, options)
+  if (parts === null) return null
+  const compact = joinCompactUnitParts(parts)
+  return ignoringRateSpacing(compact) === ignoringRateSpacing(text) ? compact : null
+}
+
+/** The first unsigned figure in a reading, digits and grouping only. */
+const FIRST_FIGURE = /\d[\d,]*(?:\.\d+)?/
+
+/** A reading with the spacing around a rate slash (and a spelt `per`) removed — the only difference re-spaced. */
+function ignoringRateSpacing(text: string): string {
+  return text.replace(/\s*\/\s*|\s+per\s+/gi, '/').replace(/\s+/g, ' ').trim()
 }
 
 /**

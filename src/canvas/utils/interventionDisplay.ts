@@ -27,7 +27,7 @@
 // UI-SEM-064: shared intervention-change formatter (no-change epsilon,
 // count-unit singularisation, tier→percentage rendering). Display only.
 import { formatPercent } from '../../utils/formatPercent'
-import { compactCarriedReading } from '../../utils/unitClassifier'
+import { compactCarriedReading, type CompactUnitOptions } from '../../utils/unitClassifier'
 import {
   formatInterventionValue,
   denormaliseInterventionValue,
@@ -149,7 +149,14 @@ export function tierReadingNumber(value: number): number {
  * the tier fallback means no unit, cap or raw anchor was recoverable, so the
  * value is an ordinal position and a "%" would assert a frame nothing set.
  */
-export function formatInterventionTargetText(chip: InterventionValueInput): string {
+export function formatInterventionTargetText(
+  chip: InterventionValueInput,
+  /**
+   * The graph card's notation (`CARD_UNIT_NOTATION`) — the option card's change
+   * rows pass it; every other caller omits it and reads exactly as before.
+   */
+  options?: CompactUnitOptions,
+): string {
   // A13 (AUDIT-SYNTH 20260925) — a declared encoding_map is the producer's own
   // words for THIS value, and it outranks display_value here exactly as it
   // does on the factor card. Before this, an intervention chip never carried
@@ -164,7 +171,7 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   // month" → "£59 / month", served `cd6a82e4`): the same compact owner the
   // factor card and the goal read (`compactCarriedReading`), so a row's "to"
   // never spells the unit one way beside a card spelling it another.
-  if (chip.displayValue) return compactCarriedReading(chip.displayValue, chip.unit) ?? chip.displayValue
+  if (chip.displayValue) return compactCarriedReading(chip.displayValue, chip.unit, options) ?? chip.displayValue
   // Denormalise the 0–1 intervention value when a real-world scale exists.
   // Coherence fix (audit §8 P0-4): the option-card chip previously used the
   // crude `value × cap` while the on-canvas annotation used the T3-trusted
@@ -192,7 +199,7 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   const contextual = formatFactorDisplayValue(targetInput)
   // Spelt as the factor card spells it (`£59/month`, not `59 GBP/month`), so a
   // row's "from" and "to" never use two spellings of one unit.
-  if (contextual) return singulariseCountUnitText(factorCardVisibleText(contextual, formatFactorDisplayParts(targetInput)) ?? contextual, effectiveUnit)
+  if (contextual) return singulariseCountUnitText(factorCardVisibleText(contextual, formatFactorDisplayParts(targetInput, options)) ?? contextual, effectiveUnit)
   // Fallback: prefer numeric formatting over qualitative tier labels and raw normalised values
   const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
   // Tier labels stay tier labels.

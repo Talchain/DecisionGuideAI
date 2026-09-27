@@ -271,14 +271,21 @@ describe('v3.1 pt 7 (U12b) — no bare internal `scale` word after each number',
     expect(dd.getAttribute('title')).toContain('0.3 → 0.85')
   })
 
-  it('CONTRAST — a real unit keeps its word ("42 days → 56 days")', () => {
+  // MOVED 27 Sep 2026 (Canvas; `cardUnitsReadAsOneFormat.spec.tsx`): a unit both
+  // halves share is said ONCE, after the target ("42 days → 56 days" before). The
+  // word is still kept — on the row once, and whole on both halves of the hover text.
+  it('CONTRAST — a real unit keeps its word ("42 → 56 days"; hover "42 days → 56 days")', () => {
     const { container } = renderOption('opt-tools')
-    expect(visibleText(row(container, 'opt-tools', 'fac-days'))).toBe('42 days → 56 days · brief')
+    const dd = row(container, 'opt-tools', 'fac-days')
+    expect(visibleText(dd)).toBe('42 → 56 days · brief')
+    expect(dd.getAttribute('title')).toContain('42 days → 56 days')
   })
 
   it('CONTRAST — `ratio` is not a placeholder and keeps its word', () => {
     const { container } = renderOption('opt-price')
-    expect(visibleText(row(container, 'opt-price', 'fac-ratio'))).toBe('0.4 ratio → 0.6 ratio · est.')
+    const dd = row(container, 'opt-price', 'fac-ratio')
+    expect(visibleText(dd)).toBe('0.4 → 0.6 ratio · est.')
+    expect(dd.getAttribute('title')).toContain('0.4 ratio → 0.6 ratio')
   })
 
   it('the row builder drops the placeholder word from BOTH the resting and the full change', () => {

@@ -31,6 +31,7 @@ import {
   type OptionTargetLike,
 } from './optionChangeRows'
 import { tierReadingNumber } from '../../utils/interventionDisplay'
+import type { CompactUnitOptions } from '../../../utils/unitClassifier'
 
 /** The slice of `ceeAnalysisReady.options[]` these readers use. */
 export interface CeeOptionTargetsLike {
@@ -208,11 +209,14 @@ export function buildOptionTargetRow({
   target,
   factorNode,
   baselineReference,
+  notation,
 }: {
   factorId: string
   target: OptionTargetLike
   factorNode: TargetNodeLike | undefined
   baselineReference: BaselineOptionReference | null
+  /** The graph card's notation — the option CARD passes it; the inspector does not (see `buildOptionChangeRow`). */
+  notation?: CompactUnitOptions
 }): OptionChangeRow {
   const ref = baselineReference?.values[factorId]
   return buildOptionChangeRow({
@@ -222,6 +226,7 @@ export function buildOptionTargetRow({
     baselineOptionTarget: ref && ref.value != null
       ? { value: ref.value, displayValue: ref.displayValue ?? null }
       : null,
+    notation,
   })
 }
 

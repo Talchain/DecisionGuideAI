@@ -256,8 +256,17 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
     expect(visibleBodyRows(row)).toEqual([row, driverSlot()])
     expect(driverSlot().textContent).toBe('Working assumption · no analysis yet')
     const rowTokens = tokens(row)
-    expect(rowTokens.has('flex-nowrap'), 'the value row may not wrap its mark onto a second line').toBe(true)
-    expect(rowTokens.has('flex-wrap')).toBe(false)
+    // ⭐ MOVED 27 Sep 2026 (Canvas; served e8ba18e6, `cardUnitsReadAsOneFormat.spec.tsx`).
+    // This pinned `flex-nowrap` ("the value row may not wrap its mark onto a second
+    // line"). On a line too narrow for both, that made the VALUE break — inside its
+    // unit, the mark beside the first half ("1,000 GBP MRR added / est." then
+    // "month"). Now the figure + unit are one no-wrap run and the row may wrap only
+    // BEFORE the mark: the mark can only ever follow the whole unit.
+    expect(rowTokens.has('flex-wrap'), 'the value row may wrap — before the mark, never inside the unit').toBe(true)
+    expect(rowTokens.has('flex-nowrap')).toBe(false)
+    // VALUED's reading is the producer's `display_value` ("8%"), so it is the WHOLE readout that is held.
+    const run = screen.getByTestId(`factor-value-whole-${ID}`)
+    expect(tokens(run).has('whitespace-nowrap')).toBe(true)
     // The value is never cut (no ellipsis on the line) and the mark never shrinks.
     expect(rowTokens.has('text-ellipsis')).toBe(false)
     const markSlot = screen.getByTestId(`factor-value-mark-slot-${ID}`)
@@ -265,6 +274,7 @@ describe('ED 5809278282 · Factor · the value line is the ONE body line, and it
     expect(markSlot.contains(screen.getByTestId('estimate-marker'))).toBe(true)
     expect(tokens(markSlot).has('shrink-0')).toBe(true)
     expect(tokens(markSlot).has('whitespace-nowrap')).toBe(true)
+    expect(run.contains(markSlot), 'the mark is never inside the value run').toBe(false)
   })
 })
 

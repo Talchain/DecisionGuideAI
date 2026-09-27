@@ -177,6 +177,7 @@ import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
 import { useRunCurrency, optionResultCaption } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
+import { CARD_UNIT_NOTATION } from '../../utils/unitClassifier'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
 
 /**
@@ -1117,7 +1118,7 @@ export const OptionNode = memo((props: NodeProps) => {
       const factorNode = nodes.find(n => n.id === fid) as TargetNodeLike | undefined
       const target = me.targets.get(fid)
       const row = target
-        ? buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: baselineOptionReference })
+        ? buildOptionTargetRow({ factorId: fid, target, factorNode, baselineReference: baselineOptionReference, notation: CARD_UNIT_NOTATION })
         : buildOptionNeedsInputTargetRow({ factorId: fid, factorNode, source: me.unsetSources.get(fid) ?? null })
       return isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid)) ? [row] : []
     })

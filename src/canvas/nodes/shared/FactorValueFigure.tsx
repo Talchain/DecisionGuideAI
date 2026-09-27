@@ -37,6 +37,17 @@ import { factorCardVisibleText, joinFactorDisplayParts, type FactorDisplayParts 
 import { classifyValueProvenance, factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
 import { classifyUnit } from '../../../utils/unitClassifier'
 import { isSuppressedUnit } from '../../utils/labelUtils'
+import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
+
+/**
+ * ⭐ THE FIGURE AND ITS UNIT ARE ONE RUN (Canvas 27 Sep 2026, served `e8ba18e6`:
+ * "1,000 GBP MRR added / est." then "month" — the value broke inside its unit and
+ * the source mark beside it read as part of the unit). A value that fits one line
+ * of the estate's row budget (`NODE_ROW_LABEL_MAX_CHARS`, the budget #2119's option
+ * amounts use) is held whole, so the card's row can break only BEFORE the mark. A
+ * longer one may still break at its spaces — never past the card's edge, never cut.
+ */
+const holdsWhole = (text: string): boolean => text.length <= NODE_ROW_LABEL_MAX_CHARS
 
 export function FactorValueFigure({ readout, parts, nodeId }: {
   /** The card's recorded readout — the one string every affordance shows. */
@@ -47,10 +58,20 @@ export function FactorValueFigure({ readout, parts, nodeId }: {
 }) {
   if (readout === null) return null
   if (parts === null || factorCardVisibleText(readout, parts) !== joinFactorDisplayParts(parts)) {
-    return <strong data-testid={`factor-value-whole-${nodeId}`} className="font-[610]">{readout}</strong>
+    return (
+      <strong
+        data-testid={`factor-value-whole-${nodeId}`}
+        className={holdsWhole(readout) ? 'font-[610] whitespace-nowrap' : 'font-[610]'}
+      >
+        {readout}
+      </strong>
+    )
   }
   return (
-    <>
+    <span
+      data-testid={`factor-value-run-${nodeId}`}
+      className={holdsWhole(joinFactorDisplayParts(parts)) ? 'whitespace-nowrap' : undefined}
+    >
       <strong data-testid={`factor-value-figure-${nodeId}`} className="font-[610]">{parts.figure}</strong>
       {parts.unit !== null && (
         <>
@@ -63,7 +84,7 @@ export function FactorValueFigure({ readout, parts, nodeId }: {
           </span>
         </>
       )}
-    </>
+    </span>
   )
 }
 

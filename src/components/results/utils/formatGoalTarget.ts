@@ -70,7 +70,7 @@
  * question "is this value on a normalised scale?". Joining it would make a
  * 0.8 count render as "very high".
  */
-import { classifyUnit, compactUnitParts, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
+import { classifyUnit, compactUnitParts, joinCompactUnitParts, unitIsDisplayable, type CompactUnitOptions } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
 
 /**
@@ -78,10 +78,17 @@ import { formatTargetValue } from './formatTargetValue'
  *
  * @param value - the target magnitude, in the units `unit` describes
  * @param unit  - the unit string as the producer sent it (may be absent)
+ * @param options - the graph card's notation (`CARD_UNIT_NOTATION`), passed by
+ *          the GOAL CARD only ("GBP MRR" → "£100,000 MRR"). GoalPanel and
+ *          SuccessTargetLine omit it and are byte-identical to before.
  * @returns the display string, or `null` when `value` is not a finite number —
  *          callers show no target rather than "≥ NaN".
  */
-export function formatGoalTarget(value: number, unit: string | null | undefined): string | null {
+export function formatGoalTarget(
+  value: number,
+  unit: string | null | undefined,
+  options?: CompactUnitOptions,
+): string | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
 
   const { kind, canonical } = classifyUnit(unit ?? null)
@@ -136,7 +143,7 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
    * rows read it too — and the figure is the same `toLocaleString()` as below.
    * Anything it does not recognise prints exactly as before.
    */
-  const compact = compactUnitParts(value.toLocaleString(), canonical)
+  const compact = compactUnitParts(value.toLocaleString(), canonical, options)
   if (compact !== null) return joinCompactUnitParts(compact)
   return `${value.toLocaleString()} ${canonical}`
 }

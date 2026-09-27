@@ -41,6 +41,7 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { LAST_RUN_PREFIX, METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
+import { CARD_UNIT_NOTATION } from '../../utils/unitClassifier'
 import {
   canCaptureGoalTarget,
   statedGoalTargetRaw,
@@ -704,7 +705,10 @@ export const GoalNode = memo((props: NodeProps) => {
     if (!hasThreshold) return null
     const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
     if (Number.isNaN(raw)) return String(thresholdRaw)
-    return formatGoalTarget(raw, thresholdUnit) ?? String(thresholdRaw)
+    // The CARD notation (27 Sep, served e8ba18e6): "GBP MRR" reads "£100,000 MRR",
+    // by the rule the factor card's "GBP per month" → "£49 / month" follows.
+    // GoalPanel and SuccessTargetLine call without it and are unchanged.
+    return formatGoalTarget(raw, thresholdUnit, CARD_UNIT_NOTATION) ?? String(thresholdRaw)
   }, [hasThreshold, thresholdRaw, thresholdUnit])
 
   /**
