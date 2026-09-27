@@ -35,7 +35,7 @@
 
 import { useState } from 'react'
 import { PanelFigure } from '../PanelFigure'
-import { AlertTriangle, CheckCircle, ChevronRight, Clock } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight, Clock, RefreshCw } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
@@ -754,7 +754,7 @@ export function AtAGlance({
                 data-testid={r.testId}
               >
                 {i > 0 ? ' ' : null}
-                {r.text}
+                {part === 'status' && r.testId === 'analysis-new-status-stale' ? COPY.status.staleRow : r.text}
               </span>
             ))}
           </span>
@@ -855,10 +855,19 @@ export function AtAGlance({
               /* ⭐ V2 FIDELITY (25 Sep 2026, gap ACTION-9): see the review-estimates
                  control above — `hover:text-info-hover` replaces the failing
                  `hover:opacity-80`. The disabled treatment is untouched. */
-              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
+              className={`${typography.panelMeta} shrink-0 self-start ${action('inline')} underline-offset-2 hover:text-info-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50${part === 'status' ? ' no-underline' : ''}`}
               data-testid={`${testId}-ribbon-reanalyse`}
+              /* ⭐ V2 `.stale` row: "Re-run ⟳", plain; the name keeps the outcome words. */
+              {...(part === 'status' ? { 'aria-label': COPY.status.reanalyseToBeSure } : {})}
             >
-              {COPY.status.reanalyseToBeSure}
+              {part === 'status' ? (
+                <span className="inline-flex items-center gap-1">
+                  {COPY.status.reanalyseRow}
+                  <RefreshCw className={icon('inline')} aria-hidden="true" />
+                </span>
+              ) : (
+                COPY.status.reanalyseToBeSure
+              )}
             </button>
           ) : null}
         </div>

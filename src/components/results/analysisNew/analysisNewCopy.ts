@@ -2267,6 +2267,15 @@ export const ANALYSIS_NEW_COPY = {
      */
     reanalyseToBeSure: 'Re-run to be sure',
     /**
+     * ⭐ V2 prototype `.stale` row (28 Sep 2026, Panel): inside "Move towards
+     * commitment" the row reads "Last run · model changed" with a "Re-run" act.
+     * The same claim as `stale` (the model moved), in the prototype's words; the
+     * act keeps `reanalyseToBeSure` as its accessible name, which starts with the
+     * visible word. The boxed ribbon (`part: 'all'`) keeps the long forms.
+     */
+    staleRow: 'Last run · model changed',
+    reanalyseRow: 'Re-run',
+    /**
      * ⚠ COVERAGE, NOT READINESS. Says the RESULT is incomplete; never that
      * analysis may not run — `RunAdmission` owns readiness and this surface
      * does not speak for it.

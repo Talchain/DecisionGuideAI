@@ -129,6 +129,16 @@ export const COMMITMENT_COPY = {
     /** CEE `unrequested_run_in_pair` (exact match): the previous run was the automatic first pass. Wording: DL #70 5852289012. */
     notComparedWithFirstPass: "This run is not compared with Olumi's automatic first pass; the next re-run will show what moved.",
   },
+  /**
+   * ⭐ V2 prototype, "Draft" state (28 Sep 2026, Panel): before any run the zone
+   * still says what the reader has and what to do next, and carries the run act.
+   * Both are true with no analysis: a count of the option nodes on the model, and
+   * the move that the act beneath them performs. Nothing about any option's effect.
+   */
+  preRun: {
+    founded: (count: number): string => `The draft sets out ${count} option${count === 1 ? '' : 's'}.`,
+    before: 'Check the framing, then run the analysis.',
+  },
   /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
   openAsk: {
     label: 'Ask Olumi about unresolved uncertainty',
@@ -496,6 +506,30 @@ export function commitmentBullets(
       const label = key === 'founded' && s.describesLastRun ? COMMITMENT_COPY.labels.lastRun : COMMITMENT_COPY.labels[key]
       out.push({ key, label, text: b.text, source: b.source })
     }
+  }
+  return out
+}
+
+/**
+ * ⭐ V2 "Draft": the pre-run bullets. `optionCount` is the model strip's own option
+ * row; `canRun` is exactly the condition the pre-run act renders on, so "then run
+ * the analysis" never sits above a refused, running or missing act.
+ */
+export function buildPreRunCommitmentBullets(input: {
+  optionCount: number
+  canRun: boolean
+}): Array<{ key: CommitmentBulletKey; label: string; text: string; source: string }> {
+  const out: Array<{ key: CommitmentBulletKey; label: string; text: string; source: string }> = []
+  if (input.optionCount > 0) {
+    out.push({
+      key: 'founded',
+      label: COMMITMENT_COPY.labels.founded,
+      text: COMMITMENT_COPY.preRun.founded(input.optionCount),
+      source: 'pre_run_draft',
+    })
+  }
+  if (input.canRun) {
+    out.push({ key: 'before', label: COMMITMENT_COPY.labels.before, text: COMMITMENT_COPY.preRun.before, source: 'pre_run_run' })
   }
   return out
 }

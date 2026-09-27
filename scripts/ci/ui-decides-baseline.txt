@@ -162,4 +162,6 @@ src/types/constraints.ts:78
 #    and goal-form copy appended to `successTarget`, above this site. Line text
 #    identical (`: topFigurePercent === 100`); the scanner's added and gone
 #    were exactly this pair.)
-src/components/results/analysisNew/analysisNewCopy.ts:2497
+# 28 Sep 2026 (Panel, V2 "Draft" bundle): re-lined 2497 → 2506, the same `topFigurePercent === 100`
+#    line; 9 copy lines (`staleRow` / `reanalyseRow`) were added above it. Scanner added/gone = exactly this pair.
+src/components/results/analysisNew/analysisNewCopy.ts:2506

@@ -93,8 +93,8 @@ import { OptionsComparison } from './sections/OptionsComparison'
 import { SectionShell } from './sections/SectionShell'
 import { MethodStrip } from './sections/MethodStrip'
 import { ReasoningAskBox } from './sections/ReasoningAskBox'
-import { CommitmentSummary } from './sections/CommitmentSummary'
-import { buildCommitmentSynthesis } from './commitmentSynthesis'
+import { CommitmentSummary, PreRunCommitment } from './sections/CommitmentSummary'
+import { buildCommitmentSynthesis, buildPreRunCommitmentBullets } from './commitmentSynthesis'
 import { ChallengeCard, methodOfIntervention } from './sections/ChallengeCard'
 import { ReasoningSignals } from './sections/ReasoningSignals'
 import { AboutThisAnalysis } from './sections/AboutThisAnalysis'
@@ -1428,6 +1428,122 @@ export function AnalysisNewTabBody({
     />
   )
 
+  /** ⭐ V2 "Draft": the pre-run status block, mounted inside `PreRunCommitment`. */
+  const preRunStatus = vm.status.isPreRun ? (
+      <div className="space-y-1" data-testid="analysis-new-status-pre-run">
+        {!isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
+          <p
+            className={`${typography.panelBody} text-text-body`}
+            data-testid="analysis-new-status-did-not-run"
+          >
+            {ANALYSIS_REFUSAL_HEADLINE} {latestRunNote.reason} {ANALYSIS_REFUSAL_POINTER}
+          </p>
+        ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'blocked' ? (
+          <p
+            className={`${typography.panelBody} text-text-body`}
+            data-testid="analysis-new-status-blocked"
+          >
+            {ANALYSIS_REFUSAL_REASON_COPY.analysis_not_ready}
+          </p>
+        ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'failed' ? (
+          <p
+            className={`${typography.panelBody} text-text-body`}
+            data-testid="analysis-new-status-run-failed"
+          >
+            {COPY.status.firstRunFailed}
+          </p>
+        ) : (
+          <p className={`${typography.panelBody} text-text-body`}>
+            {isBusyNow
+              ? COPY.status.running
+              : runWaitExhausted
+                ? COPY.status.waitExhausted
+                : COPY.status.preRun}
+          </p>
+        )}
+        {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
+            "This analysis has not reached this page." on its own reads as a
+            fault the reader caused. This line says what the client actually
+            knows — that the run may well have completed somewhere it could
+            not be sent from — and names the one act that can change it.
+
+            ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
+            stays in every state and describes what the panel is FOR; this
+            describes what happened to one run, and only in the state where
+            something did. */}
+        {runWaitExhausted ? (
+          <p className={`${typography.panelMeta} text-text-light`}>
+            {COPY.status.waitExhaustedWhy}
+          </p>
+        ) : null}
+        {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
+            sentences above orient a reader who has not run one yet; neither
+            says anything to the reader who TRIED and was refused, which on
+            a saved model is the common case. Every line below is the run
+            gate's own; see `WhyNoAnalysisYet`. */}
+        {isBusyNow ? null : (
+          <WhyNoAnalysisYet
+            listing={blockedListing}
+            /* ⭐⭐ THE GATE'S SINGLE-BLOCKER SENTENCE, so a refusal that
+               publishes no itemised listing is still explained rather than
+               silent. Passed only when the gate actually refuses — the
+               tooltip is also the carrier for a `warning` on an ALLOWED
+               run, and printing that under "Why no analysis yet" would
+               invent an obstacle. */
+            reason={runRefusedByGate ? runBlockedReason : null}
+            onFocusTarget={focusTarget}
+            onAsk={openAskOlumi}
+          />
+        )}
+        {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
+            This block states the blocker — "No analysis has run yet" — and
+            until now offered no way past it, on the FIRST SCREEN a new user
+            meets. `onReanalyse` was already passed to this body
+            (`OutputsDock` hands it `handleRunAnalysis`) and reached only
+            `AtAGlance`, which ZONE: ANSWER gates off pre-run. So the handler
+            was present and unreachable in the one state that needs it.
+
+            ⛔ WITNESSED, which is why this is not a nicety: a user sent a
+            brief, read a substantial coaching reply, and concluded an
+            analysis had run. CEE was returning a `run_analysis` suggested
+            action on that very turn. The panel rendered seven "Methods you
+            can run" and no way to run the analysis.
+
+            ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. The remedy for
+            a refused run is resolving its blockers, which the box above
+            states; offering a button that refuses is the defect one level
+            down, and this panel has adjudicated it out twice.
+
+            ⛔ AND IT ASKS THE GATE, NOT THE LISTING — corrected 22 Sep
+            2026, witnessed on staging `1f77130d`. This condition read
+            `blockedListing == null`, on the strength of a contract line
+            that said a null listing means the run is not blocked. It does
+            not: `canRunAnalysis` publishes NO listing from any of its early
+            returns, and says so above them. On a model whose registration
+            CEE had aborted (`graph/register` → `net::ERR_ABORTED`, `/graph`
+            → 404) the hold was armed, the gate refused, and this control
+            rendered ENABLED with no reason anywhere on the tab — one click
+            from asking CEE to analyse a graph it answers 404 for.
+            `canRunAnalysis` is the gate's own `allowed`, already passed
+            here by `OutputsDock` and already read by the ribbon one section
+            down: present and unreachable, exactly as `onReanalyse` was.
+
+            ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
+            renders nothing rather than a control that does nothing — the
+            same fail-closed shape `onSendMessage` uses one section over. */}
+        {!isBusyNow && !runRefusedByGate && onReanalyse ? (
+          <button
+            type="button"
+            onClick={onReanalyse}
+            className={`${typography.panelMeta} ${action('primary')} mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid="analysis-new-status-pre-run-act"
+          >
+            {COPY.status.preRunRunAction}
+          </button>
+        ) : null}
+      </div>
+  ) : null
+
   const answerBlock = (
     <CommitmentSummary
       synthesis={commitmentSynthesis}
@@ -1657,7 +1773,7 @@ export function AnalysisNewTabBody({
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
-      <div className="px-4 py-4 space-y-4 max-w-[440px] mx-auto">
+      <div className="px-4 pt-2 pb-4 space-y-4 max-w-[440px] mx-auto">
         {/* ⭐ V2 — ONE METHOD STRIP, FIRST (Paul + ChatGPT brief, 23 Sep 2026).
             It replaces BOTH the "Methods you can run" chip shelf and this tab's
             Actions dropdown, which rendered the same seven methods twice. Five
@@ -1733,121 +1849,9 @@ export function AnalysisNewTabBody({
             `buildAnalysisNewViewModel`'s header argues for its own pre-run
             gates: "Gating here makes it a property of the code." A refusal has
             no subject while the thing it refuses is happening. */}
-        {vm.status.isPreRun ? (
-          <div className="space-y-1" data-testid="analysis-new-status-pre-run">
-            {!isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'did_not_run' ? (
-              <p
-                className={`${typography.panelBody} text-text-body`}
-                data-testid="analysis-new-status-did-not-run"
-              >
-                {ANALYSIS_REFUSAL_HEADLINE} {latestRunNote.reason} {ANALYSIS_REFUSAL_POINTER}
-              </p>
-            ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'blocked' ? (
-              <p
-                className={`${typography.panelBody} text-text-body`}
-                data-testid="analysis-new-status-blocked"
-              >
-                {ANALYSIS_REFUSAL_REASON_COPY.analysis_not_ready}
-              </p>
-            ) : !isBusyNow && !runWaitExhausted && latestRunNote?.kind === 'failed' ? (
-              <p
-                className={`${typography.panelBody} text-text-body`}
-                data-testid="analysis-new-status-run-failed"
-              >
-                {COPY.status.firstRunFailed}
-              </p>
-            ) : (
-              <p className={`${typography.panelBody} text-text-body`}>
-                {isBusyNow
-                  ? COPY.status.running
-                  : runWaitExhausted
-                    ? COPY.status.waitExhausted
-                    : COPY.status.preRun}
-              </p>
-            )}
-            {/* ⭐⭐⭐ WHY, AND IT IS THE HALF THAT MAKES THE SENTENCE USABLE.
-                "This analysis has not reached this page." on its own reads as a
-                fault the reader caused. This line says what the client actually
-                knows — that the run may well have completed somewhere it could
-                not be sent from — and names the one act that can change it.
-
-                ⚠ IT IS NOT A SECOND ORIENTATION LINE. `preRunWhatThisIs` above
-                stays in every state and describes what the panel is FOR; this
-                describes what happened to one run, and only in the state where
-                something did. */}
-            {runWaitExhausted ? (
-              <p className={`${typography.panelMeta} text-text-light`}>
-                {COPY.status.waitExhaustedWhy}
-              </p>
-            ) : null}
-            <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
-            {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
-                sentences above orient a reader who has not run one yet; neither
-                says anything to the reader who TRIED and was refused, which on
-                a saved model is the common case. Every line below is the run
-                gate's own; see `WhyNoAnalysisYet`. */}
-            {isBusyNow ? null : (
-              <WhyNoAnalysisYet
-                listing={blockedListing}
-                /* ⭐⭐ THE GATE'S SINGLE-BLOCKER SENTENCE, so a refusal that
-                   publishes no itemised listing is still explained rather than
-                   silent. Passed only when the gate actually refuses — the
-                   tooltip is also the carrier for a `warning` on an ALLOWED
-                   run, and printing that under "Why no analysis yet" would
-                   invent an obstacle. */
-                reason={runRefusedByGate ? runBlockedReason : null}
-                onFocusTarget={focusTarget}
-                onAsk={openAskOlumi}
-              />
-            )}
-            {/* ⭐⭐⭐ A REFUSAL CARRIES ITS REMEDY, OR IT IS A DEAD END.
-                This block states the blocker — "No analysis has run yet" — and
-                until now offered no way past it, on the FIRST SCREEN a new user
-                meets. `onReanalyse` was already passed to this body
-                (`OutputsDock` hands it `handleRunAnalysis`) and reached only
-                `AtAGlance`, which ZONE: ANSWER gates off pre-run. So the handler
-                was present and unreachable in the one state that needs it.
-
-                ⛔ WITNESSED, which is why this is not a nicety: a user sent a
-                brief, read a substantial coaching reply, and concluded an
-                analysis had run. CEE was returning a `run_analysis` suggested
-                action on that very turn. The panel rendered seven "Methods you
-                can run" and no way to run the analysis.
-
-                ⚠⚠ ABSENT WHEN A RUN WOULD FAIL, NEVER DISABLED. The remedy for
-                a refused run is resolving its blockers, which the box above
-                states; offering a button that refuses is the defect one level
-                down, and this panel has adjudicated it out twice.
-
-                ⛔ AND IT ASKS THE GATE, NOT THE LISTING — corrected 22 Sep
-                2026, witnessed on staging `1f77130d`. This condition read
-                `blockedListing == null`, on the strength of a contract line
-                that said a null listing means the run is not blocked. It does
-                not: `canRunAnalysis` publishes NO listing from any of its early
-                returns, and says so above them. On a model whose registration
-                CEE had aborted (`graph/register` → `net::ERR_ABORTED`, `/graph`
-                → 404) the hold was armed, the gate refused, and this control
-                rendered ENABLED with no reason anywhere on the tab — one click
-                from asking CEE to analyse a graph it answers 404 for.
-                `canRunAnalysis` is the gate's own `allowed`, already passed
-                here by `OutputsDock` and already read by the ribbon one section
-                down: present and unreachable, exactly as `onReanalyse` was.
-
-                ⚠ AND ABSENT WITH NO HANDLER: a host with no run affordance
-                renders nothing rather than a control that does nothing — the
-                same fail-closed shape `onSendMessage` uses one section over. */}
-            {!isBusyNow && !runRefusedByGate && onReanalyse ? (
-              <button
-                type="button"
-                onClick={onReanalyse}
-                className={`${typography.panelMeta} ${action('primary')} mt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                data-testid="analysis-new-status-pre-run-act"
-              >
-                {COPY.status.preRunRunAction}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+        {/* ⭐ V2 "Draft" (28 Sep 2026, Panel): the pre-run status block — its sentence,
+            any refusal and the run act — moved, unchanged, into "Move towards commitment"
+            below (`PreRunCommitment`), where the prototype carries its run act. */}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
             THE ONE ABOVE, IN A DIFFERENT PAIRING. Witnessed on the deployed
             build at `4401d6d8` (30 Aug 2026), guest, saved example
@@ -2668,7 +2672,17 @@ export function AnalysisNewTabBody({
         </>
         )}
         </div>
-        {vm.status.isPreRun ? null : (
+        {vm.status.isPreRun ? (
+          <PreRunCommitment
+            bullets={buildPreRunCommitmentBullets({
+              optionCount: modelStrip.rows.find((r) => r.kind === 'option')?.nodes.length ?? 0,
+              // Exactly the pre-run act's own condition (inside `preRunStatus`).
+              canRun: !isBusyNow && !runRefusedByGate && Boolean(onReanalyse),
+            })}
+            status={preRunStatus}
+            onAsk={openAskOlumi}
+          />
+        ) : (
         <div className="space-y-2" data-testid="analysis-new-zone-answer-group">
         {/* ⭐ A ZONE LABEL — the approved prototype's grammar. It names a GROUP
             of blocks, so it carries no border, no fill and no radius of its
@@ -3193,7 +3207,7 @@ export function AnalysisNewTabBody({
         />
         {/* ⭐ V2 prototype: the panel ends with "Ask about your thinking…" (27 Sep 2026).
             It opens the same Ask Olumi drawer as every ✦ act, as a draft; it sends nothing. */}
-        {vm.status.isPreRun ? null : <ReasoningAskBox />}
+        <ReasoningAskBox />
       </div>
     </div>
   )
