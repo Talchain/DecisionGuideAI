@@ -46,6 +46,11 @@
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
 import type { StoredRunDelta } from '../canvas/state/storedRunDelta'
+import {
+  limitVerdictsFromResponse,
+  readLimitVerdicts,
+  type LimitVerdictsWrite,
+} from '../canvas/state/storedLimitVerdicts'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
@@ -142,6 +147,8 @@ export interface V5ApplicatorStore {
    * which pins both directions.
    */
   setRunDelta?: (stored: StoredRunDelta | null) => void
+  /** B5 — same binding and eviction as `setRunDelta`. */
+  setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
   /**
    * Optional: write goal_constraints (ROADMAP 1.22). On the V5 path this
    * applicator writes via `add_constraint` graph_patch blocks only, UPSERTING
@@ -2522,6 +2529,18 @@ export function applyV5State(
         // pins the behaviour in both directions so the trade is visible rather
         // than inherited.
         store.setRunDelta?.(null)
+      }
+      // B5: the same rule as run_delta — stored with the analysis it came beside,
+      // evicted when a genuinely new analysis lands without one.
+      const turnLimitVerdicts = readLimitVerdicts(limitVerdictsFromResponse(response))
+      if (turnLimitVerdicts) {
+        store.setLimitVerdicts?.({
+          verdicts: turnLimitVerdicts,
+          analysisHash: hash,
+          scenarioId: store.currentScenarioId ?? null,
+        })
+      } else if (hash !== prevHash) {
+        store.setLimitVerdicts?.(null)
       }
     } else {
       deferred.push({

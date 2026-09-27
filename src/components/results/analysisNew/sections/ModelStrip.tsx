@@ -194,6 +194,8 @@ import {
 import { useFactorValueCommit } from '../useFactorValueCommit'
 import { resolveValueInputSeed } from '../../../../canvas/conversation/factorValueEdit'
 import { SuccessTargetLine } from './SuccessTargetLine'
+import { LimitVerdictLines } from './LimitVerdictLines'
+import type { LimitVerdictView } from '../limitVerdictView'
 import type { ReviewToolRequest } from './ModelReviewTool'
 import { PanelIconButton } from '../PanelIconButton'
 import { NodeMark, type MarkKind } from '../nodeMarks'
@@ -421,6 +423,8 @@ export interface ModelStripProps {
    * About › Sources and limits). `0`/absent asks for nothing.
    */
   revealReviewSeq?: number
+  /** B5 — the per-limit verdict lines, rendered under the success line. `null` renders nothing. */
+  limitVerdicts?: LimitVerdictView | null
 }
 
 /** What the strip hands a function-form `reviewSlot`. See `reviewSlot`. */
@@ -440,6 +444,7 @@ export function ModelStrip({
   insights = NO_INSIGHTS,
   reviewSlot = null,
   revealReviewSeq = 0,
+  limitVerdicts = null,
 }: ModelStripProps) {
   const showToast = useShowToastSafe()
   /**
@@ -1058,6 +1063,7 @@ export function ModelStrip({
 
   /** The success line, handed to the review slot — see `reviewSlot`. */
   const successLine = (
+    <>
     <SuccessTargetLine
       goalNodeId={strip.goalNodeId}
       divider={false}
@@ -1104,6 +1110,8 @@ export function ModelStrip({
       }}
       testId={`${testId}-target`}
     />
+    <LimitVerdictLines view={limitVerdicts} testId={`${testId}-limit-verdicts`} />
+    </>
   )
 
   return (
