@@ -20,6 +20,7 @@ vi.mock('../../../conversation/ConversationContext', async (importOriginal) => {
 import { factorValueSourceLabel, getExtractionLabel, getProvenanceLabel } from '../inspectorStrings'
 import { factorValueSourceMark, VALUE_SOURCE_MARK_LABEL } from '../../../nodes/shared/valueSourceMark'
 import { FactorControllablePanel } from '../panels/FactorControllablePanel'
+import { FactorObservablePanel } from '../panels/FactorObservablePanel'
 import { useCanvasStore } from '../../../store'
 
 /** The inspector's words for each of the card's mark kinds. */
@@ -54,6 +55,7 @@ describe('D-1a — one classifier for a factor value\'s source', () => {
       { value: 0.8, source: 'brief_extraction' },
       { value: 0.8, source: 'cee_inference', extractionType: 'explicit' },
       { value: 0.8, source: 'cee_inference', extractionType: null }, // a withdrawn marker (edit awaiting receipt)
+      { value: 0.8, source: 'brief_extraction', extractionType: null }, // N1: a brief value whose marker a person's edit withdrew (#2046 class)
       { value: 0.8, source: 'template' },
       { value: 0.8, source: 'default' },
       { value: 0.8 }, // no source at all
@@ -91,6 +93,19 @@ describe('D-1a — the mounted inspector pill', () => {
     const { container } = render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     expect(pill(container)).toContain('Source not recorded')
     expect(pill(container)).not.toContain('Estimated by Olumi')
+  })
+
+  it('⭐ N2 — the observable panel: a value with NO source reads "Source not recorded", as the card reads "no source"', () => {
+    useCanvasStore.setState(
+      {
+        nodes: [{ id: NODE_ID, type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Pricing Level', kind: 'factor', factor_type: 'observable', observedState: { value: 0.8, raw_value: 0.8, cap: 1, display_value: '0.8' } } } as unknown as Node],
+        edges: [],
+        results: { status: 'idle', report: null },
+      } as never,
+      false,
+    )
+    const { container } = render(<FactorObservablePanel nodeId={NODE_ID} techMode={false} onClose={() => {}} onNavigate={() => {}} />)
+    expect(container.textContent).toContain('Source not recorded')
   })
 
   it('CONTRAST — an Olumi estimate: the pill says "Estimated by Olumi"', () => {

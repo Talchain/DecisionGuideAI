@@ -877,14 +877,19 @@ function withoutNonAnalysisFields(graph: unknown): unknown {
 }
 
 /**
- * Wire EDGE keys the canvas projection never carries, and why each cannot
- * change what the analysis computes: `origin`, `provenance` and
- * `provenance_display` are authorship metadata. CEE's analysis-affecting
- * projection lists provenance under "Excluded (cosmetic / provenance /
- * display)" (`graph-hash.ts` `computeAnalysisAffectingGraphHash`). Measured on
- * the served pricing read (`fixtures/pricing-provisional-poll.json`): after
- * the merge, these three are the ONLY wire keys, on nodes or edges, that the
- * canvas projection does not carry. Any other missing key fails the check.
+ * Wire EDGE keys this COMPARISON skips (it decides nothing about what the
+ * canvas holds), and why each cannot change what the analysis computes:
+ * `origin`, `provenance` and `provenance_display` are authorship metadata. CEE's
+ * analysis-affecting projection lists provenance under "Excluded (cosmetic /
+ * provenance / display)" (`graph-hash.ts` `computeAnalysisAffectingGraphHash`).
+ * Any other missing key fails the check.
+ *
+ * ⚠ `origin` IS CARRIED since #2108: draft, patch and register paths carry it,
+ * and a reload ACQUIRES it (`mergeAppliedGraph.ts` `EDGE_ACQUIRED_METADATA_KEYS`).
+ * It stays skipped here because it is not analysis-affecting and a canvas saved
+ * before #2108 lacks it until that reload. (Measured before #2108 on the served
+ * pricing read, `fixtures/pricing-provisional-poll.json`, these three were the
+ * only wire keys the canvas projection did not carry.)
  */
 const NOT_CARRIED_EDGE_KEYS: ReadonlySet<string> = new Set(['origin', 'provenance', 'provenance_display'])
 

@@ -300,7 +300,10 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
             You measure this
           </span>
-          {source && (
+          {/* Shown whenever there is a VALUE, as the card's mark is — not only when a
+              \`source\` string exists. A value with no recorded source reads
+              "Source not recorded" here, as the card reads "no source" (D-1a N2). */}
+          {(value !== undefined || rawValue !== undefined) && (
             <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
               {factorValueSourceLabel(node?.data, attributedTo)}
             </span>
