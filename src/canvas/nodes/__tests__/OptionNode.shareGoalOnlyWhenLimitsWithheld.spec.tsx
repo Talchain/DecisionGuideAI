@@ -176,6 +176,27 @@ describe('an option share under a withheld limit verdict says it is goal-only (R
     expect(qualifier()).toBeNull()
   })
 
+  // One row per code (Canonical 5851166756 / DL 5851172106): the F-LIMIT codes outrank
+  // C46 on Paul's F9 re-run, the near-tie and unrequested codes are CEE's other
+  // "withheld" kinds, the run-identity codes its "not evaluated" kinds, and an
+  // unminted code is fail-closed. Keyed on `permitted === false`, so no list can miss one.
+  it.each([
+    'nonlinear_identity_sign_unproven',
+    'no_option_meets_limit',
+    'every_option_likely_breaks_limit',
+    'near_tie',
+    'unrequested_analysis',
+    'run_identity_unconfirmed',
+    'a_code_this_ui_has_never_seen',
+  ])('withheld for %s → "Provisional" beside the share, never "Goal only", never bare', (cause) => {
+    seed(envelope({ permitted: false, withheld_reason: cause }),
+      { permitted: false, withheld_reason: 'leader_claim_withheld', producer_cause: cause })
+    renderCard()
+    expect(readout().textContent).toBe('81% of runs')
+    expect(screen.getByTestId('option-share-provisional-candidate').textContent).toBe('Provisional')
+    expect(qualifier()).toBeNull()
+  })
+
   it('CONTRAST — the goal-only case keeps "Goal only" and never ALSO says "Provisional"; a permitted leader says neither', () => {
     seed(null, WITHHELD_FOR_LIMITS)
     renderCard()
