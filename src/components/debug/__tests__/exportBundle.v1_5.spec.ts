@@ -208,6 +208,39 @@ describe('Debug Bundle V1.5', () => {
     expect(option.interventionKeys).toEqual(['f1'])
   })
 
+  // D-4 (P2 rows i124, i152, 27 Sep): the full_graph dropped the typed
+  // provenance the canvas carries. Values are from Paul's export 90b8f080:
+  // node provenance ai_inferred / from_brief, and edge e-5
+  // keep_current_49_price -> pro_plan_price with origin 'repair'.
+  it('i152: full_graph nodes carry their provenance verbatim, and absent stays absent', () => {
+    const graphData = makeGraphData()
+    graphData.nodes[0].data.provenance = 'ai_inferred'
+    graphData.nodes[1].data.provenance = 'from_brief'
+    const bundle = buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData })
+    const factor = bundle.full_graph!.factors.find((n) => n.id === 'f1')!
+    const option = bundle.full_graph!.options.find((n) => n.id === 'o1')!
+    const goal = bundle.full_graph!.factors.find((n) => n.id === 'g1')!
+    expect(factor.provenance).toBe('ai_inferred')
+    expect(option.provenance).toBe('from_brief')
+    expect('provenance' in goal).toBe(false)
+  })
+
+  it('i124: a repair edge keeps origin "repair" in full_graph, and an unstamped edge has no origin', () => {
+    const graphData = makeGraphData()
+    graphData.edges.push({
+      id: 'e-5',
+      source: 'o1',
+      target: 'f1',
+      data: { origin: 'repair', provenanceDisplay: 'ai_inferred', weight: 1 },
+    })
+    const bundle = buildDebugBundle(makeDebugData(), { includeFullGraph: true, graphData })
+    const repair = bundle.full_graph!.edges.find((e) => e.id === 'e-5')!
+    const plain = bundle.full_graph!.edges.find((e) => e.id === 'e1')!
+    expect(repair.origin).toBe('repair')
+    expect(repair.provenance_display).toBe('ai_inferred')
+    expect('origin' in plain).toBe(false)
+  })
+
   it('enriched edges include weight, direction, beliefStrength', () => {
     const bundle = buildDebugBundle(makeDebugData(), {
       includeFullGraph: true,

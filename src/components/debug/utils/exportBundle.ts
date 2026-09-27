@@ -1181,6 +1181,12 @@ export interface EnrichedGraphNode {
   goal_threshold_raw?: number | null
   goal_threshold_unit?: string | null
   goal_threshold_cap?: number | null
+  /**
+   * CEE's display provenance for the node (`from_brief` | `ai_inferred` |
+   * `user_set`), verbatim from the canvas node. Absent when the node carries
+   * none, never minted. D-4 (P2 row i152, 27 Sep): the export dropped it.
+   */
+  provenance?: string
   data?: Record<string, unknown>
 }
 
@@ -1214,6 +1220,15 @@ export interface EnrichedGraphEdge {
    */
   weight_source?: string
   belief_exists_source?: string
+  /**
+   * CEE's edge creation source (`ai` | `user` | `repair` | `enrichment` |
+   * `default`), verbatim from the canvas edge. `repair` marks a link
+   * connectivity repair wired, not a lever. D-4 (P2 row i124, 27 Sep): the
+   * export dropped it.
+   */
+  origin?: string
+  /** CEE's display provenance label for the edge, verbatim. */
+  provenance_display?: string
 }
 
 /** V1.5: Enriched full_graph with _meta */
@@ -2403,6 +2418,8 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
       goal_threshold_raw: (node.data?.goal_threshold_raw as number | undefined) ?? null,
       goal_threshold_unit: (node.data?.goal_threshold_unit as string | undefined) ?? null,
       goal_threshold_cap: (node.data?.goal_threshold_cap as number | undefined) ?? null,
+      // D-4 (i152): carried verbatim; absent stays absent.
+      ...(typeof node.data?.provenance === 'string' ? { provenance: node.data.provenance } : {}),
     }
 
     if (nodeKind === 'option') {
@@ -2434,6 +2451,11 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
     // was set" — the honest state, and the same reading the canvas uses.
     weight_source: edge.data?.weightSource,
     belief_exists_source: edge.data?.beliefExistsSource,
+    // D-4 (i124): carried verbatim; absent stays absent.
+    ...(typeof edge.data?.origin === 'string' ? { origin: edge.data.origin } : {}),
+    ...(typeof edge.data?.provenanceDisplay === 'string'
+      ? { provenance_display: edge.data.provenanceDisplay }
+      : {}),
   }))
 
   return {
