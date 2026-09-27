@@ -541,8 +541,9 @@ export const GATED_TESTS: readonly GatedTest[] = [
       '(c) reads 0 there — fixed by #2174 (`layers.ts`), which a served witness confirms ' +
       'independently — while (b) and (d) stay RED until #2171 (`canvas/driver-line-no-clip`) and #2168 ' +
       '(`canvas/factor-band-causal-order`) land; with both merged on `507d8ef8` the two gated boards went ' +
-      'GREEN, every control firing. Admission rule (1) below ("GREEN at the base, twice") is therefore met ' +
-      'only AFTER those two — this arm lands after them, never before. ' +
+      'GREEN, every control firing. Both landed (#2171 `331820ef`, #2168 `0ed7fcc5`), and at base ' +
+      '`0ed7fcc5` the two gated boards are GREEN twice (63s and 60s wall, load ~15-18): admission ' +
+      'rule (1) below is met. ' +
       '⚠ COST, darwin, UNDER LOAD (load average 30-60, a shared machine — an upper reading): the two ' +
       'gated boards took 68s and 77s wall through this config INCLUDING the dev-server boot; ~26-39s is ' +
       'the MRR arm, ~11-14s the starter. The other five boards are measure-only ' +
