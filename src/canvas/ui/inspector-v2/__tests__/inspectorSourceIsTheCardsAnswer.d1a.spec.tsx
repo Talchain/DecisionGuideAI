@@ -108,6 +108,45 @@ describe('D-1a — the mounted inspector pill', () => {
     expect(container.textContent).toContain('Source not recorded')
   })
 
+  /**
+   * AIC's review of #2192 (5856373445): the pill must appear exactly when the
+   * panel SHOWS a value. The panel shows one in two places: the display line
+   * (`factorDisplayText`, the card's read) and the editor readout (the numeric
+   * `raw_value ?? value`). Measured at 0947ddd4: a string `raw_value` or a
+   * `display_value` alone showed "£49" on the line with NO pill; a bare numeric
+   * `value` shows "0.8" in the editor, so it needs its source word too.
+   */
+  describe('the observable pill shows exactly when the panel shows a value', () => {
+    const SHAPES: Array<[name: string, extra: Record<string, unknown>, pill: boolean]> = [
+      ['a string raw_value alone (a brief-extracted "£49")', { observedState: { raw_value: '£49' } }, true],
+      ['a display_value alone, top level', { display_value: '£49', observedState: {} }, true],
+      ['a display_value alone, in observedState', { observedState: { display_value: '£49' } }, true],
+      ['a bare numeric value (the editor reads "0.8")', { observedState: { value: 0.8 } }, true],
+      ['CONTRAST — no value anywhere', { observedState: {} }, false],
+    ]
+    for (const [name, extra, expected] of SHAPES) {
+      it(`${expected ? '⭐' : ''} ${name} → ${expected ? 'a source word' : 'no pill'}`, () => {
+        useCanvasStore.setState(
+          {
+            nodes: [{ id: NODE_ID, type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Pricing Level', kind: 'factor', factor_type: 'observable', ...extra } } as unknown as Node],
+            edges: [],
+            results: { status: 'idle', report: null },
+          } as never,
+          false,
+        )
+        const { container, getByTestId } = render(<FactorObservablePanel nodeId={NODE_ID} techMode={false} onClose={() => {}} onNavigate={() => {}} />)
+        const line = container.querySelector('[data-testid="factor-display-text"]')?.textContent ?? null
+        const readout = getByTestId('observable-value-display').textContent ?? ''
+        const shown = line !== null || !/No value set/.test(readout)
+        const pillEl = container.querySelector('[data-testid="observable-source-pill"]')
+        // The fixture's premise, so the row cannot pass on a shape the panel reads differently.
+        expect(shown, 'the panel shows a value').toBe(expected)
+        expect(pillEl !== null, 'a source pill').toBe(shown)
+        if (pillEl) expect(pillEl.textContent).toBe('Source not recorded')
+      })
+    }
+  })
+
   it('CONTRAST — an Olumi estimate: the pill says "Estimated by Olumi"', () => {
     seed('cee_inference')
     const { container } = render(<FactorControllablePanel nodeId={NODE_ID} techMode={false} onClose={() => {}} onNavigate={() => {}} />)

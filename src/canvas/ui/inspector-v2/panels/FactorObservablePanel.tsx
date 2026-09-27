@@ -300,11 +300,16 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
             You measure this
           </span>
-          {/* Shown whenever there is a VALUE, as the card's mark is — not only when a
-              \`source\` string exists. A value with no recorded source reads
-              "Source not recorded" here, as the card reads "no source" (D-1a N2). */}
-          {(value !== undefined || rawValue !== undefined) && (
-            <span className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+          {/* Shown exactly when THIS PANEL SHOWS A VALUE — its display line
+              (`canonicalDisplayText`, the card's read) OR its editor readout
+              (`displayValue`) — never only when a \`source\` string exists. Every
+              shown value has a source word, and none sits beside nothing: a
+              string `raw_value` or a `display_value` alone shows on the line, a
+              bare numeric `value` shows in the editor. A value with no recorded
+              source reads "Source not recorded", as the card reads "no source"
+              (D-1a N2; AIC review of #2192). */}
+          {(canonicalDisplayText || displayValue != null) && (
+            <span data-testid="observable-source-pill" className={`${typography.panelMeta} inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
               {factorValueSourceLabel(node?.data, attributedTo)}
             </span>
           )}
