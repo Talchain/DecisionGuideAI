@@ -263,13 +263,21 @@ function decisionQuestionOf(node: { data?: unknown } | undefined): string | null
 
 /**
  * The title is never more than one sentence — a brief can run to a paragraph,
- * and the header is not the place to read it in full. Cuts at the first
- * sentence terminator; a brief with none is used whole, trimmed.
+ * and the header is not the place to read it in full. Cuts at the first line's
+ * first sentence END; a brief with none is used whole, trimmed.
+ *
+ * ⚠ R7/X4: A "." IS NOT A SENTENCE END ON ITS OWN. The old cut stopped at the
+ * first terminator anywhere, so "Should we raise £1.5m?" rendered "Should we
+ * raise £1." and "Churn is 3.5% a month." rendered "Churn is 3." — the user's
+ * own question, corrupted. A terminator ends the sentence only before the end
+ * of the line or whitespace and a capital, digit, currency sign or quote.
+ * (CEE's typed `framing_question` would replace this cut entirely, but no
+ * served turn carries it yet: a producer gap, R7 inventory row (h).)
  */
-function oneSentence(text: string): string {
-  const trimmed = text.trim()
-  const match = trimmed.match(/^[^.!?\n]+[.!?]?/)
-  return (match ? match[0] : trimmed).trim()
+export function oneSentence(text: string): string {
+  const firstLine = text.trim().split('\n')[0].trim()
+  const end = firstLine.search(/[.!?](?=\s*$|\s+[A-Z0-9£$€"'“‘(])/)
+  return (end >= 0 ? firstLine.slice(0, end + 1) : firstLine).trim()
 }
 
 /**
@@ -1000,6 +1008,8 @@ export function ModelStrip({
         kind: MarkKind
         needsCheck: boolean
         valueText: string | null
+        /** `StripNode.hasValue`: the VALUE question, which `valueText` does not answer. */
+        hasValue: boolean
         valueSource: string | undefined
       }
     | null = (() => {
@@ -1014,6 +1024,7 @@ export function ModelStrip({
           kind: v.row.kind,
           needsCheck: found.needsCheck,
           valueText: found.valueText,
+          hasValue: found.valueText !== null || found.hasValue,
           valueSource: found.valueSource,
         }
       }
@@ -1721,9 +1732,14 @@ export function ModelStrip({
                     /* The two states are distinguishable by an assertion, not
                        only by reading the copy — a test that matched on the
                        sentence would pass on a reworded no-value string. */
-                    data-has-value={active.valueText !== null}
+                    data-has-value={active.hasValue}
                   >
-                    {active.valueText ?? COPY.modelStrip.noValue}
+                    {/* ⚠ R7/X4: `valueText` is null ALSO for a factor that carries a
+                        value the formatter declines to render (no usable unit), and
+                        "No value set" there contradicts the store. The count moved to
+                        `hasValue` long ago; this line had not. */}
+                    {active.valueText ??
+                      (active.hasValue ? COPY.modelStrip.valueNotShown : COPY.modelStrip.noValue)}
                   </span>
                   {activeValueProvenance !== null ? (
                     <span

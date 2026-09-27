@@ -153,9 +153,13 @@ src/types/constraints.ts:78
 #    the settlement toasts) and Reset was removed, all above this site. Line
 #    text identical (`if (attempts < MAX_ATTEMPTS) {`); added and gone were
 #    exactly this pair.)
+#    (`analysisNewCopy.ts:2495` -> `2497`, a pure +2 line shift from Panel
+#    `panel/r7-x4-strip-truth` (27 Sep 2026): `modelStrip.valueNotShown`, the
+#    detail line for a factor that HAS a value the formatter declines to show,
+#    above this site. Line text identical (`: topFigurePercent === 100`).)
 #    (`analysisNewCopy.ts:2472` -> `2489`, a pure +17 line shift from
 #    `panel/design-model` (design audit B5): the Reasoning tab's success-row
 #    and goal-form copy appended to `successTarget`, above this site. Line text
 #    identical (`: topFigurePercent === 100`); the scanner's added and gone
 #    were exactly this pair.)
-src/components/results/analysisNew/analysisNewCopy.ts:2495
+src/components/results/analysisNew/analysisNewCopy.ts:2497
