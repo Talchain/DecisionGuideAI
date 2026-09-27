@@ -190,7 +190,7 @@ function RecordYourView({
   const recordedOn = formatRecordedOn(record.savedAt)
   return (
     <div data-testid={testId}>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1">
         <p
           className={`${typography.panelBody} text-text-header m-0 min-w-0 flex-1`}
           data-testid={`${testId}-title`}
@@ -280,7 +280,7 @@ export function CommitmentSummary({
       data-testid={testId}
       aria-labelledby={`${testId}-title`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <h3
           id={`${testId}-title`}
           className={`${typography.panelHeader} text-text-header m-0 min-w-0 flex-1`}
@@ -392,7 +392,9 @@ export function CommitmentSummary({
                     ? COMMITMENT_QUALIFIER_COPY.detailToggle.hide
                     : COMMITMENT_QUALIFIER_COPY.detailToggle.show
                 }
-                className={`${ACTION_FOCUS} inline-flex items-center justify-center min-h-[24px] min-w-[24px] -m-1 rounded text-text-light hover:text-text-body`}
+                // The touch target comes from the tier (`everyInlineActIsReachableByTouch`); `quiet`'s
+                // underline has no text to decorate on an icon-only act.
+                className={`${ACTION_FOCUS} ${action('quiet')} justify-center -m-1 hover:text-text-body`}
                 data-testid={`${testId}-qualifier-toggle`}
               >
                 <Info className="h-3 w-3 shrink-0" aria-hidden={true} />

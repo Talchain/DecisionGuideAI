@@ -491,7 +491,7 @@ export function DriverInfluenceChart({
               ) : null}
 
               {isEditing ? (
-                <div className="pl-1 pt-1 flex items-center gap-2" data-testid={`${testId}-editor`}>
+                <div className="pl-1 pt-1 flex items-center gap-1" data-testid={`${testId}-editor`}>
                   <input
                     type="text"
                     inputMode="decimal"

@@ -533,7 +533,7 @@ export function ModelReviewTool({
           data-review-key={current.key}
           data-target-id={current.targetId ?? undefined}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-1">
             {/* `.review-nav .header-text`: 12px, regular, light — a label for
                 the shell, not a section title. */}
             <span className={`${typography.panelBody} text-text-light`} data-testid={`${testId}-heading`}>
@@ -656,7 +656,7 @@ export function ModelReviewTool({
 
           {/* The prototype's `review-mini`: the why line, 11px light, with its ⓘ. */}
           {current.reason ? (
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-1">
               <p
                 className={`${typography.panelMeta} m-0 min-w-0 flex-1 text-text-light`}
                 data-testid={`${testId}-reason`}
@@ -680,7 +680,7 @@ export function ModelReviewTool({
             </p>
           ) : null}
 
-          <div className="relative mt-1 flex flex-wrap items-center gap-2">
+          <div className="relative mt-1 flex flex-wrap items-center gap-1">
             <span className="flex items-center" data-testid={`${testId}-acts`}>
               {current.recommendation ? (
                 <PanelIconButton
