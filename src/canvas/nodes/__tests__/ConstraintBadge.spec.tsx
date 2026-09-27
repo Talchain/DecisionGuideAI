@@ -62,7 +62,7 @@ describe('ConstraintBadge', () => {
     const { container } = render(<ConstraintBadge tooltip="test" />)
     for (const tid of ['constraint-badge', 'constraint-badge-hover']) {
       const el = container.querySelector(`[data-testid="${tid}"]`)
-      expect(el?.className, `${tid} is not counter-scaled`).toContain('var(--canvas-label-scale')
+      expect(el?.className, `${tid} is not counter-scaled`).toContain('var(--canvas-glyph-scale')
     }
   })
 

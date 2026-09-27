@@ -15,11 +15,26 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   LABEL_LEGIBLE_ZOOM,
+  LABEL_COUNTER_SCALE_CAP,
+  LANDING_TITLE_FLOOR_PX,
+  glyphCounterScale,
   labelCounterScale,
+  renderedGlyphPx,
   renderedLabelPx,
   CANVAS_LABEL_SCALE_VAR,
   MAX_LABEL_COUNTER_SCALE,
 } from '../zoomLegibility'
+
+/**
+ * ⭐ 27 Sep 2026 (canvas/landing-text-scale): TEXT carries a ceiling,
+ * `LABEL_COUNTER_SCALE_CAP` (1.39), so in the band [LABEL_LEGIBLE_ZOOM, 1 / CAP)
+ * it renders below its declared size — the brief's trade of type size for a
+ * board that fits. GLYPHS and TARGETS keep the old, uncapped rule
+ * (`glyphCounterScale`). The arms below that used to say "rendered === declared
+ * down to the floor" now say it of the glyph scale, and say exactly what text
+ * renders in the capped band instead — pinned, so a further drop REDs.
+ */
+const TEXT_EXACT_FROM = 1 / LABEL_COUNTER_SCALE_CAP
 
 /** DS v5 §2.3, as declared in src/styles/typography.ts. */
 /**
@@ -74,15 +89,23 @@ describe('labelCounterScale — bounded in both directions, by construction', ()
     for (const z of [1.25, 1.5, 2, 4]) expect(labelCounterScale(z)).toBe(1)
   })
 
-  it('is exactly 1/zoom across the band the product calls legible', () => {
+  it('is exactly 1/zoom across the band the product calls legible — for GLYPHS; for TEXT down to 1 / CAP, then the ceiling', () => {
     for (const z of [0.5, 0.6, 0.75, 0.9, 0.99]) {
-      expect(labelCounterScale(z)).toBeCloseTo(1 / z, 10)
+      expect(glyphCounterScale(z)).toBeCloseTo(1 / z, 10)
+      expect(labelCounterScale(z)).toBeCloseTo(z >= TEXT_EXACT_FROM ? 1 / z : LABEL_COUNTER_SCALE_CAP, 10)
     }
+    // CONTRAST: the two scales differ exactly in the capped band, and nowhere else.
+    expect(labelCounterScale(0.6)).toBeLessThan(glyphCounterScale(0.6))
+    expect(labelCounterScale(0.9)).toBe(glyphCounterScale(0.9))
   })
 
-  it('caps at 1 / LABEL_LEGIBLE_ZOOM below the floor — never unbounded', () => {
+  it('caps below the floor — never unbounded: glyphs at 1 / LABEL_LEGIBLE_ZOOM, text at the ceiling', () => {
     const cap = 1 / LABEL_LEGIBLE_ZOOM
-    for (const z of [0.49, 0.3, 0.1, 0.001]) expect(labelCounterScale(z)).toBe(cap)
+    for (const z of [0.49, 0.3, 0.1, 0.001]) {
+      expect(glyphCounterScale(z)).toBe(cap)
+      expect(labelCounterScale(z)).toBe(LABEL_COUNTER_SCALE_CAP)
+    }
+    expect(MAX_LABEL_COUNTER_SCALE).toBe(LABEL_COUNTER_SCALE_CAP)
   })
 
   it('returns the identity for a zoom that cannot produce a meaningful scale', () => {
@@ -103,21 +126,31 @@ describe('labelCounterScale — bounded in both directions, by construction', ()
 })
 
 describe('renderedLabelPx — the invariant the DS actually asks for', () => {
-  it('THE POINT: rendered px === declared px everywhere in the legible band', () => {
+  it('THE POINT: rendered px === declared px from 1 / CAP up (text), and across the whole legible band (glyphs)', () => {
     for (const [name, declared] of Object.entries(DECLARED)) {
-      for (const z of [LABEL_LEGIBLE_ZOOM, 0.55, 0.6, 0.72, 0.85, 0.95, 1]) {
+      for (const z of [TEXT_EXACT_FROM, 0.75, 0.85, 0.95, 1]) {
         expect(renderedLabelPx(declared, z), `${name} at zoom ${z}`).toBeCloseTo(declared, 10)
+      }
+      for (const z of [LABEL_LEGIBLE_ZOOM, 0.55, 0.6, 0.72, 0.85, 0.95, 1]) {
+        expect(renderedGlyphPx(declared, z), `glyph ${declared}px at zoom ${z}`).toBeCloseTo(declared, 10)
       }
     }
   })
 
-  it('every canvas token clears the DS v5 §2.4 canvas floor at the auto-fit settle zoom', () => {
+  it('at the auto-fit settle zoom a title clears the LANDING title floor, and each token renders exactly its pinned landing size', () => {
     // `useFitViewOnLayoutVersion` passes LABEL_LEGIBLE_ZOOM as fitView's
     // minZoom, and a post-draft graph clamps there — so this IS the zoom the
-    // product parks a fresh user at.
+    // product parks a fresh user at. Since 27 Sep the brief's floor there is
+    // LANDING_TITLE_FLOOR_PX (9.5px), below DS v5 §2.4's 10px: STATED, and
+    // pinned per token so a further drop is a decision, not a drift.
+    expect(renderedLabelPx(DECLARED.nodeTitle, LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(LANDING_TITLE_FLOOR_PX)
+    const LANDING_PX = { nodeTitle: 9.73, nodeValue: 9.73, nodeLabel: 8.34, edgeLabel: 7.645 } as const
     for (const [name, declared] of Object.entries(DECLARED)) {
-      expect(renderedLabelPx(declared, LABEL_LEGIBLE_ZOOM), name)
-        .toBeGreaterThanOrEqual(DS_CANVAS_FLOOR_PX)
+      expect(renderedLabelPx(declared, LABEL_LEGIBLE_ZOOM), name).toBeCloseTo(LANDING_PX[name as keyof typeof LANDING_PX], 10)
+    }
+    // …and every token clears the DS floor again from 1 / CAP up.
+    for (const [name, declared] of Object.entries(DECLARED)) {
+      expect(renderedLabelPx(declared, TEXT_EXACT_FROM), name).toBeGreaterThanOrEqual(DS_CANVAS_FLOOR_PX)
     }
   })
 
@@ -195,8 +228,10 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // Below LABEL_LEGIBLE_ZOOM the LOD view has hidden most labels; the few that
     // are kept (goal / decision / the leading option) shrink linearly from the
     // capped scale instead of vanishing.
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(12.6)
-    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(11.2, 6)
+    // 14 × LABEL_COUNTER_SCALE_CAP (1.39) × zoom since 27 Sep 2026 (was × 2:
+    // 12.6 and 11.2).
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.45)).toBeCloseTo(8.757, 6)
+    expect(renderedLabelPx(DECLARED.nodeTitle, 0.4)).toBeCloseTo(7.784, 6)
 
     /*
      * ⭐⭐ THE 12 Sep 2026 RAMP REPAYS THE TRADE THE 1 Sep CHANGE ACCEPTED —
@@ -229,8 +264,12 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
      * This assertion is the thing that will notice if someone shaves the
      * declared size again, so the next person has to come here and re-argue it.
      */
+    // ⚠ 27 Sep 2026: with the text ceiling the title crosses the 10px floor at
+    // 10 / (14 × 1.39) ≈ 0.514 — ABOVE the landing floor. The landing promise is
+    // now LANDING_TITLE_FLOOR_PX (9.5px), and it still holds AT the landing floor.
     const floorCrossingZoom = DS_CANVAS_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)
-    expect(floorCrossingZoom).toBeLessThan(LABEL_LEGIBLE_ZOOM)
+    expect(floorCrossingZoom).toBeCloseTo(0.51387, 4)
+    expect(LANDING_TITLE_FLOOR_PX / (DECLARED.nodeTitle * MAX_LABEL_COUNTER_SCALE)).toBeLessThanOrEqual(LABEL_LEGIBLE_ZOOM)
   })
 })
 

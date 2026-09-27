@@ -298,7 +298,7 @@ const TARGET_HANDLE_STYLE: CSSProperties = {
   height: TARGET_HANDLE_PX,
   border: 0,
   background: 'transparent',
-  top: `calc(${TARGET_HANDLE_PX / 2}px - ${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-label-scale, 1))`,
+  top: `calc(${TARGET_HANDLE_PX / 2}px - ${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-glyph-scale, 1))`,
 }
 
 /**
@@ -325,7 +325,8 @@ const ANCHOR_PAD_BOTTOM_PX = 9
  *     keeps the card's full measure.
  */
 function anchorBodyRailStyle(buttons: number): CSSProperties {
-  const scale = 'var(--canvas-label-scale, 1)'
+  // The rail is GLYPHS and TARGETS, so its footprint reads the glyph scale.
+  const scale = 'var(--canvas-glyph-scale, 1)'
   const reserve = anchorRailReservePx(anchorRailButtonsKey(buttons))
   return {
     paddingRight: `calc(${reserve}px * ${scale} + ${CANVAS_QUICK_ACTION_INSET_PX - 12}px)`,
@@ -2307,9 +2308,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         data-testid="node-type-glyph"
         className="pointer-events-none absolute left-1/2 z-10 flex -translate-x-1/2 items-center justify-center"
         style={{
-          top: `calc(-${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-label-scale, 1))`,
-          width: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
-          height: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-label-scale, 1))`,
+          top: `calc(-${CONNECTOR_GLYPH_PX / 2}px * var(--canvas-glyph-scale, 1))`,
+          width: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-glyph-scale, 1))`,
+          height: `calc(${CONNECTOR_GLYPH_PX}px * var(--canvas-glyph-scale, 1))`,
           filter: 'drop-shadow(0 0 1px var(--bg-panel))',
         }}
       >

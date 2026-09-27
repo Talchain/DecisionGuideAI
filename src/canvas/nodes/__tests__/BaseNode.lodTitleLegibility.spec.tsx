@@ -32,6 +32,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { Crosshair } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
 import {
+  LABEL_COUNTER_SCALE_CAP,
   LABEL_LEGIBLE_ZOOM,
   labelCounterScale,
   renderedLabelPx,
@@ -193,12 +194,17 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
   it('the OLD spelling was smaller than an ordinary title at every zoom in the band', () => {
     // The refutation, kept as evidence rather than as prose. `text-lg` carries
     // no counter-scale, so its rendered size is `18 * zoom` flat.
+    // ⚠ FLIPPED BY THE LANDING TEXT CEILING (27 Sep 2026). At the old 2x cap the
+    // counter-scaled 12px drew 24z and the fixed 18px was smaller everywhere. At
+    // the 1.39 ceiling it draws 16.68z, so the OLD fixed spelling would now be the
+    // LARGER one, by exactly 18 / 16.68, at every zoom in the band. The boost
+    // stays on the one text authority by design (every label shrank with the
+    // ceiling); recorded here, both directions pinned, so the trade is visible.
     const worse = BAND.filter((z) => TEXT_LG_PX * z < renderedLabelPx(12, z))
-    expect(
-      worse,
-      'the premise of this fix is that the old boost was smaller everywhere; if this list ' +
-        'is not the whole band, the fix is aimed at the wrong thing',
-    ).toEqual(BAND)
+    expect(worse, 'the old fixed boost is no longer smaller anywhere under the text ceiling').toEqual([])
+    for (const z of BAND) {
+      expect(TEXT_LG_PX * z / renderedLabelPx(12, z)).toBeCloseTo(18 / (12 * LABEL_COUNTER_SCALE_CAP), 10)
+    }
   })
 
   /*
@@ -220,7 +226,8 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
     // typed: `24z / 18z`. Pinned so a change to either size is visible here.
     const z = 0.2595
     expect(Number((TEXT_LG_PX * z).toFixed(2))).toBe(4.67)
-    expect(Number(renderedLabelPx(12, z).toFixed(2))).toBe(6.23)
+    // 6.23 → 4.33 (27 Sep 2026): 12 × 1.39 × z under the landing text ceiling.
+    expect(Number(renderedLabelPx(12, z).toFixed(2))).toBe(4.33)
   })
 
   /**
@@ -256,6 +263,7 @@ describe('the boost is never a shrink, at any zoom it can apply to', () => {
     // …and the cap is reached AT the floor, which is what makes the whole band
     // below it shrink linearly. If this ever stops holding, the gap has been
     // closed (or moved) and this test must be revisited rather than deleted.
-    expect(labelCounterScale(LABEL_LEGIBLE_ZOOM)).toBe(1 / LABEL_LEGIBLE_ZOOM)
+    // (27 Sep 2026: the text cap is the landing text ceiling, not 1 / LABEL_LEGIBLE_ZOOM.)
+    expect(labelCounterScale(LABEL_LEGIBLE_ZOOM)).toBe(LABEL_COUNTER_SCALE_CAP)
   })
 })

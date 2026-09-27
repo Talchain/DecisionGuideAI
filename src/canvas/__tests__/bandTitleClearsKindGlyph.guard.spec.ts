@@ -44,7 +44,7 @@ import {
   ROW_PROMPT_W,
   TIER_BY_KIND,
 } from '../utils/nodeLayoutConstants'
-import { MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 import { deriveTierLanes, tierLaneTitleBoxFor, LANE_TITLE_GAP } from '../utils/tierLanes'
 import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
 import { LANE_TITLE_LINE_PX } from '../utils/tierLanes'
@@ -65,8 +65,12 @@ const STARTERS: Record<string, Draft> = {
 }
 const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> }).heights
 
-/** The landing bound: the counter-scale every title and shape carries at 0.5. */
+/**
+ * The landing bounds: the band TITLE is text (`MAX_LABEL_COUNTER_SCALE`, 1.39 since
+ * 27 Sep 2026); the kind SHAPE is a glyph (`MAX_GLYPH_COUNTER_SCALE`, 2).
+ */
 const S = MAX_LABEL_COUNTER_SCALE
+const G = MAX_GLYPH_COUNTER_SCALE
 
 type Box = { x0: number; y0: number; x1: number; y1: number }
 const area = (a: Box, b: Box): { w: number; h: number } => ({
@@ -122,7 +126,7 @@ async function laidOutBoard(
     const member = cards.find((n) => TIER_BY_KIND[n.type as string] === lane.tier)!
     return { lane, box: tierLaneTitleBoxFor(laid, member.id)! }
   })
-  const shapes = cards.map((n) => ({ id: n.id, box: kindShapeBox(n, cardW(n), S) }))
+  const shapes = cards.map((n) => ({ id: n.id, box: kindShapeBox(n, cardW(n), G) }))
   const cardBoxes = [
     ...cards.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + cardW(n), y1: n.position.y + heights[n.id]! } })),
     ...prompts.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + ROW_PROMPT_W, y1: n.position.y + ROW_PROMPT_H } })),
@@ -155,9 +159,11 @@ afterAll(() => {
 describe('the row gap holds a kind shape and a band title, both at the bound', () => {
   it('visible gap ≥ shape overhang + clearance + title line + clearance', () => {
     const visible = LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y
-    const needed = (KIND_GLYPH_PX / 2) * S + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
-    expect(S).toBe(2)
-    expect(needed).toBe(64)
+    const needed = (KIND_GLYPH_PX / 2) * G + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
+    expect(G).toBe(2)
+    expect(S).toBe(1.39)
+    // 24 + 8 + 12 × 1.39 + 8 = 56.68 (was 64 at a shared scale of 2): the title line shrank.
+    expect(needed).toBeCloseTo(56.68, 10)
     expect(visible).toBeGreaterThanOrEqual(needed)
   })
 })

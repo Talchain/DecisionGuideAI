@@ -58,7 +58,7 @@ import {
   LOD_BODY_HIDDEN_ZOOM,
   LOD_BODY_RESTORED_ZOOM,
   fitBoundsFor,
-  labelCounterScale,
+  glyphCounterScale,
 } from '../utils/zoomLegibility'
 import { isLodZoom } from '../components/LodSync'
 import { CANVAS_TYPE_PX } from '../../styles/typography'
@@ -222,8 +222,13 @@ describe('resolveLodRung — boundary PAIRS, either side of both thresholds', ()
    * picked number in a module whose argument is that thresholds are derived.
    */
   it('the cliff IS the DS text floor, not a chosen ratio', () => {
+    // Since the landing text ceiling (27 Sep 2026) body text renders BELOW its
+    // declared size in [LOD_BODY_HIDDEN_ZOOM, 1 / LABEL_COUNTER_SCALE_CAP), so the
+    // cliff is derived at the DECLARED-size scale (`glyphCounterScale`, uncapped):
+    // where body text, held at its declared size, would reach the floor. Still a
+    // derivation, never a picked ratio.
     const renderedBodyPxAtCliff =
-      CANVAS_TYPE_PX.nodeLabel * labelCounterScale(LOD_BODY_HIDDEN_ZOOM) * LOD_BODY_HIDDEN_ZOOM
+      CANVAS_TYPE_PX.nodeLabel * glyphCounterScale(LOD_BODY_HIDDEN_ZOOM) * LOD_BODY_HIDDEN_ZOOM
     expect(
       renderedBodyPxAtCliff,
       'the body cliff is no longer the point where body text hits CANVAS_TEXT_FLOOR_PX — it has become a picked number again',

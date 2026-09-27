@@ -44,13 +44,19 @@ const MEASURED_CHARS = 25
  * `nodeTextClipping.visual.spec.ts` catches in a browser.
  */
 describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
-  it('matches the measurement, re-applied to the card the rows now render in', () => {
+  it('matches the measurement, re-applied to the card AND the type the rows now render in', () => {
     const inset = MEASURED_CARD - MEASURED_BLOCK
-    const perChar = MEASURED_BLOCK / MEASURED_CHARS
+    // ⭐ 27 Sep 2026 (landing text ceiling): the measurement was taken at 24px
+    // rendered type — 12px × the then-bound of 2. The type now reaches the row at
+    // 12 × 1.39, so each character is narrower by 1.39 / 2 and the SAME card
+    // holds more of them: 18 → 25 on the 248 card. The type moved, so the budget
+    // moved — this file's whole point, in the other direction.
+    const MEASURED_SCALE = 2
+    const perChar = (MEASURED_BLOCK / MEASURED_CHARS) * (MAX_LABEL_COUNTER_SCALE / MEASURED_SCALE)
     expect(NODE_ROW_LABEL_MAX_CHARS).toBe(Math.floor((REPEATED_CARD_W - inset) / perChar))
-    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(18)
-    // It MOVED with the card — strictly below the 25 a 336 card affords.
-    expect(NODE_ROW_LABEL_MAX_CHARS).toBeLessThan(MEASURED_CHARS)
+    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(25)
+    // CONTRAST: at the old bound the same card held 17 — the scale is load-bearing.
+    expect(Math.floor((REPEATED_CARD_W - inset) / (MEASURED_BLOCK / MEASURED_CHARS))).toBe(17)
   })
 
   it('is computed from the card width and the counter-scale, not written down', () => {
@@ -113,7 +119,10 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
     // CONTRAST: the corpus really exercises the cut, or the loop above is vacuous.
     expect(cutCount).toBeGreaterThan(0)
     // Bound by identity to one label the S4 row now cuts.
-    expect(compactFactorLabel('In-house build approach', NODE_ROW_LABEL_MAX_CHARS)).toBe('In-house build…')
+    // 27 Sep 2026: at the 25-character budget this label (23) is whole; the
+    // cut-at-a-word example is now a longer shipped label.
+    expect(compactFactorLabel('In-house build approach', NODE_ROW_LABEL_MAX_CHARS)).toBe('In-house build approach')
+    expect(compactFactorLabel('Competitive intensity in segment', NODE_ROW_LABEL_MAX_CHARS)).toBe('Competitive intensity in…')
   })
 
   it('the budget shrinks if the type is counter-scaled harder', () => {

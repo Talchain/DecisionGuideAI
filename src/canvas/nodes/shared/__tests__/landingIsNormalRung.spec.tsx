@@ -63,7 +63,7 @@ import {
   LABEL_LEGIBLE_ZOOM,
   LOD_BODY_HIDDEN_ZOOM,
   ICON_LEGIBLE_ZOOM,
-  renderedLabelPx,
+  renderedGlyphPx,
 } from '../../../utils/zoomLegibility'
 
 // The measured landing band this branch is built against
@@ -143,17 +143,18 @@ describe('the coaching icon, bound by testid identity, at the zoom the product a
 describe('legibility arithmetic — the reason the ruling does not reopen the old defect', () => {
   it('a rail glyph declared at NODE_RAIL_GLYPH_PX (14) renders at its full declared size at the landing floor, not half of it', () => {
     // The exact arithmetic `canvasGlyphScale.ts`'s CSS performs:
-    // declaredPx * labelCounterScale(zoom) * zoom.
-    expect(renderedLabelPx(NODE_RAIL_GLYPH_PX, LABEL_LEGIBLE_ZOOM)).toBe(NODE_RAIL_GLYPH_PX)
+    // declaredPx * glyphCounterScale(zoom) * zoom.
+    // Glyphs ride the UNCAPPED glyph scale (27 Sep 2026), not the capped text scale.
+    expect(renderedGlyphPx(NODE_RAIL_GLYPH_PX, LABEL_LEGIBLE_ZOOM)).toBe(NODE_RAIL_GLYPH_PX)
     for (const z of LANDING_ZOOMS) {
-      expect(renderedLabelPx(NODE_RAIL_GLYPH_PX, z)).toBeGreaterThanOrEqual(10)
+      expect(renderedGlyphPx(NODE_RAIL_GLYPH_PX, z)).toBeGreaterThanOrEqual(10)
     }
   })
 
   it('the driver cue glyph (11px declared) also clears the 10px canvas text floor at the landing band', () => {
     const DRIVER_CUE_GLYPH_PX = 11
     for (const z of LANDING_ZOOMS) {
-      expect(renderedLabelPx(DRIVER_CUE_GLYPH_PX, z)).toBeGreaterThanOrEqual(10)
+      expect(renderedGlyphPx(DRIVER_CUE_GLYPH_PX, z)).toBeGreaterThanOrEqual(10)
     }
   })
 })

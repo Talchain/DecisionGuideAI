@@ -153,7 +153,7 @@ describe('the `quiet` rung spends only the rail (S5) — the card still says exa
   // ⛔ UPDATED 25 Sep 2026 (gap 34): 22 → 27, because the DESIGN moved the rail
   // box to the contract's 25px (`.icon-btn{width:25px}`) and the band is derived
   // from it (6 + (25 + 2) × scale). Same element, same claim.
-  const BAND = /calc\(6px \+ 27px \* var\(--canvas-label-scale/
+  const BAND = /calc\(6px \+ 27px \* var\(--canvas-glyph-scale/
   const textOf = (html: string) => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent }
   const testIdsOf = (html: string) => (html.match(/data-testid="[^"]*"/g) ?? []).sort()
 

@@ -535,7 +535,13 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {})
-    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    // ⚠ RE-PINNED 27 Sep 2026 (landing text ceiling 1.39): NODE_LAYOUT_MIN_W is now
+    // 194.12 (the widest title word at the TEXT bound), BELOW the ED repeated-card
+    // target of 248, so a four-per-row sub-row's fair share (≥ 248) is what binds
+    // and the floor no longer does. The floor still bounds the width from below.
+    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(194.12, 10)
+    expect(layoutNodeWidth).toBe(REPEATED_CARD_W)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
     // All positions must be finite and non-overlapping (using NODE_LAYOUT_MIN_W for overlap check)
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)

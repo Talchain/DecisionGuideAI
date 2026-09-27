@@ -744,6 +744,23 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    *     headcount-allocation  3d73e3f6680ca522 → 4be1370b74437e13
    *     pricing-model         070e4585642d75c3 → 1c3290a94885e808
    *
+   * ── LANDING TEXT CEILING (27 Sep 2026, #2137), a SIXTH re-record, for the
+   * reviewer (NOT LOW) ──
+   * One cause only: the repeated card is 248 wide, not 260. The text counter-scale
+   * is capped at 1.39 at the landing, so `NODE_LAYOUT_MIN_W` (the widest title
+   * word at the TEXT bound) falls 260 → 194.12 and no longer raises the ED
+   * repeated-card target (`REPEATED_CARD_W` = max(248, floor) = 248). PROVEN
+   * BEFORE RECORDING by an attribution mutant: this head with ONLY
+   * `REPEATED_CARD_TARGET_W` set to 260 reproduces the five recorded digests
+   * below byte for byte (25/25 green), so nothing else moves the shape.
+   * Measured with this file's own `positionSignature`:
+   *
+   *     vendor-selection      35309bbdffbab00a → 2571ae4f0a34f6b3
+   *     market-entry          a1c1ce0ab1287e38 → 7e31ac2c4f6d7c5c
+   *     build-vs-buy          62f759e915293e1d → d9353d548ccaeea6
+   *     headcount-allocation  4be1370b74437e13 → c445ee9b576edf32
+   *     pricing-model         1c3290a94885e808 → 6d542cdbbb736623
+   *
    * Before recording, the layout / tier-lane / BaseNode reader set was GREEN
    * except these five rows: every R1 "one canonical layout" test,
    * `s4NoSameRowOverlap`, `s4RowGeometry`, `laptopFit1280.bandRows`,
@@ -753,11 +770,11 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * `bandTitleClearsKindGlyph.guard`.
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '35309bbdffbab00a', nodes: 19 },
-    'market-entry': { digest: 'a1c1ce0ab1287e38', nodes: 18 },
-    'build-vs-buy': { digest: '62f759e915293e1d', nodes: 19 },
-    'headcount-allocation': { digest: '4be1370b74437e13', nodes: 16 },
-    'pricing-model': { digest: '1c3290a94885e808', nodes: 15 },
+    'vendor-selection': { digest: '2571ae4f0a34f6b3', nodes: 19 },
+    'market-entry': { digest: '7e31ac2c4f6d7c5c', nodes: 18 },
+    'build-vs-buy': { digest: 'd9353d548ccaeea6', nodes: 19 },
+    'headcount-allocation': { digest: 'c445ee9b576edf32', nodes: 16 },
+    'pricing-model': { digest: '6d542cdbbb736623', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

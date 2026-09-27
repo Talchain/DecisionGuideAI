@@ -95,7 +95,11 @@ describe('useRestoredLayoutWidth', () => {
     // The load-bearing assertion: NOT the max. Without the hook this reads
     // `null`, BaseNode falls back to NODE_CARD_MAX_W, and cards render 90px
     // wider than the stride their positions sit on.
-    expect(useLayoutStore.getState().layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    // RE-PINNED 27 Sep 2026: the S4 single width is the repeated width, which
+    // NODE_LAYOUT_MIN_W used to equal (260). Under the landing text ceiling the
+    // floor is 194.12 and the repeated width is the ED target, 248.
+    expect(useLayoutStore.getState().layoutNodeWidth).toBe(REPEATED_CARD_W)
+    expect(useLayoutStore.getState().layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
     expect(useLayoutStore.getState().layoutNodeWidth).not.toBe(NODE_CARD_MAX_W)
   })
 

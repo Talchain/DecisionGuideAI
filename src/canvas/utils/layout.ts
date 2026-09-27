@@ -68,7 +68,6 @@ export function loadLayoutEngine(): Promise<ElkModule> {
 import { Node, Edge } from '@xyflow/react'
 import { NODE_REGISTRY } from '../domain/nodes'
 import {
-  NODE_LAYOUT_MIN_W,
   LAYOUT_PADDING_X,
   LAYOUT_PADDING_Y,
   DEFAULT_NODE_HEIGHT,
@@ -193,7 +192,7 @@ function promptSlotWidth(promptKinds: readonly string[], gap: number): number {
  * row-end prompt slot inside the budget:
  *
  *     share = floor((CANONICAL_LAYOUT_WIDTH − promptSlot − (k−1)·gap) / k) − padding
- *     width = max(NODE_LAYOUT_MIN_W, min(tier cap, share))
+ *     width = max(REPEATED_CARD_W, min(tier cap, share))   (REPEATED_CARD_W ≥ NODE_LAYOUT_MIN_W)
  *
  * ⚠ LEGIBILITY WINS OVER THE BUDGET, in that order and on purpose: a share below
  * the floor would draw a card narrower than its widest title word at the
@@ -211,7 +210,14 @@ function tierCardWidth(tier: number, widestSubRow: number, promptKinds: readonly
   const share =
     Math.floor((CANONICAL_LAYOUT_WIDTH - promptSlotWidth(promptKinds, gap) - (k - 1) * gap) / k) -
     LAYOUT_PADDING_X
-  return Math.max(NODE_LAYOUT_MIN_W, Math.min(cardWidthCapForTier(tier), share))
+  // ⚠ THE FLOOR IS THE REPEATED-CARD WIDTH, not `NODE_LAYOUT_MIN_W` (27 Sep 2026).
+  // They were the same number (260) until the landing text ceiling put the
+  // legibility floor (194.12) under the ED repeated-card target (248); a floor
+  // below the repeated width let a wide gap bind the share on a repeated tier —
+  // breaking S4's one reachable width and letting `solveLayoutNodeWidth` and this
+  // disagree (`layoutNodeWidthDerivation.spec.ts`). `REPEATED_CARD_W` is
+  // max(target, NODE_LAYOUT_MIN_W), so legibility still wins over the budget.
+  return Math.max(REPEATED_CARD_W, Math.min(cardWidthCapForTier(tier), share))
 }
 
 interface TierPlan {

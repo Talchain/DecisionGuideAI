@@ -87,7 +87,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
-import { LABEL_LEGIBLE_ZOOM, renderedLabelPx } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, LANDING_TITLE_FLOOR_PX, renderedGlyphPx, renderedLabelPx } from '../utils/zoomLegibility'
 import { GHOST_OPTION_NODE_ID } from '../utils/fitTargets'
 import { STACKED_SPREAD_PX, getGraphIdentityKey } from '../utils/graphNeedsInitialLayout'
 
@@ -509,12 +509,17 @@ describe('useFitViewOnLayoutVersion — the restore trigger', () => {
     expect(fitViewSpy).toHaveBeenCalledTimes(1)
     const floor = fitViewSpy.mock.calls[0][0].minZoom as number
     expect(typeof floor, 'a DROPPED floor must not pass silently').toBe('number')
-    // At the floor, a declared canvas size renders AT its declared size.
-    expect(renderedLabelPx(10, floor)).toBeCloseTo(10, 10)
-    expect(renderedLabelPx(13, floor)).toBeCloseTo(13, 10)
+    // At the floor, a declared GLYPH or TARGET size renders AT its declared size
+    // (the uncapped glyph scale saturates exactly there)…
+    expect(renderedGlyphPx(10, floor)).toBeCloseTo(10, 10)
+    expect(renderedGlyphPx(13, floor)).toBeCloseTo(13, 10)
+    // …and a title renders at or above the landing title floor (the text ceiling,
+    // 27 Sep 2026, trades declared size for board height in this band).
+    expect(renderedLabelPx(14, floor)).toBeGreaterThanOrEqual(LANDING_TITLE_FLOOR_PX)
     // POSITIVE CONTROL — the measured restore park is judged short by the same
     // arithmetic, so "meets the floor" is a verdict something can fail.
-    expect(renderedLabelPx(10, MEASURED_RESTORE_PARK_ZOOM)).toBeLessThan(10)
+    expect(renderedGlyphPx(10, MEASURED_RESTORE_PARK_ZOOM)).toBeLessThan(10)
+    expect(renderedLabelPx(14, MEASURED_RESTORE_PARK_ZOOM)).toBeLessThan(LANDING_TITLE_FLOOR_PX)
   })
 
   it('a restore fit still pending is ABANDONED when a layout takes over', () => {

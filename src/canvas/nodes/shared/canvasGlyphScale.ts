@@ -53,7 +53,7 @@
  */
 
 import type { CSSProperties } from 'react'
-import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import { MAX_GLYPH_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import { NODE_TITLE_WIDEST_WORD_PX } from '../../utils/nodeLayoutConstants'
 import { CANVAS_TYPE_PX } from '../../../styles/typography'
 
@@ -73,15 +73,29 @@ export type CanvasGlyphPx = 9 | 10 | 11 | 12 | 14 | 15 | 20 | 24 | 25
  * the honest fallback where it did not.
  */
 export const CANVAS_GLYPH_SIZE_CLASSES: Readonly<Record<CanvasGlyphPx, string>> = Object.freeze({
-  9: 'w-[calc(9px*var(--canvas-label-scale,1))] h-[calc(9px*var(--canvas-label-scale,1))]',
+  9: 'w-[calc(9px*var(--canvas-glyph-scale,1))] h-[calc(9px*var(--canvas-glyph-scale,1))]',
+  10: 'w-[calc(10px*var(--canvas-glyph-scale,1))] h-[calc(10px*var(--canvas-glyph-scale,1))]',
+  11: 'w-[calc(11px*var(--canvas-glyph-scale,1))] h-[calc(11px*var(--canvas-glyph-scale,1))]',
+  12: 'w-[calc(12px*var(--canvas-glyph-scale,1))] h-[calc(12px*var(--canvas-glyph-scale,1))]',
+  14: 'w-[calc(14px*var(--canvas-glyph-scale,1))] h-[calc(14px*var(--canvas-glyph-scale,1))]',
+  15: 'w-[calc(15px*var(--canvas-glyph-scale,1))] h-[calc(15px*var(--canvas-glyph-scale,1))]',
+  20: 'w-[calc(20px*var(--canvas-glyph-scale,1))] h-[calc(20px*var(--canvas-glyph-scale,1))]',
+  24: 'w-[calc(24px*var(--canvas-glyph-scale,1))] h-[calc(24px*var(--canvas-glyph-scale,1))]',
+  25: 'w-[calc(25px*var(--canvas-glyph-scale,1))] h-[calc(25px*var(--canvas-glyph-scale,1))]',
+})
+
+/**
+ * ⭐ GLYPHS THAT SIT INSIDE A TEXT LINE WHOSE BOX IS DERIVED FROM TEXT — the
+ * edge-label chip, whose collision box (`edgeLabelCollision`'s
+ * `LABEL_BOX_HEIGHT`) is the label's TEXT line at `MAX_LABEL_COUNTER_SCALE`.
+ * They ride the TEXT scale (`--canvas-label-scale`), not the glyph scale, so
+ * under the landing text ceiling (27 Sep 2026) the chip never outgrows the box
+ * the resolver clears, and the pulse mark keeps its proportion inside the 16px
+ * fragility disc (itself text-scaled). Decorative marks only — never a target.
+ */
+export const CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES: Readonly<Record<10 | 12, string>> = Object.freeze({
   10: 'w-[calc(10px*var(--canvas-label-scale,1))] h-[calc(10px*var(--canvas-label-scale,1))]',
-  11: 'w-[calc(11px*var(--canvas-label-scale,1))] h-[calc(11px*var(--canvas-label-scale,1))]',
   12: 'w-[calc(12px*var(--canvas-label-scale,1))] h-[calc(12px*var(--canvas-label-scale,1))]',
-  14: 'w-[calc(14px*var(--canvas-label-scale,1))] h-[calc(14px*var(--canvas-label-scale,1))]',
-  15: 'w-[calc(15px*var(--canvas-label-scale,1))] h-[calc(15px*var(--canvas-label-scale,1))]',
-  20: 'w-[calc(20px*var(--canvas-label-scale,1))] h-[calc(20px*var(--canvas-label-scale,1))]',
-  24: 'w-[calc(24px*var(--canvas-label-scale,1))] h-[calc(24px*var(--canvas-label-scale,1))]',
-  25: 'w-[calc(25px*var(--canvas-label-scale,1))] h-[calc(25px*var(--canvas-label-scale,1))]',
 })
 
 /**
@@ -98,7 +112,7 @@ export const CANVAS_GLYPH_SIZE_CLASSES: Readonly<Record<CanvasGlyphPx, string>> 
  * verified against the repo's own Tailwind, not assumed.
  */
 export const CANVAS_HIT_SLOP_CLASSES: Readonly<Record<2, string>> = Object.freeze({
-  2: "before:absolute before:-inset-[calc(2px*var(--canvas-label-scale,1))] before:content-['']",
+  2: "before:absolute before:-inset-[calc(2px*var(--canvas-glyph-scale,1))] before:content-['']",
 })
 
 /**
@@ -111,7 +125,7 @@ export const CANVAS_HIT_SLOP_CLASSES: Readonly<Record<2, string>> = Object.freez
  * would begin to overlap. Scaling both preserves the ratio at every zoom.
  */
 export const CANVAS_GAP_CLASSES: Readonly<Record<6, string>> = Object.freeze({
-  6: 'gap-[calc(6px*var(--canvas-label-scale,1))]',
+  6: 'gap-[calc(6px*var(--canvas-glyph-scale,1))]',
 })
 
 /**
@@ -125,8 +139,8 @@ export const CANVAS_GAP_CLASSES: Readonly<Record<6, string>> = Object.freeze({
  * other.
  */
 export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Object.freeze({
-  6: 'bottom-[calc(-6px*var(--canvas-label-scale,1))] right-[calc(-6px*var(--canvas-label-scale,1))]',
-  12: 'bottom-[calc(-12px*var(--canvas-label-scale,1))] right-[calc(-12px*var(--canvas-label-scale,1))]',
+  6: 'bottom-[calc(-6px*var(--canvas-glyph-scale,1))] right-[calc(-6px*var(--canvas-glyph-scale,1))]',
+  12: 'bottom-[calc(-12px*var(--canvas-glyph-scale,1))] right-[calc(-12px*var(--canvas-glyph-scale,1))]',
 })
 
 /**
@@ -204,7 +218,7 @@ export const CANVAS_CORNER_MARK_CLEARANCE_PX = 1 as const
 export const CANVAS_CARD_FRAME_PX = 1 as const
 
 export const CANVAS_CORNER_STACK_CLASSES =
-  'absolute top-[5px] right-[7px] z-10 flex items-center gap-[calc(4px*var(--canvas-label-scale,1))]'
+  'absolute top-[5px] right-[7px] z-10 flex items-center gap-[calc(4px*var(--canvas-glyph-scale,1))]'
 
 /** The run of `count` corner marks at scale 1: the boxes and the gaps between them. */
 export function cornerMarksRunPx(count: number): number {
@@ -218,7 +232,7 @@ export function cornerMarksRunPx(count: number): number {
  * with it while their inset does not.
  */
 function cornerMarksClearanceCss(count: number): string {
-  return `calc(${CANVAS_CORNER_MARK_RIGHT_PX + CANVAS_CORNER_MARK_CLEARANCE_PX}px + ${cornerMarksRunPx(count)}px * var(--canvas-label-scale, 1))`
+  return `calc(${CANVAS_CORNER_MARK_RIGHT_PX + CANVAS_CORNER_MARK_CLEARANCE_PX}px + ${cornerMarksRunPx(count)}px * var(--canvas-glyph-scale, 1))`
 }
 
 /**
@@ -362,16 +376,19 @@ const titleWordWidthCache = new Map<string, number>()
 export function cornerMarksTitleSpacerCss(count: number, box: CornerMarksTitleBox): CornerMarksTitleSpacer | undefined {
   const run = cornerMarksRunPx(count)
   if (run === 0) return undefined
-  const scale = 'var(--canvas-label-scale, 1)'
+  // The marks grow with the GLYPH scale, the title word with the TEXT scale —
+  // two scales since the landing text ceiling (27 Sep 2026).
+  const glyph = 'var(--canvas-glyph-scale, 1)'
+  const text = 'var(--canvas-label-scale, 1)'
   const inset = CANVAS_CORNER_MARK_RIGHT_PX + CANVAS_CORNER_MARK_CLEARANCE_PX
-  // Yield iff clearance − rightToFrame > measure − widest × scale, i.e.
-  // (run + widest) × scale > measure + rightToFrame − inset. 0 below, 1 above.
+  // Yield iff clearance − rightToFrame > measure − widest × text, i.e.
+  // run × glyph + widest × text > measure + rightToFrame − inset. 0 below, 1 above.
   const word = box.firstWordPx !== undefined && Number.isFinite(box.firstWordPx) && box.firstWordPx > 0
     ? Math.ceil(box.firstWordPx) + TITLE_WORD_METRIC_SLACK_PX
     : NODE_TITLE_WIDEST_WORD_PX
-  const yieldStep = `clamp(0, (${run + word} * ${scale} - ${box.measurePx + box.rightToFramePx - inset}) * ${CORNER_MARKS_YIELD_GAIN}, 1)`
+  const yieldStep = `clamp(0, (${run} * ${glyph} + ${word} * ${text} - ${box.measurePx + box.rightToFramePx - inset}) * ${CORNER_MARKS_YIELD_GAIN}, 1)`
   // The marks' bottom plus the clearance, below the title box's top.
-  const marksBottom = `calc(${CANVAS_CORNER_MARK_TOP_PX + CANVAS_CORNER_MARK_CLEARANCE_PX - box.topPx}px + ${CANVAS_QUICK_ACTION_BOX_PX}px * ${scale})`
+  const marksBottom = `calc(${CANVAS_CORNER_MARK_TOP_PX + CANVAS_CORNER_MARK_CLEARANCE_PX - box.topPx}px + ${CANVAS_QUICK_ACTION_BOX_PX}px * ${glyph})`
   return {
     width: `max(0px, ${cornerMarksClearanceCss(count)} - ${box.rightToFramePx}px, calc(100% * ${yieldStep}))`,
     height: `max(1lh, calc(${marksBottom} * ${yieldStep}))`,
@@ -438,8 +455,8 @@ export const CANVAS_HEADER_GLYPH_GROUP_CLASSES = 'inline-flex items-center gap-1
 export const CANVAS_HEADER_GLYPH_GAP_PX = 4
 
 export const CANVAS_CORNER_OFFSET_CLASSES_LEFT: Readonly<Record<6 | 12, string>> = Object.freeze({
-  6: 'bottom-[calc(-6px*var(--canvas-label-scale,1))] left-[calc(-6px*var(--canvas-label-scale,1))]',
-  12: 'bottom-[calc(-12px*var(--canvas-label-scale,1))] left-[calc(-12px*var(--canvas-label-scale,1))]',
+  6: 'bottom-[calc(-6px*var(--canvas-glyph-scale,1))] left-[calc(-6px*var(--canvas-glyph-scale,1))]',
+  12: 'bottom-[calc(-12px*var(--canvas-glyph-scale,1))] left-[calc(-12px*var(--canvas-glyph-scale,1))]',
 })
 
 /**
@@ -538,7 +555,7 @@ export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
  */
 export const NODE_QUICK_ACTION_BAND_PX =
   CANVAS_QUICK_ACTION_INSET_PX +
-  (CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX) * MAX_LABEL_COUNTER_SCALE
+  (CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX) * MAX_GLYPH_COUNTER_SCALE
 
 /**
  * ⭐⭐ THE BAND AS THE CARD RENDERS IT — `calc()` over the live scale, which is
@@ -566,7 +583,7 @@ export const NODE_QUICK_ACTION_BAND_PX =
  * (`cardsThatGrew: 0`).
  */
 export const NODE_QUICK_ACTION_BAND_CSS =
-  `calc(${CANVAS_QUICK_ACTION_INSET_PX}px + ${CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX}px * var(--canvas-label-scale, 1))`
+  `calc(${CANVAS_QUICK_ACTION_INSET_PX}px + ${CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX}px * var(--canvas-glyph-scale, 1))`
 
 /**
  * ⭐ THE WIDTH THE ANCHOR RAIL NEEDS BESIDE ITS LAST ROW (contract v3.1 ANC-02 /
@@ -605,10 +622,10 @@ export function anchorRailReservePx(buttons: AnchorRailButtons): number {
 }
 
 export const ANCHOR_RAIL_RESERVE_CLASSES: Readonly<Record<AnchorRailButtons, string>> = Object.freeze({
-  3: '[&>:last-child]:pr-[calc(6px+93px*var(--canvas-label-scale,1))]',
-  4: '[&>:last-child]:pr-[calc(6px+124px*var(--canvas-label-scale,1))]',
-  5: '[&>:last-child]:pr-[calc(6px+155px*var(--canvas-label-scale,1))]',
-  6: '[&>:last-child]:pr-[calc(6px+186px*var(--canvas-label-scale,1))]',
+  3: '[&>:last-child]:pr-[calc(6px+93px*var(--canvas-glyph-scale,1))]',
+  4: '[&>:last-child]:pr-[calc(6px+124px*var(--canvas-glyph-scale,1))]',
+  5: '[&>:last-child]:pr-[calc(6px+155px*var(--canvas-glyph-scale,1))]',
+  6: '[&>:last-child]:pr-[calc(6px+186px*var(--canvas-glyph-scale,1))]',
 })
 
 /** Clamp a counted rail to a key of `ANCHOR_RAIL_RESERVE_CLASSES`. */
@@ -810,6 +827,6 @@ export const MIN_TARGET_RENDERED_PX = 24
  * spec instead.
  */
 export const CANVAS_MIN_TARGET_BOX_STYLE: Readonly<CSSProperties> = Object.freeze({
-  minHeight: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-label-scale, 1))`,
-  minWidth: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-label-scale, 1))`,
+  minHeight: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-glyph-scale, 1))`,
+  minWidth: `calc(${MIN_TARGET_RENDERED_PX}px * var(--canvas-glyph-scale, 1))`,
 })

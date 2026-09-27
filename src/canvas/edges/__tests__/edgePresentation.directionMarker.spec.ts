@@ -49,7 +49,7 @@ import {
   renderedArrowheadLengthPx,
   edgeArrowheadMarkerId,
 } from '../edgePresentation'
-import { LABEL_LEGIBLE_ZOOM, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, MAX_GLYPH_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import {
   GLYPH_ANCHOR_RADIUS,
   GLYPH_PAINTED_BOX_FLOW,
@@ -170,7 +170,8 @@ describe('resolveEdgeDirectionMarker', () => {
  */
 describe('arrowhead size — sized for the bound, not tracked at runtime', () => {
   it('derives its ACROSS-path size from the single zoom authority, not a second constant', () => {
-    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBe(EDGE_ARROWHEAD_BASE_PX * MAX_LABEL_COUNTER_SCALE)
+    // The arrowhead is a GLYPH: it reads the uncapped glyph bound (27 Sep 2026).
+    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBe(EDGE_ARROWHEAD_BASE_PX * MAX_GLYPH_COUNTER_SCALE)
   })
 
   it('renders its full declared width at the zoom the product parks a fresh model at', () => {

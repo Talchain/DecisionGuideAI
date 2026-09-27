@@ -36,7 +36,7 @@ import { resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox } from '../edge
 import { resolvePolarityGlyphOffset, GLYPH_PAINTED_BOX_FLOW } from '../utils/edgeGlyphPlacement'
 import { deriveTierLanes, tierLaneTitleBoxFor } from '../utils/tierLanes'
 import { cornerMarksTitleSpacerCss } from '../nodes/shared/canvasGlyphScale'
-import { farTitleScale, labelCounterScale, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
+import { farTitleScale, labelCounterScale, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
 import { CANVAS_TYPE_PX } from '../../styles/typography'
 
 /* ── fixtures ─────────────────────────────────────────────────────────────── */
@@ -390,10 +390,18 @@ describe('WS1 #26 — the band titles are the contract\'s words', () => {
 
 /* ── #17 ──────────────────────────────────────────────────────────────────── */
 
-/** Evaluate the spacer's CSS width at a label scale, with `100%` = the title box. */
-function spacerWidthPx(width: string, scale: number, boxPx: number): number {
+/**
+ * Evaluate the spacer's CSS width at a (text, glyph) scale pair, with `100%` = the
+ * title box. Since the landing text ceiling (27 Sep 2026) the mark grows with the
+ * GLYPH scale and the title word with the TEXT scale; at the landing bound they
+ * are `MAX_LABEL_COUNTER_SCALE` and `MAX_GLYPH_COUNTER_SCALE`.
+ */
+const AT_BOUND = { text: MAX_LABEL_COUNTER_SCALE, glyph: MAX_GLYPH_COUNTER_SCALE }
+function spacerWidthPx(width: string, scale: number | { text: number; glyph: number }, boxPx: number): number {
+  const { text, glyph } = typeof scale === 'number' ? { text: scale, glyph: scale } : scale
   const js = width
-    .replace(/var\(--canvas-label-scale, 1\)/g, `(${scale})`)
+    .replace(/var\(--canvas-label-scale, 1\)/g, `(${text})`)
+    .replace(/var\(--canvas-glyph-scale, 1\)/g, `(${glyph})`)
     .replace(/100%/g, `(${boxPx})`)
     .replace(/px/g, '')
     .replace(/calc\(/g, '(')
@@ -407,15 +415,25 @@ describe('WS1 #17 — the title yields line 1 to the corner mark only when ITS f
   const box = { measurePx: 234, rightToFramePx: 12, topPx: 12 }
   it('a short first word ("Top", 27px) shares line 1 with the mark at the landing bound', () => {
     const s = cornerMarksTitleSpacerCss(1, { ...box, firstWordPx: 27 })!
-    expect(spacerWidthPx(s.width, MAX_LABEL_COUNTER_SCALE, box.measurePx)).toBeLessThan(box.measurePx / 2)
+    expect(spacerWidthPx(s.width, AT_BOUND, box.measurePx)).toBeLessThan(box.measurePx / 2)
   })
-  it('CONTRAST — "Cannibalization" (105px) cannot share line 1 at the bound: the spacer takes the whole line', () => {
+  // ⚠ RE-SPECIFIED 27 Sep 2026 (landing text ceiling): at the bound the title word
+  // is 1.39x and the mark 2x, so on this box a first word yields line 1 only past
+  // (234 + 12 − 8 − 25 × 2) / 1.39 ≈ 135px. "Cannibalization" (105.3px), which
+  // yielded at a shared 2x, now SHARES line 1; the contrast is a wider word.
+  it('"Cannibalization" (105px) now SHARES line 1 at the bound — its 1.39x width fits beside the 2x mark', () => {
     const s = cornerMarksTitleSpacerCss(1, { ...box, firstWordPx: 105.3 })!
-    expect(spacerWidthPx(s.width, MAX_LABEL_COUNTER_SCALE, box.measurePx)).toBeCloseTo(box.measurePx, 3)
+    expect(spacerWidthPx(s.width, AT_BOUND, box.measurePx)).toBeLessThan(box.measurePx / 2)
   })
-  it('no text metrics (jsdom) keeps the old, conservative yield', () => {
-    const s = cornerMarksTitleSpacerCss(1, box)!
-    expect(spacerWidthPx(s.width, MAX_LABEL_COUNTER_SCALE, box.measurePx)).toBeCloseTo(box.measurePx, 3)
+  it('CONTRAST — a 140px first word cannot share line 1 at the bound: the spacer takes the whole line', () => {
+    const s = cornerMarksTitleSpacerCss(1, { ...box, firstWordPx: 140 })!
+    expect(spacerWidthPx(s.width, AT_BOUND, box.measurePx)).toBeCloseTo(box.measurePx, 3)
+  })
+  it('no text metrics (jsdom) assumes the widest word: it shares line 1 beside ONE mark at the bound, and yields to TWO', () => {
+    const one = cornerMarksTitleSpacerCss(1, box)!
+    expect(spacerWidthPx(one.width, AT_BOUND, box.measurePx)).toBeLessThan(box.measurePx / 2)
+    const two = cornerMarksTitleSpacerCss(2, box)!
+    expect(spacerWidthPx(two.width, AT_BOUND, box.measurePx)).toBeCloseTo(box.measurePx, 3)
   })
   it('at 100% even the widest word shares line 1 (unchanged)', () => {
     const s = cornerMarksTitleSpacerCss(1, { ...box, firstWordPx: 105.3 })!
@@ -432,10 +450,16 @@ describe('WS1 #25 — the far-zoom title holds the contract\'s 9px chip size', (
     expect(CANVAS_TYPE_PX.nodeTitle * farTitleScale(z) * z).toBeCloseTo(FAR_TITLE_PX, 6)
   })
   it('CONTRAST — at and above the landing floor it is the ordinary label scale', () => {
-    for (const z of [0.35, 0.5, 0.75, 1, 2]) expect(farTitleScale(z)).toBe(labelCounterScale(z))
+    for (const z of [0.5, 0.75, 1, 2]) expect(farTitleScale(z)).toBe(labelCounterScale(z))
+    // 27 Sep 2026: under the 1.39 text ceiling the far chip lifts the title from
+    // 9 / (14 × 1.39) ≈ 0.4625 down — so at 0.35 (the `line` rung) it is above
+    // the ordinary scale, holding the contract's 9px where the capped title
+    // would draw 6.8px. (At the old 2x cap the two met down to 0.32.)
+    expect(farTitleScale(0.35)).toBeGreaterThan(labelCounterScale(0.35))
+    expect(CANVAS_TYPE_PX.nodeTitle * farTitleScale(0.35) * 0.35).toBeCloseTo(FAR_TITLE_PX, 6)
   })
-  it('is bounded at twice the landing bound', () => {
+  it('is bounded at twice the landing bound — the GLYPH bound, so the 9px chip survives the text ceiling', () => {
     expect(farTitleScale(0.05)).toBe(FAR_TITLE_MAX_SCALE)
-    expect(FAR_TITLE_MAX_SCALE).toBe(2 * MAX_LABEL_COUNTER_SCALE)
+    expect(FAR_TITLE_MAX_SCALE).toBe(2 * MAX_GLYPH_COUNTER_SCALE)
   })
 })

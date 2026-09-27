@@ -98,10 +98,10 @@ describe('WS1 #16 — the anchor rail is inside the card at the landing zoom too
     setAnchorRailFitsBeside(anchorRailFitsBesideAtZoom(0.5))
     render(<ReactFlowProvider>{decision()}</ReactFlowProvider>)
     const body = screen.getByTestId('anchor-body-rail-beside')
-    expect(body.style.paddingRight).toMatch(/var\(--canvas-label-scale, 1\)/)
-    expect(body.style.minHeight).toMatch(/var\(--canvas-label-scale, 1\)/)
+    expect(body.style.paddingRight).toMatch(/var\(--canvas-glyph-scale, 1\)/)
+    expect(body.style.minHeight).toMatch(/var\(--canvas-glyph-scale, 1\)/)
     const card = body.closest('[role="group"]') as HTMLElement
-    expect(card.style.paddingRight).not.toMatch(/canvas-label-scale/)
+    expect(card.style.paddingRight).not.toMatch(/canvas-glyph-scale/)
     cleanup()
   })
 

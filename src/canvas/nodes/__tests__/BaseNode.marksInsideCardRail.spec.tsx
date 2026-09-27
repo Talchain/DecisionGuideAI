@@ -50,7 +50,8 @@ import {
   NODE_RAIL_GLYPH_PX,
   NODE_RAIL_REST_TONE_CLASS,
 } from '../shared/nodeCardRailStyles'
-import { NODE_TITLE_WIDEST_WORD_PX } from '../../utils/nodeLayoutConstants'
+import { NODE_TITLE_WIDEST_WORD_PX, NODE_TITLE_MIN_MEASURE_PX, REPEATED_CARD_W } from '../../utils/nodeLayoutConstants'
+import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import { CANVAS_TYPE_PX } from '../../../styles/typography'
 import { NodeRailIcon, NodeSignalRailIcons } from '../shared/NodeRailIcons'
 import { NodeCoachingIcon } from '../shared/NodeCoachingIcon'
@@ -143,13 +144,22 @@ const tokens = (el: Element | null | undefined): string[] =>
  * card emits is accepted; anything else throws, so an unreadable declaration
  * cannot pass as zero.
  */
-function px(css: string, scale: number, box: { pct?: number; lh?: number } = {}): number {
+type Scales = number | { text: number; glyph: number }
+/**
+ * The pair of scales a zoom actually produces (27 Sep 2026): glyphs and marks at
+ * `g` (the uncapped glyph scale, 1 → 2 across the band), text at the text scale,
+ * which follows `g` up to `MAX_LABEL_COUNTER_SCALE` and stops there.
+ */
+const scalesAt = (g: number) => ({ text: Math.min(MAX_LABEL_COUNTER_SCALE, g), glyph: g })
+function px(css: string, scales: Scales, box: { pct?: number; lh?: number } = {}): number {
+  const { text, glyph } = typeof scales === 'number' ? { text: scales, glyph: scales } : scales
   const unit = (u: '%' | 'lh', base: number | undefined, divisor: number) => (_: string, n: string) => {
     if (base === undefined) throw new Error(`${u} in ${css} with no base to resolve it against`)
     return `(${n}*${base / divisor})`
   }
   const expr = css
-    .replace(/var\(--canvas-label-scale,\s*1\)/g, String(scale))
+    .replace(/var\(--canvas-label-scale,\s*1\)/g, String(text))
+    .replace(/var\(--canvas-glyph-scale,\s*1\)/g, String(glyph))
     .replace(/(-?\d+(?:\.\d+)?)%/g, unit('%', box.pct, 100))
     .replace(/(-?\d+(?:\.\d+)?)lh\b/g, unit('lh', box.lh, 1))
     .replace(/(-?\d+(?:\.\d+)?)px/g, '$1')
@@ -167,6 +177,23 @@ function px(css: string, scale: number, box: { pct?: number; lh?: number } = {})
 const markLeftAt = (cardW: number, marks: number, scale: number) => {
   const run = marks * CONTRACT_MARK_BOX_PX + (marks - 1) * STACK_GAP_PX
   return cardW - 2 * CONTRACT_FRAME_PX - CONTRACT_MARK_RIGHT_PX - run * scale
+}
+
+/**
+ * The title box's width at glyph scale `g` (27 Sep 2026). The repeated card is now
+ * the ED 248, WIDER than the layout floor (194.12), so its title shares its line
+ * and the header row carries the corner reserve (`cornerMarksHeaderReserveCss`):
+ * the flex-1 title fills what the reserve leaves, never less than its minimum
+ * measure. With no reserve (or a card at the floor) this is the minimum measure,
+ * which is what the old 260 card always was.
+ */
+function titleBoxWidthAt(root: HTMLElement, wrapperMin: number, g: number): number {
+  const padL = parseFloat(root.style.paddingLeft)
+  const padR = parseFloat(root.style.paddingRight)
+  const inner = parseFloat(root.style.width) - 2 * CONTRACT_FRAME_PX - padL - padR
+  const reserveCss = screen.getByTestId('node-header-row').style.paddingRight
+  const reserve = reserveCss === '' ? 0 : px(reserveCss, scalesAt(g))
+  return Math.max(wrapperMin, inner - reserve)
 }
 
 const INITIAL_LENS = useCanvasStore.getState().lens
@@ -206,12 +233,15 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(tokens(mark)).not.toContain('absolute')
   })
 
-  it('a repeated card: the title stops 1px before the mark on line 1 at 100%, and yields line 1 at the bound', () => {
+  it('a repeated card: the title stops 1px before the mark on line 1 at 100% AND at the bound, where the widest word still fits beside it', () => {
     attentionMarked = true
     const root = renderCard('outcome', 'o1', 'Customer retention after a price rise')
     const cardW = parseFloat(root.style.width)
     const padL = parseFloat(root.style.paddingLeft)
-    expect(cardW).toBe(260)
+    // RE-PINNED 27 Sep 2026 (landing text ceiling): the repeated card is the ED
+    // target, 248, wider than the layout floor, so its title shares its line.
+    expect(cardW).toBe(REPEATED_CARD_W)
+    expect(cardW).toBe(248)
     const title = screen.getByTestId('node-title')
     const spacer = within(title).getByTestId('node-title-corner-spacer')
     // The title box on a 260 card is its minimum measure (it has the line to
@@ -224,14 +254,21 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(px(spacer.style.height, 1, at(1))).toBeCloseTo(at(1).lh, 6)
     expect(spacer).toHaveAttribute('aria-hidden', 'true')
     expect(spacer.textContent).toBe('')
-    const line1Right = padL + wrapperMin - px(spacer.style.width, 1, at(1))
-    expect(line1Right, 'scale 1').toBeCloseTo(markLeftAt(cardW, 1, 1) - CONTRACT_MARK_CLEARANCE_PX, 6)
-    // At the bound the mark and the widest word cannot share line 1, so the
-    // title yields it (the rule is pinned in full by the block below).
-    expect(px(spacer.style.width, 2, at(2)), 'scale 2').toBeCloseTo(wrapperMin, 6)
-    // A repeated card keeps its header row unpadded: nothing shares the title's
-    // line, so the provenance glyph on line 2 keeps its right alignment.
-    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
+    for (const g of [1, MAX_GLYPH_COUNTER_SCALE]) {
+      const box = titleBoxWidthAt(root, wrapperMin, g)
+      const line1Right = padL + box - px(spacer.style.width, scalesAt(g), { pct: box, lh: at(scalesAt(g).text).lh })
+      expect(line1Right, `glyph scale ${g}`).toBeCloseTo(markLeftAt(cardW, 1, g) - CONTRACT_MARK_CLEARANCE_PX, 6)
+    }
+    // At the bound the widest word (at the TEXT bound) and the mark (at the GLYPH
+    // bound) now SHARE line 1 — at a shared 2x the title had to yield it.
+    const boxAtBound = titleBoxWidthAt(root, wrapperMin, MAX_GLYPH_COUNTER_SCALE)
+    expect(px(spacer.style.width, scalesAt(MAX_GLYPH_COUNTER_SCALE), { pct: boxAtBound })).toBe(0)
+    expect(boxAtBound).toBeGreaterThanOrEqual(NODE_TITLE_WIDEST_WORD_PX * MAX_LABEL_COUNTER_SCALE)
+    // The title shares its line, so the header row carries the corner reserve
+    // (it was unpadded on the old 260 card, which sat at the layout floor).
+    expect(screen.getByTestId('node-header-row').style.paddingRight).toBe(
+      cornerMarksHeaderReserveCss(1, root.style.paddingRight),
+    )
   })
 
   it('TWO marks (attention + coaching): both in the stack, and the spacer covers the whole run', () => {
@@ -250,9 +287,14 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     const spacer = within(title).getByTestId('node-title-corner-spacer')
     // At 100% (and at every scale where the widest word still fits beside the
     // run — the block below pins where that stops).
-    for (const s of [1, 1.4]) {
-      expect(padL + wrapperMin - px(spacer.style.width, s, { pct: wrapperMin }), `scale ${s}`).toBeCloseTo(
-        markLeftAt(cardW, 2, s) - CONTRACT_MARK_CLEARANCE_PX,
+    // 1.4 → 1.2 (27 Sep 2026): with the title word at the 1.39 text ceiling and
+    // two marks at glyph 1.4, line 1 is within 0.3px of the widest word — the
+    // yield boundary, pinned by the block below — so the "beside" probe sits
+    // clearly inside the beside regime.
+    for (const g of [1, 1.2]) {
+      const box = titleBoxWidthAt(root, wrapperMin, g)
+      expect(padL + box - px(spacer.style.width, scalesAt(g), { pct: box }), `glyph scale ${g}`).toBeCloseTo(
+        markLeftAt(cardW, 2, g) - CONTRACT_MARK_CLEARANCE_PX,
         6,
       )
     }
@@ -264,7 +306,7 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
     expect(within(title).queryByTestId('node-title-corner-spacer')).toBeNull()
     expect(screen.getByTestId('node-header-row').style.paddingRight).toBe('')
     expect(screen.getByTestId('node-corner-stack-o1').children).toHaveLength(0)
-    expect((title.parentElement as HTMLElement).style.minWidth).toBe('236px')
+    expect((title.parentElement as HTMLElement).style.minWidth).toBe(`${NODE_TITLE_MIN_MEASURE_PX}px`)
   })
 
   it('contract v3.1 #18: a structural finding puts NO mark in the corner and reserves NO title spacer', () => {
@@ -359,40 +401,44 @@ describe('GAP 11 — the corner marks sit INSIDE the card at the contract offset
  * layout); the browser half of the claim is the verifier's Chromium harness.
  */
 describe('GAP 11 — line 1 holds the widest word or yields to the marks (never a mid-word break)', () => {
-  const SCALES = Array.from({ length: 101 }, (_, i) => 1 + i / 100) // 1.00 … 2.00, the bound
+  // The GLYPH scale across the band (1.00 … 2.00, the bound); the TEXT scale is
+  // `scalesAt(g).text` — it follows g up to the 1.39 ceiling (27 Sep 2026).
+  const SCALES = Array.from({ length: 101 }, (_, i) => 1 + i / 100)
   const EPS = 1e-6
-  const lineHeightAt = (s: number) => CANVAS_TYPE_PX.nodeTitle * CONTRACT_TITLE_LEADING * s
+  const lineHeightAt = (t: number) => CANVAS_TYPE_PX.nodeTitle * CONTRACT_TITLE_LEADING * t
 
   type Box = { left: number; width: number }
   type Card = { width: number; paddingTop: number }
 
-  function assertLineOne(spacer: HTMLElement, box: Box, card: Card, marks: number, label: string) {
+  function assertLineOne(spacer: HTMLElement, boxAt: (g: number) => Box, card: Card, marks: number, label: string) {
     const run = marks * CONTRACT_MARK_BOX_PX + (marks - 1) * STACK_GAP_PX
-    const rightGap = card.width - 2 * CONTRACT_FRAME_PX - box.left - box.width
     let yieldedSomewhere = false
     let besideSomewhere = false
-    for (const s of SCALES) {
-      const lh = lineHeightAt(s)
-      const w = px(spacer.style.width, s, { pct: box.width, lh })
-      const h = px(spacer.style.height, s, { pct: box.width, lh })
+    for (const g of SCALES) {
+      const sc = scalesAt(g)
+      const box = boxAt(g)
+      const rightGap = card.width - 2 * CONTRACT_FRAME_PX - box.left - box.width
+      const lh = lineHeightAt(sc.text)
+      const w = px(spacer.style.width, sc, { pct: box.width, lh })
+      const h = px(spacer.style.height, sc, { pct: box.width, lh })
       const line1 = box.width - w
-      const at = `${label}, ${marks} mark(s), scale ${s.toFixed(2)}`
-      const clearance = CONTRACT_MARK_RIGHT_PX + CONTRACT_MARK_CLEARANCE_PX + run * s
-      const bothFit = box.width - Math.max(0, clearance - rightGap) >= NODE_TITLE_WIDEST_WORD_PX * s
+      const at = `${label}, ${marks} mark(s), glyph ${g.toFixed(2)} / text ${sc.text.toFixed(2)}`
+      const clearance = CONTRACT_MARK_RIGHT_PX + CONTRACT_MARK_CLEARANCE_PX + run * g
+      const bothFit = box.width - Math.max(0, clearance - rightGap) >= NODE_TITLE_WIDEST_WORD_PX * sc.text
       if (line1 > EPS) {
         besideSomewhere = true
         expect(line1, `${at}: line 1 cannot hold the widest word — a mid-word break`).toBeGreaterThanOrEqual(
-          NODE_TITLE_WIDEST_WORD_PX * s - EPS,
+          NODE_TITLE_WIDEST_WORD_PX * sc.text - EPS,
         )
         expect(box.left + line1, `${at}: line 1 runs under the mark`).toBeLessThanOrEqual(
-          markLeftAt(card.width, marks, s) - CONTRACT_MARK_CLEARANCE_PX + EPS,
+          markLeftAt(card.width, marks, g) - CONTRACT_MARK_CLEARANCE_PX + EPS,
         )
         expect(h, `${at}: a spacer beside line 1 is exactly one line tall`).toBeCloseTo(lh, 6)
       } else {
         yieldedSomewhere = true
         expect(bothFit, `${at}: the title yielded line 1 although the widest word fits beside the marks`).toBe(false)
         expect(h, `${at}: the yielded title's first line runs under the mark box`).toBeGreaterThanOrEqual(
-          CONTRACT_MARK_TOP_PX + CONTRACT_MARK_BOX_PX * s + CONTRACT_MARK_CLEARANCE_PX - card.paddingTop - EPS,
+          CONTRACT_MARK_TOP_PX + CONTRACT_MARK_BOX_PX * g + CONTRACT_MARK_CLEARANCE_PX - card.paddingTop - EPS,
         )
       }
     }
@@ -404,15 +450,18 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
     paddingTop: parseFloat(root.style.paddingTop),
   })
 
-  it('a 260 repeated card, ONE mark: beside the title at 100%, yields at the landing bound (the verifier\'s "Concentratio|n")', () => {
+  it('a 248 repeated card, ONE mark: beside the title at every scale (the verifier\'s "Concentratio|n" no longer yields)', () => {
     attentionMarked = true
     const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts')
     const title = screen.getByTestId('node-title')
-    const box = { left: parseFloat(root.style.paddingLeft), width: parseFloat((title.parentElement as HTMLElement).style.minWidth) }
-    expect(box.width).toBe(236)
-    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), box, cardOf(root), 1, 'outcome 260')
-    // Both regimes are reached on this card, so neither half of the rule is vacuous.
-    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
+    const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
+    expect(min).toBe(NODE_TITLE_MIN_MEASURE_PX)
+    const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
+    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 1, 'outcome 248')
+    // ⚠ 27 Sep 2026: at the text ceiling the widest word (150.12) fits beside ONE
+    // mark at the glyph bound on a 248 card, so only the beside regime is reached
+    // here; the YIELD half is exercised by the two-mark case below, not vacuous.
+    expect(r).toEqual({ yieldedSomewhere: false, besideSomewhere: true })
   })
 
   it('a 260 repeated card, TWO marks (attention + coaching): the same rule over the wider run', () => {
@@ -420,8 +469,9 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
     useGuidanceStore.getState().setGuidanceItems([guidance('o1')])
     const root = renderCard('outcome', 'o1', 'Cannibalization of the entry tier')
     const title = screen.getByTestId('node-title')
-    const box = { left: parseFloat(root.style.paddingLeft), width: parseFloat((title.parentElement as HTMLElement).style.minWidth) }
-    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), box, cardOf(root), 2, 'outcome 260')
+    const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
+    const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
+    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 2, 'outcome 248')
     expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
   })
 
@@ -430,10 +480,12 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
     const root = renderCard('outcome', 'o1', 'Concentration risk in the top accounts', { maxWidth: 270 })
     expect(parseFloat(root.style.width)).toBe(270)
     const title = screen.getByTestId('node-title')
-    const box = { left: parseFloat(root.style.paddingLeft), width: parseFloat((title.parentElement as HTMLElement).style.minWidth) }
-    expect(box.width).toBe(236)
-    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), box, cardOf(root), 1, 'outcome 270')
-    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
+    const min = parseFloat((title.parentElement as HTMLElement).style.minWidth)
+    expect(min).toBe(NODE_TITLE_MIN_MEASURE_PX)
+    const boxAt = (g: number) => ({ left: parseFloat(root.style.paddingLeft), width: titleBoxWidthAt(root, min, g) })
+    const r = assertLineOne(within(title).getByTestId('node-title-corner-spacer'), boxAt, cardOf(root), 1, 'outcome 270')
+    // 27 Sep 2026: as on the 248 card, ONE mark never forces the yield here.
+    expect(r).toEqual({ yieldedSomewhere: false, besideSomewhere: true })
   })
 
   it('the CAUSAL LENS title (a full-width block; netlify.toml ships the lens ON) keeps clear of the mark by the same rule', () => {
@@ -451,8 +503,9 @@ describe('GAP 11 — line 1 holds the widest word or yields to the marks (never 
       left: parseFloat(root.style.paddingLeft),
       width: card.width - 2 * CONTRACT_FRAME_PX - parseFloat(root.style.paddingLeft) - parseFloat(root.style.paddingRight),
     }
-    const r = assertLineOne(spacer, box, card, 1, 'causal lens 260')
-    expect(r).toEqual({ yieldedSomewhere: true, besideSomewhere: true })
+    const r = assertLineOne(spacer, () => box, card, 1, 'causal lens 248')
+    // 27 Sep 2026: ONE mark never forces the yield on the full-width lens title.
+    expect(r).toEqual({ yieldedSomewhere: false, besideSomewhere: true })
   })
 
   it('CONTRAST — at 100% the title sits beside ONE or TWO marks (the contract layout is untouched), and no mark means no spacer', () => {
@@ -508,16 +561,16 @@ describe('GAP 34 — rail geometry and colours are the contract .icon-btn', () =
     expect(CANVAS_QUICK_ACTION_BOX_PX).toBe(CONTRACT_MARK_BOX_PX)
     expect(NODE_RAIL_GLYPH_PX).toBe(CONTRACT_ICON_GLYPH_PX)
     expect(NODE_RAIL_GLYPH_CLASSES).toBe(CANVAS_GLYPH_SIZE_CLASSES[15])
-    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('w-[calc(25px*var(--canvas-label-scale,1))]')
-    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('h-[calc(25px*var(--canvas-label-scale,1))]')
+    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('w-[calc(25px*var(--canvas-glyph-scale,1))]')
+    expect(NODE_RAIL_BUTTON_CLASSES.split(/\s+/)).toContain('h-[calc(25px*var(--canvas-glyph-scale,1))]')
   })
 
   it('a rendered rail icon is a 25px box holding a 15px glyph (class AND the size attribute fallback)', () => {
     render(<NodeRailIcon testId="rail-ev" label="Evidence" icon={SearchCheck} tone="muted" onActivate={() => {}} />)
     const b = screen.getByTestId('rail-ev')
-    expect(tokens(b)).toContain('w-[calc(25px*var(--canvas-label-scale,1))]')
+    expect(tokens(b)).toContain('w-[calc(25px*var(--canvas-glyph-scale,1))]')
     const svg = b.querySelector('svg')
-    expect(tokens(svg)).toContain('w-[calc(15px*var(--canvas-label-scale,1))]')
+    expect(tokens(svg)).toContain('w-[calc(15px*var(--canvas-glyph-scale,1))]')
     expect(svg?.getAttribute('width')).toBe('15')
   })
 

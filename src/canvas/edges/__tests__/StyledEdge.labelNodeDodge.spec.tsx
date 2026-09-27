@@ -366,7 +366,9 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // exceeds — the original defect — or over-clears and labels dodge for no
       // reason. Changing the geometry REDs here, where the coupling is explained.
       expect(style.maxWidth).toBe('calc(176px * var(--canvas-label-scale, 1))')
-      expect(LABEL_HALF_WIDTH).toBe(176)
+      // 176 → 123 (27 Sep 2026): the resolver clears the box at the landing TEXT
+      // ceiling, ceil(88 × 1.39) = 123 (246 wide ≥ the 176 × 1.39 = 244.6 chip).
+      expect(LABEL_HALF_WIDTH).toBe(123)
       // The row is a flex line that may not wrap — this is what holds the
       // ±LABEL_HALF_HEIGHT (single-line) half of the assumption now that
       // white-space no longer sits here — and anything past the cap is
@@ -430,7 +432,9 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // INDEPENDENT literal so the derivation cannot silently drift.
       // ⚠ AND 17 UNTIL 14 Sep 2026, when edgeLabel moved 10px → 11px and the
       // derived height followed it to 18. Still an INDEPENDENT literal.
-      expect(LABEL_HALF_HEIGHT).toBe(18)
+      // ⚠ AND 18 UNTIL 27 Sep 2026, when the landing text ceiling (1.39) took
+      // the worst-case box to ceil((11 × 1.25 × 1.39 + 8) / 2) = 14.
+      expect(LABEL_HALF_HEIGHT).toBe(14)
     })
   })
 
@@ -498,16 +502,17 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
   describe('drag-end / settled-position recompute (quantisation gap)', () => {
     // ⚠ RE-SITED 31 Aug 2026 with the corrected label box (±17, not ±11): the
     // old −94/−88 pair now BOTH overlap, so it stopped testing the boundary.
-    // Blocker at y −100.4: bottom edge −20.4 just clears the label box
-    // (−17..17). At y −95.6: bottom edge −15.6 overlaps. Both quantise to the
-    // same 10px bucket (round(−10.04) === round(−9.56) === −10), which is the
-    // property under test.
+    // ⚠ RE-SITED AGAIN 27 Sep 2026 for the ±14 box (the landing text ceiling):
+    // the −100.4/−95.6 pair now BOTH clear it. Blocker at y −94.4: bottom edge
+    // −14.4 just clears the label box (−14..14). At y −93.6: bottom edge −13.6
+    // overlaps. Both quantise to the same 10px bucket (round(−9.44) ===
+    // round(−9.36) === −9), which is the property under test.
     it('a sub-bucket move of a settled card still triggers a recompute', () => {
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4)
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -94.4)
       const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
-      expect(leaderOf(container)).toBeNull() // clear at −94
+      expect(leaderOf(container)).toBeNull() // clear at −94.4
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6)
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -93.6)
       // New data identity defeats React.memo bailout without touching any
       // collision-memo dependency.
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
@@ -518,11 +523,11 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     })
 
     it('perf posture: mid-drag sub-bucket movement does NOT recompute', () => {
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -94.4, { dragging: true })
       const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
       expect(leaderOf(container)).toBeNull()
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -93.6, { dragging: true })
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
 
       // Same 10px bucket while dragging → throttled, still no dodge…
@@ -530,14 +535,14 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     })
 
     it('…but the drag SETTLING at the same sub-bucket position recomputes', () => {
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -94.4, { dragging: true })
       const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6, { dragging: true })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -93.6, { dragging: true })
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
       expect(leaderOf(container)).toBeNull() // throttled mid-drag
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6, { dragging: false })
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -93.6, { dragging: false })
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
 
       const leader = leaderOf(container)
@@ -739,13 +744,13 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       mockViewMode = 'standard'
       mockReport = { robustness: { fragile_edges: [{ edge_id: 'e1', switch_probability: 0.49 }] } }
       fragileIds.add('e1')
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -100.4)
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -94.4)
       const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
       expect(container.querySelector('[data-testid="edge-influence-label-text"]')).toBeNull()
       const before = cueTransform(container)
       expect(before).toBe('translate(-50%, -50%) translate(50px,50px)')
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6)
+      nodeRegistry.blocker = card('blocker', 'factor', -100, -93.6)
       rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
       expect(cueTransform(container)).not.toBe(before)
     })

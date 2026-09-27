@@ -78,7 +78,7 @@ export const LABEL_LEGIBLE_ZOOM = 0.5
 
 /**
  * ⭐⭐ THE SMALLEST A CARD TITLE MAY RENDER ON SCREEN AT THE LANDING ZOOM, in CSS
- * px (canvas/landing-text-scale, 26 Sep 2026 — design audit §2 items 2, 9, 10, 15).
+ * px (canvas/landing-text-scale, 26–27 Sep 2026 — design audit §2 items 2, 9, 10, 15).
  *
  * The counter-scale used to hold a title at its full declared 14px all the way
  * down to the landing floor, so at the landing every label drew at 2× its world
@@ -90,11 +90,12 @@ export const LABEL_LEGIBLE_ZOOM = 0.5
  * were 153–368 world px against the prototype's 35–60, because each gap is the
  * card's 2× landing height minus its 100% height.
  *
- * So the landing no longer promises the DECLARED size; it promises this floor.
- * 11 is the brief's stated floor for a landing title (above the design system's
- * 10px canvas text floor, `CANVAS_TEXT_FLOOR_PX`).
+ * So the landing no longer promises the DECLARED size; it promises this floor —
+ * the brief's 9.5px (27 Sep 2026), below the design system's 10px canvas text
+ * floor (`CANVAS_TEXT_FLOOR_PX`) by the brief's decision, not by drift. The
+ * ceiling below may never put a landing title under it.
  */
-export const LANDING_TITLE_FLOOR_PX = 11
+export const LANDING_TITLE_FLOOR_PX = 9.5
 
 /**
  * The quantum `CanvasLabelScaleSync` rounds the live scale UP to before it writes
@@ -107,29 +108,34 @@ export const LANDING_TITLE_FLOOR_PX = 11
 export const LABEL_SCALE_QUANTUM = 100
 
 /**
- * ⭐⭐ THE COUNTER-SCALE'S CEILING — DERIVED FROM THE LANDING TITLE FLOOR, NOT
- * PICKED. The smallest scale (on the sync's quantum grid, rounded UP so the floor
- * still holds) at which a `nodeTitle` renders at `LANDING_TITLE_FLOOR_PX` when
- * the camera sits at `LABEL_LEGIBLE_ZOOM`: ceil(11 / (14 × 0.5) × 100) / 100 =
- * **1.58**, so a landing title draws 11.06px. It was `1 / LABEL_LEGIBLE_ZOOM` = 2.
+ * ⭐⭐ THE TEXT COUNTER-SCALE'S CEILING — 1.39, CHOSEN BY MEASUREMENT (27 Sep 2026).
+ * It was `1 / LABEL_LEGIBLE_ZOOM` = 2; #2137's first cut derived 1.58 from an
+ * 11px title floor.
  *
- * ⭐ RENDER AND LAYOUT STILL READ ONE BOUND. `labelCounterScale` is capped here,
- * `MAX_LABEL_COUNTER_SCALE` is `labelCounterScale(LABEL_LEGIBLE_ZOOM)`, and every
- * geometry consumer (`nodeLayoutConstants`, `tierLanes`, `canvasGlyphScale`,
- * `measureNodeHeightsAtLabelBound`) reads `MAX_LABEL_COUNTER_SCALE` — so the font
- * and the reserved card height move together, in this one decision.
+ * THE RULE IT WAS CHOSEN BY: the LARGEST ceiling on the sync's 0.01 grid at which
+ * the Goal is fully visible at 1280×800 (right panel open, no chat turn) on the
+ * most saved examples, with no card overlaps and no edge under a card that the
+ * staging control does not already show — never putting a landing title under
+ * `LANDING_TITLE_FLOOR_PX`. On a local production build with glyphs and targets
+ * on their own uncapped scale (below), the Goal reached 4/5 at 1.36–1.39 and 3/5
+ * at 1.40 (headcount-allocation's board crosses the viewport there); no ceiling
+ * at or above the floor (1.36) reached 5/5 — build-vs-buy's board is ~860px tall
+ * at the floor. A landing title renders 14 × 1.39 × 0.5 = 9.73px. The table is in
+ * #2137's body; `landingTextScale.spec.ts` pins the floor, the grid and the value.
  *
- * ⚠ WHAT IT COSTS, STATED: in the band [`LABEL_LEGIBLE_ZOOM`, 1 / 1.58 ≈ 0.633)
- * text no longer renders at its declared size — a landing title is 11.06px, not
- * 14px, and 12px body text is 9.48px, under the design system's 10px canvas text
- * floor. Above ≈0.633 nothing changes: rendered === declared, as before.
- * Measured (production build of this change, served locally, audit harness, the
- * same 5 starters): the landing board is 1468–1693 world px tall instead of
- * 1938–2281, and the ~100% tier gaps fall from 153–368 to 101–224.
+ * ⭐ TEXT RENDER AND TEXT LAYOUT STILL READ ONE BOUND. `labelCounterScale` is
+ * capped here, `MAX_LABEL_COUNTER_SCALE` is `labelCounterScale(LABEL_LEGIBLE_ZOOM)`,
+ * and every TEXT geometry consumer (`nodeLayoutConstants`, `tierLanes`'s title,
+ * `edgeLabelCollision`, `measureNodeHeightsAtLabelBound`) reads it — so the font
+ * and the reserved card height move together. GLYPHS and TARGETS do not read it:
+ * see `glyphCounterScale`.
+ *
+ * ⚠ WHAT IT COSTS, STATED: in the band [`LABEL_LEGIBLE_ZOOM`, 1 / 1.39 ≈ 0.72)
+ * text no longer renders at its declared size — a landing title is 9.73px, not
+ * 14px, and 12px body text is 8.34px, under the design system's 10px canvas text
+ * floor. Above ≈0.72 nothing changes: rendered === declared, as before.
  */
-export const LABEL_COUNTER_SCALE_CAP =
-  Math.ceil((LANDING_TITLE_FLOOR_PX / (CANVAS_TYPE_PX.nodeTitle * LABEL_LEGIBLE_ZOOM)) * LABEL_SCALE_QUANTUM) /
-  LABEL_SCALE_QUANTUM
+export const LABEL_COUNTER_SCALE_CAP = 1.39
 
 /**
  * WHO ASKED FOR THIS FIT — the only distinction the legibility bounds make.
@@ -321,7 +327,7 @@ export function labelsRenderedAtZoom(zoom: number): boolean {
  *
  *   zoom ≥ 1                          → 1          (no counter-scale)
  *   1 / CAP ≤ zoom < 1                → 1 / zoom   (rendered = declared)
- *   zoom < 1 / CAP (≈0.633)           → CAP        (capped: a landing title
+ *   zoom < 1 / CAP (≈0.72)            → CAP        (capped: a landing title
  *                                                   renders LANDING_TITLE_FLOOR_PX,
  *                                                   not its declared 14px)
  *
@@ -334,8 +340,27 @@ export function labelsRenderedAtZoom(zoom: number): boolean {
  * returns 1 — the identity — rather than Infinity or NaN reaching a CSS value.
  */
 export function labelCounterScale(zoom: number): number {
+  return Math.min(LABEL_COUNTER_SCALE_CAP, glyphCounterScale(zoom))
+}
+
+/**
+ * ⭐⭐ THE GLYPH AND TARGET COUNTER-SCALE — UNCAPPED BY THE TEXT CEILING (27 Sep
+ * 2026, canvas/landing-text-scale r1).
+ *
+ * The text ceiling above is a LEGIBILITY trade for words; it is not licensed to
+ * shrink what a user must HIT or RECOGNISE. Glyphs, marks, hit targets, their
+ * slop and gaps, and the edge arrowhead keep `rendered === declared` down to the
+ * landing floor exactly as before (`1 / LABEL_LEGIBLE_ZOOM` = 2 at the bound), so
+ * WCAG 2.2 AA 2.5.8's 24px target and the icons' declared sizes still hold at the
+ * landing. They read `--canvas-glyph-scale` (`CANVAS_GLYPH_SCALE_VAR`); text reads
+ * `--canvas-label-scale`. Measured on #2137's first cut, sharing one scale took
+ * quick-action targets to 22.91px and NodeChip targets to 18.96px.
+ *
+ * A non-finite or non-positive zoom returns 1, as `labelCounterScale` does.
+ */
+export function glyphCounterScale(zoom: number): number {
   if (typeof zoom !== 'number' || !Number.isFinite(zoom) || zoom <= 0) return 1
-  return Math.min(LABEL_COUNTER_SCALE_CAP, 1 / Math.min(1, Math.max(zoom, LABEL_LEGIBLE_ZOOM)))
+  return 1 / Math.min(1, Math.max(zoom, LABEL_LEGIBLE_ZOOM))
 }
 
 /**
@@ -373,6 +398,15 @@ export function labelCounterScale(zoom: number): number {
 export const MAX_LABEL_COUNTER_SCALE = labelCounterScale(LABEL_LEGIBLE_ZOOM)
 
 /**
+ * The LARGEST scale a glyph or target can carry — `glyphCounterScale` at the
+ * landing floor, 2. Geometry that reserves room for a GLYPH (the quick-action
+ * band, the anchor rail, the corner marks, the kind shape's overhang, the
+ * arrowhead) reads this; geometry that reserves room for TEXT reads
+ * `MAX_LABEL_COUNTER_SCALE`. The measurer pins both vars to their bounds.
+ */
+export const MAX_GLYPH_COUNTER_SCALE = glyphCounterScale(LABEL_LEGIBLE_ZOOM)
+
+/**
  * The rendered size, in CSS px, of canvas text declared at `declaredPx` when the
  * viewport sits at `zoom` and the counter-scale above is applied.
  *
@@ -383,6 +417,11 @@ export const MAX_LABEL_COUNTER_SCALE = labelCounterScale(LABEL_LEGIBLE_ZOOM)
  */
 export function renderedLabelPx(declaredPx: number, zoom: number): number {
   return declaredPx * labelCounterScale(zoom) * zoom
+}
+
+/** The rendered size, in CSS px, of a GLYPH or TARGET declared at `declaredPx` (see `glyphCounterScale`). */
+export function renderedGlyphPx(declaredPx: number, zoom: number): number {
+  return declaredPx * glyphCounterScale(zoom) * zoom
 }
 
 /**
@@ -401,7 +440,9 @@ export function renderedLabelPx(declaredPx: number, zoom: number): number {
  * on `labelCounterScale`.
  */
 export const FAR_TITLE_PX = 9
-export const FAR_TITLE_MAX_SCALE = 2 * MAX_LABEL_COUNTER_SCALE
+// Twice the GLYPH bound (4): the far chip is an identity mark, and the text
+// ceiling (27 Sep 2026) must not stop it reaching the contract's 9px at 0.167.
+export const FAR_TITLE_MAX_SCALE = 2 * MAX_GLYPH_COUNTER_SCALE
 
 export function farTitleScale(zoom: number): number {
   const base = labelCounterScale(zoom)
@@ -419,6 +460,13 @@ export const CANVAS_FAR_TITLE_SCALE_VAR = '--canvas-far-title-scale'
  * inspector copy is untouched.
  */
 export const CANVAS_LABEL_SCALE_VAR = '--canvas-label-scale'
+
+/**
+ * The CSS custom property that carries `glyphCounterScale` into glyph, mark and
+ * target sizes (`canvasGlyphScale.ts`). Written beside `CANVAS_LABEL_SCALE_VAR`
+ * by `CanvasLabelScaleSync`; unset (so 1) off the canvas.
+ */
+export const CANVAS_GLYPH_SCALE_VAR = '--canvas-glyph-scale'
 
 /**
  * ⭐⭐ WHICH React Flow INSTANCE THE LABEL SCALE BELONGS TO — the ONE answer, so
@@ -734,8 +782,8 @@ export type LodRung = 'full' | 'quiet' | 'line'
 /*
  * ⛔⛔ THE CLIFF DOES NOT MOVE WITH `LABEL_COUNTER_SCALE_CAP` (26 Sep 2026,
  * canvas/landing-text-scale). It was `CANVAS_TEXT_FLOOR_PX / (nodeLabel ×
- * MAX_LABEL_COUNTER_SCALE)`; with the ceiling lowered to 1.58 that expression
- * becomes 10 / (12 × 1.58) ≈ 0.527 — ABOVE the landing floor — so every product
+ * MAX_LABEL_COUNTER_SCALE)`; with the ceiling lowered to 1.39 that expression
+ * becomes 10 / (12 × 1.39) ≈ 0.60 — ABOVE the landing floor — so every product
  * landing (clamped at `LABEL_LEGIBLE_ZOOM`) would sit on the `line` rung: bodies
  * blanked, titles clamped, the "Zoomed out" notice up. That is the founder's
  * 19 Sep complaint (the board flips to blocks with no travel) re-opened by
@@ -745,12 +793,14 @@ export type LodRung = 'full' | 'quiet' | 'line'
  * one toolbar zoom-out step (÷1.2) below the landing.
  *
  * ⚠ THE COST, STATED RATHER THAN HIDDEN: with the lower ceiling, body text in
- * [this cliff, LABEL_LEGIBLE_ZOOM] renders 7.9–9.5px, under the 10px the
+ * [this cliff, LABEL_LEGIBLE_ZOOM] renders 6.95–8.34px, under the 10px the
  * paragraph above derives the cliff from. The title holds
  * `LANDING_TITLE_FLOOR_PX` at the landing; the body does not hold 10px there.
  * That trade is the Delivery Lead's ruling on this change, not a settled fact.
  */
-export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeLabel / LABEL_LEGIBLE_ZOOM)
+// Read at the DECLARED-size bound — `MAX_GLYPH_COUNTER_SCALE`, which the text
+// ceiling does not move (27 Sep 2026) — so it is 10 / (12 × 2), the same double.
+export const LOD_BODY_HIDDEN_ZOOM = CANVAS_TEXT_FLOOR_PX / (CANVAS_TYPE_PX.nodeLabel * MAX_GLYPH_COUNTER_SCALE)
 
 /**
  * How far past the cliff a zoom must climb before the body comes BACK.

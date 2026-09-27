@@ -62,7 +62,7 @@ import {
   CANVAS_HEADER_GLYPH_GAP_PX,
 } from '../shared/canvasGlyphScale'
 import { PROVENANCE_ICON_DECLARED_PX } from '../../domain/valueProvenanceIcon'
-import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import { MAX_GLYPH_COUNTER_SCALE } from '../../utils/zoomLegibility'
 import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
@@ -256,6 +256,11 @@ describe('⭐ the two provenance marks do not touch', () => {
  * default layout cannot reach is the wrong trade. It is ALSO pinned to 0 by
  * `utils/__tests__/nodeLabelFit.spec.ts`, so the change is not silent either.
  *
+ * ⚠ 27 Sep 2026 (landing text ceiling 1.39): the title measure is now 170.12, the
+ * band is `[228.12, 260.12)`, and the DEFAULT repeated card (248) sits INSIDE it —
+ * so on a default layout a PAIR of provenance marks now takes the designed
+ * fallback (the group drops below the title) while a single mark stays inline.
+ *
  * The premise is asserted rather than assumed below: if a later lane DOES raise
  * it, this guard REDs and the arithmetic above must be re-derived instead of
  * inherited.
@@ -263,7 +268,8 @@ describe('⭐ the two provenance marks do not touch', () => {
 const inlineHeaderNeedsCardWidthPx = (markCount: number) =>
   NODE_TITLE_MIN_MEASURE_PX +
   NODE_HEADER_GAP_PX +
-  markCount * PROVENANCE_ICON_DECLARED_PX * MAX_LABEL_COUNTER_SCALE +
+  // The mark is a GLYPH: it reads the uncapped glyph bound (27 Sep 2026).
+  markCount * PROVENANCE_ICON_DECLARED_PX * MAX_GLYPH_COUNTER_SCALE +
   Math.max(0, markCount - 1) * CANVAS_HEADER_GLYPH_GAP_PX +
   NODE_CARD_PADDING_X
 
@@ -275,14 +281,18 @@ describe('⭐ the pair still fits the header row inline at the width cards rende
     expect(NODE_HEADER_RESERVE_PX).toBe(0)
   })
 
-  it('the thresholds are 294px for one mark and 326px for two', () => {
-    expect(inlineHeaderNeedsCardWidthPx(1)).toBe(294)
-    expect(inlineHeaderNeedsCardWidthPx(2)).toBe(326)
+  it('the thresholds are 228.12px for one mark and 260.12px for two', () => {
+    // RE-PINNED 27 Sep 2026 (landing text ceiling): the title measure is sized at
+    // the TEXT bound, 108 × 1.39 + 20 = 170.12 (was 236), so each threshold falls
+    // by 65.88; the marks themselves are unchanged (glyph bound, 2).
+    expect(inlineHeaderNeedsCardWidthPx(1)).toBeCloseTo(228.12, 10)
+    expect(inlineHeaderNeedsCardWidthPx(2)).toBeCloseTo(260.12, 10)
     // ⭐ THE MECHANISM ITSELF: the second mark costs exactly one counter-scaled
     // glyph plus one gap. If a future change makes the gap free, or makes the
     // glyph unscaled, this stops being true and the band above is wrong.
-    expect(inlineHeaderNeedsCardWidthPx(2) - inlineHeaderNeedsCardWidthPx(1)).toBe(
-      PROVENANCE_ICON_DECLARED_PX * MAX_LABEL_COUNTER_SCALE + CANVAS_HEADER_GLYPH_GAP_PX,
+    expect(inlineHeaderNeedsCardWidthPx(2) - inlineHeaderNeedsCardWidthPx(1)).toBeCloseTo(
+      PROVENANCE_ICON_DECLARED_PX * MAX_GLYPH_COUNTER_SCALE + CANVAS_HEADER_GLYPH_GAP_PX,
+      10,
     )
   })
 
