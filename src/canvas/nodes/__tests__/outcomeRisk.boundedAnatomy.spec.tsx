@@ -30,7 +30,7 @@
  *     (`quiet`), so a Normal card can never be the taller one.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode, OUTCOME_UNQUANTIFIED_LINE } from '../OutcomeNode'
 import { RiskNode, RISK_EXPOSURE_UNSET_LINE } from '../RiskNode'

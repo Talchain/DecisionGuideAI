@@ -68,7 +68,7 @@
  *   than inferred from a render (see test 8).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { NodeProps } from '@xyflow/react'
@@ -177,15 +177,6 @@ const unsetLine = () => screen.queryByTestId('risk-exposure-unset')
  */
 const shownOn = (el: Element | null) => el?.querySelector('[aria-hidden="true"]')?.textContent ?? null
 const announcedLine = () => screen.queryByTestId('risk-primary-line-full')?.textContent ?? null
-const sizingChip = () => screen.queryByRole('button', { name: 'How likely is this?' })
-const indicatorChip = () => screen.queryByRole('button', { name: 'What would we see first?' })
-/** The card's ONE coaching affordance (locked Canvas design), bound by node identity. */
-const coachingIcon = (id: string) => screen.queryByTestId(`node-coaching-icon-${id}`)
-/** `a` sits before `b` in document order — "leads" as a DOM fact, not a guess. */
-const precedes = (a: Element, b: Element) =>
-  (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
-/** Opens the REAL (unmocked) popover the way a pointer does: hover the node wrapper. */
-const hoverCard = (container: HTMLElement) => fireEvent.mouseEnter(container.firstElementChild as Element)
 
 describe('a thin risk card says the MODEL is thin', () => {
   beforeEach(() => {

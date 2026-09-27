@@ -7,11 +7,10 @@
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 import { changeRow } from './__helpers__/optionChangeRowText'
-import { openOptionPreview, optionCardRows } from './__helpers__/optionPreview'
 import { optionOrdinalBadgeAccessibleName, OPTION_RESULT_COPY } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
@@ -158,29 +157,6 @@ function expectCardMakesNoLeaderClaim(container: HTMLElement, id: string, share:
   expect(container.textContent ?? '').not.toMatch(/most supported/i)
 }
 
-
-/**
- * NODE-ANATOMY v3.2 (ED #63 5806266691 "differentiator only when additive"):
- * the footer renders only where it adds something the change rows don't.
- * Changes every option sets IDENTICALLY lead the shared row order (they are
- * listed first in the model) and never differentiate, so a fixture that adds
- * them puts its differentiating factor behind "+1 more" (value / direction
- * forms) or gives "… is the key difference" another change to pick from.
- *
- * THREE of them, not two (Paul 25 Sep): the resting card now shows up to THREE
- * rows (`OPTION_CARD_ROW_LIMIT`), so two equal changes no longer push the
- * differentiating factor behind "+1 more".
- */
-const EQUAL_SHARED_CHANGES = {
-  'factor-shared-a': { value: 3, display_value: '£3k' },
-  'factor-shared-b': { value: 40, display_value: '40h' },
-  'factor-shared-c': { value: 2, display_value: '2 people' },
-}
-const EQUAL_SHARED_FACTORS = [
-  { id: 'factor-shared-a', type: 'factor', data: { label: 'Tooling spend' } },
-  { id: 'factor-shared-b', type: 'factor', data: { label: 'Weekly hours' } },
-  { id: 'factor-shared-c', type: 'factor', data: { label: 'Support headcount' } },
-]
 
 describe('OptionNode', () => {
   beforeEach(() => {
