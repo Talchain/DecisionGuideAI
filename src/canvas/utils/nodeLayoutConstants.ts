@@ -242,7 +242,7 @@ export const REPEATED_CARD_TARGET_W = 248
 export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W)
 
 /** The Question and the Goal: singletons, wide and shallow (ED S4: "≤460px"). */
-export const ANCHOR_CARD_MAX_W = 460
+export const ANCHOR_CARD_MAX_W = 720
 
 /**
  * ⭐ ROWS ABOVE FOUR REAL CARDS WRAP into balanced sub-rows under ONE family
@@ -260,7 +260,7 @@ export const ANCHOR_CARD_MAX_W = 460
  * sub-rows, reading order and one family label — so every band fits the frame
  * on width (`laptopFit.arithmetic.spec.ts`, `laptopFit1280.bandRows.spec.ts`).
  */
-export const MAX_CARDS_PER_ROW = 4
+export const MAX_CARDS_PER_ROW = 5
 
 /**
  * ⭐ THE ROW-END REASONING PROMPT (ED S4: "160px is approved as the target width
@@ -357,7 +357,11 @@ const ROW_LABEL_INSET_PX = NODE_CARD_MAX_W - 296
 /** Measured: 296px of 24px type held 25 characters of a real mixed-case label. */
 const AVG_CHAR_EM = 296 / 25 / 24
 
-/** The declared size of `typography.nodeLabel`, which these rows use. */
+/**
+ * The size the row BUDGET is computed at. `typography.nodeLabel` renders at 11px
+ * since 27 Sep (three type sizes); the budget stays at the 12px it was tuned on,
+ * so the rows keep the headroom they had and no option card grows a row.
+ */
 const ROW_LABEL_DECLARED_PX = 12
 
 /**

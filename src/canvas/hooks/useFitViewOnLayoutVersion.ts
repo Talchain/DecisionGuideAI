@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { useReactFlow, getNodesBounds, getViewportForBounds } from '@xyflow/react'
+import { useReactFlow, getNodesBounds } from '@xyflow/react'
+import { viewportCentredInFreePane } from '../utils/fitIntoFreePane'
 import { useCanvasStore } from '../store'
 import { computeFitPadding } from '../utils/computeFitPadding'
-import { excludeNonModelNodes, userFitNodes } from '../utils/fitTargets'
+import { excludeNonModelNodes, isRowEndPromptId, userFitNodes } from '../utils/fitTargets'
+import { ROW_PROMPT_H, ROW_PROMPT_W } from '../utils/nodeLayoutConstants'
 import { paddingToInsets, readFocusCamera, topAnchoredViewportWhenClamped } from '../utils/cameraComfort'
 import { watchReservedBox } from '../utils/reservedBoxWatcher'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
@@ -164,7 +166,16 @@ export function useFitViewOnLayoutVersion(): void {
     // A frame of prompts alone frames nothing the user owns — with no model
     // node the fit falls back exactly as it did before (xyflow's fit-all).
     // One helper for the landing fit and every user-invoked fit (S5).
-    const nodes = userFitNodes(getNodesRef.current ? getNodesRef.current() : [])
+    // ⭐ A row-end prompt not yet MEASURED is framed at its declared size
+    // (graph contract pass, 27 Sep). The landing fit fires right after layout,
+    // before the prompts' first measure; xyflow counts an unmeasured node as
+    // zero-wide, so with five-card rows the fit framed the cards only (1509 of
+    // 1680 units on pricing) and the prompts landed under the dock.
+    const nodes = userFitNodes(getNodesRef.current ? getNodesRef.current() : []).map((n) =>
+      isRowEndPromptId(n.id) && !(n.measured?.width && n.measured?.height)
+        ? { ...n, measured: { width: ROW_PROMPT_W, height: ROW_PROMPT_H } }
+        : n,
+    )
     const padding = computeFitPadding()
     const duration = cameraDuration(400, reducedMotionRef.current)
 
@@ -219,15 +230,19 @@ export function useFitViewOnLayoutVersion(): void {
       // `getViewportForBounds` (what `fitView` resolves through) and written at
       // once — the same frame, with no deferred write left behind.
       const { minZoom, maxZoom } = fitBoundsFor('product')
+      // ⭐ Centred in the FREE pane, not the whole pane (graph contract pass,
+      // 27 Sep; the #2190 mechanism for user fits). xyflow's
+      // `getViewportForBounds` treats asymmetric padding as a minimum and
+      // centres on the whole pane, so with five-card rows (width-bound at
+      // 1280×800) the row-end prompts sat under the dock.
       setViewportRef.current(
-        getViewportForBounds(
-          getNodesBounds(nodes),
-          cam.paneWidth,
-          cam.paneHeight,
-          minZoom ?? LABEL_LEGIBLE_ZOOM,
-          maxZoom ?? LABEL_LEGIBLE_ZOOM,
+        viewportCentredInFreePane({
+          bounds: getNodesBounds(nodes),
+          pane: { width: cam.paneWidth, height: cam.paneHeight },
           padding,
-        ),
+          minZoom: minZoom ?? LABEL_LEGIBLE_ZOOM,
+          maxZoom: maxZoom ?? LABEL_LEGIBLE_ZOOM,
+        }),
         { duration },
       )
       return
