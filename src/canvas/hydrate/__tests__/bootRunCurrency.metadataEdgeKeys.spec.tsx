@@ -112,11 +112,11 @@ describe('CONTRASTS: every field the analysis hash counts still declines', () =>
     expect(runCardCurrency()).not.toBe('current')
   })
 
-  it('edge `exists_probability` differs: declined', async () => {
+  it('edge `exists_probability` differs on THE WRITTEN EDGE: the boot merge adopts it as a model change, so declined as edited_since_read (identity-bound, DL 5859359015)', async () => {
     WRITTEN(readGraph).exists_probability = 0.5
     await hydrateCanvasFromServer(SCENARIO_ID)
-    expect(declineLog()?.reason).toMatch(/^(edited_since_read|canvas_not_proven_equal)$/)
-    expect(declineLog()?.unproven ?? '').not.toMatch(/exists_defaulted/)
+    // Control for this binding: the unperturbed read restores (the RED row above), so the decline is THIS value.
+    expect(declineLog()).toMatchObject({ reason: 'edited_since_read', mergeChanged: true, unproven: null, graphHash: S.graph_hash })
     expect(runCardCurrency()).not.toBe('current')
   })
 
