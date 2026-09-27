@@ -418,8 +418,8 @@ describe('empty states say what was NOT established (§19)', () => {
     expect(within(card).getByTestId('analysis-new-challenge-heading').textContent?.trim()).not.toBe('')
     expect(within(card).getByTestId('analysis-new-challenge-work-through')).toBeInTheDocument()
     fireEvent.click(within(card).getByTestId('analysis-new-challenge-more'))
-    fireEvent.click(screen.getByTestId('analysis-new-challenge-why'))
-    expect(within(card).getByTestId('analysis-new-challenge-basis-why').textContent?.trim()).not.toBe('')
+    // Slice D-4 (27 Sep): the engine's why-line is on the card AT REST, not behind "Why this?".
+    expect(within(card).getByTestId('analysis-new-challenge-body').textContent?.trim()).not.toBe('')
   })
 })
 

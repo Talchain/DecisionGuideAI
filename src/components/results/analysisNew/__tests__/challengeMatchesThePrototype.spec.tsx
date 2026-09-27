@@ -127,15 +127,16 @@ describe('the title and its ⓘ "Why this method here?"', () => {
     expect(info).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('⭐ opens the method basis: the finding\'s own why-line, then "<method>: a reasoning aid, not a prediction or diagnosis."', () => {
+  it('⭐ the finding\'s own why-line is AT REST (slice D-4); the method basis opens "<method>: a reasoning aid, not a prediction or diagnosis."', () => {
     const r = viaVm(FLIP)
     draw({ intervention: r })
     expect(screen.queryByTestId(`${TID}-basis`)).toBeNull()
+    expect(screen.getByTestId(`${TID}-body`).textContent).toBe(strengthenWhyLine(r.signal, r.whyNow))
     fireEvent.click(screen.getByRole('button', { name: 'Why this method here?' }))
     expect(screen.getByRole('button', { name: 'Why this method here?' })).toHaveAttribute('aria-expanded', 'true')
     const items = within(screen.getByTestId(`${TID}-basis`)).getAllByRole('listitem')
+    // Said once: the why-line left the basis for the card's rest state.
     expect(items.map((li) => li.textContent)).toEqual([
-      strengthenWhyLine(r.signal, r.whyNow),
       `${method('consider_opposite').title}: a reasoning aid, not a prediction or diagnosis.`,
     ])
   })
@@ -153,8 +154,10 @@ describe('the title and its ⓘ "Why this method here?"', () => {
     // A finding that names no technique asks "Why this question?" — there is
     // no method to explain (#2066 review note).
     expect(screen.queryByRole('button', { name: 'Why this method here?' })).toBeNull()
+    // Slice D-4: its why-line is at rest, and the basis repeats neither it nor a protocol.
+    expect(screen.getByTestId(`${TID}-body`)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Why this question?' }))
-    expect(screen.getByTestId(`${TID}-basis-why`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`${TID}-basis-why`)).toBeNull()
     expect(screen.queryByTestId(`${TID}-basis-protocol`)).toBeNull()
   })
 
@@ -208,15 +211,19 @@ describe('only the question at rest — no kicker', () => {
 })
 
 describe('the footer acts', () => {
-  it('✦ is "Ask Olumi to guide this method" when a method is attached; CONTRAST: the unmapped finding keeps "Work through this with Olumi"', () => {
+  it('✦ is "Ask Olumi to guide this method" when a method is attached; CONTRAST: the unmapped finding is named by its own act (slice D-4)', () => {
     draw({ intervention: viaVm(FLIP) })
     expect(screen.getByTestId(`${TID}-work-through`)).toHaveAttribute('aria-label', 'Ask Olumi to guide this method')
     cleanup()
     draw({ intervention: viaVm(FLIP), methodId: 'outside_view' })
     expect(screen.getByTestId(`${TID}-work-through`)).toHaveAttribute('aria-label', 'Ask Olumi to guide this method')
     cleanup()
-    draw({ intervention: viaVm(UNMAPPED) })
-    expect(screen.getByTestId(`${TID}-work-through`)).toHaveAttribute('aria-label', 'Work through this with Olumi')
+    // Slice D-4 (27 Sep): with no method, the recommendation's own act names
+    // the AI act (the producer's "Give the real figure" on Paul's model).
+    const unmapped = viaVm(UNMAPPED)
+    draw({ intervention: unmapped })
+    expect(unmapped.action.label.trim(), 'PRECONDITION: the fixture carries an act label').not.toBe('')
+    expect(screen.getByTestId(`${TID}-work-through`)).toHaveAttribute('aria-label', unmapped.action.label)
   })
 
   it('⋯ is "Question options", and a picked method has one too', () => {

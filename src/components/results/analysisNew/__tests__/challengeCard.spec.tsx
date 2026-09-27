@@ -138,14 +138,16 @@ describe('the grounded intervention', () => {
     expect(screen.getByTestId('analysis-new-challenge-heading')).toHaveTextContent(UNMAPPED.title)
   })
 
-  it('the basis is NOT at rest; "Why this?" opens the rec’s own words, and the claim id stays an attribute', () => {
+  it('the rec’s own words are AT REST (slice D-4); "Why this?" opens the source, and the claim id stays an attribute', () => {
     const r = viaVm(CALIBRATION)
     renderCard({ intervention: r })
     expect(screen.queryByTestId('analysis-new-challenge-basis')).toBeNull()
+    expect(screen.getByTestId('analysis-new-challenge-body').textContent).toBe(strengthenWhyLine(r.signal, r.whyNow))
     fireEvent.click(screen.getByRole('button', { name: ZONE.moreOptions }))
     fireEvent.click(screen.getByRole('menuitem', { name: ZONE.whyThis }))
     const basis = screen.getByTestId('analysis-new-challenge-basis')
-    expect(screen.getByTestId('analysis-new-challenge-basis-why').textContent).toBe(strengthenWhyLine(r.signal, r.whyNow))
+    // Said once: the basis does not repeat the why-line.
+    expect(screen.queryByTestId('analysis-new-challenge-basis-why')).toBeNull()
     expect(screen.getByTestId('analysis-new-challenge-basis-source').textContent).toBe(r.sourceLine)
     expect(screen.getByTestId('analysis-new-challenge-basis-grounded').textContent).toBe(COPY.strengthen.groundedChip)
     expect(basis).toHaveAttribute('data-dsk-claim-id', 'DSK-T-002')

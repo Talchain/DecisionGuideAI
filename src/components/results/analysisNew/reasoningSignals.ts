@@ -30,6 +30,7 @@ import type { AnalysisNewFinding, AnalysisNewViewModel } from './analysisNewType
 import { driverSubjectKey } from './driverSubjectCount'
 import { buildTippingPoints, type FlipThresholdLike } from './tippingPoints'
 import type { AskOlumiPayload } from '../coaching/askOlumiStore'
+import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 
 /** How many drivers the zone shows at rest. The Drivers section keeps the rest. */
 export const SIGNAL_DRIVER_COUNT = 3
@@ -87,6 +88,12 @@ export interface SignalGapRow {
 
 export interface ReasoningSignalsModel {
   drivers: SignalDriverRow[]
+  /**
+   * Why the listed ranks do not start at #1: the producer's rows it scored
+   * with a `zero_reason` (a price the options set is rank 1 and never listed).
+   * The Drivers section's own sentence (`coverage.notRanked`), or `null`.
+   */
+  notRankedNote: string | null
   tipping: SignalTippingRow | null
   gap: SignalGapRow | null
 }
@@ -217,5 +224,13 @@ export function buildReasoningSignals(
   const tipping = tippingRow(flipThresholds)
   const gap = gapRow(vm)
   if (drivers.length === 0 && tipping === null && gap === null) return null
-  return { drivers, tipping, gap }
+  const reasons = vm.drivers.suppressedZeroReasons
+  const notRankedNote =
+    drivers.length > 0 && reasons.length > 0
+      ? COPY.coverage.notRanked(
+          vm.drivers.suppressedZeroCount,
+          reasons.map((code) => ZERO_REASON_BADGE_LABELS[code]),
+        )
+      : null
+  return { drivers, notRankedNote, tipping, gap }
 }

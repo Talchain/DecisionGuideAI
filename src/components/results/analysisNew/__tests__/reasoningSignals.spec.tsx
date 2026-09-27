@@ -114,6 +114,18 @@ describe('drivers: the top three, the producer’s rank, a bar and no percentage
     expect(ranks).toEqual(['#3', '#5'])
   })
 
+  it('⭐ says why the ranks skip, under the list (Paul, 27 Sep: "#2 #3 #4, where is #1?")', () => {
+    render(<ReasoningSignals vm={vmOf(threeWithheldOfFive())} flipThresholds={null} />)
+    expect(screen.getByTestId('analysis-new-signals-drivers-not-ranked')).toHaveTextContent(
+      /^3 factors are not ranked here: controlled by your options\.$/i,
+    )
+  })
+
+  it('CONTRAST: nothing withheld, no note', () => {
+    render(<ReasoningSignals vm={vmOf(fourDrivers())} flipThresholds={null} />)
+    expect(screen.queryByTestId('analysis-new-signals-drivers-not-ranked')).toBeNull()
+  })
+
   it('CONTRAST: with nothing withheld the top driver reads #1', () => {
     render(<ReasoningSignals vm={vmOf(fourDrivers())} flipThresholds={null} />)
     expect(screen.getAllByTestId('analysis-new-signals-driver-rank')[0]).toHaveTextContent('#1')

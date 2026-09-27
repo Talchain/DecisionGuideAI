@@ -1181,6 +1181,12 @@ export interface ChecksSection {
    */
   leaderWithheld: boolean
   /**
+   * The leader was withheld because this run is Olumi's automatic first pass
+   * (CEE `unrequested_analysis_withheld`, exact match). Read only by the
+   * commitment synthesis, which says so instead of "could not confirm".
+   */
+  firstPassWithheld: boolean
+  /**
    * ⭐ THE PRODUCER'S TYPED REASON THE RECOMMENDATION WAS WITHHELD, AS ONE
    * SENTENCE — or null. Paul's manual test `1a298d6d`: the run carried
    * `CONSTRAINT_TARGET_UNRELIABLE` (his churn limit could not be scored) and the
