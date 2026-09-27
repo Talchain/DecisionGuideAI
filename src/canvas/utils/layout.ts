@@ -724,7 +724,7 @@ export async function layoutGraph(
   const splitterCreatedTiers = new Set<number>()
 
   if (isDownLayout) {
-    applyTierRowSplitting(positionMap, sizeMap, tierAssignments, MAX_CARDS_PER_ROW, fallbackBoxW, gap, effectiveLayerSpacing, splitterCreatedTiers)
+    applyTierRowSplitting(positionMap, sizeMap, tierAssignments, MAX_CARDS_PER_ROW, fallbackBoxW, gap, effectiveLayerSpacing, splitterCreatedTiers, inTierCausalDepth(tierAssignments, edges))
     normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing, splitterCreatedTiers, promptRowFloorByTier)
     placeTierRowsOnSpine(positionMap, sizeMap, unlocked, tierAssignments, fallbackBoxW, gap, promptSlotByTier)
   }
@@ -813,10 +813,18 @@ export async function layoutGraph(
  * width plan reads, so the widest sub-row the width was solved for is the one
  * that is actually built.
  *
- * ORDER IS PRESERVED: cards are taken in ELK's crossing-minimised x order (id as
- * the tie-break, for determinism) and dealt left to right, top row first. The X
- * written here is provisional — `placeTierRowsOnSpine` owns X; this owns which
- * sub-row a card is on and its provisional Y.
+ * ORDER: cards are dealt left to right, top row first, in (in-tier causal depth,
+ * then ELK's crossing-minimised x, then id) order. The X written here is
+ * provisional — `placeTierRowsOnSpine` owns X; this owns which sub-row a card is
+ * on and its provisional Y.
+ *
+ * ⭐ A CAUSE IS NEVER DEALT BELOW ITS EFFECT (27 Sep 2026, Paul's MRR model,
+ * served e8ba18e6). Dealing on x alone put "Pro paying subscribers" in the
+ * factor band's FIRST row and "Monthly new Pro subscribers", which drives it, in
+ * the second, so the link ran UP into the bottom of its target. `depthOf` is the
+ * longest same-tier path to each card (`inTierCausalDepth`); dealing on it first
+ * means every same-tier link runs down or across, never up. Row SIZES are
+ * unchanged (`balancedRowSizes`), so no card, row or width is added.
  */
 function applyTierRowSplitting(
   positionMap: Map<string, { x: number; y: number }>,
@@ -827,6 +835,7 @@ function applyTierRowSplitting(
   gap: number,
   layerSpacing: number,
   splitterCreatedTiers?: Set<number>,
+  depthOf?: ReadonlyMap<string, number>,
 ): void {
   const subRowSpacing = Math.round(layerSpacing * 0.6)
   const sortedTiers = Array.from(tierAssignments.keys()).sort((a, b) => a - b)
@@ -852,6 +861,9 @@ function applyTierRowSplitting(
     splitterCreatedTiers?.add(tier)
 
     const sorted = [...nodeIds].sort((a, b) => {
+      const ad = depthOf?.get(a) ?? 0
+      const bd = depthOf?.get(b) ?? 0
+      if (ad !== bd) return ad - bd
       const ax = positionMap.get(a)?.x ?? 0
       const bx = positionMap.get(b)?.x ?? 0
       if (ax !== bx) return ax - bx
@@ -882,6 +894,42 @@ function applyTierRowSplitting(
     const extraH = (rows.length - 1) * (nodeH + subRowSpacing)
     cumulativeExtraY += extraH
   }
+}
+
+/**
+ * The longest path to each card over links whose BOTH ends sit in the same tier
+ * (0 = no same-tier cause). Read by `applyTierRowSplitting` so a cause is never
+ * dealt into a lower sub-row than its effect. Bounded relaxation (at most the
+ * tier's size in passes), so a same-tier cycle cannot loop; its members keep
+ * whatever depth the bound reached, and the x order decides among them.
+ * Pure. Exported for unit testing.
+ */
+export function inTierCausalDepth(
+  tierAssignments: ReadonlyMap<number, readonly string[]>,
+  edges: ReadonlyArray<{ source: string; target: string }>,
+): Map<string, number> {
+  const tierOfId = new Map<string, number>()
+  for (const [tier, ids] of tierAssignments) for (const id of ids) tierOfId.set(id, tier)
+  const depth = new Map<string, number>()
+  for (const id of tierOfId.keys()) depth.set(id, 0)
+  const inTier = edges.filter(
+    (e) => e.source !== e.target && tierOfId.has(e.source) && tierOfId.get(e.source) === tierOfId.get(e.target),
+  )
+  if (inTier.length === 0) return depth
+  let maxTierSize = 0
+  for (const ids of tierAssignments.values()) maxTierSize = Math.max(maxTierSize, ids.length)
+  for (let pass = 0; pass < maxTierSize; pass++) {
+    let changed = false
+    for (const e of inTier) {
+      const next = (depth.get(e.source) ?? 0) + 1
+      if (next > (depth.get(e.target) ?? 0) && next < maxTierSize) {
+        depth.set(e.target, next)
+        changed = true
+      }
+    }
+    if (!changed) break
+  }
+  return depth
 }
 
 /**
