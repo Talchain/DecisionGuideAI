@@ -83,7 +83,8 @@ import { InfluenceExplainer, useInfluenceExplainer } from '../components/assista
 // floating-first host is mounted as a sibling when the flag is on.
 import { executeCanonicalRun } from './analysis/canonicalRunRegistry'
 import { HighlightLayer } from './highlight/HighlightLayer'
-import { computeFitPadding } from './utils/computeFitPadding'
+import { fitIntoFreePane } from './utils/fitIntoFreePane'
+import { FLOW_MAX_ZOOM, FLOW_MIN_ZOOM } from './utils/zoomLegibility'
 import { userFitNodes } from './utils/fitTargets'
 import { claimCameraForUser, isUserCameraMove } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
@@ -863,7 +864,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // AI coaching is rendered by the guidanceStore consumers, not here — see
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
 
-  const { getViewport, getNodes, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
+  const { getViewport, getNodes, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition, getNodesBounds, setViewport } = useReactFlow()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
@@ -924,6 +925,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // below has a stable reference even when ReactFlow updates.
   const fitViewRef = useRef(fitView)
   fitViewRef.current = fitView
+  const fitFlowRef = useRef({ getNodes, getNodesBounds, setViewport })
+  fitFlowRef.current = { getNodes, getNodesBounds, setViewport }
 
   const HARD_ISOLATE_MINIMAL_CANVAS = false
   if (HARD_ISOLATE_MINIMAL_CANVAS) {
@@ -948,8 +951,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             nodes={nodes}
             edges={edges}
             fitView
-            minZoom={0.1}
-            maxZoom={4}
+            minZoom={FLOW_MIN_ZOOM}
+            maxZoom={FLOW_MAX_ZOOM}
           >
             <Background variant={BackgroundVariant.Dots} gap={20} />
           </ReactFlow>
@@ -2541,11 +2544,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     claimCameraForUser(currentModelKey())
     // Model + row-end prompts, as the landing fit frames (`userFitNodes`, S5).
     const nodes = userFitNodes(getNodesRef.current())
-    fitViewRef.current({
-      ...(nodes.length > 0 ? { nodes } : {}),
-      padding: computeFitPadding(),
+    // Centred in the FREE pane (`fitIntoFreePane`): xyflow's own fitView keeps
+    // a tall board centred under the dock (D-2 row (e), 15% off on Paul's MRR).
+    fitIntoFreePane(fitFlowRef.current, {
+      nodes,
       ...fitBoundsFor('user'),
-      duration: cameraDuration(300, reducedMotionRef.current),
+      durationMs: 300,
+      reducedMotion: reducedMotionRef.current,
     })
   }, [])
 
@@ -2605,8 +2610,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOpts}
             fitView
-            minZoom={0.1}
-            maxZoom={4}
+            minZoom={FLOW_MIN_ZOOM}
+            maxZoom={FLOW_MAX_ZOOM}
             // NOTE: No handlers passed - this isolates whether the loop is in
             // node/edge components vs the handlers
           >
@@ -2662,8 +2667,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             nodes={[]}
             edges={[]}
             fitView
-            minZoom={0.1}
-            maxZoom={4}
+            minZoom={FLOW_MIN_ZOOM}
+            maxZoom={FLOW_MAX_ZOOM}
             // NOTE: No nodeTypes, edgeTypes, handlers - completely bare ReactFlow
           >
             <Background variant={BackgroundVariant.Dots} gap={20} />
@@ -2797,8 +2802,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             // same unbounded fit parked a fresh brief at 328%. `fitBoundsFor`
             // documents this path as the one product fit it did not reach.
             fitViewOptions={CANVAS_MOUNT_FIT_OPTIONS}
-            minZoom={0.1}
-            maxZoom={4}
+            minZoom={FLOW_MIN_ZOOM}
+            maxZoom={FLOW_MAX_ZOOM}
             proOptions={{ hideAttribution: true }} /* contract v3.1 DESIGN-GAP #29: no "React Flow" link on the canvas (MIT; the option MiniCanvas already uses) */
           >
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} color={showGrid ? CANVAS_GRID_DOT_COLOUR : undefined} />
@@ -3363,7 +3368,7 @@ function ReactFlowMinimal() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
-        <ReactFlow nodes={[]} edges={[]} fitView minZoom={0.1} maxZoom={4}>
+        <ReactFlow nodes={[]} edges={[]} fitView minZoom={FLOW_MIN_ZOOM} maxZoom={FLOW_MAX_ZOOM}>
           <Background variant={BackgroundVariant.Dots} gap={20} />
         </ReactFlow>
       </div>
@@ -3395,7 +3400,7 @@ function ReactFlowNoFitView() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
-        <ReactFlow nodes={[]} edges={[]} minZoom={0.1} maxZoom={4}>
+        <ReactFlow nodes={[]} edges={[]} minZoom={FLOW_MIN_ZOOM} maxZoom={FLOW_MAX_ZOOM}>
           <Background variant={BackgroundVariant.Dots} gap={20} />
         </ReactFlow>
       </div>
@@ -3412,7 +3417,7 @@ function ReactFlowNoBg() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
-        <ReactFlow nodes={[]} edges={[]} fitView minZoom={0.1} maxZoom={4} />
+        <ReactFlow nodes={[]} edges={[]} fitView minZoom={FLOW_MIN_ZOOM} maxZoom={FLOW_MAX_ZOOM} />
       </div>
       <DebugLabel mode="RF-NO-BG: fitView + zoom (no Background)" color="rgba(139, 92, 246, 0.9)" />
     </div>
@@ -3442,8 +3447,8 @@ function ReactFlowStoreOnly() {
           nodes={nodes}
           edges={edges}
           fitView
-          minZoom={0.1}
-          maxZoom={4}
+          minZoom={FLOW_MIN_ZOOM}
+          maxZoom={FLOW_MAX_ZOOM}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} />
         </ReactFlow>

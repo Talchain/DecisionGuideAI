@@ -60,9 +60,8 @@ import { useOverlayCell } from './CanvasOverlayBand'
 import { Maximize2 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { excludeNonModelNodes, userFitNodes } from '../utils/fitTargets'
-import { computeFitPadding } from '../utils/computeFitPadding'
+import { fitIntoFreePane } from '../utils/fitIntoFreePane'
 import { countNodesOutsideFrame, paddingToInsets, readFocusCamera } from '../utils/cameraComfort'
-import { cameraDuration } from '../utils/cameraMotion'
 import { claimCameraForUser } from '../utils/userCameraClaim'
 import { currentModelKey } from '../utils/currentModelKey'
 import { fitBoundsFor } from '../utils/zoomLegibility'
@@ -70,7 +69,7 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
 
 /**
- * Base duration for the overview move. Routed through `cameraDuration` at the
+ * Base duration for the overview move. Routed through `cameraDuration` (inside `fitIntoFreePane`) at the
  * call site so it collapses to 0 under `prefers-reduced-motion` —
  * `cameraMotion.sourceScan.spec.ts` REDs on any camera duration that is not,
  * which is what it did to the first version of this file.
@@ -78,7 +77,7 @@ import { typography } from '../../styles/typography'
 const OVERVIEW_FIT_MS = 400
 
 export function ModelExtentNotice() {
-  const { getViewport, fitView, getNodes } = useReactFlow()
+  const { getViewport, getNodes, getNodesBounds, setViewport } = useReactFlow()
   const prefersReducedMotion = usePrefersReducedMotion()
   const nodes = useCanvasStore(s => s.nodes)
   // Subscribe to the live transform so the count follows pan and zoom rather
@@ -215,13 +214,14 @@ export function ModelExtentNotice() {
     // `utils/userCameraClaim.ts` for the two camera writes, timed and named.
     claimCameraForUser(currentModelKey())
     const fitTargets = userFitNodes(getNodes())
-    fitView({
-      ...(fitTargets.length > 0 ? { nodes: fitTargets } : {}),
-      padding: computeFitPadding(),
+    // Centred in the free pane, as the toolbar's fit is (`fitIntoFreePane`).
+    fitIntoFreePane({ getNodes, getNodesBounds, setViewport }, {
+      nodes: fitTargets,
       ...fitBoundsFor('user'),
-      duration: cameraDuration(OVERVIEW_FIT_MS, prefersReducedMotion),
+      durationMs: OVERVIEW_FIT_MS,
+      reducedMotion: prefersReducedMotion,
     })
-  }, [fitView, getNodes, prefersReducedMotion])
+  }, [getNodes, getNodesBounds, setViewport, prefersReducedMotion])
 
   // Absent, zero, a model small enough that the question does not arise — or a
   // layout that has not settled, in which case there is no honest count to give.

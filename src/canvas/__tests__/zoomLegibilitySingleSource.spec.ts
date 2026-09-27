@@ -62,7 +62,11 @@ const EXCLUDED_DIR_NAMES = new Set(['__tests__', '__fixtures__', '__helpers__', 
  * legibility floor and a magnification ceiling. What must never appear is a
  * third file restating either. */
 const SINGLE_SOURCE_FILE = 'utils/zoomLegibility.ts'
-const SINGLE_SOURCE_NAMES = ['LABEL_LEGIBLE_ZOOM', 'AUTO_FIT_MAX_ZOOM']
+// FLOW_MIN_ZOOM / FLOW_MAX_ZOOM (27 Sep 2026, D-2 row (e)): the canvas's zoom
+// RANGE, which lived as EIGHT literal copies of `minZoom={0.1} maxZoom={4}` on
+// the `<ReactFlow>` props until a user fit (`fitIntoFreePane`) needed to clamp
+// to it too. Its home is now here; every prop reads it, so no second copy exists.
+const SINGLE_SOURCE_NAMES = ['LABEL_LEGIBLE_ZOOM', 'AUTO_FIT_MAX_ZOOM', 'FLOW_MIN_ZOOM', 'FLOW_MAX_ZOOM']
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = []
