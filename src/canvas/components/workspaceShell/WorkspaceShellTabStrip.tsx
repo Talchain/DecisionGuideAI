@@ -331,7 +331,8 @@ export function WorkspaceShellTabStrip({
     // it explicitly exempts `NAV` and fails only on a role-less claimant.
     // Contract `.panel-tabs{height:45px}` — see `SHELL_TABSTRIP_HEIGHT_PX`.
     <div
-      className="flex items-center gap-2 px-2"
+      // Compact: 4px strip padding and gap too (served 280 + stale mark was 8px short).
+      className={`flex items-center ${isCompact ? 'gap-1 px-1' : 'gap-2 px-2'}`}
       style={{ height: SHELL_TABSTRIP_HEIGHT_PX }}
       data-testid="outputs-dock-tabstrip"
     >
