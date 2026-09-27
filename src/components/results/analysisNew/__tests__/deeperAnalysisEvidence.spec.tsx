@@ -292,7 +292,8 @@ describe('the standing method disclosure', () => {
     // prevents it while nobody types the words again. The only literal
     // occurrence permitted is the constant's own definition.
     const SRC = resolve(__dirname, '../../../..')
-    const NEEDLE = 'simplified structural causal model'
+    // Re-worded in plain English on Paul's test (27 Sep); the scan follows it.
+    const NEEDLE = 'simplified cause-and-effect model'
     const OWNER = 'components/results/analysisMethodCopy.ts'
 
     const hits: string[] = []

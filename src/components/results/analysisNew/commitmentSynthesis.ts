@@ -109,6 +109,15 @@ export const COMMITMENT_COPY = {
   changeNotAnalysed: 'The effect of the latest change has not been analysed yet.',
   /** V2 `synthesisHTML()` bullet 2 at rest ("…lacks assessed evidence"): the evidence check's own state. */
   evidenceNotAssessed: 'The evidence behind the inputs has not been assessed.',
+  /**
+   * Bullet 2 when CEE withheld the leader because nobody asked for this run
+   * (`unrequested_analysis_withheld`). "Could not confirm" read as a failed
+   * check on Paul's test (27 Sep); the true cause is the policy. "Can", not
+   * "will": a run the user starts may still withhold for another reason.
+   */
+  firstPassWithheld: "This is Olumi's automatic first pass, which does not put an option forward; a run you start can.",
+  /** Bullet 3 on that run: the move that can change it. */
+  firstPassBefore: "Check Olumi's estimates, then run the analysis.",
   /** V2 `synthesisHTML()` (re-run): the consequence leads. Producer noise verdicts only. */
   sinceLastRun: {
     noneMoved: 'Since the last run, no option moved beyond ordinary run-to-run variation.',
@@ -170,6 +179,8 @@ export type OpenSource =
   | 'leader_withheld_cause'
   /** (a) `COPY.checks.leader_not_assessed.meaning`, when withheld and the cause is not nameable. */
   | 'leader_withheld'
+  /** (a) `COMMITMENT_COPY.firstPassWithheld`, when withheld on Olumi's automatic first pass. */
+  | 'first_pass'
   /** (b) `COPY.disclosure.tippingPoint(...)` over `vm.sensitivity.tippingPoints[0]`. */
   | 'tipping_point'
   /** (c) `COPY.checks[robustnessCode].meaning`. */
@@ -192,6 +203,8 @@ export type BeforeSource =
    * Names no option and claims nothing about the run.
    */
   | 'respond_or_record'
+  /** `COMMITMENT_COPY.firstPassBefore` on Olumi's automatic first pass (the leader withheld for that reason). */
+  | 'first_pass'
 
 export interface CommitmentBullet<S extends string> {
   text: string
@@ -379,6 +392,9 @@ function openBullet(vm: CommitmentSynthesisInput): CommitmentBullet<OpenSource> 
     // act on. Appended, never substituted — see `checks.leaderWithholdDetail`.
     const detail = vm.checks.leaderWithholdDetail ?? null
     const withDetail = (text: string) => (detail !== null ? `${text} ${detail}` : text)
+    if (cause === null && vm.checks.firstPassWithheld) {
+      return { text: withDetail(COMMITMENT_COPY.firstPassWithheld), source: 'first_pass' }
+    }
     return cause !== null
       ? { text: withDetail(cause), source: 'leader_withheld_cause' }
       : { text: withDetail(COPY.checks.leader_not_assessed.meaning), source: 'leader_withheld' }
@@ -427,6 +443,10 @@ function beforeBullet(
 ): CommitmentBullet<BeforeSource> | null {
   if (vm.status.isStale && !vm.checks.rerunWouldNotHelp) {
     return { text: COMMITMENT_COPY.rerunBefore, source: 'rerun' }
+  }
+  // The same condition bullet 2 uses, so the two can never disagree.
+  if (vm.checks.leaderWithheld && vm.checks.leaderWithholdCause === null && vm.checks.firstPassWithheld) {
+    return { text: COMMITMENT_COPY.firstPassBefore, source: 'first_pass' }
   }
   // ⛔ NOT THE CARD'S OWN ITEM. The Challenge card already shows the promoted
   // intervention's title at rest; repeating it here put the same sentence on
