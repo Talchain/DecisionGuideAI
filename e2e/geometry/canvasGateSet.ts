@@ -458,6 +458,36 @@ export const GATED_TESTS: readonly GatedTest[] = [
       '`1.2 1 0.9 0.8 0.7`). Every sample now re-reads the camera and excludes-and-reports what ' +
       'did not settle rather than averaging it in.',
   },
+  {
+    file: 'chatServedGeometry.measure.ts',
+    suite: 'chat served geometry',
+    title: 'CHAT SERVED TURNS — no overhang, no silent clip, no covered control, dock 319px',
+    catches:
+      'D-2 CHAT ARM (build train #70 5855068711, slice D, R7; AI Conversation). The chat, rendered from five SERVED '
+      + 'turns (#2175 fixture, producer bytes, built by the shipped chain in the page) at the dock\'s 319px with every '
+      + 'disclosure open: (a) nothing overhangs the thread, (b) no text is clipped without an ellipsis or line clamp, '
+      + '(c) no enabled control, and no item of any one open "…" menu, is covered at its centre. jsdom returns 0 for '
+      + 'every rect, so no unit test can see this. ⭐ ITS OWN FIRST VERSION WAS WRONG, and the fix is load-bearing: '
+      + 'a DOM click() moves no focus, so the quiet-at-rest menu slot stayed `opacity: 0` (a stacking context) and '
+      + 'reported 13 covered menu items that no user can reach; the probe now focuses the trigger first, as a real '
+      + 'click does. Mutants: removing `focus-within:opacity-100` from MENU_QUIET_AT_REST turns (c) RED (13); a '
+      + '`whitespace-nowrap overflow-hidden` headline turns (a) and (b) RED.',
+  },
+  {
+    file: 'chatServedGeometry.measure.ts',
+    suite: 'chat served geometry',
+    title: 'CHAT SERVED TURNS — no overhang, no silent clip, no covered control, dock 416px',
+    catches:
+      'D-2 CHAT ARM (build train #70 5855068711, slice D, R7; AI Conversation). The chat, rendered from five SERVED '
+      + 'turns (#2175 fixture, producer bytes, built by the shipped chain in the page) at the dock\'s 416px with every '
+      + 'disclosure open: (a) nothing overhangs the thread, (b) no text is clipped without an ellipsis or line clamp, '
+      + '(c) no enabled control, and no item of any one open "…" menu, is covered at its centre. jsdom returns 0 for '
+      + 'every rect, so no unit test can see this. ⭐ ITS OWN FIRST VERSION WAS WRONG, and the fix is load-bearing: '
+      + 'a DOM click() moves no focus, so the quiet-at-rest menu slot stayed `opacity: 0` (a stacking context) and '
+      + 'reported 13 covered menu items that no user can reach; the probe now focuses the trigger first, as a real '
+      + 'click does. Mutants: removing `focus-within:opacity-100` from MENU_QUIET_AT_REST turns (c) RED (13); a '
+      + '`whitespace-nowrap overflow-hidden` headline turns (a) and (b) RED.',
+  },
 ]
 
 /**
