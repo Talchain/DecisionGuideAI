@@ -77,4 +77,35 @@ describe('AnswerBody', () => {
     expect(bullets.querySelector('script')).toBeNull()
     expect(bullets.innerHTML).toContain('&lt;script&gt;')
   })
+
+  // Paul's test, 27 Sep (UI e8ba18e6): an options reply split its list around the toggle — three bullets, then
+  // "Show less", then the rest ("None has been added… · £59 with an annual-plan discount… · Segmented pricing…").
+  // Expanded, the answer reads straight on and the toggle closes it from the end.
+  it('expanded, the detail follows the bullets directly and "Show less" comes after it', () => {
+    const answer: AnswerShape = {
+      headline: 'Five options are worth considering.',
+      bullets: ['£59 for new Pro customers only.', 'Keep Pro at £49; sell AI as a paid add-on.'],
+      detail: 'None has been added. I can add any you choose as separate options.',
+    }
+    render(<AnswerBody answer={answer} />)
+    const toggle = screen.getByTestId('answer-show-more')
+    toggle.focus()
+    fireEvent.click(toggle)
+    const detail = screen.getByTestId('answer-detail')
+    const bullets = screen.getByTestId('answer-bullets')
+    const after = screen.getByTestId('answer-show-more')
+    expect(bullets.compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(detail.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING, 'Show less closes it from the end').toBeTruthy()
+    expect(after.textContent).toContain('Show less')
+    // The SAME button moved nothing but its label: a keyboard user keeps their place.
+    expect(after).toBe(toggle)
+    expect(document.activeElement).toBe(toggle)
+  })
+
+  it('CONTRAST: collapsed, the toggle sits under the bullets and no detail is rendered', () => {
+    render(<AnswerBody answer={{ headline: 'H.', bullets: ['One.'], detail: 'More.' }} />)
+    expect(screen.queryByTestId('answer-detail')).toBeNull()
+    const bullets = screen.getByTestId('answer-bullets')
+    expect(bullets.compareDocumentPosition(screen.getByTestId('answer-show-more')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })
