@@ -62,7 +62,7 @@ export const CANVAS_TYPE_PX = {
    * a reader cannot open.
    */
   nodeValue: 14,
-  nodeLabel: 12,
+  nodeLabel: 11, // 27 Sep 2026: three type sizes on the graph (14 / 11 / 10)
   edgeLabel: 11,
 } as const
 

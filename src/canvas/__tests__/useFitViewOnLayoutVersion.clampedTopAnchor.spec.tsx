@@ -49,7 +49,8 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { getNodesBounds, getViewportForBounds } from '@xyflow/react'
+import { getNodesBounds } from '@xyflow/react'
+import { viewportCentredInFreePane } from '../utils/fitIntoFreePane'
 import { useCanvasStore } from '../store'
 import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
 import { GHOST_OPTION_NODE_ID } from '../utils/fitTargets'
@@ -218,8 +219,9 @@ describe("fitNow's CLAMPED exit — the top-anchored setViewport", () => {
     // canvas that is the person's next zoom (a rung change re-measures the
     // cards), so a queued product fit threw the camera back to the landing
     // frame after "reset to 100%" (Canvas Browser Gate `nodeKeyboardBleed`).
-    // The unclamped fit is computed with xyflow's own `getViewportForBounds` —
-    // the function `fitView` resolves through — and written immediately.
+    // The unclamped fit is centred in the FREE pane (`viewportCentredInFreePane`,
+    // 27 Sep; xyflow's `getViewportForBounds` centred on the whole pane and let
+    // five-card rows run under the dock) — and written immediately.
     currentNodes = fittingNodes()
     renderHook(() => useFitViewOnLayoutVersion())
 
@@ -227,14 +229,13 @@ describe("fitNow's CLAMPED exit — the top-anchored setViewport", () => {
     flushFrames()
 
     const { minZoom, maxZoom } = fitBoundsFor('product')
-    const expected = getViewportForBounds(
-      getNodesBounds(fittingNodes() as never),
-      PANE.width,
-      PANE.height,
-      minZoom as number,
-      maxZoom as number,
-      DEPLOYED_INSETS as Parameters<typeof getViewportForBounds>[5],
-    )
+    const expected = viewportCentredInFreePane({
+      bounds: getNodesBounds(fittingNodes() as never),
+      pane: PANE,
+      padding: DEPLOYED_INSETS as Parameters<typeof viewportCentredInFreePane>[0]['padding'],
+      minZoom: minZoom as number,
+      maxZoom: maxZoom as number,
+    })
     expect(setViewportSpy, 'the unclamped fit is written once, directly').toHaveBeenCalledTimes(1)
     expect(setViewportSpy.mock.calls[0][0]).toEqual(expected)
     expect(setViewportSpy.mock.calls[0][0], 'an unclamped fit must NOT top-anchor').not.toEqual(DEPLOYED_TOP_ANCHORED)

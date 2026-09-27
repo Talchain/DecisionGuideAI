@@ -615,7 +615,10 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  * it still only fires when something has genuinely gone wrong, rather than
  * becoming a second spacing authority that competes with this one.
  */
-export const LAYOUT_NODE_GAP = 32
+// ⭐ 27 Sep 2026: 32 → 24. The default dock went 319 → 360 (#2199), so the 1280
+// frame at the floor is 1656 units; five cards and the prompt need 1680 at 32 and
+// 1640 at 24. Visible sibling gap 48 (24 + the 24 padding).
+export const LAYOUT_NODE_GAP = 24
 /**
  * ⭐ THE KIND SHAPE ON A CARD'S TOP BORDER, in unscaled px (contract v3.1
  * FRAME-03, `.node .shape{width:24px;height:24px;top:-12px}`). `BaseNode` draws
@@ -626,6 +629,22 @@ export const LAYOUT_NODE_GAP = 32
  * (`tierLanes.ts`) and the row gap below budgets for it.
  */
 export const KIND_GLYPH_PX = 24
+
+/**
+ * ⭐ THE KIND SHAPE'S GEOMETRY AT LABEL SCALE `s` (graph contract pass, 27 Sep
+ * 2026) — ONE source for `BaseNode`, the band titles and their guard. The shape
+ * scales with the TEXT and its lower edge stays `KIND_GLYPH_PX / 2` inside the
+ * card's top border at every zoom (the contract's `top:-12px` on a 12px top
+ * padding), so it never reaches the title. It used to scale by the glyph TARGET
+ * scale (2 at the landing floor): 24 units into a 12-unit padding.
+ */
+export function kindGlyphSizeAt(s: number): number {
+  return KIND_GLYPH_PX * s
+}
+/** How far the shape stands ABOVE the card's top border at label scale `s`. */
+export function kindGlyphOverhangAt(s: number): number {
+  return KIND_GLYPH_PX * s - KIND_GLYPH_PX / 2
+}
 
 /**
  * ⭐⭐ THE ROW GAP HOLDS THE KIND SHAPE AND THE BAND TITLE, BOTH AT THE BOUND
