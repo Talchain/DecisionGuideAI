@@ -26,6 +26,10 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
+// These pins exercise the IN-UNITS path (a real axis and a real £ figure), which
+// comes back once a producer types an anchored goal band (backend brief B-2).
+// `goalBandUnits.ts` is `false` on every run today, so the switch is mocked on here.
+vi.mock('../goalBandUnits', () => ({ goalBandIsInUserUnits: () => true }))
 
 import { OptionsComparison } from '../sections/OptionsComparison'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'

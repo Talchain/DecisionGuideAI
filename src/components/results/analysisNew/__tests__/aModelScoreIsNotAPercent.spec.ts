@@ -7,7 +7,11 @@
  * not have. It now prints the score as the comparison axis does, and names it.
  * CONTRAST: a run with a real unit keeps `formatThreshold`'s figure.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+// These pins exercise the IN-UNITS path (a real axis and a real £ figure), which
+// comes back once a producer types an anchored goal band (backend brief B-2).
+// `goalBandUnits.ts` is `false` on every run today, so the switch is mocked on here.
+vi.mock('../goalBandUnits', () => ({ goalBandIsInUserUnits: () => true }))
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { formatModelScore, MODEL_SCORE_COPY } from '../modelScore'
 import { formatThreshold } from '../../RangeVisualization'
