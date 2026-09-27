@@ -970,6 +970,8 @@ export interface AnalysisNewViewModel {
    * reasons apart and must not guess.
    */
   whatsChanged: RunDeltaView | null
+  /** CEE's `analysis_ready.run_delta_absence_reason` for this turn, verbatim; null when none was sent. */
+  runDeltaAbsenceReason: string | null
 
   status: AnalysisNewStatus
   /**

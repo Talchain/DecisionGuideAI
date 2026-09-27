@@ -187,6 +187,11 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    * either side renders nothing.
    */
   const storedRunDelta = useCanvasStore((s) => s.runDelta)
+  // CEE's reason for sending no run_delta on this turn (passed through `analysis_ready`).
+  const runDeltaAbsenceReason = useCanvasStore((s) => {
+    const r = (s.ceeAnalysisReady as { run_delta_absence_reason?: unknown } | null | undefined)?.run_delta_absence_reason
+    return typeof r === 'string' ? r : null
+  })
   const whatsChanged = useMemo(() => {
     if (!runDeltaDescribesDisplayedAnalysis(storedRunDelta, responseHash, currentScenarioId)) return null
     // Labels come from the SAME node map the rest of this surface uses, so the
@@ -258,6 +263,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         responseHash,
         scienceGrounding,
         whatsChanged,
+        runDeltaAbsenceReason,
         nodeValueSources,
         nodeLabels,
         nodeOrigins,
@@ -306,6 +312,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       responseHash,
       scienceGrounding,
       whatsChanged,
+      runDeltaAbsenceReason,
       nodeValueSources,
       nodeLabels,
       nodeOrigins,

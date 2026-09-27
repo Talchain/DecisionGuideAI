@@ -261,6 +261,7 @@ export interface AnalysisNewViewModelInputs {
   responseHash?: string
   /** Already resolved by the hook; this builder never derives it. */
   whatsChanged?: RunDeltaView | null
+  runDeltaAbsenceReason?: string | null
   /**
    * Producer DSK attestation keyed by recommendation id, joined by the hook.
    * Sparse: an absent key means the producer attested nothing. Never defaulted.
@@ -3933,6 +3934,7 @@ export function buildAnalysisNewViewModel(
       ? { insights: [], candidateCount: 0 }
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
     whatsChanged: inputs.whatsChanged ?? null,
+    runDeltaAbsenceReason: inputs.runDeltaAbsenceReason ?? null,
     strengthen: {
       // The FULL ordered list. The preview length is applied at the mount so
       // the section can disclose, and reach, its own tail.

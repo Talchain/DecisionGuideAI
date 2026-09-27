@@ -117,6 +117,8 @@ export const COMMITMENT_COPY = {
       n === 1
         ? 'Since the last run, one option moved beyond ordinary run-to-run variation.'
         : `Since the last run, ${n} options moved beyond ordinary run-to-run variation.`,
+    /** CEE `unrequested_run_in_pair` (exact match): the previous run was the automatic first pass. Wording: DL #70 5852289012. */
+    notComparedWithFirstPass: "This run is not compared with Olumi's automatic first pass; the next re-run will show what moved.",
   },
   /** V2 `synthesisHTML()`: the inline ✦ after "Still open". */
   openAsk: {
@@ -219,6 +221,7 @@ export type CommitmentSynthesisInput = Pick<
   /** ⭐ WAVE 2: `withheldFoundedBullet`'s count — see its own note. */
   | 'optionsComparison'
   | 'whatsChanged'
+  | 'runDeltaAbsenceReason'
 >
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -297,6 +300,9 @@ const pct = (v: number): string => `${Math.round(v * 100)}%`
 /** What moved since the last run, from the producer's own noise verdicts; null when they license nothing. */
 function sinceLastRun(vm: CommitmentSynthesisInput): string | null {
   const view = vm.whatsChanged
+  if (!vm.status.isStale && !view && vm.runDeltaAbsenceReason === 'unrequested_run_in_pair') {
+    return COMMITMENT_COPY.sinceLastRun.notComparedWithFirstPass
+  }
   if (vm.status.isStale || !view || view.movementsUnavailable || view.movements.length === 0) return null
   const signal = view.movements.filter((m) => m.noiseVerdict === 'signal' && m.mayShowMagnitude)
   if (signal.length === 1 && signal[0].label) {
