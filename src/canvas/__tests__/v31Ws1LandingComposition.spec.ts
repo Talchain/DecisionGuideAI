@@ -4,8 +4,8 @@
  * The pure-function half of WS1's rows in `DESIGN-GAP-v31.md`, bound by node
  * identity and by the real `layoutGraph` / `withGhostTiers` / placement code:
  *   #10 edges never run under a non-endpoint card (brick courses + vertical leads)
- *   #11 the row gap is one constant, whatever a browser persisted (64 visible
- *       since the review of #2074: it budgets the kind shape and the band title)
+ *   #11 the row gap is one constant, whatever a browser persisted (56 visible
+ *       since 27 Sep; 64 from the review of #2074 until then)
  *   #17 the corner-mark spacer yields line 1 only when THIS title's first word needs it
  *   #25 far-zoom title scale
  *   #26 band words
@@ -15,6 +15,9 @@
  * specs laid out at height 100 prove row assignment only, so this lays out
  * boards whose cards differ in height by up to 4×, in both orders, and samples
  * every card and every edge over its WHOLE extent.
+ *
+ * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+ * Five no longer wraps, so the both-families-wrap shape below is six and six (was five and five).
  */
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
@@ -150,7 +153,7 @@ const PROFILES: Record<string, (kind: string, i: number) => number> = {
   alternating: (k, i) => (k === 'decision' || k === 'goal' ? 110 : i % 2 === 0 ? 100 : 380),
 }
 const SHAPES = {
-  'five factors (3+2), five consequences (3+2)': { options: 4, factors: 5, outcomes: 2, risks: 3 },
+  'six factors (3+3), six consequences (3+3)': { options: 4, factors: 6, outcomes: 3, risks: 3 },
   'eight factors (4+4)': { options: 4, factors: 8, outcomes: 2, risks: 3 },
   'three options, seven factors (4+3)': { options: 3, factors: 7, outcomes: 2, risks: 2 },
 }
@@ -175,8 +178,8 @@ describe('WS1 #10 — a wrapped family is laid in brick courses', () => {
     expect(block).toBeLessThanOrEqual(CANONICAL_LAYOUT_WIDTH)
   })
 
-  it('five factors: the SECOND course is shifted (the narrower of the two brick choices)', async () => {
-    const { nodes, edges, heights } = board({ options: 2, factors: 5, outcomes: 1, risks: 0 }, () => 150)
+  it('seven factors (4+3): the SECOND course is shifted (the narrower of the two brick choices)', async () => {
+    const { nodes, edges, heights } = board({ options: 2, factors: 7, outcomes: 1, risks: 0 }, () => 150)
     const out = await layoutGraph(nodes, edges, { heightAtLabelBound: heights })
     const facs = out.nodes.filter((n) => n.id.startsWith('fac_'))
     const ys = [...new Set(facs.map((n) => n.position.y))].sort((a, b) => a - b)
@@ -277,10 +280,11 @@ describe('WS1 #10 — resolveLayeredEdgeLeads', () => {
  * The visible gap was 48 here until the review of #2074 (Blocker 1): at the
  * bound the kind shape's 24-unit overhang and the band title's 24-unit line
  * need 64 with their clearances, so the constant went back to 48 (64 visible).
+ * 27 Sep 2026: Paul's laptop-width ruling — the constant is 40 (56 visible).
  * The budget itself is asserted by `bandTitleClearsKindGlyph.guard.spec.ts`;
  * this arm keeps #11's point — ONE gap, whatever a browser persisted.
  */
-describe('WS1 #11 — the row gap is one constant: 64 visible units, whatever layerSpacing a browser persisted', () => {
+describe('WS1 #11 — the row gap is one constant: 56 visible units, whatever layerSpacing a browser persisted', () => {
   for (const layerSpacing of [undefined, 30, 48, 64, 90]) {
     it(`layerSpacing ${String(layerSpacing)} → the gap between two rows is ${LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y}`, async () => {
       const nodes = [node('dec', 'decision', 100), node('opt', 'option', 100)]
@@ -291,7 +295,7 @@ describe('WS1 #11 — the row gap is one constant: 64 visible units, whatever la
       const dec = out.nodes.find((n) => n.id === 'dec')!
       const opt = out.nodes.find((n) => n.id === 'opt')!
       expect(opt.position.y - (dec.position.y + 100)).toBe(LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y)
-      expect(LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y).toBe(64)
+      expect(LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y).toBe(56)
     })
   }
 })

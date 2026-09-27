@@ -30,7 +30,9 @@ const BOARD: Node[] = [
   n('dec', 'decision', 1064, 150, 336, 290),
   n('o1', 'option', 100, 500, 336, 515),
   n('o2', 'option', 600, 500, 336, 515),
-  n('f1', 'factor', 40, 1150, 187, 360),
+  // 140 wide (was 187): the shape scales with the TEXT since 27 Sep (32.6 units at the
+  // bound, was 48), so f1's shape must sit nearer the column for FACTORS' run to cross it.
+  n('f1', 'factor', 40, 1150, 140, 360),
   n('out1', 'outcome', 800, 1600, 187, 219),
   n('goal', 'goal', 500, 2000, 336, 264),
 ]
@@ -58,7 +60,7 @@ describe('band titles: one left column, no panels (NODE-ANATOMY-v32 L1/L2)', () 
       expect(px(title.style.top)).toBe(lane.y - LANE_TITLE_GAP)
       const rises = placed.find((p) => p.tier === lane.tier)!.clearsKindGlyphs
       expect(title.style.transform).toBe(
-        rises ? 'translateY(calc(-100% - 12px * var(--canvas-glyph-scale, 1)))' : 'translateY(-100%)',
+        rises ? 'translateY(calc(-100% - (24px * var(--canvas-label-scale, 1) - 12px)))' : 'translateY(-100%)',
       )
     }
   })
@@ -77,7 +79,7 @@ describe('band titles: one left column, no panels (NODE-ANATOMY-v32 L1/L2)', () 
     const byTier = (t: number) => placed.find((p) => p.tier === t)!
     expect(byTier(2).clearsKindGlyphs).toBe(true)
     expect(screen.getByTestId('tier-lane-2-title').style.transform).toBe(
-      'translateY(calc(-100% - 12px * var(--canvas-glyph-scale, 1)))',
+      'translateY(calc(-100% - (24px * var(--canvas-label-scale, 1) - 12px)))',
     )
     expect(byTier(5).clearsKindGlyphs).toBe(false)
     expect(screen.getByTestId('tier-lane-5-title').style.transform).toBe('translateY(-100%)')

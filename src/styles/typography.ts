@@ -62,7 +62,7 @@ export const CANVAS_TYPE_PX = {
    * a reader cannot open.
    */
   nodeValue: 14,
-  nodeLabel: 12,
+  nodeLabel: 11, // 27 Sep 2026: three type sizes on the graph (14 / 11 / 10)
   edgeLabel: 11,
 } as const
 
@@ -255,7 +255,9 @@ export const typography = {
   // mirror is deliberate and `canvasTypeGeometryAgrees.spec.ts` is what makes it
   // fail loud — the same guard named six lines above, spelled correctly.
   nodeValue: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug tabular-nums',
-  nodeLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-snug',
+  // ⭐ 11px since 27 Sep 2026 (Paul: "limit us to a maximum of three font sizes"):
+  // the graph's type is 14 (title, value), 11 (body, labels) and 10 (marks, meta).
+  nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
   edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
   // ⭐ v3.1 `.prov` — every card SOURCE MARK (`est.`, `brief`, a person's glyph,
   // "no source"): 10px, weight 400, line-height 1. The weight is part of the

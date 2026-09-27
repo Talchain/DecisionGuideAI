@@ -221,7 +221,6 @@ describe('OR-06 — the risk’s own recorded size carries a visible source mark
 // the order/size clause is asserted where both rows still render — Detailed.
 describe('OR-08 — authored context follows the card’s own state, at 11px (Detailed)', () => {
   const EDGE_LABEL_SIZE = typography.edgeLabel.split(' ')[0]
-  const NODE_LABEL_SIZE = typography.nodeLabel.split(' ')[0]
   beforeEach(() => { applyStore({ viewMode: 'expert' }) })
 
   it('CONTRAST — Standard carries no context row on the card at all (it is in the popover)', () => {
@@ -241,7 +240,6 @@ describe('OR-08 — authored context follows the card’s own state, at 11px (De
     const summary = screen.getByTestId('outcome-context-preview')
     expect(precedes(state, summary)).toBe(true)
     expect(classes(summary)).toContain(EDGE_LABEL_SIZE)
-    expect(classes(summary)).not.toContain(NODE_LABEL_SIZE)
     // Still compact and still yields to the chevron's full description.
     expect(classes(summary)).toEqual(expect.arrayContaining(['line-clamp-2', 'group-aria-expanded:hidden']))
   })
@@ -254,7 +252,6 @@ describe('OR-08 — authored context follows the card’s own state, at 11px (De
     expect(precedes(value, exposure)).toBe(true)
     expect(precedes(exposure, summary)).toBe(true)
     expect(classes(summary)).toContain(EDGE_LABEL_SIZE)
-    expect(classes(summary)).not.toContain(NODE_LABEL_SIZE)
   })
 })
 

@@ -2148,7 +2148,7 @@ export const OptionNode = memo((props: NodeProps) => {
     <p
       // Contract v3.1 `.node .differentiator{font-size:10.5px;line-height:1.3;
       // color:var(--muted)}` — counter-scaled like every canvas token.
-      className={`text-[length:calc(10.5px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 line-clamp-2 text-text-light`}
+      className={`text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-[1.3] mt-1 m-0 line-clamp-2 text-text-light`}
       data-testid={`option-card-differentiator-${props.id}`}
       title={ownDifferentiator}
     >

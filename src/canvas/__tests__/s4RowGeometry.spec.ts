@@ -5,7 +5,7 @@
  *   · "Repeated cards target 248px: Option, Factor, Outcome and Risk." — raised
  *     to the legibility floor `NODE_LAYOUT_MIN_W` (260), the bounded exception
  *     ED allowed "if code proves a hard minimum".
- *   · "Question and Goal ≤460px, wide and shallow."
+ *   · "Question and Goal ≤460px, wide and shallow." — raised to ≤720 on 27 Sep.
  *   · "Do not let one long title widen an entire row."
  *   · "Rows above 5 cards wrap into balanced sub-rows under ONE left family
  *     label. 6→3+3, 7→4+3, 8→4+4, 9→5+4 … Keep causal reading order stable."
@@ -13,6 +13,8 @@
  *     budget … one prompt at the end of the final sub-row … if Outcome + Risk
  *     share one visual lane, use one 160px frontier column with the two small
  *     prompts stacked."
+ *
+ * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
  *
  * Every assertion names the node it is about. Positions come from the real
  * `layoutGraph`; prompts from the real `withGhostTiers` on that output.
@@ -111,15 +113,16 @@ describe('S4 card widths', () => {
     }
   })
 
-  /** ED's ruled bound, written as the RULING says it — never read back from the
-   *  constant under test (a mutant raising the constant would move both sides). */
-  const ED_ANCHOR_MAX = 460
+  /** The ruled bound, written as the RULING says it — never read back from the
+   *  constant under test (a mutant raising the constant would move both sides).
+   *  Paul, 27 Sep 2026: 720 (ED S4 ruled 460). */
+  const ED_ANCHOR_MAX = 720
 
-  it('the anchor cap is the ruled 460', () => {
+  it('the anchor cap is the ruled 720', () => {
     expect(ANCHOR_CARD_MAX_W).toBe(ED_ANCHOR_MAX)
   })
 
-  it.each(Object.keys(STARTERS))('%s: the Question and the Goal are wide (≤460) and wider than a repeated card', async (id) => {
+  it.each(Object.keys(STARTERS))('%s: the Question and the Goal are wide (≤720) and wider than a repeated card', async (id) => {
     const { nodes, edges } = fromDraft(STARTERS[id])
     const out = await layoutGraph(nodes, edges, {})
     for (const kind of ['decision', 'goal']) {
@@ -142,9 +145,9 @@ describe('S4 card widths', () => {
   })
 
   it('⭐ a wrapped row keeps full card width — and wrapping one tier does not shrink another', async () => {
-    const { nodes, edges } = factorTier(9)
+    const { nodes, edges } = factorTier(11)
     const out = await layoutGraph(nodes, edges, {})
-    // 9 → 3 + 3 + 3 under the four-card cap (gap 7; it was 5 + 4 under five).
+    // 11 → 4 + 4 + 3 at the five-card cap (27 Sep; 9 → 5 + 4 is two rows now).
     expect(subRows(out.nodes, 'fac_').length, 'precondition: the factor tier wrapped').toBe(3)
     expect(out.layoutCardWidths.factor).toBe(REPEATED_CARD_W)
     // The retired gate dropped EVERY tier to the floor once any tier split — the
@@ -155,31 +158,31 @@ describe('S4 card widths', () => {
 })
 
 describe('S4 row wrapping — balanced sub-rows, order preserved', () => {
-  // ⚠ GAP 7 (25 Sep 2026): ED's S4 table wrapped above FIVE (…9→5+4, 10→5+5).
-  // ED #63 5808428246 made 1280x800 dock-open the acceptance size, where five
-  // cards and the prompt spill 220 units (110px), so the Canvas lead capped a row at
-  // FOUR with the same balanced wrap: 5→3+2, 9→3+3+3, 10→4+3+3; 6/7/8/11 are
-  // unchanged.
-  it('the sizes are the balanced table at a cap of four: 5→3+2, 6→3+3, 7→4+3, 8→4+4, 9→3+3+3, 10→4+3+3; four or fewer stay on one row', () => {
-    expect(MAX_CARDS_PER_ROW).toBe(4)
+  // ⚠ GAP 7 (25 Sep 2026) capped a row at FOUR (5→3+2, 9→3+3+3, 10→4+3+3).
+  // 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+  // Back to ED's S4 table: wrap above FIVE, 9→5+4, 10→5+5; 11/12 are three rows.
+  it('the sizes are the balanced table at a cap of five: 6→3+3, 7→4+3, 8→4+4, 9→5+4, 10→5+5, 11→4+4+3, 12→4+4+4; five or fewer stay on one row', () => {
+    expect(MAX_CARDS_PER_ROW).toBe(5)
     expect(balancedRowSizes(4)).toEqual([4])
-    expect(balancedRowSizes(5)).toEqual([3, 2])
+    expect(balancedRowSizes(5)).toEqual([5])
     expect(balancedRowSizes(6)).toEqual([3, 3])
     expect(balancedRowSizes(7)).toEqual([4, 3])
     expect(balancedRowSizes(8)).toEqual([4, 4])
-    expect(balancedRowSizes(9)).toEqual([3, 3, 3])
-    expect(balancedRowSizes(10)).toEqual([4, 3, 3])
+    expect(balancedRowSizes(9)).toEqual([5, 4])
+    expect(balancedRowSizes(10)).toEqual([5, 5])
     expect(balancedRowSizes(11)).toEqual([4, 4, 3])
+    expect(balancedRowSizes(12)).toEqual([4, 4, 4])
   })
 
   it.each([
     [4, [4]],
-    [5, [3, 2]],
+    [5, [5]],
     [6, [3, 3]],
     [7, [4, 3]],
     [8, [4, 4]],
-    [9, [3, 3, 3]],
-    [10, [4, 3, 3]],
+    [9, [5, 4]],
+    [10, [5, 5]],
+    [11, [4, 4, 3]],
   ])('%i factors lay out as %j sub-rows, in reading order fac_0, fac_1, …', async (n, sizes) => {
     const { nodes, edges } = factorTier(n)
     const out = await layoutGraph(nodes, edges, {})
@@ -226,8 +229,8 @@ describe('S4 row-end prompts — placed in the slot the layout reserved', () => 
   })
 
   it('⭐ the prompt slot is INSIDE the row budget: the tier is centred as cards + prompt, so the prompt never widens the board past its widest row', async () => {
-    // The widest single row: four since gap 7 (five would wrap 3 + 2).
-    const { nodes, edges } = factorTier(4)
+    // The widest single row: five since 27 Sep (four under gap 7).
+    const { nodes, edges } = factorTier(5)
     const out = await layoutGraph(nodes, edges, {})
     const cards = out.nodes.filter((n) => n.id.startsWith('fac_')).sort((a, b) => a.position.x - b.position.x)
     const prompt = withGhostTiers(out.nodes).find((n) => n.id === '__ghost-factor__')!

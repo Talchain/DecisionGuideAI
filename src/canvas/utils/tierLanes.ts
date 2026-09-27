@@ -30,8 +30,8 @@
  * model extends further than it does.
  */
 import type { Node } from '@xyflow/react'
-import { KIND_GLYPH_PX, TIER_BY_KIND } from './nodeLayoutConstants'
-import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
+import { TIER_BY_KIND, kindGlyphOverhangAt, kindGlyphSizeAt } from './nodeLayoutConstants'
+import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
 import { isGhostNode } from './fitTargets'
 import { DECISION_NODE_LABEL, MODEL_GROUP_TITLE } from '../domain/vocabulary'
 
@@ -222,9 +222,9 @@ function overlaps(a: FlowBox, b: FlowBox): boolean {
  * border, horizontally centred on the card).
  */
 export function kindGlyphBoxOf(n: Node, scale: number): FlowBox {
-  const size = KIND_GLYPH_PX * scale
+  const size = kindGlyphSizeAt(scale)
   const cx = (n.position?.x ?? 0) + boxOf(n).w / 2
-  const top = (n.position?.y ?? 0) - size / 2
+  const top = (n.position?.y ?? 0) - kindGlyphOverhangAt(scale)
   return { x0: cx - size / 2, y0: top, x1: cx + size / 2, y1: top + size }
 }
 
@@ -282,7 +282,6 @@ export function deriveLaneTitles(nodes: readonly Node[]): LaneTitlePlacement[] {
   const columnX = lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
   // The title is TEXT (the text bound); the kind shape is a GLYPH (the glyph bound).
   const s = MAX_LABEL_COUNTER_SCALE
-  const g = MAX_GLYPH_COUNTER_SCALE
   const height = LANE_TITLE_LINE_PX * s
   const glyphs = nodes
     .filter((n) => !isGhostNode(n.id))
@@ -290,8 +289,9 @@ export function deriveLaneTitles(nodes: readonly Node[]): LaneTitlePlacement[] {
       const kind = kindOf(n)
       return kind !== undefined && TIER_BY_KIND[kind] !== undefined
     })
-    .map((n) => kindGlyphBoxOf(n, g))
-  const overhang = (KIND_GLYPH_PX / 2) * g
+    // The shape scales with the TEXT since 27 Sep (`kindGlyphOverhangAt`).
+    .map((n) => kindGlyphBoxOf(n, s))
+  const overhang = kindGlyphOverhangAt(s)
   return lanes.map((lane) => {
     const width = lane.title.length * (LANE_TITLE_CAP_ADVANCE_PX + LANE_TITLE_TRACKING_PX) * s
     const boxWithBottom = (bottom: number): FlowBox => ({ x0: columnX, y0: bottom - height, x1: columnX + width, y1: bottom })

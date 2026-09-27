@@ -768,13 +768,37 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * was already clamped at 1280×800, and the OpenAI-shaped board still fits at
    * 1440×900, 0.561 → 0.531), `v31Ws1LandingComposition`, and the new
    * `bandTitleClearsKindGlyph.guard`.
+   *
+   * ── PAUL'S LAPTOP-WIDTH RULING (27 Sep 2026), a SEVENTH re-record (NOT LOW) ──
+   * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40
+   * (`MAX_CARDS_PER_ROW` 4 → 5, `ANCHOR_CARD_MAX_W` 460 → 720, `LAYOUT_LAYER_GAP`
+   * 48 → 40). Recorded from this file's own `positionSignature` at d37252e8. No
+   * per-constant attribution mutant was run for this record.
+   *
+   *     vendor-selection      2571ae4f0a34f6b3 → ec5d646dad40b1b3
+   *     market-entry          7e31ac2c4f6d7c5c → b1dc2568eef26ba3
+   *     build-vs-buy          d9353d548ccaeea6 → aa06488b968b42d6
+   *     headcount-allocation  c445ee9b576edf32 → 75ed1101623070fa
+   *     pricing-model         6d542cdbbb736623 → 6ee466bf5d8ea909
+   *
+   * ── SIBLING GAP 32 → 24 (27 Sep 2026), an EIGHTH re-record ──
+   * The default dock went 319 → 360 (#2199): the 1280 frame at the floor is 1656
+   * units, and five cards plus the prompt need 1680 at a gap of 32 (1640 at 24).
+   * Only x moves; tiers and row membership are unchanged. From this file's own
+   * `positionSignature`.
+   *
+   *     vendor-selection      ec5d646dad40b1b3 → 4b358d2350bda693
+   *     market-entry          b1dc2568eef26ba3 → b2f06788d36b98f7
+   *     build-vs-buy          aa06488b968b42d6 → 2a2c6211d90efe5f
+   *     headcount-allocation  75ed1101623070fa → 6658988de0325df8
+   *     pricing-model         6ee466bf5d8ea909 → c025b71cf3258ee6
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '2571ae4f0a34f6b3', nodes: 19 },
-    'market-entry': { digest: '7e31ac2c4f6d7c5c', nodes: 18 },
-    'build-vs-buy': { digest: 'd9353d548ccaeea6', nodes: 19 },
-    'headcount-allocation': { digest: 'c445ee9b576edf32', nodes: 16 },
-    'pricing-model': { digest: '6d542cdbbb736623', nodes: 15 },
+    'vendor-selection': { digest: '4b358d2350bda693', nodes: 19 },
+    'market-entry': { digest: 'b2f06788d36b98f7', nodes: 18 },
+    'build-vs-buy': { digest: '2a2c6211d90efe5f', nodes: 19 },
+    'headcount-allocation': { digest: '6658988de0325df8', nodes: 16 },
+    'pricing-model': { digest: 'c025b71cf3258ee6', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(
@@ -825,23 +849,25 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * also `[3, 2]`. Measured (fixer, 25 Sep): a mutant sorting `risk_` ids ahead
    * of `out_` ids in `applyTierRowSplitting` left all five sizes-only arms
    * GREEN. Bound by id, the same mutant REDs the four five-card starters by name.
+   *
+   * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+   * Every shipped consequence layer (five or four cards) is ONE row again, so
+   * each record below is its one-row reading order — the same ids, in the same
+   * order, as the 3 + 2 record flattened. A band that wraps (above five) is
+   * guarded by id in `laptopFit1280.bandRows.spec.ts` (the eight-factor bands).
    */
   const CONSEQUENCE_SUB_ROWS: Record<StarterId, string[][]> = {
     'vendor-selection': [
-      ['out_budget_headroom', 'risk_gdpr_breach', 'risk_team_overload'],
-      ['risk_migration_delay', 'out_platform_capability'],
+      ['out_budget_headroom', 'risk_gdpr_breach', 'risk_team_overload', 'risk_migration_delay', 'out_platform_capability'],
     ],
     'market-entry': [
-      ['out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag'],
-      ['risk_uk_distraction', 'risk_team_overstretch'],
+      ['out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag', 'risk_uk_distraction', 'risk_team_overstretch'],
     ],
     'build-vs-buy': [
-      ['risk_eng_overload', 'out_delivery_speed', 'risk_billing_errors'],
-      ['out_billing_accuracy', 'risk_vendor_lock'],
+      ['risk_eng_overload', 'out_delivery_speed', 'risk_billing_errors', 'out_billing_accuracy', 'risk_vendor_lock'],
     ],
     'headcount-allocation': [
-      ['out_reliability', 'risk_eng_attrition', 'risk_churn'],
-      ['out_new_arr', 'risk_sales_miss'],
+      ['out_reliability', 'risk_eng_attrition', 'risk_churn', 'out_new_arr', 'risk_sales_miss'],
     ],
     'pricing-model': [['risk_pricing_complexity', 'out_bottom_up_growth', 'risk_enterprise_churn', 'out_nrr']],
   }
@@ -918,33 +944,37 @@ describe('S4: the packing is a COUNT — the whole table, recorded against the r
    * 1280×800 with the dock open the acceptance size, whose frame is 1520 flow
    * units at the 0.5 floor: five cards and the prompt need 1740, four need
    * 1424. Canvas lead, decide-and-flag. The wrap stays ED S4's balanced one.
+   *
+   * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+   * Back to five: 5, 9 and 10 re-pack to 5, 5+4, 5+5. The table runs to 12 so
+   * the three-sub-row packing (11→4+4+3, 12→4+4+4) is still recorded.
    */
   const RULED: Record<number, number[]> = {
-    2: [2], 3: [3], 4: [4], 5: [3, 2],
-    6: [3, 3], 7: [4, 3], 8: [4, 4], 9: [3, 3, 3], 10: [4, 3, 3],
+    2: [2], 3: [3], 4: [4], 5: [5],
+    6: [3, 3], 7: [4, 3], 8: [4, 4], 9: [5, 4], 10: [5, 5], 11: [4, 4, 3], 12: [4, 4, 4],
   }
 
-  it('the cap is four real cards per row (gap 7; five under ED S4)', () => {
-    expect(MAX_CARDS_PER_ROW).toBe(4)
+  it('the cap is five real cards per row (Paul, 27 Sep; four under gap 7)', () => {
+    expect(MAX_CARDS_PER_ROW).toBe(5)
   })
 
   it('the whole packing table, recorded — arithmetic', () => {
-    for (let t = 2; t <= 10; t++) {
+    for (let t = 2; t <= 12; t++) {
       expect(balancedRowSizes(t), `a ${t}-card tier`).toEqual(RULED[t])
     }
   })
 
   it('the whole packing table, recorded — in the layout itself', async () => {
-    for (let t = 2; t <= 10; t++) {
+    for (let t = 2; t <= 12; t++) {
       expect(await rowsInLayout(t), `a ${t}-card tier in the real layout`).toEqual(RULED[t])
     }
   })
 
-  it('the derivation DISCRIMINATES, and the 4/5 boundary is real in the layout', async () => {
+  it('the derivation DISCRIMINATES, and the 5/6 boundary is real in the layout', async () => {
     // Trap 20: a probe returning the same answer for every input is reporting on
-    // itself. Four stays on one row; five does not (gap 7 — it was 5/6).
-    expect(await rowsInLayout(4)).toEqual([4])
-    expect(await rowsInLayout(5)).toEqual([3, 2])
+    // itself. Five stays on one row; six does not (27 Sep — it was 4/5 under gap 7).
+    expect(await rowsInLayout(5)).toEqual([5])
+    expect(await rowsInLayout(6)).toEqual([3, 3])
     // ⭐ AND THE OLD BOUNDARY IS GONE, pinned as its own assertion: under the
     // retired gate seven and eight stayed on one row (a 2544-unit factor row).
     expect((await rowsInLayout(8)).length).toBeGreaterThan(1)

@@ -116,13 +116,18 @@ type Branch = 'single-row' | 'multi-row'
  * `multi-row`. The single-row packing is still in every starter (its bands of
  * four and fewer) and is reached as a BRANCH synthetically — the contrast
  * control below holds a tier at the cap on one row.
+ *
+ * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+ * The cap is FIVE again, so the corpus straddles both packings as under S4: the
+ * three eight-factor starters wrap 4 + 4; headcount-allocation and pricing-model
+ * (no band above five) are single-row.
  */
 const BRANCH_OF: Record<StarterId, Branch> = {
   'vendor-selection': 'multi-row',
   'market-entry': 'multi-row',
   'build-vs-buy': 'multi-row',
-  'headcount-allocation': 'multi-row',
-  'pricing-model': 'multi-row',
+  'headcount-allocation': 'single-row',
+  'pricing-model': 'single-row',
 }
 
 /** The widest tier that still single-rows — the ruled count, imported. */
@@ -211,25 +216,22 @@ describe('the capture is complete before anything is derived from it', () => {
   )
 })
 
-describe('same-row gap holds at BOTH packing branches — every shipped starter (all multi-row since gap 7) and a synthetic tier at the cap (single-row)', () => {
+describe('same-row gap holds at BOTH packing branches — every shipped starter (three multi-row, two single-row since 27 Sep) and a synthetic tier at the cap (single-row)', () => {
   // The corpus must actually contain both branches, or "BOTH" in this
   // describe's name is a claim nothing checks (trap 13: an absence/coverage
   // claim needs a control).
-  it('⭐ the shipped corpus is multi-row throughout (gap 7), and the synthetic arms reach BOTH sides of the cap', async () => {
+  it('⭐ the shipped corpus straddles BOTH packings (five per row, 27 Sep), and the synthetic arms reach BOTH sides of the cap', async () => {
     /**
      * "BOTH" in this describe's name is a claim, so it is checked (trap 13: a
      * coverage claim needs a control). From 12 Sep to S4 it was false — every
      * starter single-rowed and the multi-row arm was synthetic only. S4's
      * five-card cap put the eight-factor starters back on the multi-row
-     * packing, so the corpus covered both. Gap 7's four-card cap makes every
-     * starter multi-row, so the corpus covers ONE branch again and the
-     * single-row branch is reached synthetically — the at-cap contrast below.
+     * packing, so the corpus covered both. Gap 7's four-card cap made every
+     * starter multi-row; Paul's 27 Sep ruling (cap five) restores both, and
+     * the synthetic arms still reach both sides of the cap below.
      */
-    // ⚠ GAP 7: the shipped corpus is now multi-row throughout (see
-    // `BRANCH_OF`), so the single-row BRANCH is covered by the synthetic
-    // contrast control at the cap, below, not by a starter.
     const covered = new Set(Object.values(BRANCH_OF))
-    expect([...covered].sort()).toEqual(['multi-row'])
+    expect([...covered].sort()).toEqual(['multi-row', 'single-row'])
 
     // …so the multi-row branch is reached synthetically, and it is REACHED —
     // asserted here rather than assumed, because a synthetic that quietly
@@ -327,15 +329,35 @@ describe('the branches this suite claims to straddle are the branches it exercis
     'fac_snowflake_build',
   ] as const
 
-  it('headcount-allocation (5-wide tier) wraps its factor tier 3 + 2 (gap 7: the cap is four)', async () => {
-    // ⚠ WAS "packs its factor tier on ONE row" under the five-card cap. Gap 7
-    // (ED #63 5808428246, 1280x800 dock open is the acceptance size) caps a row
-    // at four, so the same five ids now wrap — still bound by identity.
+  it('headcount-allocation (5-wide tier) packs its factor tier on ONE row (27 Sep: the cap is five)', async () => {
+    // ⚠ Gap 7 (cap four) made these five ids wrap 3 + 2. Paul's 27 Sep ruling
+    // puts the cap back at five, so they are one row again — still by identity.
+    // The wrap it used to exercise is carried by the two 8-wide tiers below.
     const rects = await layOut('headcount-allocation')
-    const ys = [...new Set(FACTOR_TIER_OF_HEADCOUNT.map((nid) => rects.find((r) => r.id === nid)!.y))].sort((a, b) => a - b)
+    const ys = new Set(FACTOR_TIER_OF_HEADCOUNT.map((nid) => rects.find((r) => r.id === nid)!.y))
+    expect(ys.size, 'expected the single-row packing').toBe(1)
+    expect(BRANCH_OF['headcount-allocation']).toBe('single-row')
+  })
+
+  // build-vs-buy's tier-2 nodes: eight — a second wrap bound by identity,
+  // replacing the headcount 3 + 2 wrap that five-per-row retired.
+  const FACTOR_TIER_OF_BUILD_VS_BUY = [
+    'fac_billing_complexity',
+    'fac_build_indicator',
+    'fac_dev_time',
+    'fac_eng_capacity',
+    'fac_platform_migration',
+    'fac_stripe_indicator',
+    'fac_vendor_cost',
+    'fac_vendor_indicator',
+  ] as const
+
+  it('build-vs-buy (8-wide tier) wraps its factor tier 4 + 4 (27 Sep: the cap is five)', async () => {
+    const rects = await layOut('build-vs-buy')
+    const ys = [...new Set(FACTOR_TIER_OF_BUILD_VS_BUY.map((nid) => rects.find((r) => r.id === nid)!.y))].sort((a, b) => a - b)
     expect(ys.length, 'expected the multi-row packing').toBe(2)
-    expect(ys.map((y) => FACTOR_TIER_OF_HEADCOUNT.filter((nid) => rects.find((r) => r.id === nid)!.y === y).length)).toEqual([3, 2])
-    expect(BRANCH_OF['headcount-allocation']).toBe('multi-row')
+    expect(ys.map((y) => FACTOR_TIER_OF_BUILD_VS_BUY.filter((nid) => rects.find((r) => r.id === nid)!.y === y).length)).toEqual([4, 4])
+    expect(BRANCH_OF['build-vs-buy']).toBe('multi-row')
   })
 
   it('⭐ vendor-selection (8-wide tier) wraps its factor tier 4 + 4 (S4)', async () => {

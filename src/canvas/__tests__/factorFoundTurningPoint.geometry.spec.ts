@@ -71,28 +71,30 @@ const PRE_BOUND: Record<string, number> = {
 const POST_BOUND: Record<string, number> = { ...PRE_BOUND, [RANK_1]: 406 }
 
 /**
- * Store positions the same Chromium run read before the Run (after it, it read the bands below the factors +110).
- * ⚠ x RE-DERIVED 27 Sep 2026 (#2137, landing text ceiling): the repeated card is 248, not 260, so the
- * column stride is 304, not 316 — every x moves by 12 per column from the left edge; every y is still
- * exactly the Chromium read. Chromium x, for the record: dec 494, fac 261/419/577/735/893, goal 494,
- * opt 24/340/656/972, out 340/972, risk 656/24.
+ * Store positions of the production layout at the PRE_BOUND heights.
+ * ⚠ RE-RECORDED 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
+ * The five factors now sit on ONE row (they wrapped 3 + 2 at a cap of four), and the row gap is 40
+ * (was 48), so these are the layout's own output at the new constants, not the Chromium read. The
+ * Chromium read, for the record (cap four, repeated card 260): dec 494, fac 261/419/577/735/893,
+ * goal 494, opt 24/340/656/972, out 340/972, risk 656/24; y 24/196/685+994/1354/1701.
+ * 27 Sep 2026, sibling gap 32 → 24 (dock 360, #2199): only x moved; every y is unchanged.
  */
 const PRE_POSITIONS: Record<string, { x: number; y: number }> = {
-  dec_pricing: { x: 470, y: 24 },
-  fac_adoption_friction: { x: 252, y: 685 },
-  fac_enterprise_revenue_risk: { x: 404, y: 994 },
-  fac_market_competition: { x: 556, y: 685 },
-  fac_top_account_concentration: { x: 708, y: 994 },
-  fac_usage_exposure: { x: 860, y: 685 },
-  goal_pricing_transition: { x: 470, y: 1701 },
-  opt_full_switch: { x: 24, y: 196 },
-  opt_hybrid: { x: 328, y: 196 },
-  opt_new_logos: { x: 632, y: 196 },
-  opt_status_quo: { x: 936, y: 196 },
-  out_bottom_up_growth: { x: 328, y: 1354 },
-  out_nrr: { x: 936, y: 1354 },
-  risk_enterprise_churn: { x: 632, y: 1354 },
-  risk_pricing_complexity: { x: 24, y: 1354 },
+  dec_pricing: { x: 472, y: 24 },
+  fac_adoption_friction: { x: 24, y: 669 },
+  fac_enterprise_revenue_risk: { x: 912, y: 669 },
+  fac_market_competition: { x: 320, y: 669 },
+  fac_top_account_concentration: { x: 1208, y: 669 },
+  fac_usage_exposure: { x: 616, y: 669 },
+  goal_pricing_transition: { x: 472, y: 1360 },
+  opt_full_switch: { x: 172, y: 188 },
+  opt_hybrid: { x: 468, y: 188 },
+  opt_new_logos: { x: 764, y: 188 },
+  opt_status_quo: { x: 1060, y: 188 },
+  out_bottom_up_growth: { x: 468, y: 1021 },
+  out_nrr: { x: 1060, y: 1021 },
+  risk_enterprise_churn: { x: 764, y: 1021 },
+  risk_pricing_complexity: { x: 172, y: 1021 },
 }
 const BELOW_FACTORS = ['goal_pricing_transition', 'out_bottom_up_growth', 'out_nrr', 'risk_enterprise_churn', 'risk_pricing_complexity']
 
@@ -218,7 +220,7 @@ describe('#2138 found case — the pricing board at the Chromium-measured bound 
     expect(POST_BOUND[RANK_1]! - PRE_BOUND[RANK_1]!).toBe(188)
   })
 
-  it('pre-run: the production layout reproduces the positions Chromium read, with 0 overlaps and 0 edges under cards', async () => {
+  it('pre-run: the production layout reproduces the recorded positions, with 0 overlaps and 0 edges under cards', async () => {
     const { out, boxes } = await laidOut(PRE_BOUND)
     const pos = Object.fromEntries(out.nodes.filter((n) => !isGhostNode(n.id)).map((n) => [n.id, n.position]))
     expect(pos).toEqual(PRE_POSITIONS)
@@ -230,7 +232,7 @@ describe('#2138 found case — the pricing board at the Chromium-measured bound 
     const pre = await laidOut(PRE_BOUND)
     const post = await laidOut(POST_BOUND)
     const prePos = new Map(pre.boxes.map((b) => [b.id, b]))
-    // The factor row was sized by its tallest card (296); it is now the rank-1 card (406).
+    // The factor row (all five on one row since 27 Sep) was sized by its tallest card (296); it is now the rank-1 card (406).
     const rowGrowth = POST_BOUND[RANK_1]! - Math.max(...pre.boxes.filter((b) => b.tier === TIER_BY_KIND.factor && b.y === prePos.get(RANK_1)!.y).map((b) => b.height))
     expect(rowGrowth).toBe(110)
     for (const b of post.boxes) {

@@ -242,7 +242,7 @@ export const REPEATED_CARD_TARGET_W = 248
 export const REPEATED_CARD_W = Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W)
 
 /** The Question and the Goal: singletons, wide and shallow (ED S4: "≤460px"). */
-export const ANCHOR_CARD_MAX_W = 460
+export const ANCHOR_CARD_MAX_W = 720
 
 /**
  * ⭐ ROWS ABOVE FOUR REAL CARDS WRAP into balanced sub-rows under ONE family
@@ -260,7 +260,7 @@ export const ANCHOR_CARD_MAX_W = 460
  * sub-rows, reading order and one family label — so every band fits the frame
  * on width (`laptopFit.arithmetic.spec.ts`, `laptopFit1280.bandRows.spec.ts`).
  */
-export const MAX_CARDS_PER_ROW = 4
+export const MAX_CARDS_PER_ROW = 5
 
 /**
  * ⭐ THE ROW-END REASONING PROMPT (ED S4: "160px is approved as the target width
@@ -357,7 +357,11 @@ const ROW_LABEL_INSET_PX = NODE_CARD_MAX_W - 296
 /** Measured: 296px of 24px type held 25 characters of a real mixed-case label. */
 const AVG_CHAR_EM = 296 / 25 / 24
 
-/** The declared size of `typography.nodeLabel`, which these rows use. */
+/**
+ * The size the row BUDGET is computed at. `typography.nodeLabel` renders at 11px
+ * since 27 Sep (three type sizes); the budget stays at the 12px it was tuned on,
+ * so the rows keep the headroom they had and no option card grows a row.
+ */
 const ROW_LABEL_DECLARED_PX = 12
 
 /**
@@ -611,7 +615,10 @@ export const CANONICAL_LAYOUT_WIDTH = 1482
  * it still only fires when something has genuinely gone wrong, rather than
  * becoming a second spacing authority that competes with this one.
  */
-export const LAYOUT_NODE_GAP = 32
+// ⭐ 27 Sep 2026: 32 → 24. The default dock went 319 → 360 (#2199), so the 1280
+// frame at the floor is 1656 units; five cards and the prompt need 1680 at 32 and
+// 1640 at 24. Visible sibling gap 48 (24 + the 24 padding).
+export const LAYOUT_NODE_GAP = 24
 /**
  * ⭐ THE KIND SHAPE ON A CARD'S TOP BORDER, in unscaled px (contract v3.1
  * FRAME-03, `.node .shape{width:24px;height:24px;top:-12px}`). `BaseNode` draws
@@ -622,6 +629,22 @@ export const LAYOUT_NODE_GAP = 32
  * (`tierLanes.ts`) and the row gap below budgets for it.
  */
 export const KIND_GLYPH_PX = 24
+
+/**
+ * ⭐ THE KIND SHAPE'S GEOMETRY AT LABEL SCALE `s` (graph contract pass, 27 Sep
+ * 2026) — ONE source for `BaseNode`, the band titles and their guard. The shape
+ * scales with the TEXT and its lower edge stays `KIND_GLYPH_PX / 2` inside the
+ * card's top border at every zoom (the contract's `top:-12px` on a 12px top
+ * padding), so it never reaches the title. It used to scale by the glyph TARGET
+ * scale (2 at the landing floor): 24 units into a 12-unit padding.
+ */
+export function kindGlyphSizeAt(s: number): number {
+  return KIND_GLYPH_PX * s
+}
+/** How far the shape stands ABOVE the card's top border at label scale `s`. */
+export function kindGlyphOverhangAt(s: number): number {
+  return KIND_GLYPH_PX * s - KIND_GLYPH_PX / 2
+}
 
 /**
  * ⭐⭐ THE ROW GAP HOLDS THE KIND SHAPE AND THE BAND TITLE, BOTH AT THE BOUND
@@ -652,7 +675,7 @@ export const KIND_GLYPH_PX = 24
  * `bandTitleClearsKindGlyph.guard.spec.ts` asserts the budget above and pairs
  * every band title with every kind shape on the five starters at the bound.
  */
-export const LAYOUT_LAYER_GAP = 48
+export const LAYOUT_LAYER_GAP = 40
 
 export const LAYOUT_PADDING_X = 24
 

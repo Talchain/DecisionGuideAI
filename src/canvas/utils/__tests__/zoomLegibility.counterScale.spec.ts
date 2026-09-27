@@ -73,7 +73,7 @@ const TEXT_EXACT_FROM = 1 / LABEL_COUNTER_SCALE_CAP
  * it is checking). The completeness check belongs in the census, which asserts
  * the exact token set.
  */
-const DECLARED = { nodeTitle: 14, nodeValue: 14, nodeLabel: 12, edgeLabel: 11 } as const
+const DECLARED = { nodeTitle: 14, nodeValue: 14, nodeLabel: 11, edgeLabel: 11 } as const
 
 /** DS v5 §2.4: panel and canvas contexts bottom out at 10px. */
 const DS_CANVAS_FLOOR_PX = 10
@@ -144,7 +144,7 @@ describe('renderedLabelPx — the invariant the DS actually asks for', () => {
     // LANDING_TITLE_FLOOR_PX (9.5px), below DS v5 §2.4's 10px: STATED, and
     // pinned per token so a further drop is a decision, not a drift.
     expect(renderedLabelPx(DECLARED.nodeTitle, LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(LANDING_TITLE_FLOOR_PX)
-    const LANDING_PX = { nodeTitle: 9.52, nodeValue: 9.52, nodeLabel: 8.16, edgeLabel: 7.48 } as const
+    const LANDING_PX = { nodeTitle: 9.52, nodeValue: 9.52, nodeLabel: 7.48, edgeLabel: 7.48 } as const
     for (const [name, declared] of Object.entries(DECLARED)) {
       expect(renderedLabelPx(declared, LABEL_LEGIBLE_ZOOM), name).toBeCloseTo(LANDING_PX[name as keyof typeof LANDING_PX], 10)
     }

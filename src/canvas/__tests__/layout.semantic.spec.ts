@@ -33,6 +33,8 @@ import {
   NODE_HEADER_RESERVE_PX,
   MAX_CARDS_PER_ROW,
   NODE_TITLE_MIN_MEASURE_PX,
+  LAYOUT_NODE_GAP,
+  ROW_PROMPT_W,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -267,16 +269,16 @@ describe('normaliseTierRows — direct fixture (I.2)', () => {
     // All four options share a single Y (within the same canonical row).
     expect(new Set(optionYs).size).toBe(1)
 
-    // Sanity check: factors share their SUB-ROW's Y too (5 factors). ⚠ GAP 7
-    // (25 Sep 2026): the row cap is four, so these five wrap DELIBERATELY into
-    // the ruled 3 + 2 — two splitter-created sub-rows, each on ONE exact Y. An
-    // ELK-induced stagger would show as a third Y or a 4 + 1 / 2 + 2 + 1 split.
+    // Sanity check: factors share ONE Y too (5 factors). Gap 7 (cap four) had
+    // wrapped these five 3 + 2; 27 Sep 2026: Paul's laptop-width ruling — five
+    // per row, anchors ≤720, row gap 40 — so they are one row again. An
+    // ELK-induced stagger would show as a second Y.
     const factorYs = result.nodes
       .filter((node) => node.type === 'factor')
       .map((node) => node.position.y)
     expect(factorYs.length).toBe(5)
     const factorRowYs = [...new Set(factorYs)].sort((a, b) => a - b)
-    expect(factorRowYs.map((y) => factorYs.filter((fy) => fy === y).length)).toEqual([3, 2])
+    expect(factorRowYs.map((y) => factorYs.filter((fy) => fy === y).length)).toEqual([5])
   })
 })
 
@@ -495,15 +497,17 @@ describe('balanced row splits (exact remainder)', () => {
   // ⚠ WAS 6 AND 7. `CANONICAL_LAYOUT_WIDTH` moved 1185 → 1482 so that seven-
   // and eight-wide tiers single-row; at 1185 those tiers split and three of the
   // five shipped starters came out portrait in a landscape pane.
-  it('8 factors split 4 + 4 (S4) — rows above four cards wrap (gap 7); four is the widest single row', async () => {
+  it('8 factors split 4 + 4 (S4) — rows above five cards wrap (27 Sep); five is the widest single row', async () => {
     // ⚠ WAS "8 factors do NOT split": the retired fair-share gate kept up to
     // eight on one row. ED S4 (#63 5806207128): "Rows above 5 cards wrap into
     // balanced sub-rows … 8→4+4". ⚠ GAP 7 (25 Sep 2026, ED #63 5808428246 —
     // 1280x800 dock open is the acceptance size): the cap is four, so five now
     // wraps 3 + 2 and four is the widest single row.
+    // 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row
+    // gap 40. Six is the first to wrap (3 + 3); five is the widest single row.
     expect(rowSizesFor(await layoutFactors(8), 'f')).toEqual([4, 4])
-    expect(rowSizesFor(await layoutFactors(5), 'f')).toEqual([3, 2])
-    expect(rowSizesFor(await layoutFactors(4), 'f')).toEqual([4])
+    expect(rowSizesFor(await layoutFactors(6), 'f')).toEqual([3, 3])
+    expect(rowSizesFor(await layoutFactors(5), 'f')).toEqual([5])
   })
 
   it('10 factors split balanced', async () => {
@@ -536,8 +540,19 @@ describe('balanced row splits (exact remainder)', () => {
 })
 
 describe('spine centring', () => {
-  it('every row centre lands within 100 px of the graph spine', async () => {
-    const { nodes: laid } = await layoutGraph(
+  /*
+   * ⚠ 27 Sep 2026 (Paul's laptop-width ruling — five per row, anchors ≤720, row
+   * gap 40): this compared LEFT edges, a proxy for centres that only holds while
+   * every card has one width. The Goal is now 720 wide, so its left edge sat
+   * (744 − 272) / 2 − 96 = 140 left of the proxy spine while its centre was ON
+   * the spine. It now measures real centres (x + drawn width / 2). The bound is
+   * derived: a row with a row-end prompt is centred as cards + prompt, so its
+   * cards' centre sits half the prompt slot (gap + prompt = 192 → 96) off the
+   * spine; a row without one sits on it. Tighter than the old 100.
+   */
+  const HALF_PROMPT_SLOT = (LAYOUT_NODE_GAP + ROW_PROMPT_W) / 2
+  it('every row centre lands within half the row-end prompt slot of the graph spine', async () => {
+    const out = await layoutGraph(
       [
         n('d', 'decision'),
         n('o1', 'option'), n('o2', 'option'), n('o3', 'option'),
@@ -552,8 +567,12 @@ describe('spine centring', () => {
       ],
       {},
     )
-    const spineNodes = ['d', 'o1', 'o2', 'o3'].map(id => laid.find(node => node.id === id)!)
-    const centres = spineNodes.map(node => node.position.x).sort((a, b) => a - b)
+    const laid = out.nodes
+    const centreOf = (id: string): number => {
+      const node = laid.find(nd => nd.id === id)!
+      return node.position.x + out.layoutCardWidths[node.type as string]! / 2
+    }
+    const centres = ['d', 'o1', 'o2', 'o3'].map(centreOf).sort((a, b) => a - b)
     const spineX = centres[Math.floor(centres.length / 2)]
 
     const rowsToCheck = [
@@ -563,9 +582,9 @@ describe('spine centring', () => {
       ['g'],
     ]
     for (const rowIds of rowsToCheck) {
-      const xs = rowIds.map(id => laid.find(node => node.id === id)!.position.x)
+      const xs = rowIds.map(centreOf)
       const mean = xs.reduce((a, b) => a + b, 0) / xs.length
-      expect(Math.abs(mean - spineX)).toBeLessThan(100)
+      expect(Math.abs(mean - spineX), `row ${rowIds.join(',')}`).toBeLessThanOrEqual(HALF_PROMPT_SLOT)
     }
   })
 })
@@ -633,11 +652,12 @@ describe('constants contract', () => {
     // The row-split policy is deliberately NOT the card floor. It was the fair
     // share `NODE_SINGLE_ROW_FAIR_SHARE_W` (140) until S4; it is now a COUNT,
     // `MAX_CARDS_PER_ROW`, which by construction cannot move with the label
-    // scale. (Five until gap 7, 25 Sep 2026: four fits the 1280 frame.)
+    // scale. (Five until gap 7, 25 Sep 2026: four fits the 1280 frame. Five
+    // again from 27 Sep 2026: Paul's laptop-width ruling.)
     expect(NODE_LAYOUT_MIN_W).toBe(
       NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X,
     )
-    expect(MAX_CARDS_PER_ROW).toBe(4)
+    expect(MAX_CARDS_PER_ROW).toBe(5)
   })
 
   it('COLLISION_GAP does not exceed the rendered node-node gap', () => {

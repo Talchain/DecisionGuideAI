@@ -181,7 +181,8 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
     })
 
     it('A7 the calc shape the old regex could not read resolves, and bites', () => {
-      // ⚠ 11px → 12px (12 Sep 2026). `typography.nodeLabel` moved with the
+      // ⚠ 12px → 11px (27 Sep 2026, three type sizes on the graph); it was
+      // 11px → 12px on 12 Sep. `typography.nodeLabel` moved with the
       // canvas ramp. The MAGNITUDE is pinned deliberately — this file's own
       // rule is "pinned by reason AND magnitude, not by location alone", so a
       // token drifting to a different below-minimum size must still RED here
@@ -191,7 +192,7 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
         typography as Record<string, string>,
       )
       expect(out.map(o => o.kind)).toEqual(['below-minimum'])
-      expect(out[0].detail).toMatch(/12px/)
+      expect(out[0].detail).toMatch(/11px/)
     })
 
     it('⭐ A7b THE CANVAS TITLE IS NO LONGER BELOW THE MINIMUM, which is the point of the ramp', () => {

@@ -44,7 +44,7 @@ import {
   ROW_PROMPT_W,
   TIER_BY_KIND,
 } from '../utils/nodeLayoutConstants'
-import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
+import { MAX_LABEL_COUNTER_SCALE, LABEL_LEGIBLE_ZOOM } from '../utils/zoomLegibility'
 import { deriveTierLanes, tierLaneTitleBoxFor, LANE_TITLE_GAP } from '../utils/tierLanes'
 import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
 import { LANE_TITLE_LINE_PX } from '../utils/tierLanes'
@@ -70,7 +70,6 @@ const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> })
  * 27 Sep 2026); the kind SHAPE is a glyph (`MAX_GLYPH_COUNTER_SCALE`, 2).
  */
 const S = MAX_LABEL_COUNTER_SCALE
-const G = MAX_GLYPH_COUNTER_SCALE
 
 type Box = { x0: number; y0: number; x1: number; y1: number }
 const area = (a: Box, b: Box): { w: number; h: number } => ({
@@ -82,7 +81,8 @@ const area = (a: Box, b: Box): { w: number; h: number } => ({
 function kindShapeBox(n: Node, cardW: number, s: number): Box {
   const size = KIND_GLYPH_PX * s
   const cx = n.position.x + cardW / 2
-  const top = n.position.y - (KIND_GLYPH_PX / 2) * s
+  // Since 27 Sep the shape's lower edge sits KIND_GLYPH_PX / 2 inside the border at every scale.
+  const top = n.position.y + KIND_GLYPH_PX / 2 - size
   return { x0: cx - size / 2, y0: top, x1: cx + size / 2, y1: top + size }
 }
 
@@ -126,7 +126,7 @@ async function laidOutBoard(
     const member = cards.find((n) => TIER_BY_KIND[n.type as string] === lane.tier)!
     return { lane, box: tierLaneTitleBoxFor(laid, member.id)! }
   })
-  const shapes = cards.map((n) => ({ id: n.id, box: kindShapeBox(n, cardW(n), G) }))
+  const shapes = cards.map((n) => ({ id: n.id, box: kindShapeBox(n, cardW(n), S) }))
   const cardBoxes = [
     ...cards.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + cardW(n), y1: n.position.y + heights[n.id]! } })),
     ...prompts.map((n) => ({ id: n.id, box: { x0: n.position.x, y0: n.position.y, x1: n.position.x + ROW_PROMPT_W, y1: n.position.y + ROW_PROMPT_H } })),
@@ -159,11 +159,11 @@ afterAll(() => {
 describe('the row gap holds a kind shape and a band title, both at the bound', () => {
   it('visible gap ≥ shape overhang + clearance + title line + clearance', () => {
     const visible = LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y
-    const needed = (KIND_GLYPH_PX / 2) * G + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
-    expect(G).toBe(2)
+    // The shape scales with the TEXT since 27 Sep: overhang = 24 × S − 12.
+    const needed = (KIND_GLYPH_PX * S - KIND_GLYPH_PX / 2) + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
     expect(S).toBe(1.36)
-    // 24 + 8 + 12 × 1.36 + 8 = 56.32 (was 64 at a shared scale of 2): the title line shrank.
-    expect(needed).toBeCloseTo(56.32, 10)
+    // 20.64 + 8 + 12 × 1.36 + 8 = 52.96 (was 56.32 with a shape at the glyph scale of 2).
+    expect(needed).toBeCloseTo(52.96, 10)
     expect(visible).toBeGreaterThanOrEqual(needed)
   })
 })
@@ -196,7 +196,8 @@ describe('every band title × every kind shape: intersection area 0 (five starte
       }
       if (titleShapeHits(onCards).length > 0) hitStarters.push(starter)
     }
-    expect(hitStarters.sort()).toEqual(['build-vs-buy', 'headcount-allocation', 'pricing-model', 'vendor-selection'])
+    // Re-recorded 27 Sep (five per row, anchors ≤720, text-scaled shape): still four starters bite.
+    expect(hitStarters.sort()).toEqual(['build-vs-buy', 'headcount-allocation', 'market-entry', 'vendor-selection'])
   })
 })
 

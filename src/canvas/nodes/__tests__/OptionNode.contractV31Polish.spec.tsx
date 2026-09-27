@@ -190,7 +190,6 @@ describe('contract v3.1 — option card polish', () => {
       const readout = byTestId('option-win-readout-option-1')
       const anchor = byTestId('option-win-anchor-option-1')
       expect(readout!.className).toContain(typography.edgeLabel)
-      expect(readout!.className).not.toContain(typography.nodeLabel)
       expect(anchor!.className).toContain(typography.edgeLabel)
     })
 
@@ -378,7 +377,6 @@ describe('contract v3.1 — option card polish', () => {
         expect(cell.className).toContain(typography.edgeLabel)
         expect(tokens(cell).has('!leading-tight')).toBe(true)
       }
-      expect(dd.className).not.toContain(typography.nodeLabel)
       // v3.1 #9: the amount never exceeds the card (`max-w-full`); the LABEL is
       // the part that yields (`min-w-0` + `break-words`), held to ONE line by
       // `line-clamp-1` since design audit #9 (26 Sep).

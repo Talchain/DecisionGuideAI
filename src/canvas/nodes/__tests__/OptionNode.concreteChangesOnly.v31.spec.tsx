@@ -243,7 +243,7 @@ describe('v3.1 #9 — full label, amount on one line', () => {
     renderCard({ store: { nodes } })
     const line = screen.getByTestId('option-card-differentiator-opt-germany')
     expect(line.textContent).toBe('Tests demand before localising.')
-    expect(tokens(line).has('text-[length:calc(10.5px*var(--canvas-label-scale,1))]')).toBe(true)
+    expect(tokens(line).has('text-[length:calc(11px*var(--canvas-label-scale,1))]')).toBe(true)
   })
 })
 
