@@ -356,7 +356,12 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     expect(tokens(within(face()).getByTestId('factor-driver-line-caption')).has('font-medium')).toBe(false)
     const line = tokens(onFaceNotInPopover('factor-driver-line'))
     expect(line.has('justify-between')).toBe(false)
-    expect(line.has('w-full')).toBe(false)
+    expect(line.has('justify-end')).toBe(false)
+    // RE-PINNED 27 Sep 2026: the in-slot button now spans its slot (`w-full`) so
+    // the caption truncates instead of being cut mid-glyph by the slot ("…6
+    // analysec", Paul's MRR screenshots). Width is not placement: with no
+    // `justify-*` and no auto margin the bar still sits BESIDE its words.
+    expect(tokens(within(face()).getByTestId('factor-driver-line-bar')).has('ml-auto')).toBe(false)
   })
 })
 

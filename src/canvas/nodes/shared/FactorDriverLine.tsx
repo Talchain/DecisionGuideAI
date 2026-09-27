@@ -111,6 +111,13 @@ export interface FactorDriverLineProps {
    * accessible name and of its tooltip. The focus ring is inset so the slot's
    * `overflow-hidden` cannot clip it. Omitted → the free-flowing line
    * (Detailed's Layer 2), unchanged.
+   *
+   * ⚠ `w-full` ON THE BUTTON IS LOAD-BEARING. A `<button>` shrinks to fit its
+   * content even as a flex container, so without it the caption never had to
+   * truncate: it ran past the slot and the slot's `overflow-hidden` cut it
+   * mid-glyph, "Last run · Driver 1 of 6 analysec" (Paul's MRR screenshots,
+   * 27 Sep 2026). Measured on served e8ba18e6 by emulation: caption 66–107px
+   * past the card without it; 9px inside, ellipsised, with it.
    */
   inSlot?: boolean
 }
@@ -200,7 +207,7 @@ export function FactorDriverLine({
         // bar on a line of its own; inline, it follows the last word, so the card
         // is one line shorter (NODE-ANATOMY v3.2 L4: shorter cards, not smaller type).
         className={inSlot
-          ? 'group nodrag nopan flex h-full min-w-0 flex-nowrap items-center whitespace-nowrap text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-info rounded'
+          ? 'group nodrag nopan flex h-full w-full min-w-0 flex-nowrap items-center whitespace-nowrap text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-info rounded'
           : 'group nodrag nopan mt-1 block max-w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded'}
         onClick={(e) => {
           e.stopPropagation()
