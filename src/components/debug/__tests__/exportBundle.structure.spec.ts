@@ -353,6 +353,12 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     import.meta.env.VITE_DEBUG_BUNDLE_V2 = 'false'
   })
 
+  // Re-pointed 27 Sep (D-6, row i14): the derivation's happy path is still
+  // `ui_render_success`, but no producer captures a render (`render_summary`),
+  // so the EXPORT states what was observed instead. These pins keep
+  // discriminating the derivation: only its happy path is re-stated.
+  const DERIVED_SUCCESS_AS_EXPORTED = 'response_delivered_render_not_captured'
+
   it('200 + CEE response captured + analysis_ready ready → ui_render_success', () => {
     // Provide an analysis_ready envelope so the analysis-turn signal
     // fires explicitly (not via PLoT presence heuristic). Pipeline
@@ -371,7 +377,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
         },
       }),
     )
-    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status).toBe(DERIVED_SUCCESS_AS_EXPORTED)
     expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_trace')
     expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
     expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn_signal).toBe(
@@ -638,7 +644,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
       }),
     )
     expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
-    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status).toBe(DERIVED_SUCCESS_AS_EXPORTED)
     expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
   })
 
@@ -682,7 +688,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     )
     expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_trace')
     expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe('ready')
-    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status).toBe(DERIVED_SUCCESS_AS_EXPORTED)
   })
 
   // ---------------------------------------------------------------------------
@@ -723,7 +729,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
         ],
       }),
     )
-    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status).toBe(DERIVED_SUCCESS_AS_EXPORTED)
     expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
   })
 
@@ -849,7 +855,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
       }),
     )
     expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe('ready')
-    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status).toBe(DERIVED_SUCCESS_AS_EXPORTED)
   })
 
   it('direct over downstream: direct response WITHOUT analysis_ready, downstream WITH → direct still wins (precedence preserved)', () => {
@@ -944,7 +950,7 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
       'downstream',
     )
     // Pipeline status field aligns with envelope-derived fields.
-    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status).toBe(DERIVED_SUCCESS_AS_EXPORTED)
     expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
   })
 

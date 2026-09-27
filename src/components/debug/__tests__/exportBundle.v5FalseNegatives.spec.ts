@@ -175,8 +175,12 @@ describe('extractDiagnosticChecks — V5-canonical enrichment lift', () => {
     expect(dc.plot_edge_e_values_exposed).toBe(true)
     expect(dc.ui_edge_e_values_available).toBe(true)
     expect(dc.e_values_present).toBe(true)
-    // No ISL-layer evidence → the ISL-layer claim stays honestly false
-    expect(dc.isl_edge_e_values_present).toBe(false)
+    // Re-pointed 27 Sep (D-6, P2 row i13): this read false because no ISL body
+    // was captured. But edge e-values originate only in ISL, so the lifted
+    // enrichment relaying them IS evidence ISL produced them. On the lifted
+    // path only; the top-level-capture control lives in
+    // exportBundle.d6ReadsTheWire.spec.ts.
+    expect(dc.isl_edge_e_values_present).toBe(true)
 
     // EVPI: historical field keeps ISL factor_evpi semantics (no ISL body →
     // false); the factor-level VOI/EVPI surface is reported additively.

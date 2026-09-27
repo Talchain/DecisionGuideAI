@@ -170,6 +170,8 @@ export function runScientificValidation(
     response_shape_validation: runResponseShapeValidation(inputs),
   }
 
+  rerootPlotResponsePaths(validators, inputs)
+
   const source = classifySource(inputs)
   const overall_status = classifyOverall(validators, source)
   const evidence_limitations = buildEvidenceLimitations(inputs, source)
@@ -202,6 +204,30 @@ export function runScientificValidation(
  *   - Hash-mismatch fires regardless of recovery as long as live
  *     evidence was consumed.
  */
+const PLOT_RESPONSE_ROOT = 'payloads.plot_response'
+
+/**
+ * D-6 (i109, 27 Sep): on the V5 path `payloads.plot_response` is null and
+ * the validators read the CEE enrichment the resolver lifted, yet every
+ * `source_paths` entry still named the null capture. Re-root those entries
+ * at the path the body was actually read from. Only when that body was
+ * lifted from CEE; a top-level capture's paths are already true.
+ */
+function rerootPlotResponsePaths(
+  validators: Record<ValidatorName, ValidatorResult>,
+  inputs: ValidatorInputs,
+): void {
+  const root = inputs.plotResponsePath
+  if (inputs.plotResponseSource !== 'cee_embedded' || !root) return
+  for (const v of Object.values(validators)) {
+    v.source_paths = v.source_paths.map((p) =>
+      p === PLOT_RESPONSE_ROOT || p.startsWith(`${PLOT_RESPONSE_ROOT}.`)
+        ? `${root}${p.slice(PLOT_RESPONSE_ROOT.length)}`
+        : p,
+    )
+  }
+}
+
 function buildEvidenceLimitations(
   inputs: ValidatorInputs,
   source: ScientificValidation['source'],

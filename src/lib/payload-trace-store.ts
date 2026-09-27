@@ -106,9 +106,23 @@ export interface TracedPayload {
   completed: boolean
 }
 
+/** What the store keeps of an entry the `MAX_PAYLOADS` cap evicted. */
+export interface EvictedPayloadMeta {
+  id: string
+  service: string
+  endpoint: string
+}
+
 export interface PayloadTraceStore {
   /** Stored payloads (most recent first) */
   payloads: TracedPayload[]
+  /**
+   * Entries the `MAX_PAYLOADS` cap evicted, oldest first, metadata only
+   * (bounded at `MAX_EVICTED`). D-6 (i107, 27 Sep): the cap evicted
+   * silently, so an export of a 23-turn conversation said 20 turns and
+   * `truncated: false`.
+   */
+  evicted: EvictedPayloadMeta[]
   /** Selected payload ID for detail view */
   selectedId: string | null
   /** Filter: service type */
@@ -173,6 +187,9 @@ export interface PayloadTraceStore {
 
 /** Maximum payloads to store (last 20 as per spec) */
 const MAX_PAYLOADS = 20
+
+/** Maximum evicted-entry records kept (metadata only, a few bytes each). */
+const MAX_EVICTED = 1000
 
 /**
  * Closed-by-default payload-inspection gate.
@@ -354,6 +371,7 @@ function isPayloadInspectionEnabled(): boolean {
 
 export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
   payloads: [],
+  evicted: [],
   selectedId: null,
   filterService: null,
   filterStatus: null,
@@ -398,6 +416,7 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
       // most-recent record.
       const existingIdx = state.payloads.findIndex((p) => p.id === payload.id)
       let newPayloads: TracedPayload[]
+      let evicted = state.evicted
       if (existingIdx >= 0) {
         // Drop the old entry; the new payload (already timestamped
         // at line 379 via Date.now()) goes to the front.
@@ -408,10 +427,16 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
       } else {
         newPayloads = [payload, ...state.payloads]
         if (newPayloads.length > MAX_PAYLOADS) {
-          newPayloads.pop()
+          const dropped = newPayloads.pop()
+          if (dropped) {
+            evicted = [
+              ...state.evicted,
+              { id: dropped.id, service: dropped.service, endpoint: dropped.endpoint },
+            ].slice(-MAX_EVICTED)
+          }
         }
       }
-      return { payloads: newPayloads }
+      return { payloads: newPayloads, evicted }
     })
   },
 
@@ -501,7 +526,7 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 
-  clearPayloads: () => set({ payloads: [], selectedId: null }),
+  clearPayloads: () => set({ payloads: [], evicted: [], selectedId: null }),
 
   exportPayloads: () => {
     const { payloads } = get()

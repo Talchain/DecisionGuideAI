@@ -193,7 +193,7 @@ export interface V5CanonicalTurnDiagnostics {
     request_id_source: 'payload_trace' | 'session' | 'none'
     /** Scenario the call was issued against. */
     scenario_id: string | null
-    /** Per-turn client identifier (typically the analysis hash). */
+    /** The CEE turn id the request body carried. */
     turn_id: string | null
     /** CEE endpoint hit. Null when the trace didn't record it. */
     endpoint: string | null
@@ -231,9 +231,13 @@ export interface V5CanonicalTurnDiagnostics {
     has_run_analysis_fact: boolean | null
     freshness: 'fresh' | 'stale' | 'unknown' | 'none' | null
     scenario_id: string | null
-    /** Read-through from canvas v5AnalysisFact slice. Null when the slice
-     *  does not carry the field on this code path. */
+    /** The canvas v5AnalysisFact slice's own field, else the
+     *  `computed_against_hash` CEE typed onto the analysis block. Null when
+     *  neither carries one. */
     graph_hash_at_generation: string | null
+    /** Which of the two `graph_hash_at_generation` came from (D-6, 27 Sep).
+     *  Optional: assemblers predating it omit it. */
+    graph_hash_source?: 'analysis_fact' | 'analysis_result_block' | null
     phase3_raw_block_count: number
     phase3_raw_block_types: string[]
     /**

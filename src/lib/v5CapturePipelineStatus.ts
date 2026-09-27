@@ -36,6 +36,13 @@ export type CapturePipelineStatus =
 
 export type CoherenceIssue =
   | 'analysis_state_cee_v5_but_effective_cee_response_none'
+  /**
+   * D-6 (27 Sep): the UI rendered a different number of options / factors
+   * than the resolved analysis body carries. Added by the bundle exporter
+   * after assembly, never by this classifier.
+   */
+  | 'rendered_option_count_differs_from_analysed'
+  | 'rendered_factor_count_differs_from_analysed'
   | 'analysis_fact_present_but_cee_capture_missing'
   | 'results_rendered_from_store_without_capture'
   | 'scenario_id_conflict'
