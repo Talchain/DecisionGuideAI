@@ -69,3 +69,14 @@ describe('after a re-run, "What we have" says what moved', () => {
     expect(founded(SERVED, { isStale: true })).not.toMatch(/Since the last run/)
   })
 })
+
+describe('the first re-run after the automatic first pass says why nothing is compared', () => {
+  const PAIR = "This run is not compared with Olumi's automatic first pass; the next re-run will show what moved."
+  it('unrequested_run_in_pair (served 62c6b142, first edit → Re-run) → the line', () => {
+    expect(founded(null, { runDeltaAbsenceReason: 'unrequested_run_in_pair' })).toMatch(new RegExp(PAIR.replace(/[.?()]/g, '\\$&') + '$'))
+  })
+  it('CONTRAST: another absence reason, or a stale run, adds nothing', () => {
+    expect(founded(null, { runDeltaAbsenceReason: 'some_other_reason' })).not.toMatch(/automatic first pass/)
+    expect(founded(null, { runDeltaAbsenceReason: 'unrequested_run_in_pair', isStale: true })).not.toMatch(/automatic first pass/)
+  })
+})
