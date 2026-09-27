@@ -22,6 +22,10 @@ vi.mock('../../../../canvas/ToastContext', () => ({
   useShowToastSafe: () => vi.fn(),
   ToastProvider: ({ children }: { children: unknown }) => children,
 }))
+// This file pins the IN-USER-UNITS path (£ cells, tick figures), which returns
+// when an anchored goal band exists. Today's default (the switch off) is pinned
+// by `theGoalBandIsNotYourMrr.spec.tsx` (Paul's test, 27 Sep).
+vi.mock('../goalBandUnits', () => ({ goalBandIsInUserUnits: () => true }))
 
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import type { AnalysisNewViewModelInputs } from '../buildAnalysisNewViewModel'

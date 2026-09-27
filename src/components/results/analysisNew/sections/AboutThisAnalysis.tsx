@@ -107,6 +107,7 @@ import { PanelIconButton } from '../PanelIconButton'
 import { action, ACTION_FOCUS, icon, PANEL_RULE } from '../panelSurfaces'
 import { useReviewTopicCount } from '../useReviewTopicCount'
 import type { ReviewTopicSource } from '../useReviewTopicCount'
+import { goalBandIsInUserUnits } from '../goalBandUnits'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Copy. Furniture and short status values only; every claim-bearing sentence
@@ -171,6 +172,8 @@ export const ABOUT_COPY = {
     notReturned: 'Not returned',
     /** `DecisionResultData.isNormalised`: the UI must not present these as the user's units. */
     normalised: 'Relative scores in this model, not in your units.',
+    /** The goal band is a model level, not the user's figure (`goalBandIsInUserUnits`). */
+    notYourUnits: "The model's own levels, not your real figures: compare the options with each other, not with today's value.",
     question: 'How should these ranges be interpreted?',
     questionAsk: 'Ask about these ranges and their limits',
   },
@@ -461,7 +464,7 @@ export function AboutThisAnalysis({
    * A real unit still goes through `formatThreshold`.
    */
   const fmt = (v: number) =>
-    outcomeFormat.isNormalised === true
+    outcomeFormat.isNormalised === true || !goalBandIsInUserUnits()
       ? formatModelScore(v)
       : formatThreshold(v, outcomeFormat.unit, outcomeFormat.symbol, outcomeFormat.isNormalised)
 
@@ -679,6 +682,13 @@ function ValuesTable({
               data-testid={`${testId}-values-normalised`}
             >
               {ABOUT_COPY.values.normalised}
+            </caption>
+          ) : !goalBandIsInUserUnits() ? (
+            <caption
+              className={`${typography.panelMeta} text-text-light py-[3px] text-left`}
+              data-testid={`${testId}-values-not-your-units`}
+            >
+              {ABOUT_COPY.values.notYourUnits}
             </caption>
           ) : null}
           <thead>

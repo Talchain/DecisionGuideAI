@@ -128,6 +128,7 @@ import type {
 import { everyEvidenceGapAddressed } from '../utils/evidenceGapConfidenceDisplay'
 import { buildTippingPoints, type FlipThresholdLike } from './tippingPoints'
 import { selectWithheldLeaderDisclosureFromWarnings } from '../../../canvas/nodes/withheldLeaderDisclosure'
+import { goalBandIsInUserUnits } from './goalBandUnits'
 
 /**
  * ⭐⭐ THE ADMISSION CAUSES WHOSE SENTENCE NAMES AN ESTIMATE AS THE REMEDY.
@@ -3062,8 +3063,10 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
   // ⛔ A normalised outcome is a model score, never "+13%" (modelScore.ts,
   // AI Quality #70 5841808930). The same formatter decides the tie below, so
   // "renders as the same string" stays about what the reader actually sees.
+  // ⭐ …and so is a band that is not in the user's units (`goalBandIsInUserUnits`):
+  // Paul's MRR model would have claimed "£17,975" against a stated £75,000.
   const readout = (v: number): string =>
-    rec.isNormalised === true
+    rec.isNormalised === true || !goalBandIsInUserUnits()
       ? MODEL_SCORE_COPY.readout(v)
       : formatThreshold(v, rec.outcomeUnit, rec.outcomeUnitSymbol, rec.isNormalised)
   const outcomeReadout = readout(best)
