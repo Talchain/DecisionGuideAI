@@ -49,6 +49,7 @@
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
  */
 import { memo, useMemo, type ReactElement } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { V5AnalysisResultBlock as V5AnalysisResultBlockType } from '../../canvas/conversation/types'
 import { readDecisionReviewWireState } from '../decisionReviewAdapter'
@@ -473,6 +474,23 @@ function V5AnalysisResultBlockImpl({
   // the summary would lose the only account of the run. The `v5-analysis-result`
   // element stays as the unframed anchor `scrollAnalysisResultIntoView` lands on.
   const onlyFoldedSummaryOnCard = summaryBehindDisclosure && !showWinShares && !showProse
+  // ⭐ THE FOLD CLOSES THE RESULT (Paul's test, 27 Sep, AIC B4): it sat ABOVE the result's own content, so under a
+  // reply it stacked as a third disclosure below "Show more" and "N questions…", in a caret style of its own. Content
+  // first, the fold last, in the chat's own chevron — as "Show less" closes an answer (#2169). The words are unchanged.
+  const summaryFold = (
+    <details data-testid="v5-analysis-result-summary-details" className="group">
+      <summary
+        data-testid="v5-analysis-result-summary-toggle"
+        className={`${typography.panelMeta} inline-flex items-center gap-1 cursor-pointer text-info hover:underline list-none`}
+      >
+        <ChevronDown size={12} aria-hidden="true" className="group-open:rotate-180 transition-transform" />
+        Details
+      </summary>
+      <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
+        {block.summary}
+      </p>
+    </details>
+  )
   if (onlyFoldedSummaryOnCard) {
     return (
       <div
@@ -482,20 +500,6 @@ function V5AnalysisResultBlockImpl({
         data-decision-review-state={reviewState.kind}
         className="space-y-1"
       >
-        <details data-testid="v5-analysis-result-summary-details" className="group">
-          <summary
-            data-testid="v5-analysis-result-summary-toggle"
-            className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
-          >
-            <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
-              ▸
-            </span>
-            Details
-          </summary>
-          <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
-            {block.summary}
-          </p>
-        </details>
         {shownUncertaintyCopy && (
           <p
             className={`${typography.panelMeta} text-text-light`}
@@ -504,6 +508,7 @@ function V5AnalysisResultBlockImpl({
             {shownUncertaintyCopy.text}
           </p>
         )}
+        {summaryFold}
         {reviewState.kind === 'malformed' && (
           <div
             className="hidden"
@@ -539,22 +544,7 @@ function V5AnalysisResultBlockImpl({
       >
         Analysis result
       </h3>
-      {summaryBehindDisclosure ? (
-        <details data-testid="v5-analysis-result-summary-details" className="group">
-          <summary
-            data-testid="v5-analysis-result-summary-toggle"
-            className={`${typography.panelMeta} cursor-pointer text-text-light hover:text-text-body list-none`}
-          >
-            <span aria-hidden="true" className="inline-block mr-1 group-open:rotate-90 transition-transform">
-              ▸
-            </span>
-            Details
-          </summary>
-          <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
-            {block.summary}
-          </p>
-        </details>
-      ) : (
+      {!summaryBehindDisclosure && (
         <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
           {block.summary}
         </p>
@@ -753,6 +743,8 @@ function V5AnalysisResultBlockImpl({
           )}
         </div>
       )}
+
+      {summaryBehindDisclosure && summaryFold}
 
       {reviewState.kind === 'malformed' && (
         // DEV diagnostic — a record IS present on `enrichment.decision_review`
