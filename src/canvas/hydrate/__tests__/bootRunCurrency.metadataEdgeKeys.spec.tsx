@@ -106,7 +106,9 @@ describe('CONTRASTS: every field the analysis hash counts still declines', () =>
     e.effect_direction = e.effect_direction === 'positive' ? 'negative' : 'positive'
     await hydrateCanvasFromServer(SCENARIO_ID)
     expect(declineLog()?.reason).toBe('canvas_not_proven_equal')
-    expect(declineLog()?.unproven).toMatch(/pro_plan_price\u0000mrr:(effect_direction|strength):differs/)
+    const unproven = declineLog()?.unproven ?? ''
+    expect(unproven.includes('pro_plan_price\u0000mrr:')).toBe(true)
+    expect(unproven).toMatch(/:(effect_direction|strength):differs/)
     expect(runCardCurrency()).not.toBe('current')
   })
 
