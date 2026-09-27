@@ -6,8 +6,13 @@
  * section) on the production store construction, as `whatsChangedComposesEndToEnd`
  * does for run_delta: N green seams do not compose into a working product.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, renderHook, screen } from '@testing-library/react'
+
+vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
+vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
+vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
+
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 import { applyV5State } from '../../../../v5/applyV5State'
 import { ADDITIVE_EXTENSIONS_KEY } from '../../../../v5/responseParser'
@@ -22,12 +27,15 @@ import type { StatedLimit } from '../../decision-overview/statedLimits'
 import { buildLimitVerdictView, LIMIT_UNSCORED_REASON_WORDS, LIMIT_VERDICT_COPY } from '../limitVerdictView'
 import { LimitVerdictLines } from '../sections/LimitVerdictLines'
 import { useAnalysisNewViewModel } from '../useAnalysisNewViewModel'
+import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { makeData } from './analysisNewFixtures'
 
 const CHURN: StatedLimit = { id: 'c_churn', text: 'Monthly churn ≤ 5%' }
 const BUDGET: StatedLimit = { id: 'c_budget', text: 'Budget ≤ £50,000' }
 
 const verdicts = (over: Partial<LimitVerdicts> = {}): LimitVerdicts => ({ perLimit: [], joint: null, ...over })
+/** The limits on screen are the limits the run judged — the common case. */
+const viewOf = (v: LimitVerdicts, limits: readonly StatedLimit[]) => buildLimitVerdictView(v, limits, limits)
 
 describe('the reader takes the contract shape and nothing else', () => {
   it('parses every state and keeps ids and reasons verbatim', () => {
@@ -72,7 +80,7 @@ describe('the reader takes the contract shape and nothing else', () => {
 })
 
 describe('bound to the analysis it came beside', () => {
-  const stored: StoredLimitVerdicts = { verdicts: verdicts(), analysisHash: 'h1', scenarioId: 's1' }
+  const stored: StoredLimitVerdicts = { verdicts: verdicts(), analysisHash: 'h1', scenarioId: 's1', goalConstraintsAtRun: null }
   it('reads only on the same hash and scenario', () => {
     expect(limitVerdictsDescribeDisplayedAnalysis(stored, 'h1', 's1')).toBe(true)
     expect(limitVerdictsDescribeDisplayedAnalysis(stored, 'h2', 's1')).toBe(false)
@@ -85,7 +93,7 @@ describe('bound to the analysis it came beside', () => {
 
 describe('the words never say more than the state', () => {
   it('joins by constraint id, in the order the user stated the limits', () => {
-    const view = buildLimitVerdictView(
+    const view = viewOf(
       verdicts({
         perLimit: [
           { constraintId: 'c_budget', state: 'scored', reason: null },
@@ -101,12 +109,12 @@ describe('the words never say more than the state', () => {
   })
 
   it('a verdict for a limit this model does not hold is dropped, never named', () => {
-    const view = buildLimitVerdictView(verdicts({ perLimit: [{ constraintId: 'c_ghost', state: 'scored', reason: null }] }), [CHURN])
+    const view = viewOf(verdicts({ perLimit: [{ constraintId: 'c_ghost', state: 'scored', reason: null }] }), [CHURN])
     expect(view).toBeNull()
   })
 
   it('scored says checked; estimate_only names whose figure and never says met', () => {
-    const view = buildLimitVerdictView(
+    const view = viewOf(
       verdicts({
         perLimit: [
           { constraintId: 'c_churn', state: 'scored', reason: null },
@@ -118,7 +126,10 @@ describe('the words never say more than the state', () => {
     const [scored, estimate] = view!.rows
     expect(scored.words).toBe(LIMIT_VERDICT_COPY.scored)
     expect(estimate.words).toBe(LIMIT_VERDICT_COPY.estimateOnly)
-    expect(estimate.words).toMatch(/Olumi's estimate/)
+    // Owner-neutral: rule (d) folds into estimate_only, and there the figure is an
+    // option's level, sometimes the user's own. Never "Olumi's estimate", never "today".
+    expect(estimate.words).toMatch(/assumed figure/)
+    expect(estimate.words).not.toMatch(/today|Olumi's estimate|you gave/i)
     for (const row of view!.rows) {
       expect(row.words).not.toMatch(/\bmet\b|\bmeets\b|within/i)
       expect(row.words).not.toMatch(/\d/)
@@ -127,26 +138,63 @@ describe('the words never say more than the state', () => {
 
   it('unscored names the reason in words, and an unknown code is never printed', () => {
     for (const [code, words] of Object.entries(LIMIT_UNSCORED_REASON_WORDS)) {
-      const view = buildLimitVerdictView(verdicts({ perLimit: [{ constraintId: 'c_churn', state: 'unscored', reason: code }] }), [CHURN])
+      const view = viewOf(verdicts({ perLimit: [{ constraintId: 'c_churn', state: 'unscored', reason: code }] }), [CHURN])
       expect(view!.rows[0].words).toBe(LIMIT_VERDICT_COPY.unscoredBecause(words))
       expect(view!.rows[0].words).not.toContain(code)
     }
-    const unknown = buildLimitVerdictView(
+    const unknown = viewOf(
       verdicts({ perLimit: [{ constraintId: 'c_churn', state: 'unscored', reason: 'a_code_from_the_future' }] }),
       [CHURN],
     )
     expect(unknown!.rows[0].words).toBe(LIMIT_VERDICT_COPY.unscored)
+    // A code the producer raises for several causes names none; nor does an inherited name.
+    for (const code of ['CONSTRAINT_NOT_CONVERTIBLE', 'constructor', 'toString', '__proto__']) {
+      const v = viewOf(verdicts({ perLimit: [{ constraintId: 'c_churn', state: 'unscored', reason: code }] }), [CHURN])
+      expect(v!.rows[0].words, code).toBe(LIMIT_VERDICT_COPY.unscored)
+    }
+    // No reason claims a missing "today" figure: the model may hold it and not read it.
+    for (const words of Object.values(LIMIT_UNSCORED_REASON_WORDS)) expect(words).not.toMatch(/today|no figure/)
   })
 
   it('a withheld joint verdict is said only when there are limits to join', () => {
     const joint = { state: 'withheld' as const, withheldReason: 'limit_unscored', constraintIds: ['c_churn'] }
     const perLimit = [{ constraintId: 'c_churn', state: 'unscored' as const, reason: 'target_unanchored' }]
-    expect(buildLimitVerdictView(verdicts({ perLimit, joint }), [CHURN, BUDGET])?.jointWords).toBe(LIMIT_VERDICT_COPY.jointWithheld)
-    expect(buildLimitVerdictView(verdicts({ perLimit, joint }), [CHURN])?.jointWords).toBeNull()
+    expect(viewOf(verdicts({ perLimit, joint }), [CHURN, BUDGET])?.jointWords).toBe(LIMIT_VERDICT_COPY.jointWithheld)
+    expect(viewOf(verdicts({ perLimit, joint }), [CHURN])?.jointWords).toBeNull()
     expect(
-      buildLimitVerdictView(verdicts({ perLimit, joint: { state: 'scored', withheldReason: null, constraintIds: [] } }), [CHURN, BUDGET])
+      viewOf(verdicts({ perLimit, joint: { state: 'scored', withheldReason: null, constraintIds: [] } }), [CHURN, BUDGET])
         ?.jointWords,
     ).toBeNull()
+  })
+})
+
+describe('⛔ a verdict stays with the limit it judged', () => {
+  const both = verdicts({
+    perLimit: [
+      { constraintId: 'c_churn', state: 'scored', reason: null },
+      { constraintId: 'c_budget', state: 'scored', reason: null },
+    ],
+    joint: { state: 'withheld', withheldReason: 'limit_unscored', constraintIds: ['c_budget'] },
+  })
+  const BUDGET_EDITED: StatedLimit = { id: 'c_budget', text: 'Budget ≤ £20,000' }
+
+  it('a limit edited in place (same id, new figure) loses its row, and the joint line goes', () => {
+    const view = buildLimitVerdictView(both, [CHURN, BUDGET_EDITED], [CHURN, BUDGET])
+    expect(view?.rows.map((r) => r.id)).toEqual(['c_churn'])
+    expect(view?.jointWords).toBeNull()
+  })
+
+  it('a limit added since the run keeps the others but drops the joint line', () => {
+    const NPS: StatedLimit = { id: 'c_nps', text: 'NPS ≥ 40' }
+    const view = buildLimitVerdictView(both, [CHURN, BUDGET, NPS], [CHURN, BUDGET])
+    expect(view?.rows.map((r) => r.id)).toEqual(['c_churn', 'c_budget'])
+    expect(view?.jointWords).toBeNull()
+  })
+
+  it('CONTROL: the same set, unchanged, keeps every row and the joint line', () => {
+    const view = buildLimitVerdictView(both, [CHURN, BUDGET], [CHURN, BUDGET])
+    expect(view?.rows.map((r) => r.id)).toEqual(['c_churn', 'c_budget'])
+    expect(view?.jointWords).toBe(LIMIT_VERDICT_COPY.jointWithheld)
   })
 })
 
@@ -207,6 +255,15 @@ beforeEach(() => {
     limitVerdicts: null,
     results: { status: 'idle', progress: 0 },
     currentScenarioId: 'scn-int',
+    // The Success row (and so these lines) mounts only on a strip with content.
+    nodes: [
+      { id: 'd1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Which pricing plan to launch' } },
+      { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Grow MRR' } },
+      { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Monthly price' } },
+      // The analysis names opt_a/opt_b; the applicator refuses one not about this graph.
+      { id: 'opt_a', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Raise price' } },
+      { id: 'opt_b', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Keep price' } },
+    ],
     goalConstraints: [
       { constraint_id: 'c_churn', label: 'Monthly churn', operator: '<=', value: 5, unit: '%' },
       { constraint_id: 'c_budget', label: 'Budget', operator: '<=', value: 50000, unit: '£' },
@@ -214,6 +271,9 @@ beforeEach(() => {
   } as never)
 })
 afterEach(() => cleanup())
+
+/** ModelStrip's default testId + the section's suffix, as mounted by the tab body. */
+const MOUNTED = 'analysis-new-model-strip-limit-verdicts'
 
 function renderChain(responseHash: string | undefined) {
   return renderHook(() =>
@@ -236,15 +296,20 @@ describe('⭐ the wire reaches the screen', () => {
 
     const { result } = renderChain(displayedHash)
     expect(result.current.limitVerdicts).not.toBeNull()
-    render(<LimitVerdictLines view={result.current.limitVerdicts} />)
-    const rows = screen.getAllByTestId('analysis-new-limit-verdicts-row')
+    // The PRODUCTION mount: tab body → view model → ModelStrip's success line.
+    render(
+      <AnalysisNewTabBody resultsSectionData={makeData()} isPreRun={false} isRunning={false} isStale={false} responseHash={displayedHash} />,
+    )
+    const rows = screen.getAllByTestId(`${MOUNTED}-row`)
     expect(rows.map((r) => [r.getAttribute('data-constraint-id'), r.getAttribute('data-state')])).toEqual([
       ['c_churn', 'estimate_only'],
       ['c_budget', 'unscored'],
     ])
-    expect(rows[0].textContent).toContain(LIMIT_VERDICT_COPY.estimateOnly)
-    expect(rows[1].textContent).toContain(LIMIT_UNSCORED_REASON_WORDS.CONSTRAINT_NOT_CONVERTIBLE)
-    expect(screen.getByTestId('analysis-new-limit-verdicts-joint').textContent).toBe(LIMIT_VERDICT_COPY.jointWithheld)
+    expect(rows[0].textContent).toBe(`Monthly churn ≤ 5%. ${LIMIT_VERDICT_COPY.estimateOnly}`)
+    // CONSTRAINT_NOT_CONVERTIBLE names no cause.
+    expect(rows[1].textContent).toBe(`Budget ≤ £50,000. ${LIMIT_VERDICT_COPY.unscored}`)
+    for (const row of rows) expect(row.textContent).not.toContain('—')
+    expect(screen.getByTestId(`${MOUNTED}-joint`).textContent).toBe(LIMIT_VERDICT_COPY.jointWithheld)
   })
 })
 
@@ -278,6 +343,35 @@ describe('⛔ the negative arms', () => {
       productionApplicatorStore(),
     )
     expect(useCanvasStore.getState().limitVerdicts).toBeNull()
+  })
+
+  it('the SAME analysis re-delivered without verdicts keeps them (the routine echo)', () => {
+    applyV5State(wireResponse({ limit_verdicts: WIRE_VERDICTS }), productionApplicatorStore())
+    const h = useCanvasStore.getState().results?.hash
+    applyV5State(wireResponse(), productionApplicatorStore())
+    expect(useCanvasStore.getState().results?.hash).toBe(h)
+    expect(useCanvasStore.getState().limitVerdicts?.analysisHash).toBe(h)
+    expect(useCanvasStore.getState().limitVerdicts?.verdicts.perLimit).toHaveLength(2)
+  })
+
+  it('a limit edited in place after the run loses its line, even when the analysis is re-delivered', () => {
+    applyV5State(wireResponse({ limit_verdicts: WIRE_VERDICTS }), productionApplicatorStore())
+    const h = useCanvasStore.getState().results?.hash
+    expect(renderChain(h).result.current.limitVerdicts?.rows.map((r) => r.id)).toEqual(['c_churn', 'c_budget'])
+    useCanvasStore.getState().setGoalConstraints(
+      [
+        { constraint_id: 'c_churn', label: 'Monthly churn', operator: '<=', value: 5, unit: '%' },
+        { constraint_id: 'c_budget', label: 'Budget', operator: '<=', value: 20000, unit: '£' },
+      ] as never,
+      { fromProducerSync: true },
+    )
+    const after = renderChain(h).result.current.limitVerdicts
+    expect(after?.rows.map((r) => r.id)).toEqual(['c_churn'])
+    expect(after?.jointWords).toBeNull()
+    // The same analysis, re-delivered WITH its verdicts, must not re-bind them to £20,000.
+    applyV5State(wireResponse({ limit_verdicts: WIRE_VERDICTS }), productionApplicatorStore())
+    expect(useCanvasStore.getState().results?.hash).toBe(h)
+    expect(renderChain(h).result.current.limitVerdicts?.rows.map((r) => r.id)).toEqual(['c_churn'])
   })
 
   it('a re-delivered analysis carrying the verdicts still stores them (the second-writer case)', () => {

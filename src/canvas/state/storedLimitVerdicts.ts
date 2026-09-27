@@ -13,6 +13,7 @@
  */
 import { ConstraintVerdictSchema } from '@talchain/schemas/orchestrator'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
+import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 const PerLimitSchema = ConstraintVerdictSchema.shape.per_limit.unwrap().element
 const JointSchema = ConstraintVerdictSchema.shape.joint.unwrap()
@@ -32,10 +33,19 @@ export interface LimitVerdicts {
   readonly perLimit: readonly PerLimitVerdict[]
   readonly joint: JointLimitVerdict | null
 }
-export interface StoredLimitVerdicts {
+/** What the applicator hands the store: the verdicts and the analysis they came beside. */
+export interface LimitVerdictsWrite {
   readonly verdicts: LimitVerdicts
   readonly analysisHash: string
   readonly scenarioId: string | null
+}
+/**
+ * As the store holds them: plus the user's limits AS THEY STOOD when the verdicts
+ * arrived. A limit edited in place keeps its constraint id and the analysis hash does
+ * not move, so without this a verdict about £50,000 would sit beside £20,000.
+ */
+export interface StoredLimitVerdicts extends LimitVerdictsWrite {
+  readonly goalConstraintsAtRun: readonly CEEGoalConstraint[] | null
 }
 
 /** The block from a parsed turn: top level first, then the additive sidecar. */

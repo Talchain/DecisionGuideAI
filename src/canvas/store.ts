@@ -194,7 +194,7 @@ import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferen
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { StoredRunDelta } from './state/storedRunDelta'
-import type { StoredLimitVerdicts } from './state/storedLimitVerdicts'
+import type { LimitVerdictsWrite, StoredLimitVerdicts } from './state/storedLimitVerdicts'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 import {
   isSelfLoop,
@@ -1722,7 +1722,7 @@ interface CanvasState {
    * this one.
    */
   setRunDelta: (stored: StoredRunDelta | null) => void
-  setLimitVerdicts: (stored: StoredLimitVerdicts | null) => void
+  setLimitVerdicts: (stored: LimitVerdictsWrite | null) => void
   /**
    * Write the V5 analysis-fact slice. Pass null to clear (e.g. on scenario
    * switch). Do NOT clear on every conversational turn — per
@@ -7028,8 +7028,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ runDelta: stored })
   },
 
-  setLimitVerdicts: (stored: StoredLimitVerdicts | null) => {
-    set({ limitVerdicts: stored })
+  setLimitVerdicts: (stored: LimitVerdictsWrite | null) => {
+    if (!stored) {
+      set({ limitVerdicts: null })
+      return
+    }
+    // Snapshot the limits these verdicts judged. The applicator flushes this turn's
+    // limits before it stores the verdicts, so `get()` is the set the run saw; a
+    // re-delivery of the SAME analysis keeps the first snapshot, never limits edited since.
+    const prev = get().limitVerdicts
+    const sameAnalysis = prev !== null && prev.analysisHash === stored.analysisHash && prev.scenarioId === stored.scenarioId
+    set({
+      limitVerdicts: { ...stored, goalConstraintsAtRun: sameAnalysis ? prev.goalConstraintsAtRun : get().goalConstraints },
+    })
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {

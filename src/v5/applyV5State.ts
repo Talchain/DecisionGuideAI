@@ -49,7 +49,7 @@ import type { StoredRunDelta } from '../canvas/state/storedRunDelta'
 import {
   limitVerdictsFromResponse,
   readLimitVerdicts,
-  type StoredLimitVerdicts,
+  type LimitVerdictsWrite,
 } from '../canvas/state/storedLimitVerdicts'
 import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
@@ -148,7 +148,7 @@ export interface V5ApplicatorStore {
    */
   setRunDelta?: (stored: StoredRunDelta | null) => void
   /** B5 — same binding and eviction as `setRunDelta`. */
-  setLimitVerdicts?: (stored: StoredLimitVerdicts | null) => void
+  setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
   /**
    * Optional: write goal_constraints (ROADMAP 1.22). On the V5 path this
    * applicator writes via `add_constraint` graph_patch blocks only, UPSERTING

@@ -32,7 +32,7 @@ import { buildAnalysisNewViewModel } from './buildAnalysisNewViewModel'
 import { buildRunDeltaView } from './runDeltaView'
 import { runDeltaDescribesDisplayedAnalysis } from '../../../canvas/state/storedRunDelta'
 import { limitVerdictsDescribeDisplayedAnalysis } from '../../../canvas/state/storedLimitVerdicts'
-import { parseStatedLimitsKey, selectStatedLimitsKey } from '../decision-overview/statedLimits'
+import { parseStatedLimitsKey, selectStatedLimits, selectStatedLimitsKey } from '../decision-overview/statedLimits'
 import { buildLimitVerdictView } from './limitVerdictView'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { readProducerLeaderPermission } from '../../../lib/decisionVerdict'
@@ -204,14 +204,19 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
 
   /**
    * B5 — the per-limit verdicts, under the SAME identity rule as run_delta: read only
-   * while they describe the analysis on screen. Limits are selected as a primitive key
-   * (the `ci:guard:zustand` contract), so a rebuilt equal array does not re-derive.
+   * while they describe the analysis on screen, and only beside a limit still worded as
+   * the run saw it. Limits are selected as a primitive key (the `ci:guard:zustand`
+   * contract), so a rebuilt equal array does not re-derive.
    */
   const storedLimitVerdicts = useCanvasStore((s) => s.limitVerdicts)
   const statedLimitsKey = useCanvasStore((s) => selectStatedLimitsKey(s.goalConstraints))
   const limitVerdicts = useMemo(() => {
     if (!limitVerdictsDescribeDisplayedAnalysis(storedLimitVerdicts, responseHash, currentScenarioId)) return null
-    return buildLimitVerdictView(storedLimitVerdicts!.verdicts, parseStatedLimitsKey(statedLimitsKey))
+    return buildLimitVerdictView(
+      storedLimitVerdicts!.verdicts,
+      parseStatedLimitsKey(statedLimitsKey),
+      selectStatedLimits(storedLimitVerdicts!.goalConstraintsAtRun),
+    )
   }, [storedLimitVerdicts, responseHash, currentScenarioId, statedLimitsKey])
 
   const analysisIdentityIsCurrent = useAnalysisResultsAreCurrent()

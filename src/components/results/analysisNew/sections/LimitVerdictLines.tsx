@@ -25,7 +25,9 @@ export function LimitVerdictLines({
           data-constraint-id={row.id}
           data-state={row.state}
         >
-          <span className="text-text-body">{row.limitText}</span> — {row.words}
+          {/* A full stop, not a dash (no em dashes in product text) and not a colon (the
+              unscored words already carry one). */}
+          <span className="text-text-body">{row.limitText}.</span> {row.words}
         </li>
       ))}
       {view.jointWords ? (
