@@ -44,6 +44,26 @@ const draw = (width: number, expertMode = false, onToggleExpertMode = vi.fn()) =
     </PanelWidthProvider>,
   )
 
+describe('at 280px the four tabs keep their full labels with the stale mark (served 26 Sep: "Ol… Anal… Reaso… M…")', () => {
+  // Served at the 280 dock the tablist had 199px; the four labels need exactly
+  // 187 + 3 gaps of 4. The stale mark (16px) or the Model badge tipped it into
+  // truncation. Compact tabs take 4px side padding and no gap: 44px back.
+  it('compact: 4px tab padding, no gap between tabs', () => {
+    draw(280)
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bgap-0\b/)
+    for (const t of screen.getAllByRole('tab')) {
+      expect(t.className).toMatch(/\bpx-1\b/)
+      expect(t.className).not.toMatch(/\bpx-2\b/)
+    }
+  })
+
+  it('CONTRAST: the wide strip keeps the contract\'s 8px padding and 4px gap', () => {
+    draw(SHELL_TABSTRIP_COMPACT_BELOW_PX + 80)
+    expect(screen.getByTestId('outputs-dock-tablist').className).toMatch(/\bgap-1\b/)
+    for (const t of screen.getAllByRole('tab')) expect(t.className).toMatch(/\bpx-2\b/)
+  })
+})
+
 describe('gap NARROW-1: at 280px the strip stays one row, and both folded controls stay reachable', () => {
   it('⭐⭐ at 280px (≤320) the tablist never wraps — flex-nowrap, not flex-wrap', () => {
     draw(280)
