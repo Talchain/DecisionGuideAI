@@ -539,7 +539,8 @@ describe('C · THE SECTION STRUCTURE', () => {
       // the census, RUN DETAILS LAST. About's own label is the prototype's
       // footer `.disclose` line, not an h3 — its presence and its name are
       // asserted in the landmark case below.
-      ANALYSIS_NEW_COPY.sections.keyInsights,
+      // 27 Sep: Key insights renders only with an insight (Paul's test); this
+      // seeded run has none.
       ANALYSIS_NEW_COPY.sections.uncertainty,
     ])
     // The pre-V2 census, kept as the record of what moved (not asserted):
@@ -682,7 +683,8 @@ describe('C · THE SECTION STRUCTURE', () => {
      * than assuming a suffix) and "About this analysis".
      */
     for (const [testId, headingId] of [
-      ['analysis-new-key-insights', 'analysis-new-key-insights-heading'],
+      // 27 Sep: `analysis-new-key-insights` left — it renders only with an
+      // insight, and this seeded run has none (Paul's test).
       ['analysis-new-drivers', 'analysis-new-drivers-heading'],
       ['analysis-new-uncertainty', 'analysis-new-uncertainty-heading'],
       ['analysis-new-commitment', 'analysis-new-commitment-title'],

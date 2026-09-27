@@ -1059,8 +1059,11 @@ export function AnalysisNewTabBody({
    * The gate is literally "would any child render", derived from the same values
    * the children are handed.
    */
-  const keyInsightsEmptyMessage =
-    vm.status.isPreRun || vm.keyInsights.candidateCount > 0 ? null : COPY.empty.keyInsights
+  /* ⚠ SILENCE, NOT AN EMPTY SECTION (Paul's test, 27 Sep): "No insight is
+     grounded well enough to lead with yet" sat in a section the V2 prototype
+     does not have, and read as clutter under About. A run with no insight now
+     shows no Key insights section; one with insights is unchanged. */
+  const keyInsightsEmptyMessage: string | null = null
   const driversEmpty = driversEmptyMessage(vm)
   const driverCaveatParts = driversCaveatParts(vm)
 

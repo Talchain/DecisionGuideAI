@@ -237,7 +237,9 @@ describe('F · the three scenario classes (§24F)', () => {
     renderBody(genuineDecision())
     openGroups()
     expect(screen.queryByTestId('analysis-new-glance-headline'), 'Paul ruled 18 Sep 2026: delete the conclusion entirely. The panel names no leading option.').toBeNull()
-    expect(screen.getByTestId('analysis-new-key-insights').textContent).not.toContain(
+    // Key insights renders only when the run has one (Paul, 27 Sep); this
+    // run has none, so the claim cannot appear there either way.
+    expect(screen.queryByTestId('analysis-new-key-insights')?.textContent ?? '').not.toContain(
       'currently scores higher',
     )
   })
@@ -537,16 +539,13 @@ describe('the empty state never contradicts the surface above it', () => {
     expect(screen.queryByTestId('analysis-new-key-insights-empty')).toBeNull()
   })
 
-  it('KEEPS the honest empty message for a run that genuinely produced none', () => {
-    // The discriminating twin — without it, deleting the empty state outright
-    // would satisfy the case above and lose a truthful message. Here the ladder
-    // finds nothing at all, so "none grounded yet" is exactly true.
+  it('⭐ a run that genuinely produced none shows NO Key insights section (Paul, 27 Sep)', () => {
+    // Paul's test: an empty "No insight is grounded…" section, absent from the
+    // V2 prototype, read as clutter. Silence replaces it; the sentence is gone.
     renderBody(genuineDecision())
     openGroups()
-    openSection('analysis-new-key-insights')
-    expect(screen.getByTestId('analysis-new-key-insights-empty')).toHaveTextContent(
-      'No insight is grounded well enough to lead with yet.',
-    )
+    expect(screen.queryByTestId('analysis-new-key-insights')).toBeNull()
+    expect(screen.queryByText('No insight is grounded well enough to lead with yet.')).toBeNull()
   })
 })
 
@@ -1274,9 +1273,12 @@ describe('the coaching and the answer — V2 zone order', () => {
     // paragraph above says must happen: the case directly below pins the
     // drivers ABOVE the coaching, the mirror of the options case. Dropping the
     // id without that case is the silent drift this block warns about.
+    // ⚠ `analysis-new-key-insights` LEFT THIS LIST ON 27 Sep 2026: it renders
+    // only when the run has an insight (Paul's test) and this run has none.
+    // Its position is still covered: it mounts INSIDE `analysis-new-about`
+    // (the folded tail), which is asserted here.
     const detail = [
       'analysis-new-about',
-      'analysis-new-key-insights',
       'analysis-new-uncertainty',
     ]
     for (const id of detail) {
