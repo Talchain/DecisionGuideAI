@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 import { CanvasLabelScaleSync } from '../CanvasLabelScaleSync'
-import { CANVAS_LABEL_SCALE_VAR, labelCounterScale } from '../../utils/zoomLegibility'
+import { CANVAS_GLYPH_SCALE_VAR, CANVAS_LABEL_SCALE_VAR, MAX_LABEL_COUNTER_SCALE, labelCounterScale } from '../../utils/zoomLegibility'
 
 let zoom = 1
 
@@ -78,14 +78,19 @@ describe('CanvasLabelScaleSync', () => {
   })
 
   it('quantises to two decimals so a wheel gesture is not a write per frame', () => {
-    const { host } = mountAt(0.7)
-    const written = Number(host.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR))
-    // 1/0.7 = 1.4285714…  → 1.43
-    expect(written).toBe(1.43)
-    // …and the quantisation is EXACT at the auto-fit settle zoom, where it
-    // matters: 1/0.5 = 2 needs no rounding at all.
+    // Above 1 / LABEL_COUNTER_SCALE_CAP the TEXT scale is still 1/zoom:
+    // 1/0.9 = 1.1111…  → 1.12
+    const { host } = mountAt(0.9)
+    expect(Number(host.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR))).toBe(1.12)
     cleanup(); document.body.innerHTML = ''
-    expect(Number(mountAt(0.5).host.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR))).toBe(2)
+    // The GLYPH scale is uncapped (27 Sep 2026): 1/0.7 = 1.4285714…  → 1.43.
+    expect(Number(mountAt(0.7).host.style.getPropertyValue(CANVAS_GLYPH_SCALE_VAR))).toBe(1.43)
+    cleanup(); document.body.innerHTML = ''
+    // …and the quantisation is EXACT at the auto-fit settle zoom, where it
+    // matters: the text ceiling sits ON the grid, and the glyph scale is 1/0.5 = 2.
+    const settle = mountAt(0.5).host.style
+    expect(Number(settle.getPropertyValue(CANVAS_LABEL_SCALE_VAR))).toBe(MAX_LABEL_COUNTER_SCALE)
+    expect(Number(settle.getPropertyValue(CANVAS_GLYPH_SCALE_VAR))).toBe(2)
   })
 
   it('quantises upward so a 10px label never falls below the 10px floor', () => {

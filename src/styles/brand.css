@@ -311,6 +311,10 @@
      must agree with this declaration or the census reports fallback drift.
      Rule and bounds: src/canvas/utils/zoomLegibility.ts */
   --canvas-label-scale: 1;
+  /* The GLYPH and TARGET counter-scale — `glyphCounterScale(zoom)`, uncapped by
+     the text ceiling, so icons and hit targets keep their declared size at the
+     landing. Written beside the label scale by `CanvasLabelScaleSync`. */
+  --canvas-glyph-scale: 1;
 
   --goal-rgb: 245 196 51;
 

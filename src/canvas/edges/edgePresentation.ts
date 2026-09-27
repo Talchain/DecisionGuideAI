@@ -75,7 +75,7 @@
 
 import type { ValidationMetadata } from '../../types/validation'
 import type { ExistenceDash } from '../utils/graphDisplayCalculations'
-import { MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
+import { MAX_GLYPH_COUNTER_SCALE } from '../utils/zoomLegibility'
 import {
   GLYPH_ANCHOR_RADIUS,
   GLYPH_PAINTED_BOX_FLOW,
@@ -588,7 +588,7 @@ export const EDGE_ARROWHEAD_BASE_PX = 6
  * sized for the zoom bound. 12 graph units → 6px at the 0.50 park (contract
  * v3.1, E7; it was 16 → 8px).
  */
-export const EDGE_ARROWHEAD_FLOW_WIDTH = EDGE_ARROWHEAD_BASE_PX * MAX_LABEL_COUNTER_SCALE
+export const EDGE_ARROWHEAD_FLOW_WIDTH = EDGE_ARROWHEAD_BASE_PX * MAX_GLYPH_COUNTER_SCALE
 
 /**
  * ⛔⛔ ALONG the path — and it is BOUNDED BY THE POLARITY GLYPH, not chosen.

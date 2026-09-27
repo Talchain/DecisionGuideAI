@@ -50,8 +50,8 @@ describe('EvidenceGapBadge', () => {
     expect(badge?.className).toContain('absolute')
     // The corner offset is counter-scaled: `-6px` centres the circle on the
     // card's corner only while the circle is 12px, and the circle now scales.
-    expect(badge?.className).toContain('bottom-[calc(-6px*var(--canvas-label-scale,1))]')
-    expect(badge?.className).toContain('right-[calc(-6px*var(--canvas-label-scale,1))]')
+    expect(badge?.className).toContain('bottom-[calc(-6px*var(--canvas-glyph-scale,1))]')
+    expect(badge?.className).toContain('right-[calc(-6px*var(--canvas-glyph-scale,1))]')
   })
 
   it('is a circle (rounded-full)', () => {

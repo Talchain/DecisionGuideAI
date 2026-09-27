@@ -355,10 +355,14 @@ describe('contract v3.1 — option card polish', () => {
       // wrap at its own spaces rather than push the mark past the card's edge;
       // the "from" half is still one unbroken run. Was: both halves no-wrap, the
       // mark free to drop to a line of its own.
+      // RE-PINNED 27 Sep 2026 (landing text ceiling): the row budget is 25
+      // characters (was 17), so "→ 3 engineers · <mark>" now fits and BOTH halves
+      // are unbroken runs; the whole run with its mark still does not, so the row
+      // may still break before the arrow.
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
       const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)
-      expect(halves).toEqual(['0 engineers'])
+      expect(halves).toEqual(['0 engineers', '→ 3 engineers'])
       expect(value.textContent).toBe('0 engineers → 3 engineers')
       const mark = inRows('option-change-row-mark-option-1-f-head')!
       expect(mark.previousSibling?.textContent).toBe('\u00A0')

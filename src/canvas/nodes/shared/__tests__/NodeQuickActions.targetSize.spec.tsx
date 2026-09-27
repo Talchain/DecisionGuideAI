@@ -58,20 +58,20 @@ const spacing = (n: string): number => parseFloat(n) * 4
  * either way, which is exactly what this suite exists to assert.
  */
 const gapPx = (cls: string): number | null => {
-  const scaled = cls.match(/gap-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-label-scale/)
+  const scaled = cls.match(/gap-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-glyph-scale/)
   if (scaled) return parseFloat(scaled[1])
   const m = cls.match(/(?:^|\s)gap-([0-9.]+)(?:\s|$)/)
   return m ? spacing(m[1]) : null
 }
 /** px of hit expansion per side from `before:-inset-[Npx]`; 0 when absent. */
 const expansionPx = (cls: string): number => {
-  const scaled = cls.match(/before:-inset-\[calc\((\d+)px\*var\(--canvas-label-scale/)
+  const scaled = cls.match(/before:-inset-\[calc\((\d+)px\*var\(--canvas-glyph-scale/)
   if (scaled) return parseInt(scaled[1], 10)
   const m = cls.match(/before:-inset-\[(\d+)px\]/)
   return m ? parseInt(m[1], 10) : 0
 }
 const visualPx = (cls: string): number | null => {
-  const scaled = cls.match(/h-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-label-scale/)
+  const scaled = cls.match(/h-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-glyph-scale/)
   if (scaled) return parseFloat(scaled[1])
   const m = cls.match(/(?:^|\s)h-([0-9.]+)(?:\s|$)/)
   return m ? spacing(m[1]) : null

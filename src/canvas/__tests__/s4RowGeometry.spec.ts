@@ -93,11 +93,14 @@ const byId = (nodes: Node[], id: string) => {
 }
 
 describe('S4 card widths', () => {
-  it('the repeated-card width is the ED target raised to the legibility floor — 260, a bounded +12 exception', () => {
+  it('the repeated-card width is the ED target raised to the legibility floor — now the ED target itself, 248', () => {
+    // RE-PINNED 27 Sep 2026 (landing text ceiling 1.36): the legibility floor is the
+    // widest title word at the TEXT bound, 108 × 1.36 + 20 + 24 = 190.88, so it no
+    // longer raises the ED target; the +12 exception (260) is gone.
     expect(REPEATED_CARD_TARGET_W).toBe(248)
-    expect(NODE_LAYOUT_MIN_W).toBe(260)
+    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(190.88, 10)
     expect(REPEATED_CARD_W).toBe(Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W))
-    expect(REPEATED_CARD_W).toBe(260)
+    expect(REPEATED_CARD_W).toBe(248)
   })
 
   it.each(Object.keys(STARTERS))('%s: options, factors, outcomes and risks all draw at the repeated width', async (id) => {

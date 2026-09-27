@@ -143,10 +143,12 @@
  */
 import {
   CANVAS_FAR_TITLE_SCALE_VAR,
+  CANVAS_GLYPH_SCALE_VAR,
   CANVAS_LABEL_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_SELECTOR,
   LOD_BLANKED_BODY_SELECTOR,
   LOD_FAR_TITLE_SELECTOR,
+  MAX_GLYPH_COUNTER_SCALE,
   MAX_LABEL_COUNTER_SCALE,
   MAX_NORMAL_RUNG_LABEL_SCALE,
   NODE_RUNG_PADDING_ATTR,
@@ -216,6 +218,7 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
   // quantised scale, so it will not re-write it unless the zoom moves — leaving
   // a value behind would silently mis-size every later render.
   const previous = root.style.getPropertyValue(CANVAS_LABEL_SCALE_VAR)
+  const previousGlyph = root.style.getPropertyValue(CANVAS_GLYPH_SCALE_VAR)
 
   /**
    * ⭐ THE SECOND THING PINNED TO THE BOUND: the LOD body collapse, RELEASED.
@@ -249,6 +252,9 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
 
   try {
     root.style.setProperty(CANVAS_LABEL_SCALE_VAR, String(MAX_LABEL_COUNTER_SCALE))
+    // Glyphs and targets at THEIR bound (2 at the landing floor, and at the Normal
+    // rung's floor too), in both passes below — the text ceiling does not cap them.
+    root.style.setProperty(CANVAS_GLYPH_SCALE_VAR, String(MAX_GLYPH_COUNTER_SCALE))
     // The LITERAL name, not `CANVAS_FAR_TITLE_SCALE_VAR`: this call is the only
     // place the property is ever DEFINED (outside it the title falls back to
     // `--canvas-label-scale` by design), and `scripts/css-var-census.mjs` reads
@@ -324,6 +330,8 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
     }
     if (previous === '') root.style.removeProperty(CANVAS_LABEL_SCALE_VAR)
     else root.style.setProperty(CANVAS_LABEL_SCALE_VAR, previous)
+    if (previousGlyph === '') root.style.removeProperty(CANVAS_GLYPH_SCALE_VAR)
+    else root.style.setProperty(CANVAS_GLYPH_SCALE_VAR, previousGlyph)
     if (previousFarScale === '') root.style.removeProperty(CANVAS_FAR_TITLE_SCALE_VAR)
     else root.style.setProperty(CANVAS_FAR_TITLE_SCALE_VAR, previousFarScale)
     for (let i = 0; i < previousFarTitleStyles.length; i++) {

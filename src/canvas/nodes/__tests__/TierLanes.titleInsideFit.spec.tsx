@@ -58,7 +58,7 @@ describe('band titles: one left column, no panels (NODE-ANATOMY-v32 L1/L2)', () 
       expect(px(title.style.top)).toBe(lane.y - LANE_TITLE_GAP)
       const rises = placed.find((p) => p.tier === lane.tier)!.clearsKindGlyphs
       expect(title.style.transform).toBe(
-        rises ? 'translateY(calc(-100% - 12px * var(--canvas-label-scale, 1)))' : 'translateY(-100%)',
+        rises ? 'translateY(calc(-100% - 12px * var(--canvas-glyph-scale, 1)))' : 'translateY(-100%)',
       )
     }
   })
@@ -77,7 +77,7 @@ describe('band titles: one left column, no panels (NODE-ANATOMY-v32 L1/L2)', () 
     const byTier = (t: number) => placed.find((p) => p.tier === t)!
     expect(byTier(2).clearsKindGlyphs).toBe(true)
     expect(screen.getByTestId('tier-lane-2-title').style.transform).toBe(
-      'translateY(calc(-100% - 12px * var(--canvas-label-scale, 1)))',
+      'translateY(calc(-100% - 12px * var(--canvas-glyph-scale, 1)))',
     )
     expect(byTier(5).clearsKindGlyphs).toBe(false)
     expect(screen.getByTestId('tier-lane-5-title').style.transform).toBe('translateY(-100%)')

@@ -27,10 +27,13 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '@xyflow/react'
 import {
   labelCounterScale,
+  glyphCounterScale,
   farTitleScale,
   CANVAS_LABEL_SCALE_VAR,
+  CANVAS_GLYPH_SCALE_VAR,
   CANVAS_FAR_TITLE_SCALE_VAR,
   CANVAS_LABEL_SCALE_MARKER_TESTID,
+  LABEL_SCALE_QUANTUM,
 } from '../utils/zoomLegibility'
 
 /**
@@ -40,9 +43,11 @@ import {
  * rendering difference — and writing a fresh string to the DOM on every frame of
  * a pinch gesture is pure churn. Rounding to two decimals means a wheel-zoom
  * writes a handful of times instead of once per frame. It is NOT a legibility
- * parameter: at the auto-fit floor the quantised scale is exact.
+ * parameter: at the auto-fit floor the quantised scale is exact — which holds
+ * only because `LABEL_COUNTER_SCALE_CAP` is placed ON this grid, so the step now
+ * lives beside it in `zoomLegibility` (26 Sep 2026; one number, two readers).
  */
-const SCALE_QUANTUM = 100
+const SCALE_QUANTUM = LABEL_SCALE_QUANTUM
 
 export function CanvasLabelScaleSync() {
   // Selecting the QUANTISED SCALE (a number), not the raw transform, so this
@@ -52,6 +57,9 @@ export function CanvasLabelScaleSync() {
   // own legibility floor. Ceiling preserves the floor while retaining the same
   // two-decimal write cadence.
   const scale = useStore((s) => Math.ceil(labelCounterScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
+  // Glyphs, marks and hit targets: the UNCAPPED scale (`glyphCounterScale`), so the
+  // text ceiling never shrinks what a user must hit or recognise.
+  const glyphScale = useStore((s) => Math.ceil(glyphCounterScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
   // v3.1 WS1 #25: the far-zoom title's own scale, read by the `line` rung only.
   const farScale = useStore((s) => Math.ceil(farTitleScale(s.transform[2]) * SCALE_QUANTUM) / SCALE_QUANTUM)
   const markerRef = useRef<HTMLSpanElement | null>(null)
@@ -66,6 +74,15 @@ export function CanvasLabelScaleSync() {
       root.style.removeProperty(CANVAS_LABEL_SCALE_VAR)
     }
   }, [scale])
+
+  useEffect(() => {
+    const root = markerRef.current?.closest('.react-flow') as HTMLElement | null
+    if (!root) return
+    root.style.setProperty(CANVAS_GLYPH_SCALE_VAR, String(glyphScale))
+    return () => {
+      root.style.removeProperty(CANVAS_GLYPH_SCALE_VAR)
+    }
+  }, [glyphScale])
 
   useEffect(() => {
     const root = markerRef.current?.closest('.react-flow') as HTMLElement | null

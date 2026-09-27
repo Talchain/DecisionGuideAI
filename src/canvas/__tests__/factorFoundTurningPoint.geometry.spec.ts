@@ -70,22 +70,28 @@ const PRE_BOUND: Record<string, number> = {
 /** …and after the FOUND Run: the same reads, with the one card that moved. */
 const POST_BOUND: Record<string, number> = { ...PRE_BOUND, [RANK_1]: 406 }
 
-/** Store positions the same Chromium run read before the Run (after it, it read the bands below the factors +110). */
+/**
+ * Store positions the same Chromium run read before the Run (after it, it read the bands below the factors +110).
+ * ⚠ x RE-DERIVED 27 Sep 2026 (#2137, landing text ceiling): the repeated card is 248, not 260, so the
+ * column stride is 304, not 316 — every x moves by 12 per column from the left edge; every y is still
+ * exactly the Chromium read. Chromium x, for the record: dec 494, fac 261/419/577/735/893, goal 494,
+ * opt 24/340/656/972, out 340/972, risk 656/24.
+ */
 const PRE_POSITIONS: Record<string, { x: number; y: number }> = {
-  dec_pricing: { x: 494, y: 24 },
-  fac_adoption_friction: { x: 261, y: 685 },
-  fac_enterprise_revenue_risk: { x: 419, y: 994 },
-  fac_market_competition: { x: 577, y: 685 },
-  fac_top_account_concentration: { x: 735, y: 994 },
-  fac_usage_exposure: { x: 893, y: 685 },
-  goal_pricing_transition: { x: 494, y: 1701 },
+  dec_pricing: { x: 470, y: 24 },
+  fac_adoption_friction: { x: 252, y: 685 },
+  fac_enterprise_revenue_risk: { x: 404, y: 994 },
+  fac_market_competition: { x: 556, y: 685 },
+  fac_top_account_concentration: { x: 708, y: 994 },
+  fac_usage_exposure: { x: 860, y: 685 },
+  goal_pricing_transition: { x: 470, y: 1701 },
   opt_full_switch: { x: 24, y: 196 },
-  opt_hybrid: { x: 340, y: 196 },
-  opt_new_logos: { x: 656, y: 196 },
-  opt_status_quo: { x: 972, y: 196 },
-  out_bottom_up_growth: { x: 340, y: 1354 },
-  out_nrr: { x: 972, y: 1354 },
-  risk_enterprise_churn: { x: 656, y: 1354 },
+  opt_hybrid: { x: 328, y: 196 },
+  opt_new_logos: { x: 632, y: 196 },
+  opt_status_quo: { x: 936, y: 196 },
+  out_bottom_up_growth: { x: 328, y: 1354 },
+  out_nrr: { x: 936, y: 1354 },
+  risk_enterprise_churn: { x: 632, y: 1354 },
   risk_pricing_complexity: { x: 24, y: 1354 },
 }
 const BELOW_FACTORS = ['goal_pricing_transition', 'out_bottom_up_growth', 'out_nrr', 'risk_enterprise_churn', 'risk_pricing_complexity']

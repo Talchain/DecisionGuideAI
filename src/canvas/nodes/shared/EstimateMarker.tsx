@@ -247,7 +247,7 @@ export const SOURCE_MARK_TYPE_CLASSES = `${typography.nodeMark} text-text-light`
 
 /** v3.1 `.prov svg{width:11px;height:11px}`, counter-scaled with the type. */
 export const SOURCE_MARK_GLYPH_CLASSES =
-  'inline-block h-[calc(11px*var(--canvas-label-scale,1))] w-[calc(11px*var(--canvas-label-scale,1))] self-center'
+  'inline-block h-[calc(11px*var(--canvas-glyph-scale,1))] w-[calc(11px*var(--canvas-glyph-scale,1))] self-center'
 
 /**
  * ⭐⭐ A MARK THAT OPENS ITS SOURCE — v3.1 point 1: "Each mark has an accessible

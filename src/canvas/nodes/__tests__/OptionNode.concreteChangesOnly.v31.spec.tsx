@@ -226,8 +226,11 @@ describe('v3.1 #9 — full label, amount on one line', () => {
     renderCard()
     const value = screen.getByTestId('option-change-row-value-opt-germany-f-germany')
     expect(value.textContent).toBe('Low → Very high')
-    expect(tokens(value).has('whitespace-nowrap')).toBe(false)
-    expect([...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)).toEqual(['Low'])
+    // 27 Sep 2026 (landing text ceiling): the row budget is 25 characters (was
+    // 17), so this run and its mark now fit WHOLE — one no-wrap run, its halves
+    // no-wrap segments inside it. The mark still never leaves the value.
+    expect(tokens(value).has('whitespace-nowrap')).toBe(true)
+    expect([...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)).toEqual(['Low', '→ Very high'])
     const mark = screen.getByTestId('option-change-row-mark-opt-germany-f-germany')
     expect(tokens(mark).has('whitespace-nowrap')).toBe(true)
     expect(mark.previousSibling?.textContent).toBe('\u00A0')

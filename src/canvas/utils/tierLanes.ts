@@ -31,7 +31,7 @@
  */
 import type { Node } from '@xyflow/react'
 import { KIND_GLYPH_PX, TIER_BY_KIND } from './nodeLayoutConstants'
-import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
+import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
 import { isGhostNode } from './fitTargets'
 import { DECISION_NODE_LABEL, MODEL_GROUP_TITLE } from '../domain/vocabulary'
 
@@ -280,7 +280,9 @@ export function deriveLaneTitles(nodes: readonly Node[]): LaneTitlePlacement[] {
   const lanes = deriveTierLanes(nodes)
   if (lanes.length === 0) return []
   const columnX = lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
+  // The title is TEXT (the text bound); the kind shape is a GLYPH (the glyph bound).
   const s = MAX_LABEL_COUNTER_SCALE
+  const g = MAX_GLYPH_COUNTER_SCALE
   const height = LANE_TITLE_LINE_PX * s
   const glyphs = nodes
     .filter((n) => !isGhostNode(n.id))
@@ -288,8 +290,8 @@ export function deriveLaneTitles(nodes: readonly Node[]): LaneTitlePlacement[] {
       const kind = kindOf(n)
       return kind !== undefined && TIER_BY_KIND[kind] !== undefined
     })
-    .map((n) => kindGlyphBoxOf(n, s))
-  const overhang = (KIND_GLYPH_PX / 2) * s
+    .map((n) => kindGlyphBoxOf(n, g))
+  const overhang = (KIND_GLYPH_PX / 2) * g
   return lanes.map((lane) => {
     const width = lane.title.length * (LANE_TITLE_CAP_ADVANCE_PX + LANE_TITLE_TRACKING_PX) * s
     const boxWithBottom = (bottom: number): FlowBox => ({ x0: columnX, y0: bottom - height, x1: columnX + width, y1: bottom })

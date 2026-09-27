@@ -265,18 +265,21 @@ describe('S4 laptop fit — WIDTH, which this lane owns exactly', () => {
   // the smallest further lever. The Canvas lead took that lever (decide-and-flag,
   // on ED 5808428246), so the arm now asserts the fit, and keeps the five-card
   // arithmetic as the contrast that says why the cap is four and not five.
-  it('at 1280x800 the widest row the layout can build — four cards and its prompt, 1424 units — fits on WIDTH at the floor', () => {
+  it('at 1280x800 the widest row the layout can build — four cards and its prompt, 1376 units — fits on WIDTH at the floor', () => {
     const { frameFlowAtFloor } = landing({ x: 0, y: 0, width: 1, height: 1 }, VIEWPORTS[0])
     // RE-PINNED 26 Sep 2026 (flush 319px panel): the frame at the floor is
     // (1280 − 76 − 335) / 0.5 = 1738 units; it was 1520 with the 416 card.
     expect(frameFlowAtFloor.w).toBe(1738)
-    expect(WIDEST_ROW_WITH_PROMPT).toBe(1424)
+    // RE-PINNED 27 Sep 2026 (landing text ceiling 1.36): the repeated card is the
+    // ED target, 248 (it was 260 = NODE_LAYOUT_MIN_W at a text bound of 2), so the
+    // widest row is 4 × (248 + 24 + 32) + the prompt = 1376 (was 1424).
+    expect(WIDEST_ROW_WITH_PROMPT).toBe(1376)
     expect(WIDEST_ROW_WITH_PROMPT).toBeLessThanOrEqual(frameFlowAtFloor.w)
-    // CONTRAST: one more card per row would still spill — now by 2 units, where
-    // the 416 card made it 220. The row cap of four still holds at 1280, by a
-    // hair; it is no longer the dock that decides it.
+    // CONTRAST: one more card per row would now FIT on width, with 58 units to
+    // spare (it spilled by 2 at 260). The row cap of four is held by
+    // MAX_CARDS_PER_ROW alone at 1280, not by the frame.
     const oneMoreCard = WIDEST_ROW_WITH_PROMPT + (REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP)
-    expect(oneMoreCard - frameFlowAtFloor.w).toBe(2)
+    expect(oneMoreCard - frameFlowAtFloor.w).toBe(-58)
   })
 })
 

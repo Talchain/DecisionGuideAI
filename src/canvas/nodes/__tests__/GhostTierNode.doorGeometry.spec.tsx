@@ -153,7 +153,10 @@ describe('the door is the row slot the layout reserved, and its height is derive
     // regression has a number, not an anecdote — and the S4 floor clears it.
     const OLD_H = 64
     const contentBox = OLD_H - BORDER_PX * 2
-    const neededThen = 16 + 4 + 2 * 11 * 1.25 * MAX_LABEL_COUNTER_SCALE
+    // At the THEN bound, 2 — the counter-scale when the browser measured it. Since
+    // 27 Sep 2026 the text bound is the 1.36 landing ceiling; the history is not.
+    const THEN_BOUND = 2
+    const neededThen = 16 + 4 + 2 * 11 * 1.25 * THEN_BOUND
     expect(neededThen).toBeGreaterThan(contentBox)
     expect(GHOST_DOOR_MIN_H_PX - BORDER_PX * 2 - PAD_PX * 2).toBeGreaterThanOrEqual(
       LINES * DECLARED_LABEL_PX * LINE_HEIGHT * MAX_LABEL_COUNTER_SCALE,

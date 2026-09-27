@@ -163,4 +163,4 @@ export const PROVENANCE_ICON_DECLARED_PX = 14
  * 14px, so any future off-canvas consumer of this register is unaffected.
  */
 export const PROVENANCE_ICON_SIZE_CLASSES =
-  'w-[calc(14px*var(--canvas-label-scale,1))] h-[calc(14px*var(--canvas-label-scale,1))]'
+  'w-[calc(14px*var(--canvas-glyph-scale,1))] h-[calc(14px*var(--canvas-glyph-scale,1))]'

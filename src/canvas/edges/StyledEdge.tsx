@@ -24,7 +24,7 @@ import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStrai
 import { Lightbulb, Activity, Flag } from 'lucide-react'
 import { TOOLTIP_SURFACE_CLASS } from '../../components/Tooltip'
 import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
-import { CANVAS_GLYPH_SIZE_CLASSES } from '../nodes/shared/canvasGlyphScale'
+import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES } from '../nodes/shared/canvasGlyphScale'
 import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
@@ -2678,7 +2678,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                     <Lightbulb
                       size={12}
                       // contract v3.1 (ICON-07): counter-scaled like the label text.
-                      className={`${CANVAS_GLYPH_SIZE_CLASSES[12]} text-info flex-shrink-0`}
+                      className={`${CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[12]} text-info flex-shrink-0`}
                       aria-label="Weight suggestion available"
                       data-testid="edge-suggestion-indicator"
                     />
@@ -2845,7 +2845,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 <Activity
                   size={fragileCueOnly ? 10 : 12}
                   strokeWidth={fragileCueOnly ? 2 : undefined}
-                  className={`flex-shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[fragileCueOnly ? 10 : 12]}`}
+                  className={`flex-shrink-0 ${CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[fragileCueOnly ? 10 : 12]}`}
                   aria-hidden="true"
                 />
               </div>

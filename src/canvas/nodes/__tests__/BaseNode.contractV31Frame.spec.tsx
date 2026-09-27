@@ -210,8 +210,8 @@ describe('contract v3.1 — the connectors (FRAME-03, FRAME-04, OR-05)', () => {
     }
     // v3.1 WS1 #15: the contract's 24px at −12px (`.node .shape`), counter-scaled
     // like the canvas type — it was 22 flow units, 11px on screen at landing.
-    expect(glyph.style.top).toBe('calc(-12px * var(--canvas-label-scale, 1))')
-    expect(glyph.style.width).toBe('calc(24px * var(--canvas-label-scale, 1))')
+    expect(glyph.style.top).toBe('calc(-12px * var(--canvas-glyph-scale, 1))')
+    expect(glyph.style.width).toBe('calc(24px * var(--canvas-glyph-scale, 1))')
     const shape = glyph.querySelector('polygon, circle, rect') as SVGElement
     expect(shape.getAttribute('stroke')).toBe('var(--bg-panel)')
     // The svg fills the counter-scaled box (its `width` attribute is the
@@ -268,16 +268,16 @@ describe('contract v3.1 — the anchors are wide and shallow, rail beside the la
     const body = screen.getByTestId('anchor-body-rail-beside')
     // Challenge + More + Ask/coaching = 3, plus the caller's run icon = 4.
     expect(body.getAttribute('data-anchor-rail-buttons')).toBe('4')
-    expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-label-scale, 1) + -6px)`)
-    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-label-scale, 1) + -3px)')
+    expect(body.style.paddingRight).toBe(`calc(${anchorRailReservePx(4)}px * var(--canvas-glyph-scale, 1) + -6px)`)
+    expect(body.style.minHeight).toBe('calc(25px * var(--canvas-glyph-scale, 1) + -3px)')
     // CONTRAST — the card root carries no rail reserve: the title is not squeezed.
-    expect(root.style.paddingRight).not.toMatch(/canvas-label-scale/)
+    expect(root.style.paddingRight).not.toMatch(/canvas-glyph-scale/)
     expect(tokens(body)).not.toContain(ANCHOR_RAIL_RESERVE_CLASSES[4])
   })
 
   it('twin: a factor keeps the band below its rows and gets no beside-rail reserve', () => {
     const { root } = renderCard('factor', { label: 'F', observed_state: { value: 4 } }, { children: <div>row</div> })
-    expect(root.style.paddingBottom).toContain('var(--canvas-label-scale, 1)')
+    expect(root.style.paddingBottom).toContain('var(--canvas-glyph-scale, 1)')
     expect(screen.queryByTestId('anchor-body-rail-beside')).toBeNull()
   })
 })
@@ -335,7 +335,7 @@ describe('bounded anatomy: below Normal, factor and option cards reserve NO dead
   it('CONTRAST — at Normal (full) the factor still reserves the scaled rail band', () => {
     useCanvasStore.setState({ lodRung: 'full' } as never)
     const { root } = renderCard('factor', { label: 'X', observed_state: { value: 4 } }, { children: <div>row</div> })
-    expect(root.style.paddingBottom).toContain('var(--canvas-label-scale, 1)')
+    expect(root.style.paddingBottom).toContain('var(--canvas-glyph-scale, 1)')
   })
 })
 
@@ -344,9 +344,9 @@ describe('contract v3.1 — the rendered rail band tracks the live scale (RHY-01
   // box to the contract's 25px (`.icon-btn{width:25px;height:25px}`); the band is
   // derived from it, 6 + (25 + 2) × scale. The claim — a calc over the live
   // scale, not a fixed band — is unchanged.
-  it('an ordinary card renders the band as a calc over --canvas-label-scale, not a fixed band', () => {
+  it('an ordinary card renders the band as a calc over --canvas-glyph-scale, not a fixed band', () => {
     const { root } = renderCard('option', { label: 'O' }, { children: <div>row</div> })
-    expect(root.style.paddingBottom).toBe('calc(6px + 27px * var(--canvas-label-scale, 1))')
+    expect(root.style.paddingBottom).toBe('calc(6px + 27px * var(--canvas-glyph-scale, 1))')
   })
 })
 

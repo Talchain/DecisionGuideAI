@@ -71,8 +71,8 @@ import { BriefIcon } from '../BriefIcon'
 import { EvidenceGapBadge } from '../../EvidenceGapBadge'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import { LABEL_LEGIBLE_ZOOM, MAX_LABEL_COUNTER_SCALE, renderedLabelPx } from '../../../utils/zoomLegibility'
-import { NODE_LAYOUT_MIN_W } from '../../../utils/nodeLayoutConstants'
+import { LABEL_LEGIBLE_ZOOM, MAX_GLYPH_COUNTER_SCALE, renderedGlyphPx } from '../../../utils/zoomLegibility'
+import { NODE_LAYOUT_MIN_W, REPEATED_CARD_W } from '../../../utils/nodeLayoutConstants'
 import { PROVENANCE_ICON_SIZE_CLASSES } from '../../../domain/valueProvenanceIcon'
 import {
   CANVAS_GLYPH_SIZE_CLASSES,
@@ -128,7 +128,7 @@ const cls = (el: Element): string => el.getAttribute('class') ?? ''
 
 /** px + whether the value carries the canvas counter-scale, from one axis. */
 function sizeFromClass(c: string, axis: 'h' | 'w'): Sized | null {
-  const scaled = new RegExp(`(?:^|\\s)${axis}-\\[calc\\((\\d+(?:\\.\\d+)?)px\\*var\\(--canvas-label-scale`).exec(c)
+  const scaled = new RegExp(`(?:^|\\s)${axis}-\\[calc\\((\\d+(?:\\.\\d+)?)px\\*var\\(--canvas-glyph-scale`).exec(c)
   if (scaled) return { px: parseFloat(scaled[1]), scaled: true }
   const arbitrary = new RegExp(`(?:^|\\s)${axis}-\\[(\\d+(?:\\.\\d+)?)px\\]`).exec(c)
   if (arbitrary) return { px: parseFloat(arbitrary[1]), scaled: false }
@@ -140,7 +140,7 @@ function sizeFromClass(c: string, axis: 'h' | 'w'): Sized | null {
 
 /** Hit expansion per side. Absent slop is `0px`, for which scaling is a no-op. */
 function slopFromClass(c: string): Sized {
-  const scaled = /before:-inset-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-label-scale/.exec(c)
+  const scaled = /before:-inset-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-glyph-scale/.exec(c)
   if (scaled) return { px: parseFloat(scaled[1]), scaled: true }
   const fixed = /before:-inset-\[(\d+(?:\.\d+)?)px\]/.exec(c)
   if (fixed) return { px: parseFloat(fixed[1]), scaled: false }
@@ -148,7 +148,7 @@ function slopFromClass(c: string): Sized {
 }
 
 function gapFromClass(c: string): Sized | null {
-  const scaled = /(?:^|\s)gap-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-label-scale/.exec(c)
+  const scaled = /(?:^|\s)gap-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-glyph-scale/.exec(c)
   if (scaled) return { px: parseFloat(scaled[1]), scaled: true }
   const token = /(?:^|\s)gap-(\d+(?:\.\d+)?)(?:\s|$)/.exec(c)
   if (token) return { px: parseFloat(token[1]) * 4, scaled: false }
@@ -163,7 +163,9 @@ function gapFromClass(c: string): Sized | null {
  * zoom and reaches the user HALVED at the settle zoom. The old guard computed
  * neither — it read the declared number and stopped.
  */
-const effectivePx = (s: Sized): number => (s.scaled ? renderedLabelPx(s.px, ZOOM) : s.px * ZOOM)
+// Glyphs and targets ride the UNCAPPED glyph scale (27 Sep 2026): the landing
+// text ceiling must not shrink a target or an icon.
+const effectivePx = (s: Sized): number => (s.scaled ? renderedGlyphPx(s.px, ZOOM) : s.px * ZOOM)
 
 /**
  * Every ICON-ONLY element a user can hit or focus: real buttons and tabbable
@@ -322,7 +324,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
     // is the wrong size everywhere it is used (CLAUDE.md trap 12d).
     for (const [key, value] of Object.entries(CANVAS_GLYPH_SIZE_CLASSES)) {
       expect(value, `size map key ${key} does not spell ${key}px`).toBe(
-        `w-[calc(${key}px*var(--canvas-label-scale,1))] h-[calc(${key}px*var(--canvas-label-scale,1))]`,
+        `w-[calc(${key}px*var(--canvas-glyph-scale,1))] h-[calc(${key}px*var(--canvas-glyph-scale,1))]`,
       )
     }
   })
@@ -588,7 +590,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
      * The left-most button's `::before` slop overhangs the visual row, so it is
      * part of what the row takes from the card.
      */
-    const atBound = (v: Sized): number => (v.scaled ? v.px * MAX_LABEL_COUNTER_SCALE : v.px)
+    const atBound = (v: Sized): number => (v.scaled ? v.px * MAX_GLYPH_COUNTER_SCALE : v.px)
 
     const measureRow = () => {
       const row = screen.getByTestId('node-quick-actions-node-a')
@@ -630,7 +632,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
     it('CONTROL: the measurement discriminates a scaled row from a bare one', () => {
       expect(atBound({ px: 20, scaled: true })).toBe(40)
       expect(atBound({ px: 20, scaled: false })).toBe(20)
-      expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
+      expect(MAX_GLYPH_COUNTER_SCALE).toBeGreaterThan(1)
     })
 
     /**
@@ -698,17 +700,26 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       // 2 x 6 = 87px on the card, against the contract's 3 x 25 + 2 x 1 = 77:
       // the 6px scaled gap stays because `gap > 2 x slop` keeps adjacent hit
       // areas apart (`CANVAS_GAP_CLASSES`).
+      //
+      // ⭐ RE-DECIDED BY THE LANDING TEXT CEILING (2026-09-27). The row is a
+      // GLYPH row, so it did NOT move (174 / 184 at the glyph bound). What moved
+      // is the card: the layout floor is now the widest title word at the TEXT
+      // bound (190.88), and the narrowest card any layout draws is the ED
+      // repeated width, 248 (`tierCardWidth` floors at `REPEATED_CARD_W`).
+      //   184 / 248 = 74.2%   (was 184 / 260 = 70.8%)
+      // and the row still clears even the bare legibility floor, 184 < 190.88.
       expect(visual, 'the row visual width moved').toBe(174)
       expect(occupied, 'the row footprint moved').toBe(184)
-      expect(NODE_LAYOUT_MIN_W, 'the narrowest card moved').toBe(260)
+      expect(REPEATED_CARD_W, 'the narrowest card moved').toBe(248)
 
       // …and the RELATIONSHIP, which is the thing that actually matters and the
       // thing a change to either side would break silently.
       expect(occupied).toBeLessThan(NODE_LAYOUT_MIN_W)
+      expect(occupied).toBeLessThan(REPEATED_CARD_W)
       expect(
-        Math.round((occupied / NODE_LAYOUT_MIN_W) * 1000) / 10,
+        Math.round((occupied / REPEATED_CARD_W) * 1000) / 10,
         'the row footprint as a % of the narrowest card is the accepted trade — re-decide it, do not retune it',
-      ).toBe(70.8)
+      ).toBe(74.2)
     })
   })
 })

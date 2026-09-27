@@ -241,7 +241,7 @@ describe('PILL-07 / PILL-08 (colour) / T14(b) / ICON-09 — the coaching marker 
     expect(has(m, NODE_RAIL_REST_TONE_CLASS)).toBe(true)
     expect(has(m, 'hover:text-info')).toBe(true)
     expect(has(m, 'hover:bg-info/10')).toBe(true)
-    expect(has(m, 'h-[calc(25px*var(--canvas-label-scale,1))]')).toBe(true)
+    expect(has(m, 'h-[calc(25px*var(--canvas-glyph-scale,1))]')).toBe(true)
     const svg = m.querySelector('svg')
     expect(tokens(svg).some((t) => /danger/.test(t))).toBe(false)
     expect(svg?.getAttribute('class')).toContain(NODE_RAIL_GLYPH_CLASSES)

@@ -86,7 +86,7 @@ export function laneTitleFlowAnchor(
 /** The title's lift: none, or the kind shape's overhang at the live label scale. */
 export function laneTitleTransform(clearsKindGlyphs: boolean): string {
   return clearsKindGlyphs
-    ? `translateY(calc(-100% - ${KIND_GLYPH_PX / 2}px * var(--canvas-label-scale, 1)))`
+    ? `translateY(calc(-100% - ${KIND_GLYPH_PX / 2}px * var(--canvas-glyph-scale, 1)))`
     : 'translateY(-100%)'
 }
 

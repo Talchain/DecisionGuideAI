@@ -97,11 +97,11 @@ import { TierInvitationRow } from '../TierInvitation'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { CANVAS_MIN_TARGET_BOX_STYLE, MIN_TARGET_RENDERED_PX } from '../canvasGlyphScale'
 import {
-  CANVAS_LABEL_SCALE_VAR,
+  CANVAS_GLYPH_SCALE_VAR,
   LABEL_LEGIBLE_ZOOM,
-  MAX_LABEL_COUNTER_SCALE,
+  MAX_GLYPH_COUNTER_SCALE,
   lodBodyHiddenAt,
-  renderedLabelPx,
+  renderedGlyphPx,
   resolveLodRung,
 } from '../../../utils/zoomLegibility'
 import type { TierInvitation } from '../../../utils/ghostTiers'
@@ -183,7 +183,9 @@ function parseFloor(value: string): { px: number; varName: string; fallback: str
  * `declared x counterScale(zoom) x zoom`, which is the whole reason a guard
  * written in the producer's units could score 24 while the user got 12.
  */
-const renderedFloorPx = (declaredPx: number, zoom: number): number => renderedLabelPx(declaredPx, zoom)
+// A hit target rides the UNCAPPED glyph scale (27 Sep 2026): the landing text
+// ceiling must not shrink it.
+const renderedFloorPx = (declaredPx: number, zoom: number): number => renderedGlyphPx(declaredPx, zoom)
 
 /**
  * Asserts a rendered element carries the floor on both axes and returns the
@@ -199,12 +201,12 @@ function expectFlooredBox(el: HTMLElement, who: string): number {
       p,
       `${who}: no ${axis} floor — style.${axis} was "${raw}". ` +
         `Either \`style={CANVAS_MIN_TARGET_BOX_STYLE}\` is missing from this call site, ` +
-        `or the constant stopped spelling calc(Npx * var(--canvas-label-scale, 1)).`,
+        `or the constant stopped spelling calc(Npx * var(--canvas-glyph-scale, 1)).`,
     ).not.toBeNull()
     expect(p!.px, `${who}: ${axis} floors ${p!.px}px, not MIN_TARGET_RENDERED_PX`).toBe(
       MIN_TARGET_RENDERED_PX,
     )
-    expect(p!.varName, `${who}: ${axis} reads the wrong custom property`).toBe(CANVAS_LABEL_SCALE_VAR)
+    expect(p!.varName, `${who}: ${axis} reads the wrong custom property`).toBe(CANVAS_GLYPH_SCALE_VAR)
     parsed[axis] = p
   }
   // ⚠ THERE IS NO CROSS-AXIS EQUALITY ASSERTION HERE, AND ITS ABSENCE IS THE
@@ -317,7 +319,7 @@ describe('the critical-thinking prompts carry the WCAG target floor', () => {
       // dynamic-site pin in `tests/ci-guards/css-var-resolution.spec.ts`. So
       // the literal and `CANVAS_LABEL_SCALE_VAR` are genuinely two sides now,
       // and a divergence REDs here rather than moving both at once.
-      expect(p!.varName, `${axis} does not read CANVAS_LABEL_SCALE_VAR`).toBe(CANVAS_LABEL_SCALE_VAR)
+      expect(p!.varName, `${axis} does not read CANVAS_GLYPH_SCALE_VAR`).toBe(CANVAS_GLYPH_SCALE_VAR)
     }
     // Its header claims a frozen module-level object so a `memo`'d button is not
     // re-rendered by a fresh style literal each pass. Claimed, therefore pinned.
@@ -479,7 +481,7 @@ describe('the critical-thinking prompts carry the WCAG target floor', () => {
 
       const rendered = renderedFloorPx(MIN_TARGET_RENDERED_PX, zoom)
       // The mechanism, not a magic number: the cap is what makes it fall away.
-      expect(rendered).toBeCloseTo(MIN_TARGET_RENDERED_PX * MAX_LABEL_COUNTER_SCALE * zoom, 6)
+      expect(rendered).toBeCloseTo(MIN_TARGET_RENDERED_PX * MAX_GLYPH_COUNTER_SCALE * zoom, 6)
       expect(
         rendered,
         `zoom ${zoom} renders the floor at ${rendered}px, which is NOT short — if the ` +

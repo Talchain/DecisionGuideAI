@@ -25,7 +25,7 @@
  * a user sees belongs.
  */
 import { describe, it, expect } from 'vitest'
-import { LABEL_LEGIBLE_ZOOM, MAX_LABEL_COUNTER_SCALE, labelCounterScale } from '../zoomLegibility'
+import { LABEL_COUNTER_SCALE_CAP, LABEL_LEGIBLE_ZOOM, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE, labelCounterScale } from '../zoomLegibility'
 import {
   NODE_CARD_MAX_W,
   NODE_CARD_PADDING_X,
@@ -95,7 +95,10 @@ describe('the label scale is the geometry authority', () => {
     // what makes the settle zoom the worst case. A cap moved off the floor
     // (e.g. hardcoded 2 while the floor became 0.4) fails here.
     expect(MAX_LABEL_COUNTER_SCALE).toBe(labelCounterScale(LABEL_LEGIBLE_ZOOM))
-    expect(MAX_LABEL_COUNTER_SCALE).toBe(1 / LABEL_LEGIBLE_ZOOM)
+    // 27 Sep 2026: the TEXT bound at the floor is the landing text ceiling (1.36);
+    // the uncapped 1 / LABEL_LEGIBLE_ZOOM is now the GLYPH bound.
+    expect(MAX_LABEL_COUNTER_SCALE).toBe(LABEL_COUNTER_SCALE_CAP)
+    expect(MAX_GLYPH_COUNTER_SCALE).toBe(1 / LABEL_LEGIBLE_ZOOM)
   })
 
   it('no zoom in the legible band asks for more counter-scale than the geometry is built for', () => {
@@ -260,7 +263,11 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // is three rows instead of two. Attributed by contrast control in
     // `layoutViewportIndependence.guard.spec.ts` — the 14px ramp does it, not
     // the spacing change that landed alongside it.
-    expect(NODE_LAYOUT_MIN_W).toBe(260)
+    // ⚠ 260 → 190.88 (27 Sep 2026, the landing text ceiling): 108 × 1.36 + 20 + 24.
+    // Defended: a title at the landing now renders 9.52px, so the widest word
+    // needs 146.88 units, not 216 — and the repeated card stays at the ED
+    // target (248), so no card on a default layout gets narrower than 248.
+    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(190.88, 10)
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
 
     // …and only the TEXT measure carries the scale. The icon, its gap and the

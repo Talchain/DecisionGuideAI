@@ -40,7 +40,7 @@ import {
 import { STRUCTURAL_EDGE_COLOUR, DIRECTION_DISPUTED_STROKE } from '../edgePresentation'
 import { fragileEdgeSentence } from '../connectorCopy'
 import { weightMagnitudeToStrokeWidth } from '../../utils/graphDisplayCalculations'
-import { CANVAS_GLYPH_SIZE_CLASSES } from '../../nodes/shared/canvasGlyphScale'
+import { CANVAS_GLYPH_SIZE_CLASSES, CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES } from '../../nodes/shared/canvasGlyphScale'
 
 let capturedStyle: Record<string, unknown> | undefined
 let mockReport: Record<string, unknown> | null = null
@@ -406,7 +406,8 @@ describe('ICON-07 — edge glyphs are counter-scaled; the cue is muted', () => {
     const tag = byTestId(container, 'edge-fragile-tag')!
     expect(tag.className).toContain('text-text-light')
     expect(tag.className).not.toContain('text-text-body')
-    expect(tag.querySelector('svg')!.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[10])
+    // In the label chip it rides the TEXT scale (27 Sep 2026): the chip's box is text-derived.
+    expect(tag.querySelector('svg')!.getAttribute('class')).toContain(CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[10])
   })
 
   it('in row form it is 12px, counter-scaled', () => {
@@ -414,7 +415,7 @@ describe('ICON-07 — edge glyphs are counter-scaled; the cue is muted', () => {
     mockViewMode = 'detailed'
     const { container } = renderEdge(edge(0.5), { selected: true })
     const tag = byTestId(container, 'edge-fragile-tag')!
-    expect(tag.querySelector('svg')!.getAttribute('class')).toContain(CANVAS_GLYPH_SIZE_CLASSES[12])
+    expect(tag.querySelector('svg')!.getAttribute('class')).toContain(CANVAS_INLINE_TEXT_GLYPH_SIZE_CLASSES[12])
   })
 
   it('the assumption flag is counter-scaled', () => {

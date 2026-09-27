@@ -28,7 +28,7 @@ import {
   anchorRailReservePx,
   type AnchorRailButtons,
 } from '../canvasGlyphScale'
-import { MAX_LABEL_COUNTER_SCALE } from '../../../utils/zoomLegibility'
+import { MAX_GLYPH_COUNTER_SCALE } from '../../../utils/zoomLegibility'
 
 const tokens = (s: string) => s.split(/\s+/).filter(Boolean)
 
@@ -49,9 +49,9 @@ describe('corner stack — inside the card at the contract offsets (gap 11; was 
     expect(t.some((c) => /^right-\[-/.test(c) || c.startsWith('-right-') || c.startsWith('-top-'))).toBe(false)
   })
 
-  it('the gap between members carries --canvas-label-scale; there is no margin into the row gap', () => {
+  it('the gap between members carries --canvas-glyph-scale; there is no margin into the row gap', () => {
     const t = tokens(CANVAS_CORNER_STACK_CLASSES)
-    expect(t).toContain('gap-[calc(4px*var(--canvas-label-scale,1))]')
+    expect(t).toContain('gap-[calc(4px*var(--canvas-glyph-scale,1))]')
     expect(t.some((c) => c.startsWith('mb-'))).toBe(false)
     expect(t).not.toContain('gap-1')
   })
@@ -66,14 +66,14 @@ describe('corner stack — inside the card at the contract offsets (gap 11; was 
 describe('the rendered rail band (contract v3.1 RHY-01)', () => {
   const resolveAt = (scale: number) => {
     const m = NODE_QUICK_ACTION_BAND_CSS.match(
-      /^calc\((\d+)px \+ (\d+)px \* var\(--canvas-label-scale, 1\)\)$/,
+      /^calc\((\d+)px \+ (\d+)px \* var\(--canvas-glyph-scale, 1\)\)$/,
     )
     expect(m, `unparseable band: ${NODE_QUICK_ACTION_BAND_CSS}`).not.toBeNull()
     return Number(m![1]) + Number(m![2]) * scale
   }
 
   it('equals NODE_QUICK_ACTION_BAND_PX exactly at the bound the layout measures at', () => {
-    expect(resolveAt(MAX_LABEL_COUNTER_SCALE)).toBe(NODE_QUICK_ACTION_BAND_PX)
+    expect(resolveAt(MAX_GLYPH_COUNTER_SCALE)).toBe(NODE_QUICK_ACTION_BAND_PX)
   })
 
   it('is derived from the rail constants, and is shorter than the reservation below the bound', () => {
@@ -95,7 +95,7 @@ describe('the anchor rail reserve (contract v3.1 ANC-02, RHY-02)', () => {
 
   it.each([3, 4, 5, 6] as const)('the %i-button literal spells the derivation (inset + scaled run + one gap)', (n) => {
     const cls = ANCHOR_RAIL_RESERVE_CLASSES[n]
-    const m = cls.match(/^\[&>:last-child\]:pr-\[calc\((\d+)px\+(\d+)px\*var\(--canvas-label-scale,1\)\)\]$/)
+    const m = cls.match(/^\[&>:last-child\]:pr-\[calc\((\d+)px\+(\d+)px\*var\(--canvas-glyph-scale,1\)\)\]$/)
     expect(m, `unparseable reserve class: ${cls}`).not.toBeNull()
     expect(Number(m![1])).toBe(CANVAS_QUICK_ACTION_INSET_PX)
     expect(Number(m![2])).toBe(anchorRailReservePx(n))

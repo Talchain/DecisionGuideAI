@@ -153,7 +153,7 @@ describe('NodeQuickActions — opening the node menu without a right-click', () 
     // itself lives in `canvasGlyphTargetScale.spec.tsx`, in RENDERED px; this
     // only needs the expansion to still be present on this button.
     expect(screen.getByTestId('node-action-menu-n1').className).toContain(
-      'before:-inset-[calc(2px*var(--canvas-label-scale,1))]',
+      'before:-inset-[calc(2px*var(--canvas-glyph-scale,1))]',
     )
   })
 
