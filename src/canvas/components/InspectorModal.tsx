@@ -62,10 +62,43 @@ export function placeInspector({
 }): Position {
   const right = Math.min(rightLimit, viewport.width) - padding
   let x = anchor.x + gap
-  let y = anchor.y - panel.height / 2
   // Blocked on the right (by the dock or the window) — flip to the left side.
   if (x + panel.width > right) x = anchor.x - panel.width - gap
-  // Never over the right edge, never off the left.
+  return clampInspector({ at: { x, y: anchor.y - panel.height / 2 }, panel, viewport, rightLimit, topLimit, padding })
+}
+
+/**
+ * ⭐ THE ONE BOUNDS RULE — used by the placement on open AND by every drag move.
+ *
+ * Measured on served UI `507d8ef8` (27 Sep 2026, pricing, 1280x800, D-2 case
+ * c3): the inspector opened clear of the right panel (0px overlap), then ONE
+ * drag of its header to the right left it at x 1066..1396 — 214px over the
+ * panel and 116px past the window, owning 85 of 144 sampled points inside the
+ * panel. The drag wrote the raw pointer delta; only the opening placement was
+ * clamped. Anything the panel shows under it (its dialogs included, which sit
+ * inside the dock's own stacking context) was covered.
+ *
+ * Never over the right edge (the dock's left, or the window), never off the
+ * left; inside the window vertically and never above the app bar. When the
+ * panel is wider or taller than the room, the left and top edges win.
+ */
+export function clampInspector({
+  at,
+  panel,
+  viewport,
+  rightLimit,
+  topLimit = 0,
+  padding = 16,
+}: {
+  at: Position
+  panel: { width: number; height: number }
+  viewport: { width: number; height: number }
+  rightLimit: number
+  topLimit?: number
+  padding?: number
+}): Position {
+  const right = Math.min(rightLimit, viewport.width) - padding
+  let { x, y } = at
   if (x + panel.width > right) x = right - panel.width
   if (x < padding) x = padding
   if (y + panel.height > viewport.height - padding) y = viewport.height - panel.height - padding
@@ -78,6 +111,11 @@ function canvasRightLimit(): number {
   const dock = document.querySelector('[data-testid="outputs-dock"]')
   const r = dock?.getBoundingClientRect()
   return r && r.width > 0 && r.left > 0 ? Math.min(r.left, window.innerWidth) : window.innerWidth
+}
+
+/** The app bar's bottom edge (`--topbar-h`, written by `TopBar.tsx`); 0 when no bar is mounted. */
+function appBarBottom(): number {
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
 }
 
 export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalProps) => {
@@ -126,14 +164,12 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
       // panel's header over the bar at every x (the floating pill only spanned
       // x 12..450). `--topbar-h` is the bar's bottom edge, written by
       // `TopBar.tsx`; 0 when no bar is mounted.
-      const topBarBottom =
-        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0
       setPosition(placeInspector({
         anchor: canvasToScreen(anchorPosition),
         panel: { width: rect.width, height: rect.height },
         viewport: { width: window.innerWidth, height: window.innerHeight },
         rightLimit: canvasRightLimit(),
-        topLimit: topBarBottom,
+        topLimit: appBarBottom(),
       }))
     })
   }, [anchorPosition, canvasToScreen, position])
@@ -180,10 +216,17 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
     const deltaX = event.clientX - dragStartRef.current.x
     const deltaY = event.clientY - dragStartRef.current.y
 
-    setPosition({
-      x: dragStartRef.current.posX + deltaX,
-      y: dragStartRef.current.posY + deltaY,
-    })
+    // The same bounds as the opening placement (`clampInspector`): a drag can
+    // move the panel anywhere on the free canvas, never over the right panel
+    // or out of the window.
+    const rect = panelRef.current?.getBoundingClientRect()
+    setPosition(clampInspector({
+      at: { x: dragStartRef.current.posX + deltaX, y: dragStartRef.current.posY + deltaY },
+      panel: { width: rect?.width ?? 0, height: rect?.height ?? 0 },
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      rightLimit: canvasRightLimit(),
+      topLimit: appBarBottom(),
+    }))
   }, [isDragging])
 
   const handleDragEnd = useCallback((event: React.PointerEvent) => {
