@@ -151,6 +151,7 @@ import {
   EARLY_STOP_UNCONFIRMED_NOTICE,
 } from '../components/DraftLoadingAnimation'
 import { recoverDraftFromServer } from '../hydrate/draftRecovery'
+import { readsBackBeforeResend, waitBeforeStreamCloseReadback } from './streamCloseReadback'
 import { stopV5Turn, type TurnStopOutcomeKind } from '../../v5/stopTurn'
 import { reconcileAppliedGraph } from '../utils/mergeAppliedGraph'
 import {
@@ -553,6 +554,12 @@ export interface StreamedDraftTurnResult {
    *                     suppressed in favour of the one honest notice.
    */
   unsettledCause?: 'stream_loss' | 'terminal_error_model_kept'
+  /**
+   * The stream OPENED and then closed without a final turn, and the ONE read-back that precedes the buffered
+   * re-send found this turn's committed model and applied it (`streamCloseReadback.ts`). No re-send was made;
+   * `result` carries no reply and must not be ingested — the caller says the recovered notice and stops.
+   */
+  recoveredBeforeResend?: boolean
 }
 
 /**
@@ -598,8 +605,10 @@ async function runStreamedDraftTurn(args: {
   scenarioIdAtDispatch: string | null
   headers: Record<string, string>
   signal: AbortSignal
+  /** The reload's read (`recoverDraftFromServer`), ONCE; true only when it applied this turn's committed model. */
+  readBackCommittedDraft?: () => Promise<boolean>
 }): Promise<StreamedDraftTurnResult> {
-  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal } = args
+  const { payload, turnClientId, scenarioIdAtDispatch, headers, signal, readBackCommittedDraft } = args
   useDraftStore.getState().setDraftStreamPhase('drafting', turnClientId, scenarioIdAtDispatch)
 
   // ⚠ THERE IS DELIBERATELY NO LOCAL `previewRendered` FLAG.
@@ -634,6 +643,21 @@ async function runStreamedDraftTurn(args: {
   ): Promise<StreamedDraftTurnResult> => {
     if (import.meta.env.DEV) {
       console.warn(`[sendTurn V5] streamed draft abandoned (${reason}); falling back to the buffered turn`)
+    }
+
+    // A stream that OPENED and then CLOSED, with nothing on the canvas: read the saved model first, the same
+    // read a reload does, once, after a short wait. Only when that finds nothing does the re-send run.
+    if (streamOpened && !previewOnCanvas && readBackCommittedDraft && readsBackBeforeResend(reason)) {
+      await waitBeforeStreamCloseReadback(signal)
+      if (!signal.aborted && (await readBackCommittedDraft())) {
+        logger.warn('draft_recovery.stream_close_readback', { outcome: 'recovered', reason, turnClientId })
+        useDraftStore.getState().setDraftStreamPhase('idle', null, null)
+        return {
+          result: { kind: 'parse_error', reason: `recovered by read-back after ${reason}` },
+          previewOwnsCanvas: false,
+          recoveredBeforeResend: true,
+        }
+      }
     }
 
     // ═══ ROUND-2 RE-REVIEW, R2-F1 ═══════════════════════════════════════════
@@ -4688,6 +4712,7 @@ export function useConversation(): UseConversationReturn {
 
         let v5Result: V5CallResult
         let missingGraphAfterFallback = false
+        let recoveredBeforeResend = false
         if (useStreamedDraft) {
           const streamed = await runStreamedDraftTurn({
             payload: build.payload,
@@ -4695,7 +4720,25 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             headers: v5Headers,
             signal: controller.signal,
+            // Stream closed without a final turn: the reload's read, under the same guards as the recovery below.
+            readBackCommittedDraft: async () =>
+              (await recoverDraftFromServer({
+                scenarioId: scenarioIdAtDispatch,
+                userId: v5UserId,
+                accessToken: v5Identity.accessToken,
+                turnClientId,
+                signal: controller.signal,
+                canApply: () =>
+                  !controller.signal.aborted &&
+                  abortRef.current === controller &&
+                  responseBelongsToDispatchingScenario(
+                    useCanvasStore.getState().currentScenarioId,
+                    scenarioIdAtDispatch,
+                  ) &&
+                  useCanvasStore.getState().nodes.length === 0,
+              })) === 'recovered',
           })
+          recoveredBeforeResend = streamed.recoveredBeforeResend === true
           v5Result = streamed.result
           streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
           streamedUnsettledCause = streamed.unsettledCause
@@ -4781,6 +4824,21 @@ export function useConversation(): UseConversationReturn {
             scenarioIdAtDispatch,
             carriedGraph: resultCarriesDraftGraph(v5Result),
           })
+          return
+        }
+
+        if (recoveredBeforeResend) {
+          // The saved model is on the canvas and no reply was delivered: say the existing recovered notice, stop.
+          if (userBubbleIdForTurn) updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
+          if (mode === 'user' && !hidden) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: DRAFT_DELIVERY_RECOVERED_NOTICE,
+              timestamp: new Date(),
+            })
+          }
           return
         }
 
