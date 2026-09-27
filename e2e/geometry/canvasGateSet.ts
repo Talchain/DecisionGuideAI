@@ -105,6 +105,22 @@ export interface GatedTest {
 }
 
 /**
+ * The boards `boardStatesGeometry.measure.ts` runs, ONE list for both the tests
+ * and their `GATED_TESTS` entries (the measure file imports it), so the two
+ * cannot drift. Starter ids are read by `readStarterDraft`; `mrr-<id>` names a
+ * `fixtures/mrr-<id>.fixture.json` (Paul's model — see each file's `_source`).
+ */
+export const BOARD_STATES_BOARDS = [
+  'pricing-model',
+  'market-entry',
+  'vendor-selection',
+  'build-vs-buy',
+  'headcount-allocation',
+  'mrr-17d1cd3a',
+  'mrr-90b8f080',
+] as const
+
+/**
  * ⭐ THE GATED SET.
  *
  * Every entry names the SHIPPED DEFECT it would have caught. An entry that
@@ -488,6 +504,38 @@ export const GATED_TESTS: readonly GatedTest[] = [
       + 'click does. Mutants: removing `focus-within:opacity-100` from MENU_QUIET_AT_REST turns (c) RED (13); a '
       + '`whitespace-nowrap overflow-hidden` headline turns (a) and (b) RED.',
   },
+
+  ...(BOARD_STATES_BOARDS.map((board) => ({
+    file: 'boardStatesGeometry.measure.ts',
+    suite: 'board states geometry',
+    title: `BOARD STATES @${board} 1280x800`,
+    catches:
+      'D-2 / DL register R7 — "nothing checks post-run, stale or reload geometry in a real browser". ' +
+      'Paul\'s own £100k MRR model (served `e8ba18e6`, 27 Sep 2026) shipped THREE layout defects past ' +
+      'every check this repo has, because every other arm here measures a PRE-RUN board and jsdom has ' +
+      'no layout: (d) an UPWARD same-band link — "Monthly new Pro subscribers" dealt into the factor ' +
+      'band\'s second row below "Pro paying subscribers", which it drives (fixture `mrr-17d1cd3a`); ' +
+      '(b) "Last run · Driver 1 of 6 analysec" — the in-slot driver <button> sized to its content, so ' +
+      'its `truncate` caption never truncated and the slot cut it; (c) a card\'s "…" menu drawn UNDER ' +
+      'that card\'s own inspector (menu z-951, `InspectorModal` z-5000). ' +
+      `This arm (${board}) reads LANDING, POST-RUN (a run replayed through \`applyV5State\`), STALE ` +
+      '(`markAnalysisFreshnessDirty`, so cues read "Last run ·") and RELOAD (a real reload, storage ' +
+      'carried), and ASSERTS (b) clipped text, (c) menu-under-inspector and (d) upward same-band ' +
+      'links at zero; (a) run growth and (e) Fit centring/floor are REPORTED (`BSGJSON`), not ' +
+      'asserted. Every probe carries a positive control in the same run. ' +
+      '⚠ RED AT ITS OWN BASE `02422c39`, BY DESIGN: (c) on both MRR boards, (d) on `mrr-17d1cd3a`, ' +
+      'and (b) on every board\'s STALE long-caption reading — the three defects the parked ' +
+      '`canvas/factor-band-causal-order`, `canvas/driver-line-no-clip` and `canvas/graph-small-fixes` ' +
+      'exist to fix; with those three merged onto this arm (`--no-commit`, then aborted) all seven arms ' +
+      'went GREEN, every control firing. Admission rule (1) below ("GREEN at the base, twice") is therefore NOT met by ' +
+      'this arm alone — it lands WITH or AFTER those three, never before. ' +
+      '⚠ COST, darwin, measured on this lane UNDER LOAD (load average 30-40, a shared machine — ' +
+      'CONTENDED, so an upper reading, not the job\'s figure): ~11-14s per starter arm, ~26-39s per ' +
+      'MRR arm (only those two drive the UI for (c) and (e), in all four states), 170s wall for all ' +
+      'seven through this config including the dev-server boot. At this file\'s 1.9x that is ' +
+      'OVER the ~119s headroom the budget block records; trim `BOARD_STATES_BOARDS` (one list drives ' +
+      'the tests AND these entries) if the job\'s own timings say so.',
+  })) as GatedTest[]),
 ]
 
 /**
