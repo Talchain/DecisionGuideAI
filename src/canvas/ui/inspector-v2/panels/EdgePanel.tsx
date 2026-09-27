@@ -50,7 +50,7 @@ import {
 } from '../../../domain/edgeValueProvenance'
 import { METRIC_UNSET } from '../../../nodes/shared/metricVocabulary'
 import { resolveStrengthSpread, inlineStrengthLabel } from '../../../domain/strengthBandSpan'
-import { getStrengthLabel } from '../../../domain/vocabulary'
+import { getStrengthLabel, type CanvasStrengthBandId } from '../../../domain/vocabulary'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
@@ -682,7 +682,7 @@ export const EdgePanel = memo(function EdgePanel({
     confirmEdit('strength')
   }, [clearPreview, localStrength, confirmEdit])
 
-  const handleStrengthPresetChange = useCallback((v: number) => {
+  const handleStrengthPresetChange = useCallback((v: number, band: CanvasStrengthBandId) => {
     // A preset click is a complete edit, not a continuously-dragged preview.
     // Reuse the canonical strength writer, then close the same confirmation
     // seam the fine-tune slider closes on blur so stale analysis exposes the
@@ -694,6 +694,9 @@ export const EdgePanel = memo(function EdgePanel({
     setStrengthEditSend(null)
     noteStrengthOutcome(mutations.setStrength(v, {
       preserveDirection: true,
+      // The band the user picked — the ONLY control on this panel that names
+      // one. The slider and the β field pass none (`edge_strength_edit.band`).
+      band,
       onSendSettled: handleStrengthSendSettled,
     }))
     clearPreview()

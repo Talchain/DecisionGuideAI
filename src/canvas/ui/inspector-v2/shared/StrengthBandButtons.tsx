@@ -102,13 +102,18 @@
 
 import { memo, useMemo, useState, useEffect } from 'react'
 import { typography } from '../../../../styles/typography'
-import { CANVAS_STRENGTH_BANDS, getCanvasStrengthBand } from '../../../domain/vocabulary'
+import { CANVAS_STRENGTH_BANDS, getCanvasStrengthBand, type CanvasStrengthBandId } from '../../../domain/vocabulary'
 
 interface StrengthBandButtonsProps {
   /** Current signed strength value (-1 to +1) */
   value: number
-  /** Callback with new signed strength value (band midpoint with current sign preserved) */
-  onChange: (signedValue: number) => void
+  /**
+   * Callback with new signed strength value (band midpoint with current sign
+   * preserved) AND the id of the band that was picked. The id is the user's
+   * statement — "Strong" — and travels to the wire as `edge_strength_edit.band`
+   * (schemas 0.60.0); the number alone would read as an exact figure.
+   */
+  onChange: (signedValue: number, band: CanvasStrengthBandId) => void
   /**
    * ⛔ NOBODY HAS STATED A STRENGTH — LIGHT NOTHING.
    *
@@ -258,7 +263,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             <button
               key={band.label}
               type="button"
-              onClick={() => onChange(signedMidpoint)}
+              onClick={() => onChange(signedMidpoint, band.id)}
               // Each handler touches ONLY its own channel's claim, and clears
               // it only if this pill is still the one holding it — so a leave
               // arriving after the next button's enter cannot blank a slot that

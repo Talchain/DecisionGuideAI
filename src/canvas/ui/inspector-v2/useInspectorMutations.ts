@@ -16,7 +16,9 @@ import {
   buildEdgeStrengthEditEvent,
   buildEdgeDirectionEditEvent,
   buildEdgeStrengthConfirmEvent,
+  EDGE_STRENGTH_BAND_ENABLED,
 } from '../../conversation/edgeStrengthEdit'
+import type { CanvasStrengthBandId } from '../../domain/vocabulary'
 import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStrength'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
@@ -1099,6 +1101,18 @@ export function useEdgeMutations(edgeId: string) {
     opts: {
       preserveDirection?: boolean
       /**
+       * The band the user PICKED on the band pills — and ONLY that. It becomes
+       * `edge_strength_edit.band` (schemas 0.60.0), from which CEE sets the
+       * link's spread. A slider, a typed β and the Model tab row pass nothing:
+       * a number that falls inside a band is not the user naming it.
+       *
+       * ⛔ SENT ONLY WHILE `EDGE_STRENGTH_BAND_ENABLED` — the reader-first gate
+       * (`conversation/edgeStrengthEdit.ts`). Until CEE deploys a 0.60.0 reader
+       * a `band` key 422s the whole turn, so with the gate off the pick still
+       * sends its magnitude exactly as before, with no band.
+       */
+      band?: CanvasStrengthBandId
+      /**
        * ⛔⛔ REQUIRED, AND THE FIRST VERSION OF THIS CHANGE HAD IT OPTIONAL —
        * WHICH REPRODUCED THE DEFECT INSIDE THE FIX FOR IT.
        *
@@ -1130,6 +1144,7 @@ export function useEdgeMutations(edgeId: string) {
       edge,
       requestedMean: mean,
       preserveDirection: opts?.preserveDirection,
+      band: EDGE_STRENGTH_BAND_ENABLED ? opts?.band : undefined,
     })
     const absWeight = Math.abs(mean)
     updateEdge(edgeId, {

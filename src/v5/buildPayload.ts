@@ -31,7 +31,7 @@ import type {
   ActionTypeLiteral,
   IntentLiteral,
 } from '@talchain/schemas/boundary'
-import { ActionType, Intent } from '@talchain/schemas/boundary'
+import { ActionType, Intent, StrengthBand } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
 import {
@@ -1015,7 +1015,7 @@ function adaptEdgeStrengthEdit(
     if (magnitude !== Math.abs(mean)) return null
   }
 
-  return {
+  const event: EdgeStrengthEditWireEvent = {
     kind: 'edge_strength_edit',
     from,
     to,
@@ -1024,6 +1024,18 @@ function adaptEdgeStrengthEdit(
     expected: { mean, effect_direction },
     intent,
   }
+  // `band` (0.60.0) — OPTIONAL, and absence is meaningful ("an exact figure"),
+  // so it is copied only when the builder put it there. A value outside the
+  // contract's `StrengthBand` is REFUSED rather than dropped: dropping it would
+  // send a band pick as an exact figure, and the member is `.strict()`, so
+  // passing it through would 422 the whole turn. The vocabulary is the
+  // package's own enum, read at runtime — never a second list.
+  if (eventPayload?.band !== undefined) {
+    const band = StrengthBand.safeParse(eventPayload.band)
+    if (!band.success) return null
+    event.band = band.data
+  }
+  return event
 }
 
 /**

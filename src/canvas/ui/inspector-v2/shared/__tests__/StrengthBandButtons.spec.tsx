@@ -56,7 +56,8 @@ describe('StrengthBandButtons', () => {
     const { container } = render(<StrengthBandButtons value={0.10} onChange={onChange} />)
     const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')
     fireEvent.click(strongBtn!)
-    expect(onChange).toHaveBeenCalledWith(0.55)
+    // The band's IDENTITY rides with its number: `edge_strength_edit.band` (0.60.0).
+    expect(onChange).toHaveBeenCalledWith(0.55, 'strong')
   })
 
   it('calls onChange with negative midpoint when current value is negative', () => {
@@ -64,7 +65,7 @@ describe('StrengthBandButtons', () => {
     const { container } = render(<StrengthBandButtons value={-0.10} onChange={onChange} />)
     const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')
     fireEvent.click(strongBtn!)
-    expect(onChange).toHaveBeenCalledWith(-0.55)
+    expect(onChange).toHaveBeenCalledWith(-0.55, 'strong')
   })
 
   it('preserves negative sign for all band clicks', () => {
@@ -72,7 +73,7 @@ describe('StrengthBandButtons', () => {
     const { container } = render(<StrengthBandButtons value={-0.30} onChange={onChange} />)
     const slightBtn = container.querySelector('[data-testid="strength-band-slight"]')
     fireEvent.click(slightBtn!)
-    expect(onChange).toHaveBeenCalledWith(-0.10)
+    expect(onChange).toHaveBeenCalledWith(-0.10, 'slight')
   })
 
   it('detects active band from negative values (magnitude match)', () => {

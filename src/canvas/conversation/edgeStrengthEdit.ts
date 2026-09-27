@@ -105,9 +105,48 @@
  * duplicate an answer.
  */
 import type { Edge } from '@xyflow/react'
+import type { StrengthBand } from '@talchain/schemas'
 
+import { CANVAS_STRENGTH_BANDS, type CanvasStrengthBandId } from '../domain/vocabulary'
 import { serverStatedStrengthOf } from './edgeServerStatedStrength'
 import type { WireSystemEvent } from './types'
+
+/**
+ * ⛔⛔ THE READER-FIRST GATE FOR `edge_strength_edit.band` — OFF (`false`).
+ *
+ * `band` is schemas 0.60.0 (olumi-schemas #68). Every `SystemEventSchema`
+ * member is `.strict()`, so a CEE whose vendored schema predates 0.60.0 rejects
+ * an event carrying `band` and takes the WHOLE turn with it (422). The
+ * contract's own order: publish → CEE re-vendors and DEPLOYS a reader → only
+ * then does the UI send it. At the time of writing CEE staging pins 0.59.0;
+ * the re-vendor is olumi-assistants-service #2115 (OPEN, adoption only — it
+ * parses `band` but does not yet read it).
+ *
+ * Same substitute gate as `GOAL_TARGET_EDIT_ENABLED` (`goalTargetEdit.ts`):
+ * the emitter exists and is tested before the reader is deployed. The ONE
+ * reader is `useEdgeMutations.setStrength`; flip this only with CEE's DEPLOYED
+ * pin ≥ 0.60.0 in hand, and update `edgeStrengthEditBand.spec.ts` and
+ * `setStrengthBandGateOff.spec.tsx` in the same change.
+ */
+export const EDGE_STRENGTH_BAND_ENABLED = false
+
+/**
+ * The canvas band id → the contract's `StrengthBand` word. Names only: the
+ * contract deliberately carries no cut points (CEE's band table and
+ * `CANVAS_STRENGTH_BANDS` hold them, pinned to each other by CEE's
+ * `edge-strength-bands.test.ts`). Exhaustive by type in both directions —
+ * `Record<CanvasStrengthBandId, …>` forces every canvas band to map, and the
+ * `satisfies` over `StrengthBand` refuses a word outside the contract.
+ *
+ * ⚠ `slight` is the contract's word; CEE's internal table says `weak` for the
+ * same range, and `very_strong` is spelled with an underscore on the wire.
+ */
+export const WIRE_STRENGTH_BAND_OF = {
+  slight: 'slight',
+  moderate: 'moderate',
+  strong: 'strong',
+  veryStrong: 'very_strong',
+} as const satisfies Readonly<Record<CanvasStrengthBandId, StrengthBand>>
 
 /**
  * The contract's endpoint-id rule, verbatim from
@@ -157,6 +196,16 @@ export interface BuildEdgeStrengthEditArgs {
    * caller reaches the second one without lying through the first.
    */
   directionIntent?: 'positive' | 'negative'
+  /**
+   * The band the user PICKED (the band pills), by canvas id — sent as
+   * `edge_strength_edit.band` (schemas 0.60.0). ABSENT for a slider drag or a
+   * typed number: the contract reads absence as "an exact figure, no band".
+   *
+   * ⛔ NEVER DERIVED FROM `requestedMean`. A band is something the user said;
+   * a number that happens to fall inside one is not that statement, and CEE
+   * sets the link's spread from the band it receives.
+   */
+  band?: CanvasStrengthBandId
 }
 
 /**
@@ -172,6 +221,7 @@ export function buildEdgeStrengthEditEvent({
   requestedMean,
   preserveDirection,
   directionIntent,
+  band,
 }: BuildEdgeStrengthEditArgs): WireSystemEvent | null {
   if (!edge) return null
   const from = edge.source
@@ -186,6 +236,18 @@ export function buildEdgeStrengthEditEvent({
   // rather than clamp: a clamped 1.5 → 1 sends a number the user never stated
   // and CEE would persist it as theirs.
   if (magnitude > 1) return null
+
+  // `band` (0.60.0): the contract says CEE's writer REFUSES a magnitude outside
+  // the named band. Checked against the ONE canvas table, `[min, max)`, the same
+  // cuts CEE's table mirrors. A pill always sends its own midpoint, so this is
+  // unreachable today; a caller pairing a band with a number outside it is
+  // refused here rather than sent as a contradiction.
+  let wireBand: StrengthBand | undefined
+  if (band !== undefined) {
+    const row = CANVAS_STRENGTH_BANDS.find(b => b.id === band)
+    if (!row || magnitude < row.min || magnitude >= row.max) return null
+    wireBand = WIRE_STRENGTH_BAND_OF[band]
+  }
 
   // `expected` — what the SERVER holds. NOT what this canvas holds.
   //
@@ -252,6 +314,9 @@ export function buildEdgeStrengthEditEvent({
       // So the reasoning was about the wrong property. A label is not a lie
       // only if the thing it names can happen.
       intent: 'set',
+      // The key is OMITTED, never `undefined`, when no band was picked: absence
+      // is the contract's "exact figure" and must stay absent on the wire.
+      ...(wireBand !== undefined ? { band: wireBand } : {}),
     },
   }
 }
@@ -318,6 +383,11 @@ export function buildEdgeStrengthConfirmEvent({
       direction_intent: 'preserve',
       expected: { mean: expected.mean, effect_direction: expected.effect_direction },
       intent: 'confirm_current',
+      // ⚠ NO `band`, DELIBERATELY. 0.60.0 allows one on `confirm_current`, and
+      // says a band confirm SETS the link's spread from the band (the analysis
+      // hash moves). This act is "I agree with this exact figure", which the
+      // contract spells as band ABSENT; a band read off the server's number
+      // would be a statement about spread the user never made.
     },
   }
 }
