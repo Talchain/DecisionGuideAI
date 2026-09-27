@@ -111,8 +111,11 @@ export interface GatedTest {
  * `fixtures/mrr-<id>.fixture.json` (Paul's model — see each file's `_source`).
  */
 export const BOARD_STATES_BOARDS = [
-  // Paul's 5-factor MRR board: the one board that reproduces all three asserted defects.
-  'mrr-17d1cd3a',
+  // Paul's 6-option / 6-factor MRR board: since #2202 (`MAX_CARDS_PER_ROW` 4 → 5)
+  // the one gated board that still WRAPS a band (3+3), so (d)'s planted pair
+  // exists; it also carries the "of 6" caption (b) and the menu-under-inspector (c).
+  // It replaced `mrr-17d1cd3a`, whose five factors now fit one row (27 Sep 2026).
+  'mrr-90b8f080',
   // The cheapest starter (~11-14s darwin): a second, independent board for (b).
   'pricing-model',
 ] as const
@@ -130,7 +133,7 @@ export const BOARD_STATES_MEASURE_ONLY_BOARDS = [
   'vendor-selection',
   'build-vs-buy',
   'headcount-allocation',
-  'mrr-90b8f080',
+  'mrr-17d1cd3a',
 ] as const
 
 /**
@@ -548,7 +551,13 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'gated boards took 68s and 77s wall through this config INCLUDING the dev-server boot; ~26-39s is ' +
       'the MRR arm, ~11-14s the starter. The other five boards are measure-only ' +
       '(`BOARD_STATES_MEASURE_ONLY_BOARDS`, see `DELIBERATE_EXCLUSIONS`): all seven were ~2x the ~119s ' +
-      'ubuntu headroom.',
+      'ubuntu headroom. ' +
+      '⚠ 27 Sep 2026, #2202 (`MAX_CARDS_PER_ROW` 4 → 5): `mrr-17d1cd3a`\'s five factors fit ONE row, ' +
+      'so it has no wrapped band and cannot show (d) at all ("has no multi-row band — the fixture no ' +
+      'longer exercises (d)"). The gated MRR board is now `mrr-90b8f080` (6 options, 6 factors, 3+3 each; ' +
+      'measured at `bcd43252`: GREEN, (d) probeable and detected in all four states, 56s wall under load ' +
+      '~40-60) — the same MRR cost, so the budget is unchanged. The arm now DERIVES which boards must ' +
+      'exercise (d) from `MAX_CARDS_PER_ROW`, and REDs if no gated board wraps a band.',
   })) as GatedTest[]),
 ]
 
@@ -586,10 +595,13 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
     why:
       'THE BUDGET. The arm costs ~11-14s darwin per starter and ~26-39s per MRR board (contended), ' +
       'so all seven are ~2x the ~119s ubuntu headroom recorded below. The two gated boards keep ' +
-      'every asserted defect: (d) the upward same-band link reproduces ONLY on `mrr-17d1cd3a` ' +
+      'every asserted defect: (d) the upward same-band link reproduced ONLY on `mrr-17d1cd3a` ' +
       '(`mrr-90b8f080` wraps its six factors 3+3 and shows none), (c) needs an MRR board, and (b)\'s ' +
       'long-caption reading fires on every board. The five still run on demand; `mrr-90b8f080` is ' +
-      'the board whose Fit cannot reach the 0.5 floor ((e), reported only).',
+      'the board whose Fit cannot reach the 0.5 floor ((e), reported only). ' +
+      '⚠ 27 Sep 2026, #2202 (`MAX_CARDS_PER_ROW` 4 → 5): `mrr-17d1cd3a` no longer wraps, so it cannot ' +
+      'show (d); it swapped places with `mrr-90b8f080`, which still wraps (3+3) and so keeps (d)\'s ' +
+      'planted control in the gate. Same MRR arm cost.',
   },
   {
     what: "nodeKeyboardBleed.measure.ts — 'census: focusable controls inside .react-flow__node, all five starters'",

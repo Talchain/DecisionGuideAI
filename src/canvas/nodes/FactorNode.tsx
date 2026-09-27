@@ -1136,6 +1136,9 @@ export const FactorNode = memo((props: NodeProps) => {
   const needsInputSentenceMoved = !isDetailed && needsInput && valueDisplay === null
   // Row 10: whole here when the card's one-line driver slot cuts it.
   const noAnalysisYetMoved = !isDetailed && noAnalysisYet
+  // The Standard driver slot renders nothing visible (no ranked line, no pre-run
+  // line) while a range line follows it: draw the range first (see the slot).
+  const rangeBeforeEmptySlot = !isDetailed && driverLine === null && !noAnalysisYet && priorRangeLine !== null
   // PROTOTYPE AT REST (Paul 25 Sep): the driver line and the top driver's
   // turning point render on the card; only what is NOT at rest moves here.
   const turningPointInPopover = !isDetailed && turningPointShown && turningPointState !== null && !turningPointAtRest
@@ -1464,6 +1467,12 @@ export const FactorNode = memo((props: NodeProps) => {
         {/* ⭐⭐ ONE RESERVED DRIVER SLOT, EVERY PHASE: a Run never grows the
             card (DL #70 5849644637). Row-10 line pre-run, ranked driver line
             post-run, else empty + aria-hidden. `FactorNode.noGrowthAfterRun.spec`. */}
+        {/* ⭐ AN EMPTY SLOT GOES BELOW THE RANGE, NOT ABOVE IT (27 Sep 2026, contract
+            side-by-side: 14 range-only cards showed a blank line between the title
+            and `Range: …`, pushing the range to the card's foot). The slot still
+            reserves its line, so a Run never grows the card; the prototype order
+            (driver → turning point → range) holds whenever the slot has content. */}
+        {rangeBeforeEmptySlot && priorRangeLine}
         {!isDetailed && (
           <div
             data-testid={`factor-driver-slot-${props.id}`}
@@ -1504,7 +1513,7 @@ export const FactorNode = memo((props: NodeProps) => {
             atRest
           />
         ) : null}
-        {!isDetailed && priorRangeLine}
+        {!isDetailed && !rangeBeforeEmptySlot && priorRangeLine}
 
         {/* ⭐ AT MOST ONE MINI-VISUAL (spec §3 precedence): a real turning point
             (PLoT `found`; current run, or the last run labelled), else a GENUINE range (the external

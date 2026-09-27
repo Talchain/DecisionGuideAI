@@ -947,6 +947,26 @@ export const MAX_NORMAL_RUNG_LABEL_SCALE = labelCounterScale(LABEL_LEGIBLE_ZOOM 
 export const NODE_RUNG_PADDING_ATTR = 'data-rung-padding'
 
 /**
+ * ⭐ THE ANCHOR BODY'S BOX WHERE ITS RAIL IS BESIDE IT — JSON of the
+ * `anchorBodyRailStyle` longhands (`paddingRight`, `minHeight`), written by
+ * `BaseNode` on every Question and Goal body and read by the measurer. Same
+ * writer/reader pair as `NODE_RUNG_PADDING_ATTR`, for the same reason: the rail
+ * is React-gated (unmounted at the `line` rung), so without a declaration the
+ * measurer, run while zoomed out, reads an anchor body with NO rail box and
+ * reserves the far chip's height, not the landing card's.
+ *
+ * MEASURED 27 Sep 2026 (Canvas Browser Gate `heightVsZoom`, build-vs-buy
+ * 1280×800, `dec_billing`): landing card 97 (body 47 = the rail's min-height);
+ * at 0.4 the reservation read 73 (body released to its content, 24) while the
+ * card drew 75 — its one-line far title is drawn at `farTitleScale(0.4)` = 1.61
+ * (28px line), above the 1.36 bound the measurer pins it to (24px line).
+ */
+export const NODE_BODY_BOUND_STYLE_ATTR = 'data-body-bound-style'
+
+/** The selector that finds a declaring body. Derived, never restated. */
+export const NODE_BODY_BOUND_STYLE_SELECTOR = `[${NODE_BODY_BOUND_STYLE_ATTR}]`
+
+/**
  * Whether a card hides its body at this rung — the ONE predicate every surface
  * that speaks about the blanked state must consume.
  *
