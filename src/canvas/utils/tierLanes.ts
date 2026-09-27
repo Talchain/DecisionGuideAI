@@ -30,7 +30,7 @@
  * model extends further than it does.
  */
 import type { Node } from '@xyflow/react'
-import { KIND_GLYPH_PX, TIER_BY_KIND, kindGlyphOverhangAt, kindGlyphSizeAt } from './nodeLayoutConstants'
+import { TIER_BY_KIND, kindGlyphOverhangAt, kindGlyphSizeAt } from './nodeLayoutConstants'
 import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
 import { isGhostNode } from './fitTargets'
 import { DECISION_NODE_LABEL, MODEL_GROUP_TITLE } from '../domain/vocabulary'
