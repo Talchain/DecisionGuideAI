@@ -127,6 +127,29 @@ describe('both voices exist for every stage, and they agree about the situation'
     }
   })
 
+  /**
+   * Canvas ask B (#70 5851087722; R&C rule 5851093146 (b); DL ruling 5851099677): a saved example
+   * lands with a model and no run, and the Olumi tab said only "ask about any part of it". With no run,
+   * the ONE next move is the first analysis: say it, point at no control (the floating host has no
+   * readiness bar), invent no coaching and state no figure.
+   */
+  it('a model with no run names ONE next move: the first analysis', () => {
+    enter('modelled')
+    const invitation = renderHook(() => useEmptyConversationInvitation()).result.current
+    expect(invitation).toMatch(/^Your model is on the canvas\. Run a first pass /)
+    expect(invitation).toMatch(/see how the options compare/)
+    expect(invitation, 'no location claim: the floating host has no bar below').not.toMatch(/below|bar/i)
+    expect(invitation, 'no figure').not.toMatch(/\d/)
+  })
+
+  it('CONTRAST: once a run exists, the invitation does not ask for a first pass', () => {
+    for (const stage of ['changed', 'current', 'analysed'] as const) {
+      enter(stage)
+      const invitation = renderHook(() => useEmptyConversationInvitation()).result.current
+      expect(invitation, stage).not.toMatch(/first pass/i)
+    }
+  })
+
   it('never claims a run is current or "latest" on the cannot-confirm stage', () => {
     // The placeholder ladder is careful here; the invitation must be too.
     enter('analysed')
