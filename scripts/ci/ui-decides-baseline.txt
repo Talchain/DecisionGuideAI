@@ -45,8 +45,8 @@ src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
 src/canvas/store.ts:8049
-src/canvas/stores/readinessStore.ts:782
-src/canvas/stores/readinessStore.ts:875
+src/canvas/stores/readinessStore.ts:829
+src/canvas/stores/readinessStore.ts:922
 src/canvas/utils/briefValidation.ts:43
 src/canvas/utils/ceeAnalysisReadyValidation.ts:159
 src/canvas/utils/ceeDataAdapter.ts:328
@@ -88,6 +88,10 @@ src/types/constraints.ts:78
 #    (`readinessStore.ts:744` -> `782` and `:840` -> `875` are pure line shifts
 #    from the `publishCheckFailure` helper #1982 adds above them (25 Sep 2026,
 #    the readiness-outage gate fix); the 429 and 404 branch text is identical.)
+#    (`readinessStore.ts:782` -> `829` and `:875` -> `922` are pure line shifts
+#    from #2256's +47 lines above them (28 Sep 2026: the readiness body built
+#    from the registration projection, READINESS_EXCLUDED_NODE_FIELDS and its
+#    helper); the 429 and 404 branch text is identical.)
 #    (`analysisNewCopy.ts:2433` -> `2440`, and the docblock range above by the
 #    same +7, is a pure line shift from #1922's seven added lines —
 #    `optionFigures.goalOnlyQualifier` and its docblock, above this site — when

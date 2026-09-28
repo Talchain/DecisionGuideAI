@@ -26,7 +26,8 @@ import {
   EMPTY_STATES,
   OPTION_STRINGS,
 } from '../inspectorStrings'
-import { formatFactorValue, unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
+import { unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
+import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -442,7 +443,10 @@ export const OptionPanel = memo(function OptionPanel({
       .filter(n => (n.data?.category as string | undefined) === 'controllable' && n.id !== nodeId)
       .map(n => {
         const obs = (n.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
-        const valueDisplay = formatFactorValue(obs as Parameters<typeof formatFactorValue>[0])
+        // The card's own reader (`factorDisplayText`), so the add list says what the
+        // factor card says: "£0", "$10,000 / year". It read the deprecated
+        // `formatFactorValue`, which printed "GBP 0" (Paul's test, 28 Sep).
+        const valueDisplay = factorDisplayText(n.data as Record<string, unknown>, resolveElementLabel(n.data))
         return {
           id: n.id,
           label: resolveElementLabel(n.data),
