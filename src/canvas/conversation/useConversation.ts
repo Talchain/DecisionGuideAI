@@ -6658,7 +6658,7 @@ export function useConversation(): UseConversationReturn {
           next.opts.onDeferredSettled?.(dispatch)
           if (import.meta.env.DEV) {
             console.warn(
-              `[sendTurn] deferred send ${next.key} refused with a proven no-write (${conflictCategory}); reverted and dropped, not retried`,
+              `[sendTurn] deferred send ${printableDeferredKey(next.key)} refused with a proven no-write (${conflictCategory}); reverted and dropped, not retried`,
             )
           }
           return
@@ -6702,7 +6702,7 @@ export function useConversation(): UseConversationReturn {
           next.opts.onDeferredSettled?.(dispatch)
           if (import.meta.env.DEV) {
             console.warn(
-              `[sendTurn] deferred link edit ${next.key} refused non-retryably (${conflictCategory ?? err.code ?? 'unknown'}); dropped, not replayed`,
+              `[sendTurn] deferred link edit ${printableDeferredKey(next.key)} refused non-retryably (${conflictCategory ?? err.code ?? 'unknown'}); dropped, not replayed`,
             )
           }
           return

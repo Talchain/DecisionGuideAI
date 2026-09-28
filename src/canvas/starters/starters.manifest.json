@@ -40,6 +40,7 @@
           }
         ],
         "constraintUnitRepairs": [],
+        "factorBaselineRepairs": [],
         "note": "RECAPTURED — original brief, 19n/39e/4opt, 56.7s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"Data Team Capacity\" was a token-subset of risk \"Data Team Capacity Strain\"."
       }
     },
@@ -95,6 +96,20 @@
           }
         ],
         "constraintUnitRepairs": [],
+        "factorBaselineRepairs": [
+          {
+            "nodeId": "fac_uk_deepdive",
+            "from": {
+              "value": 0,
+              "display_value": "Low (0)"
+            },
+            "to": {
+              "value": 1,
+              "display_value": "Very high (1)"
+            },
+            "reason": "the status quo pursues UK Financial Services Focus and every other option moves it Pursued → Not pursued, so the captured baseline 0 contradicted the capture's own options; the baseline is 1, and the status quo reads 'Baseline · no changes'."
+          }
+        ],
         "note": "RECAPTURED — original brief, 18n/32e/3opt, 56.8s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose factor \"UK Financial Services Deepening\" was a token-subset of the option of the same name. Also drafts far more reliably on cb54320 (2/2) than the 1/5 recorded on 1b9d596."
       }
     },
@@ -134,6 +149,7 @@
         "goalThresholdRepairs": [],
         "sourceStamps": [],
         "constraintUnitRepairs": [],
+        "factorBaselineRepairs": [],
         "note": "NOT recaptured — probe idx 12, 19n/37e/4opt, 59.1s, coaching complete. The only original capture already free of label collisions, so it is left exactly as it was rather than re-rolled for tidiness."
       }
     },
@@ -166,6 +182,7 @@
         "goalThresholdRepairs": [],
         "sourceStamps": [],
         "constraintUnitRepairs": [],
+        "factorBaselineRepairs": [],
         "note": "RECAPTURED — original brief, 16n/25e/4opt, 53.3s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal \"Achieve ARR Growth by Q3\" strictly contained outcome \"ARR Growth by Q3\". 1 of 3 fresh draws was collision-free."
       }
     },
@@ -234,6 +251,7 @@
             "reason": "brief says 'above 110%'; 1.1 is the ratio, so unit '%' read as 1.1%. Restated as CEE normaliseConstraintUnits emits it: unit 'fraction' + audit {110, '%'}; value unchanged."
           }
         ],
+        "factorBaselineRepairs": [],
         "note": "RECAPTURED — original brief, 15n/30e/4opt, 50.4s, coaching complete, zero label collisions. Replaces the 1b9d596 draw whose goal strictly contained outcome \"Net Revenue Retention\". 1 of 3 fresh draws was collision-free."
       }
     }

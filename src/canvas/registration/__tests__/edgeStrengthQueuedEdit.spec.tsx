@@ -21,6 +21,8 @@
  * transport, the server's final mean, the hold's cause.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { Node, Edge } from '@xyflow/react'
@@ -423,5 +425,17 @@ describe('the queue\'s LOG lines are printable text (staging CI, 28 Sep 2026)', 
     } finally {
       warn.mockRestore()
     }
+  })
+
+  // The row above exercises only the DEFERRED and FAILED paths; the two refusal
+  // paths ("refused with a proven no-write", "refused non-retryably") printed the
+  // raw key too and turned staging red again on baefec2b. So every queue key
+  // interpolated into useConversation's source goes through printableDeferredKey.
+  it('SOURCE: no log template in useConversation interpolates a raw queue key', () => {
+    const src = readFileSync(resolve(__dirname, '../../conversation/useConversation.ts'), 'utf8')
+    const raw = src.match(/\$\{(?:[A-Za-z_]+\.)?key\}/g) ?? []
+    expect(raw, 'every interpolated key goes through printableDeferredKey').toEqual([])
+    // CONTRAST: the helper is actually used at the log sites, so the probe sees them.
+    expect((src.match(/\$\{printableDeferredKey\((?:[A-Za-z_]+\.)?key\)\}/g) ?? []).length).toBeGreaterThanOrEqual(5)
   })
 })
