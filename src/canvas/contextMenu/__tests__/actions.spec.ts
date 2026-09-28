@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   deleteAction,
   addConnectedFactorAction,
+  addConnectedOutcomeAction,
+  addConnectedRiskAction,
   markAsAssumption,
   traceToGoal,
   askAI,
@@ -152,7 +154,20 @@ describe('addConnectedFactorAction', () => {
     )
   })
 
-  it('creates factor connected to a decision (effect direction)', async () => {
+  /**
+   * ⛔ REWRITTEN 27–28 Sep 2026 (canvas audit edit-structure/F7). This case
+   * read "creates factor connected to a decision (effect direction)" and
+   * asserted `'from-target'` — i.e. it PINNED the Question as the SOURCE of a
+   * causal link to a new factor (decision → factor). Merely flipping the
+   * direction would mint factor → decision instead, which CEE's
+   * `ALLOWED_EDGES` forbids just the same (a decision's only link is
+   * decision → option). So the action now REFUSES a Question outright: no
+   * store write and no declared ops. The menu does not offer the item there
+   * either (`useMenuItems.spec.ts`, `CanvasContextMenu.spec.tsx`).
+   */
+  it('refuses a Question target outright: no factor, no link, no ops', async () => {
+    const { commitValidatedMutation } = await import('../../mutations/commitValidatedMutation')
+    ;(commitValidatedMutation as any).mockClear()
     const target: NodeTarget = {
       kind: 'node',
       nodeId: 'd1',
@@ -160,13 +175,34 @@ describe('addConnectedFactorAction', () => {
       node: mockStore.nodes[2],
       screenPos: { x: 0, y: 0 },
     }
+    // Precondition: the fixture really is the Question card in the store.
+    expect(mockStore.nodes[2]).toMatchObject({ id: 'd1', data: { kind: 'decision' } })
     await addConnectedFactorAction(target, showToast)
-    expect(mockStore.addNodeWithEdge).toHaveBeenCalledWith(
-      expect.any(Object),
-      'factor',
-      'd1',
-      'from-target',
-    )
+    expect(mockStore.addNodeWithEdge).not.toHaveBeenCalled()
+    expect(commitValidatedMutation).not.toHaveBeenCalled()
+  })
+
+  it('CONTRAST: an option is still the source of its new factor (option → factor, the change link)', async () => {
+    const optionNode = { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Raise price', kind: 'option' } } as Node
+    mockStore.nodes.push(optionNode)
+    try {
+      const target: NodeTarget = {
+        kind: 'node',
+        nodeId: 'o1',
+        nodeType: 'option',
+        node: optionNode,
+        screenPos: { x: 0, y: 0 },
+      }
+      await addConnectedFactorAction(target, showToast)
+      expect(mockStore.addNodeWithEdge).toHaveBeenCalledWith(
+        expect.any(Object),
+        'factor',
+        'o1',
+        'from-target',
+      )
+    } finally {
+      mockStore.nodes.pop()
+    }
   })
 
   it('⭐⭐ the declared `add_node` op seeds NO category — the SECOND writer, not a duplicate', async () => {
@@ -210,6 +246,43 @@ describe('addConnectedFactorAction', () => {
     // the truth.
     expect(Object.keys(addNodeOp!.data ?? {}).sort()).toEqual(['kind', 'label'])
     expect(addNodeOp!.data).toEqual({ kind: 'factor', label: 'New factor' })
+  })
+})
+
+describe('addConnectedOutcomeAction / addConnectedRiskAction — the Question is refused (F7)', () => {
+  /**
+   * ⛔ 28 Sep 2026 (canvas audit edit-structure/F7). Both actions hard-code the
+   * clicked card as the SOURCE of the new link, so on a Question they minted
+   * decision → outcome and decision → risk, pairs CEE's `ALLOWED_EDGES`
+   * forbids. They now refuse a Question before anything is written. Each
+   * refusal is paired with a factor-card contrast through the same action, so
+   * the pair cannot pass by the action doing nothing at all.
+   */
+  const questionTarget = (): NodeTarget => ({
+    kind: 'node', nodeId: 'd1', nodeType: 'decision', node: mockStore.nodes[2], screenPos: { x: 0, y: 0 },
+  })
+  const factorTarget = (): NodeTarget => ({
+    kind: 'node', nodeId: 'f1', nodeType: 'factor', node: mockStore.nodes[0], screenPos: { x: 0, y: 0 },
+  })
+
+  it.each([
+    ['outcome', addConnectedOutcomeAction],
+    ['risk', addConnectedRiskAction],
+  ] as const)('refuses a Question target for a new %s: no node, no link, no ops', async (_kind, action) => {
+    const { commitValidatedMutation } = await import('../../mutations/commitValidatedMutation')
+    ;(commitValidatedMutation as any).mockClear()
+    expect(mockStore.nodes[2]).toMatchObject({ id: 'd1', data: { kind: 'decision' } })
+    await action(questionTarget(), showToast)
+    expect(mockStore.addNodeWithEdge).not.toHaveBeenCalled()
+    expect(commitValidatedMutation).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['outcome', addConnectedOutcomeAction],
+    ['risk', addConnectedRiskAction],
+  ] as const)('CONTRAST: a factor card still gets its new %s, with the factor as source', async (kind, action) => {
+    await action(factorTarget(), showToast)
+    expect(mockStore.addNodeWithEdge).toHaveBeenCalledWith(expect.any(Object), kind, 'f1', 'from-target')
   })
 })
 

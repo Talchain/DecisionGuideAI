@@ -119,9 +119,15 @@ async function settle() {
 const LAST_GOAL_REFUSAL = 'Every model needs a goal. Add a different goal before removing this one.'
 
 const LINKED_TITLE = `Remove "${LINKED_LABEL}"?`
+// ⚠ RE-PINNED 27 Sep 2026 (canvas audit edit-structure/F6), ADDITIVELY. The
+// old pin omitted that `option_a` also LOSES ITS CHANGE to `factor_price` (the
+// `e-opt-price` link goes with the card) — model data on another card, with no
+// Undo, and exactly the omission F6 found served on build-vs-buy. Every clause
+// the old pin held is still here, in the same order; one true sentence is added.
 const LINKED_MESSAGE =
   `Removing "${LINKED_LABEL}" breaks the path from "${OPTION_LABEL}" to your goal. ` +
   `The analysis won't be able to evaluate that option. ` +
+  `"${OPTION_LABEL}" will lose its change to "${LINKED_LABEL}". ` +
   `"${GOAL_LABEL}" will be left disconnected and won't affect the analysis.`
 
 let toastCapture: ReturnType<typeof captureToasts>

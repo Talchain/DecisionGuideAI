@@ -80,6 +80,7 @@ import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { STRUCTURAL_DELETE_UNCONFIRMED_REMEDY } from '../mutations/structuralDelete'
 import { STRUCTURAL_RENAME_UNCONFIRMED_REMEDY } from '../mutations/structuralRename'
 import { STRUCTURAL_ADD_UNCONFIRMED_REMEDY } from '../mutations/structuralAdd'
+import { isCanvasOnlyLink, type ServerHeldEdgePairs } from './canvasOnlyLink'
 
 /**
  * Which client-side injection put this graph on the canvas.
@@ -375,6 +376,23 @@ export const ANALYSIS_HELD_ON_EDIT_COPY = {
   unconfirmedDelete: (label: string | null): string =>
     `Olumi couldn't confirm that ${label === null ? 'what you deleted' : label} was removed from the saved model, ` +
     `so analysis is waiting until it is settled. ${STRUCTURAL_DELETE_UNCONFIRMED_REMEDY}`,
+  /**
+   * ⭐ A LINK THE USER DREW THAT WAS NEVER SENT (canvas audit
+   * edit-structure/F2, 27 Sep 2026). Not an "unconfirmed" change: nothing was
+   * sent, because the link has no stated strength (`utils/canvasOnlyLink.ts`),
+   * so "Olumi couldn't confirm…" would be untrue too. It names the link (or how
+   * many), says where it is, and gives the one move that sends it; the link is
+   * on the canvas, so the move is reachable (its "Not saved · set strength"
+   * word opens the control). No promise that analysis follows: other rungs of
+   * the gate may still refuse. Not "Delete it" either: a delete of a
+   * never-sent link is refused by CEE today.
+   */
+  canvasOnlyLink: (link: string | null, count: number = 1): string =>
+    count > 1
+      ? `Analysis is waiting on ${count} links you drew: they are on your canvas only. ` +
+        'Set their strength to send them to the model.'
+      : `Analysis is waiting on ${link === null ? 'a link you drew' : link}: it is on your canvas only. ` +
+        'Set its strength to send it to the model.',
 } as const
 
 /** What is holding analysis — the ready-made model itself, or the user's own unconfirmed edit. */
@@ -385,6 +403,8 @@ export type AnalysisHoldKind =
   | 'unconfirmed_rename'
   | 'unconfirmed_add'
   | 'unconfirmed_delete'
+  /** A link the user drew with no strength: on the canvas only, never sent (edit-structure/F2). */
+  | 'canvas_only_link'
 
 /**
  * The hold AND its sentence, as one value — the analogue of `analysisHeldOn`
@@ -414,7 +434,15 @@ export function isUserEditHold(reason: AnalysisHoldReason | null): boolean {
  * production reader passes the canvas store's own state (see
  * `hooks/useAnalysisHold.ts`), so the two halves come from one snapshot.
  */
-export type AnalysisHoldReasonState = AnalysisHoldState & EditDeliveryState
+export type AnalysisHoldReasonState = AnalysisHoldState &
+  EditDeliveryState & {
+    /**
+     * The link pairs the server is known to hold (`store.lastAuthoritativeGraph`).
+     * Read only to tell a canvas-only link from one the server came to hold
+     * (`isCanvasOnlyLink`); absent means no evidence, so nothing is held.
+     */
+    readonly lastAuthoritativeGraph?: ServerHeldEdgePairs
+  }
 
 /**
  * ⚠ INTERNED, SO A STORE SELECTOR MAY RETURN IT. Zustand 5 compares selector
@@ -520,7 +548,7 @@ export function heldReason(state: AnalysisHoldReasonState): AnalysisHoldReason |
   const held = analysisHeldOn(state)
   if (held === null) return null
   const edit = editDeliveryHoldDetail(state)
-  if (edit === null) return savedExampleHold(held)
+  if (edit === null) return canvasOnlyLinkHold(state) ?? savedExampleHold(held)
   switch (edit.cause) {
     case 'edit_on_the_wire':
     case 'edit_queued':
@@ -553,6 +581,47 @@ export function heldReason(state: AnalysisHoldReasonState): AnalysisHoldReason |
         ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedLinkStrength(linkOnCanvasName(state, edit.edgeId)),
       )
   }
+}
+
+/**
+ * ⭐ THE HOLD IS A LINK THE USER DREW AND NEVER SENT (canvas audit
+ * edit-structure/F2, 27 Sep 2026).
+ *
+ * Served on pricing-model: drawing one link with no strength (a drag, or "Add …
+ * from this") flipped the bar from "Analysis available" to "Analysis is held on
+ * a saved example. Re-draft it live to run one." — the wrong cause, and a
+ * remedy (enabled "Re-draft this live") that would replace the model and the
+ * user's edits. Setting that link's strength released the hold. The chain: the
+ * acknowledgement digest counts every canvas edge, so a never-sent link makes
+ * the graph unacknowledged; `editDeliveryHoldDetail` has no case for it (it is
+ * not an edit on its way to the server, and is deliberately NOT made one here,
+ * because `useImportRegistration` reads that register to defer registration);
+ * so the saved-example sentence was the fallback.
+ *
+ * ⛔ THE LINK IS NAMED ONLY WHEN IT IS THE OPERATIVE CAUSE: the canvas WITHOUT
+ * its canvas-only links must be one the server acknowledged. Otherwise the
+ * model itself is still unregistered, setting a strength would not release the
+ * hold, and the saved-example sentence is the true one. The stand-down marker
+ * is read by its one predicate (the exact value, never "a marker is present").
+ */
+function canvasOnlyLinkHold(state: AnalysisHoldReasonState): AnalysisHoldReason | null {
+  // `?? []`: a state with no edges names no link and must fall through to the
+  // saved-example sentence, never throw (a node-only hold state threw here and
+  // took the whole run gate with it: `SuggestedChips.heldModelGate.spec`).
+  const edges = (state.edges ?? []) as ReadonlyArray<{ id?: unknown; source?: unknown; target?: unknown; data?: unknown }>
+  // A link whose pair the server holds is not canvas-only, whatever its
+  // receipt says (review r06 blocker 2): it counts as sent.
+  const held = state.lastAuthoritativeGraph
+  const canvasOnly = edges.filter((e) => isCanvasOnlyLink(e, held))
+  if (canvasOnly.length === 0) return null
+  const sent = edges.filter((e) => !isCanvasOnlyLink(e, held))
+  if (!isGraphServerAcknowledged(state.currentScenarioId, state.nodes, sent)) return null
+  if (canvasOnly.length > 1) {
+    return intern('canvas_only_link', ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink(null, canvasOnly.length))
+  }
+  const only = canvasOnly[0]
+  const name = typeof only.id === 'string' ? linkOnCanvasName(state, only.id) : null
+  return intern('canvas_only_link', ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink(name))
 }
 
 /**

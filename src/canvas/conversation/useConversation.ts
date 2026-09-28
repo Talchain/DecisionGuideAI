@@ -3160,7 +3160,7 @@ export function useConversation(): UseConversationReturn {
       id: `reload-difference-${reloadDifferenceId}`,
       role: 'assistant',
       synthetic: true,
-      content: formatReloadDifferenceNotice(notice.removedLabels),
+      content: formatReloadDifferenceNotice(notice.removedLabels, notice.canvasOnlyLinkLabels),
       timestamp: new Date(),
     })
   }, [reloadDifferenceId, scenarioId, addMessage])

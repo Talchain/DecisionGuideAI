@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
 
 import { USER_EDGE_DEFAULTS } from '../../domain/edges'
+import { InspectorRouter } from '../../ui/inspector-v2/InspectorRouter'
+import { useCanvasStore } from '../../store'
 import {
   resolveEdgeSignedStrengthDisplay,
   resolveEdgeDirectionDisplay,
@@ -11,6 +14,11 @@ import {
   STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
   captureStructuralAddEdge,
 } from '../structuralAddEdge'
+
+vi.mock('@xyflow/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@xyflow/react')>()),
+  useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+}))
 
 /**
  * ⭐⭐⭐ A NOTICE IS TESTED FOR TWO DIFFERENT PROPERTIES AND ONLY ONE OF THEM
@@ -113,8 +121,45 @@ describe('STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE instructs nothing the produc
     expect(edgeStrengthEditIsAssertable(drawnEdge as never)).toBe(false)
   })
 
-  it('THEREFORE the notice must not tell the user to set the strength themselves', () => {
-    expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).not.toMatch(/set (its|the|a) strength/i)
+  /**
+   * ⭐⭐ PRECONDITION 3 — ADDED 27 Sep 2026 (canvas audit edit-structure/F3), AND
+   * IT IS WHY THE "THEREFORE" BELOW WAS INVERTED RATHER THAN KEPT.
+   *
+   * Preconditions 2 and 2b are still true and still pinned: the EDIT control is
+   * fenced for a drawn link. But the old conclusion ("so the notice must not
+   * say set its strength") silently assumed that fence was the ONLY strength
+   * control. It is not any more. The stand-down receipt gave this population
+   * its OWN control — `EdgePanel`'s add-control, `edge-state-strength-for-save`,
+   * rendered INSTEAD of the fenced fieldset — and its band re-runs the capture
+   * and sends `structural_add_edge` with the person's magnitude (served:
+   * Moderate → 200, the link survived a reload). The old pin kept the toast
+   * pointing at the chat while that control sat one double-click away: the
+   * disclosure defect F3 measured.
+   *
+   * Bound by identity THROUGH `InspectorRouter`, on exactly the edge `addEdge`
+   * leaves behind — so withdrawing the control turns this RED, and with it the
+   * licence for the sentence.
+   */
+  it('PRECONDITION 3 — the drawn link DOES get a strength control: the add-control, rendered by identity', () => {
+    useCanvasStore.setState({
+      nodes: [
+        { id: drawnEdge.source, type: 'factor', data: { label: 'Marketing' }, position: { x: 0, y: 0 } },
+        { id: drawnEdge.target, type: 'goal', data: { label: 'Revenue' }, position: { x: 0, y: 0 } },
+      ] as never[],
+      edges: [{ ...drawnEdge, data: { ...drawnEdge.data, structuralAddStandDown: 'strength_not_stated' } }] as never[],
+      results: { status: 'idle' },
+      selection: { nodeIds: new Set(), edgeIds: new Set([drawnEdge.id]), anchorPosition: null },
+      goalThreshold: null,
+      confirmedNodeIds: new Set(),
+      _internal: {},
+    } as never)
+    render(<InspectorRouter nodeId={null} edgeId={drawnEdge.id} onClose={vi.fn()} />)
+    expect(screen.getByTestId('edge-state-strength-for-save')).toBeTruthy()
+  })
+
+  it('THEREFORE the notice names that move: set its strength, in the link panel', () => {
+    expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).toMatch(/set its strength/i)
+    expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).toMatch(/link panel/i)
   })
 
   it('and it must still say where the link actually is, so the user is not left guessing', () => {
@@ -122,22 +167,15 @@ describe('STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE instructs nothing the produc
   })
 
   /**
-   * ⭐ THE ROUTE IT NAMES IS **WIRE-WITNESSED** — held, confirmed, applied, and
-   * a cold re-read at 17 -> 18 edges on the deployed build.
-   *
-   * ⚠ BUT THE ASSERTION BELOW IS UNCHANGED, AND THE REASON IT SURVIVES IS THE
-   * WHOLE POINT: the witness is **n=1** — one pair, one phrasing, one build —
-   * and a second lane's run of a different request shape landed **1 of 4**.
-   * **Existence is witnessed; RELIABILITY is unmeasured.** A sentence may name a
-   * route it can reach and still must not promise an outcome it cannot rate.
-   *
-   * ⛔ THIS COMMENT AND THIS TEST'S NAME PREVIOUSLY SAID THE ROUTE WAS "NOT
-   * WIRE-WITNESSED" AND CITED A ZERO-OPS RUN. **Both were superseded.** Fixed
-   * here rather than at merge because a PR written to stop false statements
-   * shipping must not ship a false rung in its own comments.
+   * ⛔ REWRITTEN 27 Sep 2026 (edit-structure/F3). This case read "names the
+   * route without promising the outcome" and pinned `/ask olumi/` — the chat
+   * route, which is real (wire-witnessed n=1) but is no longer the move the
+   * sentence names now that a one-click control states the strength. What it
+   * protected is kept: no promised outcome. The add-control's sender has no
+   * revert lifecycle, so the sentence says the link is SENT, never SAVED.
    */
-  it('names the route without promising the outcome, because reliability is unmeasured', () => {
-    expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).toMatch(/ask olumi/i)
+  it('promises no outcome: it says "sends", never "saved"', () => {
+    expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).toMatch(/sends it to the model/i)
     expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).not.toMatch(
       /will be saved|and it will|saves it|then it('s| is) saved/i,
     )

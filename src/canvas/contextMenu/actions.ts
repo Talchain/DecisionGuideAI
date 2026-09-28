@@ -14,6 +14,7 @@ import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
+import { openStrengthForCanvasOnlyLinkAddedSince } from '../utils/openEdgeStrengthEditor'
 import {
   assessNodeDeletion,
   assessEdgeDeletion,
@@ -85,7 +86,10 @@ async function executeMultiDelete(nodeIds: string[], edgeIds: string[], showToas
  *
  * Assess the structural impact; refuse (toast) when the removal would take the
  * last goal or decision; ask first (`useConfirmDialogStore`) when it would cut
- * an option off from the goal or orphan a node; otherwise delete at once.
+ * an option off from the goal, orphan a node, or take one of an option's
+ * changes with it (canvas audit edit-structure/F6, 27 Sep 2026: an option's
+ * change is held on a DIFFERENT card, and there is no Undo); otherwise delete
+ * at once.
  *
  * ⛔ THE KEYBOARD USED TO SKIP ALL OF THIS (fixed 25 Sep 2026). Delete/Backspace
  * called `store.deleteSelected()` directly, so the same card the menu would ask
@@ -149,11 +153,13 @@ export async function deleteAction(
       orphansNodes: [] as Array<{ nodeId: string; nodeLabel: string }>,
       removesLastGoal: false,
       removesLastDecision: false,
+      dropsOptionChanges: [] as NonNullable<ReturnType<typeof assessNodeDeletion>['dropsOptionChanges']>,
     }
     for (const nodeId of target.nodeIds) {
       const impact = assessNodeDeletion(nodes, edges, nodeId)
       aggregated.disconnectsOptions.push(...impact.disconnectsOptions)
       aggregated.orphansNodes.push(...impact.orphansNodes)
+      aggregated.dropsOptionChanges.push(...(impact.dropsOptionChanges ?? []))
       if (impact.removesLastGoal) aggregated.removesLastGoal = true
       if (impact.removesLastDecision) aggregated.removesLastDecision = true
     }
@@ -166,6 +172,7 @@ export async function deleteAction(
       const impact = assessEdgeDeletion(nodes, edges, edgeId)
       aggregated.disconnectsOptions.push(...impact.disconnectsOptions)
       aggregated.orphansNodes.push(...impact.orphansNodes)
+      aggregated.dropsOptionChanges.push(...(impact.dropsOptionChanges ?? []))
     }
     // Nothing that is itself being deleted is warned about: an option going in
     // the same gesture has no path left to lose, and a node going cannot be
@@ -182,6 +189,16 @@ export async function deleteAction(
     aggregated.orphansNodes = aggregated.orphansNodes.filter(o => {
       if (deletingIds.has(o.nodeId) || seenOrphans.has(o.nodeId)) return false
       seenOrphans.add(o.nodeId)
+      return true
+    })
+    // ⭐ An option losing a change (canvas audit edit-structure/F6) is asked
+    // about only when the option itself stays: one deleted in the same gesture
+    // has nothing left to lose. One entry per option and card.
+    const seenChanges = new Set<string>()
+    aggregated.dropsOptionChanges = aggregated.dropsOptionChanges.filter(c => {
+      const key = `${c.optionId}\u0000${c.targetId}`
+      if (deletingIds.has(c.optionId) || seenChanges.has(key)) return false
+      seenChanges.add(key)
       return true
     })
 
@@ -319,12 +336,31 @@ export async function addNodeAction(
 // ---------------------------------------------------------------------------
 
 /**
+ * ⛔ THE QUESTION IS NEVER ONE END OF A CONNECTED ADD (canvas audit
+ * edit-structure/F7, 27–28 Sep 2026). CEE's `ALLOWED_EDGES` admits exactly one
+ * link at a decision: decision → option. Each of the three actions below would
+ * otherwise mint a pair it forbids — factor ↔ decision, decision → outcome,
+ * decision → risk — and once a strength is stated `structural_add_edge` saves
+ * it as a causal claim. The menu does not offer them on a Question
+ * (`useMenuItems` gate); this is the second fence, so any other caller is
+ * refused before anything is written. Both the card's own kind and the menu
+ * target's are read, so neither can smuggle a Question past the other.
+ */
+function isQuestionTarget(target: NodeTarget, targetNode: { type?: string; data?: Record<string, unknown> }): boolean {
+  const kind = (targetNode.data?.kind as string | undefined) ?? targetNode.type
+  return kind === 'decision' || target.nodeType === 'decision'
+}
+
+/**
  * Determine edge direction based on target node kind.
  * Goal/outcome/risk/factor: new factor is a cause → new→target
- * Decision/option: new factor is an effect → target→new
+ * Option: new factor is the option's change target → option→new
+ *
+ * `decision` never reaches here: `isQuestionTarget` refuses it first. It used
+ * to return 'from-target' (decision → factor).
  */
 function getEdgeDirectionForKind(kind: string): 'to-target' | 'from-target' {
-  if (kind === 'decision' || kind === 'option') return 'from-target'
+  if (kind === 'option') return 'from-target'
   return 'to-target'
 }
 
@@ -359,6 +395,7 @@ export async function addConnectedFactorAction(
   const store = useCanvasStore.getState()
   const targetNode = store.nodes.find((n) => n.id === target.nodeId)
   if (!targetNode) return
+  if (isQuestionTarget(target, targetNode)) return
 
   // PRD guardrail: adding 1 node + 1 edge
   const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
@@ -393,12 +430,16 @@ export async function addConnectedFactorAction(
     { op: 'add_edge', target_id: edgeId, data: { from: source, to: target_ } },
   ]
 
+  const edgeIdsBefore = new Set(store.edges.map((e) => e.id))
   await commitValidatedMutation(
     ops,
     () => store.addNodeWithEdge(pos, 'factor', target.nodeId, edgeDirection),
     showToast,
   )
-  // addNodeWithEdge already selects the new node
+  // addNodeWithEdge selects the new node; when its link stood down for want of
+  // a strength, the link's strength control is put in front instead
+  // (canvas audit edit-structure/F3).
+  openStrengthForCanvasOnlyLinkAddedSince(edgeIdsBefore, target.nodeId)
 }
 
 // ---------------------------------------------------------------------------
@@ -412,6 +453,7 @@ export async function addConnectedOutcomeAction(
   const store = useCanvasStore.getState()
   const targetNode = store.nodes.find((n) => n.id === target.nodeId)
   if (!targetNode) return
+  if (isQuestionTarget(target, targetNode)) return
 
   const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
   if (limitKind) {
@@ -427,11 +469,13 @@ export async function addConnectedOutcomeAction(
     { op: 'add_node', target_id: nodeId, data: { kind: 'outcome', label: 'New outcome' } },
     { op: 'add_edge', target_id: edgeId, data: { from: target.nodeId, to: nodeId } },
   ]
+  const edgeIdsBefore = new Set(store.edges.map((e) => e.id))
   await commitValidatedMutation(
     ops,
     () => store.addNodeWithEdge(pos, 'outcome', target.nodeId, 'from-target'),
     showToast,
   )
+  openStrengthForCanvasOnlyLinkAddedSince(edgeIdsBefore, target.nodeId)
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +489,7 @@ export async function addConnectedRiskAction(
   const store = useCanvasStore.getState()
   const targetNode = store.nodes.find((n) => n.id === target.nodeId)
   if (!targetNode) return
+  if (isQuestionTarget(target, targetNode)) return
 
   const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
   if (limitKind) {
@@ -460,11 +505,13 @@ export async function addConnectedRiskAction(
     { op: 'add_node', target_id: nodeId, data: { kind: 'risk', label: 'New risk' } },
     { op: 'add_edge', target_id: edgeId, data: { from: target.nodeId, to: nodeId } },
   ]
+  const edgeIdsBefore = new Set(store.edges.map((e) => e.id))
   await commitValidatedMutation(
     ops,
     () => store.addNodeWithEdge(pos, 'risk', target.nodeId, 'from-target'),
     showToast,
   )
+  openStrengthForCanvasOnlyLinkAddedSince(edgeIdsBefore, target.nodeId)
 }
 
 // ---------------------------------------------------------------------------

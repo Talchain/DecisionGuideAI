@@ -279,6 +279,19 @@ export const EdgeDataSchema = z.object({
    */
   naturalEffect: NaturalEffectSchema.optional(),
 
+  /**
+   * POM-8 (27 Sep 2026): the canvas `weight` CEE set as a PLACEHOLDER — the wire
+   * labelled its magnitude `olumi_placeholder`, a number Olumi does not stand
+   * behind. Written by the ONE reader `strengthPlaceholderPatch` at every
+   * ingestion hop; read through `isStrengthPlaceholder` (`./strengthPlaceholder`),
+   * which holds it live only while the weight is still CEE's and still equals
+   * this number — so a person's edit or a new producer figure retires it with
+   * no writer of its own.
+   *
+   * ⚠ ABSENT ⇒ NOT KNOWN TO BE A PLACEHOLDER. Never defaulted.
+   */
+  strengthPlaceholder: z.number().min(0).max(2).optional(),
+
   // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
   // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
   // value demonstrably came from a named source, so a construction site that

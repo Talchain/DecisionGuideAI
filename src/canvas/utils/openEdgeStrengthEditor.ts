@@ -41,6 +41,7 @@
 
 import { useCanvasStore } from '../store'
 import { focusEdgeById } from './focusHelpers'
+import { isCanvasOnlyLink } from './canvasOnlyLink'
 
 /**
  * Dispatched to ask the canvas to raise the full inspector for the CURRENT
@@ -56,7 +57,18 @@ export const OPEN_FULL_INSPECTOR_EVENT = 'olumi:open-full-inspector'
  * matching `focusModelTarget`'s contract for a target that no longer exists.
  * A caller must never be able to open an empty inspector by naming a stale id.
  */
-export function openEdgeStrengthEditor(edgeId: string): boolean {
+export function openEdgeStrengthEditor(
+  edgeId: string,
+  options: {
+    /**
+     * `false` leaves the camera where it is. For the gesture that just drew the
+     * link (canvas audit edit-structure/F3): the link is under the user's
+     * pointer, and re-centring the board after a drag would move the very thing
+     * they are looking at. Every existing caller keeps the default.
+     */
+    centre?: boolean
+  } = {},
+): boolean {
   const state = useCanvasStore.getState()
   if (!state.edges.some(e => e.id === edgeId)) return false
 
@@ -69,9 +81,46 @@ export function openEdgeStrengthEditor(edgeId: string): boolean {
   state.setShowResultsPanel(false)
 
   // 3. CENTRE IT, so the edge is under the panel the user is about to read.
-  focusEdgeById(edgeId)
+  if (options.centre !== false) focusEdgeById(edgeId)
 
   // 4. RAISE THE INSPECTOR. Last, so it opens onto a settled selection.
   window.dispatchEvent(new Event(OPEN_FULL_INSPECTOR_EVENT))
   return true
+}
+
+/**
+ * After a gesture drew `source → target`: when that link stood down, select it
+ * and raise the inspector on it, so the strength control is in front of the
+ * user rather than behind a toast. The camera is left alone (the link is where
+ * they just drew it). Returns the edge id opened, or `null` when there is no
+ * such link (it was sent, refused, or never created) — fail-closed and silent.
+ */
+export function openStrengthForNewCanvasOnlyLink(source: string, target: string): string | null {
+  const state = useCanvasStore.getState()
+  const edge = state.edges.find(
+    (e) => e.source === source && e.target === target && isCanvasOnlyLink(e, state.lastAuthoritativeGraph),
+  )
+  if (!edge) return null
+  return openEdgeStrengthEditor(edge.id, { centre: false }) ? edge.id : null
+}
+
+/**
+ * The same, for a gesture that minted the link's OTHER end as well ("Add
+ * connected factor", "Add outcome/risk from this"): the node id is the store's
+ * to choose, so the link is found as the one canvas-only edge touching
+ * `touching` that was not there before. `null` unless exactly one matches.
+ */
+export function openStrengthForCanvasOnlyLinkAddedSince(
+  edgeIdsBefore: ReadonlySet<string>,
+  touching: string,
+): string | null {
+  const state = useCanvasStore.getState()
+  const added = state.edges.filter(
+    (e) =>
+      !edgeIdsBefore.has(e.id) &&
+      (e.source === touching || e.target === touching) &&
+      isCanvasOnlyLink(e, state.lastAuthoritativeGraph),
+  )
+  if (added.length !== 1) return null
+  return openEdgeStrengthEditor(added[0].id, { centre: false }) ? added[0].id : null
 }
