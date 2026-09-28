@@ -31,7 +31,10 @@ import {
   WorkspaceShellTabStrip,
 } from '../../../../canvas/components/workspaceShell/WorkspaceShellTabStrip'
 import { PanelWidthProvider } from '../../../../canvas/components/workspaceShell/usePanelWidth'
-import type { WorkspaceSurfaceDescriptor } from '../../../../canvas/components/workspaceShell/shellContract'
+import {
+  SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX,
+  type WorkspaceSurfaceDescriptor,
+} from '../../../../canvas/components/workspaceShell/shellContract'
 
 const TID = 'analysis-new-about'
 const NO_UNIT = { unit: undefined, symbol: undefined, isNormalised: undefined }
@@ -103,6 +106,25 @@ describe('the strip carries the ⓘ "Inspect this analysis"', () => {
 
   it('CONTRAST: no handler wired → no ⓘ (never a control that does nothing)', () => {
     strip({ onInspect: null })
+    expect(screen.queryByTestId('dock-inspect-analysis')).toBeNull()
+  })
+
+  it('⭐ at the 360 default (compact) the ⓘ is a ROW control, not behind "…" (served 38cfd9da hid it there)', () => {
+    const onInspect = strip({ width: 360 })
+    expect(screen.getByTestId('dock-overflow-trigger')).toBeInTheDocument()
+    const btn = screen.getByTestId('dock-inspect-analysis')
+    expect(btn).toHaveAttribute('aria-label', INSPECT_ANALYSIS_LABEL)
+    fireEvent.click(btn)
+    expect(onInspect).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByTestId('dock-overflow-trigger'))
+    expect(screen.getAllByTestId('dock-inspect-analysis'), 'never twice: not also in the menu').toHaveLength(1)
+  })
+
+  it('from SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX it is in the row; one pixel below, it folds', () => {
+    strip({ width: SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX })
+    expect(screen.getByTestId('dock-inspect-analysis')).toBeInTheDocument()
+    cleanup()
+    strip({ width: SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX - 1 })
     expect(screen.queryByTestId('dock-inspect-analysis')).toBeNull()
   })
 
