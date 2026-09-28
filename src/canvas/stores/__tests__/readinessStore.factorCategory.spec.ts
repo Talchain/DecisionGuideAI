@@ -274,11 +274,17 @@ describe('buildReadinessPayload — factor category reaches the wire', () => {
       }),
     )
 
+    // Re-pinned 28 Sep (DL ruling 5871843133): the body is now the registration
+    // projection plus named rules, so the node also carries the projection's own
+    // top-level `value` (undeclared on CEE's readiness node, so it rides
+    // `.passthrough()`). The allow-list this pinned is retired; the lock is
+    // readinessProjection.parity.spec.ts.
     expect(byId(payload.graph.nodes, 'fac_price')).toEqual({
       id: 'fac_price',
       type: 'factor',
       kind: 'factor',
       label: 'Price',
+      value: 0.5,
       data: { value: 0.5 },
       observed_state: { value: 0.5, raw_value: 20 },
       category: 'external',
