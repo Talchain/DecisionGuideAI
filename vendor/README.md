@@ -7,7 +7,32 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.60.0.tgz` ← **THE CURRENT PIN** (27 Sep 2026, A8/B5-enable)
+### `talchain-schemas-0.61.0.tgz` ← **THE CURRENT PIN** (28 Sep 2026, R1 reader-first)
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.** Byte-identical to the
+file CEE vendors in CEE #2261 and PLoT vendors in PLoT #403 (git blob
+`b9de7b3029e9a0831e52d416dba07a4703a630ba` in all three). It is the tarball `npm publish` produced from
+`olumi-schemas` `main` **`4d039fab754392300965fbdb58d77ea1838b4148`** (the schemas #69 merge, tag
+`v0.61.0`). Registry download id, per CEE's vendor README:
+`https://npm.pkg.github.com/download/@talchain/schemas/0.61.0/caba31ec2fe9cb7f427de5d0c1d4d0f4ea036ba6`.
+**611,419 bytes.** Verified, all exact:
+
+```
+npm shasum (sha1)  caba31ec2fe9cb7f427de5d0c1d4d0f4ea036ba6   (the registry download id)
+integrity (sha512) sha512-427890xgnS+wevQwUFWk5ykgrcI42edOAt6egTL085jKdmvomb3lV3J20V5f67K4YuPtp0IRuR72NtsLm052mQ==
+                   (== CEE's recorded registry metadata, == what `pnpm install` wrote here)
+sha256             4e3873ddd9c80ca374d738566f423e57667acd373ca87c4e717f193b7a470a71   (the .sha256 sidecar; == CEE's and PLoT's sidecars)
+```
+
+**Why now (reader first).** 0.60.0's `GoalThresholdFrame` is `level | delta`, and the UI's strict turn parser
+(`src/v5/responseParser.ts`, `OlumiResponseSchema`) rejects a whole turn whose `draft_graph` block carries a limit with
+`value_frame: 'change_rel'` or `'change_abs'`. Measured on staging `9253f60c`: `parse_error`, "body did not match
+OlumiResponse schema"; the `level` control parses. CEE R1 S4 (#2261) stamps those values, so the UI must serve 0.61.0
+before it merges (#72 5879900931). What 0.61.0 adds, all optional/additive on the wire: the two `GoalThresholdFrame`
+values, `NodeV3Schema.quantity_frame`, `EnrichmentConstraintResultSchema.frame_verdict`, and the canonical graph-hash
+projection v2. Wording a change-frame limit is a separate consumer change.
+
+### `talchain-schemas-0.60.0.tgz` (historical — no longer vendored as of 0.61.0; was THE CURRENT PIN 27 Sep 2026, A8/B5-enable)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack**, as
 0.59.0 was. The byte-identical file CEE vendors in its matching 0.60.0 adoption
