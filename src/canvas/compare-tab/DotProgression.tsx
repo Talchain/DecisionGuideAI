@@ -4,6 +4,7 @@ import { GraphLink } from '../../components/results/GraphLink'
 import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 import type { AnalysisSnapshot } from './types'
+import { SavedGoalCaveatLine } from './SavedGoalCaveatLine'
 
 interface DotProgressionProps {
   snapshots: AnalysisSnapshot[]
@@ -211,6 +212,10 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
             />
           ))}
         </div>
+      )}
+      {/* ISL #207: a Target figure measured from Olumi's level says so beside the row. */}
+      {hasGoal && (
+        <SavedGoalCaveatLine runs={snapshots} testId="compare-progression-goal-caveat" className="mb-1" />
       )}
     </div>
   )

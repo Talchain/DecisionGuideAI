@@ -21,6 +21,7 @@ import { runLabel } from './runLabels'
 import { UNCHARACTERISED_CHANGE_SUMMARY, type GraphChangeKind } from './graphChangeDiff'
 import type { AnalysisSnapshot, LeaderClaim, RunPairComparison } from './types'
 import { METRIC_NOUN } from '../nodes/shared/metricVocabulary'
+import { SavedGoalCaveatLine } from './SavedGoalCaveatLine'
 
 interface RunPairCompareProps {
   comparison: RunPairComparison
@@ -211,6 +212,12 @@ export function RunPairCompare({ comparison }: RunPairCompareProps) {
             ? signed(comparison.goalProbabilityDeltaPp, 'pp')
             : ''
         }
+      />
+      {/* ISL #207: a saved goal figure measured from Olumi's level says so beside it. */}
+      <SavedGoalCaveatLine
+        runs={[from, to]}
+        testId="goal-row-caveat"
+        className="px-4 py-1.5 border-b border-panel-border/60"
       />
       <Row
         testId="warnings-row"

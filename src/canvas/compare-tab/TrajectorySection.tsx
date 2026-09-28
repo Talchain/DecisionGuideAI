@@ -8,6 +8,7 @@ import { DotProgression } from './DotProgression'
 import { HealthIndicators } from './HealthIndicators'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 import type { AnalysisSnapshot } from './types'
+import { SavedGoalCaveatLine } from './SavedGoalCaveatLine'
 
 interface TrajectorySectionProps {
   snapshots: AnalysisSnapshot[]
@@ -267,7 +268,11 @@ export function TrajectorySection({ snapshots, showExpert }: TrajectorySectionPr
       {open && (
         <div className="px-4 pb-2.5">
           {useChart ? (
-            <TrajectoryChart snapshots={snapshots} />
+            <>
+              <TrajectoryChart snapshots={snapshots} />
+              {/* ISL #207: the dashed goal line's figures carry their base caveat. */}
+              <SavedGoalCaveatLine runs={snapshots} testId="trajectory-goal-caveat" className="mt-1" />
+            </>
           ) : (
             <DotProgression snapshots={snapshots} />
           )}

@@ -12,6 +12,7 @@ import type {
   StructureComparison,
 } from './types'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
+import { savedGoalCaveatLines } from './savedGoalCaveat'
 import {
   classifyGraphProjections,
   fieldDisplayLabel,
@@ -485,6 +486,8 @@ function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transiti
     robustnessFrom: from.stabilityLabel,
     robustnessTo: to.stabilityLabel,
     goalProbDelta,
+    // ISL #207: the delta subtracts two saved goal figures, so it carries their base caveat(s).
+    goalProbCaveatLines: goalProbDelta != null ? savedGoalCaveatLines([from, to]) : [],
     affectedFactorIds,
     affectedFactorLabels,
     deterministicAnchor: deriveDeterministicAnchor(from, to),
