@@ -202,9 +202,9 @@ export function AskOlumiDrawer() {
           data-testid="ask-olumi-drawer"
           role="dialog"
           aria-label="Work through it with Olumi"
-          className="fixed bottom-[18px] right-[18px] z-[25] w-[min(370px,calc(100vw-36px))] rounded-md border border-panel-border bg-panel shadow-2"
+          className="fixed bottom-4 right-4 z-[25] w-[min(370px,calc(100vw-32px))] rounded-md border border-panel-border bg-panel shadow-2"
         >
-          <div className="flex items-center gap-2 px-[11px] pt-2.5">
+          <div className="flex items-center gap-2 px-3 pt-3">
             <h2 className={`${typography.panelHeader} flex-1 text-text-header`}>
               Work through it with Olumi
             </h2>
@@ -217,11 +217,11 @@ export function AskOlumiDrawer() {
               <X size={ICON_STANDALONE} aria-hidden="true" />
             </button>
           </div>
-          <div className="px-[11px] pb-2.5 pt-2">
+          <div className="px-3 pb-3 pt-2">
             {showContextLine && (
               <p
                 data-testid="ask-olumi-context"
-                className={`${typography.panelBody} mb-2 rounded-[9px] border border-info px-2.5 py-2 text-text-body`}
+                className={`${typography.panelBody} mb-2 rounded-[9px] border border-info px-2 py-2 text-text-body`}
               >
                 {context}
               </p>
@@ -240,7 +240,7 @@ export function AskOlumiDrawer() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={3}
-              className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-[9px] border border-panel-border bg-transparent px-2.5 py-2 text-text-body focus:border-info focus:outline-none`}
+              className={`${typography.panelBody} min-h-[64px] w-full resize-y rounded-[9px] border border-panel-border bg-transparent px-2 py-2 text-text-body focus:border-info focus:outline-none`}
             />
             {!canSend && (
               <p className={`${typography.panelMeta} mt-1 text-text-light`}>
@@ -253,7 +253,7 @@ export function AskOlumiDrawer() {
                 <button
                   type="button"
                   onClick={handleFocusCanvas}
-                  className={`${typography.panelBody} rounded-full border border-panel-border bg-transparent px-2.5 py-1.5 text-text-body hover:bg-panel-hover`}
+                  className={`${typography.panelBody} rounded-full border border-panel-border bg-transparent px-3 py-2 text-text-body hover:bg-panel-hover`}
                 >
                   Focus on canvas
                 </button>
@@ -262,7 +262,7 @@ export function AskOlumiDrawer() {
                 type="button"
                 onClick={handleSend}
                 disabled={!canSend || draft.trim() === ''}
-                className={`${typography.panelBody} inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary px-[11px] py-[7px] text-text-on-color hover:border-primary-hover hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40`}
+                className={`${typography.panelBody} inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-3 py-2 text-text-on-color hover:border-primary-hover hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40`}
               >
                 Send
               </button>
@@ -274,7 +274,7 @@ export function AskOlumiDrawer() {
         <div
           role="status"
           data-testid="ask-olumi-toast"
-          className={`${typography.panelBody} pointer-events-none fixed bottom-[18px] left-1/2 z-[30] max-w-[min(90vw,430px)] -translate-x-1/2 rounded-full bg-text-header px-[13px] py-2 text-text-on-color opacity-95`}
+          className={`${typography.panelBody} pointer-events-none fixed bottom-4 left-1/2 z-[30] max-w-[min(90vw,430px)] -translate-x-1/2 rounded-full bg-text-header px-3 py-2 text-text-on-color opacity-95`}
         >
           {toast}
         </div>
