@@ -42,6 +42,10 @@
  * elements per screen. The outer panel is unchanged.
  */
 
+import { selectDriverPolicyFeed } from '../useResultsSectionData'
+import type { ResultsReport } from '../types'
+import { runHoldsNoValueFor } from '../../../canvas/nodes/shared/unvaluedDriver'
+import { hasAnyStatedValue } from '../../../canvas/utils/observedStateHelpers'
 import { caveatRestatesVerdictReason, useRobustnessCaveatOnScreen } from './robustnessStanding'
 import { buildReasoningSignals } from './reasoningSignals'
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
@@ -1189,6 +1193,22 @@ export function AnalysisNewTabBody({
   // needs the same object, and two `buildModelStrip` calls over one node list
   // would be two authorities on what the model contains (trap 12).
   const modelStrip = useMemo(() => buildModelStrip(nodes ?? []), [nodes])
+  /**
+   * ⭐ PJ-B3 (28 Sep 2026; Canvas 5868665431): drivers the run RANKED but held no value for, and
+   * the model states none — Canvas's rule verbatim (`runHoldsNoValueFor` over the same
+   * `selectDriverPolicyFeed` rows the rank comes from, ∧ `!hasAnyStatedValue`), so the Reasoning
+   * tab's driver rows and the canvas card say the same thing about the same node.
+   */
+  const runReport = useCanvasStore((state) => state.results?.report ?? null)
+  const noValueDriverIds = useMemo<ReadonlySet<string>>(() => {
+    if (runReport === null) return new Set()
+    const feed = selectDriverPolicyFeed(runReport as ResultsReport)
+    const ids = new Set<string>()
+    for (const n of nodes ?? []) {
+      if (runHoldsNoValueFor(feed, n.id) && !hasAnyStatedValue(n.data)) ids.add(n.id)
+    }
+    return ids
+  }, [runReport, nodes])
   const stripOffersTarget = useMemo(
     () => stripRendersTargetAffordance(modelStrip),
     [modelStrip],
@@ -2187,6 +2207,7 @@ export function AnalysisNewTabBody({
         />
         <ReasoningSignals
           vm={vm}
+          noValueIds={noValueDriverIds}
           flipThresholds={vm.leaderClaimPermitted ? resultsSectionData.recommendation.flipThresholds : undefined}
           onFocus={focusTarget}
           onInspect={onReviewTarget}
