@@ -41,7 +41,7 @@
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { factorIsConfirmable } from '../../../canvas/domain/valueProvenance'
 import { nodeValueSource } from '../driverValueProvenance'
-import { factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
+import { factorCardVisibleText, factorDisplayParts, factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
 
 /**
  * Above this many nodes a row shows the first `MARK_CAP` marks and says plainly
@@ -501,8 +501,14 @@ export function buildModelStrip(
       // Scoped to the predicate's own domain — see `StripNode.needsCheck`.
       needsCheck: isFactor && factorIsConfirmable(node.data),
       // Both scoped to factors for the reasons on the fields themselves.
+      // ⭐ THE CARD'S OWN VISIBLE TEXT, not the formatter's raw string: served b8906035 read
+      // "58.8 GBP per month" here beside a card reading "£58.80 / month" (ONE money-figure rule,
+      // DL #72 5870353946). Null exactly when `factorDisplayText` is, so the counts are unchanged.
       valueText: isFactor
-        ? factorDisplayText(node.data as Record<string, unknown> | null | undefined)
+        ? factorCardVisibleText(
+            factorDisplayText(node.data as Record<string, unknown> | null | undefined),
+            factorDisplayParts(node.data as Record<string, unknown> | null | undefined),
+          )
         : null,
       hasValue: isFactor && factorCarriesValue(node),
       valueSource: isFactor ? nodeValueSource(node) : undefined,
