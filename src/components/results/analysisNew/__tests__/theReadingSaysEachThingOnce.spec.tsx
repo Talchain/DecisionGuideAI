@@ -66,6 +66,25 @@ describe('the held-up sentence is said once', () => {
     expect(caveatRestatesVerdictReason(null, REASON)).toBe(false)
     expect(caveatRestatesVerdictReason(REASON, null)).toBe(false)
   })
+
+  // ⭐ Served 0d334f7a (support journey): the glance read "Sensitive · Small changes to your assumptions could
+  // change which option is most likely to achieve your goal" and "How far this held" read "This run was
+  // fragile under the changes we tested. Small changes to your assumptions could change which option is most
+  // likely to achieve your goal." — the reason is the caveat's SECOND sentence, so the prefix rule missed it.
+  const SERVED_REASON = 'Small changes to your assumptions could change which option is most likely to achieve your goal'
+  const SERVED_CAVEAT =
+    'This run was fragile under the changes we tested. Small changes to your assumptions could change which option is most likely to achieve your goal.'
+
+  it('⭐ a caveat that states the reason as a LATER whole sentence restates it too (served 0d334f7a)', () => {
+    expect(caveatRestatesVerdictReason(SERVED_CAVEAT, SERVED_REASON)).toBe(true)
+    expect(caveatRestatesVerdictReason(SERVED_CAVEAT, `${SERVED_REASON}.`)).toBe(true)
+  })
+
+  it('CONTRAST: the reason only as the START of a longer sentence is not a restatement (whole sentences only)', () => {
+    expect(
+      caveatRestatesVerdictReason(`This run was fragile. ${SERVED_REASON} unless demand recovers.`, SERVED_REASON),
+    ).toBe(false)
+  })
 })
 
 describe('the tipping point is said once', () => {
