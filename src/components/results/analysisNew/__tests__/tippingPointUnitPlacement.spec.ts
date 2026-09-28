@@ -77,7 +77,8 @@ describe('one owner places every unit — the sites cannot disagree', () => {
     // away from rendering "£/month53.86".
     const s = tp('Pro Plan Monthly Price', 49, 53.86, 'Hold', '£/month')
     expect(s).not.toContain('£/month49')
-    expect(s).toContain('49 £/month')
+    // 28 Sep 2026 (Panel, `thresholdFigure`): a currency rate now reads as money, the factor card's form.
+    expect(s).toContain('from £49 / month to £53.86 / month')
   })
 
   it('a placeholder unit prints NO unit — "index0.36" cannot come back', () => {
@@ -85,8 +86,9 @@ describe('one owner places every unit — the sites cannot disagree', () => {
     expect(s).not.toContain('index')
   })
 
-  it('an ISO code takes a space, not a jam', () => {
+  it('an ISO code takes its glyph (the factor card’s ISO_CURRENCY_GLYPHS), never a jam', () => {
     const s = tp('Price', 49, 59, 'X', 'USD')
-    expect(s).toContain('USD 49')
+    expect(s).toContain('from $49 to $59')
+    expect(s).not.toContain('USD49')
   })
 })
