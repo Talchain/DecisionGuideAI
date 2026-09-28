@@ -45,6 +45,7 @@ import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/elementLabel'
 import {
   buildOptionTargetRow,
+  optionTargetReading,
   readingShowsModelValue,
   resolveBaselineOptionReference,
   resolveOptionTargets,
@@ -545,13 +546,16 @@ export const OptionPanel = memo(function OptionPanel({
         displayValue: iv.displayValue ?? null,
         source: iv.provenanceSource ?? null,
       }
+      const factorNode = nodes.find(n => n.id === iv.factorId) as TargetNodeLike | undefined
       const row = buildOptionTargetRow({
         factorId: iv.factorId,
         target,
-        factorNode: nodes.find(n => n.id === iv.factorId) as TargetNodeLike | undefined,
+        factorNode,
         baselineReference,
       })
-      const reading = row.target || row.change
+      // DIFF N7 (28 Sep): never a bare 0–1 figure where the factor card shows a
+      // word — the card's band word, in the tier-reading form (`optionTargetReading`).
+      const reading = optionTargetReading(row, factorNode?.data)
       const fieldTakesTheReadingsUnit =
         row.target !== '' &&
         target.value === iv.value &&

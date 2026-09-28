@@ -370,7 +370,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * with the satisfaction probability the run computed — a strictly richer
    * surface. A second line here would say less, twice.
    */
-  const { lines: constraintLines } = useNodeConstraints(id, label)
+  // `cardLines`: a limit the Goal card already shows is not repeated here (DIFF
+  // pre-run item 7, 28 Sep) — see `useNodeConstraints`.
+  const { cardLines: constraintLines } = useNodeConstraints(id, label)
   // NODE-ANATOMY v3.2, Factor "Never on the card: a limit line (the boundary
   // lives on the Goal)" — the factor card no longer repeats the Goal's boundary.
   const showConstraintLines = nodeType !== 'goal' && nodeType !== 'factor' && constraintLines.length > 0

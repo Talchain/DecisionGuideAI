@@ -27,9 +27,17 @@
  * names targets. The anatomy (and contract `nodeHTML`) reads `Baseline · no
  * changes` — true when none of those targets is a CONCRETE change by the card's
  * own filter (`isConcreteChangeRow`: a target equal to the factor's current
- * value is not a change). The contrast is market-entry's status quo, which sets
- * `UK Financial Services Deepdive` from Low to Very high — a real change, so it
- * keeps `Baseline option`.
+ * value is not a change).
+ *
+ * ⚠ RE-PINNED 28 Sep 2026 (side-by-side DIFF N2, owner decision: a DATA fix).
+ * The contrast used to be market-entry's shipped status quo, which set
+ * `UK Financial Services Focus` to Pursued while the factor's current value read
+ * Not pursued — a contradiction in the starter itself (the other options' rows
+ * already read "Pursued → Not pursued"). The starter now records the status
+ * quo's own state (current value 1, "Pursued"), so market-entry joins the
+ * no-change baselines. The contrast is kept, on a copy of that starter with
+ * the old contradicting value (0) restored: a baseline that DOES change
+ * something still keeps `Baseline option`.
  *
  * FIXTURES: the shipped starters themselves, mapped the way a draft lands.
  *
@@ -198,10 +206,12 @@ describe('DIFF item 1 — the label takes what the amount leaves, and ellipsises
       expect(t.has('truncate'), 'the label ellipsises by character').toBe(true)
       expect(t.has('line-clamp-1'), 'the word-break clamp that left one word').toBe(false)
       expect(t.has('break-words')).toBe(false)
-      // Its share: at least 6em of the line (~11 characters at 100%), and
-      // everything the amount leaves. 8em stacked `Very high → Moderate brief`
-      // (143px) under its label at 100% in a 234px row (harness, 27 Sep).
-      expect(t.has('flex-[1_1_6em]')).toBe(true)
+      // Its share: everything the amount leaves. ⚠ RE-PINNED 28 Sep (DIFF Pre 1
+      // residual, owner decision: the amount on the label's line, the label
+      // yields). It kept `flex-[1_1_6em]` (at least 6em), which stacked 23 of
+      // 23 landing rows; the label is now the row grid's `minmax(0,1fr)`
+      // column (`OPTION_ROW_LINE_GRID_CLASSES`) and reserves no basis of its own.
+      expect([...t].some(c => c.startsWith('flex-')), 'no label basis that pushes the amount down').toBe(false)
       expect(t.has('min-w-0')).toBe(true)
       // Nothing is cut in JS: the DOM text is the whole name.
       expect(dt.textContent).toBe(r.label)
@@ -216,23 +226,28 @@ describe('DIFF item 1 — the label takes what the amount leaves, and ellipsises
   }
 })
 
-describe('DIFF item 1 — a row that cannot share one line stacks the amount LEFT-aligned under the label', () => {
+// ⚠ RE-PINNED 28 Sep (side-by-side DIFF Pre 1 residual; owner decision). The
+// row used to WRAP AS A WHOLE (`flex flex-wrap`), stacking the amount under the
+// label whenever the two did not fit — every row at the landing bound. It is
+// now the contract's two-column grid: the amount's first line is on the
+// label's line by construction, still left-aligned and never pushed right.
+describe('DIFF Pre 1 residual — the amount stays on the label\'s line (the contract grid), left-aligned', () => {
   for (const r of HYBRID_ROWS) {
-    it(`${r.factorId}: the line wraps as a whole; the amount keeps its natural width, never pushed right`, () => {
+    it(`${r.factorId}: a two-column grid line; the amount keeps its natural width, never pushed right`, () => {
       const { container } = renderOption(PRICING, HYBRID)
       const { line, dd } = hybridRow(container, r.factorId)
       const lt = tokens(line)
-      expect(lt.has('flex')).toBe(true)
-      expect(lt.has('flex-wrap')).toBe(true)
+      expect(lt.has('grid')).toBe(true)
+      expect(lt.has('grid-cols-[minmax(0,1fr)_fit-content(calc(100%_-_8px_-_6em))]')).toBe(true)
+      expect(lt.has('flex-wrap'), 'a wrapping line stacks the amount under the label').toBe(false)
       expect(lt.has('items-baseline')).toBe(true)
       const at = tokens(dd)
-      // Stacked, the amount starts at the label's left edge and wraps left-aligned.
+      // A wrapped amount wraps left-aligned inside its own column.
       expect(at.has('text-left')).toBe(true)
       expect(at.has('text-right'), 'ragged right-aligned wraps').toBe(false)
-      expect(at.has('ml-auto'), 'an amount pushed to the right edge when stacked').toBe(false)
-      // Beside the label it sits at the line's end anyway: the label grows into
-      // every pixel the amount leaves (`flex-[1_1_6em]`), and the amount never
-      // exceeds the card.
+      expect(at.has('ml-auto'), 'an amount pushed to the right edge').toBe(false)
+      // Beside the label it sits at the line's end anyway: the label column
+      // takes every pixel the amount leaves, and the amount never exceeds the card.
       expect(at.has('max-w-full')).toBe(true)
       for (const grow of ['grow', 'flex-1', 'flex-auto']) expect(at.has(grow), `amount ${grow}`).toBe(false)
     })
@@ -246,7 +261,23 @@ const NO_CHANGE_BASELINES = [
   { starter: 'build-vs-buy', draft: buildVsBuyStarter, id: 'opt_status_quo' },
   { starter: 'headcount-allocation', draft: headcountStarter, id: 'opt_status_quo' },
   { starter: 'vendor-selection', draft: vendorStarter, id: 'opt_status_quo' },
+  // DIFF N2 (28 Sep): the status quo is the current state now — no concrete change.
+  { starter: 'market-entry', draft: marketEntryStarter, id: 'opt_uk_fs' },
 ] as const
+
+/**
+ * The market-entry starter AS IT SHIPPED BEFORE THE N2 DATA FIX: the factor's
+ * current value 0 ("Not pursued") while the status quo sets it to 1. Kept only
+ * as the contrast — a baseline with a real concrete change.
+ */
+function marketEntryWithContradiction(): Draft {
+  const draft = structuredClone(marketEntryStarter) as unknown as Draft
+  const factor = (draft.nodes as Array<{ id: string; observed_state?: { value?: number }; display_value?: string }>)
+    .find(n => n.id === 'fac_uk_deepdive')!
+  factor.observed_state!.value = 0
+  factor.display_value = 'Low (0)'
+  return draft
+}
 
 /** The status quo's own target map, as the starter carries it — the old key counted these. */
 function targetCount(draft: Draft, optionId: string): number {
@@ -273,8 +304,8 @@ describe('DIFF item 10 — a baseline whose targets are all non-changes reads "B
     })
   }
 
-  it('CONTRAST — market-entry opt_uk_fs sets UK deepdive Low → Very high, a concrete change: it keeps "Baseline option"', () => {
-    const draft = marketEntryStarter as unknown as Draft
+  it('CONTRAST — a status quo that sets UK focus Not pursued → Pursued (the pre-N2 data), a concrete change: it keeps "Baseline option"', () => {
+    const draft = marketEntryWithContradiction()
     const { container } = renderOption(draft, 'opt_uk_fs')
     const meta = onCard(container, 'option-baseline-meta-opt_uk_fs')
     expect(meta, 'the baseline meta is on the card').not.toBeNull()

@@ -210,6 +210,42 @@ const OPTION_ROW_ESTIMATE_TITLE = `${OPTION_ROW_ESTIMATE_NOTE} Open the details 
  */
 const MARK_GLUE = '\u00A0'
 
+/**
+ * ⭐⭐ ONE CHANGE ROW = THE CONTRACT'S ONE-LINE GRID, AT EVERY RUNG (side-by-side
+ * DIFF Pre 1 residual + N5, 28 Sep 2026; owner decision: the amount on the
+ * label's line, the label yields with an ellipsis, the amount never breaks
+ * where it fits).
+ *
+ * Contract v3.1: `.delta-rows{display:grid;grid-template-columns:minmax(0,1fr)
+ * auto}` + `.amount{white-space:nowrap}`. The row was a wrapping FLEX line whose
+ * label kept at least `6em`, so wherever `6em` + gap + amount overflowed the
+ * row the amount dropped UNDER the label. Measured on the local build of
+ * `b40d5436` at the landing bound (1280×800, `--canvas-label-scale` 1.64, a
+ * 222px row): 23 of 23 rows stacked; the amounts are 174–510px wide, so none
+ * could sit beside a 108px label.
+ *
+ * Now a per-row grid: `minmax(0,1fr)` label + `fit-content(100% − gap − 6em)`
+ * amount. The amount takes its natural width up to the row less a 6em label
+ * floor (⭐ owner, 28 Sep: at 1.5em the landing label read "G…" / "Bo…" — the
+ * factor's name is what the row is FOR, so it keeps ~6em, e.g. "Germany…";
+ * in the label's own counter-scaled em —
+ * this line wears the label's type so `em` IS the label's); the label takes
+ * the rest and ellipsises by character. The amount's FIRST line always shares
+ * the label's line, by construction of a one-row, two-column grid.
+ *
+ * ⚠ WHERE THE CONTRACT CANNOT HOLD, STATED: an amount wider than the whole row
+ * at the bound (17 of 23 starter rows at landing: "Not pursued → Pursued brief"
+ * is 232px against a 222px row) cannot be one line beside anything without
+ * smaller type, which L4 forbids. It still breaks only where it always could —
+ * before its arrow, each half unbroken while it fits (`optionAmountSegmentNoWrap`)
+ * — inside its own column, on the label's line. At 100% the same rows are one
+ * line. An unbreakable run is budgeted to the full row (`NODE_ROW_AMOUNT_MAX_CHARS`)
+ * and the label track may reach 0 beside it, so nothing is ever pushed past the
+ * card's edge.
+ */
+export const OPTION_ROW_LINE_GRID_CLASSES =
+  `${typography.edgeLabel} grid grid-cols-[minmax(0,1fr)_fit-content(calc(100%_-_8px_-_6em))] items-baseline gap-x-2`
+
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 function stripFactorSuffixes(label: string): string {
@@ -1097,7 +1133,8 @@ export const OptionNode = memo((props: NodeProps) => {
    * point 4; ED 02:31Z D2). At most `OPTION_CARD_ROW_LIMIT` CONCRETE change
    * rows (contract v3.1 #9: a target equal to its reference is not a change),
    * chosen in ONE order for the whole option row so options compare like with
-   * like (`optionChangeRows.ts`), then `+N more` from the one total. Olumi-chosen
+   * like (`optionChangeRows.ts`), then `+N more` for the concrete changes not
+   * shown (DIFF N1, 28 Sep — never the target total). Olumi-chosen
    * targets stay marked `est.`. Nothing here grows on selection.
    */
   const optionSet = useMemo<Array<OptionSetLike & { unsetSources: ReadonlyMap<string, string | null> }>>(() => {
@@ -1149,7 +1186,16 @@ export const OptionNode = memo((props: NodeProps) => {
     () => (isBaselineOption ? [] : fitRowsToBudget(concreteChangeRows.slice(0, OPTION_CARD_ROW_LIMIT))),
     [isBaselineOption, concreteChangeRows],
   )
-  const changeRowsMore = moreCount(totalInterventionCount, changeRows.length)
+  // ⭐ `+N more` COUNTS CONCRETE CHANGES ONLY (side-by-side DIFF N1, 28 Sep;
+  // owner decision). It counted every TARGET (`totalInterventionCount`), so a
+  // card whose hidden targets all equal the baseline's advertised them as more
+  // changes: vendor-selection showed 1 row + `+5 more` on every option, and the
+  // inspector it opened listed five non-changes. The rows are filtered by
+  // `isConcreteChangeRow`; `+N more` now counts from that SAME filtered list, so
+  // rows shown + more = the option's concrete changes. The targets that are not
+  // changes stay one pencil away (the rail's `option-edit-targets-*` route, whose
+  // accessible name still states the full target total).
+  const changeRowsMore = isBaselineOption ? 0 : moreCount(concreteChangeRows.length, changeRows.length)
   // Below Normal zoom (`quiet` / `line`) the change rows stack — see the render.
   // The same rung predicate the resting glyphs read, so one zoom boundary
   // decides both, never two.
@@ -1966,18 +2012,12 @@ export const OptionNode = memo((props: NodeProps) => {
    * and the amount `from → to mark`, no separator
    * (`.delta-rows .amount{white-space:nowrap}`).
    *
-   * ⭐ ONE ROW = ONE WRAPPING FLEX LINE, NOT A SHARED GRID, AND THAT IS WHAT
-   * KEEPS THE AMOUNT ON ONE LINE AT EVERY ZOOM. The contract's
-   * `minmax(0,1fr) auto` grid holds only while the amount fits beside a label:
-   * at the landing counter-scale (`--canvas-label-scale` 2) "Very high →
-   * Moderate · brief" is wider than the whole card, and an `auto` track would
-   * then push the amount out of the card. Here the amount takes its natural
-   * width and the label asks for at least `6em` (em of its own counter-scaled
-   * type, so the rule is zoom-invariant; the amount's cap is the rest) and grows
-   * into whatever the amount leaves; when the two do not fit side by side the
-   * amount takes the next line, LEFT-aligned under the label (side-by-side DIFF
-   * item 1: it was right-aligned, and wrapped into ragged right-aligned lines),
-   * and the label gets the full width.
+   * ⭐ ONE ROW = THE CONTRACT'S TWO-COLUMN GRID (`OPTION_ROW_LINE_GRID_CLASSES`,
+   * side-by-side DIFF Pre 1 residual, 28 Sep). It was a wrapping flex line whose
+   * label kept `6em`, so at the landing bound every amount dropped under its
+   * label (23 of 23 rows). The label column is `minmax(0,1fr)`, the amount's is
+   * `fit-content` up to the row less a 6em label floor: the amount's first line
+   * is always on the label's line, and the label ellipsises into what is left.
    * Measured before (served `eec722ab`): labels CSS-clipped ("Bottom-up ado…"),
    * amounts wrapped mid-value ("Very high → Moderate / · brief").
    *
@@ -2012,9 +2052,18 @@ export const OptionNode = memo((props: NodeProps) => {
       className={resting
         // Side-by-side DIFF item 1 (27 Sep): natural width, never pushed right.
         // Beside the label it ends the line anyway (the label grows into every
-        // pixel it leaves); stacked under the label it starts at the label's
-        // left edge and wraps left-aligned — no ragged right-aligned lines.
-        ? `${typography.edgeLabel} !leading-tight m-0 max-w-full text-left text-text-body`
+        // pixel it leaves); an amount wider than its column wraps left-aligned
+        // inside it — no ragged right-aligned lines.
+        // ⭐ `whitespace-nowrap` ON THE CELL (DIFF N5, 28 Sep): the mark's
+        // only neighbour is the U+00A0 glue, but the mark is an inline-flex
+        // button — an ATOMIC inline — and Chromium took the break opportunity
+        // before it under the cell's `normal` white-space, whatever the glue:
+        // `brief` stood alone on the next line in 7 of 23 landing rows (local
+        // `b40d5436`; 10 of 23 served). The break opportunity between two
+        // inline boxes is decided by their nearest common ancestor — this cell
+        // — so it is now `nowrap`, and the one place the amount may break
+        // (before its arrow) is re-opened INSIDE the value span below.
+        ? `${typography.edgeLabel} !leading-tight m-0 max-w-full whitespace-nowrap text-left text-text-body`
         : `${typography.edgeLabel} !leading-tight m-0 min-w-0 break-words ${align === 'left' ? 'text-left' : 'text-right'} text-text-body`}
       data-testid={`option-change-row-${props.id}-${r.factorId}`}
       title={changeRowSentence(r)}
@@ -2039,7 +2088,9 @@ export const OptionNode = memo((props: NodeProps) => {
         </span>
       ) : (
         <span
-          className={resting ? (amountRunNoWrap(r.change) ? 'whitespace-nowrap' : 'break-words') : undefined}
+          // `whitespace-normal` is EXPLICIT: the cell is `nowrap` (the mark's
+          // glue), so a value that may break must re-open its own spaces.
+          className={resting ? (amountRunNoWrap(r.change) ? 'whitespace-nowrap' : 'whitespace-normal break-words') : undefined}
           data-testid={`option-change-row-value-${props.id}-${r.factorId}`}
         >
           {/* ⭐ NEVER PAST THE CARD'S EDGE, AT ANY RUNG (served cd6a82e4: "49
@@ -2115,34 +2166,27 @@ export const OptionNode = memo((props: NodeProps) => {
           {changeRows.map((r) => (
             <div
               key={r.factorId}
-              className="flex flex-wrap items-baseline gap-x-2"
+              className={OPTION_ROW_LINE_GRID_CLASSES}
               data-testid={`option-change-row-line-${props.id}-${r.factorId}`}
               // The label's recovery route: the row's full factor name, on the
               // row (the amount keeps its own fuller sentence on the `dd`).
               title={r.fullLabel}
             >
               {/* Contract v3.1 `.delta-rows .label`: muted, the FULL name in
-                  the DOM. Design audit #9 (26 Sep): ONE line at every rung —
-                  a wrapped label cost the card a line per row at the landing
-                  scale, and the layout reserves that height for the whole
-                  board.
-                  ⭐ Side-by-side DIFF item 1 (27 Sep): `line-clamp-1` ended
-                  line 1 at a WORD break, so "Bottom-up adoption friction"
-                  read `Bottom-up…` with room for most of the next word. The
-                  amount now takes its natural width; the label keeps at least
-                  6em of the line (about 11 characters at 100%, 9 at landing
-                  — the amount's cap is the rest) and takes every pixel the
-                  amount leaves, ellipsising by CHARACTER (`truncate`). When
-                  the two cannot share a line the amount drops under the
-                  label, left-aligned. The text is never cut in JS: a screen
-                  reader reads the whole name, the row's `title` above and the
-                  mark's accessible name carry it (ED 5809278282: the label
-                  half may ellipsize, never a value, unit or mark), and
-                  `data-truncates="label"` + that titled row is the exemption
+                  the DOM. Design audit #9 (26 Sep): ONE line at every rung.
+                  ⭐ DIFF Pre 1 residual (28 Sep): the label is the grid's
+                  `minmax(0,1fr)` column — it takes every pixel the amount
+                  leaves and ellipsises by CHARACTER (`truncate`); the amount
+                  keeps the label's line (`OPTION_ROW_LINE_GRID_CLASSES`). The
+                  text is never cut in JS: a screen reader reads the whole
+                  name, the row's `title` above and the mark's accessible name
+                  carry it (ED 5809278282: the label half may ellipsize, never
+                  a value, unit or mark), and `data-truncates="label"` + that
+                  titled row is the exemption
                   `e2e/visual/nodeTextClipping.visual.spec.ts` requires of a
                   CSS ellipsis. */}
               <dt
-                className={`${typography.edgeLabel} !leading-tight min-w-0 flex-[1_1_6em] truncate text-text-light`}
+                className={`${typography.edgeLabel} !leading-tight min-w-0 truncate text-text-light`}
                 data-truncates="label"
               >
                 {r.fullLabel}
@@ -2258,8 +2302,10 @@ export const OptionNode = memo((props: NodeProps) => {
    * intervention total: every starter's status quo names targets, and a target
    * equal to the factor's current value is not a change by the card's own filter
    * (`isConcreteChangeRow`), so the total said `Baseline option` on all five. A
-   * baseline that does change something (market-entry's sets UK deepdive
-   * Low → Very high), or names a factor with no value yet, keeps `Baseline option`.
+   * baseline that does change something (a status quo whose target differs from
+   * the factor's current value — market-entry's did until its starter data was
+   * corrected, DIFF N2, 28 Sep), or names a factor with no value yet, keeps
+   * `Baseline option`.
    */
   const baselineMeta = (
     <div

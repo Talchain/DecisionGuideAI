@@ -35,7 +35,7 @@
  */
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { classifyUnit, ISO_CURRENCY_GLYPHS } from '../../utils/unitClassifier'
-import { statedTargetNumber } from './goalTarget'
+import { canCaptureGoalTarget, statedGoalTargetRaw, statedTargetNumber, type GoalTargetSource } from './goalTarget'
 
 /** The target a surface STATES — its figure (number or numeric string) and its unit. */
 export interface StatedGoalTargetFigure {
@@ -86,4 +86,54 @@ export function goalStatedLimits<C extends CEEGoalConstraint>(
 ): C[] | null {
   if (!constraints) return null
   return constraints.filter((c) => !constraintRestatesGoalTarget(c, goalId, statedTarget))
+}
+
+/**
+ * ⭐⭐ THE LIMIT ROWS THE GOAL CARD ITSELF SHOWS, WITH NOTHING OPENED — the one
+ * answer to "does the Goal already state this limit?" (side-by-side DIFF pre-run
+ * item 7, 28 Sep 2026).
+ *
+ * The Goal card states its limits in exactly two resting forms:
+ *   · Standard view: the boundary pills beside `Target: …` — only when a target
+ *     is on the row (the missing state shows ONE pill, "Target not captured");
+ *   · Detailed view: Layer 2 inline, whose constraint list states every limit.
+ * Both read `goalStatedLimits` with the target the card states, so this is the
+ * SAME set, from the same inputs `GoalNode` reads (`canCaptureGoalTarget`,
+ * `statedGoalTargetRaw`, the node's `goal_threshold_unit`) — `GoalNode`'s pill
+ * row calls this, so the pills and every reader of this function cannot drift.
+ *
+ * ⚠ THE ROWS ARE THE CALLER'S OWN OBJECTS (a filter, never a copy), so a reader
+ * holding the same constraint slice can key "the same limit" by row identity.
+ */
+export function goalCardShownLimits<C extends CEEGoalConstraint>(
+  constraints: readonly C[] | null | undefined,
+  goalId: string,
+  goalData: GoalTargetSource | null | undefined,
+  isDetailed: boolean,
+): C[] {
+  const hasTarget = !canCaptureGoalTarget(goalData)
+  if (!hasTarget && !isDetailed) return []
+  const statedTarget = hasTarget ? { raw: statedGoalTargetRaw(goalData), unit: goalData?.goal_threshold_unit } : null
+  return goalStatedLimits(constraints, goalId, statedTarget) ?? []
+}
+
+/**
+ * The identity of a constraint ROW: the producer's `constraint_id`, then `id`.
+ * `null` when it carries neither — such a row is the same row only as the same
+ * object (see `sameConstraintRow`).
+ */
+function constraintRowKey(c: CEEGoalConstraint): string | null {
+  const key = c.constraint_id ?? c.id
+  return typeof key === 'string' && key !== '' ? key : null
+}
+
+/**
+ * ⭐ IS THIS THE SAME CONSTRAINT ROW? — by identity, never by its text or its
+ * figure: the same object, or the same producer id. Two different limits that
+ * happen to print alike ("≥110%" on two outcomes) are two rows.
+ */
+export function sameConstraintRow(a: CEEGoalConstraint, b: CEEGoalConstraint): boolean {
+  if (a === b) return true
+  const ka = constraintRowKey(a)
+  return ka !== null && ka === constraintRowKey(b)
 }

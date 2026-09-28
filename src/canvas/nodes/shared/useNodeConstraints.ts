@@ -15,6 +15,8 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../store'
 import { goalConstraintText } from '../../utils/goalConstraintText'
+import { goalCardShownLimits, sameConstraintRow } from '../../domain/goalOwnTargetRow'
+import type { GoalTargetSource } from '../../domain/goalTarget'
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 
 export interface NodeConstraints {
@@ -26,6 +28,12 @@ export interface NodeConstraints {
   readonly matching: readonly CEEGoalConstraint[]
   /** One ruled sentence per constraint, target name omitted — the card names it. */
   readonly lines: readonly string[]
+  /**
+   * ⭐ THE LINES THIS CARD STATES: `lines` less every limit the GOAL card
+   * already shows, by row identity (side-by-side DIFF pre-run item 7, 28 Sep
+   * 2026). See the hook body.
+   */
+  readonly cardLines: readonly string[]
 }
 
 export function useNodeConstraints(nodeId: string, nodeLabel: string): NodeConstraints {
@@ -85,5 +93,32 @@ export function useNodeConstraints(nodeId: string, nodeLabel: string): NodeConst
     [matching, allNodes],
   )
 
-  return { matching, lines }
+  /**
+   * ⭐⭐ ONE FACT, ONCE (NODE-ANATOMY v3.2 principle 2) — side-by-side DIFF
+   * pre-run item 7 (28 Sep 2026). The Outcome's limit line was kept on the
+   * premise "the Goal shows no limit pills without a target". Served
+   * `b40d5436` pricing: the Goal HAS a target and shows the pill
+   * `Net Revenue Retention ≥110%`, while the Outcome still read `Limit ≥ 110%` —
+   * one limit, twice, in two formats.
+   *
+   * So a card drops a limit line ONLY when a Goal card already shows THAT
+   * constraint row at rest (`goalCardShownLimits`, the function the Goal's own
+   * pill row calls), matched by row identity (`sameConstraintRow`: the same
+   * object or the same producer id) — never by its text. A limit the Goal does
+   * not show (no target on a Standard Goal, or no Goal on the canvas) stays on
+   * this card, so no limit ever disappears from the resting graph.
+   */
+  const viewMode = useCanvasStore(s => s.viewMode)
+  const cardLines = useMemo(() => {
+    if (!matching.length) return []
+    const isDetailed = viewMode === 'expert'
+    const shownOnGoal = allNodes
+      .filter(n => n.type === 'goal' && n.id !== nodeId)
+      .flatMap(g => goalCardShownLimits(source, g.id, g.data as GoalTargetSource | undefined, isDetailed))
+    return matching
+      .filter(c => !shownOnGoal.some(g => sameConstraintRow(g, c)))
+      .map(c => goalConstraintText(c, allNodes, { omitLabel: true }))
+  }, [matching, allNodes, source, viewMode, nodeId])
+
+  return { matching, lines, cardLines }
 }
