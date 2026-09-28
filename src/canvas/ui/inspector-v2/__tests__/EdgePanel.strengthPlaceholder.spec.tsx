@@ -69,6 +69,9 @@ describe('EdgePanel — a placeholder strength (POM-8)', () => {
     const provenance = screen.getByTestId('edge-values-provenance').textContent ?? ''
     expect(provenance).toContain('placeholder')
     expect(provenance).toContain('not an estimate')
+    // R11: the Agent's words lead, and no band is named.
+    expect(provenance).toContain('Strength not judged yet')
+    expect(provenance).not.toMatch(/\b(weak|moderate|strong)\b/i)
     expect(provenance).not.toContain('Olumi estimated this strength')
   })
 

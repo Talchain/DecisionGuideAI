@@ -104,9 +104,13 @@ export const EDGE_EXISTENCE_DOUBT_SENTENCE =
  * model can run, and Olumi does not stand behind it. The words are the Model
  * tab's own for the same fact (`naturalEffect.ts`, "a placeholder, not an
  * estimate"), so the two surfaces say one thing.
+ *
+ * R11 (DL #72 5871699334, 28 Sep): an unjudged placeholder is said as "not
+ * judged yet", never as a band, the Agent's words, mirrored on the hover, the
+ * inspector and the Model tab.
  */
 export const EDGE_STRENGTH_PLACEHOLDER_SENTENCE =
-  'Its strength is a placeholder, not an estimate — set it if you know it.'
+  'Strength not judged yet: a placeholder, not an estimate — set it if you know it.'
 
 // ── The key's line-style and colour rows ────────────────────────────────────
 

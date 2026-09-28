@@ -147,7 +147,7 @@ export function unitForAmount(amount: number, unit: string): string {
 const AUTHOR_SUFFIX: Record<NaturalEffectAuthor, string> = {
   user: '',
   olumi_estimate: " · Olumi's estimate",
-  olumi_placeholder: ' · a placeholder, not an estimate',
+  olumi_placeholder: ' · not judged yet (a placeholder, not an estimate)',
 }
 
 /**

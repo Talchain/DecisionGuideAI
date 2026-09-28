@@ -140,6 +140,9 @@ describe('POM-8 — the hover says it is a placeholder, not an estimate', () => 
       EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
     )
     expect(EDGE_STRENGTH_PLACEHOLDER_SENTENCE).toMatch(/placeholder, not an estimate/)
+    // R11: an unjudged placeholder is said as "not judged yet", never as a band.
+    expect(EDGE_STRENGTH_PLACEHOLDER_SENTENCE).toMatch(/^Strength not judged yet/)
+    expect(EDGE_STRENGTH_PLACEHOLDER_SENTENCE).not.toMatch(/\b(weak|moderate|strong)\b/i)
   })
 
   it('CONTRAST: the estimate\'s hover says nothing about a placeholder', () => {
