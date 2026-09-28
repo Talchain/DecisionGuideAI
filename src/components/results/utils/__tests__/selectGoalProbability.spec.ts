@@ -28,6 +28,7 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       jointGoalProbability: null,
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
+      goalFitBaseCaveat: null,
       mayUsePossessiveGoalFraming: false,
       // L62: nothing was available to withhold here — 'none' means the run
       // carried no joint figure either.
@@ -294,5 +295,38 @@ describe('selectGoalProbability — publishes the joint quantity it read', () =>
     expect(result.goalProbability).toBe(0.42)
     expect(result.goalProbabilityIsJoint).toBe(false)
     expect(result.jointGoalProbability).toBe(0.07)
+  })
+})
+
+/**
+ * ⭐ ISL #207 (proposal 3, AIQ ACK #72 5876773218): a goal that states no level today is anchored
+ * on its evaluated identity, and when any operand is Olumi's the goal probability is
+ * `estimate_only` — measured from OLUMI'S estimate of today's level. The chooser publishes that
+ * once, so no surface can print the figure without saying whose base it stands on.
+ * Carrier: `identity_evaluations[].level_author` (R3 #72 5876843426), stamped fail-closed by the V5 mapper.
+ */
+describe('selectGoalProbability — whose base the goal figure stands on', () => {
+  beforeEach(() => {
+    mockTrust.headlineSuspect = false
+  })
+
+  it.each([
+    ['olumi', 'olumi_estimate'],
+    // fail-closed: the author was not attested → the author-neutral caveat, never "Olumi's"
+    ['unattested', 'from_inputs'],
+  ] as const)('goal level author %s on a present goal figure → %s', (goalLevelAuthor, expected) => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62, goalLevelAuthor })
+    expect(r.goalProbability).toBe(0.62)
+    expect(r.goalFitBaseCaveat).toBe(expected)
+  })
+
+  it("OPPOSITE TWIN — the user's own base (nothing stamped) → no caveat", () => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62 })
+    expect(r.goalProbability).toBe(0.62)
+    expect(r.goalFitBaseCaveat).toBeNull()
+  })
+
+  it('CONTROL — the caveat never stands without a figure to qualify', () => {
+    expect(selectGoalProbability({ goalLevelAuthor: 'olumi' }).goalFitBaseCaveat).toBeNull()
   })
 })

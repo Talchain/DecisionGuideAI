@@ -197,7 +197,7 @@ const LENS_ARM_SELECTED = 'bg-primary text-text-on-color'
 const LENS_ARM_IDLE = 'text-text-body hover:text-info'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../utils/goalFitBasisCaveatCopy'
 import {
   COMPARISON_LENSES,
   COMPARISON_LENS_COPY as LENS_COPY,
@@ -1039,6 +1039,17 @@ export function OptionsComparison({
                     data-testid={`${testId}-goal-basis-caveat`}
                   >
                     {GOAL_FIT_BASIS_CAVEAT_COPY}
+                  </p>
+                ) : null}
+                {/* The second basis (ISL #207): today's level of the goal was
+                    worked out from its inputs. Same doctrine, same place. */}
+                {o.goalBaseCaveat !== null ? (
+                  <p
+                    className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                    data-testid={`${testId}-goal-estimate-caveat`}
+                    data-caveat={o.goalBaseCaveat}
+                  >
+                    {goalFitBaseCaveatCopy(o.goalBaseCaveat)}
                   </p>
                 ) : null}
               </div>

@@ -3362,6 +3362,7 @@ function buildOptionsComparison(
         : null,
       goalFraction: goalOnScreen && goalValue !== null ? Math.max(0, Math.min(1, goalValue)) : null,
       goalBasisIsModelled: o.goalFitIsModelledBasis === true,
+      goalBaseCaveat: o.goalFitBaseCaveat ?? null,
       // ⭐ THE RANGE, READ FROM THE OPTION'S OWN OUTCOME DISTRIBUTION.
       // `o.outcome` is `OptionOutcome` on `OptionResult` — the producer's
       // forward-propagated percentiles for THIS option, not a rescaling of

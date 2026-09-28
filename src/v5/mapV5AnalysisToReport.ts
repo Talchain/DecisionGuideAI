@@ -138,6 +138,39 @@ function normaliseGoalFitBasis(
 }
 
 /**
+ * ⭐ ISL #207 — WHOSE BASE A GOAL FIGURE STANDS ON, FAIL-CLOSED.
+ *
+ * A goal that states no level today is anchored on its evaluated identity; ISL says so with the
+ * `GOAL_LEVEL_FROM_IDENTITY_INPUTS` code (which reaches the UI in `inference_warnings`, `field`
+ * `nodes[<goal>].nonlinear_identity`) and says WHOSE base it is on the typed carrier
+ * `identity_evaluations[].level_author` (R3 #72 5876843426). AIQ's rule (5876871320): with the
+ * code present, the goal figure is caveated UNLESS the goal's own typed entry says
+ * `level_author: "user"` — a missing entry keeps the caveat (author-neutral, `unattested`), so a hop that drops the carrier
+ * (CEE's enrichment keep-list does not list `identity_evaluations` today) can never uncaveat it.
+ */
+function goalLevelFromIdentityCaveat(
+  enrichment: Record<string, unknown> | undefined,
+): 'olumi' | 'unattested' | null {
+  const warnings = Array.isArray(enrichment?.inference_warnings) ? enrichment.inference_warnings : []
+  const anchor = warnings.find(
+    (w): w is Record<string, unknown> => isPlainObject(w) && w.code === 'GOAL_LEVEL_FROM_IDENTITY_INPUTS',
+  )
+  if (anchor === undefined) return null
+  // The FULL carrier shape only (Codex CR #2280): any other field names no goal, so the caveat stays.
+  const goalId =
+    typeof anchor.field === 'string' ? /^nodes\[([^\]]+)\]\.nonlinear_identity$/.exec(anchor.field)?.[1] : undefined
+  const entries = Array.isArray(enrichment?.identity_evaluations) ? enrichment.identity_evaluations : []
+  const goalEntry = entries.find(
+    (e): e is Record<string, unknown> =>
+      isPlainObject(e) && goalId !== undefined && e.node_id === goalId && e.level_source === 'identity_inputs',
+  )
+  // AIQ 5877139338 (1): never attribute authorship the carrier does not state — a missing entry is
+  // `unattested` (author-neutral copy), and only a typed "olumi" says it is Olumi's.
+  if (goalEntry?.level_author === 'user') return null
+  return goalEntry?.level_author === 'olumi' ? 'olumi' : 'unattested'
+}
+
+/**
  * ROADMAP 2.449 — normalise the per-option DOWNSIDE / tail-risk block.
  *
  * ALL-OR-NOTHING, and that is the PRODUCER's rule rather than a local
@@ -999,6 +1032,8 @@ export function mapV5AnalysisToReport(
      * per the honesty rule in UI-BOUNDARY-DATA-INVENTORY.md §5.
      */
     goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+    /** ISL #207 — whose base the goal figure stands on, when it must be caveated (fail-closed). */
+    goalLevelAuthor?: 'olumi' | 'unattested'
     /**
      * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
      * Present only when the producer emitted all three components as finite
@@ -1043,6 +1078,7 @@ export function mapV5AnalysisToReport(
      */
     status_reason?: string
   }
+  const goalLevelAuthor = goalLevelFromIdentityCaveat(enrichment)
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
   // Resolution path A: option_comparison is the canonical source.
@@ -1164,6 +1200,8 @@ export function mapV5AnalysisToReport(
       // normaliseGoalFitBasis. Carried alongside the number it qualifies;
       // render sites must show both together (UI-BOUNDARY-DATA-INVENTORY §5).
       ...(goalFitBasis !== undefined ? { goal_fit_basis: goalFitBasis } : {}),
+      // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
+      ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),

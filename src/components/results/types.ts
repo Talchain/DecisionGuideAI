@@ -7,6 +7,7 @@
  * "Coaching over gates" philosophy - users see clear decision guidance.
  */
 
+import type { GoalFitBaseCaveat } from './utils/selectGoalProbability'
 import type { FactorDirection } from '../../lib/factorDirection'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import type { ConstraintAnalysis } from '../../types/constraints'
@@ -276,6 +277,13 @@ export interface OptionResult {
    * surface a caveat when this is true (UI-BOUNDARY-DATA-INVENTORY.md §5).
    */
   goalFitIsModelledBasis?: boolean
+  /**
+   * Display-honesty: which caveat the rendered `goalProbability` needs, or null — the goal's
+   * level today was worked out from its inputs (ISL #207; carrier
+   * `identity_evaluations[].level_author`, fail-closed). Render sites MUST show the matching copy
+   * beside the number (`goalFitBaseCaveatCopy`).
+   */
+  goalFitBaseCaveat?: GoalFitBaseCaveat | null
   /**
    * Goal-probability IDENTITY: true when the rendered `goalProbability` is
    * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`.
@@ -1764,6 +1772,8 @@ export interface ResultsOptionProbability extends OptionProbability {
    * UI-BOUNDARY-DATA-INVENTORY.md §5.
    */
   goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+  /** UI-derived (V5 mapper), ISL #207: whose base the goal figure stands on, when it needs a caveat. */
+  goalLevelAuthor?: 'olumi' | 'unattested'
   /**
    * ROADMAP 2.449 — per-option tail-risk view from ISL, forwarded by PLoT.
    * Values are in the SAME units and on the SAME axis as `outcome.mean` /

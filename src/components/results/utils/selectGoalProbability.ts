@@ -178,7 +178,16 @@ export type GoalProbabilityBasis =
 export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>> {
   constraint_analysis?: { constraints?: unknown[] } | null
   goal_fit_basis?: { scored_from?: string } | null
+  /** Stamped by the V5 mapper (`goalLevelFromIdentityCaveat`), fail-closed. */
+  goalLevelAuthor?: 'olumi' | 'unattested'
 }
+
+/**
+ * Which base-caveat a shown goal figure needs (ISL #207): `olumi_estimate` when the goal's typed
+ * entry says Olumi's; `from_inputs` when the author is not attested (fail-closed, author-neutral —
+ * AIQ #72 5877139338: never attribute authorship the carrier does not state).
+ */
+export type GoalFitBaseCaveat = 'olumi_estimate' | 'from_inputs'
 
 export interface GoalProbabilitySelection {
   /** The number to display, or null when no source is admissible. */
@@ -213,6 +222,14 @@ export interface GoalProbabilitySelection {
    * with the caveat and another show it without.
    */
   goalFitIsModelledBasis: boolean
+  /**
+   * Display-honesty, the same doctrine as `goalFitIsModelledBasis`: non-null ONLY when a goal
+   * figure is shown AND its base (today's level of the goal) was worked out from its inputs
+   * rather than given (ISL #207; carrier `identity_evaluations[].level_author`, fail-closed in the
+   * V5 mapper). EVERY surface that renders the number must render `goalFitBaseCaveatCopy(this)`
+   * adjacent to it when this is non-null.
+   */
+  goalFitBaseCaveat: GoalFitBaseCaveat | null
   /**
    * Whether prose may call the thing this number measures "YOUR goal".
    *
@@ -277,6 +294,8 @@ export function selectGoalProbability(
         : null
   const goalFitBasisScoredFrom =
     typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
+  const baseCaveat: GoalFitBaseCaveat | null =
+    prob?.goalLevelAuthor === 'olumi' ? 'olumi_estimate' : prob?.goalLevelAuthor === 'unattested' ? 'from_inputs' : null
 
   // Honesty gate (UI-SEM-088, seam 1): while true, `probability_of_joint_goal`
   // can INVERT, so we NEVER substitute it — every surface falls back to the
@@ -307,6 +326,7 @@ export function selectGoalProbability(
       jointGoalProbability: jointGoalProb,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
+      goalFitBaseCaveat: unconstrained != null ? baseCaveat : null,
       mayUsePossessiveGoalFraming: unconstrained != null,
       // This arm never substitutes either, so nothing is withheld FROM a
       // substitution here — the L62 gate below is what owns that state.
@@ -357,6 +377,7 @@ export function selectGoalProbability(
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+    goalFitBaseCaveat: goalProbability != null ? baseCaveat : null,
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',
   }
