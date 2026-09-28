@@ -499,9 +499,10 @@ function V5AnalysisResultBlockImpl({
         data-presentation="inline"
         data-has-decision-review={hasReview ? 'true' : 'false'}
         data-decision-review-state={reviewState.kind}
-        // Paul, 28 Sep: "Details" needs room before and after it. 12px above it (space-y-3) and 12px below it
-        // (pb-3), the same step as a paragraph gap, so it no longer sits tight under the uncertainty line.
-        className="space-y-3 pb-3"
+        // Paul, 28 Sep: "Details" needs room before and after it. py-2 on top of the chat's 8px block gap gives
+        // 16px above and 16px below. The fold is often this block's FIRST child, so space-y alone left it 8px
+        // under the open-questions toggle (served e02c3d7a) while pb-3 put 20px below it.
+        className="space-y-3 py-2"
       >
         {shownUncertaintyCopy && (
           <p
