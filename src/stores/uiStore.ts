@@ -151,6 +151,13 @@ export interface UIStoreState {
    * consumer (`ModelTabBody`) once it has acted. Null when none is pending.
    */
   pendingOptionValueInput: string | null
+  /**
+   * Cross-panel handoff: the tab strip's ⓘ "Inspect this analysis" asks the
+   * Reasoning tab to open "About this analysis" and move focus to it (the V2
+   * prototype's `data-action="about"`). Cleared by the consumer
+   * (`AboutThisAnalysis`) once it has acted, even when it has nothing to open.
+   */
+  pendingReasoningAbout: boolean
   /** Which transient overlay surface is raised right now. Null when none. */
   activeOverlaySurface: OverlaySurfaceId | null
   /** Who raised it. Null exactly when no surface is raised.
@@ -246,6 +253,8 @@ export interface UIStoreActions {
   requestModelTabSection: (sectionId: ModelTabSectionId | null) => void
   /** Request the Model tab to open one option's first-value input; null clears. */
   requestOptionValueInput: (optionId: string | null) => void
+  /** Ask the Reasoning tab to open "About this analysis"; false clears (the consumer's job). */
+  requestReasoningAbout: (pending: boolean) => void
   /**
    * USER-driven overlay control: open a surface, or pass null to close.
    * The user may always both raise and lower. This is the action a click,
@@ -323,6 +332,7 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   activeRightPanel: null,
   pendingModelTabSection: null,
   pendingOptionValueInput: null,
+  pendingReasoningAbout: false,
   activeOverlaySurface: null,
   overlaySurfaceOrigin: null,
   outputSurfaceOrigin: null,
@@ -351,6 +361,7 @@ export const useUIStore = create<UIStoreState & UIStoreActions>((set, get) => ({
   closeRightPanel: () => set({ activeRightPanel: null }),
   requestModelTabSection: (sectionId) => set({ pendingModelTabSection: sectionId }),
   requestOptionValueInput: (optionId) => set({ pendingOptionValueInput: optionId }),
+  requestReasoningAbout: (pending) => set({ pendingReasoningAbout: pending }),
 
   setOverlaySurface: (surface) =>
     set(

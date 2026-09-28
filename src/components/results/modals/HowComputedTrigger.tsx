@@ -26,7 +26,7 @@ export function HowComputedTrigger({ hasResults }: HowComputedTriggerProps) {
       type="button"
       onClick={openHowComputed}
       data-testid="how-computed-trigger"
-      className={`inline-flex w-fit items-center gap-1.5 rounded-full border border-panel-border bg-panel px-2.5 py-1 ${typography.panelMeta} text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      className={`inline-flex w-fit items-center gap-1 rounded-full border border-panel-border bg-panel px-3 py-1 ${typography.panelMeta} text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
     >
       <Info className="h-3.5 w-3.5 shrink-0 text-info" aria-hidden="true" />
       {HOW_COMPUTED_COPY.title}

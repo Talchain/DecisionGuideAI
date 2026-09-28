@@ -30,7 +30,7 @@
  */
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, MoreHorizontal } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, HelpCircle, Info, MoreHorizontal } from 'lucide-react'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
@@ -139,7 +139,18 @@ export interface WorkspaceShellTabStripProps {
    * third, invented claim.
    */
   hasCompletedFirstRun?: boolean
+  /**
+   * The V2 prototype's tab-bar ⓘ, "Inspect this analysis" (`data-action="about"`):
+   * front the Reasoning tab and open "About this analysis". Shown only when it
+   * can do that: the handler is wired, the Reasoning surface is in the strip,
+   * and a run has completed (About states nothing pre-run, so the control would
+   * open nothing).
+   */
+  onInspectAnalysis?: () => void
 }
+
+/** The ⓘ's name, its tooltip and its overflow-menu label: one string, the prototype's. */
+export const INSPECT_ANALYSIS_LABEL = 'Inspect this analysis'
 
 /**
  * The collapse control.
@@ -189,9 +200,11 @@ export function WorkspaceShellCollapsedStrip({ onToggleOpen }: { onToggleOpen: (
 function TabStripOverflowMenu({
   expertMode,
   onToggleExpertMode,
+  onInspectAnalysis,
 }: {
   expertMode: boolean
   onToggleExpertMode: () => void
+  onInspectAnalysis?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -253,6 +266,20 @@ function TabStripOverflowMenu({
           data-testid="dock-overflow-menu"
           className="absolute right-0 top-full mt-1 z-20 flex flex-col gap-1 p-1 rounded border border-field bg-panel shadow-md"
         >
+          {onInspectAnalysis && (
+            <button
+              type="button"
+              onClick={() => {
+                close(false)
+                onInspectAnalysis()
+              }}
+              className={`${typography.panelBody} inline-flex items-center gap-2 px-3 py-2 rounded-md border border-field text-text-light hover:border-info hover:text-info w-full justify-start transition-colors`}
+              data-testid="dock-inspect-analysis"
+            >
+              <Info className="w-3.5 h-3.5" aria-hidden="true" />
+              {INSPECT_ANALYSIS_LABEL}
+            </button>
+          )}
           <VersionsTrigger
             variant="labelled"
             className="w-full justify-start"
@@ -289,7 +316,12 @@ export function WorkspaceShellTabStrip({
   resultsStale,
   factorsToVerify,
   hasCompletedFirstRun = true,
+  onInspectAnalysis,
 }: WorkspaceShellTabStripProps) {
+  const inspect =
+    onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
+      ? onInspectAnalysis
+      : undefined
   // gap NARROW-1: below this width four tabs plus VersionsTrigger, the
   // expert-mode toggle and the collapse control do not fit one row, so the
   // strip goes compact rather than wrapping into a 2×2 grid.
@@ -520,9 +552,26 @@ export function WorkspaceShellTabStrip({
           control is omitted — both stay reachable, just behind one more
           keypress. */}
       {isCompact ? (
-        <TabStripOverflowMenu expertMode={expertMode} onToggleExpertMode={onToggleExpertMode} />
+        <TabStripOverflowMenu
+          expertMode={expertMode}
+          onToggleExpertMode={onToggleExpertMode}
+          onInspectAnalysis={inspect}
+        />
       ) : (
         <>
+          {/* The prototype's `.tabbar>.iconbtn`: the ⓘ sits first after the tabs. */}
+          {inspect && (
+            <button
+              type="button"
+              onClick={inspect}
+              className={ROW_ICON_CONTROL}
+              aria-label={INSPECT_ANALYSIS_LABEL}
+              title={INSPECT_ANALYSIS_LABEL}
+              data-testid="dock-inspect-analysis"
+            >
+              <Info className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          )}
           {/* ⭐ R4 — version history's home in this panel (#739). The trigger
               carries NO positioning of its own; layout belongs to this row, which
               is the point of retiring the floating pill (L-08). Its `icon` variant

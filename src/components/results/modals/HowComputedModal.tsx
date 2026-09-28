@@ -164,7 +164,7 @@ function Section({ heading, children }: { heading: string; children: React.React
 
 function Bullets({ items, testId }: { items: readonly string[]; testId: string }) {
   return (
-    <ul className="mt-1 flex list-disc flex-col gap-1.5 pl-4" data-testid={testId}>
+    <ul className="mt-1 flex list-disc flex-col gap-2 pl-4" data-testid={testId}>
       {items.map((text) => (
         <li key={text} className={`${typography.panelBody} text-text-body`}>
           {text}
@@ -211,8 +211,8 @@ export function HowComputedCard({ model }: HowComputedCardProps) {
       </Section>
 
       <Section heading={C.runHeading}>
-        <p className={`${typography.panelMeta} mt-0.5 text-text-light`}>{C.runNote}</p>
-        <dl className="mt-1.5 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
+        <p className={`${typography.panelMeta} mt-1 text-text-light`}>{C.runNote}</p>
+        <dl className="mt-2 grid grid-cols-[1fr_auto] items-baseline gap-x-3 gap-y-1">
           <RunFact
             label={C.labels.nSamples}
             fact={model.nSamples}
