@@ -50,6 +50,9 @@ import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
+import type { V5AnalysisFactState } from '../store'
+import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
+import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
 
 /** `freshnessReason` for a verdict restored by this leg — says where it came from. */
 export const BOOT_READ_RUN_CURRENT = 'boot_read_run_current'
@@ -137,6 +140,50 @@ export function applyBootRunCurrency(input: {
   if (input.store.readCurrentGraphHash() !== graphHash) return declined('freshness_not_taken')
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'restored' }
+}
+
+/**
+ * ⭐ R6 — THE RESTORED RESULT IS THE RUN THE VERDICT DESCRIBES, SO IT IS NOT AN ORPHAN.
+ *
+ * THE DEFECT (Paul, 28 Sep 12:39Z reload, export `olumi-debug-b1bffd43`; DL #72 5871346171 R6): the
+ * read carried `run_state: complete_current`, `graph_hash 92f3b013…` and the `analysis_result` block
+ * with `computed_against_hash 92f3b013…`, nothing was edited — and the hero read "Results may be
+ * outdated". `analysisStateSelector` ORs `trust.orphaned` into `analysisChanged`, and a result is an
+ * orphan whenever no scenario-bound `v5AnalysisFact` exists. That fact is SESSION-ONLY and never
+ * restored (`store.ts`), so every reloaded result was dimmed whatever CEE said.
+ *
+ * THE PROOF, ALL OF IT ALREADY CEE'S, NONE INVENTED:
+ *   · `applyBootRunCurrency` restored — `complete_current` + `computed_at` + `graph_hash`, the canvas
+ *     proven equal to the read both ways, no edit since, the run gate open (its whole proof);
+ *   · the read's OWN `analysis_result` block says it was computed against that same `graph_hash`
+ *     (`computed_against_hash === graph_hash`) — the result on screen IS the run the verdict names.
+ * Only then is a fact written, bound to the scenario and to that block's report hash (the hash the
+ * results slice holds for it, `applyScenarioAnalysisRead`). Returns `null` otherwise: nothing is
+ * written, and the result stays a dimmed prior result with a rerun CTA, exactly as today.
+ */
+export function bootReadRunFact(input: {
+  readonly scenarioId: string
+  readonly graphHash: string | null
+  readonly analysisResult: unknown
+  readonly now: number
+}): V5AnalysisFactState | null {
+  const block = input.analysisResult
+  if (block == null || typeof block !== 'object' || Array.isArray(block)) return null
+  const b = block as { type?: unknown; computed_against_hash?: unknown }
+  if (b.type !== 'analysis_result') return null
+  const graphHash = input.graphHash
+  if (typeof graphHash !== 'string' || graphHash.length === 0) return null
+  if (typeof b.computed_against_hash !== 'string' || b.computed_against_hash !== graphHash) return null
+  const analysisHash = mapV5AnalysisToReport(block as AnalysisResultBlock).model_card.response_hash ?? null
+  return {
+    scenarioId: input.scenarioId,
+    analysisHash,
+    hasRunAnalysisFact: true,
+    freshness: 'fresh',
+    freshnessReason: BOOT_READ_RUN_CURRENT,
+    rawBlocks: [],
+    writtenAt: input.now,
+  }
 }
 
 /**

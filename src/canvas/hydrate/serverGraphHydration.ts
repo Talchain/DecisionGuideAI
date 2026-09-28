@@ -24,7 +24,7 @@ import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, isBootRestorableRunState } from './applyScenarioAnalysisRead'
-import { applyBootRunCurrency, applyBootBlockedVerdict } from './applyBootRunCurrency'
+import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadRunFact } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -400,7 +400,16 @@ async function readAndMergeServerGraph(
       },
     })
     if (currencyOutcome.outcome === 'restored') {
-      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored' })
+      // R6: the restored result IS the run this verdict describes (its own `computed_against_hash`
+      // is the read's `graph_hash`), so it is not an orphan — see `bootReadRunFact`.
+      const fact = bootReadRunFact({
+        scenarioId,
+        graphHash: result.graphHash,
+        analysisResult: result.analysisResult,
+        now: Date.now(),
+      })
+      if (fact !== null) useCanvasStore.getState().setV5AnalysisFact(fact)
+      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null })
       return
     }
     // A blocked model keeps CEE's named reason across a reload, under the SAME
