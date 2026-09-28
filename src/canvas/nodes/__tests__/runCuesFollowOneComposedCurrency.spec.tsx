@@ -144,7 +144,10 @@ describe('run cues follow the ONE composed currency verdict (Codex 5801431996)',
     renderFactor()
     expect(semantic()).toBe('current')
     const caption = cue('factor-driver-line-caption').textContent ?? ''
-    expect(caption).toBe('Driver 1 of 3 ranked in this run')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(caption).toBe('Driver 1 of 3 ranked')
     expect(caption).not.toMatch(/Last run/)
     expect(cue('factor-turning-point')).toBeInTheDocument()
     expect(cue('factor-turning-point').textContent ?? '').not.toMatch(/Last run/)

@@ -255,7 +255,10 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     renderCard(FactorNode as never, 'fac-price')
     const card = face('Monthly price')
     const line = popoverFinding('Monthly price', 'factor-driver-line')
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     expect(within(line).getByTestId('factor-driver-line-bar')).toBeTruthy()
     expect(line.textContent).not.toContain('%')
     expect(card.textContent).not.toContain('#')
@@ -306,7 +309,7 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('current')
     renderCard(FactorNode as never, 'fac-conv')
     const freshLine = popoverFinding('Trial conversion', 'factor-driver-line')
-    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(freshLine).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was the prototype's caption + number, 25 Sep).
     const freshTp = popoverFinding('Trial conversion', 'factor-turning-point')
@@ -316,10 +319,13 @@ describe('Factor — the driver line replaces "% influence" (spec §3; ED 02:31Z
     setCurrency('changed')
     renderCard(FactorNode as never, 'fac-conv')
     const line = popoverFinding('Trial conversion', 'factor-driver-line')
-    // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked".
-    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked" — in the
+    // name; the one-line slot prints the longest form that fits at the landing
+    // bound, "Last run · Driver N of M" at 1.64 (Canvas owner, 27 Sep 2026).
+    expect(within(line).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
     // Label in Name (WCAG 2.5.3): the visible caption opens the spoken name.
-    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3')).toBe(true)
+    expect(line.getAttribute('aria-label')!.startsWith('Last run · Driver 1 of 3 ranked. ')).toBe(true)
     const tp = popoverFinding('Trial conversion', 'factor-turning-point')
     expect(within(tp).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(tp.getAttribute('aria-label')!.startsWith('Last run · Below 6.5%, the model comparison changes.')).toBe(true)

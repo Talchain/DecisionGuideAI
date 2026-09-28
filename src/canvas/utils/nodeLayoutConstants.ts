@@ -8,6 +8,7 @@
  */
 
 import { MAX_LABEL_COUNTER_SCALE } from './zoomLegibility'
+import { CANVAS_TYPE_PX } from '../../styles/typography'
 
 // ─── Dimensions ──────────────────────────────────────────────────────────────
 
@@ -378,6 +379,32 @@ export const NODE_ROW_LABEL_MAX_CHARS = Math.floor(
     (ROW_LABEL_DECLARED_PX * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
 )
 
+/**
+ * ⭐ AN OPTION ROW'S AMOUNT HAS ITS OWN PER-LINE BUDGET — THE AMOUNT NEVER BREAKS;
+ * THE LABEL YIELDS (Canvas owner, 27 Sep 2026, landing text cap 1.36 → 1.64).
+ *
+ * `optionAmountSegmentNoWrap` used to borrow `NODE_ROW_LABEL_MAX_CHARS` — the
+ * LABEL's budget, held at the 12px it was tuned on so the rows keep their
+ * headroom. The amount is not 12px: it is `typography.edgeLabel`. At the 1.36
+ * bound the borrowed budget was 25 and "→ 3 engineers" + its glued "no source"
+ * mark (23) was held whole; the cap took it to 21, so that run lost its
+ * `whitespace-nowrap` and could break INSIDE the value ("→ 3 / engineers no
+ * source") — while the label beside it, the part the owner lets yield, lost
+ * nothing. CI full suite on `d000d576`, `OptionNode.contractV31Polish.spec`.
+ *
+ * So the amount is budgeted at its own declared size, on the same measured
+ * character width, the same card and the same inset: 23 at 1.64 (and 28 at
+ * 1.36). It is still a per-LINE budget, so a run longer than it (a producer's
+ * prose reading, served `cd6a82e4`) still wraps at its own spaces rather than
+ * run past the card's edge. When the amount and the label cannot share a line,
+ * the amount drops under the label (`flex-wrap`) and the label keeps its own
+ * one-line cut. Never below the label's budget: the label yields, not the amount.
+ */
+export const NODE_ROW_AMOUNT_MAX_CHARS = Math.floor(
+  (REPEATED_CARD_W - ROW_LABEL_INSET_PX) /
+    (CANVAS_TYPE_PX.edgeLabel * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
+)
+
 
 /**
  * ⛔ `NODE_SINGLE_ROW_FAIR_SHARE_W` (140) AND `MIN_GAP` (15) ARE RETIRED (S4,
@@ -684,8 +711,26 @@ export function kindGlyphOverhangAt(s: number): number {
  * glyph box + the mark gap ≤ the visible gap, and that no sign box meets a
  * card on the five starters. A further cut shrinks the bound with it (the row
  * sinks toward the arrival heads); the spec fails once no positive rise fits.
+ *
+ * ⭐ 40 → 48 (27 Sep 2026, canvas/landing-text-cap — Canvas owner: "do NOT make
+ * boards taller unless it is unavoidable"). #2202 set 40 (56 visible) when the
+ * text bound was 1.36. Since 27 Sep the shape scales with the TEXT
+ * (`kindGlyphOverhangAt`), and the landing cap put the bound at 1.64:
+ *
+ *   the kind shape's overhang above its card   24 × 1.64 − 12          = 27.36
+ *   the title's clearance above that shape     LANE_TITLE_GAP          =  8
+ *   the band title's one line                  10px × 1.2 × 1.64       = 19.68
+ *   the title's clearance below the row above  LANE_TITLE_GAP          =  8
+ *                                                                        ─────
+ *                                                                        63.04
+ *
+ * 7.04 short at 56 visible. The title's line box was already one line at 1.2
+ * (`LANE_TITLE_LINE_PX`, and `TierLanes` renders `lineHeight: 1.2`), so nothing
+ * there was loose to tighten — even 1.0 would recover only 3.94. So the gap
+ * rises by exactly the shortfall, rounded up to a whole unit: 40 + 8 = 48 (64
+ * visible), the smallest whole gap that holds the budget; the guard pins that.
  */
-export const LAYOUT_LAYER_GAP = 40
+export const LAYOUT_LAYER_GAP = 48
 
 export const LAYOUT_PADDING_X = 24
 

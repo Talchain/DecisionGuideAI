@@ -78,23 +78,26 @@ const POST_BOUND: Record<string, number> = { ...PRE_BOUND, [RANK_1]: 406 }
  * Chromium read, for the record (cap four, repeated card 260): dec 494, fac 261/419/577/735/893,
  * goal 494, opt 24/340/656/972, out 340/972, risk 656/24; y 24/196/685+994/1354/1701.
  * 27 Sep 2026, sibling gap 32 → 24 (dock 360, #2199): only x moved; every y is unchanged.
+ * 27 Sep 2026, row gap 40 → 48 (landing text cap 1.64, band-title budget): only y moved, by
+ * 8 per row gap crossed (188 → 196, 669 → 685, 1021 → 1045, 1360 → 1392); every x is unchanged
+ * (position dump, gap 40 vs 48: 0 of 15 x moved).
  */
 const PRE_POSITIONS: Record<string, { x: number; y: number }> = {
   dec_pricing: { x: 472, y: 24 },
-  fac_adoption_friction: { x: 24, y: 669 },
-  fac_enterprise_revenue_risk: { x: 912, y: 669 },
-  fac_market_competition: { x: 320, y: 669 },
-  fac_top_account_concentration: { x: 1208, y: 669 },
-  fac_usage_exposure: { x: 616, y: 669 },
-  goal_pricing_transition: { x: 472, y: 1360 },
-  opt_full_switch: { x: 172, y: 188 },
-  opt_hybrid: { x: 468, y: 188 },
-  opt_new_logos: { x: 764, y: 188 },
-  opt_status_quo: { x: 1060, y: 188 },
-  out_bottom_up_growth: { x: 468, y: 1021 },
-  out_nrr: { x: 1060, y: 1021 },
-  risk_enterprise_churn: { x: 764, y: 1021 },
-  risk_pricing_complexity: { x: 172, y: 1021 },
+  fac_adoption_friction: { x: 24, y: 685 },
+  fac_enterprise_revenue_risk: { x: 912, y: 685 },
+  fac_market_competition: { x: 320, y: 685 },
+  fac_top_account_concentration: { x: 1208, y: 685 },
+  fac_usage_exposure: { x: 616, y: 685 },
+  goal_pricing_transition: { x: 472, y: 1392 },
+  opt_full_switch: { x: 172, y: 196 },
+  opt_hybrid: { x: 468, y: 196 },
+  opt_new_logos: { x: 764, y: 196 },
+  opt_status_quo: { x: 1060, y: 196 },
+  out_bottom_up_growth: { x: 468, y: 1045 },
+  out_nrr: { x: 1060, y: 1045 },
+  risk_enterprise_churn: { x: 764, y: 1045 },
+  risk_pricing_complexity: { x: 172, y: 1045 },
 }
 const BELOW_FACTORS = ['goal_pricing_transition', 'out_bottom_up_growth', 'out_nrr', 'risk_enterprise_churn', 'risk_pricing_complexity']
 

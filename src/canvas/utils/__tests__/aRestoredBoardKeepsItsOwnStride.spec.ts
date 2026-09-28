@@ -33,30 +33,44 @@ import { solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
 import { NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
 
 /**
- * Codex's fixture shape. ⚠ S4 (24 Sep 2026) MOVED THE SAVED WIDTH 336 → 140.
+ * Codex's fixture shape. ⚠ S4 (24 Sep 2026) MOVED THE SAVED WIDTH 336 → 140;
+ * ⚠ THE LANDING TEXT CAP (27 Sep 2026) MOVED IT 140 → 230.
  *
  * The defect class is "the fresh solver draws WIDER than the stride a saved
  * board's positions leave". Codex's witness was a board saved at a uniform 336
  * reopened when options solved to 440. S4 narrows every repeated card to 260, so
  * a 336 board no longer provokes it — the reproduction control below went RED
- * and said so. The class is still live for any board saved NARROWER than 260:
- * the pre-17-Aug boards, whose card floor was 140. So the fixture now stands in
- * for one of those, and every case in this file bites again.
+ * and said so. The class is still live for any board saved NARROWER than the
+ * repeated card (248).
+ *
+ * ⭐ WHY 230, NOT 140 (Canvas owner, 27 Sep 2026). The cap raised
+ * `NODE_LAYOUT_MIN_W` — the card's own CSS floor — 190.88 → 221.12, so a 140
+ * board (stride 196) can no longer be drawn without overlap by ANY width: that
+ * board is now the sub-floor case, which no width repairs (not pinned here).
+ * These arms pin the owner's rule for the other case — a board at a
+ * FITTING stride keeps it exactly — on a board saved between the floor and the
+ * repeated card, where the bound still has to bite. There the unbounded solver
+ * eats the saved sibling gap (286 − 248 = 38 < 56) rather than overlapping, so
+ * the protective assertions read the gap, `SAVED_GAP`, not zero.
  */
-const SAVED_UNIFORM_W = 140
+const SAVED_UNIFORM_W = 230
 const SAVED_GAP = 56
-const SAVED_STRIDE = SAVED_UNIFORM_W + SAVED_GAP // 196
+const SAVED_STRIDE = SAVED_UNIFORM_W + SAVED_GAP // 286
 
-function savedBoard(): Node[] {
-  const optionXs = [416, 416 + SAVED_STRIDE, 416 + 2 * SAVED_STRIDE]
+function boardAt(stride: number): Node[] {
+  const optionXs = [416, 416 + stride, 416 + 2 * stride]
   return [
     { id: 'd', type: 'decision', position: { x: 800, y: 0 }, data: { label: 'd' } },
     ...optionXs.map((x, i) => ({ id: `o${i}`, type: 'option', position: { x, y: 300 }, data: { label: `o${i}` } })),
     ...Array.from({ length: 5 }, (_, i) => ({
-      id: `f${i}`, type: 'factor', position: { x: 200 + i * SAVED_STRIDE, y: 600 }, data: { label: `f${i}` },
+      id: `f${i}`, type: 'factor', position: { x: 200 + i * stride, y: 600 }, data: { label: `f${i}` },
     })),
     { id: 'g', type: 'goal', position: { x: 800, y: 900 }, data: { label: 'g' } },
   ] as Node[]
+}
+
+function savedBoard(): Node[] {
+  return boardAt(SAVED_STRIDE)
 }
 
 /** The narrowest adjacent same-row gap left once each card draws at `w`. */
@@ -68,28 +82,26 @@ function worstGap(nodes: Node[], kind: string, w: number): number {
 }
 
 describe('a restored board keeps its own stride', () => {
-  it('⛔ THE REPRODUCTION: the UNBOUNDED solver overlaps this saved board', () => {
-    // The precondition, pinned in-test: this fixture must actually provoke a
-    // widening, or the assertion below passes for the wrong reason (trap 13b).
+  it('⛔ THE REPRODUCTION: the UNBOUNDED solver eats this saved board\'s gap', () => {
+    // The preconditions, pinned in-test: this fixture must be a FITTING board
+    // (drawable at its own width) and must still provoke a widening, or the
+    // assertion below passes for the wrong reason (trap 13b).
+    expect(SAVED_UNIFORM_W, 'the saved width is under the card floor — this is the sub-floor case, not this one').toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
     const fresh = solveLayoutCardWidths(savedBoard(), { direction: 'DOWN', spacing: SAVED_GAP })
     expect(fresh.option, 'the fresh solver no longer widens options past the saved uniform width — this fixture has stopped reproducing the defect').toBeGreaterThan(SAVED_UNIFORM_W)
-    expect(worstGap(savedBoard(), 'option', fresh.option)).toBeLessThan(0)
+    expect(worstGap(savedBoard(), 'option', fresh.option)).toBeLessThan(SAVED_GAP)
   })
 
-  it('⭐ THE REPAIR: no same-row gap goes negative on the restored board', () => {
+  it('⭐ THE REPAIR: a board at a fitting stride keeps it — its width and its gap, exactly', () => {
     const nodes = savedBoard()
     const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
     for (const kind of ['option', 'factor']) {
-      expect(worstGap(nodes, kind, bounded[kind]), `${kind} cards overlap their own saved row`).toBeGreaterThanOrEqual(0)
+      expect(worstGap(nodes, kind, bounded[kind]), `${kind} cards lost their saved gap`).toBeGreaterThanOrEqual(SAVED_GAP)
     }
-    // ⚠ RE-PINNED 27 Sep 2026 (edit-structure/F1). This read `<= SAVED_UNIFORM_W`
-    // (140), a width `BaseNode` can never draw: its CSS `minWidth` is
-    // NODE_LAYOUT_MIN_W, so the card drew at the floor while the record said 140
-    // — the undrawable-record defect F1 names. The bound is now the narrowest
-    // DRAWABLE width; the protective half is the worst-gap assertion above, which
-    // still REDs with the unbounded solver (196 - 248 = -52).
-    expect(bounded.option).toBeLessThanOrEqual(Math.max(SAVED_UNIFORM_W, NODE_LAYOUT_MIN_W))
-    expect(bounded.option).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    // ⚠ RE-PINNED 27 Sep 2026 (landing text cap). This read `<= max(140,
+    // NODE_LAYOUT_MIN_W)` on the 140 board, where the floor bound. At a fitting
+    // stride the bound is the saved width itself.
+    expect(bounded.option).toBe(SAVED_UNIFORM_W)
   })
 
   it('⭐ A TIER WITH NO SAME-ROW NEIGHBOUR IS NOT BOUNDED — it cannot overlap one', () => {
@@ -146,7 +158,7 @@ describe('a restored board keeps its own stride', () => {
     const ys = nodes.filter((n) => n.type === 'option').map((n) => n.position.y)
     expect(new Set(ys).size, 'the fixture no longer staggers y — it cannot reproduce the defect').toBe(3)
     const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
-    expect(worstGap(nodes, 'option', bounded.option), 'staggered rows lifted the bound and the cards overlap').toBeGreaterThanOrEqual(0)
+    expect(worstGap(nodes, 'option', bounded.option), 'staggered rows lifted the bound and the cards lost their saved gap').toBeGreaterThanOrEqual(SAVED_GAP)
   })
 
   /**
@@ -168,7 +180,7 @@ describe('a restored board keeps its own stride', () => {
     const ys = nodes.filter((n) => n.type === 'option').map((n) => n.position.y)
     expect(Math.max(...ys) - Math.min(...ys), 'the fixture no longer exceeds the tolerance — it cannot reproduce the gap').toBeGreaterThan(Math.round(72 * 0.6))
     const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
-    expect(worstGap(nodes, 'option', bounded.option), 'height-staggered cards lifted the bound and overlap').toBeGreaterThanOrEqual(0)
+    expect(worstGap(nodes, 'option', bounded.option), 'height-staggered cards lifted the bound and lost their saved gap').toBeGreaterThanOrEqual(SAVED_GAP)
   })
 
   /**
@@ -196,7 +208,7 @@ describe('a restored board keeps its own stride', () => {
     expect(nodes.filter((n) => n.type === 'option').every((n) => (n as { measured?: unknown }).measured === undefined),
       'the fixture carries measured heights, so it is testing the OTHER branch').toBe(true)
     const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP })
-    expect(worstGap(nodes, 'option', bounded.option), 'a manual stagger with no heights lifted the bound and the cards overlap').toBeGreaterThanOrEqual(0)
+    expect(worstGap(nodes, 'option', bounded.option), 'a manual stagger with no heights lifted the bound and the cards lost their saved gap').toBeGreaterThanOrEqual(SAVED_GAP)
   })
 
   /**
@@ -266,6 +278,6 @@ describe('a restored board keeps its own stride', () => {
     // SOLVER USES, or the assertion below is about an ordinary node.
     expect((nodes.find((n) => n.id === 'o1')?.data as { locked?: boolean }).locked).toBe(true)
     const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP, preserveLocked: true })
-    expect(worstGap(nodes, 'option', bounded.option)).toBeGreaterThanOrEqual(0)
+    expect(worstGap(nodes, 'option', bounded.option)).toBeGreaterThanOrEqual(SAVED_GAP)
   })
 })

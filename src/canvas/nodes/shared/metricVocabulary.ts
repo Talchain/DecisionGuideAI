@@ -877,6 +877,21 @@ export const DRIVER_LINE_COPY = {
       ? `Driver ${rank} of ${rankedCount} ranked`
       : `Driver ${rank} of ${rankedCount} ranked in this run`,
   /**
+   * ⭐ THE FORMS THE CARD'S ONE-LINE DRIVER SLOT MAY PRINT, LONGEST FIRST (Canvas
+   * owner, 27 Sep 2026, landing text cap 1.36 → 1.64: at the new bound neither
+   * `rank` form fits the slot on its own). The first is `rank` itself; each
+   * shorter one is a PREFIX of it, so the visible words stay the start of the
+   * accessible name, which keeps the full `rank` sentence. The caller owns the
+   * `LAST_RUN_PREFIX`; `restingDriverCaption` (driverCaptionFit.ts) picks the
+   * longest that fits at the landing bound.
+   */
+  rankSlotForms: (rank: number, rankedCount: number, fromLastRun = false): readonly string[] => {
+    const bare = `Driver ${rank} of ${rankedCount}`
+    return fromLastRun
+      ? [`${bare} ranked`, bare]
+      : [`${bare} ranked in this run`, `${bare} ranked`, bare]
+  },
+  /**
    * The contract's `driver()` definition of M, the hover and the accessible
    * description. The second sentence keeps Paul pt 5's "never imply a missing
    * rank is accidentally omitted" for the factors OUTSIDE the M: Olumi names at

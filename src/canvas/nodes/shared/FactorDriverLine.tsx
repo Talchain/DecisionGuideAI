@@ -5,6 +5,9 @@
  *   `Driver 1 of 3 ranked in this run  ▬▬`   a published rank (NODE-ANATOMY
  *                                   v3.2; contract v3.1 pt 5)
  *   `Last run · Driver 1 of 3 ranked  ▬▬`    the same rank, model changed since
+ *   (in the card's one-line slot, the longest form that fits at the landing
+ *   bound — `Driver 1 of 3 ranked`, `Last run · Driver 1 of 3` at 1.64; see
+ *   `inSlot` and `driverCaptionFit.ts`)
  *   (nothing on the card)           unranked — "If the producer withholds a
  *                                   rank, render no substitute" (ED 5806207128);
  *                                   `FactorDriverNotRanked` says "Not ranked in
@@ -78,6 +81,7 @@ import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
 import { MAX_BADGED_RANK } from '../../../components/results/driverDisplayModel'
 import { DRIVER_LINE_COPY, LAST_RUN_PREFIX } from './metricVocabulary'
+import { restingDriverCaption } from './driverCaptionFit'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
 
@@ -123,13 +127,21 @@ export interface FactorDriverLineProps {
    * bar was squashed to 7.0–13.4px of its 40.8px, where `max(4px, pct%)` drew
    * 90b8's 31% as 54%.
    *
-   * WHERE THE BAR SHOWS (Inter at 11px × scale, a 220–223px measure; the
-   * longest caption is `Driver 3 of 3 ranked in this run`, 158px at scale 1):
-   * beside its words from 100% down to a label scale of ~1.14 (zoom ~0.88);
-   * at the landing bound (1.36) the caption alone is 208–215px, so the bar
-   * wraps away and its figure stays in the name and the tooltip. `max-w-full
-   * truncate` on the caption is a last resort only, for copy that no longer
-   * fits — pinned by `FactorDriverLine.landingFit.spec.tsx`.
+   * ⭐ THE CAPTION IN THE SLOT IS THE LONGEST FORM THAT FITS AT THE LANDING
+   * BOUND (Canvas owner, 27 Sep 2026, landing text cap 1.36 → 1.64). At 1.64
+   * the full `Driver N of M ranked in this run` is 253–260px and the stale
+   * `Last run · Driver N of M ranked` 249–255px against a 220px measure, so the
+   * slot prints `restingDriverCaption`: `Driver N of M ranked` (165–171px) and
+   * `Last run · Driver N of M` (185–191px). The accessible name and the
+   * tooltip keep the full sentence, and each short form is a prefix of it.
+   *
+   * WHERE THE BAR SHOWS (Inter at 11px × scale, a 220–223px measure): beside
+   * its words at 100%; at the landing bound the caption plus the 6px gap and
+   * the 49px counter-scaled track no longer fit (only `Driver 1 of 1 ranked`
+   * does, at 219.7px), so the bar wraps away and its figure stays in the name
+   * and the tooltip. `max-w-full truncate` on the caption is a last resort
+   * only, for copy that no longer fits — pinned by
+   * `FactorDriverLine.landingFit.spec.tsx`.
    *
    * The focus ring is inset so the slot's `overflow-hidden` cannot clip it.
    * Omitted → the free-flowing line (Detailed's Layer 2), unchanged.
@@ -215,7 +227,13 @@ export function FactorDriverLine({
 }: FactorDriverLineProps) {
   const pct = barPercent(value)
   const lastRun = fromLastRun ? LAST_RUN_PREFIX : ''
-  const caption = `${lastRun}${driverLineCaption(rank, fromLastRun)}`
+  // In the card's one-line slot: the longest form that fits it at the landing
+  // bound (`restingDriverCaption`, Canvas owner 27 Sep 2026). Free-flowing
+  // (Detailed, popover) the line wraps, so it keeps the full sentence. The
+  // accessible name and the hover keep the full sentence either way.
+  const caption = inSlot
+    ? restingDriverCaption(rank, fromLastRun)
+    : `${lastRun}${driverLineCaption(rank, fromLastRun)}`
   const explanation = `${lastRun}${driverLineExplanation({ rank, value, fromLastRun })}`
   const denominatorNote = driverLineDenominatorNote(rank, fromLastRun)
   return (

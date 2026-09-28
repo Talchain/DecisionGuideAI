@@ -196,7 +196,10 @@ describe('the in-slot line never clips mid-glyph (Paul, MRR model, 27 Sep 2026)'
     // and the slot cut the caption — "…Driver 1 of 6 analysec".
     expect(tokens).toContain('w-full')
     expect(tokens).toContain('min-w-0')
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    // In the slot: the longest form that fits at the landing bound (Canvas
+    // owner, 27 Sep 2026); the accessible name keeps the full sentence.
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
+    expect(line().getAttribute('aria-label')).toMatch(/^Last run · Driver 1 of 3 ranked\. /)
     // Whether the caption FITS at landing, and how the bar gives way, is a width
     // claim: `FactorDriverLine.landingFit.spec.tsx` (measured glyph advances,
     // with discriminating controls), not a class-token reading here.

@@ -100,7 +100,9 @@ describe('S4 card widths', () => {
     // widest title word at the TEXT bound, 108 × 1.36 + 20 + 24 = 190.88, so it no
     // longer raises the ED target; the +12 exception (260) is gone.
     expect(REPEATED_CARD_TARGET_W).toBe(248)
-    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(190.88, 10)
+    // 190.88 → 221.12 (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231): 108 × 1.64 + 20 + 24 —
+    // still below the 248 target, so the target is still the repeated width.
+    expect(NODE_LAYOUT_MIN_W).toBeCloseTo(221.12, 10)
     expect(REPEATED_CARD_W).toBe(Math.max(REPEATED_CARD_TARGET_W, NODE_LAYOUT_MIN_W))
     expect(REPEATED_CARD_W).toBe(248)
   })

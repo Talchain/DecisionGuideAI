@@ -348,7 +348,10 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(visibleText(row)).toBe('8% est.')
     const driver = onCardNotInPopover('factor-driver-line')
     const tp = onCardNotInPopover('factor-turning-point')
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     expect(within(driver).getByTestId('factor-driver-line-bar')).toBeTruthy()
     // v3.1 point 3 (DESIGN-GAP-v31 #38): the resting caption IS the direction
     // sentence (was "Model comparison changes" + a floated 6.5%).
@@ -368,7 +371,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     expect(semantic()).toBe('changed')
     onCardNotInPopover('factor-driver-line')
     onCardNotInPopover('factor-turning-point')
-    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(within(card()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
     expect(within(card()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(card()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
       'Last run · Below 6.5%, the model comparison changes. ',
@@ -421,7 +424,7 @@ describe('Prototype (Paul 25 Sep, superseding ED 5809278282) · post-run RANKED 
     const c = card()
     expect(within(c).queryByTestId('factor-recorded-value')).toBeNull()
     expect(within(c).queryByTestId(`factor-needs-input-row-${ID}`)).toBeNull()
-    expect(within(onCardNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(onCardNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
   })
 
   it('CONTRAST — Detailed keeps the driver line and the turning point inline, and needs no cue', () => {

@@ -221,7 +221,10 @@ describe('served pricing factors — the driver line has ONE slot, reserved befo
     expect(s.getAttribute('aria-hidden')).toBeNull()
     const line = screen.getByTestId('factor-driver-line')
     expect(line.parentElement).toBe(s)
-    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked in this run')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(screen.getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
     expect(within(s).getByTestId('factor-driver-line-bar')).toBeInTheDocument()
     // One line: the SLOT is one line and clips. Inside it the caption never wraps
     // (it fits whole at the landing bound — `FactorDriverLine.landingFit.spec`),
@@ -263,7 +266,7 @@ describe('(b) "No turning point in this run" is NOT on the card', () => {
     seed('post')
     renderCard(RANK_1)
     const c = card('Top Account Revenue Concentration')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked in this run')
+    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
     expect(c.textContent).not.toContain('No turning point')
   })
@@ -328,7 +331,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     expect(within(plot).getByTestId('factor-turning-point-caption').textContent).toBe(
       'Above 0.7, the current model comparison shifts towards Full Switch to Usage-Based at Renewal.',
     )
-    expect(within(s).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked in this run')
+    expect(within(s).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
     // "None found" is not the arm here, and never on the card.
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()
   })
@@ -372,7 +375,7 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     seed('post', twoFound, 2)
     const { container } = renderCard(RANK_2)
     const c = card('Enterprise Revenue Cannibalization Risk')
-    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 2 ranked in this run')
+    expect(within(c).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 2 ranked')
     expect(allIds(container).filter(t => FLIP_PLOT_IDS.includes(t))).toEqual([])
     // What DOES arrive is the run's attention mark (`nodeAttention`: a found row
     // qualifies) — a corner mark, not the plot. Chromium, this title, found row on

@@ -341,7 +341,10 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, turning point found',
     const value = within(face()).getByTestId('factor-recorded-value')
     const driver = onFaceNotInPopover('factor-driver-line')
     const tp = onFaceNotInPopover('factor-turning-point')
-    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     expect(within(face()).getByTestId('factor-driver-line-bar')).toBeTruthy()
     // At rest, contract v3.1 point 3 (DESIGN-GAP-v31 #38): the caption IS the
     // direction sentence (was "Model comparison changes" + a floated 6.5%,
@@ -382,7 +385,7 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the RANKED cou
     renderFactor(VALUED)
     expect(semantic()).toBe('current')
     const caption = within(face()).getByTestId('factor-driver-line-caption').textContent ?? ''
-    expect(caption).toBe('Driver 1 of 3 ranked in this run')
+    expect(caption).toBe('Driver 1 of 3 ranked')
     expect(caption).not.toContain('of 6')
     expect(caption).not.toContain('analysed')
     const note = onFaceNotInPopover('factor-driver-line').getAttribute('aria-description') ?? ''
@@ -394,7 +397,7 @@ describe('NODE-ANATOMY v3.2 · Factor · the driver line’s M is the RANKED cou
     displayMetadata = metadata(2, 4, 2, 0.7)
     seed(VALUED, { phase: 'post', flipRows: [] })
     renderFactor(VALUED)
-    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 2 ranked in this run')
+    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 2 of 2 ranked')
   })
 })
 
@@ -430,7 +433,7 @@ describe('NODE-ANATOMY v3.2 · Factor · post-run, RANKED, no turning point — 
     // Positive control: the run's finding for this factor IS disclosed — on the
     // face (prototype, Paul 25 Sep).
     const driver = onFaceNotInPopover('factor-driver-line')
-    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked in this run')
+    expect(within(driver).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 3 ranked')
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(document.body.textContent).not.toContain(words)
     expect(screen.queryByTestId('factor-turning-point')).toBeNull()
@@ -522,7 +525,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     // disclosure keeps `Last run ·`" — now the face's findings (prototype, 25 Sep).
     onFaceNotInPopover('factor-driver-line')
     onFaceNotInPopover('factor-turning-point')
-    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(within(face()).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
     // v3.1 point 3 (#38): the stale caption is the Last-run direction sentence.
     expect(within(face()).getByTestId('factor-turning-point-caption').textContent).toBe('Last run · Below 6.5%, the model comparison changes.')
     expect(within(face()).getByTestId('factor-turning-point').getAttribute('aria-label')!.startsWith(
@@ -542,7 +545,7 @@ describe('NODE-ANATOMY v3.2 · Factor · stale (model changed since the run)', (
     renderFactor(VALUED)
     editTheModel()
     expect(semantic()).toBe('changed')
-    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3 ranked')
+    expect(within(onFaceNotInPopover('factor-driver-line')).getByTestId('factor-driver-line-caption').textContent).toBe('Last run · Driver 1 of 3')
     expect(screen.queryByTestId('factor-turning-point-none')).toBeNull()
     expect(document.body.textContent).not.toContain('in this run')
     expectNothingItMustNeverSay()

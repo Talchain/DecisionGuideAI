@@ -46,7 +46,7 @@ import {
   classifyUnit,
   unwrapInterventionValue,
 } from '../../utils/labelUtils'
-import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
+import { NODE_ROW_AMOUNT_MAX_CHARS, NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 import {
   encodingMapPhrase,
   factorCardVisibleText,
@@ -292,6 +292,18 @@ export interface OptionChangeRow {
 export const OPTION_ROW_NEEDS_INPUT = 'Needs input'
 
 /**
+ * ⭐ AN OPTION CHANGE-ROW LABEL IS CUT AT A WHOLE WORD whenever one fits (Canvas
+ * owner, 27 Sep 2026, landing text cap). At the 21-character row budget the
+ * shared 0.6 fallback cut "Time to live (quarters)" to "Time to live (quarter…";
+ * the row now reads "Time to live…". The mid-word cut survives only where not
+ * even the first word fits. The ONE label path for both row builders below —
+ * other `compactFactorLabel` callers keep the shared rule.
+ */
+function optionRowLabel(fullLabel: string): string {
+  return compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS, { wholeWords: true })
+}
+
+/**
  * The row for a factor the option names with no target value — the same label
  * rules as `buildOptionChangeRow`, and no invented change, reference or value.
  */
@@ -308,7 +320,7 @@ export function buildOptionNeedsInputRow({
   const targetSource = interventionTargetSourceMark(source)
   return {
     factorId,
-    label: compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS),
+    label: optionRowLabel(fullLabel),
     fullLabel,
     change: OPTION_ROW_NEEDS_INPUT,
     fullChange: OPTION_ROW_NEEDS_INPUT,
@@ -333,7 +345,7 @@ export function buildOptionChangeRow({
   baselineOptionTarget: OptionTargetLike | null
 }): OptionChangeRow {
   const fullLabel = sentenceCaseFactorLabel(cleanFactorLabel(factor.label || factorId)) || factorId
-  const label = compactFactorLabel(fullLabel, NODE_ROW_LABEL_MAX_CHARS)
+  const label = optionRowLabel(fullLabel)
   // Point 7: every row names its target's source. Was `classify…?.kind === 'ai'`,
   // which left `cee_inference` (live on the wire, unclassified in the
   // intervention vocabulary) and an absent source UNMARKED — "unmarked = Olumi".
@@ -509,15 +521,18 @@ export function fitRowsToBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
 
 /**
  * ⭐ MAY THIS SEGMENT OF A ROW'S AMOUNT STAY ON ONE LINE? True while it fits one
- * line of the row budget at the largest label counter-scale
- * (`NODE_ROW_LABEL_MAX_CHARS`: the estate's own per-line budget, measured on the
- * 12px row type, so conservative for the 11px amount). A longer segment — a
- * producer's prose reading — wraps at its own spaces rather than run past the
- * card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP per month ·
- * brief" overflowed). The card's amount breaks, if at all, before the arrow.
+ * line of the AMOUNT's budget at the largest label counter-scale
+ * (`NODE_ROW_AMOUNT_MAX_CHARS`: the estate's per-line budget, measured at the
+ * amount's own `edgeLabel` size — since 27 Sep 2026 no longer the label's 12px
+ * budget, which the landing cap shrank until "→ 3 engineers no source" broke
+ * inside its value; the amount never breaks, the label yields). A longer
+ * segment — a producer's prose reading — wraps at its own spaces rather than
+ * run past the card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP
+ * per month · brief" overflowed). The card's amount breaks, if at all, before
+ * the arrow.
  */
 export function optionAmountSegmentNoWrap(segment: string): boolean {
-  return segment.length <= NODE_ROW_LABEL_MAX_CHARS
+  return segment.length <= NODE_ROW_AMOUNT_MAX_CHARS
 }
 
 /** `+N more`, from the ONE total — never below zero. */

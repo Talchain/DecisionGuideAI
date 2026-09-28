@@ -66,8 +66,9 @@ const STARTERS: Record<string, Draft> = {
 const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> }).heights
 
 /**
- * The landing bounds: the band TITLE is text (`MAX_LABEL_COUNTER_SCALE`, 1.36 since
- * 27 Sep 2026); the kind SHAPE is a glyph (`MAX_GLYPH_COUNTER_SCALE`, 2).
+ * The landing bounds: the band TITLE is text (`MAX_LABEL_COUNTER_SCALE`, 1.64 since
+ * the 27 Sep 2026 landing text cap — it was 1.36); the kind SHAPE is a glyph
+ * (`MAX_GLYPH_COUNTER_SCALE`, 2).
  */
 const S = MAX_LABEL_COUNTER_SCALE
 
@@ -161,10 +162,18 @@ describe('the row gap holds a kind shape and a band title, both at the bound', (
     const visible = LAYOUT_LAYER_GAP + LAYOUT_PADDING_Y
     // The shape scales with the TEXT since 27 Sep: overhang = 24 × S − 12.
     const needed = (KIND_GLYPH_PX * S - KIND_GLYPH_PX / 2) + LANE_TITLE_GAP + LANE_TITLE_LINE_PX * S + LANE_TITLE_GAP
-    expect(S).toBe(1.36)
-    // 20.64 + 8 + 12 × 1.36 + 8 = 52.96 (was 56.32 with a shape at the glyph scale of 2).
-    expect(needed).toBeCloseTo(52.96, 10)
+    // 27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231:
+    //   S 1.36 → 1.64; needed 52.96 → 63.04 = 27.36 + 8 + 12 × 1.64 + 8
+    //   (56.32 with a shape at the glyph scale of 2, before 1.36).
+    expect(S).toBe(1.64)
+    expect(needed).toBeCloseTo(63.04, 10)
     expect(visible).toBeGreaterThanOrEqual(needed)
+    // …and NO TALLER than it has to be (Canvas owner, 27 Sep 2026: boards grow
+    // only where unavoidable). The title's line box is already one 1.2 line, so
+    // the 7.04 shortfall at 40 raised the gap by 8 — the smallest whole unit.
+    expect(LANE_TITLE_LINE_PX).toBeCloseTo(10 * 1.2, 10)
+    expect(LAYOUT_LAYER_GAP).toBe(48)
+    expect(visible - 1, 'the row gap is a whole unit taller than the budget needs').toBeLessThan(needed)
   })
 })
 

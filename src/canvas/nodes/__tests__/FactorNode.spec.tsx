@@ -582,7 +582,10 @@ describe('FactorNode', () => {
     // The rank is stated by the driver line instead — on the face again
     // (prototype, Paul 25 Sep; the inline cue is retired).
     // NODE-ANATOMY v3.2: "Driver N of M ranked in this run", M = the ranked count.
-    expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 3 ranked in this run')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(captionOf(popoverDriverLine())).toBe('Driver 1 of 3 ranked')
     expect(screen.queryByTestId('factor-driver-cue-factor-1')).toBeNull()
     // Positioning is still owned by the shared corner STACK (Codex P1-5) — the
     // members that remain in it are static flex children.
@@ -957,7 +960,7 @@ describe('FactorNode', () => {
       'How sure are you of its value?'
     expect(await screen.findByRole('tooltip')).toHaveTextContent(RANKED_DISCLOSURE)
     // The visible line is a RANKING, which is the claim a reader can push back on.
-    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked')
     // ⛔ AND THE BARE PERCENTAGE IS GONE FROM THE FACE OF THE CARD — this is the
     // assertion that would RED if the face reverted to printing the figure.
     expect(line.textContent).not.toContain('100%')
@@ -1114,7 +1117,7 @@ describe('FactorNode', () => {
       // no figure (ED 11:52Z point 3). On the face again (prototype, Paul 25
       // Sep), so it precedes the popover's confidence row in document order.
       const line = popoverDriverLine()
-      expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
+      expect(captionOf(line)).toBe('Driver 1 of 3 ranked')
       expect(line.textContent).not.toContain('80%')
       // DIFF item 4: the bar is the rank's own quantity; rank 1 = 100%.
       expect(line).toHaveAccessibleName(/100% of the top-ranked driver/)

@@ -261,10 +261,13 @@ describe('the offset is counter-scaled — the row is the contract\'s size on sc
   // units). The x term is unchanged; the y term now bounds the rise at
   // `GLYPH_ROW_RISE_MAX_FLOW` (21.36 flow units). `polarityGlyphRowClearsCards.
   // guard.spec.ts` evaluates this string at the bound on the five starters.
+  // ⚠ RE-PINNED 28 Sep 2026 (landing text cap 1.36 → 1.64, LAYOUT_LAYER_GAP
+  // 40 → 48): the bound is DERIVED from the gap, so it moves with it —
+  // 21.36 → 22.64 flow units. The derivation and the no-card guard are unchanged.
   it('multiplies the offset (never the anchor) by the glyph counter-scale, with the rise bounded to the tier gap', () => {
-    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(21.36, 10)
+    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(22.64, 10)
     expect(polarityGlyphTransform(900, 400, { dx: -17.5, dy: -19 })).toBe(
-      'translate(-50%, -50%) translate(calc(900px + -17.5px * var(--canvas-glyph-scale, 1)), calc(400px + max(-19px * var(--canvas-glyph-scale, 1), -21.36px)))',
+      'translate(-50%, -50%) translate(calc(900px + -17.5px * var(--canvas-glyph-scale, 1)), calc(400px + max(-19px * var(--canvas-glyph-scale, 1), -22.64px)))',
     )
   })
 
