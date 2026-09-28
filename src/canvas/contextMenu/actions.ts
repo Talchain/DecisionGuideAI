@@ -15,6 +15,7 @@ import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
 import { openStrengthForCanvasOnlyLinkAddedSince } from '../utils/openEdgeStrengthEditor'
+import { isQuestionCard } from '../domain/questionLink'
 import {
   assessNodeDeletion,
   assessEdgeDeletion,
@@ -344,11 +345,10 @@ export async function addNodeAction(
  * it as a causal claim. The menu does not offer them on a Question
  * (`useMenuItems` gate); this is the second fence, so any other caller is
  * refused before anything is written. Both the card's own kind and the menu
- * target's are read, so neither can smuggle a Question past the other.
+ * target's are read, so neither can smuggle a Question past the other. The card test is the drawn link's too (`domain/questionLink.ts`).
  */
 function isQuestionTarget(target: NodeTarget, targetNode: { type?: string; data?: Record<string, unknown> }): boolean {
-  const kind = (targetNode.data?.kind as string | undefined) ?? targetNode.type
-  return kind === 'decision' || target.nodeType === 'decision'
+  return isQuestionCard(targetNode) || target.nodeType === 'decision'
 }
 
 /**

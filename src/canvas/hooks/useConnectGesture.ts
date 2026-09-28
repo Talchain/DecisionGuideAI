@@ -26,6 +26,16 @@
  * is never sent). The gesture now selects the new link and raises its panel,
  * whose add-control states the strength that sends it
  * (`openEdgeStrengthEditor.openStrengthForNewCanvasOnlyLink`).
+ *
+ * ── edit-structure/F7: THE QUESTION'S ONE LINK, ON THE DRAWN PATH TOO ────────
+ * (Delivery Lead, #2235 r1.) The menu refused a Question as one end of a
+ * connected add, but a drag from the Question's own output port still drew
+ * Question → factor, and the body drop above made that drag land more often —
+ * with the strength editor raised on it, one click from sending
+ * `structural_add_edge {from: decision}`. All three callbacks now refuse a
+ * link `isRefusedQuestionLink` refuses (`domain/questionLink.ts`, the menu
+ * guard's rule): the drag validator, the handle drop and the body drop.
+ * Question → option, the Question's one legitimate link, still draws.
  */
 import { useCallback, useRef } from 'react'
 import type { Connection } from '@xyflow/react'
@@ -41,6 +51,8 @@ import {
 } from '../validation/graphGuardrails'
 import { SHARED_MODEL_AUTHORITY_COPY } from '../mutations/mutationAuthority'
 import { openStrengthForNewCanvasOnlyLink } from '../utils/openEdgeStrengthEditor'
+import { isRefusedQuestionLink } from '../domain/questionLink'
+import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
 type ShowToast = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -49,7 +61,17 @@ export const CONNECTION_REFUSAL_COPY = {
   cycle: 'This would create a circular dependency. Causal models require one-way relationships.',
   duplicate: 'This relationship already exists. Click it to adjust its strength.',
   edge_limit: 'Your model has reached the edge limit. Consider simplifying before adding more.',
+  question: `The ${DECISION_NODE_LABEL} links only to its options. To show what an option changes, draw the link from the option.`,
 } as const
+
+/** Does this pair put the Question at one end of a link CEE forbids? Read against the live store. */
+function refusesQuestionLink(source: string, target: string): boolean {
+  const { nodes } = useCanvasStore.getState()
+  return isRefusedQuestionLink(
+    nodes.find(n => n.id === source),
+    nodes.find(n => n.id === target),
+  )
+}
 
 interface ConnectStartParams {
   nodeId: string | null
@@ -94,6 +116,12 @@ export function useConnectGesture({
         return
       }
       connectSucceededRef.current = true // Task 4b: mark success before processing
+      // F7: React Flow does not call this for a pair `isValidConnection` refused;
+      // this is the fence for any caller that does.
+      if (refusesQuestionLink(connection.source, connection.target)) {
+        showToast(CONNECTION_REFUSAL_COPY.question, 'warning')
+        return
+      }
       createUserEdge(connection)
     },
     [enabled, showToast, createUserEdge],
@@ -105,6 +133,7 @@ export function useConnectGesture({
       if (!enabled) return false
       if (!connection.source || !connection.target) return false
       if (isSelfLoop(connection.source, connection.target)) return false
+      if (refusesQuestionLink(connection.source, connection.target)) return false // F7
       const { nodes, edges, engineLimits } = useCanvasStore.getState()
       if (isDuplicateEdge(edges, connection.source, connection.target)) return false
       if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) return false
@@ -143,7 +172,11 @@ export function useConnectGesture({
         showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
         return
       }
-      if (isDuplicateEdge(edges, source, target)) {
+      // F7: the Question's one link is Question → option — checked before the
+      // other refusals, because no strength, dedupe or ordering makes it valid.
+      if (refusesQuestionLink(source, target)) {
+        showToast(CONNECTION_REFUSAL_COPY.question, 'warning')
+      } else if (isDuplicateEdge(edges, source, target)) {
         showToast(CONNECTION_REFUSAL_COPY.duplicate, 'warning')
       } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) {
         showToast(limitExceededMessage('edge_limit', edges.length), 'warning')

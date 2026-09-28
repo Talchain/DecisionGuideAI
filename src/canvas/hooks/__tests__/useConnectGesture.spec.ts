@@ -41,6 +41,7 @@ function seed(edges: Array<{ id: string; source: string; target: string; data?: 
       node('out_nrr', 'outcome', 'Net Revenue Retention'),
       node('opt_hybrid', 'option', 'Hybrid pricing'),
       node('goal_revenue', 'goal', 'Revenue'),
+      node('dec_pricing', 'decision', 'How should we price?'),
     ],
     edges: edges.map((e) => ({ type: 'styled', data: {}, ...e })),
     selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null },
@@ -193,5 +194,84 @@ describe('F3 — the drawn link that cannot be sent yet is put in front of the u
     const drawn = useCanvasStore.getState().edges[0]
     expect((drawn.data as { structuralAddStandDown?: string }).structuralAddStandDown).toBeUndefined()
     expect(inspectorOpens).toBe(0)
+  })
+})
+
+describe('F7 — the Question is one end of a drawn link only as Question → option (Delivery Lead, #2235 r1)', () => {
+  /**
+   * The menu refused a Question as one end of a connected add; a drag from the
+   * Question's own output port did not, and the body drop (F5) made that drag
+   * land more often, with the strength editor raised on the new link — one
+   * click from `structural_add_edge {from: decision}`. CEE's `ALLOWED_EDGES`
+   * admits one rule at a decision, decision → option, so every other pair at
+   * the Question is refused on all three callbacks, by the menu guard's rule
+   * (`domain/questionLink.ts`).
+   *
+   * "Sends nothing" is read as: no link in the store, no queued
+   * `structural_add_edge` intent, and no strength editor raised on anything.
+   */
+  const queued = () => useCanvasStore.getState().pendingStructuralAddEdges
+  const nothingDrawnOrSent = () => {
+    expect(edgePairs(), 'a link was drawn at the Question').toEqual([])
+    expect(queued(), 'a structural_add_edge intent was queued').toEqual([])
+    expect(inspectorOpens, 'the strength editor was raised').toBe(0)
+  }
+
+  /** React Flow's own sequence for a HANDLE drop: `onConnect` only when the validator admits the pair. */
+  function handleDrag(g: ReturnType<typeof gesture>, source: string, target: string): boolean {
+    g.onConnectStart(null, { nodeId: source, handleType: 'source' })
+    const connection = { source, target, sourceHandle: null, targetHandle: null }
+    const admitted = g.isValidConnection(connection)
+    if (admitted) g.onConnect(connection)
+    g.onConnectEnd(release(cardBody(target)))
+    return admitted
+  }
+
+  it('⛔ a DRAG from the Question to a factor: the validator refuses it, nothing is drawn or sent, and the reason is given', () => {
+    // Precondition: the pair is otherwise drawable (no self-loop, duplicate,
+    // cycle or limit), so only the Question rule can refuse it.
+    expect(edgePairs()).toEqual([])
+    const g = gesture()
+    const admitted = handleDrag(g, 'dec_pricing', 'fac_adoption_friction')
+    expect(admitted, 'the drag validator admitted Question → factor').toBe(false)
+    nothingDrawnOrSent()
+    expect(toasts).toEqual([[CONNECTION_REFUSAL_COPY.question, 'warning']])
+  })
+
+  it('⛔ a BODY DROP from the Question onto a factor card: nothing is drawn or sent, and the reason is given', () => {
+    const g = gesture()
+    g.onConnectStart(null, { nodeId: 'dec_pricing', handleType: 'source' })
+    g.onConnectEnd(release(cardBody('fac_adoption_friction')))
+    nothingDrawnOrSent()
+    expect(toasts).toEqual([[CONNECTION_REFUSAL_COPY.question, 'warning']])
+  })
+
+  it('⛔ a handle drop that reaches onConnect anyway is refused there too', () => {
+    const g = gesture()
+    g.onConnect({ source: 'dec_pricing', target: 'out_nrr', sourceHandle: null, targetHandle: null })
+    nothingDrawnOrSent()
+    expect(toasts).toEqual([[CONNECTION_REFUSAL_COPY.question, 'warning']])
+  })
+
+  it('⛔ INTO the Question (factor → Question) is refused on the drag and on the body drop', () => {
+    const g = gesture()
+    expect(handleDrag(g, 'fac_adoption_friction', 'dec_pricing'), 'the drag validator admitted factor → Question').toBe(false)
+    g.onConnectStart(null, { nodeId: 'dec_pricing', handleType: 'target' })
+    g.onConnectEnd(release(cardBody('fac_adoption_friction')))
+    nothingDrawnOrSent()
+    expect(toasts.map(([m]) => m)).toEqual([CONNECTION_REFUSAL_COPY.question, CONNECTION_REFUSAL_COPY.question])
+  })
+
+  it('CONTROL: Question → option, its one legitimate link, still draws — by drag and by body drop', () => {
+    const g = gesture()
+    expect(handleDrag(g, 'dec_pricing', 'opt_hybrid'), 'the drag validator refused Question → option').toBe(true)
+    expect(edgePairs()).toEqual(['dec_pricing>opt_hybrid'])
+
+    seed()
+    const g2 = gesture()
+    g2.onConnectStart(null, { nodeId: 'dec_pricing', handleType: 'source' })
+    g2.onConnectEnd(release(cardBody('opt_hybrid')))
+    expect(edgePairs()).toEqual(['dec_pricing>opt_hybrid'])
+    expect(toasts.map(([m]) => m)).not.toContain(CONNECTION_REFUSAL_COPY.question)
   })
 })

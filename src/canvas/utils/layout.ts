@@ -579,10 +579,28 @@ export function solveRestoredCardWidths(
  *
  *   - a row whose saved stride — the MEDIAN adjacent stride, the width solver's
  *     own reading — is below `NODE_LAYOUT_MIN_W` + the sibling gap is re-spread
- *     to the minimum workable stride (that sum, rounded up to a whole unit),
- *     about the row's own saved centre, in its saved card order, every y kept;
+ *     to the minimum workable stride (that sum, rounded up to a whole unit), in
+ *     its saved card order, every y kept;
  *   - a row whose saved stride fits stays exactly as saved, hand-moved cards in
  *     it included (their overlap is the user's own, local and visible — F1).
+ *
+ * ⛔ ONLY THE CARDS THAT ARE TOO TIGHT MOVE, EACH RUN ABOUT ITS MEDIAN CARD
+ * (Delivery Lead, #2235 r1). The first cut spread the WHOLE row about the
+ * midpoint of its first and last card, so one card the user had dragged 2,000
+ * units off the end dragged the row's centre with it: the DL's probe (four
+ * cards at a 196 stride, one at x 2,600) moved the tight cards +808 to +958 and
+ * pulled the far card back across the board. Now the row is cut at every
+ * adjacent step that already clears the floor + gap, so a card that far off is
+ * its own run and is left where the user put it. Each run of two or more cards
+ * is spread about its MEDIAN card (its middle pair's midpoint on an even
+ * count), so an odd card at one end cannot shift it, and no card moves further
+ * than the floor requires. Where a spread run would now come within the floor
+ * of its neighbour run, the two are merged and spread as one, until no two runs
+ * crowd each other — so the result never overlaps and never reorders.
+ *   The TRIGGER is unchanged, and deliberately so: it is still the median stride
+ * of the whole row. An outlier cannot push a row UNDER the floor (a far card
+ * only adds one wide step), and reading a row with one card dragged close as
+ * "sub-floor" would re-spread a fitting row the user arranged, which F1 forbids.
  *
  * ⚠ WHAT IT WILL NOT MOVE:
  *   - A row without height evidence on every card. A row is `shareARow`'s
@@ -593,15 +611,19 @@ export function solveRestoredCardWidths(
  *   - A row holding a locked card, while `preserveLocked` is on.
  *   - A card with no same-row neighbour (the Question, the Goal): it cannot
  *     overlap one.
+ *   - A card already clear of both neighbours by the floor + gap, unless a
+ *     spread neighbour run grows into it.
  *
- * ⚠ IT RETURNS NODES AND WRITES NOTHING. The SAME array comes back when no row
- * moves, and the same node object for every node it does not move. A re-spread
- * row reads as fitting on the next restore, so the rule applies once.
+ * ⚠ IT PLANS AND WRITES NOTHING. `planSubFloorRespread` returns the new x of
+ * each card that moves, and nothing else; `respreadSubFloorRows` applies it and
+ * returns the SAME array when no card moves, and the same node object for every
+ * card it does not move. A re-spread row reads as fitting on the next restore,
+ * so the rule applies once.
  */
-export function respreadSubFloorRows(
-  nodes: Node[],
+export function planSubFloorRespread(
+  nodes: ReadonlyArray<Node>,
   options: { preserveLocked?: boolean; spacing?: number } = {},
-): Node[] {
+): ReadonlyMap<string, number> {
   const { preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
   const gap = Math.max(LAYOUT_NODE_GAP, spacing)
   const need = NODE_LAYOUT_MIN_W + gap
@@ -641,18 +663,75 @@ export function respreadSubFloorRows(
       // Saved order: by x, ties kept in array order (`sort` is stable).
       const ordered = [...row].sort((a, b) => (a.position?.x ?? 0) - (b.position?.x ?? 0))
       const xs = ordered.map((n) => n.position?.x ?? 0)
-      const steps = xs.slice(1).map((x, i) => x - xs[i]).sort((a, b) => a - b)
+      const steps = xs.slice(1).map((x, i) => x - xs[i])
+      const sortedSteps = [...steps].sort((a, b) => a - b)
       // The upper middle on an even count, as `solveRestoredCardWidths` reads it.
-      if (steps[Math.floor(steps.length / 2)] >= need) continue
-      const start = (xs[0] + xs[xs.length - 1]) / 2 - ((ordered.length - 1) * workable) / 2
-      ordered.forEach((n, i) => movedX.set(n.id, start + i * workable))
+      if (sortedSteps[Math.floor(sortedSteps.length / 2)] >= need) continue
+
+      // Runs of cards too tight for the floor, cut at every step that clears it.
+      const runs: Array<{ from: number; to: number }> = []
+      let from = 0
+      steps.forEach((step, i) => {
+        if (step >= need) {
+          runs.push({ from, to: i })
+          from = i + 1
+        }
+      })
+      runs.push({ from, to: xs.length - 1 })
+      // A lone card keeps its saved x; a run is spread about its median card.
+      const place = (run: { from: number; to: number }): number[] => {
+        const members = xs.slice(run.from, run.to + 1)
+        if (members.length === 1) return members
+        const k = members.length
+        const median = k % 2 === 1 ? members[(k - 1) / 2] : (members[k / 2 - 1] + members[k / 2]) / 2
+        return members.map((_, i) => median + (i - (k - 1) / 2) * workable)
+      }
+      // Merge any two neighbouring runs the spread has brought within the floor.
+      for (let r = 0; r + 1 < runs.length; ) {
+        const left = place(runs[r])
+        const right = place(runs[r + 1])
+        if (right[0] - left[left.length - 1] < need) {
+          runs.splice(r, 2, { from: runs[r].from, to: runs[r + 1].to })
+          r = Math.max(0, r - 1) // the merged run may now crowd the run before it
+        } else {
+          r += 1
+        }
+      }
+      for (const run of runs) {
+        place(run).forEach((x, i) => {
+          const n = ordered[run.from + i]
+          if (x !== (n.position?.x ?? 0)) movedX.set(n.id, x)
+        })
+      }
     }
   }
+  return movedX
+}
+
+/**
+ * Apply `planSubFloorRespread`'s x values: x only, and only for the cards named.
+ * Returns the SAME array when no card changes, and the same object for every
+ * card that does not. Also the functional write `useRestoredLayoutWidth` makes
+ * against the store's CURRENT nodes, so a write that landed after its render is
+ * kept (Delivery Lead, #2235 r1).
+ */
+export function applyRespreadX<T extends Node>(nodes: T[], movedX: ReadonlyMap<string, number>): T[] {
   if (movedX.size === 0) return nodes
-  return nodes.map((n) => {
+  let changed = false
+  const next = nodes.map((n) => {
     const x = movedX.get(n.id)
-    return x === undefined ? n : { ...n, position: { ...n.position, x } }
+    if (x === undefined || x === n.position?.x) return n
+    changed = true
+    return { ...n, position: { ...n.position, x } }
   })
+  return changed ? next : nodes
+}
+
+export function respreadSubFloorRows(
+  nodes: Node[],
+  options: { preserveLocked?: boolean; spacing?: number } = {},
+): Node[] {
+  return applyRespreadX(nodes, planSubFloorRespread(nodes, options))
 }
 
 /**

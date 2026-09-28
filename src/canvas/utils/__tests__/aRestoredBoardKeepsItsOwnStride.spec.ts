@@ -30,7 +30,7 @@
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
 import { respreadSubFloorRows, solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
-import { NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
 
 /**
  * Codex's fixture shape. ⚠ S4 (24 Sep 2026) MOVED THE SAVED WIDTH 336 → 140;
@@ -377,5 +377,65 @@ describe('a sub-floor restored row re-spreads to the minimum workable stride', (
     for (const n of saved.filter((x) => x.type === 'option')) expect(out.find((x) => x.id === n.id)).toBe(n)
     // …while the factor row, which holds no locked card, still re-spreads.
     expect(row(out, 'factor')[1].position.x - row(out, 'factor')[0].position.x).toBeCloseTo(MIN_STRIDE, 9)
+  })
+
+  /**
+   * ⛔⛔ THE DELIVERY LEAD'S PROBE (#2235 r1): ONE FAR-OFF CARD DRAGGED THE WHOLE ROW.
+   *
+   * The first cut spread every card of a sub-floor row about the midpoint of
+   * its FIRST and LAST card. Four cards at the pre-17-Aug 196 stride plus one
+   * the user had dragged to x 2,600 put that midpoint at 1,300: the tight cards
+   * moved +808 to +958 and the far card was pulled 808 units back across the
+   * board. Now the row is cut at every step that already clears the floor, each
+   * too-tight run is spread about its MEDIAN card, and a card already clear of
+   * its neighbours stays where the user put it. Default spacing, as probed.
+   */
+  it('⛔ THE DL PROBE: four tight cards and one dragged 2,000 away — the tight cards move only what the floor needs, the far card not at all', () => {
+    const TIGHT = [0, 196, 392, 588]
+    const FAR_X = 2600
+    const saved = withHeights([
+      ...TIGHT.map((x, i) => ({ id: `t${i}`, type: 'factor', position: { x, y: 600 }, data: { label: `t${i}` } })),
+      { id: 'far', type: 'factor', position: { x: FAR_X, y: 600 }, data: { label: 'far' } },
+    ] as Node[])
+    const need = NODE_LAYOUT_MIN_W + LAYOUT_NODE_GAP
+    const workable = Math.ceil(need)
+    // Preconditions: the row IS sub-floor by its median stride (so it is
+    // re-spread at all), and the far card's step already clears the floor.
+    expect(SUB_FLOOR_STRIDE, 'the tight stride is no longer sub-floor — the probe cannot reproduce').toBeLessThan(need)
+    expect(FAR_X - TIGHT[TIGHT.length - 1]).toBeGreaterThanOrEqual(need)
+
+    const out = respreadSubFloorRows(saved)
+    expect(out, 'the sub-floor row was not re-spread at all').not.toBe(saved)
+    expect(out.find((n) => n.id === 'far'), 'the far card was moved from where the user put it').toBe(saved.find((n) => n.id === 'far'))
+    // The most any tight card has to move to reach the workable stride about
+    // the run's own middle: half the run's growth.
+    const floorNeeds = ((TIGHT.length - 1) / 2) * (workable - SUB_FLOOR_STRIDE)
+    const after = TIGHT.map((_, i) => out.find((n) => n.id === `t${i}`)!.position.x)
+    after.forEach((x, i) => {
+      expect(Math.abs(x - TIGHT[i]), `t${i} moved ${x - TIGHT[i]}, more than the floor requires (${floorNeeds})`).toBeLessThanOrEqual(floorNeeds + 1e-9)
+    })
+    for (let i = 1; i < after.length; i++) expect(after[i] - after[i - 1], 'the tight run is not at the workable stride').toBeCloseTo(workable, 9)
+    expect(FAR_X - after[after.length - 1], 'the tight run now crowds the far card').toBeGreaterThanOrEqual(need)
+  })
+
+  it('⛔ A SPREAD RUN THAT WOULD CROWD ITS NEIGHBOUR TAKES IT IN — never an overlap, never a reorder', () => {
+    // The same four tight cards, and a fifth only just clear of them (250 ≥
+    // floor + gap). Spread alone, the run's last card lands 175 short of it —
+    // an overlap the cut must not create. The two are spread as one run.
+    const TIGHT = [0, 196, 392, 588]
+    const NEAR_X = 588 + 250
+    const saved = withHeights([
+      ...TIGHT.map((x, i) => ({ id: `t${i}`, type: 'factor', position: { x, y: 600 }, data: { label: `t${i}` } })),
+      { id: 'near', type: 'factor', position: { x: NEAR_X, y: 600 }, data: { label: 'near' } },
+    ] as Node[])
+    const need = NODE_LAYOUT_MIN_W + LAYOUT_NODE_GAP
+    expect(NEAR_X - TIGHT[TIGHT.length - 1], 'the fifth card no longer clears the floor on its own — this is the plain case').toBeGreaterThanOrEqual(need)
+
+    const out = respreadSubFloorRows(saved)
+    const ordered = [...out].sort((a, b) => a.position.x - b.position.x)
+    expect(ordered.map((n) => n.id), 'the saved order changed').toEqual(['t0', 't1', 't2', 't3', 'near'])
+    for (let i = 1; i < ordered.length; i++) {
+      expect(ordered[i].position.x - ordered[i - 1].position.x, `${ordered[i - 1].id} → ${ordered[i].id} is inside the floor`).toBeGreaterThanOrEqual(need)
+    }
   })
 })
