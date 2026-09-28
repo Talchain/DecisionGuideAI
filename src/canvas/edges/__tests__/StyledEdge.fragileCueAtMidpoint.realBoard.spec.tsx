@@ -17,6 +17,18 @@
  * file computes.
  *
  * CLAIM SCOPE: jsdom — the disc's inline transform (its centre in graph units).
+ *
+ * ⚠ RE-PINNED 28 Sep 2026 (canvas/paul-test-edges). Links into one card now end
+ * at their OWN arrival slots (`edgeGlyphPlacement.ts` rule A: as near below
+ * each source as the card allows). The goal `mrr` takes four links, so Pro plan
+ * price → MRR no longer jogs from its lead (x 592) to the shared handle
+ * (x 536, y 1636.64): measured here, the component now draws
+ * `M592,1026.02 C592,1056.02 592,1633 592,1663` — straight down from the same
+ * port into the goal's top border at x 592, y 1663. The capture's path, and so
+ * the browser's own midpoint `midGraph`, belong to the old geometry; the disc
+ * is therefore checked against the midpoint of the path the component DRAWS
+ * (the claim this file makes), and the browser re-witness on a served build is
+ * the next rung, not this one.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -56,6 +68,7 @@ import { useCanvasStore } from '../../store'
 import { applyDraftResult } from '../../utils/applyDraftResult'
 import { applyV5State } from '../../../v5/applyV5State'
 import { StyledEdge } from '../StyledEdge'
+import { flattenSvgPath, pointAtFraction } from '../fragileCuePlacement'
 
 type Json = Record<string, unknown>
 type Box = { x: number; y: number; width: number; height: number }
@@ -129,21 +142,29 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('⭐ 90b8 Standard: the top fragile edge\'s disc sits at the midpoint of the path it is drawn on', () => {
-  it('PRECONDITION: the component draws the same path Chromium drew for Pro plan price → MRR', () => {
+  it('PRECONDITION: the component draws Pro plan price → MRR from the port Chromium drew it from, into its own slot on the goal (re-pinned, see header)', () => {
     seed()
     const { getByTestId } = renderFragileEdge('e-6')
     const drawn = BOARD.fragileEdges.find((x) => x.id === 'e-6')!
     const rendered = getByTestId('base-edge').getAttribute('d')!
-    // Same lead path (numbers rounded differently by the two writers).
     const n = (s: string) => s.match(/-?\d+(?:\.\d+)?/g)!.map((v) => Math.round(Number(v)))
-    expect(n(rendered)).toEqual(n(drawn.d))
+    // The same source port as the capture…
+    expect(n(rendered).slice(0, 2)).toEqual(n(drawn.d).slice(0, 2))
+    // …into the goal's top border straight below it (was the shared handle, 536 / 1637).
+    const goal = BOARD.nodes.find((x) => x.id === 'mrr')!.box
+    expect(n(rendered)).toEqual([592, 1026, 592, 1056, 592, 1633, 592, goal.y])
+    expect(goal.y).toBe(1663)
   })
 
-  it('Pro plan price → MRR: the disc is at the browser\'s own midpoint of that path, not at the Goal arrival', () => {
+  /** The midpoint, by arc length, of the path the component drew. */
+  const drawnMid = (container: HTMLElement) =>
+    pointAtFraction(flattenSvgPath(container.querySelector('[data-testid="base-edge"]')!.getAttribute('d'))!, 0.5)
+
+  it('Pro plan price → MRR: the disc is at the midpoint of the path it is drawn on, not at the Goal arrival', () => {
     seed()
     const { container } = renderFragileEdge('e-6')
     const c = discCentre(container)
-    const mid = BOARD.fragileEdges.find((x) => x.id === 'e-6')!.midGraph
+    const mid = drawnMid(container)
     expect(Math.hypot(c.x - mid.x, c.y - mid.y)).toBeLessThan(0.5)
     // …and nowhere near the Goal card's top (its routed box in the fixture), where it was.
     const goalTop = BOARD.nodes.find((n) => n.id === 'mrr')!.box.y
@@ -157,7 +178,7 @@ describe('⭐ 90b8 Standard: the top fragile edge\'s disc sits at the midpoint o
     const disc = container.querySelector('[data-fragile-cue="disc"]')!
     expect(disc.getAttribute('aria-label')!.startsWith('Last run · ')).toBe(true)
     const c = discCentre(container)
-    const mid = BOARD.fragileEdges.find((x) => x.id === 'e-6')!.midGraph
+    const mid = drawnMid(container)
     expect(Math.hypot(c.x - mid.x, c.y - mid.y)).toBeLessThan(0.5)
   })
 

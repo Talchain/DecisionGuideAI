@@ -11,6 +11,9 @@ import {
   UNDER_ROW_CLEARANCE,
   type RouteBox,
 } from '../sameRowRoute'
+import { flattenSvgPath } from '../fragileCuePlacement'
+import { glyphMetricsAt, resolvePolarityGlyphOnPath } from '../../utils/edgeGlyphPlacement'
+import { MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
 
 const box = (id: string, x: number, y = 324, width = 248, height = 117): RouteBox => ({ id, x, y, width, height })
 // A five-card row, 32-unit gutters.
@@ -21,6 +24,7 @@ const D = box('d', 840)
 const E = box('e', 1120)
 const ROW = [A, B, C, D, E]
 const othersFor = (s: RouteBox, t: RouteBox) => ROW.filter((n) => n !== s && n !== t)
+const keepOutOf = (b: RouteBox) => ({ x0: b.x, y0: b.y, x1: b.x + b.width, y1: b.y + b.height })
 
 describe('which route a same-row pair takes', () => {
   it('adjacent → side; one or more cards between → under', () => {
@@ -43,14 +47,22 @@ describe('which route a same-row pair takes', () => {
     expect(resolveSameRowRoute(B, A, [])!.path).toBe('M280,382.5 L252,382.5')
   })
 
+  // ⚠ RE-PINNED 28 Sep 2026 (canvas/paul-test-edges): a route no longer carries a
+  // sign position — every sign stands on its own drawn path
+  // (`resolvePolarityGlyphOnPath`, `edgeGlyphPlacement.ts` rule B). The claim is
+  // unchanged: the two routes' signs, placed that way at the landing bound on
+  // their own paths, stand a glyph box apart.
   it('two under-routes into one target from the same side neither share a lead nor stack glyphs', () => {
     const fromA = resolveSameRowRoute(A, D, othersFor(A, D))!
     const fromB = resolveSameRowRoute(B, D, othersFor(B, D))!
     expect(fromA.kind).toBe('under')
     expect(fromB.kind).toBe('under')
     expect(fromA.path).not.toBe(fromB.path)
-    const dx = Math.abs(fromA.glyphX - fromB.glyphX)
-    const dy = Math.abs(fromA.glyphY - fromB.glyphY)
+    const atBound = glyphMetricsAt(3, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE)
+    const gA = resolvePolarityGlyphOnPath(flattenSvgPath(fromA.path)!, D.y, atBound, ROW.map(keepOutOf))
+    const gB = resolvePolarityGlyphOnPath(flattenSvgPath(fromB.path)!, D.y, atBound, ROW.map(keepOutOf))
+    const dx = Math.abs(gA.x - gB.x)
+    const dy = Math.abs(gA.y - gB.y)
     expect(Math.max(dx, dy)).toBeGreaterThanOrEqual(20)
   })
 })

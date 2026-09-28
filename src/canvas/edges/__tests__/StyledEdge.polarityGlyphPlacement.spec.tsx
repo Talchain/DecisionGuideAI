@@ -30,12 +30,22 @@
  * node therefore receives byte-identical values, and a fixture that varied them
  * would be testing a wire that does not exist (trap 16-inverse: a fixture you
  * wrote yourself is not evidence about the producer).
+ *
+ * ⚠ RE-PINNED 28 Sep 2026 (canvas/paul-test-edges). Each edge's SOURCE end is
+ * now its own source card's bottom-centre port — what xyflow hands it — not
+ * one shared (0, 0) for every edge: since the sign sits ON its own drawn path
+ * (`edgeGlyphPlacement.ts` rule B), a fixture whose paths all began at one
+ * point tested paths no board draws. And the ONE-ROW case this file pinned (the
+ * contract's row 19 above a shared arrival) is the rule that change replaced:
+ * links into one card now end at their own slots, in their sources' order, and
+ * each sign stands on its own line behind its own head.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
-import { GLYPH_ROW_RISE } from '../../utils/edgeGlyphPlacement'
+import { ARRIVAL_PITCH_FLOW } from '../../utils/edgeGlyphPlacement'
+import { flattenSvgPath } from '../fragileCuePlacement'
 
 interface MockNode {
   id: string
@@ -58,7 +68,7 @@ vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return {
     ...actual,
-    BaseEdge: () => <path data-testid="base-edge" />,
+    BaseEdge: ({ id, path }: { id: string; path: string }) => <path data-testid="base-edge" data-edge={id} d={path} />,
     EdgeLabelRenderer: ({ children }: any) => <div>{children}</div>,
     getBezierPath: () => ['M0 0 L100 100', 50, 50],
     getSmoothStepPath: () => ['M0 0 L100 100', 50, 50],
@@ -144,8 +154,14 @@ function buildFan(n: number, signs: Array<'positive' | 'negative'>): void {
   }
 }
 
-function renderFan(): Array<{ id: string; sign: string; transform: string }> {
-  const out: Array<{ id: string; sign: string; transform: string }> = []
+/** xyflow's source port for an edge: its source card's bottom-centre. */
+function portOf(sourceId: string): { sourceX: number; sourceY: number } {
+  const n = mockNodes.find((m) => m.id === sourceId)!
+  return { sourceX: n.position.x + n.measured!.width / 2, sourceY: n.position.y + n.measured!.height }
+}
+
+function renderFan(): Array<{ id: string; sign: string; transform: string; d: string }> {
+  const out: Array<{ id: string; sign: string; transform: string; d: string }> = []
   for (const e of mockEdges) {
     const { container } = render(
       <StyledEdge
@@ -153,8 +169,7 @@ function renderFan(): Array<{ id: string; sign: string; transform: string }> {
           id: e.id,
           source: e.source,
           target: e.target,
-          sourceX: 0,
-          sourceY: 0,
+          ...portOf(e.source),
           ...TARGET_XY,
           sourcePosition: Position.Bottom,
           targetPosition: Position.Top,
@@ -172,6 +187,7 @@ function renderFan(): Array<{ id: string; sign: string; transform: string }> {
       id: e.id,
       sign: el!.getAttribute('aria-label')!.replace('Effect direction: ', ''),
       transform: el!.style.transform,
+      d: container.querySelector(`[data-testid="base-edge"][data-edge="${e.id}"]`)!.getAttribute('d')!,
     })
   }
   return out
@@ -202,23 +218,34 @@ function buildRow(sources: Array<{ id: string; dx: number }>): void {
   }
 }
 
-/**
- * The glyph's anchor and its counter-scaled offset, read back from the
- * transform. The offset is multiplied by `--canvas-glyph-scale` so the row is
- * the contract's size on screen at every zoom; the anchor is not.
- */
-// ⚠ RE-PINNED 27 Sep 2026 (code-review F1): the y term now bounds the RISE in
-// flow units — `max(<dy>px * var(…), -<bound>px)` — so the row stays inside the
-// tier gap at the landing. The old pattern matched only the unbounded form,
-// which was the defect. The captured groups (anchor and offset) are unchanged.
-const GLYPH_TRANSFORM =
-  /translate\(calc\((-?[\d.]+)px \+ (-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\)\), calc\((-?[\d.]+)px \+ max\((-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\), -[\d.]+px\)\)\)\s*$/
-function parseGlyph(transform: string): { x: number; y: number; dx: number; dy: number } {
+/** The sign's centre, read back from its transform — a flow point (rule B). */
+const GLYPH_TRANSFORM = /^translate\(-50%, -50%\) translate\((-?[\d.]+)px, (-?[\d.]+)px\)$/
+function parseGlyph(transform: string): { x: number; y: number } {
   const m = transform.match(GLYPH_TRANSFORM)
-  expect(m, `glyph transform is not a counter-scaled offset from the target anchor: ${transform}`).not.toBeNull()
-  return { x: Number(m![1]), dx: Number(m![2]), y: Number(m![3]), dy: Number(m![4]) }
+  expect(m, `glyph transform is not a flow point: ${transform}`).not.toBeNull()
+  return { x: Number(m![1]), y: Number(m![2]) }
 }
 
+/** Distance from `p` to the drawn path `d`. */
+function offPath(p: { x: number; y: number }, d: string): number {
+  const pts = flattenSvgPath(d)!.points
+  let best = Infinity
+  for (let k = 1; k < pts.length; k++) {
+    const a = pts[k - 1]
+    const b = pts[k]
+    const vx = b.x - a.x
+    const vy = b.y - a.y
+    const len2 = vx * vx + vy * vy
+    const t = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / len2)) : 0
+    best = Math.min(best, Math.hypot(p.x - (a.x + t * vx), p.y - (a.y + t * vy)))
+  }
+  return best
+}
+
+const endOf = (d: string) => {
+  const pts = flattenSvgPath(d)!.points
+  return pts[pts.length - 1]
+}
 
 describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
   it.each([2, 3, 4, 6])(
@@ -263,15 +290,13 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
    * COVER. Distinct-but-arbitrary is not the fix — a reader has to be able to
    * tell which edge a `+` belongs to.
    *
-   * ⭐ contract v3.1 (27 Sep 2026, side-by-side DIFF item 4): the glyphs of every
-   * edge into one target stand in ONE row 19 above the arrival point, 19 apart,
-   * centred on it — measured on the contract in Chromium: −17.5 / +17.5 for two
-   * arrivals, −27 / +8 / +27 for three. A glyph belongs to the edge on its SIDE:
-   * the row is ordered by where each edge's source sits, left to right. The
-   * superseded rule scattered them along each edge's own approach (a polar
-   * offset), which put them on card corners and on other edges' strokes.
+   * ⭐ RE-PINNED 28 Sep 2026 (see header): links into one card end at their OWN
+   * arrival slots, left to right in the order of their sources, a pitch apart;
+   * each sign stands ON its own drawn line (≤ 6 units off it), nearer its own
+   * arrowhead than any other. The superseded rule (one row of signs 19 above a
+   * shared arrival point) is what left Paul unable to attribute them.
    */
-  it('ONE ROW: every glyph into a target is 19 above the arrival, in approach order, at the contract slots', () => {
+  it('OWN ARRIVALS, OWN LINES: every link into a card ends at its own slot, in source order, and its sign is on its own line', () => {
     // Four sources above the target, deliberately listed with ids OUT of their
     // left-to-right order, so id order and approach order disagree.
     buildRow([
@@ -281,14 +306,20 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
       { id: 'e-d', dx: -150 },
     ])
     const glyphs = renderFan()
-    expect(glyphs.length, 'fewer than four glyphs — the row cannot be observed').toBe(4)
-    const at = Object.fromEntries(glyphs.map((g) => [g.id, parseGlyph(g.transform)]))
-    // Bound by IDENTITY: each edge id to the slot its own source's side earns.
-    expect(at['e-b']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: -36.5, dy: -19 })
-    expect(at['e-d']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: -17.5, dy: -19 })
-    expect(at['e-c']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: 17.5, dy: -19 })
-    expect(at['e-a']).toEqual({ x: TARGET_XY.targetX, y: TARGET_XY.targetY, dx: 36.5, dy: -19 })
-    expect(GLYPH_ROW_RISE).toBe(19)
+    expect(glyphs.length, 'fewer than four glyphs — the arrivals cannot be observed').toBe(4)
+    const byId = Object.fromEntries(glyphs.map((g) => [g.id, g]))
+    // Bound by IDENTITY: each edge id to its own end, in its source's order.
+    const order = ['e-b', 'e-d', 'e-c', 'e-a'].map((id) => endOf(byId[id].d).x)
+    for (let i = 1; i < order.length; i++) expect(order[i] - order[i - 1]).toBeGreaterThanOrEqual(ARRIVAL_PITCH_FLOW - 1e-9)
+    for (const g of glyphs) {
+      const p = parseGlyph(g.transform)
+      expect(offPath(p, g.d), `${g.id}'s sign is off its own line`).toBeLessThanOrEqual(6)
+      const own = Math.hypot(p.x - endOf(g.d).x, p.y - endOf(g.d).y)
+      for (const h of glyphs) {
+        if (h.id === g.id) continue
+        expect(own, `${g.id}'s sign is nearer ${h.id}'s end`).toBeLessThan(Math.hypot(p.x - endOf(h.d).x, p.y - endOf(h.d).y))
+      }
+    }
   })
 
   /**
@@ -310,7 +341,7 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
         <StyledEdge
           {...({
             id: e.id, source: e.source, target: e.target,
-            sourceX: 0, sourceY: 0, ...TARGET_XY,
+            ...portOf(e.source), ...TARGET_XY,
             sourcePosition: Position.Bottom, targetPosition: Position.Top,
             selected: false, data: e.data,
           } as any)}
@@ -324,16 +355,16 @@ describe('P0: polarity glyphs on edges sharing a target never coincide', () => {
     expect(new Set(seen).size, `edges absent from the slice stacked: ${seen.join(' | ')}`).toBe(2)
   })
 
-  it('the transform still resolves to a real point near the shared target anchor', () => {
+  it('the sign still resolves to a real point near its own arrival, on its own line', () => {
     // Distinctness bought by flinging glyphs across the canvas would be no fix.
     buildFan(4, ['positive'])
     for (const g of renderFan()) {
       const p = parseGlyph(g.transform)
-      expect(p.x).toBe(TARGET_XY.targetX)
-      expect(p.y).toBe(TARGET_XY.targetY)
-      const d = Math.hypot(p.dx, p.dy)
-      expect(d, `${g.id} sits ${Math.round(d)} units from its target anchor`).toBeLessThanOrEqual(120)
+      const end = endOf(g.d)
+      const d = Math.hypot(p.x - end.x, p.y - end.y)
+      expect(d, `${g.id} sits ${Math.round(d)} units from its own arrival`).toBeLessThanOrEqual(120)
       expect(d).toBeGreaterThan(0)
+      expect(offPath(p, g.d), `${g.id}`).toBeLessThanOrEqual(6)
     }
   })
 })

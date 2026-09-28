@@ -782,6 +782,12 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       fragileIds.add('e1')
       nodeRegistry.n1 = card('n1', 'factor', -100, -200)
       nodeRegistry.n2 = card('n2', 'outcome', -100, 200)
+      // ⚠ 28 Sep 2026 (canvas/paul-test-edges): a card whose apex sits under its
+      // row's band word now takes its one link just past the word
+      // (`edgeGlyphPlacement.ts`, `resolveArrivalSlot`). A row-mate to the LEFT
+      // carries the word here, so n2 keeps its apex and the drawn line stays the
+      // straight x = 0 this test reasons about.
+      nodeRegistry.n0 = card('n0', 'outcome', -400, 200)
       const layered = { ...edgeProps, sourceX: 0, sourceY: -120, targetX: 0, targetY: 200, sourcePosition: Position.Bottom, targetPosition: Position.Top }
       // A narrow card 60 units right of the line: clear of the disc.
       nodeRegistry.blocker = card('blocker', 'factor', 60, 20, { width: 40, height: 40 })

@@ -70,6 +70,7 @@ import { ToastProvider, useShowToast } from './ToastContext'
 // DiagnosticsOverlay removed - use ?diag=1 URL param if needed for debugging
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
+import { useCanvasNodeHoverStore } from './stores/canvasNodeHoverStore'
 import { useHistoryToast } from './hooks/useHistoryToast'
 // ValidationChip removed - validation consolidated into OutputsDock panel
 import { LayerProvider } from './components/LayerProvider'
@@ -2793,12 +2794,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             onEdgeContextMenu={onEdgeContextMenu}
             onNodeDragStart={onNodeDragStart}
             onNodeDragStop={onNodeDragStop}
-            onNodeMouseEnter={isCrossHighlightEnabled() ? (_, node) => {
-              setHoveredFromCanvasRef.current(node.id)
-            } : undefined}
-            onNodeMouseLeave={isCrossHighlightEnabled() ? () => {
-              setHoveredFromCanvasRef.current(null)
-            } : undefined}
+            // The hovered card is recorded for the edges (an option → factor
+            // link regains full emphasis while its option or factor is hovered,
+            // `StyledEdge`); the cross-surface highlight stays behind its flag.
+            onNodeMouseEnter={(_, node) => {
+              useCanvasNodeHoverStore.getState().setHoveredNodeId(node.id)
+              if (isCrossHighlightEnabled()) setHoveredFromCanvasRef.current(node.id)
+            }}
+            onNodeMouseLeave={() => {
+              useCanvasNodeHoverStore.getState().setHoveredNodeId(null)
+              if (isCrossHighlightEnabled()) setHoveredFromCanvasRef.current(null)
+            }}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOpts}

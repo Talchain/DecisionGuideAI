@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  arrivalGlyphRowSpan,
+  arrivalMarkBoxes,
   flattenSvgPath,
   fragileCueSpotIsClear,
   pointAtFraction,
@@ -14,7 +14,6 @@ import {
   FRAGILE_CUE_MAX_SLIDE,
   FRAGILE_CUE_RADIUS_FLOW,
 } from '../fragileCuePlacement'
-import { resolvePolarityGlyphOffset } from '../../utils/edgeGlyphPlacement'
 
 /** A straight vertical connection 1000 units long: fraction f is at y = 1000·f. */
 const VERTICAL = 'M0,0 L0,1000'
@@ -88,23 +87,34 @@ describe('the rule: the midpoint, else the nearest clear point along the path, w
   })
 })
 
-describe('the arrival band follows the glyph row the glyphs are placed in', () => {
-  it('its span is the glyph resolver\'s own first and last slot', () => {
-    const sib = (k: number) => ({ id: `s${k}`, sourceCentre: null })
-    const four = [0, 1, 2, 3].map(sib)
-    const span = arrivalGlyphRowSpan(4)!
-    expect(span.dxMin).toBe(resolvePolarityGlyphOffset('s0', { x: 0, y: 0 }, four).dx)
-    expect(span.dxMax).toBe(resolvePolarityGlyphOffset('s3', { x: 0, y: 0 }, four).dx)
-    expect(arrivalGlyphRowSpan(0)).toBeNull()
+/**
+ * ⚠ RE-WRITTEN 28 Sep 2026 (canvas/paul-test-edges): the band this file pinned
+ * followed the old glyph ROW (one row of signs above a shared arrival). Links
+ * into one card now arrive spread along its top and each sign stands on its own
+ * line (`edgeGlyphPlacement.ts` rules A and B), so a link's head and sign are
+ * marks on the last stretch of its OWN path (`arrivalMarkBoxes`), and a card's
+ * band keeps only its kind shape's column (a `null` span).
+ */
+describe('a link\'s arrival marks are the last stretch of its own path', () => {
+  it('they cover the path from its tip back past where its sign can stand, and nothing beyond', () => {
+    const marks = arrivalMarkBoxes(['M0,0 L0,1000'])
+    expect(marks.length).toBeGreaterThan(0)
+    const covers = (p: { x: number; y: number }) => marks.some((m) => p.x >= m.x && p.x <= m.x + m.width && p.y >= m.y && p.y <= m.y + m.height)
+    // The tip, the widest head's base (40 back) and the sign's farthest spot (54 back).
+    for (const y of [1000, 960, 946]) expect(covers({ x: 0, y }), `y ${y}`).toBe(true)
+    // …but not the midpoint of the link, where the cue belongs.
+    expect(covers({ x: 0, y: 500 })).toBe(false)
+    expect(arrivalMarkBoxes([null, 'M0,0 A1,1 0 0 1 2,2'])).toEqual([])
   })
 
-  it('a point above a card but beside its narrow row is clear; the same point with the whole-width fallback is not', () => {
+  it('a cue beside a card is clear of its kind column; over a link\'s arrival marks it is not', () => {
     const card = { id: 'c', x: 0, y: 1000, width: 800, height: 100 }
+    const rows = new Map([['c', null]])
     const beside = { x: 60, y: 1000 - 30 }
-    const rows = new Map([['c', arrivalGlyphRowSpan(1)]])
     expect(fragileCueSpotIsClear(beside, [card], [], 0, rows)).toBe(true)
+    // CONTRAST: the whole-width fallback (no entry in `rows`) is not.
     expect(fragileCueSpotIsClear(beside, [card], [])).toBe(false)
-    // Over the row itself: never clear.
-    expect(fragileCueSpotIsClear({ x: 400 + 16 * 2, y: 1000 - 38 }, [card], [], 0, rows)).toBe(false)
+    // A link arriving at x 60 puts its head and sign exactly there.
+    expect(fragileCueSpotIsClear(beside, [card], [], 0, rows, arrivalMarkBoxes(['M60,500 L60,1000']))).toBe(false)
   })
 })

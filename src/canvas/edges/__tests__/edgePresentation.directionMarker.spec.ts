@@ -47,19 +47,18 @@ import {
   renderedArrowheadPx,
   edgeArrowheadMarkerId,
 } from '../edgePresentation'
-import { LABEL_LEGIBLE_ZOOM, glyphCounterScale } from '../../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, glyphCounterScale, labelCounterScale } from '../../utils/zoomLegibility'
 import {
   EDGE_STROKE_WIDTH_BANDS,
   MEASURED_EDGE_STROKE_WIDTH_FLOOR,
   UNSET_EDGE_STROKE_WIDTH,
 } from '../../utils/graphDisplayCalculations'
 import {
-  GLYPH_ROW_RISE,
-  GLYPH_ROW_PITCH,
-  GLYPH_ROW_CENTRE_CLEARANCE,
   GLYPH_ROW_RISE_MAX_FLOW,
-  paintedGlyphDyFlow,
+  glyphMetricsAt,
+  resolvePolarityGlyphOnPath,
 } from '../../utils/edgeGlyphPlacement'
+import { flattenSvgPath } from '../fragileCuePlacement'
 
 describe('EDGE_DIRECTION_MARKER_RULES — the order is the contract', () => {
   it('states the precedence, highest first', () => {
@@ -216,59 +215,50 @@ describe('arrowhead size — the contract\'s markerWidth 4, counter-scaled like 
 })
 
 /**
- * ── CLEARANCE AGAINST THE POLARITY-GLYPH ROW ──────────────────────────────
+ * ── CLEARANCE BETWEEN A SIGN AND ITS OWN HEAD ─────────────────────────────
  *
- * The glyphs of every edge into a target now stand in one row 19 above the
- * arrival point, starting 17.5 to either side of it (`edgeGlyphPlacement.ts`).
- * Every head ends AT the arrival point and is at most `2 × width` across either
- * side of it, so the flanking slots clear it across the path whatever its
- * length. Both terms are counter-scaled by the same var, so the relation holds
- * at every zoom rather than at one.
- *
- * ⚠ ONE STATED LIMIT: the middle glyph of an ODD row sits at +8 (the contract's
- * own slot; the contract drops it to −12, which is worse). Where the row's rise
- * is the contract's 19 (zoom ≥ ≈0.89) its 12px box ends 13 above the arrival,
- * so it clears the slight and moderate heads (8 and 12 long) but its box corner
- * meets a strong (16) or very strong (20) head.
- *
- * ⚠⚠ RE-SCOPED 28 Sep 2026 (review r08 note 2). Since code-review F1 the RISE is
- * bounded at `GLYPH_ROW_RISE_MAX_FLOW` flow units, so below zoom ≈0.89 it is
- * less than 19 on screen: 10.68 at the 0.5 landing, where the box ends 4.68
- * above the tip — inside EVERY head, the 8px unset and slight ones included.
- * The test below used to assert the 19 at every zoom; it now holds the 19 where
- * it is true and pins the landing figure beside it. The glyph keeps its canvas
- * halo there. Arithmetic only — not measured on paint.
+ * ⚠ RE-WRITTEN 28 Sep 2026 (canvas/paul-test-edges). The signs no longer stand
+ * in one row beside a shared arrival (the rule this block pinned); each sits ON
+ * its own line, one head length + the mark gap + half its box back from its own
+ * tip (`edgeGlyphPlacement.ts` rule B), under the rise bound. So the clearance
+ * is ALONG the line: the sign's box ends the mark gap short of the head's base
+ * wherever the rise bound leaves room. Both terms follow the live counter-scales
+ * (the head the glyph scale, the box the text scale), so it is checked at every
+ * zoom from the landing to 1:1. Arithmetic only — not measured on paint.
  */
-describe('arrowhead clearance — the glyph row sits beside the heads', () => {
-  const GLYPH_BOX_HALF = 6 // the contract's measured 12px text box, halved
+describe('arrowhead clearance — the sign sits on its own line, clear of its own head', () => {
+  /** A link dropping straight into a card whose top is y 1000, tip on the border or on the apex. */
+  const clearance = (width: number, zoom: number, tipAbove = 0) => {
+    const g = glyphCounterScale(zoom)
+    const l = labelCounterScale(zoom)
+    const m = glyphMetricsAt(width, g, l)
+    const tipY = 1000 - tipAbove
+    const placed = resolvePolarityGlyphOnPath(flattenSvgPath(`M500,500 L500,${tipY}`)!, 1000, m)
+    return { gap: tipY - placed.y - m.halfBox - m.headLength, m }
+  }
 
-  it('a flanking glyph clears the widest head the width channel can draw, across the path', () => {
-    const widestHalf = (EDGE_ARROWHEAD_STROKE_MULTIPLE * Math.max(...Object.values(EDGE_STROKE_WIDTH_BANDS))) / 2
-    const nearestFlank = GLYPH_ROW_PITCH / 2 + GLYPH_ROW_CENTRE_CLEARANCE
-    expect(nearestFlank).toBe(17.5)
-    expect(nearestFlank - GLYPH_BOX_HALF - widestHalf).toBeGreaterThan(0)
-  })
-
-  /** The row's rise on SCREEN at `zoom`: the painted (bounded) flow rise × zoom. */
-  const riseOnScreenPx = (zoom: number) => -paintedGlyphDyFlow(-GLYPH_ROW_RISE, glyphCounterScale(zoom)) * zoom
-
-  it('where the rise is the contract\'s 19 (zoom ≥ ≈0.89), the odd row\'s middle glyph clears the slight and moderate heads', () => {
-    for (const zoom of [0.9, 1]) {
-      expect(riseOnScreenPx(zoom), `zoom ${zoom}`).toBeCloseTo(GLYPH_ROW_RISE, 10)
-      for (const width of [2, 3]) {
-        expect(riseOnScreenPx(zoom) - GLYPH_BOX_HALF, `zoom ${zoom} width ${width}`).toBeGreaterThanOrEqual(edgeArrowheadSize(width))
+  it('a BORDER arrival: the sign clears its head by the mark gap for every band short of the widest, at every zoom from the landing to 1:1', () => {
+    for (const zoom of [LABEL_LEGIBLE_ZOOM, 0.6, 0.75, 0.9, 1]) {
+      for (const width of [UNSET_EDGE_STROKE_WIDTH, EDGE_STROKE_WIDTH_BANDS.slight, EDGE_STROKE_WIDTH_BANDS.moderate, EDGE_STROKE_WIDTH_BANDS.strong]) {
+        const { gap, m } = clearance(width, zoom)
+        expect(gap, `zoom ${zoom} width ${width}`).toBeGreaterThanOrEqual(m.gap - 1e-6)
       }
     }
   })
 
-  it('STATED LIMIT, pinned (F1): at the landing the odd row\'s middle box reaches into every head, the 8px ones included', () => {
-    const clearance = riseOnScreenPx(LABEL_LEGIBLE_ZOOM) - GLYPH_BOX_HALF
-    expect(clearance).toBeCloseTo(GLYPH_ROW_RISE_MAX_FLOW * LABEL_LEGIBLE_ZOOM - GLYPH_BOX_HALF, 10)
-    // RE-PINNED 28 Sep 2026: the rise bound is derived from the tier gap (40 → 48
-    // with the landing text cap 1.64), so the landing clearance is 4.68 → 5.32px.
-    expect(clearance).toBeCloseTo(5.32, 2)
-    expect(clearance).toBeLessThan(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH))
-    expect(clearance).toBeLessThan(edgeArrowheadSize(EDGE_STROKE_WIDTH_BANDS.slight))
+  it('STATED LIMIT, pinned: the widest head at the landing leaves the sign touching its base, not overlapping it (0 of the 4-unit gap)', () => {
+    const { gap } = clearance(EDGE_STROKE_WIDTH_BANDS.veryStrong, LABEL_LEGIBLE_ZOOM)
+    expect(gap).toBeCloseTo(0, 1)
+  })
+
+  it('STATED LIMIT, pinned: an APEX arrival at the landing has 22.64 above its tip, so the sign reaches into every head (3.36 into the 16-unit slight head)', () => {
+    // The rise bound above a kind apex at the label bound.
+    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(22.64, 10)
+    const { gap } = clearance(EDGE_STROKE_WIDTH_BANDS.slight, LABEL_LEGIBLE_ZOOM, 50 - GLYPH_ROW_RISE_MAX_FLOW)
+    expect(gap).toBeCloseTo(-3.36, 1)
+    expect(gap).toBeLessThan(0)
+    // From zoom ≈ 0.65 up the apex sign clears its slight head again.
+    expect(clearance(EDGE_STROKE_WIDTH_BANDS.slight, 0.7, 24 * labelCounterScale(0.7) - 12).gap).toBeGreaterThan(0)
   })
 })
 
