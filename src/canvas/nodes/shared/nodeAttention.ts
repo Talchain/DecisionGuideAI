@@ -98,7 +98,12 @@ export interface AttentionInputs {
   }>
   /** Run-derived: present only while the analysis is CURRENT. */
   readonly run: {
-    readonly ranks: ReadonlyMap<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number }>
+    /**
+     * `noValueInRun` (PJ-B3): the run held no value for the factor — its row
+     * carries no `value_source` while other rows carry one (`unvaluedDriver.ts`).
+     * Absent reads as false.
+     */
+    readonly ranks: ReadonlyMap<string, { sensitivityRank: number | null; voiRank: number | null; influenceSetSize: number; rankedSetSize: number; noValueInRun?: boolean }>
     readonly turningPoints: ReadonlyMap<string, FactorTurningPoint>
     readonly fragileEdgeSources: ReadonlySet<string>
     readonly reviewBiasFindings: ReadonlyArray<unknown>
@@ -196,7 +201,12 @@ export function deriveAttentionPlan(inputs: AttentionInputs, budget: number = AT
           kind: 'top_driver',
           order: 3,
           // The printed M is the RANKED count, as on the card (NODE-ANATOMY v3.2).
-          label: `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.rankedSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
+          // ⭐ PJ-B3: a rank the run made for a factor it held NO value for is
+          // not "the comparison responds strongly to it" from the user's
+          // figures — the card line's own sentence says so, and asks for the value.
+          label: rank.noValueInRun === true
+            ? `${DRIVER_LINE_COPY.rankNoValueSentence(rank.sensitivityRank, rank.rankedSetSize)}. ${DRIVER_LINE_COPY.noValueQuestion}`
+            : `${DRIVER_LINE_COPY.rank(rank.sensitivityRank, rank.rankedSetSize)}: the comparison responds strongly to it. ${DRIVER_LINE_COPY.question}`,
         })
       }
     }

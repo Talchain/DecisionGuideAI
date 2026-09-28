@@ -95,5 +95,31 @@ export function restingDriverCaption(
 ): string {
   const prefix = fromLastRun ? LAST_RUN_PREFIX : ''
   const forms = DRIVER_LINE_COPY.rankSlotForms(rank.rank, rank.setSize, fromLastRun).map((f) => `${prefix}${f}`)
+  return longestFittingForm(forms, scale)
+}
+
+/**
+ * ⭐ PJ-B3 — THE SAME CHOICE FOR A RANKED FACTOR THE RUN HAD NO VALUE FOR
+ * (Canvas owner, 28 Sep 2026): the longest `DRIVER_LINE_COPY.rankSlotFormsNoValue`
+ * form that fits the slot at the landing bound, by the same measure and ladder
+ * as `restingDriverCaption`. Every form ends "no value yet", and the last one
+ * carries no rank words, so when nothing longer fits it is the rank that gives
+ * way — never "no value yet". At 1.64 that is `Driver N · no value yet`
+ * (184–187px; `Driver 1 of 1 · no value yet` at 219.7px for a set of one) and
+ * `Last run · no value yet` (188px) against the 220px measure. The full
+ * sentence stays in the accessible name and the hover.
+ */
+export function restingUnvaluedDriverCaption(
+  rank: { rank: number; setSize: number },
+  fromLastRun = false,
+  scale: number = MAX_LABEL_COUNTER_SCALE,
+): string {
+  const prefix = fromLastRun ? LAST_RUN_PREFIX : ''
+  const forms = DRIVER_LINE_COPY.rankSlotFormsNoValue(rank.rank, rank.setSize, fromLastRun).map((f) => `${prefix}${f}`)
+  return longestFittingForm(forms, scale)
+}
+
+/** The first (longest) form whose width at `scale` fits the slot, else the last (shortest) form. */
+function longestFittingForm(forms: readonly string[], scale: number): string {
   return forms.find((f) => driverCaptionWidthPx(f, scale) <= FACTOR_DRIVER_SLOT_MEASURE_PX) ?? forms[forms.length - 1]
 }

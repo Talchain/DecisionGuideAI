@@ -33,6 +33,13 @@ export interface FactorRunCues {
     rank: { rank: number; setSize: number }
     /** Relative sensitivity, 0..1, rank 1 = 1 (`rankFactor.relativeSensitivity`); null → no bar. */
     value: number | null
+    /**
+     * PJ-B3: the run held no value for this ranked factor
+     * (`NodeDisplayMetadata.unvaluedInRun`, `unvaluedDriver.ts`) — the line adds
+     * "no value yet". Read off the SAME run as the rank, so a stale rank carries
+     * the same run's fact under `Last run · `.
+     */
+    noValueYet: boolean
   } | null
   driverNotRanked: boolean
   turningPointState: FactorTurningPointState | null
@@ -135,6 +142,7 @@ export function useFactorRunCues(nodeId: string, displayMetadata: NodeDisplayMet
       ? {
           rank: driverRank,
           value: typeof relativeSensitivity === 'number' && Number.isFinite(relativeSensitivity) ? relativeSensitivity : null,
+          noValueYet: displayMetadata.unvaluedInRun === true,
         }
       : null
   const driverNotRanked = isPostAnalysis && runCuesShown && driverRank === null

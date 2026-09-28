@@ -18,6 +18,8 @@ import {
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
 import { rankFactor } from '../nodes/shared/rankFactor'
+import { runHoldsNoValueFor } from '../nodes/shared/unvaluedDriver'
+import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 import {
   selectGoalProbability,
@@ -142,6 +144,16 @@ export interface NodeDisplayMetadata {
    * above: an absent value renders no driver line (fail closed).
    */
   driverRelativeSensitivity?: number | null
+  /**
+   * ⭐ PJ-B3: the run held NO value for this factor — its `factor_sensitivity`
+   * row carries no `value_source` while another row of the same run carries
+   * one (`runHoldsNoValueFor`, `nodes/shared/unvaluedDriver.ts`; CEE #2154's
+   * row rule). Read off the SAME shared feed the rank is, so the rank and its
+   * "no value yet" can never come from two runs. It never withholds or moves a
+   * rank; the card adds the words beside it. Optional for the mock-ratchet
+   * reason above: absent reads as false, i.e. the card as it was.
+   */
+  unvaluedInRun?: boolean
   /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
@@ -326,6 +338,16 @@ export function useNodeDisplayMetadata(
 ): NodeDisplayMetadata {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
+  // PJ-B3, owner (Canvas, 28 Sep 2026): "no value yet" also needs the factor to
+  // hold NO stated value now — CEE #2154's second condition. PLoT does not send
+  // `value_source` for every factor (`valueProvenance.ts`), so the row fact alone
+  // could mark a factor that has a value. A boolean, so it re-renders only when
+  // the factor gains or loses a value.
+  const factorHoldsValue = useCanvasStore(state => {
+    if (nodeType !== 'factor') return false
+    const node = state.nodes?.find((n) => n.id === nodeId)
+    return node ? hasAnyStatedValue(node.data) : false
+  })
 
   const isResultsMode = resultsStatus === 'complete'
 
@@ -339,6 +361,7 @@ export function useNodeDisplayMetadata(
         influenceSetSize: null,
         influenceRankedCount: null,
         driverRelativeSensitivity: null,
+        unvaluedInRun: false,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
@@ -366,6 +389,7 @@ export function useNodeDisplayMetadata(
     let influenceSetSize: number | null = null
     let influenceRankedCount: number | null = null
     let driverRelativeSensitivity: number | null = null
+    let unvaluedInRun = false
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -399,6 +423,8 @@ export function useNodeDisplayMetadata(
       driverRelativeSensitivity = ranks.relativeSensitivity
       sensitivityRank = ranks.sensitivityRank
       voiRank = ranks.voiRank
+      // PJ-B3: the run's own typed fact, from the same feed rows as the rank.
+      unvaluedInRun = runHoldsNoValueFor(feed, nodeId) && !factorHoldsValue
 
       // Task 3: Extract influence, confidence, and VoI for this factor
       const factorRow = rows.find((r) => r.key === nodeId)
@@ -673,6 +699,7 @@ export function useNodeDisplayMetadata(
       influenceSetSize,
       influenceRankedCount,
       driverRelativeSensitivity,
+      unvaluedInRun,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,
@@ -698,5 +725,5 @@ export function useNodeDisplayMetadata(
     // The memo is keyed on the REPORT, which is exactly right for a question
     // about the report; the render site re-reads its own gate on every render
     // and is not memoised on this.
-  }, [isResultsMode, report, nodeId, nodeType])
+  }, [isResultsMode, report, nodeId, nodeType, factorHoldsValue])
 }

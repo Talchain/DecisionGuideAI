@@ -141,6 +141,7 @@ import { resolveFactorPriorRangeOnCard } from './factorPriorRange'
 import { readoutIsBareModelScale } from './FactorValueFigure'
 import { factorValueSourceMark } from './valueSourceMark'
 import { DRIVER_LINE_COPY, LAST_RUN_PREFIX, OPTION_RESULT_COPY } from './metricVocabulary'
+import { restingUnvaluedDriverCaption } from './driverCaptionFit'
 
 /**
  * The facts a reduced line needs that DO NOT live on the node.
@@ -189,6 +190,15 @@ export interface LodMetricFacts {
    * analysis-derived line at all.
    */
   driverRank?: { rank: number; setSize: number } | null
+  /**
+   * ⭐ PJ-B3: the run held no value for this ranked factor
+   * (`NodeDisplayMetadata.unvaluedInRun`, passed through `BaseNode`). The rank
+   * arm then states the card's own resting caption,
+   * `restingUnvaluedDriverCaption` — the longest owner form that fits the
+   * card's text measure at the landing bound, ending "no value yet" — so this
+   * `truncate`d line can never cut the words off and leave a bare rank.
+   */
+  driverNoValueYet?: boolean
   /**
    * The option result's caption, by run currency (`OPTION_RESULT_COPY`) — the
    * same caption the card shows at full zoom. Absent ⇒ the result is withheld.
@@ -366,6 +376,12 @@ function resolveText({
         const lastRun = facts?.influenceFromLastRun === true ? LAST_RUN_PREFIX : ''
         // NODE-ANATOMY v3.2 / contract v3.1 pt 5 stale form: "Last run · Driver N
         // of M ranked" (M = the ranked count, the SAME words the card prints).
+        if (driver && facts?.driverNoValueYet === true) {
+          // PJ-B3: the SAME words the card's slot prints for this factor
+          // (`Last run · ` included), chosen to fit, so "no value yet" survives
+          // the ellipsis this line carries.
+          return restingUnvaluedDriverCaption(driver, facts?.influenceFromLastRun === true)
+        }
         if (driver) return `${lastRun}${DRIVER_LINE_COPY.rank(driver.rank, driver.setSize, facts?.influenceFromLastRun === true)}`
       }
 
