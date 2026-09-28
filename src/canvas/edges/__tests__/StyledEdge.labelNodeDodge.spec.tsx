@@ -737,29 +737,68 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       expect(cueTransform(container)).toBe('translate(-50%, -50%) translate(50px,50px)')
     })
 
-    it('CONTROL: in Detailed view the same cue IS dodged, because e1 really pins a label there', () => {
+    /*
+     * ⭐ POST-RUN DIFF ITEM 12 (28 Sep 2026): the cue DISC is no longer placed by
+     * this label pass. It sits at its connection's midpoint, and where that
+     * spot is taken — by a card, a glyph row, another cue, or (Detailed) a
+     * strength chip this pass pinned — it moves ALONG ITS OWN PATH to the
+     * nearest clear point (`fragileCuePlacement.ts`). The two tests below keep
+     * their intent on that rule: in Detailed the disc still clears e1's pinned
+     * chip, and a card settling onto it still re-places it.
+     *
+     * The disc's centre on the mocked drawn path `M0 0 L100 100` is
+     * (100·f, 100·f) for the fraction f the pass chose; the pass itself runs on
+     * the path the boxes give (the facing-sides route, y = 0 here).
+     */
+    const fractionOf = (transform: string | null) => {
+      const m = (transform ?? '').match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/)
+      return m ? Number(m[1]) / 100 : null
+    }
+
+    it('CONTROL: in Detailed view the disc moves along its own path off the strength chip e1 really pins on the shared anchor', () => {
+      // Far enough apart for a clear point inside the ±¼ window: the facing
+      // sides are 1596 apart, the chip is 2 × LABEL_HALF_WIDTH wide at (0, 0).
+      nodeRegistry.n1 = card('n1', 'factor', -1000, -40)
+      nodeRegistry.n2 = card('n2', 'outcome', 800, -40)
       const { container } = renderCueEdge()
       expect(container.querySelector('[data-testid="edge-fragile-tag"]'), 'the cue did not render').not.toBeNull()
-      expect(cueTransform(container)).not.toBeNull()
+      expect(container.querySelector('[data-fragile-cue="disc"]'), 'e2 is a disc (e1 carries the strength row)').not.toBeNull()
+      const f = fractionOf(cueTransform(container))!
       expect(cueTransform(container)).not.toBe('translate(-50%, -50%) translate(50px,50px)')
+      expect(f).toBeGreaterThan(0.5)
+      expect(f).toBeLessThanOrEqual(0.75)
+      // On the route the pass read (x from −800 to 796 at y 0), that fraction is off e1's chip.
+      const x = -800 + f * 1596
+      expect(Math.abs(x)).toBeGreaterThan(LABEL_HALF_WIDTH)
     })
 
-    it('a card that settles onto the default view\'s cue re-dodges it (the geometry signature is keyed on the chip)', () => {
+    it('a card that settles onto the default view\'s disc re-places it along its path (the geometry signature is keyed on the chip)', () => {
       // The default view's only persistent chip is the fragility cue; it must
-      // still follow node movement although it carries no strength row.
+      // still follow node movement although it carries no strength row. A
+      // layered pair (n1 above n2), so the drawn path is the real one: the
+      // contract's near-straight cubic, x = 0 from y −120 to 200, midpoint (0, 40).
       mockViewMode = 'standard'
       mockReport = { robustness: { fragile_edges: [{ edge_id: 'e1', switch_probability: 0.49 }] } }
       fragileIds.add('e1')
-      // Re-sited with the quantisation pair above for the ±16 box (27 Sep: landing text cap 1.36 → 1.64, owner decision, #70 5859837231).
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -96.4)
-      const { container, rerender } = render(<StyledEdge {...edgeProps as any} />)
+      nodeRegistry.n1 = card('n1', 'factor', -100, -200)
+      nodeRegistry.n2 = card('n2', 'outcome', -100, 200)
+      const layered = { ...edgeProps, sourceX: 0, sourceY: -120, targetX: 0, targetY: 200, sourcePosition: Position.Bottom, targetPosition: Position.Top }
+      // A narrow card 60 units right of the line: clear of the disc.
+      nodeRegistry.blocker = card('blocker', 'factor', 60, 20, { width: 40, height: 40 })
+      const { container, rerender } = render(<StyledEdge {...layered as any} />)
       expect(container.querySelector('[data-testid="edge-influence-label-text"]')).toBeNull()
       const before = cueTransform(container)
-      expect(before).toBe('translate(-50%, -50%) translate(50px,50px)')
+      expect(before).toBe('translate(-50%, -50%) translate(0px,40px)')
 
-      nodeRegistry.blocker = card('blocker', 'factor', -100, -95.6)
-      rerender(<StyledEdge {...(edgeProps as any)} data={{ ...edgeProps.data }} />)
-      expect(cueTransform(container)).not.toBe(before)
+      // It settles 10 units from the line, level with the midpoint.
+      nodeRegistry.blocker = card('blocker', 'factor', 10, 20, { width: 40, height: 40 })
+      rerender(<StyledEdge {...(layered as any)} data={{ ...edgeProps.data }} />)
+      const after = cueTransform(container)
+      expect(after).not.toBe(before)
+      // Still ON its line, now above or below the card.
+      const m = after!.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/)!
+      expect(Number(m[1])).toBe(0)
+      expect(Number(m[2]) < 20 || Number(m[2]) > 60).toBe(true)
     })
   })
 

@@ -23,9 +23,11 @@
  * `flip_thresholds[]` row carries `current_value` and `flip_value` and nothing
  * about the range it searched (plot-lite-service `flip-thresholds.ts` probes the
  * NORMALISED [0,1] bounds; `flip-threshold-denormaliser.ts` emits no bounds on
- * the row, read at `staging`, 23 Sep 2026). So the track cannot honestly claim a
- * "modelled range" — it marks the run's value and the turning point, in order,
- * with fixed spacing, and the domain sentence says exactly that.
+ * the row, read at `staging`, 23 Sep 2026; re-read 28 Sep 2026, unchanged). So
+ * the track cannot honestly claim a "modelled range" — it marks the run's value
+ * and the turning point, in order, with fixed spacing, and the domain sentence
+ * says exactly that. Only a row that STATES its display range
+ * (`turningPointDomainOf`) is drawn to scale, and `scaledDomain` then says so.
  */
 import { LAST_RUN_PREFIX, TURNING_POINT_COPY } from './metricVocabulary'
 
@@ -73,12 +75,32 @@ export const TURNING_POINT_TRACK_COPY = {
    * changes." (DESIGN-GAP-v31 #38). `sentence` above is now the resting caption
    * too, so the card and the detail say one sentence.
    */
-  /** The label beside the run's own value on the track. */
+  /**
+   * The option scope, SPOKEN and on hover/focus when the resting caption leaves
+   * it out (contract v3.1 `flipPlot`: the card's caption is "Below 6.5%, the
+   * current model comparison changes." and the options it is between are in
+   * its name and tip — point 3: "on the card or one click away"). "It" is the
+   * comparison the caption has just named; the verb is the register's withheld
+   * form, never a leader.
+   */
+  scope: (alternative: string, fromLastRun: boolean): string =>
+    fromLastRun ? `In that run it shifts towards ${alternative}.` : `It shifts towards ${alternative}.`,
+  /** The label beneath the run's own value on the track. */
   runValue: (value: string, fromLastRun: boolean): string =>
     fromLastRun ? `${value} in last run` : `${value} in this run`,
-  /** What the track's domain represents (spoken, and on hover/focus). */
+  /**
+   * What the track's domain represents (spoken, and on hover/focus) when the
+   * wire gave NO domain: the two producer values, in order, not to scale.
+   */
   domain: (flipValue: string, runValueLabel: string): string =>
     `The track marks the turning point (${flipValue}) and ${runValueLabel}, in order of value; spacing is not to scale and shows no uncertainty.`,
+  /**
+   * …and when the producer's row stated the domain (`turningPointDomainOf`):
+   * the contract's words, "a 6–10% display range, not uncertainty", with both
+   * marks placed to scale inside it.
+   */
+  scaledDomain: (min: string, max: string, flipValue: string, runValueLabel: string): string =>
+    `The track is a ${min}–${max} display range, not uncertainty; it marks the turning point (${flipValue}) and ${runValueLabel} to scale.`,
   /** Why no number is shown: the row is on the model's internal scale. */
   internalScale: TURNING_POINT_COPY.internalScale,
   /** Why no number is shown: the row's unit is not this factor's unit. */

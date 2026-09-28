@@ -4,29 +4,40 @@
  * authoritative PLoT evidence exists").
  *
  *   Below 6.5%, the current model comparison changes.
- *   6.5%  ◆────●  8% in this run
+ *   ──◆──────────────●──   (full width; ◆ Info blue, filled; ● 7px, dark)
+ *                 8% in this run
  *
  * ⭐ Paul 23 Sep contract feedback point 3 replaced the bare `Turning point`
  * caption, which named the concept but not its meaning:
  *   (a) the DIRECTION is said in words ("Below 6.5%" / "Above 12 seats");
  *   (b) the OPTION SCOPE is said when the producer names the option
  *       ("… shifts towards Two Developers" — the register's withheld form);
- *   (c) the track's DOMAIN is stated: it marks the turning point and the run's
- *       own value, in order of value (low → high, left → right), both ends
- *       labelled; spacing is fixed and the spoken/hover sentence says it is not
- *       to scale. A PLoT row carries no search bounds, so no "modelled range"
- *       is claimed (see `turningPointCopy.ts`);
+ *   (c) the track's DOMAIN is stated. A PLoT row carries no search bounds, so
+ *       the track marks the turning point and the run's own value in order of
+ *       value (low → high, left → right) at fixed places, and the spoken/hover
+ *       sentence says it is not to scale. ONLY a row that states its display
+ *       range (`turningPointDomainOf`) is drawn to scale, with both ends of
+ *       that range labelled beneath (contract `flipPlot`: `6%` · `8% now` ·
+ *       `10%`) — see `turningPointCopy.ts`;
  *   (d) "no turning point" is a first-class, quiet fallback
  *       (`FactorTurningPointNone`), mounted through `FactorTurningPointSlot` —
  *       and, since NODE-ANATOMY v3.2, only under a RANKED factor's driver line
  *       (the caller gates it: "Nothing is shown just to say that nothing
  *       exists"). A found turning point still shows on any factor.
  *
- * ⭐ AT REST (`atRest`; prototype `flipPlot`, Paul 25 Sep 2026) the visible
- * caption is the prototype's `Model comparison changes  6.5%` on ONE line, and
- * the sentence above moves into the accessible name and the tooltip — the
- * 49-character sentence on the resting card broke the ~4-body-line limit.
- * Popover and Detailed keep the full form.
+ * ⭐ AT REST (`atRest`; contract v3.1 `flipPlot`, post-run DIFF item 10,
+ * 28 Sep 2026) the caption is the direction sentence in the card's own unit
+ * notation (`Below £700`, never `Below 700 GBP MRR added per month`) and
+ * WITHOUT the option scope, so it keeps to two lines; the scope the producer
+ * named follows in the accessible name and the tooltip (v3.1 point 3: "on the
+ * card or one click away"). The track is full width with its labels beneath.
+ * Popover and Detailed keep the scope in the visible sentence.
+ *
+ * ⚠ THE DIAMOND IS INFO BLUE, FILLED — the contract's own `flipPlot`
+ * (`fill="#277A9D"`), the brief's item 10. It was a hollow body-ink diamond on
+ * a reading of point 9 ("Info is attention's"); v3.1's fixture, drawn after
+ * point 9, fills the threshold mark with Info, and shape (diamond vs dot)
+ * still tells the two marks apart.
  *
  * ⛔ The number prints ONLY on the display scale (`factorTurningPoint.ts`,
  * ROADMAP 2.1371) AND only when the row's unit is compatible with the factor's
@@ -46,15 +57,29 @@
  */
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '../../../styles/typography'
-import { formatFlipValue } from '../../../components/results/utils/flipThresholdDisplay'
+import { formatFlipFigure, formatFlipReading } from '../../../components/results/utils/flipThresholdDisplay'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { openNodeInspector } from './openNodeInspector'
 import type { FactorTurningPoint } from './nodeAttention'
-import { turningPointNumberPrints, type FactorTurningPointState } from './factorTurningPoint'
+import { turningPointNumberPrints, type FactorTurningPointState, type TurningPointDomain } from './factorTurningPoint'
 import { TURNING_POINT_TRACK_COPY, turningPointSide } from './turningPointCopy'
 
+/** Not to scale: the two marks sit at fixed places, in order of value. */
 const NEAR_PCT = 20
 const FAR_PCT = 80
+
+/**
+ * The track's marks and type, counter-scaled like the text beside them so they
+ * keep the contract's on-screen size at every zoom (`flipPlot`: a 2px line, a
+ * 10px-wide diamond — a 7px square turned 45° — and a 7px dot; labels at 10px).
+ */
+const TRACK_LINE_CLASS = 'h-[calc(2px*var(--canvas-label-scale,1))]'
+const TRACK_ROW_CLASS = 'h-[calc(10px*var(--canvas-label-scale,1))] px-[calc(5px*var(--canvas-label-scale,1))]'
+const TRACK_MARK_CLASS = 'w-[calc(7px*var(--canvas-label-scale,1))] h-[calc(7px*var(--canvas-label-scale,1))]'
+const TRACK_LABEL_CLASS = 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-snug text-text-light tabular-nums'
+
+/** Where a value sits along a stated domain, 0–100. */
+const pctIn = (v: number, min: number, max: number): number => ((v - min) / (max - min)) * 100
 
 export function FactorTurningPointTrack({
   nodeId,
@@ -66,7 +91,7 @@ export function FactorTurningPointTrack({
 }: {
   nodeId: string
   factorLabel: string
-  turningPoint: FactorTurningPoint & { alternativeLabel?: string | null }
+  turningPoint: FactorTurningPoint & { alternativeLabel?: string | null; domain?: TurningPointDomain | null }
   /** The model is KNOWN to have changed since the run (`useModelChangedSinceRun`). */
   fromLastRun?: boolean
   /**
@@ -76,11 +101,12 @@ export function FactorTurningPointTrack({
    */
   factorUnit?: string | null
   /**
-   * ⭐ THE RESTING CARD'S FORM (prototype `flipPlot`, Paul 25 Sep 2026): the
-   * caption is `Model comparison changes` with the number beside it on ONE
-   * line, and the number is not repeated on the track. The direction sentence
-   * follows it in the accessible name and opens the tooltip. Only when the number
-   * prints — otherwise the full sentence is kept (never a bare caption).
+   * ⭐ THE RESTING CARD'S FORM (contract v3.1 `flipPlot`): the caption is the
+   * direction sentence WITHOUT the option scope — "Below 6.5%, the current
+   * model comparison changes." — so it keeps to two lines, and the scope the
+   * producer named follows it in the accessible name and the tooltip. The
+   * number is not repeated on the track. Popover and Detailed keep the scope
+   * in the visible sentence and label the number on the track.
    */
   atRest?: boolean
 }) {
@@ -90,47 +116,61 @@ export function FactorTurningPointTrack({
   const side = turningPointSide(turningPoint.flipValue, turningPoint.currentValue)
   const falls = side === 'below'
   const numeric = turningPointNumberPrints(turningPoint, factorUnit)
-  const flipText = numeric ? formatFlipValue(turningPoint.flipValue, turningPoint.unit) : null
-  const runText = numeric
-    ? TURNING_POINT_TRACK_COPY.runValue(formatFlipValue(turningPoint.currentValue, turningPoint.unit), fromLastRun)
-    : null
+  const unit = turningPoint.unit
+  const alternative = turningPoint.alternativeLabel ?? null
+  // ⭐ THE CARD'S NOTATION (DIFF item 10): `£700`, not `700 GBP MRR added per
+  // month`. The figure is what the visible marks print; the reading keeps the
+  // compound's words and is what the spoken name says.
+  const flipFigure = numeric ? formatFlipFigure(turningPoint.flipValue, unit) : null
+  const runFigure = numeric ? formatFlipFigure(turningPoint.currentValue, unit) : null
+  const flipReading = numeric ? formatFlipReading(turningPoint.flipValue, unit) : null
+  const runReading = numeric ? formatFlipReading(turningPoint.currentValue, unit) : null
+  // At rest the scope moves off the caption (two lines), into the name and tip.
+  const scopeSpoken = atRest && alternative !== null
   const sentence = TURNING_POINT_TRACK_COPY.sentence({
     side,
-    value: flipText,
-    alternative: turningPoint.alternativeLabel ?? null,
+    value: flipFigure,
+    alternative: scopeSpoken ? null : alternative,
     fromLastRun,
   })
+  const scope = scopeSpoken ? TURNING_POINT_TRACK_COPY.scope(alternative!, fromLastRun) : null
+  // ⭐ TO SCALE ONLY WHEN THE WIRE GAVE THE DOMAIN (`turningPointDomainOf`).
+  const domain = numeric ? turningPoint.domain ?? null : null
   const detail =
-    flipText !== null && runText !== null
-      ? TURNING_POINT_TRACK_COPY.domain(flipText, runText)
+    flipReading !== null && runReading !== null
+      ? domain !== null
+        ? TURNING_POINT_TRACK_COPY.scaledDomain(
+            formatFlipFigure(domain.min, unit),
+            formatFlipFigure(domain.max, unit),
+            flipReading,
+            TURNING_POINT_TRACK_COPY.runValue(runReading, fromLastRun),
+          )
+        : TURNING_POINT_TRACK_COPY.domain(flipReading, TURNING_POINT_TRACK_COPY.runValue(runReading, fromLastRun))
       : turningPoint.displayScale
         ? TURNING_POINT_TRACK_COPY.unitMismatch
         : TURNING_POINT_TRACK_COPY.internalScale
-  // At rest, only where its number prints: the v3.1 caption IS the direction
-  // sentence ("Below 6.5%, the current model comparison changes."), whose
-  // number the track then does not print a second time.
-  const compact = atRest && flipText !== null && runText !== null
+  // At rest, only where its number prints: the caption IS the direction
+  // sentence, whose number the track then does not print a second time.
+  const compact = atRest && flipFigure !== null && runFigure !== null
   // Label in Name (WCAG 2.5.3): the visible sentence opens the spoken name; the
-  // domain follows.
-  const name = `${sentence} ${detail}`
-  // Low → high, left → right: a flip below the run's value is drawn first.
-  const flipAtPct = falls ? NEAR_PCT : FAR_PCT
-  const currentAtPct = falls ? FAR_PCT : NEAR_PCT
+  // scope (at rest) and the domain follow.
+  const name = [sentence, scope, detail].filter(Boolean).join(' ')
+  const tip = scope !== null ? `${scope} ${detail}` : detail
+  // Low → high, left → right: a flip below the run's value is drawn first. To
+  // scale, each mark sits at its own value along the stated domain.
+  const flipAtPct = domain !== null ? pctIn(turningPoint.flipValue, domain.min, domain.max) : falls ? NEAR_PCT : FAR_PCT
+  const currentAtPct = domain !== null ? pctIn(turningPoint.currentValue, domain.min, domain.max) : falls ? FAR_PCT : NEAR_PCT
 
-  // At rest the number is in the caption, so the track does not print it again.
-  const flipLabel = flipText !== null && !compact && (
-    <span data-testid="factor-turning-point-value" className={`${typography.edgeLabel} text-text-body tabular-nums`}>
-      {flipText}
-    </span>
+  const runLabel = runFigure !== null && (
+    <span data-testid="factor-turning-point-run-value">{TURNING_POINT_TRACK_COPY.runValue(runFigure, fromLastRun)}</span>
   )
-  const runLabel = runText !== null && (
-    <span data-testid="factor-turning-point-run-value" className={`${typography.edgeLabel} text-text-light tabular-nums`}>
-      {runText}
-    </span>
+  // At rest the number is in the caption, so the track does not print it again.
+  const flipLabel = flipFigure !== null && !compact && (
+    <span data-testid="factor-turning-point-value" className="text-text-body">{flipFigure}</span>
   )
 
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={detail}>
+    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tip}>
       <button
         type="button"
         data-testid="factor-turning-point"
@@ -144,40 +184,54 @@ export function FactorTurningPointTrack({
         onPointerDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
-        {/* The finding is the card's strongest analysis line (contract
-            `.plot-caption b{font-weight:500}`, hover underline), heavier than
-            the regular-weight rank above it — the served card had it reversed. */}
         {/* Contract v3.1 `.plot-caption b` (point 3): the direction sentence,
-            the card's strongest analysis line, at rest and in Detailed alike —
-            one sentence, no floated number beside it. */}
+            the card's strongest analysis line (weight 500, hover underline). */}
         <span
           data-testid="factor-turning-point-caption"
           className={`${typography.edgeLabel} min-w-0 font-medium text-text-body underline-offset-[3px] group-hover:underline`}
         >
           {sentence}
         </span>
-        {flipText !== null && runText !== null && (
-          // The track spans the card between its two labels (contract
-          // `.mini-plot svg{width:100%}`), not a fixed 54px squeezed between
-          // them; the spacing is already declared "not to scale".
-          <span className="flex w-full items-center gap-1.5" aria-hidden="true">
-            {falls ? flipLabel : runLabel}
-            <span data-testid="factor-turning-point-track" className="relative block h-1 min-w-[54px] flex-1 rounded-full bg-panel-border">
-              <span
-                data-testid="factor-turning-point-current"
-                className="absolute top-1/2 block h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-text-body"
-                style={{ left: `${currentAtPct}%` }}
-              />
-              {/* Hollow diamond in body ink, not Info blue — Paul 23 Sep contract
-                  feedback point 9 reserves Info for attention; shape (hollow
-                  diamond vs solid dot) carries the distinction. */}
-              <span
-                data-testid="factor-turning-point-flip"
-                className="absolute top-1/2 block h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-text-body bg-panel"
-                style={{ left: `${flipAtPct}%` }}
-              />
+        {flipFigure !== null && runFigure !== null && (
+          // ⭐ contract v3.1 `flipPlot`: a FULL-WIDTH 2px line, a filled
+          // Info-blue diamond at the turning point, a 7px dark dot at the run's
+          // value, and the labels BENEATH it. `data-scale` says which form: to
+          // scale only when the wire stated the domain (then its two ends are
+          // labelled), else the not-to-scale order the name and tip declare.
+          <span
+            data-testid="factor-turning-point-plot"
+            data-scale={domain !== null ? 'domain' : 'not-to-scale'}
+            className="flex w-full flex-col"
+            aria-hidden="true"
+          >
+            <span className={`relative flex w-full items-center ${TRACK_ROW_CLASS}`}>
+              <span data-testid="factor-turning-point-track" className={`relative block w-full rounded-full bg-border-emphasis ${TRACK_LINE_CLASS}`}>
+                <span
+                  data-testid="factor-turning-point-current"
+                  className={`absolute top-1/2 block -translate-x-1/2 -translate-y-1/2 rounded-full bg-text-body ${TRACK_MARK_CLASS}`}
+                  style={{ left: `${currentAtPct}%` }}
+                />
+                <span
+                  data-testid="factor-turning-point-flip"
+                  className={`absolute top-1/2 block -translate-x-1/2 -translate-y-1/2 rotate-45 bg-info ${TRACK_MARK_CLASS}`}
+                  style={{ left: `${flipAtPct}%` }}
+                />
+              </span>
             </span>
-            {falls ? runLabel : flipLabel}
+            {domain !== null ? (
+              <span className={`flex w-full items-baseline justify-between gap-1.5 ${TRACK_LABEL_CLASS}`}>
+                <span data-testid="factor-turning-point-domain-min">{formatFlipFigure(domain.min, unit)}</span>
+                {runLabel}
+                <span data-testid="factor-turning-point-domain-max">{formatFlipFigure(domain.max, unit)}</span>
+              </span>
+            ) : (
+              // The run's label under the dot's end of the line; the turning
+              // point's (off the resting card) under the diamond's.
+              <span className={`flex w-full items-baseline gap-1.5 ${flipLabel ? 'justify-between' : falls ? 'justify-end' : 'justify-start'} ${TRACK_LABEL_CLASS}`}>
+                {falls ? flipLabel : runLabel}
+                {falls ? runLabel : flipLabel}
+              </span>
+            )}
           </span>
         )}
       </button>

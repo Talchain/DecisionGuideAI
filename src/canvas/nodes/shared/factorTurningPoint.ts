@@ -32,6 +32,46 @@ const nonEmpty = (v: unknown): string | null =>
  */
 export interface FactorTurningPointDetail extends FactorTurningPoint {
   alternativeLabel: string | null
+  /**
+   * The track's DISPLAY RANGE, when — and only when — the producer's row states
+   * one (`turningPointDomainOf`). Absent or `null`: the wire gave no domain, and
+   * the track keeps its not-to-scale form, which says so.
+   */
+  domain?: TurningPointDomain | null
+}
+
+/** A display range the producer stated for the track, in the row's own units. */
+export interface TurningPointDomain {
+  min: number
+  max: number
+}
+
+/**
+ * ⭐ THE TRACK IS DRAWN TO SCALE ONLY WHEN THE WIRE GIVES ITS DOMAIN (post-run
+ * DIFF item 10, 28 Sep 2026; contract v3.1 point 3: "State what the displayed
+ * track range is (a display range, not uncertainty)").
+ *
+ * A PLoT `flip_thresholds[]` row carries `current_value` and `flip_value` and
+ * NOTHING about the range the search covered — re-read at plot-lite-service
+ * `staging` `src/lib/flip-threshold-denormaliser.ts` (`DenormalisedFlipThreshold`)
+ * on 28 Sep 2026. So no served row reaches the to-scale form today. The reader
+ * accepts exactly one spelling, `display_range_min` + `display_range_max` on the
+ * row (the contract's own words), and only when it is usable as a scale:
+ *   · the row is on the display scale (a normalised row prints no numbers, so
+ *     it has no ends to label);
+ *   · both ends finite, `min < max`;
+ *   · BOTH producer values inside it — a range that cannot hold the run's value
+ *     or the turning point is not the domain of this track.
+ * Anything else is `null`: the UI never derives a range (from a cap, a prior or
+ * the two values themselves) and never pads one.
+ */
+export function turningPointDomainOf(row: Record<string, unknown>, currentValue: number, flipValue: number): TurningPointDomain | null {
+  if (row.value_scale !== 'display') return null
+  const min = finite(row.display_range_min)
+  const max = finite(row.display_range_max)
+  if (min === null || max === null || !(min < max)) return null
+  for (const v of [currentValue, flipValue]) if (v < min || v > max) return null
+  return { min, max }
 }
 
 /**
@@ -70,6 +110,7 @@ export function selectFactorTurningPoint(report: unknown, nodeId: string): Facto
       unit: typeof row.unit === 'string' ? row.unit : undefined,
       displayScale: row.value_scale === 'display',
       alternativeLabel: nonEmpty(row.alternative_winner_label),
+      domain: turningPointDomainOf(row, currentValue, flipValue),
     }
   }
   return null

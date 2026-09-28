@@ -95,9 +95,15 @@ describe('(c) the track states what its domain represents', () => {
     const flip = within(track).getByTestId('factor-turning-point-flip') as HTMLElement
     const current = within(track).getByTestId('factor-turning-point-current') as HTMLElement
     expect(parseFloat(flip.style.left)).toBeLessThan(parseFloat(current.style.left))
-    // Paul 23 Sep point 9: Info blue is attention's; the track's marks are
-    // neutral and told apart by SHAPE (rotated hollow square vs round dot).
-    for (const mark of [flip, current]) expect(mark.className).not.toMatch(/\b(border|bg|text)-info\b/)
+    // ⭐ contract v3.1 `flipPlot` (post-run DIFF item 10, 28 Sep 2026): the
+    // threshold is a FILLED Info-blue diamond (`fill="#277A9D"`) and the run's
+    // value a dark dot — told apart by SHAPE as well as colour. (Was: both
+    // marks neutral, the diamond hollow, on a reading of point 9 that v3.1's
+    // own fixture, drawn after point 9, does not follow.)
+    expect(flip.className).toMatch(/\bbg-info\b/)
+    expect(flip.className).not.toMatch(/\bborder-2\b/)
+    expect(current.className).not.toMatch(/\b(border|bg|text)-info\b/)
+    expect(current.className).toContain('bg-text-body')
     expect(flip.className).toContain('rotate-45')
     expect(current.className).toContain('rounded-full')
   })
@@ -232,12 +238,22 @@ describe('at rest — v3.1: the direction sentence IS the caption; the number pr
     expect(within(tp).getByTestId('factor-turning-point-run-value').textContent).toBe('8% in last run')
   })
 
-  it('the option scope the producer names is kept in the name (Paul 23 Sep point 3(b))', () => {
+  it('the option scope the producer names is kept in the name and the tooltip, off the two-line caption (Paul 23 Sep point 3(b))', async () => {
     rest({ turningPoint: { ...FALLS, alternativeLabel: 'Two Developers' } })
     const tp = screen.getByTestId('factor-turning-point')
-    // v3.1 point 3: "name them on the card or one click away" — on the card.
-    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison shifts towards Two Developers.')
-    expect(tp.getAttribute('aria-label')).toContain('Below 6.5%, the current model comparison shifts towards Two Developers.')
+    // v3.1 point 3: "name them on the card or one click away" — and v3.1's own
+    // `flipPlot` puts the scope in the name and tip, keeping the resting
+    // caption to the contract's sentence (post-run DIFF item 10: at most two
+    // lines; the scoped sentence ran to three).
+    expect(visible(within(tp).getByTestId('factor-turning-point-caption'))).toBe('Below 6.5%, the current model comparison changes.')
+    expect(tp.getAttribute('aria-label')!.startsWith('Below 6.5%, the current model comparison changes. It shifts towards Two Developers. ')).toBe(true)
+    fireEvent.mouseEnter(tp)
+    const tip = await screen.findByRole('tooltip')
+    expect(tip.textContent!.startsWith('It shifts towards Two Developers. The track marks')).toBe(true)
+    cleanup()
+    // CONTRAST — the full form (popover, Detailed) keeps the scope in the visible sentence.
+    render(<FactorTurningPointTrack nodeId="f1" factorLabel="Trial conversion" turningPoint={{ ...FALLS, alternativeLabel: 'Two Developers' }} />)
+    expect(screen.getByTestId('factor-turning-point-caption').textContent).toBe('Below 6.5%, the current model comparison shifts towards Two Developers.')
   })
 
   it('the tooltip is the domain note at rest — the sentence is already visible — and the same in the full form', async () => {

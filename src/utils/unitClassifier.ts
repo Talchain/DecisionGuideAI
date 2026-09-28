@@ -297,6 +297,10 @@ function currencyHeadParts(figure: string, unit: string): CompactUnitParts | und
   if (glyph === undefined) return undefined
   const rest = m[2].trim()
   if (/^(per\b|\/)/i.test(rest)) return undefined
+  // A rest that OPENS with a digit (`GBP 000s`) may be a magnitude, not a name:
+  // decline, so the caller prints the unit as written (post-run DIFF item 10
+  // guard). A digit later in the rest (`GBP over 6 months`) is a name.
+  if (/^\d/.test(rest)) return undefined
   if (figure.trim().startsWith('-')) return undefined
   const restRate = COMPOUND_RATE_UNIT.exec(rest)
   if (restRate !== null) {

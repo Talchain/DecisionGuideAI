@@ -23,7 +23,7 @@
  * honest option.
  */
 
-import { classifyUnit } from '@/utils/unitClassifier'
+import { classifyUnit, compactUnitParts, joinCompactUnitParts } from '@/utils/unitClassifier'
 
 /**
  * The flip-threshold sentences and tokens, exactly as `HERO_COPY.evidence`
@@ -77,6 +77,33 @@ export function formatFlipValue(value: number, unit?: string): string {
   if (kind === 'percent') return `${rendered}%`
   if (kind === 'none' || kind === 'placeholder') return rendered
   return `${rendered} ${canonical}`
+}
+
+/**
+ * ⭐ A TURNING POINT'S FIGURE, IN THE CARD'S NOTATION (post-run DIFF item 10,
+ * 28 Sep 2026: the planted MRR track read `Below 700 GBP MRR added per month`
+ * where the contract reads `Below 6.5%`).
+ *
+ * The same digits as `formatFlipValue` (en-GB, at most one decimal — nothing
+ * re-rounded here), placed by the ONE compact-unit owner the factor card
+ * reads (`compactUnitParts`), so the track and the value line above it spell
+ * one unit one way: `GBP per month` → `£54.5`, `GBP MRR added per month` →
+ * `£700`, `percent per month` → `7%`. A compound's remaining words (`/ month`,
+ * `MRR added / month`) are the card's value line's, and are said in full by
+ * `formatFlipReading` wherever a sentence names the unit. Any unit the owner
+ * does not recognise prints exactly what `formatFlipValue` prints.
+ */
+export function formatFlipFigure(value: number, unit?: string): string {
+  const rendered = value.toLocaleString('en-GB', { maximumFractionDigits: 1 })
+  const compact = compactUnitParts(rendered, unit ?? null)
+  return compact !== null ? compact.figure : formatFlipValue(value, unit)
+}
+
+/** `formatFlipFigure` with the compound's words kept: `£700 MRR added / month`. */
+export function formatFlipReading(value: number, unit?: string): string {
+  const rendered = value.toLocaleString('en-GB', { maximumFractionDigits: 1 })
+  const compact = compactUnitParts(rendered, unit ?? null)
+  return compact !== null ? joinCompactUnitParts(compact) : formatFlipValue(value, unit)
 }
 
 /**

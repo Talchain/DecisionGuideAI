@@ -1,0 +1,793 @@
+{
+ "_provenance": "Landing geometry of Paul's two real MRR boards, re-captured 28 Sep 2026 by canvas-8ffc-work/r3/design2/shoot.mjs (files probe-mrr-*-fresh-standard.json; converted by design2/to-fixture.py, which reproduces the earlier a8b649ee fixture byte for byte from its own probe files) in Playwright Chromium at 1280x800 against a Vite server of canvas/b8-design (base b40d5436 + this change; label scale 1.64 from #2233, LAYOUT_LAYER_GAP 48, sign-row rise bound 22.64 and the POM-6 detour from #2230): the fixture's draft through applyDraftResult, then its real analysis_result envelope through applyV5State (the boardStatesGeometry.measure.ts seeding), Standard view. Supersedes the 28 Sep capture at base a8b649ee (label scale 1.36). nodes[].box: the card box the ROUTE RESOLVERS read (store position + store `measured`; ghosts, which the canvas store does not hold, take their painted size). nodes[].painted: the card as painted (graph translate + getBoundingClientRect / zoom) - on some cards the store's measured height is stale after the run (e.g. 90b8 fac_existing_customers_grandfathered: 222 routed, 250.7 painted; 17d1 other_mrr_growth: 197 routed, 225.4 painted). Edges: the DRAWN path d, and the browser's own getTotalLength and getPointAtLength(L/2), graph units. Glyphs: each polarity glyph's painted box, screen -> graph through the viewport transform. Nothing here is hand-authored. arrivals: the number of canvas edges into each card (every edge, as the glyph row's siblings are counted).",
+ "boards": {
+  "mrr-90b8f080": {
+   "view": "standard",
+   "viewport": {
+    "tx": 213,
+    "ty": 55,
+    "zoom": 0.5,
+    "labelScale": "1.64"
+   },
+   "nodes": [
+    {
+     "id": "decision_mrr",
+     "type": "decision",
+     "hidden": false,
+     "box": {
+      "x": 176,
+      "y": 24,
+      "width": 720,
+      "height": 102
+     },
+     "painted": {
+      "x": 176,
+      "y": 24,
+      "width": 720,
+      "height": 104.313
+     }
+    },
+    {
+     "id": "146aa89d",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 172,
+      "y": 192,
+      "width": 248,
+      "height": 294
+     },
+     "painted": {
+      "x": 172,
+      "y": 192,
+      "width": 248,
+      "height": 294.172
+     }
+    },
+    {
+     "id": "keep_current_49_price",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 468,
+      "y": 192,
+      "width": 248,
+      "height": 238
+     },
+     "painted": {
+      "x": 468,
+      "y": 192,
+      "width": 248,
+      "height": 238.063
+     }
+    },
+    {
+     "id": "increase_price_to_59",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 764,
+      "y": 192,
+      "width": 248,
+      "height": 237
+     },
+     "painted": {
+      "x": 764,
+      "y": 192,
+      "width": 248,
+      "height": 237.109
+     }
+    },
+    {
+     "id": "ca47b368",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 24,
+      "y": 531,
+      "width": 248,
+      "height": 260
+     },
+     "painted": {
+      "x": 24,
+      "y": 531,
+      "width": 248,
+      "height": 260.484
+     }
+    },
+    {
+     "id": "increase_price_to_54",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 320,
+      "y": 531,
+      "width": 248,
+      "height": 232
+     },
+     "painted": {
+      "x": 320,
+      "y": 531,
+      "width": 248,
+      "height": 231.797
+     }
+    },
+    {
+     "id": "6dbac00d",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 616,
+      "y": 531,
+      "width": 248,
+      "height": 232
+     },
+     "painted": {
+      "x": 616,
+      "y": 531,
+      "width": 248,
+      "height": 231.797
+     }
+    },
+    {
+     "id": "__ghost-option__",
+     "type": null,
+     "hidden": false,
+     "box": {
+      "x": 912,
+      "y": 531,
+      "width": 160,
+      "height": 90
+     },
+     "painted": {
+      "x": 912,
+      "y": 531,
+      "width": 160,
+      "height": 90
+     }
+    },
+    {
+     "id": "fac_existing_customers_grandfathered",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 172,
+      "y": 855,
+      "width": 248,
+      "height": 222
+     },
+     "painted": {
+      "x": 172,
+      "y": 855,
+      "width": 248,
+      "height": 250.703
+     }
+    },
+    {
+     "id": "pro_plan_price",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 468,
+      "y": 855,
+      "width": 248,
+      "height": 166
+     },
+     "painted": {
+      "x": 468,
+      "y": 855,
+      "width": 248,
+      "height": 166.016
+     }
+    },
+    {
+     "id": "other_mrr_growth",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 764,
+      "y": 855,
+      "width": 248,
+      "height": 198
+     },
+     "painted": {
+      "x": 764,
+      "y": 855,
+      "width": 248,
+      "height": 197.563
+     }
+    },
+    {
+     "id": "monthly_churn",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 24,
+      "y": 1151,
+      "width": 248,
+      "height": 166
+     },
+     "painted": {
+      "x": 24,
+      "y": 1151,
+      "width": 248,
+      "height": 166.016
+     }
+    },
+    {
+     "id": "monthly_new_pro_subscribers",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 320,
+      "y": 1151,
+      "width": 248,
+      "height": 226
+     },
+     "painted": {
+      "x": 320,
+      "y": 1151,
+      "width": 248,
+      "height": 226.25
+     }
+    },
+    {
+     "id": "pro_paying_subscribers",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 616,
+      "y": 1151,
+      "width": 248,
+      "height": 195
+     },
+     "painted": {
+      "x": 616,
+      "y": 1151,
+      "width": 248,
+      "height": 194.703
+     }
+    },
+    {
+     "id": "__ghost-factor__",
+     "type": null,
+     "hidden": false,
+     "box": {
+      "x": 912,
+      "y": 1151,
+      "width": 160,
+      "height": 90
+     },
+     "painted": {
+      "x": 912,
+      "y": 1151,
+      "width": 160,
+      "height": 90
+     }
+    },
+    {
+     "id": "price_sensitivity",
+     "type": "risk",
+     "hidden": false,
+     "box": {
+      "x": 320,
+      "y": 1441,
+      "width": 248,
+      "height": 158
+     },
+     "painted": {
+      "x": 320,
+      "y": 1441,
+      "width": 248,
+      "height": 158.313
+     }
+    },
+    {
+     "id": "__ghost-risk__",
+     "type": null,
+     "hidden": false,
+     "box": {
+      "x": 616,
+      "y": 1441,
+      "width": 160,
+      "height": 90
+     },
+     "painted": {
+      "x": 616,
+      "y": 1441,
+      "width": 160,
+      "height": 90
+     }
+    },
+    {
+     "id": "mrr",
+     "type": "goal",
+     "hidden": false,
+     "box": {
+      "x": 176,
+      "y": 1663,
+      "width": 720,
+      "height": 102
+     },
+     "painted": {
+      "x": 176,
+      "y": 1663,
+      "width": 720,
+      "height": 101.688
+     }
+    }
+   ],
+   "fragileEdges": [
+    {
+     "id": "e-6",
+     "source": "pro_plan_price",
+     "target": "mrr",
+     "d": "M592,1026.015625 L592,1609 C592,1622.8200000000002 536,1622.8200000000002 536,1636.64 L536,1636.640625",
+     "L": 648.489,
+     "midGraph": {
+      "x": 592,
+      "y": 1350.26
+     }
+    },
+    {
+     "id": "e-10",
+     "source": "monthly_churn",
+     "target": "pro_paying_subscribers",
+     "d": "M148,1317 C148,1399.37 678,1432.37 678,1350",
+     "L": 567.924,
+     "midGraph": {
+      "x": 409.987,
+      "y": 1395.086
+     }
+    }
+   ],
+   "glyphs": [
+    {
+     "edge": "e-10",
+     "text": "\u2212",
+     "x0": 686.2,
+     "y0": 1351.6,
+     "x1": 697.6,
+     "y1": 1376.4
+    },
+    {
+     "edge": "e-9",
+     "text": "\u2212",
+     "x0": 403.2,
+     "y0": 1089.6,
+     "x1": 414.6,
+     "y1": 1114.4
+    },
+    {
+     "edge": "e-11",
+     "text": "+",
+     "x0": 594.2,
+     "y0": 1222,
+     "x1": 605.6,
+     "y1": 1246.8
+    },
+    {
+     "edge": "e-15",
+     "text": "\u2212",
+     "x0": 158.2,
+     "y0": 1089.6,
+     "x1": 169.6,
+     "y1": 1114.4
+    },
+    {
+     "edge": "e-7",
+     "text": "+",
+     "x0": 454.2,
+     "y0": 1379.6,
+     "x1": 465.6,
+     "y1": 1404.4
+    },
+    {
+     "edge": "e-8",
+     "text": "+",
+     "x0": 214.2,
+     "y0": 1322.6,
+     "x1": 225.6,
+     "y1": 1347.4
+    },
+    {
+     "edge": "e-6",
+     "text": "+",
+     "x0": 495.2,
+     "y0": 1601.6,
+     "x1": 506.6,
+     "y1": 1626.4
+    },
+    {
+     "edge": "e-12",
+     "text": "+",
+     "x0": 565.2,
+     "y0": 1601.6,
+     "x1": 576.6,
+     "y1": 1626.4
+    },
+    {
+     "edge": "e-13",
+     "text": "+",
+     "x0": 603.2,
+     "y0": 1601.6,
+     "x1": 614.6,
+     "y1": 1626.4
+    },
+    {
+     "edge": "e-16",
+     "text": "\u2212",
+     "x0": 457.2,
+     "y0": 1601.6,
+     "x1": 468.6,
+     "y1": 1626.4
+    }
+   ],
+   "arrivals": {
+    "keep_current_49_price": 1,
+    "increase_price_to_59": 1,
+    "increase_price_to_54": 1,
+    "pro_plan_price": 4,
+    "mrr": 4,
+    "price_sensitivity": 1,
+    "monthly_churn": 3,
+    "monthly_new_pro_subscribers": 2,
+    "pro_paying_subscribers": 2,
+    "146aa89d": 1,
+    "fac_existing_customers_grandfathered": 1,
+    "6dbac00d": 1,
+    "ca47b368": 1
+   }
+  },
+  "mrr-17d1cd3a": {
+   "view": "standard",
+   "viewport": {
+    "tx": 57.7951,
+    "ty": 100.431,
+    "zoom": 0.508537,
+    "labelScale": "1.64"
+   },
+   "nodes": [
+    {
+     "id": "decision_mrr",
+     "type": "decision",
+     "hidden": false,
+     "box": {
+      "x": 472,
+      "y": 24,
+      "width": 720,
+      "height": 101
+     },
+     "painted": {
+      "x": 472,
+      "y": 24,
+      "width": 719.999,
+      "height": 100.937
+     }
+    },
+    {
+     "id": "keep_current_49_price",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 320,
+      "y": 190,
+      "width": 248,
+      "height": 237
+     },
+     "painted": {
+      "x": 320,
+      "y": 190,
+      "width": 248,
+      "height": 237.25
+     }
+    },
+    {
+     "id": "increase_price_to_59",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 616,
+      "y": 190,
+      "width": 248,
+      "height": 236
+     },
+     "painted": {
+      "x": 616,
+      "y": 190,
+      "width": 248,
+      "height": 235.875
+     }
+    },
+    {
+     "id": "increase_price_to_54",
+     "type": "option",
+     "hidden": false,
+     "box": {
+      "x": 912,
+      "y": 190,
+      "width": 248,
+      "height": 231
+     },
+     "painted": {
+      "x": 912,
+      "y": 190,
+      "width": 248,
+      "height": 230.984
+     }
+    },
+    {
+     "id": "__ghost-option__",
+     "type": null,
+     "hidden": false,
+     "box": {
+      "x": 1208,
+      "y": 190,
+      "width": 160,
+      "height": 90
+     },
+     "painted": {
+      "x": 1208,
+      "y": 190,
+      "width": 160,
+      "height": 90
+     }
+    },
+    {
+     "id": "monthly_churn",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 24,
+      "y": 492,
+      "width": 248,
+      "height": 165
+     },
+     "painted": {
+      "x": 24,
+      "y": 492,
+      "width": 248,
+      "height": 165.203
+     }
+    },
+    {
+     "id": "pro_plan_price",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 320,
+      "y": 492,
+      "width": 248,
+      "height": 165
+     },
+     "painted": {
+      "x": 320,
+      "y": 492,
+      "width": 248,
+      "height": 165.203
+     }
+    },
+    {
+     "id": "pro_paying_subscribers",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 616,
+      "y": 492,
+      "width": 248,
+      "height": 194
+     },
+     "painted": {
+      "x": 616,
+      "y": 492,
+      "width": 248,
+      "height": 193.89
+     }
+    },
+    {
+     "id": "monthly_new_pro_subscribers",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 912,
+      "y": 492,
+      "width": 248,
+      "height": 225
+     },
+     "painted": {
+      "x": 912,
+      "y": 492,
+      "width": 248,
+      "height": 225.437
+     }
+    },
+    {
+     "id": "other_mrr_growth",
+     "type": "factor",
+     "hidden": false,
+     "box": {
+      "x": 1208,
+      "y": 492,
+      "width": 248,
+      "height": 197
+     },
+     "painted": {
+      "x": 1208,
+      "y": 492,
+      "width": 248,
+      "height": 225.437
+     }
+    },
+    {
+     "id": "__ghost-factor__",
+     "type": null,
+     "hidden": false,
+     "box": {
+      "x": 1504,
+      "y": 492,
+      "width": 160,
+      "height": 90
+     },
+     "painted": {
+      "x": 1504,
+      "y": 492,
+      "width": 160,
+      "height": 90
+     }
+    },
+    {
+     "id": "price_sensitivity",
+     "type": "risk",
+     "hidden": false,
+     "box": {
+      "x": 616,
+      "y": 782,
+      "width": 248,
+      "height": 158
+     },
+     "painted": {
+      "x": 616,
+      "y": 782,
+      "width": 248,
+      "height": 157.5
+     }
+    },
+    {
+     "id": "__ghost-risk__",
+     "type": null,
+     "hidden": false,
+     "box": {
+      "x": 912,
+      "y": 782,
+      "width": 160,
+      "height": 90
+     },
+     "painted": {
+      "x": 912,
+      "y": 782,
+      "width": 160,
+      "height": 90
+     }
+    },
+    {
+     "id": "mrr",
+     "type": "goal",
+     "hidden": false,
+     "box": {
+      "x": 472,
+      "y": 1004,
+      "width": 720,
+      "height": 101
+     },
+     "painted": {
+      "x": 472,
+      "y": 1004,
+      "width": 719.999,
+      "height": 100.937
+     }
+    }
+   ],
+   "fragileEdges": [
+    {
+     "id": "e-6",
+     "source": "pro_plan_price",
+     "target": "mrr",
+     "d": "M443.99985782975847,662.202956490414 L443.99985782975847,950 C443.99985782975847,963.8199999999999 831.9996334998117,963.8199999999999 831.9996334998117,977.64 L831.9996334998117,977.6407319704614",
+     "L": 678.455,
+     "midGraph": {
+      "x": 494.243,
+      "y": 957.554
+     }
+    },
+    {
+     "id": "e-10",
+     "source": "monthly_churn",
+     "target": "pro_paying_subscribers",
+     "d": "M148,657 C148,706.8 678,739.8 678,690",
+     "L": 547.573,
+     "midGraph": {
+      "x": 411.018,
+      "y": 710.725
+     }
+    }
+   ],
+   "glyphs": [
+    {
+     "edge": "e-10",
+     "text": "\u2212",
+     "x0": 686.29,
+     "y0": 691.53,
+     "x1": 697.7,
+     "y1": 716.31
+    },
+    {
+     "edge": "e-9",
+     "text": "\u2212",
+     "x0": 982.24,
+     "y0": 722.6,
+     "x1": 993.64,
+     "y1": 747.38
+    },
+    {
+     "edge": "e-11",
+     "text": "+",
+     "x0": 874.28,
+     "y0": 562.53,
+     "x1": 885.69,
+     "y1": 587.31
+    },
+    {
+     "edge": "e-7",
+     "text": "+",
+     "x0": 750,
+     "y0": 720.63,
+     "x1": 761.41,
+     "y1": 745.41
+    },
+    {
+     "edge": "e-8",
+     "text": "+",
+     "x0": 214.35,
+     "y0": 662.62,
+     "x1": 225.76,
+     "y1": 687.4
+    },
+    {
+     "edge": "e-6",
+     "text": "+",
+     "x0": 773.01,
+     "y0": 942.64,
+     "x1": 784.42,
+     "y1": 967.42
+    },
+    {
+     "edge": "e-12",
+     "text": "+",
+     "x0": 842.03,
+     "y0": 942.64,
+     "x1": 853.44,
+     "y1": 967.42
+    },
+    {
+     "edge": "e-13",
+     "text": "+",
+     "x0": 879.4,
+     "y0": 942.64,
+     "x1": 890.8,
+     "y1": 967.42
+    }
+   ],
+   "arrivals": {
+    "keep_current_49_price": 1,
+    "increase_price_to_59": 1,
+    "increase_price_to_54": 1,
+    "pro_plan_price": 3,
+    "mrr": 3,
+    "price_sensitivity": 1,
+    "monthly_churn": 1,
+    "monthly_new_pro_subscribers": 1,
+    "pro_paying_subscribers": 2
+   }
+  }
+ }
+}

@@ -292,8 +292,12 @@ const FOUND_REPORT = { ...SERVED_REPORT, flip_thresholds: [FOUND_ROW] }
 const MG_ADDED = [
   `node-card-rail-resting-${RANK_1}`, `attention-marker-${RANK_1}`, 'attention-marker-ring', 'node-title-corner-spacer',
   'factor-driver-line', 'factor-driver-line-caption', 'factor-driver-line-bar', 'factor-driver-line-bar-fill',
-  'factor-turning-point', 'factor-turning-point-caption', 'factor-turning-point-run-value',
+  // Post-run DIFF item 10 (28 Sep 2026, contract v3.1 `flipPlot`): the track
+  // and its labels are one plot (`-plot`), the run's value BENEATH the line —
+  // so it follows the marks in document order. Same elements, one wrapper.
+  'factor-turning-point', 'factor-turning-point-caption', 'factor-turning-point-plot',
   'factor-turning-point-track', 'factor-turning-point-current', 'factor-turning-point-flip',
+  'factor-turning-point-run-value',
 ]
 const FLIP_PLOT_IDS = MG_ADDED.filter(t => t.startsWith('factor-turning-point'))
 
@@ -328,9 +332,12 @@ describe('FOUND turning point on the rank-1 factor — the ONE card that may gro
     const plot = within(c).getByTestId('factor-turning-point')
     // On the card FACE, the sibling right after the slot — not in a popover.
     expect(s.nextElementSibling).toBe(plot)
+    // At rest the caption is the contract's sentence; the producer's option
+    // scope is in the name (post-run DIFF item 10: at most two lines).
     expect(within(plot).getByTestId('factor-turning-point-caption').textContent).toBe(
-      'Above 0.7, the current model comparison shifts towards Full Switch to Usage-Based at Renewal.',
+      'Above 0.7, the current model comparison changes.',
     )
+    expect(plot.getAttribute('aria-label')).toContain('It shifts towards Full Switch to Usage-Based at Renewal.')
     expect(within(s).getByTestId('factor-driver-line-caption').textContent).toBe('Driver 1 of 1 ranked')
     // "None found" is not the arm here, and never on the card.
     expect(within(c).queryByTestId('factor-turning-point-none')).toBeNull()

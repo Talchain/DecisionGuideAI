@@ -861,3 +861,15 @@ export function layeredLeadPath(
     `L${targetX},${targetY}`
   return [path, (sourceX + targetX) / 2, (outY + inY) / 2]
 }
+
+/**
+ * The layered path with NO leads — the contract's near-straight cubic from the
+ * source's port to the target's handle (`bend = max(6, min(30, Δy/2))`). ONE
+ * spelling, read by `StyledEdge` (its own edge) and by the fragile-cue pass
+ * (`fragileCuePlacement.ts`, every other cue's edge), so the two cannot draw
+ * the same connection two ways.
+ */
+export function contractLayeredPath(sourceX: number, sourceY: number, targetX: number, targetY: number): string {
+  const bend = contractBend(sourceY, targetY)
+  return `M${sourceX},${sourceY} C${sourceX},${sourceY + bend} ${targetX},${targetY - bend} ${targetX},${targetY}`
+}
