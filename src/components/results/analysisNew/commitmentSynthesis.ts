@@ -204,7 +204,7 @@ export type OpenSource =
 export type BeforeSource =
   /** `COMMITMENT_COPY.rerunBefore` on a stale run a re-run could change. */
   | 'rerun'
-  /** `vm.strengthen.interventions[0].title`, verbatim. */
+  /** The top open item's `producerActionLabel` when it has one, else its `title`, verbatim. */
   | 'intervention'
   /**
    * ⭐ V2 prototype ("Before acting: Test the belief or record why you accept
@@ -462,6 +462,10 @@ function beforeBullet(
   // intervention's title at rest; repeating it here put the same sentence on
   // screen twice (V2 census, B1). Skip it, as the review queue does.
   const top = vm.strengthen.interventions.find((r) => !excluded.has(r.id))
+  // The producer's own typed act, when the item has one, is the next move; the title is what it is about
+  // (served d3a476b6: "Change or add an option", not "No option meets your limit").
+  const act = top?.producerActionLabel?.trim()
+  if (top && act) return { text: act, source: 'intervention' }
   if (top && top.title.trim() !== '') return { text: top.title, source: 'intervention' }
   if (excluded.size > 0) return { text: RESPOND_OR_RECORD, source: 'respond_or_record' }
   return null

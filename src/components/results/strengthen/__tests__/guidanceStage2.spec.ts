@@ -128,6 +128,17 @@ describe('Stage 2 — producer action_label rides through, verbatim', () => {
     ).find((r) => r.id === 'strengthen:phase3:c-1')!
     expect(rec.action.label).toBe('Work through with Olumi')
   })
+
+  it('⭐ producerActionLabel carries the PRODUCER\'s label only — the typed next move "Before acting" may state', () => {
+    const labelled = buildRecommendations(
+      wireToInputs([coachingBlock({ block_id: 'c-1', title: 'No option meets your limit', action_label: 'Change or add an option', priority_rank: 101 })]),
+    ).find((r) => r.id === 'strengthen:phase3:c-1')!
+    expect(labelled.producerActionLabel).toBe('Change or add an option')
+    const unlabelled = buildRecommendations(
+      wireToInputs([coachingBlock({ block_id: 'c-2', title: 'Unlabelled', priority_rank: 101 })]),
+    ).find((r) => r.id === 'strengthen:phase3:c-2')!
+    expect(unlabelled.producerActionLabel, 'our fallback button is never passed off as the producer\'s').toBeNull()
+  })
 })
 
 // ─── signal display line passthrough (deterministic stale-rerun nudge) ──────
