@@ -300,6 +300,7 @@ export async function runProvisionalDeliverySchedule(deps: {
     const outcome = applyScenarioAnalysisRead({
       analysisState: result.analysisState,
       analysisResult: result.analysisResult,
+      limitVerdicts: result.limitVerdicts ?? null,
       store: getStore(),
     })
     if (outcome.outcome === 'applied') {
@@ -458,6 +459,9 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // silently restore the very defect this binding was added to close.
     noteRunCompletedWithoutVerdict: s.noteRunCompletedWithoutVerdict,
     currentResultsHash: s.results?.hash ?? null,
+    // B5: named explicitly, like every member here.
+    setLimitVerdicts: s.setLimitVerdicts,
+    currentScenarioId: s.currentScenarioId,
     // ── Does the canvas on screen derive from a server graph we ACCEPTED? ──
     //
     // Read STRAIGHT FROM THE STORE here rather than threaded down from the

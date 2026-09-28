@@ -56,6 +56,7 @@
  * locally; see `canvas/utils/mergeServerGraph.ts`.
  */
 
+import { readLimitVerdicts, type LimitVerdicts } from '../../canvas/state/storedLimitVerdicts'
 import { recordRequestPayload, recordResponsePayload, getPayloadInspectionStatus } from '../../lib/payload-trace-store'
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
@@ -177,6 +178,11 @@ export type ScenarioGraphResult =
        * declaration here would be a mirror of the block contract.
        */
       analysisResult: unknown
+      /**
+       * B5 (CEE #2146): the SELECTED fact's per-limit verdicts (`analysis_limit_verdicts`), read under the
+       * same gates as `analysisResult`. Parsed by the one reader the turn path uses; `null` = not attested.
+       */
+      limitVerdicts?: LimitVerdicts | null
       /**
        * CEE's run admission for this revision (`analysis_admission.admitted`), or
        * `null` / absent when the read did not answer. The boot restore of a
@@ -358,6 +364,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // being the one block type this leg may carry, so a future CEE key cannot
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
+    limitVerdicts: readLimitVerdicts(b.analysis_limit_verdicts),
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     requestId,
   }

@@ -366,3 +366,23 @@ describe('scenarioGraph — 503 retry', () => {
     expect(res.status).toBe('unusable')
   })
 })
+
+describe('B5: the read carries `analysis_limit_verdicts`, parsed by the one reader', () => {
+  it('⭐ valid rows reach the result; an invalid row is dropped; absent is null', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(200, okBody({
+        analysis_limit_verdicts: {
+          per_limit: [{ constraint_id: 'c_churn', state: 'scored' }, { constraint_id: 'x', state: 'bogus' }],
+        },
+      })),
+    )
+    const withRows = await fetchScenarioGraph(SCENARIO_ID, { retryDelayMs: 0 })
+    expect(withRows.status).toBe('graph')
+    const rows = (withRows as { limitVerdicts?: { perLimit: Array<{ constraintId: string; state: string }> } | null }).limitVerdicts
+    expect(rows?.perLimit.map((r) => [r.constraintId, r.state])).toEqual([['c_churn', 'scored']])
+
+    fetchSpy.mockResolvedValueOnce(jsonResponse(200, okBody()))
+    const without = await fetchScenarioGraph(SCENARIO_ID, { retryDelayMs: 0 })
+    expect((without as { limitVerdicts?: unknown }).limitVerdicts ?? null).toBeNull()
+  })
+})

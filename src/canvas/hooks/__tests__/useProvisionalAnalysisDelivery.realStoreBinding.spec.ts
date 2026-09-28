@@ -128,6 +128,11 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
         'noteRunCompletedWithoutVerdict',
         'resultsComplete',
         'setAnalysisStateV1',
+        // ⚠ ADDED BY B5's READ LEG (28 Sep 2026, Panel), on purpose: the read carries the
+        // selected run's per-limit verdicts, bound to that analysis exactly as the turn
+        // path binds them. One writer and the scenario id it is keyed by; no graph slice.
+        'setLimitVerdicts',
+        'currentScenarioId',
       ].sort(),
     )
   })

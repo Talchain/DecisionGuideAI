@@ -80,6 +80,7 @@
  * This applier reads only the two analysis keys and never the `graph` member.
  */
 
+import type { LimitVerdicts, LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 import type { AnalysisResultBlock, AnalysisStateV1 } from '@talchain/schemas/boundary'
 
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
@@ -308,6 +309,12 @@ export interface ScenarioAnalysisApplyStore {
    * can lie, so this leg performs only the one that cannot.
    */
   readonly noteRunCompletedWithoutVerdict?: () => void
+  /**
+   * B5: the per-limit verdicts the read carried, stored with the analysis they came beside — the
+   * turn applier's rule (`applyV5State`), so the first pass and a re-read say what a turn says.
+   */
+  readonly setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
+  readonly currentScenarioId?: string | null
 }
 
 export type ScenarioAnalysisApplyOutcome =
@@ -352,6 +359,8 @@ export type ScenarioAnalysisApplyOutcome =
 export interface ApplyScenarioAnalysisReadInput {
   readonly analysisState: AnalysisStateV1 | null
   readonly analysisResult: unknown
+  /** B5: the read's `analysis_limit_verdicts`, parsed (`readLimitVerdicts`). Absent/null = not attested. */
+  readonly limitVerdicts?: LimitVerdicts | null
   readonly store: ScenarioAnalysisApplyStore
 }
 
@@ -479,7 +488,21 @@ export function applyScenarioAnalysisRead(
     // already display must not re-write the slice (it would restart animations
     // and re-seed the Compare capture). `alreadyHeld` still SETTLES the caller —
     // the answer arrived, we simply had it.
+    // B5: bound to THIS analysis. A same-analysis re-read keeps the verdicts it can attest (the store
+    // keeps the first snapshot of the limits); a new analysis without them evicts the old ones.
+    const bindLimitVerdicts = (isNewAnalysis: boolean): void => {
+      if (input.limitVerdicts) {
+        input.store.setLimitVerdicts?.({
+          verdicts: input.limitVerdicts,
+          analysisHash: hash,
+          scenarioId: input.store.currentScenarioId ?? null,
+        })
+      } else if (isNewAnalysis) {
+        input.store.setLimitVerdicts?.(null)
+      }
+    }
     if (hash === (input.store.currentResultsHash ?? null)) {
+      bindLimitVerdicts(false)
       // ⚠ THE DEDUPE MUST NOT SWALLOW THE REFUSAL. The report is the same one;
       // the PERMISSION over it is what has changed. Returning here without
       // applying the withholding would let a second poll silently re-permit a
@@ -493,6 +516,7 @@ export function applyScenarioAnalysisRead(
     input.store.resultsComplete({
       report,
       hash,
+      /* B5 write follows the results write — see `bindLimitVerdicts` (called just below it). */
       // ⚠ 'conversation' IS CORRECT HERE, and it was queried in review — so the
       // reasoning is pinned rather than left to be re-litigated.
       //
@@ -521,6 +545,7 @@ export function applyScenarioAnalysisRead(
       rawV2Response: null,
       v5Enrichment: (block as { enrichment?: unknown }).enrichment ?? null,
     })
+    bindLimitVerdicts(true)
     resultsHydrated = true
   }
 
@@ -948,4 +973,26 @@ export function applyBootLeaderClaimWithholding(input: {
 
   input.store.resultsWithholdLeaderClaim?.(reason, producerLeaderClaimCause(verdict))
   return { outcome: 'withheld', reason }
+}
+
+/**
+ * B5 on RELOAD: the results on screen were restored locally, so no results write happens on
+ * boot and `applyScenarioAnalysisRead` never runs. When the read attests per-limit verdicts for
+ * the SAME analysis the store is showing (the read's result hash equals the held hash), bind them.
+ * Anything else writes nothing: a different or absent analysis is not the one on screen.
+ */
+export function applyBootLimitVerdicts(input: {
+  readonly analysisResult: unknown
+  readonly limitVerdicts: LimitVerdicts | null | undefined
+  readonly store: {
+    readonly currentResultsHash: string | null
+    readonly currentScenarioId: string | null
+    readonly setLimitVerdicts: (stored: LimitVerdictsWrite | null) => void
+  }
+}): 'bound' | 'skipped' {
+  if (!input.limitVerdicts || input.analysisResult == null || input.store.currentResultsHash === null) return 'skipped'
+  const hash = mapV5AnalysisToReport(input.analysisResult as AnalysisResultBlock).model_card.response_hash
+  if (hash !== input.store.currentResultsHash) return 'skipped'
+  input.store.setLimitVerdicts({ verdicts: input.limitVerdicts, analysisHash: hash, scenarioId: input.store.currentScenarioId })
+  return 'bound'
 }

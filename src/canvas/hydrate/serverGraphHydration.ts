@@ -23,7 +23,7 @@ import { useReloadDifferenceStore } from '../stores/reloadDifferenceStore'
 import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
-import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, isBootRestorableRunState } from './applyScenarioAnalysisRead'
+import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, applyBootLimitVerdicts, isBootRestorableRunState } from './applyScenarioAnalysisRead'
 import { applyBootRunCurrency, applyBootBlockedVerdict } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
@@ -322,6 +322,13 @@ async function readAndMergeServerGraph(
   // comment — a disjointness that only a comment asserts is one refactor from
   // being false.
   const restoreVerdict = (): void => {
+    // B5 on reload: bind the read's per-limit verdicts to the analysis restored on screen, if it is that one.
+    const st = useCanvasStore.getState()
+    applyBootLimitVerdicts({
+      analysisResult: result.analysisResult,
+      limitVerdicts: result.limitVerdicts,
+      store: { currentResultsHash: st.results?.hash ?? null, currentScenarioId: st.currentScenarioId, setLimitVerdicts: st.setLimitVerdicts },
+    })
     const verdictOutcome = applyBootAnalysisVerdict({
       analysisState: result.analysisState,
       store: { setAnalysisStateV1: useCanvasStore.getState().setAnalysisStateV1 },
