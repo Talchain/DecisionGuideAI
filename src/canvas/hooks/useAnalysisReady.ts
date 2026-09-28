@@ -88,6 +88,12 @@ export interface BoundAdmission {
 export interface AdmissionRefusalWording {
   /** `missing_important_inputs[].why_it_matters` for every input CEE REQUIRES (not `offered`), in CEE's order. */
   requiredInputs: readonly string[]
+  /**
+   * The same required inputs, each with the producer's OWN scope where it names one
+   * (`option_id` first, else `factor_id`, with its label) — so the refusal row routes to
+   * the node it asks about. Absent ids give no scope: never inferred from the sentence.
+   */
+  requiredInputItems?: readonly { readonly text: string; readonly scope?: { readonly id: string; readonly label?: string } }[]
   /** The `structurally_analysable` reason's `message` (CEE's `blockedNextStep`) when that reason refuses. */
   structural: string | null
   /** Every reason code, for the shared code vocabulary as a last resort. */
@@ -102,7 +108,7 @@ function nonEmptyString(v: unknown): string | null {
   return typeof v === 'string' && v.trim().length > 0 ? v.trim() : null
 }
 
-function readRefusalWording(admission: unknown): AdmissionRefusalWording {
+export function readRefusalWording(admission: unknown): AdmissionRefusalWording {
   if (admission === null || typeof admission !== 'object') return NO_WORDING
   const a = admission as Record<string, unknown>
   const reasons = (Array.isArray(a.reasons) ? a.reasons : []).filter(
@@ -116,14 +122,22 @@ function readRefusalWording(admission: unknown): AdmissionRefusalWording {
       ? nonEmptyString(structuralReason?.message)
       : null
   const requiredInputs: string[] = []
+  const requiredInputItems: { text: string; scope?: { id: string; label?: string } }[] = []
   for (const m of Array.isArray(a.missing_important_inputs) ? a.missing_important_inputs : []) {
     if (m === null || typeof m !== 'object') continue
     const item = m as Record<string, unknown>
     if (item.obligation === 'offered') continue
     const sentence = nonEmptyString(item.why_it_matters)
-    if (sentence !== null && !requiredInputs.includes(sentence)) requiredInputs.push(sentence)
+    if (sentence !== null && !requiredInputs.includes(sentence)) {
+      requiredInputs.push(sentence)
+      const optionId = nonEmptyString(item.option_id)
+      const factorId = nonEmptyString(item.factor_id)
+      const id = optionId ?? factorId
+      const label = optionId !== null ? nonEmptyString(item.option_label) : nonEmptyString(item.factor_label)
+      requiredInputItems.push(id !== null ? { text: sentence, scope: { id, ...(label !== null ? { label } : {}) } } : { text: sentence })
+    }
   }
-  return { requiredInputs, structural, reasonCodes }
+  return { requiredInputs, requiredInputItems, structural, reasonCodes }
 }
 
 const REVISION_PREFIX = 16

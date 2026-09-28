@@ -567,7 +567,10 @@ export function admissionRefusalItems(
   sideCarItems: readonly GateBlockedItem[] = [],
 ): readonly GateBlockedItem[] {
   if (wording !== undefined && wording.requiredInputs.length > 0) {
-    return wording.requiredInputs.map((text) => ({ text }))
+    // Each row keeps the producer's own scope, so it routes to the node it asks about.
+    return wording.requiredInputItems !== undefined && wording.requiredInputItems.length === wording.requiredInputs.length
+      ? wording.requiredInputItems
+      : wording.requiredInputs.map((text) => ({ text }))
   }
   if (sideCarItems.some((item) => !GENERIC_GATE_SENTENCES.has(item.text))) return sideCarItems
   if (wording?.structural) return [{ text: wording.structural }]
