@@ -1411,6 +1411,43 @@ describe('OptionNode', () => {
     expect(screen.getByText(/5% chance of target\./)).toBeDefined()
   })
 
+  // ISL #207 (AIQ #72 5877139338): the goal badge is never bare when the goal's
+  // level today was worked out. `goalLevelAuthor` is what UI #2280's mapper stamps.
+  const makeBaseCaveatStore = (goalLevelAuthor?: 'olumi' | 'unattested') =>
+    makeStoreState({
+      goalThreshold: 0.6,
+      results: {
+        status: 'complete',
+        report: {
+          option_probabilities: {
+            'option-1': { confidence: 0.5, win_probability: 0.5, goal_probability: 0.05, ...(goalLevelAuthor ? { goalLevelAuthor } : {}) },
+          },
+        },
+      },
+      nodes: [{ id: 'option-1', type: 'option', data: { type: 'option' } }],
+    })
+
+  it.each([
+    ['olumi', "Measured from Olumi's estimate of where your goal stands today, not a figure you gave."],
+    ['unattested', 'Measured from where your goal stands today as worked out from its inputs, not a figure you gave.'],
+  ] as const)('ISL #207: author %s → the goal badge carries its base-caveat', (author, copy) => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore(author) as any))
+    renderOption()
+    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.getByTestId('goal-fit-base-caveat-option-node-option-1').textContent).toBe(copy)
+  })
+
+  it('ISL #207 CONTROL: a goal level the user gave → the badge shows, no base-caveat', () => {
+    mockTrust.suspect = false
+    mockResultsModeMetadata()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeBaseCaveatStore() as any))
+    renderOption()
+    expect(screen.getByText(/5% chance of target\./)).toBeDefined()
+    expect(screen.queryByTestId('goal-fit-base-caveat-option-node-option-1')).toBeNull()
+  })
+
   // ─────────────────────────────────────────────────────────────────────────
   // THE POSSESSIVE GATE (ROADMAP 2.282)
   //

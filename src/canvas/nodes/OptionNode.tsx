@@ -145,7 +145,7 @@ import {
   notAnalysedReasonCopy,
   notComputedReasonCopy,
 } from '../../components/results/utils/notAnalysedCopy'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
@@ -1622,6 +1622,17 @@ export const OptionNode = memo((props: NodeProps) => {
           >
             Review
           </button>
+        </p>
+      )}
+      {/* ISL #207 (AIQ #72 5877139338): the goal badge above is never bare when the
+          goal's level today was worked out rather than given. Same gate as the badge. */}
+      {goalThreshold != null && isPostAnalysis && goalBadgeReadout != null &&
+        goalFitBaseCaveatCopy(goalDecision?.goalFitBaseCaveat) !== null && (
+        <p
+          className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+          data-testid={`goal-fit-base-caveat-option-node-${props.id}`}
+        >
+          {goalFitBaseCaveatCopy(goalDecision?.goalFitBaseCaveat)}
         </p>
       )}
 
