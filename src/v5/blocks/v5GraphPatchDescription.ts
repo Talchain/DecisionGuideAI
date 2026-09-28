@@ -22,7 +22,7 @@
  */
 
 import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
-import { classifyUnit, compactUnitParts } from '../../utils/unitClassifier'
+import { classifyUnit, formatMoneyFigure } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 
 // ---------------------------------------------------------------------------
@@ -117,21 +117,10 @@ function elementTypeFromId(id: string, fallback: string): string {
 // Value formatting.
 // ---------------------------------------------------------------------------
 
-// Currency units → human prefix glyph. Both ISO codes (CEE may emit
-// `'GBP'` from a structured proposal) AND symbol forms (CEE
-// add-constraint.ts passes the user-supplied symbol verbatim — e.g.
-// `'£'`) must render as a left-prefixed glyph on the value, not as a
-// trailing suffix. Mirroring both representations means a CEE refactor
-// that swaps one form for the other does not silently regress receipt
-// formatting from `£50,000` to `50,000 £`.
-const CURRENCY_PREFIXES: Record<string, string> = {
-  GBP: '£',
-  '£': '£',
-  USD: '$',
-  $: '$',
-  EUR: '€',
-  '€': '€',
-}
+// Money goes through the ONE money-figure rule (`formatMoneyFigure`,
+// `utils/unitClassifier`): an ISO code (`'GBP'`, from a structured proposal)
+// and a symbol (`'£'`, add-constraint.ts passes the user's verbatim) both read
+// `£50,000`, and a rate reads `£49 / month`, as every other surface prints it.
 
 // Percent unit — routed through `classifyUnit`, the single source of truth
 // (U2). This file used to carry its own `PERCENT_UNITS = new Set(['%',
@@ -140,12 +129,6 @@ const CURRENCY_PREFIXES: Record<string, string> = {
 // `unit: 'percentage'` rendered "20%" on five surfaces and "20 percentage" in
 // this receipt. `classifyUnit` handles the glyph, both words, case and
 // whitespace in one place.
-//
-// NOTE the CURRENCY path above is deliberately NOT routed through
-// `classifyUnit`: this receipt maps `GBP` to the glyph `£`, whereas
-// `classifyUnit` classifies ISO codes as `kind: 'iso'` with the CODE as
-// canonical ("GBP 500"). Those are different rendering contracts, and collapsing
-// them would silently change receipt copy. Out of scope here, named not hidden.
 
 /**
  * Format a numeric value with optional unit. Currencies render as a
@@ -163,25 +146,10 @@ export function formatConstraintValue(
     return typeof value === 'string' ? value : '—'
   }
   if (unit) {
-    // Currencies — match symbol or ISO code (case-insensitive).
-    const currencyGlyph =
-      CURRENCY_PREFIXES[unit] ?? CURRENCY_PREFIXES[unit.toUpperCase()]
-    if (currencyGlyph) {
-      return `${currencyGlyph}${value.toLocaleString('en-GB')}`
-    }
+    const money = formatMoneyFigure(value, unit)
+    if (money !== null) return money
     if (classifyUnit(unit).kind === 'percent') {
       return `${value.toLocaleString('en-GB')}%`
-    }
-    // ⭐ A CURRENCY RATE ("GBP/month", "GBP per month") reads as the factor card
-    // prints the same node: "£49 / month", never "49 GBP/month" (served
-    // f0c8814f: the price edit's receipt said "49 GBP/month → 58.8 GBP/month").
-    // The estate's own reader (`compactUnitParts`); a non-whole amount shows its pence.
-    const money = Number.isInteger(value)
-      ? value.toLocaleString('en-GB')
-      : value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    const rate = compactUnitParts(money, unit)
-    if (rate !== null && /^[£$€]/.test(rate.figure)) {
-      return rate.unit ? `${rate.figure} ${rate.unit}` : rate.figure
     }
     return `${value.toLocaleString('en-GB')} ${unit}`
   }

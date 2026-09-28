@@ -170,7 +170,7 @@ export function applyUnitPlacement(figure: string, unit: string | null | undefin
  * ISO code → glyph, for the three codes whose glyph is unambiguous in this
  * product. Moved here unchanged from `formatFactorDisplayValue`'s
  * `CURRENCY_RATE_GLYPH` so the compact reading below and the factor card read
- * ONE map (the patch receipt's `CURRENCY_PREFIXES` maps the same three). Any
+ * ONE map (the patch receipt reads it too, through `moneyFigureParts`). Any
  * other code (`CHF`, `SEK`, …) keeps its code: a glyph this product has never
  * shown for it would be a guess.
  */
@@ -316,6 +316,59 @@ function currencyHeadParts(figure: string, unit: string): CompactUnitParts | und
 /** The visible text of `compactUnitParts` — figure and unit words joined by one space. */
 export function joinCompactUnitParts(parts: CompactUnitParts): string {
   return parts.unit === null ? parts.figure : `${parts.figure} ${parts.unit}`
+}
+
+/**
+ * Money is never "£58.8": a non-whole amount shows its pence; thousands are
+ * grouped. The magnitude only — the sign is placed by `moneyFigureParts`.
+ */
+export function moneyDigits(value: number): string {
+  const abs = Math.abs(value)
+  return Number.isInteger(abs)
+    ? abs.toLocaleString('en-GB')
+    : abs.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+/**
+ * ⭐⭐⭐ THE ONE MONEY-FIGURE RULE (UI) — every surface that prints an amount of
+ * money calls this, and none composes a currency glyph itself (DL #72
+ * 5870353946: ROOT, Product Experience).
+ *
+ * WHY. Served f0c8814f, one price edit (49 → 58.8, `unit: "GBP/month"`) read
+ * three ways at once: the factor card "£58.8 / month", the Reasoning tab
+ * "£58.80 / month", the Olumi-tab receipt "49 GBP/month → 58.8 GBP/month". Four
+ * formatters, each with its own glyph map and its own digits.
+ *
+ * THE RULE, over `compactUnitParts` (the compound-unit owner) and
+ * `ISO_CURRENCY_GLYPHS` (the one glyph map):
+ *   · a currency rate or a currency-led unit → the glyph on the figure, the rest
+ *     after it: `£49 / month`, `£1,000 MRR added / month`;
+ *   · a bare currency → `£50,000`; a negative amount → `-£500` (the sign before
+ *     the glyph; `£-500` is not how a negative is written);
+ *   · the digits are `moneyDigits`: pence on a non-whole amount (`£58.80`).
+ * Returns `null` for anything that is not money this product can put a glyph on
+ * — a count, a percent, `CHF 49` (a glyph never shown for it would be a guess),
+ * a negative rate, a compound head (`GBP per subscriber per month`) — and the
+ * caller prints what it printed before. `tests/ci-guards/oneMoneyFigureRule`
+ * fails when a new file composes a glyph outside this rule.
+ */
+export function moneyFigureParts(value: number, unit: string | null | undefined): CompactUnitParts | null {
+  if (!Number.isFinite(value) || unit == null || !unit.trim()) return null
+  if (value >= 0) {
+    const parts = compactUnitParts(moneyDigits(value), unit)
+    // A glyph leads a money reading; a digit leads every other compact reading.
+    if (parts !== null) return /^\d/.test(parts.figure) ? null : parts
+  }
+  const { kind, canonical } = classifyUnit(unit)
+  const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+  if (glyph === undefined) return null
+  return { figure: `${value < 0 ? '-' : ''}${glyph}${moneyDigits(value)}`, unit: null }
+}
+
+/** `moneyFigureParts` as one string, or `null` when the value is not money. */
+export function formatMoneyFigure(value: number, unit: string | null | undefined): string | null {
+  const parts = moneyFigureParts(value, unit)
+  return parts === null ? null : joinCompactUnitParts(parts)
 }
 
 /** A reading that is exactly `<number> <unit>` — the producer's figure, then the carried unit. */

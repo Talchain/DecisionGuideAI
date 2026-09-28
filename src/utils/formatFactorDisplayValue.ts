@@ -17,7 +17,7 @@
  */
 
 import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
-import { compactUnitParts } from './unitClassifier'
+import { compactUnitParts, moneyFigureParts } from './unitClassifier'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
@@ -414,11 +414,17 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
     const scaled = raw_value > 0 && raw_value < 1 ? raw_value * 100 : raw_value
     parts = { figure: `${Math.round(scaled)}%`, unit: null }
   } else if (kind === 'other') {
-    const compound = compoundUnitParts(amount, canonical || unit, text)
-    if (compound !== null) return compound
-    parts = { figure: amount, unit: canonical || unit }
+    parts = compoundUnitParts(amount, canonical || unit, text) ?? { figure: amount, unit: canonical || unit }
   } else return null
-  return joinFactorDisplayParts(parts) === text ? parts : null
+  if ((parts.restates ?? joinFactorDisplayParts(parts)) !== text) return null
+  // ⭐ MONEY THROUGH THE ONE RULE (`moneyFigureParts`, DL #72 5870353946): the
+  // card read "GBP 49" and "£58.8 / month" where the receipt and the Reasoning
+  // tab read "£49" and "£58.80 / month". Only a string composed HERE from the
+  // raw number and the node's unit (the byte check above) is re-spelt, and
+  // `restates` binds the card to that one string (`factorCardVisibleText`).
+  const money = moneyFigureParts(raw_value, unit)
+  if (money === null || (money.figure === parts.figure && money.unit === parts.unit)) return parts
+  return { figure: money.figure, unit: money.unit, restates: text }
 }
 
 /**
