@@ -168,4 +168,5 @@ src/types/constraints.ts:78
 #    were exactly this pair.)
 # 28 Sep 2026 (Panel, V2 "Draft" bundle): re-lined 2497 → 2506, the same `topFigurePercent === 100`
 #    line; 9 copy lines (`staleRow` / `reanalyseRow`) were added above it. Scanner added/gone = exactly this pair.
-src/components/results/analysisNew/analysisNewCopy.ts:2506
+# 28 Sep 2026 (Panel, threshold money): re-lined 2506 → 2507, the same `topFigurePercent === 100` line; one import line added above it.
+src/components/results/analysisNew/analysisNewCopy.ts:2507

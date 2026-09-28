@@ -96,7 +96,7 @@ describe('the glance condition', () => {
 
   it('⭐ CONTRAST: a real unit still prints', () => {
     expect(vmOf(permittedWithUnit('£')).atAGlance.condition?.text).toBe(
-      'Enterprise tier availability passes £0.9',
+      'Enterprise tier availability passes £0.90', // money shows its pence (thresholdFigure, 28 Sep)
     )
   })
 })
@@ -111,7 +111,7 @@ describe('the tipping-point sentence (Challenge row and Sensitivity tips share i
 
   it('⭐ CONTRAST: a real unit still prints on both endpoints', () => {
     expect(COPY.disclosure.tippingPoint('Enterprise tier availability', 0, 0.9, 'Hold price', '£')).toBe(
-      'Enterprise tier availability would have to rise from £0 to £0.9 before Hold price leads in this model.',
+      'Enterprise tier availability would have to rise from £0 to £0.90 before Hold price leads in this model.',
     )
   })
 })
@@ -156,7 +156,7 @@ describe('mounted: no site on the tab prints "binary" as a unit', () => {
     openAllSections()
     const s = sites()
     expect(screen.queryByTestId('analysis-new-glance-condition'), 'said once, by the Challenge row').toBeNull()
-    expect(s.challenge).toContain('from £0 to £0.9')
+    expect(s.challenge).toContain('from £0 to £0.90')
     expect(s.sensitivity).toContain('from £1 to £0.4')
   })
 })
