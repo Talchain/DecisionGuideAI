@@ -674,6 +674,16 @@ export function kindGlyphOverhangAt(s: number): number {
  *
  * `bandTitleClearsKindGlyph.guard.spec.ts` asserts the budget above and pairs
  * every band title with every kind shape on the five starters at the bound.
+ *
+ * ⚠ THE POLARITY-SIGN ROW STANDS IN THIS GAP TOO (code-review F1, 27 Sep 2026).
+ * #2202's cut to 40 budgeted the overhang and the title but not the `+`/`−`
+ * row #2208 put above each arrival, and that row landed on the upper card at
+ * the landing. Its rise is now bounded by `GLYPH_ROW_RISE_MAX_FLOW`
+ * (`edgeGlyphPlacement.ts`), derived from THIS gap, and
+ * `polarityGlyphRowClearsCards.guard.spec.ts` asserts overhang + rise + half a
+ * glyph box + the mark gap ≤ the visible gap, and that no sign box meets a
+ * card on the five starters. A further cut shrinks the bound with it (the row
+ * sinks toward the arrival heads); the spec fails once no positive rise fits.
  */
 export const LAYOUT_LAYER_GAP = 40
 

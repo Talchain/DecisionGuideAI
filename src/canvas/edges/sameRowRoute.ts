@@ -45,6 +45,8 @@
  * neither the leads nor the glyphs coincide.
  */
 import { GLYPH_BOX_GAP_FLOW, GLYPH_PAINTED_BOX_FLOW, GLYPH_RING_STEP } from '../utils/edgeGlyphPlacement'
+import { ROW_PROMPT_H, ROW_PROMPT_W, TIER_BY_KIND } from '../utils/nodeLayoutConstants'
+import { isGhostNode } from '../utils/fitTargets'
 
 /**
  * How far back from the arrow tip the `side` route's glyph stands, in graph
@@ -508,6 +510,46 @@ export function routeBoxOf(n: {
 }
 
 /**
+ * The boxes the layered router must clear, each with its band's tier: every
+ * measured, visible card — and, since POM-6 (27 Sep 2026), every row-end
+ * PROMPT ("What else could go wrong?"). A prompt is drawn as an opaque card, so
+ * a line under it reads as passing through a card exactly as under a real one:
+ * on Paul's 90b8 board "Pro paying subscribers → MRR" and "Other MRR growth →
+ * MRR" ran under the risk row's prompt. It takes the tier of the family it ends
+ * (`data.tier`; the joint consequence door says 'consequence'). It is never an
+ * endpoint — no edge connects to a prompt.
+ */
+export function layeredRouteBoxes(
+  nodes: ReadonlyArray<Parameters<typeof routeBoxOf>[0] & { type?: string; hidden?: boolean; data?: unknown }>,
+  isHidden: (id: string) => boolean,
+): Array<RouteBox & { tier: number }> {
+  const boxes: Array<RouteBox & { tier: number }> = []
+  for (const n of nodes) {
+    if (n.hidden || isHidden(n.id)) continue
+    let kind: unknown = n.type
+    let sized = n
+    if (isGhostNode(n.id)) {
+      const tierName = (n.data as { tier?: unknown } | undefined)?.tier
+      kind = tierName === 'consequence' ? 'outcome' : tierName
+      // A prompt is not a model node, so the app never writes its measured size
+      // back to the store (served 90b8: no `measured` on `__ghost-risk__`). It is
+      // drawn at the fixed prompt size (`ROW_PROMPT_W` wide, `ROW_PROMPT_H` floor),
+      // which the layout reserved for it.
+      sized = {
+        ...n,
+        width: n.measured?.width ?? n.width ?? ROW_PROMPT_W,
+        height: n.measured?.height ?? n.height ?? ROW_PROMPT_H,
+      }
+    }
+    const tier = typeof kind === 'string' ? TIER_BY_KIND[kind] : undefined
+    if (tier === undefined) continue
+    const box = routeBoxOf(sized)
+    if (box) boxes.push({ ...box, tier })
+  }
+  return boxes
+}
+
+/**
  * ⭐⭐ v3.1 WS1 #10 (26 Sep 2026): A LAYERED EDGE NEVER RUNS UNDER A CARD THAT
  * IS NOT ITS ENDPOINT — it leaves its row, and enters its target's row, by a
  * vertical lead exactly as deep as needed.
@@ -537,6 +579,15 @@ export interface LayeredEdgeLeads {
   outY: number
   /** The y the vertical lead-in starts at (≤ the target point). */
   inY: number
+  /**
+   * ⭐ POM-6 (27 Sep 2026): a SIDEWAYS DETOUR past an intermediate-tier card that
+   * no vertical lead can clear — both the source port and the target handle sit
+   * inside its x-range, so neither lead can run beside it. The line crosses to a
+   * column `x` beside the card, runs down it from `top` (above the card) to
+   * `bottom` (below it), and crosses back to the target. Absent when no detour
+   * is needed or none is clear (the plain leads are drawn, as before).
+   */
+  via?: { x: number; top: number; bottom: number }
 }
 
 /** Clearance kept between a lead's turn and the card it clears, in flow units. */
@@ -662,6 +713,7 @@ export function resolveLayeredEdgeLeads(
   let inY = targetY
   let clear = false
   let active = obstacles
+  let detourCard: (RouteBox & { tier: number }) | null = null
   // A dropped card does not spend a round (`continue` below): `active` shrinks
   // each time, so the loop still ends.
   for (let round = 0; round < LEAD_MAX_ROUNDS; ) {
@@ -686,6 +738,9 @@ export function resolveLayeredEdgeLeads(
       if (!spansX(hit, sourceX) && verticalClear(sourceX, outY, below, boxes, sourceId, targetId)) outY = Math.max(outY, below)
       else if (!spansX(hit, targetX) && verticalClear(targetX, above, inY, boxes, sourceId, targetId)) inY = Math.min(inY, above)
       else {
+        // POM-6: no vertical lead can clear it — remember it for a sideways
+        // detour (resolved once the end-tier leads have settled, below).
+        if (detourCard === null) detourCard = hit
         active = active.filter((b) => b !== hit)
         continue
       }
@@ -706,8 +761,70 @@ export function resolveLayeredEdgeLeads(
     }
     if (!(inY > outY)) return null
   }
+  if (detourCard !== null) {
+    const via = resolveDetour(sourceId, targetId, sourceX, outY, targetX, inY, detourCard, boxes)
+    if (via) return { outY, inY, via }
+  }
   if (outY === sourceY && inY === targetY) return null
   return { outY, inY }
+}
+
+/** The column's offset from a card with no neighbour on that side, in flow units. */
+const DETOUR_OFFSET = 24
+
+/** Does the contract cubic from (x0, y0) down to (x1, y1) pass under any card but the ends'? */
+function cubicClear(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  boxes: ReadonlyArray<RouteBox & { tier: number }>,
+  sourceId: string,
+  targetId: string,
+): boolean {
+  if (!(y1 > y0)) return false
+  const others = boxes.filter((b) => b.id !== sourceId && b.id !== targetId)
+  return firstHit(x0, y0, x1, y1, others) === null
+}
+
+/**
+ * ⭐ POM-6 (27 Sep 2026): the sideways detour around `card`. Served on Paul's
+ * MRR board, "Pro paying subscribers → MRR" left its source straight down
+ * THROUGH "Price sensitivity" (the port at x 740 and the goal handle at 832 both
+ * inside its 616–864) and read as a Price sensitivity → MRR link the model does
+ * not hold. The column is the middle of the gap to the card's neighbour on that
+ * side (or `DETOUR_OFFSET` out where there is none); the side nearer the target
+ * is tried first. A column is taken only if the vertical run and BOTH crossing
+ * cubics pass under no card but the edge's own ends — otherwise `null`, and the
+ * caller draws the plain leads exactly as before. The layout never moves.
+ */
+function resolveDetour(
+  sourceId: string,
+  targetId: string,
+  sourceX: number,
+  outY: number,
+  targetX: number,
+  inY: number,
+  card: RouteBox,
+  boxes: ReadonlyArray<RouteBox & { tier: number }>,
+): LayeredEdgeLeads['via'] | null {
+  const top = card.y - LEAD_CLEARANCE
+  const bottom = card.y + card.height + LEAD_CLEARANCE
+  if (!(top - outY > 12) || !(inY - bottom > 12)) return null
+  const beside = (b: RouteBox) => b.id !== card.id && b.y < bottom && b.y + b.height > top
+  const right = card.x + card.width
+  const rightNeighbour = boxes.filter((b) => beside(b) && b.x >= right).sort((a, b) => a.x - b.x)[0]
+  const leftNeighbour = boxes.filter((b) => beside(b) && b.x + b.width <= card.x).sort((a, b) => b.x + b.width - (a.x + a.width))[0]
+  const rightX = rightNeighbour ? (right + rightNeighbour.x) / 2 : right + DETOUR_OFFSET
+  const leftX = leftNeighbour ? (leftNeighbour.x + leftNeighbour.width + card.x) / 2 : card.x - DETOUR_OFFSET
+  const columns = Math.abs(rightX - targetX) <= Math.abs(leftX - targetX) ? [rightX, leftX] : [leftX, rightX]
+  for (const x of columns) {
+    if (!verticalClear(x, top, bottom, boxes, sourceId, targetId)) continue
+    if (!cubicClear(sourceX, outY, x, top, boxes, sourceId, targetId)) continue
+    if (!cubicClear(x, bottom, targetX, inY, boxes, sourceId, targetId)) continue
+    return { x, top, bottom }
+  }
+  return null
 }
 
 /**
@@ -722,7 +839,21 @@ export function layeredLeadPath(
   targetY: number,
   leads: LayeredEdgeLeads,
 ): [string, number, number] {
-  const { outY, inY } = leads
+  const { outY, inY, via } = leads
+  if (via) {
+    // POM-6: across to the detour column, down it past the card, across to the
+    // target — each crossing the contract's near-straight cubic. The label
+    // anchors on the column run, which is on the drawn line.
+    const b1 = contractBend(outY, via.top)
+    const b2 = contractBend(via.bottom, inY)
+    const path =
+      `M${sourceX},${sourceY} L${sourceX},${outY} ` +
+      `C${sourceX},${outY + b1} ${via.x},${via.top - b1} ${via.x},${via.top} ` +
+      `L${via.x},${via.bottom} ` +
+      `C${via.x},${via.bottom + b2} ${targetX},${inY - b2} ${targetX},${inY} ` +
+      `L${targetX},${targetY}`
+    return [path, via.x, (via.top + via.bottom) / 2]
+  }
   const bend = contractBend(outY, inY)
   const path =
     `M${sourceX},${sourceY} L${sourceX},${outY} ` +

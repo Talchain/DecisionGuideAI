@@ -32,6 +32,8 @@ import {
   GLYPH_ROW_CENTRE_CLEARANCE,
   GLYPH_PAINTED_BOX_FLOW,
   GLYPH_BOX_GAP_FLOW,
+  GLYPH_ROW_RISE_MAX_FLOW,
+  paintedGlyphDyFlow,
   type GlyphSibling,
 } from '../edgeGlyphPlacement'
 import { MAX_GLYPH_COUNTER_SCALE } from '../zoomLegibility'
@@ -253,9 +255,29 @@ describe('the row keeps off a keep-out box (the band title), measured at the cou
 })
 
 describe('the offset is counter-scaled — the row is the contract\'s size on screen at every zoom', () => {
-  it('multiplies the offset (never the anchor) by the glyph counter-scale', () => {
+  // ⚠ RE-PINNED 27 Sep 2026 (code-review F1). The old string encoded the
+  // defect: an UNBOUNDED rise, 19 × the counter-scale, which put the row on the
+  // upper card's bottom border at the landing (the tier gap is fixed in flow
+  // units). The x term is unchanged; the y term now bounds the rise at
+  // `GLYPH_ROW_RISE_MAX_FLOW` (21.36 flow units). `polarityGlyphRowClearsCards.
+  // guard.spec.ts` evaluates this string at the bound on the five starters.
+  it('multiplies the offset (never the anchor) by the glyph counter-scale, with the rise bounded to the tier gap', () => {
+    expect(GLYPH_ROW_RISE_MAX_FLOW).toBeCloseTo(21.36, 10)
     expect(polarityGlyphTransform(900, 400, { dx: -17.5, dy: -19 })).toBe(
-      'translate(-50%, -50%) translate(calc(900px + -17.5px * var(--canvas-glyph-scale, 1)), calc(400px + -19px * var(--canvas-glyph-scale, 1)))',
+      'translate(-50%, -50%) translate(calc(900px + -17.5px * var(--canvas-glyph-scale, 1)), calc(400px + max(-19px * var(--canvas-glyph-scale, 1), -21.36px)))',
     )
+  })
+
+  it('the keep-out reads the PAINTED rise: bounded at the landing, the contract\'s 19 where it fits', () => {
+    expect(paintedGlyphDyFlow(-19, MAX_GLYPH_COUNTER_SCALE)).toBeCloseTo(-GLYPH_ROW_RISE_MAX_FLOW, 10)
+    expect(paintedGlyphDyFlow(-19, 1)).toBe(-19)
+    // CONTRAST: a keep-out spanning only the UNBOUNDED spot (38 above the anchor
+    // at the bound) no longer moves the row, because the glyph is not painted there.
+    const sibs = [above('l', -200), above('r', 200)]
+    const onlyUnbounded = { x0: -200, y0: -60, x1: 200, y1: -38 + 1 }
+    const onlyPainted = { x0: -200, y0: -GLYPH_ROW_RISE_MAX_FLOW - 1, x1: 200, y1: -GLYPH_ROW_RISE_MAX_FLOW + 1 }
+    expect(resolvePolarityGlyphOffset('l', T, sibs, onlyPainted)).not.toEqual(resolvePolarityGlyphOffset('l', T, sibs))
+    expect(onlyUnbounded.y1).toBeLessThan(-GLYPH_ROW_RISE_MAX_FLOW - GLYPH_PAINTED_BOX_FLOW / 2 - GLYPH_BOX_GAP_FLOW)
+    expect(resolvePolarityGlyphOffset('l', T, sibs, onlyUnbounded)).toEqual(resolvePolarityGlyphOffset('l', T, sibs))
   })
 })

@@ -289,11 +289,29 @@ describe('a DOWNWARD link across a tier between its ends — the whole path agai
     unmount()
   })
 
-  it('CONTRAST — port AND handle both over the risk: no lead can clear it, the path is the plain E9 curve as before', () => {
+  it('port AND handle both over the risk: no lead can clear it, so the link DETOURS beside the card (POM-6) and passes under none', () => {
+    // ⭐ RE-PINNED 28 Sep 2026 (Canvas audit POM-6). This arm used to pin the
+    // plain E9 curve 'M404,466 C404,496 404,764 404,794' as the contrast — a
+    // straight line THROUGH the risk card, which is the defect POM-6 fixes (on
+    // Paul's boards: Pro paying subscribers → MRR drawn under Price sensitivity).
+    // With no vertical lead able to clear, sameRowRoute now takes a `via` column
+    // in the gap beside the card when that column and both connecting curves
+    // pass no card; otherwise it still draws the plain curve.
     const goal = goalAt(280)
+    const board = [F1, F2, F3, RISK, goal]
     mockStoreNodes = [goal, RISK, F3, F2, F1]
     const { container } = renderDown(F2, goal)
-    // (404, 466) → (404, 794): nothing a lead can clear → the unrouted curve.
-    expect(drawnPath(container)).toBe('M404,466 C404,496 404,764 404,794')
+    const d = drawnPath(container)
+    expect(d, 'still the plain curve through the risk').not.toBe('M404,466 C404,496 404,764 404,794')
+    const pts = samplePath(d)
+    expect(pts.length, `no path drawn: ${d}`).toBeGreaterThan(10)
+    const under = board.filter((n) => n !== F2 && n !== goal).filter((n) => {
+      const b = box(n)
+      return pts.some((p) => p.x > b.x && p.x < b.x + b.w && p.y > b.y && p.y < b.y + b.h)
+    })
+    expect(under.map((n) => n.id), `passes under non-endpoint cards (${d})`).toEqual([])
+    // It still starts at the port and ends at the handle.
+    expect(d.startsWith('M404,466')).toBe(true)
+    expect(d.endsWith('404,794')).toBe(true)
   })
 })
