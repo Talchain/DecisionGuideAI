@@ -35,7 +35,6 @@ import type {
 } from './types'
 import { classifyChange, structureForChangeKind } from './deriveTransitions'
 import { deriveLeaderClaim } from './leaderClaim'
-import { savedGoalFigure } from './savedGoalCaveat'
 
 // ---------------------------------------------------------------------------
 // Option deltas — union, matched by option id
@@ -198,10 +197,6 @@ export function deriveRunPairComparison(
 
   const fromWarnings = new Set(from.inferenceWarnings)
   const toWarnings = new Set(to.inferenceWarnings)
-  // The saved figures a surface may show (`savedGoalFigure`): a run whose goal basis was never
-  // recorded is withheld, so no delta is built on it.
-  const fromGoal = savedGoalFigure(from)
-  const toGoal = savedGoalFigure(to)
 
   return {
     from,
@@ -216,7 +211,10 @@ export function deriveRunPairComparison(
     // T2b: both ends or nothing. A goal probability is absent on every live
     // persisted run measured (0 of 2,850 option entries carry one), so this is
     // null in practice and the row renders "Not assessed" on both sides.
-    goalProbabilityDeltaPp: fromGoal != null && toGoal != null ? toGoal - fromGoal : null,
+    goalProbabilityDeltaPp:
+      from.goalProbability != null && to.goalProbability != null
+        ? to.goalProbability - from.goalProbability
+        : null,
     fromEvidenceCoverage: from.evidenceCoverage,
     toEvidenceCoverage: to.evidenceCoverage,
     warningsResolved: from.inferenceWarnings.filter(w => !toWarnings.has(w)),

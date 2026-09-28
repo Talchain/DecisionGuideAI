@@ -87,8 +87,6 @@ function snapshot(overrides: Partial<AnalysisSnapshot> = {}): AnalysisSnapshot {
     rankFlipRate: 0,
     goalProbability: 50,
     jointGoalProbability: null,
-    // Every current snapshot builder writes this key; an ABSENT key withholds the goal figure (#2282).
-    goalBaseCaveat: null,
     edgeEValues: [],
     seedUsed: 42,
     responseHash: 'resp-1',

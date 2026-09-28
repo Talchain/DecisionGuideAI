@@ -179,15 +179,6 @@ export function TransitionCard({
           {tr.goalProbDelta != null && tr.goalProbDelta !== 0 && (
             <div className={`${typography.panelBody} mt-0.5`}>
               Goal probability: {tr.goalProbDelta >= 0 ? '+' : ''}{tr.goalProbDelta}pp
-              {tr.goalProbCaveatLines.map((line) => (
-                <div
-                  key={line}
-                  data-testid="transition-goal-caveat"
-                  className={`${typography.panelMeta} text-text-light`}
-                >
-                  {line}
-                </div>
-              ))}
             </div>
           )}
 

@@ -4,12 +4,6 @@ import { GraphLink } from '../../components/results/GraphLink'
 import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
 import type { AnalysisSnapshot } from './types'
-import { SavedGoalCaveatLine } from './SavedGoalCaveatLine'
-import {
-  SAVED_GOAL_BASIS_UNRECORDED_COPY,
-  savedGoalBasisUnrecorded,
-  savedGoalFigure,
-} from './savedGoalCaveat'
 
 interface DotProgressionProps {
   snapshots: AnalysisSnapshot[]
@@ -50,14 +44,11 @@ function ProgressionCell({
   colour,
   isLast,
   showConnector,
-  absentTitle = NOT_SCORED_TITLE,
 }: {
   value: number | null
   colour: string
   isLast: boolean
   showConnector: boolean
-  /** Why this cell has no value; defaults to "not scored". */
-  absentTitle?: string
 }) {
   const scored = value != null
   const size = isLast ? 9 : 7
@@ -73,11 +64,11 @@ function ProgressionCell({
           opacity: isLast ? 1 : 0.6,
           ...(scored ? {} : { border: '1px dashed var(--text-muted)' }),
         }}
-        {...(scored ? {} : { 'data-testid': 'compare-dot-unscored', title: absentTitle })}
+        {...(scored ? {} : { 'data-testid': 'compare-dot-unscored', title: NOT_SCORED_TITLE })}
       />
       <span
         className={`${typography.panelMeta} tabular-nums ml-0.5 mr-0.5`}
-        {...(scored ? {} : { title: absentTitle })}
+        {...(scored ? {} : { title: NOT_SCORED_TITLE })}
       >
         {scored ? `${value}%` : NOT_SCORED}
       </span>
@@ -213,20 +204,13 @@ export function DotProgression({ snapshots }: DotProgressionProps) {
             // honestly-gated row.
             <ProgressionCell
               key={ri}
-              value={savedGoalFigure(s)}
+              value={s.goalProbability}
               colour="bg-goal"
-              {...(savedGoalBasisUnrecorded(s)
-                ? { absentTitle: `Run ${s.runNumber}: ${SAVED_GOAL_BASIS_UNRECORDED_COPY}` }
-                : {})}
               isLast={ri === snapshots.length - 1}
               showConnector={ri > 0}
             />
           ))}
         </div>
-      )}
-      {/* ISL #207: a Target figure measured from Olumi's level says so beside the row. */}
-      {hasGoal && (
-        <SavedGoalCaveatLine runs={snapshots} testId="compare-progression-goal-caveat" className="mb-1" />
       )}
     </div>
   )

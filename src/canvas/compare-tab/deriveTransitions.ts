@@ -12,7 +12,6 @@ import type {
   StructureComparison,
 } from './types'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
-import { savedGoalCaveatLines, savedGoalFigure } from './savedGoalCaveat'
 import {
   classifyGraphProjections,
   fieldDisplayLabel,
@@ -467,10 +466,9 @@ function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transiti
   const { resolved, introduced } = deriveWarningDiffs(from, to)
   const { eValue, edgeLabel } = findLowestEValue(to, affectedFactorIds)
 
-  // `savedGoalFigure`: a run whose goal basis was never recorded is withheld — no delta on it.
-  const fromGoal = savedGoalFigure(from)
-  const toGoal = savedGoalFigure(to)
-  const goalProbDelta = fromGoal != null && toGoal != null ? toGoal - fromGoal : null
+  const goalProbDelta = (from.goalProbability != null && to.goalProbability != null)
+    ? to.goalProbability - from.goalProbability
+    : null
 
   return {
     fromRunNumber: from.runNumber,
@@ -487,8 +485,6 @@ function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transiti
     robustnessFrom: from.stabilityLabel,
     robustnessTo: to.stabilityLabel,
     goalProbDelta,
-    // ISL #207: the delta subtracts two saved goal figures, so it carries their base caveat(s).
-    goalProbCaveatLines: goalProbDelta != null ? savedGoalCaveatLines([from, to]) : [],
     affectedFactorIds,
     affectedFactorLabels,
     deterministicAnchor: deriveDeterministicAnchor(from, to),

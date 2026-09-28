@@ -20,7 +20,6 @@ import {
   selectGoalProbability,
   type GoalProbabilityInput,
 } from '../../components/results/utils/selectGoalProbability'
-import { goalLevelFromIdentityCaveat } from '../../components/results/utils/goalLevelFromIdentity'
 import {
   collectStructurallyProvenNoFlipIds,
   type FlipAttestationRowLike,
@@ -670,17 +669,7 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
   // canvas showed for the same run, and then outlive the run that produced it.
   // `selectGoalProbability` accepts the wire spelling (see its registration
   // header), so the whole option object goes to the owner as-is.
-  //
-  // ISL #207 — whose base the goal figure stands on is a fact about the RUN's enrichment, not the
-  // option, so it is read once from the response root (the same reader the V5 mapper uses for the
-  // live rows) and handed to the chooser beside the winner. The chooser returns the caveat; the
-  // snapshot keeps it, so a saved run never shows a bare figure the live row caveated.
-  const goalLevelAuthor = goalLevelFromIdentityCaveat(rawV2Response)
-  const goalDecision = selectGoalProbability(
-    winner != null
-      ? ({ ...winner, ...(goalLevelAuthor !== null ? { goalLevelAuthor } : {}) } as GoalProbabilityInput)
-      : undefined,
-  )
+  const goalDecision = selectGoalProbability(winner as GoalProbabilityInput | undefined)
   const goalProbability = goalDecision.goalProbability != null
     ? Math.round(goalDecision.goalProbability * 100)
     : null
@@ -791,7 +780,6 @@ export function buildAnalysisSnapshot(params: BuildSnapshotParams): AnalysisSnap
 
     goalProbability,
     jointGoalProbability,
-    goalBaseCaveat: goalDecision.goalFitBaseCaveat,
 
     inferenceWarnings: extractInferenceWarnings(rawV2Response),
     conditionalWinners: extractConditionalWinners(rawV2Response),
