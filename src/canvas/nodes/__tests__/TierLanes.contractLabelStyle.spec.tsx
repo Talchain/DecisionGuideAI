@@ -96,7 +96,7 @@ describe('contract v3.1 .layer-label style — product words, contract chrome', 
     expect(LANE_TITLE_HALO.match(/var\(--bg-canvas\)/g)).toHaveLength(3)
     expect(LANE_TITLE_HALO.match(/calc\(1\.5px \* var\(--canvas-label-scale, 1\)\)/g)).toHaveLength(3)
     for (const lane of lanes) {
-      expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).style.textShadow, lane.tier).toBe(LANE_TITLE_HALO)
+      expect(screen.getByTestId(`tier-lane-${lane.tier}-title`).style.textShadow, `band ${lane.tier}`).toBe(LANE_TITLE_HALO)
     }
   })
 })
