@@ -365,7 +365,15 @@ export function goalConstraintText(
 
   // R1 S4-core: a change from today is said as the change (`sayableLimitChange`, above), never as a level.
   const change = sayableLimitChange(constraint)
-  if (change !== null) return `${prefix}${sayLimitChange(change)}${origin}`
+  if (change !== null) {
+    // ⛔ AIQ 5880929109: a carried label that already states a LEVEL ("Cloud cost <= 0.1") beside the change would
+    // offer the reader both readings. The subject is then the constrained element's own name, or none at all.
+    const targetName = target ? resolveElementLabel(target.data) : UNNAMED_ELEMENT_LABEL
+    const subject = options.omitLabel ? ''
+      : !labelAlreadyStatesLimit(label) ? `${label} `
+        : targetName !== UNNAMED_ELEMENT_LABEL ? `${targetName.trim()} ` : ''
+    return `${subject}${sayLimitChange(change)}${origin}`
+  }
 
   /**
    * ⭐⭐⭐ ON A PERCENT LIMIT, THE READER'S OWN WORDS BEAT OUR RECONSTRUCTION —
@@ -507,7 +515,12 @@ export function goalConstraintShortText(
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
   // R1 S4-core: the change first, exactly as the full form orders it.
   const change = sayableLimitChange(constraint)
-  if (change !== null) return `${subject} ${sayLimitChangeShort(change)}${origin}`
+  // AIQ 5880929109: never a carried label that states a level beside the change (the pill's subject is the metric's
+  // own title whenever it binds to one; a stale carried label is dropped rather than shown).
+  if (change !== null) {
+    const pillSubject = subject === label && labelAlreadyStatesLimit(label) ? '' : `${subject} `
+    return `${pillSubject}${sayLimitChangeShort(change)}${origin}`
+  }
   const audit = constraint.provenance_unit_normalised
   if (audit && hasAuditedFigure(constraint)) {
     return `${subject} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}${origin}`

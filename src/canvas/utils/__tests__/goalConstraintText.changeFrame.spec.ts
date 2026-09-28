@@ -60,9 +60,17 @@ describe('a change-framed limit is said as the change, in CEE\'s words (S4D-1 pa
       .toBe('no more than 10% above today · Inferred limit')
   })
 
-  it('RED: a label that already states a level is NOT shown alone for a change (it would read as the level)', () => {
+  it('RED (AIQ 5880929109): a carried label that states a level gives way to the target\'s own name — no "0.1" anywhere', () => {
     const labelled = { ...rel('<=', 0.1), label: 'Cloud cost <= 0.1' }
-    expect(goalConstraintText(labelled, nodes)).toBe('Cloud cost <= 0.1 no more than 10% above today')
+    expect(goalConstraintText(labelled, nodes)).toBe('Total monthly cloud cost no more than 10% above today')
+    expect(goalConstraintText(labelled, nodes)).not.toContain('0.1')
+    // No resolvable target: the stale label is dropped, never shown beside the change.
+    expect(goalConstraintText({ ...labelled, node_id: 'nowhere' }, nodes)).toBe('no more than 10% above today')
+    expect(goalConstraintShortText({ ...labelled, node_id: 'nowhere' }, nodes)).toBe('≤+10% vs today')
+  })
+
+  it('CONTRAST: a carried label that does not state a limit is kept as the subject', () => {
+    expect(goalConstraintText({ ...rel('<=', 0.1), label: 'Cloud spend cap' }, nodes)).toBe('Cloud spend cap no more than 10% above today')
   })
 })
 
