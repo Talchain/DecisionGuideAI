@@ -152,10 +152,12 @@ import { resolveOptionInterventionCount } from './shared/optionInterventionCount
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import {
   fitRowsToBudget,
+  fitRowsToLineBudget,
   isConcreteChangeRow,
   moreCount,
   OPTION_CARD_ROW_LIMIT,
   optionAmountSegmentNoWrap,
+  optionRowForm,
   rowFactorIdsFor,
   sharedChangeOrder,
   type OptionChangeRow,
@@ -242,9 +244,26 @@ const MARK_GLUE = '\u00A0'
  * line. An unbreakable run is budgeted to the full row (`NODE_ROW_AMOUNT_MAX_CHARS`)
  * and the label track may reach 0 beside it, so nothing is ever pushed past the
  * card's edge.
+ *
+ * ⭐ AND WHERE THE NAME WOULD BE LEFT UNREADABLE, THE ROW IS TWO LINES (Paul's
+ * staging test, 28 Sep 2026: "Human as… 0 hours/week → 20 hours/week est."):
+ * this grid is used only where the amount fits beside at least
+ * `OPTION_ROW_NAME_MIN_CHARS` of the name (`optionRowForm`); otherwise
+ * `OPTION_ROW_TWO_LINE_CLASSES`.
  */
 export const OPTION_ROW_LINE_GRID_CLASSES =
   `${typography.edgeLabel} grid grid-cols-[minmax(0,1fr)_fit-content(calc(100%_-_8px_-_6em))] items-baseline gap-x-2`
+
+/**
+ * ⭐ THE TWO-LINE ROW (Paul's staging test, 28 Sep 2026, export 64c5eccc;
+ * Canvas owner decision): where the amount cannot sit on the one-line grid
+ * beside at least `OPTION_ROW_NAME_MIN_CHARS` of the name (`optionRowForm`, a
+ * character budget at the bound), the row is ONE column — the factor's name on
+ * its own line, full width (it truncates only past the card), and the amount,
+ * its mark glued, on the line below. Same `dt`/`dd`, same type, same cells.
+ */
+export const OPTION_ROW_TWO_LINE_CLASSES =
+  `${typography.edgeLabel} grid grid-cols-[minmax(0,1fr)] items-baseline`
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -1182,10 +1201,14 @@ export const OptionNode = memo((props: NodeProps) => {
       return isConcreteChangeRow(row, target, optionFactorContext(factorNode, fid)) ? [row] : []
     })
   }, [optionSet, props.id, nodes, baselineOptionReference])
-  const changeRows = useMemo(
-    () => (isBaselineOption ? [] : fitRowsToBudget(concreteChangeRows.slice(0, OPTION_CARD_ROW_LIMIT))),
-    [isBaselineOption, concreteChangeRows],
-  )
+  // Standard's resting rows also keep to the card's LINE budget (a two-line row
+  // spends more of it — `fitRowsToLineBudget`); Detailed keeps its own layout.
+  // A pure function of the model: a Run changes neither the rows nor their form.
+  const changeRows = useMemo(() => {
+    if (isBaselineOption) return []
+    const rows = fitRowsToBudget(concreteChangeRows.slice(0, OPTION_CARD_ROW_LIMIT))
+    return isDetailed ? rows : fitRowsToLineBudget(rows)
+  }, [isBaselineOption, isDetailed, concreteChangeRows])
   // ⭐ `+N more` COUNTS CONCRETE CHANGES ONLY (side-by-side DIFF N1, 28 Sep;
   // owner decision). It counted every TARGET (`totalInterventionCount`), so a
   // card whose hidden targets all equal the baseline's advertised them as more
@@ -2163,10 +2186,13 @@ export const OptionNode = memo((props: NodeProps) => {
     <div className="mt-1" data-testid={`option-change-rows-${props.id}`} data-row-layout={restingLabels ? 'rows' : stacked ? 'stacked' : 'grid'}>
       {restingLabels ? (
         <dl className="m-0 flex flex-col gap-y-1">
-          {changeRows.map((r) => (
+          {changeRows.map((r) => {
+            const form = optionRowForm(r)
+            return (
             <div
               key={r.factorId}
-              className={OPTION_ROW_LINE_GRID_CLASSES}
+              className={form === 'one-line' ? OPTION_ROW_LINE_GRID_CLASSES : OPTION_ROW_TWO_LINE_CLASSES}
+              data-row-form={form}
               data-testid={`option-change-row-line-${props.id}-${r.factorId}`}
               // The label's recovery route: the row's full factor name, on the
               // row (the amount keeps its own fuller sentence on the `dd`).
@@ -2193,7 +2219,8 @@ export const OptionNode = memo((props: NodeProps) => {
               </dt>
               {renderChangeAmount(r, 'right', true)}
             </div>
-          ))}
+            )
+          })}
         </dl>
       ) : (
       <dl className={stacked

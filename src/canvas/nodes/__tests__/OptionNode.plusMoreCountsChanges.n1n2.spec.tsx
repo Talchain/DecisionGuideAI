@@ -161,8 +161,11 @@ const CASES: Array<{ starter: string; draft: unknown; option: string; rows: stri
   { starter: 'build-vs-buy', draft: buildVsBuyStarter, option: 'opt_stripe', rows: ['fac_eng_capacity'], more: '+1 more', served: '+2 more' },
   { starter: 'build-vs-buy', draft: buildVsBuyStarter, option: 'opt_build', rows: ['fac_dev_time'], more: '+2 more', served: '+2 more' },
   { starter: 'build-vs-buy', draft: buildVsBuyStarter, option: 'opt_vendor', rows: ['fac_dev_time'], more: '+2 more', served: '+2 more' },
-  // Pricing: three concrete changes, three rows, nothing hidden (unchanged).
-  { starter: 'pricing-model', draft: pricingStarter, option: 'opt_hybrid', rows: ['fac_adoption_friction', 'fac_enterprise_revenue_risk', 'fac_usage_exposure'], more: null, served: null },
+  // Pricing: three concrete changes. ⚠ RE-PINNED 28 Sep (Paul's staging test
+  // 64c5eccc; Canvas owner): each row is two lines at the bound (its amount
+  // cannot sit beside 12 characters of the name), so the card's six row lines
+  // hold two rows and the third — a REAL change — is counted: `+1 more`.
+  { starter: 'pricing-model', draft: pricingStarter, option: 'opt_hybrid', rows: ['fac_adoption_friction', 'fac_enterprise_revenue_risk'], more: '+1 more', served: null },
 ]
 
 describe('DIFF N1 — `+N more` counts only the concrete changes the card does not show', () => {

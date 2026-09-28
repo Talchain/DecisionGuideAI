@@ -347,14 +347,20 @@ describe('contract v3.1 — option card polish', () => {
       expect(t.has('flex-col')).toBe(true)
       expect(t.has('gap-y-1')).toBe(true)
       expect(t.has('grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')).toBe(false)
-      const line = tokens(inRows('option-change-row-line-option-1-f-head'))
+      const lineEl = inRows('option-change-row-line-option-1-f-head')!
+      const line = tokens(lineEl)
       // ⚠ RE-PINNED 28 Sep (side-by-side DIFF Pre 1 residual, owner decision:
       // the amount on the label's line, the label yields). The wrapping flex
       // line with a 6em label floor stacked 23 of 23 landing rows; the row is
       // now the contract's two-column grid, the label its `minmax(0,1fr)` column.
       expect(line.has('grid')).toBe(true)
       expect(line.has('flex-wrap')).toBe(false)
-      expect(line.has('gap-x-2')).toBe(true)
+      // ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc; Canvas owner): the
+      // amount "0 engineers → 3 engineers" + its mark cannot sit beside 12
+      // characters of "Developer headcount" at the bound (`optionRowForm`), so
+      // the row is TWO lines — one column, the name, then the amount.
+      expect(lineEl.getAttribute('data-row-form')).toBe('two-line')
+      expect(line.has('grid-cols-[minmax(0,1fr)]')).toBe(true)
       const dt = inRows('option-change-row-option-1-f-head')!.previousElementSibling!
       expect([...tokens(dt)].some((c) => c.startsWith('flex-'))).toBe(false)
       // Held whole while it fits one line of the row budget at the largest
@@ -421,7 +427,9 @@ describe('contract v3.1 — option card polish', () => {
         store: {
           ceeAnalysisReady: {
             options: [
-              // FOUR targets: the card shows three rows (Paul 25 Sep), so one is behind `+1 more`.
+              // FOUR targets. ⚠ RE-PINNED 28 Sep (Paul's staging test 64c5eccc):
+              // the rows are two-line at the bound, so the card's six row lines
+              // hold two of them and `+2 more` counts the rest (was three + `+1 more`).
               { id: 'option-1', interventions: { 'f-head': { value: 3, display_value: '3 engineers' }, 'f-cost': 5, 'f-risk': 2, 'f-seats': 4 } },
               { id: 'option-2', interventions: { 'f-cost': 5 } },
             ],
@@ -430,7 +438,7 @@ describe('contract v3.1 — option card polish', () => {
       })
       const more = inRows('option-change-more-option-1')
       expect(more, 'precondition: the overflow link renders on the card').not.toBeNull()
-      expect(more!.textContent).toBe('+1 more')
+      expect(more!.textContent).toBe('+2 more')
       const t = tokens(more)
       expect(t.has('text-info')).toBe(true)
       expect(t.has('no-underline')).toBe(true)

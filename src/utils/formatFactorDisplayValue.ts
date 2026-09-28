@@ -25,6 +25,22 @@ function stripSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
 }
 
+/**
+ * A label set mid-sentence ("No <label> in place"): each word lower-cased
+ * UNLESS it carries a capital after its first letter — an acronym or a
+ * spelling ("AI", "NPS", "SaaS", "iPhone") keeps its letters exactly.
+ *
+ * Paul's staging test, 28 Sep 2026 (export 64c5eccc): `.toLowerCase()` on the
+ * whole label made factor "AI assistant use" read "No ai assistant use in
+ * place". The sentence is this formatter's own; the label's words are not.
+ */
+function labelMidSentence(label: string): string {
+  return label
+    .split(/(\s+)/)
+    .map(word => (/\p{Lu}/u.test(word.slice(1)) ? word : word.toLowerCase()))
+    .join('')
+}
+
 function formatNumber(value: number): string {
   return Math.abs(value) >= 1000
     ? value.toLocaleString('en-GB')
@@ -988,7 +1004,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     }
     if (isMeaningless && !isExplicitlyBinary) {
       if (value === 0 && factorTypeUnset) {
-        const stripped = stripSuffixes(label).toLowerCase()
+        const stripped = labelMidSentence(stripSuffixes(label))
         return `No ${stripped} in place`
       }
       // NOTE: the value === 1 mirror case is deliberately NOT implemented yet.
@@ -998,7 +1014,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // considering both branches together.
       return null
     }
-    const stripped = stripSuffixes(label).toLowerCase()
+    const stripped = labelMidSentence(stripSuffixes(label))
     if (value === 0) {
       return `No ${stripped} in place`
     }
