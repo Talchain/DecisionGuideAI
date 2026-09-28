@@ -51,6 +51,11 @@ import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachi
 import { isExpertField } from './utils/isExpertField'
 import { DISPLAY_SAFE_DRIVER_CONFIDENCE } from './driverConfidenceDisplayPolicy'
 import { openAskOlumi } from './coaching/askOlumiStore'
+import { DRIVER_LINE_COPY } from '../../canvas/nodes/shared/metricVocabulary'
+
+/** The canvas card's words (`DRIVER_LINE_COPY.noValueYet`), as a pill label. */
+const NO_VALUE_YET_PILL =
+  DRIVER_LINE_COPY.noValueYet.charAt(0).toUpperCase() + DRIVER_LINE_COPY.noValueYet.slice(1)
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -354,6 +359,7 @@ function DriverRow({
   expertMode,
   isTopDriver,
   driverLeader,
+  noValueYet,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
@@ -371,6 +377,10 @@ function DriverRow({
   /** The run's one driver authority (`DriversSectionData.driverLeader`): the
    *  "Top driver" pill yields to it (`yieldCrownToDriverLeader`). */
   driverLeader?: DriversSectionData['driverLeader']
+  /** The run ranked this factor with no value and the model still states
+   *  none (`DriversSectionData.noValueIds`): the row says so beside its pill,
+   *  the crown included, as the canvas card does (DL 5869404773). */
+  noValueYet?: boolean
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -675,6 +685,14 @@ function DriverRow({
             >
               {pillText}
             </span>
+            {noValueYet && (
+              <span
+                className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full bg-transparent text-text-light border border-panel-border`}
+                data-testid={`driver-no-value-${driver.factorKey}`}
+              >
+                {NO_VALUE_YET_PILL}
+              </span>
+            )}
             {/* Lever badge (D-U): visible, on every row (not tooltip / not
                 top-only). Honours the producer's zero_reason stamp — display
                 only, no value is fabricated or recomputed. */}
@@ -1266,6 +1284,10 @@ export function DriversSection({
               expertMode={expertMode}
               isTopDriver={index === 0}
               driverLeader={data.driverLeader}
+              noValueYet={
+                data.noValueIds?.has(driver.matchedNodeId ?? '') === true
+                || data.noValueIds?.has(driver.factorKey) === true
+              }
             />
           )
         })}

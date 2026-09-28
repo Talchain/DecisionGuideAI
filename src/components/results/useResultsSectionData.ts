@@ -18,6 +18,7 @@ import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
 import { licensesComparativeLeaderClaim, resolveEffectiveAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { sensitivityLeader } from '../../canvas/nodes/shared/rankFactor'
+import { noValueDriverIds } from './noValueDriverIds'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
@@ -3257,6 +3258,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Task 2: Track hidden zero-impact factors
       hiddenZeroImpactCount: zeroImpactCount > 0 ? zeroImpactCount : undefined,
       driverLeader,
+      noValueIds: noValueDriverIds(report ? feed : null, nodes),
       // B2: Detect dominant factor
       // Priority: PLoT top-level dominant_factor > m1Coaching > local heuristic
       ...(() => {

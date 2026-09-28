@@ -5,6 +5,10 @@ import { typography } from '@/styles/typography'
 import { readDecisionBriefViewModel, type DecisionBriefViewModel } from './decisionBriefViewModel'
 import { selectEstimatedInterventions } from './estimatedInterventions'
 import { ICON_STATUS } from '../../../canvas/conversation/panelIcons'
+import { DRIVER_LINE_COPY } from '../../../canvas/nodes/shared/metricVocabulary'
+import { noValueDriverIds } from '../noValueDriverIds'
+import { selectDriverPolicyFeed } from '../useResultsSectionData'
+import type { ResultsReport } from '../types'
 
 interface BriefGroupProps {
   title: string
@@ -81,6 +85,19 @@ export interface DecisionBriefSectionProps {
    * Every caller states its answer.
    */
   estimatedInterventions: string[]
+
+  /**
+   * Driver labels the run ranked with no value, which the model still leaves
+   * unvalued (`noValueDriverIds`, the canvas card's rule). A "What matters"
+   * item with one of these labels says "· no value yet", as the card does
+   * (DL 5869404773). Optional: absent flags nothing.
+   *
+   * ⚠ LABELS, BECAUSE THE PRODUCER ROW HAS NO ID: `decision_brief.top_drivers`
+   * carries `factor_label` only (served export 17d1cd3a). The container binds a
+   * label only when exactly ONE model node wears it, so a shared label fails
+   * closed (unflagged) rather than flagging the wrong factor.
+   */
+  noValueLabels?: ReadonlySet<string>
 }
 
 /** Store-free presentation, exported for focused and adversarial tests. */
@@ -88,6 +105,7 @@ export function DecisionBriefSection({
   brief,
   leaderClaimPermitted,
   estimatedInterventions,
+  noValueLabels,
 }: DecisionBriefSectionProps) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
@@ -106,7 +124,9 @@ export function DecisionBriefSection({
    * parsed and contract-guarded, it is simply already on screen one column left.
    */
   const groups = [
-    { title: 'What matters', items: brief.topDrivers.map(driver => driver.label), icon: CircleDot, testId: 'decision-brief-drivers' },
+    { title: 'What matters', items: brief.topDrivers.map(driver =>
+      noValueLabels?.has(driver.label.trim()) ? `${driver.label} · ${DRIVER_LINE_COPY.noValueYet}` : driver.label,
+    ), icon: CircleDot, testId: 'decision-brief-drivers' },
     /**
      * ⭐ TWO SOURCES, ONE QUESTION. This group asks "what did Olumi supply that
      * you did not?" and it now has two honest answers:
@@ -241,7 +261,12 @@ export function DecisionBriefSectionContainer({ leaderClaimPermitted }: Decision
    * The reference-stable slice comes out; the derivation happens in the memo.
    */
   const nodes = useCanvasStore(state => state.nodes)
+  const report = useCanvasStore(state => state.results.report ?? null)
   const brief = useMemo(() => readDecisionBriefViewModel(rawBrief), [rawBrief])
+  const noValueLabels = useMemo(
+    () => uniqueLabelsOf(nodes, noValueDriverIds(report === null ? null : selectDriverPolicyFeed(report as ResultsReport), nodes)),
+    [report, nodes],
+  )
   const estimatedInterventions = useMemo(
     () => selectEstimatedInterventions(nodes).map(row => row.note),
     [nodes],
@@ -253,8 +278,31 @@ export function DecisionBriefSectionContainer({ leaderClaimPermitted }: Decision
       brief={brief}
       leaderClaimPermitted={leaderClaimPermitted}
       estimatedInterventions={estimatedInterventions}
+      noValueLabels={noValueLabels}
     />
   )
+}
+
+/**
+ * The labels of the flagged nodes, keeping only a label exactly one node wears
+ * (see `noValueLabels`). Exported for the spec.
+ */
+export function uniqueLabelsOf(
+  nodes: ReadonlyArray<{ id: string; data?: unknown }>,
+  ids: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const byLabel = new Map<string, string[]>()
+  for (const n of nodes) {
+    const raw = (n.data as { label?: unknown } | undefined)?.label
+    if (typeof raw !== 'string' || raw.trim() === '') continue
+    const label = raw.trim()
+    byLabel.set(label, [...(byLabel.get(label) ?? []), n.id])
+  }
+  const out = new Set<string>()
+  for (const [label, owners] of byLabel) {
+    if (owners.length === 1 && ids.has(owners[0])) out.add(label)
+  }
+  return out
 }
 
 export default DecisionBriefSectionContainer

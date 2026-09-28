@@ -910,6 +910,12 @@ export interface DriversSectionData {
    * named different factors.
    */
   driverLeader?: SensitivityLeader | null
+  /**
+   * Node ids this run ranked with no value, which the model still leaves
+   * unvalued (`noValueDriverIds` — the canvas card's rule). A flagged row says
+   * "No value yet" beside its influence pill, crown included (DL 5869404773).
+   */
+  noValueIds?: ReadonlySet<string>
 }
 
 // =============================================================================

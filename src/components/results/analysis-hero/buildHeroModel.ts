@@ -72,6 +72,7 @@ import { formatPercent, formatProbabilityWithResolution } from '@/utils/formatPe
 import { driverValueProvenance } from '../driverValueProvenance'
 import { flipDirectionWording, formatFlipValue } from '../utils/flipThresholdDisplay'
 import { HERO_COPY } from './heroCopy'
+import { DRIVER_LINE_COPY } from '../../../canvas/nodes/shared/metricVocabulary'
 import type { SensitivityLeader } from '../../../canvas/nodes/shared/rankFactor'
 import type {
   HeroChartModel,
@@ -243,6 +244,14 @@ export function buildHeroModel(
    * list-first read below.
    */
   driverLeader?: SensitivityLeader | null,
+  /**
+   * ⭐ NODE IDS THIS RUN RANKED WITH NO VALUE (`noValueDriverIds`, the one rule
+   * the canvas card and the Reasoning tab read). When the named main driver is
+   * one of them the line and the pill say so — "Main driver: X · no value yet"
+   * — so the hero never crowns a factor the card beside it flags as unvalued
+   * (DL 5869404773). Absent (older callers/tests) nothing is flagged.
+   */
+  noValueIds?: ReadonlySet<string>,
 ): HeroModel {
   // Fail closed on a partially-shaped object (e.g. hydrated older state):
   // the type guarantees these fields, but the hero must render nothing —
@@ -1146,6 +1155,15 @@ export function buildHeroModel(
       : undefined
   const topDriverLabel = leaderItem?.factorLabel
   const cleanDriverLabel = topDriverLabel ? stripEncodingNotation(topDriverLabel) : null
+  // The canvas card's own words and joiner (`DRIVER_LINE_COPY.noValueYet`).
+  const leaderHasNoValue =
+    leaderItem != null &&
+    noValueIds != null &&
+    (noValueIds.has(leaderItem.matchedNodeId ?? '') || noValueIds.has(leaderItem.factorKey))
+  const namedDriverLabel =
+    cleanDriverLabel && leaderHasNoValue
+      ? `${cleanDriverLabel} · ${DRIVER_LINE_COPY.noValueYet}`
+      : cleanDriverLabel
 
   // ⚠ "MAIN DRIVER: X" IS A COMPARATIVE CLAIM AND A TIE CANNOT SUPPORT ONE.
   // Both this line and the §6.5 pill below were built from
@@ -1190,8 +1208,8 @@ export function buildHeroModel(
   const mainReason =
     cleanDriverLabel && !containsBannedTerm(cleanDriverLabel)
       ? driverLeadIsClear
-        ? HERO_COPY.footer.mainReason(cleanDriverLabel)
-        : HERO_COPY.footer.mainReasonTied(cleanDriverLabel)
+        ? HERO_COPY.footer.mainReason(namedDriverLabel ?? cleanDriverLabel)
+        : HERO_COPY.footer.mainReasonTied(namedDriverLabel ?? cleanDriverLabel)
       : null
 
   // §6.5 quick evidence links — selection of existing producer-backed
@@ -1210,7 +1228,7 @@ export function buildHeroModel(
   const mainDriver: HeroMainDriverLink | null =
     mainReason && cleanDriverLabel && topDriverItem?.canFocus
       ? {
-          label: cleanDriverLabel,
+          label: namedDriverLabel ?? cleanDriverLabel,
           targetId: topDriverItem.matchedNodeId ?? topDriverItem.factorKey,
           leadIsClear: driverLeadIsClear,
         }

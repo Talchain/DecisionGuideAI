@@ -143,7 +143,9 @@ describe('served 7ad369b7 pricing run — the evidence', () => {
     const model = heroModel()
     expect(model.quickLinks.mainDriver?.targetId).toBe(TOP)
     render(<AnalysisHeroPanel model={model} rerunDisabled={false} onFocusTarget={() => {}} />)
-    expect(screen.getByTestId('hero-quicklink-driver').textContent).toBe(DOM['hero-quicklink-driver'])
+    // Re-pinned 28 Sep 2026 (DL 5869404773): the served words plus the card's "no value yet" — this run
+    // carries no value_source for Top Account (theMainDriverWithNoValueSaysSo.spec.tsx).
+    expect(screen.getByTestId('hero-quicklink-driver').textContent).toBe(`${DOM['hero-quicklink-driver']} · no value yet`)
   })
 })
 
