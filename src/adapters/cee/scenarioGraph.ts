@@ -178,6 +178,12 @@ export type ScenarioGraphResult =
        */
       analysisResult: unknown
       /**
+       * CEE's per-limit and joint verdicts for the analysis in `analysisResult` (`analysis_limit_verdicts`), raw —
+       * parsed downstream by the SAME reader the turn leg uses (`readLimitVerdicts`). CEE ships it exactly when it
+       * ships that block; `null` = none attested, never "scored".
+       */
+      limitVerdicts?: unknown
+      /**
        * CEE's run admission for this revision (`analysis_admission.admitted`), or
        * `null` / absent when the read did not answer. The boot restore of a
        * gate-closing verdict needs it: CEE may admit a run whose readiness still
@@ -358,6 +364,7 @@ function parseOk(body: unknown): ScenarioGraphResult {
     // being the one block type this leg may carry, so a future CEE key cannot
     // arrive here as an unlabelled object.
     analysisResult: readAnalysisResultBlock(b.analysis_result),
+    limitVerdicts: b.analysis_limit_verdicts ?? null,
     admitted: readAdmitted(b.analysis_admission, b.graph_hash),
     requestId,
   }
