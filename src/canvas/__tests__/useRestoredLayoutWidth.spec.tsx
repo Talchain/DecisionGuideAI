@@ -18,7 +18,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { useRestoredLayoutWidth } from '../hooks/useRestoredLayoutWidth'
-import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W } from '../utils/nodeLayoutConstants'
+import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W, LAYOUT_NODE_GAP } from '../utils/nodeLayoutConstants'
 
 function n(id: string, type: string, x: number, y: number): Node {
   return { id, type, position: { x, y }, data: { label: id } } as Node
@@ -119,6 +119,38 @@ describe('useRestoredLayoutWidth', () => {
     expect(perKind?.factor).toBe(REPEATED_CARD_W)
     expect(perKind?.decision).toBe(ANCHOR_CARD_MAX_W)
     expect(perKind?.decision).not.toBe(perKind?.factor)
+  })
+
+  it('[saved reload, pre-17-Aug stride] re-spreads ONLY the sub-floor row, in the store, and the widths it publishes clear it', () => {
+    // Canvas owner, 27 Sep 2026 (landing text cap): no overlap beats an old
+    // stride. Options saved at 196 (140 cards + 56 gap) — under the narrowest
+    // drawable card plus the sibling gap, so no width clears them. Factors at
+    // 350, which fits and must come back untouched.
+    const nodes = [
+      n('d1', 'decision', 0, 0),
+      n('o1', 'option', 100, 400), n('o2', 'option', 296, 400), n('o3', 'option', 492, 400),
+      ...[0, 1, 2].map((i) => n(`f${i}`, 'factor', i * 350, 900)),
+    ].map((x) => ({ ...x, measured: { width: 248, height: 120 } })) as Node[]
+    seed({ nodes, currentScenarioId: 'scR' })
+    const factorsBefore = useCanvasStore.getState().nodes.filter((x) => x.type === 'factor')
+
+    renderHook(() => useRestoredLayoutWidth())
+
+    const gap = Math.max(LAYOUT_NODE_GAP, useLayoutStore.getState().nodeSpacing)
+    const workable = Math.ceil(NODE_LAYOUT_MIN_W + gap)
+    const after = useCanvasStore.getState().nodes
+    const opts = after.filter((x) => x.type === 'option').sort((a, b) => a.position.x - b.position.x)
+    expect(opts.map((o) => o.id), 'the saved card order changed').toEqual(['o1', 'o2', 'o3'])
+    expect(opts[1].position.x - opts[0].position.x, 'the sub-floor row was not re-spread').toBeCloseTo(workable, 9)
+    expect(opts[2].position.x - opts[1].position.x).toBeCloseTo(workable, 9)
+    expect((opts[0].position.x + opts[2].position.x) / 2, 'the row left its saved centre').toBeCloseTo(296, 9)
+    expect(opts.every((o) => o.position.y === 400)).toBe(true)
+    after.filter((x) => x.type === 'factor').forEach((f, i) => expect(f, 'a fitting row was touched').toBe(factorsBefore[i]))
+    const optionW = useLayoutStore.getState().layoutCardWidths?.option
+    expect(optionW).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    expect(opts[1].position.x - opts[0].position.x - optionW!, 'the published width still overlaps the re-spread row').toBeGreaterThanOrEqual(0)
+    // A producer write inside the hydrate window, and the window is closed again.
+    expect(useCanvasStore.getState()._externalMutationActive).toBe(0)
   })
 
   it('[saved reload] fires once, and re-arms on a scenario SWITCH', () => {

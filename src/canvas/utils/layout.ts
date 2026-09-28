@@ -567,6 +567,95 @@ export function solveRestoredCardWidths(
 }
 
 /**
+ * ⭐⭐ NO OVERLAP BEATS AN OLD STRIDE — A RESTORED ROW TOO TIGHT FOR THE NARROWEST
+ * CARD IS RE-SPREAD (Canvas owner, 27 Sep 2026, canvas/landing-text-cap).
+ *
+ * `solveRestoredCardWidths` can narrow a card only as far as `NODE_LAYOUT_MIN_W`,
+ * the card's own CSS floor. The landing text cap raised that floor 190.88 →
+ * 221.12, so a board saved before 17 Aug at a 196 stride (140 cards, 56 gap)
+ * overlaps by 25.12 on reopen however narrow the record says the card is — no
+ * width repairs it. The owner's rule, which relaxes "never move a node" for this
+ * one case:
+ *
+ *   - a row whose saved stride — the MEDIAN adjacent stride, the width solver's
+ *     own reading — is below `NODE_LAYOUT_MIN_W` + the sibling gap is re-spread
+ *     to the minimum workable stride (that sum, rounded up to a whole unit),
+ *     about the row's own saved centre, in its saved card order, every y kept;
+ *   - a row whose saved stride fits stays exactly as saved, hand-moved cards in
+ *     it included (their overlap is the user's own, local and visible — F1).
+ *
+ * ⚠ WHAT IT WILL NOT MOVE:
+ *   - A row without height evidence on every card. A row is `shareARow`'s
+ *     answer, and with no heights its safe answer is "same tier, same row" —
+ *     safe for a width, wrong for a position: it merges two sub-rows, which a
+ *     re-spread would interleave. `useRestoredLayoutWidth` calls this only once
+ *     every card is measured, so this is the residue, not the norm.
+ *   - A row holding a locked card, while `preserveLocked` is on.
+ *   - A card with no same-row neighbour (the Question, the Goal): it cannot
+ *     overlap one.
+ *
+ * ⚠ IT RETURNS NODES AND WRITES NOTHING. The SAME array comes back when no row
+ * moves, and the same node object for every node it does not move. A re-spread
+ * row reads as fitting on the next restore, so the rule applies once.
+ */
+export function respreadSubFloorRows(
+  nodes: Node[],
+  options: { preserveLocked?: boolean; spacing?: number } = {},
+): Node[] {
+  const { preserveLocked = true, spacing = LAYOUT_NODE_GAP } = options
+  const gap = Math.max(LAYOUT_NODE_GAP, spacing)
+  const need = NODE_LAYOUT_MIN_W + gap
+  const workable = Math.ceil(need)
+  const measured = (n: Node) => {
+    const h = (n as { measured?: { height?: number } }).measured?.height
+    return typeof h === 'number' && h > 0
+  }
+  const byTier = new Map<number, Node[]>()
+  for (const n of nodes) {
+    // A hidden card is not drawn, so it neither overlaps nor is measured.
+    if ((n as { hidden?: boolean }).hidden === true) continue
+    const tier = tierOf(n)
+    const group = byTier.get(tier)
+    if (group === undefined) byTier.set(tier, [n])
+    else group.push(n)
+  }
+  const movedX = new Map<string, number>()
+  for (const group of byTier.values()) {
+    // Rows = cards joined by `shareARow`, transitively (a staggered row is one row).
+    const rowOf = group.map((_, i) => i)
+    const find = (i: number): number => (rowOf[i] === i ? i : (rowOf[i] = find(rowOf[i])))
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        if (shareARow(group[i], group[j])) rowOf[find(i)] = find(j)
+      }
+    }
+    const rows = new Map<number, Node[]>()
+    group.forEach((n, i) => {
+      const r = rows.get(find(i))
+      if (r === undefined) rows.set(find(i), [n])
+      else r.push(n)
+    })
+    for (const row of rows.values()) {
+      if (row.length < 2 || !row.every(measured)) continue
+      if (preserveLocked && !row.every(isUnlocked)) continue
+      // Saved order: by x, ties kept in array order (`sort` is stable).
+      const ordered = [...row].sort((a, b) => (a.position?.x ?? 0) - (b.position?.x ?? 0))
+      const xs = ordered.map((n) => n.position?.x ?? 0)
+      const steps = xs.slice(1).map((x, i) => x - xs[i]).sort((a, b) => a - b)
+      // The upper middle on an even count, as `solveRestoredCardWidths` reads it.
+      if (steps[Math.floor(steps.length / 2)] >= need) continue
+      const start = (xs[0] + xs[xs.length - 1]) / 2 - ((ordered.length - 1) * workable) / 2
+      ordered.forEach((n, i) => movedX.set(n.id, start + i * workable))
+    }
+  }
+  if (movedX.size === 0) return nodes
+  return nodes.map((n) => {
+    const x = movedX.get(n.id)
+    return x === undefined ? n : { ...n, position: { ...n.position, x } }
+  })
+}
+
+/**
  * Lay out a decision graph using ELK + the deterministic semantic pipeline.
  *
  * Pipeline (DOWN layouts):

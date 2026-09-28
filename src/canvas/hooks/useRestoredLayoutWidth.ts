@@ -38,7 +38,10 @@
  *
  * ⚠ WHAT THIS DELIBERATELY DOES NOT DO — a re-layout. Re-laying out on load
  * would mask the cause and re-arrange geometry a user may have positioned by
- * hand. This hook changes how wide a card DRAWS; it never moves a node.
+ * hand. This hook changes how wide a card DRAWS; it never moves a node — with
+ * ONE exception, the Canvas owner's (27 Sep 2026): a row saved too tight for the
+ * narrowest drawable card is re-spread, because no width can clear it (see
+ * `respreadSubFloorRows` below). Every row that fits stays exactly as saved.
  *
  * ── THE TWO LATCHES, AND WHY EACH IS LOAD-BEARING ──────────────────────────
  *
@@ -70,7 +73,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
-import { solveLayoutNodeWidth, solveRestoredCardWidths } from '../utils/layout'
+import { respreadSubFloorRows, solveLayoutNodeWidth, solveRestoredCardWidths } from '../utils/layout'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
 
@@ -215,7 +218,33 @@ export function useRestoredLayoutWidth(): void {
     if (perKindDerivedForRef.current === key) return
     perKindDerivedForRef.current = key
 
-    const derivedPerKind = solveRestoredCardWidths(nodes, {
+    /**
+     * ⭐ NO OVERLAP BEATS AN OLD STRIDE (Canvas owner, 27 Sep 2026, landing text
+     * cap) — the ONE case where this hook moves nodes. A row saved at a stride
+     * narrower than the narrowest drawable card plus the sibling gap cannot be
+     * repaired by any width, so `respreadSubFloorRows` re-spreads THAT row's x
+     * about its saved centre (order and y kept); every row that fits comes back
+     * as the same object. It runs here, once per restore, because it needs
+     * every card measured to tell a row from its sub-rows.
+     *
+     * ⚠ NO WRITE OF ITS OWN. This sets the in-memory positions inside the
+     * store's 'hydrate' mutation window (a producer write, not a user edit; a
+     * direct `setState` pushes no history entry); it calls no save. What reaches storage is whatever the existing post-restore
+     * saves already write — the same writes React Flow's first measurement of
+     * the restored cards already triggers.
+     */
+    const restored = respreadSubFloorRows(nodes, { preserveLocked: respectLocked, spacing: nodeSpacing })
+    if (restored !== nodes) {
+      const store = useCanvasStore.getState()
+      store.beginExternalGraphMutation('hydrate')
+      try {
+        useCanvasStore.setState({ nodes: restored })
+      } finally {
+        useCanvasStore.getState().endExternalGraphMutation()
+      }
+    }
+
+    const derivedPerKind = solveRestoredCardWidths(restored, {
       direction,
       preserveLocked: respectLocked,
       spacing: nodeSpacing,
