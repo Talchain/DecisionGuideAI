@@ -49,17 +49,20 @@ describe('⭐ a disabled chip is not held at full opacity by its entrance animat
   })
 })
 
-describe('⭐ a chip-sent message sits on the user\'s side', () => {
+describe('⭐ a chip-sent message starts at the left, like a typed one (Paul, 28 Sep)', () => {
+  // Replaces "sits on the user's side": Paul, 28 Sep, the user's messages run from the
+  // left edge (a typed message is full width). The echo keeps its own width, so a
+  // one-line chip label does not stretch into a bar.
   const css = readFileSync(resolve(__dirname, '../Conversation.module.css'), 'utf8')
   const body = ruleBody(css, '.chipActionIndicator')
 
-  it('it is a block-level box pushed right, which works inside ChatMessage\'s block wrapper', () => {
-    expect(body).toMatch(/margin-left:\s*auto/)
+  it('it is a block-level box of its own width, not pushed right', () => {
+    expect(body).not.toMatch(/margin-left:\s*auto/)
     expect(body).toMatch(/width:\s*fit-content/)
     expect(body).toMatch(/display:\s*flex;/)
   })
 
-  it('CONTROL: no inline display, which `margin-left: auto` cannot move', () => {
+  it('CONTROL: no inline display (a block box, so it wraps as one unit)', () => {
     expect(body).not.toMatch(/display:\s*inline-?\w*;/)
   })
 })
