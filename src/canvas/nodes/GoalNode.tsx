@@ -46,7 +46,7 @@ import {
   statedGoalTargetRaw,
   type GoalTargetSource,
 } from '../domain/goalTarget'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -1028,6 +1028,7 @@ export const GoalNode = memo((props: NodeProps) => {
       ? GOAL_ANCHOR_COPY.phrase(achievementReadout ?? '', goalFitSubstituted)
       : `${achievementReadout ?? ''} chance of reaching target.`,
     displayMetadata.achievementProbabilityIsModelledBasis === true ? GOAL_FIT_BASIS_CAVEAT_COPY : null,
+    goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat),
     hasConstraintDefaultWarning ? 'Some model inputs are missing. Goal probability may be less reliable.' : null,
     analysisChanged ? 'The model has changed since this run.' : null,
   ].filter(Boolean).join(' ')
@@ -1166,6 +1167,19 @@ export const GoalNode = memo((props: NodeProps) => {
             title={achievementTitle}
             phrase={achievementTitle}
           />
+        )}
+        {/* ISL #207 (AIQ #72 5877139338): a chance measured from a goal level
+            Olumi worked out is never shown bare. Visible on the resting card,
+            not only in Detailed or a tooltip, because without it the figure
+            reads as the user's own chance. Two strings, fail-closed: the
+            neutral one never says "Olumi's". */}
+        {showAchievementReadout && goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}
+            data-testid="goal-fit-base-caveat-node"
+          >
+            {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
+          </p>
         )}
         {/* No Chance row when the run produced no goal chance (contract v3.1
             goal anatomy, gap U3): the old unset row ("Not produced by this run" /

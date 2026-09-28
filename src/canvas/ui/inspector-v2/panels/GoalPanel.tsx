@@ -45,6 +45,7 @@ import { isPersistenceActive } from '../../../../lib/persistenceActive'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { GOAL_ANCHOR_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { basisWithholdsPossessive } from '../../../../components/results/utils/selectGoalProbability'
+import { goalFitBaseCaveatCopy } from '../../../../components/results/utils/goalFitBasisCaveatCopy'
 import { formatGoalTarget } from '../../../../components/results/utils/formatGoalTarget'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 // ⭐⭐ `resolveGoalTarget` WAS ONE NAME AWAY IN AN IMPORT THIS FILE ALREADY HAD.
@@ -546,6 +547,12 @@ export const GoalPanel = memo(function GoalPanel({
       {goalFitSubstituted
         ? `${GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)}, based on the current model.`
         : `${Math.round(probGoal * 100)}% chance of reaching this target based on the current model.`}
+      {/* ISL #207 (AIQ #72 5877139338): never bare when the goal's level today was worked out. */}
+      {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+        <span className={`block ${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-target">
+          {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
+        </span>
+      )}
     </p>
   ) : (
     /* v3.1 (DESIGN-GAP-v31 row 33): the contract has no simulation wording,
@@ -1131,6 +1138,11 @@ export const GoalPanel = memo(function GoalPanel({
                       ? GOAL_ANCHOR_COPY.phrase(`${Math.round(probGoal * 100)}%`, goalFitSubstituted)
                       : `${Math.round(probGoal * 100)}% chance of success`}
                   </div>
+                  {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+                    <div className={`${typography.panelMeta} text-text-light mt-0.5`} data-testid="goal-fit-base-caveat-goal-panel-impact">
+                      {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
+                    </div>
+                  )}
                   {scenarioCount != null && (
                     <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
                       Based on {scenarioCount.toLocaleString('en-GB')} simulations

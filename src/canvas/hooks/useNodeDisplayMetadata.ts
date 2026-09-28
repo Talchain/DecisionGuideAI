@@ -25,6 +25,7 @@ import {
   selectGoalProbability,
   type GoalProbabilityInput,
   type GoalProbabilityBasis,
+  type GoalFitBaseCaveat,
 } from '../../components/results/utils/selectGoalProbability'
 import type { ResultsReport } from '../../components/results/types'
 import { optionComputationProducedResult } from '../../components/results/utils/notAnalysedOptions'
@@ -199,6 +200,16 @@ export interface NodeDisplayMetadata {
    */
   achievementProbabilityIsModelledBasis: boolean
   /**
+   * Display-honesty (ISL #207, AIQ #72 5877139338): non-null when the figure is
+   * measured from a goal level worked out from its inputs, not one the user
+   * gave. Read straight off `selectGoalProbability(...).goalFitBaseCaveat`.
+   * Surfaces rendering the number MUST render `goalFitBaseCaveatCopy(this)`
+   * beside it; never the modelled-basis copy in its place. Optional in the
+   * TYPE only so hand-built mocks of this hook stay valid; the hook always
+   * sets it, and `goalFitBaseCaveatCopy(undefined)` is null.
+   */
+  achievementProbabilityBaseCaveat?: GoalFitBaseCaveat | null
+  /**
    * ROADMAP 2.283 — WHICH QUANTITY `achievementProbability` ACTUALLY IS.
    *
    * The selector publishes a `basis` precisely so no consumer has to infer the
@@ -368,6 +379,7 @@ export function useNodeDisplayMetadata(
         inSensitivityAnalysis: false,
         achievementProbability: null,
         achievementProbabilityIsModelledBasis: false,
+        achievementProbabilityBaseCaveat: null,
         achievementProbabilityBasis: null,
         jointGoalProbability: null,
         goalFitAvailable: false,
@@ -515,6 +527,7 @@ export function useNodeDisplayMetadata(
     // Read from option_probabilities (the field the responseMapper actually populates)
     let achievementProbability: number | null = null
     let achievementProbabilityIsModelledBasis = false
+    let achievementProbabilityBaseCaveat: GoalFitBaseCaveat | null = null
     let achievementProbabilityBasis: GoalProbabilityBasis | null = null
     let jointGoalProbability: number | null = null
     let stabilityPercentage: number | null = null
@@ -547,6 +560,7 @@ export function useNodeDisplayMetadata(
           const decision = selectGoalProbability(rec)
           achievementProbability = decision.goalProbability
           achievementProbabilityIsModelledBasis = decision.goalFitIsModelledBasis
+          achievementProbabilityBaseCaveat = decision.goalFitBaseCaveat
           // ROADMAP 2.283. Forwarded, not interpreted: the one place the basis
           // was previously read and thrown away.
           achievementProbabilityBasis = decision.basis
@@ -706,6 +720,7 @@ export function useNodeDisplayMetadata(
       inSensitivityAnalysis,
       achievementProbability,
       achievementProbabilityIsModelledBasis,
+      achievementProbabilityBaseCaveat,
       achievementProbabilityBasis,
       jointGoalProbability,
       goalFitAvailable,

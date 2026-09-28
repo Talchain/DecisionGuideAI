@@ -71,6 +71,7 @@ import type { Node } from '@xyflow/react'
 import {
   selectGoalProbability,
   type GoalProbabilityInput,
+  type GoalFitBaseCaveat,
 } from '../../../components/results/utils/selectGoalProbability'
 import { isAnalysedOption } from '../../../components/results/utils/notAnalysedOptions'
 
@@ -83,6 +84,8 @@ export interface GoalFitRow {
   isSubstitutedJoint: boolean
   /** Doctrine B: `GOAL_FIT_BASIS_CAVEAT_COPY` must render adjacent when true. */
   modelledBasis: boolean
+  /** ISL #207: `goalFitBaseCaveatCopy(baseCaveat)` must render adjacent when non-null. */
+  baseCaveat: GoalFitBaseCaveat | null
   /**
    * ⭐ ROADMAP 2.334 — the Monte-Carlo sample count behind `probability`,
    * or `null` when the producer did not supply one.
@@ -153,6 +156,7 @@ export function buildGoalFitRows(
       // never a basis literal.
       isSubstitutedJoint: !decision.mayUsePossessiveGoalFraming,
       modelledBasis: decision.goalFitIsModelledBasis,
+      baseCaveat: decision.goalFitBaseCaveat,
       nValidSamples: positiveIntegerOrNull(outcome?.n_valid_samples),
     })
   }

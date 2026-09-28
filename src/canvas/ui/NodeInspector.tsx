@@ -71,7 +71,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { formatWinProbability, classifyUnit } from '../utils/labelUtils'
 import { resolveDisplayableGoalTarget } from '../domain/displayableGoalTarget'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, goalFitBaseCaveatCopy } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
@@ -708,6 +708,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                   data-testid="goal-fit-basis-caveat-inspector"
                 >
                   {GOAL_FIT_BASIS_CAVEAT_COPY}
+                </p>
+              )}
+              {/* ISL #207: the base-caveat, same rule as GoalNode. */}
+              {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat) !== null && (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1 px-2`}
+                  data-testid="goal-fit-base-caveat-inspector"
+                >
+                  {goalFitBaseCaveatCopy(displayMetadata.achievementProbabilityBaseCaveat)}
                 </p>
               )}
             </>
