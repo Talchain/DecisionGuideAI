@@ -137,31 +137,22 @@ describe('AI panel list conformance', () => {
       .toMatch(/list-style-type:\s*disc\s*;/)
   })
 
-  it('PINS THE ONE REAL DIVERGENCE — prose rhythm is 2px, the constant is 4px', () => {
-    // ⚠ THIS IS A DECLARED DIFFERENCE, NOT AN ASSERTION THAT IT IS RIGHT.
-    // `Conversation.module.css` spaces list items with `li { margin-bottom: 2px }`;
-    // `PANEL_LIST_BULLET` uses `space-y-1`, which is 4px. So the two paths agree
-    // on marker and indent and DISAGREE on rhythm — and 2px is not on the DS
-    // spacing scale (4·8·12·16·20·24·32·40·48·56·64) at all.
-    //
-    // It is pinned rather than fixed because closing it is a VISIBLE change to
-    // every list the assistant writes, and this lane has already built and
-    // reverted three convergences that turned out to be deliberate. Converging
-    // it needs a look, not a guess — and re-blessing the panel's visual
-    // references, which do pass and would go red.
-    //
-    // ⭐ THE POINT OF PINNING IT: this test REDs if either value moves, in EITHER
-    // direction. If someone converges them, this fails and they delete it
-    // deliberately. If someone widens the gap, this fails and they explain why.
-    // A gap recorded in the suite is honest; a gap invisible to it is how the
-    // first one survived unnoticed.
+  it('the prose path and the constant share ONE rhythm: bullets 1em apart, the paragraph gap', () => {
+    // CONVERGED 28 Sep 2026 on Paul's call, "space the bullets out to match the
+    // paragraphs". This was a pinned divergence (markdown `li` 2px vs the
+    // constant's `space-y-1` 4px, with `.v2AssistantText li` at 8px) waiting
+    // for exactly that look. All three are now 1em — the `.md-gap` height — so
+    // a bullet list reads with the same air as the paragraphs around it.
     const css = readFileSync(resolve(root, 'src/canvas/conversation/Conversation.module.css'), 'utf8')
-    const li = css.match(/\.markdownContent li\s*\{([^}]*)\}/)
-    expect(li, 'no `.markdownContent li` rule — the module was restructured').toBeTruthy()
-    expect(li![1], 'prose list rhythm moved; reconcile with PANEL_LIST_BULLET or update this pin')
-      .toMatch(/margin-bottom:\s*2px\s*;/)
-    expect(PANEL_LIST_BULLET, 'constant rhythm moved; reconcile with the prose path')
-      .toContain('space-y-1')
+    const gap = readFileSync(resolve(root, 'src/index.css'), 'utf8').match(/\.md-gap\s*\{([^}]*)\}/)
+    expect(gap, 'no `.md-gap` rule in index.css').toBeTruthy()
+    expect(gap![1], 'the paragraph gap moved; move the bullet rhythm with it').toMatch(/height:\s*1em\s*;/)
+    for (const sel of ['.markdownContent li', '.v2AssistantText li']) {
+      const rule = css.match(new RegExp(`${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`))
+      expect(rule, `no \`${sel}\` rule — the module was restructured`).toBeTruthy()
+      expect(rule![1], `${sel} must space items by the paragraph gap`).toMatch(/margin-bottom:\s*1em\s*;/)
+    }
+    expect(PANEL_LIST_BULLET, 'the constant must space items by the paragraph gap').toContain('space-y-[1em]')
   })
 
   it('the three constants remain distinct — two names for one spelling is not a scale', () => {
