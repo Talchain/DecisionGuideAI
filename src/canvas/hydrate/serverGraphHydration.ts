@@ -24,7 +24,7 @@ import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, isBootRestorableRunState } from './applyScenarioAnalysisRead'
-import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadRunFact } from './applyBootRunCurrency'
+import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadLimitVerdicts, bootReadRunFact } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -407,7 +407,16 @@ async function readAndMergeServerGraph(
         analysisResult: result.analysisResult,
         now: Date.now(),
       })
-      if (fact !== null) useCanvasStore.getState().setV5AnalysisFact(fact)
+      if (fact !== null) {
+        useCanvasStore.getState().setV5AnalysisFact(fact)
+        // Under the SAME proof, the limit verdicts the read carries (see `bootReadLimitVerdicts`).
+        const limits = bootReadLimitVerdicts({
+          scenarioId,
+          limitVerdicts: result.limitVerdicts,
+          displayedResultsHash: useCanvasStore.getState().results?.hash,
+        })
+        if (limits !== null) useCanvasStore.getState().setLimitVerdicts(limits)
+      }
       logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null })
       return
     }

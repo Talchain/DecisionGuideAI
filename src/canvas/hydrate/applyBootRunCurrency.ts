@@ -53,6 +53,7 @@ import { readinessObjectsToRun } from '../utils/canRunAnalysis'
 import type { V5AnalysisFactState } from '../store'
 import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
 import type { AnalysisResultBlock } from '@talchain/schemas/boundary'
+import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 
 /** `freshnessReason` for a verdict restored by this leg — says where it came from. */
 export const BOOT_READ_RUN_CURRENT = 'boot_read_run_current'
@@ -264,3 +265,29 @@ export function applyBootBlockedVerdict(input: {
   input.store.setAnalysisStateV1?.(verdict)
   return { outcome: 'restored' }
 }
+
+/**
+ * ⭐ R6, THE LIMIT ROW — the read's per-limit and joint verdicts, kept across a reload.
+ *
+ * Served UI `662afcfd` (28 Sep 2026): after a user Re-run the Reasoning tab read "Monthly churn ≤ 5%. Checked only
+ * against an assumed figure, not a measured one."; after a plain reload that row, and only that row, was gone. The
+ * read carries `analysis_limit_verdicts`, but only the draft-time provisional poll stored them
+ * (`applyScenarioAnalysisRead`); the boot path never did, and the store is session-only.
+ *
+ * ⚠ BOUND TO THE RESULT ON SCREEN, NOT TO THE READ'S BLOCK. The read ships a trimmed block (type, summary,
+ * leading_option_id, computed_against_hash, enrichment) whose hash can never equal the displayed report's, so a
+ * binding to it would never render. The binding is licensed by R6's own proof, and the caller runs this ONLY where
+ * `bootReadRunFact` minted: the currency restored (complete_current, canvas proven equal both ways, no edit since)
+ * and the block names the run. Absent or invalid verdicts store nothing — absence is not a verdict.
+ */
+export function bootReadLimitVerdicts(input: {
+  readonly scenarioId: string
+  readonly limitVerdicts: unknown
+  readonly displayedResultsHash: string | null | undefined
+}): LimitVerdictsWrite | null {
+  if (typeof input.displayedResultsHash !== 'string' || input.displayedResultsHash === '') return null
+  const verdicts = readLimitVerdicts(input.limitVerdicts)
+  if (verdicts === null) return null
+  return { verdicts, analysisHash: input.displayedResultsHash, scenarioId: input.scenarioId }
+}
+

@@ -17,6 +17,7 @@ import { renderHook } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
 import { BOOT_READ_RUN_CURRENT } from '../applyBootRunCurrency'
+import { limitVerdictsDescribeDisplayedAnalysis } from '../../state/storedLimitVerdicts'
 import { useAnalysisState } from '../../state/analysisStateSelector'
 import { mapV5AnalysisToReport } from '../../../v5/mapV5AnalysisToReport'
 import { logger } from '../../../lib/logger'
@@ -53,6 +54,7 @@ function seedServedReload(canvas: Fixture['canvas']): void {
     results: { status: 'complete', progress: 100, report, hash: report.model_card.response_hash },
     hasCompletedFirstRun: true,
     v5AnalysisFact: null,
+    limitVerdicts: null,
   } as never)
 }
 
@@ -128,3 +130,57 @@ describe('⭐ R6 served: the c3f76e4f reload, replayed through the real hydratio
     expect(display()).toBe('complete')
   })
 })
+
+/**
+ * ⭐ R6, THE LIMIT ROW (served UI 662afcfd, 28 Sep 17:1xZ journey): after a user Re-run the Reasoning tab read
+ * "Monthly churn ≤ 5%. Checked only against an assumed figure, not a measured one."; after a plain reload that row
+ * was GONE and nothing else was. The read carries `analysis_limit_verdicts`, but only the draft-time provisional poll
+ * (`applyScenarioAnalysisRead`) stored them; the boot path never did, and the store is session-only. The read's
+ * block is a trimmed form whose hash never equals the displayed result's, so the verdicts are bound to the DISPLAYED
+ * `results.hash` — only under R6's own proof (currency restored AND the run fact minted).
+ */
+describe('⭐ R6 served: the reload keeps the limit verdicts the read carries', () => {
+  const displayed = () => {
+    const st = useCanvasStore.getState() as unknown as { limitVerdicts: unknown; results: { hash: string } | null; currentScenarioId: string | null }
+    return st
+  }
+
+  it('PRECONDITION: the served read carries a per-limit verdict (estimate_only) for the churn limit', () => {
+    expect(SERVED.read.analysis_limit_verdicts).toMatchObject({
+      per_limit: [{ constraint_id: 'agent-lane:monthly_churn:<=', state: 'estimate_only' }],
+    })
+  })
+
+  it('⭐ nothing edited → the verdicts are stored against the result ON SCREEN, so the limit row renders', async () => {
+    seedServedReload(SERVED.canvas)
+    respond(clone(SERVED.read))
+    await hydrateCanvasFromServer(SERVED.scenario_id)
+    const st = displayed()
+    expect(
+      limitVerdictsDescribeDisplayedAnalysis(st.limitVerdicts as never, st.results?.hash, st.currentScenarioId),
+      'the display reader accepts them for the displayed analysis',
+    ).toBe(true)
+    expect(st.limitVerdicts).toMatchObject({
+      verdicts: { perLimit: [{ constraintId: 'agent-lane:monthly_churn:<=', state: 'estimate_only' }] },
+    })
+  })
+
+  it('CONTRAST: the currency proof declines (a canvas baseline the read lacks) → no verdicts are stored', async () => {
+    const canvas = clone(SERVED.canvas)
+    canvas.nodes.find((n) => n.id === 'raise_price_to_59')!.data.is_baseline = true
+    seedServedReload(canvas)
+    respond(clone(SERVED.read))
+    await hydrateCanvasFromServer(SERVED.scenario_id)
+    expect(displayed().limitVerdicts).toBeNull()
+  })
+
+  it('CONTRAST: a read with no analysis_limit_verdicts stores none (absence is not a verdict)', async () => {
+    const read = clone(SERVED.read)
+    delete read.analysis_limit_verdicts
+    seedServedReload(SERVED.canvas)
+    respond(read)
+    await hydrateCanvasFromServer(SERVED.scenario_id)
+    expect(displayed().limitVerdicts).toBeNull()
+  })
+})
+
