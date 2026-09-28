@@ -51,9 +51,27 @@ describe('CONTROLS — the neighbouring shapes keep their earlier reading', () =
     expect(read(figure, unit)).toBe(expected)
   })
 
+  // ⭐ RE-PINNED 28 Sep 2026: a currency head with ONE per-word is money per
+  // that thing per period — the contract board's own spelling, "£49 per
+  // subscriber / month". Served (Paul's pricing brief, UI d1ee022d): "Pro plan
+  // monthly price would have to rise from 58.8 GBP per subscriber per month…".
   it.each([
-    // A compound head is still left (pinned narrowing).
-    ['9', 'GBP per subscriber per month'],
+    ['9', 'GBP per subscriber per month', { figure: '£9', unit: 'per subscriber / month' }],
+    ['49', '£/subscriber/month', { figure: '£49', unit: 'per subscriber / month' }],
+    ['49', 'GBP/subscriber/month', { figure: '£49', unit: 'per subscriber / month' }],
+    ['12', 'USD per seat per month', { figure: '$12', unit: 'per seat / month' }],
+  ])('%s %s → the glyph on the figure, per that thing per period', (figure, unit, expected) => {
+    expect(compactUnitParts(figure, unit)).toEqual(expected)
+  })
+
+  it.each([
+    // Any OTHER compound head is still left (pinned narrowing).
+    ['9', 'GBP MRR per seat per month'],
+    ['9', 'GBP per 1000 users per month'],
+    ['9', 'CHF per seat per month'],
+    ['-9', 'GBP per subscriber per month'],
+    ['9', 'subscribers per seat per month'],
+    ['9', '£k/month'],
   ])('%s %s → null (the caller prints what it printed before)', (figure, unit) => {
     expect(compactUnitParts(figure, unit)).toBeNull()
   })
