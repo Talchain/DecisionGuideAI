@@ -50,8 +50,10 @@ const DECLINED: ReadonlyArray<[number, string, { card: string; receipt: string; 
 ]
 
 describe('one money-figure rule', () => {
-  it.each(MONEY)('⭐ %s %s → "%s" on the rule, the card, the receipt and the threshold', (value, unit, expected) => {
+  it.each(MONEY)('⭐ %s %s → "%s" on the rule, the formatter\'s own string, the card, the receipt and the threshold', (value, unit, expected) => {
     expect(formatMoneyFigure(value, unit)).toBe(expected)
+    // The formatter's OWN string (every consumer: strip, inspector, Model tab, export), not only the card's split.
+    expect(formatFactorDisplayValue({ label: 'Pro plan price', raw_value: value, value: 0.5, unit })).toBe(expected)
     expect(card(value, unit)).toBe(expected)
     expect(receipt(value, unit)).toBe(expected)
     expect(threshold(value, unit)).toBe(expected)

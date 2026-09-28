@@ -2,10 +2,12 @@
  * Prototype (Paul, 25 Sep 2026): a salary carried as `unit: "GBP/year"` reads
  * `£39,000/year` on the factor card, not `39,000 GBP/year`.
  *
- * ⛔ FORMATTING OF THE CARRIED UNIT, NEVER A SUBSTITUTION: the split re-spells
- * ONLY the formatter's own `<amount> <unit>` string, carries it as `restates`,
- * and `formatFactorDisplayValue` itself — every other surface's string — is
- * asserted unchanged on every case below.
+ * ⛔ FORMATTING OF THE CARRIED UNIT, NEVER A SUBSTITUTION.
+ *
+ * Re-pinned 28 Sep 2026 (DL #72 5870353946, ONE money-figure rule): money is now spelt by the
+ * FORMATTER ITSELF through `formatMoneyFigure`, so every consumer of its string (card, Reasoning
+ * strip, inspector, Model tab, export) reads the same "£39,000 / year" — the split is those parts,
+ * no longer a card-only `restates` re-spelling over an unchanged "39,000 GBP/year".
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -27,18 +29,18 @@ describe('formatFactorDisplayParts — currency rate', () => {
     // rate with "per". It was a CONTRAST here ("not a /rate suffix") — the
     // narrowness that left "49 GBP per month" on the served cards.
     ['GBP per year', '£39,000', '/ year'],
-  ])('%s → %s + spaced %s, restating the unchanged formatter string', (unit, figure, suffix) => {
+  ])('%s → %s + spaced %s: the formatter\'s own string, and its split', (unit, figure, suffix) => {
     const input = salary(unit)
     const text = formatFactorDisplayValue(input)
-    expect(text).toBe(`39,000 ${unit.trim()}`)
+    expect(text).toBe(`${figure} ${suffix}`)
     const parts = formatFactorDisplayParts(input)
-    expect(parts).toEqual({ figure, unit: suffix, restates: text })
-    expect(joinFactorDisplayParts(parts!)).toBe(`${figure} ${suffix}`)
+    expect(parts).toEqual({ figure, unit: suffix })
+    expect(joinFactorDisplayParts(parts!)).toBe(text)
   })
 
   it('zero is a valid amount: `0 GBP/year` → `£0 / year`', () => {
     const parts = formatFactorDisplayParts(salary('GBP/year', 0))
-    expect(formatFactorDisplayValue(salary('GBP/year', 0))).toBe('0 GBP/year')
+    expect(formatFactorDisplayValue(salary('GBP/year', 0))).toBe('£0 / year')
     expect(parts && joinFactorDisplayParts(parts)).toBe('£0 / year')
   })
 
@@ -75,12 +77,11 @@ describe('formatFactorDisplayParts — currency rate', () => {
     expect(formatFactorDisplayParts(input)?.restates).toBeUndefined()
   })
 
-  // Re-pinned 28 Sep 2026 (DL #72 5870353946, ONE money-figure rule): the formatter's string is
-  // unchanged ("GBP 39,000", other surfaces read it), but the CARD now reads the rule's "£39,000",
-  // bound to that string by `restates` — as the receipt and the Reasoning tab print it.
-  it('CONTRAST — a bare ISO code: the string keeps `GBP 39,000`, the card reads the money rule\'s `£39,000`', () => {
+  // Re-pinned 28 Sep 2026 (DL #72 5870353946, ONE money-figure rule): the formatter's own string now
+  // goes through the rule, so every consumer (card, strip, inspector, export) reads "£39,000".
+  it('a bare ISO code reads the money rule\'s `£39,000` — the string and its split', () => {
     const input = salary('GBP')
-    expect(formatFactorDisplayValue(input)).toBe('GBP 39,000')
-    expect(formatFactorDisplayParts(input)).toEqual({ figure: '£39,000', unit: null, restates: 'GBP 39,000' })
+    expect(formatFactorDisplayValue(input)).toBe('£39,000')
+    expect(formatFactorDisplayParts(input)).toEqual({ figure: '£39,000', unit: null })
   })
 })
