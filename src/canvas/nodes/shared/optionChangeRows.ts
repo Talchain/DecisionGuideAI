@@ -350,6 +350,10 @@ export function binaryTargetReading(factorData: unknown, reading: string): strin
   const unit = typeof obs?.unit === 'string' ? obs.unit : typeof d.unit === 'string' ? d.unit : undefined
   const factorType = typeof obs?.factor_type === 'string' ? obs.factor_type : typeof d.factor_type === 'string' ? d.factor_type : undefined
   if (!isBinaryFactor({ unit, factorType }, [reading])) return null
+  // The card row needs both ends at 0 or 1; the inspector's one end is the
+  // factor's own value. A switch word on a factor at 0.5 is not a switch.
+  const own = typeof obs?.value === 'number' ? obs.value : null
+  if (!isBinaryFactor({ unit, factorType }) && own !== null && own !== 0 && own !== 1) return null
   const word = reading.trim()
   if (!BARE_SWITCH_WORD.test(word)) return null
   const v: 0 | 1 = /^(?:on|yes|true|1)$/i.test(word) ? 1 : 0
@@ -378,30 +382,24 @@ export const BINARY_STATE_WORDS: Readonly<Record<0 | 1, string>> = Object.freeze
 
 const BARE_SWITCH_WORD = /^(?:on|off|yes|no|true|false|0|1)$/i
 
-/**
- * A 0–1 unit ("0-1 availability", "0/1"), and not 0–10 or 0–1.5.
- * The negative lookahead stops "0-10" and "0-1.5" matching.
- */
-const ZERO_ONE_UNIT = /^\s*0\s*[-–—/]\s*1(?![\d.])/
-
 /** CEE's word for a switched state; a bare digit is not one here. */
 const SWITCH_STATE_WORD = /^(?:on|off|yes|no|true|false)$/i
 
 /**
  * ⭐ A FACTOR IS BINARY WHEN THE PRODUCER SAYS SO: its unit or type names it
- * ("binary adoption", `factor_type: binary`), OR its unit is a 0–1 range AND
- * CEE's own word for the value is a switch word ("on"). A fresh draft of Paul's
- * brief (28 Sep 2026, 0d334f7a) gave "AI assistant availability", unit
- * "0-1 availability", and "→ on": the card still read "→ on". A 0–1 unit alone
- * is also a proportion's unit, so it never decides by itself.
+ * ("binary adoption", `factor_type: binary`), OR CEE's own word for the value
+ * is a switch word ("on"). The unit's spelling cannot decide it: three fresh
+ * drafts of Paul's brief (28 Sep 2026, 0d334f7a/00c6244c) spelled one yes/no
+ * factor's unit "binary", "0-1 availability" and "adoption indicator", and
+ * every one said "→ on". The card row still needs both ends at 0 or 1
+ * (`binaryChangeEnds`), so a count or a proportion is never re-worded.
  */
 function isBinaryFactor(
   factor: Pick<FactorContext, 'unit' | 'factorType'>,
   producerWords: ReadonlyArray<string | null | undefined> = [],
 ): boolean {
   if (factor.factorType?.toLowerCase().trim() === 'binary' || /\bbinary\b/i.test(factor.unit ?? '')) return true
-  return ZERO_ONE_UNIT.test(factor.unit ?? '')
-    && producerWords.some((w) => typeof w === 'string' && SWITCH_STATE_WORD.test(w.trim()))
+  return producerWords.some((w) => typeof w === 'string' && SWITCH_STATE_WORD.test(w.trim()))
 }
 
 const binaryEnd = (v: number | null | undefined): 0 | 1 | null => (v === 0 ? 0 : v === 1 ? 1 : null)
