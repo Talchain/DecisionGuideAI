@@ -712,7 +712,6 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
        * survives"), and they are what "Try this" should mean.
        */
       tryThis: null,
-      producerActionLabel: typeof item.actionLabel === 'string' && item.actionLabel.trim() !== '' ? item.actionLabel : null,
       // UI-SEM-085: the label IS the band marker — an unranked row states that
       // its position is arrival order, not merit.
       sourceLine: isProducerRanked(item) ? PHASE3_SOURCE_RANKED : PHASE3_SOURCE_UNRANKED,

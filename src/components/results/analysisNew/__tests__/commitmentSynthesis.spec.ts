@@ -393,21 +393,6 @@ describe('bullet 3 — before committing', () => {
     expect(synth(genuineDecision(), { recommendations: [] }).before).toBeNull()
   })
 
-  // ⭐ Served d3a476b6 (hiring journey): the producer card "No option meets your limit" (a statement)
-  // became "Before acting: No option meets your limit", one line under "Still open: On this run, no
-  // option meets one of your limits." The card's own typed next move is its action_label, "Change or
-  // add an option". A producer-typed act is the next move; a title is what the card is about.
-  it('⭐ the top item\'s PRODUCER action label, when it has one, is the next move — not its title', () => {
-    const recs = [rec({ id: 'r1', title: 'No option meets your limit', producerActionLabel: 'Change or add an option' })]
-    const s = synth(genuineDecision(), { recommendations: recs })
-    expect(s.before).toEqual({ text: 'Change or add an option', source: 'intervention' })
-  })
-
-  it('CONTRAST: no producer label (a UI fallback button) → the title, verbatim, as before', () => {
-    const recs = [rec({ id: 'r1', title: 'Check the churn assumption', producerActionLabel: null })]
-    expect(synth(genuineDecision(), { recommendations: recs }).before?.text).toBe('Check the churn assumption')
-  })
-
   it('stale → the bullet says what a re-run is for (`COMMITMENT_COPY.rerunBefore`), not the act\'s own label', () => {
     const s = synth(genuineDecision(), {
       recommendations: [rec({ id: 'r1' })],
