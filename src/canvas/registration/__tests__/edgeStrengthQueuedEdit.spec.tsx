@@ -396,3 +396,32 @@ describe('F2 — a queued link edit the server refuses is never replayed and nev
     expect(second).toEqual(['queued', 'unverified'])
   })
 })
+
+describe('the queue\'s LOG lines are printable text (staging CI, 28 Sep 2026)', { timeout: 30_000 }, () => {
+  // The link-edit queue key separates its node ids with U+0000. Printed raw in
+  // `[sendTurn] … DEFERRED (…)` / `deferred send FAILED (…)`, that NUL made the CI
+  // full-suite parser read vitest's output as a BINARY file ("grep: binary file
+  // matches"), failing every staging run from #2225 on while every test passed.
+  it('a queued link edit that is deferred, retried and fails logs no NUL, and names the link with an arrow', async () => {
+    const warn = vi.spyOn(console, 'warn')
+    try {
+      const hook = await mountStarter()
+      holdTurn = true
+      await pick(hook, 0.55)
+      await pick(hook, 0.85)
+      edgeEditTransportDiesAfterFirst = true
+      await releaseAndDrain()
+      const chat = (hook.result.current as unknown as { chat: (t: string) => Promise<void> }).chat
+      for (const text of ['what drives retention?', 'and churn?']) {
+        await act(async () => { await chat(text); await flush() })
+      }
+      const lines = warn.mock.calls.map((args) => args.map(String).join(' '))
+      const queueLines = lines.filter((l) => l.startsWith('[sendTurn]') && l.includes('edge_strength_edit'))
+      expect(queueLines.length, 'precondition: the deferred and failed lines were logged').toBeGreaterThanOrEqual(2)
+      expect(queueLines.filter((l) => l.includes('\u0000')), 'no log line carries a NUL').toEqual([])
+      expect(queueLines.some((l) => l.includes(`${FROM}→${TO}`)), 'the link is named from→to').toBe(true)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+})

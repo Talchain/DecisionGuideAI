@@ -2558,6 +2558,18 @@ const MAX_FLUSH_ATTEMPTS = 3
  * on its way. `SystemEventSendError` remains the channel for genuine failures
  * — network, 4xx/5xx, parse — which is a different thing and stays different.
  */
+/**
+ * A deferred-send key as it may be LOGGED. The link-edit key separates its two
+ * node ids with U+0000 so no id can collide with the separator; printed raw, that
+ * NUL made the CI full-suite summary parser treat vitest's whole output as a
+ * binary file (`grep: vitest-output.txt: binary file matches`), which failed
+ * every staging run from #2225 on while every test passed. Logs get a printable
+ * arrow; the key itself is unchanged.
+ */
+export function printableDeferredKey(key: string): string {
+  return key.replace(/\u0000/g, '→')
+}
+
 export const SEND_DEFERRED = 'send_deferred' as const
 /** Blocked and NOT queued (retry-class callers). Detectable, never silent. */
 export const SEND_BLOCKED = 'send_blocked' as const
@@ -4073,7 +4085,7 @@ export function useConversation(): UseConversationReturn {
       deferredSystemSendsRef.current.push(entry)
     }
     if (import.meta.env.DEV) {
-      console.warn(`[sendTurn] system send DEFERRED behind in-flight lock (${key}); will flush when the lock clears`)
+      console.warn(`[sendTurn] system send DEFERRED behind in-flight lock (${printableDeferredKey(key)}); will flush when the lock clears`)
     }
     publishPendingEditCount()
   }, [publishPendingEditCount])
@@ -6526,7 +6538,7 @@ export function useConversation(): UseConversationReturn {
       if (entry.scenarioId === scenarioNow) { keep.push(entry); continue }
       noticeForUnsentEdit(entry, 'discarded')
       if (import.meta.env.DEV) {
-        console.warn(`[sendTurn] discarding queued send from another scenario (${entry.key})`)
+        console.warn(`[sendTurn] discarding queued send from another scenario (${printableDeferredKey(entry.key)})`)
       }
     }
     deferredSystemSendsRef.current = keep
@@ -6716,7 +6728,7 @@ export function useConversation(): UseConversationReturn {
           next.opts.onDeferredSettled?.(dispatch)
         }
         if (import.meta.env.DEV) {
-          console.warn(`[sendTurn] deferred send FAILED (${next.key}), attempt ${next.attempts}/${MAX_FLUSH_ATTEMPTS}`)
+          console.warn(`[sendTurn] deferred send FAILED (${printableDeferredKey(next.key)}), attempt ${next.attempts}/${MAX_FLUSH_ATTEMPTS}`)
         }
       }
     })
