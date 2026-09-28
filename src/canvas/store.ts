@@ -93,6 +93,8 @@ import { addRun, generateGraphHash, loadRuns, type StoredRun, type RestorableRun
 import { createIdleResults } from './store/idleResults'
 import { RUN_COMPLETED_WITHOUT_VERDICT, VERDICT_ABSENT_FROM_PAYLOAD, deriveAnalysisFreshnessUpdate, type AnalysisFreshnessState } from './store/analysisFreshness'
 import { rowEndPositionForNewNode } from './utils/newNodePlacement'
+import { withoutPersistedMeasurement } from './utils/persistedMeasurement'
+import { raiseToFront } from './utils/raiseToFront'
 import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
 import {
   captureStructuralDelete,
@@ -3954,8 +3956,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     const hasSelectChange = acceptedChanges.some(c => c.type === 'select')
 
+    // ⛔ A COMMITTED MOVE PAINTS ON TOP (edit-structure/F4): a released drag, or
+    // React Flow's own keyboard move of a focused selection box, arrives as a
+    // position change with `dragging: false`. See `raiseToFront`.
+    const committedMoveIds = new Set(
+      acceptedChanges
+        .filter(c => c.type === 'position' && !(c as { dragging?: boolean }).dragging && (c as { position?: unknown }).position)
+        .map(c => (c as { id: string }).id),
+    )
+
     set((s) => {
-      const updatedNodes = applyNodeChanges(acceptedChanges, s.nodes)
+      const updatedNodes = raiseToFront(applyNodeChanges(acceptedChanges, s.nodes), committedMoveIds)
 
       let selection = s.selection
 
@@ -4636,12 +4647,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       pushToHistory(get, set)
     }
 
-    // Apply nudge immediately (responsive)
+    // Apply nudge immediately (responsive). The nudged cards paint on top
+    // (edit-structure/F4) — once per burst, see `raiseToFront`.
     set((s) => ({
-      nodes: s.nodes.map(n => 
-        selection.nodeIds.has(n.id)
-          ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
-          : n
+      nodes: raiseToFront(
+        s.nodes.map(n =>
+          selection.nodeIds.has(n.id)
+            ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+            : n
+        ),
+        selection.nodeIds,
       )
     }))
 
@@ -6455,7 +6470,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       return false
     }
 
-    const { nodes, edges: rawEdges } = scenario.graph
+    const { nodes: persistedNodes, edges: rawEdges } = scenario.graph
+    // ⛔ A persisted `measured` is another session's DOM (edit-structure/F1).
+    const nodes = withoutPersistedMeasurement(persistedNodes)
 
     // Upgrade persisted edges (generic Edge) to strongly-typed Edge<EdgeData>
     const edges: Edge<EdgeData>[] = rawEdges.map((edge) => ({
@@ -8525,7 +8542,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     // Only merge known graph/scenario keys
     if (loaded.nodes !== undefined) {
-      updates.nodes = loaded.nodes
+      // ⛔ Every caller hydrates a PERSISTED graph, whose `measured` is another
+      // session's DOM — see `withoutPersistedMeasurement` (edit-structure/F1).
+      updates.nodes = withoutPersistedMeasurement(loaded.nodes)
     }
     if (loaded.edges !== undefined) {
       updates.edges = loaded.edges

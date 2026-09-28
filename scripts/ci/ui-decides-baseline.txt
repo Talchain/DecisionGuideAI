@@ -44,7 +44,7 @@ src/canvas/hooks/useRiskProfile.ts:358
 src/canvas/hooks/useRiskProfile.ts:362
 src/canvas/hooks/useScienceIcons.ts:145
 src/canvas/hooks/useScienceIcons.ts:160
-src/canvas/store.ts:8027
+src/canvas/store.ts:8044
 src/canvas/stores/readinessStore.ts:782
 src/canvas/stores/readinessStore.ts:875
 src/canvas/utils/briefValidation.ts:43
@@ -120,6 +120,10 @@ src/types/constraints.ts:78
 #    two pairs.)
 #    (`store.ts:7895` -> `7902`, the union of #1991's +8 (landed in U4b) and this
 #    branch's +7, both above this site. Line text identical
+#    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
+#    (`store.ts:8027` -> `8044`, a pure +17 line shift from
+#    `canvas/b5r` (28 Sep 2026): the restored-layout stride fields and the
+#    raise-to-front order, all above this site. Line text identical
 #    (`if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {`).)
 #    (`store.ts:8006` -> `8027`, a pure +21 line shift from Panel B5
 #    (`panel/b5-limit-verdicts`, 27 Sep 2026): the `limitVerdicts` field, its

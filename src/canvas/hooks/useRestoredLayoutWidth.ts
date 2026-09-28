@@ -184,17 +184,34 @@ export function useRestoredLayoutWidth(): void {
      * real heights would return at the guard. One pre-measure pass decided the
      * widths for the whole session.
      *
-     * So the per-kind bound latches only once at least one card can be measured.
+     * So the per-kind bound latches only once the cards have been measured —
+     * every one of them, see below.
      * ⭐ If heights never arrive — jsdom, SSR, comparison mode — this simply never
      * runs, and the card falls back to the single width, which is the behaviour
      * that predates per-kind widths and cannot overlap. Absence degrades to the
      * old safe answer rather than to a guess.
+     *
+     * ⛔ THIS WAIT IS ONLY HONEST BECAUSE THE RESTORE BOUNDARY DROPS PERSISTED
+     * `measured` (`withoutPersistedMeasurement`, edit-structure/F1). The autosave
+     * used to carry every card's height from the previous session, so this check
+     * passed before React Flow had measured anything, and the bound was computed
+     * on heights taken at another width — the loop that kept a board at 191.
      */
-    const anyMeasuredHeight = nodes.some((n) => {
+    //
+    // ⛔ AND IT WAITS FOR EVERY CARD, NOT ANY CARD (27 Sep 2026, measured in the
+    // browser once the persisted heights were gone). Measurement arrives in
+    // batches; with "any", the bound ran while the factors were still
+    // unmeasured, every factor pair fell to `shareARow`'s no-evidence "same row",
+    // the two sub-rows interleaved at half their stride, and a nudged
+    // `build-vs-buy` drew every factor at the 191 floor. A hidden node is never
+    // measured by React Flow, so it is not waited for — the same rule React
+    // Flow's own `nodesInitialized` uses.
+    const everyCardMeasured = nodes.every((n) => {
+      if ((n as { hidden?: boolean }).hidden === true) return true
       const h = (n as unknown as { measured?: { height?: number } }).measured?.height
       return typeof h === 'number' && h > 0
     })
-    if (!anyMeasuredHeight) return
+    if (!everyCardMeasured) return
     if (perKindDerivedForRef.current === key) return
     perKindDerivedForRef.current = key
 
