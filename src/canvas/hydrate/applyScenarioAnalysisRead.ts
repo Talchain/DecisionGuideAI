@@ -89,6 +89,7 @@ import {
 } from '../../lib/coherence/crossSurfaceCoherence'
 import { selectAnalysisReadinessAuthority } from '../state/analysisStateSelector'
 import { readinessObjectsToRun } from '../utils/canRunAnalysis'
+import { readLimitVerdicts, type LimitVerdictsWrite } from '../state/storedLimitVerdicts'
 
 /**
  * Which producer fact withdrew the leading-option designation.
@@ -270,6 +271,13 @@ export interface ScenarioAnalysisApplyStore {
   }) => void
   readonly currentResultsHash?: string | null
   /**
+   * B5 parity with the turn leg (`applyV5State.ts`): the per-limit verdicts CEE serves beside this analysis
+   * (`analysis_limit_verdicts`). Optional so a store that does not render them is unaffected.
+   */
+  readonly setLimitVerdicts?: (stored: LimitVerdictsWrite | null) => void
+  /** The scenario the verdicts belong to, as the turn leg stamps it. */
+  readonly currentScenarioId?: string | null
+  /**
    * Withdraw the leading-option designation from whatever report the slice
    * currently holds. See `LeaderClaimWithholdingReason`.
    *
@@ -352,6 +360,8 @@ export type ScenarioAnalysisApplyOutcome =
 export interface ApplyScenarioAnalysisReadInput {
   readonly analysisState: AnalysisStateV1 | null
   readonly analysisResult: unknown
+  /** The read's `analysis_limit_verdicts`, raw; parsed by the SAME reader the turn leg uses. */
+  readonly limitVerdicts?: unknown
   readonly store: ScenarioAnalysisApplyStore
 }
 
@@ -522,6 +532,16 @@ export function applyScenarioAnalysisRead(
       v5Enrichment: (block as { enrichment?: unknown }).enrichment ?? null,
     })
     resultsHydrated = true
+    // B5, THE TURN LEG'S RULE ON THE READ LEG (Canonical, 28 Sep 2026): the verdicts CEE served beside THIS analysis
+    // are stored with the hash just written, and a new analysis that arrives without any evicts the held ones. Only
+    // here, inside the new-analysis branch: the `alreadyHeld` dedupe above returns first, and a verdict-only read
+    // (no block) never reaches this line.
+    const readLimitVerdictsBlock = readLimitVerdicts(input.limitVerdicts)
+    input.store.setLimitVerdicts?.(
+      readLimitVerdictsBlock
+        ? { verdicts: readLimitVerdictsBlock, analysisHash: hash, scenarioId: input.store.currentScenarioId ?? null }
+        : null,
+    )
   }
 
   // ⚠ AFTER the results write, and the ORDER IS THE CORRECTNESS. The
