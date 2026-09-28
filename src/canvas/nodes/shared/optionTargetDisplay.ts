@@ -24,6 +24,7 @@
  */
 import { joinInterventionDetails, unwrapInterventionValue } from '../../utils/labelUtils'
 import {
+  binaryTargetReading,
   buildOptionChangeRow,
   buildOptionNeedsInputRow,
   type FactorContext,
@@ -255,6 +256,9 @@ export function buildOptionTargetRow({
 export function optionTargetReading(row: OptionChangeRow, factorData: unknown): string {
   const reading = row.target || row.change
   if (!row.target || row.targetSource.kind === 'you') return reading
+  // A yes/no factor reads as the card reads it: "In use", never CEE's bare "on".
+  const binary = binaryTargetReading(factorData, reading)
+  if (binary !== null) return binary
   if (!readoutIsBareModelFigure(row.target, factorData)) return reading
   const figure = Number(row.target.trim())
   return `${qualitativeTierLabel(figure)} (${tierReadingNumber(figure)})`
