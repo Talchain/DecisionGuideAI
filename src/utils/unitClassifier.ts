@@ -398,17 +398,41 @@ const NUMBER_THEN_UNIT = /^([-+]?\d[\d,]*(?:\.\d+)?)\s+(.+)$/
  * so it takes the same compact notation as every UI-composed reading — the
  * figure's digits are the producer's own (`"59"`), never re-derived.
  *
+ * ⭐ ONE MORE SHAPE, served 08323c77 (28 Sep): CEE now puts the glyph on itself —
+ * `{display_value:"£54/month", raw_value:54, unit:"GBP per month"}` — and the
+ * option row read "£58.80 / month → £54/month". A reading that is the carried
+ * unit's OWN glyph, a figure, then the carried unit's OWN rate words (`/` and
+ * `per` being one separator, as in `COMPOUND_RATE_UNIT`) takes the same compact
+ * notation; the figure is still the producer's (`"54"`).
+ *
  * ⛔ Anything else is the producer's prose and is left verbatim: a reading
  * whose trailing text is NOT exactly the carried unit (`"£18k"`, `"Low (0.1)"`,
- * `"59 GBP/month"` against a `"GBP per month"` unit), or a unit
- * `compactUnitParts` does not recognise.
+ * `"59 GBP/month"` against a `"GBP per month"` unit), a magnitude word
+ * (`"£840k/year"`), another glyph or period (`"$59/month"`, `"£59/year"` against
+ * `"GBP per month"`), or a unit `compactUnitParts` does not recognise.
  */
 export function compactCarriedReading(reading: string, unit: string | null | undefined): string | null {
   if (unit == null || !unit.trim()) return null
   const m = NUMBER_THEN_UNIT.exec(reading.trim())
-  if (m === null || m[2] !== unit.trim()) return null
+  if (m === null) return glyphLedCarriedReading(reading.trim(), unit)
+  if (m[2] !== unit.trim()) return null
   const parts = compactUnitParts(m[1], unit)
   return parts === null ? null : joinCompactUnitParts(parts)
+}
+
+/** A reading that leads with a currency glyph: `£54/month`, `£59/subscriber per month`. */
+const GLYPH_THEN_FIGURE = /^([£$€])(\d[\d,]*(?:\.\d+)?)(\s*(?:\/|\bper\b).*)$/i
+
+/** A rate's words with `/` and `per` as one separator, spacing and case ignored. */
+const rateWords = (s: string): string => s.toLowerCase().replace(/\bper\s+/g, '/').replace(/\s+/g, '')
+
+function glyphLedCarriedReading(reading: string, unit: string): string | null {
+  const g = GLYPH_THEN_FIGURE.exec(reading)
+  if (g === null) return null
+  const parts = compactUnitParts(g[2], unit)
+  // The carried unit's own glyph, and its own rate words — nothing else is re-spelt.
+  if (parts === null || parts.unit === null || parts.figure !== `${g[1]}${g[2]}`) return null
+  return rateWords(g[3]) === rateWords(parts.unit) ? joinCompactUnitParts(parts) : null
 }
 
 /**
