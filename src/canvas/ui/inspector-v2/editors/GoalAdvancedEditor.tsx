@@ -9,6 +9,7 @@ import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
 import { goalConstraintText } from '../../../utils/goalConstraintText'
+import { goalTargetChangeFrameOf } from '../../../domain/goalTarget'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 
 interface GoalAdvancedEditorProps {
@@ -31,6 +32,9 @@ export function GoalAdvancedEditor({ nodeId }: GoalAdvancedEditorProps) {
   const goalThresholdUnit = (data?.goal_threshold_unit as string) ?? ''
   const goalThresholdCap = data?.goal_threshold_cap as number | undefined
   const goalThreshold = data?.goal_threshold as number | undefined
+  // R1 S4-core (MG 5879952291): for a target stated as a relative CHANGE, `goal_threshold` is the fraction r itself —
+  // scale-free, NOT raw / cap — and for an absolute change it is the change ÷ cap. The label says which.
+  const changeFrame = goalTargetChangeFrameOf(data?.goal_threshold_frame)
 
   /**
    * ⚠ THE STORE SLICE, not the node's data bag — and the distinction was a DEAD
@@ -62,10 +66,10 @@ export function GoalAdvancedEditor({ nodeId }: GoalAdvancedEditorProps) {
     <div className="space-y-1">
       <AdvancedFieldGroup title="Threshold parameters">
         <AdvancedField
-          label="Normalised threshold"
+          label={changeFrame === 'change_rel' ? 'Change from today (fraction)' : changeFrame === 'change_abs' ? 'Change from today ÷ cap' : 'Normalised threshold'}
           value={goalThreshold}
           type="readonly"
-          helperText="Computed from raw / cap."
+          helperText={changeFrame === 'change_rel' ? 'The relative change itself, not raw / cap.' : 'Computed from raw / cap.'}
         />
         <AdvancedField
           label="Raw threshold"

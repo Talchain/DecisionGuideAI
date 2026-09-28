@@ -75,17 +75,37 @@
  */
 import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
+import { goalTargetChangeFrameOf } from '../../../canvas/domain/goalTarget'
 
 /**
  * Render a goal target magnitude with its unit.
  *
  * @param value - the target magnitude, in the units `unit` describes
  * @param unit  - the unit string as the producer sent it (may be absent)
+ * @param frame - the node's `goal_threshold_frame` (`@talchain/schemas` 0.61.0). A change from today is said as the
+ *                change (R1 S4-core, below); absent, `level`, legacy `delta` or unknown → the level, byte-identical.
  * @returns the display string, or `null` when `value` is not a finite number —
  *          callers show no target rather than "≥ NaN".
  */
-export function formatGoalTarget(value: number, unit: string | null | undefined): string | null {
+export function formatGoalTarget(value: number, unit: string | null | undefined, frame?: unknown): string | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
+
+  /**
+   * ⭐⭐ R1 S4-core — A TARGET STATED AS A CHANGE FROM TODAY IS SAID AS THE CHANGE (MG 5879952291).
+   *
+   * "Cut the cloud bill by 15%" is `change_rel` −0.15 beside the METRIC's unit (GBP/month). Read as a level it
+   * printed "-0.15 GBP/month" — a price nobody stated. `change_rel` is a fraction BY CONTRACT, so it is said as a
+   * percentage of today and the metric's unit is not said at all; `change_abs` is said in the metric's unit through
+   * this same function, unsigned, with the direction in words. Never raw × cap.
+   */
+  const change = goalTargetChangeFrameOf(frame)
+  if (change !== null) {
+    const direction = value < 0 ? 'down' : 'up'
+    const size = change === 'change_rel'
+      ? `${Math.round(Math.abs(value) * 100 * 1e6) / 1e6}%`
+      : formatGoalTarget(Math.abs(value), unit)
+    return `${direction} ${size} from today`
+  }
 
   const { kind, canonical } = classifyUnit(unit ?? null)
 

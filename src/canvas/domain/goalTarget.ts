@@ -31,6 +31,23 @@ export interface GoalTargetSource {
   success_threshold?: unknown
   goal_threshold_raw?: unknown
   goal_threshold_unit?: unknown
+  /** `@talchain/schemas` 0.61.0: the frame the target is stated in — read only through `goalTargetChangeFrameOf`. */
+  goal_threshold_frame?: unknown
+}
+
+/**
+ * ⭐⭐ R1 S4-core — A TARGET STATED AS A CHANGE FROM TODAY (MG's goal half, #72 5879952291; `@talchain/schemas` 0.61.0
+ * `goal_threshold_frame`).
+ *
+ * "Cut the cloud bill by 15%" arrives as `goal_threshold_frame: 'change_rel'`, `goal_threshold_raw: -0.15`: a FRACTION
+ * of today's level, beside the METRIC's unit. `change_abs` is a change in the metric's own unit. Anything else —
+ * `level`, legacy `delta`, absent, unknown — is `null`: a level, exactly as before. The frame is the node's statement
+ * about ITS target, so it travels with whichever figure `resolveGoalTarget` picks.
+ */
+export type GoalTargetChangeFrame = 'change_abs' | 'change_rel'
+
+export function goalTargetChangeFrameOf(frame: unknown): GoalTargetChangeFrame | null {
+  return frame === 'change_abs' || frame === 'change_rel' ? frame : null
 }
 
 export interface ResolvedGoalTarget {
@@ -57,6 +74,11 @@ export interface ResolvedGoalTarget {
    * brief origin returns here the day a carried field states it.
    */
   source: 'user' | 'unrecorded'
+  /**
+   * A change from today (`goalTargetChangeFrameOf`); ABSENT for a level, so a level target resolves to exactly the
+   * object it did before. Say `raw` through `formatGoalTarget(raw, unit, frame)`; test it with `frame != null`.
+   */
+  frame?: GoalTargetChangeFrame
 }
 
 /**
@@ -73,6 +95,8 @@ export function resolveGoalTarget(
 ): ResolvedGoalTarget | null {
   if (!data) return null
   const unit = typeof data.goal_threshold_unit === 'string' ? data.goal_threshold_unit : undefined
+  const changeFrame = goalTargetChangeFrameOf(data.goal_threshold_frame)
+  const frame = changeFrame === null ? {} : { frame: changeFrame }
 
   const userSet =
     data.threshold_source === 'user' &&
@@ -80,7 +104,7 @@ export function resolveGoalTarget(
       ? (data.success_threshold as string | number)
       : null
   if (userSet != null && String(userSet).trim() !== '') {
-    return { raw: userSet, unit, source: 'user' }
+    return { raw: userSet, unit, source: 'user', ...frame }
   }
 
   const ceeRaw =
@@ -88,7 +112,7 @@ export function resolveGoalTarget(
       ? (data.goal_threshold_raw as string | number)
       : null
   if (ceeRaw != null && String(ceeRaw).trim() !== '') {
-    return { raw: ceeRaw, unit, source: 'unrecorded' }
+    return { raw: ceeRaw, unit, source: 'unrecorded', ...frame }
   }
 
   return null

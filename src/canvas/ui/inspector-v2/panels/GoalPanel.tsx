@@ -333,7 +333,7 @@ export const GoalPanel = memo(function GoalPanel({
     if (resolvedTarget == null) return null
     const raw = typeof resolvedTarget.raw === 'number' ? resolvedTarget.raw : Number(resolvedTarget.raw)
     if (Number.isNaN(raw)) return String(resolvedTarget.raw)
-    return formatGoalTarget(raw, resolvedTarget.unit) ?? String(resolvedTarget.raw)
+    return formatGoalTarget(raw, resolvedTarget.unit, resolvedTarget.frame) ?? String(resolvedTarget.raw)
   })()
   /**
    * ⛔⛔ TWO QUESTIONS, AND THEY MUST NOT SHARE A NAME (CLAUDE.md trap 21).
@@ -700,7 +700,11 @@ export const GoalPanel = memo(function GoalPanel({
           ) : showsTargetReadout ? (
             <div>
               <p className={`${typography.panelBody} text-text-body`}>
-                Success means reaching {'\u2265'} {targetDisplay}
+                {/* R1 S4-core (MG 5879952291): a change target is not a level to reach "≥" — "Success means going
+                    down 15% from today". */}
+                {resolvedTarget?.frame != null
+                  ? `Success means going ${targetDisplay}`
+                  : <>Success means reaching {'\u2265'} {targetDisplay}</>}
               </p>
               {/* Contextual probability when analysis exists */}
               {targetProbabilityLine}

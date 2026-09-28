@@ -147,7 +147,7 @@ import {
   manualGoalTargetMessage,
 } from '../conversation/manualGoalTarget'
 import { buildGoalTargetEditEvent, GOAL_TARGET_EDIT_ENABLED } from '../conversation/goalTargetEdit'
-import { statedTargetNumber } from '../domain/goalTarget'
+import { statedTargetNumber, goalTargetChangeFrameOf, type GoalTargetSource } from '../domain/goalTarget'
 import type { ConstraintType } from '../../v5/chipParameters'
 import {
   buildOptionInterventionEditEvent,
@@ -515,6 +515,12 @@ export function useModelEditAuthority(
     const node = state.nodes.find(n => n.id === activeNodeId)
     if (!node || resolveNodeTypeLiteral(node) !== 'goal' ||
         !scenarioId || state.currentScenarioId !== scenarioId) return 'not_encodable' as const
+    // ⛔ R1 S4-core (MG 5879952291): a target stated as a CHANGE from today is never overwritten with a level figure.
+    // CEE refuses the same write by name (`goal_is_a_change`) at all four goal writers; refusing here writes nothing
+    // and sends nothing, whichever editor asked.
+    if (goalTargetChangeFrameOf((node.data as GoalTargetSource | undefined)?.goal_threshold_frame) !== null) {
+      return 'not_encodable' as const
+    }
 
     // ⭐⭐ THE TYPED CARRIER — dormant until `GOAL_TARGET_EDIT_ENABLED` flips
     // true (see `goalTargetEdit.ts`'s header; CEE has not shipped a reader).

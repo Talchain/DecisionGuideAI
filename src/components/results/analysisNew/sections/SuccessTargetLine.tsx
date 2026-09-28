@@ -348,6 +348,14 @@ export function SuccessTargetLine({
    * `normalised` are DIFFERENT states and get different sentences below.
    */
   const fromNode = resolveGoalTarget(goalData as GoalTargetSource | null)
+  /**
+   * ⛔ R1 S4-core (MG 5879952291): a target stated as a CHANGE from today ("down 15% from today") is not edited here.
+   * This editor writes a LEVEL figure, and CEE refuses that write over a change goal by name (`goal_is_a_change`, all
+   * four goal writers). So the number editor is never offered for one: the edit control is not rendered, and the
+   * reasoning variant's toggle opens the Ask flow — the chat, where a change is stated as a change. The authority
+   * (`useModelEditAuthority.proposeGoalTarget`) refuses it too, whichever editor asks.
+   */
+  const changeGoal = fromNode?.frame != null
   const fromStore = threshold != null && representation === 'raw' ? threshold : null
   /** The node first — it is the only source guaranteed to be in user units. */
   const shownText =
@@ -355,6 +363,7 @@ export function SuccessTargetLine({
       ? (formatGoalTarget(
           typeof fromNode.raw === 'number' ? fromNode.raw : Number(fromNode.raw),
           fromNode.unit,
+          fromNode.frame,
         ) ?? String(fromNode.raw))
       : fromStore != null
         ? String(fromStore)
@@ -643,7 +652,9 @@ export function SuccessTargetLine({
         shownText={shownText}
         unexpressible={unexpressible}
         editing={editing}
-        onToggleEditor={() => (editing ? closeEditor() : openEditor(shownText !== null ? 'number' : 'words'))}
+        onToggleEditor={changeGoal
+          ? openHelpDefineSuccess
+          : () => (editing ? closeEditor() : openEditor(shownText !== null ? 'number' : 'words'))}
         onAsk={openHelpDefineSuccess}
         form={
           editing ? (
@@ -958,6 +969,7 @@ export function SuccessTargetLine({
               onClick={openHelpDefineSuccess}
               testId={`${testId}-ask`}
             />
+            {!changeGoal && (
             <button
               type="button"
               onClick={() => openEditor('number')}
@@ -1003,6 +1015,7 @@ export function SuccessTargetLine({
               <Pencil className={icon('inline')} aria-hidden={true} />
               {shownText !== null ? COPY.successTarget.change : null}
             </button>
+            )}
           </span>
         </>
       )}
