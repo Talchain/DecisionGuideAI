@@ -39,6 +39,7 @@ import {
   SHELL_TAB_HEIGHT_PX,
   SHELL_TABSTRIP_COMPACT_BELOW_PX,
   SHELL_TABSTRIP_HEIGHT_PX,
+  SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX,
   type WorkspaceSurfaceDescriptor,
 } from './shellContract'
 
@@ -318,15 +319,31 @@ export function WorkspaceShellTabStrip({
   hasCompletedFirstRun = true,
   onInspectAnalysis,
 }: WorkspaceShellTabStripProps) {
-  const inspect =
-    onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
-      ? onInspectAnalysis
-      : undefined
   // gap NARROW-1: below this width four tabs plus VersionsTrigger, the
   // expert-mode toggle and the collapse control do not fit one row, so the
   // strip goes compact rather than wrapping into a 2×2 grid.
   const { width } = usePanelWidth()
   const isCompact = width < SHELL_TABSTRIP_COMPACT_BELOW_PX
+
+  const inspect =
+    onInspectAnalysis && hasCompletedFirstRun && surfaces.some(s => s.id === 'analysisNew')
+      ? onInspectAnalysis
+      : undefined
+  // The ⓘ is a row control wherever the row has room for it, compact or not; only
+  // below `SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX` does it fold into the overflow menu.
+  const inspectInRow = inspect !== undefined && width >= SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX
+  const inspectControl = inspectInRow ? (
+    <button
+      type="button"
+      onClick={inspect}
+      className={ROW_ICON_CONTROL}
+      aria-label={INSPECT_ANALYSIS_LABEL}
+      title={INSPECT_ANALYSIS_LABEL}
+      data-testid="dock-inspect-analysis"
+    >
+      <Info className="w-3.5 h-3.5" aria-hidden="true" />
+    </button>
+  ) : null
 
   // Roving focus: moving selection with the keyboard must move focus with it,
   // or the user's focus is left on a tab that is no longer selected and the
@@ -551,27 +568,16 @@ export function WorkspaceShellTabStrip({
           menu rather than wrapping the strip into a 2×2 grid. Neither
           control is omitted — both stay reachable, just behind one more
           keypress. */}
+      {/* The prototype's `.tabbar>.iconbtn`: the ⓘ sits first after the tabs. */}
+      {inspectControl}
       {isCompact ? (
         <TabStripOverflowMenu
           expertMode={expertMode}
           onToggleExpertMode={onToggleExpertMode}
-          onInspectAnalysis={inspect}
+          onInspectAnalysis={inspectInRow ? undefined : inspect}
         />
       ) : (
         <>
-          {/* The prototype's `.tabbar>.iconbtn`: the ⓘ sits first after the tabs. */}
-          {inspect && (
-            <button
-              type="button"
-              onClick={inspect}
-              className={ROW_ICON_CONTROL}
-              aria-label={INSPECT_ANALYSIS_LABEL}
-              title={INSPECT_ANALYSIS_LABEL}
-              data-testid="dock-inspect-analysis"
-            >
-              <Info className="w-3.5 h-3.5" aria-hidden="true" />
-            </button>
-          )}
           {/* ⭐ R4 — version history's home in this panel (#739). The trigger
               carries NO positioning of its own; layout belongs to this row, which
               is the point of retiring the floating pill (L-08). Its `icon` variant
