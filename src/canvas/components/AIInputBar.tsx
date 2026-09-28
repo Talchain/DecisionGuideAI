@@ -105,7 +105,8 @@ const MAX_LINES = 2
  *
  * This was the only line-height the auto-grow maths knew, and it is a HAND-COPY
  * of a value that lives somewhere else: the textarea renders at
- * `typography.panelBody` = `text-xs leading-relaxed` = 12px x 1.625 = **19.5px**.
+ * `typography.chatBody` = `text-[13px] leading-relaxed` = 13px x 1.625 = **21.125px**
+ * (it was panelBody, 12px, until the chat's 14/13/12 scale of 28 Sep).
  * Every "N lines" bound computed from 18 was therefore ~8% short, so a composer
  * advertised as growing to eight lines began scrolling inside itself at seven
  * and a bit — the exact stale-mirror class CLAUDE.md calls trap 12.
@@ -731,7 +732,7 @@ export const AIInputBar = memo(
         aria-label={ariaLabel ?? 'Chat message'}
         data-testid={`${base}-textarea`}
         className={typo(
-          'panelBody',
+          'chatBody',
           `w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light ${textareaVerticalPad} pl-3 ${textareaRightPad}`,
         )}
       />
@@ -748,7 +749,7 @@ export const AIInputBar = memo(
         data-testid={`${base}-generating`}
         className={`pointer-events-none absolute left-0 top-0 ${textareaVerticalPad} pl-3 ${textareaRightPad}`}
       >
-        <span className={typo('panelBody', 'text-text-light animate-gentle-text-flash')}>
+        <span className={typo('chatBody', 'text-text-light animate-gentle-text-flash')}>
           {generatingMessage}
         </span>
       </div>

@@ -35,8 +35,13 @@
  * new list cannot quietly become an eleventh treatment.
  */
 
-/** Short prose items, disc marker. The default for anything the AI writes. */
-export const PANEL_LIST_BULLET = 'list-disc pl-4 space-y-1'
+/**
+ * Short prose items, disc marker. The default for anything the AI writes.
+ * ⭐ Items sit 1em apart, the SAME gap as between paragraphs (`.md-gap`, 1em):
+ * Paul, 28 Sep, "space the bullets out to match the paragraphs". It was
+ * `space-y-1` (4px) here, 2px and 8px on the markdown paths.
+ */
+export const PANEL_LIST_BULLET = 'list-disc pl-4 space-y-[1em]'
 
 /** Composed text rows that carry their own structure. No marker, no indent. */
 export const PANEL_LIST_STACK = 'list-none p-0 m-0 space-y-1'

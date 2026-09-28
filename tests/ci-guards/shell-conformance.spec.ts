@@ -597,7 +597,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // one component that renders marks — carries none (it had gained 1 raw
     // occurrence in #2085; back to 0, so it is not in this map). Same rule.
     // 27 Sep 2026: 41 -> 42, `chatMeta` (12px) declared here: the AI panel's meta size (Paul: three sizes).
-    'src/styles/typography.ts': 42,
+    'src/styles/typography.ts': 41,
     'src/v5/blocks/V5AnalysisResultBlock.tsx': 4,
     'src/v5/blocks/V5CoachingBlock.tsx': 2,
     'src/v5/blocks/V5ComparisonBlock.tsx': 2,
@@ -699,7 +699,7 @@ describe('workspace shell — child surfaces: raw typography, pinned per file', 
     // 26 Sep 2026: 99 -> 100, paired with the `typography.ts` 40 -> 41 above
     // (the `nodeMark` token). `files` stays 28.
     // 27 Sep 2026: 100 -> 101, paired with the `typography.ts` 41 -> 42 above (`chatMeta`).
-    expect(total).toBe(101)
+    expect(total).toBe(100)
   })
 })
 

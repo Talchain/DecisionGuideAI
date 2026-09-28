@@ -10,6 +10,7 @@ import { Activity } from 'lucide-react'
 import { FRAGILE_CUE_SENTENCE } from '../../../edges/connectorCopy'
 import { resolveEdgeDirectionMarker } from '../../../edges/edgePresentation'
 import { useCanvasStore } from '../../../store'
+import { isCanvasOnlyLink } from '../../../utils/canvasOnlyLink'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
 import { EditConfirmation } from '../shared/EditConfirmation'
@@ -40,6 +41,7 @@ import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { isEdgeFragile, getFragileEdgeSwitchProbability, parallelEdgeIdsFor } from '../../../utils/fragileEdgeMatch'
 import { resolveEdgeValuesCoaching, resolveEdgeValuesProvenance } from '../coachingConfig'
+import { isStrengthPlaceholder } from '../../../domain/strengthPlaceholder'
 import {
   edgeValueBand,
   edgeValueSource,
@@ -209,6 +211,7 @@ export const EdgePanel = memo(function EdgePanel({
 }: InspectorPanelProps) {
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
+  const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const robustness = useRobustness()
   const edgeEValues = useEdgeEValues()
   const resultsStatus = useCanvasStore(s => s.results?.status)
@@ -269,12 +272,19 @@ export const EdgePanel = memo(function EdgePanel({
   // other direction. A disclosure that answers "where did this come from?"
   // with a fixed string is a stronger over-claim than the number it sits
   // under, so it is now derived from the edge's actual stamps.
+  // POM-8: CEE's PLACEHOLDER strength is not an estimate. One predicate, the
+  // one the canvas line and hover read (`domain/strengthPlaceholder`).
+  const strengthIsPlaceholder = useMemo(
+    () => isStrengthPlaceholder(edge?.data as Record<string, unknown> | undefined),
+    [edge?.data],
+  )
   const edgeValuesCoaching = useMemo(
     () => resolveEdgeValuesCoaching({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+      strengthPlaceholder: strengthIsPlaceholder,
     }),
-    [edge?.data],
+    [edge?.data, strengthIsPlaceholder],
   )
   // v3.1 row 32: the same two provenance facts, stated flat in the pane (the
   // generic card that used to carry them is gone — see the resolver's note).
@@ -282,8 +292,9 @@ export const EdgePanel = memo(function EdgePanel({
     () => resolveEdgeValuesProvenance({
       strength: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'weight'),
       existence: edgeValueSource(edge?.data as Record<string, unknown> | undefined, 'beliefExists'),
+      strengthPlaceholder: strengthIsPlaceholder,
     }),
-    [edge?.data],
+    [edge?.data, strengthIsPlaceholder],
   )
 
   // A confirm-as-is action is licensed only by a real producer value. A bare
@@ -325,13 +336,17 @@ export const EdgePanel = memo(function EdgePanel({
   const currentEstimatedWeight = useMemo(() => {
     const data = edge?.data as Record<string, unknown> | undefined
     const value = data?.weight
+    // POM-8: a placeholder is not "Olumi's current estimate", and confirming it
+    // "as an estimate" would ratify a number nobody estimated. The strength
+    // control above is how it gets set.
+    if (strengthIsPlaceholder) return null
     return edgeValueSource(data, 'weight') === 'cee' &&
       // the act's own authority — one function, both readers
       serverStatedStrengthOf(data) !== null &&
       typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
       ? value
       : null
-  }, [edge?.data])
+  }, [edge?.data, strengthIsPlaceholder])
 
   /**
    * ⛔⛔ THE HOUSE BOUND ERASES SMALL MAGNITUDES, SO IT CANNOT BE USED ALONE.
@@ -903,9 +918,12 @@ export const EdgePanel = memo(function EdgePanel({
    */
   // `edge` is narrowed a few lines below, not here — optional access, because the
   // repo's typecheck GATE flags what a bare `tsc --noEmit` let through.
-  const awaitingStatedStrength =
-    (edge?.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
-    'strength_not_stated'
+  //
+  // ⛔ THE SHARED PREDICATE, NOT THE RAW RECEIPT (review r06 blocker 2, 28 Sep
+  // 2026): a receipt on a pair the server holds is stale, and this add-control
+  // would send a second `structural_add_edge` for it. Same reader as the
+  // on-link word and the capture retry (`utils/canvasOnlyLink.ts`).
+  const awaitingStatedStrength = isCanvasOnlyLink(edge, serverHeldPairs)
 
   /**
    * States the strength for a link that has never reached the model, with the
@@ -1200,6 +1218,7 @@ export const EdgePanel = memo(function EdgePanel({
                         inlineStrengthLabel(strengthSpread.lowLabel),
                         inlineStrengthLabel(strengthSpread.highLabel),
                         getStrengthLabel(strengthSpread.magnitude),
+                        { placeholder: strengthIsPlaceholder },
                       )}
                     </p>
                   )}

@@ -48,7 +48,7 @@ export function V5UnsupportedBlock({ block }: V5UnsupportedBlockProps): ReactEle
           answering "what went wrong?" in log language. The kind means nothing
           to a user and everything to an operator, so it lives on
           `data-block-type` and in the DEV warn, not in the card face. */}
-      <p className={`${typography.panelBody} text-text-light`}>
+      <p className={`${typography.chatBody} text-text-light`}>
         This app version can&apos;t display this part of the response yet.
         The rest of the message is unaffected.
       </p>

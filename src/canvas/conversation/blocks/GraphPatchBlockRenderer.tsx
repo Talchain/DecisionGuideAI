@@ -381,7 +381,7 @@ export function GraphPatchBlockRenderer({
         </div>
         {summaryText && (
           <div
-            className={`${typography.bodySmall} ${styles.graphPatchSummary}`}
+            className={`${typography.chatBody} ${styles.graphPatchSummary}`}
             // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: safeRichText(summaryText) }}
           />
@@ -394,7 +394,7 @@ export function GraphPatchBlockRenderer({
             <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
               <div className={styles.graphPatchProposalCopy}>
                 <span
-                  className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}
+                  className={`${typography.chatBody} ${styles.graphPatchProposalDescription}`}
                   // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
                   dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
                 />
@@ -437,7 +437,7 @@ export function GraphPatchBlockRenderer({
                 <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
                   <div className={styles.graphPatchProposalCopy}>
                     <span
-                      className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}
+                      className={`${typography.chatBody} ${styles.graphPatchProposalDescription}`}
                       // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText
                       dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
                     />
@@ -731,7 +731,7 @@ export function ProposalBlockRenderer({
       <span className={`${typography.chatMeta} ${styles.graphPatchProposalEyebrow}`}>
         {cardHeader}
       </span>
-      <p className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>{block.description}</p>
+      <p className={`${typography.chatBody} ${styles.graphPatchProposalDescription}`}>{block.description}</p>
       {block.changes.length > 0 && (
         <div className={styles.graphPatchProposalList}>
           {block.changes.map((c, i) => {
@@ -749,7 +749,7 @@ export function ProposalBlockRenderer({
             const targetLabel = c.target && !RAW_ID_PATTERN.test(c.target) ? c.target : null
             return (
               <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
-                <span className={typography.panelBody}>{c.detail}</span>
+                <span className={typography.chatBody}>{c.detail}</span>
                 <div className="flex gap-1">
                   {/* Raw wire tokens never reach the DOM here. `GraphPatchBlockRenderer`
                       above already scrubs its half through RAW_ID_PATTERN;
@@ -804,7 +804,7 @@ export function ProposalBlockRenderer({
         </div>
       )}
       {state !== 'pending' && (
-        <span className={`${typography.panelBody} ${state === 'accepted' ? styles.graphPatchStatusApplied : styles.graphPatchStatusDismissed}`}>
+        <span className={`${typography.chatBody} ${state === 'accepted' ? styles.graphPatchStatusApplied : styles.graphPatchStatusDismissed}`}>
           {cardBadge && <BadgeIcon badge={cardBadge} />} {cardHeader}
         </span>
       )}

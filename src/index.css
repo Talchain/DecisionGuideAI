@@ -806,9 +806,11 @@
 
 /* SafeRichText gap spacer — paragraph breaks and horizontal rule degradation (injected via dangerouslySetInnerHTML) */
 .md-gap {
+  /* An empty block span (MD_GAP in safeRichText.ts), never a <br>: Chrome
+     ignores height and margin on a <br>, which left every paragraph gap at 0px.
+     1em = one text size, 12–16px as DS v5 §2.4 asks. */
   display: block;
-  height: 0;
-  margin-bottom: 0.75em;
+  height: 1em;
 }
 
 /* Tabular numerics for metrics embedded in AI prose (§2 DS v5 numeric rhythm) */

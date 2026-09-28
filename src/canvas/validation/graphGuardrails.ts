@@ -253,10 +253,56 @@ export interface DeletionImpact {
   removesLastGoal: boolean
   /** Whether this removes the last decision node */
   removesLastDecision: boolean
+  /**
+   * ⭐ Options that would lose one of their CHANGES (canvas audit
+   * edit-structure/F6, 27 Sep 2026): an option → node link, or an intervention
+   * the option records for that node. An option's change is model data held on
+   * a DIFFERENT card from the one being removed, and the canvas has no Undo, so
+   * losing it is damage to something else — the one thing the delete question
+   * asks about. Never lists the option being removed itself.
+   *
+   * Optional only so an impact literal written before this field (a fixture,
+   * the menu's multi-select aggregate) stays well-typed; both assessors always
+   * set it, and every reader treats absence as "none".
+   */
+  dropsOptionChanges?: Array<{ optionId: string; optionLabel: string; targetId: string; targetLabel: string }>
 }
 
 function getLabel(node: Node): string {
   return (node.data as Record<string, unknown>)?.label as string ?? node.id
+}
+
+/** Whether `option` records an intervention (a change) for `targetId` on its own data. */
+function optionRecordsInterventionFor(option: Node, targetId: string): boolean {
+  const interventions = (option.data as Record<string, unknown> | undefined)?.interventions
+  return (
+    interventions !== null &&
+    typeof interventions === 'object' &&
+    Object.prototype.hasOwnProperty.call(interventions, targetId)
+  )
+}
+
+/**
+ * Every option (other than `targetId` itself) that holds a change for
+ * `targetId`: an option → target link, or an intervention recorded for it.
+ */
+function optionChangesTargeting(
+  nodes: Node[],
+  edges: Edge[],
+  targetId: string,
+): NonNullable<DeletionImpact['dropsOptionChanges']> {
+  const target = nodes.find(n => n.id === targetId)
+  if (!target) return []
+  const linkedFrom = new Set(edges.filter(e => e.target === targetId).map(e => e.source))
+  return nodes
+    .filter(n => n.type === 'option' && n.id !== targetId)
+    .filter(opt => linkedFrom.has(opt.id) || optionRecordsInterventionFor(opt, targetId))
+    .map(opt => ({
+      optionId: opt.id,
+      optionLabel: getLabel(opt),
+      targetId,
+      targetLabel: getLabel(target),
+    }))
 }
 
 /**
@@ -273,10 +319,14 @@ export function assessNodeDeletion(
     orphansNodes: [],
     removesLastGoal: false,
     removesLastDecision: false,
+    dropsOptionChanges: [],
   }
 
   const nodeToDelete = nodes.find(n => n.id === nodeId)
   if (!nodeToDelete) return impact
+
+  // Options that lose a change for this node (its links go with it).
+  impact.dropsOptionChanges = optionChangesTargeting(nodes, edges, nodeId)
 
   // Check last goal/decision
   if (nodeToDelete.type === 'goal') {
@@ -345,15 +395,29 @@ export function assessEdgeDeletion(
   edges: Edge[],
   edgeId: string,
 ): DeletionImpact {
-  const impact: DeletionImpact = {
+  const impact: DeletionImpact & { dropsOptionChanges: NonNullable<DeletionImpact['dropsOptionChanges']> } = {
     disconnectsOptions: [],
     orphansNodes: [],
     removesLastGoal: false,
     removesLastDecision: false,
+    dropsOptionChanges: [],
   }
 
   const edgeToDelete = edges.find(e => e.id === edgeId)
   if (!edgeToDelete) return impact
+
+  // An option → node link IS that option's change for the node: removing it
+  // removes the change. (A Question → option link is not a change.)
+  const edgeSource = nodes.find(n => n.id === edgeToDelete.source)
+  const edgeTarget = nodes.find(n => n.id === edgeToDelete.target)
+  if (edgeSource?.type === 'option' && edgeTarget) {
+    impact.dropsOptionChanges.push({
+      optionId: edgeSource.id,
+      optionLabel: getLabel(edgeSource),
+      targetId: edgeTarget.id,
+      targetLabel: getLabel(edgeTarget),
+    })
+  }
 
   // Simulate deletion
   const remainingEdges = edges.filter(e => e.id !== edgeId)
@@ -403,8 +467,16 @@ export function isSignificantImpact(impact: DeletionImpact): boolean {
     impact.removesLastGoal ||
     impact.removesLastDecision ||
     impact.disconnectsOptions.length > 0 ||
-    impact.orphansNodes.length > 0
+    impact.orphansNodes.length > 0 ||
+    (impact.dropsOptionChanges?.length ?? 0) > 0
   )
+}
+
+/** `"A"`, `"A" and "B"`, `"A", "B" and "C"`. */
+function quotedList(labels: string[]): string {
+  const quoted = labels.map(l => `"${l}"`)
+  if (quoted.length <= 1) return quoted[0] ?? ''
+  return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`
 }
 
 /**
@@ -435,6 +507,22 @@ export function buildDeletionMessage(impact: DeletionImpact, elementLabel: strin
     const names = impact.disconnectsOptions.map(o => `"${o.optionLabel}"`).join(', ')
     parts.push(
       `Removing "${elementLabel}" breaks the path from ${names} to your goal. The analysis won't be able to evaluate ${impact.disconnectsOptions.length === 1 ? 'that option' : 'those options'}.`,
+    )
+  }
+  // One sentence per card that loses changes, naming every option that loses
+  // one, in canvas order. Plain fact, no promise: the dialog is the only
+  // protection (there is no Undo on the canvas), so it says what goes.
+  const changesByTarget = new Map<string, { targetLabel: string; optionLabels: string[] }>()
+  for (const c of impact.dropsOptionChanges ?? []) {
+    const entry = changesByTarget.get(c.targetId) ?? { targetLabel: c.targetLabel, optionLabels: [] }
+    if (!entry.optionLabels.includes(c.optionLabel)) entry.optionLabels.push(c.optionLabel)
+    changesByTarget.set(c.targetId, entry)
+  }
+  for (const { targetLabel, optionLabels } of changesByTarget.values()) {
+    parts.push(
+      optionLabels.length === 1
+        ? `${quotedList(optionLabels)} will lose its change to "${targetLabel}".`
+        : `${quotedList(optionLabels)} will each lose their change to "${targetLabel}".`,
     )
   }
   if (impact.orphansNodes.length > 0) {

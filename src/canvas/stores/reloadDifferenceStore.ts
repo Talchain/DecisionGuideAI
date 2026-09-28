@@ -49,15 +49,62 @@ export const RELOAD_DIFFERENCE_COPY = {
     'Add back any you still want.',
 } as const
 
-/** The chat line for a set of removed element labels (at least one). */
-export function formatReloadDifferenceNotice(removedLabels: ReadonlyArray<string>): string {
+/**
+ * ⭐ WHEN THE UI KNOWS WHY, IT SAYS WHY (canvas audit edit-structure/F3, 27 Sep
+ * 2026). A link drawn with no strength stood down and was NEVER SENT, and the
+ * canvas recorded that on it (`utils/canvasOnlyLink.ts`). The generic line above
+ * ("removed in another tab, or never finished saving") was a guess the UI did
+ * not need to make for those, and it blamed the wrong thing. This names the real
+ * cause and the move that keeps the link: draw it and state its strength.
+ *
+ * `{Label}` / `{Labels}` start a sentence, so their first letter is raised
+ * ("the link from A to B" → "The link from A to B").
+ */
+export const RELOAD_CANVAS_ONLY_LINK_COPY = {
+  one:
+    '{Label} was on this canvas only. It had no strength, so it was never sent to the model, ' +
+    "and I've taken it off. Draw it again and set its strength to keep it.",
+  several:
+    '{Labels} were on this canvas only. They had no strength, so they were never sent to the model, ' +
+    "and I've taken them off. Draw them again and set their strength to keep them.",
+} as const
+
+function nameList(labels: ReadonlyArray<string>): string {
+  return labels.length === 2
+    ? `${labels[0]} and ${labels[1]}`
+    : `${labels[0]}, ${labels[1]} and ${labels.length - 2} more`
+}
+
+function sentenceStart(text: string): string {
+  return text.length > 0 ? text[0].toUpperCase() + text.slice(1) : text
+}
+
+/**
+ * The chat line for what a reload took off: the generic removals (at least one,
+ * unless every removal was a canvas-only link) and the canvas-only links.
+ */
+export function formatReloadDifferenceNotice(
+  removedLabels: ReadonlyArray<string>,
+  canvasOnlyLinkLabels: ReadonlyArray<string> = [],
+): string {
   const labels = removedLabels.filter((l) => typeof l === 'string' && l.length > 0)
-  if (labels.length <= 1) return RELOAD_DIFFERENCE_COPY.one.replace('{label}', labels[0] ?? 'an element')
-  const named =
-    labels.length === 2
-      ? `${labels[0]} and ${labels[1]}`
-      : `${labels[0]}, ${labels[1]} and ${labels.length - 2} more`
-  return RELOAD_DIFFERENCE_COPY.several.replace('{labels}', named)
+  const onlyLinks = canvasOnlyLinkLabels.filter((l) => typeof l === 'string' && l.length > 0)
+  const parts: string[] = []
+  if (labels.length > 0 || onlyLinks.length === 0) {
+    parts.push(
+      labels.length <= 1
+        ? RELOAD_DIFFERENCE_COPY.one.replace('{label}', labels[0] ?? 'an element')
+        : RELOAD_DIFFERENCE_COPY.several.replace('{labels}', nameList(labels)),
+    )
+  }
+  if (onlyLinks.length > 0) {
+    parts.push(
+      onlyLinks.length === 1
+        ? RELOAD_CANVAS_ONLY_LINK_COPY.one.replace('{Label}', sentenceStart(onlyLinks[0]))
+        : RELOAD_CANVAS_ONLY_LINK_COPY.several.replace('{Labels}', sentenceStart(nameList(onlyLinks))),
+    )
+  }
+  return parts.join(' ')
 }
 
 export interface ReloadDifferenceState {
@@ -67,18 +114,30 @@ export interface ReloadDifferenceState {
   id: string | null
   /** Node labels (falling back to id) and edge descriptions, in canvas order. */
   removedLabels: string[]
+  /** Links taken off that were never sent (canvas-only), named apart — see `RELOAD_CANVAS_ONLY_LINK_COPY`. */
+  canvasOnlyLinkLabels: string[]
   /** Whether the conversation has already appended this notice's line. */
   delivered: boolean
   /**
    * `scenarioId` is REQUIRED, deliberately — a notice this store cannot attribute
    * to a decision is one the conversation must never show.
    */
-  recordRemoval: (input: { scenarioId: string; removedLabels: ReadonlyArray<string> }) => void
+  recordRemoval: (input: {
+    scenarioId: string
+    removedLabels: ReadonlyArray<string>
+    canvasOnlyLinkLabels?: ReadonlyArray<string>
+  }) => void
   markDelivered: (id: string) => void
   clear: () => void
 }
 
-const EMPTY = { scenarioId: null, id: null, removedLabels: [] as string[], delivered: false }
+const EMPTY = {
+  scenarioId: null,
+  id: null,
+  removedLabels: [] as string[],
+  canvasOnlyLinkLabels: [] as string[],
+  delivered: false,
+}
 
 function mintId(): string {
   try {
@@ -90,8 +149,14 @@ function mintId(): string {
 
 export const useReloadDifferenceStore = create<ReloadDifferenceState>((set) => ({
   ...EMPTY,
-  recordRemoval: ({ scenarioId, removedLabels }) =>
-    set({ scenarioId, id: mintId(), removedLabels: [...removedLabels], delivered: false }),
+  recordRemoval: ({ scenarioId, removedLabels, canvasOnlyLinkLabels = [] }) =>
+    set({
+      scenarioId,
+      id: mintId(),
+      removedLabels: [...removedLabels],
+      canvasOnlyLinkLabels: [...canvasOnlyLinkLabels],
+      delivered: false,
+    }),
   markDelivered: (id) => set((s) => (s.id === id ? { delivered: true } : s)),
-  clear: () => set({ ...EMPTY, removedLabels: [] }),
+  clear: () => set({ ...EMPTY, removedLabels: [], canvasOnlyLinkLabels: [] }),
 }))

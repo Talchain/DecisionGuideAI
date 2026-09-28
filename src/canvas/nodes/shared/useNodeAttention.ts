@@ -49,7 +49,7 @@ import { factorValueIsUnconfirmedEstimate } from '../../domain/valueProvenance'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
 import { rankFactor } from './rankFactor'
 import { runHoldsNoValueFor } from './unvaluedDriver'
-import { hasAnyStatedValue } from '../../utils/observedStateHelpers'
+import { holdsValueOrRange } from '../../utils/observedStateHelpers'
 import { selectTurningPoints } from './factorTurningPoint'
 import {
   ATTENTION_BUDGET,
@@ -99,7 +99,7 @@ function runInputsOf(
     if (resolveNodeTypeLiteral(n as never) !== 'factor') continue
     if (!feed.policyRows.some((r) => r.key === n.id)) continue
     // PJ-B3: the run's own "no value" fact, off the same feed rows as the rank.
-    ranks.set(n.id, { ...rankFactor(feed.policyRows, feed.displayModel, n.id), noValueInRun: runHoldsNoValueFor(feed, n.id) && !hasAnyStatedValue(n.data) })
+    ranks.set(n.id, { ...rankFactor(feed.policyRows, feed.displayModel, n.id), noValueInRun: runHoldsNoValueFor(feed, n.id) && !holdsValueOrRange(n.data) })
   }
   const robustness = (report as { robustness?: { fragile_edges?: unknown } }).robustness
   const fragile = new Set<string>()

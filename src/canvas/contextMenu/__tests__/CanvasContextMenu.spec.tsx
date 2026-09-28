@@ -100,13 +100,26 @@ const RETIRED_LOCAL_ACTIONS = [
  * `buildEdgeMenu` and `buildMultiMenu` never do, so asserting them on those
  * surfaces would assert a structural fact about the builder and not an authority
  * one — a case that passes for a reason other than the one it names. They are
- * therefore witnessed at the two node cases and nowhere else.
+ * therefore witnessed at the node cases and nowhere else: PRESENT on the factor
+ * and option cards, WITHHELD on the Question (canvas audit edit-structure/F7,
+ * 28 Sep 2026 — see the decision case below).
  */
 const DURABLE_CONNECTED_ADD_LABELS = [
   'Add connected factor',
   'Add outcome from this',
   'Add risk from this',
 ] as const
+
+/**
+ * The negative twin, for the Question card (edit-structure/F7). Bound by the
+ * exact label text, so a renamed item cannot pass as "withheld"; the caller
+ * asserts the menu did render (its `Ask AI` row) so an empty menu cannot either.
+ */
+function expectConnectedAddsWithheld(): void {
+  for (const label of DURABLE_CONNECTED_ADD_LABELS) {
+    expect(screen.queryByText(label), `${label} must not be offered on the Question`).toBeNull()
+  }
+}
 
 function expectConnectedAddsOffered(): void {
   for (const label of DURABLE_CONNECTED_ADD_LABELS) {
@@ -358,12 +371,42 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expect(screen.queryByText('Copy')).toBeNull() // A20 — Copy is hidden
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expect(screen.queryByText('Explore')).toBeNull()
-    // ⚠ A DECISION NODE GETS THEM TOO, and that is not an oversight: the builder
-    // guards the block with `kind !== 'constraint'` only. "Without fabricating
-    // factor tools" is about Explore and Set value — controls for a kind with no
-    // range and no observed value — not about growing the model from this node.
-    expectConnectedAddsOffered()
+    // ⛔ RE-PINNED 28 Sep 2026 (canvas audit edit-structure/F7). This case used
+    // to assert "A DECISION NODE GETS THEM TOO", because the builder then
+    // guarded the block with `kind !== 'constraint'` only. That pinned the
+    // defect: each item made the Question one end of a new causal link
+    // (decision → factor / outcome / risk), and CEE's `ALLOWED_EDGES` admits
+    // exactly one link at a decision, decision → option. The builder now also
+    // excludes `decision`, so the Question offers none of the three; options
+    // are added from its own panel. Contrast: the factor case above and the
+    // option case below still offer all three.
+    expectConnectedAddsWithheld()
     expectLocalSemanticActionsInert()
+  })
+
+  it('CONTRAST: an option card still offers the three connected adds (the Question alone loses them)', () => {
+    const node = {
+      id: 'o1',
+      type: 'option',
+      position: { x: 0, y: 0 },
+      data: { label: 'Raise price', kind: 'option' },
+    } as Node
+    const target: NodeTarget = {
+      kind: 'node',
+      nodeId: 'o1',
+      nodeType: 'option',
+      node,
+      screenPos: { x: 100, y: 100 },
+    }
+    render(
+      <CanvasContextMenu
+        target={target}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    expect(screen.getByText('Ask AI')).toBeInTheDocument()
+    expectConnectedAddsOffered()
   })
 
   it('keeps causal edges explainable and durably deletable without local edge edits', () => {

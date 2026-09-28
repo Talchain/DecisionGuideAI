@@ -109,13 +109,13 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
         <ClipboardList size={16} className="flex-none mt-0.5 text-info" aria-hidden="true" />
         <div className="space-y-2 min-w-0">
           {block.failure_scenario && (
-            <p className={typography.panelBody} data-testid="v5-exercise-failure-scenario">
+            <p className={typography.chatBody} data-testid="v5-exercise-failure-scenario">
               {block.failure_scenario}
             </p>
           )}
           {block.warning_signs && block.warning_signs.length > 0 && (
             <ul
-              className={`${typography.panelBody} ${PANEL_LIST_BULLET}`}
+              className={`${typography.chatBody} ${PANEL_LIST_BULLET}`}
               data-testid="v5-exercise-warning-signs"
             >
               {block.warning_signs.map((sign, i) => (
@@ -124,22 +124,22 @@ export function V5ExerciseBlock({ block }: V5ExerciseBlockProps): ReactElement {
             </ul>
           )}
           {block.mitigation && (
-            <p className={typography.panelBody} data-testid="v5-exercise-mitigation">
+            <p className={typography.chatBody} data-testid="v5-exercise-mitigation">
               {block.mitigation}
             </p>
           )}
           {block.reference_class && (
-            <p className={typography.panelBody} data-testid="v5-exercise-reference-class">
+            <p className={typography.chatBody} data-testid="v5-exercise-reference-class">
               {block.reference_class}
             </p>
           )}
           {block.counter_case && (
-            <p className={typography.panelBody} data-testid="v5-exercise-counter-case">
+            <p className={typography.chatBody} data-testid="v5-exercise-counter-case">
               {block.counter_case}
             </p>
           )}
           {block.review_trigger && (
-            <p className={typography.panelBody} data-testid="v5-exercise-review-trigger">
+            <p className={typography.chatBody} data-testid="v5-exercise-review-trigger">
               {block.review_trigger}
             </p>
           )}

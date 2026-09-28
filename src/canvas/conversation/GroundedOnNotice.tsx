@@ -213,7 +213,7 @@ export const GroundedOnNotice = memo(function GroundedOnNotice({
 
   return (
     <div
-      className={typo('panelMeta', 'mt-1.5 flex flex-col gap-0.5 text-text-muted')}
+      className={typo('chatMeta', 'mt-1.5 flex flex-col gap-0.5 text-text-muted')}
       data-testid="grounded-on-notice"
       data-unresolved={groundedSelection.unresolved}
     >
