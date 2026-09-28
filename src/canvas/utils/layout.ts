@@ -940,6 +940,9 @@ export async function layoutGraph(
     applyTierRowSplitting(positionMap, sizeMap, tierAssignments, MAX_CARDS_PER_ROW, fallbackBoxW, gap, effectiveLayerSpacing, splitterCreatedTiers, inTierCausalDepth(tierAssignments, edges))
     normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing, splitterCreatedTiers, promptRowFloorByTier)
     placeTierRowsOnSpine(positionMap, sizeMap, unlocked, tierAssignments, fallbackBoxW, gap, promptSlotByTier)
+    // X is final only now, so this is the first point the consequence row can be
+    // ordered against where its factors actually stand.
+    orderConsequenceRowsByUpstream(positionMap, sizeMap, tierAssignments, edges, fallbackBoxW)
   }
 
   applyCollisionGuard(positionMap, sizeMap, fallbackBoxW)
@@ -1387,6 +1390,111 @@ function applyGlobalTranslation(
 
   for (const [id, p] of positionMap) {
     positionMap.set(id, { x: p.x + offsetX, y: p.y + offsetY })
+  }
+}
+
+/** The outcome/risk row — read off the one tier map, never restated. */
+const CONSEQUENCE_TIER = TIER_BY_KIND.outcome
+
+/**
+ * How many pairs of links cross between one row and the cards on ONE side of
+ * it: two links cross when their row ends and their far ends are in opposite
+ * left-to-right order. Links sharing an end never count.
+ */
+function rowLinkCrossings(links: ReadonlyArray<readonly [string, string]>, x: (id: string) => number): number {
+  let n = 0
+  for (let i = 0; i < links.length; i++) {
+    const [r1, o1] = links[i]!
+    for (let j = i + 1; j < links.length; j++) {
+      const [r2, o2] = links[j]!
+      if (r1 === r2 || o1 === o2) continue
+      if ((x(r1) - x(r2)) * (x(o1) - x(o2)) < 0) n++
+    }
+  }
+  return n
+}
+
+/**
+ * ⭐ THE CONSEQUENCE ROW READS IN THE ORDER OF THE CARDS IT HANGS FROM
+ * (Paul's staging test, 28 Sep 2026; build-vs-buy, served 662afcfd).
+ *
+ * ELK's crossing pass orders the outcome/risk row against the factor layer AS
+ * ELK LAID IT OUT. `applyTierRowSplitting` then deals an eight-card factor band
+ * into two brick courses and `placeTierRowsOnSpine` re-places every X, so the
+ * order ELK chose is tuned to positions that no longer exist. On build-vs-buy
+ * the links into the consequence row crossed 33 times where 16 is the fewest
+ * any order reaches, drawn as a tangle of near-horizontal runs above the row.
+ *
+ * Once X is final, each consequence row is re-seated by the barycentre of its
+ * links from above (the mean centre-x of each card's far ends; a card with none
+ * keys on its own centre; ties keep the current order).
+ *
+ * ⭐ IT IS A PERMUTATION OF THE ROW'S OWN SLOTS, the argument
+ * `seatNodesIntoRankedSlots` makes: the multiset of positions is unchanged, so
+ * no card can land on another and no row, width or height moves. A row whose
+ * cards differ in width is left alone, because swapping unequal footprints is
+ * not a permutation.
+ *
+ * ⚠ IT IS APPLIED ONLY WHEN IT STRICTLY REDUCES CROSSINGS (links above plus
+ * links below). Barycentre is a heuristic and can be worse than the order it
+ * replaces (the spec holds a 6 → 7 case), so this step can only remove
+ * crossings, never add them. Nor may it lengthen the links that run between
+ * two cards of the same row (Paul's pa_vs_ai: risks into "Delegation quality").
+ */
+export function orderConsequenceRowsByUpstream(
+  positionMap: Map<string, { x: number; y: number }>,
+  sizeMap: Map<string, { width: number; height: number }>,
+  tierAssignments: Map<number, string[]>,
+  edges: ReadonlyArray<{ source: string; target: string }>,
+  fallbackBoxW: number,
+): void {
+  const tierIds = (tierAssignments.get(CONSEQUENCE_TIER) ?? []).filter((id) => positionMap.has(id))
+  if (tierIds.length < 2) return
+  const inTier = new Set(tierIds)
+  const widthOf = (id: string) => sizeMap.get(id)?.width ?? fallbackBoxW
+  const centreOf = (id: string) => positionMap.get(id)!.x + widthOf(id) / 2
+
+  for (const ids of groupByYRow(tierIds, positionMap).values()) {
+    if (ids.length < 2) continue
+    const w0 = widthOf(ids[0]!)
+    if (ids.some((id) => Math.abs(widthOf(id) - w0) > 0.5)) continue
+    const rowY = positionMap.get(ids[0]!)!.y
+    const inRow = new Set(ids)
+
+    const above: Array<[string, string]> = []
+    const below: Array<[string, string]> = []
+    const within: Array<[string, string]> = []
+    for (const e of edges) {
+      if (inRow.has(e.source) && inRow.has(e.target)) {
+        within.push([e.source, e.target])
+        continue
+      }
+      const [rowEnd, farEnd] = inRow.has(e.target) ? [e.target, e.source] : inRow.has(e.source) ? [e.source, e.target] : [null, null]
+      if (rowEnd === null || farEnd === null || inTier.has(farEnd) || !positionMap.has(farEnd)) continue
+      ;(positionMap.get(farEnd)!.y < rowY ? above : below).push([rowEnd, farEnd])
+    }
+    if (above.length === 0) continue
+
+    const barycentre = new Map<string, number>()
+    for (const id of ids) {
+      const far = above.filter(([r]) => r === id).map(([, f]) => centreOf(f))
+      barycentre.set(id, far.length > 0 ? far.reduce((s, v) => s + v, 0) / far.length : centreOf(id))
+    }
+    const slots = ids.map((id) => positionMap.get(id)!)
+    const proposed = [...ids].sort(
+      (a, b) => barycentre.get(a)! - barycentre.get(b)! || ids.indexOf(a) - ids.indexOf(b),
+    )
+    const seat = new Map(proposed.map((id, i) => [id, slots[i]!]))
+    const xNow = (id: string) => centreOf(id)
+    const xThen = (id: string) => (seat.has(id) ? seat.get(id)!.x + w0 / 2 : centreOf(id))
+    const before = rowLinkCrossings(above, xNow) + rowLinkCrossings(below, xNow)
+    const after = rowLinkCrossings(above, xThen) + rowLinkCrossings(below, xThen)
+    if (after >= before) continue
+    // A link between two cards of this row (a risk into an outcome) runs along
+    // the row; the reorder may not stretch those runs to buy fewer crossings.
+    const runLength = (x: (id: string) => number) => within.reduce((s, [a, b]) => s + Math.abs(x(a) - x(b)), 0)
+    if (runLength(xThen) > runLength(xNow)) continue
+    for (const [id, slot] of seat) positionMap.set(id, { x: slot.x, y: slot.y })
   }
 }
 

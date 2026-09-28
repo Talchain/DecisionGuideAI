@@ -805,11 +805,24 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    *     build-vs-buy          2a2c6211d90efe5f → 40d8a30bf4e3d86e
    *     headcount-allocation  6658988de0325df8 → c3da8d8cf745b35b
    *     pricing-model         c025b71cf3258ee6 → ed1e6305b0352d51
+   *
+   * ── CONSEQUENCE ROW RE-SEATED BY ITS LINKS (28 Sep 2026), a TENTH re-record ──
+   * `orderConsequenceRowsByUpstream` (utils/layout.ts) permutes the outcome/risk
+   * row within its own slots once X is final, only where that strictly cuts
+   * crossings: vendor-selection 19 → 15, market-entry 42 → 28, build-vs-buy
+   * 33 → 16 (utils/__tests__/consequenceRowOrder.spec.ts). A position dump of
+   * `layoutGraph` on all five starters with and without the step: 3 / 4 / 2
+   * cards moved, ALL in the consequence row, each row's set of slots identical,
+   * 0 other nodes moved; headcount-allocation and pricing-model did not move.
+   *
+   *     vendor-selection      e75cdc7250d8a971 → 63a32f7f74b6f6db
+   *     market-entry          2aa4a1d41f80be6b → abc6b4ea3da1647b
+   *     build-vs-buy          40d8a30bf4e3d86e → 1493922d2fcf8e20
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: 'e75cdc7250d8a971', nodes: 19 },
-    'market-entry': { digest: '2aa4a1d41f80be6b', nodes: 18 },
-    'build-vs-buy': { digest: '40d8a30bf4e3d86e', nodes: 19 },
+    'vendor-selection': { digest: '63a32f7f74b6f6db', nodes: 19 },
+    'market-entry': { digest: 'abc6b4ea3da1647b', nodes: 18 },
+    'build-vs-buy': { digest: '1493922d2fcf8e20', nodes: 19 },
     'headcount-allocation': { digest: 'c3da8d8cf745b35b', nodes: 16 },
     'pricing-model': { digest: 'ed1e6305b0352d51', nodes: 15 },
   }
@@ -863,6 +876,10 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    * of `out_` ids in `applyTierRowSplitting` left all five sizes-only arms
    * GREEN. Bound by id, the same mutant REDs the four five-card starters by name.
    *
+   * 28 Sep 2026: vendor-selection, market-entry and build-vs-buy re-recorded — the
+   * consequence row is re-seated by its links within the same slots (see the TENTH
+   * re-record note on CANONICAL_SHAPE); the ids per band are unchanged.
+   *
    * 27 Sep 2026: Paul's laptop-width ruling — five per row, anchors ≤720, row gap 40.
    * Every shipped consequence layer (five or four cards) is ONE row again, so
    * each record below is its one-row reading order — the same ids, in the same
@@ -871,13 +888,13 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 
    */
   const CONSEQUENCE_SUB_ROWS: Record<StarterId, string[][]> = {
     'vendor-selection': [
-      ['out_budget_headroom', 'risk_gdpr_breach', 'risk_team_overload', 'risk_migration_delay', 'out_platform_capability'],
+      ['out_budget_headroom', 'risk_migration_delay', 'risk_gdpr_breach', 'risk_team_overload', 'out_platform_capability'],
     ],
     'market-entry': [
-      ['out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag', 'risk_uk_distraction', 'risk_team_overstretch'],
+      ['risk_uk_distraction', 'out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag', 'risk_team_overstretch'],
     ],
     'build-vs-buy': [
-      ['risk_eng_overload', 'out_delivery_speed', 'risk_billing_errors', 'out_billing_accuracy', 'risk_vendor_lock'],
+      ['risk_eng_overload', 'out_billing_accuracy', 'risk_billing_errors', 'out_delivery_speed', 'risk_vendor_lock'],
     ],
     'headcount-allocation': [
       ['out_reliability', 'risk_eng_attrition', 'risk_churn', 'out_new_arr', 'risk_sales_miss'],
