@@ -14,7 +14,8 @@
  * Every caller therefore grew its own string→kind mapping, and by 2026-08 the
  * three had drifted:
  *
- *   GoalNode.tsx      percent → rounded; 'count'/'' → bare; currency → symbol;
+ *   GoalNode.tsx      percent → rounded (retired 27 Sep, F4 — see below);
+ *                     'count'/'' → bare; currency → symbol;
  *                     otherwise "N unit"                        ← correct
  *   NodeInspector.tsx ANY non-count, non-percent unit → 'currency', so a
  *                     "months" target renders as "months9"      ← latent bug
@@ -39,12 +40,14 @@
  *
  * DECLARED, DELIBERATE INHERITANCE — ISO SPACING
  * ----------------------------------------------
- * An ISO code renders with NO space ("GBP800,000") because `formatTargetValue`
+ * An ISO code renders with NO space ("CHF800,000") because `formatTargetValue`
  * treats its third argument as a symbol. That is the canvas card's existing
  * output; preserving it keeps this extraction behaviour-preserving for the
  * card. It differs from `formatValueWithUnit`'s §2.4 spec ("ISO prefix WITH a
  * space") and is pinned in the spec so a future correction is a decision
- * rather than a drift.
+ * rather than a drift. ⭐ The decision WAS taken on 27 Sep 2026 for the three
+ * codes with an unambiguous glyph (`ISO_CURRENCY_GLYPHS`): `GBP` reads
+ * `£800,000`, as the contract and the limit pills write money.
  *
  * `'count'` IS SUPPRESSED, AND THAT IS THE ESTATE'S EXISTING RULE
  * --------------------------------------------------------------
@@ -70,7 +73,7 @@
  * question "is this value on a normalised scale?". Joining it would make a
  * 0.8 count render as "very high".
  */
-import { classifyUnit, compactUnitParts, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
+import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
 
 /**
@@ -86,8 +89,20 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
 
   const { kind, canonical } = classifyUnit(unit ?? null)
 
-  // Percent: rounded to whole percentage points, as the canvas card does.
-  if (kind === 'percent') return formatTargetValue(Math.round(value), 'percent')
+  /**
+   * Percent: the user's own figure, never rounded to whole points.
+   *
+   * ⛔ THIS WAS `Math.round(value)` UNTIL 27 Sep 2026 (canvas audit edit-values
+   * F4). A target set to "at least 99.5%" read `Target: 100%` on the card and in
+   * the inspector — a STRICTER target than the user set — while the limit pill
+   * beside it (`goalConstraintText`, `${value}%`), Chat and the persisted
+   * `goal_threshold_raw` all said 99.5%. The rounding was a card convention
+   * carried into the consolidation, not a design rule.
+   *
+   * `toPrecision(12)` strips binary float noise (`0.07 * 100` →
+   * 7.000000000000001 → 7) and nothing a person could have typed.
+   */
+  if (kind === 'percent') return formatTargetValue(Number(value.toPrecision(12)), 'percent')
 
   /**
    * A unit that names no real-world scale — render the bare magnitude.
@@ -109,8 +124,21 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
    */
   if (!unitIsDisplayable(unit)) return formatTargetValue(value)
 
-  // Currency, symbol or ISO code, prefixed.
-  if (kind === 'symbol' || kind === 'iso') return formatTargetValue(value, 'currency', canonical)
+  /**
+   * Currency, symbol or ISO code, prefixed.
+   *
+   * ⭐ AN ISO CODE WITH AN UNAMBIGUOUS GLYPH READS AS THE GLYPH (canvas audit
+   * paul-models POM-9 + side-by-side item 6, 27 Sep 2026). `GBP` printed
+   * `GBP800,000` — the code jammed against the figure — beside limit pills that
+   * already read `≤£20,000` and a contract that writes every amount `£20,000`.
+   * The one glyph map (`ISO_CURRENCY_GLYPHS`: GBP, USD, EUR) decides; any other
+   * code keeps the declared, inherited no-space form (`CHF800,000`, pinned).
+   */
+  if (kind === 'symbol') return formatTargetValue(value, 'currency', canonical)
+  if (kind === 'iso') return formatTargetValue(value, 'currency', ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] ?? canonical)
+
+  const magnitude = currencyMagnitudeTarget(value, canonical)
+  if (magnitude !== null) return magnitude
 
   /**
    * A real unit ('months', 'users', …) — suffixed, after a space, because it is
@@ -139,4 +167,35 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
   const compact = compactUnitParts(value.toLocaleString(), canonical)
   if (compact !== null) return joinCompactUnitParts(compact)
   return `${value.toLocaleString()} ${canonical}`
+}
+
+/** A currency token with a magnitude letter written onto it, then optional words: `£M ARR`, `$k`, `£bn revenue`. */
+const CURRENCY_MAGNITUDE_UNIT = /^(\S+?)(k|m|bn|b)(?:\s+(\S.*))?$/i
+
+/**
+ * ⭐ `11` + `£M ARR` READS `£11M ARR` — the contract's money notation (canvas
+ * side-by-side vs contract v3.1, item 6: the market-entry Goal read
+ * `Target: 11 £M ARR`, the currency AFTER the number and the unit echoed raw;
+ * the contract writes `£20,000 / month`).
+ *
+ * The producer carries the scale INSIDE the unit (`goal_threshold_raw: 11`,
+ * `goal_threshold_unit: "£M ARR"` — the market-entry starter and 12 captured
+ * boards). The glyph moves onto the figure and the magnitude letter stays
+ * exactly where the producer wrote it, after the digits: `£` + `11` + `M`, then
+ * the words (`ARR`). ⛔ The digits never change and nothing is scaled — `11 £M`
+ * is not rewritten as `11,000,000`, and `m` is not re-cased.
+ *
+ * Returns `null` (the caller prints exactly what it printed before) unless the
+ * head is a currency glyph, or an ISO code with a glyph in `ISO_CURRENCY_GLYPHS`,
+ * with ONE magnitude letter (`k`, `m`, `bn`, `b`, either case) written onto it,
+ * and the figure is not negative (the same sign rule `compactUnitParts` keeps).
+ */
+function currencyMagnitudeTarget(value: number, unit: string): string | null {
+  const m = CURRENCY_MAGNITUDE_UNIT.exec(unit.trim())
+  if (m === null || value < 0) return null
+  const { kind, canonical } = classifyUnit(m[1])
+  const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+  if (glyph === undefined) return null
+  const words = m[3] === undefined ? '' : ` ${m[3].trim()}`
+  return `${glyph}${value.toLocaleString()}${m[2]}${words}`
 }

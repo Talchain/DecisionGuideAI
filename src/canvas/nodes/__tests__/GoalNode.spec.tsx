@@ -379,12 +379,21 @@ describe('GoalNode', () => {
     expect(screen.getByText(/Target:/)).toBeDefined()
   })
 
-  // Assessment fix: float percent thresholds must be rounded to integer
-  it('rounds float percent threshold to integer: 85.5% → 86%', () => {
+  /**
+   * ⛔ RE-PINNED 27 Sep 2026 (canvas audit edit-values F4). This row was
+   * "Assessment fix: float percent thresholds must be rounded to integer" and
+   * pinned `85.5% → 86%`. The rounding (2f3b7420a, "consistent with all other
+   * percentage displays") was a display convention, not a truth rule — and it
+   * made the card state a STRICTER target than the user set: "at least 99.5%"
+   * read `Target: 100%` beside a limit pill, Chat and the persisted
+   * `goal_threshold_raw` all saying 99.5%. The card now prints the user's own
+   * figure (`formatGoalTarget`, the same re-pin as `formatGoalTarget.spec.ts`).
+   */
+  it("prints a float percent threshold at the user's own precision: 85.5% stays 85.5%", () => {
     renderGoal({ goal_threshold_raw: 85.5, goal_threshold_unit: '%' })
     const el = screen.getByText(/Target:/)
-    expect(el.textContent).toContain('86%')
-    expect(el.textContent).not.toContain('85.5%')
+    expect(el.textContent).toContain('Target: 85.5%')
+    expect(el.textContent).not.toContain('86%')
   })
 
   // P1.4: null and empty string must NOT display threshold — show coaching prompt instead

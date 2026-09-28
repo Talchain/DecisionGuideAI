@@ -10,7 +10,7 @@
  * sends, so every caller hand-rolled the string→kind mapping and the three
  * copies drifted:
  *
- *   GoalNode.tsx      percent → round; 'count'/'' → bare; currency → symbol;
+ *   GoalNode.tsx      percent → round (retired 27 Sep, F4); 'count'/'' → bare; currency → symbol;
  *                     else "N unit"
  *   NodeInspector.tsx percent → as-is; ANY non-count unit → 'currency'
  *                     (so "months" renders as a currency symbol)
@@ -24,11 +24,12 @@
  *
  * DELIBERATELY PRESERVED FROM GoalNode, NOT "FIXED" HERE
  * -----------------------------------------------------
- * An ISO code renders WITHOUT a space ("GBP800,000") because
+ * An ISO code renders WITHOUT a space ("CHF800,000") because
  * `formatTargetValue` treats the third argument as a symbol. That is the
  * canvas card's existing output and changing it is a separate, visible copy
  * change; it is pinned below so the choice is deliberate and any future fix
- * is a decision rather than a drift.
+ * is a decision rather than a drift. (27 Sep 2026: that decision was taken for
+ * GBP/USD/EUR, which now read as their glyph — `£800,000`.)
  */
 import { describe, it, expect } from 'vitest'
 import { formatGoalTarget } from '../formatGoalTarget'
@@ -70,8 +71,29 @@ describe('formatGoalTarget', () => {
     expect(formatGoalTarget(85, '%')).toBe('85%')
     expect(formatGoalTarget(85, 'percent')).toBe('85%')
     expect(formatGoalTarget(85, 'percentage')).toBe('85%')
-    // Rounded, exactly as the canvas card does.
-    expect(formatGoalTarget(84.6, '%')).toBe('85%')
+    /**
+     * ⛔ RE-PINNED 27 Sep 2026 (canvas audit edit-values F4). This row used to
+     * read `84.6 → '85%'`, "rounded, exactly as the canvas card does". That pin
+     * recorded the defect, not a design rule: a user who set "at least 99.5%"
+     * saw `Target: 100%` on the card and in the inspector while the limit pill
+     * beside it, Chat and the persisted `goal_threshold_raw` all said 99.5%.
+     * A target is the user's own number; the card may not state a stricter one.
+     */
+    expect(formatGoalTarget(84.6, '%')).toBe('84.6%')
+  })
+
+  it("keeps the user's own precision on a percent target — 99.5% never reads 100% (F4)", () => {
+    expect(formatGoalTarget(99.5, '%')).toBe('99.5%')
+    expect(formatGoalTarget(99.5, 'percent')).toBe('99.5%')
+    expect(formatGoalTarget(99.5, 'percentage')).toBe('99.5%')
+    expect(formatGoalTarget(99.4, '%')).toBe('99.4%')
+    expect(formatGoalTarget(0.5, '%')).toBe('0.5%')
+    // Float noise from arithmetic upstream is not precision the user stated.
+    expect(formatGoalTarget(0.07 * 100, '%')).toBe('7%')
+    expect(formatGoalTarget(1.1 * 100, '%')).toBe('110%')
+    // Controls: a whole percent and the other unit kinds are unchanged.
+    expect(formatGoalTarget(97, '%')).toBe('97%')
+    expect(formatGoalTarget(99.5, 'months')).toBe('99.5 months')
   })
 
   it('renders a real unit as a trailing suffix', () => {
@@ -89,9 +111,10 @@ describe('formatGoalTarget', () => {
     expect(formatGoalTarget(0, '% change')).toBe('0% change')
     expect(formatGoalTarget(12.5, '% uplift')).toBe('12.5% uplift')
     expect(formatGoalTarget(1500, '%  change ')).toBe('1,500%  change')
-    // Discriminating controls: the percent kind is still rounded, and a unit
-    // WORD that merely contains a percent sign later keeps its space.
-    expect(formatGoalTarget(84.6, '%')).toBe('85%')
+    // Discriminating controls: the percent kind keeps its own figure (F4 —
+    // it was rounded to '85%' until 27 Sep), and a unit WORD that merely
+    // contains a percent sign later keeps its space.
+    expect(formatGoalTarget(84.6, '%')).toBe('84.6%')
     expect(formatGoalTarget(3, 'pp of %')).toBe('3 pp of %')
     expect(formatGoalTarget(9, 'months')).toBe('9 months')
   })
@@ -138,7 +161,17 @@ describe('formatGoalTarget', () => {
     // Documented departure from formatValueWithUnit's §2.4 spec ("ISO prefix
     // WITH a space"). Preserved so this extraction is behaviour-preserving for
     // the canvas card; changing it is a separate copy decision.
-    expect(formatGoalTarget(800000, 'GBP')).toBe('GBP800,000')
+    //
+    // ⛔ RE-PINNED 27 Sep 2026 (canvas side-by-side vs contract v3.1, item 6,
+    // with POM-9 "money written four ways"). This row read `GBP → 'GBP800,000'`.
+    // That decision is now taken, for the three codes whose glyph is
+    // unambiguous (`ISO_CURRENCY_GLYPHS`): the contract writes every amount with
+    // its glyph (`£20,000 / month`) and the limit pills beside the target
+    // already read `≤£20,000`. Any other code keeps the inherited no-space form,
+    // pinned here so its correction is still a decision rather than a drift.
+    expect(formatGoalTarget(800000, 'GBP')).toBe('£800,000')
+    expect(formatGoalTarget(6000000, 'USD')).toBe('$6,000,000')
+    expect(formatGoalTarget(800000, 'CHF')).toBe('CHF800,000')
   })
 
   it('returns null for a non-finite value rather than rendering "NaN" at the user', () => {

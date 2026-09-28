@@ -23,7 +23,7 @@ import {
   formatInterventionChange,
   formatInterventionTargetText,
 } from '../utils/interventionDisplay'
-import { resolveOptionIsBaseline } from '../utils/baselineDetection'
+import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodePopover, ScienceIcon } from './shared'
 import { CoachingChipRow } from './coaching/CoachingChipRow'
@@ -174,7 +174,7 @@ import {
 import { NodeRailIcon } from './shared/NodeRailIcons'
 import { LAST_RUN_PREFIX, OPTION_BASELINE_REFERENCE, OPTION_RESULT_COPY } from './shared/metricVocabulary'
 import { STATE_WORD_CLASSES, STATE_WORD_STYLE } from './shared/StatusPill'
-import { useRunCurrency, optionResultCaption, optionResultCompactCaption } from './shared/runCurrency'
+import { useRunCurrency, optionResultCaption, optionResultCompactCaption, optionResultCurrencyNote } from './shared/runCurrency'
 import { leaderWithholdCause } from '../../components/results/analysisNew/analysisNewCopy'
 import { ValueSourceMark, VALUE_SOURCE_MARK_TOKEN } from './shared/valueSourceMark'
 import { parseDraftingNotes } from '../ui/inspector-v2/draftingNote'
@@ -414,9 +414,11 @@ export function differentiatorAddsBeyondRows(
  */
 function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
-  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }[] } | null,
 ): Map<string, OptionDifferentiator | null> {
   const result = new Map<string, OptionDifferentiator | null>()
+  // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
+  const declaredBaseline = graphDeclaresBaseline(nodes, ceeAnalysisReady?.options)
 
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
@@ -432,7 +434,7 @@ function computeAllDifferentiators(
     // Explicit `false` must suppress the regex (prevents "Baseline" labels on
     // non-baseline options from being treated as baseline).
     const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
-    if (resolveOptionIsBaseline(optNode.data as any, ceeOpt)) continue
+    if (resolveOptionIsBaseline(optNode.data as any, ceeOpt, declaredBaseline)) continue
     const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
     if (!interventions || typeof interventions !== 'object') continue
     const map = new Map<string, InterventionEntry>()
@@ -725,6 +727,12 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
+  /**
+   * POM-3: does any option on this board DECLARE the baseline? Then the label
+   * guess may not make this card (or a sibling) a second one. One derivation,
+   * read by every `resolveOptionIsBaseline` call on this card.
+   */
+  const declaredBaseline = useMemo(() => graphDeclaresBaseline(nodes, ceeAnalysisReady?.options), [nodes, ceeAnalysisReady])
   // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
   // gates on the USER target (store goalThreshold) — never on producer value
   // presence. The producer returns a joint/goal probability even with no user
@@ -916,8 +924,8 @@ export const OptionNode = memo((props: NodeProps) => {
 
   const isBaselineOption = useMemo(() => {
     // Node flag, then CEE's typed options entry, then the label heuristic.
-    return resolveOptionIsBaseline(props.data as any, ceeAnalysisReady?.options?.find(o => o.id === props.id))
-  }, [props.data, props.id, ceeAnalysisReady])
+    return resolveOptionIsBaseline(props.data as any, ceeAnalysisReady?.options?.find(o => o.id === props.id), declaredBaseline)
+  }, [props.data, props.id, ceeAnalysisReady, declaredBaseline])
 
   // A before-reference must identify an actual option. A factor's observed
   // value may be a proposal, and a label containing "status quo" is not a
@@ -1097,7 +1105,7 @@ export const OptionNode = memo((props: NodeProps) => {
     for (const n of nodes) {
       if (n.type !== 'option' && n.data?.type !== 'option') continue
       const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === n.id)
-      const isBaseline = resolveOptionIsBaseline(n.data as any, ceeOpt)
+      const isBaseline = resolveOptionIsBaseline(n.data as any, ceeOpt, declaredBaseline)
       // ⭐ The card's target resolution — CEE map joined with its details, and
       // a bare producer number never erasing the node's own receipt-stamped
       // `source` — now lives in `resolveOptionTargets`, moved verbatim, so the
@@ -1114,7 +1122,7 @@ export const OptionNode = memo((props: NodeProps) => {
       out.push({ id: n.id, isBaseline, targets, unsetTargets: new Set(unset.keys()), unsetSources: unset })
     }
     return out
-  }, [nodes, ceeAnalysisReady])
+  }, [nodes, ceeAnalysisReady, declaredBaseline])
 
   // Every CONCRETE change this option makes, in the shared order — computed for
   // the baseline too, whose card states no rows but must say whether it makes
@@ -1408,11 +1416,11 @@ export const OptionNode = memo((props: NodeProps) => {
     }
     const hasDuplicate = optionNodes.some(n => {
       if (n.id === props.id || isLeader(n.id)) return false
-      const siblingIsBaseline = resolveOptionIsBaseline(n.data as any, ceeAnalysisReady?.options?.find(o => o.id === n.id))
+      const siblingIsBaseline = resolveOptionIsBaseline(n.data as any, ceeAnalysisReady?.options?.find(o => o.id === n.id), declaredBaseline)
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason
-  }, [isPostAnalysis, isRecommended, modelLicensesComparativeClaim, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, displayMetadata.winComputationFailed])
+  }, [isPostAnalysis, isRecommended, modelLicensesComparativeClaim, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, declaredBaseline, displayMetadata.winComputationFailed])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
@@ -1886,11 +1894,7 @@ export const OptionNode = memo((props: NodeProps) => {
           : shareIsProvisional
             ? leaderWithholdCause(shareProvisionalCause)
             : null,
-        runCurrency === 'changed'
-          ? `${OPTION_RESULT_COPY.changedNote} ${OPTION_RESULT_COPY.noNewComparisonNote}`
-          : runCurrency === 'current'
-            ? null
-            : OPTION_RESULT_COPY.unconfirmedNote,
+        optionResultCurrencyNote(runCurrency),
       ].filter(Boolean).join(' ')
     : ''
 

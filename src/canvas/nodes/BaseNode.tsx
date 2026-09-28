@@ -41,6 +41,7 @@ import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { isFactorNeedsInput } from '../utils/observedStateHelpers'
+import { graphDeclaresBaseline } from '../utils/baselineDetection'
 import { resolveLodMetricLineDetail } from './shared/lodMetricLine'
 import { driverRankFor, useInfluenceRank } from '../hooks/useInfluenceRank'
 import { ESTIMATE_SUBJECT_TITLE } from './shared/EstimateMarker'
@@ -601,6 +602,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const edges = useCanvasStore(s => s.edges)
   const isPreRunMode = resultsStatus !== 'complete'
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  // POM-3: a boolean selector (React-185 safe) — does any option DECLARE the baseline?
+  const graphHasDeclaredBaseline = useCanvasStore(s => nodeType === 'option' && graphDeclaresBaseline(s.nodes, s.ceeAnalysisReady?.options))
 
   /**
    * ⚠ THE FACT THAT DOES NOT LIVE ON THE NODE, and whose absence was the
@@ -655,10 +658,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         nodeId: id,
         data: data as Record<string, unknown> | undefined,
         ceeOptions: ceeAnalysisReady?.options,
+        graphHasDeclaredBaseline,
       }),
       optionResultCaption: resultCaption ?? null,
     }
-  }, [bodyReduced, nodeType, id, ceeAnalysisReady, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, resultCaption, resultsFromLastRun])
+  }, [bodyReduced, nodeType, id, ceeAnalysisReady, graphHasDeclaredBaseline, data, influenceRank, displayMetadata.sensitivityRank, displayMetadata.influenceSetSize, displayMetadata.influenceRankedCount, resultCaption, resultsFromLastRun])
 
   const lodBody = useMemo<{ text: string | null; unconfirmedEstimate: boolean }>(() => {
     if (!bodyReduced) return { text: null, unconfirmedEstimate: false }
@@ -927,6 +931,25 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       const ceeOption = ceeAnalysisReady.options?.find(opt => opt.id === id)
       if (!ceeOption) return false // Option not in analysisReady — not necessarily incomplete
+      /**
+       * ⛔ THE DECLARED BASELINE NEEDS NO INPUT (canvas audit paul-models POM-1).
+       * CEE sends the baseline with `interventions: {}` BY DESIGN — status
+       * 'ready', "every factor holds at its observed value, so no effect values
+       * are needed" — so the empty-map arm below put "Needs input" on the
+       * baseline of every real CEE model (all 4 of Paul's boards). Typed flags
+       * only, never the label heuristic: a "keep …" option that genuinely lacks
+       * values must still be flagged.
+       */
+      if (ceeOption.is_baseline === true || (data as { is_baseline?: unknown } | undefined)?.is_baseline === true) return false
+      /**
+       * ⭐ AND THE OPTION CEE SAYS IS MISSING A VALUE IS MARKED (POM-1, second
+       * half). Its typed `analysis_ready.blockers[]` entry (`option_id` +
+       * `blocker_type: 'missing_value'`) is the producer's own statement — read,
+       * never derived. On 90b8 the option CEE blocked on
+       * `fac_existing_customers_grandfathered` carried one set target, so the
+       * empty-map arm alone never saw it.
+       */
+      if (ceeAnalysisReady.blockers?.some(b => b.option_id === id && b.blocker_type === 'missing_value')) return true
       return !ceeOption.interventions || Object.keys(ceeOption.interventions).length === 0
     }
     return false

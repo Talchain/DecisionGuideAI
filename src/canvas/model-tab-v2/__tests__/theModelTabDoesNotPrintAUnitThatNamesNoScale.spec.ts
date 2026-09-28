@@ -156,9 +156,9 @@ describe('⭐ the Model tab goal row prints no unit that names no scale', () => 
    *
    * `formatGoalTarget` and this adapter answer the same question ("how do I
    * show this goal target to a reader?") but carry deliberately different,
-   * separately-pinned house style: `formatGoalTarget` rounds a percent and
-   * renders the canonical glyph ("20%"), prefixes an ISO code with NO space
-   * ("GBP800,000", a declared inheritance from the canvas card) and returns
+   * separately-pinned house style: `formatGoalTarget` renders the canonical
+   * percent glyph ("20%", at the user's own precision since 27 Sep), prefixes
+   * an ISO code as its glyph or with NO space ("£800,000", "CHF800,000") and returns
    * null for a non-finite value; the Model tab echoes the producer's percent
    * spelling ("20 percent"), spaces an ISO code ("USD 1,200", fixed 10 Sep
    * 2026 after a witnessed defect) and carries a string-raw arm. Asserting

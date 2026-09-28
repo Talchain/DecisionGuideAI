@@ -79,6 +79,46 @@ describe('⛔ it only displaces a MAGNITUDE SUMMARY, never contextual copy', () 
   })
 })
 
+/**
+ * ⭐ F6 (canvas audit 27 Sep, edit-values; served `23ff3ca8`, pricing-model).
+ * After the user set Usage-Based Pricing Exposure to 1, CEE's readback carried
+ * `display_value: "1"`, `raw_value: 1`, no unit, beside `encoding_map {0: "No
+ * usage pricing", 1: "Full usage pricing"}`. The card read "1 Set by you" while
+ * the option rows on the same board read "No usage pricing → Full usage
+ * pricing". A bare figure EQUAL to the node's own value is the plainest
+ * restatement of that value there is — the map's meaning outranks it, exactly
+ * as it outranks "High (1)".
+ */
+describe('F6 — a bare restated figure is a summary too: the map wins after a user edit', () => {
+  it('the served readback shape reads the map phrase, not "1"', () => {
+    expect(formatFactorDisplayValue({
+      ...base, value: 1, raw_value: 1, display_value: '1',
+      encoding_map: { '0': 'No usage pricing', '1': 'Full usage pricing' },
+    })).toBe('Full usage pricing')
+    expect(formatFactorDisplayValue({
+      ...base, value: 0, raw_value: 0, display_value: '0',
+      encoding_map: { '0': 'No usage pricing', '1': 'Full usage pricing' },
+    })).toBe('No usage pricing')
+    // With the provenance the served readback carried (the person typed it).
+    expect(formatFactorDisplayValue({
+      ...base, value: 1, raw_value: 1, display_value: '1', value_source: 'user_override',
+      encoding_map: { '0': 'No usage pricing', '1': 'Full usage pricing' },
+    })).toBe('Full usage pricing')
+  })
+
+  it('CONTRAST — the same bare figure with no map stays the figure', () => {
+    expect(formatFactorDisplayValue({ ...base, value: 1, raw_value: 1, display_value: '1' })).toBe('1')
+  })
+
+  it('CONTRAST — a bare figure that is NOT the node\'s value is not a restatement', () => {
+    // "4" beside value 1: the map's phrase for 1 would contradict the string.
+    expect(formatFactorDisplayValue({
+      ...base, value: 1, display_value: '4',
+      encoding_map: { '0': 'No usage pricing', '1': 'Full usage pricing' },
+    })).not.toBe('Full usage pricing')
+  })
+})
+
 describe('⛔ and it never invents one', () => {
   /**
    * ⭐ THE CASE THAT DECIDES THE IMPLEMENTATION, and it is a real capture.

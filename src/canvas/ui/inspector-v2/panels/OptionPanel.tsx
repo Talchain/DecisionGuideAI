@@ -15,6 +15,7 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
+import { useRunCurrency, optionResultCaption, optionResultCurrencyNote } from '../../../nodes/shared/runCurrency'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useOptionInterventionCommit } from '../shared/useOptionInterventionCommit'
@@ -26,7 +27,7 @@ import {
   OPTION_STRINGS,
 } from '../inspectorStrings'
 import { formatFactorValue, unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
-import { resolveOptionIsBaseline } from '../../../utils/baselineDetection'
+import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
@@ -220,6 +221,17 @@ export const OptionPanel = memo(function OptionPanel({
     dismiss: dismissIntervention,
   } = useOptionInterventionCommit(nodeId ?? null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'option')
+  /**
+   * ⭐ THE RESULT'S CAPTION FOLLOWS THE RUN'S CURRENCY, AS THE CARD'S DOES
+   * (canvas audit edit-values F5). This read `Current model` unconditionally,
+   * so after an edit the card said `Last run 62% of runs` and this panel said
+   * `62% Current model · of runs`, titled "the model as it stands" — a result
+   * CEE itself had marked `complete_stale`. Same owner as the card
+   * (`OptionNode`): `useRunCurrency` → `optionResultCaption`.
+   */
+  const runCurrency = useRunCurrency()
+  const resultCaption = optionResultCaption(runCurrency) ?? OPTION_RESULT_COPY.unconfirmed
+  const resultCurrencyNote = optionResultCurrencyNote(runCurrency)
 
   // ROADMAP 2.1204 — the drafter's rephrase-absorption notes are separated
   // from the user's description. CEE APPENDS `\n\n<note>` per absorbed twin
@@ -474,9 +486,12 @@ export const OptionPanel = memo(function OptionPanel({
   // Baseline indication — mirrors OptionNode.tsx. Explicit `is_baseline` wins;
   // regex fallback only fires when the flag is absent (null/undefined).
   const optionData = node?.data as OptionNodeData | undefined
+  const arOptionsForBaseline = (ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options
   const isBaselineOption = resolveOptionIsBaseline(
     optionData,
-    (ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options?.find(o => o.id === nodeId),
+    arOptionsForBaseline?.find(o => o.id === nodeId),
+    // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
+    graphDeclaresBaseline(nodes, arOptionsForBaseline),
   )
 
   /**
@@ -930,9 +945,10 @@ export const OptionPanel = memo(function OptionPanel({
                     </div>
                     <div
                       className={`${typography.panelMeta} text-text-light`}
-                      title={OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate))}
+                      title={[OPTION_RESULT_COPY.sentence(formatWinProbability(displayMetadata.winRate)), resultCurrencyNote].filter(Boolean).join(' ')}
+                      data-testid="option-panel-result-caption"
                     >
-                      {OPTION_RESULT_COPY.current} · of runs
+                      {resultCaption} · of runs
                     </div>
                     <ResultsLink label="Compare all options" tab="compare" />
                   </div>
@@ -1009,6 +1025,14 @@ export const OptionPanel = memo(function OptionPanel({
               {/* Comparison bars */}
               {allOptions.length > 1 && allOptions.some(o => o.winPct != null) && (
                 <div className="mt-2">
+                  {/* F5: after the model changes these are the LAST run's
+                      shares — labelled with the contract's stale-option words
+                      (v3 §02, `lastRunNoNewComparison`), never shown bare. */}
+                  {runCurrency === 'changed' && (
+                    <p className={`${typography.panelMeta} text-text-light`} data-testid="option-panel-compare-last-run">
+                      {OPTION_RESULT_COPY.lastRunNoNewComparison}
+                    </p>
+                  )}
                   {allOptions.map(o => (
                     <div key={o.id} className="flex items-center gap-2 py-0.5">
                       <span

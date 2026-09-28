@@ -32,6 +32,7 @@ import { mapV5AnalysisToReport } from '../../v5/mapV5AnalysisToReport'
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import { rankingWasWithheld } from '../../components/results/leaderDesignation'
 import served from './fixtures/served-0303ef5-pricing-withheld-run.json'
+import { optionResultCaption } from '../nodes/shared/runCurrency'
 
 afterEach(() => {
   cleanup()
@@ -41,6 +42,8 @@ afterEach(() => {
     nodes: [] as never,
     hasCompletedFirstRun: false,
     lens: { ...useCanvasStore.getState().lens, active: 'full' },
+    analysisFreshness: null,
+    analysisFreshnessDirty: false,
   } as never)
 })
 
@@ -115,6 +118,14 @@ describe('the outcome inspector does not rank options whose ranking was withheld
     const report = mapV5AnalysisToReport(served.analysis_result as never, {} as never) as unknown as Record<string, unknown>
     useCanvasStore.setState({
       hasCompletedFirstRun: true,
+      // ⚠ SEEDED CURRENT, EXPLICITLY (27 Sep, audit F5 — review r2 blocker 3).
+      // The share caption now follows the run's currency as the option card's
+      // does; with no freshness verdict it reads `Model result`. This seed had
+      // none and its strip below hard-coded `Current model`, so every label
+      // kept its caption and all three ordering tests failed on a correct
+      // render. The strip is bound to the caption for THIS seeded state.
+      analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+      analysisFreshnessDirty: false,
       nodes: [
         { id: 'out1', type: 'outcome', position: { x: 0, y: 0 }, data: { label: 'MRR', kind: 'outcome' } },
         ...(opts.canvasOptions ?? served.options).map((o, i) => ({
@@ -146,7 +157,10 @@ describe('the outcome inspector does not rank options whose ranking was withheld
   function renderedOrder(): string[] {
     render(<OutcomePanel nodeId="out1" techMode={false} onClose={() => {}} onNavigate={() => {}} />)
     const section = screen.getByTestId('option-comparison-section')
-    return [...section.querySelectorAll('button')].map((b) => (b.textContent ?? '').replace(/Current model.*/, '').replace(/\d+%.*$/, '').trim())
+    // The caption the panel renders for the seeded (current) run — from the owner, not a literal.
+    const caption = optionResultCaption('current')!
+    const captionAndAfter = new RegExp(`${caption.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`)
+    return [...section.querySelectorAll('button')].map((b) => (b.textContent ?? '').replace(captionAndAfter, '').replace(/\d+%.*$/, '').trim())
   }
 
   const recommendation = () => renderHook(() => useResultsSectionData()).result.current.recommendation

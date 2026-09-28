@@ -238,6 +238,9 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
     return { figure, unit: `/ ${outOf[2]}` }
   }
 
+  const currencyHead = currencyHeadParts(figure, trimmed)
+  if (currencyHead !== undefined) return currencyHead
+
   const rate = COMPOUND_RATE_UNIT.exec(trimmed)
   if (!rate) return null
   const head = rate[1].trim()
@@ -259,6 +262,51 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
   if (kind === 'percent') return { figure: applyUnitPlacement(figure, head), unit: `/ ${period}` }
   if (kind === 'other' && !slashed) return { figure, unit: `${canonical} / ${period}` }
   return null
+}
+
+/** A currency token, then at least one more word: `GBP over 6 months`, `£ MRR`. */
+const CURRENCY_HEAD_UNIT = /^(\S+)\s+(\S.*)$/
+
+/**
+ * ⭐ `<currency> <words>` → the glyph on the figure, the words after it
+ * (canvas audit paul-models POM-9: money written four ways on one board).
+ *
+ * The rate arm above only knew `<currency> per|/ <period>`, so every OTHER
+ * currency-led unit printed the ISO code as a trailing word beside a card that
+ * printed `£49 / month`: `0 GBP over 6 months`, `1,000 GBP MRR added / month`,
+ * `0 GBP over 6 months → 20,000 GBP over 6 months`. Now `£0 over 6 months`,
+ * `£1,000 MRR added / month`, `£100,000 MRR`.
+ *
+ * Returns `undefined` whenever it declines, and the caller goes on to the rate
+ * arm exactly as before — so every declined unit keeps today's output:
+ *   · not currency-led, or the rest opens with `per` or `/` — the rate arm's
+ *     own shape (`GBP per month`, `GBP per subscriber per month`);
+ *   · a negative figure (`£-500` is not how a negative is written);
+ *   · a code with no glyph in `ISO_CURRENCY_GLYPHS` (`CHF`, `SEK`) — a glyph
+ *     this product has never shown for it would be a guess;
+ *   · a rest that is itself a compound rate (`MRR per seat per month`).
+ * A single trailing ` per <word>` / `/<word>` in the rest is spaced as the rate
+ * arm spaces it (`MRR added / month`); a word already written with a slash
+ * (`MRR/month`) is left as written. The figure's digits never change.
+ */
+function currencyHeadParts(figure: string, unit: string): CompactUnitParts | undefined {
+  const m = CURRENCY_HEAD_UNIT.exec(unit)
+  if (m === null) return undefined
+  const { kind, canonical } = classifyUnit(m[1])
+  const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+  if (glyph === undefined) return undefined
+  const rest = m[2].trim()
+  if (/^(per\b|\/)/i.test(rest)) return undefined
+  if (figure.trim().startsWith('-')) return undefined
+  const restRate = COMPOUND_RATE_UNIT.exec(rest)
+  if (restRate !== null) {
+    const restHead = restRate[1].trim()
+    if (/\/|\bper\b/i.test(restHead)) return undefined
+    if (restRate[2].includes('/')) return { figure: `${glyph}${figure}`, unit: rest }
+    return { figure: `${glyph}${figure}`, unit: `${restHead} / ${restRate[3]}` }
+  }
+  if (/\/|\bper\b/i.test(rest)) return undefined
+  return { figure: `${glyph}${figure}`, unit: rest }
 }
 
 /** The visible text of `compactUnitParts` — figure and unit words joined by one space. */

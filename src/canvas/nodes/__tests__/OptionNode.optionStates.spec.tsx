@@ -175,11 +175,23 @@ describe('row 22a — the declared baseline is "Reference for the other alternat
     expect(document.body.textContent ?? '').not.toContain(REFERENCE)
   })
 
+  /**
+   * ⛔ RE-PINNED 27 Sep 2026 (canvas audit paul-models POM-3). This row also
+   * asserted the label-only card still carried a baseline META
+   * (`not.toBeNull()`), i.e. that the keyword guess made it a second baseline
+   * beside the declared one — the defect Paul's 90b8 board showed ("£59 for new
+   * Pro customers; grandfather existing customers" read "Baseline option" beside
+   * "Keep current £49 price"). A board has one baseline; once one is declared
+   * the guess may not mint another. The row's own claim — only the declared one
+   * is the reference — is unchanged and still asserted.
+   */
   it('CONTRAST — a label-only "Status quo" beside a DECLARED baseline: only the declared one is the reference', () => {
     const labelOnly = opt('option-sq', 'Status quo', { interventions: {} })
     seed({ nodes: [F_PRICE, BASELINE, labelOnly, OPTION_2] })
     renderOption(labelOnly)
-    expect(onCard('option-baseline-meta-option-sq')).not.toBeNull()
+    // Positive control: the label-only card mounted and carries its title.
+    expect(document.body.textContent ?? '').toContain('Status quo')
+    expect(onCard('option-baseline-meta-option-sq')).toBeNull()
     expect(document.body.textContent ?? '').not.toContain(REFERENCE)
   })
 
