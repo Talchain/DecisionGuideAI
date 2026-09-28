@@ -1218,6 +1218,25 @@ describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit
     })
   })
 
+  // ISL #207 (proposal 3): WHOSE base the goal figure stands on. Carrier proposed at #72
+  // 5876811906 on the per-option goal_fit_basis (the object that already crosses CEE's keep-list).
+  it.each([
+    ['estimate_only', { frame_verdict: 'estimate_only' }],
+    ['scored', { frame_verdict: 'scored' }],
+    // a closed set: anything else is dropped, never guessed into one of the two
+    ['maybe', undefined],
+  ])('goal_fit_basis.frame_verdict %s → %o', (frameVerdict, expected) => {
+    const block = baseBlock({
+      enrichment: {
+        option_comparison: [{ option_id: 'opt_a', probability_of_goal: 0.62, goal_fit_basis: { frame_verdict: frameVerdict } }],
+      },
+    })
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<string, { goal_fit_basis?: unknown }>
+    }
+    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toEqual(expected)
+  })
+
   it('constraints_status: forward-compatible passthrough when present, absent by default (NOT on CEE keep-list today)', () => {
     // Documents the residual: CEE's compose.ts P0B_SAFE_TRANSPORT_ENRICHMENT_KEEP
     // does not include constraints_status, so a real Seam-A payload never

@@ -53,7 +53,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 import { genuineDecision } from './analysisNewFixtures'
 import { openAllSections } from './openNamedGroups'
 
@@ -108,12 +108,14 @@ type Opts = {
   target?: number | null
   goal?: Partial<Record<'opt_a' | 'opt_b', number | null>>
   modelledBasis?: boolean
+  estimateOnly?: boolean
   substitutedJoint?: boolean
 }
 const withGoals = ({
   target = 20000,
   goal = GOAL,
   modelledBasis = false,
+  estimateOnly = false,
   substitutedJoint = false,
 }: Opts = {}): ResultsSectionDataReturn => {
   const data = genuineDecision()
@@ -124,6 +126,7 @@ const withGoals = ({
       winProbability: WIN[o.id as 'opt_a' | 'opt_b'],
       ...(g === null || g === undefined ? {} : { goalProbability: g }),
       goalFitIsModelledBasis: modelledBasis,
+      goalFitIsEstimateOnly: estimateOnly,
       goalFitIsSubstitutedJoint: substitutedJoint,
     }
   })
@@ -237,5 +240,21 @@ describe('the goal figure reaches the option row', () => {
       pct(GOAL.opt_b),
     ])
     expect(screen.queryAllByTestId('analysis-new-options-goal-basis-caveat')).toHaveLength(0)
+  })
+
+  // ⭐ ISL #207: a goal figure measured from OLUMI'S estimate of today's level says so, beside the
+  // number, on every row that shows one — the modelled-basis doctrine, a second basis.
+  it('⭐ AN ESTIMATE-ONLY GOAL FIGURE SAYS WHOSE BASE IT STANDS ON, BESIDE THE NUMBER', () => {
+    renderBody(withGoals({ estimateOnly: true }))
+    expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([pct(GOAL.opt_a), pct(GOAL.opt_b)])
+    const caveats = screen.getAllByTestId('analysis-new-options-goal-estimate-caveat')
+    expect(caveats).toHaveLength(2)
+    expect(caveats[0].textContent, 'the shared constant, never a re-wording of it').toBe(GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY)
+  })
+
+  it('⭐ OPPOSITE-DIRECTION TWIN — no estimate caveat when the base is the user\'s', () => {
+    renderBody(withGoals({ estimateOnly: false }))
+    expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([pct(GOAL.opt_a), pct(GOAL.opt_b)])
+    expect(screen.queryAllByTestId('analysis-new-options-goal-estimate-caveat')).toHaveLength(0)
   })
 })

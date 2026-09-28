@@ -28,6 +28,7 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       jointGoalProbability: null,
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
+      goalFitIsEstimateOnly: false,
       mayUsePossessiveGoalFraming: false,
       // L62: nothing was available to withhold here — 'none' means the run
       // carried no joint figure either.
@@ -294,5 +295,34 @@ describe('selectGoalProbability — publishes the joint quantity it read', () =>
     expect(result.goalProbability).toBe(0.42)
     expect(result.goalProbabilityIsJoint).toBe(false)
     expect(result.jointGoalProbability).toBe(0.07)
+  })
+})
+
+/**
+ * ⭐ ISL #207 (proposal 3, AIQ ACK #72 5876773218): a goal that states no level today is anchored
+ * on its evaluated identity, and when any operand is Olumi's the goal probability is
+ * `estimate_only` — measured from OLUMI'S estimate of today's level. The chooser publishes that
+ * once, so no surface can print the figure without saying whose base it stands on.
+ * Carrier (proposed, Panel #72 5876811906): `goal_fit_basis.frame_verdict`.
+ */
+describe('selectGoalProbability — whose base the goal figure stands on', () => {
+  beforeEach(() => {
+    mockTrust.headlineSuspect = false
+  })
+
+  it('estimate_only on a present goal figure → goalFitIsEstimateOnly', () => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62, goal_fit_basis: { frame_verdict: 'estimate_only' } })
+    expect(r.goalProbability).toBe(0.62)
+    expect(r.goalFitIsEstimateOnly).toBe(true)
+  })
+
+  it('OPPOSITE TWIN — scored (every operand the user\'s) → no estimate flag', () => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62, goal_fit_basis: { frame_verdict: 'scored' } })
+    expect(r.goalProbability).toBe(0.62)
+    expect(r.goalFitIsEstimateOnly).toBe(false)
+  })
+
+  it('CONTROL — the flag never stands without a figure to qualify', () => {
+    expect(selectGoalProbability({ goal_fit_basis: { frame_verdict: 'estimate_only' } }).goalFitIsEstimateOnly).toBe(false)
   })
 })

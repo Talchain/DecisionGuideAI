@@ -177,7 +177,7 @@ export type GoalProbabilityBasis =
 
 export interface GoalProbabilityInput extends Partial<Record<OwnedField, number>> {
   constraint_analysis?: { constraints?: unknown[] } | null
-  goal_fit_basis?: { scored_from?: string } | null
+  goal_fit_basis?: { scored_from?: string; frame_verdict?: string } | null
 }
 
 export interface GoalProbabilitySelection {
@@ -213,6 +213,13 @@ export interface GoalProbabilitySelection {
    * with the caveat and another show it without.
    */
   goalFitIsModelledBasis: boolean
+  /**
+   * Display-honesty, the same doctrine as `goalFitIsModelledBasis`: true ONLY when a goal figure
+   * is shown AND its producer marked the base `estimate_only` — today's level of the goal came
+   * from Olumi's estimates, not the user's figures (ISL #207). EVERY surface that renders the
+   * number must render `GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY` adjacent to it when this is true.
+   */
+  goalFitIsEstimateOnly: boolean
   /**
    * Whether prose may call the thing this number measures "YOUR goal".
    *
@@ -277,6 +284,7 @@ export function selectGoalProbability(
         : null
   const goalFitBasisScoredFrom =
     typeof prob?.goal_fit_basis?.scored_from === 'string' ? prob.goal_fit_basis.scored_from : null
+  const baseIsEstimateOnly = prob?.goal_fit_basis?.frame_verdict === 'estimate_only'
 
   // Honesty gate (UI-SEM-088, seam 1): while true, `probability_of_joint_goal`
   // can INVERT, so we NEVER substitute it — every surface falls back to the
@@ -307,6 +315,7 @@ export function selectGoalProbability(
       jointGoalProbability: jointGoalProb,
       basis: unconstrained != null ? 'goal_probability' : 'none',
       goalFitIsModelledBasis: false,
+      goalFitIsEstimateOnly: unconstrained != null && baseIsEstimateOnly,
       mayUsePossessiveGoalFraming: unconstrained != null,
       // This arm never substitutes either, so nothing is withheld FROM a
       // substitution here — the L62 gate below is what owns that state.
@@ -357,6 +366,7 @@ export function selectGoalProbability(
     basis,
     goalFitIsModelledBasis:
       goalProbabilityIsJoint && goalFitBasisScoredFrom === 'modelled_outcome_distribution',
+    goalFitIsEstimateOnly: goalProbability != null && baseIsEstimateOnly,
     mayUsePossessiveGoalFraming: goalProbability != null,
     jointSubstitutionWithheld: basis === 'joint_goal_withheld',
   }

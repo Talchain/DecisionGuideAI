@@ -123,17 +123,22 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  * shape below). Returns undefined when neither field is present.
  */
 function normaliseGoalFitBasis(
-  raw: { scored_from?: unknown; node_ids?: unknown } | undefined,
-): { scored_from?: string; node_ids?: string[] } | undefined {
+  raw: { scored_from?: unknown; node_ids?: unknown; frame_verdict?: unknown } | undefined,
+): { scored_from?: string; node_ids?: string[]; frame_verdict?: 'scored' | 'estimate_only' } | undefined {
   if (!raw) return undefined
   const scoredFrom = safeString(raw.scored_from)
   const nodeIds = Array.isArray(raw.node_ids)
     ? raw.node_ids.filter((v): v is string => typeof v === 'string')
     : undefined
-  if (scoredFrom === undefined && nodeIds === undefined) return undefined
+  // WHOSE base the goal figure stands on (ISL #207; carrier proposed at #72 5876811906). A closed
+  // set: any other value is dropped, never guessed into one of the two.
+  const frameVerdict =
+    raw.frame_verdict === 'scored' || raw.frame_verdict === 'estimate_only' ? raw.frame_verdict : undefined
+  if (scoredFrom === undefined && nodeIds === undefined && frameVerdict === undefined) return undefined
   return {
     ...(scoredFrom !== undefined ? { scored_from: scoredFrom } : {}),
     ...(nodeIds !== undefined ? { node_ids: nodeIds } : {}),
+    ...(frameVerdict !== undefined ? { frame_verdict: frameVerdict } : {}),
   }
 }
 
@@ -477,7 +482,7 @@ interface RawOptionEnrichmentEntry {
    * directly-elicited base. `.passthrough()` on the schema side — carried
    * verbatim, never derived. UI-BOUNDARY-DATA-INVENTORY.md §3.2/§5.
    */
-  goal_fit_basis?: { scored_from?: unknown; node_ids?: unknown }
+  goal_fit_basis?: { scored_from?: unknown; node_ids?: unknown; frame_verdict?: unknown }
   /**
    * ROADMAP 2.449 — per-option DOWNSIDE / tail-risk block. Produced by ISL
    * (`DownsideV2`) and forwarded verbatim by PLoT. All three values are in the
@@ -998,7 +1003,7 @@ export function mapV5AnalysisToReport(
      * it). Render sites MUST show this alongside the joint-goal number
      * per the honesty rule in UI-BOUNDARY-DATA-INVENTORY.md §5.
      */
-    goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+    goal_fit_basis?: { scored_from?: string; node_ids?: string[]; frame_verdict?: 'scored' | 'estimate_only' }
     /**
      * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
      * Present only when the producer emitted all three components as finite

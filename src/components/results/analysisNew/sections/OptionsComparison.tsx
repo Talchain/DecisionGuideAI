@@ -197,7 +197,7 @@ const LENS_ARM_SELECTED = 'bg-primary text-text-on-color'
 const LENS_ARM_IDLE = 'text-text-body hover:text-info'
 import { PanelIconButton } from '../PanelIconButton'
 import { PanelActRow } from '../PanelActRow'
-import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 import {
   COMPARISON_LENSES,
   COMPARISON_LENS_COPY as LENS_COPY,
@@ -1039,6 +1039,16 @@ export function OptionsComparison({
                     data-testid={`${testId}-goal-basis-caveat`}
                   >
                     {GOAL_FIT_BASIS_CAVEAT_COPY}
+                  </p>
+                ) : null}
+                {/* The second basis (ISL #207): today's level of the goal is
+                    Olumi's estimate. Same doctrine, same place. */}
+                {o.goalBasisIsEstimateOnly ? (
+                  <p
+                    className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                    data-testid={`${testId}-goal-estimate-caveat`}
+                  >
+                    {GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY}
                   </p>
                 ) : null}
               </div>

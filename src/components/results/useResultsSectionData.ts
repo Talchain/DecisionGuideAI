@@ -2211,7 +2211,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // same pair independently; the two disagreed live. Read them, never
       // re-derive them.
       const goalDecision = selectGoalProbability(prob as GoalProbabilityInput)
-      const { goalProbability, goalFitIsModelledBasis } = goalDecision
+      const { goalProbability, goalFitIsModelledBasis, goalFitIsEstimateOnly } = goalDecision
 
       // Display-honesty: per-option valid sample count for resolution-aware
       // probability formatting. Fallback chain prefers per-option signal,
@@ -2284,6 +2284,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           : {}),
         goalProbability,
         goalFitIsModelledBasis,
+        goalFitIsEstimateOnly,
         // Which quantity `goalProbability` actually IS, carried to the render
         // layer so prose can name it honestly (see types.ts).
         //

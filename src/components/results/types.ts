@@ -277,6 +277,12 @@ export interface OptionResult {
    */
   goalFitIsModelledBasis?: boolean
   /**
+   * Display-honesty: true when the rendered `goalProbability` stands on OLUMI'S estimate of
+   * where the goal is today (`goal_fit_basis.frame_verdict === 'estimate_only'`, ISL #207).
+   * Render sites MUST show `GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY` beside the number when true.
+   */
+  goalFitIsEstimateOnly?: boolean
+  /**
    * Goal-probability IDENTITY: true when the rendered `goalProbability` is
    * `probability_of_joint_goal` STANDING IN for an absent `goal_probability`.
    *
@@ -1763,7 +1769,7 @@ export interface ResultsOptionProbability extends OptionProbability {
    * joint-goal number MUST surface this caveat alongside it — see
    * UI-BOUNDARY-DATA-INVENTORY.md §5.
    */
-  goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+  goal_fit_basis?: { scored_from?: string; node_ids?: string[]; frame_verdict?: 'scored' | 'estimate_only' }
   /**
    * ROADMAP 2.449 — per-option tail-risk view from ISL, forwarded by PLoT.
    * Values are in the SAME units and on the SAME axis as `outcome.mean` /

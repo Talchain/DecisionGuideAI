@@ -614,6 +614,11 @@ export type ComparisonOption =
        */
       goalBasisIsModelled: boolean
       /**
+       * `goalFitIsEstimateOnly` — read, not derived: the figure stands on Olumi's estimate of
+       * where the goal is today (ISL #207). Same doctrine: the caveat renders ADJACENT.
+       */
+      goalBasisIsEstimateOnly: boolean
+      /**
        * ⭐⭐ THE RANGE THIS RUN ACTUALLY PRODUCED, so a reader can see when an
        * ordering is NOT settled.
        *
