@@ -5,8 +5,10 @@
  * `complete_current`, `graph_hash 92f3b013…` and the `analysis_result` block with
  * `computed_against_hash 92f3b013…`; nothing was edited; the hero read "Results may be outdated",
  * because `v5AnalysisFact` is session-only and every reloaded result classified as an orphan.
- * `bootReadRunFact` writes the fact only on `applyBootRunCurrency`'s full proof PLUS the block's own
- * hash equal to the read's. Each contrast breaks exactly one of those and must stay dimmed.
+ * `bootReadRunFact` writes the fact only on `applyBootRunCurrency`'s full proof PLUS the read's result
+ * block carrying a non-empty `computed_against_hash` — NEVER compared with the read's raw `graph_hash`
+ * (Canonical #72 5872261884: raw bytes vs canonical projection; equal on a canonical-shape graph,
+ * different on a repaired-shape one). Each contrast breaks exactly one proof and must stay dimmed.
  *
  * The harness below is `bootRunCurrency.spec.tsx`'s (FIX 2), copied verbatim:
  * (FIX 2 header follows)
@@ -173,6 +175,11 @@ function seedRestoredResult(): void {
 }
 
 const display = () => renderHook(() => useAnalysisState()).result.current.displayState.state
+/** The Reasoning tab's own stale flag (`OutputsDock`: `isStale` = displayed freshness stale|unknown). */
+const reasoningTabStale = () => {
+  const f = renderHook(() => useAnalysisState()).result.current.displayedFreshness
+  return f === 'stale' || f === 'unknown'
+}
 
 describe('⭐ R6 — the reload proves the result current', () => {
   it('Paul\'s shape: complete_current, block computed against the read\'s hash, nothing edited → "Analysis complete"', async () => {
@@ -186,6 +193,17 @@ describe('⭐ R6 — the reload proves the result current', () => {
       freshness: 'fresh',
       freshnessReason: BOOT_READ_RUN_CURRENT,
     })
+    expect(display()).toBe('complete')
+    // The hero and the Reasoning tab now AGREE. Before this fix the tab already read current here
+    // (it reads the currency leg), and only the hero was dimmed by the orphan rule.
+    expect(reasoningTabStale(), 'the Reasoning tab shows no "Last run · model changed" row').toBe(false)
+  })
+
+  it('⭐ Canonical\'s row: a REPAIRED-SHAPE graph (canonical run hash ≠ raw read hash, complete_current) → "Analysis complete"', async () => {
+    seedRestoredResult()
+    respond(body({ analysis_result: resultBlock('aag_v1:' + 'e'.repeat(64)) }))
+    await hydrateCanvasFromServer(SCENARIO_ID)
+    expect(useCanvasStore.getState().v5AnalysisFact?.hasRunAnalysisFact).toBe(true)
     expect(display()).toBe('complete')
   })
 
@@ -208,7 +226,6 @@ describe('each proof broken alone: no fact, the result stays dimmed', () => {
     expect(display()).toBe('results_stale')
   }
 
-  it('the block was computed against ANOTHER graph', () => expectDimmed({ analysis_result: resultBlock('aag_v1:' + 'e'.repeat(64)) }))
   it('the block carries no computed_against_hash', () => expectDimmed({ analysis_result: resultBlock(null) }))
   it('the read carries no result block', () => expectDimmed({}))
   it('CEE says complete_stale, not complete_current', () =>
@@ -226,14 +243,18 @@ describe('each proof broken alone: no fact, the result stays dimmed', () => {
 
 describe('bootReadRunFact, pure', () => {
   it('binds to the scenario and to the block\'s own report hash', () => {
-    const fact = bootReadRunFact({ scenarioId: SCENARIO_ID, graphHash: READ_HASH, analysisResult: resultBlock(), now: 1 })
+    const fact = bootReadRunFact({ scenarioId: SCENARIO_ID, analysisResult: resultBlock(), now: 1 })
     expect(fact?.analysisHash).toBe(mapV5AnalysisToReport(resultBlock() as never).model_card.response_hash)
     expect(fact?.scenarioId).toBe(SCENARIO_ID)
   })
-  it('declines a non-block, an empty hash, a mismatch', () => {
-    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, graphHash: READ_HASH, analysisResult: null, now: 1 })).toBeNull()
-    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, graphHash: '', analysisResult: resultBlock(''), now: 1 })).toBeNull()
-    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, graphHash: READ_HASH, analysisResult: { ...resultBlock(), type: 'x' }, now: 1 })).toBeNull()
-    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, graphHash: READ_HASH, analysisResult: resultBlock('other'), now: 1 })).toBeNull()
+  it('declines a non-block, a wrong type, an absent or blank computed_against_hash', () => {
+    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, analysisResult: null, now: 1 })).toBeNull()
+    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, analysisResult: { ...resultBlock(), type: 'x' }, now: 1 })).toBeNull()
+    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, analysisResult: resultBlock(null), now: 1 })).toBeNull()
+    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, analysisResult: resultBlock('  '), now: 1 })).toBeNull()
+  })
+
+  it('accepts a canonical hash that differs from the raw read hash (never compared)', () => {
+    expect(bootReadRunFact({ scenarioId: SCENARIO_ID, analysisResult: resultBlock('aag_v1:' + 'e'.repeat(64)), now: 1 })).not.toBeNull()
   })
 })

@@ -400,11 +400,10 @@ async function readAndMergeServerGraph(
       },
     })
     if (currencyOutcome.outcome === 'restored') {
-      // R6: the restored result IS the run this verdict describes (its own `computed_against_hash`
-      // is the read's `graph_hash`), so it is not an orphan — see `bootReadRunFact`.
+      // R6: the restored result IS the run this verdict describes (the read ships its block only on
+      // `complete_current`, stamped with the run's canonical hash), so it is not an orphan — see `bootReadRunFact`.
       const fact = bootReadRunFact({
         scenarioId,
-        graphHash: result.graphHash,
         analysisResult: result.analysisResult,
         now: Date.now(),
       })
