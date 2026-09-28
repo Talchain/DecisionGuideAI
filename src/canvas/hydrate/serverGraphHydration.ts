@@ -730,7 +730,29 @@ function whyCanvasNotProvenEqualToReadBothWays(scenarioId: string, wireGraph: un
 
 /** The currency proof's view of EITHER graph: contract defaults, then the analysis-affecting projection. */
 function currencyComparable(graph: unknown): unknown {
-  return withoutNonAnalysisFields(withContractEdgeDefaults(graph))
+  return withoutNonAnalysisFields(withoutAbsentBaselineDefault(withContractEdgeDefaults(graph)))
+}
+
+/**
+ * ⭐ R6, SERVED (UI c3f76e4f, `theServedReloadProvesTheResultCurrent.spec.tsx`): `is_baseline: false` IS AN
+ * ABSENT `is_baseline`. The canvas projects `false` on every non-baseline option; CEE's read carries the key
+ * only on the baseline. The engine reads the flag as `option.is_baseline === true` (`isBaselineOption`), so
+ * the two graphs analyse identically, yet every reload of a model with a non-baseline option declined here
+ * (`fwd:node:<option>:is_baseline:read_lacks canvas=false`) and the result read "Results may be outdated".
+ * Applied to BOTH sides, and only to `false`: a `true` the other side lacks still declines.
+ */
+function withoutAbsentBaselineDefault(graph: unknown): unknown {
+  if (graph === null || typeof graph !== 'object') return graph
+  const g = graph as { nodes?: unknown }
+  if (!Array.isArray(g.nodes)) return graph
+  return {
+    ...(graph as Record<string, unknown>),
+    nodes: g.nodes.map((n) => {
+      if (n === null || typeof n !== 'object' || (n as { is_baseline?: unknown }).is_baseline !== false) return n
+      const { is_baseline: _absent, ...rest } = n as Record<string, unknown>
+      return rest
+    }),
+  }
 }
 
 /**
