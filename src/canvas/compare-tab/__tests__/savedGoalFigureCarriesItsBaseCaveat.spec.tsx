@@ -83,7 +83,7 @@ const savedBeforeTheField = (runNumber: number, goal: number | null): AnalysisSn
   return snapshot
 }
 
-const UNRECORDED = 'goal figure not shown: saved before Olumi recorded what it was measured from.'
+const UNRECORDED = 'goal figure not shown: Olumi has no record of what it was measured from.'
 
 describe('THE readers — absent is not null (Codex CR #2282 5880059759)', () => {
   it.each([
@@ -145,6 +145,25 @@ describe('the progression Target row and the trajectory chart carry the caveat',
     expect(screen.queryByText('35%')).toBeNull()
     expect(screen.getByText('30%')).toBeTruthy()
     expect(screen.getByTestId('compare-progression-goal-caveat').textContent).toBe(`Run 2: ${UNRECORDED}`)
+    // the withheld dot's own title says the same, not "not scored"
+    expect(screen.getByTestId('compare-dot-unscored').getAttribute('title')).toBe(`Run 2: ${UNRECORDED}`)
+  })
+
+  /**
+   * ⛔ An absent key proves the basis was not RECORDED, never WHEN the run was saved (Codex DL
+   * 5880510431). Discriminating: the merged #2282 line ("saved before Olumi recorded…") fails here.
+   */
+  it('no surface claims when an unrecorded run was saved', () => {
+    const legacy = savedBeforeTheField(2, 35)
+    const { container } = render(
+      <>
+        <RunPairCompare comparison={deriveRunPairComparison(withGoal(1, 30, null), legacy)} />
+        <DotProgression snapshots={[withGoal(1, 30, null), legacy]} />
+      </>,
+    )
+    const everything = `${container.textContent} ${[...container.querySelectorAll('[title]')].map((e) => e.getAttribute('title')).join(' ')}`
+    expect(everything).toContain('has no record of what it was measured from')
+    expect(everything).not.toMatch(/saved before|before Olumi recorded|older|earlier version/i)
   })
 
   it('the trajectory series withholds an unrecorded run\'s goal point', () => {

@@ -22,9 +22,13 @@ export type SavedGoal = Pick<AnalysisSnapshot, 'runNumber' | 'goalProbability' |
 
 const CAVEAT_ORDER: readonly GoalFitBaseCaveat[] = ['olumi_estimate', 'from_inputs']
 
-/** Why a saved goal figure is not shown, beside the withheld cells and under the rows. */
+/**
+ * Why a saved goal figure is not shown, beside the withheld cells and under the rows. It states only
+ * what an absent key PROVES — no basis was recorded — never WHEN the run was saved (Codex DL
+ * 5880420060 / 5880510431: an absent key does not establish chronology).
+ */
 export const SAVED_GOAL_BASIS_UNRECORDED_COPY =
-  'goal figure not shown: saved before Olumi recorded what it was measured from.'
+  'goal figure not shown: Olumi has no record of what it was measured from.'
 
 /** A saved run that HAS a goal figure whose basis was never recorded (the key is absent). */
 export function savedGoalBasisUnrecorded(s: SavedGoal): boolean {
