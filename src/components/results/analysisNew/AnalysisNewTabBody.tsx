@@ -42,10 +42,9 @@
  * elements per screen. The outer panel is unchanged.
  */
 
+import { noValueDriverIds as noValueDriverIdsFor } from '../noValueDriverIds'
 import { selectDriverPolicyFeed } from '../useResultsSectionData'
 import type { ResultsReport } from '../types'
-import { runHoldsNoValueFor } from '../../../canvas/nodes/shared/unvaluedDriver'
-import { hasAnyStatedValue } from '../../../canvas/utils/observedStateHelpers'
 import { caveatRestatesVerdictReason, useRobustnessCaveatOnScreen } from './robustnessStanding'
 import { buildReasoningSignals } from './reasoningSignals'
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
@@ -1200,15 +1199,10 @@ export function AnalysisNewTabBody({
    * tab's driver rows and the canvas card say the same thing about the same node.
    */
   const runReport = useCanvasStore((state) => state.results?.report ?? null)
-  const noValueDriverIds = useMemo<ReadonlySet<string>>(() => {
-    if (runReport === null) return new Set()
-    const feed = selectDriverPolicyFeed(runReport as ResultsReport)
-    const ids = new Set<string>()
-    for (const n of nodes ?? []) {
-      if (runHoldsNoValueFor(feed, n.id) && !hasAnyStatedValue(n.data)) ids.add(n.id)
-    }
-    return ids
-  }, [runReport, nodes])
+  const noValueDriverIds = useMemo(
+    () => noValueDriverIdsFor(runReport === null ? null : selectDriverPolicyFeed(runReport as ResultsReport), nodes),
+    [runReport, nodes],
+  )
   const stripOffersTarget = useMemo(
     () => stripRendersTargetAffordance(modelStrip),
     [modelStrip],

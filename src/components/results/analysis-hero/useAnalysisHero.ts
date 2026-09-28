@@ -27,6 +27,7 @@ import { useCanvasStore } from '@/canvas/store'
 import { selectActive, useStrengthenStore } from '@/canvas/stores/strengthenStore'
 import { isFocusNowPanelEnabled, isStrengthenPanelEnabled } from '@/flags'
 import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { noValueDriverIds } from '../noValueDriverIds'
 import { selectDriverPolicyFeed } from '../useResultsSectionData'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { ResultsReport } from '../types'
@@ -95,9 +96,15 @@ export function useAnalysisHero(data: ResultsSectionDataReturn): UseAnalysisHero
       : undefined
   }, [report])
 
+  // The one "no value yet" rule (`noValueDriverIds`), off the same report and nodes.
+  const noValueIds = useMemo(
+    () => noValueDriverIds(report === null ? null : selectDriverPolicyFeed(report as unknown as ResultsReport), nodes),
+    [report, nodes],
+  )
+
   const model = useMemo(
-    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader),
-    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader],
+    () => buildHeroModel(data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds),
+    [data, optionNumbering, canvasNodeIds, nodeValueSources, driverLeader, noValueIds],
   )
 
   const strengthenOn = isStrengthenPanelEnabled()
