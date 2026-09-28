@@ -68,6 +68,7 @@ import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
+import { goalStatedLimits } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -695,8 +696,9 @@ export const GoalNode = memo((props: NodeProps) => {
   // (it interpolated the number bare with the unit as a suffix — "800000 £"),
   // and the staging walk saw the two surfaces print different strings for one
   // goal. Sharing the mapping makes agreement structural rather than a
-  // convention someone has to remember (CLAUDE.md #12). Percent rounding,
-  // 'count' suppression and currency prefixing are all as they were; the only
+  // convention someone has to remember (CLAUDE.md #12). 'count' suppression
+  // and currency prefixing are as they were (percent rounding was retired on
+  // 27 Sep, audit F4: 99.5% read "Target: 100%"); the only
   // behavioural difference is that a unit is now TRIMMED before classification,
   // the same direction the U2 fix took when it retired this site's local
   // `'%' | 'percent' | 'percentage'` copy.
@@ -762,6 +764,18 @@ export const GoalNode = memo((props: NodeProps) => {
    */
   const lodMetric = targetLine ?? GOAL_NO_TARGET_STATE
 
+  /**
+   * The limits this card states — never the row that restates the target the
+   * line above already states (F7, `domain/goalOwnTargetRow`). Identified by
+   * operator, figure and unit, not by node: a `<=` bound on the goal node (the
+   * headcount starter's "Delivery deadline ≤2 months") is a limit and stays.
+   */
+  const statedLimits = goalStatedLimits(
+    activeConstraints,
+    props.id,
+    targetLine !== null ? { raw: thresholdRaw, unit: thresholdUnit } : null,
+  )
+
 
   // Science icons (spec Section 4.1)
   const scienceIcons = useScienceIcons(props.id, 'goal')
@@ -785,7 +799,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const hasLayer2 = (
     briefExtract ||
     stabilityValue !== null ||
-    (activeConstraints && activeConstraints.length > 0) ||
+    (statedLimits && statedLimits.length > 0) ||
     hasConstraintDefaultWarning ||
     hasThreshold
   )
@@ -835,9 +849,9 @@ export const GoalNode = memo((props: NodeProps) => {
       )}
 
       {/* Constraint badges */}
-      {activeConstraints && activeConstraints.length > 0 && (
+      {statedLimits && statedLimits.length > 0 && (
         <div className="flex flex-col gap-0.5">
-          {activeConstraints.map((c, i) => {
+          {statedLimits.map((c, i) => {
             const prob = typeof c.probability === 'number' ? c.probability : null
             /**
              * ⛔⛔ THE TRAFFIC LIGHT IS GONE — the UI was issuing a verdict in
@@ -915,11 +929,11 @@ export const GoalNode = memo((props: NodeProps) => {
    *   · Standard only — Detailed renders Layer 2 inline, whose constraint list
    *     already states each limit (with its run figure), so one view never says
    *     a limit twice;
-   *   · the SAME `activeConstraints` Layer 2 reads, so the pill and its details
-   *     are one set.
+   *   · the SAME `statedLimits` Layer 2 reads, so the pill and its details
+   *     are one set — and neither restates the target (F7, `goalStatedLimits`).
    */
   const restingLimitPills =
-    targetLine !== null && !isDetailed ? goalLimitPills(activeConstraints, nodes) : []
+    targetLine !== null && !isDetailed ? goalLimitPills(statedLimits, nodes) : []
 
   // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes:
   // no." The goal node used to carry a two-sentence instruction plus a

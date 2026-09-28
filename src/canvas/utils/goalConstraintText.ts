@@ -1,7 +1,7 @@
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatStatedLimitValue, renderLimitOperator } from '../../components/results/decision-overview/statedLimits'
-import { classifyUnit } from '../../utils/unitClassifier'
-import { resolveElementLabel } from '../domain/elementLabel'
+import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts } from '../../utils/unitClassifier'
+import { resolveElementLabel, UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
 
 /** State the recorded boundary and its origin, independently of probability or evidence quality. */
 /**
@@ -15,10 +15,23 @@ import { resolveElementLabel } from '../domain/elementLabel'
 function formatLimitMagnitude(value: number, unit: string | null | undefined): string {
   const { kind, canonical } = classifyUnit(unit ?? null)
   let out = formatStatedLimitValue(value, unit ?? undefined)
-  if (kind === 'iso') out = `${canonical} ${value.toLocaleString('en-GB')}`
+  // ⭐ An ISO code with an unambiguous glyph reads as the glyph (canvas audit
+  // paul-models POM-9): the pill said `≤GBP 20,000` and the outcome `Limit ≤
+  // GBP 20,000` beside a factor card reading `£49 / month`. The one glyph map
+  // (`ISO_CURRENCY_GLYPHS`: GBP, USD, EUR); any other code keeps `CHF 20,000`.
+  if (kind === 'iso') {
+    const glyph = ISO_CURRENCY_GLYPHS[canonical.toUpperCase()]
+    out = glyph !== undefined ? `${glyph}${value.toLocaleString('en-GB')}` : `${canonical} ${value.toLocaleString('en-GB')}`
+  }
   else if (kind === 'symbol') out = `${canonical}${value.toLocaleString('en-GB')}`
   else if (kind === 'percent') out = `${value}%`
-  else if (kind === 'other' && canonical.toLowerCase() !== 'count') out += ` ${canonical}`
+  else if (kind === 'other' && canonical.toLowerCase() !== 'count') {
+    // The one compact-unit owner, as the factor card, the option rows and the
+    // goal target read it (POM-9): `20,000 GBP over 6 months` → `£20,000 over 6
+    // months`. Anything it does not recognise is suffixed exactly as before.
+    const compact = compactUnitParts(out, canonical)
+    out = compact !== null ? joinCompactUnitParts(compact) : `${out} ${canonical}`
+  }
   return out
 }
 
@@ -354,23 +367,49 @@ export function goalConstraintText(
  */
 export function goalConstraintShortText(
   constraint: CEEGoalConstraint,
-  nodes: readonly { id: string; data?: unknown }[] = [],
+  nodes: readonly { id: string; type?: string; data?: unknown }[] = [],
 ): string {
   const target = constraint.node_id ? nodes.find(n => n.id === constraint.node_id) : undefined
-  const label = (typeof constraint.label === 'string' ? constraint.label.trim() : '') || (target ? resolveElementLabel(target.data) : 'Constraint')
+  const carried = typeof constraint.label === 'string' ? constraint.label.trim() : ''
+  const label = carried || (target ? resolveElementLabel(target.data) : 'Constraint')
+  /**
+   * ⭐ THE PILL NAMES THE METRIC — `<metric> <op><value>`, contract v3.1
+   * `.pill.mini` "Churn <4%" (side-by-side vs contract, item 8, 27 Sep 2026).
+   *
+   * The pricing starter's pill read `net revenue retention floor ≥110%`: the
+   * constraint's own lower-case LABEL, with a role word ("floor") restating the
+   * operator beside it — about 179px, where the contract's pill is a few words.
+   * On Paul's MRR boards it already read `Monthly churn ≤4%`, because there the
+   * carried label and the constrained factor's title happen to be one string.
+   *
+   * So when the limit binds to a graph element that is a MEASURE (anything but
+   * the goal itself), the pill's subject is that element's own title — the name
+   * the reader sees on its card — never a word trimmed from the label here (a
+   * closed lexicon over open labels). A limit on the GOAL node keeps its carried
+   * label: the goal's title is a sentence about success, not a metric
+   * ("Delivery deadline ≤2 months", not "Achieve ARR Growth by Q3 ≤2 months").
+   * The full sentence — accessible name and tooltip — keeps the carried label
+   * (`goalConstraintText`, unchanged), so nothing the producer said is lost.
+   */
+  const targetData = target?.data as { type?: unknown; kind?: unknown } | undefined
+  const targetIsGoal = target?.type === 'goal' || targetData?.type === 'goal' || targetData?.kind === 'goal'
+  const metric = target && !targetIsGoal ? resolveElementLabel(target.data) : UNNAMED_ELEMENT_LABEL
+  const subject = metric !== UNNAMED_ELEMENT_LABEL ? metric.trim() : label
   // The SAME origin rule as `goalConstraintText` — never dropped.
   const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
     : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
   const audit = constraint.provenance_unit_normalised
   if (audit && hasAuditedFigure(constraint)) {
-    return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}${origin}`
+    return `${subject} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(audit.original_value as number, audit.original_unit)}${origin}`
   }
   if (goalConstraintTextUsesQuote(constraint)) {
     return `“${(constraint.source_quote as string).trim()}”${origin}`
   }
   if (typeof constraint.value !== 'number' || !Number.isFinite(constraint.value) || !constraint.operator) {
-    return `${label} · limit not captured${origin}`
+    return `${subject} · limit not captured${origin}`
   }
-  if (labelAlreadyStatesLimit(label)) return `${label}${origin}`
-  return `${label} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(constraint.value, constraint.unit)}${origin}`
+  // A11: a CARRIED label that already states the limit is shown alone — unless the
+  // pill names the metric, in which case the structured limit is the statement.
+  if (subject === label && labelAlreadyStatesLimit(label)) return `${label}${origin}`
+  return `${subject} ${renderLimitOperator(constraint.operator)}${formatLimitMagnitude(constraint.value, constraint.unit)}${origin}`
 }

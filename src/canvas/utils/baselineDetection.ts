@@ -243,9 +243,41 @@ export function getBaselineBadgeProps(isBaseline: boolean): {
 export function resolveOptionIsBaseline(
   data: { is_baseline?: unknown; label?: unknown } | null | undefined,
   ceeOption: object | null | undefined,
+  /**
+   * ⭐ STEP 3 IS FOR A GRAPH THAT DECLARES NO BASELINE AT ALL (canvas audit
+   * paul-models POM-3). Paul's own option "£59 for new Pro customers;
+   * grandfather existing customers" matched `existing` and read "Baseline
+   * option", with no change row, whenever `analysis_ready` was absent (a second
+   * tab, the gate's LANDING state) — beside "Keep current £49 price", which
+   * carries `is_baseline: true`. A board has one baseline; once any option
+   * declares it (`graphDeclaresBaseline`), the keyword guess may not mint a
+   * second. Narrowing the keyword list instead would be a closed lexicon over
+   * open labels. Optional so a caller that cannot see the graph keeps the old
+   * behaviour; every canvas caller passes it.
+   */
+  graphHasDeclaredBaseline = false,
 ): boolean {
   if (typeof data?.is_baseline === 'boolean') return data.is_baseline
   const typed = (ceeOption as { is_baseline?: unknown } | null | undefined)?.is_baseline
   if (typeof typed === 'boolean') return typed
+  if (graphHasDeclaredBaseline) return false
   return detectBaseline(String(data?.label ?? '')).isBaseline
+}
+
+/**
+ * Does any option on this board DECLARE itself the baseline — a typed
+ * `is_baseline: true` on its node, or on CEE's `analysis_ready.options[]`
+ * entry? The input to `resolveOptionIsBaseline`'s third argument (POM-3).
+ * Typed flags only: a label match is a guess, and a guess cannot outrank one.
+ */
+export function graphDeclaresBaseline(
+  nodes: ReadonlyArray<{ type?: string; data?: unknown }> | null | undefined,
+  ceeOptions: ReadonlyArray<{ is_baseline?: boolean | null }> | null | undefined,
+): boolean {
+  if (ceeOptions?.some((o) => o?.is_baseline === true)) return true
+  return (nodes ?? []).some((n) => {
+    const d = n?.data as { type?: unknown; kind?: unknown; is_baseline?: unknown } | undefined
+    const isOption = n?.type === 'option' || d?.type === 'option' || d?.kind === 'option'
+    return isOption && d?.is_baseline === true
+  })
 }

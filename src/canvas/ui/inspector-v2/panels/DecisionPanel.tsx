@@ -13,7 +13,7 @@ import { typography } from '../../../../styles/typography'
 import { controls } from '../../../../styles/controls'
 import { inspectorButton, inspectorDetailRow, INSPECTOR_RULE } from '../inspectorStyle'
 import { useNodeMutations } from '../useInspectorMutations'
-import { resolveOptionIsBaseline } from '../../../utils/baselineDetection'
+import { resolveOptionIsBaseline, graphDeclaresBaseline } from '../../../utils/baselineDetection'
 import { formatWinProbability } from '../../../utils/labelUtils'
 import {
   GROUP_LABELS,
@@ -127,6 +127,8 @@ export const DecisionPanel = memo(function DecisionPanel({
   const ceeOptions = useCanvasStore(s => (s.ceeAnalysisReady as { options?: { id: string; is_baseline?: boolean | null }[] } | null | undefined)?.options)
   const connectedOptions = useMemo(() => {
     const seen = new Set<string>()
+    // POM-3: the keyword guess may not mint a second baseline on a board that declares one.
+    const declaredBaseline = graphDeclaresBaseline(nodes, ceeOptions)
     return edges
       .filter(e => e.source === nodeId || e.target === nodeId)
       .map(e => {
@@ -150,6 +152,7 @@ export const DecisionPanel = memo(function DecisionPanel({
         const isBaseline = resolveOptionIsBaseline(
           { is_baseline: (optNode.data as { is_baseline?: boolean | null })?.is_baseline, label },
           ceeOptions?.find((o: { id: string }) => o.id === otherId),
+          declaredBaseline,
         )
         // Raw win probability — formatted via formatWinProbability() at render.
         const rawWinProb = optionComparison && Array.isArray(optionComparison)

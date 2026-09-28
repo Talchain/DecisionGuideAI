@@ -29,6 +29,13 @@ describe('OutcomePanel — option comparison section', () => {
 
   it('shows option cards when option_comparison_status is computed', () => {
     setStoreState({
+      // ⚠ SEEDED CURRENT, EXPLICITLY (27 Sep, audit F5). This row asserts the
+      // `Current model` caption; the panel now reads the run's currency the way
+      // the option card does, and a run with no freshness verdict at all is
+      // `Model result` on the card too. The old seed carried no verdict and
+      // passed only because the caption was hard-coded.
+      analysisFreshness: { freshness: 'fresh', freshnessReason: 'graph_hash_match' },
+      analysisFreshnessDirty: false,
       results: {
         status: 'complete',
         report: {
@@ -66,6 +73,37 @@ describe('OutcomePanel — option comparison section', () => {
     // ASupport 65%"), which a word-boundary probe would miss.
     expect(section?.textContent).not.toMatch(/Support(?![a-z])/)
     expect(/Support(?![a-z])/.test('Option ASupport 65%')).toBe(true)
+  })
+
+  /**
+   * ⭐ F5 (canvas audit 27 Sep, edit-values): after an edit the option card
+   * says `Last run 65% of runs`; this section said `Current model · 65% of
+   * runs` for the same stale result. It now reads the card's currency owner.
+   */
+  it('F5 — once the model has changed since the run, the share reads "Last run", never "Current model"', () => {
+    setStoreState({
+      // CEE's own verdict after the served edit: `complete_stale`, cause `graph_changed`.
+      analysisFreshness: { freshness: 'stale', freshnessReason: 'graph_changed' },
+      analysisFreshnessDirty: true,
+      results: {
+        status: 'complete',
+        report: {
+          option_comparison_status: 'computed',
+          option_comparison: [
+            { option_id: 'o1', option_label: 'Option A', win_probability: 0.65, outcome: { mean: 42 } },
+            { option_id: 'o2', option_label: 'Option B', win_probability: 0.35, outcome: { mean: 28 } },
+          ],
+        },
+      },
+    })
+    const { container } = render(
+      <OutcomePanel nodeId="out1" techMode={false} onClose={() => {}} onNavigate={() => {}} />
+    )
+    const section = container.querySelector('[data-testid="option-comparison-section"]')
+    // Positive control: the section and its figure are on screen.
+    expect(section?.textContent).toContain('Option A')
+    expect(section?.textContent).toContain(`${OPTION_RESULT_COPY.lastRun} · ${OPTION_RESULT_COPY.share('65%')}`)
+    expect(section?.textContent).not.toContain(OPTION_RESULT_COPY.current)
   })
 
   it('hides entire predicted-range block when status is failed', () => {

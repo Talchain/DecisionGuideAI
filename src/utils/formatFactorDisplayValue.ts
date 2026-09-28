@@ -520,6 +520,15 @@ function displayValueRestatesValue(displayValue: string | null | undefined, valu
   if (typeof displayValue !== 'string' || typeof value !== 'number' || !Number.isFinite(value)) return false
   const parenthesised = /\(\s*(-?\d+(?:\.\d+)?)\s*\)/.exec(displayValue)
   if (parenthesised !== null) return Number(parenthesised[1]) === value
+  // ⭐ THE BARE FORM — `"1"` beside `value: 1` (canvas audit edit-values F6).
+  // CEE writes it after a user edit on a unitless factor (the readback carries
+  // `display_value: "1"`, `raw_value: 1`, no unit), and it restates the node's
+  // own number with nothing else at all. Unrecognised, it outranked the
+  // encoding map: the card read "1 Set by you" while the option rows on the
+  // same board read "No usage pricing → Full usage pricing". Still structural —
+  // the figure must EQUAL `value`, and the map must already have matched.
+  const bareFigure = /^\s*([-+]?\d[\d,]*(?:\.\d+)?)\s*$/.exec(displayValue)
+  if (bareFigure !== null) return Number(bareFigure[1].replace(/,/g, '')) === value
   // ⭐ SECOND SURFACE FORM OF THE SAME SUMMARY, and it must be recognised here
   // or the encoding map silently loses to it. `"0 scale"` restates the node's
   // own number just as `"Low (0)"` does — it simply spells the scale instead of

@@ -416,8 +416,27 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
     })
 
-    it('CONTRAST: with no typed source at all, the label heuristic still decides (unchanged)', () => {
+    /**
+     * ⛔ RE-PINNED 27 Sep 2026 (canvas audit paul-models POM-3). This row read
+     * "with no typed source at all, the label heuristic still decides" — but
+     * `withKeep` seeds `BASELINE` (`is_baseline: true`), so the board DOES carry
+     * a typed source: it declares its baseline. POM-3: on Paul's 90b8 board the
+     * heuristic read "£59 for new Pro customers; grandfather existing customers"
+     * as a SECOND "Baseline option" beside the declared "Keep current £49
+     * price". A board has one baseline, so once one is declared the keyword
+     * guess may not mint another. The heuristic still decides on a board that
+     * declares none — the arm below, which is the contrast this row meant.
+     */
+    it('CONTRAST: on a board that DECLARES a baseline, the label heuristic may not mint a second (POM-3)', () => {
       renderCard({ id: 'option-keep', store: withKeep(null) })
+      // Positive control: the "Keep …" card mounted and carries its title.
+      expect(document.body.textContent ?? '').toContain('Keep £49 and add a paid AI add-on')
+      expect(onCard('option-baseline-meta-option-keep')).toBeNull()
+    })
+
+    it('CONTRAST: with no typed source ANYWHERE on the board, the label heuristic still decides (unchanged)', () => {
+      const store = withKeep(null)
+      renderCard({ id: 'option-keep', store: { ...store, nodes: store.nodes.filter((n) => n.id !== 'option-b') } })
       expect(onCard('option-baseline-meta-option-keep')?.textContent).toBe('Baseline · no changes')
     })
 

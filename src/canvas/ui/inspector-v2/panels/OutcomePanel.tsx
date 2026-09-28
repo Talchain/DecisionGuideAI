@@ -34,6 +34,7 @@ import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProve
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { OPTION_RESULT_COPY } from '../../../nodes/shared/metricVocabulary'
+import { useRunCurrency, optionResultCaption } from '../../../nodes/shared/runCurrency'
 
 // ─── Option comparison helpers ─────────────────────────────────────
 
@@ -79,6 +80,9 @@ function OptionComparisonSection({
   const r = report as Record<string, unknown> | null
   const status = r?.option_comparison_status as string | undefined
   const comparisons = r?.option_comparison as OptionComparisonEntry[] | undefined
+  // The option card's caption owner (F5): `Last run` once the model has changed
+  // since this run, never a hard-coded `Current model`.
+  const resultCaption = optionResultCaption(useRunCurrency()) ?? OPTION_RESULT_COPY.unconfirmed
 
   if (status === 'error' || status === 'failed') return null
 
@@ -129,10 +133,12 @@ function OptionComparisonSection({
 
                   ⭐ ONE NOUN PER IDEA. This is the same quantity the option
                   card captions `Current model` — by reference, so the register stays
-                  the single authority and this cannot drift back. */}
+                  the single authority and this cannot drift back. And by the
+                  card's own currency owner (F5, 27 Sep): `Last run` once the
+                  model has changed since the run. */}
               {opt.win_probability != null && (
                 <span className={`${typography.panelMeta} shrink-0 text-option`}>
-                  {OPTION_RESULT_COPY.current} · {OPTION_RESULT_COPY.share(`${Math.round(opt.win_probability * 100)}%`)}
+                  {resultCaption} · {OPTION_RESULT_COPY.share(`${Math.round(opt.win_probability * 100)}%`)}
                 </span>
               )}
             </div>

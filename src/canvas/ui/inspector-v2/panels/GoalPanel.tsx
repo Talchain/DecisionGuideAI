@@ -54,6 +54,7 @@ import { resolveElementLabel } from '../../../domain/elementLabel'
 // for the question this module's own sibling export answers. The duplicate owner
 // was not hidden; it was on the next line of an existing import.
 import { canCaptureGoalTarget, resolveGoalTarget, type GoalTargetSource } from '../../../domain/goalTarget'
+import { constraintRestatesGoalTarget } from '../../../domain/goalOwnTargetRow'
 import { GoalConstraintProvenance } from '../shared/GoalConstraintProvenance'
 import {
   SuccessTargetLine,
@@ -208,7 +209,6 @@ export const GoalPanel = memo(function GoalPanel({
   // persistence hop lands (or a producer echo confirms the constraints were used).
   const { user, authenticated } = useAuth()
   const constraintsInert = !isResultsMode && !isPersistenceActive(authenticated, user)
-  const hasConstraints = Array.isArray(goalConstraints) && goalConstraints.length > 0
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
@@ -507,6 +507,31 @@ export const GoalPanel = memo(function GoalPanel({
   const showsTargetReadout = goalThreshold != null && targetDisplay != null && !canCaptureTarget
 
   /**
+   * ⭐ THE CONSTRAINTS THIS PANEL LISTS — never the row that restates the target
+   * the panel states above them (canvas audit edit-values F7, the inspector copy
+   * of the goal card's rule; `domain/goalOwnTargetRow`).
+   *
+   * CEE's `at_least` goal edit writes the target twice by design: the node's
+   * `goal_threshold_raw` (stated above, by `SuccessTargetLine` or the readout)
+   * AND a `>=` goal_constraints row on the goal itself. Listing that row here
+   * stated the target a second time, as a "constraint extracted from your
+   * brief", and counted it. It is set aside ONLY by identity (goal node, `>=`,
+   * figure and unit equal to the stated target) and ONLY while an arm above
+   * states it — the editor arm states no figure, so there the row stays. A `<=`
+   * bound on the goal node (an `at_most` edit, the headcount starter's
+   * "Delivery deadline") is a limit and is always listed.
+   *
+   * ⚠ Each row keeps its index in `goalConstraints`: the value editor's
+   * index-matching fallback (for a constraint with no id) and the row key read
+   * it, and a filtered position would edit the wrong row.
+   */
+  const panelStatesTarget = targetDisplay != null && (readOnly || showsTargetReadout)
+  const listedConstraints = (Array.isArray(goalConstraints) ? goalConstraints : [])
+    .map((c, index) => ({ c, index }))
+    .filter(({ c }) => !(panelStatesTarget && constraintRestatesGoalTarget(c, nodeId, resolvedTarget)))
+  const hasConstraints = listedConstraints.length > 0
+
+  /**
    * The probability sentence under a stated target. One element, two readers:
    * the readout arm below and the mounted target block, so the two cannot drift.
    */
@@ -748,16 +773,16 @@ export const GoalPanel = memo(function GoalPanel({
           )}
 
           {/* §4.3 Constraints */}
-          {goalConstraints && Array.isArray(goalConstraints) && goalConstraints.length > 0 && (
+          {goalConstraints && hasConstraints && (
             <div className="mt-3">
               <InlineSectionLabel>Constraints</InlineSectionLabel>
               <div className="space-y-1.5">
                 {!isResultsMode && (
                   <p className={`${typography.panelMeta} text-text-light mb-1`}>
-                    {GOAL_CONSTRAINT_COPY.extractedFromBrief(goalConstraints.length)}
+                    {GOAL_CONSTRAINT_COPY.extractedFromBrief(listedConstraints.length)}
                   </p>
                 )}
-                {goalConstraints.map((c, i) => {
+                {listedConstraints.map(({ c, index: i }) => {
                   const constraintText = goalConstraintText(c, nodes)
                   const prob = typeof c.probability === 'number' ? c.probability : null
                   const colourClass = prob === null
