@@ -274,16 +274,12 @@ export const GATED_TESTS: readonly GatedTest[] = [
       '(CLAUDE.md trap 22b) — without this arm the gate would bless a fix that silently removed ' +
       'keyboard access to the canvas.',
   },
-  {
-    file: 'nodeKeyboardBleed.measure.ts',
-    suite: 'in-node keyboard bleed',
-    title: 'portalled: Enter/Space at a control inside a portalled popover does not select the anchor node',
-    catches:
-      'THE HALF THE DOM-SCOPED FIX STRUCTURALLY COULD NOT REACH. `closest()` walks the DOM tree, ' +
-      'and portalled popover content is NOT a DOM descendant of the node it belongs to — so the ' +
-      'first fix was correct and blind at the same time, across 56-59 controls. Shipped as #1146. ' +
-      'Without this arm the gate proves the bleed is closed only where the markup happens to nest.',
-  },
+  // ⛔ RETIRED 27 Sep 2026 (#2197): 'portalled: Enter/Space at a control inside a portalled
+  // popover does not select the anchor node'. The card popover it drove is gone
+  // (NodePopover.tsx is a no-op, contract v3.1 §01), so the test was retired in
+  // nodeKeyboardBleed.measure.ts (see "THE PORTALLED ARM: RETIRED") and there is no portalled
+  // node content left to gate. The registry entry was left behind, so the completeness
+  // guard reported it MISSING on every staging run from then on (e.g. 51e9b26f).
 
   /*
    * ══════════════════════════════════════════════════════════════════════════
