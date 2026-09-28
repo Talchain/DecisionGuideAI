@@ -32,6 +32,7 @@
  */
 import type { CEEGoalConstraint } from '../../../adapters/cee/types'
 import { formatTargetValue } from '../utils/formatTargetValue'
+import { formatMoneyFigure } from '../../../utils/unitClassifier'
 // ⚠ A deliberate two-way import: `goalConstraintText` reads this module's
 // operator/value formatters, and this module stands down to its rungs. Both
 // sides only call each other inside function bodies, so evaluation order is
@@ -69,6 +70,10 @@ const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥'])
  * did not specify.
  */
 export function formatStatedLimitValue(value: number, unit?: string): string {
+  // ⭐ THE ONE MONEY RULE FIRST (`formatMoneyFigure`). Served d3a476b6: `{ 700000, "GBP per year" }` read
+  // "≤ 700,000" here, because only a bare glyph was recognised; the rule says "£700,000 / year".
+  const money = unit != null ? formatMoneyFigure(value, unit) : null
+  if (money !== null) return money
   if (unit != null && CURRENCY_SYMBOLS.has(unit)) return formatTargetValue(value, 'currency', unit)
   if (unit === '%') return formatTargetValue(value, 'percent')
   return formatTargetValue(value)

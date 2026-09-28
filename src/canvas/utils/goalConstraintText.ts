@@ -1,6 +1,6 @@
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatStatedLimitValue, renderLimitOperator } from '../../components/results/decision-overview/statedLimits'
-import { classifyUnit, compactUnitParts, ISO_CURRENCY_GLYPHS, joinCompactUnitParts } from '../../utils/unitClassifier'
+import { classifyUnit, compactUnitParts, formatMoneyFigure, ISO_CURRENCY_GLYPHS, joinCompactUnitParts } from '../../utils/unitClassifier'
 import { resolveElementLabel, UNNAMED_ELEMENT_LABEL } from '../domain/elementLabel'
 
 /** State the recorded boundary and its origin, independently of probability or evidence quality. */
@@ -13,6 +13,9 @@ import { resolveElementLabel, UNNAMED_ELEMENT_LABEL } from '../domain/elementLab
  * missing before `goalConstraintText` existed.
  */
 function formatLimitMagnitude(value: number, unit: string | null | undefined): string {
+  // The one money rule first, as `formatStatedLimitValue` asks it: the branches below are for what it declines.
+  const money = formatMoneyFigure(value, unit ?? null)
+  if (money !== null) return money
   const { kind, canonical } = classifyUnit(unit ?? null)
   let out = formatStatedLimitValue(value, unit ?? undefined)
   // ⭐ An ISO code with an unambiguous glyph reads as the glyph (canvas audit
