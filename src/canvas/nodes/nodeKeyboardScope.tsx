@@ -83,8 +83,15 @@
  * NODE ITSELF never enters the scope, so `onKeyDownCapture` never fires, no
  * class is ever added, and React Flow's handler runs exactly as before. The
  * node div is also the tab stop a keyboard user reaches BEFORE its contents, so
- * Tab-then-Enter still selects a node and opens the Inspector. Both directions
- * are measured.
+ * Tab-then-Enter still selects a node.
+ *
+ * ⛔ CORRECTED 27 Sep 2026 (audit SI-5): this paragraph used to end "…selects a
+ * node and opens the Inspector. Both directions are measured." The second half
+ * was FALSE on every build: React Flow's key handler only ever SELECTS
+ * (`handleNodeClick` in the library, never the `onClick` prop), and the app
+ * opens the inspector from `onNodeClick` alone. Enter on a card whose
+ * accessible name says "Open details" selected it and opened nothing. The
+ * bridge that makes it true is `useEnterOpensWhatAClickOpens` below.
  *
  * ── ESCAPE ─────────────────────────────────────────────────────────────────
  *
@@ -103,7 +110,7 @@
  * all, while `closest()` — which walks the DOM tree, not the box tree — still
  * finds it.
  */
-import { useCallback, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import type { NodeTypes } from '@xyflow/react'
 
 /**
@@ -177,6 +184,60 @@ export function useNodeKeyboardScope<T extends HTMLElement>(): {
 }
 
 /**
+ * ⭐⭐ ENTER/SPACE ON A FOCUSED CARD OPENS WHAT A CLICK OPENS (audit SI-5,
+ * 27 Sep 2026; the node twin of `StyledEdge.tsx` "ROW 35").
+ *
+ * Measured on pricing, local and served: Tab to "Bottom-Up Adoption Friction"
+ * (accessible name "Factor: … Open details. …"), press Enter → the card is
+ * selected and the path chip shows, and NO inspector opens; Enter again and
+ * Space, the same. A mouse click on the same card opens it.
+ *
+ * Why: React Flow's node `onKeyDown` (`@xyflow/react@12.10.2`
+ * `dist/esm/index.mjs:2173-2182`) answers `elementSelectionKeys` by calling its
+ * internal `handleNodeClick` — SELECTION ONLY. It never calls the `onClick`
+ * prop, which only the mouse path (`onSelectNodeHandler`, :2156-2171) calls,
+ * and `ReactFlowGraph.tsx` opens the inspector from `onNodeClick` alone.
+ *
+ * The fix re-uses the click path a mouse already drives rather than writing a
+ * second "what does Enter do" rule: a real `click` dispatched on the
+ * `.react-flow__node` reaches React Flow's `onSelectNodeHandler`, which selects
+ * the node AND calls `onNodeClick` — so the inspector, the reconnect branch
+ * and the canvas-interaction hook all behave exactly as for a click. React
+ * Flow's own key handler then runs on the same keystroke and finds nothing
+ * more to do.
+ *
+ * Guards, each the edge bridge's own:
+ *  · ONLY a key AT the card (`event.target === rfNode`). A control inside the
+ *    card has its own Enter/Space and is additionally fenced by the scope
+ *    above; bubbling from it must not also open the inspector.
+ *  · NO modifier: Cmd/Ctrl+Enter belongs to the canvas shortcuts, Shift+F10 to
+ *    the context menu.
+ *  · ONLY a selectable card (`.selectable`): a frontier door is not a card a
+ *    click inspects.
+ *  · Space is prevented — unprevented it scrolls the page.
+ *
+ * A native listener on the wrapper, not a React prop: the wrapper is React
+ * Flow's element, not ours, and a target-phase listener there runs before
+ * React's delegated handler for the same keystroke.
+ */
+function useEnterOpensWhatAClickOpens(scopeRef: RefObject<HTMLElement>): void {
+  useEffect(() => {
+    const rfNode = scopeRef.current?.closest<HTMLElement>('.react-flow__node')
+    if (!rfNode) return
+    const onNodeKeyDown = (event: KeyboardEvent) => {
+      if (event.target !== rfNode) return
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      if (!rfNode.classList.contains('selectable')) return
+      event.preventDefault()
+      rfNode.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    }
+    rfNode.addEventListener('keydown', onNodeKeyDown)
+    return () => rfNode.removeEventListener('keydown', onNodeKeyDown)
+  }, [scopeRef])
+}
+
+/**
  * Pending disarm per armed element, so a re-arm settles the previous one first
  * and at most one pointerdown listener exists per element at any moment.
  */
@@ -243,6 +304,9 @@ export function armNodeKeyboardScopeForOneDispatch(el: Element): void {
 export function withNodeKeyboardScope(NodeComponent: NodeRenderer): NodeRenderer {
   const Scoped: NodeRenderer = (props) => {
     const { ref, onKeyDownCapture } = useNodeKeyboardScope<HTMLDivElement>()
+    // SI-5: the card itself (React Flow's wrapper around this scope) answers
+    // Enter/Space the way it answers a click. See the hook's header.
+    useEnterOpensWhatAClickOpens(ref)
 
     /*
      * ⚠ NO `className` PROP, DELIBERATELY. React only writes `className` when it

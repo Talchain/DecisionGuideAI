@@ -11,6 +11,9 @@ import type { NodeTypes } from '@xyflow/react'
 // file's own header for the mechanism (the UA `button { text-align: center }`
 // that no ancestor can override) and for why it carries two selectors.
 import './nodeTextAlign.css'
+// A card with keyboard focus shows the contract's Info ring (audit SI-4): React
+// Flow's own sheet turns the outline off. Travels with the renderers, as above.
+import './nodeFocusRing.css'
 import { GoalNode } from './GoalNode'
 import DecisionNode from './DecisionNode'
 import { OptionNode } from './OptionNode'

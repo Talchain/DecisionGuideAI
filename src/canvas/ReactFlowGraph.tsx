@@ -89,6 +89,7 @@ import { userFitNodes } from './utils/fitTargets'
 import { claimCameraForUser, isUserCameraMove } from './utils/userCameraClaim'
 import { currentModelKey } from './utils/currentModelKey'
 import { withGhostTiers, GHOST_TIERS } from './utils/ghostTiers'
+import { sortNodesInReadingOrder } from './utils/readingOrder'
 import { useLayoutStore } from './layoutStore'
 import { restingCardWidthForKind } from './utils/nodeLayoutConstants'
 import { TierLanes } from './nodes/TierLanes'
@@ -964,9 +965,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Phase 3: Memoize heavy computations for performance
   // Deduplicate nodes by ID to prevent React key warnings in MiniMap
   // CEE may return duplicate node IDs - keep first occurrence
+  //
+  // ⭐ SI-6 (audit, 27 Sep 2026): and put them in the board's READING order.
+  // React Flow tabs through cards in array order, and the array arrives sorted
+  // by id — so Tab zig-zagged across the factor row and reached the Goal before
+  // any option. `sortNodesInReadingOrder` is row (the layout's own
+  // `TIER_BY_KIND`), then left to right, as the contract's prototype walks it.
+  // Inside THIS memo on purpose: no new hook in this file (rules-of-hooks
+  // ratchet), and `TierLanes` and `<ReactFlow>` already read this one array.
   const memoizedNodes = useMemo(() => {
     const seen = new Set<string>()
-    return nodesWithGhost.filter((node) => {
+    return sortNodesInReadingOrder(nodesWithGhost.filter((node) => {
       if (seen.has(node.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate node ID filtered: ${node.id}`)
@@ -975,7 +984,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       }
       seen.add(node.id)
       return true
-    })
+    }))
   }, [nodesWithGhost])
   /**
    * ⭐ EVERY EDGE IS NAMED HERE, AND ONLY HERE.

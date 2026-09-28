@@ -140,6 +140,33 @@ export const EDGE_HIT_AREA_WIDTH = 28
 export const EDGE_SELECTION_DIM_OPACITY = 0.18
 
 /**
+ * SI-4 — the keyboard focus ring's visible band, in screen px on EACH side of
+ * whatever the edge draws widest (the contract's `outline: 2px solid
+ * var(--info)`).
+ */
+export const EDGE_FOCUS_RING_WIDTH = 2
+
+/** Half-size of the focus ring mask's user-space region: far past any board. */
+const FOCUS_RING_MASK_EXTENT = 1e5
+
+/**
+ * The focus ring's geometry, in screen px. `cutWidth` is the wider of the
+ * drawn LINE and the drawn uncertainty RIBBON (0 when no ribbon paints): the
+ * band the ring must leave untouched. `strokeWidth` adds the ring's band on
+ * both sides. The ring is drawn at `strokeWidth` and masked out along
+ * `cutWidth`, so it is an OUTLINE around the line and ribbon and never paints
+ * a pixel of either (review, 28 Sep 2026: drawn over them at the line's width
+ * + 4, it swallowed the 7px floor ribbon on a 2px link).
+ */
+export function edgeFocusRingGeometry(
+  lineStrokeWidth: number,
+  ribbonStrokeWidth: number,
+): { cutWidth: number; strokeWidth: number } {
+  const cutWidth = Math.max(lineStrokeWidth, ribbonStrokeWidth)
+  return { cutWidth, strokeWidth: cutWidth + 2 * EDGE_FOCUS_RING_WIDTH }
+}
+
+/**
  * ⭐ ONE GLOW RECIPE FOR EVERY TRANSIENT EDGE EMPHASIS (contract v3.1, E5/T09,
  * 24 Sep 2026).
  *
@@ -284,6 +311,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // C1: Hover state for edge label visibility
   const [isHovered, setIsHovered] = useState(false)
+  // SI-4 (audit, 27 Sep 2026): KEYBOARD focus on this link, for its focus ring.
+  // Separate from `isHovered` (which focus also sets): a pointer passing over a
+  // link must not draw a focus ring.
+  const [isKeyboardFocused, setIsKeyboardFocused] = useState(false)
   // v3.1 row 12 — the hover tooltip is counter-scaled to screen size.
   const edgeTooltipZoom = useStore((st) => st.transform?.[2] ?? 1)
   // T1: Hover popover — delayed 300ms to avoid flicker on pass-through mouse movements
@@ -1238,6 +1269,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       if (!isKeyboardFocus(rfEdge)) return
       // A keyboard user arriving deliberately outranks an earlier Escape.
       keyboardDismissedRef.current = false
+      setIsKeyboardFocused(true)
       if (hoverPopoverTimerRef.current) { clearTimeout(hoverPopoverTimerRef.current); hoverPopoverTimerRef.current = null }
       if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
       // The label, the thicker stroke and the fragility marker are all gated on
@@ -1278,6 +1310,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
 
     const focusOut = (event: FocusEvent) => {
+      // The ring marks the LINK's own focus: gone the moment focus leaves the
+      // link itself, even for its own popover (which has its own focus ring).
+      if (event.target === rfEdge) setIsKeyboardFocused(false)
       if (focusStaysWithinThisEdge(event.relatedTarget)) return
       // The pointer still owns this edge or its popover; the mouse path's own
       // leave handler will close it.
@@ -1937,11 +1972,167 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const arrowheadId = useMemo(() => edgeArrowheadMarkerId(edgeIdKey), [edgeIdKey])
   const arrowheadSize = edgeArrowheadSize(edgeStrokeWidth)
 
+  // THE LINE'S DRAWN WIDTH, in every lens and interaction state — ONE value,
+  // read by `BaseEdge` below and by the keyboard focus ring (SI-4), which must
+  // stand clear of it. Hoisted out of `BaseEdge`'s style unchanged, so the ring
+  // cannot size itself from a second copy of this ladder.
+  // Interaction widths: selected +2, hovered +1 (a highlighted path adds none)
+  const lineStrokeWidth = (() => {
+    const base = (() => {
+    // Structural edges: fixed 1px regardless of lens / hover / highlight
+    if (isStructuralEdge) return 1
+    // Causal lens: thickness encodes the PROVENANCE-SET strength
+    // magnitude (ROADMAP 2.954). An unset strength draws at the floor
+    // width — the same refusal the non-lens stroke (:286) makes — so
+    // thickness never reports the `weight` default as a measurement.
+    if (lensMode === 'causal' && causalEdgeParams) {
+      return causalEdgeParams.magnitude !== null
+        ? weightMagnitudeToStrokeWidth(causalEdgeParams.magnitude)
+        : UNSET_EDGE_STROKE_WIDTH
+    }
+    // Evidence lens: uniform thickness (not importance-weighted)
+    if (lensMode === 'evidence') return 1.5
+    // Robustness lens: thicken fragile, thin non-fragile
+    if (lensMode === 'robustness') {
+      return isLensFragile ? 3 : 1
+    }
+    // Graph Lens: sensitivity mode adjusts stroke width by quartile
+    if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensQ75 !== null) {
+      if (lensSensWeight >= lensQ75) return 3
+      if (lensSensWeight <= lensQ25) return 1
+      return 1.5
+    }
+    // Graph Lens: fragile mode thickens fragile edges
+    if (isLensFragile) return 3
+    // 6B: the SELECTED connection is the thickest interaction state, so
+    // it stays unmistakable even while hovering a neighbouring edge.
+    //
+    // ⭐ contract v3.1 (E4, 24 Sep 2026) — RELATIVE, NOT A FLOOR. These
+    // were `Math.max(w, 4)` / `Math.max(w, 3)`: a slight edge that was
+    // selected drew exactly as thick as a strong one, and hover flattened
+    // slight and moderate to one width, so interaction ERASED the one
+    // ordering the width key teaches ("Width = modelled strength. Same
+    // meaning before and after analysis"). An offset keeps every rung in
+    // order in every state; DS v5 §7.3's hover is "+1" (1.5px → 2.5px).
+    if (selected) return edgeStrokeWidth + 2
+    // A highlighted PATH edge (another node's selection) is NOT here:
+    // contract §03 marks it with the soft glow in `BaseEdge`'s `filter` and no
+    // width rule, because width is the strength channel and a +1 made a
+    // slight link on the path read as a moderate one while selected.
+    if (isHovered) return edgeStrokeWidth + 1
+    return edgeStrokeWidth
+    })()
+    // Analysis-graph projection: a viewed flip-risk edge is marked by its
+    // info glow in `BaseEdge`'s `filter`, and NO LONGER by a width floor
+    // (contract v3.1, E4): `Math.max(base, 4)` drew a slight flip risk as
+    // thick as a strong one, the same erasure as above. Colour is never
+    // replaced; the glow is the transient viewing cue.
+    return base
+  })()
+
+  // The ribbon's gate, ONE copy: the ribbon below paints on it, and the keyboard
+  // focus ring reads it to stand clear of the ribbon (SI-4).
+  const showUncertaintyRibbon = uncertaintyBand !== null && !isStructuralEdge && (selected || isHovered)
+  const focusRing = edgeFocusRingGeometry(
+    lineStrokeWidth,
+    showUncertaintyRibbon && uncertaintyBand !== null ? uncertaintyBand * 2 : 0,
+  )
+  // Built on the arrowhead's id, which is already escaped for `url(#…)`.
+  const focusRingMaskId = `${arrowheadId}-focus-ring-cut`
+
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
 
   return (
     <>
+      {/* ⭐ SI-4 (audit, 27 Sep 2026) — THE KEYBOARD FOCUS RING, SHAPED TO THE
+          LINK. Tabbing onto a structural link changed nothing a person could
+          see: React Flow's `.react-flow__edge:focus-visible{outline:none}` and
+          its focus stroke loses to this component's inline `stroke`, and a
+          structural line is fixed at 1px with a 1.5px 25% hover glow — 0
+          changed pixels at 1x. The contract's ring is a 2px Info outline
+          (`[tabindex]:focus-visible`); an outline box around a diagonal link
+          would enclose unrelated cards, so the ring follows the path instead.
+          Keyboard focus only; drawn in every lens.
+
+          ⛔ FIRST IN PAINT ORDER, AND WIDER THAN EVERYTHING IT SURROUNDS
+          (review, 28 Sep 2026). It used to paint AFTER the uncertainty ribbon,
+          opaque, at the line's width + 4: on a 2px link that covered the 7px
+          floor ribbon entirely, so under keyboard focus a stated uncertainty
+          and an unassessed link looked the same — the invisible-floor defect
+          the ribbon's own comment records fixing, re-opened by a second mark.
+          Now it is an OUTLINE: `edgeFocusRingGeometry` draws it
+          `EDGE_FOCUS_RING_WIDTH` wider than the wider of the drawn line and
+          the drawn ribbon on each side, and a mask cuts the band those two
+          occupy back out. So the ring is 2px of Info OUTSIDE the ribbon's outer
+          edge (or the line's, when there is no ribbon) and never paints a pixel
+          inside it: the ribbon composites over the canvas exactly as it does on
+          hover. A ring painted UNDER the ribbon without the cut was tried
+          first and is not enough — the ribbon is 0.2-opacity ink, so over
+          Info its contrast with what is behind it fell from 1.40:1 to 1.17:1
+          and, in the browser, it read as one thick blue band. It is still the
+          FIRST visible paint of the edge, so where anti-aliasing overlaps, the
+          ribbon and the line win.
+
+          ⛔ OUTSIDE THE SELECTION-DIM GROUP (review note, 28 Sep 2026). Inside
+          the `<g>` below, a focused link off the selected path wore its ring at
+          `EDGE_SELECTION_DIM_OPACITY` (0.18): a focus indicator a keyboard user
+          cannot see. The dim is the connection's attention channel and still
+          applies to everything the connection draws; the ring marks React
+          Flow's focusable wrapper, which is never dimmed, so it sits BESIDE the
+          group — and before it, so it still paints under the ribbon and the
+          line. */}
+      {isKeyboardFocused && (
+        <>
+          {/* The CUT: everything shows except a band `cutWidth` wide along the
+              path — the line and the ribbon. Same `non-scaling-stroke` as they
+              use, so the cut and what it protects stay the same screen width
+              at every zoom. User-space region, not the bounding-box default:
+              a horizontal link has a zero-height box, which would mask the
+              whole ring away. */}
+          <mask
+            id={focusRingMaskId}
+            maskUnits="userSpaceOnUse"
+            x={-FOCUS_RING_MASK_EXTENT}
+            y={-FOCUS_RING_MASK_EXTENT}
+            width={2 * FOCUS_RING_MASK_EXTENT}
+            height={2 * FOCUS_RING_MASK_EXTENT}
+          >
+            <rect
+              x={-FOCUS_RING_MASK_EXTENT}
+              y={-FOCUS_RING_MASK_EXTENT}
+              width={2 * FOCUS_RING_MASK_EXTENT}
+              height={2 * FOCUS_RING_MASK_EXTENT}
+              fill="white"
+            />
+            <path
+              d={edgePath}
+              data-edge-focus-ring-cut=""
+              fill="none"
+              stroke="black"
+              strokeWidth={focusRing.cutWidth}
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          </mask>
+          <path
+            d={edgePath}
+            data-edge-focus-ring=""
+            fill="none"
+            strokeLinecap="round"
+            aria-hidden="true"
+            mask={`url(#${focusRingMaskId})`}
+            style={{
+              // A style, not the `stroke` attribute: `var()` in an SVG
+              // presentation attribute is not reliably resolved.
+              stroke: 'var(--info)',
+              strokeWidth: focusRing.strokeWidth,
+              vectorEffect: 'non-scaling-stroke',
+              pointerEvents: 'none',
+            }}
+          />
+        </>
+      )}
       {/* Wrapper captures hover for the entire edge hit area. Hover handlers live
           here so they fire regardless of whether the pointer is over the custom
           hitbox path or BaseEdge's interaction path (which renders on top in SVG
@@ -2033,8 +2224,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           connection is hovered, keyboard-focused (focus sets `isHovered`) or
           selected, in the neutral ink `UNCERTAINTY_BAND_STROKE` that the legend
           swatch also reads. The encoding above (screen-px width, floor,
-          ceiling, provenance gate) is unchanged; only WHEN and in WHAT INK. */}
-      {uncertaintyBand !== null && !isStructuralEdge && (selected || isHovered) && (
+          ceiling, provenance gate) is unchanged; only WHEN and in WHAT INK.
+
+          ⛔ KEYBOARD FOCUS MUST NOT HIDE IT (review, 28 Sep 2026). The SI-4
+          focus ring (above) paints BEFORE this ribbon, is sized from
+          `showUncertaintyRibbon` and this width, and is masked out along it,
+          so it is an outline around the ribbon and never paints over it;
+          `StyledEdge.keyboardFocusRing.si4.spec.tsx` pins all three. */}
+      {showUncertaintyRibbon && uncertaintyBand !== null && (
         <path
           d={edgePath}
           fill="none"
@@ -2120,59 +2317,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         // the `non_directional_type` rule exists to refuse.
         markerEnd={directionMarker.show ? `url(#${arrowheadId})` : undefined}
         style={{
-          // Interaction widths: selected +2, hovered +1 (a highlighted path adds none)
-          strokeWidth: (() => {
-            const base = (() => {
-            // Structural edges: fixed 1px regardless of lens / hover / highlight
-            if (isStructuralEdge) return 1
-            // Causal lens: thickness encodes the PROVENANCE-SET strength
-            // magnitude (ROADMAP 2.954). An unset strength draws at the floor
-            // width — the same refusal the non-lens stroke (:286) makes — so
-            // thickness never reports the `weight` default as a measurement.
-            if (lensMode === 'causal' && causalEdgeParams) {
-              return causalEdgeParams.magnitude !== null
-                ? weightMagnitudeToStrokeWidth(causalEdgeParams.magnitude)
-                : UNSET_EDGE_STROKE_WIDTH
-            }
-            // Evidence lens: uniform thickness (not importance-weighted)
-            if (lensMode === 'evidence') return 1.5
-            // Robustness lens: thicken fragile, thin non-fragile
-            if (lensMode === 'robustness') {
-              return isLensFragile ? 3 : 1
-            }
-            // Graph Lens: sensitivity mode adjusts stroke width by quartile
-            if (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensQ75 !== null) {
-              if (lensSensWeight >= lensQ75) return 3
-              if (lensSensWeight <= lensQ25) return 1
-              return 1.5
-            }
-            // Graph Lens: fragile mode thickens fragile edges
-            if (isLensFragile) return 3
-            // 6B: the SELECTED connection is the thickest interaction state, so
-            // it stays unmistakable even while hovering a neighbouring edge.
-            //
-            // ⭐ contract v3.1 (E4, 24 Sep 2026) — RELATIVE, NOT A FLOOR. These
-            // were `Math.max(w, 4)` / `Math.max(w, 3)`: a slight edge that was
-            // selected drew exactly as thick as a strong one, and hover flattened
-            // slight and moderate to one width, so interaction ERASED the one
-            // ordering the width key teaches ("Width = modelled strength. Same
-            // meaning before and after analysis"). An offset keeps every rung in
-            // order in every state; DS v5 §7.3's hover is "+1" (1.5px → 2.5px).
-            if (selected) return edgeStrokeWidth + 2
-            // A highlighted PATH edge (another node's selection) is NOT here:
-            // contract §03 marks it with the soft glow in `filter` below and no
-            // width rule, because width is the strength channel and a +1 made a
-            // slight link on the path read as a moderate one while selected.
-            if (isHovered) return edgeStrokeWidth + 1
-            return edgeStrokeWidth
-            })()
-            // Analysis-graph projection: a viewed flip-risk edge is marked by its
-            // info glow in the `filter` below, and NO LONGER by a width floor
-            // (contract v3.1, E4): `Math.max(base, 4)` drew a slight flip risk as
-            // thick as a strong one, the same erasure as above. Colour is never
-            // replaced; the glow is the transient viewing cue.
-            return base
-          })(),
+          // `lineStrokeWidth` (above the `return`): the ladder, hoisted so the
+          // keyboard focus ring reads the same width.
+          strokeWidth: lineStrokeWidth,
           /*
            * ⭐ THE WIDTHS ABOVE ARE FLOW-SPACE UNTIL THIS LINE, AND THE CANVAS
            * SPENDS MOST OF ITS LIFE ZOOMED OUT.
