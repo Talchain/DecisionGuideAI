@@ -1218,23 +1218,32 @@ describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit
     })
   })
 
-  // ISL #207 (proposal 3): WHOSE base the goal figure stands on. Carrier proposed at #72
-  // 5876811906 on the per-option goal_fit_basis (the object that already crosses CEE's keep-list).
+  // ISL #207 (proposal 3): WHOSE base the goal figure stands on. Carrier
+  // `identity_evaluations[].level_author` (R3 #72 5876843426), FAIL-CLOSED (AIQ 5876871320): with
+  // the anchoring code present, only the goal's own typed "user" entry lifts the caveat.
+  const ANCHORED = { code: 'GOAL_LEVEL_FROM_IDENTITY_INPUTS', field: 'nodes[mrr].nonlinear_identity', message: 'm', severity: 'warning' }
+  const entry = (node_id: string, level_author: string) => ({ node_id, level_source: 'identity_inputs', level_author })
   it.each([
-    ['estimate_only', { frame_verdict: 'estimate_only' }],
-    ['scored', { frame_verdict: 'scored' }],
-    // a closed set: anything else is dropped, never guessed into one of the two
-    ['maybe', undefined],
-  ])('goal_fit_basis.frame_verdict %s → %o', (frameVerdict, expected) => {
+    // AIQ's row: a hop drops the carrier, the code survives → the caveat still renders
+    ['code, no identity_evaluations (carrier dropped)', [ANCHORED], undefined, true],
+    ['code, the goal entry says "olumi"', [ANCHORED], [entry('mrr', 'olumi')], true],
+    ['code, the goal entry says "user"', [ANCHORED], [entry('mrr', 'user')], false],
+    // a "user" entry for ANOTHER node never lifts the goal's caveat
+    ['code, only another node says "user"', [ANCHORED], [entry('pro_mrr', 'user')], true],
+    // no anchoring code → nothing to caveat, whatever the entries say
+    ['no code', [], [entry('mrr', 'olumi')], false],
+  ])('goal level from identity: %s → stamped %s', (_case, warnings, identity_evaluations, stamped) => {
     const block = baseBlock({
       enrichment: {
-        option_comparison: [{ option_id: 'opt_a', probability_of_goal: 0.62, goal_fit_basis: { frame_verdict: frameVerdict } }],
+        inference_warnings: warnings,
+        ...(identity_evaluations !== undefined ? { identity_evaluations } : {}),
+        option_comparison: [{ option_id: 'opt_a', probability_of_goal: 0.62 }],
       },
     })
     const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
-      option_probabilities?: Record<string, { goal_fit_basis?: unknown }>
+      option_probabilities?: Record<string, { goalLevelIsOlumiEstimate?: boolean }>
     }
-    expect(report.option_probabilities?.opt_a?.goal_fit_basis).toEqual(expected)
+    expect(report.option_probabilities?.opt_a?.goalLevelIsOlumiEstimate === true).toBe(stamped)
   })
 
   it('constraints_status: forward-compatible passthrough when present, absent by default (NOT on CEE keep-list today)', () => {

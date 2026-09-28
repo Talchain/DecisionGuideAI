@@ -123,23 +123,44 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  * shape below). Returns undefined when neither field is present.
  */
 function normaliseGoalFitBasis(
-  raw: { scored_from?: unknown; node_ids?: unknown; frame_verdict?: unknown } | undefined,
-): { scored_from?: string; node_ids?: string[]; frame_verdict?: 'scored' | 'estimate_only' } | undefined {
+  raw: { scored_from?: unknown; node_ids?: unknown } | undefined,
+): { scored_from?: string; node_ids?: string[] } | undefined {
   if (!raw) return undefined
   const scoredFrom = safeString(raw.scored_from)
   const nodeIds = Array.isArray(raw.node_ids)
     ? raw.node_ids.filter((v): v is string => typeof v === 'string')
     : undefined
-  // WHOSE base the goal figure stands on (ISL #207; carrier proposed at #72 5876811906). A closed
-  // set: any other value is dropped, never guessed into one of the two.
-  const frameVerdict =
-    raw.frame_verdict === 'scored' || raw.frame_verdict === 'estimate_only' ? raw.frame_verdict : undefined
-  if (scoredFrom === undefined && nodeIds === undefined && frameVerdict === undefined) return undefined
+  if (scoredFrom === undefined && nodeIds === undefined) return undefined
   return {
     ...(scoredFrom !== undefined ? { scored_from: scoredFrom } : {}),
     ...(nodeIds !== undefined ? { node_ids: nodeIds } : {}),
-    ...(frameVerdict !== undefined ? { frame_verdict: frameVerdict } : {}),
   }
+}
+
+/**
+ * ⭐ ISL #207 — WHOSE BASE A GOAL FIGURE STANDS ON, FAIL-CLOSED.
+ *
+ * A goal that states no level today is anchored on its evaluated identity; ISL says so with the
+ * `GOAL_LEVEL_FROM_IDENTITY_INPUTS` code (which reaches the UI in `inference_warnings`, `field`
+ * `nodes[<goal>].nonlinear_identity`) and says WHOSE base it is on the typed carrier
+ * `identity_evaluations[].level_author` (R3 #72 5876843426). AIQ's rule (5876871320): with the
+ * code present, the goal figure is Olumi's estimate UNLESS the goal's own typed entry says
+ * `level_author: "user"` — a missing entry keeps the caveat, so a hop that drops the carrier
+ * (CEE's enrichment keep-list does not list `identity_evaluations` today) can never uncaveat it.
+ */
+function goalLevelFromIdentityIsOlumiEstimate(enrichment: Record<string, unknown> | undefined): boolean {
+  const warnings = Array.isArray(enrichment?.inference_warnings) ? enrichment.inference_warnings : []
+  const anchor = warnings.find(
+    (w): w is Record<string, unknown> => isPlainObject(w) && w.code === 'GOAL_LEVEL_FROM_IDENTITY_INPUTS',
+  )
+  if (anchor === undefined) return false
+  const goalId = typeof anchor.field === 'string' ? /^nodes\[([^\]]+)\]/.exec(anchor.field)?.[1] : undefined
+  const entries = Array.isArray(enrichment?.identity_evaluations) ? enrichment.identity_evaluations : []
+  const goalEntry = entries.find(
+    (e): e is Record<string, unknown> =>
+      isPlainObject(e) && goalId !== undefined && e.node_id === goalId && e.level_source === 'identity_inputs',
+  )
+  return goalEntry?.level_author !== 'user'
 }
 
 /**
@@ -482,7 +503,7 @@ interface RawOptionEnrichmentEntry {
    * directly-elicited base. `.passthrough()` on the schema side — carried
    * verbatim, never derived. UI-BOUNDARY-DATA-INVENTORY.md §3.2/§5.
    */
-  goal_fit_basis?: { scored_from?: unknown; node_ids?: unknown; frame_verdict?: unknown }
+  goal_fit_basis?: { scored_from?: unknown; node_ids?: unknown }
   /**
    * ROADMAP 2.449 — per-option DOWNSIDE / tail-risk block. Produced by ISL
    * (`DownsideV2`) and forwarded verbatim by PLoT. All three values are in the
@@ -1003,7 +1024,9 @@ export function mapV5AnalysisToReport(
      * it). Render sites MUST show this alongside the joint-goal number
      * per the honesty rule in UI-BOUNDARY-DATA-INVENTORY.md §5.
      */
-    goal_fit_basis?: { scored_from?: string; node_ids?: string[]; frame_verdict?: 'scored' | 'estimate_only' }
+    goal_fit_basis?: { scored_from?: string; node_ids?: string[] }
+    /** ISL #207 — the goal figure stands on Olumi's estimate of today's level (fail-closed). */
+    goalLevelIsOlumiEstimate?: boolean
     /**
      * ROADMAP 2.449 — per-option tail-risk view, in `outcome`'s units.
      * Present only when the producer emitted all three components as finite
@@ -1048,6 +1071,7 @@ export function mapV5AnalysisToReport(
      */
     status_reason?: string
   }
+  const goalLevelIsOlumiEstimate = goalLevelFromIdentityIsOlumiEstimate(enrichment)
   const option_probabilities: Record<string, ResultsOptionProbability> = {}
 
   // Resolution path A: option_comparison is the canonical source.
@@ -1169,6 +1193,8 @@ export function mapV5AnalysisToReport(
       // normaliseGoalFitBasis. Carried alongside the number it qualifies;
       // render sites must show both together (UI-BOUNDARY-DATA-INVENTORY §5).
       ...(goalFitBasis !== undefined ? { goal_fit_basis: goalFitBasis } : {}),
+      // ISL #207 — the run's goal base is Olumi's estimate (fail-closed, see the helper).
+      ...(goalLevelIsOlumiEstimate ? { goalLevelIsOlumiEstimate: true } : {}),
       confidence: 0.5,
       ...(winProb !== undefined ? { win_probability: winProb } : {}),
       ...(expected !== undefined ? { expected } : {}),

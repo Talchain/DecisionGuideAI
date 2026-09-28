@@ -303,26 +303,26 @@ describe('selectGoalProbability — publishes the joint quantity it read', () =>
  * on its evaluated identity, and when any operand is Olumi's the goal probability is
  * `estimate_only` — measured from OLUMI'S estimate of today's level. The chooser publishes that
  * once, so no surface can print the figure without saying whose base it stands on.
- * Carrier (proposed, Panel #72 5876811906): `goal_fit_basis.frame_verdict`.
+ * Carrier: `identity_evaluations[].level_author` (R3 #72 5876843426), stamped fail-closed by the V5 mapper.
  */
 describe('selectGoalProbability — whose base the goal figure stands on', () => {
   beforeEach(() => {
     mockTrust.headlineSuspect = false
   })
 
-  it('estimate_only on a present goal figure → goalFitIsEstimateOnly', () => {
-    const r = selectGoalProbability({ probability_of_goal: 0.62, goal_fit_basis: { frame_verdict: 'estimate_only' } })
+  it('an Olumi-estimated goal level on a present goal figure → goalFitIsEstimateOnly', () => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62, goalLevelIsOlumiEstimate: true })
     expect(r.goalProbability).toBe(0.62)
     expect(r.goalFitIsEstimateOnly).toBe(true)
   })
 
-  it('OPPOSITE TWIN — scored (every operand the user\'s) → no estimate flag', () => {
-    const r = selectGoalProbability({ probability_of_goal: 0.62, goal_fit_basis: { frame_verdict: 'scored' } })
+  it('OPPOSITE TWIN — the user\'s own base → no estimate flag', () => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62, goalLevelIsOlumiEstimate: false })
     expect(r.goalProbability).toBe(0.62)
     expect(r.goalFitIsEstimateOnly).toBe(false)
   })
 
   it('CONTROL — the flag never stands without a figure to qualify', () => {
-    expect(selectGoalProbability({ goal_fit_basis: { frame_verdict: 'estimate_only' } }).goalFitIsEstimateOnly).toBe(false)
+    expect(selectGoalProbability({ goalLevelIsOlumiEstimate: true }).goalFitIsEstimateOnly).toBe(false)
   })
 })

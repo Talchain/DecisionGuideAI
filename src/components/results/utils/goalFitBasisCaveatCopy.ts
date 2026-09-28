@@ -13,8 +13,8 @@ export const GOAL_FIT_BASIS_CAVEAT_COPY =
 /**
  * The second basis a goal figure can stand on (ISL #207, proposal 3; AIQ ACK #72 5876773218):
  * the goal states no level today, so ISL measures the chance from the level its inputs give
- * today — and when any of those inputs is Olumi's estimate (`frame_verdict: 'estimate_only'`),
- * so is the base. Rendered adjacent to the figure whenever `goalFitIsEstimateOnly` is true.
+ * today — and when any of those inputs is Olumi's estimate (`level_author: "olumi"`, or no typed
+ * entry at all: fail-closed), so is the base. Rendered adjacent to the figure whenever `goalFitIsEstimateOnly` is true.
  * Names no goal label: labels can be whole statements ("Reach £250k MRR").
  */
 export const GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY =
