@@ -1,0 +1,59 @@
+/**
+ * A card that has keyboard focus shows it.
+ *
+ * ## The defect this closes (audit SI-4, 27 Sep 2026)
+ *
+ * Tab onto any card and nothing on screen changed: the rest and keyboard-focus
+ * crops of "Bottom-Up Adoption Friction" were byte-identical, local and served
+ * (WCAG 2.4.7). `@xyflow/react`'s own stylesheet (dist/style.css:449-451)
+ * declares
+ *
+ *     .react-flow__node.selectable:focus-visible { outline: none }
+ *
+ * at (0,3,0), which beats the app's `*:focus-visible` ring in `index.css`
+ * (0,1,0) — specificity, not layers: Tailwind 3 compiles `@layer base` away.
+ * Nothing in the card replaced it, and the one visible response a card used to
+ * give to keyboard focus (its popover) is a retired no-op.
+ *
+ * ## The rule
+ *
+ * The contract's ring (v3.1 line 19: `[tabindex]:focus-visible{outline:2px
+ * solid var(--info);outline-offset:3px}`), on the element that takes the focus
+ * — React Flow's wrapper, whose box is the card's box — rounded to the card's
+ * own radius (`--radius-sm`, the contract's 8px).
+ *
+ * ## Specificity, not load order (review, 28 Sep 2026)
+ *
+ * `.react-flow .react-flow__node[tabindex]:focus-visible` is (0,4,0): two
+ * classes, the `[tabindex]` attribute (the contract's own selector — every node
+ * wrapper React Flow makes focusable carries it) and the pseudo-class. React
+ * Flow's `.react-flow__node.selectable:focus-visible` (and its `:focus` twin)
+ * are (0,3,0), so this ring wins wherever Vite injects this sheet relative to
+ * theirs. ⛔ This header used to claim (0,4,0) over a selector that was
+ * (0,3,0) — a TIE, which the later sheet wins: the ring held only because
+ * `ReactFlowGraph.tsx` imports React Flow's sheet before `registry.ts`, and
+ * nothing pinned that. `nodeFocusRing.specificity.si4.spec.ts` now computes
+ * both specificities from the two files and fails if this one stops
+ * outranking React Flow's, if this sheet is deleted, or if `registry.ts`
+ * stops importing it.
+ *
+ * `:focus-visible`, never `:focus`: a mouse click focuses the wrapper too, and
+ * the selection ring already answers a click.
+ *
+ * A card the analysis view marks as a driver already wears the same Info ring
+ * (an inline outline on the card, `BaseNode.tsx`), so on that card the focus
+ * ring stands further out and would otherwise be invisible.
+ *
+ * Imported by `nodes/registry.ts` — the module every surface that renders nodes
+ * imports — for the reason `nodeTextAlign.css` is.
+ */
+
+.react-flow .react-flow__node[tabindex]:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.react-flow .react-flow__node[tabindex]:focus-visible:has([data-analysis-driver='true']) {
+  outline-offset: 7px;
+}

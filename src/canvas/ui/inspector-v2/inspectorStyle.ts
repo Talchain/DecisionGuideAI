@@ -56,7 +56,12 @@ export const INSPECTOR_SHELL_STYLE = {
   border: '1px solid rgb(var(--info-rgb) / 0.3)',
   borderRadius: 12,
   boxShadow: '0 10px 40px #22333024',
-  maxHeight: 'calc(100vh - 135px)',
+  // The contract's cap, further bounded by the room the canvas actually has
+  // between the app bar and the overlay band (`--inspector-room`, written by
+  // `InspectorModal` at each placement — audit SI-2: at 1280x800 the contract
+  // cap is 665px and the room is 641px, so the panel ran into the focus chip).
+  // Unset (no placement yet, or a host without the band) → the contract cap.
+  maxHeight: 'min(calc(100vh - 135px), var(--inspector-room, 100vh))',
 } as const
 
 /** Rules: the head's, a detail row's, and the note's (`--line`). */
