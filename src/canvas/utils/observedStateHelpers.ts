@@ -300,6 +300,27 @@ export function hasAnyStatedValue(nodeData: unknown): boolean {
 }
 
 /**
+ * ⭐ "NO VALUE YET" IS SAID ONLY OF A NODE THAT HOLDS NEITHER A VALUE NOR A RANGE.
+ *
+ * The PJ-B3 caption ("Driver 1 of 1 · no value yet") read `hasAnyStatedValue`
+ * alone, so a prior-only external factor (a complete range the engine SAMPLES)
+ * was said to have "no value yet" on the card that prints its range one line
+ * below (served pricing-model, 28 Sep 2026: "Top Account Revenue
+ * Concentration · Driver 1 of 1 · no value yet · Range: Very low to Medium",
+ * and the Question's "Evidence priority: … · no value yet"). A complete range
+ * counts, exactly as it does for `isFactorNeedsInput` (`priorCountsAsEvidence`);
+ * an explicit statement of ignorance (`isUnquantifiedPrior`) does not.
+ *
+ * The ONE owner for every "no value yet" site: the factor card's driver slot
+ * (`useNodeDisplayMetadata`), the Question's evidence priority
+ * (`useNodeAttention`), and the panel's `noValueDriverIds`.
+ */
+export function holdsValueOrRange(nodeData: unknown): boolean {
+  if (hasAnyStatedValue(nodeData)) return true
+  return priorCountsAsEvidence((nodeData as { prior?: { range_min?: number; range_max?: number } } | null | undefined)?.prior)
+}
+
+/**
  * Convert a raw, real-world factor figure into the normalised model-space
  * `value` the engine consumes.
  *

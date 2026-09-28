@@ -14,7 +14,7 @@
  */
 import type { Node } from '@xyflow/react'
 import { runHoldsNoValueFor } from '../../canvas/nodes/shared/unvaluedDriver'
-import { hasAnyStatedValue } from '../../canvas/utils/observedStateHelpers'
+import { holdsValueOrRange } from '../../canvas/utils/observedStateHelpers'
 
 export function noValueDriverIds(
   /** `selectDriverPolicyFeed(report)`; `null` when there is no run report. */
@@ -24,7 +24,7 @@ export function noValueDriverIds(
   if (feed == null) return new Set()
   const ids = new Set<string>()
   for (const n of nodes ?? []) {
-    if (runHoldsNoValueFor(feed, n.id) && !hasAnyStatedValue(n.data)) ids.add(n.id)
+    if (runHoldsNoValueFor(feed, n.id) && !holdsValueOrRange(n.data)) ids.add(n.id)
   }
   return ids
 }
