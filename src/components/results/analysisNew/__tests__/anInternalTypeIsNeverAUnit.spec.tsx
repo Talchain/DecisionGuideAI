@@ -132,17 +132,18 @@ describe('mounted: no site on the tab prints "binary" as a unit', () => {
    * Each site is asserted PRESENT before its text is read, so an absence of
    * "binary" can never be the absence of the sentence.
    */
+  // ⭐ 28 Sep 2026 (Panel): the Challenge row states this tipping point, so the glance's
+  // "Could change if" steps aside (`theReadingSaysEachThingOnce`). Two sites, plus that absence.
   const sites = () => ({
-    glance: screen.getByTestId('analysis-new-glance-condition').textContent ?? '',
     challenge: screen.getByTestId('analysis-new-signals-tipping-sentence').textContent ?? '',
     sensitivity: screen.getByTestId('analysis-new-sensitivity-tipping-point').textContent ?? '',
   })
 
-  it('⛔ binary: the glance, the Challenge row and the Sensitivity tip all omit it', () => {
+  it('⛔ binary: the Challenge row and the Sensitivity tip omit it (the glance defers to the Challenge row)', () => {
     const { container } = renderBody(permittedWithUnit('binary'))
     openAllSections()
     const s = sites()
-    expect(s.glance).toContain('Enterprise tier availability moves from 0 to 0.9')
+    expect(screen.queryByTestId('analysis-new-glance-condition'), 'said once, by the Challenge row').toBeNull()
     expect(s.challenge).toContain('Enterprise tier availability would have to rise from 0 to 0.9')
     expect(s.sensitivity).toContain('Partner channel live would have to fall from 1 to 0.4')
     for (const [site, text] of Object.entries(s)) expect(text, site).not.toMatch(BINARY)
@@ -150,11 +151,11 @@ describe('mounted: no site on the tab prints "binary" as a unit', () => {
     expect(container.textContent ?? '').not.toMatch(BINARY)
   })
 
-  it('⭐ CONTRAST: the same rows in £ print the unit at all three sites', () => {
+  it('⭐ CONTRAST: the same rows in £ print the unit at both sites', () => {
     renderBody(permittedWithUnit('£'))
     openAllSections()
     const s = sites()
-    expect(s.glance).toContain('Enterprise tier availability passes £0.9')
+    expect(screen.queryByTestId('analysis-new-glance-condition'), 'said once, by the Challenge row').toBeNull()
     expect(s.challenge).toContain('from £0 to £0.9')
     expect(s.sensitivity).toContain('from £1 to £0.4')
   })

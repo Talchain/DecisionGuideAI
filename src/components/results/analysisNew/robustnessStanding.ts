@@ -101,6 +101,20 @@ export function robustnessCaveatOnScreen(
   return true
 }
 
+/**
+ * ⭐ Does the caveat OPEN with the verdict reason, word for word? Served 28 Sep 2026 (`ac2def0f`):
+ * reason "This run held up under the changes we tested", caveat "This run held up under the changes
+ * we tested. That is not a guarantee. …" — the same sentence twice, a screen apart. Exact prefix on a
+ * sentence boundary (".", or the whole text), case and space ignored — not a similarity guess.
+ */
+export function caveatRestatesVerdictReason(caveatText: string | null, verdictReason: string | null): boolean {
+  if (caveatText === null || verdictReason === null) return false
+  const reason = verdictReason.trim().toLowerCase().replace(/[.]+$/, '')
+  if (reason === '') return false
+  const caveat = caveatText.trim().toLowerCase()
+  return caveat === reason || caveat.startsWith(`${reason}.`)
+}
+
 /** Same text, ignoring case and surrounding space — not a similarity guess. */
 export function duplicatesVerdictReason(text: string, verdictReason: string | null): boolean {
   if (verdictReason === null) return false
