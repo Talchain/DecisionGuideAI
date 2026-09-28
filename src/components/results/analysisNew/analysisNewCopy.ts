@@ -13,7 +13,8 @@
  * describing the analysis, that is the fabrication boundary being crossed.
  */
 
-import { applyUnitPlacement } from '../../../utils/unitClassifier'
+import { formatThresholdFigure } from './thresholdFigure'
+
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
 import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
 
@@ -905,7 +906,7 @@ export const ANALYSIS_NEW_COPY = {
       // class shipped as "Customer demand passes index0.361111". This is the
       // site that could not reach it, and it is the third outing of the class.
       const n = (v: number) =>
-        applyUnitPlacement(v.toLocaleString('en-GB', { maximumFractionDigits: 2 }), unit)
+        formatThresholdFigure(v.toLocaleString('en-GB', { maximumFractionDigits: 2 }), v, unit)
       const verb = flipValue > currentValue ? 'rise' : 'fall'
       const claim = `${factorLabel} would have to ${verb} from ${n(currentValue)} to ${n(flipValue)} before ${alternativeLabel} leads in this model.`
       /**

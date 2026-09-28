@@ -41,7 +41,8 @@
  *     caught exactly that here before it shipped.
  */
 
-import { applyUnitPlacement, classifyUnit } from '../../../utils/unitClassifier'
+import { formatThresholdFigure } from './thresholdFigure'
+import { classifyUnit } from '../../../utils/unitClassifier'
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { isSuppressedUnit } from '../../../canvas/utils/labelUtils'
@@ -2346,7 +2347,7 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
   // conditional-winner split never got it, and the identical defect shipped a
   // second time. A rule that only one of two threshold sites can reach is a
   // rule this surface does not have.
-  const fmt = (n: number) => applyUnitPlacement(formatThresholdValue(n), unit)
+  const fmt = (n: number) => formatThresholdFigure(formatThresholdValue(n), n, unit)
   const flip = fmt(usable.flip_value as number)
   const currentRaw = typeof usable.current_value === 'number' ? fmt(usable.current_value) : null
   // ⛔ A CURRENT THAT RENDERS IDENTICALLY TO THE FLIP IS NOT A REFERENCE POINT.
