@@ -506,6 +506,44 @@ function repairConstraintUnit(id, fixture) {
   }
 }
 
+/**
+ * Transformation 7 — a status quo that is not the baseline (Canvas, #2241 N2).
+ * market-entry's captured baseline has UK Financial Services Focus at 0 ("Not
+ * pursued"), yet the status quo option pursues it and every other option's row
+ * reads "Pursued → Not pursued": the capture's baseline contradicts its own
+ * options. The baseline level becomes 1 ("Pursued"), so the status quo reads
+ * "Baseline · no changes". `from` must match exactly and occur `expectedHits`
+ * times, or the build fails; a recapture that fixes this upstream must delete
+ * the entry (CLAUDE.md trap 15).
+ */
+const CAPTURE_FACTOR_BASELINE_REPAIRS = [
+  {
+    starter: 'market-entry',
+    nodeId: 'fac_uk_deepdive',
+    from: { value: 0, display_value: 'Low (0)' },
+    to: { value: 1, display_value: 'Very high (1)' },
+    expectedHits: 1,
+    reason:
+      "the status quo pursues UK Financial Services Focus and every other option moves it Pursued → Not pursued, so the captured baseline 0 contradicted the capture's own options; the baseline is 1, and the status quo reads 'Baseline · no changes'.",
+  },
+]
+
+function repairFactorBaseline(id, fixture) {
+  for (const r of CAPTURE_FACTOR_BASELINE_REPAIRS.filter((x) => x.starter === id)) {
+    let hits = 0
+    for (const n of Array.isArray(fixture.nodes) ? fixture.nodes : []) {
+      if (!n || n.id !== r.nodeId) continue
+      if (n.observed_state?.value !== r.from.value || n.display_value !== r.from.display_value) {
+        fail(`${id}: factor baseline repair "${r.nodeId}" expected value ${r.from.value} and display '${r.from.display_value}'`)
+      }
+      n.observed_state = { ...n.observed_state, value: r.to.value }
+      n.display_value = r.to.display_value
+      hits += 1
+    }
+    if (hits !== r.expectedHits) fail(`${id}: factor baseline repair "${r.nodeId}" hit ${hits}, expected ${r.expectedHits}`)
+  }
+}
+
 const STARTERS = [
   {
     id: 'vendor-selection',
@@ -703,6 +741,10 @@ function build() {
     // Maps into a NEW goal_constraints array, so the parsed capture is untouched.
     repairConstraintUnit(s.id, fixture)
 
+    // --- Transformation 7: a captured baseline its own status quo contradicts ---
+    // `nodes` is the deep clone taken for transformation 3.
+    repairFactorBaseline(s.id, fixture)
+
     const { title, summary } = deriveCardCopy(s.id, capture.nodes)
 
     fixtures.set(s.id, JSON.stringify(fixture, null, 2) + '\n')
@@ -775,6 +817,13 @@ function build() {
         // Transformation 6, disclosed the same way.
         constraintUnitRepairs: CAPTURE_CONSTRAINT_UNIT_REPAIRS.filter((r) => r.starter === s.id).map((r) => ({
           constraintId: r.constraintId,
+          from: r.from,
+          to: r.to,
+          reason: r.reason,
+        })),
+        // Transformation 7, disclosed the same way.
+        factorBaselineRepairs: CAPTURE_FACTOR_BASELINE_REPAIRS.filter((r) => r.starter === s.id).map((r) => ({
+          nodeId: r.nodeId,
           from: r.from,
           to: r.to,
           reason: r.reason,
