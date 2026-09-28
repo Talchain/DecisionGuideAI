@@ -22,7 +22,7 @@
  */
 
 import { RAW_ID_PATTERN } from '../../canvas/conversation/friendlyOperation'
-import { classifyUnit } from '../../utils/unitClassifier'
+import { classifyUnit, compactUnitParts } from '../../utils/unitClassifier'
 import type { V5GraphPatchBlock } from '../../canvas/conversation/types'
 
 // ---------------------------------------------------------------------------
@@ -171,6 +171,17 @@ export function formatConstraintValue(
     }
     if (classifyUnit(unit).kind === 'percent') {
       return `${value.toLocaleString('en-GB')}%`
+    }
+    // ⭐ A CURRENCY RATE ("GBP/month", "GBP per month") reads as the factor card
+    // prints the same node: "£49 / month", never "49 GBP/month" (served
+    // f0c8814f: the price edit's receipt said "49 GBP/month → 58.8 GBP/month").
+    // The estate's own reader (`compactUnitParts`); a non-whole amount shows its pence.
+    const money = Number.isInteger(value)
+      ? value.toLocaleString('en-GB')
+      : value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const rate = compactUnitParts(money, unit)
+    if (rate !== null && /^[£$€]/.test(rate.figure)) {
+      return rate.unit ? `${rate.figure} ${rate.unit}` : rate.figure
     }
     return `${value.toLocaleString('en-GB')} ${unit}`
   }
