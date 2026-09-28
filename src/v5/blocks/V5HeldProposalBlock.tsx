@@ -346,7 +346,7 @@ export function V5HeldProposalBlock({
           already on screen, so a tooltip would be a second copy of it. */}
       {consentLines.length > 1 ? (
         <ul
-          className={`${typography.panelBody} ${PANEL_LIST_BULLET} break-words`}
+          className={`${typography.chatBody} ${PANEL_LIST_BULLET} break-words`}
           data-testid="v5-held-proposal-summary"
           data-consent-line-count={consentLines.length}
         >
@@ -358,7 +358,7 @@ export function V5HeldProposalBlock({
         </ul>
       ) : (
         <p
-          className={`${typography.panelBody} break-words`}
+          className={`${typography.chatBody} break-words`}
           data-testid="v5-held-proposal-summary"
           data-consent-line-count={consentLines.length}
         >

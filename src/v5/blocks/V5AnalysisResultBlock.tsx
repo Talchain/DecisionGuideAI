@@ -45,7 +45,7 @@
  * Design tokens (DS v5 §21.2):
  *   - Card frame: bg-panel + rounded-md + border-panel-border
  *   - Card header: typography.panelHeader (14px semibold)
- *   - Body: typography.panelBody (12px)
+ *   - Body: typography.chatBody (13px)
  *   - Pills: bg-transparent border-{semantic}/30 text-text-body
  */
 import { memo, useMemo, type ReactElement } from 'react'
@@ -179,7 +179,7 @@ function FactorList({
             // this list is display-only — never reordered, filtered or keyed on
             // by anything else.
             key={`${i}-${f}`}
-            className={`${typography.panelBody} ${PROSE_WRAP}`}
+            className={`${typography.chatBody} ${PROSE_WRAP}`}
             data-testid={itemTestId}
           >
             {f}
@@ -481,12 +481,13 @@ function V5AnalysisResultBlockImpl({
     <details data-testid="v5-analysis-result-summary-details" className="group">
       <summary
         data-testid="v5-analysis-result-summary-toggle"
-        className={`${typography.chatMeta} inline-flex items-center gap-1 cursor-pointer text-info hover:underline list-none`}
+        // 13px, the reply's own size (Paul, 28 Sep: "Details" matches the text around it).
+        className={`${typography.chatBody} inline-flex items-center gap-1 cursor-pointer text-info hover:underline list-none`}
       >
         <ChevronDown size={12} aria-hidden="true" className="group-open:rotate-180 transition-transform" />
         Details
       </summary>
-      <p className={`${typography.panelBody} mt-1.5`} data-testid="v5-analysis-result-summary">
+      <p className={`${typography.chatBody} mt-1.5`} data-testid="v5-analysis-result-summary">
         {block.summary}
       </p>
     </details>
@@ -498,11 +499,14 @@ function V5AnalysisResultBlockImpl({
         data-presentation="inline"
         data-has-decision-review={hasReview ? 'true' : 'false'}
         data-decision-review-state={reviewState.kind}
-        className="space-y-1"
+        // Paul, 28 Sep: "Details" needs room before and after it. py-2 on top of the chat's 8px block gap gives
+        // 16px above and 16px below. The fold is often this block's FIRST child, so space-y alone left it 8px
+        // under the open-questions toggle (served e02c3d7a) while pb-3 put 20px below it.
+        className="space-y-3 py-2"
       >
         {shownUncertaintyCopy && (
           <p
-            className={`${typography.chatMeta} text-text-light`}
+            className={`${typography.chatBody} text-text-light`}
             data-testid="v5-analysis-result-uncertainty-copy"
           >
             {shownUncertaintyCopy.text}
@@ -545,14 +549,14 @@ function V5AnalysisResultBlockImpl({
         Analysis result
       </h3>
       {!summaryBehindDisclosure && (
-        <p className={typography.panelBody} data-testid="v5-analysis-result-summary">
+        <p className={typography.chatBody} data-testid="v5-analysis-result-summary">
           {block.summary}
         </p>
       )}
 
       {shownUncertaintyCopy && (
         <p
-          className={`${typography.chatMeta} text-text-light`}
+          className={`${typography.chatBody} text-text-light`}
           data-testid="v5-analysis-result-uncertainty-copy"
         >
           {shownUncertaintyCopy.text}
@@ -643,7 +647,7 @@ function V5AnalysisResultBlockImpl({
           */}
           {review030.narrative_summary !== null && !narrativeDeliveredByTypedCard && (
             <p
-              className={`${typography.panelBody} ${PROSE_WRAP}`}
+              className={`${typography.chatBody} ${PROSE_WRAP}`}
               data-testid="v5-analysis-result-narrative-summary"
             >
               {review030.narrative_summary}
@@ -662,7 +666,7 @@ function V5AnalysisResultBlockImpl({
                 return (
                   <li
                     key={h.optionId}
-                    className={`${typography.panelBody} ${PROSE_WRAP}`}
+                    className={`${typography.chatBody} ${PROSE_WRAP}`}
                     data-testid="v5-analysis-result-story-headline"
                     data-option-id={h.optionId}
                   >
@@ -686,7 +690,7 @@ function V5AnalysisResultBlockImpl({
             >
               {review030.robustness_explanation.summary !== null && (
                 <p
-                  className={`${typography.panelBody} ${PROSE_WRAP}`}
+                  className={`${typography.chatBody} ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-robustness-summary"
                 >
                   {review030.robustness_explanation.summary}
@@ -694,7 +698,7 @@ function V5AnalysisResultBlockImpl({
               )}
               {review030.robustness_explanation.primary_risk !== null && (
                 <p
-                  className={`${typography.panelBody} text-text-light ${PROSE_WRAP}`}
+                  className={`${typography.chatBody} text-text-light ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-robustness-primary-risk"
                 >
                   <span className="font-medium">Primary risk: </span>
@@ -718,7 +722,7 @@ function V5AnalysisResultBlockImpl({
 
           {review030.readiness_rationale !== null && (
             <p
-              className={`${typography.panelBody} ${PROSE_WRAP}`}
+              className={`${typography.chatBody} ${PROSE_WRAP}`}
               data-testid="v5-analysis-result-readiness-rationale"
             >
               {review030.readiness_rationale}
@@ -730,7 +734,7 @@ function V5AnalysisResultBlockImpl({
               {review030.scenario_contexts.map((s) => (
                 <li
                   key={s.id}
-                  className={`${typography.panelBody} text-text-light ${PROSE_WRAP}`}
+                  className={`${typography.chatBody} text-text-light ${PROSE_WRAP}`}
                   data-testid="v5-analysis-result-scenario-context"
                   data-scenario-id={s.id}
                 >

@@ -78,7 +78,7 @@ export const ModelReceiptBlock = memo(function ModelReceiptBlock({ data }: Model
 
       {/* 2 — Main content: CEE coaching, verbatim. Not glossary-gated (CEE owns it). */}
       {data.coachingSummary && (
-        <p className={`${typography.bodySmall} text-text-body`}>
+        <p className={`${typography.chatBody} text-text-body`}>
           {data.coachingSummary}
         </p>
       )}

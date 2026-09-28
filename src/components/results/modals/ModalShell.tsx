@@ -45,13 +45,13 @@ function enabledFocusables(card: HTMLElement | null): HTMLElement[] {
 }
 
 /** Prototype `.field` input treatment: radius 9, panel bg, focus border-info. */
-export const FIELD_INPUT_CLASS = `w-full rounded-[9px] border border-panel-border bg-panel px-2 py-[7px] ${typography.panelBody} text-text-header focus:border-info focus:outline-none disabled:cursor-not-allowed disabled:opacity-50`
+export const FIELD_INPUT_CLASS = `w-full rounded-[9px] border border-panel-border bg-panel px-2 py-2 ${typography.panelBody} text-text-header focus:border-info focus:outline-none disabled:cursor-not-allowed disabled:opacity-50`
 
 /** Prototype ghost button (Cancel). */
-export const GHOST_BUTTON_CLASS = `inline-flex items-center gap-1.5 rounded-full border border-panel-border bg-transparent px-2.5 py-1.5 ${typography.panelBody} text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`
+export const GHOST_BUTTON_CLASS = `inline-flex items-center gap-1 rounded-full border border-panel-border bg-transparent px-3 py-2 ${typography.panelBody} text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 /** DS v5 primary button: info blue with white text, success-green hover. */
-export const PRIMARY_BUTTON_CLASS = `inline-flex items-center justify-center gap-1.5 rounded-full border border-primary bg-primary px-[11px] py-[7px] ${typography.buttonSmall} text-text-on-color hover:border-primary-hover hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`
+export const PRIMARY_BUTTON_CLASS = `inline-flex items-center justify-center gap-1 rounded-full border border-primary bg-primary px-3 py-2 ${typography.buttonSmall} text-text-on-color hover:border-primary-hover hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`
 
 export function FieldLabel({
   htmlFor,
@@ -113,7 +113,7 @@ export function useModalToast(testId: string): {
     <div
       role="status"
       data-testid={testId}
-      className={`pointer-events-none fixed bottom-[18px] left-1/2 z-[40] max-w-[min(90vw,430px)] -translate-x-1/2 rounded-full bg-text-header px-[13px] py-2 ${typography.panelBody} text-text-on-color opacity-95`}
+      className={`pointer-events-none fixed bottom-4 left-1/2 z-[40] max-w-[min(90vw,430px)] -translate-x-1/2 rounded-full bg-text-header px-3 py-2 ${typography.panelBody} text-text-on-color opacity-95`}
     >
       {toast}
     </div>
@@ -192,7 +192,7 @@ export function ModalShell({
   return (
     <div
       data-testid={`${testId}-overlay`}
-      className="fixed inset-0 z-[30] flex items-center justify-center bg-[rgba(38,38,38,0.28)] p-[18px]"
+      className="fixed inset-0 z-[30] flex items-center justify-center bg-[rgba(38,38,38,0.28)] p-4"
       onMouseDown={(e) => {
         // Backdrop click closes; clicks inside the card never do.
         if (e.target === e.currentTarget) onClose()
@@ -205,14 +205,14 @@ export function ModalShell({
         aria-modal="true"
         aria-labelledby={titleId}
         data-testid={testId}
-        className="max-h-[90vh] w-[min(430px,100%)] overflow-auto rounded-md border border-panel-border bg-panel p-[13px] shadow-2"
+        className="max-h-[90vh] w-[min(430px,100%)] overflow-auto rounded-md border border-panel-border bg-panel p-3 shadow-2"
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className={`${typography.panelHeader} text-text-header`}>
               {title}
             </h2>
-            <p className={`mt-[3px] ${typography.panelBody} text-text-body`}>{subtitle}</p>
+            <p className={`mt-1 ${typography.panelBody} text-text-body`}>{subtitle}</p>
           </div>
           <button
             type="button"

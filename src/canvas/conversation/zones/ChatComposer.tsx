@@ -356,7 +356,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             disabled={isThinking}
             rows={1}
             aria-label="Message input"
-            className={`flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light ${typography.bodySmall}`}
+            className={`flex-1 bg-transparent border-none outline-none resize-none text-text-body placeholder:text-text-light ${typography.chatBody}`}
             style={{
               fontFamily: 'inherit',
               padding: '12px 4px',

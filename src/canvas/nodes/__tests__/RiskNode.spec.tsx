@@ -106,11 +106,13 @@ describe('RiskNode', () => {
     const { container } = renderRisk({ description, body })
     expect(screen.getByTestId('risk-context-preview').textContent).toBe(body)
     await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
-    // The shared renderer preserves the authored newline as <br>, not a text space.
+    // The shared renderer preserves the authored newline as a break, not a text space.
     const expanded = container.querySelector('.node-description')
     expect(expanded).toHaveTextContent('Preserve the source wording.')
     expect(expanded).toHaveTextContent('Also retain the second paragraph.')
-    expect(container.querySelector('.node-description br')).not.toBeNull()
+    // #2253 (28 Sep) made a paragraph gap a `<span class="md-gap">` on purpose (Chrome ignores
+    // height on a <br>); a single newline may still be a <br>. The break must exist in either form.
+    expect(container.querySelector('.node-description .md-gap, .node-description br')).not.toBeNull()
   })
 
   it('does not repeat matching body text in the expanded context', async () => {

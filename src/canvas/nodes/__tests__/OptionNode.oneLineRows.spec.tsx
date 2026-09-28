@@ -94,6 +94,17 @@ const SERVED_ROWS = [
   { factorId: 'fac_usage_exposure', label: 'Usage-based pricing exposure', value: 'No usage pricing → Moderate' },
 ] as const
 
+/**
+ * ⚠ RE-PINNED 28 Sep 2026 (Paul's staging test 64c5eccc; Canvas owner
+ * decision, `optionRowForm` / `fitRowsToLineBudget`). None of these amounts
+ * fits beside 12 characters of its name at the landing bound, so each row is
+ * TWO lines — the name alone, then the amount — and the card's six row lines
+ * (`OPTION_CARD_ROW_LINE_BUDGET`) hold the first two (3 + 2 lines). The third,
+ * `fac_usage_exposure`, is counted by `+1 more` and stays in the popover and
+ * the inspector. Every per-row pin below holds for the rows on the card.
+ */
+const ON_CARD_ROWS = SERVED_ROWS.slice(0, 2)
+
 const NBSP = ' '
 
 type Draft = { nodes: unknown[]; edges: unknown[]; analysis_ready: unknown }
@@ -173,14 +184,16 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('audit #9 — the fixture is the served opt_hybrid card', () => {
-  it('renders exactly the three served rows, in the served order, each with a brief mark', () => {
+  it('renders the first two served rows, in the served order, each with a brief mark — the third behind +1 more', () => {
     const { container } = renderHybrid()
     const rows = cardRows(container)
     const lines = [...rows.querySelectorAll<HTMLElement>('[data-testid^="option-change-row-line-"]')]
     expect(lines.map(l => l.getAttribute('data-testid'))).toEqual(
-      SERVED_ROWS.map(r => `option-change-row-line-${OPTION}-${r.factorId}`),
+      ON_CARD_ROWS.map(r => `option-change-row-line-${OPTION}-${r.factorId}`),
     )
-    for (const r of SERVED_ROWS) {
+    expect(lines.map(l => l.getAttribute('data-row-form'))).toEqual(['two-line', 'two-line'])
+    expect(rows.querySelector(`[data-testid="option-change-more-${OPTION}"]`)?.textContent).toBe('+1 more')
+    for (const r of ON_CARD_ROWS) {
       const { dd, dt, source } = rowParts(container, r.factorId)
       expect(dt.textContent).toBe(r.label)
       expect(changeRowValueText(dd)).toBe(r.value)
@@ -190,7 +203,7 @@ describe('audit #9 — the fixture is the served opt_hybrid card', () => {
 })
 
 describe('audit #9 — the source mark sits on the value line', () => {
-  for (const r of SERVED_ROWS) {
+  for (const r of ON_CARD_ROWS) {
     it(`${r.factorId}: the only thing between "${r.value}" and its mark is one no-break space`, () => {
       const { container } = renderHybrid()
       const { dd, value, mark } = rowParts(container, r.factorId)
@@ -232,7 +245,7 @@ describe('audit #9 — the source mark sits on the value line', () => {
 })
 
 describe('audit #9 — the label is one line, and the full label is still reachable', () => {
-  for (const r of SERVED_ROWS) {
+  for (const r of ON_CARD_ROWS) {
     it(`${r.factorId}: "${r.label}" is clamped to one line; the whole name is its text, in the popover and in the mark's name`, () => {
       const { container } = renderHybrid()
       const { dt, source } = rowParts(container, r.factorId)

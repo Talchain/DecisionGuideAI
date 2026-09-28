@@ -200,12 +200,13 @@ describe('placeholder magnitude summaries never render as if measured', () => {
 
     it('a REAL unit keeps its number and its unit', () => {
       // Pattern 1 (fresh raw_value + meaningful unit) outranks display_value and
-      // composes the string itself — measured, not assumed: this reads
-      // "GBP 40,000", not the producer's "£40,000". Unchanged by this fix.
+      // composes the string itself. Re-pinned 28 Sep 2026 (DL #72 5870353946): its
+      // money goes through the ONE money-figure rule, so it reads "£40,000"
+      // (was "GBP 40,000") — still from raw_value + unit, not from display_value.
       expect(formatFactorDisplayValue({
         label: 'Budget', value: null, raw_value: 40000,
         unit: 'GBP', display_value: '£40,000',
-      })).toBe('GBP 40,000')
+      })).toBe('£40,000')
     })
 
     it('a real unit spelled into display_value is untouched (e.g. "42 days")', () => {

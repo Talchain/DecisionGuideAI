@@ -127,7 +127,7 @@ export function V5GraphPatchBlock({
       </div>
       {receipt.entityLabel && (
         <p
-          className={typography.panelBody}
+          className={typography.chatBody}
           data-testid="v5-change-entity"
         >
           {receipt.entityLabel}

@@ -24,7 +24,7 @@ import { logger } from '../../lib/logger'
 import { fetchScenarioGraph } from '../../adapters/cee/scenarioGraph'
 import { mergeServerGraphOnHydrate } from '../utils/mergeServerGraph'
 import { applyBootAnalysisVerdict, applyBootLeaderClaimWithholding, isBootRestorableRunState } from './applyScenarioAnalysisRead'
-import { applyBootRunCurrency, applyBootBlockedVerdict } from './applyBootRunCurrency'
+import { applyBootRunCurrency, applyBootBlockedVerdict, bootReadRunFact } from './applyBootRunCurrency'
 import {
   beginBootGraphRead,
   isCeeAddressableScenarioId,
@@ -400,7 +400,15 @@ async function readAndMergeServerGraph(
       },
     })
     if (currencyOutcome.outcome === 'restored') {
-      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored' })
+      // R6: the restored result IS the run this verdict describes (the read ships its block only on
+      // `complete_current`, stamped with the run's canonical hash), so it is not an orphan — see `bootReadRunFact`.
+      const fact = bootReadRunFact({
+        scenarioId,
+        analysisResult: result.analysisResult,
+        now: Date.now(),
+      })
+      if (fact !== null) useCanvasStore.getState().setV5AnalysisFact(fact)
+      logger.debug('server_graph_hydration.boot_run_currency', { scenarioId, exit, outcome: 'restored', runFact: fact !== null })
       return
     }
     // A blocked model keeps CEE's named reason across a reload, under the SAME
@@ -554,6 +562,7 @@ async function readAndMergeServerGraph(
     useReloadDifferenceStore.getState().recordRemoval({
       scenarioId,
       removedLabels: merge.removedLabels,
+      canvasOnlyLinkLabels: merge.removedCanvasOnlyLinkLabels,
     })
   }
 
@@ -721,7 +730,29 @@ function whyCanvasNotProvenEqualToReadBothWays(scenarioId: string, wireGraph: un
 
 /** The currency proof's view of EITHER graph: contract defaults, then the analysis-affecting projection. */
 function currencyComparable(graph: unknown): unknown {
-  return withoutNonAnalysisFields(withContractEdgeDefaults(graph))
+  return withoutNonAnalysisFields(withoutAbsentBaselineDefault(withContractEdgeDefaults(graph)))
+}
+
+/**
+ * ⭐ R6, SERVED (UI c3f76e4f, `theServedReloadProvesTheResultCurrent.spec.tsx`): `is_baseline: false` IS AN
+ * ABSENT `is_baseline`. The canvas projects `false` on every non-baseline option; CEE's read carries the key
+ * only on the baseline. The engine reads the flag as `option.is_baseline === true` (`isBaselineOption`), so
+ * the two graphs analyse identically, yet every reload of a model with a non-baseline option declined here
+ * (`fwd:node:<option>:is_baseline:read_lacks canvas=false`) and the result read "Results may be outdated".
+ * Applied to BOTH sides, and only to `false`: a `true` the other side lacks still declines.
+ */
+function withoutAbsentBaselineDefault(graph: unknown): unknown {
+  if (graph === null || typeof graph !== 'object') return graph
+  const g = graph as { nodes?: unknown }
+  if (!Array.isArray(g.nodes)) return graph
+  return {
+    ...(graph as Record<string, unknown>),
+    nodes: g.nodes.map((n) => {
+      if (n === null || typeof n !== 'object' || (n as { is_baseline?: unknown }).is_baseline !== false) return n
+      const { is_baseline: _absent, ...rest } = n as Record<string, unknown>
+      return rest
+    }),
+  }
 }
 
 /**

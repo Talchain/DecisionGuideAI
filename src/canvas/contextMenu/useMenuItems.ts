@@ -835,8 +835,18 @@ function buildNodeMenu(
 
   items.push(DIV)
 
-  // --- Add connected nodes (not on constraint) ---
-  if (kind !== 'constraint') {
+  // --- Add connected nodes (not on constraint, not on the Question) ---
+  //
+  // ⛔ NOT ON THE QUESTION (canvas audit edit-structure/F7, 27 Sep 2026). A
+  // Question's only outgoing link is Question → option: the contract draws it
+  // as a "structural alternative link", and CEE's own `ALLOWED_EDGES` admits
+  // `decision → option` and nothing else from a decision. These three items
+  // made the Question the SOURCE of a new factor / outcome / risk, and once a
+  // band was stated `structural_add_edge` saved it as a CAUSAL claim (served:
+  // `{from: dec_billing, to: <new factor>, magnitude 0.1}`, 200) that the
+  // Question itself boosts the factor. Options are added from the Question's
+  // own panel ("+ Add option"), which carries the structural convention.
+  if (kind !== 'constraint' && kind !== 'decision') {
     items.push({
       id: 'add-connected-factor',
       label: 'Add connected factor',

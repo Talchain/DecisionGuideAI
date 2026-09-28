@@ -29,7 +29,7 @@ export function CoachingTip({ tip, onDismiss }: CoachingTipProps) {
       data-testid="coaching-tip"
     >
       <Sparkles className="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
-      <p className={`text-text-body flex-1 ${typography.panelBody}`}>{tip}</p>
+      <p className={`text-text-body flex-1 ${typography.chatBody}`}>{tip}</p>
       <button
         type="button"
         onClick={onDismiss}

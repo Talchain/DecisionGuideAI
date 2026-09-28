@@ -263,6 +263,10 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
     unconfirmedDelete: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete('Partner churn'),
     unconfirmedDeleteLink: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete('the link from Partner churn to Grow revenue'),
     unconfirmedDeleteNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(null),
+    // canvas audit edit-structure/F2 (27 Sep 2026): the never-sent drawn link.
+    canvasOnlyLink: ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink('the link from Partner churn to Grow revenue'),
+    canvasOnlyLinkNoLabel: ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink(null),
+    canvasOnlyLinkSeveral: ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink(null, 3),
   })
   // ROADMAP 2.376 — the contested surface's own copy, with its one factory invoked so the
   // sentence a user is shown is scanned rather than the function that builds it.

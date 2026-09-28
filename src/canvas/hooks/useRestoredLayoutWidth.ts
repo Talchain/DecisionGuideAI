@@ -38,7 +38,10 @@
  *
  * ⚠ WHAT THIS DELIBERATELY DOES NOT DO — a re-layout. Re-laying out on load
  * would mask the cause and re-arrange geometry a user may have positioned by
- * hand. This hook changes how wide a card DRAWS; it never moves a node.
+ * hand. This hook changes how wide a card DRAWS; it never moves a node — with
+ * ONE exception, the Canvas owner's (27 Sep 2026): a row saved too tight for the
+ * narrowest drawable card is re-spread, because no width can clear it (see
+ * `respreadSubFloorRows` below). Every row that fits stays exactly as saved.
  *
  * ── THE TWO LATCHES, AND WHY EACH IS LOAD-BEARING ──────────────────────────
  *
@@ -70,7 +73,7 @@
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
-import { solveLayoutNodeWidth, solveRestoredCardWidths } from '../utils/layout'
+import { applyRespreadX, planSubFloorRespread, solveLayoutNodeWidth, solveRestoredCardWidths } from '../utils/layout'
 import { graphNeedsInitialLayout } from '../utils/graphNeedsInitialLayout'
 import { restoreIdentityKey } from './useFitViewOnLayoutVersion'
 
@@ -206,7 +209,12 @@ export function useRestoredLayoutWidth(): void {
     // `build-vs-buy` drew every factor at the 191 floor. A hidden node is never
     // measured by React Flow, so it is not waited for — the same rule React
     // Flow's own `nodesInitialized` uses.
-    const everyCardMeasured = nodes.every((n) => {
+    //
+    // ⚠ Read from the store's CURRENT nodes, like the re-spread and the widths
+    // below (Delivery Lead, #2235 r1): one snapshot for the whole block, so the
+    // evidence it waits for is the evidence it then uses.
+    const live = useCanvasStore.getState().nodes
+    const everyCardMeasured = live.every((n) => {
       if ((n as { hidden?: boolean }).hidden === true) return true
       const h = (n as unknown as { measured?: { height?: number } }).measured?.height
       return typeof h === 'number' && h > 0
@@ -215,7 +223,48 @@ export function useRestoredLayoutWidth(): void {
     if (perKindDerivedForRef.current === key) return
     perKindDerivedForRef.current = key
 
-    const derivedPerKind = solveRestoredCardWidths(nodes, {
+    /**
+     * ⭐ NO OVERLAP BEATS AN OLD STRIDE (Canvas owner, 27 Sep 2026, landing text
+     * cap) — the ONE case where this hook moves nodes. A row saved at a stride
+     * narrower than the narrowest drawable card plus the sibling gap cannot be
+     * repaired by any width, so `planSubFloorRespread` re-spreads THAT row's
+     * too-tight cards, each run about its median card (order and y kept; a card
+     * already clear of its neighbours stays where the user put it); every row
+     * that fits comes back as the same object. It runs here, once per restore, because it needs
+     * every card measured to tell a row from its sub-rows.
+     *
+     * ⚠ NO WRITE OF ITS OWN. This sets the in-memory positions inside the
+     * store's 'hydrate' mutation window (a producer write, not a user edit; a
+     * direct `setState` pushes no history entry); it calls no save. What reaches storage is whatever the existing post-restore
+     * saves already write — the same writes React Flow's first measurement of
+     * the restored cards already triggers.
+     */
+    /**
+     * ⛔⛔ FROM THE STORE AT EFFECT TIME, AND X ONLY — NEVER THE RENDER-TIME COPY
+     * (Delivery Lead, #2235 r1). This used to write `setState({ nodes: restored })`
+     * with `restored` built from `nodes`, the array this render closed over. A
+     * store write landing between that render and this effect — the boot
+     * readback merge, a measurement batch — was silently UNDONE by the whole-array
+     * write, and the autosave then saved the older state. So the plan is read
+     * from the store's CURRENT nodes, and the write is a functional update that
+     * changes only the x of the cards the plan names, on whatever the store
+     * holds at the moment of the write.
+     */
+    const movedX = planSubFloorRespread(live, { preserveLocked: respectLocked, spacing: nodeSpacing })
+    if (movedX.size > 0) {
+      const store = useCanvasStore.getState()
+      store.beginExternalGraphMutation('hydrate')
+      try {
+        useCanvasStore.setState((s) => {
+          const next = applyRespreadX(s.nodes, movedX)
+          return next === s.nodes ? s : { nodes: next }
+        })
+      } finally {
+        useCanvasStore.getState().endExternalGraphMutation()
+      }
+    }
+
+    const derivedPerKind = solveRestoredCardWidths(useCanvasStore.getState().nodes, {
       direction,
       preserveLocked: respectLocked,
       spacing: nodeSpacing,

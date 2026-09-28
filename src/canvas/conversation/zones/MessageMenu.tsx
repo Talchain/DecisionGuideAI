@@ -202,7 +202,7 @@ export function MessageMenu({ role, content, onRetry, onSendFollowUp }: MessageM
                 w-full flex items-center gap-2 px-3 py-1.5 text-left
                 text-text-body hover:bg-panel-hover
                 focus-visible:ring-2 focus-visible:ring-info focus-visible:outline-none
-                ${typography.panelBody}
+                ${typography.chatBody}
               `}
             >
               <Icon

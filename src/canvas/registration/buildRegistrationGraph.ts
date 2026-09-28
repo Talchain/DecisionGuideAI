@@ -146,6 +146,37 @@ function clamp01(n: number): number {
 }
 
 /**
+ * ⭐ THE ONE NODE-FIELD PROJECTION (DL ruling 5871843133, 28 Sep 2026).
+ *
+ * The node fields the wire carries, from a canvas node's `data`: every key
+ * except ReactFlow internals and canvas-only keys, with a withdrawn extraction
+ * marker omitted and the observed bundle sent ONCE as `observed_state`. Both
+ * the registration graph (below) and the `/graph-readiness` body
+ * (`readinessStore.buildReadinessPayload`) are built from THIS function, so the
+ * two cannot drift. They did drift: readiness kept its own allow-list, which
+ * never sent `prior`, so readiness judged every prior-only external factor as
+ * "no level" while registration (and the engine) had the prior. All 5 starters
+ * could not Run.
+ */
+export function projectNodeFieldsForWire(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(data)) {
+    if (CANVAS_ONLY_NODE_KEYS.has(key) || value === undefined) continue
+    if (isWithdrawnMarker(key, value)) continue
+    // Both spellings of the observed bundle are resolved once, below.
+    if (key === 'observedState' || key === 'observed_state') continue
+    out[key] = value
+  }
+  // CEE spells the observed-value bundle `observed_state`; one bundle, read
+  // as the canvas reads it (see the header).
+  const observed = data.observedState ?? data.observed_state
+  if (observed !== undefined && observed !== null) {
+    out.observed_state = observedStateForWire(observed)
+  }
+  return out
+}
+
+/**
  * Project the canvas into the graph CEE will persist.
  *
  * Pure. Never throws. Returns a refusal rather than a best guess whenever the
@@ -189,19 +220,7 @@ export function buildRegistrationGraph(
       id: node.id,
       kind: resolved,
       label: readKindCandidate(data.label) ?? node.id,
-    }
-    for (const [key, value] of Object.entries(data)) {
-      if (CANVAS_ONLY_NODE_KEYS.has(key) || value === undefined) continue
-      if (isWithdrawnMarker(key, value)) continue
-      // Both spellings of the observed bundle are resolved once, below.
-      if (key === 'observedState' || key === 'observed_state') continue
-      out[key] = value
-    }
-    // CEE spells the observed-value bundle `observed_state`; one bundle, read
-    // as the canvas reads it (see the header).
-    const observed = data.observedState ?? data.observed_state
-    if (observed !== undefined && observed !== null) {
-      out.observed_state = observedStateForWire(observed)
+      ...projectNodeFieldsForWire(data),
     }
     wireNodes.push(out)
   }

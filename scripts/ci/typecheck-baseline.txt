@@ -84,7 +84,7 @@
 12	src/adapters/plot/v2/__tests__/responseMapper.spec.ts
 3	src/adapters/plot/v2/adapter.ts
 14	src/adapters/plot/v2/responseMapper.ts
-11	src/canvas/ReactFlowGraph.tsx
+10	src/canvas/ReactFlowGraph.tsx
 3	src/canvas/__tests__/__helpers__/renderCanvas.tsx
 1	src/canvas/__tests__/accessibility.spec.tsx
 1	src/canvas/__tests__/applyDraftResult.v5FreshDraft.regression.spec.ts

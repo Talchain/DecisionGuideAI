@@ -13,12 +13,13 @@
  * individually-correct conclusions purely by omitting it.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, render } from '@testing-library/react'
+import { useLayoutEffect } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
 import { useRestoredLayoutWidth } from '../hooks/useRestoredLayoutWidth'
-import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W } from '../utils/nodeLayoutConstants'
+import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W, REPEATED_CARD_W, ANCHOR_CARD_MAX_W, LAYOUT_NODE_GAP } from '../utils/nodeLayoutConstants'
 
 function n(id: string, type: string, x: number, y: number): Node {
   return { id, type, position: { x, y }, data: { label: id } } as Node
@@ -119,6 +120,94 @@ describe('useRestoredLayoutWidth', () => {
     expect(perKind?.factor).toBe(REPEATED_CARD_W)
     expect(perKind?.decision).toBe(ANCHOR_CARD_MAX_W)
     expect(perKind?.decision).not.toBe(perKind?.factor)
+  })
+
+  it('[saved reload, pre-17-Aug stride] re-spreads ONLY the sub-floor row, in the store, and the widths it publishes clear it', () => {
+    // Canvas owner, 27 Sep 2026 (landing text cap): no overlap beats an old
+    // stride. Options saved at 196 (140 cards + 56 gap) — under the narrowest
+    // drawable card plus the sibling gap, so no width clears them. Factors at
+    // 350, which fits and must come back untouched.
+    const nodes = [
+      n('d1', 'decision', 0, 0),
+      n('o1', 'option', 100, 400), n('o2', 'option', 296, 400), n('o3', 'option', 492, 400),
+      ...[0, 1, 2].map((i) => n(`f${i}`, 'factor', i * 350, 900)),
+    ].map((x) => ({ ...x, measured: { width: 248, height: 120 } })) as Node[]
+    seed({ nodes, currentScenarioId: 'scR' })
+    const factorsBefore = useCanvasStore.getState().nodes.filter((x) => x.type === 'factor')
+
+    renderHook(() => useRestoredLayoutWidth())
+
+    const gap = Math.max(LAYOUT_NODE_GAP, useLayoutStore.getState().nodeSpacing)
+    const workable = Math.ceil(NODE_LAYOUT_MIN_W + gap)
+    const after = useCanvasStore.getState().nodes
+    const opts = after.filter((x) => x.type === 'option').sort((a, b) => a.position.x - b.position.x)
+    expect(opts.map((o) => o.id), 'the saved card order changed').toEqual(['o1', 'o2', 'o3'])
+    expect(opts[1].position.x - opts[0].position.x, 'the sub-floor row was not re-spread').toBeCloseTo(workable, 9)
+    expect(opts[2].position.x - opts[1].position.x).toBeCloseTo(workable, 9)
+    expect((opts[0].position.x + opts[2].position.x) / 2, 'the row left its saved centre').toBeCloseTo(296, 9)
+    expect(opts.every((o) => o.position.y === 400)).toBe(true)
+    after.filter((x) => x.type === 'factor').forEach((f, i) => expect(f, 'a fitting row was touched').toBe(factorsBefore[i]))
+    const optionW = useLayoutStore.getState().layoutCardWidths?.option
+    expect(optionW).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    expect(opts[1].position.x - opts[0].position.x - optionW!, 'the published width still overlaps the re-spread row').toBeGreaterThanOrEqual(0)
+    // A producer write inside the hydrate window, and the window is closed again.
+    expect(useCanvasStore.getState()._externalMutationActive).toBe(0)
+  })
+
+  /**
+   * ⛔⛔ A STORE WRITE BETWEEN THE RENDER AND THE EFFECT SURVIVES THE RE-SPREAD
+   * (Delivery Lead, #2235 r1). The re-spread used to write
+   * `setState({ nodes: restored })` with `restored` built from the render-time
+   * `nodes`, so a write that landed after the hook's render and before its
+   * effect — the boot readback merge, a measurement batch — was silently
+   * undone, and the autosave then saved the older state.
+   *
+   * THE SLOT, MODELLED EXACTLY: every layout effect in a commit runs before any
+   * passive effect, so a sibling `useLayoutEffect` writes after the hook has
+   * rendered and before its `useEffect` reads. The write is a readback-shaped
+   * merge: a new label on `o1` (a card the re-spread MOVES) and on `f1` (a card
+   * in a fitting row it must not touch).
+   */
+  it('[saved reload, pre-17-Aug stride] ⛔ a store write landing between render and the effect survives the re-spread', () => {
+    const nodes = [
+      n('d1', 'decision', 0, 0),
+      n('o1', 'option', 100, 400), n('o2', 'option', 296, 400), n('o3', 'option', 492, 400),
+      ...[0, 1, 2].map((i) => n(`f${i}`, 'factor', i * 350, 900)),
+    ].map((x) => ({ ...x, measured: { width: 248, height: 120 } })) as Node[]
+    seed({ nodes, currentScenarioId: 'scW' })
+    const merged = { o1: 'o1 (from the server)', f1: 'f1 (from the server)' } as Record<string, string>
+
+    let renderedBeforeWrite: Node[] | null = null
+    function RestoreThenReadback() {
+      useRestoredLayoutWidth()
+      useLayoutEffect(() => {
+        renderedBeforeWrite = useCanvasStore.getState().nodes
+        useCanvasStore.setState((s) => ({
+          nodes: s.nodes.map((x) =>
+            merged[x.id] ? { ...x, data: { ...(x.data as object), label: merged[x.id] } } : x,
+          ),
+        }))
+      }, [])
+      return null
+    }
+    render(<RestoreThenReadback />)
+
+    // Precondition: the write really landed on the array the hook rendered with.
+    expect(renderedBeforeWrite, 'the intervening write never ran').not.toBeNull()
+    expect(renderedBeforeWrite).toBe(nodes)
+
+    const after = useCanvasStore.getState().nodes
+    const gap = Math.max(LAYOUT_NODE_GAP, useLayoutStore.getState().nodeSpacing)
+    const workable = Math.ceil(NODE_LAYOUT_MIN_W + gap)
+    const opts = after.filter((x) => x.type === 'option').sort((a, b) => a.position.x - b.position.x)
+    // Precondition: the re-spread really ran, or the survival below is trivial.
+    expect(opts[1].position.x - opts[0].position.x, 'the sub-floor row was not re-spread').toBeCloseTo(workable, 9)
+    expect(opts[0].position.x, 'o1 did not move, so this cannot tell a merge from an overwrite').not.toBe(100)
+    // THE ROW: the intervening write is still there, on a moved card and an unmoved one.
+    const label = (id: string) => (after.find((x) => x.id === id)!.data as { label: string }).label
+    expect(label('o1'), 'the re-spread UNDID the readback write on a card it moved').toBe(merged.o1)
+    expect(label('f1'), 'the re-spread UNDID the readback write on a card it did not move').toBe(merged.f1)
+    expect(useCanvasStore.getState()._externalMutationActive).toBe(0)
   })
 
   it('[saved reload] fires once, and re-arms on a scenario SWITCH', () => {

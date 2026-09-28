@@ -506,7 +506,7 @@ export function DecisionRecordModal() {
       >
         <p
           data-testid="decision-record-note"
-          className={`mt-2.5 rounded-[9px] border border-panel-border bg-panel px-[9px] py-2 ${typography.panelMeta} text-text-light`}
+          className={`mt-2 rounded-[9px] border border-panel-border bg-panel px-2 py-2 ${typography.panelMeta} text-text-light`}
         >
           {persistenceNote}
         </p>
@@ -520,7 +520,7 @@ export function DecisionRecordModal() {
           </p>
         )}
 
-        <div className="mt-[11px] grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <fieldset
             className="col-span-2 m-0 flex flex-col gap-1 border-0 p-0"
             data-testid="decision-record-position"
@@ -537,7 +537,7 @@ export function DecisionRecordModal() {
               ).map(([value, label]) => (
                 <label
                   key={value}
-                  className={`inline-flex min-h-[24px] items-center gap-1.5 ${typography.panelBody} text-text-body`}
+                  className={`inline-flex min-h-[24px] items-center gap-2 ${typography.panelBody} text-text-body`}
                 >
                   <input
                     type="radio"
@@ -771,7 +771,7 @@ export function DecisionRecordModal() {
           </div>
         </div>
 
-        <div className="mt-[11px] flex justify-end gap-[7px]">
+        <div className="mt-3 flex justify-end gap-2">
           <button type="button" onClick={close} className={GHOST_BUTTON_CLASS}>
             {DECISION_RECORD_COPY.cancel}
           </button>
@@ -794,7 +794,7 @@ export function DecisionRecordModal() {
           <p
             id={missingId}
             data-testid="decision-record-missing"
-            className={`${typography.panelMeta} text-text-light mt-[5px] text-right`}
+            className={`${typography.panelMeta} text-text-light mt-1 text-right`}
           >
             {DECISION_RECORD_COPY.stillNeeded(missing)}
           </p>

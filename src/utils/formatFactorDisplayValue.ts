@@ -17,12 +17,28 @@
  */
 
 import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
-import { compactUnitParts, moneyFigureParts } from './unitClassifier'
+import { compactUnitParts, formatMoneyFigure, joinCompactUnitParts, moneyFigureParts } from './unitClassifier'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
 function stripSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
+}
+
+/**
+ * A label set mid-sentence ("No <label> in place"): each word lower-cased
+ * UNLESS it carries a capital after its first letter — an acronym or a
+ * spelling ("AI", "NPS", "SaaS", "iPhone") keeps its letters exactly.
+ *
+ * Paul's staging test, 28 Sep 2026 (export 64c5eccc): `.toLowerCase()` on the
+ * whole label made factor "AI assistant use" read "No ai assistant use in
+ * place". The sentence is this formatter's own; the label's words are not.
+ */
+function labelMidSentence(label: string): string {
+  return label
+    .split(/(\s+)/)
+    .map(word => (/\p{Lu}/u.test(word.slice(1)) ? word : word.toLowerCase()))
+    .join('')
 }
 
 function formatNumber(value: number): string {
@@ -404,6 +420,9 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
   // Built from a raw NUMBER. A string `raw_value` is the producer's text.
   if (typeof raw_value !== 'number' || !Number.isFinite(raw_value)) return null
   if (!unit) return null
+  // Money: the rule's own parts, which ARE the formatter's string (see Pattern 1).
+  const money = moneyFigureParts(raw_value, unit)
+  if (money !== null && joinCompactUnitParts(money) === text) return { figure: money.figure, unit: money.unit }
   const { kind, canonical } = classifyUnit(unit)
   const amount = formatNumber(raw_value)
   let parts: FactorDisplayParts
@@ -416,15 +435,7 @@ export function formatFactorDisplayParts(input: FactorDisplayInput): FactorDispl
   } else if (kind === 'other') {
     parts = compoundUnitParts(amount, canonical || unit, text) ?? { figure: amount, unit: canonical || unit }
   } else return null
-  if ((parts.restates ?? joinFactorDisplayParts(parts)) !== text) return null
-  // ⭐ MONEY THROUGH THE ONE RULE (`moneyFigureParts`, DL #72 5870353946): the
-  // card read "GBP 49" and "£58.8 / month" where the receipt and the Reasoning
-  // tab read "£49" and "£58.80 / month". Only a string composed HERE from the
-  // raw number and the node's unit (the byte check above) is re-spelt, and
-  // `restates` binds the card to that one string (`factorCardVisibleText`).
-  const money = moneyFigureParts(raw_value, unit)
-  if (money === null || (money.figure === parts.figure && money.unit === parts.unit)) return parts
-  return { figure: money.figure, unit: money.unit, restates: text }
+  return (parts.restates ?? joinFactorDisplayParts(parts)) === text ? parts : null
 }
 
 /**
@@ -822,6 +833,12 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       if (unitKind === 'placeholder') {
         return formatNumber(numericRaw)
       }
+      // ⭐⭐ MONEY THROUGH THE ONE RULE (`formatMoneyFigure`, DL #72 5870353946). This string
+      // feeds the card, the Reasoning strip, the inspector, the Model tab, option rows and the
+      // export: fixing it here is fixing it for every consumer at once. Served b8906035 read
+      // "58.8 GBP per month" where the card read "£58.80 / month". Non-money falls through.
+      const money = formatMoneyFigure(numericRaw, unit)
+      if (money !== null) return money
       if (unitKind === 'symbol') {
         return `${unitCanonical}${formatNumber(numericRaw)}`
       }
@@ -987,7 +1004,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     }
     if (isMeaningless && !isExplicitlyBinary) {
       if (value === 0 && factorTypeUnset) {
-        const stripped = stripSuffixes(label).toLowerCase()
+        const stripped = labelMidSentence(stripSuffixes(label))
         return `No ${stripped} in place`
       }
       // NOTE: the value === 1 mirror case is deliberately NOT implemented yet.
@@ -997,7 +1014,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // considering both branches together.
       return null
     }
-    const stripped = stripSuffixes(label).toLowerCase()
+    const stripped = labelMidSentence(stripSuffixes(label))
     if (value === 0) {
       return `No ${stripped} in place`
     }

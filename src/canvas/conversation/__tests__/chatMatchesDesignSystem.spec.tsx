@@ -70,13 +70,19 @@ function cssRule(selector: string): string {
   return css.slice(start, css.indexOf('}', start))
 }
 
-describe('§21.1 the user message sits on the right', () => {
-  // ChatMessage wraps every message in a BLOCK div, where `align-self` does
-  // nothing. A block box of its own width, pushed right, is what moves it.
-  it('the user bubble is a fit-content box pushed right, not align-self alone', () => {
+describe('the user message runs the full width of the chat column (Paul, 28 Sep)', () => {
+  // Replaces §21.1's right-aligned bubble: the panel fill sets the message
+  // apart, so it takes the whole column instead of a pushed-right box.
+  it('the user bubble is full width and is not pushed right', () => {
     const rule = cssRule('.messageBubbleUser')
-    expect(rule).toMatch(/width:\s*fit-content/)
-    expect(rule).toMatch(/margin-left:\s*auto/)
+    expect(rule).toMatch(/width:\s*100%/)
+    expect(rule).toMatch(/max-width:\s*100%/)
+    expect(rule).not.toMatch(/margin-left:\s*auto/)
+    expect(rule).not.toMatch(/fit-content/)
+  })
+
+  it('a chip-sent message is not pushed right either', () => {
+    expect(cssRule('.chipActionIndicator')).not.toMatch(/margin-left:\s*auto/)
   })
 
   it('the assistant bubble is untouched: left, no background', () => {

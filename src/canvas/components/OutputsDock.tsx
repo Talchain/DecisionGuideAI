@@ -3162,6 +3162,12 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             // omitting it here left a never-run model showing a freshness glyph
             // (`OutputsDock.neverRunTabGlyph.spec.tsx`).
             hasCompletedFirstRun={hasCompletedFirstRun}
+            // The ⓘ "Inspect this analysis": front Reasoning like a tab click,
+            // then ask its About section to open (the consumer clears it).
+            onInspectAnalysis={() => {
+              handleTabClick('analysisNew')
+              useUIStore.getState().requestReasoningAbout(true)
+            }}
           />
         )}
         {/* ROADMAP 2.1132 — when the ASSISTANT fronted this dock via an

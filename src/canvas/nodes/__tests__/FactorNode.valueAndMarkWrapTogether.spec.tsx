@@ -22,9 +22,22 @@
  * third line of its own — measured in a Chromium harness, 27 Sep: inline flow
  * keeps the mark on the last line with no extra height; flex-wrap added a line.)
  *
+ * ⚠ RE-PINNED 28 Sep 2026 (Paul's staging test 64c5eccc: "No ai assistant use
+ * in place" / `est.` ALONE on the next line). "When that line is full it wraps
+ * onto the next line under the value" left the mark alone whenever the value
+ * filled its line — and always on the controllable card, whose value was an
+ * atomic `<button>`. Now the row is `whitespace-nowrap`, so its one joining
+ * space is no break opportunity; the value re-opens its own spaces
+ * (`whitespace-normal`); and the editor rests as INLINE text (a role=button
+ * span) that carries the space + mark as its `trailing`. The mark wraps only
+ * WITH the value's last word (`FactorNode.binaryValueLine.assistant.spec.tsx`
+ * models the break opportunities).
+ *
  * Pinned, by identity (`factor-recorded-value`, `factor-value-mark-slot-<id>`):
  *   · the row is not a flex/grid container (no `flex`, `flex-nowrap`, `grid`);
- *   · its children are exactly: the value, one ' ' text node, the mark slot;
+ *   · the value, one ' ' text node, the mark slot — siblings, in that order
+ *     (the row's own children on a plain value; inside the value's wrapper,
+ *     after the inline editor, on an editable one);
  *   · the mark never splits (`whitespace-nowrap`) and is never pushed to an edge;
  *   · the value may wrap inside the card (`break-words`) — nothing is cut.
  * Both value paths: the served factor is controllable (the on-graph editor
@@ -122,14 +135,18 @@ describe('DIFF item 3 — the value and its mark wrap together (contract `.own-v
       }
       expect(rt.has('break-words'), 'a long value wraps inside the card').toBe(true)
 
-      // Exactly: the value, the gap (one ordinary, breakable space), the mark slot.
-      const kids = [...row.childNodes].filter(n => n.nodeType !== Node.COMMENT_NODE)
-      expect(kids).toHaveLength(3)
-      const [value, gap, slot] = kids as [HTMLElement, Text, HTMLElement]
-      expect(value.nodeType).toBe(Node.ELEMENT_NODE)
+      // The value, the gap (one space — no break opportunity: the row is
+      // `nowrap`), the mark slot, as siblings in that order.
+      expect(rt.has('whitespace-nowrap'), 'the row\'s join cannot break').toBe(true)
+      const slot = within(row).getByTestId(`factor-value-mark-slot-${ID}`)
+      const gap = slot.previousSibling as Text
+      const value = gap.previousSibling as HTMLElement
       expect(gap.nodeType).toBe(Node.TEXT_NODE)
       expect(gap.data).toBe(' ')
-      expect(slot.getAttribute('data-testid')).toBe(`factor-value-mark-slot-${ID}`)
+      expect(value.nodeType).toBe(Node.ELEMENT_NODE)
+      expect(tokens(value).has('whitespace-normal'), 'the value re-opens its own spaces').toBe(true)
+      const kids = [...row.childNodes].filter(n => n.nodeType !== Node.COMMENT_NODE)
+      expect(kids).toHaveLength(c.editor ? 1 : 3)
       expect(within(slot).getByTestId('estimate-marker').textContent).toBe('est.')
       expect(tokens(slot).has('whitespace-nowrap'), 'the mark never splits').toBe(true)
       for (const push of ['ml-auto', 'absolute', 'float-right']) expect(tokens(slot).has(push), push).toBe(false)
@@ -137,7 +154,9 @@ describe('DIFF item 3 — the value and its mark wrap together (contract `.own-v
       for (const cut of ['truncate', 'text-ellipsis', 'line-clamp-1']) expect(tokens(value).has(cut), cut).toBe(false)
       expect(visibleText(value)).toBe('Moderate engineering allocation (2 of 4 engineers)')
       expect(visibleText(row)).toBe('Moderate engineering allocation (2 of 4 engineers) est.')
-      expect(Boolean(within(value).queryByTestId(`node-value-editor-${ID}`))).toBe(c.editor)
+      // The editable value IS the inline editor (inline text, not an atomic box).
+      expect(value.getAttribute('data-testid') === `node-value-editor-${ID}`).toBe(c.editor)
+      if (c.editor) expect(value.tagName).not.toBe('BUTTON')
     })
   }
 })

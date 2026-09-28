@@ -300,9 +300,10 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * `'disabled'`, "test-locked as a permanent audit rather than a runtime
    * toggle". That was true when written and is **FALSE as of 18 Sep 2026**: the
    * three ids moved to `CONNECTED_NODE_ADD_MENU_IDS`, judged by the node and
-   * edge add carriers, and they render and are actionable on every non-constraint
-   * node. **The original list was right about them all along; it was simply four
-   * months early.** ⭐ Note what "test-locked as a permanent audit" did here: it
+   * edge add carriers, and they render and are actionable on every node except
+   * a constraint and (since 28 Sep 2026, canvas audit edit-structure/F7) the
+   * Question, whose only link is Question → option. **The original list was
+   * right about them all along; it was simply four months early.** ⭐ Note what "test-locked as a permanent audit" did here: it
    * described a derived audit that ITERATES the set, which can only ever prove
    * the filter agrees with the set — never that the set is right. Calling it
    * permanent is what made this comment sound settled.

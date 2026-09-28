@@ -179,6 +179,7 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   'serverStrength',
   'origin',
   'naturalEffect',
+  'strengthPlaceholder',
 ])
 
 /**
@@ -194,7 +195,14 @@ const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
  * carries, and a canvas saved before it was carried holds none. A genuine β change
  * still counts through the strength itself.
  */
-const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect'] as const
+const EDGE_ACQUIRED_METADATA_KEYS = ['serverStrength', 'origin', 'naturalEffect', 'strengthPlaceholder'] as const
+
+/**
+ * The acquired keys whose ABSENCE on a server-authoritative edge removes the
+ * canvas copy (`overlayEdge`): the natural effect (#70 5849398628) and the
+ * placeholder label (POM-8). `serverStrength` and `origin` keep the presence rule.
+ */
+const SERVER_ABSENCE_REMOVES_KEYS: ReadonlyArray<string> = ['naturalEffect', 'strengthPlaceholder']
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,
@@ -506,12 +514,34 @@ export function overlayEdge(
   // confirm and after reload. `serverStrength` and `origin` keep the presence rule.
   // Removing it fails closed — the band word shows instead — and, like acquiring it,
   // is never an edit.
-  const dropsNaturalEffect =
-    opts?.acquireServerStrengthOnNoop === true &&
-    supplied.naturalEffect === undefined &&
-    canvasEdge.data?.naturalEffect !== undefined
-  const existing = dropsNaturalEffect
-    ? { ...canvasEdge, data: Object.fromEntries(Object.entries(canvasEdge.data).filter(([k]) => k !== 'naturalEffect')) }
+  //
+  // POM-8: `strengthPlaceholder` follows the same rule, for the same reason — a
+  // server edge that no longer labels its strength a placeholder is the server's
+  // truth, and the canvas must not keep calling it one after a reload.
+  //
+  // ⛔ A WIRE EDGE ON THIS PAIR DISPROVES "NEVER SENT" (review r06 blocker 2,
+  // 28 Sep 2026). `structuralAddStandDown` records that the link stood down for
+  // want of a strength WHEN IT WAS DRAWN. Reaching here means the server now
+  // holds the same pair (the chat added it, or it was sent another way), so the
+  // receipt is false: kept, it painted "Not saved · set strength" on a link the
+  // model holds, autosave persisted it across reloads, and the add-control it
+  // gates would send a second `structural_add_edge` for the pair. Unconditional
+  // (both callers, whatever the wire supplied) — unlike the absence-rule keys
+  // above, which drop only on a server-authoritative edge that lacks them. Like
+  // the tuple, dropping it is never an edit (`isServerStrengthAcquisitionOnly`,
+  // and the boot path's `comparableReadback`).
+  const dropsStandDown = canvasEdge.data?.structuralAddStandDown !== undefined
+  const dropped: string[] = [
+    ...SERVER_ABSENCE_REMOVES_KEYS.filter(
+      (k) =>
+        opts?.acquireServerStrengthOnNoop === true &&
+        supplied[k] === undefined &&
+        canvasEdge.data?.[k] !== undefined,
+    ),
+    ...(dropsStandDown ? ['structuralAddStandDown'] : []),
+  ]
+  const existing = dropped.length > 0
+    ? { ...canvasEdge, data: Object.fromEntries(Object.entries(canvasEdge.data).filter(([k]) => !dropped.includes(k))) }
     : canvasEdge
 
   // A provenance stamp must never outlive or precede the value it describes.
@@ -565,8 +595,9 @@ export function overlayEdge(
 
 /**
  * True when `after` differs from `before` ONLY in acquired metadata
- * (`EDGE_ACQUIRED_METADATA_KEYS`: the strength tuple, `origin`) — the overlay's
- * acquisition, which is never a counted update.
+ * (`EDGE_ACQUIRED_METADATA_KEYS`: the strength tuple, `origin`) or in the
+ * dropped stand-down receipt (`overlayEdge`) — the overlay's acquisition, which
+ * is never a counted update.
  * Anything else (a value, a stamp riding with a value) is a real change.
  */
 function isServerStrengthAcquisitionOnly(before: any, after: any): boolean {
@@ -574,6 +605,7 @@ function isServerStrengthAcquisitionOnly(before: any, after: any): boolean {
   const withoutTuple = (edge: any): Record<string, unknown> => {
     const data = { ...(edge.data ?? {}) } as Record<string, unknown>
     for (const k of EDGE_ACQUIRED_METADATA_KEYS) delete data[k]
+    delete data.structuralAddStandDown
     return { ...edge, data }
   }
   return sameValue(withoutTuple(before), withoutTuple(after))

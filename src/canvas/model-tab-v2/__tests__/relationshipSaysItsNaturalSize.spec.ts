@@ -144,7 +144,8 @@ describe('the relationship row says the size in the target\'s own units', () => 
 
   it('whose figure: a placeholder says so; the user\'s own (user_specified) carries no Olumi label', () => {
     const placeholder = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, magnitude: 'olumi_placeholder' } }))
-    expect(rowValue(placeholder)).toBe('Decrease of about 1 percentage point · a placeholder, not an estimate')
+    // R11 (DL 5871699334): "not judged yet", the Agent's words, leads; the POM-8 disclosure stays.
+    expect(rowValue(placeholder)).toBe('Decrease of about 1 percentage point · not judged yet (a placeholder, not an estimate)')
     const users = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, source: 'user_specified' } }))
     expect(rowValue(users)).toBe('Decrease of about 1 percentage point')
     const stated = ingest(wireEdge({ provenance: { ...OLUMI_ESTIMATE, magnitude: 'user_stated' } }))

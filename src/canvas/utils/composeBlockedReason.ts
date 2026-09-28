@@ -1120,6 +1120,11 @@ function composedPatterns(): RegExp[] {
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedAdd(null),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(LABEL_SLOT),
     ANALYSIS_HELD_ON_EDIT_COPY.unconfirmedDelete(null),
+    // A drawn link never sent (canvas audit edit-structure/F2): named, unnamed,
+    // and several — every frame, so none falls through to `foreign`.
+    ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink(LABEL_SLOT),
+    ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink(null),
+    ANALYSIS_HELD_ON_EDIT_COPY.canvasOnlyLink(null, COUNT_SLOT),
   ]
   cachedPatterns = templates.map((template) => {
     const source = escapeForRegex(template)

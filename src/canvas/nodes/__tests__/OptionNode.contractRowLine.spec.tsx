@@ -162,6 +162,15 @@ const HYBRID_ROWS = [
   { factorId: 'fac_enterprise_revenue_risk', label: 'Enterprise revenue cannibalization risk', value: 'Low → Moderate' },
   { factorId: 'fac_usage_exposure', label: 'Usage-based pricing exposure', value: 'No usage pricing → Moderate' },
 ] as const
+/**
+ * ⚠ RE-PINNED 28 Sep 2026 (Paul's staging test 64c5eccc; Canvas owner
+ * decision): each of these rows is TWO lines at the landing bound (the amount
+ * cannot sit beside 12 characters of the name — `optionRowForm`), so the card's
+ * six row lines hold the first two; `fac_usage_exposure` is behind `+1 more`
+ * (`OptionNode.twoLineRows.assistant.spec.tsx`). The row pins hold for the rows
+ * on the card.
+ */
+const HYBRID_ROWS_ON_CARD = HYBRID_ROWS.slice(0, 2)
 
 function hybridRow(container: HTMLElement, factorId: string) {
   const get = (prefix: string) => {
@@ -181,7 +190,7 @@ function hybridRow(container: HTMLElement, factorId: string) {
 }
 
 describe('DIFF item 1 — the mark follows the value with no separator (contract `£49 → £59 brief`)', () => {
-  for (const r of HYBRID_ROWS) {
+  for (const r of HYBRID_ROWS_ON_CARD) {
     it(`${r.factorId}: the amount reads "${r.value} brief" — value, one no-break space, the mark; no "·"`, () => {
       const { container } = renderOption(PRICING, HYBRID)
       const { dd, mark, source } = hybridRow(container, r.factorId)
@@ -196,8 +205,16 @@ describe('DIFF item 1 — the mark follows the value with no separator (contract
   }
 })
 
+describe('the third hybrid row is counted, not dropped', () => {
+  it('fac_usage_exposure is behind "+1 more" (the card\'s six row lines hold two two-line rows)', () => {
+    const { container } = renderOption(PRICING, HYBRID)
+    expect(onCard(container, `option-change-row-line-${HYBRID}-fac_usage_exposure`)).toBeNull()
+    expect(onCard(container, `option-change-more-${HYBRID}`)?.textContent).toBe('+1 more')
+  })
+})
+
 describe('DIFF item 1 — the label takes what the amount leaves, and ellipsises by character, not to one word', () => {
-  for (const r of HYBRID_ROWS) {
+  for (const r of HYBRID_ROWS_ON_CARD) {
     it(`${r.factorId}: "${r.label}" is one truncating line, its full name in the DOM and in the row's title`, () => {
       const { container } = renderOption(PRICING, HYBRID)
       const { line, dt } = hybridRow(container, r.factorId)
@@ -231,14 +248,20 @@ describe('DIFF item 1 — the label takes what the amount leaves, and ellipsises
 // label whenever the two did not fit — every row at the landing bound. It is
 // now the contract's two-column grid: the amount's first line is on the
 // label's line by construction, still left-aligned and never pushed right.
+// ⚠ AND RE-PINNED AGAIN 28 Sep (Paul's staging test 64c5eccc): where the
+// amount cannot sit beside 12 characters of the name the row is TWO lines —
+// one column, the name, then the amount (`OPTION_ROW_TWO_LINE_CLASSES`); the
+// one-line grid stays wherever it fits. Both hybrid rows are two-line.
 describe('DIFF Pre 1 residual — the amount stays on the label\'s line (the contract grid), left-aligned', () => {
-  for (const r of HYBRID_ROWS) {
-    it(`${r.factorId}: a two-column grid line; the amount keeps its natural width, never pushed right`, () => {
+  for (const r of HYBRID_ROWS_ON_CARD) {
+    it(`${r.factorId}: a grid line in the form the rule names; the amount keeps its natural width, never pushed right`, () => {
       const { container } = renderOption(PRICING, HYBRID)
       const { line, dd } = hybridRow(container, r.factorId)
       const lt = tokens(line)
       expect(lt.has('grid')).toBe(true)
-      expect(lt.has('grid-cols-[minmax(0,1fr)_fit-content(calc(100%_-_8px_-_6em))]')).toBe(true)
+      expect(line.getAttribute('data-row-form')).toBe('two-line')
+      expect(lt.has('grid-cols-[minmax(0,1fr)]'), 'one column: the name, then the amount').toBe(true)
+      expect(lt.has('grid-cols-[minmax(0,1fr)_fit-content(calc(100%_-_8px_-_6em))]')).toBe(false)
       expect(lt.has('flex-wrap'), 'a wrapping line stacks the amount under the label').toBe(false)
       expect(lt.has('items-baseline')).toBe(true)
       const at = tokens(dd)

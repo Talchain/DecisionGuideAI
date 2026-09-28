@@ -126,6 +126,15 @@ const STRENGTH_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
   not_set: 'No strength has been set for this connection yet — the control below starts at a neutral position, not at a measurement.',
 }
 
+/**
+ * POM-8 (27 Sep 2026): the strength is CEE's PLACEHOLDER (`isStrengthPlaceholder`)
+ * — a `'cee'` source, but not an estimate. The `cee` sentence above ("Olumi
+ * estimated this strength") was untrue of it; this one says what it is and what
+ * the reader can do about it.
+ */
+const STRENGTH_PLACEHOLDER_COPY =
+  'Strength not judged yet. Olumi put in a placeholder so the model can run — it is not an estimate. Set it if you know it.'
+
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
   cee: 'Olumi estimated how likely this connection is to exist.',
   template: 'The likelihood that this connection exists came with the template.',
@@ -143,6 +152,8 @@ const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
 export function resolveEdgeValuesCoaching(sources: {
   strength: EdgeValueSource | null
   existence: EdgeValueSource | null
+  /** POM-8: the strength is CEE's placeholder (`isStrengthPlaceholder`). */
+  strengthPlaceholder?: boolean
 }): string {
   return `${resolveEdgeValuesProvenance(sources)} ${COACHING.edgeWeight}`
 }
@@ -158,10 +169,17 @@ export function resolveEdgeValuesCoaching(sources: {
 export function resolveEdgeValuesProvenance(sources: {
   strength: EdgeValueSource | null
   existence: EdgeValueSource | null
+  /** POM-8: the strength is CEE's placeholder (`isStrengthPlaceholder`). */
+  strengthPlaceholder?: boolean
 }): string {
   const strengthKey: EdgeProvenanceKey = sources.strength ?? 'not_set'
   const existenceKey: EdgeProvenanceKey = sources.existence ?? 'not_set'
-  return `${STRENGTH_PROVENANCE_COPY[strengthKey]} ${EXISTENCE_PROVENANCE_COPY[existenceKey]}`
+  // Only ever narrows a `'cee'` claim: a placeholder flag cannot relabel a
+  // strength the person set, a template's, or an unset one.
+  const strengthSentence = sources.strengthPlaceholder === true && strengthKey === 'cee'
+    ? STRENGTH_PLACEHOLDER_COPY
+    : STRENGTH_PROVENANCE_COPY[strengthKey]
+  return `${strengthSentence} ${EXISTENCE_PROVENANCE_COPY[existenceKey]}`
 }
 
 /** Context values for template substitution */

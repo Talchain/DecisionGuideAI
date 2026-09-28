@@ -115,6 +115,7 @@ import { logger } from '../../lib/logger'
 import { canonicalJson } from '../../lib/canonical-hash'
 import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
+import { recordsStrengthStandDown } from './canvasOnlyLink'
 import { editDeliveryHold, type EditDeliveryState } from '../registration/editDeliveryHold'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
@@ -223,9 +224,20 @@ export interface MergeServerGraphResult {
    * `data.label` (its id when it has none), then each edge removed on its OWN
    * pair — both endpoints survive — as "the link from A to B". An edge that
    * went with its endpoint is not listed separately; the node names it.
-   * Empty exactly when nothing was removed.
+   * Empty exactly when nothing was removed — except that a CANVAS-ONLY link
+   * (below) is named there instead of here.
    */
   removedLabels: string[]
+  /**
+   * ⭐ Pair-removed links that were NEVER SENT (canvas audit edit-structure/F3,
+   * 27 Sep 2026): the canvas recorded their stand-down at `strength_not_stated`
+   * (`utils/canvasOnlyLink.ts`), so the UI KNOWS why the saved model lacks them.
+   * Named apart so the reload line can say so, rather than the generic "removed
+   * in another tab, or never finished saving" guess. Same wording shape as
+   * `removedLabels` ("the link from A to B"); the user's own words, so kept out
+   * of logs like it.
+   */
+  removedCanvasOnlyLinkLabels: string[]
   /**
    * ⚠ WHETHER THE SERVER'S GRAPH WAS READ AT ALL — NOT WHETHER IT MOVED ANYTHING.
    *
@@ -261,7 +273,14 @@ const NO_CHANGE = Object.freeze({
 })
 
 function refused(reason: MergeServerGraphRefusal): MergeServerGraphResult {
-  return { ...NO_CHANGE, removedLabels: [], accepted: false, refusedReason: reason, changed: false }
+  return {
+    ...NO_CHANGE,
+    removedLabels: [],
+    removedCanvasOnlyLinkLabels: [],
+    accepted: false,
+    refusedReason: reason,
+    changed: false,
+  }
 }
 
 /**
@@ -539,6 +558,11 @@ export function mergeServerGraphOnHydrate(
       serverStrength: e.data?.serverStrength,
       origin: e.data?.origin,
       naturalEffect: e.data?.naturalEffect,
+      // The stand-down receipt `overlayEdge` drops (the server holds this pair,
+      // so "never sent" is false): corrected, but not a changed model value.
+      structuralAddStandDown: e.data?.structuralAddStandDown,
+      // POM-8: the placeholder label is acquired metadata too.
+      strengthPlaceholder: e.data?.strengthPlaceholder,
     }
     if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)
@@ -657,15 +681,21 @@ export function mergeServerGraphOnHydrate(
   // The removed labels are named against what the user sees NOW: a removed node
   // by its own label, a pair-removed edge by its endpoints' post-merge labels.
   const displayNodeById = new Map<string, any>(mergedNodes.map((n: any) => [n.id, n]))
+  const linkName = (e: any) =>
+    `the link from ${nodeDisplayName(displayNodeById.get(e.source), e.source)} to ${nodeDisplayName(displayNodeById.get(e.target), e.target)}`
+  // A link that stood down for want of a strength was never sent, and the
+  // canvas recorded that on it; its absence from the saved model is expected.
+  // The raw receipt is the whole test HERE: every pair-removed edge is on a pair
+  // this read just showed the server does not hold.
+  const canvasOnlyPairRemoved = pairRemovedEdges.filter((e) => recordsStrengthStandDown(e?.data))
+  const otherPairRemoved = pairRemovedEdges.filter((e) => !recordsStrengthStandDown(e?.data))
   const removedLabels = [
     ...(store.nodes as any[])
       .filter((n) => removedNodeIds.has(n.id))
       .map((n) => nodeDisplayName(n, n.id)),
-    ...pairRemovedEdges.map(
-      (e) =>
-        `the link from ${nodeDisplayName(displayNodeById.get(e.source), e.source)} to ${nodeDisplayName(displayNodeById.get(e.target), e.target)}`,
-    ),
+    ...otherPairRemoved.map(linkName),
   ]
+  const removedCanvasOnlyLinkLabels = canvasOnlyPairRemoved.map(linkName)
   const result: MergeServerGraphResult = {
     addedNodeCount: addedNodes.length,
     addedEdgeCount: addedEdges.length,
@@ -674,6 +704,7 @@ export function mergeServerGraphOnHydrate(
     removedNodeCount: removedNodeIds.size,
     removedEdgeCount: removedEdgeIds.size,
     removedLabels,
+    removedCanvasOnlyLinkLabels,
     accepted: true,
     refusedReason: null,
     changed: false, // set below, once the counts are known
@@ -869,11 +900,16 @@ export function mergeServerGraphOnHydrate(
   }
 
   // Counts only: the removed labels are the user's own words and stay out of logs.
-  const { removedLabels: labelsForUser, ...counts } = result
+  const {
+    removedLabels: labelsForUser,
+    removedCanvasOnlyLinkLabels: canvasOnlyLabelsForUser,
+    ...counts
+  } = result
   logger.info('merge_server_graph.applied', {
     scenarioId: store.currentScenarioId ?? null,
     ...counts,
     removedLabelCount: labelsForUser.length,
+    removedCanvasOnlyLinkCount: canvasOnlyLabelsForUser.length,
   })
 
   return result

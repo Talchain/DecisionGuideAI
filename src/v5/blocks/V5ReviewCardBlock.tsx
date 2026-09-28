@@ -79,7 +79,7 @@ export function V5ReviewCardBlock({ block, suppressHeader = false }: V5ReviewCar
           </h3>
         </div>
       )}
-      <p className={typography.panelBody} data-testid="v5-review-card-body">
+      <p className={typography.chatBody} data-testid="v5-review-card-body">
         {block.body}
       </p>
       {freshnessNotice && (

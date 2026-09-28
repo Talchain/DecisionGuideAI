@@ -73,7 +73,8 @@ import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useAnalysisResultsAreCurrent } from '../../hooks/useAnalysisResultsAreCurrent'
-import { OptionNode, OPTION_ROW_LINE_GRID_CLASSES } from '../OptionNode'
+import { OptionNode, OPTION_ROW_LINE_GRID_CLASSES, OPTION_ROW_TWO_LINE_CLASSES } from '../OptionNode'
+import { OPTION_ROW_NAME_MIN_CHARS } from '../shared/optionChangeRows'
 import { NODE_ROW_AMOUNT_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 import { VALUE_SOURCE_MARK_TOKEN, type ValueSourceMarkKind } from '../shared/valueSourceMark'
 import { mapDraftNodeToCanvas, mapDraftEdgeToCanvas } from '../../utils/applyDraftResult'
@@ -187,9 +188,18 @@ function unbreakableRuns(dd: HTMLElement, markToken: string | null): string[] {
   return runs.map(r => r.replace(new RegExp(NBSP, 'g'), ' ').replace(/\s+/g, ' ').trim()).filter(Boolean)
 }
 
+/** The row's name cell (its first child). */
+const kids0 = (line: HTMLElement) => line.children[0] as HTMLElement
+/** The amount as read: value, glue, mark word — no screen-reader-only text. */
+function visibleAmount(line: HTMLElement): string {
+  const clone = line.children[1].cloneNode(true) as HTMLElement
+  clone.querySelectorAll('.sr-only').forEach(n => n.remove())
+  return (clone.textContent ?? '').replace(new RegExp(NBSP, 'g'), ' ').replace(/\s+/g, ' ').trim()
+}
+
 for (const [starter, raw] of STARTERS) {
   const draft = raw as Draft
-  describe(`${starter} — every resting change row is the contract's one-line grid`, () => {
+  describe(`${starter} — every resting change row is the contract's grid, one line or two by its text`, () => {
     for (const optionId of optionIds(draft)) {
       it(`${optionId}: grid line (dt, dd), nowrap amount cell, the mark glued, runs within the bound's budget`, () => {
         const { container } = renderOption(draft, optionId)
@@ -201,10 +211,24 @@ for (const [starter, raw] of STARTERS) {
           expect(lt.has('flex-wrap'), `${factorId}: a wrapping flex line drops the amount under the label`).toBe(false)
           expect(lt.has('flex')).toBe(false)
           expect(lt.has('grid')).toBe(true)
-          expect(lt.has('grid-cols-[minmax(0,1fr)_fit-content(calc(100%_-_8px_-_6em))]')).toBe(true)
-          // The contract grid, exactly — the shared constant, token for token
+          // ⚠ RE-PINNED 28 Sep 2026 (Paul's staging test 64c5eccc; Canvas owner
+          // decision): the one-line grid holds only where the amount fits beside
+          // at least OPTION_ROW_NAME_MIN_CHARS of the name at the bound; else the
+          // row is TWO lines (one column: the name, then the amount). The form is
+          // re-derived HERE from the rendered text, independently of the product's
+          // own rule, and must be the form the row wears.
+          const form = line.getAttribute('data-row-form')
+          const nameChars = (kids0(line).textContent ?? '').length
+          const amountChars = visibleAmount(line).length
+          const fits = Math.min(nameChars, OPTION_ROW_NAME_MIN_CHARS) + 1 + amountChars <= NODE_ROW_AMOUNT_MAX_CHARS
+          expect(form, `${factorId}: name ${nameChars}, amount ${amountChars} chars`).toBe(fits ? 'one-line' : 'two-line')
+          if (form === 'one-line') {
+            expect(lt.has('grid-cols-[minmax(0,1fr)_fit-content(calc(100%_-_8px_-_6em))]')).toBe(true)
+          }
+          // The form's class set, exactly — the shared constant, token for token
           // (its type tokens make `6em` the label's own counter-scaled em).
-          for (const c of OPTION_ROW_LINE_GRID_CLASSES.split(/\s+/)) expect(lt.has(c), `${factorId} line lacks "${c}"`).toBe(true)
+          const classes = form === 'one-line' ? OPTION_ROW_LINE_GRID_CLASSES : OPTION_ROW_TWO_LINE_CLASSES
+          for (const c of classes.split(/\s+/)) expect(lt.has(c), `${factorId} line lacks "${c}"`).toBe(true)
           // One row, two columns: the label, then the amount — nothing else.
           const kids = [...line.children]
           expect(kids.map(k => k.tagName)).toEqual(['DT', 'DD'])

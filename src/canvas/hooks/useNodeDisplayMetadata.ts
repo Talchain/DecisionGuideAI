@@ -19,7 +19,7 @@ import type { DriverDisplayProvenance } from '../../components/results/driverDis
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
 import { rankFactor } from '../nodes/shared/rankFactor'
 import { runHoldsNoValueFor } from '../nodes/shared/unvaluedDriver'
-import { hasAnyStatedValue } from '../utils/observedStateHelpers'
+import { holdsValueOrRange } from '../utils/observedStateHelpers'
 import { resolveFactorConfidenceDisplay } from '../../components/results/driverConfidenceDisplayPolicy'
 import {
   selectGoalProbability,
@@ -346,7 +346,7 @@ export function useNodeDisplayMetadata(
   const factorHoldsValue = useCanvasStore(state => {
     if (nodeType !== 'factor') return false
     const node = state.nodes?.find((n) => n.id === nodeId)
-    return node ? hasAnyStatedValue(node.data) : false
+    return node ? holdsValueOrRange(node.data) : false
   })
 
   const isResultsMode = resultsStatus === 'complete'

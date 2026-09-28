@@ -101,13 +101,13 @@ export function V5EvidenceBlock({ block, suppressHeader = false }: V5EvidenceBlo
           </h3>
         </div>
       )}
-      <p className={typography.panelBody} data-testid="v5-evidence-gap">
+      <p className={typography.chatBody} data-testid="v5-evidence-gap">
         {block.evidence_gap}
       </p>
-      <p className={typography.panelBody} data-testid="v5-evidence-technique">
+      <p className={typography.chatBody} data-testid="v5-evidence-technique">
         {block.suggested_technique}
       </p>
-      <p className={typography.panelBody} data-testid="v5-evidence-impact">
+      <p className={typography.chatBody} data-testid="v5-evidence-impact">
         {block.impact_if_gathered}
       </p>
       {freshnessNotice && (

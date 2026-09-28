@@ -29,8 +29,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
-import { solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
-import { NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
+import { respreadSubFloorRows, solveLayoutCardWidths, solveRestoredCardWidths } from '../layout'
+import { LAYOUT_NODE_GAP, NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
 
 /**
  * Codex's fixture shape. ⚠ S4 (24 Sep 2026) MOVED THE SAVED WIDTH 336 → 140;
@@ -46,8 +46,8 @@ import { NODE_LAYOUT_MIN_W } from '../nodeLayoutConstants'
  * ⭐ WHY 230, NOT 140 (Canvas owner, 27 Sep 2026). The cap raised
  * `NODE_LAYOUT_MIN_W` — the card's own CSS floor — 190.88 → 221.12, so a 140
  * board (stride 196) can no longer be drawn without overlap by ANY width: that
- * board is now the sub-floor case, which no width repairs (not pinned here).
- * These arms pin the owner's rule for the other case — a board at a
+ * board is now the sub-floor case, which re-spreads (the second `describe`
+ * below). These arms pin the other half of the owner's rule — a board at a
  * FITTING stride keeps it exactly — on a board saved between the floor and the
  * repeated card, where the bound still has to bite. There the unbounded solver
  * eats the saved sibling gap (286 − 248 = 38 < 56) rather than overlapping, so
@@ -81,6 +81,11 @@ function worstGap(nodes: Node[], kind: string, w: number): number {
   return worst
 }
 
+/** The board as the restore hook sees it: every card measured (it waits for that). */
+function withHeights(nodes: Node[], height = 120): Node[] {
+  return nodes.map((n) => ({ ...n, measured: { width: SAVED_UNIFORM_W, height } })) as Node[]
+}
+
 describe('a restored board keeps its own stride', () => {
   it('⛔ THE REPRODUCTION: the UNBOUNDED solver eats this saved board\'s gap', () => {
     // The preconditions, pinned in-test: this fixture must be a FITTING board
@@ -100,8 +105,11 @@ describe('a restored board keeps its own stride', () => {
     }
     // ⚠ RE-PINNED 27 Sep 2026 (landing text cap). This read `<= max(140,
     // NODE_LAYOUT_MIN_W)` on the 140 board, where the floor bound. At a fitting
-    // stride the bound is the saved width itself.
+    // stride the bound is the saved width itself, and the re-spread must not
+    // touch the board.
     expect(bounded.option).toBe(SAVED_UNIFORM_W)
+    const measured = withHeights(nodes)
+    expect(respreadSubFloorRows(measured, { spacing: SAVED_GAP }), 'a fitting board was moved').toBe(measured)
   })
 
   it('⭐ A TIER WITH NO SAME-ROW NEIGHBOUR IS NOT BOUNDED — it cannot overlap one', () => {
@@ -279,5 +287,155 @@ describe('a restored board keeps its own stride', () => {
     expect((nodes.find((n) => n.id === 'o1')?.data as { locked?: boolean }).locked).toBe(true)
     const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', spacing: SAVED_GAP, preserveLocked: true })
     expect(worstGap(nodes, 'option', bounded.option)).toBeGreaterThanOrEqual(SAVED_GAP)
+  })
+})
+
+/**
+ * ⭐⭐ NO OVERLAP BEATS AN OLD STRIDE — A SUB-FLOOR ROW RE-SPREADS (Canvas owner,
+ * 27 Sep 2026, canvas/landing-text-cap).
+ *
+ * The landing text cap raised `NODE_LAYOUT_MIN_W` — the narrowest a card can
+ * draw — 190.88 → 221.12. A board saved before 17 Aug at a 196 stride (140
+ * cards, 56 gap) then overlaps by 25.12 on reopen, however narrow the width
+ * record says the card is: no width repairs it. The owner's rule: a row whose
+ * saved stride is below the minimum card plus the sibling gap is re-spread to
+ * the minimum workable stride, about its own saved centre, in its saved order,
+ * every y kept. Rows that fit — hand-moved cards in them included — stay exactly
+ * as saved (the `describe` above).
+ */
+describe('a sub-floor restored row re-spreads to the minimum workable stride', () => {
+  const SUB_FLOOR_STRIDE = 196 // the pre-17-Aug board: 140 + 56
+  const opts = { spacing: SAVED_GAP }
+  const MIN_STRIDE = Math.ceil(NODE_LAYOUT_MIN_W + SAVED_GAP) // 278
+  const subFloor = () => withHeights(boardAt(SUB_FLOOR_STRIDE))
+  const row = (nodes: Node[], kind: string) =>
+    nodes.filter((n) => n.type === kind).sort((a, b) => a.position.x - b.position.x)
+  const centre = (r: Node[]) => (r[0].position.x + r[r.length - 1].position.x) / 2
+
+  it('⛔ THE REPRODUCTION: kept at its saved stride, no drawable width clears it', () => {
+    const nodes = subFloor()
+    expect(SUB_FLOOR_STRIDE, 'the fixture is no longer below the floor + gap — it cannot reproduce').toBeLessThan(NODE_LAYOUT_MIN_W + SAVED_GAP)
+    const bounded = solveRestoredCardWidths(nodes, { direction: 'DOWN', ...opts })
+    expect(bounded.option).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    expect(worstGap(nodes, 'option', bounded.option)).toBeLessThan(0)
+  })
+
+  it('⭐ THE RULE: 0 overlaps, and each row keeps its order, its centre and its y', () => {
+    const saved = subFloor()
+    const out = respreadSubFloorRows(saved, opts)
+    const bounded = solveRestoredCardWidths(out, { direction: 'DOWN', ...opts })
+    for (const kind of ['option', 'factor']) {
+      expect(worstGap(out, kind, bounded[kind]), `${kind} cards still overlap after the re-spread`).toBeGreaterThanOrEqual(0)
+      const before = row(saved, kind)
+      const after = row(out, kind)
+      expect(after.map((n) => n.id), `${kind} order changed`).toEqual(before.map((n) => n.id))
+      expect(centre(after), `${kind} row moved off its saved centre`).toBeCloseTo(centre(before), 9)
+      for (let i = 1; i < after.length; i++) {
+        expect(after[i].position.x - after[i - 1].position.x, `${kind} stride is not the minimum workable one`).toBeCloseTo(MIN_STRIDE, 9)
+      }
+      for (const n of after) {
+        expect(n.position.y, `${n.id} moved in y`).toBe(saved.find((s) => s.id === n.id)!.position.y)
+      }
+    }
+    // A card with no same-row neighbour is not a row: the Question and the Goal stay.
+    for (const id of ['d', 'g']) expect(out.find((n) => n.id === id)).toBe(saved.find((n) => n.id === id))
+  })
+
+  it('⭐ A FITTING ROW ON THE SAME BOARD — hand-moved card included — stays exactly as saved', () => {
+    // Options at the fitting stride, one of them hand-moved 60 towards its
+    // neighbour (the median still fits); factors at the sub-floor stride.
+    const saved = withHeights(boardAt(SAVED_STRIDE)).map((n) => {
+      if (n.type === 'factor') {
+        const i = Number(n.id.slice(1))
+        return { ...n, position: { x: 200 + i * SUB_FLOOR_STRIDE, y: n.position.y } }
+      }
+      if (n.id === 'o2') return { ...n, position: { x: n.position.x - 60, y: n.position.y } }
+      return n
+    }) as Node[]
+    const out = respreadSubFloorRows(saved, opts)
+    for (const n of saved.filter((x) => x.type === 'option')) {
+      expect(out.find((x) => x.id === n.id), `fitting-row card ${n.id} was touched`).toBe(n)
+    }
+    expect(worstGap(out, 'factor', solveRestoredCardWidths(out, { direction: 'DOWN', ...opts }).factor)).toBeGreaterThanOrEqual(0)
+  })
+
+  it('⭐ ONCE: a re-spread board reads as fitting on the next restore, so nothing moves again', () => {
+    const saved = subFloor()
+    const once = respreadSubFloorRows(saved, opts)
+    expect(once, 'the sub-floor board was not re-spread at all').not.toBe(saved)
+    expect(respreadSubFloorRows(once, opts)).toBe(once)
+  })
+
+  it('⛔ NO HEIGHT EVIDENCE, NO MOVE — a row cannot be told from two sub-rows without it', () => {
+    const bare = boardAt(SUB_FLOOR_STRIDE)
+    expect(respreadSubFloorRows(bare, opts)).toBe(bare)
+  })
+
+  it('⛔ A ROW HOLDING A LOCKED CARD STAYS AS SAVED — a locked card does not move', () => {
+    const saved = subFloor().map((n) => (n.id === 'o1' ? { ...n, data: { ...(n.data as object), locked: true } } : n)) as Node[]
+    const out = respreadSubFloorRows(saved, { ...opts, preserveLocked: true })
+    for (const n of saved.filter((x) => x.type === 'option')) expect(out.find((x) => x.id === n.id)).toBe(n)
+    // …while the factor row, which holds no locked card, still re-spreads.
+    expect(row(out, 'factor')[1].position.x - row(out, 'factor')[0].position.x).toBeCloseTo(MIN_STRIDE, 9)
+  })
+
+  /**
+   * ⛔⛔ THE DELIVERY LEAD'S PROBE (#2235 r1): ONE FAR-OFF CARD DRAGGED THE WHOLE ROW.
+   *
+   * The first cut spread every card of a sub-floor row about the midpoint of
+   * its FIRST and LAST card. Four cards at the pre-17-Aug 196 stride plus one
+   * the user had dragged to x 2,600 put that midpoint at 1,300: the tight cards
+   * moved +808 to +958 and the far card was pulled 808 units back across the
+   * board. Now the row is cut at every step that already clears the floor, each
+   * too-tight run is spread about its MEDIAN card, and a card already clear of
+   * its neighbours stays where the user put it. Default spacing, as probed.
+   */
+  it('⛔ THE DL PROBE: four tight cards and one dragged 2,000 away — the tight cards move only what the floor needs, the far card not at all', () => {
+    const TIGHT = [0, 196, 392, 588]
+    const FAR_X = 2600
+    const saved = withHeights([
+      ...TIGHT.map((x, i) => ({ id: `t${i}`, type: 'factor', position: { x, y: 600 }, data: { label: `t${i}` } })),
+      { id: 'far', type: 'factor', position: { x: FAR_X, y: 600 }, data: { label: 'far' } },
+    ] as Node[])
+    const need = NODE_LAYOUT_MIN_W + LAYOUT_NODE_GAP
+    const workable = Math.ceil(need)
+    // Preconditions: the row IS sub-floor by its median stride (so it is
+    // re-spread at all), and the far card's step already clears the floor.
+    expect(SUB_FLOOR_STRIDE, 'the tight stride is no longer sub-floor — the probe cannot reproduce').toBeLessThan(need)
+    expect(FAR_X - TIGHT[TIGHT.length - 1]).toBeGreaterThanOrEqual(need)
+
+    const out = respreadSubFloorRows(saved)
+    expect(out, 'the sub-floor row was not re-spread at all').not.toBe(saved)
+    expect(out.find((n) => n.id === 'far'), 'the far card was moved from where the user put it').toBe(saved.find((n) => n.id === 'far'))
+    // The most any tight card has to move to reach the workable stride about
+    // the run's own middle: half the run's growth.
+    const floorNeeds = ((TIGHT.length - 1) / 2) * (workable - SUB_FLOOR_STRIDE)
+    const after = TIGHT.map((_, i) => out.find((n) => n.id === `t${i}`)!.position.x)
+    after.forEach((x, i) => {
+      expect(Math.abs(x - TIGHT[i]), `t${i} moved ${x - TIGHT[i]}, more than the floor requires (${floorNeeds})`).toBeLessThanOrEqual(floorNeeds + 1e-9)
+    })
+    for (let i = 1; i < after.length; i++) expect(after[i] - after[i - 1], 'the tight run is not at the workable stride').toBeCloseTo(workable, 9)
+    expect(FAR_X - after[after.length - 1], 'the tight run now crowds the far card').toBeGreaterThanOrEqual(need)
+  })
+
+  it('⛔ A SPREAD RUN THAT WOULD CROWD ITS NEIGHBOUR TAKES IT IN — never an overlap, never a reorder', () => {
+    // The same four tight cards, and a fifth only just clear of them (250 ≥
+    // floor + gap). Spread alone, the run's last card lands 175 short of it —
+    // an overlap the cut must not create. The two are spread as one run.
+    const TIGHT = [0, 196, 392, 588]
+    const NEAR_X = 588 + 250
+    const saved = withHeights([
+      ...TIGHT.map((x, i) => ({ id: `t${i}`, type: 'factor', position: { x, y: 600 }, data: { label: `t${i}` } })),
+      { id: 'near', type: 'factor', position: { x: NEAR_X, y: 600 }, data: { label: 'near' } },
+    ] as Node[])
+    const need = NODE_LAYOUT_MIN_W + LAYOUT_NODE_GAP
+    expect(NEAR_X - TIGHT[TIGHT.length - 1], 'the fifth card no longer clears the floor on its own — this is the plain case').toBeGreaterThanOrEqual(need)
+
+    const out = respreadSubFloorRows(saved)
+    const ordered = [...out].sort((a, b) => a.position.x - b.position.x)
+    expect(ordered.map((n) => n.id), 'the saved order changed').toEqual(['t0', 't1', 't2', 't3', 'near'])
+    for (let i = 1; i < ordered.length; i++) {
+      expect(ordered[i].position.x - ordered[i - 1].position.x, `${ordered[i - 1].id} → ${ordered[i].id} is inside the floor`).toBeGreaterThanOrEqual(need)
+    }
   })
 })

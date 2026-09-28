@@ -128,6 +128,16 @@ export const SHELL_CONTENT_BUDGET_FLOOR_PX = shellContentBudget(DOCK_MIN_WIDTH)
 export const SHELL_TABSTRIP_COMPACT_BELOW_PX = 420
 
 /**
+ * From this dock width the ⓘ "Inspect this analysis" stays a ROW control in the COMPACT strip;
+ * below it, it folds into the overflow menu. #2257 folded it below 420, which hid it behind "…" at
+ * the 360 default (served `38cfd9da`, 28 Sep). Compact row arithmetic (`px-1` strip, `gap-1`, 24px
+ * controls): the tablist gets W − 8 − 3×4 − 3×24 = W − 92. Four compact labels need 187px (served
+ * 280, 26 Sep) plus a 16px stale mark or the Model badge: 203, so W ≥ 295. 320 keeps headroom; the
+ * 360 default leaves the tablist 268.
+ */
+export const SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX = 320
+
+/**
  * ⭐ THE CONTRACT'S TAB STRIP GEOMETRY (26 Sep 2026). `.panel-tabs{height:45px}`
  * and, measured by rendering `olumi-canvas-visual-contract.html` at 1280×800,
  * each tab button is 37.9px tall (`padding:10px 8px`, 11px type, a 2px bottom
