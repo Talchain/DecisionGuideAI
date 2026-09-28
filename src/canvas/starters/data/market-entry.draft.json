@@ -128,7 +128,7 @@
       "kind": "factor",
       "label": "UK Financial Services Focus",
       "observed_state": {
-        "value": 0,
+        "value": 1,
         "source": "cee_inference",
         "extractionType": "inferred",
         "factor_type": "other",
@@ -141,7 +141,7 @@
         "0": "Not pursued",
         "1": "Pursued"
       },
-      "display_value": "Low (0)",
+      "display_value": "Very high (1)",
       "provenance": "ai_inferred"
     },
     {

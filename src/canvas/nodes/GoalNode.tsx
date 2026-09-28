@@ -68,7 +68,7 @@ import { goalTargetSourceMark, ValueSourceMark } from './shared/valueSourceMark'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { goalConstraintShortText, goalConstraintText } from '../utils/goalConstraintText'
-import { goalStatedLimits } from '../domain/goalOwnTargetRow'
+import { goalCardShownLimits, goalStatedLimits } from '../domain/goalOwnTargetRow'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -931,9 +931,15 @@ export const GoalNode = memo((props: NodeProps) => {
    *     a limit twice;
    *   · the SAME `statedLimits` Layer 2 reads, so the pill and its details
    *     are one set — and neither restates the target (F7, `goalStatedLimits`).
+   * ⭐ The set is `goalCardShownLimits` — the one answer to "does the Goal card
+   * already show this limit?", which the Outcome card also asks before it
+   * repeats one (side-by-side DIFF pre-run item 7, 28 Sep). In Standard it is
+   * `statedLimits` exactly when a target is on the row, else empty — the gate
+   * this line always had, now held where the other reader can call it.
    */
-  const restingLimitPills =
-    targetLine !== null && !isDetailed ? goalLimitPills(statedLimits, nodes) : []
+  const restingLimitPills = !isDetailed
+    ? goalLimitPills(goalCardShownLimits(activeConstraints, props.id, props.data as GoalTargetSource, false), nodes)
+    : []
 
   // R5 + L-47 (Paul, 16 Aug 2026): "Full buttons/instructional text on nodes:
   // no." The goal node used to carry a two-sentence instruction plus a

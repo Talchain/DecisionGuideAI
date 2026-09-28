@@ -307,7 +307,11 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       expect(onCard('option-change-row-estimate-option-3-f-adopt')!.getAttribute('data-value-source')).toBe('olumi')
     })
 
-    it('a value is held on ONE line and never clipped — when it cannot sit beside the label it takes the next line whole (v3.1 #9)', () => {
+    // ⚠ RE-PINNED 28 Sep 2026 (side-by-side DIFF Pre 1 residual, owner
+    // decision): the row line no longer wraps as a whole (`flex-wrap` stacked
+    // every landing row); it is the contract's two-column grid, so the amount
+    // keeps the label's line and the label yields.
+    it('a value is held on ONE line and never clipped — it keeps the label\'s line, the label yields (v3.1 #9)', () => {
       renderCard()
       const dd = onCard('option-change-row-option-1-f-price')!
       const t = tokens(dd)
@@ -317,8 +321,10 @@ describe('resting anatomy — the option card is title + its change rows (Paul 2
       // `.delta-rows .amount{white-space:nowrap}` — on the value, and on the mark cluster.
       expect(tokens(onCard('option-change-row-value-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
       expect(tokens(onCard('option-change-row-mark-option-1-f-price')).has('whitespace-nowrap')).toBe(true)
-      // The row line wraps as a whole: the amount drops below, never the value apart.
-      expect(tokens(onCard('option-change-row-line-option-1-f-price')).has('flex-wrap')).toBe(true)
+      // The row line is the contract grid: the amount beside the label, never the value apart.
+      const line = tokens(onCard('option-change-row-line-option-1-f-price'))
+      expect(line.has('grid')).toBe(true)
+      expect(line.has('flex-wrap')).toBe(false)
     })
   })
 

@@ -348,13 +348,15 @@ describe('contract v3.1 — option card polish', () => {
       expect(t.has('gap-y-1')).toBe(true)
       expect(t.has('grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')).toBe(false)
       const line = tokens(inRows('option-change-row-line-option-1-f-head'))
-      expect(line.has('flex-wrap')).toBe(true)
+      // ⚠ RE-PINNED 28 Sep (side-by-side DIFF Pre 1 residual, owner decision:
+      // the amount on the label's line, the label yields). The wrapping flex
+      // line with a 6em label floor stacked 23 of 23 landing rows; the row is
+      // now the contract's two-column grid, the label its `minmax(0,1fr)` column.
+      expect(line.has('grid')).toBe(true)
+      expect(line.has('flex-wrap')).toBe(false)
       expect(line.has('gap-x-2')).toBe(true)
       const dt = inRows('option-change-row-option-1-f-head')!.previousElementSibling!
-      // RE-PINNED 27 Sep (side-by-side DIFF item 1): the label's floor is 6em
-      // (was 8em) — at 8em a 143px amount ("Very high → Moderate brief") could
-      // not share a 234px row at 100% and stacked; 6em is still ~11 characters.
-      expect(tokens(dt).has('flex-[1_1_6em]')).toBe(true)
+      expect([...tokens(dt)].some((c) => c.startsWith('flex-'))).toBe(false)
       // Held whole while it fits one line of the row budget at the largest
       // counter-scale; "0 engineers → 3 engineers" (21) does not, so it may break
       // BEFORE THE ARROW — and never runs past the card's edge (served cd6a82e4,

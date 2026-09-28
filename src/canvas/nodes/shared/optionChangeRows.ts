@@ -18,12 +18,15 @@
  * model. No distance heuristic, no magnitude sort — nothing that implies one
  * change matters more than another.
  *
- * ── `+N more` COUNTS FROM THE ONE TOTAL ─────────────────────────────────────
+ * ── `+N more` COUNTS THE CONCRETE CHANGES NOT SHOWN ─────────────────────────
  *
- * `N = totalInterventionCount − rows shown`, the SAME total the inspector route
- * uses (`optionInterventionCount.ts`), so a card never states two totals (#1901
- * finding 3). Every set target yields a row — a target with no reference still
- * reads `→ £59` — so no row can silently drop out of the count.
+ * `N = concrete changes − rows shown` (side-by-side DIFF N1, 28 Sep 2026; owner
+ * decision). It used to be `totalInterventionCount − rows shown`, and once the
+ * rows were filtered to concrete changes (below) that advertised hidden
+ * NON-changes as "more": vendor-selection read 1 row + `+5 more` on every
+ * option, all five equal to the status quo's. The target TOTAL still has one
+ * owner (`optionInterventionCount.ts`) and is still stated — by the rail's
+ * target route, never by `+N more`.
  *
  * ── CONCRETE CHANGES FIRST (contract v3.1, DESIGN-GAP-v31 #9) ─────────────────
  *
@@ -535,9 +538,9 @@ export function optionAmountSegmentNoWrap(segment: string): boolean {
   return segment.length <= NODE_ROW_AMOUNT_MAX_CHARS
 }
 
-/** `+N more`, from the ONE total — never below zero. */
-export function moreCount(totalInterventionCount: number, rowsShown: number): number {
-  return Math.max(0, totalInterventionCount - rowsShown)
+/** `+N more`: the concrete changes the card does not show — never below zero. */
+export function moreCount(concreteChangeCount: number, rowsShown: number): number {
+  return Math.max(0, concreteChangeCount - rowsShown)
 }
 
 /**
@@ -563,10 +566,10 @@ export function moreCount(totalInterventionCount: number, rowsShown: number): nu
  * reference to compare ("→ £59" states a target nobody can call unchanged), and
  * a `Needs input` gap.
  *
- * ⚠ THE COUNT IS NOT RE-DERIVED. Unchanged targets are still TARGETS — the
- * inspector lists them — so `+N more` keeps counting from the one total
- * (`moreCount`): rows shown + more = targets set. The card simply spends its
- * resting rows on the changes first.
+ * ⭐ AND `+N more` COUNTS THE SAME FILTERED LIST (DIFF N1, 28 Sep 2026): rows
+ * shown + more = the option's CONCRETE changes. Unchanged targets are still
+ * targets — the inspector lists them, and the rail's route names their total —
+ * but they are never advertised as more changes.
  */
 export function isConcreteChangeRow(
   row: OptionChangeRow,

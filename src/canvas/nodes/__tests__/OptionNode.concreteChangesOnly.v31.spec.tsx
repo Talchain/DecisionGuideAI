@@ -24,7 +24,8 @@
  *   · a target EQUAL to the baseline option's is not a row; the next concrete
  *     change takes its place (contrast: a target that differs stays);
  *   · a target equal to the factor's current value (no baseline) is not a row;
- *   · `+N more` still counts from the ONE total (rows shown + more = targets set);
+ *   · `+N more` counts the concrete changes not shown (DIFF N1, 28 Sep — it
+ *     counted the target total until then);
  *   · the label cell holds the full name and is not a truncating cell;
  *   · the `from → to` value and its mark are no-wrap segments;
  *   · the pencil is a revealed rail icon (hidden at rest, shown on hover/focus).
@@ -177,11 +178,16 @@ describe('v3.1 #9 — an option card lists CONCRETE changes only', () => {
     expect(screen.getByTestId('option-change-row-opt-germany-f-germany').textContent!.startsWith('Low → Very high')).toBe(true)
   })
 
-  it('`+N more` still counts from the ONE total: rows shown + more = targets set', () => {
+  // ⚠ RE-PINNED 28 Sep 2026 (side-by-side DIFF N1, owner decision): `+N more`
+  // counted the target TOTAL, so the two targets Germany leaves where the
+  // baseline has them read as "+2 more" changes (served: vendor-selection
+  // `+5 more` with no further change). It now counts the concrete changes not
+  // shown — here none, so no `+N more`; the pencil still names all four targets.
+  it('`+N more` counts only concrete changes: two shown, none hidden → no `+N more`', () => {
     renderCard()
-    // Four targets set, two concrete changes shown → "+2 more" (the inspector
-    // lists every target, the unchanged ones included).
-    expect(screen.getByTestId('option-change-more-opt-germany').textContent).toBe('+2 more')
+    expect(rowIds('opt-germany')).toEqual(['f-germany', 'f-team'])
+    expect(screen.queryByTestId('option-change-more-opt-germany')).toBeNull()
+    expect(screen.getByTestId('option-edit-targets-opt-germany').getAttribute('aria-label')).toMatch(/^4 factor targets\./)
   })
 
   it('with no baseline option, a target equal to the factor\'s current value is not a row', () => {

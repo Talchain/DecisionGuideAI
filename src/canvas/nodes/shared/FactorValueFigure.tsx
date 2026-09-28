@@ -100,20 +100,35 @@ const BARE_NUMBER = /^-?(\d+(\.\d+)?|\.\d+)$/
  * wrong scale; the inspector and the Model tab still state it.
  */
 export function readoutIsBareModelScale(readout: string | null, data: unknown): boolean {
+  if (!readoutIsBareModelFigure(readout, data)) return false
+  const d = data as Record<string, unknown> | null | undefined
+  if (d?.pending_user_value != null) return false
+  const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
+  const source = typeof obs?.source === 'string' ? obs.source : null
+  if (classifyValueProvenance(source)?.userOwned === true) return false
+  return factorValueIsUnconfirmedEstimate(data)
+}
+
+/**
+ * The SHAPE half of `readoutIsBareModelScale`, with no provenance gate: the
+ * readout is ONE bare number inside 0–1 AND the factor node declares no real
+ * unit (absent, a suppressed descriptor, or a placeholder such as `scale`).
+ * Split out (28 Sep 2026, DIFF N7) so an option TARGET on this factor can ask
+ * the same shape question — its provenance lives in the intervention
+ * vocabulary (`cee_hypothesis`, `user_specified`), which the node-vocabulary
+ * gates above must never be fed (see `InterventionRow`'s T-VOCAB).
+ */
+export function readoutIsBareModelFigure(readout: string | null, data: unknown): boolean {
   if (readout === null) return false
   const text = readout.trim()
   if (!BARE_NUMBER.test(text)) return false
   const n = Number(text)
   if (!Number.isFinite(n) || n < 0 || n > 1) return false
   const d = data as Record<string, unknown> | null | undefined
-  if (d?.pending_user_value != null) return false
   const obs = (d?.observedState ?? d?.observed_state) as Record<string, unknown> | undefined
   const rawUnit = typeof obs?.unit === 'string' ? obs.unit : typeof d?.unit === 'string' ? (d.unit as string) : null
   // The card's own display guard: an internal descriptor ("other") is no unit.
   const unit = rawUnit !== null && !isSuppressedUnit(rawUnit) ? rawUnit : null
   const unitKind = classifyUnit(unit).kind
-  if (unitKind !== 'none' && unitKind !== 'placeholder') return false
-  const source = typeof obs?.source === 'string' ? obs.source : null
-  if (classifyValueProvenance(source)?.userOwned === true) return false
-  return factorValueIsUnconfirmedEstimate(data)
+  return unitKind === 'none' || unitKind === 'placeholder'
 }
