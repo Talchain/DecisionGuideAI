@@ -1,0 +1,96 @@
+{
+ "readiness_score": 60,
+ "readiness_level": "fair",
+ "confidence_level": "high",
+ "confidence_explanation": "Your model has sufficient detail (15 nodes) for reliable assessment",
+ "quality_factors": [
+  {
+   "factor": "causal_detail",
+   "current_score": 50,
+   "impact": "high",
+   "recommendation": "Assign probability values (0-1) to edges representing likelihood",
+   "potential_improvement": 30
+  },
+  {
+   "factor": "weight_refinement",
+   "current_score": 60,
+   "impact": "high",
+   "recommendation": "Add provenance/evidence for high-confidence (>0.9) or low-confidence (<0.1) beliefs",
+   "potential_improvement": 30
+  },
+  {
+   "factor": "goal_outcome_linkage",
+   "current_score": 80,
+   "impact": "high",
+   "recommendation": "Connect outcomes to goals so analysis can measure success against objectives",
+   "potential_improvement": 20
+  },
+  {
+   "factor": "outcome_balance",
+   "current_score": 40,
+   "impact": "medium",
+   "recommendation": "Add outcomes (positive and negative) for each option",
+   "potential_improvement": 30
+  },
+  {
+   "factor": "risk_coverage",
+   "current_score": 50,
+   "impact": "medium",
+   "recommendation": "Link risk nodes to the options they affect",
+   "potential_improvement": 40
+  },
+  {
+   "factor": "option_diversity",
+   "current_score": 75,
+   "impact": "low",
+   "recommendation": "Consider adding more alternative options",
+   "potential_improvement": 25
+  }
+ ],
+ "coaching_assessed_from": "request_graph",
+ "can_run_analysis": false,
+ "may_run": false,
+ "blocker_reason": "What is \"Competitive Pressure for Usage Pricing\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+ "assessed_from": "request_graph",
+ "options_ready": 4,
+ "options_total": 4,
+ "goal_node_valid": true,
+ "issues": [
+  "What is \"Competitive Pressure for Usage Pricing\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+  "What is \"Top Account Revenue Concentration\" today, before any option changes it? Without a current level the analysis would treat it as zero."
+ ],
+ "scaffold_plan": {
+  "will_scaffold_options": false
+ },
+ "readiness_issues": [
+  {
+   "code": "MISSING_FACTOR_LEVEL",
+   "category": "option_values",
+   "message": "What is \"Competitive Pressure for Usage Pricing\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+   "repairability": "human_input_required",
+   "factor_id": "fac_market_competition",
+   "factor_label": "Competitive Pressure for Usage Pricing",
+   "provenance": "unattributed",
+   "obligation": "required"
+  },
+  {
+   "code": "MISSING_FACTOR_LEVEL",
+   "category": "option_values",
+   "message": "What is \"Top Account Revenue Concentration\" today, before any option changes it? Without a current level the analysis would treat it as zero.",
+   "repairability": "human_input_required",
+   "factor_id": "fac_top_account_concentration",
+   "factor_label": "Top Account Revenue Concentration",
+   "provenance": "unattributed",
+   "obligation": "required"
+  }
+ ],
+ "evidence_quality": {
+  "strong": 0,
+  "moderate": 0,
+  "weak": 0,
+  "none": 30,
+  "summary": "30 without provenance"
+ },
+ "total_factor_count": 5,
+ "user_question_count": 6
+}
