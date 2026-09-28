@@ -21,12 +21,14 @@ describe('a threshold figure reads in the reader’s money — probe table', () 
     [1500000, 'GBP', '£1,500,000'],
     [49.5, '£', '£49.50'],
     [12, 'USD per month', '$12 / month'],
+    // served d1ee022d (Paul's pricing brief): money per a thing per a period
+    [58.8, 'GBP per subscriber per month', '£58.80 per subscriber / month'],
+    [59, 'GBP per subscriber per month', '£59 per subscriber / month'],
     // NOT money: unchanged from applyUnitPlacement
     [3.5, '%', '3.5%'],
     [250, 'subscribers', '250 subscribers'],
     [250, 'subscribers per month', '250 subscribers per month'],
     [0.9, '', '0.9'],
-    [58.8, 'GBP per subscriber per month', '58.8 GBP per subscriber per month'],
   ])('%s %s → %s', (v, unit, expected) => {
     expect(fmt(v as number, unit as string)).toBe(expected)
   })

@@ -184,6 +184,8 @@ export interface CompactUnitParts {
 
 /** `<head> per <period>` or `<head>/<period>` — a single-word period. */
 const COMPOUND_RATE_UNIT = /^(.+?)(\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
+/** A rate's head that is money per ONE thing: `GBP per subscriber`, `£/subscriber`. */
+const CURRENCY_PER_THING_HEAD = /^(\S+?)(?:\s*\/\s*|\s+per\s+)([A-Za-z]+)$/i
 /** `<head> out of <N>` — the head may be empty or a placeholder word. */
 const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
 
@@ -221,7 +223,12 @@ const OUT_OF_UNIT = /^(.*?)\s*\bout of\s+(\d[\d,]*(?:\.\d+)?)$/i
  * ⚠ DELIBERATELY NARROW, and each narrowing is pinned:
  *   · a word head already written with a slash (`hours/week`) is left as it is —
  *     it is already compact, and re-spacing it changes no meaning;
- *   · a head that is itself compound (`GBP per subscriber per month`) is left;
+ *   · a head that is itself compound is left (`GBP MRR per seat per month`,
+ *     `GBP per 1000 users per month`) — with ONE exception, money per a thing:
+ *     a currency then one per-word (`GBP per subscriber per month`,
+ *     `£/subscriber/month`) reads `£49` + `per subscriber / month`, the contract
+ *     board's own spelling (served d1ee022d: "…would have to rise from 58.8 GBP
+ *     per subscriber per month…");
  *   · a negative currency figure is left (`£-500` is not how a negative is
  *     written, and choosing a sign convention is not this function's call);
  *   · a placeholder head on a rate (`index per month`) is left.
@@ -246,9 +253,16 @@ export function compactUnitParts(figure: string, unit: string | null | undefined
   const head = rate[1].trim()
   const slashed = rate[2].includes('/')
   const period = rate[3]
-  if (/\/|\bper\b/i.test(head)) return null
-  const { kind, canonical } = classifyUnit(head)
   const negative = figure.trim().startsWith('-')
+  if (/\/|\bper\b/i.test(head)) {
+    // Money per a thing: `GBP per subscriber` → `£49` + `per subscriber / month`.
+    const perThing = CURRENCY_PER_THING_HEAD.exec(head)
+    if (perThing === null || negative) return null
+    const { kind, canonical } = classifyUnit(perThing[1])
+    const glyph = kind === 'symbol' ? canonical : kind === 'iso' ? ISO_CURRENCY_GLYPHS[canonical.toUpperCase()] : undefined
+    return glyph === undefined ? null : { figure: `${glyph}${figure}`, unit: `per ${perThing[2]} / ${period}` }
+  }
+  const { kind, canonical } = classifyUnit(head)
   if (kind === 'symbol') {
     if (negative) return null
     return { figure: `${canonical}${figure}`, unit: `/ ${period}` }
@@ -348,7 +362,7 @@ export function moneyDigits(value: number): string {
  *   · the digits are `moneyDigits`: pence on a non-whole amount (`£58.80`).
  * Returns `null` for anything that is not money this product can put a glyph on
  * — a count, a percent, `CHF 49` (a glyph never shown for it would be a guess),
- * a negative rate, a compound head (`GBP per subscriber per month`) — and the
+ * a negative rate, a compound head (`GBP MRR per seat per month`) — and the
  * caller prints what it printed before. `tests/ci-guards/oneMoneyFigureRule`
  * fails when a new file composes a glyph outside this rule.
  */

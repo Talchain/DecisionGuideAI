@@ -50,7 +50,6 @@ describe('compactUnitParts — a currency-led unit carries the glyph on the figu
     // No glyph for the code, a negative figure, a compound head: today's output.
     ['0', 'CHF over 6 months', null],
     ['-500', 'GBP over 6 months', null],
-    ['49', 'GBP per subscriber per month', null],
     ['9', 'GBP MRR per seat per month', null],
     ['12', 'months', null],
   ])('CONTROL (declined, unchanged) %s %s → %s', (figure, unit, expected) => {

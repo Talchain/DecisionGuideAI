@@ -35,11 +35,15 @@ const MONEY: ReadonlyArray<[number, string, string]> = [
   [75000, '£', '£75,000'],
   [58.8, 'GBP', '£58.80'],
   [-500, 'GBP', '-£500'],
+  // Money per a thing per a period (served: Paul's pricing brief's price factor).
+  [58.8, 'GBP per subscriber per month', '£58.80 per subscriber / month'],
+  [9800, 'GBP/subscriber/month', '£9,800 per subscriber / month'],
+  [49, '£/subscriber/month', '£49 per subscriber / month'],
 ]
 
 /** Declined by the rule: each surface keeps the text it printed before. */
 const DECLINED: ReadonlyArray<[number, string, { card: string; receipt: string; threshold: string }]> = [
-  [9800, 'GBP/subscriber/month', { card: '9,800 GBP/subscriber/month', receipt: '9,800 GBP/subscriber/month', threshold: '9,800 GBP/subscriber/month' }],
+  [9, 'GBP MRR per seat per month', { card: '9 GBP MRR per seat per month', receipt: '9 GBP MRR per seat per month', threshold: '9 GBP MRR per seat per month' }],
   [-5, 'GBP/month', { card: '-5 GBP/month', receipt: '-5 GBP/month', threshold: '-5 GBP/month' }],
   [1500, 'GBP per 12 months', { card: '1,500 GBP per 12 months', receipt: '1,500 GBP per 12 months', threshold: '1,500 GBP per 12 months' }],
   [1500, 'subscribers', { card: '1,500 subscribers', receipt: '1,500 subscribers', threshold: '1,500 subscribers' }],
