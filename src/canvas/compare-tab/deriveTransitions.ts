@@ -12,7 +12,7 @@ import type {
   StructureComparison,
 } from './types'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
-import { savedGoalCaveatLines } from './savedGoalCaveat'
+import { savedGoalCaveatLines, savedGoalFigure } from './savedGoalCaveat'
 import {
   classifyGraphProjections,
   fieldDisplayLabel,
@@ -467,9 +467,10 @@ function buildTransition(from: AnalysisSnapshot, to: AnalysisSnapshot): Transiti
   const { resolved, introduced } = deriveWarningDiffs(from, to)
   const { eValue, edgeLabel } = findLowestEValue(to, affectedFactorIds)
 
-  const goalProbDelta = (from.goalProbability != null && to.goalProbability != null)
-    ? to.goalProbability - from.goalProbability
-    : null
+  // `savedGoalFigure`: a run whose goal basis was never recorded is withheld — no delta on it.
+  const fromGoal = savedGoalFigure(from)
+  const toGoal = savedGoalFigure(to)
+  const goalProbDelta = fromGoal != null && toGoal != null ? toGoal - fromGoal : null
 
   return {
     fromRunNumber: from.runNumber,

@@ -22,12 +22,21 @@ import { UNCHARACTERISED_CHANGE_SUMMARY, type GraphChangeKind } from './graphCha
 import type { AnalysisSnapshot, LeaderClaim, RunPairComparison } from './types'
 import { METRIC_NOUN } from '../nodes/shared/metricVocabulary'
 import { SavedGoalCaveatLine } from './SavedGoalCaveatLine'
+import { savedGoalBasisUnrecorded, savedGoalFigure, type SavedGoal } from './savedGoalCaveat'
 
 interface RunPairCompareProps {
   comparison: RunPairComparison
 }
 
 const NOT_ASSESSED = 'Not assessed'
+/** A saved goal figure whose basis was never recorded: withheld, and the line under the row says why. */
+const GOAL_NOT_SHOWN = 'Not shown'
+
+function savedGoalCell(s: SavedGoal): string {
+  const figure = savedGoalFigure(s)
+  if (figure != null) return `${figure}%`
+  return savedGoalBasisUnrecorded(s) ? GOAL_NOT_SHOWN : NOT_ASSESSED
+}
 
 function runHeading(snapshot: AnalysisSnapshot): string {
   return runLabel(snapshot.runNumber, snapshot.timestamp)
@@ -205,8 +214,8 @@ export function RunPairCompare({ comparison }: RunPairCompareProps) {
       <Row
         testId="goal-row"
         label="Goal probability"
-        from={from.goalProbability != null ? `${from.goalProbability}%` : NOT_ASSESSED}
-        to={to.goalProbability != null ? `${to.goalProbability}%` : NOT_ASSESSED}
+        from={savedGoalCell(from)}
+        to={savedGoalCell(to)}
         delta={
           comparison.goalProbabilityDeltaPp != null
             ? signed(comparison.goalProbabilityDeltaPp, 'pp')

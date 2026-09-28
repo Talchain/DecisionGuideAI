@@ -14,12 +14,12 @@ import { render, screen, within } from '@testing-library/react'
 import { buildSnapshotFromV5Analysis } from '../../stores/v5RunSnapshotFactory'
 import { RunPairCompare } from '../RunPairCompare'
 import { DotProgression } from '../DotProgression'
-import { TrajectorySection } from '../TrajectorySection'
+import { TrajectorySection, buildTrajectoryData } from '../TrajectorySection'
 import { TransitionCard } from '../TransitionCard'
 import { deriveRunPairComparison } from '../deriveRunPairComparison'
 import { deriveTransitions } from '../deriveTransitions'
 import { makeLedSnapshot } from './__fixtures__/analysisSnapshot'
-import { snapshotGoalBaseCaveat } from '../savedGoalCaveat'
+import { savedGoalFigure, snapshotGoalBaseCaveat } from '../savedGoalCaveat'
 import type { AnalysisSnapshot } from '../types'
 
 const OLUMI =
@@ -72,19 +72,34 @@ describe('the snapshot keeps the chooser\'s goal-base caveat (live V5 path)', ()
   })
 })
 
-const withGoal = (runNumber: number, goal: number | null, caveat?: AnalysisSnapshot['goalBaseCaveat']) =>
-  makeLedSnapshot(runNumber, 'opt-a', 60, {
-    goalProbability: goal,
-    ...(caveat !== undefined ? { goalBaseCaveat: caveat } : {}),
+const withGoal = (runNumber: number, goal: number | null, caveat: AnalysisSnapshot['goalBaseCaveat']) =>
+  makeLedSnapshot(runNumber, 'opt-a', 60, { goalProbability: goal, goalBaseCaveat: caveat })
+
+/** A snapshot saved before `goalBaseCaveat` existed: the key is ABSENT, not null. */
+const savedBeforeTheField = (runNumber: number, goal: number | null): AnalysisSnapshot => {
+  const snapshot: AnalysisSnapshot = makeLedSnapshot(runNumber, 'opt-a', 60, { goalProbability: goal })
+  delete snapshot.goalBaseCaveat
+  expect('goalBaseCaveat' in snapshot).toBe(false)
+  return snapshot
+}
+
+const UNRECORDED = 'goal figure not shown: saved before Olumi recorded what it was measured from.'
+
+describe('THE readers — absent is not null (Codex CR #2282 5880059759)', () => {
+  it.each([
+    ['figure + caveat', 40, 'olumi_estimate', 40, 'olumi_estimate'],
+    ['figure, explicit null (chooser found no caveat due)', 40, null, 40, null],
+    ['no figure, stray caveat', null, 'olumi_estimate', null, null],
+  ] as const)('%s → figure %s, caveat %s', (_case, goal, caveat, figure, expected) => {
+    const s = withGoal(1, goal, caveat)
+    expect(savedGoalFigure(s)).toBe(figure)
+    expect(snapshotGoalBaseCaveat(s)).toBe(expected)
   })
 
-describe('snapshotGoalBaseCaveat — THE reader', () => {
-  it.each([
-    ['figure + caveat', 40, 'olumi_estimate', 'olumi_estimate'],
-    ['no figure, stray caveat', null, 'olumi_estimate', null],
-    ['figure, saved before the field existed', 40, undefined, null],
-  ] as const)('%s → %s', (_case, goal, caveat, expected) => {
-    expect(snapshotGoalBaseCaveat(withGoal(1, goal, caveat))).toBe(expected)
+  it('figure saved before the field existed (key ABSENT) → the figure is WITHHELD, never bare', () => {
+    const s = savedBeforeTheField(1, 40)
+    expect(savedGoalFigure(s)).toBeNull()
+    expect(snapshotGoalBaseCaveat(s)).toBeNull()
   })
 })
 
@@ -101,9 +116,21 @@ describe('RunPairCompare: the goal row never shows an estimate-based figure bare
     expect(screen.getByTestId('goal-row-caveat').textContent).toBe(`Run 3: ${FROM_INPUTS}`)
   })
 
-  it('no caveat on either run, or a snapshot saved before the field existed → nothing added', () => {
-    render(<RunPairCompare comparison={deriveRunPairComparison(withGoal(2, 40, null), withGoal(3, 45))} />)
+  it('an explicit null on both runs → the figures stand alone, nothing added', () => {
+    render(<RunPairCompare comparison={deriveRunPairComparison(withGoal(2, 40, null), withGoal(3, 45, null))} />)
+    expect(screen.getByTestId('goal-row').textContent).toContain('40%')
+    expect(screen.getByTestId('goal-row').textContent).toContain('45%')
     expect(screen.queryByTestId('goal-row-caveat')).toBeNull()
+  })
+
+  it('a run saved before the field existed → its figure and the delta are withheld, and the row says why', () => {
+    render(<RunPairCompare comparison={deriveRunPairComparison(withGoal(2, 40, null), savedBeforeTheField(3, 45))} />)
+    const row = screen.getByTestId('goal-row')
+    expect(row.textContent).toContain('40%')
+    expect(row.textContent).not.toContain('45%')
+    expect(row.textContent).toContain('Not shown')
+    expect(row.textContent).not.toContain('pp')
+    expect(screen.getByTestId('goal-row-caveat').textContent).toBe(`Run 3: ${UNRECORDED}`)
   })
 
   it('a caveat on a run whose goal figure is absent is not said (no figure to caveat)', () => {
@@ -113,6 +140,18 @@ describe('RunPairCompare: the goal row never shows an estimate-based figure bare
 })
 
 describe('the progression Target row and the trajectory chart carry the caveat', () => {
+  it('DotProgression: a run saved before the field existed shows no figure, and the line names it', () => {
+    render(<DotProgression snapshots={[withGoal(1, 30, null), savedBeforeTheField(2, 35)]} />)
+    expect(screen.queryByText('35%')).toBeNull()
+    expect(screen.getByText('30%')).toBeTruthy()
+    expect(screen.getByTestId('compare-progression-goal-caveat').textContent).toBe(`Run 2: ${UNRECORDED}`)
+  })
+
+  it('the trajectory series withholds an unrecorded run\'s goal point', () => {
+    const data = buildTrajectoryData([withGoal(1, 30, null), savedBeforeTheField(2, 35)], 'opt-a')
+    expect(data.map((d) => d.goal)).toEqual([30, null])
+  })
+
   it('DotProgression (under 4 runs): one sentence under the Target row', () => {
     render(<DotProgression snapshots={[withGoal(1, 30, 'olumi_estimate'), withGoal(2, 35, 'olumi_estimate')]} />)
     expect(screen.getByTestId('compare-progression-goal-caveat').textContent).toBe(OLUMI)
@@ -138,6 +177,13 @@ describe('the transition\'s goal delta carries the caveat of the figures it subt
     render(<TransitionCard transition={tr} startOpen showExpert={false} allDeltas={[]} />)
     const line = screen.getByText(/Goal probability: \+8pp/)
     expect(within(line).getByTestId('transition-goal-caveat').textContent).toBe(OLUMI)
+  })
+
+  it('a run saved before the field existed → no goal delta at all (never built on a withheld figure)', () => {
+    const [tr] = deriveTransitions([withGoal(1, 30, null), savedBeforeTheField(2, 38)])
+    expect(tr.goalProbDelta).toBeNull()
+    render(<TransitionCard transition={tr} startOpen showExpert={false} allDeltas={[]} />)
+    expect(screen.queryByText(/Goal probability:/)).toBeNull()
   })
 
   it('no caveat on either figure → the delta line stands alone', () => {

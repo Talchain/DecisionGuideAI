@@ -253,8 +253,9 @@ export interface AnalysisSnapshot {
    * the saved goal figure shows this caveat beside it (CODEX DELIVERY LEAD #72 5879597435); read it
    * through `snapshotGoalBaseCaveat`, never directly.
    *
-   * Optional because snapshots saved before this field existed do not carry it. Those runs predate
-   * ISL #207 serving (it is held until this field serves), so no caveat was due for them.
+   * Optional because snapshots saved before this field existed do not carry it. ABSENT ≠ null: an
+   * explicit null means the chooser found no caveat due; an absent key means the basis was never
+   * recorded, so Compare withholds that run's goal figure (`savedGoalFigure`), never shows it bare.
    */
   goalBaseCaveat?: GoalFitBaseCaveat | null
 

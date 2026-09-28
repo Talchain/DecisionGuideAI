@@ -143,6 +143,12 @@ export function makeAnalysisSnapshot(
     rankFlipRate: 0.05,
     goalProbability: null,
     jointGoalProbability: null,
+    /**
+     * The producer's happy path: every current snapshot builder WRITES this key (the chooser's
+     * caveat, or an explicit null). A spec exercising a snapshot saved before the key existed —
+     * whose goal figure Compare withholds — must omit it explicitly (Codex CR #2282).
+     */
+    goalBaseCaveat: null,
     inferenceWarnings: [],
     conditionalWinners: [],
     edgeEValues: [],
