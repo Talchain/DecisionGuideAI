@@ -180,6 +180,7 @@ import {
 } from './optimisticFactorEdit'
 import { markFactorEditInFlight } from './pendingFactorEdit'
 import { settleEdgeEdit } from './pendingEdgeEdit'
+import { rebaseDeferredEdgeStrengthEdit } from './edgeStrengthEdit'
 import {
   settleStructuralDeleteAttempt,
   settleUnconfirmedDeletesProvenByReceipt,
@@ -2479,6 +2480,22 @@ export interface SendTurnOpts {
    */
   optimisticEdgeEdit?: OptimisticEdgeEdit
   /**
+   * ⭐ THE SECOND SETTLEMENT OF A QUEUED SEND (canvas audit edit-values F1).
+   *
+   * A send the in-flight lock defers resolves its caller's promise with
+   * `SEND_DEFERRED` at ENQUEUE — the only answer it used to get. Its real outcome
+   * (applied, refused, cannot-confirm) happens later, at FLUSH, where the
+   * rejection had no listener: a refused link edit left the inspector showing
+   * the refused value beside the EARLIER send's "Sent to Olumi".
+   *
+   * The flush hands this callback the dispatch's own promise once the entry's
+   * fate is decided (accepted, dropped, or at the retry cap), so a carrier can
+   * settle it through `settleSystemEventSend` exactly as it settles an
+   * immediate send. At most one call per queued entry; a superseding edit that
+   * collapses into the entry replaces it. NOT part of the wire payload.
+   */
+  onDeferredSettled?: (dispatch: Promise<SendTurnOutcome>) => void
+  /**
    * Keep this system event with its caller when another turn owns the lock.
    *
    * Default true preserves the established singleton sender queue. Callers
@@ -2574,9 +2591,20 @@ export class SystemEventSendError extends Error {
    * it must pass it through `isDisplaySafeReason` first.
    */
   readonly reason?: string
+  /**
+   * Whether re-sending can work — the envelope's own `retryable` marker, else
+   * the failure-code table (`resolveRetryable`, the same value the transcript's
+   * Try-again affordance is gated on). Additive, like the three above.
+   *
+   * ⚠ IT IS NOT A NO-WRITE CLAIM (`provenNoWriteConflict.ts`: "membership is
+   * not derivable from `retryable: false`"). It answers one question only —
+   * whether an automatic replay of the SAME payload is futile — and the
+   * deferral queue asks it for exactly that (`flushDeferredSystemSends`).
+   */
+  readonly retryable?: boolean
   constructor(
     kind: 'transport' | 'server',
-    options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string },
+    options?: { cause?: unknown; code?: string; conflictCategory?: string; reason?: string; retryable?: boolean },
   ) {
     super(`System event send failed (${kind})`)
     this.name = 'SystemEventSendError'
@@ -2584,6 +2612,7 @@ export class SystemEventSendError extends Error {
     if (options?.code !== undefined) this.code = options.code
     if (options?.conflictCategory !== undefined) this.conflictCategory = options.conflictCategory
     if (options?.reason !== undefined) this.reason = options.reason
+    if (options?.retryable !== undefined) this.retryable = options.retryable
     if (options?.cause !== undefined) {
       ;(this as Error & { cause?: unknown }).cause = options.cause
     }
@@ -2640,6 +2669,8 @@ export interface UseConversationReturn {
     structuralAdd?: StructuralAddIntent
     /** The optimistic link-strength write this `edge_strength_edit` announces. */
     optimisticEdgeEdit?: OptimisticEdgeEdit
+    /** The queued send's own outcome, at flush — see `SendTurnOpts.onDeferredSettled`. */
+    onDeferredSettled?: (dispatch: Promise<SendTurnOutcome>) => void
     /** Return `SEND_BLOCKED` instead of queueing behind an in-flight turn. */
     deferIfBusy?: boolean
     // Resolves to SEND_DEFERRED when the in-flight lock queued the send instead
@@ -3974,10 +4005,28 @@ export function useConversation(): UseConversationReturn {
     // fields of the same factor would collapse into one and the last one would
     // silently erase the other. Widening `field` therefore REQUIRES adding it
     // to this key.
+    //
+    // ⭐ A LINK-STRENGTH `set` IS VALUE-CARRYING TOO (canvas audit edit-values
+    // F1). A slow slider drag queued EVERY intermediate value behind the first
+    // send — 28 queued turns for one 12-step drag on served `d87eeb94`, each
+    // replayed up to three times. Only the last value is the user's; the rest
+    // are positions the thumb passed through. So it collapses per LINK and per
+    // EDIT KIND — a direction flip and a strength drag on one link are two
+    // edits with two settlements (`pendingEdgeEdit`'s per-kind entries, for the
+    // same reason). `confirm_current` is an act, not a value, and still appends.
+    const edgePayload = ev?.type === 'edge_strength_edit' ? ev.payload : undefined
+    const edgeSetKey =
+      edgePayload &&
+      edgePayload.intent === 'set' &&
+      typeof edgePayload.from === 'string' &&
+      typeof edgePayload.to === 'string'
+        ? `edge_strength_edit:${opts.optimisticEdgeEdit?.sentDirection !== undefined ? 'direction' : 'strength'}:${edgePayload.from}\u0000${edgePayload.to}`
+        : null
     const key =
       ev?.type === 'factor_value_edit' && targetId
         ? `factor_value_edit:${targetId}`
-        : `${String(ev?.type)}:${deferredSystemSendsRef.current.length}:${Date.now()}:${Math.random()}`
+        : edgeSetKey ??
+          `${String(ev?.type)}:${deferredSystemSendsRef.current.length}:${Date.now()}:${Math.random()}`
 
     // Stamp the scenario at ENQUEUE time. Dispatch reads the scenario fresh, so
     // without this an edit queued in A would flush into whatever decision
@@ -3997,12 +4046,27 @@ export function useConversation(): UseConversationReturn {
       // neither and still holds 3 — so a refusal of 30 must restore 3, not the
       // intermediate 25 the server never held. The value being sent is the new
       // one; the state to restore is the ORIGINAL one.
+      const superseded = deferredSystemSendsRef.current[existing].opts
       entry.opts = {
         ...entry.opts,
         optimisticFactorEdit: mergeOptimisticFactorEdit(
-          deferredSystemSendsRef.current[existing].opts.optimisticFactorEdit,
+          superseded.optimisticFactorEdit,
           entry.opts.optimisticFactorEdit,
         ),
+        // The link twin of the rule above. `OptimisticEdgeEdit.before` is "the
+        // canvas before THIS turn's write" (`ownOptimisticWrite.ts`), and the one
+        // turn now carries every collapsed local write — none of which the server
+        // ever saw — so G₀ is the data before the FIRST of them. Taking the latest
+        // `before` would name an intermediate value no one acknowledged, and the
+        // receipt could then never extend the acknowledgement past this turn.
+        ...(entry.opts.optimisticEdgeEdit && superseded.optimisticEdgeEdit
+          ? {
+              optimisticEdgeEdit: {
+                ...entry.opts.optimisticEdgeEdit,
+                before: superseded.optimisticEdgeEdit.before,
+              },
+            }
+          : {}),
       }
       deferredSystemSendsRef.current[existing] = entry
     } else {
@@ -6077,6 +6141,10 @@ export function useConversation(): UseConversationReturn {
                 ...(target.boundaryError && extractV5ErrorReason(target.boundaryError)
                   ? { reason: extractV5ErrorReason(target.boundaryError) }
                   : {}),
+                // The same resolved marker the Try-again chip is gated on,
+                // carried so the deferral queue can tell a futile replay from a
+                // retry that may still land (`flushDeferredSystemSends`).
+                retryable,
               },
             )
           }
@@ -6403,7 +6471,32 @@ export function useConversation(): UseConversationReturn {
    * be actively false about an inspector edit.
    */
   const noticeForUnsentEdit = useCallback((entry: DeferredSystemSend, reason: 'failed' | 'discarded') => {
-    if (entry.opts.systemEvent?.type !== 'factor_value_edit') return
+    // ⭐ A LINK-STRENGTH `set` IS THE SAME ANIMAL (canvas audit edit-values F2):
+    // the user chose a strength and the link on screen now shows it. It returned
+    // here with no line at all — at the retry cap and on a scenario switch — so
+    // the only trace of an edit that will never land was a hold. `confirm_current`
+    // changes no value and stays silent, as before.
+    const ev = entry.opts.systemEvent
+    if (ev?.type === 'edge_strength_edit' && ev.payload?.intent === 'set') {
+      const nodes = useCanvasStore.getState().nodes
+      const labelOf = (id: unknown) => {
+        const found = nodes.find((n) => n.id === id)?.data?.label
+        return typeof found === 'string' && found.trim() ? found : String(id)
+      }
+      const link = `the strength of the link from ${labelOf(ev.payload.from)} to ${labelOf(ev.payload.to)}`
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        synthetic: true,
+        timestamp: new Date(),
+        content:
+          reason === 'failed'
+            ? `Your change to ${link} hasn't reached the server. The analysis still reflects the previous strength — set it again to try again.`
+            : `An unsent change to ${link} was discarded when the decision changed. It was never applied to the analysis.`,
+      })
+      return
+    }
+    if (ev?.type !== 'factor_value_edit') return
     const what = describeDeferred(entry)
     addMessage({
       id: crypto.randomUUID(),
@@ -6479,8 +6572,36 @@ export function useConversation(): UseConversationReturn {
       if (!next) return
 
       next.dispatching = true
+
+      // ⭐ A QUEUED LINK-STRENGTH `set` ASSERTS WHAT THE SERVER HOLDS **NOW**
+      // (canvas audit edit-values F1). Its `expected` was read at the click,
+      // before the edit already on the wire applied — so sent as queued it is
+      // refused (409 `edge_expected_tuple_mismatch`), and later it can even
+      // match again and overwrite a newer choice. The request is unchanged;
+      // only the assertion is re-read. See `rebaseDeferredEdgeStrengthEdit`.
+      let dispatchOpts = next.opts
+      if (next.opts.systemEvent?.type === 'edge_strength_edit' && next.opts.optimisticEdgeEdit) {
+        const own = next.opts.optimisticEdgeEdit
+        const rebase = rebaseDeferredEdgeStrengthEdit(
+          next.opts.systemEvent,
+          useCanvasStore.getState().edges.find((e) => e.id === own.edgeId),
+          { directionEdit: own.sentDirection !== undefined },
+        )
+        if (rebase.kind === 'already_held') {
+          // The model already holds exactly this request: nothing to send, and
+          // the carrier is settled as it would be by an applied receipt.
+          deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
+          publishPendingEditCount()
+          next.opts.onDeferredSettled?.(Promise.resolve(undefined))
+          flushDeferredSystemSendsRef.current()
+          return
+        }
+        if (rebase.kind === 'rebased') dispatchOpts = { ...next.opts, systemEvent: rebase.event }
+      }
+
+      const dispatch = sendTurn(dispatchOpts)
       try {
-        const outcome = await sendTurn(next.opts)
+        const outcome = await dispatch
         if (outcome === SEND_DEFERRED || outcome === SEND_BLOCKED) {
           // Never dispatched — something else took the lock first. Leave it
           // queued and do NOT count it as a failure; the next release retries.
@@ -6490,6 +6611,7 @@ export function useConversation(): UseConversationReturn {
         // Accepted. Only now is it safe to forget.
         deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
         publishPendingEditCount()
+        next.opts.onDeferredSettled?.(dispatch)
       } catch (err) {
         // ── A PROVEN NO-WRITE IS NOT A RETRYABLE FAILURE — DROP IT ──────────
         //
@@ -6517,9 +6639,58 @@ export function useConversation(): UseConversationReturn {
         if (isProvenNoWriteConflict(conflictCategory)) {
           deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
           publishPendingEditCount()
+          // ⚠ "`sendTurn` has ALREADY resolved this edit" is true of a VALUE
+          // edit and not of a LINK edit: `sendTurn` reverts factor values, while
+          // a link's revert belongs to its carrier (`resolveEdgeEditSettlement`),
+          // which until now never heard this rejection. It hears it here.
+          next.opts.onDeferredSettled?.(dispatch)
           if (import.meta.env.DEV) {
             console.warn(
               `[sendTurn] deferred send ${next.key} refused with a proven no-write (${conflictCategory}); reverted and dropped, not retried`,
+            )
+          }
+          return
+        }
+
+        // ── A LINK-STRENGTH EDIT THE SERVER ANSWERED NON-RETRYABLY IS NEVER
+        //    REPLAYED (canvas audit edit-values F2, reproduced 3/3) ──────────
+        //
+        // `edge_strength_edit` is a compare-and-swap: it carries the tuple it
+        // expects the server to hold. When CEE answers it with a typed,
+        // `retryable: false` refusal (served: 409 `GRAPH_DIVERGED`,
+        // `edge_expected_tuple_mismatch`), replaying the same payload has only
+        // two outcomes, and both were witnessed:
+        //   · it refuses identically — up to MAX_FLUSH_ATTEMPTS times, and then
+        //     the entry is KEPT, so `pendingEmittedEdits` never returns to 0 and
+        //     Analyse reads "Your change is still being saved" until a reload
+        //     (75 s sampled, no request in flight); or
+        //   · the user later sets the link back to the stale tuple, it MATCHES,
+        //     and a gesture they replaced ~50 s earlier silently overwrites
+        //     their newer choice.
+        // So the entry is dropped — the server has answered it, nothing is left
+        // to deliver. NO revert and NO no-write claim: this category is not in
+        // `PROVEN_NO_WRITE_CONFLICT_CATEGORIES` and this arm does not assert it.
+        // The carrier's own register (`pendingEdgeEdit`) keeps the magnitude
+        // unconfirmed, so the hold now reads what is true — "Olumi couldn't
+        // confirm your change to the strength of the link … set the strength
+        // again?" — and a fresh set replaces it.
+        //
+        // ⚠ SCOPED TO THE LINK EDIT. A `factor_value_edit` refused the same way
+        // keeps its pinned behaviour (`useConversation.deferredSystemSends.spec`,
+        // "OPPOSITE TWIN"): it carries no expected tuple, so a replay cannot
+        // resurrect a superseded value.
+        if (
+          next.opts.systemEvent?.type === 'edge_strength_edit' &&
+          err instanceof SystemEventSendError &&
+          err.kind === 'server' &&
+          err.retryable === false
+        ) {
+          deferredSystemSendsRef.current = deferredSystemSendsRef.current.filter((d) => d !== next)
+          publishPendingEditCount()
+          next.opts.onDeferredSettled?.(dispatch)
+          if (import.meta.env.DEV) {
+            console.warn(
+              `[sendTurn] deferred link edit ${next.key} refused non-retryably (${conflictCategory ?? err.code ?? 'unknown'}); dropped, not replayed`,
             )
           }
           return
@@ -6538,7 +6709,12 @@ export function useConversation(): UseConversationReturn {
         next.dispatching = false
         useCanvasStore.getState().markAnalysisFreshnessDirty?.()
         publishPendingEditCount()
-        if (next.attempts >= MAX_FLUSH_ATTEMPTS) noticeForUnsentEdit(next, 'failed')
+        if (next.attempts >= MAX_FLUSH_ATTEMPTS) {
+          noticeForUnsentEdit(next, 'failed')
+          // Retrying stops here, so this is the entry's last answer: the carrier
+          // hears the cannot-confirm settlement rather than a stale 'queued'.
+          next.opts.onDeferredSettled?.(dispatch)
+        }
         if (import.meta.env.DEV) {
           console.warn(`[sendTurn] deferred send FAILED (${next.key}), attempt ${next.attempts}/${MAX_FLUSH_ATTEMPTS}`)
         }
@@ -6629,6 +6805,8 @@ export function useConversation(): UseConversationReturn {
       structuralAdd?: StructuralAddIntent
       /** The optimistic link-strength write this `edge_strength_edit` announces. */
       optimisticEdgeEdit?: OptimisticEdgeEdit
+      /** The queued send's own outcome, at flush — see `SendTurnOpts.onDeferredSettled`. */
+      onDeferredSettled?: (dispatch: Promise<SendTurnOutcome>) => void
       deferIfBusy?: boolean
     }) => {
       // No-op when orchestrator V2 is OFF
@@ -6712,6 +6890,9 @@ export function useConversation(): UseConversationReturn {
         // never acknowledge the model past its own write, and a whole-graph
         // registration follows every one (`edgeStrengthOneWriter.spec` case C).
         optimisticEdgeEdit: opts?.optimisticEdgeEdit,
+        // Rides with the queued opts, so a DEFERRED link edit's refusal or
+        // receipt reaches its carrier (`useInspectorMutations.setStrength`).
+        onDeferredSettled: opts?.onDeferredSettled,
         // ⚠ A DELETE MAY DEFER, AND THE DEDUPE KEY IS WHY THAT IS SAFE.
         // `enqueueDeferredSystemSend` collapses only `factor_value_edit`
         // (last-write-wins per target); every other type gets a per-enqueue

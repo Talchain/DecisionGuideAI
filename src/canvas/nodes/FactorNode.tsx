@@ -15,17 +15,24 @@ import { NodeValueEditor } from './shared/NodeValueEditor'
 import { FactorValueFigure, readoutIsBareModelScale } from './shared/FactorValueFigure'
 import { usePendingFactorEditValue } from '../hooks/usePendingFactorEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
-import { resolveValueInputSeed } from '../conversation/factorValueEdit'
+import { modelScaleValueIsTheTypedScale, resolveValueInputSeed } from '../conversation/factorValueEdit'
+import { OPTION_TARGET_ENTRY_REFUSAL } from '../ui/inspector-v2/shared/optionTargetEntry'
 import { typography } from '../../styles/typography'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
 import { cleanFactorLabel, isSuppressedUnit, qualitativeTierLabel, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayParts, factorDisplayText } from '../../utils/formatFactorDisplayValue'
-import { factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
+import { everyOptionSetsFactor, factorOptionSetting, getFactorOptionRows, resolveOptionInterventionsForDisplay } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
 import { DataBar } from '../ui/shared/DataBar'
 import { useFactorRunCues } from './shared/useFactorRunCues'
 import { useHasCompletedFirstRun } from '../selectors/results'
-import { FACTOR_NO_ANALYSIS_YET, FACTOR_NO_ANALYSIS_YET_SHORT } from './shared/metricVocabulary'
+import {
+  FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION,
+  FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION_SHORT,
+  FACTOR_NO_ANALYSIS_YET,
+  FACTOR_NO_ANALYSIS_YET_SHORT,
+  FACTOR_VALUE_MODEL_SCALE_HINT,
+} from './shared/metricVocabulary'
 import { FactorDriverLine, FactorDriverNotRanked } from './shared/FactorDriverLine'
 import { FactorTurningPointSlot } from './shared/FactorTurningPointTrack'
 import { turningPointNumberPrints } from './shared/factorTurningPoint'
@@ -204,6 +211,17 @@ export const FactorNode = memo((props: NodeProps) => {
     if (rows.length === 0) return null
     return { rows: showAllOptionValues ? rows : rows.slice(0, 4), overflow: showAllOptionValues ? 0 : Math.max(0, rows.length - 4) }
   }, [nodes, props.id, nodeCategory, observedState, ceeAnalysisReady, showAllOptionValues])
+
+  // F3 — does the card's value field show the number the model stores? Then
+  // that number is on the model's 0–1 scale and the field is bounded to it.
+  const valueFieldIsModelScale = useMemo(() => modelScaleValueIsTheTypedScale(props.data), [props.data])
+  // F9 — a baseline every option replaces: an edit here cannot move the
+  // comparison, and the editor says so while it is open. Asked of ALL options,
+  // not the preview rows (`optionComparisonRows` is sliced to 4).
+  const baselineReplacedByEveryOption = useMemo(
+    () => nodeCategory !== 'external' && everyOptionSetsFactor(props.id, nodes, ceeAnalysisReady?.options),
+    [nodeCategory, props.id, nodes, ceeAnalysisReady],
+  )
 
   // Retain the shared value reader and the card's existing display-only guard
   // against internal descriptors such as "other" being shown as units.
@@ -1351,12 +1369,39 @@ export const FactorNode = memo((props: NodeProps) => {
                 `NodeValueEditor` is in that scale too. */}
             {nodeCategory === 'controllable' && typeof observedState?.value === 'number' ? (
               <span className="min-w-0">
+                {/* ⭐ BOUNDED WHERE THE TYPED NUMBER IS THE STORED ONE (canvas
+                    audit edit-values F3). On a factor with no unit and no cap
+                    the field shows the model's own 0–1 value, and the commit
+                    sends the typed number unchanged as that value — so 5 on
+                    "Very high" was saved as "5 Set by you", readiness said
+                    ready, and the next Run refused the factor as an unscaled
+                    amount. The option target editor already refuses the same
+                    number on the same scale with this sentence
+                    (`optionTargetEntry.ts`); the card now asks the same
+                    question. `modelScaleValueIsTheTypedScale` is the existing
+                    predicate for "field scale = model scale"; a capped or
+                    magnitude-scaled factor reads user units and gets no bound
+                    here (fails OPEN, as `resolveFactorValueAdmission` does). */}
                 <NodeValueEditor
                   value={resolveValueInputSeed(props.data).seed ?? observedState.value}
                   readout={<FactorValueFigure readout={recordedValueReadout} parts={valueParts} nodeId={props.id} />}
                   onCommit={(v, opts) => editAuthority.proposeFactorValue(v, opts)}
                   readCommittedValue={() =>
                     resolveValueInputSeed(useCanvasStore.getState().nodes.find(n => n.id === props.id)?.data).seed ?? null}
+                  {...(valueFieldIsModelScale
+                    ? {
+                        min: 0,
+                        max: 1,
+                        outOfRangeCopy: OPTION_TARGET_ENTRY_REFUSAL.outOfRangeModelScale,
+                        scaleHint: FACTOR_VALUE_MODEL_SCALE_HINT,
+                      }
+                    : {})}
+                  {...(baselineReplacedByEveryOption
+                    ? {
+                        editNote: FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION,
+                        editNoteShort: FACTOR_BASELINE_REPLACED_BY_EVERY_OPTION_SHORT,
+                      }
+                    : {})}
                   ariaLabel={`Value for ${props.data?.label ?? 'this factor'}`}
                   testId={`node-value-editor-${props.id}`}
                 />

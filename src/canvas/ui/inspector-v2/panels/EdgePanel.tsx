@@ -645,6 +645,46 @@ export const EdgePanel = memo(function EdgePanel({
   )
 
   /**
+   * ⭐⭐ ONLY THE LATEST STRENGTH EDIT MAY SPEAK (canvas audit edit-values F1).
+   *
+   * A drag or two quick band clicks put several sends on one link: the first
+   * leaves, the rest queue. Their settlements arrive out of order — the first
+   * send's `'sent'` lands AFTER the queued one's `'queued'` — and with no guard
+   * the last to ARRIVE won, so the panel read "Sent to Olumi" about the earlier
+   * value while showing the later one (skeptic timeline on served `d87eeb94`).
+   * The same sequence rule `handleDirectionChange` already follows: a late
+   * answer to a superseded press is dropped.
+   *
+   * ⭐ AND ONCE THE LATEST EDIT IS ANSWERED, THE PANEL SHOWS WHAT THE CANVAS
+   * SHOWS. `localStrength` is `useState(signedValue)` and nothing resyncs it
+   * (see `handleStateStrengthForSave`). Two settlements move the store off it:
+   * `'refused'` (`resolveEdgeEditSettlement` reverts the link), and a QUEUED
+   * edit's late answer — the receipt of the edit ahead of it reconciles the
+   * link to the server's value first, so a queued edit the server then declines
+   * leaves the canvas on that value. The skeptic's served end state was exactly
+   * this: panel "Very strong 0.85 ± 0.15", canvas "Moderate boost". Both reach
+   * the panel as `'refused'` or `'unverified'`, so those two resync. `'sent'`
+   * does not: the receipt put the sent number on the link, which is the
+   * panel's — and resyncing there could pull a slider thumb back during the
+   * 120 ms before its next debounced move. `'queued'` is not an answer at all.
+   */
+  const strengthSendSeqRef = useRef(0)
+  const beginStrengthSend = useCallback(() => {
+    const seq = ++strengthSendSeqRef.current
+    return (settlement: SystemEventSendSettlement, detail?: SystemEventSendSettlementDetail) => {
+      if (seq !== strengthSendSeqRef.current) return
+      if ((settlement === 'refused' || settlement === 'unverified') && edgeId) {
+        const stored = useCanvasStore.getState().edges.find((e) => e.id === edgeId)?.data
+        const storedWeight = stored?.weight ?? 0.5
+        const storedSigned = stored?.direction === 'negative' ? -storedWeight : storedWeight
+        setLocalStrength(storedSigned)
+        origStrengthRef.current = storedSigned
+      }
+      handleStrengthSendSettled(settlement, detail)
+    }
+  }, [edgeId, handleStrengthSendSettled])
+
+  /**
    * ⛔⛔ A SETTLEMENT DOES NOT ALWAYS ARRIVE, AND MY FIRST VERSION ASSUMED IT DID.
    *
    * `setStrength` returns BEFORE the send on two paths — `not_wire_encodable`
@@ -672,9 +712,9 @@ export const EdgePanel = memo(function EdgePanel({
     // the one that describes where the value ended up. Clearing first means a
     // stale "not recorded" can never survive over a later send that landed.
     setStrengthEditSend(null)
-    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: handleStrengthSendSettled }))
+    noteStrengthOutcome(mutations.setStrength(v, { onSendSettled: beginStrengthSend() }))
     if (edgeId) previewEdit(edgeId, v - origStrengthRef.current)
-  }, [mutations, edgeId, previewEdit, handleStrengthSendSettled])
+  }, [mutations, edgeId, previewEdit, beginStrengthSend])
 
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
@@ -694,12 +734,12 @@ export const EdgePanel = memo(function EdgePanel({
     setStrengthEditSend(null)
     noteStrengthOutcome(mutations.setStrength(v, {
       preserveDirection: true,
-      onSendSettled: handleStrengthSendSettled,
+      onSendSettled: beginStrengthSend(),
     }))
     clearPreview()
     origStrengthRef.current = v
     confirmEdit('strength')
-  }, [mutations, clearPreview, confirmEdit, handleStrengthSendSettled])
+  }, [mutations, clearPreview, confirmEdit, beginStrengthSend])
 
   /**
    * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.

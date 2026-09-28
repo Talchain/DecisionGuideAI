@@ -1218,11 +1218,21 @@ export function useEdgeMutations(edgeId: string) {
     // the number and stays held. `edge.data` is the PRE-write read above.
     const before = (edge.data ?? {}) as Record<string, unknown>
     markEdgeEditInFlight(edgeId, absWeight, before)
+    // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
+    // turn is not a moved model) is the envelope's fact, not the resolver's.
+    const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
+      opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail)
     settleSystemEventSend(
-      sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before } }),
-      // The detail rides beside the resolved settlement: WHICH no-write it was (a stopped
-      // turn is not a moved model) is the envelope's fact, not the resolver's.
-      (settlement, detail) => opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, absWeight, settlement), detail),
+      sendSystemEvent(event, {
+        optimisticEdgeEdit: { edgeId, sentMagnitude: absWeight, before },
+        // ⭐ A QUEUED send settles TWICE: `'queued'` at the click (below), then
+        // its real outcome when the queue dispatches it (canvas audit
+        // edit-values F1). Without this second settlement a refused queued edit
+        // never reverted and the panel kept "Sent to Olumi" — the EARLIER send's
+        // answer — over a value the model does not hold.
+        onDeferredSettled: (dispatch) => settleSystemEventSend(dispatch, settle),
+      }),
+      settle,
     )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
@@ -1362,10 +1372,15 @@ export function useEdgeMutations(edgeId: string) {
     // carried as `sentDirection` and every proof asks it.
     const sentMagnitude = Math.abs(serverStatedStrengthOf(before)?.mean ?? Number.NaN)
     markEdgeEditInFlight(edgeId, sentMagnitude, before, direction)
+    const settle = (settlement: SystemEventSendSettlement, detail: SystemEventSendSettlementDetail) =>
+      opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail)
     settleSystemEventSend(
-      sendSystemEvent(event, { optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction } }),
-      (settlement, detail) =>
-        opts?.onSendSettled?.(resolveEdgeEditSettlement(edgeId, sentMagnitude, settlement, direction), detail),
+      sendSystemEvent(event, {
+        optimisticEdgeEdit: { edgeId, sentMagnitude, before, sentDirection: direction },
+        // The queued flip's real outcome, at flush — `setStrength`'s twin.
+        onDeferredSettled: (dispatch) => settleSystemEventSend(dispatch, settle),
+      }),
+      settle,
     )
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
