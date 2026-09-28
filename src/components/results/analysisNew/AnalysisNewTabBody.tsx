@@ -42,6 +42,8 @@
  * elements per screen. The outer panel is unchanged.
  */
 
+import { caveatRestatesVerdictReason, useRobustnessCaveatOnScreen } from './robustnessStanding'
+import { buildReasoningSignals } from './reasoningSignals'
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { AlertTriangle, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
@@ -1356,9 +1358,25 @@ export function AnalysisNewTabBody({
    * its reading after it (see the reading mount for why). One element, so the
    * two halves cannot receive different props.
    */
+  /**
+   * ⭐ SAID ONCE (28 Sep 2026, Panel; served `ac2def0f`, a £-goal re-run): the reading repeated
+   * the caveat's first sentence and the Challenge row's tipping point. The two facts below are
+   * the SAME derivations those surfaces render on, so the glance steps aside only where the
+   * other surface is actually saying it.
+   */
+  const glanceReasonOwner = useRobustnessCaveatOnScreen(vm.leaderClaimPermitted, vm.atAGlance.verdict?.reason ?? null)
+  const verdictReasonSaidByCaveat =
+    glanceReasonOwner.onScreen &&
+    caveatRestatesVerdictReason(glanceReasonOwner.caveatText, vm.atAGlance.verdict?.reason ?? null)
+  const conditionSaidInChallenge =
+    vm.leaderClaimPermitted &&
+    (buildReasoningSignals(vm, resultsSectionData.recommendation.flipThresholds)?.tipping ?? null) !== null
+
   const renderGlance = (part: 'status' | 'reading') => (
     <AtAGlance
       glance={vm.atAGlance}
+      verdictReasonSaidByCaveat={verdictReasonSaidByCaveat}
+      conditionSaidInChallenge={conditionSaidInChallenge}
       onFocusTarget={focusTarget}
       /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
          ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
