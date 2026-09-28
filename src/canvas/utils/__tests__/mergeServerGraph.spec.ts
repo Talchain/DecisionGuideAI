@@ -206,6 +206,8 @@ describe('mergeServerGraphOnHydrate — honest absence', () => {
     // a REFUSAL (nothing was observed), which is the same rule that already
     // governs `lastAuthoritativeGraph` on the line below. `removedLabels` is the
     // 23 Sep addition (reload shows the saved model) — declared here as intended.
+    // `removedCanvasOnlyLinkLabels` is the 27 Sep addition (canvas audit
+    // edit-structure/F3: never-sent links named apart) — declared as intended.
     expect(res).toEqual({
       addedNodeCount: 0,
       addedEdgeCount: 0,
@@ -214,6 +216,7 @@ describe('mergeServerGraphOnHydrate — honest absence', () => {
       removedNodeCount: 0,
       removedEdgeCount: 0,
       removedLabels: [],
+      removedCanvasOnlyLinkLabels: [],
       accepted: false,
       refusedReason: 'emptyServerGraph',
       changed: false,

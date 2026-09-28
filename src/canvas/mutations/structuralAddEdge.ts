@@ -534,5 +534,29 @@ export const STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST =
  * add an edge WITH a strength to its own canonical graph from a chat turn; the
  * human canvas cannot.** The AI can do what the human cannot.
  */
+/*
+ * ⭐⭐ REWRITTEN 27 Sep 2026 (canvas audit edit-structure/F3) — THE PREMISE
+ * ABOVE EXPIRED, AND THE SENTENCE NOW NAMES THE CONTROL THAT EXISTS.
+ *
+ * Everything above argued, correctly AT THE TIME, that no control on screen
+ * could state a drawn link's strength: the EDIT control (`edge_strength_edit`)
+ * is fenced by `edgeStrengthEditIsAssertable`, which asks for a strength the
+ * SERVER holds. That fence still stands. But the stand-down receipt
+ * (`EdgeData.structuralAddStandDown`) since gave this population its OWN
+ * control: `EdgePanel` renders the add-control `edge-state-strength-for-save`
+ * ("How strong is this effect? …") INSTEAD of the edit fieldset, and the band
+ * picked there re-runs the capture and sends `structural_add_edge` with the
+ * magnitude the person chose (`retryStructuralAddEdgeCapture`). Served and
+ * witnessed by the F3 skeptic: Moderate → `structural_add_edge` 200, and the
+ * link survived a reload.
+ *
+ * So the old sentence sent the user to the chat while a one-click control sat
+ * one double-click away, and the toast faded before they acted. The gesture now
+ * OPENS that panel on the new link (`openStrengthForNewCanvasOnlyLink`), the link wears
+ * a lasting "Not saved · set strength" word (`StyledEdge`), and this sentence
+ * names that move. It still promises no outcome: "sends", never "saves" (the
+ * sender has no revert lifecycle). Pinned against the rendered control in
+ * `structuralAddEdge.needsStrengthNoticeIsExecutable.spec.ts`.
+ */
 export const STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE =
-  "Connection drawn — it stays on your canvas only. Olumi can't save a link that has no strength. Ask Olumi to add this connection in the chat if you want it in the model."
+  'Connection drawn. It stays on your canvas only until you set its strength in the link panel, which sends it to the model.'

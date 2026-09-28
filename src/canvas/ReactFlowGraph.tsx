@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, useStoreApi, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, useStoreApi, type NodeChange, type EdgeChange } from '@xyflow/react'
 import { retargetEdgeClick, resolveContextMenuEdge } from './edges/edgePointerTarget'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
@@ -13,7 +13,7 @@ import { useCanvasStore } from './store'
 import { requestNodeRename } from './ui/inspector-v2/renameIntent'
 import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
-import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
+import { DEFAULT_EDGE_DATA } from './domain/edges'
 import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
 import { withEdgeAccessibleNames } from './domain/edgeAccessibleName'
 import { useEdgeLabelMode } from './store/edgeLabelMode'
@@ -49,7 +49,7 @@ import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
 import { isStructuralEdge } from './domain/edgeUtils'
-import { isSelfLoop, isDuplicateEdge, wouldCreateCycle, wouldExceedLimits, limitExceededMessage } from './validation/graphGuardrails'
+import { useConnectGesture } from './hooks/useConnectGesture'
 import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
@@ -2363,76 +2363,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     useCanvasStore.getState().onEdgesChange(changes)
   }, [])
 
-  const onConnect = useCallback((connection: Connection) => {
-    if (!CANVAS_EDGE_ADD_CONNECTED) {
-      showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
-      return
-    }
-    connectSucceededRef.current = true // Task 4b: Mark success before processing
-    // Task 6a: Use user-specific defaults for manually created edges
-    const result = useCanvasStore.getState().addEdge({ ...connection, data: USER_EDGE_DEFAULTS })
-    if (!result.created && result.reason) {
-      const messages: Record<string, string> = {
-        cycle: 'This would create a circular dependency. Causal models require one-way relationships.',
-        duplicate: 'This relationship already exists. Click it to adjust its strength.',
-        edge_limit: 'Your model has reached the edge limit. Consider simplifying before adding more.',
-      }
-      const msg = messages[result.reason]
-      if (msg) showToast(msg, 'warning')
-    }
-  }, [showToast])
-
-  // Graph Editing Experience Task 2c: Validate connections during drag
-  const isValidConnection = useCallback((connection: Connection) => {
-    if (!CANVAS_EDGE_ADD_CONNECTED) return false
-    if (!connection.source || !connection.target) return false
-    if (isSelfLoop(connection.source, connection.target)) return false
-    const { nodes, edges, engineLimits } = useCanvasStore.getState()
-    if (isDuplicateEdge(edges, connection.source, connection.target)) return false
-    if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) return false
-    if (wouldCreateCycle(nodes.map(n => n.id), edges, connection.source, connection.target)) return false
-    return true
-  }, [])
-
-  // Graph Editing Experience Task 4b: Track connection start/end for drop feedback
-  const connectSucceededRef = useRef(false)
-  const connectSourceRef = useRef<string | null>(null)
-
-  const onConnectStart = useCallback((_: unknown, params: { nodeId: string | null }) => {
-    connectSucceededRef.current = false
-    connectSourceRef.current = params.nodeId
-  }, [])
-
-  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => {
-    // If onConnect already fired, the connection succeeded — skip
-    if (connectSucceededRef.current) {
-      connectSourceRef.current = null
-      return
-    }
-    // The connection failed (dropped on invalid target or canvas)
-    const targetEl = (event.target as HTMLElement)
-    const nodeEl = targetEl?.closest?.('.react-flow__node')
-    if (nodeEl && connectSourceRef.current) {
-      // Re-run validation to determine the specific reason for rejection
-      const targetNodeId = nodeEl.getAttribute('data-id')
-      const sourceId = connectSourceRef.current
-      if (targetNodeId && sourceId) {
-        const { nodes, edges, engineLimits } = useCanvasStore.getState()
-        if (isSelfLoop(sourceId, targetNodeId)) {
-          // silent — self-loops are obvious
-        } else if (isDuplicateEdge(edges, sourceId, targetNodeId)) {
-          showToast('This relationship already exists. Click it to adjust its strength.', 'warning')
-        } else if (wouldExceedLimits(nodes.length, edges.length, 0, 1, engineLimits)) {
-          showToast(limitExceededMessage('edge_limit', edges.length), 'warning')
-        } else if (wouldCreateCycle(nodes.map(n => n.id), edges, sourceId, targetNodeId)) {
-          showToast('This would create a circular dependency. Causal models require one-way relationships.', 'warning')
-        } else {
-          showToast('This connection is not allowed.', 'warning')
-        }
-      }
-    }
-    connectSourceRef.current = null
-  }, [showToast])
+  // The draw-a-link gesture: onConnect, the drag validator, and the drop
+  // feedback. Extracted (canvas audit edit-structure/F5 + F3, 27 Sep 2026) so it
+  // is driven end-to-end in `hooks/__tests__/useConnectGesture.spec.ts`; a
+  // release on a card's body now makes the link instead of saying "not allowed".
+  const { onConnect, isValidConnection, onConnectStart, onConnectEnd } = useConnectGesture({
+    enabled: CANVAS_EDGE_ADD_CONNECTED,
+    showToast,
+  })
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()

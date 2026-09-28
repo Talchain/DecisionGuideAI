@@ -5,6 +5,7 @@
 
 import { memo, useMemo, useCallback, type ComponentType } from 'react'
 import { useCanvasStore } from '../../store'
+import { isCanvasOnlyLink } from '../../utils/canvasOnlyLink'
 import type { NodeType, FactorCategory } from '../../domain/nodes'
 import { InspectorShell } from './InspectorShell'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
@@ -140,6 +141,7 @@ export const InspectorRouter = memo(function InspectorRouter({
 }: InspectorRouterProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const serverHeldPairs = useCanvasStore(s => s.lastAuthoritativeGraph)
   const { techMode, setTechMode } = useTechToggle()
 
   const panelType = useMemo(
@@ -251,9 +253,9 @@ export const InspectorRouter = memo(function InspectorRouter({
      * Two populations, one sentence — CLAUDE.md trap 21, and this is the branch
      * that names them apart.
      */
-    const edgeAwaitingStatedStrength =
-      (edge.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
-      'strength_not_stated'
+    // The shared predicate, as `EdgePanel` reads it (review r06 blocker 2): a
+    // receipt on a pair the server holds does not make it a drawn, unsent link.
+    const edgeAwaitingStatedStrength = isCanvasOnlyLink(edge, serverHeldPairs)
 
     return (
       <InspectorShell

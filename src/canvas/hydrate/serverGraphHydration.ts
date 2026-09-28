@@ -554,6 +554,7 @@ async function readAndMergeServerGraph(
     useReloadDifferenceStore.getState().recordRemoval({
       scenarioId,
       removedLabels: merge.removedLabels,
+      canvasOnlyLinkLabels: merge.removedCanvasOnlyLinkLabels,
     })
   }
 

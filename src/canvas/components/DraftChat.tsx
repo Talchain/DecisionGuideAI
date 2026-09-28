@@ -14,6 +14,7 @@ import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
 import { readWireNaturalEffect } from '../domain/naturalEffect'
+import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
@@ -552,6 +553,9 @@ export function DraftChat() {
         style: _style, curvature: _curvature, kind: _kind,
         functionType: _funcType, beliefStrength: _beliefStr,
         schemaVersion: _schemaVer,
+        // POM-8: a canvas-internal key, written below from the ONE reader —
+        // never taken from the untrusted wire remainder.
+        strengthPlaceholder: _strengthPlaceholder,
         ...edgeRest
       } = e as Record<string, unknown>
 
@@ -724,6 +728,10 @@ export function DraftChat() {
           ...(serverStrength !== undefined ? { serverStrength } : {}),
           // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
           ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+          // POM-8: a placeholder strength — HOP 3 OF 3, the same one reader
+          // (domain/strengthPlaceholder). The key is destructured OUT of
+          // `edgeRest` above, so only this reader can write it.
+          ...strengthPlaceholderPatch(e as Record<string, unknown>, weight, weightSource !== 'default'),
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),

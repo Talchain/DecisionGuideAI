@@ -15,6 +15,7 @@ import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
 import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
 import { readWireNaturalEffect } from '../domain/naturalEffect'
+import { strengthPlaceholderPatch } from '../domain/strengthPlaceholder'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { readCeeQualityDimensions } from './ceeQualityDimensions'
 import { saveAutosave } from '../store/scenarios'
@@ -172,6 +173,9 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(serverStrength !== undefined ? { serverStrength } : {}),
       // The edge's size in the target's units — the ONE reader, every hop (domain/naturalEffect).
       ...(naturalEffect !== undefined ? { naturalEffect } : {}),
+      // POM-8: a PLACEHOLDER strength, labelled on the wire, is not an estimate —
+      // the ONE reader, every hop (domain/strengthPlaceholder).
+      ...strengthPlaceholderPatch(e as Record<string, unknown>, weight, wireSuppliedStrength),
       // Set-vs-defaulted markers. Derived from the resolved values themselves,
       // never from "we are in the CEE mapper so it must be CEE": when the wire
       // carried no belief at all, `beliefExists` is `undefined` here and the
@@ -678,10 +682,11 @@ export function backfillInterventionsOntoOptionNodes(
     // Backfill is_baseline from analysis_ready. Emit regex-fallback telemetry
     // at this normalisation boundary (NOT from render code) when CEE omits
     // is_baseline but the label matches the baseline regex.
-    const existingBaseline = (n.data?.is_baseline as boolean | undefined) ?? false
+    const existingBaseline = n.data?.is_baseline as boolean | undefined
+    const typedBaseline = optEntry.is_baseline === true || optEntry.is_baseline === false
     let newBaseline: boolean
-    if (optEntry.is_baseline === true || optEntry.is_baseline === false) {
-      newBaseline = optEntry.is_baseline
+    if (typedBaseline) {
+      newBaseline = optEntry.is_baseline as boolean
     } else {
       // CEE omitted the flag — consult the regex fallback and record if it fires.
       const label = (n.data?.label as string | undefined) ?? ''
@@ -694,7 +699,24 @@ export function backfillInterventionsOntoOptionNodes(
       }
       newBaseline = regexHit
     }
-    const baselineChanged = newBaseline !== existingBaseline
+    /**
+     * ⛔ CEE'S TYPED `false` IS A FACT TO STORE, NOT A DEFAULT TO ASSUME
+     * (canvas audit paul-models POM-3). This compared against
+     * `existingBaseline ?? false`, so a typed `is_baseline: false` over a node
+     * with no flag read as "unchanged" — and when the interventions already
+     * matched, the node was never stamped. Its only record of "not the
+     * baseline" lived in session-only `analysis_ready`; a second tab (or the
+     * LANDING state) fell to the label heuristic, which read "…grandfather
+     * existing customers" as a second "Baseline option".
+     *
+     * A typed flag is compared against what the node ACTUALLY holds (undefined
+     * included). The regex fallback keeps the old comparison: a keyword MISS is
+     * not a typed `false`, and stamping it would silence the heuristic for a
+     * board that declares no baseline.
+     */
+    const baselineChanged = typedBaseline
+      ? newBaseline !== existingBaseline
+      : newBaseline !== (existingBaseline ?? false)
 
     if (!hasInterventions && !baselineChanged) continue
 

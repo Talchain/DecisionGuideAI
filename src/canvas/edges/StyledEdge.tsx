@@ -93,12 +93,15 @@ import {
   directionInUseSentence,
   edgeArrowSentence,
   EDGE_EXISTENCE_DOUBT_SENTENCE,
+  EDGE_STRENGTH_PLACEHOLDER_SENTENCE,
 } from './connectorCopy'
+import { isStrengthPlaceholder } from '../domain/strengthPlaceholder'
 import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { openEdgeStrengthEditor } from '../utils/openEdgeStrengthEditor'
+import { CANVAS_ONLY_LINK_MARK, isCanvasOnlyLink } from '../utils/canvasOnlyLink'
 import { resolvePolarityGlyphOffset, polarityGlyphTransform, GLYPH_ROW_RISE, type GlyphSibling } from '../utils/edgeGlyphPlacement'
 import { tierLaneTitleBoxFor } from '../utils/tierLanes'
 
@@ -360,7 +363,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode, isLodBodyHidden } = useCanvasStore(
+  const { ceeReview, resultsStatus, report, isHighlightedEdge, isAnalysisFragileEdge, isSelectionDimmed, viewMode, isLodBodyHidden, canvasOnlyLink } = useCanvasStore(
     useShallow(s => ({
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
@@ -381,6 +384,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       // is. A primitive boolean (React #185), and undefined-safe: a store
       // double with no rung slice reads as ORDINARY, never as far.
       isLodBodyHidden: selectLodBodyHidden(s),
+      // edit-structure/F3: "Not saved" on a link that stood down and whose pair
+      // the server does not hold (review r06 blocker 2), by the one predicate.
+      // A primitive boolean; a store double without the field reads as "no
+      // pair held", i.e. the receipt alone.
+      canvasOnlyLink: isCanvasOnlyLink({ source, target, data }, s.lastAuthoritativeGraph),
     })),
   )
   const isResultsMode = resultsStatus === 'complete'
@@ -774,11 +782,24 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'beliefExists'),
     [edgeData]
   )
+  /**
+   * ⭐ POM-8 (27 Sep 2026): CEE's PLACEHOLDER strength is not an estimate, so it
+   * does not earn a band width. Paul's MRR board drew "Pro plan price → MRR"
+   * (a 0.5 placeholder) at the Strong band's 4px, the heaviest link into his
+   * goal. Owner decision: it draws at the NOT-SET width, the hover says it is a
+   * placeholder, and the inspector stops calling it an estimate. Colour keeps
+   * the stated direction — the label covers the magnitude only.
+   * `isStrengthPlaceholder` holds the staleness rule (see its module).
+   */
+  const strengthIsPlaceholder = useMemo(
+    () => isStrengthPlaceholder(edgeData as Record<string, unknown> | undefined),
+    [edgeData]
+  )
   const edgeStrokeWidth = useMemo(
-    () => edgeSignedStrength.show
+    () => edgeSignedStrength.show && !strengthIsPlaceholder
       ? weightMagnitudeToStrokeWidth(edgeSignedStrength.value)
       : UNSET_EDGE_STROKE_WIDTH,
-    [edgeSignedStrength]
+    [edgeSignedStrength, strengthIsPlaceholder]
   )
 
   // F.2 + E1: direction-based stroke colour (see directionStroke.ts for the
@@ -1099,6 +1120,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   const ariaLabel =
     `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}` +
+    (canvasOnlyLink ? `. ${CANVAS_ONLY_LINK_MARK.word}` : '') +
     (strengthUnconfirmed ? `. ${ESTIMATE_SUBJECT_TITLE.strength}` : '') +
     // ⭐ THE SAME PROMISE ON THE ASSISTIVE CHANNEL. A `title` is not reachable
     // by keyboard focus and is absent on touch, so a sighted keyboard user and
@@ -3176,6 +3198,51 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
+      {/* ⭐ "NOT SAVED · SET STRENGTH" — THE EDIT-STATE WORD ON A CANVAS-ONLY
+          LINK (canvas audit edit-structure/F3, 27 Sep 2026; contract v3.1 §02
+          "Edit-state words stay visible … Not saved", `.state-word`).
+
+          A drawn link with no stated strength stands down and is never sent
+          (`utils/canvasOnlyLink.ts`). It used to look identical to a saved
+          link once the toast faded — measured 1px grey, solid, no label — and
+          vanished on reload. This word stays until a strength is stated (the
+          capture then clears the receipt), and it is the way in: one click
+          opens the link panel whose add-control sends it.
+
+          ⛔ WORDS, NOT A DASH: dash is existence certainty only (Paul, 23 Sep
+          point 4). 10px via the canvas mark token, so it counter-scales; sits
+          just ABOVE the midpoint, clear of the line and of a hover/selection
+          label on it (a long horizontal route runs along the top of the next
+          row of cards, so below would sit on a card — measured on
+          pricing-model). */}
+      {canvasOnlyLink && (
+        <EdgeLabelRenderer>
+          <button
+            type="button"
+            className={`nodrag nopan ${typography.nodeMark} inline-flex items-center gap-[calc(4px*var(--canvas-label-scale,1))] whitespace-nowrap rounded-full border border-panel-border bg-panel text-text-body px-[calc(6px*var(--canvas-label-scale,1))] py-[calc(2px*var(--canvas-label-scale,1))] hover:text-info-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-info`}
+            style={{
+              position: 'absolute',
+              transform: `translate(${labelX}px,${labelY}px) translate(-50%, calc(-100% - 8px * var(--canvas-label-scale, 1)))`,
+              pointerEvents: 'all',
+              // contract v3.1 (E6): dims with its connection, never floats over it.
+              opacity: isSelectionDimmed ? EDGE_SELECTION_DIM_OPACITY : undefined,
+            }}
+            title={CANVAS_ONLY_LINK_MARK.title}
+            aria-label={`${CANVAS_ONLY_LINK_MARK.word}: ${CANVAS_ONLY_LINK_MARK.action} for the connection from ${srcTitle} to ${tgtTitle}`}
+            data-testid={`edge-canvas-only-${edgeIdKey}`}
+            onPointerDown={(event) => { event.stopPropagation() }}
+            onClick={(event) => {
+              event.stopPropagation()
+              openEdgeStrengthEditor(edgeIdKey)
+            }}
+          >
+            <span>{CANVAS_ONLY_LINK_MARK.word}</span>
+            <span aria-hidden="true">·</span>
+            <span>{CANVAS_ONLY_LINK_MARK.action}</span>
+          </button>
+        </EdgeLabelRenderer>
+      )}
+
       {/* ⭐ THE CONNECTION HOVER IS ONE LINE — canvas visual contract v3.1
           (DESIGN-GAP-v31 row 12; one tooltip style, row 36).
 
@@ -3256,6 +3323,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 <>
                   {' '}
                   <span data-testid="edge-hover-fragility">{fragileSentence}</span>
+                </>
+              )}
+              {/* POM-8: the thin line alone reads "not set"; the hover says what
+                  it actually is — a placeholder, not an estimate. */}
+              {strengthIsPlaceholder && (
+                <>
+                  {' '}
+                  <span data-testid="edge-hover-strength-placeholder">{EDGE_STRENGTH_PLACEHOLDER_SENTENCE}</span>
                 </>
               )}
             </div>

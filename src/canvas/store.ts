@@ -173,6 +173,7 @@ import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { identityFromCanvasGraph } from './utils/graphIdentity'
+import { isCanvasOnlyLink } from './utils/canvasOnlyLink'
 // Static import, deliberately: this runs in the LAYOUT FAILURE path, so it must
 // not depend on a dynamic import that can fail alongside the layout engine it
 // is rescuing (the `./utils/layout` import above is dynamic and is one of the
@@ -2871,9 +2872,13 @@ function retryStructuralAddEdgeCapture(
 ): (Partial<CanvasState> & { deferredCapture?: boolean }) | null {
   const edge = state.edges.find((e) => e.id === edgeId)
   if (!edge) return null
-  const data = edge.data as EdgeData | undefined
-  // Bound by IDENTITY of the recorded reason, never "some marker is present".
-  if (data?.structuralAddStandDown !== 'strength_not_stated') return null
+  // Bound by IDENTITY of the recorded reason, never "some marker is present" —
+  // AND never for a pair the server already holds (review r06 blocker 2, 28 Sep
+  // 2026): a receipt on such a pair is stale, and re-running the capture would
+  // queue a second `structural_add_edge` for a link CEE has. One predicate with
+  // the on-link word and the add-control (`utils/canvasOnlyLink.ts`), so no
+  // surface can offer a send this gate then refuses, or the reverse.
+  if (!isCanvasOnlyLink(edge, state.lastAuthoritativeGraph)) return null
 
   const plan = planStructuralAddEdgeIntent(state, state.edges, edgeId)
   // Nothing captured — still no stated strength, or a different stand-down.
