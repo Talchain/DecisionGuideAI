@@ -15,6 +15,7 @@ import { IMPROVEMENT_ACTION_PLACEHOLDER } from '../utils/improvementActionPlaceh
 import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
 import { FactorCategory } from '@talchain/schemas'
+import { projectNodeFieldsForWire } from '../registration/buildRegistrationGraph'
 import type {
   GraphReadiness,
   GraphReadinessLevel,
@@ -269,6 +270,37 @@ export interface ReadinessPayloadInputs {
 }
 
 /**
+ * ⭐ THE NAMED DIFFERENCES between the readiness body and the registration
+ * projection (DL ruling 5871843133): the ONE list of node fields readiness does
+ * not send. Each is DECLARED by CEE's readiness `Graph` node schema
+ * (`src/schemas/graph.ts` `Node`) and so VALIDATED there: a canvas value
+ * outside its type fails `safeParse` and returns HTTP 400 for the whole
+ * request. Readiness has never sent them, and CEE's admission rules the parity
+ * lock covers (`readinessProjection.parity.spec.ts`) do not read them. An
+ * undeclared field (e.g. `prior`) rides CEE's `.passthrough()` and is sent.
+ */
+export const READINESS_EXCLUDED_NODE_FIELDS: ReadonlySet<string> = new Set([
+  'body',
+  'goal_threshold',
+  'goal_threshold_raw',
+  'goal_threshold_unit',
+  'goal_threshold_cap',
+  'goal_threshold_cap_provenance',
+  'goal_threshold_frame',
+  'goal_baseline',
+  'goal_baseline_raw',
+  'scale_frame',
+])
+
+function omitReadinessExcluded(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(fields)) {
+    if (!READINESS_EXCLUDED_NODE_FIELDS.has(key)) out[key] = value
+  }
+  return out
+}
+
+/**
  * Build the `/graph-readiness` request body. Pure: everything it reads arrives
  * in `s`, nothing is pulled from `useCanvasStore` inside.
  *
@@ -297,14 +329,26 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
   const payload: Record<string, unknown> = {
     graph: {
       nodes: nodes.map((n) => {
-        const data = n.data as any
+        const data = (n.data ?? {}) as any
         const nodeKind = data?.kind || n.type || 'factor'
+        // ⭐ ONE PROJECTION (DL ruling 5871843133). The body starts from the
+        // node fields registration sends (`projectNodeFieldsForWire`), so a
+        // field the canvas holds reaches readiness unless it is named below.
+        // It was a second hand-kept allow-list, which never sent `prior`:
+        // readiness then read every prior-only external factor as "no level",
+        // while the engine samples that prior, and all 5 starters could not Run.
+        // The rules after the spread are the ONLY differences, each by name.
         const node: Record<string, unknown> = {
+          ...omitReadinessExcluded(projectNodeFieldsForWire(data)),
           id: n.id,
           type: nodeKind,
           kind: nodeKind,
           label: data?.label || n.id,
         }
+        // Readiness reads a factor's level as `data.value` (a registration
+        // node carries it at the top level); only a number is sent, never the
+        // canvas's own `data` bundle, which CEE validates as `NodeData`.
+        delete node.data
         if (typeof data?.value === 'number') {
           node.data = { value: data.value }
         }
@@ -364,6 +408,7 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
         // against — so this guard cannot drift from the values the server will
         // accept. A hand-copied list here would be the mirror defect that has
         // cost this estate repeatedly.
+        delete node.category
         if (nodeKind === 'factor' && FactorCategory.safeParse(data?.category).success) {
           node.category = data.category
         }
@@ -374,6 +419,7 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
         // metadata-shaped key are excluded — a metadata key routes CEE to the strict
         // constraint branch (needs metadata.operator) → HTTP 400. value REQUIRED (0-1
         // model scale); raw_value OPTIONAL (display magnitude), only when numeric.
+        delete node.observed_state
         const observedState = data?.observedState
         if (nodeKind === 'factor' && typeof observedState?.value === 'number') {
           node.observed_state = {
@@ -407,6 +453,7 @@ export function buildReadinessPayload(s: ReadinessPayloadInputs): string {
         // than invented into a number. An option with no resolvable value omits
         // the field entirely, because an empty map would assert
         // "configured with nothing".
+        delete node.interventions
         if (nodeKind === 'option') {
           const raw = data?.interventions
           if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
