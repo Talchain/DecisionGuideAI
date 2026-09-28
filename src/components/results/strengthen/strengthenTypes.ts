@@ -72,6 +72,13 @@ export interface Recommendation {
    * decision-science moves were outnumbered two to one by their own filler.
    */
   tryThis: string | null
+  /**
+   * The PRODUCER's own action label for this item (a phase-3 coaching/review block's `action_label`), or
+   * `null` — including when the button falls back to our "Work through with Olumi". The commitment's
+   * "Before acting" states it as the next move (served d3a476b6: "Change or add an option", not the
+   * card's title "No option meets your limit"). Absent on engine-minted items.
+   */
+  producerActionLabel?: string | null
   /** §8.4 named grounding source — honest about producer vs UI basis. */
   sourceLine: string
   action: RecAction
