@@ -193,6 +193,30 @@ describe('served cd6a82e4 — the one compact owner, read by the row target and 
     expect(formatInterventionTargetText({ label: 'Ad spend', value: 0.9, unit: '£', displayValue: '£18k' })).toBe('£18k')
   })
 
+  // ⭐ Served 08323c77 (28 Sep, Paul's pricing brief): CEE now authors the reading with the
+  // glyph already on it — `{display_value:"£54/month", raw_value:54, unit:"GBP per month"}` —
+  // and the row read "£58.80 / month → £54/month", two spellings on one line.
+  it.each([
+    ['£54/month', 'GBP per month', '£54 / month'],
+    ['£59/month', 'GBP/month', '£59 / month'],
+    ['£59/subscriber per month', 'GBP per subscriber per month', '£59 per subscriber / month'],
+  ])('CEE\'s glyph-led "%s" (unit %s) reads "%s"; the digits are CEE\'s', (displayValue, unit, expected) => {
+    expect(formatInterventionTargetText({ label: 'Pro plan price', value: 0.27, unit, displayValue })).toBe(expected)
+  })
+
+  it.each([
+    // a magnitude word is the producer's own figure: never rescaled
+    ['£840k/year', 'GBP/year'],
+    // another currency's glyph, another period, extra prose: not the carried unit
+    ['$59/month', 'GBP per month'],
+    ['£59/year', 'GBP per month'],
+    ['£59/month (est.)', 'GBP per month'],
+    // a bare amount is already how the rule spells it
+    ['£40', '£'],
+  ])('CONTROL — glyph-led "%s" against %s stays verbatim', (displayValue, unit) => {
+    expect(formatInterventionTargetText({ label: 'Pro plan price', value: 0.27, unit, displayValue })).toBe(displayValue)
+  })
+
   it('the goal target "20,000 GBP per month" reads "£20,000 / month"', () => {
     expect(formatGoalTarget(20000, 'GBP per month')).toBe('£20,000 / month')
   })

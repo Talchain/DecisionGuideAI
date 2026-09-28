@@ -52,8 +52,12 @@ describe('CONTROLS — every path that CAN state a true figure is unchanged', ()
     expect(formatInterventionTargetText({ ...PREMIUM, value: 59 })).toMatch(/59/)
   })
 
-  it("the producer's own reading still wins verbatim", () => {
-    expect(formatInterventionTargetText({ ...PREMIUM, value: 0.495, displayValue: '£99/month' })).toBe('£99/month')
+  it("the producer's own reading still wins — its figure, in the carried unit's notation", () => {
+    // Re-pinned 28 Sep (served 08323c77): a glyph-led reading of the carried unit takes the one
+    // compact notation; the figure is still the producer's "99", never the model value 0.495.
+    expect(formatInterventionTargetText({ ...PREMIUM, value: 0.495, displayValue: '£99/month' })).toBe('£99 / month')
+    // CONTROL: producer prose that is not the carried unit stays verbatim.
+    expect(formatInterventionTargetText({ ...PREMIUM, value: 0.495, displayValue: 'about £99' })).toBe('about £99')
   })
 
   it('the plain percent class keeps its declared 0–1 → % convention', () => {
