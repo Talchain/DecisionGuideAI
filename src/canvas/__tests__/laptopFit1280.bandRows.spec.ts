@@ -58,13 +58,19 @@ const STRIDE = REPEATED_CARD_W + LAYOUT_PADDING_X + LAYOUT_NODE_GAP
  * order at the base (recorded, see the header). `prompts` are the row-end
  * prompts that family carries, in stack order.
  */
+// ⚠ RE-PINNED 28 Sep 2026: three consequence orders moved because
+// `orderConsequenceRowsByUpstream` (utils/layout.ts) re-seats that row by its
+// links once X is final: crossings vendor-selection 19 → 15, market-entry
+// 42 → 28, build-vs-buy 33 → 16 (utils/__tests__/consequenceRowOrder.spec.ts).
+// Same five slots per row, so the one-row shape, stride and width claims below
+// are unchanged; only which card sits where moved.
 const FIVE_CARD_BANDS: Array<{ starter: string; family: string; order: string[]; prompts: string[] }> = [
   { starter: 'vendor-selection', family: 'consequence', prompts: ['__ghost-consequence__'],
-    order: ['out_budget_headroom', 'risk_gdpr_breach', 'risk_team_overload', 'risk_migration_delay', 'out_platform_capability'] },
+    order: ['out_budget_headroom', 'risk_migration_delay', 'risk_gdpr_breach', 'risk_team_overload', 'out_platform_capability'] },
   { starter: 'market-entry', family: 'consequence', prompts: ['__ghost-consequence__'],
-    order: ['out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag', 'risk_uk_distraction', 'risk_team_overstretch'] },
+    order: ['risk_uk_distraction', 'out_uk_arr_retention', 'out_new_market_arr', 'risk_localisation_drag', 'risk_team_overstretch'] },
   { starter: 'build-vs-buy', family: 'consequence', prompts: ['__ghost-consequence__'],
-    order: ['risk_eng_overload', 'out_delivery_speed', 'risk_billing_errors', 'out_billing_accuracy', 'risk_vendor_lock'] },
+    order: ['risk_eng_overload', 'out_billing_accuracy', 'risk_billing_errors', 'out_delivery_speed', 'risk_vendor_lock'] },
   { starter: 'headcount-allocation', family: 'factor', prompts: ['__ghost-factor__'],
     order: ['fac_eng_attrition', 'fac_eng_headcount', 'fac_market_demand', 'fac_ae_headcount', 'fac_quota_attainment'] },
   { starter: 'headcount-allocation', family: 'consequence', prompts: ['__ghost-consequence__'],

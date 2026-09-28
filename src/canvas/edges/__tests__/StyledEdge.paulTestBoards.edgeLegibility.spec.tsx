@@ -297,18 +297,26 @@ describe('A — links arriving at one card spread along its top, in their source
     expect(e19.end.y).toBeCloseTo(t.y + LANDING_ENDS.targetDy, 6)
   })
 
-  it('pa_vs_ai e-17 — where the row\'s band word covers the apex, the one link arrives just past the word, on the card\'s top border', () => {
+  it('pa_vs_ai — where the row\'s band word covers a card\'s apex, every link arriving from above lands past the word, inside the card', () => {
     const b = BOARDS.pa_vs_ai
     const drawn = drawBoard(b)
-    const e17 = drawn.find((x) => x.id === 'e-17')!
-    const t = b.box('assistant_coordination_overhead')
-    const title = tierLaneTitleBoxFor(b.nodes, t.id)!
-    // PRECONDITION: the word stands over this card's apex.
-    expect(title.x0).toBeLessThan(t.x + t.width / 2)
-    expect(title.x1).toBeGreaterThan(t.x + t.width / 2)
-    expect(e17.end.y).toBeCloseTo(t.y, 6)
-    expect(e17.end.x).toBeGreaterThan(title.x1)
-    expect(e17.end.x).toBeLessThanOrEqual(t.x + t.width)
+    // DERIVED, not named: which card stands under "OUTCOMES / RISKS" is the
+    // layout's answer, and the consequence row's order is re-seated by its
+    // links (utils/layout.ts, orderConsequenceRowsByUpstream).
+    const under = b.nodes
+      .filter((n) => n.type === 'outcome' || n.type === 'risk')
+      .map((n) => ({ n, t: b.box(n.id), title: tierLaneTitleBoxFor(b.nodes, n.id) }))
+      .filter(({ t, title }) => title && title.x0 < t.x + t.width / 2 && title.x1 > t.x + t.width / 2)
+    // PRECONDITION (non-vacuity): exactly one consequence card has the word over its apex,
+    // and at least one link arrives at it from above.
+    expect(under.map(({ n }) => n.id)).toHaveLength(1)
+    const { t, title } = under[0]!
+    const into = arrivals(b, drawn, t.id)
+    expect(into.length).toBeGreaterThanOrEqual(1)
+    for (const a of into) {
+      expect(a.end.x, a.id).toBeGreaterThan(title!.x1)
+      expect(a.end.x, a.id).toBeLessThanOrEqual(t.x + t.width)
+    }
   })
 })
 
