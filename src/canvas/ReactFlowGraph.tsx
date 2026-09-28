@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo
 import { resolveRestoredFreshnessUpdate } from './store/analysisFreshness'
 import { X } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, useStoreApi, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { retargetEdgeClick, resolveContextMenuEdge } from './edges/edgePointerTarget'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -866,6 +867,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // ./nodes/FactorNode.tsx (on-canvas CoachingCard) and ./conversation/GuidanceStrip.tsx.
 
   const { getViewport, getNodes, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition, getNodesBounds, setViewport } = useReactFlow()
+  // F8: the xyflow store, so an edge click can re-point the selection at the
+  // line nearest the pointer (`handleEdgeClick`).
+  const flowStoreApi = useStoreApi()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
@@ -1504,12 +1508,19 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }, [reconnecting, completeReconnect, showToast, onCanvasInteraction])
 
-  const handleEdgeClick = useCallback(() => {
+  const handleEdgeClick = useCallback((event?: React.MouseEvent, edge?: { id: string; selected?: boolean }) => {
     // Close Templates panel when clicking an edge
     onCanvasInteraction?.()
+    // ⭐ F8 (27 Sep 2026): xyflow has just selected whichever edge's hit area was
+    // on top. Where sibling links share a gutter that is often a NEIGHBOUR of
+    // the line the person pointed at; move the click onto the line nearest the
+    // pointer — the one the hover shows — before the inspector opens on the
+    // selection (`edges/edgePointerTarget.ts` has the rule, the multi-select
+    // toggle and the focus; `edges/nearestEdgeAtPoint.ts` the measurement).
+    retargetEdgeClick(event, edge, flowStoreApi.getState())
     // S.1: One click, full context — open full inspector immediately
     setShowFullInspector(true)
-  }, [onCanvasInteraction])
+  }, [onCanvasInteraction, flowStoreApi])
 
   /**
    * Double-click a node → open the inspector WITH ITS TITLE IN EDITING STATE.
@@ -2474,16 +2485,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     event.preventDefault()
     const screenPos = { x: event.clientX, y: event.clientY }
     if (edge) {
-      const { nodes } = useCanvasStore.getState()
+      const { nodes, edges: storeEdges } = useCanvasStore.getState()
       const getNodeKind = (id: string) => {
         const n = nodes.find((nd: any) => nd.id === id)
         return (n?.data as any)?.kind ?? n?.type
       }
+      // ⭐ F8 (28 Sep 2026): the menu acts on the line nearest the pointer — the
+      // one the hover highlights and a click selects — looked up in the store.
+      // xyflow's `edge` is the topmost hit area, often a NEIGHBOUR, and this
+      // menu's Delete and Reverse do not name their edge.
+      const menuEdge = resolveContextMenuEdge(event, edge, storeEdges)
       setContextMenuTarget({
         kind: 'edge',
-        edgeId: edge.id,
-        edge,
-        isStructural: isStructuralEdge(edge, getNodeKind),
+        edgeId: menuEdge.id,
+        edge: menuEdge,
+        isStructural: isStructuralEdge(menuEdge, getNodeKind),
         screenPos,
       })
     }

@@ -478,6 +478,17 @@ export const CANVAS_STRENGTH_BANDS: readonly CanvasStrengthBand[] = [
 ]
 
 /**
+ * ⭐ A CUT IS MET BY ITS OWN VALUE WRITTEN IN FLOAT (27 Sep 2026, POM-8 side
+ * observation). CEE rescales strengths by raw float division, so Paul's MRR
+ * board carried "Other MRR growth → MRR" at 0.39999999999999997 — one ulp under
+ * the 0.40 cut — and drew it a band (and a px) thinner than the 0.4 beside it.
+ * A value within this tolerance of a cut is ON the cut. 1e-9 is far below any
+ * difference a person or a producer states (`strengthBandSpan.snapToCut` rounds
+ * at 1e-6 for the same hazard), so no honest number changes band.
+ */
+const BAND_CUT_FLOAT_TOLERANCE = 1e-9
+
+/**
  * The band a magnitude falls in. Scans DOWNWARD and falls through to the lowest
  * band, so the behaviour is byte-identical to the if-chain this replaced for
  * every input INCLUDING the ones no caller should pass: a negative, or `NaN`,
@@ -486,7 +497,7 @@ export const CANVAS_STRENGTH_BANDS: readonly CanvasStrengthBand[] = [
  */
 export function getCanvasStrengthBand(absValue: number): CanvasStrengthBand {
   for (let i = CANVAS_STRENGTH_BANDS.length - 1; i > 0; i--) {
-    if (absValue >= CANVAS_STRENGTH_BANDS[i].min) return CANVAS_STRENGTH_BANDS[i]
+    if (absValue >= CANVAS_STRENGTH_BANDS[i].min - BAND_CUT_FLOAT_TOLERANCE) return CANVAS_STRENGTH_BANDS[i]
   }
   return CANVAS_STRENGTH_BANDS[0]
 }

@@ -207,8 +207,12 @@ function buildRow(sources: Array<{ id: string; dx: number }>): void {
  * transform. The offset is multiplied by `--canvas-glyph-scale` so the row is
  * the contract's size on screen at every zoom; the anchor is not.
  */
+// ⚠ RE-PINNED 27 Sep 2026 (code-review F1): the y term now bounds the RISE in
+// flow units — `max(<dy>px * var(…), -<bound>px)` — so the row stays inside the
+// tier gap at the landing. The old pattern matched only the unbounded form,
+// which was the defect. The captured groups (anchor and offset) are unchanged.
 const GLYPH_TRANSFORM =
-  /translate\(calc\((-?[\d.]+)px \+ (-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\)\), calc\((-?[\d.]+)px \+ (-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\)\)\)\s*$/
+  /translate\(calc\((-?[\d.]+)px \+ (-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\)\), calc\((-?[\d.]+)px \+ max\((-?[\d.]+)px \* var\(--canvas-glyph-scale, 1\), -[\d.]+px\)\)\)\s*$/
 function parseGlyph(transform: string): { x: number; y: number; dx: number; dy: number } {
   const m = transform.match(GLYPH_TRANSFORM)
   expect(m, `glyph transform is not a counter-scaled offset from the target anchor: ${transform}`).not.toBeNull()

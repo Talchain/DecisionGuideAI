@@ -36,7 +36,7 @@ import {
   cardWidthCapForTier,
 } from '../utils/nodeLayoutConstants'
 import { resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox } from '../edges/sameRowRoute'
-import { resolvePolarityGlyphOffset, GLYPH_PAINTED_BOX_FLOW } from '../utils/edgeGlyphPlacement'
+import { resolvePolarityGlyphOffset, GLYPH_PAINTED_BOX_FLOW, paintedGlyphDyFlow } from '../utils/edgeGlyphPlacement'
 import { deriveTierLanes, tierLaneTitleBoxFor } from '../utils/tierLanes'
 import { cornerMarksTitleSpacerCss } from '../nodes/shared/canvasGlyphScale'
 import { farTitleScale, labelCounterScale, FAR_TITLE_PX, FAR_TITLE_MAX_SCALE, MAX_GLYPH_COUNTER_SCALE, MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
@@ -387,8 +387,13 @@ describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
   // the keep-out is handed in) — offset × MAX_GLYPH_COUNTER_SCALE, and the glyph
   // box at the same bound. Comparing the scale-1 offset with a bound-frame box
   // mixed two frames. (`GLYPH_PAINTED_BOX_FLOW` is already the box AT the bound.)
+  //
+  // ⚠ RE-PINNED 28 Sep 2026 (review r08 note 2): the y is the PAINTED one,
+  // `paintedGlyphDyFlow` — code-review F1 bounded the row's rise, so the
+  // unbounded `dy × MAX_GLYPH_COUNTER_SCALE` judged a spot the glyph no longer
+  // stands at. `hitsAtBound` in the placement module judges the same painted y.
   const half = GLYPH_PAINTED_BOX_FLOW / 2
-  const atBound = (o: { dx: number; dy: number }) => ({ dx: o.dx * MAX_GLYPH_COUNTER_SCALE, dy: o.dy * MAX_GLYPH_COUNTER_SCALE })
+  const atBound = (o: { dx: number; dy: number }) => ({ dx: o.dx * MAX_GLYPH_COUNTER_SCALE, dy: paintedGlyphDyFlow(o.dy, MAX_GLYPH_COUNTER_SCALE) })
   const clear = (u: { dx: number; dy: number }, k: { x0: number; y0: number; x1: number; y1: number }) => {
     const o = atBound(u)
     return o.dx + half <= k.x0 || o.dx - half >= k.x1 || o.dy + half <= k.y0 || o.dy - half >= k.y1
@@ -404,6 +409,22 @@ describe('WS1 #28 — a polarity glyph keeps off the band title', () => {
     expect(clear(freeUnits, keepOut)).toBe(false) // CONTRAST: without the keep-out it IS on the title
     const moved = resolvePolarityGlyphOffset('e1', target, siblings, keepOut)
     expect(clear(moved, keepOut)).toBe(true)
+  })
+
+  /**
+   * ⭐ The keep-out is judged where the glyph PAINTS (review r08 note 2). A title
+   * strip only ±2 around the painted centre (21.36 up at the bound) is missed by
+   * a check at the unbounded 38: the resolver would leave the sign on the title.
+   */
+  it('a thin title over the PAINTED spot (not the unbounded one) still moves the glyph (F1 keep-out twin)', () => {
+    const target = { x: 0, y: 60 }
+    const siblings = [{ id: 'e1', sourceCentre: { x: 0, y: -400 } }]
+    const freeUnits = resolvePolarityGlyphOffset('e1', target, siblings)
+    const free = atBound(freeUnits)
+    expect(free.dy).toBeGreaterThan(freeUnits.dy * MAX_GLYPH_COUNTER_SCALE + 10) // PRECONDITION: the bound is active here (−21.36 vs −38)
+    const keepOut = { x0: free.dx - 40, y0: free.dy - 2, x1: free.dx + 40, y1: free.dy + 2 }
+    expect(clear(freeUnits, keepOut)).toBe(false) // CONTRAST: the painted glyph IS on it
+    expect(clear(resolvePolarityGlyphOffset('e1', target, siblings, keepOut), keepOut)).toBe(true)
   })
 
   it('two edges approaching from the same direction still get distinct spots under a keep-out', () => {

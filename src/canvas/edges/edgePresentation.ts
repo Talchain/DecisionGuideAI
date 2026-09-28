@@ -76,6 +76,7 @@
 import type { CSSProperties } from 'react'
 import type { ValidationMetadata } from '../../types/validation'
 import type { ExistenceDash } from '../utils/graphDisplayCalculations'
+import { MEASURED_EDGE_STROKE_WIDTH_FLOOR } from '../utils/graphDisplayCalculations'
 import { glyphCounterScale } from '../utils/zoomLegibility'
 
 // ── Colour constants ────────────────────────────────────────────────────────
@@ -555,9 +556,22 @@ export function resolveEdgeDirectionMarker(
  */
 export const EDGE_ARROWHEAD_STROKE_MULTIPLE = 4
 
-/** The head's length AND base, in glyph units (screen px at glyph-scale 1). */
+/**
+ * The head's length AND base, in glyph units (screen px at glyph-scale 1).
+ *
+ * ⭐ FLOORED AT THE THINNEST MEASURED BAND (code-review F2, 27 Sep 2026). The
+ * 4× rule is the contract's, over the contract key's widths (2 / 3 / 4). The
+ * product's 1px UNSET floor (`UNSET_EDGE_STROKE_WIDTH` — nobody set a strength,
+ * which includes every link a user draws) is not in that key: the contract
+ * draws such a link at 2px (`e.width||2`). Applied to 1px the rule gave a 4px
+ * head at every zoom — a third of the old 12px at 1:1, and below anything the
+ * contract draws. The head therefore reads the width floored at
+ * `MEASURED_EDGE_STROKE_WIDTH_FLOOR` (derived from the bands, never a literal):
+ * an unset link carries the contract's smallest head, and its 1px LINE still
+ * says "not set" on the width channel.
+ */
 export function edgeArrowheadSize(strokeWidth: number): number {
-  return EDGE_ARROWHEAD_STROKE_MULTIPLE * strokeWidth
+  return EDGE_ARROWHEAD_STROKE_MULTIPLE * Math.max(strokeWidth, MEASURED_EDGE_STROKE_WIDTH_FLOOR)
 }
 
 /**

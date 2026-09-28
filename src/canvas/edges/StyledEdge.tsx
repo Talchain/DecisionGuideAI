@@ -35,9 +35,7 @@ import {
   type RankedCausalEdge,
 } from './edgeLabelVisibility'
 import { computeDirectionStroke } from './directionStroke'
-import { resolveCardEdgeRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
-import { TIER_BY_KIND } from '../utils/nodeLayoutConstants'
-import { isGhostNode } from '../utils/fitTargets'
+import { resolveCardEdgeRoute, routeBoxOf, resolveLayeredEdgeLeads, layeredLeadPath, layeredRouteBoxes, type RouteBox, type SameRowRoute, type LayeredEdgeLeads } from './sameRowRoute'
 import {
   readContestedState,
   resolveEdgeStroke,
@@ -91,6 +89,7 @@ import {
   edgeArrowSentence,
   EDGE_EXISTENCE_DOUBT_SENTENCE,
 } from './connectorCopy'
+import { registerEdgeHover, routeEdgeHover, routeEdgeHoverOnMove, endEdgeHover, claimEdgeHover, type EdgeHoverBehaviour, type EdgeHoverSeat } from './edgeHoverArbiter'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -907,23 +906,26 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (pathType === 'straight' || pathType === 'smoothstep') return ''
     if (sourcePosition !== Position.Bottom || targetPosition !== Position.Top || !(targetY > sourceY)) return ''
     const storeNodes = Array.isArray(st.nodes) ? st.nodes : []
-    const boxes: Array<RouteBox & { tier: number }> = []
-    for (const n of storeNodes) {
-      if (n.hidden || lensHiddenNodeIds.has(n.id) || isGhostNode(n.id)) continue
-      const tier = typeof n.type === 'string' ? TIER_BY_KIND[n.type] : undefined
-      if (tier === undefined) continue
-      const box = routeBoxOf(n as Parameters<typeof routeBoxOf>[0])
-      if (box) boxes.push({ ...box, tier })
-    }
+    // POM-6: the row-end prompts are obstacles too (`layeredRouteBoxes`).
+    const boxes = layeredRouteBoxes(
+      storeNodes as Parameters<typeof layeredRouteBoxes>[0],
+      (nodeId) => lensHiddenNodeIds.has(nodeId),
+    )
     // `route`, not `leads`: the no-contest copy sweep reads a bare "leads" on a
     // line with a template literal as a ranking verb (noContestFraming.canvas).
     const route = resolveLayeredEdgeLeads(source as string, target as string, sourceX, sourceY, targetX, targetY, boxes)
-    return route ? `${Math.round(route.outY * 100) / 100},${Math.round(route.inY * 100) / 100}` : ''
+    if (!route) return ''
+    const r2 = (v: number) => Math.round(v * 100) / 100
+    // POM-6: a detour's column rides in the same key, so the path re-derives when it moves.
+    const via = route.via ? `,${r2(route.via.x)},${r2(route.via.top)},${r2(route.via.bottom)}` : ''
+    return `${r2(route.outY)},${r2(route.inY)}${via}`
   })
   const layeredLeads = useMemo<LayeredEdgeLeads | null>(() => {
     if (layeredLeadsKey === '') return null
-    const [outY, inY] = layeredLeadsKey.split(',').map(Number)
-    return { outY, inY }
+    const [outY, inY, viaX, viaTop, viaBottom] = layeredLeadsKey.split(',').map(Number)
+    return viaX !== undefined && viaTop !== undefined && viaBottom !== undefined
+      ? { outY, inY, via: { x: viaX, top: viaTop, bottom: viaBottom } }
+      : { outY, inY }
   }, [layeredLeadsKey])
 
   // Compute edge path based on pathType
@@ -1125,7 +1127,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // Leave timer allows mouse to transition from edge path to popover without closing
   // Structural edges skip the popover timer entirely — they show a native
   // browser tooltip via the <title> child on the hitbox path instead.
-  const handleMouseEnter = () => {
+  const hoverEnter = () => {
     pointerWithinRef.current = true
     setIsHovered(true)
     if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
@@ -1134,7 +1136,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     if (keyboardDismissedRef.current) return
     hoverPopoverTimerRef.current = setTimeout(() => setShowHoverPopover(true), 300)
   }
-  const handleMouseLeave = () => {
+  const hoverLeave = () => {
     pointerWithinRef.current = false
     // Leaving the edge re-arms the popover: a dismissal applies to the visit it
     // was made in, not to the edge for ever.
@@ -1150,6 +1152,26 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       leaveTimerRef.current = null
     }, 100)
   }
+  // ⭐ F8 (27 Sep 2026): the pointer events arrive at the TOPMOST hit area, which
+  // at the landing is often a neighbouring link's. The arbiter hands the hover
+  // to the link whose drawn line is nearest the pointer — the rule a click now
+  // follows too — and runs that link's own enter/leave above
+  // (`edges/edgeHoverArbiter.ts`). Where geometry cannot be measured it resolves
+  // to this edge, which is exactly the per-edge behaviour it replaced. The seat
+  // is THIS mounted copy (its element names its canvas), never the id alone:
+  // a comparison view mounts one edge id once per scenario.
+  const hoverBehaviourRef = useRef<EdgeHoverBehaviour>({ enter: hoverEnter, leave: hoverLeave })
+  hoverBehaviourRef.current = { enter: hoverEnter, leave: hoverLeave }
+  const hoverSeat = useMemo<EdgeHoverSeat>(
+    () => ({ id: edgeIdKey, behaviour: hoverBehaviourRef, element: edgeGroupRef }),
+    [edgeIdKey],
+  )
+  useEffect(() => registerEdgeHover(hoverSeat), [hoverSeat])
+  const handleMouseEnter = (event: React.MouseEvent) => routeEdgeHover(hoverSeat, event.clientX, event.clientY)
+  const handleMouseMove = (event: React.MouseEvent) => routeEdgeHoverOnMove(hoverSeat, event.clientX, event.clientY)
+  const handleMouseLeave = () => endEdgeHover()
+  // The label chip names its own edge; no nearest-line resolution there.
+  const handleChipMouseEnter = () => claimEdgeHover(hoverSeat)
   // v3.1 row 12: the hover surface is a non-interactive tooltip
   // (`pointer-events: none`), so there is no "pointer moved into the popover"
   // arm to keep it open — the two handlers that did are gone with it.
@@ -2146,6 +2168,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       <g
         ref={edgeGroupRef}
         onMouseEnter={handleMouseEnter}
+        onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         data-analysis-fragile={isAnalysisFragileEdge && !isStructuralEdge ? 'true' : undefined}
         data-assistant-focused={isAssistantFocused ? 'true' : undefined}
@@ -2825,7 +2848,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               return `${parts.join('\n')}\n\n${affordanceSentence}`
             })()}
             onDoubleClick={handleLabelDoubleClick}
-            onMouseEnter={handleMouseEnter}
+            onMouseEnter={handleChipMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
             {showLabel && (

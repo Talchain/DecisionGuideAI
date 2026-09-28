@@ -47,12 +47,18 @@ import {
   renderedArrowheadPx,
   edgeArrowheadMarkerId,
 } from '../edgePresentation'
-import { LABEL_LEGIBLE_ZOOM } from '../../utils/zoomLegibility'
-import { EDGE_STROKE_WIDTH_BANDS } from '../../utils/graphDisplayCalculations'
+import { LABEL_LEGIBLE_ZOOM, glyphCounterScale } from '../../utils/zoomLegibility'
+import {
+  EDGE_STROKE_WIDTH_BANDS,
+  MEASURED_EDGE_STROKE_WIDTH_FLOOR,
+  UNSET_EDGE_STROKE_WIDTH,
+} from '../../utils/graphDisplayCalculations'
 import {
   GLYPH_ROW_RISE,
   GLYPH_ROW_PITCH,
   GLYPH_ROW_CENTRE_CLEARANCE,
+  GLYPH_ROW_RISE_MAX_FLOW,
+  paintedGlyphDyFlow,
 } from '../../utils/edgeGlyphPlacement'
 
 describe('EDGE_DIRECTION_MARKER_RULES — the order is the contract', () => {
@@ -180,6 +186,29 @@ describe('arrowhead size — the contract\'s markerWidth 4, counter-scaled like 
     expect(renderedArrowheadPx(3, LABEL_LEGIBLE_ZOOM / 2)).toBe(6)
   })
 
+  /**
+   * ⭐ code-review F2 (27 Sep 2026). #2208 applied the contract's 4× rule to the
+   * product-only 1px UNSET floor, which the contract's key does not have (it
+   * draws a link with no width at 2px, `e.width||2`). Every link nobody has
+   * given a strength — every link a user draws — got a 4px head at every zoom,
+   * a third of the old 12px at 1:1 and below anything the contract draws. The
+   * head now reads the width floored at the thinnest MEASURED band, so an unset
+   * link carries the contract's smallest head; the 1px line still says "not set"
+   * on the width channel.
+   */
+  it('a link with no strength set carries the contract\'s smallest head, never a 4px one (F2)', () => {
+    expect(UNSET_EDGE_STROKE_WIDTH).toBeLessThan(MEASURED_EDGE_STROKE_WIDTH_FLOOR)
+    expect(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH)).toBe(edgeArrowheadSize(MEASURED_EDGE_STROKE_WIDTH_FLOOR))
+    expect(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH)).toBe(8)
+    for (const zoom of [LABEL_LEGIBLE_ZOOM, 0.5085, 0.75, 1]) {
+      expect(renderedArrowheadPx(UNSET_EDGE_STROKE_WIDTH, zoom), `zoom ${zoom}`).toBeCloseTo(8, 10)
+    }
+    // CONTRAST: the measured bands keep their own 4× heads, unfloored.
+    expect(Object.values(EDGE_STROKE_WIDTH_BANDS).map(edgeArrowheadSize)).toEqual(
+      Object.values(EDGE_STROKE_WIDTH_BANDS).map((w) => 4 * w),
+    )
+  })
+
   it('declares a square viewBox with the tip at the origin, so nothing is letterboxed and the scale pivots on the tip', () => {
     expect(edgeArrowheadViewBox(12)).toBe('-12 -6 12 12')
     expect(edgeArrowheadPolygonPoints(12)).toBe('-12 -6, 0 0, -12 6')
@@ -197,10 +226,18 @@ describe('arrowhead size — the contract\'s markerWidth 4, counter-scaled like 
  * at every zoom rather than at one.
  *
  * ⚠ ONE STATED LIMIT: the middle glyph of an ODD row sits at +8 (the contract's
- * own slot; the contract drops it to −12, which is worse). Its 12px box ends
- * 13 above the arrival, so it clears the slight and moderate heads (8 and 12
- * long) but its box corner meets a strong (16) or very strong (20) head. The
- * glyph keeps its canvas halo there. Arithmetic only — not measured on paint.
+ * own slot; the contract drops it to −12, which is worse). Where the row's rise
+ * is the contract's 19 (zoom ≥ ≈0.89) its 12px box ends 13 above the arrival,
+ * so it clears the slight and moderate heads (8 and 12 long) but its box corner
+ * meets a strong (16) or very strong (20) head.
+ *
+ * ⚠⚠ RE-SCOPED 28 Sep 2026 (review r08 note 2). Since code-review F1 the RISE is
+ * bounded at `GLYPH_ROW_RISE_MAX_FLOW` flow units, so below zoom ≈0.89 it is
+ * less than 19 on screen: 10.68 at the 0.5 landing, where the box ends 4.68
+ * above the tip — inside EVERY head, the 8px unset and slight ones included.
+ * The test below used to assert the 19 at every zoom; it now holds the 19 where
+ * it is true and pins the landing figure beside it. The glyph keeps its canvas
+ * halo there. Arithmetic only — not measured on paint.
  */
 describe('arrowhead clearance — the glyph row sits beside the heads', () => {
   const GLYPH_BOX_HALF = 6 // the contract's measured 12px text box, halved
@@ -212,10 +249,24 @@ describe('arrowhead clearance — the glyph row sits beside the heads', () => {
     expect(nearestFlank - GLYPH_BOX_HALF - widestHalf).toBeGreaterThan(0)
   })
 
-  it('the odd row\'s middle glyph stands clear above the slight and moderate heads (the stated limit is strong and up)', () => {
-    for (const width of [2, 3]) {
-      expect(GLYPH_ROW_RISE - GLYPH_BOX_HALF, `width ${width}`).toBeGreaterThanOrEqual(edgeArrowheadSize(width))
+  /** The row's rise on SCREEN at `zoom`: the painted (bounded) flow rise × zoom. */
+  const riseOnScreenPx = (zoom: number) => -paintedGlyphDyFlow(-GLYPH_ROW_RISE, glyphCounterScale(zoom)) * zoom
+
+  it('where the rise is the contract\'s 19 (zoom ≥ ≈0.89), the odd row\'s middle glyph clears the slight and moderate heads', () => {
+    for (const zoom of [0.9, 1]) {
+      expect(riseOnScreenPx(zoom), `zoom ${zoom}`).toBeCloseTo(GLYPH_ROW_RISE, 10)
+      for (const width of [2, 3]) {
+        expect(riseOnScreenPx(zoom) - GLYPH_BOX_HALF, `zoom ${zoom} width ${width}`).toBeGreaterThanOrEqual(edgeArrowheadSize(width))
+      }
     }
+  })
+
+  it('STATED LIMIT, pinned (F1): at the landing the odd row\'s middle box reaches into every head, the 8px ones included', () => {
+    const clearance = riseOnScreenPx(LABEL_LEGIBLE_ZOOM) - GLYPH_BOX_HALF
+    expect(clearance).toBeCloseTo(GLYPH_ROW_RISE_MAX_FLOW * LABEL_LEGIBLE_ZOOM - GLYPH_BOX_HALF, 10)
+    expect(clearance).toBeCloseTo(4.68, 2)
+    expect(clearance).toBeLessThan(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH))
+    expect(clearance).toBeLessThan(edgeArrowheadSize(EDGE_STROKE_WIDTH_BANDS.slight))
   })
 })
 
