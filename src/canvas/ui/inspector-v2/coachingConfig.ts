@@ -133,7 +133,7 @@ const STRENGTH_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
  * the reader can do about it.
  */
 const STRENGTH_PLACEHOLDER_COPY =
-  'Olumi put in a placeholder for this strength so the model can run — it is not an estimate. Set it if you know it.'
+  'Strength not judged yet. Olumi put in a placeholder so the model can run — it is not an estimate. Set it if you know it.'
 
 const EXISTENCE_PROVENANCE_COPY: Record<EdgeProvenanceKey, string> = {
   cee: 'Olumi estimated how likely this connection is to exist.',
