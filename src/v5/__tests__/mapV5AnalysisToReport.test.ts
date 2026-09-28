@@ -1225,13 +1225,14 @@ describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit
   const entry = (node_id: string, level_author: string) => ({ node_id, level_source: 'identity_inputs', level_author })
   it.each([
     // AIQ's row: a hop drops the carrier, the code survives → the caveat still renders
-    ['code, no identity_evaluations (carrier dropped)', [ANCHORED], undefined, true],
-    ['code, the goal entry says "olumi"', [ANCHORED], [entry('mrr', 'olumi')], true],
-    ['code, the goal entry says "user"', [ANCHORED], [entry('mrr', 'user')], false],
+    // AIQ 5877139338 (1): an unattested author is `unattested` (author-neutral copy), never "olumi"
+    ['code, no identity_evaluations (carrier dropped)', [ANCHORED], undefined, 'unattested'],
+    ['code, the goal entry says "olumi"', [ANCHORED], [entry('mrr', 'olumi')], 'olumi'],
+    ['code, the goal entry says "user"', [ANCHORED], [entry('mrr', 'user')], undefined],
     // a "user" entry for ANOTHER node never lifts the goal's caveat
-    ['code, only another node says "user"', [ANCHORED], [entry('pro_mrr', 'user')], true],
+    ['code, only another node says "user"', [ANCHORED], [entry('pro_mrr', 'user')], 'unattested'],
     // no anchoring code → nothing to caveat, whatever the entries say
-    ['no code', [], [entry('mrr', 'olumi')], false],
+    ['no code', [], [entry('mrr', 'olumi')], undefined],
   ])('goal level from identity: %s → stamped %s', (_case, warnings, identity_evaluations, stamped) => {
     const block = baseBlock({
       enrichment: {
@@ -1241,9 +1242,9 @@ describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit
       },
     })
     const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
-      option_probabilities?: Record<string, { goalLevelIsOlumiEstimate?: boolean }>
+      option_probabilities?: Record<string, { goalLevelAuthor?: string }>
     }
-    expect(report.option_probabilities?.opt_a?.goalLevelIsOlumiEstimate === true).toBe(stamped)
+    expect(report.option_probabilities?.opt_a?.goalLevelAuthor).toBe(stamped)
   })
 
   it('constraints_status: forward-compatible passthrough when present, absent by default (NOT on CEE keep-list today)', () => {

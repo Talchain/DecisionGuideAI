@@ -28,7 +28,7 @@ describe('selectGoalProbability — gate-independent behaviour', () => {
       jointGoalProbability: null,
       basis: 'none' as const,
       goalFitIsModelledBasis: false,
-      goalFitIsEstimateOnly: false,
+      goalFitBaseCaveat: null,
       mayUsePossessiveGoalFraming: false,
       // L62: nothing was available to withhold here — 'none' means the run
       // carried no joint figure either.
@@ -310,19 +310,23 @@ describe('selectGoalProbability — whose base the goal figure stands on', () =>
     mockTrust.headlineSuspect = false
   })
 
-  it('an Olumi-estimated goal level on a present goal figure → goalFitIsEstimateOnly', () => {
-    const r = selectGoalProbability({ probability_of_goal: 0.62, goalLevelIsOlumiEstimate: true })
+  it.each([
+    ['olumi', 'olumi_estimate'],
+    // fail-closed: the author was not attested → the author-neutral caveat, never "Olumi's"
+    ['unattested', 'from_inputs'],
+  ] as const)('goal level author %s on a present goal figure → %s', (goalLevelAuthor, expected) => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62, goalLevelAuthor })
     expect(r.goalProbability).toBe(0.62)
-    expect(r.goalFitIsEstimateOnly).toBe(true)
+    expect(r.goalFitBaseCaveat).toBe(expected)
   })
 
-  it('OPPOSITE TWIN — the user\'s own base → no estimate flag', () => {
-    const r = selectGoalProbability({ probability_of_goal: 0.62, goalLevelIsOlumiEstimate: false })
+  it("OPPOSITE TWIN — the user's own base (nothing stamped) → no caveat", () => {
+    const r = selectGoalProbability({ probability_of_goal: 0.62 })
     expect(r.goalProbability).toBe(0.62)
-    expect(r.goalFitIsEstimateOnly).toBe(false)
+    expect(r.goalFitBaseCaveat).toBeNull()
   })
 
-  it('CONTROL — the flag never stands without a figure to qualify', () => {
-    expect(selectGoalProbability({ goalLevelIsOlumiEstimate: true }).goalFitIsEstimateOnly).toBe(false)
+  it('CONTROL — the caveat never stands without a figure to qualify', () => {
+    expect(selectGoalProbability({ goalLevelAuthor: 'olumi' }).goalFitBaseCaveat).toBeNull()
   })
 })

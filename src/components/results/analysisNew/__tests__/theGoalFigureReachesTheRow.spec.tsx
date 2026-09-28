@@ -53,7 +53,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
+import { GOAL_FIT_BASIS_CAVEAT_COPY, GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY, GOAL_FIT_FROM_INPUTS_CAVEAT_COPY } from '../../utils/goalFitBasisCaveatCopy'
 import { genuineDecision } from './analysisNewFixtures'
 import { openAllSections } from './openNamedGroups'
 
@@ -108,14 +108,14 @@ type Opts = {
   target?: number | null
   goal?: Partial<Record<'opt_a' | 'opt_b', number | null>>
   modelledBasis?: boolean
-  estimateOnly?: boolean
+  baseCaveat?: 'olumi_estimate' | 'from_inputs' | null
   substitutedJoint?: boolean
 }
 const withGoals = ({
   target = 20000,
   goal = GOAL,
   modelledBasis = false,
-  estimateOnly = false,
+  baseCaveat = null,
   substitutedJoint = false,
 }: Opts = {}): ResultsSectionDataReturn => {
   const data = genuineDecision()
@@ -126,7 +126,7 @@ const withGoals = ({
       winProbability: WIN[o.id as 'opt_a' | 'opt_b'],
       ...(g === null || g === undefined ? {} : { goalProbability: g }),
       goalFitIsModelledBasis: modelledBasis,
-      goalFitIsEstimateOnly: estimateOnly,
+      goalFitBaseCaveat: baseCaveat,
       goalFitIsSubstitutedJoint: substitutedJoint,
     }
   })
@@ -242,18 +242,29 @@ describe('the goal figure reaches the option row', () => {
     expect(screen.queryAllByTestId('analysis-new-options-goal-basis-caveat')).toHaveLength(0)
   })
 
-  // ⭐ ISL #207: a goal figure measured from OLUMI'S estimate of today's level says so, beside the
-  // number, on every row that shows one — the modelled-basis doctrine, a second basis.
-  it('⭐ AN ESTIMATE-ONLY GOAL FIGURE SAYS WHOSE BASE IT STANDS ON, BESIDE THE NUMBER', () => {
-    renderBody(withGoals({ estimateOnly: true }))
+  // ⭐ ISL #207: a goal figure whose base was worked out from its inputs says so, beside the number,
+  // on every row that shows one — the modelled-basis doctrine, a second basis. Two strings: only a
+  // typed "olumi" author says "Olumi's" (AIQ #72 5877139338 (1)).
+  it.each([
+    ['olumi_estimate', GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY],
+    ['from_inputs', GOAL_FIT_FROM_INPUTS_CAVEAT_COPY],
+  ] as const)('⭐ A %s GOAL FIGURE SAYS WHOSE BASE IT STANDS ON, BESIDE THE NUMBER', (baseCaveat, copy) => {
+    renderBody(withGoals({ baseCaveat }))
     expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([pct(GOAL.opt_a), pct(GOAL.opt_b)])
     const caveats = screen.getAllByTestId('analysis-new-options-goal-estimate-caveat')
     expect(caveats).toHaveLength(2)
-    expect(caveats[0].textContent, 'the shared constant, never a re-wording of it').toBe(GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY)
+    expect(caveats[0].textContent, 'the shared constant, never a re-wording of it').toBe(copy)
   })
 
-  it('⭐ OPPOSITE-DIRECTION TWIN — no estimate caveat when the base is the user\'s', () => {
-    renderBody(withGoals({ estimateOnly: false }))
+  it("⛔ THE CARRIER DROPPED (author unattested) — the caveat renders, and never says \"Olumi's\"", () => {
+    renderBody(withGoals({ baseCaveat: 'from_inputs' }))
+    for (const c of screen.getAllByTestId('analysis-new-options-goal-estimate-caveat')) {
+      expect(c.textContent).not.toMatch(/Olumi/)
+    }
+  })
+
+  it("⭐ OPPOSITE-DIRECTION TWIN — no base caveat when the base is the user's", () => {
+    renderBody(withGoals({ baseCaveat: null }))
     expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([pct(GOAL.opt_a), pct(GOAL.opt_b)])
     expect(screen.queryAllByTestId('analysis-new-options-goal-estimate-caveat')).toHaveLength(0)
   })

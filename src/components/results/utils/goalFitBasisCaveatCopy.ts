@@ -11,11 +11,21 @@ export const GOAL_FIT_BASIS_CAVEAT_COPY =
   "Modelled from the target's projected outcome distribution, not a directly-set starting value."
 
 /**
- * The second basis a goal figure can stand on (ISL #207, proposal 3; AIQ ACK #72 5876773218):
- * the goal states no level today, so ISL measures the chance from the level its inputs give
- * today — and when any of those inputs is Olumi's estimate (`level_author: "olumi"`, or no typed
- * entry at all: fail-closed), so is the base. Rendered adjacent to the figure whenever `goalFitIsEstimateOnly` is true.
- * Names no goal label: labels can be whole statements ("Reach £250k MRR").
+ * The second basis a goal figure can stand on (ISL #207, proposal 3; AIQ ACK #72 5876773218): the
+ * goal states no level today, so ISL measures the chance from the level its inputs give today.
+ * TWO strings, because authorship is only said when the carrier states it (AIQ 5877139338 (1)):
+ *   · `olumi_estimate` — the goal's typed entry says `level_author: "olumi"`;
+ *   · `from_inputs` — no typed entry reached the UI (fail-closed): author-neutral, never "Olumi's".
+ * Neither names the goal's label: labels can be whole statements ("Reach £250k MRR").
  */
 export const GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY =
   "Measured from Olumi's estimate of where your goal stands today, not a figure you gave."
+export const GOAL_FIT_FROM_INPUTS_CAVEAT_COPY =
+  'Measured from where your goal stands today as worked out from its inputs, not a figure you gave.'
+
+/** The one mapping from the chooser's base-caveat to its words. */
+export function goalFitBaseCaveatCopy(caveat: 'olumi_estimate' | 'from_inputs' | null | undefined): string | null {
+  if (caveat === 'olumi_estimate') return GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY
+  if (caveat === 'from_inputs') return GOAL_FIT_FROM_INPUTS_CAVEAT_COPY
+  return null
+}

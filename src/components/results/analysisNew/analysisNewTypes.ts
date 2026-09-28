@@ -614,10 +614,10 @@ export type ComparisonOption =
        */
       goalBasisIsModelled: boolean
       /**
-       * `goalFitIsEstimateOnly` — read, not derived: the figure stands on Olumi's estimate of
-       * where the goal is today (ISL #207). Same doctrine: the caveat renders ADJACENT.
+       * `goalFitBaseCaveat` — read, not derived: the figure's base (where the goal is today) was
+       * worked out from its inputs (ISL #207). Same doctrine: the caveat renders ADJACENT.
        */
-      goalBasisIsEstimateOnly: boolean
+      goalBaseCaveat: 'olumi_estimate' | 'from_inputs' | null
       /**
        * ⭐⭐ THE RANGE THIS RUN ACTUALLY PRODUCED, so a reader can see when an
        * ordering is NOT settled.
