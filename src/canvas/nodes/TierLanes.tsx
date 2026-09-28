@@ -25,7 +25,7 @@
  */
 import { memo, useMemo } from 'react'
 import { ViewportPortal, type Node } from '@xyflow/react'
-import { deriveLaneTitles, LANE_TITLE_GAP } from '../utils/tierLanes'
+import { deriveLaneTitles, LANE_TITLE_GAP, LANE_TITLE_HALO } from '../utils/tierLanes'
 import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
 
 /**
@@ -70,22 +70,7 @@ import { KIND_GLYPH_PX } from '../utils/nodeLayoutConstants'
  * same expression `BaseNode` places the shape with) and keeps `LANE_TITLE_GAP`
  * above the shape instead. `deriveLaneTitles` decides which titles rise.
  */
-export { LANE_TITLE_GAP }
-
-/**
- * ⭐ N6 — A LINK NEVER STRIKES THROUGH A BAND WORD. The column sits at the
- * leftmost card edge, so a factor → outcome bundle, and sometimes an
- * arrowhead, can run across "OUTCOMES" or "RISKS" (build-vs-buy and headcount at
- * landing). The portal paints last, so the word is already on top; what reads
- * as struck through is the line running between its letters. The halo is the
- * polarity glyph's idiom (`POLARITY_GLYPH_HALO` in `StyledEdge.tsx`, contract
- * `.polarity{paint-order:stroke;stroke:var(--canvas)}`): a stacked,
- * canvas-coloured `text-shadow`, 1.5px ON SCREEN. It clears only the letters'
- * outlines, so a line or arrowhead beside the word stays whole.
- */
-const LANE_TITLE_HALO_PX = 'calc(1.5px * var(--canvas-label-scale, 1))'
-export const LANE_TITLE_HALO =
-  `0 0 ${LANE_TITLE_HALO_PX} var(--bg-canvas), 0 0 ${LANE_TITLE_HALO_PX} var(--bg-canvas), 0 0 ${LANE_TITLE_HALO_PX} var(--bg-canvas)`
+export { LANE_TITLE_GAP, LANE_TITLE_HALO }
 
 export function laneTitleColumnX(lanes: ReadonlyArray<{ x: number }>): number {
   return lanes.reduce((min, l) => Math.min(min, l.x), Number.POSITIVE_INFINITY)
