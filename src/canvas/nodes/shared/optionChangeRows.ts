@@ -46,7 +46,7 @@ import {
   classifyUnit,
   unwrapInterventionValue,
 } from '../../utils/labelUtils'
-import { NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
+import { NODE_ROW_AMOUNT_MAX_CHARS, NODE_ROW_LABEL_MAX_CHARS } from '../../utils/nodeLayoutConstants'
 import {
   encodingMapPhrase,
   factorCardVisibleText,
@@ -521,15 +521,18 @@ export function fitRowsToBudget(rows: OptionChangeRow[]): OptionChangeRow[] {
 
 /**
  * ⭐ MAY THIS SEGMENT OF A ROW'S AMOUNT STAY ON ONE LINE? True while it fits one
- * line of the row budget at the largest label counter-scale
- * (`NODE_ROW_LABEL_MAX_CHARS`: the estate's own per-line budget, measured on the
- * 12px row type, so conservative for the 11px amount). A longer segment — a
- * producer's prose reading — wraps at its own spaces rather than run past the
- * card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP per month ·
- * brief" overflowed). The card's amount breaks, if at all, before the arrow.
+ * line of the AMOUNT's budget at the largest label counter-scale
+ * (`NODE_ROW_AMOUNT_MAX_CHARS`: the estate's per-line budget, measured at the
+ * amount's own `edgeLabel` size — since 27 Sep 2026 no longer the label's 12px
+ * budget, which the landing cap shrank until "→ 3 engineers no source" broke
+ * inside its value; the amount never breaks, the label yields). A longer
+ * segment — a producer's prose reading — wraps at its own spaces rather than
+ * run past the card's right edge (served `cd6a82e4`: "49 GBP per month → 59 GBP
+ * per month · brief" overflowed). The card's amount breaks, if at all, before
+ * the arrow.
  */
 export function optionAmountSegmentNoWrap(segment: string): boolean {
-  return segment.length <= NODE_ROW_LABEL_MAX_CHARS
+  return segment.length <= NODE_ROW_AMOUNT_MAX_CHARS
 }
 
 /** `+N more`, from the ONE total — never below zero. */

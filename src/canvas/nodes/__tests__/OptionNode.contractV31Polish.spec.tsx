@@ -369,6 +369,11 @@ describe('contract v3.1 — option card polish', () => {
       // characters (was 17), so "→ 3 engineers · <mark>" now fits and BOTH halves
       // are unbroken runs; the whole run with its mark still does not, so the row
       // may still break before the arrow.
+      // ⭐ 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner: the amount
+      // never breaks; the label yields): the label's budget fell to 21 and the
+      // "to" run with its "no source" mark (23) broke inside its value. The
+      // amount now has its own budget at its own 11px (`NODE_ROW_AMOUNT_MAX_CHARS`,
+      // 23), so this pin holds unchanged.
       const value = inRows('option-change-row-value-option-1-f-head')!
       expect(tokens(value).has('whitespace-nowrap')).toBe(false)
       const halves = [...value.querySelectorAll('.whitespace-nowrap')].map((n) => n.textContent)

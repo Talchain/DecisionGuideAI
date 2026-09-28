@@ -22,10 +22,11 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { NODE_ROW_LABEL_MAX_CHARS, NODE_CARD_MAX_W, REPEATED_CARD_W } from '../nodeLayoutConstants'
+import { NODE_ROW_AMOUNT_MAX_CHARS, NODE_ROW_LABEL_MAX_CHARS, NODE_CARD_MAX_W, REPEATED_CARD_W } from '../nodeLayoutConstants'
+import { CANVAS_TYPE_PX } from '../../../styles/typography'
 import { MAX_LABEL_COUNTER_SCALE } from '../zoomLegibility'
 import { compactFactorLabel } from '../labelUtils'
-import { buildOptionChangeRow, buildOptionNeedsInputRow } from '../../nodes/shared/optionChangeRows'
+import { buildOptionChangeRow, buildOptionNeedsInputRow, optionAmountSegmentNoWrap } from '../../nodes/shared/optionChangeRows'
 
 const SRC = path.resolve(__dirname, '../nodeLayoutConstants.ts')
 
@@ -167,5 +168,41 @@ describe('NODE_ROW_LABEL_MAX_CHARS — derived, never restated', () => {
     const row = REPEATED_CARD_W - (MEASURED_CARD - MEASURED_BLOCK)
     const at3 = Math.floor(row / (12 * 3 * avgCharEm))
     expect(at3).toBeLessThan(NODE_ROW_LABEL_MAX_CHARS)
+  })
+})
+
+/**
+ * ⭐ THE AMOUNT NEVER BREAKS; THE LABEL YIELDS (Canvas owner, 27 Sep 2026, landing
+ * text cap 1.36 → 1.64). An option row's AMOUNT is held on one line against its
+ * own budget — the same measurement, card and inset as the label's, at the
+ * amount's own `edgeLabel` size — not against the label's 12px budget, which the
+ * cap shrank 25 → 21 until "→ 3 engineers" + its glued "no source" (23) lost its
+ * `whitespace-nowrap` (`OptionNode.contractV31Polish.spec`, CI on `d000d576`).
+ */
+describe('NODE_ROW_AMOUNT_MAX_CHARS — the amount’s own per-line budget, derived', () => {
+  const inset = MEASURED_CARD - MEASURED_BLOCK
+  const perCharAt = (px: number) => (MEASURED_BLOCK / MEASURED_CHARS / 24) * px * MAX_LABEL_COUNTER_SCALE
+
+  it('is the measurement re-applied to the amount’s own type size at the bound', () => {
+    expect(NODE_ROW_AMOUNT_MAX_CHARS).toBe(Math.floor((REPEATED_CARD_W - inset) / perCharAt(CANVAS_TYPE_PX.edgeLabel)))
+    // The label's budget is the same formula at 12px — so the amount never gets
+    // LESS room than the label: the label is the part that yields.
+    expect(NODE_ROW_LABEL_MAX_CHARS).toBe(Math.floor((REPEATED_CARD_W - inset) / perCharAt(12)))
+    expect(NODE_ROW_AMOUNT_MAX_CHARS).toBeGreaterThanOrEqual(NODE_ROW_LABEL_MAX_CHARS)
+  })
+
+  it('the amount run is held whole up to its OWN budget, and wraps one past it (served cd6a82e4 still cannot overflow)', () => {
+    const at = 'x'.repeat(NODE_ROW_AMOUNT_MAX_CHARS)
+    expect(optionAmountSegmentNoWrap(at)).toBe(true)
+    expect(optionAmountSegmentNoWrap(`${at}x`)).toBe(false)
+  })
+
+  it('RED CHECK — the served "to" run with its glued mark sits between the label budget and the amount budget', () => {
+    // "→ 3 engineers" + the glue + "no source": held whole on its own budget,
+    // and NOT on the label's — which is what broke it when the cap moved.
+    const run = '→ 3 engineers no source'
+    expect(run.length).toBeGreaterThan(NODE_ROW_LABEL_MAX_CHARS)
+    expect(run.length).toBeLessThanOrEqual(NODE_ROW_AMOUNT_MAX_CHARS)
+    expect(optionAmountSegmentNoWrap(run)).toBe(true)
   })
 })

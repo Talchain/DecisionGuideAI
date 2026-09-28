@@ -264,7 +264,9 @@ describe('arrowhead clearance — the glyph row sits beside the heads', () => {
   it('STATED LIMIT, pinned (F1): at the landing the odd row\'s middle box reaches into every head, the 8px ones included', () => {
     const clearance = riseOnScreenPx(LABEL_LEGIBLE_ZOOM) - GLYPH_BOX_HALF
     expect(clearance).toBeCloseTo(GLYPH_ROW_RISE_MAX_FLOW * LABEL_LEGIBLE_ZOOM - GLYPH_BOX_HALF, 10)
-    expect(clearance).toBeCloseTo(4.68, 2)
+    // RE-PINNED 28 Sep 2026: the rise bound is derived from the tier gap (40 → 48
+    // with the landing text cap 1.64), so the landing clearance is 4.68 → 5.32px.
+    expect(clearance).toBeCloseTo(5.32, 2)
     expect(clearance).toBeLessThan(edgeArrowheadSize(UNSET_EDGE_STROKE_WIDTH))
     expect(clearance).toBeLessThan(edgeArrowheadSize(EDGE_STROKE_WIDTH_BANDS.slight))
   })

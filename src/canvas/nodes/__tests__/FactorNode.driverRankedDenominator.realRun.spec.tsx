@@ -113,6 +113,7 @@ const slot = (id: string) => screen.getByTestId(`factor-driver-slot-${id}`)
 const caption = (id: string) => within(slot(id)).queryByTestId('factor-driver-line-caption')?.textContent ?? null
 const lineOf = (id: string) => within(slot(id)).getByTestId('factor-driver-line')
 const fillWidth = (id: string) => within(slot(id)).getByTestId('factor-driver-line-bar-fill').style.width
+const nameOf = (id: string) => lineOf(id).getAttribute('aria-label') ?? ''
 
 /** Every factor card on the board that SHOWS a rank — the set M must count. */
 const shownRanks = (fx: Fixture) => factorsOf(fx).filter((n) => caption(n.id) !== null).map((n) => n.id)
@@ -137,8 +138,12 @@ describe('item 3 — M is the ranked set, and every one of the M ranks is shown'
   it('17d1 (5 factors, 2 ranked): "Driver 1 of 2" and "Driver 2 of 2", ranked in this run; the other 3 carry no rank', () => {
     renderBoard(fx17d1)
     expect(semantic()).toBe('current')
-    expect(caption('other_mrr_growth')).toBe('Driver 1 of 2 ranked in this run')
-    expect(caption('pro_paying_subscribers')).toBe('Driver 2 of 2 ranked in this run')
+    // The slot prints the longest form that fits at the landing bound (Canvas
+    // owner, 27 Sep 2026, cap 1.64); the name keeps "ranked in this run".
+    expect(caption('other_mrr_growth')).toBe('Driver 1 of 2 ranked')
+    expect(caption('pro_paying_subscribers')).toBe('Driver 2 of 2 ranked')
+    expect(nameOf('other_mrr_growth')).toMatch(/^Driver 1 of 2 ranked in this run\. /)
+    expect(nameOf('pro_paying_subscribers')).toMatch(/^Driver 2 of 2 ranked in this run\. /)
     for (const id of ['monthly_churn', 'monthly_new_pro_subscribers', 'pro_plan_price']) {
       expect(caption(id), `${id} shows no rank`).toBeNull()
       // Contrast: the card mounted, and its AT statement says why there is no rank.
@@ -153,9 +158,12 @@ describe('item 3 — M is the ranked set, and every one of the M ranks is shown'
   it('90b8 (6 factors, 3 ranked): 1, 2 and 3 "of 3 ranked in this run", and exactly 3 cards show a rank', () => {
     renderBoard(fx90b8)
     expect(semantic()).toBe('current')
-    expect(caption('fac_existing_customers_grandfathered')).toBe('Driver 1 of 3 ranked in this run')
-    expect(caption('other_mrr_growth')).toBe('Driver 2 of 3 ranked in this run')
-    expect(caption('pro_paying_subscribers')).toBe('Driver 3 of 3 ranked in this run')
+    expect(caption('fac_existing_customers_grandfathered')).toBe('Driver 1 of 3 ranked')
+    expect(caption('other_mrr_growth')).toBe('Driver 2 of 3 ranked')
+    expect(caption('pro_paying_subscribers')).toBe('Driver 3 of 3 ranked')
+    for (const [id, n] of [['fac_existing_customers_grandfathered', 1], ['other_mrr_growth', 2], ['pro_paying_subscribers', 3]] as const) {
+      expect(nameOf(id)).toMatch(new RegExp(`^Driver ${n} of 3 ranked in this run\\. `))
+    }
     expect(shownRanks(fx90b8)).toHaveLength(3)
     for (const id of ['pro_plan_price', 'monthly_churn', 'monthly_new_pro_subscribers']) {
       expect(caption(id), `${id} shows no rank`).toBeNull()
@@ -204,14 +212,15 @@ describe('item 4 — the bar is relative sensitivity, rank 1 = 100%, monotone wi
   })
 })
 
-describe('item 11 — the stale caption drops "in this run" so it fits: "Last run · Driver N of M ranked"', () => {
+describe('item 11 — the slot prints the longest form that fits at the landing bound; the name keeps the full sentence', () => {
   it('90b8 stale: every ranked card reads the short stale form, and the name still opens with it', () => {
     renderBoard(fx90b8)
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
     expect(semantic()).toBe('changed')
-    expect(caption('fac_existing_customers_grandfathered')).toBe('Last run · Driver 1 of 3 ranked')
-    expect(caption('other_mrr_growth')).toBe('Last run · Driver 2 of 3 ranked')
-    expect(caption('pro_paying_subscribers')).toBe('Last run · Driver 3 of 3 ranked')
+    // At the 1.64 bound the stale "… ranked" no longer fits; "Last run · Driver N of M" does.
+    expect(caption('fac_existing_customers_grandfathered')).toBe('Last run · Driver 1 of 3')
+    expect(caption('other_mrr_growth')).toBe('Last run · Driver 2 of 3')
+    expect(caption('pro_paying_subscribers')).toBe('Last run · Driver 3 of 3')
     expect(lineOf('other_mrr_growth').getAttribute('aria-label')).toMatch(/^Last run · Driver 2 of 3 ranked\. /)
     expect(lineOf('other_mrr_growth').getAttribute('aria-description'))
       .toContain('The last run ranked 3 factors by relative sensitivity; each shows its own rank.')
@@ -219,11 +228,12 @@ describe('item 11 — the stale caption drops "in this run" so it fits: "Last ru
     expect(fillWidth('other_mrr_growth')).toBe('max(4px, 82%)')
   })
 
-  it('17d1 stale: "Last run · Driver 2 of 2 ranked" (was "… 2 of 5 analys…" at landing)', () => {
+  it('17d1 stale: "Last run · Driver 2 of 2" (was "… 2 of 5 analys…" at landing); the name keeps "ranked"', () => {
     renderBoard(fx17d1)
     act(() => useCanvasStore.setState({ analysisFreshnessDirty: true }))
     expect(semantic()).toBe('changed')
-    expect(caption('pro_paying_subscribers')).toBe('Last run · Driver 2 of 2 ranked')
+    expect(caption('pro_paying_subscribers')).toBe('Last run · Driver 2 of 2')
+    expect(nameOf('pro_paying_subscribers')).toMatch(/^Last run · Driver 2 of 2 ranked\. /)
   })
 
   it('item 11 on the real boards: every ranked caption, fresh and stale, fits its slot on its own at the landing bound; the bar is whole or wrapped away', () => {
@@ -242,6 +252,10 @@ describe('item 11 — the stale caption drops "in this run" so it fits: "Last ru
           const text = within(line).getByTestId('factor-driver-line-caption').textContent ?? ''
           seen.push(text)
           expect(captionWidthPx(text, MAX_LABEL_COUNTER_SCALE), text).toBeLessThanOrEqual(FACTOR_SLOT_MEASURE_PX)
+          // The visible words open the accessible name, which keeps the full sentence.
+          const name = line.getAttribute('aria-label') ?? ''
+          expect(name.startsWith(text), name).toBe(true)
+          expect(name, name).toMatch(stale ? /^Last run · Driver \d of \d ranked\. / : /^Driver \d of \d ranked in this run\. /)
           // The bar never shrinks, so its fill always reads against the whole track.
           const bar = within(line).getByTestId('factor-driver-line-bar').className.split(/\s+/)
           expect(bar).toContain('shrink-0')
@@ -252,7 +266,7 @@ describe('item 11 — the stale caption drops "in this run" so it fits: "Last ru
     }
     // Positive control: both forms were actually measured (2 + 3 ranked cards, fresh and stale).
     expect(seen).toHaveLength(10)
-    expect(seen).toContain('Driver 1 of 3 ranked in this run')
-    expect(seen).toContain('Last run · Driver 1 of 2 ranked')
+    expect(seen).toContain('Driver 1 of 3 ranked')
+    expect(seen).toContain('Last run · Driver 1 of 2')
   })
 })

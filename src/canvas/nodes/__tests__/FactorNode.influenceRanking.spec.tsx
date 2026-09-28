@@ -265,7 +265,10 @@ describe('Standard view — the driver line states the ranking', () => {
        transparent here), so the Detailed driver line is also in the document.
        A `getByText` would be ambiguous (CLAUDE.md trap 19). */
     const line = popoverLine()
-    expect(captionOf(line)).toBe('Driver 1 of 3 ranked in this run')
+    // RE-PINNED 27 Sep 2026 (landing text cap 1.36 → 1.64, Canvas owner): the card's
+    // one-line slot prints the LONGEST form that fits at the landing bound
+    // (`restingDriverCaption`); the accessible name and the hover keep the full sentence.
+    expect(captionOf(line)).toBe('Driver 1 of 3 ranked')
     /* ⛔ THE DELETE-MUTANT ASSERTION. Remove the rank from this call site and
        the line disappears (contract v3.1 pt 5), which the line above REJECTS.
        And the retired `% influence` row is gone from the face. */
@@ -302,7 +305,7 @@ describe('Standard view — the driver line states the ranking', () => {
     setMetadata(2, 5, 0.62)
     renderFactor()
     const line = popoverLine()
-    expect(captionOf(line)).toBe('Driver 2 of 3 ranked in this run')
+    expect(captionOf(line)).toBe('Driver 2 of 3 ranked')
     expect(line.textContent).not.toContain('62%')
     expect(line).toHaveAccessibleName(/62% of the top-ranked driver/)
   })
@@ -481,7 +484,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
 
     expect(screen.getByTestId('node-title')).toBeTruthy()
     // NODE-ANATOMY v3.2 stale form: "Last run · Driver N of M ranked".
-    expect(captionOf(popoverLine())).toBe('Last run · Driver 1 of 3 ranked')
+    expect(captionOf(popoverLine())).toBe('Last run · Driver 1 of 3')
     // Never the unlabelled current-run caption.
     expect(captionOf(popoverLine())!.startsWith('Driver')).toBe(false)
   })
@@ -494,7 +497,7 @@ describe('the ranked claim is withheld when the result is not confirmably curren
     setMetadata(1, 5, 1)
     renderFactor()
 
-    expect(captionOf(popoverLine())).toBe('Driver 1 of 3 ranked in this run')
+    expect(captionOf(popoverLine())).toBe('Driver 1 of 3 ranked')
   })
 
   it('the Detailed view withholds on the same signal — the two views cannot disagree', () => {
