@@ -75,9 +75,12 @@ describe('formatFactorDisplayParts — currency rate', () => {
     expect(formatFactorDisplayParts(input)?.restates).toBeUndefined()
   })
 
-  it('CONTRAST — a bare ISO code keeps today’s `GBP 39,000`', () => {
+  // Re-pinned 28 Sep 2026 (DL #72 5870353946, ONE money-figure rule): the formatter's string is
+  // unchanged ("GBP 39,000", other surfaces read it), but the CARD now reads the rule's "£39,000",
+  // bound to that string by `restates` — as the receipt and the Reasoning tab print it.
+  it('CONTRAST — a bare ISO code: the string keeps `GBP 39,000`, the card reads the money rule\'s `£39,000`', () => {
     const input = salary('GBP')
     expect(formatFactorDisplayValue(input)).toBe('GBP 39,000')
-    expect(formatFactorDisplayParts(input)).toEqual({ figure: 'GBP 39,000', unit: null })
+    expect(formatFactorDisplayParts(input)).toEqual({ figure: '£39,000', unit: null, restates: 'GBP 39,000' })
   })
 })
