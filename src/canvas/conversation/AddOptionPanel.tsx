@@ -152,7 +152,7 @@ export function AddOptionPanel({
         <h3 id="add-option-title" className={`${typography.panelHeader} text-text-header mb-1`}>
           Add an option
         </h3>
-        <p className={`${typography.panelBody} text-text-light mb-4`}>
+        <p className={`${typography.chatBody} text-text-light mb-4`}>
           {decisionLabel
             ? `A new option under "${decisionLabel}". Nothing changes on your canvas yet.`
             : 'Nothing changes on your canvas yet.'}
@@ -170,13 +170,13 @@ export function AddOptionPanel({
           onKeyDown={handleLabelKey}
           disabled={busy}
           data-testid="add-option-label-input"
-          className={`${typography.bodySmall} w-full rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body outline-none focus:border-info mb-5`}
+          className={`${typography.chatBody} w-full rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body outline-none focus:border-info mb-5`}
         />
 
         {factors.length > 0 && (
           <>
             <p className={`${typography.panelHeader} text-text-header mb-1`}>What this option changes</p>
-            <p className={`${typography.panelBody} text-text-light mb-3`}>
+            <p className={`${typography.chatBody} text-text-light mb-3`}>
               Optional. Tick a factor and give it the value this option would produce — up to{' '}
               {MAX_ADD_OPTION_INTERVENTIONS}.
             </p>
@@ -196,7 +196,7 @@ export function AddOptionPanel({
                     />
                     <label
                       htmlFor={`add-option-factor-${factor.id}`}
-                      className={`${typography.panelBody} text-text-body flex-1 min-w-0`}
+                      className={`${typography.chatBody} text-text-body flex-1 min-w-0`}
                     >
                       <span className="block truncate">{factor.label}</span>
                       {factor.currentRaw != null && (
@@ -213,7 +213,7 @@ export function AddOptionPanel({
                       onChange={(e) => setRowText(factor.id, e.target.value)}
                       disabled={busy || !row.checked}
                       data-testid={`add-option-value-${factor.id}`}
-                      className={`${typography.bodySmall} ${INPUT_CLASS} ${
+                      className={`${typography.chatBody} ${INPUT_CLASS} ${
                         invalid ? 'border-danger' : ''
                       }`}
                     />
@@ -228,18 +228,18 @@ export function AddOptionPanel({
         )}
 
         {overCap && (
-          <p className={`${typography.panelBody} text-danger mb-3`} data-testid="add-option-over-cap">
+          <p className={`${typography.chatBody} text-danger mb-3`} data-testid="add-option-over-cap">
             {ADD_OPTION_REFUSAL_COPY.overCap(MAX_ADD_OPTION_INTERVENTIONS)} Untick{' '}
             {checkedIds.length - MAX_ADD_OPTION_INTERVENTIONS} of them.
           </p>
         )}
         {invalidIds.length > 0 && (
-          <p className={`${typography.panelBody} text-danger mb-3`} data-testid="add-option-invalid">
+          <p className={`${typography.chatBody} text-danger mb-3`} data-testid="add-option-invalid">
             {ADD_OPTION_REFUSAL_COPY.factorNeedsNumber}
           </p>
         )}
         {refusal && (
-          <p className={`${typography.panelBody} text-danger mb-3`} data-testid="add-option-refusal">
+          <p className={`${typography.chatBody} text-danger mb-3`} data-testid="add-option-refusal">
             {refusal}
           </p>
         )}
@@ -250,7 +250,7 @@ export function AddOptionPanel({
             onClick={onSendAsMessage}
             disabled={busy}
             data-testid="add-option-send-as-message"
-            className={`${typography.panelBody} text-text-light underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
+            className={`${typography.chatBody} text-text-light underline underline-offset-2 hover:text-text-body disabled:opacity-50`}
           >
             Send as a message instead
           </button>
@@ -260,7 +260,7 @@ export function AddOptionPanel({
               onClick={onCancel}
               disabled={busy}
               data-testid="add-option-cancel"
-              className={`px-4 py-2 ${typography.bodySmall} text-text-body bg-panel-hover rounded-lg hover:bg-panel-border disabled:opacity-50`}
+              className={`px-4 py-2 ${typography.chatBody} text-text-body bg-panel-hover rounded-lg hover:bg-panel-border disabled:opacity-50`}
             >
               Cancel
             </button>

@@ -7,7 +7,9 @@
  * in Conversation.module.css, inline styles) — and pins the result to the
  * ONE type scale ruled by Paul (register 1.69(a), 12-Jul + 16-Jul):
  *
- *   sizes    11 / 12 / 14 px  + the named 24px first-use hero (welcomeHeading)
+ *   sizes    the AI CHAT renders exactly 14 / 13 / 12 (Paul, 28 Sep 2026:
+ *            headings / everything the user reads / labels); the census scope
+ *            adds the Model and pre-analysis tabs' 11
  *   weights  400 / 500 / 600
  *   leading  1.375 / 1.5 / 1.625
  *
@@ -57,9 +59,35 @@ describe('conversation-panel type-scale census (F3)', () => {
     expect(census.counts.weights).toBeGreaterThan(0)
   })
 
-  it('font sizes collapse to the scale: 11 / 12 / 14 (+ named 24px hero)', () => {
-    expect(census.sizes).toEqual([11, 12, 14, 24])
+  it('font sizes collapse to the scale: 11 / 12 / 13 / 14 across the census scope', () => {
+    // The scope is the whole dock column: the chat AND the Model / pre-analysis
+    // tabs beside it. 11 is those tabs' panelMeta; the chat itself is pinned to
+    // three sizes by the next test. The 24px hero is gone (Paul, 28 Sep).
+    expect(census.sizes).toEqual([11, 12, 13, 14])
     expect(census.counts.sizes).toBeLessThanOrEqual(4)
+  })
+
+  it('the AI CHAT column renders exactly 12 / 13 / 14 (Paul, 28 Sep: labels / reading / headings)', () => {
+    // Per-file hits from the census's text report, so this is the same resolver,
+    // not a second one. The chat column = the conversation, its v5 blocks and
+    // the two panel hosts; the Model / pre-analysis tabs share the census scope
+    // but not this rule.
+    const report = execFileSync('node', [SCRIPT], { encoding: 'utf8' })
+    const section = report.slice(report.indexOf('FONT SIZES'), report.indexOf('FONT WEIGHTS'))
+    const CHAT = /^(src\/canvas\/conversation\/|src\/v5\/blocks\/|src\/canvas\/components\/(OlumiTabBody|FloatingOlumiPanel)\.tsx)/
+    const chatSizes = new Set<number>()
+    let size = 0
+    let chatHits = 0
+    for (const line of section.split('\n')) {
+      const head = /^ {2}(\d+)\s+\(/.exec(line)
+      if (head) { size = Number(head[1]); continue }
+      const hit = /^\s+(src\/\S+):\d+/.exec(line)
+      if (hit && CHAT.test(hit[1])) { chatSizes.add(size); chatHits += 1 }
+    }
+    // Positive control: the parser sees the chat (hundreds of hits), so an
+    // empty set cannot pass as "no off-scale size".
+    expect(chatHits).toBeGreaterThan(100)
+    expect([...chatSizes].sort((a, b) => a - b)).toEqual([12, 13, 14])
   })
 
   it('font weights collapse to 400 / 500 / 600', () => {

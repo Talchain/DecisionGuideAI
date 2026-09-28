@@ -25,7 +25,7 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
     >
       <h3 className={typography.panelHeader}>Comparison</h3>
       {block.narrative && (
-        <p className={typography.panelBody}>{block.narrative}</p>
+        <p className={typography.chatBody}>{block.narrative}</p>
       )}
       <table className="w-full text-left">
         <thead>
@@ -41,8 +41,8 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
         <tbody>
           {block.options.map((opt) => (
             <tr key={opt.option_id} data-testid={`v5-comparison-row-${opt.option_id}`}>
-              <td className={`${typography.panelBody} pr-4 py-1`}>{opt.label}</td>
-              <td className={`${typography.panelBody} py-1`}>{formatProb(opt.win_probability)}</td>
+              <td className={`${typography.chatBody} pr-4 py-1`}>{opt.label}</td>
+              <td className={`${typography.chatBody} py-1`}>{formatProb(opt.win_probability)}</td>
             </tr>
           ))}
         </tbody>

@@ -78,7 +78,7 @@ export function EmptyState({ animate = false, statusLabel, streamingText }: Empt
       {/* Heading: welcome text when idle, status label when active */}
       {!isActive ? (
         <h2
-          className={`text-text-body text-center ${typography.welcomeHeading}`}
+          className={`text-text-body text-center ${typography.panelHeader}`}
           style={{ margin: 0 }}
         >
           What&rsquo;s on your mind?
@@ -128,7 +128,7 @@ export function EmptyState({ animate = false, statusLabel, streamingText }: Empt
       {/* Streaming text — shown below shapes as LLM text arrives */}
       {streamingText && (
         <p
-          className={`text-text-body text-center ${typography.bodySmall}`}
+          className={`text-text-body text-center ${typography.chatBody}`}
           style={{ margin: 0, maxWidth: 480, whiteSpace: 'pre-wrap' }}
           data-testid="empty-state-streaming"
         >

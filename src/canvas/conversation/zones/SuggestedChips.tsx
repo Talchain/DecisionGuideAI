@@ -577,7 +577,7 @@ export function SuggestedChips({
 
       {chipError && (
         <p
-          className={`${typography.bodySmall} text-danger`}
+          className={`${typography.chatBody} text-danger`}
           style={{ margin: 0, paddingLeft: 2 }}
           data-testid="chip-error"
         >

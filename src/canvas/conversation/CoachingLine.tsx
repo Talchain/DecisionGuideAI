@@ -443,7 +443,7 @@ export function CoachingLine({ block, children, disambiguator = null }: Coaching
           two producer strings.
         */}
         <span className="min-w-0">
-          <span className={typography.panelBody}>{title}</span>
+          <span className={typography.chatBody}>{title}</span>
           {disambiguator && (
             <span
               className={`${typography.chatMeta} text-text-light ml-2`}

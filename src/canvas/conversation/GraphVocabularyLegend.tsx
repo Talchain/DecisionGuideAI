@@ -53,8 +53,8 @@ export function GraphVocabularyLegend() {
         <dl className={styles.vocabularyLegendList} aria-label="Graph vocabulary">
           {LEGEND_TERMS.map(({ term, definition }) => (
             <div key={term} className={styles.vocabularyLegendRow}>
-              <dt className={`${typography.panelBody} text-text-body ${styles.vocabularyLegendTerm}`}>{term}</dt>
-              <dd className={`${typography.panelBody} ${styles.vocabularyLegendDefinition}`}>
+              <dt className={`${typography.chatBody} text-text-body ${styles.vocabularyLegendTerm}`}>{term}</dt>
+              <dd className={`${typography.chatBody} ${styles.vocabularyLegendDefinition}`}>
                 {definition}
               </dd>
             </div>
