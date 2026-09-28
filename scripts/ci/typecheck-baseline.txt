@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2061
+# count=2060
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -211,7 +211,7 @@
 1	src/canvas/domain/__tests__/edgeLabels.spec.ts
 1	src/canvas/domain/__tests__/migrations.spec.ts
 1	src/canvas/domain/__tests__/nodes.spec.ts
-26	src/canvas/edges/StyledEdge.tsx
+25	src/canvas/edges/StyledEdge.tsx
 5	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx
 2	src/canvas/edges/__tests__/EdgeEditPopover.perf.spec.tsx
 1	src/canvas/health/issueExplainers.ts

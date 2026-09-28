@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2061
+# count=2060
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -449,7 +449,7 @@
 1	src/canvas/edges/StyledEdge.tsx	TS2339	Property 'flagged_as_assumption' does not exist on type '{}'.
 6	src/canvas/edges/StyledEdge.tsx	TS2339	Property 'robustness' does not exist on type 'ReportV1'.
 1	src/canvas/edges/StyledEdge.tsx	TS2344	Type 'EdgeData' does not satisfy the constraint 'Edge<Record<string, unknown>, string | undefined>'.
-15	src/canvas/edges/StyledEdge.tsx	TS2345	Argument of type 'unknown' is not assignable to parameter of type 'string'.
+14	src/canvas/edges/StyledEdge.tsx	TS2345	Argument of type 'unknown' is not assignable to parameter of type 'string'.
 1	src/canvas/edges/StyledEdge.tsx	TS2345	Argument of type '{}' is not assignable to parameter of type 'boolean'.
 1	src/canvas/edges/StyledEdge.tsx	TS6133	'labelVisibility' is declared but its value is never read.
 4	src/canvas/edges/__tests__/EdgeEditPopover.dom.spec.tsx	TS6133	'container' is declared but its value is never read.
