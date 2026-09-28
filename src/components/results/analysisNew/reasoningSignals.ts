@@ -62,6 +62,12 @@ export interface SignalDriverRow {
   /** Canvas target, or `null` (fail-closed `canFocus` in the builder). */
   targetId: string | null
   ask: AskOlumiPayload | null
+  /**
+   * ⭐ PJ-B3 (28 Sep 2026): the run ranked this driver but held NO value for it, and the model
+   * states none — Canvas's rule (`runHoldsNoValueFor` ∧ `!hasAnyStatedValue`), decided by the tab
+   * and handed in, never re-derived here. The row then says so beside its rank.
+   */
+  noValueYet: boolean
 }
 
 export interface SignalTippingRow {
@@ -125,7 +131,10 @@ function gapKindOf(findingId: string): SignalGapKind | null {
   return GAP_KIND_BY_PREFIX.find(([prefix]) => findingId.startsWith(prefix))?.[1] ?? null
 }
 
-function driverRows(vm: Pick<AnalysisNewViewModel, 'drivers'>): SignalDriverRow[] {
+function driverRows(
+  vm: Pick<AnalysisNewViewModel, 'drivers'>,
+  noValueIds: ReadonlySet<string>,
+): SignalDriverRow[] {
   return vm.drivers.influenceRows.slice(0, SIGNAL_DRIVER_COUNT).map((row) => {
     const finding = vm.drivers.findings.find((f) => driverSubjectKey(f.id) === row.id)
     const rank = finding?.inspect.find((r) => r.label === RANK_ROW_LABEL)?.value ?? null
@@ -135,6 +144,7 @@ function driverRows(vm: Pick<AnalysisNewViewModel, 'drivers'>): SignalDriverRow[
       fraction: row.fraction,
       rank,
       targetId: row.targetId,
+      noValueYet: row.targetId !== null && noValueIds.has(row.targetId),
       ask: row.targetId
         ? {
             // ⚠ The drawer's context is the SCALE note, not the row's
@@ -218,9 +228,10 @@ function gapRow(vm: Pick<AnalysisNewViewModel, 'uncertainty'>): SignalGapRow | n
 export function buildReasoningSignals(
   vm: Pick<AnalysisNewViewModel, 'status' | 'drivers' | 'uncertainty'>,
   flipThresholds: readonly FlipThresholdRow[] | null | undefined,
+  noValueIds: ReadonlySet<string> = new Set(),
 ): ReasoningSignalsModel | null {
   if (vm.status.isPreRun) return null
-  const drivers = driverRows(vm)
+  const drivers = driverRows(vm, noValueIds)
   const tipping = tippingRow(flipThresholds)
   const gap = gapRow(vm)
   if (drivers.length === 0 && tipping === null && gap === null) return null

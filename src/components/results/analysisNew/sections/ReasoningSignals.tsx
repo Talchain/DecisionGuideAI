@@ -16,10 +16,11 @@
  * component cannot become a second focus or ask route. An absent handler hides
  * its control; a row without an id shows no controls at all.
  */
+import { DRIVER_LINE_COPY } from '../../../../canvas/nodes/shared/metricVocabulary'
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Info, Link2, Search } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
-import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY, sentenceCase } from '../analysisNewCopy'
 import { CHALLENGE_ZONE_COPY as ZONE } from '../challengeZoneCopy'
 import type { AnalysisNewViewModel } from '../analysisNewTypes'
 import { PanelIconButton } from '../PanelIconButton'
@@ -58,6 +59,11 @@ export interface ReasoningSignalsProps {
    */
   evidenceSlot?: ReactNode
   testId?: string
+  /**
+   * PJ-B3: node ids of drivers the run ranked but held no value for (Canvas's rule, computed by
+   * the tab). Absent ⇒ none flagged.
+   */
+  noValueIds?: ReadonlySet<string>
 }
 
 interface RowActionsProps {
@@ -97,11 +103,12 @@ export function ReasoningSignals({
   onAsk,
   closedAtRest = false,
   evidenceSlot = null,
+  noValueIds,
   testId = 'analysis-new-signals',
 }: ReasoningSignalsProps) {
   const [scaleOpen, setScaleOpen] = useState(false)
   const [open, setOpen] = useState(!closedAtRest)
-  const signals = buildReasoningSignals(vm, flipThresholds)
+  const signals = buildReasoningSignals(vm, flipThresholds, noValueIds)
   // Nothing to disclose ⇒ no door either: an empty disclosure is a dead control.
   if (!signals) {
     if (!evidenceSlot) return null
@@ -241,7 +248,8 @@ export function ReasoningSignals({
                   >
                     {row.rank ? `#${row.rank}` : null}
                   </span>
-                  {review && targetId ? (
+                  {(() => {
+                    const name = review && targetId ? (
                     <button
                       type="button"
                       onClick={() => review(targetId)}
@@ -271,7 +279,21 @@ export function ReasoningSignals({
                     >
                       {row.label}
                     </span>
-                  )}
+                  )
+                    // PJ-B3: only a row carrying the note gets a wrapper, so every other row keeps the
+                    // V2 grid's direct cells (rank · name · bar · ✦) exactly.
+                    return row.noValueYet ? (
+                      <span className="min-w-0 flex flex-col" data-testid={`${testId}-driver-name-cell`}>
+                        {name}
+                        {/* The same words the canvas card uses (`DRIVER_LINE_COPY.noValueYet`). */}
+                        <span className={`${typography.panelMeta} text-text-light`} data-testid={`${testId}-driver-no-value`}>
+                          {sentenceCase(DRIVER_LINE_COPY.noValueYet)}
+                        </span>
+                      </span>
+                    ) : (
+                      name
+                    )
+                  })()}
                   <span className="block w-[55px]" data-testid={`${testId}-driver-bar-slot`}>
                     <PanelFigure variant="influence" fraction={row.fraction} testId={`${testId}-driver-bar`} />
                   </span>
