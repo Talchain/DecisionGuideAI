@@ -126,7 +126,7 @@ export const AnswerBody = memo(function AnswerBody({
   const headlineHtml = useMemo(() => safeRichText(headline), [headline])
   const bulletHtml = useMemo(() => bullets.map(safeRichText), [bullets])
   const detailHtml = useMemo(() => (detail ? safeRichText(detail) : ''), [detail])
-  const bodyType = compact ? typography.panelBody : typography.chatProse
+  const bodyType = compact ? typography.chatBody : typography.chatProse
 
   return (
     <div data-testid="answer-body">

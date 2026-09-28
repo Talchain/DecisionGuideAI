@@ -259,7 +259,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
     <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-0.5">
       {comparisonLabel ? (
         <span
-          className={typo('panelMeta', 'rounded border border-border px-1.5 py-0.5 text-text-light')}
+          className={typo('chatMeta', 'rounded border border-border px-1.5 py-0.5 text-text-light')}
           data-testid="olumi-ai-comparison-mode"
           title="AI implementation active for this staging session"
         >

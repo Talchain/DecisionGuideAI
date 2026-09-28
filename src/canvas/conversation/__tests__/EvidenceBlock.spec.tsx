@@ -185,8 +185,8 @@ describe('Apply to model — DS v5 §21.4 action-chip contract', () => {
     expect(cls).toContain('border-panel-border')
     expect(cls).toContain('hover:bg-panel-hover')
     expect(cls).toContain('rounded-full')
-    // panelBody token is `text-xs … leading-relaxed` — assert both to disambiguate from panelMeta
-    expect(cls).toContain('text-xs')
+    // chatBody token is `text-[13px] … leading-relaxed`, the chat's reading size (Paul 28 Sep: 14 / 13 / 12)
+    expect(cls).toContain('text-[13px]')
     expect(cls).toContain('leading-relaxed')
     // Pill text is neutral
     expect(cls).toContain('text-text-body')

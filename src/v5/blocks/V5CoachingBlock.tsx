@@ -382,7 +382,7 @@ export function V5CoachingBlock({ block, variant = 'default', suppressHeader = f
         </div>
       )}
 
-      <p className={typography.panelBody} data-testid={`${testIdPrefix}-body`}>
+      <p className={typography.chatBody} data-testid={`${testIdPrefix}-body`}>
         {block.body}
       </p>
 

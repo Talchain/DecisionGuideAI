@@ -53,7 +53,7 @@ export function V5FlipAnalysisBlock({ block }: V5FlipAnalysisBlockProps): ReactE
       className="rounded-md border border-panel-border bg-panel p-4 space-y-2"
     >
       <h3 className={typography.panelHeader}>Flip analysis</h3>
-      <p className={typography.panelBody}>{block.narrative}</p>
+      <p className={typography.chatBody}>{block.narrative}</p>
       {block.flip_scenarios.length > 0 && (
         <ul className={`${typography.chatMeta} ${PANEL_LIST_STACK}`} role="list">
           {scenarios.map(({ scenario: s, label }, i) => (

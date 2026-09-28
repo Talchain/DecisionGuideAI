@@ -355,7 +355,7 @@ describe('Hotfix item 6 — generic "Thinking…" toolLoadingState sentinel remo
 // ---------------------------------------------------------------------------
 
 describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
-  // The join loop in safeRichText decides between <br> and <br class="md-gap">
+  // The join loop in safeRichText decides between <br> and <span class="md-gap" aria-hidden="true"></span>
   // based on transitions between four part kinds: body, bold-lead, list, and
   // explicit blank-line. This matrix locks the intended rhythm so any change
   // to the predicate surfaces as a concrete assertion rather than a visual
@@ -375,7 +375,7 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
       // report. See the sentence-end clause in safeRichText's join logic.
       label: 'body → body, prev ends a sentence (paragraph gap)',
       input: 'First sentence.\nSecond sentence.',
-      expectation: /First sentence\.<br class="md-gap">Second sentence\./,
+      expectation: /First sentence\.<span class="md-gap" aria-hidden="true"><\/span>Second sentence\./,
     },
     {
       label: 'body → body, soft wrap with no terminal punctuation stays tight',
@@ -385,17 +385,17 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
     {
       label: 'body → bold-lead',
       input: 'Context sentence.\n**Next section**',
-      expectation: /Context sentence\.<br class="md-gap"><strong>Next section<\/strong>/,
+      expectation: /Context sentence\.<span class="md-gap" aria-hidden="true"><\/span><strong>Next section<\/strong>/,
     },
     {
       label: 'bold-lead → body (the bug hotfix item 7 fixes)',
       input: '**Section header**\nBody paragraph follows.',
-      expectation: /<strong>Section header<\/strong><br class="md-gap">Body paragraph follows\./,
+      expectation: /<strong>Section header<\/strong><span class="md-gap" aria-hidden="true"><\/span>Body paragraph follows\./,
     },
     {
       label: 'bold-lead → bold-lead (preserved behaviour)',
       input: '**Header A**\n**Header B**',
-      expectation: /<strong>Header A<\/strong><br class="md-gap"><strong>Header B<\/strong>/,
+      expectation: /<strong>Header A<\/strong><span class="md-gap" aria-hidden="true"><\/span><strong>Header B<\/strong>/,
     },
     {
       label: 'body → list (list tag is its own block — no <br> joiner)',
@@ -410,12 +410,12 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
     {
       label: 'blank-line break always emits md-gap regardless of side kinds',
       input: 'Paragraph one.\n\nParagraph two.',
-      expectation: /Paragraph one\.<br class="md-gap">Paragraph two\./,
+      expectation: /Paragraph one\.<span class="md-gap" aria-hidden="true"><\/span>Paragraph two\./,
     },
     {
       label: 'consecutive blank lines still collapse to a single md-gap',
       input: 'Paragraph one.\n\n\n\nParagraph two.',
-      expectation: /Paragraph one\.<br class="md-gap">Paragraph two\./,
+      expectation: /Paragraph one\.<span class="md-gap" aria-hidden="true"><\/span>Paragraph two\./,
     },
   ]
 
@@ -428,7 +428,7 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
     // <br> a gap. A continuation line with no terminal punctuation (a true soft
     // wrap) stays tight. Sentence-ending lines DO gap — see the matrix above.
     const html = safeRichText('a wrapped clause that keeps going\nand finishes the thought')
-    expect(html).not.toContain('<br class="md-gap">')
+    expect(html).not.toContain('<span class="md-gap" aria-hidden="true"></span>')
     expect(html).toContain('<br>')
   })
 
@@ -451,11 +451,11 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
 
     // Intro body → **Market conditions** gets a gap.
     expect(html).toMatch(
-      /Here is a short summary of the trade-offs you asked about\.<br class="md-gap"><strong>Market conditions<\/strong>/,
+      /Here is a short summary of the trade-offs you asked about\.<span class="md-gap" aria-hidden="true"><\/span><strong>Market conditions<\/strong>/,
     )
     // **Market conditions** → body gets a gap (the item 7 bug fix).
     expect(html).toMatch(
-      /<strong>Market conditions<\/strong><br class="md-gap">The market is growing at <span class="md-number">8%<\/span> annually/,
+      /<strong>Market conditions<\/strong><span class="md-gap" aria-hidden="true"><\/span>The market is growing at <span class="md-number">8%<\/span> annually/,
     )
     // Body → list renders as adjacent block (no extra <br> inserted before <ul>).
     expect(html).toMatch(
@@ -463,11 +463,11 @@ describe('Hotfix item 7 — safeRichText join-logic transition matrix', () => {
     )
     // List → **Recommendation** gets a gap (bold-lead after list).
     expect(html).toMatch(
-      /<\/ul><br class="md-gap"><strong>Recommendation<\/strong>/,
+      /<\/ul><span class="md-gap" aria-hidden="true"><\/span><strong>Recommendation<\/strong>/,
     )
     // **Recommendation** → body gets a gap (the item 7 bug fix, again).
     expect(html).toMatch(
-      /<strong>Recommendation<\/strong><br class="md-gap">Prioritise the platform rewrite/,
+      /<strong>Recommendation<\/strong><span class="md-gap" aria-hidden="true"><\/span>Prioritise the platform rewrite/,
     )
   })
 })

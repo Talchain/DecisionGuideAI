@@ -132,6 +132,16 @@ export function decodeOrchestratorEntities(str: string): string {
  * Belt-and-braces guard after the regex transforms.
  * Strips both opening and closing tags not in the allowlist.
  */
+/**
+ * The paragraph-gap spacer. ⚠ It was `<br class="md-gap">`, and Chrome IGNORES
+ * margin and height on a `<br>`: measured on staging 28 Sep, "A.<br class=md-gap>B."
+ * and "A.<br>B." are both 36px tall, so every paragraph in the chat ran into the
+ * next with no gap at all. An empty block span is what a browser actually spaces;
+ * it breaks the line itself, so no `<br>` goes with it. Styled by `.md-gap` in
+ * index.css.
+ */
+export const MD_GAP = '<span class="md-gap" aria-hidden="true"></span>'
+
 function stripDisallowedTags(html: string): string {
   return html.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g, (match, tagName) => {
     if (ALLOWED_TAGS.has(tagName.toLowerCase())) return match
@@ -268,7 +278,7 @@ export function safeRichText(markdown: string): string {
     if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
       flushList()
       tableHeaders = null
-      outputParts.push('<br class="md-gap">')
+      outputParts.push(MD_GAP)
       continue
     }
 
@@ -379,7 +389,7 @@ export function safeRichText(markdown: string): string {
   // - Empty strings (blank lines) → skipped; the <br> is emitted when the next
   //   non-empty part is appended, so multiple consecutive blank lines still
   //   produce exactly one <br> separator
-  // - <ul>…</ul> and <br class="md-gap"> → no leading <br> (block-level spacing)
+  // - <ul>…</ul> and the MD_GAP spacer → no leading <br> (block-level spacing)
   // Helper: detect bold-lead pattern (<strong>…</strong> at start of part)
   const isBoldLead = (s: string) => s.startsWith('<strong>')
 
@@ -389,7 +399,7 @@ export function safeRichText(markdown: string): string {
   for (const part of outputParts) {
     if (part === '') { blankSeen = true; continue }
 
-    if (part.startsWith('<ul>') || part.startsWith('<ol') || part.startsWith('<br class="md-gap">')) {
+    if (part.startsWith('<ul>') || part.startsWith('<ol') || part.startsWith(MD_GAP)) {
       blankSeen = false
       result += part
     } else {
@@ -407,7 +417,7 @@ export function safeRichText(markdown: string): string {
         //   "**Header**\nbody\n**Next header**\nbody" rendered with plain
         //   <br> between header and body. DS v5 §2.4 requires ~12–16px.
         const useGap = blankSeen || isBoldLead(part) || isBoldLead(prevPart) || /[.!?:]["'”’)\]]?$/.test(prevPart)
-        result += useGap ? '<br class="md-gap">' : '<br>'
+        result += useGap ? MD_GAP : '<br>'
       }
       blankSeen = false
       result += part

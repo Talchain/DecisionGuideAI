@@ -4,17 +4,17 @@
  * § 0 — ONE type scale (lane F3, register 1.69(a))
  *
  * Every font-size / font-weight / line-height in this module MUST go through
- * these tokens. They mirror the panel steps in src/styles/typography.ts
- * (panelHeader 14/600 · chatProse 14/400 · panelBody 12 · panelMeta 11);
+ * these tokens. They mirror the AI chat panel's three sizes in
+ * src/styles/typography.ts (Paul 28 Sep: 14 headings · 13 chatBody · 12 chatMeta).
+ * Nothing in this module is a heading, so it uses only the 13 and the 12;
  * the mirror cannot drift silently — scripts/conversation-type-census.mjs
  * + tests/ci-guards/conversation-type-census.spec.ts pin both sides and a
  * raw px declaration outside this block turns the suite red.
  * ---------------------------------------------------------------------------*/
 
 :root {
-  --conv-type-size-prominent: 14px; /* panelHeader (w/ semibold) · chatProse / bodySmall (regular) */
-  --conv-type-size-body: 12px;      /* panelBody */
-  --conv-type-size-meta: 12px;      /* chat meta = 12px (Paul 27 Sep: three sizes: 24 hero, 14 prose/headings, 12 the rest) */
+  --conv-type-size-body: 13px;      /* chatBody: the chat's reading size (Paul 28 Sep: 14 / 13 / 12) */
+  --conv-type-size-meta: 12px;      /* chatMeta: labels only */
   --conv-type-weight-regular: 400;
   --conv-type-weight-medium: 500;
   --conv-type-weight-semibold: 600;
@@ -132,14 +132,12 @@
 
 .messageBubbleUser {
   composes: messageBubble;
-  /* DS v5 §21.1: the user's message sits on the right. `align-self` alone
-     never did: ChatMessage wraps every message in a BLOCK div, where it has
-     no effect, so the bubble sat on the left (the same cause #2059 fixed for
-     `.chipActionIndicator`). A box of its own width, pushed right, is what
-     moves it; `align-self` stays for any flex parent. */
-  align-self: flex-end;
-  width: fit-content;
-  margin-left: auto;
+  /* Paul, 28 Sep: once sent, the user's message runs the FULL WIDTH of the
+     chat column. Its panel fill already sets it apart from Olumi's unframed
+     reply, so pushing it right only narrowed it and wasted the column. This
+     replaces DS v5 §21.1's right-aligned bubble. */
+  width: 100%;
+  max-width: 100%;
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
   box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
@@ -157,7 +155,7 @@
 }
 
 /** Failed-send marker row: icon + "Not delivered" + optional Retry.
- *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
+ *  Type scale comes from typography.chatMeta applied in JSX (F3 census). */
 .sendFailedRow {
   display: flex;
   align-items: center;
@@ -174,7 +172,7 @@
  * stay per-class. Composing rather than merging the two: they are deliberately
  * different scales, and folding the retry button into `.chip` would restyle it
  * (padding 2px 8px → 6px 12px, min-height → 44px, and a font-size that fights
- * the `typography.panelMeta` class the JSX applies).
+ * the `typography.chatMeta` class the JSX applies).
  *
  * DEFINED HERE, ABOVE ITS FIRST USE: CSS Modules resolves `composes` at
  * parse time and requires the composed class to already exist in the file.
@@ -193,7 +191,7 @@
 }
 
 /** Outlined retry affordance on the failed message itself (DS pill rules).
- *  Type scale comes from typography.panelMeta applied in JSX (F3 census). */
+ *  Type scale comes from typography.chatMeta applied in JSX (F3 census). */
 .sendFailedRetryButton {
   composes: pillBase;
   gap: 4px;
@@ -225,12 +223,11 @@
  *   --radius-sm            → --radius-pill (999px, better for inline indicator)
  */
 .chipActionIndicator {
-  /* ChatMessage wraps every message in a BLOCK div, where align-self does
-     nothing and an inline box cannot be pushed: a block box of its own width,
-     pushed right, is what puts a chip-sent message on the user's side. */
+  /* A chip-sent message starts at the left like a typed one (Paul, 28 Sep:
+     the user's messages run full width, not pushed right). It stays its own
+     width: a one-line chip echo stretched across the column reads as a bar. */
   display: flex;
   width: fit-content;
-  margin-left: auto;
   align-items: center;
   background: var(--bg-panel-hover, #FEF9F3);
   color: var(--text-light, #6E6B6B);
@@ -298,7 +295,7 @@
 }
 
 .showMoreTextToggle {
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   color: var(--info, #277A9D);
   background: none;
@@ -468,7 +465,7 @@
 
 .factValue {
   font-weight: var(--conv-type-weight-semibold);
-  font-size: var(--conv-type-size-prominent); /* F3 snap: 18px → 14px */
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-header, #262626);
 }
 
@@ -552,7 +549,7 @@
 /* Entity names in summaries render as label token (DS v5: 14px, semibold) */
 .graphPatchSummary strong {
   font-weight: var(--conv-type-weight-semibold);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-header, #262626);
 }
 
@@ -615,7 +612,7 @@
   min-height: 28px;
   border-radius: 999px;
   border: none;
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: var(--primary, #277A9D);
@@ -642,7 +639,7 @@
   min-height: 28px;
   border-radius: 999px;
   border: 1px solid var(--border-default, #EEE6D8);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: transparent;
@@ -712,7 +709,7 @@
 }
 
 .graphPatchShowDetails {
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--info, #277A9D);
   background: none;
   border: none;
@@ -732,7 +729,7 @@
    Spec: DS v5 §21.3 — 11px panelMeta, info-blue, no underline on hover. */
 .inlineDisclosureToggle {
   font-family: inherit;
-  font-size: var(--conv-type-size-meta);
+  font-size: var(--conv-type-size-body); /* 13px: "Show more" reads at the reply's size, as "Details" does (Paul 28 Sep) */
   line-height: var(--conv-type-line-snug); /* F3 snap: 1.4 → 1.375 */
   font-weight: var(--conv-type-weight-regular);
   color: var(--info, #277A9D);
@@ -816,7 +813,7 @@
 
 .framingGoal {
   font-weight: var(--conv-type-weight-semibold);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-header, #262626);
 }
 
@@ -850,7 +847,7 @@
 }
 
 .framingItem {
-  font-size: var(--conv-type-size-prominent); /* F3 snap: 13px → 14px */
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-body, #3F3F3E);
   padding-left: 8px;
   border-left: none;
@@ -1258,7 +1255,7 @@
   min-height: 28px;
   border-radius: 999px;
   border: 1px solid var(--danger, #EA7B4B);
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   font-weight: var(--conv-type-weight-medium);
   cursor: pointer;
   background: none;
@@ -1596,7 +1593,7 @@
   background: var(--bg-panel, #FEFEFE);
   color: var(--text-body, #3F3F3E);
   font-family: 'Inter', sans-serif;
-  font-size: var(--conv-type-size-prominent); /* F3 snap: 16px → 14px — parity with the live ChatComposer textarea */
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   line-height: var(--conv-type-line-normal);
   resize: none;
   outline: none;
@@ -1842,7 +1839,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  font-size: var(--conv-type-size-prominent);
+  font-size: var(--conv-type-size-body); /* 13px reading size (Paul 28 Sep: 14 / 13 / 12) */
   color: var(--text-light, #6E6B6B);
 }
 

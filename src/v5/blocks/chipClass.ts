@@ -22,7 +22,7 @@
  * THE GRAMMAR (PX-B, Paul 15 Aug: "oversized actions"). Aligned DOWN to the
  * `.chip` CSS grammar these chips are supposed to share — `.chip` is
  * `padding: 6px 12px` at `--conv-type-size-body` (12px), i.e. `px-3 py-1.5`
- * at `typography.panelBody`. It was `px-4 py-2` at `bodySmall` (14px), so an
+ * at `typography.chatBody`. It was `px-4 py-2` at `bodySmall` (14px), so an
  * Olumi suggestion read as a primary CTA rather than a secondary control.
  * (The `.chip` class itself is owned by `ActionChipRow`, which has ZERO
  * production importers — verified — so the CSS grammar was never the one
@@ -57,7 +57,7 @@ export const CHIP_CLASS = [
   'hover:bg-panel-hover active:bg-panel-border/30',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
   'text-text-body cursor-pointer font-sans',
-  typography.panelBody,
+  typography.chatBody,
   'disabled:opacity-40 disabled:pointer-events-none',
   'transition-colors duration-200',
 ].join(' ')
@@ -82,7 +82,7 @@ export const CHIP_PRIMARY_CLASS = [
   'hover:bg-primary/90 active:bg-primary/80',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
   'text-text-on-color cursor-pointer font-sans',
-  typography.panelBody,
+  typography.chatBody,
   'disabled:opacity-40 disabled:pointer-events-none',
   'transition-colors duration-200',
 ].join(' ')
@@ -98,7 +98,7 @@ export const CHIP_DISMISS_LINK_CLASS = [
   'text-text-light underline underline-offset-2 hover:text-text-body',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
   'cursor-pointer font-sans',
-  typography.panelBody,
+  typography.chatBody,
   'disabled:opacity-40 disabled:pointer-events-none',
   'transition-colors duration-200',
 ].join(' ')

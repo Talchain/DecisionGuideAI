@@ -99,7 +99,7 @@ describe("MessageBubble — the user's own words", () => {
 
     it('separates blank-line paragraphs with a gap spacer', () => {
       const body = renderUserBody('opening para\n\nsecond para')
-      expect(body.querySelector('br.md-gap')).not.toBeNull()
+      expect(body.querySelector('span.md-gap')).not.toBeNull()
     })
   })
 

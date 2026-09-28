@@ -124,10 +124,12 @@ describe('safeRichText — XSS protection', () => {
     expect(html).toContain('Big heading')
   })
 
-  it('only allows strong, br, ul, li in output', () => {
+  it('only allows strong, br, ul, li and the md-gap spacer span in output', () => {
     const html = safeRichText('**bold** and - item\nline break')
     const container = renderHtml(html)
-    const tags = Array.from(container.querySelectorAll('*')).map((el) => el.tagName.toLowerCase())
+    const tags = Array.from(container.querySelectorAll('*'))
+      .filter((el) => !(el.tagName === 'SPAN' && el.className === 'md-gap'))
+      .map((el) => el.tagName.toLowerCase())
     const disallowedTags = tags.filter((t) => !['strong', 'br', 'ul', 'li'].includes(t))
     expect(disallowedTags).toHaveLength(0)
   })
@@ -678,7 +680,7 @@ describe('safeRichText — blank-line paragraph separation', () => {
     // Both paragraphs must appear with visible spacing (md-gap) between them
     expect(container.textContent).toContain('Para one.')
     expect(container.textContent).toContain('Para two.')
-    expect(html).toContain('<br class="md-gap">')
+    expect(html).toContain('<span class="md-gap" aria-hidden="true"></span>')
   })
 
   it('leading blank line does not produce a leading <br>', () => {
@@ -705,8 +707,8 @@ describe('safeRichText — blank-line paragraph separation', () => {
     const container = renderHtml(html)
     expect(container.textContent).toContain('First line of content')
     expect(container.textContent).toContain('Second paragraph')
-    // Must have visible spacing between paragraphs
-    expect(html).toMatch(/<br[ >]/)
+    // Must have visible spacing between paragraphs: the block md-gap spacer (a <br> gets no height in Chrome)
+    expect(html).toContain('<span class="md-gap" aria-hidden="true"></span>')
   })
 })
 
@@ -866,8 +868,8 @@ describe('safeRichText — unsupported markdown degradation', () => {
     expect(container.textContent).not.toContain('---')
     expect(container.textContent).toContain('Before')
     expect(container.textContent).toContain('After')
-    // Gap spacer is a <br> with md-gap class
-    expect(container.querySelector('br.md-gap')).not.toBeNull()
+    // Gap spacer is a block span with md-gap class (Chrome ignores height on a <br>)
+    expect(container.querySelector('span.md-gap')).not.toBeNull()
   })
 
   it('code blocks render as plain text', () => {
