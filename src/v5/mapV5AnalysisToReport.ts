@@ -156,7 +156,9 @@ function goalLevelFromIdentityCaveat(
     (w): w is Record<string, unknown> => isPlainObject(w) && w.code === 'GOAL_LEVEL_FROM_IDENTITY_INPUTS',
   )
   if (anchor === undefined) return null
-  const goalId = typeof anchor.field === 'string' ? /^nodes\[([^\]]+)\]/.exec(anchor.field)?.[1] : undefined
+  // The FULL carrier shape only (Codex CR #2280): any other field names no goal, so the caveat stays.
+  const goalId =
+    typeof anchor.field === 'string' ? /^nodes\[([^\]]+)\]\.nonlinear_identity$/.exec(anchor.field)?.[1] : undefined
   const entries = Array.isArray(enrichment?.identity_evaluations) ? enrichment.identity_evaluations : []
   const goalEntry = entries.find(
     (e): e is Record<string, unknown> =>

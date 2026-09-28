@@ -1233,6 +1233,11 @@ describe('mapV5AnalysisToReport — display_verdict / confidence_tier / goal_fit
     ['code, only another node says "user"', [ANCHORED], [entry('pro_mrr', 'user')], 'unattested'],
     // no anchoring code → nothing to caveat, whatever the entries say
     ['no code', [], [entry('mrr', 'olumi')], undefined],
+    // Codex CR (#2280 5878788201): a field that is NOT exactly `nodes[<id>].nonlinear_identity`
+    // names no goal — a "user" entry for that id never lifts the caveat
+    ['malformed field nodes[mrr].observed_state', [{ ...ANCHORED, field: 'nodes[mrr].observed_state' }], [entry('mrr', 'user')], 'unattested'],
+    ['malformed field nodes[mrr]junk', [{ ...ANCHORED, field: 'nodes[mrr]junk' }], [entry('mrr', 'user')], 'unattested'],
+    ['no field at all', [{ code: 'GOAL_LEVEL_FROM_IDENTITY_INPUTS', message: 'm', severity: 'warning' }], [entry('mrr', 'user')], 'unattested'],
   ])('goal level from identity: %s → stamped %s', (_case, warnings, identity_evaluations, stamped) => {
     const block = baseBlock({
       enrichment: {

@@ -245,9 +245,20 @@ describe('the goal figure reaches the option row', () => {
   // ⭐ ISL #207: a goal figure whose base was worked out from its inputs says so, beside the number,
   // on every row that shows one — the modelled-basis doctrine, a second basis. Two strings: only a
   // typed "olumi" author says "Olumi's" (AIQ #72 5877139338 (1)).
+  // Codex CR (#2280 5878788201): the user-facing sentences are pinned as LITERALS, so a re-wording
+  // of the constant turns this red — the constant is not its own expectation.
+  it('⭐ THE TWO SENTENCES, LITERALLY', () => {
+    expect(GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY).toBe(
+      "Measured from Olumi's estimate of where your goal stands today, not a figure you gave.",
+    )
+    expect(GOAL_FIT_FROM_INPUTS_CAVEAT_COPY).toBe(
+      'Measured from where your goal stands today as worked out from its inputs, not a figure you gave.',
+    )
+  })
+
   it.each([
-    ['olumi_estimate', GOAL_FIT_ESTIMATE_ONLY_CAVEAT_COPY],
-    ['from_inputs', GOAL_FIT_FROM_INPUTS_CAVEAT_COPY],
+    ['olumi_estimate', "Measured from Olumi's estimate of where your goal stands today, not a figure you gave."],
+    ['from_inputs', 'Measured from where your goal stands today as worked out from its inputs, not a figure you gave.'],
   ] as const)('⭐ A %s GOAL FIGURE SAYS WHOSE BASE IT STANDS ON, BESIDE THE NUMBER', (baseCaveat, copy) => {
     renderBody(withGoals({ baseCaveat }))
     expect(goalReadouts(), 'precondition: the figures ARE on screen').toEqual([pct(GOAL.opt_a), pct(GOAL.opt_b)])
